@@ -1,0 +1,162 @@
+import json
+from unittest.mock import patch
+
+from django.contrib.auth.models import User
+from django.test import TestCase, override_settings
+from django.urls import reverse
+from django.utils import timezone
+
+from games.models import Profile, SubscriptionGift, SubscriptionGiftPayment
+from games.subscription_gifts import claim_gift, decrypt_gift_code
+from games.subscription_gift_payments import process_tribute_gift_refund, start_yookassa_gift
+from games.tribute_util import compute_webhook_signature
+
+
+GIFT_SETTINGS = {
+    'TRIBUTE_ENABLED': True,
+    'TRIBUTE_LEGAL_REVIEW_APPROVED': True,
+    'TRIBUTE_MERCHANT': 'ru_self_employed',
+    'TRIBUTE_API_KEY': 'gift-test-key',
+    'TELEGRAM_BOT_TOKEN': 'test-token',
+    'TELEGRAM_BOT_USERNAME': 'test_bot',
+    'TRIBUTE_CLUB_GIFT_EUR_1_ID': '160748',
+    'TRIBUTE_CLUB_GIFT_EUR_1_URL': 'https://web.tribute.tg/p/FOI',
+    'TRIBUTE_CLUB_GIFT_EUR_1_AMOUNT': '555',
+    'TRIBUTE_CLUB_GIFT_EUR_3_ID': '160751',
+    'TRIBUTE_CLUB_GIFT_EUR_3_URL': 'https://web.tribute.tg/p/FOL',
+    'TRIBUTE_CLUB_GIFT_EUR_3_AMOUNT': '1665',
+    'CLUB_PAYMENTS_ENABLED': True,
+    'CLUB_YOOKASSA_ENABLED': True,
+    'CLUB_GIFT_YOOKASSA_1_AMOUNT_KOPECKS': 60000,
+    'CLUB_GIFT_YOOKASSA_3_AMOUNT_KOPECKS': 180000,
+}
+
+
+@override_settings(**GIFT_SETTINGS)
+class SubscriptionGiftPaymentTests(TestCase):
+    def setUp(self):
+        self.purchaser = User.objects.create_user('gift-buyer')
+        Profile.objects.create(
+            user=self.purchaser,
+            first_name='Gift',
+            last_name='Buyer',
+            telegram_user_id=700001,
+            telegram_username='giftbuyer',
+            telegram_verified=True,
+            telegram_linked_at=timezone.now(),
+        )
+
+    def _webhook(self, event='new_digital_product', **payload):
+        body = json.dumps({'name': event, 'payload': payload}).encode()
+        return self.client.post(
+            '/tribute/webhook/',
+            data=body,
+            content_type='application/json',
+            HTTP_TRBT_SIGNATURE=compute_webhook_signature(body, 'gift-test-key'),
+        )
+
+    def test_tribute_checkout_and_webhook_pays_gift(self):
+        self.client.force_login(self.purchaser)
+        response = self.client.post(
+            reverse('new_subscription_gift_tribute_start'), {'months': '1'},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['payment_url'], 'https://web.tribute.tg/p/FOI')
+        payment = SubscriptionGiftPayment.objects.get()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_PENDING)
+
+        payload = {
+            'product_id': 160748,
+            'product_name': 'Подарочная подписка Inter Oves — 1 месяц',
+            'amount': 555,
+            'currency': 'eur',
+            'telegram_user_id': 700001,
+            'telegram_username': 'giftbuyer',
+            'purchase_id': 'gift-purchase-1',
+            'transaction_id': 'gift-transaction-1',
+            'purchase_created_at': '2026-10-01T08:00:00Z',
+        }
+        webhook = self._webhook(**payload)
+        self.assertEqual(webhook.status_code, 200)
+        payment.refresh_from_db()
+        gift = payment.gift
+        gift.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_SUCCEEDED)
+        self.assertEqual(gift.status, SubscriptionGift.STATUS_PAID)
+        self.assertTrue(decrypt_gift_code(gift).startswith('IO-'))
+
+        duplicate = self._webhook(**payload)
+        self.assertEqual(duplicate.status_code, 200)
+        self.assertEqual(SubscriptionGiftPayment.objects.count(), 1)
+
+    def test_paid_gift_can_be_claimed_by_recipient(self):
+        self.client.force_login(self.purchaser)
+        self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '3'})
+        payment = SubscriptionGiftPayment.objects.get()
+        self._webhook(
+            product_id=160751,
+            product_name='Подарочная подписка Inter Oves — 3 месяца',
+            amount=1665,
+            currency='eur',
+            telegram_user_id=700001,
+            telegram_username='giftbuyer',
+            purchase_id='gift-purchase-3',
+            transaction_id='gift-transaction-3',
+            purchase_created_at='2026-10-01T08:00:00Z',
+        )
+        recipient = User.objects.create_user('gift-recipient')
+        Profile.objects.create(user=recipient, first_name='Gift', last_name='Recipient')
+        gift = payment.gift
+        gift.refresh_from_db()
+        claimed, entitlement = claim_gift(code=decrypt_gift_code(gift), user=recipient)
+        self.assertEqual(claimed.status, SubscriptionGift.STATUS_CLAIMED)
+        self.assertEqual(entitlement.ends_at.month, (entitlement.starts_at.month + 3 - 1) % 12 + 1)
+
+    @patch('games.subscription_gift_payments.Payment.create')
+    def test_yookassa_checkout_does_not_require_telegram_and_reuses_pending_payment(self, create):
+        create.return_value = {
+            'id': 'yk-gift-payment-1',
+            'confirmation': {'confirmation_url': 'https://yookassa.test/pay/1'},
+        }
+        user = User.objects.create_user('no-telegram-buyer')
+        Profile.objects.create(user=user, first_name='No', last_name='Telegram')
+        first = start_yookassa_gift(
+            user=user, months=1, return_url='https://interoves.com/subscription/?payment=return',
+        )
+        second = start_yookassa_gift(
+            user=user, months=1, return_url='https://interoves.com/subscription/?payment=return',
+        )
+        self.assertTrue(first.ok)
+        self.assertEqual(first.payment_url, second.payment_url)
+        self.assertEqual(create.call_count, 1)
+        self.assertEqual(SubscriptionGiftPayment.objects.count(), 1)
+
+    def test_refund_revokes_access_after_gift_was_claimed(self):
+        self.client.force_login(self.purchaser)
+        self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '1'})
+        payment = SubscriptionGiftPayment.objects.get()
+        payload = {
+            'product_id': 160748,
+            'product_name': 'Подарочная подписка Inter Oves — 1 месяц',
+            'amount': 555,
+            'currency': 'eur',
+            'telegram_user_id': 700001,
+            'purchase_id': 'gift-purchase-refund',
+            'transaction_id': 'gift-transaction-refund',
+            'purchase_created_at': '2026-10-01T08:00:00Z',
+        }
+        self._webhook(**payload)
+        recipient = User.objects.create_user('refund-recipient')
+        Profile.objects.create(user=recipient, first_name='Refund', last_name='Recipient')
+        claim_gift(code=decrypt_gift_code(payment.gift), user=recipient)
+        self.assertTrue(recipient.club_subscription.grants_access())
+
+        self.assertTrue(process_tribute_gift_refund({
+            'purchase_id': 'gift-purchase-refund',
+            'refund_reason': 'test',
+        }))
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
+        self.assertFalse(payment.gift.entitlements.filter(revoked_at__isnull=True).exists())
+        recipient.club_subscription.refresh_from_db()
+        self.assertFalse(recipient.club_subscription.grants_access())

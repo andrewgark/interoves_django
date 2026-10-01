@@ -3,6 +3,7 @@ from django.core.checks import Error, Warning, register
 
 from games.tribute_config import (
     club_configuration_errors,
+    club_gift_configuration_errors,
     club_product_configuration,
     configuration_errors,
     next_game_vote_configuration_errors,
@@ -54,6 +55,22 @@ def tribute_configuration_check(app_configs, **kwargs):
         )
         if any_club_value and club_errors:
             errors.extend(Warning(message, id='games.W_CLUB_TRIBUTE_CONFIG') for message in club_errors)
+
+    gift_errors = club_gift_configuration_errors()
+    gift_enabled = any(
+        str(getattr(settings, name, '') or '').strip()
+        for name in (
+            'TRIBUTE_CLUB_GIFT_EUR_1_ID', 'TRIBUTE_CLUB_GIFT_EUR_1_URL', 'TRIBUTE_CLUB_GIFT_EUR_1_AMOUNT',
+            'TRIBUTE_CLUB_GIFT_EUR_3_ID', 'TRIBUTE_CLUB_GIFT_EUR_3_URL', 'TRIBUTE_CLUB_GIFT_EUR_3_AMOUNT',
+        )
+    )
+    if gift_enabled and gift_errors:
+        errors.extend(
+            Error(message, id='games.E_CLUB_GIFT_CONFIG')
+            if getattr(settings, 'CLUB_PAYMENTS_ENABLED', False)
+            else Warning(message, id='games.W_CLUB_GIFT_CONFIG')
+            for message in gift_errors
+        )
 
     vote_errors = next_game_vote_configuration_errors()
     any_vote_value = any(

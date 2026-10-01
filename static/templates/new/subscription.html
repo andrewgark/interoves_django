@@ -307,6 +307,71 @@
       <button type="submit" class="new-btn">Активировать подарок</button>
     </form>
   </div>
+
+  {% if user.is_authenticated and tribute_gift_products %}
+  <div class="new-card new-pay-payment-card new-sub-gift-buy">
+    <h2 class="new-pay-section-title">Подарить подписку</h2>
+    <p class="new-pay-order__meta">Выберите срок. Это разовая покупка без автопродления. После оплаты код появится в вашем аккаунте.</p>
+    {% for product in tribute_gift_products %}
+      <div class="new-sub-gift-offer">
+        <div>
+          <strong>{{ product.months }} месяц{% if product.months == 3 %}а{% endif %}</strong>
+          <span class="new-pay-order__meta">€{{ product.amount_display }}</span>
+        </div>
+        {% if telegram_linked %}
+          <form method="post" action="{% url 'new_subscription_gift_tribute_start' %}" data-sub-gift>
+            {% csrf_token %}
+            <input type="hidden" name="months" value="{{ product.months }}">
+            <button type="submit" class="new-btn">Подарить подписку 🎁</button>
+          </form>
+        {% elif has_profile_user %}
+          <form method="post" action="{% url 'new_telegram_link_start' %}">
+            {% csrf_token %}
+            <input type="hidden" name="next" value="/subscription/?telegram=linked">
+            <button type="submit" class="new-btn">Привязать Telegram</button>
+          </form>
+        {% endif %}
+        {% if product.months == 1 and yookassa_gift_1_label or product.months == 3 and yookassa_gift_3_label %}
+          <form method="post" action="{% url 'new_subscription_gift_yookassa_start' %}" data-sub-gift>
+            {% csrf_token %}
+            <input type="hidden" name="months" value="{{ product.months }}">
+            <button type="submit" class="new-btn new-btn--ghost">ЮKassa · {% if product.months == 1 %}{{ yookassa_gift_1_label }}{% else %}{{ yookassa_gift_3_label }}{% endif %}</button>
+          </form>
+        {% endif %}
+      </div>
+    {% endfor %}
+    <p id="new-sub-gift-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
+  </div>
+  {% endif %}
+
+  {% if purchased_subscription_gifts %}
+  <div class="new-card new-pay-payment-card new-sub-gift-list">
+    <h2 class="new-pay-section-title">Мои подарочные подписки</h2>
+    <p class="new-pay-order__meta">Передайте код получателю. Он активирует подарок в своём аккаунте.</p>
+    {% for item in purchased_subscription_gifts %}
+      <div class="new-sub-gift-item">
+        <div>
+          <strong>Подарок на {{ item.duration_label }}</strong>
+          <div class="new-pay-order__meta">
+            {% if item.gift.status == 'claimed' %}
+              Активирован{% if item.gift.claimed_at %} {{ item.gift.claimed_at|date:'j E Y' }}{% endif %}
+            {% elif item.gift.status == 'revoked' %}
+              Отозван
+            {% elif item.gift.status == 'expired' %}
+              Срок действия истёк
+            {% else %}
+              Готов к передаче
+            {% endif %}
+          </div>
+        </div>
+        <div class="new-sub-gift-code-row">
+          <code>{{ item.code }}</code>
+          {% if item.code %}<button type="button" class="new-btn new-btn--ghost new-btn--mini" data-copy-gift-code="{{ item.code }}">Скопировать</button>{% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 {% if user.is_authenticated %}
 <script>
@@ -315,8 +380,8 @@
     var el = document.querySelector('[name=csrfmiddlewaretoken]');
     return el ? el.value : '';
   }
-  function setMessage(text) {
-    var box = document.getElementById('new-sub-message');
+  function setMessage(text, selector) {
+    var box = document.querySelector(selector || '#new-sub-message');
     if (!box) return;
     box.textContent = text || '';
   }
@@ -326,7 +391,8 @@
         e.preventDefault();
         var btn = form.querySelector('button[type="submit"]');
         if (btn) btn.disabled = true;
-        setMessage(busyText || '…');
+        var messageSelector = form.getAttribute('data-message') || '#new-sub-message';
+        setMessage(busyText || '…', messageSelector);
         fetch(form.action, {
           method: 'POST',
           headers: {
@@ -341,7 +407,7 @@
               window.interovesAnalytics.flushPendingGoals(res.data.analytics_events);
             }
             if (!res.ok || !res.data || res.data.status !== 'ok') {
-              setMessage((res.data && res.data.message) || 'Не получилось. Попробуйте ещё раз.');
+              setMessage((res.data && res.data.message) || 'Не получилось. Попробуйте ещё раз.', messageSelector);
               if (btn) btn.disabled = false;
               return;
             }
@@ -353,11 +419,11 @@
               window.location.reload();
               return;
             }
-            setMessage(res.data.message || 'Готово.');
+            setMessage(res.data.message || 'Готово.', messageSelector);
             if (btn) btn.disabled = false;
           })
           .catch(function () {
-            setMessage('Ошибка сети. Попробуйте ещё раз.');
+            setMessage('Ошибка сети. Попробуйте ещё раз.', messageSelector);
             if (btn) btn.disabled = false;
           });
       });
@@ -366,6 +432,21 @@
   bindFetchForms('form[data-sub-checkout]', 'Переходим в Tribute…', false);
   bindFetchForms('form[data-sub-yk]', 'Переходим к оплате…', false);
   bindFetchForms('form[data-sub-yk-manage]', 'Сохраняем…', true);
+  document.querySelectorAll('form[data-sub-gift]').forEach(function (form) {
+    form.setAttribute('data-message', '#new-sub-gift-message');
+  });
+  bindFetchForms('form[data-sub-gift]', 'Переходим к оплате…', false);
+  document.querySelectorAll('[data-copy-gift-code]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var code = button.getAttribute('data-copy-gift-code') || '';
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(code).then(function () {
+        var old = button.textContent;
+        button.textContent = 'Скопировано';
+        window.setTimeout(function () { button.textContent = old; }, 1500);
+      });
+    });
+  });
   var modal = document.getElementById('new-sub-detach-modal');
   var opener = document.getElementById('new-sub-detach-open');
   if (modal && opener) {

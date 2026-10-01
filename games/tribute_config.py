@@ -20,6 +20,20 @@ TRIBUTE_LEGAL_REVIEW = 'existing_tribute_merchant_is_not_proven_by_repository_co
 
 
 @dataclass(frozen=True)
+class ClubGiftProduct:
+    months: int
+    product_id: int
+    web_url: str
+    amount: int
+    currency: str = 'EUR'
+
+    @property
+    def amount_display(self) -> str:
+        value = Decimal(self.amount) / Decimal('100')
+        return '{:,.2f}'.format(value).replace(',', ' ')
+
+
+@dataclass(frozen=True)
 class TributeProduct:
     kind: str
     product_id: int
@@ -137,6 +151,68 @@ def merchant_public_copy() -> tuple[str, str]:
     if merchant() == 'am_ie':
         return 'Продавец: Andrei Garkavyi IE, Republic of Armenia', '/sellers/#armenia'
     return 'Оплата через Tribute', '/sellers/'
+
+
+def configured_club_gift(months: int) -> ClubGiftProduct | None:
+    """Return a validated one-off EUR gift product for a supported duration."""
+    try:
+        months = int(months)
+    except (TypeError, ValueError):
+        return None
+    if months not in (1, 3):
+        return None
+    prefix = 'TRIBUTE_CLUB_GIFT_EUR_{}_'.format(months)
+    try:
+        product_id = int(getattr(settings, prefix + 'ID', '') or '')
+        amount = int(getattr(settings, prefix + 'AMOUNT', '') or '')
+    except (TypeError, ValueError):
+        return None
+    url = str(getattr(settings, prefix + 'URL', '') or '').strip()
+    parsed = urlparse(url)
+    if (
+        product_id <= 0 or amount <= 0 or
+        parsed.scheme != 'https' or parsed.hostname != 'web.tribute.tg' or
+        not parsed.path.startswith('/p/') or parsed.path == '/p/' or
+        parsed.query or parsed.fragment
+    ):
+        return None
+    return ClubGiftProduct(months, product_id, url, amount)
+
+
+def club_gift_products_by_id() -> dict[int, ClubGiftProduct]:
+    products = [configured_club_gift(months) for months in (1, 3)]
+    return {product.product_id: product for product in products if product is not None}
+
+
+def club_gift_configuration_errors() -> list[str]:
+    errors = []
+    product_ids = []
+    for months in (1, 3):
+        prefix = 'TRIBUTE_CLUB_GIFT_EUR_{}_'.format(months)
+        raw_values = {
+            suffix: str(getattr(settings, prefix + suffix, '') or '').strip()
+            for suffix in ('ID', 'URL', 'AMOUNT')
+        }
+        if not any(raw_values.values()):
+            errors.append('{} must be configured'.format(prefix.rstrip('_')))
+            continue
+        if configured_club_gift(months) is None:
+            errors.append('{} has an invalid ID, URL, or amount'.format(prefix.rstrip('_')))
+        else:
+            product_ids.append(int(raw_values['ID']))
+    if len(product_ids) == 2 and len(set(product_ids)) != 2:
+        errors.append('Tribute club gift product IDs must be different')
+
+    for months in (1, 3):
+        setting_name = 'CLUB_GIFT_YOOKASSA_{}_AMOUNT_KOPECKS'.format(months)
+        raw_amount = str(getattr(settings, setting_name, '') or '').strip()
+        if raw_amount:
+            try:
+                if int(raw_amount) <= 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errors.append('{} must be a positive integer'.format(setting_name))
+    return errors
 
 
 @dataclass(frozen=True)

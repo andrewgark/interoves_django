@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from zoneinfo import ZoneInfo
 
+from django.core.cache import cache
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
@@ -36,7 +37,8 @@ from games.club_yookassa import (
     yookassa_recurring_enabled,
 )
 from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMethod
-from games.subscription_gifts import claim_gift, gift_duration_label
+from games.subscription_gifts import claim_gift, gift_duration_label, purchaser_gifts
+from games.subscription_gift_payments import start_tribute_gift, start_yookassa_gift, yookassa_gift_amount
 from games.telegram_linking import user_has_telegram_link
 from games.tribute_config import (
     club_archive_gating_enabled,
@@ -44,6 +46,7 @@ from games.tribute_config import (
     club_management_url,
     configured_club_product,
     merchant_public_copy,
+    configured_club_gift,
 )
 from games.views.new_ui import NEW_UI_PROJECT, _project_urls_context
 from games.views.util import has_profile
@@ -225,6 +228,17 @@ def _subscription_page_context(request):
         'monthly_cta_label': 'Подписаться за {}'.format(
             monthly_intro_label if intro else monthly_regular_label,
         ),
+        'tribute_gift_products': [
+            product for product in (configured_club_gift(1), configured_club_gift(3))
+            if product is not None
+        ],
+        'yookassa_gift_amounts': {
+            months: yookassa_gift_amount(months) for months in (1, 3)
+            if yookassa_gift_amount(months) > 0
+        },
+        'yookassa_gift_1_label': _format_minor_amount(yookassa_gift_amount(1), '₽') if yookassa_gift_amount(1) else '',
+        'yookassa_gift_3_label': _format_minor_amount(yookassa_gift_amount(3), '₽') if yookassa_gift_amount(3) else '',
+        'purchased_subscription_gifts': purchaser_gifts(request.user) if request.user.is_authenticated else [],
         **_project_urls_context(NEW_UI_PROJECT),
     }
 
@@ -246,6 +260,17 @@ def subscription_page(request):
 @login_required
 @require_http_methods(['POST'])
 def subscription_claim_gift(request):
+    rate_key = 'subscription-gift-claim:{}'.format(request.user.pk)
+    try:
+        if cache.add(rate_key, 1, timeout=60):
+            attempts = 1
+        else:
+            attempts = cache.incr(rate_key)
+        if attempts > 10:
+            messages.error(request, 'Слишком много попыток. Попробуйте через минуту.')
+            return redirect('new_subscription')
+    except Exception:
+        logger.exception('subscription_gift_claim_rate_limit_failed user_id=%s', request.user.pk)
     code = request.POST.get('code', '')
     try:
         gift, entitlement = claim_gift(code=code, user=request.user)
@@ -257,6 +282,42 @@ def subscription_claim_gift(request):
             'Подарок активирован: подписка Inter Oves {}.'.format(gift_duration_label(gift)),
         )
     return redirect('new_subscription')
+
+
+@login_required
+@require_http_methods(['POST'])
+def subscription_gift_tribute_start(request):
+    guard = _auth_json_guard(request)
+    if guard is not None:
+        return guard
+    try:
+        months = int(request.POST.get('months') or '')
+    except (TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'reason': 'months', 'message': 'Выберите срок подарка.'}, status=400)
+    result = start_tribute_gift(user=request.user, months=months)
+    if not result.ok:
+        return JsonResponse({'status': 'error', 'reason': 'gift_checkout', 'message': result.message}, status=result.http_status)
+    return JsonResponse({'status': 'ok', 'payment_url': result.payment_url})
+
+
+@login_required
+@require_http_methods(['POST'])
+def subscription_gift_yookassa_start(request):
+    guard = _auth_json_guard(request)
+    if guard is not None:
+        return guard
+    try:
+        months = int(request.POST.get('months') or '')
+    except (TypeError, ValueError):
+        return JsonResponse({'status': 'error', 'reason': 'months', 'message': 'Выберите срок подарка.'}, status=400)
+    result = start_yookassa_gift(
+        user=request.user,
+        months=months,
+        return_url=request.build_absolute_uri('/subscription/?payment=gift-return'),
+    )
+    if not result.ok:
+        return JsonResponse({'status': 'error', 'reason': 'gift_checkout', 'message': result.message}, status=result.http_status)
+    return JsonResponse({'status': 'ok', 'payment_url': result.payment_url})
 
 
 def _auth_json_guard(request):

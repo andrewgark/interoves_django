@@ -74,6 +74,7 @@ from games.models import (
     ClubYooKassaPayment,
     ClubEntitlement,
     SubscriptionGift,
+    SubscriptionGiftPayment,
     NextGameVoteAdjustment,
     NextGameVoteCampaignState,
     NextGameVoteEvent,
@@ -630,6 +631,21 @@ class SubscriptionGiftAdmin(admin.ModelAdmin):
     search_fields = ('recipient_telegram_username', 'recipient_telegram_user_id', 'created_by__username')
     raw_id_fields = ('created_by', 'claimed_by')
     readonly_fields = [field.name for field in SubscriptionGift._meta.fields]
+
+    def has_add_permission(self, request):
+        return False
+
+
+@admin.register(SubscriptionGiftPayment)
+class SubscriptionGiftPaymentAdmin(admin.ModelAdmin):
+    list_display = (
+        'created_at', 'status', 'provider', 'duration_months', 'expected_amount',
+        'currency', 'purchaser', 'gift', 'provider_payment_id', 'purchase_id',
+    )
+    list_filter = ('status', 'provider', 'currency', 'duration_months')
+    search_fields = ('provider_payment_id', 'purchase_id', 'purchaser__username')
+    raw_id_fields = ('gift', 'purchaser')
+    readonly_fields = [field.name for field in SubscriptionGiftPayment._meta.fields]
 
     def has_add_permission(self, request):
         return False

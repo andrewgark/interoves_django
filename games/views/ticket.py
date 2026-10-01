@@ -109,10 +109,25 @@ def yookassa_webhook(request):
         return HttpResponse(status=400)
 
     event = event_json.get('event')
-    if event not in ('payment.succeeded', 'payment.canceled', 'payment.waiting_for_capture'):
+    if event not in ('payment.succeeded', 'payment.canceled', 'payment.waiting_for_capture', 'refund.succeeded'):
         return HttpResponse(status=200)
 
     payment_obj = (event_json.get('object') or {})
+    if event == 'refund.succeeded':
+        payment_id = payment_obj.get('payment_id')
+        if not payment_id:
+            return HttpResponse(status=200)
+        try:
+            configure_yookassa_from_env()
+            payment_data = dict(Payment.find_one(payment_id))
+        except Exception:
+            logger.exception('yookassa_webhook: failed to resolve refund payment_id=%s', payment_id)
+            return HttpResponse(status=200)
+        metadata = payment_data.get('metadata') or {}
+        if str(metadata.get('purpose') or '') == 'club_gift':
+            from games.subscription_gift_payments import process_yookassa_gift_refund
+            process_yookassa_gift_refund({'payment_id': payment_id})
+        return HttpResponse(status=200)
     payment_id = payment_obj.get('id')
     if not payment_id:
         logger.warning('yookassa_webhook: missing payment id event=%s', event)
@@ -144,6 +159,11 @@ def yookassa_webhook(request):
         return HttpResponse(status=200)
 
     metadata = payment_data.get('metadata') or {}
+    if str(metadata.get('purpose') or '') == 'club_gift':
+        from games.subscription_gift_payments import process_yookassa_gift_event
+
+        process_yookassa_gift_event(event, payment_data)
+        return HttpResponse(status=200)
     if str(metadata.get('purpose') or '') == 'club_subscription':
         from games.club_yookassa import process_yookassa_club_payment_event
 
@@ -457,9 +477,15 @@ def tribute_webhook(request):
             process_new_purchase,
             process_refund,
         )
+        from games.subscription_gift_payments import (
+            process_tribute_gift_purchase,
+            process_tribute_gift_refund,
+        )
 
         try:
             if event_name == 'new_digital_product':
+                if process_tribute_gift_purchase(payload):
+                    return HttpResponse(status=200)
                 result = process_new_purchase(payload)
                 if result.ticket_issued and result.purchase.ticket_request_id:
                     from games.telegram.notify import notify_payment_event
@@ -470,6 +496,8 @@ def tribute_webhook(request):
                             lambda tr=ticket: notify_payment_event(tr, 'payment.succeeded')
                         )
             else:
+                if process_tribute_gift_refund(payload):
+                    return HttpResponse(status=200)
                 process_refund(payload)
         except TributePayloadError as exc:
             logger.warning('tribute_webhook malformed event=%s error=%s', event_name, exc)

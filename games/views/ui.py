@@ -185,6 +185,8 @@ from games.views.subscription import (  # noqa: E402
     subscription_yookassa_monthly_start,
     subscription_yookassa_resume,
     subscription_claim_gift,
+    subscription_gift_tribute_start,
+    subscription_gift_yookassa_start,
 )
 donate_page = new_donate_page
 create_crypto_donation = new_create_crypto_donation

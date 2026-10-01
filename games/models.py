@@ -2987,15 +2987,26 @@ class ClubSubscription(models.Model):
 
 
 class SubscriptionGift(models.Model):
-    """A one-time subscription gift created by an administrator."""
+    """A one-time subscription gift created by an administrator or paid user."""
 
     STATUS_CREATED = 'created'
+    STATUS_PAID = 'paid'
     STATUS_CLAIMED = 'claimed'
     STATUS_REVOKED = 'revoked'
+    STATUS_EXPIRED = 'expired'
     STATUS_CHOICES = (
         (STATUS_CREATED, 'Created'),
+        (STATUS_PAID, 'Paid'),
         (STATUS_CLAIMED, 'Claimed'),
         (STATUS_REVOKED, 'Revoked'),
+        (STATUS_EXPIRED, 'Expired'),
+    )
+
+    PROVIDER_YOOKASSA = 'yookassa'
+    PROVIDER_TRIBUTE = 'tribute'
+    PROVIDER_CHOICES = (
+        (PROVIDER_YOOKASSA, 'YooKassa'),
+        (PROVIDER_TRIBUTE, 'Tribute'),
     )
 
     recipient_telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
@@ -3008,6 +3019,14 @@ class SubscriptionGift(models.Model):
         'auth.User', related_name='created_subscription_gifts', on_delete=models.PROTECT,
     )
     created_by_telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    purchaser = models.ForeignKey(
+        'auth.User', related_name='purchased_subscription_gifts', blank=True, null=True,
+        on_delete=models.PROTECT,
+    )
+    provider = models.CharField(max_length=16, choices=PROVIDER_CHOICES, blank=True, default='')
+    code_ciphertext = models.TextField(blank=True, default='')
+    paid_at = models.DateTimeField(blank=True, null=True)
+    expires_at = models.DateTimeField(blank=True, null=True, db_index=True)
     claimed_by = models.ForeignKey(
         'auth.User', related_name='claimed_subscription_gifts', blank=True, null=True,
         on_delete=models.PROTECT,
@@ -3095,6 +3114,62 @@ class ClubEntitlement(models.Model):
 
     def __str__(self):
         return 'Club access user={} {}—{}'.format(self.user_id, self.starts_at, self.ends_at or 'forever')
+
+
+class SubscriptionGiftPayment(models.Model):
+    """A one-time payment attempt that creates a paid subscription gift."""
+
+    PROVIDER_YOOKASSA = SubscriptionGift.PROVIDER_YOOKASSA
+    PROVIDER_TRIBUTE = SubscriptionGift.PROVIDER_TRIBUTE
+    PROVIDER_CHOICES = SubscriptionGift.PROVIDER_CHOICES
+    STATUS_PENDING = 'pending'
+    STATUS_SUCCEEDED = 'succeeded'
+    STATUS_CANCELED = 'canceled'
+    STATUS_MANUAL_REVIEW = 'manual_review'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_SUCCEEDED, 'Succeeded'),
+        (STATUS_CANCELED, 'Canceled'),
+        (STATUS_MANUAL_REVIEW, 'Manual review'),
+    )
+
+    gift = models.OneToOneField(
+        SubscriptionGift, related_name='payment', on_delete=models.PROTECT,
+    )
+    purchaser = models.ForeignKey(
+        'auth.User', related_name='subscription_gift_payments', on_delete=models.PROTECT,
+    )
+    provider = models.CharField(max_length=16, choices=PROVIDER_CHOICES)
+    provider_payment_id = models.CharField(max_length=128, blank=True, default='', db_index=True)
+    idempotency_key = models.CharField(max_length=64, unique=True)
+    expected_amount = models.PositiveIntegerField(help_text='Smallest currency units')
+    currency = models.CharField(max_length=3)
+    duration_months = models.PositiveIntegerField()
+    telegram_user_id = models.BigIntegerField(blank=True, null=True, db_index=True)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    confirmation_url = models.URLField(max_length=500, blank=True, default='')
+    purchase_id = models.CharField(max_length=128, blank=True, default='', db_index=True)
+    raw_event_excerpt = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    succeeded_at = models.DateTimeField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('provider', 'provider_payment_id'),
+                condition=~models.Q(provider_payment_id=''),
+                name='subscription_gift_payment_provider_id_uniq',
+            ),
+            models.UniqueConstraint(
+                fields=('provider', 'purchase_id'),
+                condition=~models.Q(purchase_id=''),
+                name='subscription_gift_payment_purchase_id_uniq',
+            ),
+        ]
+
+    def __str__(self):
+        return 'Gift payment {} ({})'.format(self.pk, self.status)
 
 
 class ClubYooKassaPayment(models.Model):

@@ -4015,6 +4015,55 @@ html.new-ui-dark .new-team-switcher-active-box {
   color: var(--warning);
 }
 
+.new-sub-gift-buy,
+.new-sub-gift-list {
+  display: grid;
+  gap: .8rem;
+}
+
+.new-sub-gift-offer,
+.new-sub-gift-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-width: 0;
+  padding-top: .75rem;
+  border-top: 1px solid var(--border);
+}
+
+.new-sub-gift-offer > div:first-child,
+.new-sub-gift-item > div:first-child {
+  display: grid;
+  gap: .2rem;
+  min-width: 0;
+}
+
+.new-sub-gift-code-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+
+.new-sub-gift-code-row code {
+  font-size: 1rem;
+  letter-spacing: .08em;
+}
+
+@media (max-width: 560px) {
+  .new-sub-gift-offer,
+  .new-sub-gift-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .new-sub-gift-code-row {
+    justify-content: flex-start;
+  }
+}
+
 .new-pay-team-select {
   width: min(100%, 24rem);
   margin-top: 0.3rem;

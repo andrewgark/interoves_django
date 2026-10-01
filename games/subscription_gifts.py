@@ -3,8 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import secrets
+import base64
 from dataclasses import dataclass
-from django.db import transaction
+from datetime import timedelta
+from cryptography.fernet import Fernet, InvalidToken
+from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from games.club_yookassa import add_calendar_months
@@ -20,6 +24,24 @@ def _code_hash(code: str) -> str:
 def _new_code() -> str:
     raw = ''.join(secrets.choice(CODE_ALPHABET) for _ in range(8))
     return 'IO-{}-{}'.format(raw[:4], raw[4:])
+
+
+def _code_cipher():
+    key = hashlib.sha256(str(settings.SUBSCRIPTION_GIFT_ENCRYPTION_KEY).encode('utf-8')).digest()
+    return Fernet(base64.urlsafe_b64encode(key))
+
+
+def encrypt_gift_code(code: str) -> str:
+    return _code_cipher().encrypt(code.encode('ascii')).decode('ascii')
+
+
+def decrypt_gift_code(gift: SubscriptionGift) -> str:
+    if not gift.code_ciphertext:
+        return ''
+    try:
+        return _code_cipher().decrypt(gift.code_ciphertext.encode('ascii')).decode('ascii')
+    except (InvalidToken, UnicodeDecodeError):
+        return ''
 
 
 def _gift_duration_label(gift: SubscriptionGift) -> str:
@@ -67,11 +89,36 @@ def create_gift(*, created_by, recipient_telegram_user_id: int | None = None, re
                 is_forever=is_forever,
                 created_by=created_by,
                 created_by_telegram_user_id=created_by_telegram_user_id,
+                code_ciphertext=encrypt_gift_code(code),
             )
             return CreatedGift(gift=gift, code=code)
         except Exception:
             if not SubscriptionGift.objects.filter(code_hash=_code_hash(code)).exists():
                 raise
+    raise RuntimeError('Не удалось создать уникальный код подарка')
+
+
+def create_paid_gift(*, purchaser, duration_months: int, provider: str, amount: int, currency: str):
+    if duration_months not in (1, 3):
+        raise ValueError('Подарочную подписку можно купить на 1 или 3 месяца')
+    code = _new_code()
+    for _ in range(5):
+        try:
+            with transaction.atomic():
+                gift = SubscriptionGift.objects.create(
+                    duration_months=duration_months,
+                    is_forever=False,
+                    status=SubscriptionGift.STATUS_CREATED,
+                    created_by=purchaser,
+                    purchaser=purchaser,
+                    provider=provider,
+                    code_hash=_code_hash(code),
+                    code_ciphertext=encrypt_gift_code(code),
+                    expires_at=timezone.now() + timedelta(days=365),
+                )
+            return gift, code
+        except IntegrityError:
+            code = _new_code()
     raise RuntimeError('Не удалось создать уникальный код подарка')
 
 
@@ -97,8 +144,12 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
     gift = SubscriptionGift.objects.select_for_update().filter(code_hash=_code_hash(normalized)).first()
     if gift is None:
         raise ValueError('Код подарка не найден')
-    if gift.status != SubscriptionGift.STATUS_CREATED:
+    if gift.status not in (SubscriptionGift.STATUS_CREATED, SubscriptionGift.STATUS_PAID):
         raise ValueError('Этот подарок уже использован или отозван')
+    if gift.expires_at and gift.expires_at <= timezone.now():
+        gift.status = SubscriptionGift.STATUS_EXPIRED
+        gift.save(update_fields=['status'])
+        raise ValueError('Срок действия этого подарка истёк')
 
     profile = Profile.objects.filter(user=user).first()
     if profile is None:
@@ -128,6 +179,8 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
             'auto_renew': False,
         },
     )
+    entitlement.club_subscription = subscription
+    entitlement.save(update_fields=['club_subscription'])
     if subscription.paid_until is None or subscription.paid_until < ends_at if ends_at else True:
         subscription.paid_until = ends_at
     subscription.status = ClubSubscription.STATUS_CANCELLED
@@ -140,5 +193,70 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
     return gift, entitlement
 
 
+@transaction.atomic
+def revoke_gift_access(gift: SubscriptionGift, *, now=None) -> None:
+    """Revoke a paid gift and any access it granted, without touching other access."""
+    now = now or timezone.now()
+    gift = SubscriptionGift.objects.select_for_update().get(pk=gift.pk)
+    gift.entitlements.filter(revoked_at__isnull=True).update(revoked_at=now)
+    if gift.status != SubscriptionGift.STATUS_REVOKED:
+        gift.status = SubscriptionGift.STATUS_REVOKED
+        gift.revoked_at = now
+        gift.save(update_fields=['status', 'revoked_at'])
+
+    user_id = gift.claimed_by_id
+    if not user_id:
+        return
+    subscription = ClubSubscription.objects.select_for_update().filter(user_id=user_id).first()
+    if subscription is None:
+        return
+    active_ends = list(
+        subscription.entitlements.filter(
+            revoked_at__isnull=True, starts_at__lte=now,
+        ).exclude(ends_at__isnull=True).values_list('ends_at', flat=True)
+    )
+    if active_ends:
+        replacement = max(active_ends)
+    else:
+        replacement = now
+    if subscription.paid_until and subscription.paid_until > now:
+        # paid_until is also maintained by the billing providers. Only reduce
+        # it when the revoked gift was the source of that visible end date.
+        gift_end = gift.entitlements.order_by('-ends_at').values_list('ends_at', flat=True).first()
+        if gift_end and subscription.paid_until <= gift_end:
+            subscription.paid_until = replacement
+            subscription.save(update_fields=['paid_until', 'updated_at'])
+
+
 def gift_duration_label(gift: SubscriptionGift) -> str:
     return _gift_duration_label(gift)
+
+
+def purchaser_gifts(user):
+    expire_subscription_gifts(purchaser=user)
+    gifts = SubscriptionGift.objects.filter(
+        purchaser=user,
+        status__in=(SubscriptionGift.STATUS_PAID, SubscriptionGift.STATUS_CLAIMED,
+                    SubscriptionGift.STATUS_REVOKED, SubscriptionGift.STATUS_EXPIRED),
+    ).select_related('claimed_by').order_by('-created_at')
+    return [
+        {
+            'gift': gift,
+            'code': decrypt_gift_code(gift),
+            'duration_label': gift_duration_label(gift),
+        }
+        for gift in gifts
+    ]
+
+
+def expire_subscription_gifts(*, purchaser=None, now=None) -> int:
+    """Mark unpaid/unclaimed gifts past their validity date as expired."""
+    now = now or timezone.now()
+    filters = {
+        'status__in': (SubscriptionGift.STATUS_CREATED, SubscriptionGift.STATUS_PAID),
+        'expires_at__isnull': False,
+        'expires_at__lte': now,
+    }
+    if purchaser is not None:
+        filters['purchaser'] = purchaser
+    return SubscriptionGift.objects.filter(**filters).update(status=SubscriptionGift.STATUS_EXPIRED)

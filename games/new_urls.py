@@ -139,6 +139,8 @@ urlpatterns = [
     path('pay/', ui.pay_page, name='new_pay'),
     path('subscription/', ui.subscription_page, name='new_subscription'),
     path('subscription/claim-gift/', ui.subscription_claim_gift, name='new_subscription_claim_gift'),
+    path('subscription/gift/tribute/', ui.subscription_gift_tribute_start, name='new_subscription_gift_tribute_start'),
+    path('subscription/gift/yookassa/', ui.subscription_gift_yookassa_start, name='new_subscription_gift_yookassa_start'),
     path('api/payment-method/detach/', ui.subscription_payment_method_detach,
          name='new_subscription_payment_method_detach'),
     path('subscription/checkout/', ui.subscription_checkout, name='new_subscription_checkout'),

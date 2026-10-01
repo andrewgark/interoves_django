@@ -237,6 +237,14 @@ ANALYTICS_ANON_SIGNING_KEY = (
     os.environ.get('ANALYTICS_ANON_SIGNING_KEY') or ''
 ).strip() or SECRET_KEY
 
+# Stable key for decrypting purchaser-visible gift codes. Keep this separate
+# from SECRET_KEY so normal Django secret rotation does not invalidate gifts.
+SUBSCRIPTION_GIFT_ENCRYPTION_KEY = load_secret(
+    'subscription_gift_encryption_key.txt',
+    env_var='SUBSCRIPTION_GIFT_ENCRYPTION_KEY',
+    default='',
+).strip() or SECRET_KEY
+
 # Production: DEBUG only when explicitly enabled. Dev: DEBUG on unless DEBUG_ON is "false".
 if IS_PROD:
     DEBUG = _env_flag("DEBUG_ON")
@@ -901,6 +909,8 @@ CLUB_ARCHIVE_GATING_ENABLED = _env_flag_default('CLUB_ARCHIVE_GATING_ENABLED', F
 CLUB_YOOKASSA_ENABLED = _env_flag_default('CLUB_YOOKASSA_ENABLED', False)
 # Automatic monthly renewals. Keep false in production until YooKassa enables autopayments.
 YOOKASSA_RECURRING_ENABLED = _env_flag_default('YOOKASSA_RECURRING_ENABLED', False)
+CLUB_GIFT_YOOKASSA_1_AMOUNT_KOPECKS = (os.environ.get('CLUB_GIFT_YOOKASSA_1_AMOUNT_KOPECKS') or '').strip()
+CLUB_GIFT_YOOKASSA_3_AMOUNT_KOPECKS = (os.environ.get('CLUB_GIFT_YOOKASSA_3_AMOUNT_KOPECKS') or '').strip()
 TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_ID') or '').strip()
 TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_URL') or '').strip()
 TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_RUB_AMOUNT') or '60000').strip()
@@ -917,6 +927,14 @@ TRIBUTE_CLUB_SUBSCRIPTION_EUR_FIRST_AMOUNT = (
 ).strip()
 TRIBUTE_CLUB_SUBSCRIPTION_EUR_CURRENCY = (os.environ.get('TRIBUTE_CLUB_SUBSCRIPTION_EUR_CURRENCY') or 'EUR').strip()
 TRIBUTE_CLUB_MANAGEMENT_URL = (os.environ.get('TRIBUTE_CLUB_MANAGEMENT_URL') or '').strip()
+# One-off Tribute Digital Products for gifts. URLs are public configuration;
+# product IDs and amounts will be added when the checkout flow is implemented.
+TRIBUTE_CLUB_GIFT_EUR_1_URL = (os.environ.get('TRIBUTE_CLUB_GIFT_EUR_1_URL') or '').strip()
+TRIBUTE_CLUB_GIFT_EUR_1_ID = (os.environ.get('TRIBUTE_CLUB_GIFT_EUR_1_ID') or '').strip()
+TRIBUTE_CLUB_GIFT_EUR_1_AMOUNT = (os.environ.get('TRIBUTE_CLUB_GIFT_EUR_1_AMOUNT') or '').strip()
+TRIBUTE_CLUB_GIFT_EUR_3_URL = (os.environ.get('TRIBUTE_CLUB_GIFT_EUR_3_URL') or '').strip()
+TRIBUTE_CLUB_GIFT_EUR_3_ID = (os.environ.get('TRIBUTE_CLUB_GIFT_EUR_3_ID') or '').strip()
+TRIBUTE_CLUB_GIFT_EUR_3_AMOUNT = (os.environ.get('TRIBUTE_CLUB_GIFT_EUR_3_AMOUNT') or '').strip()
 
 # One-off next-game donation vote (7–27 Sep 2026). Three regular Tribute donations
 # (not Goals — Goal payments do not send webhooks). donation_request_id is filled
