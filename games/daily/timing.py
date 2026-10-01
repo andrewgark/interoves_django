@@ -612,26 +612,6 @@ def apply_timing_event(
     create: bool = True,
     replay_slot=None,
 ) -> dict:
-    event_kwargs = {
-        'game': game,
-        'task_group': task_group,
-        'team': team,
-        'user': user,
-        'anon_key': anon_key,
-        'replay_slot': replay_slot,
-        'action': action,
-        'session_id': session_id,
-        'event_id': event_id,
-        'seq': seq,
-        'claimed_ms': claimed_ms,
-        'client_occurred_at': client_occurred_at,
-    }
-    # A missing-row heartbeat/pause is a rejected command, not a durable
-    # timing event. Starts/resumes may create the row, so they are recorded
-    # before the compatibility mutation.
-    record_before = action in (ACTION_START, ACTION_RESUME)
-    if record_before:
-        record_timing_event(**event_kwargs)
     last_exc = None
     action_label = (action or '').strip()
     for attempt in range(1, TIMING_DEADLOCK_ATTEMPTS + 1):
@@ -650,9 +630,8 @@ def apply_timing_event(
                 now=now,
                 create=create,
                 replay_slot=replay_slot,
+                client_occurred_at=client_occurred_at,
             )
-            if not record_before and result.get('exists'):
-                record_timing_event(**event_kwargs)
             return result
         except OperationalError as exc:
             last_exc = exc
@@ -691,6 +670,7 @@ def _apply_timing_event_once(
     now=None,
     create: bool = True,
     replay_slot=None,
+    client_occurred_at=None,
 ) -> dict:
     now = now or timezone.now()
     action = (action or '').strip()
@@ -792,6 +772,23 @@ def _apply_timing_event_once(
             claimed_ms=claimed_ms,
             now=now,
         )
+    # Keep the immutable ledger and compatibility snapshot in the same
+    # transaction. Failed commands (missing rows) return above and are not
+    # recorded; a ledger failure rolls back the snapshot mutation as well.
+    record_timing_event(
+        game=game,
+        task_group=task_group,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        replay_slot=replay_slot,
+        action=action,
+        session_id=session_id,
+        event_id=event_id,
+        seq=seq,
+        claimed_ms=claimed_ms,
+        client_occurred_at=client_occurred_at,
+    )
     if created_timing_row and replay_slot is None and getattr(game, 'project_id', None) == 'sections':
         from games.daily_result_projection import schedule_actor_projection
         # Keep the hot timing transaction limited to DailySolveTiming.  The

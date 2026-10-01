@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.core.management.base import CommandError
 from django.core.management.base import BaseCommand
 
 from games.telegram.api import delete_webhook, set_webhook
@@ -19,11 +20,9 @@ class Command(BaseCommand):
             return
 
         secret = getattr(settings, 'TELEGRAM_WEBHOOK_SECRET', '') or ''
-        if secret:
-            path = '/telegram/webhook/{}/'.format(secret)
-        else:
-            path = '/telegram/webhook/'
-            self.stdout.write(self.style.WARNING('TELEGRAM_WEBHOOK_SECRET is empty — webhook URL is guessable.'))
+        if not secret:
+            raise CommandError('TELEGRAM_WEBHOOK_SECRET is empty; refusing to register a public webhook.')
+        path = '/telegram/webhook/{}/'.format(secret)
 
         url = options['url'] or admin_url(path)
         ok = set_webhook(url, secret_token=secret)

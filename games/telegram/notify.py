@@ -898,11 +898,11 @@ def fetch_recent_telegram_chat_ids() -> list[dict]:
     url = 'https://api.telegram.org/bot{}/getUpdates'.format(settings.TELEGRAM_BOT_TOKEN)
     try:
         response = requests.get(url, timeout=10)
+        response.raise_for_status()
     except Exception as error:
         raise RuntimeError(
             'Telegram getUpdates failed: {}'.format(_safe_error_text(error))
         ) from None
-    response.raise_for_status()
     body = response.json()
     if not body.get('ok'):
         raise RuntimeError('Telegram API error: {!r}'.format(body))
