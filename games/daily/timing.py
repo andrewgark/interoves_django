@@ -210,10 +210,10 @@ def _event_value(event, name):
 
 
 def _event_time(event, *, fallback=None):
-    """Ordering hint only; client time is not authoritative duration."""
+    """Use server arrival time first; client time is only an ordering hint."""
     return (
-        _event_value(event, 'client_occurred_at')
-        or _event_value(event, 'occurred_at')
+        _event_value(event, 'occurred_at')
+        or _event_value(event, 'client_occurred_at')
         or fallback
         or timezone.now()
     )

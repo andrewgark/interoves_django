@@ -94,7 +94,7 @@ class Command(BaseCommand):
         event_actor_keys = set(
             DailyTimingEvent.objects.filter(**event_filter).values_list(
                 'game_id', 'task_group_id', 'actor_key',
-            )
+            ).distinct().iterator(chunk_size=1000)
         )
         self.stdout.write(
             'summary events={} client_time_missing={} seq_regressions={} '
