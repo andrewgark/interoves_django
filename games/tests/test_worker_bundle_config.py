@@ -51,6 +51,15 @@ class RecheckWorkerBundleConfigTests(unittest.TestCase):
         self.assertIn('python -m playwright install --with-deps chromium', dockerfile)
         self.assertIn('chown -R app:app /app "${PLAYWRIGHT_BROWSERS_PATH}"', dockerfile)
 
+    def test_integrations_task_role_can_store_social_queue_images(self):
+        template = (ROOT / 'infra/ecs/worker-task-role.yaml').read_text()
+        script = (ROOT / 'scripts/deploy_ecs_worker.sh').read_text()
+        self.assertIn('IsIntegrations', template)
+        self.assertIn('s3:GetObject', template)
+        self.assertIn('s3:PutObject', template)
+        self.assertIn('/media/social_queue/*', template)
+        self.assertIn('SocialQueueS3Bucket="$SOCIAL_QUEUE_S3_BUCKET"', script)
+
     def test_web_playwright_install_does_not_hide_install_failure(self):
         config = (ROOT / '.ebextensions' / 'playwright.config').read_text()
         install_line = next(

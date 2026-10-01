@@ -127,6 +127,8 @@ secret_map="$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(
 secret_arns="$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(",".join(json.load(sys.stdin)["secret_map"].values()))')"
 RDS_SECRET_ARN="$(value RDS_SECRET_ARN)"
 [[ -n "$RDS_SECRET_ARN" && "$RDS_SECRET_ARN" != None ]] || { echo "RDS_SECRET_ARN missing in $ENVIRONMENT" >&2; exit 1; }
+SOCIAL_QUEUE_S3_BUCKET="$(value SOCIAL_QUEUE_S3_BUCKET)"
+SOCIAL_QUEUE_S3_BUCKET="${SOCIAL_QUEUE_S3_BUCKET:-interoves-django-static}"
 secret_arns="$secret_arns,$RDS_SECRET_ARN"
 
 QUEUE_NAME="interoves-${WORKER}"
@@ -147,7 +149,7 @@ echo "worker=$WORKER environment=$ENVIRONMENT profile=$DEPLOY_PROFILE aws_profil
 echo "image=$IMAGE_URI image_commit=$IMAGE_COMMIT queue=$QUEUE_NAME service_stack=$SERVICE_STACK"
 if [[ "$APPLY" != 1 ]]; then echo "plan_only=true (pass --apply to change AWS)"; exit 0; fi
 
-aws_cmd cloudformation deploy --stack-name "$TASK_ROLE_STACK" --template-file "$ROOT/infra/ecs/worker-task-role.yaml" --parameter-overrides WorkerName="$WORKER" QueueArn="$QUEUE_ARN" ConfigSecretArns="$secret_arns" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
+aws_cmd cloudformation deploy --stack-name "$TASK_ROLE_STACK" --template-file "$ROOT/infra/ecs/worker-task-role.yaml" --parameter-overrides WorkerName="$WORKER" QueueArn="$QUEUE_ARN" ConfigSecretArns="$secret_arns" SocialQueueS3Bucket="$SOCIAL_QUEUE_S3_BUCKET" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
 TASK_ROLE_ARN="$(aws_cmd cloudformation describe-stacks --stack-name "$TASK_ROLE_STACK" --query "Stacks[0].Outputs[?OutputKey=='TaskRoleArn'].OutputValue" --output text)"
 plain_env_json="$(printf '%s' "$config_json" | "$PYTHON" -c '
 import json, sys

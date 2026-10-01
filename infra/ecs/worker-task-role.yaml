@@ -14,11 +14,16 @@ Parameters:
     Type: String
     Default: ''
     Description: Optional disposable validation queue; omit for normal deployments.
+  SocialQueueS3Bucket:
+    Type: String
+    Default: interoves-django-static
+    Description: Bucket used for integrations social-queue images.
 
 Conditions:
   HasValidationQueue: !Not [!Equals [!Ref ValidationQueueArn, '']]
   IsRecheck: !Equals [!Ref WorkerName, recheck]
   IsIdentity: !Equals [!Ref WorkerName, identity]
+  IsIntegrations: !Equals [!Ref WorkerName, integrations]
 
 Resources:
   TaskRole:
@@ -130,6 +135,23 @@ Resources:
               - sqs:ChangeMessageVisibility
               - sqs:GetQueueAttributes
             Resource: !Ref ValidationQueueArn
+
+  IntegrationsSocialQueueStoragePolicy:
+    Type: AWS::IAM::Policy
+    Condition: IsIntegrations
+    Properties:
+      PolicyName: IntegrationsSocialQueueStorage
+      Roles:
+        - !Ref TaskRole
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: ReadWriteSocialQueueImages
+            Effect: Allow
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+            Resource: !Sub arn:aws:s3:::${SocialQueueS3Bucket}/media/social_queue/*
 
 Outputs:
   TaskRoleArn:
