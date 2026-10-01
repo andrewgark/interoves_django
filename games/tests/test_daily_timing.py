@@ -1116,6 +1116,18 @@ class DailyTimingApiTests(TestCase):
         self.assertFalse(data['ok'])
         self.assertEqual(data['error'], 'bad_action')
 
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_malformed_numeric_timing_payload_is_400_not_500(self, _pub):
+        for key in ('seq', 'claimed_ms'):
+            resp = self._post({
+                'action': ACTION_START,
+                'session_id': str(uuid4()),
+                'event_id': 'bad-{}'.format(key),
+                key: 'not-a-number',
+            })
+            self.assertEqual(resp.status_code, 400)
+            self.assertEqual(resp.json()['error'], 'bad_{}'.format(key))
+
     def _assert_missing_without_row(self, action):
         self.assertFalse(
             DailySolveTiming.objects.filter(

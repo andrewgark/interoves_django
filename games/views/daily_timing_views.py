@@ -52,6 +52,19 @@ def _client_event_time(payload):
     return value
 
 
+def _timing_int(payload, key, *, default=None):
+    raw = payload.get(key)
+    if raw in (None, ''):
+        return default, None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return None, 'bad_{}'.format(key)
+    if value < 0:
+        return None, 'bad_{}'.format(key)
+    return value, None
+
+
 def _payload(request):
     if request.method != 'POST':
         return {}
@@ -212,6 +225,12 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
     action = (payload.get('action') or ACTION_START).strip()
     if action not in MUTATING_ACTIONS:
         return _json_error('bad_action', 400)
+    seq, seq_error = _timing_int(payload, 'seq', default=0)
+    if seq_error:
+        return _json_error(seq_error, 400)
+    claimed_ms, claimed_error = _timing_int(payload, 'claimed_ms')
+    if claimed_error:
+        return _json_error(claimed_error, 400)
     context_error = validate_gameplay_context(
         request,
         task_group=task_group,
@@ -234,8 +253,8 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
             action=action,
             session_id=payload.get('session_id'),
             event_id=payload.get('event_id') or '',
-            seq=payload.get('seq') or 0,
-            claimed_ms=payload.get('claimed_ms'),
+            seq=seq,
+            claimed_ms=claimed_ms,
             client_occurred_at=_client_event_time(payload),
             create=True,
             replay_slot=replay_slot,

@@ -536,8 +536,12 @@ def record_timing_event(
         'session_id': str(session_id)[:128],
         'event_id': str(event_id)[:128],
         'action': action,
-        'seq': int(seq or 0),
-        'claimed_ms': int(claimed_ms) if claimed_ms is not None else None,
+        'seq': int(seq or 0) if str(seq or 0).lstrip('-').isdigit() else 0,
+        'claimed_ms': (
+            int(claimed_ms)
+            if claimed_ms is not None and str(claimed_ms).lstrip('-').isdigit()
+            else None
+        ),
         'client_occurred_at': client_occurred_at,
     }
     try:
