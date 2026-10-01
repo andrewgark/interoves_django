@@ -162,7 +162,7 @@ def reduce_personal_timing_events(events, *, now=None) -> dict:
     ``events`` may be model instances or ``values()`` dictionaries.  The
     function never touches the database and is therefore safe for workers,
     audits, and eventual read-model rebuilds.  Team sessions are intentionally
-    excluded until their union-of-intervals reducer is introduced.
+    excluded; they use ``reduce_team_timing_events`` instead.
     """
     row = _TimingReducerRow()
     ordered = sorted(
@@ -545,9 +545,17 @@ def record_timing_event(
                 defaults=values,
             )
     except IntegrityError:
-        # A concurrent first delivery won the unique insert.  The event is
-        # already durable, so the second delivery can continue idempotently.
-        return
+        # A concurrent first delivery may have won the unique insert.  Only
+        # suppress that specific race; malformed actor data, bad foreign keys,
+        # and future constraints must remain visible to callers.
+        if DailyTimingEvent.objects.filter(
+            game=game,
+            task_group=task_group,
+            session_id=values['session_id'],
+            event_id=values['event_id'],
+        ).exists():
+            return
+        raise
 
 
 def apply_timing_event(

@@ -27,6 +27,7 @@ from games.daily_timing import (
     complete_daily_timing,
     lookup_timing,
     merge_timing_rows,
+    record_timing_event,
     reduce_personal_timing_events,
     reduce_team_timing_events,
 )
@@ -224,6 +225,17 @@ class DailyTimingDomainTests(TestCase):
                     team=team, user=self.user, game=self.game, task_group=self.tg,
                     team_timing_key='invalid-actor',
                 )
+
+    def test_event_recording_does_not_hide_invalid_actor_constraint(self):
+        with self.assertRaises(IntegrityError):
+            record_timing_event(
+                game=self.game,
+                task_group=self.tg,
+                action=ACTION_START,
+                session_id=str(uuid4()),
+                event_id='invalid-actor',
+                seq=1,
+            )
 
     def test_continuous_solve_accumulates_from_server_clock(self):
         sid = uuid4()
