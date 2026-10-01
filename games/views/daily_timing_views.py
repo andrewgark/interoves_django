@@ -73,7 +73,7 @@ def _payload(request):
         try:
             data = json.loads(request.body.decode('utf-8') or '{}')
         except (ValueError, TypeError, UnicodeDecodeError):
-            return {}
+            return {'_payload_error': 'invalid_json'}
         return data if isinstance(data, dict) else {}
     data = request.POST.dict() if hasattr(request.POST, 'dict') else dict(request.POST)
     return data
@@ -210,6 +210,8 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
         return JsonResponse(body)
 
     payload = _payload(request)
+    if payload.get('_payload_error'):
+        return _json_error(payload['_payload_error'], 400)
     from games.replay import replay_for_request, StaleReplayError, _official_exists
     try:
         replay_slot = replay_for_request(
@@ -222,9 +224,18 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
         game=game, task_group=task_group, team=team, user=user, anon_key=anon_key,
     ):
         return _json_error('replay_required', 409)
-    action = (payload.get('action') or ACTION_START).strip()
+    raw_action = payload.get('action') or ACTION_START
+    if not isinstance(raw_action, str):
+        return _json_error('bad_action', 400)
+    action = raw_action.strip()
     if action not in MUTATING_ACTIONS:
         return _json_error('bad_action', 400)
+    session_id = payload.get('session_id')
+    event_id = payload.get('event_id')
+    if not isinstance(session_id, str) or not session_id.strip():
+        return _json_error('bad_session_id', 400)
+    if not isinstance(event_id, str) or not event_id.strip():
+        return _json_error('bad_event_id', 400)
     seq, seq_error = _timing_int(payload, 'seq', default=0)
     if seq_error:
         return _json_error(seq_error, 400)
@@ -251,8 +262,8 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
             user=user,
             anon_key=anon_key,
             action=action,
-            session_id=payload.get('session_id'),
-            event_id=payload.get('event_id') or '',
+            session_id=session_id,
+            event_id=event_id,
             seq=seq,
             claimed_ms=claimed_ms,
             client_occurred_at=_client_event_time(payload),

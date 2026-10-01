@@ -136,6 +136,19 @@ class DailyTimingScopeTests(SimpleTestCase):
         self.assertEqual(reduced['applied_event_count'], 4)
         self.assertEqual(reduced['last_seq'], 3)
 
+    def test_personal_replay_ignores_client_clock_skew_for_event_order(self):
+        base = _dt(0)
+        sid = str(uuid4())
+        events = [
+            {'action': ACTION_START, 'session_id': sid, 'event_id': 'start', 'seq': 1,
+             'occurred_at': base, 'client_occurred_at': _dt(3600)},
+            {'action': ACTION_PAUSE, 'session_id': sid, 'event_id': 'pause', 'seq': 2,
+             'claimed_ms': 1000, 'occurred_at': _dt(1), 'client_occurred_at': _dt(-3600)},
+        ]
+        reduced = reduce_personal_timing_events(events, now=_dt(1))
+        self.assertEqual(reduced['status'], 'manually_paused')
+        self.assertEqual(reduced['accumulated_ms'], 1000)
+
     def test_team_event_reducer_counts_union_of_sessions(self):
         events = [
             {'action': ACTION_START, 'session_id': 'a', 'event_id': 'a-start', 'seq': 1, 'occurred_at': _dt(0)},
@@ -1145,6 +1158,19 @@ class DailyTimingApiTests(TestCase):
             })
             self.assertEqual(resp.status_code, 400)
             self.assertEqual(resp.json()['error'], 'bad_{}'.format(key))
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_malformed_timing_request_is_400_not_empty_start(self, _pub):
+        invalid_json = self.client.post(
+            '/ladder/91002/timing/', data='{', content_type='application/json',
+            HTTP_X_INTEROVES_ANON=self.anon,
+        )
+        self.assertEqual(invalid_json.status_code, 400)
+        self.assertEqual(invalid_json.json()['error'], 'invalid_json')
+
+        missing_ids = self._post({'action': ACTION_START, 'seq': 1})
+        self.assertEqual(missing_ids.status_code, 400)
+        self.assertEqual(missing_ids.json()['error'], 'bad_session_id')
 
     def _assert_missing_without_row(self, action):
         self.assertFalse(
