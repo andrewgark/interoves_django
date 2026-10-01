@@ -447,7 +447,8 @@
     try {
       return 'interoves_word_salad_orientation_v1:' +
         (root.getAttribute('data-task-id') || '') + ':' +
-        (root.getAttribute('data-task-revision') || '');
+        (root.getAttribute('data-task-revision') || '') + ':' +
+        (root.getAttribute('data-replay-run-id') || 'official');
     } catch (error) {
       return '';
     }
