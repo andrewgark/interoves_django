@@ -4205,6 +4205,74 @@ class DailySolveTiming(models.Model):
         return '{} · {} · {}'.format(actor, self.game_id, self.status)
 
 
+class DailyTimingEvent(models.Model):
+    """Immutable client timing event used to rebuild the timing read-model."""
+
+    ACTION_CHOICES = (
+        ('start', 'Start'),
+        ('resume', 'Resume'),
+        ('heartbeat', 'Heartbeat'),
+        ('auto_pause', 'Auto-pause'),
+        ('pause', 'Pause'),
+        ('complete', 'Complete'),
+    )
+
+    game = models.ForeignKey(Game, related_name='daily_timing_events', on_delete=models.CASCADE)
+    task_group = models.ForeignKey(TaskGroup, related_name='daily_timing_events', on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        'auth.User', related_name='daily_timing_events', blank=True, null=True,
+        on_delete=models.CASCADE,
+    )
+    team = models.ForeignKey(
+        Team, related_name='daily_timing_events', blank=True, null=True,
+        on_delete=models.CASCADE,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    replay_slot = models.ForeignKey(
+        'ReplaySlot', related_name='daily_timing_events', blank=True, null=True,
+        on_delete=models.CASCADE,
+    )
+    # CharField deliberately matches the historical endpoint contract: old
+    # clients occasionally used timestamp-like IDs instead of UUIDs.
+    session_id = models.CharField(max_length=128)
+    event_id = models.CharField(max_length=128)
+    action = models.CharField(max_length=16, choices=ACTION_CHOICES)
+    seq = models.BigIntegerField(default=0)
+    claimed_ms = models.BigIntegerField(blank=True, null=True)
+    occurred_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['game', 'task_group', 'session_id', 'event_id'],
+                name='uniq_daily_timing_event_id',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(user__isnull=False, team__isnull=True, anon_key__isnull=True)
+                    | models.Q(user__isnull=True, team__isnull=False, anon_key__isnull=True)
+                    | models.Q(user__isnull=True, team__isnull=True, anon_key__isnull=False)
+                ),
+                name='daily_timing_event_actor_shape',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['game', 'task_group', 'session_id', 'seq'],
+                name='games_dte_session_seq_idx',
+            ),
+            models.Index(
+                fields=['game', 'task_group', 'occurred_at'],
+                name='games_dte_release_time_idx',
+            ),
+        ]
+
+    def __str__(self):
+        return '{} · {} · {} · {}'.format(
+            self.game_id, self.task_group_id, self.action, self.event_id,
+        )
+
+
 class DailySolveTimingSession(models.Model):
     """One device/tab's participation in a daily timing row.
 

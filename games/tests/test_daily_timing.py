@@ -27,12 +27,15 @@ from games.daily_timing import (
     complete_daily_timing,
     lookup_timing,
     merge_timing_rows,
+    reduce_personal_timing_events,
+    reduce_team_timing_events,
 )
 from games.views.daily_timing_views import daily_timing_page_context
 from games.models import (
     CheckerType,
     DailySolveTiming,
     DailySolveTimingSession,
+    DailyTimingEvent,
     Game,
     GameTaskGroup,
     HTMLPage,
@@ -111,6 +114,37 @@ class DailyTimingScopeTests(SimpleTestCase):
         )
         self.assertFalse(context['daily_timing_enabled'])
         self.assertEqual(context['daily_timing_url'], '')
+
+    def test_personal_event_reducer_is_side_effect_free_and_idempotent(self):
+        sid = str(uuid4())
+        events = [
+            {'action': ACTION_START, 'session_id': sid, 'event_id': 'start', 'seq': 1,
+             'claimed_ms': 0, 'occurred_at': _dt(0)},
+            {'action': ACTION_HEARTBEAT, 'session_id': sid, 'event_id': 'beat', 'seq': 2,
+             'claimed_ms': 10000, 'occurred_at': _dt(10)},
+            {'action': ACTION_HEARTBEAT, 'session_id': sid, 'event_id': 'beat', 'seq': 2,
+             'claimed_ms': 10000, 'occurred_at': _dt(10)},
+            {'action': ACTION_PAUSE, 'session_id': sid, 'event_id': 'pause', 'seq': 3,
+             'claimed_ms': 2000, 'occurred_at': _dt(12)},
+        ]
+        reduced = reduce_personal_timing_events(events, now=_dt(12))
+        self.assertEqual(reduced['status'], 'manually_paused')
+        self.assertEqual(reduced['accumulated_ms'], 12000)
+        self.assertEqual(reduced['event_count'], 4)
+        self.assertEqual(reduced['applied_event_count'], 4)
+        self.assertEqual(reduced['last_seq'], 3)
+
+    def test_team_event_reducer_counts_union_of_sessions(self):
+        events = [
+            {'action': ACTION_START, 'session_id': 'a', 'event_id': 'a-start', 'seq': 1, 'occurred_at': _dt(0)},
+            {'action': ACTION_START, 'session_id': 'b', 'event_id': 'b-start', 'seq': 1, 'occurred_at': _dt(5)},
+            {'action': ACTION_PAUSE, 'session_id': 'a', 'event_id': 'a-pause', 'seq': 2, 'occurred_at': _dt(8)},
+            {'action': ACTION_COMPLETE, 'session_id': 'b', 'event_id': 'b-complete', 'seq': 2, 'occurred_at': _dt(12)},
+        ]
+        reduced = reduce_team_timing_events(events, now=_dt(12))
+        self.assertTrue(reduced['completed'])
+        self.assertEqual(reduced['frozen_ms'], 12000)
+        self.assertEqual(reduced['session_count'], 2)
 
 
 class DailyTimingDomainTests(TestCase):
@@ -787,9 +821,10 @@ class DailyTimingApiTests(TestCase):
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_anonymous_start_and_pause(self, _pub):
+        sid = uuid4()
         resp = self._post({
             'action': ACTION_START,
-            'session_id': str(uuid4()),
+            'session_id': str(sid),
             'event_id': 'e1',
             'seq': 1,
         })
@@ -798,6 +833,15 @@ class DailyTimingApiTests(TestCase):
         self.assertTrue(data['ok'])
         self.assertEqual(data['status'], 'running')
         self.assertTrue(data['is_authoritative'])
+        self.assertEqual(
+            DailyTimingEvent.objects.filter(
+                game=self.game,
+                task_group=self.tg,
+                session_id=str(sid),
+                event_id='e1',
+            ).count(),
+            1,
+        )
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     @patch(

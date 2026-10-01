@@ -16,7 +16,7 @@ from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
 from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
-from games.models import DailySolveTiming, DailySolveTimingSession
+from games.models import DailySolveTiming, DailySolveTimingSession, DailyTimingEvent
 from games.results.share import elapsed_seconds_from_attempts, format_elapsed
 
 TIMING_VERSION_ACTIVE = DailySolveTiming.TIMING_VERSION_ACTIVE
@@ -129,6 +129,215 @@ def empty_snapshot() -> dict:
         'manually_paused': False,
         'completed': False,
         'exists': False,
+    }
+
+
+class _TimingReducerRow:
+    """Small in-memory row accepted by the legacy personal reducer helpers."""
+
+    team_id = None
+
+    def __init__(self):
+        self.status = STATUS_AUTO_PAUSED
+        self.accumulated_ms = 0
+        self.frozen_ms = None
+        self.active_session_id = None
+        self.interval_started_at = None
+        self.last_heartbeat_at = None
+        self.last_seq = 0
+        self.last_event_id = ''
+        self.applied_event_ids = []
+        self.completed_at = None
+        self.timing_version = TIMING_VERSION_ACTIVE
+
+    def save(self, *args, **kwargs):
+        # The reducer is deliberately side-effect free; _apply_to_row was
+        # written for the compatibility ORM read-model and calls save().
+        return None
+
+
+def reduce_personal_timing_events(events, *, now=None) -> dict:
+    """Fold personal/anonymous append-only events into a timing snapshot.
+
+    ``events`` may be model instances or ``values()`` dictionaries.  The
+    function never touches the database and is therefore safe for workers,
+    audits, and eventual read-model rebuilds.  Team sessions are intentionally
+    excluded until their union-of-intervals reducer is introduced.
+    """
+    row = _TimingReducerRow()
+    ordered = sorted(
+        events,
+        key=lambda event: (
+            _event_value(event, 'occurred_at') or now or timezone.now(),
+            int(_event_value(event, 'seq') or 0),
+            str(_event_value(event, 'event_id') or ''),
+        ),
+    )
+    applied = 0
+    skipped_team = 0
+    for event in ordered:
+        if _event_value(event, 'team_id') is not None or _event_value(event, 'team') is not None:
+            skipped_team += 1
+            continue
+        action = _event_value(event, 'action')
+        if action not in MUTATING_ACTIONS:
+            continue
+        event_now = _event_value(event, 'occurred_at') or now or timezone.now()
+        _apply_to_row(
+            row,
+            action=action,
+            session_id=_event_value(event, 'session_id'),
+            event_id=_event_value(event, 'event_id') or '',
+            seq=_event_value(event, 'seq') or 0,
+            claimed_ms=_event_value(event, 'claimed_ms'),
+            now=event_now,
+        )
+        applied += 1
+    result = snapshot(row, now=now or timezone.now())
+    result.update({
+        'event_count': len(ordered),
+        'applied_event_count': applied,
+        'skipped_team_event_count': skipped_team,
+        'last_seq': int(row.last_seq or 0),
+    })
+    return result
+
+
+def _event_value(event, name):
+    if isinstance(event, dict):
+        return event.get(name)
+    return getattr(event, name, None)
+
+
+def reduce_team_timing_events(events, *, now=None) -> dict:
+    """Fold team events by taking the union of active session intervals."""
+    ordered = sorted(
+        events,
+        key=lambda event: (
+            _event_value(event, 'occurred_at') or now or timezone.now(),
+            int(_event_value(event, 'seq') or 0),
+            str(_event_value(event, 'event_id') or ''),
+        ),
+    )
+    sessions = {}
+    accumulated_ms = 0
+    interval_started_at = None
+    status = STATUS_AUTO_PAUSED
+    frozen_ms = None
+    completed_at = None
+    applied = 0
+
+    def close_interval(end):
+        nonlocal accumulated_ms, interval_started_at
+        if interval_started_at is not None:
+            accumulated_ms = min(
+                MAX_ACCUMULATED_MS,
+                accumulated_ms + _ms_between(interval_started_at, end),
+            )
+        interval_started_at = None
+
+    def expire(at):
+        nonlocal status
+        cutoff = at - timedelta(milliseconds=LEASE_STALE_MS)
+        running = [session for session in sessions.values() if session['status'] == STATUS_RUNNING]
+        for session in running:
+            if session['last_heartbeat_at'] and session['last_heartbeat_at'] < cutoff:
+                session['status'] = DailySolveTimingSession.STATUS_PAUSED
+                session['close_reason'] = 'stale'
+        active = [session for session in running if session['status'] == STATUS_RUNNING]
+        if not active and running:
+            end = max(
+                (session['last_heartbeat_at'] for session in running if session['last_heartbeat_at']),
+                default=at,
+            )
+            close_interval(end)
+        return active
+
+    for event in ordered:
+        action = _event_value(event, 'action')
+        if action not in MUTATING_ACTIONS:
+            continue
+        at = _event_value(event, 'occurred_at') or now or timezone.now()
+        expire(at)
+        sid = str(_event_value(event, 'session_id') or '')
+        if not sid:
+            continue
+        session = sessions.setdefault(sid, {
+            'status': DailySolveTimingSession.STATUS_PAUSED,
+            'started_at': None,
+            'last_heartbeat_at': None,
+            'last_seq': 0,
+            'event_ids': set(),
+            'close_reason': '',
+        })
+        event_id = str(_event_value(event, 'event_id') or '')[:64]
+        seq = int(_event_value(event, 'seq') or 0)
+        if (event_id and event_id in session['event_ids']) or seq <= session['last_seq']:
+            continue
+        session['event_ids'].add(event_id)
+        session['last_seq'] = seq
+        applied += 1
+
+        if action == ACTION_COMPLETE:
+            active = [item for item in sessions.values() if item['status'] == STATUS_RUNNING]
+            if active:
+                fresh_cutoff = at - timedelta(milliseconds=LEASE_STALE_MS)
+                if any(item['last_heartbeat_at'] and item['last_heartbeat_at'] >= fresh_cutoff for item in active):
+                    close_interval(at)
+                else:
+                    close_interval(max(item['last_heartbeat_at'] for item in active if item['last_heartbeat_at']))
+            for item in active:
+                item['status'] = DailySolveTimingSession.STATUS_CLOSED
+                item['close_reason'] = 'completed'
+            status = STATUS_COMPLETED
+            frozen_ms = min(MAX_ACCUMULATED_MS, max(0, accumulated_ms))
+            accumulated_ms = frozen_ms
+            completed_at = at
+            continue
+
+        if status == STATUS_COMPLETED:
+            continue
+        if action == ACTION_HEARTBEAT:
+            if session['status'] == STATUS_RUNNING:
+                session['last_heartbeat_at'] = at
+                status = STATUS_RUNNING
+            continue
+        if action in (ACTION_PAUSE, ACTION_AUTO_PAUSE):
+            if session['status'] != STATUS_RUNNING:
+                continue
+            session['status'] = DailySolveTimingSession.STATUS_PAUSED
+            session['close_reason'] = 'manual' if action == ACTION_PAUSE else 'auto'
+            if not any(item['status'] == STATUS_RUNNING for item in sessions.values()):
+                close_interval(at)
+                status = STATUS_MANUALLY_PAUSED if action == ACTION_PAUSE else STATUS_AUTO_PAUSED
+            continue
+        if action in (ACTION_START, ACTION_RESUME):
+            if action == ACTION_START and session['close_reason'] == 'manual':
+                continue
+            if not any(item['status'] == STATUS_RUNNING for item in sessions.values()):
+                interval_started_at = at
+            session['status'] = STATUS_RUNNING
+            session['started_at'] = session['started_at'] or at
+            session['last_heartbeat_at'] = at
+            session['close_reason'] = ''
+            status = STATUS_RUNNING
+
+    display_ms = accumulated_ms
+    if status == STATUS_RUNNING and interval_started_at is not None:
+        display_ms += _ms_between(interval_started_at, now or timezone.now())
+    return {
+        **empty_snapshot(),
+        'status': status,
+        'accumulated_ms': min(MAX_ACCUMULATED_MS, display_ms),
+        'committed_ms': accumulated_ms,
+        'frozen_ms': frozen_ms,
+        'session_active': any(item['status'] == STATUS_RUNNING for item in sessions.values()),
+        'active_sessions_count': sum(item['status'] == STATUS_RUNNING for item in sessions.values()),
+        'completed': status == STATUS_COMPLETED,
+        'event_count': len(ordered),
+        'applied_event_count': applied,
+        'session_count': len(sessions),
+        'completed_at': completed_at,
     }
 
 
@@ -300,6 +509,47 @@ def _is_mysql_lock_retryable(exc: BaseException) -> bool:
     return is_mysql_retryable_lock_error(exc)
 
 
+def record_timing_event(
+    *, game, task_group, action, session_id, event_id, seq, claimed_ms=None,
+    team=None, user=None, anon_key=None, replay_slot=None,
+):
+    """Persist one immutable event before mutating the compatibility snapshot.
+
+    The insert is intentionally a separate short transaction.  It provides a
+    durable event ledger without extending the row-lock transaction used by
+    the current read-model implementation.  Duplicate delivery is normal for
+    browser retries and is treated as success.
+    """
+    if not event_id or not session_id or action not in MUTATING_ACTIONS:
+        return
+    values = {
+        'game': game,
+        'task_group': task_group,
+        'team': team,
+        'user': user,
+        'anon_key': str(anon_key) if anon_key else None,
+        'replay_slot': replay_slot,
+        'session_id': str(session_id)[:128],
+        'event_id': str(event_id)[:128],
+        'action': action,
+        'seq': int(seq or 0),
+        'claimed_ms': int(claimed_ms) if claimed_ms is not None else None,
+    }
+    try:
+        with transaction.atomic():
+            DailyTimingEvent.objects.get_or_create(
+                game=game,
+                task_group=task_group,
+                session_id=values['session_id'],
+                event_id=values['event_id'],
+                defaults=values,
+            )
+    except IntegrityError:
+        # A concurrent first delivery won the unique insert.  The event is
+        # already durable, so the second delivery can continue idempotently.
+        return
+
+
 def apply_timing_event(
     *,
     game,
@@ -316,6 +566,19 @@ def apply_timing_event(
     create: bool = True,
     replay_slot=None,
 ) -> dict:
+    record_timing_event(
+        game=game,
+        task_group=task_group,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        replay_slot=replay_slot,
+        action=action,
+        session_id=session_id,
+        event_id=event_id,
+        seq=seq,
+        claimed_ms=claimed_ms,
+    )
     last_exc = None
     action_label = (action or '').strip()
     for attempt in range(1, TIMING_DEADLOCK_ATTEMPTS + 1):
@@ -475,8 +738,15 @@ def _apply_timing_event_once(
         )
     if created_timing_row and replay_slot is None and getattr(game, 'project_id', None) == 'sections':
         from games.daily_result_projection import schedule_actor_projection
-        schedule_actor_projection(
-            game, task_group, team=team, user=user, anon_key=anon_key,
+        # Keep the hot timing transaction limited to DailySolveTiming.  The
+        # projection state has its own writer (the projection worker); touching
+        # it here creates a cross-table lock cycle with a refresh in progress.
+        # Register the invalidation only after the timing row commits.
+        transaction.on_commit(
+            lambda game=game, task_group=task_group, team=team, user=user, anon_key=anon_key:
+            schedule_actor_projection(
+                game, task_group, team=team, user=user, anon_key=anon_key,
+            )
         )
     return snapshot(row, now=now, session_id=session_id)
 
