@@ -152,6 +152,15 @@ Resources:
               - s3:GetObject
               - s3:PutObject
             Resource: !Sub arn:aws:s3:::${SocialQueueS3Bucket}/media/social_queue/*
+          - Sid: CheckSocialQueueImageNames
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+            Resource: !Sub arn:aws:s3:::${SocialQueueS3Bucket}
+            Condition:
+              StringLike:
+                s3:prefix:
+                  - media/social_queue/*
 
 Outputs:
   TaskRoleArn:
