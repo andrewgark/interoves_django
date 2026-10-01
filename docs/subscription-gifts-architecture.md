@@ -28,9 +28,9 @@ Email и автоматическая отправка в Telegram не явля
 
 - `status`: `created`, `paid`, `claimed`, `expired`, `revoked`;
 - `duration_months` оставить источником срока подарка;
-- `code_hash` хранить как сейчас, открытый код хранить только в момент
-  подтверждения оплаты/показа владельцу;
-- `purchaser`, `provider`, `provider_payment_id`, `amount`, `currency`;
+- `code_hash` хранить как сейчас, открытый код хранить в зашифрованном виде
+  для показа покупателю;
+- `purchaser`, `provider`, `amount`, `currency`;
 - `paid_at`, `expires_at`, `claimed_by`, `claimed_at`;
 - уникальные ограничения на `(provider, provider_payment_id)` и на
   `code_hash`.
@@ -101,24 +101,27 @@ webhook.
 
 ## Безопасность и эксплуатация
 
-- CSRF на старте платежа; rate limit на создание заказов и ввод кодов.
+- CSRF на старте платежа; rate limit на ввод кодов (10 попыток в минуту).
 - Код показывать только покупателю после подтверждённого webhook; в логах,
   аналитике и webhook-аудите хранить только hash/маскированный идентификатор.
 - Не принимать срок, цену, валюту или provider из доверенного redirect.
 - `select_for_update()` при claim; повторный claim должен быть безопасным.
 - Указать срок действия неоплаченного заказа и срок неактивированного подарка,
   правила возврата и ручной revoke в админке.
-- Добавить reconciliation-команду для платежей `pending` и webhook, пришедших
-  до/после redirect.
+- Неоднозначные ответы YooKassa оставлять в `manual_review`, а не отменять
+  локально: webhook может прийти после таймаута запроса.
+- Команда `expire_subscription_gifts` должна запускаться ежечасно через
+  production scheduler.
+- Задать стабильный `SUBSCRIPTION_GIFT_ENCRYPTION_KEY` в Secrets Manager;
+  ротация `DJANGO_SECRET_KEY` не должна ломать старые коды.
 - Тесты: тарифы/валидация, запрет сохранения карты, YooKassa success/cancel/
   duplicate, Tribute matching/unmatched/duplicate, выдача поверх действующей
   подписки, конкурентный claim, revoked/expired gift и возврат.
 
 ## Порядок реализации
 
-1. Утвердить сроки, цены, срок действия кода и канал доставки.
-2. Создать одноразовые Tribute products и включить настройки после проверки
-   продавца/возвратов.
-3. Добавить модели и миграцию, затем сервисы и webhook-идемпотентность.
-4. Добавить API/UI выбора срока и страницу результата с кодом.
-5. Включить feature flag только после sandbox/webhook smoke-тестов.
+1. Накатить миграцию `0257_subscriptiongift_code_ciphertext_and_more`.
+2. Создать `SUBSCRIPTION_GIFT_ENCRYPTION_KEY` и добавить hourly запуск
+   `expire_subscription_gifts` в production scheduler.
+3. Выполнить sandbox/webhook smoke-тесты Tribute и YooKassa.
+4. После этого включить покупку для пользователей и проверить возвраты.
