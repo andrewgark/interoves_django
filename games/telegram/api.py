@@ -14,6 +14,12 @@ def _api_url(method: str) -> str:
     return 'https://api.telegram.org/bot{}/{}'.format(settings.TELEGRAM_BOT_TOKEN, method)
 
 
+def _safe_error_text(error: Exception) -> str:
+    token = str(getattr(settings, 'TELEGRAM_BOT_TOKEN', '') or '')
+    text = str(error)
+    return text.replace(token, '[redacted]') if token else text
+
+
 def _post(method: str, payload: dict) -> dict | None:
     if not settings.TELEGRAM_BOT_TOKEN:
         logger.debug('Telegram API skipped: TELEGRAM_BOT_TOKEN is empty')
@@ -26,8 +32,10 @@ def _post(method: str, payload: dict) -> dict | None:
             logger.error('Telegram API %s error: %s', method, body)
             return None
         return body
-    except Exception:
-        logger.exception('Telegram API %s failed', method)
+    except Exception as error:
+        # The bot token is part of the request URL and requests includes that
+        # URL in connection errors. Never put it into application logs.
+        logger.error('Telegram API %s failed: %s', method, _safe_error_text(error))
         return None
 
 
@@ -48,8 +56,8 @@ def _post_multipart(method: str, data: dict, files: dict) -> dict | None:
             logger.error('Telegram API %s error: %s', method, body)
             return None
         return body
-    except Exception:
-        logger.exception('Telegram API %s failed', method)
+    except Exception as error:
+        logger.error('Telegram API %s failed: %s', method, _safe_error_text(error))
         return None
 
 

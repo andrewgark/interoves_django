@@ -2,7 +2,7 @@ from datetime import datetime
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
 from games.models import (
@@ -40,6 +40,7 @@ from games.telegram.notify import (
     send_announce_message,
     send_announce_photo,
 )
+from games.telegram.api import _safe_error_text
 
 
 def _ensure_reference_rows():
@@ -50,6 +51,16 @@ def _ensure_reference_rows():
         'Правила тренировочного режима',
     ):
         HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
+
+
+@override_settings(TELEGRAM_BOT_TOKEN='real-looking-test-token')
+class TelegramApiLoggingTests(SimpleTestCase):
+    def test_provider_token_is_redacted_from_error_text(self):
+        error = RuntimeError(
+            'request failed for https://api.telegram.org/botreal-looking-test-token/sendMessage'
+        )
+        self.assertNotIn('real-looking-test-token', _safe_error_text(error))
+        self.assertIn('[redacted]', _safe_error_text(error))
 
 
 @override_settings(

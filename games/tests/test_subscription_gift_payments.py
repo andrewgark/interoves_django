@@ -8,7 +8,12 @@ from django.utils import timezone
 
 from games.models import Profile, SubscriptionGift, SubscriptionGiftPayment
 from games.subscription_gifts import claim_gift, decrypt_gift_code
-from games.subscription_gift_payments import process_tribute_gift_refund, start_yookassa_gift
+from games.subscription_gift_payments import (
+    process_tribute_gift_purchase,
+    process_tribute_gift_refund,
+    process_yookassa_gift_event,
+    start_yookassa_gift,
+)
 from games.tribute_util import compute_webhook_signature
 
 
@@ -160,3 +165,47 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertFalse(payment.gift.entitlements.filter(revoked_at__isnull=True).exists())
         recipient.club_subscription.refresh_from_db()
         self.assertFalse(recipient.club_subscription.grants_access())
+
+    def test_tribute_success_cannot_resurrect_refunded_gift(self):
+        self.client.force_login(self.purchaser)
+        self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '1'})
+        payment = SubscriptionGiftPayment.objects.get()
+        payload = {
+            'product_id': 160748,
+            'product_name': 'Подарочная подписка Inter Oves — 1 месяц',
+            'amount': 555,
+            'currency': 'eur',
+            'telegram_user_id': 700001,
+            'purchase_id': 'gift-purchase-late-success',
+            'transaction_id': 'gift-transaction-late-success',
+            'purchase_created_at': '2026-10-01T08:00:00Z',
+        }
+        self.assertTrue(process_tribute_gift_purchase(payload))
+        self.assertTrue(process_tribute_gift_refund({'purchase_id': payload['purchase_id']}))
+        self.assertTrue(process_tribute_gift_purchase(payload))
+        payment.refresh_from_db()
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
+
+    @patch('games.subscription_gift_payments.Payment.create')
+    def test_yookassa_success_cannot_resurrect_canceled_gift(self, create):
+        create.return_value = {
+            'id': 'yk-gift-late-success',
+            'confirmation': {'confirmation_url': 'https://yookassa.test/pay/late'},
+        }
+        payment = start_yookassa_gift(
+            user=self.purchaser, months=1,
+            return_url='https://interoves.com/subscription/?payment=return',
+        ).payment
+        canceled = {
+            'id': payment.provider_payment_id,
+            'metadata': {'purpose': 'club_gift', 'gift_payment_id': str(payment.pk)},
+            'amount': {'value': '600.00', 'currency': 'RUB'},
+        }
+        self.assertTrue(process_yookassa_gift_event('payment.canceled', canceled))
+        self.assertTrue(process_yookassa_gift_event('payment.succeeded', canceled))
+        payment.refresh_from_db()
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)

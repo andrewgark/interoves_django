@@ -167,6 +167,11 @@ def _chain_state_actor_key(*, team=None, user=None, anon_key=None):
 def _chain_state_lookup(
     *, team, user, anon_key, task, game, game_mode, replay_slot, actor_key,
 ):
+    # Callers that enumerate attempts pass replay_slot_id, while interactive
+    # repair paths may pass a ReplaySlot instance. Django accepts either form
+    # for the ForeignKey lookup, but the diagnostic key must always be scalar.
+    replay_slot_id = getattr(replay_slot, 'pk', replay_slot)
+    replay_slot_key = replay_slot_id or 0
     return {
         'team': team,
         'user': user,
@@ -174,8 +179,8 @@ def _chain_state_lookup(
         'task': task,
         'game': game,
         'game_mode': game_mode,
-        'replay_slot': replay_slot,
-        'replay_slot_key': replay_slot.pk if replay_slot is not None else 0,
+        'replay_slot_id': replay_slot_id,
+        'replay_slot_key': replay_slot_key,
         'actor_key': actor_key,
     }
 

@@ -179,7 +179,9 @@ def process_yookassa_gift_event(event_name: str, payment_data: dict) -> bool:
         from games.subscription_gifts import revoke_gift_access
         revoke_gift_access(payment.gift)
         return True
-    if payment.status == SubscriptionGiftPayment.STATUS_SUCCEEDED:
+    # Provider webhooks are not guaranteed to arrive in order. A late success
+    # must never resurrect a canceled/refunded or manually held payment.
+    if payment.status != SubscriptionGiftPayment.STATUS_PENDING:
         return True
     now = timezone.now()
     payment.status = SubscriptionGiftPayment.STATUS_SUCCEEDED
@@ -235,7 +237,9 @@ def process_tribute_gift_purchase(payload: dict) -> bool:
     if payment is None:
         logger.warning('subscription_gift_tribute_unmatched purchase_id=%s product_id=%s', data['purchase_id'], data['product_id'])
         return False
-    if payment.status == SubscriptionGiftPayment.STATUS_SUCCEEDED:
+    # Tribute may retry an old purchase event after a refund. Only a pending
+    # payment can transition to succeeded; terminal states are monotonic.
+    if payment.status != SubscriptionGiftPayment.STATUS_PENDING:
         return True
     if payment.expected_amount != data['amount'] or payment.currency != data['currency']:
         payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
