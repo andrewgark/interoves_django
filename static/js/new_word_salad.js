@@ -652,8 +652,9 @@
 
       function syncSolvedState() {
         var complete = wordRows().length > 0 && wordRows('.new-word-salad__word:not(.is-solved)').length === 0;
+        var hasActiveCells = cells.some(function (cell) { return cell.classList.contains('is-active'); });
         if (solvedEl) solvedEl.hidden = !complete;
-        if (orientationEl) orientationEl.hidden = complete;
+        if (orientationEl) orientationEl.hidden = complete && !hasActiveCells;
       }
 
       function setCellActive(cell, active) {

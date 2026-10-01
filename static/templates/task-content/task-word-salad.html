@@ -38,7 +38,7 @@
         {% endfor %}
         <div class="new-word-salad__solved" data-word-salad-solved{% if not ws.is_complete %} hidden{% endif %}>Решено!</div>
       </div>
-      <div class="new-word-salad__orientation" data-word-salad-orientation role="toolbar" aria-label="Поворот и отражение сетки"{% if ws.is_complete %} hidden{% endif %}>
+      <div class="new-word-salad__orientation" data-word-salad-orientation role="toolbar" aria-label="Поворот и отражение сетки"{% if ws.is_complete and not ws.active %} hidden{% endif %}>
         <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="rotate-clockwise" aria-label="Повернуть по часовой стрелке" title="Повернуть по часовой стрелке"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
         <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="rotate-counterclockwise" aria-label="Повернуть против часовой стрелки" title="Повернуть против часовой стрелки"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
         <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="flip-horizontal" aria-label="Отразить горизонтально" title="Отразить горизонтально"><i class="ph ph-arrows-left-right" aria-hidden="true"></i></button>
