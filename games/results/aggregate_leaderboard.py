@@ -836,6 +836,12 @@ def build_aggregate_page(request, game):
         month_context = (
             columns, selected_month, previous_month, next_month, published_at_by_link,
         )
+        # Alphabetty's aggregate table exposes the same attempt count and
+        # tie-break sorting as its per-release results. The projection payload
+        # does not persist attempt totals yet, so keep this game on the
+        # canonical legacy aggregator while retaining monthly release scopes.
+        if game.id == 'alphabetty':
+            return _build_legacy_aggregate_page(request, game, month_context=month_context)
         group_ids = [column.link.task_group_id for column in columns]
         states = {
             state.task_group_id: state

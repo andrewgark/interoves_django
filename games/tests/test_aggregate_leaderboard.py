@@ -149,6 +149,29 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(result['aggregate_month'], month)
         self.assertEqual(result['aggregate_columns'], [])
 
+    def test_alphabetty_monthly_aggregate_keeps_attempt_aware_legacy_path(self):
+        game = SimpleNamespace(id='alphabetty', pk=4321)
+        request = self._request()
+        request.path = '/alphabetty/results/'
+        month = date(2026, 9, 1)
+        legacy_result = {
+            'aggregate_period': 'month',
+            'aggregate_month': month,
+            'aggregate_show_attempts': True,
+        }
+        with patch(
+            'games.results.aggregate_leaderboard._monthly_columns',
+            return_value=([], month, None, None, {}),
+        ), patch(
+            'games.results.aggregate_leaderboard._build_legacy_aggregate_page',
+            return_value=legacy_result,
+        ) as legacy_builder:
+            result = build_aggregate_page(request, game)
+
+        legacy_builder.assert_called_once()
+        self.assertTrue(result['aggregate_show_attempts'])
+        self.assertEqual(result['aggregate_period'], 'month')
+
     def test_all_scheduled_games_use_monthly_aggregate_period(self):
         from games.daily.section import SCHEDULES
         from games.results.aggregate_leaderboard import build_aggregate_page

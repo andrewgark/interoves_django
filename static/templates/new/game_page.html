@@ -303,7 +303,7 @@
 
     {% if section_results_url and game|access_see_results:team %}
       <p class="new-tg-results-link">
-        <a href="{{ section_results_url }}" class="new-btn new-btn--ghost new-btn--mini">Результаты</a>
+        <a href="{% if daily_archive and daily_archive_month %}{{ section_results_url }}?month={{ daily_archive_month }}{% else %}{{ section_results_url }}{% endif %}" class="new-btn new-btn--ghost new-btn--mini">Результаты</a>
       </p>
     {% endif %}
 

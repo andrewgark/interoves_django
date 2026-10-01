@@ -75,7 +75,7 @@
 
 {% if can_see_results %}
   <p class="new-tg-results-link">
-    <a class="new-btn new-btn--ghost new-btn--mini" href="{{ section_results_url }}">Результаты</a>
+    <a class="new-btn new-btn--ghost new-btn--mini" href="{% if daily_archive and daily_archive_month %}{{ section_results_url }}?month={{ daily_archive_month }}{% else %}{{ section_results_url }}{% endif %}">Результаты</a>
   </p>
 {% endif %}
 
