@@ -8,6 +8,7 @@ from django.contrib.auth.models import User
 from django.db import IntegrityError, OperationalError, transaction
 from django.test import Client, SimpleTestCase, TestCase
 from django.urls import resolve
+from django.utils import timezone
 
 from games.analytics_identity import attach_anon_cookie
 from games import daily_timing as daily_timing_mod
@@ -839,6 +840,7 @@ class DailyTimingApiTests(TestCase):
             'session_id': str(sid),
             'event_id': 'e1',
             'seq': 1,
+            'client_occurred_at': timezone.now().isoformat(),
         })
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
@@ -854,6 +856,7 @@ class DailyTimingApiTests(TestCase):
             ).count(),
             1,
         )
+        self.assertIsNotNone(DailyTimingEvent.objects.get(event_id='e1').client_occurred_at)
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     @patch(

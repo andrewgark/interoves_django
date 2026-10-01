@@ -168,7 +168,9 @@ def reduce_personal_timing_events(events, *, now=None) -> dict:
     ordered = sorted(
         events,
         key=lambda event: (
-            _event_value(event, 'occurred_at') or now or timezone.now(),
+            _event_value(event, 'client_occurred_at')
+            or _event_value(event, 'occurred_at')
+            or now or timezone.now(),
             int(_event_value(event, 'seq') or 0),
             str(_event_value(event, 'event_id') or ''),
         ),
@@ -214,7 +216,9 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
     ordered = sorted(
         events,
         key=lambda event: (
-            _event_value(event, 'occurred_at') or now or timezone.now(),
+            _event_value(event, 'client_occurred_at')
+            or _event_value(event, 'occurred_at')
+            or now or timezone.now(),
             int(_event_value(event, 'seq') or 0),
             str(_event_value(event, 'event_id') or ''),
         ),
@@ -511,7 +515,7 @@ def _is_mysql_lock_retryable(exc: BaseException) -> bool:
 
 def record_timing_event(
     *, game, task_group, action, session_id, event_id, seq, claimed_ms=None,
-    team=None, user=None, anon_key=None, replay_slot=None,
+    team=None, user=None, anon_key=None, replay_slot=None, client_occurred_at=None,
 ):
     """Persist one immutable event before mutating the compatibility snapshot.
 
@@ -534,6 +538,7 @@ def record_timing_event(
         'action': action,
         'seq': int(seq or 0),
         'claimed_ms': int(claimed_ms) if claimed_ms is not None else None,
+        'client_occurred_at': client_occurred_at,
     }
     try:
         with transaction.atomic():
@@ -570,6 +575,7 @@ def apply_timing_event(
     event_id: str,
     seq: int,
     claimed_ms=None,
+    client_occurred_at=None,
     now=None,
     create: bool = True,
     replay_slot=None,
@@ -586,6 +592,7 @@ def apply_timing_event(
         event_id=event_id,
         seq=seq,
         claimed_ms=claimed_ms,
+        client_occurred_at=client_occurred_at,
     )
     last_exc = None
     action_label = (action or '').strip()

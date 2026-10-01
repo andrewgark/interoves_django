@@ -4239,6 +4239,9 @@ class DailyTimingEvent(models.Model):
     action = models.CharField(max_length=16, choices=ACTION_CHOICES)
     seq = models.BigIntegerField(default=0)
     claimed_ms = models.BigIntegerField(blank=True, null=True)
+    # Optional client ordering hint for future replay.  Server-side timing
+    # remains authoritative and continues to use ``occurred_at``.
+    client_occurred_at = models.DateTimeField(blank=True, null=True)
     occurred_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

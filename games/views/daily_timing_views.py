@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+from datetime import timedelta
 
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 from django.db import OperationalError
 
@@ -32,6 +34,22 @@ def _json_error(code, http_status=400):
     body['ok'] = False
     body['error'] = code
     return JsonResponse(body, status=http_status)
+
+
+def _client_event_time(payload):
+    """Return a bounded aware client timestamp used only for replay ordering."""
+    raw = payload.get('client_occurred_at') or payload.get('occurred_at')
+    if not isinstance(raw, str):
+        return None
+    value = parse_datetime(raw.strip())
+    if value is None:
+        return None
+    if timezone.is_naive(value):
+        value = timezone.make_aware(value, timezone.utc)
+    now = timezone.now()
+    if value < now - timedelta(days=1) or value > now + timedelta(days=1):
+        return None
+    return value
 
 
 def _payload(request):
@@ -218,6 +236,7 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
             event_id=payload.get('event_id') or '',
             seq=payload.get('seq') or 0,
             claimed_ms=payload.get('claimed_ms'),
+            client_occurred_at=_client_event_time(payload),
             create=True,
             replay_slot=replay_slot,
         )
