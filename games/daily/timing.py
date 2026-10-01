@@ -168,9 +168,7 @@ def reduce_personal_timing_events(events, *, now=None) -> dict:
     ordered = sorted(
         events,
         key=lambda event: (
-            _event_value(event, 'client_occurred_at')
-            or _event_value(event, 'occurred_at')
-            or now or timezone.now(),
+            _event_time(event, fallback=now),
             int(_event_value(event, 'seq') or 0),
             str(_event_value(event, 'event_id') or ''),
         ),
@@ -184,7 +182,7 @@ def reduce_personal_timing_events(events, *, now=None) -> dict:
         action = _event_value(event, 'action')
         if action not in MUTATING_ACTIONS:
             continue
-        event_now = _event_value(event, 'occurred_at') or now or timezone.now()
+        event_now = _event_time(event, fallback=now)
         _apply_to_row(
             row,
             action=action,
@@ -211,14 +209,21 @@ def _event_value(event, name):
     return getattr(event, name, None)
 
 
+def _event_time(event, *, fallback=None):
+    return (
+        _event_value(event, 'client_occurred_at')
+        or _event_value(event, 'occurred_at')
+        or fallback
+        or timezone.now()
+    )
+
+
 def reduce_team_timing_events(events, *, now=None) -> dict:
     """Fold team events by taking the union of active session intervals."""
     ordered = sorted(
         events,
         key=lambda event: (
-            _event_value(event, 'client_occurred_at')
-            or _event_value(event, 'occurred_at')
-            or now or timezone.now(),
+            _event_time(event, fallback=now),
             int(_event_value(event, 'seq') or 0),
             str(_event_value(event, 'event_id') or ''),
         ),
@@ -261,7 +266,7 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
         action = _event_value(event, 'action')
         if action not in MUTATING_ACTIONS:
             continue
-        at = _event_value(event, 'occurred_at') or now or timezone.now()
+        at = _event_time(event, fallback=now)
         expire(at)
         sid = str(_event_value(event, 'session_id') or '')
         if not sid:
@@ -526,6 +531,11 @@ def record_timing_event(
     """
     if not event_id or not session_id or action not in MUTATING_ACTIONS:
         return
+    actor_key = _timing_event_actor_key(
+        team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
+    )
+    if not actor_key:
+        return
     values = {
         'game': game,
         'task_group': task_group,
@@ -535,6 +545,7 @@ def record_timing_event(
         'replay_slot': replay_slot,
         'session_id': str(session_id)[:128],
         'event_id': str(event_id)[:128],
+        'actor_key': actor_key,
         'action': action,
         'seq': int(seq or 0) if str(seq or 0).lstrip('-').isdigit() else 0,
         'claimed_ms': (
@@ -549,6 +560,7 @@ def record_timing_event(
             DailyTimingEvent.objects.get_or_create(
                 game=game,
                 task_group=task_group,
+                actor_key=values['actor_key'],
                 session_id=values['session_id'],
                 event_id=values['event_id'],
                 defaults=values,
@@ -560,11 +572,26 @@ def record_timing_event(
         if DailyTimingEvent.objects.filter(
             game=game,
             task_group=task_group,
+            actor_key=values['actor_key'],
             session_id=values['session_id'],
             event_id=values['event_id'],
         ).exists():
             return
         raise
+
+
+def _timing_event_actor_key(*, team=None, user=None, anon_key=None, replay_slot=None):
+    if team is not None:
+        prefix = 'team:{}'.format(team.pk)
+    elif user is not None:
+        prefix = 'user:{}'.format(user.pk)
+    elif anon_key:
+        prefix = 'anon:{}'.format(str(anon_key))
+    else:
+        return ''
+    if replay_slot is not None:
+        prefix += ':replay:{}'.format(replay_slot.pk)
+    return prefix[:160]
 
 
 def apply_timing_event(

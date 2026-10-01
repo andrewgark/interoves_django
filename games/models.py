@@ -4311,6 +4311,7 @@ class DailyTimingEvent(models.Model):
     # clients occasionally used timestamp-like IDs instead of UUIDs.
     session_id = models.CharField(max_length=128)
     event_id = models.CharField(max_length=128)
+    actor_key = models.CharField(max_length=160, default='')
     action = models.CharField(max_length=16, choices=ACTION_CHOICES)
     seq = models.BigIntegerField(default=0)
     claimed_ms = models.BigIntegerField(blank=True, null=True)
@@ -4322,7 +4323,7 @@ class DailyTimingEvent(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['game', 'task_group', 'session_id', 'event_id'],
+                fields=['game', 'task_group', 'actor_key', 'session_id', 'event_id'],
                 name='uniq_daily_timing_event_id',
             ),
             models.CheckConstraint(

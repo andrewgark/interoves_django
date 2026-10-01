@@ -227,16 +227,34 @@ class DailyTimingDomainTests(TestCase):
                     team_timing_key='invalid-actor',
                 )
 
-    def test_event_recording_does_not_hide_invalid_actor_constraint(self):
-        with self.assertRaises(IntegrityError):
-            record_timing_event(
-                game=self.game,
-                task_group=self.tg,
-                action=ACTION_START,
-                session_id=str(uuid4()),
-                event_id='invalid-actor',
-                seq=1,
-            )
+    def test_event_recording_skips_invalid_actor_shape(self):
+        record_timing_event(
+            game=self.game,
+            task_group=self.tg,
+            action=ACTION_START,
+            session_id=str(uuid4()),
+            event_id='invalid-actor',
+            seq=1,
+        )
+        self.assertFalse(DailyTimingEvent.objects.filter(event_id='invalid-actor').exists())
+
+    def test_event_identity_is_scoped_to_actor(self):
+        session_id = str(uuid4())
+        record_timing_event(
+            game=self.game, task_group=self.tg, user=self.user,
+            action=ACTION_START, session_id=session_id, event_id='same-event', seq=1,
+        )
+        record_timing_event(
+            game=self.game, task_group=self.tg, anon_key=self.anon,
+            action=ACTION_START, session_id=session_id, event_id='same-event', seq=1,
+        )
+        self.assertEqual(
+            DailyTimingEvent.objects.filter(
+                game=self.game, task_group=self.tg,
+                session_id=session_id, event_id='same-event',
+            ).count(),
+            2,
+        )
 
     def test_continuous_solve_accumulates_from_server_clock(self):
         sid = uuid4()
