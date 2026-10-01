@@ -150,6 +150,7 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
             return False
         resolver_match = getattr(request, 'resolver_match', None)
         route_name = getattr(resolver_match, 'url_name', '') if resolver_match else ''
+        method = str(getattr(request, 'method', '') or 'UNKNOWN')[:12]
         user_label = 'anonymous'
         try:
             user = getattr(request, 'user', None)
@@ -164,6 +165,7 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
                 timezone.localtime(timezone.now()).strftime('%d.%m.%Y %H:%M:%S'),
             ),
             'Статус: <b>{}</b>'.format(status_code),
+            'Метод: <b>{}</b>'.format(_escape(method)),
             'Путь: <code>{}</code>'.format(_escape(path)),
             'Маршрут: {}'.format(_escape(route_name or '—')),
             'Пользователь: {}'.format(_escape(user_label)),
