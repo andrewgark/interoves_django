@@ -10395,6 +10395,10 @@ html.new-ui-dark .new-word-salad__links line {
   margin-top: 0.45rem;
 }
 
+.new-word-salad__orientation[hidden] {
+  display: none;
+}
+
 .new-word-salad__orientation-btn {
   appearance: none;
   display: inline-flex;

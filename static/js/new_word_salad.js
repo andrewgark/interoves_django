@@ -651,10 +651,10 @@
       }
 
       function syncSolvedState() {
-        var complete = wordRows().length > 0 && wordRows('.new-word-salad__word:not(.is-solved)').length === 0;
-        var hasActiveCells = cells.some(function (cell) { return cell.classList.contains('is-active'); });
+        var complete = root.getAttribute('data-word-salad-complete') === '1' ||
+          (wordRows().length > 0 && wordRows('.new-word-salad__word:not(.is-solved)').length === 0);
         if (solvedEl) solvedEl.hidden = !complete;
-        if (orientationEl) orientationEl.hidden = complete && !hasActiveCells;
+        if (orientationEl) orientationEl.hidden = complete;
       }
 
       function setCellActive(cell, active) {
