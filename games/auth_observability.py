@@ -15,6 +15,8 @@ from django.contrib.auth.signals import user_logged_in, user_logged_out, user_lo
 from django.dispatch import receiver
 from django.utils import timezone
 
+from games.runtime import deployment_environment
+
 
 logger = logging.getLogger('interoves.auth')
 _SESSION_FINGERPRINT_HEX_LENGTH = 20
@@ -183,6 +185,7 @@ def log_auth_event(event: str, request=None, **fields) -> None:
         'event_name': event,
         'timestamp': timezone.now().isoformat(),
         'instance': _instance_identifier(),
+        'environment': deployment_environment(),
         'deploy_version': getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unavailable',
         'user_agent': _request_user_agent(request),
         **_request_fields(request),

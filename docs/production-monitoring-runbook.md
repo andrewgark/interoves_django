@@ -45,7 +45,7 @@ AWS_PROFILE=interoves AWS_DEFAULT_REGION=eu-central-1 \
 
 AWS_PROFILE=interoves AWS_DEFAULT_REGION=eu-central-1 \
   aws elasticbeanstalk describe-environments --application-name interoves \
-  --environment-names interoves-web-green
+  --environment-names interoves-web-green-lb
 ```
 
 ## Recheck rollback

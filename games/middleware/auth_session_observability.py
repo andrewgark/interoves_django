@@ -27,6 +27,7 @@ from games.auth_observability import (
     log_post_request,
     session_fingerprint,
 )
+from games.runtime import deployment_environment
 from games.middleware.request_timing import timing_phase
 
 
@@ -58,6 +59,7 @@ def _request_error_context(request) -> dict:
             or socket.gethostname()
             or 'unknown'
         ),
+        'environment': deployment_environment(),
         'deploy_version': getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unavailable',
         'duration_ms': elapsed_ms,
     }
@@ -91,13 +93,14 @@ def _log_http_500_exception(request, exception) -> None:
     db_code, db_args = _db_error_details(exception)
     logger.exception(
         'http_500_uncaught request_id=%s method=%s path=%s route=%s '
-        'task_id=%s instance=%s deploy_version=%s duration_ms=%s '
+        'task_id=%s environment=%s instance=%s deploy_version=%s duration_ms=%s '
         'exception_type=%s db_error_code=%s db_error_args=%s',
         context['request_id'],
         context['method'],
         context['path'],
         context['route'],
         context['task_id'],
+        context['environment'],
         context['instance'],
         context['deploy_version'],
         _format_duration(context['duration_ms']),
@@ -111,13 +114,14 @@ def _log_http_500_response(request, status_code) -> None:
     context = _request_error_context(request)
     logger.error(
         'http_5xx_response status=%s request_id=%s method=%s path=%s route=%s '
-        'task_id=%s instance=%s deploy_version=%s duration_ms=%s',
+        'task_id=%s environment=%s instance=%s deploy_version=%s duration_ms=%s',
         status_code,
         context['request_id'],
         context['method'],
         context['path'],
         context['route'],
         context['task_id'],
+        context['environment'],
         context['instance'],
         context['deploy_version'],
         _format_duration(context['duration_ms']),

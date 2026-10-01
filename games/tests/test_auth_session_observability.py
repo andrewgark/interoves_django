@@ -397,14 +397,16 @@ class AuthSessionObservabilityTests(TestCase):
         def failing_view(_request):
             raise mock_exception
 
-        with self.assertLogs('application', level='ERROR') as logs:
-            with self.assertRaises(OperationalError):
-                AuthenticatedRequestAuditMiddleware(failing_view)(request)
+        with patch.dict('os.environ', {'INTEROVES_ENVIRONMENT': 'blue'}, clear=False):
+            with self.assertLogs('application', level='ERROR') as logs:
+                with self.assertRaises(OperationalError):
+                    AuthenticatedRequestAuditMiddleware(failing_view)(request)
 
         output = '\n'.join(record.getMessage() for record in logs.records)
         self.assertIn('http_500_uncaught', output)
         self.assertIn('uncaught-500-id', output)
         self.assertIn('path=/broken/', output)
+        self.assertIn('environment=blue', output)
         self.assertIn('exception_type=django.db.utils.OperationalError', output)
         self.assertIn('db_error_code=1213', output)
         self.assertIn('deadlock while updating task', output)

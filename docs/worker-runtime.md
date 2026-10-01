@@ -13,11 +13,11 @@ normalizes the mode and validates configuration without ever printing values.
 
 ## Current runtime state
 
-Identity merge is currently consumed by the ECS service
-`interoves-identity-ecs` from the `interoves-identity` queue.  The old EB
-identity environment is legacy/compatibility state.  Other workers may still
-use EB or ECS depending on the live deployment; do not infer their runtime
-from the directory name alone.
+All production workers are currently consumed by ECS services in the
+`interoves-workers` cluster. `identity` and `integrations` run on Fargate
+On-Demand; `background` and `recheck` run on Fargate Spot. The old EB worker
+environments are legacy/compatibility state and must not be enabled against
+the same queues.
 
 The registry and configuration checks are read-only:
 
@@ -31,7 +31,7 @@ The registry and configuration checks are read-only:
 `INTEROVES_CONFIG_PROFILE` are optional compatibility controls.  If the worker
 name is absent, it is inferred from the existing `INTEROVES_RUNTIME_ROLE`.
 
-The first non-EB adapter is now available as a compatibility SQS poller:
+The ECS adapter is the production SQS poller:
 
 ```bash
 ../venv/interoves_django/bin/python manage.py run_worker \
@@ -40,10 +40,10 @@ The first non-EB adapter is now available as a compatibility SQS poller:
 
 It invokes the existing private worker view and applies a conservative
 acknowledgement policy: 2xx deletes the message, ordinary 4xx drops a poison
-message, 409 and 5xx leave a message for SQS retry.  This is suitable for a controlled ECS/Green
-process proof of concept; it is not a production deployment until the task IAM
-role, queue URL delivery, visibility timeout, alarms, and graceful shutdown
-are provisioned.
+message, and 409/5xx leave a message for SQS retry. In production its task
+definition receives queue and secret references; the task role reads only the
+exact SQS and Secrets Manager resources for that worker. Visibility timeout,
+graceful shutdown and CloudWatch logs are part of the service configuration.
 
 Lambda has the same compatibility boundary through
 `games.worker_lambda.handle_sqs_event`.  It returns partial batch failures for
@@ -81,6 +81,11 @@ value shape is invalid.
 The process IAM role must have `secretsmanager:GetSecretValue` for the selected
 secret.  The same loader is imported before Django settings are evaluated, so
 settings, EB sqsd, ECS, Lambda, and a Green supervisor see the same values.
+
+For web error attribution, EB environments explicitly set
+`INTEROVES_ENVIRONMENT=green` or `INTEROVES_ENVIRONMENT=blue`. The value is
+included in structured 5xx logs and admin alerts together with instance and
+deploy version.
 
 SSM Parameter Store remains a later addition for non-secret configuration; it
 is intentionally not mixed into this first loader so a missing optional

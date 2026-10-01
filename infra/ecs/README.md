@@ -15,6 +15,12 @@ Sizing and quiet/normal/game-day mode defaults are recorded in
 production switch. The deploy command must validate that the selected mode is
 allowed for the worker before applying it.
 
+Current production services are `interoves-identity-ecs` (Fargate),
+`interoves-background-ecs` (Fargate Spot), `interoves-integrations-ecs`
+(Fargate), and `interoves-recheck-ecs` (Fargate Spot). Each is currently
+`1/1`; queue and DLQ names are maintained in `docs/worker-queues.md`. The
+legacy EB worker environments are not consumers.
+
 The template does not create a cluster, VPC, subnets, security groups, queues,
 or IAM roles. Those resources are intentionally supplied as parameters or
 managed separately so deploying a worker cannot accidentally modify the

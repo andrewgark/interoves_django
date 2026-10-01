@@ -337,12 +337,14 @@ class TelegramNotifyTests(TestCase):
         request.interoves_request_id = 'telegram-diagnostic-id'
         request._interoves_elapsed_ms = 123.4
 
-        self.assertTrue(notify_admin_site_error(request, exception=RuntimeError('database down')))
+        with patch.dict('os.environ', {'INTEROVES_ENVIRONMENT': 'green'}, clear=False):
+            self.assertTrue(notify_admin_site_error(request, exception=RuntimeError('database down')))
 
         text = send_message_mock.call_args.args[0]
         self.assertIn('Тип: необработанное исключение', text)
         self.assertIn('Request ID: <code>telegram-diagnostic-id</code>', text)
         self.assertIn('Инстанс: <code>green-test-instance</code>', text)
+        self.assertIn('Среда: <code>green</code>', text)
         self.assertIn('Версия: <code>deploy-test</code>', text)
         self.assertIn('Время обработки: 123 мс', text)
         self.assertIn('RuntimeError: database down', text)

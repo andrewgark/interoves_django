@@ -36,6 +36,7 @@ from games.telegram.game_urls import (
     task_play_url,
 )
 from games.task_titles import task_display_name
+from games.runtime import deployment_environment
 
 logger = logging.getLogger('application')
 
@@ -188,6 +189,7 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
         instance = getattr(settings, 'INSTANCE_ID', '') or socket.gethostname() or 'unknown'
         deploy_version = getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unknown'
         lines.append('Инстанс: <code>{}</code>'.format(_escape(instance)))
+        lines.append('Среда: <code>{}</code>'.format(_escape(deployment_environment())))
         lines.append('Версия: <code>{}</code>'.format(_escape(deploy_version)))
         duration_ms = getattr(request, '_interoves_elapsed_ms', None)
         if duration_ms is not None:
