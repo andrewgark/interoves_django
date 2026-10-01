@@ -8,6 +8,7 @@ from games.difficulty_refresh import (
     run_daily_difficulty_refresh,
 )
 from games.cron_lock import distributed_cron_lock
+from games.subscription_gifts import expire_subscription_gifts
 
 
 class Command(BaseCommand):
@@ -62,6 +63,9 @@ class Command(BaseCommand):
             results = refresh_due_daily_difficulties(dry_run=True, **kwargs)
         else:
             results = run_daily_difficulty_refresh(worker='cron', **kwargs)
+            expired_gifts = expire_subscription_gifts()
+            if expired_gifts:
+                self.stdout.write('Expired {} subscription gift(s).'.format(expired_gifts))
         if not results:
             self.stdout.write('No daily difficulties were due.')
             return
