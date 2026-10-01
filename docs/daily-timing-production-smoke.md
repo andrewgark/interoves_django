@@ -7,7 +7,9 @@
 - `Profile.is_hidden = true`;
 - `Team.is_hidden = true`;
 - `Team.is_tester = true`;
-- аккаунт создан с unusable password, пока credentials не заведены в защищённом окружении.
+- аккаунт имеет бессрочный manual Club entitlement только для smoke-доступа;
+- credentials хранятся в AWS Secrets Manager под именем
+  `interoves/production/daily-timing-smoke`.
 
 Эти объекты нельзя использовать для обычной игры, публичных результатов или
 ручных пользовательских сценариев. Smoke должен работать только с ними и с
@@ -36,6 +38,13 @@
 нужно задать через согласованный secret/CI secret и передать smoke-скрипту через
 `DAILY_TIMING_SMOKE_PASSWORD`. Username и team name можно брать из этого файла.
 
+Green role имеет узкое право `secretsmanager:GetSecretValue` только на этот
+secret; запись и доступ к другим secrets не разрешены.
+
 Не запускайте обычный Django `manage.py test` против production: тестовый класс
 создаёт и удаляет тестовую БД. Для production используется отдельный live-smoke
 с реальными HTTP/browser-сессиями и только этим скрытым actor.
+
+Последняя live-проверка: 2026-10-01, Green deploy `0c6e9b5` — две HTTPS-сессии
+стартовали одновременно, первая локально остановилась, вторая продолжила,
+итоговый `frozen_ms = 2354`. Smoke завершился `PRODUCTION DAILY TIMING SMOKE OK`.
