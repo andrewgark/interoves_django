@@ -57,9 +57,28 @@ if [[ -z "$IMAGE_COMMIT" ]]; then
 fi
 [[ -n "$IMAGE_COMMIT" ]] || { echo "Could not determine image commit; pass --image-commit SHA." >&2; exit 2; }
 
-aws_cmd() { AWS_PROFILE="$AWS_PROFILE_NAME" AWS_DEFAULT_REGION="$REGION" aws "$@"; }
 PYTHON="$ROOT/../venv/interoves_django/bin/python"
 [[ -x "$PYTHON" ]] || { echo "Missing project venv: $PYTHON" >&2; exit 2; }
+
+# Use a dedicated least-privilege deploy role. The base interoves profile is
+# only used to assume it; default/root credentials are never needed by deploy.
+DEPLOY_ROLE_ARN="${INTEROVES_ECS_DEPLOY_ROLE_ARN:-arn:aws:iam::916000456640:role/interoves-ecs-deployer}"
+ROLE_SESSION="interoves-ecs-deploy-$(hostname -s)-$$"
+assume_json="$(AWS_PROFILE="$AWS_PROFILE_NAME" AWS_DEFAULT_REGION="$REGION" aws sts assume-role \
+    --role-arn "$DEPLOY_ROLE_ARN" --role-session-name "$ROLE_SESSION" \
+    --duration-seconds 3600 --output json)"
+read -r AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN < <(
+    printf '%s' "$assume_json" | "$PYTHON" -c '
+import json, sys
+c = json.load(sys.stdin)["Credentials"]
+print(c["AccessKeyId"], c["SecretAccessKey"], c["SessionToken"])
+'
+)
+export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN
+unset AWS_PROFILE
+aws_cmd() {
+    AWS_DEFAULT_REGION="$REGION" aws "$@"
+}
 
 ENVIRONMENT="interoves-${WORKER}-worker"
 [[ "$WORKER" == recheck ]] && ENVIRONMENT=interoves-recheck-worker
