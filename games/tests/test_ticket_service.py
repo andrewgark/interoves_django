@@ -40,6 +40,24 @@ class TicketServiceTests(TestCase):
         defaults.update(kwargs)
         return TicketRequest.objects.create(**defaults)
 
+    def test_retired_legacy_check_order_cannot_accept_ticket(self):
+        ticket = self._pending(yookassa_id='legacy-payment')
+
+        response = self.client.post(
+            '/old/check-order/',
+            data={
+                'event': 'payment.succeeded',
+                'description': 'legacy-payment',
+            },
+            content_type='application/json',
+        )
+
+        ticket.refresh_from_db()
+        self.team.refresh_from_db()
+        self.assertEqual(response.status_code, 410)
+        self.assertEqual(ticket.status, 'Pending')
+        self.assertEqual(self.team.tickets, 1)
+
     def test_accept_credits_team_tickets(self):
         ticket = self._pending()
         result = accept_ticket_request(ticket, yookassa_id='pay-1', source='test')

@@ -4,7 +4,6 @@ import logging
 from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
 
 from games.exception import InvalidFormException
@@ -79,17 +78,13 @@ def request_ticket(request):
 
 def check_order(request):
     """
-    Legacy webhook endpoint (was used with description tricks).
-    Kept for backward compatibility; new integration should use yookassa_webhook().
+    Retired legacy webhook endpoint.
+
+    The old implementation trusted a client-supplied ``description`` and could
+    grant tickets without asking YooKassa to verify the payment. Keep the URL
+    recognizable for old callers, but never process its payload.
     """
-    event_json = json.loads(request.body)
-    if event_json['event'] != "payment.succeeded":
-        return HttpResponse(status=200)
-    ticket_request = get_object_or_404(TicketRequest, yookassa_id=event_json['description'])
-    with transaction.atomic():
-        locked = TicketRequest.objects.select_for_update().select_related('team').get(pk=ticket_request.pk)
-        accept_ticket_request(locked, source='legacy_check_order')
-    return HttpResponse(status=200)
+    return HttpResponse(status=410)
 
 
 @csrf_exempt
