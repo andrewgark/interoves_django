@@ -9,6 +9,8 @@
   var lastSaladRoot = null;
   var pendingLatestAnimate = null;
   var pendingSelection = null;
+  var GRID_SIZE = 4;
+  var GRID_CELL_COUNT = GRID_SIZE * GRID_SIZE;
 
   // Completion responses for every daily format use this shared projection.
   // Keep the control hidden in the initial HTML, then reveal it immediately
@@ -49,6 +51,50 @@
       }
     }
     return pairs;
+  }
+
+  function identityOrientation() {
+    return Array.from({ length: GRID_CELL_COUNT }, function (_, index) { return index; });
+  }
+
+  function transformOrientation(permutation, operation) {
+    var source = Array.isArray(permutation) && permutation.length === GRID_CELL_COUNT
+      ? permutation : identityOrientation();
+    var result = Array(GRID_CELL_COUNT);
+    var row;
+    var col;
+    var sourceRow;
+    var sourceCol;
+    for (row = 0; row < GRID_SIZE; row += 1) {
+      for (col = 0; col < GRID_SIZE; col += 1) {
+        sourceRow = row;
+        sourceCol = col;
+        if (operation === 'rotate-clockwise') {
+          sourceRow = GRID_SIZE - 1 - col;
+          sourceCol = row;
+        } else if (operation === 'rotate-counterclockwise') {
+          sourceRow = col;
+          sourceCol = GRID_SIZE - 1 - row;
+        } else if (operation === 'flip-horizontal') {
+          sourceCol = GRID_SIZE - 1 - col;
+        } else if (operation === 'flip-vertical') {
+          sourceRow = GRID_SIZE - 1 - row;
+        }
+        result[row * GRID_SIZE + col] = source[sourceRow * GRID_SIZE + sourceCol];
+      }
+    }
+    return result;
+  }
+
+  function isValidOrientation(value) {
+    if (!Array.isArray(value) || value.length !== GRID_CELL_COUNT) return false;
+    var seen = {};
+    return value.every(function (raw) {
+      var index = Number(raw);
+      if (!Number.isInteger(index) || index < 0 || index >= GRID_CELL_COUNT || seen[index]) return false;
+      seen[index] = true;
+      return true;
+    });
   }
 
   function cellIsSelectable(isActive, index) {
@@ -397,6 +443,16 @@
     }
   }
 
+  function orientationStorageKey(root) {
+    try {
+      return 'interoves_word_salad_orientation_v1:' +
+        (root.getAttribute('data-task-id') || '') + ':' +
+        (root.getAttribute('data-task-revision') || '');
+    } catch (error) {
+      return '';
+    }
+  }
+
   function previewStorageKey(root) {
     try {
       var url = new URL(window.location.href);
@@ -458,12 +514,51 @@
       var pathLine = root.querySelector('[data-word-salad-path-line]');
       var linksSvg = root.querySelector('[data-word-salad-links-svg]');
       var solvedEl = root.querySelector('[data-word-salad-solved]');
+      var orientationButtons = Array.prototype.slice.call(root.querySelectorAll('[data-word-salad-transform]'));
+      var gridRows = Array.prototype.slice.call(root.querySelectorAll('.new-word-salad__row'));
+      var orientationKey = orientationStorageKey(root);
+      var orientation = identityOrientation();
       var wordPoints = Number(root.getAttribute('data-word-points'));
       if (!isFinite(wordPoints) || wordPoints < 0) wordPoints = 0;
       var hintPenalty = Number(root.getAttribute('data-hint-penalty'));
       if (!isFinite(hintPenalty) || hintPenalty < 0) hintPenalty = 0;
       var isPreview = !!root.closest('.support-preview-readonly');
       var storageKey = isPreview ? previewStorageKey(root) : '';
+
+      function restoreOrientation() {
+        if (!orientationKey) return;
+        try {
+          var stored = JSON.parse(localStorage.getItem(orientationKey) || 'null');
+          if (isValidOrientation(stored)) orientation = stored.map(Number);
+        } catch (error) {}
+      }
+
+      function saveOrientation() {
+        if (!orientationKey) return;
+        try { localStorage.setItem(orientationKey, JSON.stringify(orientation)); } catch (error) {}
+      }
+
+      function renderOrientation() {
+        orientation.forEach(function (cellIndexValue, slot) {
+          var cell = cellByIndex[cellIndexValue];
+          var row = gridRows[Math.floor(slot / GRID_SIZE)];
+          if (cell && row) row.appendChild(cell);
+        });
+        window.requestAnimationFrame(renderGridOverlays);
+      }
+
+      function setOrientationButtonsDisabled(disabled) {
+        orientationButtons.forEach(function (button) { button.disabled = !!disabled; });
+      }
+
+      function applyOrientation(operation) {
+        if (busy) return;
+        activeDragRoot = null;
+        clearSelection();
+        orientation = transformOrientation(orientation, operation);
+        renderOrientation();
+        saveOrientation();
+      }
 
       function cellIndex(cell) {
         var value = parseInt(cell && cell.getAttribute('data-index'), 10);
@@ -980,6 +1075,7 @@
 
       function setChecking(checking) {
         root.classList.toggle('is-checking', !!checking);
+        setOrientationButtonsDisabled(checking);
         if (checking) root.setAttribute('aria-busy', 'true');
         else root.removeAttribute('aria-busy');
       }
@@ -1361,11 +1457,18 @@
       };
 
       if (resetBtn) resetBtn.addEventListener('click', clearSelection);
+      orientationButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+          applyOrientation(button.getAttribute('data-word-salad-transform'));
+        });
+      });
       if (!isPreview) {
         rareWords = readRarePills();
         extraWords = readExtraPills();
       }
       if (isPreview) restorePreviewState();
+      restoreOrientation();
+      renderOrientation();
       restoreExtraWords();
       restorePendingSelection();
       syncStoredFinds();
@@ -1463,6 +1566,9 @@
     promoteConfiguredRares: promoteConfiguredRares,
     shouldCommitExtra: shouldCommitExtraWord,
     keepSelectionAfterFind: keepSelectionAfterFind,
+    identityOrientation: identityOrientation,
+    transformOrientation: transformOrientation,
+    isValidOrientation: isValidOrientation,
     hasWordContinuation: hasWordContinuation,
     offerShareFromPath: offerShareFromPath,
     stampOfferShare: stampOfferShare,

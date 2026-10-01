@@ -13,6 +13,39 @@ function drag(indices) {
 assert.strictEqual(Path.cellsAreAdjacent(0, 1), true);
 assert.strictEqual(Path.cellsAreAdjacent(0, 5), true);
 assert.strictEqual(Path.cellsAreAdjacent(0, 2), false);
+assert.deepStrictEqual(Path.identityOrientation(), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+assert.deepStrictEqual(
+  Path.transformOrientation(Path.identityOrientation(), 'rotate-clockwise'),
+  [12, 8, 4, 0, 13, 9, 5, 1, 14, 10, 6, 2, 15, 11, 7, 3]
+);
+assert.deepStrictEqual(
+  Path.transformOrientation(Path.identityOrientation(), 'rotate-counterclockwise'),
+  [3, 7, 11, 15, 2, 6, 10, 14, 1, 5, 9, 13, 0, 4, 8, 12]
+);
+assert.deepStrictEqual(
+  Path.transformOrientation(Path.identityOrientation(), 'flip-horizontal'),
+  [3, 2, 1, 0, 7, 6, 5, 4, 11, 10, 9, 8, 15, 14, 13, 12]
+);
+assert.deepStrictEqual(
+  Path.transformOrientation(Path.identityOrientation(), 'flip-vertical'),
+  [12, 13, 14, 15, 8, 9, 10, 11, 4, 5, 6, 7, 0, 1, 2, 3]
+);
+assert.deepStrictEqual(
+  Path.transformOrientation(
+    Path.transformOrientation(Path.identityOrientation(), 'rotate-clockwise'),
+    'rotate-counterclockwise'
+  ),
+  Path.identityOrientation()
+);
+assert.deepStrictEqual(
+  Path.transformOrientation(
+    Path.transformOrientation(Path.identityOrientation(), 'flip-horizontal'),
+    'flip-horizontal'
+  ),
+  Path.identityOrientation()
+);
+assert.strictEqual(Path.isValidOrientation(Path.identityOrientation()), true);
+assert.strictEqual(Path.isValidOrientation([0, 0, 1]), false);
 
 assert.deepStrictEqual(Path.neighborPairs([]), []);
 assert.deepStrictEqual(Path.neighborPairs([0]), []);
