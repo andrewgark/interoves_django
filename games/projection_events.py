@@ -97,6 +97,7 @@ def publish_projection_refresh(game_id, task_group_id, *, mode, actor_filter=Non
         return True
     queue_url = os.environ.get(QUEUE_URL_ENV, '').strip()
     if not queue_url:
+        clear_projection_refresh_mark(game_id, task_group_id)
         logger.error(
             'projection refresh skipped: queue url missing game=%s task_group=%s',
             game_id, task_group_id,

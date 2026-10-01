@@ -243,6 +243,30 @@ class DailyResultProjectionTests(TestCase):
         self.assertEqual(status, 'ok')
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('7'))
 
+    @patch.dict(os.environ, {'PROJECTION_REFRESH_EVENTS': '1'}, clear=False)
+    @patch('games.projection_events.boto3.client')
+    def test_missing_projection_queue_does_not_stick_refresh_marker(self, client):
+        from games.projection_events import (
+            _cache, _mark_key, clear_projection_refresh_mark,
+            publish_projection_refresh,
+        )
+
+        clear_projection_refresh_mark(self.game.pk, self.group.pk)
+        with patch.dict(os.environ, {'PROJECTION_REFRESH_SQS_QUEUE_URL': ''}, clear=False):
+            self.assertFalse(publish_projection_refresh(
+                self.game.pk, self.group.pk, mode='full',
+            ))
+        self.assertIsNone(_cache().get(_mark_key(self.game.pk, self.group.pk)))
+
+        with patch.dict(os.environ, {
+            'PROJECTION_REFRESH_SQS_QUEUE_URL': 'https://example/interoves-background',
+        }, clear=False):
+            self.assertTrue(publish_projection_refresh(
+                self.game.pk, self.group.pk, mode='full',
+            ))
+        self.assertEqual(client.return_value.send_message.call_count, 1)
+        clear_projection_refresh_mark(self.game.pk, self.group.pk)
+
     def test_actor_projection_skips_unlinked_group_without_breaking_commit(self):
         game = Game.objects.create(
             id='unlinked_projection_test', name='Unlinked projection test', author='test',
