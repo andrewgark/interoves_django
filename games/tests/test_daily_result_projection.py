@@ -21,7 +21,8 @@ from games.daily_result_projection import (
 )
 from games.anon_migrate import claim_and_migrate_anon_history
 from games.models import (
-    AnonAccountClaim, Attempt, DailyResultProjection, DailyResultProjectionState, Game, GameTaskGroup, HTMLPage, Project,
+    AnonAccountClaim, Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
+    DailyResultProjectionState, Game, GameTaskGroup, HTMLPage, Project,
     ChainTaskState, Hint, HintAttempt, Profile, ReplaySlot, Task, TaskGroup, HiddenAnonKey,
 )
 from games.word_salad import dump_state, score_for_state
@@ -242,6 +243,7 @@ class DailyResultProjectionTests(TestCase):
         )
         self.assertEqual(status, 'ok')
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('7'))
+        self.assertFalse(DailyResultProjectionDirtyActor.objects.exists())
 
     @patch.dict(os.environ, {'PROJECTION_REFRESH_EVENTS': '1'}, clear=False)
     @patch('games.projection_events.boto3.client')

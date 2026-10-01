@@ -15,8 +15,8 @@ from django.utils import timezone
 from games.leaderboard import actor_key
 from games.daily.registry import get_daily_game
 from games.models import (
-    Attempt, DailyResultProjection, DailyResultProjectionState, GameTaskGroup,
-    Task, Team,
+    Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
+    DailyResultProjectionState, GameTaskGroup, Task, Team,
 )
 
 logger = logging.getLogger('application')
@@ -91,7 +91,17 @@ def _state_for_update(game, task_group):
     return DailyResultProjectionState.objects.select_for_update().get(**lookup)
 
 
-def mark_projection_dirty(game, task_group, *, actor=False, full=False):
+def _actor_identity_from_filter(actor_filter):
+    if actor_filter.get('team_id') is not None:
+        return 'team', str(actor_filter['team_id'])
+    if actor_filter.get('user_id') is not None:
+        return 'user', str(actor_filter['user_id'])
+    if actor_filter.get('anon_key'):
+        return 'anon', str(actor_filter['anon_key'])
+    return None
+
+
+def mark_projection_dirty(game, task_group, *, actor=False, full=False, actor_filter=None):
     """Invalidate a release inside the caller's canonical mutation transaction.
 
     Actor refreshes are allowed to restore validity only when a prior full
@@ -115,13 +125,23 @@ def mark_projection_dirty(game, task_group, *, actor=False, full=False):
         state.is_valid = False
         if full:
             state.full_refresh_required = True
-        if actor:
-            state.pending_actor_refreshes = F('pending_actor_refreshes') + 1
         state.save(update_fields=[
             'source_revision', 'is_valid', 'full_refresh_required',
             'pending_actor_refreshes', 'completed_at',
         ])
         state.refresh_from_db(fields=['source_revision', 'pending_actor_refreshes'])
+        if actor and actor_filter:
+            identity = _actor_identity_from_filter(actor_filter)
+            if identity:
+                DailyResultProjectionDirtyActor.objects.update_or_create(
+                    game=game, task_group=task_group,
+                    actor_type=identity[0], actor_key=identity[1],
+                    defaults={'source_revision': state.source_revision},
+                )
+                state.pending_actor_refreshes = DailyResultProjectionDirtyActor.objects.filter(
+                    game=game, task_group=task_group,
+                ).count()
+                state.save(update_fields=['pending_actor_refreshes', 'completed_at'])
         return state.source_revision
 
 
@@ -261,6 +281,9 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
             'adapter_version', 'coverage_complete', 'is_valid',
             'full_refresh_required', 'pending_actor_refreshes', 'completed_at',
         ])
+        DailyResultProjectionDirtyActor.objects.filter(
+            game=game, task_group=task_group, source_revision__lte=start_revision,
+        ).delete()
     return len(entries)
 
 
@@ -281,22 +304,22 @@ def schedule_actor_projection(
         actor_filter = {'team__isnull': True, 'user__isnull': True, 'anon_key': str(anon_key)}
     else:
         return
-    revision = mark_projection_dirty(game, task_group, actor=True)
+    revision = mark_projection_dirty(
+        game, task_group, actor=True, actor_filter=actor_filter,
+    )
     if revision is None:
         return
     from games.projection_events import events_enabled, publish_projection_refresh
 
     if events_enabled():
         transaction.on_commit(
-            lambda game_id=game.pk, group_id=task_group.pk, filt=actor_filter, rev=revision:
-            publish_projection_refresh(
-                game_id, group_id, mode='actor', actor_filter=filt, revision=rev,
-            )
+            lambda game_id=game.pk, group_id=task_group.pk:
+            publish_projection_refresh(game_id, group_id, mode='actor')
         )
         return
     transaction.on_commit(
-        lambda game_id=game.pk, group_id=task_group.pk, filt=actor_filter, rev=revision:
-        _refresh_actor_by_ids(game_id, group_id, filt, expected_revision=rev)
+        lambda game_id=game.pk, group_id=task_group.pk:
+        _refresh_dirty_actors(game_id, group_id)
     )
 
 
@@ -352,7 +375,7 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
     game = Game.objects.filter(pk=game_id).first()
     group = TaskGroup.objects.filter(pk=group_id).first()
     if game is None or group is None:
-        return
+        return False
     results = _canonical_group_results(game, group, actor_filter=actor_filter)
     try:
         with transaction.atomic():
@@ -380,15 +403,17 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
                         actor_type=actor_data['actor_type'], actor_key=actor_data['actor_key'],
                         defaults=defaults,
                     )
-            state.pending_actor_refreshes = max(0, int(state.pending_actor_refreshes or 0) - 1)
             if (
                 expected_revision == state.source_revision
                 and state.coverage_complete
                 and not state.full_refresh_required
-                and state.pending_actor_refreshes == 0
+                and not DailyResultProjectionDirtyActor.objects.filter(
+                    game=game, task_group=group,
+                ).exists()
             ):
                 state.is_valid = True
-            state.save(update_fields=['pending_actor_refreshes', 'is_valid', 'completed_at'])
+            state.save(update_fields=['is_valid', 'completed_at'])
+        return True
     except Exception:
         logger.exception(
             'daily_result_projection_actor_refresh_failed game=%s task_group=%s filter=%s',
@@ -396,18 +421,53 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
         )
         with transaction.atomic():
             state = _state_for_update(game, group)
-            state.pending_actor_refreshes = max(0, int(state.pending_actor_refreshes or 0) - 1)
             state.is_valid = False
             state.full_refresh_required = True
             state.save(update_fields=[
-                'pending_actor_refreshes', 'is_valid', 'full_refresh_required', 'completed_at',
+                'is_valid', 'full_refresh_required', 'completed_at',
             ])
+        return False
+
+
+def _refresh_dirty_actors(game_id, group_id):
+    """Refresh a snapshot; newer revisions survive the conditional delete."""
+    from games.models import Game, TaskGroup
+
+    rows = list(DailyResultProjectionDirtyActor.objects.filter(
+        game_id=game_id, task_group_id=group_id,
+    ).values('actor_type', 'actor_key', 'source_revision'))
+    for row in rows:
+        actor_filter = {
+            'team_id': int(row['actor_key']) if row['actor_type'] == 'team' else None,
+            'user_id': int(row['actor_key']) if row['actor_type'] == 'user' else None,
+            'anon_key': row['actor_key'] if row['actor_type'] == 'anon' else None,
+        }
+        if not _refresh_actor_by_ids(
+            game_id, group_id, actor_filter,
+            expected_revision=row['source_revision'],
+        ):
+            continue
+        DailyResultProjectionDirtyActor.objects.filter(
+            game_id=game_id, task_group_id=group_id,
+            actor_type=row['actor_type'], actor_key=row['actor_key'],
+            source_revision__lte=row['source_revision'],
+        ).delete()
+    game = Game.objects.get(pk=game_id)
+    group = TaskGroup.objects.get(pk=group_id)
+    with transaction.atomic():
+        state = _state_for_update(game, group)
+        state.pending_actor_refreshes = DailyResultProjectionDirtyActor.objects.filter(
+            game_id=game_id, task_group_id=group_id,
+        ).count()
+        if state.pending_actor_refreshes == 0 and state.coverage_complete and not state.full_refresh_required:
+            state.is_valid = True
+        state.save(update_fields=['pending_actor_refreshes', 'is_valid', 'completed_at'])
 
 
 def _projection_actor_from_filter(actor_filter):
-    if actor_filter.get('team_id'):
+    if actor_filter.get('team_id') is not None:
         return {'team_id': actor_filter['team_id']}
-    if actor_filter.get('user_id'):
+    if actor_filter.get('user_id') is not None:
         return {'user_id': actor_filter['user_id']}
     if actor_filter.get('anon_key'):
         return {'anon_key': actor_filter['anon_key']}

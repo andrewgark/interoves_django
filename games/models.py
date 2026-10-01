@@ -856,6 +856,28 @@ class DailyResultProjectionState(models.Model):
     class Meta:
         constraints = [models.UniqueConstraint(fields=('game', 'task_group'), name='uniq_daily_proj_state_release')]
 
+
+class DailyResultProjectionDirtyActor(models.Model):
+    """Durable optimistic work item for one actor projection refresh."""
+    game = models.ForeignKey(Game, related_name='daily_result_projection_dirty_actors', on_delete=models.CASCADE)
+    task_group = models.ForeignKey(TaskGroup, related_name='daily_result_projection_dirty_actors', on_delete=models.CASCADE)
+    actor_type = models.CharField(max_length=8)
+    actor_key = models.CharField(max_length=160)
+    source_revision = models.PositiveBigIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=('game', 'task_group', 'actor_type', 'actor_key'),
+            name='uniq_daily_proj_dirty_actor',
+        )]
+        indexes = [models.Index(
+            fields=('game', 'task_group', 'source_revision'),
+            name='games_drp_dirty_release_idx',
+        )]
+
+
 class DailyGameDifficulty(models.Model):
     """Cached, explainable difficulty for one scheduled daily-game edition.
 

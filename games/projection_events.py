@@ -1,8 +1,8 @@
 """SQS refresh for one dirty result projection.
 
 Gameplay marks the release in MySQL, then publishes one message. The body
-names the release only. Actor identity stays in Redis until the worker
-drains it. A second mark while a message is outstanding is coalesced.
+names the release only. Actor identity is durable in MySQL; Redis only
+coalesces wake-up messages.
 """
 
 from __future__ import annotations
@@ -43,26 +43,13 @@ def _actors_key(game_id, task_group_id):
 
 
 def push_actor_refresh(game_id, task_group_id, actor_filter, revision):
-    key = _actors_key(game_id, task_group_id)
-    pending = list(_cache().get(key) or [])
-    item = {'filter': actor_filter, 'revision': revision}
-    for index, existing in enumerate(pending):
-        if existing.get('filter') == actor_filter:
-            # A later source revision includes the earlier mutation too, so
-            # one actor refresh is sufficient.  Keep the newest revision to
-            # avoid an unnecessary second projection write.
-            pending[index] = item
-            break
-    else:
-        pending.append(item)
-    _cache().set(key, pending, timeout=EVENT_TTL_SECONDS)
+    # Compatibility shim for callers from an older deploy. The durable item
+    # is written by mark_projection_dirty() in the source transaction.
+    return None
 
 
 def take_actor_refreshes(game_id, task_group_id):
-    key = _actors_key(game_id, task_group_id)
-    pending = list(_cache().get(key) or [])
-    _cache().delete(key)
-    return pending
+    return []
 
 
 def clear_projection_refresh_mark(game_id, task_group_id):
@@ -156,18 +143,14 @@ def run_named_projection_refresh(*, game_id, task_group_id, mode):
     for _pass in range(2):
         if _cache().get(_mode_key(game_id, task_group_id)) == 'full':
             mode = 'full'
-        actors = take_actor_refreshes(game_id, task_group_id)
-        if mode == 'full' or not actors:
+        if mode == 'full':
             refresh_daily_result_projection(game, group)
         else:
-            for item in actors:
-                _refresh_actor_by_ids(
-                    game.pk, group.pk, item['filter'],
-                    expected_revision=item.get('revision'),
-                )
+            from games.daily.projection import _refresh_dirty_actors
+            _refresh_dirty_actors(game.pk, group.pk)
         mode = 'actor'
         state = DailyResultProjectionState.objects.filter(game=game, task_group=group).first()
-        if projection_state_is_valid(state, game) and not _cache().get(_actors_key(game_id, task_group_id)):
+        if projection_state_is_valid(state, game):
             break
     clear_projection_refresh_mark(game_id, task_group_id)
     return 'ok'
