@@ -4344,6 +4344,10 @@ class DailyTimingEvent(models.Model):
                 fields=['game', 'task_group', 'occurred_at'],
                 name='games_dte_release_time_idx',
             ),
+            models.Index(
+                fields=['game', 'task_group', 'actor_key', 'session_id', 'occurred_at'],
+                name='games_dte_audit_order_idx',
+            ),
         ]
 
     def __str__(self):

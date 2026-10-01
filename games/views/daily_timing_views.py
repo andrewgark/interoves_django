@@ -230,6 +230,9 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
     action = raw_action.strip()
     if action not in MUTATING_ACTIONS:
         return _json_error('bad_action', 400)
+    request.interoves_timing_game_id = game.id
+    request.interoves_timing_task_group_id = task_group.id
+    request.interoves_timing_action = action
     session_id = payload.get('session_id')
     event_id = payload.get('event_id')
     if not isinstance(session_id, str) or not session_id.strip():

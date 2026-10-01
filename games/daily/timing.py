@@ -612,25 +612,31 @@ def apply_timing_event(
     create: bool = True,
     replay_slot=None,
 ) -> dict:
-    record_timing_event(
-        game=game,
-        task_group=task_group,
-        team=team,
-        user=user,
-        anon_key=anon_key,
-        replay_slot=replay_slot,
-        action=action,
-        session_id=session_id,
-        event_id=event_id,
-        seq=seq,
-        claimed_ms=claimed_ms,
-        client_occurred_at=client_occurred_at,
-    )
+    event_kwargs = {
+        'game': game,
+        'task_group': task_group,
+        'team': team,
+        'user': user,
+        'anon_key': anon_key,
+        'replay_slot': replay_slot,
+        'action': action,
+        'session_id': session_id,
+        'event_id': event_id,
+        'seq': seq,
+        'claimed_ms': claimed_ms,
+        'client_occurred_at': client_occurred_at,
+    }
+    # A missing-row heartbeat/pause is a rejected command, not a durable
+    # timing event. Starts/resumes may create the row, so they are recorded
+    # before the compatibility mutation.
+    record_before = action in (ACTION_START, ACTION_RESUME)
+    if record_before:
+        record_timing_event(**event_kwargs)
     last_exc = None
     action_label = (action or '').strip()
     for attempt in range(1, TIMING_DEADLOCK_ATTEMPTS + 1):
         try:
-            return _apply_timing_event_once(
+            result = _apply_timing_event_once(
                 game=game,
                 task_group=task_group,
                 user=user,
@@ -645,6 +651,9 @@ def apply_timing_event(
                 create=create,
                 replay_slot=replay_slot,
             )
+            if not record_before and result.get('exists'):
+                record_timing_event(**event_kwargs)
+            return result
         except OperationalError as exc:
             last_exc = exc
             if not _is_mysql_lock_retryable(exc):

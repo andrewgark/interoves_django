@@ -173,6 +173,15 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
                 'необработанное исключение' if exception is not None else 'готовый HTTP-ответ',
             ),
         ]
+        timing_game = getattr(request, 'interoves_timing_game_id', '')
+        timing_task_group = getattr(request, 'interoves_timing_task_group_id', '')
+        timing_action = getattr(request, 'interoves_timing_action', '')
+        if timing_game or timing_task_group or timing_action:
+            lines.append('Timing: game={} task_group={} action={}'.format(
+                _escape(timing_game or '—'),
+                _escape(timing_task_group or '—'),
+                _escape(timing_action or '—'),
+            ))
         request_id = getattr(request, 'interoves_request_id', '')
         if request_id:
             lines.append('Request ID: <code>{}</code>'.format(_escape(request_id)))
