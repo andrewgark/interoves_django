@@ -3,10 +3,10 @@ import logging
 from dataclasses import dataclass
 from datetime import timedelta
 
-from django.db.models import Q
+from django.db.models import F, Q
 from django.utils import timezone
 
-from games.models import TicketRequest
+from games.models import Team, TicketRequest
 
 logger = logging.getLogger(__name__)
 
@@ -110,10 +110,13 @@ def accept_ticket_request(
             no_team=True,
         )
 
-    team = ticket_request.team
     tickets_credited = int(ticket_request.tickets or 0)
-    team.tickets = (team.tickets or 0) + tickets_credited
-    team.save(update_fields=['tickets'])
+    # TicketRequest is locked by the caller, but two different payments for
+    # the same team can still be accepted concurrently. Keep the increment
+    # atomic so those credits cannot overwrite one another.
+    Team.objects.filter(pk=ticket_request.team_id).update(
+        tickets=F('tickets') + tickets_credited,
+    )
     logger.info(
         'accept_ticket_request: ticket_request_id=%s team_id=%s tickets_credited=%s source=%s',
         ticket_request.pk,
