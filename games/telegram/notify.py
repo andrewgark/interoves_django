@@ -881,12 +881,18 @@ def notify_donation_event(donation: Donation, event: str) -> bool:
 
 def fetch_recent_telegram_chat_ids() -> list[dict]:
     import requests
+    from games.telegram.api import _safe_error_text
 
     if not settings.TELEGRAM_BOT_TOKEN:
         raise ValueError('TELEGRAM_BOT_TOKEN is not configured')
 
     url = 'https://api.telegram.org/bot{}/getUpdates'.format(settings.TELEGRAM_BOT_TOKEN)
-    response = requests.get(url, timeout=10)
+    try:
+        response = requests.get(url, timeout=10)
+    except Exception as error:
+        raise RuntimeError(
+            'Telegram getUpdates failed: {}'.format(_safe_error_text(error))
+        ) from None
     response.raise_for_status()
     body = response.json()
     if not body.get('ok'):

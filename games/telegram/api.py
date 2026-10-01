@@ -153,6 +153,6 @@ def get_webhook_info() -> dict | None:
         body = response.json()
         if body.get('ok'):
             return body.get('result') or {}
-    except Exception:
-        logger.exception('Telegram getWebhookInfo failed')
+    except Exception as error:
+        logger.error('Telegram getWebhookInfo failed: %s', _safe_error_text(error))
     return None
