@@ -182,7 +182,7 @@ def reduce_personal_timing_events(events, *, now=None) -> dict:
         action = _event_value(event, 'action')
         if action not in MUTATING_ACTIONS:
             continue
-        event_now = _event_time(event, fallback=now)
+        event_now = _event_value(event, 'occurred_at') or now or timezone.now()
         _apply_to_row(
             row,
             action=action,
@@ -210,6 +210,7 @@ def _event_value(event, name):
 
 
 def _event_time(event, *, fallback=None):
+    """Ordering hint only; client time is not authoritative duration."""
     return (
         _event_value(event, 'client_occurred_at')
         or _event_value(event, 'occurred_at')
@@ -266,7 +267,7 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
         action = _event_value(event, 'action')
         if action not in MUTATING_ACTIONS:
             continue
-        at = _event_time(event, fallback=now)
+        at = _event_value(event, 'occurred_at') or now or timezone.now()
         expire(at)
         sid = str(_event_value(event, 'session_id') or '')
         if not sid:

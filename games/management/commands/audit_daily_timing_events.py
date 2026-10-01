@@ -8,6 +8,20 @@ from django.db.models import Count, Max, Min
 from games.models import DailySolveTiming, DailyTimingEvent, Game
 
 
+def row_actor_key(row):
+    if row['team_id'] is not None:
+        key = 'team:{}'.format(row['team_id'])
+    elif row['user_id'] is not None:
+        key = 'user:{}'.format(row['user_id'])
+    elif row['anon_key']:
+        key = 'anon:{}'.format(row['anon_key'])
+    else:
+        key = ''
+    if row['replay_slot_id'] is not None:
+        key += ':replay:{}'.format(row['replay_slot_id'])
+    return key[:160]
+
+
 class Command(BaseCommand):
     help = 'Audit append-only daily timing events against timing read-model rows.'
 
@@ -26,6 +40,10 @@ class Command(BaseCommand):
             row_filter['task_group_id'] = options['task_group']
 
         grouped = defaultdict(Counter)
+        missing_client_time = 0
+        seq_regressions = 0
+        unknown_actor_events = 0
+        previous_seq = {}
         event_rows = DailyTimingEvent.objects.filter(**event_filter).values(
             'game_id', 'task_group_id', 'action',
         ).annotate(count=Count('id'), min_seq=Min('seq'), max_seq=Max('seq'))
@@ -41,6 +59,24 @@ class Command(BaseCommand):
                 grouped[key].get('max_seq', row['max_seq']), row['max_seq'],
             )
 
+        diagnostic_events = DailyTimingEvent.objects.filter(**event_filter).values(
+            'game_id', 'task_group_id', 'actor_key', 'session_id', 'seq',
+            'client_occurred_at', 'occurred_at',
+        ).order_by('game_id', 'task_group_id', 'actor_key', 'session_id', 'occurred_at', 'pk')
+        for event in diagnostic_events.iterator(chunk_size=1000):
+            if event['client_occurred_at'] is None:
+                missing_client_time += 1
+            if event['actor_key'] in ('', 'unknown'):
+                unknown_actor_events += 1
+            key = (
+                event['game_id'], event['task_group_id'],
+                event['actor_key'], event['session_id'],
+            )
+            previous = previous_seq.get(key)
+            if previous is not None and event['seq'] < previous:
+                seq_regressions += 1
+            previous_seq[key] = event['seq']
+
         timing_counts = Counter(
             (row['game_id'], row['task_group_id'])
             for row in DailySolveTiming.objects.filter(**row_filter).values(
@@ -49,6 +85,27 @@ class Command(BaseCommand):
         )
         keys = sorted(set(grouped) | set(timing_counts))
         game_names = dict(Game.objects.filter(pk__in={key[0] for key in keys}).values_list('pk', 'name'))
+        row_actor_keys = {
+            (row['game_id'], row['task_group_id'], row_actor_key(row))
+            for row in DailySolveTiming.objects.filter(**row_filter).values(
+                'game_id', 'task_group_id', 'team_id', 'user_id', 'anon_key', 'replay_slot_id',
+            ).iterator(chunk_size=1000)
+        }
+        event_actor_keys = set(
+            DailyTimingEvent.objects.filter(**event_filter).values_list(
+                'game_id', 'task_group_id', 'actor_key',
+            )
+        )
+        self.stdout.write(
+            'summary events={} client_time_missing={} seq_regressions={} '
+            'unknown_actor_events={} unmatched_actor_groups={}'.format(
+                sum(counts.get('events', 0) for counts in grouped.values()),
+                missing_client_time,
+                seq_regressions,
+                unknown_actor_events,
+                len(event_actor_keys - row_actor_keys),
+            )
+        )
         for game_id, task_group_id in keys:
             counts = grouped[(game_id, task_group_id)]
             self.stdout.write(
