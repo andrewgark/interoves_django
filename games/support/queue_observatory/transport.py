@@ -57,6 +57,12 @@ def _unknown(reason):
     return {'status': 'unknown', 'reason': reason}
 
 
+def _error_reason(exc):
+    response = getattr(exc, 'response', None) or {}
+    error = response.get('Error') or {}
+    return error.get('Code') or exc.__class__.__name__
+
+
 def _count(attributes, name):
     value = attributes.get(name)
     try:
@@ -86,8 +92,9 @@ def _queue_snapshot(client, name):
             'delayed': _count(attributes, 'ApproximateNumberOfMessagesDelayed'),
         }
     except Exception as exc:  # AWS ClientError and transient network errors
-        logger.warning('Queue observability read failed queue=%s error=%s', name, exc.__class__.__name__)
-        return {'name': name, **_unknown(exc.__class__.__name__)}
+        reason = _error_reason(exc)
+        logger.warning('Queue observability read failed queue=%s error=%s', name, reason)
+        return {'name': name, **_unknown(reason)}
 
 
 def _service_snapshot(client, service):
@@ -108,8 +115,9 @@ def _service_snapshot(client, service):
             'task_definition': (row.get('taskDefinition') or '').rsplit('/', 1)[-1] or None,
         }
     except Exception as exc:
-        logger.warning('ECS observability read failed service=%s error=%s', service, exc.__class__.__name__)
-        return _unknown(exc.__class__.__name__)
+        reason = _error_reason(exc)
+        logger.warning('ECS observability read failed service=%s error=%s', service, reason)
+        return _unknown(reason)
 
 
 def _worker_snapshot(sqs, ecs, definition):

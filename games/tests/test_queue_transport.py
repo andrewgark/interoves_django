@@ -67,3 +67,18 @@ class QueueTransportTests(SimpleTestCase):
         self.assertEqual(rows['recheck']['queue_state']['status'], 'unknown')
         self.assertIsNone(rows['recheck']['queue_state'].get('visible'))
         self.assertEqual(rows['recheck']['health'], 'unknown')
+
+    def test_aws_error_code_is_preserved_for_diagnosis(self):
+        class FakeAccessDenied(Exception):
+            response = {'Error': {'Code': 'AccessDeniedException'}}
+
+        class AwsDeniedSqs(FakeSqs):
+            def get_queue_attributes(self, *, QueueUrl, AttributeNames):
+                raise FakeAccessDenied('denied')
+
+        payload = transport_snapshot(
+            force=True,
+            clients={'sqs': AwsDeniedSqs(), 'ecs': FakeEcs()},
+        )
+        rows = {row['name']: row for row in payload['workers']}
+        self.assertEqual(rows['identity']['queue_state']['reason'], 'AccessDeniedException')
