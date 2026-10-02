@@ -187,6 +187,36 @@ class WordSaladSupportTests(TestCase):
         self.assertEqual([row.number for row in rows], [1, 2, 3])
         self.assertEqual([row.name for row in rows], ['Салатик #1', 'Салатик #2', 'Салатик #3'])
 
+    def test_reorder_parks_deferred_slots_that_hold_active_numbers(self):
+        with patch('games.views.track.track_task_change'):
+            first = create_word_salad()
+            second = create_word_salad()
+            parked = create_word_salad()
+            fourth = create_word_salad()
+        parked_link = GameTaskGroup.objects.get(pk=parked['link_id'])
+        parked_link.is_deferred = True
+        parked_link.deferred_number = parked_link.number
+        parked_link.save(update_fields=['is_deferred', 'deferred_number'])
+
+        rows = reorder_word_salads([
+            first['link_id'],
+            fourth['link_id'],
+            second['link_id'],
+        ])
+
+        active = [row for row in rows if not row.is_deferred]
+        deferred = [row for row in rows if row.is_deferred]
+        self.assertEqual(
+            [row.link_id for row in active],
+            [first['link_id'], fourth['link_id'], second['link_id']],
+        )
+        self.assertEqual([row.number for row in active], [1, 2, 3])
+        self.assertEqual([row.number for row in deferred], [3])
+        parked_link.refresh_from_db()
+        self.assertTrue(parked_link.is_deferred)
+        self.assertEqual(parked_link.deferred_number, '3')
+        self.assertNotIn(parked_link.number, {'1', '2', '3'})
+
     def test_insert_and_delete_keep_numbers_contiguous(self):
         with patch('games.views.track.track_task_change'):
             first = create_word_salad()

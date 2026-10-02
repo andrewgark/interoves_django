@@ -113,6 +113,76 @@ def assert_future_only_order(
         raise error_cls(published_msg.format(number=getattr(locked[-1], 'number')))
 
 
+def _free_number_base(occupied: set[str], count: int) -> int:
+    """Первый диапазон из ``count`` номеров, которого нет среди занятых."""
+    base = 10_000
+    span = count + 10_000
+    while any(str(base + offset) in occupied for offset in range(count)):
+        base += span
+    return base
+
+
+def _occupied_numbers(game_ids: set) -> set[str]:
+    return {
+        str(number)
+        for number in GameTaskGroup.objects.filter(
+            game_id__in=game_ids,
+        ).values_list('number', flat=True)
+    }
+
+
+def _park_rows_holding(links: list[GameTaskGroup], reserved_numbers: set[str]) -> None:
+    """Увести чужие слоты той же игры с номеров, которые займёт эта операция.
+
+    Отложенные выпуски остаются в игре и держат unique(game, number). Если их
+    номер попадает в диапазон активного расписания, запись активных слотов
+    падает с Duplicate entry — так было с салатиками №75–81.
+    """
+    if not links or not reserved_numbers:
+        return
+    ids_by_game: dict = {}
+    for link in links:
+        ids_by_game.setdefault(link.game_id, set()).add(link.pk)
+    for game_id, link_ids in ids_by_game.items():
+        blockers = list(
+            GameTaskGroup.objects.filter(game_id=game_id, number__in=reserved_numbers)
+            .exclude(pk__in=link_ids)
+        )
+        if not blockers:
+            continue
+        blockers.sort(key=lambda row: GameTaskGroup.try_number_key(row.number) or ())
+        occupied = _occupied_numbers({game_id})
+        base = _free_number_base(occupied, len(blockers))
+        for offset, blocker in enumerate(blockers):
+            blocker.number = str(base + offset)
+            blocker.save(update_fields=['number'])
+
+
+def _assign_numbers_without_collision(
+    links: list[GameTaskGroup],
+    new_numbers: list[int],
+    *,
+    sync_link: Callable[[GameTaskGroup, int], None] | None,
+    sync_links: Callable[[list[GameTaskGroup], list[int]], None] | None,
+) -> None:
+    _park_rows_holding(links, {str(number) for number in new_numbers})
+    temp_base = _free_number_base(_occupied_numbers({link.game_id for link in links}), len(links))
+    for offset, link in enumerate(links):
+        link.number = str(temp_base + offset)
+    if sync_links is not None:
+        sync_links(links, new_numbers)
+    elif sync_link is not None:
+        for link, new_num in zip(links, new_numbers):
+            sync_link(link, new_num)
+    GameTaskGroup.objects.bulk_update(links, ['number', 'name'])
+    for link, new_num in zip(links, new_numbers):
+        link.number = str(new_num)
+    # Финальные номера пишем по одному: MySQL проверяет unique по ходу
+    # многострочного UPDATE и может увидеть ещё не сменённый номер соседней строки.
+    for link in links:
+        link.save(update_fields=['number'])
+
+
 def renumber_links(
     ordered_links: list[GameTaskGroup],
     *,
@@ -129,22 +199,12 @@ def renumber_links(
         raise ValueError('Укажите только sync_link или sync_links')
     if not ordered_links:
         return
-    occupied = {str(link.number) for link in ordered_links}
-    temp_base = 10_000
-    while any(str(temp_base + i) in occupied for i in range(len(ordered_links))):
-        temp_base += len(ordered_links) + 10_000
-    new_numbers = [i + 1 for i in range(len(ordered_links))]
-    for i, link in enumerate(ordered_links):
-        link.number = str(temp_base + i)
-    if sync_links is not None:
-        sync_links(ordered_links, new_numbers)
-    elif sync_link is not None:
-        for link, new_num in zip(ordered_links, new_numbers):
-            sync_link(link, new_num)
-    GameTaskGroup.objects.bulk_update(ordered_links, ['number', 'name'])
-    for link, new_num in zip(ordered_links, new_numbers):
-        link.number = str(new_num)
-    GameTaskGroup.objects.bulk_update(ordered_links, ['number'])
+    _assign_numbers_without_collision(
+        ordered_links,
+        [i + 1 for i in range(len(ordered_links))],
+        sync_link=sync_link,
+        sync_links=sync_links,
+    )
 
 
 def shift_links(
@@ -161,21 +221,12 @@ def shift_links(
         raise ValueError('Укажите только sync_link или sync_links')
     if not links:
         return
-    temp_base = 10_000
-    occupied = {str(link.number) for link in links}
-    while any(str(temp_base + i) in occupied for i in range(len(links))):
-        temp_base += len(links) + 10_000
-    for i, link in enumerate(links):
-        link.number = str(temp_base + i)
-    if sync_links is not None:
-        sync_links(links, new_numbers)
-    elif sync_link is not None:
-        for link, new_num in zip(links, new_numbers):
-            sync_link(link, new_num)
-    GameTaskGroup.objects.bulk_update(links, ['number', 'name'])
-    for link, new_num in zip(links, new_numbers):
-        link.number = str(new_num)
-    GameTaskGroup.objects.bulk_update(links, ['number'])
+    _assign_numbers_without_collision(
+        links,
+        new_numbers,
+        sync_link=sync_link,
+        sync_links=sync_links,
+    )
 
 
 def cascade_delete_link(link: GameTaskGroup) -> None:
