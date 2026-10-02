@@ -146,6 +146,7 @@ urlpatterns = [
     path('stats/', views.stats_dashboard, name='stats'),
     path('queues/', views.queues_dashboard, name='queues'),
     path('queues/api/summary/', queue_observatory_views.summary, name='queue_observatory_summary'),
+    path('queues/api/transport/', queue_observatory_views.transport, name='queue_observatory_transport'),
     path('queues/api/jobs/', queue_observatory_views.jobs, name='queue_observatory_jobs'),
     path('queues/api/jobs/<int:job_id>/', queue_observatory_views.job_detail, name='queue_observatory_job_detail'),
     path('queues/recheck/<int:job_id>/', queue_observatory_views.job_detail_page, name='queue_observatory_job_page'),

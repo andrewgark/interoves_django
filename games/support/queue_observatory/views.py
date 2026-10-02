@@ -10,6 +10,7 @@ from games.support.access import support_console_required
 
 from .selectors import job_detail_queryset, job_list_queryset, queue_summary
 from .serializers import serialize_job_detail, serialize_job_summary
+from .transport import transport_snapshot
 
 
 def _positive_int(value, *, default=None, maximum=None):
@@ -43,6 +44,12 @@ def summary(request):
         value = payload[section]
         payload[section] = value.isoformat() if value else None
     return JsonResponse({'ok': True, 'summary': payload})
+
+
+@support_console_required
+@require_GET
+def transport(request):
+    return JsonResponse({'ok': True, 'transport': transport_snapshot()})
 
 
 @support_console_required

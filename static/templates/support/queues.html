@@ -12,15 +12,29 @@
   id="queue-observatory"
   class="queue-observatory"
   data-summary-url="{% url 'support:queue_observatory_summary' %}"
+  data-transport-url="{% url 'support:queue_observatory_transport' %}"
   data-jobs-url="{% url 'support:queue_observatory_jobs' %}"
 >
+  <section class="queue-transport" aria-labelledby="queue-transport-title">
+    <div class="queue-section-head">
+      <div>
+        <h2 id="queue-transport-title" class="support-page-title">Production worker pipelines</h2>
+        <p id="queue-transport-status" class="support-hint">Загрузка AWS-состояния…</p>
+      </div>
+      <button id="queue-transport-refresh" class="new-btn new-btn--secondary" type="button">Обновить</button>
+    </div>
+    <div id="queue-transport-grid" class="queue-transport__grid" aria-live="polite">
+      <div class="queue-transport__empty">Загрузка очередей и worker’ов…</div>
+    </div>
+  </section>
+
   <div id="queue-observatory-summary" class="queue-observatory__summary" aria-live="polite"></div>
 
   <section class="pal-card new-card">
     <div class="queue-observatory__toolbar">
       <div>
-        <h2 class="support-page-title">Word Salad recheck jobs</h2>
-        <p id="queue-observatory-updated" class="support-hint">Загрузка…</p>
+        <h2 class="support-page-title">Database work queues</h2>
+        <p id="queue-observatory-updated" class="support-hint">Word Salad job/item/outbox observatory</p>
       </div>
       <label class="queue-observatory__filter">
         Состояние
@@ -130,6 +144,11 @@
   function card(label, value, extraClass) {
     return '<div class="queue-observatory__card ' + (extraClass || '') + '"><span>' + esc(label) + '</span><strong>' + esc(value) + '</strong></div>';
   }
+  var transportGrid = document.getElementById('queue-transport-grid');
+  var transportStatus = document.getElementById('queue-transport-status');
+  var transportRefresh = document.getElementById('queue-transport-refresh');
+  var transportUrl = root.dataset.transportUrl;
+
   function renderSummary(summary) {
     var jobs = summary.jobs || {}, items = summary.items || {}, outbox = summary.outbox || {};
     summaryNode.innerHTML = [
@@ -141,6 +160,39 @@
       card('Stale leases', (summary.stale_jobs || 0) + (summary.stale_items || 0) + (summary.stale_outbox || 0), summary.stale_jobs || summary.stale_items || summary.stale_outbox ? 'is-warning' : ''),
       card('Oldest pending', ageLabel(summary.oldest_pending_job_age_seconds))
     ].join('');
+  }
+  function transportValue(state, key) {
+    if (!state || state.status !== 'ok') return '<span class="queue-transport__unknown">unknown</span>';
+    return esc(state[key] == null ? '—' : state[key]);
+  }
+  function renderTransport(payload) {
+    var workers = payload.workers || [];
+    transportStatus.textContent = (payload.status === 'ok' ? 'AWS-данные актуальны' : 'AWS-данные неполные') +
+      ' · проверено ' + dateLabel(payload.observed_at) + ' · кэш ' + esc(payload.cache_seconds || 20) + ' с';
+    if (!workers.length) {
+      transportGrid.innerHTML = '<div class="queue-transport__empty">AWS snapshot недоступен</div>';
+      return;
+    }
+    transportGrid.innerHTML = workers.map(function (worker) {
+      var queue = worker.queue_state || {}, dlq = worker.dlq_state || {}, service = worker.service_state || {};
+      var health = worker.health || 'unknown';
+      var healthLabel = ({ok: 'OK', warning: 'Внимание', error: 'Ошибка', unknown: 'Нет данных'})[health] || health;
+      var serviceMismatch = service.status === 'ok' && service.running !== service.desired;
+      return '<article class="queue-transport__card is-' + esc(health) + '">' +
+        '<div class="queue-transport__card-head"><div><h3>' + esc(worker.label) + '</h3>' +
+        '<p><code>' + esc(worker.service) + '</code> · ' + esc(worker.capacity) + '</p></div>' +
+        '<span class="queue-transport__health">' + esc(healthLabel) + '</span></div>' +
+        '<div class="queue-transport__metrics">' +
+        '<div><span>Очередь</span><strong>' + transportValue(queue, 'visible') + '</strong><small>visible</small></div>' +
+        '<div><span>В работе</span><strong>' + transportValue(queue, 'in_flight') + '</strong><small>in-flight</small></div>' +
+        '<div><span>DLQ</span><strong class="' + (dlq.visible ? 'is-bad' : '') + '">' + transportValue(dlq, 'visible') + '</strong><small>' + esc(worker.dlq) + '</small></div>' +
+        '</div>' +
+        '<div class="queue-transport__footer"><span>Worker: ' + (service.status === 'ok' ? esc(service.running) + ' / ' + esc(service.desired) + ' running' : '<em>unknown</em>') +
+        (serviceMismatch ? ' · pending ' + esc(service.pending) : '') + '</span>' +
+        '<code>' + esc(worker.queue) + '</code></div>' +
+        ((queue.status !== 'ok' || dlq.status !== 'ok' || service.status !== 'ok') ? '<p class="queue-transport__note">Не удалось прочитать: ' + esc([queue, dlq, service].filter(function (item) { return item.status === 'unknown'; }).map(function (item) { return item.reason; }).join(', ')) + '</p>' : '') +
+        '</article>';
+    }).join('');
   }
   function renderJobs(data) {
     state.hasNext = data.has_next;
@@ -205,10 +257,12 @@
     if (statusSelect.value) params.set('status', statusSelect.value);
     Promise.all([
       fetch(root.dataset.summaryUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'}).then(function (response) { return response.json(); }),
+      fetch(transportUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'}).then(function (response) { return response.json(); }),
       fetch(root.dataset.jobsUrl + '?' + params.toString(), {headers: {'X-Requested-With': 'XMLHttpRequest'}, cache: 'no-store'}).then(function (response) { return response.json(); })
     ]).then(function (payloads) {
       if (payloads[0].ok) renderSummary(payloads[0].summary);
-      if (payloads[1].ok) renderJobs(payloads[1]);
+      if (payloads[1].ok) renderTransport(payloads[1].transport);
+      if (payloads[2].ok) renderJobs(payloads[2]);
       updatedNode.textContent = 'Обновлено: ' + new Date().toLocaleTimeString();
     }).catch(function () {
       updatedNode.textContent = 'Не удалось обновить observability API';
@@ -216,12 +270,13 @@
   }
   statusSelect.addEventListener('change', function () { state.page = 1; load(); });
   document.getElementById('queue-observatory-refresh').addEventListener('click', load);
+  transportRefresh.addEventListener('click', load);
   previousButton.addEventListener('click', function () { if (state.page > 1) { state.page -= 1; load(); } });
   nextButton.addEventListener('click', function () { if (state.hasNext) { state.page += 1; load(); } });
   load();
   loadHashJob();
   window.addEventListener('hashchange', loadHashJob);
-  var timer = window.setInterval(load, 3000);
+  var timer = window.setInterval(load, 15000);
   window.addEventListener('beforeunload', function () { window.clearInterval(timer); });
 }());
 </script>

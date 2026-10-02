@@ -75,7 +75,7 @@ class QueueObservatoryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'queue-observatory')
         self.assertContains(response, '/support/queues/api/summary/')
-        self.assertContains(response, 'setInterval(load, 3000)')
+        self.assertContains(response, 'setInterval(load, 15000)')
         self.assertNotContains(response, 'DOMParser')
 
     def test_summary_exposes_domain_counts_and_lease_thresholds(self):
