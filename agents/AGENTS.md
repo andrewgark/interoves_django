@@ -46,6 +46,55 @@ agent shell these paths may fail independently because of WSL vsock or
 `/var/run/docker.sock` permissions; report the exact path/error rather than
 claiming that Docker itself is not running.
 
+### Disposable MySQL integration-test container
+
+For MySQL-only Django tests, use a separate disposable container with known
+test credentials. Do not extract credentials from an existing container's
+environment. First verify Docker:
+
+```bash
+docker ps
+```
+
+Start and wait for MySQL 8:
+
+```bash
+docker run -d --name interoves-schedule-mysql-test \
+  -e MYSQL_DATABASE=interoves_test \
+  -e MYSQL_USER=interoves \
+  -e MYSQL_PASSWORD=interoves_test_password \
+  -e MYSQL_ROOT_PASSWORD=root_test_password \
+  -p 13308:3306 mysql:8.0
+
+for attempt in $(seq 1 30); do
+  docker exec interoves-schedule-mysql-test \
+    mysqladmin ping -uroot -proot_test_password --silent && break
+  sleep 1
+done
+```
+
+Run the MySQL integration test with the container connection:
+
+```bash
+RDS_HOSTNAME=127.0.0.1 \
+RDS_PORT=13308 \
+RDS_DB_NAME=interoves_test \
+RDS_USERNAME=root \
+RDS_PASSWORD=root_test_password \
+../venv/interoves_django/bin/python manage.py test \
+  games.tests.test_schedule_links_mysql
+```
+
+Remove only the disposable container after the test:
+
+```bash
+docker rm -f interoves-schedule-mysql-test
+```
+
+If the agent sandbox rejects Docker access, rerun these commands with the
+execution tool's full permissions; `UtilBindVsockAnyPort` from the wrapper is
+not sufficient evidence that Docker Engine is unavailable.
+
 ### WebSocket integration tests in agent sandboxes
 
 The tests in `games.tests.test_track.TrackWebsocketIntegrationTests` must be run
