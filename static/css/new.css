@@ -4006,13 +4006,24 @@ html.new-ui-dark .new-team-switcher-active-box {
 }
 
 .new-pay-order__benefits li {
+  display: flex;
+  align-items: flex-start;
+  gap: .4rem;
   min-width: 0;
   overflow-wrap: break-word;
 }
 
+.new-pay-order__benefits li > i {
+  flex: 0 0 auto;
+  margin-top: .12em;
+}
+
 .new-pay-order__benefits .ph-crown {
-  margin-right: .25rem;
   color: var(--warning);
+}
+
+.new-pay-order__benefits .ph-check-circle {
+  color: var(--accent);
 }
 
 .new-sub-gift-buy,
@@ -4021,12 +4032,36 @@ html.new-ui-dark .new-team-switcher-active-box {
   gap: .8rem;
 }
 
+.new-sub-gift-section {
+  display: grid;
+  gap: 1rem;
+  margin-top: 2.5rem;
+  padding-top: 2rem;
+  border-top: 2px solid var(--border);
+}
+
+.new-sub-gift-section__header {
+  display: grid;
+  gap: .35rem;
+}
+
+.new-sub-gift-section__header h2 {
+  margin: 0;
+  font-size: clamp(1.45rem, 4vw, 2rem);
+  line-height: 1.1;
+}
+
+.new-sub-gift-section__header > p:last-child {
+  max-width: 42rem;
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .new-sub-gift-offer,
 .new-sub-gift-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: .7rem;
+  gap: 1rem;
   min-width: 0;
   padding-top: .75rem;
   border-top: 1px solid var(--border);
@@ -4039,60 +4074,15 @@ html.new-ui-dark .new-team-switcher-active-box {
 }
 
 .new-sub-gift-offer__term {
-  font-size: 1.05rem;
+  text-align: center;
+  min-width: 0;
+  font-size: 1.15rem;
   font-weight: 800;
+  line-height: 1.1;
 }
 
 .new-sub-gift-method-grid {
-  display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .65rem;
-  min-width: 0;
-}
-
-.new-sub-gift-method {
-  display: flex;
-  align-items: flex-start;
-  gap: .65rem;
-  min-width: 0;
-  padding: .8rem;
-  border: 1.5px solid var(--border);
-  border-radius: var(--card-radius);
-  background: var(--surface);
-}
-
-.new-sub-gift-method__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  flex: 0 0 2rem;
-  border-radius: 50%;
-  background: var(--tile);
-  font-size: 1.15rem;
-}
-
-.new-sub-gift-method__body {
-  display: grid;
-  gap: .2rem;
-  min-width: 0;
-  line-height: 1.3;
-}
-
-.new-sub-gift-method__body strong,
-.new-sub-gift-method__body span,
-.new-sub-gift-method__body b {
-  overflow-wrap: break-word;
-}
-
-.new-sub-gift-method__body span {
-  color: var(--muted);
-  font-size: .86rem;
-}
-
-.new-sub-gift-method__body b {
-  font-size: 1.05rem;
 }
 
 .new-sub-gift-code-row {

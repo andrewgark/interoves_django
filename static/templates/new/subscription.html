@@ -29,7 +29,6 @@
     {% endfor %}
   {% endif %}
   <header class="new-pay-checkout__header">
-    <p class="new-pay-checkout__eyebrow">Inter Oves</p>
     <h1 class="new-heading new-heading--page">Клубная подписка</h1>
     {% if club_status == 'active' %}
       {% if club_archive_gating_enabled %}
@@ -90,8 +89,8 @@
       <div class="new-pay-order__also">Также:</div>
       <ul class="new-pay-order__benefits">
         <li><i class="ph ph-crown" aria-hidden="true"></i> Корона в таблице результатов</li>
-        <li>Доступ в секретный чат резидентов клуба Inter Oves</li>
-        <li>Возможность играть случайные алфавитки</li>
+        <li><i class="ph ph-check-circle" aria-hidden="true"></i> Доступ в секретный чат резидентов клуба Inter Oves</li>
+        <li><i class="ph ph-check-circle" aria-hidden="true"></i> Возможность играть случайные алфавитки</li>
       </ul>
     {% else %}
       <div class="new-pay-order__name">Поддержка проекта</div>
@@ -300,6 +299,12 @@
     </div>
   {% endif %}
 
+  <section class="new-sub-gift-section" aria-labelledby="new-sub-gift-section-title">
+    <header class="new-sub-gift-section__header">
+      <h2 id="new-sub-gift-section-title">Подписка в подарок</h2>
+      <p>Здесь можно активировать полученный код или купить подписку для другого человека.</p>
+    </header>
+
   <div class="new-card new-pay-payment-card">
     <h2 class="new-pay-section-title">Подарочная подписка</h2>
     <p class="new-pay-order__meta">Если вам подарили подписку, введите код. Подарок активируется в текущем аккаунте.</p>
@@ -317,21 +322,62 @@
     {% for offer in gift_subscription_offers %}
       <div class="new-sub-gift-offer">
         <div class="new-sub-gift-offer__term">
-          <strong>{{ offer.months }} месяц{% if offer.months == 3 %}а{% endif %}</strong>
+          Подписка в подарок на {{ offer.months }} месяц{% if offer.months == 3 %}а{% endif %}
         </div>
-        <div class="new-sub-gift-method-grid">
+        <div class="new-sub-providers new-sub-gift-method-grid">
+          {% if offer.yookassa_label %}
+          <section class="new-sub-provider new-sub-gift-method" aria-label="Российская карта">
+            <header class="new-sub-provider__header">
+              <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
+              <div>
+                <h3>ЮKassa</h3>
+                <p>Оплата российской картой · ₽</p>
+              </div>
+            </header>
+            <div class="new-sub-provider__offers">
+              <article class="new-sub-offer">
+                <div class="new-sub-offer__term">Разовая покупка</div>
+                <strong class="new-sub-offer__price">{{ offer.yookassa_label }}</strong>
+                <p>Без автопродления.</p>
+              </article>
+            </div>
+            <div class="new-sub-provider__action">
+              {% if user.is_authenticated and has_profile_user %}
+                <form method="post" action="{% url 'new_subscription_gift_yookassa_start' %}" data-sub-gift>
+                  {% csrf_token %}
+                  <input type="hidden" name="months" value="{{ offer.months }}">
+                  <button type="submit" class="new-btn">Оплатить через ЮKassa</button>
+                </form>
+              {% elif user.is_authenticated %}
+                <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
+              {% else %}
+                <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
+              {% endif %}
+            </div>
+          </section>
+          {% endif %}
           {% if offer.tribute_product %}
-          <div class="new-sub-gift-method">
-            <span class="new-sub-gift-method__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
-            <div class="new-sub-gift-method__body">
-              <strong>Международная карта или криптовалюта</strong>
-              <span>Оплата через Tribute</span>
-              <b>€{{ offer.tribute_product.amount_display }}</b>
+          <section class="new-sub-provider new-sub-gift-method" aria-label="Международная карта или криптовалюта">
+            <header class="new-sub-provider__header">
+              <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
+              <div>
+                <h3>Tribute</h3>
+                <p>Оплата иностранной картой или криптовалютой · €</p>
+              </div>
+            </header>
+            <div class="new-sub-provider__offers">
+              <article class="new-sub-offer">
+                <div class="new-sub-offer__term">Разовая покупка</div>
+                <strong class="new-sub-offer__price">€{{ offer.tribute_product.amount_display }}</strong>
+                <p>Без автопродления.</p>
+              </article>
+            </div>
+            <div class="new-sub-provider__action">
               {% if user.is_authenticated and telegram_linked %}
                 <form method="post" action="{% url 'new_subscription_gift_tribute_start' %}" data-sub-gift>
                   {% csrf_token %}
                   <input type="hidden" name="months" value="{{ offer.months }}">
-                  <button type="submit" class="new-btn">Выбрать Tribute</button>
+                  <button type="submit" class="new-btn">Оплатить через Tribute</button>
                 </form>
               {% elif user.is_authenticated and has_profile_user %}
                 <form method="post" action="{% url 'new_telegram_link_start' %}">
@@ -345,28 +391,7 @@
                 <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
               {% endif %}
             </div>
-          </div>
-          {% endif %}
-          {% if offer.yookassa_label %}
-          <div class="new-sub-gift-method">
-            <span class="new-sub-gift-method__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
-            <div class="new-sub-gift-method__body">
-              <strong>Российская карта</strong>
-              <span>Оплата через ЮKassa</span>
-              <b>{{ offer.yookassa_label }}</b>
-              {% if user.is_authenticated and has_profile_user %}
-                <form method="post" action="{% url 'new_subscription_gift_yookassa_start' %}" data-sub-gift>
-                  {% csrf_token %}
-                  <input type="hidden" name="months" value="{{ offer.months }}">
-                  <button type="submit" class="new-btn">Выбрать ЮKassa</button>
-                </form>
-              {% elif user.is_authenticated %}
-                <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
-              {% else %}
-                <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
-              {% endif %}
-            </div>
-          </div>
+          </section>
           {% endif %}
         </div>
       </div>
@@ -417,6 +442,7 @@
     {% endfor %}
   </div>
   {% endif %}
+  </section>
 </div>
 {% if user.is_authenticated %}
 <script>
