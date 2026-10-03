@@ -200,6 +200,28 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(create.call_count, 1)
         self.assertEqual(SubscriptionGiftPayment.objects.count(), 1)
 
+    @patch('games.subscription_gift_payments.Payment.create')
+    def test_yookassa_checkout_accepts_sdk_payment_response(self, create):
+        from yookassa.domain.response import PaymentResponse
+
+        create.return_value = PaymentResponse({
+            'id': 'yk-gift-sdk-response',
+            'confirmation': {
+                'type': 'redirect',
+                'confirmation_url': 'https://yookassa.test/pay/sdk-response',
+            },
+        })
+        result = start_yookassa_gift(
+            user=self.purchaser,
+            months=1,
+            return_url='https://interoves.com/subscription/?payment=gift-return',
+        )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.payment_url, 'https://yookassa.test/pay/sdk-response')
+        payment = SubscriptionGiftPayment.objects.get()
+        self.assertEqual(payment.provider_payment_id, 'yk-gift-sdk-response')
+
     def test_refund_revokes_access_after_gift_was_claimed(self):
         self.client.force_login(self.purchaser)
         self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '1'})

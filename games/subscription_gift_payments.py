@@ -126,7 +126,7 @@ def start_yookassa_gift(*, user, months: int, return_url: str) -> GiftCheckoutRe
         )
     try:
         configure_yookassa_from_env()
-        remote = Payment.create({
+        remote = dict(Payment.create({
             'amount': {'value': '{:.2f}'.format(amount / 100), 'currency': 'RUB'},
             'capture': True,
             'description': 'Подарочная подписка Inter Oves на {} мес.'.format(months)[:128],
@@ -139,7 +139,7 @@ def start_yookassa_gift(*, user, months: int, return_url: str) -> GiftCheckoutRe
                 'user_id': str(user.pk),
                 'months': str(months),
             },
-        }, payment.idempotency_key)
+        }, payment.idempotency_key))
     except Exception:
         logger.exception('subscription_gift_yookassa_create_failed payment_id=%s', payment.pk)
         payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
