@@ -308,36 +308,65 @@
     </form>
   </div>
 
-  {% if user.is_authenticated and tribute_gift_products %}
+  {% if gift_subscription_offers %}
   <div class="new-card new-pay-payment-card new-sub-gift-buy">
     <h2 class="new-pay-section-title">Подарить подписку</h2>
-    <p class="new-pay-order__meta">Выберите срок. Это разовая покупка без автопродления. После оплаты код появится в вашем аккаунте.</p>
-    {% for product in tribute_gift_products %}
+    <p class="new-pay-order__meta">Выберите срок и способ оплаты. Это разовая покупка без автопродления. После оплаты код появится в вашем аккаунте.</p>
+    {% for offer in gift_subscription_offers %}
       <div class="new-sub-gift-offer">
-        <div>
-          <strong>{{ product.months }} месяц{% if product.months == 3 %}а{% endif %}</strong>
-          <span class="new-pay-order__meta">€{{ product.amount_display }}</span>
+        <div class="new-sub-gift-offer__term">
+          <strong>{{ offer.months }} месяц{% if offer.months == 3 %}а{% endif %}</strong>
         </div>
-        {% if telegram_linked %}
-          <form method="post" action="{% url 'new_subscription_gift_tribute_start' %}" data-sub-gift>
-            {% csrf_token %}
-            <input type="hidden" name="months" value="{{ product.months }}">
-            <button type="submit" class="new-btn">Подарить подписку 🎁</button>
-          </form>
-        {% elif has_profile_user %}
-          <form method="post" action="{% url 'new_telegram_link_start' %}">
-            {% csrf_token %}
-            <input type="hidden" name="next" value="/subscription/?telegram=linked">
-            <button type="submit" class="new-btn">Привязать Telegram</button>
-          </form>
-        {% endif %}
-        {% if product.months == 1 and yookassa_gift_1_label or product.months == 3 and yookassa_gift_3_label %}
-          <form method="post" action="{% url 'new_subscription_gift_yookassa_start' %}" data-sub-gift>
-            {% csrf_token %}
-            <input type="hidden" name="months" value="{{ product.months }}">
-            <button type="submit" class="new-btn new-btn--ghost">ЮKassa · {% if product.months == 1 %}{{ yookassa_gift_1_label }}{% else %}{{ yookassa_gift_3_label }}{% endif %}</button>
-          </form>
-        {% endif %}
+        <div class="new-sub-gift-method-grid">
+          {% if offer.tribute_product %}
+          <div class="new-sub-gift-method">
+            <span class="new-sub-gift-method__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
+            <div class="new-sub-gift-method__body">
+              <strong>Международная карта или криптовалюта</strong>
+              <span>Оплата через Tribute</span>
+              <b>€{{ offer.tribute_product.amount_display }}</b>
+              {% if user.is_authenticated %}
+                {% if telegram_linked %}
+                  <form method="post" action="{% url 'new_subscription_gift_tribute_start' %}" data-sub-gift>
+                    {% csrf_token %}
+                    <input type="hidden" name="months" value="{{ offer.months }}">
+                    <button type="submit" class="new-btn">Выбрать Tribute</button>
+                  </form>
+                {% elif has_profile_user %}
+                  <form method="post" action="{% url 'new_telegram_link_start' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="/subscription/?telegram=linked">
+                    <button type="submit" class="new-btn">Привязать Telegram</button>
+                  </form>
+                {% else %}
+                  <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
+                {% endif %}
+              {% else %}
+                <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+          {% if offer.yookassa_label %}
+          <div class="new-sub-gift-method">
+            <span class="new-sub-gift-method__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
+            <div class="new-sub-gift-method__body">
+              <strong>Российская карта</strong>
+              <span>Оплата через ЮKassa</span>
+              <b>{{ offer.yookassa_label }}</b>
+              {% if user.is_authenticated and has_profile_user %}
+                <form method="post" action="{% url 'new_subscription_gift_yookassa_start' %}" data-sub-gift>
+                  {% csrf_token %}
+                  <input type="hidden" name="months" value="{{ offer.months }}">
+                  <button type="submit" class="new-btn">Выбрать ЮKassa</button>
+                </form>
+              {% else %}
+                <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
+              {% endif %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
       </div>
     {% endfor %}
     <p id="new-sub-gift-message" class="new-login-hint new-pay-message" aria-live="polite"></p>

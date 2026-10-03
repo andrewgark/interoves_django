@@ -2,9 +2,11 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
+from django.contrib.sites.models import Site
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
+from allauth.socialaccount.models import SocialApp
 
 from games.models import Profile, SubscriptionGift, SubscriptionGiftPayment
 from games.subscription_gifts import claim_gift, decrypt_gift_code
@@ -39,6 +41,19 @@ GIFT_SETTINGS = {
 
 @override_settings(**GIFT_SETTINGS)
 class SubscriptionGiftPaymentTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        site, _ = Site.objects.get_or_create(
+            id=1, defaults={'domain': 'testserver', 'name': 'test'},
+        )
+        for provider, name in (('google', 'Google'), ('vk', 'VK'), ('yandex', 'Yandex')):
+            app, created = SocialApp.objects.get_or_create(
+                provider=provider,
+                defaults={'name': name, 'client_id': 'test', 'secret': 'test'},
+            )
+            if created:
+                app.sites.add(site)
+
     def setUp(self):
         self.purchaser = User.objects.create_user('gift-buyer')
         Profile.objects.create(
@@ -60,6 +75,19 @@ class SubscriptionGiftPaymentTests(TestCase):
             HTTP_TRBT_SIGNATURE=compute_webhook_signature(body, 'gift-test-key'),
         )
 
+    def _purchase_created_at(self):
+        return timezone.now().isoformat()
+
+    def test_gift_offers_are_visible_before_login(self):
+        response = self.client.get(reverse('new_subscription'))
+        body = response.content.decode()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Международная карта или криптовалюта', body)
+        self.assertIn('Российская карта', body)
+        self.assertIn('€5.55', body)
+        self.assertIn('600 ₽', body)
+        self.assertIn('Войти, чтобы купить', body)
+
     def test_tribute_checkout_and_webhook_pays_gift(self):
         self.client.force_login(self.purchaser)
         response = self.client.post(
@@ -79,7 +107,7 @@ class SubscriptionGiftPaymentTests(TestCase):
             'telegram_username': 'giftbuyer',
             'purchase_id': 'gift-purchase-1',
             'transaction_id': 'gift-transaction-1',
-            'purchase_created_at': '2026-10-01T08:00:00Z',
+            'purchase_created_at': self._purchase_created_at(),
         }
         webhook = self._webhook(**payload)
         self.assertEqual(webhook.status_code, 200)
@@ -107,7 +135,7 @@ class SubscriptionGiftPaymentTests(TestCase):
             telegram_username='giftbuyer',
             purchase_id='gift-purchase-3',
             transaction_id='gift-transaction-3',
-            purchase_created_at='2026-10-01T08:00:00Z',
+            purchase_created_at=self._purchase_created_at(),
         )
         recipient = User.objects.create_user('gift-recipient')
         Profile.objects.create(user=recipient, first_name='Gift', last_name='Recipient')
@@ -148,7 +176,7 @@ class SubscriptionGiftPaymentTests(TestCase):
             'telegram_user_id': 700001,
             'purchase_id': 'gift-purchase-refund',
             'transaction_id': 'gift-transaction-refund',
-            'purchase_created_at': '2026-10-01T08:00:00Z',
+            'purchase_created_at': self._purchase_created_at(),
         }
         self._webhook(**payload)
         recipient = User.objects.create_user('refund-recipient')
@@ -178,7 +206,7 @@ class SubscriptionGiftPaymentTests(TestCase):
             'telegram_user_id': 700001,
             'purchase_id': 'gift-purchase-late-success',
             'transaction_id': 'gift-transaction-late-success',
-            'purchase_created_at': '2026-10-01T08:00:00Z',
+            'purchase_created_at': self._purchase_created_at(),
         }
         self.assertTrue(process_tribute_gift_purchase(payload))
         self.assertTrue(process_tribute_gift_refund({'purchase_id': payload['purchase_id']}))

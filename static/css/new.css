@@ -4023,20 +4023,74 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 .new-sub-gift-offer,
 .new-sub-gift-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  display: grid;
+  gap: .7rem;
   min-width: 0;
   padding-top: .75rem;
   border-top: 1px solid var(--border);
 }
 
-.new-sub-gift-offer > div:first-child,
 .new-sub-gift-item > div:first-child {
   display: grid;
   gap: .2rem;
   min-width: 0;
+}
+
+.new-sub-gift-offer__term {
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.new-sub-gift-method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .65rem;
+  min-width: 0;
+}
+
+.new-sub-gift-method {
+  display: flex;
+  align-items: flex-start;
+  gap: .65rem;
+  min-width: 0;
+  padding: .8rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+}
+
+.new-sub-gift-method__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  border-radius: 50%;
+  background: var(--tile);
+  font-size: 1.15rem;
+}
+
+.new-sub-gift-method__body {
+  display: grid;
+  gap: .2rem;
+  min-width: 0;
+  line-height: 1.3;
+}
+
+.new-sub-gift-method__body strong,
+.new-sub-gift-method__body span,
+.new-sub-gift-method__body b {
+  overflow-wrap: break-word;
+}
+
+.new-sub-gift-method__body span {
+  color: var(--muted);
+  font-size: .86rem;
+}
+
+.new-sub-gift-method__body b {
+  font-size: 1.05rem;
 }
 
 .new-sub-gift-code-row {
@@ -4053,10 +4107,13 @@ html.new-ui-dark .new-team-switcher-active-box {
 }
 
 @media (max-width: 560px) {
-  .new-sub-gift-offer,
   .new-sub-gift-item {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .new-sub-gift-method-grid {
+    grid-template-columns: 1fr;
   }
 
   .new-sub-gift-code-row {
@@ -6864,7 +6921,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   /* Ширины первых колонок — переменные, на узких экранах уменьшаются (ниже). */
   --results-col-rank: 3.1rem;
   --results-col-team: 12.5rem;
-  --results-col-score: calc(4ch + 1rem);
+  --results-col-score: calc(4.5ch + 1rem);
   --results-col-time: 4.8rem;
   --results-col-attempts: calc(3ch + 1rem);
   border-collapse: separate;

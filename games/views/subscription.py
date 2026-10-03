@@ -177,6 +177,20 @@ def _subscription_page_context(request):
         user=request.user, provider='yookassa', is_active=True,
         provider_payment_method_id__isnull=False,
     ).exclude(provider_payment_method_id='').first() if request.user.is_authenticated else None)
+    gift_subscription_offers = []
+    for gift_months in (1, 3):
+        tribute_gift = configured_club_gift(gift_months)
+        yookassa_amount = yookassa_gift_amount(gift_months) if yk_enabled else 0
+        if tribute_gift is None and yookassa_amount <= 0:
+            continue
+        gift_subscription_offers.append({
+            'months': gift_months,
+            'tribute_product': tribute_gift,
+            'yookassa_label': (
+                _format_minor_amount(yookassa_amount, '₽')
+                if yookassa_amount > 0 else ''
+            ),
+        })
     return {
         'page_title': 'Клубная подписка',
         'robots_noindex': True,
@@ -228,16 +242,7 @@ def _subscription_page_context(request):
         'monthly_cta_label': 'Подписаться за {}'.format(
             monthly_intro_label if intro else monthly_regular_label,
         ),
-        'tribute_gift_products': [
-            product for product in (configured_club_gift(1), configured_club_gift(3))
-            if product is not None
-        ],
-        'yookassa_gift_amounts': {
-            months: yookassa_gift_amount(months) for months in (1, 3)
-            if yookassa_gift_amount(months) > 0
-        },
-        'yookassa_gift_1_label': _format_minor_amount(yookassa_gift_amount(1), '₽') if yookassa_gift_amount(1) else '',
-        'yookassa_gift_3_label': _format_minor_amount(yookassa_gift_amount(3), '₽') if yookassa_gift_amount(3) else '',
+        'gift_subscription_offers': gift_subscription_offers,
         'purchased_subscription_gifts': purchaser_gifts(request.user) if request.user.is_authenticated else [],
         **_project_urls_context(NEW_UI_PROJECT),
     }
