@@ -456,6 +456,24 @@ def _projection_page_cells(game, group_ids, page_rows):
     return cells
 
 
+def _alphabetty_projection_attempts_complete(game, group_ids):
+    """Return whether projected Alphabetty rows contain attempt totals.
+
+    ``attempts_count`` was added after the first projection build.  Existing
+    rows can therefore be marked usable for scores while still carrying the
+    field default of zero.  Alphabetty always has at least one real attempt
+    for a projected actor, so those rows must use the canonical fallback until
+    the background rebuild has populated the field.
+    """
+    if getattr(game, 'id', None) != 'alphabetty' or not group_ids:
+        return True
+    from games.models import DailyResultProjection
+
+    return not DailyResultProjection.objects.filter(
+        game=game, task_group_id__in=group_ids, attempts_count=0,
+    ).exists()
+
+
 def _build_legacy_aggregate_page(request, game, *, window_context=None, month_context=None):
     """Build one bounded release window and one backend-paginated actor page.
 
@@ -855,10 +873,11 @@ def build_aggregate_page(request, game):
             column.link.task_group_id for column in columns
             if not projection_state_is_valid(states.get(column.link.task_group_id), game)
         ]
-        if stale_groups:
+        attempts_incomplete = not _alphabetty_projection_attempts_complete(game, group_ids)
+        if stale_groups or attempts_incomplete:
             logger.warning(
-                'monthly_result_projection_incomplete game=%s month=%s stale=%s expected=%s; using canonical legacy builder',
-                game.pk, selected_month, len(stale_groups), len(group_ids),
+                'monthly_result_projection_incomplete game=%s month=%s stale=%s attempts_incomplete=%s expected=%s; using canonical legacy builder',
+                game.pk, selected_month, len(stale_groups), attempts_incomplete, len(group_ids),
             )
             return _build_legacy_aggregate_page(request, game, month_context=month_context)
         return _build_projection_aggregate_page(
@@ -890,10 +909,11 @@ def build_aggregate_page(request, game):
         if not projection_state_is_valid(states.get(link.task_group_id), game)
     ]
     covered = len(set(group_ids)) - len(set(stale_groups))
-    if stale_groups:
+    attempts_incomplete = not _alphabetty_projection_attempts_complete(game, group_ids)
+    if stale_groups or attempts_incomplete:
         logger.warning(
-            'daily_result_projection_incomplete game=%s covered=%s expected=%s; using canonical legacy builder',
-            game.pk, covered, len(set(group_ids)),
+            'daily_result_projection_incomplete game=%s covered=%s attempts_incomplete=%s expected=%s; using canonical legacy builder',
+            game.pk, covered, attempts_incomplete, len(set(group_ids)),
         )
         return _build_legacy_aggregate_page(
             request, game, window_context=(limit, window, older, newer, columns),

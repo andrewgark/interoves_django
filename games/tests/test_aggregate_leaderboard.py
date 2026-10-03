@@ -172,6 +172,22 @@ class AggregateLeaderboardTests(TestCase):
         self.assertTrue(result['aggregate_show_attempts'])
         self.assertEqual(result['aggregate_period'], 'month')
 
+    def test_alphabetty_projection_with_default_attempts_is_not_authoritative(self):
+        from games.results.aggregate_leaderboard import _alphabetty_projection_attempts_complete
+
+        game = self.game
+        game.id = 'alphabetty'
+        group = self.links[0][0].task_group
+        DailyResultProjection.objects.create(
+            game=self.game, task_group=group, actor_type='anon',
+            actor_key='stale-attempts', anon_key='stale-attempts', score=5,
+            attempts_count=0,
+        )
+
+        self.assertFalse(_alphabetty_projection_attempts_complete(game, [group.pk]))
+        DailyResultProjection.objects.update(attempts_count=2)
+        self.assertTrue(_alphabetty_projection_attempts_complete(game, [group.pk]))
+
     def test_all_scheduled_games_use_monthly_aggregate_period(self):
         from games.daily.section import SCHEDULES
         from games.results.aggregate_leaderboard import build_aggregate_page
