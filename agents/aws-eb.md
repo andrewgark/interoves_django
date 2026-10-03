@@ -115,11 +115,12 @@ Telegram routing:
 - integrations worker выполняет `telegram.announcements`,
   `telegram.admin_report`, `instagram.token_refresh`, `social.publish`.
 
-### Social images for daily salads
+### Social images for daily games
 
-Для изображений салатиков в Telegram/X/Instagram/Threads всегда использовать
-рендер через Playwright-скриншот публичной страницы салатика
-(`render_word_salad_teaser_png(..., fallback_to_pillow=False)`). Pillow-фолбэк
+Для изображений любых ежедневных заданий в Telegram/X/Instagram/Threads всегда
+использовать рендер через Playwright-скриншот соответствующей публичной страницы
+(для салатика — `render_word_salad_teaser_png(...,
+fallback_to_pillow=False)`). Pillow-фолбэк
 для social-постов запрещён: он может отличаться от публичного UI и показать
 данные, скрытые шаблоном. Если Chromium/Playwright недоступен на выбранном
 инстансе, остановиться и сообщить о проблеме; не переключаться на резервный
