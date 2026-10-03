@@ -35,6 +35,17 @@ Or without activating:
 
 The same requirement is mirrored in `.cursor/rules/python-venv.mdc` (`alwaysApply: true`).
 
+## Docker in the developer environment
+
+Do not conclude that Docker is unavailable from a failed `docker compose`
+probe in an agent shell. The `docker` command may resolve to
+`/home/andre/bin/docker`, a wrapper around the Windows Docker CLI, while
+`/usr/bin/docker` uses the native WSL socket. Verify `docker ps` in the user's
+normal terminal/context before stopping Docker-related work. In the Codex
+agent shell these paths may fail independently because of WSL vsock or
+`/var/run/docker.sock` permissions; report the exact path/error rather than
+claiming that Docker itself is not running.
+
 ### WebSocket integration tests in agent sandboxes
 
 The tests in `games.tests.test_track.TrackWebsocketIntegrationTests` must be run

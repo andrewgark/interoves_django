@@ -144,10 +144,10 @@ def _park_rows_holding(links: list[GameTaskGroup], reserved_numbers: set[str]) -
     for link in links:
         ids_by_game.setdefault(link.game_id, set()).add(link.pk)
     for game_id, link_ids in ids_by_game.items():
-        blockers = list(
-            GameTaskGroup.objects.filter(game_id=game_id, number__in=reserved_numbers)
-            .exclude(pk__in=link_ids)
-        )
+        blockers = list(GameTaskGroup.objects.select_for_update().filter(
+            game_id=game_id,
+            number__in=reserved_numbers,
+        ).exclude(pk__in=link_ids))
         if not blockers:
             continue
         blockers.sort(key=lambda row: GameTaskGroup.try_number_key(row.number) or ())
@@ -155,7 +155,7 @@ def _park_rows_holding(links: list[GameTaskGroup], reserved_numbers: set[str]) -
         base = _free_number_base(occupied, len(blockers))
         for offset, blocker in enumerate(blockers):
             blocker.number = str(base + offset)
-            blocker.save(update_fields=['number'])
+        GameTaskGroup.objects.bulk_update(blockers, ['number'])
 
 
 def _assign_numbers_without_collision(
@@ -177,10 +177,11 @@ def _assign_numbers_without_collision(
     GameTaskGroup.objects.bulk_update(links, ['number', 'name'])
     for link, new_num in zip(links, new_numbers):
         link.number = str(new_num)
-    # Финальные номера пишем по одному: MySQL проверяет unique по ходу
-    # многострочного UPDATE и может увидеть ещё не сменённый номер соседней строки.
-    for link in links:
-        link.save(update_fields=['number'])
+    # All target numbers are free now: changed links were parked above and
+    # deferred blockers were parked by _park_rows_holding.  The final bulk
+    # UPDATE is therefore safe even though MySQL checks the unique index while
+    # applying each row of a multi-row UPDATE.
+    GameTaskGroup.objects.bulk_update(links, ['number'])
 
 
 def renumber_links(
@@ -199,11 +200,28 @@ def renumber_links(
         raise ValueError('Укажите только sync_link или sync_links')
     if not ordered_links:
         return
+    new_numbers = [index + 1 for index in range(len(ordered_links))]
+    old_names = {link.pk: link.name for link in ordered_links}
+    if sync_links is not None:
+        sync_links(ordered_links, new_numbers)
+    elif sync_link is not None:
+        for link, new_number in zip(ordered_links, new_numbers):
+            sync_link(link, new_number)
+    changed = [
+        (link, new_number)
+        for link, new_number in zip(ordered_links, new_numbers)
+        if str(link.number) != str(new_number)
+        or link.name != old_names[link.pk]
+    ]
+    if not changed:
+        return
+    changed_links = [link for link, _new_number in changed]
+    changed_numbers = [new_number for _link, new_number in changed]
     _assign_numbers_without_collision(
-        ordered_links,
-        [i + 1 for i in range(len(ordered_links))],
-        sync_link=sync_link,
-        sync_links=sync_links,
+        changed_links,
+        changed_numbers,
+        sync_link=None,
+        sync_links=None,
     )
 
 

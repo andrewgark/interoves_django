@@ -168,8 +168,9 @@ def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
         for link, new_num in zip(links, new_numbers):
             tg = link.task_group
             link.name = f'Лесенка #{new_num}'
-            if (tg.label or '').startswith('ladder:') or not (tg.label or '').strip():
-                tg.label = f'ladder:{new_num}'
+            desired_label = f'ladder:{new_num}'
+            if (tg.label or '').strip() != desired_label:
+                tg.label = desired_label
                 task_groups.append(tg)
             task = tasks_by_group.get(link.task_group_id)
             if task and task.text and _TITLE_RE.match(task.text.strip()):
@@ -390,9 +391,12 @@ def reorder_ladders(
         raise LadderSupportError('Дубликаты id в порядке')
 
     existing = list(
-        GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group')
+        GameTaskGroup.objects.select_for_update()
+        .filter(game=game)
+        .select_related('task_group')
     )
-    by_id = {link.pk: link for link in existing}
+    active = [link for link in existing if not link.is_deferred]
+    by_id = {link.pk: link for link in active}
     if set(ordered_link_ids) != set(by_id):
         raise LadderSupportError(
             'Список id не совпадает с текущими лесенками '
