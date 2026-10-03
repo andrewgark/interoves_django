@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.http import Http404
 from django.test import RequestFactory, TestCase
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from games.ladder_daily import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
@@ -139,6 +140,28 @@ class LadderWordResultsTests(TestCase):
         self.assertEqual(cells[0]['cls'], 'cell-zero')
         self.assertEqual(cells[1]['n_attempts'], 0)
         self.assertEqual(cells[1]['hint_numbers'], [])
+
+    def test_current_ladder_word_row_shows_points_not_column_answer(self):
+        participant = PersonalResultsParticipant(anon_key='lw-current')
+        html = render_to_string('new/partials/results_rows.html', {
+            'teams_sorted': [participant],
+            'team_to_place': {participant: 1},
+            'team_to_score': {participant: 1},
+            'team_to_cells': {participant: [{
+                'cls': 'cell-full',
+                'n_attempts': 1,
+                'result_points': 1.0,
+                'solved': True,
+                'answer': 'BBB',
+                'hint_numbers': [],
+            }]},
+            'mode': 'general',
+            'results_variant': 'ladder_words',
+            'me_anon_participant': participant,
+        })
+
+        self.assertIn('>1<', html)
+        self.assertNotIn('>BBB<', html)
 
     def test_page_renders_progressive_headers(self):
         request = self.factory.get('/ladder/9100/results/')
