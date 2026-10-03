@@ -570,8 +570,34 @@ class RaddleUiContextTests(SimpleTestCase):
     def test_unused_hints_sorted(self):
         parsed = parse_raddle_data(_task())
         ctx = build_raddle_ui_context(parsed, default_raddle_state(13))
-        texts = [h['display'] for h in ctx['unused_hints']]
+        texts = [h['text'] for h in ctx['unused_hints']]
         self.assertEqual(texts, sorted(texts, key=str.lower))
+
+    def test_unused_hints_keep_source_order_key_after_word_substitution(self):
+        data = {
+            'lengths': [5, 5, 5, 5],
+            'hints': [
+                '____ начинается с заглавной',
+                'Буква в слове',
+                'Вторая подсказка',
+            ],
+            'words': ['ФИНИШ', 'СЛОВО', 'ИГРА', 'СТАРТ'],
+        }
+        parsed = parse_raddle_data(_task(checker_data=json.dumps(data, ensure_ascii=False)))
+        ctx = build_raddle_ui_context(parsed, default_raddle_state(4))
+
+        # По исходному тексту «____» идёт раньше «Б». После подстановки
+        # первая подсказка начинается с «Ф», но это не должно менять порядок.
+        self.assertEqual([hint['index'] for hint in ctx['unused_hints']], [0, 1, 2])
+        self.assertEqual(
+            [hint['text'] for hint in ctx['unused_hints']],
+            [
+                '____ начинается с заглавной',
+                'Буква в слове',
+                'Вторая подсказка',
+            ],
+        )
+        self.assertTrue(ctx['unused_hints'][0]['display'].startswith('ФИНИШ'))
 
     def test_clue_prev_placeholder(self):
         from games.raddle import render_transition_clue

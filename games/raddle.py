@@ -1516,7 +1516,10 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             clue_marks=clue_marks,
         )
     else:
-        unused.sort(key=lambda x: x['display'].lower())
+        # Порядок должен зависеть от авторского текста подсказки, а не от
+        # уже подставленных в него слов. Иначе «____ ...» после подстановки
+        # может уехать в середину списка вслед за первой буквой ответа.
+        unused.sort(key=lambda x: x['text'].lower())
 
     middle_total = max(0, n - 2)
     is_complete = middle_total == 0 or len(solved) >= n
