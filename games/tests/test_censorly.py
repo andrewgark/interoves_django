@@ -570,6 +570,45 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'censorly-root')
 
+    def test_results_page_survives_random_hash_sibling(self):
+        RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
+        checker = CheckerType.objects.get(pk='censorly')
+        random_group = TaskGroup.objects.create(
+            label='censorly:random:extra', checker=checker, points=1,
+        )
+        share_hash = 'dc41833082925e97'
+        RandomCensorlyGame.objects.create(
+            wiki_title='Случайная статья',
+            share_hash=share_hash,
+            task_group=random_group,
+        )
+        GameTaskGroup.objects.create(
+            game=self.game,
+            task_group=random_group,
+            number=share_hash,
+            name='Случайная цензурка',
+            share_hash=share_hash,
+        )
+        numbers = [link.number for link in GameTaskGroup.sorted_links(game=self.game)]
+        listed = [
+            link.number for link in GameTaskGroup.sorted_links(
+                list(GameTaskGroup.objects.filter(game=self.game)),
+            )
+        ]
+        ordered = [
+            link.number for link in GameTaskGroup.order_queryset_by_number(
+                GameTaskGroup.objects.filter(game=self.game),
+            )
+        ]
+        self.assertEqual(numbers, ['1'])
+        self.assertEqual(listed, ['1'])
+        self.assertEqual(ordered, ['1'])
+        self.client.force_login(self.staff)
+        resp = self.client.get('/censorly/1/results/')
+        self.assertEqual(resp.status_code, 200)
+        random_results = self.client.get(f'/censorly/{share_hash}/results/')
+        self.assertEqual(random_results.status_code, 200)
+
     def test_plain_cannot_open_unpublished(self):
         self.client.force_login(self.plain)
         self.assertEqual(self.client.get('/censorly/1/').status_code, 404)

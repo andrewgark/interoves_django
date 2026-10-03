@@ -658,35 +658,48 @@ class GameTaskGroup(models.Model):
     def sorted_links(cls, queryset=None, *, game=None, reverse=False, include_deferred=False):
         if queryset is None:
             queryset = cls.objects.filter(game=game)
-        # Permanent random Alphabetty games use a hash as ``number`` and do
-        # not belong in numeric schedule/navigation lists.
-        if hasattr(queryset, 'exclude'):
-            if not include_deferred:
-                queryset = queryset.filter(is_deferred=False)
-            queryset = queryset.exclude(
+        # Permanent random Alphabetty and Цензурка games use a hash as
+        # ``number`` and do not belong in numeric schedule/navigation lists.
+        random_hash_q = (
+            models.Q(
                 game_id='alphabetty',
                 task_group__random_alphabetty_game__isnull=False,
             )
+            | models.Q(
+                game_id='censorly',
+                task_group__random_censorly_game__isnull=False,
+            )
+        )
+        if hasattr(queryset, 'exclude'):
+            if not include_deferred:
+                queryset = queryset.filter(is_deferred=False)
+            queryset = queryset.exclude(random_hash_q)
         else:
             links = list(queryset)
             if not include_deferred:
                 links = [link for link in links if not link.is_deferred]
             task_group_ids = [link.task_group_id for link in links]
+            random_task_group_ids = set()
             if task_group_ids:
-                from games.models import RandomAlphabettyGame
+                from games.models import RandomAlphabettyGame, RandomCensorlyGame
 
                 random_task_group_ids = set(
                     RandomAlphabettyGame.objects.filter(
                         task_group_id__in=task_group_ids,
                     ).values_list('task_group_id', flat=True)
                 )
-                queryset = [
-                    link for link in links
-                    if not (
-                        link.game_id == 'alphabetty'
-                        and link.task_group_id in random_task_group_ids
-                    )
-                ]
+                random_task_group_ids.update(
+                    RandomCensorlyGame.objects.filter(
+                        task_group_id__in=task_group_ids,
+                    ).values_list('task_group_id', flat=True)
+                )
+            queryset = [
+                link for link in links
+                if not (
+                    link.game_id in ('alphabetty', 'censorly')
+                    and link.task_group_id in random_task_group_ids
+                )
+            ]
         links = sorted(queryset, key=lambda link: link.key_sort(), reverse=reverse)
         return links
 
@@ -694,8 +707,14 @@ class GameTaskGroup(models.Model):
     def order_queryset_by_number(cls, queryset, *, reverse=False, include_deferred=False):
         """Числовая сортировка номера круга (1, 2, …, 10), не лексикографическая."""
         queryset = queryset.exclude(
-            game_id='alphabetty',
-            task_group__random_alphabetty_game__isnull=False,
+            models.Q(
+                game_id='alphabetty',
+                task_group__random_alphabetty_game__isnull=False,
+            )
+            | models.Q(
+                game_id='censorly',
+                task_group__random_censorly_game__isnull=False,
+            )
         )
         if not include_deferred:
             queryset = queryset.filter(is_deferred=False)
