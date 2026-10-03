@@ -27,6 +27,9 @@ ads/audit.jsonl
 # Eurovision booklet: runtime sync cache (PDFs + manifest from git)
 var/eurovision_booklet/
 
+# Censorly article pool builder artifacts (harvest / API cache / drafts)
+var/censorly_pool/
+
 # Generated before eb deploy / packaging (see scripts/write_deploy_version.sh)
 interoves_django/deploy_version.txt
 

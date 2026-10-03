@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Censorly pool review</title>
+<style>
+  :root {
+    --bg: #14181f;
+    --card: #1e2630;
+    --text: #eef2f7;
+    --muted: #8b97a8;
+    --keep: #2f9e6b;
+    --drop: #c44b4b;
+    --line: #2c3644;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+    background:
+      radial-gradient(900px 500px at 10% -10%, #243148 0%, transparent 55%),
+      radial-gradient(700px 400px at 100% 0%, #2a1f28 0%, transparent 50%),
+      var(--bg);
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 40px;
+  }
+  h1 { font-size: 1.1rem; font-weight: 600; margin: 0 0 4px; letter-spacing: .02em; }
+  .sub { color: var(--muted); font-size: .9rem; margin-bottom: 18px; }
+  .progress {
+    width: min(520px, 100%);
+    height: 6px;
+    background: var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .progress > i {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, #5b8def, #6cc4a0);
+    width: 0%;
+    transition: width .15s ease;
+  }
+  .stats { color: var(--muted); font-size: .85rem; margin-bottom: 18px; }
+  .card {
+    width: min(520px, 100%);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px 24px 22px;
+    min-height: 280px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 18px 50px rgba(0,0,0,.35);
+  }
+  .title {
+    font-size: clamp(1.5rem, 4vw, 2rem);
+    line-height: 1.2;
+    font-weight: 700;
+    margin: 0;
+  }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    font-size: .78rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #283243;
+    color: #c5d0df;
+    border: 1px solid #354357;
+  }
+  .chip.reason { background: #3a2a2a; border-color: #5a3a3a; color: #f0c2c2; }
+  .links a {
+    color: #8eb6ff;
+    text-decoration: none;
+    font-size: .9rem;
+  }
+  .links a:hover { text-decoration: underline; }
+  .upcoming {
+    margin-top: 4px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .upcoming-label {
+    color: var(--muted);
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 8px;
+  }
+  .upcoming ol {
+    margin: 0;
+    padding-left: 1.2rem;
+    color: #b7c2d2;
+    font-size: .92rem;
+    line-height: 1.45;
+  }
+  .upcoming li { margin: 2px 0; }
+  .hint { color: var(--muted); font-size: .85rem; margin-top: auto; }
+  .actions {
+    width: min(520px, 100%);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 18px;
+  }
+  button {
+    appearance: none;
+    border: 0;
+    border-radius: 14px;
+    padding: 16px 12px;
+    font-size: 1rem;
+    font-weight: 650;
+    cursor: pointer;
+    color: white;
+    transition: transform .08s ease, filter .12s ease;
+  }
+  button:active { transform: scale(.98); }
+  button:disabled { opacity: .45; cursor: default; }
+  .drop { background: var(--drop); }
+  .keep { background: var(--keep); }
+  .toolbar {
+    width: min(520px, 100%);
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+    flex-wrap: wrap;
+  }
+  .toolbar button {
+    background: #2a3342;
+    color: var(--text);
+    font-size: .85rem;
+    padding: 10px 12px;
+    font-weight: 550;
+  }
+  .done {
+    width: min(520px, 100%);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 28px;
+    display: none;
+  }
+  .done h2 { margin: 0 0 10px; }
+  kbd {
+    font-family: ui-monospace, monospace;
+    background: #2a3342;
+    border: 1px solid #3d4b5f;
+    border-radius: 6px;
+    padding: 1px 6px;
+    font-size: .8em;
+  }
+</style>
+</head>
+<body>
+  <h1 id="heading">Ревью пула</h1>
+  <div class="sub">← убрать из пула · → оставить в пуле · клик или клавиши</div>
+  <div class="progress"><i id="bar"></i></div>
+  <div class="stats" id="stats">Загрузка…</div>
+
+  <div class="card" id="card">
+    <h2 class="title" id="title">…</h2>
+    <div class="meta" id="meta"></div>
+    <div class="links" id="links"></div>
+    <div class="upcoming" id="upcoming">
+      <div class="upcoming-label">Дальше</div>
+      <ol id="upcomingList"></ol>
+    </div>
+    <div class="hint">Решения пишутся на диск сразу. Можно закрыть и продолжить позже.</div>
+  </div>
+
+  <div class="actions">
+    <button class="drop" id="btnDrop" type="button">← Убрать</button>
+    <button class="keep" id="btnKeep" type="button">Оставить →</button>
+  </div>
+  <div class="toolbar">
+    <button type="button" id="btnUndo">↩ Undo</button>
+    <button type="button" id="btnSkip">Пропустить</button>
+    <button type="button" id="btnExport">Применить к пулу</button>
+  </div>
+
+  <div class="done" id="done">
+    <h2>Готово</h2>
+    <p id="doneText"></p>
+    <div class="toolbar">
+      <button type="button" id="btnExport2">Применить к пулу</button>
+      <button type="button" id="btnRestart">Сначала нерешенные</button>
+    </div>
+  </div>
+
+<script>
+const reasonRu = (r) => {
+  if (r.startsWith('sport')) return 'спортсмен, мало языков';
+  if (r.startsWith('politician')) return 'политик из pageviews';
+  if (r.startsWith('actor')) return 'актёр из pageviews';
+  if (r.startsWith('narrow_geo')) return 'узкая география';
+  if (r === 'phrase') return 'фраза/цитата';
+  return r;
+};
+
+let state = { mode: 'pool', candidates: [], decisions: {}, index: 0, queue: [] };
+
+async function api(path, opts) {
+  const res = await fetch(path, {
+    headers: { 'Content-Type': 'application/json' },
+    ...opts,
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+function remaining() {
+  return state.candidates.filter(c => !(c.title in state.decisions));
+}
+
+function currentIndex() {
+  const rem = remaining();
+  if (!rem.length) return -1;
+  return Math.min(state.index, rem.length - 1);
+}
+
+function current() {
+  const rem = remaining();
+  const i = currentIndex();
+  return i < 0 ? null : rem[i];
+}
+
+function nextThree() {
+  const rem = remaining();
+  const i = currentIndex();
+  if (i < 0) return [];
+  return rem.slice(i + 1, i + 4);
+}
+
+function render() {
+  const total = state.candidates.length;
+  const decided = Object.keys(state.decisions).length;
+  const keep = Object.values(state.decisions).filter(v => v === 'keep').length;
+  const drop = Object.values(state.decisions).filter(v => v === 'drop').length;
+  const rem = remaining();
+  const pct = total ? (decided / total) * 100 : 0;
+  document.getElementById('bar').style.width = pct + '%';
+  document.getElementById('stats').textContent =
+    `${decided}/${total} · оставить ${keep} · убрать ${drop} · осталось ${rem.length}`;
+
+  const card = document.getElementById('card');
+  const actions = document.querySelector('.actions');
+  const done = document.getElementById('done');
+  const c = current();
+  if (!c) {
+    card.style.display = 'none';
+    actions.style.display = 'none';
+    done.style.display = 'block';
+    document.getElementById('doneText').textContent =
+      `Оставить: ${keep}. Убрать: ${drop}. Можно применить к article_pool.txt.`;
+    return;
+  }
+  card.style.display = 'flex';
+  actions.style.display = 'grid';
+  done.style.display = 'none';
+  document.getElementById('title').textContent = c.title;
+  const meta = document.getElementById('meta');
+  meta.innerHTML = '';
+  const addChip = (text, cls) => {
+    const span = document.createElement('span');
+    span.className = cls ? `chip ${cls}` : 'chip';
+    span.textContent = text;
+    meta.appendChild(span);
+  };
+  (c.reasons || []).forEach(r => addChip(reasonRu(r), 'reason'));
+  (c.themes || []).filter(t => t && t !== 'pageviews').forEach(t => addChip(t));
+  if (c.sitelinks != null) addChip(`языков: ${c.sitelinks}`);
+  if (c.pageviews) addChip(`pv: ${c.pageviews}`);
+  if (c.length) addChip(`${Math.round(c.length / 1000)}k wikitext`);
+  (c.sources || []).forEach(s => addChip(s));
+  const q = encodeURIComponent(c.title);
+  document.getElementById('links').innerHTML =
+    `<a href="https://ru.wikipedia.org/wiki/${q}" target="_blank" rel="noopener">ruwiki</a>`;
+  const upcoming = nextThree();
+  const upcomingBox = document.getElementById('upcoming');
+  const upcomingList = document.getElementById('upcomingList');
+  upcomingList.innerHTML = '';
+  if (!upcoming.length) {
+    upcomingBox.style.display = 'none';
+  } else {
+    upcomingBox.style.display = 'block';
+    upcoming.forEach(item => {
+      const li = document.createElement('li');
+      li.textContent = item.title;
+      upcomingList.appendChild(li);
+    });
+  }
+}
+
+async function decide(verdict) {
+  const c = current();
+  if (!c) return;
+  state.queue.push({ title: c.title, prev: state.decisions[c.title] });
+  state.decisions[c.title] = verdict;
+  // stay on same remaining-index (next item slides into place)
+  await api('/api/decide', {
+    method: 'POST',
+    body: JSON.stringify({ title: c.title, verdict }),
+  });
+  render();
+}
+
+async function undo() {
+  const last = state.queue.pop();
+  if (!last) return;
+  if (last.prev == null) delete state.decisions[last.title];
+  else state.decisions[last.title] = last.prev;
+  await api('/api/undo', {
+    method: 'POST',
+    body: JSON.stringify({ title: last.title, verdict: last.prev ?? null }),
+  });
+  render();
+}
+
+function skip() {
+  const rem = remaining();
+  if (rem.length < 2) return;
+  state.index = (state.index + 1) % rem.length;
+  render();
+}
+
+async function applyPool() {
+  const res = await api('/api/apply', { method: 'POST', body: '{}' });
+  alert(`Пул обновлён: убрано ${res.removed}, размер теперь ${res.pool_size}. Оставленные (${res.kept}) сохранены.`);
+}
+
+async function init() {
+  const data = await api('/api/state');
+  state.mode = data.mode || 'pool';
+  state.candidates = data.candidates;
+  state.decisions = data.decisions || {};
+  state.index = 0;
+  document.getElementById('heading').textContent =
+    state.mode === 'obscure'
+      ? 'Обскурные кандидаты на вылет'
+      : 'Весь пул (уже отмеченные пропущены)';
+  document.title = state.mode === 'obscure' ? 'Censorly obscure review' : 'Censorly pool review';
+  render();
+}
+
+document.getElementById('btnDrop').onclick = () => decide('drop');
+document.getElementById('btnKeep').onclick = () => decide('keep');
+document.getElementById('btnUndo').onclick = () => undo();
+document.getElementById('btnSkip').onclick = () => skip();
+document.getElementById('btnExport').onclick = () => applyPool();
+document.getElementById('btnExport2').onclick = () => applyPool();
+document.getElementById('btnRestart').onclick = () => { state.index = 0; render(); };
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft') { e.preventDefault(); decide('drop'); }
+  if (e.key === 'ArrowRight') { e.preventDefault(); decide('keep'); }
+  if (e.key === 'ArrowDown' || e.key === ' ') { e.preventDefault(); skip(); }
+  if (e.key === 'z' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); undo(); }
+  if (e.key === 'Backspace') { e.preventDefault(); undo(); }
+});
+
+init().catch(err => {
+  document.getElementById('stats').textContent = 'Ошибка: ' + err.message;
+});
+</script>
+</body>
+</html>
