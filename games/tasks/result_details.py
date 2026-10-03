@@ -6,6 +6,7 @@ from games.tasks.actor_state import (
     latest_attempt_state_for_result_actor,
 )
 from games.models import Attempt, ChainTaskState, GameTaskGroup, RaddleUiState
+from games.results.context import results_actor_identity
 from games.word_salad import WORD_SALAD_GAME_ID
 
 
@@ -86,28 +87,9 @@ def set_current_result_header_answers(data, actor, game=None):
     cells_by_actor = data.get('team_to_cells') or {}
     cells = cells_by_actor.get(actor) or []
     if not cells:
-        actor_kind = (
-            'team' if getattr(actor, 'is_team_results_row', False)
-            else 'user' if getattr(actor, 'user_id', None) is not None
-            else 'anon'
-        )
-        actor_id = (
-            getattr(actor, 'pk', None)
-            if actor_kind == 'team'
-            else getattr(actor, 'user_id', None) or getattr(actor, 'anon_key', None)
-        )
+        actor_identity = results_actor_identity(actor)
         for candidate, candidate_cells in cells_by_actor.items():
-            candidate_kind = (
-                'team' if getattr(candidate, 'is_team_results_row', False)
-                else 'user' if getattr(candidate, 'user_id', None) is not None
-                else 'anon'
-            )
-            candidate_id = (
-                getattr(candidate, 'pk', None)
-                if candidate_kind == 'team'
-                else getattr(candidate, 'user_id', None) or getattr(candidate, 'anon_key', None)
-            )
-            if actor_kind == candidate_kind and actor_id == candidate_id:
+            if actor_identity is not None and actor_identity == results_actor_identity(candidate):
                 cells = candidate_cells
                 break
 

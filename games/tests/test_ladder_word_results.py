@@ -143,6 +143,7 @@ class LadderWordResultsTests(TestCase):
 
     def test_current_ladder_word_row_shows_points_not_column_answer(self):
         participant = PersonalResultsParticipant(anon_key='lw-current')
+        current_participant = PersonalResultsParticipant(anon_key='lw-current')
         html = render_to_string('new/partials/results_rows.html', {
             'teams_sorted': [participant],
             'team_to_place': {participant: 1},
@@ -157,7 +158,7 @@ class LadderWordResultsTests(TestCase):
             }]},
             'mode': 'general',
             'results_variant': 'ladder_words',
-            'me_anon_participant': participant,
+            'me_anon_participant': current_participant,
         })
 
         self.assertIn('>1<', html)

@@ -74,6 +74,26 @@ def results_actor_kind(actor):
     return 'user'
 
 
+def results_actor_identity(actor):
+    """Return the stable identity used across results rendering layers."""
+    if actor is None:
+        return None
+    if getattr(actor, 'is_team_results_row', False):
+        return ('team', str(getattr(actor, 'pk', '')))
+    user_id = getattr(actor, 'user_id', None)
+    if user_id is not None:
+        return ('user', str(user_id))
+    anon_key = getattr(actor, 'anon_key', None)
+    if anon_key:
+        return ('anon', str(anon_key))
+    return None
+
+
+def results_actors_match(left, right):
+    left_identity = results_actor_identity(left)
+    return left_identity is not None and left_identity == results_actor_identity(right)
+
+
 def results_me_participants(request, play_mode, *, anon_key_from_request):
     me_personal = None
     me_anon_participant = None

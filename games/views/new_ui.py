@@ -143,6 +143,7 @@ from games.results.context import (
     results_actor_filter_types,
     results_actor_filter_urls,
     results_actor_kind,
+    results_actor_identity,
     results_column_count,
 )
 from games.results.access import (
@@ -2556,20 +2557,11 @@ def new_section_results_page(request, game_id):
     aggregate_column_labels = {}
     if results_variant == 'alphabetty':
         current_actor = team if play_mode == 'team' else (me_personal or me_anon_participant)
-        def actor_identity(actor):
-            if getattr(actor, 'is_team_results_row', False):
-                return ('team', getattr(actor, 'pk', None))
-            if getattr(actor, 'user_id', None) is not None:
-                return ('user', actor.user_id)
-            if getattr(actor, 'anon_key', None):
-                return ('anon', actor.anon_key)
-            return None
-
-        current_actor_identity = actor_identity(current_actor)
+        current_actor_identity = results_actor_identity(current_actor)
         current_row = next(
             (
                 row for row in data.get('aggregate_rows', [])
-                if actor_identity(row.get('actor')) == current_actor_identity
+                if results_actor_identity(row.get('actor')) == current_actor_identity
             ),
             None,
         ) if current_actor_identity is not None else None

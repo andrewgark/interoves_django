@@ -9,6 +9,14 @@ from games.util import clean_text, better_status
 
 
 @register.filter
+def same_results_actor(actor, current_actor):
+    """Compare result actors by stable team/user/anonymous identity."""
+    from games.results.context import results_actors_match
+
+    return results_actors_match(actor, current_actor)
+
+
+@register.filter
 def public_author(value):
     """Hide legacy Telegram suffixes from author labels shown on game pages."""
     return re.sub(r'\s*\(@[A-Za-z0-9_]{1,64}\)\s*$', '', str(value or '')).strip()
