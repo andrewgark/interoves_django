@@ -330,6 +330,33 @@ class LadderSupportViewTests(TestCase):
         self.assertContains(response, 'Лесенки')
         self.assertContains(response, 'ladders-bootstrap')
 
+    def test_accepted_offer_telegram_stays_on_schedule(self):
+        from games.ladder_offer import accept_offer, create_offer, send_offer, update_offer_content
+
+        author = User.objects.create_user('arina', password='x')
+        Profile.objects.create(
+            user=author,
+            first_name='Арина',
+            last_name='Коваленко',
+            telegram_handle='astrolabe12',
+            telegram_verified=True,
+        )
+        offer = create_offer(author)
+        update_offer_content(
+            offer,
+            words=['КОТ', 'РОТ'],
+            hints=['к→р'],
+            author='Арина Коваленко',
+        )
+        send_offer(offer)
+        offer = accept_offer(offer)
+        response = self.client.get(reverse('support:ladders'))
+        self.assertEqual(response.status_code, 200)
+        linked = response.context['offer_by_link_json'][str(offer.accepted_link_id)]
+        self.assertEqual(linked['status'], 'accepted')
+        self.assertEqual(linked['telegram_handle'], 'astrolabe12')
+        self.assertContains(response, 'linkedOffer.telegram_handle')
+
     def test_reorder_endpoint(self):
         a = ladder_svc.create_ladder(at_number=1, words=['А', 'Б'], hints=['x'])
         b = ladder_svc.create_ladder(at_number=2, words=['В', 'Г'], hints=['y'])

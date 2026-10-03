@@ -259,6 +259,7 @@
             '<span class="support-cell-mono">' + (row.publish_date || '—') + '</span>' +
             ' · id ' + row.link_id +
             (row.author ? ' · ' + escapeHtml(row.author) : '') +
+            (linkedOffer && linkedOffer.telegram_handle ? ' · @' + escapeHtml(linkedOffer.telegram_handle) : '') +
             ' · ' + row.word_count + ' сл.' +
             (row.mixed_script
               ? ' · <span class="support-ladder-item__mixed" title="И кириллица, и латиница разрешена">кир+лат</span>'
@@ -529,14 +530,16 @@
     errEl.hidden = true;
     errEl.textContent = '';
     function fill(ladder) {
+      var linked = offerByLink[String(ladder.link_id)];
       document.getElementById('ladder-edit-title').textContent = 'Лесенка №' + ladder.number;
       document.getElementById('ladder-edit-sub').textContent =
-        'id ' + ladder.link_id + (ladder.publish_date ? ' · выход ' + ladder.publish_date : '');
+        'id ' + ladder.link_id +
+        (ladder.publish_date ? ' · выход ' + ladder.publish_date : '') +
+        (linked && linked.telegram_handle ? ' · @' + linked.telegram_handle : '');
       document.getElementById('ladder-edit-intro').value = ladder.intro || '';
       document.getElementById('ladder-edit-author').value = ladder.author || '';
       document.getElementById('ladder-edit-mixed-script').checked = !!ladder.mixed_script;
       renderWordRows(ladder.words || [], ladder.hints || [], ladder.emojis || []);
-      var linked = offerByLink[String(ladder.link_id)];
       var prev = document.getElementById('ladder-edit-preview');
       prev.href = ladder.site_url || ladder.play_url || '#';
       var revBtn = document.getElementById('ladder-edit-revision');
