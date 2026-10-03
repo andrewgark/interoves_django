@@ -50,11 +50,31 @@ _EDITORIAL_BRACKET_RE = re.compile(
     r')\]',
     re.IGNORECASE,
 )
-# Lead pronunciation dumps: «Москва (МФА: […])».
-_MFA_PRONUNCIATION_RE = re.compile(
-    r'(?:,?\s*)?\(?\s*МФА\s*:\s*\[[^\]]*\]\s*\)?',
+# «МФА:» or «английское произношение:», with or without the following […].
+# The adjective is optional so a bare «произношение:» still matches, but a
+# random word («имеет произношение») is left alone.
+_PRONUNCIATION_LABEL_RE = re.compile(
+    r'(?:,[ \t\u00a0]*)?'
+    r'(?:'
+    r'\bМФА\b'
+    r'|'
+    r'(?:\b[А-Яа-яЁё\-]*(?:ое|ее|ая|ый|ий|ой)\b[ \t\u00a0]+)?'
+    r'\bпроизношение\b'
+    r')'
+    r'[ \t\u00a0]*:[ \t\u00a0]*'
+    r'(?:\[[^\]]*\])?',
     re.IGNORECASE,
 )
+# IPA signs that do not show up in ordinary Russian prose or in [100]/[010].
+_IPA_CHAR_RE = re.compile(
+    '['
+    'ˈˌːˑʲʰʷ˞ʼ'
+    'əɐɪʊɛɔʌæɑɒœøɨʉɵɯɤʏ'
+    'ʃʒθðŋɡɾʁɕʑɸβɣχʔɫɭɲɱʋɥɬɮɹɻɽʀʙʜʢʡʕʘǀǂǁʍ'
+    ']'
+)
+_SQUARE_BRACKET_RE = re.compile(r'\[[^\]]*\]')
+_EMPTY_PAREN_RE = re.compile(r'\([ \t\u00a0]*[,.;:!?…\-—]*[ \t\u00a0]*\)')
 
 
 @dataclass(frozen=True)
@@ -192,11 +212,45 @@ def _collapse_extract_whitespace(text: str) -> str:
     return text.strip()
 
 
+def _strip_ipa_brackets(text: str) -> str:
+    """Drop […] groups that contain phonetic signs. Keep [100]/[010]/[001]."""
+    def repl(match: re.Match[str]) -> str:
+        if _IPA_CHAR_RE.search(match.group(0)):
+            return ''
+        return match.group(0)
+
+    return _SQUARE_BRACKET_RE.sub(repl, text)
+
+
+def _tidy_pronunciation_gaps(text: str) -> str:
+    """Close holes left where a pronunciation dump used to sit."""
+    text = re.sub(r'\([ \t\u00a0]+', '(', text)
+    text = re.sub(r'[ \t\u00a0]+\)', ')', text)
+    text = _EMPTY_PAREN_RE.sub('', text)
+    # «Shakespeare, ; 26» after the pronunciation between the separators is gone.
+    text = re.sub(r'([,;])[ \t\u00a0]*([,;])', r'\2', text)
+    text = re.sub(r'[ \t\u00a0]+([,.;:!?…])', r'\1', text)
+    text = re.sub(r'[ \t\u00a0]{2,}', ' ', text)
+    text = _EMPTY_PAREN_RE.sub('', text)
+    return text
+
+
+def _strip_pronunciations(text: str) -> str:
+    """Drop ruwiki lead transcriptions that explaintext flattens out of .IPA."""
+    if not text:
+        return text
+    text = _PRONUNCIATION_LABEL_RE.sub('', text)
+    text = _strip_ipa_brackets(text)
+    return _tidy_pronunciation_gaps(text)
+
+
 def _strip_bracket_notes(text: str) -> str:
     """Drop citation footnotes and editorial [уточнить]-style notes; keep [100]/Miller."""
-    if not text or '[' not in text:
+    if not text:
         return text
-    text = _MFA_PRONUNCIATION_RE.sub('', text)
+    text = _strip_pronunciations(text)
+    if '[' not in text:
+        return text
     text = _NUMERIC_FOOTNOTE_RE.sub('', text)
     text = _EDITORIAL_BRACKET_RE.sub('', text)
     # "слово  ." / "слово ," after note removal

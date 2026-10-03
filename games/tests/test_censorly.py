@@ -392,6 +392,46 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertNotIn('mɐ', cleaned)
         self.assertIn('Москва', cleaned)
         self.assertIn('столица России', cleaned)
+        self.assertNotIn('()', cleaned)
+
+    def test_strip_empty_mfa_label_keeps_foreign_name(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = 'Париж (фр. Paris МФА: ) — столица и крупнейший город Франции.'
+        cleaned = clean_wiki_extract(raw)
+        self.assertNotIn('МФА', cleaned)
+        self.assertIn('Paris', cleaned)
+        self.assertIn('(фр. Paris)', cleaned)
+        self.assertIn('столица', cleaned)
+        self.assertNotIn('()', cleaned)
+
+    def test_strip_language_pronunciation_keeps_name_and_dates(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            'Уильям Шекспир (англ. William Shakespeare, '
+            'английское произношение: [ˌwɪljəm ˈʃeɪkspɪə(r)]; '
+            '26 апреля 1564 года — 23 апреля 1616) — английский поэт.'
+        )
+        cleaned = clean_wiki_extract(raw)
+        self.assertNotIn('произношение', cleaned)
+        self.assertNotIn('ʃeɪkspɪə', cleaned)
+        self.assertNotIn('ˈ', cleaned)
+        self.assertIn('William Shakespeare', cleaned)
+        self.assertIn('26 апреля 1564', cleaned)
+        self.assertIn('английский поэт', cleaned)
+
+    def test_strip_unlabeled_ipa_bracket_keeps_miller(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = 'Слово [mɐˈskva] рядом с направлением [100] и сноской[1].'
+        cleaned = clean_wiki_extract(raw)
+        self.assertNotIn('mɐ', cleaned)
+        self.assertNotIn('[mɐ', cleaned)
+        self.assertIn('[100]', cleaned)
+        self.assertNotIn('[1]', cleaned)
+        self.assertIn('Слово', cleaned)
+        self.assertIn('рядом', cleaned)
 
     def test_public_payload_hides_wiki_pageid_until_won(self):
         from games.censorly.play import public_payload
