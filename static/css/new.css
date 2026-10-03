@@ -4024,6 +4024,8 @@ html.new-ui-dark .new-team-switcher-active-box {
 .new-sub-gift-offer,
 .new-sub-gift-item {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
   gap: .7rem;
   min-width: 0;
   padding-top: .75rem;
@@ -4106,10 +4108,20 @@ html.new-ui-dark .new-team-switcher-active-box {
   letter-spacing: .08em;
 }
 
+.new-sub-gift-code-row code.is-blurred {
+  filter: blur(.32em);
+  user-select: none;
+}
+
+.new-sub-gift-code-row code.is-revealed {
+  filter: none;
+  user-select: text;
+}
+
 @media (max-width: 560px) {
   .new-sub-gift-item {
+    grid-template-columns: 1fr;
     align-items: flex-start;
-    flex-direction: column;
   }
 
   .new-sub-gift-method-grid {

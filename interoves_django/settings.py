@@ -264,6 +264,7 @@ ALLOWED_HOSTS = [
     'interoves.com',
     'www.interoves.com',
     '127.0.0.1',
+    'localhost',
     'fat-owl-8.loca.lt',
     '3.122.72.107',
     '3.123.113.139',

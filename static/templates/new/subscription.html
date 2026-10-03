@@ -408,8 +408,9 @@
         </div>
         <div class="new-sub-gift-code-row">
           {% if item.code %}
-            <code>{{ item.code }}</code>
-            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-copy-gift-code="{{ item.code }}">Скопировать</button>
+            <code class="is-blurred" data-gift-code>{{ item.code }}</code>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-reveal-gift-code aria-expanded="false">Показать код</button>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-copy-gift-code hidden>Скопировать</button>
           {% else %}
             <span class="new-pay-order__meta">Код появится после подтверждения оплаты</span>
           {% endif %}
@@ -484,13 +485,27 @@
   bindFetchForms('form[data-sub-gift]', 'Переходим к оплате…', false);
   document.querySelectorAll('[data-copy-gift-code]').forEach(function (button) {
     button.addEventListener('click', function () {
-      var code = button.getAttribute('data-copy-gift-code') || '';
+      var codeElement = button.parentElement && button.parentElement.querySelector('[data-gift-code]');
+      var code = codeElement ? codeElement.textContent.trim() : '';
       if (!navigator.clipboard) return;
       navigator.clipboard.writeText(code).then(function () {
         var old = button.textContent;
         button.textContent = 'Скопировано';
         window.setTimeout(function () { button.textContent = old; }, 1500);
       });
+    });
+  });
+  document.querySelectorAll('[data-reveal-gift-code]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var row = button.parentElement;
+      var code = row && row.querySelector('[data-gift-code]');
+      var copy = row && row.querySelector('[data-copy-gift-code]');
+      if (!code) return;
+      code.classList.remove('is-blurred');
+      code.classList.add('is-revealed');
+      button.hidden = true;
+      if (copy) copy.hidden = false;
+      button.setAttribute('aria-expanded', 'true');
     });
   });
   var modal = document.getElementById('new-sub-detach-modal');
