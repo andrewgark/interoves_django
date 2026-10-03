@@ -81,8 +81,9 @@ class DailyResultProjectionTests(TestCase):
             checker_data='answer', text='Question',
         )
         with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
-            task.points = 11
-            task.save(update_fields=['points'])
+            with self.captureOnCommitCallbacks(execute=True):
+                task.points = 11
+                task.save(update_fields=['points'])
         mark_dirty.assert_called_once_with(
             self.game, self.group, full=True,
         )

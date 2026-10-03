@@ -1278,7 +1278,10 @@ class Task(models.Model):
                 for link in GameTaskGroup.objects.filter(
                     task_group_id=group_id, game__project_id='sections',
                 ).select_related('game', 'task_group'):
-                    mark_projection_dirty(link.game, link.task_group, full=True)
+                    transaction.on_commit(
+                        lambda game=link.game, task_group=link.task_group:
+                        mark_projection_dirty(game, task_group, full=True),
+                    )
         # A changed Word Salad grid starts a new chain.  Changing only the
         # answer/rare-word lists must keep the accumulated projection alive:
         # the existing attempts are still valid evidence and the recheck can
@@ -2574,7 +2577,10 @@ class Hint(models.Model):
             for link in GameTaskGroup.objects.filter(
                 task_group_id=self.task.task_group_id, game__project_id='sections',
             ).select_related('game', 'task_group'):
-                mark_projection_dirty(link.game, link.task_group, full=True)
+                transaction.on_commit(
+                    lambda game=link.game, task_group=link.task_group:
+                    mark_projection_dirty(game, task_group, full=True),
+                )
         track_task_change(self.task)
 
 class HintAttempt(models.Model):

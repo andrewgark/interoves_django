@@ -43,7 +43,10 @@ def completion_mapping_old_snapshot(sender, instance, **kwargs):
 def completion_mapping_reconcile(sender, instance, created, **kwargs):
     if getattr(instance.game, 'project_id', None) == 'sections':
         from games.daily_result_projection import mark_projection_dirty
-        mark_projection_dirty(instance.game, instance.task_group, full=True)
+        transaction.on_commit(
+            lambda game=instance.game, task_group=instance.task_group:
+            mark_projection_dirty(game, task_group, full=True),
+        )
     old = getattr(instance, '_completion_mapping_old', None)
     if old is not None and (
         old.game_id == instance.game_id
