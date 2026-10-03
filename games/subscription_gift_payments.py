@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.conf import settings
 
-from games.models import SubscriptionGift, SubscriptionGiftPayment
+from games.models import TributePurchase, SubscriptionGift, SubscriptionGiftPayment
 from games.subscription_gifts import create_paid_gift
 from games.telegram_linking import user_has_telegram_link
 from games.tribute_config import club_gift_products_by_id, configured_club_gift
@@ -209,6 +209,35 @@ def _payload_excerpt(data: dict) -> dict:
     }
 
 
+def _find_tribute_pending_payment(data: dict, product):
+    candidates = list(SubscriptionGiftPayment.objects.select_for_update().filter(
+        provider=SubscriptionGift.PROVIDER_TRIBUTE,
+        telegram_user_id=data['telegram_user_id'],
+        duration_months=product.months,
+        status=SubscriptionGiftPayment.STATUS_PENDING,
+    ).order_by('created_at')[:20])
+    purchase_at = parse_datetime(data['purchase_created_at'])
+    if purchase_at is None:
+        return None
+    if timezone.is_naive(purchase_at):
+        purchase_at = timezone.make_aware(purchase_at, timezone.utc)
+    candidates = [candidate for candidate in candidates if abs(
+        (candidate.created_at - purchase_at).total_seconds()
+    ) <= 24 * 60 * 60]
+    candidates.sort(key=lambda candidate: abs(
+        (candidate.created_at - purchase_at).total_seconds()
+    ))
+    if len(candidates) > 1 and abs(
+        (candidates[0].created_at - purchase_at).total_seconds()
+    ) == abs((candidates[1].created_at - purchase_at).total_seconds()):
+        logger.warning(
+            'subscription_gift_tribute_ambiguous purchase_id=%s product_id=%s',
+            data['purchase_id'], data['product_id'],
+        )
+        return None
+    return candidates[0] if candidates else None
+
+
 @transaction.atomic
 def process_tribute_gift_purchase(payload: dict) -> bool:
     """Apply a signed Tribute digital-product purchase, idempotently."""
@@ -218,41 +247,35 @@ def process_tribute_gift_purchase(payload: dict) -> bool:
     product = club_gift_products_by_id().get(data['product_id'])
     if product is None:
         return False
-    if data['amount'] != product.amount or data['currency'] != product.currency:
-        logger.warning('subscription_gift_tribute_mismatch purchase_id=%s product_id=%s', data['purchase_id'], data['product_id'])
-        return False
     payment = SubscriptionGiftPayment.objects.select_for_update().filter(
         provider=SubscriptionGift.PROVIDER_TRIBUTE,
         purchase_id=data['purchase_id'],
     ).first()
     if payment is None:
-        candidates = list(SubscriptionGiftPayment.objects.select_for_update().filter(
-            provider=SubscriptionGift.PROVIDER_TRIBUTE,
-            telegram_user_id=data['telegram_user_id'],
-            duration_months=product.months,
-            status=SubscriptionGiftPayment.STATUS_PENDING,
-        ).order_by('created_at')[:20])
-        purchase_at = parse_datetime(data['purchase_created_at'])
-        if purchase_at is not None and timezone.is_naive(purchase_at):
-            purchase_at = timezone.make_aware(purchase_at, timezone.utc)
-        if purchase_at is None:
-            candidates = []
-        else:
-            candidates = [candidate for candidate in candidates if abs(
-                (candidate.created_at - purchase_at).total_seconds()
-            ) <= 24 * 60 * 60]
-            candidates.sort(key=lambda candidate: abs(
-                (candidate.created_at - purchase_at).total_seconds()
-            ))
-            if len(candidates) > 1 and abs(
-                (candidates[0].created_at - purchase_at).total_seconds()
-            ) == abs((candidates[1].created_at - purchase_at).total_seconds()):
-                logger.warning(
-                    'subscription_gift_tribute_ambiguous purchase_id=%s product_id=%s',
-                    data['purchase_id'], data['product_id'],
-                )
-                candidates = []
-        payment = candidates[0] if candidates else None
+        payment = _find_tribute_pending_payment(data, product)
+    refund_recorded = TributePurchase.objects.filter(
+        purchase_id=data['purchase_id'],
+        status=TributePurchase.STATUS_REFUNDED,
+    ).exists()
+    if refund_recorded:
+        if payment is not None and payment.status == SubscriptionGiftPayment.STATUS_PENDING:
+            payment.status = SubscriptionGiftPayment.STATUS_CANCELED
+            payment.raw_event_excerpt = dict(
+                payment.raw_event_excerpt or {}, refund_before_purchase=True,
+            )
+            payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
+            from games.subscription_gifts import revoke_gift_access
+            revoke_gift_access(payment.gift)
+        logger.warning('subscription_gift_tribute_purchase_already_refunded purchase_id=%s', data['purchase_id'])
+        return True
+    if data['amount'] != product.amount or data['currency'] != product.currency:
+        logger.warning('subscription_gift_tribute_mismatch purchase_id=%s product_id=%s', data['purchase_id'], data['product_id'])
+        if payment is not None and payment.status == SubscriptionGiftPayment.STATUS_PENDING:
+            payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
+            payment.raw_event_excerpt = _payload_excerpt(data)
+            payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
+            return True
+        return False
     if payment is None:
         logger.warning('subscription_gift_tribute_unmatched purchase_id=%s product_id=%s', data['purchase_id'], data['product_id'])
         return False
@@ -316,20 +339,25 @@ def process_yookassa_gift_refund(payment_data: dict) -> bool:
     return True
 
 
-@transaction.atomic
 def reconcile_yookassa_gift_payments(*, limit: int = 50) -> int:
     """Reconcile gift payments whose YooKassa outcome was ambiguous."""
-    payments = list(
-        SubscriptionGiftPayment.objects.select_for_update().filter(
+    payment_ids = list(
+        SubscriptionGiftPayment.objects.filter(
             provider=SubscriptionGift.PROVIDER_YOOKASSA,
             status__in=(
                 SubscriptionGiftPayment.STATUS_PENDING,
                 SubscriptionGiftPayment.STATUS_MANUAL_REVIEW,
             ),
-        ).exclude(provider_payment_id='').order_by('updated_at')[:limit]
+        ).exclude(provider_payment_id='').order_by('updated_at').values_list('pk', flat=True)[:limit]
     )
     changed = 0
-    for payment in payments:
+    for payment_id in payment_ids:
+        payment = SubscriptionGiftPayment.objects.filter(pk=payment_id).first()
+        if payment is None or payment.status not in (
+            SubscriptionGiftPayment.STATUS_PENDING,
+            SubscriptionGiftPayment.STATUS_MANUAL_REVIEW,
+        ):
+            continue
         try:
             remote = dict(Payment.find_one(payment.provider_payment_id))
         except Exception:

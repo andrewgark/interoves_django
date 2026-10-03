@@ -8,7 +8,7 @@ from django.urls import reverse
 from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
-from games.models import Profile, SubscriptionGift, SubscriptionGiftPayment
+from games.models import Profile, SubscriptionGift, SubscriptionGiftPayment, TributePurchase
 from games.subscription_gifts import claim_gift, decrypt_gift_code
 from games.subscription_gift_payments import (
     process_tribute_gift_purchase,
@@ -216,6 +216,55 @@ class SubscriptionGiftPaymentTests(TestCase):
         payment.gift.refresh_from_db()
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
         self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
+
+    def test_tribute_refund_received_before_purchase_cannot_pay_gift(self):
+        self.client.force_login(self.purchaser)
+        self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '1'})
+        payment = SubscriptionGiftPayment.objects.get()
+        payload = {
+            'product_id': 160748,
+            'product_name': 'Подарочная подписка Inter Oves — 1 месяц',
+            'amount': 555,
+            'currency': 'eur',
+            'telegram_user_id': 700001,
+            'telegram_username': 'giftbuyer',
+            'purchase_id': 'gift-purchase-refund-first',
+            'transaction_id': 'gift-transaction-refund-first',
+            'refund_reason': 'test',
+            'refunded_at': timezone.now().isoformat(),
+        }
+        refund_webhook = self._webhook(event='digital_product_refunded', **payload)
+        self.assertEqual(refund_webhook.status_code, 200)
+        self.assertTrue(process_tribute_gift_purchase(dict(
+            payload, purchase_created_at=self._purchase_created_at(),
+        )))
+        payment.refresh_from_db()
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
+        self.assertEqual(
+            TributePurchase.objects.get(purchase_id=payload['purchase_id']).status,
+            TributePurchase.STATUS_REFUNDED,
+        )
+
+    def test_tribute_amount_mismatch_holds_matching_gift_for_review(self):
+        self.client.force_login(self.purchaser)
+        self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '1'})
+        payment = SubscriptionGiftPayment.objects.get()
+        payload = {
+            'product_id': 160748,
+            'product_name': 'Подарочная подписка Inter Oves — 1 месяц',
+            'amount': 556,
+            'currency': 'eur',
+            'telegram_user_id': 700001,
+            'telegram_username': 'giftbuyer',
+            'purchase_id': 'gift-purchase-mismatch',
+            'transaction_id': 'gift-transaction-mismatch',
+            'purchase_created_at': self._purchase_created_at(),
+        }
+        self.assertTrue(process_tribute_gift_purchase(payload))
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_MANUAL_REVIEW)
 
     @patch('games.subscription_gift_payments.Payment.create')
     def test_yookassa_success_cannot_resurrect_canceled_gift(self, create):

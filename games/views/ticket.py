@@ -133,11 +133,12 @@ def yookassa_webhook(request):
             payment_data = dict(Payment.find_one(payment_id))
         except Exception:
             logger.exception('yookassa_webhook: failed to resolve refund payment_id=%s', payment_id)
-            return HttpResponse(status=200)
+            return HttpResponse(status=503)
         metadata = payment_data.get('metadata') or {}
         if str(metadata.get('purpose') or '') == 'club_gift':
             from games.subscription_gift_payments import process_yookassa_gift_refund
-            process_yookassa_gift_refund({'payment_id': payment_id})
+            if not process_yookassa_gift_refund({'payment_id': payment_id}):
+                logger.warning('yookassa_webhook: unknown gift refund payment_id=%s', payment_id)
         return HttpResponse(status=200)
     payment_id = payment_obj.get('id')
     if not payment_id:
@@ -154,8 +155,8 @@ def yookassa_webhook(request):
             payment_id,
             event,
         )
-        # Don't 500 on temporary API failures; YooKassa will retry.
-        return HttpResponse(status=200)
+        # A non-2xx response asks YooKassa to retry the webhook.
+        return HttpResponse(status=503)
 
     if event == 'payment.waiting_for_capture':
         # We normally create payments with capture=True, but handle this event anyway.

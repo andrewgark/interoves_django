@@ -325,5 +325,5 @@ class YooKassaWebhookTests(TestCase):
         with self.assertLogs('games.views.ticket', level='ERROR') as logs:
             response = self._post_webhook('payment.succeeded')
 
-        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.status_code, 503)
         self.assertTrue(any('Payment.find_one failed' in line for line in logs.output))
