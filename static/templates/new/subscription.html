@@ -407,6 +407,8 @@
             <code class="is-blurred" data-gift-code aria-label="Скрытый код подарка">•••••••••••</code>
             <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-reveal-gift-code data-reveal-url="{% url 'new_subscription_gift_reveal' item.gift.pk %}" aria-expanded="false">Показать код</button>
             <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-copy-gift-code hidden>Скопировать</button>
+          {% elif item.gift.status == 'expired' or item.gift.status == 'revoked' %}
+            <span class="new-pay-order__meta">Код недоступен</span>
           {% else %}
             <span class="new-pay-order__meta">Код появится после подтверждения оплаты</span>
           {% endif %}

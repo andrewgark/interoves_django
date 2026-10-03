@@ -311,7 +311,9 @@ def subscription_reveal_gift_code(request, gift_id):
             {'status': 'error', 'message': 'Не удалось прочитать код подарка.'},
             status=500,
         )
-    return JsonResponse({'status': 'ok', 'code': code})
+    response = JsonResponse({'status': 'ok', 'code': code})
+    response['Cache-Control'] = 'no-store'
+    return response
 
 
 @login_required
