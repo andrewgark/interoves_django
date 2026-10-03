@@ -303,10 +303,13 @@ def recheck_chain_task(
                 ['status', 'possible_status', 'points', 'state', 'comment', 'skip'],
             )
             from games.difficulty import mark_game_difficulty_changed
-            mark_game_difficulty_changed(
-                task_id=task.pk,
-                game_id=game.pk,
-                task_group_id=task.task_group_id,
+            transaction.on_commit(
+                lambda task_id=task.pk, game_id=game.pk, task_group_id=task.task_group_id:
+                mark_game_difficulty_changed(
+                    task_id=task_id,
+                    game_id=game_id,
+                    task_group_id=task_group_id,
+                )
             )
 
         # Persist updated ChainTaskState rows.

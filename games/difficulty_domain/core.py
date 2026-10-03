@@ -870,14 +870,22 @@ def _difficulty_queryset(*, task_id=None, game_id=None, task_group_id=None, plac
 
 
 def mark_game_difficulty_changed(*, task_id=None, game_id=None, task_group_id=None, placement_id=None):
-    """Atomically bump ``data_revision`` so a later cron tick can refresh."""
+    """Mark difficulty dirty, bumping the revision only when it is needed.
+
+    Repeated attempts can arrive while a row is already waiting for the next
+    refresh.  They do not need a new revision unless a refresh claim is active:
+    in that case the revision must move so the in-flight calculation cannot
+    clear the dirty flag for newer source data.
+    """
     queryset = _difficulty_queryset(
         task_id=task_id,
         game_id=game_id,
         task_group_id=task_group_id,
         placement_id=placement_id,
     )
-    return queryset.update(
+    return queryset.filter(
+        Q(dirty=False) | Q(refresh_claim_token__isnull=False),
+    ).update(
         data_revision=F('data_revision') + 1,
         dirty=True,
     )

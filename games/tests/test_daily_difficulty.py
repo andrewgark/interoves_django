@@ -766,6 +766,28 @@ class DifficultySchedulerTests(TestCase):
         self.assertEqual(snapshot.calculated_revision, 2)
         self.assertFalse(snapshot.dirty)
 
+    def test_repeated_dirty_marks_coalesce_until_refresh_claims_row(self):
+        now = timezone.now()
+        placement = self._placement(8820)
+        snapshot = self._due_snapshot(
+            placement,
+            now=now,
+            revision=4,
+            dirty=True,
+            refresh_not_before=now + timedelta(minutes=5),
+        )
+
+        mark_game_difficulty_changed(placement_id=placement.pk)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.data_revision, 4)
+
+        snapshot.refresh_claim_token = uuid.uuid4()
+        snapshot.save(update_fields=['refresh_claim_token'])
+        mark_game_difficulty_changed(placement_id=placement.pk)
+        snapshot.refresh_from_db()
+        self.assertEqual(snapshot.data_revision, 5)
+        self.assertTrue(snapshot.dirty)
+
     def test_two_workers_claim_distinct_due_rows(self):
         now = timezone.now()
         first = self._placement(8803)

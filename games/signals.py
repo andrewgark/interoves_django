@@ -1,5 +1,6 @@
 import logging
 
+from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -409,6 +410,19 @@ def _auto_claim_signup_anon_history(request, user):
 
 
 def _mark_daily_difficulty_changed(*, task_id=None, game_id=None, task_group_id=None):
+    # Do not acquire the difficulty row lock while the source model's
+    # transaction still holds Attempt/ChainTaskState locks.  Outside an outer
+    # transaction Django executes this callback immediately.
+    transaction.on_commit(
+        lambda: _mark_daily_difficulty_changed_after_commit(
+            task_id=task_id,
+            game_id=game_id,
+            task_group_id=task_group_id,
+        )
+    )
+
+
+def _mark_daily_difficulty_changed_after_commit(*, task_id=None, game_id=None, task_group_id=None):
     from games.difficulty import mark_game_difficulty_changed
     mark_game_difficulty_changed(
         task_id=task_id,
