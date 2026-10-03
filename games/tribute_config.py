@@ -202,6 +202,14 @@ def club_gift_configuration_errors() -> list[str]:
             product_ids.append(int(raw_values['ID']))
     if len(product_ids) == 2 and len(set(product_ids)) != 2:
         errors.append('Tribute club gift product IDs must be different')
+    regular_product_ids = set(products_by_id())
+    overlap = regular_product_ids.intersection(product_ids)
+    if overlap:
+        errors.append(
+            'Tribute club gift product IDs overlap regular product IDs: {}'.format(
+                ', '.join(str(product_id) for product_id in sorted(overlap)),
+            ),
+        )
 
     for months in (1, 3):
         setting_name = 'CLUB_GIFT_YOOKASSA_{}_AMOUNT_KOPECKS'.format(months)

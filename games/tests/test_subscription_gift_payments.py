@@ -20,6 +20,7 @@ from games.subscription_gift_payments import (
     start_yookassa_gift,
 )
 from games.tribute_util import compute_webhook_signature
+from games.tribute_config import club_gift_configuration_errors
 
 
 GIFT_SETTINGS = {
@@ -90,6 +91,20 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertIn('€5.55', body)
         self.assertIn('600 ₽', body)
         self.assertIn('Войти, чтобы купить', body)
+
+    @override_settings(
+        TRIBUTE_REGULAR_PRODUCT_ID='160748',
+        TRIBUTE_REGULAR_PRODUCT_WEB_URL='https://web.tribute.tg/p/regular',
+        TRIBUTE_REGULAR_PRODUCT_AMOUNT='100',
+        TRIBUTE_REGULAR_PRODUCT_CURRENCY='EUR',
+        TRIBUTE_DISCOUNT_PRODUCT_ID='160752',
+        TRIBUTE_DISCOUNT_PRODUCT_WEB_URL='https://web.tribute.tg/p/discount',
+        TRIBUTE_DISCOUNT_PRODUCT_AMOUNT='80',
+        TRIBUTE_DISCOUNT_PRODUCT_CURRENCY='EUR',
+    )
+    def test_gift_product_ids_cannot_overlap_ticket_products(self):
+        errors = club_gift_configuration_errors()
+        self.assertTrue(any('overlap regular product IDs' in error for error in errors))
 
     def test_tribute_checkout_and_webhook_pays_gift(self):
         self.client.force_login(self.purchaser)
