@@ -208,6 +208,8 @@ def attach_solve_meta(
         attempts=attempts,
         hints=hints,
         locale='ru',
+        brand_host=host,
+        play_path=play_path,
     )
     return payload
 

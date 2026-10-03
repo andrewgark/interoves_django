@@ -7,7 +7,7 @@ function payload(overrides) {
   var base = {
     kind: 'ladder',
     game_kind: 'ladder',
-    renderer_version: '4',
+    renderer_version: '6',
     locale: 'ru',
     number: '46',
     seed: 46,
@@ -43,7 +43,7 @@ function payload(overrides) {
   assert.ok(svg.indexOf('ДАКАР') !== -1);
   assert.ok(svg.indexOf('МОСКВА') === -1);
   assert.ok(svg.indexOf('secret') === -1);
-  assert.strictEqual(card.VERSION, '4');
+  assert.strictEqual(card.VERSION, '6');
 })();
 
 (function testMetadataAppearsInSvgHeader() {
@@ -146,10 +146,67 @@ function payload(overrides) {
   assert.ok(many.indexOf('попыток') !== -1);
 })();
 
-(function testFooterIncludesLogoAndHost() {
-  var svg = card.buildShareCardSvg(payload());
+(function testCensorlyShowsTitleLeadAndEllipsis() {
+  var lead = 'Столица и крупнейший город Франции на реке Сене.';
+  var svg = card.buildShareCardSvg(payload({
+    kind: 'censorly',
+    game_kind: 'censorly',
+    title: 'Цензурка #12',
+    headline: 'Цензурка #12 решена за 3:34',
+    date_label: '3 сентября 2026',
+    stats_line: '8 попыток · 1 подсказка',
+    article_title: 'Париж',
+    article_lead: lead,
+    steps: [],
+    seed: 12,
+  }));
+  assert.ok(svg.indexOf('Цензурка #12 решена за 3:34') !== -1);
+  assert.ok(svg.indexOf('Париж') !== -1);
+  assert.ok(svg.indexOf('Столица и крупнейший город Франции') !== -1);
+  assert.ok(svg.indexOf('…') !== -1);
+  assert.ok(svg.indexOf('font-size="120"') === -1);
+})();
+
+(function testCensorlyTruncatesLongLead() {
+  var tail = 'ХВОСТОВОЕСЛОВО';
+  var lead = ('Квантовая механика описывает поведение материи и света. ').repeat(40) + tail;
+  var svg = card.buildShareCardSvg(payload({
+    kind: 'censorly',
+    game_kind: 'censorly',
+    article_title: 'Дифференциальное уравнение в частных производных',
+    article_lead: lead,
+    steps: [],
+    seed: 13,
+  }));
+  assert.ok(svg.indexOf('Дифференциальное') !== -1);
+  assert.ok(svg.indexOf('производных') !== -1);
+  assert.ok(svg.indexOf('…') !== -1);
+  assert.ok(svg.indexOf(tail) === -1);
+})();
+
+(function testCensorlyDecorIsSeeded() {
+  var base = {
+    kind: 'censorly',
+    game_kind: 'censorly',
+    article_title: 'Париж',
+    article_lead: 'Столица Франции.',
+    steps: [],
+  };
+  var a = card.buildShareCardSvg(payload(Object.assign({ seed: 4 }, base)));
+  var b = card.buildShareCardSvg(payload(Object.assign({ seed: 4 }, base)));
+  var c = card.buildShareCardSvg(payload(Object.assign({ seed: 5 }, base)));
+  assert.strictEqual(a, b);
+  assert.notStrictEqual(a, c);
+})();
+
+(function testFooterIncludesLogoAndTaskLink() {
+  var svg = card.buildShareCardSvg(payload({ brand: 'interoves.com/ladder/46' }));
   assert.ok(svg.indexOf('data:image/png;base64,') !== -1);
-  assert.ok(svg.indexOf('interoves.com') !== -1);
+  assert.ok(svg.indexOf('interoves.com/ladder/46') !== -1);
+  var longLink = card.buildShareCardSvg(payload({
+    brand: 'interoves.com/alphabetty/f639303b80c3ec03',
+  }));
+  assert.ok(longLink.indexOf('interoves.com/alphabetty/f639303b80c3ec03') !== -1);
 })();
 
 (function testDecorationIsSeeded() {

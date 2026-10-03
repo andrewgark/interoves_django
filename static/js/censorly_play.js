@@ -286,6 +286,16 @@
     }
   }
 
+  function setShareCard(box, state) {
+    if (state && state.share_card) {
+      try {
+        box.setAttribute('data-share-card', JSON.stringify(state.share_card));
+        return;
+      } catch (err) {}
+    }
+    box.removeAttribute('data-share-card');
+  }
+
   function showShare(state) {
     var box = document.getElementById('censorly-result');
     var text = document.getElementById('censorly-result-share');
@@ -293,6 +303,7 @@
     if (!state.won) {
       box.hidden = true;
       text.textContent = '';
+      setShareCard(box, null);
       return;
     }
     var lines = state.share_lines;
@@ -303,6 +314,7 @@
         // Replay wins intentionally omit share cards.
         box.hidden = true;
         text.textContent = '';
+        setShareCard(box, null);
         return;
       }
     }
@@ -316,6 +328,7 @@
       div.textContent = line;
       text.appendChild(div);
     });
+    setShareCard(box, state);
     box.hidden = false;
   }
 

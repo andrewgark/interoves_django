@@ -902,3 +902,92 @@ class CensorlyHeadingLevelTests(SimpleTestCase):
             if t.get('in_heading') and t.get('kind') == 'content'
         )
         self.assertEqual(legacy_word['heading_level'], 2)
+
+
+class CensorlyShareExcerptTests(SimpleTestCase):
+    def test_excerpt_uses_edited_title_and_first_paragraph(self):
+        from games.censorly.tokenize import article_share_excerpt
+
+        payload = build_puzzle_payload(
+            wiki_title='Пари\u0301ж',
+            body_text=(
+                'Столица и крупнейший город Франции.\n\n'
+                'Второй абзац про историю не должен попасть на карточку.'
+            ),
+        )
+        title, lead = article_share_excerpt(payload)
+        self.assertEqual(title, 'Париж')
+        self.assertEqual(lead, 'Столица и крупнейший город Франции.')
+        view = build_public_view(payload, won=True)
+        view_title, view_lead = article_share_excerpt(view)
+        self.assertEqual((view_title, view_lead), (title, lead))
+
+    def test_excerpt_stops_before_heading(self):
+        from games.censorly.tokenize import HEADING_END, HEADING_START, article_share_excerpt
+
+        payload = build_puzzle_payload(
+            wiki_title='Кот',
+            body_text=f'Первый абзац.\n{HEADING_START}История{HEADING_END}\nДальше текст.',
+        )
+        title, lead = article_share_excerpt(payload)
+        self.assertEqual(title, 'Кот')
+        self.assertEqual(lead, 'Первый абзац.')
+        self.assertNotIn('История', lead)
+        self.assertNotIn('Дальше', lead)
+
+    def test_solved_result_includes_share_card(self):
+        from datetime import date
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from games.censorly.play import attach_solve_meta
+
+        puzzle = build_puzzle_payload(
+            wiki_title='Пари\u0301ж',
+            body_text='Столица Франции.\n\nВторой абзац.',
+        )
+        view = build_public_view(puzzle, won=True)
+        view['won'] = True
+        view['attempts'] = 4
+        view['hints'] = 0
+        task = SimpleNamespace(task_group_id=None, get_points=lambda: 20)
+        actor = {'user': object(), 'replay_slot': None}
+        with patch('games.censorly.play.elapsed_seconds_for_actor', return_value=90), \
+             patch('games.daily_share_card.publish_date_for', return_value=date(2026, 10, 1)):
+            attach_solve_meta(
+                view,
+                game=SimpleNamespace(),
+                task=task,
+                number=3,
+                actor=actor,
+            )
+        card = view['share_card']
+        self.assertEqual(card['kind'], 'censorly')
+        self.assertEqual(card['article_title'], 'Париж')
+        self.assertEqual(card['article_lead'], 'Столица Франции.')
+        self.assertEqual(card['headline'], 'Цензурка #3 решена за 1:30')
+        self.assertEqual(card['brand'], 'interoves.com/censorly/3')
+        self.assertNotIn('Второй', card['article_lead'])
+
+    def test_replay_omits_share_card(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        from games.censorly.play import attach_solve_meta
+
+        puzzle = build_puzzle_payload(wiki_title='Кот', body_text='Кот сидит.')
+        view = build_public_view(puzzle, won=True)
+        view['won'] = True
+        view['attempts'] = 1
+        view['hints'] = 0
+        task = SimpleNamespace(task_group_id=None, get_points=lambda: 20)
+        with patch('games.censorly.play.elapsed_seconds_for_actor', return_value=30):
+            attach_solve_meta(
+                view,
+                game=SimpleNamespace(),
+                task=task,
+                number=1,
+                actor={'user': object(), 'replay_slot': 1},
+            )
+        self.assertNotIn('share_card', view)
+        self.assertNotIn('share_text', view)

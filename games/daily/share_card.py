@@ -1,8 +1,9 @@
-"""Structured payloads for daily-game share cards (ladder / salad / alphabetty).
+"""Structured payloads for daily-game share cards.
 
 The JavaScript SVG renderer is the production drawing path. This module only
-builds locale-aware structured data — it never parses emoji share strings and
-never includes puzzle answers.
+builds locale-aware structured data and never parses emoji share strings.
+Ladder and salad cards omit hidden answers. A censorly card shows the restored
+title and opening paragraph — the result the player shares.
 """
 
 from __future__ import annotations
@@ -15,13 +16,14 @@ from typing import Any, Iterable, Optional
 from games.results.share import format_elapsed_compact
 from django.utils.html import strip_tags
 
-RENDERER_VERSION = '4'
+RENDERER_VERSION = '6'
 CARD_WIDTH = 1080
 CARD_HEIGHT = 1920
 
 KIND_LADDER = 'ladder'
 KIND_SALAD = 'salad'
 KIND_ALPHABETTY = 'alphabetty'
+KIND_CENSORLY = 'censorly'
 
 HEADLINE_COMPACT = 'compact'
 HEADLINE_SOLVED_IN = 'solved_in'
@@ -41,12 +43,14 @@ _GAME_TITLES = {
     KIND_LADDER: {'ru': 'Лесенка', 'en': 'Ladder'},
     KIND_SALAD: {'ru': 'Салатик', 'en': 'Salad'},
     KIND_ALPHABETTY: {'ru': 'Алфавитка', 'en': 'Alphabetty'},
+    KIND_CENSORLY: {'ru': 'Цензурка', 'en': 'Censorly'},
 }
 
 _SOLVED_VERB = {
     KIND_LADDER: {'ru': 'решена за', 'en': 'solved in'},
     KIND_SALAD: {'ru': 'решён за', 'en': 'solved in'},
     KIND_ALPHABETTY: {'ru': 'решена за', 'en': 'solved in'},
+    KIND_CENSORLY: {'ru': 'решена за', 'en': 'solved in'},
 }
 
 
@@ -192,6 +196,50 @@ def build_stats_line(parts: Iterable[str | None]) -> str:
     return ' · '.join(part for part in parts if part)
 
 
+_KIND_SLUG = {
+    KIND_LADDER: 'ladder',
+    KIND_SALAD: 'salad',
+    KIND_ALPHABETTY: 'alphabetty',
+    KIND_CENSORLY: 'censorly',
+}
+
+
+def ladder_result_path(game, number, task=None) -> str:
+    """Public path matching the raddle «Ваш результат» link."""
+    display = str(number or '').strip()
+    game_id = str(getattr(game, 'id', '') or '')
+    if not game_id or game_id == 'ladder':
+        return 'ladder/{}'.format(display) if display else 'ladder'
+    parts = ['games', game_id]
+    if display:
+        parts.append(display)
+    task_number = str(getattr(task, 'number', '') or '').strip()
+    if task_number:
+        parts.append(task_number)
+    return '/'.join(parts)
+
+
+def card_brand(
+    kind: str,
+    number: str,
+    *,
+    host: str | None,
+    play_path: str | None = None,
+) -> str:
+    """Host + task path, same link as the result block without the pin emoji."""
+    from games.results.share import share_host_from_value, share_path
+
+    host_text = share_host_from_value(host or BRAND_HOST)
+    if play_path:
+        path = share_path(play_path)
+    else:
+        slug = _KIND_SLUG.get(kind, kind)
+        path = '{}/{}'.format(slug, number) if number else slug
+    if not path:
+        return host_text
+    return '{}/{}'.format(host_text, path)
+
+
 def _base_payload(
     *,
     kind: str,
@@ -204,6 +252,7 @@ def _base_payload(
     extra_stats: Iterable[str | None],
     seed: int | None = None,
     title_override: str | None = None,
+    play_path: str | None = None,
 ) -> dict[str, Any]:
     loc = normalize_locale(locale)
     display_number = str(number or '').strip()
@@ -247,7 +296,7 @@ def _base_payload(
         'elapsed_seconds': None if elapsed_seconds is None else max(0, int(elapsed_seconds)),
         'elapsed_compact': clock,
         'stats_line': build_stats_line(extra_stats),
-        'brand': brand_host or BRAND_HOST,
+        'brand': card_brand(kind, display_number, host=brand_host, play_path=play_path),
         'filename': _filename(kind, display_number, loc),
     }
 
@@ -257,6 +306,7 @@ def _filename(kind: str, number: str, locale: str) -> str:
         KIND_LADDER: 'ladder',
         KIND_SALAD: 'salad',
         KIND_ALPHABETTY: 'alphabetty',
+        KIND_CENSORLY: 'censorly',
     }.get(kind, kind)
     parts = ['interoves', slug]
     if number:
@@ -290,6 +340,7 @@ def build_ladder_share_payload(
     share_title: str | None = None,
     author: str | None = None,
     intro: str | None = None,
+    play_path: str | None = None,
 ) -> dict[str, Any]:
     from games.raddle import resolve_assist_tiers
 
@@ -333,6 +384,7 @@ def build_ladder_share_payload(
         extra_stats=(_hints_label(hint_count, locale),),
         seed=number,
         title_override=share_title,
+        play_path=play_path,
     )
     payload['steps'] = steps
     payload['hint_count'] = hint_count
@@ -359,6 +411,7 @@ def build_salad_share_payload(
     word_count: int | None = None,
     grid=None,
     author: str | None = None,
+    play_path: str | None = None,
 ) -> dict[str, Any]:
     from games.word_salad import load_state, words_in_display_order
 
@@ -386,6 +439,7 @@ def build_salad_share_payload(
         brand_host=brand_host,
         extra_stats=(_hints_label(hint_total, locale),),
         seed=number,
+        play_path=play_path,
     )
     payload['word_results'] = word_results
     payload['word_count'] = count
@@ -417,6 +471,7 @@ def build_alphabetty_share_payload(
     headline_style: str = HEADLINE_SOLVED_IN,
     brand_host: str = BRAND_HOST,
     variant: int | None = None,
+    play_path: str | None = None,
 ) -> dict[str, Any]:
     loc = normalize_locale(locale)
     extra = [_hints_label(hints, loc)]
@@ -430,6 +485,7 @@ def build_alphabetty_share_payload(
         brand_host=brand_host,
         extra_stats=extra,
         seed=number,
+        play_path=play_path,
     )
     payload['attempts'] = max(0, int(attempts or 0))
     payload['attempts_word'] = _attempts_word(payload['attempts'], loc)
@@ -443,6 +499,59 @@ def build_alphabetty_share_payload(
     return payload
 
 
+def _cap_share_words(text: str, limit: int) -> str:
+    cleaned = _share_text(text)
+    if len(cleaned) <= limit:
+        return cleaned
+    cut = cleaned[:limit].rsplit(' ', 1)[0].strip()
+    return cut or cleaned[:limit].rstrip()
+
+
+def build_censorly_share_payload(
+    *,
+    number: int | str | None = None,
+    date_value: date | datetime | str | None = None,
+    elapsed_seconds: int | None = None,
+    attempts: int = 0,
+    hints: int = 0,
+    article_title: str = '',
+    article_lead: str = '',
+    locale: str = 'ru',
+    headline_style: str = HEADLINE_SOLVED_IN,
+    brand_host: str = BRAND_HOST,
+    play_path: str | None = None,
+) -> dict[str, Any]:
+    """Story card: restored title and as much of the first paragraph as fits."""
+    loc = normalize_locale(locale)
+    attempt_count = max(0, int(attempts or 0))
+    hint_count = max(0, int(hints or 0))
+    payload = _base_payload(
+        kind=KIND_CENSORLY,
+        number=number,
+        locale=locale,
+        date_value=date_value,
+        elapsed_seconds=elapsed_seconds,
+        headline_style=headline_style,
+        brand_host=brand_host,
+        extra_stats=(
+            _attempts_label(attempt_count, loc),
+            _hints_label(hint_count, loc),
+        ),
+        seed=number,
+        play_path=play_path,
+    )
+    payload['attempts'] = attempt_count
+    payload['attempts_word'] = _attempts_word(attempt_count, loc)
+    payload['hint_count'] = hint_count
+    title = _share_text(article_title)
+    lead = _cap_share_words(article_lead, 1400)
+    if title:
+        payload['article_title'] = title
+    if lead:
+        payload['article_lead'] = lead
+    return payload
+
+
 # Start/end are public given words. Middle placeholders make a renderer leak obvious.
 _SYNTHETIC_LADDER = {
     'lengths': [5, 9, 7, 4, 6, 14, 9, 9, 7, 3, 6, 4, 5],
@@ -453,6 +562,16 @@ _SYNTHETIC_LADDER = {
     ],
 }
 _SYNTHETIC_SALAD_GRID = list('АБВГДЕЖЗИЙКЛМНОП')
+_SYNTHETIC_CENSORLY_LEAD = (
+    'Париж — столица и крупнейший город Франции. Находится на севере государства, '
+    'в центральной части Парижского бассейна, на реке Сене. Население — 2 103 778 человек. '
+    'Центр метрополии Большой Париж, ядро исторического региона Иль-де-Франс.'
+)
+_SYNTHETIC_CENSORLY_LONG_LEAD = (
+    'Квантовая механика описывает поведение материи и света на масштабах атомов и частиц. '
+    'Её законы отличаются от привычной механики: величины принимают дискретные значения, '
+    'а измерение меняет состояние системы. '
+) * 8
 
 
 def synthetic_preview_payloads() -> list[dict[str, Any]]:
@@ -564,6 +683,36 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             locale='en',
             variant=0,
         ),
+        build_censorly_share_payload(
+            number=12,
+            date_value=date_value,
+            elapsed_seconds=214,
+            attempts=8,
+            hints=1,
+            article_title='Париж',
+            article_lead=_SYNTHETIC_CENSORLY_LEAD,
+            locale='ru',
+        ),
+        build_censorly_share_payload(
+            number=13,
+            date_value=date_value,
+            elapsed_seconds=640,
+            attempts=15,
+            hints=0,
+            article_title='Дифференциальное уравнение в частных производных',
+            article_lead=_SYNTHETIC_CENSORLY_LONG_LEAD,
+            locale='ru',
+        ),
+        build_censorly_share_payload(
+            number=12,
+            date_value=date_value,
+            elapsed_seconds=214,
+            attempts=8,
+            hints=0,
+            article_title='Париж',
+            article_lead=_SYNTHETIC_CENSORLY_LEAD,
+            locale='en',
+        ),
     ]
     for payload in items:
         payload['synthetic'] = True
@@ -639,6 +788,7 @@ def attach_ladder_share_card(
         share_title=share_title,
         author=_task_author(task),
         intro=getattr(task, 'text', None),
+        play_path=ladder_result_path(game, number, task),
     )
     ui['share_card'] = payload
     ui['share_card_json'] = dumps_payload(payload)

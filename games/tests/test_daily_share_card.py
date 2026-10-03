@@ -12,9 +12,11 @@ from games.daily_share_card import (
     CARD_WIDTH,
     HEADLINE_SOLVED_IN,
     KIND_ALPHABETTY,
+    KIND_CENSORLY,
     KIND_LADDER,
     KIND_SALAD,
     build_alphabetty_share_payload,
+    build_censorly_share_payload,
     build_ladder_share_payload,
     build_salad_share_payload,
     dumps_payload,
@@ -242,10 +244,69 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         items = synthetic_preview_payloads()
         self.assertGreaterEqual(len(items), 6)
         kinds = {item['kind'] for item in items}
-        self.assertEqual(kinds, {KIND_LADDER, KIND_SALAD, KIND_ALPHABETTY})
+        self.assertEqual(kinds, {KIND_LADDER, KIND_SALAD, KIND_ALPHABETTY, KIND_CENSORLY})
         locales = {item['locale'] for item in items}
         self.assertEqual(locales, {'ru', 'en'})
         self.assertTrue(all(item.get('synthetic') for item in items))
+
+    def test_censorly_payload_keeps_restored_title_and_lead(self):
+        lead = 'Столица Франции. ' * 80
+        payload = build_censorly_share_payload(
+            number=12,
+            date_value=date(2026, 10, 1),
+            elapsed_seconds=214,
+            attempts=8,
+            hints=1,
+            article_title='  Париж  ',
+            article_lead=lead,
+            locale='ru',
+        )
+        self.assertEqual(payload['kind'], KIND_CENSORLY)
+        self.assertEqual(payload['headline'], 'Цензурка #12 решена за 3:34')
+        self.assertEqual(payload['article_title'], 'Париж')
+        self.assertTrue(payload['article_lead'].startswith('Столица Франции.'))
+        self.assertLessEqual(len(payload['article_lead']), 1400)
+        self.assertIn('8 попыток', payload['stats_line'])
+        self.assertIn('подсказ', payload['stats_line'])
+        self.assertNotIn('steps', payload)
+        self.assertEqual(payload['filename'], 'interoves-censorly-12.png')
+        self.assertEqual(payload['brand'], 'interoves.com/censorly/12')
+
+    def test_brand_is_the_task_link(self):
+        from types import SimpleNamespace
+
+        from games.daily_share_card import card_brand, ladder_result_path
+
+        ladder = _paris_payload()
+        self.assertEqual(ladder['brand'], 'interoves.com/ladder/46')
+        salad = build_salad_share_payload(
+            words=['МОСКВА'],
+            state=salad_default_state(),
+            number=23,
+            grid=list('АБВГДЕЖЗИЙКЛМНОП'),
+        )
+        self.assertEqual(salad['brand'], 'interoves.com/salad/23')
+        hashed = build_alphabetty_share_payload(
+            number=7,
+            elapsed_seconds=40,
+            attempts=3,
+            hints=0,
+            play_path='/alphabetty/f639303b80c3ec03/',
+            brand_host='interoves.com:443',
+        )
+        self.assertEqual(hashed['brand'], 'interoves.com/alphabetty/f639303b80c3ec03')
+        self.assertEqual(
+            ladder_result_path(
+                SimpleNamespace(id='desyatka'),
+                '4',
+                SimpleNamespace(number='2'),
+            ),
+            'games/desyatka/4/2',
+        )
+        self.assertEqual(
+            card_brand('ladder', '4', host='interoves.com', play_path='games/desyatka/4/2'),
+            'interoves.com/games/desyatka/4/2',
+        )
 
     def test_same_inputs_are_deterministic(self):
         a = build_alphabetty_share_payload(number=7, elapsed_seconds=40, attempts=3, hints=0)

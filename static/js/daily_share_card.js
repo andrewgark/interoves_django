@@ -3,7 +3,7 @@
 (function (root) {
   var WIDTH = 1080;
   var HEIGHT = 1920;
-  var VERSION = '4';
+  var VERSION = '6';
   var FONT = "DejaVu Sans, Noto Sans, Segoe UI, Arial, sans-serif";
   var LOGO_SIZE = 56;
   var LOGO_GAP = 16;
@@ -29,6 +29,7 @@
     ladder: '#2F6F4E',
     salad: '#2F6F4E',
     alphabetty: '#3B6EA5',
+    censorly: '#6B5424',
   };
 
   var cache = { key: '', blob: null };
@@ -132,10 +133,26 @@
         var sy = 300 + rng() * 1180;
         parts.push(roundedRect(sx, sy, size, size, 22, accent, 'opacity="0.06"'));
       }
+    } else if (kind === 'censorly') {
+      censorlyDecor(parts, rng);
     } else {
       alphabettyDecor(parts, payload, rng, accent);
     }
     return parts.join('');
+  }
+
+  function censorlyDecor(parts, rng) {
+    var ink = '#1A1A1A';
+    var i;
+    parts.push('<rect width="' + WIDTH + '" height="10" fill="' + ink + '"/>');
+    parts.push('<rect y="10" width="' + WIDTH + '" height="5" fill="' + PALETTE.yellow + '"/>');
+    for (i = 0; i < 9; i += 1) {
+      var w = 140 + rng() * 260;
+      var h = 16 + rng() * 14;
+      var x = rng() < 0.5 ? -36 : WIDTH - w + 36;
+      var y = 240 + rng() * 1280;
+      parts.push(roundedRect(x, y, w, h, 3, ink, 'opacity="0.08"'));
+    }
   }
 
   function alphabettyDecor(parts, payload, rng, accent) {
@@ -237,9 +254,15 @@
       y += statsLines.length * 40 + 36;
     }
     var brand = payload.brand || 'interoves.com';
-    var textW = Math.max(200, brand.length * 21);
+    var fontSize = 34;
+    var maxTextW = WIDTH - 120 - LOGO_SIZE - LOGO_GAP;
+    var estimated = function (size) {
+      return Math.max(brand.length, 1) * size * 0.56;
+    };
+    while (fontSize > 22 && estimated(fontSize) > maxTextW) fontSize -= 2;
+    var textW = Math.max(200, estimated(fontSize));
     var groupW = LOGO_SIZE + LOGO_GAP + textW;
-    var x0 = (WIDTH - groupW) / 2;
+    var x0 = Math.max(48, (WIDTH - groupW) / 2);
     var logoY = 1720;
     if (LOGO_DATA_URI) {
       parts.push(
@@ -249,8 +272,8 @@
     }
     parts.push(
       '<text x="' + (x0 + LOGO_SIZE + LOGO_GAP) + '" y="' + (logoY + 38) +
-      '" text-anchor="start" font-family="' + FONT + '" font-size="34" font-weight="700" fill="' +
-      PALETTE.ink + '">' + esc(brand) + '</text>'
+      '" text-anchor="start" font-family="' + FONT + '" font-size="' + fontSize +
+      '" font-weight="700" fill="' + PALETTE.ink + '">' + esc(brand) + '</text>'
     );
     return parts.join('');
   }
@@ -374,6 +397,141 @@
     return 'попыток';
   }
 
+  function maxCharsFor(width, fontSize, bold) {
+    var factor = bold ? 0.64 : 0.58;
+    return Math.max(8, Math.floor(width / (fontSize * factor)));
+  }
+
+  function censorlyLines(text, maxChars) {
+    var words = String(text || '').split(/\s+/).filter(Boolean);
+    var lines = [];
+    var current = '';
+    words.forEach(function (word) {
+      var piece = word;
+      while (piece.length > maxChars) {
+        if (current) {
+          lines.push(current);
+          current = '';
+        }
+        lines.push(piece.slice(0, maxChars));
+        piece = piece.slice(maxChars);
+      }
+      var trial = current ? current + ' ' + piece : piece;
+      if (trial.length <= maxChars) {
+        current = trial;
+      } else {
+        if (current) lines.push(current);
+        current = piece;
+      }
+    });
+    if (current) lines.push(current);
+    return lines;
+  }
+
+  function lineWithEllipsis(line, maxChars) {
+    var ellipsis = '…';
+    var room = line ? line + ' ' + ellipsis : ellipsis;
+    if (room.length <= maxChars) return room;
+    var parts = String(line || '').split(' ').filter(Boolean);
+    while (parts.length) {
+      parts.pop();
+      var trial = parts.length ? parts.join(' ') + ' ' + ellipsis : ellipsis;
+      if (trial.length <= maxChars) return trial;
+    }
+    return ellipsis;
+  }
+
+  function fitLead(text, maxChars, maxLines) {
+    var ellipsis = '…';
+    var all = censorlyLines(text, maxChars);
+    if (!all.length || maxLines < 1) return [];
+    var lines = all.slice(0, maxLines);
+    var lastIdx = lines.length - 1;
+    var last = lines[lastIdx];
+    if (all.length <= maxLines && (last + ' ' + ellipsis).length <= maxChars) {
+      lines[lastIdx] = last + ' ' + ellipsis;
+      return lines;
+    }
+    lines[lastIdx] = lineWithEllipsis(last, maxChars);
+    return lines;
+  }
+
+  function censorlyVisual(payload, top, bottom) {
+    var title = String(payload.article_title || '').trim();
+    var lead = String(payload.article_lead || '').trim();
+    if (!title && !lead) return '';
+    var marginX = 72;
+    var cardX = marginX;
+    var cardW = WIDTH - marginX * 2;
+    var areaTop = top + 8;
+    var maxCardH = Math.max(320, bottom - areaTop - 8);
+    var padX = 60;
+    var padY = 64;
+    var innerW = cardW - padX * 2;
+    var titleSize = title.length > 48 ? 46 : title.length > 28 ? 54 : 62;
+    var titleChars = maxCharsFor(innerW, titleSize, true);
+    var titleLines = title ? censorlyLines(title, titleChars) : [];
+    if (titleLines.length > 4) {
+      titleSize = 42;
+      titleChars = maxCharsFor(innerW, titleSize, true);
+      titleLines = censorlyLines(title, titleChars).slice(0, 4);
+      titleLines[3] = lineWithEllipsis(titleLines[3], titleChars);
+    }
+    var titleLh = Math.round(titleSize * 1.18);
+    var bodySize = 34;
+    var bodyLh = 52;
+    var bodyChars = maxCharsFor(innerW, bodySize, false);
+    var divider = lead ? 14 : 0;
+    var gapAfterTitle = lead ? 28 : 0;
+    var gapAfterDivider = lead ? 32 : 0;
+    var titleBlock = titleLines.length ? titleLh * titleLines.length : 0;
+    var budgetInner = maxCardH - padY * 2;
+    var fixed = titleBlock + gapAfterTitle + divider + gapAfterDivider;
+    var maxBodyLines = lead ? Math.max(1, Math.floor((budgetInner - fixed) / bodyLh)) : 0;
+    var bodyLines = lead ? fitLead(lead, bodyChars, maxBodyLines) : [];
+    var bodyBlock = bodyLines.length * bodyLh;
+    var contentH = titleBlock + gapAfterTitle + divider + gapAfterDivider + bodyBlock;
+    var cardH = Math.min(maxCardH, Math.max(contentH + padY * 2, 420));
+    var cardY = areaTop + Math.max(0, Math.floor((maxCardH - cardH) / 2));
+    var textTop = cardY + padY + Math.round(titleSize * 0.82);
+    var x = cardX + padX;
+    var parts = [
+      '<defs>',
+      '<filter id="censorly-sheet" x="-15%" y="-15%" width="130%" height="130%">' +
+      '<feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#1A1A1A" flood-opacity="0.10"/>' +
+      '</filter>',
+      '<clipPath id="censorly-clip"><rect x="' + (cardX + 8) + '" y="' + (cardY + 8) +
+      '" width="' + (cardW - 16) + '" height="' + (cardH - 16) + '" rx="22"/></clipPath>',
+      '</defs>',
+      roundedRect(cardX + 18, cardY + 18, cardW, cardH, 28, PALETTE.empty, ''),
+      roundedRect(
+        cardX, cardY, cardW, cardH, 28, '#FFFFFF',
+        'stroke="' + PALETTE.line + '" stroke-width="2" filter="url(#censorly-sheet)"'
+      ),
+      '<g clip-path="url(#censorly-clip)">',
+    ];
+    if (titleLines.length) {
+      parts.push(textLines(x, textTop, titleLines, {
+        lh: titleLh,
+        prop: 'text-anchor="start" font-family="' + FONT + '" font-size="' + titleSize +
+          '" font-weight="700" fill="' + PALETTE.ink + '"',
+      }));
+    }
+    if (bodyLines.length) {
+      var lastTitleBase = textTop + Math.max(0, titleLines.length - 1) * titleLh;
+      var barY = lastTitleBase + Math.round(titleSize * 0.28) + gapAfterTitle;
+      parts.push(roundedRect(x, barY, 88, divider, 3, '#1A1A1A', ''));
+      var bodyY = barY + divider + gapAfterDivider + Math.round(bodySize * 0.78);
+      parts.push(textLines(x, bodyY, bodyLines, {
+        lh: bodyLh,
+        prop: 'text-anchor="start" font-family="' + FONT + '" font-size="' + bodySize +
+          '" fill="#3E3A34"',
+      }));
+    }
+    parts.push('</g>');
+    return parts.join('');
+  }
+
   function alphabettyVisual(payload, top, bottom) {
     var accent = kindAccent(payload.kind || 'alphabetty');
     var cy = (top + bottom) / 2;
@@ -406,6 +564,7 @@
     var visual = '';
     if (kind === 'ladder') visual = ladderVisual(payload, visualTop, visualBottom);
     else if (kind === 'salad') visual = saladVisual(payload, visualTop, visualBottom);
+    else if (kind === 'censorly') visual = censorlyVisual(payload, visualTop, visualBottom);
     else visual = alphabettyVisual(payload, visualTop, visualBottom);
     return (
       '<svg xmlns="http://www.w3.org/2000/svg" width="' + WIDTH + '" height="' + HEIGHT +

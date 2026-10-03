@@ -367,3 +367,62 @@ def upgrade_puzzle_payload(payload: dict[str, Any]) -> dict[str, Any]:
     out['title_tokens'] = new_title
     out['body_tokens'] = new_body
     return out
+
+
+_SHARE_LEAD_LIMIT = 1400
+
+
+def _token_visible_text(tok: dict[str, Any]) -> str:
+    if tok.get('text') is not None:
+        return str(tok.get('text') or '')
+    return str(tok.get('surface') or '')
+
+
+def plain_from_tokens(tokens: list[dict[str, Any]] | None) -> str:
+    """Join visible token text, skipping headings."""
+    parts: list[str] = []
+    for tok in tokens or []:
+        if not isinstance(tok, dict):
+            continue
+        if tok.get('kind') == 'heading_break' or tok.get('in_heading'):
+            continue
+        parts.append(_token_visible_text(tok))
+    return re.sub(r'\s+', ' ', ''.join(parts)).strip()
+
+
+def first_paragraph_from_tokens(tokens: list[dict[str, Any]] | None) -> str:
+    """Opening body paragraph: stop at a blank line or the first heading."""
+    parts: list[str] = []
+    started = False
+    for tok in tokens or []:
+        if not isinstance(tok, dict):
+            continue
+        if tok.get('kind') == 'heading_break' or tok.get('in_heading'):
+            if started:
+                break
+            continue
+        text = _token_visible_text(tok)
+        if '\n' in text:
+            if started:
+                break
+            continue
+        if text.strip():
+            started = True
+        parts.append(text)
+    lead = re.sub(r'[ \t]+', ' ', ''.join(parts)).strip()
+    if len(lead) <= _SHARE_LEAD_LIMIT:
+        return lead
+    cut = lead[:_SHARE_LEAD_LIMIT].rsplit(' ', 1)[0].strip()
+    return cut or lead[:_SHARE_LEAD_LIMIT].rstrip()
+
+
+def article_share_excerpt(payload: dict[str, Any]) -> tuple[str, str]:
+    """Edited (accent-stripped) title and the first paragraph for the story card."""
+    title = plain_from_tokens(payload.get('title_tokens'))
+    if not title:
+        title = re.sub(
+            r'\s+',
+            ' ',
+            strip_combining_marks(str(payload.get('wiki_title') or '')),
+        ).strip()
+    return title, first_paragraph_from_tokens(payload.get('body_tokens'))
