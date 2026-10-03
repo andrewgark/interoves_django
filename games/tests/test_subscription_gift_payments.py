@@ -340,6 +340,28 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
         self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
 
+    @patch('games.subscription_gift_payments.Payment.create')
+    def test_yookassa_canceled_cannot_revoke_succeeded_gift(self, create):
+        create.return_value = {
+            'id': 'yk-gift-late-cancel',
+            'confirmation': {'confirmation_url': 'https://yookassa.test/pay/late-cancel'},
+        }
+        payment = start_yookassa_gift(
+            user=self.purchaser, months=1,
+            return_url='https://interoves.com/subscription/?payment=gift-return',
+        ).payment
+        succeeded = {
+            'id': payment.provider_payment_id,
+            'metadata': {'purpose': 'club_gift', 'gift_payment_id': str(payment.pk)},
+            'amount': {'value': '600.00', 'currency': 'RUB'},
+        }
+        self.assertTrue(process_yookassa_gift_event('payment.succeeded', succeeded))
+        self.assertTrue(process_yookassa_gift_event('payment.canceled', succeeded))
+        payment.refresh_from_db()
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_SUCCEEDED)
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_PAID)
+
     @patch('games.subscription_gift_payments.Payment.find_one')
     @patch('games.subscription_gift_payments.Payment.create')
     def test_yookassa_reconciliation_confirms_manual_review_payment(self, create, find_one):

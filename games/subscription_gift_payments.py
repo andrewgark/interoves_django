@@ -190,6 +190,14 @@ def process_yookassa_gift_event(
         return True
     payment.provider_payment_id = payment_data.get('id') or payment.provider_payment_id
     if event_name == 'payment.canceled':
+        # Webhooks can arrive out of order. A cancellation must not revoke a
+        # payment that was already accepted as succeeded; refunds have their
+        # own explicit webhook path.
+        if payment.status in (
+            SubscriptionGiftPayment.STATUS_SUCCEEDED,
+            SubscriptionGiftPayment.STATUS_CANCELED,
+        ):
+            return True
         payment.status = SubscriptionGiftPayment.STATUS_CANCELED
         payment.save(update_fields=['status', 'provider_payment_id', 'updated_at'])
         from games.subscription_gifts import revoke_gift_access
