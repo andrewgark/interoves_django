@@ -16,6 +16,7 @@ from games.support.services.word_salad import (
     delete_word_salad,
     get_word_salad_detail,
     list_word_salad_rows,
+    renumber_links,
     reorder_word_salads,
     set_publish_start,
     update_word_salad,
@@ -289,6 +290,42 @@ class WordSaladSupportTests(TestCase):
         self.assertEqual(
             [row['link_id'] for row in response.json()['rows']],
             [second['link_id'], first['link_id']],
+        )
+
+    def test_renumber_does_not_bulk_update_final_unique_numbers(self):
+        """MySQL must not validate a swap against another row's old number."""
+        project = Project.objects.get(pk='sections')
+        game = Game.objects.create(
+            pk='schedule-links-test',
+            name='Schedule links test',
+            author='test',
+            project=project,
+        )
+        links = [
+            GameTaskGroup.objects.create(
+                game=game,
+                task_group=TaskGroup.objects.create(label=f'test:{number}'),
+                number=str(number),
+                name=f'#{number}',
+            )
+            for number in (1, 2, 3)
+        ]
+
+        with patch(
+            'games.support.services.schedule_links.GameTaskGroup.objects.bulk_update',
+            wraps=GameTaskGroup.objects.bulk_update,
+        ) as bulk_update:
+            renumber_links(list(reversed(links)))
+
+        self.assertEqual(
+            list(GameTaskGroup.objects.filter(game=game).order_by('number').values_list('number', flat=True)),
+            ['1', '2', '3'],
+        )
+        self.assertEqual(bulk_update.call_count, 1)
+        self.assertEqual(bulk_update.call_args.args[1], ['number', 'name'])
+        self.assertEqual(
+            list(GameTaskGroup.objects.filter(game=game).order_by('number').values_list('name', flat=True)),
+            ['#3', '#2', '#1'],
         )
 
     def test_published_salads_are_locked_but_future_salads_can_move(self):
