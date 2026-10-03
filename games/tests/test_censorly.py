@@ -163,6 +163,8 @@ class CensorlyAccessTests(TestCase):
         play = self.client.get(f'/censorly/r/{self.share_hash}/')
         self.assertEqual(play.status_code, 200)
         self.assertContains(play, 'censorly-root')
+        self.assertContains(play, 'https://redactle.net')
+        self.assertContains(play, 'мы благодарны им за идею цензурок')
 
         guess = self.client.post(
             f'/censorly/r/{self.share_hash}/guess/',

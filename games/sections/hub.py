@@ -131,8 +131,8 @@ SECTION_HUB_META = {
         'cta_latest': 'Последняя цензурка',
         'all_link_label': 'Все цензурки →',
         'soon_text': 'Новая цензурка — каждый день в полночь по Москве.',
-        'format_credit_url': 'https://www.redactle.com',
-        'format_credit_name': 'redactle.com',
+        'format_credit_url': 'https://redactle.net',
+        'format_credit_name': 'redactle.net',
         'format_credit_text': 'цензурок',
     },
     'replacements': {
