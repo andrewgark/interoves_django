@@ -115,6 +115,17 @@ Telegram routing:
 - integrations worker выполняет `telegram.announcements`,
   `telegram.admin_report`, `instagram.token_refresh`, `social.publish`.
 
+### Social images for daily salads
+
+Для изображений салатиков в Telegram/X/Instagram/Threads всегда использовать
+рендер через Playwright-скриншот публичной страницы салатика
+(`render_word_salad_teaser_png(..., fallback_to_pillow=False)`). Pillow-фолбэк
+для social-постов запрещён: он может отличаться от публичного UI и показать
+данные, скрытые шаблоном. Если Chromium/Playwright недоступен на выбранном
+инстансе, остановиться и сообщить о проблеме; не переключаться на резервный
+рендер. Нужно выполнять рендер на worker/инстансе, где установлен Chromium,
+либо отдельно восстановить его доступность.
+
 Read-only snapshot option names from AWS on 2026-09-28 (наличие переменной не
 означает, что этот environment должен выполнять соответствующий тик):
 
