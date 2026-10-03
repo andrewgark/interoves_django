@@ -1,10 +1,12 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.utils import timezone
 from unittest.mock import patch
 
 from games.club_access import has_club_access
-from games.models import ClubEntitlement, Profile, SubscriptionGift
+from games.models import ClubEntitlement, ClubSubscription, Profile, SubscriptionGift
 from games.subscription_gift_payments import create_paid_gift
 from games.subscription_gifts import claim_gift, create_gift, gift_duration_label
 from games.telegram.admin_commands import handle_admin_command
@@ -82,6 +84,24 @@ class SubscriptionGiftTests(TestCase):
         _, entitlement = claim_gift(code=created.code, user=self.user)
 
         self.assertGreaterEqual(entitlement.starts_at, now.replace(year=now.year + 1))
+
+    def test_claiming_gift_preserves_auto_renewing_subscription(self):
+        now = timezone.now()
+        subscription = ClubSubscription.objects.create(
+            user=self.user,
+            provider=ClubSubscription.PROVIDER_YOOKASSA,
+            status=ClubSubscription.STATUS_ACTIVE,
+            auto_renew=True,
+            paid_until=now + timedelta(days=30),
+        )
+        created = create_gift(created_by=self.admin, duration_months=1)
+
+        claim_gift(code=created.code, user=self.user)
+
+        subscription.refresh_from_db()
+        self.assertTrue(subscription.auto_renew)
+        self.assertEqual(subscription.status, ClubSubscription.STATUS_ACTIVE)
+        self.assertGreater(subscription.paid_until, now + timedelta(days=30))
 
     def test_addressed_gift_cannot_be_claimed_by_wrong_telegram(self):
         other = User.objects.create_user('other')

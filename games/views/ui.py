@@ -185,6 +185,7 @@ from games.views.subscription import (  # noqa: E402
     subscription_yookassa_monthly_start,
     subscription_yookassa_resume,
     subscription_claim_gift,
+    subscription_reveal_gift_code,
     subscription_gift_tribute_start,
     subscription_gift_yookassa_start,
 )

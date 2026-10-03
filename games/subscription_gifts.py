@@ -185,9 +185,14 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
     entitlement.save(update_fields=['club_subscription'])
     if ends_at is None or subscription.paid_until is None or subscription.paid_until < ends_at:
         subscription.paid_until = ends_at
-    subscription.status = ClubSubscription.STATUS_CANCELLED
-    subscription.auto_renew = False
-    subscription.save(update_fields=['paid_until', 'status', 'auto_renew', 'updated_at'])
+    # A gift extends access; it must not cancel a subscription the recipient
+    # already pays for. In particular, preserve YooKassa auto-renewal.
+    if subscription.auto_renew:
+        subscription.save(update_fields=['paid_until', 'updated_at'])
+    else:
+        subscription.status = ClubSubscription.STATUS_CANCELLED
+        subscription.auto_renew = False
+        subscription.save(update_fields=['paid_until', 'status', 'auto_renew', 'updated_at'])
     gift.status = SubscriptionGift.STATUS_CLAIMED
     gift.claimed_by = user
     gift.claimed_at = now
@@ -245,7 +250,9 @@ def purchaser_gifts(user):
     return [
         {
             'gift': gift,
-            'code': decrypt_gift_code(gift) if gift.status != SubscriptionGift.STATUS_CREATED else '',
+            # Codes are revealed through an authenticated POST endpoint rather
+            # than embedded in the page HTML.
+            'code': '',
             'duration_label': gift_duration_label(gift),
         }
         for gift in gifts

@@ -36,8 +36,8 @@ from games.club_yookassa import (
     start_monthly_subscription,
     yookassa_recurring_enabled,
 )
-from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMethod
-from games.subscription_gifts import claim_gift, gift_duration_label, purchaser_gifts
+from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMethod, SubscriptionGift
+from games.subscription_gifts import claim_gift, decrypt_gift_code, gift_duration_label, purchaser_gifts
 from games.subscription_gift_payments import start_tribute_gift, start_yookassa_gift, yookassa_gift_amount
 from games.telegram_linking import user_has_telegram_link
 from games.tribute_config import (
@@ -290,6 +290,28 @@ def subscription_claim_gift(request):
             'Подарок активирован: подписка Inter Oves {}.'.format(gift_duration_label(gift)),
         )
     return redirect('new_subscription')
+
+
+@login_required
+@require_http_methods(['POST'])
+def subscription_reveal_gift_code(request, gift_id):
+    gift = SubscriptionGift.objects.filter(
+        pk=gift_id,
+        purchaser=request.user,
+        status__in=(SubscriptionGift.STATUS_PAID, SubscriptionGift.STATUS_CLAIMED),
+    ).first()
+    if gift is None:
+        return JsonResponse(
+            {'status': 'error', 'message': 'Код подарка недоступен.'},
+            status=404,
+        )
+    code = decrypt_gift_code(gift)
+    if not code:
+        return JsonResponse(
+            {'status': 'error', 'message': 'Не удалось прочитать код подарка.'},
+            status=500,
+        )
+    return JsonResponse({'status': 'ok', 'code': code})
 
 
 @login_required

@@ -267,6 +267,51 @@ class SubscriptionGiftPaymentTests(TestCase):
         payment.refresh_from_db()
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_MANUAL_REVIEW)
 
+    def test_tribute_purchase_for_expired_gift_goes_to_manual_review(self):
+        self.client.force_login(self.purchaser)
+        self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '1'})
+        payment = SubscriptionGiftPayment.objects.get()
+        payment.gift.status = SubscriptionGift.STATUS_EXPIRED
+        payment.gift.save(update_fields=['status'])
+
+        self.assertTrue(process_tribute_gift_purchase({
+            'product_id': 160748,
+            'product_name': 'Подарочная подписка Inter Oves — 1 месяц',
+            'amount': 555,
+            'currency': 'eur',
+            'telegram_user_id': 700001,
+            'purchase_id': 'gift-purchase-expired',
+            'transaction_id': 'gift-transaction-expired',
+            'purchase_created_at': self._purchase_created_at(),
+        }))
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_MANUAL_REVIEW)
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_EXPIRED)
+
+    def test_reveal_gift_code_requires_purchaser_and_does_not_embed_code(self):
+        self.client.force_login(self.purchaser)
+        self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '1'})
+        payment = SubscriptionGiftPayment.objects.get()
+        self._webhook(
+            product_id=160748,
+            product_name='Подарочная подписка Inter Oves — 1 месяц',
+            amount=555,
+            currency='eur',
+            telegram_user_id=700001,
+            telegram_username='giftbuyer',
+            purchase_id='gift-purchase-reveal',
+            transaction_id='gift-transaction-reveal',
+            purchase_created_at=self._purchase_created_at(),
+        )
+        page = self.client.get(reverse('new_subscription'))
+        self.assertNotContains(page, decrypt_gift_code(payment.gift))
+        reveal = self.client.post(reverse(
+            'new_subscription_gift_reveal', args=[payment.gift_id],
+        ))
+        self.assertEqual(reveal.status_code, 200)
+        self.assertEqual(reveal.json()['code'], decrypt_gift_code(payment.gift))
+
     @patch('games.subscription_gift_payments.Payment.create')
     def test_yookassa_success_cannot_resurrect_canceled_gift(self, create):
         create.return_value = {

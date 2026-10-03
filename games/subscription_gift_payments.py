@@ -202,6 +202,19 @@ def process_yookassa_gift_event(
         allow_manual_review and payment.status == SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
     ):
         return True
+    if payment.gift.status != SubscriptionGift.STATUS_CREATED:
+        payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
+        payment.raw_event_excerpt = dict(
+            payment.raw_event_excerpt or {},
+            id=payment_data.get('id'), event=event_name,
+            gift_status=payment.gift.status,
+        )
+        payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
+        logger.warning(
+            'subscription_gift_yookassa_late_success payment_id=%s gift_status=%s',
+            payment.pk, payment.gift.status,
+        )
+        return True
     now = timezone.now()
     payment.status = SubscriptionGiftPayment.STATUS_SUCCEEDED
     payment.succeeded_at = now
@@ -237,9 +250,10 @@ def _find_tribute_pending_payment(data: dict, product):
     candidates.sort(key=lambda candidate: abs(
         (candidate.created_at - purchase_at).total_seconds()
     ))
-    if len(candidates) > 1 and abs(
-        (candidates[0].created_at - purchase_at).total_seconds()
-    ) == abs((candidates[1].created_at - purchase_at).total_seconds()):
+    # A timestamp is only a fallback correlation key. Never guess between
+    # multiple pending gifts: a wrong assignment is harder to recover from
+    # than a payment sent to manual review.
+    if len(candidates) > 1:
         logger.warning(
             'subscription_gift_tribute_ambiguous purchase_id=%s product_id=%s',
             data['purchase_id'], data['product_id'],
@@ -292,6 +306,17 @@ def process_tribute_gift_purchase(payload: dict) -> bool:
     # Tribute may retry an old purchase event after a refund. Only a pending
     # payment can transition to succeeded; terminal states are monotonic.
     if payment.status != SubscriptionGiftPayment.STATUS_PENDING:
+        return True
+    if payment.gift.status != SubscriptionGift.STATUS_CREATED:
+        payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
+        payment.raw_event_excerpt = dict(
+            _payload_excerpt(data), gift_status=payment.gift.status,
+        )
+        payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
+        logger.warning(
+            'subscription_gift_tribute_late_purchase payment_id=%s gift_status=%s',
+            payment.pk, payment.gift.status,
+        )
         return True
     if payment.expected_amount != data['amount'] or payment.currency != data['currency']:
         payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW

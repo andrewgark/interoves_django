@@ -311,7 +311,6 @@
     </form>
   </div>
 
-  {% if gift_subscription_offers %}
   <div class="new-card new-pay-payment-card new-sub-gift-buy">
     <h2 class="new-pay-section-title">Подарить подписку</h2>
     <p class="new-pay-order__meta">Выберите срок и способ оплаты. Это разовая покупка без автопродления. После оплаты код появится в вашем аккаунте.</p>
@@ -328,24 +327,18 @@
               <strong>Международная карта или криптовалюта</strong>
               <span>Оплата через Tribute</span>
               <b>€{{ offer.tribute_product.amount_display }}</b>
-              {% if user.is_authenticated %}
-                {% if telegram_linked %}
-                  <form method="post" action="{% url 'new_subscription_gift_tribute_start' %}" data-sub-gift>
-                    {% csrf_token %}
-                    <input type="hidden" name="months" value="{{ offer.months }}">
-                    <button type="submit" class="new-btn">Выбрать Tribute</button>
-                  </form>
-                {% elif has_profile_user %}
-                  <form method="post" action="{% url 'new_telegram_link_start' %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="/subscription/?telegram=linked">
-                    <button type="submit" class="new-btn">Привязать Telegram</button>
-                  </form>
-                {% elif user.is_authenticated %}
-                  <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
-                {% else %}
-                  <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
-                {% endif %}
+              {% if user.is_authenticated and telegram_linked %}
+                <form method="post" action="{% url 'new_subscription_gift_tribute_start' %}" data-sub-gift>
+                  {% csrf_token %}
+                  <input type="hidden" name="months" value="{{ offer.months }}">
+                  <button type="submit" class="new-btn">Выбрать Tribute</button>
+                </form>
+              {% elif user.is_authenticated and has_profile_user %}
+                <form method="post" action="{% url 'new_telegram_link_start' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="/subscription/?telegram=linked">
+                  <button type="submit" class="new-btn">Привязать Telegram</button>
+                </form>
               {% elif user.is_authenticated %}
                 <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
               {% else %}
@@ -367,6 +360,8 @@
                   <input type="hidden" name="months" value="{{ offer.months }}">
                   <button type="submit" class="new-btn">Выбрать ЮKassa</button>
                 </form>
+              {% elif user.is_authenticated %}
+                <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
               {% else %}
                 <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
               {% endif %}
@@ -375,10 +370,11 @@
           {% endif %}
         </div>
       </div>
+    {% empty %}
+      <p class="new-pay-order__meta">Покупка подарочных подписок временно недоступна. Попробуйте позже.</p>
     {% endfor %}
     <p id="new-sub-gift-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
   </div>
-  {% endif %}
 
   {% if purchased_subscription_gifts %}
   <div class="new-card new-pay-payment-card new-sub-gift-list">
@@ -407,9 +403,9 @@
           </div>
         </div>
         <div class="new-sub-gift-code-row">
-          {% if item.code %}
-            <code class="is-blurred" data-gift-code>{{ item.code }}</code>
-            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-reveal-gift-code aria-expanded="false">Показать код</button>
+          {% if item.gift.status == 'paid' or item.gift.status == 'claimed' %}
+            <code class="is-blurred" data-gift-code aria-label="Скрытый код подарка">•••••••••••</code>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-reveal-gift-code data-reveal-url="{% url 'new_subscription_gift_reveal' item.gift.pk %}" aria-expanded="false">Показать код</button>
             <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-copy-gift-code hidden>Скопировать</button>
           {% else %}
             <span class="new-pay-order__meta">Код появится после подтверждения оплаты</span>
@@ -501,11 +497,27 @@
       var code = row && row.querySelector('[data-gift-code]');
       var copy = row && row.querySelector('[data-copy-gift-code]');
       if (!code) return;
-      code.classList.remove('is-blurred');
-      code.classList.add('is-revealed');
-      button.hidden = true;
-      if (copy) copy.hidden = false;
-      button.setAttribute('aria-expanded', 'true');
+      button.disabled = true;
+      fetch(button.getAttribute('data-reveal-url'), {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken()},
+        credentials: 'same-origin'
+      }).then(function (r) {
+        return r.json().then(function (data) { return {ok: r.ok, data: data}; });
+      }).then(function (res) {
+        if (!res.ok || !res.data || res.data.status !== 'ok' || !res.data.code) {
+          button.disabled = false;
+          return;
+        }
+        code.textContent = res.data.code;
+        code.classList.remove('is-blurred');
+        code.classList.add('is-revealed');
+        button.hidden = true;
+        if (copy) copy.hidden = false;
+        button.setAttribute('aria-expanded', 'true');
+      }).catch(function () {
+        button.disabled = false;
+      });
     });
   });
   var modal = document.getElementById('new-sub-detach-modal');

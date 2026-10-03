@@ -204,6 +204,7 @@ urlpatterns = [
     path('pay/', ui.pay_page, name='ui_pay'),
     path('subscription/', ui.subscription_page, name='ui_subscription'),
     path('subscription/claim-gift/', ui.subscription_claim_gift, name='ui_subscription_claim_gift'),
+    path('subscription/gift/<int:gift_id>/reveal/', ui.subscription_reveal_gift_code, name='ui_subscription_gift_reveal'),
     path('subscription/gift/tribute/', ui.subscription_gift_tribute_start, name='ui_subscription_gift_tribute_start'),
     path('subscription/gift/yookassa/', ui.subscription_gift_yookassa_start, name='ui_subscription_gift_yookassa_start'),
     path('subscription/checkout/', ui.subscription_checkout, name='ui_subscription_checkout'),
