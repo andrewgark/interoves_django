@@ -16,6 +16,7 @@ from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
 from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
+from games.middleware.request_timing import timing_phase
 from games.models import DailySolveTiming, DailySolveTimingSession, DailyTimingEvent
 from games.results.share import elapsed_seconds_from_attempts, format_elapsed
 
@@ -611,6 +612,7 @@ def apply_timing_event(
     now=None,
     create: bool = True,
     replay_slot=None,
+    timing_request=None,
 ) -> dict:
     last_exc = None
     action_label = (action or '').strip()
@@ -631,6 +633,7 @@ def apply_timing_event(
                 create=create,
                 replay_slot=replay_slot,
                 client_occurred_at=client_occurred_at,
+                timing_request=timing_request,
             )
             return result
         except OperationalError as exc:
@@ -671,6 +674,7 @@ def _apply_timing_event_once(
     create: bool = True,
     replay_slot=None,
     client_occurred_at=None,
+    timing_request=None,
 ) -> dict:
     now = now or timezone.now()
     action = (action or '').strip()
@@ -684,7 +688,8 @@ def _apply_timing_event_once(
         task_group=task_group,
         **filters,
     )
-    row = _lock_existing_timing(qs)
+    with timing_phase(timing_request, 'timing_row_lock'):
+        row = _lock_existing_timing(qs)
     created_timing_row = False
     if row is None:
         if not create or action not in (ACTION_START, ACTION_RESUME):
@@ -694,8 +699,9 @@ def _apply_timing_event_once(
         # row created by the winner even on databases where UNIQUE indexes
         # treat NULL replay_slot values as distinct (notably MySQL).
         from games.models import TaskGroup
-        TaskGroup.objects.select_for_update().only('pk').get(pk=task_group.pk)
-        row = qs.select_for_update().first()
+        with timing_phase(timing_request, 'timing_first_row_lock'):
+            TaskGroup.objects.select_for_update().only('pk').get(pk=task_group.pk)
+            row = qs.select_for_update().first()
     legacy_elapsed_ms = 0
     if row is None:
         # If the timer endpoint was unavailable during an earlier visit, the

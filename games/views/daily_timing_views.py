@@ -272,6 +272,7 @@ def daily_solve_timing(request, game_id, number=None, task_group_number=None):
             client_occurred_at=_client_event_time(payload),
             create=True,
             replay_slot=replay_slot,
+            timing_request=request,
         )
     except OperationalError as exc:
         # A competing timing mutation can exhaust the transaction retries.

@@ -43,6 +43,7 @@ from games.views.game_context import (
     unpublished_scheduled_task_response,
 )
 from games.views.hint_views import _get_play_mode, create_hint_attempt
+from games.middleware.request_timing import timing_phase
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.views.util import is_browser_form_submission, redirect_after_browser_submission
@@ -490,21 +491,22 @@ def process_send_raddle_ui(request, task_id):
         }
         # Compute the legacy fallback only after the first-row parent lock. A
         # concurrent answer submission may create ChainTaskState while we wait.
-        ui_row = lock_or_create_raddle_state(
-            queryset=RaddleUiState.objects.filter(**lookup),
-            task=task,
-            lookup=lookup,
-            defaults=lambda: _legacy_raddle_ui_state(
+        with timing_phase(request, 'raddle_ui_state_lock'):
+            ui_row = lock_or_create_raddle_state(
+                queryset=RaddleUiState.objects.filter(**lookup),
                 task=task,
-                game=game,
-                current_mode=current_mode,
-                team=team,
-                user=user,
-                anon_key=anon_key,
-                replay_slot=replay_slot,
-                n_words=n,
-            ),
-        )
+                lookup=lookup,
+                defaults=lambda: _legacy_raddle_ui_state(
+                    task=task,
+                    game=game,
+                    current_mode=current_mode,
+                    team=team,
+                    user=user,
+                    anon_key=anon_key,
+                    replay_slot=replay_slot,
+                    n_words=n,
+                ),
+            )
         state = {
             'drafts': dict(ui_row.drafts or {}),
             'clue_marks': dict(ui_row.clue_marks or {}),

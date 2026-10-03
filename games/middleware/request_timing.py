@@ -1,4 +1,4 @@
-"""Log slow game submission endpoints (send_attempt, alphabetty guess)."""
+"""Log slow gameplay endpoints and their lock-sensitive phases."""
 
 from __future__ import annotations
 
@@ -12,12 +12,18 @@ from django.conf import settings
 logger = logging.getLogger('interoves.request_timing')
 
 _ALPHABETTY_GUESS = re.compile(r'^/alphabetty/\d+/guess/?$')
+_DAILY_TIMING = re.compile(r'^/(?:ladder|salad|alphabetty|replacements)/\d+/timing/?$')
+_RADDLE_UI = re.compile(r'^/send_raddle_ui/\d+/?$')
 
 
 def _watch_path(path: str) -> bool:
     if path.startswith('/send_attempt/'):
         return True
-    return bool(_ALPHABETTY_GUESS.match(path))
+    return bool(
+        _ALPHABETTY_GUESS.match(path)
+        or _DAILY_TIMING.match(path)
+        or _RADDLE_UI.match(path)
+    )
 
 
 @contextmanager

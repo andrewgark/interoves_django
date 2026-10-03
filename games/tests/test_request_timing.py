@@ -30,6 +30,13 @@ class RequestTimingMiddlewareTests(TestCase):
         with self.assertLogs('interoves.request_timing', level='WARNING'):
             self.middleware(request)
 
+    def test_watches_raddle_ui_and_daily_timing(self):
+        for path in ('/send_raddle_ui/6831/', '/ladder/88/timing/', '/replacements/170/timing/'):
+            request = self.factory.post(path)
+            self.middleware.slow_ms = 0
+            with self.assertLogs('interoves.request_timing', level='WARNING'):
+                self.middleware(request)
+
     def test_logs_named_phases_without_request_payload(self):
         def response(request):
             with timing_phase(request, 'check_attempt'):
