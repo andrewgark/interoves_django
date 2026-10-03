@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.conf import settings
 
-from games.models import TributePurchase, SubscriptionGift, SubscriptionGiftPayment
+from games.models import Profile, TributePurchase, SubscriptionGift, SubscriptionGiftPayment
 from games.subscription_gifts import create_paid_gift
 from games.telegram_linking import user_has_telegram_link
 from games.tribute_config import club_gift_products_by_id, configured_club_gift
@@ -310,7 +310,59 @@ def process_tribute_gift_purchase(payload: dict) -> bool:
         return False
     if payment is None:
         logger.warning('subscription_gift_tribute_unmatched purchase_id=%s product_id=%s', data['purchase_id'], data['product_id'])
-        return False
+        # The product is public and Tribute may deliver a valid purchase after
+        # the local pending row has expired or when the buyer opened the link
+        # directly. Issue the gift for a verified Telegram identity instead of
+        # losing the paid purchase in the generic ticket review queue.
+        if data['telegram_user_id'] is None:
+            return False
+        profile = Profile.objects.select_for_update().filter(
+            telegram_user_id=data['telegram_user_id'], telegram_verified=True,
+        ).select_related('user').first()
+        if profile is None:
+            return False
+        payment = SubscriptionGiftPayment.objects.select_for_update().filter(
+            provider=SubscriptionGift.PROVIDER_TRIBUTE,
+            purchase_id=data['purchase_id'],
+        ).select_related('gift').first()
+        if payment is not None:
+            return payment.status in (
+                SubscriptionGiftPayment.STATUS_SUCCEEDED,
+                SubscriptionGiftPayment.STATUS_MANUAL_REVIEW,
+            )
+        gift, _code = create_paid_gift(
+            purchaser=profile.user,
+            duration_months=product.months,
+            provider=SubscriptionGift.PROVIDER_TRIBUTE,
+            amount=product.amount,
+            currency=product.currency,
+        )
+        now = timezone.now()
+        payment = SubscriptionGiftPayment.objects.create(
+            gift=gift,
+            purchaser=profile.user,
+            provider=SubscriptionGift.PROVIDER_TRIBUTE,
+            expected_amount=product.amount,
+            currency=product.currency,
+            duration_months=product.months,
+            telegram_user_id=data['telegram_user_id'],
+            provider_payment_id=data['transaction_id'],
+            purchase_id=data['purchase_id'],
+            idempotency_key=uuid.uuid5(
+                uuid.NAMESPACE_URL, 'tribute-gift:' + data['purchase_id'],
+            ).hex,
+            status=SubscriptionGiftPayment.STATUS_SUCCEEDED,
+            succeeded_at=now,
+            raw_event_excerpt=_payload_excerpt(data),
+        )
+        gift.status = SubscriptionGift.STATUS_PAID
+        gift.paid_at = now
+        gift.save(update_fields=['status', 'paid_at'])
+        logger.info(
+            'subscription_gift_tribute_direct_purchase payment_id=%s purchase_id=%s user_id=%s',
+            payment.pk, data['purchase_id'], profile.user_id,
+        )
+        return True
     # Tribute may retry an old purchase event after a refund. Only a pending
     # payment can transition to succeeded; terminal states are monotonic.
     if payment.status != SubscriptionGiftPayment.STATUS_PENDING:

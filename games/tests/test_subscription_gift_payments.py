@@ -125,6 +125,24 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(duplicate.status_code, 200)
         self.assertEqual(SubscriptionGiftPayment.objects.count(), 1)
 
+    def test_direct_tribute_purchase_creates_gift_when_pending_row_is_missing(self):
+        payload = {
+            'product_id': 160748,
+            'product_name': 'Подарочная подписка Inter Oves — 1 месяц',
+            'amount': 555,
+            'currency': 'eur',
+            'telegram_user_id': 700001,
+            'telegram_username': 'giftbuyer',
+            'purchase_id': 'gift-direct-purchase-1',
+            'transaction_id': 'gift-direct-transaction-1',
+            'purchase_created_at': self._purchase_created_at(),
+        }
+        self.assertTrue(process_tribute_gift_purchase(payload))
+        payment = SubscriptionGiftPayment.objects.get(purchase_id=payload['purchase_id'])
+        self.assertEqual(payment.purchaser, self.purchaser)
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_SUCCEEDED)
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_PAID)
+
     def test_paid_gift_can_be_claimed_by_recipient(self):
         self.client.force_login(self.purchaser)
         self.client.post(reverse('new_subscription_gift_tribute_start'), {'months': '3'})
