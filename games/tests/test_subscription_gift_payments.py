@@ -14,6 +14,7 @@ from games.subscription_gift_payments import (
     process_tribute_gift_purchase,
     process_tribute_gift_refund,
     process_yookassa_gift_event,
+    reconcile_yookassa_gift_payments,
     start_yookassa_gift,
 )
 from games.tribute_util import compute_webhook_signature
@@ -233,6 +234,58 @@ class SubscriptionGiftPaymentTests(TestCase):
         }
         self.assertTrue(process_yookassa_gift_event('payment.canceled', canceled))
         self.assertTrue(process_yookassa_gift_event('payment.succeeded', canceled))
+        payment.refresh_from_db()
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
+
+    @patch('games.subscription_gift_payments.Payment.find_one')
+    @patch('games.subscription_gift_payments.Payment.create')
+    def test_yookassa_reconciliation_confirms_manual_review_payment(self, create, find_one):
+        create.return_value = {
+            'id': 'yk-gift-reconcile',
+            'confirmation': {'confirmation_url': 'https://yookassa.test/pay/reconcile'},
+        }
+        payment = start_yookassa_gift(
+            user=self.purchaser, months=1,
+            return_url='https://interoves.com/subscription/?payment=return',
+        ).payment
+        payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
+        payment.save(update_fields=['status'])
+        find_one.return_value = {
+            'id': payment.provider_payment_id,
+            'status': 'succeeded',
+            'metadata': {'purpose': 'club_gift', 'gift_payment_id': str(payment.pk)},
+            'amount': {'value': '600.00', 'currency': 'RUB'},
+        }
+
+        self.assertEqual(reconcile_yookassa_gift_payments(), 1)
+        payment.refresh_from_db()
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_SUCCEEDED)
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_PAID)
+
+    @patch('games.subscription_gift_payments.Payment.find_one')
+    @patch('games.subscription_gift_payments.Payment.create')
+    def test_yookassa_reconciliation_cancels_manual_review_payment(self, create, find_one):
+        create.return_value = {
+            'id': 'yk-gift-reconcile-canceled',
+            'confirmation': {'confirmation_url': 'https://yookassa.test/pay/reconcile-canceled'},
+        }
+        payment = start_yookassa_gift(
+            user=self.purchaser, months=1,
+            return_url='https://interoves.com/subscription/?payment=return',
+        ).payment
+        payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
+        payment.save(update_fields=['status'])
+        find_one.return_value = {
+            'id': payment.provider_payment_id,
+            'status': 'canceled',
+            'metadata': {'purpose': 'club_gift', 'gift_payment_id': str(payment.pk)},
+            'amount': {'value': '600.00', 'currency': 'RUB'},
+        }
+
+        self.assertEqual(reconcile_yookassa_gift_payments(), 1)
         payment.refresh_from_db()
         payment.gift.refresh_from_db()
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)

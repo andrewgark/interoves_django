@@ -126,6 +126,7 @@ def yookassa_webhook(request):
     if event == 'refund.succeeded':
         payment_id = payment_obj.get('payment_id')
         if not payment_id:
+            logger.warning('yookassa_webhook: refund missing payment id')
             return HttpResponse(status=200)
         try:
             configure_yookassa_from_env()

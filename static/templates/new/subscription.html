@@ -338,9 +338,13 @@
                     <input type="hidden" name="next" value="/subscription/?telegram=linked">
                     <button type="submit" class="new-btn">Привязать Telegram</button>
                   </form>
+                {% elif user.is_authenticated %}
+                  <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
                 {% else %}
                   <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
                 {% endif %}
+              {% elif user.is_authenticated %}
+                <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
               {% else %}
                 <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
               {% endif %}

@@ -147,7 +147,9 @@ def start_yookassa_gift(*, user, months: int, return_url: str) -> GiftCheckoutRe
 
 
 @transaction.atomic
-def process_yookassa_gift_event(event_name: str, payment_data: dict) -> bool:
+def process_yookassa_gift_event(
+    event_name: str, payment_data: dict, *, allow_manual_review: bool = False,
+) -> bool:
     metadata = payment_data.get('metadata') or {}
     if str(metadata.get('purpose') or '') != 'club_gift':
         return False
@@ -164,7 +166,11 @@ def process_yookassa_gift_event(event_name: str, payment_data: dict) -> bool:
         return True
     amount = payment_data.get('amount') or {}
     try:
-        valid_amount = int(Decimal(str(amount.get('value'))) * 100) == payment.expected_amount
+        amount_minor = Decimal(str(amount.get('value'))) * 100
+        valid_amount = (
+            amount_minor == amount_minor.to_integral_value()
+            and int(amount_minor) == payment.expected_amount
+        )
     except (InvalidOperation, TypeError, ValueError):
         valid_amount = False
     if amount.get('currency') != payment.currency or not valid_amount:
@@ -180,8 +186,11 @@ def process_yookassa_gift_event(event_name: str, payment_data: dict) -> bool:
         revoke_gift_access(payment.gift)
         return True
     # Provider webhooks are not guaranteed to arrive in order. A late success
-    # must never resurrect a canceled/refunded or manually held payment.
-    if payment.status != SubscriptionGiftPayment.STATUS_PENDING:
+    # must never resurrect a canceled/refunded payment. Reconciliation may
+    # explicitly release a manually held payment after checking YooKassa.
+    if payment.status != SubscriptionGiftPayment.STATUS_PENDING and not (
+        allow_manual_review and payment.status == SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
+    ):
         return True
     now = timezone.now()
     payment.status = SubscriptionGiftPayment.STATUS_SUCCEEDED
@@ -226,13 +235,23 @@ def process_tribute_gift_purchase(payload: dict) -> bool:
         purchase_at = parse_datetime(data['purchase_created_at'])
         if purchase_at is not None and timezone.is_naive(purchase_at):
             purchase_at = timezone.make_aware(purchase_at, timezone.utc)
-        if purchase_at is not None:
+        if purchase_at is None:
+            candidates = []
+        else:
             candidates = [candidate for candidate in candidates if abs(
                 (candidate.created_at - purchase_at).total_seconds()
             ) <= 24 * 60 * 60]
             candidates.sort(key=lambda candidate: abs(
                 (candidate.created_at - purchase_at).total_seconds()
             ))
+            if len(candidates) > 1 and abs(
+                (candidates[0].created_at - purchase_at).total_seconds()
+            ) == abs((candidates[1].created_at - purchase_at).total_seconds()):
+                logger.warning(
+                    'subscription_gift_tribute_ambiguous purchase_id=%s product_id=%s',
+                    data['purchase_id'], data['product_id'],
+                )
+                candidates = []
         payment = candidates[0] if candidates else None
     if payment is None:
         logger.warning('subscription_gift_tribute_unmatched purchase_id=%s product_id=%s', data['purchase_id'], data['product_id'])
@@ -295,3 +314,37 @@ def process_yookassa_gift_refund(payment_data: dict) -> bool:
     from games.subscription_gifts import revoke_gift_access
     revoke_gift_access(payment.gift)
     return True
+
+
+@transaction.atomic
+def reconcile_yookassa_gift_payments(*, limit: int = 50) -> int:
+    """Reconcile gift payments whose YooKassa outcome was ambiguous."""
+    payments = list(
+        SubscriptionGiftPayment.objects.select_for_update().filter(
+            provider=SubscriptionGift.PROVIDER_YOOKASSA,
+            status__in=(
+                SubscriptionGiftPayment.STATUS_PENDING,
+                SubscriptionGiftPayment.STATUS_MANUAL_REVIEW,
+            ),
+        ).exclude(provider_payment_id='').order_by('updated_at')[:limit]
+    )
+    changed = 0
+    for payment in payments:
+        try:
+            remote = dict(Payment.find_one(payment.provider_payment_id))
+        except Exception:
+            logger.exception(
+                'subscription_gift_yookassa_reconcile_failed payment_id=%s',
+                payment.pk,
+            )
+            continue
+        status = str(remote.get('status') or '')
+        if status == 'succeeded':
+            if process_yookassa_gift_event('payment.succeeded', remote, allow_manual_review=True):
+                payment.refresh_from_db(fields=('status',))
+                changed += payment.status == SubscriptionGiftPayment.STATUS_SUCCEEDED
+        elif status == 'canceled':
+            if process_yookassa_gift_event('payment.canceled', remote, allow_manual_review=True):
+                payment.refresh_from_db(fields=('status',))
+                changed += payment.status == SubscriptionGiftPayment.STATUS_CANCELED
+    return changed
