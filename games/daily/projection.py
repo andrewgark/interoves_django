@@ -6,6 +6,7 @@ This module only turns their output into a rebuildable actor/release projection.
 from collections import defaultdict
 from decimal import Decimal
 import random
+from time import monotonic
 
 import logging
 
@@ -502,6 +503,7 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
     transaction publishes it only if no source revision changed meanwhile;
     otherwise the caller can retry without ever creating a false-valid state.
     """
+    started_at = monotonic()
     link = GameTaskGroup.objects.filter(game=game, task_group=task_group).first()
     if link is None:
         return 0
@@ -512,6 +514,7 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
         state.full_refresh_required = True
         state.save(update_fields=['is_valid', 'full_refresh_required', 'completed_at'])
 
+    compute_started_at = monotonic()
     if results is None:
         results, canonical_task_rows = _canonical_group_results(
             game, task_group, with_task_rows=True,
@@ -542,6 +545,7 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
             is_prepublication=_prepublication(game, link, actor, data['first_at']),
             **actor_data,
         ))
+    write_started_at = monotonic()
     with transaction.atomic():
         state = _state_for_update(game, task_group)
         if state.source_revision != start_revision:
@@ -570,6 +574,14 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
         DailyResultProjectionDirtyActor.objects.filter(
             game=game, task_group=task_group, source_revision__lte=start_revision,
         ).delete()
+    logger.info(
+        'daily_result_projection_refresh game=%s task_group=%s actors=%s task_cells=%s '
+        'compute_ms=%.1f write_ms=%.1f total_ms=%.1f',
+        game.pk, task_group.pk, len(entries), len(task_entries),
+        (write_started_at - compute_started_at) * 1000,
+        (monotonic() - write_started_at) * 1000,
+        (monotonic() - started_at) * 1000,
+    )
     return len(entries)
 
 
@@ -662,9 +674,12 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
     group = TaskGroup.objects.filter(pk=group_id).first()
     if game is None or group is None:
         return False
+    started_at = monotonic()
     results, canonical_task_rows = _canonical_group_results(
         game, group, actor_filter=actor_filter, with_task_rows=True,
     )
+    write_started_at = monotonic()
+    projection_actor_identity = _actor_identity_from_filter(actor_filter)
     if not _task_projection_supported(game):
         canonical_task_rows = {}
     task_entries = _build_task_projection_entries(
@@ -728,6 +743,17 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
                 state.is_valid = True
             state.pending_actor_refreshes = pending
             state.save(update_fields=['pending_actor_refreshes', 'is_valid', 'completed_at'])
+        logger.info(
+            'daily_result_projection_actor_refresh game=%s task_group=%s '
+            'actor_type=%s actor_key=%s task_cells=%s compute_ms=%.1f write_ms=%.1f total_ms=%.1f',
+            game_id, group_id,
+            projection_actor_identity[0] if projection_actor_identity else 'unknown',
+            projection_actor_identity[1] if projection_actor_identity else 'unknown',
+            len(task_entries),
+            (write_started_at - started_at) * 1000,
+            (monotonic() - write_started_at) * 1000,
+            (monotonic() - started_at) * 1000,
+        )
         return True
     except Exception:
         logger.exception(
