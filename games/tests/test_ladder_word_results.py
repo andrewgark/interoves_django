@@ -23,6 +23,7 @@ from games.models import (
     Project,
     Task,
     TaskGroup,
+    Team,
 )
 from games.views.new_ui import new_ladder_word_results_page
 
@@ -163,6 +164,22 @@ class LadderWordResultsTests(TestCase):
 
         self.assertIn('>1<', html)
         self.assertNotIn('>BBB<', html)
+
+    def test_personal_mode_does_not_highlight_users_team_row(self):
+        team = Team.objects.create(name='lw-results-team', visible_name='Team')
+        participant = PersonalResultsParticipant(anon_key='lw-current')
+        html = render_to_string('new/partials/results_rows.html', {
+            'teams_sorted': [team, participant],
+            'team_to_place': {team: 1, participant: 2},
+            'team_to_score': {team: 2, participant: 1},
+            'team_to_cells': {team: [], participant: []},
+            'mode': 'general',
+            'results_variant': 'ladder_words',
+            'team': team,
+            'me_anon_participant': PersonalResultsParticipant(anon_key='lw-current'),
+        })
+
+        self.assertEqual(html.count('is-me'), 1)
 
     def test_page_renders_progressive_headers(self):
         request = self.factory.get('/ladder/9100/results/')
