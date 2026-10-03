@@ -1257,17 +1257,28 @@ class Task(models.Model):
                 update_fields.add('attempt_revision')
             kwargs['update_fields'] = update_fields
         super(Task, self).save(*args, **kwargs)
-        projection_groups = {self.task_group_id}
-        if previous_semantics:
-            projection_groups.add(previous_semantics['task_group_id'])
-        from games.daily_result_projection import mark_projection_dirty
-        for group_id in projection_groups:
-            if not group_id:
-                continue
-            for link in GameTaskGroup.objects.filter(
-                task_group_id=group_id, game__project_id='sections',
-            ).select_related('game', 'task_group'):
-                mark_projection_dirty(link.game, link.task_group, full=True)
+        projection_fields = (
+            'task_group_id', 'is_removed', 'task_type', 'checker_id',
+            'checker_data', 'answer', 'text', 'points', 'max_attempts',
+        )
+        projection_needs_refresh = not is_existing or bool(
+            previous_semantics and any(
+                previous_semantics[field] != getattr(self, field)
+                for field in projection_fields
+            )
+        )
+        if projection_needs_refresh:
+            projection_groups = {self.task_group_id}
+            if previous_semantics:
+                projection_groups.add(previous_semantics['task_group_id'])
+            from games.daily_result_projection import mark_projection_dirty
+            for group_id in projection_groups:
+                if not group_id:
+                    continue
+                for link in GameTaskGroup.objects.filter(
+                    task_group_id=group_id, game__project_id='sections',
+                ).select_related('game', 'task_group'):
+                    mark_projection_dirty(link.game, link.task_group, full=True)
         # A changed Word Salad grid starts a new chain.  Changing only the
         # answer/rare-word lists must keep the accumulated projection alive:
         # the existing attempts are still valid evidence and the recheck can

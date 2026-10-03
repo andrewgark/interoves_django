@@ -65,6 +65,28 @@ class DailyResultProjectionTests(TestCase):
         self.assertTrue(state.is_valid)
         self.assertFalse(state.full_refresh_required)
 
+    def test_task_ui_only_save_does_not_invalidate_projection(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', points=10,
+            checker_data='answer', text='Question',
+        )
+        with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
+            task.tags = {'featured': True}
+            task.save(update_fields=['tags'])
+        mark_dirty.assert_not_called()
+
+    def test_task_semantic_save_invalidates_projection(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', points=10,
+            checker_data='answer', text='Question',
+        )
+        with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
+            task.points = 11
+            task.save(update_fields=['points'])
+        mark_dirty.assert_called_once_with(
+            self.game, self.group, full=True,
+        )
+
     def test_ordinary_projection_uses_best_attempt_and_hint_penalty(self):
         task = Task.objects.create(
             task_group=self.group, number='1', task_type='default', points=10,
