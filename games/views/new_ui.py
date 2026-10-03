@@ -1558,6 +1558,9 @@ def project_results_page(request, project_id, game_id):
     team = request.user.profile.team_on if has_profile(request.user) else None
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
+    me_personal, me_anon_participant = _results_me_participants(request, play_mode)
     snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
     if snap and snap.payload and request.GET.get('actors') is None:
         data = snapshot_to_results_context(game, snap.payload)
@@ -1565,18 +1568,10 @@ def project_results_page(request, project_id, game_id):
         data = _new_results_compute(game, mode='general', actor_types=_results_actor_filter_types(request))
     data = _paginate_results_rows(request, data, per_page=50)
     if request.GET.get('partial') == '1':
-        return _render_results_rows_partial(request, data, mode='general')
-    play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game, user=request.user)
-    me_personal = None
-    me_anon_participant = None
-    if play_mode == 'personal':
-        if request.user.is_authenticated:
-            me_personal = PersonalResultsParticipant(user=request.user)
-        else:
-            ak = _anon_key_from_request(request)
-            if ak:
-                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+        return _render_results_rows_partial(
+            request, data, mode='general', team=team,
+            me_personal=me_personal, me_anon_participant=me_anon_participant,
+        )
     return render(request, 'ui/results.html', {
         'project': project,
         'mode': 'general',
@@ -1612,7 +1607,7 @@ def project_tournament_results_page(request, project_id, game_id):
         data = _new_results_compute(game, mode='tournament', actor_types=_results_actor_filter_types(request))
     data = _paginate_results_rows(request, data, per_page=50)
     if request.GET.get('partial') == '1':
-        return _render_results_rows_partial(request, data, mode='tournament')
+        return _render_results_rows_partial(request, data, mode='tournament', team=team)
     return render(request, 'ui/results.html', {
         'project': project,
         'mode': 'tournament',
@@ -2443,6 +2438,10 @@ def new_results_page(request, game_id):
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
 
+    play_mode, _ = _get_play_mode(request, game.project_id)
+    play_mode = effective_play_mode(play_mode, game, user=request.user)
+    me_personal, me_anon_participant = _results_me_participants(request, play_mode)
+
     snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
     if snap and snap.payload and request.GET.get('actors') is None:
         data = snapshot_to_results_context(game, snap.payload)
@@ -2450,18 +2449,10 @@ def new_results_page(request, game_id):
         data = _new_results_compute(game, mode='general', actor_types=_results_actor_filter_types(request))
     data = _paginate_results_rows(request, data, per_page=50)
     if request.GET.get('partial') == '1':
-        return _render_results_rows_partial(request, data, mode='general')
-    play_mode, _ = _get_play_mode(request, game.project_id)
-    play_mode = effective_play_mode(play_mode, game, user=request.user)
-    me_personal = None
-    me_anon_participant = None
-    if play_mode == 'personal':
-        if request.user.is_authenticated:
-            me_personal = PersonalResultsParticipant(user=request.user)
-        else:
-            ak = _anon_key_from_request(request)
-            if ak:
-                me_anon_participant = PersonalResultsParticipant(anon_key=ak)
+        return _render_results_rows_partial(
+            request, data, mode='general', team=team,
+            me_personal=me_personal, me_anon_participant=me_anon_participant,
+        )
     return render(request, 'ui/results.html', {
         'mode': 'general',
         'game': game,
@@ -2498,7 +2489,7 @@ def new_tournament_results_page(request, game_id):
         data = _new_results_compute(game, mode='tournament', actor_types=_results_actor_filter_types(request))
     data = _paginate_results_rows(request, data, per_page=50)
     if request.GET.get('partial') == '1':
-        return _render_results_rows_partial(request, data, mode='tournament')
+        return _render_results_rows_partial(request, data, mode='tournament', team=team)
     return render(request, 'ui/results.html', {
         'mode': 'tournament',
         'game': game,
