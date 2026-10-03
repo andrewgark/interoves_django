@@ -15,6 +15,7 @@ from games.subscription_gift_payments import (
     process_tribute_gift_refund,
     process_yookassa_gift_event,
     process_yookassa_gift_refund,
+    manually_resolve_subscription_gift_payment,
     reconcile_yookassa_gift_payments,
     start_yookassa_gift,
 )
@@ -266,6 +267,11 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertTrue(process_tribute_gift_purchase(payload))
         payment.refresh_from_db()
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_MANUAL_REVIEW)
+        self.assertTrue(manually_resolve_subscription_gift_payment(payment.pk, succeeded=True))
+        payment.refresh_from_db()
+        payment.gift.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_SUCCEEDED)
+        self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_PAID)
 
     def test_tribute_purchase_for_expired_gift_goes_to_manual_review(self):
         self.client.force_login(self.purchaser)

@@ -638,10 +638,10 @@ class SubscriptionGiftAdmin(admin.ModelAdmin):
 
 @admin.action(description='Подтвердить выбранные gift-платежи вручную')
 def confirm_subscription_gift_payments(modeladmin, request, queryset):
-    from games.subscription_gift_payments import manually_resolve_yookassa_gift_payment
+    from games.subscription_gift_payments import manually_resolve_subscription_gift_payment
 
     resolved = sum(
-        manually_resolve_yookassa_gift_payment(payment.pk, succeeded=True)
+        manually_resolve_subscription_gift_payment(payment.pk, succeeded=True)
         for payment in queryset
     )
     messages.success(request, 'Подтверждено gift-платежей: {}.'.format(resolved))
@@ -649,10 +649,10 @@ def confirm_subscription_gift_payments(modeladmin, request, queryset):
 
 @admin.action(description='Отменить выбранные gift-платежи вручную')
 def cancel_subscription_gift_payments(modeladmin, request, queryset):
-    from games.subscription_gift_payments import manually_resolve_yookassa_gift_payment
+    from games.subscription_gift_payments import manually_resolve_subscription_gift_payment
 
     resolved = sum(
-        manually_resolve_yookassa_gift_payment(payment.pk, succeeded=False)
+        manually_resolve_subscription_gift_payment(payment.pk, succeeded=False)
         for payment in queryset
     )
     messages.success(request, 'Отменено gift-платежей: {}.'.format(resolved))

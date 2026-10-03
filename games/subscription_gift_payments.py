@@ -397,10 +397,9 @@ def process_yookassa_gift_refund(payment_data: dict) -> bool:
 
 
 @transaction.atomic
-def manually_resolve_yookassa_gift_payment(payment_id: int, *, succeeded: bool) -> bool:
+def manually_resolve_subscription_gift_payment(payment_id: int, *, succeeded: bool) -> bool:
     payment = SubscriptionGiftPayment.objects.select_for_update().filter(
         pk=payment_id,
-        provider=SubscriptionGift.PROVIDER_YOOKASSA,
         status=SubscriptionGiftPayment.STATUS_MANUAL_REVIEW,
     ).select_related('gift').first()
     if payment is None:
@@ -421,6 +420,16 @@ def manually_resolve_yookassa_gift_payment(payment_id: int, *, succeeded: bool) 
         from games.subscription_gifts import revoke_gift_access
         revoke_gift_access(payment.gift)
     return True
+
+
+def manually_resolve_yookassa_gift_payment(payment_id: int, *, succeeded: bool) -> bool:
+    """Backward-compatible YooKassa-only admin helper."""
+    payment = SubscriptionGiftPayment.objects.filter(
+        pk=payment_id, provider=SubscriptionGift.PROVIDER_YOOKASSA,
+    ).first()
+    if payment is None:
+        return False
+    return manually_resolve_subscription_gift_payment(payment_id, succeeded=succeeded)
 
 
 def reconcile_yookassa_gift_payments(*, limit: int = 50) -> int:
