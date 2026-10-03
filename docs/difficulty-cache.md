@@ -172,10 +172,22 @@ A real formula or baseline change is a **manual rebuild** (section 10).
 
 ## 9. Cron / infrastructure
 
+> **Operational hold (2026-10-03): keep the production reset disabled.**
+> The reset is called from `difficulty.refresh` before calculating difficulty
+> snapshots and currently runs inside a long transaction that can hold
+> `DailyGameDifficulty` row locks while rebuilding chain state. Do not re-enable
+> the production schedule until the lock incident is resolved and the reset is
+> either removed from the refresh path or split so the difficulty row lock is
+> not held during chain rebuilding. The production schedule is
+> `interoves-difficulty-refresh` in EventBridge Scheduler, targeting the
+> `interoves-background` SQS queue. This hold disables the reset indirectly;
+> it must not be implemented by stopping the whole background worker, because
+> that worker also handles projection refresh/reconcile and health checks.
+
 | Item | Location |
 |---|---|
 | Command | `python manage.py refresh_daily_difficulty --limit 10` |
-| Schedule | every minute, every EB web instance |
+| Schedule | EventBridge Scheduler `interoves-difficulty-refresh` → `interoves-background` |
 | EB config | `.ebextensions/difficulty_cron.config` |
 | Script (repo) | `scripts/difficulty_cron.sh` |
 | Script (instance) | `/opt/interoves/difficulty_cron.sh` |
