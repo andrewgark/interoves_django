@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
@@ -15,6 +16,12 @@ from games.censorly.stopwords import is_stop_word
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
 from games.models import CheckerType, Game, GameTaskGroup, Project, RandomCensorlyGame, Task, TaskGroup
 from games.placement_share import allocate_share_hash
+
+_CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
+
+
+def _load_censorly_testdata(name: str) -> str:
+    return (_CENSORLY_TESTDATA / name).read_text(encoding='utf-8')
 
 
 def _make_puzzle_task(*, title='Москва', body='Москва — столица России. В Москве живут люди.'):
@@ -317,6 +324,74 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertFalse(truncated)
         self.assertNotIn('displaystyle', trimmed)
         self.assertIn('соответствует плотности тока', trimmed)
+
+    def test_strip_numeric_footnotes_keeps_miller_indices(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            'Минимум энергии достигается в направлениях рёбер куба '
+            '[100], [010] и [001][1][12], то есть существует три оси.[99]\n'
+            'Вода обладает потенциалом поверхности[уточнить]. '
+            'Некоторые учёные[кто?] считают иначе.'
+        )
+        cleaned = clean_wiki_extract(raw)
+        self.assertIn('[100]', cleaned)
+        self.assertIn('[010]', cleaned)
+        self.assertIn('[001]', cleaned)
+        self.assertNotIn('[1]', cleaned)
+        self.assertNotIn('[12]', cleaned)
+        self.assertNotIn('[99]', cleaned)
+        self.assertNotIn('[уточнить]', cleaned)
+        self.assertNotIn('[кто?]', cleaned)
+        self.assertIn('куба [100], [010] и [001], то есть', cleaned)
+        self.assertIn('поверхности.', cleaned)
+        self.assertIn('учёные считают', cleaned)
+
+    def test_fixtures_magnetism_math_dump(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = _load_censorly_testdata('magnetism_math_raw.txt')
+        self.assertIn('displaystyle', raw)
+        cleaned = clean_wiki_extract(raw)
+        self.assertNotIn('displaystyle', cleaned)
+        self.assertNotIn('\\mathbf', cleaned)
+        self.assertIn('уравнениями Лоренца', cleaned)
+        self.assertIn('плотности тока', cleaned)
+
+    def test_fixtures_magnetism_keeps_miller_directions(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = _load_censorly_testdata('magnetism_miller_raw.txt')
+        self.assertIn('[100]', raw)
+        cleaned = clean_wiki_extract(raw)
+        self.assertIn('[100]', cleaned)
+        self.assertIn('[010]', cleaned)
+        self.assertIn('[001]', cleaned)
+        self.assertNotIn('displaystyle', cleaned)
+        self.assertIn('рёбер куба', cleaned)
+
+    def test_fixtures_water_editorial_and_footnote(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = _load_censorly_testdata('water_editorial_raw.txt')
+        self.assertIn('[уточнить]', raw)
+        self.assertIn('[12]', raw)
+        cleaned = clean_wiki_extract(raw)
+        self.assertNotIn('[уточнить]', cleaned)
+        self.assertNotIn('[12]', cleaned)
+        self.assertIn('потенциалом поверхности.', cleaned)
+        self.assertIn('поверхностное натяжение', cleaned)
+
+    def test_fixtures_moscow_strips_mfa_pronunciation(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = _load_censorly_testdata('moscow_lead_raw.txt')
+        self.assertIn('МФА:', raw)
+        cleaned = clean_wiki_extract(raw)
+        self.assertNotIn('МФА:', cleaned)
+        self.assertNotIn('mɐ', cleaned)
+        self.assertIn('Москва', cleaned)
+        self.assertIn('столица России', cleaned)
 
     def test_public_payload_hides_wiki_pageid_until_won(self):
         from games.censorly.play import public_payload

@@ -1,0 +1,14 @@
+# Censorly Wikipedia extract fixtures
+
+Frozen slices of Russian Wikipedia `explaintext` extracts for offline regression
+tests of `games.censorly.wiki.clean_wiki_extract` / `_trim_extract`.
+
+Do not fetch live Wikipedia in CI for these cases — update files deliberately
+when the cleaner’s contract changes.
+
+| File | Source | What it covers |
+|------|--------|----------------|
+| `magnetism_math_raw.txt` | Магнетизм | MathML glyph dump + `{\displaystyle …}` |
+| `magnetism_miller_raw.txt` | Магнетизм | Crystal directions `[100]`, `[010]`, `[001]` must survive |
+| `water_editorial_raw.txt` | Вода | `[уточнить]` (+ injected `[12]` footnote) |
+| `moscow_lead_raw.txt` | Москва | Lead `МФА: […]` pronunciation dump |

@@ -40,6 +40,23 @@ class WikiFetchError(Exception):
     """Failed to load or validate a Wikipedia article."""
 
 
+# Citation footnotes [1] / [12] — not crystallographic Miller indices [100]/[010].
+_NUMERIC_FOOTNOTE_RE = re.compile(r'\[(\d{1,2})\]')
+# Common ruwiki editorial / citation-needed bracket notes.
+_EDITORIAL_BRACKET_RE = re.compile(
+    r'\[(?:'
+    r'уточнить|кто\?|когда\?|где\?|какой\?|какая\?|какое\?|какие\?|сколько\?|'
+    r'источник\??|нужен\s+источник|нет\s+источника'
+    r')\]',
+    re.IGNORECASE,
+)
+# Lead pronunciation dumps: «Москва (МФА: […])».
+_MFA_PRONUNCIATION_RE = re.compile(
+    r'(?:,?\s*)?\(?\s*МФА\s*:\s*\[[^\]]*\]\s*\)?',
+    re.IGNORECASE,
+)
+
+
 @dataclass(frozen=True)
 class WikiArticle:
     title: str
@@ -175,11 +192,25 @@ def _collapse_extract_whitespace(text: str) -> str:
     return text.strip()
 
 
+def _strip_bracket_notes(text: str) -> str:
+    """Drop citation footnotes and editorial [уточнить]-style notes; keep [100]/Miller."""
+    if not text or '[' not in text:
+        return text
+    text = _MFA_PRONUNCIATION_RE.sub('', text)
+    text = _NUMERIC_FOOTNOTE_RE.sub('', text)
+    text = _EDITORIAL_BRACKET_RE.sub('', text)
+    # "слово  ." / "слово ," after note removal
+    text = re.sub(r' +([,.;:!?…])', r'\1', text)
+    text = re.sub(r' {2,}', ' ', text)
+    return text
+
+
 def clean_wiki_extract(extract: str) -> str:
     """Remove formula/image TextExtracts noise; keep readable Russian prose."""
     text = extract or ''
     text = _remove_balanced_tex_groups(text)
     text = _strip_indented_math_lines(text)
+    text = _strip_bracket_notes(text)
     return _collapse_extract_whitespace(text)
 
 
