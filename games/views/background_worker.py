@@ -40,6 +40,8 @@ from games.difficulty_refresh import (
 )
 from games.projection_events import run_named_projection_refresh
 from games.runtime import RUNTIME_ROLE_BACKGROUND, runtime_role
+from games.subscription_gift_payments import reconcile_yookassa_gift_payments
+from games.subscription_gifts import expire_subscription_gifts
 from games.worker_http import is_sqsd_delivery, sqsd_message_id
 
 logger = logging.getLogger('application')
@@ -100,12 +102,24 @@ def background_worker(request):
         )
         return JsonResponse({'status': 'failed'}, status=500)
 
+    expired_gifts = expire_subscription_gifts()
+    reconciled_gifts = 0
+    with distributed_cron_lock('subscription_gifts_yookassa_reconcile', ttl_seconds=300) as acquired:
+        if acquired:
+            reconciled_gifts = reconcile_yookassa_gift_payments(limit=50)
+
     logger.info(
-        'background worker ok type=%s run_id=%s scheduled_for=%s message_id=%s refreshed=%s duration_ms=%.1f',
+        'background worker ok type=%s run_id=%s scheduled_for=%s message_id=%s refreshed=%s '
+        'expired_gifts=%s reconciled_gifts=%s duration_ms=%.1f',
         message['type'], message['run_id'], message['scheduled_for'].isoformat(), message_id,
-        len(results), (time.perf_counter() - started) * 1000,
+        len(results), expired_gifts, reconciled_gifts, (time.perf_counter() - started) * 1000,
     )
-    return JsonResponse({'status': 'ok', 'refreshed': len(results)}, status=200)
+    response = {'status': 'ok', 'refreshed': len(results)}
+    if expired_gifts:
+        response['expired_gifts'] = expired_gifts
+    if reconciled_gifts:
+        response['reconciled_gifts'] = reconciled_gifts
+    return JsonResponse(response, status=200)
 
 
 def _projection_reconcile(message, message_id):

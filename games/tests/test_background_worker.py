@@ -98,13 +98,20 @@ class BackgroundWorkerTests(SimpleTestCase):
         ), patch(
             'games.views.background_worker.run_daily_difficulty_refresh',
             return_value=[{'game_id': 'ladder'}],
-        ) as refresh:
+        ) as refresh, patch(
+            'games.views.background_worker.expire_subscription_gifts',
+            return_value=0,
+        ), patch(
+            'games.views.background_worker.reconcile_yookassa_gift_payments',
+            return_value=0,
+        ):
             response = self._post(_body(scheduled_for=scheduled))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {'status': 'ok', 'refreshed': 1})
         refresh.assert_called_once()
         self.assertEqual(refresh.call_args.kwargs['worker'], 'background:message-1')
         self.assertEqual(refresh.call_args.kwargs['limit'], 10)
+        self.assertEqual(lock.calls, [('daily_difficulty_refresh', 600), ('subscription_gifts_yookassa_reconcile', 300)])
 
     def test_refresh_exception_is_retried(self):
         scheduled = timezone.now().isoformat()
