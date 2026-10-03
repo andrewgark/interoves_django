@@ -146,9 +146,13 @@ def _bulk_actor_task_result_points_sql(
     game=None,
     include_other_games: bool = False,
 ) -> Dict[int, Tuple[float, bool, Optional[str]]]:
-    """SQL best-attempt + hint penalty for one actor (general mode)."""
-    from django.db.models import Case, F, IntegerField, Value, When, Window
-    from django.db.models.functions import RowNumber
+    """Best-attempt + hint penalty for one actor (general mode).
+
+    This path is intentionally actor-scoped.  Reading the matching attempt
+    rows ordered by task and best-attempt precedence is cheaper than asking
+    MySQL to build a window-function derived table for every task partition.
+    """
+    from django.db.models import Case, F, IntegerField, Value, When
 
     from games.raddle import is_raddle_in_game_assist_hint
 
@@ -169,22 +173,21 @@ def _bulk_actor_task_result_points_sql(
     best_rows = (
         att_qs.annotate(
             status_rank=status_rank,
-            rn=Window(
-                expression=RowNumber(),
-                partition_by=[F('task_id')],
-                order_by=[
-                    F('points').desc(),
-                    F('status_rank').desc(),
-                    F('time').asc(),
-                ],
-            ),
         )
-        .filter(rn=1)
+        .order_by(
+            'task_id',
+            F('points').desc(),
+            F('status_rank').desc(),
+            'time',
+            'pk',
+        )
         .values('task_id', 'points', 'status')
     )
-    best_by = {r['task_id']: r for r in best_rows}
-    # Every task represented by rn=1 has at least one attempt.  The window
-    # count above replaces a second DISTINCT task_id query.
+    best_by = {}
+    for row in best_rows:
+        # The ordering makes the first row per task the same best attempt that
+        # the previous ROW_NUMBER() query selected.
+        best_by.setdefault(row['task_id'], row)
     has_attempt_tasks = set(best_by)
 
     hint_rows = list(
