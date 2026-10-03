@@ -26,6 +26,12 @@ def _token_public(
     }
     if tok.get('in_heading'):
         out['in_heading'] = True
+        try:
+            level = int(tok.get('heading_level') or 0)
+        except (TypeError, ValueError):
+            level = 0
+        if 2 <= level <= 6:
+            out['heading_level'] = level
     # Always-open structural tokens (legacy `heading` = whole section title blob).
     if kind in ('space', 'punct', 'stop', 'heading', 'heading_break'):
         out['text'] = tok.get('surface') or ''

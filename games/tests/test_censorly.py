@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 from django.contrib.auth.models import User
-from django.test import Client, TestCase
+from django.test import Client, SimpleTestCase, TestCase
 
 from games.censorly import CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.censorly.normalize import lemma_of, normalize_surface
@@ -310,11 +310,12 @@ class CensorlyWikiHelperTests(TestCase):
         )
         cleaned = clean_wiki_extract(dirty)
         self.assertNotIn('displaystyle', cleaned)
-        self.assertNotIn('\\frac', cleaned)
         self.assertNotIn('\\mathbf', cleaned)
         self.assertNotIn('\u2061', cleaned)
-        # Indented glyph dump gone; prose still readable.
+        self.assertNotIn('\\', cleaned)
+        # Indented glyph dump and the TeX line are both gone; the sentence closes.
         self.assertNotIn('\n        div\n', cleaned)
+        self.assertNotIn('div h', cleaned)
         self.assertIn('системой из двух уравнений (СГС):', cleaned)
         self.assertIn('где e — микроскопическая напряжённость', cleaned)
         self.assertIn('скорость соответствует плотности тока', cleaned)
@@ -583,6 +584,54 @@ class CensorlyUxDailyTests(TestCase):
         self.assertNotIn('\u0301', content['surface'])
         self.assertEqual(content['surface'], 'море')
 
+    def test_hyphen_splits_and_unusual_symbols_stay_visible(self):
+        from games.censorly.tokenize import tokenize_text
+
+        def kinds(text):
+            return [
+                (t['kind'], t['surface'])
+                for t in tokenize_text(text)
+                if t['kind'] != 'space'
+            ]
+
+        self.assertEqual(
+            kinds('Санкт-Петербург и по-русски'),
+            [
+                ('content', 'Санкт'),
+                ('punct', '-'),
+                ('content', 'Петербург'),
+                ('stop', 'и'),
+                ('stop', 'по'),
+                ('punct', '-'),
+                ('content', 'русски'),
+            ],
+        )
+        self.assertEqual(
+            kinds('сло\u00adво и слово\u200bслово'),
+            [
+                ('content', 'слово'),
+                ('stop', 'и'),
+                ('content', 'словослово'),
+            ],
+        )
+        self.assertEqual(
+            kinds('поле α, H₂O, mc², 東京 и файл_имя'),
+            [
+                ('content', 'поле'),
+                ('content', 'α'),
+                ('punct', ','),
+                ('content', 'H'),
+                ('punct', '₂'),
+                ('content', 'O'),
+                ('punct', ','),
+                ('content', 'mc'),
+                ('punct', '²,'),
+                ('content', '東京'),
+                ('stop', 'и'),
+                ('content', 'файл_имя'),
+            ],
+        )
+
     def test_title_lemmas_marked_without_colors(self):
         from games.censorly.redact import build_public_view
         payload = build_puzzle_payload(
@@ -723,6 +772,10 @@ class CensorlyUxDailyTests(TestCase):
     def test_accented_guess_is_accepted(self):
         from games.censorly.normalize import is_guessable_word, normalize_surface
         self.assertTrue(is_guessable_word('мо́ре'))
+        self.assertTrue(is_guessable_word('θέρμη'))
+        self.assertTrue(is_guessable_word('東京'))
+        self.assertFalse(is_guessable_word('Санкт-Петербург'))
+        self.assertFalse(is_guessable_word('mc²'))
         self.assertEqual(normalize_surface('мо́ре'), 'море')
         game, task, _h, _p = _make_puzzle_task(
             title='Море',
@@ -751,3 +804,62 @@ class CensorlyUxDailyTests(TestCase):
         data = _censorly(self.task, self.game, {})
         self.assertEqual(data['kind'], 'censorly')
         self.assertEqual(data['solved'], 0)
+
+
+class CensorlyPoolExtractTests(SimpleTestCase):
+    """Frozen ruwiki extracts from the article pool. No live fetch."""
+
+    def test_pool_extracts_stay_readable_after_clean(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import _trim_extract
+
+        pool = _CENSORLY_TESTDATA / 'pool'
+        files = sorted(pool.glob('*.txt'))
+        self.assertEqual(len(files), 15)
+        for path in files:
+            raw = path.read_text(encoding='utf-8')
+            cleaned, _truncated = _trim_extract(raw)
+            self.assertGreater(len(cleaned), 3500, path.name)
+            self.assertNotIn('displaystyle', cleaned, path.name)
+            self.assertNotIn('\\mathbf', cleaned, path.name)
+            self.assertNotIn('МФА:', cleaned, path.name)
+            content = [
+                t for t in tokenize_text(cleaned)
+                if t['kind'] == 'content'
+            ]
+            self.assertGreater(len(content), 200, path.name)
+
+
+class CensorlyHeadingLevelTests(SimpleTestCase):
+    def test_stacked_wiki_headings_keep_level(self):
+        from games.censorly.tokenize import HEADING_END, HEADING_START
+        from games.censorly.wiki import _headings_to_marked
+
+        marked = _headings_to_marked(
+            'Абзац.\n\n== Раздел ==\n=== Подраздел ===\n==== Подподраздел ====\nДальше.\n'
+        )
+        payload = build_puzzle_payload(wiki_title='Кот', body_text=marked)
+        words = [
+            t for t in payload['body_tokens']
+            if t.get('in_heading') and t.get('kind') == 'content'
+        ]
+        self.assertEqual(
+            [(t['surface'], t['heading_level']) for t in words],
+            [('Раздел', 2), ('Подраздел', 3), ('Подподраздел', 4)],
+        )
+        view = build_public_view(payload, revealed_lemmas=set(), won=False)
+        view_words = [
+            t for t in view['body_tokens']
+            if t.get('in_heading') and t.get('kind') == 'content'
+        ]
+        self.assertEqual([t['heading_level'] for t in view_words], [2, 3, 4])
+        # Older markers without a level stay a section heading.
+        legacy = build_puzzle_payload(
+            wiki_title='Кот',
+            body_text=f'Текст.\n{HEADING_START}История{HEADING_END}\nЕщё.',
+        )
+        legacy_word = next(
+            t for t in legacy['body_tokens']
+            if t.get('in_heading') and t.get('kind') == 'content'
+        )
+        self.assertEqual(legacy_word['heading_level'], 2)

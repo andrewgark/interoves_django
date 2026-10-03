@@ -34,20 +34,27 @@
       background: color-mix(in srgb, var(--surface) 90%, transparent);
     }
     .censorly__body {
-      margin: 0; font-size: 1.45rem; white-space: pre-wrap;
+      margin: 0;
+      white-space: pre-wrap;
     }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <h1>Насечка слева</h1>
-    <p class="lead">Одинаковая тёплая насечка с замком для всех слов из названия (и «1», и длиннее).</p>
+    <h1>Полоски из █</h1>
+    <p class="lead">Цифра длины слева, окончание на последних блоках, замок слева от слова из названия.</p>
     <div class="censorly" id="root">
       <div class="toolbar">
-        <label><input type="checkbox" id="lengths" checked> Показать все длины (#)</label>
+        <label><input type="checkbox" id="lengths" checked> Показать все длины</label>
       </div>
       <div class="panel">
         <article class="censorly__body" id="body"></article>
+      </div>
+    </div>
+    <h1 style="margin-top:1.5rem">Прямоугольники (censorly--bars)</h1>
+    <div class="censorly censorly--bars censorly--show-lengths" id="bars">
+      <div class="panel">
+        <article class="censorly__body censorly--show-lengths" id="bars-body"></article>
       </div>
     </div>
   </div>
@@ -58,46 +65,76 @@
       if (text != null) n.textContent = text;
       return n;
     }
-    function mask(opts) {
+    function mask(opts, bars) {
       var ch = opts.len;
-      var node = el('span', 'censorly-tok censorly-tok--mask');
-      node.style.setProperty('--ch', String(ch));
+      var node = el('span', 'censorly-tok censorly-tok--mask' + (bars ? '' : ' censorly-tok--glyphs'));
       node.dataset.ch = String(ch);
       node.dataset.len = String(ch);
-      var stem = el('span', 'censorly-tok__stem');
-      stem.dataset.len = String(ch);
-      if (opts.lock) {
-        node.dataset.titleLemma = '1';
-        stem.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+      if (opts.lock) node.dataset.titleLemma = '1';
+      if (opts.ending) node.classList.add('censorly-tok--mask-ending');
+      if (bars) {
+        node.style.setProperty('--ch', String(ch));
+        var stem = el('span', 'censorly-tok__stem');
+        stem.dataset.len = String(ch);
+        if (opts.lock) stem.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+        if (opts.ending) stem.appendChild(el('span', 'censorly-tok__ending', opts.ending));
+        node.appendChild(stem);
+        return node;
       }
-      if (opts.ending) {
-        node.classList.add('censorly-tok--mask-ending');
-        stem.appendChild(el('span', 'censorly-tok__ending', opts.ending));
-      }
-      node.appendChild(stem);
+      if (opts.lock) node.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+      var blocks = el('span', 'censorly-tok__blocks');
+      blocks.dataset.len = String(ch);
+      blocks.textContent = '\u2588'.repeat(ch);
+      if (opts.ending) blocks.appendChild(el('span', 'censorly-tok__ending', opts.ending));
+      node.appendChild(blocks);
       return node;
     }
     function text(s) { return el('span', 'censorly-tok', s); }
 
-    var body = document.getElementById('body');
-    [
-      text('В названии статьи бывает короткое '),
+    var samples = [
+      text('В названии бывает короткое '),
       mask({ len: 1, lock: true }),
-      text(', рядом обычная маска '),
+      text(', рядом '),
       mask({ len: 2 }),
-      text(' и более длинная с насечкой — '),
-      mask({ len: 5, lock: true }),
-      text('. Ещё раз однобуквенная: до '),
-      mask({ len: 1, lock: true }),
-      text(' и после текст на той же линии. С окончанием (не из названия): '),
+      text(' и слово с замком '),
+      mask({ len: 6, lock: true, ending: 'ия' }),
+      text('. Окончание на последних блоках: '),
       mask({ len: 9, ending: 'ого' }),
       text('.'),
-    ].forEach(function (n) { body.appendChild(n); });
+    ];
+    var body = document.getElementById('body');
+    samples.forEach(function (n) { body.appendChild(n); });
+    var heading = el('span', 'censorly-heading censorly-heading--2');
+    heading.appendChild(text('Заголовок '));
+    heading.appendChild(mask({ len: 8, ending: 'ение' }));
+    body.appendChild(heading);
+
+    var barsBody = document.getElementById('bars-body');
+    [
+      text('Старые прямоугольники: '),
+      mask({ len: 6, lock: true }, true),
+      text(' и '),
+      mask({ len: 9, ending: 'ого' }, true),
+      text('.'),
+    ].forEach(function (n) { barsBody.appendChild(n); });
 
     var root = document.getElementById('root');
     root.classList.add('censorly--show-lengths');
     document.getElementById('lengths').addEventListener('change', function (e) {
       root.classList.toggle('censorly--show-lengths', e.target.checked);
+    });
+    body.addEventListener('click', function (ev) {
+      var node = ev.target.closest('.censorly-tok--mask');
+      if (!node) return;
+      var globalOn = root.classList.contains('censorly--show-lengths');
+      if (globalOn) {
+        if (node.dataset.lenForced === '0') node.removeAttribute('data-len-forced');
+        else node.dataset.lenForced = '0';
+      } else if (node.dataset.lenForced === '1') {
+        node.removeAttribute('data-len-forced');
+      } else {
+        node.dataset.lenForced = '1';
+      }
     });
   </script>
 </body>

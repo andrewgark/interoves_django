@@ -6,39 +6,59 @@ import re
 import unicodedata
 from typing import Any
 
-from games.censorly.normalize import lemma_of, normalize_surface, split_stem_ending, strip_combining_marks
+from games.censorly.normalize import (
+    WORD_CHARS,
+    lemma_of,
+    normalize_surface,
+    split_stem_ending,
+    strip_combining_marks,
+)
 from games.censorly.stopwords import is_stop_word
 
 # Private-use markers wrap wiki section titles after fetch (see wiki._headings_to_marked).
+# Level is carried as "{level}\x1f{name}" so "==" / "===" stay distinct. No separator
+# means an older marker: treat it as a section (level 2).
 HEADING_START = '\ufdd0'
 HEADING_END = '\ufdd1'
+HEADING_LEVEL_SEP = '\x1f'
+# A display formula is one visible punct token, not a row of letter masks.
+FORMULA_START = '\ufdd2'
+FORMULA_END = '\ufdd3'
 
-# Combining marks stay with the letter during match; surfaces are stripped afterward.
+# Greek, CJK, Cyrillic and Latin are words. Hyphen, ² and ₂ are not in the span.
 _TOKEN_RE = re.compile(
-    r'[A-Za-zА-Яа-яЁё0-9\u0300-\u036f]+(?:-[A-Za-zА-Яа-яЁё0-9\u0300-\u036f]+)*|[^\s\w]+|\s+',
-    re.UNICODE,
+    rf'[{WORD_CHARS}]+|[^{WORD_CHARS}\s]+|\s+',
 )
 
 _WORD_CORE_RE = re.compile(
-    r'^[A-Za-zА-Яа-яЁё0-9\u0300-\u036f]+(?:-[A-Za-zА-Яа-яЁё0-9\u0300-\u036f]+)*$',
-    re.UNICODE,
+    rf'^[{WORD_CHARS}]+$',
 )
 
 _HEADING_SPLIT_RE = re.compile(
     re.escape(HEADING_START) + r'(.*?)' + re.escape(HEADING_END),
     re.DOTALL,
 )
+_FORMULA_SPLIT_RE = re.compile(
+    re.escape(FORMULA_START) + r'(.*?)' + re.escape(FORMULA_END),
+    re.DOTALL,
+)
+
+
+def _strip_invisible(text: str) -> str:
+    """Drop format characters that split a word (soft hyphen, ZWSP, BOM)."""
+    return ''.join(
+        ch for ch in (text or '')
+        if unicodedata.category(ch) != 'Cf'
+    )
 
 
 def letter_length(surface: str) -> int:
-    """Count letters/digits for mask width; ignore combining marks and hyphens."""
+    """Mask width: word-span characters, without combining marks."""
     n = 0
     for ch in unicodedata.normalize('NFC', surface or ''):
         if unicodedata.category(ch) == 'Mn':
             continue
-        if ch == '-':
-            continue
-        if ch.isalnum():
+        if _WORD_CORE_RE.fullmatch(ch):
             n += 1
     return n
 
@@ -48,6 +68,18 @@ def _kind_for_word(surface: str) -> str:
     if is_stop_word(plain):
         return 'stop'
     return 'content'
+
+
+def _split_heading_marker(raw: str) -> tuple[int, str]:
+    """Return (level 2–6, title). Missing separator keeps the whole string at level 2."""
+    text = strip_combining_marks((raw or '').strip())
+    level = 2
+    if HEADING_LEVEL_SEP in text:
+        level_s, name = text.split(HEADING_LEVEL_SEP, 1)
+        if level_s.isdigit():
+            level = int(level_s)
+        text = strip_combining_marks(name.strip())
+    return min(max(level, 2), 6), text
 
 
 def _heading_break(tid: int) -> dict[str, Any]:
@@ -62,7 +94,64 @@ def _heading_break(tid: int) -> dict[str, Any]:
     }
 
 
+def _formula_token(surface: str, tid: int, *, in_title: bool, in_heading: bool) -> dict[str, Any]:
+    return {
+        'id': tid,
+        'surface': surface,
+        'kind': 'punct',
+        'lemma': '',
+        'length': 0,
+        'in_title': bool(in_title),
+        'in_heading': bool(in_heading),
+    }
+
+
 def _tokenize_chunk(
+    text: str,
+    *,
+    in_title: bool,
+    start_id: int,
+    in_heading: bool = False,
+) -> list[dict[str, Any]]:
+    """Words, spaces, punctuation, and whole formulas as one visible token."""
+    tokens: list[dict[str, Any]] = []
+    tid = start_id
+    pos = 0
+    for match in _FORMULA_SPLIT_RE.finditer(text or ''):
+        if match.start() > pos:
+            chunk = _tokenize_plain(
+                text[pos:match.start()],
+                in_title=in_title,
+                start_id=tid,
+                in_heading=in_heading,
+            )
+            tokens.extend(chunk)
+            tid += len(chunk)
+        surface = re.sub(r'\s+', ' ', match.group(1) or '').strip()
+        if surface:
+            tokens.append(_formula_token(
+                surface, tid, in_title=in_title, in_heading=in_heading,
+            ))
+            tid += 1
+        pos = match.end()
+    if pos < len(text or ''):
+        tokens.extend(_tokenize_plain(
+            (text or '')[pos:],
+            in_title=in_title,
+            start_id=tid,
+            in_heading=in_heading,
+        ))
+    elif pos == 0:
+        tokens.extend(_tokenize_plain(
+            text or '',
+            in_title=in_title,
+            start_id=tid,
+            in_heading=in_heading,
+        ))
+    return tokens
+
+
+def _tokenize_plain(
     text: str,
     *,
     in_title: bool,
@@ -71,7 +160,8 @@ def _tokenize_chunk(
 ) -> list[dict[str, Any]]:
     tokens: list[dict[str, Any]] = []
     tid = start_id
-    for match in _TOKEN_RE.finditer(unicodedata.normalize('NFC', text or '')):
+    cleaned = unicodedata.normalize('NFC', _strip_invisible(text))
+    for match in _TOKEN_RE.finditer(cleaned):
         raw = match.group(0)
         if not raw:
             continue
@@ -129,13 +219,15 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
             chunk = _tokenize_chunk(raw[pos:match.start()], in_title=in_title, start_id=tid)
             tokens.extend(chunk)
             tid = tid + len(chunk)
-        heading = strip_combining_marks((match.group(1) or '').strip())
+        level, heading = _split_heading_marker(match.group(1) or '')
         if heading:
             tokens.append(_heading_break(tid))
             tid += 1
             chunk = _tokenize_chunk(
                 heading, in_title=False, start_id=tid, in_heading=True,
             )
+            for tok in chunk:
+                tok['heading_level'] = level
             tokens.extend(chunk)
             tid = tid + len(chunk)
             tokens.append(_heading_break(tid))
@@ -225,6 +317,8 @@ def _expand_legacy_heading(tok: dict[str, Any], start_id: int) -> list[dict[str,
     out: list[dict[str, Any]] = [_heading_break(start_id)]
     tid = start_id + 1
     chunk = _tokenize_chunk(surface, in_title=False, start_id=tid, in_heading=True)
+    for tok in chunk:
+        tok['heading_level'] = 2
     out.extend(chunk)
     tid = tid + len(chunk)
     out.append(_heading_break(tid))

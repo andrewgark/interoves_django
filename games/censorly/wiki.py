@@ -155,8 +155,8 @@ def _strip_orphan_heading(extract: str) -> str:
     return text[: last.start()].rstrip()
 
 
-def _remove_balanced_tex_groups(text: str) -> str:
-    """Drop `{ \\command … }` groups (typically `{\\displaystyle …}`) with brace balance."""
+def _remove_tex_groups(text: str) -> str:
+    """Drop `{ \\command … }` the way competitors drop the math node."""
     if not text or '\\' not in text:
         return text
     out: list[str] = []
@@ -184,15 +184,13 @@ def _remove_balanced_tex_groups(text: str) -> str:
 
 
 def _strip_indented_math_lines(text: str) -> str:
-    """Drop indented MathML-plaintext glyph lines left beside TeX groups."""
+    """Drop indented MathML glyph lines. Prose and headings start at column 0."""
     if not text:
         return text
-    kept: list[str] = []
-    for line in text.splitlines():
-        # Prose and == headings start at column 0; math dumps are indented.
-        if line.startswith('  ') or line.startswith('\t'):
-            continue
-        kept.append(line)
+    kept = [
+        line for line in text.splitlines()
+        if not line.startswith('  ') and not line.startswith('\t')
+    ]
     return '\n'.join(kept)
 
 
@@ -208,7 +206,12 @@ def _collapse_extract_whitespace(text: str) -> str:
     # Mid-sentence leftovers: "скорость\n\nсоответствует" / "скорость\n соответствует".
     text = re.sub(r'([^\n])\n{2,}[ \t]*([а-яёa-z])', r'\1 \2', text)
     text = re.sub(r'([^\n])\n[ \t]*([а-яёa-z])', r'\1 \2', text)
+    # A run of formula-terminating semicolons, not a single prose semicolon.
+    text = re.sub(r';{2,}', '', text)
     text = re.sub(r'[ \t]{2,}', ' ', text)
+    text = re.sub(r'\(\s+', '(', text)
+    text = re.sub(r'\s+\)', ')', text)
+    text = _EMPTY_PAREN_RE.sub('', text)
     return text.strip()
 
 
@@ -262,7 +265,7 @@ def _strip_bracket_notes(text: str) -> str:
 def clean_wiki_extract(extract: str) -> str:
     """Remove formula/image TextExtracts noise; keep readable Russian prose."""
     text = extract or ''
-    text = _remove_balanced_tex_groups(text)
+    text = _remove_tex_groups(text)
     text = _strip_indented_math_lines(text)
     text = _strip_bracket_notes(text)
     return _collapse_extract_whitespace(text)
@@ -270,14 +273,15 @@ def clean_wiki_extract(extract: str) -> str:
 
 def _headings_to_marked(extract: str) -> str:
     """Wrap == Heading == as marked spans for larger play UI (tokenize in_heading)."""
-    from games.censorly.tokenize import HEADING_END, HEADING_START
+    from games.censorly.tokenize import HEADING_END, HEADING_LEVEL_SEP, HEADING_START
 
     def repl(match: re.Match[str]) -> str:
         name = (match.group(2) or '').strip()
         if not name:
             return ''
-        # No extra blank lines — body uses white-space:pre-wrap + block headings.
-        return f'{HEADING_START}{name}{HEADING_END}'
+        # == is a section (2), === a subsection (3), and so on, same as HTML h2–h6.
+        level = min(6, max(2, len(match.group(1) or '==')))
+        return f'{HEADING_START}{level}{HEADING_LEVEL_SEP}{name}{HEADING_END}'
 
     return _SECTION_HEADING_RE.sub(repl, extract or '')
 

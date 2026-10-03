@@ -79,12 +79,18 @@ def split_stem_ending(surface: str) -> tuple[str, str]:
     return stem, ending
 
 
+# redactle-unlimited tokens: /([\u00BF-\u1FFF\u2C00-\uD7FF\w]+)/
+# JS \w is ASCII [A-Za-z0-9_]. Python \w would swallow the rest of Unicode.
+WORD_CHARS = 'A-Za-z0-9_\u00BF-\u1FFF\u2C00-\uD7FF'
+_WORD_RE = re.compile(f'^[{WORD_CHARS}]+$')
+
+
 def is_guessable_word(word: str) -> bool:
-    """One token: Cyrillic and/or Latin letters, digits, hyphens."""
+    """One token in the redactle unicode span. Hyphen and ²/₂ stay outside."""
     n = normalize_surface(word)
     if not n:
         return False
-    return bool(re.fullmatch(r'[a-zа-я0-9\-]+', n))
+    return bool(_WORD_RE.fullmatch(n))
 
 
 # Back-compat alias used by older call sites / tests.

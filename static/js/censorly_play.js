@@ -67,25 +67,19 @@
       revealed.appendChild(document.createTextNode(tok.text || ''));
       return revealed;
     }
-    // Mask: black bar sized to full length; title lemmas get a left notch + lock.
+    // Mask. Default is redactle block glyphs (██████). Class censorly--bars
+    // on #censorly-root keeps the older sized rectangle.
     var mask = el('span', 'censorly-tok censorly-tok--mask' + headingClass(tok));
     mask.dataset.id = String(tok.id);
     if (tok.lemma) mask.dataset.lemma = tok.lemma;
     var ending = tok.ending || '';
     var totalLen = tok.length || 0;
     var ch = Math.max(totalLen, 1);
-    mask.style.setProperty('--ch', String(ch));
     mask.dataset.ch = String(ch);
-    var stem = el('span', 'censorly-tok__stem');
-    stem.setAttribute('aria-hidden', 'true');
-    stem.dataset.len = String(totalLen);
-    if (tok.title_lemma) {
-      mask.dataset.titleLemma = '1';
-      stem.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
-    }
+    mask.dataset.len = String(totalLen);
+    mask.title = totalLen + ' букв';
     if (ending) {
       mask.classList.add('censorly-tok--mask-ending');
-      stem.appendChild(el('span', 'censorly-tok__ending', ending));
       mask.setAttribute(
         'aria-label',
         'скрытое слово, ' + totalLen + ' букв, окончание «' + ending + '»'
@@ -93,12 +87,32 @@
     } else {
       mask.setAttribute('aria-label', 'скрытое слово, ' + totalLen + ' букв');
     }
-    mask.appendChild(stem);
-    mask.dataset.len = String(totalLen);
-    mask.title = totalLen + ' букв';
     if (overrides.lenForced != null) {
       mask.dataset.lenForced = overrides.lenForced ? '1' : '0';
     }
+    if (tok.title_lemma) mask.dataset.titleLemma = '1';
+    var root = document.getElementById('censorly-root');
+    if (root && root.classList.contains('censorly--bars')) {
+      mask.style.setProperty('--ch', String(ch));
+      var stem = el('span', 'censorly-tok__stem');
+      stem.setAttribute('aria-hidden', 'true');
+      stem.dataset.len = String(totalLen);
+      if (tok.title_lemma) {
+        stem.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+      }
+      if (ending) stem.appendChild(el('span', 'censorly-tok__ending', ending));
+      mask.appendChild(stem);
+      return mask;
+    }
+    mask.classList.add('censorly-tok--glyphs');
+    if (tok.title_lemma) {
+      mask.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+    }
+    var blocks = el('span', 'censorly-tok__blocks');
+    blocks.dataset.len = String(totalLen);
+    blocks.textContent = '\u2588'.repeat(ch);
+    if (ending) blocks.appendChild(el('span', 'censorly-tok__ending', ending));
+    mask.appendChild(blocks);
     return mask;
   }
 
@@ -110,15 +124,84 @@
     return map;
   }
 
+  function isNewlineSpace(tok) {
+    return !!(tok && tok.kind === 'space' && /\n/.test(tok.text || ''));
+  }
+
+  function isHeadingEdge(tok) {
+    return !!(tok && (tok.kind === 'heading_break' || tok.kind === 'heading'));
+  }
+
+  function headingLevel(tok) {
+    var n = parseInt(tok && tok.heading_level, 10);
+    if (n >= 2 && n <= 6) return n;
+    return 2;
+  }
+
+  function appendToken(container, tok, lenForced) {
+    var forced = lenForced[String(tok.id)];
+    container.appendChild(renderToken(tok, {
+      lenForced: forced === '1' ? true : (forced === '0' ? false : null),
+    }));
+  }
+
   function renderTokens(container, tokens, lenForced) {
     lenForced = lenForced || {};
     container.textContent = '';
-    (tokens || []).forEach(function (tok) {
-      var forced = lenForced[String(tok.id)];
-      container.appendChild(renderToken(tok, {
-        lenForced: forced === '1' ? true : (forced === '0' ? false : null),
-      }));
-    });
+    var list = tokens || [];
+    var started = false;
+    var prevWasPara = false;
+    var i = 0;
+    while (i < list.length) {
+      var tok = list[i];
+      if (isNewlineSpace(tok)) {
+        var prev = list[i - 1];
+        // A newline after a heading would stack on its margin. One before a
+        // heading stays: that is the paragraph gap, and the heading margin adds.
+        if (!started || isHeadingEdge(prev) || prevWasPara) {
+          i += 1;
+          continue;
+        }
+        prevWasPara = true;
+        container.appendChild(el('span', 'censorly-tok censorly-tok--para'));
+        i += 1;
+        continue;
+      }
+      if (tok.kind === 'heading_break' || tok.kind === 'heading') {
+        var level = headingLevel(tok);
+        var inner = [];
+        if (tok.kind === 'heading') {
+          inner.push(tok);
+          i += 1;
+        } else {
+          i += 1;
+          while (i < list.length && list[i].kind !== 'heading_break') {
+            var part = list[i];
+            if (part.heading_level) level = headingLevel(part);
+            if (!isNewlineSpace(part)) inner.push(part);
+            i += 1;
+          }
+          if (i < list.length && list[i].kind === 'heading_break') i += 1;
+        }
+        if (!inner.length) continue;
+        var block = el('span', 'censorly-heading censorly-heading--' + level);
+        inner.forEach(function (part) {
+          if (part.kind === 'heading') {
+            block.appendChild(document.createTextNode(part.text || ''));
+            return;
+          }
+          appendToken(block, part, lenForced);
+        });
+        container.appendChild(block);
+        started = true;
+        prevWasPara = false;
+        continue;
+      }
+      prevWasPara = false;
+      if (tok.kind !== 'space') started = true;
+      appendToken(container, tok, lenForced);
+      i += 1;
+    }
   }
 
   function digitClass(n) {

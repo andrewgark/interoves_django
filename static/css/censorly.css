@@ -10,8 +10,11 @@
   /* Title-lemma notch (left rail) — warm, distinct from the black bar. */
   --censorly-notch: color-mix(in srgb, var(--accent, #c9a227) 78%, #3d2e08);
   --censorly-notch-lock: color-mix(in srgb, var(--bg, #fff) 88%, #f0e6c8);
-  /* Same width as a 1-letter black bar: ch*0.6em + 0.04em with ch=1. */
-  --censorly-notch-w: calc(0.6em + 0.04em);
+  /* One monospace cell, close to redactle's block-glyph advance. */
+  --censorly-ch: 0.55em;
+  --censorly-bar-pad: 0.02em;
+  /* Same width as a 1-letter bar. */
+  --censorly-notch-w: calc(var(--censorly-ch) + var(--censorly-bar-pad));
   /* Ghost ending inside the black bar — barely readable on the mask. */
   --censorly-ending-on-mask: color-mix(in srgb, var(--bg, #fff) 34%, transparent);
   container-type: inline-size;
@@ -124,24 +127,25 @@ html.new-ui-dark .censorly__dock {
 .censorly__title,
 .censorly__body {
   /* Monospace so masked slots and revealed letters share the same advance. */
-  font-family: Consolas, "Cascadia Mono", "SF Mono", "Liberation Mono", Menlo, Monaco, monospace;
-  /* Tight — mask bars sized in em; avoid airy paragraph gaps. */
-  line-height: 1.28;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  /* redactle paragraphs use line-height 1.6. */
+  line-height: 1.6;
   overflow-wrap: break-word;
   min-width: 0;
 }
 
 .censorly__title {
-  margin: 0;
-  /* Larger type → larger mask bars (sized in em). */
-  font-size: clamp(1.55rem, 3vw, 2.1rem);
-  font-weight: 700;
+  margin: 0 0 0.78em;
+  /* redactle h1 is 2em of the article size (~16.4px → ~33px). */
+  font-size: clamp(1.65rem, 2.6vw, 2.05rem);
+  font-weight: 400;
+  line-height: 1.4;
 }
 
 .censorly__body {
   margin: 0;
-  /* Larger type so letter advance ≈ mask slot (~0.72em / glyph). */
-  font-size: 1.45rem;
+  /* redactle default --article-font-size: .909091em of text-lg (18px) ≈ 16.4px. */
+  font-size: 1.025rem;
   white-space: pre-wrap;
 }
 
@@ -161,38 +165,42 @@ html.new-ui-dark .censorly__dock {
   display: inline;
 }
 
-/* Legacy whole-heading blob (pre-refresh puzzles). */
-.censorly-tok--heading {
+/* Blank line between wikipedia paragraphs: redactle's collapsed p margin, 0.75em. */
+.censorly-tok--para {
   display: block;
-  margin: 0.55em 0 0.25em;
-  font-size: 1.22em;
-  font-weight: 700;
-  line-height: 1.35;
-  letter-spacing: 0.01em;
-}
-
-/* Section break around wiki headings — words inside use .is-heading. */
-.censorly-tok--heading-break {
-  display: block;
-  width: 100%;
-  height: 0.55em;
+  height: 0.75em;
   margin: 0;
   padding: 0;
   border: 0;
+  white-space: normal;
   pointer-events: none;
   user-select: none;
 }
 
-.censorly-tok.is-heading {
-  font-size: 1.22em;
-  font-weight: 700;
-  line-height: 1.35;
-  letter-spacing: 0.01em;
+/*
+  Wiki headings are blocks so neighbouring margins collapse, as on redactle.
+  Sizes track h2 / h3 / h4 of their article (body ≈ 16.4px): 1.5em, 1.25em, 1.1em.
+  margin-top is 1em of the heading face (0.8em from h4 down). margin-bottom is
+  0.75em of the body, so the gap after a heading matches a paragraph gap.
+  A paragraph spacer before a heading does not collapse, so those gaps add.
+*/
+.censorly-heading {
+  display: block;
+  font-weight: 400;
+  line-height: 1.4;
+  letter-spacing: 0;
+  white-space: normal;
 }
 
+.censorly-heading--2 { font-size: 1.5em; margin: 1em 0 0.5em; }
+.censorly-heading--3 { font-size: 1.25em; margin: 1em 0 0.6em; }
+.censorly-heading--4 { font-size: 1.1em; margin: 0.8em 0 0.68em; }
+.censorly-heading--5 { font-size: 1em; margin: 0.75em 0 0.75em; }
+.censorly-heading--6 { font-size: 0.95em; margin: 0.7em 0 0.79em; }
+
 /*
-  Mask: one black bar sized to full letter count.
-  Inside: lock (left) · length digit (center) · ending ghost (right).
+  Mask. Default is █ glyphs (.censorly-tok--glyphs).
+  Class censorly--bars on #censorly-root restores the rectangle stems.
 */
 .censorly-tok--mask {
   display: inline;
@@ -205,28 +213,73 @@ html.new-ui-dark .censorly__dock {
   border-radius: 0;
 }
 
-.censorly-tok__stem {
+/* Redactle bar: block glyphs share the bar color. Length sits on the left. */
+.censorly-tok__blocks {
+  position: relative;
+  display: inline-block;
+  background: var(--text);
+  color: var(--text);
+  line-height: 1.2;
+  letter-spacing: 0;
+  font-kerning: none;
+  vertical-align: -0.05em;
+  border-radius: 1px;
+}
+.censorly-tok__blocks::after {
+  content: none;
+  position: absolute;
+  top: 0;
+  left: 0.1em;
+  color: var(--bg, #fff);
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+.censorly.censorly--show-lengths .censorly-tok--glyphs:not([data-len-forced="0"]) .censorly-tok__blocks::after,
+.censorly-tok--glyphs[data-len-forced="1"] .censorly-tok__blocks::after {
+  content: attr(data-len);
+}
+.censorly-tok--glyphs .censorly-tok__ending {
+  position: absolute;
+  right: 0;
+  top: 0;
+  color: var(--bg, #fff);
+  font-size: 1em;
+  font-weight: 400;
+  line-height: inherit;
+  letter-spacing: 0;
+  white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+}
+.censorly-tok--glyphs > .censorly-tok__lock {
+  display: inline;
+  margin-right: 0.15em;
+  font-size: 0.78em;
+  color: var(--accent, #1f6f5e);
+  opacity: 0.95;
+  vertical-align: 0.05em;
+  pointer-events: none;
+}
+
+.censorly--bars .censorly-tok__stem {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  /* Fixed size from letter count — match Consolas / monospace advance. */
-  width: calc(var(--ch, 4) * 0.6em + 0.04em);
+  /* Fixed size from letter count — match monospace advance (~0.55em, like ▀/█). */
+  width: calc(var(--ch, 4) * var(--censorly-ch) + var(--censorly-bar-pad));
   max-width: 100%;
-  height: 1.02em;
-  padding: 0 0.06em;
+  height: 1.15em;
+  padding: 0 0.04em;
   overflow: hidden;
   border-radius: 2px;
   /* Keep opacity off the element so ghost ending / lock stay crisp. */
-  background: color-mix(in srgb, var(--text) 92%, transparent);
+  background: var(--text);
   position: relative;
   vertical-align: -0.08em;
   transform: none;
-}
-
-.censorly-tok.is-heading .censorly-tok__stem {
-  width: calc(var(--ch, 4) * 0.6em + 0.06em);
-  height: 1.02em;
 }
 
 /* Shared lock size (notch + revealed). */
@@ -240,22 +293,19 @@ html.new-ui-dark .censorly__dock {
   Title lemma: wide left notch (same for 1 and longer), accent color, lock inside.
   Black letter-bar width unchanged; notch is added on the left.
 */
-.censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
-  width: calc(var(--ch, 4) * 0.6em + 0.04em + var(--censorly-notch-w));
+.censorly--bars .censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
+  width: calc(var(--ch, 4) * var(--censorly-ch) + var(--censorly-bar-pad) + var(--censorly-notch-w));
   padding-left: var(--censorly-notch-w);
   background:
     linear-gradient(
       to right,
       var(--censorly-notch) 0,
       var(--censorly-notch) var(--censorly-notch-w),
-      color-mix(in srgb, var(--text) 92%, transparent) var(--censorly-notch-w),
-      color-mix(in srgb, var(--text) 92%, transparent) 100%
+      var(--text) var(--censorly-notch-w),
+      var(--text) 100%
     );
 }
-.censorly-tok.is-heading.censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
-  width: calc(var(--ch, 4) * 0.6em + 0.06em + var(--censorly-notch-w));
-}
-.censorly-tok__stem .censorly-tok__lock {
+.censorly--bars .censorly-tok__stem .censorly-tok__lock {
   position: absolute;
   left: 0;
   top: 0;
@@ -273,11 +323,11 @@ html.new-ui-dark .censorly__dock {
   opacity: 0.95;
   z-index: 2;
 }
-.censorly-tok__stem .censorly-tok__lock::before {
+.censorly--bars .censorly-tok__stem .censorly-tok__lock::before {
   font-size: 0.36em;
 }
 
-.censorly-tok__stem::after {
+.censorly--bars .censorly-tok__stem::after {
   content: none;
   position: absolute;
   inset: 0;
@@ -296,7 +346,7 @@ html.new-ui-dark .censorly__dock {
   z-index: 1;
 }
 
-.censorly-tok--mask[data-title-lemma] .censorly-tok__stem::after {
+.censorly--bars .censorly-tok--mask[data-title-lemma] .censorly-tok__stem::after {
   /*
     Center the digit in the black portion only.
     ::after font-size is 0.5em of the stem, so notch length must be scaled ×2.
@@ -304,18 +354,18 @@ html.new-ui-dark .censorly__dock {
   left: calc(var(--censorly-notch-w) / 0.5);
 }
 
-.censorly-tok--mask-ending .censorly-tok__stem::after {
+.censorly--bars .censorly-tok--mask-ending .censorly-tok__stem::after {
   /* Keep the length digit clear of the ghost ending on the right. */
   padding-right: 0.55em;
 }
 
-.censorly.censorly--show-lengths .censorly-tok--mask:not([data-len-forced="0"]) .censorly-tok__stem::after,
-.censorly-tok--mask[data-len-forced="1"] .censorly-tok__stem::after {
+.censorly.censorly--bars.censorly--show-lengths .censorly-tok--mask:not([data-len-forced="0"]) .censorly-tok__stem::after,
+.censorly--bars .censorly-tok--mask[data-len-forced="1"] .censorly-tok__stem::after {
   content: attr(data-len);
 }
 
-/* Ending lives inside the black bar — muted gray, barely visible. */
-.censorly-tok__ending {
+/* Rectangle mode: ending sits inside the bar, barely visible. */
+.censorly--bars .censorly-tok__ending {
   position: absolute;
   right: 0.16em;
   top: 50%;
@@ -347,8 +397,9 @@ html.new-ui-dark .censorly__dock {
 
 .censorly-tok--guessed {
   text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: 0.18em;
+  text-decoration-color: var(--accent, #1f6f5e);
+  text-decoration-thickness: 0.12em;
+  text-underline-offset: 0.12em;
 }
 
 .censorly-tok--just {

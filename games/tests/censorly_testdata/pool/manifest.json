@@ -1,0 +1,122 @@
+[
+  {
+    "slug": "schrodinger",
+    "title": "Уравнение Шрёдингера",
+    "raw_chars": 84934,
+    "saved_chars": 50000,
+    "cleaned_chars": 10876,
+    "truncated": false
+  },
+  {
+    "slug": "thermodynamics",
+    "title": "Термодинамика",
+    "raw_chars": 59938,
+    "saved_chars": 50000,
+    "cleaned_chars": 27797,
+    "truncated": true
+  },
+  {
+    "slug": "integral",
+    "title": "Интеграл",
+    "raw_chars": 28235,
+    "saved_chars": 28235,
+    "cleaned_chars": 11713,
+    "truncated": false
+  },
+  {
+    "slug": "quantum",
+    "title": "Квантовая механика",
+    "raw_chars": 88317,
+    "saved_chars": 50000,
+    "cleaned_chars": 27641,
+    "truncated": true
+  },
+  {
+    "slug": "em_field",
+    "title": "Электромагнитное поле",
+    "raw_chars": 9456,
+    "saved_chars": 9456,
+    "cleaned_chars": 8371,
+    "truncated": false
+  },
+  {
+    "slug": "photosynthesis",
+    "title": "Фотосинтез",
+    "raw_chars": 37268,
+    "saved_chars": 37268,
+    "cleaned_chars": 26730,
+    "truncated": true
+  },
+  {
+    "slug": "pythagoras",
+    "title": "Теорема Пифагора",
+    "raw_chars": 46113,
+    "saved_chars": 46113,
+    "cleaned_chars": 17471,
+    "truncated": false
+  },
+  {
+    "slug": "entropy",
+    "title": "Энтропия",
+    "raw_chars": 37425,
+    "saved_chars": 37425,
+    "cleaned_chars": 15024,
+    "truncated": false
+  },
+  {
+    "slug": "paris",
+    "title": "Париж",
+    "raw_chars": 49714,
+    "saved_chars": 49714,
+    "cleaned_chars": 26870,
+    "truncated": true
+  },
+  {
+    "slug": "china",
+    "title": "Китай",
+    "raw_chars": 120739,
+    "saved_chars": 50000,
+    "cleaned_chars": 24031,
+    "truncated": true
+  },
+  {
+    "slug": "differential",
+    "title": "Дифференциальное уравнение",
+    "raw_chars": 35242,
+    "saved_chars": 35242,
+    "cleaned_chars": 13753,
+    "truncated": false
+  },
+  {
+    "slug": "laplace",
+    "title": "Уравнение Лапласа",
+    "raw_chars": 16086,
+    "saved_chars": 16086,
+    "cleaned_chars": 4678,
+    "truncated": false
+  },
+  {
+    "slug": "gauss",
+    "title": "Теорема Гаусса",
+    "raw_chars": 50078,
+    "saved_chars": 50000,
+    "cleaned_chars": 27802,
+    "truncated": false
+  },
+  {
+    "slug": "stat_mech",
+    "title": "Статистическая механика",
+    "raw_chars": 97386,
+    "saved_chars": 50000,
+    "cleaned_chars": 21068,
+    "truncated": false
+  },
+  {
+    "slug": "orbital",
+    "title": "Атомная орбиталь",
+    "raw_chars": 25415,
+    "saved_chars": 25415,
+    "cleaned_chars": 11897,
+    "truncated": false
+  }
+]
