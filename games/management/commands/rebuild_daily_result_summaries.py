@@ -1,14 +1,21 @@
 """Dry-run by default; explicitly rebuild canonical section score projections."""
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from decimal import Decimal
 
 from games.daily_result_projection import (
     _canonical_group_results,
+    _task_projection_supported,
+    compare_task_result_projection,
     projection_state_is_valid,
     refresh_daily_result_projection,
 )
-from games.models import DailyResultProjection, DailyResultProjectionState, GameTaskGroup
+from games.models import (
+    DailyResultProjection,
+    DailyResultProjectionState,
+    GameTaskGroup,
+    Task,
+)
 
 
 class Command(BaseCommand):
@@ -24,6 +31,10 @@ class Command(BaseCommand):
             '--reconcile', action='store_true',
             help='Compare persisted projections to canonical sources; always read-only.',
         )
+        parser.add_argument(
+            '--task-cells', action='store_true',
+            help='With --reconcile, also compare task-level result cells; always read-only.',
+        )
 
     def handle(self, *args, **options):
         qs = GameTaskGroup.objects.filter(game__project_id='sections').select_related('game', 'task_group').order_by('game_id', 'pk')
@@ -32,6 +43,8 @@ class Command(BaseCommand):
         if options['task_group']:
             qs = qs.filter(task_group_id=options['task_group'])
         batch_size = max(1, min(int(options['batch_size']), 1000))
+        if options['task_cells'] and not options['reconcile']:
+            raise CommandError('--task-cells requires --reconcile')
         scanned = written = 0
         mode = 'apply' if options['apply'] else 'dry-run'
         self.stdout.write('mode={} batch_size={}'.format(mode, batch_size))
@@ -66,6 +79,30 @@ class Command(BaseCommand):
                         len(different), stale,
                     )
                 )
+                if options['task_cells']:
+                    if not _task_projection_supported(link.game):
+                        self.stdout.write(
+                            '{} task_group={} task_cells=unsupported'.format(
+                                link.game_id, link.task_group_id,
+                            )
+                        )
+                        continue
+                    task_ids = list(
+                        Task.objects.visible()
+                        .filter(task_group=link.task_group)
+                        .exclude(task_type='text_with_forms')
+                        .values_list('pk', flat=True)
+                    )
+                    task_mismatches = compare_task_result_projection(
+                        link.game,
+                        link.task_group,
+                        task_ids,
+                    )
+                    self.stdout.write(
+                        '{} task_group={} task_cell_mismatch={}'.format(
+                            link.game_id, link.task_group_id, len(task_mismatches),
+                        )
+                    )
             else:
                 label = count if count is not None else 'computed during refresh'
                 self.stdout.write('{} task_group={} canonical_actors={}'.format(link.game_id, link.task_group_id, label))

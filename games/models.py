@@ -811,6 +811,10 @@ class DailyResultProjection(models.Model):
     anon_key = models.CharField(max_length=64, blank=True, null=True)
     score = models.DecimalField(max_digits=12, decimal_places=3)
     attempts_count = models.PositiveIntegerField(default=0)
+    fallback_duration_seconds = models.PositiveIntegerField(
+        default=0,
+        help_text='Rebuildable first-to-last attempt duration when no timer row exists.',
+    )
     is_prepublication = models.BooleanField(default=False, help_text='Rebuildable eligibility metadata from canonical first-play data.')
     projected_at = models.DateTimeField(auto_now=True)
 
@@ -835,6 +839,73 @@ class DailyResultProjection(models.Model):
 
     def __str__(self):
         return '{} · {} · {}:{} = {}'.format(self.game_id, self.task_group_id, self.actor_type, self.actor_key, self.score)
+
+
+class DailyTaskResultProjection(models.Model):
+    """Derived result cell for one actor on one task in a section release.
+
+    ``DailyResultProjection`` stores the release total used by aggregate
+    standings.  This model keeps the smaller task-level read model needed by
+    the ordinary results table.  Attempts, hint attempts, and chain state stay
+    canonical; all fields here are rebuildable display/scoring data.
+    """
+    ACTOR_TEAM = DailyResultProjection.ACTOR_TEAM
+    ACTOR_USER = DailyResultProjection.ACTOR_USER
+    ACTOR_ANON = DailyResultProjection.ACTOR_ANON
+    ACTOR_CHOICES = DailyResultProjection.ACTOR_CHOICES
+
+    game = models.ForeignKey(Game, related_name='daily_task_result_projections', on_delete=models.CASCADE)
+    task_group = models.ForeignKey(TaskGroup, related_name='daily_task_result_projections', on_delete=models.CASCADE)
+    task = models.ForeignKey('Task', related_name='daily_task_result_projections', on_delete=models.CASCADE)
+    actor_type = models.CharField(max_length=8, choices=ACTOR_CHOICES)
+    actor_key = models.CharField(max_length=100)
+    team = models.ForeignKey(Team, related_name='daily_task_result_projections', blank=True, null=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='daily_task_result_projections', blank=True, null=True, on_delete=models.CASCADE)
+    anon_key = models.CharField(max_length=64, blank=True, null=True)
+    result_points = models.DecimalField(max_digits=12, decimal_places=3, default=0)
+    best_status = models.CharField(max_length=32, blank=True, default='')
+    best_attempt_at = models.DateTimeField(blank=True, null=True)
+    attempts_count = models.PositiveIntegerField(default=0)
+    has_pending = models.BooleanField(default=False)
+    hint_numbers = models.JSONField(default=list, blank=True)
+    projected_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('game', 'task_group', 'task', 'team'),
+                condition=models.Q(team__isnull=False),
+                name='uniq_daily_task_proj_team',
+            ),
+            models.UniqueConstraint(
+                fields=('game', 'task_group', 'task', 'user'),
+                condition=models.Q(user__isnull=False),
+                name='uniq_daily_task_proj_user',
+            ),
+            models.UniqueConstraint(
+                fields=('game', 'task_group', 'task', 'anon_key'),
+                condition=models.Q(anon_key__isnull=False),
+                name='uniq_daily_task_proj_anon',
+            ),
+            models.CheckConstraint(
+                check=(
+                    models.Q(actor_type='team', team__isnull=False, user__isnull=True, anon_key__isnull=True)
+                    | models.Q(actor_type='user', team__isnull=True, user__isnull=False, anon_key__isnull=True)
+                    | models.Q(actor_type='anon', team__isnull=True, user__isnull=True, anon_key__isnull=False)
+                ),
+                name='daily_task_proj_actor_shape',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=('game', 'task_group', 'actor_type', 'actor_key'),
+                name='games_dtrp_release_actor_idx',
+            ),
+            models.Index(
+                fields=('game', 'task_group', 'task'),
+                name='games_dtrp_release_task_idx',
+            ),
+        ]
 
 
 class DailyResultProjectionState(models.Model):

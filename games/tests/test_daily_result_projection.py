@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import timedelta
 from decimal import Decimal
 
 from django.test import TestCase
@@ -10,6 +11,7 @@ from unittest.mock import patch
 from django.test import RequestFactory
 from django.test.utils import CaptureQueriesContext
 from django.db import connection
+from django.utils import timezone
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth.models import User
 
@@ -19,10 +21,14 @@ from games.daily_result_projection import (
     schedule_actor_projection,
     schedule_full_projection_refresh,
 )
+from games.daily.projection import (
+    compare_task_result_projection,
+    load_task_result_projection_rows,
+)
 from games.anon_migrate import claim_and_migrate_anon_history
 from games.models import (
     AnonAccountClaim, Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
-    DailyResultProjectionState, Game, GameTaskGroup, HTMLPage, Project,
+    DailyResultProjectionState, DailyTaskResultProjection, Game, GameTaskGroup, HTMLPage, Project,
     ChainTaskState, Hint, HintAttempt, Profile, ReplaySlot, Task, TaskGroup, HiddenAnonKey,
 )
 from games.word_salad import dump_state, score_for_state
@@ -120,8 +126,17 @@ class DailyResultProjectionTests(TestCase):
             task_group=self.group, number='1', task_type='default', points=10,
             checker_data='answer', text='Question',
         )
-        Attempt.manager.create(task=task, game=self.game, anon_key='hinted', text='a', status='Wrong', points=2)
-        Attempt.manager.create(task=task, game=self.game, anon_key='hinted', text='answer', status='Ok', points=9)
+        first_time = timezone.now() - timedelta(seconds=12)
+        first_attempt = Attempt.manager.create(
+            task=task, game=self.game, anon_key='hinted', text='a', status='Wrong', points=2,
+        )
+        first_attempt.time = first_time
+        first_attempt.save(update_fields=['time'])
+        second_attempt = Attempt.manager.create(
+            task=task, game=self.game, anon_key='hinted', text='answer', status='Ok', points=9,
+        )
+        second_attempt.time = first_time + timedelta(seconds=7)
+        second_attempt.save(update_fields=['time'])
         hint = Hint.objects.create(task=task, number='1', desc='hint', points_penalty=Decimal('2'))
         HintAttempt.objects.create(hint=hint, anon_key='hinted', is_real_request=True)
         result = _canonical_group_results(self.game, self.group)
@@ -129,6 +144,72 @@ class DailyResultProjectionTests(TestCase):
         self.assertEqual(result[('anon', 'hinted')]['attempts_count'], 2)
         refresh_daily_result_projection(self.game, self.group, results=result)
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('7'))
+        cell = DailyTaskResultProjection.objects.get()
+        self.assertEqual(cell.result_points, Decimal('7'))
+        self.assertEqual(cell.best_status, 'Ok')
+        self.assertEqual(cell.attempts_count, 2)
+        self.assertEqual(cell.hint_numbers, ['1'])
+        self.assertEqual(
+            DailyResultProjection.objects.get().fallback_duration_seconds,
+            7,
+        )
+        projected_rows = load_task_result_projection_rows(
+            self.game, self.group, [task.pk], actor_types={'anon'},
+        )
+        actor, info = projected_rows[task.pk][0]
+        self.assertEqual(actor.anon_key, 'hinted')
+        self.assertEqual(info.get_result_points(), 7)
+        self.assertEqual(info.get_n_attempts(), 2)
+        self.assertEqual(info.get_hint_numbers(), ['1'])
+        self.assertEqual(
+            compare_task_result_projection(
+                self.game, self.group, [task.pk], actor_types={'anon'},
+            ),
+            [],
+        )
+
+    def test_task_projection_mismatch_falls_back_to_canonical_path(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='mismatch-actor',
+            text='answer', status='Ok', points=9,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        DailyTaskResultProjection.objects.filter(
+            game=self.game, task_group=self.group, task=task,
+        ).update(result_points=8)
+        with patch(
+            'games.daily.projection._task_projection_compare_enabled',
+            return_value=True,
+        ):
+            self.assertIsNone(load_task_result_projection_rows(
+                self.game, self.group, [task.pk], actor_types={'anon'},
+            ))
+
+    def test_scoped_results_use_task_projection_without_attempt_query(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='read-path-actor',
+            text='answer', status='Ok', points=10,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        from games.views.new_ui import _new_results_compute_uncached
+        with patch(
+            'games.daily.projection._task_projection_compare_enabled',
+            return_value=False,
+        ):
+            with CaptureQueriesContext(connection) as queries:
+                data = _new_results_compute_uncached(
+                    self.game, 'general', task_group_number='1',
+                )
+        self.assertEqual(len(data['teams_sorted']), 1)
+        self.assertFalse(any('games_attempt' in q['sql'].lower() for q in queries))
 
     def test_alphabetty_projection_uses_canonical_chain_hint_penalty(self):
         task = Task.objects.create(
@@ -203,6 +284,8 @@ class DailyResultProjectionTests(TestCase):
             game=self.game, task_group=self.group,
         )
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('6'))
+        self.assertEqual(DailyTaskResultProjection.objects.get().result_points, Decimal('6'))
+        self.assertEqual(DailyTaskResultProjection.objects.get().hint_numbers, ['1'])
         self.assertTrue(state.is_valid)
         self.assertFalse(state.full_refresh_required)
 
@@ -514,6 +597,23 @@ class DailyResultProjectionTests(TestCase):
         self.assertEqual(DailyResultProjection.objects.count(), 2)
         state.refresh_from_db()
         self.assertEqual(state.adapter_version, 0)
+
+    def test_reconciliation_can_audit_task_cells(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='task-audit-actor',
+            text='answer', status='Ok', points=10,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        output = StringIO()
+        call_command(
+            'rebuild_daily_result_summaries',
+            game=self.game.pk, reconcile=True, task_cells=True, stdout=output,
+        )
+        self.assertIn('task_cell_mismatch=0', output.getvalue())
 
     def test_sql_eligibility_excludes_author_cell_but_keeps_actor_other_release(self):
         from games.aggregate_leaderboard import build_aggregate_page

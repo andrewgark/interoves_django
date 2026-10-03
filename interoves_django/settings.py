@@ -447,6 +447,21 @@ except ValueError:
 # games.middleware.request_timing — warn when send_attempt / alphabetty guess exceed this (ms).
 REQUEST_TIMING_SLOW_MS = _env_float('REQUEST_TIMING_SLOW_MS', 2000)
 
+# Sample a small fraction of task-level projection reads against the canonical
+# attempts scorer. A mismatch falls back to the canonical response and is
+# logged; set to 0 to disable after rollout, or 1 for an audit window.
+DAILY_TASK_RESULT_PROJECTION_COMPARE_SAMPLE_RATE = min(
+    1.0,
+    max(0.0, _env_float('DAILY_TASK_RESULT_PROJECTION_COMPARE_SAMPLE_RATE', 0.01)),
+)
+DAILY_TASK_RESULT_PROJECTION_READ_GAME_IDS = frozenset(
+    item.strip()
+    for item in os.environ.get(
+        'DAILY_TASK_RESULT_PROJECTION_READ_GAME_IDS', 'ladder,alphabetty,censorly',
+    ).split(',')
+    if item.strip()
+)
+
 # Recheck queue leases remain 600 seconds by default for compatibility.
 # RECHECK_* is the canonical name; WORD_SALAD_* remains an input fallback while
 # old worker environments are being drained.

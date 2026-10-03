@@ -198,7 +198,9 @@ def eligible_release_actor_keys(release_actors, *, game, published_at_by_release
     return output
 
 
-def canonical_leaderboard_durations(*, game, task_group, actors, fallback_actors=None):
+def canonical_leaderboard_durations(
+    *, game, task_group, actors, fallback_actors=None, fallback_durations=None,
+):
     """Active duration seconds, with a marked legacy attempt-time fallback.
 
     The fallback is only used when no authoritative timer row exists. It is
@@ -231,8 +233,18 @@ def canonical_leaderboard_durations(*, game, task_group, actors, fallback_actors
             result[actor] = canonical_elapsed_seconds(
                 game=game, task_group=task_group, timing_row=row,
             )
+    fallback_durations = fallback_durations or {}
     missing = [actor for actor in actors if actor not in result]
-    if missing:
+    missing_without_projection = []
+    for actor in missing:
+        key = actor_key(actor)
+        if key in fallback_durations:
+            result[actor] = int(fallback_durations[key] or 0)
+            if fallback_actors is not None:
+                fallback_actors.add(actor)
+        else:
+            missing_without_projection.append(actor)
+    if missing_without_projection:
         from games.models import Attempt
         from games.results.share import elapsed_seconds_from_attempts
 
@@ -248,7 +260,7 @@ def canonical_leaderboard_durations(*, game, task_group, actors, fallback_actors
             )
             if key is not None:
                 attempts_by_key.setdefault(key, []).append(attempt)
-        for actor in missing:
+        for actor in missing_without_projection:
             attempts = attempts_by_key.get(actor_key(actor), [])
             if not attempts:
                 continue

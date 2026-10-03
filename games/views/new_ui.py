@@ -2145,10 +2145,36 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         _load_results_placements_and_tasks(game, task_group_number=task_group_number)
     )
 
+    # A rebuilt task-level projection is the read model for a single ordinary
+    # release.  Keep the existing canonical path for aggregate pages,
+    # tournament windows, unsupported adapters, and stale/incomplete rows.
+    projected_rows = None
+    projection_fallback_durations = {}
+    if mode == 'general' and task_group_number is not None:
+        projection_link = GameTaskGroup.objects.filter(
+            game=game, number=str(task_group_number),
+        ).select_related('task_group').first()
+        if projection_link is not None:
+            from games.daily.projection import load_task_result_projection_rows
+            projected_rows = load_task_result_projection_rows(
+                game,
+                projection_link.task_group,
+                task_ids,
+                actor_types=actor_types,
+            )
+            if projected_rows is not None:
+                from games.daily.projection import load_projection_fallback_durations
+                projection_fallback_durations = load_projection_fallback_durations(
+                    game, projection_link.task_group,
+                )
+
     # General: SQL aggregates (same as live ladder snapshot). Tournament windows and
-    # alphabetty letter-hint penalty still need the ORM bulk path.
+    # alphabetty letter-hint penalty still need the ORM bulk path. ``None`` is
+    # the explicit projection fallback signal; an empty dict is valid data.
     bulk_game = results_attempts_scope_game(game, mode)
-    if mode == 'general':
+    if projected_rows is not None:
+        bulk_rows = projected_rows
+    elif mode == 'general':
         from games.results_sql_aggregate import (
             get_sql_aggregated_game_actor_rows,
             tasks_need_orm_results_aggregate,
@@ -2204,7 +2230,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         max_best_time_ts = max_best_time.timestamp() if hasattr(max_best_time, "timestamp") else float("inf")
         teams_sorted.append((-score, max_best_time_ts, participant))
     from games.leaderboard import (
-        canonical_leaderboard_durations, eligible_public_actors,
+        actor_key, canonical_leaderboard_durations, eligible_public_actors,
         individual_sports_key, score_rank,
     )
     solve_duration_seconds = {}
@@ -2240,6 +2266,11 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
             solve_duration_seconds = canonical_leaderboard_durations(
                 game=game, task_group=scoped_group.task_group, actors=team_to_score,
                 fallback_actors=solve_duration_fallback,
+                fallback_durations={
+                    actor_key(actor): projection_fallback_durations[actor_key(actor)]
+                    for actor in team_to_score
+                    if actor_key(actor) in projection_fallback_durations
+                },
             )
     eligible = set(eligible_public_actors(
         team_to_score, task_group=scoped_group.task_group if scoped_group else None,

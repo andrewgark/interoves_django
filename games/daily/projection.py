@@ -5,21 +5,38 @@ This module only turns their output into a rebuildable actor/release projection.
 """
 from collections import defaultdict
 from decimal import Decimal
+import random
 
 import logging
 
+from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models import F, Min
+from django.db.models import F, Max, Min
 from django.utils import timezone
 
 from games.leaderboard import actor_key
 from games.daily.registry import get_daily_game
 from games.models import (
     Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
+    DailyTaskResultProjection,
     DailyResultProjectionState, GameTaskGroup, Task, Team,
 )
 
 logger = logging.getLogger('application')
+
+# A small production sample keeps the projection read path self-checking
+# without putting the canonical attempts query back on every page request.
+TASK_PROJECTION_COMPARE_SAMPLE_RATE = getattr(
+    settings, 'DAILY_TASK_RESULT_PROJECTION_COMPARE_SAMPLE_RATE', 0.01,
+)
+
+# Roll out task-cell reads by game.  The writer can prepare compatible games
+# ahead of time. All registered ``attempts_info`` games use this path by
+# default; Word Salad and tournament modes remain outside this read model.
+TASK_PROJECTION_READ_GAME_IDS = getattr(
+    settings, 'DAILY_TASK_RESULT_PROJECTION_READ_GAME_IDS',
+    frozenset(('ladder', 'alphabetty', 'censorly')),
+)
 
 # Bump when canonical score adaptation semantics change; old releases then
 # transparently return to the canonical full-compute path until rebuilt.
@@ -27,7 +44,9 @@ logger = logging.getLogger('application')
 # semantic contracts, not source hashes: a change in AttemptsInfo scoring,
 # hint penalties, or Salad state scoring requires an explicit version bump.
 SCORER_ADAPTER_VERSIONS = {
-    'attempts_info': 1,
+    # Version 2 adds the task-cell projection contract.  Existing release
+    # rows must be rebuilt before either projection is authoritative.
+    'attempts_info': 2,
     'salad_state': 1,
 }
 
@@ -63,6 +82,19 @@ def projection_state_is_valid(state, game):
         and not state.full_refresh_required
         and not state.pending_actor_refreshes
         and state.adapter_version == scorer_adapter_version(game, state.task_group_id)
+    )
+
+
+def task_projection_state_is_valid(state, game):
+    """Return whether task-level cells may replace the attempts read path."""
+    definition = get_daily_game(getattr(game, 'id', None))
+    return bool(
+        projection_state_is_valid(state, game)
+        and (
+            definition is None
+            or definition.game_id in TASK_PROJECTION_READ_GAME_IDS
+        )
+        and (definition is None or definition.projection_adapter_key == 'attempts_info')
     )
 
 
@@ -145,13 +177,13 @@ def mark_projection_dirty(game, task_group, *, actor=False, full=False, actor_fi
         return state.source_revision
 
 
-def _canonical_group_results(game, task_group, *, actor_filter=None):
+def _canonical_group_results(game, task_group, *, actor_filter=None, with_task_rows=False):
     """Return exact existing AttemptsInfo scores for the release, grouped by actor."""
     from games.results.snapshot import results_attempts_scope_game
 
     tasks = list(Task.objects.visible().filter(task_group=task_group).exclude(task_type='text_with_forms').order_by('number', 'pk'))
     if not tasks:
-        return {}
+        return ({}, {}) if with_task_rows else {}
     scope_game = results_attempts_scope_game(game, 'general')
     task_ids = [task.pk for task in tasks]
     from games.results.sql_aggregate import get_sql_aggregated_game_actor_rows, tasks_need_orm_results_aggregate
@@ -163,22 +195,24 @@ def _canonical_group_results(game, task_group, *, actor_filter=None):
         result_rows = get_sql_aggregated_game_actor_rows(
             task_ids, game=scope_game, actor_filter=actor_filter, include_hidden=True,
         )
-    first_times = {}
+    attempt_times = {}
     if not tasks_need_orm_results_aggregate(tasks):
         attempt_qs = Attempt.manager.filter(task_id__in=task_ids, skip=False, replay_slot__isnull=True)
         if scope_game is not None:
             attempt_qs = attempt_qs.filter(game=scope_game)
         if actor_filter:
             attempt_qs = attempt_qs.filter(**actor_filter)
-        for source in attempt_qs.values('team_id', 'user_id', 'anon_key').annotate(first_at=Min('time')):
+        for source in attempt_qs.values('team_id', 'user_id', 'anon_key').annotate(
+            first_at=Min('time'), last_at=Max('time'),
+        ):
             key = ('team', source['team_id']) if source['team_id'] is not None else (
                 ('user', source['user_id']) if source['user_id'] is not None else ('anon', source['anon_key'])
             )
             if key[1] is not None:
-                first_times[key] = source['first_at']
+                attempt_times[key] = (source['first_at'], source['last_at'])
     totals = defaultdict(lambda: {
         'actor': None, 'score': Decimal('0'), 'attempts_count': 0,
-        'first_at': None, 'present': False,
+        'first_at': None, 'last_at': None, 'present': False,
     })
     for task in tasks:
         for actor, info in result_rows.get(task.pk, ()):
@@ -193,13 +227,239 @@ def _canonical_group_results(game, task_group, *, actor_filter=None):
             row['score'] += Decimal(str(info.get_result_points() or 0))
             row['attempts_count'] += int(info.get_n_attempts() or 0)
             stamps = [a.time for a in (info.attempts or ()) if getattr(a, 'time', None)]
-            if key in first_times:
-                first = first_times[key]
+            if key in attempt_times:
+                first, last = attempt_times[key]
                 row['first_at'] = min(row['first_at'], first) if row['first_at'] else first
+                row['last_at'] = max(row['last_at'], last) if row['last_at'] else last
             elif stamps:
                 first = min(stamps)
                 row['first_at'] = min(row['first_at'], first) if row['first_at'] else first
+            if stamps:
+                last = max(stamps)
+                row['last_at'] = max(row['last_at'], last) if row['last_at'] else last
+    if with_task_rows:
+        return totals, result_rows
     return totals
+
+
+def _task_projection_supported(game):
+    """Whether the task-cell projection has an AttemptsInfo contract."""
+    definition = get_daily_game(getattr(game, 'id', None))
+    return bool(
+        definition is None
+        or definition.projection_adapter_key == 'attempts_info'
+    )
+
+
+def _canonical_task_results(game, task_group, *, actor_filter=None):
+    """Return canonical AttemptsInfo rows grouped by task for task cells.
+
+    This deliberately shares the same SQL/ORM scorer selection as the release
+    aggregate.  The task projection is not built for salad state or tournament
+    windows until those adapters have an explicit cell-level contract.
+    """
+    if not _task_projection_supported(game):
+        return {}
+    from games.results.snapshot import results_attempts_scope_game
+
+    tasks = list(
+        Task.objects.visible()
+        .filter(task_group=task_group)
+        .exclude(task_type='text_with_forms')
+        .order_by('number', 'pk')
+    )
+    if not tasks:
+        return {}
+    scope_game = results_attempts_scope_game(game, 'general')
+    task_ids = [task.pk for task in tasks]
+    from games.results.sql_aggregate import get_sql_aggregated_game_actor_rows
+    result_rows = get_sql_aggregated_game_actor_rows(
+        task_ids,
+        game=scope_game,
+        actor_filter=actor_filter,
+        include_hidden=True,
+    )
+    return {
+        task_id: rows
+        for task_id, rows in result_rows.items()
+        if rows
+    }
+
+
+def _task_projection_entry(game, task_group, task_id, actor, info):
+    """Convert one canonical AttemptsInfo row into a rebuildable cell."""
+    if not (info.attempts or info.hint_attempts):
+        return None
+    actor_data = _projection_actor(actor)
+    if not actor_data:
+        return None
+    user_id = actor_data.pop('user_id', None)
+    best_attempt = getattr(info, 'best_attempt', None)
+    result_attempt = (
+        info.get_result_attempt()
+        if callable(getattr(info, 'get_result_attempt', None))
+        else best_attempt
+    )
+    has_pending = any(
+        getattr(attempt, 'status', None) == 'Pending'
+        for attempt in (info.attempts or [])
+    )
+    hint_numbers = (
+        info.get_hint_numbers()
+        if callable(getattr(info, 'get_hint_numbers', None))
+        else []
+    )
+    return DailyTaskResultProjection(
+        game=game,
+        task_group=task_group,
+        task_id=task_id,
+        user_id=user_id,
+        result_points=info.get_result_points() or 0,
+        best_status=getattr(best_attempt, 'status', '') or '',
+        best_attempt_at=getattr(result_attempt, 'time', None),
+        attempts_count=int(info.get_n_attempts() or 0),
+        has_pending=has_pending,
+        hint_numbers=list(hint_numbers or []),
+        **actor_data,
+    )
+
+
+def _build_task_projection_entries(game, task_group, task_results):
+    entries = []
+    for task_id, rows in task_results.items():
+        for actor, info in rows:
+            entry = _task_projection_entry(game, task_group, task_id, actor, info)
+            if entry is not None:
+                entries.append(entry)
+    return entries
+
+
+def _task_projection_compare_enabled():
+    return random.random() < TASK_PROJECTION_COMPARE_SAMPLE_RATE
+
+
+def compare_task_result_projection(game, task_group, task_ids, actor_types=None):
+    """Compare task cells with the canonical scorer and return mismatches.
+
+    The result is intentionally a small diagnostic payload.  It is safe to
+    call only after the state is valid; callers can use a non-empty result as
+    a signal to fall back to the canonical attempts path for that request.
+    """
+    canonical_results, canonical_task_rows = _canonical_group_results(
+        game, task_group, with_task_rows=True,
+    )
+    del canonical_results  # The comparison is intentionally cell-scoped.
+    canonical_entries = _build_task_projection_entries(
+        game, task_group,
+        {
+            task_id: rows
+            for task_id, rows in canonical_task_rows.items()
+            if task_id in set(task_ids)
+        },
+    )
+    allowed = set(actor_types or ())
+
+    def signature(item):
+        return (
+            Decimal(str(item.result_points or 0)),
+            item.best_status or '',
+            item.best_attempt_at,
+            int(item.attempts_count or 0),
+            bool(item.has_pending),
+            tuple(item.hint_numbers or ()),
+        )
+
+    expected = {
+        (entry.task_id, entry.actor_type, entry.actor_key): signature(entry)
+        for entry in canonical_entries
+        if not allowed or entry.actor_type in allowed
+    }
+    actual = {}
+    rows = DailyTaskResultProjection.objects.filter(
+        game=game, task_group=task_group, task_id__in=list(task_ids),
+    )
+    for row in rows:
+        if allowed and row.actor_type not in allowed:
+            continue
+        actual[(row.task_id, row.actor_type, row.actor_key)] = signature(row)
+
+    mismatches = []
+    for key in sorted(set(expected) | set(actual), key=str):
+        if expected.get(key) != actual.get(key):
+            mismatches.append({
+                'task_id': key[0],
+                'actor_type': key[1],
+                'actor_key': key[2],
+                'expected': expected.get(key),
+                'actual': actual.get(key),
+            })
+    return mismatches
+
+
+def load_task_result_projection_rows(game, task_group, task_ids, actor_types=None):
+    """Return task-cell rows in the legacy ``(actor, AttemptsInfo)`` shape.
+
+    ``None`` means the projection is not authoritative and callers must use
+    the canonical attempts path.  An empty dict is a valid, fully rebuilt
+    release with no visible result cells.
+    """
+    from games.models import DailyResultProjectionState, PersonalResultsParticipant
+    from games.results.sql_aggregate import AggregatedAttemptsInfo
+
+    state = DailyResultProjectionState.objects.filter(
+        game=game, task_group=task_group,
+    ).first()
+    if not task_projection_state_is_valid(state, game):
+        return None
+    if _task_projection_compare_enabled():
+        mismatches = compare_task_result_projection(
+            game, task_group, task_ids, actor_types=actor_types,
+        )
+        if mismatches:
+            logger.warning(
+                'daily_task_result_projection_mismatch game=%s task_group=%s '
+                'count=%s sample=%s; using canonical results',
+                game.pk, task_group.pk, len(mismatches), mismatches[:3],
+            )
+            return None
+    allowed = set(actor_types or ())
+    rows = DailyTaskResultProjection.objects.filter(
+        game=game,
+        task_group=task_group,
+        task_id__in=list(task_ids),
+    ).select_related('team', 'user')
+    result = defaultdict(list)
+    for row in rows:
+        if allowed and row.actor_type not in allowed:
+            continue
+        if row.actor_type == DailyTaskResultProjection.ACTOR_TEAM:
+            actor = row.team
+            if actor is None or actor.is_hidden:
+                continue
+        elif row.actor_type == DailyTaskResultProjection.ACTOR_USER:
+            actor = PersonalResultsParticipant(user_id=row.user_id)
+        else:
+            actor = PersonalResultsParticipant(anon_key=row.anon_key)
+        result[row.task_id].append((actor, AggregatedAttemptsInfo(
+            best_points=row.result_points,
+            best_status=row.best_status,
+            best_time=row.best_attempt_at,
+            n_attempts=row.attempts_count,
+            sum_hint_penalty=0,
+            hint_numbers=row.hint_numbers or [],
+            has_pending=row.has_pending,
+        )))
+    return result
+
+
+def load_projection_fallback_durations(game, task_group):
+    """Return stored attempt-span durations keyed by canonical actor key."""
+    return {
+        (row.actor_type, row.actor_key): int(row.fallback_duration_seconds or 0)
+        for row in DailyResultProjection.objects.filter(
+            game=game, task_group=task_group,
+        ).only('actor_type', 'actor_key', 'fallback_duration_seconds')
+    }
 
 
 def _prepublication(game, link, actor, first_at):
@@ -229,6 +489,12 @@ def _prepublication(game, link, actor, first_at):
     return bool(first_at and first_at < publication)
 
 
+def _attempt_span_seconds(data):
+    if data.get('first_at') is None or data.get('last_at') is None:
+        return 0
+    return max(0, int((data['last_at'] - data['first_at']).total_seconds()))
+
+
 def refresh_daily_result_projection(game, task_group, *, results=None):
     """Idempotently replace one release's projection using the canonical scorer.
 
@@ -246,7 +512,17 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
         state.full_refresh_required = True
         state.save(update_fields=['is_valid', 'full_refresh_required', 'completed_at'])
 
-    results = results if results is not None else _canonical_group_results(game, task_group)
+    if results is None:
+        results, canonical_task_rows = _canonical_group_results(
+            game, task_group, with_task_rows=True,
+        )
+    else:
+        canonical_task_rows = _canonical_task_results(game, task_group)
+    if not _task_projection_supported(game):
+        canonical_task_rows = {}
+    task_entries = _build_task_projection_entries(
+        game, task_group, canonical_task_rows,
+    )
     entries = []
     for data in results.values():
         actor = data['actor']
@@ -262,6 +538,7 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
             user_id=user_id,
             score=data['score'],
             attempts_count=data['attempts_count'],
+            fallback_duration_seconds=_attempt_span_seconds(data),
             is_prepublication=_prepublication(game, link, actor, data['first_at']),
             **actor_data,
         ))
@@ -276,6 +553,10 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
             return 0
         DailyResultProjection.objects.filter(game=game, task_group=task_group).delete()
         DailyResultProjection.objects.bulk_create(entries, batch_size=500)
+        DailyTaskResultProjection.objects.filter(
+            game=game, task_group=task_group,
+        ).delete()
+        DailyTaskResultProjection.objects.bulk_create(task_entries, batch_size=500)
         state.adapter_version = scorer_adapter_version(game, task_group)
         state.coverage_complete = True
         state.is_valid = True
@@ -381,7 +662,14 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
     group = TaskGroup.objects.filter(pk=group_id).first()
     if game is None or group is None:
         return False
-    results = _canonical_group_results(game, group, actor_filter=actor_filter)
+    results, canonical_task_rows = _canonical_group_results(
+        game, group, actor_filter=actor_filter, with_task_rows=True,
+    )
+    if not _task_projection_supported(game):
+        canonical_task_rows = {}
+    task_entries = _build_task_projection_entries(
+        game, group, canonical_task_rows,
+    )
     try:
         with transaction.atomic():
             state = _state_for_update(game, group)
@@ -390,6 +678,9 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
                 # Source was removed or is no longer statistical; delete only this actor.
                 if identity:
                     DailyResultProjection.objects.filter(game=game, task_group=group, **identity).delete()
+                    DailyTaskResultProjection.objects.filter(
+                        game=game, task_group=group, **identity,
+                    ).delete()
             else:
                 link = GameTaskGroup.objects.filter(game=game, task_group=group).first()
                 if link is not None:
@@ -400,6 +691,7 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
                         'team': actor_data['team'], 'user_id': user_id,
                         'anon_key': actor_data['anon_key'], 'score': data['score'],
                         'attempts_count': data['attempts_count'],
+                        'fallback_duration_seconds': _attempt_span_seconds(data),
                         'is_prepublication': _prepublication(
                             game, link, data['actor'], data['first_at'],
                         ),
@@ -409,6 +701,13 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
                         actor_type=actor_data['actor_type'], actor_key=actor_data['actor_key'],
                         defaults=defaults,
                     )
+                if identity:
+                    DailyTaskResultProjection.objects.filter(
+                        game=game, task_group=group, **identity,
+                    ).delete()
+                DailyTaskResultProjection.objects.bulk_create(
+                    task_entries, batch_size=500,
+                )
             if expected_revision is not None and identity:
                 actor_identity = _actor_identity_from_filter(actor_filter)
                 dirty = DailyResultProjectionDirtyActor.objects.filter(
