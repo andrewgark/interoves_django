@@ -67,7 +67,7 @@
       revealed.appendChild(document.createTextNode(tok.text || ''));
       return revealed;
     }
-    // Mask B: word-slot sized to full length; lock lives inside the stem.
+    // Mask: black bar sized to full length; lock / length / ending all inside.
     var mask = el('span', 'censorly-tok censorly-tok--mask' + headingClass(tok));
     mask.dataset.id = String(tok.id);
     if (tok.lemma) mask.dataset.lemma = tok.lemma;
@@ -75,7 +75,6 @@
     var totalLen = tok.length || 0;
     var ch = Math.max(totalLen, 1);
     mask.style.setProperty('--ch', String(ch));
-    var unit = el('span', 'censorly-tok__unit');
     var stem = el('span', 'censorly-tok__stem');
     stem.setAttribute('aria-hidden', 'true');
     stem.dataset.len = String(totalLen);
@@ -83,9 +82,9 @@
       mask.dataset.titleLemma = '1';
       stem.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
     }
-    unit.appendChild(stem);
     if (ending) {
-      unit.appendChild(el('span', 'censorly-tok__ending', ending));
+      mask.classList.add('censorly-tok--mask-ending');
+      stem.appendChild(el('span', 'censorly-tok__ending', ending));
       mask.setAttribute(
         'aria-label',
         'скрытое слово, ' + totalLen + ' букв, окончание «' + ending + '»'
@@ -93,7 +92,7 @@
     } else {
       mask.setAttribute('aria-label', 'скрытое слово, ' + totalLen + ' букв');
     }
-    mask.appendChild(unit);
+    mask.appendChild(stem);
     mask.dataset.len = String(totalLen);
     mask.title = totalLen + ' букв';
     if (overrides.lenForced != null) {

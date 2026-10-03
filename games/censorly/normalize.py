@@ -9,21 +9,10 @@ from games.matcher.norm_matcher import get_norm_form
 
 _WORD_RE = re.compile(r'[A-Za-zА-Яа-яЁё0-9]+', re.UNICODE)
 
-# Multi-letter inflectional endings worth showing as mask hints.
-# Single letters and irregular leftovers (ек, л, …) are intentionally excluded.
-_HINT_ENDINGS = frozenset({
-    # adjectives / participles
-    'ого', 'его', 'ому', 'ему', 'ыми', 'ими', 'ми',
-    'ых', 'их', 'ая', 'яя', 'ое', 'ее', 'ые', 'ие',
-    'ую', 'юю', 'ой', 'ый', 'ий', 'ей',
-    'ом', 'ем', 'ым', 'им',
-    # nouns
-    'ов', 'ев', 'ами', 'ями', 'ам', 'ям', 'ах', 'ях',
-    'ия', 'ии', 'ию', 'ие',
-    # verbs (common personal / infinitive tails)
-    'ешь', 'ишь', 'ете', 'ите', 'ать', 'ять', 'ить', 'еть',
-    'ться', 'тся', 'лись', 'лся', 'лась', 'лось',
-})
+# Endings come from the lemma/surface common-prefix split. Keep structural
+# guards only — 1-letter tails (а/е/и/л/…) and short leftovers (ек, ми) are OK
+# when they are the true inflectional remainder.
+_ENDING_RE = re.compile(r'^[a-zа-я]+$', re.UNICODE)
 
 
 def strip_combining_marks(text: str) -> str:
@@ -52,15 +41,14 @@ def lemma_of(word: str) -> str:
 
 
 def is_hintable_ending(ending: str, *, stem: str = '') -> bool:
-    """True if ending is a useful multi-letter inflection hint."""
+    """True if ending looks like a real inflectional remainder after the stem."""
     e = normalize_surface(ending)
-    if len(e) < 2 or len(e) > 4:
-        return False
-    if e not in _HINT_ENDINGS:
+    if not e or len(e) > 8 or not _ENDING_RE.fullmatch(e):
         return False
     if stem:
         s = normalize_surface(stem)
-        if len(s) < 3 or len(e) >= len(s):
+        # Stem must dominate so the black bar still hides the word.
+        if len(s) < 2 or len(e) >= len(s):
             return False
     return True
 
@@ -68,8 +56,8 @@ def is_hintable_ending(ending: str, *, stem: str = '') -> bool:
 def split_stem_ending(surface: str) -> tuple[str, str]:
     """Split a word into (stem, ending) via common prefix with its lemma.
 
-    Ending is lowercase without accents. Empty ending means show a solid mask.
-    Only allowlisted multi-letter endings are returned.
+    Ending is lowercase without accents (including 1-letter tails). Empty ending
+    means show a solid mask.
     """
     plain = normalize_surface(surface)
     if not plain or plain.isdigit() or '-' in plain:
@@ -82,7 +70,7 @@ def split_stem_ending(surface: str) -> tuple[str, str]:
     while i < limit and plain[i] == lemma[i]:
         i += 1
     # Keep a real stem; skip tiny leftovers that would leak most of the word.
-    if i < 3:
+    if i < 2:
         return plain, ''
     ending = plain[i:]
     stem = plain[:i]

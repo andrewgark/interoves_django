@@ -482,27 +482,30 @@ class CensorlyUxDailyTests(TestCase):
         self.assertFalse(heading_view.get('revealed'))
         self.assertTrue(heading_view.get('in_heading'))
 
-    def test_noisy_endings_are_suppressed(self):
+    def test_short_lemma_endings_are_shown(self):
         from games.censorly.normalize import split_stem_ending
         from games.censorly.redact import build_public_view
         from games.censorly.tokenize import build_puzzle_payload
-        # One-letter / irregular leftovers must not leak into the mask UI.
-        self.assertEqual(split_stem_ending('города')[1], '')
-        self.assertEqual(split_stem_ending('кошек')[1], '')
-        self.assertEqual(split_stem_ending('бежал')[1], '')
+        # 1-letter and short leftovers from the lemma split are real endings.
+        self.assertEqual(split_stem_ending('города')[1], 'а')
+        self.assertEqual(split_stem_ending('кошек')[1], 'ек')
+        self.assertEqual(split_stem_ending('бежал')[1], 'л')
         self.assertEqual(split_stem_ending('красивого')[1], 'ого')
         self.assertEqual(split_stem_ending('кошками')[1], 'ми')
         payload = build_puzzle_payload(wiki_title='Кот', body_text='Красивого вида.')
-        # Inject a legacy noisy ending that older puzzles may still store.
-        target = next(
-            t for t in payload['body_tokens']
+        view = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
+        masked = next(
+            t for t in view['body_tokens']
             if t.get('kind') == 'content' and t.get('ending') == 'ого'
         )
-        target['ending'] = 'а'
+        self.assertEqual(masked.get('ending'), 'ого')
+        # Non-letter junk still must not appear as an ending hint.
+        target = next(t for t in payload['body_tokens'] if t.get('id') == masked['id'])
+        target['ending'] = 'а1'
         target['stem_length'] = 5
-        view = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
-        masked = next(t for t in view['body_tokens'] if t.get('id') == target['id'])
-        self.assertNotIn('ending', masked)
+        view2 = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
+        masked2 = next(t for t in view2['body_tokens'] if t.get('id') == target['id'])
+        self.assertNotIn('ending', masked2)
 
     def test_only_guessed_words_marked_after_win(self):
         from games.censorly.redact import build_public_view

@@ -2,7 +2,8 @@
 
 .censorly {
   --censorly-lock: var(--muted, #6b7280);
-  --censorly-ending: color-mix(in srgb, var(--muted, #6b7280) 85%, var(--text, #111) 15%);
+  /* Ghost ending inside the black bar — barely readable on the mask. */
+  --censorly-ending-on-mask: color-mix(in srgb, var(--bg, #fff) 34%, transparent);
   container-type: inline-size;
   container-name: censorly;
   display: grid;
@@ -160,10 +161,8 @@
 }
 
 /*
-  Mask layout (variant B):
-  one word-slot [.censorly-tok__unit] sized to full letter count;
-  black stem fills leftover; optional ending on the right;
-  title-lock sits inside the stem (left), length digit centered in stem.
+  Mask: one black bar sized to full letter count.
+  Inside: lock (left) · length digit (center) · ending ghost (right).
 */
 .censorly-tok--mask {
   display: inline;
@@ -176,57 +175,39 @@
   border-radius: 0;
 }
 
-/* Slot ≈ full word: stem fills leftover; grows if ending needs more room. */
-.censorly-tok__unit {
-  display: inline-grid;
-  grid-template-columns: minmax(0.85em, 1fr) auto;
-  align-items: baseline;
-  box-sizing: border-box;
-  /* Calibrated to IBM Plex Serif Cyrillic advances. */
-  min-width: calc(var(--ch, 4) * 0.58em + 0.18em);
-  max-width: 100%;
-  vertical-align: baseline;
-}
-
-.censorly-tok.is-heading .censorly-tok__unit {
-  min-width: calc(var(--ch, 4) * 0.58em + 0.24em);
-}
-
-.censorly.censorly--show-lengths .censorly-tok__unit,
-.censorly-tok--mask[data-len-forced="1"] .censorly-tok__unit {
-  /* Room for a 2-digit length inside short stems. */
-  min-width: max(calc(var(--ch, 4) * 0.58em + 0.18em), 1.55em);
-}
-
 .censorly-tok__stem {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  width: 100%;
-  min-width: 0.85em;
-  height: 0.74em;
+  /* Calibrated to IBM Plex Serif Cyrillic advances. */
+  min-width: calc(var(--ch, 4) * 0.58em + 0.18em);
+  max-width: 100%;
+  /* Fixed height — length digits must not resize the bar. */
+  height: 0.95em;
+  padding: 0 0.2em;
   border-radius: 2px;
-  background: var(--text);
-  opacity: 0.84;
+  /* Keep opacity off the element so ghost ending / lock stay crisp. */
+  background: color-mix(in srgb, var(--text) 92%, transparent);
   position: relative;
-  transform: translateY(0.1em);
+  vertical-align: -0.12em;
+  transform: none;
 }
 
 .censorly-tok.is-heading .censorly-tok__stem {
-  height: 0.8em;
+  min-width: calc(var(--ch, 4) * 0.58em + 0.24em);
 }
 
 .censorly.censorly--show-lengths .censorly-tok__stem,
 .censorly-tok--mask[data-len-forced="1"] .censorly-tok__stem {
-  height: 0.9em;
-  transform: translateY(0.06em);
+  /* Wider only if needed for 2-digit lengths; height stays put. */
+  min-width: max(calc(var(--ch, 4) * 0.58em + 0.18em), 1.55em);
 }
 
 /* Title lemma: lock inside the black bar, left edge. */
 .censorly-tok__stem .censorly-tok__lock {
   position: absolute;
-  left: 0.12em;
+  left: 0.14em;
   top: 50%;
   transform: translateY(-52%);
   margin: 0;
@@ -236,11 +217,11 @@
   color: var(--bg, #fff);
   opacity: 0.95;
   pointer-events: none;
-  z-index: 1;
+  z-index: 2;
 }
 
 .censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
-  padding-left: 0.85em;
+  padding-left: 0.95em;
 }
 
 .censorly-tok__stem::after {
@@ -259,10 +240,16 @@
   pointer-events: none;
   font-variant-numeric: tabular-nums;
   font-family: "IBM Plex Sans", "Source Sans 3", system-ui, sans-serif;
+  z-index: 1;
 }
 
 .censorly-tok--mask[data-title-lemma] .censorly-tok__stem::after {
-  padding-left: 0.7em;
+  padding-left: 0.55em;
+}
+
+.censorly-tok--mask-ending .censorly-tok__stem::after {
+  /* Keep the length digit clear of the ghost ending on the right. */
+  padding-right: 0.55em;
 }
 
 .censorly.censorly--show-lengths .censorly-tok--mask:not([data-len-forced="0"]) .censorly-tok__stem::after,
@@ -270,15 +257,21 @@
   content: attr(data-len);
 }
 
+/* Ending lives inside the black bar — muted gray, barely visible. */
 .censorly-tok__ending {
-  color: var(--censorly-ending);
-  font-size: 1em;
+  position: absolute;
+  right: 0.16em;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--censorly-ending-on-mask);
+  font-size: 0.78em;
   font-weight: 500;
-  line-height: inherit;
+  line-height: 1;
   letter-spacing: 0.01em;
-  user-select: none;
-  margin-left: 0.01em;
   white-space: nowrap;
+  user-select: none;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* Revealed title words keep a quiet lock before the text. */
