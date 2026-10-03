@@ -1,7 +1,17 @@
 /* Цензурки play UI */
 
+/* Wide article + dock — like order-game landing, above default .new-wrap. */
+.new-wrap:has(.censorly) {
+  max-width: 72rem;
+}
+
 .censorly {
   --censorly-lock: var(--muted, #6b7280);
+  /* Title-lemma notch (left rail) — warm, distinct from the black bar. */
+  --censorly-notch: color-mix(in srgb, var(--accent, #c9a227) 78%, #3d2e08);
+  --censorly-notch-lock: color-mix(in srgb, var(--bg, #fff) 88%, #f0e6c8);
+  /* Same width as a 1-letter black bar: ch*0.52em + 0.04em with ch=1. */
+  --censorly-notch-w: calc(0.52em + 0.04em);
   /* Ghost ending inside the black bar — barely readable on the mask. */
   --censorly-ending-on-mask: color-mix(in srgb, var(--bg, #fff) 34%, transparent);
   container-type: inline-size;
@@ -12,17 +22,18 @@
   padding-bottom: 1rem;
 }
 
+/* Sticky dock must not be clipped by the task card. */
+.censorly .new-taskcard,
+.censorly .new-taskcard__body {
+  overflow: visible;
+}
+
 .censorly__toolbar {
   display: flex;
   gap: 0.35rem;
   flex-wrap: wrap;
   align-items: center;
-}
-
-.censorly__meta-card {
-  position: relative;
-  padding-right: 2.5rem;
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.65rem;
 }
 
 .censorly__layout {
@@ -32,20 +43,25 @@
   align-items: start;
 }
 
+/*
+  Desktop: sticky dock under .new-nav (same offset as proportions pool / raddle pin).
+  z-index below nav (10), above article content.
+*/
 @container censorly (min-width: 52rem) {
   .censorly__layout {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 20rem);
+    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
   }
 
   .censorly__dock {
     position: sticky;
-    top: 1rem;
+    top: calc(var(--new-ui-scroll-margin-top, 5.5rem) + 0.35rem);
     bottom: auto;
+    z-index: 8;
     padding: 0.75rem;
-    border: 1px solid var(--border, rgba(0, 0, 0, 0.12));
+    border: 1px solid color-mix(in srgb, var(--border, rgba(0, 0, 0, 0.12)) 80%, transparent);
     border-radius: 8px;
     background: var(--surface, var(--bg, #fff));
-    box-shadow: none;
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--text) 8%, transparent);
   }
 
   .censorly {
@@ -53,6 +69,11 @@
   }
 }
 
+html.new-ui-dark .censorly__dock {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+/* Narrow / mobile: form bar sticks to the bottom (thumb reach), with blur chrome. */
 @container censorly (max-width: 51.99rem) {
   .censorly {
     padding-bottom: 7rem;
@@ -61,12 +82,17 @@
   .censorly__dock {
     position: sticky;
     bottom: 0;
-    z-index: 5;
-    margin-inline: -0.25rem;
+    top: auto;
+    z-index: 8;
+    margin-inline: -0.35rem;
     padding: 0.65rem 0.5rem calc(0.65rem + env(safe-area-inset-bottom, 0));
-    background: color-mix(in srgb, var(--bg, #fff) 92%, transparent);
+    background: color-mix(in srgb, var(--surface, var(--bg, #fff)) 92%, transparent);
     backdrop-filter: blur(8px);
-    border-top: 1px solid var(--border, rgba(0, 0, 0, 0.1));
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid color-mix(in srgb, var(--border, rgba(0, 0, 0, 0.1)) 80%, transparent);
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+    box-shadow: 0 -8px 24px color-mix(in srgb, var(--text) 12%, transparent);
   }
 }
 
@@ -98,20 +124,23 @@
 .censorly__title,
 .censorly__body {
   font-family: "IBM Plex Serif", "Literata", "Source Serif 4", Georgia, serif;
-  line-height: 1.65;
+  /* Tight — mask bars are ~1.15em tall; avoid airy paragraph gaps. */
+  line-height: 1.32;
   overflow-wrap: break-word;
   min-width: 0;
 }
 
 .censorly__title {
   margin: 0;
-  font-size: clamp(1.35rem, 2.5vw, 1.85rem);
+  /* Larger type → larger mask bars (sized in em). */
+  font-size: clamp(1.55rem, 3vw, 2.1rem);
   font-weight: 700;
 }
 
 .censorly__body {
   margin: 0;
-  font-size: 1.05rem;
+  /* Larger type so letter advance ≈ mask slot (~0.72em / glyph). */
+  font-size: 1.45rem;
   white-space: pre-wrap;
 }
 
@@ -180,48 +209,71 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  /* Calibrated to IBM Plex Serif Cyrillic advances. */
-  min-width: calc(var(--ch, 4) * 0.58em + 0.18em);
+  /* Fixed size from letter count — match live glyph advance in Plex Serif. */
+  width: calc(var(--ch, 4) * 0.52em + 0.04em);
   max-width: 100%;
-  /* Fixed height — length digits must not resize the bar. */
-  height: 0.95em;
-  padding: 0 0.2em;
+  height: 1.28em;
+  padding: 0 0.08em;
+  overflow: hidden;
   border-radius: 2px;
   /* Keep opacity off the element so ghost ending / lock stay crisp. */
   background: color-mix(in srgb, var(--text) 92%, transparent);
   position: relative;
-  vertical-align: -0.12em;
+  vertical-align: -0.14em;
   transform: none;
 }
 
 .censorly-tok.is-heading .censorly-tok__stem {
-  min-width: calc(var(--ch, 4) * 0.58em + 0.24em);
+  width: calc(var(--ch, 4) * 0.52em + 0.06em);
+  height: 1.28em;
 }
 
-.censorly.censorly--show-lengths .censorly-tok__stem,
-.censorly-tok--mask[data-len-forced="1"] .censorly-tok__stem {
-  /* Wider only if needed for 2-digit lengths; height stays put. */
-  min-width: max(calc(var(--ch, 4) * 0.58em + 0.18em), 1.55em);
+/* Shared lock size (notch + revealed). */
+.censorly-tok__lock {
+  font-size: 0.36em;
+  line-height: 1;
+  pointer-events: none;
 }
 
-/* Title lemma: lock inside the black bar, left edge. */
+/*
+  Title lemma: wide left notch (same for 1 and longer), accent color, lock inside.
+  Black letter-bar width unchanged; notch is added on the left.
+*/
+.censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
+  width: calc(var(--ch, 4) * 0.52em + 0.04em + var(--censorly-notch-w));
+  padding-left: var(--censorly-notch-w);
+  background:
+    linear-gradient(
+      to right,
+      var(--censorly-notch) 0,
+      var(--censorly-notch) var(--censorly-notch-w),
+      color-mix(in srgb, var(--text) 92%, transparent) var(--censorly-notch-w),
+      color-mix(in srgb, var(--text) 92%, transparent) 100%
+    );
+}
+.censorly-tok.is-heading.censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
+  width: calc(var(--ch, 4) * 0.52em + 0.06em + var(--censorly-notch-w));
+}
 .censorly-tok__stem .censorly-tok__lock {
   position: absolute;
-  left: 0.14em;
-  top: 50%;
-  transform: translateY(-52%);
+  left: 0;
+  top: 0;
+  bottom: 0;
+  /* em must resolve against stem size, not the shrunk icon font. */
+  font-size: 1em;
+  width: var(--censorly-notch-w);
   margin: 0;
   padding: 0;
-  font-size: 0.58em;
-  line-height: 1;
-  color: var(--bg, #fff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: none;
+  color: var(--censorly-notch-lock);
   opacity: 0.95;
-  pointer-events: none;
   z-index: 2;
 }
-
-.censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
-  padding-left: 0.95em;
+.censorly-tok__stem .censorly-tok__lock::before {
+  font-size: 0.36em;
 }
 
 .censorly-tok__stem::after {
@@ -231,7 +283,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.68em;
+  font-size: 0.5em;
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0;
@@ -244,7 +296,11 @@
 }
 
 .censorly-tok--mask[data-title-lemma] .censorly-tok__stem::after {
-  padding-left: 0.55em;
+  /*
+    Center the digit in the black portion only.
+    ::after font-size is 0.5em of the stem, so notch length must be scaled ×2.
+  */
+  left: calc(var(--censorly-notch-w) / 0.5);
 }
 
 .censorly-tok--mask-ending .censorly-tok__stem::after {

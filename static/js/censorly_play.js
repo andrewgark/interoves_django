@@ -67,7 +67,7 @@
       revealed.appendChild(document.createTextNode(tok.text || ''));
       return revealed;
     }
-    // Mask: black bar sized to full length; lock / length / ending all inside.
+    // Mask: black bar sized to full length; title lemmas get a left notch + lock.
     var mask = el('span', 'censorly-tok censorly-tok--mask' + headingClass(tok));
     mask.dataset.id = String(tok.id);
     if (tok.lemma) mask.dataset.lemma = tok.lemma;
@@ -75,6 +75,7 @@
     var totalLen = tok.length || 0;
     var ch = Math.max(totalLen, 1);
     mask.style.setProperty('--ch', String(ch));
+    mask.dataset.ch = String(ch);
     var stem = el('span', 'censorly-tok__stem');
     stem.setAttribute('aria-hidden', 'true');
     stem.dataset.len = String(totalLen);
@@ -407,6 +408,10 @@
         var on = root.classList.toggle('censorly--show-lengths');
         lengthsBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
         lengthsBtn.title = on ? 'Скрыть длины слов' : 'Показать длины слов';
+        // Global toggle wins: drop per-word length overrides.
+        root.querySelectorAll('.censorly-tok--mask[data-len-forced]').forEach(function (node) {
+          node.removeAttribute('data-len-forced');
+        });
       });
     }
 
@@ -440,11 +445,18 @@
             .finally(function () { busy = false; });
           return;
         }
-        // Per-token length override
+        // Per-token length override (2-state, depends on global toggle).
+        var globalOn = root.classList.contains('censorly--show-lengths');
         var cur = mask.dataset.lenForced;
-        if (cur === '1') mask.dataset.lenForced = '0';
-        else if (cur === '0') mask.removeAttribute('data-len-forced');
-        else mask.dataset.lenForced = '1';
+        if (globalOn) {
+          // All lengths visible: click hides this word, click again restores.
+          if (cur === '0') mask.removeAttribute('data-len-forced');
+          else mask.dataset.lenForced = '0';
+        } else {
+          // Lengths hidden: click shows this word, click again hides.
+          if (cur === '1') mask.removeAttribute('data-len-forced');
+          else mask.dataset.lenForced = '1';
+        }
         return;
       }
 

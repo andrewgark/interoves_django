@@ -57,88 +57,89 @@
      data-anon-key="{{ anon_key|default:'' }}"
      data-context-token="{{ gameplay_context_token|default:'' }}">
 
-  <div class="censorly__toolbar">
-    <button type="button"
-            class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
-            id="censorly-lengths-toggle"
-            aria-pressed="false"
-            title="Показать длины слов"
-            aria-label="Показать длины слов">
-      <i class="ph ph-hash" aria-hidden="true"></i>
-    </button>
-    <button type="button"
-            class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
-            id="censorly-hint-btn"
-            title="Взять подсказку"
-            aria-label="Взять подсказку">
-      <i class="ph ph-lightbulb" aria-hidden="true"></i>
-    </button>
-  </div>
-
-  <div class="new-taskcard censorly__meta-card" id="new-task-{{ task.id }}">
+  <div class="new-taskcard" id="new-task-{{ task.id }}">
     <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ bug_report_task_label|default:page_title }}" aria-label="Сообщить о проблеме: {{ bug_report_task_label|default:page_title }}" title="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
     {% include "new/task-content/task-meta-bar.html" %}
+    <div class="new-taskcard__body">
+      <div class="censorly__toolbar">
+        <button type="button"
+                class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
+                id="censorly-lengths-toggle"
+                aria-pressed="false"
+                title="Показать длины слов"
+                aria-label="Показать длины слов">
+          <i class="ph ph-hash" aria-hidden="true"></i>
+        </button>
+        <button type="button"
+                class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
+                id="censorly-hint-btn"
+                title="Взять подсказку"
+                aria-label="Взять подсказку">
+          <i class="ph ph-lightbulb" aria-hidden="true"></i>
+        </button>
+      </div>
+
+      <div class="censorly__layout">
+        <div class="censorly__article">
+          <div class="censorly__status" id="censorly-status" aria-live="polite">
+            <span id="censorly-attempts">0 попыток</span>
+            <span id="censorly-won" hidden>Решено!</span>
+            <span id="censorly-hint-mode" class="censorly__hint-mode" hidden>Выберите слово…</span>
+          </div>
+          <h2 class="censorly__title" id="censorly-title" aria-label="Заголовок статьи"></h2>
+          <article class="censorly__body" id="censorly-body" aria-label="Текст статьи"></article>
+          <p class="censorly__truncated" id="censorly-truncated" hidden>
+            Текст статьи сокращён для игры.
+          </p>
+          <p class="censorly__wiki" id="censorly-wiki" hidden>
+            <a id="censorly-wiki-link" href="#" target="_blank" rel="noopener noreferrer">Полная статья на Википедии</a>
+          </p>
+        </div>
+
+        <aside class="censorly__dock" id="censorly-dock">
+          <form class="censorly__form" id="censorly-form" autocomplete="off">
+            {% csrf_token %}
+            <button type="button"
+                    class="new-btn new-btn--ghost new-btn--icon"
+                    id="censorly-history-toggle"
+                    aria-pressed="false"
+                    title="История догадок"
+                    aria-label="История догадок">
+              <i class="ph ph-list-numbers" aria-hidden="true"></i>
+            </button>
+            <input type="text"
+                   id="censorly-word"
+                   class="censorly__input"
+                   name="word"
+                   maxlength="64"
+                   placeholder="Русское слово"
+                   autocapitalize="off"
+                   autocomplete="off"
+                   spellcheck="true"
+                   required>
+            <button type="submit" class="new-btn new-btn--icon" id="censorly-submit" aria-label="Угадать" title="Угадать">
+              <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+            </button>
+          </form>
+          <p class="censorly__feedback" id="censorly-feedback" hidden></p>
+          <div class="censorly__history" id="censorly-history-wrap" hidden>
+            <table class="censorly__guess-table" id="censorly-guess-table">
+              <colgroup>
+                <col class="censorly__col-n" id="censorly-col-n">
+                <col class="censorly__col-hits">
+                <col class="censorly__col-word">
+              </colgroup>
+              <thead>
+                <tr><th scope="col">#</th><th scope="col">×</th><th scope="col">Слово</th></tr>
+              </thead>
+              <tbody id="censorly-guess-list"></tbody>
+            </table>
+          </div>
+        </aside>
+      </div>
+    </div>
   </div>
   <div id="censorly-meta-host" class="censorly__meta-host" hidden></div>
-
-  <div class="censorly__layout">
-    <div class="censorly__article">
-      <div class="censorly__status" id="censorly-status" aria-live="polite">
-        <span id="censorly-attempts">0 попыток</span>
-        <span id="censorly-won" hidden>Решено!</span>
-        <span id="censorly-hint-mode" class="censorly__hint-mode" hidden>Выберите слово…</span>
-      </div>
-      <h2 class="censorly__title" id="censorly-title" aria-label="Заголовок статьи"></h2>
-      <article class="censorly__body" id="censorly-body" aria-label="Текст статьи"></article>
-      <p class="censorly__truncated" id="censorly-truncated" hidden>
-        Текст статьи сокращён для игры.
-      </p>
-      <p class="censorly__wiki" id="censorly-wiki" hidden>
-        <a id="censorly-wiki-link" href="#" target="_blank" rel="noopener noreferrer">Полная статья на Википедии</a>
-      </p>
-    </div>
-
-    <aside class="censorly__dock" id="censorly-dock">
-      <form class="censorly__form" id="censorly-form" autocomplete="off">
-        {% csrf_token %}
-        <button type="button"
-                class="new-btn new-btn--ghost new-btn--icon"
-                id="censorly-history-toggle"
-                aria-pressed="false"
-                title="История догадок"
-                aria-label="История догадок">
-          <i class="ph ph-list-numbers" aria-hidden="true"></i>
-        </button>
-        <input type="text"
-               id="censorly-word"
-               class="censorly__input"
-               name="word"
-               maxlength="64"
-               placeholder="Русское слово"
-               autocapitalize="off"
-               autocomplete="off"
-               spellcheck="true"
-               required>
-        <button type="submit" class="new-btn new-btn--icon" id="censorly-submit" aria-label="Угадать" title="Угадать">
-          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
-        </button>
-      </form>
-      <p class="censorly__feedback" id="censorly-feedback" hidden></p>
-      <div class="censorly__history" id="censorly-history-wrap" hidden>
-        <table class="censorly__guess-table" id="censorly-guess-table">
-          <colgroup>
-            <col class="censorly__col-n" id="censorly-col-n">
-            <col class="censorly__col-hits">
-            <col class="censorly__col-word">
-          </colgroup>
-          <thead>
-            <tr><th scope="col">#</th><th scope="col">×</th><th scope="col">Слово</th></tr>
-          </thead>
-          <tbody id="censorly-guess-list"></tbody>
-        </table>
-      </div>
-    </aside>
-  </div>
 
   {% if daily_statistics_url %}<div class="new-daily-results-layout">{% endif %}
   <div class="new-raddle-result" id="censorly-result" data-raddle-result hidden>

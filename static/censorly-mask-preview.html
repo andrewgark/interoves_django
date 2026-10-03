@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Цензурка — насечка с замком</title>
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="css/censorly.css?v=27">
+  <style>
+    :root {
+      --text: #1a1a1a;
+      --bg: #f7f4ef;
+      --muted: #6b7280;
+      --border: rgba(0, 0, 0, 0.12);
+      --surface: #fff;
+      --accent: #c9a227;
+    }
+    body {
+      margin: 0; min-height: 100vh;
+      background: radial-gradient(1200px 500px at 10% -10%, #fff7e6 0%, transparent 55%), var(--bg);
+      color: var(--text); font-family: "IBM Plex Serif", Georgia, serif;
+    }
+    .wrap { max-width: 40rem; margin: 0 auto; padding: 1.5rem 1.25rem 3rem; }
+    h1 { margin: 0 0 0.35rem; font-size: 1.35rem; }
+    .lead {
+      margin: 0 0 1rem; color: var(--muted); font-size: 0.92rem;
+      font-family: "IBM Plex Sans", system-ui, sans-serif;
+    }
+    .toolbar {
+      margin-bottom: 0.85rem; font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 0.9rem;
+    }
+    .panel {
+      padding: 1.15rem 1.2rem; border: 1px solid var(--border); border-radius: 10px;
+      background: color-mix(in srgb, var(--surface) 90%, transparent);
+    }
+    .censorly__body {
+      margin: 0; font-size: 1.45rem; white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Насечка слева</h1>
+    <p class="lead">Одинаковая тёплая насечка с замком для всех слов из названия (и «1», и длиннее).</p>
+    <div class="censorly" id="root">
+      <div class="toolbar">
+        <label><input type="checkbox" id="lengths" checked> Показать все длины (#)</label>
+      </div>
+      <div class="panel">
+        <article class="censorly__body" id="body"></article>
+      </div>
+    </div>
+  </div>
+  <script>
+    function el(tag, cls, text) {
+      var n = document.createElement(tag);
+      if (cls) n.className = cls;
+      if (text != null) n.textContent = text;
+      return n;
+    }
+    function mask(opts) {
+      var ch = opts.len;
+      var node = el('span', 'censorly-tok censorly-tok--mask');
+      node.style.setProperty('--ch', String(ch));
+      node.dataset.ch = String(ch);
+      node.dataset.len = String(ch);
+      var stem = el('span', 'censorly-tok__stem');
+      stem.dataset.len = String(ch);
+      if (opts.lock) {
+        node.dataset.titleLemma = '1';
+        stem.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+      }
+      if (opts.ending) {
+        node.classList.add('censorly-tok--mask-ending');
+        stem.appendChild(el('span', 'censorly-tok__ending', opts.ending));
+      }
+      node.appendChild(stem);
+      return node;
+    }
+    function text(s) { return el('span', 'censorly-tok', s); }
+
+    var body = document.getElementById('body');
+    [
+      text('В названии статьи бывает короткое '),
+      mask({ len: 1, lock: true }),
+      text(', рядом обычная маска '),
+      mask({ len: 2 }),
+      text(' и более длинная с насечкой — '),
+      mask({ len: 5, lock: true }),
+      text('. Ещё раз однобуквенная: до '),
+      mask({ len: 1, lock: true }),
+      text(' и после текст на той же линии. С окончанием (не из названия): '),
+      mask({ len: 9, ending: 'ого' }),
+      text('.'),
+    ].forEach(function (n) { body.appendChild(n); });
+
+    var root = document.getElementById('root');
+    root.classList.add('censorly--show-lengths');
+    document.getElementById('lengths').addEventListener('change', function (e) {
+      root.classList.toggle('censorly--show-lengths', e.target.checked);
+    });
+  </script>
+</body>
+</html>
