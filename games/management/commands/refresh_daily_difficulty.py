@@ -9,6 +9,7 @@ from games.difficulty_refresh import (
 )
 from games.cron_lock import distributed_cron_lock
 from games.subscription_gifts import expire_subscription_gifts
+from games.subscription_gift_payments import reconcile_yookassa_gift_payments
 
 
 class Command(BaseCommand):
@@ -42,6 +43,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        if not options['dry_run']:
+            self._reconcile_subscription_gifts()
         # A batch may contain several expensive aggregates.  Keep the
         # cross-instance lease longer than the normal minute tick so the
         # hourly recovery command cannot start a second worker mid-batch.
@@ -77,3 +80,11 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS(
             '{} {}: {}.'.format(prefix, len(results), ', '.join(labels)),
         ))
+
+    def _reconcile_subscription_gifts(self):
+        with distributed_cron_lock('subscription_gifts_yookassa_reconcile', ttl_seconds=300) as acquired:
+            if not acquired:
+                return
+            reconciled_gifts = reconcile_yookassa_gift_payments(limit=50)
+        if reconciled_gifts:
+            self.stdout.write('Reconciled {} YooKassa gift payment(s).'.format(reconciled_gifts))

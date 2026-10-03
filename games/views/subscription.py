@@ -276,6 +276,8 @@ def subscription_claim_gift(request):
             return redirect('new_subscription')
     except Exception:
         logger.exception('subscription_gift_claim_rate_limit_failed user_id=%s', request.user.pk)
+        messages.error(request, 'Не удалось проверить лимит попыток. Попробуйте через минуту.')
+        return redirect('new_subscription')
     code = request.POST.get('code', '')
     try:
         gift, entitlement = claim_gift(code=code, user=request.user)

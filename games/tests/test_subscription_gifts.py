@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from games.club_access import has_club_access
 from games.models import ClubEntitlement, Profile, SubscriptionGift
+from games.subscription_gift_payments import create_paid_gift
 from games.subscription_gifts import claim_gift, create_gift, gift_duration_label
 from games.telegram.admin_commands import handle_admin_command
 
@@ -50,6 +51,19 @@ class SubscriptionGiftTests(TestCase):
 
         self.assertIsNone(entitlement.ends_at)
         self.assertTrue(has_club_access(self.user))
+
+    def test_unpaid_paid_provider_gift_cannot_be_claimed(self):
+        gift, code = create_paid_gift(
+            purchaser=self.admin,
+            duration_months=1,
+            provider=SubscriptionGift.PROVIDER_TRIBUTE,
+            amount=555,
+            currency='EUR',
+        )
+        with self.assertRaisesMessage(ValueError, 'ещё не оплачен'):
+            claim_gift(code=code, user=self.user)
+        gift.refresh_from_db()
+        self.assertEqual(gift.status, SubscriptionGift.STATUS_CREATED)
 
     def test_gift_starts_after_existing_entitlement(self):
         now = timezone.now()

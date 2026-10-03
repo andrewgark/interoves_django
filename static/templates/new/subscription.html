@@ -386,7 +386,13 @@
         <div>
           <strong>Подарок на {{ item.duration_label }}</strong>
           <div class="new-pay-order__meta">
-            {% if item.gift.status == 'claimed' %}
+            {% if item.gift.status == 'created' %}
+              {% if item.gift.payment.status == 'manual_review' %}
+                Платёж проверяется
+              {% else %}
+                Ожидается подтверждение оплаты
+              {% endif %}
+            {% elif item.gift.status == 'claimed' %}
               Активирован{% if item.gift.claimed_at %} {{ item.gift.claimed_at|date:'j E Y' }}{% endif %}
             {% elif item.gift.status == 'revoked' %}
               Отозван
@@ -398,8 +404,12 @@
           </div>
         </div>
         <div class="new-sub-gift-code-row">
-          <code>{{ item.code }}</code>
-          {% if item.code %}<button type="button" class="new-btn new-btn--ghost new-btn--mini" data-copy-gift-code="{{ item.code }}">Скопировать</button>{% endif %}
+          {% if item.code %}
+            <code>{{ item.code }}</code>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-copy-gift-code="{{ item.code }}">Скопировать</button>
+          {% else %}
+            <span class="new-pay-order__meta">Код появится после подтверждения оплаты</span>
+          {% endif %}
         </div>
       </div>
     {% endfor %}

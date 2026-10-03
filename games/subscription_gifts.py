@@ -144,6 +144,8 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
     gift = SubscriptionGift.objects.select_for_update().filter(code_hash=_code_hash(normalized)).first()
     if gift is None:
         raise ValueError('Код подарка не найден')
+    if gift.status == SubscriptionGift.STATUS_CREATED and gift.provider:
+        raise ValueError('Этот подарок ещё не оплачен')
     if gift.status not in (SubscriptionGift.STATUS_CREATED, SubscriptionGift.STATUS_PAID):
         raise ValueError('Этот подарок уже использован или отозван')
     if gift.expires_at and gift.expires_at <= timezone.now():
@@ -181,7 +183,7 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
     )
     entitlement.club_subscription = subscription
     entitlement.save(update_fields=['club_subscription'])
-    if subscription.paid_until is None or subscription.paid_until < ends_at if ends_at else True:
+    if ends_at is None or subscription.paid_until is None or subscription.paid_until < ends_at:
         subscription.paid_until = ends_at
     subscription.status = ClubSubscription.STATUS_CANCELLED
     subscription.auto_renew = False
@@ -236,13 +238,14 @@ def purchaser_gifts(user):
     expire_subscription_gifts(purchaser=user)
     gifts = SubscriptionGift.objects.filter(
         purchaser=user,
-        status__in=(SubscriptionGift.STATUS_PAID, SubscriptionGift.STATUS_CLAIMED,
-                    SubscriptionGift.STATUS_REVOKED, SubscriptionGift.STATUS_EXPIRED),
-    ).select_related('claimed_by').order_by('-created_at')
+        status__in=(SubscriptionGift.STATUS_CREATED, SubscriptionGift.STATUS_PAID,
+                    SubscriptionGift.STATUS_CLAIMED, SubscriptionGift.STATUS_REVOKED,
+                    SubscriptionGift.STATUS_EXPIRED),
+    ).select_related('claimed_by', 'payment').order_by('-created_at')
     return [
         {
             'gift': gift,
-            'code': decrypt_gift_code(gift),
+            'code': decrypt_gift_code(gift) if gift.status != SubscriptionGift.STATUS_CREATED else '',
             'duration_label': gift_duration_label(gift),
         }
         for gift in gifts
