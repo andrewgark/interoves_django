@@ -127,7 +127,10 @@ def daily_result_projection_attempt_delete(sender, instance, **kwargs):
     task_group = TaskGroup.objects.filter(pk=task_group_id).first()
     game = Game.objects.filter(pk=instance.game_id, project_id='sections').first()
     if task_group is not None and game is not None:
-        mark_projection_dirty(game, task_group, full=True)
+        transaction.on_commit(
+            lambda game=game, task_group=task_group:
+            mark_projection_dirty(game, task_group, full=True),
+        )
 
 
 @receiver(post_delete, sender=HintAttempt, dispatch_uid='daily-result-projection-hint-delete')
@@ -147,7 +150,10 @@ def daily_result_projection_hint_delete(sender, instance, **kwargs):
     for game in Game.objects.filter(
         project_id='sections', task_group_links__task_group=task_group,
     ).distinct():
-        mark_projection_dirty(game, task_group, full=True)
+        transaction.on_commit(
+            lambda game=game, task_group=task_group:
+            mark_projection_dirty(game, task_group, full=True),
+        )
 
 logger = logging.getLogger(__name__)
 

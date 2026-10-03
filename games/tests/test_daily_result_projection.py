@@ -87,6 +87,33 @@ class DailyResultProjectionTests(TestCase):
             self.game, self.group, full=True,
         )
 
+    def test_deleted_source_invalidates_projection_after_commit(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', points=10,
+            checker_data='answer', text='Question',
+        )
+        attempt = Attempt.manager.create(
+            task=task, game=self.game, anon_key='delete-after-commit',
+            text='answer', status='Ok', points=10,
+        )
+        with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
+            with self.captureOnCommitCallbacks(execute=True):
+                with transaction.atomic():
+                    attempt.delete()
+                    mark_dirty.assert_not_called()
+            mark_dirty.assert_called_once_with(self.game, self.group, full=True)
+
+        hint = Hint.objects.create(task=task, number='1', points_penalty=Decimal('2'))
+        hint_attempt = HintAttempt.objects.create(
+            hint=hint, anon_key='delete-hint-after-commit', is_real_request=True,
+        )
+        with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
+            with self.captureOnCommitCallbacks(execute=True):
+                with transaction.atomic():
+                    hint_attempt.delete()
+                    mark_dirty.assert_not_called()
+            mark_dirty.assert_called_once_with(self.game, self.group, full=True)
+
     def test_ordinary_projection_uses_best_attempt_and_hint_penalty(self):
         task = Task.objects.create(
             task_group=self.group, number='1', task_type='default', points=10,
