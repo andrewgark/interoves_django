@@ -2443,7 +2443,7 @@ def new_results_page(request, game_id):
         raise Http404()
 
     snap = GameResultsSnapshot.objects.filter(game=game, mode='general').first()
-    if snap and snap.payload:
+    if snap and snap.payload and request.GET.get('actors') is None:
         data = snapshot_to_results_context(game, snap.payload)
     else:
         data = _new_results_compute(game, mode='general', actor_types=_results_actor_filter_types(request))
