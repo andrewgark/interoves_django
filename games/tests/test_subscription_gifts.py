@@ -8,7 +8,7 @@ from unittest.mock import patch
 from games.club_access import has_club_access
 from games.models import ClubEntitlement, ClubSubscription, Profile, SubscriptionGift
 from games.subscription_gift_payments import create_paid_gift
-from games.subscription_gifts import claim_gift, create_gift, gift_duration_label
+from games.subscription_gifts import claim_gift, create_gift, gift_duration_label, revoke_gift_access
 from games.telegram.admin_commands import handle_admin_command
 
 
@@ -93,6 +93,7 @@ class SubscriptionGiftTests(TestCase):
             status=ClubSubscription.STATUS_ACTIVE,
             auto_renew=True,
             paid_until=now + timedelta(days=30),
+            next_charge_at=now + timedelta(days=30),
         )
         created = create_gift(created_by=self.admin, duration_months=1)
 
@@ -102,6 +103,27 @@ class SubscriptionGiftTests(TestCase):
         self.assertTrue(subscription.auto_renew)
         self.assertEqual(subscription.status, ClubSubscription.STATUS_ACTIVE)
         self.assertGreater(subscription.paid_until, now + timedelta(days=30))
+        self.assertEqual(subscription.next_charge_at, subscription.paid_until)
+
+    def test_revoking_gift_restores_paid_period_and_renewal_date(self):
+        now = timezone.now()
+        paid_until = now + timedelta(days=30)
+        subscription = ClubSubscription.objects.create(
+            user=self.user,
+            provider=ClubSubscription.PROVIDER_YOOKASSA,
+            status=ClubSubscription.STATUS_ACTIVE,
+            auto_renew=True,
+            paid_until=paid_until,
+            next_charge_at=paid_until,
+        )
+        created = create_gift(created_by=self.admin, duration_months=1)
+        gift, _ = claim_gift(code=created.code, user=self.user)
+
+        revoke_gift_access(gift)
+
+        subscription.refresh_from_db()
+        self.assertEqual(subscription.paid_until, paid_until)
+        self.assertEqual(subscription.next_charge_at, paid_until)
 
     def test_addressed_gift_cannot_be_claimed_by_wrong_telegram(self):
         other = User.objects.create_user('other')

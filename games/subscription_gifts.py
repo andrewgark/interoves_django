@@ -188,7 +188,13 @@ def claim_gift(*, code: str, user) -> tuple[SubscriptionGift, ClubEntitlement]:
     # A gift extends access; it must not cancel a subscription the recipient
     # already pays for. In particular, preserve YooKassa auto-renewal.
     if subscription.auto_renew:
-        subscription.save(update_fields=['paid_until', 'updated_at'])
+        update_fields = ['paid_until', 'updated_at']
+        if ends_at is not None and (
+            subscription.next_charge_at is None or subscription.next_charge_at < ends_at
+        ):
+            subscription.next_charge_at = ends_at
+            update_fields.append('next_charge_at')
+        subscription.save(update_fields=update_fields)
     else:
         subscription.status = ClubSubscription.STATUS_CANCELLED
         subscription.auto_renew = False
@@ -222,17 +228,22 @@ def revoke_gift_access(gift: SubscriptionGift, *, now=None) -> None:
             revoked_at__isnull=True, starts_at__lte=now,
         ).exclude(ends_at__isnull=True).values_list('ends_at', flat=True)
     )
-    if active_ends:
-        replacement = max(active_ends)
-    else:
-        replacement = now
+    gift_period = gift.entitlements.order_by('-created_at').first()
+    replacement_candidates = active_ends[:]
+    if gift_period is not None and gift_period.starts_at > now:
+        replacement_candidates.append(gift_period.starts_at)
+    replacement = max(replacement_candidates) if replacement_candidates else now
     if subscription.paid_until and subscription.paid_until > now:
         # paid_until is also maintained by the billing providers. Only reduce
         # it when the revoked gift was the source of that visible end date.
         gift_end = gift.entitlements.order_by('-ends_at').values_list('ends_at', flat=True).first()
         if gift_end and subscription.paid_until <= gift_end:
             subscription.paid_until = replacement
-            subscription.save(update_fields=['paid_until', 'updated_at'])
+            update_fields = ['paid_until', 'updated_at']
+            if subscription.auto_renew:
+                subscription.next_charge_at = replacement
+                update_fields.append('next_charge_at')
+            subscription.save(update_fields=update_fields)
 
 
 def gift_duration_label(gift: SubscriptionGift) -> str:
