@@ -10,8 +10,8 @@
   /* Title-lemma notch (left rail) — warm, distinct from the black bar. */
   --censorly-notch: color-mix(in srgb, var(--accent, #c9a227) 78%, #3d2e08);
   --censorly-notch-lock: color-mix(in srgb, var(--bg, #fff) 88%, #f0e6c8);
-  /* Same width as a 1-letter black bar: ch*0.52em + 0.04em with ch=1. */
-  --censorly-notch-w: calc(0.52em + 0.04em);
+  /* Same width as a 1-letter black bar: ch*0.6em + 0.04em with ch=1. */
+  --censorly-notch-w: calc(0.6em + 0.04em);
   /* Ghost ending inside the black bar — barely readable on the mask. */
   --censorly-ending-on-mask: color-mix(in srgb, var(--bg, #fff) 34%, transparent);
   container-type: inline-size;
@@ -123,9 +123,10 @@ html.new-ui-dark .censorly__dock {
 
 .censorly__title,
 .censorly__body {
-  font-family: "IBM Plex Serif", "Literata", "Source Serif 4", Georgia, serif;
-  /* Tight — mask bars are ~1.15em tall; avoid airy paragraph gaps. */
-  line-height: 1.32;
+  /* Monospace so masked slots and revealed letters share the same advance. */
+  font-family: Consolas, "Cascadia Mono", "SF Mono", "Liberation Mono", Menlo, Monaco, monospace;
+  /* Tight — mask bars sized in em; avoid airy paragraph gaps. */
+  line-height: 1.28;
   overflow-wrap: break-word;
   min-width: 0;
 }
@@ -209,23 +210,23 @@ html.new-ui-dark .censorly__dock {
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  /* Fixed size from letter count — match live glyph advance in Plex Serif. */
-  width: calc(var(--ch, 4) * 0.52em + 0.04em);
+  /* Fixed size from letter count — match Consolas / monospace advance. */
+  width: calc(var(--ch, 4) * 0.6em + 0.04em);
   max-width: 100%;
-  height: 1.28em;
-  padding: 0 0.08em;
+  height: 1.02em;
+  padding: 0 0.06em;
   overflow: hidden;
   border-radius: 2px;
   /* Keep opacity off the element so ghost ending / lock stay crisp. */
   background: color-mix(in srgb, var(--text) 92%, transparent);
   position: relative;
-  vertical-align: -0.14em;
+  vertical-align: -0.08em;
   transform: none;
 }
 
 .censorly-tok.is-heading .censorly-tok__stem {
-  width: calc(var(--ch, 4) * 0.52em + 0.06em);
-  height: 1.28em;
+  width: calc(var(--ch, 4) * 0.6em + 0.06em);
+  height: 1.02em;
 }
 
 /* Shared lock size (notch + revealed). */
@@ -240,7 +241,7 @@ html.new-ui-dark .censorly__dock {
   Black letter-bar width unchanged; notch is added on the left.
 */
 .censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
-  width: calc(var(--ch, 4) * 0.52em + 0.04em + var(--censorly-notch-w));
+  width: calc(var(--ch, 4) * 0.6em + 0.04em + var(--censorly-notch-w));
   padding-left: var(--censorly-notch-w);
   background:
     linear-gradient(
@@ -252,7 +253,7 @@ html.new-ui-dark .censorly__dock {
     );
 }
 .censorly-tok.is-heading.censorly-tok--mask[data-title-lemma] .censorly-tok__stem {
-  width: calc(var(--ch, 4) * 0.52em + 0.06em + var(--censorly-notch-w));
+  width: calc(var(--ch, 4) * 0.6em + 0.06em + var(--censorly-notch-w));
 }
 .censorly-tok__stem .censorly-tok__lock {
   position: absolute;
@@ -291,7 +292,7 @@ html.new-ui-dark .censorly__dock {
   opacity: 0.96;
   pointer-events: none;
   font-variant-numeric: tabular-nums;
-  font-family: "IBM Plex Sans", "Source Sans 3", system-ui, sans-serif;
+  font-family: Consolas, "Cascadia Mono", "SF Mono", Menlo, Monaco, monospace;
   z-index: 1;
 }
 
