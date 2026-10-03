@@ -137,7 +137,10 @@ def yookassa_webhook(request):
         metadata = payment_data.get('metadata') or {}
         if str(metadata.get('purpose') or '') == 'club_gift':
             from games.subscription_gift_payments import process_yookassa_gift_refund
-            if not process_yookassa_gift_refund({'payment_id': payment_id}):
+            if not process_yookassa_gift_refund({
+                'payment_id': payment_id,
+                'amount': payment_obj.get('amount'),
+            }):
                 logger.warning('yookassa_webhook: unknown gift refund payment_id=%s', payment_id)
         return HttpResponse(status=200)
     payment_id = payment_obj.get('id')

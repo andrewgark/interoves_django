@@ -93,9 +93,19 @@ def start_yookassa_gift(*, user, months: int, return_url: str) -> GiftCheckoutRe
             purchaser=user,
             provider=SubscriptionGift.PROVIDER_YOOKASSA,
             duration_months=months,
-            status=SubscriptionGiftPayment.STATUS_PENDING,
+            status__in=(
+                SubscriptionGiftPayment.STATUS_PENDING,
+                SubscriptionGiftPayment.STATUS_MANUAL_REVIEW,
+            ),
             created_at__gte=timezone.now() - timedelta(hours=2),
         ).select_related('gift').order_by('-created_at').first()
+        if active and active.status == SubscriptionGiftPayment.STATUS_MANUAL_REVIEW:
+            return GiftCheckoutResult(
+                False,
+                'Предыдущий платёж ещё проверяется. Повторно оплачивать подарок пока нельзя.',
+                http_status=409,
+                payment=active,
+            )
         if active and active.confirmation_url:
             return GiftCheckoutResult(True, payment_url=active.confirmation_url, payment=active)
         gift, _code = create_paid_gift(
@@ -331,11 +341,60 @@ def process_yookassa_gift_refund(payment_data: dict) -> bool:
     ).select_related('gift').first()
     if payment is None:
         return False
+    refund_amount = payment_data.get('amount') or {}
+    try:
+        refund_minor = Decimal(str(refund_amount.get('value'))) * 100
+        valid_refund = (
+            refund_minor == refund_minor.to_integral_value()
+            and int(refund_minor) == payment.expected_amount
+            and refund_amount.get('currency') == payment.currency
+        )
+    except (InvalidOperation, TypeError, ValueError):
+        valid_refund = False
+    if not valid_refund:
+        payment.status = SubscriptionGiftPayment.STATUS_MANUAL_REVIEW
+        payment.raw_event_excerpt = {
+            'payment_id': payment_id,
+            'event': 'refund.succeeded',
+            'refund_amount': refund_amount,
+        }
+        payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
+        logger.warning('subscription_gift_yookassa_refund_amount_mismatch payment_id=%s', payment_id)
+        return False
     payment.status = SubscriptionGiftPayment.STATUS_CANCELED
-    payment.raw_event_excerpt = {'payment_id': payment_id, 'event': 'refund.succeeded'}
+    payment.raw_event_excerpt = {
+        'payment_id': payment_id, 'event': 'refund.succeeded', 'refund_amount': refund_amount,
+    }
     payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
     from games.subscription_gifts import revoke_gift_access
     revoke_gift_access(payment.gift)
+    return True
+
+
+@transaction.atomic
+def manually_resolve_yookassa_gift_payment(payment_id: int, *, succeeded: bool) -> bool:
+    payment = SubscriptionGiftPayment.objects.select_for_update().filter(
+        pk=payment_id,
+        provider=SubscriptionGift.PROVIDER_YOOKASSA,
+        status=SubscriptionGiftPayment.STATUS_MANUAL_REVIEW,
+    ).select_related('gift').first()
+    if payment is None:
+        return False
+    now = timezone.now()
+    if succeeded:
+        payment.status = SubscriptionGiftPayment.STATUS_SUCCEEDED
+        payment.succeeded_at = payment.succeeded_at or now
+        payment.raw_event_excerpt = dict(payment.raw_event_excerpt or {}, manual_resolution='succeeded')
+        payment.save(update_fields=['status', 'succeeded_at', 'raw_event_excerpt', 'updated_at'])
+        payment.gift.status = SubscriptionGift.STATUS_PAID
+        payment.gift.paid_at = payment.gift.paid_at or now
+        payment.gift.save(update_fields=['status', 'paid_at'])
+    else:
+        payment.status = SubscriptionGiftPayment.STATUS_CANCELED
+        payment.raw_event_excerpt = dict(payment.raw_event_excerpt or {}, manual_resolution='canceled')
+        payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
+        from games.subscription_gifts import revoke_gift_access
+        revoke_gift_access(payment.gift)
     return True
 
 

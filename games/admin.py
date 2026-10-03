@@ -636,6 +636,28 @@ class SubscriptionGiftAdmin(admin.ModelAdmin):
         return False
 
 
+@admin.action(description='Подтвердить выбранные gift-платежи вручную')
+def confirm_subscription_gift_payments(modeladmin, request, queryset):
+    from games.subscription_gift_payments import manually_resolve_yookassa_gift_payment
+
+    resolved = sum(
+        manually_resolve_yookassa_gift_payment(payment.pk, succeeded=True)
+        for payment in queryset
+    )
+    messages.success(request, 'Подтверждено gift-платежей: {}.'.format(resolved))
+
+
+@admin.action(description='Отменить выбранные gift-платежи вручную')
+def cancel_subscription_gift_payments(modeladmin, request, queryset):
+    from games.subscription_gift_payments import manually_resolve_yookassa_gift_payment
+
+    resolved = sum(
+        manually_resolve_yookassa_gift_payment(payment.pk, succeeded=False)
+        for payment in queryset
+    )
+    messages.success(request, 'Отменено gift-платежей: {}.'.format(resolved))
+
+
 @admin.register(SubscriptionGiftPayment)
 class SubscriptionGiftPaymentAdmin(admin.ModelAdmin):
     list_display = (
@@ -646,6 +668,7 @@ class SubscriptionGiftPaymentAdmin(admin.ModelAdmin):
     search_fields = ('provider_payment_id', 'purchase_id', 'purchaser__username')
     raw_id_fields = ('gift', 'purchaser')
     readonly_fields = [field.name for field in SubscriptionGiftPayment._meta.fields]
+    actions = (confirm_subscription_gift_payments, cancel_subscription_gift_payments)
 
     def has_add_permission(self, request):
         return False

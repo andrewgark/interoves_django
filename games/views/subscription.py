@@ -218,6 +218,7 @@ def _subscription_page_context(request):
         'tribute_seller_url': seller_url,
         'telegram_linked_notice': request.GET.get('telegram') == 'linked',
         'payment_return': request.GET.get('payment') == 'return',
+        'gift_payment_return': request.GET.get('payment') == 'gift-return',
         'payment_success_return': (
             request.GET.get('payment') == 'return'
             and has_club_access(request.user, now=now)

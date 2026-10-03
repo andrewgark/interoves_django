@@ -72,6 +72,9 @@
       <p class="new-login-hint">Если оплата прошла, статус подписки обновится после подтверждения от ЮKassa. Обновите страницу через несколько секунд.</p>
     {% endif %}
   {% endif %}
+  {% if gift_payment_return %}
+    <p class="new-login-hint">Платёж за подарок отправлен на проверку. Код появится в этом разделе после подтверждения оплаты.</p>
+  {% endif %}
 
   <div class="new-card new-pay-order-card">
     {% if club_archive_gating_enabled %}

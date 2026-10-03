@@ -14,6 +14,7 @@ from games.subscription_gift_payments import (
     process_tribute_gift_purchase,
     process_tribute_gift_refund,
     process_yookassa_gift_event,
+    process_yookassa_gift_refund,
     reconcile_yookassa_gift_payments,
     start_yookassa_gift,
 )
@@ -339,3 +340,39 @@ class SubscriptionGiftPaymentTests(TestCase):
         payment.gift.refresh_from_db()
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
         self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
+
+    @patch('games.subscription_gift_payments.Payment.create')
+    def test_yookassa_manual_review_prevents_duplicate_checkout(self, create):
+        create.return_value = {
+            'id': 'yk-gift-ambiguous',
+            'confirmation': {},
+        }
+        first = start_yookassa_gift(
+            user=self.purchaser, months=1,
+            return_url='https://interoves.com/subscription/?payment=gift-return',
+        )
+        second = start_yookassa_gift(
+            user=self.purchaser, months=1,
+            return_url='https://interoves.com/subscription/?payment=gift-return',
+        )
+        self.assertFalse(first.ok)
+        self.assertFalse(second.ok)
+        self.assertEqual(second.http_status, 409)
+        self.assertEqual(create.call_count, 1)
+
+    @patch('games.subscription_gift_payments.Payment.create')
+    def test_yookassa_partial_refund_goes_to_manual_review(self, create):
+        create.return_value = {
+            'id': 'yk-gift-refund',
+            'confirmation': {'confirmation_url': 'https://yookassa.test/pay/refund'},
+        }
+        payment = start_yookassa_gift(
+            user=self.purchaser, months=1,
+            return_url='https://interoves.com/subscription/?payment=gift-return',
+        ).payment
+        self.assertFalse(process_yookassa_gift_refund({
+            'payment_id': payment.provider_payment_id,
+            'amount': {'value': '100.00', 'currency': 'RUB'},
+        }))
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_MANUAL_REVIEW)
