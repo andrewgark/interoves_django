@@ -240,6 +240,84 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertIn('Обзор книг', trimmed)
         self.assertIn('Литературный обзор', trimmed)
 
+    def test_clean_wiki_extract_strips_math_displaystyle_dumps(self):
+        """Wikipedia explaintext leaves MathML glyph lines + {\\displaystyle …}."""
+        from games.censorly.wiki import clean_wiki_extract, _trim_extract
+
+        # Shape mirrors ruwiki «Магнетизм» / TextExtracts math dumps.
+        dirty = (
+            'Магнитное поле с микроскопической напряжённостью h описывается '
+            'системой из двух уравнений (СГС):\n'
+            '\n'
+            '  \n'
+            '    \n'
+            '      \n'
+            '        div\n'
+            '        \u2061\n'
+            '        \n'
+            '          h\n'
+            '        \n'
+            '        =\n'
+            '        0\n'
+            '        ,\n'
+            '      \n'
+            '    \n'
+            '    {\\displaystyle \\operatorname {div} \\mathbf {h} =0,'
+            '\\quad \\operatorname {rot} \\mathbf {h} ='
+            '{\\frac {1}{c}}{\\frac {\\partial \\mathbf {e} }{\\partial t}}+'
+            '{\\frac {4\\pi }{c}}\\rho \\mathbf {v} ,}\n'
+            '  \n'
+            '\n'
+            'где e — микроскопическая напряжённость электрического поля, '
+            'а произведение плотности электрических зарядов на их скорость \n'
+            '  \n'
+            '    \n'
+            '      \n'
+            '        ρ\n'
+            '        \n'
+            '          v\n'
+            '        \n'
+            '      \n'
+            '    \n'
+            '    {\\displaystyle \\rho \\mathbf {v} }\n'
+            '  \n'
+            ' соответствует плотности тока. '
+            'При этом среднюю напряжённость называют магнитной индукцией:\n'
+            '\n'
+            '  \n'
+            '    \n'
+            '      \n'
+            '        B\n'
+            '        .\n'
+            '      \n'
+            '    \n'
+            '    {\\displaystyle {\\overline {\\mathbf {h} }}=\\mathbf {B} .}\n'
+            '  \n'
+            '\n'
+            '\n'
+            '==== Токи намагничивания ====\n'
+            '\n'
+            'Усреднённые по объёму молекулярные токи называют токами намагничивания.\n'
+        )
+        cleaned = clean_wiki_extract(dirty)
+        self.assertNotIn('displaystyle', cleaned)
+        self.assertNotIn('\\frac', cleaned)
+        self.assertNotIn('\\mathbf', cleaned)
+        self.assertNotIn('\u2061', cleaned)
+        # Indented glyph dump gone; prose still readable.
+        self.assertNotIn('\n        div\n', cleaned)
+        self.assertIn('системой из двух уравнений (СГС):', cleaned)
+        self.assertIn('где e — микроскопическая напряжённость', cleaned)
+        self.assertIn('скорость соответствует плотности тока', cleaned)
+        self.assertIn('магнитной индукцией:', cleaned)
+        self.assertIn('==== Токи намагничивания ====', cleaned)
+        self.assertIn('токами намагничивания', cleaned)
+        # Still works through the full trim pipeline (headings → markers).
+        trimmed, truncated = _trim_extract(dirty)
+        self.assertFalse(truncated)
+        self.assertNotIn('displaystyle', trimmed)
+        self.assertIn('соответствует плотности тока', trimmed)
+
     def test_public_payload_hides_wiki_pageid_until_won(self):
         from games.censorly.play import public_payload
         from games.censorly.tokenize import build_puzzle_payload

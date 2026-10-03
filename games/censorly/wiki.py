@@ -36,7 +36,6 @@ _SECTION_HEADING_RE = re.compile(
     re.MULTILINE,
 )
 
-
 class WikiFetchError(Exception):
     """Failed to load or validate a Wikipedia article."""
 
@@ -119,6 +118,71 @@ def _strip_orphan_heading(extract: str) -> str:
     return text[: last.start()].rstrip()
 
 
+def _remove_balanced_tex_groups(text: str) -> str:
+    """Drop `{ \\command … }` groups (typically `{\\displaystyle …}`) with brace balance."""
+    if not text or '\\' not in text:
+        return text
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if text[i] == '{' and i + 1 < n and text[i + 1] == '\\':
+            depth = 0
+            j = i
+            while j < n:
+                ch = text[j]
+                if ch == '{':
+                    depth += 1
+                elif ch == '}':
+                    depth -= 1
+                    if depth == 0:
+                        j += 1
+                        break
+                j += 1
+            i = j
+            continue
+        out.append(text[i])
+        i += 1
+    return ''.join(out)
+
+
+def _strip_indented_math_lines(text: str) -> str:
+    """Drop indented MathML-plaintext glyph lines left beside TeX groups."""
+    if not text:
+        return text
+    kept: list[str] = []
+    for line in text.splitlines():
+        # Prose and == headings start at column 0; math dumps are indented.
+        if line.startswith('  ') or line.startswith('\t'):
+            continue
+        kept.append(line)
+    return '\n'.join(kept)
+
+
+def _collapse_extract_whitespace(text: str) -> str:
+    """Normalize blanks after math/image cleanup so prose reads as paragraphs."""
+    if not text:
+        return text
+    text = text.replace('\u2061', '')  # function-application (MathML)
+    text = re.sub(r'[ \t]+\n', '\n', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    # Punctuation that followed a removed display formula.
+    text = re.sub(r'\n{2,}[ \t]*([,.;:!?…])', r'\1', text)
+    # Mid-sentence leftovers: "скорость\n\nсоответствует" / "скорость\n соответствует".
+    text = re.sub(r'([^\n])\n{2,}[ \t]*([а-яёa-z])', r'\1 \2', text)
+    text = re.sub(r'([^\n])\n[ \t]*([а-яёa-z])', r'\1 \2', text)
+    text = re.sub(r'[ \t]{2,}', ' ', text)
+    return text.strip()
+
+
+def clean_wiki_extract(extract: str) -> str:
+    """Remove formula/image TextExtracts noise; keep readable Russian prose."""
+    text = extract or ''
+    text = _remove_balanced_tex_groups(text)
+    text = _strip_indented_math_lines(text)
+    return _collapse_extract_whitespace(text)
+
+
 def _headings_to_marked(extract: str) -> str:
     """Wrap == Heading == as marked spans for larger play UI (tokenize in_heading)."""
     from games.censorly.tokenize import HEADING_END, HEADING_START
@@ -135,7 +199,8 @@ def _headings_to_marked(extract: str) -> str:
 
 def _trim_extract(extract: str) -> tuple[str, bool]:
     """Return (text, truncated). Prefer cutting before a section heading."""
-    text = _strip_tail_sections(extract or '')
+    text = clean_wiki_extract(extract or '')
+    text = _strip_tail_sections(text)
     text = _strip_orphan_heading(text)
     if len(text) <= MAX_BODY_CHARS:
         return _headings_to_marked(text), False
