@@ -198,7 +198,7 @@ class BackgroundWorkerTests(SimpleTestCase):
         self.assertEqual(body['mode'], 'apply')
         self.assertEqual(body['missing'], 1)
         self.assertEqual(body['rebuilt'], 1)
-        reconcile.assert_called_once_with(apply=True, limit=5)
+        reconcile.assert_called_once_with(apply=True, limit=10)
 
     def test_projection_lock_skip_is_acked(self):
         scheduled = timezone.now().isoformat()

@@ -299,6 +299,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
     # IDs and all values are bound parameters. Table identifiers are fixed app
     # schema names quoted through the active database backend.
     placeholders = ', '.join(['%s'] * len(group_ids))
+    timing_group_placeholders = placeholders
     actor_placeholders = ', '.join(['%s'] * len(actor_types)) or "NULL"
     eligibility = f'''p.game_id = %s AND p.task_group_id IN ({placeholders})
       AND p.actor_type IN ({actor_placeholders})
@@ -349,6 +350,8 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                            ) AS timing_rank
                       FROM {timing_table} dt
                      WHERE dt.replay_slot_id IS NULL
+                       AND dt.game_id = %s
+                       AND dt.task_group_id IN ({timing_group_placeholders})
                    ) canonical
              WHERE canonical.timing_rank = 1
         ),'''
@@ -401,6 +404,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                           actor_type, actor_key
                  LIMIT %s''',
             [
+                game.pk, *group_ids,
                 *base_params, *base_params, *base_params,
                 page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
                 page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,

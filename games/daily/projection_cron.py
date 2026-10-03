@@ -14,7 +14,12 @@ from games.models import DailyResultProjectionState, GameTaskGroup
 
 PROJECTION_CRON_LOCK_NAME = 'daily_result_projection_reconcile'
 PROJECTION_CRON_LOCK_TTL_SECONDS = 120
-PROJECTION_REPAIR_LIMIT = 5
+# A full rebuild is deliberately bounded because each release can scan a large
+# attempt history. Five repairs per pass were not enough to catch up with the
+# invalid release backlog, so the worker could keep serving the legacy builder
+# indefinitely. Ten keeps one pass comfortably bounded while allowing the
+# reconciliation queue to drain.
+PROJECTION_REPAIR_LIMIT = 10
 
 
 @contextmanager

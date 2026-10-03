@@ -1177,6 +1177,11 @@ class Task(models.Model):
     )
 
     task_type = models.CharField(default='default', max_length=100, choices=TASK_TYPE_VARIANTS)
+    # Persisted because parsing replacements text is relatively expensive and
+    # the value is part of the task definition, not of a result request.
+    replacements_answer_rows = models.PositiveIntegerField(
+        blank=True, null=True, editable=False,
+    )
 
     checker = models.ForeignKey(
         CheckerType, related_name='tasks', blank=True, null=True, on_delete=models.SET_NULL,
@@ -1212,6 +1217,10 @@ class Task(models.Model):
     def save(self, *args, **kwargs):
         skip_semantics_reconciliation = kwargs.pop('skip_semantics_reconciliation', False)
         from games.views.track import track_task_change
+        if self.task_type == 'replacements_lines':
+            self.replacements_answer_rows = self._replacements_lines_n_answer_rows()
+        else:
+            self.replacements_answer_rows = None
         is_existing = not self._state.adding
         previous_word_salad = None
         previous_semantics = None
@@ -1241,9 +1250,12 @@ class Task(models.Model):
                         ))
         if not self._state.adding:
             self.attempt_revision = uuid.uuid4()
-            update_fields = kwargs.get('update_fields')
-            if update_fields is not None:
-                kwargs['update_fields'] = set(update_fields) | {'attempt_revision'}
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            update_fields = set(update_fields) | {'replacements_answer_rows'}
+            if not self._state.adding:
+                update_fields.add('attempt_revision')
+            kwargs['update_fields'] = update_fields
         super(Task, self).save(*args, **kwargs)
         projection_groups = {self.task_group_id}
         if previous_semantics:
@@ -1375,7 +1387,10 @@ class Task(models.Model):
 
     def _replacements_lines_n_answer_rows(self):
         """Число строк ответа (как в ReplacementsLinesChecker._resolve_answer_rows)."""
-        from games.replacements_lines import parse_replacements_checker_json_lines, parse_replacements_lines_text
+        from games.replacements_lines import (
+            parse_replacements_checker_json_lines,
+            parse_replacements_lines_text,
+        )
 
         raw = (self.checker_data or '').strip()
         if raw:
@@ -1383,8 +1398,8 @@ class Task(models.Model):
             if parsed:
                 canonical_rows, _ = parsed
                 return len(canonical_rows)
-        pt = parse_replacements_lines_text(self.text or '', raw or None)
-        return len(pt.get('left_lines') or [])
+        parsed_text = parse_replacements_lines_text(self.text or '', raw or None)
+        return len(parsed_text.get('left_lines') or [])
 
     def get_results_max_points(self):
         """
@@ -1407,7 +1422,9 @@ class Task(models.Model):
                 pass
             return m
         if self.task_type == 'replacements_lines':
-            n = self._replacements_lines_n_answer_rows()
+            n = self.replacements_answer_rows
+            if n is None:
+                n = self._replacements_lines_n_answer_rows()
             if n > 0:
                 return m * n
             return m
