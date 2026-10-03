@@ -8485,13 +8485,26 @@ html.is-age-gated .new-wrap {
   font-weight: 700;
   letter-spacing: 0.04em;
 }
+.new-raddle-line {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  width: 100%;
+  container-type: inline-size;
+  container-name: raddle-line;
+}
 .new-raddle-line__mask {
   font-family: var(--new-font-mono);
   letter-spacing: 0.06em;
   color: var(--muted);
   line-height: 1;
+  display: block;
+  width: 100%;
   min-width: 0;
   max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
 }
 .new-raddle-line__len {
   font-size: 0.82rem;
@@ -8534,11 +8547,16 @@ html.is-age-gated .new-wrap {
   font-size: 0.78rem;
 }
 .new-raddle-input {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   letter-spacing: clamp(0.01em, calc(0.1em - 0.005em * var(--raddle-len, 5)), 0.06em);
   text-transform: uppercase;
-  /* плейсхолдер ◼️ шире обычной буквы — ширина от числа слотов маски (em следит за font-size) */
-  width: calc(var(--raddle-len, 5) * 1.2em + 0.5rem);
+  /* The line owns the available width; long formats scale down to fit it. */
+  width: 100%;
+  font-size: clamp(
+    0.68rem,
+    calc((100cqi - 0.8rem) / (var(--raddle-format-len, 5) * 1.08)),
+    1.35rem
+  );
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
@@ -8572,8 +8590,7 @@ html.is-age-gated .new-wrap {
 /* На узком .new-wrap (≤919px) чуть плотнее слоты; масштаб шрифта — через cqi выше. */
 @media (max-width: 919px) {
   .new-raddle-input {
-    width: calc(var(--raddle-len, 5) * 1.05em + 0.35rem);
-    font-size: 1rem;
+    width: 100%;
     letter-spacing: clamp(0.01em, calc(0.08em - 0.004em * var(--raddle-len, 5)), 0.05em);
   }
   .new-raddle-line__mask,
@@ -8595,7 +8612,6 @@ html.is-age-gated .new-wrap {
   .new-raddle-word-cell { gap: 0.2rem; padding: 0.3rem 0.3rem; }
   .new-raddle-line__len { font-size: 0.72rem; }
   .new-raddle-input {
-    font-size: 1rem;
     letter-spacing: clamp(0.01em, calc(0.07em - 0.003em * var(--raddle-len, 5)), 0.045em);
   }
   .new-raddle-line__mask,

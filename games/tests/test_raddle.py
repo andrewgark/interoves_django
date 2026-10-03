@@ -94,11 +94,11 @@ class LengthLabelFromWordTests(SimpleTestCase):
     def test_mask_display_follows_word_separator(self):
         self.assertEqual(
             length_mask_display(parse_length_mask('5-3'), 'РОБИН ГУД'),
-            '◼️◼️◼️◼️◼️ ◼️◼️◼️',
+            '◼◼◼◼◼ ◼◼◼',
         )
         self.assertEqual(
             length_mask_display(parse_length_mask('5 3')),
-            '◼️◼️◼️◼️◼️ ◼️◼️◼️',
+            '◼◼◼◼◼ ◼◼◼',
         )
 
 
@@ -903,8 +903,8 @@ class RaddleUiContextTests(SimpleTestCase):
             self.assertNotIn('ГИТАРА', line)
 
     def test_mask_uses_squares(self):
-        self.assertEqual(length_mask_display(parse_length_mask(4)), '◼️◼️◼️◼️')
-        self.assertEqual(length_mask_display(parse_length_mask('5-9')), '◼️◼️◼️◼️◼️-◼️◼️◼️◼️◼️◼️◼️◼️◼️')
+        self.assertEqual(length_mask_display(parse_length_mask(4)), '◼◼◼◼')
+        self.assertEqual(length_mask_display(parse_length_mask('5-9')), '◼◼◼◼◼-◼◼◼◼◼◼◼◼◼')
 
     def test_spaced_word_length_label_not_hyphen(self):
         """Даже если в lengths ошибочно «5-3», UI показывает «5 3» по пробелу в слове."""
@@ -1028,7 +1028,7 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertFalse(ctx['rows'][1]['attempts_exhausted'])
 
     def test_input_size_from_mask(self):
-        # size с запасом: плейсхолдер ◼️ шире буквы
+        # size с запасом: маска визуально шире обычной буквы
         self.assertEqual(input_size_for_mask(parse_length_mask(4)), 8)
         self.assertEqual(input_size_for_mask(parse_length_mask(5)), 10)
         self.assertEqual(input_size_for_mask(parse_length_mask(9)), 18)

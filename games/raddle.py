@@ -208,7 +208,8 @@ def word_length_matches(word, mask):
     return True
 
 
-_MASK_SQUARE = '◼️'
+# Avoid the emoji variation selector: its glyph width differs by platform.
+_MASK_SQUARE = '◼'
 
 
 def length_mask_display(mask, canonical_word=None):
