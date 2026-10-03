@@ -10,6 +10,7 @@ from games.models import (
     Team,
     anon_key_is_hidden,
 )
+from games.results.context import result_cell_class
 
 # Soft-cache for live (non-frozen) results tables. Progressive ?partial=1 pages
 # must not re-run a full compute for every page of 10–50 rows.
@@ -408,14 +409,7 @@ def build_results_snapshot_payload(game, mode='tournament'):
             except Exception:
                 has_pending = False
 
-            cls = ''
-            if has_attempts:
-                if max_points > 0 and float(result_points) >= max_points - 1e-9:
-                    cls = 'cell-full'
-                elif float(result_points) <= 0:
-                    cls = 'cell-zero'
-                else:
-                    cls = 'cell-partial'
+            cls = result_cell_class(result_points, max_points, has_attempts=has_attempts)
 
             if result_points and result_points > 0:
                 participant_to_score[participant] = _json_num(

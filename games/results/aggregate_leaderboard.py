@@ -11,6 +11,7 @@ from django.db.models import Prefetch, IntegerField
 from django.db.models.functions import Cast
 from django.utils.dateparse import parse_datetime
 from games.results.leaderboard import eligible_release_actor_keys, score_rank
+from games.results.context import result_cell_class
 from games.models import GameTaskGroup, PersonalResultsParticipant, Profile, Task, TaskGroup
 from games.sections.paths import section_play_path
 from games.daily.archive import parse_month
@@ -230,15 +231,10 @@ def aggregate_actor_filter_types(request):
 
 
 def _aggregate_cell(score, maximum):
-    if maximum is None:
-        return {'score': score, 'cls': 'cell-no'}
-    if score == maximum:
-        cls = 'cell-full'
-    elif score <= 0:
-        cls = 'cell-zero'
-    else:
-        cls = 'cell-partial'
-    return {'score': score, 'cls': cls}
+    return {
+        'score': score,
+        'cls': result_cell_class(score, maximum, unknown_class='cell-no'),
+    }
 
 
 def _actor_presentation(actor):

@@ -13,6 +13,25 @@ def results_column_count(task_groups, mode='general'):
     )
 
 
+def result_cell_class(points, maximum, *, has_attempts=True, unknown_class=''):
+    """Classify one result cell consistently across live and cached tables."""
+    if not has_attempts:
+        return ''
+    if maximum is None:
+        return unknown_class
+    try:
+        points = float(points or 0)
+        maximum = float(maximum or 0)
+    except (TypeError, ValueError):
+        points = 0.0
+        maximum = 0.0
+    if maximum > 0 and points >= maximum - 1e-9:
+        return 'cell-full'
+    if points <= 0:
+        return 'cell-zero'
+    return 'cell-partial'
+
+
 def empty_results_rows_context():
     return {
         'teams_sorted': [],

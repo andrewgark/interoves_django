@@ -11,6 +11,7 @@ from games.models import (
     PersonalResultsParticipant, Project, Task, TaskGroup, Team,
 )
 from games.views.new_ui import _attach_results_club_badges, _new_results_compute
+from games.results.context import result_cell_class
 from games.results_snapshot import build_results_snapshot_payload, snapshot_to_results_context
 
 
@@ -117,6 +118,13 @@ class ResultsTableCellColorsTest(TestCase):
         self.assertEqual(data['team_to_cells'][self.team_pending][t2_idx]['cls'], '')
         self.assertEqual(data['team_to_cells'][self.team_partial][t2_idx]['cls'], '')
         self.assertEqual(data['team_to_cells'][self.team_zero][t2_idx]['cls'], '')
+
+    def test_result_cell_class_handles_all_score_states(self):
+        self.assertEqual(result_cell_class(10, 10), 'cell-full')
+        self.assertEqual(result_cell_class(5, 10), 'cell-partial')
+        self.assertEqual(result_cell_class(0, 10), 'cell-zero')
+        self.assertEqual(result_cell_class(0, 10, has_attempts=False), '')
+        self.assertEqual(result_cell_class(1, None, unknown_class='cell-no'), 'cell-no')
 
     def test_tournament_compute_supports_non_alphabetty_games(self):
         now = timezone.now()

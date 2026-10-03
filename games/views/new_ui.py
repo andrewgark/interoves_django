@@ -145,6 +145,7 @@ from games.results.context import (
     results_actor_kind,
     results_actor_identity,
     results_column_count,
+    result_cell_class,
 )
 from games.results.access import (
     anon_key_from_request,
@@ -2340,14 +2341,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
                 except Exception:
                     hint_numbers = []
 
-            cls = ''
-            if has_attempts:
-                if max_points > 0 and points >= max_points - 1e-9:
-                    cls = 'cell-full'
-                elif points <= 0:
-                    cls = 'cell-zero'
-                else:
-                    cls = 'cell-partial'
+            cls = result_cell_class(points, max_points, has_attempts=has_attempts)
 
             cells.append({
                 'cls': cls,
