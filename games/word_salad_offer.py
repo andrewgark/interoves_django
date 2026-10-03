@@ -656,7 +656,10 @@ def reset_all_salad_progress(
     n_attempts = attempt_qs.count()
     n_chains = chain_qs.count()
     from games.daily_result_projection import mark_projection_dirty
-    mark_projection_dirty(game, task.task_group, full=True)
+    transaction.on_commit(
+        lambda game=game, task_group=task.task_group:
+        mark_projection_dirty(game, task_group, full=True),
+    )
     chain_qs.delete()
     attempt_qs.delete()
     from games.targeted_completion_reconciliation import reconcile_task_group_actors

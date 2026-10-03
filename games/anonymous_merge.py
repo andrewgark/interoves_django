@@ -413,7 +413,10 @@ def _reconcile_one(job, job_token):
             game = Game.objects.filter(pk=item.game_id, project_id='sections').first()
             task_group = TaskGroup.objects.filter(pk=item.task_group_id).first()
             if game is not None and task_group is not None:
-                mark_projection_dirty(game, task_group, full=True)
+                transaction.on_commit(
+                    lambda game=game, task_group=task_group:
+                    mark_projection_dirty(game, task_group, full=True),
+                )
             reconcile_task_group_actors(
                 game_id=item.game_id,
                 task_group_id=item.task_group_id,
