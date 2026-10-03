@@ -9,7 +9,7 @@
   {% endif %}
   {% endwith %}
   {% if task.tags.author %}
-    <p class="new-word-salad__author">Автор: {{ task.tags.author }}</p>
+    <p class="new-word-salad__author">Автор: {{ task.tags.author|public_author }}</p>
   {% endif %}
 
   <div class="new-word-salad__play">

@@ -451,3 +451,14 @@ class RenderNewUiTaskCardTests(TestCase):
         theme_pos = html.index('Тема:')
         author_pos = html.index('Автор: Анна Автор')
         self.assertLess(theme_pos, author_pos)
+
+    def test_render_word_salad_hides_legacy_telegram_author_suffix(self):
+        self.word_salad_task.tags = {'author': 'Анна Автор (@salad_author)'}
+        self.word_salad_task.save(update_fields=['tags'])
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        html = render_new_ui_task_card_html(
+            request, self.word_salad_task, None, 'general', anon_key='anon_test', game=self.game,
+        )
+        self.assertIn('Автор: Анна Автор', html)
+        self.assertNotIn('@salad_author', html)

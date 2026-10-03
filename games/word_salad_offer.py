@@ -60,19 +60,6 @@ def apply_author_tag(task: Task, author: str) -> None:
     task.tags = tags
 
 
-def author_with_telegram_handle(offer: WordSaladOffer) -> str:
-    """Return the public author label used in scheduled salad posts."""
-    author = (offer.author or '').strip()
-    profile = getattr(offer.user, 'profile', None)
-    if profile is None:
-        return author
-    from games.telegram_linking import verified_public_handle
-    handle = verified_public_handle(profile)
-    if not handle:
-        return author
-    return '{} (@{})'.format(author, handle) if author else '@{}'.format(handle)
-
-
 class WordSaladOfferError(Exception):
     """Ошибка операции с предложением салатика."""
 
@@ -491,7 +478,7 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
 
     offer = (
         WordSaladOffer.objects.select_for_update()
-        .select_related('task_group', 'accepted_link', 'user__profile')
+        .select_related('task_group', 'accepted_link')
         .get(pk=offer.pk)
     )
     if offer.status != WordSaladOffer.STATUS_SENT:
@@ -512,7 +499,7 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
         validate_puzzle(grid, words)
     except ValueError as exc:
         raise WordSaladOfferError(str(exc)) from exc
-    apply_author_tag(task, author_with_telegram_handle(offer))
+    apply_author_tag(task, offer.author)
     task.save(update_fields=['tags'])
     ensure_word_salad_game()
     rows = list_word_salad_rows()
