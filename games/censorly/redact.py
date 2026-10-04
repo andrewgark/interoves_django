@@ -148,3 +148,109 @@ def token_by_id(payload: dict[str, Any], token_id: int) -> dict[str, Any] | None
         if int(tok.get('id', -1)) == int(token_id):
             return tok
     return None
+
+
+_SHARE_RUN_LIMIT = 2800
+
+
+def share_mask_runs(
+    tokens: Iterable[dict[str, Any]] | None,
+    *,
+    first_paragraph: bool = False,
+) -> list[dict[str, Any]]:
+    """Unsolved play view: open stop/punct, content words as length masks.
+
+    Paragraph breaks and section headings stay in the run list so the story
+    card can keep going until the sheet is full. ``first_paragraph`` stops
+    at the first break, for callers that only want the lead.
+    """
+    runs: list[dict[str, Any]] = []
+    started = False
+    budget = 0
+    stop = False
+
+    def push_text(text: str) -> None:
+        nonlocal budget
+        if not text:
+            return
+        if runs and runs[-1].get('kind') == 'text':
+            runs[-1]['text'] += text
+        else:
+            runs.append({'kind': 'text', 'text': text})
+        budget += len(text)
+
+    def push_break() -> None:
+        nonlocal stop
+        if first_paragraph and started:
+            stop = True
+            return
+        if not started:
+            return
+        if runs and runs[-1].get('kind') == 'text':
+            trimmed = str(runs[-1].get('text') or '').rstrip()
+            if trimmed:
+                runs[-1]['text'] = trimmed
+            else:
+                runs.pop()
+        if runs and runs[-1].get('kind') != 'break':
+            runs.append({'kind': 'break'})
+
+    for tok in tokens or []:
+        if stop or budget >= _SHARE_RUN_LIMIT:
+            break
+        if not isinstance(tok, dict):
+            continue
+        kind = tok.get('kind') or ''
+        if kind in ('heading_break', 'heading'):
+            push_break()
+            continue
+        text = str(tok.get('text') or '')
+        if '\n' in text:
+            push_break()
+            continue
+        if kind == 'content' and not tok.get('revealed'):
+            try:
+                length = int(tok.get('length') or 0)
+            except (TypeError, ValueError):
+                length = 0
+            if length <= 0:
+                continue
+            started = True
+            run: dict[str, Any] = {'kind': 'mask', 'length': length}
+            ending = str(tok.get('ending') or '').strip()
+            if ending:
+                run['ending'] = ending
+            if tok.get('title_lemma'):
+                run['title'] = True
+            runs.append(run)
+            budget += length
+        elif text:
+            if text.strip():
+                started = True
+            elif not started:
+                continue
+            push_text(text)
+    while runs and runs[-1].get('kind') == 'break':
+        runs.pop()
+    while runs and runs[-1].get('kind') == 'text':
+        trimmed = str(runs[-1].get('text') or '').rstrip()
+        if trimmed == runs[-1].get('text'):
+            break
+        if trimmed:
+            runs[-1]['text'] = trimmed
+            break
+        runs.pop()
+    return runs
+
+
+def unsolved_share_runs(puzzle: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Title and article body as they look before any guess.
+
+    The body keeps later paragraphs and headings. The card draws as many
+    lines as fit and ends with an ellipsis.
+    """
+    view = build_public_view(puzzle, revealed_lemmas=(), won=False)
+    return (
+        share_mask_runs(view.get('title_tokens')),
+        share_mask_runs(view.get('body_tokens')),
+    )

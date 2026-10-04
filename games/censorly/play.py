@@ -243,7 +243,7 @@ def attach_solve_meta(
     )
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
-    from games.censorly.tokenize import article_share_excerpt
+    from games.censorly.redact import unsolved_share_runs
     from games.daily_share_card import build_censorly_share_payload, publish_date_for
     from games.models import GameTaskGroup
 
@@ -255,15 +255,19 @@ def attach_solve_meta(
             .only('number')
             .first()
         )
-    article_title, article_lead = article_share_excerpt(payload)
+    puzzle = puzzle_from_task(task)
+    if puzzle:
+        title_runs, lead_runs = unsolved_share_runs(puzzle)
+    else:
+        title_runs, lead_runs = [], []
     payload['share_card'] = build_censorly_share_payload(
         number=number,
         date_value=publish_date_for(game, getattr(placement, 'number', number)),
         elapsed_seconds=elapsed,
         attempts=attempts,
         hints=hints,
-        article_title=article_title,
-        article_lead=article_lead,
+        article_title_runs=title_runs,
+        article_lead_runs=lead_runs,
         locale='ru',
         brand_host=host,
         play_path=play_path,

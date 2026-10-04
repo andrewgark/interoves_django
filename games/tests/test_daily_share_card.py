@@ -249,26 +249,35 @@ class DailyShareCardPayloadTests(SimpleTestCase):
         self.assertEqual(locales, {'ru', 'en'})
         self.assertTrue(all(item.get('synthetic') for item in items))
 
-    def test_censorly_payload_keeps_restored_title_and_lead(self):
-        lead = 'Столица Франции. ' * 80
+    def test_censorly_payload_keeps_masks_not_words(self):
         payload = build_censorly_share_payload(
             number=12,
             date_value=date(2026, 10, 1),
             elapsed_seconds=214,
             attempts=8,
             hints=1,
-            article_title='  Париж  ',
-            article_lead=lead,
+            article_title_runs=[
+                {'kind': 'mask', 'length': 5, 'title': True, 'text': 'Париж'},
+            ],
+            article_lead_runs=[
+                {'kind': 'mask', 'length': 7, 'ending': 'ица', 'title': True},
+                {'kind': 'text', 'text': ' и '},
+                {'kind': 'mask', 'length': 5, 'surface': 'город'},
+            ],
             locale='ru',
         )
+        blob = dumps_payload(payload)
         self.assertEqual(payload['kind'], KIND_CENSORLY)
         self.assertEqual(payload['headline'], 'Цензурка #12 решена за 3:34')
-        self.assertEqual(payload['article_title'], 'Париж')
-        self.assertTrue(payload['article_lead'].startswith('Столица Франции.'))
-        self.assertLessEqual(len(payload['article_lead']), 1400)
+        self.assertEqual(payload['article_title_runs'][0], {
+            'kind': 'mask', 'length': 5, 'title': True,
+        })
+        self.assertEqual(payload['article_lead_runs'][1]['text'], ' и ')
+        self.assertNotIn('Париж', blob)
+        self.assertNotIn('город', blob)
+        self.assertNotIn('article_title', payload)
         self.assertIn('8 попыток', payload['stats_line'])
         self.assertIn('подсказ', payload['stats_line'])
-        self.assertNotIn('steps', payload)
         self.assertEqual(payload['filename'], 'interoves-censorly-12.png')
         self.assertEqual(payload['brand'], 'interoves.com/censorly/12')
 

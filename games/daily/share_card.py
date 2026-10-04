@@ -2,8 +2,9 @@
 
 The JavaScript SVG renderer is the production drawing path. This module only
 builds locale-aware structured data and never parses emoji share strings.
-Ladder and salad cards omit hidden answers. A censorly card shows the restored
-title and opening paragraph — the result the player shares.
+Ladder and salad cards omit hidden answers. A censorly card shows the title
+and opening paragraph the way they look before any guess: open function words,
+content words as masks.
 """
 
 from __future__ import annotations
@@ -16,7 +17,7 @@ from typing import Any, Iterable, Optional
 from games.results.share import format_elapsed_compact
 from django.utils.html import strip_tags
 
-RENDERER_VERSION = '6'
+RENDERER_VERSION = '7'
 CARD_WIDTH = 1080
 CARD_HEIGHT = 1920
 
@@ -499,12 +500,35 @@ def build_alphabetty_share_payload(
     return payload
 
 
-def _cap_share_words(text: str, limit: int) -> str:
-    cleaned = _share_text(text)
-    if len(cleaned) <= limit:
-        return cleaned
-    cut = cleaned[:limit].rsplit(' ', 1)[0].strip()
-    return cut or cleaned[:limit].rstrip()
+def _clean_mask_runs(runs) -> list[dict[str, Any]]:
+    """Keep only the unsolved view. Drop anything that could be a hidden word."""
+    cleaned = []
+    for raw in runs or []:
+        if not isinstance(raw, dict):
+            continue
+        kind = raw.get('kind')
+        if kind == 'mask':
+            try:
+                length = int(raw.get('length') or 0)
+            except (TypeError, ValueError):
+                length = 0
+            if length <= 0:
+                continue
+            run: dict[str, Any] = {'kind': 'mask', 'length': length}
+            ending = _share_text(raw.get('ending'))
+            if ending:
+                run['ending'] = ending
+            if raw.get('title'):
+                run['title'] = True
+            cleaned.append(run)
+        elif kind == 'text':
+            text = str(raw.get('text') or '')
+            if text:
+                cleaned.append({'kind': 'text', 'text': text})
+        elif kind == 'break':
+            if cleaned and cleaned[-1].get('kind') != 'break':
+                cleaned.append({'kind': 'break'})
+    return cleaned
 
 
 def build_censorly_share_payload(
@@ -514,14 +538,14 @@ def build_censorly_share_payload(
     elapsed_seconds: int | None = None,
     attempts: int = 0,
     hints: int = 0,
-    article_title: str = '',
-    article_lead: str = '',
+    article_title_runs=None,
+    article_lead_runs=None,
     locale: str = 'ru',
     headline_style: str = HEADLINE_SOLVED_IN,
     brand_host: str = BRAND_HOST,
     play_path: str | None = None,
 ) -> dict[str, Any]:
-    """Story card: restored title and as much of the first paragraph as fits."""
+    """Story card: unsolved title and as much of the first paragraph as fits."""
     loc = normalize_locale(locale)
     attempt_count = max(0, int(attempts or 0))
     hint_count = max(0, int(hints or 0))
@@ -543,12 +567,12 @@ def build_censorly_share_payload(
     payload['attempts'] = attempt_count
     payload['attempts_word'] = _attempts_word(attempt_count, loc)
     payload['hint_count'] = hint_count
-    title = _share_text(article_title)
-    lead = _cap_share_words(article_lead, 1400)
-    if title:
-        payload['article_title'] = title
-    if lead:
-        payload['article_lead'] = lead
+    title_runs = _clean_mask_runs(article_title_runs)
+    lead_runs = _clean_mask_runs(article_lead_runs)
+    if title_runs:
+        payload['article_title_runs'] = title_runs
+    if lead_runs:
+        payload['article_lead_runs'] = lead_runs
     return payload
 
 
@@ -562,16 +586,68 @@ _SYNTHETIC_LADDER = {
     ],
 }
 _SYNTHETIC_SALAD_GRID = list('АБВГДЕЖЗИЙКЛМНОП')
-_SYNTHETIC_CENSORLY_LEAD = (
-    'Париж — столица и крупнейший город Франции. Находится на севере государства, '
-    'в центральной части Парижского бассейна, на реке Сене. Население — 2 103 778 человек. '
-    'Центр метрополии Большой Париж, ядро исторического региона Иль-де-Франс.'
-)
+
+
+def _synthetic_mask(length: int, ending: str = '', title: bool = False) -> dict[str, Any]:
+    run: dict[str, Any] = {'kind': 'mask', 'length': length}
+    if ending:
+        run['ending'] = ending
+    if title:
+        run['title'] = True
+    return run
+
+
+_SYNTHETIC_CENSORLY_TITLE = [_synthetic_mask(5, title=True)]
+_SYNTHETIC_CENSORLY_LEAD = [
+    _synthetic_mask(7, 'ица', title=True),
+    {'kind': 'text', 'text': ' и '},
+    _synthetic_mask(10, 'ий'),
+    {'kind': 'text', 'text': ' '},
+    _synthetic_mask(5),
+    {'kind': 'text', 'text': ' '},
+    _synthetic_mask(7, 'ии'),
+    {'kind': 'text', 'text': '. '},
+    _synthetic_mask(9, 'тся'),
+    {'kind': 'text', 'text': ' на '},
+    _synthetic_mask(6, 'ере'),
+    {'kind': 'text', 'text': ' '},
+    _synthetic_mask(11, 'тва'),
+    {'kind': 'text', 'text': ', в '},
+    _synthetic_mask(11, 'ой'),
+    {'kind': 'text', 'text': ' '},
+    _synthetic_mask(5, 'ти'),
+    {'kind': 'text', 'text': ' '},
+    _synthetic_mask(10, 'ого'),
+    {'kind': 'text', 'text': ' '},
+    _synthetic_mask(8, 'на'),
+    {'kind': 'text', 'text': '.'},
+]
+_SYNTHETIC_CENSORLY_LONG_TITLE = [
+    _synthetic_mask(16, 'ое', title=True),
+    {'kind': 'text', 'text': ' '},
+    _synthetic_mask(9, 'ние', title=True),
+    {'kind': 'text', 'text': ' в '},
+    _synthetic_mask(7, 'ых', title=True),
+    {'kind': 'text', 'text': ' '},
+    _synthetic_mask(11, 'ых', title=True),
+]
 _SYNTHETIC_CENSORLY_LONG_LEAD = (
-    'Квантовая механика описывает поведение материи и света на масштабах атомов и частиц. '
-    'Её законы отличаются от привычной механики: величины принимают дискретные значения, '
-    'а измерение меняет состояние системы. '
-) * 8
+    [
+        _synthetic_mask(9, 'ая'),
+        {'kind': 'text', 'text': ' '},
+        _synthetic_mask(8, 'ка'),
+        {'kind': 'text', 'text': ' '},
+        _synthetic_mask(9, 'ет'),
+        {'kind': 'text', 'text': ' '},
+        _synthetic_mask(8, 'ние'),
+        {'kind': 'text', 'text': ' '},
+        _synthetic_mask(6, 'ии'),
+        {'kind': 'text', 'text': ' и '},
+        _synthetic_mask(5, 'та'),
+        {'kind': 'text', 'text': '. '},
+    ]
+    * 8
+)
 
 
 def synthetic_preview_payloads() -> list[dict[str, Any]]:
@@ -689,8 +765,8 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             elapsed_seconds=214,
             attempts=8,
             hints=1,
-            article_title='Париж',
-            article_lead=_SYNTHETIC_CENSORLY_LEAD,
+            article_title_runs=_SYNTHETIC_CENSORLY_TITLE,
+            article_lead_runs=_SYNTHETIC_CENSORLY_LEAD,
             locale='ru',
         ),
         build_censorly_share_payload(
@@ -699,8 +775,8 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             elapsed_seconds=640,
             attempts=15,
             hints=0,
-            article_title='Дифференциальное уравнение в частных производных',
-            article_lead=_SYNTHETIC_CENSORLY_LONG_LEAD,
+            article_title_runs=_SYNTHETIC_CENSORLY_LONG_TITLE,
+            article_lead_runs=_SYNTHETIC_CENSORLY_LONG_LEAD,
             locale='ru',
         ),
         build_censorly_share_payload(
@@ -709,8 +785,8 @@ def synthetic_preview_payloads() -> list[dict[str, Any]]:
             elapsed_seconds=214,
             attempts=8,
             hints=0,
-            article_title='Париж',
-            article_lead=_SYNTHETIC_CENSORLY_LEAD,
+            article_title_runs=_SYNTHETIC_CENSORLY_TITLE,
+            article_lead_runs=_SYNTHETIC_CENSORLY_LEAD,
             locale='en',
         ),
     ]

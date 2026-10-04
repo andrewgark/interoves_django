@@ -905,8 +905,11 @@ class CensorlyHeadingLevelTests(SimpleTestCase):
 
 
 class CensorlyShareExcerptTests(SimpleTestCase):
-    def test_excerpt_uses_edited_title_and_first_paragraph(self):
-        from games.censorly.tokenize import article_share_excerpt
+    def _visible(self, runs):
+        return ''.join(run.get('text', '') for run in runs if run.get('kind') == 'text')
+
+    def test_excerpt_masks_title_and_first_paragraph(self):
+        from games.censorly.redact import unsolved_share_runs
 
         payload = build_puzzle_payload(
             wiki_title='Пари\u0301ж',
@@ -915,31 +918,42 @@ class CensorlyShareExcerptTests(SimpleTestCase):
                 'Второй абзац про историю не должен попасть на карточку.'
             ),
         )
-        title, lead = article_share_excerpt(payload)
-        self.assertEqual(title, 'Париж')
-        self.assertEqual(lead, 'Столица и крупнейший город Франции.')
-        view = build_public_view(payload, won=True)
-        view_title, view_lead = article_share_excerpt(view)
-        self.assertEqual((view_title, view_lead), (title, lead))
+        title, lead = unsolved_share_runs(payload)
+        blob = json.dumps({'title': title, 'lead': lead}, ensure_ascii=False)
+        self.assertTrue(any(run.get('kind') == 'mask' and run.get('title') for run in title))
+        self.assertNotIn('Париж', blob)
+        self.assertNotIn('Столица', blob)
+        self.assertNotIn('Второй', blob)
+        self.assertNotIn('историю', blob)
+        self.assertIn(' и ', self._visible(lead))
+        self.assertTrue(any(run.get('kind') == 'break' for run in lead))
+        self.assertGreater(sum(1 for run in lead if run.get('kind') == 'mask'), 4)
 
-    def test_excerpt_stops_before_heading(self):
-        from games.censorly.tokenize import HEADING_END, HEADING_START, article_share_excerpt
+    def test_excerpt_keeps_later_paragraphs_masked(self):
+        from games.censorly.tokenize import HEADING_END, HEADING_START
+        from games.censorly.redact import unsolved_share_runs
 
         payload = build_puzzle_payload(
             wiki_title='Кот',
             body_text=f'Первый абзац.\n{HEADING_START}История{HEADING_END}\nДальше текст.',
         )
-        title, lead = article_share_excerpt(payload)
-        self.assertEqual(title, 'Кот')
-        self.assertEqual(lead, 'Первый абзац.')
-        self.assertNotIn('История', lead)
-        self.assertNotIn('Дальше', lead)
+        title, lead = unsolved_share_runs(payload)
+        blob = json.dumps({'title': title, 'lead': lead}, ensure_ascii=False)
+        self.assertTrue(any(run.get('kind') == 'mask' for run in title))
+        self.assertNotIn('Кот', blob)
+        self.assertNotIn('История', blob)
+        self.assertNotIn('Дальше', blob)
+        self.assertNotIn('Первый', blob)
+        self.assertIn('.', self._visible(lead))
+        self.assertGreaterEqual(sum(1 for run in lead if run.get('kind') == 'break'), 1)
+        self.assertGreaterEqual(sum(1 for run in lead if run.get('kind') == 'mask'), 3)
 
     def test_solved_result_includes_share_card(self):
         from datetime import date
         from types import SimpleNamespace
         from unittest.mock import patch
 
+        from games.censorly import CENSORLY_TAGS_KEY
         from games.censorly.play import attach_solve_meta
 
         puzzle = build_puzzle_payload(
@@ -950,7 +964,12 @@ class CensorlyShareExcerptTests(SimpleTestCase):
         view['won'] = True
         view['attempts'] = 4
         view['hints'] = 0
-        task = SimpleNamespace(task_group_id=None, get_points=lambda: 20)
+        task = SimpleNamespace(
+            task_group_id=None,
+            get_points=lambda: 20,
+            tags={CENSORLY_TAGS_KEY: puzzle},
+            checker_data='',
+        )
         actor = {'user': object(), 'replay_slot': None}
         with patch('games.censorly.play.elapsed_seconds_for_actor', return_value=90), \
              patch('games.daily_share_card.publish_date_for', return_value=date(2026, 10, 1)):
@@ -962,12 +981,14 @@ class CensorlyShareExcerptTests(SimpleTestCase):
                 actor=actor,
             )
         card = view['share_card']
+        blob = json.dumps(card, ensure_ascii=False)
         self.assertEqual(card['kind'], 'censorly')
-        self.assertEqual(card['article_title'], 'Париж')
-        self.assertEqual(card['article_lead'], 'Столица Франции.')
+        self.assertTrue(card['article_title_runs'][0].get('title'))
+        self.assertNotIn('Париж', blob)
+        self.assertNotIn('Столица', blob)
+        self.assertNotIn('Второй', blob)
         self.assertEqual(card['headline'], 'Цензурка #3 решена за 1:30')
         self.assertEqual(card['brand'], 'interoves.com/censorly/3')
-        self.assertNotIn('Второй', card['article_lead'])
 
     def test_replay_omits_share_card(self):
         from types import SimpleNamespace

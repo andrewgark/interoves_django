@@ -3,7 +3,7 @@
 (function (root) {
   var WIDTH = 1080;
   var HEIGHT = 1920;
-  var VERSION = '6';
+  var VERSION = '7';
   var FONT = "DejaVu Sans, Noto Sans, Segoe UI, Arial, sans-serif";
   var LOGO_SIZE = 56;
   var LOGO_GAP = 16;
@@ -397,104 +397,288 @@
     return 'попыток';
   }
 
-  function maxCharsFor(width, fontSize, bold) {
-    var factor = bold ? 0.64 : 0.58;
-    return Math.max(8, Math.floor(width / (fontSize * factor)));
+  function censorlyRuns(raw) {
+    var out = [];
+    (raw || []).forEach(function (run) {
+      if (!run) return;
+      if (run.kind === 'mask') {
+        var n = Math.max(1, Number(run.length) || 1);
+        out.push({
+          kind: 'mask',
+          length: n,
+          ending: String(run.ending || ''),
+          title: !!run.title,
+        });
+        return;
+      }
+      if (run.kind === 'break') {
+        out.push({ kind: 'break' });
+        return;
+      }
+      var text = String(run.text || '');
+      if (text) out.push({ kind: 'text', text: text });
+    });
+    return out;
   }
 
-  function censorlyLines(text, maxChars) {
-    var words = String(text || '').split(/\s+/).filter(Boolean);
+  function censorlyIsSpace(ch) {
+    return /[\s\u00a0\u1680\u2000-\u200a\u202f\u205f\u3000]/.test(ch);
+  }
+
+  var CENSORLY_FONT = 'DejaVu Sans Mono, Liberation Mono, Consolas, monospace';
+  var CENSORLY_CELL = 0.6;
+
+  function censorlyRunWidth(run, fontSize) {
+    if (run.kind === 'mask') {
+      var lock = run.title ? fontSize * 0.68 : 0;
+      return lock + run.length * fontSize * CENSORLY_CELL;
+    }
+    if (run.kind === 'break') return 0;
+    return String(run.text || '').length * fontSize * CENSORLY_CELL;
+  }
+
+  function wrapCensorlyRuns(runs, maxWidth, fontSize) {
     var lines = [];
-    var current = '';
-    words.forEach(function (word) {
-      var piece = word;
-      while (piece.length > maxChars) {
-        if (current) {
-          lines.push(current);
-          current = '';
+    var line = [];
+    var used = 0;
+    function pushLine() {
+      if (!line.length) return;
+      lines.push(line);
+      line = [];
+      used = 0;
+    }
+    runs.forEach(function (run) {
+      if (run.kind === 'break') {
+        pushLine();
+        lines.push([run]);
+        return;
+      }
+      var placed = run;
+      if (!line.length && run.kind === 'text') {
+        var trimmed = String(run.text).replace(/^[\s\u00a0\u2000-\u200a\u202f]+/, '');
+        if (!trimmed) return;
+        if (trimmed !== run.text) placed = { kind: 'text', text: trimmed };
+      }
+      var w = censorlyRunWidth(placed, fontSize);
+      if (line.length && used + w > maxWidth) {
+        pushLine();
+        if (placed.kind === 'text') {
+          var next = String(placed.text).replace(/^[\s\u00a0\u2000-\u200a\u202f]+/, '');
+          if (!next) return;
+          if (next !== placed.text) placed = { kind: 'text', text: next };
+          w = censorlyRunWidth(placed, fontSize);
         }
-        lines.push(piece.slice(0, maxChars));
-        piece = piece.slice(maxChars);
       }
-      var trial = current ? current + ' ' + piece : piece;
-      if (trial.length <= maxChars) {
-        current = trial;
-      } else {
-        if (current) lines.push(current);
-        current = piece;
-      }
+      line.push(placed);
+      used += w;
     });
-    if (current) lines.push(current);
+    pushLine();
     return lines;
   }
 
-  function lineWithEllipsis(line, maxChars) {
-    var ellipsis = '…';
-    var room = line ? line + ' ' + ellipsis : ellipsis;
-    if (room.length <= maxChars) return room;
-    var parts = String(line || '').split(' ').filter(Boolean);
-    while (parts.length) {
-      parts.pop();
-      var trial = parts.length ? parts.join(' ') + ' ' + ellipsis : ellipsis;
-      if (trial.length <= maxChars) return trial;
-    }
-    return ellipsis;
+  function lineRunWidth(line, fontSize) {
+    var width = 0;
+    line.forEach(function (run) { width += censorlyRunWidth(run, fontSize); });
+    return width;
   }
 
-  function fitLead(text, maxChars, maxLines) {
-    var ellipsis = '…';
-    var all = censorlyLines(text, maxChars);
-    if (!all.length || maxLines < 1) return [];
-    var lines = all.slice(0, maxLines);
-    var lastIdx = lines.length - 1;
-    var last = lines[lastIdx];
-    if (all.length <= maxLines && (last + ' ' + ellipsis).length <= maxChars) {
-      lines[lastIdx] = last + ' ' + ellipsis;
+  function fitCensorlyRuns(runs, maxWidth, fontSize, maxLines) {
+    var ellipsis = { kind: 'text', text: '…' };
+    var ellW = censorlyRunWidth(ellipsis, fontSize);
+    var lines = wrapCensorlyRuns(runs, maxWidth, fontSize);
+    if (!lines.length) return [];
+
+    function trimLine(line) {
+      var next = line.slice();
+      while (next.length && lineRunWidth(next, fontSize) + ellW > maxWidth) next.pop();
+      next.push(ellipsis);
+      return next;
+    }
+
+    if (lines.length <= maxLines) {
+      var last = lines[lines.length - 1];
+      if (lineRunWidth(last, fontSize) + ellW <= maxWidth) {
+        last.push(ellipsis);
+        return lines;
+      }
+      if (lines.length < maxLines) {
+        lines.push([ellipsis]);
+        return lines;
+      }
+      lines[lines.length - 1] = trimLine(last);
       return lines;
     }
-    lines[lastIdx] = lineWithEllipsis(last, maxChars);
-    return lines;
+    var kept = lines.slice(0, maxLines);
+    kept[maxLines - 1] = trimLine(kept[maxLines - 1]);
+    return kept;
+  }
+
+  function planCensorlyBody(runs, maxWidth, fontSize, maxPx, lineH, paraGap) {
+    var wrapped = wrapCensorlyRuns(runs, maxWidth, fontSize);
+    var ellipsis = { kind: 'text', text: '…' };
+    var ellW = censorlyRunWidth(ellipsis, fontSize);
+    var items = [];
+    var used = 0;
+    var pending = 0;
+    var i;
+    for (i = 0; i < wrapped.length; i += 1) {
+      var line = wrapped[i];
+      if (line.length === 1 && line[0].kind === 'break') {
+        pending = paraGap;
+        continue;
+      }
+      var extra = pending;
+      pending = 0;
+      if (items.length && used + extra + lineH > maxPx) break;
+      items.push({ line: line.slice(), extra: extra });
+      used += extra + lineH;
+    }
+    if (!items.length) return items;
+    var last = items[items.length - 1];
+    if (lineRunWidth(last.line, fontSize) + ellW <= maxWidth) {
+      last.line.push(ellipsis);
+    } else {
+      var trimmed = last.line.slice();
+      while (trimmed.length && lineRunWidth(trimmed, fontSize) + ellW > maxWidth) trimmed.pop();
+      trimmed.push(ellipsis);
+      last.line = trimmed;
+    }
+    return items;
+  }
+
+  function censorlyLock(x, baseline, fontSize) {
+    var s = fontSize * 0.58;
+    var left = x + fontSize * 0.08;
+    var bodyH = s * 0.58;
+    var bodyY = baseline - fontSize * 0.32 - bodyH * 0.42;
+    var top = bodyY - s * 0.42;
+    var color = '#6B5424';
+    return (
+      '<rect x="' + (left + s * 0.16).toFixed(1) + '" y="' + bodyY.toFixed(1) +
+      '" width="' + (s * 0.68).toFixed(1) + '" height="' + bodyH.toFixed(1) +
+      '" rx="' + Math.max(1, s * 0.1).toFixed(1) + '" fill="' + color + '"/>' +
+      '<path d="M' + (left + s * 0.28).toFixed(1) + ' ' + (bodyY + 1).toFixed(1) +
+      ' V' + (top + s * 0.22).toFixed(1) +
+      ' A' + (s * 0.22).toFixed(1) + ' ' + (s * 0.22).toFixed(1) + ' 0 0 1 ' +
+      (left + s * 0.72).toFixed(1) + ' ' + (top + s * 0.22).toFixed(1) +
+      ' V' + (bodyY + 1).toFixed(1) +
+      '" fill="none" stroke="' + color + '" stroke-width="' + Math.max(1.6, s * 0.14).toFixed(1) +
+      '" stroke-linecap="round"/>'
+    );
+  }
+
+  function drawCensorlyText(text, cursor, baseline, fontSize, ink) {
+    var parts = [];
+    var cell = fontSize * CENSORLY_CELL;
+    var buf = '';
+    function flush() {
+      if (!buf) return;
+      parts.push(
+        '<text xml:space="preserve" x="' + cursor.toFixed(1) + '" y="' + baseline.toFixed(1) +
+        '" font-family="' + CENSORLY_FONT + '" font-size="' + fontSize +
+        '" fill="' + ink + '">' + esc(buf) + '</text>'
+      );
+      cursor += buf.length * cell;
+      buf = '';
+    }
+    var i;
+    for (i = 0; i < text.length; i += 1) {
+      var ch = text.charAt(i);
+      if (censorlyIsSpace(ch)) {
+        flush();
+        cursor += cell;
+      } else {
+        buf += ch;
+      }
+    }
+    flush();
+    return { svg: parts.join(''), cursor: cursor };
+  }
+
+  function drawCensorlyLine(line, x, baseline, fontSize, ink, clipState) {
+    var parts = [];
+    var cursor = x;
+    var cell = fontSize * CENSORLY_CELL;
+    line.forEach(function (run) {
+      if (run.kind === 'break') return;
+      if (run.kind === 'text') {
+        var drawn = drawCensorlyText(run.text, cursor, baseline, fontSize, ink);
+        parts.push(drawn.svg);
+        cursor = drawn.cursor;
+        return;
+      }
+      if (run.title) {
+        parts.push(censorlyLock(cursor, baseline, fontSize));
+        cursor += fontSize * 0.68;
+      }
+      var barW = Math.max(cell, run.length * cell);
+      var barH = fontSize * 0.92;
+      var barY = baseline - fontSize * 0.78;
+      var radius = Math.max(1.5, fontSize * 0.04);
+      var clipId = 'censorly-bar-' + (clipState.n++);
+      parts.push(roundedRect(cursor, barY, barW, barH, radius, ink, ''));
+      if (run.ending) {
+        parts.push(
+          '<clipPath id="' + clipId + '"><rect x="' + cursor.toFixed(1) + '" y="' + barY.toFixed(1) +
+          '" width="' + barW.toFixed(1) + '" height="' + barH.toFixed(1) + '" rx="' +
+          radius.toFixed(1) + '"/></clipPath>'
+        );
+        parts.push(
+          '<text x="' + (cursor + barW).toFixed(1) + '" y="' + baseline.toFixed(1) +
+          '" text-anchor="end" font-family="' + CENSORLY_FONT + '" font-size="' + fontSize +
+          '" fill="#FFFFFF" clip-path="url(#' + clipId + ')">' + esc(run.ending) + '</text>'
+        );
+      }
+      cursor += barW;
+    });
+    return parts.join('');
   }
 
   function censorlyVisual(payload, top, bottom) {
-    var title = String(payload.article_title || '').trim();
-    var lead = String(payload.article_lead || '').trim();
-    if (!title && !lead) return '';
+    var titleRuns = censorlyRuns(payload.article_title_runs);
+    var leadRuns = censorlyRuns(payload.article_lead_runs);
+    if (!titleRuns.length && !leadRuns.length) return '';
     var marginX = 72;
     var cardX = marginX;
     var cardW = WIDTH - marginX * 2;
     var areaTop = top + 8;
     var maxCardH = Math.max(320, bottom - areaTop - 8);
-    var padX = 60;
-    var padY = 64;
+    var padX = 48;
+    var padY = 40;
     var innerW = cardW - padX * 2;
-    var titleSize = title.length > 48 ? 46 : title.length > 28 ? 54 : 62;
-    var titleChars = maxCharsFor(innerW, titleSize, true);
-    var titleLines = title ? censorlyLines(title, titleChars) : [];
-    if (titleLines.length > 4) {
-      titleSize = 42;
-      titleChars = maxCharsFor(innerW, titleSize, true);
-      titleLines = censorlyLines(title, titleChars).slice(0, 4);
-      titleLines[3] = lineWithEllipsis(titleLines[3], titleChars);
+    var titleSize = 52;
+    var titleLines = [];
+    if (titleRuns.length) {
+      while (titleSize > 36) {
+        titleLines = wrapCensorlyRuns(titleRuns, innerW, titleSize);
+        if (titleLines.length <= 3) break;
+        titleSize -= 4;
+      }
+      if (titleLines.length > 4) {
+        titleLines = fitCensorlyRuns(titleRuns, innerW, titleSize, 4);
+      }
     }
-    var titleLh = Math.round(titleSize * 1.18);
-    var bodySize = 34;
-    var bodyLh = 52;
-    var bodyChars = maxCharsFor(innerW, bodySize, false);
-    var divider = lead ? 14 : 0;
-    var gapAfterTitle = lead ? 28 : 0;
-    var gapAfterDivider = lead ? 32 : 0;
-    var titleBlock = titleLines.length ? titleLh * titleLines.length : 0;
-    var budgetInner = maxCardH - padY * 2;
-    var fixed = titleBlock + gapAfterTitle + divider + gapAfterDivider;
-    var maxBodyLines = lead ? Math.max(1, Math.floor((budgetInner - fixed) / bodyLh)) : 0;
-    var bodyLines = lead ? fitLead(lead, bodyChars, maxBodyLines) : [];
-    var bodyBlock = bodyLines.length * bodyLh;
-    var contentH = titleBlock + gapAfterTitle + divider + gapAfterDivider + bodyBlock;
+    var titleLh = Math.round(titleSize * 1.28);
+    var bodySize = 30;
+    var bodyLh = Math.round(bodySize * 1.34);
+    var paraGap = Math.round(bodySize * 0.72);
+    var titleAscent = Math.round(titleSize * 0.82);
+    var afterTitle = leadRuns.length && titleLines.length ? Math.round(titleSize * 0.85) : titleLh;
+    var titleBlock = titleLines.length
+      ? titleAscent + (titleLines.length - 1) * titleLh + (leadRuns.length ? afterTitle : Math.round(titleSize * 0.28))
+      : 0;
+    var innerBudget = maxCardH - padY * 2;
+    var maxBodyPx = Math.max(bodyLh, innerBudget - titleBlock);
+    var bodyPlan = leadRuns.length
+      ? planCensorlyBody(leadRuns, innerW, bodySize, maxBodyPx, bodyLh, paraGap)
+      : [];
+    var bodyHeight = 0;
+    bodyPlan.forEach(function (item) { bodyHeight += item.extra + bodyLh; });
+    var contentH = titleBlock + bodyHeight;
     var cardH = Math.min(maxCardH, Math.max(contentH + padY * 2, 420));
     var cardY = areaTop + Math.max(0, Math.floor((maxCardH - cardH) / 2));
-    var textTop = cardY + padY + Math.round(titleSize * 0.82);
     var x = cardX + padX;
+    var clipState = { n: 0 };
     var parts = [
       '<defs>',
       '<filter id="censorly-sheet" x="-15%" y="-15%" width="130%" height="130%">' +
@@ -510,24 +694,20 @@
       ),
       '<g clip-path="url(#censorly-clip)">',
     ];
-    if (titleLines.length) {
-      parts.push(textLines(x, textTop, titleLines, {
-        lh: titleLh,
-        prop: 'text-anchor="start" font-family="' + FONT + '" font-size="' + titleSize +
-          '" font-weight="700" fill="' + PALETTE.ink + '"',
-      }));
-    }
-    if (bodyLines.length) {
-      var lastTitleBase = textTop + Math.max(0, titleLines.length - 1) * titleLh;
-      var barY = lastTitleBase + Math.round(titleSize * 0.28) + gapAfterTitle;
-      parts.push(roundedRect(x, barY, 88, divider, 3, '#1A1A1A', ''));
-      var bodyY = barY + divider + gapAfterDivider + Math.round(bodySize * 0.78);
-      parts.push(textLines(x, bodyY, bodyLines, {
-        lh: bodyLh,
-        prop: 'text-anchor="start" font-family="' + FONT + '" font-size="' + bodySize +
-          '" fill="#3E3A34"',
-      }));
-    }
+    var y = cardY + padY + titleAscent;
+    var lastTitleBaseline = y;
+    titleLines.forEach(function (line) {
+      parts.push(drawCensorlyLine(line, x, y, titleSize, PALETTE.ink, clipState));
+      lastTitleBaseline = y;
+      y += titleLh;
+    });
+    var bodyBase = titleLines.length ? lastTitleBaseline + afterTitle : y;
+    var bodyY = bodyBase;
+    bodyPlan.forEach(function (item) {
+      bodyY += item.extra;
+      parts.push(drawCensorlyLine(item.line, x, bodyY, bodySize, PALETTE.ink, clipState));
+      bodyY += bodyLh;
+    });
     parts.push('</g>');
     return parts.join('');
   }

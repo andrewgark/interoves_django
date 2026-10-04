@@ -7,7 +7,7 @@ function payload(overrides) {
   var base = {
     kind: 'ladder',
     game_kind: 'ladder',
-    renderer_version: '6',
+    renderer_version: '7',
     locale: 'ru',
     number: '46',
     seed: 46,
@@ -43,7 +43,7 @@ function payload(overrides) {
   assert.ok(svg.indexOf('ДАКАР') !== -1);
   assert.ok(svg.indexOf('МОСКВА') === -1);
   assert.ok(svg.indexOf('secret') === -1);
-  assert.strictEqual(card.VERSION, '6');
+  assert.strictEqual(card.VERSION, '7');
 })();
 
 (function testMetadataAppearsInSvgHeader() {
@@ -146,8 +146,7 @@ function payload(overrides) {
   assert.ok(many.indexOf('попыток') !== -1);
 })();
 
-(function testCensorlyShowsTitleLeadAndEllipsis() {
-  var lead = 'Столица и крупнейший город Франции на реке Сене.';
+(function testCensorlyShowsMasksNotWords() {
   var svg = card.buildShareCardSvg(payload({
     kind: 'censorly',
     game_kind: 'censorly',
@@ -155,41 +154,61 @@ function payload(overrides) {
     headline: 'Цензурка #12 решена за 3:34',
     date_label: '3 сентября 2026',
     stats_line: '8 попыток · 1 подсказка',
-    article_title: 'Париж',
-    article_lead: lead,
+    article_title_runs: [{ kind: 'mask', length: 5, title: true }],
+    article_lead_runs: [
+      { kind: 'mask', length: 7, ending: 'ица', title: true },
+      { kind: 'text', text: ' и ' },
+      { kind: 'mask', length: 10, ending: 'ий' },
+      { kind: 'text', text: '.' },
+    ],
     steps: [],
     seed: 12,
   }));
   assert.ok(svg.indexOf('Цензурка #12 решена за 3:34') !== -1);
-  assert.ok(svg.indexOf('Париж') !== -1);
-  assert.ok(svg.indexOf('Столица и крупнейший город Франции') !== -1);
+  assert.ok(svg.indexOf('>и</text>') !== -1);
+  assert.ok(svg.indexOf('ица') !== -1);
   assert.ok(svg.indexOf('…') !== -1);
+  assert.ok(svg.indexOf('Париж') === -1);
+  assert.ok(svg.indexOf('Столица') === -1);
   assert.ok(svg.indexOf('font-size="120"') === -1);
 })();
 
 (function testCensorlyTruncatesLongLead() {
-  var tail = 'ХВОСТОВОЕСЛОВО';
-  var lead = ('Квантовая механика описывает поведение материи и света. ').repeat(40) + tail;
+  var lead = [];
+  var i;
+  for (i = 0; i < 120; i += 1) {
+    lead.push({ kind: 'mask', length: 8, ending: 'ка' });
+    lead.push({ kind: 'text', text: ' ' });
+  }
+  lead.push({ kind: 'text', text: 'ХВОСТОВОЕСЛОВО' });
   var svg = card.buildShareCardSvg(payload({
     kind: 'censorly',
     game_kind: 'censorly',
-    article_title: 'Дифференциальное уравнение в частных производных',
-    article_lead: lead,
+    article_title_runs: [
+      { kind: 'mask', length: 16, title: true },
+      { kind: 'text', text: ' ' },
+      { kind: 'mask', length: 11, title: true },
+    ],
+    article_lead_runs: lead,
     steps: [],
     seed: 13,
   }));
-  assert.ok(svg.indexOf('Дифференциальное') !== -1);
-  assert.ok(svg.indexOf('производных') !== -1);
   assert.ok(svg.indexOf('…') !== -1);
-  assert.ok(svg.indexOf(tail) === -1);
+  assert.ok(svg.indexOf('ХВОСТОВОЕСЛОВО') === -1);
+  assert.ok(svg.indexOf('> </text>') === -1);
+  assert.ok(svg.indexOf('fill="#1A1A1A"') !== -1 || svg.indexOf('fill="' + card.PALETTE.ink + '"') !== -1);
 })();
 
 (function testCensorlyDecorIsSeeded() {
   var base = {
     kind: 'censorly',
     game_kind: 'censorly',
-    article_title: 'Париж',
-    article_lead: 'Столица Франции.',
+    article_title_runs: [{ kind: 'mask', length: 5, title: true }],
+    article_lead_runs: [
+      { kind: 'mask', length: 7 },
+      { kind: 'text', text: ' и ' },
+      { kind: 'mask', length: 6 },
+    ],
     steps: [],
   };
   var a = card.buildShareCardSvg(payload(Object.assign({ seed: 4 }, base)));
