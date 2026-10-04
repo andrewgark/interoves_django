@@ -8486,13 +8486,12 @@ html.is-age-gated .new-wrap {
   letter-spacing: 0.04em;
 }
 .new-raddle-line {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   display: flex;
   align-items: center;
   min-width: 0;
-  width: 100%;
-  container-type: inline-size;
-  container-name: raddle-line;
+  width: max-content;
+  max-width: 100%;
 }
 .new-raddle-line__mask {
   font-family: var(--new-font-mono);
@@ -8500,7 +8499,7 @@ html.is-age-gated .new-wrap {
   color: var(--muted);
   line-height: 1;
   display: block;
-  width: 100%;
+  width: auto;
   min-width: 0;
   max-width: 100%;
   white-space: nowrap;
@@ -8547,11 +8546,11 @@ html.is-age-gated .new-wrap {
   font-size: 0.78rem;
 }
 .new-raddle-input {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   letter-spacing: clamp(0.01em, calc(0.1em - 0.005em * var(--raddle-len, 5)), 0.06em);
   text-transform: uppercase;
-  /* The line owns the available width; long formats scale down to fit it. */
-  width: 100%;
+  /* Intrinsic width keeps the mask centered; flex-shrink handles tight cells. */
+  width: calc(var(--raddle-format-len, 5) * 1.08em + 0.8rem);
   font-size: clamp(
     0.68rem,
     calc((100cqi - 0.8rem) / (var(--raddle-format-len, 5) * 1.08)),
@@ -8590,7 +8589,6 @@ html.is-age-gated .new-wrap {
 /* На узком .new-wrap (≤919px) чуть плотнее слоты; масштаб шрифта — через cqi выше. */
 @media (max-width: 919px) {
   .new-raddle-input {
-    width: 100%;
     letter-spacing: clamp(0.01em, calc(0.08em - 0.004em * var(--raddle-len, 5)), 0.05em);
   }
   .new-raddle-line__mask,
