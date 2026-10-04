@@ -26,6 +26,8 @@
   var BOUND = 'data-raddle-mask-bound';
   var maskByInput = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
   var maskByInputFallback = null;
+  var fontReadyByInput = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
+  var geometryByInput = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
 
   function slotCount(fmt) {
     var n = 0;
@@ -228,17 +230,23 @@
 
   function waitForInputFont(input) {
     if (!input || !global.document || !global.document.fonts) return Promise.resolve();
+    if (fontReadyByInput) {
+      var cached = fontReadyByInput.get(input);
+      if (cached) return cached;
+    }
     var style = global.getComputedStyle(input);
     var family = style.fontFamily;
     var sample = 'AMWИЖЯЁ0- ';
     var ready = global.document.fonts.ready || Promise.resolve();
-    return ready.then(function () {
+    var promise = ready.then(function () {
       if (!global.document.fonts.load) return null;
       return global.document.fonts.load(
         style.fontWeight + ' ' + style.fontSize + ' ' + family,
         sample
       );
     });
+    if (fontReadyByInput) fontReadyByInput.set(input, promise);
+    return promise;
   }
 
   function readPx(value) {
@@ -251,7 +259,6 @@
     var line = input.closest ? input.closest('.new-raddle-line') : null;
     var mask = line && line.querySelector ? line.querySelector('.new-raddle-mask') : null;
     var inputStyle = global.getComputedStyle(input);
-    var maskStyle = mask ? global.getComputedStyle(mask) : null;
     var inputRect = input.getBoundingClientRect();
     var maskRect = mask ? mask.getBoundingClientRect() : null;
     var cells = mask ? Array.prototype.slice.call(mask.children).map(function (cell) {
@@ -269,6 +276,7 @@
     var slotStep = steps.length ? steps.reduce(function (a, b) { return a + b; }, 0) / steps.length : 0;
     var metrics = fontMetrics(input);
     var measuredLetterSpacing = slotStep && metrics ? slotStep - metrics.advance : 0;
+    var nativeTextStep = metrics ? metrics.advance + measuredLetterSpacing : 0;
     return {
       input: {
         rectWidth: inputRect.width,
@@ -291,6 +299,8 @@
       maskHidden: !!(mask && (!maskRect || !maskRect.width)),
       font: metrics,
       measuredLetterSpacing: measuredLetterSpacing,
+      nativeTextStep: nativeTextStep,
+      alignmentError: slotStep && nativeTextStep ? nativeTextStep - slotStep : null,
       currentLetterSpacing: inputStyle.letterSpacing,
     };
   }
@@ -324,20 +334,38 @@
       }
       return result;
     };
-    return waitForInputFont(target).then(run);
+    return waitForInputFont(target).catch(function () { return null; }).then(run);
   }
 
   function scheduleGeometryCalibration(input) {
+    if (!input) return;
+    var state = geometryByInput ? geometryByInput.get(input) : input.__raddleGeometryState;
+    if (!state) {
+      state = { generation: 0, frame: null };
+      if (geometryByInput) geometryByInput.set(input, state);
+      else input.__raddleGeometryState = state;
+    }
+    state.generation += 1;
+    var generation = state.generation;
     var run = function () {
-      if (global.requestAnimationFrame) global.requestAnimationFrame(function () { calibrateGeometry(input); });
-      else calibrateGeometry(input);
+      state.frame = null;
+      waitForInputFont(input)
+        .catch(function () { return null; })
+        .then(function () {
+          if (generation !== state.generation) return;
+          calibrateGeometry(input);
+        });
     };
+    if (state.frame && global.cancelAnimationFrame) global.cancelAnimationFrame(state.frame);
+    if (global.requestAnimationFrame) state.frame = global.requestAnimationFrame(run);
+    else run();
     var line = input && input.closest ? input.closest('.new-raddle-line') : null;
     if (line && global.ResizeObserver && !input.__raddleGeometryObserver) {
-      input.__raddleGeometryObserver = new global.ResizeObserver(run);
+      input.__raddleGeometryObserver = new global.ResizeObserver(function () {
+        scheduleGeometryCalibration(input);
+      });
       input.__raddleGeometryObserver.observe(line);
     }
-    waitForInputFont(input).then(run);
   }
 
   function bindInput(input, hooks) {

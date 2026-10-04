@@ -2,9 +2,8 @@
 
 Golden pairs are hand-set. They are not produced by the splitter under test.
 
-The mask shows a tail only when the stem is strictly longer than that tail.
-``grammatical_split`` still returns the ending when the hint filter hides it;
-those rows live in ``HIDDEN_BY_LENGTH``.
+A tail is shown when at least two stem letters remain, even if the tail is
+as long as the stem or longer. Rows in ``SHORT_STEM`` cover that boundary.
 """
 
 from __future__ import annotations
@@ -45,6 +44,22 @@ GOLDEN = (
     ('героем', 'геро', 'ем'),
     ('музей', 'музей', ''),
     ('музея', 'музе', 'я'),
+    # Adjectival paradigm (surnames, животное). Nominal й/ой stays in the stem.
+    ('Толстой', 'толст', 'ой'),
+    ('Толстого', 'толст', 'ого'),
+    ('Юшковым', 'юшков', 'ым'),
+    ('Юшкова', 'юшков', 'а'),
+    ('Долговой', 'долгов', 'ой'),
+    ('животных', 'животн', 'ых'),
+    ('животные', 'животн', 'ые'),
+    ('насекомого', 'насеком', 'ого'),
+    ('данных', 'данн', 'ых'),
+    ('часовой', 'часов', 'ой'),
+    ('водяную', 'водян', 'ую'),
+    ('слой', 'слой', ''),
+    ('Меркурий', 'меркурий', ''),
+    ('Николай', 'николай', ''),
+    ('развивающихся', 'развивающ', 'ихся'),
     ('музее', 'музе', 'е'),
     ('стол', 'стол', ''),
     ('книга', 'книг', 'а'),
@@ -252,7 +267,7 @@ GOLDEN = (
     ('краёв', 'кра', 'ев'),
     ('бой', 'бой', ''),
     ('боя', 'бо', 'я'),
-    # «боем» is бо+ем, but the stem is not longer than the tail, so the mask hides it.
+    # «боем» is бо+ем: the stem is not longer than the tail, and the tail is still shown.
     ('граждане', 'граждан', 'е'),
     ('англичане', 'англичан', 'е'),
     ('соседи', 'сосед', 'и'),
@@ -538,8 +553,8 @@ GOLDEN = (
     ('ПРИЁМ', 'прием', ''),
 )
 
-# Real endings the hint filter hides: stem is not strictly longer than the tail.
-HIDDEN_BY_LENGTH = (
+# Stem is not longer than the tail, but two letters remain, so the mask shows it.
+SHORT_STEM = (
     ('дней', 'дн', 'ей'),
     ('боев', 'бо', 'ев'),
     ('днем', 'дн', 'ем'),
@@ -575,8 +590,11 @@ HIDDEN_BY_LENGTH = (
     ('можете', 'мож', 'ете'),
     ('учишься', 'уч', 'ишься'),
     ('является', 'явля', 'ется'),
+    ('являются', 'явля', 'ются'),
     ('делается', 'дела', 'ется'),
     ('учащегося', 'учащ', 'егося'),
+    ('нового', 'нов', 'ого'),
+    ('кажется', 'каж', 'ется'),
 )
 
 
@@ -584,11 +602,11 @@ HIDDEN_BY_LENGTH = (
 # sequence lives in censorly_testdata/leads/*.endings.json.
 _LEAD_SPOTS = {
     'tolstoy': {
-        'толстой': '',
+        'толстой': 'ой',
         'августа': 'а',
         'величайших': 'их',
         'послужило': 'о',
-        'нового': '',
+        'нового': 'ого',
         'считается': 'ется',
         'церкви': 'и',
     },
@@ -596,8 +614,8 @@ _LEAD_SPOTS = {
         'озеро': 'о',
         'площадью': 'ью',
         'крупнейший': 'ий',
-        'являются': '',
-        'животных': '',
+        'являются': 'ются',
+        'животных': 'ых',
         'эндемична': 'а',
         'имеет': 'ет',
     },
@@ -611,12 +629,40 @@ _LEAD_SPOTS = {
     },
     'saturn': {
         'сатурн': '',
+        'основном': 'ом',
         'классифицируется': 'ется',
         'названа': 'а',
         'покрытое': 'ое',
-        'кажется': '',
+        'кажется': 'ется',
         'появляются': 'ются',
         'больше': '',
+    },
+}
+
+
+# Forms that show up after the opening paragraphs.
+_ARTICLE_SPOTS = {
+    'tolstoy': {
+        'толстого': 'ого',
+        'волконский': 'ий',
+        'юшковым': 'ым',
+        'главнокомандующего': 'его',
+    },
+    'baikal': {
+        'сулимовым': 'ым',
+        'ученых': 'ых',
+        'среднем': 'ем',
+        'черского': 'ого',
+    },
+    'bee': {
+        'насекомого': 'ого',
+        'развивающихся': 'ихся',
+        'взрослых': 'ых',
+    },
+    'saturn': {
+        'белопольского': 'ого',
+        'водяного': 'ого',
+        'меркурий': '',
     },
 }
 
@@ -650,6 +696,35 @@ class WikipediaLeadEndingTests(SimpleTestCase):
                 self.assertEqual(by_surface[surface], ending, f'{path.name}:{surface}')
 
 
+class WikipediaArticleEndingTests(SimpleTestCase):
+    """Playable extract of the same four articles, through the 28k cap."""
+
+    def test_article_tokens_keep_reviewed_endings(self):
+        from games.censorly.tokenize import tokenize_text
+
+        article_dir = _CENSORLY_TESTDATA / 'articles'
+        files = sorted(article_dir.glob('*.txt'))
+        self.assertEqual([p.stem for p in files], ['baikal', 'bee', 'saturn', 'tolstoy'])
+        for path in files:
+            text = path.read_text(encoding='utf-8')
+            expected = json.loads(
+                (article_dir / f'{path.stem}.endings.json').read_text(encoding='utf-8')
+            )
+            got = [
+                [normalize_surface(t['surface']), t.get('ending') or '']
+                for t in tokenize_text(text)
+                if t.get('kind') == 'content'
+            ]
+            self.assertEqual(got, expected, path.name)
+            spots = _ARTICLE_SPOTS[path.stem]
+            by_surface = {}
+            for surface, ending in got:
+                by_surface.setdefault(surface, ending)
+            for surface, ending in spots.items():
+                self.assertIn(surface, by_surface, path.name)
+                self.assertEqual(by_surface[surface], ending, f'{path.name}:{surface}')
+
+
 class GrammaticalEndingTests(SimpleTestCase):
     def test_golden_corpus_is_large_enough(self):
         self.assertGreaterEqual(len(GOLDEN), 150)
@@ -669,16 +744,16 @@ class GrammaticalEndingTests(SimpleTestCase):
                 self.assertGreater(len(stem), 0)
                 if ending:
                     self.assertTrue(plain.endswith(ending))
-                    self.assertGreater(len(stem), len(ending))
                     self.assertGreaterEqual(len(stem), 2)
 
-    def test_length_filter_hides_real_endings(self):
-        for word, stem, ending in HIDDEN_BY_LENGTH:
+    def test_short_stem_endings_are_shown(self):
+        for word, stem, ending in SHORT_STEM:
             plain = normalize_surface(word)
             with self.subTest(word=word):
                 self.assertEqual(grammatical_split(plain), (stem, ending))
                 self.assertEqual(stem + ending, plain)
-                self.assertEqual(split_stem_ending(word), (plain, ''))
+                self.assertGreaterEqual(len(stem), 2)
+                self.assertEqual(split_stem_ending(word), (stem, ending))
 
     def test_edges_do_not_raise(self):
         cases = {
@@ -715,7 +790,7 @@ class GrammaticalEndingTests(SimpleTestCase):
                 self.assertEqual(stem + ending, plain)
                 if ending:
                     self.assertTrue(plain.endswith(ending))
-                    self.assertGreater(len(stem), len(ending))
+                    self.assertGreaterEqual(len(stem), 2)
 
 
 if __name__ == '__main__':

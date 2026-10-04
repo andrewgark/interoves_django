@@ -46,8 +46,9 @@ def is_hintable_ending(ending: str, *, stem: str = '') -> bool:
         return False
     if stem:
         s = normalize_surface(stem)
-        # Stem must dominate so the black bar still hides the word.
-        if len(s) < 2 or len(e) >= len(s):
+        # Two letters must stay under the bar. The tail may be as long as
+        # the stem (нового, является) or longer (кажется).
+        if len(s) < 2:
             return False
     return True
 

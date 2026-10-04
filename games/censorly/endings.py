@@ -13,8 +13,9 @@ Policies that more than one school tradition could draw differently:
   Masculine past (бежал) has a zero ending; бежала is бежал+а.
 - Infinitive -ть/-ти/-чь and imperative -й/-и/-ьте are not endings.
 - A reflexive postfix is kept on the tail: забегалась → забегал+ась,
-  находился → находил+ся, делается → дела+ется. The postfix is not an
-  ending by itself, but the ending is not word-final without it.
+  находился → находил+ся, делается → дела+ется,
+  развивающихся → развивающ+ихся. The postfix is not an ending by itself,
+  but the ending is not word-final without it.
 - Gerunds are indeclinable: empty tail, postfix included.
 - Comparatives, adverbs, prepositions, conjunctions, particles,
   predicatives, cardinal numerals, abbreviations and indeclinables
@@ -22,9 +23,12 @@ Policies that more than one school tradition could draw differently:
 - Personal pronouns (1/2/3 person) are suppletive and have an empty tail.
   Other pronouns use the adjective ending tables.
 - Short participles use the short-adjective endings (написан+∅, написана+а).
+- Surnames and nouns with an adjectival paradigm (Толстой, животное,
+  насекомое, данные) use the adjective tables. The paradigm is recognized
+  when another form ends in ого/его/ых/их/ыми/ими/ому/ему. слой, музей and
+  Николай stay unsplit: their й/ой belongs to the stem.
 - A match must leave at least two stem letters, so мой is мо+й rather than м+ой.
-  The product filter in split_stem_ending may still hide a real ending when
-  the stem is not strictly longer than the tail (дней, является, идёт).
+  The tail may be as long as that stem, or longer: нового → ого, кажется → ется.
 """
 
 from __future__ import annotations
@@ -91,7 +95,10 @@ _VERB_PERSONAL: dict[tuple[str, str], tuple[str, ...]] = {
     ('plur', '3per'): ('ут', 'ют', 'ат', 'ят'),
 }
 
-_REFLEXIVE_POS = frozenset({'VERB', 'INFN', 'PRTF', 'PRTS'})
+_REFLEXIVE_POS = frozenset({'VERB', 'INFN', 'PRTF', 'PRTS', 'ADJF'})
+# Another form in the lexeme ends like this → the noun declines as an adjective.
+_ADJECTIVAL_LEXEME_TAILS = ('ого', 'его', 'ому', 'ему', 'ыми', 'ими', 'ых', 'их')
+_ADJECTIVAL_NF: dict[str, bool] = {}
 # Tied readings pick the longer tail only when every reading is inflected.
 # A tied particle/adverb/preposition keeps pymorphy's first parse (это, ночью).
 _INFLECTED_POS = frozenset({
@@ -114,7 +121,26 @@ def _match(word: str, endings: tuple[str, ...]) -> str:
     return best
 
 
-def _noun_ending(word: str, tag) -> str:
+def _adjectival_lexeme(parse) -> bool:
+    """True when this noun's paradigm uses adjective endings (Толстой, животное)."""
+    nf = parse.normal_form or ''
+    cached = _ADJECTIVAL_NF.get(nf)
+    if cached is not None:
+        return cached
+    ok = False
+    try:
+        for form in parse.lexeme:
+            other = form.word or ''
+            if other != nf and other.endswith(_ADJECTIVAL_LEXEME_TAILS):
+                ok = True
+                break
+    except Exception:
+        ok = False
+    _ADJECTIVAL_NF[nf] = ok
+    return ok
+
+
+def _noun_ending(word: str, tag, parse=None) -> str:
     number = tag.number or ''
     case = tag.case or ''
     if not number or not case:
@@ -122,13 +148,24 @@ def _noun_ending(word: str, tag) -> str:
     if case == 'accs':
         if number == 'plur':
             case = 'gent' if tag.animacy == 'anim' else 'nomn'
+            tail = _match(word, _NOUN_ENDINGS.get((number, case), ()))
         elif tag.gender == 'femn':
-            return _match(word, _NOUN_FEMN_ACCS)
+            tail = _match(word, _NOUN_FEMN_ACCS)
         elif tag.gender == 'masc' and tag.animacy == 'anim':
-            return _match(word, _NOUN_MASC_ANIM_ACCS)
+            tail = _match(word, _NOUN_MASC_ANIM_ACCS)
         else:
             case = 'nomn'
-    return _match(word, _NOUN_ENDINGS.get((number, case), ()))
+            tail = _match(word, _NOUN_ENDINGS.get((number, case), ()))
+    else:
+        tail = _match(word, _NOUN_ENDINGS.get((number, case), ()))
+    # данные would otherwise take the one-letter noun tail «е» instead of «ые».
+    # слой matches «ой» only by spelling; its paradigm is nominal, so it stays.
+    if parse is None:
+        return tail
+    adj = _adj_ending(word, tag)
+    if len(adj) > len(tail) and _adjectival_lexeme(parse):
+        return adj
+    return tail
 
 
 def _adj_ending(word: str, tag) -> str:
@@ -186,12 +223,12 @@ def _split_reflexive(word: str) -> tuple[str, str]:
     return word, ''
 
 
-def _ending_on(word: str, tag) -> str:
+def _ending_on(word: str, tag, parse=None) -> str:
     pos = tag.POS or ''
     if pos in _EMPTY_POS or 'Fixd' in tag or 'Abbr' in tag:
         return ''
     if pos == 'NOUN':
-        return _noun_ending(word, tag)
+        return _noun_ending(word, tag, parse)
     if pos in {'ADJF', 'PRTF'}:
         return _adj_ending(word, tag)
     if pos in {'ADJS', 'PRTS'}:
@@ -206,7 +243,7 @@ def _ending_on(word: str, tag) -> str:
     return ''
 
 
-def _split_with_tag(word: str, tag) -> tuple[str, str]:
+def _split_with_tag(word: str, tag, parse=None) -> tuple[str, str]:
     if 'Fixd' in tag or 'Abbr' in tag:
         return word, ''
     pos = tag.POS or ''
@@ -215,7 +252,11 @@ def _split_with_tag(word: str, tag) -> tuple[str, str]:
     base, postfix = word, ''
     if pos in _REFLEXIVE_POS:
         base, postfix = _split_reflexive(word)
-    tail = _ending_on(base, tag) + postfix
+        # «весь» is an adjectival pronoun, not a reflexive form ending in
+        # -сь. Verbs and participles do use the soft reflexive postfix.
+        if pos == 'ADJF' and postfix == 'сь':
+            base, postfix = word, ''
+    tail = _ending_on(base, tag, parse) + postfix
     if not tail or len(word) - len(tail) < _MIN_STEM:
         return word, ''
     stem = word[:-len(tail)]
@@ -247,7 +288,7 @@ def grammatical_split(word: str) -> tuple[str, str]:
     best = parses[0].score
     top = [p for p in parses if abs(p.score - best) < 1e-9]
     if len(top) > 1 and all((p.tag.POS or '') in _INFLECTED_POS for p in top):
-        chosen = max(top, key=lambda p: len(_split_with_tag(word, p.tag)[1]))
+        chosen = max(top, key=lambda p: len(_split_with_tag(word, p.tag, p)[1]))
     else:
         chosen = top[0]
-    return _split_with_tag(word, chosen.tag)
+    return _split_with_tag(word, chosen.tag, chosen)
