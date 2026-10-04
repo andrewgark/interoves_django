@@ -294,6 +294,21 @@ class DailyTimingDomainTests(TestCase):
         self.assertEqual(row.accumulated_ms, 8000)
         self.assertEqual(row.status, DailySolveTiming.STATUS_AUTO_PAUSED)
 
+    def test_legacy_open_lease_snapshot_keeps_displaying_time_until_migration(self):
+        sid = uuid4()
+        row = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_RUNNING,
+            active_session_id=sid,
+            interval_started_at=_dt(),
+            last_heartbeat_at=_dt(),
+        )
+        snap = daily_timing_mod.snapshot(row, now=_dt(10), session_id=sid)
+        self.assertTrue(snap['is_authoritative'])
+        self.assertEqual(snap['accumulated_ms'], 10_000)
+
     def test_return_to_tab_starts_new_interval(self):
         sid = uuid4()
         self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())

@@ -385,13 +385,9 @@ def _uses_session_leases(row: DailySolveTiming, *, session_id=None) -> bool:
     deferred = row.get_deferred_fields() if hasattr(row, 'get_deferred_fields') else set()
     if 'team' not in deferred and row.team_id:
         return True
-    if 'active_session_id' not in deferred and row.active_session_id:
-        return True
     if 'active_sessions_count' not in deferred and int(row.active_sessions_count or 0) > 0:
         return True
     if 'team_interval_started_at' not in deferred and row.team_interval_started_at is not None:
-        return True
-    if 'status' not in deferred and row.status == STATUS_RUNNING:
         return True
     if session_id is None:
         return False
