@@ -21,7 +21,6 @@ from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
     HEARTBEAT_MAX_CREDIT_MS,
-    LEASE_STALE_MS,
     TIMING_DEADLOCK_ATTEMPTS,
     _is_mysql_deadlock,
     apply_timing_event,
@@ -309,6 +308,31 @@ class DailyTimingDomainTests(TestCase):
         snap = daily_timing_mod.snapshot(row, now=_dt(10), session_id=sid)
         self.assertTrue(snap['is_authoritative'])
         self.assertEqual(snap['accumulated_ms'], 10_000)
+
+    def test_legacy_lease_is_expired_before_new_session_takes_over(self):
+        legacy_sid = uuid4()
+        row = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_RUNNING,
+            active_session_id=legacy_sid,
+            interval_started_at=_dt(),
+            last_heartbeat_at=_dt(),
+        )
+
+        takeover = self._apply(action=ACTION_START, session=uuid4(), seq=1, now=_dt(60))
+
+        row.refresh_from_db()
+        self.assertEqual(takeover['committed_ms'], 0)
+        self.assertEqual(takeover['active_sessions_count'], 1)
+        self.assertEqual(
+            row.sessions.filter(
+                session_id=legacy_sid,
+                status=DailySolveTimingSession.STATUS_PAUSED,
+            ).count(),
+            1,
+        )
 
     def test_return_to_tab_starts_new_interval(self):
         sid = uuid4()
@@ -711,17 +735,6 @@ class DailyTimingDomainTests(TestCase):
         self._apply(action=ACTION_START, session=uuid4(), seq=3, now=_dt(3 * 3600))
         row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
         self.assertLessEqual(row.accumulated_ms, 15000 + HEARTBEAT_MAX_CREDIT_MS)
-
-    def test_stale_session_gets_heartbeat_lease_window_before_takeover(self):
-        stale_sid = uuid4()
-        self._apply(action=ACTION_START, session=stale_sid, seq=1, now=_dt())
-
-        takeover = self._apply(
-            action=ACTION_START, session=uuid4(), seq=1, now=_dt(60),
-        )
-
-        self.assertEqual(takeover['committed_ms'], LEASE_STALE_MS)
-        self.assertEqual(takeover['active_sessions_count'], 1)
 
     def test_pause_credits_open_interval_from_claimed(self):
         sid = uuid4()

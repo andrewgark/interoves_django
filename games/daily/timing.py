@@ -1016,7 +1016,7 @@ def _team_safe_session_end(session, now):
     return min(now, anchor + timedelta(milliseconds=LEASE_STALE_MS))
 
 
-def _team_expire_sessions(row, now, exclude_session_id=None, use_lease_window=True):
+def _team_expire_sessions(row, now, exclude_session_id=None):
     running = list(row.sessions.select_for_update().filter(
         status=DailySolveTimingSession.STATUS_RUNNING,
     ))
@@ -1035,11 +1035,10 @@ def _team_expire_sessions(row, now, exclude_session_id=None, use_lease_window=Tr
     ]
     row.active_sessions_count = len(active)
     if not active:
-        end_candidates = (
-            _team_safe_session_end(session, now) if use_lease_window else session.last_heartbeat_at
-            for session in running
+        end = max(
+            (session.last_heartbeat_at for session in running if session.last_heartbeat_at),
+            default=now,
         )
-        end = max((value for value in end_candidates if value is not None), default=now)
         _team_close_aggregate_interval(row, end)
     return active
 
@@ -1050,15 +1049,14 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
     sid = _as_uuid(session_id)
     if not sid:
         return
+    session = _team_session(row, sid, now=now)
+    if session is None:
+        return
     _team_expire_sessions(
         row,
         now,
         exclude_session_id=sid if action in (ACTION_PAUSE, ACTION_AUTO_PAUSE) else None,
-        use_lease_window=action != ACTION_COMPLETE,
     )
-    session = _team_session(row, sid, now=now)
-    if session is None:
-        return
     try:
         seq = int(seq or 0)
     except (TypeError, ValueError):
