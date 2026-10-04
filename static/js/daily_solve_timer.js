@@ -442,6 +442,11 @@
       awaitingServer = true;
       post('resume').then(function (data) {
         awaitingServer = false;
+        if (!data || !data.ok) {
+          manuallyPaused = true;
+          authoritative = false;
+          status = 'manually_paused';
+        }
         render();
       });
     }

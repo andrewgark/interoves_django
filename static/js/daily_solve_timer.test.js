@@ -491,6 +491,45 @@ function parsePostBody(init) {
   ctrl.destroy();
 })();
 
+(function testFailedResumeRestoresManualPause() {
+  function SyncThenable(value) {
+    this.value = value;
+  }
+  SyncThenable.prototype.then = function (callback) {
+    var result = callback(this.value);
+    return result && typeof result.then === 'function' ? result : new SyncThenable(result);
+  };
+  SyncThenable.prototype.catch = function () { return this; };
+
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return 'anon'; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () {
+      return new SyncThenable({
+        json: function () { return new SyncThenable({ ok: false }); },
+      });
+    },
+    listenDocument: false,
+    enableHeartbeat: false,
+    bootstrap: {
+      status: 'manually_paused',
+      manually_paused: true,
+      is_authoritative: false,
+      accumulated_ms: 4000,
+      exists: true,
+    },
+  });
+  ctrl.resumeManual();
+  assert.strictEqual(ctrl.state().status, 'manually_paused');
+  assert.strictEqual(ctrl.state().manually_paused, true);
+  ctrl.destroy();
+})();
+
 (function testDestroyedIgnoresSnapshot() {
   var ctrl = timer.create({
     url: '/ladder/1/timing/',
