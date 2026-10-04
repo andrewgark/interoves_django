@@ -8572,7 +8572,10 @@ html.is-age-gated .new-wrap {
   position: relative;
   z-index: 2;
   background: transparent;
-  color: var(--text);
+  color: transparent !important;
+  -webkit-text-fill-color: transparent;
+  text-shadow: none;
+  caret-color: var(--text);
   font-family: var(--new-font-mono);
   line-height: 1.2;
   transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
