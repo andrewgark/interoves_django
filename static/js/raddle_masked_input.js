@@ -407,6 +407,21 @@
       input.__raddleGeometryObserver.observe(line);
       if (line.parentElement) input.__raddleGeometryObserver.observe(line.parentElement);
     }
+    var row = input && input.closest ? input.closest('.new-raddle-row') : null;
+    if (row && global.MutationObserver && !input.__raddleGeometryStateObserver) {
+      input.__raddleGeometryStateObserver = new global.MutationObserver(function () {
+        if (input.isConnected === false) {
+          input.__raddleGeometryStateObserver.disconnect();
+          input.__raddleGeometryStateObserver = null;
+          return;
+        }
+        scheduleGeometryCalibration(input);
+      });
+      input.__raddleGeometryStateObserver.observe(row, {
+        attributes: true,
+        attributeFilter: ['class'],
+      });
+    }
   }
 
   function bindInput(input, hooks) {
