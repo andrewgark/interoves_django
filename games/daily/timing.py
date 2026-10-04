@@ -160,46 +160,22 @@ class _TimingReducerRow:
 def reduce_personal_timing_events(events, *, now=None) -> dict:
     """Fold personal/anonymous append-only events into a timing snapshot.
 
-    ``events`` may be model instances or ``values()`` dictionaries.  The
+    Personal actors use the same union-of-session semantics as teams.  The
     function never touches the database and is therefore safe for workers,
-    audits, and eventual read-model rebuilds.  Team sessions are intentionally
-    excluded; they use ``reduce_team_timing_events`` instead.
+    audits, and eventual read-model rebuilds.
     """
-    row = _TimingReducerRow()
-    ordered = sorted(
-        events,
-        key=lambda event: (
-            _event_time(event, fallback=now),
-            int(_event_value(event, 'seq') or 0),
-            str(_event_value(event, 'event_id') or ''),
-        ),
-    )
-    applied = 0
-    skipped_team = 0
-    for event in ordered:
-        if _event_value(event, 'team_id') is not None or _event_value(event, 'team') is not None:
-            skipped_team += 1
-            continue
-        action = _event_value(event, 'action')
-        if action not in MUTATING_ACTIONS:
-            continue
-        event_now = _event_value(event, 'occurred_at') or now or timezone.now()
-        _apply_to_row(
-            row,
-            action=action,
-            session_id=_event_value(event, 'session_id'),
-            event_id=_event_value(event, 'event_id') or '',
-            seq=_event_value(event, 'seq') or 0,
-            claimed_ms=_event_value(event, 'claimed_ms'),
-            now=event_now,
-        )
-        applied += 1
-    result = snapshot(row, now=now or timezone.now())
+    personal_events = [
+        event for event in events
+        if _event_value(event, 'team_id') is None
+        and _event_value(event, 'team') is None
+    ]
+    result = reduce_team_timing_events(personal_events, now=now)
     result.update({
-        'event_count': len(ordered),
-        'applied_event_count': applied,
-        'skipped_team_event_count': skipped_team,
-        'last_seq': int(row.last_seq or 0),
+        'event_count': len(events),
+        'skipped_team_event_count': len(events) - len(personal_events),
+        'last_seq': max(
+            [int(_event_value(event, 'seq') or 0) for event in personal_events] or [0]
+        ),
     })
     return result
 
@@ -358,7 +334,8 @@ def snapshot(row: DailySolveTiming | None, *, now=None, session_id=None) -> dict
     now = now or timezone.now()
     open_ms = 0
     session = None
-    if row.team_id:
+    sessionized = _uses_session_leases(row, session_id=session_id)
+    if sessionized:
         session = _team_session_for_snapshot(row, session_id)
         open_ms = _team_open_interval_ms(row, now)
     elif row.status == STATUS_RUNNING:
@@ -374,7 +351,7 @@ def snapshot(row: DailySolveTiming | None, *, now=None, session_id=None) -> dict
         'accumulated_ms': display_ms,
         'committed_ms': int(row.accumulated_ms),
         'frozen_ms': int(row.frozen_ms) if row.frozen_ms is not None else None,
-        'is_authoritative': session_running if row.team_id else bool(
+        'is_authoritative': session_running if sessionized else bool(
             sid
             and row.active_session_id
             and sid == row.active_session_id
@@ -382,10 +359,10 @@ def snapshot(row: DailySolveTiming | None, *, now=None, session_id=None) -> dict
         ),
         'session_active': session_running,
         'session_status': session.status if session else None,
-        'active_sessions_count': int(row.active_sessions_count or 0) if row.team_id else 0,
+        'active_sessions_count': int(row.active_sessions_count or 0) if sessionized else 0,
         'manually_paused': (
             bool(session and session.close_reason == 'manual')
-            if row.team_id else row.status == STATUS_MANUALLY_PAUSED
+            if sessionized else row.status == STATUS_MANUALLY_PAUSED
         ),
         'completed': row.status == STATUS_COMPLETED,
         'exists': True,
@@ -399,9 +376,33 @@ def _team_session_for_snapshot(row: DailySolveTiming, session_id):
     return DailySolveTimingSession.objects.filter(timing=row, session_id=sid).first()
 
 
+def _uses_session_leases(row: DailySolveTiming, *, session_id=None) -> bool:
+    """Whether this row uses independent tab/device leases.
+
+    Existing personal rows are converted lazily on their next mutation, so a
+    legacy snapshot still needs the old single-lease path until then.
+    """
+    deferred = row.get_deferred_fields() if hasattr(row, 'get_deferred_fields') else set()
+    if 'team' not in deferred and row.team_id:
+        return True
+    if 'active_session_id' not in deferred and row.active_session_id:
+        return True
+    if 'active_sessions_count' not in deferred and int(row.active_sessions_count or 0) > 0:
+        return True
+    if 'team_interval_started_at' not in deferred and row.team_interval_started_at is not None:
+        return True
+    if 'status' not in deferred and row.status == STATUS_RUNNING:
+        return True
+    if session_id is None:
+        return False
+    sessions = getattr(row, 'sessions', None)
+    sid = _as_uuid(session_id)
+    return bool(sessions and sid and sessions.filter(session_id=sid).exists())
+
+
 def _team_open_interval_ms(row: DailySolveTiming, now) -> int:
     """Return the current union interval without mutating the aggregate row."""
-    if not row.team_id or not row.team_interval_started_at:
+    if not row.team_interval_started_at:
         return 0
     running = list(row.sessions.filter(status=DailySolveTimingSession.STATUS_RUNNING))
     if not running:
@@ -759,25 +760,16 @@ def _apply_timing_event_once(
         else:
             row = DailySolveTiming.objects.select_for_update().get(pk=row.pk)
 
-    if team is not None:
-        _apply_to_team_row(
-            row,
-            action=action,
-            session_id=session_id,
-            event_id=event_id,
-            seq=seq,
-            now=now,
-        )
-    else:
-        _apply_to_row(
-            row,
-            action=action,
-            session_id=session_id,
-            event_id=event_id,
-            seq=seq,
-            claimed_ms=claimed_ms,
-            now=now,
-        )
+    # Every actor now uses independent tab/device leases.  The old personal
+    # fields are still converted lazily by _team_session() for compatibility.
+    _apply_to_team_row(
+        row,
+        action=action,
+        session_id=session_id,
+        event_id=event_id,
+        seq=seq,
+        now=now,
+    )
     # Keep the immutable ledger and compatibility snapshot in the same
     # transaction. Failed commands (missing rows) return above and are not
     # recorded; a ledger failure rolls back the snapshot mutation as well.
@@ -836,31 +828,20 @@ def complete_daily_timing_in_transaction(
         ).total_seconds() * 1000.0
     if row is None:
         return None
-    if team is not None:
-        active_session = row.sessions.filter(
-            status=DailySolveTimingSession.STATUS_RUNNING,
-        ).order_by('pk').first()
-        next_seq = max(
-            [int(value) for value in row.sessions.values_list('last_seq', flat=True)] or [0],
-        ) + 1
-        _apply_to_team_row(
-            row,
-            action=ACTION_COMPLETE,
-            session_id=(active_session.session_id if active_session else uuid4()),
-            event_id='complete:{}'.format(row.pk),
-            seq=next_seq,
-            now=now,
-        )
-    else:
-        _apply_to_row(
-            row,
-            action=ACTION_COMPLETE,
-            session_id=row.active_session_id,
-            event_id='complete:{}'.format(row.pk),
-            seq=max(int(row.last_seq or 0) + 1, 1),
-            claimed_ms=None,
-            now=now,
-        )
+    active_session = row.sessions.filter(
+        status=DailySolveTimingSession.STATUS_RUNNING,
+    ).order_by('pk').first()
+    next_seq = max(
+        [int(value) for value in row.sessions.values_list('last_seq', flat=True)] or [0],
+    ) + 1
+    _apply_to_team_row(
+        row,
+        action=ACTION_COMPLETE,
+        session_id=(active_session.session_id if active_session else uuid4()),
+        event_id='complete:{}'.format(row.pk),
+        seq=next_seq,
+        now=now,
+    )
     return snapshot(row, now=now)
 
 
@@ -882,6 +863,7 @@ def merge_timing_rows(target: DailySolveTiming, source: DailySolveTiming) -> Dai
     """Combine two rows for the same daily solve after anon→user or account merge."""
     if target.pk == source.pk:
         return target
+    source_sessions = list(source.sessions.all())
     target_completed = target.status == STATUS_COMPLETED
     source_completed = source.status == STATUS_COMPLETED
     if target_completed or source_completed:
@@ -902,17 +884,43 @@ def merge_timing_rows(target: DailySolveTiming, source: DailySolveTiming) -> Dai
         target.active_session_id = None
         target.interval_started_at = None
         target.last_heartbeat_at = keep.last_heartbeat_at or other.last_heartbeat_at
+        target.active_sessions_count = 0
+        target.team_interval_started_at = None
+        target.sessions.filter(status=DailySolveTimingSession.STATUS_RUNNING).update(
+            status=DailySolveTimingSession.STATUS_CLOSED,
+            close_reason='completed',
+        )
         target.timing_version = max(
             int(target.timing_version or 0),
             int(source.timing_version or 0),
             TIMING_VERSION_ACTIVE,
         )
     else:
+        for session in source_sessions:
+            if target.sessions.filter(session_id=session.session_id).exists():
+                session.delete()
+                continue
+            session.timing = target
+            session.save(update_fields=['timing', 'updated_at'])
+        active_sessions = list(target.sessions.filter(
+            status=DailySolveTimingSession.STATUS_RUNNING,
+        ))
         target.accumulated_ms = max(int(target.accumulated_ms or 0), int(source.accumulated_ms or 0))
-        if STATUS_MANUALLY_PAUSED in (target.status, source.status):
+        if active_sessions:
+            target.status = STATUS_RUNNING
+            target.active_sessions_count = len(active_sessions)
+            target.team_interval_started_at = min(
+                (session.started_at for session in active_sessions if session.started_at),
+                default=None,
+            )
+        elif STATUS_MANUALLY_PAUSED in (target.status, source.status):
             target.status = STATUS_MANUALLY_PAUSED
+            target.active_sessions_count = 0
+            target.team_interval_started_at = None
         else:
             target.status = STATUS_AUTO_PAUSED
+            target.active_sessions_count = 0
+            target.team_interval_started_at = None
         target.active_session_id = None
         target.interval_started_at = None
         target.frozen_ms = None
@@ -1006,12 +1014,14 @@ def _team_close_aggregate_interval(row, end):
     row.team_interval_started_at = None
 
 
-def _team_expire_sessions(row, now):
+def _team_expire_sessions(row, now, exclude_session_id=None):
     running = list(row.sessions.select_for_update().filter(
         status=DailySolveTimingSession.STATUS_RUNNING,
     ))
     cutoff = now - timedelta(milliseconds=LEASE_STALE_MS)
     for session in running:
+        if exclude_session_id and session.session_id == exclude_session_id:
+            continue
         if session.last_heartbeat_at and session.last_heartbeat_at < cutoff:
             session.status = DailySolveTimingSession.STATUS_PAUSED
             session.paused_at = session.last_heartbeat_at
@@ -1037,7 +1047,11 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
     sid = _as_uuid(session_id)
     if not sid:
         return
-    _team_expire_sessions(row, now)
+    _team_expire_sessions(
+        row,
+        now,
+        exclude_session_id=sid if action in (ACTION_PAUSE, ACTION_AUTO_PAUSE) else None,
+    )
     session = _team_session(row, sid, now=now)
     if session is None:
         return

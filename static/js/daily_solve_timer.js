@@ -70,9 +70,7 @@
     var localStore = options.localStorage || (root && root.localStorage);
     var clock = options.clock || root.performance || { now: function () { return Date.now(); } };
     var bootstrap = options.bootstrap || {};
-    var teamMode = !!options.teamMode;
     var solved = !!options.solved;
-    var channelFactory = options.broadcastChannel;
     var heartbeatMs = options.heartbeatMs || HEARTBEAT_MS;
     var onState = options.onState || function () {};
 
@@ -117,8 +115,6 @@
     var started = false;
     var destroyed = false;
     var awaitingServer = false;
-    var foreignHold = false;
-    var channel = null;
 
     function localKey() {
       return STORAGE_PREFIX + url + ':' + (getAnonKey() || 'user');
@@ -171,24 +167,13 @@
       if (popover && manuallyPaused) popover.hidden = true;
       if (rootEl) {
         rootEl.hidden = completed;
-        rootEl.classList.toggle('is-paused', manuallyPaused || (!teamMode && !authoritative && !completed && status !== 'running'));
+        rootEl.classList.toggle('is-paused', manuallyPaused || (!authoritative && !completed && status !== 'running'));
         rootEl.classList.toggle('is-completed', completed);
       }
       if (pauseBtn) pauseBtn.hidden = completed;
       var showOverlay = false;
       if (!completed) {
         if (manuallyPaused) showOverlay = true;
-        else if (!teamMode && foreignHold && !authoritative && visibilityOf(doc) === 'visible') showOverlay = true;
-        else if (
-          !teamMode
-          &&
-          !awaitingServer
-          && exists
-          && started
-          && visibilityOf(doc) === 'visible'
-          && !authoritative
-          && status === 'running'
-        ) showOverlay = true;
       }
       var wrap = boardEl && boardEl.closest ? boardEl.closest('.new-daily-solve') : null;
       if (wrap) {
@@ -248,7 +233,6 @@
         displayBaseMs = Math.max(displayBaseMs, incoming);
       }
       authoritative = !!snap.is_authoritative;
-      if (authoritative) foreignHold = false;
       if (authoritative && status === 'running' && !completed && !manuallyPaused) {
         runningSince = nowMs(clock);
       }
@@ -323,9 +307,6 @@
       }).then(function (data) {
         if (destroyed) return data;
         if (data && data.ok) applySnapshot(data, { replace: true });
-        if (data && data.is_authoritative && channel) {
-          try { channel.postMessage({ type: 'authoritative', session_id: sessionId }); } catch (e) {}
-        }
         return data;
       }).catch(function () { return null; });
     }
@@ -340,7 +321,6 @@
       startAttempts += 1;
       post('start').then(function (data) {
         awaitingServer = false;
-        if (data && data.is_authoritative) foreignHold = false;
         if (data && data.ok) {
           startAttempts = 0;
           render();
@@ -428,7 +408,6 @@
       manuallyPaused = true;
       authoritative = false;
       status = 'manually_paused';
-      foreignHold = false;
       syncTicker();
       return post('pause', { claimed_ms: claimed }, true);
     }
@@ -436,12 +415,10 @@
     function resumeManual() {
       if (completed) return;
       manuallyPaused = false;
-      foreignHold = false;
       started = true;
       awaitingServer = true;
       post('resume').then(function (data) {
         awaitingServer = false;
-        if (data && data.is_authoritative) foreignHold = false;
         render();
       });
     }
@@ -478,25 +455,6 @@
           else applySnapshot(ev.detail, { replace: true });
         }
       });
-    }
-
-    if (options.enableBroadcast !== false && (channelFactory || (root.BroadcastChannel && url))) {
-      try {
-        channel = channelFactory ? channelFactory() : new root.BroadcastChannel('interoves-task-group-timing:' + url);
-        channel.onmessage = function (ev) {
-          var data = ev && ev.data;
-          if (!data || data.session_id === sessionId) return;
-          if (data.type === 'authoritative' && !teamMode && !completed && !manuallyPaused) {
-            foreignHold = true;
-            authoritative = false;
-            status = 'auto_paused';
-            displayBaseMs = displayedMs();
-            runningSince = null;
-            render();
-            syncTicker();
-          }
-        };
-      } catch (e) {}
     }
 
     if (pauseBtn && pauseBtn.addEventListener) pauseBtn.addEventListener('click', pauseManual);
@@ -584,12 +542,6 @@
         heartbeatTimer = null;
         if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
         raf = null;
-        if (channel) {
-          try {
-            if (typeof channel.close === 'function') channel.close();
-          } catch (e) {}
-          channel = null;
-        }
       },
     };
   }
@@ -631,7 +583,6 @@
       overlayTitle: doc.querySelector('[data-daily-pause-title]'),
       overlayText: doc.querySelector('[data-daily-pause-text]'),
       boardEl: board,
-      teamMode: !!extras.teamMode,
     });
     controller.boot();
     return controller;

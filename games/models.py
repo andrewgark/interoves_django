@@ -4506,8 +4506,8 @@ class DailyTimingEvent(models.Model):
 class DailySolveTimingSession(models.Model):
     """One device/tab's participation in a daily timing row.
 
-    Team timing is an aggregate over independent sessions.  A session pause or
-    lease expiry must never take ownership away from another team member.
+    Timing rows are aggregates over independent sessions.  A session pause or
+    lease expiry must never take ownership away from another tab or device.
     """
 
     STATUS_RUNNING = 'running'

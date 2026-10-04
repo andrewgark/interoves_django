@@ -133,7 +133,7 @@ class DailyTimingScopeTests(SimpleTestCase):
         self.assertEqual(reduced['status'], 'manually_paused')
         self.assertEqual(reduced['accumulated_ms'], 12000)
         self.assertEqual(reduced['event_count'], 4)
-        self.assertEqual(reduced['applied_event_count'], 4)
+        self.assertEqual(reduced['applied_event_count'], 3)
         self.assertEqual(reduced['last_seq'], 3)
 
     def test_personal_replay_ignores_client_clock_skew_for_event_order(self):
@@ -276,7 +276,8 @@ class DailyTimingDomainTests(TestCase):
             action=ACTION_HEARTBEAT, session=sid, seq=2, claimed=15000, now=_dt(15),
         )
         self.assertEqual(snap['status'], 'running')
-        self.assertEqual(snap['committed_ms'], 15000)
+        self.assertEqual(snap['committed_ms'], 0)
+        self.assertEqual(snap['accumulated_ms'], 15000)
         snap = complete_daily_timing(
             game=self.game, task_group=self.tg, user=self.user, now=_dt(20),
         )
@@ -299,7 +300,8 @@ class DailyTimingDomainTests(TestCase):
         self._apply(action=ACTION_AUTO_PAUSE, session=sid, seq=2, claimed=5000, now=_dt(5))
         self._apply(action=ACTION_START, session=sid, seq=3, now=_dt(3600))
         snap = self._apply(action=ACTION_HEARTBEAT, session=sid, seq=4, claimed=10000, now=_dt(3610))
-        self.assertEqual(snap['committed_ms'], 15000)
+        self.assertEqual(snap['committed_ms'], 5000)
+        self.assertEqual(snap['accumulated_ms'], 15000)
 
     def test_manual_pause_survives_reload_and_visibility(self):
         sid = uuid4()
@@ -323,7 +325,8 @@ class DailyTimingDomainTests(TestCase):
         )
         self.assertEqual(first['committed_ms'], dup['committed_ms'])
         row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
-        self.assertEqual(row.accumulated_ms, 15000)
+        self.assertEqual(first['accumulated_ms'], 15000)
+        self.assertEqual(row.accumulated_ms, 0)
 
     def test_out_of_order_seq_is_ignored(self):
         sid = uuid4()
@@ -331,8 +334,9 @@ class DailyTimingDomainTests(TestCase):
         self._apply(action=ACTION_HEARTBEAT, session=sid, seq=4, claimed=15000, now=_dt(15))
         stale = self._apply(action=ACTION_HEARTBEAT, session=sid, seq=3, claimed=15000, now=_dt(30))
         row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
-        self.assertEqual(row.accumulated_ms, 15000)
-        self.assertEqual(stale['committed_ms'], 15000)
+        self.assertEqual(row.accumulated_ms, 0)
+        self.assertEqual(stale['committed_ms'], 0)
+        self.assertEqual(stale['accumulated_ms'], 30000)
 
     def test_two_tabs_do_not_double_count(self):
         a = uuid4()
@@ -342,12 +346,12 @@ class DailyTimingDomainTests(TestCase):
         takeover = self._apply(action=ACTION_START, session=b, seq=3, now=_dt(20))
         self.assertTrue(takeover['is_authoritative'])
         ghost = self._apply(action=ACTION_HEARTBEAT, session=a, seq=4, claimed=15000, now=_dt(35))
-        self.assertFalse(ghost['is_authoritative'])
+        self.assertTrue(ghost['is_authoritative'])
         live = self._apply(action=ACTION_HEARTBEAT, session=b, seq=5, claimed=10000, now=_dt(30))
         row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
-        self.assertLess(row.accumulated_ms, 40000)
-        self.assertGreaterEqual(row.accumulated_ms, 20000)
-        self.assertEqual(live['committed_ms'], row.accumulated_ms)
+        self.assertEqual(row.active_sessions_count, 2)
+        self.assertEqual(live['active_sessions_count'], 2)
+        self.assertEqual(live['accumulated_ms'], 30000)
 
     def test_second_tab_can_takeover_with_its_own_seq(self):
         a = uuid4()
@@ -359,7 +363,13 @@ class DailyTimingDomainTests(TestCase):
         )
         self.assertTrue(takeover['is_authoritative'])
         row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
-        self.assertEqual(row.active_session_id, b)
+        self.assertEqual(row.active_sessions_count, 2)
+        self.assertEqual(
+            row.sessions.filter(session_id=a, status=DailySolveTimingSession.STATUS_RUNNING).count(), 1,
+        )
+        self.assertEqual(
+            row.sessions.filter(session_id=b, status=DailySolveTimingSession.STATUS_RUNNING).count(), 1,
+        )
 
     def test_foreign_auto_pause_does_not_kill_live_lease(self):
         a = uuid4()
@@ -368,10 +378,15 @@ class DailyTimingDomainTests(TestCase):
         self._apply(action=ACTION_AUTO_PAUSE, session=b, seq=1, event='pause-b', claimed=0, now=_dt(3))
         row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
         self.assertEqual(row.status, DailySolveTiming.STATUS_RUNNING)
-        self.assertEqual(row.active_session_id, a)
-        self._apply(action=ACTION_HEARTBEAT, session=a, seq=2, claimed=10000, now=_dt(10))
+        self.assertIsNone(row.active_session_id)
+        self.assertEqual(row.active_sessions_count, 1)
+        self.assertEqual(
+            row.sessions.filter(session_id=a, status=DailySolveTimingSession.STATUS_RUNNING).count(), 1,
+        )
+        live = self._apply(action=ACTION_HEARTBEAT, session=a, seq=2, claimed=10000, now=_dt(10))
         row.refresh_from_db()
-        self.assertEqual(row.accumulated_ms, 10000)
+        self.assertEqual(row.accumulated_ms, 0)
+        self.assertEqual(live['accumulated_ms'], 10000)
 
     def test_complete_without_row_keeps_legacy_formula(self):
         snap = complete_daily_timing(game=self.game, task_group=self.tg, user=self.user, now=_dt(12))
@@ -453,7 +468,8 @@ class DailyTimingDomainTests(TestCase):
             claimed=86_400_000,
             now=_dt(10),
         )
-        self.assertEqual(snap['committed_ms'], 10000)
+        self.assertEqual(snap['committed_ms'], 0)
+        self.assertEqual(snap['accumulated_ms'], 10000)
 
     def test_stale_request_after_completion_does_not_increase_time(self):
         sid = uuid4()
@@ -706,7 +722,7 @@ class DailyTimingDomainTests(TestCase):
         snap = complete_daily_timing(
             game=self.game, task_group=self.tg, user=self.user, now=_dt(15 + 90),
         )
-        self.assertEqual(snap['frozen_ms'], 15000 + 90000)
+        self.assertEqual(snap['frozen_ms'], 15000)
 
     def test_start_create_race_reuses_existing_row(self):
         from django.db import IntegrityError
@@ -1104,7 +1120,7 @@ class DailyTimingApiTests(TestCase):
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
-    def test_personal_http_sessions_keep_single_active_lease(self, _access, _pub, _game_access):
+    def test_personal_http_sessions_run_in_parallel_and_count_union_once(self, _access, _pub, _game_access):
         user = User.objects.create_user('timing_http_personal', 'http-personal@example.com', 'secret')
         Profile.objects.create(user=user, first_name='P', last_name='T')
         client = Client()
@@ -1119,19 +1135,20 @@ class DailyTimingApiTests(TestCase):
             'action': ACTION_HEARTBEAT, 'session_id': session_a,
             'event_id': 'personal-a-heartbeat', 'seq': 2,
         }, t0 + timedelta(seconds=5)).status_code, 200)
-        takeover = self._post_at(client, {
+        second_start = self._post_at(client, {
             'action': ACTION_START, 'session_id': session_b, 'event_id': 'personal-b-start', 'seq': 1,
         }, t0 + timedelta(seconds=10))
-        self.assertEqual(takeover.status_code, 200)
-        self.assertTrue(takeover.json()['is_authoritative'])
-        self.assertEqual(takeover.json()['committed_ms'], 5_000)
+        self.assertEqual(second_start.status_code, 200)
+        self.assertTrue(second_start.json()['is_authoritative'])
+        self.assertEqual(second_start.json()['active_sessions_count'], 2)
+        self.assertEqual(second_start.json()['accumulated_ms'], 10_000)
 
         completed = self._post_at(client, {
             'action': ACTION_COMPLETE, 'session_id': session_b,
             'event_id': 'personal-b-complete', 'seq': 2,
         }, t0 + timedelta(seconds=20))
         self.assertEqual(completed.status_code, 200)
-        self.assertEqual(completed.json()['frozen_ms'], 15_000)
+        self.assertEqual(completed.json()['frozen_ms'], 20_000)
 
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)

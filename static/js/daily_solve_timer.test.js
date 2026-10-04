@@ -477,29 +477,25 @@ function parsePostBody(init) {
   assert.strictEqual(ctrl.displayedMs(), 2000);
 })();
 
-(function testTeamModeIgnoresForeignTabBroadcast() {
-  var channel = {};
+(function testPersonalModeDoesNotUseForeignTabBroadcast() {
   var ctrl = timer.create({
-    url: '/ladder/team/timing/',
-    teamMode: true,
+    url: '/ladder/personal/timing/',
     document: { visibilityState: 'visible', addEventListener: function () {} },
     getAnonKey: function () { return ''; },
     getCsrf: function () { return ''; },
     clock: fakeClock(0),
     storage: memoryStorage(),
     localStorage: memoryStorage(),
-    broadcastChannel: function () { return channel; },
     fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
     listenDocument: false,
     enableHeartbeat: false,
     bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 0, exists: true },
   });
-  channel.onmessage({ data: { type: 'authoritative', session_id: 'another-device' } });
   assert.strictEqual(ctrl.state().is_authoritative, true);
   ctrl.destroy();
 })();
 
-(function testTeamModeDoesNotShowForeignSessionOverlay() {
+(function testPersonalModeDoesNotShowForeignSessionOverlay() {
   var overlay = { hidden: true };
   var board = {
     setAttribute: function () {},
@@ -511,8 +507,7 @@ function parsePostBody(init) {
     classList: { toggle: function () {} },
   };
   var ctrl = timer.create({
-    url: '/ladder/team/timing/',
-    teamMode: true,
+    url: '/ladder/personal/timing/',
     document: {
       visibilityState: 'visible',
       body: { classList: { toggle: function () {} } },
