@@ -8,10 +8,9 @@ import unicodedata
 from games.matcher.norm_matcher import get_norm_form
 
 _WORD_RE = re.compile(r'[A-Za-zА-Яа-яЁё0-9]+', re.UNICODE)
+_CYRILLIC_WORD_RE = re.compile(r'^[а-я]+$', re.UNICODE)
 
-# Endings come from the lemma/surface common-prefix split. Keep structural
-# guards only — 1-letter tails (а/е/и/л/…) and short leftovers (ек, ми) are OK
-# when they are the true inflectional remainder.
+# Product filter for a tail that grammatical_split already judged inflectional.
 _ENDING_RE = re.compile(r'^[a-zа-я]+$', re.UNICODE)
 
 
@@ -41,7 +40,7 @@ def lemma_of(word: str) -> str:
 
 
 def is_hintable_ending(ending: str, *, stem: str = '') -> bool:
-    """True if ending looks like a real inflectional remainder after the stem."""
+    """True if a grammatical tail is short enough to show inside the mask."""
     e = normalize_surface(ending)
     if not e or len(e) > 8 or not _ENDING_RE.fullmatch(e):
         return False
@@ -54,27 +53,24 @@ def is_hintable_ending(ending: str, *, stem: str = '') -> bool:
 
 
 def split_stem_ending(surface: str) -> tuple[str, str]:
-    """Split a word into (stem, ending) via common prefix with its lemma.
+    """Split a word into (stem, grammatical ending).
 
-    Ending is lowercase without accents (including 1-letter tails). Empty ending
-    means show a solid mask.
+    The ending is the inflectional tail from ``grammatical_split``, plus a
+    reflexive postfix when the form has one. A zero ending and any tail the
+    hint filter rejects come back as ``(normalized_word, '')``.
     """
+    from games.censorly.endings import grammatical_split
+
     plain = normalize_surface(surface)
-    if not plain or plain.isdigit() or '-' in plain:
+    if not plain or '-' in plain or any(ch.isdigit() for ch in plain):
         return plain, ''
-    lemma = lemma_of(plain)
-    if not lemma or lemma == plain:
+    if not _CYRILLIC_WORD_RE.fullmatch(plain):
         return plain, ''
-    i = 0
-    limit = min(len(plain), len(lemma))
-    while i < limit and plain[i] == lemma[i]:
-        i += 1
-    # Keep a real stem; skip tiny leftovers that would leak most of the word.
-    if i < 2:
+    try:
+        stem, ending = grammatical_split(plain)
+    except Exception:
         return plain, ''
-    ending = plain[i:]
-    stem = plain[:i]
-    if not is_hintable_ending(ending, stem=stem):
+    if not ending or not is_hintable_ending(ending, stem=stem):
         return plain, ''
     return stem, ending
 

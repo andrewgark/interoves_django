@@ -769,12 +769,13 @@ class CensorlyUxDailyTests(TestCase):
         from games.censorly.normalize import split_stem_ending
         from games.censorly.redact import build_public_view
         from games.censorly.tokenize import build_puzzle_payload
-        # 1-letter and short leftovers from the lemma split are real endings.
-        self.assertEqual(split_stem_ending('города')[1], 'а')
-        self.assertEqual(split_stem_ending('кошек')[1], 'ек')
-        self.assertEqual(split_stem_ending('бежал')[1], 'л')
-        self.assertEqual(split_stem_ending('красивого')[1], 'ого')
-        self.assertEqual(split_stem_ending('кошками')[1], 'ми')
+        # Grammatical tails, not the leftover after the lemma.
+        # кошек and бежал have a zero ending; кошками keeps the full -ами.
+        self.assertEqual(split_stem_ending('города'), ('город', 'а'))
+        self.assertEqual(split_stem_ending('кошек'), ('кошек', ''))
+        self.assertEqual(split_stem_ending('бежал'), ('бежал', ''))
+        self.assertEqual(split_stem_ending('красивого'), ('красив', 'ого'))
+        self.assertEqual(split_stem_ending('кошками'), ('кошк', 'ами'))
         payload = build_puzzle_payload(wiki_title='Кот', body_text='Красивого вида.')
         view = build_public_view(payload, revealed_lemmas=set(), won=False, show_endings=True)
         masked = next(
@@ -867,6 +868,49 @@ class CensorlyPoolExtractTests(SimpleTestCase):
                 if t['kind'] == 'content'
             ]
             self.assertGreater(len(content), 200, path.name)
+
+    def test_paris_lead_endings_are_inflectional(self):
+        """Paris lead: столиц[а], крупнейш[ий], город[∅], франци[и]."""
+        from games.censorly.redact import build_public_view
+        from games.censorly.tokenize import build_puzzle_payload
+        from games.censorly.wiki import _trim_extract
+
+        raw = (_CENSORLY_TESTDATA / 'pool' / 'paris.txt').read_text(encoding='utf-8')
+        cleaned, _truncated = _trim_extract(raw)
+        payload = build_puzzle_payload(wiki_title='Париж', body_text=cleaned)
+        content = [
+            t for t in payload['body_tokens']
+            if t.get('kind') == 'content'
+        ]
+
+        def surface(tok):
+            return normalize_surface(tok.get('surface') or '')
+
+        idx = next(
+            i for i, tok in enumerate(content)
+            if surface(tok) == 'столица'
+            and surface(content[i + 1]) == 'крупнейший'
+            and surface(content[i + 2]) == 'город'
+            and surface(content[i + 3]) == 'франции'
+        )
+        capital, largest, city, france = content[idx:idx + 4]
+        self.assertEqual(capital.get('ending'), 'а')
+        self.assertEqual(capital.get('stem_length'), len('столиц'))
+        self.assertEqual(largest.get('ending'), 'ий')
+        self.assertEqual(largest.get('stem_length'), len('крупнейш'))
+        self.assertNotIn('ending', city)
+        self.assertEqual(france.get('ending'), 'и')
+        self.assertEqual(france.get('stem_length'), len('франци'))
+
+        view = build_public_view(
+            payload, revealed_lemmas=set(), won=False, show_endings=True,
+        )
+        by_id = {t['id']: t for t in view['body_tokens']}
+        self.assertEqual(by_id[capital['id']].get('ending'), 'а')
+        self.assertEqual(by_id[largest['id']].get('ending'), 'ий')
+        self.assertNotIn('ending', by_id[city['id']])
+        self.assertEqual(by_id[france['id']].get('ending'), 'и')
+        self.assertEqual(by_id[france['id']].get('stem_length'), len('франци'))
 
 
 class CensorlyHeadingLevelTests(SimpleTestCase):

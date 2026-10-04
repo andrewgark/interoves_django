@@ -13,3 +13,4 @@ when the cleaner’s contract changes.
 | `water_editorial_raw.txt` | Вода | `[уточнить]` (+ injected `[12]` footnote) |
 | `moscow_lead_raw.txt` | Москва | Lead `МФА: […]` pronunciation dump |
 | `pool/*.txt` | 15 titles from `article_pool.txt` | First 50k chars of `explaintext` (whole article if shorter). Science with formulas plus Париж and Китай. See `pool/manifest.json`. |
+| `leads/*.txt` | Толстой, Байкал, Медоносная пчела, Сатурн | First two prose paragraphs, fetched 2026-10-04. `*.endings.json` is the reviewed mask-tail snapshot. Baikal’s later vandalized paragraph is not included. |
