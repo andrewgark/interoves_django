@@ -86,7 +86,7 @@ class SubscriptionGiftPaymentTests(TestCase):
         response = self.client.get(reverse('new_subscription'))
         body = response.content.decode()
         self.assertEqual(response.status_code, 200)
-        self.assertIn('Международная карта или криптовалюта', body)
+        self.assertIn('Оплата иностранной картой', body)
         self.assertIn('Российская карта', body)
         self.assertIn('€5.55', body)
         self.assertIn('600 ₽', body)
