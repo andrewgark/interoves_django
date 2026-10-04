@@ -8287,18 +8287,21 @@ html.is-age-gated .new-wrap {
     container-type: normal;
     container-name: none;
   }
+  .new-raddle-line,
   .new-raddle-input,
   .new-raddle-line__mask,
   .new-raddle-line__solved-text {
     font-size: 1rem;
   }
   @media (max-width: 919px) {
+    .new-raddle-line,
     .new-raddle-line__mask,
     .new-raddle-line__solved-text {
       font-size: 0.9rem;
     }
   }
   @media (max-width: 560px) {
+    .new-raddle-line,
     .new-raddle-line__mask,
     .new-raddle-line__solved-text {
       font-size: 0.8rem;
@@ -8493,6 +8496,11 @@ html.is-age-gated .new-wrap {
   min-width: 0;
   width: max-content;
   max-width: 100%;
+  font-size: clamp(
+    0.68rem,
+    calc((100cqi - 0.8rem) / (var(--raddle-format-len, 5) * 1.08)),
+    1.35rem
+  );
 }
 .new-raddle-line__mask {
   font-family: var(--new-font-mono);
@@ -8552,11 +8560,7 @@ html.is-age-gated .new-wrap {
   text-transform: uppercase;
   /* Intrinsic width keeps the mask centered; flex-shrink handles tight cells. */
   width: calc(var(--raddle-format-len, 5) * 1.08em + 0.8rem);
-  font-size: clamp(
-    0.68rem,
-    calc((100cqi - 0.8rem) / (var(--raddle-format-len, 5) * 1.08)),
-    1.35rem
-  );
+  font-size: inherit;
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
@@ -8575,7 +8579,7 @@ html.is-age-gated .new-wrap {
 .new-raddle-input:focus {
   outline: none;
   border-color: var(--accent);
-  background: var(--surface);
+  background: transparent;
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 .new-raddle-input:disabled {
