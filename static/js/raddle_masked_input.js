@@ -245,6 +245,14 @@
         sample
       );
     });
+    promise = promise.catch(function (error) {
+      // Do not permanently cache a transient font/network failure. A later
+      // resize or DOM rebind may be able to load the font successfully.
+      if (fontReadyByInput && fontReadyByInput.get(input) === promise) {
+        fontReadyByInput.delete(input);
+      }
+      throw error;
+    });
     if (fontReadyByInput) fontReadyByInput.set(input, promise);
     return promise;
   }
@@ -362,6 +370,16 @@
     var line = input && input.closest ? input.closest('.new-raddle-line') : null;
     if (line && global.ResizeObserver && !input.__raddleGeometryObserver) {
       input.__raddleGeometryObserver = new global.ResizeObserver(function () {
+        if (input.isConnected === false) {
+          input.__raddleGeometryObserver.disconnect();
+          input.__raddleGeometryObserver = null;
+          if (geometryByInput) geometryByInput.delete(input);
+          if (state.frame && global.cancelAnimationFrame) {
+            global.cancelAnimationFrame(state.frame);
+            state.frame = null;
+          }
+          return;
+        }
         scheduleGeometryCalibration(input);
       });
       input.__raddleGeometryObserver.observe(line);
