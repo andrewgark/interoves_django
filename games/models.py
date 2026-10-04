@@ -187,6 +187,24 @@ class PersonalResultsParticipant:
             if full:
                 return full
             return u.get_username()
+        if self.user_id is not None:
+            # Projection/snapshot rows may carry only the user id.  Resolve it
+            # lazily for the results template instead of treating it as an
+            # anonymous participant (whose anon_key is None in this shape).
+            user = User.objects.filter(pk=self.user_id).first()
+            if user is not None:
+                self._user = user
+                try:
+                    profile = user.profile
+                except Exception:
+                    profile = None
+                if profile is not None:
+                    label = ('{} {}'.format(profile.first_name or '', profile.last_name or '')).strip()
+                    if label:
+                        return label
+                full = (user.get_full_name() or '').strip()
+                return full or user.get_username()
+            return 'Пользователь #{}'.format(self.user_id)
         tail = self.anon_key[-4:] if len(self.anon_key) >= 4 else self.anon_key
         return 'Аноним ··{}'.format(tail)
 

@@ -17,6 +17,14 @@ from games.models import (
 
 
 class LeaderboardSharedTests(TestCase):
+    def test_user_id_only_results_participant_has_a_safe_display_name(self):
+        user = User.objects.create_user(
+            username='projection-user', first_name='Projection', last_name='User',
+        )
+        participant = PersonalResultsParticipant(user_id=user.pk)
+
+        self.assertEqual(participant.visible_name, 'Projection User')
+
     def test_eligibility_hides_profiles_teams_and_anonymous_keys(self):
         user = User.objects.create_user(username='hidden-profile')
         profile = Profile.objects.create(user=user, first_name='Hidden', last_name='Player', is_hidden=True)
