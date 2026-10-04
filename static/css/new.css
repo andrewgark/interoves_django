@@ -1348,7 +1348,8 @@ html.new-ui-dark body.new-ui {
   border: none;
   border-radius: var(--control-radius);
   background: transparent;
-  color: var(--text);
+  color: transparent;
+  caret-color: var(--text);
   font-size: 0.95rem;
   text-decoration: none;
   text-align: left;
@@ -8618,6 +8619,31 @@ html.is-age-gated .new-wrap {
 }
 .new-raddle-mask__slot {
   font-size: 1.05em;
+}
+.new-raddle-value {
+  position: absolute;
+  z-index: 3;
+  inset: 0.3rem 0.35rem;
+  display: grid;
+  grid-template-columns: repeat(var(--raddle-format-len, 5), minmax(0, 1fr));
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font: inherit;
+  line-height: 1;
+  pointer-events: none;
+}
+.new-raddle-value__slot,
+.new-raddle-value__literal {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  white-space: nowrap;
+}
+.new-raddle-row--wrong .new-raddle-value {
+  color: var(--danger);
+  font-weight: 700;
 }
 .new-raddle-input:not(:placeholder-shown) + .new-raddle-mask {
   display: none;

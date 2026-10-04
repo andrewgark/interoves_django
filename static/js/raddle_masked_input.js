@@ -155,6 +155,41 @@
     };
   }
 
+  function visualValue(input, letters) {
+    if (!input || !input.parentNode || typeof document === 'undefined') return;
+    var line = input.parentNode;
+    var valueLayer = line.querySelector('.new-raddle-value');
+    if (!valueLayer) {
+      valueLayer = document.createElement('span');
+      valueLayer.className = 'new-raddle-value';
+      valueLayer.setAttribute('aria-hidden', 'true');
+      var maskLayer = line.querySelector('.new-raddle-mask');
+      if (maskLayer) maskLayer.insertAdjacentElement('afterend', valueLayer);
+      else line.appendChild(valueLayer);
+    }
+    valueLayer.textContent = '';
+    var fmt = input.getAttribute('data-raddle-format') || '';
+    var clean = String(letters || '');
+    var letterIndex = 0;
+    for (var i = 0; i < fmt.length; i++) {
+      var token = document.createElement('span');
+      var ch = fmt.charAt(i);
+      if (ch === SLOT) {
+        token.className = 'new-raddle-value__slot';
+        token.textContent = letterIndex < clean.length ? clean.charAt(letterIndex++) : '';
+      } else {
+        token.className = 'new-raddle-value__literal';
+        var need = 0;
+        for (var j = 0; j < i; j++) {
+          if (fmt.charAt(j) === SLOT) need++;
+        }
+        token.textContent = clean.length > need ? ch : '';
+      }
+      valueLayer.appendChild(token);
+    }
+    valueLayer.hidden = !clean;
+  }
+
   function getLetters(input) {
     var mask = getMaskInstance(input);
     if (mask) return mask.unmaskedValue || '';
@@ -170,6 +205,7 @@
     var mask = getMaskInstance(input);
     if (mask) {
       mask.unmaskedValue = clean;
+      visualValue(input, clean);
       return clean;
     }
     input.dataset.raddleLetters = clean;
@@ -177,6 +213,7 @@
     try {
       input.setSelectionRange(input.value.length, input.value.length);
     } catch (e) {}
+    visualValue(input, clean);
     if (typeof opts.onChange === 'function') opts.onChange(input, clean);
     if (clean.length === max && typeof opts.onComplete === 'function') {
       opts.onComplete(input, clean);
@@ -219,6 +256,7 @@
 
     mask.on('accept', function () {
       syncDataset();
+      visualValue(input, mask.unmaskedValue || '');
       if (initializing) return;
       if (typeof hooks.onChange === 'function') {
         hooks.onChange(input, mask.unmaskedValue || '');
@@ -238,6 +276,7 @@
     } else {
       syncDataset();
     }
+    visualValue(input, mask.unmaskedValue || '');
     initializing = false;
   }
 
