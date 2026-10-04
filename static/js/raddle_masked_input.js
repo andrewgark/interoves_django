@@ -283,6 +283,26 @@
     for (var i = 1; i < centers.length; i++) steps.push(centers[i] - centers[i - 1]);
     var slotStep = steps.length ? steps.reduce(function (a, b) { return a + b; }, 0) / steps.length : 0;
     var metrics = fontMetrics(input);
+    var slotStepSource = slotStep ? 'visible-mask' : null;
+    if (!slotStep && cells.length && metrics && line) {
+      // Once text is entered the decorative mask is intentionally hidden. In
+      // that state ResizeObserver still needs a target grid for responsive
+      // recalculation. Re-scale the last measured grid with the new font size.
+      var lineStyle = global.getComputedStyle(line);
+      var previousStep = readPx(lineStyle.getPropertyValue('--raddle-slot-step'));
+      var previousFontSize = readPx(lineStyle.getPropertyValue('--raddle-calibration-font-size'));
+      var currentFontSize = readPx(metrics.fontSize);
+      if (previousStep && previousFontSize && currentFontSize) {
+        slotStep = previousStep * currentFontSize / previousFontSize;
+        slotStepSource = 'scaled-hidden-mask';
+      } else {
+        var contentWidth = input.clientWidth - readPx(inputStyle.paddingLeft) - readPx(inputStyle.paddingRight);
+        if (contentWidth > 0) {
+          slotStep = contentWidth / cells.length;
+          slotStepSource = 'input-content-fallback';
+        }
+      }
+    }
     var measuredLetterSpacing = slotStep && metrics ? slotStep - metrics.advance : 0;
     var nativeTextStep = metrics ? metrics.advance + measuredLetterSpacing : 0;
     return {
@@ -305,6 +325,7 @@
         cells: cells,
       } : null,
       maskHidden: !!(mask && (!maskRect || !maskRect.width)),
+      slotStepSource: slotStepSource,
       font: metrics,
       measuredLetterSpacing: measuredLetterSpacing,
       nativeTextStep: nativeTextStep,
@@ -320,6 +341,7 @@
     if (line) {
       line.style.setProperty('--raddle-glyph-advance', result.font.advance + 'px');
       line.style.setProperty('--raddle-slot-step', result.mask.slotStep + 'px');
+      line.style.setProperty('--raddle-calibration-font-size', result.font.fontSize);
       line.style.setProperty('--raddle-char-gap', result.measuredLetterSpacing + 'px');
     }
     return result;
@@ -383,6 +405,7 @@
         scheduleGeometryCalibration(input);
       });
       input.__raddleGeometryObserver.observe(line);
+      if (line.parentElement) input.__raddleGeometryObserver.observe(line.parentElement);
     }
   }
 
