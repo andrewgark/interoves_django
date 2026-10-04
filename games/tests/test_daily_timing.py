@@ -1211,6 +1211,39 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(completed.status_code, 200)
         self.assertEqual(completed.json()['frozen_ms'], 20_000)
 
+    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.models.Game.has_access', return_value=True)
+    def test_anonymous_http_sessions_run_in_parallel_and_count_union_once(self, _access, _pub, _game_access):
+        session_a, session_b = str(uuid4()), str(uuid4())
+        t0 = datetime(2026, 9, 3, 10, 0, 0, tzinfo=dt_timezone.utc)
+
+        started_a = self._post_at(self.client, {
+            'action': ACTION_START, 'session_id': session_a, 'event_id': 'anon-a-start', 'seq': 1,
+        }, t0)
+        self.assertEqual(started_a.status_code, 200)
+        started_b = self._post_at(self.client, {
+            'action': ACTION_START, 'session_id': session_b, 'event_id': 'anon-b-start', 'seq': 1,
+        }, t0 + timedelta(seconds=5))
+        self.assertEqual(started_b.status_code, 200)
+        self.assertTrue(started_b.json()['is_authoritative'])
+        self.assertEqual(started_b.json()['active_sessions_count'], 2)
+        self.assertEqual(started_b.json()['accumulated_ms'], 5_000)
+
+        paused_a = self._post_at(self.client, {
+            'action': ACTION_PAUSE, 'session_id': session_a, 'event_id': 'anon-a-pause', 'seq': 2,
+        }, t0 + timedelta(seconds=10))
+        self.assertEqual(paused_a.status_code, 200)
+        self.assertFalse(paused_a.json()['session_active'])
+        self.assertEqual(paused_a.json()['active_sessions_count'], 1)
+
+        completed = self._post_at(self.client, {
+            'action': ACTION_COMPLETE, 'session_id': session_b,
+            'event_id': 'anon-b-complete', 'seq': 2,
+        }, t0 + timedelta(seconds=15))
+        self.assertEqual(completed.status_code, 200)
+        self.assertEqual(completed.json()['frozen_ms'], 15_000)
+
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_unknown_action_is_not_ok(self, _pub):
