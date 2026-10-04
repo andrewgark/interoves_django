@@ -21,6 +21,7 @@ from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
     HEARTBEAT_MAX_CREDIT_MS,
+    LEASE_STALE_MS,
     TIMING_DEADLOCK_ATTEMPTS,
     _is_mysql_deadlock,
     apply_timing_event,
@@ -710,6 +711,17 @@ class DailyTimingDomainTests(TestCase):
         self._apply(action=ACTION_START, session=uuid4(), seq=3, now=_dt(3 * 3600))
         row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
         self.assertLessEqual(row.accumulated_ms, 15000 + HEARTBEAT_MAX_CREDIT_MS)
+
+    def test_stale_session_gets_heartbeat_lease_window_before_takeover(self):
+        stale_sid = uuid4()
+        self._apply(action=ACTION_START, session=stale_sid, seq=1, now=_dt())
+
+        takeover = self._apply(
+            action=ACTION_START, session=uuid4(), seq=1, now=_dt(60),
+        )
+
+        self.assertEqual(takeover['committed_ms'], LEASE_STALE_MS)
+        self.assertEqual(takeover['active_sessions_count'], 1)
 
     def test_pause_credits_open_interval_from_claimed(self):
         sid = uuid4()
