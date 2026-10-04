@@ -334,6 +334,27 @@ class DailyTimingDomainTests(TestCase):
             1,
         )
 
+    def test_completion_migrates_legacy_lease_without_creating_extra_session(self):
+        legacy_sid = uuid4()
+        DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_RUNNING,
+            active_session_id=legacy_sid,
+            interval_started_at=_dt(),
+            last_heartbeat_at=_dt(),
+        )
+
+        completed = complete_daily_timing(
+            game=self.game, task_group=self.tg, user=self.user, now=_dt(10),
+        )
+
+        self.assertTrue(completed['completed'])
+        row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
+        self.assertEqual(row.sessions.count(), 1)
+        self.assertEqual(row.sessions.get().session_id, legacy_sid)
+
     def test_return_to_tab_starts_new_interval(self):
         sid = uuid4()
         self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())

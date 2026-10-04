@@ -833,7 +833,10 @@ def complete_daily_timing_in_transaction(
     _apply_to_team_row(
         row,
         action=ACTION_COMPLETE,
-        session_id=(active_session.session_id if active_session else uuid4()),
+        session_id=(
+            active_session.session_id
+            if active_session else (row.active_session_id or uuid4())
+        ),
         event_id='complete:{}'.format(row.pk),
         seq=next_seq,
         now=now,
