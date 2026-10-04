@@ -17,6 +17,8 @@ from games.models import (
     CheckerType,
     Game,
     GameTaskGroup,
+    DailySolveTiming,
+    DailySolveTimingSession,
     HTMLPage,
     Profile,
     Project,
@@ -122,6 +124,16 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         replacements_group = TaskGroup.objects.create(label='Browser replacements')
         pending_group = TaskGroup.objects.create(label='Browser pending')
         clock_group = TaskGroup.objects.create(label='Browser clock')
+        self.daily_game = Game.objects.create(
+            id='realtime_browser_daily',
+            name='Realtime browser daily timing',
+            author='test',
+            project_id='main',
+            is_ready=True,
+            is_playable=True,
+            is_tournament=False,
+        )
+        self.daily_group = TaskGroup.objects.create(label='Browser personal daily timing')
         GameTaskGroup.objects.create(game=self.game, task_group=ordinary_group, number=1)
         GameTaskGroup.objects.create(game=self.game, task_group=raddle_group, number=2)
         GameTaskGroup.objects.create(game=self.game, task_group=replacements_group, number=3)
@@ -129,6 +141,9 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             game=self.pending_game, task_group=pending_group, number=1,
         )
         GameTaskGroup.objects.create(game=self.clock_game, task_group=clock_group, number=1)
+        GameTaskGroup.objects.create(
+            game=self.daily_game, task_group=self.daily_group, number='99001', name='Daily timing',
+        )
         with patch('games.views.track.track_task_change'):
             self.ordinary_task = Task.objects.create(
                 task_group=ordinary_group,
@@ -172,26 +187,40 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
                 checker=equals,
                 points=1,
             )
+            self.daily_task = Task.objects.create(
+                task_group=self.daily_group,
+                number='1',
+                text='Browser personal daily task',
+                answer='RIGHT',
+                checker=equals,
+                points=1,
+            )
 
         self.team = Team.objects.create(name='realtime_browser_team')
         self.user_one = User.objects.create_user('browser_one', password='pw')
         self.user_two = User.objects.create_user('browser_two', password='pw')
+        self.personal_user = User.objects.create_user('browser_personal', password='pw')
         self.staff = User.objects.create_superuser(
             'browser_staff', 'browser_staff@example.com', 'pw',
         )
         Profile.objects.create(user=self.user_one, team_on=self.team)
         Profile.objects.create(user=self.user_two, team_on=self.team)
+        Profile.objects.create(user=self.personal_user)
         Profile.objects.create(user=self.staff)
         support_group, _ = Group.objects.get_or_create(name=SUPPORT_CONSOLE_GROUP)
         support_group.user_set.add(self.staff)
         self.session_ids = {}
-        for user in (self.user_one, self.user_two, self.staff):
+        for user in (self.user_one, self.user_two, self.personal_user, self.staff):
             client = Client()
             client.force_login(user)
+            if user == self.personal_user:
+                session = client.session
+                session['play_mode_main'] = 'personal'
+                session.save()
             self.session_ids[user.pk] = client.cookies['sessionid'].value
         self.start_browser()
 
-    def browser_page_for(self, user):
+    def browser_page_for(self, user, session_id=None):
         context = self.browser.new_context()
         self.browser_contexts.append(context)
         context.add_init_script(
@@ -200,11 +229,50 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         )
         context.add_cookies([{
             'name': 'sessionid',
-            'value': self.session_ids[user.pk],
+            'value': session_id or self.session_ids[user.pk],
             'url': self.live_server_url,
         }])
         page = context.new_page()
         return page
+
+    def daily_timing_counts(self):
+        """Read timing state from a sync DB thread while Playwright is active."""
+        result = {}
+        errors = []
+
+        def read_timing():
+            close_old_connections()
+            try:
+                timing = DailySolveTiming.objects.filter(
+                    game=self.daily_game,
+                    task_group=self.daily_group,
+                    user=self.personal_user,
+                ).first()
+                if timing is None:
+                    result['timing'] = None
+                    return
+                result['timing'] = {
+                    'user_id': timing.user_id,
+                    'team_id': timing.team_id,
+                    'active_sessions_count': timing.active_sessions_count,
+                    'running': timing.sessions.filter(
+                        status=DailySolveTimingSession.STATUS_RUNNING,
+                    ).count(),
+                    'paused': timing.sessions.filter(
+                        status=DailySolveTimingSession.STATUS_PAUSED,
+                    ).count(),
+                }
+            except Exception as exc:  # pragma: no cover - surfaced in the test thread
+                errors.append(exc)
+            finally:
+                close_old_connections()
+
+        thread = Thread(target=read_timing)
+        thread.start()
+        thread.join()
+        if errors:
+            raise errors[0]
+        return result.get('timing')
 
     def move_clock_game_boundary_near_now(self, boundary):
         """Move a clock boundary after Playwright starts, using a sync-safe DB thread."""
@@ -693,6 +761,46 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             expect(card.locator('[data-attempt-mark="pending"]')).to_have_count(0)
         self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
+
+    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.club_access.reject_if_club_archive_blocked', return_value=None)
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.views.new_ui.scheduled_number_is_public', return_value=True)
+    @patch('games.models.Game.has_access', return_value=True)
+    def test_personal_daily_timer_keeps_both_browser_tabs_active(
+        self, _game_access, _page_published, _published, _reject_archive,
+        _scheduled_access,
+    ):
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.personal_user)
+        second = self.browser_page_for(self.personal_user)
+        url = f'{self.live_server_url}/games/realtime_browser_daily/99001/'
+        for page in (first, second):
+            page.goto(url)
+            expect(page.locator('[data-daily-timer]')).to_be_visible(timeout=10_000)
+
+        for _ in range(100):
+            timing = self.daily_timing_counts()
+            if timing and timing['running'] == 2:
+                break
+            first.wait_for_timeout(100)
+        self.assertIsNotNone(timing)
+        self.assertEqual(timing['running'], 2)
+
+        first.locator('[data-daily-timer-toggle]').click()
+        expect(first.locator('[data-daily-timer-popover]')).to_be_visible()
+        first.locator('[data-daily-timer-pause]').click()
+
+        expect(first.locator('[data-daily-pause-overlay]')).to_be_visible(timeout=5_000)
+        expect(second.locator('[data-daily-pause-overlay]')).to_be_hidden(timeout=5_000)
+
+        timing = self.daily_timing_counts()
+        self.assertEqual(timing['user_id'], self.personal_user.pk)
+        self.assertIsNone(timing['team_id'])
+        self.assertEqual(timing['active_sessions_count'], 1)
+        self.assertEqual(timing['running'], 1)
+        self.assertEqual(timing['paused'], 1)
 
     def test_game_start_boundary_opens_task_without_manual_refresh(self):
         from playwright.sync_api import expect
