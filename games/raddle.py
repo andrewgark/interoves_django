@@ -1378,6 +1378,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
         emoji = str(parsed.get('emojis', [''] * n)[i] or '').strip()
         # Подпись и квадраты — по структуре ответа (пробел ≠ дефис), не по строке lengths.
         mask_html = length_mask_display(mask, canon).strip()
+        mask_tokens = list(mask_html)
         length_label = length_label_from_word(canon) if canon else mask['label']
         word_options = parsed.get('word_accept', [])[i] if parsed.get('word_accept') else [canon]
         word_class = raddle_word_class_for_options(word_options)
@@ -1409,6 +1410,7 @@ def build_raddle_ui_context(parsed, state, attempts=None, max_attempts=None, mod
             'index': i,
             'word': canon if is_solved else '',
             'mask_html': mask_html,
+            'mask_tokens': mask_tokens,
             'mask_placeholder': mask_html,
             'length_label': length_label,
             'emoji': emoji,

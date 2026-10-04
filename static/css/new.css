@@ -8489,6 +8489,7 @@ html.is-age-gated .new-wrap {
   flex: 0 1 auto;
   display: flex;
   align-items: center;
+  position: relative;
   min-width: 0;
   width: max-content;
   max-width: 100%;
@@ -8563,7 +8564,9 @@ html.is-age-gated .new-wrap {
   padding: 0.3rem 0.35rem;
   border: 1px solid color-mix(in srgb, var(--border) 85%, transparent);
   border-radius: var(--control-radius);
-  background: color-mix(in srgb, var(--tile) 40%, var(--surface));
+  position: relative;
+  z-index: 2;
+  background: transparent;
   color: var(--text);
   font-family: var(--new-font-mono);
   line-height: 1.2;
@@ -8581,11 +8584,39 @@ html.is-age-gated .new-wrap {
 }
 .new-raddle-input::placeholder {
   letter-spacing: 0.02em;
-  color: var(--muted);
+  color: transparent;
   opacity: 0.9;
   text-transform: none;
   /* Match the input metrics so the mask does not leave an artificial gap. */
   font-size: 1em;
+}
+.new-raddle-mask {
+  position: absolute;
+  z-index: 1;
+  inset: 0.3rem 0.35rem;
+  display: grid;
+  grid-template-columns: repeat(var(--raddle-format-len, 5), minmax(0, 1fr));
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--new-font-mono);
+  font-size: inherit;
+  line-height: 1;
+  pointer-events: none;
+}
+.new-raddle-mask__slot,
+.new-raddle-mask__literal {
+  min-width: 0;
+  overflow: hidden;
+  text-align: center;
+  white-space: nowrap;
+}
+.new-raddle-mask__slot {
+  font-size: 1.05em;
+}
+.new-raddle-input:not(:placeholder-shown) + .new-raddle-mask {
+  display: none;
 }
 /* На узком .new-wrap (≤919px) чуть плотнее слоты; масштаб шрифта — через cqi выше. */
 @media (max-width: 919px) {
