@@ -8309,8 +8309,7 @@ html.is-age-gated .new-wrap {
     }
   }
 }
-/* Длинные маски (9 7 и т.п.): уменьшаем шрифт, чтобы N слотов + (len) влезали в ячейку. */
-.new-raddle-input,
+/* Длинные маски (9 7 и т.п.): уменьшаем декоративную маску, чтобы N слотов + (len) влезали в ячейку. */
 .new-raddle-line__mask,
 .new-raddle-line__solved-text {
   font-size: clamp(
@@ -8497,9 +8496,15 @@ html.is-age-gated .new-wrap {
   min-width: 0;
   width: max-content;
   max-width: 100%;
+  --raddle-char-gap: 0em;
+  --raddle-glyph-advance: 1em;
+  --raddle-slot-step: 1em;
   font-size: clamp(
     0.68rem,
-    calc((100cqi - 0.8rem) / (var(--raddle-format-len, 5) * 1.08)),
+    calc(
+      (100cqi - 0.8rem)
+      / var(--raddle-format-len, 5)
+    ),
     1.35rem
   );
 }
@@ -8557,10 +8562,16 @@ html.is-age-gated .new-wrap {
 }
 .new-raddle-input {
   flex: 0 1 auto;
-  letter-spacing: clamp(0.01em, calc(0.1em - 0.005em * var(--raddle-len, 5)), 0.06em);
+  /* N native character cells + input padding/border. The advance is measured
+     from the loaded font; 1em is only the initial fallback before calibration. */
+  letter-spacing: var(--raddle-char-gap);
   text-transform: uppercase;
-  /* Intrinsic width keeps the mask centered; flex-shrink handles tight cells. */
-  width: calc(var(--raddle-format-len, 5) * 1.08em + 0.8rem);
+  /* Keep the input width and the native text grid on the same formula. */
+  width: calc(
+    var(--raddle-format-len, 5) * var(--raddle-glyph-advance, 1em)
+    + var(--raddle-format-len, 5) * var(--raddle-char-gap)
+    + 0.7rem + 2px
+  );
   font-size: inherit;
   min-width: 0;
   max-width: 100%;
@@ -8572,11 +8583,12 @@ html.is-age-gated .new-wrap {
   position: relative;
   z-index: 2;
   background: transparent;
-  color: transparent !important;
-  -webkit-text-fill-color: transparent;
-  text-shadow: none;
+  color: var(--text);
   caret-color: var(--text);
   font-family: var(--new-font-mono);
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings: "liga" 0, "clig" 0, "calt" 0;
   line-height: 1.2;
   transition: border-color 0.14s ease, box-shadow 0.14s ease, background-color 0.14s ease;
 }
@@ -8600,10 +8612,10 @@ html.is-age-gated .new-wrap {
 }
 .new-raddle-mask {
   position: absolute;
-  z-index: 1;
-  inset: 0.3rem 0.35rem;
-  display: grid;
-  grid-template-columns: repeat(var(--raddle-format-len, 5), minmax(0, 1fr));
+  z-index: 0;
+  /* Match the input content box: 0.35rem padding + 1px border. */
+  inset: 0.3rem calc(0.35rem + 1px);
+  display: flex;
   align-items: center;
   min-width: 0;
   overflow: hidden;
@@ -8621,40 +8633,21 @@ html.is-age-gated .new-wrap {
   white-space: nowrap;
 }
 .new-raddle-mask__slot {
+  flex: 1 1 0;
   font-size: 1.05em;
 }
-.new-raddle-value {
-  position: absolute;
-  z-index: 3;
-  inset: 0.3rem 0.35rem;
-  display: grid;
-  grid-template-columns: repeat(var(--raddle-format-len, 5), minmax(0, 1fr));
-  align-items: center;
-  min-width: 0;
-  overflow: hidden;
-  color: var(--text);
-  font: inherit;
-  line-height: 1;
-  pointer-events: none;
+.new-raddle-mask__literal {
+  /* A real space/hyphen is one monospace character cell too. */
+  flex: 1 1 0;
 }
-.new-raddle-value__slot,
-.new-raddle-value__literal {
-  min-width: 0;
-  overflow: hidden;
-  text-align: center;
-  white-space: nowrap;
-}
-.new-raddle-row--wrong .new-raddle-value {
-  color: var(--danger);
-  font-weight: 700;
-}
-.new-raddle-input:not(:placeholder-shown) + .new-raddle-mask {
+.new-raddle-input:not(:placeholder-shown) + .new-raddle-mask,
+.new-raddle-input.new-raddle-input--filled + .new-raddle-mask {
   display: none;
 }
 /* На узком .new-wrap (≤919px) чуть плотнее слоты; масштаб шрифта — через cqi выше. */
 @media (max-width: 919px) {
   .new-raddle-input {
-    letter-spacing: clamp(0.01em, calc(0.08em - 0.004em * var(--raddle-len, 5)), 0.05em);
+    letter-spacing: var(--raddle-char-gap);
   }
   .new-raddle-line__mask,
   .new-raddle-line__solved-text {
@@ -8675,7 +8668,7 @@ html.is-age-gated .new-wrap {
   .new-raddle-word-cell { gap: 0.2rem; padding: 0.3rem 0.3rem; }
   .new-raddle-line__len { font-size: 0.72rem; }
   .new-raddle-input {
-    letter-spacing: clamp(0.01em, calc(0.07em - 0.003em * var(--raddle-len, 5)), 0.045em);
+    letter-spacing: var(--raddle-char-gap);
   }
   .new-raddle-line__mask,
   .new-raddle-line__solved-text {

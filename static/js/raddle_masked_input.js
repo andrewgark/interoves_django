@@ -155,41 +155,6 @@
     };
   }
 
-  function visualValue(input, letters) {
-    if (!input || !input.parentNode || typeof document === 'undefined') return;
-    var line = input.parentNode;
-    var valueLayer = line.querySelector('.new-raddle-value');
-    if (!valueLayer) {
-      valueLayer = document.createElement('span');
-      valueLayer.className = 'new-raddle-value';
-      valueLayer.setAttribute('aria-hidden', 'true');
-      var maskLayer = line.querySelector('.new-raddle-mask');
-      if (maskLayer) maskLayer.insertAdjacentElement('afterend', valueLayer);
-      else line.appendChild(valueLayer);
-    }
-    valueLayer.textContent = '';
-    var fmt = input.getAttribute('data-raddle-format') || '';
-    var clean = String(letters || '');
-    var letterIndex = 0;
-    for (var i = 0; i < fmt.length; i++) {
-      var token = document.createElement('span');
-      var ch = fmt.charAt(i);
-      if (ch === SLOT) {
-        token.className = 'new-raddle-value__slot';
-        token.textContent = letterIndex < clean.length ? clean.charAt(letterIndex++) : '';
-      } else {
-        token.className = 'new-raddle-value__literal';
-        var need = 0;
-        for (var j = 0; j < i; j++) {
-          if (fmt.charAt(j) === SLOT) need++;
-        }
-        token.textContent = clean.length > need ? ch : '';
-      }
-      valueLayer.appendChild(token);
-    }
-    valueLayer.hidden = !clean;
-  }
-
   function getLetters(input) {
     var mask = getMaskInstance(input);
     if (mask) return mask.unmaskedValue || '';
@@ -205,7 +170,6 @@
     var mask = getMaskInstance(input);
     if (mask) {
       mask.unmaskedValue = clean;
-      visualValue(input, clean);
       return clean;
     }
     input.dataset.raddleLetters = clean;
@@ -213,7 +177,6 @@
     try {
       input.setSelectionRange(input.value.length, input.value.length);
     } catch (e) {}
-    visualValue(input, clean);
     if (typeof opts.onChange === 'function') opts.onChange(input, clean);
     if (clean.length === max && typeof opts.onComplete === 'function') {
       opts.onComplete(input, clean);
@@ -225,6 +188,156 @@
     if (!input) return '';
     if (input.getAttribute('data-raddle-format')) return getLetters(input);
     return String(input.value || '').trim();
+  }
+
+  // Geometry-only native-input calibration. This deliberately never reads
+  // individual characters to render them and never creates an editing layer.
+  // G is the real font advance; S is the measured step of the empty cells.
+  function fontMetrics(input) {
+    if (!input || !global.document || !global.document.createElement) return null;
+    var canvas = global.document.createElement('canvas');
+    var ctx = canvas.getContext && canvas.getContext('2d');
+    if (!ctx) return null;
+    var style = global.getComputedStyle(input);
+    // `getComputedStyle().font` may contain an unresolved var()/shorthand
+    // that Canvas silently rejects and replaces with its default serif font.
+    // Build a valid Canvas font from the resolved longhands instead.
+    // Canvas accepts the core font shorthand, but browser implementations
+    // differ on `font-variant` in this setter. Keep it out of the string;
+    // ligatures are disabled on the actual input via CSS anyway.
+    ctx.font = [style.fontStyle, style.fontWeight,
+      style.fontSize + ' ' + style.fontFamily].join(' ');
+    var chars = ['A', 'M', 'W', 'И', 'Ж', 'Я', 'Ё', '0', '-', ' '];
+    var metrics = {};
+    chars.forEach(function (ch) {
+      metrics[ch === ' ' ? 'space' : ch] = ctx.measureText(ch).width;
+    });
+    return {
+      font: style.font,
+      canvasFont: ctx.font,
+      fontFamily: style.fontFamily,
+      fontSize: style.fontSize,
+      fontWeight: style.fontWeight,
+      letterSpacing: style.letterSpacing,
+      values: metrics,
+      advance: metrics['0'],
+      loaded: global.document.fonts && global.document.fonts.check
+        ? global.document.fonts.check(ctx.font, 'И') : null,
+    };
+  }
+
+  function waitForInputFont(input) {
+    if (!input || !global.document || !global.document.fonts) return Promise.resolve();
+    var style = global.getComputedStyle(input);
+    var family = style.fontFamily;
+    var sample = 'AMWИЖЯЁ0- ';
+    var ready = global.document.fonts.ready || Promise.resolve();
+    return ready.then(function () {
+      if (!global.document.fonts.load) return null;
+      return global.document.fonts.load(
+        style.fontWeight + ' ' + style.fontSize + ' ' + family,
+        sample
+      );
+    });
+  }
+
+  function readPx(value) {
+    var n = parseFloat(value);
+    return isFinite(n) ? n : 0;
+  }
+
+  function measureGeometry(input) {
+    if (!input || !input.getBoundingClientRect) return null;
+    var line = input.closest ? input.closest('.new-raddle-line') : null;
+    var mask = line && line.querySelector ? line.querySelector('.new-raddle-mask') : null;
+    var inputStyle = global.getComputedStyle(input);
+    var maskStyle = mask ? global.getComputedStyle(mask) : null;
+    var inputRect = input.getBoundingClientRect();
+    var maskRect = mask ? mask.getBoundingClientRect() : null;
+    var cells = mask ? Array.prototype.slice.call(mask.children).map(function (cell) {
+      var rect = cell.getBoundingClientRect();
+      return {
+        text: cell.textContent,
+        left: rect.left,
+        width: rect.width,
+        center: rect.left + rect.width / 2,
+      };
+    }) : [];
+    var centers = cells.map(function (cell) { return cell.center; });
+    var steps = [];
+    for (var i = 1; i < centers.length; i++) steps.push(centers[i] - centers[i - 1]);
+    var slotStep = steps.length ? steps.reduce(function (a, b) { return a + b; }, 0) / steps.length : 0;
+    var metrics = fontMetrics(input);
+    var measuredLetterSpacing = slotStep && metrics ? slotStep - metrics.advance : 0;
+    return {
+      input: {
+        rectWidth: inputRect.width,
+        clientWidth: input.clientWidth,
+        offsetWidth: input.offsetWidth,
+        computedWidth: inputStyle.width,
+        paddingLeft: inputStyle.paddingLeft,
+        paddingRight: inputStyle.paddingRight,
+        borderLeft: inputStyle.borderLeftWidth,
+        borderRight: inputStyle.borderRightWidth,
+        contentWidth: input.clientWidth - readPx(inputStyle.paddingLeft) - readPx(inputStyle.paddingRight),
+      },
+      mask: maskRect ? {
+        left: maskRect.left,
+        width: maskRect.width,
+        cellCount: cells.length,
+        slotStep: slotStep,
+        cells: cells,
+      } : null,
+      maskHidden: !!(mask && (!maskRect || !maskRect.width)),
+      font: metrics,
+      measuredLetterSpacing: measuredLetterSpacing,
+      currentLetterSpacing: inputStyle.letterSpacing,
+    };
+  }
+
+  function calibrateGeometry(input) {
+    var result = measureGeometry(input);
+    if (!result || !result.font || !result.mask || !result.mask.slotStep) return result;
+    var line = input.closest ? input.closest('.new-raddle-line') : null;
+    if (line) {
+      line.style.setProperty('--raddle-glyph-advance', result.font.advance + 'px');
+      line.style.setProperty('--raddle-slot-step', result.mask.slotStep + 'px');
+      line.style.setProperty('--raddle-char-gap', result.measuredLetterSpacing + 'px');
+    }
+    return result;
+  }
+
+  function debugGeometry(input) {
+    var target = input;
+    if (!target && global.document) target = global.document.querySelector('input.new-raddle-input');
+    if (!target) return null;
+    var run = function () {
+      var result = measureGeometry(target);
+      if (global.console && console.group) {
+        console.group('Raddle native geometry');
+        console.table(result.input);
+        console.table(result.font && result.font.values);
+        console.log('Resolved font metrics:', result.font);
+        if (result.mask) console.table(result.mask.cells);
+        console.log(result);
+        console.groupEnd();
+      }
+      return result;
+    };
+    return waitForInputFont(target).then(run);
+  }
+
+  function scheduleGeometryCalibration(input) {
+    var run = function () {
+      if (global.requestAnimationFrame) global.requestAnimationFrame(function () { calibrateGeometry(input); });
+      else calibrateGeometry(input);
+    };
+    var line = input && input.closest ? input.closest('.new-raddle-line') : null;
+    if (line && global.ResizeObserver && !input.__raddleGeometryObserver) {
+      input.__raddleGeometryObserver = new global.ResizeObserver(run);
+      input.__raddleGeometryObserver.observe(line);
+    }
+    waitForInputFont(input).then(run);
   }
 
   function bindInput(input, hooks) {
@@ -252,11 +365,13 @@
 
     function syncDataset() {
       input.dataset.raddleLetters = mask.unmaskedValue || '';
+      if (input.classList && input.classList.toggle) {
+        input.classList.toggle('new-raddle-input--filled', !!mask.value);
+      }
     }
 
     mask.on('accept', function () {
       syncDataset();
-      visualValue(input, mask.unmaskedValue || '');
       if (initializing) return;
       if (typeof hooks.onChange === 'function') {
         hooks.onChange(input, mask.unmaskedValue || '');
@@ -276,8 +391,8 @@
     } else {
       syncDataset();
     }
-    visualValue(input, mask.unmaskedValue || '');
     initializing = false;
+    scheduleGeometryCalibration(input);
   }
 
   function refresh(input) {
@@ -307,5 +422,9 @@
     bindInput: bindInput,
     bindAll: bindAll,
     refresh: refresh,
+    fontMetrics: fontMetrics,
+    measureGeometry: measureGeometry,
+    calibrateGeometry: calibrateGeometry,
+    debugGeometry: debugGeometry,
   };
 })(typeof window !== 'undefined' ? window : global);
