@@ -854,6 +854,52 @@ class DailyTimingDomainTests(TestCase):
         self.assertEqual(target.frozen_ms, 12000)
         self.assertFalse(DailySolveTiming.objects.filter(pk=source.pk).exists())
 
+    def test_merge_moves_running_sessions_to_the_surviving_row(self):
+        target = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_RUNNING,
+            active_sessions_count=1,
+            team_interval_started_at=_dt(3),
+        )
+        source_user = User.objects.create_user('timing_src_running', 'sr@example.com', 'secret')
+        source = DailySolveTiming.objects.create(
+            user=source_user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_RUNNING,
+            accumulated_ms=8000,
+            active_sessions_count=1,
+            team_interval_started_at=_dt(1),
+        )
+        target_session = DailySolveTimingSession.objects.create(
+            timing=target,
+            session_id=uuid4(),
+            status=DailySolveTimingSession.STATUS_RUNNING,
+            started_at=_dt(3),
+            last_heartbeat_at=_dt(4),
+        )
+        source_session = DailySolveTimingSession.objects.create(
+            timing=source,
+            session_id=uuid4(),
+            status=DailySolveTimingSession.STATUS_RUNNING,
+            started_at=_dt(1),
+            last_heartbeat_at=_dt(2),
+        )
+
+        merge_timing_rows(target, source)
+
+        target.refresh_from_db()
+        self.assertFalse(DailySolveTiming.objects.filter(pk=source.pk).exists())
+        self.assertEqual(target.status, DailySolveTiming.STATUS_RUNNING)
+        self.assertEqual(target.active_sessions_count, 2)
+        self.assertEqual(target.team_interval_started_at, _dt(1))
+        self.assertCountEqual(
+            target.sessions.values_list('session_id', flat=True),
+            [target_session.session_id, source_session.session_id],
+        )
+
 
 class DailyTimingApiTests(TestCase):
     def setUp(self):
