@@ -296,6 +296,46 @@ function fakeClock(start) {
   second.destroy();
 })();
 
+(function testWindowOpenGetsNewSessionDespiteCopiedSessionStorage() {
+  var openerStorage = memoryStorage();
+  var openerWindow = { name: '' };
+  var first = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    windowIdentity: openerWindow,
+    storage: openerStorage,
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    bootstrap: { status: 'auto_paused', exists: false },
+  });
+  var openerSession = openerStorage.getItem('session:/ladder/1/timing/');
+  first.destroy();
+
+  // A real window.open() child may start with a copy of sessionStorage, but
+  // it has no copied window.name marker.
+  var childStorage = memoryStorage();
+  childStorage.setItem('session:/ladder/1/timing/', openerSession);
+  var second = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    windowIdentity: { name: '' },
+    storage: childStorage,
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    bootstrap: { status: 'auto_paused', exists: false },
+  });
+  assert.notStrictEqual(childStorage.getItem('session:/ladder/1/timing/'), openerSession);
+  second.destroy();
+})();
+
 function parsePostBody(init) {
   var type = (init && init.headers && init.headers['Content-Type']) || '';
   if (String(type).indexOf('json') >= 0) return JSON.parse(init.body);

@@ -13,6 +13,7 @@
 })(typeof window !== 'undefined' ? window : global, function (root) {
   var HEARTBEAT_MS = 15000;
   var STORAGE_PREFIX = 'interoves_task_group_timing_v1:';
+  var WINDOW_SESSION_PREFIX = 'interoves-daily-timing:';
 
   function formatElapsed(ms) {
     var seconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
@@ -68,6 +69,9 @@
     var fetchFn = options.fetch || (root && root.fetch && root.fetch.bind(root));
     var storage = options.storage || (root && root.sessionStorage);
     var localStore = options.localStorage || (root && root.localStorage);
+    var windowIdentity = options.windowIdentity || (
+      root && root.window === root ? root : null
+    );
     var clock = options.clock || root.performance || { now: function () { return Date.now(); } };
     var bootstrap = options.bootstrap || {};
     var solved = !!options.solved;
@@ -92,7 +96,26 @@
     var sessionId = '';
     var seq = 0;
     try {
-      sessionId = (storage && storage.getItem(sessionKey)) || '';
+      var windowName = windowIdentity && typeof windowIdentity.name === 'string'
+        ? windowIdentity.name
+        : '';
+      var namedSession = windowName.indexOf(WINDOW_SESSION_PREFIX) === 0
+        ? windowName.slice(WINDOW_SESSION_PREFIX.length)
+        : '';
+      // sessionStorage can be cloned into a window.open() child.  A
+      // window.name marker survives reloads but is not cloned, so an unnamed
+      // child gets a genuinely new lease instead of reusing its opener's ID.
+      if (namedSession) {
+        sessionId = namedSession;
+      } else if (windowIdentity && !windowName) {
+        sessionId = uuid();
+        windowIdentity.name = WINDOW_SESSION_PREFIX + sessionId;
+      } else {
+        sessionId = (storage && storage.getItem(sessionKey)) || '';
+      }
+      if (sessionId && storage && storage.getItem(sessionKey) !== sessionId) {
+        storage.setItem(sessionKey, sessionId);
+      }
       seq = parseInt((storage && storage.getItem(seqKey)) || '0', 10) || 0;
     } catch (e) {}
     if (!sessionId) {
