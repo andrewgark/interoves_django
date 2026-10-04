@@ -1010,6 +1010,12 @@ def _team_close_aggregate_interval(row, end):
     row.team_interval_started_at = None
 
 
+def _team_safe_session_end(session, now):
+    """Bound a delayed close to the last accepted lease heartbeat."""
+    anchor = session.last_heartbeat_at or session.started_at or now
+    return min(now, anchor + timedelta(milliseconds=LEASE_STALE_MS))
+
+
 def _team_expire_sessions(row, now, exclude_session_id=None):
     running = list(row.sessions.select_for_update().filter(
         status=DailySolveTimingSession.STATUS_RUNNING,
@@ -1104,6 +1110,7 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
         session.status = DailySolveTimingSession.STATUS_PAUSED
         session.paused_at = now
         session.close_reason = 'manual' if action == ACTION_PAUSE else 'auto'
+        safe_end = _team_safe_session_end(session, now)
         _team_remember_event(session, event_id, seq)
         session.save(update_fields=[
             'status', 'paused_at', 'close_reason', 'last_seq', 'last_event_id',
@@ -1111,7 +1118,7 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
         ])
         row.active_sessions_count = max(0, int(row.active_sessions_count or 0) - 1)
         if row.active_sessions_count == 0:
-            _team_close_aggregate_interval(row, now)
+            _team_close_aggregate_interval(row, safe_end)
             row.status = STATUS_MANUALLY_PAUSED if action == ACTION_PAUSE else STATUS_AUTO_PAUSED
         row.save(update_fields=[
             'status', 'active_sessions_count', 'team_interval_started_at',

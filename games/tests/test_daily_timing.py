@@ -719,7 +719,7 @@ class DailyTimingDomainTests(TestCase):
             action=ACTION_PAUSE, session=sid, seq=3, claimed=260000, now=_dt(15 + 260),
         )
         self.assertEqual(snap['status'], 'manually_paused')
-        self.assertEqual(snap['committed_ms'], 15000 + 260000)
+        self.assertEqual(snap['committed_ms'], 60_000)
 
     def test_auto_pause_credits_claimed_open_interval(self):
         sid = uuid4()
@@ -728,7 +728,7 @@ class DailyTimingDomainTests(TestCase):
             action=ACTION_AUTO_PAUSE, session=sid, seq=2, claimed=90000, now=_dt(90),
         )
         self.assertEqual(snap['status'], 'auto_paused')
-        self.assertEqual(snap['committed_ms'], 90000)
+        self.assertEqual(snap['committed_ms'], 45_000)
 
     def test_complete_credits_open_interval_beyond_heartbeat_cap(self):
         sid = uuid4()
