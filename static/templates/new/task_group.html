@@ -810,14 +810,18 @@
   var REPL_LINE_CONFIRM_SKIP_KEY = 'interoves_repl_line_confirm_skip';
   var pendingReplLineForm = null;
 
+  function replStorageRevision(taskId) {
+    var root = document.querySelector('.new-replacements-task[data-task-id="' + taskId + '"]');
+    return root ? (root.getAttribute('data-task-revision') || '') : '';
+  }
   function replUiModeKey(taskId) {
-    return 'replacements_lines_ui_mode_' + taskId;
+    return 'replacements_lines_ui_mode_v2_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy');
   }
   function replWholeDraftKey(taskId) {
-    return 'replacements_lines_whole_' + taskId;
+    return 'replacements_lines_whole_v2_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy');
   }
   function replLinePastesKey(taskId) {
-    return 'replacements_lines_linepaste_' + taskId;
+    return 'replacements_lines_linepaste_v2_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy');
   }
   var ReplParse = window.ReplacementsInputParse;
   if (!ReplParse) {
@@ -1830,6 +1834,26 @@
     });
   }
   window.clearRaddleUiStateForReset = clearRaddleUiStateForReset;
+
+  function clearWordSaladStateForReset() {
+    var taskIds = {};
+    document.querySelectorAll('[data-word-salad-root][data-task-id]').forEach(function (root) {
+      var taskId = root.getAttribute('data-task-id');
+      if (taskId) taskIds[String(taskId)] = true;
+    });
+    try {
+      for (var i = localStorage.length - 1; i >= 0; i--) {
+        var key = localStorage.key(i) || '';
+        if (key.indexOf('interoves_word_salad_') !== 0) continue;
+        Object.keys(taskIds).forEach(function (taskId) {
+          if (key.indexOf(':' + taskId + ':') >= 0 || key.slice(-(taskId.length + 1)) === ':' + taskId) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+    } catch (e) {}
+  }
+  window.clearWordSaladStateForReset = clearWordSaladStateForReset;
 
   // Каскад после продвижения: только обычный режим (data-raddle-auto есть
   // лишь вне турнира) и только пока сессия ввода пользователя ещё открыта —
@@ -4501,6 +4525,9 @@
     if (typeof window.clearRaddleUiStateForReset === 'function') {
       window.clearRaddleUiStateForReset();
     }
+    if (typeof window.clearWordSaladStateForReset === 'function') {
+      window.clearWordSaladStateForReset();
+    }
     var csrf = (window.InterovesPageCsrf && window.InterovesPageCsrf.pageToken())
       || (document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]') || {}).value
       || '';
@@ -4517,6 +4544,9 @@
       if (!data.ok) throw new Error(data.error || 'Ошибка');
       if (typeof window.clearRaddleUiStateForReset === 'function') {
         window.clearRaddleUiStateForReset();
+      }
+      if (typeof window.clearWordSaladStateForReset === 'function') {
+        window.clearWordSaladStateForReset();
       }
       window.location.reload();
     }).catch(function (e) { alert(e.message || String(e)); });

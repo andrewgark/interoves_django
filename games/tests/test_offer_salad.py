@@ -164,6 +164,7 @@ class WordSaladOfferFlowTests(TestCase):
             words_text='BCDE\nFGHI\nJKLM\nNOPQ',
         )
         task = Task.objects.get(task_group=offer.task_group, number='1')
+        old_revision = task.attempt_revision
         team = Team.objects.create(name='salad-reset-team')
         Attempt.manager.create(
             task=task, game=self.game, user=self.user, text='{}', status='Ok', points=1,
@@ -188,6 +189,8 @@ class WordSaladOfferFlowTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['deleted_attempts'], 2)
+        task.refresh_from_db()
+        self.assertEqual(task.attempt_revision, old_revision)
         self.assertFalse(Attempt.manager.filter(task=task).exists())
         self.assertFalse(ChainTaskState.objects.filter(task=task).exists())
 

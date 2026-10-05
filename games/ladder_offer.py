@@ -512,7 +512,8 @@ def reset_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
-    Task.objects.filter(pk=task.pk).update(attempt_revision=uuid.uuid4())
+    # attempt_revision is task-wide. Do not rotate it for an actor-scoped
+    # reset: that would make other actors' still-valid attempts look stale.
     return n
 
 

@@ -587,6 +587,7 @@ def can_access_offer_hash(offer: WordSaladOffer, user, *, now=None) -> bool:
     return True
 
 
+@transaction.atomic
 def reset_salad_progress(
     *,
     task: Task,
@@ -626,8 +627,9 @@ def reset_salad_progress(
         task_group_id=task.task_group_id,
         actor_keys={actor_key},
     )
-    # Invalidate the browser-side finds cache as well as server-side progress.
-    Task.objects.filter(pk=task.pk).update(attempt_revision=uuid.uuid4())
+    # attempt_revision is task-wide. The reset button clears the browser cache
+    # explicitly, so an actor-scoped reset must not invalidate other actors'
+    # still-valid attempts.
     return n
 
 

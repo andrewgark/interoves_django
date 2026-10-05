@@ -324,7 +324,7 @@ class LadderOfferFlowTests(TestCase):
         self.assertFalse(RaddleUiState.objects.filter(task=task, user=self.user).exists())
         self.assertFalse(RaddleUiState.objects.filter(task=task, team=team).exists())
         task.refresh_from_db()
-        self.assertNotEqual(task.attempt_revision, old_revision)
+        self.assertEqual(task.attempt_revision, old_revision)
 
     def test_editing_same_sized_ladder_clears_all_actor_progress(self):
         offer = create_offer(self.user)

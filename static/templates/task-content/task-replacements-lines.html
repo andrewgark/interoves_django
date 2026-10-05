@@ -1,5 +1,5 @@
 {% load filters %}
-<div class="new-replacements-task" data-task-id="{{ task.id }}" data-repl-n-lines="{{ rld.n_lines }}">
+<div class="new-replacements-task" data-task-id="{{ task.id }}" data-task-revision="{{ task.attempt_revision }}" data-repl-n-lines="{{ rld.n_lines }}">
   <div class="new-replacements-mode-bar" role="toolbar" aria-label="Формат ввода ответов">
     <span class="new-replacements-mode-bar__label">Ввод</span>
     <div class="new-replacements-mode-bar__btns">
