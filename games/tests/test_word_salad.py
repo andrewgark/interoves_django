@@ -382,7 +382,7 @@ class WordSaladTests(TestCase):
         ).state)
         self.assertEqual(state['hint_counts'], {'0': 2})
         html = response.json()['update_task_html_new'][str(self.task.pk)]
-        self.assertIn('title="Узнать 3 букву"', html)
+        self.assertIn('data-tooltip="Узнать 3 букву"', html)
         self.assertIn('new-word-salad__hint-btn', html)
         self.assertIn('new-word-salad__pill', html)
         self.assertIn('new-word-salad__glyph">A</span>', html)

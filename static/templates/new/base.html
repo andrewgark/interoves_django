@@ -202,15 +202,15 @@
       <div class="new-nav__sections" aria-label="Разделы">
         {% if show_sections_nav %}
           {% for item in daily_nav_sections %}
-          <a class="new-nav__section" href="{{ item.url }}" title="{{ item.title }}" aria-label="{{ item.title }}" {% if request.resolver_match.kwargs.game_id == item.id or item.id in request.resolver_match.url_name %}aria-current="page"{% endif %}>
+          <a class="new-nav__section" href="{{ item.url }}" aria-label="{{ item.title }}" {% if request.resolver_match.kwargs.game_id == item.id or item.id in request.resolver_match.url_name %}aria-current="page"{% endif %}>
             <i class="ph ph-{{ item.ph_icon }} new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">{{ item.title }}</span>
           </a>
           {% endfor %}
-          <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" title="Десяточки" aria-label="Десяточки" {% if nav_desyatochki_active %}aria-current="page"{% endif %}>
+          <a class="new-nav__section" href="{{ ui_project_games_url|default:'/games/' }}" aria-label="Десяточки" {% if nav_desyatochki_active %}aria-current="page"{% endif %}>
             <i class="ph ph-puzzle-piece new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Десяточки</span>
           </a>
           {% for game in section_games %}
-          <a class="new-nav__section" href="{% url 'new_section_game' game.id %}" title="{{ game.outside_name|default:game.name }}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
+          <a class="new-nav__section" href="{% url 'new_section_game' game.id %}" aria-label="{{ game.outside_name|default:game.name }}" {% if request.resolver_match.kwargs.game_id == game.id %}aria-current="page"{% endif %}>
             {% if game.id == 'palindromes' %}<i class="ph ph-arrows-in-line-horizontal new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Палиндромы</span>
             {% elif game.id == 'walls' %}<i class="ph ph-wall new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Стены</span>
             {% elif game.id == 'replacements' %}<i class="ph ph-swap new-section-icon" aria-hidden="true"></i><span class="new-nav__section-label">Замены</span>
@@ -263,13 +263,13 @@
           </div>
           {% if play_mode and user.is_authenticated %}
             {% if lock_personal_play_mode %}
-              <span class="new-mode-toggle new-mode-toggle--locked" title="В турнирной игре доступен только командный режим."><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
+              <span class="new-mode-toggle new-mode-toggle--locked" data-tooltip="В турнирной игре доступен только командный режим."><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
             {% elif play_mode == 'personal' and not user.profile.team_on %}
-              <span class="new-mode-toggle new-mode-toggle--locked" title="Чтобы перейти в командный режим, сначала создайте команду или вступите в неё."><i class="ph ph-user" aria-hidden="true"></i> Лично</span>
+              <span class="new-mode-toggle new-mode-toggle--locked" data-tooltip="Чтобы перейти в командный режим, сначала создайте команду или вступите в неё."><i class="ph ph-user" aria-hidden="true"></i> Лично</span>
             {% elif play_mode == 'team' %}
-              <a class="new-mode-toggle" title="Сейчас: режим «В команде» — решения и подсказки общие для вашей команды. Нажмите, чтобы переключиться на личный режим." href="{% url 'new_set_play_mode' %}?mode=personal&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-users" aria-hidden="true"></i> В команде</a>
+              <a class="new-mode-toggle" data-tooltip="Сейчас: режим «В команде» — решения и подсказки общие для вашей команды. Нажмите, чтобы переключиться на личный режим." href="{% url 'new_set_play_mode' %}?mode=personal&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-users" aria-hidden="true"></i> В команде</a>
             {% else %}
-              <a class="new-mode-toggle" title="Сейчас: личный режим — решения и подсказки только для вас в этом браузере/аккаунте. Нажмите, чтобы переключиться на режим «В команде»." href="{% url 'new_set_play_mode' %}?mode=team&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-user" aria-hidden="true"></i> Лично</a>
+              <a class="new-mode-toggle" data-tooltip="Сейчас: личный режим — решения и подсказки только для вас в этом браузере/аккаунте. Нажмите, чтобы переключиться на режим «В команде»." href="{% url 'new_set_play_mode' %}?mode=team&project={{ play_mode_project_id|urlencode }}&next={{ request.get_full_path|urlencode }}"><i class="ph ph-user" aria-hidden="true"></i> Лично</a>
             {% endif %}
           {% endif %}
           {% if user.is_authenticated %}

@@ -39,20 +39,20 @@
         <div class="new-word-salad__solved" data-word-salad-solved{% if not ws.is_complete %} hidden{% endif %}>Решено!</div>
       </div>
       <div class="new-word-salad__orientation" data-word-salad-orientation role="toolbar" aria-label="Поворот и отражение сетки"{% if ws.is_complete and not ws.active %} hidden{% endif %}>
-        <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="rotate-clockwise" aria-label="Повернуть по часовой стрелке" title="Повернуть по часовой стрелке"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
-        <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="rotate-counterclockwise" aria-label="Повернуть против часовой стрелки" title="Повернуть против часовой стрелки"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
-        <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="flip-horizontal" aria-label="Отразить горизонтально" title="Отразить горизонтально"><i class="ph ph-arrows-left-right" aria-hidden="true"></i></button>
-        <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="flip-vertical" aria-label="Отразить вертикально" title="Отразить вертикально"><i class="ph ph-arrows-down-up" aria-hidden="true"></i></button>
+        <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="rotate-clockwise" aria-label="Повернуть по часовой стрелке" data-tooltip="Повернуть по часовой стрелке"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i></button>
+        <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="rotate-counterclockwise" aria-label="Повернуть против часовой стрелки" data-tooltip="Повернуть против часовой стрелки"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
+        <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="flip-horizontal" aria-label="Отразить горизонтально" data-tooltip="Отразить горизонтально"><i class="ph ph-arrows-left-right" aria-hidden="true"></i></button>
+        <button type="button" class="new-word-salad__orientation-btn" data-word-salad-transform="flip-vertical" aria-label="Отразить вертикально" data-tooltip="Отразить вертикально"><i class="ph ph-arrows-down-up" aria-hidden="true"></i></button>
       </div>
 
       <div class="new-word-salad__selection">
         <div class="new-word-salad__selection-main">
           <div class="new-word-salad__selection-word" data-word-salad-current aria-live="polite"></div>
-          <span class="new-raddle-checking-mark new-word-salad__checking-mark" aria-hidden="true" title="Проверяем…"></span>
+          <span class="new-raddle-checking-mark new-word-salad__checking-mark" aria-hidden="true" data-tooltip="Проверяем…"></span>
         </div>
         <div class="new-word-salad__reset-wrap is-idle" data-word-salad-reset-wrap>
           <kbd class="new-word-salad__reset-key" aria-hidden="true">Esc</kbd>
-          <button type="button" class="new-word-salad__reset" data-word-salad-reset disabled title="Сбросить выделение (Esc)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Сбросить</span></button>
+          <button type="button" class="new-word-salad__reset" data-word-salad-reset disabled data-tooltip="Сбросить выделение (Esc)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i><span>Сбросить</span></button>
         </div>
       </div>
     </section>
@@ -75,7 +75,7 @@
               <input type="hidden" name="hint_number" value="{{ word.next_hint_number }}">
               <input type="hidden" name="__ui_hint_penalty" value="{{ ws.hint_penalty|minimize_digits }}">
               <input type="hidden" name="__ui_hint_points_word" value="{{ ws.hint_penalty|ru_points_word }}">
-              <button type="submit" class="new-word-salad__pill new-word-salad__hint-btn" title="Узнать {{ word.next_hint_number }} букву" aria-label="Узнать {{ word.next_hint_number }} букву">
+              <button type="submit" class="new-word-salad__pill new-word-salad__hint-btn" data-tooltip="Узнать {{ word.next_hint_number }} букву" aria-label="Узнать {{ word.next_hint_number }} букву">
                 <span class="new-word-salad__mask">
                   {% for ch in word.mask_chars %}
                     {% if ch == '⬜' %}
@@ -116,10 +116,10 @@
     </section>
 
     <section class="new-word-salad__band new-word-salad__band--rares" data-word-salad-rares data-rare-tooltip="{{ ws.rare_tooltip }}"{% if not ws.rare_words %} hidden{% endif %}>
-      <h3 class="new-word-salad__band-title" title="{{ ws.rare_tooltip }}">Редкие находки</h3>
+          <h3 class="new-word-salad__band-title" data-tooltip="{{ ws.rare_tooltip }}">Редкие находки</h3>
       <ul class="new-word-salad__pills" data-word-salad-rares-list aria-live="polite">
         {% for word in ws.rare_words %}
-          <li class="new-word-salad__pill new-word-salad__rare" title="{{ ws.rare_tooltip }}">{{ word.normalized }}</li>
+          <li class="new-word-salad__pill new-word-salad__rare" data-tooltip="{{ ws.rare_tooltip }}">{{ word.normalized }}</li>
         {% endfor %}
       </ul>
     </section>
