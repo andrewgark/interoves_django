@@ -15,6 +15,7 @@ from games.support.services.schedule_links import (
     assert_future_only_order,
     build_schedule_page_context,
     delete_future_slot,
+    effective_schedule_number,
     renumber_links,
 )
 from games.word_salad import (
@@ -293,9 +294,8 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
     site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
     rows = []
     for link in links:
-        try:
-            number = int(link.deferred_number or link.number) if link.is_deferred else int(link.number)
-        except (TypeError, ValueError):
+        number = effective_schedule_number(link)
+        if number is None:
             continue
         task = tasks_by_group.get(link.task_group_id)
         grid = []
@@ -320,7 +320,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
                 (not link.is_deferred and is_word_salad_number_published(game, number, now))
                 if game is not None else False
             ),
-            is_today=bool(published_at and published_at.date() == today),
+            is_today=bool(not link.is_deferred and published_at and published_at.date() == today),
             grid_preview=_grid_preview(grid),
             words_preview=_preview_text(words),
             words_count=len(words),
@@ -328,7 +328,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
             is_deferred=link.is_deferred,
             preview_url=preview_task_group_url(
                 WORD_SALAD_GAME_ID,
-                link.number,
+                number,
                 _PREVIEW_SPEC,
             ),
             site_url=site_urls.get(link.task_group_id, ''),
@@ -382,7 +382,7 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
         'link_id': link.pk,
         'task_group_id': link.task_group_id,
         'task_id': task.pk,
-        'number': int(link.number) if str(link.number).isdigit() else link.number,
+        'number': effective_schedule_number(link) or 0,
         'name': link.name,
         'intro': task.text or '',
         'grid_text': format_grid_text(grid),
@@ -390,7 +390,11 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
         'rare_words_text': format_words_text(rare_words),
         'words_count': len(words),
         'author': str((task.tags or {}).get(AUTHOR_TAG) or ''),
-        'preview_url': preview_task_group_url(WORD_SALAD_GAME_ID, link.number, _PREVIEW_SPEC),
+        'preview_url': preview_task_group_url(
+            WORD_SALAD_GAME_ID,
+            effective_schedule_number(link) or 0,
+            _PREVIEW_SPEC,
+        ),
         'site_url': _site_urls_by_task_group([link.task_group_id]).get(link.task_group_id, ''),
     }
 
@@ -543,10 +547,7 @@ def update_word_salad(
         )
         recheck_job = enqueue_result.job
         queue_receipt = serialize_enqueue_result(enqueue_result)
-    try:
-        number = int(link.number)
-    except (TypeError, ValueError):
-        number = 0
+    number = effective_schedule_number(link) or 0
     if number:
         _sync_link_titles(link, number)
         link.save(update_fields=['name'])

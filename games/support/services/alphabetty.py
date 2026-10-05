@@ -33,6 +33,7 @@ from games.support.services.schedule_links import (
     assert_future_only_order,
     build_schedule_page_context,
     delete_future_slot,
+    effective_schedule_number,
     renumber_links,
     shift_links,
     defer_future_slot,
@@ -134,16 +135,15 @@ def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
     site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
     rows: list[AlphabettyRow] = []
     for link in links:
-        try:
-            number = int(link.deferred_number or link.number) if link.is_deferred else int(link.number)
-        except (TypeError, ValueError):
+        number = effective_schedule_number(link)
+        if number is None:
             continue
         task = tasks_by_group.get(link.task_group_id)
         word = _word_from_task(task)
         pub = alphabetty_publish_at(game, number)
         pub_date = pub.date().isoformat() if pub else None
         is_pub = False if link.is_deferred else is_alphabetty_number_published(game, number, now)
-        is_today = bool(pub and pub.date() == today)
+        is_today = bool(not link.is_deferred and pub and pub.date() == today)
         rows.append(AlphabettyRow(
             link_id=link.pk,
             task_group_id=link.task_group_id,
@@ -171,10 +171,7 @@ def get_alphabetty_detail(link_id: int) -> dict[str, Any]:
     if link is None:
         raise AlphabettySupportError('Алфавитка не найдена')
     task = _task_for_link(link)
-    try:
-        number = int(link.number)
-    except (TypeError, ValueError):
-        number = 0
+    number = effective_schedule_number(link) or 0
     pub = alphabetty_publish_at(game, number)
     return {
         'link_id': link.pk,
@@ -318,10 +315,9 @@ def attach_existing_task_group(
     )
     max_num = 0
     for link in links:
-        try:
-            max_num = max(max_num, int(link.number))
-        except (TypeError, ValueError):
-            pass
+        number = effective_schedule_number(link)
+        if number is not None:
+            max_num = max(max_num, number)
     if at_number > max_num + 1:
         at_number = max_num + 1
 
@@ -381,10 +377,9 @@ def create_alphabetty(
     )
     max_num = 0
     for link in links:
-        try:
-            max_num = max(max_num, int(link.number))
-        except (TypeError, ValueError):
-            pass
+        number = effective_schedule_number(link)
+        if number is not None:
+            max_num = max(max_num, number)
     if at_number > max_num + 1:
         at_number = max_num + 1
 

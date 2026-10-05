@@ -16,6 +16,15 @@ class ScheduleLinkError(Exception):
     """Ошибка удаления/перенумерации слота."""
 
 
+def effective_schedule_number(link: GameTaskGroup) -> int | None:
+    """Return the public number, including for a deferred schedule slot."""
+    raw = link.deferred_number if link.is_deferred else link.number
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def build_schedule_page_context(
     rows: list[RowT],
     *,

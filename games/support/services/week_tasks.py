@@ -16,7 +16,14 @@ from games.support.services.banned import (
     list_banned_units,
     remove_banned_unit,
 )
-from games.support.services.schedule_links import delete_future_slot, renumber_links, shift_links, defer_future_slot, restore_deferred_slot
+from games.support.services.schedule_links import (
+    delete_future_slot,
+    defer_future_slot,
+    effective_schedule_number,
+    renumber_links,
+    restore_deferred_slot,
+    shift_links,
+)
 from games.week_task_pool import (
     WEEK_TASK_SOURCE_TAG,
     materialize_unit,
@@ -62,15 +69,6 @@ class WeekTaskRow:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-
-def _effective_number(link: GameTaskGroup) -> int | None:
-    """Return the public schedule number, including for deferred slots."""
-    raw = link.deferred_number if link.is_deferred else link.number
-    try:
-        return int(raw)
-    except (TypeError, ValueError):
-        return None
 
 
 def get_week_task_game() -> Game:
@@ -131,7 +129,7 @@ def list_week_task_rows(*, now: datetime | None = None) -> list[WeekTaskRow]:
     )
     rows: list[WeekTaskRow] = []
     for link in links:
-        number = _effective_number(link)
+        number = effective_schedule_number(link)
         if number is None:
             continue
         pub = week_task_publish_at(game, number)
@@ -165,7 +163,7 @@ def get_week_task_detail(link_id: int) -> dict[str, Any]:
     )
     if link is None:
         raise WeekTaskSupportError('Задание недели не найдено')
-    number = _effective_number(link) or 0
+    number = effective_schedule_number(link) or 0
     pub = week_task_publish_at(game, number)
     tags = (link.task_group.tags or {}) if link.task_group_id else {}
     src = source_summary_from_tags(tags)
@@ -344,7 +342,7 @@ def update_week_task(
 def _max_number(game: Game) -> int:
     max_num = 0
     for link in GameTaskGroup.objects.filter(game=game):
-        number = _effective_number(link)
+        number = effective_schedule_number(link)
         if number is not None:
             max_num = max(max_num, number)
     return max_num

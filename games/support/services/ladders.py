@@ -35,6 +35,7 @@ from games.support.services.schedule_links import (
     assert_future_only_order,
     build_schedule_page_context,
     delete_future_slot,
+    effective_schedule_number,
     renumber_links,
     shift_links,
     defer_future_slot,
@@ -265,16 +266,15 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
     site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
     rows: list[LadderRow] = []
     for link in links:
-        try:
-            number = int(link.deferred_number or link.number) if link.is_deferred else int(link.number)
-        except (TypeError, ValueError):
+        number = effective_schedule_number(link)
+        if number is None:
             continue
         task = tasks_by_group.get(link.task_group_id)
         payload = _parse_task_payload(task)
         pub = ladder_publish_at(game, number)
         pub_date = pub.date().isoformat() if pub else None
         is_pub = False if link.is_deferred else is_ladder_number_published(game, number, now)
-        is_today = bool(pub and pub.date() == today)
+        is_today = bool(not link.is_deferred and pub and pub.date() == today)
         rows.append(LadderRow(
             link_id=link.pk,
             task_group_id=link.task_group_id,
@@ -307,10 +307,7 @@ def get_ladder_detail(link_id: int) -> dict[str, Any]:
         raise LadderSupportError('Лесенка не найдена')
     task = _task_for_link(link)
     payload = _parse_task_payload(task)
-    try:
-        number = int(link.number)
-    except (TypeError, ValueError):
-        number = 0
+    number = effective_schedule_number(link) or 0
     pub = ladder_publish_at(game, number)
     return {
         'link_id': link.pk,
@@ -425,10 +422,9 @@ def _clamp_insert_number(at_number: int, *, now: datetime | None = None) -> int:
     )
     max_num = 0
     for link in links:
-        try:
-            max_num = max(max_num, int(link.number))
-        except (TypeError, ValueError):
-            pass
+        number = effective_schedule_number(link)
+        if number is not None:
+            max_num = max(max_num, number)
     if at_number > max_num + 1:
         at_number = max_num + 1
     return at_number
