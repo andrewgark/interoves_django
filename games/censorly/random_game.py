@@ -174,6 +174,12 @@ def get_or_create_random_game(*, max_attempts: int = 12) -> RandomCensorlyGame:
             continue
         try:
             return _create_from_article(article, game=game, pool_title=title)
+        except WikiFetchError as exc:
+            # A fetched article can still fail puzzle validation (for example,
+            # when its title has no guessable content). Treat it like a bad
+            # pool candidate and continue with the next article.
+            errors.append(f'{title}: {exc}')
+            continue
         except IntegrityError:
             existing = (
                 RandomCensorlyGame.objects.filter(wiki_title=article.title)
