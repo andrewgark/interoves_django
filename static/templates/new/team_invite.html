@@ -1,0 +1,22 @@
+{% extends "new/base.html" %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block content %}
+<div class="new-team-block">
+  <h1 class="new-heading new-heading--page">Приглашение в команду</h1>
+  {% if invite_invalid %}
+    <p>Эта ссылка недействительна или больше не работает.</p>
+    <p><a class="new-btn" href="{% url 'new_hub' %}">На главную</a></p>
+  {% else %}
+    <h2>Команда «{{ team_invite.team }}»</h2>
+    <p>Вас приглашают присоединиться к этой команде.</p>
+    {% if user.is_authenticated %}
+      <form method="post" action="{% if team_invite_project_id %}{% url 'project_team_invite_accept' project_id=team_invite_project_id token=team_invite_token %}{% else %}{% url 'new_team_invite_accept' token=team_invite_token %}{% endif %}">
+        {% csrf_token %}
+        <button type="submit" class="new-btn">Вступить в команду</button>
+      </form>
+    {% else %}
+      <p><a class="new-btn" href="/accounts/login/?next={{ request.get_full_path|urlencode }}">Войти и вступить</a></p>
+    {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

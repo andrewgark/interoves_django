@@ -5,6 +5,7 @@ import hmac
 import json
 import logging
 import os
+import secrets
 import uuid
 from urllib.parse import urlencode
 from collections import OrderedDict
@@ -197,6 +198,7 @@ from games.models import (
     Task,
     TaskGroup,
     Team,
+    TeamInvite,
     TicketRequest,
 )
 from games.replay import active_replay, clear_replay_session, start_or_reset_replay
@@ -800,6 +802,26 @@ def _team_join_redirect(request):
     if scoped:
         return redirect('project_team_join_page', project_id=scoped)
     return redirect('new_team_join_page')
+
+
+def _team_page_redirect_for_project(project_id):
+    if project_id and project_id != NEW_UI_PROJECT:
+        return redirect('project_team', project_id=project_id)
+    return redirect('new_team')
+
+
+def _team_invite_url(request, token, project_id=None):
+    if project_id and project_id != NEW_UI_PROJECT:
+        path = reverse('project_team_invite', kwargs={'project_id': project_id, 'token': token})
+    else:
+        path = reverse('new_team_invite', kwargs={'token': token})
+    return request.build_absolute_uri(path)
+
+
+def _team_invite_create_url(request, project_id=None):
+    if project_id and project_id != NEW_UI_PROJECT:
+        return reverse('project_team_invite_create', kwargs={'project_id': project_id})
+    return reverse('new_team_invite_create')
 
 
 def _session_play_mode_key(project_id):
@@ -5090,6 +5112,18 @@ def _new_team_ui_context(request):
     profile.repair_primary_team()
     member_teams, member_teams_others = _member_teams_active_first(profile)
     secondary_teams = list(profile.other_member_teams()) if profile.team_on_id else []
+    team_invite = None
+    team_invite_url = ''
+    if profile.team_on:
+        team_invite = (
+            TeamInvite.objects.filter(team=profile.team_on, revoked_at__isnull=True)
+            .order_by('-created_at').first()
+        )
+        if team_invite:
+            team_invite_url = _team_invite_url(
+                request, team_invite.token,
+                team_invite.team.project_id if team_invite.team.project_id != NEW_UI_PROJECT else None,
+            )
     ctx = {
         'project': project,
         'teams': teams,
@@ -5098,6 +5132,12 @@ def _new_team_ui_context(request):
         'member_teams_others': member_teams_others,
         'secondary_teams': secondary_teams,
         'team_primary_modal': len(member_teams) > 0,
+        'team_invite': team_invite,
+        'team_invite_url': team_invite_url,
+        'team_invite_create_url': _team_invite_create_url(
+            request,
+            profile.team_on.project_id if profile.team_on and profile.team_on.project_id != NEW_UI_PROJECT else None,
+        ),
         **url_map,
     }
     return _merge_nav_project_for_scope(ctx, request, scoped)
@@ -5138,6 +5178,79 @@ def new_team_join_page(request, project_id=None):
     ctx['team_section'] = 'join'
     ctx['page_title'] = 'Вступить в команду'
     return render(request, 'ui/team.html', ctx)
+
+
+@require_http_methods(['GET'])
+def new_team_invite(request, token, project_id=None):
+    invite = TeamInvite.objects.select_related('team').filter(
+        token=token, revoked_at__isnull=True,
+    ).first()
+    if not invite:
+        return render(request, 'new/team_invite.html', {
+            'invite_invalid': True,
+            'page_title': 'Приглашение в команду',
+        }, status=404)
+    if project_id and invite.team.project_id != project_id:
+        return render(request, 'new/team_invite.html', {
+            'invite_invalid': True,
+            'page_title': 'Приглашение в команду',
+        }, status=404)
+    return render(request, 'new/team_invite.html', {
+        'team_invite': invite,
+        'team_invite_token': token,
+        'team_invite_project_id': project_id,
+        'page_title': 'Приглашение в команду',
+    })
+
+
+@login_required
+@require_http_methods(['POST'])
+def new_team_invite_accept(request, token, project_id=None):
+    invite = TeamInvite.objects.select_related('team').filter(
+        token=token, revoked_at__isnull=True,
+    ).first()
+    if not invite or not has_profile(request.user):
+        return render(request, 'new/team_invite.html', {
+            'invite_invalid': True,
+            'page_title': 'Приглашение в команду',
+        }, status=404)
+    if project_id and invite.team.project_id != project_id:
+        raise Http404()
+    team = invite.team
+    profile = request.user.profile
+    if ProfileTeamMembership.objects.filter(profile=profile, team=team).exists():
+        messages.info(request, 'Вы уже состоите в этой команде.')
+    else:
+        with transaction.atomic():
+            profile.team_requested = None
+            profile.join_accept_as_primary = True
+            profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
+            profile.add_team_membership(team, make_primary=not profile.team_on_id)
+        messages.success(request, 'Вы вступили в команду.')
+    return _team_page_redirect_for_project(team.project_id)
+
+
+@login_required
+@require_http_methods(['POST'])
+def new_team_invite_create(request, project_id=None):
+    if not has_profile(request.user) or not request.user.profile.team_on:
+        raise Http404()
+    team = request.user.profile.team_on
+    scoped = _scoped_project_id(request)
+    if scoped and team.project_id != scoped:
+        raise Http404()
+    with transaction.atomic():
+        locked_team = Team.objects.select_for_update().get(pk=team.pk)
+        TeamInvite.objects.filter(team=locked_team, revoked_at__isnull=True).update(
+            revoked_at=timezone.now()
+        )
+        TeamInvite.objects.create(
+            team=locked_team,
+            token=secrets.token_urlsafe(32),
+            created_by=request.user,
+        )
+    messages.success(request, 'Новая ссылка-приглашение создана.')
+    return _team_redirect(request)
 
 
 @never_cache

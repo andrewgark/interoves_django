@@ -45,6 +45,24 @@
       <p class="new-team-hub-actions">
         <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-rename-open>Изменить название</button>
       </p>
+      <div class="new-team-details new-team-invite">
+        <p><strong>Пригласить друзей</strong></p>
+        {% if team_invite_url %}
+        <p class="new-login-hint">Отправьте эту ссылку, чтобы друзья могли вступить в команду:</p>
+        <input type="text" value="{{ team_invite_url }}" readonly class="new-team-invite__input" aria-label="Ссылка-приглашение">
+        <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-invite-copy>Скопировать ссылку</button>
+        <form action="{{ team_invite_create_url }}" method="post" style="display:inline">
+          {% csrf_token %}
+          <button type="submit" class="new-btn new-btn--text new-btn--mini">Перевыпустить</button>
+        </form>
+        {% else %}
+        <p class="new-login-hint">Создайте ссылку, по которой друзья смогут вступить в команду.</p>
+        <form action="{{ team_invite_create_url }}" method="post">
+          {% csrf_token %}
+          <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Создать ссылку</button>
+        </form>
+        {% endif %}
+      </div>
       <form action="{{ ui_team_url_rename }}" method="post" class="new-form" data-team-rename-form hidden>
         {% csrf_token %}
         <label for="new-team-visible-name">Название команды</label>
@@ -268,6 +286,20 @@
   function qs(sel) { return document.querySelector(sel); }
   var csrfEl = document.querySelector('input[name=csrfmiddlewaretoken]');
   function csrf() { return csrfEl ? csrfEl.value : ''; }
+
+  var inviteCopy = qs('[data-team-invite-copy]');
+  if (inviteCopy) inviteCopy.addEventListener('click', function () {
+    var input = qs('.new-team-invite__input');
+    if (!input) return;
+    var done = function () { inviteCopy.textContent = 'Ссылка скопирована'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(input.value).then(done).catch(function () {});
+    } else {
+      input.select();
+      document.execCommand('copy');
+      done();
+    }
+  });
 
 {% if team_section == 'create' %}
   var createName = qs('#new-team-create-name');

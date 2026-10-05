@@ -111,6 +111,26 @@ class Team(models.Model):
     is_team_results_row = True
 
 
+class TeamInvite(models.Model):
+    """Bearer link which allows a visitor to join a team after confirmation."""
+
+    team = models.ForeignKey(Team, related_name='invites', on_delete=models.CASCADE)
+    token = models.CharField(max_length=128, unique=True, db_index=True)
+    created_by = models.ForeignKey(
+        User, related_name='created_team_invites', on_delete=models.SET_NULL,
+        null=True, blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=('team', 'revoked_at'))]
+
+    @property
+    def is_active(self):
+        return self.revoked_at is None
+
+
 class HiddenAnonKey(models.Model):
     """anon_key, скрытый из общих результатов (аналог Team.is_hidden)."""
 
