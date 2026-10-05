@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -38,6 +39,7 @@ from games.censorly_daily import (
     visible_censorly_links,
 )
 from games.completion_coordinator import complete_logical_game
+from games.club_access import has_club_access
 from games.daily.page_context import build_daily_lifecycle_context, daily_statistics_url
 from games.daily.registry import get_daily_game
 from games.daily_transitions import next_daily_content_transition_for_game
@@ -318,10 +320,41 @@ def censorly_hub_page(request):
         'game': game,
         'rows': random_rows,
         'schedule_links': schedule_links,
+        'random_censorly_has_access': has_club_access(request.user),
         'support_url': '/support/censorly/',
         'show_sections_nav': False,
         **hub,
     })
+
+
+@require_POST
+def censorly_random_game(request):
+    """Create or reuse a permanent random game for a Club resident."""
+    if not has_club_access(request.user):
+        return redirect('/subscription/')
+    if _get_game() is None:
+        raise Http404()
+    from games.censorly.random_game import (
+        CensorlyPoolExhausted,
+        EmptyCensorlyPool,
+        get_or_create_random_game,
+    )
+
+    try:
+        random_game = get_or_create_random_game()
+    except EmptyCensorlyPool:
+        messages.warning(
+            request,
+            'Пул случайных Цензурок пока пуст. Попробуйте ещё раз позже.',
+        )
+        return redirect('ui_censorly_hub')
+    except CensorlyPoolExhausted:
+        messages.info(
+            request,
+            'Все статьи из пула уже стали случайными Цензурками.',
+        )
+        return redirect('ui_censorly_hub')
+    return redirect(f'/censorly/r/{random_game.share_hash}/')
 
 
 def censorly_today_page(request):

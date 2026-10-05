@@ -570,6 +570,27 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'censorly-root')
 
+    def test_random_game_post_redirects_non_subscriber(self):
+        from unittest.mock import patch
+
+        with patch('games.views.censorly_views.has_club_access', return_value=False):
+            response = self.client.post('/censorly/random/')
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/subscription/')
+
+    def test_random_game_post_redirects_subscriber_to_random_game(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        random_game = SimpleNamespace(share_hash='abcd1234abcd1234')
+        with patch('games.views.censorly_views.has_club_access', return_value=True), \
+             patch('games.censorly.random_game.get_or_create_random_game', return_value=random_game):
+            response = self.client.post('/censorly/random/')
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response['Location'], '/censorly/r/abcd1234abcd1234/')
+
     def test_results_page_survives_random_hash_sibling(self):
         RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
         checker = CheckerType.objects.get(pk='censorly')

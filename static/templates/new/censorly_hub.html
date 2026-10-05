@@ -15,6 +15,23 @@
   {% if censorly_cta_number %}<a class="new-btn new-btn--ghost" href="/censorly/{{ censorly_cta_number }}/">{{ censorly_cta_label|default:"Играть" }}</a>{% endif %}
 </p>
 
+<p class="new-stack-gap new-alphabetty-random-cta">
+  {% if random_censorly_has_access %}
+    <form method="post" action="{% url 'ui_censorly_random' %}">
+      {% csrf_token %}
+      <button type="submit" class="new-btn new-btn--yellow">
+        <i class="ph ph-shuffle" aria-hidden="true"></i> Случайная игра
+      </button>
+    </form>
+  {% else %}
+    <a class="new-btn new-btn--yellow" href="/subscription/"
+       title="Доступна только для подписчиков клуба"
+       aria-label="Случайная игра. Доступна только для подписчиков клуба">
+      <i class="ph ph-lock-key" aria-hidden="true"></i> Случайная игра
+    </a>
+  {% endif %}
+</p>
+
 {% if schedule_links %}
 <section class="pal-card" style="margin-top:1rem">
   <h2 class="pal-title" style="margin-top:0">Расписание</h2>
