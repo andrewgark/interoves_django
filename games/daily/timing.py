@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 from datetime import timedelta
+from types import SimpleNamespace
 from uuid import UUID, uuid4
 
 from django.db import IntegrityError, OperationalError, transaction
@@ -326,6 +327,39 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
         'session_count': len(sessions),
         'completed_at': completed_at,
     }
+
+
+def recovered_timing_ms_from_events(events, *, completed_at=None) -> int:
+    """Rebuild a completed duration from the immutable timing event ledger.
+
+    Older completion paths could freeze a row at zero while the event ledger
+    already contained starts/heartbeats.  Keep this recovery conservative:
+    it only returns a positive value when the ledger itself reconstructs one.
+    """
+    events = list(events or [])
+    if not events:
+        return 0
+    last_at = max(
+        (_event_time(event) for event in events),
+        default=completed_at or timezone.now(),
+    )
+    finish_at = max(last_at, completed_at or last_at)
+    if not any(_event_value(event, 'action') == ACTION_COMPLETE for event in events):
+        last = events[-1]
+        events.append(SimpleNamespace(
+            action=ACTION_COMPLETE,
+            session_id=_event_value(last, 'session_id'),
+            event_id='recovery:complete',
+            seq=max(int(_event_value(event, 'seq') or 0) for event in events) + 1,
+            occurred_at=finish_at,
+            team_id=_event_value(last, 'team_id'),
+        ))
+    snapshot_data = reduce_team_timing_events(events, now=finish_at)
+    return max(
+        int(snapshot_data.get('frozen_ms') or 0),
+        int(snapshot_data.get('committed_ms') or 0),
+        int(snapshot_data.get('accumulated_ms') or 0),
+    )
 
 
 def snapshot(row: DailySolveTiming | None, *, now=None, session_id=None) -> dict:
@@ -841,6 +875,42 @@ def complete_daily_timing_in_transaction(
         seq=next_seq,
         now=now,
     )
+    # This completion is performed inside the gameplay transaction rather
+    # than through the timing endpoint. Keep it in the immutable ledger too,
+    # otherwise a damaged compatibility snapshot cannot be rebuilt later.
+    record_timing_event(
+        game=game,
+        task_group=task_group,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        replay_slot=replay_slot,
+        action=ACTION_COMPLETE,
+        session_id=(
+            active_session.session_id
+            if active_session else (row.active_session_id or uuid4())
+        ),
+        event_id='complete:{}'.format(row.pk),
+        seq=next_seq,
+        claimed_ms=None,
+    )
+    if row.status == STATUS_COMPLETED and not int(row.frozen_ms or 0):
+        events = DailyTimingEvent.objects.filter(
+            game=game,
+            task_group=task_group,
+            replay_slot=replay_slot,
+            **({'team': team} if team is not None else {}),
+            **({'user': user} if user is not None else {}),
+            **({'anon_key': str(anon_key)} if anon_key else {}),
+        ).order_by('occurred_at', 'pk')
+        recovered_ms = recovered_timing_ms_from_events(
+            events,
+            completed_at=row.completed_at or now,
+        )
+        if recovered_ms > 0:
+            row.accumulated_ms = recovered_ms
+            row.frozen_ms = recovered_ms
+            row.save(update_fields=['accumulated_ms', 'frozen_ms', 'updated_at'])
     return snapshot(row, now=now)
 
 

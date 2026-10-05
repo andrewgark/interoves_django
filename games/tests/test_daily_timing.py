@@ -1,10 +1,12 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
+from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
 import json
 
 from django.contrib.auth.models import User
+from django.core.management import call_command
 from django.db import IntegrityError, OperationalError, transaction
 from django.test import Client, SimpleTestCase, TestCase
 from django.urls import resolve
@@ -30,6 +32,7 @@ from games.daily_timing import (
     merge_timing_rows,
     record_timing_event,
     reduce_personal_timing_events,
+    recovered_timing_ms_from_events,
     reduce_team_timing_events,
 )
 from games.views.daily_timing_views import daily_timing_page_context
@@ -161,6 +164,24 @@ class DailyTimingScopeTests(SimpleTestCase):
         self.assertEqual(reduced['frozen_ms'], 12000)
         self.assertEqual(reduced['session_count'], 2)
 
+    def test_recovered_completed_timing_rebuilds_missing_frozen_duration(self):
+        sid = str(uuid4())
+        events = [
+            SimpleNamespace(
+                action=ACTION_START, session_id=sid, event_id='start', seq=1,
+                occurred_at=_dt(0), team_id=None,
+            ),
+            SimpleNamespace(
+                action=ACTION_HEARTBEAT, session_id=sid, event_id='heartbeat', seq=2,
+                occurred_at=_dt(10), team_id=None,
+            ),
+        ]
+
+        self.assertEqual(
+            recovered_timing_ms_from_events(events, completed_at=_dt(12)),
+            12_000,
+        )
+
 
 class DailyTimingDomainTests(TestCase):
     @classmethod
@@ -211,6 +232,54 @@ class DailyTimingDomainTests(TestCase):
             kwargs['anon_key'] = self.anon
         return apply_timing_event(**kwargs)
 
+    def test_repair_command_dry_run_and_apply_zero_frozen_row(self):
+        completed_at = timezone.now()
+        row = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            accumulated_ms=0,
+            frozen_ms=0,
+            completed_at=completed_at,
+        )
+        event = DailyTimingEvent.objects.create(
+            game=self.game,
+            task_group=self.tg,
+            user=self.user,
+            actor_key='user:{}'.format(self.user.pk),
+            session_id='repair-session',
+            event_id='repair-start',
+            action=ACTION_START,
+            seq=1,
+        )
+        DailyTimingEvent.objects.filter(pk=event.pk).update(
+            occurred_at=completed_at - timedelta(seconds=12),
+        )
+
+        dry_run = StringIO()
+        call_command(
+            'repair_daily_solve_timing',
+            game=self.game.pk,
+            task_group=self.tg.pk,
+            user=self.user.pk,
+            stdout=dry_run,
+        )
+        self.assertIn('would be repaired', dry_run.getvalue())
+        row.refresh_from_db()
+        self.assertEqual(row.frozen_ms, 0)
+
+        call_command(
+            'repair_daily_solve_timing',
+            game=self.game.pk,
+            task_group=self.tg.pk,
+            user=self.user.pk,
+            apply=True,
+            stdout=StringIO(),
+        )
+        row.refresh_from_db()
+        self.assertEqual(row.frozen_ms, 12_000)
+
     def test_database_constraints_enforce_team_actor_shape_and_play_uniqueness(self):
         team = Team.objects.create(name='timing-constraint-team', project_id='sections')
         first = DailySolveTiming.objects.create(
@@ -250,6 +319,23 @@ class DailyTimingDomainTests(TestCase):
             seq=1,
         )
         self.assertFalse(DailyTimingEvent.objects.filter(event_id='invalid-actor').exists())
+
+    def test_recovery_rebuilds_positive_duration_when_completion_snapshot_is_zero(self):
+        sid = str(uuid4())
+        events = [
+            SimpleNamespace(
+                action=ACTION_START, session_id=sid, event_id='start', seq=1,
+                occurred_at=_dt(0), team_id=None,
+            ),
+            SimpleNamespace(
+                action=ACTION_HEARTBEAT, session_id=sid, event_id='heartbeat', seq=2,
+                occurred_at=_dt(10), team_id=None,
+            ),
+        ]
+        self.assertEqual(
+            recovered_timing_ms_from_events(events, completed_at=_dt(20)),
+            20_000,
+        )
 
     def test_event_identity_is_scoped_to_actor(self):
         session_id = str(uuid4())
