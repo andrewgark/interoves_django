@@ -6,6 +6,7 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from games.analytics import game_instance_id_for_task_group
 from games.ladder_daily import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
 from games.ladder_offer import (
     accept_offer,
@@ -23,6 +24,7 @@ from games.models import (
     HTMLPage,
     LadderOffer,
     Like,
+    PlayerCompletedGame,
     Profile,
     Project,
     RaddleUiState,
@@ -325,6 +327,44 @@ class LadderOfferFlowTests(TestCase):
         self.assertFalse(RaddleUiState.objects.filter(task=task, team=team).exists())
         task.refresh_from_db()
         self.assertEqual(task.attempt_revision, old_revision)
+
+    def test_reset_offer_clears_completion_and_allows_sending_again(self):
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='A')
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        PlayerCompletedGame.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=offer.task_group,
+            game_kind='ladder',
+            game_instance_id=game_instance_id_for_task_group(self.game, offer.task_group),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+
+        client = Client()
+        client.force_login(self.user)
+        reset = client.post(
+            reverse('ui_create_ladder_reset', kwargs={'offer_id': offer.pk}),
+            HTTP_X_INTEROVES_PLAY_MODE='personal',
+        )
+
+        self.assertEqual(reset.status_code, 200)
+        self.assertFalse(
+            PlayerCompletedGame.objects.filter(
+                user=self.user, game=self.game, task_group=offer.task_group,
+            ).exists()
+        )
+        response = client.post(
+            '/send_attempt/{}/'.format(task.pk),
+            {
+                'game_id': LADDER_GAME_ID,
+                'word_index': '1',
+                'word': 'РОТ',
+            },
+            HTTP_X_INTEROVES_PLAY_MODE='personal',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
 
     def test_editing_same_sized_ladder_clears_all_actor_progress(self):
         offer = create_offer(self.user)

@@ -512,6 +512,16 @@ def reset_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    reconcile_task_group_actors(
+        game_id=game_id,
+        task_group_id=task.task_group_id,
+        actor_keys={(
+            team.pk if team is not None else None,
+            user.pk if user is not None else None,
+            anon_key,
+        )},
+    )
     # attempt_revision is task-wide. Do not rotate it for an actor-scoped
     # reset: that would make other actors' still-valid attempts look stale.
     return n
@@ -539,6 +549,22 @@ def reset_all_raddle_progress(
         if hint_ids
         else HintAttempt.objects.none()
     )
+    actor_keys = set()
+    ui_state_qs = RaddleUiState.objects.filter(task=task, game=game)
+    for queryset in (attempt_qs, chain_qs, ui_state_qs):
+        actor_keys.update(
+            (team_id, user_id, anon_key)
+            for team_id, user_id, anon_key in queryset.filter(
+                replay_slot__isnull=True,
+            ).values_list('team_id', 'user_id', 'anon_key')
+        )
+    from games.models import PlayerCompletedGame
+    actor_keys.update(
+        (team_id, user_id, anon_key)
+        for team_id, user_id, anon_key in PlayerCompletedGame.objects.filter(
+            game=game, task_group=task.task_group,
+        ).values_list('team_id', 'user_id', 'anon_key')
+    )
     n_attempts = attempt_qs.count()
     n_chains = chain_qs.count()
     n_ui_states = ui_qs.count()
@@ -552,6 +578,12 @@ def reset_all_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    reconcile_task_group_actors(
+        game_id=game_id,
+        task_group_id=task.task_group_id,
+        actor_keys=actor_keys,
+    )
     Task.objects.filter(pk=task.pk).update(attempt_revision=uuid.uuid4())
     return {
         'attempts': n_attempts,
