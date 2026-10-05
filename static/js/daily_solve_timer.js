@@ -183,7 +183,7 @@
       if (toggleBtn) {
         var paused = manuallyPaused;
         toggleBtn.setAttribute('aria-expanded', (!paused && popover && !popover.hidden) ? 'true' : 'false');
-        toggleBtn.setAttribute('aria-label', paused ? 'Продолжить задание' : 'Показать время решения группы');
+        toggleBtn.setAttribute('aria-label', paused ? 'Продолжить задание' : 'Показать время решения');
       }
       if (tooltipValue) tooltipValue.textContent = formatClock(ms);
       if (toggleLabel) toggleLabel.textContent = manuallyPaused ? 'Продолжить' : '';

@@ -913,7 +913,7 @@ def _public_context(result):
             stars, label.lower(),
         )
     else:
-        tooltip = 'Сложность: {}.'.format(label)
+        tooltip = 'Сложность: {}'.format(label)
         aria_label = 'Сложность: {} из 5 — {}.'.format(stars, label.lower())
     return {
         **result,

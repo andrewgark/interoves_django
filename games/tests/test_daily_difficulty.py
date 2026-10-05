@@ -148,7 +148,7 @@ class DifficultyScoringTests(SimpleTestCase):
         self.assertEqual(context['label'], 'Простая')
         self.assertEqual(
             context['tooltip'],
-            'Сложность: Простая.',
+            'Сложность: Простая',
         )
         self.assertEqual(context['aria_label'], 'Сложность: 2 из 5 — простая.')
         self.assertEqual(context['star_slots'], [True, True, False, False, False])
@@ -158,7 +158,7 @@ class DifficultyScoringTests(SimpleTestCase):
             {'difficulty': context},
         )
         self.assertIn(
-            'title="Сложность: Простая."',
+            'title="Сложность: Простая"',
             html,
         )
         self.assertIn('aria-label="Сложность: 2 из 5 — простая."', html)
@@ -285,7 +285,7 @@ class DifficultyObservationTests(TestCase):
 
         self.assertEqual(
             contexts[self.placement.pk]['tooltip'],
-            'Сложность: Сложная.',
+            'Сложность: Сложная',
         )
 
     def test_cached_contexts_use_stars_column_when_payload_omits_visibility(self):
@@ -300,7 +300,7 @@ class DifficultyObservationTests(TestCase):
 
         self.assertEqual(
             contexts[self.placement.pk]['tooltip'],
-            'Сложность: Сложная.',
+            'Сложность: Сложная',
         )
         self.assertEqual(contexts[self.placement.pk]['star_slots'], [True, True, True, True, False])
 
@@ -400,7 +400,7 @@ class DifficultyObservationTests(TestCase):
 
         self.assertIn('new-difficulty', html)
         self.assertIn(
-            'title="Сложность: Сложная."',
+            'title="Сложность: Сложная"',
             html,
         )
         self.assertEqual(html.count('class="ph-fill ph-brain"'), 4)
