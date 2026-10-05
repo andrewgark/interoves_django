@@ -14,10 +14,9 @@
 
   <div class="new-taskgrid ladder-tutorial__board">
     <div class="new-taskcard" id="new-task-ladder-tutorial-demo">
-      <div class="new-taskcard__meta-bar new-proportions-compact-bar">
-        <span class="new-proportions-compact-bar__num">Лесенка #7</span>
-        <div class="new-proportions-compact-stats"><span class="new-proportions-compact-stat new-proportions-compact-stat--plain">Демо-режим</span></div>
-      </div>
+      {% with task=tutorial_task ai=tutorial_ai task_ui=tutorial_task_ui rd=tutorial_raddle mode='daily' %}
+        {% include "new/task-content/task-meta-bar.html" %}
+      {% endwith %}
       <div class="new-taskcard__body">
         <div class="new-taskcard__text">
           {% with task=tutorial_task rd=tutorial_raddle tutorial_mode=True %}
@@ -28,10 +27,10 @@
     </div>
   </div>
 
-  <div class="tutorial-shell" data-tutorial-shell hidden>
-    <div class="tutorial-shell__backdrop" data-tutorial-close></div>
+  <div class="new-rules-modal tutorial-shell" data-tutorial-shell hidden>
+    <div class="new-rules-overlay tutorial-shell__backdrop" data-tutorial-close></div>
     <div class="tutorial-shell__spotlights" data-tutorial-spotlights aria-hidden="true"></div>
-    <section class="tutorial-shell__callout pal-card" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+    <section class="new-rules-modal__box pal-card tutorial-shell__callout" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-tutorial-close><i class="ph ph-x" aria-hidden="true"></i></button>
       <div class="tutorial-shell__top"><span data-tutorial-progress>1 / 7</span><button type="button" class="new-btn new-btn--text new-btn--mini" data-tutorial-skip>Пропустить</button></div>
       <h2 id="tutorial-title" class="pal-title" data-tutorial-title>Лесенка</h2>
