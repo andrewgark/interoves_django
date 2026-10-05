@@ -618,15 +618,19 @@ def get_task_for_number(game: Game, number: int | str):
     return link, task
 
 
+@transaction.atomic
 def reset_progress(*, game: Game, task: Task, user=None, anon_key=None) -> int:
     actor = _actor_filters(user=user, anon_key=anon_key)
     if actor is None:
         return 0
-    deleted, _ = ChainTaskState.objects.filter(
+    chain_qs = ChainTaskState.objects.filter(
         task=task,
         game=game,
         game_mode='general',
         **actor,
-    ).delete()
-    Attempt.manager.filter(task=task, game=game, **actor).delete()
-    return deleted
+    )
+    attempt_qs = Attempt.manager.filter(task=task, game=game, **actor)
+    n_attempts = attempt_qs.count()
+    chain_qs.delete()
+    attempt_qs.delete()
+    return n_attempts

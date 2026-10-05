@@ -10,11 +10,11 @@ from django.test import Client, SimpleTestCase, TestCase
 
 from games.censorly import CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.censorly.normalize import lemma_of, normalize_surface
-from games.censorly.play import apply_guess, get_play_state, puzzle_from_task
+from games.censorly.play import apply_guess, get_play_state, puzzle_from_task, reset_progress
 from games.censorly.redact import build_public_view, lemmas_matching_guess
 from games.censorly.stopwords import is_stop_word
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
-from games.models import CheckerType, Game, GameTaskGroup, Project, RandomCensorlyGame, Task, TaskGroup
+from games.models import Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, Project, RandomCensorlyGame, Task, TaskGroup
 from games.placement_share import allocate_share_hash
 
 _CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
@@ -70,6 +70,23 @@ def _make_puzzle_task(*, title='Москва', body='Москва — столи
 
 
 class CensorlyEngineTests(TestCase):
+    def test_reset_progress_returns_deleted_attempts_atomically(self):
+        game, task, _hash, _puzzle = _make_puzzle_task()
+        Attempt.manager.create(
+            task=task, game=game, anon_key='censorly-reset', text='one',
+            status='Ok', points=1,
+        )
+        ChainTaskState.objects.create(
+            task=task, game=game, anon_key='censorly-reset',
+            game_mode='general', state='{}',
+        )
+
+        deleted = reset_progress(game=game, task=task, anon_key='censorly-reset')
+
+        self.assertEqual(deleted, 1)
+        self.assertFalse(Attempt.manager.filter(task=task).exists())
+        self.assertFalse(ChainTaskState.objects.filter(task=task).exists())
+
     def test_stopwords_and_tokenize(self):
         self.assertTrue(is_stop_word('в'))
         self.assertTrue(is_stop_word('И'))
@@ -198,6 +215,31 @@ class CensorlyWikiHelperTests(TestCase):
             'https://ru.wikipedia.org/w/index.php?title=%D0%9C%D0%BE%D1%81%D0%BA%D0%B2%D0%B0'
         )
         self.assertEqual(title, 'Москва')
+
+
+class CensorlyRandomGameTests(TestCase):
+    def test_invalid_fetched_article_does_not_abort_pool_scan(self):
+        from unittest.mock import patch
+
+        from games.censorly.random_game import get_or_create_random_game
+        from games.censorly.wiki import WikiArticle, WikiFetchError
+
+        expected = object()
+        articles = [
+            WikiArticle(title='Плохая статья', pageid=1, extract=''),
+            WikiArticle(title='Хорошая статья', pageid=2, extract='body'),
+        ]
+        with patch('games.censorly.random_game.load_article_pool', return_value=tuple(
+            article.title for article in articles
+        )), patch('games.censorly.random_game._get_game', return_value=object()), \
+             patch('games.censorly.random_game.fetch_article', side_effect=articles), \
+             patch(
+                 'games.censorly.random_game._create_from_article',
+                 side_effect=[WikiFetchError('нет угадываемых слов'), expected],
+             ):
+            result = get_or_create_random_game()
+
+        self.assertIs(result, expected)
 
     def test_disambiguation_heuristic(self):
         from games.censorly.wiki import _looks_like_disambiguation
