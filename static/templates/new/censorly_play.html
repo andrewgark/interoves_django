@@ -58,7 +58,7 @@
      data-context-token="{{ gameplay_context_token|default:'' }}">
 
   <div class="new-taskcard" id="new-task-{{ task.id }}">
-    <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ bug_report_task_label|default:page_title }}" aria-label="Сообщить о проблеме: {{ bug_report_task_label|default:page_title }}" title="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
+    <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ bug_report_task_label|default:page_title }}" aria-label="Сообщить о проблеме: {{ bug_report_task_label|default:page_title }}" data-tooltip="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
     {% include "new/task-content/task-meta-bar.html" %}
     <div class="new-taskcard__body">
       <div class="censorly__toolbar">

@@ -41,7 +41,7 @@
 
 {% if daily_timing_enabled %}<div class="new-daily-solve"><div class="new-daily-solve__stage">{% include "new/partials/daily_solve_pause_overlay.html" %}<div data-daily-solve-board>{% endif %}
 <div class="new-taskcard" id="new-task-{{ task.id }}" data-solved="{% if ai.is_solved %}1{% else %}0{% endif %}" data-alphabetty-meta>
-  <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ bug_report_task_label|default:page_title }}" aria-label="Сообщить о проблеме: {{ bug_report_task_label|default:page_title }}" title="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
+  <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ bug_report_task_label|default:page_title }}" aria-label="Сообщить о проблеме: {{ bug_report_task_label|default:page_title }}" data-tooltip="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
   {% include "new/task-content/task-meta-bar.html" %}
   <div class="new-taskcard__body">
 <div class="new-alphabetty" id="alphabetty-root"

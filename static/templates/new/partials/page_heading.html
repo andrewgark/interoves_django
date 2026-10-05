@@ -13,10 +13,10 @@
     {% endif %}
   </h1>
   {% if not is_daily_single_task %}
-  <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" title="Скрывать решённые" data-hide-solved-toggle><i class="ph ph-eye" aria-hidden="true"></i></button>
+  <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" data-tooltip="Скрывать решённые" data-hide-solved-toggle><i class="ph ph-eye" aria-hidden="true"></i></button>
   {% endif %}
   {% if show_rules or section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules.html %}
-  <button type="button" class="new-rules-trigger" aria-label="Правила" title="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
+  <button type="button" class="new-rules-trigger" aria-label="Правила" data-tooltip="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
   {% endif %}
   {% firstof tagline section_tagline game.theme as page_tagline %}
   {% if page_tagline %}
