@@ -158,7 +158,7 @@ class DifficultyScoringTests(SimpleTestCase):
             {'difficulty': context},
         )
         self.assertIn(
-            'title="Сложность: Простая"',
+            'data-tooltip="Сложность: Простая"',
             html,
         )
         self.assertIn('aria-label="Сложность: 2 из 5 — простая."', html)
@@ -400,7 +400,7 @@ class DifficultyObservationTests(TestCase):
 
         self.assertIn('new-difficulty', html)
         self.assertIn(
-            'title="Сложность: Сложная"',
+            'data-tooltip="Сложность: Сложная"',
             html,
         )
         self.assertEqual(html.count('class="ph-fill ph-brain"'), 4)

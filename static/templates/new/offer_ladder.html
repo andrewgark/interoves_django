@@ -277,12 +277,12 @@
         ? '<input type="text" class="ladder-hint" placeholder="подсказка → след. слово" value="' + escapeHtml(hints[i] || '') + '">'
         : '<span class="support-hint">последнее слово</span>';
       row.innerHTML =
-        '<button type="button" class="support-ladder-word-row__handle" title="Перетащить" aria-label="Перетащить">⠿</button>' +
+        '<button type="button" class="support-ladder-word-row__handle" data-tooltip="Перетащить" aria-label="Перетащить">⠿</button>' +
         '<span class="support-cell-mono">' + (i + 1) + '</span>' +
         '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
         '<input type="text" class="ladder-emoji" placeholder="эмодзи" value="' + escapeHtml(emojis[i] || '') + '" maxlength="16" autocomplete="off" aria-label="Эмодзи строки ' + (i + 1) + '">' +
         hintHtml +
-        '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon ladder-rm-word" title="Удалить" aria-label="Удалить слово" ' +
+        '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon ladder-rm-word" data-tooltip="Удалить" aria-label="Удалить слово" ' +
           (words.length <= 2 ? 'disabled' : '') + '>×</button>';
       box.appendChild(row);
       renderInsert(i + 1, i === words.length - 1 ? '+ Слово в конец' : '+ Слово между строками');

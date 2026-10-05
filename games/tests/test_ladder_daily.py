@@ -170,7 +170,7 @@ class LadderSectionPageTests(TestCase):
         )
         self.assertIn('ПАРИЖ → ДАКАР', html)
         self.assertIn(
-            'title="Сложность: Сложная"',
+            'data-tooltip="Сложность: Сложная"',
             html,
         )
         self.assertEqual(html.count('class="ph-fill ph-brain"'), 4)

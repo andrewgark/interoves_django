@@ -1,7 +1,7 @@
 {% load filters %}
 <div class="new-attempts__row" data-attempt-id="{{ a.id }}" data-attempt-mark="{{ item.mark }}">
   <div class="new-attempts__meta">
-    <span class="new-pill {% if item.mark == 'ok' %}new-pill--ok{% elif item.mark == 'partial' %}new-pill--partial{% elif item.mark == 'wrong' %}new-pill--wrong{% endif %}" title="{{ item.label }}">
+    <span class="new-pill {% if item.mark == 'ok' %}new-pill--ok{% elif item.mark == 'partial' %}new-pill--partial{% elif item.mark == 'wrong' %}new-pill--wrong{% endif %}" data-tooltip="{{ item.label }}">
       {% if item.mark == 'ok' or item.mark == 'partial' %}<i class="ph ph-check" aria-hidden="true"></i>{% elif item.mark == 'wrong' %}<i class="ph ph-x" aria-hidden="true"></i>{% else %}<i class="ph ph-minus" aria-hidden="true"></i>{% endif %}
       <span>{{ item.label }}</span>
     </span>

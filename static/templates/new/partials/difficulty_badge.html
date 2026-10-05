@@ -1,6 +1,6 @@
 {% if difficulty.show %}
 <span class="new-difficulty"
-      {% if difficulty.tooltip %}title="{{ difficulty.tooltip }}"
+      {% if difficulty.tooltip %}data-tooltip="{{ difficulty.tooltip }}"
       {% endif %}
       role="img"
       aria-label="{{ difficulty.aria_label }}">

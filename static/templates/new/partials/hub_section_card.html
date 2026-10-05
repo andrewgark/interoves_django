@@ -30,7 +30,7 @@
         <span class="new-tooltip new-tooltip--above new-hub-section__solved-tip" role="tooltip">Решено</span>
       </span>
       {% if card.streak %}
-        <span class="new-hub-section__streak" title="{{ card.streak }} {{ card.streak|ru_day_word }} подряд" aria-label="{{ card.streak }} {{ card.streak|ru_day_word }} подряд">
+        <span class="new-hub-section__streak" data-tooltip="{{ card.streak }} {{ card.streak|ru_day_word }} подряд" aria-label="{{ card.streak }} {{ card.streak|ru_day_word }} подряд">
           <i class="ph ph-fire" aria-hidden="true"></i><span>{{ card.streak }}</span>
         </span>
       {% endif %}
