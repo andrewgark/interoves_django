@@ -326,6 +326,34 @@ class LadderOfferFlowTests(TestCase):
         task.refresh_from_db()
         self.assertNotEqual(task.attempt_revision, old_revision)
 
+    def test_editing_same_sized_ladder_clears_all_actor_progress(self):
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ААА', 'БББ'], hints=['x'], author='A')
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        team = Team.objects.create(name='offer-edit-team')
+        Attempt.manager.create(
+            task=task, game=self.game, user=self.user, text='БББ', status='Ok', points=1,
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, team=team, text='БББ', status='Ok', points=1,
+        )
+        RaddleUiState.objects.create(
+            task=task, game=self.game, user=self.user, game_mode='general',
+            drafts={'1': 'ААА'},
+        )
+        RaddleUiState.objects.create(
+            task=task, game=self.game, team=team, game_mode='general',
+            drafts={'1': 'БББ'},
+        )
+
+        update_offer_content(
+            offer, words=['ААА', 'ВВВ'], hints=['a→v'], author='A',
+            reset_actor_user=self.user,
+        )
+
+        self.assertFalse(Attempt.manager.filter(task=task).exists())
+        self.assertFalse(RaddleUiState.objects.filter(task=task).exists())
+
     def test_support_accept_endpoint(self):
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
@@ -467,7 +495,7 @@ class LadderOfferFlowTests(TestCase):
         self.assertFalse(Attempt.manager.filter(task=task, game=self.game).exists())
         self.assertFalse(ChainTaskState.objects.filter(task=task, game=self.game).exists())
 
-    def test_same_size_offer_edit_keeps_other_actor_progress(self):
+    def test_same_size_offer_edit_resets_other_actor_progress(self):
         offer = create_offer(self.user)
         update_offer_content(
             offer,
@@ -492,9 +520,8 @@ class LadderOfferFlowTests(TestCase):
             reset_actor_user=self.user,
         )
 
-        self.assertEqual(
-            Attempt.manager.filter(task=task, game=self.game, user=self.other).count(),
-            1,
+        self.assertFalse(
+            Attempt.manager.filter(task=task, game=self.game, user=self.other).exists()
         )
 
     def test_resize_published_offer_does_not_reset_progress(self):

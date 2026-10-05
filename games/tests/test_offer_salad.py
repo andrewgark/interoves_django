@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from games.models import (
     Attempt,
+    ChainTaskState,
     CheckerType,
     Game,
     GameTaskGroup,
@@ -17,6 +18,7 @@ from games.models import (
     Project,
     Task,
     TaskGroup,
+    Team,
     WordSaladOffer,
 )
 from games.support.constants import SUPPORT_CONSOLE_GROUP
@@ -154,6 +156,58 @@ class WordSaladOfferFlowTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['word_salad_correct'], response.json())
+
+    def test_reset_offer_clears_personal_and_team_progress(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer, theme='Тестовый салатик', grid_text=VALID_GRID,
+            words_text='BCDE\nFGHI\nJKLM\nNOPQ',
+        )
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        team = Team.objects.create(name='salad-reset-team')
+        Attempt.manager.create(
+            task=task, game=self.game, user=self.user, text='{}', status='Ok', points=1,
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, team=team, text='{}', status='Ok', points=1,
+        )
+        ChainTaskState.objects.create(
+            task=task, game=self.game, user=self.user, game_mode='general', state='{}',
+        )
+        ChainTaskState.objects.create(
+            task=task, game=self.game, team=team, game_mode='general', state='{}',
+        )
+
+        client = Client()
+        client.force_login(self.user)
+        self.user.profile.team_on = team
+        self.user.profile.save(update_fields=['team_on'])
+        response = client.post(
+            reverse('ui_create_salad_reset', kwargs={'offer_id': offer.pk}),
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['deleted_attempts'], 2)
+        self.assertFalse(Attempt.manager.filter(task=task).exists())
+        self.assertFalse(ChainTaskState.objects.filter(task=task).exists())
+
+        page = client.get(offer.play_url(), HTTP_X_INTEROVES_PLAY_MODE='personal')
+        html = page.content.decode('utf-8')
+        context = re.search(r'name="gameplay_context" value="([^"]+)"', html).group(1)
+        retry = client.post(
+            '/send_attempt/{}/'.format(task.pk),
+            {
+                'gameplay_context': context,
+                'variable': task.pk,
+                'game_id': 'salad',
+                'action': 'solve',
+                'path': json.dumps([0, 1, 2, 3]),
+                'correct_only': '1',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            HTTP_X_INTEROVES_PLAY_MODE='personal',
+        )
+        self.assertTrue(retry.json()['word_salad_correct'], retry.json())
 
     def test_accepted_future_salad_accepts_attempts_from_share_link(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)

@@ -309,7 +309,7 @@ def update_offer_content(
     task = _task_for_offer(offer)
     if task is None:
         raise LadderOfferError('Задание лесенки не найдено')
-    old_word_count = int(_parse_task_payload(task).get('word_count') or 0)
+    old_checker_data = task.checker_data or ''
     _apply_content_to_task(
         task,
         words=words,
@@ -324,14 +324,14 @@ def update_offer_content(
     offer.comment = (comment or '').strip()
     offer.mixed_script = bool(mixed_script)
     offer.save(update_fields=['intro', 'author', 'comment', 'mixed_script', 'updated_at'])
-    new_word_count = int(_parse_task_payload(task).get('word_count') or 0)
+    puzzle_changed = old_checker_data != (task.checker_data or '')
     if (
-        old_word_count != new_word_count
+        puzzle_changed
         and not offer_is_production_published(offer)
     ):
-        # Raddle progress stores solved word indices. Once the ladder size changes,
-        # those indices no longer describe the same puzzle, so every preview actor
-        # must start over (not only the author who saved the draft).
+        # Raddle progress stores solved word indices and UI drafts for the current
+        # puzzle. Any content edit, including one with the same word count, makes
+        # those values stale for every preview actor.
         reset_all_raddle_progress(task=task, game_id=LADDER_GAME_ID)
     elif reset_actor_user is not None:
         reset_raddle_progress(

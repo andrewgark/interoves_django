@@ -158,15 +158,12 @@ def offer_ladder_reset(request, offer_id):
     if task is None:
         return JsonResponse({'ok': False, 'error': 'Задание не найдено'}, status=404)
     # The reset button belongs to the offer, not to whichever play mode the
-    # author happened to have selected in this browser tab.  Clear the
-    # author's personal state every time; when the page is in team mode also
-    # clear that shared state so switching modes cannot resurrect the old
-    # solution.
+    # author happened to have selected in this browser tab. Clear both scopes:
+    # otherwise switching modes can resurrect the old solution.
     reset_actors = [{'user': offer.user}]
-    if request.headers.get('X-Interoves-Play-Mode') == 'team':
-        team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
-        if team is not None:
-            reset_actors.append({'team': team})
+    team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
+    if team is not None:
+        reset_actors.append({'team': team})
     try:
         n = sum(
             reset_raddle_progress(task=task, **actor)

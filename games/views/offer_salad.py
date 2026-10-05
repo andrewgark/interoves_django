@@ -172,14 +172,12 @@ def offer_salad_reset(request, offer_id):
     task = offer.task_group.tasks.filter(number='1').first()
     if task is None:
         return JsonResponse({'ok': False, 'error': 'Задание не найдено'}, status=404)
-    # Reset the author's personal solution regardless of the current browser
-    # mode.  In team mode the shared solution must be cleared too, otherwise
-    # changing back to team mode brings the completed draft back.
+    # Reset both personal and shared solution scopes regardless of the current
+    # browser mode, otherwise changing modes can resurrect the old solution.
     reset_actors = [{'user': offer.user}]
-    if request.headers.get('X-Interoves-Play-Mode') == 'team':
-        team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
-        if team is not None:
-            reset_actors.append({'team': team})
+    team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
+    if team is not None:
+        reset_actors.append({'team': team})
     try:
         n = sum(
             reset_salad_progress(task=task, **actor)
