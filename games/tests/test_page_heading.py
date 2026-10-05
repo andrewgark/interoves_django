@@ -106,6 +106,19 @@ class PageHeadingPartialTests(SimpleTestCase):
         self.assertIn('disabled aria-label="Следующая ежедневная игра"', html)
         self.assertNotIn(str(today.year), html.split('new-daily-game-header__date', 1)[1].split('</span>', 1)[0])
 
+    def test_daily_header_prefers_section_description_over_game_theme(self):
+        html = render_to_string(
+            'new/partials/daily_game_header.html',
+            {
+                'heading': 'Лесенка №90',
+                'section_tagline': 'Разгадайте цепочку слов по перемешанным подсказкам, связывающим соседние слова',
+                'daily_publish_date': timezone.localdate(),
+                'game': SimpleNamespace(theme='Одна лестница слов в день', tags={}),
+            },
+        )
+        self.assertIn('Разгадайте цепочку слов по перемешанным подсказкам, связывающим соседние слова', html)
+        self.assertNotIn('Одна лестница слов в день', html)
+
     def test_custom_daily_header_has_reset_without_date_navigation(self):
         html = render_to_string(
             'new/partials/daily_game_header.html',

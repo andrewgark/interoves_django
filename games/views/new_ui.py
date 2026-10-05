@@ -1733,6 +1733,15 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'tg_number': placement.number,
         'tg_name': placement.name,
         'share_host': share_host_from_request(request),
+        # Keep the single daily-game page in sync with the section card on
+        # the homepage and the section archive.  Do not fall back to
+        # ``game.theme`` here: for daily games it is legacy metadata and can
+        # describe a different aspect of the format.
+        'section_tagline': (
+            SECTION_HUB_META.get(game.id, {}).get('description') or ''
+            if game.project_id == NEW_UI_SECTIONS_PROJECT
+            else ''
+        ),
         'back_url': '{}/games/{}/'.format(base, game.id),
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
         'page_title': '{} · {}'.format(game.outside_name or game.name, placement.name),
@@ -3703,6 +3712,11 @@ def new_task_group_page(request, game_id, task_group_number):
         'tg_number': placement.number,
         'tg_name': placement.name,
         'share_host': share_host_from_request(request),
+        'section_tagline': (
+            SECTION_HUB_META.get(game.id, {}).get('description') or ''
+            if game.project_id == NEW_UI_SECTIONS_PROJECT
+            else ''
+        ),
         'week_task_source_line': week_task_source_line,
         'week_task_source_url': week_task_source_url,
         'source_desyatka': source_desyatka,
