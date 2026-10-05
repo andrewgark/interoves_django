@@ -31,14 +31,6 @@
   overflow: visible;
 }
 
-.censorly__toolbar {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-  align-items: center;
-  margin-bottom: 0.65rem;
-}
-
 .censorly__layout {
   display: grid;
   gap: 1rem;
@@ -108,11 +100,6 @@ html.new-ui-dark .censorly__dock {
   font-size: 0.95rem;
 }
 
-.censorly__status #censorly-won {
-  color: var(--text);
-  font-weight: 700;
-}
-
 .censorly__hint-mode {
   color: var(--accent, #b08900);
   font-weight: 600;
@@ -149,8 +136,7 @@ html.new-ui-dark .censorly__dock {
   white-space: pre-wrap;
 }
 
-.censorly__truncated,
-.censorly__wiki {
+.censorly__truncated {
   margin: 0.75rem 0 0;
   font-size: 0.9rem;
   color: var(--muted);
@@ -416,6 +402,17 @@ html.new-ui-dark .censorly__dock {
 }
 
 .censorly__form {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.censorly__controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.35rem;
+}
+
+.censorly__input-row {
   display: flex;
   gap: 0.4rem;
   align-items: stretch;
@@ -430,6 +427,31 @@ html.new-ui-dark .censorly__dock {
   border: 1px solid var(--border, rgba(0, 0, 0, 0.18));
   background: var(--bg, #fff);
   color: var(--text);
+}
+
+.censorly__wiki-link {
+  display: inline-flex;
+  margin-left: 0.45em;
+  color: var(--muted);
+  font-family: system-ui, sans-serif;
+  font-size: 0.65em;
+  line-height: 1;
+  vertical-align: 0.08em;
+  text-decoration: none;
+}
+
+.censorly__wiki-link:hover,
+.censorly__wiki-link:focus-visible {
+  color: var(--accent, #1f6f5e);
+  text-decoration: underline;
+}
+
+.censorly__solved {
+  margin-left: 0.35em;
+  font-family: system-ui, sans-serif;
+  font-size: 0.55em;
+  font-weight: 700;
+  vertical-align: 0.12em;
 }
 
 .censorly__feedback {

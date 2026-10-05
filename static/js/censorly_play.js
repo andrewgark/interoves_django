@@ -12,15 +12,6 @@
     return (root && root.getAttribute('data-context-token')) || '';
   }
 
-  function ruAttempts(n) {
-    n = Math.abs(n | 0);
-    var n10 = n % 10;
-    var n100 = n % 100;
-    if (n10 === 1 && n100 !== 11) return n + ' попытка';
-    if (n10 >= 2 && n10 <= 4 && !(n100 >= 12 && n100 <= 14)) return n + ' попытки';
-    return n + ' попыток';
-  }
-
   function el(tag, className, text) {
     var node = document.createElement(tag);
     if (className) node.className = className;
@@ -332,37 +323,45 @@
     box.hidden = false;
   }
 
+  function wikiUrl(state) {
+    if (state && state.wiki_title) {
+      return 'https://ru.wikipedia.org/wiki/' + encodeURIComponent(state.wiki_title);
+    }
+    if (state && state.wiki_pageid) {
+      return 'https://ru.wikipedia.org/?curid=' + encodeURIComponent(String(state.wiki_pageid));
+    }
+    return '';
+  }
+
+  function renderTitleDecoration(title, state) {
+    if (!title || !state || !state.won) return;
+    var url = wikiUrl(state);
+    if (!url) return;
+    var link = el('a', 'censorly__wiki-link');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.title = 'Открыть статью на Википедии';
+    link.setAttribute('aria-label', 'Открыть статью на Википедии');
+    link.appendChild(el('i', 'ph ph-wikipedia-logo'));
+    title.appendChild(link);
+    if (state.won) title.appendChild(el('span', 'censorly__solved', '— Решено!'));
+  }
+
   function applyState(root, state, opts) {
     opts = opts || {};
     var lenForced = opts.preserveLen ? collectLenForced(root) : {};
     var title = root.querySelector('#censorly-title');
     var body = root.querySelector('#censorly-body');
-    var attempts = root.querySelector('#censorly-attempts');
-    var won = root.querySelector('#censorly-won');
     var input = root.querySelector('#censorly-word');
     var submit = root.querySelector('#censorly-submit');
     var hintBtn = root.querySelector('#censorly-hint-btn');
 
     renderTokens(title, state.title_tokens || [], lenForced);
+    renderTitleDecoration(title, state);
     renderTokens(body, state.body_tokens || [], lenForced);
     var trunc = root.querySelector('#censorly-truncated');
-    var wikiWrap = root.querySelector('#censorly-wiki');
-    var wikiLink = root.querySelector('#censorly-wiki-link');
     if (trunc) trunc.hidden = !state.truncated;
-    if (wikiWrap && wikiLink) {
-      if (state.won && state.wiki_title) {
-        wikiLink.href = 'https://ru.wikipedia.org/wiki/' + encodeURIComponent(state.wiki_title);
-        wikiWrap.hidden = false;
-      } else if (state.won && state.wiki_pageid) {
-        wikiLink.href = 'https://ru.wikipedia.org/?curid=' + encodeURIComponent(String(state.wiki_pageid));
-        wikiWrap.hidden = false;
-      } else {
-        wikiLink.removeAttribute('href');
-        wikiWrap.hidden = true;
-      }
-    }
-    if (attempts) attempts.textContent = ruAttempts(state.attempts || 0);
-    if (won) won.hidden = !state.won;
     renderGuessTable(root, state.guesses || []);
     showShare(state);
     if (state.meta_bar_html) updateMetaBar(state.meta_bar_html);
@@ -533,7 +532,7 @@
               applyState(root, data, { preserveLen: true });
               var newly = data.newly_revealed || [];
               if (newly.length) scrollToTokenId(root, newly[0]);
-              setFeedback(root, data.status === 'won' ? 'Решено!' : 'Подсказка открыта', data.status === 'won' ? 'hit' : '');
+              if (data.status !== 'won') setFeedback(root, 'Подсказка открыта', '');
             })
             .catch(function () {
               setFeedback(root, 'Сеть недоступна', 'error');
@@ -604,8 +603,6 @@
             if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit');
             else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error');
             else if (data.status === 'already_open') setFeedback(root, 'Уже открыто', '');
-            else if (data.status === 'won') setFeedback(root, 'Решено!', 'hit');
-            else if (data.status === 'already_won') setFeedback(root, 'Уже решено', 'hit');
           })
           .catch(function () {
             setFeedback(root, 'Сеть недоступна', 'error');
