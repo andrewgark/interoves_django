@@ -63,6 +63,7 @@ class TeamInviteTests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Войти и вступить')
+        self.assertContains(response, 'login=1&amp;next=%2Fteam%2Finvite%2Fget-only-token%2F')
         self.friend.profile.refresh_from_db()
         self.assertIsNone(self.friend.profile.team_on_id)
 

@@ -15,7 +15,7 @@
         <button type="submit" class="new-btn">Вступить в команду</button>
       </form>
     {% else %}
-      <p><a class="new-btn" href="/accounts/login/?next={{ request.get_full_path|urlencode }}">Войти и вступить</a></p>
+      <p><a class="new-btn" href="{{ team_invite_login_url }}">Войти и вступить</a></p>
     {% endif %}
   {% endif %}
 </div>

@@ -5195,10 +5195,13 @@ def new_team_invite(request, token, project_id=None):
             'invite_invalid': True,
             'page_title': 'Приглашение в команду',
         }, status=404)
+    login_base = _project_base(project_id) if project_id else '/'
+    login_query = urlencode({'login': '1', 'next': request.get_full_path()})
     return render(request, 'new/team_invite.html', {
         'team_invite': invite,
         'team_invite_token': token,
         'team_invite_project_id': project_id,
+        'team_invite_login_url': '{}?{}'.format(login_base, login_query),
         'page_title': 'Приглашение в команду',
     })
 
