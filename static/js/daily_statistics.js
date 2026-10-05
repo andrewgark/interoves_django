@@ -43,7 +43,7 @@
   }
   function popularity(items) {
     return (items || []).map(function (x) {
-      var tooltip = x.rare ? ' data-tooltip="Редкая находка" aria-label="Редкая находка" tabindex="0" title="Редкая находка"' : '';
+      var tooltip = x.rare ? ' data-tooltip="Редкая находка" aria-label="Редкая находка" tabindex="0"' : '';
       return '<li class="new-daily-statistics__guess' + (x.rare ? ' is-rare' : '') + '"><span class="new-daily-statistics__finding-pill' + (x.rare ? ' is-rare' : '') + '"' + tooltip + '><span>' + esc(x.word) + '</span><small>(' + esc(x.players) + ')</small></span></li>';
     }).join('');
   }
@@ -71,7 +71,7 @@
       var kind = item.kind || 'missing';
       var label = kind === 'rare' ? 'Редкая находка' : kind === 'extra' ? 'Находка не по теме' : kind === 'answer' ? 'Ответ' : 'Не найдено';
       var cls = kind === 'rare' ? ' is-rare' : kind === 'answer' ? ' is-answer' : kind === 'missing' ? ' is-missing' : '';
-      return '<li class="new-daily-statistics__guess"><span class="new-daily-statistics__finding-pill' + cls + '" title="' + esc(label) + '">' + esc(item.word) + '</span></li>';
+      return '<li class="new-daily-statistics__guess"><span class="new-daily-statistics__finding-pill' + cls + '" data-tooltip="' + esc(label) + '">' + esc(item.word) + '</span></li>';
     }).join('');
   }
   function ladderWords(items) {

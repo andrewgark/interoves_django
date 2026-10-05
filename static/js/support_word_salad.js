@@ -247,7 +247,7 @@
     var insert = document.createElement('div');
     insert.className = 'support-ladder-insert';
     insert.innerHTML = '<button type="button" class="support-ladder-insert__btn" data-insert-at="' +
-      number + '" title="Вставить перед №' + number + '" aria-label="Вставить перед выпуском №' + number + '">+</button>';
+      number + '" data-tooltip="Вставить перед №' + number + '" aria-label="Вставить перед выпуском №' + number + '">+</button>';
     return insert;
   }
 
@@ -324,7 +324,7 @@
       item.innerHTML =
         '<button type="button" class="support-ladder-item__handle support-schedule-handle" ' +
           (row.is_published || !canReorder() ? 'disabled ' : '') +
-          'aria-label="Перетащить выпуск №' + row.number + '" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
+          'aria-label="Перетащить выпуск №' + row.number + '" data-tooltip="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body">' +
           '<div class="support-ladder-item__title">' + support.escapeHtml(row.theme || row.name || ('Салатик #' + row.number)) +
@@ -343,9 +343,9 @@
           '<a class="new-btn new-btn--mini new-btn--ghost" href="' + support.escapeHtml(row.site_url || row.play_url) + '" target="_blank" rel="noopener">сайт</a>' +
           revisionBtn +
           (!row.is_published ?
-            '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="top" title="Поставить на завтра" aria-label="Поставить на завтра">↑</button>' +
-            '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="bottom" title="Поставить в конец расписания" aria-label="Поставить в конец расписания">↓</button>' +
-            '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-defer-action="' + (row.is_deferred ? 'restore' : 'defer') + '" data-link-id="' + row.link_id + '" title="' + (row.is_deferred ? 'Вернуть в расписание' : 'Отложить') + '">' + (row.is_deferred ? '←' : '→') + '</button>' +
+            '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="top" data-tooltip="Поставить на завтра" aria-label="Поставить на завтра">↑</button>' +
+            '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="bottom" data-tooltip="Поставить в конец расписания" aria-label="Поставить в конец расписания">↓</button>' +
+            '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-defer-action="' + (row.is_deferred ? 'restore' : 'defer') + '" data-link-id="' + row.link_id + '" data-tooltip="' + (row.is_deferred ? 'Вернуть в расписание' : 'Отложить') + '">' + (row.is_deferred ? '←' : '→') + '</button>' +
             '<button type="button" class="new-btn new-btn--mini new-btn--ghost support-item-delete" data-delete="' + row.link_id + '">удалить</button>' : '') +
         '</div>';
       list.appendChild(item);
