@@ -3476,7 +3476,8 @@ html.new-ui-dark .new-team-switcher-active-box {
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.12);
-  max-width: min(18rem, calc(100vw - 1rem));
+  width: max-content;
+  max-width: min(26rem, calc(100vw - 1rem));
   font-size: 0.8rem;
   line-height: 1.2;
   text-align: left;
