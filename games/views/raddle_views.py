@@ -424,6 +424,9 @@ def process_send_raddle_ui(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}
+    unpublished = unpublished_scheduled_task_response(request, game, task)
+    if unpublished is not None:
+        return unpublished
     from games.club_access import user_can_access_task_archive
     if not user_can_access_task_archive(request.user, game, task):
         raise NoGameAccessException('Club subscription required for archived game')

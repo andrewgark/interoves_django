@@ -1710,6 +1710,9 @@
     raddleUiRevisions[taskId] = nextRevision;
     params.set('ui_revision', String(nextRevision));
     if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampParams(params);
+    if (window.WordSaladPath && typeof window.WordSaladPath.stampOfferShare === 'function') {
+      window.WordSaladPath.stampOfferShare(params);
+    }
     var headers = anonFetchHeaders({
       'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
     });
