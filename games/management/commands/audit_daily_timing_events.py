@@ -89,18 +89,16 @@ class Command(BaseCommand):
         )
         keys = sorted(set(grouped) | set(timing_counts))
         game_names = dict(Game.objects.filter(pk__in={key[0] for key in keys}).values_list('pk', 'name'))
-        timing_rows = list(DailySolveTiming.objects.filter(**row_filter).values(
+        timing_rows = DailySolveTiming.objects.filter(**row_filter).values(
             'game_id', 'task_group_id', 'team_id', 'user_id', 'anon_key', 'replay_slot_id',
             'status', 'frozen_ms',
-        ).iterator(chunk_size=1000))
-        row_actor_keys = {
-            (row['game_id'], row['task_group_id'], row_actor_key(row))
-            for row in timing_rows
-        }
+        ).iterator(chunk_size=1000)
+        row_actor_keys = set()
         zero_with_events = 0
         completed_without_complete_event = 0
         for row in timing_rows:
             actor_key = row_actor_key(row)
+            row_actor_keys.add((row['game_id'], row['task_group_id'], actor_key))
             actions = actor_actions.get((row['game_id'], row['task_group_id'], actor_key), set())
             if row['status'] == DailySolveTiming.STATUS_COMPLETED:
                 if row['frozen_ms'] is None:
