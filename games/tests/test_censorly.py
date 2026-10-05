@@ -99,7 +99,12 @@ class CensorlyEngineTests(TestCase):
     def test_stopwords_and_tokenize(self):
         self.assertTrue(is_stop_word('в'))
         self.assertTrue(is_stop_word('И'))
+        self.assertTrue(is_stop_word('что'))
+        self.assertTrue(is_stop_word('чтобы'))
+        self.assertTrue(is_stop_word('то'))
         self.assertFalse(is_stop_word('Москва'))
+        for pronoun in ('нем', 'нём', 'он', 'него', 'себя', 'этот', 'кто', 'чьё', 'все', 'это'):
+            self.assertFalse(is_stop_word(pronoun), pronoun)
         payload = build_puzzle_payload(
             wiki_title='Москва',
             body_text='В городе Москва живут кошки.',
