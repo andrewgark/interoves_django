@@ -24,8 +24,12 @@ class LadderTutorialTests(TestCase):
         self.assertContains(response, 'ГРЯЗЬ')
         self.assertContains(response, 'КНЯЗЬ')
         self.assertContains(response, 'ВВЕРХ')
+        self.assertContains(response, 'new-taskcard__meta-bar new-proportions-compact-bar')
+        self.assertContains(response, 'new-raddle-task__intro')
+        self.assertContains(response, 'new-rules-modal tutorial-shell')
         self.assertContains(response, 'data-disable-track="1"')
         self.assertNotContains(response, '/send_attempt/')
+        self.assertNotContains(response, '/send_raddle_assist/')
         self.assertNotContains(response, 'gameplay_context')
 
     def test_adapter_is_code_first_and_matches_ladder_seven_answers(self):
