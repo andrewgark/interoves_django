@@ -226,13 +226,13 @@
         {% if user.is_authenticated %}
           <a class="new-nav__quick new-nav__quick--profile"
              href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}"
-             title="Профиль" aria-label="Профиль"
+             data-tooltip="Профиль" aria-label="Профиль"
              {% if un == 'project_profile' or un == 'new_profile' or un == 'project_profile_reports' or un == 'new_profile_reports' or un == 'project_profile_report_detail' or un == 'new_profile_report_detail' %}aria-current="page"{% endif %}>
             <i class="ph ph-user" aria-hidden="true"></i>
             {% if has_unread_feedback %}<span class="new-nav__badge" aria-hidden="true"></span>{% endif %}
           </a>
         {% else %}
-          <button type="button" class="new-nav__quick new-nav__quick--profile" title="Войти" aria-label="Войти" data-login-open>
+          <button type="button" class="new-nav__quick new-nav__quick--profile" data-tooltip="Войти" aria-label="Войти" data-login-open>
             <i class="ph ph-user" aria-hidden="true"></i>
           </button>
         {% endif %}
@@ -251,13 +251,13 @@
             <span data-clock-text>--:--</span>
           </span>
           <div class="new-theme-switch" role="group" aria-label="Тема оформления">
-            <button type="button" class="new-theme-switch__btn" data-theme-choice="light" title="Светлая тема" aria-label="Светлая тема" aria-pressed="false">
+            <button type="button" class="new-theme-switch__btn" data-theme-choice="light" data-tooltip="Светлая тема" aria-label="Светлая тема" aria-pressed="false">
               <i class="ph ph-sun" aria-hidden="true"></i>
             </button>
-            <button type="button" class="new-theme-switch__btn" data-theme-choice="dark" title="Тёмная тема" aria-label="Тёмная тема" aria-pressed="false">
+            <button type="button" class="new-theme-switch__btn" data-theme-choice="dark" data-tooltip="Тёмная тема" aria-label="Тёмная тема" aria-pressed="false">
               <i class="ph ph-moon" aria-hidden="true"></i>
             </button>
-            <button type="button" class="new-theme-switch__btn" data-theme-choice="auto" title="Как в системе" aria-label="Как в системе" aria-pressed="false">
+            <button type="button" class="new-theme-switch__btn" data-theme-choice="auto" data-tooltip="Как в системе" aria-label="Как в системе" aria-pressed="false">
               <i class="ph ph-monitor" aria-hidden="true"></i>
             </button>
           </div>
@@ -297,13 +297,13 @@
           <span data-clock-text>--:--</span>
         </span>
         <div class="new-theme-switch new-theme-switch--drawer" role="group" aria-label="Тема оформления">
-          <button type="button" class="new-theme-switch__btn" data-theme-choice="light" title="Светлая тема" aria-label="Светлая тема" aria-pressed="false">
+        <button type="button" class="new-theme-switch__btn" data-theme-choice="light" data-tooltip="Светлая тема" aria-label="Светлая тема" aria-pressed="false">
             <i class="ph ph-sun" aria-hidden="true"></i>
           </button>
-          <button type="button" class="new-theme-switch__btn" data-theme-choice="dark" title="Тёмная тема" aria-label="Тёмная тема" aria-pressed="false">
+        <button type="button" class="new-theme-switch__btn" data-theme-choice="dark" data-tooltip="Тёмная тема" aria-label="Тёмная тема" aria-pressed="false">
             <i class="ph ph-moon" aria-hidden="true"></i>
           </button>
-          <button type="button" class="new-theme-switch__btn" data-theme-choice="auto" title="Как в системе" aria-label="Как в системе" aria-pressed="false">
+        <button type="button" class="new-theme-switch__btn" data-theme-choice="auto" data-tooltip="Как в системе" aria-label="Как в системе" aria-pressed="false">
             <i class="ph ph-monitor" aria-hidden="true"></i>
           </button>
         </div>
@@ -775,7 +775,7 @@
       <div class="new-login-hint new-audio-modal__title" data-audio-track-title>—</div>
       <audio id="new-audio-el" preload="metadata"></audio>
       <div class="new-audio-controls">
-        <button type="button" class="new-btn new-btn--icon" data-audio-toggle aria-label="Воспроизвести или пауза" title="Воспроизвести / пауза"><i class="ph ph-play" data-audio-toggle-icon aria-hidden="true"></i></button>
+        <button type="button" class="new-btn new-btn--icon" data-audio-toggle data-tooltip="Воспроизвести / пауза" aria-label="Воспроизвести или пауза"><i class="ph ph-play" data-audio-toggle-icon aria-hidden="true"></i></button>
         <div class="new-login-hint new-audio-controls__time">
           <span data-audio-now>0:00</span>
           <span class="new-audio-controls__sep">/</span>
