@@ -3297,25 +3297,37 @@ html.new-ui-dark .new-team-switcher-active-box {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 
-.new-daily-timer__tooltip {
+.new-tooltip {
   position: absolute;
   z-index: 6;
-  top: calc(100% + 0.45rem);
-  right: 0;
+  box-sizing: border-box;
   padding: 0.45rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: var(--control-radius);
   background: var(--surface);
   color: var(--text);
   box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.12);
+  width: max-content;
+  max-width: min(26rem, calc(100vw - 1rem));
   font-size: 0.8rem;
   line-height: 1.2;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  text-align: left;
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
   transform: translateY(-0.15rem);
   transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
+}
+
+.new-tooltip--below {
+  top: calc(100% + 0.45rem);
+  right: 0;
+  transform: translateY(-0.15rem);
+}
+
+.new-daily-timer__tooltip {
+  white-space: nowrap;
 }
 
 .new-daily-timer__toggle:hover + .new-daily-timer__tooltip,
@@ -3465,29 +3477,6 @@ html.new-ui-dark .new-team-switcher-active-box {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.new-replay-control__tooltip {
-  position: absolute;
-  z-index: 6;
-  top: calc(100% + 0.45rem);
-  right: 0;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: var(--control-radius);
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 0.35rem 1rem rgba(0, 0, 0, 0.12);
-  width: max-content;
-  max-width: min(26rem, calc(100vw - 1rem));
-  font-size: 0.8rem;
-  line-height: 1.2;
-  text-align: left;
-  pointer-events: none;
-  opacity: 0;
-  visibility: hidden;
-  transform: translateY(-0.15rem);
-  transition: opacity 120ms ease, transform 120ms ease, visibility 120ms ease;
-}
-
 .new-replay-control__tooltip > span {
   color: var(--muted);
   font-size: 0.75rem;
@@ -3498,6 +3487,12 @@ html.new-ui-dark .new-team-switcher-active-box {
   opacity: 1;
   visibility: visible;
   transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-tooltip {
+    transition: none;
+  }
 }
 
 .new-daily-game-header__nav {
