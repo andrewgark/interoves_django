@@ -2792,7 +2792,7 @@
     var scope = root || document;
     var STORAGE_PREFIX = 'replacements_lines_';
     function key(taskId, lineIndex) {
-      return STORAGE_PREFIX + taskId + '_' + lineIndex;
+      return STORAGE_PREFIX + 'v2_' + taskId + '_' + (replStorageRevision(taskId) || 'legacy') + '_' + lineIndex;
     }
     scope.querySelectorAll('form.new-replacements-line-form').forEach(function (form) {
       if (form.getAttribute('data-repl-lines-storage-bound') === '1') return;

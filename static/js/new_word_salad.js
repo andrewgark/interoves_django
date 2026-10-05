@@ -461,7 +461,8 @@
         return name + '=' + (url.searchParams.get(name) || '');
       }).join('&');
       return 'interoves_word_salad_preview_v2:' + url.pathname + ':' + actor + ':' +
-        (root.getAttribute('data-task-id') || '');
+        (root.getAttribute('data-task-id') || '') + ':' +
+        (root.getAttribute('data-task-revision') || '');
     } catch (error) {
       return '';
     }
