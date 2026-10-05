@@ -1,5 +1,7 @@
 """Repair zero per-answer active times from the timing event ledger."""
 
+from datetime import timedelta
+
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
@@ -32,11 +34,16 @@ class Command(BaseCommand):
             )
             if not any(value is not None and value != '' for value in actor_filter.values()):
                 continue
+            # The attempt is saved before completion_coordinator records the
+            # final timing event in the same request. Include only a narrow
+            # post-attempt window so that event is recoverable without
+            # accidentally consuming a later solve from the same actor.
+            event_end = attempt.time + timedelta(seconds=30)
             events = DailyTimingEvent.objects.filter(
                 game_id=attempt.game_id,
                 task_group_id=attempt.task.task_group_id,
                 replay_slot__isnull=True,
-                occurred_at__lte=attempt.time,
+                occurred_at__lte=event_end,
                 **actor_filter,
             ).order_by('occurred_at', 'pk')
             recovered_ms = recovered_timing_ms_from_events(

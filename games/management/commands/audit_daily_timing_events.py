@@ -109,10 +109,6 @@ class Command(BaseCommand):
                     zero_with_events += 1
                 if row['frozen_ms'] is not None and actions and 'complete' not in actions:
                     completed_without_complete_event += 1
-        row_actor_keys = {
-            (row['game_id'], row['task_group_id'], row_actor_key(row))
-            for row in timing_rows
-        }
         event_actor_keys = set(
             DailyTimingEvent.objects.filter(**event_filter).values_list(
                 'game_id', 'task_group_id', 'actor_key',
