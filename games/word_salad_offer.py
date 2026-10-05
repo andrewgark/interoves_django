@@ -655,6 +655,13 @@ def reset_all_salad_progress(
                 'team_id', 'user_id', 'anon_key',
             )
         )
+    from games.models import PlayerCompletedGame
+    actor_keys.update(
+        (team_id, user_id, anon_key)
+        for team_id, user_id, anon_key in PlayerCompletedGame.objects.filter(
+            game=game, task_group=task.task_group,
+        ).values_list('team_id', 'user_id', 'anon_key')
+    )
     n_attempts = attempt_qs.count()
     n_chains = chain_qs.count()
     from games.daily_result_projection import mark_projection_dirty

@@ -173,3 +173,12 @@ class TargetedCompletionReconciliationTests(TestCase):
 
         self.assertFalse(PlayerCompletedGame.objects.filter(user=self.user).exists())
         self.assertFalse(PlayerAnalyticsState.objects.filter(user=self.user).exists())
+
+    def test_salad_bulk_reset_finds_completion_without_gameplay_rows(self):
+        group, task = self._fixture()
+        ChainTaskState.objects.filter(task=task, user=self.user).delete()
+        self._pcg(group)
+
+        reset_all_salad_progress(task=task, game_id=self.game.pk)
+
+        self.assertFalse(PlayerCompletedGame.objects.filter(user=self.user).exists())
