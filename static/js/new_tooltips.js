@@ -44,6 +44,13 @@
     var text = (element.getAttribute('data-tooltip') || '').trim();
     if (!text) return;
     clearTimeout(hideTimer);
+    if (
+      activeElement && activeElement !== element && addedDescription &&
+      activeElement.getAttribute('aria-describedby') === 'new-floating-tooltip'
+    ) {
+      activeElement.removeAttribute('aria-describedby');
+      addedDescription = false;
+    }
     activeElement = element;
     var tip = ensureTooltip();
     tip.textContent = text;
