@@ -29,6 +29,12 @@ class ReplayUrlTests(SimpleTestCase):
                     'task_group_number': '73',
                 })
 
+    def test_censorly_replay_url_resolves_to_post_view(self):
+        self.assert_replay_view('/censorly/4/replay/', {
+            'game_id': 'censorly',
+            'task_group_number': '4',
+        })
+
     def test_project_replay_url_resolves_to_post_view(self):
         self.assert_replay_view('/glowbyte/games/quiz/73/replay/', {
             'project_id': 'glowbyte',
@@ -40,11 +46,16 @@ class ReplayUrlTests(SimpleTestCase):
         for path in (
             '/games/alphabetty/49/replay/exit/',
             '/alphabetty/49/replay/exit/',
+            '/censorly/49/replay/exit/',
             '/glowbyte/games/quiz/49/replay/exit/',
         ):
             with self.subTest(path=path):
                 expected = {
-                    'game_id': 'quiz' if path.startswith('/glowbyte/') else 'alphabetty',
+                    'game_id': (
+                        'quiz' if path.startswith('/glowbyte/')
+                        else 'censorly' if path.startswith('/censorly/')
+                        else 'alphabetty'
+                    ),
                     'task_group_number': '49',
                 }
                 if path.startswith('/glowbyte/'):
