@@ -46,7 +46,7 @@
     <div class="results-filter-group">
       <span class="results-filter-label">Показывать</span>
       <span class="results-filter-options">
-        {% for item in aggregate_actor_filter_urls %}<a class="results-filter-chip{% if item.active %} is-active{% endif %}" href="{{ item.url }}" aria-pressed="{% if item.active %}true{% else %}false{% endif %}" title="{{ item.title }}"><i class="ph {{ item.icon }}" aria-hidden="true"></i><span>{{ item.label }}</span></a>{% endfor %}
+        {% for item in aggregate_actor_filter_urls %}<a class="results-filter-chip{% if item.active %} is-active{% endif %}" href="{{ item.url }}" aria-pressed="{% if item.active %}true{% else %}false{% endif %}" data-tooltip="{{ item.title }}"><i class="ph {{ item.icon }}" aria-hidden="true"></i><span>{{ item.label }}</span></a>{% endfor %}
       </span>
     </div>
     {% if aggregate_show_attempts %}

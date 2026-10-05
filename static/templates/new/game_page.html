@@ -397,7 +397,7 @@
             var action = el.querySelector('[data-task-action]');
             if (action) {
               if (row.is_fully_solved) {
-                action.innerHTML = '<span class="new-pill new-pill--ok" title="Решено">ок</span>';
+                action.innerHTML = '<span class="new-pill new-pill--ok" data-tooltip="Решено">ок</span>';
               } else {
                 action.textContent = '';
               }
