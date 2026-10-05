@@ -209,7 +209,7 @@
               ' <span class="support-flag support-flag--warn">отправлена</span></div>' +
             '<div class="support-ladder-item__meta">' +
               escapeHtml((offer.sent_at || '').slice(0, 16).replace('T', ' ')) +
-              (offer.telegram_handle ? ' · @' + escapeHtml(offer.telegram_handle) : '') +
+              (offer.telegram_handle ? ' · Telegram: @' + escapeHtml(offer.telegram_handle) : '') +
               ' · ' + offer.word_count + ' сл.' +
             '</div>' +
             '<div class="support-ladder-item__preview">' + escapeHtml(offer.words_preview || '') + '</div>' +
@@ -259,7 +259,7 @@
             '<span class="support-cell-mono">' + (row.publish_date || '—') + '</span>' +
             ' · id ' + row.link_id +
             (row.author ? ' · ' + escapeHtml(row.author) : '') +
-            (linkedOffer && linkedOffer.telegram_handle ? ' · @' + escapeHtml(linkedOffer.telegram_handle) : '') +
+            (linkedOffer && linkedOffer.telegram_handle ? ' · Telegram: @' + escapeHtml(linkedOffer.telegram_handle) : '') +
             ' · ' + row.word_count + ' сл.' +
             (row.mixed_script
               ? ' · <span class="support-ladder-item__mixed" title="И кириллица, и латиница разрешена">кир+лат</span>'
@@ -535,7 +535,7 @@
       document.getElementById('ladder-edit-sub').textContent =
         'id ' + ladder.link_id +
         (ladder.publish_date ? ' · выход ' + ladder.publish_date : '') +
-        (linked && linked.telegram_handle ? ' · @' + linked.telegram_handle : '');
+        (linked && linked.telegram_handle ? ' · Telegram: @' + linked.telegram_handle : '');
       document.getElementById('ladder-edit-intro').value = ladder.intro || '';
       document.getElementById('ladder-edit-author').value = ladder.author || '';
       document.getElementById('ladder-edit-mixed-script').checked = !!ladder.mixed_script;
@@ -707,7 +707,7 @@
     function fill(offer) {
       document.getElementById('offer-edit-title').textContent = 'Оффер #' + offer.id;
       document.getElementById('offer-edit-sub').textContent =
-        (offer.user_name || '') + (offer.telegram_handle ? ' · @' + offer.telegram_handle : '');
+        (offer.user_name || '') + (offer.telegram_handle ? ' · Telegram: @' + offer.telegram_handle : '');
       document.getElementById('offer-edit-intro').value = offer.intro || '';
       document.getElementById('offer-edit-author').value = offer.author || '';
       document.getElementById('offer-edit-comment').value = offer.comment || '';
