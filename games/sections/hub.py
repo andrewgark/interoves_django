@@ -36,7 +36,12 @@ SECTION_HUB_ORDER = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder', 'week_task', 'r
 
 # Группы карточек на главной (порядок внутри группы).
 HUB_DAILY_SECTION_IDS = SECTION_HUB_ORDER[:3]
-HUB_FROM_DESYATOCHKI_SECTION_IDS = SECTION_HUB_ORDER[3:]
+# «Задание недели» пока оставляем в полном каталоге и support-консоли, но
+# скрываем из публичного хаба и верхней навигации. Это позволяет вернуть блок
+# без миграций и не затрагивает уже опубликованные задания.
+HUB_FROM_DESYATOCHKI_SECTION_IDS = tuple(
+    game_id for game_id in SECTION_HUB_ORDER[3:] if game_id != WEEK_TASK_GAME_ID
+)
 WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
 # На главной Лесенка — выделенная первая карточка, затем идут Салатик и

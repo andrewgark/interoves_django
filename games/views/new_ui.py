@@ -100,13 +100,10 @@ from games.section_hub import (
     ONBOARDING_GAME_IDS,
     ONBOARDING_GAME_META,
     SECTION_HUB_META,
-    SECTION_HUB_ORDER,
-    WEEK_TASK_HUB_ID,
     get_desyatochki_hub_context,
     get_scheduled_section_hub_card,
     get_source_desyatka_context,
     get_training_section_hub_context,
-    get_week_task_hub_card,
     onboarding_followup_context,
     section_format_credit_context,
     section_nav_title,
@@ -875,9 +872,7 @@ def _build_hub_section_cards(request, *, team):
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     by_id = {}
     if project:
-        for game_id in SECTION_HUB_ORDER:
-            if game_id == WEEK_TASK_HUB_ID:
-                continue
+        for game_id in (*HUB_DAILY_SECTION_IDS, *HUB_FROM_DESYATOCHKI_SECTION_IDS):
             game = Game.objects.filter(id=game_id, project=project).first()
             if not game or not game.has_access('see_game_preview', team=team):
                 continue
@@ -892,24 +887,6 @@ def _build_hub_section_cards(request, *, team):
             play_mode = effective_play_mode(play_mode, game, user=request.user)
             card.update(_game_page_progress_context(request, game, play_mode))
             by_id[game_id] = card
-
-    week_game = (
-        Game.objects.filter(id=WEEK_TASK_GAME_ID, project_id=NEW_UI_SECTIONS_PROJECT)
-        .first()
-        if project
-        else None
-    )
-    if week_game and week_game.has_access('see_game_preview', team=team):
-        card = get_scheduled_section_hub_card(
-            week_game,
-            published_numbers=_published_numbers(week_game),
-        )
-        play_mode, _ = _get_play_mode(request, week_game.project_id)
-        play_mode = effective_play_mode(play_mode, week_game, user=request.user)
-        card.update(_game_page_progress_context(request, week_game, play_mode))
-        by_id[WEEK_TASK_HUB_ID] = card
-    else:
-        by_id[WEEK_TASK_HUB_ID] = get_week_task_hub_card()
 
     from games.daily_streak import daily_streaks_for_actor
     streak_kwargs = {'games': [card['game'] for card in by_id.values() if card.get('game')]}

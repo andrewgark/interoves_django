@@ -7,6 +7,7 @@ from django.utils import timezone
 
 from games.ladder_daily import LADDER_PUBLISH_START_TAG
 from games.section_hub import (
+    HUB_FROM_DESYATOCHKI_SECTION_IDS,
     daily_nav_items,
     get_desyatochki_hub_context,
     get_ladder_section_hub_card,
@@ -20,6 +21,11 @@ class DailyNavigationOrderTests(SimpleTestCase):
             [item['id'] for item in daily_nav_items()],
             ['ladder', 'salad', 'alphabetty'],
         )
+
+
+class PublicDesyatochkiSectionTests(SimpleTestCase):
+    def test_week_task_is_hidden_from_public_hub_and_navigation(self):
+        self.assertNotIn('week_task', HUB_FROM_DESYATOCHKI_SECTION_IDS)
 
 
 class _FakeGame:
