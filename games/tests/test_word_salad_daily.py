@@ -175,6 +175,7 @@ class WordSaladSectionTests(TestCase):
         self.assertEqual(meta['format_credit_name'], 'wordsalad.online')
         self.assertEqual(meta['format_credit_text'], 'салатиков')
         self.assertTrue(SECTION_HUB_META['ladder'].get('wide'))
+        self.assertTrue(SECTION_HUB_META['replacements'].get('wide'))
         self.assertFalse(bool(meta.get('wide')))
         self.assertEqual(section_hub_path(WORD_SALAD_GAME_ID), '/salad/')
         self.assertEqual(section_last_path(WORD_SALAD_GAME_ID), '/salad/last/')

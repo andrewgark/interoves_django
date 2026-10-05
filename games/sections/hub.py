@@ -147,6 +147,7 @@ SECTION_HUB_META = {
         'description': 'Восстановите заменённые слова в тексте',
         'cta_latest': 'Последние замены',
         'all_link_label': 'Все замены →',
+        'wide': True,
     },
     'walls': {
         'icon': '🧱',
