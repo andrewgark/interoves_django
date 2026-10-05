@@ -1,5 +1,5 @@
 {% load filters static %}
-<div class="new-raddle-task" data-task-id="{{ task.id }}" data-raddle-storage-revision="{{ task.attempt_revision }}" data-raddle-n-words="{{ rd.ui.n_words }}" data-default-focus="{{ rd.ui.default_focus_index|default_if_none:'' }}" data-default-ref-word="{{ rd.ui.default_ref_word|default:'' }}">
+<div class="new-raddle-task" data-task-id="{{ task.id }}" data-raddle-storage-revision="{{ task.attempt_revision }}" data-raddle-n-words="{{ rd.ui.n_words }}" data-default-focus="{{ rd.ui.default_focus_index|default_if_none:'' }}" data-default-ref-word="{{ rd.ui.default_ref_word|default:'' }}"{% if tutorial_mode %} data-tutorial-target="ladder-board"{% endif %}>
   {% if task.tags.author %}
   <p class="new-raddle-task__author">Автор лесенки: {{ task.tags.author|public_author }}</p>
   {% endif %}
@@ -10,7 +10,7 @@
   <div class="new-raddle-task__intro">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
   {% endif %}
   <div class="new-raddle-layout">
-    <div class="new-raddle-ladder">
+    <div class="new-raddle-ladder"{% if tutorial_mode %} data-tutorial-target="lower-chain"{% endif %}>
       <p class="new-raddle-ladder__title">
         От <strong>{{ rd.ui.title_from }}</strong> до <strong>{{ rd.ui.title_to }}</strong>
       </p>
@@ -21,7 +21,7 @@
         </colgroup>
         <tbody>
         {% for row in rd.ui.rows %}
-          <tr class="new-raddle-row {% if row.is_given %}new-raddle-row--given {% endif %}{% if row.is_solved %}new-raddle-row--solved{% elif row.attempts_exhausted %}new-raddle-row--exhausted{% elif row.is_playable %}new-raddle-row--playable{% elif row.is_draftable %}new-raddle-row--draft{% else %}new-raddle-row--locked{% endif %}{% if row.is_default_focus %} new-raddle-row--focus{% endif %}{% if row.last_word_role %} new-raddle-row--as-{{ row.last_word_role }}{% elif row.is_default_focus and row.focus_pair_role %} new-raddle-row--as-{{ row.focus_pair_role }}{% endif %}{% if row.is_default_ref and row.ref_pair_role and not row.last_word_role %} new-raddle-row--as-{{ row.ref_pair_role }}{% endif %}" data-word-index="{{ row.index }}" data-task-id="{{ task.id }}"{% if row.is_playable %} data-ref-word="{{ row.ref_word }}" data-ref-word-index="{{ row.ref_word_index|default_if_none:'' }}" data-ref-role="{{ row.ref_role|default:'' }}" data-focus-pair-role="{{ row.focus_pair_role|default:'' }}" data-ref-pair-role="{{ row.ref_pair_role|default:'' }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}"{% if row.dual_neighbors %} data-dual-neighbors="1" data-prev-neighbor="{{ row.prev_neighbor_word|escape }}" data-next-neighbor="{{ row.next_neighbor_word|escape }}"{% endif %}{% endif %}{% if row.last_word_role %} data-last-word-role="{{ row.last_word_role }}"{% endif %}>
+          <tr class="new-raddle-row {% if row.is_given %}new-raddle-row--given {% endif %}{% if row.is_solved %}new-raddle-row--solved{% elif row.attempts_exhausted %}new-raddle-row--exhausted{% elif row.is_playable %}new-raddle-row--playable{% elif row.is_draftable %}new-raddle-row--draft{% else %}new-raddle-row--locked{% endif %}{% if row.is_default_focus %} new-raddle-row--focus{% endif %}{% if row.last_word_role %} new-raddle-row--as-{{ row.last_word_role }}{% elif row.is_default_focus and row.focus_pair_role %} new-raddle-row--as-{{ row.focus_pair_role }}{% endif %}{% if row.is_default_ref and row.ref_pair_role and not row.last_word_role %} new-raddle-row--as-{{ row.ref_pair_role }}{% endif %}" data-word-index="{{ row.index }}" data-task-id="{{ task.id }}"{% if tutorial_mode %} data-tutorial-slot="{{ row.index }}" data-tutorial-target="ladder-slot-{{ row.index }}"{% endif %}{% if row.is_playable %} data-ref-word="{{ row.ref_word }}" data-ref-word-index="{{ row.ref_word_index|default_if_none:'' }}" data-ref-role="{{ row.ref_role|default:'' }}" data-focus-pair-role="{{ row.focus_pair_role|default:'' }}" data-ref-pair-role="{{ row.ref_pair_role|default:'' }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}"{% if row.dual_neighbors %} data-dual-neighbors="1" data-prev-neighbor="{{ row.prev_neighbor_word|escape }}" data-next-neighbor="{{ row.next_neighbor_word|escape }}"{% endif %}{% endif %}{% if row.last_word_role %} data-last-word-role="{{ row.last_word_role }}"{% endif %}>
             <td class="new-raddle-block__word {% if row.is_solved %}new-raddle-block__word--solved{% endif %}">
               <div class="new-raddle-word-cell" style="--raddle-len: {{ row.input_format_len }}">
                 {% if row.is_solved %}
@@ -57,7 +57,8 @@
               </div>
               {% elif row.is_playable %}
               <div class="new-raddle-actions">
-                <form class="new-raddle-line-form new-attempt-form{% if not rd.ui.is_tournament %} new-raddle-auto-form{% endif %}" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" id="raddle-form-{{ task.id }}-{{ row.index }}">
+                <form class="new-raddle-line-form{% if not tutorial_mode %} new-attempt-form{% endif %}{% if not rd.ui.is_tournament and not tutorial_mode %} new-raddle-auto-form{% endif %}"{% if tutorial_mode %} action="#" data-tutorial-form="{{ row.index }}"{% else %} action="/send_attempt/{{ task.id }}/"{% endif %} method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" id="raddle-form-{{ task.id }}-{{ row.index }}">
+                  {% if not tutorial_mode %}
                   {% csrf_token %}
                   <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
                   <input type="hidden" name="game_id" value="{{ game.id }}">
@@ -65,6 +66,7 @@
                   <input type="hidden" name="word_index" value="{{ row.index }}">
                   {% if rd.ui.is_tournament %}
                   <button type="submit" class="new-replacements-check-btn" data-tooltip="Проверить" aria-label="Проверить слово {{ row.index|add:1 }}" tabindex="-1"><i class="ph ph-check" aria-hidden="true"></i></button>
+                  {% endif %}
                   {% endif %}
                 </form>
                 {% if not rd.ui.is_tournament %}
@@ -129,12 +131,13 @@
       {% endfor %}
       </section>
       {% elif rd.ui.unused_hints %}
-      <section class="new-raddle-clues__section new-raddle-clues__section--unused">
+      <section class="new-raddle-clues__section new-raddle-clues__section--unused"{% if tutorial_mode %} data-tutorial-target="clues-unused"{% endif %}>
       <h4 class="new-raddle-clues__subtitle">Подсказки, не по порядку</h4>
       <ul class="new-raddle-clues__list new-raddle-clues__list--unused" data-raddle-unused-clues>
         {% for hint in rd.ui.unused_hints %}
         <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}{% if hint.is_struck %} new-raddle-clue--struck{% endif %}"
             data-hint-index="{{ hint.index }}"
+            {% if tutorial_mode %}data-tutorial-clue="{{ hint.index }}" data-tutorial-answer="{{ hint.tutorial_answer|escape }}"{% endif %}
             data-blank-template="{{ hint.blank_template|escape }}"
             data-prev-word="{{ hint.prev_word|escape }}"
             data-next-word="{{ hint.next_word|escape }}"
@@ -150,11 +153,11 @@
       </section>
       {% endif %}
       {% if rd.ui.used_hints %}
-      <section class="new-raddle-clues__section new-raddle-clues__section--used">
+      <section class="new-raddle-clues__section new-raddle-clues__section--used"{% if tutorial_mode %} data-tutorial-target="clues-used"{% endif %}>
       <h4 class="new-raddle-clues__subtitle">Использованные</h4>
       <ul class="new-raddle-clues__list new-raddle-clues__list--used">
         {% for hint in rd.ui.used_hints %}
-        <li class="new-raddle-clue new-raddle-clue--used" data-hint-index="{{ hint.index }}">
+        <li class="new-raddle-clue new-raddle-clue--used" data-hint-index="{{ hint.index }}"{% if tutorial_mode %} data-tutorial-clue="{{ hint.index }}"{% endif %}>
           <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
         </li>
         {% endfor %}

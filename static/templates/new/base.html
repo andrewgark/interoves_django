@@ -1004,7 +1004,7 @@
   <script src="{% static "js/track_ws.js" %}?8"></script>
   <script>
   (function () {
-    if (!window.InterovesTrack) return;
+    if (!window.InterovesTrack || document.body.getAttribute('data-disable-track') === '1') return;
     window.InterovesTrack.scheduleGamePhaseReload(document.body);
     if (document.body.getAttribute('data-authenticated') !== '1') return;
     var gid = document.body.getAttribute('data-track-game-id');

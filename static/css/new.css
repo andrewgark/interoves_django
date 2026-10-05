@@ -9014,6 +9014,28 @@ html.new-ui-dark .pal-card {
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.28);
 }
 
+/* Interactive tutorial shell.  Board visuals intentionally reuse raddle
+   classes; only the semantic tutorial layer is new. */
+.tutorial-is-open { overflow: hidden; }
+.tutorial-shell[hidden] { display: none; }
+.tutorial-shell__backdrop { position: fixed; inset: 0; z-index: 1000; background: rgb(11 15 25 / 0.62); }
+.tutorial-shell__spotlights { position: fixed; inset: 0; z-index: 1001; pointer-events: none; }
+.tutorial-shell__spotlight { position: fixed; border-radius: var(--card-radius); box-shadow: 0 0 0 9999px rgb(11 15 25 / 0.62), 0 0 0 3px var(--accent); transition: top .18s ease, left .18s ease, width .18s ease, height .18s ease; }
+.tutorial-target--active { position: relative; z-index: 1002; }
+.tutorial-shell__callout { position: fixed; z-index: 1003; left: 50%; bottom: max(1rem, env(safe-area-inset-bottom)); display: grid; gap: .8rem; box-sizing: border-box; width: min(32rem, calc(100vw - 2rem)); transform: translateX(-50%); max-height: min(24rem, calc(100vh - 2rem)); overflow: auto; padding: 2.75rem 1.25rem 1.25rem; }
+.tutorial-shell__top { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .82rem; }
+.tutorial-shell__text { max-width: 34rem; margin: 0; white-space: pre-line; line-height: 1.5; }
+.tutorial-shell__feedback { min-height: 1.3em; margin: 0; color: var(--accent); font-size: .9rem; }
+.tutorial-shell__callout .new-rules-modal__actions { margin-top: 0; gap: .75rem; }
+.tutorial-shell__finish { display: flex; gap: .5rem; flex-wrap: wrap; }
+.tutorial-slot--correct .new-raddle-block__word { background: color-mix(in srgb, var(--raddle-after) 24%, var(--surface)); }
+.tutorial-slot-status { color: var(--success, var(--accent)); font-size: 1.25rem; }
+.ladder-tutorial__start { margin-top: 1rem; }
+@media (max-width: 560px) {
+  .tutorial-shell__callout { width: calc(100vw - 1rem); bottom: max(.5rem, env(safe-area-inset-bottom)); padding-inline: 1rem; }
+  .tutorial-shell__callout .new-rules-modal__actions { flex-wrap: wrap; }
+}
+
 /* Стена: не неоновые зелёные плитки, читаемый текст */
 html.new-ui-dark .wall-tile {
   border-color: var(--border);

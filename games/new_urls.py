@@ -23,6 +23,7 @@ urlpatterns = [
     path('bug-report/<int:task_id>/', ui.bug_report, name='new_bug_report'),
     path('ladder/today/', ui.ladder_today_page, name='new_ladder_today'),
     path('ladder/last/', ui.ladder_last_page, name='new_ladder_last'),
+    path('ladder/tutorial/', ui.ladder_tutorial, name='new_ladder_tutorial'),
     path('ladder/progress/', ui.game_task_group_progress, {'game_id': 'ladder'}, name='new_ladder_progress'),
     path('ladder/live-state/', ui.task_group_live_state, {'game_id': 'ladder'}, name='new_ladder_live_state'),
     path('ladder/', ui.ladder_hub_page, name='new_ladder_hub'),

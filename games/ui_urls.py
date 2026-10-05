@@ -66,6 +66,7 @@ urlpatterns = [
     # Root-level section games: /ladder/, /alphabetty/ (short canonical URLs).
     path('ladder/today/', ui.ladder_today_page, name='ui_ladder_today'),
     path('ladder/last/', ui.ladder_last_page, name='ui_ladder_last'),
+    path('ladder/tutorial/', ui.ladder_tutorial, name='ui_ladder_tutorial'),
     path('ladder/progress/', ui.game_task_group_progress, {'game_id': 'ladder'}, name='ui_ladder_progress'),
     path('ladder/live-state/', ui.task_group_live_state, {'game_id': 'ladder'}, name='ui_ladder_live_state'),
     path('ladder/', ui.ladder_hub_page, name='ui_ladder_hub'),
