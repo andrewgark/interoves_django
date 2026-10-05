@@ -1426,7 +1426,7 @@
       attempt_limit_exceeded: 'Попытки по этому слову закончились.',
       not_all_required_hints_taken: 'Сначала возьмите требуемые подсказки.',
     };
-    return texts[status] || ('Не удалось отправить: ' + status);
+    return texts[status] || 'Не удалось отправить ответ. Обновите страницу и попробуйте ещё раз.';
   }
 
   function syncRaddleStickyPinRowState(taskRoot) {
@@ -1970,6 +1970,11 @@
     var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
     if (data && data.context_mismatch) {
       showGameplayContextMismatch(msg);
+      return;
+    }
+    if (data && data.reload_required) {
+      if (msg) msg.textContent = 'Сессия устарела. Страница будет обновлена.';
+      window.setTimeout(function () { window.location.reload(); }, 250);
       return;
     }
     var verdict = RaddleCtl.classifyAttemptResponse(data);
