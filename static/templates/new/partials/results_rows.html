@@ -2,7 +2,7 @@
 {% for t in teams_sorted %}
   <tr data-result-row class="{% if me_personal %}{% if t|same_results_actor:me_personal %}is-me{% endif %}{% elif me_anon_participant %}{% if t|same_results_actor:me_anon_participant %}is-me{% endif %}{% elif t|same_results_actor:team %}is-me{% endif %}"{% if t.anon_key %} data-actor="anon"{% endif %}>
     <th scope="row" class="is-sticky-left">{{ team_to_place|get_item:t }}</th>
-    <th scope="row" class="is-sticky-left-2 col-team" title="{{ t.visible_name|escape }}">{% if t.is_team_results_row %}<i class="ph ph-users new-results-actor" aria-hidden="true" title="Команда"></i>{% elif t.anon_key %}<i class="ph ph-detective new-results-actor" aria-hidden="true" title="Аноним"></i>{% elif team_to_club_subscriber|get_item:t %}<i class="ph ph-crown new-results-actor new-results-actor--club" aria-hidden="true" title="Резидент клуба"></i>{% else %}<i class="ph ph-user new-results-actor" aria-hidden="true" title="Игрок"></i>{% endif %} {{ t.visible_name }}</th>
+    <th scope="row" class="is-sticky-left-2 col-team" data-tooltip="{{ t.visible_name|escape }}">{% if t.is_team_results_row %}<i class="ph ph-users new-results-actor" aria-hidden="true" data-tooltip="Команда"></i>{% elif t.anon_key %}<i class="ph ph-detective new-results-actor" aria-hidden="true" data-tooltip="Аноним"></i>{% elif team_to_club_subscriber|get_item:t %}<i class="ph ph-crown new-results-actor new-results-actor--club" aria-hidden="true" data-tooltip="Резидент клуба"></i>{% else %}<i class="ph ph-user new-results-actor" aria-hidden="true" data-tooltip="Игрок"></i>{% endif %} {{ t.visible_name }}</th>
     {% if results_variant != 'alphabetty' %}<th class="is-sticky-left-3 col-score">{{ team_to_score|get_item:t|minimize_digits }}</th>{% endif %}
     {% if mode == 'tournament' %}
       <th class="is-sticky-left-4">{{ team_to_max_best_time|get_item:t|date:'H:i' }}</th>
@@ -14,7 +14,7 @@
       <td class="is-sticky-left-4">
         {% with duration=team_to_solve_duration|get_item:t %}
           {% if team_to_solve_duration_fallback|get_item:t %}
-            <span class="results-time-fallback" title="Вычислено по серверному времени, без таймера">{{ duration|default:'—' }}</span>
+            <span class="results-time-fallback" data-tooltip="Вычислено по серверному времени, без таймера">{{ duration|default:'—' }}</span>
           {% else %}
             {{ duration|default:'—' }}
           {% endif %}
@@ -22,7 +22,7 @@
       </td>
     {% endif %}
     {% for cell in team_to_cells|get_item:t %}
-      <td class="{{ cell.cls }}"{% if results_variant == 'ladder' and cell.hint_numbers %} title="Подсказки: {{ cell.hint_numbers|join:', ' }}"{% endif %}>
+      <td class="{{ cell.cls }}"{% if results_variant == 'ladder' and cell.hint_numbers %} data-tooltip="Подсказки: {{ cell.hint_numbers|join:', ' }}"{% endif %}>
         {% if results_variant == 'ladder_words' %}
           {% if cell.n_attempts|default:0 > 0 %}{{ cell.result_points|minimize_digits }}{% endif %}
         {% elif cell.n_attempts|default:0 > 0 %}

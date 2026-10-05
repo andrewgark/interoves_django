@@ -13,8 +13,8 @@
   {% endif %}
   <div class="new-grid-puzzle__toolbar" aria-label="Инструменты Grid Puzzle">
     {% if gp.can_set_walls or gp.can_set_path or gp.can_set_shading %}
-    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-undo disabled title="Отменить (Ctrl/Cmd+Z)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> Отменить</button>
-    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-redo disabled title="Повторить (Ctrl/Cmd+Shift+Z или Ctrl+Y)"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Повторить</button>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-undo disabled data-tooltip="Отменить (Ctrl/Cmd+Z)"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i> Отменить</button>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-redo disabled data-tooltip="Повторить (Ctrl/Cmd+Shift+Z или Ctrl+Y)"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Повторить</button>
     <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-pan-mode aria-label="Режим перемещения" aria-pressed="false">Перемещать</button>
     {% endif %}
     {% if gp.can_set_shading %}
@@ -36,7 +36,7 @@
     {% if gp.can_set_walls and gp.can_set_path %}
     <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-reset-all>Сбросить всё</button>
     {% endif %}
-    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-help aria-label="Горячие клавиши">?</button>
+    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-help data-tooltip="Горячие клавиши" aria-label="Горячие клавиши">?</button>
       <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-grid-fullscreen data-tooltip="На весь экран" aria-label="Открыть поле на весь экран"><i class="ph ph-arrows-out" aria-hidden="true"></i></button>
   </div>
   {% endif %}
