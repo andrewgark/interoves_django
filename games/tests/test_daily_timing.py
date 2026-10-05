@@ -76,6 +76,10 @@ class DailyTimingScopeTests(SimpleTestCase):
             events_for_attempt(events, _dt()),
             events[:2],
         )
+        self.assertEqual(
+            events_for_attempt(events, _dt(), [event.occurred_at for event in events]),
+            events[:2],
+        )
 
     def test_all_public_section_games_use_authoritative_active_timing(self):
         for game_id in ('ladder', 'salad', 'alphabetty', 'replacements', 'walls', 'palindromes', 'week_task'):

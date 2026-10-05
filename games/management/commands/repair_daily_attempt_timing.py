@@ -1,5 +1,6 @@
 """Repair zero per-answer active times from the timing event ledger."""
 
+from bisect import bisect_right
 from datetime import timedelta
 from itertools import groupby
 
@@ -12,9 +13,11 @@ from games.models import Attempt, DailyTimingEvent
 TIMING_RECOVERY_GRACE_SECONDS = 30
 
 
-def events_for_attempt(events, attempt_time):
+def events_for_attempt(events, attempt_time, event_times=None):
     cutoff = attempt_time + timedelta(seconds=TIMING_RECOVERY_GRACE_SECONDS)
-    return [event for event in events if event.occurred_at <= cutoff]
+    if event_times is None:
+        event_times = [event.occurred_at for event in events]
+    return events[:bisect_right(event_times, cutoff)]
 
 
 class Command(BaseCommand):
@@ -66,8 +69,9 @@ class Command(BaseCommand):
                 **actor_filter,
             ).order_by('occurred_at', 'pk')
             events = list(events)
+            event_times = [event.occurred_at for event in events]
             for attempt in attempts:
-                attempt_events = events_for_attempt(events, attempt.time)
+                attempt_events = events_for_attempt(events, attempt.time, event_times)
                 recovered_ms = recovered_timing_ms_from_events(
                     attempt_events,
                     completed_at=attempt.time,
