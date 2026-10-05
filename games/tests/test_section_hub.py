@@ -59,6 +59,22 @@ class TrainingSectionHubContextTests(SimpleTestCase):
         self.assertEqual(ctx['play_url'], '/walls/last/')
         self.assertFalse(ctx['is_today'])
 
+    def test_replacements_card_is_wide(self):
+        game = _FakeGame('replacements', [_FakeLink(5)])
+
+        def fake_newest(_game):
+            return game.links
+
+        import games.section_hub as sh
+        orig = sh._newest_task_group_links
+        sh._newest_task_group_links = fake_newest
+        try:
+            ctx = get_training_section_hub_context(game)
+        finally:
+            sh._newest_task_group_links = orig
+
+        self.assertTrue(ctx['wide'])
+
 
 class LadderSectionHubCardTests(SimpleTestCase):
     def _game(self, start='2026-07-08T00:00:00+03:00'):

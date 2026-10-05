@@ -321,6 +321,7 @@ def get_training_section_hub_context(game):
         'section_url': section_hub_path(game.id),
         'all_link_label': meta['all_link_label'],
         'status': 'latest' if cta_number else 'empty',
+        'wide': bool(meta.get('wide')),
         'game': game,
     }
 
