@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import Client, SimpleTestCase, TestCase
@@ -81,11 +82,19 @@ class CensorlyEngineTests(TestCase):
             game_mode='general', state='{}',
         )
 
-        deleted = reset_progress(game=game, task=task, anon_key='censorly-reset')
+        with patch(
+            'games.targeted_completion_reconciliation.reconcile_task_group_actors',
+        ) as reconcile:
+            deleted = reset_progress(game=game, task=task, anon_key='censorly-reset')
 
         self.assertEqual(deleted, 1)
         self.assertFalse(Attempt.manager.filter(task=task).exists())
         self.assertFalse(ChainTaskState.objects.filter(task=task).exists())
+        reconcile.assert_called_once_with(
+            game_id=game.pk,
+            task_group_id=task.task_group_id,
+            actor_keys={(None, None, 'censorly-reset')},
+        )
 
     def test_stopwords_and_tokenize(self):
         self.assertTrue(is_stop_word('в'))

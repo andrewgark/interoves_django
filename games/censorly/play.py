@@ -630,7 +630,17 @@ def reset_progress(*, game: Game, task: Task, user=None, anon_key=None) -> int:
         **actor,
     )
     attempt_qs = Attempt.manager.filter(task=task, game=game, **actor)
+    from games.daily_result_projection import mark_projection_dirty
+    mark_projection_dirty(game, task.task_group, full=True)
     n_attempts = attempt_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    reconcile_task_group_actors(
+        game_id=game.pk,
+        task_group_id=task.task_group_id,
+        actor_keys={(actor['team'].pk if actor['team'] else None,
+                     actor['user'].pk if actor['user'] else None,
+                     actor['anon_key'])},
+    )
     return n_attempts
