@@ -25,9 +25,9 @@
          {% if card.load_task_group_progress and card.task_group_progress_url %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}>
         {{ card.cta_label }}
       </a>
-      <span class="new-hub-section__solved" hidden data-hub-solved-mark>
+      <span class="new-hub-section__solved" hidden data-hub-solved-mark role="img" aria-label="Решено">
         <i class="ph ph-check-circle" aria-hidden="true"></i>
-        <span class="new-hub-section__solved-tip" role="tooltip">Решено</span>
+        <span class="new-tooltip new-tooltip--above new-hub-section__solved-tip" role="tooltip">Решено</span>
       </span>
       {% if card.streak %}
         <span class="new-hub-section__streak" title="{{ card.streak }} {{ card.streak|ru_day_word }} подряд" aria-label="{{ card.streak }} {{ card.streak|ru_day_word }} подряд">

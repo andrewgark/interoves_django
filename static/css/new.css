@@ -1505,23 +1505,18 @@ html.new-ui-dark body.new-ui {
   font-size: 2rem;
 }
 
-.new-hub-section__solved-tip {
-  position: absolute;
+.new-tooltip--above {
   left: 50%;
   bottom: calc(100% + 0.35rem);
   transform: translateX(-50%) translateY(0.15rem);
-  padding: 0.2rem 0.5rem;
-  border-radius: 0.35rem;
+}
+
+.new-hub-section__solved-tip {
   background: var(--text);
   color: var(--surface);
-  font-size: 0.75rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.12s ease, transform 0.12s ease;
-  z-index: 2;
 }
 
 .new-hub-section__streak {
@@ -3324,6 +3319,11 @@ html.new-ui-dark .new-team-switcher-active-box {
   top: calc(100% + 0.45rem);
   right: 0;
   transform: translateY(-0.15rem);
+}
+
+.new-hub-section__solved:hover .new-tooltip--above,
+.new-hub-section__solved:focus-visible .new-tooltip--above {
+  transform: translateX(-50%) translateY(0);
 }
 
 .new-daily-timer__tooltip {
