@@ -191,6 +191,10 @@ class CensorlyAccessTests(TestCase):
         self.assertContains(play, 'censorly-root')
         self.assertContains(play, 'https://redactle.net')
         self.assertContains(play, 'мы благодарны им за идею цензурок')
+        self.assertContains(play, 'aria-pressed="true"')
+        self.assertContains(play, 'placeholder="Найти слово в тексте"')
+        self.assertNotContains(play, 'Полная статья на Википедии')
+        self.assertNotContains(play, 'id="censorly-attempts"')
 
         guess = self.client.post(
             f'/censorly/r/{self.share_hash}/guess/',
@@ -506,6 +510,22 @@ class CensorlyRandomGameTests(TestCase):
         )
         self.assertEqual(after.get('wiki_pageid'), 12345)
         self.assertEqual(after.get('wiki_title'), 'Кот')
+
+    def test_revealed_title_lemmas_are_treated_as_won_for_legacy_state(self):
+        from games.censorly.play import public_payload
+        from games.censorly.tokenize import build_puzzle_payload
+
+        payload = build_puzzle_payload(
+            wiki_title='Кот', body_text='Кот и собака.', wiki_pageid=12345,
+        )
+        state = {
+            'revealed_lemmas': list(title_content_lemmas(payload)),
+            'guesses': [],
+            'won': False,
+        }
+        view = public_payload(state, payload)
+        self.assertTrue(view['won'])
+        self.assertEqual(view['wiki_pageid'], 12345)
 
 
 class CensorlyLatinGuessTests(TestCase):

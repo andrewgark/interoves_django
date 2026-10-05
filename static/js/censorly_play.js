@@ -19,10 +19,6 @@
     return node;
   }
 
-  function lemmaKey(tok) {
-    return (tok && tok.lemma) || '';
-  }
-
   function headingClass(tok) {
     return tok && tok.in_heading ? ' is-heading' : '';
   }
@@ -203,7 +199,6 @@
 
   function renderGuessTable(root, guesses) {
     var tbody = root.querySelector('#censorly-guess-list');
-    var wrap = root.querySelector('#censorly-history-wrap');
     if (!tbody) return;
     tbody.textContent = '';
     var items = guesses || [];
@@ -336,16 +331,17 @@
   function renderTitleDecoration(title, state) {
     if (!title || !state || !state.won) return;
     var url = wikiUrl(state);
-    if (!url) return;
-    var link = el('a', 'censorly__wiki-link');
-    link.href = url;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    link.title = 'Открыть статью на Википедии';
-    link.setAttribute('aria-label', 'Открыть статью на Википедии');
-    link.appendChild(el('i', 'ph ph-wikipedia-logo'));
-    title.appendChild(link);
-    if (state.won) title.appendChild(el('span', 'censorly__solved', '— Решено!'));
+    if (url) {
+      var link = el('a', 'censorly__wiki-link');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.title = 'Открыть статью на Википедии';
+      link.setAttribute('aria-label', 'Открыть статью на Википедии');
+      link.appendChild(el('i', 'ph ph-wikipedia-logo'));
+      title.appendChild(link);
+    }
+    title.appendChild(el('span', 'censorly__solved', '— Решено!'));
   }
 
   function applyState(root, state, opts) {

@@ -146,6 +146,13 @@ def _title_won(payload: dict[str, Any], revealed: set[str]) -> bool:
     return needed <= revealed
 
 
+def _state_won(state: dict[str, Any], payload: dict[str, Any]) -> bool:
+    """Treat legacy states with every title lemma revealed as solved."""
+    return bool(state.get('won')) or _title_won(
+        payload, set(state.get('revealed_lemmas') or [])
+    )
+
+
 def ru_attempt_word(n: int) -> str:
     n = abs(int(n))
     n10, n100 = n % 10, n % 100
@@ -282,7 +289,7 @@ def public_payload(
     task: Task | None = None,
 ) -> dict[str, Any]:
     revealed = set(state.get('revealed_lemmas') or [])
-    won = bool(state.get('won')) or _title_won(payload, revealed)
+    won = _state_won(state, payload)
     view = build_public_view(
         payload,
         revealed_lemmas=revealed,
@@ -403,7 +410,7 @@ def apply_guess(
     state = _read_actor_state(game=game, task=task, actor=actor)
     num = number if number is not None else ''
 
-    if state['won']:
+    if _state_won(state, payload):
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_won'
         return attach_solve_meta(
@@ -420,7 +427,7 @@ def apply_guess(
     matched = lemmas_matching_guess(payload, guess_lemma, normalized)
     row = _lock_state(game=game, task=task, actor=actor)
     state = load_state(row.state)
-    if state['won']:
+    if _state_won(state, payload):
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_won'
         return attach_solve_meta(
@@ -543,7 +550,7 @@ def apply_hint(
     num = number if number is not None else ''
     row = _lock_state(game=game, task=task, actor=actor)
     state = load_state(row.state)
-    if state['won']:
+    if _state_won(state, payload):
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_won'
         return attach_solve_meta(
