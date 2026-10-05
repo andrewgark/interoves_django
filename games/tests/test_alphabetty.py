@@ -40,8 +40,16 @@ from games.alphabetty.suggestions import (
     reject_suggestions,
     suggest_word,
 )
-from games.alphabetty_offer import accept_offer as accept_alphabetty_offer
-from games.models import AlphabettyDictSuggestion, AlphabettyPersonalDictWord, ChainTaskState
+from games.alphabetty_offer import (
+    accept_offer as accept_alphabetty_offer,
+    reset_all_alphabetty_progress,
+)
+from games.models import (
+    AlphabettyDictSuggestion,
+    AlphabettyPersonalDictWord,
+    Attempt,
+    ChainTaskState,
+)
 from games.alphabetty_daily import (
     ALPHABETTY_GAME_ID,
     ALPHABETTY_PUBLISH_START_TAG,
@@ -323,6 +331,47 @@ class AlphabettySupportTests(TestCase):
         self.game.tags = {}
         self.game.save(update_fields=['tags'])
         self.assertFalse(is_alphabetty_number_published(self.game, 1))
+
+    def test_reset_progress_reconciles_actors_and_removes_attempts(self):
+        from django.contrib.auth.models import User
+
+        checker = CheckerType.objects.get(id='alphabetty')
+        group = TaskGroup.objects.create(label='alphabetty:reset', checker=checker)
+        task = Task.objects.create(
+            task_group=group,
+            number='1',
+            task_type='alphabetty',
+            checker=checker,
+            checker_data='СЛОВО',
+            answer='СЛОВО',
+        )
+        GameTaskGroup.objects.create(game=self.game, task_group=group, number='1')
+        user = User.objects.create_user(username='alphabetty-reset-user')
+        Attempt.manager.create(
+            task=task, game=self.game, user=user, text='СЛОВО', status='Ok', points=1,
+        )
+        ChainTaskState.objects.create(
+            task=task,
+            game=self.game,
+            user=user,
+            game_mode='general',
+            state='{}',
+        )
+
+        with patch(
+            'games.targeted_completion_reconciliation.reconcile_task_group_actors',
+        ) as reconcile:
+            stats = reset_all_alphabetty_progress(task=task, game_id=self.game.pk)
+
+        self.assertEqual(stats['attempts'], 1)
+        self.assertEqual(stats['chains'], 1)
+        self.assertFalse(Attempt.manager.filter(task=task, game=self.game).exists())
+        self.assertFalse(ChainTaskState.objects.filter(task=task, game=self.game).exists())
+        reconcile.assert_called_once_with(
+            game_id=self.game.pk,
+            task_group_id=group.pk,
+            actor_keys={(None, user.pk, None)},
+        )
 
     def test_delete_and_forbid_future(self):
         set_publish_start('2099-01-01')

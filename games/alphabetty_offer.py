@@ -409,10 +409,29 @@ def reset_all_alphabetty_progress(*, task: Task, game_id: str = ALPHABETTY_GAME_
 
     attempt_qs = Attempt.manager.filter(task=task, game=game)
     chain_qs = ChainTaskState.objects.filter(task=task, game=game)
+    actor_keys = set()
+    for queryset in (attempt_qs, chain_qs):
+        actor_keys.update(
+            (team_id, user_id, anon_key)
+            for team_id, user_id, anon_key in queryset.filter(
+                replay_slot__isnull=True,
+            ).values_list('team_id', 'user_id', 'anon_key')
+        )
     n_attempts = attempt_qs.count()
     n_chains = chain_qs.count()
+    from games.daily_result_projection import mark_projection_dirty
+    transaction.on_commit(
+        lambda game=game, task_group=task.task_group:
+        mark_projection_dirty(game, task_group, full=True),
+    )
     chain_qs.delete()
     attempt_qs.delete()
+    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    reconcile_task_group_actors(
+        game_id=game_id,
+        task_group_id=task.task_group_id,
+        actor_keys=actor_keys,
+    )
     return {
         'attempts': n_attempts,
         'chains': n_chains,
