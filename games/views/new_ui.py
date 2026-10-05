@@ -831,7 +831,7 @@ NEW_UI_FOLDERS = [
 ]
 
 
-# Same order as hub "Задания из Десяточек" (week_task → replacements → walls → palindromes).
+# Same order as hub "Задания из Десяточек" (replacements → walls → palindromes).
 _SECTION_NAV_ORDER = {
     game_id: i for i, game_id in enumerate(HUB_FROM_DESYATOCHKI_SECTION_IDS)
 }

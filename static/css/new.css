@@ -1537,6 +1537,7 @@ html.new-ui-dark body.new-ui {
 .new-hub-section__solved:hover .new-hub-section__solved-tip,
 .new-hub-section__solved:focus-visible .new-hub-section__solved-tip {
   opacity: 1;
+  visibility: visible;
   transform: translateX(-50%) translateY(0);
 }
 
