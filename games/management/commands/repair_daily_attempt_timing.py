@@ -17,7 +17,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         qs = Attempt.manager.filter(
-            game_id=options['game'], skip=False, replay_slot__isnull=True,
+            game_id=options['game'], status='Ok', skip=False, replay_slot__isnull=True,
             active_time_ms=0,
         ).select_related('task').order_by('pk')
         if options['task_group']:
