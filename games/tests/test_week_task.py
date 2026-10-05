@@ -17,9 +17,11 @@ from games.support.services.week_tasks import (
     ensure_future_buffer,
     forbid_week_task,
     generate_more,
+    get_week_task_detail,
     get_pool_catalog,
     list_week_task_rows,
     reorder_week_tasks,
+    defer_week_task,
     set_publish_start,
     update_week_task,
 )
@@ -316,6 +318,31 @@ class WeekTaskSupportTests(TestCase):
         # Повторный вызов ничего не добавляет
         buf2 = ensure_future_buffer(3, now=now)
         self.assertEqual(buf2['added'], 0)
+
+    def test_deferred_slot_does_not_consume_technical_number_for_generation(self):
+        generate_more(2)
+        rows = list_week_task_rows()
+        deferred = next(row for row in rows if row.number == 2)
+
+        defer_week_task(deferred.link_id)
+        generate_more(1)
+
+        rows = list_week_task_rows()
+        self.assertEqual(
+            sorted((row.number, row.is_deferred) for row in rows),
+            [(1, False), (2, True), (3, False)],
+        )
+
+    def test_deferred_detail_uses_public_number(self):
+        generate_more(2)
+        deferred = next(row for row in list_week_task_rows() if row.number == 2)
+        defer_week_task(deferred.link_id)
+
+        detail = get_week_task_detail(deferred.link_id)
+
+        self.assertEqual(detail['number'], 2)
+        self.assertFalse(detail['is_published'])
+        self.assertEqual(detail['play_url'], '/week_task/2/')
 
     def test_publish_start_must_be_monday(self):
         with self.assertRaises(WeekTaskSupportError):

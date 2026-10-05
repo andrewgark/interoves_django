@@ -64,6 +64,15 @@ class WeekTaskRow:
         return asdict(self)
 
 
+def _effective_number(link: GameTaskGroup) -> int | None:
+    """Return the public schedule number, including for deferred slots."""
+    raw = link.deferred_number if link.is_deferred else link.number
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def get_week_task_game() -> Game:
     try:
         return Game.objects.get(pk=WEEK_TASK_GAME_ID)
@@ -122,9 +131,8 @@ def list_week_task_rows(*, now: datetime | None = None) -> list[WeekTaskRow]:
     )
     rows: list[WeekTaskRow] = []
     for link in links:
-        try:
-            number = int(link.deferred_number or link.number) if link.is_deferred else int(link.number)
-        except (TypeError, ValueError):
+        number = _effective_number(link)
+        if number is None:
             continue
         pub = week_task_publish_at(game, number)
         pub_date = pub.date().isoformat() if pub else None
@@ -157,10 +165,7 @@ def get_week_task_detail(link_id: int) -> dict[str, Any]:
     )
     if link is None:
         raise WeekTaskSupportError('Задание недели не найдено')
-    try:
-        number = int(link.number)
-    except (TypeError, ValueError):
-        number = 0
+    number = _effective_number(link) or 0
     pub = week_task_publish_at(game, number)
     tags = (link.task_group.tags or {}) if link.task_group_id else {}
     src = source_summary_from_tags(tags)
@@ -339,10 +344,9 @@ def update_week_task(
 def _max_number(game: Game) -> int:
     max_num = 0
     for link in GameTaskGroup.objects.filter(game=game):
-        try:
-            max_num = max(max_num, int(link.number))
-        except (TypeError, ValueError):
-            pass
+        number = _effective_number(link)
+        if number is not None:
+            max_num = max(max_num, number)
     return max_num
 
 
