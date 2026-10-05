@@ -15,6 +15,10 @@ from django.utils import timezone
 from games.analytics_identity import attach_anon_cookie
 from games import daily_timing as daily_timing_mod
 from games.daily_section import is_daily_team_timing_game, is_daily_timing_game
+from games.management.commands.repair_daily_attempt_timing import (
+    TIMING_RECOVERY_GRACE_SECONDS,
+    events_for_attempt,
+)
 from games.daily_timing import (
     ACTION_AUTO_PAUSE,
     ACTION_COMPLETE,
@@ -61,6 +65,18 @@ def _dt(seconds=0):
 
 
 class DailyTimingScopeTests(SimpleTestCase):
+    def test_attempt_recovery_grace_includes_boundary_but_not_later_events(self):
+        events = [
+            SimpleNamespace(occurred_at=_dt(0)),
+            SimpleNamespace(occurred_at=_dt(TIMING_RECOVERY_GRACE_SECONDS)),
+            SimpleNamespace(occurred_at=_dt(TIMING_RECOVERY_GRACE_SECONDS + 0.001)),
+        ]
+
+        self.assertEqual(
+            events_for_attempt(events, _dt()),
+            events[:2],
+        )
+
     def test_all_public_section_games_use_authoritative_active_timing(self):
         for game_id in ('ladder', 'salad', 'alphabetty', 'replacements', 'walls', 'palindromes', 'week_task'):
             self.assertTrue(is_daily_timing_game(game_id), game_id)

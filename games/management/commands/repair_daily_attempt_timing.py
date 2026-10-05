@@ -9,6 +9,13 @@ from django.db import transaction
 from games.daily.timing import recovered_timing_ms_from_events
 from games.models import Attempt, DailyTimingEvent
 
+TIMING_RECOVERY_GRACE_SECONDS = 30
+
+
+def events_for_attempt(events, attempt_time):
+    cutoff = attempt_time + timedelta(seconds=TIMING_RECOVERY_GRACE_SECONDS)
+    return [event for event in events if event.occurred_at <= cutoff]
+
 
 class Command(BaseCommand):
     help = 'Repair zero active_time_ms attempts from server timing events (dry-run by default).'
@@ -50,7 +57,7 @@ class Command(BaseCommand):
             # final timing event in the same request. Include only a narrow
             # post-attempt window so that event is recoverable without
             # accidentally consuming a later solve from the same actor.
-            event_end = latest_time + timedelta(seconds=30)
+            event_end = latest_time + timedelta(seconds=TIMING_RECOVERY_GRACE_SECONDS)
             events = DailyTimingEvent.objects.filter(
                 game_id=game_id,
                 task_group_id=task_group_id,
@@ -60,10 +67,7 @@ class Command(BaseCommand):
             ).order_by('occurred_at', 'pk')
             events = list(events)
             for attempt in attempts:
-                attempt_events = [
-                    event for event in events
-                    if event.occurred_at <= attempt.time + timedelta(seconds=30)
-                ]
+                attempt_events = events_for_attempt(events, attempt.time)
                 recovered_ms = recovered_timing_ms_from_events(
                     attempt_events,
                     completed_at=attempt.time,
