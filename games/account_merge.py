@@ -700,7 +700,9 @@ def _merge_started_games(target, source):
 
 
 def _merge_daily_timings(target, source):
-    from games.daily_timing import merge_timing_rows
+    from games.daily_timing import merge_timing_rows, migrate_timing_events
+
+    migrate_timing_events(target_user=target, source_user=source)
 
     moved = 0
     rows = list(

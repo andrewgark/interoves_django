@@ -44,6 +44,7 @@ class Command(BaseCommand):
         seq_regressions = 0
         unknown_actor_events = 0
         previous_seq = {}
+        actor_actions = defaultdict(set)
         event_rows = DailyTimingEvent.objects.filter(**event_filter).values(
             'game_id', 'task_group_id', 'action',
         ).annotate(count=Count('id'), min_seq=Min('seq'), max_seq=Max('seq'))
@@ -60,7 +61,7 @@ class Command(BaseCommand):
             )
 
         diagnostic_events = DailyTimingEvent.objects.filter(**event_filter).values(
-            'game_id', 'task_group_id', 'actor_key', 'session_id', 'seq',
+            'game_id', 'task_group_id', 'actor_key', 'session_id', 'seq', 'action',
             'client_occurred_at', 'occurred_at',
         ).order_by('game_id', 'task_group_id', 'actor_key', 'session_id', 'occurred_at', 'pk')
         for event in diagnostic_events.iterator(chunk_size=1000):
@@ -68,6 +69,9 @@ class Command(BaseCommand):
                 missing_client_time += 1
             if event['actor_key'] in ('', 'unknown'):
                 unknown_actor_events += 1
+            actor_actions[(event['game_id'], event['task_group_id'], event['actor_key'])].add(
+                event.get('action')
+            )
             key = (
                 event['game_id'], event['task_group_id'],
                 event['actor_key'], event['session_id'],
@@ -85,11 +89,29 @@ class Command(BaseCommand):
         )
         keys = sorted(set(grouped) | set(timing_counts))
         game_names = dict(Game.objects.filter(pk__in={key[0] for key in keys}).values_list('pk', 'name'))
+        timing_rows = list(DailySolveTiming.objects.filter(**row_filter).values(
+            'game_id', 'task_group_id', 'team_id', 'user_id', 'anon_key', 'replay_slot_id',
+            'status', 'frozen_ms',
+        ).iterator(chunk_size=1000))
         row_actor_keys = {
             (row['game_id'], row['task_group_id'], row_actor_key(row))
-            for row in DailySolveTiming.objects.filter(**row_filter).values(
-                'game_id', 'task_group_id', 'team_id', 'user_id', 'anon_key', 'replay_slot_id',
-            ).iterator(chunk_size=1000)
+            for row in timing_rows
+        }
+        zero_with_events = 0
+        completed_without_complete_event = 0
+        for row in timing_rows:
+            actor_key = row_actor_key(row)
+            actions = actor_actions.get((row['game_id'], row['task_group_id'], actor_key), set())
+            if row['status'] == DailySolveTiming.STATUS_COMPLETED:
+                if row['frozen_ms'] is None:
+                    completed_without_complete_event += 1
+                elif int(row['frozen_ms'] or 0) == 0 and actions:
+                    zero_with_events += 1
+                if row['frozen_ms'] is not None and actions and 'complete' not in actions:
+                    completed_without_complete_event += 1
+        row_actor_keys = {
+            (row['game_id'], row['task_group_id'], row_actor_key(row))
+            for row in timing_rows
         }
         event_actor_keys = set(
             DailyTimingEvent.objects.filter(**event_filter).values_list(
@@ -98,12 +120,15 @@ class Command(BaseCommand):
         )
         self.stdout.write(
             'summary events={} client_time_missing={} seq_regressions={} '
-            'unknown_actor_events={} unmatched_actor_groups={}'.format(
+            'unknown_actor_events={} unmatched_actor_groups={} zero_with_events={} '
+            'completed_without_complete_event={}'.format(
                 sum(counts.get('events', 0) for counts in grouped.values()),
                 missing_client_time,
                 seq_regressions,
                 unknown_actor_events,
                 len(event_actor_keys - row_actor_keys),
+                zero_with_events,
+                completed_without_complete_event,
             )
         )
         for game_id, task_group_id in keys:

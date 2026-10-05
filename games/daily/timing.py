@@ -362,6 +362,50 @@ def recovered_timing_ms_from_events(events, *, completed_at=None) -> int:
     )
 
 
+def migrate_timing_events(*, target_user, source_user=None, source_anon_key=None, batch_size=None) -> int:
+    """Move personal timing events when an identity is merged.
+
+    Event identity is part of the uniqueness key, so duplicate events already
+    owned by the target are discarded; otherwise the source event is rewritten
+    to the target actor while preserving its session, sequence and replay key.
+    """
+    if target_user is None or (source_user is None and not source_anon_key):
+        return 0
+    filters = {'user': source_user} if source_user is not None else {
+        'anon_key': str(source_anon_key),
+    }
+    rows = DailyTimingEvent.objects.select_for_update().filter(**filters).order_by('pk')
+    if batch_size:
+        rows = rows[:batch_size]
+    moved = 0
+    source_prefix = (
+        'user:{}'.format(source_user.pk)
+        if source_user is not None
+        else 'anon:{}'.format(source_anon_key)
+    )
+    target_prefix = 'user:{}'.format(target_user.pk)
+    for event in rows:
+        suffix = event.actor_key[len(source_prefix):] if event.actor_key.startswith(source_prefix) else ''
+        target_actor_key = '{}{}'.format(target_prefix, suffix)[:160]
+        duplicate = DailyTimingEvent.objects.filter(
+            game=event.game,
+            task_group=event.task_group,
+            replay_slot=event.replay_slot,
+            actor_key=target_actor_key,
+            session_id=event.session_id,
+            event_id=event.event_id,
+        ).exclude(pk=event.pk).first()
+        if duplicate is not None:
+            event.delete()
+        else:
+            event.user = target_user
+            event.anon_key = None
+            event.actor_key = target_actor_key
+            event.save(update_fields=['user', 'anon_key', 'actor_key'])
+        moved += 1
+    return moved
+
+
 def snapshot(row: DailySolveTiming | None, *, now=None, session_id=None) -> dict:
     if row is None:
         return empty_snapshot()

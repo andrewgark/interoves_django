@@ -54,7 +54,7 @@ ANON_MIGRATION_STEPS = (
 
 @transaction.atomic
 def claim_and_migrate_anon_history(user, anon_key):
-    """Idempotently move guest-owned rows onto ``user``. Does not copy events.
+    """Idempotently move guest-owned rows onto ``user``.
 
     Returns a dict with ``status`` (``ok``, ``hidden_anon``, ``claimed_elsewhere``)
     and move counts when status is ``ok``. Callers must already have proven
@@ -716,7 +716,9 @@ def migrate_anon_daily_timings(user, anon_key, *, batch_size=None):
     """Move or merge daily active-time rows from an anonymous actor onto a user."""
     if not user or not anon_key:
         return 0
-    from games.daily_timing import merge_timing_rows
+    from games.daily_timing import merge_timing_rows, migrate_timing_events
+
+    migrate_timing_events(target_user=user, source_anon_key=anon_key, batch_size=batch_size)
 
     moved = 0
     rows = list(

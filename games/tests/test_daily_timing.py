@@ -30,6 +30,7 @@ from games.daily_timing import (
     complete_daily_timing,
     lookup_timing,
     merge_timing_rows,
+    migrate_timing_events,
     record_timing_event,
     reduce_personal_timing_events,
     recovered_timing_ms_from_events,
@@ -354,6 +355,25 @@ class DailyTimingDomainTests(TestCase):
             ).count(),
             2,
         )
+
+    def test_timing_events_follow_user_identity_merge(self):
+        target = User.objects.create_user('timing_target', 'target@example.com', 'secret')
+        Profile.objects.create(user=target, first_name='Target', last_name='User')
+        event = DailyTimingEvent.objects.create(
+            game=self.game,
+            task_group=self.tg,
+            user=self.user,
+            actor_key='user:{}'.format(self.user.pk),
+            session_id='merge-session',
+            event_id='merge-event',
+            action=ACTION_START,
+            seq=1,
+        )
+        self.assertEqual(migrate_timing_events(target_user=target, source_user=self.user), 1)
+        event.refresh_from_db()
+        self.assertEqual(event.user_id, target.pk)
+        self.assertIsNone(event.anon_key)
+        self.assertEqual(event.actor_key, 'user:{}'.format(target.pk))
 
     def test_continuous_solve_accumulates_from_server_clock(self):
         sid = uuid4()
