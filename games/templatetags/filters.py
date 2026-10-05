@@ -8,6 +8,18 @@ from games.models import GameTaskGroup, Like, Attempt, Team, Task, Registration
 from games.util import clean_text, better_status
 
 
+@register.simple_tag(takes_context=True)
+def auth_next(context):
+    """Return a safe local post-login target, falling back to the current URL."""
+    request = context.get('request')
+    if request is None:
+        return '/'
+    candidate = (request.GET.get('next') or '').strip()
+    if candidate.startswith('/') and not candidate.startswith('//'):
+        return candidate
+    return request.get_full_path()
+
+
 @register.filter
 def same_results_actor(actor, current_actor):
     """Compare result actors by stable team/user/anonymous identity."""

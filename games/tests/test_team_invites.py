@@ -64,6 +64,16 @@ class TeamInviteTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Войти и вступить')
         self.assertContains(response, 'login=1&amp;next=%2Fteam%2Finvite%2Fget-only-token%2F')
+        rendered = response.content.decode('utf-8')
+        self.assertGreater(
+            rendered.count('next=%2Fteam%2Finvite%2Fget-only-token%2F'),
+            1,
+        )
+        external = self.client.get(
+            reverse('new_team_invite', kwargs={'token': invite.token}) + '?next=https://example.com/',
+        )
+        external_rendered = external.content.decode('utf-8')
+        self.assertNotIn('next=https%3A%2F%2Fexample.com%2F', external_rendered)
         self.friend.profile.refresh_from_db()
         self.assertIsNone(self.friend.profile.team_on_id)
 

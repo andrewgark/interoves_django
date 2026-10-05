@@ -1,4 +1,4 @@
-{% load static socialaccount %}
+{% load static socialaccount filters %}
 <!DOCTYPE html>
 <html lang="ru" data-site-deploy-version="{{ site_deploy_version|default:''|escape }}">
 <head>
@@ -372,6 +372,7 @@
   </script>
   {% endif %}
   {% if not user.is_authenticated %}
+  {% auth_next as auth_next_url %}
   <div id="new-login-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-login-title" aria-modal="true" hidden>
     <div class="new-rules-overlay" data-login-close></div>
     <div class="new-rules-modal__box pal-card">
@@ -380,16 +381,16 @@
       {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
       <p class="pal-lead">Google с почтой <strong>@glowbyteconsulting.com</strong> или Яндекс с почтой <strong>@glowbyte.ru</strong>.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
-        <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.GET.next|default:request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
-        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=request.GET.next|default:request.get_full_path %}">Войти через Яндекс</a>
+        <a class="new-btn" href="{% provider_login_url 'google' process='login' next=auth_next_url auth_params='hd=glowbyteconsulting.com' %}">Войти через Google</a>
+        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}">Войти через Яндекс</a>
       </div>
       {% else %}
       <p class="pal-lead">Выберите способ входа.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
-        <a class="new-btn" href="{% provider_login_url 'google' process='login' next=request.GET.next|default:request.get_full_path %}">Войти через Google</a>
-        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=request.GET.next|default:request.get_full_path %}">Войти через Яндекс</a>
-        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=request.GET.next|default:request.get_full_path %}">Войти через VK</a>
-        <a class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?next={{ request.GET.next|default:request.get_full_path|urlencode }}">Войти через Telegram</a>
+        <a class="new-btn" href="{% provider_login_url 'google' process='login' next=auth_next_url %}">Войти через Google</a>
+        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}">Войти через Яндекс</a>
+        <a class="new-btn new-btn--ghost" href="{% provider_login_url 'vk' next=auth_next_url %}">Войти через VK</a>
+        <a class="new-btn new-btn--ghost" href="{% url 'telegram_login' %}?next={{ auth_next_url|urlencode }}">Войти через Telegram</a>
       </div>
       {% endif %}
     </div>
