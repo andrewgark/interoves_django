@@ -1,41 +1,28 @@
-"""Immutable, isolated demo payload for the Ladder tutorial.
-
-The requested tutorial chain is ГРЯЗЬ → … → КНЯЗЬ. The matching local
-production task data is copied here as code-first config; this adapter never
-loads or mutates a production task or gameplay state at request time.
-"""
+"""Immutable, isolated demo payload for the short Ladder tutorial."""
 
 import json
 from types import SimpleNamespace
 
-from games.raddle import build_raddle_ui_context, parse_raddle_data
+from games.raddle import build_raddle_ui_context, parse_raddle_data, used_clue_display
 
 
-LADDER_TUTORIAL_VERSION = 'v3'
+LADDER_TUTORIAL_VERSION = 'v6'
 
-_WORDS = (
-    'ГРЯЗЬ', 'УДАРИТЬ', 'ПАЛЕЦ', 'ВВЕРХ', 'РУКИ', 'ЗОЛОТЫЕ',
-    'ВОРОТА', 'ВРАТАРЬ', 'АКИНФЕЕВ', 'ИГОРЬ', 'КНЯЗЬ',
-)
-_LENGTHS = (5, 7, 5, 5, 4, 7, 6, 7, 8, 5, 5)
+_WORDS = ('ПЕРВАЯ', 'ПЯТАЯ', 'ЗАПЯТАЯ', 'ТОЧКА', 'ЛАСТОЧКА')
+_LENGTHS = tuple(len(word) for word in _WORDS)
 _HINTS = (
-    '... в ____ лицом',
-    '... о ... не ____',
-    '____ ... - одобрение',
-    '... ____ - поп-группа',
-    'У мастера ... ____',
-    '____ ... - в Сан-Франциско',
-    'Он защищает ____',
-    'Одиннадцатикратный "____ года"',
-    '____ - а как его зовут?',
-    'Опера "... ____"',
+    '____ и ... буквы алфавита — это А и Д',
+    'Знак препинания, заканчивающийся на ____',
+    '____ — это ... с хвостиком',
+    'Птица, заканчивающаяся на ____',
 )
 
 
 class LadderTutorialAdapter:
     task_id = 'ladder-tutorial-demo'
-    initial_solved_indices = (0, 1, 8, 9, 10)
-    initial_used_hint_indices = (0, 7, 8, 9)
+    # The endpoints define the puzzle; every word between them starts blank.
+    initial_solved_indices = (0, 4)
+    initial_used_hint_indices = ()
 
     def task(self):
         checker_data = json.dumps({
@@ -45,9 +32,9 @@ class LadderTutorialAdapter:
         }, ensure_ascii=False)
         return SimpleNamespace(
             id=self.task_id, number='17', task_type='raddle',
-            text='Лесенка #17', answer='\n'.join(_WORDS),
+            text='Короткая Лесенка', answer='\n'.join(_WORDS),
             checker_data=checker_data,
-            attempt_revision='ladder-tutorial-v3', tags={},
+            attempt_revision='ladder-tutorial-v6', tags={},
         )
 
     def parsed(self):
@@ -70,13 +57,19 @@ class LadderTutorialAdapter:
             'version': LADDER_TUTORIAL_VERSION, 'game': 'ladder',
             'task_id': self.task_id, 'words': _WORDS, 'lengths': _LENGTHS,
             'hints': _HINTS,
+            # Use the same renderer as production's used-clue list so newly
+            # solved demo edges get their solved-word chips/colors, not the
+            # stale unused-clue markup captured before the answer.
+            'used_hint_display': [
+                used_clue_display(hint, index, _WORDS, html=True)
+                for index, hint in enumerate(_HINTS)
+            ],
             'initial_solved_indices': self.initial_solved_indices,
             'initial_used_hint_indices': self.initial_used_hint_indices,
             'steps': {
-                # Word at index 2 is reached from the second solved word.
-                'first': {'hint_index': 1, 'word_index': 2, 'answer': _WORDS[2]},
-                'second': {'hint_index': 2, 'word_index': 3, 'answer': _WORDS[3]},
-                'lower_pair': {'word_indices': (9, 10), 'hint_index': 9},
+                'first': {'hint_index': 0, 'word_index': 1, 'answer': _WORDS[1]},
+                'second': {'hint_index': 3, 'word_index': 3, 'answer': _WORDS[3]},
+                'lower_pair': {'word_indices': (3, 4), 'hint_index': 3},
             },
         }
 

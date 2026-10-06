@@ -14,18 +14,25 @@
   function row(index) { return root.querySelector('[data-tutorial-slot="' + index + '"]'); }
   function clue(index) { return root.querySelector('[data-tutorial-clue="' + index + '"]'); }
   function input(index) { return root.querySelector('[data-tutorial-answer-input="' + index + '"]'); }
+  function clueTarget(index) { return root.querySelector('[data-tutorial-clue="' + index + '"]'); }
+  function region(indices) {
+    return global.InterovesTutorial.combineTargets(indices.map(row).filter(Boolean));
+  }
   function setLocked(value) { root.dataset.tutorialLocked = value ? '1' : '0'; }
   function setInputsLocked(allowed) {
     var permitted = Array.isArray(allowed) ? new Set(allowed) : null;
     root.querySelectorAll('[data-tutorial-answer-input]').forEach(function (node) {
       var answerIndex = Number(node.dataset.tutorialAnswerInput);
+      var format = node.getAttribute('data-raddle-format') || '';
+      var slots = (format.match(/#/g) || []).length;
+      if (slots) node.maxLength = slots;
       var enabled = allowed === 'all' || (permitted ? permitted.has(answerIndex) : allowed !== null && answerIndex === allowed);
       node.readOnly = !enabled;
       node.setAttribute('aria-disabled', enabled ? 'false' : 'true');
       node.classList.toggle('tutorial-input--locked', !enabled);
     });
   }
-  function activateInput(index) {
+  function activateInput(index, shouldFocus) {
     var r = row(index);
     if (!r) return;
     r.classList.add('new-raddle-row--playable', 'new-raddle-row--focus');
@@ -45,21 +52,20 @@
     }
     var field = input(index);
     if (field) {
-      field.setAttribute('form', 'tutorial-raddle-form-' + index);
-      field.focus();
+      if (form && form.id) field.setAttribute('form', form.id);
     }
     setInputsLocked(index);
+    if (field && shouldFocus !== false) field.focus();
   }
   function markClueUsed(index) {
     var node = clue(index);
     if (!node) return;
     var used = root.querySelector('[data-tutorial-target="clues-used"] ul');
     if (!used) return;
-    var renderedClue = node.querySelector('.new-raddle-clue__text');
-    var html = renderedClue ? renderedClue.innerHTML : '';
+    var html = (config.used_hint_display && config.used_hint_display[index]) || '';
     node.remove();
     var item = document.createElement('li');
-    item.className = 'new-raddle-clue new-raddle-clue--used tutorial-added-clue';
+    item.className = 'new-raddle-clue new-raddle-clue--used';
     item.dataset.tutorialClue = String(index);
     item.dataset.hintIndex = String(index);
     item.innerHTML = '<span class="new-raddle-clue__text">' + html + '</span>';
@@ -91,7 +97,7 @@
   function startFreePlay() {
     phase = 'freeplay';
     var edges = freePlayEdges();
-    edges.forEach(activateInput);
+    edges.forEach(function (index) { activateInput(index, false); });
     setLocked(false);
     setInputsLocked(edges);
   }
@@ -117,7 +123,7 @@
     var selected = clue(index);
     if (selected) selected.classList.add('new-raddle-clue--active');
     phase = phase === 'choose-first' ? 'answer-first' : 'answer-second';
-    setLocked(true);
+    setLocked(false);
     activateInput(phase === 'answer-first' ? first.word_index : second.word_index);
     tutorial.setStep(phase === 'answer-first' ? 5 : 8);
   }
@@ -131,6 +137,14 @@
       var edgeHint = solvedIndices.has(index - 1) ? index - 1 : index;
       markSolved(index, config.words[index]);
       markClueUsed(edgeHint);
+      if (solvedIndices.size >= config.words.length) {
+        phase = 'complete';
+        setLocked(true);
+        setInputsLocked(null);
+        var completion = root.querySelector('[data-ladder-tutorial-complete]');
+        if (completion) completion.hidden = false;
+        return;
+      }
       setTimeout(startFreePlay, 0);
       return;
     }
@@ -157,14 +171,14 @@
 
   var tutorial = global.InterovesTutorial.createShell(root, {
     steps: [
-      {kind: 'info', title: 'Это Лесенка', text: 'Нужно восстановить цепочку слов от верхнего слова до нижнего.\nЧасть цепочки уже решена.', targets: ['[data-tutorial-target="word-list"]']},
-      {kind: 'info', title: 'Соседние слова', text: 'Соседние слова связаны подсказками.\nВот первая связь уже решена: «' + config.words[0] + '» → «' + config.words[1] + '».', targets: [function () { return row(0); }, function () { return row(1); }, function () { return clue(0); }]},
+      {kind: 'info', title: 'Это Лесенка', text: 'Нужно соединить верхнее слово «' + config.words[0] + '» с нижним «' + config.words[config.words.length - 1] + '».', targets: ['[data-tutorial-target="word-list"]']},
+      {kind: 'info', title: 'Соседние слова', text: 'Соседние слова связывает подсказка.\nИщи её для следующей ступеньки после «' + config.words[0] + '».', targets: [function () { return region([0, 1]); }, function () { return clue(first.hint_index); }], calloutTarget: [function () { return clue(first.hint_index); }]},
       {kind: 'info', title: 'Длина слова', text: 'Число в скобках показывает длину слова.\nЗдесь нужно слово из ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }]},
-      {kind: 'info', title: 'Подсказки не по порядку', text: 'Подсказки расположены не по порядку.\nНужно понять, какая из них продолжает цепочку от «' + config.words[1] + '».', nextLabel: 'Попробовать', targets: ['[data-tutorial-target="clues-unused"]']},
-      {kind: 'action', title: 'Выбери подсказку', text: 'Найди подсказку, которая продолжает цепочку.', targets: ['[data-tutorial-target="clues-unused"]']},
-      {kind: 'action', title: 'Введи слово', text: 'Отлично. Теперь введи следующее слово.\nВ нём ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }]},
-      {kind: 'info', title: 'Можно идти с двух сторон', text: 'Не обязательно идти только сверху вниз.\nЛесенку можно продолжать и от нижних слов — навстречу верхней части.', targets: [function () { return row(lowerPair.word_indices[0]); }, function () { return row(lowerPair.word_indices[1]); }, '[data-tutorial-target="clues-used"]']},
-      {kind: 'info', title: 'Та же связь', text: 'Здесь работает то же правило: подсказка связывает два соседних слова.\n«' + config.words[lowerPair.word_indices[0]] + '» ↔ «' + config.words[lowerPair.word_indices[1]] + '»', nextLabel: 'Теперь сам', targets: [function () { return row(lowerPair.word_indices[0]); }, function () { return row(lowerPair.word_indices[1]); }, function () { return clue(lowerPair.hint_index); }]},
+      {kind: 'info', title: 'Подсказки не по порядку', text: 'Подсказки расположены не по порядку.\nНайди ту, что поможет продолжить от «' + config.words[0] + '».', nextLabel: 'Попробовать', targets: ['[data-tutorial-target="clues-unused"]']},
+      {kind: 'action', title: 'Выбери подсказку', text: 'Выбери подсказку для следующего слова.', targets: ['[data-tutorial-target="clues-unused"]']},
+      {kind: 'action', title: 'Введи слово', text: 'Отлично. Теперь введи следующее слово.\nВ нём ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }, function () { return clueTarget(first.hint_index); }], calloutTarget: [function () { return input(first.word_index); }], calloutSide: 'below'},
+      {kind: 'info', title: 'Можно идти с двух сторон', text: 'Лесенку можно собирать с обоих концов.\nЗдесь нужно найти слово перед «' + config.words[lowerPair.word_indices[1]] + '».', targets: [function () { return region(lowerPair.word_indices); }]},
+      {kind: 'info', title: 'Подсказка снизу', text: 'Та же подсказка связывает два соседних слова — теперь у нижнего края.', nextLabel: 'Теперь сам', targets: [function () { return region(lowerPair.word_indices); }, function () { return clue(lowerPair.hint_index); }]},
       {kind: 'action', title: 'Попробуй сам', text: 'Теперь выбери подходящую подсказку и введи следующее слово.', targets: ['[data-tutorial-target="clues-unused"]']},
     ],
     onFinish: function () {
@@ -186,9 +200,16 @@
   });
 
   root.querySelectorAll('[data-tutorial-clue]').forEach(function (node) {
+    node.setAttribute('role', 'button');
+    node.tabIndex = -1;
     node.addEventListener('click', function (event) {
       if (event.target.closest('[data-tutorial-close]')) return;
       selectHint(Number(node.dataset.tutorialClue));
+    });
+    node.addEventListener('keydown', function (event) {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      event.preventDefault();
+      node.click();
     });
   });
   root.addEventListener('submit', function (event) {
@@ -197,15 +218,25 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     var field = input(Number(form.dataset.tutorialForm));
-    submit(Number(form.dataset.tutorialForm), field && field.value);
+    submit(Number(form.dataset.tutorialForm), field && global.RaddleMaskedInput
+      ? global.RaddleMaskedInput.getSubmitValue(field) : field && field.value);
   }, true);
   root.addEventListener('keydown', function (event) {
     if (event.key !== 'Enter') return;
     var field = event.target.closest('[data-tutorial-answer-input]');
     if (!field) return;
     event.preventDefault();
-    submit(Number(field.dataset.tutorialAnswerInput), field.value);
+    submit(Number(field.dataset.tutorialAnswerInput), global.RaddleMaskedInput
+      ? global.RaddleMaskedInput.getSubmitValue(field) : field.value);
   }, true);
+  if (global.RaddleMaskedInput && global.RaddleMaskedInput.bindAll) {
+    global.RaddleMaskedInput.bindAll(root, {
+      onComplete: function (field, letters) {
+        if (!field || !field.matches('[data-tutorial-answer-input]')) return;
+        submit(Number(field.dataset.tutorialAnswerInput), letters);
+      },
+    });
+  }
   root.addEventListener('click', function (event) {
     if (event.target.closest('[data-tutorial-clue]')) return;
     if (root.dataset.tutorialLocked === '1' && event.target.closest('button[type="submit"]')) {
@@ -213,6 +244,12 @@
       event.stopImmediatePropagation();
     }
   }, true);
+  root.addEventListener('tutorial:step', function (event) {
+    var selectable = event.detail === 4 || event.detail === 8;
+    root.querySelectorAll('[data-tutorial-clue]').forEach(function (node) {
+      if (node.closest('[data-tutorial-target="clues-unused"]')) node.tabIndex = selectable ? 0 : -1;
+    });
+  });
   setLocked(true);
   setInputsLocked(null);
 }(window));
