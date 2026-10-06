@@ -306,9 +306,6 @@ def schedule_ladder_channel_post(
         source=SocialQueuePost.SOURCE_LADDER,
         ladder_date=ladder.ladder_date,
     ).first()
-    if existing and existing.telegram_ok and not force:
-        _maybe_finish_other_networks(existing, force=False)
-        return existing
     if existing is None:
         try:
             with transaction.atomic():
@@ -316,6 +313,7 @@ def schedule_ladder_channel_post(
                     source=SocialQueuePost.SOURCE_LADDER,
                     ladder_date=ladder.ladder_date,
                     ladder_number=ladder.number,
+                    task=ladder.task,
                     play_url=ladder.play_url,
                     caption='',
                     telegram_status=SocialQueuePost.STATUS_PENDING,
@@ -325,9 +323,6 @@ def schedule_ladder_channel_post(
                 source=SocialQueuePost.SOURCE_LADDER,
                 ladder_date=ladder.ladder_date,
             ).first()
-            if existing and existing.telegram_ok and not force:
-                _maybe_finish_other_networks(existing, force=False)
-                return existing
 
     if existing is None:
         return None
@@ -335,6 +330,9 @@ def schedule_ladder_channel_post(
     if existing.task_id != ladder.task.pk:
         existing.task = ladder.task
         existing.save(update_fields=['task', 'updated_at'])
+    if existing.telegram_ok and not force:
+        _maybe_finish_other_networks(existing, force=False)
+        return existing
 
     claim_token = claim_telegram_post(existing.pk, force=force)
     if claim_token is None:

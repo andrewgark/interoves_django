@@ -274,9 +274,6 @@ def schedule_salad_channel_post(
         source=SocialQueuePost.SOURCE_WORD_SALAD,
         ladder_date=salad.salad_date,
     ).first()
-    if existing and existing.telegram_ok and not force:
-        _maybe_finish_other_networks(existing, force=False)
-        return existing
     if existing is None:
         try:
             with transaction.atomic():
@@ -284,6 +281,7 @@ def schedule_salad_channel_post(
                     source=SocialQueuePost.SOURCE_WORD_SALAD,
                     ladder_date=salad.salad_date,
                     ladder_number=salad.number,
+                    task=salad.task,
                     play_url=salad.play_url,
                     caption='',
                     telegram_status=SocialQueuePost.STATUS_PENDING,
@@ -293,9 +291,6 @@ def schedule_salad_channel_post(
                 source=SocialQueuePost.SOURCE_WORD_SALAD,
                 ladder_date=salad.salad_date,
             ).first()
-            if existing and existing.telegram_ok and not force:
-                _maybe_finish_other_networks(existing, force=False)
-                return existing
 
     if existing is None:
         return None
@@ -303,6 +298,9 @@ def schedule_salad_channel_post(
     if existing.task_id != salad.task.pk:
         existing.task = salad.task
         existing.save(update_fields=['task', 'updated_at'])
+    if existing.telegram_ok and not force:
+        _maybe_finish_other_networks(existing, force=False)
+        return existing
 
     claim_token = claim_telegram_post(existing.pk, force=force)
     if claim_token is None:
