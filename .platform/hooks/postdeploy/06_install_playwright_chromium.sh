@@ -4,6 +4,13 @@ set -euo pipefail
 LOG=/var/log/app/playwright_chromium_install.log
 mkdir -p /var/log/app
 
+if [[ -r /opt/elasticbeanstalk/deployment/env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  . /opt/elasticbeanstalk/deployment/env
+  set +a
+fi
+
 log() {
   echo "$(date -u '+%Y-%m-%dT%H:%M:%SZ') $*" | tee -a "$LOG"
 }
