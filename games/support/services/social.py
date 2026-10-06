@@ -286,11 +286,9 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
     else:
         raise SocialSupportError('Для этого типа поста нет Playwright-рендера')
 
-    if (
-        post.telegram_status == SocialQueuePost.STATUS_SCHEDULED
-        and post.telegram_external_id
-        and not _is_post_published(post)
-    ):
+    if post.telegram_status == SocialQueuePost.STATUS_SCHEDULED and not _is_post_published(post):
+        if not post.telegram_external_id:
+            raise SocialSupportError('У отложенного Telegram-поста нет ID сообщения')
         if not (telegram_user_configured() and telegram_channel_configured()):
             raise SocialSupportError('Telegram канал / user session не настроены')
         try:
@@ -298,7 +296,6 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
                 chat=channel_chat_id(),
                 message_id=int(post.telegram_external_id),
                 photo_bytes=image,
-                caption=post.caption,
                 filename=filename,
             )
         except Exception as exc:

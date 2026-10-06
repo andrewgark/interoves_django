@@ -158,9 +158,8 @@ def fetch_scheduled_message_sync(*, chat: str, message_id: int) -> dict[str, Any
 
 
 async def edit_scheduled_photo(
-    *, chat: str, message_id: int, photo_bytes: bytes, caption: str, filename: str,
+    *, chat: str, message_id: int, photo_bytes: bytes, filename: str,
 ) -> bool:
-    from telethon.extensions import html as tl_html
     from telethon.tl.functions.messages import EditMessageRequest, GetScheduledMessagesRequest
     from telethon.tl.types import InputMediaUploadedPhoto
 
@@ -171,20 +170,20 @@ async def edit_scheduled_photo(
     async with client:
         entity = await client.get_entity(chat)
         scheduled = await client(GetScheduledMessagesRequest(peer=entity, id=[int(message_id)]))
-        if not any(
-            getattr(message, 'id', None) == int(message_id)
-            for message in (getattr(scheduled, 'messages', None) or [])
-        ):
+        message = next((
+            candidate for candidate in (getattr(scheduled, 'messages', None) or [])
+            if getattr(candidate, 'id', None) == int(message_id)
+        ), None)
+        if message is None:
             raise RuntimeError('Сообщение уже опубликовано или удалено из отложенных Telegram')
         photo = BytesIO(photo_bytes)
         photo.name = filename
         uploaded = await client.upload_file(photo)
-        text, entities = tl_html.parse(caption or '')
         await client(EditMessageRequest(
             peer=entity,
             id=int(message_id),
-            message=text or '',
-            entities=entities or None,
+            message=getattr(message, 'message', '') or '',
+            entities=getattr(message, 'entities', None) or None,
             media=InputMediaUploadedPhoto(file=uploaded),
         ))
     return True
