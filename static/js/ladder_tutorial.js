@@ -1,72 +1,219 @@
 (function (global) {
   'use strict';
+
   var root = document.querySelector('[data-ladder-tutorial]');
-  if (!root || !global.InterovesTutorial) return;
-  var selected = null, solved = {3: false, 4: false};
-  var steps = [
-    { title: 'Лесенка', text: 'Это Лесенка. Нужно восстановить цепочку слов от ГРЯЗЬ до КНЯЗЬ. Соседние слова связаны одной из подсказок.', next: true },
-    { title: 'Уже решённый пример', text: 'Часть лесенки уже решена. Например: ГРЯЗЬ → УДАРИТЬ → ПАЛЕЦ. Каждая подсказка связывает два соседних слова.', next: true },
-    { title: 'Длина слова', text: 'Число в скобках показывает длину слова. Здесь нужно слово из 5 букв, связанное с ПАЛЬЦЕМ.', next: true },
-    { title: 'Подсказки', text: 'Подсказки даны не по порядку. Найди ту, которая поможет продолжить цепочку после слова ПАЛЕЦ.', next: false },
-    { title: 'Первый ответ', text: 'Теперь восстанови следующее слово. В нём 5 букв.', next: false },
-    { title: 'С двух сторон', text: 'Не обязательно идти только сверху вниз. Можно продолжать цепочку и от уже известных слов снизу.', next: true },
-    { title: 'Попробуй сам', text: 'Теперь попробуй следующий шаг сам. Выбери подходящую подсказку и введи слово.', next: false }
-  ];
-  function normalize(value) { return String(value || '').trim().toUpperCase().replace(/Ё/g, 'Е'); }
+  if (!root) return;
+  var configNode = document.getElementById('ladder-tutorial-data');
+  var config = JSON.parse(configNode.textContent);
+  var first = config.steps.first;
+  var second = config.steps.second;
+  var lowerPair = config.steps.lower_pair;
+  var phase = 'locked';
+  var solvedIndices = new Set(config.initial_solved_indices);
+
+  function row(index) { return root.querySelector('[data-tutorial-slot="' + index + '"]'); }
   function clue(index) { return root.querySelector('[data-tutorial-clue="' + index + '"]'); }
-  function slot(index) { return root.querySelector('[data-tutorial-slot="' + index + '"]'); }
-  function showFeedback(text) { root.querySelector('[data-tutorial-feedback-global]').textContent = text; }
-  function reset() {
-    selected = null; solved = {3: false, 4: false}; showFeedback('');
-    root.querySelectorAll('[data-tutorial-clue]').forEach(function (el) { el.classList.remove('new-raddle-clue--active'); el.style.pointerEvents = ''; });
-    [3, 4].forEach(function (i) { var row = slot(i); row.classList.remove('new-raddle-row--playable', 'new-raddle-row--solved', 'tutorial-slot--correct'); row.classList.add('new-raddle-row--draft'); var status = row.querySelector('.tutorial-slot-status'); if (status) status.textContent = ''; });
-    root.querySelector('[data-tutorial-target="clues-used"] ul').querySelectorAll('.tutorial-added-clue').forEach(function (el) { el.remove(); });
+  function input(index) { return root.querySelector('[data-tutorial-answer-input="' + index + '"]'); }
+  function setLocked(value) { root.dataset.tutorialLocked = value ? '1' : '0'; }
+  function setInputsLocked(allowed) {
+    var permitted = Array.isArray(allowed) ? new Set(allowed) : null;
+    root.querySelectorAll('[data-tutorial-answer-input]').forEach(function (node) {
+      var answerIndex = Number(node.dataset.tutorialAnswerInput);
+      var enabled = allowed === 'all' || (permitted ? permitted.has(answerIndex) : allowed !== null && answerIndex === allowed);
+      node.readOnly = !enabled;
+      node.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+      node.classList.toggle('tutorial-input--locked', !enabled);
+    });
   }
-  function choose(index) {
-    if (![3, 6].includes(tutorial.getStep())) return;
-    var expected = tutorial.getStep() === 3 ? 2 : 3;
-    if (index !== expected) { showFeedback('Не эта. Попробуй другую.'); return; }
-    selected = index; showFeedback('Подсказка выбрана.'); clue(index).classList.add('new-raddle-clue--active');
-    if (tutorial.getStep() === 3) tutorial.goTo(4); else { activateSlot(4); tutorial.render(); }
-  }
-  function activateSlot(index) {
-    var row = slot(index); row.classList.remove('new-raddle-row--locked'); row.classList.add('new-raddle-row--playable', 'new-raddle-row--focus');
-    var input = row.querySelector('input');
-    if (!input) { var line = row.querySelector('.new-raddle-line'); line.innerHTML = '<input class="new-raddle-input" data-tutorial-target="answer-input" data-tutorial-answer-input="' + index + '" maxlength="' + (index === 3 ? 5 : 4) + '" autocomplete="off" aria-label="Ответ"><span class="new-raddle-mask" aria-hidden="true">_____</span>'; input = line.querySelector('input'); }
-    input.setAttribute('data-tutorial-target', 'answer-input'); input.setAttribute('data-tutorial-answer-input', index); input.setAttribute('maxlength', index === 3 ? 5 : 4); input.removeAttribute('data-raddle-draft'); input.focus(); input.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); submit(index, input.value); } };
+  function activateInput(index) {
+    var r = row(index);
+    if (!r) return;
+    r.classList.add('new-raddle-row--playable', 'new-raddle-row--focus');
+    r.classList.remove('new-raddle-row--draft', 'new-raddle-row--locked');
+    var actions = r.querySelector('.new-raddle-actions');
+    if (actions && !actions.querySelector('[data-tutorial-form]')) {
+      actions.innerHTML = '<form class="new-raddle-line-form" action="#" method="post" data-tutorial-form="' + index + '" id="tutorial-raddle-form-' + index + '"><button type="submit" class="new-replacements-check-btn" aria-label="Проверить слово"><i class="ph ph-check" aria-hidden="true"></i></button></form>';
+    }
+    var form = actions && actions.querySelector('[data-tutorial-form]');
+    if (form && !form.querySelector('button[type="submit"]')) {
+      var button = document.createElement('button');
+      button.type = 'submit';
+      button.className = 'new-replacements-check-btn';
+      button.setAttribute('aria-label', 'Проверить слово');
+      button.innerHTML = '<i class="ph ph-check" aria-hidden="true"></i>';
+      form.appendChild(button);
+    }
+    var field = input(index);
+    if (field) {
+      field.setAttribute('form', 'tutorial-raddle-form-' + index);
+      field.focus();
+    }
+    setInputsLocked(index);
   }
   function markClueUsed(index) {
-    var c = clue(index), text = c ? c.querySelector('.new-raddle-clue__text').textContent : '';
-    if (c) { c.classList.add('new-raddle-clue--used'); c.remove(); }
-    var li = document.createElement('li'); li.className = 'new-raddle-clue new-raddle-clue--used tutorial-added-clue'; li.innerHTML = '<span class="new-raddle-clue__text"></span>';
-    li.firstChild.textContent = text;
-    root.querySelector('[data-tutorial-target="clues-used"] ul').appendChild(li);
+    var node = clue(index);
+    if (!node) return;
+    var used = root.querySelector('[data-tutorial-target="clues-used"] ul');
+    if (!used) return;
+    var renderedClue = node.querySelector('.new-raddle-clue__text');
+    var html = renderedClue ? renderedClue.innerHTML : '';
+    node.remove();
+    var item = document.createElement('li');
+    item.className = 'new-raddle-clue new-raddle-clue--used tutorial-added-clue';
+    item.dataset.tutorialClue = String(index);
+    item.dataset.hintIndex = String(index);
+    item.innerHTML = '<span class="new-raddle-clue__text">' + html + '</span>';
+    used.appendChild(item);
+  }
+  function markSolved(index, answer) {
+    var r = row(index);
+    if (!r) return;
+    solvedIndices.add(index);
+    r.classList.remove('new-raddle-row--playable', 'new-raddle-row--focus', 'new-raddle-row--draft');
+    r.classList.add('new-raddle-row--solved', 'tutorial-slot--correct');
+    var line = r.querySelector('.new-raddle-line');
+    if (line) line.innerHTML = '<span class="new-raddle-line__solved-text"><strong>' + answer + '</strong></span>';
+    var actions = r.querySelector('.new-raddle-actions');
+    if (actions) actions.innerHTML = '<span class="new-replacements-check-btn new-replacements-check-btn--done" data-tooltip="Верно"><i class="ph ph-check" aria-hidden="true"></i></span>';
+    setInputsLocked(null);
+  }
+  function freePlayEdges() {
+    var top = null;
+    var bottom = null;
+    for (var i = 0; i < config.words.length; i += 1) {
+      if (!solvedIndices.has(i) && solvedIndices.has(i - 1)) { top = i; break; }
+    }
+    for (var j = config.words.length - 1; j >= 0; j -= 1) {
+      if (!solvedIndices.has(j) && solvedIndices.has(j + 1)) { bottom = j; break; }
+    }
+    return Array.from(new Set([top, bottom].filter(function (value) { return value !== null; })));
+  }
+  function startFreePlay() {
+    phase = 'freeplay';
+    var edges = freePlayEdges();
+    edges.forEach(activateInput);
+    setLocked(false);
+    setInputsLocked(edges);
+  }
+  function setFreePlayFeedback(index, message) {
+    var r = row(index);
+    if (!r) return;
+    var cell = r.querySelector('.new-raddle-block__word');
+    var status = cell.querySelector('.tutorial-local-feedback');
+    if (!status) {
+      status = document.createElement('div');
+      status.className = 'new-attempt-msg new-raddle-word-msg tutorial-local-feedback';
+      cell.appendChild(status);
+    }
+    status.textContent = message;
+  }
+  function selectHint(index) {
+    if (phase !== 'choose-first' && phase !== 'choose-second') return;
+    var expected = phase === 'choose-first' ? first.hint_index : second.hint_index;
+    if (index !== expected) {
+      tutorial.feedback('Не эта. Попробуй другую.');
+      return;
+    }
+    var selected = clue(index);
+    if (selected) selected.classList.add('new-raddle-clue--active');
+    phase = phase === 'choose-first' ? 'answer-first' : 'answer-second';
+    setLocked(true);
+    activateInput(phase === 'answer-first' ? first.word_index : second.word_index);
+    tutorial.setStep(phase === 'answer-first' ? 5 : 8);
   }
   function submit(index, value) {
-    var expected = index === 3 ? 'ВВЕРХ' : 'РУКИ';
-    if (normalize(value) !== expected) { showFeedback('Не совсем. Попробуй ещё раз.'); return; }
-    solved[index] = true; var row = slot(index); row.classList.remove('new-raddle-row--playable', 'new-raddle-row--focus'); row.classList.add('new-raddle-row--solved', 'tutorial-slot--correct'); row.querySelector('.new-raddle-line').innerHTML = '<span class="new-raddle-line__solved-text"><strong>' + expected + '</strong></span><span class="new-raddle-line__len">(' + (index === 3 ? 5 : 4) + ')</span>'; var status = row.querySelector('.tutorial-slot-status'); if (!status) { status = document.createElement('span'); status.className = 'tutorial-slot-status'; row.querySelector('.new-raddle-block__check').appendChild(status); } status.textContent = '✓'; showFeedback('Верно. Подсказка использована, а лесенка стала на один шаг длиннее.');
-    if (selected !== null) markClueUsed(selected); selected = null;
-    if (index === 3) { setTimeout(function () { tutorial.goTo(5); }, 350); } else { setTimeout(function () { tutorial.complete(); }, 350); }
+    if (phase === 'freeplay') {
+      if (!freePlayEdges().includes(index)) return;
+      if (String(value || '').trim().toUpperCase() !== config.words[index]) {
+        setFreePlayFeedback(index, 'Не совсем. Попробуй ещё раз.');
+        return;
+      }
+      var edgeHint = solvedIndices.has(index - 1) ? index - 1 : index;
+      markSolved(index, config.words[index]);
+      markClueUsed(edgeHint);
+      setTimeout(startFreePlay, 0);
+      return;
+    }
+    if (phase !== 'answer-first' && phase !== 'answer-second') return;
+    var expected = phase === 'answer-first' ? first : second;
+    if (index !== expected.word_index) return;
+    if (String(value || '').trim().toUpperCase() !== expected.answer) {
+      tutorial.feedback('Не совсем. Попробуй ещё раз.');
+      return;
+    }
+    markSolved(index, expected.answer);
+    markClueUsed(expected.hint_index);
+    tutorial.feedback('Верно!');
+    if (phase === 'answer-first') {
+      phase = 'lower-explain';
+      setLocked(true);
+      setTimeout(function () { tutorial.setStep(6); }, 250);
+    } else {
+      phase = 'finished';
+      setLocked(true);
+      setTimeout(function () { tutorial.finish(); }, 250);
+    }
   }
-  var tutorial = global.InterovesTutorial.create({
-    root: root, game: 'ladder', version: root.dataset.tutorialVersion, steps: steps,
-    target: function (index) {
-      if (index === 0) return root.querySelector('[data-tutorial-target="ladder-board"]');
-      if (index === 1) return [slot(0), slot(1), slot(2), clue(0), clue(1)];
-      if (index === 2) return slot(3);
-      if (index === 4) return root.querySelector('[data-tutorial-answer-input="3"]') || slot(3);
-      if (index === 3) return root.querySelector('[data-tutorial-target="clues-unused"]');
-      if (index === 6) return selected !== null ? (root.querySelector('[data-tutorial-answer-input="4"]') || slot(4)) : root.querySelector('[data-tutorial-target="clues-unused"]');
-      if (index === 5) return [7, 8, 9, 10].map(slot).concat(root.querySelector('[data-tutorial-target="clues-used"]'));
-      return null;
+
+  var tutorial = global.InterovesTutorial.createShell(root, {
+    steps: [
+      {kind: 'info', title: 'Это Лесенка', text: 'Нужно восстановить цепочку слов от верхнего слова до нижнего.\nЧасть цепочки уже решена.', targets: ['[data-tutorial-target="word-list"]']},
+      {kind: 'info', title: 'Соседние слова', text: 'Соседние слова связаны подсказками.\nВот первая связь уже решена: «' + config.words[0] + '» → «' + config.words[1] + '».', targets: [function () { return row(0); }, function () { return row(1); }, function () { return clue(0); }]},
+      {kind: 'info', title: 'Длина слова', text: 'Число в скобках показывает длину слова.\nЗдесь нужно слово из ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }]},
+      {kind: 'info', title: 'Подсказки не по порядку', text: 'Подсказки расположены не по порядку.\nНужно понять, какая из них продолжает цепочку от «' + config.words[1] + '».', nextLabel: 'Попробовать', targets: ['[data-tutorial-target="clues-unused"]']},
+      {kind: 'action', title: 'Выбери подсказку', text: 'Найди подсказку, которая продолжает цепочку.', targets: ['[data-tutorial-target="clues-unused"]']},
+      {kind: 'action', title: 'Введи слово', text: 'Отлично. Теперь введи следующее слово.\nВ нём ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }]},
+      {kind: 'info', title: 'Можно идти с двух сторон', text: 'Не обязательно идти только сверху вниз.\nЛесенку можно продолжать и от нижних слов — навстречу верхней части.', targets: [function () { return row(lowerPair.word_indices[0]); }, function () { return row(lowerPair.word_indices[1]); }, '[data-tutorial-target="clues-used"]']},
+      {kind: 'info', title: 'Та же связь', text: 'Здесь работает то же правило: подсказка связывает два соседних слова.\n«' + config.words[lowerPair.word_indices[0]] + '» ↔ «' + config.words[lowerPair.word_indices[1]] + '»', nextLabel: 'Теперь сам', targets: [function () { return row(lowerPair.word_indices[0]); }, function () { return row(lowerPair.word_indices[1]); }, function () { return clue(lowerPair.hint_index); }]},
+      {kind: 'action', title: 'Попробуй сам', text: 'Теперь выбери подходящую подсказку и введи следующее слово.', targets: ['[data-tutorial-target="clues-unused"]']},
+    ],
+    onFinish: function () {
+      root.classList.add('tutorial-complete');
+      setInputsLocked(null);
+      setLocked(true);
     },
-    canAdvance: function (index) { return steps[index].next; },
-    canGoBack: function (index) { return index < 5; },
-    restart: function () { global.location.reload(); },
-    render: function (index) { if (index === 4) activateSlot(3); if (index === 6 && selected === null && !solved[4]) showFeedback(''); }
+    onStep: function (stepIndex) {
+      if (stepIndex === 4) phase = 'choose-first';
+      if (stepIndex === 8) phase = 'choose-second';
+      if (stepIndex === 3 || stepIndex === 6 || stepIndex === 7) {
+        setLocked(true);
+        setInputsLocked(null);
+      }
+    },
+    onClose: function (eventName) {
+      if (eventName) { setLocked(true); setInputsLocked(null); }
+      else { startFreePlay(); }
+    },
   });
-  root.querySelectorAll('[data-tutorial-clue]').forEach(function (el) { el.addEventListener('click', function () { choose(Number(el.dataset.tutorialClue)); }); });
-  root.addEventListener('submit', function (e) { e.preventDefault(); });
-  root.querySelector('[data-tutorial-start]').addEventListener('click', function () { showFeedback(''); });
-})(window);
+
+  root.querySelectorAll('[data-tutorial-clue]').forEach(function (node) {
+    node.addEventListener('click', function (event) {
+      if (event.target.closest('[data-tutorial-close]')) return;
+      selectHint(Number(node.dataset.tutorialClue));
+    });
+  });
+  root.addEventListener('submit', function (event) {
+    var form = event.target.closest('[data-tutorial-form]');
+    if (!form) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    var field = input(Number(form.dataset.tutorialForm));
+    submit(Number(form.dataset.tutorialForm), field && field.value);
+  }, true);
+  root.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter') return;
+    var field = event.target.closest('[data-tutorial-answer-input]');
+    if (!field) return;
+    event.preventDefault();
+    submit(Number(field.dataset.tutorialAnswerInput), field.value);
+  }, true);
+  root.addEventListener('click', function (event) {
+    if (event.target.closest('[data-tutorial-clue]')) return;
+    if (root.dataset.tutorialLocked === '1' && event.target.closest('button[type="submit"]')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }
+  }, true);
+  setLocked(true);
+  setInputsLocked(null);
+}(window));

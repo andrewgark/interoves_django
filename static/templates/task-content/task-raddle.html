@@ -10,7 +10,7 @@
   <div class="new-raddle-task__intro">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
   {% endif %}
   <div class="new-raddle-layout">
-    <div class="new-raddle-ladder"{% if tutorial_mode %} data-tutorial-target="lower-chain"{% endif %}>
+    <div class="new-raddle-ladder"{% if tutorial_mode %} data-tutorial-target="word-list"{% endif %}>
       <p class="new-raddle-ladder__title">
         От <strong>{{ rd.ui.title_from }}</strong> до <strong>{{ rd.ui.title_to }}</strong>
       </p>
@@ -29,9 +29,9 @@
                 {% elif row.revealed_answer %}
                   <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" value="{{ row.revealed_answer }}" placeholder="{{ row.mask_placeholder }}"{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}><span class="new-raddle-mask" aria-hidden="true">{% for token in row.mask_tokens %}<span class="{% if token == '◼' %}new-raddle-mask__slot{% else %}new-raddle-mask__literal{% endif %}">{{ token }}</span>{% endfor %}</span></span>
                 {% elif row.is_playable %}
-                  <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}{% if row.draft_letters %} data-raddle-server-draft="{{ row.draft_letters|escape }}"{% endif %}><span class="new-raddle-mask" aria-hidden="true">{% for token in row.mask_tokens %}<span class="{% if token == '◼' %}new-raddle-mask__slot{% else %}new-raddle-mask__literal{% endif %}">{{ token }}</span>{% endfor %}</span></span>
+                  <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if tutorial_mode %} data-tutorial-target="answer-input" data-tutorial-answer-input="{{ row.index }}"{% endif %}{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}{% if row.draft_letters %} data-raddle-server-draft="{{ row.draft_letters|escape }}"{% endif %}><span class="new-raddle-mask" aria-hidden="true">{% for token in row.mask_tokens %}<span class="{% if token == '◼' %}new-raddle-mask__slot{% else %}new-raddle-mask__literal{% endif %}">{{ token }}</span>{% endfor %}</span></span>
                 {% elif row.is_draftable %}
-                  <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><input type="text" name="word" class="new-raddle-input new-replacements-input" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }} (черновик)" placeholder="{{ row.mask_placeholder }}" data-raddle-draft="1" data-word-index="{{ row.index }}"{% if row.draft_letters %} data-raddle-server-draft="{{ row.draft_letters|escape }}"{% endif %}><span class="new-raddle-mask" aria-hidden="true">{% for token in row.mask_tokens %}<span class="{% if token == '◼' %}new-raddle-mask__slot{% else %}new-raddle-mask__literal{% endif %}">{{ token }}</span>{% endfor %}</span></span>
+                  <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><input type="text" name="word" class="new-raddle-input new-replacements-input" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if tutorial_mode %} data-tutorial-target="answer-input" data-tutorial-answer-input="{{ row.index }}"{% endif %}{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }} (черновик)" placeholder="{{ row.mask_placeholder }}" data-raddle-draft="1" data-word-index="{{ row.index }}"{% if row.draft_letters %} data-raddle-server-draft="{{ row.draft_letters|escape }}"{% endif %}><span class="new-raddle-mask" aria-hidden="true">{% for token in row.mask_tokens %}<span class="{% if token == '◼' %}new-raddle-mask__slot{% else %}new-raddle-mask__literal{% endif %}">{{ token }}</span>{% endfor %}</span></span>
                 {% elif row.attempts_exhausted %}
                   <span class="new-raddle-line"><span class="new-raddle-line__mask">{{ row.mask_html }}</span></span>
                   <span class="new-login-hint new-raddle-line__no-guesses">Попытки закончились.</span>
@@ -73,7 +73,7 @@
                 <span class="new-raddle-checking-mark" aria-hidden="true" data-tooltip="Проверяем…"></span>
                 <span class="new-raddle-wrong-mark" aria-hidden="true" data-tooltip="Неверно"><i class="ph ph-x"></i></span>
                 {% endif %}
-                {% if row.can_clue_assist %}
+                {% if row.can_clue_assist and not tutorial_mode %}
                 <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
                   {% csrf_token %}
                   <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
@@ -85,7 +85,7 @@
                   <input type="hidden" name="__ui_hint_points_word" value="{{ row.assist_next_penalty|ru_points_word }}">
                   <button type="submit" class="new-raddle-assist-btn" data-tooltip="Показать подсказку к этому слову" aria-label="Показать подсказку" tabindex="-1"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
                 </form>
-                {% elif row.can_answer_assist %}
+                {% elif row.can_answer_assist and not tutorial_mode %}
                 <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
                   {% csrf_token %}
                   <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">

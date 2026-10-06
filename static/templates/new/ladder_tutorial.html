@@ -3,37 +3,43 @@
 {% block title %}Мини-туториал · Лесенка{% endblock %}
 {% block body_attrs %}data-disable-track="1" data-tutorial-page="ladder"{% endblock %}
 {% block content %}
-<main class="new-ui new-ui--section ladder-tutorial" data-ladder-tutorial data-tutorial-version="{{ tutorial.version }}">
-  <p class="new-tg-back"><a href="{% url 'new_ladder_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К лесенкам</a></p>
-  <div class="new-section-header">
-    <div class="new-section-header__meta">
-      <div class="new-section-header__title">Мини-туториал: Лесенка</div>
-      <p class="new-game-lead">Короткая практика на демо-лесенке. Результат не сохраняется в игре.</p>
-    </div>
-  </div>
+<div class="new-ui new-ui--section ladder-tutorial" data-ladder-tutorial
+     data-tutorial-version="{{ tutorial.version }}" data-tutorial-locked="1">
+  <p class="new-tg-back"><a href="{% url 'new_ladder_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К списку</a></p>
+  {% with heading='Лесенка №17' section_tagline='Разгадайте цепочку слов по перемешанным подсказкам, связывающим соседние слова' custom_daily_task=True hide_daily_navigation=True %}
+    {% include "new/partials/daily_game_header.html" %}
+  {% endwith %}
 
-  <div class="new-taskgrid ladder-tutorial__board">
-    <div class="new-taskcard" id="new-task-ladder-tutorial-demo">
-      {% with task=tutorial_task ai=tutorial_ai task_ui=tutorial_task_ui rd=tutorial_raddle mode='daily' %}
-        {% include "new/task-content/task-meta-bar.html" %}
-      {% endwith %}
-      <div class="new-taskcard__body">
-        <div class="new-taskcard__text">
-          {% with task=tutorial_task rd=tutorial_raddle tutorial_mode=True %}
-            {% include "task-content/task-raddle.html" %}
+  <div class="new-taskgrid new-daily-solve ladder-tutorial__board">
+    <div class="new-daily-solve__stage">
+      <div data-daily-solve-board>
+        <div class="new-taskcard" id="new-task-ladder-tutorial-demo">
+          {% with task=tutorial_task ai=tutorial_ai task_ui=tutorial_task_ui rd=tutorial_raddle mode='daily' %}
+            {% include "new/task-content/task-meta-bar.html" %}
           {% endwith %}
+          <div class="new-taskcard__body">
+            <div class="new-taskcard__text">
+              {% with task=tutorial_task rd=tutorial_raddle tutorial_mode=True %}
+                {% include "task-content/task-raddle.html" %}
+              {% endwith %}
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="new-rules-modal tutorial-shell" data-tutorial-shell hidden>
+  <div class="new-rules-modal tutorial-shell" data-tutorial-shell role="dialog"
+       aria-modal="true" aria-labelledby="tutorial-title" hidden>
     <div class="new-rules-overlay tutorial-shell__backdrop" data-tutorial-close></div>
     <div class="tutorial-shell__spotlights" data-tutorial-spotlights aria-hidden="true"></div>
-    <section class="new-rules-modal__box pal-card tutorial-shell__callout" role="dialog" aria-modal="true" aria-labelledby="tutorial-title">
+    <section class="new-rules-modal__box pal-card tutorial-shell__callout">
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-tutorial-close><i class="ph ph-x" aria-hidden="true"></i></button>
-      <div class="tutorial-shell__top"><span data-tutorial-progress>1 / 7</span><button type="button" class="new-btn new-btn--text new-btn--mini" data-tutorial-skip>Пропустить</button></div>
-      <h2 id="tutorial-title" class="pal-title" data-tutorial-title>Лесенка</h2>
+      <div class="tutorial-shell__top">
+        <span data-tutorial-progress>1 / 9</span>
+        <button type="button" class="new-btn new-btn--text new-btn--mini" data-tutorial-skip>Пропустить</button>
+      </div>
+      <h2 id="tutorial-title" class="pal-title" data-tutorial-title>Это Лесенка</h2>
       <p class="tutorial-shell__text" data-tutorial-text></p>
       <p class="tutorial-shell__feedback" data-tutorial-feedback-global role="status" aria-live="polite"></p>
       <div class="new-rules-modal__actions">
@@ -41,14 +47,12 @@
         <button type="button" class="new-btn" data-tutorial-next>Дальше</button>
       </div>
       <div class="tutorial-shell__finish" hidden>
-        <a class="new-btn" href="{% url 'new_ladder_today' %}">Играть Лесенку</a>
-        <button type="button" class="new-btn new-btn--ghost" data-tutorial-restart>Пройти ещё раз</button>
+        <button type="button" class="new-btn" data-tutorial-continue>Продолжить Лесенку</button>
       </div>
     </section>
   </div>
-
-  <button type="button" class="new-btn new-btn--ghost ladder-tutorial__start" data-tutorial-start>Начать туториал</button>
-</main>
-<script src="{% static 'js/tutorial_shell.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
-<script src="{% static 'js/ladder_tutorial.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+</div>
+{{ tutorial|json_script:"ladder-tutorial-data" }}
+<script src="{% static 'js/tutorial_shell.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}-spotlight-v3"></script>
+<script src="{% static 'js/ladder_tutorial.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}-spotlight-v3"></script>
 {% endblock %}
