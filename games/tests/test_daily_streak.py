@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from games.daily_streak import daily_streaks_for_actor, daily_streaks_for_user, streak_from_completion_dates
-from games.models import Game, GameTaskGroup, PlayerCompletedGame, Project, TaskGroup
+from games.models import Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, TaskGroup
 
 
 MOSCOW = ZoneInfo('Europe/Moscow')
@@ -16,6 +16,7 @@ class DailyStreakLogicTests(TestCase):
     def setUpTestData(cls):
         cls.project, _ = Project.objects.get_or_create(id='sections')
         cls.user = User.objects.create_user('streak-user')
+        cls.profile = Profile.objects.create(user=cls.user)
         cls.now = datetime(2026, 9, 11, 9, 0, tzinfo=MOSCOW)
         cls.games = {}
         cls.links = {}
@@ -79,6 +80,18 @@ class DailyStreakLogicTests(TestCase):
     def test_today_only_is_one(self):
         self.completion('ladder', 11, self.now)
         self.assertEqual(self.streak('ladder')['ladder'], 1)
+
+    def test_daily_task_author_gets_published_days_without_completion_row(self):
+        for day in range(7, 12):
+            self.links['ladder'][day].task_group.authors.add(self.profile)
+
+        self.assertEqual(self.streak('ladder')['ladder'], 5)
+        self.assertFalse(
+            PlayerCompletedGame.objects.filter(
+                user=self.user,
+                game=self.games['ladder'],
+            ).exists()
+        )
 
     def test_last_five_days_completed_on_time(self):
         for day in range(7, 12):

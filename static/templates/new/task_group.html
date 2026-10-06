@@ -28,6 +28,13 @@
 
 {% if is_daily_single_task %}
 {% include "new/partials/daily_game_header.html" %}
+{% if author_auto_completed %}
+<div class="new-author-completion-note" role="status">
+  <div class="new-author-completion-note__title"><i class="ph ph-check-circle" aria-hidden="true"></i> Вы автор этого задания</div>
+  <p>Задание автоматически засчитано вам за этот день и учитывается в серии. В статистике и таблице результатов авторы не участвуют.</p>
+  <p class="new-author-completion-note__hint">Его можно решить для себя — это не изменит ваш авторский зачёт.</p>
+</div>
+{% endif %}
 {% else %}
 {% include "new/partials/page_heading.html" %}
 <div class="new-task-group-meta-row">

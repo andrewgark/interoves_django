@@ -3587,7 +3587,7 @@ def new_task_group_page(request, game_id, task_group_number):
     if draft_offer is None:
         pub_at = publish_at_for(game, placement.number)
         if pub_at is not None:
-            daily_publish_date = pub_at.date()
+            daily_publish_date = pub_at.astimezone(MOSCOW).date()
     elif draft_offer.accepted_link_id:
         try:
             prod_n = int(draft_offer.accepted_link.number)
@@ -3596,7 +3596,15 @@ def new_task_group_page(request, game_id, task_group_number):
         if prod_n is not None:
             pub_at = publish_at_for(game, prod_n)
             if pub_at is not None:
-                daily_publish_date = pub_at.date()
+                daily_publish_date = pub_at.astimezone(MOSCOW).date()
+    author_auto_completed = bool(
+        is_daily_single_task
+        and isinstance(placement, GameTaskGroup)
+        and request.user.is_authenticated
+        and task_group.authors.filter(user_id=request.user.pk).exists()
+        and daily_publish_date is not None
+        and daily_publish_date <= timezone.now().astimezone(MOSCOW).date()
+    )
     if draft_offer is not None:
         if draft_offer.accepted_link_id and str(getattr(draft_offer.accepted_link, 'number', '')).isdigit():
             page_title = '{} №{}'.format(
@@ -3704,6 +3712,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'replay_active': replay_slot is not None,
         'replay_completed': bool(replay_slot and replay_slot.status == 'completed'),
         'official_completed': official_completed,
+        'author_auto_completed': author_auto_completed,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'anon_key': anon_key,
@@ -3794,7 +3803,9 @@ def new_task_group_page(request, game_id, task_group_number):
                 )
             ),
             replay_slot=replay_slot,
-            official_completed=official_completed,
+            # The author already has the official daily credit; do not start
+            # a solving timer merely because they opened their own release.
+            official_completed=official_completed or author_auto_completed,
         ),
     })
 

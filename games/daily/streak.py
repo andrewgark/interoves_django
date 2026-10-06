@@ -46,7 +46,8 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
     games_by_id = {str(game.id): game for game in games}
     links = list(
         GameTaskGroup.objects.filter(game_id__in=game_ids)
-        .only('game_id', 'task_group_id', 'number')
+        .prefetch_related('task_group__authors')
+        .only('game_id', 'task_group_id', 'number', 'task_group')
     )
     link_dates = {}
     for link in links:
@@ -78,6 +79,18 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
         completed_date = completion.completed_at.astimezone(MOSCOW).date()
         if completed_date == published_date and published_date <= today:
             completed_dates[game_id].add(published_date)
+
+    # Daily releases are calendar-backed rather than materialized publication
+    # events.  An author therefore receives the equivalent of a completion
+    # without creating an Attempt/PlayerCompletedGame row (which could leak
+    # into timing, analytics, or result projections).
+    if user is not None:
+        for link in links:
+            published_date = link_dates.get((str(link.game_id), link.task_group_id))
+            if published_date is None or published_date > today:
+                continue
+            if any(author.user_id == user.pk for author in link.task_group.authors.all()):
+                completed_dates[str(link.game_id)].add(published_date)
 
     for game_id, dates in completed_dates.items():
         result[game_id] = streak_from_completion_dates(dates, today=today)

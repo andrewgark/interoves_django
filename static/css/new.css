@@ -3182,6 +3182,29 @@ html.new-ui-dark .new-team-switcher-active-box {
   margin: 0.85rem 0;
 }
 
+.new-author-completion-note {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--success-soft-border);
+  border-radius: 8px;
+  background: var(--success-soft-bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.new-author-completion-note__title {
+  font-weight: 700;
+}
+
+.new-author-completion-note p {
+  margin: 0.35rem 0 0;
+}
+
+.new-author-completion-note__hint {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .new-login-hint--flush-top {
   margin-top: 0;
 }
