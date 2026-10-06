@@ -380,11 +380,11 @@ def render_ladder_teaser_png(
     task,
     *,
     ladder_number: int | str | None = None,
-    fallback_to_pillow: bool = True,
+    fallback_to_pillow: bool = False,
 ) -> bytes:
     """
     Prefer a real screenshot of SITE_BASE_URL/ladder/last/;
-    fall back to the Pillow schematic if Chromium/Playwright is missing.
+    only use the Pillow schematic when explicitly requested.
     """
     prefer_screenshot = getattr(settings, 'TELEGRAM_LADDER_SCREENSHOT', True)
     if prefer_screenshot:

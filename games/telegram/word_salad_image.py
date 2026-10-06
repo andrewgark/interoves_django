@@ -124,9 +124,9 @@ def render_word_salad_teaser_png(
     *,
     salad_number: int | str | None = None,
     url: str | None = None,
-    fallback_to_pillow: bool = True,
+    fallback_to_pillow: bool = False,
 ) -> bytes:
-    """Prefer a real screenshot of SITE_BASE_URL/salad/last/."""
+    """Prefer a real screenshot; only use the Pillow schematic when requested."""
     prefer_screenshot = getattr(settings, 'TELEGRAM_LADDER_SCREENSHOT', True)
     if prefer_screenshot:
         try:
