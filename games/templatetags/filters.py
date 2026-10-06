@@ -388,7 +388,7 @@ def attempts_with_status(attempts):
 
 @register.filter
 def get_diff_points(attempt):
-    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions', 'grid-puzzle'):
+    if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions', 'grid-puzzle', 'html_forms'):
         return 0
     elif attempt.task.task_type == 'wall':
         return json.loads(attempt.state)['last_attempt']['points']
