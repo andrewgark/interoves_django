@@ -12,8 +12,8 @@
         <input type="hidden" name="gameplay_context" value="{{ gameplay_context_token }}">
         <input type="hidden" name="form_key" value="{{ form_item.key }}">
         <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-        <input type="text" name="text" placeholder="{{ form_item.placeholder }}" size="20" autocomplete="off" style="width:20ch;max-width:100%;">
-        <button type="submit" class="new-btn new-btn--mini" style="min-width:2rem;padding:.25rem .45rem;" aria-label="Проверить форму {{ form_item.index }}">✓</button>
+        <input type="text" name="text" aria-label="Ответ {{ form_item.label }}" placeholder="{{ form_item.placeholder }}" size="{{ form_item.placeholder|length }}" autocomplete="off" style="max-width:100%;">
+        <button type="submit" class="new-replacements-check-btn" data-tooltip="Проверить" aria-label="Проверить форму {{ form_item.index }}"><i class="ph ph-check" aria-hidden="true"></i></button>
         <span class="new-attempt-msg" aria-live="polite" style="display:inline-block;min-width:4.5rem;"></span>
       </form>
     {% endif %}
@@ -29,8 +29,8 @@
         <input type="hidden" name="gameplay_context" value="{{ gameplay_context_token }}">
         <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
         <input type="hidden" name="form_key" value="{{ form_item.key }}">
-        <input type="text" name="text" placeholder="{{ form_item.placeholder }}" size="20" autocomplete="off" style="width:20ch;max-width:100%;">
-        <button type="submit" class="btn btn-custom btn-custom-lg" style="padding:2px 7px;line-height:1.2;" aria-label="Проверить форму {{ form_item.index }}">✓</button>
+        <input type="text" name="text" aria-label="Ответ {{ form_item.label }}" placeholder="{{ form_item.placeholder }}" size="{{ form_item.placeholder|length }}" autocomplete="off" style="max-width:100%;">
+        <button type="submit" class="new-replacements-check-btn" data-tooltip="Проверить" aria-label="Проверить форму {{ form_item.index }}"><i class="fa fa-check" aria-hidden="true"></i></button>
       </form>
     {% endif %}
   </span>

@@ -6,6 +6,13 @@ from django.utils import timezone
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 
 
+GREEN_FORM_MASKS = {
+    'G1': '______а_', 'G2': '_______', 'G3': '____', 'G4': '_____',
+    'G5': '____', 'G6': '___', 'G7': '__ф_______', 'G8': '___',
+    'G9': '_______', 'G10': '________', 'G11': '__________', 'G12': '______р',
+}
+
+
 class Command(BaseCommand):
     help = 'Create a local demo game for the html_forms task type.'
 
@@ -42,13 +49,13 @@ class Command(BaseCommand):
             label='html_forms_demo_group',
             defaults={
                 'points': 1,
-                'max_attempts': 3,
+                'max_attempts': 25,
             },
         )
         GameTaskGroup.objects.update_or_create(
             game=game,
             task_group=group,
-            defaults={'number': '1', 'name': 'Одна HTML-задача, три формы'},
+            defaults={'number': '1', 'name': 'Одна HTML-задача, 12 форм'},
         )
         task, _ = Task.objects.update_or_create(
             task_group=group,
@@ -60,24 +67,31 @@ class Command(BaseCommand):
                 'max_attempts': 25,
                 'field_text_width': 20,
                 'text': (
-                    '<p>Это одно задание с произвольным HTML. Ответы можно сдавать '
-                    'в любом порядке; каждая форма дает 2 балла.</p>'
-                    '<table class="table table-bordered" style="max-width:720px">'
-                    '<thead><tr><th>#</th><th>Вопрос</th><th>Ответ</th></tr></thead>'
-                    '<tbody>'
-                    '<tr><td>1</td><td>Латинская первая буква</td><td>{{ html_form:alpha }}</td></tr>'
-                    '<tr><td>2</td><td>Можно писать с пробелами и пунктуацией</td><td>{{ html_form:beta }}</td></tr>'
-                    '<tr><td>3</td><td>У этой формы есть две принимаемые версии</td><td>{{ html_form:gamma }}</td></tr>'
-                    '</tbody></table>'
+                    '<p>Заполняй зелёные узлы в любом порядке. За каждый правильный '
+                    'ответ начисляется 2 балла; жёлтые узлы — связи графа.</p>'
+                    '<link rel="stylesheet" href="/static/css/html_forms_graph_demo.css?v=layout-v14">'
+                    '<div class="html-forms-graph-demo" data-html-forms-graph-demo '
+                    'role="group" aria-label="Граф из зелёных и жёлтых узлов">'
+                    + ''.join(
+                        '<template data-graph-form="G{0}">{{{{ html_form:G{0} }}}}</template>'.format(i)
+                        for i in range(1, 13)
+                    )
+                    + '</div><script src="/static/js/html_forms_graph_demo.js?v=layout-v10" defer></script>'
                 ),
+                # Temporary local-only keys let the author exercise each embedded
+                # form before the actual puzzle answer key has been provided.
                 'checker_data': json.dumps({
                     'forms': [
-                        {'key': 'alpha', 'label': 'A', 'answer': 'alpha', 'placeholder': 'alpha'},
-                        {'key': 'beta', 'label': 'B', 'answer': 'new york', 'placeholder': 'new york'},
-                        {'key': 'gamma', 'label': 'C', 'answers': ['gamma', 'гамма'], 'placeholder': 'gamma / гамма'},
+                        {
+                            'key': key,
+                            'label': key,
+                            'answer': 'DEMO-' + key,
+                            'placeholder': mask.replace('_', '▪'),
+                        }
+                        for key, mask in GREEN_FORM_MASKS.items()
                     ],
                 }, ensure_ascii=False),
-                'answer': 'alpha; new york; gamma',
+                'answer': '',
             },
         )
         self.stdout.write(self.style.SUCCESS(
