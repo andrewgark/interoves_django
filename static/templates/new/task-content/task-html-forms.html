@@ -1,0 +1,11 @@
+{% load filters %}
+{% with hfd=html_forms_data|get_item:task.id %}
+  {% if task.image %}
+    <div class="new-taskcard__img">
+      <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
+    </div>
+  {% endif %}
+  <div class="new-html-forms-task">
+    {% autoescape off %}{{ hfd.html }}{% endautoescape %}
+  </div>
+{% endwith %}

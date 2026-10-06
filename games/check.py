@@ -33,6 +33,12 @@ from games.grid_puzzle import (
     parse_grid_shading_attempt,
     validate_grid_checker_data,
 )
+from games.html_forms import (
+    html_forms_answer_matches,
+    html_forms_solved_keys_from_state,
+    html_forms_state_payload,
+    parse_html_forms_data,
+)
 
 
 class CheckResult:
@@ -651,6 +657,66 @@ class ReplacementsLinesChecker(BaseChecker):
         )
 
 
+class HtmlFormsChecker(BaseChecker):
+    """Checks one embedded form: attempt.text = JSON {"form_key": str, "text": str}."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self.forms = parse_html_forms_data(data)
+        self.forms_by_key = {form['key']: form for form in self.forms}
+        self.solved_keys = html_forms_solved_keys_from_state(last_attempt_state)
+
+    def check(self, text, attempt):
+        if not self.forms:
+            return CheckResult('Wrong', 'Pending', 0, comment='Нет данных для проверки')
+        try:
+            payload = json.loads(text)
+        except (TypeError, ValueError):
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
+        form_key = str(payload.get('form_key') or '').strip()
+        user_answer = str(payload.get('text') or '').strip()
+        form = self.forms_by_key.get(form_key)
+        if form is None:
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверная форма ответа')
+        if not user_answer:
+            preserved = html_forms_state_payload(self.solved_keys, self.forms)
+            status = 'Ok' if preserved['total'] >= preserved['n_forms'] else ('Partial' if preserved['total'] else 'Wrong')
+            return CheckResult(
+                status,
+                status if status == 'Ok' else 'Pending',
+                preserved['total'],
+                state=json.dumps(preserved, ensure_ascii=False),
+                comment='Пустой ответ',
+            )
+        added = False
+        wrong_unsolved = False
+        if form_key not in self.solved_keys:
+            if html_forms_answer_matches(user_answer, form['answers']):
+                self.solved_keys.add(form_key)
+                added = True
+            else:
+                wrong_unsolved = True
+        new_state = html_forms_state_payload(self.solved_keys, self.forms)
+        complete = new_state['total'] >= new_state['n_forms']
+        if complete:
+            status = 'Ok'
+            tournament_status = 'Ok'
+        elif wrong_unsolved:
+            status = 'Wrong'
+            tournament_status = 'Pending'
+        elif added or new_state['total']:
+            status = 'Partial'
+            tournament_status = 'Partial'
+        else:
+            status = 'Wrong'
+            tournament_status = 'Pending' if wrong_unsolved else 'Wrong'
+        return CheckResult(
+            status,
+            tournament_status,
+            new_state['total'],
+            state=json.dumps(new_state, ensure_ascii=False),
+        )
+
+
 class RaddleChecker(BaseChecker):
     """Проверяет одно слово лестницы: attempt.text = JSON {"word_index": int, "word": str}."""
 
@@ -1008,6 +1074,7 @@ class CheckerFactory:
             'antiwordle': AntiwordleChecker,
             'several_answers': SeveralAnswersChecker,
             'replacements_lines': ReplacementsLinesChecker,
+            'html_forms': HtmlFormsChecker,
             'raddle': RaddleChecker,
             'alphabetty': AlphabettyChecker,
             'word_salad': WordSaladChecker,

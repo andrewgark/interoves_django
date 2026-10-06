@@ -4,7 +4,7 @@ import json
 
 
 def task_ui_descriptor(
-    task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=None,
+    task, *, rld=None, html_forms=None, rd=None, wall_meta=None, ws=None, gp=None,
     board_context_key=None, body_template_override=None,
     body_wrapper_override=None, show_attempts_override=None,
     show_answer_override=None,
@@ -12,6 +12,7 @@ def task_ui_descriptor(
     body_templates = {
         'wall': 'task-content/task-wall.html',
         'replacements_lines': 'task-content/task-replacements-lines.html',
+        'html_forms': 'new/task-content/task-html-forms.html',
         'raddle': 'task-content/task-raddle.html',
         'word_salad': 'task-content/task-word-salad.html',
         'grid-puzzle': 'new/task-content/task-grid-puzzle.html',
@@ -37,6 +38,8 @@ def task_ui_descriptor(
         body_error = 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.'
     if rld:
         base_max = rld['max_points_total']
+    elif html_forms:
+        base_max = html_forms['max_points_total']
     elif rd:
         base_max = rd['max_points_total']
     elif wall_meta:
@@ -46,7 +49,7 @@ def task_ui_descriptor(
     else:
         base_max = task.get_points()
     attempts_hidden = {'replacements_lines', 'alphabetty', 'word_salad'}
-    answer_hidden = {'replacements_lines', 'raddle', 'alphabetty', 'word_salad'}
+    answer_hidden = {'replacements_lines', 'html_forms', 'raddle', 'alphabetty', 'word_salad'}
     body_wrapper = task.task_type in {'wall', 'replacements_lines', 'raddle', 'word_salad'}
     if body_wrapper_override is not None:
         body_wrapper = body_wrapper_override

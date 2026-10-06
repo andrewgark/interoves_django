@@ -311,6 +311,9 @@ def is_task_completion_state(task, state_raw):
         return _state_complete_raddle(task, state_raw)
     if task.task_type == 'replacements_lines':
         return _state_complete_replacements(task, state_raw)
+    if task.task_type == 'html_forms':
+        from games.html_forms import html_forms_is_complete
+        return html_forms_is_complete(task, state_raw)
     if task.task_type == 'alphabetty':
         return _state_complete_alphabetty(state_raw)
     if task.task_type == 'censorly':
@@ -327,7 +330,7 @@ def is_task_group_complete(*, task_group, game, team=None, user=None, anon_key=N
     if not tasks:
         return False
 
-    chain_types = {'raddle', 'replacements_lines', 'alphabetty', 'censorly', 'word_salad'}
+    chain_types = {'raddle', 'replacements_lines', 'html_forms', 'alphabetty', 'censorly', 'word_salad'}
     chain_mode = 'tournament' if mode == 'tournament' else 'general'
     actor = _actor_kwargs(team=team, user=user, anon_key=anon_key)
     chain_tasks = [task for task in tasks if task.task_type in chain_types]

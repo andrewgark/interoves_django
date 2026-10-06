@@ -8,6 +8,7 @@ from games.views.util import has_profile
 from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
 from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import issue_gameplay_context
+from games.html_forms import render_html_forms_task
 
 
 def _task_card_public_identity(game, task_group, slot):
@@ -108,6 +109,15 @@ def get_task_text_with_forms_to_html(request, task, team, mode, game=None):
     return get_text_with_forms_to_html(request, task.text, normal_tasks, team, mode, game=game)
 
 
+def get_task_html_forms_to_html(request, task, attempts_info, gameplay_context_token, game=None):
+    assert "html_forms" == task.task_type
+    if game is None:
+        game = GameTaskGroup.resolve_game_for_task(task)
+    return render_html_forms_task(
+        request, task, attempts_info, gameplay_context_token, game=game,
+    )
+
+
 def get_task_group_title_text_with_forms_to_html(request, game, task_group, team, mode):
     assert "text_with_forms_in_name" in task_group.tags
     link = get_object_or_404(GameTaskGroup, game=game, task_group=task_group)
@@ -164,6 +174,28 @@ def render_task(task, request, team, current_mode, game=None, replay_slot=None):
         task_text_with_forms_to_html = {
             task.id: get_task_text_with_forms_to_html(request, task, team, current_mode, game=game),
         }
+    gameplay_context_tokens = {
+        task.id: issue_gameplay_context(
+            task=task,
+            game=game,
+            team=team,
+            user=request.user if request.user.is_authenticated else None,
+            anon_key=gameplay_anon_key(request) if not request.user.is_authenticated else None,
+            replay_slot=replay_slot,
+        ),
+    } if game is not None else {}
+    attempts_info = Attempt.manager.get_attempts_info(
+        team=team, task=task, mode=current_mode, game=game,
+    ) if game else Attempt.manager.get_attempts_info(team=team, task=task, mode=current_mode)
+    task_html_forms_to_html = {}
+    if task.task_type == 'html_forms':
+        task_html_forms_to_html = {
+            task.id: get_task_html_forms_to_html(
+                request, task, attempts_info,
+                gameplay_context_tokens.get(task.id, ''),
+                game=game,
+            ),
+        }
     slot = None
     if game is not None:
         slot = GameTaskGroup.objects.filter(game=game, task_group=task.task_group).first()
@@ -173,24 +205,14 @@ def render_task(task, request, team, current_mode, game=None, replay_slot=None):
         'game': game,
         'tg_number': slot.number if slot else 0,
         'task_to_attempts_info': get_task_to_attempts_info(game, team, current_mode) if game else {},
-        'attempts_info': Attempt.manager.get_attempts_info(
-            team=team, task=task, mode=current_mode, game=game,
-        ) if game else Attempt.manager.get_attempts_info(team=team, task=task, mode=current_mode),
+        'attempts_info': attempts_info,
         'mode': current_mode,
         'team': team,
         'task_text_with_forms_to_html': task_text_with_forms_to_html,
+        'task_html_forms_to_html': task_html_forms_to_html,
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
-        'gameplay_context_tokens': {
-            task.id: issue_gameplay_context(
-                task=task,
-                game=game,
-                team=team,
-                user=request.user if request.user.is_authenticated else None,
-                anon_key=gameplay_anon_key(request) if not request.user.is_authenticated else None,
-                replay_slot=replay_slot,
-            ),
-        } if game is not None else {},
+        'gameplay_context_tokens': gameplay_context_tokens,
     }).content.decode('UTF-8')
 
 

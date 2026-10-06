@@ -611,12 +611,14 @@
     }
     var attemptFeedbackTaskId = form && form.getAttribute('data-task-id');
     var submittedAttemptText = '';
+    var submittedAttemptFormKey = '';
     var isOrdinaryAttemptForm =
       form && form.classList && form.classList.contains('new-attempt-form') &&
       !isRaddleLineForm(form) &&
       !form.classList.contains('new-replacements-line-form');
     if (isOrdinaryAttemptForm) {
       submittedAttemptText = ordinaryAttemptTextValue(form);
+      submittedAttemptFormKey = ordinaryAttemptFormKey(form);
       clearOrdinaryWrongFeedback(attemptFeedbackTaskId);
     }
     if (form && form.dataset) form.dataset.submitting = '1';
@@ -708,7 +710,8 @@
               rememberOrdinaryWrongFeedback(
                 data.task_id || attemptFeedbackTaskId,
                 submittedAttemptText,
-                data.attempt_status
+                data.attempt_status,
+                submittedAttemptFormKey
               );
             }
             try {
@@ -2330,6 +2333,14 @@
       var hidden = form.querySelector('input.new-proportions-text-input');
       if (hidden) hidden.value = left + ' / ' + right;
     }
+    if (form.getAttribute('data-html-forms-form') === '1') {
+      var htmlFormText = ordinaryAttemptTextValue(form).trim();
+      var htmlFormMsg = form.querySelector('.new-attempt-msg');
+      if (!htmlFormText) {
+        if (htmlFormMsg) htmlFormMsg.textContent = '';
+        return;
+      }
+    }
     postForm(form);
   }, true);
 
@@ -2596,6 +2607,11 @@
     var field = form.querySelector('[name="text"]');
     return field ? String(field.value || '') : '';
   }
+  function ordinaryAttemptFormKey(form) {
+    if (!form) return '';
+    var field = form.querySelector('[name="form_key"]');
+    return field ? String(field.value || '') : '';
+  }
   function clearOrdinaryWrongFeedback(taskId) {
     if (taskId === undefined || taskId === null || taskId === '') return;
     delete ordinaryWrongFeedbackByTask[String(taskId)];
@@ -2612,18 +2628,23 @@
       });
     });
   }
-  function rememberOrdinaryWrongFeedback(taskId, answer, status) {
+  function rememberOrdinaryWrongFeedback(taskId, answer, status, formKey) {
     if (taskId === undefined || taskId === null || taskId === '') return;
     ordinaryWrongFeedbackByTask[String(taskId)] = {
       answer: String(answer || ''),
       status: shouldShowOrdinaryAttemptFeedback(status) ? status : 'Wrong',
+      formKey: String(formKey || ''),
     };
   }
   function captureEditedOrdinaryAnswer(taskId) {
     if (taskId === undefined || taskId === null || taskId === '') return;
     var feedback = ordinaryWrongFeedbackByTask[String(taskId)];
     if (!feedback) return;
-    var form = document.querySelector('form.new-attempt-form[data-task-id="' + taskId + '"]');
+    var form = null;
+    document.querySelectorAll('form.new-attempt-form[data-task-id="' + taskId + '"]').forEach(function (candidate) {
+      if (form || isRaddleLineForm(candidate) || candidate.classList.contains('new-replacements-line-form')) return;
+      if (!feedback.formKey || ordinaryAttemptFormKey(candidate) === feedback.formKey) form = candidate;
+    });
     if (!form || isRaddleLineForm(form) || form.classList.contains('new-replacements-line-form')) return;
     var field = form.querySelector('input[name="text"]:not([type="hidden"]), textarea[name="text"]');
     if (field) feedback.answer = String(field.value || '');
@@ -2634,6 +2655,7 @@
     if (!feedback) return;
     document.querySelectorAll('form.new-attempt-form[data-task-id="' + taskId + '"]').forEach(function (form) {
       if (isRaddleLineForm(form) || form.classList.contains('new-replacements-line-form')) return;
+      if (feedback.formKey && ordinaryAttemptFormKey(form) !== feedback.formKey) return;
       var field = form.querySelector('[name="text"]');
       if (field && String(field.type || '').toLowerCase() !== 'hidden') {
         field.value = feedback.answer;

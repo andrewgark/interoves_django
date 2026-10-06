@@ -256,6 +256,11 @@ def check_attempt(
                     max_attempts = task.get_max_attempts()
                     if n_attempts_this_line >= max_attempts:
                         raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {} for line {}'.format(team, max_attempts, task, current_line + 1))
+                elif task.task_type == 'html_forms':
+                    n_attempts = len(revision_attempts)
+                    max_attempts = task.get_max_attempts()
+                    if n_attempts >= max_attempts:
+                        raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
                 elif task.task_type == 'raddle':
                     try:
                         current_payload = json.loads(attempt.text)
@@ -303,6 +308,8 @@ def check_attempt(
         checker_type = task.get_checker()
         if task.task_type == 'replacements_lines':
             checker_type = CheckerType.objects.get(id='replacements_lines')
+        if task.task_type == 'html_forms':
+            checker_type = CheckerType.objects.get(id='html_forms')
         if task.task_type == 'raddle':
             checker_type = CheckerType.objects.get(id='raddle')
         if task.task_type == 'grid-puzzle':
@@ -571,6 +578,14 @@ def process_send_attempt(request, task_id):
         if not answers or all(str(a).strip() == '' for a in answers):
             return {'status': 'empty'}
         attempt = Attempt(text=json.dumps({'line_index': line_index, 'answers': answers}))
+    elif task.task_type == 'html_forms':
+        form_key = str(request.POST.get('form_key') or '').strip()
+        answer_text = (request.POST.get('text') or '').strip()
+        if not form_key:
+            return {'status': 'invalid_form'}
+        if not answer_text:
+            return {'status': 'empty'}
+        attempt = Attempt(text=json.dumps({'form_key': form_key, 'text': answer_text}, ensure_ascii=False))
     elif task.task_type == 'raddle':
         try:
             word_index = int(request.POST.get('word_index', 0))

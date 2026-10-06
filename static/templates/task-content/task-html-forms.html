@@ -1,0 +1,19 @@
+{% load filters %}
+<div class="max-points">
+  (Максимум баллов: {{ task.get_results_max_points|minimize_digits }})
+  {% include "task-content/likes.html" %}
+</div>
+
+{% if task.image %}<img class="task-image" src="{{ task.image.url }}" width="{{ task.get_image_width }}"><br>{% endif %}
+
+<div class="html-forms-task">
+  {% autoescape off %}{{ task_html_forms_to_html|get_item:task.id }}{% endautoescape %}
+</div>
+
+{% if task.get_hints %}
+  {% include "task-content/hints.html" %}
+{% endif %}
+
+{% if attempts_info %}
+  {% include "task-content/attempts.html" %}
+{% endif %}

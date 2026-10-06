@@ -9,6 +9,8 @@ from games.access import game_has_started
 from games.exception import NoGameAccessException
 from games.models import Game, Team, Attempt, ImageManager, AudioManager
 from games.views.render_task import get_task_to_attempts_info, get_all_text_with_forms_to_html
+from games.gameplay_context import issue_gameplay_context
+from games.html_forms import render_html_forms_task
 from games.views.team_views import get_team_to_play_page
 from games.views.util import has_profile, has_team
 from games.views.results_views import results_page
@@ -54,6 +56,25 @@ def game_page(request, game_id, task_group=None, task=None):
         )
 
     text_with_forms_to_html = get_all_text_with_forms_to_html(request, game, team, mode)
+    gameplay_context_tokens = {}
+    task_html_forms_to_html = {}
+    for tasks in task_group_to_tasks.values():
+        for item in tasks:
+            gameplay_context_tokens[item.id] = issue_gameplay_context(
+                task=item,
+                game=game,
+                team=team,
+                user=request.user if request.user.is_authenticated else None,
+                anon_key=None,
+            )
+            if item.task_type == 'html_forms':
+                task_html_forms_to_html[item.id] = render_html_forms_task(
+                    request,
+                    item,
+                    task_to_attempts_info.get(item.id),
+                    gameplay_context_tokens[item.id],
+                    game=game,
+                )
     return render(request, 'game.html', {
         'team': team,
         'game': game,
@@ -61,14 +82,16 @@ def game_page(request, game_id, task_group=None, task=None):
         'task_group_to_tasks': task_group_to_tasks,
         'task_to_attempts_info': task_to_attempts_info,
         'task_text_with_forms_to_html': text_with_forms_to_html["tasks"],
+        'task_html_forms_to_html': task_html_forms_to_html,
         'task_group_text_with_forms_to_html': text_with_forms_to_html["task_groups"],
         'game_text_with_forms_to_html': text_with_forms_to_html.get("game", None),
         'mode': mode,
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
-        'is_one_task': task is not None
+        'is_one_task': task is not None,
+        'gameplay_context_tokens': gameplay_context_tokens,
     })
 
 
 def get_tournament_results(request, game_id):
-    return results_page(request, game_id, mode='tournament') 
+    return results_page(request, game_id, mode='tournament')

@@ -223,6 +223,7 @@ from games.word_salad import (
 )
 from games.results.share import share_host_from_request
 from games.proportions import build_proportions_chips_for_tasks
+from games.html_forms import render_html_forms_task
 from games.views.game_context import game_from_request_for_task
 from games.views.main_page import MainPageView
 from games.views.util import (
@@ -1717,7 +1718,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     ctx_dicts = build_task_group_task_context_dicts(
         game, task_group, tasks, team, user, anon_key, mode,
-        placement=placement, replay_slot=replay_slot,
+        placement=placement, replay_slot=replay_slot, request=request,
     )
     return render(request, 'ui/task_group.html', {
         'project': project,
@@ -1726,6 +1727,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'tasks': tasks,
         'attempts_info_by_task_id': ctx_dicts['attempts_info_by_task_id'],
         'replacements_lines_data': ctx_dicts['replacements_lines_data'],
+        'html_forms_data': ctx_dicts['html_forms_data'],
         'word_salad_data': ctx_dicts['word_salad_data'],
         'raddle_data': ctx_dicts['raddle_data'],
         'proportions_chips': ctx_dicts['proportions_chips'],
@@ -3016,7 +3018,7 @@ def new_ladder_word_results_page(request, task_group_number):
 
 
 def _task_ui_descriptor(
-    task, *, rld=None, rd=None, wall_meta=None, ws=None, gp=None,
+    task, *, rld=None, html_forms=None, rd=None, wall_meta=None, ws=None, gp=None,
     board_context_key=None, body_template_override=None,
     body_wrapper_override=None, show_attempts_override=None,
     show_answer_override=None,
@@ -3025,6 +3027,7 @@ def _task_ui_descriptor(
     return task_ui_descriptor(
         task,
         rld=rld,
+        html_forms=html_forms,
         rd=rd,
         wall_meta=wall_meta,
         ws=ws,
@@ -3059,7 +3062,7 @@ def _replacements_current_state(
     )
 
 
-def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode, placement=None, replay_slot=None):
+def build_task_group_task_context_dicts(game, task_group, tasks, team, user, anon_key, mode, placement=None, replay_slot=None, request=None):
     """
     Shared context for task_group.html and new/partials/task_card.html
     (attempts, walls, replacements_lines, likes, proportions pool).
@@ -3174,6 +3177,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             'disliked': Like.manager.actor_has_dislike(t, team=team, user=user, anon_key=anon_key),
         }
     replacements_lines_data = {}
+    html_forms_data = {}
     word_salad_data = {}
     if placement is None and getattr(task_group, 'pk', None) and getattr(game, 'pk', None):
         placement = (
@@ -3229,6 +3233,19 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
                 'max_attempts': t.get_max_attempts(),
                 'max_points_total': t.get_results_max_points(),
             }
+        elif t.task_type == 'html_forms':
+            ai = attempts_info_by_task_id.get(t.id)
+            html_forms_data[t.id] = {
+                'html': render_html_forms_task(
+                    request,
+                    t,
+                    ai,
+                    gameplay_context_tokens.get(t.id, ''),
+                    game=game,
+                    new_ui=True,
+                ),
+                'max_points_total': t.get_results_max_points(),
+            }
     raddle_data = {}
     daily_board_context_key_by_task_id = {}
     daily_board_template_by_task_id = {}
@@ -3281,6 +3298,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             **_task_ui_descriptor(
                 t,
                 rld=replacements_lines_data.get(t.id),
+                html_forms=html_forms_data.get(t.id),
                 rd=raddle_data.get(t.id),
                 wall_meta=wall_max_points_meta_by_task_id.get(t.id),
                 ws=word_salad_data.get(t.id),
@@ -3309,6 +3327,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
         'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
         'likes_meta_by_task_id': likes_meta_by_task_id,
         'replacements_lines_data': replacements_lines_data,
+        'html_forms_data': html_forms_data,
         'grid_puzzle_data': grid_puzzle_data,
         'proportions_chips': proportions_chips,
         'task_ui_by_task_id': task_ui_by_task_id,
@@ -3568,7 +3587,7 @@ def new_task_group_page(request, game_id, task_group_number):
     ctx_dicts = build_task_group_task_context_dicts(
         game, task_group, tasks, team, user, anon_key, mode,
         placement=placement if isinstance(placement, GameTaskGroup) else None,
-        replay_slot=replay_slot,
+        replay_slot=replay_slot, request=request,
     )
     week_task_source_line = None
     week_task_source_url = None
@@ -3692,6 +3711,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'tasks': tasks,
         'attempts_info_by_task_id': ctx_dicts['attempts_info_by_task_id'],
         'replacements_lines_data': ctx_dicts['replacements_lines_data'],
+        'html_forms_data': ctx_dicts['html_forms_data'],
         'word_salad_data': ctx_dicts['word_salad_data'],
         'raddle_data': ctx_dicts['raddle_data'],
         **{

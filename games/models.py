@@ -1292,6 +1292,7 @@ class Task(models.Model):
         ('default', 'default'),
         ('wall', 'wall'),
         ('text_with_forms', 'text_with_forms'),
+        ('html_forms', 'html_forms'),
         ('replacements_lines', 'replacements_lines'),
         ('distribute_to_teams', 'distribute_to_teams'),
         ('with_tag', 'with_tag'),
@@ -1512,6 +1513,10 @@ class Task(models.Model):
                 validate_replacements_checker_json_data(self.checker_data)
             except ValueError as exc:
                 raise ValidationError({'checker_data': str(exc)})
+        if self.task_type == 'html_forms':
+            from games.html_forms import parse_html_forms_data
+            if not parse_html_forms_data(self.checker_data):
+                raise ValidationError({'checker_data': 'Нужен JSON со списком forms и ответами.'})
 
     def get_checker(self):
         if self.checker:
@@ -1567,6 +1572,12 @@ class Task(models.Model):
             n = self.replacements_answer_rows
             if n is None:
                 n = self._replacements_lines_n_answer_rows()
+            if n > 0:
+                return m * n
+            return m
+        if self.task_type == 'html_forms':
+            from games.html_forms import parse_html_forms_data
+            n = len(parse_html_forms_data(self.checker_data))
             if n > 0:
                 return m * n
             return m
@@ -2108,7 +2119,7 @@ class AttemptManager(models.Manager):
         return rows
 
 
-CHAIN_TASK_TYPES = ('wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_salad')
+CHAIN_TASK_TYPES = ('wall', 'replacements_lines', 'html_forms', 'raddle', 'alphabetty', 'word_salad')
 
 
 class ChainTaskState(models.Model):
@@ -2218,6 +2229,10 @@ class ChainTaskState(models.Model):
                 solved = len(s.get('solved_lines', []))
                 total = s.get('total', '?')
                 return '{} lines solved ({} pts)'.format(solved, total)
+            if task and task.task_type == 'html_forms':
+                solved = len(s.get('solved_keys', []))
+                total = s.get('total', '?')
+                return '{} forms solved ({} pts)'.format(solved, total)
             if task and task.task_type == 'raddle':
                 solved = len(s.get('solved_indices', []))
                 total = s.get('total', '?')
@@ -2440,6 +2455,17 @@ class Attempt(models.Model):
             if parsed and 0 <= idx < parsed['n_words']:
                 return parsed['words'][idx]
             return '—'
+        if self.task.task_type == 'html_forms':
+            try:
+                payload = json.loads(self.text)
+                key = str(payload.get('form_key') or '')
+            except (ValueError, TypeError):
+                return self.task.answer or ''
+            from games.html_forms import parse_html_forms_data
+            for form in parse_html_forms_data(self.task.checker_data):
+                if form['key'] == key:
+                    return form['answer']
+            return '—'
         return self.task.answer
 
     def get_max_points(self):
@@ -2473,6 +2499,20 @@ class Attempt(models.Model):
                 if idx >= 0:
                     return 'Слово {}: {}'.format(idx + 1, word)
                 return str(word) or self.text
+            except (ValueError, TypeError):
+                return self.text
+        if self.task.task_type == 'html_forms':
+            try:
+                p = json.loads(self.text)
+                key = str(p.get('form_key') or '')
+                answer = str(p.get('text') or '')
+                from games.html_forms import parse_html_forms_data
+                label = key
+                for form in parse_html_forms_data(self.task.checker_data):
+                    if form['key'] == key:
+                        label = 'Форма {}'.format(form.get('index') or key)
+                        break
+                return '{}: {}'.format(label, answer)
             except (ValueError, TypeError):
                 return self.text
         if self.task.task_type == 'alphabetty':
