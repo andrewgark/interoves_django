@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -191,9 +192,26 @@ class CensorlyAccessTests(TestCase):
 
     def test_staff_can_play_and_guess(self):
         self.client.force_login(self.staff)
+        tags = dict(self.task.tags)
+        payload = dict(tags[CENSORLY_TAGS_KEY])
+        payload['fetched_at'] = '2026-10-05T01:30:00+00:00'
+        tags[CENSORLY_TAGS_KEY] = payload
+        self.task.tags = tags
+        self.task.save(update_fields=['tags'])
         play = self.client.get(f'/censorly/r/{self.share_hash}/')
         self.assertEqual(play.status_code, 200)
         self.assertContains(play, 'censorly-root')
+        self.assertContains(play, 'id="censorly-fetched"')
+        match = re.search(
+            r'<script id="censorly-bootstrap" type="application/json">(.*?)</script>',
+            play.content.decode(),
+        )
+        self.assertIsNotNone(match)
+        bootstrap = json.loads(match.group(1))
+        self.assertEqual(
+            bootstrap.get('wiki_fetched_label'),
+            'Версия статьи в Википедии на момент 5 октября 2026 года',
+        )
         self.assertContains(play, 'https://redactle.net')
         self.assertContains(play, 'мы благодарны им за идею цензурок')
         self.assertContains(play, 'aria-pressed="true"')
@@ -224,6 +242,96 @@ class CensorlyPuzzleStorageTests(TestCase):
         self.assertIsNotNone(loaded)
         self.assertEqual(loaded['wiki_title'], puzzle['wiki_title'])
         self.assertEqual(len(loaded['title_tokens']), len(puzzle['title_tokens']))
+        self.assertEqual(loaded['body_text'], puzzle['body_text'])
+        self.assertEqual(loaded['splitter_version'], puzzle['splitter_version'])
+
+    def test_saved_puzzle_without_text_resplits_endings(self):
+        from games.censorly import CENSORLY_SPLITTER_VERSION
+        from games.censorly.tokenize import HEADING_END, HEADING_LEVEL_SEP, HEADING_START
+
+        title = 'Тактика (военное дело)'
+        body = (
+            f'Тактика изучает дело армии.\n'
+            f'{HEADING_START}2{HEADING_LEVEL_SEP}История города{HEADING_END}\n'
+            'Дальше одно сражение.'
+        )
+        _game, task, _h, puzzle = _make_puzzle_task(title=title, body=body)
+        stale_tokens = []
+        for key in ('title_tokens', 'body_tokens'):
+            bare = []
+            for tok in puzzle[key]:
+                item = {k: v for k, v in tok.items() if k not in ('ending', 'stem_length')}
+                bare.append(item)
+            stale_tokens.append(bare)
+        task.tags = {
+            CENSORLY_TAGS_KEY: {
+                'wiki_title': title,
+                'wiki_pageid': 70183,
+                'truncated': False,
+                'title_tokens': stale_tokens[0],
+                'body_tokens': stale_tokens[1],
+            },
+        }
+        task.save(update_fields=['tags'])
+
+        loaded = puzzle_from_task(task)
+        title_endings = {
+            tok['surface']: tok.get('ending') or ''
+            for tok in loaded['title_tokens']
+            if tok.get('kind') == 'content'
+        }
+        self.assertEqual(title_endings['Тактика'], 'а')
+        self.assertEqual(title_endings['дело'], 'о')
+        self.assertEqual(title_endings['военное'], 'ое')
+        heading = [
+            tok['surface']
+            for tok in loaded['body_tokens']
+            if tok.get('in_heading') and tok.get('kind') == 'content'
+        ]
+        self.assertEqual(heading, ['История', 'города'])
+        self.assertEqual(loaded['splitter_version'], CENSORLY_SPLITTER_VERSION)
+        self.assertIn('Тактика изучает дело', loaded['body_text'])
+        task.refresh_from_db()
+        stored = task.tags[CENSORLY_TAGS_KEY]
+        self.assertEqual(stored['splitter_version'], CENSORLY_SPLITTER_VERSION)
+        self.assertEqual(stored['wiki_pageid'], 70183)
+        self.assertIsNone(stored.get('wiki_revid'))
+
+    def test_stale_version_resplits_stored_text(self):
+        _game, task, _h, puzzle = _make_puzzle_task(
+            title='Тактика',
+            body='Тактика ведёт дело.',
+        )
+        payload = dict(task.tags[CENSORLY_TAGS_KEY])
+        payload['splitter_version'] = 0
+        payload['body_text'] = 'Тактика ведёт дело.'
+        for tok in payload['title_tokens']:
+            tok.pop('ending', None)
+            tok.pop('stem_length', None)
+        task.tags = {CENSORLY_TAGS_KEY: payload}
+        task.save(update_fields=['tags'])
+
+        loaded = puzzle_from_task(task)
+        title = next(tok for tok in loaded['title_tokens'] if tok['surface'] == 'Тактика')
+        self.assertEqual(title.get('ending'), 'а')
+        self.assertEqual(loaded['body_text'], 'Тактика ведёт дело.')
+
+    def test_current_split_cache_is_not_rebuilt(self):
+        _game, task, _h, _puzzle = _make_puzzle_task(
+            title='Тактика',
+            body='Тактика ведёт дело.',
+        )
+        payload = dict(task.tags[CENSORLY_TAGS_KEY])
+        for tok in payload['title_tokens']:
+            if tok.get('surface') == 'Тактика':
+                tok.pop('ending', None)
+                tok.pop('stem_length', None)
+        task.tags = {CENSORLY_TAGS_KEY: payload}
+        task.save(update_fields=['tags'])
+
+        loaded = puzzle_from_task(task)
+        title = next(tok for tok in loaded['title_tokens'] if tok['surface'] == 'Тактика')
+        self.assertNotIn('ending', title)
 
 
 class CensorlyWikiHelperTests(TestCase):
@@ -509,6 +617,13 @@ class CensorlyRandomGameTests(TestCase):
         self.assertTrue(before['truncated'])
         self.assertIsNone(before.get('wiki_pageid'))
         self.assertIsNone(before.get('wiki_title'))
+        self.assertEqual(before.get('wiki_fetched_label'), '')
+        payload['fetched_at'] = '2026-10-05T01:30:00+00:00'
+        dated = public_payload({'revealed_lemmas': [], 'guesses': [], 'won': False}, payload)
+        self.assertEqual(
+            dated.get('wiki_fetched_label'),
+            'Версия статьи в Википедии на момент 5 октября 2026 года',
+        )
         after = public_payload(
             {'revealed_lemmas': list(title_content_lemmas(payload)), 'guesses': [], 'won': True},
             payload,
@@ -610,6 +725,72 @@ class CensorlySupportViewTests(TestCase):
         self.assertTrue(resp.json()['ok'])
         self.assertEqual(resp.json()['row']['wiki_title'], 'Тест')
         mocked.assert_called_once_with()
+
+    def test_refetch_replaces_article_text_and_keeps_attempts(self):
+        from games.censorly.wiki import WikiArticle
+        from games.models import RandomCensorlyGame
+
+        game, task, share_hash, puzzle = _make_puzzle_task(
+            title='Кот',
+            body='Старый текст про кота и дом, где живёт кот.',
+        )
+        tags = dict(task.tags)
+        stored = dict(tags[CENSORLY_TAGS_KEY])
+        stored['source_pool_title'] = 'Кот (пул)'
+        tags[CENSORLY_TAGS_KEY] = stored
+        task.tags = tags
+        task.points = 7
+        task.save(update_fields=['tags', 'points'])
+        Attempt.manager.create(
+            task=task, game=game, anon_key='cz-refetch', text='дом',
+            status='Ok', points=1,
+        )
+        ChainTaskState.objects.create(
+            task=task, game=game, anon_key='cz-refetch',
+            game_mode='general',
+            state='{"guesses":["дом"],"won":false}',
+        )
+        page = self.client.get('/support/censorly/')
+        self.assertContains(page, 'Скачать текст заново')
+        self.assertContains(page, f'data-cz-refetch="{share_hash}"')
+
+        fresh = 'Новый текст статьи: кот сидит у окна и смотрит на двор.'
+        article = WikiArticle(
+            title='Кот (другое имя)',
+            pageid=99,
+            extract=fresh,
+            truncated=True,
+            revid=123,
+        )
+        with patch('games.support.services.censorly.fetch_article', return_value=article):
+            resp = self.client.post(
+                '/support/censorly/refetch-text/',
+                data=json.dumps({'share_hash': share_hash}),
+                content_type='application/json',
+            )
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(resp.json()['ok'])
+        self.assertEqual(resp.json()['wiki_title'], 'Кот')
+
+        task.refresh_from_db()
+        saved = task.tags[CENSORLY_TAGS_KEY]
+        self.assertEqual(saved['body_text'], fresh)
+        self.assertEqual(saved['wiki_title'], 'Кот')
+        self.assertEqual(saved['wiki_pageid'], 99)
+        self.assertEqual(saved['wiki_revid'], 123)
+        self.assertTrue(saved['truncated'])
+        self.assertEqual(saved['source_pool_title'], 'Кот (пул)')
+        self.assertTrue(saved.get('fetched_at'))
+        self.assertEqual(task.answer, 'Кот')
+        self.assertEqual(task.points, 7)
+        self.assertEqual(
+            RandomCensorlyGame.objects.get(share_hash=share_hash).wiki_title,
+            'Кот',
+        )
+        attempt = Attempt.manager.get(task=task, anon_key='cz-refetch')
+        self.assertEqual(attempt.text, 'дом')
+        state = ChainTaskState.objects.get(task=task, anon_key='cz-refetch')
+        self.assertEqual(state.state, '{"guesses":["дом"],"won":false}')
 
 
 class CensorlyUxDailyTests(TestCase):

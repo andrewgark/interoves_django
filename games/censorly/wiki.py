@@ -83,6 +83,7 @@ class WikiArticle:
     pageid: int
     extract: str
     truncated: bool = False
+    revid: int | None = None
 
 
 _TITLE_FROM_PATH = re.compile(r'^/wiki/([^?#]+)$')
@@ -363,9 +364,15 @@ def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> 
     extract, truncated = _trim_extract(extract)
     if len(extract) < MIN_BODY_CHARS:
         raise WikiFetchError('Статья слишком короткая после очистки')
+    revid_raw = page.get('lastrevid')
+    try:
+        revid = int(revid_raw) if revid_raw else None
+    except (TypeError, ValueError):
+        revid = None
     return WikiArticle(
         title=resolved_title,
         pageid=int(page['pageid']),
         extract=extract,
         truncated=truncated,
+        revid=revid,
     )

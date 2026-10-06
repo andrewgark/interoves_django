@@ -70,6 +70,7 @@
           <td>{{ row.token_count }}</td>
           <td class="support-action-row">
             <a class="new-btn new-btn--mini" href="{{ row.play_url }}" target="_blank" rel="noopener">Играть</a>
+            <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-refetch-number="{{ row.number }}">Скачать текст заново</button>
             <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset-number="{{ row.number }}">Сбросить мой прогресс</button>
           </td>
         </tr>
@@ -118,6 +119,7 @@
           <td>{{ row.created_at }}</td>
           <td class="support-action-row">
             <a class="new-btn new-btn--mini" href="{{ row.play_url }}" target="_blank" rel="noopener">Играть</a>
+            <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-refetch="{{ row.share_hash }}">Скачать текст заново</button>
             <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="{{ row.share_hash }}">Сбросить мой прогресс</button>
           </td>
         </tr>
@@ -207,6 +209,7 @@
       '<td><code></code></td><td></td><td></td>' +
       '<td class="support-action-row">' +
       '<a class="new-btn new-btn--mini" href="' + escapeAttr(row.play_url) + '" target="_blank" rel="noopener">Играть</a> ' +
+      '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-refetch="' + escapeAttr(row.share_hash) + '">Скачать текст заново</button> ' +
       '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="' + escapeAttr(row.share_hash) + '">Сбросить мой прогресс</button></td>';
     tr.querySelector('a').textContent = row.wiki_title;
     tr.querySelector('code').textContent = row.share_hash;
@@ -295,6 +298,35 @@
   });
 
   document.addEventListener('click', function (ev) {
+    var refetchHash = ev.target.closest('[data-cz-refetch]');
+    var refetchNum = ev.target.closest('[data-cz-refetch-number]');
+    if ((refetchHash || refetchNum) && !busy) {
+      if (!confirm('Скачать текст статьи из Википедии заново? Посылки не изменятся.')) return;
+      setBusy(true);
+      var inSchedule = !!(refetchNum && refetchNum.closest('#cz-schedule-table'));
+      var statusId = inSchedule ? 'cz-sched-status' : 'cz-status';
+      var errorId = inSchedule ? 'cz-sched-error' : 'cz-error';
+      var body = refetchHash
+        ? { share_hash: refetchHash.getAttribute('data-cz-refetch') }
+        : { number: refetchNum.getAttribute('data-cz-refetch-number') };
+      setError('', errorId);
+      setStatus('Скачивание текста…', statusId);
+      post("{% url 'support:censorly_refetch_text' %}", body).then(function (pack) {
+        if (!pack.ok) {
+          setError((pack.data && pack.data.error) || 'Не удалось скачать', errorId);
+          setStatus('', statusId);
+          return;
+        }
+        var tr = (refetchHash || refetchNum).closest('tr');
+        var tokens = tr ? tr.children[inSchedule ? 4 : 2] : null;
+        if (tokens) tokens.textContent = String(pack.data.token_count || 0);
+        setStatus('Текст обновлён: ' + (pack.data.wiki_title || ''), statusId);
+      }).catch(function (err) {
+        setError((err && err.message) || 'Не удалось скачать', errorId);
+        setStatus('', statusId);
+      }).finally(function () { setBusy(false); });
+      return;
+    }
     var btnHash = ev.target.closest('[data-cz-reset]');
     var btnNum = ev.target.closest('[data-cz-reset-number]');
     if ((!btnHash && !btnNum) || busy) return;

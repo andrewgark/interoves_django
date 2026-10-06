@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
 from games.censorly import CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
-from games.censorly.play import CENSORLY_BASE_POINTS, puzzle_from_task
+from games.censorly.play import CENSORLY_BASE_POINTS
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
 from games.censorly.wiki import WikiFetchError, fetch_article
 from games.models import RandomCensorlyGame, Task
@@ -45,7 +46,8 @@ class Command(BaseCommand):
         for task in qs.iterator():
             if limit and updated >= limit:
                 break
-            old = puzzle_from_task(task) or {}
+            tags = task.tags if isinstance(task.tags, dict) else {}
+            old = tags.get(CENSORLY_TAGS_KEY) if isinstance(tags.get(CENSORLY_TAGS_KEY), dict) else {}
             title = (old.get('wiki_title') or task.answer or '').strip()
             if not title:
                 skipped += 1
@@ -63,6 +65,8 @@ class Command(BaseCommand):
                 wiki_title=article.title,
                 body_text=article.extract,
                 wiki_pageid=article.pageid,
+                wiki_revid=article.revid,
+                fetched_at=timezone.now().isoformat(),
                 truncated=bool(article.truncated),
             )
             if not title_content_lemmas(puzzle):

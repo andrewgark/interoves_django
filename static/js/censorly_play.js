@@ -355,6 +355,12 @@
 
     renderTokens(title, state.title_tokens || [], lenForced);
     renderTitleDecoration(title, state);
+    var fetched = root.querySelector('#censorly-fetched');
+    if (fetched) {
+      var fetchedLabel = state.wiki_fetched_label || '';
+      fetched.hidden = !fetchedLabel;
+      fetched.textContent = fetchedLabel;
+    }
     renderTokens(body, state.body_tokens || [], lenForced);
     var trunc = root.querySelector('#censorly-truncated');
     if (trunc) trunc.hidden = !state.truncated;

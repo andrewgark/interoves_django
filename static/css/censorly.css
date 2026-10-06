@@ -105,6 +105,13 @@ html.new-ui-dark .censorly__dock {
   font-weight: 600;
 }
 
+.censorly__fetched {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 .censorly.censorly--hint-pick .censorly-tok--mask:not([data-title-lemma]) {
   cursor: pointer;
   outline: 2px dashed color-mix(in srgb, var(--accent, #b08900) 70%, transparent);

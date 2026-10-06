@@ -6,6 +6,7 @@ import json
 import random
 
 from django.db import IntegrityError, transaction
+from django.utils import timezone
 
 from games.censorly import CENSORLY_CHECKER_ID, CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.censorly.article_pool import load_article_pool
@@ -47,6 +48,8 @@ def _create_from_article(
         wiki_title=article.title,
         body_text=article.extract,
         wiki_pageid=article.pageid,
+        wiki_revid=article.revid,
+        fetched_at=timezone.now().isoformat(),
         truncated=bool(getattr(article, 'truncated', False)),
     )
     if not title_content_lemmas(puzzle):

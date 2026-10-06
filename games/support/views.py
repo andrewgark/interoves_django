@@ -42,6 +42,7 @@ from games.support.services.censorly import (
     generate_from_title as censorly_create_from_title,
     generate_more as censorly_generate_more,
     generate_random as censorly_create_random,
+    refetch_article_text as censorly_refetch_article_text,
     reset_my_progress as censorly_reset_my_progress,
     set_publish_start as censorly_set_publish_start_service,
 )
@@ -1406,6 +1407,24 @@ def censorly_reset_progress(request):
     except CensorlySupportError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     return JsonResponse({'ok': True, 'deleted': deleted})
+
+
+@support_console_required
+@require_POST
+def censorly_refetch_text(request):
+    body = _json_body(request) or {}
+    share_hash = (body.get('share_hash') or '').strip()
+    number = str(body.get('number') or '').strip()
+    if not share_hash and not number:
+        return JsonResponse({'ok': False, 'error': 'Нужна партия'}, status=400)
+    try:
+        detail = censorly_refetch_article_text(share_hash=share_hash, number=number)
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except Exception as exc:
+        logging.getLogger(__name__).exception('censorly refetch text failed')
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=500)
+    return JsonResponse({'ok': True, **detail})
 
 
 @support_console_required

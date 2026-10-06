@@ -121,6 +121,7 @@ urlpatterns = [
     path('censorly/generate/', views.censorly_generate_random, name='censorly_generate'),
     path('censorly/from-title/', views.censorly_generate_from_title, name='censorly_from_title'),
     path('censorly/reset-progress/', views.censorly_reset_progress, name='censorly_reset_progress'),
+    path('censorly/refetch-text/', views.censorly_refetch_text, name='censorly_refetch_text'),
     path('censorly/publish-start/', views.censorly_set_publish_start, name='censorly_publish_start'),
     path('censorly/schedule/create/', views.censorly_schedule_create, name='censorly_schedule_create'),
     path('censorly/schedule/generate/', views.censorly_schedule_generate, name='censorly_schedule_generate'),

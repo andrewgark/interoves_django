@@ -3,13 +3,19 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.censorly import CENSORLY_SHOW_MASK_ENDINGS, CENSORLY_TAGS_KEY
+from games.censorly import (
+    CENSORLY_SHOW_MASK_ENDINGS,
+    CENSORLY_SPLITTER_VERSION,
+    CENSORLY_TAGS_KEY,
+)
 from games.censorly.normalize import is_guessable_word, lemma_of, normalize_surface
 from games.censorly.redact import (
     build_public_view,
@@ -18,12 +24,49 @@ from games.censorly.redact import (
     newly_revealed_ids,
     token_by_id,
 )
-from games.censorly.tokenize import title_content_lemmas, upgrade_puzzle_payload
+from games.censorly.tokenize import resolve_puzzle_payload, title_content_lemmas
 from games.models import Attempt, ChainTaskState, Game, Task
 from games.results.share import format_elapsed, format_share_link, share_path
 
 CENSORLY_BASE_POINTS = 20
 CENSORLY_HINT_PENALTY = 1
+_WIKI_FETCHED_TZ = ZoneInfo('Europe/Moscow')
+_RU_MONTHS_GENITIVE = (
+    '',
+    'января',
+    'февраля',
+    'марта',
+    'апреля',
+    'мая',
+    'июня',
+    'июля',
+    'августа',
+    'сентября',
+    'октября',
+    'ноября',
+    'декабря',
+)
+
+
+def wiki_fetched_label(value) -> str:
+    """Player-facing date of the frozen Wikipedia snapshot. Empty if unknown."""
+    if isinstance(value, datetime):
+        moment = value
+    else:
+        text = str(value or '').strip()
+        if not text:
+            return ''
+        try:
+            moment = datetime.fromisoformat(text.replace('Z', '+00:00'))
+        except ValueError:
+            return ''
+    if timezone.is_naive(moment):
+        moment = timezone.make_aware(moment, timezone.get_current_timezone())
+    local = moment.astimezone(_WIKI_FETCHED_TZ)
+    return (
+        'Версия статьи в Википедии на момент '
+        f'{local.day} {_RU_MONTHS_GENITIVE[local.month]} {local.year} года'
+    )
 
 
 def default_state() -> dict[str, Any]:
@@ -103,20 +146,62 @@ def dump_state(state: dict[str, Any]) -> str:
     }, ensure_ascii=False)
 
 
-def puzzle_from_task(task: Task) -> dict[str, Any] | None:
-    tags = task.tags if isinstance(task.tags, dict) else {}
-    payload = tags.get(CENSORLY_TAGS_KEY)
-    if isinstance(payload, dict) and payload.get('title_tokens') is not None:
-        return upgrade_puzzle_payload(payload)
-    raw = (task.checker_data or '').strip()
-    if raw.startswith('{'):
-        try:
-            data = json.loads(raw)
-        except (TypeError, ValueError):
-            return None
-        if isinstance(data, dict) and data.get('title_tokens') is not None:
-            return upgrade_puzzle_payload(data)
-    return None
+def _persist_resolved_puzzle(task: Task, resolved: dict[str, Any], *, where: str) -> None:
+    if not getattr(task, 'pk', None):
+        return
+    if where == 'tags':
+        old_tags = task.tags if isinstance(task.tags, dict) else {}
+        tags = dict(old_tags)
+        tags[CENSORLY_TAGS_KEY] = resolved
+        updated = Task.objects.filter(pk=task.pk, tags=old_tags).update(tags=tags)
+        if updated:
+            task.tags = tags
+        return
+    old_checker_data = task.checker_data
+    new_checker_data = json.dumps(resolved, ensure_ascii=False)
+    updated = Task.objects.filter(
+        pk=task.pk, checker_data=old_checker_data,
+    ).update(checker_data=new_checker_data)
+    if updated:
+        task.checker_data = new_checker_data
+
+
+def puzzle_from_task(task: Task, *, persist: bool = True) -> dict[str, Any] | None:
+    """Load a puzzle and rebuild its split when the splitter version moved.
+
+    Article text is not downloaded again. A stale cache is written back once
+    so the next read uses the current tokens.
+    """
+    tags = task.tags if isinstance(getattr(task, 'tags', None), dict) else {}
+    payload = tags.get(CENSORLY_TAGS_KEY) if isinstance(tags, dict) else None
+    where = ''
+    if isinstance(payload, dict) and (
+        payload.get('title_tokens') is not None or isinstance(payload.get('body_text'), str)
+    ):
+        where = 'tags'
+    else:
+        payload = None
+        raw = (getattr(task, 'checker_data', None) or '').strip()
+        if raw.startswith('{'):
+            try:
+                data = json.loads(raw)
+            except (TypeError, ValueError):
+                data = None
+            if isinstance(data, dict) and (
+                data.get('title_tokens') is not None or isinstance(data.get('body_text'), str)
+            ):
+                payload = data
+                where = 'checker'
+    if payload is None:
+        return None
+    resolved = resolve_puzzle_payload(payload)
+    stale = (
+        not isinstance(payload.get('body_text'), str)
+        or payload.get('splitter_version') != CENSORLY_SPLITTER_VERSION
+    )
+    if persist and stale and resolved is not payload and where:
+        _persist_resolved_puzzle(task, resolved, where=where)
+    return resolved
 
 
 def _actor_filters(user=None, anon_key=None, replay_slot=None):
@@ -316,6 +401,7 @@ def public_payload(
         'hint_penalty': CENSORLY_HINT_PENALTY,
         'show_mask_endings': bool(view.get('show_mask_endings', CENSORLY_SHOW_MASK_ENDINGS)),
         'truncated': bool(payload.get('truncated')),
+        'wiki_fetched_label': wiki_fetched_label(payload.get('fetched_at')),
         # Only after win — curid/title links must not spoil the article.
         'wiki_pageid': payload.get('wiki_pageid') if won else None,
     }

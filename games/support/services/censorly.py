@@ -192,6 +192,8 @@ def _create_numbered_slot(*, number: int, article, pool_title: str | None = None
         wiki_title=article.title,
         body_text=article.extract,
         wiki_pageid=article.pageid,
+        wiki_revid=getattr(article, 'revid', None),
+        fetched_at=timezone.now().isoformat(),
         truncated=bool(getattr(article, 'truncated', False)),
     )
     if pool_title and pool_title != article.title:
@@ -341,7 +343,7 @@ def generate_from_title(title_or_url: str) -> CensorlyRandomRow:
     )
 
 
-def reset_my_progress(*, user, share_hash: str = '', number: str = '') -> int:
+def _task_for_party(*, share_hash: str = '', number: str = '') -> Task:
     game = get_censorly_game()
     task = None
     if share_hash:
@@ -354,4 +356,48 @@ def reset_my_progress(*, user, share_hash: str = '', number: str = '') -> int:
             task = Task.objects.filter(task_group_id=link.task_group_id, number='1').first()
     if task is None:
         raise CensorlySupportError('Партия не найдена')
+    return task
+
+
+def reset_my_progress(*, user, share_hash: str = '', number: str = '') -> int:
+    game = get_censorly_game()
+    task = _task_for_party(share_hash=share_hash, number=number)
     return reset_progress(game=game, task=task, user=user)
+
+
+def refetch_article_text(*, share_hash: str = '', number: str = '') -> dict[str, Any]:
+    """Replace the frozen Wikipedia body. Attempts, title, and points stay."""
+    task = _task_for_party(share_hash=share_hash, number=number)
+    tags = task.tags if isinstance(task.tags, dict) else {}
+    old = tags.get(CENSORLY_TAGS_KEY) if isinstance(tags.get(CENSORLY_TAGS_KEY), dict) else {}
+    title = (old.get('wiki_title') or task.answer or '').strip()
+    if not title:
+        raise CensorlySupportError('У партии нет заголовка статьи')
+    try:
+        article = fetch_article(title)
+    except WikiFetchError as exc:
+        raise CensorlySupportError(str(exc)) from exc
+    puzzle = build_puzzle_payload(
+        wiki_title=title,
+        body_text=article.extract,
+        wiki_pageid=article.pageid,
+        wiki_revid=article.revid,
+        fetched_at=timezone.now().isoformat(),
+        truncated=bool(article.truncated),
+    )
+    alias = (old.get('source_pool_title') or '').strip()
+    if alias:
+        puzzle['source_pool_title'] = alias
+    if not title_content_lemmas(puzzle):
+        raise CensorlySupportError('В названии нет угадываемых слов')
+    new_tags = dict(tags)
+    new_tags[CENSORLY_TAGS_KEY] = puzzle
+    updated = Task.objects.filter(pk=task.pk, tags=tags).update(tags=new_tags)
+    if not updated:
+        raise CensorlySupportError('Партия изменилась во время скачивания; обновите страницу и повторите')
+    task.tags = new_tags
+    return {
+        'wiki_title': title,
+        'token_count': len(puzzle.get('title_tokens') or []) + len(puzzle.get('body_tokens') or []),
+        'truncated': bool(puzzle.get('truncated')),
+    }

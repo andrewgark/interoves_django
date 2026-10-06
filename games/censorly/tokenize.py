@@ -6,6 +6,7 @@ import re
 import unicodedata
 from typing import Any
 
+from games.censorly import CENSORLY_SPLITTER_VERSION
 from games.censorly.normalize import (
     WORD_CHARS,
     lemma_of,
@@ -246,16 +247,27 @@ def build_puzzle_payload(
     wiki_title: str,
     body_text: str,
     wiki_pageid: int | None = None,
+    wiki_revid: int | None = None,
+    fetched_at: str | None = None,
     truncated: bool = False,
 ) -> dict[str, Any]:
+    """Snapshot the cleaned article and derive tokens with the current splitter.
+
+    ``body_text`` is the source of truth. Tokens are a cache stamped with
+    ``splitter_version`` and are rebuilt when that version changes.
+    """
     title_tokens = tokenize_text(wiki_title, in_title=True, start_id=0)
     body_tokens = tokenize_text(body_text, in_title=False, start_id=len(title_tokens))
     return {
         'wiki_title': wiki_title,
         'wiki_pageid': wiki_pageid,
+        'wiki_revid': wiki_revid,
+        'fetched_at': fetched_at,
+        'body_text': body_text,
         'title_tokens': title_tokens,
         'body_tokens': body_tokens,
         'truncated': bool(truncated),
+        'splitter_version': CENSORLY_SPLITTER_VERSION,
     }
 
 
@@ -367,3 +379,86 @@ def upgrade_puzzle_payload(payload: dict[str, Any]) -> dict[str, Any]:
     out['title_tokens'] = new_title
     out['body_tokens'] = new_body
     return out
+
+
+def _join_surfaces(tokens: list[dict[str, Any]]) -> str:
+    return ''.join((tok.get('surface') or '') for tok in tokens)
+
+
+def reconstruct_body_text(tokens: list[dict[str, Any]]) -> str:
+    """Rebuild cleaned article text from stored tokens.
+
+    Heading breaks become the same marked headings ``tokenize_text`` reads.
+    Used when an older puzzle saved tokens and not ``body_text``.
+    """
+    parts: list[str] = []
+    index = 0
+    total = len(tokens)
+    while index < total:
+        tok = tokens[index]
+        if tok.get('kind') == 'heading_break':
+            index += 1
+            chunk: list[dict[str, Any]] = []
+            level = 2
+            while index < total and tokens[index].get('kind') != 'heading_break':
+                chunk.append(tokens[index])
+                try:
+                    found = int(tokens[index].get('heading_level') or 0)
+                except (TypeError, ValueError):
+                    found = 0
+                if 2 <= found <= 6:
+                    level = found
+                index += 1
+            name = _join_surfaces(chunk).strip()
+            if name:
+                parts.append(
+                    f'{HEADING_START}{level}{HEADING_LEVEL_SEP}{name}{HEADING_END}'
+                )
+            if index < total and tokens[index].get('kind') == 'heading_break':
+                index += 1
+            continue
+        parts.append(tok.get('surface') or '')
+        index += 1
+    return ''.join(parts)
+
+
+def _copy_snapshot_extras(source: dict[str, Any], fresh: dict[str, Any]) -> dict[str, Any]:
+    alias = (source.get('source_pool_title') or '').strip()
+    if alias:
+        fresh['source_pool_title'] = alias
+    return fresh
+
+
+def resolve_puzzle_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Return tokens for the current splitter without refetching Wikipedia.
+
+    The cleaned title and body stay as stored. A missing body is rebuilt from
+    the saved tokens. A matching ``splitter_version`` keeps the token cache.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    if payload.get('title_tokens') is None and not isinstance(payload.get('body_text'), str):
+        return payload
+    version_ok = payload.get('splitter_version') == CENSORLY_SPLITTER_VERSION
+    has_text = isinstance(payload.get('body_text'), str)
+    if version_ok and has_text and payload.get('title_tokens') is not None:
+        return upgrade_puzzle_payload(payload)
+    if has_text:
+        title = payload.get('wiki_title') or ''
+        body = payload.get('body_text') or ''
+        source = payload
+    else:
+        source = upgrade_puzzle_payload(payload)
+        title = (source.get('wiki_title') or '').strip()
+        if not title:
+            title = _join_surfaces(source.get('title_tokens') or []).strip()
+        body = reconstruct_body_text(source.get('body_tokens') or [])
+    fresh = build_puzzle_payload(
+        wiki_title=title,
+        body_text=body,
+        wiki_pageid=source.get('wiki_pageid'),
+        wiki_revid=source.get('wiki_revid'),
+        fetched_at=source.get('fetched_at'),
+        truncated=bool(source.get('truncated')),
+    )
+    return _copy_snapshot_extras(source, fresh)
