@@ -1,9 +1,11 @@
 from datetime import datetime, timedelta
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 
+from games.daily.authorship import is_author_auto_completion_active
 from games.daily_streak import daily_streaks_for_actor, daily_streaks_for_user, streak_from_completion_dates
 from games.models import Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, TaskGroup
 
@@ -92,6 +94,33 @@ class DailyStreakLogicTests(TestCase):
                 game=self.games['ladder'],
             ).exists()
         )
+
+    def test_author_does_not_get_a_future_publication_day(self):
+        future = self.now + timedelta(hours=2)
+        self.links['ladder'][11].task_group.authors.add(self.profile)
+
+        class FutureSchedule:
+            def publish_at(self, game, number):
+                if str(number) == '11':
+                    return future
+                return datetime(2026, 9, int(number), tzinfo=MOSCOW)
+
+        with patch('games.daily.streak.schedule_for', return_value=FutureSchedule()):
+            self.assertEqual(self.streak('ladder')['ladder'], 0)
+
+    def test_author_auto_completion_is_personal_only(self):
+        published_at = self.now - timedelta(hours=1)
+        self.links['ladder'][11].task_group.authors.add(self.profile)
+        kwargs = {
+            'user': self.user,
+            'task_group': self.links['ladder'][11].task_group,
+            'is_daily_single_task': True,
+            'is_official_release': True,
+            'published_at': published_at,
+            'now': self.now,
+        }
+        self.assertTrue(is_author_auto_completion_active(play_mode='personal', **kwargs))
+        self.assertFalse(is_author_auto_completion_active(play_mode='team', **kwargs))
 
     def test_last_five_days_completed_on_time(self):
         for day in range(7, 12):

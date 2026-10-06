@@ -70,6 +70,7 @@ from games.daily_section import (
     visible_links,
     MOSCOW,
 )
+from games.daily.authorship import is_author_auto_completion_active
 from games.daily_archive import (
     MONTH_NAMES,
     build_daily_archive_context,
@@ -3597,13 +3598,14 @@ def new_task_group_page(request, game_id, task_group_number):
             pub_at = publish_at_for(game, prod_n)
             if pub_at is not None:
                 daily_publish_date = pub_at.astimezone(MOSCOW).date()
-    author_auto_completed = bool(
-        is_daily_single_task
-        and isinstance(placement, GameTaskGroup)
-        and request.user.is_authenticated
-        and task_group.authors.filter(user_id=request.user.pk).exists()
-        and daily_publish_date is not None
-        and daily_publish_date <= timezone.now().astimezone(MOSCOW).date()
+    author_auto_completed = is_author_auto_completion_active(
+        user=request.user,
+        task_group=task_group,
+        play_mode=play_mode,
+        is_daily_single_task=is_daily_single_task,
+        is_official_release=(draft_offer is None and isinstance(placement, GameTaskGroup)),
+        published_at=pub_at if draft_offer is None else None,
+        now=timezone.now(),
     )
     if draft_offer is not None:
         if draft_offer.accepted_link_id and str(getattr(draft_offer.accepted_link, 'number', '')).isdigit():

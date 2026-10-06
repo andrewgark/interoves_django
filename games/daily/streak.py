@@ -7,10 +7,11 @@ published; solving an old edition later therefore cannot repair a gap.
 
 from datetime import timedelta
 
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from games.daily.section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
-from games.models import GameTaskGroup, PlayerCompletedGame
+from games.models import GameTaskGroup, PlayerCompletedGame, Profile
 
 
 def streak_from_completion_dates(completed_dates, *, today):
@@ -44,12 +45,17 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
     today = now.astimezone(MOSCOW).date()
     game_ids = list(result)
     games_by_id = {str(game.id): game for game in games}
-    links = list(
-        GameTaskGroup.objects.filter(game_id__in=game_ids)
-        .prefetch_related('task_group__authors')
-        .only('game_id', 'task_group_id', 'number', 'task_group')
+    links_qs = GameTaskGroup.objects.filter(game_id__in=game_ids).only(
+        'game_id', 'task_group_id', 'number', 'task_group',
     )
+    if user is not None:
+        links_qs = links_qs.prefetch_related(Prefetch(
+            'task_group__authors',
+            queryset=Profile.objects.filter(user_id=user.pk),
+        ))
+    links = list(links_qs)
     link_dates = {}
+    link_publication_times = {}
     for link in links:
         schedule = schedule_for(link.game_id)
         if schedule is None:
@@ -59,7 +65,9 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
             continue
         published_at = schedule.publish_at(games_by_id[str(link.game_id)], link.number)
         if published_at is not None:
-            link_dates[(str(link.game_id), link.task_group_id)] = published_at.astimezone(MOSCOW).date()
+            key = (str(link.game_id), link.task_group_id)
+            link_dates[key] = published_at.astimezone(MOSCOW).date()
+            link_publication_times[key] = published_at
 
     completed_dates = {game_id: set() for game_id in game_ids}
     completions = PlayerCompletedGame.objects.filter(
@@ -86,10 +94,17 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
     # into timing, analytics, or result projections).
     if user is not None:
         for link in links:
-            published_date = link_dates.get((str(link.game_id), link.task_group_id))
-            if published_date is None or published_date > today:
+            key = (str(link.game_id), link.task_group_id)
+            published_date = link_dates.get(key)
+            published_at = link_publication_times.get(key)
+            if (
+                published_date is None
+                or published_at is None
+                or published_at > now
+                or published_date > today
+            ):
                 continue
-            if any(author.user_id == user.pk for author in link.task_group.authors.all()):
+            if link.task_group.authors.all():
                 completed_dates[str(link.game_id)].add(published_date)
 
     for game_id, dates in completed_dates.items():
