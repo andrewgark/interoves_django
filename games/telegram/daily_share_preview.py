@@ -69,7 +69,7 @@ def send_social_teasers(send_fn: Callable | None = None) -> list[str]:
             png = render_ladder_teaser_png(
                 ladder.task,
                 ladder_number=ladder.number,
-                fallback_to_pillow=True,
+                fallback_to_pillow=False,
             )
             sender(
                 png,
@@ -94,7 +94,7 @@ def send_social_teasers(send_fn: Callable | None = None) -> list[str]:
             png = render_word_salad_teaser_png(
                 salad.task,
                 salad_number=salad.number,
-                fallback_to_pillow=True,
+                fallback_to_pillow=False,
             )
             sender(
                 png,

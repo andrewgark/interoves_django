@@ -39,7 +39,7 @@ def _restore_missing_word_salad_image(post: SocialQueuePost) -> bool:
         png = render_word_salad_teaser_png(
             salad.task,
             salad_number=salad.number,
-            fallback_to_pillow=True,
+            fallback_to_pillow=False,
         )
     except Exception:
         logger.exception('Failed to rebuild social image for post pk=%s', post.pk)

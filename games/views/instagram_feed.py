@@ -54,7 +54,11 @@ def ladder_teaser_jpg(request, number):
         ladder = resolve_ladder_by_number(number)
         if ladder is None:
             raise Http404('ladder not published')
-        png = render_ladder_teaser_png(ladder.task, ladder_number=ladder.number)
+        png = render_ladder_teaser_png(
+            ladder.task,
+            ladder_number=ladder.number,
+            fallback_to_pillow=False,
+        )
         data = to_instagram_jpeg(png)
         cache.set(cache_key, data, 3600)
     response = HttpResponse(data, content_type='image/jpeg')

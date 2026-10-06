@@ -53,14 +53,20 @@ class Command(BaseCommand):
                 source=SocialQueuePost.SOURCE_LADDER,
                 ladder_date=ladder.ladder_date,
                 ladder_number=ladder.number,
+                task=ladder.task,
                 play_url=ladder.play_url,
             )
+        post.task = ladder.task
         post.ladder_number = ladder.number
         post.play_url = ladder.play_url
         if not post.caption:
             post.caption = build_caption(ladder)
         if not post.image:
-            png = render_ladder_teaser_png(ladder.task, ladder_number=ladder.number)
+            png = render_ladder_teaser_png(
+                ladder.task,
+                ladder_number=ladder.number,
+                fallback_to_pillow=False,
+            )
             post.set_image_bytes(png, filename='ladder-{}.png'.format(ladder.number))
         post.save()
 
