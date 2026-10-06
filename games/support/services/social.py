@@ -280,14 +280,20 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
             from games.telegram.word_salad_image import render_word_salad_teaser_png
 
             image = render_word_salad_teaser_png(
-                post.task, salad_number=post.ladder_number, fallback_to_pillow=False,
+                post.task,
+                salad_number=post.ladder_number,
+                url=post.play_url or None,
+                fallback_to_pillow=False,
             )
             filename = 'salad-{}.png'.format(post.ladder_number or post.pk)
         elif post.source == SocialQueuePost.SOURCE_LADDER:
             from games.telegram.ladder_image import render_ladder_teaser_png
 
             image = render_ladder_teaser_png(
-                post.task, ladder_number=post.ladder_number, fallback_to_pillow=False,
+                post.task,
+                ladder_number=post.ladder_number,
+                url=post.play_url or None,
+                fallback_to_pillow=False,
             )
             filename = 'ladder-{}.png'.format(post.ladder_number or post.pk)
         else:

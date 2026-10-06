@@ -184,6 +184,7 @@ def preview_salad_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
         image_png = render_word_salad_teaser_png(
             salad.task,
             salad_number=salad.number,
+            url=salad.play_url,
             fallback_to_pillow=False,
         )
         caption = build_caption(salad)
@@ -313,6 +314,7 @@ def schedule_salad_channel_post(
         image_png = render_word_salad_teaser_png(
             salad.task,
             salad_number=salad.number,
+            url=salad.play_url,
             fallback_to_pillow=False,
         )
         caption = build_caption(salad)

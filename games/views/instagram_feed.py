@@ -57,6 +57,7 @@ def ladder_teaser_jpg(request, number):
         png = render_ladder_teaser_png(
             ladder.task,
             ladder_number=ladder.number,
+            url=ladder.play_url,
             fallback_to_pillow=False,
         )
         data = to_instagram_jpeg(png)

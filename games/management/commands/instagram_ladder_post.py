@@ -65,6 +65,7 @@ class Command(BaseCommand):
             png = render_ladder_teaser_png(
                 ladder.task,
                 ladder_number=ladder.number,
+                url=ladder.play_url,
                 fallback_to_pillow=False,
             )
             post.set_image_bytes(png, filename='ladder-{}.png'.format(ladder.number))

@@ -380,6 +380,7 @@ def render_ladder_teaser_png(
     task,
     *,
     ladder_number: int | str | None = None,
+    url: str | None = None,
     fallback_to_pillow: bool = False,
 ) -> bytes:
     """
@@ -389,7 +390,7 @@ def render_ladder_teaser_png(
     prefer_screenshot = getattr(settings, 'TELEGRAM_LADDER_SCREENSHOT', True)
     if prefer_screenshot:
         try:
-            png = screenshot_ladder_last_png()
+            png = screenshot_ladder_last_png(url=url)
             if png and png.startswith(b'\x89PNG'):
                 return png
         except Exception:

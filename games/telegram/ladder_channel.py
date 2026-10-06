@@ -215,6 +215,7 @@ def preview_ladder_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
         image_png = render_ladder_teaser_png(
             ladder.task,
             ladder_number=ladder.number,
+            url=ladder.play_url,
             fallback_to_pillow=False,
         )
         caption = build_caption(ladder)
@@ -345,6 +346,7 @@ def schedule_ladder_channel_post(
         image_png = render_ladder_teaser_png(
             ladder.task,
             ladder_number=ladder.number,
+            url=ladder.play_url,
             fallback_to_pillow=False,
         )
         caption = build_caption(ladder)
