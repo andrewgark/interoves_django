@@ -38,6 +38,47 @@ def _apply_checker_additions(task, attempts):
     if task.task_type == 'wall':
         task.checker_data = _wall_additions(task, attempts)
         return
+    if task.task_type == 'html_forms':
+        from games.html_forms import html_forms_answer_matches
+
+        try:
+            payload = json.loads(task.checker_data or '{}')
+        except (TypeError, ValueError):
+            payload = {}
+        if isinstance(payload, list):
+            payload = {'forms': payload}
+        if not isinstance(payload, dict) or not isinstance(payload.get('forms'), list):
+            raise ValueError('Invalid html_forms checker_data')
+        forms_by_key = {
+            str(form.get('key') or ''): form
+            for form in payload['forms']
+            if isinstance(form, dict) and form.get('key')
+        }
+        for attempt in attempts:
+            try:
+                submitted = json.loads(attempt.text)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(submitted, dict):
+                continue
+            form = forms_by_key.get(str(submitted.get('form_key') or ''))
+            answer = str(submitted.get('text') or '').strip()
+            if form is None or not answer:
+                continue
+            accepted = form.get('answers')
+            if accepted is None:
+                accepted = form.get('answer')
+            if isinstance(accepted, str):
+                accepted = accepted.splitlines()
+            if not isinstance(accepted, list):
+                accepted = []
+            accepted = [str(value).strip() for value in accepted if str(value).strip()]
+            if not html_forms_answer_matches(answer, accepted):
+                accepted.append(answer)
+            form['answers'] = accepted
+            form.pop('answer', None)
+        task.checker_data = json.dumps(payload, ensure_ascii=False)
+        return
     current = task.checker_data or ''
     task.checker_data = current + ''.join('\n{}'.format(a.text) for a in attempts)
 

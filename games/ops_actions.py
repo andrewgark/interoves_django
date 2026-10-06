@@ -12,7 +12,7 @@ from games.ticket_service import (
 
 def set_attempt_ok(attempt: Attempt) -> None:
     try:
-        if attempt.task and attempt.task.task_type in ('wall', 'replacements_lines', 'raddle'):
+        if attempt.task and attempt.task.task_type in ('wall', 'replacements_lines', 'html_forms', 'raddle'):
             attempt.points = attempt.task.get_results_max_points()
         else:
             attempt.points = attempt.get_max_points()

@@ -1412,8 +1412,10 @@ class TaskAdmin(admin.ModelAdmin):
         form = super(TaskAdmin, self).get_form(request, obj, **kwargs)
         if 'checker_data' in form.base_fields:
             form.base_fields['checker_data'].help_text = (
-                'Для Word Salad: JSON вида {"grid": ["Д", ... 16 букв ...], "words": ["ВОЛГА", ...]}. '
-                'Ё приравнивается к Е. Для других типов это поле остаётся служебным.'
+                'Для HTML-форм: JSON вида {"forms": [{"key": "a", "answer": "ответ"}]}; '
+                'в тексте задания вставьте {{ html_form:a }}; можно указать answers вместо answer. '
+                'Для Word Salad: JSON с grid и words; Ё приравнивается к Е. '
+                'Для других типов поле остаётся служебным.'
             )
         return form
 

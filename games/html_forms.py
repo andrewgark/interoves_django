@@ -23,8 +23,12 @@ def parse_html_forms_data(raw):
         payload = {}
     if isinstance(payload, list):
         items = payload
-    else:
+    elif isinstance(payload, dict):
         items = payload.get('forms') or []
+    else:
+        items = []
+    if not isinstance(items, list):
+        items = []
     forms = []
     seen = set()
     for index, item in enumerate(items):
@@ -74,7 +78,12 @@ def html_forms_solved_keys_from_state(state_raw):
         payload = json.loads(state_raw)
     except (TypeError, ValueError):
         return set()
-    return {str(key) for key in (payload.get('solved_keys') or [])}
+    if not isinstance(payload, dict):
+        return set()
+    solved_keys = payload.get('solved_keys') or []
+    if not isinstance(solved_keys, list):
+        return set()
+    return {str(key) for key in solved_keys}
 
 
 def html_forms_answer_matches(user_answer, accepted_answers):

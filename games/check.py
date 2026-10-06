@@ -672,6 +672,8 @@ class HtmlFormsChecker(BaseChecker):
             payload = json.loads(text)
         except (TypeError, ValueError):
             return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
+        if not isinstance(payload, dict):
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
         form_key = str(payload.get('form_key') or '').strip()
         user_answer = str(payload.get('text') or '').strip()
         form = self.forms_by_key.get(form_key)

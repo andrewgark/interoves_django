@@ -310,7 +310,7 @@ def _hint_queryset(*, team=None, user=None, anon_key=None, game_id=None, since=N
 def _feed_item_for_attempt(attempt) -> FeedItem:
     task = attempt.task
     chain_url = None
-    if task and task.task_type in ('wall', 'replacements_lines', 'raddle'):
+    if task and task.task_type in ('wall', 'replacements_lines', 'html_forms', 'raddle'):
         from django.urls import reverse
         chain_url = reverse('support:chain', kwargs={'attempt_id': attempt.pk})
     return FeedItem(

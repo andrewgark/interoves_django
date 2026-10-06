@@ -95,7 +95,7 @@ def _resolve_actor(key):
 
 
 def _rebuild_actor_task(task, *, game, team, user, anon_key):
-    if task.task_type not in ('wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_salad'):
+    if task.task_type not in ('wall', 'replacements_lines', 'html_forms', 'raddle', 'alphabetty', 'word_salad'):
         return
     from games.recheck import recheck_chain_task, recheck_word_salad_actor
 
@@ -198,7 +198,7 @@ def schedule_task_semantics_reconciliation(
     def run():
         rebuild = Task.objects.filter(pk=rebuild_task_id).first() if rebuild_task_id else None
         if rebuild is not None and rebuild.task_type in (
-            'wall', 'replacements_lines', 'raddle', 'alphabetty', 'word_salad',
+            'wall', 'replacements_lines', 'html_forms', 'raddle', 'alphabetty', 'word_salad',
         ):
             # Gameplay-semantic Task edits use the same durable actor replay
             # queue as PendingAttempt → YES.  Do not replay a whole actor in

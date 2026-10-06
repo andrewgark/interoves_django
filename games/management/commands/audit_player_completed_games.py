@@ -9,7 +9,7 @@ from django.db.models import Prefetch, Q
 from games.analytics import is_task_completion_state
 from games.models import Attempt, ChainTaskState, PlayerCompletedGame, Task
 
-CHAIN_TASK_TYPES = {'raddle', 'replacements_lines', 'alphabetty', 'word_salad'}
+CHAIN_TASK_TYPES = {'raddle', 'replacements_lines', 'html_forms', 'alphabetty', 'word_salad'}
 BUG_START = datetime(2026, 8, 15, 13, 48, 5, tzinfo=timezone.utc)
 BUG_END = datetime(2026, 9, 17, 22, 50, 20, tzinfo=timezone.utc)
 
