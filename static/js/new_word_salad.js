@@ -261,7 +261,7 @@
   }
 
   function offerShareFromPath(pathname) {
-    var match = String(pathname || '').match(/\/(?:salad|ladder|alphabetty|week_task)\/([a-f0-9]{16,32})\/?$/i);
+    var match = String(pathname || '').match(/\/(?:games\/)?(?:salad|ladder|alphabetty|week_task)\/([a-f0-9]{16,32})\/?$/i);
     return match ? match[1].toLowerCase() : '';
   }
 

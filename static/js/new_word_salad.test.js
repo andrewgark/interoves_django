@@ -303,8 +303,10 @@ function escapeEvent(overrides) {
 })();
 
 assert.strictEqual(Path.offerShareFromPath('/salad/41ffddf256ae6df6/'), '41ffddf256ae6df6');
+assert.strictEqual(Path.offerShareFromPath('/games/salad/41ffddf256ae6df6/'), '41ffddf256ae6df6');
 assert.strictEqual(Path.offerShareFromPath('/salad/76/'), '');
 assert.strictEqual(Path.offerShareFromPath('/ladder/41ffddf256ae6df6'), '41ffddf256ae6df6');
+assert.strictEqual(Path.offerShareFromPath('/games/ladder/41ffddf256ae6df6'), '41ffddf256ae6df6');
 assert.strictEqual(Path.offerShareFromPath('/ladder/6824270918737837/'), '6824270918737837');
 assert.strictEqual(Path.offerShareFromPath('/week_task/41ffddf256ae6df6/'), '41ffddf256ae6df6');
 assert.strictEqual(Path.offerShareFromPath('/alphabetty/41ffddf256ae6df6/'), '41ffddf256ae6df6');
