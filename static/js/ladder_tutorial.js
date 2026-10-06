@@ -181,8 +181,7 @@
       }
     },
     onClose: function (eventName) {
-      if (eventName) { setLocked(true); setInputsLocked(null); }
-      else { startFreePlay(); }
+      startFreePlay();
     },
   });
 

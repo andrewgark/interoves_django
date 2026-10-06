@@ -24,6 +24,7 @@
       var continueButton = shell.querySelector('[data-tutorial-continue]');
       var index = 0;
       var closed = false;
+      var completed = false;
       var activeTargets = [];
       var rafPending = false;
 
@@ -141,7 +142,7 @@
         feedback.textContent = '';
         next.hidden = step.kind !== 'info';
         next.textContent = step.nextLabel || 'Дальше';
-        back.hidden = index === 0 || step.kind !== 'info' || options.steps[index - 1].kind !== 'info';
+        if (back) back.hidden = index === 0 || step.kind !== 'info' || options.steps[index - 1].kind !== 'info';
         activeTargets = targets(step.targets);
         if (options.onStep) options.onStep(index);
         var focus = activeTargets[0];
@@ -161,7 +162,7 @@
         shell.classList.remove('is-open');
         clearSpotlight();
         activeTargets = [];
-        if (eventName) track(eventName, root, index + 1);
+        if (eventName && !completed) track(eventName, root, index + 1);
         if (options.onClose) options.onClose(eventName);
       }
       function go(delta) {
@@ -173,6 +174,7 @@
       }
       function setStep(value) { index = value; render(); }
       function finish() {
+        completed = true;
         track('tutorial_step_complete', root, index + 1);
         track('tutorial_complete', root, options.steps.length);
         title.textContent = 'Готово!';
@@ -182,9 +184,10 @@
         finishActions.hidden = false;
         clearSpotlight();
         if (options.onFinish) options.onFinish();
+        global.requestAnimationFrame(function () { positionCallout(activeTargets); });
       }
       next.addEventListener('click', function () { if (!closed) go(1); });
-      back.addEventListener('click', function () { if (!closed) go(-1); });
+      if (back) back.addEventListener('click', function () { if (!closed) go(-1); });
       shell.querySelector('[data-tutorial-skip]').addEventListener('click', function () { close('tutorial_skip'); });
       continueButton.addEventListener('click', function () { close(); });
       shell.querySelectorAll('[data-tutorial-close]').forEach(function (node) { node.addEventListener('click', function () { close('tutorial_skip'); }); });

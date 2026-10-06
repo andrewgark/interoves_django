@@ -9044,16 +9044,19 @@ html.new-ui-dark .pal-card {
 .tutorial-shell__spotlights { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 .tutorial-shell__spotlights svg { display: block; width: 100%; height: 100%; }
 .tutorial-shell__callout { position: fixed; z-index: 1; display: grid; gap: .8rem; box-sizing: border-box; width: min(32rem, calc(100vw - 2rem)); max-height: min(24rem, calc(100vh - 2rem)); overflow: auto; margin: 0 !important; padding: 2.75rem 1.25rem 1.25rem; pointer-events: auto; }
-.tutorial-shell__top { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .82rem; }
+.tutorial-shell__top { display: flex; justify-content: space-between; align-items: center; min-height: 2.25rem; color: var(--muted); font-size: .82rem; }
+.tutorial-shell__close { position: static; inset: auto; flex: 0 0 auto; width: 2.25rem; height: 2.25rem; margin: 0; }
 .tutorial-shell__text { max-width: 34rem; margin: 0; white-space: pre-line; line-height: 1.5; }
 .tutorial-shell__feedback { min-height: 1.3em; margin: 0; color: var(--accent); font-size: .9rem; }
-.tutorial-shell__callout .new-rules-modal__actions { margin-top: 0; gap: .75rem; }
+.tutorial-shell__callout .new-rules-modal__actions { display: flex; justify-content: space-between; align-items: center; margin-top: 0; gap: .75rem; }
+.tutorial-shell__skip { margin-left: auto; white-space: nowrap; }
 .tutorial-shell__finish { display: flex; gap: .5rem; flex-wrap: wrap; }
 .tutorial-slot--correct .new-raddle-block__word { background: color-mix(in srgb, var(--raddle-after) 24%, var(--surface)); }
 .tutorial-input--locked { cursor: not-allowed; opacity: .72; }
 @media (max-width: 560px) {
   .tutorial-shell__callout { width: calc(100vw - 1rem); bottom: max(.5rem, env(safe-area-inset-bottom)); padding-inline: 1rem; }
   .tutorial-shell__callout .new-rules-modal__actions { flex-wrap: wrap; }
+  .tutorial-shell__skip { margin-left: 0; }
 }
 
 /* Стена: не неоновые зелёные плитки, читаемый текст */

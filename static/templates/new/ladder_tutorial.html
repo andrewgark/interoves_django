@@ -37,14 +37,14 @@
       <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-tutorial-close><i class="ph ph-x" aria-hidden="true"></i></button>
       <div class="tutorial-shell__top">
         <span data-tutorial-progress>1 / 9</span>
-        <button type="button" class="new-btn new-btn--text new-btn--mini" data-tutorial-skip>Пропустить</button>
+        <button type="button" class="new-rules-modal__close tutorial-shell__close" aria-label="Закрыть туториал" data-tutorial-close><i class="ph ph-x" aria-hidden="true"></i></button>
       </div>
       <h2 id="tutorial-title" class="pal-title" data-tutorial-title>Это Лесенка</h2>
       <p class="tutorial-shell__text" data-tutorial-text></p>
       <p class="tutorial-shell__feedback" data-tutorial-feedback-global role="status" aria-live="polite"></p>
       <div class="new-rules-modal__actions">
-        <button type="button" class="new-btn new-btn--text" data-tutorial-back>Назад</button>
         <button type="button" class="new-btn" data-tutorial-next>Дальше</button>
+        <button type="button" class="new-btn new-btn--text tutorial-shell__skip" data-tutorial-skip>Пропустить туториал</button>
       </div>
       <div class="tutorial-shell__finish" hidden>
         <button type="button" class="new-btn" data-tutorial-continue>Продолжить Лесенку</button>
@@ -53,6 +53,6 @@
   </div>
 </div>
 {{ tutorial|json_script:"ladder-tutorial-data" }}
-<script src="{% static 'js/tutorial_shell.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}-spotlight-v3"></script>
-<script src="{% static 'js/ladder_tutorial.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}-spotlight-v3"></script>
+<script src="{% static 'js/tutorial_shell.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}-popup-layout-v1"></script>
+<script src="{% static 'js/ladder_tutorial.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}-popup-layout-v1"></script>
 {% endblock %}
