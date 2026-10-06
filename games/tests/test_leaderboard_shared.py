@@ -338,10 +338,10 @@ class LeaderboardSharedTests(TestCase):
 
         task = Task.objects.create(
             task_group=self.group, number='salad', task_type='word_salad',
-            checker_data=serialize_task_data('A B C D\nH G F E\nI J K L\nP O N M', 'ABCD\nBCDA'),
+            checker_data=serialize_task_data('A B C D\nH G F E\nI J K L\nP O N M', 'BCDA\nABCD'),
         )
         actor = PersonalResultsParticipant(user=self.other)
-        state = {'solved_indices': [0], 'hint_counts': {'0': 1, '1': 2}}
+        state = {'solved_indices': [1], 'hint_counts': {'0': 2, '1': 1}}
         attempt = SimpleNamespace(state=__import__('json').dumps(state))
         info = SimpleNamespace(attempts=[attempt])
         data = {
@@ -352,4 +352,5 @@ class LeaderboardSharedTests(TestCase):
         out = _word_salad_release_breakdown(data, self.game, self.link.number)
         self.assertEqual([h.number for h in out['task_group_to_tasks']['1']], ['ABCD', 'BCDA'])
         self.assertEqual([cell['result_points'] for cell in out['team_to_cells'][actor]], [0.5, -1.0])
+        self.assertEqual([cell['answer'] for cell in out['team_to_cells'][actor]], ['ABCD', 'BCDA'])
         self.assertEqual(out['team_to_score'][actor], 0)

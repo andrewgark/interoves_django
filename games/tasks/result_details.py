@@ -19,13 +19,14 @@ class SaladResultHeader:
 
 
 class SaladResultWord:
-    def __init__(self, number, word):
+    def __init__(self, number, word, original_index=None):
         # ``number`` stays compatible with the legacy result context (answer),
         # while the public table header uses display_number.
         self.number = word
         self.display_number = str(number)
         self.answer = word
         self.display_answer = ''
+        self.original_index = original_index if original_index is not None else int(number) - 1
 
 
 def chain_state_for_actor(game, task, actor):
@@ -105,7 +106,8 @@ def set_current_result_header_answers(data, actor, game=None):
         solved_indices = set(load_state(raw_state).get('solved_indices') or [])
         for index, task in enumerate(tasks):
             answer = getattr(task, 'answer', '')
-            if index in solved_indices and answer:
+            original_index = getattr(task, 'original_index', index)
+            if original_index in solved_indices and answer:
                 task.display_answer = answer
         return data
 
@@ -135,14 +137,18 @@ def word_salad_release_breakdown(data, game, number):
     if not tasks:
         return data
     task = tasks[0]
-    from games.word_salad import load_state, parse_task_payload
+    from games.word_salad import load_state, parse_task_payload, words_in_display_order
     try:
         _grid, words, _rare = parse_task_payload(task.checker_data, task.answer or task.text or '')
     except Exception:
         words = []
     data['task_groups'] = [SaladResultHeader(number)]
+    ordered_words = list(words_in_display_order(words))
     data['task_group_to_tasks'] = {
-        str(number): [SaladResultWord(index + 1, word) for index, word in enumerate(words)]
+        str(number): [
+            SaladResultWord(display_index + 1, word, original_index=original_index)
+            for display_index, (original_index, word) in enumerate(ordered_words)
+        ]
     }
     data['_salad_result_task'] = task
     chain_states = {}
@@ -203,16 +209,16 @@ def word_salad_release_breakdown(data, game, number):
         solved = set(state.get('solved_indices') or [])
         hint_counts = state.get('hint_counts') or {}
         cells = []
-        for index, word in enumerate(words):
-            hints = int(hint_counts.get(str(index), hint_counts.get(index, 0)) or 0)
-            is_solved = index in solved
+        for display_index, (original_index, word) in enumerate(ordered_words):
+            hints = int(hint_counts.get(str(original_index), hint_counts.get(original_index, 0)) or 0)
+            is_solved = original_index in solved
             net = (1.0 if is_solved else 0.0) - 0.5 * hints
             cells.append({
                 'cls': 'cell-full' if is_solved and hints == 0 else 'cell-partial' if is_solved or hints else '',
                 'n_attempts': 1 if is_solved or hints else 0,
                 'result_points': net,
                 'hint_numbers': list(range(1, hints + 1)),
-                'number': index + 1,
+                'number': display_index + 1,
                 'answer': word,
                 'solved': is_solved,
             })
