@@ -172,7 +172,7 @@
   var tutorial = global.InterovesTutorial.createShell(root, {
     steps: [
       {kind: 'info', title: 'Это Лесенка', text: 'Нужно соединить верхнее слово «' + config.words[0] + '» с нижним «' + config.words[config.words.length - 1] + '».', targets: ['[data-tutorial-target="word-list"]']},
-      {kind: 'info', title: 'Соседние слова', text: 'Соседние слова связывает подсказка.\nИщи её для следующей ступеньки после «' + config.words[0] + '».', targets: [function () { return region([0, 1]); }, function () { return clue(first.hint_index); }], calloutTarget: [function () { return clue(first.hint_index); }]},
+      {kind: 'info', title: 'Соседние слова', text: 'Соседние слова связывает подсказка.\nИщи её для следующей ступеньки после «' + config.words[0] + '».', targets: [function () { return region([0, 1]); }, function () { return clue(first.hint_index); }], calloutTarget: [function () { return clue(first.hint_index); }], calloutSide: 'right-above-or-left-below'},
       {kind: 'info', title: 'Длина слова', text: 'Число в скобках показывает длину слова.\nЗдесь нужно слово из ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }]},
       {kind: 'info', title: 'Подсказки не по порядку', text: 'Подсказки расположены не по порядку.\nНайди ту, что поможет продолжить от «' + config.words[0] + '».', nextLabel: 'Попробовать', targets: ['[data-tutorial-target="clues-unused"]']},
       {kind: 'action', title: 'Выбери подсказку', text: 'Выбери подсказку для следующего слова.', targets: ['[data-tutorial-target="clues-unused"]']},

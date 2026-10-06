@@ -43,6 +43,12 @@ class LadderTutorialTests(TestCase):
         payload = LADDER_TUTORIAL.payload()
 
         self.assertEqual(payload['words'], ('ПЕРВАЯ', 'ПЯТАЯ', 'ЗАПЯТАЯ', 'ТОЧКА', 'ЛАСТОЧКА'))
+        self.assertEqual(payload['hints'], (
+            'А и Д — это ____ и ... буквы алфавита',
+            'Знак препинания, заканчивающийся на ____',
+            '... с хвостиком — это ____',
+            'Птица, заканчивающаяся на ____',
+        ))
         self.assertEqual(payload['lengths'], (6, 5, 7, 5, 8))
         self.assertEqual(payload['initial_solved_indices'], (0, 4))
         self.assertEqual(payload['initial_used_hint_indices'], ())
@@ -51,6 +57,8 @@ class LadderTutorialTests(TestCase):
         self.assertEqual(payload['steps']['lower_pair']['word_indices'], (3, 4))
         self.assertIn('ПЕРВАЯ', payload['used_hint_display'][0])
         self.assertIn('ПЯТАЯ', payload['used_hint_display'][0])
+        third_used_hint = payload['used_hint_display'][2]
+        self.assertLess(third_used_hint.index('ТОЧКА'), third_used_hint.index('ЗАПЯТАЯ'))
         ui = LADDER_TUTORIAL.ui_context()
         self.assertEqual(
             [row['index'] for row in ui['rows'] if row['is_solved']], [0, 4],

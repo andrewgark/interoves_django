@@ -6,14 +6,14 @@ from types import SimpleNamespace
 from games.raddle import build_raddle_ui_context, parse_raddle_data, used_clue_display
 
 
-LADDER_TUTORIAL_VERSION = 'v6'
+LADDER_TUTORIAL_VERSION = 'v7'
 
 _WORDS = ('ПЕРВАЯ', 'ПЯТАЯ', 'ЗАПЯТАЯ', 'ТОЧКА', 'ЛАСТОЧКА')
 _LENGTHS = tuple(len(word) for word in _WORDS)
 _HINTS = (
-    '____ и ... буквы алфавита — это А и Д',
+    'А и Д — это ____ и ... буквы алфавита',
     'Знак препинания, заканчивающийся на ____',
-    '____ — это ... с хвостиком',
+    '... с хвостиком — это ____',
     'Птица, заканчивающаяся на ____',
 )
 
@@ -34,7 +34,7 @@ class LadderTutorialAdapter:
             id=self.task_id, number='17', task_type='raddle',
             text='Короткая Лесенка', answer='\n'.join(_WORDS),
             checker_data=checker_data,
-            attempt_revision='ladder-tutorial-v6', tags={},
+            attempt_revision='ladder-tutorial-v7', tags={},
         )
 
     def parsed(self):
