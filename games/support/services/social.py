@@ -275,22 +275,28 @@ def sync_from_telegram(post: SocialQueuePost) -> SocialQueuePost:
 def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
     if post.task_id is None:
         raise SocialSupportError('У поста нет привязанного задания для рендера картинки')
-    if post.source == SocialQueuePost.SOURCE_WORD_SALAD:
-        from games.telegram.word_salad_image import render_word_salad_teaser_png
+    try:
+        if post.source == SocialQueuePost.SOURCE_WORD_SALAD:
+            from games.telegram.word_salad_image import render_word_salad_teaser_png
 
-        image = render_word_salad_teaser_png(
-            post.task, salad_number=post.ladder_number, fallback_to_pillow=False,
-        )
-        filename = 'salad-{}.png'.format(post.ladder_number or post.pk)
-    elif post.source == SocialQueuePost.SOURCE_LADDER:
-        from games.telegram.ladder_image import render_ladder_teaser_png
+            image = render_word_salad_teaser_png(
+                post.task, salad_number=post.ladder_number, fallback_to_pillow=False,
+            )
+            filename = 'salad-{}.png'.format(post.ladder_number or post.pk)
+        elif post.source == SocialQueuePost.SOURCE_LADDER:
+            from games.telegram.ladder_image import render_ladder_teaser_png
 
-        image = render_ladder_teaser_png(
-            post.task, ladder_number=post.ladder_number, fallback_to_pillow=False,
-        )
-        filename = 'ladder-{}.png'.format(post.ladder_number or post.pk)
-    else:
-        raise SocialSupportError('Для этого типа поста нет Playwright-рендера')
+            image = render_ladder_teaser_png(
+                post.task, ladder_number=post.ladder_number, fallback_to_pillow=False,
+            )
+            filename = 'ladder-{}.png'.format(post.ladder_number or post.pk)
+        else:
+            raise SocialSupportError('Для этого типа поста нет Playwright-рендера')
+    except SocialSupportError:
+        raise
+    except Exception as exc:
+        logger.exception('Playwright image regeneration failed for social post pk=%s', post.pk)
+        raise SocialSupportError('Ошибка Playwright-рендера: {}'.format(exc))
 
     if post.telegram_status == SocialQueuePost.STATUS_SCHEDULED and not _is_post_published(post):
         if not post.telegram_external_id:
