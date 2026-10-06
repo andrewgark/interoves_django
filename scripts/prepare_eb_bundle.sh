@@ -124,6 +124,15 @@ fi
 # The legacy single-instance Green environment is the only target that may
 # receive the origin-EIP hook. The active ALB environment must never claim an
 # origin EIP; its stable origin is the load balancer DNS name.
+if [[ "$ENV_NAME" == "interoves-web-green" || "$ENV_NAME" == "interoves-web-green-lb" ]]; then
+    install -D -m 0644 \
+        "$ROOT/.ebextensions/playwright.config" \
+        "$stage/.ebextensions/playwright.config"
+    install -D -m 0755 \
+        "$ROOT/.platform/hooks/postdeploy/06_install_playwright_chromium.sh" \
+        "$stage/.platform/hooks/postdeploy/06_install_playwright_chromium.sh"
+fi
+
 if [[ "$ENV_NAME" == "interoves-web-green" ]]; then
     install -D -m 0755 \
         "$ROOT/.platform/hooks/postdeploy/11_associate_green_origin_eip.sh" \
@@ -154,6 +163,9 @@ if [[ "$ENV_NAME" == "interoves-integrations-worker" ]]; then
     install -D -m 0644 \
         "$ROOT/infra/elasticbeanstalk/future/integrations-worker/playwright.config" \
         "$stage/.ebextensions/playwright-integrations-worker.config"
+    install -D -m 0755 \
+        "$ROOT/.platform/hooks/postdeploy/06_install_playwright_chromium.sh" \
+        "$stage/.platform/hooks/postdeploy/06_install_playwright_chromium.sh"
 fi
 
 if [[ "$SKIP_COLLECTSTATIC" == "1" ]]; then

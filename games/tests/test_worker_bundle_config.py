@@ -39,11 +39,24 @@ class RecheckWorkerBundleConfigTests(unittest.TestCase):
     def test_integrations_bundle_injects_playwright_provisioning(self):
         script = (ROOT / 'scripts' / 'prepare_eb_bundle.sh').read_text()
         config = (ROOT / 'infra' / 'elasticbeanstalk' / 'future' / 'integrations-worker' / 'playwright.config').read_text()
+        hook = (ROOT / '.platform' / 'hooks' / 'postdeploy' / '06_install_playwright_chromium.sh').read_text()
         self.assertIn('interoves-integrations-worker', script)
         self.assertIn('playwright.config', script)
+        self.assertIn('06_install_playwright_chromium.sh', script)
         self.assertIn('/home/app/.cache/ms-playwright', config)
         self.assertIn('python -m playwright install chromium', config)
         self.assertIn('python -m playwright install chromium &&', config)
+        self.assertIn('PLAYWRIGHT_BROWSERS_PATH', hook)
+        self.assertIn('chromium_headless_shell-*', hook)
+
+    def test_web_bundle_injects_playwright_provisioning(self):
+        script = (ROOT / 'scripts' / 'prepare_eb_bundle.sh').read_text()
+        hook = (ROOT / '.platform' / 'hooks' / 'postdeploy' / '06_install_playwright_chromium.sh').read_text()
+        self.assertIn('interoves-web-green-lb', script)
+        self.assertIn('.ebextensions/playwright.config', script)
+        self.assertIn('06_install_playwright_chromium.sh', script)
+        self.assertIn('/home/webapp/.cache/ms-playwright', hook)
+        self.assertIn('"$PYTHON" -m playwright install chromium', hook)
 
     def test_worker_image_contains_playwright_browser_for_integrations(self):
         dockerfile = (ROOT / 'Dockerfile.worker').read_text()

@@ -92,6 +92,7 @@
     updateTpl: "{% url 'support:social_update' 0 %}".replace('/0/', '/{id}/'),
     publishTpl: "{% url 'support:social_publish' 0 %}".replace('/0/', '/{id}/'),
     syncTgTpl: "{% url 'support:social_sync_telegram' 0 %}".replace('/0/', '/{id}/'),
+    regenerateImageTpl: "{% url 'support:social_regenerate_image' 0 %}".replace('/0/', '/{id}/'),
     deleteTpl: "{% url 'support:social_delete' 0 %}".replace('/0/', '/{id}/')
   };
   var listEl = document.getElementById('social-list');
@@ -277,7 +278,9 @@
       var cap = escapeHtml((p.caption || '').slice(0, 220));
       var srcLabel = p.source === 'ladder'
         ? ('лесенка №' + (p.ladder_number || '?'))
-        : 'ручной';
+        : p.source === 'word_salad'
+          ? ('салатик №' + (p.ladder_number || '?'))
+          : 'ручной';
       var img = p.image_url
         ? '<img class="support-social-thumb" src="' + escapeHtml(p.image_url) + '" alt="">'
         : '<div class="support-social-thumb support-social-thumb--empty">нет фото</div>';
@@ -289,6 +292,9 @@
               '<div class="support-social-item__meta">#' + p.id + ' · ' + srcLabel +
                 (p.created_at ? ' · создан ' + escapeHtml(fmtDT(p.created_at)) : '') + '</div>' +
               '<div class="support-social-item__actions">' +
+                (p.task_id
+                  ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-regenerate-image="' + p.id + '" title="Перерендерить картинку по связанному заданию через Playwright">Перегенерировать картинку</button>'
+                  : '') +
                 (canPullFromTelegram(p)
                   ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-sync-tg="' + p.id +
                       '" title="Подтянуть текст из отложенного поста Telegram (X/Insta в очереди обновятся сами)">Подтянуть из TG</button>'
@@ -480,6 +486,31 @@
       }).catch(function (err) {
         syncBtn.disabled = false;
         syncBtn.textContent = prevLabel;
+        alert(String(err));
+      });
+      return;
+    }
+
+    var regenerateBtn = e.target.closest('[data-regenerate-image]');
+    if (regenerateBtn) {
+      var regenerateId = regenerateBtn.getAttribute('data-regenerate-image');
+      if (!window.confirm('Перегенерировать картинку поста #' + regenerateId + '?')) return;
+      regenerateBtn.disabled = true;
+      regenerateBtn.textContent = 'Рендер…';
+      fetch(endpoints.regenerateImageTpl.replace('{id}', regenerateId), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf() }
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (!data.ok) {
+          regenerateBtn.disabled = false;
+          regenerateBtn.textContent = 'Перегенерировать картинку';
+          alert(data.error || 'ошибка');
+          return;
+        }
+        upsertPost(data.post);
+      }).catch(function (err) {
+        regenerateBtn.disabled = false;
+        regenerateBtn.textContent = 'Перегенерировать картинку';
         alert(String(err));
       });
       return;

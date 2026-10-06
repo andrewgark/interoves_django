@@ -300,6 +300,10 @@ def schedule_salad_channel_post(
     if existing is None:
         return None
 
+    if existing.task_id != salad.task.pk:
+        existing.task = salad.task
+        existing.save(update_fields=['task', 'updated_at'])
+
     claim_token = claim_telegram_post(existing.pk, force=force)
     if claim_token is None:
         existing.refresh_from_db()

@@ -155,3 +155,40 @@ async def fetch_scheduled_message(*, chat: str, message_id: int) -> dict[str, An
 
 def fetch_scheduled_message_sync(*, chat: str, message_id: int) -> dict[str, Any] | None:
     return run_sync(lambda: fetch_scheduled_message(chat=chat, message_id=message_id))
+
+
+async def edit_scheduled_photo(
+    *, chat: str, message_id: int, photo_bytes: bytes, caption: str, filename: str,
+) -> bool:
+    from telethon.extensions import html as tl_html
+    from telethon.tl.functions.messages import EditMessageRequest, GetScheduledMessagesRequest
+    from telethon.tl.types import InputMediaUploadedPhoto
+
+    if not telegram_user_configured():
+        raise RuntimeError('TELEGRAM_API_ID / TELEGRAM_API_HASH / TELEGRAM_USER_SESSION not configured')
+
+    client = _build_client()
+    async with client:
+        entity = await client.get_entity(chat)
+        scheduled = await client(GetScheduledMessagesRequest(peer=entity, id=[int(message_id)]))
+        if not any(
+            getattr(message, 'id', None) == int(message_id)
+            for message in (getattr(scheduled, 'messages', None) or [])
+        ):
+            raise RuntimeError('Сообщение уже опубликовано или удалено из отложенных Telegram')
+        photo = BytesIO(photo_bytes)
+        photo.name = filename
+        uploaded = await client.upload_file(photo)
+        text, entities = tl_html.parse(caption or '')
+        await client(EditMessageRequest(
+            peer=entity,
+            id=int(message_id),
+            message=text or '',
+            entities=entities or None,
+            media=InputMediaUploadedPhoto(file=uploaded),
+        ))
+    return True
+
+
+def edit_scheduled_photo_sync(**kwargs) -> bool:
+    return run_sync(lambda: edit_scheduled_photo(**kwargs))

@@ -332,6 +332,10 @@ def schedule_ladder_channel_post(
     if existing is None:
         return None
 
+    if existing.task_id != ladder.task.pk:
+        existing.task = ladder.task
+        existing.save(update_fields=['task', 'updated_at'])
+
     claim_token = claim_telegram_post(existing.pk, force=force)
     if claim_token is None:
         existing.refresh_from_db()

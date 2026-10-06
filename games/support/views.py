@@ -143,6 +143,7 @@ from games.support.services.social import (
     get_post as social_get_post,
     list_posts as social_list_posts,
     publish_network as social_publish_network,
+    regenerate_post_image as social_regenerate_post_image,
     serialize_post as social_serialize_post,
     sync_from_telegram as social_sync_from_telegram,
     update_post as social_update_post,
@@ -1812,6 +1813,17 @@ def social_sync_telegram(request, post_id):
     try:
         post = social_get_post(post_id)
         post = social_sync_from_telegram(post)
+    except SocialSupportError as exc:
+        return _social_error_response(exc, status=404 if 'not found' in str(exc).lower() else 400)
+    return JsonResponse({'ok': True, 'post': social_serialize_post(post)})
+
+
+@support_console_required
+@require_POST
+def social_regenerate_image(request, post_id):
+    try:
+        post = social_get_post(post_id)
+        post = social_regenerate_post_image(post)
     except SocialSupportError as exc:
         return _social_error_response(exc, status=404 if 'not found' in str(exc).lower() else 400)
     return JsonResponse({'ok': True, 'post': social_serialize_post(post)})

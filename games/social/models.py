@@ -60,6 +60,10 @@ class SocialQueuePost(models.Model):
         help_text='Optional compact image for X, Instagram and Threads; Telegram uses image.',
     )
     source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_MANUAL)
+    task = models.ForeignKey(
+        'Task', related_name='social_queue_posts', blank=True, null=True,
+        on_delete=models.SET_NULL,
+    )
     ladder_date = models.DateField(
         null=True,
         blank=True,

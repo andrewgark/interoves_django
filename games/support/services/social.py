@@ -17,6 +17,7 @@ from games.social.publish import (
 )
 from games.telegram.config import channel_chat_id, telegram_channel_configured
 from games.telegram.mtproto import (
+    edit_scheduled_photo_sync,
     fetch_scheduled_message_sync,
     telegram_user_configured,
 )
@@ -65,6 +66,7 @@ def serialize_post(post: SocialQueuePost) -> dict:
         'id': post.pk,
         'caption': post.caption or '',
         'source': post.source,
+        'task_id': post.task_id,
         'ladder_number': post.ladder_number,
         'ladder_date': post.ladder_date.isoformat() if post.ladder_date else None,
         'play_url': post.play_url or '',
@@ -261,6 +263,49 @@ def sync_from_telegram(post: SocialQueuePost) -> SocialQueuePost:
         )
     post.caption = data.get('caption') or ''
     post.save(update_fields=['caption', 'updated_at'])
+    return post
+
+
+def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
+    if post.task_id is None:
+        raise SocialSupportError('У поста нет привязанного задания для рендера картинки')
+    if post.source == SocialQueuePost.SOURCE_WORD_SALAD:
+        from games.telegram.word_salad_image import render_word_salad_teaser_png
+
+        image = render_word_salad_teaser_png(
+            post.task, salad_number=post.ladder_number, fallback_to_pillow=False,
+        )
+        filename = 'salad-{}.png'.format(post.ladder_number or post.pk)
+    elif post.source == SocialQueuePost.SOURCE_LADDER:
+        from games.telegram.ladder_image import render_ladder_teaser_png
+
+        image = render_ladder_teaser_png(
+            post.task, ladder_number=post.ladder_number, fallback_to_pillow=False,
+        )
+        filename = 'ladder-{}.png'.format(post.ladder_number or post.pk)
+    else:
+        raise SocialSupportError('Для этого типа поста нет Playwright-рендера')
+
+    if (
+        post.telegram_status == SocialQueuePost.STATUS_SCHEDULED
+        and post.telegram_external_id
+        and not _is_post_published(post)
+    ):
+        if not (telegram_user_configured() and telegram_channel_configured()):
+            raise SocialSupportError('Telegram канал / user session не настроены')
+        try:
+            edit_scheduled_photo_sync(
+                chat=channel_chat_id(),
+                message_id=int(post.telegram_external_id),
+                photo_bytes=image,
+                caption=post.caption,
+                filename=filename,
+            )
+        except Exception as exc:
+            raise SocialSupportError('Не удалось заменить картинку в Telegram: {}'.format(exc))
+
+    post.set_image_bytes(image, filename=filename)
+    post.save(update_fields=['image', 'updated_at'])
     return post
 
 
