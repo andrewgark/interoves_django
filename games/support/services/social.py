@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 
 from django.utils import timezone
@@ -21,6 +22,8 @@ from games.telegram.mtproto import (
     fetch_scheduled_message_sync,
     telegram_user_configured,
 )
+
+logger = logging.getLogger('application')
 
 
 class SocialSupportError(Exception):
@@ -170,10 +173,11 @@ def create_post_with_plan(
       - tg_defer: Telegram → native deferred; other selected → internal queue
         (needs schedule_at)
     """
-    post = create_post(caption=caption, image_file=image_file)
     mode = (mode or 'draft').strip().lower()
     if mode == 'draft':
-        return post
+        return create_post(caption=caption, image_file=image_file)
+    if mode not in ('now', 'internal', 'tg_defer'):
+        raise SocialSupportError('Неизвестный mode: {}'.format(mode))
 
     selected = {
         (n or '').strip().lower()
@@ -183,9 +187,13 @@ def create_post_with_plan(
     if not selected:
         raise SocialSupportError('Выберите хотя бы одну соцсеть')
 
-    sched = _parse_schedule(schedule_at)
+    sched = _parse_schedule(schedule_at) if mode in ('internal', 'tg_defer') else None
     if mode in ('internal', 'tg_defer') and sched is None:
         raise SocialSupportError('Укажите дату и время')
+    if mode == 'tg_defer' and 'telegram' not in selected:
+        raise SocialSupportError('Режим «отложенные TG» требует Telegram')
+
+    post = create_post(caption=caption, image_file=image_file)
 
     if mode == 'now':
         for network in selected:
@@ -202,8 +210,6 @@ def create_post_with_plan(
         return post
 
     if mode == 'tg_defer':
-        if 'telegram' not in selected:
-            raise SocialSupportError('Режим «отложенные TG» требует Telegram')
         publish_network(
             post, 'telegram', action='tg_defer', schedule_at=sched, force=False,
         )
@@ -301,8 +307,15 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
         except Exception as exc:
             raise SocialSupportError('Не удалось заменить картинку в Telegram: {}'.format(exc))
 
+    old_image_name = post.image.name if post.image else ''
     post.set_image_bytes(image, filename=filename)
+    new_image_name = post.image.name
     post.save(update_fields=['image', 'updated_at'])
+    if old_image_name and old_image_name != new_image_name:
+        try:
+            post.image.storage.delete(old_image_name)
+        except Exception:
+            logger.exception('Could not remove previous image for social post pk=%s', post.pk)
     return post
 
 
