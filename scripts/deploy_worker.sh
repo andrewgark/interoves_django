@@ -5,6 +5,12 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
 APP="interoves"
+SOURCE_SHA="$(git -C "$ROOT" rev-parse HEAD)"
+SOURCE_DIR="$(mktemp -d /tmp/interoves-worker-source.XXXXXX)"
+trap 'rm -rf "$SOURCE_DIR"' EXIT
+git -C "$ROOT" archive "$SOURCE_SHA" | tar -x -C "$SOURCE_DIR"
+export DEPLOY_SOURCE_DIR="$SOURCE_DIR"
+export DEPLOY_SOURCE_SHA="$(git -C "$ROOT" rev-parse --short "$SOURCE_SHA")"
 ENV_NAME="${1:-}"
 DO_DEPLOY=0
 case "$ENV_NAME" in
@@ -44,6 +50,5 @@ key="interoves/workers/${label}.zip"
 "$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk update-environment \
     --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
     --version-label "$label" >/dev/null
-"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk wait environment-updated \
-    --region "$REGION" --environment-names "$ENV_NAME"
+"$ROOT/scripts/wait_for_eb_deployment.sh" "$ENV_NAME" "$label" "$REGION"
 echo "Worker deploy complete: $ENV_NAME / $label"

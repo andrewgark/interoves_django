@@ -5,7 +5,11 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
 APP="interoves"
-ENV_NAME="${GREEN_ENV_NAME:-interoves-web-green-lb}"
+ENV_NAME="interoves-web-green-lb"
+if [[ -n "${GREEN_ENV_NAME:-}" && "$GREEN_ENV_NAME" != "$ENV_NAME" ]]; then
+    echo "Refusing unexpected Green target '$GREEN_ENV_NAME'; production is $ENV_NAME." >&2
+    exit 2
+fi
 DO_DEPLOY=0
 for arg in "$@"; do
     case "$arg" in
@@ -36,7 +40,7 @@ else
     echo "Skipping static publish (dry run)."
 fi
 
-sha="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+sha="${DEPLOY_SOURCE_SHA:-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)}"
 label="app-green-${sha}-$(date -u +%Y%m%d%H%M%S)"
 if [[ "$DO_DEPLOY" == "0" ]]; then
     echo "Prepared version label: $label"
@@ -55,7 +59,6 @@ key="interoves/green/${label}.zip"
 "$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk update-environment \
     --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
     --version-label "$label" >/dev/null
-"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk wait environment-updated \
-    --region "$REGION" --environment-names "$ENV_NAME"
+"$ROOT/scripts/wait_for_eb_deployment.sh" "$ENV_NAME" "$label" "$REGION"
 "$ROOT/scripts/smoke_prod_pages.sh"
 echo "Green deploy complete: $label"

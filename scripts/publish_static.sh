@@ -3,6 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SOURCE_ROOT="${DEPLOY_SOURCE_DIR:-$ROOT}"
 PYTHON="${PYTHON:-$ROOT/../venv/interoves_django/bin/python}"
 AWS_PROFILE_NAME="${STATIC_AWS_PROFILE:-interoves}"
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
@@ -16,9 +17,9 @@ MARKER_KEY="static/.interoves-source-fingerprint"
 }
 
 echo "Publishing static files to s3://${BUCKET}/static/ (profile=${AWS_PROFILE_NAME})"
-cd "$ROOT"
+cd "$SOURCE_ROOT"
 
-CURRENT="$(scripts/static_source_fingerprint.sh)"
+CURRENT="$(bash scripts/static_source_fingerprint.sh)"
 existing="$(AWS_PROFILE="$AWS_PROFILE_NAME" AWS_DEFAULT_REGION="$REGION" \
     aws s3 cp "s3://${BUCKET}/${MARKER_KEY}" - --only-show-errors 2>/dev/null || true)"
 if [[ "$existing" == "$CURRENT" ]]; then

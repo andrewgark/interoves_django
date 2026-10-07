@@ -4,6 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+SOURCE_ROOT="${DEPLOY_SOURCE_DIR:-$ROOT}"
 REGION="${AWS_DEFAULT_REGION:-eu-central-1}"
 APP="interoves"
 ENV_NAME="${1:-}"
@@ -38,7 +39,7 @@ while IFS= read -r pattern || [[ -n "$pattern" ]]; do
     else
         printf -- '- %s\n' "$pattern" >> "$rsync_filters"
     fi
-done < "$ROOT/.ebignore"
+done < "$SOURCE_ROOT/.ebignore"
 
 if [[ -z "$SOURCE_BUNDLE_URI" ]]; then
     current_version=$("$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk describe-environments \
@@ -95,7 +96,7 @@ rsync -a --delete-delay \
     --exclude='/.ebextensions/***' \
     --exclude='/.platform/***' \
     --exclude='/.elasticbeanstalk/***' \
-    "$ROOT/" "$stage/"
+    "$SOURCE_ROOT/" "$stage/"
 
 # A recovery base can come from the recheck worker when the target worker's
 # original bundle has been garbage-collected.  Do not carry recheck-only
@@ -178,7 +179,7 @@ if [[ "$SKIP_COLLECTSTATIC" == "1" ]]; then
     sed -i '/^set -euo pipefail$/a exit 0 # Green deploy: static is published separately' "$collectstatic"
 fi
 
-sha="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)"
+sha="${DEPLOY_SOURCE_SHA:-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)}"
 printf '%s\n' "$sha" > "$stage/interoves_django/deploy_version.txt"
 
 mkdir -p "$(dirname "$OUTPUT_ZIP")"

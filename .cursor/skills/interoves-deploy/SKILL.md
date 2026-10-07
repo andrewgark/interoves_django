@@ -8,13 +8,15 @@ description: Prepare an explicitly targeted Interoves Django Elastic Beanstalk r
 ## Safety boundary
 
 “prod”, “production”, “сайт” and an unqualified “давай задеплоим” mean the web
-production environment `interoves-web-green`. `./deploy.sh` is the canonical
-Green entrypoint. `interoves-env` is Blue, kept only for DNS rollback; Blue must
-not be deployed or repaired unless the user explicitly requests a Blue operation.
+production environment `interoves-web-green-lb`. `./deploy.sh` is the canonical
+Green entrypoint and accepts only that production target. `interoves-env` is
+Blue, kept only for DNS rollback; Blue must not be deployed or repaired unless
+the user explicitly requests a Blue operation.
 
-Before any deploy command, require the user to name the environment explicitly:
+The web entrypoint itself explicitly targets Green and rejects target overrides.
+For worker deploys, require the exact environment name:
 
-- production web: `interoves-web-green`;
+- production web: `interoves-web-green-lb`;
 - workers: the exact named worker environment;
 - rollback Blue: `interoves-env`, only with explicit authorization.
 
@@ -28,12 +30,13 @@ fail with `You cannot remove an environment from a VPC`.
 For Green, use `./deploy.sh --dry-run` to prepare a bundle or `./deploy.sh` to
 release it. The script downloads the current Green zip, overlays only the
 intended application code, preserves live `.ebextensions` and `.platform`, and
-updates only `interoves-web-green`. Never use `rsync --delete` over those
+updates only `interoves-web-green-lb`. Never use `rsync --delete` over those
 directories. The collectstatic skip required by Green belongs only in the zip,
 not in the repository. If EB application-version metadata has no SourceBundle,
 the wrapper may use the standard retained EB S3 object for the current version
 label; if that object is also absent, stop instead of using a plain checkout
-deploy.
+deploy. Releases are assembled from committed HEAD; uncommitted working-tree
+files are excluded.
 
 Apply required schema changes through `./scripts/with_rds.sh` before releasing
 code that reads new columns. Deployment migrations are disabled unless
