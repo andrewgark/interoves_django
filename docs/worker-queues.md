@@ -10,7 +10,7 @@ this file and the live AWS resources before changing production.
 |---|---|---|---|---|---|
 | identity | ECS service `interoves-identity-ecs` | `interoves-identity` | `interoves-identity-dlq` | `/interoves/workers/identity` | `anonymous.merge`, `anonymous.merge_reconcile`, `account.merge` |
 | background | ECS service `interoves-background-ecs` (Fargate Spot) | `interoves-background` | `interoves-background-dlq` | `/interoves/workers/background` | `difficulty.refresh`, `difficulty.health_check`, `projection.reconcile`, `projection.refresh` |
-| integrations | ECS service `interoves-integrations-ecs` (Fargate On-Demand) | `interoves-integrations` | `interoves-integrations-dlq` | `/interoves/workers/integrations` | `telegram.announcements`, `telegram.admin_report`, `instagram.token_refresh`, `social.publish` |
+| integrations | ECS service `interoves-integrations-ecs` (Fargate On-Demand) | `interoves-integrations` | `interoves-integrations-dlq` | `/interoves/workers/integrations` | `telegram.announcements`, `telegram.admin_report`, `telegram.admin_alert`, `instagram.token_refresh`, `social.publish` |
 | recheck | ECS service `interoves-recheck-ecs` (Fargate Spot) | `interoves-recheck` | `interoves-recheck-dlq` | `/interoves/workers/recheck` | `word_salad.recheck` |
 
 The identity queue URL in production is:
@@ -32,6 +32,10 @@ the same queues.
 - `infra/ecs/worker-service.yaml` — injects `QueueUrl` as `WORKER_QUEUE_URL` and,
   for identity, `ANONYMOUS_MERGE_SQS_QUEUE_URL`;
 - `games/anonymous_merge_events.py` — publishes identity merge events;
+- `games/telegram/admin_alert_events.py` — publishes safe web-originated
+  Telegram admin alerts to the integrations queue. Alert subtypes include
+  `word_salad_submission`, `site_error`, `club_subscription_attempt_failed`,
+  `club_subscription_state`, and `club_renewal_failed`;
 - `games/models.py` — durable merge state in `AccountMergeJob`,
   `AnonymousMergeJob`, and `AnonymousMergeReconcileItem`.
 

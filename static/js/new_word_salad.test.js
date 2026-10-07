@@ -311,4 +311,13 @@ assert.strictEqual(Path.offerShareFromPath('/ladder/6824270918737837/'), '682427
 assert.strictEqual(Path.offerShareFromPath('/week_task/41ffddf256ae6df6/'), '41ffddf256ae6df6');
 assert.strictEqual(Path.offerShareFromPath('/alphabetty/41ffddf256ae6df6/'), '41ffddf256ae6df6');
 
+(function testServerRenderedOfferShareWinsOverUrlParsing() {
+  var stamped = '';
+  Path.stampOfferShare(
+    { set: function (name, value) { if (name === 'offer_share') stamped = value; } },
+    { querySelector: function () { return { value: 'server-token-1234' }; } }
+  );
+  assert.strictEqual(stamped, 'server-token-1234');
+})();
+
 console.log('new_word_salad.test.js: ok');

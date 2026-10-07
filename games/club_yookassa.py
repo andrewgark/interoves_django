@@ -372,7 +372,7 @@ def cancel_yookassa_subscription(user) -> StartPaymentResult:
 
         transaction.on_commit(
             lambda sid=subscription.pk: notify_admin_club_subscription(
-                sid, 'subscription_cancelled', payment_kind='yookassa'
+                sid, 'subscription_cancelled', payment_kind='yookassa', delivery='queue'
             )
         )
     logger.info('subscription_cancel_requested user_id=%s subscription_id=%s', user.pk, subscription.pk)
@@ -419,7 +419,9 @@ def _expected_amount(local: ClubYooKassaPayment) -> int:
     return int(local.amount)
 
 
-def _apply_succeeded_payment(local: ClubYooKassaPayment, payment_data: dict) -> None:
+def _apply_succeeded_payment(
+    local: ClubYooKassaPayment, payment_data: dict, *, delivery: str = 'direct',
+) -> None:
     if payment_data.get('status') != 'succeeded':
         return
     amount_obj = payment_data.get('amount') or {}
@@ -545,7 +547,7 @@ def _apply_succeeded_payment(local: ClubYooKassaPayment, payment_data: dict) -> 
 
     transaction.on_commit(
         lambda sid=subscription.pk, kind=local.kind: notify_admin_club_subscription(
-            sid, 'payment.succeeded', payment_kind=kind
+            sid, 'payment.succeeded', payment_kind=kind, delivery=delivery
         )
     )
     if local.kind != ClubYooKassaPayment.KIND_RECURRING_MONTHLY:
@@ -562,7 +564,9 @@ def _apply_succeeded_payment(local: ClubYooKassaPayment, payment_data: dict) -> 
         logger.info('subscription_activated subscription_id=%s kind=%s', subscription.pk, local.kind)
 
 
-def _apply_canceled_payment(local: ClubYooKassaPayment, payment_data: dict) -> None:
+def _apply_canceled_payment(
+    local: ClubYooKassaPayment, payment_data: dict, *, delivery: str = 'direct',
+) -> None:
     cancellation = payment_data.get('cancellation_details') or {}
     was_canceled = local.status == ClubYooKassaPayment.STATUS_CANCELED
     local.status = ClubYooKassaPayment.STATUS_CANCELED
@@ -589,7 +593,9 @@ def _apply_canceled_payment(local: ClubYooKassaPayment, payment_data: dict) -> N
 
         transaction.on_commit(
             lambda sid=subscription.pk, pid=local.pk, reason=local.cancellation_reason:
-            notify_admin_club_renewal_failed(sid, payment_id=pid, reason=reason)
+            notify_admin_club_renewal_failed(
+                sid, payment_id=pid, reason=reason, delivery=delivery,
+            )
         )
     logger.info(
         'subscription_payment_failed payment_pk=%s kind=%s reason=%s',
@@ -633,9 +639,9 @@ def process_yookassa_club_payment_event(event_name: str, payment_data: dict) -> 
             return True
 
         if event_name == 'payment.succeeded':
-            _apply_succeeded_payment(local, payment_data)
+            _apply_succeeded_payment(local, payment_data, delivery='queue')
         elif event_name == 'payment.canceled' and payment_data.get('status') == 'canceled':
-            _apply_canceled_payment(local, payment_data)
+            _apply_canceled_payment(local, payment_data, delivery='queue')
     return True
 
 

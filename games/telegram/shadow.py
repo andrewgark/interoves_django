@@ -42,6 +42,31 @@ def run_admin_report_live(*, now):
         return process_admin_report_tick(now=now)
 
 
+def run_admin_alert_live(*, alert: str, payload: dict):
+    """Send one already-validated alert from the integrations worker."""
+    if alert == 'word_salad_submission':
+        from games.telegram.notify import notify_admin_word_salad_submission_error
+
+        return notify_admin_word_salad_submission_error(
+            game_id=str(payload.get('game_id') or 'salad'),
+            incident_id=str(payload.get('incident_id') or ''),
+            deduplicate=True,
+        )
+    if alert == 'site_error':
+        from games.telegram.notify import notify_admin_alert_message
+
+        return notify_admin_alert_message(str(payload.get('text') or ''))
+    if alert == 'club_subscription_attempt_failed':
+        from games.telegram.notify import notify_admin_alert_message
+
+        return notify_admin_alert_message(str(payload.get('text') or ''))
+    if alert in ('club_renewal_failed', 'club_subscription_state'):
+        from games.telegram.notify import notify_admin_alert_message
+
+        return notify_admin_alert_message(str(payload.get('text') or ''))
+    raise ValueError('unsupported admin alert: {}'.format(alert))
+
+
 def run_announcement_live(*, now):
     """Send announcements. Returns None when the cron lock is already held."""
     from games.telegram.cron_lock import telegram_cron_lock

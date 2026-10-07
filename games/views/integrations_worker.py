@@ -19,6 +19,7 @@ from games.background.messages import (
     ANNOUNCEMENT_STALE_AFTER,
     INSTAGRAM_STALE_AFTER,
     INSTAGRAM_TOKEN_REFRESH,
+    TELEGRAM_ADMIN_ALERT,
     SOCIAL_PUBLISH,
     SOCIAL_STALE_AFTER,
     TELEGRAM_ADMIN_REPORT,
@@ -29,7 +30,11 @@ from games.background.messages import (
 from games.instagram.refresh import run_instagram_token_refresh
 from games.social.publish import run_social_publish_live
 from games.runtime import RUNTIME_ROLE_INTEGRATION, runtime_role
-from games.telegram.shadow import run_admin_report_live, run_announcement_live
+from games.telegram.shadow import (
+    run_admin_alert_live,
+    run_admin_report_live,
+    run_announcement_live,
+)
 from games.worker_http import is_sqsd_delivery, sqsd_message_id
 
 logger = logging.getLogger('application')
@@ -49,6 +54,7 @@ def integrations_worker(request):
     if message['type'] not in (
         TELEGRAM_ANNOUNCEMENTS,
         TELEGRAM_ADMIN_REPORT,
+        TELEGRAM_ADMIN_ALERT,
         INSTAGRAM_TOKEN_REFRESH,
         SOCIAL_PUBLISH,
     ):
@@ -69,6 +75,12 @@ def integrations_worker(request):
             result = run_announcement_live(now=message['scheduled_for'])
         elif message['type'] == TELEGRAM_ADMIN_REPORT:
             result = run_admin_report_live(now=message['scheduled_for'])
+        elif message['type'] == TELEGRAM_ADMIN_ALERT:
+            payload = message['payload']
+            result = run_admin_alert_live(
+                alert=str(payload.get('alert') or ''),
+                payload=payload,
+            )
         elif message['type'] == INSTAGRAM_TOKEN_REFRESH:
             result = run_instagram_token_refresh(
                 worker='integration:{}'.format(message_id or 'unknown'),

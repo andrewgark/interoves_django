@@ -9,6 +9,8 @@ Do not create or enable a validation environment as part of these checks.
 - `interoves-rds-*`: RDS CPU, connections, free memory, and oldest InnoDB
   transaction metric emitted by the recheck worker.
 - `interoves-recheck-*`: SQS age/DLQ, dispatcher errors, and DB outbox age.
+- `interoves-integrations-*`: integrations queue age/DLQ and Telegram admin
+  alert delivery errors.
 
 All alarms are standard-resolution alarms. `OK` means the observed metric is
 below its threshold; `INSUFFICIENT_DATA` is expected briefly after creation or
@@ -35,6 +37,10 @@ explicitly added.
    logs, SQS and DLQ, then the custom outbox/transaction metrics.
 4. For RDS alarms, avoid running migrations or broad repair jobs until active
    transactions and connection count return to normal.
+5. For a custom Word Salad submission alert, search web logs for
+   `event=scheduled_task_submission_contract_error` and the matching
+   `incident_id`, then search integrations-worker logs for
+   `alert=word_salad_submission`.
 
 Useful production checks:
 

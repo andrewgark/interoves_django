@@ -141,6 +141,7 @@
       <input type="hidden" name="game_id" value="{{ game.id }}">
       <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
       <input type="hidden" name="action" value="solve">
+      {% if ws.offer_share %}<input type="hidden" name="offer_share" value="{{ ws.offer_share }}">{% endif %}
       <input type="hidden" name="path" value="[]" data-word-salad-path>
       <input type="hidden" name="correct_only" value="1">
     </form>

@@ -265,8 +265,17 @@
     return match ? match[1].toLowerCase() : '';
   }
 
-  function stampOfferShare(body) {
+  function stampOfferShare(body, form) {
     if (!body || typeof body.set !== 'function') return;
+    // The server-rendered value is authoritative. The URL fallback keeps
+    // older cached task fragments working during a rolling deploy.
+    var input = form && form.querySelector
+      ? form.querySelector('input[name="offer_share"]') : null;
+    var explicit = input && String(input.value || '').trim();
+    if (explicit) {
+      body.set('offer_share', explicit);
+      return;
+    }
     var share = offerShareFromPath(global.location && global.location.pathname);
     if (share) body.set('offer_share', share);
   }
@@ -1007,7 +1016,7 @@
         if (isPreview || !form || !extraWords.length) return;
         var body = new FormData(form);
         if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
-        stampOfferShare(body);
+        stampOfferShare(body, form);
         body.set('action', 'sync_finds');
         body.set('words', JSON.stringify(extraWords));
         fetch(formSubmitUrl(form), {
@@ -1304,7 +1313,7 @@
 
         var body = new FormData(form);
         if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
-        stampOfferShare(body);
+        stampOfferShare(body, form);
         body.set('path', JSON.stringify(path));
         body.set('correct_only', '1');
         fetch(formSubmitUrl(form), {

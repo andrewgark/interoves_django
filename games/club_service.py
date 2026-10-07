@@ -382,7 +382,9 @@ def process_subscription_event(event_name: str, payload: dict, *, envelope_creat
             )
 
             transaction.on_commit(
-                lambda sid=subscription.pk, ev=event_name: notify_admin_club_subscription(sid, ev)
+                lambda sid=subscription.pk, ev=event_name: notify_admin_club_subscription(
+                    sid, ev, delivery='queue',
+                )
             )
             if event_name == 'new_subscription':
                 transaction.on_commit(

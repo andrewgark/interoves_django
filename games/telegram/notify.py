@@ -19,6 +19,7 @@ from games.models import (
     WordSaladOffer,
 )
 from games.telegram.api import send_message, send_photo
+from games.telegram.admin_alert_events import publish_admin_alert
 from games.telegram.config import (
     admin_chat_id,
     admin_is_muted,
@@ -69,6 +70,23 @@ def send_admin_message(text: str, *, reply_markup: dict | None = None, force: bo
     return send_message(admin_chat_id(), text, reply_markup=reply_markup)
 
 
+def notify_admin_alert_message(text: str) -> bool:
+    """Deliver a previously validated alert from the integrations worker."""
+    if not text:
+        return False
+    return send_admin_message(text[:4000], force=True)
+
+
+def _deliver_admin_text(text: str, *, alert: str, delivery: str, dedupe_key: str = '') -> bool:
+    if delivery == 'queue':
+        return publish_admin_alert(
+            alert=alert,
+            dedupe_key=dedupe_key,
+            payload={'text': text},
+        )
+    return send_admin_message(text, force=True)
+
+
 def notify_admin_club_subscription_attempt_failed(
     user, *, provider: str, reason: str, message: str, currency: str = '',
 ) -> bool:
@@ -92,7 +110,15 @@ def notify_admin_club_subscription_attempt_failed(
             lines.append('Валюта: {}'.format(_escape(currency.upper())))
         if message:
             lines.append('Сообщение: {}'.format(_escape(message)))
-        return send_admin_message(_join_lines(lines), force=True)
+        from games.telegram.admin_alert_events import publish_admin_alert
+
+        return publish_admin_alert(
+            alert='club_subscription_attempt_failed',
+            dedupe_key='telegram.admin_alert:club_subscription_attempt_failed:{}:{}'.format(
+                getattr(user, 'pk', 'unknown'), provider,
+            ),
+            payload={'text': _join_lines(lines)},
+        )
     except Exception:
         logger.exception('Failed to notify admin about failed club subscription attempt user=%s', user.pk)
         return False
@@ -100,6 +126,7 @@ def notify_admin_club_subscription_attempt_failed(
 
 def notify_admin_club_renewal_failed(
     subscription_id: int, *, payment_id: int | None = None, reason: str = '',
+    delivery: str = 'direct',
 ) -> bool:
     """Notify the admin chat when a recurring Club charge needs attention."""
     try:
@@ -136,7 +163,14 @@ def notify_admin_club_renewal_failed(
             lines.append('Причина: {}'.format(_escape(reason)))
         if subscription.paid_until:
             lines.append('Доступ до: {}'.format(subscription.paid_until.strftime('%d.%m.%Y %H:%M UTC')))
-        return send_admin_message(_join_lines(lines), force=True)
+        return _deliver_admin_text(
+            _join_lines(lines),
+            alert='club_renewal_failed',
+            delivery=delivery,
+            dedupe_key='telegram.admin_alert:club_renewal_failed:{}:{}'.format(
+                subscription_id, payment_id or reason,
+            ),
+        )
     except Exception:
         logger.exception('Failed to notify admin about renewal failure subscription=%s', subscription_id)
         return False
@@ -199,13 +233,46 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
                 '{}: {}'.format(exception.__class__.__name__, str(exception)[:400]),
             )))
         lines.append('Повторные ошибки этого типа подавлены на 5 минут.')
-        return send_admin_message(_join_lines(lines), force=True)
+        return publish_admin_alert(
+            alert='site_error',
+            dedupe_key='telegram.admin_alert:site_error:{}:{}'.format(status_code, path),
+            payload={'text': _join_lines(lines)},
+        )
     except Exception:
         logger.exception('Failed to notify admin about site error')
         return False
 
 
-def notify_admin_club_subscription(subscription_id: int, event_name: str, *, payment_kind: str = '') -> bool:
+def notify_admin_word_salad_submission_error(
+    *, game_id: str, incident_id: str = '', deduplicate: bool = True,
+) -> bool:
+    """Alert on a custom Salad submission contract failure, without details."""
+    try:
+        deploy_version = getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unknown'
+        cache_key = 'telegram:admin:word-salad-submit:{}:{}'.format(
+            game_id, deploy_version,
+        )
+        if deduplicate and not cache.add(cache_key, 1, timeout=300):
+            return False
+        text = _join_lines([
+            '🚨 <b>Ошибка отправки кастомного салатика</b>',
+            '',
+            'Причина: <code>missing_or_invalid_offer_share</code>',
+            'Игра: <code>{}</code>'.format(_escape(game_id)),
+            'Incident: <code>{}</code>'.format(_escape(incident_id or '—')),
+            'Подробности: application log по сообщению '
+            '<code>custom scheduled task submission missing valid offer_share</code>.',
+            'Повторные уведомления подавлены на 5 минут.',
+        ])
+        return send_admin_message(text, force=True)
+    except Exception:
+        logger.exception('Failed to notify admin about custom word salad submission')
+        return False
+
+
+def notify_admin_club_subscription(
+    subscription_id: int, event_name: str, *, payment_kind: str = '', delivery: str = 'direct',
+) -> bool:
     """Notify the admin chat about a durable Club subscription state change."""
     try:
         from games.models import ClubSubscription
@@ -252,7 +319,14 @@ def notify_admin_club_subscription(subscription_id: int, event_name: str, *, pay
                     _escape(invite_url),
                 ),
             ])
-        return send_admin_message(_join_lines(lines), force=True)
+        return _deliver_admin_text(
+            _join_lines(lines),
+            alert='club_subscription_state',
+            delivery=delivery,
+            dedupe_key='telegram.admin_alert:club_subscription_state:{}:{}'.format(
+                subscription_id, event_name,
+            ),
+        )
     except Exception:
         logger.exception('Failed to notify admin about club subscription %s', subscription_id)
         return False

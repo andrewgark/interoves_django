@@ -23,6 +23,12 @@
       }
     },
     {
+      "Sid": "PublishIntegrationsAdminAlerts",
+      "Effect": "Allow",
+      "Action": ["sqs:SendMessage"],
+      "Resource": "__INTEGRATIONS_QUEUE_ARN__"
+    },
+    {
       "Sid": "CloudWatchAgentEc2Dimensions",
       "Effect": "Allow",
       "Action": ["ec2:DescribeTags"],

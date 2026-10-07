@@ -2,6 +2,7 @@
 
 import json
 import re
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
@@ -212,7 +213,8 @@ class WordSaladOfferFlowTests(TestCase):
         )
         self.assertTrue(retry.json()['word_salad_correct'], retry.json())
 
-    def test_accepted_future_salad_accepts_attempts_from_share_link(self):
+    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    def test_accepted_future_salad_accepts_attempts_from_share_link(self, _send_admin_message):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
         update_offer_content(
             offer,
@@ -228,6 +230,9 @@ class WordSaladOfferFlowTests(TestCase):
         client.force_login(self.other)
         page = client.get(offer.play_url())
         self.assertEqual(page.status_code, 200)
+        canonical_page = client.get('/games/salad/{}/'.format(offer.share_hash), follow=True)
+        self.assertEqual(canonical_page.status_code, 200)
+        self.assertContains(canonical_page, 'name="offer_share" value="{}"'.format(offer.share_hash))
         html = page.content.decode('utf-8')
         task_id = re.search(r'data-task-id="(\d+)"', html).group(1)
         context = re.search(
@@ -241,6 +246,7 @@ class WordSaladOfferFlowTests(TestCase):
             'path': json.dumps([0, 1, 2, 3]),
             'correct_only': '1',
         }
+        self.assertContains(page, 'name="offer_share" value="{}"'.format(offer.share_hash))
         blocked = client.post(
             '/send_attempt/{}/'.format(task_id),
             payload,

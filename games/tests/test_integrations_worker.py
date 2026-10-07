@@ -94,6 +94,44 @@ class IntegrationsWorkerTests(SimpleTestCase):
         shadow.assert_called_once()
         self.assertEqual(shadow.call_args.kwargs['now'], scheduled)
 
+    def test_admin_alert_is_dispatched(self):
+        with patch(
+            'games.views.integrations_worker.run_admin_alert_live',
+            return_value=True,
+        ) as alert:
+            response = self._post(_body(
+                type='telegram.admin_alert',
+                payload={
+                    'alert': 'word_salad_submission',
+                    'game_id': 'salad',
+                    'incident_id': 'abc123',
+                },
+            ))
+        self.assertEqual(response.status_code, 200)
+        alert.assert_called_once_with(
+            alert='word_salad_submission',
+            payload={
+                'alert': 'word_salad_submission',
+                'game_id': 'salad',
+                'incident_id': 'abc123',
+            },
+        )
+
+    def test_site_error_admin_alert_is_dispatched(self):
+        with patch(
+            'games.views.integrations_worker.run_admin_alert_live',
+            return_value=True,
+        ) as alert:
+            response = self._post(_body(
+                type='telegram.admin_alert',
+                payload={'alert': 'site_error', 'text': 'site error text'},
+            ))
+        self.assertEqual(response.status_code, 200)
+        alert.assert_called_once_with(
+            alert='site_error',
+            payload={'alert': 'site_error', 'text': 'site error text'},
+        )
+
     def test_old_admin_report_is_stale(self):
         scheduled = timezone.now() - timedelta(minutes=21)
         with patch('games.views.integrations_worker.run_admin_report_live') as shadow:

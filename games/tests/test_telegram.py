@@ -35,6 +35,7 @@ from games.telegram.notify import (
     format_bug_report_message,
     format_payment_message,
     notify_new_bug_report,
+    notify_admin_word_salad_submission_error,
     notify_admin_site_error,
     send_admin_message,
     send_announce_message,
@@ -315,11 +316,11 @@ class TelegramNotifyTests(TestCase):
         self.assertFalse(send_admin_message('muted'))
         send_message_mock.assert_not_called()
 
-    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    @patch('games.telegram.notify.publish_admin_alert', return_value=True)
     @patch('games.telegram.notify.timezone.localtime')
     @patch('games.telegram.notify.timezone.now')
     def test_site_error_notification_includes_local_time(
-        self, now_mock, localtime_mock, send_message_mock,
+        self, now_mock, localtime_mock, publish_mock,
     ):
         now_mock.return_value = datetime(2026, 9, 23, 9, 34, 56)
         localtime_mock.return_value = datetime(2026, 9, 23, 12, 34, 56)
@@ -327,12 +328,40 @@ class TelegramNotifyTests(TestCase):
 
         self.assertTrue(notify_admin_site_error(request))
 
-        text = send_message_mock.call_args.args[0]
+        text = publish_mock.call_args.kwargs['payload']['text']
         self.assertIn('Время: <b>23.09.2026 12:34:56</b>', text)
 
-    @override_settings(INSTANCE_ID='green-test-instance', SITE_DEPLOY_VERSION='deploy-test')
+    @override_settings(SITE_DEPLOY_VERSION='salad-alert-test')
     @patch('games.telegram.notify.send_admin_message', return_value=True)
-    def test_site_error_notification_includes_safe_diagnostic_context(self, send_message_mock):
+    def test_custom_salad_submission_error_is_alerted_and_deduplicated(self, send_message_mock):
+        self.assertTrue(notify_admin_word_salad_submission_error(
+            game_id='salad', incident_id='abc123',
+        ))
+        self.assertFalse(notify_admin_word_salad_submission_error(
+            game_id='salad', incident_id='def456',
+        ))
+        send_message_mock.assert_called_once()
+        text = send_message_mock.call_args.args[0]
+        self.assertIn('missing_or_invalid_offer_share', text)
+        self.assertIn('Incident: <code>abc123</code>', text)
+        self.assertIn('application log', text)
+
+    @patch('games.telegram.admin_alert_events.boto3.client')
+    def test_custom_salad_submission_error_is_published_to_integrations_queue(self, client_mock):
+        with patch.dict('os.environ', {'INTEGRATIONS_SQS_QUEUE_URL': 'https://sqs.example/alerts'}):
+            from games.telegram.admin_alert_events import publish_word_salad_submission_error
+
+            self.assertTrue(publish_word_salad_submission_error(
+                game_id='salad', incident_id='abc123',
+            ))
+        payload = client_mock.return_value.send_message.call_args.kwargs
+        self.assertEqual(payload['QueueUrl'], 'https://sqs.example/alerts')
+        self.assertIn('telegram.admin_alert', payload['MessageBody'])
+        self.assertIn('abc123', payload['MessageBody'])
+
+    @override_settings(INSTANCE_ID='green-test-instance', SITE_DEPLOY_VERSION='deploy-test')
+    @patch('games.telegram.notify.publish_admin_alert', return_value=True)
+    def test_site_error_notification_includes_safe_diagnostic_context(self, publish_mock):
         request = RequestFactory().post('/send_attempt/226/', data={'text': 'secret-answer'})
         request.interoves_request_id = 'telegram-diagnostic-id'
         request._interoves_elapsed_ms = 123.4
@@ -340,7 +369,7 @@ class TelegramNotifyTests(TestCase):
         with patch.dict('os.environ', {'INTEROVES_ENVIRONMENT': 'green'}, clear=False):
             self.assertTrue(notify_admin_site_error(request, exception=RuntimeError('database down')))
 
-        text = send_message_mock.call_args.args[0]
+        text = publish_mock.call_args.kwargs['payload']['text']
         self.assertIn('Тип: необработанное исключение', text)
         self.assertIn('Request ID: <code>telegram-diagnostic-id</code>', text)
         self.assertIn('Инстанс: <code>green-test-instance</code>', text)

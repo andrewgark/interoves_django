@@ -3319,6 +3319,17 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
     daily_board_template_by_task_id = {}
     daily_board_wrapper_by_task_id = {}
     daily_board_adapter_by_task_id = {}
+    word_salad_offer_share = ''
+    if game.id == WORD_SALAD_GAME_ID:
+        from games.models import WordSaladOffer
+
+        offer = (
+            WordSaladOffer.objects
+            .filter(task_group_id=task_group.pk)
+            .only('share_hash')
+            .first()
+        )
+        word_salad_offer_share = offer.share_hash if offer is not None else ''
     board_data_by_context = {
         'word_salad': word_salad_data,
         'raddle': raddle_data,
@@ -3349,6 +3360,12 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             share_title=share_title,
         )
         if data is not None:
+            # A custom Salad is rendered through the same task template as a
+            # scheduled Salad, but its share hash is part of the write
+            # authorization contract. Put it in the rendered board payload
+            # so the client does not have to reverse-engineer it from a URL.
+            if t.task_type == 'word_salad' and word_salad_offer_share:
+                data['offer_share'] = word_salad_offer_share
             board_data_by_context.setdefault(adapter.context_key, {})[t.id] = data
             daily_board_context_key_by_task_id[t.id] = adapter.context_key
             daily_board_template_by_task_id[t.id] = adapter.body_template
