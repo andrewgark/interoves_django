@@ -55,6 +55,8 @@ def attempt_submission_text(attempt, *, max_len: int = 300) -> str:
     try:
         return preview_text(attempt.get_pretty_text(), max_len=max_len)
     except Exception:
+        if attempt.task and attempt.task.task_type == 'html_forms':
+            return '—'
         return preview_text(attempt.text, max_len=max_len)
 
 
@@ -326,7 +328,11 @@ def _feed_item_for_attempt(attempt) -> FeedItem:
         task_group_label=(task.task_group.label if task and task.task_group else None),
         status=attempt.status,
         points=str(attempt.points) if attempt.points is not None else None,
-        detail=preview_text(attempt.text),
+        detail=(
+            attempt_submission_text(attempt)
+            if task and task.task_type == 'html_forms'
+            else preview_text(attempt.text)
+        ),
         object_id=attempt.pk,
         chain_url=chain_url,
         submission_text=attempt_submission_text(attempt),

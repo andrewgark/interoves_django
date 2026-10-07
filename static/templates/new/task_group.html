@@ -710,7 +710,7 @@
             }
           }
           if (data.update_task_html_new && typeof applyNewUiTaskHtml === 'function') {
-            if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+            if (shouldShowOrdinaryAttemptFeedbackForForm(data.attempt_status, form)) {
               rememberOrdinaryWrongFeedback(
                 data.task_id || attemptFeedbackTaskId,
                 submittedAttemptText,

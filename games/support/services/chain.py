@@ -31,6 +31,23 @@ def _parse_state_preview(raw: Optional[str], *, max_len: int = 120) -> str:
     return compact[: max_len - 1] + '…'
 
 
+def _html_forms_state_preview(raw: Optional[str]) -> str:
+    if not raw:
+        return '—'
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return '—'
+    if not isinstance(payload, dict):
+        return '—'
+    try:
+        total = max(0, int(payload.get('n_forms') or 0))
+        solved = max(0, int(payload.get('total') or 0))
+    except (TypeError, ValueError):
+        return '—'
+    return '{} из {} форм'.format(min(solved, total), total)
+
+
 def is_chain_task(attempt: Attempt) -> bool:
     task = attempt.task
     return bool(task and task.task_type in CHAIN_TASK_TYPES)
@@ -87,7 +104,11 @@ def build_chain_context(attempt_id: int) -> Dict:
             skip=bool(a.skip),
             submission_text=_attempt_display(a),
             correct_answer=_attempt_answer(a),
-            state_preview=_parse_state_preview(a.state),
+            state_preview=(
+                _html_forms_state_preview(a.state)
+                if task.task_type == 'html_forms'
+                else _parse_state_preview(a.state)
+            ),
         )
         for a in attempts
     ]

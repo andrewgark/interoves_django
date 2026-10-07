@@ -38,8 +38,8 @@ class HtmlFormsTaskTests(TestCase):
                 text='<p>{{ html_form:first }} {{ html_form:second }}</p>',
                 checker_data=json.dumps({
                     'forms': [
-                        {'key': 'first', 'answer': 'alpha beta'},
-                        {'key': 'second', 'answers': ['gamma', 'гамма']},
+                        {'key': 'first', 'answer': 'alpha beta', 'placeholder': 'М▪▪▪▪'},
+                        {'key': 'second', 'answers': ['gamma', 'гамма'], 'placeholder': 'С▪▪▪▪'},
                     ],
                 }),
             )
@@ -59,6 +59,8 @@ class HtmlFormsTaskTests(TestCase):
         first.refresh_from_db()
         self.assertEqual(first.status, 'Partial')
         self.assertEqual(float(first.points), 2.0)
+        self.assertEqual(first.get_pretty_text(), 'С▪▪▪▪: гамма')
+        self.assertNotIn('second', first.get_pretty_text())
 
         second = self._attempt('first', 'alpha,   beta')
         self.assertTrue(check_attempt(second))
@@ -70,3 +72,8 @@ class HtmlFormsTaskTests(TestCase):
         payload = json.loads(state.state)
         self.assertEqual(payload['solved_keys'], ['first', 'second'])
         self.assertEqual(self.task.get_results_max_points(), 4)
+
+    def test_unknown_form_key_is_never_in_pretty_attempt_text(self):
+        attempt = self._attempt('private-form-key', 'submitted answer')
+        self.assertEqual(attempt.get_pretty_text(), 'submitted answer')
+        self.assertNotIn('private-form-key', attempt.get_pretty_text())

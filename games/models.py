@@ -13,6 +13,7 @@ from django.db.models import F
 from django.db.models.functions import Coalesce
 from django.dispatch import receiver
 from django.utils import timezone
+from django.utils.html import format_html
 from games.access import get_game_access
 from games.util import better_status
 from games.wall import Wall
@@ -2504,17 +2505,17 @@ class Attempt(models.Model):
         if self.task.task_type == 'html_forms':
             try:
                 p = json.loads(self.text)
+                if not isinstance(p, dict):
+                    return '—'
                 key = str(p.get('form_key') or '')
                 answer = str(p.get('text') or '')
                 from games.html_forms import parse_html_forms_data
-                label = key
                 for form in parse_html_forms_data(self.task.checker_data):
                     if form['key'] == key:
-                        label = 'Форма {}'.format(form.get('index') or key)
-                        break
-                return '{}: {}'.format(label, answer)
+                        return format_html('{}: {}', form['placeholder'], answer)
+                return format_html('{}', answer) if answer else '—'
             except (ValueError, TypeError):
-                return self.text
+                return '—'
         if self.task.task_type == 'alphabetty':
             return self.text
         if self.task.task_type == 'word_salad':

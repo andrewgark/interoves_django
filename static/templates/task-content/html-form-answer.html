@@ -3,7 +3,7 @@
   <span class="new-html-form-answer{% if solved %} new-html-form-answer--solved{% endif %}" style="display:inline-flex;align-items:center;gap:.35rem;vertical-align:middle;">
     {% if solved %}
       <span class="new-taskcard__answer" style="display:inline;">
-        <strong>{{ form_item.label }}:</strong> {% autoescape off %}{{ form_item.answer }}{% endautoescape %}
+        <span data-html-form-answer-value>{% autoescape off %}{{ form_item.answer }}{% endautoescape %}</span>
       </span>
     {% else %}
       <form class="new-attempt-form new-html-form-answer__form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-html-forms-form="1" style="display:inline-flex;align-items:center;gap:.3rem;margin:0;">
@@ -12,8 +12,8 @@
         <input type="hidden" name="gameplay_context" value="{{ gameplay_context_token }}">
         <input type="hidden" name="form_key" value="{{ form_item.key }}">
         <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-        <input type="text" name="text" aria-label="Ответ {{ form_item.label }}" placeholder="{{ form_item.placeholder }}" size="{{ form_item.placeholder|length }}" autocomplete="off" style="max-width:100%;">
-        <button type="submit" class="new-replacements-check-btn" data-tooltip="Проверить" aria-label="Проверить форму {{ form_item.index }}"><i class="ph ph-check" aria-hidden="true"></i></button>
+        <input type="text" name="text" aria-label="Ответ по маске {{ form_item.placeholder }}" placeholder="{{ form_item.placeholder }}" size="{{ form_item.placeholder|length }}" autocomplete="off" style="max-width:100%;">
+        <button type="submit" class="new-replacements-check-btn" data-tooltip="Проверить" aria-label="Проверить ответ"><i class="ph ph-check" aria-hidden="true"></i></button>
         <span class="new-attempt-msg" aria-live="polite" style="display:inline-block;min-width:4.5rem;"></span>
       </form>
     {% endif %}
@@ -29,8 +29,8 @@
         <input type="hidden" name="gameplay_context" value="{{ gameplay_context_token }}">
         <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
         <input type="hidden" name="form_key" value="{{ form_item.key }}">
-        <input type="text" name="text" aria-label="Ответ {{ form_item.label }}" placeholder="{{ form_item.placeholder }}" size="{{ form_item.placeholder|length }}" autocomplete="off" style="max-width:100%;">
-        <button type="submit" class="new-replacements-check-btn" data-tooltip="Проверить" aria-label="Проверить форму {{ form_item.index }}"><i class="fa fa-check" aria-hidden="true"></i></button>
+        <input type="text" name="text" aria-label="Ответ по маске {{ form_item.placeholder }}" placeholder="{{ form_item.placeholder }}" size="{{ form_item.placeholder|length }}" autocomplete="off" style="max-width:100%;">
+        <button type="submit" class="new-replacements-check-btn" data-tooltip="Проверить" aria-label="Проверить ответ"><i class="fa fa-check" aria-hidden="true"></i></button>
       </form>
     {% endif %}
   </span>

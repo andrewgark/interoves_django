@@ -100,17 +100,22 @@
     nodes.forEach(function (node) {
       var element = document.createElement('div');
       element.className = 'html-forms-graph-demo__node html-forms-graph-demo__node--' + node.type;
-      element.dataset.nodeId = node.id;
       element.style.left = node.x + '%';
       element.style.top = node.y + '%';
-      element.setAttribute('aria-label', node.id + ': ' + node.text);
+      element.setAttribute('aria-label', node.text.replace(/_/g, ' пропуск '));
       if (formTemplates[node.id]) {
         element.classList.add('html-forms-graph-demo__node--answer');
-        element.appendChild(formTemplates[node.id].content.cloneNode(true));
-        element.querySelectorAll('input[name="text"]').forEach(function (input) {
-          var placeholderLength = Number(input.getAttribute('size')) || 0;
-          input.style.width = Math.max(7, Math.min(placeholderLength + 2, 14)) + 'ch';
-        });
+        var solvedAnswer = formTemplates[node.id].content.querySelector('[data-html-form-answer-value]');
+        if (solvedAnswer) {
+          element.classList.add('html-forms-graph-demo__node--solved');
+          element.textContent = solvedAnswer.textContent;
+        } else {
+          element.appendChild(formTemplates[node.id].content.cloneNode(true));
+          element.querySelectorAll('input[name="text"]').forEach(function (input) {
+            var placeholderLength = Number(input.getAttribute('size')) || 0;
+            input.style.width = Math.max(7, Math.min(placeholderLength + 2, 14)) + 'ch';
+          });
+        }
       } else {
         nodeText(element, node.text);
       }
