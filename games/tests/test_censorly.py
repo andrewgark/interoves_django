@@ -12,7 +12,7 @@ from django.test import Client, SimpleTestCase, TestCase
 
 from games.censorly import CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.censorly.normalize import lemma_of, normalize_surface
-from games.censorly.play import apply_guess, get_play_state, puzzle_from_task, reset_progress
+from games.censorly.play import apply_guess, get_play_state, hub_progress_for_actor, puzzle_from_task, reset_progress
 from games.censorly.redact import build_public_view, lemmas_matching_guess
 from games.censorly.stopwords import is_stop_word
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
@@ -72,6 +72,34 @@ def _make_puzzle_task(*, title='Москва', body='Москва — столи
 
 
 class CensorlyEngineTests(TestCase):
+    def test_hub_progress_reports_partial_and_solved_states(self):
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='Кот', body='Кот сидит у окна.',
+        )
+        ChainTaskState.objects.create(
+            task=task, game=game, anon_key='censorly-hub',
+            game_mode='general',
+            state=json.dumps({'guesses': [{'word': 'дом', 'hits': 0}], 'won': False}),
+        )
+        partial = hub_progress_for_actor(
+            game=game, numbers_and_tasks=[(3, task)], anon_key='censorly-hub',
+        )
+        self.assertEqual(partial[3]['row_class'], 'new-task--partial')
+        self.assertFalse(partial[3]['is_solved'])
+
+        state = ChainTaskState.objects.get(task=task, game=game, anon_key='censorly-hub')
+        state.state = json.dumps({
+            'guesses': [{'word': 'кот', 'hits': 1}],
+            'revealed_lemmas': ['кот'],
+            'won': True,
+        })
+        state.save(update_fields=['state'])
+        solved = hub_progress_for_actor(
+            game=game, numbers_and_tasks=[(3, task)], anon_key='censorly-hub',
+        )
+        self.assertEqual(solved[3]['row_class'], 'new-task--solved')
+        self.assertTrue(solved[3]['is_solved'])
+
     def test_reset_progress_returns_deleted_attempts_atomically(self):
         game, task, _hash, _puzzle = _make_puzzle_task()
         Attempt.manager.create(

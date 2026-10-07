@@ -86,6 +86,41 @@ def hint_count(state: dict[str, Any]) -> int:
         return 0
 
 
+def hub_progress_for_actor(*, game: Game, numbers_and_tasks: list[tuple[int, Task]], user=None, anon_key=None) -> dict[int, dict[str, Any]]:
+    """Return compact solve progress for the daily Censorly archive."""
+    actor = _actor_filters(user=user, anon_key=anon_key)
+    if actor is None or not numbers_and_tasks:
+        return {}
+    task_ids = [task.pk for _, task in numbers_and_tasks]
+    states = {
+        row.task_id: load_state(row.state)
+        for row in ChainTaskState.objects.filter(
+            game=game, game_mode='general', replay_slot__isnull=True,
+            task_id__in=task_ids, **actor,
+        )
+    }
+    out = {}
+    for number, task in numbers_and_tasks:
+        state = states.get(task.pk) or default_state()
+        attempts = len(state.get('guesses') or [])
+        hints = hint_count(state)
+        payload = puzzle_from_task(task)
+        won = bool(payload and _state_won(state, payload))
+        if not won and not attempts and not hints:
+            continue
+        parts = []
+        if attempts:
+            parts.append(f'🤔 {attempts} {ru_attempt_word(attempts)}')
+        if hints:
+            parts.append(f'💡 {hints} {ru_hint_word(hints)}')
+        out[number] = {
+            'is_solved': won,
+            'progress_meta': '  '.join(parts),
+            'row_class': 'new-task--solved' if won else 'new-task--partial',
+        }
+    return out
+
+
 def points_for_state(state: dict[str, Any], *, task: Task | None = None) -> Decimal:
     base = Decimal(CENSORLY_BASE_POINTS)
     if task is not None:

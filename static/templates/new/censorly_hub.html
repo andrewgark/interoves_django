@@ -17,11 +17,26 @@
 </div>
 {% if rows %}
   {% include "new/partials/daily_archive_calendar.html" %}
-  {% for row in rows %}<div id="censorly-{{ row.number }}" class="new-task{% if row.is_today %} new-task--today{% endif %}">
-    <a class="new-task__body" href="{{ row.play_url }}"><strong>{{ row.name }}</strong>{% if row.publish_date %}<small class="new-task__date">{{ row.publish_date|date:"j E Y" }}</small>{% endif %}</a>
+  {% for row in rows %}<div id="censorly-{{ row.number }}" class="new-task {{ row.row_class }}{% if row.is_today %} new-task--today{% endif %}" data-fully-solved="{% if row.is_solved %}1{% else %}0{% endif %}">
+    <a class="new-task__body" href="{{ row.play_url }}"><strong>{{ row.name }}</strong>{% if row.publish_date %}<small class="new-task__date">{{ row.publish_date|date:"j E Y" }}</small>{% endif %}{% if row.progress_meta %}<small class="new-task__meta">{{ row.progress_meta }}</small>{% endif %}</a>
+    {% if row.is_solved %}<span class="new-task__actions"><span class="new-pill new-pill--ok" data-tooltip="Решено">ок</span></span>{% endif %}
   </div>{% endfor %}
 {% else %}<div class="new-empty"><p class="new-empty__text">Цензурки скоро появятся.</p></div>{% endif %}
 <script>
 (function () { if (!window.interovesUi || !window.interovesUi.initSectionRules) return; window.interovesUi.initSectionRules({ modal: document.getElementById('rules-modal'), storageKey: 'section_rules_seen_censorly', banner: document.querySelector('[data-rules-banner]') }); })();
+</script>
+<script>
+(function () {
+  var key = 'new_hide_solved';
+  function apply() {
+    var hide = false;
+    try { hide = localStorage.getItem(key) === '1'; } catch (e) {}
+    document.querySelectorAll('.new-task[data-fully-solved="1"]').forEach(function (el) { el.classList.toggle('is-hidden', hide); });
+    var btn = document.querySelector('[data-hide-solved-toggle]');
+    if (btn) btn.innerHTML = hide ? '<i class="ph ph-eye-slash" aria-hidden="true"></i>' : '<i class="ph ph-eye" aria-hidden="true"></i>';
+  }
+  document.querySelectorAll('[data-hide-solved-toggle]').forEach(function (btn) { btn.addEventListener('click', function () { try { localStorage.setItem(key, localStorage.getItem(key) === '1' ? '0' : '1'); } catch (e) {} apply(); }); });
+  apply();
+})();
 </script>
 {% endblock %}

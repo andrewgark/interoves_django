@@ -27,6 +27,7 @@ from games.censorly.play import (
     get_play_state,
     get_task_for_number,
     hint_count,
+    hub_progress_for_actor,
     load_state,
     ru_hint_word,
 )
@@ -338,6 +339,24 @@ def censorly_hub_page(request):
         calendar_id='daily-archive-censorly',
     )
     selected = archive_context.get('daily_archive_selected')
+    tasks_by_group = {
+        task.task_group_id: task
+        for task in Task.objects.filter(
+            task_group_id__in=[link.task_group_id for link in schedule_links],
+            number='1',
+        )
+    }
+    user, anon_key = _resolve_actor(request)
+    progress = hub_progress_for_actor(
+        game=game,
+        numbers_and_tasks=[
+            (int(link.number), tasks_by_group[link.task_group_id])
+            for link in schedule_links
+            if link.task_group_id in tasks_by_group
+        ],
+        user=user,
+        anon_key=anon_key,
+    )
     rows = []
     for link in schedule_links:
         number = int(link.number)
@@ -353,10 +372,26 @@ def censorly_hub_page(request):
             'play_url': section_play_path(CENSORLY_GAME_ID, number),
             'results_url': f'{section_play_path(CENSORLY_GAME_ID, number)}results/',
             'is_today': number == current_censorly_number(game),
-            'is_solved': False,
-            'row_class': '',
-            'progress_meta': '',
+            'is_solved': bool(progress.get(number, {}).get('is_solved')),
+            'row_class': progress.get(number, {}).get('row_class', ''),
+            'progress_meta': progress.get(number, {}).get('progress_meta', ''),
         })
+    archive_context = build_daily_archive_context(
+        items=archive_items,
+        requested_month=request.GET.get('month'),
+        today=timezone.localdate(),
+        archive_url=request.path,
+        game_label='Цензурка',
+        archive_query=urlencode(
+            [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
+        ),
+        calendar_id='daily-archive-censorly',
+        completed_keys={str(row['number']) for row in rows if row['is_solved']},
+        status_by_key={
+            str(row['number']): row['row_class'].replace('new-task--', '')
+            for row in rows if row['row_class']
+        },
+    )
     return render(request, 'new/censorly_hub.html', {
         'page_title': 'Цензурки',
         'game': game,
