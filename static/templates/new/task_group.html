@@ -727,13 +727,13 @@
               window.location.reload();
               return;
             }
-            if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+            if (shouldShowOrdinaryAttemptFeedbackForForm(data.attempt_status, form)) {
               restoreOrdinaryWrongFeedback(data.task_id || attemptFeedbackTaskId);
               openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
             }
             return;
           }
-          if (shouldShowOrdinaryAttemptFeedback(data.attempt_status)) {
+          if (shouldShowOrdinaryAttemptFeedbackForForm(data.attempt_status, form)) {
             rememberAttemptsPopoverAfterReload(
               data.task_id || attemptFeedbackTaskId,
               data.attempt_id,
@@ -2605,6 +2605,12 @@
   };
   function shouldShowOrdinaryAttemptFeedback(status) {
     return !!ordinaryAttemptFeedback[status];
+  }
+  function shouldShowOrdinaryAttemptFeedbackForForm(status, form) {
+    if (form && form.getAttribute('data-html-forms-form') === '1') {
+      return status === 'Wrong';
+    }
+    return shouldShowOrdinaryAttemptFeedback(status);
   }
   function ordinaryAttemptTextValue(form) {
     if (!form) return '';
