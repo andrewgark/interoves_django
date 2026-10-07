@@ -229,6 +229,9 @@ html.new-ui-dark .censorly__dock {
   letter-spacing: 0;
   pointer-events: none;
 }
+.censorly:not(.censorly--show-endings) .censorly-tok__ending {
+  display: none;
+}
 .censorly.censorly--show-lengths .censorly-tok--glyphs:not([data-len-forced="0"]) .censorly-tok__blocks::after,
 .censorly-tok--glyphs[data-len-forced="1"] .censorly-tok__blocks::after {
   content: attr(data-len);
@@ -417,6 +420,14 @@ html.new-ui-dark .censorly__dock {
   display: flex;
   justify-content: flex-end;
   gap: 0.35rem;
+}
+
+.censorly__ending-icon {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: -0.08em;
+  line-height: 1;
 }
 
 .censorly__input-row {

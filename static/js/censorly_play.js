@@ -118,6 +118,15 @@
     return mask;
   }
 
+  function syncEndingsToggle(root, button, on) {
+    if (!root || !button) return;
+    root.classList.toggle('censorly--show-endings', on);
+    button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    button.title = on ? 'Скрыть окончания' : 'Показать окончания';
+    button.setAttribute('aria-label', button.title);
+    button.setAttribute('data-tooltip', button.title);
+  }
+
   function collectLenForced(root) {
     var map = {};
     root.querySelectorAll('.censorly-tok--mask[data-len-forced]').forEach(function (node) {
@@ -480,11 +489,13 @@
     var historyWrap = root.querySelector('#censorly-history-wrap');
     var historyBtn = root.querySelector('#censorly-history-toggle');
     var lengthsBtn = root.querySelector('#censorly-lengths-toggle');
+    var endingsBtn = root.querySelector('#censorly-endings-toggle');
     var hintBtn = root.querySelector('#censorly-hint-btn');
     var hintMode = root.querySelector('#censorly-hint-mode');
     var lemmaCycle = {};
     var busy = false;
 
+    syncEndingsToggle(root, endingsBtn, state.show_mask_endings !== false);
     applyState(root, state);
 
     if (stateUrl) {
@@ -524,6 +535,16 @@
         root.querySelectorAll('.censorly-tok--mask[data-len-forced]').forEach(function (node) {
           node.removeAttribute('data-len-forced');
         });
+      });
+    }
+
+    if (endingsBtn) {
+      endingsBtn.addEventListener('click', function () {
+        syncEndingsToggle(
+          root,
+          endingsBtn,
+          !root.classList.contains('censorly--show-endings')
+        );
       });
     }
 
