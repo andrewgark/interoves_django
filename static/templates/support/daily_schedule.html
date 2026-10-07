@@ -50,7 +50,8 @@
     {% if schedule_prefix == 'ladder' %}data-defer-url="{% url 'support:ladders_defer' 0 %}" data-restore-url="{% url 'support:ladders_restore' 0 %}"
     {% elif schedule_prefix == 'ab' %}data-defer-url="{% url 'support:alphabetty_defer' 0 %}" data-restore-url="{% url 'support:alphabetty_restore' 0 %}"
     {% elif schedule_prefix == 'word-salad' %}data-defer-url="{% url 'support:word_salad_defer' 0 %}" data-restore-url="{% url 'support:word_salad_restore' 0 %}"
-    {% elif schedule_prefix == 'week-task' %}data-defer-url="{% url 'support:week_tasks_defer' 0 %}" data-restore-url="{% url 'support:week_tasks_restore' 0 %}"{% endif %}></div>
+    {% elif schedule_prefix == 'week-task' %}data-defer-url="{% url 'support:week_tasks_defer' 0 %}" data-restore-url="{% url 'support:week_tasks_restore' 0 %}"
+    {% elif schedule_prefix == 'cz' %}data-defer-url="{% url 'support:censorly_defer' 0 %}" data-restore-url="{% url 'support:censorly_restore' 0 %}"{% endif %}></div>
   <div class="support-ladder-insert support-ladder-insert--end">
     <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-insert-end>+ В конец</button>
   </div>

@@ -754,6 +754,28 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(resp.json()['row']['wiki_title'], 'Тест')
         mocked.assert_called_once_with()
 
+    def test_defer_and_restore_schedule_slot(self):
+        from games.support.services.censorly import defer_censorly, restore_censorly
+
+        game, task, _hash, _puzzle = _make_puzzle_task(title='Слот')
+        link = GameTaskGroup.objects.get(game=game, task_group=task.task_group)
+        RandomCensorlyGame.objects.filter(task_group=task.task_group).delete()
+        link.number = '1'
+        link.name = 'Цензурка #1'
+        link.save(update_fields=['number', 'name'])
+        deferred_rows = defer_censorly(link.pk)
+        link.refresh_from_db()
+        self.assertTrue(link.is_deferred)
+        self.assertEqual(link.deferred_number, '1')
+        self.assertEqual(deferred_rows[0].number, 1)
+        self.assertTrue(deferred_rows[0].is_deferred)
+
+        restored_rows = restore_censorly(link.pk)
+        link.refresh_from_db()
+        self.assertFalse(link.is_deferred)
+        self.assertEqual(link.number, '1')
+        self.assertFalse(restored_rows[0].is_deferred)
+
     def test_refetch_replaces_article_text_and_keeps_attempts(self):
         from games.censorly.wiki import WikiArticle
         from games.models import RandomCensorlyGame

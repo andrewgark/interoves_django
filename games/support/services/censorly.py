@@ -7,6 +7,7 @@ from datetime import date, datetime
 from typing import Any, Optional
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from games.censorly import CENSORLY_CHECKER_ID, CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
@@ -31,6 +32,10 @@ from games.censorly_daily import (
 )
 from games.models import CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
 from games.support.services.schedule_links import (
+    defer_future_slot,
+    effective_schedule_number,
+    renumber_links,
+    restore_deferred_slot,
     shift_links,
 )
 
@@ -52,6 +57,7 @@ class CensorlyScheduleRow:
     is_today: bool
     play_url: str
     token_count: int = 0
+    is_deferred: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -70,6 +76,21 @@ class CensorlyRandomRow:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def _renumber_censorly_links(ordered_links: list[GameTaskGroup]) -> None:
+    def sync_links(links, new_numbers):
+        task_groups = []
+        for link, new_number in zip(links, new_numbers):
+            link.name = f'Цензурка #{new_number}'
+            task_group = link.task_group
+            if (task_group.label or '').startswith('censorly:'):
+                task_group.label = f'censorly:{new_number}'
+                task_groups.append(task_group)
+        if task_groups:
+            TaskGroup.objects.bulk_update(task_groups, ['label'])
+
+    renumber_links(ordered_links, sync_links=sync_links)
 
 
 def get_censorly_game() -> Game:
@@ -115,11 +136,13 @@ def list_schedule_rows(*, now: datetime | None = None) -> list[CensorlyScheduleR
     links.sort(key=lambda link: int(link.number))
     rows: list[CensorlyScheduleRow] = []
     for link in links:
-        number = int(link.number)
+        number = effective_schedule_number(link)
+        if number is None:
+            continue
         task = _task_for_link(link)
         pub = censorly_publish_at(game, number)
-        pub_date = pub.date().isoformat() if pub else None
-        is_pub = is_censorly_number_published(game, number, now)
+        pub_date = pub.astimezone(MOSCOW).date().isoformat() if pub else None
+        is_pub = not link.is_deferred and is_censorly_number_published(game, number, now)
         rows.append(CensorlyScheduleRow(
             link_id=link.pk,
             task_group_id=link.task_group_id,
@@ -132,6 +155,7 @@ def list_schedule_rows(*, now: datetime | None = None) -> list[CensorlyScheduleR
             is_today=bool(pub and pub.date() == today),
             play_url=f'/censorly/{number}/',
             token_count=_token_count(task),
+            is_deferred=bool(link.is_deferred),
         ))
     return rows
 
@@ -158,6 +182,7 @@ def dashboard_context() -> dict[str, Any]:
     start = censorly_publish_start(game)
     schedule = list_schedule_rows()
     random_rows = list_random_rows()
+    active_schedule = [row for row in schedule if not row.is_deferred]
     return {
         'page_title': 'Цензурки',
         'schedule_title': 'Цензурки',
@@ -170,12 +195,36 @@ def dashboard_context() -> dict[str, Any]:
         'schedule_json': [r.to_dict() for r in schedule],
         'random_rows': random_rows,
         'random_json': [r.to_dict() for r in random_rows],
-        'schedule_count': len(schedule),
-        'published_count': sum(1 for r in schedule if r.is_published),
-        'future_count': sum(1 for r in schedule if not r.is_published),
-        'today_number': next((r.number for r in schedule if r.is_today), None),
-        'deferred_count': 0,
+        'schedule_count': len(active_schedule),
+        'published_count': sum(1 for r in active_schedule if r.is_published),
+        'future_count': sum(1 for r in active_schedule if not r.is_published),
+        'today_number': next((r.number for r in active_schedule if r.is_today), None),
+        'deferred_count': len(schedule) - len(active_schedule),
     }
+
+
+def defer_censorly(link_id: int, *, now=None):
+    return defer_future_slot(
+        game=get_censorly_game(), link_id=link_id,
+        is_number_published=is_censorly_number_published,
+        renumber_links=_renumber_censorly_links,
+        list_rows=list_schedule_rows,
+        error_cls=CensorlySupportError,
+        not_found_msg='Цензурка не найдена',
+        published_msg='Нельзя откладывать уже вышедшую Цензурку №{number}',
+        now=now,
+    )
+
+
+def restore_censorly(link_id: int, *, now=None):
+    return restore_deferred_slot(
+        game=get_censorly_game(), link_id=link_id,
+        renumber_links=_renumber_censorly_links,
+        list_rows=list_schedule_rows,
+        error_cls=CensorlySupportError,
+        not_found_msg='Отложенная Цензурка не найдена',
+        now=now,
+    )
 
 
 def set_publish_start(date_iso: str) -> str:
@@ -238,7 +287,7 @@ def create_at_number(at_number: int, *, title_or_url: str | None = None) -> dict
         raise CensorlySupportError(f'Нельзя вставлять в уже вышедший день №{at_number}')
     links = [
         link for link in GameTaskGroup.objects.filter(game=game)
-        if _is_numeric_number(link.number)
+        if not link.is_deferred and _is_numeric_number(link.number)
     ]
     to_shift = []
     for link in links:
@@ -299,7 +348,7 @@ def generate_more(n: int = 5) -> dict[str, Any]:
     game = get_censorly_game()
     max_num = 0
     for link in GameTaskGroup.objects.filter(game=game):
-        if _is_numeric_number(link.number):
+        if not link.is_deferred and _is_numeric_number(link.number):
             max_num = max(max_num, int(link.number))
     created = []
     for i in range(n):
@@ -356,7 +405,9 @@ def _task_for_party(*, share_hash: str = '', number: str = '') -> Task:
         if row:
             task = Task.objects.filter(task_group_id=row.task_group_id, number='1').first()
     elif number:
-        link = GameTaskGroup.objects.filter(game=game, number=str(number)).first()
+        link = GameTaskGroup.objects.filter(game=game).filter(
+            Q(number=str(number)) | Q(deferred_number=str(number))
+        ).first()
         if link:
             task = Task.objects.filter(task_group_id=link.task_group_id, number='1').first()
     if task is None:

@@ -39,11 +39,13 @@ from games.support.services.censorly import (
     CensorlySupportError,
     create_at_number as censorly_create_at_number,
     dashboard_context as censorly_dashboard_context,
+    defer_censorly,
     generate_from_title as censorly_create_from_title,
     generate_more as censorly_generate_more,
     generate_random as censorly_create_random,
     refetch_article_text as censorly_refetch_article_text,
     reset_my_progress as censorly_reset_my_progress,
+    restore_censorly,
     set_publish_start as censorly_set_publish_start_service,
 )
 from games.support.services.week_tasks import (
@@ -233,6 +235,18 @@ def word_salad_defer(request, link_id):
 @require_POST
 def word_salad_restore(request, link_id):
     return _schedule_move_response(restore_word_salad, link_id)
+
+
+@support_console_required
+@require_POST
+def censorly_defer(request, link_id):
+    return _schedule_move_response(defer_censorly, link_id)
+
+
+@support_console_required
+@require_POST
+def censorly_restore(request, link_id):
+    return _schedule_move_response(restore_censorly, link_id)
 
 
 class SupportLoginView(LoginView):
