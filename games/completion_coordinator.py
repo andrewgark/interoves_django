@@ -34,6 +34,20 @@ from games.replay import StaleReplayError
 logger = logging.getLogger(__name__)
 
 
+def _completed_without_timing_row_snapshot():
+    return {
+        'ok': True,
+        'exists': False,
+        'status': 'completed',
+        'completed': True,
+        'manually_paused': False,
+        'is_authoritative': False,
+        'accumulated_ms': 0,
+        'committed_ms': 0,
+        'frozen_ms': 0,
+    }
+
+
 def _actor_values(actor):
     if actor is None:
         return None
@@ -164,6 +178,8 @@ def _complete_logical_game_once(
                     now=now,
                     timing_phases=timing_phases,
                 )
+                if timing is None:
+                    timing = _completed_without_timing_row_snapshot()
                 analytics_actor = _analytics_actor_kwargs(
                     analytics_user=analytics_user,
                     user=actor['user'],
