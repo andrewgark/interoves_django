@@ -224,11 +224,9 @@
     if (data.kind === 'salad') {
       html += section('Сложность слов', '<p class="new-daily-statistics__hint">Сложность считается как медиана порядкового номера, под которым это слово было найдено.</p><ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
       if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
-      if ((data.long_found || []).length || (data.long_missing || []).length) {
-        html += '<div class="new-daily-statistics__salad-long"><h3>Длинные находки</h3><div class="new-daily-statistics__salad-long-grid">' +
-          section('Найденные', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + longWords(data.long_found) + '</ul>') +
-          section('Ненайденные', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + longWords(data.long_missing) + '</ul>') +
-          '</div></div>';
+      if ((data.long_words || []).length) {
+        html += '<div class="new-daily-statistics__salad-long"><h3>Длинные находки</h3>' +
+          '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + longWords(data.long_words) + '</ul></div>';
       }
     } else if (data.kind === 'ladder') {
       if (data.word_stats_available !== false) {

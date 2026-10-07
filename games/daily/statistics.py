@@ -26,7 +26,7 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 14
+CACHE_VERSION = 15
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
@@ -312,6 +312,16 @@ def _salad(task, game, actors):
         for word in saved_missing
         if normalize_word(word) not in missing_found
     ][:5]
+    long_words = list(found_words.values())
+    long_word_keys = set(found_words)
+    for word in saved_missing:
+        normalized = normalize_word(word)
+        if normalized and normalized not in long_word_keys:
+            long_words.append({'word': word, 'kind': 'missing'})
+            long_word_keys.add(normalized)
+    long_words.sort(
+        key=lambda item: (-len(normalize_word(item['word'])), normalize_word(item['word']))
+    )
     word_rows = [
         {'word': words[index], 'average_order': _mean(order[index]), 'hint_percent': _pct(sum(1 for actor in actors if int((load_salad_state(states.get(actor)).get('hint_counts') or {}).get(index, 0) or 0) > 0), total)}
         for index in range(len(words))
@@ -322,7 +332,7 @@ def _salad(task, game, actors):
         'summary': {'solved': total, 'median_time_seconds': _median(_completed_times(game, task.task_group, actors)), 'without_hints_percent': _pct(no_hints, total)},
         'words': word_rows,
         'popular_findings': popular_findings, 'rare': rare_rows, 'off_topic': extra_rows,
-        'long_found': long_found, 'long_missing': long_missing,
+        'long_found': long_found, 'long_missing': long_missing, 'long_words': long_words[:20],
     }
 
 

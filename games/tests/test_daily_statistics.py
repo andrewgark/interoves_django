@@ -196,6 +196,10 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['popular_findings'], [])
         self.assertEqual({row['kind'] for row in data['long_found']}, {'answer', 'extra'})
         self.assertEqual([row['word'] for row in data['long_missing']], ['СЛЕДУЮЩЕЕ'])
+        self.assertEqual(
+            [row['word'] for row in data['long_words']],
+            ['СЛЕДУЮЩЕЕ', 'ДЛИННОЕ', 'ABCD', 'EFGH'],
+        )
 
     def test_ladder_uses_success_order_and_active_intervals(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()
