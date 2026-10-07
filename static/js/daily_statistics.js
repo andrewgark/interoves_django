@@ -223,7 +223,7 @@
     else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
     html += '</div>';
     if (data.kind === 'salad') {
-      html += section('Сложность слов', '<p class="new-daily-statistics__hint">Сложность считается как медиана порядкового номера, под которым это слово было найдено.</p><ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
+      html += section('Сложность слов', '<p class="new-daily-statistics__hint">Сложность считается как среднее значение порядкового номера, под которым это слово было найдено.</p><ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
       if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
       if ((data.long_words || []).length) {
         html += '<div class="new-daily-statistics__salad-long"><h3>Длинные находки</h3>' +
