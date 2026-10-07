@@ -528,6 +528,37 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
 
         async_to_sync(run)()
 
+    def test_project_websocket_route_uses_scoped_game(self):
+        from interoves_django.asgi import application
+
+        Project.objects.get_or_create(pk='glowbyte', defaults={})
+        scoped_game = Game.objects.create(
+            pk='test_game_track_glowbyte',
+            name='Track scoped',
+            author='test',
+            author_extra='',
+            is_ready=True,
+            project_id='glowbyte',
+        )
+        GameTaskGroup.objects.create(
+            game=scoped_game,
+            task_group=self.task_group,
+            number=1,
+            name='tg',
+        )
+        headers = self._session_headers()
+        path = f'/glowbyte/games/{scoped_game.id}/track/'
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _sub = await communicator.connect()
+            try:
+                assert connected
+            finally:
+                await communicator.disconnect()
+
+        async_to_sync(run)()
+
     def test_websocket_connects_for_unicode_team_primary_key(self):
         """Transport group names must remain valid for real Cyrillic team IDs."""
         from interoves_django.asgi import application

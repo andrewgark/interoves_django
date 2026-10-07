@@ -1010,7 +1010,7 @@
     if (document.body.getAttribute('data-authenticated') !== '1') return;
     var gid = document.body.getAttribute('data-track-game-id');
     if (gid) {
-      window.InterovesTrack.connectGame(gid);
+      window.InterovesTrack.connectGame(gid, document.body.getAttribute('data-track-url'));
     } else {
       window.InterovesTrack.connectUserHub();
     }

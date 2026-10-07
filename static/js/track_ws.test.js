@@ -114,6 +114,12 @@ assert.strictEqual(typeof reconnect, 'function');
 assert(timeoutDelays[0] >= 1000 && timeoutDelays[0] <= 1250);
 reconnect();
 
+window.InterovesTrack.connectGame('scoped', '/glowbyte/games/scoped/track');
+assert.strictEqual(
+  FakeWebSocket.instances[2].url,
+  'wss://example.test/glowbyte/games/scoped/track'
+);
+
 var second = FakeWebSocket.instances[1];
 second.onopen();
 assert.deepStrictEqual(second.sent[0], {
@@ -136,7 +142,7 @@ window.InterovesTrack.openTrackSocket(
     return new Promise(function (resolve) { finishReconcile = resolve; });
   }
 );
-var queuedSocket = FakeWebSocket.instances[2];
+var queuedSocket = FakeWebSocket.instances[3];
 queuedSocket.onopen();
 queuedSocket.onmessage({data: JSON.stringify({
   type: 'track.synced',

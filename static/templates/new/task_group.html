@@ -12,7 +12,7 @@
     · {% autoescape off %}{{ tg_name }}{% endautoescape %}
   {% endif %}
 {% endblock %}
-{% block body_attrs %}data-track-game-id="{{ game.id }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if not ladder_offer %} data-track-live-state-url="{% url 'new_task_group_live_state' game_id=game.id %}"{% endif %}{% endblock %}
+{% block body_attrs %}data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}
 {% block extrahead %}
   {% include "new/_18plus_gate_early.html" %}
   {% if html_forms_data %}

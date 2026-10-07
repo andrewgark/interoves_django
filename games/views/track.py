@@ -711,8 +711,13 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
             return None
         profile = getattr(user, 'profile', None)
         team = profile.team_on if profile is not None else None
-        game_id = self.scope['url_route']['kwargs']['game_id']
-        game = Game.objects.filter(pk=game_id).first()
+        kwargs = self.scope['url_route']['kwargs']
+        game_id = kwargs['game_id']
+        games = Game.objects.filter(pk=game_id)
+        project_id = kwargs.get('project_id')
+        if project_id:
+            games = games.filter(project_id=project_id)
+        game = games.first()
         if game is None or not game.has_access('see_game_preview', team=team):
             return None
         team_hash = team.get_name_hash() if team is not None else None

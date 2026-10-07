@@ -149,8 +149,8 @@ def game_answers_url(game) -> str:
 def game_standings_url(game) -> str:
     if game.standings_url:
         return game.standings_url
-    return admin_url('/games/{}/results/'.format(game.id))
+    return admin_url('{}results/'.format(game_play_path(game)))
 
 
 def game_tournament_results_url(game) -> str:
-    return admin_url('/games/{}/tournament-results/'.format(game.id))
+    return admin_url('{}tournament-results/'.format(game_play_path(game)))

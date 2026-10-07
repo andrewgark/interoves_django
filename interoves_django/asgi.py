@@ -19,6 +19,7 @@ application = ProtocolTypeRouter({
   "websocket": AuthMiddlewareStack(
         URLRouter([
             re_path(r'^ws/track/?$', UserTrackConsumer.as_asgi()),
+            re_path(r'^(?P<project_id>[a-zA-Z0-9_-]+)/games/(?P<game_id>[a-zA-Z0-9_]+)/track/?$', TrackGame.as_asgi()),
             re_path(r'^games/(?P<game_id>[a-zA-Z0-9_]+)/track/?$', TrackGame.as_asgi()),
         ])
     )

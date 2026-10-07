@@ -663,6 +663,9 @@ def _game_task_group_progress_response(request, game):
 
 def new_game_task_group_progress(request, game_id):
     game = get_object_or_404(Game, id=game_id)
+    project_redirect = _root_project_game_redirect(request, game, 'progress/')
+    if project_redirect is not None:
+        return project_redirect
     return _game_task_group_progress_response(request, game)
 
 
@@ -720,6 +723,54 @@ def _project_base(project_id: str | None) -> str:
         main_project_id=NEW_UI_PROJECT,
         sections_project_id=NEW_UI_SECTIONS_PROJECT,
     )
+
+
+def _redirect_with_current_query(request, path, *, permanent=True):
+    query = request.META.get('QUERY_STRING')
+    if query:
+        path = '{}?{}'.format(path, query)
+    return redirect(path, permanent=permanent)
+
+
+def _canonical_project_game_path(game, suffix=''):
+    if game.project_id == NEW_UI_SECTIONS_PROJECT:
+        return None
+    base = _project_base(game.project_id)
+    return '{}/games/{}/{}'.format(base, game.id, suffix)
+
+
+def _root_project_game_redirect(request, game, suffix=''):
+    if game.project_id in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT):
+        return None
+    path = _canonical_project_game_path(game, suffix)
+    if path is None:
+        return None
+    return _redirect_with_current_query(request, path)
+
+
+def legacy_results_redirect(request, game_id, mode='general'):
+    game = get_object_or_404(Game, id=game_id)
+    suffix = 'tournament-results/' if mode == 'tournament' else 'results/'
+    path = _canonical_project_game_path(game, suffix)
+    if path is None:
+        raise Http404()
+    return _redirect_with_current_query(request, path)
+
+
+def legacy_tournament_results_redirect(request, game_id):
+    return legacy_results_redirect(request, game_id, mode='tournament')
+
+
+def _task_group_live_state_url(game):
+    if game.project_id not in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT):
+        return reverse('project_game_live_state', kwargs={
+            'project_id': game.project_id,
+            'game_id': game.id,
+        })
+    from games.sections.paths import is_root_section_game
+    if is_root_section_game(game.id):
+        return '/{}/live-state/'.format(game.id)
+    return reverse('ui_task_group_live_state', kwargs={'game_id': game.id})
 
 
 def _project_urls_context(project_id: str | None):
@@ -1752,6 +1803,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'prev_task_group_url': '{}/games/{}/{}/'.format(base, game.id, prev_tg.number) if prev_tg else None,
         'next_task_group_url': '{}/games/{}/{}/'.format(base, game.id, next_tg.number) if next_tg else None,
         'task_group_results_url': _task_group_results_url(game, placement.number, project_base=base),
+        'task_group_live_state_url': _task_group_live_state_url(game),
         'replay_url': _task_group_replay_url(game, placement.number, project_base=base),
         'replay_exit_url': _task_group_replay_exit_url(game, placement.number, project_base=base),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
@@ -1997,6 +2049,9 @@ def _render_section_game_page(request, game_id):
 
 def new_main_game_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
+    project_redirect = _root_project_game_redirect(request, game)
+    if project_redirect is not None:
+        return project_redirect
     if game.project_id != NEW_UI_PROJECT:
         raise Http404()
     from games.club_access import reject_if_club_archive_blocked
@@ -2465,6 +2520,9 @@ def _render_results_rows_partial(request, data, *, mode, results_variant='standa
 
 def new_results_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
+    project_redirect = _root_project_game_redirect(request, game, 'results/')
+    if project_redirect is not None:
+        return project_redirect
     if game.project_id != NEW_UI_PROJECT:
         raise Http404()
     team = None
@@ -2509,6 +2567,9 @@ def new_results_page(request, game_id):
 
 def new_tournament_results_page(request, game_id):
     game = get_object_or_404(Game, id=game_id)
+    project_redirect = _root_project_game_redirect(request, game, 'tournament-results/')
+    if project_redirect is not None:
+        return project_redirect
     if game.project_id != NEW_UI_PROJECT:
         raise Http404()
     team = None
@@ -2827,6 +2888,13 @@ def new_section_task_results_page(request, game_id, number):
 def new_game_task_results_page(request, game_id, number, project_id=None):
     """Results for one task group in a project-scoped game."""
     expected_project_id = project_id or NEW_UI_PROJECT
+    if project_id is None:
+        root_game = get_object_or_404(Game, id=game_id)
+        project_redirect = _root_project_game_redirect(
+            request, root_game, '{}/results/'.format(number),
+        )
+        if project_redirect is not None:
+            return project_redirect
     game = get_object_or_404(Game, id=game_id, project_id=expected_project_id)
     from games.club_access import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, number=number)
@@ -3389,6 +3457,11 @@ def new_task_group_page(request, game_id, task_group_number):
         Game.objects.select_related('section_default_rules'),
         id=game_id,
     )
+    project_redirect = _root_project_game_redirect(
+        request, game, '{}/'.format(task_group_number),
+    )
+    if project_redirect is not None:
+        return project_redirect
     if game.project_id != NEW_UI_SECTIONS_PROJECT:
         from games.club_access import reject_if_club_archive_blocked
         locked = reject_if_club_archive_blocked(request, game, number=task_group_number)
@@ -3759,6 +3832,7 @@ def new_task_group_page(request, game_id, task_group_number):
             _play_url_for_task_group(game, next_tg.number) if next_tg else None,
         )[1],
         'task_group_results_url': _task_group_results_url(game, placement.number),
+        'task_group_live_state_url': _task_group_live_state_url(game),
         'replay_url': _task_group_replay_url(game, placement.number),
         'replay_exit_url': _task_group_replay_exit_url(game, placement.number),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
@@ -3884,9 +3958,15 @@ def new_replay_exit(request, game_id, task_group_number, project_id=None):
 
 @never_cache
 @require_http_methods(['GET'])
-def new_task_group_live_state(request, game_id):
+def new_task_group_live_state(request, game_id, project_id=None):
     """Authoritative task-card projection used after socket gaps and reconnects."""
-    game = get_object_or_404(Game, id=game_id)
+    if project_id:
+        game = get_object_or_404(Game, id=game_id, project_id=project_id)
+    else:
+        game = get_object_or_404(Game, id=game_id)
+        project_redirect = _root_project_game_redirect(request, game, 'live-state/')
+        if project_redirect is not None:
+            return project_redirect
     play_mode, _play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = user = anon_key = None

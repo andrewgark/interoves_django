@@ -60,7 +60,15 @@ def task_group_page_nav_context(game, *, previous=None, following=None,
     }
 
 
+def _project_base_for_game(game, *, main_project_id='main', sections_project_id='sections'):
+    project_id = getattr(game, 'project_id', None)
+    if project_id and project_id not in (main_project_id, sections_project_id):
+        return '/{}'.format(project_id)
+    return ''
+
+
 def play_url_for_task_group(game, number, *, project_base=''):
+    project_base = project_base or _project_base_for_game(game)
     if project_base:
         return '{}/games/{}/{}/'.format(project_base, game.id, number)
     from games.sections.paths import is_root_section_game, section_play_path
@@ -70,6 +78,7 @@ def play_url_for_task_group(game, number, *, project_base=''):
 
 
 def results_url_for_task_group(game, number, *, project_base=''):
+    project_base = project_base or _project_base_for_game(game)
     if project_base:
         return '{}/games/{}/{}/results/'.format(project_base, game.id, number)
     from games.sections.paths import is_root_section_game, section_play_path
@@ -79,6 +88,7 @@ def results_url_for_task_group(game, number, *, project_base=''):
 
 
 def replay_url_for_task_group(game, number, *, project_base=''):
+    project_base = project_base or _project_base_for_game(game)
     if project_base:
         return '{}/games/{}/{}/replay/'.format(project_base, game.id, number)
     from games.sections.paths import section_replay_path

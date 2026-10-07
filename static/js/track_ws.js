@@ -331,9 +331,12 @@
     });
   }
 
-  function connectGame(gameId) {
+  function connectGame(gameId, trackUrl) {
     if (!gameId) return null;
-    var url = proto() + '://' + host() + '/games/' + encodeURIComponent(gameId) + '/track';
+    var url = trackUrl || ('/games/' + encodeURIComponent(gameId) + '/track');
+    if (!/^wss?:\/\//i.test(url)) {
+      url = proto() + '://' + host() + (url.charAt(0) === '/' ? url : '/' + url);
+    }
     var initialReconciled = false;
     var initialReconcileInFlight = false;
     return openTrackSocket(url, function (msg) {

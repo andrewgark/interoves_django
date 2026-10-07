@@ -12,7 +12,10 @@ from games.views.util import has_team, redirect_to_referer
 def register_to_game(request, game_id, project_id=None):
     with_referent = request.POST.get('with_referent') or request.GET.get('with_referent')
     team = request.user.profile.team_on
-    game = get_object_or_404(Game, id=game_id)
+    games = Game.objects.filter(id=game_id)
+    if project_id:
+        games = games.filter(project_id=project_id)
+    game = get_object_or_404(games)
     referent = get_object_or_404(Team, name=with_referent) if with_referent is not None else None
     if not game.has_access('register', team=team):
         raise CantRegisterException('В эту игру нельзя зарегистрироваться')

@@ -67,6 +67,33 @@ class ProjectScopedRegisterTests(TestCase):
             Registration.objects.filter(game=self.game, team=self.team).exists()
         )
 
+    def test_project_register_url_rejects_game_from_another_project(self):
+        now = timezone.now()
+        main_game = Game.objects.create(
+            id='main_des_12',
+            name='Main 12',
+            outside_name='Main 12',
+            author='Автор',
+            is_ready=True,
+            is_playable=True,
+            is_tournament=True,
+            is_registrable=True,
+            requires_ticket=False,
+            start_time=now + timedelta(days=1),
+            end_time=now + timedelta(days=1, hours=2),
+            project_id='main',
+        )
+
+        response = self.client.post(
+            '/glowbyte/register/main_des_12/',
+            {'next': '/glowbyte/'},
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(
+            Registration.objects.filter(game=main_game, team=self.team).exists()
+        )
+
     def test_project_team_moderation_urls_accept_project_id(self):
         response = self.client.post(
             '/glowbyte/kick_out_user/%d/' % self.other.pk,

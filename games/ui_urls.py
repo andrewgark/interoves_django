@@ -20,6 +20,7 @@ urlpatterns = [
     re_path(r'^' + _PROJECT_ID_RE + r'/$', ui.project_hub, name='project_hub'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/$', ui.project_folder_games, name='project_folder_games'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/progress/$', ui.project_game_task_group_progress, name='project_game_progress'),
+    re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/live-state/$', ui.task_group_live_state, name='project_game_live_state'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/$', ui.project_main_game_page, name='project_main_game'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/results/$', ui.project_results_page, name='project_results'),
     re_path(r'^' + _PROJECT_ID_RE + r'/games/(?P<game_id>[a-zA-Z0-9_]+)/tournament-results/$', ui.project_tournament_results_page, name='project_tournament_results'),

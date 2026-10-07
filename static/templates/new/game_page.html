@@ -9,7 +9,7 @@
   {% endif %}
 {% endblock %}
 
-{% block body_attrs %}data-track-game-id="{{ game.id }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% endblock %}
+{% block body_attrs %}data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% endblock %}
 
 {% block extrahead %}
   {% include "new/_18plus_gate_early.html" %}
@@ -312,11 +312,11 @@
       <div class="new-card new-card--after-heading">
         <div class="new-card__text new-card__text--flush">
           {% if game|access_see_tournament_results:team %}
-            <a href="{% url 'new_tournament_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Турнирные результаты</a>
+            <a href="{{ ui_project_games_url|default:'/games/' }}{{ game.id }}/tournament-results/" class="new-btn new-btn--ghost new-btn--mini">Турнирные результаты</a>
           {% endif %}
           {% if game|access_see_results:team %}
             {% if not game.is_tournament or not game|is_going_now %}
-              <a href="{% url 'new_results' game.id %}" class="new-btn new-btn--ghost new-btn--mini">Общие результаты</a>
+              <a href="{{ ui_project_games_url|default:'/games/' }}{{ game.id }}/results/" class="new-btn new-btn--ghost new-btn--mini">Общие результаты</a>
             {% endif %}
           {% endif %}
           {% if game.standings_url %}

@@ -97,8 +97,11 @@ def _resolve_actor(request, game):
     return None, None, None
 
 
-def _load_daily_target(request, game_id, number):
-    game = get_object_or_404(Game, id=game_id)
+def _load_daily_target(request, game_id, number, project_id=None):
+    game_qs = Game.objects.filter(id=game_id)
+    if project_id:
+        game_qs = game_qs.filter(project_id=project_id)
+    game = get_object_or_404(game_qs)
     raw_number = str(number or '').strip()
     if not raw_number or not raw_number.replace('.', '', 1).isdigit():
         return None, None, None, None, None, _json_error('not_daily', 404)
@@ -152,8 +155,8 @@ def daily_timing_page_context(
     url = ''
     gameplay_context_token = ''
     if enabled:
-        from games.section_paths import section_play_path
-        url = '{}timing/'.format(section_play_path(game.id, placement.number))
+        from games.tasks.navigation import play_url_for_task_group
+        url = '{}timing/'.format(play_url_for_task_group(game, placement.number))
         from games.gameplay_context import issue_gameplay_context
         gameplay_context_token = issue_gameplay_context(
             task_group=placement.task_group,
@@ -182,9 +185,20 @@ def daily_timing_page_context(
 
 
 @require_http_methods(['GET', 'POST'])
-def daily_solve_timing(request, game_id, number=None, task_group_number=None):
+def daily_solve_timing(request, game_id, number=None, task_group_number=None, project_id=None):
     number = number if number is not None else task_group_number
-    game, task_group, team, user, anon_key, err = _load_daily_target(request, game_id, number)
+    if project_id is None:
+        root_game = get_object_or_404(Game, id=game_id)
+        if root_game.project_id not in ('main', 'sections'):
+            path = '/{}/games/{}/{}/timing/'.format(root_game.project_id, root_game.id, number)
+            query = request.META.get('QUERY_STRING')
+            if query:
+                path = '{}?{}'.format(path, query)
+            from django.shortcuts import redirect
+            return redirect(path, permanent=True)
+    game, task_group, team, user, anon_key, err = _load_daily_target(
+        request, game_id, number, project_id=project_id,
+    )
     if err is not None:
         return err
 
