@@ -184,6 +184,7 @@ class RaddleSendAttemptTests(TestCase):
         self.assertTrue(data['raddle_auto_solved'])
         self.assertEqual(data['daily_timing']['status'], DailySolveTiming.STATUS_COMPLETED)
         self.assertTrue(data['daily_timing']['completed'])
+        self.assertTrue(data['replay_available'])
 
     def test_wrong_response_contract(self):
         resp = self._post_word(1, 'ZZZ')

@@ -203,6 +203,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             source='raddle_assist',
         )
         if completion is not None:
+            replay_available = replay_slot is None
             effects = daily_completion_effects_for_game(
                 game.id,
                 completion,
@@ -220,6 +221,8 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             )
             if effects['timing']:
                 result['daily_timing'] = effects['timing']
+            if replay_available:
+                result['replay_available'] = True
             analytics_events.extend(effects['analytics_events'])
     if analytics_events:
         result['analytics_events'] = analytics_events
