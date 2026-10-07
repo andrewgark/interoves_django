@@ -41,6 +41,21 @@ def announce_chat_ids() -> list[str]:
     return [str(chat_id) for chat_id in getattr(settings, 'TELEGRAM_ANNOUNCE_CHAT_IDS', [])]
 
 
+def _parse_tags_chat_ids(value) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return parse_chat_id_list(value)
+    if isinstance(value, (list, tuple, set)):
+        return [str(chat_id).strip() for chat_id in value if str(chat_id).strip()]
+    return [str(value).strip()] if str(value).strip() else []
+
+
+def game_telegram_announce_chat_ids(game) -> list[str]:
+    tags = game.tags or {}
+    return _parse_tags_chat_ids(tags.get('telegram_announce_chat_ids')) or announce_chat_ids()
+
+
 def channel_chat_id() -> str:
     return str(getattr(settings, 'TELEGRAM_CHANNEL_CHAT_ID', '') or '')
 
@@ -82,3 +97,8 @@ def clear_admin_mute() -> None:
 def game_telegram_announce_enabled(game) -> bool:
     tags = game.tags or {}
     return bool(tags.get('telegram_announce'))
+
+
+def game_telegram_social_as_chat(game) -> bool:
+    tags = game.tags or {}
+    return bool(tags.get('telegram_social_as_chat'))

@@ -230,6 +230,48 @@ class ChatLifecycleAnnouncementTests(TestCase):
         )
         self.assertFalse(SocialQueuePost.objects.filter(source=SocialQueuePost.SOURCE_GAME).exists())
 
+    @patch('games.telegram.scheduling.publish_instagram')
+    @patch('games.telegram.scheduling.publish_twitter')
+    @patch('games.telegram.scheduling.publish_telegram')
+    @patch('games.telegram.scheduling._game_announce_png')
+    @patch('games.telegram.scheduling.send_announce_message', return_value=True)
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_project_game_can_send_social_phase_as_chat_to_custom_chat(
+        self, _admin, announce_mock, png_mock, tg_pub, tw_pub, ig_pub,
+    ):
+        self.game.tags = {}
+        self.game.save(update_fields=['tags'])
+        Project.objects.get_or_create(pk='glowbyte', defaults={})
+        glow_game = Game.objects.create(
+            id='glowbyte_des_chat',
+            name='Glowbyte Game',
+            no_html_name='Glowbyte Game',
+            author='author',
+            tags={
+                'telegram_announce': True,
+                'telegram_announce_chat_ids': ['glow-chat'],
+                'telegram_social_as_chat': True,
+            },
+            project_id='glowbyte',
+            is_ready=True,
+            is_playable=True,
+            is_tournament=True,
+            start_time=self.now + timedelta(hours=20),
+            end_time=self.now + timedelta(hours=23),
+        )
+
+        stats = process_game_announcements(now=self.now)
+
+        self.assertEqual(stats['day_before'], 1)
+        png_mock.assert_not_called()
+        tg_pub.assert_not_called()
+        tw_pub.assert_not_called()
+        ig_pub.assert_not_called()
+        announce_mock.assert_called_once()
+        self.assertEqual(announce_mock.call_args.kwargs['chat_ids'], ['glow-chat'])
+        self.assertIn('/glowbyte/games/{}/'.format(glow_game.id), announce_mock.call_args.args[0])
+        self.assertFalse(SocialQueuePost.objects.filter(source=SocialQueuePost.SOURCE_GAME).exists())
+
 
 @override_settings(
     TELEGRAM_BOT_TOKEN='test-token',
@@ -477,6 +519,52 @@ class ChatAllSolvedAndResultsTests(TestCase):
         self.assertIn('Winners', post.caption)
         self.assertIn('tournament-results', post.caption)
         self.assertTrue(post.image)
+
+    @patch('games.telegram.scheduling.publish_instagram')
+    @patch('games.telegram.scheduling.publish_twitter')
+    @patch('games.telegram.scheduling.publish_telegram')
+    @patch('games.telegram.scheduling._tournament_results_png')
+    @patch('games.telegram.scheduling.send_announce_photo')
+    @patch('games.telegram.scheduling.send_announce_message', return_value=True)
+    @patch('games.telegram.scheduling.send_admin_message')
+    def test_results_can_be_chat_only_for_project_game(
+        self, _admin, msg_mock, photo_mock, png_mock, tg_pub, tw_pub, ig_pub,
+    ):
+        Project.objects.get_or_create(pk='glowbyte', defaults={})
+        self.game.project_id = 'glowbyte'
+        self.game.tags = {
+            'telegram_announce': True,
+            'telegram_announce_chat_ids': 'glow-chat',
+            'telegram_social_as_chat': True,
+        }
+        self.game.start_time = self.now - timedelta(hours=3)
+        self.game.end_time = self.now - timedelta(minutes=5)
+        self.game.save(update_fields=['project', 'tags', 'start_time', 'end_time'])
+        TelegramGameAnnouncement.objects.create(
+            game=self.game, kind=TelegramGameAnnouncement.KIND_START,
+        )
+        TelegramGameAnnouncement.objects.create(
+            game=self.game, kind=TelegramGameAnnouncement.KIND_END,
+        )
+        when = self.now - timedelta(hours=2)
+        self._ok_attempt(self.task1, self.team, when)
+        self._ok_attempt(self.task2, self.team, when)
+
+        stats = process_game_announcements(now=self.now)
+
+        self.assertEqual(stats['results'], 1)
+        msg_mock.assert_called_once()
+        self.assertEqual(msg_mock.call_args.kwargs['chat_ids'], ['glow-chat'])
+        self.assertIn(
+            '/glowbyte/games/{}/tournament-results/'.format(self.game.id),
+            msg_mock.call_args.args[0],
+        )
+        photo_mock.assert_not_called()
+        png_mock.assert_not_called()
+        tg_pub.assert_not_called()
+        tw_pub.assert_not_called()
+        ig_pub.assert_not_called()
+        self.assertFalse(SocialQueuePost.objects.filter(source=SocialQueuePost.SOURCE_GAME).exists())
 
     @patch('games.telegram.scheduling._tournament_results_png', return_value=None)
     @patch('games.telegram.scheduling.send_announce_photo')

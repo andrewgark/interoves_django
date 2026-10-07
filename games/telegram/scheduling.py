@@ -25,7 +25,11 @@ from games.telegram.announcements import (
     format_game_results_announcement,
     format_no_coffins_announcement,
 )
-from games.telegram.config import game_telegram_announce_enabled
+from games.telegram.config import (
+    game_telegram_announce_chat_ids,
+    game_telegram_announce_enabled,
+    game_telegram_social_as_chat,
+)
 from games.telegram.game_urls import game_site_url
 from games.telegram.models import TelegramGameAnnouncement
 from games.telegram.notify import (
@@ -80,7 +84,7 @@ def _mark_and_send_text(game: Game, kind: str) -> bool:
     if telegram_shadow_active():
         logger.info('telegram shadow would send text game=%s kind=%s', game.id, kind)
         return True
-    if send_announce_message(formatter(game)):
+    if send_announce_message(formatter(game), chat_ids=game_telegram_announce_chat_ids(game)):
         return True
     _unmark(game, kind)
     return False
@@ -94,9 +98,12 @@ def _mark_and_send_photo(game: Game, kind: str, caption: str, photo_bytes: bytes
     if telegram_shadow_active():
         logger.info('telegram shadow would send photo game=%s kind=%s', game.id, kind)
         return True
-    if photo_bytes and send_announce_photo(photo_bytes, caption=caption, filename='results.png'):
+    chat_ids = game_telegram_announce_chat_ids(game)
+    if photo_bytes and send_announce_photo(
+        photo_bytes, caption=caption, filename='results.png', chat_ids=chat_ids,
+    ):
         return True
-    if send_announce_message(caption):
+    if send_announce_message(caption, chat_ids=chat_ids):
         return True
     _unmark(game, kind)
     return False
@@ -253,6 +260,19 @@ def _process_day_before(game: Game, now, stats: dict) -> None:
     ).exists():
         return
     caption = format_game_day_before_announcement(game)
+    if game_telegram_social_as_chat(game):
+        if _try_mark(game, TelegramGameAnnouncement.KIND_DAY_BEFORE):
+            from games.telegram.shadow import telegram_shadow_active
+
+            if telegram_shadow_active():
+                logger.info('telegram shadow would send day_before as chat game=%s', game.id)
+                stats['day_before'] += 1
+                return
+            if send_announce_message(caption, chat_ids=game_telegram_announce_chat_ids(game)):
+                stats['day_before'] += 1
+                return
+            _unmark(game, TelegramGameAnnouncement.KIND_DAY_BEFORE)
+        return
     png = _game_announce_png(game)
     if _mark_and_publish_social(
         game,
@@ -494,7 +514,12 @@ def _process_no_coffins(game: Game, now, stats: dict, results_png_cache: dict) -
     png = _fresh_tournament_results_png(game, results_png_cache)
     if not png or not _try_mark(game, kind):
         return
-    if send_announce_photo(png, caption=caption, filename='results.png'):
+    if send_announce_photo(
+        png,
+        caption=caption,
+        filename='results.png',
+        chat_ids=game_telegram_announce_chat_ids(game),
+    ):
         stats['no_coffins'] += 1
         return
     # The announcement promises a table screenshot; let the next cron tick retry.
@@ -524,6 +549,19 @@ def _process_results(game: Game, now, stats: dict, results_png_cache: dict) -> N
         teams_order=data.get('teams_sorted') or [],
     )
     caption = format_game_results_announcement(game, podium)
+    if game_telegram_social_as_chat(game):
+        if _try_mark(game, TelegramGameAnnouncement.KIND_RESULTS):
+            from games.telegram.shadow import telegram_shadow_active
+
+            if telegram_shadow_active():
+                logger.info('telegram shadow would send results as chat game=%s', game.id)
+                stats['results'] += 1
+                return
+            if send_announce_message(caption, chat_ids=game_telegram_announce_chat_ids(game)):
+                stats['results'] += 1
+                return
+            _unmark(game, TelegramGameAnnouncement.KIND_RESULTS)
+        return
     png = _fresh_tournament_results_png(game, results_png_cache)
     social_png = _tournament_results_social_png(game)
     if _mark_and_publish_social(

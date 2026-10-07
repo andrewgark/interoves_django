@@ -277,15 +277,20 @@ def notify_club_subscription_user(subscription_id: int) -> bool:
         return False
 
 
-def send_announce_message(text: str, *, reply_markup: dict | None = None) -> bool:
+def send_announce_message(
+    text: str,
+    *,
+    reply_markup: dict | None = None,
+    chat_ids: Iterable[str] | None = None,
+) -> bool:
     if not telegram_bot_configured():
         return False
-    chat_ids = announce_chat_ids()
-    if not chat_ids:
+    target_chat_ids = list(chat_ids) if chat_ids is not None else announce_chat_ids()
+    if not target_chat_ids:
         logger.debug('Telegram announce skipped: TELEGRAM_ANNOUNCE_CHAT_IDS is empty')
         return False
     results = []
-    for chat_id in chat_ids:
+    for chat_id in target_chat_ids:
         results.append(bool(send_message(chat_id, text, reply_markup=reply_markup)))
     return bool(results) and all(results)
 
@@ -296,15 +301,16 @@ def send_announce_photo(
     caption: str = '',
     filename: str = 'photo.png',
     reply_markup: dict | None = None,
+    chat_ids: Iterable[str] | None = None,
 ) -> bool:
     if not telegram_bot_configured():
         return False
-    chat_ids = announce_chat_ids()
-    if not chat_ids:
+    target_chat_ids = list(chat_ids) if chat_ids is not None else announce_chat_ids()
+    if not target_chat_ids:
         logger.debug('Telegram announce photo skipped: TELEGRAM_ANNOUNCE_CHAT_IDS is empty')
         return False
     results = []
-    for chat_id in chat_ids:
+    for chat_id in target_chat_ids:
         results.append(bool(send_photo(
             chat_id,
             photo_bytes,
