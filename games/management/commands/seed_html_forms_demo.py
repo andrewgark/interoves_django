@@ -6,10 +6,14 @@ from django.utils import timezone
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 
 
-GREEN_FORM_MASKS = {
-    'G1': '______а_', 'G2': '_______', 'G3': '____', 'G4': '_____',
+NODE_FORM_MASKS = {
+    'G1': '_______а_', 'G2': '______', 'G3': '____', 'G4': '_____',
     'G5': '____', 'G6': '___', 'G7': '__ф_______', 'G8': '___',
-    'G9': '_______', 'G10': '________', 'G11': '__________', 'G12': '______р',
+    'G9': '______', 'G10': '_______', 'G11': '_________', 'G12': '______р',
+    'Y1': 'Ц__А', 'Y2': 'В_____ж', 'Y3': 'Новокуз___кая', 'Y4': 'Я____б',
+    'Y5': 'К_______я', 'Y6': 'Х__к', 'Y7': 'Твинд_к', 'Y8': 'Коронк_',
+    'Y9': 'Б__ь__', 'Y10': 'С__ц', 'Y11': 'С______о', 'Y12': 'М_и_о',
+    'Y13': 'Ка__юратор', 'Y14': 'О___а', 'Y15': 'Сфе__',
 }
 
 
@@ -55,7 +59,7 @@ class Command(BaseCommand):
         GameTaskGroup.objects.update_or_create(
             game=game,
             task_group=group,
-            defaults={'number': '1', 'name': 'Одна HTML-задача, 12 форм'},
+            defaults={'number': '1', 'name': 'Одна HTML-задача, 27 форм'},
         )
         task, _ = Task.objects.update_or_create(
             task_group=group,
@@ -67,16 +71,17 @@ class Command(BaseCommand):
                 'max_attempts': 25,
                 'field_text_width': 20,
                 'text': (
-                    '<p>Заполняй зелёные узлы в любом порядке. За каждый правильный '
-                    'ответ начисляется 2 балла; жёлтые узлы — связи графа.</p>'
-                    '<link rel="stylesheet" href="/static/css/html_forms_graph_demo.css?v=layout-v14">'
-                    '<div class="html-forms-graph-demo" data-html-forms-graph-demo '
+                    '<p>Заполняй все узлы в любом порядке. За каждый правильный '
+                    'ответ начисляется 2 балла.</p>'
+                    '<link rel="stylesheet" href="/static/css/html_forms_graph_demo.css?v=layout-v18">'
+                    '<div class="html-forms-graph-demo categorka-schema" '
+                    'data-html-forms-graph-demo data-graph-schema="categorka-schema" '
                     'role="group" aria-label="Граф из зелёных и жёлтых узлов">'
                     + ''.join(
-                        '<template data-graph-form="G{0}">{{{{ html_form:G{0} }}}}</template>'.format(i)
-                        for i in range(1, 13)
+                        '<template data-graph-form="{0}">{{{{ html_form:{0} }}}}</template>'.format(key)
+                        for key in NODE_FORM_MASKS
                     )
-                    + '</div><script src="/static/js/html_forms_graph_demo.js?v=layout-v10" defer></script>'
+                    + '</div><script src="/static/js/html_forms_graph_demo.js?v=layout-v14" defer></script>'
                 ),
                 # Temporary local-only keys let the author exercise each embedded
                 # form before the actual puzzle answer key has been provided.
@@ -88,7 +93,7 @@ class Command(BaseCommand):
                             'answer': 'DEMO-' + key,
                             'placeholder': mask.replace('_', '▪'),
                         }
-                        for key, mask in GREEN_FORM_MASKS.items()
+                        for key, mask in NODE_FORM_MASKS.items()
                     ],
                 }, ensure_ascii=False),
                 'answer': '',
