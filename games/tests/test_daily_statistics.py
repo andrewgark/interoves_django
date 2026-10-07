@@ -233,6 +233,7 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['summary']['median_time_seconds'], 4.0)
         self.assertTrue(data['word_stats_available'])
         self.assertEqual([row['median_time_seconds'] for row in data['words'][1:3]], [1.0, 2.0])
+        self.assertEqual([row['hint_percent'] for row in data['words']], [0, 0, 0, 0])
 
     def test_ladder_hides_word_stats_when_one_word_has_no_active_timing(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()

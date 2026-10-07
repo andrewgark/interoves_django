@@ -88,6 +88,7 @@
         '<span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span>' +
         '<div class="new-daily-statistics__ladder-bar"><i style="--bar-width:' + width + '%"></i></div>' +
         '<strong>' + esc(label) + '</strong>' +
+        '<span class="new-daily-statistics__hint-rate"><i class="ph ph-lightbulb" aria-hidden="true"></i> ' + esc(percent(item.hint_percent)) + '</span>' +
         '</li>';
     }).join('');
   }
@@ -229,9 +230,7 @@
           '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + longWords(data.long_words) + '</ul></div>';
       }
     } else if (data.kind === 'ladder') {
-      if (data.word_stats_available !== false) {
-        html += section('Сложность слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
-      }
+      html += section('Сложность слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
     } else if (data.kind === 'alphabet') {
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +

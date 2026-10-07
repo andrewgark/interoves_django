@@ -26,7 +26,7 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 15
+CACHE_VERSION = 16
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
@@ -342,6 +342,7 @@ def _ladder(task, game, actors):
     total = len(actors)
     no_hints = 0
     times = defaultdict(list)
+    hint_counts = defaultdict(int)
     for actor in actors:
         assist = {}
         previous = set()
@@ -369,11 +370,22 @@ def _ladder(task, game, actors):
             no_hints += 1
         elif not any(assist.values()):
             no_hints += 1
+        for index, tier in assist.items():
+            if tier > 0:
+                hint_counts[index] += 1
     return {
         'kind': 'ladder', 'solved': total,
         'summary': {'solved': total, 'median_time_seconds': _median(_completed_times(game, task.task_group, actors)), 'without_hints_percent': _pct(no_hints, total)},
         'word_stats_available': all(times[index] for index in range(1, parsed['n_words'] - 1)),
-        'words': [{'word': parsed['words'][i], 'given': i in (0, parsed['n_words'] - 1), 'median_time_seconds': _median(times[i])} for i in range(parsed['n_words'])],
+        'words': [
+            {
+                'word': parsed['words'][i],
+                'given': i in (0, parsed['n_words'] - 1),
+                'median_time_seconds': _median(times[i]),
+                'hint_percent': _pct(hint_counts[i], total),
+            }
+            for i in range(parsed['n_words'])
+        ],
     }
 
 
