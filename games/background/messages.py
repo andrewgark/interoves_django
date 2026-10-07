@@ -21,6 +21,7 @@ SOCIAL_PUBLISH = 'social.publish'
 STALE_AFTER = timedelta(minutes=2)
 ANNOUNCEMENT_STALE_AFTER = timedelta(minutes=3)
 ADMIN_REPORT_STALE_AFTER = timedelta(minutes=20)
+ADMIN_ALERT_STALE_AFTER = timedelta(hours=1)
 INSTAGRAM_STALE_AFTER = timedelta(hours=12)
 SOCIAL_STALE_AFTER = timedelta(minutes=3)
 

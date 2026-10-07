@@ -70,11 +70,17 @@ def send_admin_message(text: str, *, reply_markup: dict | None = None, force: bo
     return send_message(admin_chat_id(), text, reply_markup=reply_markup)
 
 
-def notify_admin_alert_message(text: str) -> bool:
+def notify_admin_alert_message(text: str, *, dedupe_key: str = '') -> bool:
     """Deliver a previously validated alert from the integrations worker."""
     if not text:
         return False
-    return send_admin_message(text[:4000], force=True)
+    cache_key = 'telegram:admin:delivered:{}'.format(dedupe_key) if dedupe_key else ''
+    if cache_key and cache.get(cache_key):
+        return True
+    delivered = send_admin_message(text[:4000], force=True)
+    if delivered and cache_key:
+        cache.set(cache_key, 1, timeout=300)
+    return delivered
 
 
 def _deliver_admin_text(text: str, *, alert: str, delivery: str, dedupe_key: str = '') -> bool:
@@ -181,7 +187,7 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
     try:
         path = str(getattr(request, 'path', '') or '/')[:160]
         cache_key = 'telegram:admin:site-error:{}:{}'.format(status_code, path)
-        if not cache.add(cache_key, 1, timeout=300):
+        if cache.get(cache_key):
             return False
         resolver_match = getattr(request, 'resolver_match', None)
         route_name = getattr(resolver_match, 'url_name', '') if resolver_match else ''
@@ -233,11 +239,14 @@ def notify_admin_site_error(request, *, status_code: int = 500, exception=None) 
                 '{}: {}'.format(exception.__class__.__name__, str(exception)[:400]),
             )))
         lines.append('Повторные ошибки этого типа подавлены на 5 минут.')
-        return publish_admin_alert(
+        published = publish_admin_alert(
             alert='site_error',
             dedupe_key='telegram.admin_alert:site_error:{}:{}'.format(status_code, path),
             payload={'text': _join_lines(lines)},
         )
+        if published:
+            cache.set(cache_key, 1, timeout=300)
+        return published
     except Exception:
         logger.exception('Failed to notify admin about site error')
         return False
@@ -252,8 +261,8 @@ def notify_admin_word_salad_submission_error(
         cache_key = 'telegram:admin:word-salad-submit:{}:{}'.format(
             game_id, deploy_version,
         )
-        if deduplicate and not cache.add(cache_key, 1, timeout=300):
-            return False
+        if deduplicate and cache.get(cache_key):
+            return True
         text = _join_lines([
             '🚨 <b>Ошибка отправки кастомного салатика</b>',
             '',
@@ -264,7 +273,13 @@ def notify_admin_word_salad_submission_error(
             '<code>custom scheduled task submission missing valid offer_share</code>.',
             'Повторные уведомления подавлены на 5 минут.',
         ])
-        return send_admin_message(text, force=True)
+        delivered = send_admin_message(text, force=True)
+        if deduplicate:
+            if delivered:
+                cache.set(cache_key, 1, timeout=300)
+            else:
+                cache.delete(cache_key)
+        return delivered
     except Exception:
         logger.exception('Failed to notify admin about custom word salad submission')
         return False

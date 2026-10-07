@@ -27,13 +27,15 @@ def publish_admin_alert(*, alert: str, payload: dict, dedupe_key: str = '') -> b
             alert,
         )
         return False
+    alert_payload = dict(payload)
+    alert_payload['alert'] = str(alert)
     body = {
         'version': 1,
         'type': TELEGRAM_ADMIN_ALERT,
         'run_id': str(uuid.uuid4()),
         'scheduled_for': timezone.now().isoformat(),
         'dedupe_key': dedupe_key or 'telegram.admin_alert:{}'.format(alert),
-        'payload': {'alert': str(alert), **payload},
+        'payload': alert_payload,
     }
     try:
         client = boto3.client(

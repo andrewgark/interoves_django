@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 
 from games.background.messages import (
     ADMIN_REPORT_STALE_AFTER,
+    ADMIN_ALERT_STALE_AFTER,
     ANNOUNCEMENT_STALE_AFTER,
     INSTAGRAM_STALE_AFTER,
     INSTAGRAM_TOKEN_REFRESH,
@@ -80,7 +81,15 @@ def integrations_worker(request):
             result = run_admin_alert_live(
                 alert=str(payload.get('alert') or ''),
                 payload=payload,
+                dedupe_key=message['dedupe_key'],
             )
+            if result is False:
+                logger.error(
+                    'integration worker admin alert delivery failed '
+                    'alert=%s run_id=%s message_id=%s',
+                    payload.get('alert'), message['run_id'], message_id,
+                )
+                return JsonResponse({'status': 'failed'}, status=500)
         elif message['type'] == INSTAGRAM_TOKEN_REFRESH:
             result = run_instagram_token_refresh(
                 worker='integration:{}'.format(message_id or 'unknown'),
@@ -113,6 +122,8 @@ def _is_stale(message, *, now):
     age = now - message['scheduled_for']
     if message['type'] == TELEGRAM_ADMIN_REPORT:
         return age > ADMIN_REPORT_STALE_AFTER
+    if message['type'] == TELEGRAM_ADMIN_ALERT:
+        return age > ADMIN_ALERT_STALE_AFTER
     if message['type'] == TELEGRAM_ANNOUNCEMENTS:
         return age > ANNOUNCEMENT_STALE_AFTER
     if message['type'] == INSTAGRAM_TOKEN_REFRESH:

@@ -337,7 +337,7 @@ class TelegramNotifyTests(TestCase):
         self.assertTrue(notify_admin_word_salad_submission_error(
             game_id='salad', incident_id='abc123',
         ))
-        self.assertFalse(notify_admin_word_salad_submission_error(
+        self.assertTrue(notify_admin_word_salad_submission_error(
             game_id='salad', incident_id='def456',
         ))
         send_message_mock.assert_called_once()

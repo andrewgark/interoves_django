@@ -115,6 +115,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
                 'game_id': 'salad',
                 'incident_id': 'abc123',
             },
+            dedupe_key='telegram.announcements:minute',
         )
 
     def test_site_error_admin_alert_is_dispatched(self):
@@ -130,7 +131,33 @@ class IntegrationsWorkerTests(SimpleTestCase):
         alert.assert_called_once_with(
             alert='site_error',
             payload={'alert': 'site_error', 'text': 'site error text'},
+            dedupe_key='telegram.announcements:minute',
         )
+
+    def test_failed_admin_alert_is_retried(self):
+        with patch(
+            'games.views.integrations_worker.run_admin_alert_live',
+            return_value=False,
+        ):
+            response = self._post(_body(
+                type='telegram.admin_alert',
+                payload={'alert': 'site_error', 'text': 'site error text'},
+            ))
+        self.assertEqual(response.status_code, 500)
+
+    def test_admin_alert_has_longer_stale_window(self):
+        scheduled = timezone.now() - timedelta(minutes=10)
+        with patch(
+            'games.views.integrations_worker.run_admin_alert_live',
+            return_value=True,
+        ) as alert:
+            response = self._post(_body(
+                type='telegram.admin_alert',
+                scheduled_for=scheduled.isoformat(),
+                payload={'alert': 'site_error', 'text': 'site error text'},
+            ))
+        self.assertEqual(response.status_code, 200)
+        alert.assert_called_once()
 
     def test_old_admin_report_is_stale(self):
         scheduled = timezone.now() - timedelta(minutes=21)
