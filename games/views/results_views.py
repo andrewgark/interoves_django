@@ -1,15 +1,24 @@
 import datetime
 import json
 from django.db.models import Q
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import redirect, render, get_object_or_404
 from django.views import defaults
 from games.models import Game, Team, GameResultsSnapshot
+from games.project_navigation import non_root_project_game_path
 from games.views.util import has_profile, has_team
 from games.results_snapshot import snapshot_to_results_context
 
 
 def results_page(request, game_id, mode='general'):
     game = get_object_or_404(Game, id=game_id)
+    suffix = 'tournament-results/' if mode == 'tournament' else 'results/'
+    redirect_path = non_root_project_game_path(game, suffix)
+    if redirect_path:
+        query = request.META.get('QUERY_STRING')
+        if query:
+            redirect_path = '{}?{}'.format(redirect_path, query)
+        return redirect(redirect_path, permanent=True)
+
     if has_profile(request.user) and request.user.profile.team_on and \
        not game.has_access('see_results', mode=mode, team=request.user.profile.team_on):
         return defaults.page_not_found(request)

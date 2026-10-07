@@ -2,12 +2,13 @@ import datetime
 import json
 from django.db.models import Q
 from django.http import HttpResponse
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import redirect, render, get_object_or_404
 from django.views import defaults
 from django.utils import timezone
 from games.access import game_has_started
 from games.exception import NoGameAccessException
 from games.models import Game, Team, Attempt, ImageManager, AudioManager
+from games.project_navigation import non_root_project_game_path
 from games.views.render_task import get_task_to_attempts_info, get_all_text_with_forms_to_html
 from games.gameplay_context import issue_gameplay_context
 from games.html_forms import render_html_forms_task
@@ -18,6 +19,16 @@ from games.views.results_views import results_page
 
 def game_page(request, game_id, task_group=None, task=None):
     game = get_object_or_404(Game, id=game_id)
+    suffix = ''
+    if task_group is not None:
+        suffix = '{}/'.format(task_group)
+    redirect_path = non_root_project_game_path(game, suffix)
+    if redirect_path:
+        query = request.META.get('QUERY_STRING')
+        if query:
+            redirect_path = '{}?{}'.format(redirect_path, query)
+        return redirect(redirect_path, permanent=True)
+
     if not has_profile(request.user) or not request.user.profile.team_on:
         return get_team_to_play_page(request, game)
     team = None

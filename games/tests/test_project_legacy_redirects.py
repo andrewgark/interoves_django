@@ -91,6 +91,30 @@ class ProjectLegacyRedirectTests(TestCase):
             '/glowbyte/games/glowbyte_des_12/1/',
         )
 
+    def test_old_ui_deep_links_redirect_to_project_scope(self):
+        self.assertPermanentRedirectsTo(
+            '/old/games/glowbyte_des_12/',
+            '/glowbyte/games/glowbyte_des_12/',
+        )
+        self.assertPermanentRedirectsTo(
+            '/old/games/glowbyte_des_12/1',
+            '/glowbyte/games/glowbyte_des_12/1/',
+        )
+        self.assertPermanentRedirectsTo(
+            '/old/games/glowbyte_des_12/1/1?from=legacy',
+            '/glowbyte/games/glowbyte_des_12/1/?from=legacy',
+        )
+
+    def test_old_ui_results_redirect_to_project_scope(self):
+        self.assertPermanentRedirectsTo(
+            '/old/results/glowbyte_des_12/',
+            '/glowbyte/games/glowbyte_des_12/results/',
+        )
+        self.assertPermanentRedirectsTo(
+            '/old/tournament_results/glowbyte_des_12/?actors=team',
+            '/glowbyte/games/glowbyte_des_12/tournament-results/?actors=team',
+        )
+
     def test_root_progress_live_state_and_timing_redirect_to_project_scope(self):
         self.assertPermanentRedirectsTo(
             '/games/glowbyte_des_12/progress/',

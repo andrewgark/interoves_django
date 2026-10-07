@@ -32,6 +32,24 @@ def project_base(
     return '/' + project_id
 
 
+def non_root_project_game_path(
+    game,
+    suffix='',
+    *,
+    main_project_id='main',
+    sections_project_id='sections',
+):
+    """Return canonical /<project>/games/<game>/ path for non-root projects."""
+    base = project_base(
+        getattr(game, 'project_id', None),
+        main_project_id=main_project_id,
+        sections_project_id=sections_project_id,
+    )
+    if not base:
+        return None
+    return '{}/games/{}/{}'.format(base, game.id, suffix)
+
+
 def project_urls_context(
     project_id,
     *,
