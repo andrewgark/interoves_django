@@ -934,6 +934,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
     credited_any = bool(credited['extra'] or credited['rare'] or credited['answer'])
     current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
     analytics_events = []
+    daily_timing = None
     replay_available = False
     if credited_any and replay_slot is None:
         analytics_events.extend(register_started_game(
@@ -987,7 +988,10 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
                     'task_group': task.task_group,
                 },
             )
+            daily_timing = effects['timing']
             analytics_events.extend(effects['analytics_events'])
+    if daily_timing:
+        result['daily_timing'] = daily_timing
     if analytics_events:
         result['analytics_events'] = analytics_events
     if replay_available:

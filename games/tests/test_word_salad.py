@@ -16,6 +16,7 @@ from games.models import (
     Attempt,
     ChainTaskState,
     CheckerType,
+    DailySolveTiming,
     Game,
     GameTaskGroup,
     HTMLPage,
@@ -624,6 +625,31 @@ class WordSaladTests(TestCase):
         original.refresh_from_db()
         self.assertEqual(original.time, last_play)
         self.assertEqual(extra.time, last_play)
+
+    def test_sync_finds_completion_returns_daily_timing(self):
+        anon_key = 'word-salad-sync-complete-timing'
+        DailySolveTiming.objects.create(
+            game=self.game,
+            task_group=self.tg,
+            anon_key=anon_key,
+            status=DailySolveTiming.STATUS_RUNNING,
+            accumulated_ms=3000,
+        )
+        with patch.dict('games.analytics.GAME_KIND_BY_ID', {self.game.id: 'salad'}):
+            response = self._post(
+                '/send_attempt/{}/'.format(self.task.pk),
+                {
+                    'game_id': self.game.pk,
+                    'anon_key': anon_key,
+                    'action': 'sync_finds',
+                    'words': json.dumps(['ABCDEFGHIJKLMNOP']),
+                },
+            )
+        payload = response.json()
+        self.assertEqual(payload['status'], 'ok')
+        self.assertEqual(payload['word_salad_credited']['answer'], ['ABCDEFGHIJKLMNOP'])
+        self.assertEqual(payload['daily_timing']['status'], DailySolveTiming.STATUS_COMPLETED)
+        self.assertTrue(payload['daily_timing']['completed'])
 
     def test_correct_only_saves_matching_word_salad_path(self):
         with patch('games.views.attempt_views.track_actor_task_change'):
