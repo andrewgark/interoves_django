@@ -7,11 +7,11 @@ from django.views.decorators.http import require_POST
 
 from games.analytics import (
     PlayerCompletedGame,
+    analytics_game_kind,
     is_task_completion_state,
     is_task_group_complete,
     publish_completion_analytics,
     register_started_game,
-    supported_game_kind,
 )
 from games.completion_coordinator import complete_logical_game
 from games.daily.completion import daily_completion_effects_for_game
@@ -178,7 +178,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         game=game,
     )
     if (
-        supported_game_kind(game)
+        analytics_game_kind(game)
         and is_task_completion_state(task, attempt.state)
         and is_task_group_complete(
             task_group=task.task_group,

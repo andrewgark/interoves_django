@@ -13,6 +13,7 @@ from games.models import (
     Attempt,
     ChainTaskState,
     CheckerType,
+    DailySolveTiming,
     Game,
     GameTaskGroup,
     HTMLPage,
@@ -164,6 +165,25 @@ class RaddleSendAttemptTests(TestCase):
 
         attempt = Attempt.manager.get(pk=data['attempt_id'])
         self.assertEqual(json.loads(attempt.text)['word'], 'BBB')
+
+    def test_tier_two_assist_completion_returns_daily_timing_for_custom_game(self):
+        DailySolveTiming.objects.create(
+            game=self.game,
+            task_group=self.tg,
+            anon_key=self.anon_key,
+            status=DailySolveTiming.STATUS_RUNNING,
+            accumulated_ms=4000,
+        )
+        self.assertTrue(self._post_word(1, 'BBB').json()['raddle_correct'])
+        self.assertEqual(self._post_assist(2, 1).json()['status'], 'ok')
+
+        response = self._post_assist(2, 2)
+
+        data = response.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertTrue(data['raddle_auto_solved'])
+        self.assertEqual(data['daily_timing']['status'], DailySolveTiming.STATUS_COMPLETED)
+        self.assertTrue(data['daily_timing']['completed'])
 
     def test_wrong_response_contract(self):
         resp = self._post_word(1, 'ZZZ')
