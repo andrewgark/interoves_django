@@ -491,6 +491,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['status'], 'correct')
         self.assertTrue(data['won'])
         self.assertEqual(data['secret'], 'СЛОВО')
+        self.assertTrue(data['replay_available'])
         from decimal import Decimal
         from games.models import Attempt
         ok = Attempt.manager.filter(

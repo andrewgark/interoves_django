@@ -799,6 +799,7 @@ def alphabetty_guess(request, number):
             if completion['timing']:
                 result['daily_timing'] = completion['timing']
             if replay_slot is None:
+                result['replay_available'] = True
                 analytics_events.extend(publish_completion_analytics(
                     record=completion['record'],
                     created=completion['created'],
