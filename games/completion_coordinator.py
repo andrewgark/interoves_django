@@ -21,9 +21,9 @@ from django.utils import timezone
 from games.analytics import (
     _analytics_actor_kwargs,
     _ensure_completed_record,
+    analytics_game_kind,
     game_instance_id_for_task_group,
     is_task_group_complete,
-    supported_game_kind,
 )
 from games.daily_timing import complete_daily_timing_in_transaction
 from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
@@ -106,7 +106,7 @@ def _complete_logical_game_once(
     elif run_id is not None:
         raise StaleReplayError()
 
-    game_kind = supported_game_kind(game)
+    game_kind = analytics_game_kind(game)
     if not game_kind:
         return None
     now = now or timezone.now()

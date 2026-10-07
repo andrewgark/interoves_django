@@ -143,6 +143,53 @@ class CompletionInvariantTests(TestCase):
         self.assertEqual(timing.status, STATUS_COMPLETED)
         self.assertEqual(timing.frozen_ms, second['timing']['frozen_ms'])
 
+    def test_coordinator_completes_custom_timed_game(self):
+        game = Game.objects.create(
+            id='custom_des_timing',
+            name='Custom timed Desyatka',
+            author='test',
+            project=self.project,
+            is_ready=True,
+            is_tournament=False,
+            requires_ticket=False,
+        )
+        group = TaskGroup.objects.create(label='custom-timed-group')
+        GameTaskGroup.objects.create(game=game, task_group=group, number='1', name='1')
+        task = Task.objects.create(
+            task_group=group,
+            number='1',
+            checker=self.checker,
+            answer='OK',
+            points=1,
+        )
+        Attempt.manager.create(
+            user=self.user,
+            game=game,
+            task=task,
+            text='OK',
+            status='Ok',
+            points=1,
+            time=datetime.now(timezone.utc),
+        )
+        timing = DailySolveTiming.objects.create(
+            user=self.user,
+            game=game,
+            task_group=group,
+            status='running',
+            active_session_id=None,
+        )
+
+        completion = complete_logical_game(
+            actor={'user': self.user}, game=game, task_group=group,
+            task=task, source='test-custom', result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+
+        self.assertIsNotNone(completion)
+        self.assertEqual(completion['record'].game_kind, 'custom_des_timing')
+        self.assertEqual(completion['timing']['status'], STATUS_COMPLETED)
+        timing.refresh_from_db()
+        self.assertEqual(timing.status, STATUS_COMPLETED)
+
     def test_coordinator_rolls_back_timing_when_completion_record_fails(self):
         game = self._game('ladder')
         group, tasks = self._group(game, [('0', 'raddle')])

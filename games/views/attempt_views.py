@@ -7,11 +7,11 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 from games.analytics import (
     PlayerCompletedGame,
+    analytics_game_kind,
     is_task_completion_state,
     is_task_group_complete,
     publish_completion_analytics,
     register_started_game,
-    supported_game_kind,
 )
 from games.check import CheckerFactory
 from games.exception import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
@@ -747,8 +747,9 @@ def process_send_attempt(request, task_id):
                 game=game,
             ))
     completion_ready = False
-    if attempt_persisted and supported_game_kind(game) and (
-        task.task_type in CHAIN_TASK_TYPES
+    if attempt_persisted and analytics_game_kind(game) and (
+        attempt.status == 'Ok'
+        or task.task_type in CHAIN_TASK_TYPES
         or is_task_completion_state(task, attempt.state)
     ):
         with timing_phase(request, 'completion_check'):
@@ -947,7 +948,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
         ))
     if (
         credited['answer']
-        and supported_game_kind(game)
+        and analytics_game_kind(game)
         and is_task_completion_state(task, stats['state'])
         and is_task_group_complete(
             task_group=task.task_group,

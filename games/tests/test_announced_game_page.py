@@ -10,6 +10,7 @@ from allauth.socialaccount.models import SocialApp
 from games.models import (
     Attempt,
     CheckerType,
+    DailySolveTiming,
     Game,
     GameTaskGroup,
     HTMLPage,
@@ -211,6 +212,29 @@ class AnnouncedGamePageTests(TestCase):
         attempt = Attempt.manager.get(task=self.task, user=self.user_noteam)
         self.assertIsNone(attempt.team_id)
         self.assertEqual(attempt.status, 'Ok')
+
+    def test_custom_desyatka_completion_returns_daily_timing(self):
+        self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))
+        self.live.end_time = timezone.now() - timedelta(minutes=1)
+        self.live.save(update_fields=['end_time'])
+        DailySolveTiming.objects.create(
+            user=self.user_noteam,
+            game=self.live,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_RUNNING,
+            accumulated_ms=5000,
+        )
+        r = self.client.post(
+            '/send_attempt/{}/'.format(self.task.pk),
+            {'game_id': self.live.pk, 'text': 'ОТВЕТ'},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        self.assertEqual(r.status_code, 200)
+        data = r.json()
+        self.assertEqual(data['status'], 'ok')
+        self.assertEqual(data['attempt_status'], 'Ok')
+        self.assertEqual(data['daily_timing']['status'], DailySolveTiming.STATUS_COMPLETED)
+        self.assertTrue(data['daily_timing']['completed'])
 
     def test_finished_no_team_wrong_attempt_returns_feedback_status_and_list(self):
         self.assertTrue(self.client.login(username='user_noteam_ann', password='pw'))
