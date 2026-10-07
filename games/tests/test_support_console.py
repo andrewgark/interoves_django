@@ -417,6 +417,14 @@ class SupportBrowseTests(TestCase):
             author='test',
             start_time=now - timedelta(days=1),
         )
+        Project.objects.get_or_create(pk='glowbyte', defaults={})
+        cls.project_game = Game.objects.create(
+            id='browse_glowbyte',
+            name='Glowbyte Browse',
+            author='test',
+            project_id='glowbyte',
+            start_time=now - timedelta(days=1),
+        )
         cls.section_game, _ = Game.objects.get_or_create(
             id='ladder',
             defaults={
@@ -445,6 +453,11 @@ class SupportBrowseTests(TestCase):
         response = self.client.get(reverse('support:sections'))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Лесенка')
+
+    def test_project_game_page_links_to_project_site_url(self):
+        response = self.client.get(reverse('support:game', kwargs={'game_id': 'browse_glowbyte'}))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'href="/glowbyte/games/browse_glowbyte/"')
 
     def test_stats_dashboard(self):
         response = self.client.get(reverse('support:stats'), {'hours': 24})
