@@ -262,6 +262,27 @@ class CensorlyAccessTests(TestCase):
         self.client.force_login(self.staff)
         self.assertEqual(self.client.get('/censorly/').status_code, 200)
 
+    def test_hub_renders_calendar_and_actor_progress(self):
+        link = GameTaskGroup.objects.get(task_group=self.task.task_group)
+        RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
+        link.number = '1'
+        link.name = 'Цензурка #1'
+        link.save(update_fields=['number', 'name'])
+        self.game.tags = {'censorly_publish_start': '2026-10-01T00:00:00+03:00'}
+        self.game.save(update_fields=['tags'])
+        ChainTaskState.objects.create(
+            task=self.task, game=self.game, user=self.staff,
+            game_mode='general',
+            state=json.dumps({'guesses': [{'word': 'кот', 'hits': 1}], 'won': True}),
+        )
+
+        self.client.force_login(self.staff)
+        response = self.client.get('/censorly/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'daily-archive-censorly')
+        self.assertContains(response, '🤔 1 попытка')
+        self.assertContains(response, 'data-fully-solved="1"')
+
 
 class CensorlyPuzzleStorageTests(TestCase):
     def test_puzzle_roundtrip_in_tags(self):
