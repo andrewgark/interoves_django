@@ -23,6 +23,20 @@
     return tok && tok.in_heading ? ' is-heading' : '';
   }
 
+  function letterWord(count) {
+    var value = Math.abs(Number(count)) || 0;
+    var lastTwo = value % 100;
+    var last = value % 10;
+    if (lastTwo >= 11 && lastTwo <= 14) return 'букв';
+    if (last === 1) return 'буква';
+    if (last >= 2 && last <= 4) return 'буквы';
+    return 'букв';
+  }
+
+  function lettersLabel(count) {
+    return count + ' ' + letterWord(count);
+  }
+
   function renderToken(tok, overrides) {
     overrides = overrides || {};
     var kind = tok.kind || 'content';
@@ -64,15 +78,16 @@
     var ch = Math.max(totalLen, 1);
     mask.dataset.ch = String(ch);
     mask.dataset.len = String(totalLen);
-    mask.title = totalLen + ' букв';
+    var lengthLabel = lettersLabel(totalLen);
+    mask.title = lengthLabel;
     if (ending) {
       mask.classList.add('censorly-tok--mask-ending');
       mask.setAttribute(
         'aria-label',
-        'скрытое слово, ' + totalLen + ' букв, окончание «' + ending + '»'
+        'скрытое слово, ' + lengthLabel + ', окончание «' + ending + '»'
       );
     } else {
-      mask.setAttribute('aria-label', 'скрытое слово, ' + totalLen + ' букв');
+      mask.setAttribute('aria-label', 'скрытое слово, ' + lengthLabel);
     }
     if (overrides.lenForced != null) {
       mask.dataset.lenForced = overrides.lenForced ? '1' : '0';
