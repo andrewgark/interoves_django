@@ -17,6 +17,7 @@ def _token_public(
     won: bool,
     title_lemmas: set[str],
     show_endings: bool,
+    lexical: bool = False,
 ) -> dict[str, Any]:
     kind = tok.get('kind') or 'content'
     out: dict[str, Any] = {
@@ -37,6 +38,14 @@ def _token_public(
         out['text'] = tok.get('surface') or ''
         out['revealed'] = True
         return out
+
+    if lexical:
+        from games.censorly.lexical.semantics import initially_open
+        if initially_open(tok.get('surface') or ''):
+            out['text'] = strip_combining_marks(tok.get('surface') or '')
+            out['revealed'] = True
+            out['guessed'] = False
+            return out
 
     lemma = tok.get('lemma') or ''
     length = int(tok.get('length') or 0)
@@ -78,20 +87,22 @@ def build_public_view(
     won: bool = False,
     show_endings: bool | None = None,
 ) -> dict[str, Any]:
+    from games.censorly.flags import lexical_resolver_enabled
     revealed = {str(x) for x in (revealed_lemmas or []) if x}
     title_lemmas = title_content_lemmas(payload)
+    lexical = lexical_resolver_enabled()
     endings_on = CENSORLY_SHOW_MASK_ENDINGS if show_endings is None else bool(show_endings)
     title = [
         _token_public(
             t, revealed_lemmas=revealed, last_lemma=last_lemma, won=won,
-            title_lemmas=title_lemmas, show_endings=endings_on,
+            title_lemmas=title_lemmas, show_endings=endings_on, lexical=lexical,
         )
         for t in (payload.get('title_tokens') or [])
     ]
     body = [
         _token_public(
             t, revealed_lemmas=revealed, last_lemma=last_lemma, won=won,
-            title_lemmas=title_lemmas, show_endings=endings_on,
+            title_lemmas=title_lemmas, show_endings=endings_on, lexical=lexical,
         )
         for t in (payload.get('body_tokens') or [])
     ]
@@ -108,6 +119,10 @@ def build_public_view(
 
 def lemmas_matching_guess(payload: dict[str, Any], guess_lemma: str, guess_norm: str) -> set[str]:
     """Return lemmas in the puzzle that match the guess (lemma or surface)."""
+    from games.censorly.flags import lexical_resolver_enabled
+    if lexical_resolver_enabled():
+        from games.censorly.lexical.match import matching_lemmas
+        return matching_lemmas(all_tokens(payload), guess_norm or guess_lemma)
     hits: set[str] = set()
     if not guess_lemma and not guess_norm:
         return hits

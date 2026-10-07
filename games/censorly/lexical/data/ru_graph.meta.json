@@ -1,0 +1,26 @@
+{
+  "proof_engine": "ru-proofs-2",
+  "graph_sha256": "c136b85c8d558c4be3eb122a38005f2a74de6aeeec0ce6721682fefefcc1c9ac",
+  "build_command": "DJANGO_SETTINGS_MODULE=interoves_django.settings ../venv/interoves_django/bin/python -m games.censorly.lexical.russian.compiler",
+  "sources": [
+    {
+      "role": "kuznetsova_lemmas",
+      "filename": "lemmas_to_roots.tsv",
+      "sha256": "ba956349c3d1fc72239971fc14f6ed975c3d137b5979703455050fe00cc12358",
+      "bytes": 1567880
+    },
+    {
+      "role": "kuznetsova_groups",
+      "filename": "root_groups.txt",
+      "sha256": "180fe6a97fe66a32980621bef7b82208f4d1b192e1d987d476397fe55fa1e676",
+      "bytes": 77238
+    },
+    {
+      "role": "tikhonov_lemmas",
+      "filename": "RuMorphs-Lemmas.txt",
+      "sha256": "cb4be254fd8c30ff8ef9c694932fdedcf331137ecea8390e141fbd2bbf1b497a",
+      "bytes": 6249501
+    }
+  ],
+  "license_note": "Inputs are local snapshots of Kuznetsova root tables (tabidots/ru_roots) and RuMorphs Tikhonov segmentations. Both derive from copyrighted dictionaries and are not vendored. Rebuild only from those exact checksums. The runtime graph is approved pairs, not the source dictionaries. No network at runtime."
+}

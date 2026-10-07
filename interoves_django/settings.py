@@ -227,6 +227,12 @@ GAMEPLAY_CONTEXT_REQUIRE_TOKEN = (
     os.environ.get('GAMEPLAY_CONTEXT_REQUIRE_TOKEN', '').strip().lower()
     in ('1', 'true', 'yes', 'on')
 )
+# Simplified Censorly resolver. Off unless CENSORLY_LEXICAL_RESOLVER=1.
+# Green sets that variable; other environments stay on the legacy matcher.
+CENSORLY_LEXICAL_RESOLVER = (
+    os.environ.get('CENSORLY_LEXICAL_RESOLVER', '').strip().lower()
+    in ('1', 'true', 'yes', 'on')
+)
 
 # HMAC key for the anonymous analytics identity signature cookie.
 # Production should set ANALYTICS_ANON_SIGNING_KEY to the same high-entropy

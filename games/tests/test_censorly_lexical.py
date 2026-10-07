@@ -1,0 +1,350 @@
+"""Precision tests for the censorly lexical resolver.
+
+Cognates are not wired into play. These tests call the resolver directly.
+"""
+
+from __future__ import annotations
+
+import gzip
+import hashlib
+import json
+from pathlib import Path
+
+from django.test import SimpleTestCase
+
+from games.censorly.lexical.core import fold
+from games.censorly.lexical.dispatcher import backend_name
+from games.censorly.lexical.generic_backend import CAPABILITIES as GENERIC_CAPS
+from games.censorly.lexical.relations.graph import edge_count, neighbors
+from games.censorly.lexical.resolver import (
+    describe_token,
+    open_prepared,
+    open_targets,
+    prepare_target,
+    related,
+    relation_kind,
+)
+from games.censorly.lexical.russian import CAPABILITIES as RUSSIAN_CAPS
+from games.censorly.lexical.russian.decisions import REJECT
+from games.censorly.lexical.russian.context import inflection_matches, occurrence_of
+from games.censorly.lexical.russian.morphology import cognate_lemmas
+from games.censorly.normalize import lemma_of, normalize_surface
+from games.censorly.redact import lemmas_matching_guess
+from games.censorly.tokenize import build_puzzle_payload
+
+POSITIVES = (
+    ('вместе', 'место'),
+    ('он', 'она'),
+    ('он', 'они'),
+    ('он', 'оно'),
+    ('она', 'они'),
+    ('она', 'оно'),
+    ('они', 'оно'),
+    ('опыление', 'пыль'),
+    ('вскоре', 'скорость'),
+    ('мёд', 'медовый'),
+    ('мёд', 'медоносный'),
+    ('вводить', 'вывести'),
+    ('откладывать', 'отложить'),
+    ('день', 'дневный'),
+    ('день', 'дневной'),
+    ('большой', 'больший'),
+    ('один', 'единственный'),
+    ('пчела', 'пчелиный'),
+    ('пчела', 'пчеловод'),
+    ('бежать', 'бег'),
+    ('конец', 'кончать'),
+    ('нога', 'ножка'),
+    ('пять', 'пятый'),
+    ('новый', 'вновь'),
+)
+
+NEGATIVES = (
+    ('воздух', 'дышать'),
+    ('достаточный', 'состав'),
+    ('достаточный', 'становиться'),
+    ('достаточный', 'представлять'),
+    ('достаточный', 'остаться'),
+    ('необходимый', 'выходить'),
+    ('образ', 'раз'),
+    ('образ', 'сразу'),
+    ('цвет', 'цветковый'),
+    ('цвет', 'цветок'),
+    ('цвет', 'цветение'),
+    ('цвет', 'цветник'),
+    ('один', 'однако'),
+    ('один', 'одинаковый'),
+    ('личинка', 'отличие'),
+    ('строить', 'три'),
+    ('строить', 'строительство'),
+    ('верхний', 'совершать'),
+    ('верхний', 'верхнечелюстной'),
+    ('печка', 'обеспечить'),
+    ('брачный', 'забраться'),
+    ('самый', 'самец'),
+    ('самый', 'сам'),
+    ('самый', 'самка'),
+    ('слово', 'условие'),
+    ('год', 'погода'),
+    ('запас', 'опасность'),
+    ('равный', 'уровень'),
+    ('длина', 'длиться'),
+    ('друг', 'другой'),
+    ('полукольцо', 'поляризовать'),
+    ('вода', 'водить'),
+    ('вода', 'пчеловод'),
+    ('лето', 'лететь'),
+    ('семь', 'семья'),
+    ('полный', 'половина'),
+    ('полный', 'полноценный'),
+    ('пара', 'испарять'),
+    ('соты', 'сотня'),
+    ('белый', 'белок'),
+    ('белый', 'белка'),
+    ('белый', 'белковый'),
+    ('мать', 'матка'),
+    ('мать', 'маточник'),
+    ('мать', 'маточный'),
+    ('вместе', 'местность'),
+    ('вместе', 'вместо'),
+    ('вместе', 'вместить'),
+    ('общий', 'общественный'),
+    ('сложный', 'складывать'),
+    ('сложный', 'складываться'),
+    ('вывести', 'возводить'),
+    ('вывести', 'разводить'),
+    ('жилка', 'сухожилие'),
+    ('ценность', 'полноценный'),
+    ('следовательно', 'следовать'),
+    ('так', 'такой'),
+    ('прибыль', 'быть'),
+    ('прибыть', 'быть'),
+    ('прибыли', 'быть'),
+    ('сыр', 'сырость'),
+    ('год', 'годный'),
+    ('гора', 'горний'),
+    ('среда', 'средний'),
+    ('свет', 'светский'),
+    ('мир', 'мирской'),
+    ('свод', 'сводник'),
+    ('мель', 'мельник'),
+    ('колос', 'колосник'),
+    ('плот', 'плотник'),
+    ('погреб', 'погребение'),
+    ('устав', 'уставание'),
+    ('удар', 'ударение'),
+    ('завалить', 'завалять'),
+    ('плав', 'плавание'),
+    ('лебеда', 'лебединый'),
+    ('мара', 'маревый'),
+    ('марь', 'маревый'),
+    ('страна', 'странный'),
+    ('суд', 'судный'),
+    ('краса', 'красный'),
+    ('крупа', 'крупный'),
+    ('плоть', 'плотный'),
+    ('чета', 'четный'),
+    ('душный', 'душа'),
+    ('червовый', 'червь'),
+)
+
+
+class LexicalResolverTests(SimpleTestCase):
+    def test_required_positives_are_symmetric(self):
+        for left, right in POSITIVES:
+            kind = relation_kind(left, right)
+            self.assertTrue(kind, f'{left}/{right} stayed closed')
+            self.assertEqual(kind, relation_kind(right, left))
+
+    def test_required_negatives_stay_closed(self):
+        for left, right in NEGATIVES:
+            self.assertFalse(related(left, right), f'{left}/{right} opened as {relation_kind(left, right)}')
+            self.assertFalse(related(right, left))
+
+    def test_inflection_is_not_a_cognate_edge(self):
+        self.assertEqual(relation_kind('улей', 'улья'), 'inflection')
+        self.assertEqual(relation_kind('улей', 'ульями'), 'inflection')
+        self.assertEqual(relation_kind('улья', 'ульями'), 'inflection')
+        self.assertEqual(relation_kind('пчела', 'пчёлами'), 'inflection')
+        self.assertEqual(relation_kind('прибыли', 'прибыть'), 'inflection')
+        self.assertEqual(relation_kind('прибыли', 'прибыль'), 'inflection')
+
+    def test_stress_homographs_do_not_merge(self):
+        self.assertEqual(relation_kind('стро\u0301ить', 'строи\u0301ть'), '')
+        self.assertEqual(relation_kind('строить', 'три'), '')
+        self.assertEqual(relation_kind('стро\u0301ить', 'строительство'), '')
+        self.assertEqual(relation_kind('строи\u0301ть', 'строительство'), '')
+
+    def test_edges_are_not_transitive(self):
+        self.assertTrue(related('вместе', 'место'))
+        self.assertFalse(related('вместе', 'местность'))
+
+    def test_arbitrary_unicode_does_not_crash(self):
+        tokens = ('пчела', 'прибыли', 'строить', 'Apis', 'mellifera', 'DNA', 'α', 'Hox2', 'hello-world', 'mixed123')
+        for token in tokens:
+            described = describe_token(token, article_language='ru')
+            self.assertIn(described['backend'], ('russian', 'generic'))
+            self.assertTrue(described['normalized'])
+        for token in tokens:
+            if fold(token).isascii() or any('a' <= ch.lower() <= 'z' or ch == 'α' for ch in token):
+                self.assertEqual(backend_name(token, article_language='ru'), 'generic')
+        self.assertEqual(backend_name('пчела', article_language='ru'), 'russian')
+        self.assertEqual(describe_token('прибыли')['lemmas'], 'прибыль,прибыть')
+        self.assertFalse(related('прибыли', 'быть'))
+        opened = open_targets('Apis', ['Apis', 'apis', 'пчела', 'DNA', 'mellifera'])
+        self.assertEqual(opened, ['Apis', 'apis'])
+        self.assertEqual(open_targets('фруктяка', ['пчела', 'мёд']), [])
+        self.assertEqual(open_targets('xyzzy', ['xyzzy', 'пчела']), ['xyzzy'])
+
+    def test_prepared_index_matches_direct_open(self):
+        targets = ['пчёлами', 'пчелиный', 'Apis', 'мёд', 'улья']
+        prepared = [prepare_target(item) for item in targets]
+        self.assertEqual(
+            open_prepared('пчела', prepared),
+            open_targets('пчела', targets),
+        )
+
+    def test_capabilities(self):
+        self.assertEqual(GENERIC_CAPS, frozenset({'exact'}))
+        self.assertEqual(RUSSIAN_CAPS, frozenset({'exact', 'inflection', 'derivation'}))
+
+    def test_gameplay_does_not_open_cognates(self):
+        payload = build_puzzle_payload(wiki_title='Пчела', body_text='Пчела живёт в улье. Apis mellifera.')
+        hits = lemmas_matching_guess(payload, lemma_of('пчелиный'), normalize_surface('пчелиный'))
+        self.assertNotIn('пчела', hits)
+
+    def test_non_russian_cyrillic_falls_back(self):
+        for token in ('мова', 'сонце', 'що', 'геть', 'місто', 'від'):
+            self.assertEqual(backend_name(token, article_language='ru'), 'generic', token)
+        self.assertEqual(backend_name('ДНК', article_language='ru'), 'russian')
+        self.assertEqual(cognate_lemmas('Лев'), frozenset())
+        self.assertEqual(cognate_lemmas('Орел'), frozenset())
+        self.assertEqual(cognate_lemmas('Попов'), frozenset())
+        self.assertEqual(cognate_lemmas('улей'), frozenset({'улей'}))
+        self.assertFalse(related('Попов', 'поп'))
+        self.assertFalse(related('Белов', 'белый'))
+
+    def test_protein_plural_rejects_the_squirrel_citation(self):
+        phrase = 'Это молочко содержит особые белки, отвечающие за развитие.'
+        target = occurrence_of(phrase, 'белки')
+        self.assertIsNotNone(target)
+        self.assertEqual(target.lemmas, frozenset({'белок'}))
+        self.assertFalse(target.conservative)
+        self.assertTrue(inflection_matches('белок', target))
+        self.assertFalse(inflection_matches('белка', target))
+        self.assertEqual(relation_kind('белка', 'белки'), '')
+        self.assertEqual(relation_kind('белок', 'белки'), '')
+
+    def test_unresolved_homograph_stays_closed(self):
+        for phrase in ('Белки содержатся в пище.', 'Белки бегают по деревьям.'):
+            target = occurrence_of(phrase, 'Белки')
+            self.assertTrue(target.conservative, phrase)
+            self.assertFalse(inflection_matches('белка', target))
+            self.assertFalse(inflection_matches('белок', target))
+
+    def test_arrival_and_profit_use_different_identities(self):
+        arrived = occurrence_of('Они прибыли из Азии.', 'прибыли')
+        self.assertEqual(arrived.lemmas, frozenset({'прибыть'}))
+        self.assertTrue(inflection_matches('прибыть', arrived))
+        self.assertFalse(inflection_matches('прибыль', arrived))
+        profit = occurrence_of('Компания получила большие прибыли.', 'прибыли')
+        self.assertEqual(profit.lemmas, frozenset({'прибыль'}))
+        self.assertTrue(inflection_matches('прибыль', profit))
+        self.assertFalse(inflection_matches('прибыть', profit))
+        grew = occurrence_of('Прибыли компании выросли.', 'Прибыли')
+        self.assertEqual(grew.lemmas, frozenset({'прибыль'}))
+        self.assertFalse(inflection_matches('прибыть', grew))
+        bare = occurrence_of('прибыли', 'прибыли')
+        self.assertTrue(bare.conservative)
+        self.assertFalse(inflection_matches('прибыть', bare))
+        self.assertFalse(inflection_matches('прибыль', bare))
+
+    def test_same_surface_changes_identity_with_context(self):
+        protein = occurrence_of('Идёт синтез белка.', 'белка')
+        squirrel = occurrence_of('В сад пришла белка.', 'белка')
+        self.assertEqual(protein.lemmas, frozenset({'белок'}))
+        self.assertEqual(squirrel.lemmas, frozenset({'белка'}))
+        self.assertTrue(inflection_matches('белок', protein))
+        self.assertFalse(inflection_matches('белка', protein))
+        self.assertTrue(inflection_matches('белка', squirrel))
+        self.assertFalse(inflection_matches('белок', squirrel))
+
+    def test_proper_noun_does_not_inherit_the_common_noun(self):
+        city = occurrence_of('Я вижу Орла на карте.', 'Орла')
+        bird = occurrence_of('Я вижу орла в небе.', 'орла')
+        self.assertNotEqual(city.lexemes, bird.lexemes)
+        self.assertTrue(inflection_matches('Орёл', city))
+        self.assertFalse(inflection_matches('орёл', city))
+        self.assertTrue(inflection_matches('орёл', bird))
+        self.assertFalse(inflection_matches('Орёл', bird))
+        name = occurrence_of('Лев вышел из дома.', 'Лев')
+        animal = occurrence_of('Голодный лев вышел из дома.', 'лев')
+        self.assertNotEqual(name.lexemes, animal.lexemes)
+        self.assertTrue(inflection_matches('Лев', name))
+        self.assertFalse(inflection_matches('лев', name))
+        self.assertTrue(inflection_matches('лев', animal))
+        self.assertFalse(inflection_matches('Лев', animal))
+        hive = occurrence_of('Стенки улья тёмные.', 'улья')
+        self.assertEqual(hive.lemmas, frozenset({'улей'}))
+        self.assertTrue(inflection_matches('улей', hive))
+        led = occurrence_of('Он начал вести дневник.', 'вести')
+        self.assertEqual(led.lemmas, frozenset({'вести'}))
+        self.assertFalse(inflection_matches('весть', led))
+        main = occurrence_of('Он служит главным входом.', 'главным')
+        self.assertIn('главный', main.lemmas)
+        self.assertFalse(inflection_matches('главное', main))
+
+
+_GRAPH = Path(__file__).resolve().parents[1] / 'censorly' / 'lexical' / 'data' / 'ru_graph.tsv.gz'
+_META = _GRAPH.with_name('ru_graph.meta.json')
+_PROVENANCE = _GRAPH.with_name('ru_graph.provenance.tsv')
+
+
+class GraphQaTests(SimpleTestCase):
+    def test_graph_invariants(self):
+        seen = set()
+        proofs = set()
+        with gzip.open(_GRAPH, 'rt', encoding='utf-8') as handle:
+            for line in handle:
+                left, right, proof = line.rstrip('\n').split('\t')
+                self.assertNotEqual(left, right)
+                self.assertLess(left, right)
+                key = (left, right)
+                self.assertNotIn(key, seen)
+                seen.add(key)
+                self.assertIn(':v1', proof)
+                proofs.add(proof)
+                self.assertNotIn(frozenset((left, right)), REJECT)
+        self.assertEqual(len(seen), edge_count())
+        self.assertLessEqual(max(len(neighbors(lemma)) for pair in seen for lemma in pair), 8)
+        self.assertEqual(neighbors('строить'), ())
+        provenance = _PROVENANCE.read_text(encoding='utf-8').splitlines()
+        self.assertEqual(provenance[0], 'left\tright\tproof\tevidence\tmanual')
+        self.assertEqual(len(provenance) - 1, len(seen))
+        meta = json.loads(_META.read_text(encoding='utf-8'))
+        digest = hashlib.sha256(_GRAPH.read_bytes()).hexdigest()
+        self.assertEqual(meta['graph_sha256'], digest)
+        self.assertEqual(meta['proof_engine'], 'ru-proofs-2')
+        self.assertGreaterEqual(len(proofs), 10)
+
+    def test_compile_is_deterministic(self):
+        from games.censorly.lexical.russian.compiler import compile_graph
+        lemmas = Path('/tmp/ruroots/lemmas_to_roots.tsv')
+        groups = Path('/tmp/ruroots/root_groups.txt')
+        tikhonov = Path('/tmp/rumorphs/RuMorphs-Lemmas.txt')
+        if not (lemmas.is_file() and groups.is_file() and tikhonov.is_file()):
+            self.skipTest('dictionary snapshots are not in /tmp')
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            first = compile_graph(lemmas, groups, tikhonov, root / 'a.tsv.gz')
+            second = compile_graph(lemmas, groups, tikhonov, root / 'b.tsv.gz')
+            self.assertEqual(
+                gzip.open(first, 'rt', encoding='utf-8').read(),
+                gzip.open(second, 'rt', encoding='utf-8').read(),
+            )
+            self.assertEqual(first.read_bytes(), second.read_bytes())
+            self.assertEqual(
+                hashlib.sha256(first.read_bytes()).hexdigest(),
+                hashlib.sha256(_GRAPH.read_bytes()).hexdigest(),
+            )
