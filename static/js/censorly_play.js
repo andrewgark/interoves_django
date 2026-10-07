@@ -37,6 +37,34 @@
     return count + ' ' + letterWord(count);
   }
 
+  var DISPLAY_PREFERENCES_KEY = 'interoves:censorly:display-preferences:v1';
+
+  function readDisplayPreferences() {
+    try {
+      var raw = window.localStorage.getItem(DISPLAY_PREFERENCES_KEY);
+      var data = raw ? JSON.parse(raw) : {};
+      return data && typeof data === 'object' ? data : {};
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function saveDisplayPreferences(preferences) {
+    try {
+      window.localStorage.setItem(DISPLAY_PREFERENCES_KEY, JSON.stringify(preferences));
+    } catch (err) {}
+  }
+
+  function updateMaskAccessibility(root, showEndings) {
+    if (!root) return;
+    root.querySelectorAll('.censorly-tok--mask').forEach(function (mask) {
+      var lengthLabel = lettersLabel(mask.dataset.len || 0);
+      var ending = showEndings ? (mask.dataset.ending || '') : '';
+      var endingLabel = ending ? ', окончание «' + ending + '»' : '';
+      mask.setAttribute('aria-label', 'скрытое слово, ' + lengthLabel + endingLabel);
+    });
+  }
+
   function renderToken(tok, overrides) {
     overrides = overrides || {};
     var kind = tok.kind || 'content';
@@ -79,7 +107,8 @@
     mask.dataset.ch = String(ch);
     mask.dataset.len = String(totalLen);
     var lengthLabel = lettersLabel(totalLen);
-    mask.title = lengthLabel;
+    mask.setAttribute('data-tooltip', lengthLabel);
+    if (ending) mask.dataset.ending = ending;
     if (ending) {
       mask.classList.add('censorly-tok--mask-ending');
       mask.setAttribute(
@@ -122,9 +151,19 @@
     if (!root || !button) return;
     root.classList.toggle('censorly--show-endings', on);
     button.setAttribute('aria-pressed', on ? 'true' : 'false');
-    button.title = on ? 'Скрыть окончания' : 'Показать окончания';
-    button.setAttribute('aria-label', button.title);
-    button.setAttribute('data-tooltip', button.title);
+    var label = on ? 'Скрыть окончания' : 'Показать окончания';
+    button.setAttribute('aria-label', label);
+    button.setAttribute('data-tooltip', label);
+    updateMaskAccessibility(root, on);
+  }
+
+  function syncLengthsToggle(root, button, on) {
+    if (!root || !button) return;
+    root.classList.toggle('censorly--show-lengths', on);
+    button.setAttribute('aria-pressed', on ? 'true' : 'false');
+    var label = on ? 'Скрыть длины слов' : 'Показать длины слов';
+    button.setAttribute('aria-label', label);
+    button.setAttribute('data-tooltip', label);
   }
 
   function collectLenForced(root) {
@@ -360,8 +399,8 @@
       link.href = url;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.title = 'Открыть статью на Википедии';
       link.setAttribute('aria-label', 'Открыть статью на Википедии');
+      link.setAttribute('data-tooltip', 'Открыть статью на Википедии');
       link.appendChild(el('i', 'ph ph-wikipedia-logo'));
       title.appendChild(link);
     }
@@ -386,6 +425,7 @@
       fetched.textContent = fetchedLabel;
     }
     renderTokens(body, state.body_tokens || [], lenForced);
+    updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'));
     var trunc = root.querySelector('#censorly-truncated');
     if (trunc) trunc.hidden = !state.truncated;
     renderGuessTable(root, state.guesses || []);
@@ -494,9 +534,17 @@
     var hintMode = root.querySelector('#censorly-hint-mode');
     var lemmaCycle = {};
     var busy = false;
+    var preferences = readDisplayPreferences();
+    var showEndings = typeof preferences.showEndings === 'boolean'
+      ? preferences.showEndings
+      : state.show_mask_endings !== false;
+    var showLengths = preferences.showLengths === true;
 
-    syncEndingsToggle(root, endingsBtn, state.show_mask_endings !== false);
+    root.classList.toggle('censorly--show-endings', showEndings);
+    root.classList.toggle('censorly--show-lengths', showLengths);
     applyState(root, state);
+    syncEndingsToggle(root, endingsBtn, showEndings);
+    syncLengthsToggle(root, lengthsBtn, showLengths);
 
     if (stateUrl) {
       fetch(stateUrl, {
@@ -528,9 +576,10 @@
 
     if (lengthsBtn) {
       lengthsBtn.addEventListener('click', function () {
-        var on = root.classList.toggle('censorly--show-lengths');
-        lengthsBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-        lengthsBtn.title = on ? 'Скрыть длины слов' : 'Показать длины слов';
+        var on = !root.classList.contains('censorly--show-lengths');
+        syncLengthsToggle(root, lengthsBtn, on);
+        preferences.showLengths = on;
+        saveDisplayPreferences(preferences);
         // Global toggle wins: drop per-word length overrides.
         root.querySelectorAll('.censorly-tok--mask[data-len-forced]').forEach(function (node) {
           node.removeAttribute('data-len-forced');
@@ -540,11 +589,10 @@
 
     if (endingsBtn) {
       endingsBtn.addEventListener('click', function () {
-        syncEndingsToggle(
-          root,
-          endingsBtn,
-          !root.classList.contains('censorly--show-endings')
-        );
+        var on = !root.classList.contains('censorly--show-endings');
+        syncEndingsToggle(root, endingsBtn, on);
+        preferences.showEndings = on;
+        saveDisplayPreferences(preferences);
       });
     }
 
