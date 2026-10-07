@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import urlencode
 
 from django.contrib import messages
 from django.http import Http404, JsonResponse
@@ -31,6 +32,7 @@ from games.censorly.play import (
 )
 from games.censorly_daily import (
     CENSORLY_GAME_ID,
+    MOSCOW,
     censorly_publish_at,
     current_censorly_number,
     filter_published_censorly_links,
@@ -41,6 +43,7 @@ from games.censorly_daily import (
 from games.completion_coordinator import complete_logical_game
 from games.club_access import has_club_access
 from games.daily.page_context import build_daily_lifecycle_context, daily_statistics_url
+from games.daily_archive import build_daily_archive_context, build_daily_archive_items
 from games.daily.registry import get_daily_game
 from games.daily_transitions import next_daily_content_transition_for_game
 from games.gameplay_context import (
@@ -315,14 +318,57 @@ def censorly_hub_page(request):
         if show_unpublished or is_censorly_number_published(game, int(link.number)):
             schedule_links.append(link)
     schedule_links.sort(key=lambda link: int(link.number))
+    archive_items = build_daily_archive_items(
+        [(int(link.number), link) for link in schedule_links],
+        game_id=CENSORLY_GAME_ID,
+        publish_at_for_number=lambda number: censorly_publish_at(game, number),
+        href_for_number=lambda number: section_play_path(CENSORLY_GAME_ID, number),
+        timezone_name=MOSCOW,
+        number_for_link=lambda pair: pair[0],
+    )
+    archive_context = build_daily_archive_context(
+        items=archive_items,
+        requested_month=request.GET.get('month'),
+        today=timezone.localdate(),
+        archive_url=request.path,
+        game_label='Цензурка',
+        archive_query=urlencode(
+            [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
+        ),
+        calendar_id='daily-archive-censorly',
+    )
+    selected = archive_context.get('daily_archive_selected')
+    rows = []
+    for link in schedule_links:
+        number = int(link.number)
+        published_at = censorly_publish_at(game, number)
+        if selected and published_at:
+            local_date = published_at.astimezone(MOSCOW).date()
+            if (local_date.year, local_date.month) != selected:
+                continue
+        rows.append({
+            'number': number,
+            'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
+            'name': f'Цензурка №{number}',
+            'play_url': section_play_path(CENSORLY_GAME_ID, number),
+            'results_url': f'{section_play_path(CENSORLY_GAME_ID, number)}results/',
+            'is_today': number == current_censorly_number(game),
+            'is_solved': False,
+            'row_class': '',
+            'progress_meta': '',
+        })
     return render(request, 'new/censorly_hub.html', {
         'page_title': 'Цензурки',
         'game': game,
-        'rows': random_rows,
-        'schedule_links': schedule_links,
+        'rows': rows,
+        'random_rows': random_rows,
         'random_censorly_has_access': has_club_access(request.user),
         'support_url': '/support/censorly/',
         'show_sections_nav': False,
+        'back_url': '/',
+        'section_results_url': section_results_path(CENSORLY_GAME_ID),
+        'can_see_results': False,
+        **archive_context,
         **hub,
     })
 

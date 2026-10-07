@@ -160,6 +160,9 @@ def dashboard_context() -> dict[str, Any]:
     random_rows = list_random_rows()
     return {
         'page_title': 'Цензурки',
+        'schedule_title': 'Цензурки',
+        'schedule_prefix': 'cz',
+        'schedule_list_label': 'Список Цензурок',
         'hub_url': '/censorly/',
         'publish_start': start.date().isoformat() if start else '',
         'buffer_days': CENSORLY_BUFFER_DAYS,
@@ -170,6 +173,8 @@ def dashboard_context() -> dict[str, Any]:
         'schedule_count': len(schedule),
         'published_count': sum(1 for r in schedule if r.is_published),
         'future_count': sum(1 for r in schedule if not r.is_published),
+        'today_number': next((r.number for r in schedule if r.is_today), None),
+        'deferred_count': 0,
     }
 
 

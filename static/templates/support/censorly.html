@@ -1,347 +1,63 @@
-{% extends "support/base.html" %}
+{% extends "support/daily_schedule.html" %}
 {% load static %}
 
-{% block support_content %}
-{% csrf_token %}
+{% block schedule_bootstrap %}
 {{ schedule_json|json_script:"censorly-schedule" }}
 {{ random_json|json_script:"censorly-random" }}
+{% endblock %}
 
-<h1 class="support-page-title">Цензурки</h1>
-<p class="support-lead">
-  Ежедневное расписание (publish_start в будущем) + случайные партии для тестов.
-  На главную / nav пока <strong>не</strong> выносим.
-  <a href="{{ hub_url }}">Список на сайте →</a>
-</p>
+{% block schedule_lead %}
+  Расписание ежедневных Цензурок. Публикация начинается с указанной даты, остальные слоты сдвигаются по дням.
+  <a href="{{ hub_url }}">Открыть список на сайте →</a>
+{% endblock %}
 
+{% block schedule_toolbar_extra %}
+  <label class="support-ladders-field"><span>Номер слота</span><input type="number" id="cz-at-number" min="1" value="{{ schedule_count|add:1 }}"></label>
+  <label class="support-ladders-field"><span>Wiki title/URL</span><input type="text" id="cz-slot-title" placeholder="пусто = из пула"></label>
+  <button type="button" class="new-btn new-btn--mini" id="cz-create">Создать слот</button>
+  <label class="support-ladders-field"><span>Из пула</span><input type="number" id="cz-gen-n" min="1" max="60" value="5"></label>
+  <button type="button" class="new-btn new-btn--mini" id="cz-gen-more">Нагенерить</button>
+{% endblock %}
+
+{% block schedule_before_content %}
 <section class="pal-card support-card">
-  <h2 class="pal-title" style="margin-top:0">Расписание</h2>
-  <p class="support-hint">
-    Слотов: {{ schedule_count }}, опубликовано: {{ published_count }}, впереди: {{ future_count }}.
-    publish_start: <strong id="cz-publish-label">{{ publish_start|default:"—" }}</strong>
-  </p>
-  <form class="support-action-row" id="cz-publish-form">
-    <label class="support-ladders-field">
-      <span>publish_start (МСК)</span>
-      <input type="date" id="cz-publish-start" value="{{ publish_start }}">
-    </label>
-    <button type="submit" class="new-btn">Сохранить дату</button>
-  </form>
-  <form class="support-action-row support-action-row--mt" id="cz-slot-form">
-    <label class="support-ladders-field">
-      <span>Номер слота</span>
-      <input type="number" id="cz-at-number" min="1" value="{{ schedule_count|add:1 }}" style="width:6rem">
-    </label>
-    <label class="support-ladders-field" style="flex:1 1 16rem; min-width:0">
-      <span>Wiki title/URL (пусто = из пула)</span>
-      <input type="text" id="cz-slot-title" placeholder="Москва или URL" autocomplete="off">
-    </label>
-    <button type="submit" class="new-btn">Создать слот</button>
-  </form>
-  <div class="support-action-row support-action-row--mt">
-    <label class="support-ladders-field">
-      <span>Догенерировать N из пула</span>
-      <input type="number" id="cz-gen-n" min="1" max="60" value="5" style="width:5rem">
-    </label>
-    <button type="button" class="new-btn" id="cz-gen-more">Сгенерировать</button>
-    <span class="support-hint" id="cz-sched-status" aria-live="polite"></span>
-  </div>
-  <p class="support-hint support-ladder-edit-error" id="cz-sched-error" hidden></p>
-
-  {% if schedule_rows %}
-  <div class="support-table-wrap support-action-row--mt">
-    <table class="support-table" id="cz-schedule-table">
-      <thead>
-        <tr>
-          <th>№</th>
-          <th>Статья</th>
-          <th>Дата</th>
-          <th>Статус</th>
-          <th>Токены</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in schedule_rows %}
-        <tr data-number="{{ row.number }}">
-          <td>{{ row.number }}</td>
-          <td><a href="{{ row.play_url }}" target="_blank" rel="noopener">{{ row.wiki_title|default:row.name }}</a></td>
-          <td>{{ row.publish_date|default:"—" }}</td>
-          <td>{% if row.is_published %}опубликован{% else %}черновик{% endif %}{% if row.is_today %} · сегодня{% endif %}</td>
-          <td>{{ row.token_count }}</td>
-          <td class="support-action-row">
-            <a class="new-btn new-btn--mini" href="{{ row.play_url }}" target="_blank" rel="noopener">Играть</a>
-            <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-refetch-number="{{ row.number }}">Скачать текст заново</button>
-            <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset-number="{{ row.number }}">Сбросить мой прогресс</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <p class="support-empty">Расписание пусто — создайте первый слот.</p>
-  {% endif %}
-</section>
-
-<section class="pal-card support-card support-action-row--mt">
-  <h2 class="pal-title" style="margin-top:0">Случайные (тест)</h2>
+  <h2 class="pal-title" style="margin-top:0">Случайные партии</h2>
   <div class="support-action-row">
     <button type="button" class="new-btn" id="cz-random">Случайная из пула</button>
+    <form class="support-action-row" id="cz-title-form"><input type="text" id="cz-title" placeholder="Заголовок или URL ru.wikipedia.org"><button type="submit" class="new-btn new-btn--ghost">Создать по title</button></form>
     <span class="support-hint" id="cz-status" aria-live="polite"></span>
   </div>
-  <form class="support-action-row support-action-row--mt" id="cz-title-form">
-    <label class="support-ladders-field" style="flex:1 1 16rem; min-width:0">
-      <span>Заголовок или URL ru.wikipedia.org</span>
-      <input type="text" id="cz-title" placeholder="Москва или https://ru.wikipedia.org/wiki/…" autocomplete="off">
-    </label>
-    <button type="submit" class="new-btn" id="cz-title-submit">Создать по title</button>
-  </form>
   <p class="support-hint support-ladder-edit-error" id="cz-error" hidden></p>
-
-  {% if random_rows %}
-  <div class="support-table-wrap support-action-row--mt">
-    <table class="support-table" id="cz-table">
-      <thead>
-        <tr>
-          <th>Статья</th>
-          <th>Hash</th>
-          <th>Токены</th>
-          <th>Создано</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for row in random_rows %}
-        <tr data-hash="{{ row.share_hash }}">
-          <td><a href="{{ row.play_url }}" target="_blank" rel="noopener">{{ row.wiki_title }}</a></td>
-          <td><code>{{ row.share_hash }}</code></td>
-          <td>{{ row.token_count }}</td>
-          <td>{{ row.created_at }}</td>
-          <td class="support-action-row">
-            <a class="new-btn new-btn--mini" href="{{ row.play_url }}" target="_blank" rel="noopener">Играть</a>
-            <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-refetch="{{ row.share_hash }}">Скачать текст заново</button>
-            <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="{{ row.share_hash }}">Сбросить мой прогресс</button>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div id="cz-random-list" class="support-ladder-list">
+    {% for row in random_rows %}<div class="support-ladder-item"><div class="support-ladder-item__body"><div class="support-ladder-item__title">{{ row.wiki_title }}</div><div class="support-ladder-item__meta"><code>{{ row.share_hash }}</code></div></div><div class="support-ladder-item__actions"><button class="new-btn new-btn--mini new-btn--ghost" data-cz-refetch="{{ row.share_hash }}">Скачать текст заново</button><button class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="{{ row.share_hash }}">Сбросить мой прогресс</button></div></div>{% endfor %}
   </div>
-  {% else %}
-  <p class="support-empty" id="cz-empty">Пока пусто — нажмите «Случайная из пула».</p>
-  <div class="support-table-wrap" id="cz-table-wrap" hidden>
-    <table class="support-table" id="cz-table">
-      <thead>
-        <tr>
-          <th>Статья</th>
-          <th>Hash</th>
-          <th>Токены</th>
-          <th>Создано</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-  </div>
-  {% endif %}
 </section>
+{% endblock %}
 
+{% block schedule_page_scripts %}
 <script>
 (function () {
+  var schedule = JSON.parse(document.getElementById('censorly-schedule').textContent || '[]');
+  var random = JSON.parse(document.getElementById('censorly-random').textContent || '[]');
+  var list = document.getElementById('cz-list');
+  var randomList = document.getElementById('cz-random-list');
   var busy = false;
-  function csrf() {
-    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
-    if (el && el.value) return el.value;
-    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : '';
-  }
-  function setError(msg, id) {
-    var el = document.getElementById(id || 'cz-error');
-    if (!el) return;
-    if (!msg) { el.hidden = true; el.textContent = ''; return; }
-    el.hidden = false;
-    el.textContent = msg;
-  }
-  function setStatus(msg, id) {
-    var el = document.getElementById(id || 'cz-status');
-    if (el) el.textContent = msg || '';
-  }
-  function setBusy(on) { busy = !!on; }
-  function post(url, body) {
-    return fetch(url, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-      body: JSON.stringify(body || {}),
-    }).then(function (r) {
-      return r.text().then(function (text) {
-        var data = null;
-        try { data = text ? JSON.parse(text) : {}; } catch (err) { data = null; }
-        if (!data) {
-          var clean = (text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-          throw new Error(clean.slice(0, 240) || ('HTTP ' + r.status));
-        }
-        return { ok: r.ok && data.ok !== false, data: data, status: r.status };
-      });
-    });
-  }
-  function escapeAttr(s) {
-    return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
-  }
-  function ensureTableBody() {
-    var tbody = document.querySelector('#cz-table tbody');
-    if (tbody) return tbody;
-    var wrap = document.getElementById('cz-table-wrap');
-    var empty = document.getElementById('cz-empty');
-    if (wrap) wrap.hidden = false;
-    if (empty) empty.hidden = true;
-    return document.querySelector('#cz-table tbody');
-  }
-  function prependRow(row) {
-    var tbody = ensureTableBody();
-    if (!tbody) { location.reload(); return; }
-    var existing = tbody.querySelector('tr[data-hash="' + CSS.escape(row.share_hash) + '"]');
-    if (existing) existing.remove();
-    var tr = document.createElement('tr');
-    tr.dataset.hash = row.share_hash;
-    tr.innerHTML =
-      '<td><a href="' + escapeAttr(row.play_url) + '" target="_blank" rel="noopener"></a></td>' +
-      '<td><code></code></td><td></td><td></td>' +
-      '<td class="support-action-row">' +
-      '<a class="new-btn new-btn--mini" href="' + escapeAttr(row.play_url) + '" target="_blank" rel="noopener">Играть</a> ' +
-      '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-refetch="' + escapeAttr(row.share_hash) + '">Скачать текст заново</button> ' +
-      '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="' + escapeAttr(row.share_hash) + '">Сбросить мой прогресс</button></td>';
-    tr.querySelector('a').textContent = row.wiki_title;
-    tr.querySelector('code').textContent = row.share_hash;
-    tr.children[2].textContent = String(row.token_count || 0);
-    tr.children[3].textContent = row.created_at || '';
-    tbody.insertBefore(tr, tbody.firstChild);
-  }
-
-  document.getElementById('cz-publish-form').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    if (busy) return;
-    var date = document.getElementById('cz-publish-start').value;
-    setBusy(true);
-    setError('', 'cz-sched-error');
-    post("{% url 'support:censorly_publish_start' %}", { publish_start: date }).then(function (pack) {
-      if (!pack.ok) { setError((pack.data && pack.data.error) || 'Ошибка', 'cz-sched-error'); return; }
-      document.getElementById('cz-publish-label').textContent = pack.data.publish_start;
-      setStatus('Дата сохранена', 'cz-sched-status');
-    }).catch(function (err) {
-      setError((err && err.message) || 'Ошибка', 'cz-sched-error');
-    }).finally(function () { setBusy(false); });
-  });
-
-  document.getElementById('cz-slot-form').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    if (busy) return;
-    var at = Number(document.getElementById('cz-at-number').value);
-    var title = (document.getElementById('cz-slot-title').value || '').trim();
-    setBusy(true);
-    setError('', 'cz-sched-error');
-    setStatus('Создание слота…', 'cz-sched-status');
-    post("{% url 'support:censorly_schedule_create' %}", { at_number: at, title: title || undefined }).then(function (pack) {
-      if (!pack.ok) { setError((pack.data && pack.data.error) || 'Ошибка', 'cz-sched-error'); return; }
-      setStatus('Слот #' + pack.data.number + ': ' + (pack.data.wiki_title || ''), 'cz-sched-status');
-      location.reload();
-    }).catch(function (err) {
-      setError((err && err.message) || 'Ошибка', 'cz-sched-error');
-    }).finally(function () { setBusy(false); });
-  });
-
-  document.getElementById('cz-gen-more').addEventListener('click', function () {
-    if (busy) return;
-    var n = Number(document.getElementById('cz-gen-n').value) || 5;
-    setBusy(true);
-    setError('', 'cz-sched-error');
-    setStatus('Генерация…', 'cz-sched-status');
-    post("{% url 'support:censorly_schedule_generate' %}", { n: n }).then(function (pack) {
-      if (!pack.ok) { setError((pack.data && pack.data.error) || 'Ошибка', 'cz-sched-error'); return; }
-      setStatus('Создано: ' + pack.data.created_count, 'cz-sched-status');
-      location.reload();
-    }).catch(function (err) {
-      setError((err && err.message) || 'Ошибка', 'cz-sched-error');
-    }).finally(function () { setBusy(false); });
-  });
-
-  document.getElementById('cz-random').addEventListener('click', function () {
-    if (busy) return;
-    setError('');
-    setBusy(true);
-    setStatus('Загрузка статьи из Википедии…');
-    post("{% url 'support:censorly_generate' %}", {}).then(function (pack) {
-      if (!pack.ok) { setError((pack.data && pack.data.error) || 'Ошибка генерации'); return; }
-      prependRow(pack.data.row);
-      setStatus('Создано: ' + pack.data.row.wiki_title);
-    }).catch(function (err) {
-      setError((err && err.message) || 'Не удалось создать');
-    }).finally(function () { setBusy(false); });
-  });
-
-  document.getElementById('cz-title-form').addEventListener('submit', function (ev) {
-    ev.preventDefault();
-    if (busy) return;
-    var title = (document.getElementById('cz-title').value || '').trim();
-    if (!title) return;
-    setError('');
-    setBusy(true);
-    setStatus('Загрузка…');
-    post("{% url 'support:censorly_from_title' %}", { title: title }).then(function (pack) {
-      if (!pack.ok) { setError((pack.data && pack.data.error) || 'Ошибка'); return; }
-      prependRow(pack.data.row);
-      setStatus('Создано: ' + pack.data.row.wiki_title);
-      document.getElementById('cz-title').value = '';
-    }).catch(function (err) {
-      setError((err && err.message) || 'Не удалось создать');
-    }).finally(function () { setBusy(false); });
-  });
-
-  document.addEventListener('click', function (ev) {
-    var refetchHash = ev.target.closest('[data-cz-refetch]');
-    var refetchNum = ev.target.closest('[data-cz-refetch-number]');
-    if ((refetchHash || refetchNum) && !busy) {
-      if (!confirm('Скачать текст статьи из Википедии заново? Посылки не изменятся.')) return;
-      setBusy(true);
-      var inSchedule = !!(refetchNum && refetchNum.closest('#cz-schedule-table'));
-      var statusId = inSchedule ? 'cz-sched-status' : 'cz-status';
-      var errorId = inSchedule ? 'cz-sched-error' : 'cz-error';
-      var body = refetchHash
-        ? { share_hash: refetchHash.getAttribute('data-cz-refetch') }
-        : { number: refetchNum.getAttribute('data-cz-refetch-number') };
-      setError('', errorId);
-      setStatus('Скачивание текста…', statusId);
-      post("{% url 'support:censorly_refetch_text' %}", body).then(function (pack) {
-        if (!pack.ok) {
-          setError((pack.data && pack.data.error) || 'Не удалось скачать', errorId);
-          setStatus('', statusId);
-          return;
-        }
-        var tr = (refetchHash || refetchNum).closest('tr');
-        var tokens = tr ? tr.children[inSchedule ? 4 : 2] : null;
-        if (tokens) tokens.textContent = String(pack.data.token_count || 0);
-        setStatus('Текст обновлён: ' + (pack.data.wiki_title || ''), statusId);
-      }).catch(function (err) {
-        setError((err && err.message) || 'Не удалось скачать', errorId);
-        setStatus('', statusId);
-      }).finally(function () { setBusy(false); });
-      return;
-    }
-    var btnHash = ev.target.closest('[data-cz-reset]');
-    var btnNum = ev.target.closest('[data-cz-reset-number]');
-    if ((!btnHash && !btnNum) || busy) return;
-    if (!confirm('Сбросить ваш прогресс по этой цензурке?')) return;
-    setBusy(true);
-    var body = btnHash
-      ? { share_hash: btnHash.getAttribute('data-cz-reset') }
-      : { number: btnNum.getAttribute('data-cz-reset-number') };
-    post("{% url 'support:censorly_reset_progress' %}", body).then(function (pack) {
-      if (!pack.ok) { setError((pack.data && pack.data.error) || 'Не удалось сбросить'); return; }
-      setStatus('Прогресс сброшен');
-    }).catch(function (err) {
-      setError((err && err.message) || 'Не удалось сбросить');
-    }).finally(function () { setBusy(false); });
-  });
+  var currentTab = 'schedule';
+  function csrf() { var e = document.querySelector('input[name=csrfmiddlewaretoken]'); return e ? e.value : ''; }
+  function post(url, body) { return fetch(url, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':csrf()}, body:JSON.stringify(body||{})}).then(function(r){ return r.json().then(function(d){ if(!r.ok || d.ok === false) throw new Error(d.error || 'Ошибка'); return d; }); }); }
+  function esc(s) { return String(s || '').replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+  function actions(kind, value) { var attr = kind === 'number' ? 'data-number="'+esc(value)+'" data-cz-refetch-number="'+esc(value)+'"' : 'data-hash="'+esc(value)+'" data-cz-refetch="'+esc(value)+'"'; return '<button class="new-btn new-btn--mini new-btn--ghost" '+attr+' data-action="refetch">Скачать текст заново</button> <button class="new-btn new-btn--mini new-btn--ghost" '+attr+' data-action="reset">Сбросить мой прогресс</button>'; }
+  function renderSchedule(rows) { var visible = rows.filter(function(r){ return currentTab === 'published' ? r.is_published : currentTab === 'future' ? !r.is_published : true; }); list.innerHTML = visible.length ? visible.map(function(r){ return '<div class="support-ladder-item"><div class="support-ladder-item__num">№'+r.number+'</div><div class="support-ladder-item__body"><div class="support-ladder-item__title">'+esc(r.wiki_title || r.name)+'</div><div class="support-ladder-item__meta">'+esc(r.publish_date || '—')+' · '+(r.is_published?'опубликован':'черновик')+' · '+r.token_count+' токенов</div></div><div class="support-ladder-item__actions"><a class="new-btn new-btn--mini" href="'+esc(r.play_url)+'" target="_blank" rel="noopener">сайт</a> '+actions('number', r.number)+'</div></div>'; }).join('') : '<p class="support-empty">Расписание пусто.</p>'; }
+  function renderRandom(rows) { randomList.innerHTML = rows.length ? rows.map(function(r){ return '<div class="support-ladder-item"><div class="support-ladder-item__body"><div class="support-ladder-item__title">'+esc(r.wiki_title)+'</div><div class="support-ladder-item__meta"><code>'+esc(r.share_hash)+'</code> · '+r.token_count+' токенов · '+esc(r.created_at)+'</div></div><div class="support-ladder-item__actions"><a class="new-btn new-btn--mini" href="'+esc(r.play_url)+'" target="_blank" rel="noopener">сайт</a> '+actions('hash', r.share_hash)+'</div></div>'; }).join('') : '<p class="support-empty">Пока пусто.</p>'; }
+  function run(fn) { if (busy) return; busy=true; fn().catch(function(e){ var x=document.getElementById('cz-error'); x.hidden=false; x.textContent=e.message; }).finally(function(){busy=false;}); }
+  renderSchedule(schedule); renderRandom(random);
+  document.querySelectorAll('#cz-tabs [data-tab]').forEach(function (tab) { tab.onclick = function () { currentTab = tab.getAttribute('data-tab'); document.querySelectorAll('#cz-tabs [data-tab]').forEach(function (x) { x.classList.toggle('is-active', x === tab); }); renderSchedule(schedule); }; });
+  document.getElementById('cz-save-start').onclick=function(){ run(function(){return post("{% url 'support:censorly_publish_start' %}",{publish_start:document.getElementById('cz-publish-start').value}).then(function(){location.reload();});}); };
+  document.getElementById('cz-create').onclick=function(){ run(function(){return post("{% url 'support:censorly_schedule_create' %}",{at_number:document.getElementById('cz-at-number').value,title:document.getElementById('cz-slot-title').value}).then(function(){location.reload();});}); };
+  document.getElementById('cz-gen-more').onclick=function(){ run(function(){return post("{% url 'support:censorly_schedule_generate' %}",{n:document.getElementById('cz-gen-n').value}).then(function(){location.reload();});}); };
+  document.getElementById('cz-random').onclick=function(){ run(function(){return post("{% url 'support:censorly_generate' %}").then(function(d){random.unshift(d.row);renderRandom(random);});}); };
+  document.getElementById('cz-title-form').onsubmit=function(e){e.preventDefault();run(function(){return post("{% url 'support:censorly_from_title' %}",{title:document.getElementById('cz-title').value}).then(function(d){random.unshift(d.row);renderRandom(random);});});};
+  document.addEventListener('click', function(e){ var b=e.target.closest('[data-action]'); if(!b) return; var body=b.hasAttribute('data-number')?{number:b.getAttribute('data-number')}:{share_hash:b.getAttribute('data-hash')}; if(b.dataset.action==='refetch') body=b.hasAttribute('data-number')?body:body; run(function(){return post("{% url 'support:censorly_refetch_text' %}",body).then(function(){location.reload();});}); });
 })();
 </script>
 {% endblock %}
