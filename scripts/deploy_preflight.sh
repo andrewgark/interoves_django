@@ -7,7 +7,9 @@ PLAN_FILE="$(mktemp /tmp/interoves-migrate-plan.XXXXXX)"
 trap 'rm -f "$PLAN_FILE"' EXIT
 
 echo "Running Django production checks"
-"$ROOT/scripts/with_rds.sh" manage.py check --deploy
+# Run inside Green so check --deploy sees the same environment settings as the
+# live application, rather than local DEBUG/security defaults with a DB tunnel.
+"$ROOT/scripts/eb_run.sh" manage.py check --deploy
 
 echo "Checking production migration state"
 if ! "$ROOT/scripts/with_rds.sh" manage.py migrate --plan >"$PLAN_FILE" 2>&1; then

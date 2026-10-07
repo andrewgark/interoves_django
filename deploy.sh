@@ -5,6 +5,16 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 
+if [[ "$#" -gt 1 ]]; then
+  echo "Usage: $0 [--dry-run|--deploy]" >&2
+  exit 2
+fi
+DEPLOY_MODE="${1:---deploy}"
+case "$DEPLOY_MODE" in
+  --dry-run|--deploy) ;;
+  *) echo "Usage: $0 [--dry-run|--deploy]" >&2; exit 2 ;;
+esac
+
 SOURCE_SHA="$(git rev-parse HEAD)"
 SOURCE_SHORT_SHA="$(git rev-parse --short HEAD)"
 SOURCE_DIR="$(mktemp -d /tmp/interoves-deploy-source.XXXXXX)"
@@ -38,4 +48,4 @@ if [[ ! -f "$SOURCE_DIR/nutrimatic_bundle/cgi_scripts/cgi-search.py" ]]; then
   exit 1
 fi
 echo "Release source: $SOURCE_SHA (committed snapshot; working-tree edits excluded)."
-"$REPO_ROOT/scripts/deploy_green.sh" "${1:---deploy}"
+"$REPO_ROOT/scripts/deploy_green.sh" "$DEPLOY_MODE"

@@ -11,10 +11,17 @@ if [[ -n "${GREEN_ENV_NAME:-}" && "$GREEN_ENV_NAME" != "$ENV_NAME" ]]; then
     exit 2
 fi
 DO_DEPLOY=0
+MODE_SET=0
 for arg in "$@"; do
     case "$arg" in
-        --deploy) DO_DEPLOY=1 ;;
-        --dry-run|--prepare-only) DO_DEPLOY=0 ;;
+        --deploy)
+            [[ "$MODE_SET" == "0" ]] || { echo "Choose exactly one of --dry-run and --deploy." >&2; exit 2; }
+            DO_DEPLOY=1; MODE_SET=1
+            ;;
+        --dry-run|--prepare-only)
+            [[ "$MODE_SET" == "0" ]] || { echo "Choose exactly one of --dry-run and --deploy." >&2; exit 2; }
+            DO_DEPLOY=0; MODE_SET=1
+            ;;
         *) echo "Usage: $0 [--dry-run|--deploy]" >&2; exit 2 ;;
     esac
 done

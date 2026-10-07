@@ -10,7 +10,8 @@ WORKER="${1:-}"
 IMAGE_URI="${2:-}"
 IMAGE_COMMIT="${IMAGE_COMMIT:-}"
 APPLY=0
-DESIRED_COUNT=0
+DESIRED_COUNT=""
+DESIRED_COUNT_SET=0
 MODE=""
 # ECS workers currently run in the VPC's public subnets.  Keep these defaults
 # aligned with the live services so an ordinary deploy does not accidentally
@@ -33,11 +34,21 @@ while [[ "$#" -gt 0 ]]; do
         --image-commit) IMAGE_COMMIT="${2:-}"; shift 2 ;;
         --profile) DEPLOY_PROFILE="${2:-}"; shift 2 ;;
         --mode) MODE="${2:-}"; shift 2 ;;
-        --desired-count) DESIRED_COUNT="${2:-}"; shift 2 ;;
+        --desired-count)
+            [[ "$#" -ge 2 && "${2}" =~ ^[0-9]+$ ]] || { echo "--desired-count requires a non-negative integer." >&2; usage; }
+            DESIRED_COUNT="${2}"
+            DESIRED_COUNT_SET=1
+            shift 2
+            ;;
         --apply) APPLY=1; shift ;;
         *) usage ;;
     esac
 done
+
+if [[ "$APPLY" == "1" && "$DESIRED_COUNT_SET" != "1" ]]; then
+    echo "Refusing ECS apply without --desired-count; pass the intended service task count explicitly." >&2
+    exit 2
+fi
 
 case "$DEPLOY_PROFILE" in
     quiet) [[ "$WORKER" == background ]] && PROFILE_MODE=lambda || PROFILE_MODE=ecs-fargate-spot ;;
@@ -51,7 +62,7 @@ if [[ "$WORKER" == integrations && "$MODE" == ecs-fargate-spot ]]; then
     echo "Integrations worker is On-Demand only until external side effects are verified." >&2
     exit 2
 fi
-[[ "$DESIRED_COUNT" =~ ^[0-9]+$ ]] || { echo "Desired count must be a non-negative integer." >&2; exit 2; }
+DESIRED_COUNT="${DESIRED_COUNT:-unspecified}"
 if [[ -z "$IMAGE_COMMIT" ]]; then
     IMAGE_COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)"
 fi

@@ -35,6 +35,15 @@ the same queues.
 - `games/models.py` — durable merge state in `AccountMergeJob`,
   `AnonymousMergeJob`, and `AnonymousMergeReconcileItem`.
 
+ECS worker deployment is plan-only unless `--apply` is passed. An apply must
+include `--desired-count` explicitly so a missing argument cannot scale a live
+consumer to zero. For example, a normal recheck release at one task is:
+
+```bash
+./scripts/deploy_ecs_worker.sh recheck "$IMAGE_URI" \
+  --profile normal --desired-count 1 --apply
+```
+
 The SQS message is transport state, not the full merge queue history. For
 history and retries, query the two database tables; for delivery failures,
 inspect the queue and DLQ; for execution timing and exceptions, inspect the

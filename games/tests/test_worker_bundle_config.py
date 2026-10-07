@@ -2,11 +2,39 @@ import json
 from pathlib import Path
 import unittest
 
+import yaml
+from yaml.nodes import MappingNode, ScalarNode, SequenceNode
+
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class RecheckWorkerBundleConfigTests(unittest.TestCase):
+    def test_ecs_worker_service_template_has_unique_yaml_mapping_keys(self):
+        template = yaml.compose((ROOT / 'infra/ecs/worker-service.yaml').read_text())
+        duplicates = []
+
+        def inspect(node, path='$'):
+            if isinstance(node, MappingNode):
+                seen = set()
+                for key, value in node.value:
+                    key_text = key.value if isinstance(key, ScalarNode) else repr(key)
+                    if key_text in seen:
+                        duplicates.append(f'{path}.{key_text}')
+                    seen.add(key_text)
+                    inspect(value, f'{path}.{key_text}')
+            elif isinstance(node, SequenceNode):
+                for index, value in enumerate(node.value):
+                    inspect(value, f'{path}[{index}]')
+
+        inspect(template)
+        self.assertEqual(duplicates, [], f'duplicate YAML mapping keys: {duplicates}')
+
+    def test_ecs_apply_requires_an_explicit_desired_count(self):
+        script = (ROOT / 'scripts' / 'deploy_ecs_worker.sh').read_text()
+        self.assertIn('DESIRED_COUNT_SET=0', script)
+        self.assertIn('Refusing ECS apply without --desired-count', script)
+
     def test_legacy_word_salad_worker_is_not_a_deploy_target(self):
         script = (ROOT / 'scripts' / 'deploy_worker.sh').read_text()
         self.assertNotIn('interoves-word-salad-worker|', script)

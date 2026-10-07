@@ -224,7 +224,6 @@ Resources:
       PropagateTags: SERVICE
       NetworkConfiguration:
         AwsvpcConfiguration:
-          AssignPublicIp: DISABLED
           Subnets: !Ref SubnetIds
           SecurityGroups: !Ref SecurityGroupIds
           AssignPublicIp: !Ref AssignPublicIp

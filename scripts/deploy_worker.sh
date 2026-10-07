@@ -13,6 +13,7 @@ export DEPLOY_SOURCE_DIR="$SOURCE_DIR"
 export DEPLOY_SOURCE_SHA="$(git -C "$ROOT" rev-parse --short "$SOURCE_SHA")"
 ENV_NAME="${1:-}"
 DO_DEPLOY=0
+MODE_SET=0
 case "$ENV_NAME" in
     interoves-recheck-worker|interoves-background-worker|interoves-identity-worker|interoves-integrations-worker) ;;
     *) echo "Usage: $0 WORKER_ENVIRONMENT [--dry-run|--deploy]" >&2; exit 2 ;;
@@ -20,8 +21,14 @@ esac
 shift
 for arg in "$@"; do
     case "$arg" in
-        --deploy) DO_DEPLOY=1 ;;
-        --dry-run|--prepare-only) DO_DEPLOY=0 ;;
+        --deploy)
+            [[ "$MODE_SET" == "0" ]] || { echo "Choose exactly one of --dry-run and --deploy." >&2; exit 2; }
+            DO_DEPLOY=1; MODE_SET=1
+            ;;
+        --dry-run|--prepare-only)
+            [[ "$MODE_SET" == "0" ]] || { echo "Choose exactly one of --dry-run and --deploy." >&2; exit 2; }
+            DO_DEPLOY=0; MODE_SET=1
+            ;;
         *) echo "Usage: $0 WORKER_ENVIRONMENT [--dry-run|--deploy]" >&2; exit 2 ;;
     esac
 done
@@ -50,5 +57,5 @@ key="interoves/workers/${label}.zip"
 "$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk update-environment \
     --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
     --version-label "$label" >/dev/null
-"$ROOT/scripts/wait_for_eb_deployment.sh" "$ENV_NAME" "$label" "$REGION"
+"$ROOT/scripts/wait_for_eb_deployment.sh" "$ENV_NAME" "$label" "$REGION" worker
 echo "Worker deploy complete: $ENV_NAME / $label"
