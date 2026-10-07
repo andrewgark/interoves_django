@@ -26,7 +26,7 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 16
+CACHE_VERSION = 17
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
@@ -343,10 +343,12 @@ def _ladder(task, game, actors):
     no_hints = 0
     times = defaultdict(list)
     hint_counts = defaultdict(int)
+    last_word_counts = defaultdict(int)
     for actor in actors:
         assist = {}
         previous = set()
         previous_active = 0
+        solved_order = []
         for row in attempts.get(actor, []):
             try:
                 state = load_raddle_state(row.state, parsed['n_words'])
@@ -365,6 +367,11 @@ def _ladder(task, game, actors):
                     times[index].append((current_active - previous_active) / 1000)
                 if row.active_time_ms is not None:
                     previous_active = max(previous_active, int(row.active_time_ms))
+                solved_order.extend(
+                    solved_index
+                    for solved_index in sorted(current - previous)
+                    if solved_index not in (0, parsed['n_words'] - 1)
+                )
             previous = current
         if not assist:
             no_hints += 1
@@ -373,6 +380,8 @@ def _ladder(task, game, actors):
         for index, tier in assist.items():
             if tier > 0:
                 hint_counts[index] += 1
+        if solved_order:
+            last_word_counts[solved_order[-1]] += 1
     return {
         'kind': 'ladder', 'solved': total,
         'summary': {'solved': total, 'median_time_seconds': _median(_completed_times(game, task.task_group, actors)), 'without_hints_percent': _pct(no_hints, total)},
@@ -383,6 +392,7 @@ def _ladder(task, game, actors):
                 'given': i in (0, parsed['n_words'] - 1),
                 'median_time_seconds': _median(times[i]),
                 'hint_percent': _pct(hint_counts[i], total),
+                'last_percent': _pct(last_word_counts[i], total),
             }
             for i in range(parsed['n_words'])
         ],
