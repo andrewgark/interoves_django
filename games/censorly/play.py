@@ -501,6 +501,38 @@ def public_payload(
     }
 
 
+def _history_index_for_guess(
+    state: dict[str, Any],
+    payload: dict[str, Any],
+    *,
+    word: str = '',
+    target_lemmas: set[str] | None = None,
+) -> int | None:
+    """Find the history row which originally opened a repeated word."""
+    guesses = state.get('guesses') or []
+    for index, guess in enumerate(guesses):
+        if isinstance(guess, dict) and word and guess.get('word') == word:
+            return index
+    if not target_lemmas:
+        return None
+    target_ids = {
+        token_id
+        for lemma in target_lemmas
+        for token_id in newly_revealed_ids(payload, lemma)
+    }
+    if not target_ids:
+        return None
+    for index, guess in enumerate(guesses):
+        if not isinstance(guess, dict):
+            continue
+        opened_ids = token_ids_for_guess(
+            payload, guess.get('lemma') or '', guess.get('word') or '',
+        )
+        if target_ids.intersection(opened_ids):
+            return index
+    return None
+
+
 def get_play_state(
     *,
     game: Game,
@@ -625,6 +657,9 @@ def apply_guess(
     if normalized in {g.get('word') for g in state.get('guesses') or []}:
         out = public_payload(state, payload, task=task)
         out['status'] = 'duplicate'
+        out['active_guess_index'] = _history_index_for_guess(
+            state, payload, word=normalized,
+        )
         out['error'] = 'Это слово уже вводили'
         return out
 
@@ -641,6 +676,9 @@ def apply_guess(
     if normalized in {g.get('word') for g in state.get('guesses') or []}:
         out = public_payload(state, payload, task=task)
         out['status'] = 'duplicate'
+        out['active_guess_index'] = _history_index_for_guess(
+            state, payload, word=normalized,
+        )
         out['error'] = 'Это слово уже вводили'
         return out
 
@@ -662,6 +700,9 @@ def apply_guess(
         out['hits'] = 0
         out['newly_revealed'] = []
         out['guess_word'] = normalized
+        out['active_guess_index'] = _history_index_for_guess(
+            state, payload, target_lemmas=matched,
+        )
         out['error'] = 'Уже открыто'
         return out
 

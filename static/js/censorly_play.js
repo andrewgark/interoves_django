@@ -297,6 +297,22 @@
     });
   }
 
+  function focusGuess(root, index, scroll) {
+    if (!Number.isInteger(index) || index < 0) return;
+    root.setAttribute('data-active-guess-index', String(index));
+    var state = root._censorlyState || {};
+    applyGuessHighlight(root, state.guesses || [], index);
+    if (!scroll) return;
+    var row = root.querySelector('#censorly-guess-list tr[data-guess-index="' + String(index) + '"]');
+    if (row) {
+      try {
+        row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch (e) {
+        row.scrollIntoView(false);
+      }
+    }
+  }
+
   function renderGuessTable(root, guesses, activeIndex) {
     var tbody = root.querySelector('#censorly-guess-list');
     if (!tbody) return;
@@ -741,13 +757,18 @@
             if (handleReplayFlags(data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'error') {
               setFeedback(root, data.error || 'Не удалось отправить', 'error');
+              if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
+                root.setAttribute('data-active-guess-index', String(data.active_guess_index));
+              }
               applyState(root, data, { preserveLen: true });
+              if (data.status === 'duplicate') focusGuess(root, data.active_guess_index, true);
               return;
             }
             if (Array.isArray(data.guesses) && data.guesses.length) {
               root.setAttribute('data-active-guess-index', String(data.guesses.length - 1));
             }
             applyState(root, data, { preserveLen: true });
+            if (data.status === 'already_open') focusGuess(root, data.active_guess_index, true);
             input.value = '';
             var newly = data.newly_revealed || [];
             if (newly.length) scrollToTokenId(root, newly[0]);

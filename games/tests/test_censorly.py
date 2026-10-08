@@ -755,9 +755,13 @@ class CensorlyLatinGuessTests(TestCase):
         attempts_after_hit = a['attempts']
         b = apply_guess(game=game, task=task, word='коты', user=user)
         self.assertEqual(b['status'], 'already_open')
+        self.assertEqual(b['active_guess_index'], 0)
         self.assertEqual(b['hits'], 0)
         self.assertFalse(b['won'])
         self.assertEqual(b['attempts'], attempts_after_hit)
+        c = apply_guess(game=game, task=task, word='кот', user=user)
+        self.assertEqual(c['status'], 'duplicate')
+        self.assertEqual(c['active_guess_index'], 0)
 
 
 class CensorlySupportViewTests(TestCase):
