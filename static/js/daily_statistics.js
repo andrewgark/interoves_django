@@ -240,7 +240,7 @@
           '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + longWords(data.long_words) + '</ul></div>';
       }
     } else if (data.kind === 'ladder') {
-      html += section('Сложность слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова, без пауз. Первое промежуточное слово считается от начала игры.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
+      html += section('Сложность слов', '<p class="new-daily-statistics__hint">Медианное активное время от предыдущего успешно разгаданного слова игрока до этого слова. И процент решений, закончивших лесенку на этом слове.</p><ul class="new-daily-statistics__list new-daily-statistics__list--ladder">' + ladderWords(data.words) + '</ul>');
     } else if (data.kind === 'alphabet') {
       html += '<div class="new-daily-statistics__body">' +
         section('Распределение попыток', histogram(data.distribution)) +
