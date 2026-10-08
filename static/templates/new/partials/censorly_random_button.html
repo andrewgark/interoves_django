@@ -1,0 +1,31 @@
+<p class="new-stack-gap new-alphabetty-random-cta">
+  {% if random_censorly_has_access %}
+    <form method="post" action="{% url 'ui_censorly_random' %}" data-random-censorly-form>
+      {% csrf_token %}
+      <button type="submit" class="new-btn new-btn--yellow" data-random-censorly-submit>
+        <i class="ph ph-shuffle" aria-hidden="true"></i> Случайная игра
+      </button>
+      <span class="new-random-game-loading" data-random-censorly-loading hidden role="status" aria-live="polite">Текст статьи скачивается…</span>
+    </form>
+  {% else %}
+    <a class="new-btn new-btn--yellow" href="/subscription/"
+       data-tooltip="Доступна только для подписчиков клуба"
+       aria-label="Случайная игра. Доступна только для подписчиков клуба">
+      <i class="ph ph-lock-key" aria-hidden="true"></i> Случайная игра
+    </a>
+  {% endif %}
+</p>
+<script>
+(function () {
+  var form = document.querySelector('[data-random-censorly-form]');
+  if (!form) return;
+  var button = form.querySelector('[data-random-censorly-submit]');
+  var loading = form.querySelector('[data-random-censorly-loading]');
+  form.addEventListener('submit', function () {
+    button.disabled = true;
+    button.classList.add('is-loading');
+    button.setAttribute('aria-busy', 'true');
+    loading.hidden = false;
+  });
+})();
+</script>

@@ -3,11 +3,7 @@
 {% block content %}
 <p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
 {% include "new/partials/page_heading.html" with heading=page_title show_rules=True %}
-<p class="new-stack-gap new-alphabetty-random-cta">
-  {% if random_censorly_has_access %}
-    <form method="post" action="{% url 'ui_censorly_random' %}"><button type="submit" class="new-btn new-btn--yellow"><i class="ph ph-shuffle" aria-hidden="true"></i> Случайная игра</button>{% csrf_token %}</form>
-  {% else %}<a class="new-btn new-btn--yellow" href="/subscription/" data-tooltip="Доступна только для подписчиков клуба"><i class="ph ph-lock-key" aria-hidden="true"></i> Случайная игра</a>{% endif %}
-</p>
+{% include "new/partials/censorly_random_button.html" %}
 {% include "new/_rules_banner.html" %}
 <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div><div class="new-rules-modal__box pal-card">
