@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
+import uuid
 from datetime import datetime
 from decimal import Decimal
+from functools import lru_cache
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -190,17 +192,71 @@ def _persist_resolved_puzzle(task: Task, resolved: dict[str, Any], *, where: str
         old_tags = task.tags if isinstance(task.tags, dict) else {}
         tags = dict(old_tags)
         tags[CENSORLY_TAGS_KEY] = resolved
-        updated = Task.objects.filter(pk=task.pk, tags=old_tags).update(tags=tags)
+        new_revision = uuid.uuid4()
+        updated = Task.objects.filter(pk=task.pk, tags=old_tags).update(
+            tags=tags,
+            attempt_revision=new_revision,
+        )
         if updated:
             task.tags = tags
+            task.attempt_revision = new_revision
         return
     old_checker_data = task.checker_data
     new_checker_data = json.dumps(resolved, ensure_ascii=False)
+    new_revision = uuid.uuid4()
     updated = Task.objects.filter(
         pk=task.pk, checker_data=old_checker_data,
-    ).update(checker_data=new_checker_data)
+    ).update(
+        checker_data=new_checker_data,
+        attempt_revision=new_revision,
+    )
     if updated:
         task.checker_data = new_checker_data
+        task.attempt_revision = new_revision
+
+
+def _stored_puzzle_payload(task: Task) -> tuple[dict[str, Any] | None, str]:
+    """Return the stored Цензурка payload and its storage column."""
+    tags = task.tags if isinstance(getattr(task, 'tags', None), dict) else {}
+    payload = tags.get(CENSORLY_TAGS_KEY) if isinstance(tags, dict) else None
+    if isinstance(payload, dict) and (
+        payload.get('title_tokens') is not None or isinstance(payload.get('body_text'), str)
+    ):
+        return payload, 'tags'
+
+    raw = (getattr(task, 'checker_data', None) or '').strip()
+    if raw.startswith('{'):
+        try:
+            data = json.loads(raw)
+        except (TypeError, ValueError):
+            data = None
+        if isinstance(data, dict) and (
+            data.get('title_tokens') is not None or isinstance(data.get('body_text'), str)
+        ):
+            return data, 'checker'
+    return None, ''
+
+
+@lru_cache(maxsize=256)
+def _cached_current_puzzle_payload(
+    task_id: int,
+    attempt_revision: str,
+    splitter_version: int,
+) -> dict[str, Any] | None:
+    """Cache the immutable, already-tokenized puzzle between requests.
+
+    The cache deliberately contains no actor state. ``attempt_revision`` is
+    bumped by Task.save(), while the splitter version is part of the key so a
+    tokenizer change cannot reuse an old representation.
+    """
+    task = Task.objects.only('tags', 'checker_data').get(pk=task_id)
+    payload, _where = _stored_puzzle_payload(task)
+    if payload is None:
+        return None
+    resolved = resolve_puzzle_payload(payload)
+    if resolved.get('splitter_version') != CENSORLY_SPLITTER_VERSION:
+        return None
+    return resolved
 
 
 def puzzle_from_task(task: Task, *, persist: bool = True) -> dict[str, Any] | None:
@@ -209,28 +265,21 @@ def puzzle_from_task(task: Task, *, persist: bool = True) -> dict[str, Any] | No
     Article text is not downloaded again. A stale cache is written back once
     so the next read uses the current tokens.
     """
-    tags = task.tags if isinstance(getattr(task, 'tags', None), dict) else {}
-    payload = tags.get(CENSORLY_TAGS_KEY) if isinstance(tags, dict) else None
-    where = ''
-    if isinstance(payload, dict) and (
-        payload.get('title_tokens') is not None or isinstance(payload.get('body_text'), str)
-    ):
-        where = 'tags'
-    else:
-        payload = None
-        raw = (getattr(task, 'checker_data', None) or '').strip()
-        if raw.startswith('{'):
-            try:
-                data = json.loads(raw)
-            except (TypeError, ValueError):
-                data = None
-            if isinstance(data, dict) and (
-                data.get('title_tokens') is not None or isinstance(data.get('body_text'), str)
-            ):
-                payload = data
-                where = 'checker'
+    payload, where = _stored_puzzle_payload(task)
     if payload is None:
         return None
+    if (
+        getattr(task, 'pk', None)
+        and getattr(task, 'attempt_revision', None)
+        and payload.get('splitter_version') == CENSORLY_SPLITTER_VERSION
+        and isinstance(payload.get('body_text'), str)
+        and payload.get('title_tokens') is not None
+    ):
+        return _cached_current_puzzle_payload(
+            task.pk,
+            str(task.attempt_revision),
+            CENSORLY_SPLITTER_VERSION,
+        )
     resolved = resolve_puzzle_payload(payload)
     stale = (
         not isinstance(payload.get('body_text'), str)

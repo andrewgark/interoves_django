@@ -37,6 +37,13 @@ class RequestTimingMiddlewareTests(TestCase):
             with self.assertLogs('interoves.request_timing', level='WARNING'):
                 self.middleware(request)
 
+    def test_watches_censorly_guess(self):
+        for path in ('/censorly/12/guess/', '/censorly/r/abcd1234/guess/'):
+            request = self.factory.post(path)
+            self.middleware.slow_ms = 0
+            with self.assertLogs('interoves.request_timing', level='WARNING'):
+                self.middleware(request)
+
     def test_logs_named_phases_without_request_payload(self):
         def response(request):
             with timing_phase(request, 'check_attempt'):

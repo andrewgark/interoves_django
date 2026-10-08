@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any, Optional
+import uuid
 
 from django.db import transaction
 from django.db.models import Q
@@ -448,10 +449,15 @@ def refetch_article_text(*, share_hash: str = '', number: str = '') -> dict[str,
         raise CensorlySupportError('В названии нет угадываемых слов')
     new_tags = dict(tags)
     new_tags[CENSORLY_TAGS_KEY] = puzzle
-    updated = Task.objects.filter(pk=task.pk, tags=tags).update(tags=new_tags)
+    new_revision = uuid.uuid4()
+    updated = Task.objects.filter(pk=task.pk, tags=tags).update(
+        tags=new_tags,
+        attempt_revision=new_revision,
+    )
     if not updated:
         raise CensorlySupportError('Партия изменилась во время скачивания; обновите страницу и повторите')
     task.tags = new_tags
+    task.attempt_revision = new_revision
     return {
         'wiki_title': title,
         'token_count': len(puzzle.get('title_tokens') or []) + len(puzzle.get('body_tokens') or []),

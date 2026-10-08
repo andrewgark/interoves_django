@@ -14,6 +14,8 @@ logger = logging.getLogger('interoves.request_timing')
 _ALPHABETTY_GUESS = re.compile(r'^/alphabetty/\d+/guess/?$')
 _DAILY_TIMING = re.compile(r'^/(?:ladder|salad|alphabetty|replacements)/\d+/timing/?$')
 _RADDLE_UI = re.compile(r'^/send_raddle_ui/\d+/?$')
+_CENSORLY_RANDOM = re.compile(r'^/censorly/random/?$')
+_CENSORLY_GUESS = re.compile(r'^/censorly/(?:r/[^/]+|[^/]+)/guess/?$')
 
 
 def _watch_path(path: str) -> bool:
@@ -23,6 +25,8 @@ def _watch_path(path: str) -> bool:
         _ALPHABETTY_GUESS.match(path)
         or _DAILY_TIMING.match(path)
         or _RADDLE_UI.match(path)
+        or _CENSORLY_RANDOM.match(path)
+        or _CENSORLY_GUESS.match(path)
     )
 
 

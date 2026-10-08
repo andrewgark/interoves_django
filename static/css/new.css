@@ -2560,6 +2560,26 @@ span.new-btn[aria-disabled="true"] {
   border-top-color: #1a1a1a;
 }
 
+.new-random-game-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-inline-start: 0.7rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+  vertical-align: middle;
+}
+
+.new-random-game-loading::before {
+  content: "";
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid color-mix(in srgb, var(--muted) 28%, transparent);
+  border-top-color: var(--text);
+  border-radius: 50%;
+  animation: new-btn-spin 0.65s linear infinite;
+}
+
 @keyframes new-btn-spin {
   to { transform: rotate(360deg); }
 }

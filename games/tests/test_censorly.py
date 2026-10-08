@@ -397,6 +397,27 @@ class CensorlyPuzzleStorageTests(TestCase):
         title = next(tok for tok in loaded['title_tokens'] if tok['surface'] == 'Тактика')
         self.assertNotIn('ending', title)
 
+    def test_current_puzzle_payload_is_cached_until_task_revision_changes(self):
+        from games.censorly.play import _cached_current_puzzle_payload
+
+        _game, task, _h, _puzzle = _make_puzzle_task(
+            title='Тактика', body='Тактика ведёт дело.',
+        )
+        _cached_current_puzzle_payload.cache_clear()
+        with self.assertNumQueries(1):
+            first = puzzle_from_task(task)
+        with self.assertNumQueries(0):
+            second = puzzle_from_task(task)
+        self.assertEqual(first, second)
+
+        payload = dict(task.tags[CENSORLY_TAGS_KEY])
+        payload['body_text'] = 'Тактика ведёт новое дело.'
+        task.tags = {CENSORLY_TAGS_KEY: payload}
+        task.save(update_fields=['tags'])
+        with self.assertNumQueries(1):
+            refreshed = puzzle_from_task(task)
+        self.assertEqual(refreshed['body_text'], 'Тактика ведёт новое дело.')
+
 
 class CensorlyWikiHelperTests(TestCase):
     def test_parse_index_php_title_url(self):
@@ -845,6 +866,7 @@ class CensorlySupportViewTests(TestCase):
         task.tags = tags
         task.points = 7
         task.save(update_fields=['tags', 'points'])
+        old_revision = task.attempt_revision
         Attempt.manager.create(
             task=task, game=game, anon_key='cz-refetch', text='дом',
             status='Ok', points=1,
@@ -877,6 +899,7 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(resp.json()['wiki_title'], 'Кот')
 
         task.refresh_from_db()
+        self.assertNotEqual(task.attempt_revision, old_revision)
         saved = task.tags[CENSORLY_TAGS_KEY]
         self.assertEqual(saved['body_text'], fresh)
         self.assertEqual(saved['wiki_title'], 'Кот')

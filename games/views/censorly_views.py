@@ -423,7 +423,8 @@ def censorly_random_game(request):
     )
 
     try:
-        random_game = get_or_create_random_game()
+        with timing_phase(request, 'create_random_censorly'):
+            random_game = get_or_create_random_game()
     except EmptyCensorlyPool:
         messages.warning(
             request,
@@ -801,16 +802,20 @@ def censorly_guess(request, number=None, share_hash=None):
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
     )
-    with timing_phase(request, 'render_meta'):
-        result = _with_meta_bar(
-            result,
-            request,
-            game=game,
-            task=task,
-            user=user,
-            anon_key=anon_key,
-            placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
-        )
+    # The compact meta bar does not change for ordinary hit/miss guesses.
+    # Rendering it performs several unrelated DB reads, so refresh it only
+    # when the solve result can actually change its visible values.
+    if result.get('status') in ('won', 'already_won'):
+        with timing_phase(request, 'render_meta'):
+            result = _with_meta_bar(
+                result,
+                request,
+                game=game,
+                task=task,
+                user=user,
+                anon_key=anon_key,
+                placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
+            )
     status_code = 200
     if result.get('status') == 'error':
         status_code = 400
