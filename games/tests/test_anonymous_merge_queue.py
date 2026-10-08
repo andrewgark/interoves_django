@@ -215,6 +215,12 @@ class AnonymousMergeQueueTests(TestCase):
         self.assertEqual(response.json()['job']['total_submissions'], 0)
         self.assertIn('progress', response.json()['job'])
 
+    def test_current_status_endpoint_is_empty_when_user_has_no_active_job(self):
+        response = self.client.get(reverse('new_anon_merge_job_current'))
+
+        self.assertEqual(response.status_code, 204)
+        self.assertEqual(response.content, b'')
+
     def test_reconcile_item_unique_constraint(self):
         key = self._key('unique')
         Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')

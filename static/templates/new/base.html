@@ -516,7 +516,23 @@
       } catch (e) { return true; }
     }
     var anonKey = getAnonKey();
-    if (!anonKey || !shouldPrompt(anonKey)) return;
+    var mergeJobStorageKey = 'interoves_anon_merge_job:' + userId;
+    function readMergeJobId() {
+      try { return localStorage.getItem(mergeJobStorageKey) || ''; } catch (e) { return ''; }
+    }
+    function saveMergeJobId(id) {
+      try { localStorage.setItem(mergeJobStorageKey, id); } catch (e) {}
+    }
+    function clearMergeJobId() {
+      try { localStorage.removeItem(mergeJobStorageKey); } catch (e) {}
+    }
+    function mergeJobUrl(id) {
+      return "{% url 'new_anon_merge_job_status' job_id='00000000-0000-0000-0000-000000000000' %}".replace(
+        '00000000-0000-0000-0000-000000000000', encodeURIComponent(id)
+      );
+    }
+    var storedMergeJobId = readMergeJobId();
+    if ((!anonKey || !shouldPrompt(anonKey)) && !storedMergeJobId) return;
 
     // Сервер проверяет, что за этим browser-local гостевым ключом действительно
     // есть данные, и что ключ ещё не был привязан к другому пользователю.
@@ -557,20 +573,32 @@
       var progressLabel = modal.querySelector('[data-migrate-progress-label]');
       var backgroundNote = modal.querySelector('[data-migrate-background]');
       if (activeJobId) {
-        fetch("{% url 'new_anon_merge_job_status' job_id='00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', encodeURIComponent(activeJobId)), {
+        fetch(mergeJobUrl(activeJobId), {
           method: 'POST',
           headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': postCSRF() },
           credentials: 'same-origin',
         }).then(function (r) {
-          if (!r.ok) throw new Error('retry_failed');
-          return r.json();
+          return r.json().catch(function () { return {}; }).then(function (data) {
+            if (!r.ok) {
+              var error = new Error(data.status || 'retry_failed');
+              error.httpStatus = r.status;
+              throw error;
+            }
+            return data;
+          });
         }).then(function (data) {
           if (!data.job) throw new Error('missing_job');
           if (error) { error.hidden = true; error.textContent = ''; }
           if (progress) progress.hidden = false;
           if (btn) { btn.disabled = true; btn.textContent = 'Переносим…'; }
           pollJob(data.job.id);
-        }).catch(function () { showError('Не удалось повторно запустить перенос. Попробуйте позже.'); });
+        }).catch(function (error) {
+          if (error && error.httpStatus === 404) {
+            clearMergeJobId();
+            activeJobId = null;
+          }
+          showError('Не удалось повторно запустить перенос. Попробуйте позже.');
+        });
         return;
       }
       if (btn) { btn.disabled = true; btn.textContent = 'Переносим…'; }
@@ -609,18 +637,23 @@
 
       function pollJob(id) {
         activeJobId = id;
-        fetch("{% url 'new_anon_merge_job_status' job_id='00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', encodeURIComponent(id)), {
+        fetch(mergeJobUrl(id), {
           credentials: 'same-origin',
           headers: { 'X-Requested-With': 'XMLHttpRequest' },
         }).then(function (r) {
           return r.json().catch(function () { return {}; }).then(function (data) {
-            if (!r.ok || !data || data.status !== 'ok') throw new Error(data.status || 'request_failed');
+            if (!r.ok || !data || data.status !== 'ok') {
+              var error = new Error(data.status || 'request_failed');
+              error.httpStatus = r.status;
+              throw error;
+            }
             return data.job;
           });
         }).then(function (job) {
           renderJob(job);
           if (job.status === 'completed') {
             if (progressBar) progressBar.value = 1;
+            clearMergeJobId();
             rotateAnonKey();
             setTimeout(function () { window.location.reload(); }, 800);
             return;
@@ -630,7 +663,12 @@
             return;
           }
           setTimeout(function () { pollJob(id); }, 1500);
-        }).catch(function () {
+        }).catch(function (error) {
+          if (error && error.httpStatus === 404) {
+            clearMergeJobId();
+            activeJobId = null;
+            return;
+          }
           // A transient polling error must not turn a durable server job into a
           // client failure.  Keep polling while the modal remains open.
           setTimeout(function () { pollJob(id); }, 2500);
@@ -653,6 +691,7 @@
           });
         }).then(function (data) {
           if (!data.job || !data.job.id) throw new Error('missing_job');
+          saveMergeJobId(data.job.id);
           renderJob(data.job);
           pollJob(data.job.id);
         }).catch(function () {
@@ -673,15 +712,27 @@
     // A reload or a new page must recover an unfinished server-side job even
     // though the original anonymous cookie was rotated when it was queued.
     (function resumeActiveJob() {
-      fetch("{% url 'new_anon_merge_job_current' %}", {
+      var jobId = readMergeJobId();
+      if (!jobId) return;
+      fetch(mergeJobUrl(jobId), {
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       }).then(function (r) {
-        if (!r.ok) return null;
-        return r.json();
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok) {
+            var error = new Error(data.status || 'request_failed');
+            error.httpStatus = r.status;
+            throw error;
+          }
+          return data;
+        });
       }).then(function (data) {
-        if (!data || !data.job) return;
+        if (!data || !data.job) {
+          clearMergeJobId();
+          return;
+        }
         var job = data.job;
+        activeJobId = job.id;
         modal.removeAttribute('hidden');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
@@ -701,14 +752,27 @@
           if (progressBar) progressBar.value = Math.max(0, Math.min(1, Number(jobData.progress || 0) / 100));
         }
         function poll() {
-          fetch("{% url 'new_anon_merge_job_status' job_id='00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000', encodeURIComponent(job.id)), {
+          fetch(mergeJobUrl(job.id), {
             credentials: 'same-origin',
             headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          }).then(function (r) { return r.json(); }).then(function (payload) {
-            if (!payload.job) return;
+          }).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (payload) {
+              if (!r.ok) {
+                var error = new Error(payload.status || 'request_failed');
+                error.httpStatus = r.status;
+                throw error;
+              }
+              return payload;
+            });
+          }).then(function (payload) {
+            if (!payload.job) {
+              clearMergeJobId();
+              return;
+            }
             update(payload.job);
             if (payload.job.status === 'completed') {
               if (progressBar) progressBar.value = 1;
+              clearMergeJobId();
               setTimeout(function () { window.location.reload(); }, 800);
               return;
             }
@@ -724,13 +788,22 @@
               return;
             }
             setTimeout(poll, 1500);
-          }).catch(function () { setTimeout(poll, 2500); });
+          }).catch(function (error) {
+            if (error && error.httpStatus === 404) {
+              clearMergeJobId();
+              return;
+            }
+            setTimeout(poll, 2500);
+          });
         }
         update(job);
         poll();
-      }).catch(function () {});
+      }).catch(function (error) {
+        if (error && error.httpStatus === 404) clearMergeJobId();
+      });
     })();
 
+    if (!anonKey || !shouldPrompt(anonKey)) return;
     fetch("{% url 'new_anon_migrate_count' %}?anon_key=" + encodeURIComponent(anonKey), {
       credentials: 'same-origin',
       headers: { 'X-Requested-With': 'XMLHttpRequest' },

@@ -18,7 +18,7 @@ from django.forms import ChoiceField, ModelForm, TextInput
 from django.core.exceptions import ValidationError
 from django.core.cache import cache
 from django.core.paginator import Paginator
-from django.http import Http404
+from django.http import Http404, HttpResponse
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -4704,6 +4704,11 @@ def new_anon_merge_job_status(request, job_id=None):
     else:
         job = active_merge_job_for_user(request.user)
     if job is None:
+        # The base template probes this endpoint on page loads to resume a
+        # merge after navigation/reload.  No active job is an expected state,
+        # not a missing resource/error for the browser to report.
+        if job_id is None:
+            return HttpResponse(status=204)
         return JsonResponse({'status': 'not_found'}, status=404)
     if request.method == 'POST':
         from games.anonymous_merge import retry_merge_job
