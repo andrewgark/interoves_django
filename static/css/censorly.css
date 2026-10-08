@@ -406,6 +406,13 @@ html.new-ui-dark .censorly__dock {
   animation: censorly-flash 1.6s ease-out;
 }
 
+.censorly-tok--selected {
+  background: color-mix(in srgb, var(--accent, #c9a227) 28%, transparent);
+  border-radius: 2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 @keyframes censorly-flash {
   0% { background: color-mix(in srgb, var(--accent, #c9a227) 55%, transparent); }
   100% { background: transparent; }
@@ -506,6 +513,10 @@ html.new-ui-dark .censorly__dock {
 
 .censorly__guess-table tbody tr:hover {
   background: color-mix(in srgb, var(--accent, #c9a227) 12%, transparent);
+}
+
+.censorly__guess-table tbody tr.is-active {
+  background: color-mix(in srgb, var(--accent, #c9a227) 20%, transparent);
 }
 
 .censorly__col-n { width: 2.5ch; }

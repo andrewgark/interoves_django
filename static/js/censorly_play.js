@@ -260,7 +260,44 @@
     return '';
   }
 
-  function renderGuessTable(root, guesses) {
+  function activeGuessIndex(root, guesses) {
+    var total = (guesses || []).length;
+    if (!total) {
+      root.removeAttribute('data-active-guess-index');
+      return null;
+    }
+    var stored = parseInt(root.getAttribute('data-active-guess-index'), 10);
+    if (Number.isInteger(stored) && stored >= 0 && stored < total) return stored;
+    var latest = total - 1;
+    root.setAttribute('data-active-guess-index', String(latest));
+    return latest;
+  }
+
+  function applyGuessHighlight(root, guesses, index) {
+    root.querySelectorAll('.censorly-tok--selected').forEach(function (node) {
+      node.classList.remove('censorly-tok--selected');
+    });
+    root.querySelectorAll('#censorly-guess-list tr.is-active').forEach(function (row) {
+      row.classList.remove('is-active');
+      row.removeAttribute('aria-selected');
+    });
+    if (index == null || !guesses[index]) return;
+
+    var row = root.querySelector('#censorly-guess-list tr[data-guess-index="' + String(index) + '"]');
+    if (row) {
+      row.classList.add('is-active');
+      row.setAttribute('aria-selected', 'true');
+    }
+    var tokenIds = Array.isArray(guesses[index].token_ids) ? guesses[index].token_ids : [];
+    if (!tokenIds.length) return;
+    var wanted = {};
+    tokenIds.forEach(function (id) { wanted[String(id)] = true; });
+    root.querySelectorAll('.censorly-tok[data-id]').forEach(function (node) {
+      if (wanted[node.dataset.id]) node.classList.add('censorly-tok--selected');
+    });
+  }
+
+  function renderGuessTable(root, guesses, activeIndex) {
     var tbody = root.querySelector('#censorly-guess-list');
     if (!tbody) return;
     tbody.textContent = '';
@@ -284,6 +321,7 @@
       var hits = typeof g === 'object' ? (g.hits | 0) : 0;
       var tokenIds = (typeof g === 'object' && Array.isArray(g.token_ids)) ? g.token_ids : [];
       var tr = document.createElement('tr');
+      tr.dataset.guessIndex = String(i);
       tr.dataset.lemma = lemma || word;
       tr.dataset.word = word;
       if (tokenIds.length) tr.dataset.tokenIds = tokenIds.join(',');
@@ -292,6 +330,7 @@
       tr.appendChild(el('td', null, word));
       tbody.appendChild(tr);
     }
+    applyGuessHighlight(root, items, activeIndex);
   }
 
   function updateMetaBar(html) {
@@ -424,6 +463,7 @@
 
   function applyState(root, state, opts) {
     opts = opts || {};
+    root._censorlyState = state;
     var lenForced = opts.preserveLen ? collectLenForced(root) : {};
     var title = root.querySelector('#censorly-title');
     var body = root.querySelector('#censorly-body');
@@ -443,7 +483,8 @@
     updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'));
     var trunc = root.querySelector('#censorly-truncated');
     if (trunc) trunc.hidden = !state.truncated;
-    renderGuessTable(root, state.guesses || []);
+    var guesses = state.guesses || [];
+    renderGuessTable(root, guesses, activeGuessIndex(root, guesses));
     showShare(state);
     if (state.meta_bar_html) updateMetaBar(state.meta_bar_html);
 
@@ -658,6 +699,12 @@
 
       var row = ev.target.closest('#censorly-guess-list tr');
       if (row && root.contains(row)) {
+        var guessIndex = parseInt(row.dataset.guessIndex, 10);
+        if (Number.isInteger(guessIndex)) {
+          root.setAttribute('data-active-guess-index', String(guessIndex));
+          var currentState = root._censorlyState || {};
+          applyGuessHighlight(root, currentState.guesses || [], guessIndex);
+        }
         scrollToGuess(root, row, lemmaCycle);
       }
     });
@@ -696,6 +743,9 @@
               setFeedback(root, data.error || 'Не удалось отправить', 'error');
               applyState(root, data, { preserveLen: true });
               return;
+            }
+            if (Array.isArray(data.guesses) && data.guesses.length) {
+              root.setAttribute('data-active-guess-index', String(data.guesses.length - 1));
             }
             applyState(root, data, { preserveLen: true });
             input.value = '';
