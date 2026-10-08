@@ -549,6 +549,23 @@
         });
       });
     }
+    function fetchCurrentMergeJob() {
+      return fetch("{% url 'new_anon_merge_job_current' %}", {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      }).then(function (r) {
+        if (r.status === 204) return null;
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok) {
+            var error = new Error(data.status || 'request_failed');
+            error.httpStatus = r.status;
+            throw error;
+          }
+          if (!data || data.status !== 'ok' || !data.job) return null;
+          return data.job;
+        });
+      });
+    }
     var storedMergeJobId = readMergeJobId();
     if ((!anonKey || !shouldPrompt(anonKey)) && !storedMergeJobId) return;
 
@@ -681,6 +698,9 @@
         });
       }
 
+      // Keep a recoverable marker before the request: navigation can happen
+      // before the response containing the real job id arrives.
+      saveMergeJobId('pending');
       fetch("{% url 'new_migrate_anon_attempts' %}", {
           method: 'POST',
           headers: {
@@ -720,7 +740,13 @@
     (function resumeActiveJob() {
       var jobId = readMergeJobId();
       if (!jobId) return;
-      fetchMergeJob(jobId).then(function (job) {
+      var request = jobId === 'pending' ? fetchCurrentMergeJob() : fetchMergeJob(jobId);
+      request.then(function (job) {
+        if (!job) {
+          clearMergeJobId();
+          return;
+        }
+        saveMergeJobId(job.id);
         activeJobId = job.id;
         modal.removeAttribute('hidden');
         modal.classList.add('is-open');
