@@ -4693,6 +4693,7 @@ def new_migrate_anon_attempts(request):
     return JsonResponse({'status': 'ok', 'queued': True, 'job': serialize_merge_job(job)}, status=202)
 
 
+@never_cache
 @login_required
 @require_http_methods(['GET', 'POST'])
 def new_anon_merge_job_status(request, job_id=None):

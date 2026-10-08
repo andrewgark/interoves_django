@@ -214,6 +214,27 @@ class AnonymousMergeQueueTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['job']['total_submissions'], 0)
         self.assertIn('progress', response.json()['job'])
+        self.assertIn('no-cache', response.headers['Cache-Control'])
+
+    def test_status_endpoint_does_not_expose_job_to_another_user(self):
+        key = self._key('scoped')
+        Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        job = self._enqueue(key)
+        other = User.objects.create_user('other_merge_queue_user', password='secret')
+        other_client = Client()
+        self.assertTrue(other_client.login(username=other.username, password='secret'))
+
+        response = other_client.get(reverse('new_anon_merge_job_status', kwargs={'job_id': job.id}))
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_status_endpoint_returns_404_for_unknown_job(self):
+        response = self.client.get(reverse(
+            'new_anon_merge_job_status',
+            kwargs={'job_id': '00000000-0000-0000-0000-000000000000'},
+        ))
+
+        self.assertEqual(response.status_code, 404)
 
     def test_current_status_endpoint_is_empty_when_user_has_no_active_job(self):
         response = self.client.get(reverse('new_anon_merge_job_current'))
