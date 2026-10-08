@@ -27,5 +27,14 @@
     button.setAttribute('aria-busy', 'true');
     loading.hidden = false;
   });
+  window.addEventListener('pageshow', function (event) {
+    // The browser can restore this page from the back-forward cache after a
+    // previous submit, including the transient loading state of the form.
+    if (!event.persisted) return;
+    button.disabled = false;
+    button.classList.remove('is-loading');
+    button.removeAttribute('aria-busy');
+    loading.hidden = true;
+  });
 })();
 </script>
