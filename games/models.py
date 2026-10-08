@@ -3925,9 +3925,11 @@ class StatisticsEvent(models.Model):
     """Generic product/ops analytics row (who / when / what / payload)."""
 
     KIND_ANON_ATTEMPTS_MIGRATED = 'anon_attempts_migrated'
+    KIND_CENSORLY_LEXICAL_GUESS = 'censorly_lexical_guess'
 
     KIND_CHOICES = (
         (KIND_ANON_ATTEMPTS_MIGRATED, 'Перенос анонимных попыток'),
+        (KIND_CENSORLY_LEXICAL_GUESS, 'Решение лексики Цензурок'),
     )
 
     id = models.AutoField(primary_key=True)

@@ -36,6 +36,15 @@ def structures_of(lemma: str) -> tuple[tuple[str, ...], ...]:
     return _bank()[0].get(fold(lemma), ())
 
 
+def families_of(lemma: str) -> tuple[str, ...]:
+    """Kuznetsova family ids of a lemma, before the game-root split."""
+    _bank()
+    return _KUZ_FAMILY.get(fold(lemma), ())
+
+
+_KUZ_FAMILY: dict[str, tuple[str, ...]] = {}
+
+
 def load_seconds() -> float:
     _bank()
     return _bank()[1]
@@ -55,6 +64,7 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
         plain_hits.setdefault(_plain(morph), []).append((morph, family))
 
     kuz: dict[str, list[str]] = {}
+    kuz_families: dict[str, list[str]] = {}
     for line in _lines(_KUZ_LEMMAS):
         raw_lemma, raw_root = line.split('\t', 1)
         lemma = fold(_strip_note(raw_lemma))
@@ -63,9 +73,14 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
             continue
         family = morph_family.get(numbered, numbered)
         kuz.setdefault(lemma, [])
+        family_list = kuz_families.setdefault(lemma, [])
+        if family not in family_list:
+            family_list.append(family)
         root_id = _game_id(numbered, family)
         if root_id not in kuz[lemma]:
             kuz[lemma].append(root_id)
+    global _KUZ_FAMILY
+    _KUZ_FAMILY = {lemma: tuple(items) for lemma, items in kuz_families.items()}
 
     tikhonov: dict[str, tuple[str, ...]] = {}
     for line in _lines(_TIKHONOV):

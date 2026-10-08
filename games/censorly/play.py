@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
@@ -23,6 +24,7 @@ from games.censorly.redact import (
     lemmas_matching_guess,
     newly_revealed_ids,
     token_by_id,
+    token_ids_for_guess,
 )
 from games.censorly.tokenize import resolve_puzzle_payload, title_content_lemmas
 from games.models import Attempt, ChainTaskState, Game, Task
@@ -416,7 +418,15 @@ def public_payload(
         last_lemma=state.get('last_lemma') or None,
         won=won,
     )
-    guesses = list(state.get('guesses') or [])
+    guesses = []
+    for guess in state.get('guesses') or []:
+        if not isinstance(guess, dict):
+            continue
+        item = dict(guess)
+        item['token_ids'] = token_ids_for_guess(
+            payload, item.get('lemma') or '', item.get('word') or '',
+        )
+        guesses.append(item)
     hints = hint_count(state)
     pts = points_for_state(state, task=task)
     return {
@@ -492,6 +502,30 @@ def _lock_state(*, game, task, actor):
         game_mode='general',
         **actor,
     )
+
+
+def _record_lexical_decision(*, user, game, task, guess, payload) -> None:
+    """Store which targets a guess opened and which near-misses it rejected."""
+    from games.censorly.flags import lexical_resolver_enabled
+    if not lexical_resolver_enabled():
+        return
+    try:
+        from games.censorly.lexical.match import decision
+        from games.censorly.tokenize import all_tokens
+        from games.models import StatisticsEvent
+        report = decision(all_tokens(payload), guess)
+        actor = user if getattr(user, 'is_authenticated', False) else None
+        with transaction.atomic():
+            StatisticsEvent.record(
+                StatisticsEvent.KIND_CENSORLY_LEXICAL_GUESS,
+                user=actor,
+                guess=guess,
+                task_id=getattr(task, 'pk', None),
+                game_id=getattr(game, 'pk', None),
+                **report,
+            )
+    except Exception:
+        logging.getLogger(__name__).exception('censorly lexical decision log failed')
 
 
 @transaction.atomic
@@ -617,6 +651,9 @@ def apply_guess(
     row.state = dump_state(state)
     row.last_attempt = attempt
     row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+    _record_lexical_decision(
+        user=user, game=game, task=task, guess=normalized, payload=payload,
+    )
 
     out = public_payload(state, payload, task=task)
     out['hits'] = hits

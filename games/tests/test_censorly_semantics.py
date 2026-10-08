@@ -70,6 +70,17 @@ TRUE_CASES = (
     ('плести', 'плетение', 'root'),
     ('грести', 'гребля', 'root'),
     ('марь', 'маревый', 'root'),
+    ('мир', 'мировой', 'root'),
+    ('море', 'морской', 'root'),
+    ('умирать', 'смерть', 'root'),
+    ('направление', 'направить', 'root'),
+    ('правительство', 'правитель', 'root'),
+    ('справка', 'справочник', 'root'),
+    ('правда', 'правдивый', 'root'),
+    ('править', 'правительство', 'root'),
+    ('править', 'исправить', 'root'),
+    ('заправка', 'заправить', 'root'),
+    ('приправа', 'заправить', 'root'),
     # «погреб» is also a form of the verb «погрести».
     ('погреб', 'погребение', 'root'),
     ('орёл', 'Орёл', 'exact'),
@@ -161,6 +172,13 @@ FALSE_CASES = (
     'гроб', 'погреб',
     'погребок', 'погребение',
     'маревый', 'мара',
+    'мир', 'море',
+    'мир', 'умирать',
+    'справка', 'направление',
+    'справка', 'правительство',
+    'правительство', 'исправить',
+    'заправка', 'приправа',
+    'расправа', 'расправить',
 )
 
 
@@ -269,7 +287,7 @@ class SemanticsTests(SimpleTestCase):
         families = _families(_KUZ_GROUPS)
         wanted = {
             'раж¹|раз¹', 'пас²', 'плач³|плес¹|плет|плот¹|плоч',
-            'граб¹|греб|грес|гроб', 'мар³',
+            'граб¹|греб|грес|гроб', 'мар³', 'прав',
         }
         missing = []
         for line in _lines(_KUZ_LEMMAS):
@@ -305,6 +323,13 @@ class LexicalGameplayTests(TestCase):
         )
         return set(json.loads(row.state).get('revealed_lemmas') or [])
 
+    def _surfaces_for_ids(self, puzzle, ids):
+        by_id = {
+            tok['id']: tok
+            for tok in (puzzle.get('title_tokens') or []) + (puzzle.get('body_tokens') or [])
+        }
+        return [fold(by_id[item].get('surface') or '') for item in ids]
+
     def _open_texts(self, result):
         from games.censorly.lexical.core import fold
         return {
@@ -316,33 +341,59 @@ class LexicalGameplayTests(TestCase):
     def test_flag_off_does_not_open_root_neighbours(self):
         from django.test import override_settings
         from games.censorly.play import apply_guess
-        game, task, _hash, _puzzle = self._task()
+        game, task, _hash, puzzle = self._task()
         user = User.objects.create_user('cz_lex_off', password='x')
         with override_settings(CENSORLY_LEXICAL_RESOLVER=False):
             result = apply_guess(game=game, task=task, word='пчела', user=user)
         revealed = self._revealed(game, task, user)
         texts = self._open_texts(result)
+        self.assertEqual(
+            self._surfaces_for_ids(puzzle, result['guesses'][-1]['token_ids']),
+            [fold('Пчёлами'), fold('пчелы')],
+        )
         self.assertIn(fold('пчёлами'), texts)
         self.assertNotIn(fold('пчелиный'), texts)
         self.assertNotIn(fold('пчеловод'), texts)
         self.assertTrue(revealed)
         self.assertNotIn(fold('пчелиный'), {fold(item) for item in revealed})
+        from games.models import StatisticsEvent
+        self.assertFalse(StatisticsEvent.objects.filter(
+            kind=StatisticsEvent.KIND_CENSORLY_LEXICAL_GUESS,
+        ).exists())
 
     def test_flag_on_updates_state_and_masks(self):
         from django.test import override_settings
         from games.censorly.normalize import lemma_of
         from games.censorly.play import apply_guess, get_play_state
-        game, task, _hash, _puzzle = self._task()
+        game, task, _hash, puzzle = self._task()
         user = User.objects.create_user('cz_lex_on', password='x')
         with override_settings(CENSORLY_LEXICAL_RESOLVER=True):
             before = get_play_state(game=game, task=task, user=user)
             opened = self._open_texts(before)
             self.assertIn(fold('просто'), opened)
             bee = apply_guess(game=game, task=task, word='пчела', user=user)
+            self.assertEqual(
+                self._surfaces_for_ids(puzzle, bee['guesses'][-1]['token_ids']),
+                [fold('Пчёлами'), fold('Пчелиный'), fold('пчелы')],
+            )
             texts = self._open_texts(bee)
             self.assertIn(fold('пчёлами'), texts)
             self.assertIn(fold('пчелиный'), texts)
             self.assertNotIn(fold('пчеловод'), texts)
+            from games.models import StatisticsEvent
+            logged = StatisticsEvent.objects.get(
+                kind=StatisticsEvent.KIND_CENSORLY_LEXICAL_GUESS,
+                payload__guess='пчела',
+            )
+            opened = {fold(item['lemma']) for item in logged.payload['opened']}
+            rejected = {
+                (fold(item['lemma']), item['reason'])
+                for item in logged.payload['rejected']
+            }
+            self.assertIn(fold('пчелиный'), opened)
+            self.assertIn(fold('пчела'), opened)
+            self.assertIn((fold('пчеловод'), 'root_overlap'), rejected)
+            self.assertNotIn(fold('пчеловод'), opened)
             honey = apply_guess(game=game, task=task, word='мёд', user=user)
             honey_texts = self._open_texts(honey)
             self.assertIn(fold('медовый'), honey_texts)

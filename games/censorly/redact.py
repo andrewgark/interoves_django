@@ -158,6 +158,22 @@ def newly_revealed_ids(payload: dict[str, Any], lemma: str) -> list[int]:
     ]
 
 
+def token_ids_for_guess(payload: dict[str, Any], guess_lemma: str, guess_norm: str) -> list[int]:
+    """Content tokens this guess opens, in reading order.
+
+    One guess can open several stored lemmas. History clicks walk this list,
+    not only the primary lemma of the typed word.
+    """
+    matched = lemmas_matching_guess(payload, guess_lemma, guess_norm)
+    if not matched:
+        return []
+    return [
+        int(tok['id'])
+        for tok in all_tokens(payload)
+        if tok.get('kind') == 'content' and (tok.get('lemma') or '') in matched
+    ]
+
+
 def token_by_id(payload: dict[str, Any], token_id: int) -> dict[str, Any] | None:
     for tok in all_tokens(payload):
         if int(tok.get('id', -1)) == int(token_id):

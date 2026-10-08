@@ -282,9 +282,11 @@
       var word = typeof g === 'string' ? g : (g.word || '');
       var lemma = typeof g === 'object' ? (g.lemma || '') : '';
       var hits = typeof g === 'object' ? (g.hits | 0) : 0;
+      var tokenIds = (typeof g === 'object' && Array.isArray(g.token_ids)) ? g.token_ids : [];
       var tr = document.createElement('tr');
       tr.dataset.lemma = lemma || word;
       tr.dataset.word = word;
+      if (tokenIds.length) tr.dataset.tokenIds = tokenIds.join(',');
       tr.appendChild(el('td', null, String(i + 1)));
       tr.appendChild(el('td', null, hits ? String(hits) : '—'));
       tr.appendChild(el('td', null, word));
@@ -319,6 +321,19 @@
     } catch (e) {
       node.scrollIntoView(true);
     }
+  }
+
+  function scrollToGuess(root, row, cycleState) {
+    var raw = row.dataset.tokenIds || '';
+    var ids = raw ? raw.split(',') : [];
+    if (ids.length) {
+      var key = 'w:' + (row.dataset.word || raw);
+      var idx = cycleState[key] | 0;
+      cycleState[key] = idx + 1;
+      scrollToTokenId(root, ids[idx % ids.length]);
+      return;
+    }
+    scrollToLemma(root, row.dataset.lemma || row.dataset.word, cycleState);
   }
 
   function scrollToLemma(root, lemma, cycleState) {
@@ -643,7 +658,7 @@
 
       var row = ev.target.closest('#censorly-guess-list tr');
       if (row && root.contains(row)) {
-        scrollToLemma(root, row.dataset.lemma || row.dataset.word, lemmaCycle);
+        scrollToGuess(root, row, lemmaCycle);
       }
     });
 
