@@ -2261,6 +2261,9 @@
 
   function submitRaddleAuto(input, val) {
     if (!input || input.getAttribute('data-raddle-busy') === '1') return;
+    // Tutorial forms use the real masked input UI but must never enter the
+    // production attempt path (including completion from the mobile pin).
+    if (input.closest && input.closest('[data-ladder-tutorial]')) return;
     var row = input.closest('.new-raddle-row');
     if (row && !row.classList.contains('new-raddle-row--playable')) {
       // Устаревший DOM (bfcache / смена сессии): не шлём not-playable.

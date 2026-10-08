@@ -199,6 +199,46 @@ VERDICTS = {
         'Справка, направление и правительство — разные современные семьи. Править хранит оба чтения: власть и правку.',
         'REFERENCE: справка; DIRECT: направление, отправить; GOVERN: правительство; CORRECT: исправить, правило; TRUTH: правда; LAW: право',
     ),
+    'вет¹|веч²|вещ²': (
+        'SPLIT',
+        'Совет не открывает ответ и ответственность. Привет, завет, вещать и вечный тоже отделены.',
+        'ADVICE: совет, советовать, совещание; ANSWER: ответ, ответить; DUTY: ответственность; MATCH: соответствие; GREET: привет; TESTAMENT: завет, завещать; PROCLAIM: вещать; SLANDER: навет; ETERNAL: вечный; VECHE: вече',
+    ),
+    'вед¹|веж|вежд¹|вест|вещ¹': (
+        'SPLIT',
+        'Ведать не открывает весть, совесть, ведьму и невесту.',
+        'KNOW: ведать, ведомство, разведка; NEWS: весть, известить, повесть; CONSCIENCE: совесть; POLITE: вежливый; WITCH: ведьма; BRIDE: невеста; CONFESS: исповедь; PREACH: проповедь; COVENANT: заповедь',
+    ),
+    'сторон|стран': (
+        'SPLIT',
+        'Сторона не открывает страну, страницу и пространство. Странный уже был вынесен.',
+        'SIDE: сторона, устранить; COUNTRY: страна; PAGE: страница; WANDER: странник, странствовать; SPACE: пространство, распространить; STRANGE: странный',
+    ),
+    'част¹|чащ¹': (
+        'SPLIT',
+        'Часть не открывает счастье, участок и участие.',
+        'PART: часть, частный; PLOT: участок; SHARE: участие, причастие; FATE: участь; LUCK: счастье',
+    ),
+    'слад|слажд|сласт|слащ|солаж|солод|солож|солощ': (
+        'SPLIT',
+        'Сладкий не открывает солод.',
+        'SWEET: сладкий, наслаждение; MALT: солод, солодить',
+    ),
+    'трав': (
+        'SPLIT',
+        'Трава не открывает отраву и травить.',
+        'GRASS: трава, травяной; POISON: отрава, травить, травля',
+    ),
+    'клюк¹|ключ¹|клюш': (
+        'SPLIT',
+        'Ключ не открывает включать и приключение.',
+        'KEY: ключ, ключица, клюшка; INCLUDE: включать, исключить; ADVENTURE: приключение',
+    ),
+    'ключ²': (
+        'SPLIT',
+        'Физический ключ сведён с key-кластером первой ключ-семьи.',
+        'KEY: ключ, ключик, ключевой',
+    ),
     'общ': (
         'SAFE_ONE_FAMILY',
         'Общий и общественный — одна современная семья.',
@@ -297,6 +337,7 @@ def main() -> int:
     print('checks', flush=True)
     corpus['service'] = service_audit(corpus)
     corpus['compounds'] = compound_audit()
+    corpus['nuclei'] = nucleus_split_candidates(families)
     write_tables(families, multi, universe, fuzz, corpus)
     elapsed = time.perf_counter() - started
     print(f'total_seconds {elapsed:.1f}', flush=True)
@@ -690,6 +731,73 @@ def compound_audit():
     return {'leaks': leaks[:20], 'leak_count': len(leaks)}
 
 
+# Verbal morphology, not modern-sense nuclei. Size alone is also a bad signal:
+# дать / нести are productive and usually stay one family.
+_NUCLEUS_NOISE = frozenset({
+    'вать', 'ться', 'ива', 'ыва', 'ени', 'ение', 'тель', 'ность', 'нный',
+    'еск', 'ость', 'ать', 'ять', 'ить', 'еть', 'уть', 'ший', 'вший',
+    'еств', 'ован', 'ева', 'анн', 'енн', 'ыва', 'ива',
+})
+
+
+def nucleus_split_candidates(families, *, min_lemmas: int = 40, min_nuclei: int = 3):
+    """Fat dictionary families that look like several modern words glued together.
+
+    Prefer several long content stems that each cover a minority of lemmas
+    still on the parent game root. Generic verb morphology is ignored.
+    """
+    from games.censorly.lexical.rootbank import structures_of
+
+    rows = []
+    for family, bucket in families.items():
+        fam_id = 'fam:' + family
+        on_parent = [
+            lemma for lemma in bucket['lemmas']
+            if any(fam_id in struct for struct in structures_of(lemma))
+        ]
+        if len(on_parent) < min_lemmas:
+            continue
+        counts = Counter()
+        for lemma in on_parent:
+            for length in (7, 6, 5, 4):
+                if len(lemma) < length:
+                    continue
+                for start in range(0, len(lemma) - length + 1):
+                    stem = lemma[start:start + length]
+                    if not stem.isalpha() or stem in _NUCLEUS_NOISE:
+                        continue
+                    if any(noise in stem and len(stem) <= len(noise) + 1 for noise in _NUCLEUS_NOISE):
+                        continue
+                    counts[stem] += 1
+        nuclei = []
+        covered = set()
+        for stem, hit in counts.most_common():
+            if hit < 5 or hit > len(on_parent) * 0.75:
+                continue
+            members = {lemma for lemma in on_parent if stem in lemma}
+            novel = members - covered
+            if len(novel) < 5:
+                continue
+            if any(stem in other or other in stem for other, _ in nuclei):
+                continue
+            nuclei.append((stem, len(members)))
+            covered.update(members)
+            if len(nuclei) >= 8:
+                break
+        if len(nuclei) < min_nuclei:
+            continue
+        rows.append({
+            'family': family,
+            'on_parent': len(on_parent),
+            'lemmas': len(bucket['lemmas']),
+            'verdict': bucket.get('verdict', ''),
+            'nuclei': nuclei,
+            'score': len(nuclei) * 25 + sum(n for _, n in nuclei) + len(covered),
+        })
+    rows.sort(key=lambda item: (-item['score'], -item['on_parent']))
+    return rows
+
+
 def write_tables(families, multi, universe, fuzz, corpus):
     ordered = sorted(families.values(), key=lambda item: (-item['risk'], -len(item['lemmas'])))
     buckets = Counter(item['bucket'] for item in ordered)
@@ -745,6 +853,14 @@ def write_tables(families, multi, universe, fuzz, corpus):
         lemmas, occ, guess, reasons, nfam, nart = row
         fuzz_lines.append(f'{rank}\t{lemmas}\t{occ}\t{guess}\t{",".join(sorted(reasons))}\t{nfam}\t{nart}')
     (DATA / 'full_semantics_fuzz.tsv').write_text('\n'.join(fuzz_lines) + '\n', encoding='utf-8')
+    nuclei_lines = ['score\ton_parent\tlemmas\tverdict\tfamily\tnuclei']
+    for row in corpus.get('nuclei') or []:
+        nuclei = ';'.join(f'{stem}:{count}' for stem, count in row['nuclei'])
+        nuclei_lines.append(
+            f'{row["score"]}\t{row["on_parent"]}\t{row["lemmas"]}\t{row["verdict"]}\t'
+            f'{row["family"]}\t{nuclei}'
+        )
+    (DATA / 'root_family_nuclei.tsv').write_text('\n'.join(nuclei_lines) + '\n', encoding='utf-8')
     report = render_report(ordered, buckets, tiers, multi, universe, fuzz, corpus)
     (DATA / 'full_semantics_report.txt').write_text(report, encoding='utf-8')
     sys.stdout.write(report)
@@ -846,6 +962,13 @@ def render_report(ordered, buckets, tiers, multi, universe, fuzz, corpus):
         lines.append(f'  {count} {surface}')
     if corpus['compounds']['leaks']:
         lines.append('compound_leak_sample ' + ', '.join(corpus['compounds']['leaks']))
+    lines.append('nucleus_split_candidates')
+    for row in (corpus.get('nuclei') or [])[:25]:
+        nuclei = ', '.join(f'{stem}:{count}' for stem, count in row['nuclei'])
+        lines.append(
+            f'  score={row["score"]} on={row["on_parent"]} {row["verdict"] or "UNREVIEWED"} '
+            f'{row["family"][:70]} | {nuclei}'
+        )
     lines.append('top_review')
     for item in high[:40]:
         sample = ', '.join(item['lemmas'][:18])

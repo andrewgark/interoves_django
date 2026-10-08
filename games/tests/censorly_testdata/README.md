@@ -15,3 +15,4 @@ when the cleaner’s contract changes.
 | `pool/*.txt` | 15 titles from `article_pool.txt` | First 50k chars of `explaintext` (whole article if shorter). Science with formulas plus Париж and Китай. See `pool/manifest.json`. |
 | `leads/*.txt` | Толстой, Байкал, Медоносная пчела, Сатурн | First two prose paragraphs, fetched 2026-10-04. `*.endings.json` is the reviewed mask-tail snapshot. |
 | `articles/*.txt` | Those four titles | Playable extract (tail sections removed, capped at 28k). `*.endings.json` is every content-token tail. Baikal’s vandalized paragraph about resolution № 234 is omitted. |
+| `articles/bee.roots.json` | Медоносная пчела | Manual school-root groups for content lemmas. Gold for cognate matching, not produced by the stemmer. |

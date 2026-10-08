@@ -53,6 +53,28 @@ _ALIAS_GROUPS = (
     ('килограмм', 'кг'),
 )
 
+# Arabic digits and their Roman spelling for the same value. Direct pairs
+# only: 20 opens XX, not XIX, and not the word двадцать.
+_ROMAN_DIGITS = (
+    (90, 'XC'), (50, 'L'), (40, 'XL'),
+    (10, 'X'), (9, 'IX'), (5, 'V'), (4, 'IV'), (1, 'I'),
+)
+
+
+def _roman(value: int) -> str:
+    parts = []
+    left = value
+    for amount, glyph in _ROMAN_DIGITS:
+        while left >= amount:
+            parts.append(glyph)
+            left -= amount
+    return ''.join(parts)
+
+
+_NUMERAL_ALIAS_GROUPS = tuple(
+    (str(value), _roman(value)) for value in range(1, 100)
+)
+
 # Reserved for a later transliteration audit. Empty on purpose.
 TRANSLIT_GROUPS: tuple[tuple[str, ...], ...] = ()
 
@@ -231,4 +253,4 @@ def _groups(rows: tuple[tuple[str, ...], ...]) -> tuple[frozenset[str], ...]:
 
 
 _GRAMMAR = _groups(_GRAMMAR_GROUPS)
-_ALIASES = _groups(_ALIAS_GROUPS + TRANSLIT_GROUPS)
+_ALIASES = _groups(_ALIAS_GROUPS + _NUMERAL_ALIAS_GROUPS + TRANSLIT_GROUPS)
