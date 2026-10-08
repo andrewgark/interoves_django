@@ -310,13 +310,14 @@ def censorly_hub_page(request):
         raise Http404()
     hub = get_censorly_hub_context(game, published_numbers=_published_numbers(game))
     random_rows = list(RandomCensorlyGame.objects.order_by('-created_at')[:40])
-    # Soft-launch / staff: show all numeric slots. Public: only published.
-    show_unpublished = _may_open_unpublished(request.user)
+    # Keep the daily hub/calendar empty during soft-launch.  Unpublished
+    # numbered slots remain available through their direct staff/support URLs;
+    # random games use a separate path below and are unaffected.
     schedule_links = []
     for link in GameTaskGroup.objects.filter(game=game).select_related('task_group'):
         if not str(link.number).isdigit():
             continue
-        if show_unpublished or is_censorly_number_published(game, int(link.number)):
+        if is_censorly_number_published(game, int(link.number)):
             schedule_links.append(link)
     schedule_links.sort(key=lambda link: int(link.number))
     archive_items = build_daily_archive_items(

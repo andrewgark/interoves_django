@@ -283,6 +283,21 @@ class CensorlyAccessTests(TestCase):
         self.assertContains(response, '🤔 1 попытка')
         self.assertContains(response, 'data-fully-solved="1"')
 
+    def test_hub_hides_unpublished_slots_during_soft_launch(self):
+        link = GameTaskGroup.objects.get(task_group=self.task.task_group)
+        link.number = '1'
+        link.name = 'Цензурка #1'
+        link.save(update_fields=['number', 'name'])
+        self.game.tags = {'censorly_publish_start': '2026-10-30T00:00:00+03:00'}
+        self.game.save(update_fields=['tags'])
+
+        self.client.force_login(self.staff)
+        response = self.client.get('/censorly/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, 'censorly-1')
+        self.assertContains(response, 'Случайная игра')
+
 
 class CensorlyPuzzleStorageTests(TestCase):
     def test_puzzle_roundtrip_in_tags(self):
