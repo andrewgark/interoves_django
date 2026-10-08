@@ -213,6 +213,8 @@ class CensorlyAccessTests(TestCase):
         self.client.force_login(self.plain)
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
+        self.assertContains(resp, 'Случайная игра')
+        self.assertContains(resp, '/subscription/')
 
     def test_staff_can_play_and_guess(self):
         self.client.force_login(self.staff)

@@ -557,6 +557,7 @@ def _render_play(request, *, game, task, load_meta):
         'game': game,
         'number': play_number,
         'tg_number': play_number,
+        'random_censorly_has_access': has_club_access(request.user),
         'link': link,
         'task': task,
         'page_title': page_title if not state.get('won') else (
