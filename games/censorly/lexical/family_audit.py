@@ -57,7 +57,11 @@ _PREFIXES = (
 )
 
 
-# verdict, reason, proposed subfamilies. Absence is UNREVIEWED, not SAFE.
+# verdict, reason, proposed subfamilies. Absence is UNREVIEWED.
+# SPLIT = already cut into sense:* clusters.
+# TO_SPLIT = backlog: this family needs a modern-sense cut.
+# AGENT_THINKS_SAFE = agent judges one modern family; do not cut unless revisited.
+# SAFE_ONE_FAMILY = legacy human-safe (prefer AGENT_THINKS_SAFE for new marks).
 VERDICTS = {
     'крас¹|краш': (
         'SPLIT',
@@ -150,9 +154,9 @@ VERDICTS = {
         'WALK: ходить, выходить, доход; NECESSITY: необходимый',
     ),
     'ста(j)|сто(j)': (
-        'KEEP_ONE_FAMILY',
-        'Стоять, стать и ставить остаются одной игровой семьёй. Устав, усталость, сустав и достаточный не возвращаются.',
-        'KEEP: стоять, стать, ставить; PEELED: устав, усталость, сустав, достаточный',
+        'SPLIT',
+        'Стоять не открывает остальной, состоять, стать и ставить. Устав, усталость, сустав и достаточный уже были отдельно.',
+        'STAND: стоять, простоять; REMAIN: оставить, остальной; CONSIST: состоять, состояние; BECOME: стать, становиться; SET: ставить; SUPPLY: поставить; COMPOSE: состав; +halt/represent/brew/decree/install/…',
     ),
     'сам': (
         'SPLIT',
@@ -179,20 +183,15 @@ VERDICTS = {
         'Цветок не открывает бесцветный. Лемма цвет оставлена: это и цвет, и цветение.',
         'BLOOM: цветок, цвести; COLOR: бесцветный, цветной; UNRESOLVED: цвет',
     ),
-    'бв|бы': (
-        'SAFE_ONE_FAMILY',
-        'Прибытие и прибыль — приставочные производные быть. Отдельный смысловой разрез не делался.',
-        '',
-    ),
     'важ²|важд|вед²|вес²|вод¹|вож¹|вожд': (
-        'SAFE_ONE_FAMILY',
-        'Водить, вывести, свод и сводник оставлены одной приставочной семьёй вести.',
-        '',
+        'SPLIT',
+        'Вести не открывает завод, взвод, вождя, сводника, невод, производство и провожать.',
+        'CONDUCT: вести, водить, перевод; FACTORY: завод; SQUAD: взвод; CHIEF: вождь; PANDER: сводник; SEINE: невод; PRODUCE: производство; ESCORT: провожать; DIVORCE: развод; +behavior/obsession/institution/argument',
     ),
     'мир¹': (
-        'SAFE_ONE_FAMILY',
-        'Мир — и покой, и свет. Мирской нельзя оторвать без выбора значения одной леммы.',
-        '',
+        'SPLIT',
+        'Мирный не открывает мирской и смирный. Леммы мир и мировой хранят оба чтения: покой и свет.',
+        'PEACE: мирный, мирить, перемирие; WORLDLY: мирской, мирянин; HUMBLE: смирный, смирить; MULTI: мир, мировой',
     ),
     'прав': (
         'SPLIT',
@@ -299,50 +298,2091 @@ VERDICTS = {
         'Умирать не открывает морить и замирать. Уморительный и морилка тоже отдельно.',
         'DIE: умирать, смерть, мертвый; PLAGUE: мор, морить, вымаривать; STILL: замирать, замереть; FUNNY: уморительный; STAIN: морилка',
     ),
-    'общ': (
-        'SAFE_ONE_FAMILY',
-        'Общий и общественный — одна современная семья.',
+    'кат¹|кач¹': (
+        'SPLIT',
+        'Катить не открывает качать.',
+        'ROLL: катить, катать, прокат; ROCK: качать, качели',
+    ),
+    'тач¹|тек|теч|ток¹|точ¹': (
+        'SPLIT',
+        'Течь не открывает точить и восток. Тачать, заточение, расточительность, токовать и сутки отдельно.',
+        'FLOW: течь, ток, источник; SHARPEN: точить, токарь; EAST: восток; STITCH: тачать; IMPRISON: заточение; SQUANDER: расточительный; LEK: токовать; DAILY: суточный',
+    ),
+    'рв|ров¹|ры': (
+        'SPLIT',
+        'Рвать / взрыв не открывают рыть и ров.',
+        'RIP: рвать, взрыв; DIG: рыть, ров, рыло',
+    ),
+    'руб': (
+        'SPLIT',
+        'Рубить не открывает рубль, рубашку, рубеж и рубец.',
+        'CHOP: рубить; RUBLE: рубль; SHIRT: рубашка; BORDER: рубеж; SCAR: рубец; PLANE: рубанок; RAG: рубище; BRAN: отруби',
+    ),
+    'влач|влек|влеч|волак|волок|волоч': (
+        'SPLIT',
+        'Влечь не открывает волокно, проволоку и волочь.',
+        'ATTRACT: влечь, увлечение; DRAG: волочь, наволочка; FIBER: волокно; WIRE: проволока',
+    ),
+    'бог|бож': (
+        'SPLIT',
+        'Бог не открывает богатый и убогий.',
+        'GOD: бог, божественный; RICH: богатый, богатство; WRETCHED: убогий',
+    ),
+    'бед|бежд': (
+        'SPLIT',
+        'Бедный не открывает победу и убеждать.',
+        'MISERY: беда, бедный; VICTORY: победа; PERSUADE: убеждать',
+    ),
+    'сл²|стел|стил|стл|стол': (
+        'SPLIT',
+        'Стол не открывает постель и сланец.',
+        'TABLE: стол, столица, столяр; SPREAD: стелить, постель; SLATE: сланец',
+    ),
+    'зар|зер|зир|зор|зр': (
+        'SPLIT',
+        'Зреть не открывает зеркало, зарю, надзор, позор и подозрение.',
+        'SEE: зреть, зрение; MIRROR: зеркало; DAWN: заря; SUPERVISE: надзор; SUSPECT: подозрение; SHAME: позор; MISCHIEF: озорник; PATTERN: узор; PUPIL: зрачок; DESPISE: презирать; GHOST: призрак; TRANSPARENT: прозрачный; SHELTER: призрение; GAP: зазор',
+    ),
+    'мерз|мораж|морож|мороз|мраз': (
+        'SPLIT',
+        'Мороз не открывает мерзкий.',
+        'FROST: мороз, мерзнуть; VILE: мерзкий, мерзость, омерзительный',
+    ),
+    'вес¹|веш¹': (
+        'SPLIT',
+        'Вес не открывает вешать и занавес.',
+        'WEIGHT: вес, весить, весы; HANG: вешать, занавес, навес',
+    ),
+    'ле(j)|ли|ло(j)|ль²': (
+        'SPLIT',
+        'Лить не открывает влияние.',
+        'POUR: лить, заливать; INFLUENCE: влияние, влиять',
+    ),
+    'рас|ращ|рос²|рощ': (
+        'SPLIT',
+        'Расти не открывает рощу.',
+        'GROW: расти, рост, растение; GROVE: роща',
+    ),
+    'вяж|вяз²': (
+        'SPLIT',
+        'Вязать не открывает вязкий.',
+        'TIE: вязать, связь; VISCOUS: вязкий, вязнуть',
+    ),
+    'глас|глаш|голос': (
+        'SPLIT',
+        'Голос не открывает гласный, согласие и пригласить.',
+        'VOICE: голос; PUBLIC_VOICE: гласный, гласность; AGREE: согласие; INVITE: пригласить; ANNOUNCE: огласить, возглас',
+    ),
+    'ступ¹': (
+        'SPLIT',
+        'Ступить не открывает преступление и проступок.',
+        'STEP: ступать, ступень, поступать; CRIME: преступление, проступок',
+    ),
+    # --- backlog / agent triage ---
+    'баб': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (бабища/обабок, бабуся/обабок, бабкин/обабок)',
+        'BOLETUS / BUTTERFLY / WOMAN',
+    ),
+    'блес|блеск|блест|блист': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (блеск/взблеск, блеск/отблеск, блесна/взблеск))',
+        'ONE_FAMILY',
+    ),
+    'бр²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (брить/обрить, брить/сбрить, брить/забрить))',
+        'ONE_FAMILY',
+    ),
+    'буд¹|бужд': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (будить/побудка))',
+        'ONE_FAMILY',
+    ),
+    'веред|вред|вреж|врежд': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (вред/веред, веред/вредный, веред/вредить))',
+        'ONE_FAMILY',
+    ),
+    'вир¹|вр': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (врун/врать, врун/враки, врун/враль))',
+        'ONE_FAMILY',
+    ),
+    'вис': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (провис/висеть, провис/височек, провис/свислый)',
+        'ONE_FAMILY',
+    ),
+    'во(j)²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (воин/война, воин/вояка, воин/войско))',
+        'ONE_FAMILY',
+    ),
+    'вя|вяд': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (вялый/увялый, вялый/вянуть, вялый/увядать))',
+        'ONE_FAMILY',
+    ),
+    'гал|гол': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (голыш/оголить, голыш/догола, голыш/оголеть))',
+        'ONE_FAMILY',
+    ),
+    'глох|глух|глуш': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (глушь/наглухо, глушь/вглухую, глухой/наглухо))',
+        'ONE_FAMILY',
+    ),
+    'грем|гром': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (гром/погром, гром/разгром, гром/греметь))',
+        'ONE_FAMILY',
+    ),
+    'дабр|добр': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (добро/подобру, добром/подобру, добряк/подобру)',
+        'ONE_FAMILY',
+    ),
+    'дал': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (даль/вдаль, даль/вдали, даль/одаль))',
+        'ONE_FAMILY',
+    ),
+    'далб|долб': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (долбеж/надолба, долбня/надолба, долбить/надол)',
+        'ONE_FAMILY',
+    ),
+    'ден|дн¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (поденка/дневка, поденка/денной, поденка/денни)',
+        'ONE_FAMILY',
+    ),
+    'доб': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (сдоба/удобно, сдоба/удобный, сдоба/подобие)',
+        'CONVENIENT / DOUGH_ADD / SIMILAR',
+    ),
+    'дох|дош': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (вдох/вздох, вдох/выдох, вдох/дохлый)',
+        'BREATH / DEAD_OF',
+    ),
+    'жв|жев': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (жевок/жвачка, жевок/сжевать, жевок/жвачный))',
+        'ONE_FAMILY',
+    ),
+    'жир²|жор|жр¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (жор/зажор, жор/нажор, жор/жрать))',
+        'ONE_FAMILY',
+    ),
+    'зд|зид|зижд|зод': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (здание/зодчий, здание/создать, зодчий/создать)',
+        'ONE_FAMILY',
+    ),
+    'и¹|ид|й|йд|ыд': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (найтись/уйти, найтись/идти, найтись/сойтись))',
+        'ONE_FAMILY',
+    ),
+    'им²|ым¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (имя/имечко, имя/именины, имя/именной))',
+        'ONE_FAMILY',
+    ),
+    'кап³|коп²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (скоп/копна, скоп/копить, скоп/копнить))',
+        'ONE_FAMILY',
+    ),
+    'кар²|кор²': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (кара/укор, кара/корить, кара/укорять)',
+        'PUNISH_KAR / REPROACH / SUBMIT',
+    ),
+    'клик|клиц|клич': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (клик/оклик, клик/отклик, клик/выклик))',
+        'ONE_FAMILY',
+    ),
+    'крап|кроп¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (крап/кропить, крап/кропило, крапать/кропить))',
+        'ONE_FAMILY',
+    ),
+    'крив': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (кривой/вкривь, кривой/накриво, вкривь/кривун))',
+        'ONE_FAMILY',
+    ),
+    'крик|крич': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (крик/окрик, крик/выкрик, крик/покрик))',
+        'ONE_FAMILY',
+    ),
+    'ку²|куп²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (купель/окунуть, купель/окунать, купать/окунут)',
+        'ONE_FAMILY',
+    ),
+    'лес¹|леш': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (лешак/лесок, лешак/лесочек, лешак/лесовик))',
+        'ONE_FAMILY',
+    ),
+    'лест|лещ²|льст|льщ': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (лесть/льстец, лесть/улещать, лесть/льстить))',
+        'ONE_FAMILY',
+    ),
+    'лип|ль¹': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (липа/льнуть, липа/влипать, липа/слипать)',
+        'LINDEN / STICK_TO',
+    ),
+    'мар¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (смарка/марать, смарка/маркий, смарка/маранье))',
+        'ONE_FAMILY',
+    ),
+    'мг|ми|миг': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (мигом/минуть, мигач/минуть, мигать/минуть)',
+        'BLINK / PASS_BY',
+    ),
+    'мил': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (милка/умилять, милка/умилить, милый/умилять))',
+        'ONE_FAMILY',
+    ),
+    'муж': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (мужлан/замужем, мужлан/замуж, мужичий/замужем)',
+        'ONE_FAMILY',
+    ),
+    'ник|ниц|нич|нк|ноч¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (никлый/вникать, никлый/изнанка, никлый/сникат)',
+        'ONE_FAMILY',
+    ),
+    'ок|оч': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (оконщик/заочник, оконщик/окно, оконщик/очки)',
+        'EYE / WINDOW',
+    ),
+    'перед|переж|пред|преж|прежд': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (предок/вперед, предок/впредь, предок/передок)',
+        'ANCESTOR / BEFORE_TIME / FORWARD / WARN',
+    ),
+    'пол⁵': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (пол/исполу, пол/пополам, пола/исполу)',
+        'GENDER_SEX / HALF',
+    ),
+    'пре': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (прель/упреть, прель/сопреть, прель/напреть))',
+        'ONE_FAMILY',
+    ),
+    'пря¹|пряд¹|пряж¹|пряс': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (пряха/спрясть, пряха/впрясть, пряжа/спрясть))',
+        'ONE_FAMILY',
+    ),
+    'пыт': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (опыт/пытка, опыт/пытать, опыт/попытка)',
+        'EXPERIENCE / TORTURE',
+    ),
+    'руж': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (ружье/оружие, оружие/ружьецо))',
+        'ONE_FAMILY',
+    ),
+    'серд|серж|серч': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (сердце/усердие, сердяга/усердие, сердить/усердие)',
+        'ANGER_HEART / HEART / ZEAL',
+    ),
+    'серебр|сребр': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (сребро/серебро))',
+        'ONE_FAMILY',
+    ),
+    'снов': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (основа/сновка, основа/сновать)',
+        'FOUNDATION / WEAVE_WARP',
+    ),
+    'сыт¹|сыщ': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (сытый/досыта, сытый/вдосыть, досыта/сытный))',
+        'ONE_FAMILY',
+    ),
+    'та(j)¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (затаить/тайный, затаить/тайком, затаить/утайк)',
+        'ONE_FAMILY',
+    ),
+    'твор²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (затвор/притвор, затвор/створка, затвор/раство)',
+        'ONE_FAMILY',
+    ),
+    'тих|тиш': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (втихую/тихий, втихую/затишек, втихую/утихать))',
+        'ONE_FAMILY',
+    ),
+    'трат|трач': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (трата/утрата, трата/затрата, утрата/затрата))',
+        'ONE_FAMILY',
+    ),
+    'туп': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (тупой/отупеть, тупик/отупеть, тупец/отупеть)',
+        'BLUNT / DEADEND',
+    ),
+    'тух|туш²|тх': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (тушить/тухлый, тушить/стушить, тушить/тухнуть)',
+        'EXTINGUISH / ROTTEN',
+    ),
+    'хит|хич|хищ': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (хищный/ухитить, хищник/ухитить, ухитить/хищни)',
+        'ONE_FAMILY',
+    ),
+    'хлеб²|хлеб': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (хлебок/взахлеб, хлебать/взахлеб, взахлеб/хлеб)',
+        'ONE_FAMILY',
+    ),
+    'худ|хуж': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (худо/хужеть, худой/хужеть, худеть/хужеть))',
+        'ONE_FAMILY',
+    ),
+    'чал¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (чал/счал, чал/отчал, чал/причал))',
+        'ONE_FAMILY',
+    ),
+    'чуд¹': (
+        'SPLIT',
+        'auto≥30: разностеблевые ROOT-пары (чудо/причуда, чудом/причуда, чудак/причуда)',
+        'WHIM / WONDER',
+    ),
+    'шут|шуч': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (шут/сшутить, шутя/сшутить, шутка/сшутить))',
+        'ONE_FAMILY',
+    ),
+    'щуп': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto≥30: разностеблевые ROOT-пары (щуп/ощупь, щуп/ощупью, щуп/ощупать))',
+        'ONE_FAMILY',
+    ),
+    'бадр|бодр': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 32 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
         '',
+    ),
+    'брыз|брызг': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 38 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'вен': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 30 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'глат|глот|глощ': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 33 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'гряз': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 34 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'дом': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 36 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'дроб': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 32 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'кашел|кашл': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 32 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'команд': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 31 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'корен|кореш|корн¹': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 37 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'крахмал': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 31 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'кров¹': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 36 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'мал³': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 38 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'плак|плач²': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 35 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'пласт': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 37 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'плюс|плюск|плющ²': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 35 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'поражн|порожн|пражн|праздн': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: мало коротких лемм (n=39); одной семьи достаточно',
+        '',
+    ),
+    'реш': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 37 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'руг': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 38 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'румян': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 31 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'сахар': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 34 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'сверл': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 32 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'свят|свяч|свящ': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 34 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'слаб': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 34 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'снаст|снащ': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 31 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'стекл|стекол': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 33 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'страд|страст¹': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 38 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'стыд|стыж': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 31 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'тверез|трезв': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 30 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'торг²|торж²': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 31 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'трес|треск¹|трещ': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 37 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'утюг|утюж': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 34 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'чекан': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 36 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'шеп': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 35 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'шлиф': (
+        'AGENT_THINKS_SAFE',
+        'auto≥30: на 32 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'берег¹|береж¹|береч|брег|бреж²|бреч': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (беречь/оберег))',
+        'ONE_FAMILY',
+    ),
+    'бред|брес|брод|брож': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (бред/брод, бред/сброд, бред/вброд)',
+        'DELIRIUM / FORD',
+    ),
+    'вастр|востр|остр|ощр': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (востро/острие, востро/острог, востро/острец)',
+        'PRISON / SHARP_EDGE',
+    ),
+    'выс|выш': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (высь/вышка, высь/ввысь, высь/вышина))',
+        'ONE_FAMILY',
+    ),
+    'гад¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (наугад/гадать))',
+        'ONE_FAMILY',
+    ),
+    'глад²|глод|голод': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (глад/голод))',
+        'ONE_FAMILY',
+    ),
+    'гна|гни|гно(j)': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (гной/гниль, гной/гнилец, гной/гнилье))',
+        'ONE_FAMILY',
+    ),
+    'год|гож|гожд': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (год/угода, год/загодя, год/негоже))',
+        'ONE_FAMILY',
+    ),
+    'да²|до(j)': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (дойный/доить, дойный/надой, дойный/доярка))',
+        'ONE_FAMILY',
+    ),
+    'дв': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (два/двое, два/вдвое, два/двоица))',
+        'ONE_FAMILY',
+    ),
+    'дуб': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (дуб/падуб, дубка/падуб, падуб/дубье))',
+        'ONE_FAMILY',
+    ),
+    'дых|дыш': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (отдых/роздых, отдых/дышать, отдых/одышка))',
+        'ONE_FAMILY',
+    ),
+    'жа²|жин|жн': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (дожать/ужин, дожать/жнивье, дожать/нажать))',
+        'ONE_FAMILY',
+    ),
+    'зл': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (зло/назло, зло/злюка, зло/злить))',
+        'ONE_FAMILY',
+    ),
+    'злат|злащ|золач|золот|золоч': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (злато/золото, златой/золото, золото/златка))',
+        'ONE_FAMILY',
+    ),
+    'ка²|кап¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (капля/кануть, капель/кануть, кануть/капать))',
+        'ONE_FAMILY',
+    ),
+    'каш³|кос²|кош³': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (косяк/накосо, косяк/скос, косяк/раскос))',
+        'ONE_FAMILY',
+    ),
+    'кащ|кост|кощ': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (кость/кощей, кощей/костяк))',
+        'ONE_FAMILY',
+    ),
+    'кип¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (кипеть/накипь, кипень/накипь))',
+        'ONE_FAMILY',
+    ),
+    'клан|клон': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (уклон/склон, уклон/наклон, уклон/поклон))',
+        'ONE_FAMILY',
+    ),
+    'клев|клю|клюв': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (клюв/клев, клюв/наклев, клюв/клевок))',
+        'ONE_FAMILY',
+    ),
+    'кол²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (колея/околыш, колесо/околыш, кольцо/околыш))',
+        'ONE_FAMILY',
+    ),
+    'кра¹|кро(j)': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (крой/покрой, крой/закрой, покрой/закрой))',
+        'ONE_FAMILY',
+    ),
+    'лед²|лед|льд': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (лед/наледь, лед/льдина, ледок/наледь))',
+        'ONE_FAMILY',
+    ),
+    'леп¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (лепка/слепок, лепеха/слепок, лепной/слепок))',
+        'ONE_FAMILY',
+    ),
+    'лиз': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (зализ/лизун, зализ/лизать))',
+        'ONE_FAMILY',
+    ),
+    'мал¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (мало/вмале, мало/смалу, мало/нимало))',
+        'ONE_FAMILY',
+    ),
+    'малк|малч|молк|молч': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (умолк/молча, умолк/молчун))',
+        'ONE_FAMILY',
+    ),
+    'мащ²|мост|мощ²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (мост/помост, мост/намост, мостки/помост))',
+        'ONE_FAMILY',
+    ),
+    'ма⁴|ман¹': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (обман/манок, обман/мание, обман/манный)',
+        'BECKON / DECEIVE',
+    ),
+    'мер³|мерек|мереч|мерк|мерц|морач|морок|мороч|мрак|мрач': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (мрак/сумрак, мрак/морока, сумрак/морока))',
+        'ONE_FAMILY',
+    ),
+    'мин¹|мн|мя²': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (помин/мнить, помин/мнение, мнить/мнение)',
+        'OPINION / REMEMBER',
+    ),
+    'мк|мок²|моч³|мык|мыч²': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (замок/мочка, замок/умычка, замок/смычка)',
+        'JOIN_LINK / LOCK / WANDER_MYK',
+    ),
+    'млад|молаж|молод|молож': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (смлада/молодь, смлада/младой, молодь/младой))',
+        'ONE_FAMILY',
+    ),
+    'мог|мож|моч²|мощ¹': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (мощи/мочь, мощи/можно, мощи/смочь)',
+        'CAN_V / RELIC',
+    ),
+    'молач|молот|молоч¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (молот/умолот))',
+        'ONE_FAMILY',
+    ),
+    'мук¹|муч¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (мука/мучить))',
+        'ONE_FAMILY',
+    ),
+    'мут|муч³|мущ': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (омут/смута, омут/мутить, омут/мутник)',
+        'MUDDY / UNREST',
+    ),
+    'ниж|низ¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (низкий/вниз, низкий/донизу, низкий/нанизу))',
+        'ONE_FAMILY',
+    ),
+    'нюх|нюш': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (понюх/нюхать))',
+        'ONE_FAMILY',
+    ),
+    'пал¹': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (опала/запал, опала/пальба, опала/палить)',
+        'BURN_FIRE / DISGRACE / GUNFIRE',
+    ),
+    'пар²|пор²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (порка/выпор, порка/опорок, порка/спорок))',
+        'ONE_FAMILY',
+    ),
+    'пеш²|пих|пх': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (пешня/пхать, пешня/пхнуть, пхать/пхнуть))',
+        'ONE_FAMILY',
+    ),
+    'пит|пич¹|пищ²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (пища/питать))',
+        'ONE_FAMILY',
+    ),
+    'плат¹|плач¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (плата/оплата, плата/уплата, платеж/оплата))',
+        'ONE_FAMILY',
+    ),
+    'пока¹|поко(j)': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (покои/упокой, покои/спокой, покой/упокой))',
+        'ONE_FAMILY',
+    ),
+    'пуг|пуж': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (испуг/пугач, испуг/пугать, испуг/пужать))',
+        'ONE_FAMILY',
+    ),
+    'пуст²|пущ¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (пуща/пустой, пуща/спуста, пуща/пустяк))',
+        'ONE_FAMILY',
+    ),
+    'пят²|пяч': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (пята/опять, пята/вспять, опять/пятка))',
+        'ONE_FAMILY',
+    ),
+    'рух|руш²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (рухлый/рушить, рухлый/рушать, рухлый/поруха))',
+        'ONE_FAMILY',
+    ),
+    'с|соп²|сп|сып²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (спать/снулый, спать/уснуть, спать/спячка))',
+        'ONE_FAMILY',
+    ),
+    'саб|соб': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (особа/способ, особь/способ, способ/особый)',
+        'MEANS_AID / OWN_PROPERTY / PARTICULAR',
+    ),
+    'сва¹|сво(j)': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (сват/свой, сват/свояк, свой/сваха)',
+        'MATCHMAKE / OWN',
+    ),
+    'син': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (синяк/досиня, синяк/иссиня, синец/досиня))',
+        'ONE_FAMILY',
+    ),
+    'сов²|су': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (совок/засов, совок/сунуть, засов/сунуть))',
+        'ONE_FAMILY',
+    ),
+    'спе': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (спех/успех, спех/наспех, спех/успеть))',
+        'ONE_FAMILY',
+    ),
+    'стерег|стереж|стереч|стораж|сторож|страж': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (страж/сторож, стража/сторож))',
+        'ONE_FAMILY',
+    ),
+    'студ|стуж': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (стужа/остуда))',
+        'ONE_FAMILY',
+    ),
+    'сук³|суч³': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (сукно/сучило, сукно/сучить)',
+        'CLOTH_WOOL / TWIST_YARN',
+    ),
+    'твар|твор¹': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (тварь/творец, тварь/утварь, творец/утварь)',
+        'CREATE / CREATURE / DISSOLVE / PRETENCE / UTENSILS',
+    ),
+    'то|тон²|топ²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (топь/тоня, топь/потоп, топь/затон))',
+        'ONE_FAMILY',
+    ),
+    'том²': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (томить/истома, томный/истома))',
+        'ONE_FAMILY',
+    ),
+    'тук¹|туч³': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (тук/стук, стук/тукать))',
+        'ONE_FAMILY',
+    ),
+    'ух¹|уш¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (ухо/ушан, ухо/ушки, ухо/ушко))',
+        'ONE_FAMILY',
+    ),
+    'хвал': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (хвала/чехвал))',
+        'ONE_FAMILY',
+    ),
+    'хот|хоч': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (охота/похоть, охота/хотеть, охотка/похоть))',
+        'ONE_FAMILY',
+    ),
+    'цед|цеж': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (цеж/цедить))',
+        'ONE_FAMILY',
+    ),
+    'цен': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (цена/оценка, цена/уценка, ценить/оценка))',
+        'ONE_FAMILY',
+    ),
+    'ч¹|чин²': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (учать/зачин, учать/почин, учать/начин)',
+        'AUTHORITY / BEGIN_START',
+    ),
+    'черк': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (очерк/почерк))',
+        'ONE_FAMILY',
+    ),
+    'черн': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (чернь/вчерне, черныш/вчерне, черняк/вчерне))',
+        'ONE_FAMILY',
+    ),
+    'чу': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (чуть/чуять, чуть/учуять, чуть/ничуть))',
+        'ONE_FAMILY',
+    ),
+    'ш|ше²|шед': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (пошляк/дошлый, дошлый/пошлый))',
+        'ONE_FAMILY',
+    ),
+    'шиб': (
+        'SPLIT',
+        'auto: разностеблевые ROOT-пары (ушиб/пошиб, ушиб/отшиб, ушиб/шибкий)',
+        'ERR / HIT_STRIKE',
+    ),
+    'щеп': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (щепа/прищеп, щепа/расщеп, щепка/прищеп))',
+        'ONE_FAMILY',
+    ),
+    'яв': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (auto: разностеблевые ROOT-пары (явка/наяву, явка/въявь, явка/въяве))',
+        'ONE_FAMILY',
+    ),
+    'бал¹|бол¹': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 42 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'вел¹': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 42 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'верг|верж': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 43 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'верст²|верст': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 48 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'ветер|ветр': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 42 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'винт|винч': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 54 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'влад|власт|волост': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 45 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'глад¹|глаж': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 64 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'гран': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 53 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'грыж|грыз': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 61 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'двор': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 40 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'един': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 61 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'желт|желч': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 40 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'зван|звен²|звон²': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 45 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'здорав|здоров|здрав': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 45 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'зел': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 40 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'зуб': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 48 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'капч|копот|копт|копч': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 47 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'квас|кваш': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 49 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'ковыр': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 49 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'корач|корот|короч¹|крат|кращ': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 46 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'крад|краж|крас²': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 42 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'крест|крещ': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 60 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'мал²|мол²': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 41 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'масл': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 56 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'меж|межд': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 64 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'мусл|мусол': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 40 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'мяг|мяк': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 46 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'пле|плев¹|плев|плю': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 51 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'плес²|плеск': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 57 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'поласк|полос²|полоск': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 46 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'прыг|прыж': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 55 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'прыс|прыск|прыщ': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 48 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'пут²': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 44 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'пут¹': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 61 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'пыл²': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 44 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'рис²': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 59 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'сал¹': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 44 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'свист|свищ': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 50 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'скабл|скобел|скобл': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 44 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'скреб|скрес': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 45 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'сла|сло(j)': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 45 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'смал|смол': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 50 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'сме¹': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 53 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'страст²|страх|страш|стращ': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 59 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'страч|строк|строч': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 49 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'тверд|тверж|твержд': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 44 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'тепел|тепл': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 40 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'тереб|треб': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 61 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'тесн': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 48 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'толк²|толоч²': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 41 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'торг¹|торж¹': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 45 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'труд|труж|тружд': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 43 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'трус³|трух²|труш': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 41 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'форм': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 59 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'хлест': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 64 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'хоран|хорон|хран': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 48 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'царап': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 41 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'черп': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 49 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'четвер|четыр': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 40 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'числ': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 62 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'швыр': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 45 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'щелк|щелч': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 40 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'ясн': (
+        'AGENT_THINKS_SAFE',
+        'auto: на 48 леммах нет явного межсмыслового ROOT-клаша в дымовой пробе',
+        '',
+    ),
+    'гул¹': (
+        'AGENT_THINKS_SAFE',
+        'гулять/прогулка — одна семья гуляния; гул/гулять CLOSED',
+        '',
+    ),
+    'каш¹|кос¹|кош¹': (
+        'AGENT_THINKS_SAFE',
+        'auto-TO_SPLIT demoted: odd ROOT pairs look like prefix/same-sense noise (weird ROOT: косить/косой)',
+        'ONE_FAMILY',
+    ),
+    'луп': (
+        'SPLIT',
+        'weird ROOT: лупить/лупа',
+        'MAGNIFIER / PEEL_BEAT',
+    ),
+    'пух|пуш': (
+        'SPLIT',
+        'weird ROOT: пух/пушка',
+        'FLUFF / FOREST_EDGE',
+    ),
+    'треп': (
+        'SPLIT',
+        'weird ROOT: трепать/трепет',
+        'THRASH / TREMOR',
+    ),
+    'хлоп': (
+        'SPLIT',
+        'weird ROOT: хлопать/хлопок',
+        'BOTHER / CLAP / COTTON',
+    ),
+    'балт|болт¹': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (болтать/болтовня, болт/сболтить)',
+        '',
+    ),
+    'ве': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (веять/веялка, веять/веяние)',
+        '',
+    ),
+    'гре': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (греть/согреть, греть/грелка)',
+        '',
+    ),
+    'дав¹': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (давить/давление, давить/подавить)',
+        '',
+    ),
+    'дур': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (дурной/дурь, дурной/дурак)',
+        '',
+    ),
+    'кал¹': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (калить/калёный, калить/раскалять)',
+        '',
+    ),
+    'кис¹': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (кислый/киснуть, кислый/кислота)',
+        '',
+    ),
+    'клеп': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (клепать/заклёпка, клепать/клепка)',
+        '',
+    ),
+    'лав²|лов': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (ловить/лов, ловить/ловля)',
+        '',
+    ),
+    'лад¹|лаж': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (лад/ладить, лад/ладовый)',
+        '',
+    ),
+    'лаз|лез¹|лес²': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (лезть/лазить, лезть/лазейка)',
+        '',
+    ),
+    'мет²|меч¹': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (метать/метание)',
+        '',
+    ),
+    'палз|полз|полоз': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (ползти/ползучий, ползти/полоз)',
+        '',
+    ),
+    'печат': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (печать/печатать, печать/печатный)',
+        '',
+    ),
+    'тис|тиск|тисоч': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (тискать/тиски, тискать/тиснение)',
+        '',
+    ),
+    'хлад|хлажд|холаж|холо|холод|холож': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (холод/холодный, холод/холодеть)',
+        '',
+    ),
+    'черт¹|черч': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (—)',
+        '',
+    ),
+    'щип': (
+        'AGENT_THINKS_SAFE',
+        'продуктивная семья; спорные пары CLOSED или одна семантика (щипать/щипцы, щипать/ущипнуть)',
+        '',
+    ),
+    'па(j)³|по(j)²': (
+        'AGENT_THINKS_SAFE',
+        'паять/пайка — одна семья пайки',
+        '',
+    ),
+    'бав': (
+        'SPLIT',
+        'добавить ≠ забава',
+        'ADD / AMUSE / RID',
+    ),
+    'вид|вист': (
+        'AGENT_THINKS_SAFE',
+        'видеть/вид уже CLOSED между спорными чтениями; оставляем как есть',
+        '',
+    ),
+    'дум': (
+        'SPLIT',
+        'думать ≠ дума (вече/собрание) если есть',
+        'ASSEMBLY / THINK',
+    ),
+    'зв|зов|зыв': (
+        'AGENT_THINKS_SAFE',
+        'звать и звук уже не открывают друг друга; зов-ветка одна семья',
+        '',
+    ),
+    'крут|круч¹': (
+        'SPLIT',
+        'крутить ≠ крутой',
+        'STEEP / TWIST',
+    ),
+    'кус¹|куш¹': (
+        'AGENT_THINKS_SAFE',
+        'кусать/кусок — одна семья кусания (куш CLOSED)',
+        '',
+    ),
+    'мах¹|маш': (
+        'AGENT_THINKS_SAFE',
+        'махать/взмах — одна семья махания (машина CLOSED)',
+        '',
+    ),
+    'мин²|мя¹': (
+        'AGENT_THINKS_SAFE',
+        'мять/смять — одна семья мятия (минута CLOSED)',
+        '',
+    ),
+    'п|пин|пон|пя': (
+        'AGENT_THINKS_SAFE',
+        'пять/пятый — одна семья пятёрки (распять CLOSED)',
+        '',
+    ),
+    'пах²|паш²': (
+        'AGENT_THINKS_SAFE',
+        'пахать/пашня — одна семья пахоты (пах CLOSED)',
+        '',
+    ),
+    'пе|по³': (
+        'AGENT_THINKS_SAFE',
+        'петь/песня — одна семья пения (пенка CLOSED)',
+        '',
+    ),
+    'пряг|пряж²|пряч': (
+        'AGENT_THINKS_SAFE',
+        'прятать — одна семья прятания (пряжка/пряжа CLOSED)',
+        '',
+    ),
+    'сал²|сол¹': (
+        'AGENT_THINKS_SAFE',
+        'соль/солить — одна семья соли (солнце CLOSED)',
+        '',
+    ),
+    'сл¹|сол²|сыл': (
+        'SPLIT',
+        'слать/посол ≠ соль',
+        'SEND',
+    ),
+    'слуг|служ': (
+        'AGENT_THINKS_SAFE',
+        'служить/слуга/служба — одна семья службы (случай CLOSED)',
+        '',
+    ),
+    'слух|слуш|слых|слыш': (
+        'AGENT_THINKS_SAFE',
+        'слушать/слышать — одна семья слуха (слыть уже CLOSED)',
+        '',
+    ),
+    'стриг|стриж¹|стрич': (
+        'AGENT_THINKS_SAFE',
+        'стричь/стрижка — одна семья стрижки (стриж CLOSED)',
+        '',
+    ),
+    'тес': (
+        'AGENT_THINKS_SAFE',
+        'тесный/теснота — одна семья тесноты (тесать CLOSED от неё)',
+        '',
+    ),
+    'ум': (
+        'SPLIT',
+        'ум/умный ≠ уметь',
+        'CAN / MIND',
+    ),
+    'гля|гляд': (
+        'AGENT_THINKS_SAFE',
+        'глядеть/взгляд — одна семья взгляда',
+        '',
+    ),
+    'готав|готов': (
+        'AGENT_THINKS_SAFE',
+        'готовый/готовить — одна семья готовности',
+        '',
+    ),
+    'груж|груз': (
+        'AGENT_THINKS_SAFE',
+        'грузить/груз/нагрузка — одна семья груза',
+        '',
+    ),
+    'жар': (
+        'AGENT_THINKS_SAFE',
+        'жара/жарить/жаркий — одна семья жара',
+        '',
+    ),
+    'кан|кон¹': (
+        'AGENT_THINKS_SAFE',
+        'конец/кончить — одна семья конца',
+        '',
+    ),
+    'колач|колот|колоч': (
+        'AGENT_THINKS_SAFE',
+        'колоть/расколоть — одна семья раскалывания',
+        '',
+    ),
+    'пил': (
+        'AGENT_THINKS_SAFE',
+        'пила/пилить/опилки — одна семья пиления',
+        '',
+    ),
+    'скак|скач|скок|скоч': (
+        'AGENT_THINKS_SAFE',
+        'скакать/скачок — одна семья скачков',
+        '',
+    ),
+    'стег¹|стег|стеж¹|стяж²': (
+        'AGENT_THINKS_SAFE',
+        'стегать/стежок — одна семья стежки',
+        '',
+    ),
+    'тап²|топ³': (
+        'AGENT_THINKS_SAFE',
+        'топить (печь/отопление) — одна семья топки; утопить проверить отдельно',
+        '',
+    ),
+    'бв|бы': (
+        'SPLIT',
+        'быть ≠ быт ≠ забыть',
+        'BE / EVERYDAY / FORGET',
+    ),
+    'бел': (
+        'SPLIT',
+        'белый ≠ бельё',
+        'LINEN / WHITE',
+    ),
+    'би(j)|бо(j)¹|бь': (
+        'SPLIT',
+        'бить ≠ битва',
+        'BATTLE / BEAT',
+    ),
+    'вал': (
+        'SPLIT',
+        'валить ≠ валик',
+        'ROLLER / TOPPLE',
+    ),
+    'вер¹': (
+        'SPLIT',
+        'верить ≠ проверить',
+        'BELIEVE / VERIFY',
+    ),
+    'ворач|ворот¹|вороч|врат¹|вращ': (
+        'SPLIT',
+        'ворот ≠ возврат ≠ вращение',
+        'COLLAR / GIVEBACK / ROTATE',
+    ),
+    'г|гб|ги|гиб': (
+        'SPLIT',
+        'гнуть ≠ гибнуть',
+        'BEND / PERISH',
+    ),
+    'гар|гор²': (
+        'SPLIT',
+        'гореть ≠ горе',
+        'BURN / GRIEF',
+    ),
+    'говар|говор': (
+        'SPLIT',
+        'говорить ≠ уговор',
+        'DEAL / SPEAK',
+    ),
+    'да¹|даж': (
+        'SPLIT',
+        'дать ≠ дар ≠ задача ≠ продать',
+        'GIFT / GIVE / SELL / TASK',
+    ),
+    'дви|двиг|движ|двиз': (
+        'SPLIT',
+        'двигать ≠ движимость',
+        'CHATTEL / MOVE',
+    ),
+    'дел': (
+        'SPLIT',
+        'делить ≠ отдел',
+        'DEPARTMENT / DIVIDE',
+    ),
+    'дух|душ¹': (
+        'SPLIT',
+        'душа ≠ дух',
+        'PERFUME / SOUL / SPIRIT',
+    ),
+    'е¹|ед|ес²|я³|яд': (
+        'SPLIT',
+        'есть/еда ≠ яд',
+        'EAT / VENOM',
+    ),
+    'ем|им¹|йм|ним|ня|ым²|я¹|∅': (
+        'SPLIT',
+        'взять ≠ понять ≠ нанять ≠ ёмкость',
+        'CAPACITY / HIRE / TAKE / UNDERSTAND',
+    ),
+    'жи': (
+        'SPLIT',
+        'жить ≠ оживить',
+        'ANIMATE / LIVE',
+    ),
+    'иск|ищ|ыск|ыщ': (
+        'SPLIT',
+        'искать ≠ иск',
+        'CLAIM_SUIT / SEARCH',
+    ),
+    'кал²|кол¹': (
+        'SPLIT',
+        'колоть ≠ кол',
+        'STAB / STAKE',
+    ),
+    'ки¹|кид': (
+        'SPLIT',
+        'кидать ≠ скидка',
+        'DISCOUNT / THROW',
+    ),
+    'люб': (
+        'SPLIT',
+        'любить ≠ любоваться',
+        'ADMIRE / LOVE',
+    ),
+    'мач²|мок¹|моч¹': (
+        'SPLIT',
+        'мокрый ≠ моча',
+        'URINE / WET',
+    ),
+    'ме|мес²|мет¹|мет': (
+        'SPLIT',
+        'мести ≠ метель',
+        'BLIZZARD / SWEEP',
+    ),
+    'мер¹': (
+        'SPLIT',
+        'мера ≠ пример ≠ намерение',
+        'EXAMPLE / INTENT / MEASURE',
+    ),
+    'мног|множ': (
+        'SPLIT',
+        'умножение ≠ множество ≠ много',
+        'MANY / MULTIPLY / SET_MATH',
+    ),
+    'мысел|мысл|мышл': (
+        'SPLIT',
+        'мысль ≠ промышленность',
+        'INDUSTRY / THOUGHT',
+    ),
+    'наш|нес|нос²|нош': (
+        'SPLIT',
+        'нести ≠ износ',
+        'CARRY / WEAR',
+    ),
+    'нз|низ²|нож¹|ноз': (
+        'SPLIT',
+        'низ ≠ нож ≠ заноза',
+        'BOTTOM / KNIFE / SPLINTER',
+    ),
+    'па²|пи|по(j)¹|пь': (
+        'SPLIT',
+        'пить ≠ поить ≠ пьяный',
+        'DRINK / DRUNK / WATER_V',
+    ),
+    'па¹|пад|паж|пас¹|пащ': (
+        'SPLIT',
+        'падать ≠ пасти',
+        'FALL / GRAZE',
+    ),
+    'пар³|пер¹|пир|пор³|пр': (
+        'SPLIT',
+        'переть ≠ спор ≠ упор',
+        'DISPUTE / SHOVE / SUPPORT',
+    ),
+    'пла|плав|плов|плы': (
+        'SPLIT',
+        'плавать ≠ плавить',
+        'MELT / SWIM',
+    ),
+    'полн': (
+        'SPLIT',
+        'полный ≠ выполнить',
+        'FULFILL / FULL',
+    ),
+    'праш|прос¹|прош': (
+        'SPLIT',
+        'просить ≠ вопрос',
+        'ASK / QUESTION',
+    ),
+    'пуск|пуст¹|пущ²': (
+        'SPLIT',
+        'пустить ≠ отпуск',
+        'LEAVE / LET',
+    ),
+    'раб': (
+        'SPLIT',
+        'работа ≠ раб',
+        'SLAVE / WORK',
+    ),
+    'реж²|рез': (
+        'SPLIT',
+        'резать ≠ резкий',
+        'CUT / SHARP',
+    ),
+    'рек²|реч²|риц|рок|роч|рош²': (
+        'SPLIT',
+        'речь ≠ срок',
+        'DEADLINE / SPEECH',
+    ),
+    'свес|свет|свеч|свещ': (
+        'SPLIT',
+        'свет ≠ свеча',
+        'CANDLE / LIGHT',
+    ),
+    'сил¹': (
+        'SPLIT',
+        'сила ≠ насилие',
+        'STRENGTH / VIOLENCE',
+    ),
+    'стра|стро(j)': (
+        'SPLIT',
+        'строить ≠ настроение',
+        'CONSTRUCT / MOOD',
+    ),
+    'талк|толк¹|толок|толоч¹|толч': (
+        'SPLIT',
+        'толкать ≠ толочь/толокно',
+        'POUND / PUSH',
+    ),
+    'тап¹|топ¹': (
+        'SPLIT',
+        'топить/топь ≠ топать',
+        'FLOOD_DROWN / STOMP',
+    ),
+    'тер¹|тер|тир|тор|тр²': (
+        'SPLIT',
+        'тереть ≠ стирать',
+        'LAUNDER / RUB',
+    ),
+    'тк|ток²|точ²|тык|тыч': (
+        'SPLIT',
+        'ткать ≠ точка ≠ тыкать',
+        'LOOM_WEAVE / PINPOINT / POKE',
+    ),
+    'ук|уч': (
+        'SPLIT',
+        'учить ≠ наука',
+        'INSTRUCT / SCIENCE',
+    ),
+    'хват': (
+        'SPLIT',
+        'хватать/захват ≠ хватит',
+        'GRAB / SUFFICE',
+    ),
+    'цел²': (
+        'SPLIT',
+        'целый ≠ исцелить; кросс с цель',
+        'GOAL / HEAL / KISS / WHOLE',
+    ),
+    'цел¹': (
+        'SPLIT',
+        'цель кроссит целый/исцелить',
+        'GOAL',
+    ),
+    'бег|беж': (
+        'AGENT_THINKS_SAFE',
+        'бежать/бег/побег — одна семья бега',
+        '',
+    ),
+    'брас|брос|брош': (
+        'AGENT_THINKS_SAFE',
+        'бросить/бросок — одна семья бросания',
+        '',
+    ),
+    'важ⁴|вез|вож³|воз': (
+        'AGENT_THINKS_SAFE',
+        'везти/воз — одна семья перевозки',
+        '',
+    ),
+    'вар¹': (
+        'AGENT_THINKS_SAFE',
+        'варить/повар/отвар — одна семья варки',
+        '',
+    ),
+    'вел²|вл|вол¹': (
+        'AGENT_THINKS_SAFE',
+        'велеть/воля — одна семья воли (вол/волна CLOSED)',
+        '',
+    ),
+    'ви|во(j)¹|вь': (
+        'AGENT_THINKS_SAFE',
+        'вить/завивать — одна семья витья',
+        '',
+    ),
+    'вод²|вож²': (
+        'AGENT_THINKS_SAFE',
+        'вода/водный — одна семья воды',
+        '',
+    ),
+    'ган|гн|гон': (
+        'AGENT_THINKS_SAFE',
+        'гнать/погоня/гонка — одна семья гона',
+        '',
+    ),
+    'ду': (
+        'AGENT_THINKS_SAFE',
+        'дуть/надувать — одна семья дуновения',
+        '',
+    ),
+    'езд|езж|ех': (
+        'AGENT_THINKS_SAFE',
+        'ездить/ехать/проезд — одна транспортная семья',
+        '',
+    ),
+    'жа¹|жим|жм|жом': (
+        'AGENT_THINKS_SAFE',
+        'жать/сжимать — одна семья сжатия (урожай CLOSED)',
+        '',
+    ),
+    'жг|жеч|жж|жиг|жог': (
+        'AGENT_THINKS_SAFE',
+        'жечь/ожог/сжигать — одна семья жжения',
+        '',
+    ),
+    'зем': (
+        'AGENT_THINKS_SAFE',
+        'земля/земельный — одна семья земли',
+        '',
+    ),
+    'игор|игр|ыгр': (
+        'AGENT_THINKS_SAFE',
+        'играть/игра — одна семья игры',
+        '',
+    ),
+    'кап²|коп¹': (
+        'AGENT_THINKS_SAFE',
+        'копать/окоп — одна семья копания',
+        '',
+    ),
+    'карм|корм¹': (
+        'AGENT_THINKS_SAFE',
+        'кормить/корм — одна семья кормления',
+        '',
+    ),
+    'кле(j)': (
+        'AGENT_THINKS_SAFE',
+        'клеить/клей — одна семья клея',
+        '',
+    ),
+    'ков|ку¹': (
+        'AGENT_THINKS_SAFE',
+        'ковать/подкова — одна семья ковки',
+        '',
+    ),
+    'креп': (
+        'AGENT_THINKS_SAFE',
+        'крепкий/крепить/крепость — одна семья крепости',
+        '',
+    ),
+    'кров²|кры': (
+        'AGENT_THINKS_SAFE',
+        'крыть/крыша/покров — одна семья покрытия',
+        '',
+    ),
+    'круг|круж¹': (
+        'AGENT_THINKS_SAFE',
+        'круг/окружать/кружить — одна семья круга',
+        '',
+    ),
+    'куп¹': (
+        'AGENT_THINKS_SAFE',
+        'купить/купля — одна торговая семья',
+        '',
+    ),
+    'кур¹': (
+        'AGENT_THINKS_SAFE',
+        'курить/закурить — одна семья курения (курорт CLOSED)',
+        '',
+    ),
+    'лам|лом': (
+        'AGENT_THINKS_SAFE',
+        'ломать/перелом — одна семья ломания',
+        '',
+    ),
+    'лек|леч¹': (
+        'AGENT_THINKS_SAFE',
+        'лечить/лечение — одна семья лечения',
+        '',
+    ),
+    'лет²|лет': (
+        'AGENT_THINKS_SAFE',
+        'лететь/полёт — одна семья полёта (лето CLOSED)',
+        '',
+    ),
+    'маз': (
+        'AGENT_THINKS_SAFE',
+        'мазать/смазка/мазь — одна семья мазания',
+        '',
+    ),
+    'мат²|мот': (
+        'AGENT_THINKS_SAFE',
+        'мотать/моток — одна семья мотания (мат CLOSED)',
+        '',
+    ),
+    'мен¹': (
+        'AGENT_THINKS_SAFE',
+        'менять/замена/обмен — одна семья обмена',
+        '',
+    ),
+    'мес¹|мех²|меш¹': (
+        'AGENT_THINKS_SAFE',
+        'мешать/смесь — семья смешивания; мешок уже не открывается',
+        '',
+    ),
+    'мо(j)|мов|мы': (
+        'AGENT_THINKS_SAFE',
+        'мыть/умывать/мыло — одна семья мытья',
+        '',
+    ),
+    'нов': (
+        'AGENT_THINKS_SAFE',
+        'новый/обновить/новость — одна семья новизны',
+        '',
+    ),
+    'пар¹': (
+        'AGENT_THINKS_SAFE',
+        'пар/паровой/парить — одна семья пара',
+        '',
+    ),
+    'пис|пиш': (
+        'AGENT_THINKS_SAFE',
+        'писать/письмо — одна семья письма',
+        '',
+    ),
+    'прям': (
+        'AGENT_THINKS_SAFE',
+        'прямой/выпрямить — одна семья прямизны',
+        '',
+    ),
+    'сас|сос': (
+        'AGENT_THINKS_SAFE',
+        'сосать/насос — одна семья сосания',
+        '',
+    ),
+    'се': (
+        'AGENT_THINKS_SAFE',
+        'сеять/посев — одна семья сева',
+        '',
+    ),
+    'сек|сеч': (
+        'AGENT_THINKS_SAFE',
+        'сечь/сечение — одна семья сечения (секунда CLOSED)',
+        '',
+    ),
+    'сел': (
+        'AGENT_THINKS_SAFE',
+        'село/селить/поселение — одна семья поселения',
+        '',
+    ),
+    'сматр|смотр': (
+        'AGENT_THINKS_SAFE',
+        'смотреть/рассмотрение — одна семья зрения',
+        '',
+    ),
+    'соп³|сып¹': (
+        'AGENT_THINKS_SAFE',
+        'сыпать/засыпать — одна семья сыпания',
+        '',
+    ),
+    'сох²|сух|суш|сых': (
+        'AGENT_THINKS_SAFE',
+        'сухой/сушить/засуха — одна семья сухости',
+        '',
+    ),
+    'стар': (
+        'AGENT_THINKS_SAFE',
+        'старый/старость — одна семья старости',
+        '',
+    ),
+    'страг|строг¹|строж|струг¹|струж¹': (
+        'AGENT_THINKS_SAFE',
+        'строгий и строгать уже не открывают друг друга; оставляем до отдельного ревью',
+        '',
+    ),
+    'стрел': (
+        'AGENT_THINKS_SAFE',
+        'стрела/стрелять/выстрел — одна семья стрельбы',
+        '',
+    ),
+    'тем²|тем|тм|тьм': (
+        'AGENT_THINKS_SAFE',
+        'тёмный/темнота — одна семья темноты',
+        '',
+    ),
+    'таск|тасч|тащ': (
+        'AGENT_THINKS_SAFE',
+        'тащить/вытаскивать — одна семья таскания',
+        '',
+    ),
+    'тряс|трях': (
+        'AGENT_THINKS_SAFE',
+        'трясти/тряска — одна семья тряски',
+        '',
+    ),
+    'цеп': (
+        'AGENT_THINKS_SAFE',
+        'цепь/цеплять/сцепление — одна семья сцепки',
+        '',
+    ),
+    'чес¹|чес|чеш': (
+        'AGENT_THINKS_SAFE',
+        'чесать/расчёска — одна семья чесания (честный CLOSED)',
+        '',
+    ),
+    'чин¹': (
+        'AGENT_THINKS_SAFE',
+        'чинить/причина/чин уже CLOSED между собой — не режем',
+        '',
+    ),
+    'чист|чищ': (
+        'AGENT_THINKS_SAFE',
+        'чистый/чистить/чистота — одна семья чистоты',
+        '',
+    ),
+    'шв|шев|ши|шов': (
+        'AGENT_THINKS_SAFE',
+        'шить/шов/вышивка — одна семья шитья',
+        '',
+    ),
+    'общ': (
+        'SPLIT',
+        'Общий не открывает общество, общаться и приобщить.',
+        'COMMON: общий, обобщить; SOCIETY: общество, община; COMMUNE: общаться, сообщить; AFFILIATE: приобщить; SOCIABLE: общительный',
     ),
     'один|одн': (
-        'SAFE_ONE_FAMILY',
-        'Один и одинаковый — одна семья.',
-        '',
+        'SPLIT',
+        'Один не открывает одинаковый, одинокий и однако.',
+        'ONE: один, однажды; SAME: одинаковый; ALONE: одинокий; HOWEVER: однако',
     ),
     'серед|сред': (
-        'SAFE_ONE_FAMILY',
-        'Среда и средний — одна семья середины.',
-        '',
+        'SPLIT',
+        'Средний не открывает средство, посредника и посредственный.',
+        'MIDDLE: средний, середина, среда; MEANS: средство; MEDIATOR: посредник; MEDIOCRE: посредственный',
     ),
     'дл|дол²': (
-        'SAFE_ONE_FAMILY',
-        'Длина и длиться — одна семья.',
-        '',
+        'SPLIT',
+        'Длина не открывает долину, подлинный, подол и долой.',
+        'LONG: длина, длиться; VALLEY: дол, долина; AUTHENTIC: подлинный; HEM: подол; DOWNWARD: долой',
     ),
     'удар': (
-        'SAFE_ONE_FAMILY',
-        'Ударение оставлено при ударе.',
-        '',
+        'SPLIT',
+        'Удар не открывает ударение.',
+        'HIT: удар, ударить; STRESS: ударение, безударный',
     ),
     'рав|ров²': (
-        'SAFE_ONE_FAMILY',
-        'Уровень оставлен при равном.',
-        '',
+        'SPLIT',
+        'Равный не открывает ровный, равнину и ровесника.',
+        'EQUAL: равный, уровень, уравнение; EVEN: ровный; PLAIN: равнина; PEER: ровесник',
     ),
     'верх|верш¹': (
-        'SAFE_ONE_FAMILY',
-        'Совершать оставлено при верхе как приставочное завершение.',
-        '',
+        'SPLIT',
+        'Верх не открывает совершить и завершить.',
+        'TOP: верх, вершина; ACCOMPLISH: совершить, совершенство, завершить',
     ),
     'гад²|гаж': (
-        'SAFE_ONE_FAMILY',
-        'Гад и гадость в современном языке одна оценочная семья.',
-        '',
+        'SPLIT',
+        'Гад / гадюка не открывают гадкий и гадость.',
+        'REPTILE: гад, гадюка; NASTY: гадкий, гадость, гадить',
     ),
     'тр¹': (
-        'SAFE_ONE_FAMILY',
-        'Семья тр¹ — это тройка. строить открывает три отдельным морфологическим чтением, не смешением семьи.',
-        '',
+        'SPLIT',
+        'Три не открывает строить (двойной корень стро/тр убран в construct).',
+        'THREE: три, третий, тройка; CONSTRUCT: строить, страивать',
     ),
     'праст|прост|прощ': (
         'SPLIT',
@@ -360,9 +2400,9 @@ VERDICTS = {
         'HAND: рука, ручка, обручение; HOOP: обруч',
     ),
     'след|слеж': (
-        'SAFE_ONE_FAMILY',
-        'Следовательно оставлено при следовать: это приставочное следствие.',
-        '',
+        'SPLIT',
+        'Следить не открывает следствие, наследство, преследовать и последний.',
+        'TRACK: след, следить; INVESTIGATE: следствие, исследовать; FOLLOW: следовать; INHERIT: наследство; PURSUE: преследовать; LATTER: последний; PLACENTA: послед',
     ),
     'пас²': (
         'SPLIT',
@@ -960,6 +3000,8 @@ def render_report(ordered, buckets, tiers, multi, universe, fuzz, corpus):
         f'ALREADY_SPLIT {buckets["ALREADY_SPLIT"]}',
         f'verdict_SPLIT {verdicts["SPLIT"]}',
         f'verdict_SAFE_ONE_FAMILY {verdicts["SAFE_ONE_FAMILY"]}',
+        f'verdict_AGENT_THINKS_SAFE {verdicts["AGENT_THINKS_SAFE"]}',
+        f'verdict_TO_SPLIT {verdicts["TO_SPLIT"]}',
         f'verdict_UNCLEAR {verdicts["UNCLEAR"]}',
         f'verdict_UNREVIEWED {verdicts["UNREVIEWED"]}',
         f'hand_decisions_still_open {len(unclear)}',
