@@ -79,15 +79,19 @@
     var maxSeconds = words.reduce(function (max, item) {
       return Math.max(max, Number(item.median_time_seconds) || 0);
     }, 0);
+    var maxLastPercent = words.reduce(function (max, item) {
+      return Math.max(max, Number(item.last_percent) || 0);
+    }, 0);
     return words.map(function (item) {
       var value = Number(item.median_time_seconds);
       var hasTime = item.median_time_seconds != null && item.median_time_seconds !== '' && Number.isFinite(value) && value >= 0;
       var width = hasTime && maxSeconds > 0 ? Math.max(4, Math.round(value / maxSeconds * 100)) : 0;
       var label = hasTime ? seconds(value) : '—';
       var lastPercent = percent(item.last_percent);
-      var lastWidth = Number(item.last_percent);
-      if (!Number.isFinite(lastWidth)) lastWidth = 0;
-      lastWidth = Math.max(0, Math.min(100, lastWidth));
+      var lastValue = Number(item.last_percent);
+      var lastWidth = lastValue > 0 && maxLastPercent > 0
+        ? Math.max(4, Math.round(lastValue / maxLastPercent * 100))
+        : 0;
       return '<li class="new-daily-statistics__ladder-word' + (hasTime ? '' : ' is-missing') + '">' +
         '<span class="new-daily-statistics__word-pill' + (hasTime ? '' : ' is-missing') + '">' + esc(item.word) + '</span>' +
         '<strong data-tooltip="Время перед вводом слова" tabindex="0"><i class="ph ph-hourglass" aria-hidden="true"></i> ' + esc(label) + '</strong>' +
