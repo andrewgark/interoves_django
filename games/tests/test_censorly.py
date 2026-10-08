@@ -208,15 +208,11 @@ class CensorlyAccessTests(TestCase):
         self.plain = User.objects.create_user('cz_plain', password='x', is_staff=False)
         self.client = Client()
 
-    def test_anon_gets_redirect_or_404(self):
+    def test_plain_user_gets_public_random_page(self):
         url = f'/censorly/r/{self.share_hash}/'
-        resp = self.client.get(url)
-        self.assertIn(resp.status_code, (302, 404))
-
-    def test_plain_user_404_even_when_ready(self):
         self.client.force_login(self.plain)
-        resp = self.client.get(f'/censorly/r/{self.share_hash}/')
-        self.assertEqual(resp.status_code, 404)
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
 
     def test_staff_can_play_and_guess(self):
         self.client.force_login(self.staff)
@@ -256,9 +252,9 @@ class CensorlyAccessTests(TestCase):
         data = guess.json()
         self.assertIn(data['status'], ('hit', 'miss', 'won'))
 
-    def test_hub_staff_only_when_ready(self):
+    def test_hub_is_public_when_ready(self):
         self.client.force_login(self.plain)
-        self.assertEqual(self.client.get('/censorly/').status_code, 404)
+        self.assertEqual(self.client.get('/censorly/').status_code, 200)
         self.client.force_login(self.staff)
         self.assertEqual(self.client.get('/censorly/').status_code, 200)
 
