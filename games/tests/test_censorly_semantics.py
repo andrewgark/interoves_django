@@ -264,7 +264,7 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('простить', 'прощение'))
 
     def test_alternative_root_readings_are_not_a_compound(self):
-        from games.censorly.lexical.rootbank import structures_of
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
 
         mary = structures_of('марь')
         self.assertEqual(set(mary), {('sense:haze',), ('sense:plant',)})
@@ -273,9 +273,76 @@ class SemanticsTests(SimpleTestCase):
         self.assertNotIn(('sense:plant',), structures_of('маревый'))
         self.assertTrue(opens('марь', 'маревый'))
         self.assertFalse(opens('маревый', 'мара'))
-        compound = structures_of('пчеловод')
-        self.assertTrue(compound)
-        self.assertTrue(all(len(item) >= 2 for item in compound))
+        beekeeper = assignment_of('пчеловод')
+        self.assertEqual(beekeeper['structures'], ())
+        self.assertEqual(beekeeper['source'], 'UNRESOLVED')
+        self.assertFalse(opens('пчела', 'пчеловод'))
+        snow = assignment_of('белоснежный')
+        self.assertEqual(snow['source'], 'UNIQUE_SPELLING_FALLBACK')
+        self.assertTrue(snow['structures'])
+        self.assertTrue(all(len(item) >= 2 for item in snow['structures']))
+
+    def test_spelling_does_not_join_numbered_families(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        sea = structures_of('мир')
+        self.assertTrue(sea)
+        self.assertTrue(all('мир²' not in item[0] and 'мор¹' not in item[0] for item in sea))
+        self.assertFalse(opens('мир', 'море'))
+        self.assertFalse(opens('мир', 'умирать'))
+        self.assertTrue(opens('умирать', 'смерть'))
+        self.assertTrue(opens('мир', 'мирный'))
+        self.assertTrue(opens('море', 'морской'))
+        self.assertFalse(opens('вода', 'водить'))
+        chrism = assignment_of('миро')
+        self.assertEqual(chrism['source'], 'SEMANTIC_SPLIT')
+        self.assertEqual(chrism['structures'], (('sense:chrism',),))
+        ambiguous = assignment_of('веризм')
+        self.assertEqual(ambiguous['source'], 'UNRESOLVED')
+        self.assertEqual(ambiguous['structures'], ())
+        self.assertGreater(len(ambiguous['refused']), 1)
+        self.assertFalse(opens('веризм', 'верить'))
+
+    def test_compounds_keep_full_structures_only(self):
+        from games.censorly.lexical.rootbank import (
+            _ATOMIC_LEXICALIZED, _PROVENANCE, _SENSE, assignment_of, structures_of,
+        )
+
+        self.assertEqual(
+            _ATOMIC_LEXICALIZED,
+            {fold('красивенький'), fold('мелюзга')},
+        )
+        beauty = assignment_of('красивенький')
+        self.assertEqual(beauty['source'], 'ATOMIC_LEXICALIZED')
+        self.assertEqual(beauty['structures'], (('sense:beauty',),))
+        self.assertTrue(opens('красивенький', 'красивый'))
+        small = assignment_of('мелюзга')
+        self.assertEqual(small['source'], 'ATOMIC_LEXICALIZED')
+        self.assertEqual(small['structures'], (('sense:small',),))
+        for lemma, info in _PROVENANCE.items():
+            structs = structures_of(lemma)
+            self.assertLessEqual(len(structs), 32, lemma)
+            if info['source'] in ('UNRESOLVED', 'UNRESOLVED_TOO_AMBIGUOUS'):
+                self.assertEqual(structs, (), lemma)
+            if info['source'] == 'ATOMIC_LEXICALIZED':
+                self.assertIn(lemma, _ATOMIC_LEXICALIZED)
+                self.assertTrue(all(
+                    len(item) == 1 and item[0].startswith('sense:') for item in structs
+                ))
+            token = (info['detail'] or '').split()[-1] if info['detail'] else ''
+            if '+' not in token:
+                continue
+            parts = token.split('+')
+            self.assertGreaterEqual(len(parts), 2)
+            self.assertNotIn(info['source'], ('SEMANTIC_SPLIT', 'MANUAL_MULTI_READING'), lemma)
+            if lemma in _ATOMIC_LEXICALIZED:
+                continue
+            for item in structs:
+                self.assertEqual(len(item), len(parts), lemma)
+                self.assertFalse(any(part.startswith('sense:') for part in item), lemma)
+            if lemma in _SENSE:
+                for item in structs:
+                    self.assertFalse(any(part in _SENSE[lemma] for part in item), lemma)
 
     def test_split_families_leave_no_bridge_lemma(self):
         from games.censorly.lexical.core import fold
@@ -392,8 +459,8 @@ class LexicalGameplayTests(TestCase):
             }
             self.assertIn(fold('пчелиный'), opened)
             self.assertIn(fold('пчела'), opened)
-            self.assertIn((fold('пчеловод'), 'root_overlap'), rejected)
             self.assertNotIn(fold('пчеловод'), opened)
+            self.assertNotIn(fold('пчеловод'), {lemma for lemma, _reason in rejected})
             honey = apply_guess(game=game, task=task, word='мёд', user=user)
             honey_texts = self._open_texts(honey)
             self.assertIn(fold('медовый'), honey_texts)
@@ -419,3 +486,22 @@ class LexicalGameplayTests(TestCase):
         revealed = self._revealed(game, task, user)
         self.assertIn(lemma_of('пчелиный'), revealed)
         self.assertNotIn(lemma_of('пчеловод'), revealed)
+
+    def test_mir_does_not_reveal_sea(self):
+        from django.test import override_settings
+        from games.censorly.play import apply_guess
+        from games.tests.test_censorly import _make_puzzle_task
+
+        game, task, _hash, _puzzle = _make_puzzle_task(
+            title='Корзина',
+            body='Море шумит. Мирный договор. Умереть рано.',
+        )
+        user = User.objects.create_user('cz_mir', password='x')
+        with override_settings(CENSORLY_LEXICAL_RESOLVER=True):
+            sea = apply_guess(game=game, task=task, word='мир', user=user)
+            texts = self._open_texts(sea)
+            self.assertIn(fold('мирный'), texts)
+            self.assertNotIn(fold('море'), texts)
+            self.assertNotIn(fold('умереть'), texts)
+            death = apply_guess(game=game, task=task, word='умирать', user=user)
+            self.assertIn(fold('умереть'), self._open_texts(death))

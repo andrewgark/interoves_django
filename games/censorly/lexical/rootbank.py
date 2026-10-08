@@ -1,14 +1,23 @@
-"""Game root structures from Kuznetsova families and Tikhonov compounds.
+"""Game root structures from lemma evidence, with a unique-spelling fallback.
 
 A structure is a sorted tuple of root ids. Sorting drops order and keeps
 repeats, so ``белоснежный`` matches ``снежно-белый`` and ``один-одинехонек``
-does not match ``один``. A compound never stores its single components as
-extra structures: subset matching is not a reading.
+does not match ``один``. A word never stores a partial component list:
+if one required component has no authorized reading, the whole structure
+is unresolved and cannot match by an empty root.
+
+Every component is authorized the same way. An explicit one-root sense, or
+Kuznetsova membership of this lemma, is authoritative. A spelling that maps
+to exactly one game root is a fallback when the lemma has no conflicting
+evidence. A spelling that maps to several game roots authorizes none of them.
+A sense label on a multi-root lemma is not a root key unless that lemma is
+in the curated atomic list.
 """
 
 from __future__ import annotations
 
 import os
+from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
@@ -42,7 +51,48 @@ def families_of(lemma: str) -> tuple[str, ...]:
     return _KUZ_FAMILY.get(fold(lemma), ())
 
 
+def assignment_of(lemma: str) -> dict:
+    """Where this lemma's game roots came from.
+
+    ``refused`` lists game roots that share the Tikhonov spelling but were
+    not assigned. An unresolved lemma has no structures, so it cannot match
+    another unresolved lemma by an empty root.
+    """
+    _bank()
+    folded = fold(lemma)
+    info = _PROVENANCE.get(folded)
+    if info is None:
+        return {
+            'structures': (),
+            'source': 'ABSENT',
+            'detail': '',
+            'refused': (),
+        }
+    return {
+        'structures': structures_of(folded),
+        'source': info['source'],
+        'detail': info['detail'],
+        'refused': info['refused'],
+    }
+
+
 _KUZ_FAMILY: dict[str, tuple[str, ...]] = {}
+_PROVENANCE: dict[str, dict] = {}
+_SOURCE: dict[str, str] = {}
+_COMPONENT_AUDIT: dict[str, int] = {}
+
+# Curated only. Do not add a lemma because Tikhonov segmented it badly.
+# Each entry is a separate decision that the whole word is one game family.
+_ATOMIC_LEXICALIZED = frozenset({
+    fold('красивенький'),
+    fold('мелюзга'),
+})
+
+
+def component_audit() -> dict[str, int]:
+    """How Tikhonov components were authorized. Same rule for every component."""
+    _bank()
+    return dict(_COMPONENT_AUDIT)
 
 
 def load_seconds() -> float:
@@ -98,24 +148,110 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
         if lemma and roots:
             tikhonov[lemma] = tuple(roots)
 
+    audit: Counter[str] = Counter()
     built: dict[str, tuple[tuple[str, ...], ...]] = {}
+    provenance: dict[str, dict] = {}
     lemmas = set(kuz) | set(tikhonov)
     for lemma in lemmas:
         parts = tikhonov.get(lemma, ())
-        if len(parts) >= 2:
-            built[lemma] = _explode(parts, plain_hits, morph_family)
-            continue
-        ids = list(kuz.get(lemma, ()))
-        if not ids and len(parts) == 1:
-            ids = list(_ids_for_morph(parts[0], plain_hits, morph_family))
         senses = _SENSE.get(lemma) or ()
         if isinstance(senses, str):
             senses = (senses,)
-        if senses:
-            # One structure per reading. Several readings stay alternatives.
+        kuz_ids = kuz.get(lemma, ())
+        shape = 'multi' if len(parts) >= 2 else 'single'
+        cand_lists = [
+            _candidate_ids(part, plain_hits, morph_family) for part in parts
+        ]
+        if parts:
+            audit[f'tikhonov_lemmas_{shape}'] += 1
+        for candidates in cand_lists:
+            audit['components_total'] += 1
+            if len(candidates) > 1:
+                audit['ambiguous_spelling_components'] += 1
+            elif len(candidates) == 1:
+                audit['unique_candidate_components'] += 1
+            else:
+                audit['zero_candidate_components'] += 1
+        # A sense on a multi-root lemma is metadata unless this lemma was
+        # explicitly lexicalized as one family. It is not an extra {sense:X}.
+        if senses and (len(parts) < 2 or lemma in _ATOMIC_LEXICALIZED):
             built[lemma] = tuple((item,) for item in senses)
-        elif ids:
+            provenance[lemma] = {
+                'source': (
+                    'ATOMIC_LEXICALIZED' if len(parts) >= 2
+                    else _SOURCE.get(lemma, 'SEMANTIC_SPLIT')
+                ),
+                'detail': ','.join(senses),
+                'refused': (),
+            }
+            if len(senses) > 1:
+                audit['legitimate_multiple_lemmas'] += 1
+            for candidates in cand_lists:
+                if len(candidates) > 1:
+                    audit['ambiguous_resolved_by_sense'] += 1
+            continue
+        if len(parts) >= 2:
+            structs, refused, source, rows = _explode(
+                parts, set(kuz_ids), plain_hits, morph_family,
+            )
+            for row in rows:
+                if row['kind'] == 'UNIQUE_SPELLING_FALLBACK':
+                    audit['unique_spelling_fallback_components'] += 1
+                elif row['n_cand'] > 1 and row['n_auth']:
+                    audit['ambiguous_resolved_by_kuz'] += 1
+                if row['n_auth'] > 1:
+                    audit['legitimate_multiple_components'] += 1
+                if row['kind'] == 'UNRESOLVED':
+                    audit['unresolved_components'] += 1
+            if structs:
+                built[lemma] = structs
+                provenance[lemma] = {
+                    'source': source,
+                    'detail': '+'.join(parts),
+                    'refused': refused,
+                }
+                if len(structs) > 1:
+                    audit['legitimate_multiple_lemmas'] += 1
+            else:
+                provenance[lemma] = {
+                    'source': source,
+                    'detail': source + ' ' + '+'.join(parts),
+                    'refused': refused,
+                }
+                audit['whole_lemmas_unresolved'] += 1
+                audit[f'unresolved_lemmas_{shape}'] += 1
+                if source == 'UNRESOLVED_TOO_AMBIGUOUS':
+                    audit['too_ambiguous_lemmas'] += 1
+            continue
+        ids = list(kuz_ids)
+        source = 'KUZNETSOVA_MULTI' if len(ids) > 1 else 'KUZNETSOVA'
+        if not ids and len(parts) == 1:
+            candidates = cand_lists[0]
+            if len(candidates) == 1:
+                ids = list(candidates)
+                source = 'UNIQUE_SPELLING_FALLBACK'
+                audit['unique_spelling_fallback_components'] += 1
+            else:
+                provenance[lemma] = {
+                    'source': 'UNRESOLVED',
+                    'detail': f'morph {parts[0]} matches {len(candidates)} game roots',
+                    'refused': candidates,
+                }
+                audit['unresolved_components'] += 1
+                audit['whole_lemmas_unresolved'] += 1
+                audit['unresolved_lemmas_single'] += 1
+                continue
+        if ids:
+            if parts and len(cand_lists[0]) > 1:
+                audit['ambiguous_resolved_by_kuz'] += 1
+            if len(ids) > 1:
+                audit['legitimate_multiple_lemmas'] += 1
+                audit['legitimate_multiple_components'] += 1
             built[lemma] = tuple((item,) for item in ids)
+            provenance[lemma] = {'source': source, 'detail': '', 'refused': ()}
+    global _PROVENANCE, _COMPONENT_AUDIT
+    _PROVENANCE = provenance
+    _COMPONENT_AUDIT = dict(audit)
     return built, time.perf_counter() - started
 
 
@@ -136,47 +272,120 @@ def _game_id(numbered: str, family: str) -> str:
     return 'fam:' + family
 
 
-def _ids_for_morph(morph: str, plain_hits, morph_family) -> tuple[str, ...]:
+def _candidate_ids(morph: str, plain_hits, morph_family) -> tuple[str, ...]:
+    """Every game root whose spelling matches this morph. Not a lemma assignment."""
     plain = _plain(morph)
-    hits = plain_hits.get(plain)
-    if not hits:
-        numbered = _norm(morph)
-        family = morph_family.get(numbered)
-        if family:
-            return (_game_id(numbered, family),)
-        return ('morph:' + plain,) if plain else ()
-    ids = []
-    for numbered, family in hits:
-        gid = _game_id(numbered, family)
-        if gid not in ids:
-            ids.append(gid)
-    return tuple(ids)
+    hits = plain_hits.get(plain) or []
+    ids: list[str] = []
+    if hits:
+        for numbered, family in hits:
+            gid = _game_id(numbered, family)
+            if gid not in ids:
+                ids.append(gid)
+        return tuple(ids)
+    numbered = _norm(morph)
+    family = morph_family.get(numbered)
+    if family:
+        return (_game_id(numbered, family),)
+    return ()
 
 
-def _explode(parts, plain_hits, morph_family) -> tuple[tuple[str, ...], ...]:
-    choices = [_ids_for_morph(part, plain_hits, morph_family) or ('morph:' + part,) for part in parts]
+def _ids_for_morph(morph: str, plain_hits, morph_family) -> tuple[str, ...]:
+    """The game root of a morph spelling, or nothing.
+
+    One spelling can sit in several numbered families. That is not evidence
+    that this lemma belongs to all of them, and an empty structure must not
+    become a root that matches other empty structures.
+    """
+    ids = _candidate_ids(morph, plain_hits, morph_family)
+    if len(ids) == 1:
+        return ids
+    return ()
+
+
+def _authorize_component(morph, lemma_ids, plain_hits, morph_family):
+    """Authorized game roots of one component. Spelling is only a candidate.
+
+    Kuznetsova membership of this lemma selects among candidates. With no
+    lemma evidence, exactly one spelling match is a fallback. Several
+    matches authorize nothing, and a unique spelling that disagrees with
+    the lemma's own membership is a conflict, not a fallback.
+    """
+    candidates = _candidate_ids(morph, plain_hits, morph_family)
+    if lemma_ids:
+        allowed = tuple(item for item in candidates if item in lemma_ids)
+        if not allowed:
+            return (), 'UNRESOLVED', candidates
+        kind = 'KUZNETSOVA_MULTI' if len(allowed) > 1 else 'KUZNETSOVA'
+        refused = tuple(item for item in candidates if item not in allowed)
+        return allowed, kind, refused
+    if len(candidates) == 1:
+        return candidates, 'UNIQUE_SPELLING_FALLBACK', ()
+    return (), 'UNRESOLVED', candidates
+
+
+def _explode(parts, lemma_ids, plain_hits, morph_family):
+    """Complete structures from authorized component readings only.
+
+    An unauthorized required part drops the whole structure, so
+    ``{пчел, вод}`` never shrinks to ``{пчел}`` and a sense label is not
+    added beside the compound. More than 32 authorized combinations are
+    not truncated into a partial truth: root equality stays closed.
+    """
+    choices = []
+    kinds = []
+    rows = []
+    refused: list[str] = []
+    failed = False
+    for part in parts:
+        ids, kind, extra = _authorize_component(part, lemma_ids, plain_hits, morph_family)
+        rows.append({
+            'kind': kind,
+            'n_cand': len(ids) + len(extra),
+            'n_auth': len(ids),
+        })
+        if not ids:
+            failed = True
+        else:
+            choices.append(ids)
+            kinds.append(kind)
+        refused.extend(extra)
+    if failed:
+        return (), tuple(dict.fromkeys(refused)), 'UNRESOLVED', rows
+    product = 1
+    for options in choices:
+        product *= len(options)
+        if product > 32:
+            return (), tuple(dict.fromkeys(refused)), 'UNRESOLVED_TOO_AMBIGUOUS', rows
     combos = [()]
     for options in choices:
         combos = [prev + (option,) for prev in combos for option in options]
-        if len(combos) > 32:
-            combos = combos[:32]
-            break
     unique = []
     for combo in combos:
         ordered = tuple(sorted(combo))
         if ordered not in unique:
             unique.append(ordered)
-    return tuple(unique)
+    if all(kind == 'UNIQUE_SPELLING_FALLBACK' for kind in kinds):
+        source = 'UNIQUE_SPELLING_FALLBACK'
+    elif len(unique) > 1:
+        source = 'AUTHORIZED_ALTERNATIVES'
+    else:
+        source = 'KUZNETSOVA'
+    return tuple(unique), tuple(dict.fromkeys(refused)), source, rows
 
 
 def _sense(lemmas: tuple[str, ...], name: str) -> None:
     for lemma in lemmas:
-        _SENSE[fold(lemma)] = (name,)
+        folded = fold(lemma)
+        _SENSE[folded] = (name,)
+        _SOURCE[folded] = 'SEMANTIC_SPLIT'
 
 
 def _set_readings(lemma: str, names: tuple[str, ...]) -> None:
     """Store alternative one-root readings. Not one compound of all of them."""
-    _SENSE[fold(lemma)] = tuple(names)
+    folded = fold(lemma)
+    _SENSE[folded] = tuple(names)
+    _SOURCE[folded] = 'MANUAL_MULTI_READING'
 
 
 _SENSE: dict[str, tuple[str, ...]] = {}
