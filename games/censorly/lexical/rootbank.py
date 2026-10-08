@@ -111,6 +111,14 @@ _ATOMIC_LEXICALIZED = frozenset({
     fold('засучиться'),
     fold('затупиться'),
     fold('вспомнить'),
+    # Proper-name compounds Tikhonov splits (петер+бург, ленин+град, …).
+    fold('петербургский'),
+    fold('петербуржец'),
+    fold('петербурженка'),
+    fold('ленинградский'),
+    fold('ленинградец'),
+    fold('ленинградка'),
+    fold('француженка'),
 })
 
 
@@ -176,7 +184,9 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
     audit: Counter[str] = Counter()
     built: dict[str, tuple[tuple[str, ...], ...]] = {}
     provenance: dict[str, dict] = {}
-    lemmas = set(kuz) | set(tikhonov)
+    # Sense-only lemmas (proper-name clusters) are absent from Kuznetsova and
+    # Tikhonov; still install them so рим opens римский.
+    lemmas = set(kuz) | set(tikhonov) | set(_SENSE)
     for lemma in lemmas:
         parts = tikhonov.get(lemma, ())
         senses = _SENSE.get(lemma) or ()
@@ -469,5 +479,7 @@ _sense((
 # Lemmas that stay out of every cluster remain on the dictionary family
 # and are unresolved, not silently treated as safe.
 from games.censorly.lexical.semantic_splits import install as _install_splits
+from games.censorly.lexical.proper_names import install as _install_proper_names
 
 _install_splits(_sense, _set_readings)
+_install_proper_names(_sense, _set_readings)
