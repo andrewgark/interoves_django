@@ -531,6 +531,24 @@
         '00000000-0000-0000-0000-000000000000', encodeURIComponent(id)
       );
     }
+    function fetchMergeJob(id) {
+      return fetch(mergeJobUrl(id), {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      }).then(function (r) {
+        return r.json().catch(function () { return {}; }).then(function (data) {
+          if (!r.ok) {
+            var error = new Error(data.status || 'request_failed');
+            error.httpStatus = r.status;
+            throw error;
+          }
+          if (!data || data.status !== 'ok' || !data.job) {
+            throw new Error('missing_job');
+          }
+          return data.job;
+        });
+      });
+    }
     var storedMergeJobId = readMergeJobId();
     if ((!anonKey || !shouldPrompt(anonKey)) && !storedMergeJobId) return;
 
@@ -637,19 +655,7 @@
 
       function pollJob(id) {
         activeJobId = id;
-        fetch(mergeJobUrl(id), {
-          credentials: 'same-origin',
-          headers: { 'X-Requested-With': 'XMLHttpRequest' },
-        }).then(function (r) {
-          return r.json().catch(function () { return {}; }).then(function (data) {
-            if (!r.ok || !data || data.status !== 'ok') {
-              var error = new Error(data.status || 'request_failed');
-              error.httpStatus = r.status;
-              throw error;
-            }
-            return data.job;
-          });
-        }).then(function (job) {
+        fetchMergeJob(id).then(function (job) {
           renderJob(job);
           if (job.status === 'completed') {
             if (progressBar) progressBar.value = 1;
@@ -714,24 +720,7 @@
     (function resumeActiveJob() {
       var jobId = readMergeJobId();
       if (!jobId) return;
-      fetch(mergeJobUrl(jobId), {
-        credentials: 'same-origin',
-        headers: { 'X-Requested-With': 'XMLHttpRequest' },
-      }).then(function (r) {
-        return r.json().catch(function () { return {}; }).then(function (data) {
-          if (!r.ok) {
-            var error = new Error(data.status || 'request_failed');
-            error.httpStatus = r.status;
-            throw error;
-          }
-          return data;
-        });
-      }).then(function (data) {
-        if (!data || !data.job) {
-          clearMergeJobId();
-          return;
-        }
-        var job = data.job;
+      fetchMergeJob(jobId).then(function (job) {
         activeJobId = job.id;
         modal.removeAttribute('hidden');
         modal.classList.add('is-open');
@@ -752,32 +741,16 @@
           if (progressBar) progressBar.value = Math.max(0, Math.min(1, Number(jobData.progress || 0) / 100));
         }
         function poll() {
-          fetch(mergeJobUrl(job.id), {
-            credentials: 'same-origin',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' },
-          }).then(function (r) {
-            return r.json().catch(function () { return {}; }).then(function (payload) {
-              if (!r.ok) {
-                var error = new Error(payload.status || 'request_failed');
-                error.httpStatus = r.status;
-                throw error;
-              }
-              return payload;
-            });
-          }).then(function (payload) {
-            if (!payload.job) {
-              clearMergeJobId();
-              return;
-            }
-            update(payload.job);
-            if (payload.job.status === 'completed') {
+          fetchMergeJob(job.id).then(function (jobData) {
+            update(jobData);
+            if (jobData.status === 'completed') {
               if (progressBar) progressBar.value = 1;
               clearMergeJobId();
               setTimeout(function () { window.location.reload(); }, 800);
               return;
             }
-            if (payload.job.status === 'failed') {
-              activeJobId = payload.job.id;
+            if (jobData.status === 'failed') {
+              activeJobId = jobData.id;
               var retryButton = modal.querySelector('[data-migrate-confirm]');
               var retryError = modal.querySelector('[data-migrate-error]');
               if (retryButton) { retryButton.disabled = false; retryButton.textContent = 'Повторить'; }
