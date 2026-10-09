@@ -71,7 +71,7 @@ html.new-ui-dark .censorly__dock {
 /* Narrow / mobile: form bar sticks to the bottom (thumb reach), with blur chrome. */
 @container censorly (max-width: 51.99rem) {
   .censorly {
-    padding-bottom: 7rem;
+    padding-bottom: max(7rem, var(--censorly-dock-height, 7rem));
   }
 
   .censorly__dock {

@@ -313,6 +313,28 @@
     }
   }
 
+  function focusTokenIds(root, tokenIds, scroll) {
+    var ids = Array.isArray(tokenIds) ? tokenIds : [];
+    var nodes = ids.map(function (id) {
+      return root.querySelector('.censorly-tok[data-id="' + String(id) + '"]');
+    }).filter(Boolean);
+    if (!nodes.length) return;
+    root.querySelectorAll('.censorly-tok--selected').forEach(function (node) {
+      node.classList.remove('censorly-tok--selected');
+    });
+    nodes.forEach(function (node) { node.classList.add('censorly-tok--selected'); });
+    if (scroll) scrollToNodes(root, nodes);
+  }
+
+  function selectGuessRow(root, row) {
+    var guessIndex = parseInt(row.dataset.guessIndex, 10);
+    if (!Number.isInteger(guessIndex)) return;
+    root.setAttribute('data-active-guess-index', String(guessIndex));
+    var currentState = root._censorlyState || {};
+    applyGuessHighlight(root, currentState.guesses || [], guessIndex);
+    scrollToGuess(root, row);
+  }
+
   function renderGuessTable(root, guesses, activeIndex) {
     var tbody = root.querySelector('#censorly-guess-list');
     if (!tbody) return;
@@ -340,6 +362,8 @@
       tr.dataset.guessIndex = String(i);
       tr.dataset.lemma = lemma || word;
       tr.dataset.word = word;
+      tr.tabIndex = 0;
+      tr.setAttribute('aria-label', 'Показать слово «' + word + '» в тексте');
       if (tokenIds.length) tr.dataset.tokenIds = tokenIds.join(',');
       tr.appendChild(el('td', null, String(i + 1)));
       tr.appendChild(el('td', null, hits ? String(hits) : '—'));
@@ -442,6 +466,34 @@
     scrollToNodes(root, Array.prototype.slice.call(nodes));
   }
 
+  function hasRenderableState(data) {
+    return !!(data && (
+      Array.isArray(data.title_tokens) ||
+      Array.isArray(data.body_tokens) ||
+      Array.isArray(data.guesses)
+    ));
+  }
+
+  function syncMobileDockOffset(root) {
+    var dock = root.querySelector('.censorly__dock');
+    if (!dock) return;
+    var update = function () {
+      var rootWidth = root.getBoundingClientRect().width;
+      var dockWidth = dock.getBoundingClientRect().width;
+      if (rootWidth && dockWidth >= rootWidth * 0.8) {
+        root.style.setProperty('--censorly-dock-height', (dock.offsetHeight + 16) + 'px');
+      } else {
+        root.style.removeProperty('--censorly-dock-height');
+      }
+    };
+    update();
+    if (window.ResizeObserver) {
+      var observer = new ResizeObserver(update);
+      observer.observe(dock);
+      root._censorlyDockObserver = observer;
+    }
+  }
+
   function setShareCard(box, state) {
     if (state && state.share_card) {
       try {
@@ -512,6 +564,30 @@
       title.appendChild(link);
     }
     title.appendChild(el('span', 'censorly__solved', '— Решено!'));
+  }
+
+  function applyStateDelta(root, data) {
+    if (!data || !data.state_delta) return data;
+    var previous = root._censorlyState || {};
+    var delta = data.state_delta;
+    var next = Object.assign({}, previous, delta);
+    var titleTokens = (previous.title_tokens || []).slice();
+    var bodyTokens = (previous.body_tokens || []).slice();
+    var byId = {};
+    titleTokens.forEach(function (tok, index) { byId[String(tok.id)] = { list: titleTokens, index: index }; });
+    bodyTokens.forEach(function (tok, index) { byId[String(tok.id)] = { list: bodyTokens, index: index }; });
+    (delta.token_updates || []).forEach(function (tok) {
+      var target = byId[String(tok.id)];
+      if (target) target.list[target.index] = tok;
+    });
+    delete next.token_updates;
+    next.title_tokens = titleTokens;
+    next.body_tokens = bodyTokens;
+    var merged = Object.assign({}, next, data);
+    merged.title_tokens = titleTokens;
+    merged.body_tokens = bodyTokens;
+    delete merged.state_delta;
+    return merged;
   }
 
   function applyState(root, state, opts) {
@@ -642,6 +718,7 @@
     var hintBtn = root.querySelector('#censorly-hint-btn');
     var hintMode = root.querySelector('#censorly-hint-mode');
     var busy = false;
+    var hasLocalAction = false;
     var preferences = readDisplayPreferences();
     var showEndings = typeof preferences.showEndings === 'boolean'
       ? preferences.showEndings
@@ -653,6 +730,7 @@
     applyState(root, state);
     syncEndingsToggle(root, endingsBtn, showEndings);
     syncLengthsToggle(root, lengthsBtn, showLengths);
+    syncMobileDockOffset(root);
 
     if (stateUrl) {
       fetch(stateUrl, {
@@ -669,7 +747,9 @@
           });
         })
         .then(function (data) {
-          if (data && data.status !== 'error') applyState(root, data, { preserveLen: true });
+          if (!hasLocalAction && data && data.status !== 'error') {
+            applyState(root, data, { preserveLen: true });
+          }
         })
         .catch(function () {});
     }
@@ -714,6 +794,7 @@
           }
           if (busy) return;
           busy = true;
+          hasLocalAction = true;
           postJson(hintUrl, { token_id: Number(mask.dataset.id) }, root)
             .then(function (data) {
               if (handleReplayFlags(data)) return;
@@ -724,6 +805,7 @@
               root.classList.remove('censorly--hint-pick');
               if (hintMode) hintMode.hidden = true;
               applyState(root, data, { preserveLen: true });
+              if (data.status === 'already_open') focusTokenIds(root, data.active_token_ids, true);
               var newly = data.newly_revealed || [];
               if (newly.length) scrollToTokenId(root, newly[0]);
               if (data.status !== 'won') setFeedback(root, 'Подсказка открыта', '');
@@ -751,14 +833,16 @@
 
       var row = ev.target.closest('#censorly-guess-list tr');
       if (row && root.contains(row)) {
-        var guessIndex = parseInt(row.dataset.guessIndex, 10);
-        if (Number.isInteger(guessIndex)) {
-          root.setAttribute('data-active-guess-index', String(guessIndex));
-          var currentState = root._censorlyState || {};
-          applyGuessHighlight(root, currentState.guesses || [], guessIndex);
-        }
-        scrollToGuess(root, row);
+        selectGuessRow(root, row);
       }
+    });
+
+    root.addEventListener('keydown', function (ev) {
+      var row = ev.target.closest('#censorly-guess-list tr');
+      if (!row || !root.contains(row)) return;
+      if (ev.key !== 'Enter' && ev.key !== ' ') return;
+      ev.preventDefault();
+      selectGuessRow(root, row);
     });
 
     if (hintBtn) {
@@ -787,16 +871,20 @@
         var word = (input.value || '').trim();
         if (!word) return;
         busy = true;
+        hasLocalAction = true;
         setFeedback(root, '');
         postJson(guessUrl, { word: word }, root)
           .then(function (data) {
+            data = applyStateDelta(root, data);
             if (handleReplayFlags(data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'error') {
               setFeedback(root, data.error || 'Не удалось отправить', 'error');
               if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
                 root.setAttribute('data-active-guess-index', String(data.active_guess_index));
               }
-              applyState(root, data, { preserveLen: true });
+              if (data.status !== 'error' || hasRenderableState(data)) {
+                applyState(root, data, { preserveLen: true });
+              }
               if (data.status === 'duplicate') focusGuess(root, data.active_guess_index, true);
               return;
             }
@@ -804,7 +892,13 @@
               root.setAttribute('data-active-guess-index', String(data.guesses.length - 1));
             }
             applyState(root, data, { preserveLen: true });
-            if (data.status === 'already_open') focusGuess(root, data.active_guess_index, true);
+            if (data.status === 'already_open') {
+              if (Number.isInteger(data.active_guess_index)) {
+                focusGuess(root, data.active_guess_index, true);
+              } else {
+                focusTokenIds(root, data.active_token_ids, true);
+              }
+            }
             input.value = '';
             var newly = data.newly_revealed || [];
             if (newly.length) scrollToTokenId(root, newly[0]);

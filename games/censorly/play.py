@@ -533,6 +533,14 @@ def _history_index_for_guess(
     return None
 
 
+def _token_ids_for_lemmas(payload: dict[str, Any], lemmas: set[str]) -> list[int]:
+    return sorted({
+        token_id
+        for lemma in lemmas
+        for token_id in newly_revealed_ids(payload, lemma)
+    })
+
+
 def get_play_state(
     *,
     game: Game,
@@ -703,6 +711,7 @@ def apply_guess(
         out['active_guess_index'] = _history_index_for_guess(
             state, payload, target_lemmas=matched,
         )
+        out['active_token_ids'] = _token_ids_for_lemmas(payload, matched)
         out['error'] = 'Уже открыто'
         return out
 
@@ -808,6 +817,7 @@ def apply_hint(
     if lemma in set(state.get('revealed_lemmas') or []):
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_open'
+        out['active_token_ids'] = newly_revealed_ids(payload, lemma)
         out['error'] = 'Слово уже открыто'
         return out
 
