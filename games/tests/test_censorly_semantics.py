@@ -969,6 +969,197 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
                     self.assertFalse(opens(left, right), f'{left} / {right}')
                     self.assertFalse(opens(right, left), f'{right} / {left}')
 
+    def test_additional_safe_family_splits_stay_apart(self):
+        pairs = (
+            ('гладкий', 'голодный'),
+            ('глодать', 'голодать'),
+            ('гнилой', 'гнойный'),
+            ('жатва', 'ужин'),
+            ('жирный', 'жрать'),
+            ('кликнуть', 'кличка'),
+            ('крепкий', 'крепость'),
+            ('творить', 'затвор'),
+            ('чертить', 'чёрт'),
+            ('хитрый', 'восхищение'),
+            ('хищение', 'восхищение'),
+            ('видеть', 'зависть'),
+            ('велеть', 'воля'),
+            ('кровь', 'крыша'),
+            ('напечатать', 'впечатление'),
+            ('круглый', 'кружиться'),
+            ('дуб', 'дубить'),
+            ('земля', 'заземлить'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_second_safe_family_split_batch_stays_apart(self):
+        pairs = (
+            ('гром', 'погром'),
+            ('лазить', 'лестница'),
+            ('ползти', 'полоз'),
+            ('ползти', 'оползень'),
+            ('строгий', 'строгать'),
+            ('хлеб', 'хлебать'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_new_semantic_split_batch_stays_apart(self):
+        pairs = (
+            ('отдых', 'дыхание'),
+            ('восторг', 'вторжение'),
+            ('восторг', 'исторгнуть'),
+            ('расторгнуть', 'торжество'),
+            ('крест', 'крещение'),
+            ('крестец', 'крестовина'),
+            ('теребить', 'требовать'),
+            ('требовать', 'истребить'),
+            ('страсть', 'страх'),
+            ('застращивать', 'застраховать'),
+            ('высота', 'вышка'),
+            ('порожний', 'испражнение'),
+            ('упражнение', 'праздник'),
+            ('праздник', 'упразднить'),
+            ('трусики', 'натрусить'),
+            ('труха', 'трусить'),
+            ('изнанка', 'проникать'),
+            ('никнуть', 'вникать'),
+            ('пластина', 'распластать'),
+            ('красть', 'красивый'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_followup_semantic_split_batch_stays_apart(self):
+        pairs = (
+            ('страдание', 'страсть'),
+            ('пустой', 'пуща'),
+            ('совок', 'засов'),
+            ('засов', 'совать'),
+            ('пять', 'пятиться'),
+            ('пятиться', 'выпячивать'),
+            ('спелый', 'поспешить'),
+            ('поспешить', 'успешный'),
+            ('доспехи', 'спелый'),
+            ('кость', 'Кощей'),
+            ('молоток', 'молотить'),
+            ('рушить', 'рухлый'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_latest_semantic_split_batch_stays_apart(self):
+        pairs = (
+            ('хотеть', 'охотиться'),
+            ('охота', 'похоть'),
+            ('очерк', 'почерк'),
+            ('почерк', 'зачеркнуть'),
+            ('чувствовать', 'чуть'),
+            ('жёлтый', 'желчь'),
+            ('опрыскивать', 'прыщ'),
+            ('похоронить', 'хранить'),
+            ('пыль', 'опыление'),
+            ('трещина', 'треск'),
+            ('тонуть', 'затон'),
+            ('затон', 'затопить'),
+            ('дозваниваться', 'звенеть'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_additional_semantic_split_batch_stays_apart(self):
+        pairs = (
+            ('блеск', 'блесна'),
+            ('гладкий', 'гладить'),
+            ('грыжа', 'грызть'),
+            ('чёрный', 'вчерне'),
+            ('вчерне', 'очернить'),
+            ('щепка', 'расщепить'),
+            ('расщепить', 'прищепка'),
+            ('отщепенец', 'щепка'),
+            ('пошлый', 'пошлина'),
+            ('пошлый', 'прошлый'),
+            ('прошлый', 'пришлый'),
+            ('пришлый', 'шествие'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_more_semantic_split_batch_stays_apart(self):
+        pairs = (
+            ('оплеуха', 'плевок'),
+            ('владеть', 'властвовать'),
+            ('власть', 'волость'),
+            ('мужчина', 'замужество'),
+            ('взбалтывать', 'болтовня'),
+            ('грань', 'граница'),
+            ('гранить', 'ограничение'),
+            ('хлестать', 'захлестнуть'),
+            ('трудиться', 'затруднение'),
+            ('затруднение', 'сотрудничество'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_sleep_and_poke_followup_splits_stay_apart(self):
+        pairs = (
+            ('распарывать', 'порка'),
+            ('порка', 'порочный'),
+            ('пешня', 'пихать'),
+            ('покой', 'беспокойство'),
+            ('беспокоиться', 'покойник'),
+            ('спать', 'усопший'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_semantic_review_batch_stays_apart(self):
+        pairs = (
+            ('верста', 'верстать'),
+            ('верстать', 'сверстник'),
+            ('строка', 'строчка'),
+            ('твёрдый', 'твердить'),
+            ('подтвердить', 'затвердеть'),
+            ('наяву', 'заявление'),
+            ('заявление', 'проявиться'),
+            ('пустой', 'пустыня'),
+            ('пустыня', 'пустяк'),
+            ('смех', 'насмешка'),
+            ('межа', 'между'),
+            ('между', 'перемежать'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_careful_homonym_split_batch_stays_apart(self):
+        pairs = (
+            ('лес', 'леший'),
+            ('прогалина', 'голый'),
+            ('синий', 'синяк'),
+            ('синий', 'синица'),
+            ('кланяться', 'наклон'),
+            ('поклон', 'склон'),
+            ('щуп', 'щупальце'),
+            ('щуплый', 'щупальце'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
+
+    def test_careful_split_keeps_requested_bridges(self):
+        self.assertTrue(opens('щуп', 'щуплый'))
+        self.assertTrue(opens('льстить', 'обольстить'))
+
 
 class ConfirmedSingleTokenRelationTests(SimpleTestCase):
     def test_reviewed_missing_root_assignments_are_structural(self):

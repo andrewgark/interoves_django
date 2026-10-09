@@ -4051,6 +4051,29 @@ _REVIEW_FAMILIES = frozenset({
     'лет²|лет', 'год|гож|гожд', 'кан|кон¹',
     'па¹|пад|паж|пас¹|пащ', 'хаж|ход|хож|хожд',
     'би(j)|бо(j)¹|бь', 'де(j)|де', 'бер|бир|бор¹|бр¹', 'пут²',
+    'глад²|глод|голод', 'гна|гни|гно(j)', 'жа²|жин|жн',
+    'жир²|жор|жр¹', 'клик|клиц|клич', 'креп', 'твор²',
+    'черт¹|черч', 'хит|хич|хищ', 'вид|вист', 'вел²|вл|вол¹',
+    'кров²|кры', 'печат', 'круг|круж¹', 'дуб', 'зем',
+    'грем|гром', 'лаз|лез¹|лес²', 'палз|полз|полоз',
+    'страг|строг¹|строж|струг¹|струж¹', 'хлеб²|хлеб',
+    'дых|дыш', 'торг²|торж²', 'крест|крещ', 'тереб|треб',
+    'страст²|страх|страш|стращ', 'выс|выш',
+    'поражн|порожн|пражн|праздн', 'трус²', 'трус³|трух²|труш',
+    'ник|ниц|нич|нк|ноч¹', 'пласт', 'крад|краж|крас²',
+    'страд|страст¹', 'пуст²|пущ¹', 'сов²|су', 'пят²|пяч', 'спе',
+    'кащ|кост|кощ', 'молач|молот|молоч¹', 'рух|руш²',
+    'хот|хоч', 'черк', 'чу', 'желт|желч', 'прыс|прыск|прыщ',
+    'хоран|хорон|хран', 'пыл²', 'трес|треск¹|трещ',
+    'то|тон²|топ²', 'зван|звен²|звон²',
+    'блес|блеск|блест|блист', 'глад¹|глаж', 'грыж|грыз', 'черн',
+    'щеп', 'ш|ше²|шед',
+    'пле|плев¹|плев|плю', 'влад|власт|волост', 'муж', 'балт|болт¹',
+    'гран', 'хлест', 'труд|труж|тружд',
+    'пар²|пор²', 'пеш²|пих|пх', 'пока¹|поко(j)', 'с|соп²|сп|сып²',
+    'верст²|верст', 'страч|строк|строч', 'тверд|тверж|твержд', 'яв',
+    'пуст²|пущ¹', 'сме¹', 'меж|межд',
+    'лес¹|леш', 'гал|гол', 'син', 'клан|клон', 'щуп',
 })
 
 # A few productive prefixed verbs are assigned by the dictionary to another
@@ -4195,6 +4218,422 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
         return 'sense:review_taking'
     if family == 'пут²':
         return 'sense:review_travel_path'
+    if family == 'глад²|глод|голод':
+        if lemma.startswith(('глод', 'выглод', 'доглод', 'изглод', 'наглод', 'поглод')):
+            return 'sense:review_gnaw'
+        if lemma.startswith(('голод', 'гладн', 'впроголод')):
+            return 'sense:review_hunger'
+        return 'sense:review_smooth'
+    if family == 'гна|гни|гно(j)':
+        if lemma.startswith(('гно', 'гной')):
+            return 'sense:review_pus'
+        return 'sense:review_rot'
+    if family == 'жа²|жин|жн':
+        if lemma.startswith(('ужин', 'ужин')):
+            return 'sense:review_meal'
+        if lemma.startswith(('жатв', 'жнив', 'жне', 'жниц', 'зажин', 'дожин', 'выжин', 'нажин')):
+            return 'sense:review_harvest'
+        return 'sense:review_press'
+    if family == 'жир²|жор|жр¹':
+        if lemma.startswith(('жор', 'жрат', 'жирн')):
+            return 'sense:review_eating'
+        return 'sense:review_fat'
+    if family == 'клик|клиц|клич':
+        if lemma.startswith(('клич', 'восклиц', 'выклик', 'оклик')):
+            return 'sense:review_call_cry'
+        return 'sense:review_click'
+    if family == 'креп':
+        if lemma.startswith(('крепост', 'крепощ')):
+            return 'sense:review_fortress_serfdom'
+        return 'sense:review_strength_fasten'
+    if family == 'твор²':
+        if lemma.startswith(('затвор', 'отвор', 'притвор', 'створ')):
+            return 'sense:review_closing'
+        return 'sense:review_create'
+    if family == 'черт¹|черч':
+        if lemma.startswith(('черт', 'чёрт')) and not lemma.startswith(('черти', 'чертеж', 'чертеч')):
+            return 'sense:review_devil'
+        return 'sense:review_drawing'
+    if family == 'хит|хич|хищ':
+        if lemma.startswith(('восхит', 'восхищ')):
+            return 'sense:review_admiration'
+        if lemma.startswith(('похит', 'похищ', 'расхит', 'хищ')):
+            return 'sense:review_theft'
+        return 'sense:review_cunning'
+    if family == 'вид|вист':
+        if lemma.startswith(('завид', 'завист', 'ненавид', 'навид')):
+            return 'sense:review_envy_hatred'
+        return 'sense:review_seeing'
+    if family == 'вел²|вл|вол¹':
+        if lemma.startswith(('вел', 'повел', 'велит')):
+            return 'sense:review_command'
+        if lemma.startswith(('довол', 'доволь')):
+            return 'sense:review_satisfaction'
+        return 'sense:review_will_freedom'
+    if family == 'кров²|кры':
+        if lemma.startswith(('кровь', 'кровн', 'кровав', 'кровоп')):
+            return 'sense:review_blood'
+        return 'sense:review_cover_open'
+    if family == 'печат':
+        if lemma.startswith(('впечат', 'впечатл')):
+            return 'sense:review_impression'
+        return 'sense:review_print'
+    if family == 'круг|круж¹':
+        if lemma.startswith(('круж', 'вскруж', 'закруж', 'скруж')):
+            return 'sense:review_rotation'
+        return 'sense:review_circle'
+    if family == 'дуб':
+        if lemma.startswith(('дубас',)):
+            return 'sense:review_beating'
+        if lemma.startswith(('дубить', 'дублен', 'дубл', 'выдуб', 'дубиль')):
+            return 'sense:review_tanning'
+        return 'sense:review_oak'
+    if family == 'зем':
+        if lemma.startswith(('зазем',)):
+            return 'sense:review_grounding'
+        if lemma.startswith(('землян', 'земляник')):
+            return 'sense:review_earth_plant'
+        return 'sense:review_land'
+    if family == 'грем|гром':
+        if lemma.startswith(('погром', 'разгром', 'громил', 'громить')):
+            return 'sense:review_destruction'
+        return 'sense:review_thunder_sound'
+    if family == 'лаз|лез¹|лес²':
+        if lemma.startswith(('лестниц', 'лесен')):
+            return 'sense:review_stairs'
+        return 'sense:review_climbing'
+    if family == 'палз|полз|полоз':
+        if lemma.startswith(('полоз',)):
+            return 'sense:review_snake'
+        if lemma.startswith(('ополз',)):
+            return 'sense:review_landslide'
+        return 'sense:review_crawling'
+    if family == 'страг|строг¹|строж|струг¹|струж¹':
+        if lemma.startswith(('струг', 'струж', 'строгать', 'строган')):
+            return 'sense:review_planing'
+        if lemma.startswith(('страж',)):
+            return 'sense:review_guard'
+        return 'sense:review_strict'
+    if family == 'хлеб²|хлеб':
+        if lemma.startswith(('хлебать', 'хлебну', 'хлебыв', 'захлеб', 'отхлеб', 'выхлеб', 'дохлеб', 'нахлеб', 'похлеб', 'прихлеб', 'расхлеб', 'схлеб', 'ухлеб', 'взахлеб')):
+            return 'sense:review_consuming'
+        return 'sense:review_bread'
+    if family == 'дых|дыш':
+        if lemma.startswith(('отдых', 'роздых', 'отдыха')):
+            return 'sense:review_rest'
+        return 'sense:review_breathing'
+    if family == 'торг²|торж²':
+        if lemma.startswith(('восторг',)):
+            return 'sense:review_rapture'
+        if lemma.startswith(('вторг',)):
+            return 'sense:review_intrusion'
+        if lemma.startswith(('исторг', 'отторг')):
+            return 'sense:review_extraction'
+        if lemma.startswith(('расторг',)):
+            return 'sense:review_termination'
+        return 'sense:review_trade_related'
+    if family == 'крест|крещ':
+        if lemma.startswith(('крестец', 'крестц')):
+            return 'sense:review_sacrum'
+        if lemma.startswith(('крестин', 'крестиль', 'крещ', 'крестить', 'крестник', 'крестниц')):
+            return 'sense:review_baptism'
+        if lemma.startswith(('крестовин', 'крестовик', 'крестовк', 'крестов')):
+            return 'sense:review_crosspiece'
+        return 'sense:review_cross'
+    if family == 'тереб|треб':
+        if lemma.startswith(('тереб',)):
+            return 'sense:review_tug'
+        if lemma.startswith(('истреб',)):
+            return 'sense:review_destroy'
+        if lemma.startswith(('потреб', 'потребл')):
+            return 'sense:review_need_consumption'
+        return 'sense:review_demand'
+    if family == 'страст²|страх|страш|стращ':
+        if lemma.startswith(('страст', 'пристраст')):
+            return 'sense:review_passion'
+        if lemma.startswith(('застращ', 'страш')):
+            return 'sense:review_frighten'
+        return 'sense:review_fear_insurance'
+    if family == 'выс|выш':
+        if lemma.startswith(('вышк',)):
+            return 'sense:review_tower'
+        return 'sense:review_height'
+    if family == 'поражн|порожн|пражн|праздн':
+        if lemma.startswith(('испражн',)):
+            return 'sense:review_defecation'
+        if lemma.startswith(('упражн',)):
+            return 'sense:review_exercise'
+        if lemma.startswith(('упраздн',)):
+            return 'sense:review_abolition'
+        if lemma.startswith(('праздн',)):
+            return 'sense:review_holiday_idleness'
+        return 'sense:review_empty'
+    if family == 'трус²':
+        if lemma.startswith(('трусик', 'трусы')):
+            return 'sense:review_underwear'
+        return 'sense:review_shaking'
+    if family == 'трус³|трух²|труш':
+        if lemma.startswith(('трух',)):
+            return 'sense:review_decay'
+        if lemma.startswith(('трус', 'труси')):
+            return 'sense:review_shaking'
+        return 'sense:review_shaking'
+    if family == 'ник|ниц|нич|нк|ноч¹':
+        if lemma.startswith(('изнанк',)):
+            return 'sense:review_reverse_side'
+        if lemma.startswith(('никн',)):
+            return 'sense:review_sinking'
+        return 'sense:review_penetration'
+    if family == 'пласт':
+        if lemma.startswith(('пластин', 'пластов', 'пластун')):
+            return 'sense:review_layer_object'
+        return 'sense:review_cut_spread'
+    if family == 'крад|краж|крас²':
+        if lemma.startswith(('краст', 'крад', 'краж', 'вкрад', 'украд')):
+            return 'sense:review_stealth_theft'
+        if lemma.startswith(('крас',)):
+            return 'sense:beauty'
+        return 'sense:review_stealth_theft'
+    if family == 'страд|страст¹':
+        if lemma.startswith(('страст', 'пристраст')):
+            return 'sense:review_passion'
+        return 'sense:review_suffering'
+    if family == 'пуст²|пущ¹':
+        if lemma.startswith(('пуща',)):
+            return 'sense:review_wilderness'
+        if lemma.startswith(('упущ', 'пущен', 'пустить')):
+            return 'sense:review_release_omission'
+        if lemma.startswith(('пустын', 'пустош', 'пустыр')):
+            return 'sense:review_wasteland'
+        if lemma.startswith(('пустяк', 'пустяков', 'пустыш')):
+            return 'sense:review_trifle'
+        return 'sense:review_empty'
+    if family == 'сов²|су':
+        if lemma.startswith(('совок', 'совоч')):
+            return 'sense:review_scoop'
+        if lemma.startswith(('засов',)):
+            return 'sense:review_lock_bolt'
+        return 'sense:review_insertion'
+    if family == 'пят²|пяч':
+        if lemma.startswith(('выпят', 'впяч', 'напяч', 'отпяч', 'подпяч', 'пропяч', 'спяч')):
+            return 'sense:review_protrusion'
+        if lemma.startswith(('пятит', 'пятить', 'попят', 'отпят', 'вспят')):
+            return 'sense:review_retreat'
+        return 'sense:review_five_heel'
+    if family == 'спе':
+        if lemma.startswith(('спеш', 'наспех', 'поспеш', 'заспеш')):
+            return 'sense:review_haste'
+        if lemma.startswith(('успеш', 'успев', 'успеть', 'преусп')):
+            return 'sense:review_success'
+        if lemma.startswith(('доспех',)):
+            return 'sense:review_armor'
+        return 'sense:review_ripening'
+    if family == 'кащ|кост|кощ':
+        if lemma.startswith(('кощ',)):
+            return 'sense:review_koschei'
+        return 'sense:review_bone'
+    if family == 'молач|молот|молоч¹':
+        if lemma.startswith(('молоток', 'молотков', 'молотовищ')):
+            return 'sense:review_hammer_tool'
+        return 'sense:review_threshing'
+    if family == 'рух|руш²':
+        if lemma.startswith(('рухл', 'порух')):
+            return 'sense:review_decay_failure'
+        return 'sense:review_destruction'
+    if family == 'хот|хоч':
+        if lemma.startswith(('охот',)):
+            return 'sense:review_hunting'
+        if lemma.startswith(('похот',)):
+            return 'sense:review_lust'
+        if lemma.startswith(('прихот',)):
+            return 'sense:review_whim'
+        return 'sense:review_desire'
+    if family == 'черк':
+        if lemma.startswith(('очерк',)):
+            return 'sense:review_essay'
+        if lemma.startswith(('почерк',)):
+            return 'sense:review_handwriting'
+        return 'sense:review_marking'
+    if family == 'чу':
+        if lemma.startswith(('чуть', 'ничуть')):
+            return 'sense:review_small_degree'
+        return 'sense:review_feeling'
+    if family == 'желт|желч':
+        if lemma.startswith(('желч',)):
+            return 'sense:review_bile'
+        return 'sense:review_yellow'
+    if family == 'прыс|прыск|прыщ':
+        if lemma.startswith(('прыщ', 'опрыщ')):
+            return 'sense:review_pimple'
+        return 'sense:review_spraying'
+    if family == 'хоран|хорон|хран':
+        if lemma.startswith(('хорон', 'ухорон', 'похорон', 'захорон', 'перехорон', 'схорон')):
+            return 'sense:review_burial'
+        return 'sense:review_storage_protection'
+    if family == 'пыл²':
+        if lemma.startswith(('опыл', 'переопыл')):
+            return 'sense:review_pollination'
+        return 'sense:review_dust'
+    if family == 'трес|треск¹|трещ':
+        if lemma.startswith(('трещин', 'тресн', 'надтрес')):
+            return 'sense:review_crack'
+        return 'sense:review_crackling'
+    if family == 'то|тон²|топ²':
+        if lemma.startswith(('затон', 'притон', 'тоня')):
+            return 'sense:review_water_place'
+        if lemma.startswith(('топ', 'потоп', 'затоп', 'подтоп')):
+            return 'sense:review_flooding'
+        return 'sense:review_sinking'
+    if family == 'зван|звен²|звон²':
+        if lemma.startswith(('зван', 'вызван', 'назван', 'дозван', 'обзван', 'перезван')):
+            return 'sense:review_calling'
+        return 'sense:review_ringing'
+    if family == 'блес|блеск|блест|блист':
+        if lemma.startswith(('блесн',)):
+            return 'sense:review_lure'
+        return 'sense:review_shine'
+    if family == 'глад¹|глаж':
+        if lemma.startswith(('гладил', 'гладк', 'гладыш', 'гладь')):
+            return 'sense:review_smooth'
+        return 'sense:review_ironing'
+    if family == 'грыж|грыз':
+        if lemma.startswith(('грыж', 'нагрыж')):
+            return 'sense:review_hernia'
+        return 'sense:review_gnawing'
+    if family == 'черн':
+        if lemma.startswith(('очерн',)):
+            return 'sense:review_slander'
+        if lemma.startswith(('вчерн', 'начерн', 'прочерн')):
+            return 'sense:review_draft'
+        return 'sense:review_black'
+    if family == 'щеп':
+        if lemma.startswith(('прищеп',)):
+            return 'sense:review_clothespin'
+        if lemma.startswith(('отщеп',)):
+            return 'sense:review_secession'
+        if lemma.startswith(('расщеп',)):
+            return 'sense:review_splitting'
+        return 'sense:review_wood_chip'
+    if family == 'ш|ше²|шед':
+        if lemma.startswith(('пошлин', 'беспошлин')):
+            return 'sense:review_duty_tax'
+        if lemma.startswith(('пошл', 'испошл', 'опошл')):
+            return 'sense:review_vulgarity'
+        if lemma.startswith(('прошл', 'запрошл', 'позапрошл')):
+            return 'sense:review_past'
+        if lemma.startswith(('пришл',)):
+            return 'sense:review_newcomer'
+        if lemma.startswith(('дошл',)):
+            return 'sense:review_doshly'
+        return 'sense:review_processional'
+    if family == 'пле|плев¹|плев|плю':
+        if lemma.startswith(('оплеух',)):
+            return 'sense:review_slap'
+        return 'sense:review_spitting'
+    if family == 'влад|власт|волост':
+        if lemma.startswith(('власт', 'влады', 'подвласт', 'безвласт')):
+            return 'sense:review_power'
+        if lemma.startswith(('волост',)):
+            return 'sense:review_district'
+        return 'sense:review_possession'
+    if family == 'муж':
+        if lemma.startswith(('замуж', 'замуже', 'безмуж', 'дозамуж')):
+            return 'sense:review_marriage'
+        return 'sense:review_manhood'
+    if family == 'балт|болт¹':
+        if lemma.startswith(('балты', 'взбал', 'разбал', 'сбал', 'перебал', 'подбал')):
+            return 'sense:review_mixing'
+        return 'sense:review_chatter'
+    if family == 'гран':
+        if lemma.startswith(('границ', 'гранич', 'безгранич', 'огранич')):
+            return 'sense:review_boundary'
+        return 'sense:review_faceting'
+    if family == 'хлест':
+        if lemma.startswith(('захлест', 'перехлест', 'схлест', 'нахлест')):
+            return 'sense:review_overflow_overlap'
+        return 'sense:review_lashing'
+    if family == 'труд|труж|тружд':
+        if lemma.startswith(('затруд', 'трудн')):
+            return 'sense:review_difficulty'
+        if lemma.startswith(('сотруд',)):
+            return 'sense:review_cooperation'
+        return 'sense:review_labor'
+    if family == 'пар²|пор²':
+        if lemma.startswith(('порок', 'пороч')):
+            return 'sense:review_fault'
+        if lemma.startswith(('порк', 'пороть', 'выпор')):
+            return 'sense:review_punishment'
+        return 'sense:review_ripping'
+    if family == 'пеш²|пих|пх':
+        if lemma.startswith(('пешн',)):
+            return 'sense:review_ice_tool'
+        return 'sense:review_pushing'
+    if family == 'пока¹|поко(j)':
+        if lemma.startswith(('покойник', 'покойниц', 'заупокой', 'упокоен', 'упокоив')):
+            return 'sense:review_deceased'
+        if lemma.startswith(('беспок', 'обеспок')):
+            return 'sense:review_anxiety'
+        return 'sense:review_calm'
+    if family == 'с|соп²|сп|сып²':
+        if lemma.startswith(('усоп',)):
+            return 'sense:review_deceased'
+        return 'sense:review_sleep'
+    if family == 'верст²|верст':
+        if lemma.startswith(('сверстник',)):
+            return 'sense:review_peer'
+        if lemma in ('верста',) or lemma.startswith(('верстов',)):
+            return 'sense:review_measure'
+        return 'sense:review_typesetting'
+    if family == 'страч|строк|строч':
+        if lemma.startswith(('строк',)):
+            return 'sense:review_line'
+        return 'sense:review_stitching'
+    if family == 'тверд|тверж|твержд':
+        if lemma.startswith(('твердить', 'подтверд', 'утверд', 'подтвержд', 'утвердит')):
+            return 'sense:review_assertion'
+        return 'sense:review_hardness'
+    if family == 'яв':
+        if lemma.startswith(('заяв', 'объяв', 'предъяв', 'изъяв')):
+            return 'sense:review_statement'
+        if lemma.startswith(('выяв', 'прояв', 'появ')):
+            return 'sense:review_revelation'
+        return 'sense:review_presence_reality'
+    if family == 'сме¹':
+        if lemma.startswith(('высме', 'насмеш', 'осме', 'подсме', 'насме')):
+            return 'sense:review_mockery'
+        return 'sense:review_laughter'
+    if family == 'меж|межд':
+        if lemma.startswith(('межев', 'межа', 'межник')):
+            return 'sense:review_boundary'
+        if lemma.startswith(('перемеж',)):
+            return 'sense:review_alternation'
+        if lemma.startswith(('межен',)):
+            return 'sense:review_low_water'
+        return 'sense:review_between'
+    if family == 'лес¹|леш':
+        if lemma.startswith(('леш',)):
+            return 'sense:review_leshy'
+        return 'sense:review_forest'
+    if family == 'гал|гол':
+        if lemma.startswith(('прогалин',)):
+            return 'sense:review_clearing'
+        return 'sense:review_nakedness'
+    if family == 'син':
+        if lemma.startswith(('синяк',)):
+            return 'sense:review_bruise'
+        if lemma.startswith(('синиц',)):
+            return 'sense:review_tit_bird'
+        if lemma.startswith(('синюх', 'синяв', 'синец')):
+            return 'sense:review_blue_plant'
+        return 'sense:review_blue_color'
+    if family == 'клан|клон':
+        if lemma.startswith(('клан', 'поклон', 'преклон')):
+            return 'sense:review_bowing'
+        return 'sense:review_inclination'
+    if family == 'щуп':
+        if lemma.startswith(('щупальц',)):
+            return 'sense:review_tentacle'
+        return 'sense:review_probing_thinness'
     if family == 'па¹|пад|паж|пас¹|пащ':
         return 'sense:review_falling'
     if family == 'би(j)|бо(j)¹|бь':
