@@ -1315,6 +1315,7 @@ html.new-ui-dark body.new-ui {
 }
 
 .new-nav__quick:hover,
+.new-nav__quick[aria-expanded="true"],
 .new-nav__quick[aria-current="page"] {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   color: var(--accent);
@@ -1442,6 +1443,7 @@ html.new-ui-dark body.new-ui {
     max-height: calc(100vh - 3.5rem);
     max-height: calc(100dvh - 3.5rem);
     overflow-y: auto;
+    overscroll-behavior-y: contain;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 10%, transparent);
