@@ -316,6 +316,8 @@ def alphabetty_hub_page(request):
         })
     for row in rows:
         row['is_fully_solved'] = row['is_solved']
+    from games.views.new_ui import _add_daily_completion_statuses
+    _add_daily_completion_statuses(request, game, rows, link_rows)
     _mark_locked_archive_rows(request, game, rows)
     archive_context = build_daily_archive_context(
         items=archive_items, requested_month=request.GET.get('month'),

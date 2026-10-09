@@ -1904,6 +1904,41 @@ body.new-modal-open { overflow: hidden; }
   text-transform: lowercase;
 }
 
+/* A solved daily task gets a small flame before its OK badge. */
+.daily-solve-flame {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: #f08a24;
+  font-size: 1.08rem;
+  line-height: 1;
+  cursor: help;
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, #f08a24 34%, transparent));
+}
+
+.daily-solve-flame--late {
+  color: var(--muted);
+  filter: none;
+}
+
+.daily-solve-flame--streak {
+  color: #ff6b18;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, #ffb11b 68%, transparent));
+  animation: daily-solve-flame-flicker 1.15s ease-in-out infinite alternate;
+}
+
+@keyframes daily-solve-flame-flicker {
+  from { transform: translateY(1px) scale(.96) rotate(-3deg); }
+  to { transform: translateY(-1px) scale(1.08) rotate(3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daily-solve-flame--streak { animation: none; }
+}
+
 /* Узкая карточка (телефон): шкала и «Результаты» друг под другом.
    Литерал 30rem must match --new-task-actions-stack (@container + var() не везде). */
 @container new-task (max-width: 30rem) {

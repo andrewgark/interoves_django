@@ -11,7 +11,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 
 from games.daily.section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
-from games.models import GameTaskGroup, PlayerCompletedGame, Profile
+from games.models import DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Profile
 
 
 def streak_from_completion_dates(completed_dates, *, today):
@@ -115,3 +115,78 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
 def daily_streaks_for_user(user, *, games, now=None):
     """Backward-compatible wrapper for authenticated-user callers."""
     return daily_streaks_for_actor(user=user, games=games, now=now)
+
+
+def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None, now=None):
+    """Return per-task-group solve timing, using the same dates as Streak.
+
+    Values are ``same_day``, ``late`` or ``streak``.  The latter is limited to
+    the currently active consecutive run, so an old on-time solve stays a
+    regular (but still positive) flame.
+    """
+    if (user is None or not getattr(user, 'is_authenticated', False)) and not anon_key:
+        return {}
+    now = now or timezone.now()
+    today = now.astimezone(MOSCOW).date()
+    links = list(links)
+    link_dates = {}
+    task_group_ids = []
+    for link in links:
+        game_link = link[1] if isinstance(link, tuple) else link
+        number = link[0] if isinstance(link, tuple) else getattr(link, 'number', None)
+        schedule = schedule_for(game.id)
+        published_at = schedule.publish_at(game, number) if schedule and number is not None else None
+        if published_at is None:
+            continue
+        task_group_id = getattr(game_link, 'task_group_id', None)
+        if task_group_id is None:
+            continue
+        link_dates[task_group_id] = published_at.astimezone(MOSCOW).date()
+        task_group_ids.append(task_group_id)
+    if not task_group_ids:
+        return {}
+
+    actor = (
+        {'user': user, 'team__isnull': True, 'anon_key__isnull': True}
+        if user is not None and getattr(user, 'is_authenticated', False)
+        else {'anon_key': str(anon_key), 'team__isnull': True, 'user__isnull': True}
+    )
+    completed_at_by_group = {}
+    for row in DailySolveTiming.objects.filter(
+        game=game, task_group_id__in=task_group_ids,
+        status=DailySolveTiming.STATUS_COMPLETED, replay_slot__isnull=True, **actor,
+    ).only('task_group_id', 'completed_at'):
+        if row.completed_at:
+            completed_at_by_group[row.task_group_id] = row.completed_at
+
+    # Older completions can predate the canonical timing row.
+    for row in PlayerCompletedGame.objects.filter(
+        game=game, task_group_id__in=task_group_ids,
+        result=PlayerCompletedGame.RESULT_SOLVED, **actor,
+    ).only('task_group_id', 'completed_at').order_by('completed_at'):
+        completed_at_by_group.setdefault(row.task_group_id, row.completed_at)
+
+    same_day_dates = {
+        link_dates[group_id]
+        for group_id, completed_at in completed_at_by_group.items()
+        if group_id in link_dates
+        and completed_at.astimezone(MOSCOW).date() == link_dates[group_id]
+        and link_dates[group_id] <= today
+    }
+    cursor = today if today in same_day_dates else today - timedelta(days=1)
+    active_dates = set()
+    while cursor in same_day_dates:
+        active_dates.add(cursor)
+        cursor -= timedelta(days=1)
+
+    statuses = {}
+    for group_id, completed_at in completed_at_by_group.items():
+        published_date = link_dates.get(group_id)
+        if published_date is None:
+            continue
+        completed_date = completed_at.astimezone(MOSCOW).date()
+        if completed_date == published_date:
+            statuses[group_id] = 'streak' if published_date in active_dates else 'same_day'
+        else:
+            statuses[group_id] = 'late'
+    return statuses

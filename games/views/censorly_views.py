@@ -407,6 +407,8 @@ def censorly_hub_page(request):
             'row_class': progress.get(number, {}).get('row_class', ''),
             'progress_meta': progress.get(number, {}).get('progress_meta', ''),
         })
+    from games.views.new_ui import _add_daily_completion_statuses
+    _add_daily_completion_statuses(request, game, rows, schedule_links)
     archive_context = build_daily_archive_context(
         items=archive_items,
         requested_month=request.GET.get('month'),

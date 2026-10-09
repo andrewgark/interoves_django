@@ -1127,6 +1127,26 @@ def _daily_archive_context(request, game, links, *, completed_numbers=(), status
     )
 
 
+def _add_daily_completion_statuses(request, game, rows, links):
+    """Add the small flame state shown next to a solved daily task."""
+    from games.daily.streak import daily_completion_statuses_for_actor
+
+    user, anon_key = _resolve_actor(request)
+    statuses = daily_completion_statuses_for_actor(
+        game=game, links=links, user=user, anon_key=anon_key,
+    )
+    by_number = {}
+    for link in links:
+        game_link = link[1] if isinstance(link, tuple) else link
+        number = link[0] if isinstance(link, tuple) else link.number
+        status = statuses.get(game_link.task_group_id)
+        if status:
+            by_number[str(number)] = status
+    for row in rows:
+        row['daily_completion_status'] = by_number.get(str(row.get('number')))
+    return rows
+
+
 def _ladder_published_numbers(game):
     return _published_numbers(game)
 
@@ -1980,6 +2000,9 @@ def _render_section_game_page(request, game_id):
             if row.get('row_class') in ('new-task--partial', 'new-task--solved')
         },
         locked_keys={row['number'] for row in task_group_rows if row.get('is_archive_locked')},
+    )
+    _add_daily_completion_statuses(
+        request, game, task_group_rows, _hub_section_task_group_links(game),
     )
 
     section_today_play_url = None
