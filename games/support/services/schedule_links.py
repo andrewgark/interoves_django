@@ -89,9 +89,12 @@ def build_schedule_page_context(
 def defer_future_slot(*, game, link_id, is_number_published, renumber_links,
                       list_rows, error_cls, not_found_msg, published_msg,
                       now=None):
+    game = Game.objects.select_for_update().get(pk=game.pk)
     link = GameTaskGroup.objects.filter(game=game, pk=link_id).select_related('task_group').first()
     if link is None:
         raise error_cls(not_found_msg)
+    if link.is_deferred:
+        raise error_cls('Слот уже находится в отложенных')
     try:
         number = int(link.number)
     except (TypeError, ValueError) as exc:
@@ -118,6 +121,7 @@ def defer_future_slot(*, game, link_id, is_number_published, renumber_links,
 @transaction.atomic
 def restore_deferred_slot(*, game, link_id, renumber_links, list_rows, error_cls,
                           not_found_msg, now=None):
+    game = Game.objects.select_for_update().get(pk=game.pk)
     link = GameTaskGroup.objects.filter(game=game, pk=link_id).select_related('task_group').first()
     if link is None or not link.is_deferred:
         raise error_cls(not_found_msg)

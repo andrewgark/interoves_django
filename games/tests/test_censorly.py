@@ -893,6 +893,63 @@ class CensorlySupportViewTests(TestCase):
         self.assertTrue(response.json()['ok'])
         self.assertFalse(response.json()['rows'][0]['is_deferred'])
 
+    def test_deferred_queue_has_independent_order_and_restore_appends(self):
+        from games.support.services.censorly import defer_censorly, restore_censorly
+
+        game = Game.objects.get(pk=CENSORLY_GAME_ID)
+        links = []
+        for index in range(3):
+            _game, task, _hash, _puzzle = _make_puzzle_task(
+                title=f'Очередь {index}',
+            )
+            link = GameTaskGroup.objects.get(game=game, task_group=task.task_group)
+            RandomCensorlyGame.objects.filter(task_group=task.task_group).delete()
+            link.number = str(index + 1)
+            link.name = f'Цензурка #{index + 1}'
+            link.save(update_fields=['number', 'name'])
+            links.append(link)
+
+        with patch(
+            'games.support.services.censorly.is_censorly_number_published',
+            return_value=False,
+        ):
+            defer_censorly(links[1].pk)
+            defer_censorly(links[2].pk)
+
+            links[1].refresh_from_db()
+            links[2].refresh_from_db()
+            self.assertEqual(links[1].deferred_number, '1')
+            self.assertEqual(links[2].deferred_number, '2')
+
+            restore_censorly(links[1].pk)
+
+        links[1].refresh_from_db()
+        links[2].refresh_from_db()
+        self.assertFalse(links[1].is_deferred)
+        self.assertEqual(links[1].number, '2')
+        self.assertTrue(links[2].is_deferred)
+        self.assertEqual(links[2].deferred_number, '1')
+
+    def test_defer_rejects_already_deferred_slot(self):
+        from games.support.services.censorly import (
+            CensorlySupportError,
+            defer_censorly,
+        )
+
+        game, task, _hash, _puzzle = _make_puzzle_task(title='Повторная очередь')
+        link = GameTaskGroup.objects.get(game=game, task_group=task.task_group)
+        RandomCensorlyGame.objects.filter(task_group=task.task_group).delete()
+        link.number = '1'
+        link.save(update_fields=['number'])
+
+        with patch(
+            'games.support.services.censorly.is_censorly_number_published',
+            return_value=False,
+        ):
+            defer_censorly(link.pk)
+            with self.assertRaises(CensorlySupportError):
+                defer_censorly(link.pk)
+
     def test_refetch_replaces_article_text_and_keeps_attempts(self):
         from games.censorly.wiki import WikiArticle
         from games.models import RandomCensorlyGame

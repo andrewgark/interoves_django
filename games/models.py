@@ -769,7 +769,13 @@ class GameTaskGroup(models.Model):
         links = list(queryset)
         if not links:
             return queryset.none()
-        links.sort(key=lambda link: link.key_sort(), reverse=reverse)
+        def sort_key(link):
+            if include_deferred and link.is_deferred:
+                deferred_key = cls.try_number_key(link.deferred_number)
+                return (1, deferred_key if deferred_key is not None else (10**9,), link.pk)
+            return (0, link.key_sort(), link.pk)
+
+        links.sort(key=sort_key, reverse=reverse)
         ordered_pks = [link.pk for link in links]
         preserved = models.Case(
             *[models.When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)],

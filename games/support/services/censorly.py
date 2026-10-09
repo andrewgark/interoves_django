@@ -8,7 +8,6 @@ from typing import Any, Optional
 import uuid
 
 from django.db import transaction
-from django.db.models import Q
 from django.utils import timezone
 
 from games.censorly import CENSORLY_CHECKER_ID, CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
@@ -406,8 +405,12 @@ def _task_for_party(*, share_hash: str = '', number: str = '') -> Task:
         if row:
             task = Task.objects.filter(task_group_id=row.task_group_id, number='1').first()
     elif number:
-        link = GameTaskGroup.objects.filter(game=game).filter(
-            Q(number=str(number)) | Q(deferred_number=str(number))
+        # A schedule number and a deferred-queue number are independent now;
+        # number-based support actions refer to the public schedule only.
+        link = GameTaskGroup.objects.filter(
+            game=game,
+            is_deferred=False,
+            number=str(number),
         ).first()
         if link:
             task = Task.objects.filter(task_group_id=link.task_group_id, number='1').first()
