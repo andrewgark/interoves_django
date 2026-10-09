@@ -106,7 +106,7 @@ html.new-ui-dark .censorly__dock {
 
   .censorly__dock {
     position: sticky;
-    bottom: 0;
+    bottom: var(--censorly-keyboard-offset, 0px);
     top: auto;
     z-index: 8;
     width: 100%;

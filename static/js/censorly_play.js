@@ -522,6 +522,31 @@
     }
   }
 
+  function syncMobileKeyboardOffset(root) {
+    if (!root) return;
+    var update = function () {
+      var viewport = window.visualViewport;
+      if (!viewport) {
+        root.style.removeProperty('--censorly-keyboard-offset');
+        return;
+      }
+      // On browsers that keep the layout viewport full-sized, the visual
+      // viewport shrinks above the soft keyboard. Resize-mode browsers report
+      // zero here because their layout viewport already shrinks.
+      var offset = Math.max(
+        0,
+        window.innerHeight - viewport.height - viewport.offsetTop
+      );
+      root.style.setProperty('--censorly-keyboard-offset', offset + 'px');
+    };
+    update();
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', update);
+      window.visualViewport.addEventListener('scroll', update);
+    }
+    window.addEventListener('resize', update);
+  }
+
   function setShareCard(box, state) {
     if (state && state.share_card) {
       try {
@@ -759,6 +784,7 @@
     syncEndingsToggle(root, endingsBtn, showEndings);
     syncLengthsToggle(root, lengthsBtn, showLengths);
     syncMobileDockOffset(root);
+    syncMobileKeyboardOffset(root);
 
     if (stateUrl) {
       fetch(stateUrl, {
@@ -801,6 +827,7 @@
         var open = !historyWrap.hidden;
         root.classList.toggle('censorly--history-open', open);
         historyBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+        historyBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
       }
       syncHistoryLayout();
       window.addEventListener('resize', syncHistoryLayout);
@@ -813,6 +840,7 @@
         var open = historyWrap.hidden;
         historyWrap.hidden = !open;
         historyBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+        historyBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
         root.classList.toggle('censorly--history-open', open);
       });
     }
