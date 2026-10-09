@@ -1582,6 +1582,19 @@ html.new-ui-dark body.new-ui {
   font-size: 1.1rem;
 }
 
+.new-hub-section__streak--active {
+  color: #ff6b18;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, #ffb11b 58%, transparent));
+}
+
+.new-hub-section__streak--active .ph-fire {
+  animation: daily-solve-flame-flicker 1.15s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-hub-section__streak--active .ph-fire { animation: none; }
+}
+
 .new-hub-section__solved:hover .new-hub-section__solved-tip,
 .new-hub-section__solved:focus-visible .new-hub-section__solved-tip {
   opacity: 1;
