@@ -651,20 +651,6 @@ def apply_guess(
         out['error'] = 'Введите одно слово (буквы/цифры)'
         return out
 
-    # Function words are rendered as open from the start and are not part of
-    # the guessable content-token set. Reject them before touching the actor
-    # state so they never consume an attempt or create a history row.
-    if is_stop_word(normalized):
-        state = _read_actor_state(game=game, task=task, actor=actor)
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'initially_open'
-        out['hits'] = 0
-        out['newly_revealed'] = []
-        out['guess_word'] = normalized
-        out['error'] = 'Это слово уже открыто изначально'
-        return out
-
-    guess_lemma = lemma_of(normalized)
     state = _read_actor_state(game=game, task=task, actor=actor)
     num = number if number is not None else ''
 
@@ -675,6 +661,20 @@ def apply_guess(
             out, game=game, task=task, number=num, actor=actor,
             host=share_host, play_path=play_path,
         )
+
+    # Function words are rendered as open from the start and are not part of
+    # the guessable content-token set. Reject them before touching the actor
+    # state so they never consume an attempt or create a history row.
+    if is_stop_word(normalized):
+        out = public_payload(state, payload, task=task)
+        out['status'] = 'initially_open'
+        out['hits'] = 0
+        out['newly_revealed'] = []
+        out['guess_word'] = normalized
+        out['error'] = 'Это слово уже открыто изначально'
+        return out
+
+    guess_lemma = lemma_of(normalized)
 
     if normalized in {g.get('word') for g in state.get('guesses') or []}:
         out = public_payload(state, payload, task=task)

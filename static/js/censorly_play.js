@@ -884,7 +884,8 @@
             data = applyStateDelta(root, data);
             if (handleReplayFlags(data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
-              setFeedback(root, data.error || 'Не удалось отправить', 'error');
+              var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
+              setFeedback(root, data.error || 'Не удалось отправить', feedbackKind);
               if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
                 root.setAttribute('data-active-guess-index', String(data.active_guess_index));
               }

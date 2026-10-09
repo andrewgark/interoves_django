@@ -223,11 +223,11 @@ class CensorlyEngineTests(TestCase):
         )
         user = User.objects.create_user('cz_stop_word', password='x')
 
-        result = apply_guess(game=game, task=task, word='И', user=user)
-
-        self.assertEqual(result['status'], 'initially_open')
-        self.assertEqual(result['error'], 'Это слово уже открыто изначально')
-        self.assertEqual(result['attempts'], 0)
+        for word in ('И', 'в', 'или'):
+            result = apply_guess(game=game, task=task, word=word, user=user)
+            self.assertEqual(result['status'], 'initially_open')
+            self.assertEqual(result['error'], 'Это слово уже открыто изначально')
+            self.assertEqual(result['attempts'], 0)
         self.assertFalse(Attempt.objects.filter(task=task, user=user).exists())
         self.assertFalse(ChainTaskState.objects.filter(task=task, user=user).exists())
 
@@ -291,6 +291,25 @@ class CensorlyAccessTests(TestCase):
             self.assertNotIn('title_tokens', data)
             self.assertNotIn('body_tokens', data)
             self.assertIn('state_delta', data)
+
+    def test_initially_open_word_api_does_not_record_attempt(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.post(
+            f'/censorly/r/{self.share_hash}/guess/',
+            data=json.dumps({'word': 'и'}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'initially_open')
+        self.assertEqual(data['error'], 'Это слово уже открыто изначально')
+        self.assertEqual(data['state_delta']['attempts'], 0)
+        self.assertFalse(Attempt.objects.filter(task=self.task, user=self.staff).exists())
+        self.assertFalse(
+            ChainTaskState.objects.filter(task=self.task, user=self.staff).exists()
+        )
 
     def test_hub_is_public_when_ready(self):
         self.client.force_login(self.plain)

@@ -487,6 +487,7 @@ html.new-ui-dark .censorly__dock {
 
 .censorly__feedback.is-error { color: #c23b22; }
 .censorly__feedback.is-hit { color: #1a7f37; }
+.censorly__feedback.is-info { color: #6b5b1f; }
 
 .censorly__history {
   margin-top: 0.65rem;
