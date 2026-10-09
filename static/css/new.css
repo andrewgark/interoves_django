@@ -1583,12 +1583,17 @@ html.new-ui-dark body.new-ui {
 }
 
 .new-hub-section__streak--active {
-  color: #ff6b18;
+  color: var(--accent);
   filter: drop-shadow(0 0 4px color-mix(in srgb, #ffb11b 58%, transparent));
 }
 
 .new-hub-section__streak--active .ph-fire {
+  color: #b84f12;
   animation: daily-solve-flame-flicker 1.15s ease-in-out infinite alternate;
+}
+
+html.new-ui-dark .new-hub-section__streak--active .ph-fire {
+  color: #ff9d62;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -138,8 +138,22 @@ class HubSectionCardTemplateTests(SimpleTestCase):
                     {'card': {**self.card, 'streak': streak}},
                 )
 
-                self.assertIn(f'title="{streak} {word} подряд"', html)
+                self.assertIn(f'data-tooltip="{streak} {word} подряд"', html)
                 self.assertIn(f'aria-label="{streak} {word} подряд"', html)
+
+    def test_active_streak_gets_animated_flame_and_zero_streak_is_hidden(self):
+        active_html = render_to_string(
+            'new/partials/hub_section_card.html',
+            {'card': {**self.card, 'streak': 3}},
+        )
+        self.assertIn('new-hub-section__streak--active', active_html)
+        self.assertIn('ph ph-fire', active_html)
+
+        empty_html = render_to_string(
+            'new/partials/hub_section_card.html',
+            {'card': {**self.card, 'streak': 0}},
+        )
+        self.assertNotIn('new-hub-section__streak', empty_html)
 
     def test_create_link_starts_on_new_line_for_ladder_and_alphabetty(self):
         for section_id, create_url in (
