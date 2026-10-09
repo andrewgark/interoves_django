@@ -261,7 +261,7 @@ def complete_logical_game(
     attempts = 3
     for attempt in range(1, attempts + 1):
         try:
-            return _complete_logical_game_once(
+            result_data = _complete_logical_game_once(
                 actor=actor,
                 game=game,
                 task_group=task_group,
@@ -274,6 +274,21 @@ def complete_logical_game(
                 source=source,
                 now=now,
             )
+            if result_data and replay_slot is None:
+                timing_data = result_data.get('timing') or {}
+                if not timing_data.get('exists') or int(
+                    timing_data.get('frozen_ms', timing_data.get('accumulated_ms', 0)) or 0
+                ) == 0:
+                    from games.telegram.notify import notify_admin_zero_duration_completion
+
+                    notify_admin_zero_duration_completion(
+                        game=game,
+                        task_group=task_group,
+                        actor=actor,
+                        timing=result_data.get('timing'),
+                        completion=result_data,
+                    )
+            return result_data
         except OperationalError as exc:
             if not is_mysql_retryable_lock_error(exc) or attempt >= attempts:
                 raise

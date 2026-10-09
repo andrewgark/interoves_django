@@ -37,6 +37,7 @@ from games.telegram.notify import (
     notify_new_bug_report,
     notify_admin_word_salad_submission_error,
     notify_admin_site_error,
+    notify_admin_zero_duration_completion,
     send_admin_message,
     send_announce_message,
     send_announce_photo,
@@ -315,6 +316,21 @@ class TelegramNotifyTests(TestCase):
         set_admin_mute(30)
         self.assertFalse(send_admin_message('muted'))
         send_message_mock.assert_not_called()
+
+    @patch('games.telegram.notify.publish_admin_alert', return_value=True)
+    def test_zero_duration_completion_is_queued_with_dedupe_key(self, publish_mock):
+        self.assertTrue(notify_admin_zero_duration_completion(
+            game=self.game,
+            task_group=self.task_group,
+            actor={'team': self.team, 'user': None, 'anon_key': None},
+            timing=None,
+            completion={'record': None},
+        ))
+        publish_mock.assert_called_once()
+        kwargs = publish_mock.call_args.kwargs
+        self.assertEqual(kwargs['alert'], 'zero_duration_completion')
+        self.assertIn('tg_test_game:{}'.format(self.task_group.pk), kwargs['dedupe_key'])
+        self.assertIn('временем 0:00', kwargs['payload']['text'])
 
     @patch('games.telegram.notify.publish_admin_alert', return_value=True)
     @patch('games.telegram.notify.timezone.localtime')

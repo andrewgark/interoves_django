@@ -83,6 +83,62 @@ def notify_admin_alert_message(text: str, *, dedupe_key: str = '') -> bool:
     return delivered
 
 
+def notify_admin_zero_duration_completion(*, game, task_group, actor, timing, completion) -> bool:
+    """Queue an alert when a completed daily game has no measurable time.
+
+    This is deliberately sent through the integrations queue: completion has
+    already committed by the time this function is called, and Telegram must
+    not participate in the gameplay transaction.
+    """
+    try:
+        if isinstance(actor, dict):
+            user = actor.get('user')
+            team = actor.get('team')
+            anon_key = actor.get('anon_key')
+        else:
+            user = getattr(actor, 'user', None)
+            team = getattr(actor, 'team', None)
+            anon_key = getattr(actor, 'anon_key', None)
+        profile = getattr(user, 'profile', None) if user is not None else None
+        if user is not None:
+            profile_name = ' '.join(filter(None, (
+                getattr(profile, 'first_name', ''), getattr(profile, 'last_name', ''),
+            ))) if profile else ''
+            actor_label = (
+                profile_name or user.get_full_name() or user.get_username()
+                or 'user #{}'.format(user.pk)
+            )
+        elif team is not None:
+            actor_label = 'team #{}'.format(team.pk)
+        else:
+            actor_label = 'anon {}'.format(str(anon_key or '')[:16])
+        timing_label = 'missing row' if not timing else 'frozen_ms={}'.format(
+            timing.get('frozen_ms', timing.get('accumulated_ms', 0))
+        )
+        record = completion.get('record') if isinstance(completion, dict) else None
+        game_id = str(getattr(game, 'pk', game))
+        task_group_id = getattr(task_group, 'pk', task_group)
+        instance_id = getattr(record, 'game_instance_id', '') if record else ''
+        text = _join_lines([
+            '⚠️ <b>Завершённая игра с временем 0:00</b>',
+            '',
+            'Игрок: <b>{}</b>'.format(_escape(actor_label)),
+            'Игра: {} · task group: {}'.format(_escape(game_id), _escape(task_group_id)),
+            'Состояние таймера: {}'.format(_escape(timing_label)),
+            'Completion: {}'.format(_escape(instance_id or '—')),
+        ])
+        return publish_admin_alert(
+            alert='zero_duration_completion',
+            dedupe_key='telegram.admin_alert:zero_duration_completion:{}:{}:{}'.format(
+                game_id, task_group_id, instance_id or actor_label,
+            ),
+            payload={'text': text},
+        )
+    except Exception:
+        logger.exception('Failed to notify admin about zero-duration completion')
+        return False
+
+
 def _deliver_admin_text(text: str, *, alert: str, delivery: str, dedupe_key: str = '') -> bool:
     if delivery == 'queue':
         return publish_admin_alert(
