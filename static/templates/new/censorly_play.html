@@ -177,6 +177,69 @@
 <script src="{% static 'js/censorly_guess_feedback.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/censorly_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script>
+// Цензурка использует ту же новую meta-полосу, что и остальные игры, но не
+// проходит через task_group.html, где раньше был единственный обработчик.
+(function () {
+  function csrf() {
+    if (window.InterovesPageCsrf) return window.InterovesPageCsrf.pageToken();
+    var el = document.querySelector('#interoves-page-csrf input[name=csrfmiddlewaretoken]');
+    if (el) return el.value;
+    var form = document.querySelector('#censorly-form input[name=csrfmiddlewaretoken]');
+    return form ? form.value : '';
+  }
+  var root = document.getElementById('censorly-root');
+  if (!root) return;
+  var anonKey = root.getAttribute('data-anon-key') || '';
+  var requests = Object.create(null);
+  function update(taskId, data) {
+    document.querySelectorAll('[data-like-count="' + taskId + '"]').forEach(function (el) {
+      if (typeof data.likes !== 'undefined') el.textContent = data.likes;
+    });
+    document.querySelectorAll('[data-dislike-count="' + taskId + '"]').forEach(function (el) {
+      if (typeof data.dislikes !== 'undefined') el.textContent = data.dislikes;
+    });
+    document.querySelectorAll('[data-like-btn][data-task-id="' + taskId + '"]').forEach(function (el) {
+      el.setAttribute('data-liked', data.liked ? '1' : '0');
+      el.classList.toggle('is-active', !!data.liked);
+    });
+    document.querySelectorAll('[data-dislike-btn][data-task-id="' + taskId + '"]').forEach(function (el) {
+      el.setAttribute('data-disliked', data.disliked ? '1' : '0');
+      el.classList.toggle('is-active', !!data.disliked);
+    });
+  }
+  function submit(taskId, likes, dislikes) {
+    if (requests[taskId]) return;
+    requests[taskId] = true;
+    var body = new URLSearchParams({
+      likes: String(likes), dislikes: String(dislikes), game_id: '{{ game.id }}', anon_key: anonKey,
+    });
+    var url = "{% url 'new_like_dislike' 0 %}".replace('/0/', '/' + taskId + '/');
+    fetch(url, {
+      method: 'POST', credentials: 'same-origin',
+      headers: {'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': csrf(), 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'},
+      body: body.toString(),
+    }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (data) { update(taskId, data); })
+      .finally(function () { delete requests[taskId]; });
+  }
+  document.querySelectorAll('[data-like-btn]').forEach(function (el) {
+    el.classList.toggle('is-active', el.getAttribute('data-liked') === '1');
+  });
+  document.querySelectorAll('[data-dislike-btn]').forEach(function (el) {
+    el.classList.toggle('is-active', el.getAttribute('data-disliked') === '1');
+  });
+  document.addEventListener('click', function (e) {
+    var like = e.target.closest && e.target.closest('[data-like-btn]');
+    var dislike = e.target.closest && e.target.closest('[data-dislike-btn]');
+    var button = like || dislike;
+    if (!button) return;
+    e.preventDefault();
+    var taskId = button.getAttribute('data-task-id');
+    var active = button.getAttribute(like ? 'data-liked' : 'data-disliked') === '1';
+    submit(taskId, like ? (active ? -1 : 1) : 0, dislike ? (active ? -1 : 1) : 0);
+  }, true);
+})();
+
 window.revealReplayControl = window.revealReplayControl || function () {
   document.querySelectorAll('[data-replay-control]').forEach(function (control) {
     control.hidden = false;

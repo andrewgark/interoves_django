@@ -1089,6 +1089,18 @@ class CensorlyUxDailyTests(TestCase):
         resp = self.client.get('/censorly/1/')
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'censorly-root')
+        self.assertContains(resp, 'data-like-btn')
+        self.assertContains(resp, 'data-dislike-btn')
+
+    def test_like_dislike_endpoint_accepts_censorly_task(self):
+        self.client.force_login(self.staff)
+        resp = self.client.post(
+            f'/like-dislike/{self.task.id}/',
+            {'game_id': CENSORLY_GAME_ID, 'likes': 1, 'dislikes': 0},
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['likes'], 1)
+        self.assertTrue(resp.json()['liked'])
 
     def test_random_game_post_redirects_non_subscriber(self):
         from unittest.mock import patch
