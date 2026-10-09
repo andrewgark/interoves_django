@@ -26,10 +26,11 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 17
+CACHE_VERSION = 18
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
+CENSORLY_POPULAR_MIN_ENTRIES = 1
 BOUND_WORDS_LIMIT = 10
 
 
@@ -527,7 +528,7 @@ def _censorly(task, game, actors):
     popular = [
         {'word': word, 'players': len(players)}
         for word, players in sorted(lemma_players.items(), key=lambda item: (-len(item[1]), item[0]))
-        if len(players) >= POPULAR_MIN_ENTRIES
+        if len(players) >= CENSORLY_POPULAR_MIN_ENTRIES
     ][:POPULAR_LIMIT]
     # Last-before-win can be sparse; show from 1 player.
     last_words = [

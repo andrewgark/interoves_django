@@ -201,6 +201,36 @@ class DailyStatisticsTests(TestCase):
             ['СЛЕДУЮЩЕЕ', 'ДЛИННОЕ', 'ABCD', 'EFGH'],
         )
 
+    def test_censorly_popular_words_include_single_player_words(self):
+        game = Game.objects.filter(id='censorly', project=self.project).first()
+        if game is None:
+            game = Game.objects.create(id='censorly', name='Цензурка', project=self.project)
+        tg = TaskGroup.objects.create(label='censorly stats')
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='censorly')
+        checker, _ = CheckerType.objects.get_or_create(pk='censorly')
+        task = Task.objects.create(
+            task_group=tg, number='1', task_type='censorly', checker=checker,
+            checker_data=json.dumps({
+                'title': 'Тест',
+                'text': 'Текст статьи.',
+                'guesses': [],
+            }),
+        )
+        user = self.users[0]
+        Attempt.manager.create(
+            user=user, game=game, task=task, text='слово', status='Ok',
+            state=json.dumps({'guesses': [{'lemma': 'слово'}], 'won': True}),
+        )
+        PlayerCompletedGame.objects.create(
+            user=user, game=game, task_group=tg, game_kind='censorly',
+            game_instance_id='censorly:{}'.format(tg.pk),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+
+        data = build_daily_statistics(game, tg)
+
+        self.assertEqual(data['popular_words'], [{'word': 'слово', 'players': 1}])
+
     def test_ladder_uses_success_order_and_active_intervals(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()
         if game is None:
