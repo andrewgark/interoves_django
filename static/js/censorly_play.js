@@ -804,6 +804,11 @@
       }
       syncHistoryLayout();
       window.addEventListener('resize', syncHistoryLayout);
+      if (window.ResizeObserver) {
+        var historyLayoutObserver = new ResizeObserver(syncHistoryLayout);
+        historyLayoutObserver.observe(root);
+        root._censorlyHistoryLayoutObserver = historyLayoutObserver;
+      }
       historyBtn.addEventListener('click', function () {
         var open = historyWrap.hidden;
         historyWrap.hidden = !open;
