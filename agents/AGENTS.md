@@ -33,6 +33,23 @@ Or without activating:
 
 **Do not** use bare `python3` / system `pip` for this project unless the user explicitly wants that. **Do not** create a new venv under this repo by default.
 
+### Django tests
+
+Run Django tests through the project wrapper from the repository root:
+
+```bash
+./run_tests.sh
+./run_tests.sh games.tests.test_censorly
+```
+
+The wrapper uses `interoves_django.test_settings` and `--keepdb`, which keeps a
+file-backed SQLite test database in `/tmp/interoves-django-test.sqlite3` and
+avoids rebuilding hundreds of migrations on every run. Do not invoke
+`manage.py test` directly for ordinary local test runs: the default SQLite
+test database is in-memory and can make startup look hung while migrations
+are being recreated. A separate `INTEROVES_TEST_DB_PATH` can be supplied when
+running tests concurrently.
+
 The same requirement is mirrored in `.cursor/rules/python-venv.mdc` (`alwaysApply: true`).
 
 ## Docker in the developer environment

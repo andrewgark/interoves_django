@@ -284,6 +284,24 @@ def _candidate_category(source_kind: str, source_entry: Mapping[str, Any], deriv
     return 'other_proper_name'
 
 
+def _compact_index_entry(entry: Mapping[str, Any]) -> JsonObject:
+    """Retain only metadata needed to classify a reverse-linked proper name."""
+    compact: JsonObject = {}
+    for key in ('word', 'title', 'lang', 'lang_code', 'pos', 'categories', 'tags'):
+        if key in entry:
+            compact[key] = entry[key]
+    senses = []
+    for sense in entry.get('senses') or ():
+        if not isinstance(sense, Mapping):
+            continue
+        small = {key: sense[key] for key in ('glosses', 'raw_glosses', 'tags', 'categories') if key in sense}
+        if small:
+            senses.append(small)
+    if senses:
+        compact['senses'] = senses
+    return compact
+
+
 def _make_candidate(
     *,
     name: str,
@@ -549,7 +567,7 @@ def run_experiment(
             # Only proper-name entries are needed for reverse etymology
             # lookup. Keeping every Wiktextract object would defeat the
             # bounded-memory purpose of the two-pass scan.
-            index.setdefault(fold(word), entry)
+            index.setdefault(fold(word), _compact_index_entry(entry))
 
     candidates = extract_candidates(
         load_jsonl(input_path),

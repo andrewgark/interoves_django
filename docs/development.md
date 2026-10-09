@@ -16,8 +16,13 @@
 домена, например:
 
 ```bash
-../venv/interoves_django/bin/python manage.py test games.tests.test_raddle
+./run_tests.sh games.tests.test_raddle
 ```
+
+`run_tests.sh` — обязательная точка входа для локальных Django-тестов: он
+использует persistent SQLite test DB и `--keepdb`, поэтому не пересоздаёт
+тестовую схему из сотен миграций при каждом запуске. Для параллельного запуска
+задай отдельный `INTEROVES_TEST_DB_PATH`.
 
 Специализированные проверки из `agents/AGENTS.md` обязательны, если изменение
 затрагивает соответствующую область: responsive UI, realtime, Raddle, deploy
