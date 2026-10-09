@@ -11291,8 +11291,26 @@ button.new-word-salad__hint-btn:disabled {
   }
 
   .new-likebtn,
-  .new-raddle-retry-btn {
+  .new-raddle-retry-btn,
+  .new-account-action,
+  .new-replacements-fill-btn,
+  .new-proportions-compact-textbtn,
+  .new-alphabetty__hint-btn,
+  .new-word-salad__hint-btn {
     min-height: 2.75rem;
+  }
+
+  .new-raddle-clue__mark {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+    margin-top: 0;
+  }
+
+  .new-proportions-attempts-popover__close {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
   }
 
   .new-replacements-check-btn,
