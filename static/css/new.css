@@ -6085,7 +6085,8 @@ html.new-ui-dark .new-smart-scrollbar-thumb {
   background: var(--surface);
   color: var(--text);
   font: inherit;
-  font-size: 0.9rem;
+  /* Keep mobile Safari from zooming the page when this field receives focus. */
+  font-size: 1rem;
   transition: border-color 0.14s ease, box-shadow 0.14s ease;
 }
 .new-wall-explanation__field input::placeholder {
