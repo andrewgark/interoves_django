@@ -152,7 +152,7 @@ def _iter_words(value: Any) -> Iterator[tuple[str, str]]:
             yield from _iter_words(item)
 
 
-def _entry_text(entry: Mapping[str, Any]) -> str:
+def _entry_text(entry: Mapping[str, Any], *, include_senses: bool = True) -> str:
     parts: list[str] = []
     # Etymology is evidence for a relation, not evidence that the current
     # entry itself is a proper name.  Including it here would classify
@@ -165,6 +165,8 @@ def _entry_text(entry: Mapping[str, Any]) -> str:
         value = entry.get(key)
         if isinstance(value, list):
             parts.extend(str(item) for item in value)
+    if not include_senses:
+        return ' '.join(parts).casefold()
     for sense in entry.get('senses') or ():
         if not isinstance(sense, Mapping):
             continue
@@ -177,9 +179,9 @@ def _entry_text(entry: Mapping[str, Any]) -> str:
     return ' '.join(parts).casefold()
 
 
-def classify_entry(entry: Mapping[str, Any]) -> tuple[str, tuple[str, ...]]:
+def classify_entry(entry: Mapping[str, Any], *, include_senses: bool = True) -> tuple[str, tuple[str, ...]]:
     """Classify only explicit proper-name signals; spelling is not enough."""
-    text = _entry_text(entry)
+    text = _entry_text(entry, include_senses=include_senses)
     signals: list[str] = []
     if any(marker in text for marker in _GEO_SIGNALS):
         signals.append('geographic')
@@ -432,7 +434,7 @@ def extract_candidates(
         current_word = _entry_word(entry)
         if not is_one_token(current_word):
             continue
-        current_kind, current_signals = classify_entry(entry)
+        current_kind, current_signals = classify_entry(entry, include_senses=False)
         explicit = bool(_EXPLICIT_ETYMOLOGY_RE.search(_explicit_etymology(entry)))
 
         for field in ('derived', 'related'):
@@ -445,7 +447,7 @@ def extract_candidates(
                         stats.rejected += 1
                     continue
                 linked_entry = by_word.get(fold(linked), {})
-                linked_kind, linked_signals = classify_entry(linked_entry)
+                linked_kind, linked_signals = classify_entry(linked_entry, include_senses=False)
                 if current_kind:
                     add(
                         current_word, linked, relation_field=field,
@@ -472,7 +474,7 @@ def extract_candidates(
                 if stats is not None:
                     stats.source_relations += 1
                 linked_entry = by_word.get(fold(linked), {})
-                linked_kind, linked_signals = classify_entry(linked_entry)
+                linked_kind, linked_signals = classify_entry(linked_entry, include_senses=False)
                 if current_kind and not linked_kind:
                     add(
                         current_word, linked, relation_field='etymology',
@@ -563,7 +565,7 @@ def run_experiment(
         word = _entry_word(entry)
         if not is_one_token(word):
             continue
-        kind, _signals = classify_entry(entry)
+        kind, _signals = classify_entry(entry, include_senses=False)
         if kind:
             stats.potential_proper_name_records += 1
             # Only proper-name entries are needed for reverse etymology
