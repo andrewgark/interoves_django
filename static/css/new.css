@@ -7645,7 +7645,10 @@ tr.new-replacements-row.is-solved-hidden {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 1rem;
+  padding: max(1rem, env(safe-area-inset-top))
+    max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom))
+    max(1rem, env(safe-area-inset-left));
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.2s, visibility 0.2s;
