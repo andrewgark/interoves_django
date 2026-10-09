@@ -152,19 +152,20 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
         else {'anon_key': str(anon_key), 'team__isnull': True, 'user__isnull': True}
     )
     completed_at_by_group = {}
-    for row in DailySolveTiming.objects.filter(
-        game=game, task_group_id__in=task_group_ids,
-        status=DailySolveTiming.STATUS_COMPLETED, replay_slot__isnull=True, **actor,
-    ).only('task_group_id', 'completed_at'):
-        if row.completed_at:
-            completed_at_by_group[row.task_group_id] = row.completed_at
-
-    # Older completions can predate the canonical timing row.
     for row in PlayerCompletedGame.objects.filter(
         game=game, task_group_id__in=task_group_ids,
         result=PlayerCompletedGame.RESULT_SOLVED, **actor,
     ).only('task_group_id', 'completed_at').order_by('completed_at'):
         completed_at_by_group.setdefault(row.task_group_id, row.completed_at)
+
+    # Older completions can predate the canonical timing row.  Prefer the
+    # same source as daily_streaks_for_actor when both records exist.
+    for row in DailySolveTiming.objects.filter(
+        game=game, task_group_id__in=task_group_ids,
+        status=DailySolveTiming.STATUS_COMPLETED, replay_slot__isnull=True, **actor,
+    ).only('task_group_id', 'completed_at'):
+        if row.completed_at:
+            completed_at_by_group.setdefault(row.task_group_id, row.completed_at)
 
     same_day_dates = {
         link_dates[group_id]

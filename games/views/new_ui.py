@@ -1131,7 +1131,7 @@ def _add_daily_completion_statuses(request, game, rows, links):
     """Add the small flame state shown next to a solved daily task."""
     from games.daily.streak import daily_completion_statuses_for_actor
 
-    user, anon_key = _resolve_actor(request)
+    _team, user, anon_key = _resolve_game_page_actor(request, 'personal')
     statuses = daily_completion_statuses_for_actor(
         game=game, links=links, user=user, anon_key=anon_key,
     )

@@ -6,7 +6,12 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from games.daily.authorship import is_author_auto_completion_active
-from games.daily_streak import daily_streaks_for_actor, daily_streaks_for_user, streak_from_completion_dates
+from games.daily_streak import (
+    daily_completion_statuses_for_actor,
+    daily_streaks_for_actor,
+    daily_streaks_for_user,
+    streak_from_completion_dates,
+)
 from games.models import Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, TaskGroup
 
 
@@ -195,3 +200,15 @@ class DailyStreakLogicTests(TestCase):
             streak_from_completion_dates({self.now.date() - timedelta(days=1)}, today=self.now.date()),
             1,
         )
+
+    def test_completion_statuses_distinguish_same_day_late_and_active_streak(self):
+        self.completion('ladder', 10, self.now)
+        self.completion('ladder', 11, self.now)
+        statuses = daily_completion_statuses_for_actor(
+            game=self.games['ladder'],
+            links=[self.links['ladder'][10], self.links['ladder'][11]],
+            user=self.user,
+            now=self.now,
+        )
+        self.assertEqual(statuses[self.links['ladder'][10].task_group_id], 'late')
+        self.assertEqual(statuses[self.links['ladder'][11].task_group_id], 'streak')

@@ -52,7 +52,7 @@
         {% if row.is_archive_locked %}<span class="club-lock-badge" data-tooltip="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽." aria-label="Задание доступно по клубной подписке"><i class="ph ph-lock-key" aria-hidden="true"></i></span>{% endif %}
         <span class="new-task__action">
           {% if row.is_solved %}
-            {% if row.daily_completion_status %}<i class="ph ph-fire daily-solve-flame daily-solve-flame--{{ row.daily_completion_status }}" data-tooltip="{% if row.daily_completion_status == 'late' %}Задание решено спустя больше суток{% elif row.daily_completion_status == 'streak' %}Задание решено в те же сутки · текущий Streak{% else %}Задание решено в те же сутки{% endif %}" aria-label="Задание решено в те же сутки"></i>{% endif %}
+            {% if row.daily_completion_status %}<i class="ph ph-fire daily-solve-flame daily-solve-flame--{{ row.daily_completion_status }}" data-tooltip="{% if row.daily_completion_status == 'late' %}Задание решено спустя больше суток{% elif row.daily_completion_status == 'streak' %}Задание решено в те же сутки · текущий Streak{% else %}Задание решено в те же сутки{% endif %}" aria-label="{% if row.daily_completion_status == 'late' %}Задание решено спустя больше суток{% elif row.daily_completion_status == 'streak' %}Задание решено в те же сутки · текущий Streak{% else %}Задание решено в те же сутки{% endif %}"></i>{% endif %}
             <span class="new-pill new-pill--ok" data-tooltip="Решено">ок</span>
           {% endif %}
         </span>
