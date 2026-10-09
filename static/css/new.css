@@ -174,10 +174,6 @@ html.new-ui-dark body.new-ui {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
-
-  .new-wrap--replacements {
-    max-width: none;
-  }
 }
 
 /* Nav */
