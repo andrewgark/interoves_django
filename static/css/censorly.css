@@ -74,6 +74,21 @@ html.new-ui-dark .censorly__dock {
     padding-bottom: max(7rem, var(--censorly-dock-height, 7rem));
   }
 
+  /*
+    A long masked word is an inline-block whose natural width is the width of
+    all its █ glyphs. On a phone that width can be wider than the article and
+    otherwise creates horizontal overflow. Keep the mask as one visual token,
+    but allow its glyphs to wrap inside the article column.
+  */
+  .censorly-tok--glyphs .censorly-tok__blocks {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-all;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
   .censorly__dock {
     position: sticky;
     bottom: 0;
