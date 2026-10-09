@@ -81,7 +81,7 @@ aws ec2-instance-connect send-ssh-public-key \
     || { echo "Failed to push SSH key" >&2; exit 1; }
 
 # ---- SSH helper through SSM (no public IP or direct SG route required) ------
-SSH=(ssh -i "$KEY_FILE" \
+SSH=(ssh -tt -i "$KEY_FILE" \
     -o "ProxyCommand=aws ssm start-session --region ${REGION} --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p" \
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
     -o LogLevel=ERROR -o ConnectTimeout=10 "${OS_USER}@${INSTANCE_ID}")
