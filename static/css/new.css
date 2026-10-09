@@ -7064,6 +7064,8 @@ a.new-btn.new-hub-next-game-vote__btn {
   border-radius: var(--card-radius);
   background: var(--surface);
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
   max-height: min(72vh, 720px);
   display: inline-block;
   isolation: isolate;
