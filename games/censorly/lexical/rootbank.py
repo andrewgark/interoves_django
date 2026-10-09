@@ -17,6 +17,8 @@ in the curated atomic list.
 from __future__ import annotations
 
 import os
+import csv
+import re
 from collections import Counter
 from functools import lru_cache
 from pathlib import Path
@@ -34,6 +36,12 @@ _DICT_DIR = Path(__file__).resolve().parent / 'data' / 'dictionaries'
 _KUZ_LEMMAS = Path(os.environ.get('CENSORLY_KUZ_LEMMAS', _DICT_DIR / 'lemmas_to_roots.tsv'))
 _KUZ_GROUPS = Path(os.environ.get('CENSORLY_KUZ_GROUPS', _DICT_DIR / 'root_groups.txt'))
 _TIKHONOV = Path(os.environ.get('CENSORLY_TIKHONOV', _DICT_DIR / 'RuMorphs-Lemmas.txt'))
+_REVIEWED_OPAQUE = Path(os.environ.get(
+    'CENSORLY_REVIEWED_OPAQUE', Path(__file__).resolve().parent / 'data' / 'reviewed_opaque_roots.tsv'
+))
+_REVIEWED_DERIVED = Path(os.environ.get(
+    'CENSORLY_REVIEWED_DERIVED', Path(__file__).resolve().parent / 'data' / 'reviewed_derived_roots.tsv'
+))
 
 # Historical families whose join would glue unrelated modern words.
 # ``чит`` and ``чт`` stay one reading root. ``чет`` does not join them.
@@ -41,10 +49,50 @@ _READ_MORPHS = frozenset({'чит', 'чт', 'ч'})
 
 # Reviewed assignments are family/lemma assignments, never pair edges. The
 # opaque namespace is separate from Kuznetsova families by construction.
-REVIEWED_OPAQUE_ROOTS = frozenset({'сенат'})
-REVIEWED_DERIVED_ROOTS = {
-    fold('иволговый'): (('fam:иволг',),),
-}
+_ROOT_ID_RE = re.compile(r'^(?:fam|tikh|sense|root):[^+|\s]+$')
+
+
+def _load_reviewed_assignments():
+    if not _REVIEWED_OPAQUE.exists():
+        raise RuntimeError(f'missing reviewed opaque data file: {_REVIEWED_OPAQUE}')
+    if not _REVIEWED_DERIVED.exists():
+        raise RuntimeError(f'missing reviewed derived data file: {_REVIEWED_DERIVED}')
+
+    opaque = set()
+    with _REVIEWED_OPAQUE.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream, delimiter='\t')
+        if reader.fieldnames != ['root_spelling', 'note']:
+            raise RuntimeError(f'invalid reviewed opaque header in {_REVIEWED_OPAQUE}')
+        for row in reader:
+            spelling = fold(row['root_spelling'])
+            if not spelling:
+                raise RuntimeError(f'empty reviewed opaque root in {_REVIEWED_OPAQUE}')
+            if spelling in opaque:
+                raise RuntimeError(f'duplicate reviewed opaque root: {spelling}')
+            opaque.add(spelling)
+
+    derived = {}
+    with _REVIEWED_DERIVED.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream, delimiter='\t')
+        if reader.fieldnames != ['lemma', 'root_structure', 'note']:
+            raise RuntimeError(f'invalid reviewed derived header in {_REVIEWED_DERIVED}')
+        for row in reader:
+            lemma = fold(row['lemma'])
+            raw_structure = row['root_structure'].strip()
+            if not lemma or not raw_structure:
+                raise RuntimeError(f'empty reviewed derived assignment in {_REVIEWED_DERIVED}')
+            parts = tuple(sorted(item.strip() for item in raw_structure.split('+')))
+            if not parts or any(not _ROOT_ID_RE.fullmatch(item) for item in parts):
+                raise RuntimeError(f'invalid reviewed root structure {raw_structure!r} for {lemma}')
+            structure = tuple(parts)
+            existing = derived.setdefault(lemma, [])
+            if structure in existing:
+                raise RuntimeError(f'duplicate reviewed derived assignment: {lemma} {raw_structure}')
+            existing.append(structure)
+    return frozenset(opaque), {lemma: tuple(items) for lemma, items in derived.items()}
+
+
+REVIEWED_OPAQUE_ROOTS, REVIEWED_DERIVED_ROOTS = _load_reviewed_assignments()
 
 
 def structures_of(lemma: str) -> tuple[tuple[str, ...], ...]:

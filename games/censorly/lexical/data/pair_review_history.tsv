@@ -1,0 +1,18 @@
+updated_at	guess	target	previous_status	status	decision	note
+2026-10-10T00:00:00+04:00	сенат	сенатор		APPLIED	APPROVE	clean Tikhonov-only lexical family
+2026-10-10T00:00:00+04:00	иволга	иволговый		APPLIED	APPROVE	transparent reviewed derivation from иволга
+2026-10-10T00:00:00+04:00	мир	море		CONFIRMED	KEEP_CLOSED	known semantic split/adversarial case
+2026-10-10T00:00:00+04:00	пчела	пчеловод		CONFIRMED	KEEP_CLOSED	compound relation remains closed
+2026-10-10T00:00:00+04:00	мёд	медоносный		CONFIRMED	KEEP_CLOSED	compound relation remains closed
+2026-10-10T00:00:00+04:00	страна	странный		CONFIRMED	KEEP_CLOSED	known semantic split
+2026-10-10T00:00:00+04:00	крупа	крупный		CONFIRMED	KEEP_CLOSED	known semantic split
+2026-10-10T00:00:00+04:00	свет	светский		CONFIRMED	KEEP_CLOSED	known semantic split
+2026-10-10T00:00:00+04:00	мать	матка		CONFIRMED	KEEP_CLOSED	known semantic split
+2026-10-10T00:00:00+04:00	червь	червовый		CONFIRMED	KEEP_CLOSED	known adversarial case
+2026-10-10T00:00:00+04:00	мара	маревый		CONFIRMED	KEEP_CLOSED	known adversarial case
+2026-10-10T00:00:00+04:00	год	годный		CONFIRMED	KEEP_CLOSED	known adversarial case
+2026-10-10T00:00:00+04:00	душа	душный		CONFIRMED	KEEP_CLOSED	known adversarial case
+2026-10-10T00:00:00+04:00	белка	белки		CONFIRMED	KEEP_OPEN	same lexeme
+2026-10-10T00:00:00+04:00	белок	белки		CONFIRMED	KEEP_OPEN	same lexeme
+2026-10-10T00:00:00+04:00	строить	три		CONFIRMED	KEEP_CLOSED	current resolver result
+2026-10-10T00:00:00+04:00	пара	испарять		CONFIRMED	KEEP_CLOSED	current resolver result

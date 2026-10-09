@@ -1,0 +1,18 @@
+guess	target	expected	actual	classification	decision	fix_layer	status	note
+сенат	сенатор	OPEN	OPEN	B	APPROVE	REVIEWED_OPAQUE_ROOT	APPLIED	clean Tikhonov-only lexical family
+иволга	иволговый	OPEN	OPEN	C	APPROVE	REVIEWED_DERIVED_ROOT	APPLIED	transparent reviewed derivation from иволга
+мир	море	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known semantic split/adversarial case
+пчела	пчеловод	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	compound relation remains closed
+мёд	медоносный	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	compound relation remains closed
+страна	странный	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known semantic split
+крупа	крупный	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known semantic split
+свет	светский	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known semantic split
+мать	матка	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known semantic split
+червь	червовый	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known adversarial case
+мара	маревый	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known adversarial case
+год	годный	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known adversarial case
+душа	душный	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	known adversarial case
+белка	белки	OPEN	OPEN	-	KEEP_OPEN	NONE	CONFIRMED	same lexeme
+белок	белки	OPEN	OPEN	-	KEEP_OPEN	NONE	CONFIRMED	same lexeme
+строить	три	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	current resolver result
+пара	испарять	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	current resolver result
