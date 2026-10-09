@@ -229,7 +229,7 @@ class CensorlyEngineTests(TestCase):
             self.assertEqual(result['guess_word'], word.lower())
             self.assertEqual(result['error'], 'Это слово уже открыто изначально')
             self.assertEqual(result['attempts'], 0)
-        self.assertFalse(Attempt.objects.filter(task=task, user=user).exists())
+        self.assertFalse(Attempt.manager.filter(task=task, user=user).exists())
         self.assertFalse(ChainTaskState.objects.filter(task=task, user=user).exists())
 
 
@@ -307,7 +307,7 @@ class CensorlyAccessTests(TestCase):
         self.assertEqual(data['status'], 'initially_open')
         self.assertEqual(data['error'], 'Это слово уже открыто изначально')
         self.assertEqual(data['state_delta']['attempts'], 0)
-        self.assertFalse(Attempt.objects.filter(task=self.task, user=self.staff).exists())
+        self.assertFalse(Attempt.manager.filter(task=self.task, user=self.staff).exists())
         self.assertFalse(
             ChainTaskState.objects.filter(task=self.task, user=self.staff).exists()
         )
