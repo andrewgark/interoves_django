@@ -1352,8 +1352,7 @@ html.new-ui-dark body.new-ui {
   border: none;
   border-radius: var(--control-radius);
   background: transparent;
-  color: transparent;
-  caret-color: var(--text);
+  color: var(--text);
   font-size: 0.95rem;
   text-decoration: none;
   text-align: left;
@@ -1440,10 +1439,23 @@ html.new-ui-dark body.new-ui {
     right: 0;
     top: 100%;
     z-index: 9;
+    max-height: calc(100vh - 3.5rem);
+    max-height: calc(100dvh - 3.5rem);
+    overflow-y: auto;
     background: var(--bg);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 10%, transparent);
   }
+
+  .new-nav__drawer-inner {
+    gap: 0.25rem;
+    padding: 0.5rem 0.65rem 0.65rem;
+  }
+
+  .new-nav__drawer-link {
+    padding: 0.5rem 0.55rem;
+  }
+
   .new-nav__drawer.is-open {
     display: block;
   }
