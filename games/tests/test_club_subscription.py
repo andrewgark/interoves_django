@@ -13,6 +13,8 @@ from allauth.socialaccount.models import SocialApp
 from games.club_access import (
     has_club_access,
     is_within_free_archive_window,
+    scheduled_number_requires_club,
+    user_can_access_scheduled_number,
     user_can_access_desyatka,
     user_can_access_task_archive,
 )
@@ -669,6 +671,30 @@ class ClubArchiveAccessTests(TestCase):
             self.assertTrue(is_within_free_archive_window(replacements, number))
         self.assertFalse(is_within_free_archive_window(replacements, 157))
         self.assertFalse(is_within_free_archive_window(replacements, 999))
+
+    def test_dotted_replacements_number_is_not_a_paywall_bypass(self):
+        replacements = Game.objects.create(
+            id='replacements', name='Replacements', author='test', project_id='sections',
+        )
+        dotted_task = None
+        for number in (170, 169, 168, 167, 166, 165, 164, '133.2'):
+            task_group = TaskGroup.objects.create(label='replacements-dotted-{}'.format(number))
+            GameTaskGroup.objects.create(
+                game=replacements,
+                task_group=task_group,
+                number=str(number),
+                name='#{}'.format(number),
+            )
+            if number == '133.2':
+                dotted_task = Task.objects.create(
+                    task_group=task_group,
+                    number='1',
+                    task_type='replacements_lines',
+                )
+
+        self.assertTrue(scheduled_number_requires_club(replacements, '133.2'))
+        self.assertFalse(user_can_access_scheduled_number(None, replacements, '133.2'))
+        self.assertFalse(user_can_access_task_archive(None, replacements, dotted_task))
 
     def test_cancelled_but_paid_opens_archive(self):
         ClubSubscription.objects.create(

@@ -140,6 +140,14 @@ def _numeric_number(number) -> int | None:
     return value
 
 
+def _is_valid_archive_number(number) -> bool:
+    """Accept the integer and dotted-integer formats used by game links."""
+    if _numeric_number(number) is not None:
+        return True
+    from games.models import GameTaskGroup
+    return GameTaskGroup.try_number_key(number) is not None
+
+
 def _latest_visible_archive_numbers(game) -> set[str]:
     """Return the latest archive numbers in the order shown on the hub.
 
@@ -184,7 +192,7 @@ def scheduled_number_requires_club(game, number, *, now=None) -> bool:
         return False
     if not is_club_archive_game(getattr(game, 'id', None)):
         return False
-    if _numeric_number(number) is None:
+    if not _is_valid_archive_number(number):
         return False
     return not is_within_free_archive_window(game, number, now=now)
 
@@ -223,9 +231,9 @@ def club_archive_number_for_task(game, task):
         .only('number')
         .first()
     )
-    if link is None:
+    if link is None or not _is_valid_archive_number(link.number):
         return None
-    return _numeric_number(link.number)
+    return str(link.number)
 
 
 def user_can_access_task_archive(user, game, task, *, now=None) -> bool:
