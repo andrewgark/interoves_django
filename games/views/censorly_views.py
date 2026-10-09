@@ -73,6 +73,36 @@ def _share_host(request) -> str:
     return request.get_host() or 'interoves.com'
 
 
+def _compact_guess_response(result):
+    """Drop the unchanged article from ordinary guess responses.
+
+    The initial page/state response already contains the full masked article.
+    Only newly revealed public tokens need to cross the wire after a guess.
+    Winning responses stay full so the final reveal remains a simple, robust
+    compatibility path.
+    """
+    if result.get('status') in ('won', 'already_won'):
+        return result
+    title_tokens = result.get('title_tokens') or []
+    body_tokens = result.get('body_tokens') or []
+    revealed_ids = {str(token_id) for token_id in result.get('newly_revealed') or []}
+    token_updates = [
+        token
+        for token in [*title_tokens, *body_tokens]
+        if str(token.get('id')) in revealed_ids
+    ]
+    compact = dict(result)
+    compact.pop('title_tokens', None)
+    compact.pop('body_tokens', None)
+    compact['state_delta'] = {
+        key: value
+        for key, value in result.items()
+        if key not in ('title_tokens', 'body_tokens')
+    }
+    compact['state_delta']['token_updates'] = token_updates
+    return compact
+
+
 def _get_game():
     return Game.objects.filter(
         id=CENSORLY_GAME_ID,
@@ -820,7 +850,7 @@ def censorly_guess(request, number=None, share_hash=None):
     status_code = 200
     if result.get('status') == 'error':
         status_code = 400
-    return JsonResponse(result, status=status_code)
+    return JsonResponse(_compact_guess_response(result), status=status_code)
 
 
 @require_POST
