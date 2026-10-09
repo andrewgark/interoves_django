@@ -9,4 +9,5 @@ PYTHON="../venv/interoves_django/bin/python3"
 if command -v node >/dev/null 2>&1; then
   "$PYTHON" scripts/check_inline_js_syntax.py static/templates/new/task_group.html
 fi
-exec "$PYTHON" manage.py test "$@"
+TEST_SETTINGS="${DJANGO_TEST_SETTINGS:-interoves_django.test_settings}"
+exec "$PYTHON" manage.py test --settings="$TEST_SETTINGS" --keepdb "$@"

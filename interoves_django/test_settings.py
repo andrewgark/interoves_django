@@ -18,3 +18,5 @@ if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
         'INTEROVES_TEST_DB_PATH',
         os.path.join(tempfile.gettempdir(), 'interoves-django-test.sqlite3'),
     )
+    # Fail clearly if another local test run owns the SQLite write lock.
+    DATABASES['default'].setdefault('OPTIONS', {})['timeout'] = 5
