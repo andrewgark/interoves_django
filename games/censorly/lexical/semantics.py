@@ -200,6 +200,27 @@ def readings_of(surface: str) -> tuple:
     return tuple(parsed)
 
 
+@lru_cache(maxsize=262144)
+def guess_readings_of(surface: str) -> tuple:
+    """Readings to use for a word typed as a guess.
+
+    A guess has no sentence context.  When its spelling is the dictionary
+    form of one reading, prefer that reading over readings for which the same
+    spelling is only an inflected form.  If it is not a citation form at all
+    (for example ``прибыли``), retain every live reading.
+
+    This is deliberately applied only to the guess side.  Article tokens are
+    analyzed with their sentence context elsewhere and must keep their own
+    possible identities.
+    """
+    found = readings_of(surface)
+    folded = fold(surface)
+    if not folded:
+        return found
+    citation = tuple(item for item in found if item.lemma == folded)
+    return citation or found
+
+
 def _russian(surface: str, article_language: str) -> bool:
     if backend_name(surface, article_language=article_language) == RUSSIAN:
         return True

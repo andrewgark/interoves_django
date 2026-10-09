@@ -876,7 +876,7 @@ class LexicalGameplayTests(TestCase):
             triple = apply_guess(game=game, task=task, word='третий', user=user)
             self.assertIn(fold('три'), self._open_texts(triple))
             steam = apply_guess(game=game, task=task, word='пара', user=user)
-            self.assertIn(fold('испарять'), self._open_texts(steam))
+            self.assertNotIn(fold('испарять'), self._open_texts(steam))
             country = apply_guess(game=game, task=task, word='страна', user=user)
             self.assertNotIn(fold('странный'), self._open_texts(country))
             mother = apply_guess(game=game, task=task, word='мать', user=user)

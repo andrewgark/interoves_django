@@ -28,6 +28,7 @@ from games.censorly.lexical.russian import CAPABILITIES as RUSSIAN_CAPS
 from games.censorly.lexical.russian.decisions import REJECT
 from games.censorly.lexical.russian.context import inflection_matches, occurrence_of
 from games.censorly.lexical.russian.morphology import cognate_lemmas
+from games.censorly.lexical.match import matching_lemmas
 from games.censorly.normalize import lemma_of, normalize_surface
 from games.censorly.redact import lemmas_matching_guess
 from games.censorly.tokenize import build_puzzle_payload
@@ -150,6 +151,31 @@ NEGATIVES = (
 
 
 class LexicalResolverTests(SimpleTestCase):
+    def test_guess_prefers_citation_reading_over_inflected_homonym(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'усталый', 'lemma': 'усталый'},
+            {'kind': 'content', 'surface': 'устав', 'lemma': 'устав'},
+            {'kind': 'content', 'surface': 'испарять', 'lemma': 'испарять'},
+            {'kind': 'content', 'surface': 'пара', 'lemma': 'пара'},
+            {'kind': 'content', 'surface': 'быть', 'lemma': 'быть'},
+            {'kind': 'content', 'surface': 'суть', 'lemma': 'суть'},
+        ]
+
+        self.assertNotIn('усталый', matching_lemmas(tokens, 'устав'))
+        self.assertIn('устав', matching_lemmas(tokens, 'устав'))
+        self.assertNotIn('испарять', matching_lemmas(tokens, 'пара'))
+        self.assertIn('пара', matching_lemmas(tokens, 'пара'))
+        self.assertNotIn('быть', matching_lemmas(tokens, 'суть'))
+
+    def test_guess_without_citation_form_keeps_all_live_readings(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'прибыть', 'lemma': 'прибыть'},
+            {'kind': 'content', 'surface': 'прибыль', 'lemma': 'прибыль'},
+        ]
+        hits = matching_lemmas(tokens, 'прибыли')
+        self.assertIn('прибыть', hits)
+        self.assertIn('прибыль', hits)
+
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
             kind = relation_kind(left, right)

@@ -15,6 +15,7 @@ from games.censorly.lexical.semantics import (
     _grammar,
     _roots,
     _russian,
+    guess_readings_of,
     initially_open,
     readings_of,
 )
@@ -30,6 +31,20 @@ class _Pack:
         self.service = initially_open(surface)
         self.reads = readings_of(surface)
         self.russian = _russian(surface, 'ru')
+        self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
+        self.roots = _roots(self.reads, surface)
+        families = set(families_of(self.fold))
+        for item in self.reads:
+            families.update(families_of(item.lemma))
+        self.families = families
+
+
+class _GuessPack(_Pack):
+    """Article-independent pack with citation-form preference."""
+
+    def __init__(self, surface: str):
+        super().__init__(surface)
+        self.reads = guess_readings_of(surface)
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         self.roots = _roots(self.reads, surface)
         families = set(families_of(self.fold))
@@ -90,7 +105,7 @@ def matching_lemmas(tokens, guess: str) -> set[str]:
     )
     if not rows or not (guess or '').strip():
         return set()
-    guess_pack = _Pack(guess)
+    guess_pack = _GuessPack(guess)
     hits: set[str] = set()
     for (surface, lemma), pack in zip(rows, _index(rows)):
         if _opens(guess_pack, pack):
@@ -111,7 +126,7 @@ def decision(tokens, guess: str) -> dict:
     )
     if not rows or not (guess or '').strip():
         return {'readings': [], 'opened': [], 'rejected': [], 'rejected_total': 0}
-    guess_pack = _Pack(guess)
+    guess_pack = _GuessPack(guess)
     opened: dict[tuple, dict] = {}
     rejected: dict[tuple, dict] = {}
     for (surface, lemma), pack in zip(rows, _index(rows)):
