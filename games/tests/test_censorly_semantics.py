@@ -1045,6 +1045,9 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
             ('квт', 'киловатт'),
             ('мвт', 'мегаватт'),
             ('гц', 'герц'),
+            ('втб', 'внешторгбанк'),
+            ('авто', 'автомобиль'),
+            ('факс', 'факсимиле'),
         )
         for short, full in aliases:
             self.assertEqual(explain(short, full), 'alias', f'{short}/{full}')
@@ -1054,6 +1057,21 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
             ('миллилитр', 'миллиграмм'),
             ('ватт', 'киловатт'),
             ('мегаватт', 'герц'),
+            ('втб', 'автомобиль'),
+            ('авто', 'факсимиле'),
+            ('факс', 'внешторгбанк'),
         ):
             self.assertFalse(opens(left, right), f'{left}/{right}')
             self.assertFalse(opens(right, left), f'{right}/{left}')
+
+    def test_article_matcher_uses_explicit_proper_pairs(self):
+        from games.censorly.lexical.match import _Pack, _relation
+
+        self.assertEqual(
+            _relation(_Pack('алжир'), _Pack('алжирский')),
+            'proper',
+        )
+        self.assertEqual(
+            _relation(_Pack('мл'), _Pack('миллилитр')),
+            'alias',
+        )
