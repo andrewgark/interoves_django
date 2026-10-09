@@ -367,8 +367,32 @@
     }
   }
 
-  function scrollToNode(node) {
+  function scrollToNode(root, node) {
     if (!node) return;
+    var dock = root && root.querySelector('.censorly__dock');
+    var rootRect = root && root.getBoundingClientRect();
+    var dockRect = dock && dock.getBoundingClientRect();
+    // On mobile the dock spans the game width and sticks over the bottom of
+    // the article. Center within the unobscured area, not the whole viewport.
+    var mobileDock = dockRect && rootRect &&
+      dockRect.top < window.innerHeight && dockRect.bottom > 0 &&
+      dockRect.width >= rootRect.width * 0.8;
+    if (mobileDock) {
+      var top = 12;
+      var bottom = Math.max(top + 1, dockRect.top - 12);
+      var availableCenter = (top + bottom) / 2;
+      var rect = node.getBoundingClientRect();
+      var delta = rect.top + rect.height / 2 - availableCenter;
+      if (rect.height > bottom - top) delta = rect.top - top;
+      if (Math.abs(delta) > 1) {
+        try {
+          window.scrollBy({ top: delta, behavior: 'smooth' });
+        } catch (e) {
+          window.scrollBy(0, delta);
+        }
+      }
+      return;
+    }
     try {
       node.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
     } catch (e) {
@@ -378,7 +402,7 @@
 
   function scrollToTokenId(root, tokenId) {
     if (tokenId == null) return;
-    scrollToNode(root.querySelector('.censorly-tok[data-id="' + String(tokenId) + '"]'));
+    scrollToNode(root, root.querySelector('.censorly-tok[data-id="' + String(tokenId) + '"]'));
   }
 
   function nearestScrollNode(nodes) {
@@ -395,7 +419,7 @@
   function scrollToNodes(root, nodes) {
     if (!nodes.length) return;
     var mode = root.getAttribute('data-scroll-mode') || 'first';
-    scrollToNode(mode === 'nearest' ? nearestScrollNode(nodes) : nodes[0]);
+    scrollToNode(root, mode === 'nearest' ? nearestScrollNode(nodes) : nodes[0]);
   }
 
   function scrollToGuess(root, row) {
