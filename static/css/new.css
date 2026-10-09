@@ -7068,6 +7068,7 @@ a.new-btn.new-hub-next-game-vote__btn {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
   max-height: min(72vh, 720px);
+  max-height: min(72dvh, 720px);
   display: inline-block;
   isolation: isolate;
 }
@@ -9721,6 +9722,7 @@ button.new-proportions-pool-return-link:focus-visible {
   padding: 0.5rem 0.6rem 0.55rem;
   max-width: min(24rem, calc(100vw - 1rem));
   max-height: min(70vh, 20rem);
+  max-height: min(70dvh, 20rem);
   overflow: auto;
   border: 1px solid var(--border);
   border-radius: 8px;

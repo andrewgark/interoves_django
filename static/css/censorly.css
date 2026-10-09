@@ -520,6 +520,7 @@ html.new-ui-dark .censorly__dock {
 .censorly__history {
   margin-top: 0.65rem;
   max-height: min(50vh, 22rem);
+  max-height: min(50dvh, 22rem);
   overflow: auto;
 }
 
