@@ -109,11 +109,23 @@
       var ta = document.createElement('textarea');
       ta.value = text;
       ta.setAttribute('readonly', '');
-      ta.style.position = 'absolute';
-      ta.style.top = '0';
+      // Focusing an absolutely positioned textarea at the top of the page
+      // makes browsers scroll the result back to the beginning when the
+      // Clipboard API is unavailable (notably in some Yandex Browser modes).
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
       ta.style.left = '-9999px';
       document.body.appendChild(ta);
-      ta.focus();
+      var scrollX = root.pageXOffset || 0;
+      var scrollY = root.pageYOffset || 0;
+      try {
+        ta.focus({ preventScroll: true });
+      } catch (focusErr) {
+        ta.focus();
+      }
+      // Older browsers ignore the focus option. Restore the exact position
+      // after focus there as a second line of defense.
+      if (typeof root.scrollTo === 'function') root.scrollTo(scrollX, scrollY);
       ta.select();
       ta.setSelectionRange(0, ta.value.length);
       var ok = document.execCommand('copy');

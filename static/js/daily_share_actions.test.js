@@ -72,6 +72,48 @@ run((function testCopyTextUsesClipboardAndExistingText() {
   });
 })());
 
+run((function testFallbackCopyDoesNotScrollPage() {
+  var focusedWith = null;
+  var scrollCalls = [];
+  var textarea = {
+    style: {},
+    setAttribute: function () {},
+    focus: function (options) { focusedWith = options; },
+    select: function () {},
+    setSelectionRange: function () {},
+  };
+  var body = {
+    appendChild: function () {},
+    removeChild: function () {},
+  };
+  var previousDocument = global.document;
+  global.document = {
+    readyState: 'complete',
+    createElement: function () { return textarea; },
+    body: body,
+    execCommand: function () { return true; },
+    addEventListener: function () {},
+  };
+  var root = {
+    pageXOffset: 14,
+    pageYOffset: 820,
+    scrollTo: function (x, y) { scrollCalls.push([x, y]); },
+    navigator: {},
+    interovesAnalytics: { trackYandexGoalOnce: function () { return true; } },
+    DailyShareCard: {},
+  };
+  try {
+    var actions = loadActions(root);
+    var block = blockFixture(['result'], { game_kind: 'ladder' });
+    return actions.copyShareText(block, null).then(function () {
+      assert.deepStrictEqual(focusedWith, { preventScroll: true });
+      assert.deepStrictEqual(scrollCalls, [[14, 820]]);
+    });
+  } finally {
+    global.document = previousDocument;
+  }
+})());
+
 run((function testCopyImageUsesPngBlob() {
   var written = [];
   var blob = { type: 'image/png', size: 12 };
