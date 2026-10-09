@@ -367,9 +367,7 @@
     }
   }
 
-  function scrollToTokenId(root, tokenId) {
-    if (tokenId == null) return;
-    var node = root.querySelector('.censorly-tok[data-id="' + String(tokenId) + '"]');
+  function scrollToNode(node) {
     if (!node) return;
     try {
       node.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
@@ -378,31 +376,46 @@
     }
   }
 
-  function scrollToGuess(root, row, cycleState) {
+  function scrollToTokenId(root, tokenId) {
+    if (tokenId == null) return;
+    scrollToNode(root.querySelector('.censorly-tok[data-id="' + String(tokenId) + '"]'));
+  }
+
+  function nearestScrollNode(nodes) {
+    if (!nodes.length) return null;
+    var viewportCenter = window.innerHeight / 2;
+    return Array.prototype.reduce.call(nodes, function (nearest, node) {
+      if (!nearest) return node;
+      var nodeDistance = Math.abs(node.getBoundingClientRect().top + node.offsetHeight / 2 - viewportCenter);
+      var nearestDistance = Math.abs(nearest.getBoundingClientRect().top + nearest.offsetHeight / 2 - viewportCenter);
+      return nodeDistance < nearestDistance ? node : nearest;
+    }, null);
+  }
+
+  function scrollToNodes(root, nodes) {
+    if (!nodes.length) return;
+    var mode = root.getAttribute('data-scroll-mode') || 'first';
+    scrollToNode(mode === 'nearest' ? nearestScrollNode(nodes) : nodes[0]);
+  }
+
+  function scrollToGuess(root, row) {
     var raw = row.dataset.tokenIds || '';
     var ids = raw ? raw.split(',') : [];
     if (ids.length) {
-      var key = 'w:' + (row.dataset.word || raw);
-      var idx = cycleState[key] | 0;
-      cycleState[key] = idx + 1;
-      scrollToTokenId(root, ids[idx % ids.length]);
+      var nodes = ids.map(function (id) {
+        return root.querySelector('.censorly-tok[data-id="' + String(id) + '"]');
+      }).filter(Boolean);
+      scrollToNodes(root, nodes);
       return;
     }
-    scrollToLemma(root, row.dataset.lemma || row.dataset.word, cycleState);
+    scrollToLemma(root, row.dataset.lemma || row.dataset.word);
   }
 
-  function scrollToLemma(root, lemma, cycleState) {
+  function scrollToLemma(root, lemma) {
     if (!lemma) return;
     var nodes = root.querySelectorAll('.censorly-tok[data-lemma="' + CSS.escape(lemma) + '"]');
     if (!nodes.length) return;
-    var idx = cycleState[lemma] | 0;
-    var node = nodes[idx % nodes.length];
-    cycleState[lemma] = idx + 1;
-    try {
-      node.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
-    } catch (e) {
-      node.scrollIntoView(true);
-    }
+    scrollToNodes(root, Array.prototype.slice.call(nodes));
   }
 
   function setShareCard(box, state) {
@@ -604,7 +617,6 @@
     var endingsBtn = root.querySelector('#censorly-endings-toggle');
     var hintBtn = root.querySelector('#censorly-hint-btn');
     var hintMode = root.querySelector('#censorly-hint-mode');
-    var lemmaCycle = {};
     var busy = false;
     var preferences = readDisplayPreferences();
     var showEndings = typeof preferences.showEndings === 'boolean'
@@ -721,7 +733,7 @@
           var currentState = root._censorlyState || {};
           applyGuessHighlight(root, currentState.guesses || [], guessIndex);
         }
-        scrollToGuess(root, row, lemmaCycle);
+        scrollToGuess(root, row);
       }
     });
 

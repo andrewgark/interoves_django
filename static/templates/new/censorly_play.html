@@ -55,6 +55,7 @@
      data-state-url="{{ state_url }}"
      data-hint-url="{{ hint_url }}"
      data-hint-penalty="{{ censorly_hint_penalty }}"
+     data-scroll-mode="{{ censorly_scroll_mode|default:'first' }}"
      data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}"
      data-anon-key="{{ anon_key|default:'' }}"
      data-context-token="{{ gameplay_context_token|default:'' }}">
