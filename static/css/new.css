@@ -8355,6 +8355,12 @@ html.is-age-gated .new-wrap {
   .new-daily-statistics { padding: .8rem; }
   .new-daily-statistics__summary { gap: .45rem; }
   .new-daily-statistics__list li { gap: .4rem; }
+  .new-daily-statistics__finding-pill,
+  .new-daily-statistics__word-pill {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
+  }
   .new-daily-statistics__list--salad { grid-template-columns: minmax(5rem, 7rem) minmax(3rem, 1fr) max-content max-content; column-gap: .4rem; }
   .new-daily-statistics__list li strong { font-size: .76rem; }
   .new-daily-statistics__body { gap: .8rem; }
