@@ -1026,6 +1026,12 @@ html.new-ui-dark body.new-ui {
   }
 }
 
+@media (max-width: 420px) {
+  .new-start-alternatives__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .new-onboarding-followup {
   margin: 1.5rem 0;
   padding: 1.15rem;
