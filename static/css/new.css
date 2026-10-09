@@ -11329,6 +11329,13 @@ button.new-word-salad__hint-btn:disabled {
     height: 2.75rem;
   }
 
+  .new-alphabetty__hint-toast__close,
+  .new-word-salad__orientation-btn {
+    width: 2.75rem;
+    min-width: 2.75rem;
+    height: 2.75rem;
+  }
+
   .new-rules-modal__close {
     width: 2.75rem;
     height: 2.75rem;
