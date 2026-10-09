@@ -501,6 +501,11 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
         raise WordSaladOfferError(str(exc)) from exc
     apply_author_tag(task, offer.author)
     task.save(update_fields=['tags'])
+    # Keep the structured author relation in sync with the textual author
+    # metadata.  Public results use this relation to exclude the submitter;
+    # without it, even a zero-point partial attempt can create a visible row.
+    if getattr(offer.user, 'profile', None) is not None:
+        offer.task_group.authors.add(offer.user.profile)
     ensure_word_salad_game()
     rows = list_word_salad_rows()
     max_num = max((r.number for r in rows), default=0)

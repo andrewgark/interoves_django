@@ -226,6 +226,10 @@ class WordSaladOfferFlowTests(TestCase):
         accept_offer(offer)
         offer.refresh_from_db()
         self.assertIsNotNone(offer.accepted_link_id)
+        self.assertEqual(
+            list(offer.task_group.authors.values_list('user_id', flat=True)),
+            [self.user.pk],
+        )
         client = Client()
         client.force_login(self.other)
         page = client.get(offer.play_url())
