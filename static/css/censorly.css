@@ -513,6 +513,23 @@ html.new-ui-dark .censorly__dock {
   overflow-wrap: anywhere;
 }
 
+.censorly__guess-word {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.censorly__guess-word:focus-visible {
+  outline: 2px solid var(--accent, #c9a227);
+  outline-offset: 2px;
+}
+
 .censorly__guess-table tbody tr {
   cursor: pointer;
 }

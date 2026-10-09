@@ -362,12 +362,15 @@
       tr.dataset.guessIndex = String(i);
       tr.dataset.lemma = lemma || word;
       tr.dataset.word = word;
-      tr.tabIndex = 0;
-      tr.setAttribute('aria-label', 'Показать слово «' + word + '» в тексте');
       if (tokenIds.length) tr.dataset.tokenIds = tokenIds.join(',');
       tr.appendChild(el('td', null, String(i + 1)));
       tr.appendChild(el('td', null, hits ? String(hits) : '—'));
-      tr.appendChild(el('td', null, word));
+      var wordCell = el('td');
+      var wordButton = el('button', 'censorly__guess-word', word);
+      wordButton.type = 'button';
+      wordButton.setAttribute('aria-label', 'Показать слово «' + word + '» в тексте');
+      wordCell.appendChild(wordButton);
+      tr.appendChild(wordCell);
       tbody.appendChild(tr);
     }
     applyGuessHighlight(root, items, activeIndex);
@@ -391,23 +394,31 @@
     }
   }
 
-  function scrollToNode(root, node) {
-    if (!node) return;
+  function mobileDockBounds(root) {
     var dock = root && root.querySelector('.censorly__dock');
     var rootRect = root && root.getBoundingClientRect();
     var dockRect = dock && dock.getBoundingClientRect();
-    // On mobile the dock spans the game width and sticks over the bottom of
-    // the article. Center within the unobscured area, not the whole viewport.
     var mobileDock = dockRect && rootRect &&
       dockRect.top < window.innerHeight && dockRect.bottom > 0 &&
       dockRect.width >= rootRect.width * 0.8;
-    if (mobileDock) {
-      var top = 12;
-      var bottom = Math.max(top + 1, dockRect.top - 12);
-      var availableCenter = (top + bottom) / 2;
+    if (!mobileDock) return null;
+    var top = 12;
+    return {
+      top: top,
+      bottom: Math.max(top + 1, dockRect.top - 12),
+    };
+  }
+
+  function scrollToNode(root, node) {
+    if (!node) return;
+    // On mobile the dock spans the game width and sticks over the bottom of
+    // the article. Center within the unobscured area, not the whole viewport.
+    var bounds = mobileDockBounds(root);
+    if (bounds) {
+      var availableCenter = (bounds.top + bounds.bottom) / 2;
       var rect = node.getBoundingClientRect();
       var delta = rect.top + rect.height / 2 - availableCenter;
-      if (rect.height > bottom - top) delta = rect.top - top;
+      if (rect.height > bounds.bottom - bounds.top) delta = rect.top - bounds.top;
       if (Math.abs(delta) > 1) {
         try {
           window.scrollBy({ top: delta, behavior: 'smooth' });
@@ -429,9 +440,12 @@
     scrollToNode(root, root.querySelector('.censorly-tok[data-id="' + String(tokenId) + '"]'));
   }
 
-  function nearestScrollNode(nodes) {
+  function nearestScrollNode(root, nodes) {
     if (!nodes.length) return null;
-    var viewportCenter = window.innerHeight / 2;
+    var bounds = mobileDockBounds(root);
+    var viewportCenter = bounds
+      ? (bounds.top + bounds.bottom) / 2
+      : window.innerHeight / 2;
     return Array.prototype.reduce.call(nodes, function (nearest, node) {
       if (!nearest) return node;
       var nodeDistance = Math.abs(node.getBoundingClientRect().top + node.offsetHeight / 2 - viewportCenter);
@@ -443,7 +457,7 @@
   function scrollToNodes(root, nodes) {
     if (!nodes.length) return;
     var mode = root.getAttribute('data-scroll-mode') || 'first';
-    scrollToNode(root, mode === 'nearest' ? nearestScrollNode(nodes) : nodes[0]);
+    scrollToNode(root, mode === 'nearest' ? nearestScrollNode(root, nodes) : nodes[0]);
   }
 
   function scrollToGuess(root, row) {
@@ -835,14 +849,6 @@
       if (row && root.contains(row)) {
         selectGuessRow(root, row);
       }
-    });
-
-    root.addEventListener('keydown', function (ev) {
-      var row = ev.target.closest('#censorly-guess-list tr');
-      if (!row || !root.contains(row)) return;
-      if (ev.key !== 'Enter' && ev.key !== ' ') return;
-      ev.preventDefault();
-      selectGuessRow(root, row);
     });
 
     if (hintBtn) {

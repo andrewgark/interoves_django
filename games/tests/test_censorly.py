@@ -12,7 +12,7 @@ from django.test import Client, SimpleTestCase, TestCase
 
 from games.censorly import CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.censorly.normalize import lemma_of, normalize_surface
-from games.censorly.play import apply_guess, get_play_state, hub_progress_for_actor, puzzle_from_task, reset_progress
+from games.censorly.play import apply_guess, apply_hint, get_play_state, hub_progress_for_actor, puzzle_from_task, reset_progress
 from games.censorly.redact import build_public_view, lemmas_matching_guess
 from games.censorly.stopwords import is_stop_word
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
@@ -72,6 +72,25 @@ def _make_puzzle_task(*, title='Москва', body='Москва — столи
 
 
 class CensorlyEngineTests(TestCase):
+    def test_guess_response_compacts_unchanged_article(self):
+        from games.views.censorly_views import _compact_guess_response
+
+        result = {
+            'status': 'hit',
+            'title_tokens': [{'id': 1, 'revealed': False}],
+            'body_tokens': [
+                {'id': 2, 'revealed': True, 'text': 'слово'},
+                {'id': 3, 'revealed': False},
+            ],
+            'newly_revealed': [2],
+            'guesses': [{'word': 'слово', 'token_ids': [2]}],
+        }
+        compact = _compact_guess_response(result)
+        self.assertNotIn('title_tokens', compact)
+        self.assertNotIn('body_tokens', compact)
+        self.assertEqual(compact['state_delta']['token_updates'], [result['body_tokens'][0]])
+        self.assertEqual(_compact_guess_response({'status': 'won'}), {'status': 'won'})
+
     def test_hub_progress_reports_partial_and_solved_states(self):
         game, task, _hash, puzzle = _make_puzzle_task(
             title='Кот', body='Кот сидит у окна.',
@@ -253,6 +272,10 @@ class CensorlyAccessTests(TestCase):
         self.assertEqual(guess.status_code, 200)
         data = guess.json()
         self.assertIn(data['status'], ('hit', 'miss', 'won'))
+        if data['status'] != 'won':
+            self.assertNotIn('title_tokens', data)
+            self.assertNotIn('body_tokens', data)
+            self.assertIn('state_delta', data)
 
     def test_hub_is_public_when_ready(self):
         self.client.force_login(self.plain)
@@ -754,12 +777,29 @@ class CensorlyLatinGuessTests(TestCase):
         b = apply_guess(game=game, task=task, word='коты', user=user)
         self.assertEqual(b['status'], 'already_open')
         self.assertEqual(b['active_guess_index'], 0)
+        self.assertTrue(b['active_token_ids'])
         self.assertEqual(b['hits'], 0)
         self.assertFalse(b['won'])
         self.assertEqual(b['attempts'], attempts_after_hit)
         c = apply_guess(game=game, task=task, word='кот', user=user)
         self.assertEqual(c['status'], 'duplicate')
         self.assertEqual(c['active_guess_index'], 0)
+
+    def test_already_open_from_hint_returns_token_ids(self):
+        game, task, _h, puzzle = _make_puzzle_task(
+            title='Заголовок',
+            body='Слово спрятано в тексте. Слово повторяется.',
+        )
+        user = User.objects.create_user('cz_hint_open', password='x')
+        token = next(
+            tok for tok in puzzle['body_tokens']
+            if tok.get('kind') == 'content' and tok.get('lemma') == lemma_of('слово')
+        )
+        first = apply_hint(game=game, task=task, token_id=token['id'], user=user)
+        self.assertEqual(first['status'], 'hint')
+        repeated = apply_hint(game=game, task=task, token_id=token['id'], user=user)
+        self.assertEqual(repeated['status'], 'already_open')
+        self.assertEqual(len(repeated['active_token_ids']), 2)
 
 
 class CensorlySupportViewTests(TestCase):
