@@ -6115,7 +6115,13 @@ img.wall-tile-image{ max-height: 90px; max-width: 140px; }
 img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 
 @media (max-width: 720px){
-  .wall-tiles{ grid-template-columns: repeat(2, 148px); }
+  /* На телефоне две плитки должны помещаться в ширину .new-wrap без
+     обязательного горизонтального скролла. На более широких экранах
+     сохраняем прежний максимум 148px на плитку. */
+  .wall-tiles{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(100%, 19rem);
+  }
 }
 
 .new-attempts {
