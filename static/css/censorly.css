@@ -44,7 +44,7 @@
 */
 @container censorly (min-width: 52rem) {
   .censorly__layout {
-    grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+    grid-template-columns: minmax(0, 1fr) minmax(12rem, 14rem);
   }
 
   .censorly__dock {
@@ -496,6 +496,7 @@ html.new-ui-dark .censorly__dock {
 
 .censorly__guess-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 0.9rem;
 }
@@ -505,6 +506,11 @@ html.new-ui-dark .censorly__dock {
   text-align: left;
   padding: 0.25rem 0.35rem;
   border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+}
+
+.censorly__guess-table th:last-child,
+.censorly__guess-table td:last-child {
+  overflow-wrap: anywhere;
 }
 
 .censorly__guess-table tbody tr {
