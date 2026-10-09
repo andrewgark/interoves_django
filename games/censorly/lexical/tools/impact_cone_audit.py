@@ -136,8 +136,7 @@ def _key_provenance(row):
 def main():
     started = time.perf_counter()
     corpus = audit.load_corpus()
-    target_rows = _target_rows(corpus)
-    all_surfaces = {surface for _rel, surface, _lemmas, _families in target_rows}
+    target_index, target_rows = audit.build_target_index(corpus)
 
     # Build the after bank first and obtain the complete opaque family.
     opaque_lemmas = _reviewed_lemmas()
@@ -145,10 +144,16 @@ def main():
     derived_forms = _forms('иволговый')
     affected_guess_surfaces = opaque_forms | derived_forms
 
+    affected_indices = set()
+    for key in KEYS:
+        affected_indices.update(target_index['root'].get((key,), ()))
+    affected_rows = [target_rows[index] for index in sorted(affected_indices)]
+    affected_target_surfaces = {row[1] for row in affected_rows}
+
     configs = {}
     for name, enabled in (('before', False), ('after', True)):
         with _config(enabled):
-            target_packs = _pack_rows(target_rows)
+            target_packs = _pack_rows(affected_rows)
             guess_packs = _pack_rows(
                 [(None, surface, set(), set()) for surface in affected_guess_surfaces],
                 guess=True,
@@ -158,9 +163,9 @@ def main():
     before_guesses, before_targets = configs['before']
     after_guesses, after_targets = configs['after']
 
-    after_affected_targets = _rows_for_keys(target_rows, after_targets)
-    before_affected_targets = _rows_for_keys(target_rows, before_targets)
-    target_cone = {row[1] for row in after_affected_targets + before_affected_targets}
+    after_affected_targets = affected_rows
+    before_affected_targets = affected_rows
+    target_cone = affected_target_surfaces
 
     # Forward cone: every reviewed-derived/opaque guess form against every
     # target in the current fixture target universe.
@@ -169,32 +174,25 @@ def main():
 
     # Reverse cone: every existing target-universe surface as a guess against
     # every target whose complete structure contains an affected key.
-    # Reverse cone without re-analyzing all surfaces: target packs already
-    # contain every morphology/root key in the target universe.  First find
-    # candidate surfaces by direct indexed-compatible pack comparison, then
-    # apply the real guess-side pack (citation-form preference) only to that
-    # reduced candidate set.
+    # Reverse cone from the already-built target index.  Only surfaces sharing
+    # an exact, lexeme or complete-root key with an affected target can change.
     reverse_candidates = set()
-    for target_map, affected_rows in (
-        (after_targets, after_affected_targets),
-        (before_targets, before_affected_targets),
-    ):
-        by_fold = defaultdict(set)
-        by_lexeme = defaultdict(set)
-        by_root = defaultdict(set)
-        for surface, pack in target_map.items():
-            by_fold[pack.fold].add(surface)
-            for key in pack.lexemes:
-                by_lexeme[key].add(surface)
-            for key in pack.roots:
-                by_root[key].add(surface)
-        for _rel, target, _lemmas, _families in affected_rows:
-            target_pack = target_map[target]
-            reverse_candidates.update(by_fold[target_pack.fold])
-            for key in target_pack.lexemes:
-                reverse_candidates.update(by_lexeme[key])
-            for key in target_pack.roots:
-                reverse_candidates.update(by_root[key])
+    for target in affected_target_surfaces:
+        target_pack = after_targets[target]
+        reverse_candidates.update(
+            surface for index_key in (target_pack.fold,)
+            for index_map in (target_index['fold'],)
+            for idx in index_map.get(index_key, ())
+            for _rel, surface, _lemmas, _families in (target_rows[idx],)
+        )
+        for key in target_pack.lexemes:
+            reverse_candidates.update(
+                target_rows[idx][1] for idx in target_index['lexeme'].get(key, ())
+            )
+        for key in target_pack.roots:
+            reverse_candidates.update(
+                target_rows[idx][1] for idx in target_index['root'].get(key, ())
+            )
     with _config(False):
         reverse_before_packs = _pack_rows(
             [(None, s, set(), set()) for s in reverse_candidates], guess=True

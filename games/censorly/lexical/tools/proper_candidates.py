@@ -295,15 +295,6 @@ def _compact_index_entry(entry: Mapping[str, Any]) -> JsonObject:
     for key in ('word', 'title', 'lang', 'lang_code', 'pos', 'categories', 'tags'):
         if key in entry:
             compact[key] = entry[key]
-    senses = []
-    for sense in entry.get('senses') or ():
-        if not isinstance(sense, Mapping):
-            continue
-        small = {key: sense[key] for key in ('glosses', 'raw_glosses', 'tags', 'categories') if key in sense}
-        if small:
-            senses.append(small)
-    if senses:
-        compact['senses'] = senses
     return compact
 
 
@@ -560,6 +551,12 @@ def run_experiment(
     index: dict[str, Mapping[str, Any]] = {}
     for entry in load_jsonl(input_path):
         stats.records_total += 1
+        if stats.records_total % 250_000 == 0:
+            print(
+                f'indexing: {stats.records_total} records, {stats.russian_records} Russian',
+                file=sys.stderr,
+                flush=True,
+            )
         if not is_russian_entry(entry):
             continue
         stats.russian_records += 1
