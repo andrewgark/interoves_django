@@ -89,6 +89,19 @@ html.new-ui-dark .censorly__dock {
     -webkit-box-decoration-break: clone;
   }
 
+  /* Keep the article visible above the sticky input dock on phones. */
+  .censorly:not(.censorly--history-open) .censorly__controls {
+    display: none;
+  }
+
+  .censorly__body {
+    font-size: 0.95rem;
+  }
+
+  .censorly__input {
+    padding: 0.42rem 0.6rem;
+  }
+
   .censorly__dock {
     position: sticky;
     bottom: 0;

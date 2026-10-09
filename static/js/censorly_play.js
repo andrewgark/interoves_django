@@ -783,10 +783,22 @@
     }
 
     if (historyBtn && historyWrap) {
+      // On a narrow component the dock should start in its compact state:
+      // history and its optional controls are available from the history
+      // button, but do not cover the article while playing.
+      var isNarrowComponent = root.getBoundingClientRect().width <= 919;
+      var initialHistoryOpen = !historyWrap.hidden;
+      if (isNarrowComponent) {
+        historyWrap.hidden = true;
+        initialHistoryOpen = false;
+      }
+      root.classList.toggle('censorly--history-open', initialHistoryOpen);
+      historyBtn.setAttribute('aria-pressed', initialHistoryOpen ? 'true' : 'false');
       historyBtn.addEventListener('click', function () {
         var open = historyWrap.hidden;
         historyWrap.hidden = !open;
         historyBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
+        root.classList.toggle('censorly--history-open', open);
       });
     }
 
