@@ -908,6 +908,21 @@ class LexicalGameplayTests(TestCase):
         self.assertIn(lemma_of('пчелиный'), revealed)
         self.assertNotIn(lemma_of('пчеловод'), revealed)
 
+    def test_flag_on_rejects_words_that_are_rendered_open(self):
+        from django.test import override_settings
+        from games.censorly.play import apply_guess
+        from games.models import ChainTaskState
+
+        game, task, _hash, _puzzle = self._task()
+        user = User.objects.create_user('cz_lex_initially_open', password='x')
+        with override_settings(CENSORLY_LEXICAL_RESOLVER=True):
+            result = apply_guess(game=game, task=task, word='просто', user=user)
+
+        self.assertEqual(result['status'], 'initially_open')
+        self.assertEqual(result['guess_word'], 'просто')
+        self.assertEqual(result['attempts'], 0)
+        self.assertFalse(ChainTaskState.objects.filter(task=task, user=user).exists())
+
     def test_mir_does_not_reveal_sea(self):
         from django.test import override_settings
         from games.censorly.play import apply_guess
