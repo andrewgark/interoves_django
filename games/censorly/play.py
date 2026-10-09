@@ -91,6 +91,17 @@ def hint_count(state: dict[str, Any]) -> int:
         return 0
 
 
+def _is_initially_open_word(surface: str) -> bool:
+    """Whether *surface* is visible before a player makes a guess."""
+    if is_stop_word(surface):
+        return True
+    from games.censorly.flags import lexical_resolver_enabled
+    if not lexical_resolver_enabled():
+        return False
+    from games.censorly.lexical.semantics import initially_open
+    return initially_open(surface)
+
+
 def hub_progress_for_actor(*, game: Game, numbers_and_tasks: list[tuple[int, Task]], user=None, anon_key=None) -> dict[int, dict[str, Any]]:
     """Return compact solve progress for the daily Censorly archive."""
     actor = _actor_filters(user=user, anon_key=anon_key)
@@ -665,7 +676,7 @@ def apply_guess(
     # Function words are rendered as open from the start and are not part of
     # the guessable content-token set. Reject them before touching the actor
     # state so they never consume an attempt or create a history row.
-    if is_stop_word(normalized):
+    if _is_initially_open_word(normalized):
         out = public_payload(state, payload, task=task)
         out['status'] = 'initially_open'
         out['hits'] = 0

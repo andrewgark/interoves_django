@@ -1,7 +1,19 @@
 (function () {
   'use strict';
 
-  var guessFeedbackHelper = window.CensorlyGuessFeedback;
+  var guessFeedbackHelper = window.CensorlyGuessFeedback || {
+    feedback: function (data, submittedWord) {
+      var word = (data && data.guess_word) || submittedWord || '';
+      if (data && data.status === 'duplicate') return 'Слово «' + word + '» уже вводили';
+      if (data && (data.status === 'already_open' || data.status === 'initially_open')) {
+        return 'Слово «' + word + '» уже открыто';
+      }
+      return (data && data.error) || 'Не удалось отправить';
+    },
+    shouldClearInput: function (status) {
+      return status === 'duplicate' || status === 'initially_open' || status === 'already_open';
+    },
+  };
 
   function csrfToken() {
     var input = document.querySelector('#censorly-form input[name=csrfmiddlewaretoken]');
