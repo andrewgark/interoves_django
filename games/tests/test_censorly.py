@@ -226,6 +226,7 @@ class CensorlyEngineTests(TestCase):
         for word in ('И', 'в', 'или'):
             result = apply_guess(game=game, task=task, word=word, user=user)
             self.assertEqual(result['status'], 'initially_open')
+            self.assertEqual(result['guess_word'], word.lower())
             self.assertEqual(result['error'], 'Это слово уже открыто изначально')
             self.assertEqual(result['attempts'], 0)
         self.assertFalse(Attempt.objects.filter(task=task, user=user).exists())
@@ -810,6 +811,7 @@ class CensorlyLatinGuessTests(TestCase):
         attempts_after_hit = a['attempts']
         b = apply_guess(game=game, task=task, word='коты', user=user)
         self.assertEqual(b['status'], 'already_open')
+        self.assertEqual(b['guess_word'], 'коты')
         self.assertEqual(b['active_guess_index'], 0)
         self.assertTrue(b['active_token_ids'])
         self.assertEqual(b['hits'], 0)
@@ -818,6 +820,7 @@ class CensorlyLatinGuessTests(TestCase):
         c = apply_guess(game=game, task=task, word='кот', user=user)
         self.assertEqual(c['status'], 'duplicate')
         self.assertEqual(c['active_guess_index'], 0)
+        self.assertEqual(c['guess_word'], 'кот')
 
     def test_already_open_from_hint_returns_token_ids(self):
         game, task, _h, puzzle = _make_puzzle_task(

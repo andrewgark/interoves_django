@@ -676,6 +676,17 @@
     node.className = 'censorly__feedback' + (kind ? ' is-' + kind : '');
   }
 
+  function guessFeedback(data, submittedWord) {
+    var word = (data && data.guess_word) || submittedWord || '';
+    if (data && data.status === 'duplicate') {
+      return 'Слово «' + word + '» уже вводили';
+    }
+    if (data && (data.status === 'already_open' || data.status === 'initially_open')) {
+      return 'Слово «' + word + '» уже открыто';
+    }
+    return (data && data.error) || 'Не удалось отправить';
+  }
+
   function postJson(url, payload, root) {
     var body = Object.assign({}, payload || {});
     var token = contextToken(root);
@@ -885,7 +896,7 @@
             if (handleReplayFlags(data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
               var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
-              setFeedback(root, data.error || 'Не удалось отправить', feedbackKind);
+              setFeedback(root, guessFeedback(data, word), feedbackKind);
               if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
                 root.setAttribute('data-active-guess-index', String(data.active_guess_index));
               }
@@ -893,7 +904,7 @@
                 applyState(root, data, { preserveLen: true });
               }
               if (data.status === 'duplicate') focusGuess(root, data.active_guess_index, true);
-              if (data.status === 'initially_open') input.value = '';
+              if (data.status === 'duplicate' || data.status === 'initially_open') input.value = '';
               return;
             }
             if (Array.isArray(data.guesses) && data.guesses.length) {
@@ -912,7 +923,7 @@
             if (newly.length) scrollToTokenId(root, newly[0]);
             if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit');
             else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error');
-            else if (data.status === 'already_open') setFeedback(root, 'Уже открыто', '');
+            else if (data.status === 'already_open') setFeedback(root, guessFeedback(data, word), '');
           })
           .catch(function () {
             setFeedback(root, 'Сеть недоступна', 'error');

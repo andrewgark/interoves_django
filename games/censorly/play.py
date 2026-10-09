@@ -679,6 +679,7 @@ def apply_guess(
     if normalized in {g.get('word') for g in state.get('guesses') or []}:
         out = public_payload(state, payload, task=task)
         out['status'] = 'duplicate'
+        out['guess_word'] = normalized
         out['active_guess_index'] = _history_index_for_guess(
             state, payload, word=normalized,
         )
@@ -698,6 +699,7 @@ def apply_guess(
     if normalized in {g.get('word') for g in state.get('guesses') or []}:
         out = public_payload(state, payload, task=task)
         out['status'] = 'duplicate'
+        out['guess_word'] = normalized
         out['active_guess_index'] = _history_index_for_guess(
             state, payload, word=normalized,
         )
