@@ -12,6 +12,7 @@ from allauth.socialaccount.models import SocialApp
 
 from games.club_access import (
     has_club_access,
+    is_within_free_archive_window,
     user_can_access_desyatka,
     user_can_access_task_archive,
 )
@@ -642,6 +643,32 @@ class ClubArchiveAccessTests(TestCase):
     def test_recent_seven_stay_free_without_subscription(self):
         response = self.client.get(self.recent_free_url)
         self.assertEqual(response.status_code, 200)
+
+    def test_replacements_free_window_follows_visible_numeric_order(self):
+        replacements = Game.objects.create(
+            id='replacements', name='Replacements', author='test', project_id='sections',
+        )
+        for number in (170, 169, 168, 167, 166, 165, 164, 157):
+            task_group = TaskGroup.objects.create(label='replacements-{}'.format(number))
+            GameTaskGroup.objects.create(
+                game=replacements,
+                task_group=task_group,
+                number=str(number),
+                name='#{}'.format(number),
+            )
+        technical_group = TaskGroup.objects.create(label='replacements-technical')
+        GameTaskGroup.objects.create(
+            game=replacements,
+            task_group=technical_group,
+            number='999',
+            name='#999',
+            is_deferred=True,
+        )
+
+        for number in (170, 169, 168, 167, 166, 165, 164):
+            self.assertTrue(is_within_free_archive_window(replacements, number))
+        self.assertFalse(is_within_free_archive_window(replacements, 157))
+        self.assertFalse(is_within_free_archive_window(replacements, 999))
 
     def test_cancelled_but_paid_opens_archive(self):
         ClubSubscription.objects.create(

@@ -140,18 +140,35 @@ def _numeric_number(number) -> int | None:
     return value
 
 
+def _latest_visible_archive_numbers(game) -> set[str]:
+    """Return the latest archive numbers in the order shown on the hub.
+
+    Some section games have deferred/technical placements with a newer
+    database identity than the entries visible in the public archive.  The
+    free window must follow the numeric order of the public list, not those
+    implementation rows.
+    """
+    from games.models import GameTaskGroup
+
+    numbers = []
+    for raw in GameTaskGroup.objects.filter(
+        game=game, is_deferred=False,
+    ).values_list('number', flat=True):
+        try:
+            key = GameTaskGroup.number_key(raw)
+        except (TypeError, ValueError):
+            continue
+        numbers.append((key, str(raw)))
+    numbers.sort(reverse=True)
+    return {raw for _key, raw in numbers[:FREE_ARCHIVE_COUNT]}
+
+
 def is_within_free_archive_window(game, number, *, now=None) -> bool:
     """True for the latest FREE_ARCHIVE_COUNT published numbers in a section."""
     current = current_number_for(game, now)
     if current is None and is_club_archive_game(getattr(game, 'id', None)):
-        from games.models import GameTaskGroup
-        numbers = [
-            value for value in (
-                _numeric_number(raw)
-                for raw in GameTaskGroup.objects.filter(game=game).values_list('number', flat=True)
-            ) if value is not None
-        ]
-        current = max(numbers) if numbers else None
+        latest_numbers = _latest_visible_archive_numbers(game)
+        return str(number) in latest_numbers
     if current is None:
         return True
     n = _numeric_number(number)
