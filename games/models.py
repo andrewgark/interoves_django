@@ -739,7 +739,16 @@ class GameTaskGroup(models.Model):
                     and link.task_group_id in random_task_group_ids
                 )
             ]
-        links = sorted(queryset, key=lambda link: link.key_sort(), reverse=reverse)
+        def sort_key(link):
+            if include_deferred and link.is_deferred:
+                # Deferred slots have their own queue numbering.  Their
+                # technical ``number`` is only a temporary unique-index
+                # placeholder and must not determine support-tab order.
+                deferred_key = cls.try_number_key(link.deferred_number)
+                return (1, deferred_key if deferred_key is not None else (10**9,), link.pk)
+            return (0, link.key_sort(), link.pk)
+
+        links = sorted(queryset, key=sort_key, reverse=reverse)
         return links
 
     @classmethod

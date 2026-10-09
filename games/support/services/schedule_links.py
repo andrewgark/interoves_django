@@ -16,6 +16,30 @@ class ScheduleLinkError(Exception):
     """Ошибка удаления/перенумерации слота."""
 
 
+def _renumber_deferred_links(game: Game) -> list[GameTaskGroup]:
+    """Keep the independent deferred queue compact and in stable order."""
+    links = list(
+        GameTaskGroup.objects.filter(game=game, is_deferred=True)
+        .select_related('task_group')
+    )
+    links.sort(
+        key=lambda row: (
+            int(row.deferred_number)
+            if str(row.deferred_number).isdigit() else 10**9,
+            row.pk,
+        )
+    )
+    changed = []
+    for index, deferred_link in enumerate(links, start=1):
+        new_number = str(index)
+        if deferred_link.deferred_number != new_number:
+            deferred_link.deferred_number = new_number
+            changed.append(deferred_link)
+    if changed:
+        GameTaskGroup.objects.bulk_update(changed, ['deferred_number'])
+    return links
+
+
 def effective_schedule_number(link: GameTaskGroup) -> int | None:
     """Return the public number, including for a deferred schedule slot."""
     raw = link.deferred_number if link.is_deferred else link.number
@@ -74,7 +98,8 @@ def defer_future_slot(*, game, link_id, is_number_published, renumber_links,
         raise error_cls('Некорректный номер слота') from exc
     if is_number_published(game, number, now):
         raise error_cls(published_msg.format(number=number))
-    link.deferred_number = str(link.number)
+    deferred = _renumber_deferred_links(game)
+    link.deferred_number = str(len(deferred) + 1)
     # Free the old numeric slot before renumbering the remaining links.
     link.number = str(max(
         [int(item.number) for item in GameTaskGroup.objects.filter(game=game)
@@ -97,11 +122,13 @@ def restore_deferred_slot(*, game, link_id, renumber_links, list_rows, error_cls
     if link is None or not link.is_deferred:
         raise error_cls(not_found_msg)
     link.is_deferred = False
-    link.save(update_fields=['is_deferred'])
+    link.deferred_number = ''
+    link.save(update_fields=['is_deferred', 'deferred_number'])
     active = list(GameTaskGroup.sorted_links(
         GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group'),
     ))
     renumber_links(active)
+    _renumber_deferred_links(game)
     return list_rows(now=now)
 
 
