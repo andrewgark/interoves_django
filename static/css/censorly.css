@@ -42,7 +42,8 @@
   Desktop: sticky dock under .new-nav (same offset as proportions pool / raddle pin).
   z-index below nav (10), above article content.
 */
-@container censorly (min-width: 52rem) {
+/* Must match the new UI wide breakpoint (920px). */
+@container censorly (min-width: 920px) {
   .censorly__layout {
     grid-template-columns: minmax(0, 1fr) minmax(12rem, 14rem);
   }
@@ -69,7 +70,8 @@ html.new-ui-dark .censorly__dock {
 }
 
 /* Narrow / mobile: form bar sticks to the bottom (thumb reach), with blur chrome. */
-@container censorly (max-width: 51.99rem) {
+/* Must match the new UI wide breakpoint (920px). */
+@container censorly (max-width: 919px) {
   .censorly {
     padding-bottom: max(7rem, var(--censorly-dock-height, 7rem));
   }
@@ -107,7 +109,8 @@ html.new-ui-dark .censorly__dock {
     bottom: 0;
     top: auto;
     z-index: 8;
-    margin-inline: -0.35rem;
+    width: 100%;
+    margin-inline: 0;
     padding: 0.65rem 0.5rem calc(0.65rem + env(safe-area-inset-bottom, 0));
     background: color-mix(in srgb, var(--surface, var(--bg, #fff)) 92%, transparent);
     backdrop-filter: blur(8px);

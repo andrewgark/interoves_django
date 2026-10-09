@@ -786,14 +786,24 @@
       // On a narrow component the dock should start in its compact state:
       // history and its optional controls are available from the history
       // button, but do not cover the article while playing.
-      var isNarrowComponent = root.getBoundingClientRect().width <= 919;
-      var initialHistoryOpen = !historyWrap.hidden;
-      if (isNarrowComponent) {
-        historyWrap.hidden = true;
-        initialHistoryOpen = false;
+      var wasNarrowComponent = null;
+      function syncHistoryLayout() {
+        var isNarrowComponent = root.getBoundingClientRect().width <= 919;
+        if (wasNarrowComponent === null) {
+          wasNarrowComponent = isNarrowComponent;
+          if (isNarrowComponent) historyWrap.hidden = true;
+        } else if (wasNarrowComponent !== isNarrowComponent) {
+          // Re-enter the compact mode after rotation, and restore the full
+          // history panel when returning to the wide layout.
+          wasNarrowComponent = isNarrowComponent;
+          historyWrap.hidden = isNarrowComponent;
+        }
+        var open = !historyWrap.hidden;
+        root.classList.toggle('censorly--history-open', open);
+        historyBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
       }
-      root.classList.toggle('censorly--history-open', initialHistoryOpen);
-      historyBtn.setAttribute('aria-pressed', initialHistoryOpen ? 'true' : 'false');
+      syncHistoryLayout();
+      window.addEventListener('resize', syncHistoryLayout);
       historyBtn.addEventListener('click', function () {
         var open = historyWrap.hidden;
         historyWrap.hidden = !open;
