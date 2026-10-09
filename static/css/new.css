@@ -8205,6 +8205,7 @@ html.is-age-gated .new-wrap {
   display: inline-flex;
   align-items: center;
   min-height: 1.9rem;
+  max-width: 100%;
   padding: 0.25rem 0.55rem;
   border: 1px solid var(--success-soft-border);
   border-radius: var(--btn-radius);
@@ -8213,7 +8214,7 @@ html.is-age-gated .new-wrap {
   font-size: 0.78rem;
   font-weight: 700;
   line-height: 1.2;
-  white-space: nowrap;
+  white-space: normal;
 }
 .new-raddle-result__status[hidden] {
   display: none;
@@ -11287,6 +11288,11 @@ button.new-word-salad__hint-btn:disabled {
     min-width: 2.75rem;
     min-height: 2.75rem;
     padding: 0.45rem;
+  }
+
+  .new-likebtn,
+  .new-raddle-retry-btn {
+    min-height: 2.75rem;
   }
 
   .new-replacements-check-btn,
