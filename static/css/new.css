@@ -9157,7 +9157,7 @@ html.new-ui-dark .pal-card {
 .tutorial-shell__backdrop { background: transparent; pointer-events: none; }
 .tutorial-shell__spotlights { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 .tutorial-shell__spotlights svg { display: block; width: 100%; height: 100%; }
-.tutorial-shell__callout { position: fixed; z-index: 1; display: grid; gap: .45rem; box-sizing: border-box; width: min(27rem, calc(100vw - 2rem)); max-height: min(22rem, calc(100vh - 2rem)); overflow: auto; margin: 0 !important; padding: 1rem 1.1rem; pointer-events: auto; }
+.tutorial-shell__callout { position: fixed; z-index: 1; display: grid; gap: .45rem; box-sizing: border-box; width: min(27rem, calc(100vw - 2rem)); max-height: min(22rem, calc(100vh - 2rem)); max-height: min(22rem, calc(100dvh - 2rem)); overflow: auto; margin: 0 !important; padding: 1rem 1.1rem; pointer-events: auto; }
 .new-rules-modal__box.pal-card.tutorial-shell__callout { padding: 1rem 1.1rem; }
 .tutorial-shell__top { display: flex; justify-content: space-between; align-items: center; min-height: 2rem; color: var(--muted); font-size: .82rem; }
 .tutorial-shell__close { position: static; inset: auto; flex: 0 0 auto; width: 2rem; height: 2rem; margin: 0; }
@@ -9173,7 +9173,7 @@ html.new-ui-dark .pal-card {
 .tutorial-input--locked { cursor: not-allowed; }
 .ladder-tutorial .new-raddle-input { font-family: var(--new-font-mono); font-kerning: none; font-variant-ligatures: none; }
 @media (max-width: 560px) {
-  .tutorial-shell__callout { width: calc(100vw - 1rem); bottom: max(.5rem, env(safe-area-inset-bottom)); padding-inline: 1rem; }
+  .tutorial-shell__callout { width: calc(100vw - 1rem); bottom: max(.5rem, env(safe-area-inset-bottom)); padding-inline: 1rem; padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
   .tutorial-shell__callout .new-rules-modal__actions { flex-wrap: wrap; }
 }
 
