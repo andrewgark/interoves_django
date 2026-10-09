@@ -28,6 +28,7 @@ from games.censorly.redact import (
     token_by_id,
     token_ids_for_guess,
 )
+from games.censorly.stopwords import is_stop_word
 from games.censorly.tokenize import resolve_puzzle_payload, title_content_lemmas
 from games.models import Attempt, ChainTaskState, Game, Task
 from games.results.share import format_elapsed, format_share_link, share_path
@@ -648,6 +649,19 @@ def apply_guess(
         out = public_payload(state, payload, task=task)
         out['status'] = 'invalid'
         out['error'] = 'Введите одно слово (буквы/цифры)'
+        return out
+
+    # Function words are rendered as open from the start and are not part of
+    # the guessable content-token set. Reject them before touching the actor
+    # state so they never consume an attempt or create a history row.
+    if is_stop_word(normalized):
+        state = _read_actor_state(game=game, task=task, actor=actor)
+        out = public_payload(state, payload, task=task)
+        out['status'] = 'initially_open'
+        out['hits'] = 0
+        out['newly_revealed'] = []
+        out['guess_word'] = normalized
+        out['error'] = 'Это слово уже открыто изначально'
         return out
 
     guess_lemma = lemma_of(normalized)

@@ -883,7 +883,7 @@
           .then(function (data) {
             data = applyStateDelta(root, data);
             if (handleReplayFlags(data)) return;
-            if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'error') {
+            if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
               setFeedback(root, data.error || 'Не удалось отправить', 'error');
               if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
                 root.setAttribute('data-active-guess-index', String(data.active_guess_index));
@@ -892,6 +892,7 @@
                 applyState(root, data, { preserveLen: true });
               }
               if (data.status === 'duplicate') focusGuess(root, data.active_guess_index, true);
+              if (data.status === 'initially_open') input.value = '';
               return;
             }
             if (Array.isArray(data.guesses) && data.guesses.length) {

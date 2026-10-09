@@ -216,6 +216,21 @@ class CensorlyEngineTests(TestCase):
         title_content = [t for t in state['title_tokens'] if t['kind'] == 'content']
         self.assertTrue(all(t['revealed'] for t in title_content))
 
+    def test_initially_open_stop_word_is_rejected_without_attempt(self):
+        game, task, _hash, _puzzle = _make_puzzle_task(
+            title='Кот',
+            body='Кот и собака живут в доме.',
+        )
+        user = User.objects.create_user('cz_stop_word', password='x')
+
+        result = apply_guess(game=game, task=task, word='И', user=user)
+
+        self.assertEqual(result['status'], 'initially_open')
+        self.assertEqual(result['error'], 'Это слово уже открыто изначально')
+        self.assertEqual(result['attempts'], 0)
+        self.assertFalse(Attempt.objects.filter(task=task, user=user).exists())
+        self.assertFalse(ChainTaskState.objects.filter(task=task, user=user).exists())
+
 
 class CensorlyAccessTests(TestCase):
     def setUp(self):
