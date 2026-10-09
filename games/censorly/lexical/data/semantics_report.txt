@@ -1,0 +1,87 @@
+root_load_seconds 2.46
+unique_surfaces 13791 occurrences 48629
+old_prepare_seconds 10.85
+new_index_seconds -6.50
+guesses 18295 lookup_seconds 22.61
+old_openings 37925
+new_openings 428835
+added 391293 root=381557 lexeme=9736
+removed 383
+service_occurrences 9956
+  service PREP 6163 examples=в,на,по,через,По,от,с,до
+  service CONJ 3076 examples=и,что,как,но,или,А,И,когда
+  service PRCL 691 examples=также,не,же,разве,Также,Именно,даже,лишь
+  service INTJ 26 examples=э,Пу,Э
+probes
+  пчела / пчеловод old=cognate:profession:v1 new=closed
+  пчела / пчеловодство old=cognate:profession:v1 new=closed
+  мёд / медоносный old=cognate:manual_accept:v1 new=closed
+  вода / водопад old=closed new=closed
+  белка / белки old=closed new=lexeme
+  белок / белки old=closed new=lexeme
+  ходить / выходить old=closed new=root
+  строить / три old=closed new=root
+  пара / испарять old=closed new=root
+  мать / матка old=closed new=closed
+  мать / матушка old=closed new=root
+  семь / семья old=closed new=closed
+graph_edges_kept 2654 graph_edges_lost 60
+  lost блин / блинник lemma_suffix:ник:v1
+  lost больший / большой manual_accept:v1
+  lost вкладывать / вложить verbal_aspect:cross:ить/ывать:v1
+  lost вкладываться / вложиться verbal_aspect:cross:иться/ываться:v1
+  lost вода / водовод profession:v1
+  lost волна / волновод profession:v1
+  lost выкладывать / выложить verbal_aspect:cross:ить/ывать:v1
+  lost выкладываться / выложиться verbal_aspect:cross:иться/ываться:v1
+  lost день / дневный manual_accept:v1
+  lost докладывать / доложить verbal_aspect:cross:ить/ывать:v1
+  lost единственный / один manual_accept:v1
+  lost закладывать / заложить verbal_aspect:cross:ить/ывать:v1
+  lost засучиваться / засучиться verbal_aspect:same:иваться/иться:v1
+  lost коза / козовод profession:v1
+  lost коза / козоводство profession:v1
+  lost коза / козоводческий profession:v1
+  lost кукла / кукловод profession:v1
+  lost кукуруза / кукурузовод profession:v1
+  lost кура / куровод profession:v1
+  lost кура / куроводство profession:v1
+  lost кура / куроводческий profession:v1
+  lost мед / медоносный manual_accept:v1
+  lost меж / межник lemma_suffix:ник:v1
+  lost накладывать / наложить verbal_aspect:cross:ить/ывать:v1
+  lost обкладывать / обложить verbal_aspect:cross:ить/ывать:v1
+compound_leaks 0
+added_samples
+  root выбрасываются → сбросов
+  root выбрасываются → бросил
+  root выбрасываются → Разброс
+  root выбрасываются → выброшенный
+  root выбрасываются → выбрасывают
+  root выбрасываются → выбросов
+  root выбрасываются → сброса
+  root присутствия → существует
+  root присутствия → отсутствии
+  root присутствия → Существенной
+  root присутствия → отсутствуют
+  root присутствия → существ
+  root присутствия → отсутствие
+  root присутствия → существующий
+  root присутствия → существенное
+  root присутствия → существовавших
+  root присутствия → осуществить
+  root присутствия → существовал
+  root присутствия → существование
+  root присутствия → существенные
+  root присутствия → присутствуют
+  root присутствия → осуществление
+  root присутствия → просуществовало
+  root присутствия → существуют
+  root присутствия → осуществляется
+  root присутствия → существовать
+  root присутствия → суть
+  root присутствия → сути
+  root присутствия → осуществления
+  root присутствия → осуществляют
+total_seconds 38.3
+verdict SIMPLIFIED SEMANTICS READY FOR LOCAL INTEGRATION

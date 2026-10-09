@@ -1,0 +1,25 @@
+fixtures 27
+ambiguous_target_occurrences 1154
+unique_ambiguous_surfaces 502
+collision_candidates 11701
+baseline_openings 85476
+new_openings 74142
+removed 11701
+added 367
+GOOD_REMOVAL 7214
+BAD_REMOVAL 0
+UNCLEAR 4487
+GOOD_ADD 362
+BAD_ADD 0
+POLICY_B 5
+guesses 225315 lemmas 170117 ambiguous_forms 66799
+bare_prepare_seconds 16.47 surfaces 23405
+occurrence_index_seconds 47.08 occurrences 38947
+guess_collect_seconds 66.21
+guess_lookup_seconds 302.51
+index_bytes 16629573
+peak_rss_kb 688136
+total_seconds 432.5
+bee особые белки lemmas=['белок'] signals=adjective_agreement transitive_object белок=True белка=False
+verdict READY FOR LOCAL FEATURE TEST
+blockers none

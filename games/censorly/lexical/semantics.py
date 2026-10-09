@@ -16,6 +16,7 @@ from functools import lru_cache
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.dispatcher import RUSSIAN, backend_name
+from games.censorly.lexical.proper_names import PAIR_RELATIONS
 from games.censorly.lexical.rootbank import structures_of
 
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL', 'INTJ'})
@@ -50,6 +51,12 @@ _GRAMMAR_GROUPS = (
 # Language tags in wiki prose are tokenized without the trailing period
 # («фр.» → surface «фр»), so list the bare stub here.
 _ALIAS_GROUPS = (
+    ('евросоюз', 'ес'),
+    ('миллилитр', 'мл'),
+    ('ватт', 'вт'),
+    ('киловатт', 'квт'),
+    ('мегаватт', 'мвт'),
+    ('герц', 'гц'),
     ('университет', 'универ'),
     ('фотография', 'фото'),
     ('килограмм', 'кг'),
@@ -124,7 +131,7 @@ def opens(guess: str, target: str, *, article_language: str = 'ru') -> bool:
 
 
 def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
-    """``exact``, ``lexeme``, ``grammar``, ``alias``, ``root`` or ``''``."""
+    """``exact``, ``lexeme``, ``grammar``, ``alias``, ``proper``, ``root`` or ``''``."""
     left = fold(guess)
     right = fold(target)
     if not left or not right:
@@ -135,6 +142,8 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
         return ''
     if _alias(left, right):
         return 'alias'
+    if _proper_pair(left, right):
+        return 'proper'
     if not _russian(guess, article_language) or not _russian(target, article_language):
         return ''
     guess_reads = readings_of(guess)
@@ -286,6 +295,26 @@ def _alias(left: str, right: str) -> bool:
         if left in group and right in group and left != right:
             return True
     return False
+
+
+_PROPER_PAIRS = frozenset(
+    frozenset((fold(left), fold(right)))
+    for left, right in PAIR_RELATIONS
+)
+
+
+@lru_cache(maxsize=262144)
+def _proper_pair(left: str, right: str) -> bool:
+    direct = frozenset((fold(left), fold(right)))
+    if direct in _PROPER_PAIRS:
+        return True
+    left_lemmas = {item.lemma for item in readings_of(left)}
+    right_lemmas = {item.lemma for item in readings_of(right)}
+    return any(
+        frozenset((left_lemma, right_lemma)) in _PROPER_PAIRS
+        for left_lemma in left_lemmas
+        for right_lemma in right_lemmas
+    )
 
 
 def _pos(grams: set[str]) -> str:

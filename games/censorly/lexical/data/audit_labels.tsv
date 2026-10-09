@@ -1,0 +1,283 @@
+left	right	verdict	reason	source
+аист	аистник	SAFE	full family review	proof:lemma_suffix
+алтын	алтынник	SAFE	full family review	proof:lemma_suffix
+аршин	аршинник	SAFE	full family review	proof:lemma_suffix
+багаж	багажник	SAFE	full family review	proof:lemma_suffix
+бархат	бархатник	SAFE	full family review	proof:lemma_suffix
+барыш	барышник	SAFE	full family review	proof:lemma_suffix
+бег	бежать	SAFE	full family review	proof:deverbal_noun
+белок	белый	REJECT	homonym or dirty subtype	qualification
+бисер	бисерник	SAFE	full family review	proof:lemma_suffix
+блин	блинник	SAFE	full family review	proof:lemma_suffix
+блуд	блудник	SAFE	full family review	proof:lemma_suffix
+больший	большой	SAFE	bee article review	article:bee
+бурьян	бурьянник	SAFE	full family review	proof:lemma_suffix
+вагон	вагонник	SAFE	full family review	proof:lemma_suffix
+вводить	вывести	SAFE	bee article review	article:bee
+веред	вередник	SAFE	full family review	proof:lemma_suffix
+вертеп	вертепник	SAFE	full family review	proof:lemma_suffix
+вечер	вечерник	SAFE	full family review	proof:lemma_suffix
+взрыв	взрывник	SAFE	full family review	proof:lemma_suffix
+виноград	виноградник	SAFE	full family review	proof:lemma_suffix
+вместе	место	SAFE	bee article review	article:bee
+вновь	новый	SAFE	bee article review	article:bee
+вода	водовод	SAFE	full family review	proof:profession
+возводить	вывести	REJECT	homonym or dirty subtype	qualification
+волна	волновод	SAFE	full family review	proof:profession
+вопрос	вопросник	SAFE	full family review	proof:lemma_suffix
+воробей	воробейник	SAFE	full family review	proof:lemma_suffix
+ворон	воронение	REJECT	homonym or dirty subtype	qualification
+ворот	воротник	SAFE	full family review	proof:lemma_suffix
+восьмеро	восьмой	SAFE	full family review	proof:ordinal
+вскоре	скорость	SAFE	bee article review	article:bee
+выпуск	выпускник	SAFE	full family review	proof:lemma_suffix
+гад	гадость	REJECT	homonym or dirty subtype	qualification
+глаз	глазник	SAFE	full family review	proof:lemma_suffix
+гной	гнойник	SAFE	full family review	proof:lemma_suffix
+год	годный	REJECT	homonym or dirty subtype	qualification
+голова	головной	SAFE	bee article review	article:bee
+гончар	гончарник	SAFE	degree >= 3 review	hub
+гончар	гончарный	SAFE	degree >= 3 review	hub
+гончар	гончарский	SAFE	degree >= 3 review	hub
+гора	горний	REJECT	homonym or dirty subtype	qualification
+гриб	грибник	SAFE	full family review	proof:lemma_suffix
+грудной	грудь	SAFE	bee article review	article:bee
+дальнейший	дальний	SAFE	full family review	proof:adjective_degree
+двор	дворник	SAFE	full family review	proof:lemma_suffix
+девятеро	девятый	SAFE	degree >= 3 review	hub
+девятый	девять	SAFE	degree >= 3 review	hub
+девятый	девятью	SAFE	degree >= 3 review	hub
+денной	день	SAFE	degree >= 3 review	hub
+день	дневной	SAFE	degree >= 3 review	hub
+день	дневный	SAFE	bee article review	article:bee
+десятеро	десятый	SAFE	degree >= 3 review	hub
+десятый	десять	SAFE	degree >= 3 review	hub
+десятый	десятью	SAFE	degree >= 3 review	hub
+дневной	дневный	SAFE	full family review	proof:manual_accept
+договор	договорник	SAFE	full family review	proof:lemma_suffix
+долбеж	долбежник	SAFE	full family review	proof:lemma_suffix
+дома	домовод	REJECT	homonym or dirty subtype	qualification
+единственный	один	SAFE	bee article review	article:bee
+ель	ельник	SAFE	full family review	proof:lemma_suffix
+жаль	жальник	REJECT	homonym or dirty subtype	qualification
+жир	жирник	SAFE	full family review	proof:lemma_suffix
+журавель	журавельник	SAFE	full family review	proof:lemma_suffix
+завалить	завалять	REJECT	homonym or dirty subtype	qualification
+зад	задник	SAFE	full family review	proof:lemma_suffix
+заказ	заказник	SAFE	full family review	proof:lemma_suffix
+закон	законник	SAFE	full family review	proof:lemma_suffix
+запад	западник	SAFE	full family review	proof:lemma_suffix
+запас	запасник	SAFE	full family review	proof:lemma_suffix
+заступ	заступник	SAFE	full family review	proof:lemma_suffix
+затвор	затворник	SAFE	full family review	proof:lemma_suffix
+искус	искусник	REJECT	homonym or dirty subtype	qualification
+калач	калачник	SAFE	full family review	proof:lemma_suffix
+камыш	камышник	SAFE	full family review	proof:lemma_suffix
+канат	канатник	SAFE	full family review	proof:lemma_suffix
+капель	капельник	SAFE	full family review	proof:lemma_suffix
+каприз	капризник	SAFE	full family review	proof:lemma_suffix
+карман	карманник	SAFE	full family review	proof:lemma_suffix
+картеж	картежник	SAFE	full family review	proof:lemma_suffix
+кирпич	кирпичник	SAFE	full family review	proof:lemma_suffix
+клеш	клешник	SAFE	full family review	proof:lemma_suffix
+коза	козовод	SAFE	degree >= 3 review	hub
+коза	козоводство	SAFE	degree >= 3 review	hub
+коза	козоводческий	SAFE	degree >= 3 review	hub
+колос	колосник	REJECT	homonym or dirty subtype	qualification
+конец	кончать	SAFE	bee article review	article:bee
+конопель	конопельник	SAFE	full family review	proof:lemma_suffix
+конопля	конопляник	SAFE	full family review	proof:lemma_suffix
+крест	крестник	SAFE	degree >= 3 review	hub
+крест	крестный	SAFE	degree >= 3 review	hub
+крест	крестовый	SAFE	degree >= 3 review	hub
+кукла	кукловод	SAFE	full family review	proof:profession
+кукуруза	кукурузовод	SAFE	full family review	proof:profession
+кур	курник	SAFE	full family review	proof:lemma_suffix
+кура	куриный	SAFE	degree >= 3 review	hub
+кура	куровод	SAFE	degree >= 3 review	hub
+кура	куроводство	SAFE	degree >= 3 review	hub
+кура	куроводческий	SAFE	degree >= 3 review	hub
+лабаз	лабазник	SAFE	full family review	proof:lemma_suffix
+лед	ледник	SAFE	full family review	proof:lemma_suffix
+лес	лесник	SAFE	full family review	proof:lemma_suffix
+летний	лето	SAFE	bee article review	article:bee
+лишай	лишайник	SAFE	full family review	proof:lemma_suffix
+май	майник	SAFE	full family review	proof:lemma_suffix
+маков	маковник	SAFE	full family review	proof:lemma_suffix
+матрас	матрасник	SAFE	full family review	proof:lemma_suffix
+мед	медовый	SAFE	bee article review	article:bee
+мед	медоносный	SAFE	bee article review	article:bee
+меж	межник	SAFE	full family review	proof:lemma_suffix
+мель	мельник	REJECT	homonym or dirty subtype	qualification
+меч	мечник	SAFE	full family review	proof:lemma_suffix
+милейший	милый	SAFE	full family review	proof:adjective_degree
+миндаль	миндальник	SAFE	full family review	proof:lemma_suffix
+мир	мирской	REJECT	homonym or dirty subtype	qualification
+муравей	муравейник	SAFE	full family review	proof:lemma_suffix
+мятеж	мятежник	SAFE	full family review	proof:lemma_suffix
+навоз	навозник	SAFE	full family review	proof:lemma_suffix
+наезд	наездник	SAFE	full family review	proof:lemma_suffix
+наем	наемник	SAFE	full family review	proof:lemma_suffix
+накат	накатник	SAFE	full family review	proof:lemma_suffix
+народ	народник	SAFE	full family review	proof:lemma_suffix
+нарыв	нарывник	SAFE	full family review	proof:lemma_suffix
+невод	неводник	SAFE	full family review	proof:lemma_suffix
+нога	ножка	SAFE	bee article review	article:bee
+обоз	обозник	SAFE	full family review	proof:lemma_suffix
+обруч	обручение	REJECT	homonym or dirty subtype	qualification
+огород	огородник	SAFE	full family review	proof:lemma_suffix
+окоп	окопник	SAFE	full family review	proof:lemma_suffix
+он	она	SAFE	bee article review	article:bee
+он	они	SAFE	bee article review	article:bee
+он	оно	SAFE	bee article review	article:bee
+она	они	SAFE	bee article review	article:bee
+она	оно	SAFE	bee article review	article:bee
+они	оно	SAFE	bee article review	article:bee
+опыление	пыль	SAFE	bee article review	article:bee
+опыт	опытник	SAFE	full family review	proof:lemma_suffix
+отбор	отборник	SAFE	full family review	proof:lemma_suffix
+откат	откатник	SAFE	full family review	proof:lemma_suffix
+откладывать	отложить	SAFE	bee article review	article:bee
+откос	откосник	SAFE	full family review	proof:lemma_suffix
+отпуск	отпускник	SAFE	full family review	proof:lemma_suffix
+отстой	отстойник	SAFE	full family review	proof:lemma_suffix
+отступ	отступник	SAFE	full family review	proof:lemma_suffix
+отход	отходник	SAFE	full family review	proof:lemma_suffix
+очерет	очеретник	SAFE	full family review	proof:lemma_suffix
+паз	пазник	SAFE	full family review	proof:lemma_suffix
+пар	парник	SAFE	full family review	proof:lemma_suffix
+пара	парный	SAFE	bee article review	article:bee
+парус	парусник	SAFE	full family review	proof:lemma_suffix
+перед	передник	SAFE	full family review	proof:lemma_suffix
+печаль	печальник	SAFE	full family review	proof:lemma_suffix
+плав	плавание	REJECT	homonym or dirty subtype	qualification
+плав	плавник	SAFE	degree >= 3 review	hub
+плав	плавной	SAFE	degree >= 3 review	hub
+плав	плавный	SAFE	degree >= 3 review	hub
+плен	пленник	SAFE	full family review	proof:lemma_suffix
+плод	плодник	SAFE	degree >= 3 review	hub
+плод	плодный	SAFE	degree >= 3 review	hub
+плод	плодовый	SAFE	degree >= 3 review	hub
+плот	плотник	REJECT	homonym or dirty subtype	qualification
+побор	поборник	SAFE	full family review	proof:lemma_suffix
+погреб	погребение	REJECT	homonym or dirty subtype	qualification
+поддон	поддонник	SAFE	full family review	proof:lemma_suffix
+подрыв	подрывник	SAFE	full family review	proof:lemma_suffix
+подъем	подъемник	SAFE	full family review	proof:lemma_suffix
+пожар	пожарник	SAFE	full family review	proof:lemma_suffix
+поклон	поклонник	SAFE	full family review	proof:lemma_suffix
+покой	покойник	SAFE	full family review	proof:lemma_suffix
+полог	пологость	REJECT	homonym or dirty subtype	qualification
+порез	порезник	SAFE	full family review	proof:lemma_suffix
+посад	посадник	SAFE	full family review	proof:lemma_suffix
+постель	постельник	SAFE	full family review	proof:lemma_suffix
+пот	потник	SAFE	full family review	proof:lemma_suffix
+почтеннейший	почтенный	SAFE	full family review	proof:adjective_degree
+предмет	предметник	SAFE	full family review	proof:lemma_suffix
+прием	приемник	SAFE	full family review	proof:lemma_suffix
+призыв	призывник	SAFE	full family review	proof:lemma_suffix
+причет	причетник	SAFE	full family review	proof:lemma_suffix
+пробой	пробойник	SAFE	full family review	proof:lemma_suffix
+провод	проводник	SAFE	full family review	proof:lemma_suffix
+промер	промерник	SAFE	full family review	proof:lemma_suffix
+пропуск	пропускник	SAFE	full family review	proof:lemma_suffix
+против	противник	SAFE	full family review	proof:lemma_suffix
+пчела	пчелиный	SAFE	bee article review	article:bee
+пчела	пчеловод	SAFE	bee article review	article:bee
+пчела	пчеловодный	SAFE	degree >= 3 review	hub
+пчела	пчеловодство	SAFE	bee article review	article:bee
+пчела	пчеловодческий	SAFE	degree >= 3 review	hub
+пыль	пыльник	SAFE	full family review	proof:lemma_suffix
+пырей	пырейник	SAFE	full family review	proof:lemma_suffix
+пятеро	пятый	SAFE	degree >= 3 review	hub
+пятый	пять	SAFE	bee article review	article:bee
+пятый	пятью	SAFE	degree >= 3 review	hub
+разбой	разбойник	SAFE	full family review	proof:lemma_suffix
+разврат	развратник	SAFE	full family review	proof:lemma_suffix
+разговор	разговорник	SAFE	full family review	proof:lemma_suffix
+разряд	разрядник	SAFE	full family review	proof:lemma_suffix
+разум	разумник	SAFE	full family review	proof:lemma_suffix
+рез	резник	SAFE	full family review	proof:lemma_suffix
+репей	репейник	SAFE	full family review	proof:lemma_suffix
+род	родник	REJECT	homonym or dirty subtype	qualification
+рой	ройник	SAFE	full family review	proof:lemma_suffix
+рука	ручка	SAFE	full family review	proof:diminutive
+ручей	ручейник	SAFE	full family review	proof:lemma_suffix
+рыба	рыбный	SAFE	degree >= 3 review	hub
+рыба	рыбовод	SAFE	degree >= 3 review	hub
+рыба	рыбоводный	SAFE	degree >= 3 review	hub
+рыба	рыбоводство	SAFE	degree >= 3 review	hub
+рыба	рыбоводческий	SAFE	degree >= 3 review	hub
+салат	салатник	SAFE	full family review	proof:lemma_suffix
+сам	самость	REJECT	homonym or dirty subtype	qualification
+сахар	сахарник	SAFE	full family review	proof:lemma_suffix
+сбор	сборник	SAFE	full family review	proof:lemma_suffix
+свекла	свекловод	SAFE	degree >= 3 review	hub
+свекла	свекловодство	SAFE	degree >= 3 review	hub
+свекла	свекловодческий	SAFE	degree >= 3 review	hub
+свет	светский	REJECT	homonym or dirty subtype	qualification
+светлейший	светлый	SAFE	full family review	proof:adjective_degree
+свод	сводник	REJECT	homonym or dirty subtype	qualification
+святейший	святой	SAFE	full family review	proof:adjective_degree
+сезон	сезонник	SAFE	full family review	proof:lemma_suffix
+скарб	скарбник	SAFE	full family review	proof:lemma_suffix
+скаред	скаредник	SAFE	full family review	proof:lemma_suffix
+скирд	скирдник	SAFE	full family review	proof:lemma_suffix
+скит	скитник	SAFE	full family review	proof:lemma_suffix
+складывать	сложный	REJECT	homonym or dirty subtype	qualification
+скот	скотник	SAFE	degree >= 3 review	hub
+скот	скотный	SAFE	degree >= 3 review	hub
+скот	скотский	SAFE	degree >= 3 review	hub
+смоль	смольник	SAFE	full family review	proof:lemma_suffix
+собака	собаковод	SAFE	degree >= 3 review	hub
+собака	собаководство	SAFE	degree >= 3 review	hub
+собака	собаководческий	SAFE	degree >= 3 review	hub
+совет	советник	SAFE	full family review	proof:lemma_suffix
+сон	сонник	SAFE	full family review	proof:lemma_suffix
+сон	сонный	SAFE	degree >= 3 review	hub
+сонный	сонь	SAFE	degree >= 3 review	hub
+сонный	соня	SAFE	degree >= 3 review	hub
+союз	союзник	SAFE	full family review	proof:lemma_suffix
+срам	срамник	SAFE	full family review	proof:lemma_suffix
+среда	средний	REJECT	homonym or dirty subtype	qualification
+став	ставник	SAFE	full family review	proof:lemma_suffix
+столп	столпник	SAFE	full family review	proof:lemma_suffix
+страж	стражник	SAFE	full family review	proof:lemma_suffix
+страус	страусник	SAFE	full family review	proof:lemma_suffix
+суп	супник	SAFE	full family review	proof:lemma_suffix
+супротив	супротивник	SAFE	full family review	proof:lemma_suffix
+сургуч	сургучник	SAFE	degree >= 3 review	hub
+сургуч	сургучный	SAFE	degree >= 3 review	hub
+сургуч	сургучовый	SAFE	degree >= 3 review	hub
+сыр	сырник	SAFE	full family review	proof:lemma_suffix
+сыр	сырость	REJECT	homonym or dirty subtype	qualification
+топор	топорник	SAFE	full family review	proof:lemma_suffix
+тормоз	тормозник	SAFE	full family review	proof:lemma_suffix
+труд	трудник	SAFE	full family review	proof:lemma_suffix
+трут	трутник	SAFE	full family review	proof:lemma_suffix
+тулуп	тулупник	SAFE	full family review	proof:lemma_suffix
+удар	ударение	REJECT	homonym or dirty subtype	qualification
+удар	ударник	SAFE	full family review	proof:lemma_suffix
+уксус	уксусник	SAFE	full family review	proof:lemma_suffix
+урез	урезник	SAFE	full family review	proof:lemma_suffix
+уряд	урядник	SAFE	full family review	proof:lemma_suffix
+устав	уставание	REJECT	homonym or dirty subtype	qualification
+утор	уторник	SAFE	full family review	proof:lemma_suffix
+ушкуй	ушкуйник	SAFE	full family review	proof:lemma_suffix
+халат	халатник	SAFE	full family review	proof:lemma_suffix
+хлеб	хлебник	SAFE	full family review	proof:lemma_suffix
+хмель	хмельник	SAFE	full family review	proof:lemma_suffix
+хомут	хомутник	SAFE	full family review	proof:lemma_suffix
+цвет	цветение	REJECT	homonym or dirty subtype	qualification
+цвет	цветник	REJECT	homonym or dirty subtype	qualification
+черва	червовод	SAFE	full family review	proof:profession
+чертеж	чертежник	SAFE	full family review	proof:lemma_suffix
+шабаш	шабашник	SAFE	full family review	proof:lemma_suffix
+шестеро	шестой	SAFE	degree >= 3 review	hub
+шестой	шесть	SAFE	bee article review	article:bee
+шестой	шестью	SAFE	degree >= 3 review	hub
+штраф	штрафник	SAFE	full family review	proof:lemma_suffix
+шут	шутник	SAFE	full family review	proof:lemma_suffix
+щавель	щавельник	SAFE	full family review	proof:lemma_suffix
+лебеда	лебединый	REJECT	plant vs swan	qualification
+мара	маревый	REJECT	haze vs unrelated noun	qualification

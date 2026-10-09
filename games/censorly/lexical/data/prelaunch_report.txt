@@ -1,0 +1,86 @@
+fixtures 27 primary_bodies 23 leads 4
+token_occurrences 38947
+unique_surfaces 14555
+unique_normalized 13709
+unique_lexical_identities 6351
+unique_cognate_lemmas 5585
+unique_graph_nodes_used 464
+russian_surfaces 12296 generic_surfaces 2259 ambiguous_surfaces 720 cyrillic_oov_surfaces 1614
+corpus_edges 109 SAFE 109 REJECT 0 UNREVIEWED 0
+removed_pairs 9 graph_edges 2714 dictionary_nodes 54228
+fuzz_seconds 102.5 total_seconds 119.0 peak_rss_kb 608468
+fuzz ambiguous_candidates=7881 ambiguous_cognate_openings=204 ambiguous_forms=69078 ambiguous_no_cognate=12509 external_openings=722 fanout_ge_2=29 fanout_ge_3=13 generic_guesses=3715 group:ambiguous_form=7881 group:graph_node=54228 group:oov=12 group:pymorphy_outside=131581 group:unicode=13 guesses=193715 guesses_with_opening=940 max_fanout=3 opening_rows=982 pymorphy_lemmas=182277 pymorphy_outside_graph=131581
+ambiguous_corpus_surfaces 720 cognate_exceptions 10 inflection_only_extra 90
+proper_collisions 168 generic_checked 2259 cyrillic_oov=1595 digits=397 greek=8 latin=205 mixed=54
+inflection:
+  улей → улья: inflection
+  улей → ульями: inflection
+  прибыли → быть: closed
+  белый → белок: closed
+  строить → три: closed
+  строить → строительство: closed
+  улей lexemes=[(1477, 'улей')] corpus_hits=['улей'] cognates=[] ambiguous=False proper=False
+  улья lexemes=[(1477, 'улей')] corpus_hits=['улей'] cognates=[] ambiguous=False proper=False
+  ульями lexemes=[(1477, 'улей')] corpus_hits=['улей'] cognates=[] ambiguous=False proper=False
+  прибыли lexemes=[(13, 'прибыль'), (1039, 'прибыть')] corpus_hits=['прибыль', 'прибыть'] cognates=[] ambiguous=True proper=False
+  белки lexemes=[(40, 'белка'), (141, 'белок')] corpus_hits=['белка', 'белок'] cognates=[] ambiguous=True proper=False
+  Орла lexemes=[(1818, 'орел')] corpus_hits=[] cognates=[] ambiguous=False proper=False
+  орла lexemes=[(1818, 'орел')] corpus_hits=[] cognates=[] ambiguous=False proper=False
+  строить lexemes=[(447, 'строить'), (793, 'строить')] corpus_hits=['строить'] cognates=[] ambiguous=True proper=False
+  стро́ить lexemes=[(447, 'строить'), (793, 'строить')] corpus_hits=['строить'] cognates=[] ambiguous=True proper=False
+  строи́ть lexemes=[(447, 'строить'), (793, 'строить')] corpus_hits=['строить'] cognates=[] ambiguous=True proper=False
+ambiguous cognate exceptions:
+  ('него', ['она', 'они'], ['он', 'оно'], [])
+  ('головные', ['голова'], ['головной'], [])
+  ('изменяет', ['изменить'], ['изменять'], [])
+  ('дневного', ['день'], ['дневной', 'дневный'], [])
+  ('дневному', ['день'], ['дневной', 'дневный'], [])
+  ('проводил', ['провести'], ['проводить'], [])
+  ('нему', ['она', 'они'], ['он', 'оно'], [])
+  ('дневное', ['день'], ['дневной', 'дневный'], [])
+  ('изменили', ['изменять'], ['изменить'], [])
+  ('изменило', ['изменять'], ['изменить'], [])
+proper samples:
+  ('Амур', [], ['амур'], [])
+  ('Ангара', [], ['ангара'], [])
+  ('Ангары', [], ['ангара'], [])
+  ('Бабушкин', [], ['бабушкин'], [])
+  ('Баргмана', [], ['баргмана'], [])
+  ('Баргузин', [], ['баргузин'], [])
+  ('Батаклан', [], ['батаклана'], [])
+  ('Бор', [], ['бор'], [])
+  ('Бохнера', [], ['бохнера'], [])
+  ('Бутаном', [], ['бутан'], [])
+  ('Вардена', [], ['варден'], [])
+  ('Вигнера', [], ['вигнера'], [])
+  ('Винера', [], ['винера'], [])
+  ('Вриза', [], ['вриза'], [])
+  ('Всеволожский', [], ['всеволожский'], [])
+  ('Галлии', [], ['галлия'], [])
+  ('Ганимеда', [], ['ганимед'], [])
+  ('Германии', [], ['германия'], [])
+  ('Гольдштейн', [], ['гольдштейн'], [])
+  ('Гончаров', [], ['гончар', 'гончаров'], [])
+  ('Гордона', [], ['гордон'], [])
+  ('Гренель', [], ['гренель', 'гренеля'], [])
+  ('Дебая', [], ['дебай'], [])
+  ('Джидинского', [], ['джидинский'], [])
+  ('Диона', [], ['дион', 'диона'], [])
+  ('Дионе', [], ['дион', 'диона'], [])
+  ('Дионы', [], ['дион', 'диона'], [])
+  ('Евростата', [], ['евростата'], [])
+  ('Жэньминь', [], ['жэньминь'], [])
+  ('Иванов', [], ['иван', 'иванов'], [])
+  ('Ивановой', [], ['иванов'], [])
+  ('Индии', [], ['индия'], [])
+  ('Иславин', [], ['иславин', 'иславина'], [])
+  ('Иславину', [], ['иславина'], [])
+  ('Казанский', [], ['казанский'], [])
+  ('Кальвина', [], ['кальвин', 'кальвина'], [])
+  ('Кантора', [], ['кантор'], [])
+  ('Карл', [], ['карл', 'карла'], [])
+  ('Карла', [], ['карл', 'карла'], [])
+  ('Каспийскому', [], ['каспийский'], [])
+blockers:
+  none
+VERDICT READY FOR LOCAL FEATURE TEST

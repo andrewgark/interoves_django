@@ -1,0 +1,69 @@
+dictionary_nodes	54228
+graph_nodes	5210
+ambiguous_lemmas	287
+approved_edges	2714
+rejected_overrides	24
+manual_accept_added	16
+average_degree_linked	1.042
+average_degree_dictionary	0.100
+p50_degree_linked	1
+p95_degree_linked	1
+max_degree	5
+proof	verbal_aspect:same:ивать/ить:v1	418
+proof	relational_adjective:ный:v1	357
+proof	verbal_aspect:same:ать/нуть:v1	228
+proof	verbal_aspect:same:иваться/иться:v1	218
+proof	verbal_aspect:same:ить/ять:v1	194
+proof	relational_adjective:овый:v1	167
+proof	lemma_suffix:ник:v1	162
+proof	verbal_aspect:same:ать/ить:v1	140
+proof	lemma_suffix:ский:v1	134
+proof	verbal_aspect:same:иться/яться:v1	125
+proof	lemma_suffix:овый:v1	110
+proof	verbal_aspect:same:аться/иться:v1	77
+proof	relational_adjective:ной:v1	56
+proof	verbal_aspect:same:нуть/ывать:v1	51
+proof	relational_adjective:ский:v1	44
+proof	verbal_aspect:same:ить/ывать:v1	36
+proof	relational_adjective:евый:v1	31
+proof	relational_adjective:иный:v1	29
+proof	profession:v1	25
+proof	verbal_aspect:same:иться/ываться:v1	17
+proof	manual_accept:v1	16
+proof	relational_adjective:ний:v1	13
+proof	ordinal:v1	13
+proof	verbal_aspect:cross:ить/ывать:v1	13
+proof	verbal_aspect:alt:ить/ти:v1	11
+proof	relational_adjective:ской:v1	9
+proof	verbal_aspect:cross:иться/ываться:v1	8
+proof	adjective_degree:ейший:v1	5
+proof	lemma_suffix:евый:v1	2
+proof	diminutive:v1	2
+proof	place_adverb:v1	2
+proof	deverbal_noun:v1	1
+hubs
+hub	5	пчела
+hub	5	рыба
+hub	4	кура
+hub	3	гончар
+hub	3	день
+hub	3	крест
+hub	3	плав
+hub	3	плод
+hub	3	скот
+hub	3	сонный
+hub	3	сургуч
+hub	3	девятый
+hub	3	десятый
+hub	3	пятый
+hub	3	шестой
+hub	3	коза
+hub	3	свекла
+hub	3	собака
+hub	3	она
+hub	3	они
+hub	3	он
+hub	3	оно
+hub	2	аист
+hub	2	алтын
+hub	2	аршин

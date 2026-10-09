@@ -207,6 +207,7 @@ TRUE_CASES = (
     ('погреб', 'погребение', 'root'),
     ('орёл', 'Орёл', 'exact'),
     ('мёд', 'мед', 'exact'),
+    ('евросоюз', 'ЕС', 'alias'),
     ('университет', 'универ', 'alias'),
     ('фотография', 'фото', 'alias'),
     ('килограмм', 'кг', 'alias'),
@@ -225,6 +226,24 @@ TRUE_CASES = (
     ('москва', 'московский', 'root'),
     ('китай', 'китайский', 'root'),
     ('франция', 'французский', 'root'),
+    ('украина', 'украинский', 'root'),
+    ('австралия', 'австралийский', 'root'),
+    ('армения', 'армянский', 'root'),
+    ('беларусь', 'белорусский', 'root'),
+    ('бразилия', 'бразильский', 'root'),
+    ('грузия', 'грузинский', 'root'),
+    ('израиль', 'израильский', 'root'),
+    ('иран', 'иранский', 'root'),
+    ('ирак', 'иракский', 'root'),
+    ('канада', 'канадский', 'root'),
+    ('казахстан', 'казахстанский', 'root'),
+    ('крым', 'крымский', 'root'),
+    ('мексика', 'мексиканский', 'root'),
+    ('польша', 'польский', 'root'),
+    ('сибирь', 'сибирский', 'root'),
+    ('турция', 'турецкий', 'root'),
+    ('кавказ', 'кавказский', 'root'),
+    ('африка', 'африканский', 'root'),
     ('англия', 'английский', 'root'),
     ('россия', 'российский', 'root'),
     ('байкал', 'байкальский', 'root'),
@@ -907,3 +926,134 @@ class LexicalGameplayTests(TestCase):
             self.assertNotIn(fold('умереть'), texts)
             death = apply_guess(game=game, task=task, word='умирать', user=user)
             self.assertIn(fold('умереть'), self._open_texts(death))
+
+
+class ReviewedHomonymClusterTests(SimpleTestCase):
+    def test_reviewed_homonym_clusters_stay_apart(self):
+        groups = (
+            ('несколько', 'количество'),
+            ('питаются', 'воспитательный'),
+            ('природа', 'родственник'),
+            ('список', 'описание'),
+            ('сложный', 'предполагают', 'выложенное', 'располагается'),
+            ('взятка', 'сняты', 'преимущество', 'иметь', 'вынули'),
+            ('налог', 'предложение', 'предположение', 'располагавший', 'положение'),
+            ('перелетные', 'года'),
+            ('конец', 'закон'),
+            ('налог', 'обложка', 'приложение'),
+            ('запад', 'нападение'),
+            ('находится', 'похоже'),
+            ('бой', 'убит'),
+            ('дело', 'понедельник'),
+            ('собрание', 'выбор'),
+            ('Путин', 'путей'),
+        )
+        for group in groups:
+            for index, left in enumerate(group):
+                for right in group[index + 1:]:
+                    self.assertFalse(opens(left, right), f'{left} / {right}')
+                    self.assertFalse(opens(right, left), f'{right} / {left}')
+
+
+class ConfirmedSingleTokenRelationTests(SimpleTestCase):
+    def test_reviewed_missing_root_assignments_are_structural(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        self.assertEqual(assignment_of('сенат')['source'], 'REVIEWED_OPAQUE_ROOT')
+        self.assertEqual(structures_of('сенат'), (('tikh:сенат',),))
+        self.assertEqual(structures_of('сенатор'), (('tikh:сенат',),))
+        self.assertEqual(structures_of('сенатский'), (('tikh:сенат',),))
+        self.assertEqual(structures_of('сенаторство'), (('tikh:сенат',),))
+
+        self.assertEqual(assignment_of('иволговый')['source'], 'REVIEWED_DERIVED_ROOT')
+        self.assertEqual(structures_of('иволговый'), (('fam:иволг',),))
+        self.assertTrue(opens('сенат', 'сенатор'))
+        self.assertTrue(opens('сенатор', 'сенатский'))
+        self.assertTrue(opens('иволга', 'иволговый'))
+        self.assertTrue(opens('иволга', 'иволговые'))
+
+    def test_reviewed_assignments_keep_semantic_splits_closed(self):
+        for left, right in (
+            ('страна', 'странный'),
+            ('крупа', 'крупный'),
+            ('свет', 'светский'),
+            ('мать', 'матка'),
+            ('червь', 'червовый'),
+            ('мара', 'маревый'),
+            ('год', 'годный'),
+            ('душа', 'душный'),
+        ):
+            self.assertFalse(opens(left, right), f'{left}/{right}')
+            self.assertFalse(opens(right, left), f'{right}/{left}')
+
+class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
+    def test_confirmed_proper_pairs_are_bidirectional(self):
+        from games.censorly.lexical.proper_names import PAIR_RELATIONS
+
+        self.assertEqual(len(PAIR_RELATIONS), 55)
+        for left, right in PAIR_RELATIONS:
+            self.assertEqual(explain(left, right), 'proper', f'{left}/{right}')
+            self.assertEqual(explain(right, left), 'proper', f'{right}/{left}')
+            self.assertTrue(opens(left, right), f'{left}/{right}')
+            self.assertTrue(opens(right, left), f'{right}/{left}')
+
+    def test_proper_pairs_support_inflected_forms(self):
+        cases = (
+            ('Алжира', 'алжирскому'),
+            ('Пекином', 'пекинского'),
+            ('Венгрии', 'венгром'),
+            ('Чехии', 'чехом'),
+        )
+        for left, right in cases:
+            self.assertEqual(explain(left, right), 'proper', f'{left}/{right}')
+            self.assertEqual(explain(right, left), 'proper', f'{right}/{left}')
+
+    def test_proper_pairs_do_not_create_adjective_demonym_edges(self):
+        from collections import defaultdict
+
+        from games.censorly.lexical.proper_names import PAIR_RELATIONS
+        from games.censorly.lexical.semantics import _PROPER_PAIRS, _proper_pair
+
+        related = defaultdict(list)
+        for left, right in PAIR_RELATIONS:
+            related[left].append(right)
+        for base, words in related.items():
+            adjectives = [word for word in words if word.endswith(('ский', 'цкий', 'жский'))]
+            demonyms = [
+                word for word in words
+                if word not in adjectives
+            ]
+            for adjective in adjectives:
+                for demonym in demonyms:
+                    pair = frozenset((adjective, demonym))
+                    self.assertNotIn(pair, _PROPER_PAIRS)
+                    self.assertFalse(_proper_pair(adjective, demonym))
+                    self.assertFalse(_proper_pair(demonym, adjective))
+
+    def test_new_pairs_are_not_accidentally_clustered(self):
+        from games.censorly.lexical.proper_names import CLUSTERS, PAIR_RELATIONS
+
+        clustered = {word for _name, words in CLUSTERS for word in words}
+        for left, right in PAIR_RELATIONS:
+            self.assertNotIn(left, clustered)
+            self.assertNotIn(right, clustered)
+
+    def test_measurement_aliases_are_bidirectional_and_non_transitive(self):
+        aliases = (
+            ('мл', 'миллилитр'),
+            ('вт', 'ватт'),
+            ('квт', 'киловатт'),
+            ('мвт', 'мегаватт'),
+            ('гц', 'герц'),
+        )
+        for short, full in aliases:
+            self.assertEqual(explain(short, full), 'alias', f'{short}/{full}')
+            self.assertEqual(explain(full, short), 'alias', f'{full}/{short}')
+        for left, right in (
+            ('мл', 'млн'),
+            ('миллилитр', 'миллиграмм'),
+            ('ватт', 'киловатт'),
+            ('мегаватт', 'герц'),
+        ):
+            self.assertFalse(opens(left, right), f'{left}/{right}')
+            self.assertFalse(opens(right, left), f'{right}/{left}')

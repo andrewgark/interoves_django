@@ -1,0 +1,2959 @@
+root_family	risk	bucket	tier	lemma_count	corpus_count	flags	rejects
+прав	750	ALREADY_SPLIT		187	141	large,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	
+раж¹|раз¹	707	ALREADY_SPLIT		167	295	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	образ/раз;образ/сразу
+ста(j)|сто(j)	690	ALREADY_SPLIT		470	836	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	достаточный/представлять;достаточный/остаться;достаточный/состав;достаточный/становиться;устав/уставание
+ч³|чес²|чет|чит|чт	495	ALREADY_SPLIT		254	164	large,many_alternations,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	чета/четный
+плач³|плес¹|плет|плот¹|плоч	494	ALREADY_SPLIT		132	2	large,many_alternations,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,in_corpus	плот/плотник
+лаг|лег²|леж|леч²|лог|лож¹	470	ALREADY_SPLIT		278	259	large,many_alternations,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	полог/пологость
+важ²|важд|вед²|вес²|вод¹|вож¹|вожд	470	REVIEW	high	265	328	large,many_alternations,old_reject,many_prefixes,many_suffixes,corpus_hot	вывести/разводить;возводить/вывести;свод/сводник
+бер|бир|бор¹|бр¹	470	ALREADY_SPLIT		226	98	large,many_alternations,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	брачный/забраться
+пек|печ|пещ	458	ALREADY_SPLIT		143	20	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	обеспечить/печка
+граб¹|греб|грес|гроб	448	ALREADY_SPLIT		128	0	large,many_alternations,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes	погреб/погребение
+хаж|ход|хож|хожд	430	ALREADY_SPLIT		213	462	large,many_alternations,old_reject,partial_split,many_prefixes,many_suffixes,corpus_hot	выходить/необходимый
+мест¹|мещ¹	424	ALREADY_SPLIT		109	90	large,old_reject,partial_split,many_prefixes,many_suffixes,corpus_hot	вместе/вместо;вместе/местность;вместе/вместить
+цве|цвес|цвет|цвеч	418	ALREADY_SPLIT		70	18	large,many_alternations,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,in_corpus	цвет/цветок;цвет/цветение;цвет/цветковый;цвет/цветник
+бел	414	ALREADY_SPLIT		120	19	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,in_corpus	белок/белый;белковый/белый;белка/белый
+лик¹|лиц|лич	408	ALREADY_SPLIT		108	171	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	личинка/отличие
+слав¹|слов¹|слы	407	ALREADY_SPLIT		84	78	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	слово/условие
+год|гож|гожд	407	ALREADY_SPLIT		67	331	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	год/погода;год/годный
+мал⁴|мел|мол¹	397	ALREADY_SPLIT		115	12	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,in_corpus	мель/мельник
+род|рож²|рожд	395	ALREADY_SPLIT		160	93	large,old_reject,partial_split,many_prefixes,many_suffixes,corpus_hot	род/родник
+мат¹|мач¹	391	ALREADY_SPLIT		26	167	medium_size,old_reject,partial_split,many_game_ids,many_suffixes,corpus_hot	матка/мать;маточник/мать;маточный/мать
+бв|бы	362	REVIEW	high	127	500	large,old_reject,many_prefixes,many_suffixes,corpus_hot	быть/прибыть;быть/прибыль
+крас¹|краш	345	ALREADY_SPLIT		139	11	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,in_corpus	краса/красный
+свес|свет|свеч|свещ	345	ALREADY_SPLIT		106	69	large,many_alternations,old_reject,partial_split,many_prefixes,many_suffixes,corpus_hot	свет/светский
+пас²	342	ALREADY_SPLIT		69	28	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	запас/опасность
+ем|им¹|йм|ним|ня|ым²|я¹|∅	335	REVIEW	high	311	406	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+наш|нес|нос²|нош	335	REVIEW	high	242	149	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+тач¹|тек|теч|ток¹|точ¹	335	REVIEW	high	231	217	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+вед¹|веж|вежд¹|вест|вещ¹	335	REVIEW	high	198	82	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+дер|дерг|держ|дир|дор|дорог³|др	322	REVIEW	high	333	67	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+да¹|даж	320	REVIEW	high	282	330	large,many_prefixes,many_suffixes,corpus_hot	
+де(j)|де	320	REVIEW	high	271	127	large,many_prefixes,many_suffixes,corpus_hot	
+жи	320	REVIEW	high	187	125	large,many_prefixes,many_suffixes,corpus_hot	
+сам	315	ALREADY_SPLIT		5	110	old_reject,partial_split,corpus_hot	самец/самый;сам/самый;самка/самый;сам/самость
+друг|друж¹	310	ALREADY_SPLIT		35	177	medium_size,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	друг/другой
+праст|прост|прощ	306	ALREADY_SPLIT		65	51	large,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	
+рас|ращ|рос²|рощ	305	REVIEW	high	150	100	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+зна(j)	302	REVIEW	high	162	210	large,many_prefixes,many_suffixes,corpus_hot	
+ворач|ворот¹|вороч|врат¹|вращ	302	REVIEW	high	161	66	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+ряд|ряж¹	301	REVIEW	high	161	192	large,many_prefixes,many_suffixes,corpus_hot	
+сторон|стран	294	ALREADY_SPLIT		59	246	large,old_reject,partial_split,many_prefixes,many_suffixes,corpus_hot	страна/странный
+каж¹|кажд¹|каз¹	292	REVIEW	high	152	250	large,many_prefixes,many_suffixes,corpus_hot	
+след|слеж	291	REVIEW	high	96	203	large,old_reject,many_prefixes,many_suffixes,corpus_hot	следовательно/следовать
+сад|саж|сажд|сед¹|сед|сес|сид|сиж¹|сяд	288	REVIEW	high	337	33	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+пис|пиш	287	REVIEW	high	147	207	large,many_prefixes,many_suffixes,corpus_hot	
+тя|тяг|тяж|тяз	286	REVIEW	high	236	31	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+ле(j)|ли|ло(j)|ль²	284	REVIEW	high	168	41	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+тк|ток²|точ²|тык|тыч	284	REVIEW	high	129	166	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+рав|ров²	284	REVIEW	high	89	556	large,old_reject,many_prefixes,many_suffixes,corpus_hot	равный/уровень
+глав|голав|голов	283	ALREADY_SPLIT		64	79	large,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	
+тер¹|тер|тир|тор|тр²	279	REVIEW	high	183	24	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+кус²|куш²	279	ALREADY_SPLIT		52	7	large,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,in_corpus	искус/искусник
+вяж|вяз²	278	REVIEW	high	138	106	large,many_prefixes,many_suffixes,corpus_hot	
+верх|верш¹	278	REVIEW	high	83	155	large,old_reject,many_prefixes,many_suffixes,corpus_hot	верхний/совершать
+гор¹	276	ALREADY_SPLIT		30	51	medium_size,old_reject,partial_split,many_game_ids,many_prefixes,many_suffixes,corpus_hot	гора/горний
+реж²|рез	275	REVIEW	high	174	41	large,many_prefixes,many_suffixes,corpus_hot	
+мер¹	273	REVIEW	high	133	172	large,many_prefixes,many_suffixes,corpus_hot	
+гораж|город|горож|град¹|гражд	273	REVIEW	high	118	106	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+ви|во(j)¹|вь	271	REVIEW	high	132	79	large,many_prefixes,many_suffixes,corpus_hot	
+мен¹	269	REVIEW	high	129	184	large,many_prefixes,many_suffixes,corpus_hot	
+влач|влек|влеч|волак|волок|волоч	267	REVIEW	high	183	12	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+мир¹	266	REVIEW	high	71	80	large,old_reject,many_prefixes,many_suffixes,corpus_hot	мир/мирской
+е¹|ед|ес²|я³|яд	265	REVIEW	high	110	167	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+дух|душ¹	264	ALREADY_SPLIT		87	22	large,old_reject,partial_split,many_prefixes,many_suffixes,corpus_hot	душа/душный
+па¹|пад|паж|пас¹|пащ	261	REVIEW	high	106	110	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+кла|клад|клаж|клас	260	REVIEW	high	153	32	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+рв|ров¹|ры	258	REVIEW	high	203	18	large,many_prefixes,many_suffixes,in_corpus	
+дел	258	REVIEW	high	118	392	large,many_prefixes,many_suffixes,corpus_hot	
+зар|зер|зир|зор|зр	255	REVIEW	high	154	26	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+стра|стро(j)	255	REVIEW	high	115	83	large,many_prefixes,many_suffixes,corpus_hot	
+суд¹|суж|сужд	254	ALREADY_SPLIT		81	18	large,old_reject,partial_split,many_prefixes,many_suffixes,in_corpus	суд/судный
+би(j)|бо(j)¹|бь	252	REVIEW	high	248	12	large,many_prefixes,many_suffixes,in_corpus	
+раб	252	REVIEW	high	112	146	large,many_prefixes,many_suffixes,corpus_hot	
+рук|руч¹|руш¹	252	ALREADY_SPLIT		89	8	large,old_reject,partial_split,many_prefixes,many_suffixes,in_corpus	обруч/обручение
+па²|пи|по(j)¹|пь	251	REVIEW	high	174	2	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+кров²|кры	249	REVIEW	high	109	105	large,many_prefixes,many_suffixes,corpus_hot	
+ук|уч	249	REVIEW	high	109	88	large,many_prefixes,many_suffixes,corpus_hot	
+кат¹|кач¹	245	REVIEW	high	258	5	large,many_prefixes,many_suffixes,in_corpus	
+ме|мес²|мет¹|мет	245	REVIEW	high	156	14	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+сох²|сух|суш|сых	245	REVIEW	high	150	20	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+дви|двиг|движ|двиз	240	REVIEW	high	115	50	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+ступ¹	236	REVIEW	high	117	59	large,many_prefixes,many_suffixes,corpus_hot	
+один|одн	236	REVIEW	high	16	163	medium_size,old_reject,many_suffixes,corpus_hot	один/одинаковый;один/однако
+так|тат|тач²	236	ALREADY_SPLIT		16	185	medium_size,old_reject,partial_split,many_suffixes,corpus_hot	так/такой
+вер²|верет²|верт|верч	235	REVIEW	high	158	2	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+сел	235	REVIEW	high	103	72	large,many_prefixes,many_suffixes,corpus_hot	
+мар²|мер²|мер|мир²|мор¹	234	REVIEW	high	108	51	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+общ	234	REVIEW	high	54	146	large,old_reject,many_suffixes,corpus_hot	общественный/общий
+езд|езж|ех	230	REVIEW	high	144	26	large,many_prefixes,many_suffixes,corpus_hot	
+вал	229	REVIEW	high	167	2	large,many_prefixes,many_suffixes,in_corpus	
+тр¹	229	REVIEW	high	49	80	large,old_reject,many_suffixes,corpus_hot	строить/три
+вел²|вл|вол¹	228	REVIEW	high	88	80	large,many_prefixes,many_suffixes,corpus_hot	
+сл²|стел|стил|стл|стол	227	REVIEW	high	126	26	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+пар³|пер¹|пир|пор³|пр	226	REVIEW	high	138	13	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+рек²|реч²|риц|рок|роч|рош²	226	REVIEW	high	121	30	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+вет¹|веч²|вещ²	226	REVIEW	high	86	155	large,many_prefixes,many_suffixes,corpus_hot	
+сматр|смотр	224	REVIEW	high	84	84	large,many_prefixes,many_suffixes,corpus_hot	
+серед|сред	224	REVIEW	high	44	92	large,old_reject,many_suffixes,corpus_hot	среда/средний
+вес¹|веш¹	222	REVIEW	high	146	16	large,many_prefixes,many_suffixes,in_corpus	
+лет²|лет	222	REVIEW	high	99	63	large,many_prefixes,many_suffixes,corpus_hot	
+мар³	221	ALREADY_SPLIT		4	2	old_reject,partial_split,many_game_ids,in_corpus	маревый/марь;мара/маревый
+полн	220	REVIEW	high	80	127	large,many_prefixes,many_suffixes,corpus_hot	
+мо(j)|мов|мы	219	REVIEW	high	151	8	large,many_prefixes,many_suffixes,in_corpus	
+пла|плав|плов|плы	218	REVIEW	high	140	3	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+кан|кон¹	218	REVIEW	high	78	190	large,many_prefixes,many_suffixes,corpus_hot	
+мог|мож|моч²|мощ¹	216	REVIEW	high	61	274	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+зв|зов|зыв	214	REVIEW	high	74	178	large,many_prefixes,many_suffixes,corpus_hot	
+круг|круж¹	212	REVIEW	high	83	69	large,many_prefixes,many_suffixes,corpus_hot	
+лам|лом	211	REVIEW	high	148	3	large,many_prefixes,many_suffixes,in_corpus	
+шв|шев|ши|шов	211	REVIEW	high	134	2	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+черв	210	ALREADY_SPLIT		24	6	medium_size,old_reject,partial_split,many_game_ids,many_suffixes,in_corpus	червовый/червь
+гар|гор²	209	REVIEW	high	142	7	large,many_prefixes,many_suffixes,in_corpus	
+руб	207	REVIEW	high	141	6	large,many_prefixes,many_suffixes,in_corpus	
+дл|дол²	207	REVIEW	high	44	48	large,old_reject,many_prefixes,many_suffixes,corpus_hot	длина/длиться
+мысел|мысл|мышл	206	REVIEW	high	93	53	large,many_prefixes,many_suffixes,corpus_hot	
+пуск|пуст¹|пущ²	205	REVIEW	high	121	24	large,many_prefixes,many_suffixes,corpus_hot	
+плот²|площ²	205	ALREADY_SPLIT		23	57	medium_size,old_reject,partial_split,corpus_hot	плотный/плоть
+важ⁴|вез|вож³|воз	204	REVIEW	high	126	3	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+г|гб|ги|гиб	204	REVIEW	high	119	10	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+круп	204	ALREADY_SPLIT		24	40	medium_size,old_reject,partial_split,many_suffixes,corpus_hot	крупа/крупный
+сва¹|сво(j)	203	REVIEW	high	63	115	large,many_prefixes,many_suffixes,corpus_hot	
+числ	202	REVIEW	high	62	173	large,many_prefixes,many_suffixes,corpus_hot	
+говар|говор	201	REVIEW	high	117	24	large,many_prefixes,many_suffixes,corpus_hot	
+един	201	REVIEW	high	61	81	large,many_prefixes,many_suffixes,corpus_hot	
+люб	200	REVIEW	high	60	103	large,many_prefixes,many_suffixes,corpus_hot	
+клюк¹|ключ¹|клюш	198	REVIEW	high	65	73	large,many_prefixes,many_suffixes,corpus_hot	
+ч¹|чин²	198	REVIEW	high	58	150	large,many_prefixes,many_suffixes,corpus_hot	
+саб|соб	196	REVIEW	high	56	145	large,many_prefixes,many_suffixes,corpus_hot	
+мерз|мораж|морож|мороз|мраз	193	REVIEW	high	111	7	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+дв	193	REVIEW	high	53	118	large,many_prefixes,many_suffixes,corpus_hot	
+вод²|вож²	191	REVIEW	high	51	119	large,many_prefixes,many_suffixes,corpus_hot	
+сил¹	191	REVIEW	high	51	81	large,many_prefixes,many_suffixes,corpus_hot	
+яв	191	REVIEW	high	51	235	large,many_prefixes,many_suffixes,corpus_hot	
+мес¹|мех²|меш¹	189	REVIEW	high	110	19	large,many_prefixes,many_suffixes,in_corpus	
+талк|толк¹|толок|толоч¹|толч	189	REVIEW	high	109	5	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+ган|гн|гон	188	REVIEW	high	127	1	large,many_prefixes,many_suffixes,in_corpus	
+жа¹|жим|жм|жом	188	REVIEW	high	102	11	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+вар¹	186	REVIEW	high	125	1	large,many_prefixes,many_suffixes,in_corpus	
+ворон¹	186	ALREADY_SPLIT		21	0	medium_size,old_reject,partial_split,many_game_ids,many_suffixes	ворон/воронение
+ки¹|кид	185	REVIEW	high	123	2	large,many_prefixes,many_suffixes,in_corpus	
+сек|сеч	185	REVIEW	high	108	17	large,many_prefixes,many_suffixes,in_corpus	
+мног|множ	185	REVIEW	high	46	79	large,many_prefixes,many_suffixes,corpus_hot	
+жал¹	185	ALREADY_SPLIT		44	1	large,old_reject,partial_split,many_suffixes,in_corpus	жаль/жальник
+праш|прос¹|прош	184	REVIEW	high	104	20	large,many_prefixes,many_suffixes,corpus_hot	
+част¹|чащ¹	184	REVIEW	high	59	264	large,many_suffixes,corpus_hot	
+се	183	REVIEW	high	113	10	large,many_prefixes,many_suffixes,in_corpus	
+карм|корм¹	183	REVIEW	high	98	25	large,many_prefixes,many_suffixes,corpus_hot	
+жг|жеч|жж|жиг|жог	182	REVIEW	high	105	2	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+игор|игр|ыгр	181	REVIEW	high	99	22	large,many_prefixes,many_suffixes,corpus_hot	
+пряг|пряж²|пряч	180	REVIEW	high	80	40	large,many_prefixes,many_suffixes,corpus_hot	
+вер¹	179	REVIEW	high	96	23	large,many_prefixes,many_suffixes,corpus_hot	
+иск|ищ|ыск|ыщ	178	REVIEW	high	96	7	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+гран	176	REVIEW	high	53	63	large,many_prefixes,many_suffixes,corpus_hot	
+мач²|мок¹|моч¹	175	REVIEW	high	130	0	large,many_prefixes,many_suffixes	
+кап²|коп¹	175	REVIEW	high	109	6	large,many_prefixes,many_suffixes,in_corpus	
+слуг|служ	175	REVIEW	high	75	40	large,many_prefixes,many_suffixes,corpus_hot	
+выс|выш	174	REVIEW	high	49	80	large,many_suffixes,corpus_hot	
+чист|чищ	173	REVIEW	high	88	25	large,many_prefixes,many_suffixes,corpus_hot	
+мк|мок²|моч³|мык|мыч²	173	REVIEW	high	60	38	large,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+чес¹|чес|чеш	172	REVIEW	high	111	1	large,many_prefixes,many_suffixes,in_corpus	
+мал¹	172	REVIEW	high	47	110	large,many_suffixes,corpus_hot	
+вис	172	REVIEW	high	35	77	medium_size,many_prefixes,many_suffixes,corpus_hot	
+чин¹	171	REVIEW	high	90	21	large,many_prefixes,many_suffixes,corpus_hot	
+пар¹	171	REVIEW	high	89	22	large,many_prefixes,many_suffixes,corpus_hot	
+нз|низ²|нож¹|ноз	170	REVIEW	high	89	6	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+пут²	170	REVIEW	high	45	97	large,many_suffixes,corpus_hot	
+брас|брос|брош	169	REVIEW	high	98	11	large,many_prefixes,many_suffixes,in_corpus	
+бег|беж	169	REVIEW	high	97	12	large,many_prefixes,many_suffixes,in_corpus	
+век¹|веч¹	169	REVIEW	high	29	84	medium_size,many_prefixes,many_suffixes,corpus_hot	
+тряс|трях	168	REVIEW	high	106	2	large,many_prefixes,many_suffixes,in_corpus	
+вел¹	167	REVIEW	high	42	95	large,many_suffixes,corpus_hot	
+и¹|ид|й|йд|ыд	167	REVIEW	high	37	70	medium_size,many_alternations,many_prefixes,corpus_hot	
+креп	166	REVIEW	high	89	17	large,many_prefixes,many_suffixes,in_corpus	
+вид|вист	166	REVIEW	high	75	31	large,many_prefixes,many_suffixes,corpus_hot	
+сыр	166	ALREADY_SPLIT		24	2	medium_size,old_reject,partial_split,many_suffixes,in_corpus	сыр/сырость
+трав	165	REVIEW	high	104	1	large,many_prefixes,many_suffixes,in_corpus	
+ник|ниц|нич|нк|ноч¹	165	REVIEW	high	32	58	medium_size,many_alternations,many_prefixes,many_suffixes,corpus_hot	
+ду	163	REVIEW	high	101	2	large,many_prefixes,many_suffixes,in_corpus	
+цеп	163	REVIEW	high	90	13	large,many_prefixes,many_suffixes,in_corpus	
+глас|глаш|голос	163	REVIEW	high	81	22	large,many_prefixes,many_suffixes,corpus_hot	
+кус¹|куш¹	163	ALREADY_SPLIT		78	0	large,partial_split,many_prefixes,many_suffixes	
+хват	162	REVIEW	high	93	9	large,many_prefixes,many_suffixes,in_corpus	
+реш	162	REVIEW	high	37	82	medium_size,many_prefixes,corpus_hot	
+кле(j)	161	REVIEW	high	100	1	large,many_prefixes,many_suffixes,in_corpus	
+соп³|сып¹	161	REVIEW	high	98	3	large,many_prefixes,many_suffixes,in_corpus	
+слух|слуш|слых|слыш	161	REVIEW	high	83	3	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+мет²|меч¹	161	REVIEW	high	67	34	large,many_prefixes,many_suffixes,corpus_hot	
+пол⁵	161	REVIEW	high	36	301	medium_size,many_suffixes,corpus_hot	
+кал²|кол¹	160	REVIEW	high	115	0	large,many_prefixes,many_suffixes	
+куп¹	160	REVIEW	high	98	2	large,many_prefixes,many_suffixes,in_corpus	
+дав¹	160	REVIEW	high	72	28	large,many_prefixes,many_suffixes,corpus_hot	
+страг|строг¹|строж|струг¹|струж¹	158	REVIEW	high	97	1	large,many_alternations,many_prefixes,in_corpus	
+стар	158	REVIEW	high	73	25	large,many_prefixes,many_suffixes,corpus_hot	
+тепел|тепл	158	REVIEW	high	41	72	large,many_suffixes,corpus_hot	
+маз	157	REVIEW	high	112	0	large,many_prefixes,many_suffixes	
+зем	157	REVIEW	high	61	36	large,many_prefixes,many_suffixes,corpus_hot	
+снов	157	REVIEW	high	32	195	medium_size,many_suffixes,corpus_hot	
+хлад|хлажд|холаж|холо|холод|холож	156	REVIEW	high	70	11	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+ниж|низ¹	156	REVIEW	high	62	34	large,many_prefixes,many_suffixes,corpus_hot	
+сас|сос	155	REVIEW	high	91	4	large,many_prefixes,many_suffixes,in_corpus	
+стрел	155	REVIEW	high	87	8	large,many_prefixes,many_suffixes,in_corpus	
+тверд|тверж|твержд	155	REVIEW	high	45	50	large,many_prefixes,many_suffixes,corpus_hot	
+тереб|треб	154	REVIEW	high	61	33	large,many_prefixes,many_suffixes,corpus_hot	
+груж|груз	153	REVIEW	high	87	6	large,many_prefixes,many_suffixes,in_corpus	
+п|пин|пон|пя	153	REVIEW	high	72	6	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+лин²	153	REVIEW	high	29	64	medium_size,many_prefixes,many_suffixes,corpus_hot	
+пал²|пол⁴	153	REVIEW	high	28	89	medium_size,many_prefixes,corpus_hot	
+сут|сущ	153	REVIEW	high	28	143	medium_size,many_suffixes,corpus_hot	
+толст|толщ	153	REVIEW	high	28	88	medium_size,many_suffixes,corpus_hot	
+таск|тасч|тащ	151	REVIEW	high	106	0	large,many_prefixes,many_suffixes	
+форм	151	REVIEW	high	59	47	large,many_suffixes,corpus_hot	
+врем	151	REVIEW	high	26	261	medium_size,many_suffixes,corpus_hot	
+пол²	151	REVIEW	high	26	164	medium_size,many_suffixes,corpus_hot	
+мат²|мот	150	REVIEW	high	105	0	large,many_prefixes,many_suffixes	
+ясн	150	REVIEW	high	48	42	large,many_prefixes,many_suffixes,corpus_hot	
+дум	149	REVIEW	high	82	7	large,many_prefixes,many_suffixes,in_corpus	
+пе|по³	148	REVIEW	high	85	3	large,many_prefixes,many_suffixes,in_corpus	
+кис¹	148	REVIEW	high	70	18	large,many_prefixes,many_suffixes,in_corpus	
+вес⁴|вс	147	REVIEW	high	22	123	medium_size,many_suffixes,corpus_hot	
+сал²|сол¹	146	REVIEW	high	83	3	large,many_prefixes,many_suffixes,in_corpus	
+бав	146	REVIEW	high	76	10	large,many_prefixes,many_suffixes,in_corpus	
+во(j)²	146	REVIEW	high	36	50	medium_size,many_prefixes,many_suffixes,corpus_hot	
+сл¹|сол²|сыл	145	REVIEW	high	79	6	large,many_prefixes,many_suffixes,in_corpus	
+част²|чащ²	145	REVIEW	high	27	73	medium_size,many_suffixes,corpus_hot	
+класс	145	REVIEW	high	20	82	medium_size,many_suffixes,corpus_hot	
+волн¹	145	REVIEW	high	20	82	medium_size,many_prefixes,corpus_hot	
+пил	144	REVIEW	high	83	1	large,many_prefixes,many_suffixes,in_corpus	
+черт¹|черч	144	REVIEW	high	70	14	large,many_prefixes,many_suffixes,in_corpus	
+клан|клон	144	REVIEW	high	65	19	large,many_prefixes,many_suffixes,in_corpus	
+бол²	144	REVIEW	high	19	202	medium_size,many_suffixes,corpus_hot	
+втор	144	REVIEW	high	19	140	medium_size,many_suffixes,corpus_hot	
+тап²|топ³	143	REVIEW	high	80	3	large,many_prefixes,many_suffixes,in_corpus	
+готав|готов	143	REVIEW	high	73	10	large,many_prefixes,many_suffixes,in_corpus	
+бред|брес|брод|брож	143	REVIEW	high	65	3	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+скак|скач|скок|скоч	142	REVIEW	high	82	0	large,many_alternations,many_prefixes,many_suffixes	
+гля|гляд	142	REVIEW	high	74	8	large,many_prefixes,many_suffixes,in_corpus	
+ум	142	REVIEW	high	73	9	large,many_prefixes,many_suffixes,in_corpus	
+прям	142	REVIEW	high	44	38	large,many_prefixes,many_suffixes,corpus_hot	
+перв	142	REVIEW	high	17	122	medium_size,many_suffixes,corpus_hot	
+нов	141	REVIEW	high	39	42	medium_size,many_prefixes,many_suffixes,corpus_hot	
+пит|пич¹|пищ²	140	REVIEW	high	61	19	large,many_prefixes,many_suffixes,in_corpus	
+гад²|гаж	140	REVIEW	high	24	1	medium_size,old_reject,many_prefixes,many_suffixes,in_corpus	гад/гадость
+ков|ку¹	139	REVIEW	high	94	0	large,many_prefixes,many_suffixes	
+колач|колот|колоч	139	REVIEW	high	75	4	large,many_prefixes,many_suffixes,in_corpus	
+жар	139	REVIEW	high	74	5	large,many_prefixes,many_suffixes,in_corpus	
+цел²	139	REVIEW	high	49	30	large,many_prefixes,many_suffixes,corpus_hot	
+кол²	139	REVIEW	high	49	45	large,many_suffixes,corpus_hot	
+пах²|паш²	138	REVIEW	high	77	1	large,many_prefixes,many_suffixes,in_corpus	
+страст²|страх|страш|стращ	138	REVIEW	high	59	4	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+луч⁴	138	REVIEW	high	28	174	medium_size,corpus_hot	
+тап¹|топ¹	137	REVIEW	high	92	0	large,many_prefixes,many_suffixes	
+стег¹|стег|стеж¹|стяж²	136	REVIEW	high	76	0	large,many_alternations,many_prefixes,many_suffixes	
+мах¹|маш	136	REVIEW	high	74	2	large,many_prefixes,many_suffixes,in_corpus	
+оборач|оборот|обрат|обращ	136	REVIEW	high	26	50	medium_size,many_alternations,many_suffixes,corpus_hot	
+печат	135	REVIEW	high	70	20	large,many_prefixes,corpus_hot	
+кур¹	134	REVIEW	high	89	0	large,many_prefixes,many_suffixes	
+вастр|востр|остр|ощр	134	REVIEW	high	55	4	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+тем²|тем|тм|тьм	134	REVIEW	high	48	11	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+мин²|мя¹	133	REVIEW	high	72	1	large,many_prefixes,many_suffixes,in_corpus	
+лад¹|лаж	133	REVIEW	high	67	6	large,many_prefixes,many_suffixes,in_corpus	
+бед|бежд	133	REVIEW	high	65	8	large,many_prefixes,many_suffixes,in_corpus	
+цен	133	REVIEW	high	56	17	large,many_prefixes,many_suffixes,in_corpus	
+крут|круч¹	132	REVIEW	high	87	0	large,many_prefixes,many_suffixes	
+лав²|лов	132	REVIEW	high	71	1	large,many_prefixes,many_suffixes,in_corpus	
+черн	132	REVIEW	high	58	14	large,many_prefixes,many_suffixes,in_corpus	
+млад|молаж|молод|молож	132	REVIEW	high	48	24	large,many_alternations,many_suffixes,corpus_hot	
+сла|сло(j)	132	REVIEW	high	45	27	large,many_prefixes,many_suffixes,corpus_hot	
+слад|слажд|сласт|слащ|солаж|солод|солож|солощ	131	REVIEW	high	71	0	large,many_alternations,many_prefixes,many_suffixes	
+хлоп	131	REVIEW	high	70	1	large,many_prefixes,many_suffixes,in_corpus	
+кол³	130	REVIEW	high	20	123	medium_size,corpus_hot	
+мин¹|мн|мя²	128	REVIEW	high	56	27	large,many_prefixes,corpus_hot	
+лаз|лез¹|лес²	127	REVIEW	high	66	1	large,many_prefixes,many_suffixes,in_corpus	
+пух|пуш	127	REVIEW	high	66	1	large,many_prefixes,many_suffixes,in_corpus	
+глад¹|глаж	127	REVIEW	high	64	3	large,many_prefixes,many_suffixes,in_corpus	
+мащ²|мост|мощ²	127	REVIEW	high	59	8	large,many_prefixes,many_suffixes,in_corpus	
+хоран|хорон|хран	127	REVIEW	high	48	19	large,many_prefixes,many_suffixes,in_corpus	
+корач|корот|короч¹|крат|кращ	127	REVIEW	high	46	21	large,many_alternations,many_suffixes,corpus_hot	
+лед²|лед|льд	127	REVIEW	high	41	26	large,many_prefixes,many_suffixes,corpus_hot	
+ближ|близ	127	REVIEW	high	26	56	medium_size,many_suffixes,corpus_hot	
+лез²|льз	127	REVIEW	high	17	94	medium_size,corpus_hot	
+тес	126	REVIEW	high	81	0	large,many_prefixes,many_suffixes	
+меж|межд	126	REVIEW	high	64	2	large,many_prefixes,many_suffixes,in_corpus	
+крест|крещ	126	REVIEW	high	60	6	large,many_prefixes,many_suffixes,in_corpus	
+пут¹	125	REVIEW	high	61	19	large,many_prefixes,in_corpus	
+мут|муч³|мущ	125	REVIEW	high	55	10	large,many_prefixes,many_suffixes,in_corpus	
+стерег|стереж|стереч|стораж|сторож|страж	125	REVIEW	high	49	1	large,many_alternations,many_prefixes,many_suffixes,in_corpus	
+ден|дн¹	125	REVIEW	high	34	46	medium_size,many_suffixes,corpus_hot	
+колаш|колос|колош¹	125	ALREADY_SPLIT		15	0	medium_size,old_reject,partial_split	колос/колосник
+пол¹	125	REVIEW	high	15	119	medium_size,corpus_hot	
+гре	124	REVIEW	high	69	10	large,many_prefixes,in_corpus	
+доб	124	REVIEW	high	30	34	medium_size,many_prefixes,many_suffixes,corpus_hot	
+ветер|ветр	123	REVIEW	high	42	21	large,many_prefixes,many_suffixes,corpus_hot	
+зд|зид|зижд|зод	123	REVIEW	high	31	47	medium_size,many_alternations,corpus_hot	
+грыж|грыз	122	REVIEW	high	61	1	large,many_prefixes,many_suffixes,in_corpus	
+пыт	122	REVIEW	high	37	25	medium_size,many_prefixes,many_suffixes,corpus_hot	
+далж|долг²|долж²	122	REVIEW	high	29	33	medium_size,many_prefixes,many_suffixes,corpus_hot	
+каш³|кос²|кош³	120	REVIEW	high	59	1	large,many_prefixes,many_suffixes,in_corpus	
+рис²	120	REVIEW	high	59	16	large,many_prefixes,in_corpus	
+твар|твор¹	120	REVIEW	high	53	7	large,many_prefixes,many_suffixes,in_corpus	
+стриг|стриж¹|стрич	119	REVIEW	high	74	0	large,many_prefixes,many_suffixes	
+чу	119	REVIEW	high	51	8	large,many_prefixes,many_suffixes,in_corpus	
+перед|переж|пред|преж|прежд	119	REVIEW	high	39	20	medium_size,many_alternations,many_suffixes,corpus_hot	
+па(j)³|по(j)²	118	REVIEW	high	73	0	large,many_prefixes,many_suffixes	
+масл	118	REVIEW	high	56	2	large,many_prefixes,many_suffixes,in_corpus	
+спе	118	REVIEW	high	47	11	large,many_prefixes,many_suffixes,in_corpus	
+шир¹	118	REVIEW	high	28	45	medium_size,many_suffixes,corpus_hot	
+облак|облач|оболоч	118	REVIEW	high	26	32	medium_size,many_prefixes,many_suffixes,corpus_hot	
+кал¹	117	REVIEW	high	72	0	large,many_prefixes,many_suffixes	
+пыл²	117	REVIEW	high	44	13	large,many_prefixes,many_suffixes,in_corpus	
+пря¹|пряд¹|пряж¹|пряс	117	REVIEW	high	39	3	medium_size,many_alternations,many_prefixes,many_suffixes,in_corpus	
+кип¹	116	REVIEW	high	55	1	large,many_prefixes,many_suffixes,in_corpus	
+гад¹	115	REVIEW	high	54	1	large,many_prefixes,many_suffixes,in_corpus	
+злат|злащ|золач|золот|золоч	115	REVIEW	high	44	11	large,many_alternations,many_suffixes,in_corpus	
+труд|труж|тружд	115	REVIEW	high	43	12	large,many_prefixes,many_suffixes,in_corpus	
+поражн|порожн|пражн|праздн	115	REVIEW	high	39	1	medium_size,many_alternations,many_prefixes,many_suffixes,in_corpus	
+брак	115	ALREADY_SPLIT		26	4	medium_size,partial_split,many_prefixes,in_corpus	
+газ	115	REVIEW	high	18	52	medium_size,many_suffixes,corpus_hot	
+треп	114	REVIEW	high	69	0	large,many_prefixes,many_suffixes	
+дур	114	REVIEW	high	69	0	large,many_prefixes,many_suffixes	
+тис|тиск|тисоч	114	REVIEW	high	69	0	large,many_prefixes,many_suffixes	
+скор¹	114	REVIEW	high	19	50	medium_size,many_suffixes,corpus_hot	
+палз|полз|полоз	113	REVIEW	high	68	0	large,many_prefixes,many_suffixes	
+луп	113	REVIEW	high	66	2	large,many_prefixes,in_corpus	
+с|соп²|сп|сып²	113	REVIEW	high	53	0	large,many_alternations,many_prefixes,many_suffixes	
+бог|бож	113	REVIEW	high	51	17	large,many_suffixes,in_corpus	
+пуст²|пущ¹	113	REVIEW	high	49	19	large,many_suffixes,in_corpus	
+четвер|четыр	113	REVIEW	high	40	28	large,many_suffixes,corpus_hot	
+глат|глот|глощ	113	REVIEW	high	33	35	medium_size,many_prefixes,corpus_hot	
+балт|болт¹	112	REVIEW	high	67	0	large,many_prefixes,many_suffixes	
+торг¹|торж¹	112	REVIEW	high	45	7	large,many_prefixes,many_suffixes,in_corpus	
+гул¹	111	REVIEW	high	66	0	large,many_prefixes,many_suffixes	
+каш¹|кос¹|кош¹	111	REVIEW	high	66	0	large,many_prefixes,many_suffixes	
+пле|плев¹|плев|плю	111	REVIEW	high	51	0	large,many_alternations,many_prefixes,many_suffixes	
+глад²|глод|голод	111	REVIEW	high	50	1	large,many_prefixes,many_suffixes,in_corpus	
+свист|свищ	111	REVIEW	high	50	1	large,many_prefixes,many_suffixes,in_corpus	
+ш|ше²|шед	111	REVIEW	high	43	8	large,many_prefixes,many_suffixes,in_corpus	
+зел	111	REVIEW	high	40	11	large,many_prefixes,many_suffixes,in_corpus	
+сук³|суч³	110	REVIEW	high	65	0	large,many_prefixes,many_suffixes	
+щип	110	REVIEW	high	65	0	large,many_prefixes,many_suffixes	
+магнит|магнич	110	REVIEW	high	16	64	medium_size,corpus_hot	
+зуб	109	REVIEW	high	48	1	large,many_prefixes,many_suffixes,in_corpus	
+лек|леч¹	109	REVIEW	high	48	1	large,many_prefixes,many_suffixes,in_corpus	
+молач|молот|молоч¹	108	REVIEW	high	63	0	large,many_prefixes,many_suffixes	
+хот|хоч	108	REVIEW	high	40	8	large,many_prefixes,many_suffixes,in_corpus	
+грем|гром	108	REVIEW	high	35	13	medium_size,many_prefixes,many_suffixes,in_corpus	
+зим	108	REVIEW	high	25	23	medium_size,many_prefixes,many_suffixes,corpus_hot	
+удар	108	REVIEW	high	18	5	medium_size,old_reject,in_corpus	удар/ударение
+дых|дыш	107	REVIEW	high	51	11	large,many_prefixes,in_corpus	
+малк|малч|молк|молч	107	REVIEW	high	47	0	large,many_alternations,many_prefixes,many_suffixes	
+капч|копот|копт|копч	107	REVIEW	high	47	0	large,many_alternations,many_prefixes,many_suffixes	
+мяг|мяк	107	REVIEW	high	46	1	large,many_prefixes,many_suffixes,in_corpus	
+жа²|жин|жн	107	REVIEW	high	41	6	large,many_prefixes,many_suffixes,in_corpus	
+утр²	107	REVIEW	high	15	47	medium_size,many_suffixes,corpus_hot	
+дуб	106	REVIEW	high	44	2	large,many_prefixes,many_suffixes,in_corpus	
+луч¹	106	REVIEW	high	24	37	medium_size,many_suffixes,corpus_hot	
+ваг|важ¹	106	REVIEW	high	21	40	medium_size,many_prefixes,corpus_hot	
+пал¹	105	REVIEW	high	60	0	large,many_prefixes,many_suffixes	
+лиз	105	REVIEW	high	58	2	large,many_prefixes,in_corpus	
+то|тон²|топ²	105	REVIEW	high	41	4	large,many_prefixes,many_suffixes,in_corpus	
+леп¹	104	REVIEW	high	59	0	large,many_prefixes,many_suffixes	
+влад|власт|волост	104	REVIEW	high	45	14	large,many_suffixes,in_corpus	
+бал¹|бол¹	104	REVIEW	high	42	2	large,many_prefixes,many_suffixes,in_corpus	
+пят²|пяч	104	REVIEW	high	42	2	large,many_prefixes,many_suffixes,in_corpus	
+желт|желч	104	REVIEW	high	40	4	large,many_prefixes,many_suffixes,in_corpus	
+шиб	103	REVIEW	high	58	0	large,many_prefixes,many_suffixes	
+двор	103	REVIEW	high	40	3	large,many_prefixes,many_suffixes,in_corpus	
+трес|треск¹|трещ	103	REVIEW	high	38	5	medium_size,many_prefixes,many_suffixes,in_corpus	
+лебед|лебяж	103	ALREADY_SPLIT		8	0	old_reject,partial_split	лебеда/лебединый
+толк²|толоч²	102	REVIEW	high	41	1	large,many_prefixes,many_suffixes,in_corpus	
+щеп	102	REVIEW	high	41	1	large,many_prefixes,many_suffixes,in_corpus	
+серд|серж|серч	102	REVIEW	high	35	7	medium_size,many_prefixes,many_suffixes,in_corpus	
+гряз	102	REVIEW	high	34	23	medium_size,many_suffixes,corpus_hot	
+дал	102	REVIEW	high	32	25	medium_size,many_suffixes,corpus_hot	
+человек|человеч	102	REVIEW	high	22	35	medium_size,many_suffixes,corpus_hot	
+долг¹|долж¹	102	REVIEW	high	21	36	medium_size,many_suffixes,corpus_hot	
+глуб	102	REVIEW	high	20	37	medium_size,many_suffixes,corpus_hot	
+озер	102	AUTO_SAFE		7	88	corpus_hot	
+плоск|площ¹	102	AUTO_SAFE		7	137	corpus_hot	
+гна|гни|гно(j)	101	REVIEW	high	56	0	large,many_prefixes,many_suffixes	
+ух¹|уш¹	101	REVIEW	high	40	1	large,many_prefixes,many_suffixes,in_corpus	
+руж	101	REVIEW	high	38	3	medium_size,many_prefixes,many_suffixes,in_corpus	
+страд|страст¹	101	REVIEW	high	38	3	medium_size,many_prefixes,many_suffixes,in_corpus	
+пчел	101	AUTO_SAFE		6	135	corpus_hot	
+ве	100	REVIEW	high	70	0	large,many_prefixes	
+прыг|прыж	100	REVIEW	high	55	0	large,many_prefixes,many_suffixes	
+плат¹|плач¹	100	REVIEW	high	51	4	large,many_prefixes,in_corpus	
+лук³|луч³	100	REVIEW	high	26	29	medium_size,many_suffixes,corpus_hot	
+ма⁴|ман¹	99	REVIEW	high	54	0	large,many_prefixes,many_suffixes	
+да²|до(j)	99	REVIEW	high	54	0	large,many_prefixes,many_suffixes	
+верг|верж	99	REVIEW	high	43	11	large,many_prefixes,in_corpus	
+ващ|воск|вощ	99	REVIEW	high	23	16	medium_size,many_prefixes,many_suffixes,in_corpus	
+сме¹	98	REVIEW	high	53	0	large,many_prefixes,many_suffixes	
+дабр|добр	98	REVIEW	high	37	1	medium_size,many_prefixes,many_suffixes,in_corpus	
+бран	98	ALREADY_SPLIT		28	0	medium_size,partial_split,many_prefixes	
+мен²	98	REVIEW	high	26	27	medium_size,many_suffixes,corpus_hot	
+лев¹|льв	98	AUTO_SAFE		3	82	corpus_hot	
+том¹	98	AUTO_SAFE		3	126	corpus_hot	
+клеп	97	REVIEW	high	67	0	large,many_prefixes	
+ка²|кап¹	97	REVIEW	high	44	8	large,many_prefixes,in_corpus	
+веред|вред|вреж|врежд	97	REVIEW	high	33	4	medium_size,many_alternations,many_suffixes,in_corpus	
+им²|ым¹	97	REVIEW	high	31	21	medium_size,many_suffixes,corpus_hot	
+вотч|отец|отеч|отц|отч	97	REVIEW	high	23	14	medium_size,many_alternations,many_suffixes,in_corpus	
+пуг|пуж	96	REVIEW	high	50	1	large,many_prefixes,in_corpus	
+тесн	96	REVIEW	high	48	3	large,many_prefixes,in_corpus	
+черк	96	REVIEW	high	46	5	large,many_prefixes,in_corpus	
+мг|ми|миг	96	REVIEW	high	34	2	medium_size,many_prefixes,many_suffixes,in_corpus	
+сахар	96	REVIEW	high	34	2	medium_size,many_prefixes,many_suffixes,in_corpus	
+вес³	96	AUTO_SAFE		1	89	corpus_hot	
+смал|смол	95	REVIEW	high	50	0	large,many_prefixes,many_suffixes	
+черп	95	REVIEW	high	49	1	large,many_prefixes,in_corpus	
+сов²|су	95	REVIEW	high	48	2	large,many_prefixes,in_corpus	
+мук¹|муч¹	95	REVIEW	high	47	3	large,many_prefixes,in_corpus	
+член	95	REVIEW	high	28	22	medium_size,many_suffixes,corpus_hot	
+ре¹|ри|ро(j)|рь	95	REVIEW	high	28	7	medium_size,many_alternations,many_suffixes,in_corpus	
+нем	95	REVIEW	high	21	29	medium_size,many_suffixes,corpus_hot	
+хлест	94	REVIEW	high	64	0	large,many_prefixes	
+страч|строк|строч	94	REVIEW	high	49	0	large,many_prefixes,many_suffixes	
+квас|кваш	94	REVIEW	high	49	0	large,many_prefixes,many_suffixes	
+ку²|куп²	94	REVIEW	high	33	1	medium_size,many_prefixes,many_suffixes,in_corpus	
+верст²|верст	93	REVIEW	high	48	0	large,many_prefixes,many_suffixes	
+прыс|прыск|прыщ	93	REVIEW	high	48	0	large,many_prefixes,many_suffixes	
+пока¹|поко(j)	93	REVIEW	high	43	5	large,many_suffixes,in_corpus	
+берег¹|береж¹|береч|брег|бреж²|бреч	93	REVIEW	high	41	7	large,many_alternations,in_corpus	
+рух|руш²	93	REVIEW	high	41	7	large,many_suffixes,in_corpus	
+крив	93	REVIEW	high	37	11	medium_size,many_suffixes,in_corpus	
+лес¹|леш	93	REVIEW	high	36	12	medium_size,many_suffixes,in_corpus	
+буд¹|бужд	93	REVIEW	high	34	14	medium_size,many_prefixes,in_corpus	
+блес|блеск|блест|блист	93	REVIEW	high	30	3	medium_size,many_alternations,many_prefixes,in_corpus	
+жид²|жиж	93	REVIEW	high	24	24	medium_size,many_suffixes,corpus_hot	
+пеш²|пих|пх	92	REVIEW	high	62	0	large,many_prefixes	
+мер³|мерек|мереч|мерк|мерц|морач|морок|мороч|мрак|мрач	92	REVIEW	high	47	0	large,many_alternations,many_suffixes	
+пах¹|паш¹	92	REVIEW	high	29	3	medium_size,many_prefixes,many_suffixes,in_corpus	
+тел¹	92	REVIEW	high	13	64	corpus_hot	
+студ|стуж	91	REVIEW	high	46	0	large,many_prefixes,many_suffixes	
+свят|свяч|свящ	91	REVIEW	high	35	11	medium_size,many_suffixes,in_corpus	
+труб	91	REVIEW	high	23	8	medium_size,many_prefixes,many_suffixes,in_corpus	
+блюд¹|блюс|блюст	91	REVIEW	high	18	43	medium_size,corpus_hot	
+мор²	91	REVIEW	high	17	29	medium_size,many_suffixes,corpus_hot	
+облад|област	91	REVIEW	high	13	63	corpus_hot	
+зван|звен²|звон²	90	REVIEW	high	45	0	large,many_prefixes,many_suffixes	
+скреб|скрес	90	REVIEW	high	45	0	large,many_prefixes,many_suffixes	
+гащ|гост|гощ	90	REVIEW	high	28	2	medium_size,many_prefixes,many_suffixes,in_corpus	
+кра¹|кро(j)	89	REVIEW	high	59	0	large,many_prefixes	
+хвал	89	REVIEW	high	44	0	large,many_prefixes,many_suffixes	
+сал¹	89	REVIEW	high	44	0	large,many_prefixes,many_suffixes	
+твор²	89	REVIEW	high	38	6	medium_size,many_suffixes,in_corpus	
+пласт	89	REVIEW	high	37	7	medium_size,many_suffixes,in_corpus	
+дом	89	REVIEW	high	36	8	medium_size,many_suffixes,in_corpus	
+лист	89	REVIEW	high	28	16	medium_size,many_suffixes,in_corpus	
+жил	89	REVIEW	high	26	3	medium_size,many_prefixes,many_suffixes,in_corpus	
+плес²|плеск	88	REVIEW	high	58	0	large,many_prefixes	
+пар²|пор²	88	REVIEW	high	58	0	large,many_prefixes	
+син	88	REVIEW	high	43	0	large,many_prefixes,many_suffixes	
+корен|кореш|корн¹	88	REVIEW	high	37	6	medium_size,many_suffixes,in_corpus	
+раз²|роз²	88	REVIEW	high	23	35	medium_size,corpus_hot	
+электр	88	REVIEW	high	17	41	medium_size,corpus_hot	
+трус³|трух²|труш	87	REVIEW	high	42	0	large,many_prefixes,many_suffixes	
+кап³|коп²	87	REVIEW	high	34	8	medium_size,many_suffixes,in_corpus	
+дроб	87	REVIEW	high	32	10	medium_size,many_suffixes,in_corpus	
+черед|чред|чрежд	87	REVIEW	high	29	13	medium_size,many_suffixes,in_corpus	
+лег¹|льг	87	REVIEW	high	28	14	medium_size,many_suffixes,in_corpus	
+бур³	87	REVIEW	high	27	15	medium_size,many_prefixes,in_corpus	
+блуд|блужд|блюд³	87	REVIEW	high	26	1	medium_size,many_prefixes,many_suffixes,in_corpus	
+млек|млеч|молок|молоч²	87	REVIEW	high	17	10	medium_size,many_alternations,many_suffixes,in_corpus	
+тук¹|туч³	86	REVIEW	high	56	0	large,many_prefixes	
+мал²|мол²	86	REVIEW	high	41	0	large,many_prefixes,many_suffixes	
+слаб	86	REVIEW	high	34	7	medium_size,many_suffixes,in_corpus	
+щелк|щелч	85	REVIEW	high	40	0	large,many_prefixes,many_suffixes	
+гал|гол	85	REVIEW	high	39	1	medium_size,many_suffixes,in_corpus	
+рыб	85	REVIEW	high	28	12	medium_size,many_suffixes,in_corpus	
+чест|чещ	85	REVIEW	high	23	17	medium_size,many_suffixes,in_corpus	
+влаг|влаж|волаж|волг|волож	85	REVIEW	high	21	4	medium_size,many_alternations,many_suffixes,in_corpus	
+берег²|береж²|бреж¹	85	REVIEW	high	18	37	medium_size,corpus_hot	
+винт|винч	84	REVIEW	high	54	0	large,many_prefixes	
+клев|клю|клюв	84	REVIEW	high	54	0	large,many_prefixes	
+крик|крич	84	REVIEW	high	39	0	medium_size,many_prefixes,many_suffixes	
+клик|клиц|клич	84	REVIEW	high	38	1	medium_size,many_prefixes,in_corpus	
+мар¹	84	REVIEW	high	38	1	medium_size,many_prefixes,in_corpus	
+трат|трач	84	REVIEW	high	34	5	medium_size,many_prefixes,in_corpus	
+пят¹	84	REVIEW	high	29	10	medium_size,many_suffixes,in_corpus	
+век²	84	AUTO_SAFE		1	68	corpus_hot	
+брыз|брызг	83	REVIEW	high	38	0	medium_size,many_prefixes,many_suffixes	
+далб|долб	83	REVIEW	high	38	0	medium_size,many_prefixes,many_suffixes	
+руг	83	REVIEW	high	38	0	medium_size,many_prefixes,many_suffixes	
+чуд¹	83	REVIEW	high	37	1	medium_size,many_suffixes,in_corpus	
+дол¹	83	REVIEW	high	30	8	medium_size,many_suffixes,in_corpus	
+крыл	83	REVIEW	high	25	13	medium_size,many_suffixes,in_corpus	
+стиг|стиж|стич	83	REVIEW	high	25	28	medium_size,corpus_hot	
+лг|лж|лож²|лыг|лыж²	83	REVIEW	high	23	0	medium_size,many_alternations,many_prefixes,many_suffixes	
+рус²	83	REVIEW	high	17	21	medium_size,many_suffixes,corpus_hot	
+угл¹|угол¹	83	REVIEW	high	9	59	corpus_hot	
+лип|ль¹	82	REVIEW	high	37	0	medium_size,many_prefixes,many_suffixes	
+щуп	82	REVIEW	high	37	0	medium_size,many_prefixes,many_suffixes	
+тух|туш²|тх	82	REVIEW	high	37	0	medium_size,many_prefixes,many_suffixes	
+кар²|кор²	82	REVIEW	high	35	2	medium_size,many_suffixes,in_corpus	
+час	82	REVIEW	high	18	19	medium_size,many_suffixes,in_corpus	
+баб	81	REVIEW	high	32	4	medium_size,many_suffixes,in_corpus	
+тих|тиш	81	REVIEW	high	32	4	medium_size,many_suffixes,in_corpus	
+брат	81	REVIEW	high	24	12	medium_size,many_suffixes,in_corpus	
+плак|плач²	80	REVIEW	high	35	0	medium_size,many_prefixes,many_suffixes	
+туп	80	REVIEW	high	35	0	medium_size,many_prefixes,many_suffixes	
+шеп	80	REVIEW	high	35	0	medium_size,many_prefixes,many_suffixes	
+ок|оч	80	REVIEW	high	34	1	medium_size,many_suffixes,in_corpus	
+ковыр	79	REVIEW	medium	49	0	large,many_prefixes	
+стекл|стекол	79	REVIEW	medium	33	1	medium_size,many_suffixes,in_corpus	
+муж	79	REVIEW	medium	31	3	medium_size,many_suffixes,in_corpus	
+серебр|сребр	79	REVIEW	medium	30	4	medium_size,many_suffixes,in_corpus	
+пук|пуч	79	REVIEW	medium	29	5	medium_size,many_suffixes,in_corpus	
+глаз	79	REVIEW	medium	28	6	medium_size,many_suffixes,in_corpus	
+жен	79	REVIEW	medium	25	9	medium_size,many_suffixes,in_corpus	
+крахмал	78	REVIEW	medium	31	2	medium_size,many_prefixes,in_corpus	
+нуд|нуж|нужд	78	REVIEW	medium	28	20	medium_size,corpus_hot	
+полос¹	78	REVIEW	medium	23	10	medium_size,many_suffixes,in_corpus	
+солн	78	REVIEW	medium	10	53	corpus_hot	
+как|кач²	78	REVIEW	medium	10	53	corpus_hot	
+цед|цеж	77	REVIEW	medium	47	0	large,many_prefixes	
+дох|дош	77	REVIEW	medium	32	0	medium_size,many_prefixes,many_suffixes	
+стыд|стыж	77	REVIEW	medium	31	1	medium_size,many_suffixes,in_corpus	
+лих|лиш	77	REVIEW	medium	29	3	medium_size,many_suffixes,in_corpus	
+рес|рет	77	REVIEW	medium	27	5	medium_size,many_suffixes,in_corpus	
+дн²|дон	77	REVIEW	medium	17	15	medium_size,many_suffixes,in_corpus	
+поласк|полос²|полоск	76	REVIEW	medium	46	0	large,many_prefixes	
+вин¹	76	REVIEW	medium	29	2	medium_size,many_suffixes,in_corpus	
+плод|плож	76	REVIEW	medium	28	3	medium_size,many_suffixes,in_corpus	
+бок|боч²	76	REVIEW	medium	23	8	medium_size,many_prefixes,in_corpus	
+ред|реж¹	76	REVIEW	medium	23	8	medium_size,many_suffixes,in_corpus	
+планет	76	AUTO_SAFE		4	57	corpus_hot	
+здорав|здоров|здрав	75	REVIEW	medium	45	0	large,many_suffixes	
+швыр	75	REVIEW	medium	45	0	large,many_prefixes	
+шут|шуч	75	REVIEW	medium	30	0	medium_size,many_prefixes,many_suffixes	
+терп	75	REVIEW	medium	28	2	medium_size,many_prefixes,in_corpus	
+звук|звуч	75	REVIEW	medium	27	3	medium_size,many_prefixes,in_corpus	
+жд|жид¹	75	REVIEW	medium	26	4	medium_size,many_prefixes,in_corpus	
+ба(j)¹	75	REVIEW	medium	25	5	medium_size,many_suffixes,in_corpus	
+десят	75	REVIEW	medium	24	6	medium_size,many_suffixes,in_corpus	
+пот	75	REVIEW	medium	24	6	medium_size,many_prefixes,in_corpus	
+цар	75	REVIEW	medium	23	7	medium_size,many_suffixes,in_corpus	
+язык|языч	75	REVIEW	medium	17	28	medium_size,corpus_hot	
+обык|обыч	75	REVIEW	medium	12	48	corpus_hot	
+скабл|скобел|скобл	74	REVIEW	medium	44	0	large,many_prefixes	
+слюн	74	REVIEW	medium	28	1	medium_size,many_suffixes,in_corpus	
+влас|волос	74	REVIEW	medium	26	3	medium_size,many_suffixes,in_corpus	
+густ|гущ	74	REVIEW	medium	26	3	medium_size,many_suffixes,in_corpus	
+снег|снеж	74	REVIEW	medium	25	4	medium_size,many_suffixes,in_corpus	
+щит|щищ	74	REVIEW	medium	20	9	medium_size,many_suffixes,in_corpus	
+бор²	74	REVIEW	medium	20	9	medium_size,many_suffixes,in_corpus	
+том²	73	REVIEW	medium	43	0	large,many_prefixes	
+весел¹|весел	73	REVIEW	medium	28	0	medium_size,many_prefixes,many_suffixes	
+вечер|вечор|вчер	73	REVIEW	medium	27	1	medium_size,many_suffixes,in_corpus	
+жир¹	73	REVIEW	medium	27	1	medium_size,many_suffixes,in_corpus	
+решет|решеч	73	REVIEW	medium	27	1	medium_size,many_prefixes,in_corpus	
+дерев²|древ¹	73	REVIEW	medium	25	3	medium_size,many_suffixes,in_corpus	
+хоз	73	REVIEW	medium	23	5	medium_size,many_suffixes,in_corpus	
+дет|дит	73	REVIEW	medium	19	9	medium_size,many_suffixes,in_corpus	
+свобод|свобожд	73	REVIEW	medium	16	27	medium_size,corpus_hot	
+вещ³	73	REVIEW	medium	14	44	corpus_hot	
+зл	72	REVIEW	medium	42	0	large,many_suffixes	
+крад|краж|крас²	72	REVIEW	medium	42	0	large,many_prefixes	
+нюх|нюш	72	REVIEW	medium	42	0	large,many_prefixes	
+кром	72	REVIEW	medium	27	0	medium_size,many_prefixes,many_suffixes	
+сем³	72	REVIEW	medium	25	2	medium_size,many_suffixes,in_corpus	
+вет²	72	REVIEW	medium	25	2	medium_size,many_suffixes,in_corpus	
+ног|нож²	72	REVIEW	medium	23	4	medium_size,many_suffixes,in_corpus	
+коч²	72	REVIEW	medium	23	4	medium_size,many_prefixes,in_corpus	
+шест²	72	REVIEW	medium	19	8	medium_size,many_suffixes,in_corpus	
+характер	72	REVIEW	medium	14	43	corpus_hot	
+кащ|кост|кощ	71	REVIEW	medium	41	0	large,many_suffixes	
+царап	71	REVIEW	medium	41	0	large,many_prefixes	
+зубр	71	REVIEW	medium	26	0	medium_size,many_prefixes,many_suffixes	
+вор¹	71	REVIEW	medium	25	1	medium_size,many_prefixes,in_corpus	
+парх|порх|порш	71	REVIEW	medium	25	1	medium_size,many_prefixes,in_corpus	
+свеж	71	REVIEW	medium	25	1	medium_size,many_suffixes,in_corpus	
+плат²|полот	71	REVIEW	medium	24	2	medium_size,many_suffixes,in_corpus	
+пруг|пруж¹	71	REVIEW	medium	23	3	medium_size,many_suffixes,in_corpus	
+писк|пищ¹	71	REVIEW	medium	22	4	medium_size,many_suffixes,in_corpus	
+бр²	70	REVIEW	medium	40	0	large,many_prefixes	
+мусл|мусол	70	REVIEW	medium	40	0	large,many_prefixes	
+сач¹|сок|соч	70	REVIEW	medium	25	0	medium_size,many_prefixes,many_suffixes	
+против	70	REVIEW	medium	23	2	medium_size,many_suffixes,in_corpus	
+седм|седьм|сем¹	70	REVIEW	medium	21	4	medium_size,many_suffixes,in_corpus	
+ноч²|нощ	70	REVIEW	medium	18	7	medium_size,many_suffixes,in_corpus	
+степен	70	REVIEW	medium	12	43	corpus_hot	
+та(j)¹	69	REVIEW	medium	39	0	medium_size,many_suffixes	
+туг|туж	69	REVIEW	medium	24	0	medium_size,many_prefixes,many_suffixes	
+дым¹	69	REVIEW	medium	23	1	medium_size,many_prefixes,in_corpus	
+шаг|шаж	69	REVIEW	medium	22	2	medium_size,many_prefixes,in_corpus	
+хлеб²|хлеб	68	REVIEW	medium	38	0	medium_size,many_prefixes	
+вя|вяд	68	REVIEW	medium	38	0	medium_size,many_prefixes	
+мал³	68	REVIEW	medium	38	0	medium_size,many_prefixes	
+лест|лещ²|льст|льщ	68	REVIEW	medium	38	0	medium_size,many_alternations	
+мил	68	REVIEW	medium	38	0	medium_size,many_suffixes	
+сыт¹|сыщ	68	REVIEW	medium	34	4	medium_size,in_corpus	
+тер²	68	REVIEW	medium	25	13	medium_size,in_corpus	
+тон¹	68	REVIEW	medium	23	15	medium_size,in_corpus	
+дик|дич	68	REVIEW	medium	22	1	medium_size,many_suffixes,in_corpus	
+тел²|тел	68	REVIEW	medium	22	1	medium_size,many_suffixes,in_corpus	
+плек|плеч	68	REVIEW	medium	21	2	medium_size,many_suffixes,in_corpus	
+прок|проч	68	REVIEW	medium	20	3	medium_size,many_suffixes,in_corpus	
+школ	68	REVIEW	medium	20	3	medium_size,many_suffixes,in_corpus	
+дорог¹|дорож¹|драж²	68	REVIEW	medium	19	4	medium_size,many_prefixes,in_corpus	
+пазд|позд	68	REVIEW	medium	18	20	medium_size,corpus_hot	
+черт²	68	REVIEW	medium	16	7	medium_size,many_suffixes,in_corpus	
+гнезд	68	REVIEW	medium	15	8	medium_size,many_suffixes,in_corpus	
+жв|жев	67	REVIEW	medium	37	0	medium_size,many_prefixes	
+хит|хич|хищ	67	REVIEW	medium	33	4	medium_size,in_corpus	
+куч¹	67	REVIEW	medium	21	1	medium_size,many_suffixes,in_corpus	
+мыш	67	REVIEW	medium	16	6	medium_size,many_suffixes,in_corpus	
+кров¹	66	REVIEW	medium	36	0	medium_size,many_suffixes	
+чекан	66	REVIEW	medium	36	0	medium_size,many_prefixes	
+чал¹	66	REVIEW	medium	36	0	medium_size,many_prefixes	
+команд	66	REVIEW	medium	31	5	medium_size,in_corpus	
+ласк|ласоч|ласт¹|лащ¹	66	REVIEW	medium	21	0	medium_size,many_alternations,many_prefixes	
+люд	66	REVIEW	medium	20	1	medium_size,many_suffixes,in_corpus	
+пуз	66	REVIEW	medium	20	1	medium_size,many_suffixes,in_corpus	
+шум	66	REVIEW	medium	17	4	medium_size,many_prefixes,in_corpus	
+крюк|крюч	66	REVIEW	medium	17	4	medium_size,many_suffixes,in_corpus	
+рек¹|реч¹	66	REVIEW	medium	12	39	corpus_hot	
+пех|пеш¹	65	REVIEW	medium	19	1	medium_size,many_suffixes,in_corpus	
+сир	65	REVIEW	medium	19	1	medium_size,many_suffixes,in_corpus	
+щет	65	REVIEW	medium	19	1	medium_size,many_suffixes,in_corpus	
+пес¹	65	REVIEW	medium	19	1	medium_size,many_suffixes,in_corpus	
+чуд²|чуж|чужд	65	REVIEW	medium	18	2	medium_size,many_suffixes,in_corpus	
+лб|лоб	65	REVIEW	medium	17	3	medium_size,many_suffixes,in_corpus	
+столб	65	REVIEW	medium	16	4	medium_size,many_suffixes,in_corpus	
+дожд	65	REVIEW	medium	15	5	medium_size,many_suffixes,in_corpus	
+сем²	65	REVIEW	medium	12	38	corpus_hot	
+глох|глух|глуш	64	REVIEW	medium	34	0	medium_size,many_suffixes	
+жир²|жор|жр¹	64	REVIEW	medium	34	0	medium_size,many_prefixes	
+утюг|утюж	64	REVIEW	medium	34	0	medium_size,many_prefixes	
+порт¹	64	REVIEW	medium	18	1	medium_size,many_suffixes,in_corpus	
+восем|восьм|осьм	64	REVIEW	medium	18	1	medium_size,many_suffixes,in_corpus	
+кур²	64	REVIEW	medium	18	1	medium_size,many_suffixes,in_corpus	
+тращ|трост|трощ	64	REVIEW	medium	18	1	medium_size,many_suffixes,in_corpus	
+полк|полч	64	REVIEW	medium	17	2	medium_size,many_suffixes,in_corpus	
+уз¹	64	REVIEW	medium	16	3	medium_size,many_suffixes,in_corpus	
+стрем²|стрем	64	REVIEW	medium	15	19	medium_size,in_corpus	
+вн|вон²	64	AUTO_SAFE		7	42	corpus_hot	
+мол³	64	ALREADY_SPLIT		3	6	partial_split,in_corpus	
+пре	63	REVIEW	medium	33	0	medium_size,many_prefixes	
+крап|кроп¹	63	REVIEW	medium	33	0	medium_size,many_suffixes	
+бадр|бодр	63	REVIEW	medium	32	1	medium_size,in_corpus	
+пораш|порох|порош|прах	63	REVIEW	medium	18	0	medium_size,many_alternations,many_suffixes	
+болач|болот|болоч	63	REVIEW	medium	17	1	medium_size,many_suffixes,in_corpus	
+утр¹	63	REVIEW	medium	16	2	medium_size,many_prefixes,in_corpus	
+кот¹|кош²	63	REVIEW	medium	16	2	medium_size,many_suffixes,in_corpus	
+кра(j)²	63	REVIEW	medium	15	18	medium_size,in_corpus	
+сер¹	63	REVIEW	medium	15	3	medium_size,many_suffixes,in_corpus	
+север	63	AUTO_SAFE		4	44	corpus_hot	
+кашел|кашл	62	REVIEW	medium	32	0	medium_size,many_prefixes	
+сверл	62	REVIEW	medium	32	0	medium_size,many_prefixes	
+худ|хуж	62	REVIEW	medium	32	0	medium_size,many_suffixes	
+торг²|торж²	62	REVIEW	medium	31	1	medium_size,in_corpus	
+пояс	62	REVIEW	medium	28	4	medium_size,in_corpus	
+вык|выч	62	REVIEW	medium	25	7	medium_size,in_corpus	
+молв	62	REVIEW	medium	16	1	medium_size,many_prefixes,in_corpus	
+дешев	62	REVIEW	medium	16	1	medium_size,many_prefixes,in_corpus	
+доч|дч|дщ	62	REVIEW	medium	16	1	medium_size,many_suffixes,in_corpus	
+нос¹	62	REVIEW	medium	16	1	medium_size,many_suffixes,in_corpus	
+бар	62	REVIEW	medium	15	2	medium_size,many_suffixes,in_corpus	
+ше(j)¹	62	REVIEW	medium	15	2	medium_size,many_prefixes,in_corpus	
+румян	61	REVIEW	medium	31	0	medium_size,many_prefixes	
+вен	61	REVIEW	medium	30	1	medium_size,in_corpus	
+интерес|ынтерес	61	REVIEW	medium	15	16	medium_size,in_corpus	
+скверн	61	REVIEW	medium	15	1	medium_size,many_suffixes,in_corpus	
+вир¹|вр	60	REVIEW	medium	30	0	medium_size,many_prefixes	
+тверез|трезв	60	REVIEW	medium	30	0	medium_size,many_suffixes	
+план	60	REVIEW	medium	23	7	medium_size,in_corpus	
+цел¹	60	REVIEW	medium	18	12	medium_size,in_corpus	
+узд	59	REVIEW	medium	29	0	medium_size,many_prefixes	
+пляс	59	REVIEW	medium	29	0	medium_size,many_prefixes	
+яр¹	59	REVIEW	medium	17	12	medium_size,in_corpus	
+пар⁴	59	REVIEW	medium	14	30	corpus_hot	
+горб	58	REVIEW	medium	28	0	medium_size,many_suffixes	
+ворс|ворш	58	REVIEW	medium	28	0	medium_size,many_suffixes	
+та²	58	REVIEW	medium	28	0	medium_size,many_prefixes	
+траг|тро|трог	58	REVIEW	medium	28	0	medium_size,many_prefixes	
+конопат|конопач	58	REVIEW	medium	28	0	medium_size,many_prefixes	
+брюх|брюш	58	REVIEW	medium	17	11	medium_size,in_corpus	
+зол	57	REVIEW	medium	27	0	medium_size,many_suffixes	
+ма³	57	REVIEW	medium	27	0	medium_size,many_prefixes	
+пестр|пещр	57	REVIEW	medium	27	0	medium_size,many_suffixes	
+сап|соп¹	57	REVIEW	medium	27	0	medium_size,many_suffixes	
+наруж	57	REVIEW	medium	10	32	corpus_hot	
+лущ	56	REVIEW	medium	26	0	medium_size,many_prefixes	
+ворк|ворч	56	REVIEW	medium	26	0	medium_size,many_prefixes	
+голуб	56	REVIEW	medium	26	0	medium_size,many_suffixes	
+прят	56	REVIEW	medium	26	0	medium_size,many_prefixes	
+стрек²|стреч	56	REVIEW	medium	26	0	medium_size,many_suffixes	
+шпил	56	REVIEW	medium	26	0	medium_size,many_prefixes	
+кор¹	56	REVIEW	medium	26	0	medium_size,many_suffixes	
+норав|норов|нрав	56	REVIEW	medium	24	2	medium_size,in_corpus	
+зре	56	REVIEW	medium	24	2	medium_size,in_corpus	
+чар²	56	REVIEW	medium	24	2	medium_size,in_corpus	
+экзамен	56	REVIEW	medium	17	9	medium_size,in_corpus	
+колеб	56	REVIEW	medium	15	11	medium_size,in_corpus	
+бал²	55	REVIEW	medium	25	0	medium_size,many_prefixes	
+рог	55	REVIEW	medium	25	0	medium_size,many_suffixes	
+слеп	55	REVIEW	medium	25	0	medium_size,many_suffixes	
+сты	55	REVIEW	medium	25	0	medium_size,many_prefixes	
+танец|танц	55	REVIEW	medium	25	0	medium_size,many_prefixes	
+штукатур	55	REVIEW	medium	25	0	medium_size,many_prefixes	
+гнес|гнет|гнет¹	55	REVIEW	medium	25	0	medium_size,many_suffixes	
+тл¹	55	REVIEW	medium	25	0	medium_size,many_prefixes	
+штоп	55	REVIEW	medium	25	0	medium_size,many_prefixes	
+кас|кос⁴	55	REVIEW	medium	21	4	medium_size,in_corpus	
+дорог²|дорож²	55	REVIEW	medium	15	10	medium_size,in_corpus	
+бес|беш	54	REVIEW	medium	24	0	medium_size,many_suffixes	
+боран|борон	54	REVIEW	medium	24	0	medium_size,many_prefixes	
+клок|клоч	54	REVIEW	medium	24	0	medium_size,many_suffixes	
+крох|крош	54	REVIEW	medium	24	0	medium_size,many_prefixes	
+кук¹|куч²	54	REVIEW	medium	24	0	medium_size,many_prefixes	
+ком	54	REVIEW	medium	24	0	medium_size,many_suffixes	
+перец|переч²|перц|перч¹	54	REVIEW	medium	24	0	medium_size,many_alternations	
+груб	54	REVIEW	medium	23	1	medium_size,in_corpus	
+хораш|хорош	54	REVIEW	medium	11	28	corpus_hot	
+истор	54	AUTO_SAFE		8	31	corpus_hot	
+яче(j)	54	AUTO_SAFE		6	33	corpus_hot	
+товар	53	REVIEW	medium	23	0	medium_size,many_suffixes	
+хвост	53	REVIEW	medium	23	0	medium_size,many_suffixes	
+чих|чох¹|чх	53	REVIEW	medium	23	0	medium_size,many_prefixes	
+звер	53	REVIEW	medium	23	0	medium_size,many_suffixes	
+слав²|слов²	53	REVIEW	medium	23	0	medium_size,many_suffixes	
+сяг|сяж|сяз	53	REVIEW	medium	19	4	medium_size,in_corpus	
+багр¹	52	REVIEW	medium	22	0	medium_size,many_suffixes	
+бород	52	REVIEW	medium	22	0	medium_size,many_suffixes	
+уд|уж³	52	REVIEW	medium	22	0	medium_size,many_suffixes	
+дев	52	REVIEW	medium	22	0	medium_size,many_suffixes	
+зев	52	REVIEW	medium	22	0	medium_size,many_suffixes	
+шлеп	52	REVIEW	medium	22	0	medium_size,many_prefixes	
+хал|хол²	52	REVIEW	medium	22	0	medium_size,many_suffixes	
+рад¹	52	REVIEW	medium	19	3	medium_size,in_corpus	
+остров	52	AUTO_SAFE		7	30	corpus_hot	
+ревн	51	REVIEW	medium	21	0	medium_size,many_prefixes	
+вораж|ворож	51	REVIEW	medium	21	0	medium_size,many_prefixes	
+скальз|скольж|скольз	51	REVIEW	medium	21	0	medium_size,many_prefixes	
+храп	51	REVIEW	medium	21	0	medium_size,many_suffixes	
+шарк	51	REVIEW	medium	21	0	medium_size,many_prefixes	
+шал²	51	REVIEW	medium	21	0	medium_size,many_suffixes	
+еж	51	REVIEW	medium	21	0	medium_size,many_suffixes	
+колд	51	REVIEW	medium	21	0	medium_size,many_prefixes	
+сар|сор	51	REVIEW	medium	20	1	medium_size,in_corpus	
+каж²|каз²	51	REVIEW	medium	19	2	medium_size,in_corpus	
+кож	51	REVIEW	medium	19	2	medium_size,in_corpus	
+оруд|оруж	51	REVIEW	medium	16	5	medium_size,in_corpus	
+фигур	51	REVIEW	medium	14	22	corpus_hot	
+плюс|плюск|плющ²	50	REVIEW	medium	35	0	medium_size	
+благ|блаж	50	REVIEW	medium	20	0	medium_size,many_suffixes	
+драг|дрог¹|дрож¹	50	REVIEW	medium	20	0	medium_size,many_prefixes	
+зяб	50	REVIEW	medium	20	0	medium_size,many_prefixes	
+стряп	50	REVIEW	medium	20	0	medium_size,many_prefixes	
+коч¹	50	REVIEW	medium	20	0	medium_size,many_suffixes	
+лен¹	50	REVIEW	medium	20	0	medium_size,many_suffixes	
+мох|мош¹|мш	50	REVIEW	medium	20	0	medium_size,many_suffixes	
+хмел	50	REVIEW	medium	20	0	medium_size,many_suffixes	
+лук¹|луч²	50	REVIEW	medium	20	0	medium_size,many_suffixes	
+коз	50	REVIEW	medium	20	0	medium_size,many_suffixes	
+медл	50	REVIEW	medium	19	1	medium_size,in_corpus	
+ран¹	50	REVIEW	medium	18	2	medium_size,in_corpus	
+кам	50	REVIEW	medium	17	3	medium_size,in_corpus	
+бур¹	50	REVIEW	medium	15	5	medium_size,in_corpus	
+ядер|ядр	50	REVIEW	medium	10	25	corpus_hot	
+юг|юж	50	AUTO_SAFE		4	31	corpus_hot	
+луб	49	REVIEW	medium	19	0	medium_size,many_suffixes	
+брюзг|брюзж	49	REVIEW	medium	19	0	medium_size,many_prefixes	
+вораш|ворох|ворош	49	REVIEW	medium	19	0	medium_size,many_prefixes	
+но|ны	49	REVIEW	medium	19	0	medium_size,many_prefixes	
+вил	49	REVIEW	medium	19	0	medium_size,many_prefixes	
+кос³	49	REVIEW	medium	19	0	medium_size,many_suffixes	
+лащ²|лос²|лоск|лощ	49	REVIEW	medium	19	0	medium_size,many_alternations	
+смарк|сморк|смороч|сморч	49	REVIEW	medium	19	0	medium_size,many_alternations	
+лак²	49	REVIEW	medium	19	0	medium_size,many_prefixes	
+рыс¹|рыск	49	REVIEW	medium	19	0	medium_size,many_suffixes	
+скрип	49	REVIEW	medium	19	0	medium_size,many_suffixes	
+тощ¹	49	REVIEW	medium	19	0	medium_size,many_suffixes	
+кулак|кулац|кулач	49	REVIEW	medium	19	0	medium_size,many_suffixes	
+рос¹|рош¹	49	REVIEW	medium	19	0	medium_size,many_suffixes	
+ча(j)¹	49	REVIEW	medium	19	0	medium_size,many_suffixes	
+див	49	REVIEW	medium	17	2	medium_size,in_corpus	
+уж²|уз²	49	REVIEW	medium	17	2	medium_size,in_corpus	
+струн	49	REVIEW	medium	16	3	medium_size,in_corpus	
+памят	49	REVIEW	medium	15	4	medium_size,in_corpus	
+квартир	49	REVIEW	medium	15	4	medium_size,in_corpus	
+лев²	49	REVIEW	medium	12	22	corpus_hot	
+тол¹	49	REVIEW	medium	12	22	corpus_hot	
+уст¹	49	REVIEW	medium	12	7	many_prefixes,in_corpus	
+ин¹	49	REVIEW	medium	11	23	corpus_hot	
+ныр	48	REVIEW	medium	18	0	medium_size,many_prefixes	
+гвожд|гвозд	48	REVIEW	medium	18	0	medium_size,many_suffixes	
+ла(j)	48	REVIEW	medium	18	0	medium_size,many_prefixes	
+хвар|хвор	48	REVIEW	medium	18	0	medium_size,many_prefixes	
+язв	48	REVIEW	medium	18	0	medium_size,many_suffixes	
+хаб	48	REVIEW	medium	18	0	medium_size,many_suffixes	
+кон²	48	REVIEW	medium	18	0	medium_size,many_suffixes	
+мак²	48	REVIEW	medium	17	1	medium_size,in_corpus	
+плен¹|полон	48	REVIEW	medium	17	1	medium_size,in_corpus	
+грож|гроз	48	REVIEW	medium	15	3	medium_size,in_corpus	
+прет|прещ	48	REVIEW	medium	15	3	medium_size,in_corpus	
+порт²|порч	48	REVIEW	medium	15	3	medium_size,in_corpus	
+карт	48	REVIEW	medium	13	20	corpus_hot	
+казак|казат|казац|казач	48	REVIEW	medium	9	9	many_alternations,in_corpus	
+здес|здеш	48	AUTO_SAFE		2	31	corpus_hot	
+шлиф	47	REVIEW	medium	32	0	medium_size	
+перек|переч¹|прек|преч	47	REVIEW	medium	17	0	medium_size,many_alternations	
+сн|сон	47	REVIEW	medium	17	0	medium_size,many_suffixes	
+мч	47	REVIEW	medium	17	0	medium_size,many_prefixes	
+мест²|мещ²|мст|мщ	47	REVIEW	medium	17	0	medium_size,many_alternations	
+клуб¹	47	REVIEW	medium	17	0	medium_size,many_suffixes	
+пакост	47	REVIEW	medium	17	0	medium_size,many_prefixes	
+маст²	47	REVIEW	medium	17	0	medium_size,many_suffixes	
+мозг¹|мозж	47	REVIEW	medium	16	1	medium_size,in_corpus	
+грунт	47	REVIEW	medium	15	2	medium_size,in_corpus	
+весен|весн|вешн	47	REVIEW	medium	11	21	corpus_hot	
+клет	47	REVIEW	medium	11	21	corpus_hot	
+август	47	AUTO_SAFE		2	30	corpus_hot	
+снаст|снащ	46	REVIEW	medium	31	0	medium_size	
+пер²	46	REVIEW	medium	16	0	medium_size,many_suffixes	
+плам|полым	46	REVIEW	medium	16	0	medium_size,many_suffixes	
+визг|визж	46	REVIEW	medium	16	0	medium_size,many_prefixes	
+во(j)³|вы²	46	REVIEW	medium	16	0	medium_size,many_prefixes	
+лин³	46	REVIEW	medium	16	0	medium_size,many_prefixes	
+ряб	46	REVIEW	medium	16	0	medium_size,many_suffixes	
+подл	46	REVIEW	medium	16	0	medium_size,many_suffixes	
+забот|забоч	46	REVIEW	medium	15	1	medium_size,in_corpus	
+торап|тороп¹	46	REVIEW	medium	15	1	medium_size,in_corpus	
+лап	46	REVIEW	medium	15	1	medium_size,in_corpus	
+государ	46	AUTO_SAFE		7	24	corpus_hot	
+очень	46	AUTO_SAFE		1	30	corpus_hot	
+шар²	45	REVIEW	medium	15	0	medium_size,many_prefixes	
+зм	45	REVIEW	medium	15	0	medium_size,many_suffixes	
+скуд	45	REVIEW	medium	15	0	medium_size,many_suffixes	
+пес²|пес|пс	45	REVIEW	medium	15	0	medium_size,many_suffixes	
+мудр	44	REVIEW	medium	29	0	medium_size	
+пак|пач	44	REVIEW	medium	29	0	medium_size	
+щел	44	REVIEW	medium	14	15	in_corpus	
+тысч|тысяц|тысяч	44	AUTO_SAFE		7	22	corpus_hot	
+тех|теш	43	REVIEW	medium	28	0	medium_size	
+гас|гаш	43	REVIEW	medium	28	0	medium_size	
+купор	43	REVIEW	medium	28	0	medium_size	
+быстр	43	REVIEW	medium	13	15	in_corpus	
+встрет|встреч	43	REVIEW	medium	10	18	in_corpus	
+лет¹	43	AUTO_SAFE		8	20	corpus_hot	
+драж¹|драз	42	REVIEW	medium	27	0	medium_size	
+кут¹	42	REVIEW	medium	27	0	medium_size	
+шат	42	REVIEW	medium	27	0	medium_size	
+зад	42	REVIEW	medium	12	15	in_corpus	
+рыхл	41	REVIEW	medium	26	0	medium_size	
+тас	41	REVIEW	medium	26	0	medium_size	
+куп³	41	REVIEW	medium	14	12	in_corpus	
+кукл|кукол²	41	AUTO_SAFE		6	20	corpus_hot	
+рам	40	REVIEW	medium	14	11	in_corpus	
+стен²	40	REVIEW	medium	12	13	in_corpus	
+сот¹|ст	40	REVIEW	medium	12	13	in_corpus	
+харк	39	REVIEW	medium	24	0	medium_size	
+угл²|угол²	39	REVIEW	medium	13	11	in_corpus	
+ос²	39	AUTO_SAFE		6	18	in_corpus	
+ес¹	39	AUTO_SAFE		6	18	in_corpus	
+эт	39	AUTO_SAFE		4	20	corpus_hot	
+грех|греш	38	REVIEW	medium	23	0	medium_size	
+клин¹	38	REVIEW	medium	23	0	medium_size	
+шнур	38	REVIEW	medium	23	0	medium_size	
+хребет|хребт	38	REVIEW	medium	9	14	in_corpus	
+пол³	38	AUTO_SAFE		4	19	in_corpus	
+хитр|хищр	37	REVIEW	medium	22	0	medium_size	
+корч²	37	REVIEW	medium	22	0	medium_size	
+цап	37	REVIEW	medium	22	0	medium_size	
+пудр	37	REVIEW	medium	22	0	medium_size	
+нег|неж	37	REVIEW	medium	22	0	medium_size	
+у¹	37	REVIEW	medium	22	0	medium_size	
+суд²	37	REVIEW	medium	14	8	in_corpus	
+корол	37	AUTO_SAFE		8	14	in_corpus	
+мед²|мед	37	AUTO_SAFE		6	16	in_corpus	
+желез²|желез	37	AUTO_SAFE		4	18	in_corpus	
+пока²	37	AUTO_SAFE		1	21	corpus_hot	
+бук¹	36	REVIEW	medium	12	9	in_corpus	
+трутен|трутн	36	AUTO_SAFE		2	19	in_corpus	
+громад|громожд|громозд	35	REVIEW	medium	20	0	medium_size	
+слон²	35	REVIEW	medium	20	0	medium_size	
+спирт	35	REVIEW	medium	20	0	medium_size	
+реб	35	REVIEW	medium	12	8	in_corpus	
+сия	35	REVIEW	medium	11	9	in_corpus	
+кит	35	AUTO_SAFE		4	16	in_corpus	
+берем|брем	34	REVIEW	medium	19	0	medium_size	
+пых|пыш	34	REVIEW	medium	19	0	medium_size	
+щур¹	34	REVIEW	medium	19	0	medium_size	
+тревог|тревож	34	REVIEW	medium	19	0	medium_size	
+торач|торок|тороч	34	REVIEW	medium	19	0	medium_size	
+пелен	34	REVIEW	medium	19	0	medium_size	
+поган	34	REVIEW	medium	19	0	medium_size	
+рж¹	34	REVIEW	medium	19	0	medium_size	
+сусл¹|сусол	34	REVIEW	medium	19	0	medium_size	
+тормаж|тормож|тормоз	34	REVIEW	medium	19	0	medium_size	
+шевел	34	REVIEW	medium	19	0	medium_size	
+мак¹	34	REVIEW	medium	13	6	in_corpus	
+груд¹	34	REVIEW	medium	12	7	in_corpus	
+плем	34	REVIEW	medium	11	8	in_corpus	
+сит	34	REVIEW	medium	11	8	in_corpus	
+ран²	34	REVIEW	medium	10	9	in_corpus	
+строг²	34	AUTO_SAFE		5	14	in_corpus	
+бинт	33	REVIEW	medium	18	0	medium_size	
+мур²	33	REVIEW	medium	18	0	medium_size	
+пен¹	33	REVIEW	medium	18	0	medium_size	
+кувыр	33	REVIEW	medium	18	0	medium_size	
+плут	33	REVIEW	medium	18	0	medium_size	
+сип	33	REVIEW	medium	18	0	medium_size	
+хрип	33	REVIEW	medium	18	0	medium_size	
+щем	33	REVIEW	medium	18	0	medium_size	
+вад|важ³	33	REVIEW	medium	18	0	medium_size	
+жел	33	REVIEW	medium	14	4	in_corpus	
+скал¹	33	REVIEW	medium	14	4	in_corpus	
+грек|грец|греч	33	REVIEW	medium	12	6	in_corpus	
+обит	33	REVIEW	medium	9	9	in_corpus	
+желез¹	33	AUTO_SAFE		8	10	in_corpus	
+багор|багр²	32	REVIEW	medium	17	0	medium_size	
+гнев	32	REVIEW	medium	17	0	medium_size	
+обид|обиж	32	REVIEW	medium	17	0	medium_size	
+шерст	32	REVIEW	medium	17	0	medium_size	
+бунт	32	REVIEW	medium	17	0	medium_size	
+тяп	32	REVIEW	medium	17	0	medium_size	
+холащ|холост|холощ	32	REVIEW	medium	17	0	medium_size	
+пачк	32	REVIEW	medium	17	0	medium_size	
+щерб	32	REVIEW	medium	17	0	medium_size	
+грох	32	REVIEW	medium	17	0	medium_size	
+сором|срам	32	REVIEW	medium	17	0	medium_size	
+туман	32	REVIEW	medium	17	0	medium_size	
+ха(j)	32	REVIEW	medium	17	0	medium_size	
+хваст	32	REVIEW	medium	17	0	medium_size	
+морщ	32	REVIEW	medium	17	0	medium_size	
+котел|котл	32	REVIEW	medium	12	5	in_corpus	
+ул¹	32	REVIEW	medium	11	6	in_corpus	
+стер|стир|стор	32	REVIEW	medium	11	6	in_corpus	
+церкв|церков	32	AUTO_SAFE		8	9	in_corpus	
+бор³	32	AUTO_SAFE		5	12	in_corpus	
+ма(j)¹	32	AUTO_SAFE		4	13	in_corpus	
+рул	31	REVIEW	medium	16	0	medium_size	
+хлеб¹	31	REVIEW	medium	16	0	medium_size	
+череп	31	REVIEW	medium	16	0	medium_size	
+борозд|бразд¹	31	REVIEW	medium	16	0	medium_size	
+ляп	31	REVIEW	medium	16	0	medium_size	
+глуп	31	REVIEW	medium	16	0	medium_size	
+ка¹	31	REVIEW	medium	16	0	medium_size	
+пруд|пруж²	31	REVIEW	medium	16	0	medium_size	
+скандал	31	REVIEW	medium	16	0	medium_size	
+рыг|рыж²	31	REVIEW	medium	16	0	medium_size	
+ча(j)²	31	REVIEW	medium	16	0	medium_size	
+скорб	31	REVIEW	medium	16	0	medium_size	
+бесед	31	REVIEW	medium	14	2	in_corpus	
+ист	31	REVIEW	medium	14	2	in_corpus	
+кут²|куч³	31	REVIEW	medium	14	2	in_corpus	
+брус¹	31	REVIEW	medium	13	3	in_corpus	
+стеб	31	REVIEW	medium	13	3	in_corpus	
+сын	31	REVIEW	medium	13	3	in_corpus	
+звезд	31	REVIEW	medium	12	4	in_corpus	
+мин³	31	REVIEW	medium	11	5	in_corpus	
+княг|княж|княз	31	REVIEW	medium	11	5	in_corpus	
+машин	31	REVIEW	medium	11	5	in_corpus	
+обяз	31	REVIEW	medium	10	6	in_corpus	
+губ²	31	REVIEW	medium	9	7	in_corpus	
+тен	30	REVIEW	medium	15	0	medium_size	
+бод	30	REVIEW	medium	15	0	medium_size	
+бряк|бряц	30	REVIEW	medium	15	0	medium_size	
+бурав	30	REVIEW	medium	15	0	medium_size	
+бух¹	30	REVIEW	medium	15	0	medium_size	
+верб²	30	REVIEW	medium	15	0	medium_size	
+ветош|ветх|ветш	30	REVIEW	medium	15	0	medium_size	
+дрем	30	REVIEW	medium	15	0	medium_size	
+лохм	30	REVIEW	medium	15	0	medium_size	
+колых	30	REVIEW	medium	15	0	medium_size	
+трус¹|трух¹	30	REVIEW	medium	15	0	medium_size	
+луд|луж²	30	REVIEW	medium	15	0	medium_size	
+щелач|щелок|щелоч	30	REVIEW	medium	15	0	medium_size	
+вьюк|вьюч	30	REVIEW	medium	15	0	medium_size	
+лыс	30	REVIEW	medium	15	0	medium_size	
+ляг|ляж	30	REVIEW	medium	15	0	medium_size	
+тюк¹|тюч	30	REVIEW	medium	15	0	medium_size	
+хохат|хохот	30	REVIEW	medium	15	0	medium_size	
+храм²|хром	30	REVIEW	medium	15	0	medium_size	
+круш	30	REVIEW	medium	15	0	medium_size	
+мебел|мебл	30	REVIEW	medium	15	0	medium_size	
+хохл|хохол	30	REVIEW	medium	15	0	medium_size	
+транжир	30	REVIEW	medium	15	0	medium_size	
+зерн	30	REVIEW	medium	14	1	in_corpus	
+союж|союз	30	REVIEW	medium	13	2	in_corpus	
+мех¹|меш²	30	REVIEW	medium	13	2	in_corpus	
+фабрик|фабрич	30	REVIEW	medium	13	2	in_corpus	
+ил	30	REVIEW	medium	12	3	in_corpus	
+штук¹|штуч	30	REVIEW	medium	12	3	in_corpus	
+ус	30	REVIEW	medium	9	6	in_corpus	
+жал²	30	REVIEW	medium	9	6	in_corpus	
+музык	30	AUTO_SAFE		7	8	in_corpus	
+об	30	AUTO_SAFE		3	12	in_corpus	
+лун¹	29	REVIEW	medium	13	1	in_corpus	
+слез	29	REVIEW	medium	13	1	in_corpus	
+жестк|жесток|жесточ	29	REVIEW	medium	13	1	in_corpus	
+изб|ызб	29	REVIEW	medium	13	1	in_corpus	
+куст|кущ	29	REVIEW	medium	13	1	in_corpus	
+сме²	29	REVIEW	medium	13	1	in_corpus	
+ссор	29	REVIEW	medium	13	1	in_corpus	
+крес¹|креш	29	REVIEW	medium	12	2	in_corpus	
+роз¹	29	REVIEW	medium	12	2	in_corpus	
+колен	29	REVIEW	medium	12	2	in_corpus	
+ощут|ощущ	29	REVIEW	medium	12	2	in_corpus	
+верз|верст¹	29	REVIEW	medium	11	3	in_corpus	
+пресн	29	REVIEW	medium	10	4	in_corpus	
+октябр	29	AUTO_SAFE		8	6	in_corpus	
+сестр	29	AUTO_SAFE		8	6	in_corpus	
+сет²|сещ	29	AUTO_SAFE		8	6	in_corpus	
+чел	29	AUTO_SAFE		5	9	in_corpus	
+корм²	29	AUTO_SAFE		5	9	in_corpus	
+т	29	AUTO_SAFE		5	9	in_corpus	
+порт³	29	AUTO_SAFE		4	10	in_corpus	
+пор⁴	29	AUTO_SAFE		3	11	in_corpus	
+ул²	29	AUTO_SAFE		3	11	in_corpus	
+бд|бж	28	REVIEW	medium	12	1	in_corpus	
+плох|плош¹	28	REVIEW	medium	12	1	in_corpus	
+штрих	28	REVIEW	medium	12	1	in_corpus	
+свинец|свинц|свинч	28	REVIEW	medium	12	1	in_corpus	
+яр²	28	REVIEW	medium	12	1	in_corpus	
+сер²	28	REVIEW	medium	11	2	in_corpus	
+бык|быч	28	REVIEW	medium	10	3	in_corpus	
+господ|госпож	28	REVIEW	medium	10	3	in_corpus	
+проб	28	REVIEW	medium	10	3	in_corpus	
+рот¹|рт	28	REVIEW	medium	9	4	in_corpus	
+бур²	28	REVIEW	medium	9	4	in_corpus	
+огн|огон	28	REVIEW	medium	9	4	in_corpus	
+шик²|шк	28	AUTO_SAFE		7	6	in_corpus	
+пор¹	28	AUTO_SAFE		4	9	in_corpus	
+осен	28	AUTO_SAFE		3	10	in_corpus	
+март	28	AUTO_SAFE		2	11	in_corpus	
+рев	27	REVIEW	medium	12	0	many_prefixes	
+глагол	27	REVIEW	medium	11	1	in_corpus	
+почв	27	REVIEW	medium	11	1	in_corpus	
+девят	27	REVIEW	medium	11	1	in_corpus	
+доктор	27	REVIEW	medium	11	1	in_corpus	
+мусор	27	REVIEW	medium	11	1	in_corpus	
+сурьм	27	REVIEW	medium	11	1	in_corpus	
+сан¹	27	REVIEW	medium	11	1	in_corpus	
+вар²|вор²	27	REVIEW	medium	11	1	in_corpus	
+весел²|весел|весл	27	REVIEW	medium	10	2	in_corpus	
+тем¹	27	REVIEW	medium	10	2	in_corpus	
+дав²	27	REVIEW	medium	10	2	in_corpus	
+дед	27	REVIEW	medium	10	2	in_corpus	
+хоробр|храбр	27	REVIEW	medium	10	2	in_corpus	
+дыр	27	REVIEW	medium	9	3	in_corpus	
+книг|книж	27	REVIEW	medium	9	3	in_corpus	
+ребер|ребр	27	REVIEW	medium	9	3	in_corpus	
+журнал	27	AUTO_SAFE		8	4	in_corpus	
+юн	27	AUTO_SAFE		8	4	in_corpus	
+ч⁴	27	AUTO_SAFE		7	5	in_corpus	
+ужас	27	AUTO_SAFE		7	5	in_corpus	
+месяц|месяч	27	AUTO_SAFE		5	7	in_corpus	
+спин	27	AUTO_SAFE		5	7	in_corpus	
+рак²|рач¹	27	AUTO_SAFE		5	7	in_corpus	
+буд²	27	AUTO_SAFE		4	8	in_corpus	
+декабр	27	AUTO_SAFE		4	8	in_corpus	
+карл	27	AUTO_SAFE		4	8	in_corpus	
+сот²	27	AUTO_SAFE		2	10	in_corpus	
+груст	26	REVIEW	medium	11	0	many_prefixes	
+рон	26	REVIEW	medium	11	0	many_prefixes	
+ковыл¹	26	REVIEW	medium	11	0	many_prefixes	
+парус	26	REVIEW	medium	10	1	in_corpus	
+обезьян	26	REVIEW	medium	10	1	in_corpus	
+стара	26	REVIEW	medium	10	1	in_corpus	
+рак¹	26	REVIEW	medium	10	1	in_corpus	
+сет¹	26	REVIEW	medium	10	1	in_corpus	
+матер|матор	26	REVIEW	medium	9	2	in_corpus	
+куб¹	26	REVIEW	medium	9	2	in_corpus	
+плит	26	REVIEW	medium	9	2	in_corpus	
+солдат	26	REVIEW	medium	9	2	in_corpus	
+трут	26	REVIEW	medium	9	2	in_corpus	
+нон|нын	26	AUTO_SAFE		7	4	in_corpus	
+древ²	26	AUTO_SAFE		5	6	in_corpus	
+станци(j)	26	AUTO_SAFE		5	6	in_corpus	
+ре(j)²	26	AUTO_SAFE		5	6	in_corpus	
+шар¹	26	AUTO_SAFE		5	6	in_corpus	
+океан	26	AUTO_SAFE		4	7	in_corpus	
+ноябр	26	AUTO_SAFE		2	9	in_corpus	
+сентябр	26	AUTO_SAFE		2	9	in_corpus	
+буш	25	REVIEW	medium	10	0	many_prefixes	
+нян	25	REVIEW	medium	9	1	in_corpus	
+жужж	25	REVIEW	medium	9	1	in_corpus	
+паук|паут|пауч	25	REVIEW	medium	9	1	in_corpus	
+слон¹	25	REVIEW	medium	9	1	in_corpus	
+солом	25	REVIEW	medium	9	1	in_corpus	
+тул²	25	REVIEW	medium	9	1	in_corpus	
+звен¹|звон¹	25	AUTO_SAFE		8	2	in_corpus	
+сезон	25	AUTO_SAFE		8	2	in_corpus	
+гончар	25	AUTO_SAFE		8	2	in_corpus	
+журав	25	AUTO_SAFE		8	2	in_corpus	
+тет	25	AUTO_SAFE		6	4	in_corpus	
+минут	25	AUTO_SAFE		5	5	in_corpus	
+нефт	25	AUTO_SAFE		5	5	in_corpus	
+хобот	25	AUTO_SAFE		5	5	in_corpus	
+сен¹	25	AUTO_SAFE		4	6	in_corpus	
+кишеч|кишк	25	AUTO_SAFE		3	7	in_corpus	
+ворог|враг|враж|вражд	24	REVIEW	medium	9	0	many_alternations	
+ал	24	AUTO_SAFE		8	1	in_corpus	
+бас	24	AUTO_SAFE		8	1	in_corpus	
+плош²	24	AUTO_SAFE		8	1	in_corpus	
+ма²	24	AUTO_SAFE		8	1	in_corpus	
+шахт	24	AUTO_SAFE		8	1	in_corpus	
+подраж	24	AUTO_SAFE		8	1	in_corpus	
+почт	24	AUTO_SAFE		8	1	in_corpus	
+ям¹	24	AUTO_SAFE		8	1	in_corpus	
+разор	24	AUTO_SAFE		8	1	in_corpus	
+театр	24	AUTO_SAFE		8	1	in_corpus	
+торф	24	AUTO_SAFE		8	1	in_corpus	
+геро(j)	24	AUTO_SAFE		7	2	in_corpus	
+пятн	24	AUTO_SAFE		7	2	in_corpus	
+луч⁵	24	AUTO_SAFE		7	2	in_corpus	
+палат|полат	24	AUTO_SAFE		7	2	in_corpus	
+стоп	24	AUTO_SAFE		7	2	in_corpus	
+худож	24	AUTO_SAFE		7	2	in_corpus	
+цифир|цифр	24	AUTO_SAFE		7	2	in_corpus	
+штурм	24	AUTO_SAFE		7	2	in_corpus	
+крестьян	24	AUTO_SAFE		6	3	in_corpus	
+руд	24	AUTO_SAFE		6	3	in_corpus	
+арм	24	AUTO_SAFE		3	6	in_corpus	
+июл|ыюл	24	AUTO_SAFE		3	6	in_corpus	
+январ	24	AUTO_SAFE		2	7	in_corpus	
+едва	24	AUTO_SAFE		1	8	in_corpus	
+бумаг|бумаж	23	AUTO_SAFE		7	1	in_corpus	
+могил	23	AUTO_SAFE		7	1	in_corpus	
+мяс¹	23	AUTO_SAFE		7	1	in_corpus	
+пар⁵	23	AUTO_SAFE		7	1	in_corpus	
+руч²	23	AUTO_SAFE		7	1	in_corpus	
+чаш	23	AUTO_SAFE		7	1	in_corpus	
+бах	23	AUTO_SAFE		6	2	in_corpus	
+инженер	23	AUTO_SAFE		6	2	in_corpus	
+неб	23	AUTO_SAFE		6	2	in_corpus	
+челюст	23	AUTO_SAFE		5	3	in_corpus	
+газет	23	AUTO_SAFE		5	3	in_corpus	
+шторм	23	AUTO_SAFE		5	3	in_corpus	
+серьез	23	AUTO_SAFE		4	4	in_corpus	
+обон	23	AUTO_SAFE		3	5	in_corpus	
+когда	23	AUTO_SAFE		2	6	in_corpus	
+феврал	23	AUTO_SAFE		2	6	in_corpus	
+блюд²	22	AUTO_SAFE		6	1	in_corpus	
+верв|верев	22	AUTO_SAFE		6	1	in_corpus	
+дьяк|дьяч	22	AUTO_SAFE		6	1	in_corpus	
+наст	22	AUTO_SAFE		6	1	in_corpus	
+обил	22	AUTO_SAFE		6	1	in_corpus	
+комар	22	AUTO_SAFE		6	1	in_corpus	
+лосос	22	AUTO_SAFE		6	1	in_corpus	
+магазин	22	AUTO_SAFE		6	1	in_corpus	
+тюрем|тюрьм	22	AUTO_SAFE		6	1	in_corpus	
+фонар	22	AUTO_SAFE		6	1	in_corpus	
+ям²	22	AUTO_SAFE		6	1	in_corpus	
+дерев¹	22	AUTO_SAFE		5	2	in_corpus	
+жемчуг|жемчуж	22	AUTO_SAFE		5	2	in_corpus	
+лент	22	AUTO_SAFE		5	2	in_corpus	
+пакет	22	AUTO_SAFE		5	2	in_corpus	
+пушеч|пушк	22	AUTO_SAFE		5	2	in_corpus	
+тигр	22	AUTO_SAFE		5	2	in_corpus	
+корабел|корабл	22	AUTO_SAFE		4	3	in_corpus	
+стал	22	AUTO_SAFE		4	3	in_corpus	
+чан	22	AUTO_SAFE		4	3	in_corpus	
+горазд	22	AUTO_SAFE		3	4	in_corpus	
+сюда	22	AUTO_SAFE		3	4	in_corpus	
+лес³	22	AUTO_SAFE		2	5	in_corpus	
+тепер	22	AUTO_SAFE		2	5	in_corpus	
+блох|блош	21	AUTO_SAFE		5	1	in_corpus	
+стр	21	AUTO_SAFE		5	1	in_corpus	
+гряд¹	21	AUTO_SAFE		5	1	in_corpus	
+дров	21	AUTO_SAFE		5	1	in_corpus	
+дяд	21	AUTO_SAFE		5	1	in_corpus	
+костер|костр²	21	AUTO_SAFE		5	1	in_corpus	
+ламп	21	AUTO_SAFE		5	1	in_corpus	
+лен²|лен|льн	21	AUTO_SAFE		5	1	in_corpus	
+мурав|мураш	21	AUTO_SAFE		5	1	in_corpus	
+ртут|ртуч	21	AUTO_SAFE		5	1	in_corpus	
+нор	21	AUTO_SAFE		5	1	in_corpus	
+сен³	21	AUTO_SAFE		5	1	in_corpus	
+штан	21	AUTO_SAFE		5	1	in_corpus	
+суров	21	AUTO_SAFE		5	1	in_corpus	
+тщ¹	21	AUTO_SAFE		5	1	in_corpus	
+слобод|слобож	21	AUTO_SAFE		5	1	in_corpus	
+спор	21	AUTO_SAFE		5	1	in_corpus	
+стержен|стержн	21	AUTO_SAFE		5	1	in_corpus	
+лепест	21	AUTO_SAFE		4	2	in_corpus	
+круж²	21	AUTO_SAFE		4	2	in_corpus	
+номер	21	AUTO_SAFE		4	2	in_corpus	
+флот	21	AUTO_SAFE		4	2	in_corpus	
+холм	21	AUTO_SAFE		4	2	in_corpus	
+нол	21	AUTO_SAFE		3	3	in_corpus	
+лил	21	AUTO_SAFE		2	4	in_corpus	
+кабак|кабат|кабац|кабач¹	20	REVIEW	medium	5	0	many_alternations	
+апостол	20	AUTO_SAFE		4	1	in_corpus	
+башен|башн	20	AUTO_SAFE		4	1	in_corpus	
+дам	20	AUTO_SAFE		4	1	in_corpus	
+ерес|ерет	20	AUTO_SAFE		4	1	in_corpus	
+жгут	20	AUTO_SAFE		4	1	in_corpus	
+флаг|флаж	20	AUTO_SAFE		4	1	in_corpus	
+капуст	20	AUTO_SAFE		4	1	in_corpus	
+мис	20	AUTO_SAFE		4	1	in_corpus	
+молн	20	AUTO_SAFE		4	1	in_corpus	
+мускул	20	AUTO_SAFE		4	1	in_corpus	
+наив	20	AUTO_SAFE		4	1	in_corpus	
+осетр	20	AUTO_SAFE		4	1	in_corpus	
+плен²|плен	20	AUTO_SAFE		4	1	in_corpus	
+сиг²|сиж²	20	AUTO_SAFE		4	1	in_corpus	
+труп	20	AUTO_SAFE		4	1	in_corpus	
+талант	20	AUTO_SAFE		4	1	in_corpus	
+щук|щуч¹	20	AUTO_SAFE		4	1	in_corpus	
+атак	20	AUTO_SAFE		3	2	in_corpus	
+бак|бач	20	AUTO_SAFE		3	2	in_corpus	
+герб	20	AUTO_SAFE		3	2	in_corpus	
+изящ	20	AUTO_SAFE		3	2	in_corpus	
+ключ²	20	AUTO_SAFE		3	2	in_corpus	
+колыб	20	AUTO_SAFE		3	2	in_corpus	
+курган	20	AUTO_SAFE		3	2	in_corpus	
+монастыр	20	AUTO_SAFE		3	2	in_corpus	
+яич|яйц	20	AUTO_SAFE		3	2	in_corpus	
+где	20	AUTO_SAFE		2	3	in_corpus	
+кош⁴	20	AUTO_SAFE		2	3	in_corpus	
+сурк|сурок|суроч|сурч	19	REVIEW	medium	4	0	many_alternations	
+шворен|шворн|шкворен|шкворн	19	REVIEW	medium	4	0	many_alternations	
+банк|баноч	19	AUTO_SAFE		3	1	in_corpus	
+стен³	19	AUTO_SAFE		3	1	in_corpus	
+злак|злач	19	AUTO_SAFE		3	1	in_corpus	
+исчез	19	AUTO_SAFE		3	1	in_corpus	
+кукуруз	19	AUTO_SAFE		3	1	in_corpus	
+очаг|очаж	19	AUTO_SAFE		3	1	in_corpus	
+рот²	19	AUTO_SAFE		3	1	in_corpus	
+русл	19	AUTO_SAFE		3	1	in_corpus	
+стад	19	AUTO_SAFE		3	1	in_corpus	
+баян	19	AUTO_SAFE		2	2	in_corpus	
+кал³	19	AUTO_SAFE		2	2	in_corpus	
+куб²	19	AUTO_SAFE		2	2	in_corpus	
+лин¹	19	AUTO_SAFE		2	2	in_corpus	
+омул	19	AUTO_SAFE		2	2	in_corpus	
+тут	19	AUTO_SAFE		2	2	in_corpus	
+везде	19	AUTO_SAFE		1	3	in_corpus	
+балк|балоч	18	AUTO_SAFE		2	1	in_corpus	
+душ²	18	AUTO_SAFE		2	1	in_corpus	
+компас	18	AUTO_SAFE		2	1	in_corpus	
+кремл	18	AUTO_SAFE		2	1	in_corpus	
+налим	18	AUTO_SAFE		2	1	in_corpus	
+прапор	18	AUTO_SAFE		2	1	in_corpus	
+радуш	18	AUTO_SAFE		2	1	in_corpus	
+рынок|рыноч	18	AUTO_SAFE		2	1	in_corpus	
+свит	18	AUTO_SAFE		2	1	in_corpus	
+шатер|шатр	18	AUTO_SAFE		2	1	in_corpus	
+ящик|ящич	18	AUTO_SAFE		2	1	in_corpus	
+девер	17	AUTO_SAFE		1	1	in_corpus	
+мяс²|мят¹	14	REVIEW	medium	14	0		
+боч¹	14	REVIEW	medium	14	0		
+бу(j)	14	REVIEW	medium	14	0		
+ерош|ерш	14	REVIEW	medium	14	0		
+внук|внуч	14	REVIEW	medium	14	0		
+жад|жажд	14	REVIEW	medium	14	0		
+трал	14	REVIEW	medium	14	0		
+франт|франч	14	REVIEW	medium	14	0		
+шпар	14	REVIEW	medium	14	0		
+губ¹	14	REVIEW	medium	14	0		
+короб²	14	REVIEW	medium	14	0		
+мызг	14	REVIEW	medium	14	0		
+мыт	14	REVIEW	medium	14	0		
+зате(j)	14	REVIEW	medium	14	0		
+торец|торц	14	REVIEW	medium	14	0		
+фыр|фырк|фырч	14	REVIEW	medium	14	0		
+шифр	14	REVIEW	medium	14	0		
+нур	14	REVIEW	medium	14	0		
+калек|калеч	14	REVIEW	medium	14	0		
+караул	14	REVIEW	medium	14	0		
+квит	14	REVIEW	medium	14	0		
+мек	14	REVIEW	medium	14	0		
+собак|собач	14	REVIEW	medium	14	0		
+хлыст|хлыщ	14	REVIEW	medium	14	0		
+резин	14	REVIEW	medium	14	0		
+реп¹	14	REVIEW	medium	14	0		
+свин	14	REVIEW	medium	14	0		
+тряп	14	REVIEW	medium	14	0		
+хряск|хряст|хрящ	14	REVIEW	medium	14	0		
+лош	13	REVIEW	medium	13	0		
+шелух|шелуш	13	REVIEW	medium	13	0		
+горл	13	REVIEW	medium	13	0		
+гус	13	REVIEW	medium	13	0		
+жул	13	REVIEW	medium	13	0		
+кабал	13	REVIEW	medium	13	0		
+кляс|клят	13	REVIEW	medium	13	0		
+лав¹	13	REVIEW	medium	13	0		
+скор²	13	REVIEW	medium	13	0		
+терз	13	REVIEW	medium	13	0		
+трапез	13	REVIEW	medium	13	0		
+чир²	13	REVIEW	medium	13	0		
+смерд|смород|смрад	13	REVIEW	medium	13	0		
+стерв	13	REVIEW	medium	13	0		
+стрек¹	13	REVIEW	medium	13	0		
+сокол	13	REVIEW	medium	13	0		
+адрес	12	REVIEW	medium	12	0		
+арест	12	REVIEW	medium	12	0		
+денеж|деньг|деньж	12	REVIEW	medium	12	0		
+игл|игол|ыгл	12	REVIEW	medium	12	0		
+коров	12	REVIEW	medium	12	0		
+церемон	12	REVIEW	medium	12	0		
+бук⁴|буч¹	12	REVIEW	medium	12	0		
+лоп	12	REVIEW	medium	12	0		
+горд	12	REVIEW	medium	12	0		
+мечт	12	REVIEW	medium	12	0		
+полох|полош|полых	12	REVIEW	medium	12	0		
+тоск|тощ²	12	REVIEW	medium	12	0		
+жереб¹|жереб	12	REVIEW	medium	12	0		
+гов	12	REVIEW	medium	12	0		
+гуд	12	REVIEW	medium	12	0		
+дерз	12	REVIEW	medium	12	0		
+тошн	12	REVIEW	medium	12	0		
+ик	12	REVIEW	medium	12	0		
+плеш	12	REVIEW	medium	12	0		
+стог|стож	12	REVIEW	medium	12	0		
+черств	12	REVIEW	medium	12	0		
+штамп	12	REVIEW	medium	12	0		
+щегол²|щегол	12	REVIEW	medium	12	0		
+нищ	12	REVIEW	medium	12	0		
+кореж	12	REVIEW	medium	12	0		
+казен|казн²	12	REVIEW	medium	12	0		
+крот¹|крощ	12	REVIEW	medium	12	0		
+локач|локот|локт	12	REVIEW	medium	12	0		
+луг|луж¹	12	REVIEW	medium	12	0		
+мам	12	REVIEW	medium	12	0		
+маст¹|мащ¹	12	REVIEW	medium	12	0		
+перст|перч²	12	REVIEW	medium	12	0		
+уст²|усь|ущ	12	REVIEW	medium	12	0		
+порос	12	REVIEW	medium	12	0		
+скот	12	REVIEW	medium	12	0		
+топыр	12	REVIEW	medium	12	0		
+сох¹|сош	12	REVIEW	medium	12	0		
+пуп	12	REVIEW	medium	12	0		
+рж²|рож³	11	REVIEW	medium	11	0		
+баламут|баламуч	11	REVIEW	medium	11	0		
+ба²|бо²	11	REVIEW	medium	11	0		
+ведр²	11	REVIEW	medium	11	0		
+берез	11	REVIEW	medium	11	0		
+черен|череш¹	11	REVIEW	medium	11	0		
+бледн	11	REVIEW	medium	11	0		
+болван|болваш	11	REVIEW	medium	11	0		
+брех	11	REVIEW	medium	11	0		
+брык	11	REVIEW	medium	11	0		
+бух²	11	REVIEW	medium	11	0		
+волк|волч	11	REVIEW	medium	11	0		
+кря	11	REVIEW	medium	11	0		
+суе	11	REVIEW	medium	11	0		
+дуд	11	REVIEW	medium	11	0		
+зуд|зуж	11	REVIEW	medium	11	0		
+глин	11	REVIEW	medium	11	0		
+наг|наж	11	REVIEW	medium	11	0		
+за(j)	11	REVIEW	medium	11	0		
+каприз	11	REVIEW	medium	11	0		
+мельк|мельт	11	REVIEW	medium	11	0		
+петел|петл	11	REVIEW	medium	11	0		
+пост¹	11	REVIEW	medium	11	0		
+рифм	11	REVIEW	medium	11	0		
+скваж|сквоз	11	REVIEW	medium	11	0		
+тыл	11	REVIEW	medium	11	0		
+ух³	11	REVIEW	medium	11	0		
+хап	11	REVIEW	medium	11	0		
+хомут	11	REVIEW	medium	11	0		
+хруст|хрущ	11	REVIEW	medium	11	0		
+чах	11	REVIEW	medium	11	0		
+чмок	11	REVIEW	medium	11	0		
+шип¹	11	REVIEW	medium	11	0		
+щебен	11	REVIEW	medium	11	0		
+зыб	11	REVIEW	medium	11	0		
+мошен|мошн|мошон	11	REVIEW	medium	11	0		
+каем|кайм	11	REVIEW	medium	11	0		
+короб¹	11	REVIEW	medium	11	0		
+костюм	11	REVIEW	medium	11	0		
+мед¹	11	REVIEW	medium	11	0		
+почеч|почк	11	REVIEW	medium	11	0		
+хам	11	REVIEW	medium	11	0		
+хмур	11	REVIEW	medium	11	0		
+слиз	11	REVIEW	medium	11	0		
+строп	11	REVIEW	medium	11	0		
+тук²|туч²	11	REVIEW	medium	11	0		
+цинк	11	REVIEW	medium	11	0		
+шелом|шлем	11	REVIEW	medium	11	0		
+пас³	11	REVIEW	medium	11	0		
+сив	11	REVIEW	medium	11	0		
+шабр	11	REVIEW	medium	11	0		
+пт	11	REVIEW	medium	11	0		
+твораж|творог|творож	11	REVIEW	medium	11	0		
+ут	11	REVIEW	medium	11	0		
+ах	10	REVIEW	medium	10	0		
+барабан	10	REVIEW	medium	10	0		
+бархат|бархот	10	REVIEW	medium	10	0		
+ропот|ропт	10	REVIEW	medium	10	0		
+искор|искр|ыскр	10	REVIEW	medium	10	0		
+поп	10	REVIEW	medium	10	0		
+ют	10	REVIEW	medium	10	0		
+бобер|бобр	10	REVIEW	medium	10	0		
+бояр	10	REVIEW	medium	10	0		
+брон	10	REVIEW	medium	10	0		
+бубен|бубн	10	REVIEW	medium	10	0		
+бугор|бугр	10	REVIEW	medium	10	0		
+бут|буч³	10	REVIEW	medium	10	0		
+вагон	10	REVIEW	medium	10	0		
+ван|вон¹	10	REVIEW	medium	10	0		
+вороб	10	REVIEW	medium	10	0		
+ворот²|врат²	10	REVIEW	medium	10	0		
+пыл¹	10	REVIEW	medium	10	0		
+дурман	10	REVIEW	medium	10	0		
+ехид	10	REVIEW	medium	10	0		
+извест|ызвест	10	REVIEW	medium	10	0		
+лат	10	REVIEW	medium	10	0		
+марг|морг	10	REVIEW	medium	10	0		
+ор¹	10	REVIEW	medium	10	0		
+ох	10	REVIEW	medium	10	0		
+парш	10	REVIEW	medium	10	0		
+плесен|плесн	10	REVIEW	medium	10	0		
+хулиган	10	REVIEW	medium	10	0		
+щебет	10	REVIEW	medium	10	0		
+щекот	10	REVIEW	medium	10	0		
+каверз	10	REVIEW	medium	10	0		
+кант	10	REVIEW	medium	10	0		
+коряк|коряч	10	REVIEW	medium	10	0		
+кофе(j)	10	REVIEW	medium	10	0		
+лаком	10	REVIEW	medium	10	0		
+мундир	10	REVIEW	medium	10	0		
+нагл	10	REVIEW	medium	10	0		
+ябед	10	REVIEW	medium	10	0		
+рад²	10	REVIEW	medium	10	0		
+нит	10	REVIEW	medium	10	0		
+ов	10	REVIEW	medium	10	0		
+шельм	10	REVIEW	medium	10	0		
+шлюз	10	REVIEW	medium	10	0		
+сум	10	REVIEW	medium	10	0		
+рат	10	REVIEW	medium	10	0		
+рыж¹	10	REVIEW	medium	10	0		
+сед²	10	REVIEW	medium	10	0		
+скуп	10	REVIEW	medium	10	0		
+шляп	10	REVIEW	medium	10	0		
+холст|холщ	10	REVIEW	medium	10	0		
+цып¹	10	REVIEW	medium	10	0		
+шелк|шелч	10	REVIEW	medium	10	0		
+шкур	10	REVIEW	medium	10	0		
+атаман	9	REVIEW	medium	9	0		
+барыш	9	REVIEW	medium	9	0		
+билет	9	REVIEW	medium	9	0		
+гомон	9	REVIEW	medium	9	0		
+шабаш	9	REVIEW	medium	9	0		
+борт¹	9	REVIEW	medium	9	0		
+браг|браж	9	REVIEW	medium	9	0		
+брезг	9	REVIEW	medium	9	0		
+дыб	9	REVIEW	medium	9	0		
+рыд	9	REVIEW	medium	9	0		
+вих	9	REVIEW	medium	9	0		
+клекот|клокот	9	REVIEW	medium	9	0		
+тормош	9	REVIEW	medium	9	0		
+клейм	9	REVIEW	medium	9	0		
+хол¹	9	REVIEW	medium	9	0		
+шныр	9	REVIEW	medium	9	0		
+ел	9	REVIEW	medium	9	0		
+жеман	9	REVIEW	medium	9	0		
+зноб	9	REVIEW	medium	9	0		
+резв	9	REVIEW	medium	9	0		
+скирд	9	REVIEW	medium	9	0		
+стан|стен¹|стон	9	REVIEW	medium	9	0		
+стопор	9	REVIEW	medium	9	0		
+чехл|чехол	9	REVIEW	medium	9	0		
+штук²	9	REVIEW	medium	9	0		
+икор|икр¹	9	REVIEW	medium	9	0		
+коверк	9	REVIEW	medium	9	0		
+пепел	9	REVIEW	medium	9	0		
+камыш	9	REVIEW	medium	9	0		
+карман|кармаш	9	REVIEW	medium	9	0		
+кел	9	REVIEW	medium	9	0		
+клевет	9	REVIEW	medium	9	0		
+кляуз	9	REVIEW	medium	9	0		
+колод	9	REVIEW	medium	9	0		
+корчем|корчм	9	REVIEW	medium	9	0		
+кум	9	REVIEW	medium	9	0		
+лазор|лазур	9	REVIEW	medium	9	0		
+лебез|лобз|лобыз	9	REVIEW	medium	9	0		
+лис	9	REVIEW	medium	9	0		
+лопат|лопач	9	REVIEW	medium	9	0		
+мозол	9	REVIEW	medium	9	0		
+овес|овс	9	REVIEW	medium	9	0		
+орел|орл	9	REVIEW	medium	9	0		
+хул	9	REVIEW	medium	9	0		
+штраф	9	REVIEW	medium	9	0		
+фасон	9	REVIEW	medium	9	0		
+смугл	9	REVIEW	medium	9	0		
+ствол	9	REVIEW	medium	9	0		
+харч	9	REVIEW	medium	9	0		
+пшен	9	REVIEW	medium	9	0		
+хляб²	9	REVIEW	medium	9	0		
+сквор	9	REVIEW	medium	9	0		
+скоб	9	REVIEW	medium	9	0		
+блазн	9	REVIEW	medium	9	0		
+сук¹|суч¹	9	REVIEW	medium	9	0		
+табак|табач	9	REVIEW	medium	9	0		
+фанер	9	REVIEW	medium	9	0		
+ябло	9	REVIEW	medium	9	0		
+балаган	8	AUTO_SAFE		8	0		
+бан	8	AUTO_SAFE		8	0		
+баран|бараш	8	AUTO_SAFE		8	0		
+барахл|барахол	8	AUTO_SAFE		8	0		
+баст	8	AUTO_SAFE		8	0		
+батрак|батрац|батрач	8	AUTO_SAFE		8	0		
+щад|щаж	8	AUTO_SAFE		8	0		
+блин	8	AUTO_SAFE		8	0		
+боб	8	AUTO_SAFE		8	0		
+бормот	8	AUTO_SAFE		8	0		
+булав	8	AUTO_SAFE		8	0		
+бурк¹|бурч	8	AUTO_SAFE		8	0		
+бутыл	8	AUTO_SAFE		8	0		
+ват	8	AUTO_SAFE		8	0		
+вая	8	AUTO_SAFE		8	0		
+вдов	8	AUTO_SAFE		8	0		
+ведер|ведр¹	8	AUTO_SAFE		8	0		
+верблюд|верблюж	8	AUTO_SAFE		8	0		
+верезг|верезж|верещ	8	AUTO_SAFE		8	0		
+вех|веш²	8	AUTO_SAFE		8	0		
+друч|дрюч	8	AUTO_SAFE		8	0		
+карабк	8	AUTO_SAFE		8	0		
+воп	8	AUTO_SAFE		8	0		
+сак|сач²	8	AUTO_SAFE		8	0		
+врач	8	AUTO_SAFE		8	0		
+гат|гач	8	AUTO_SAFE		8	0		
+муштр	8	AUTO_SAFE		8	0		
+потрох|потрош	8	AUTO_SAFE		8	0		
+шмыг	8	AUTO_SAFE		8	0		
+грив	8	AUTO_SAFE		8	0		
+дегот|дегт	8	AUTO_SAFE		8	0		
+куд¹	8	AUTO_SAFE		8	0		
+дрях	8	AUTO_SAFE		8	0		
+жертв	8	AUTO_SAFE		8	0		
+жмур	8	AUTO_SAFE		8	0		
+лепет	8	AUTO_SAFE		8	0		
+рык|рыч	8	AUTO_SAFE		8	0		
+спес	8	AUTO_SAFE		8	0		
+стру(j)	8	AUTO_SAFE		8	0		
+хрю	8	AUTO_SAFE		8	0		
+сиз	8	AUTO_SAFE		8	0		
+канител	8	AUTO_SAFE		8	0		
+ковер|ковр	8	AUTO_SAFE		8	0		
+колокол	8	AUTO_SAFE		8	0		
+коноп	8	AUTO_SAFE		8	0		
+кряж	8	AUTO_SAFE		8	0		
+кураж	8	AUTO_SAFE		8	0		
+лад²|лод	8	AUTO_SAFE		8	0		
+ложеч|ложк|ложч	8	AUTO_SAFE		8	0		
+лют	8	AUTO_SAFE		8	0		
+монах|монаш	8	AUTO_SAFE		8	0		
+обет|обещ	8	AUTO_SAFE		8	0		
+пло(j)	8	AUTO_SAFE		8	0		
+помад|помаж	8	AUTO_SAFE		8	0		
+скит¹	8	AUTO_SAFE		8	0		
+суп²	8	AUTO_SAFE		8	0		
+шпиг|шпик	8	AUTO_SAFE		8	0		
+овраг|овраж	8	AUTO_SAFE		8	0		
+пробк|пробоч|пробч	8	AUTO_SAFE		8	0		
+орех|ореш	8	AUTO_SAFE		8	0		
+сатан	8	AUTO_SAFE		8	0		
+свиреп	8	AUTO_SAFE		8	0		
+осел|осл	8	AUTO_SAFE		8	0		
+скоп	8	AUTO_SAFE		8	0		
+скором	8	AUTO_SAFE		8	0		
+сов¹	8	AUTO_SAFE		8	0		
+рож⁴	8	AUTO_SAFE		8	0		
+шарах|шараш	8	AUTO_SAFE		8	0		
+плуг|плуж	8	AUTO_SAFE		8	0		
+стрем¹|стром	8	AUTO_SAFE		8	0		
+туск	8	AUTO_SAFE		8	0		
+шпор	8	AUTO_SAFE		8	0		
+ра(j)²	8	AUTO_SAFE		8	0		
+сквалыг|сквалыж	8	AUTO_SAFE		8	0		
+сковород	8	AUTO_SAFE		8	0		
+скоморох|скоморош	8	AUTO_SAFE		8	0		
+слесар	8	AUTO_SAFE		8	0		
+солов¹	8	AUTO_SAFE		8	0		
+телег|тележ	8	AUTO_SAFE		8	0		
+хутор	8	AUTO_SAFE		8	0		
+шуб	8	AUTO_SAFE		8	0		
+юмор	8	AUTO_SAFE		8	0		
+алк|алч	7	AUTO_SAFE		7	0		
+базар	7	AUTO_SAFE		7	0		
+балд	7	AUTO_SAFE		7	0		
+басурман	7	AUTO_SAFE		7	0		
+бахром	7	AUTO_SAFE		7	0		
+бров	7	AUTO_SAFE		7	0		
+грамот	7	AUTO_SAFE		7	0		
+берест	7	AUTO_SAFE		7	0		
+козыр¹	7	AUTO_SAFE		7	0		
+болт²|болч	7	AUTO_SAFE		7	0		
+барщ|борщ	7	AUTO_SAFE		7	0		
+буз¹	7	AUTO_SAFE		7	0		
+дребезг|дребезж	7	AUTO_SAFE		7	0		
+виноград	7	AUTO_SAFE		7	0		
+вишен|вишн	7	AUTO_SAFE		7	0		
+когот|когт	7	AUTO_SAFE		7	0		
+важж|вожж	7	AUTO_SAFE		7	0		
+тул¹	7	AUTO_SAFE		7	0		
+таращ	7	AUTO_SAFE		7	0		
+тур	7	AUTO_SAFE		7	0		
+гнус²	7	AUTO_SAFE		7	0		
+дежур	7	AUTO_SAFE		7	0		
+ерз	7	AUTO_SAFE		7	0		
+жест	7	AUTO_SAFE		7	0		
+жит	7	AUTO_SAFE		7	0		
+жур	7	AUTO_SAFE		7	0		
+завтра	7	AUTO_SAFE		7	0		
+ин²|инд²|ынд	7	AUTO_SAFE		7	0		
+кар¹	7	AUTO_SAFE		7	0		
+ква	7	AUTO_SAFE		7	0		
+круч²	7	AUTO_SAFE		7	0		
+мле	7	AUTO_SAFE		7	0		
+перх¹|перш	7	AUTO_SAFE		7	0		
+пяст	7	AUTO_SAFE		7	0		
+роб	7	AUTO_SAFE		7	0		
+сверк	7	AUTO_SAFE		7	0		
+силос	7	AUTO_SAFE		7	0		
+лыб	7	AUTO_SAFE		7	0		
+хлам	7	AUTO_SAFE		7	0		
+цок	7	AUTO_SAFE		7	0		
+чван	7	AUTO_SAFE		7	0		
+чум	7	AUTO_SAFE		7	0		
+шарп	7	AUTO_SAFE		7	0		
+штор	7	AUTO_SAFE		7	0		
+щек|щеч	7	AUTO_SAFE		7	0		
+юл	7	AUTO_SAFE		7	0		
+инд¹	7	AUTO_SAFE		7	0		
+кад¹	7	AUTO_SAFE		7	0		
+клещ	7	AUTO_SAFE		7	0		
+кок	7	AUTO_SAFE		7	0		
+корзин	7	AUTO_SAFE		7	0		
+кошел	7	AUTO_SAFE		7	0		
+кудр	7	AUTO_SAFE		7	0		
+лар	7	AUTO_SAFE		7	0		
+малин	7	AUTO_SAFE		7	0		
+миндал	7	AUTO_SAFE		7	0		
+мотыг|мотыж	7	AUTO_SAFE		7	0		
+мук²|муч²	7	AUTO_SAFE		7	0		
+мур⁴	7	AUTO_SAFE		7	0		
+пахт	7	AUTO_SAFE		7	0		
+плюх	7	AUTO_SAFE		7	0		
+сул	7	AUTO_SAFE		7	0		
+шест¹	7	AUTO_SAFE		7	0		
+шинк²	7	AUTO_SAFE		7	0		
+шкод	7	AUTO_SAFE		7	0		
+нерест	7	AUTO_SAFE		7	0		
+обер|оберт	7	AUTO_SAFE		7	0		
+олеш|ольх|ольш	7	AUTO_SAFE		7	0		
+пен²|пен|пн	7	AUTO_SAFE		7	0		
+охр	7	AUTO_SAFE		7	0		
+щен	7	AUTO_SAFE		7	0		
+щер	7	AUTO_SAFE		7	0		
+ял	7	AUTO_SAFE		7	0		
+пал⁴	7	AUTO_SAFE		7	0		
+пап	7	AUTO_SAFE		7	0		
+пирог|пирож	7	AUTO_SAFE		7	0		
+сан²	7	AUTO_SAFE		7	0		
+свекл|свекол	7	AUTO_SAFE		7	0		
+степ	7	AUTO_SAFE		7	0		
+черев|чрев	7	AUTO_SAFE		7	0		
+роскош	7	AUTO_SAFE		7	0		
+рус¹	7	AUTO_SAFE		7	0		
+смак|смач	7	AUTO_SAFE		7	0		
+юрод	7	AUTO_SAFE		7	0		
+фронт	7	AUTO_SAFE		7	0		
+таран	7	AUTO_SAFE		7	0		
+щедр¹	7	AUTO_SAFE		7	0		
+рем	7	AUTO_SAFE		7	0		
+ремесл	7	AUTO_SAFE		7	0		
+реп²	7	AUTO_SAFE		7	0		
+риск	7	AUTO_SAFE		7	0		
+селед|сельд	7	AUTO_SAFE		7	0		
+скаред	7	AUTO_SAFE		7	0		
+скит²	7	AUTO_SAFE		7	0		
+слюд	7	AUTO_SAFE		7	0		
+собол	7	AUTO_SAFE		7	0		
+сыт²|сыч²	7	AUTO_SAFE		7	0		
+тесем|тесьм	7	AUTO_SAFE		7	0		
+троп	7	AUTO_SAFE		7	0		
+тол³	7	AUTO_SAFE		7	0		
+хво(j)	7	AUTO_SAFE		7	0		
+хором|храм¹	7	AUTO_SAFE		7	0		
+хрен	7	AUTO_SAFE		7	0		
+шап	7	AUTO_SAFE		7	0		
+шинк¹|шинок	7	AUTO_SAFE		7	0		
+ягод	7	AUTO_SAFE		7	0		
+амбар	6	AUTO_SAFE		6	0		
+аптек|аптеч	6	AUTO_SAFE		6	0		
+ау	6	AUTO_SAFE		6	0		
+бад	6	AUTO_SAFE		6	0		
+балала(j)	6	AUTO_SAFE		6	0		
+корыст	6	AUTO_SAFE		6	0		
+пал³	6	AUTO_SAFE		6	0		
+челн	6	AUTO_SAFE		6	0		
+бирюк|бирюч	6	AUTO_SAFE		6	0		
+бисер	6	AUTO_SAFE		6	0		
+блев	6	AUTO_SAFE		6	0		
+блек	6	AUTO_SAFE		6	0		
+бондар	6	AUTO_SAFE		6	0		
+борз	6	AUTO_SAFE		6	0		
+борт²	6	AUTO_SAFE		6	0		
+бублик|бублич	6	AUTO_SAFE		6	0		
+будн	6	AUTO_SAFE		6	0		
+будораж	6	AUTO_SAFE		6	0		
+булк|булоч	6	AUTO_SAFE		6	0		
+буфет	6	AUTO_SAFE		6	0		
+был	6	AUTO_SAFE		6	0		
+вакс	6	AUTO_SAFE		6	0		
+вафел|вафл	6	AUTO_SAFE		6	0		
+дрызг	6	AUTO_SAFE		6	0		
+вити(j)	6	AUTO_SAFE		6	0		
+недр	6	AUTO_SAFE		6	0		
+пря²|пряд²	6	AUTO_SAFE		6	0		
+вош|вш	6	AUTO_SAFE		6	0		
+хлип¹	6	AUTO_SAFE		6	0		
+выжл	6	AUTO_SAFE		6	0		
+канюк|канюч	6	AUTO_SAFE		6	0		
+цыган	6	AUTO_SAFE		6	0		
+чур¹	6	AUTO_SAFE		6	0		
+глум	6	AUTO_SAFE		6	0		
+гнус¹|гнуш	6	AUTO_SAFE		6	0		
+горох|горош¹	6	AUTO_SAFE		6	0		
+грез	6	AUTO_SAFE		6	0		
+гриб	6	AUTO_SAFE		6	0		
+гумен|гумн	6	AUTO_SAFE		6	0		
+да³	6	AUTO_SAFE		6	0		
+двер	6	AUTO_SAFE		6	0		
+досуг|досуж	6	AUTO_SAFE		6	0		
+дрожд|дрожж	6	AUTO_SAFE		6	0		
+дряб	6	AUTO_SAFE		6	0		
+егоз	6	AUTO_SAFE		6	0		
+ерунд	6	AUTO_SAFE		6	0		
+жерд	6	AUTO_SAFE		6	0		
+кавык|кавыч	6	AUTO_SAFE		6	0		
+косн	6	AUTO_SAFE		6	0		
+кряхт	6	AUTO_SAFE		6	0		
+курч	6	AUTO_SAFE		6	0		
+мешк	6	AUTO_SAFE		6	0		
+мурлык	6	AUTO_SAFE		6	0		
+мяу	6	AUTO_SAFE		6	0		
+недуг|недуж	6	AUTO_SAFE		6	0		
+пазух|пазуш	6	AUTO_SAFE		6	0		
+почи	6	AUTO_SAFE		6	0		
+пыж¹	6	AUTO_SAFE		6	0		
+рд	6	AUTO_SAFE		6	0		
+скул²	6	AUTO_SAFE		6	0		
+таратор	6	AUTO_SAFE		6	0		
+толп	6	AUTO_SAFE		6	0		
+торк	6	AUTO_SAFE		6	0		
+тяв	6	AUTO_SAFE		6	0		
+фальш	6	AUTO_SAFE		6	0		
+хнык	6	AUTO_SAFE		6	0		
+чирк	6	AUTO_SAFE		6	0		
+чок	6	AUTO_SAFE		6	0		
+штил	6	AUTO_SAFE		6	0		
+иждивен	6	AUTO_SAFE		6	0		
+кад²|кажд²	6	AUTO_SAFE		6	0		
+калач	6	AUTO_SAFE		6	0		
+канат	6	AUTO_SAFE		6	0		
+каторг|каторж	6	AUTO_SAFE		6	0		
+кафтан	6	AUTO_SAFE		6	0		
+керосин	6	AUTO_SAFE		6	0		
+кирк	6	AUTO_SAFE		6	0		
+кирпич	6	AUTO_SAFE		6	0		
+клеш	6	AUTO_SAFE		6	0		
+колон|колонн	6	AUTO_SAFE		6	0		
+колпак|колпач	6	AUTO_SAFE		6	0		
+коляд	6	AUTO_SAFE		6	0		
+конфет	6	AUTO_SAFE		6	0		
+корч¹	6	AUTO_SAFE		6	0		
+крамол	6	AUTO_SAFE		6	0		
+кремен|кремеш|кремн	6	AUTO_SAFE		6	0		
+кроват	6	AUTO_SAFE		6	0		
+крол	6	AUTO_SAFE		6	0		
+кроп²	6	AUTO_SAFE		6	0		
+кувшин	6	AUTO_SAFE		6	0		
+кустар	6	AUTO_SAFE		6	0		
+кух	6	AUTO_SAFE		6	0		
+лапот	6	AUTO_SAFE		6	0		
+лимон	6	AUTO_SAFE		6	0		
+лоз	6	AUTO_SAFE		6	0		
+лос¹	6	AUTO_SAFE		6	0		
+лотк|лоток|лоточ	6	AUTO_SAFE		6	0		
+лук²	6	AUTO_SAFE		6	0		
+люл	6	AUTO_SAFE		6	0		
+маклак|маклач	6	AUTO_SAFE		6	0		
+матрас|матрац	6	AUTO_SAFE		6	0		
+махор¹|махр¹	6	AUTO_SAFE		6	0		
+мачт	6	AUTO_SAFE		6	0		
+мездр	6	AUTO_SAFE		6	0		
+мозг²	6	AUTO_SAFE		6	0		
+морд¹	6	AUTO_SAFE		6	0		
+шаст	6	AUTO_SAFE		6	0		
+солов²	6	AUTO_SAFE		6	0		
+ужин	6	AUTO_SAFE		6	0		
+шлак	6	AUTO_SAFE		6	0		
+па(j)⁵	6	AUTO_SAFE		6	0		
+пах³|паш³	6	AUTO_SAFE		6	0		
+пег|пеж	6	AUTO_SAFE		6	0		
+стакан|стакаш	6	AUTO_SAFE		6	0		
+шеф	6	AUTO_SAFE		6	0		
+порог|порож	6	AUTO_SAFE		6	0		
+торч	6	AUTO_SAFE		6	0		
+чик|чк	6	AUTO_SAFE		6	0		
+прут	6	AUTO_SAFE		6	0		
+радуг|радуж	6	AUTO_SAFE		6	0		
+рекрут	6	AUTO_SAFE		6	0		
+рогож|рогоз	6	AUTO_SAFE		6	0		
+русал	6	AUTO_SAFE		6	0		
+сапог|сапож	6	AUTO_SAFE		6	0		
+сва(j)²	6	AUTO_SAFE		6	0		
+свир	6	AUTO_SAFE		6	0		
+семг|семж|семуж	6	AUTO_SAFE		6	0		
+слив	6	AUTO_SAFE		6	0		
+сосен|сосн	6	AUTO_SAFE		6	0		
+табун	6	AUTO_SAFE		6	0		
+стерн|сторн	6	AUTO_SAFE		6	0		
+губ³	6	AUTO_SAFE		6	0		
+судар	6	AUTO_SAFE		6	0		
+суматох|суматош	6	AUTO_SAFE		6	0		
+терн	6	AUTO_SAFE		6	0		
+топор	6	AUTO_SAFE		6	0		
+трактир	6	AUTO_SAFE		6	0		
+тюлен	6	AUTO_SAFE		6	0		
+уж¹	6	AUTO_SAFE		6	0		
+уж⁴	6	AUTO_SAFE		6	0		
+флейт	6	AUTO_SAFE		6	0		
+халтур	6	AUTO_SAFE		6	0		
+ханж	6	AUTO_SAFE		6	0		
+холоп	6	AUTO_SAFE		6	0		
+шаш	6	AUTO_SAFE		6	0		
+шпул	6	AUTO_SAFE		6	0		
+щедр²	6	AUTO_SAFE		6	0		
+юбк|юбоч|юбч	6	AUTO_SAFE		6	0		
+алтын	5	AUTO_SAFE		5	0		
+арап	5	AUTO_SAFE		5	0		
+аркан	5	AUTO_SAFE		5	0		
+аршин	5	AUTO_SAFE		5	0		
+балагур	5	AUTO_SAFE		5	0		
+баляс	5	AUTO_SAFE		5	0		
+банд	5	AUTO_SAFE		5	0		
+бат	5	AUTO_SAFE		5	0		
+бац	5	AUTO_SAFE		5	0		
+башмак|башмач	5	AUTO_SAFE		5	0		
+бедер|бедр	5	AUTO_SAFE		5	0		
+мезд|мзд	5	AUTO_SAFE		5	0		
+бекас	5	AUTO_SAFE		5	0		
+бечев	5	AUTO_SAFE		5	0		
+болон	5	AUTO_SAFE		5	0		
+бос	5	AUTO_SAFE		5	0		
+бот²	5	AUTO_SAFE		5	0		
+бренч	5	AUTO_SAFE		5	0		
+бултых	5	AUTO_SAFE		5	0		
+буль	5	AUTO_SAFE		5	0		
+верб¹	5	AUTO_SAFE		5	0		
+друж²|друз	5	AUTO_SAFE		5	0		
+вол²	5	AUTO_SAFE		5	0		
+волшб|волшеб	5	AUTO_SAFE		5	0		
+пар⁶	5	AUTO_SAFE		5	0		
+топорщ	5	AUTO_SAFE		5	0		
+клянч	5	AUTO_SAFE		5	0		
+пест¹	5	AUTO_SAFE		5	0		
+гаг	5	AUTO_SAFE		5	0		
+гипс	5	AUTO_SAFE		5	0		
+горш¹	5	AUTO_SAFE		5	0		
+град²	5	AUTO_SAFE		5	0		
+гримас	5	AUTO_SAFE		5	0		
+грузд	5	AUTO_SAFE		5	0		
+гря|гряд²|гряс	5	AUTO_SAFE		5	0		
+доск|дощ	5	AUTO_SAFE		5	0		
+тл²|тол²	5	AUTO_SAFE		5	0		
+дуг|дуж	5	AUTO_SAFE		5	0		
+ер	5	AUTO_SAFE		5	0		
+желоб	5	AUTO_SAFE		5	0		
+жерел|жерл	5	AUTO_SAFE		5	0		
+жолк	5	AUTO_SAFE		5	0		
+жух	5	AUTO_SAFE		5	0		
+звяк	5	AUTO_SAFE		5	0		
+кив	5	AUTO_SAFE		5	0		
+клин²	5	AUTO_SAFE		5	0		
+кудахт	5	AUTO_SAFE		5	0		
+кут³	5	AUTO_SAFE		5	0		
+морос	5	AUTO_SAFE		5	0		
+мыч¹	5	AUTO_SAFE		5	0		
+потч	5	AUTO_SAFE		5	0		
+скрежет	5	AUTO_SAFE		5	0		
+таеж|тайг	5	AUTO_SAFE		5	0		
+хлюп	5	AUTO_SAFE		5	0		
+чавк	5	AUTO_SAFE		5	0		
+чад¹	5	AUTO_SAFE		5	0		
+шелуд	5	AUTO_SAFE		5	0		
+шерш	5	AUTO_SAFE		5	0		
+штат	5	AUTO_SAFE		5	0		
+зенит	5	AUTO_SAFE		5	0		
+зи	5	AUTO_SAFE		5	0		
+зык|зыч	5	AUTO_SAFE		5	0		
+зят	5	AUTO_SAFE		5	0		
+игумен	5	AUTO_SAFE		5	0		
+под²	5	AUTO_SAFE		5	0		
+сяк¹	5	AUTO_SAFE		5	0		
+кабан	5	AUTO_SAFE		5	0		
+казн¹	5	AUTO_SAFE		5	0		
+канар|кенар	5	AUTO_SAFE		5	0		
+кедр	5	AUTO_SAFE		5	0		
+клен	5	AUTO_SAFE		5	0		
+козыр²	5	AUTO_SAFE		5	0		
+колбас	5	AUTO_SAFE		5	0		
+контор	5	AUTO_SAFE		5	0		
+коп³	5	AUTO_SAFE		5	0		
+кран²	5	AUTO_SAFE		5	0		
+крин|крын	5	AUTO_SAFE		5	0		
+крот²	5	AUTO_SAFE		5	0		
+крыс	5	AUTO_SAFE		5	0		
+кул	5	AUTO_SAFE		5	0		
+ладон|ладош	5	AUTO_SAFE		5	0		
+лещ¹	5	AUTO_SAFE		5	0		
+лоскут	5	AUTO_SAFE		5	0		
+лыж¹	5	AUTO_SAFE		5	0		
+мерлух|мерлуш	5	AUTO_SAFE		5	0		
+морков	5	AUTO_SAFE		5	0		
+перс	5	AUTO_SAFE		5	0		
+трус²	5	AUTO_SAFE		5	0		
+хлы	5	AUTO_SAFE		5	0		
+ноздр	5	AUTO_SAFE		5	0		
+облек|облеч	5	AUTO_SAFE		5	0		
+обор	5	AUTO_SAFE		5	0		
+олад	5	AUTO_SAFE		5	0		
+олен	5	AUTO_SAFE		5	0		
+осин	5	AUTO_SAFE		5	0		
+салют	5	AUTO_SAFE		5	0		
+черет	5	AUTO_SAFE		5	0		
+пав	5	AUTO_SAFE		5	0		
+пальт	5	AUTO_SAFE		5	0		
+пеклев	5	AUTO_SAFE		5	0		
+перепел	5	AUTO_SAFE		5	0		
+перл	5	AUTO_SAFE		5	0		
+пест²	5	AUTO_SAFE		5	0		
+пик|пич²	5	AUTO_SAFE		5	0		
+плот³	5	AUTO_SAFE		5	0		
+трень	5	AUTO_SAFE		5	0		
+шип²	5	AUTO_SAFE		5	0		
+этаж	5	AUTO_SAFE		5	0		
+пуд	5	AUTO_SAFE		5	0		
+сажен	5	AUTO_SAFE		5	0		
+траф	5	AUTO_SAFE		5	0		
+юбил	5	AUTO_SAFE		5	0		
+пугов	5	AUTO_SAFE		5	0		
+пул	5	AUTO_SAFE		5	0		
+фуфыр	5	AUTO_SAFE		5	0		
+рач²	5	AUTO_SAFE		5	0		
+сабел|сабл	5	AUTO_SAFE		5	0		
+сара(j)	5	AUTO_SAFE		5	0		
+свар	5	AUTO_SAFE		5	0		
+сермяг|сермяж	5	AUTO_SAFE		5	0		
+скал²	5	AUTO_SAFE		5	0		
+скарб	5	AUTO_SAFE		5	0		
+скатер	5	AUTO_SAFE		5	0		
+скл	5	AUTO_SAFE		5	0		
+скул	5	AUTO_SAFE		5	0		
+сом	5	AUTO_SAFE		5	0		
+сорок¹|сороч¹	5	AUTO_SAFE		5	0		
+страус	5	AUTO_SAFE		5	0		
+стропт	5	AUTO_SAFE		5	0		
+струч	5	AUTO_SAFE		5	0		
+сумбур	5	AUTO_SAFE		5	0		
+сундук|сундуч	5	AUTO_SAFE		5	0		
+суп¹	5	AUTO_SAFE		5	0		
+сусал	5	AUTO_SAFE		5	0		
+сычуг|сычуж	5	AUTO_SAFE		5	0		
+танк	5	AUTO_SAFE		5	0		
+тарарах	5	AUTO_SAFE		5	0		
+тетер	5	AUTO_SAFE		5	0		
+тетрад	5	AUTO_SAFE		5	0		
+тулуп	5	AUTO_SAFE		5	0		
+фунт	5	AUTO_SAFE		5	0		
+фуражеч|фуражк	5	AUTO_SAFE		5	0		
+футляр	5	AUTO_SAFE		5	0		
+халат	5	AUTO_SAFE		5	0		
+хворост	5	AUTO_SAFE		5	0		
+хляс|хляск|хляст	5	AUTO_SAFE		5	0		
+хрустал	5	AUTO_SAFE		5	0		
+цирк	5	AUTO_SAFE		5	0		
+чебот	5	AUTO_SAFE		5	0		
+чемпион	5	AUTO_SAFE		5	0		
+чепец|чепеч|чепч	5	AUTO_SAFE		5	0		
+черем	5	AUTO_SAFE		5	0		
+чиж	5	AUTO_SAFE		5	0		
+чур²	5	AUTO_SAFE		5	0		
+шварк	5	AUTO_SAFE		5	0		
+шик¹	5	AUTO_SAFE		5	0		
+шиш	5	AUTO_SAFE		5	0		
+шор	5	AUTO_SAFE		5	0		
+шофер	5	AUTO_SAFE		5	0		
+шпаг|шпаж	5	AUTO_SAFE		5	0		
+штык	5	AUTO_SAFE		5	0		
+щегл|щегол¹	5	AUTO_SAFE		5	0		
+юр	5	AUTO_SAFE		5	0		
+ястреб	5	AUTO_SAFE		5	0		
+яч	5	AUTO_SAFE		5	0		
+ящер	5	AUTO_SAFE		5	0		
+а	4	AUTO_SAFE		4	0		
+аист	4	AUTO_SAFE		4	0		
+ай	4	AUTO_SAFE		4	0		
+ангел	4	AUTO_SAFE		4	0		
+арбуз	4	AUTO_SAFE		4	0		
+армяк|армяч	4	AUTO_SAFE		4	0		
+артел	4	AUTO_SAFE		4	0		
+ату	4	AUTO_SAFE		4	0		
+байдар	4	AUTO_SAFE		4	0		
+баранк|бараноч	4	AUTO_SAFE		4	0		
+барахт	4	AUTO_SAFE		4	0		
+барж	4	AUTO_SAFE		4	0		
+барсук|барсуч	4	AUTO_SAFE		4	0		
+зно(j)	4	AUTO_SAFE		4	0		
+лопаст	4	AUTO_SAFE		4	0		
+белен	4	AUTO_SAFE		4	0		
+талан	4	AUTO_SAFE		4	0		
+бле	4	AUTO_SAFE		4	0		
+блуз	4	AUTO_SAFE		4	0		
+бобыл	4	AUTO_SAFE		4	0		
+богатыр	4	AUTO_SAFE		4	0		
+бочаг|бочаж	4	AUTO_SAFE		4	0		
+бревен|бревеш|бревн	4	AUTO_SAFE		4	0		
+брезж	4	AUTO_SAFE		4	0		
+брус²	4	AUTO_SAFE		4	0		
+брыж	4	AUTO_SAFE		4	0		
+брюкв	4	AUTO_SAFE		4	0		
+брюк|брюч	4	AUTO_SAFE		4	0		
+будк|будоч	4	AUTO_SAFE		4	0		
+буз²	4	AUTO_SAFE		4	0		
+букан|букаш	4	AUTO_SAFE		4	0		
+бурлак|бурлац|бурлач	4	AUTO_SAFE		4	0		
+бурт	4	AUTO_SAFE		4	0		
+буч²	4	AUTO_SAFE		4	0		
+вагран	4	AUTO_SAFE		4	0		
+ванн	4	AUTO_SAFE		4	0		
+ватаг|ватаж	4	AUTO_SAFE		4	0		
+ватрух|ватруш	4	AUTO_SAFE		4	0		
+веер	4	AUTO_SAFE		4	0		
+вер³	4	AUTO_SAFE		4	0		
+гомоз	4	AUTO_SAFE		4	0		
+лел	4	AUTO_SAFE		4	0		
+ерепен	4	AUTO_SAFE		4	0		
+дм|дым²	4	AUTO_SAFE		4	0		
+войлач|войлок|войлоч	4	AUTO_SAFE		4	0		
+вокзал	4	AUTO_SAFE		4	0		
+волын	4	AUTO_SAFE		4	0		
+ворон²	4	AUTO_SAFE		4	0		
+тщ²	4	AUTO_SAFE		4	0		
+дюж	4	AUTO_SAFE		4	0		
+лак¹	4	AUTO_SAFE		4	0		
+выхухол	4	AUTO_SAFE		4	0		
+гав	4	AUTO_SAFE		4	0		
+галд	4	AUTO_SAFE		4	0		
+галк|галоч|галч	4	AUTO_SAFE		4	0		
+гир	4	AUTO_SAFE		4	0		
+гитар	4	AUTO_SAFE		4	0		
+гогот	4	AUTO_SAFE		4	0		
+горст|горш²	4	AUTO_SAFE		4	0		
+гортан	4	AUTO_SAFE		4	0		
+гра(j)	4	AUTO_SAFE		4	0		
+груд²	4	AUTO_SAFE		4	0		
+гуж	4	AUTO_SAFE		4	0		
+гурт	4	AUTO_SAFE		4	0		
+гусел|гусл	4	AUTO_SAFE		4	0		
+долот	4	AUTO_SAFE		4	0		
+дрог²|дрож²	4	AUTO_SAFE		4	0		
+дрыг	4	AUTO_SAFE		4	0		
+дрян	4	AUTO_SAFE		4	0		
+дупл	4	AUTO_SAFE		4	0		
+дьявол	4	AUTO_SAFE		4	0		
+е²|е	4	AUTO_SAFE		4	0		
+жаб	4	AUTO_SAFE		4	0		
+жаворон	4	AUTO_SAFE		4	0		
+желудок|желудоч	4	AUTO_SAFE		4	0		
+жереб²|жреб	4	AUTO_SAFE		4	0		
+жр²	4	AUTO_SAFE		4	0		
+журч	4	AUTO_SAFE		4	0		
+жут	4	AUTO_SAFE		4	0		
+каляк	4	AUTO_SAFE		4	0		
+картав	4	AUTO_SAFE		4	0		
+копер|копр	4	AUTO_SAFE		4	0		
+кукарек	4	AUTO_SAFE		4	0		
+куролес	4	AUTO_SAFE		4	0		
+лязг	4	AUTO_SAFE		4	0		
+мямл	4	AUTO_SAFE		4	0		
+точ³|тч	4	AUTO_SAFE		4	0		
+рокот	4	AUTO_SAFE		4	0		
+урч	4	AUTO_SAFE		4	0		
+хандр	4	AUTO_SAFE		4	0		
+хил	4	AUTO_SAFE		4	0		
+цык|цыц	4	AUTO_SAFE		4	0		
+шам	4	AUTO_SAFE		4	0		
+каблук|каблуч	4	AUTO_SAFE		4	0		
+камк|камч	4	AUTO_SAFE		4	0		
+кандал	4	AUTO_SAFE		4	0		
+карач|корок|короч²	4	AUTO_SAFE		4	0		
+карет	4	AUTO_SAFE		4	0		
+картеч	4	AUTO_SAFE		4	0		
+картоф|картош	4	AUTO_SAFE		4	0		
+каш²	4	AUTO_SAFE		4	0		
+кис²	4	AUTO_SAFE		4	0		
+клоп	4	AUTO_SAFE		4	0		
+клык|клыч	4	AUTO_SAFE		4	0		
+кобен	4	AUTO_SAFE		4	0		
+кобз	4	AUTO_SAFE		4	0		
+кобыл	4	AUTO_SAFE		4	0		
+копееч|копейк	4	AUTO_SAFE		4	0		
+костр¹	4	AUTO_SAFE		4	0		
+кофт	4	AUTO_SAFE		4	0		
+кочегар	4	AUTO_SAFE		4	0		
+кошм|кошом	4	AUTO_SAFE		4	0		
+кощун	4	AUTO_SAFE		4	0		
+кран¹	4	AUTO_SAFE		4	0		
+крапив	4	AUTO_SAFE		4	0		
+крендел	4	AUTO_SAFE		4	0		
+крокодил	4	AUTO_SAFE		4	0		
+кропот	4	AUTO_SAFE		4	0		
+кудел|кудл	4	AUTO_SAFE		4	0		
+кузов	4	AUTO_SAFE		4	0		
+кут⁴	4	AUTO_SAFE		4	0		
+ласт²	4	AUTO_SAFE		4	0		
+леп²	4	AUTO_SAFE		4	0		
+лопух|лопуш	4	AUTO_SAFE		4	0		
+лохан	4	AUTO_SAFE		4	0		
+лун³	4	AUTO_SAFE		4	0		
+лык|лыч	4	AUTO_SAFE		4	0		
+манат	4	AUTO_SAFE		4	0		
+ман²	4	AUTO_SAFE		4	0		
+марк|мароч	4	AUTO_SAFE		4	0		
+матрос	4	AUTO_SAFE		4	0		
+мереж|мреж	4	AUTO_SAFE		4	0		
+можж	4	AUTO_SAFE		4	0		
+морж	4	AUTO_SAFE		4	0		
+мотыл	4	AUTO_SAFE		4	0		
+мур³	4	AUTO_SAFE		4	0		
+рож¹	4	AUTO_SAFE		4	0		
+стег²|стеж²|стез	4	AUTO_SAFE		4	0		
+тибр	4	AUTO_SAFE		4	0		
+якор	4	AUTO_SAFE		4	0		
+рях|ряш	4	AUTO_SAFE		4	0		
+нет	4	AUTO_SAFE		4	0		
+ну	4	AUTO_SAFE		4	0		
+миш	4	AUTO_SAFE		4	0		
+обоз	4	AUTO_SAFE		4	0		
+обух|обуш	4	AUTO_SAFE		4	0		
+чекрыж	4	AUTO_SAFE		4	0		
+огур	4	AUTO_SAFE		4	0		
+олов	4	AUTO_SAFE		4	0		
+оприч	4	AUTO_SAFE		4	0		
+ор²	4	AUTO_SAFE		4	0		
+ском	4	AUTO_SAFE		4	0		
+осп	4	AUTO_SAFE		4	0		
+тороп²	4	AUTO_SAFE		4	0		
+туз	4	AUTO_SAFE		4	0		
+шин	4	AUTO_SAFE		4	0		
+пакл	4	AUTO_SAFE		4	0		
+палач	4	AUTO_SAFE		4	0		
+папк|папоч	4	AUTO_SAFE		4	0		
+смур	4	AUTO_SAFE		4	0		
+плащ	4	AUTO_SAFE		4	0		
+плюгав	4	AUTO_SAFE		4	0		
+под¹	4	AUTO_SAFE		4	0		
+трун	4	AUTO_SAFE		4	0		
+яз	4	AUTO_SAFE		4	0		
+ярем|ярм	4	AUTO_SAFE		4	0		
+полен|полеш	4	AUTO_SAFE		4	0		
+полтор|полутор	4	AUTO_SAFE		4	0		
+полын	4	AUTO_SAFE		4	0		
+пономар	4	AUTO_SAFE		4	0		
+рж³	4	AUTO_SAFE		4	0		
+порск	4	AUTO_SAFE		4	0		
+спиц|спич	4	AUTO_SAFE		4	0		
+прян	4	AUTO_SAFE		4	0		
+пыр¹	4	AUTO_SAFE		4	0		
+ракит	4	AUTO_SAFE		4	0		
+сироп	4	AUTO_SAFE		4	0		
+редеч|редьк	4	AUTO_SAFE		4	0		
+реснит|ресниц|реснич	4	AUTO_SAFE		4	0		
+риз	4	AUTO_SAFE		4	0		
+рюм²	4	AUTO_SAFE		4	0		
+са(j)	4	AUTO_SAFE		4	0		
+сазан	4	AUTO_SAFE		4	0		
+салат	4	AUTO_SAFE		4	0		
+салфет	4	AUTO_SAFE		4	0		
+сарафан	4	AUTO_SAFE		4	0		
+свекор|свекр	4	AUTO_SAFE		4	0		
+сверб	4	AUTO_SAFE		4	0		
+севрюг|севрюж	4	AUTO_SAFE		4	0		
+сереж|серьг	4	AUTO_SAFE		4	0		
+серп	4	AUTO_SAFE		4	0		
+сирен	4	AUTO_SAFE		4	0		
+скам	4	AUTO_SAFE		4	0		
+склиз	4	AUTO_SAFE		4	0		
+скряг|скряж	4	AUTO_SAFE		4	0		
+скудел	4	AUTO_SAFE		4	0		
+снет	4	AUTO_SAFE		4	0		
+сноп	4	AUTO_SAFE		4	0		
+снох	4	AUTO_SAFE		4	0		
+стерляд|стерляж	4	AUTO_SAFE		4	0		
+столп	4	AUTO_SAFE		4	0		
+струг²|струж²	4	AUTO_SAFE		4	0		
+стул	4	AUTO_SAFE		4	0		
+судак|судач	4	AUTO_SAFE		4	0		
+сук²|суч²	4	AUTO_SAFE		4	0		
+сургуч	4	AUTO_SAFE		4	0		
+сусл²	4	AUTO_SAFE		4	0		
+ягн	4	AUTO_SAFE		4	0		
+таган	4	AUTO_SAFE		4	0		
+тал	4	AUTO_SAFE		4	0		
+тамг|тамож	4	AUTO_SAFE		4	0		
+тарел	4	AUTO_SAFE		4	0		
+туч¹	4	AUTO_SAFE		4	0		
+тыкв|тыков	4	AUTO_SAFE		4	0		
+тюк²	4	AUTO_SAFE		4	0		
+угор²|угр²	4	AUTO_SAFE		4	0		
+уксус	4	AUTO_SAFE		4	0		
+улит	4	AUTO_SAFE		4	0		
+фляг|фляж	4	AUTO_SAFE		4	0		
+фонтан	4	AUTO_SAFE		4	0		
+хор	4	AUTO_SAFE		4	0		
+хруп	4	AUTO_SAFE		4	0		
+цев	4	AUTO_SAFE		4	0		
+цех	4	AUTO_SAFE		4	0		
+чар¹	4	AUTO_SAFE		4	0		
+чебур	4	AUTO_SAFE		4	0		
+челяд	4	AUTO_SAFE		4	0		
+чемодан	4	AUTO_SAFE		4	0		
+чепух|чепуш	4	AUTO_SAFE		4	0		
+чердак|чердач	4	AUTO_SAFE		4	0		
+чугун	4	AUTO_SAFE		4	0		
+чулок|чулоч	4	AUTO_SAFE		4	0		
+шинел	4	AUTO_SAFE		4	0		
+шкаф	4	AUTO_SAFE		4	0		
+шле(j)	4	AUTO_SAFE		4	0		
+шлюп	4	AUTO_SAFE		4	0		
+шмяк	4	AUTO_SAFE		4	0		
+шоколад	4	AUTO_SAFE		4	0		
+шпаргал	4	AUTO_SAFE		4	0		
+штопор	4	AUTO_SAFE		4	0		
+щавел	4	AUTO_SAFE		4	0		
+ярыг|ярыж	4	AUTO_SAFE		4	0		
+ясен	4	AUTO_SAFE		4	0		
+ад	3	AUTO_SAFE		3	0		
+багаж	3	AUTO_SAFE		3	0		
+балабол|балабош	3	AUTO_SAFE		3	0		
+балахон	3	AUTO_SAFE		3	0		
+барвинк|барвинок|барвиноч	3	AUTO_SAFE		3	0		
+бард	3	AUTO_SAFE		3	0		
+барс	3	AUTO_SAFE		3	0		
+батог|батож	3	AUTO_SAFE		3	0		
+башк	3	AUTO_SAFE		3	0		
+алабер	3	AUTO_SAFE		3	0		
+ост	3	AUTO_SAFE		3	0		
+беред	3	AUTO_SAFE		3	0		
+берц	3	AUTO_SAFE		3	0		
+битюг|битюж	3	AUTO_SAFE		3	0		
+блях|бляш	3	AUTO_SAFE		3	0		
+бот³	3	AUTO_SAFE		3	0		
+бот¹	3	AUTO_SAFE		3	0		
+ботв	3	AUTO_SAFE		3	0		
+буерак|буерач	3	AUTO_SAFE		3	0		
+булг	3	AUTO_SAFE		3	0		
+булыг|булыж	3	AUTO_SAFE		3	0		
+бурьян	3	AUTO_SAFE		3	0		
+бус	3	AUTO_SAFE		3	0		
+бутуз	3	AUTO_SAFE		3	0		
+бяк|бяш	3	AUTO_SAFE		3	0		
+ваб	3	AUTO_SAFE		3	0		
+ваз	3	AUTO_SAFE		3	0		
+валанд	3	AUTO_SAFE		3	0		
+васил	3	AUTO_SAFE		3	0		
+вахлак|вахлац|вахлач	3	AUTO_SAFE		3	0		
+вензел	3	AUTO_SAFE		3	0		
+вентер	3	AUTO_SAFE		3	0		
+вертеп	3	AUTO_SAFE		3	0		
+ветчин	3	AUTO_SAFE		3	0		
+вир²	3	AUTO_SAFE		3	0		
+вит	3	AUTO_SAFE		3	0		
+вождел	3	AUTO_SAFE		3	0		
+лик²	3	AUTO_SAFE		3	0		
+волдыр	3	AUTO_SAFE		3	0		
+волн²	3	AUTO_SAFE		3	0		
+волхв	3	AUTO_SAFE		3	0		
+колошмат	3	AUTO_SAFE		3	0		
+тюр	3	AUTO_SAFE		3	0		
+выдр	3	AUTO_SAFE		3	0		
+корп	3	AUTO_SAFE		3	0		
+вяз¹	3	AUTO_SAFE		3	0		
+вяк	3	AUTO_SAFE		3	0		
+гаеч|гайк	3	AUTO_SAFE		3	0		
+галеч|гальк	3	AUTO_SAFE		3	0		
+галош	3	AUTO_SAFE		3	0		
+галстук|галстуч	3	AUTO_SAFE		3	0		
+гик	3	AUTO_SAFE		3	0		
+глист	3	AUTO_SAFE		3	0		
+глыб	3	AUTO_SAFE		3	0		
+го(j)	3	AUTO_SAFE		3	0		
+грош	3	AUTO_SAFE		3	0		
+груш	3	AUTO_SAFE		3	0		
+гугн	3	AUTO_SAFE		3	0		
+гуз	3	AUTO_SAFE		3	0		
+гул²	3	AUTO_SAFE		3	0		
+гусениц|гусенич	3	AUTO_SAFE		3	0		
+гутор	3	AUTO_SAFE		3	0		
+деж	3	AUTO_SAFE		3	0		
+дзинь	3	AUTO_SAFE		3	0		
+диван	3	AUTO_SAFE		3	0		
+туда	3	AUTO_SAFE		3	0		
+драп	3	AUTO_SAFE		3	0		
+дрых	3	AUTO_SAFE		3	0		
+дын	3	AUTO_SAFE		3	0		
+дюжин	3	AUTO_SAFE		3	0		
+еле(j)²	3	AUTO_SAFE		3	0		
+елоз	3	AUTO_SAFE		3	0		
+жернов	3	AUTO_SAFE		3	0		
+гнет²	3	AUTO_SAFE		3	0		
+кадык|кадыч	3	AUTO_SAFE		3	0		
+кик|кич	3	AUTO_SAFE		3	0		
+киш	3	AUTO_SAFE		3	0		
+корюк|корюч	3	AUTO_SAFE		3	0		
+курлы	3	AUTO_SAFE		3	0		
+зал	3	AUTO_SAFE		3	0		
+залп	3	AUTO_SAFE		3	0		
+морд²	3	AUTO_SAFE		3	0		
+тарант	3	AUTO_SAFE		3	0		
+тарахт	3	AUTO_SAFE		3	0		
+турк	3	AUTO_SAFE		3	0		
+хир	3	AUTO_SAFE		3	0		
+хорохор	3	AUTO_SAFE		3	0		
+шелест	3	AUTO_SAFE		3	0		
+шурш	3	AUTO_SAFE		3	0		
+зен	3	AUTO_SAFE		3	0		
+зоб	3	AUTO_SAFE		3	0		
+зонт	3	AUTO_SAFE		3	0		
+идол	3	AUTO_SAFE		3	0		
+можд	3	AUTO_SAFE		3	0		
+изюм	3	AUTO_SAFE		3	0		
+искренн	3	AUTO_SAFE		3	0		
+чад²	3	AUTO_SAFE		3	0		
+ишак|ишач	3	AUTO_SAFE		3	0		
+калин	3	AUTO_SAFE		3	0		
+канав	3	AUTO_SAFE		3	0		
+канун	3	AUTO_SAFE		3	0		
+карандаш	3	AUTO_SAFE		3	0		
+карас	3	AUTO_SAFE		3	0		
+касат	3	AUTO_SAFE		3	0		
+каштан	3	AUTO_SAFE		3	0		
+киоск	3	AUTO_SAFE		3	0		
+кис³	3	AUTO_SAFE		3	0		
+кисе(j)	3	AUTO_SAFE		3	0		
+кист	3	AUTO_SAFE		3	0		
+клевер	3	AUTO_SAFE		3	0		
+клест	3	AUTO_SAFE		3	0		
+клюк²	3	AUTO_SAFE		3	0		
+клюкв	3	AUTO_SAFE		3	0		
+кобел	3	AUTO_SAFE		3	0		
+ковар	3	AUTO_SAFE		3	0		
+ковчег|ковчеж	3	AUTO_SAFE		3	0		
+ковш	3	AUTO_SAFE		3	0		
+ковыл²	3	AUTO_SAFE		3	0		
+коеч|койк	3	AUTO_SAFE		3	0		
+колоб	3	AUTO_SAFE		3	0		
+колодез|колодец	3	AUTO_SAFE		3	0		
+колош²	3	AUTO_SAFE		3	0		
+комнат	3	AUTO_SAFE		3	0		
+коридор	3	AUTO_SAFE		3	0		
+корн²	3	AUTO_SAFE		3	0		
+корчаг|корчаж	3	AUTO_SAFE		3	0		
+костыл	3	AUTO_SAFE		3	0		
+кот²	3	AUTO_SAFE		3	0		
+котлет	3	AUTO_SAFE		3	0		
+кресел|кресл	3	AUTO_SAFE		3	0		
+крыж	3	AUTO_SAFE		3	0		
+куд²	3	AUTO_SAFE		3	0		
+кулич¹	3	AUTO_SAFE		3	0		
+кумач	3	AUTO_SAFE		3	0		
+купол	3	AUTO_SAFE		3	0		
+куропат|куропач	3	AUTO_SAFE		3	0		
+курт	3	AUTO_SAFE		3	0		
+кушак|кушач	3	AUTO_SAFE		3	0		
+лабаз	3	AUTO_SAFE		3	0		
+лагер	3	AUTO_SAFE		3	0		
+лапш	3	AUTO_SAFE		3	0		
+лемех|лемеш	3	AUTO_SAFE		3	0		
+лилов	3	AUTO_SAFE		3	0		
+лодыр	3	AUTO_SAFE		3	0		
+лох	3	AUTO_SAFE		3	0		
+лузг	3	AUTO_SAFE		3	0		
+лям	3	AUTO_SAFE		3	0		
+мартыш¹	3	AUTO_SAFE		3	0		
+махор²|махр²	3	AUTO_SAFE		3	0		
+мгл	3	AUTO_SAFE		3	0		
+мерещ	3	AUTO_SAFE		3	0		
+монет	3	AUTO_SAFE		3	0		
+мух|муш	3	AUTO_SAFE		3	0		
+мыс	3	AUTO_SAFE		3	0		
+напрас	3	AUTO_SAFE		3	0		
+нарт	3	AUTO_SAFE		3	0		
+хохр	3	AUTO_SAFE		3	0		
+шля	3	AUTO_SAFE		3	0		
+шпион	3	AUTO_SAFE		3	0		
+не	3	AUTO_SAFE		3	0		
+клюж	3	AUTO_SAFE		3	0		
+лапош	3	AUTO_SAFE		3	0		
+обод	3	AUTO_SAFE		3	0		
+егор	3	AUTO_SAFE		3	0		
+огул	3	AUTO_SAFE		3	0		
+окун	3	AUTO_SAFE		3	0		
+опт	3	AUTO_SAFE		3	0		
+паз	3	AUTO_SAFE		3	0		
+паром	3	AUTO_SAFE		3	0		
+патл	3	AUTO_SAFE		3	0		
+пауз	3	AUTO_SAFE		3	0		
+пельмен|пельмеш	3	AUTO_SAFE		3	0		
+пен³	3	AUTO_SAFE		3	0		
+пластыр	3	AUTO_SAFE		3	0		
+плах|плаш	3	AUTO_SAFE		3	0		
+плев²|полов	3	AUTO_SAFE		3	0		
+погон	3	AUTO_SAFE		3	0		
+ряс²	3	AUTO_SAFE		3	0		
+полб	3	AUTO_SAFE		3	0		
+попуга(j)	3	AUTO_SAFE		3	0		
+сет³	3	AUTO_SAFE		3	0		
+прач	3	AUTO_SAFE		3	0		
+прос²	3	AUTO_SAFE		3	0		
+прыт	3	AUTO_SAFE		3	0		
+пряж³	3	AUTO_SAFE		3	0		
+пыж²	3	AUTO_SAFE		3	0		
+разгильдя(j)	3	AUTO_SAFE		3	0		
+редис	3	AUTO_SAFE		3	0		
+рис¹	3	AUTO_SAFE		3	0		
+рист	3	AUTO_SAFE		3	0		
+рун	3	AUTO_SAFE		3	0		
+рыс²	3	AUTO_SAFE		3	0		
+рычаг|рычаж	3	AUTO_SAFE		3	0		
+рюх|рюш	3	AUTO_SAFE		3	0		
+ряп	3	AUTO_SAFE		3	0		
+саврас	3	AUTO_SAFE		3	0		
+селезенк|селезеноч	3	AUTO_SAFE		3	0		
+сен²	3	AUTO_SAFE		3	0		
+сиг¹	3	AUTO_SAFE		3	0		
+сик	3	AUTO_SAFE		3	0		
+сил²	3	AUTO_SAFE		3	0		
+ситец|ситц|ситч	3	AUTO_SAFE		3	0		
+скалдыр	3	AUTO_SAFE		3	0		
+скород	3	AUTO_SAFE		3	0		
+сорок²|сороч²	3	AUTO_SAFE		3	0		
+сорок³|сороч³	3	AUTO_SAFE		3	0		
+спорт	3	AUTO_SAFE		3	0		
+стрепет	3	AUTO_SAFE		3	0		
+ступ²	3	AUTO_SAFE		3	0		
+стяг|стяж¹	3	AUTO_SAFE		3	0		
+суббот	3	AUTO_SAFE		3	0		
+табурет	3	AUTO_SAFE		3	0		
+таз	3	AUTO_SAFE		3	0		
+таракан|таракаш	3	AUTO_SAFE		3	0		
+тенет	3	AUTO_SAFE		3	0		
+тест²|тещ	3	AUTO_SAFE		3	0		
+тик	3	AUTO_SAFE		3	0		
+тпру	3	AUTO_SAFE		3	0		
+трах	3	AUTO_SAFE		3	0		
+туфел|туфл	3	AUTO_SAFE		3	0		
+тят	3	AUTO_SAFE		3	0		
+угор¹|угр¹	3	AUTO_SAFE		3	0		
+угрюм	3	AUTO_SAFE		3	0		
+улюлю	3	AUTO_SAFE		3	0		
+хмыл	3	AUTO_SAFE		3	0		
+ушку(j)	3	AUTO_SAFE		3	0		
+факел	3	AUTO_SAFE		3	0		
+фитил	3	AUTO_SAFE		3	0		
+фортк|форточ	3	AUTO_SAFE		3	0		
+фрукт	3	AUTO_SAFE		3	0		
+хлев	3	AUTO_SAFE		3	0		
+хлобыст	3	AUTO_SAFE		3	0		
+цац	3	AUTO_SAFE		3	0		
+чаеч|чайк	3	AUTO_SAFE		3	0		
+череш²	3	AUTO_SAFE		3	0		
+чечевиц|чечевич	3	AUTO_SAFE		3	0		
+чибис	3	AUTO_SAFE		3	0		
+чив	3	AUTO_SAFE		3	0		
+чуб	3	AUTO_SAFE		3	0		
+чулан	3	AUTO_SAFE		3	0		
+чуч	3	AUTO_SAFE		3	0		
+шал¹	3	AUTO_SAFE		3	0		
+шарф	3	AUTO_SAFE		3	0		
+шкатул	3	AUTO_SAFE		3	0		
+шур²	3	AUTO_SAFE		3	0		
+щепет	3	AUTO_SAFE		3	0		
+эк	3	AUTO_SAFE		3	0		
+эфир	3	AUTO_SAFE		3	0		
+я²	3	AUTO_SAFE		3	0		
+ясел|ясл	3	AUTO_SAFE		3	0		
+яхт	3	AUTO_SAFE		3	0		
+авось	2	AUTO_SAFE		2	0		
+алмаз	2	AUTO_SAFE		2	0		
+алтар	2	AUTO_SAFE		2	0		
+аляп	2	AUTO_SAFE		2	0		
+апрел	2	AUTO_SAFE		2	0		
+байбак|байбач	2	AUTO_SAFE		2	0		
+байк	2	AUTO_SAFE		2	0		
+баклуш	2	AUTO_SAFE		2	0		
+балак	2	AUTO_SAFE		2	0		
+балбес	2	AUTO_SAFE		2	0		
+бант	2	AUTO_SAFE		2	0		
+барбос	2	AUTO_SAFE		2	0		
+батон	2	AUTO_SAFE		2	0		
+безмен	2	AUTO_SAFE		2	0		
+икр²|ыкр	2	AUTO_SAFE		2	0		
+берд	2	AUTO_SAFE		2	0		
+берлог|берлож	2	AUTO_SAFE		2	0		
+бидон	2	AUTO_SAFE		2	0		
+бирк|бироч	2	AUTO_SAFE		2	0		
+бирюз	2	AUTO_SAFE		2	0		
+бирюл	2	AUTO_SAFE		2	0		
+боров	2	AUTO_SAFE		2	0		
+бразд²	2	AUTO_SAFE		2	0		
+брен	2	AUTO_SAFE		2	0		
+брич	2	AUTO_SAFE		2	0		
+брыл	2	AUTO_SAFE		2	0		
+буженин	2	AUTO_SAFE		2	0		
+бук²	2	AUTO_SAFE		2	0		
+булан	2	AUTO_SAFE		2	0		
+булат	2	AUTO_SAFE		2	0		
+буран	2	AUTO_SAFE		2	0		
+бурк²	2	AUTO_SAFE		2	0		
+бяз	2	AUTO_SAFE		2	0		
+вальяж	2	AUTO_SAFE		2	0		
+варган	2	AUTO_SAFE		2	0		
+вереск	2	AUTO_SAFE		2	0		
+верет¹|врет	2	AUTO_SAFE		2	0		
+вин²	2	AUTO_SAFE		2	0		
+вы(j)³	2	AUTO_SAFE		2	0		
+вы¹	2	AUTO_SAFE		2	0		
+вым	2	AUTO_SAFE		2	0		
+выспр	2	AUTO_SAFE		2	0		
+выт	2	AUTO_SAFE		2	0		
+гаван	2	AUTO_SAFE		2	0		
+гарк	2	AUTO_SAFE		2	0		
+гил	2	AUTO_SAFE		2	0		
+говяд|говяж	2	AUTO_SAFE		2	0		
+гогол	2	AUTO_SAFE		2	0		
+гонош	2	AUTO_SAFE		2	0		
+горноста(j)	2	AUTO_SAFE		2	0		
+граб²	2	AUTO_SAFE		2	0		
+графин	2	AUTO_SAFE		2	0		
+гук	2	AUTO_SAFE		2	0		
+гул³	2	AUTO_SAFE		2	0		
+дебел	2	AUTO_SAFE		2	0		
+дерез	2	AUTO_SAFE		2	0		
+десен|десн¹	2	AUTO_SAFE		2	0		
+десн²	2	AUTO_SAFE		2	0		
+добл	2	AUTO_SAFE		2	0		
+дратв	2	AUTO_SAFE		2	0		
+дресв	2	AUTO_SAFE		2	0		
+дрозд	2	AUTO_SAFE		2	0		
+дрок	2	AUTO_SAFE		2	0		
+дроф	2	AUTO_SAFE		2	0		
+дышл	2	AUTO_SAFE		2	0		
+дятел|дятл	2	AUTO_SAFE		2	0		
+ералаш	2	AUTO_SAFE		2	0		
+жабер|жабр	2	AUTO_SAFE		2	0		
+жбан	2	AUTO_SAFE		2	0		
+жезл	2	AUTO_SAFE		2	0		
+желвак|желвач	2	AUTO_SAFE		2	0		
+желон	2	AUTO_SAFE		2	0		
+желуд	2	AUTO_SAFE		2	0		
+жимолост	2	AUTO_SAFE		2	0		
+жох	2	AUTO_SAFE		2	0		
+жужел	2	AUTO_SAFE		2	0		
+жук|жуч²	2	AUTO_SAFE		2	0		
+жуч¹	2	AUTO_SAFE		2	0		
+гогул	2	AUTO_SAFE		2	0		
+дрип	2	AUTO_SAFE		2	0		
+замш	2	AUTO_SAFE		2	0		
+стрех	2	AUTO_SAFE		2	0		
+тин	2	AUTO_SAFE		2	0		
+усен	2	AUTO_SAFE		2	0		
+холуст	2	AUTO_SAFE		2	0		
+зипун	2	AUTO_SAFE		2	0		
+зу(j)	2	AUTO_SAFE		2	0		
+зюз	2	AUTO_SAFE		2	0		
+ив	2	AUTO_SAFE		2	0		
+изумруд	2	AUTO_SAFE		2	0		
+и²	2	AUTO_SAFE		2	0		
+кабач²	2	AUTO_SAFE		2	0		
+каланч	2	AUTO_SAFE		2	0		
+калош	2	AUTO_SAFE		2	0		
+камор	2	AUTO_SAFE		2	0		
+канв	2	AUTO_SAFE		2	0		
+капкан	2	AUTO_SAFE		2	0		
+карапуз	2	AUTO_SAFE		2	0		
+карп	2	AUTO_SAFE		2	0		
+кастрюл	2	AUTO_SAFE		2	0		
+каур	2	AUTO_SAFE		2	0		
+квохт	2	AUTO_SAFE		2	0		
+ки(j)²	2	AUTO_SAFE		2	0		
+кинжал	2	AUTO_SAFE		2	0		
+киновар	2	AUTO_SAFE		2	0		
+клохт	2	AUTO_SAFE		2	0		
+клуб²	2	AUTO_SAFE		2	0		
+кляч	2	AUTO_SAFE		2	0		
+кнут	2	AUTO_SAFE		2	0		
+ковриг|ковриж	2	AUTO_SAFE		2	0		
+колдоб	2	AUTO_SAFE		2	0		
+колчан	2	AUTO_SAFE		2	0		
+колымаг|колымаж	2	AUTO_SAFE		2	0		
+комод	2	AUTO_SAFE		2	0		
+компот	2	AUTO_SAFE		2	0		
+конур	2	AUTO_SAFE		2	0		
+копот¹	2	AUTO_SAFE		2	0		
+копыл	2	AUTO_SAFE		2	0		
+корж	2	AUTO_SAFE		2	0		
+корост	2	AUTO_SAFE		2	0		
+котом	2	AUTO_SAFE		2	0		
+кочевряг|кочевряж	2	AUTO_SAFE		2	0		
+кочерг|кочереж	2	AUTO_SAFE		2	0		
+крал	2	AUTO_SAFE		2	0		
+крес²	2	AUTO_SAFE		2	0		
+кречет	2	AUTO_SAFE		2	0		
+кулиг|кулиж	2	AUTO_SAFE		2	0		
+кулик|кулич²	2	AUTO_SAFE		2	0		
+культ	2	AUTO_SAFE		2	0		
+кумир	2	AUTO_SAFE		2	0		
+кун	2	AUTO_SAFE		2	0		
+кучер¹	2	AUTO_SAFE		2	0		
+кучер²	2	AUTO_SAFE		2	0		
+лавр¹	2	AUTO_SAFE		2	0		
+лавр²	2	AUTO_SAFE		2	0		
+ландыш	2	AUTO_SAFE		2	0		
+лан	2	AUTO_SAFE		2	0		
+лас	2	AUTO_SAFE		2	0		
+лачуг|лачуж	2	AUTO_SAFE		2	0		
+лекал	2	AUTO_SAFE		2	0		
+лещин	2	AUTO_SAFE		2	0		
+лихв	2	AUTO_SAFE		2	0		
+лодыг|лодыж	2	AUTO_SAFE		2	0		
+лон	2	AUTO_SAFE		2	0		
+луж³	2	AUTO_SAFE		2	0		
+ляс	2	AUTO_SAFE		2	0		
+мартын|мартыш²	2	AUTO_SAFE		2	0		
+мерин	2	AUTO_SAFE		2	0		
+меч²	2	AUTO_SAFE		2	0		
+мизин	2	AUTO_SAFE		2	0		
+мишен	2	AUTO_SAFE		2	0		
+мишур	2	AUTO_SAFE		2	0		
+молозив	2	AUTO_SAFE		2	0		
+мосл|мосол	2	AUTO_SAFE		2	0		
+мош²	2	AUTO_SAFE		2	0		
+мурл	2	AUTO_SAFE		2	0		
+мухорт	2	AUTO_SAFE		2	0		
+мыщелк|мыщелок	2	AUTO_SAFE		2	0		
+мят²	2	AUTO_SAFE		2	0		
+набат	2	AUTO_SAFE		2	0		
+наждак|наждач	2	AUTO_SAFE		2	0		
+зо(j)	2	AUTO_SAFE		2	0		
+пыщ	2	AUTO_SAFE		2	0		
+обин	2	AUTO_SAFE		2	0		
+облат	2	AUTO_SAFE		2	0		
+обормот	2	AUTO_SAFE		2	0		
+овод	2	AUTO_SAFE		2	0		
+оглоб	2	AUTO_SAFE		2	0		
+горош²	2	AUTO_SAFE		2	0		
+о	2	AUTO_SAFE		2	0		
+опок	2	AUTO_SAFE		2	0		
+ос¹	2	AUTO_SAFE		2	0		
+склаб	2	AUTO_SAFE		2	0		
+осок	2	AUTO_SAFE		2	0		
+осокор	2	AUTO_SAFE		2	0		
+осот	2	AUTO_SAFE		2	0		
+отав	2	AUTO_SAFE		2	0		
+лын	2	AUTO_SAFE		2	0		
+па(j)⁴	2	AUTO_SAFE		2	0		
+папорот	2	AUTO_SAFE		2	0		
+парч	2	AUTO_SAFE		2	0		
+паслен	2	AUTO_SAFE		2	0		
+пасм	2	AUTO_SAFE		2	0		
+паюс	2	AUTO_SAFE		2	0		
+пелес	2	AUTO_SAFE		2	0		
+пеньк	2	AUTO_SAFE		2	0		
+вясл	2	AUTO_SAFE		2	0		
+плахт	2	AUTO_SAFE		2	0		
+плиц|плич	2	AUTO_SAFE		2	0		
+плюш²	2	AUTO_SAFE		2	0		
+плющ¹	2	AUTO_SAFE		2	0		
+подог|подож	2	AUTO_SAFE		2	0		
+щиколот	2	AUTO_SAFE		2	0		
+полтин	2	AUTO_SAFE		2	0		
+поскон	2	AUTO_SAFE		2	0		
+пост²	2	AUTO_SAFE		2	0		
+потал	2	AUTO_SAFE		2	0		
+хер	2	AUTO_SAFE		2	0		
+пращ	2	AUTO_SAFE		2	0		
+щур⁴	2	AUTO_SAFE		2	0		
+приторн	2	AUTO_SAFE		2	0		
+щуч²	2	AUTO_SAFE		2	0		
+прорех|прореш	2	AUTO_SAFE		2	0		
+пург|пурж	2	AUTO_SAFE		2	0		
+пыр²	2	AUTO_SAFE		2	0		
+пяд	2	AUTO_SAFE		2	0		
+ра¹	2	AUTO_SAFE		2	0		
+ревен	2	AUTO_SAFE		2	0		
+розг	2	AUTO_SAFE		2	0		
+ромаш	2	AUTO_SAFE		2	0		
+росомах|росомаш	2	AUTO_SAFE		2	0		
+рявк	2	AUTO_SAFE		2	0		
+ряс¹	2	AUTO_SAFE		2	0		
+салаз	2	AUTO_SAFE		2	0		
+саранч	2	AUTO_SAFE		2	0		
+сбру(j)	2	AUTO_SAFE		2	0		
+сверч	2	AUTO_SAFE		2	0		
+селезен	2	AUTO_SAFE		2	0		
+скрижал	2	AUTO_SAFE		2	0		
+сляк	2	AUTO_SAFE		2	0		
+смерч	2	AUTO_SAFE		2	0		
+смокв|смоков	2	AUTO_SAFE		2	0		
+смуш	2	AUTO_SAFE		2	0		
+сонм	2	AUTO_SAFE		2	0		
+стреж	2	AUTO_SAFE		2	0		
+стриж²	2	AUTO_SAFE		2	0		
+тыр	2	AUTO_SAFE		2	0		
+сыворот	2	AUTO_SAFE		2	0		
+сыч¹	2	AUTO_SAFE		2	0		
+сяк²	2	AUTO_SAFE		2	0		
+там	2	AUTO_SAFE		2	0		
+тень	2	AUTO_SAFE		2	0		
+терем	2	AUTO_SAFE		2	0		
+тест¹	2	AUTO_SAFE		2	0		
+типун	2	AUTO_SAFE		2	0		
+тогда	2	AUTO_SAFE		2	0		
+томош	2	AUTO_SAFE		2	0		
+топол	2	AUTO_SAFE		2	0		
+требух|требуш	2	AUTO_SAFE		2	0		
+треск²	2	AUTO_SAFE		2	0		
+тризн	2	AUTO_SAFE		2	0		
+трущоб	2	AUTO_SAFE		2	0		
+туес	2	AUTO_SAFE		2	0		
+туш¹	2	AUTO_SAFE		2	0		
+ты	2	AUTO_SAFE		2	0		
+тырк	2	AUTO_SAFE		2	0		
+удод	2	AUTO_SAFE		2	0		
+укроп	2	AUTO_SAFE		2	0		
+упов	2	AUTO_SAFE		2	0		
+ух²|уш²	2	AUTO_SAFE		2	0		
+фартук|фартуч	2	AUTO_SAFE		2	0		
+фасол	2	AUTO_SAFE		2	0		
+ферт	2	AUTO_SAFE		2	0		
+фук	2	AUTO_SAFE		2	0		
+хибар	2	AUTO_SAFE		2	0		
+хижин	2	AUTO_SAFE		2	0		
+хлюст	2	AUTO_SAFE		2	0		
+хмык	2	AUTO_SAFE		2	0		
+хрыч	2	AUTO_SAFE		2	0		
+хряк|хряч	2	AUTO_SAFE		2	0		
+хряп	2	AUTO_SAFE		2	0		
+цинов	2	AUTO_SAFE		2	0		
+цоп	2	AUTO_SAFE		2	0		
+цып²	2	AUTO_SAFE		2	0		
+чабер|чабр	2	AUTO_SAFE		2	0		
+чал²	2	AUTO_SAFE		2	0		
+чапыг|чапыж	2	AUTO_SAFE		2	0		
+чечет	2	AUTO_SAFE		2	0		
+чилик	2	AUTO_SAFE		2	0		
+чопорн	2	AUTO_SAFE		2	0		
+шанеж|шаньг	2	AUTO_SAFE		2	0		
+шебарш	2	AUTO_SAFE		2	0		
+шелох	2	AUTO_SAFE		2	0		
+шерох	2	AUTO_SAFE		2	0		
+шершен|шершн	2	AUTO_SAFE		2	0		
+шквар	2	AUTO_SAFE		2	0		
+шленд	2	AUTO_SAFE		2	0		
+шмел	2	AUTO_SAFE		2	0		
+шорк	2	AUTO_SAFE		2	0		
+шуг¹	2	AUTO_SAFE		2	0		
+шур¹	2	AUTO_SAFE		2	0		
+шустр	2	AUTO_SAFE		2	0		
+щ	2	AUTO_SAFE		2	0		
+щур²	2	AUTO_SAFE		2	0		
+эх	2	AUTO_SAFE		2	0		
+юс	2	AUTO_SAFE		2	0		
+явор	2	AUTO_SAFE		2	0		
+янтар	2	AUTO_SAFE		2	0		
+ярлык|ярлыч	2	AUTO_SAFE		2	0		
+ярмарк|ярмароч	2	AUTO_SAFE		2	0		
+ярус	2	AUTO_SAFE		2	0		
+ящур	2	AUTO_SAFE		2	0		
+ага	1	AUTO_SAFE		1	0		
+агу	1	AUTO_SAFE		1	0		
+аз	1	AUTO_SAFE		1	0		
+баланд	1	AUTO_SAFE		1	0		
+ух⁴	1	AUTO_SAFE		1	0		
+буга(j)	1	AUTO_SAFE		1	0		
+бук³	1	AUTO_SAFE		1	0		
+бурд	1	AUTO_SAFE		1	0		
+бухан	1	AUTO_SAFE		1	0		
+валу(j)	1	AUTO_SAFE		1	0		
+вареж	1	AUTO_SAFE		1	0		
+вежд²	1	AUTO_SAFE		1	0		
+вепр	1	AUTO_SAFE		1	0		
+верш²	1	AUTO_SAFE		1	0		
+балмош	1	AUTO_SAFE		1	0		
+гро	1	AUTO_SAFE		1	0		
+визиг	1	AUTO_SAFE		1	0		
+витяз	1	AUTO_SAFE		1	0		
+вобл	1	AUTO_SAFE		1	0		
+возле	1	AUTO_SAFE		1	0		
+вот	1	AUTO_SAFE		1	0		
+тун	1	AUTO_SAFE		1	0		
+вып	1	AUTO_SAFE		1	0		
+вящ	1	AUTO_SAFE		1	0		
+гак	1	AUTO_SAFE		1	0		
+гам	1	AUTO_SAFE		1	0		
+гвалт	1	AUTO_SAFE		1	0		
+гнед	1	AUTO_SAFE		1	0		
+гнид	1	AUTO_SAFE		1	0		
+грозд	1	AUTO_SAFE		1	0		
+грымз	1	AUTO_SAFE		1	0		
+гундос	1	AUTO_SAFE		1	0		
+гурьб	1	AUTO_SAFE		1	0		
+дебр	1	AUTO_SAFE		1	0		
+дест	1	AUTO_SAFE		1	0		
+дребеден	1	AUTO_SAFE		1	0		
+дрекол	1	AUTO_SAFE		1	0		
+дрязг	1	AUTO_SAFE		1	0		
+дул	1	AUTO_SAFE		1	0		
+дылд	1	AUTO_SAFE		1	0		
+еле¹	1	AUTO_SAFE		1	0		
+рш⁶	1	AUTO_SAFE		1	0		
+еще	1	AUTO_SAFE		1	0		
+желн	1	AUTO_SAFE		1	0		
+ж⁶	1	AUTO_SAFE		1	0		
+корк	1	AUTO_SAFE		1	0		
+мухр	1	AUTO_SAFE		1	0		
+заст	1	AUTO_SAFE		1	0		
+треньк	1	AUTO_SAFE		1	0		
+золов	1	AUTO_SAFE		1	0		
+иволг	1	AUTO_SAFE		1	0		
+рз⁶	1	AUTO_SAFE		1	0		
+изъян	1	AUTO_SAFE		1	0		
+икон	1	AUTO_SAFE		1	0		
+исполин	1	AUTO_SAFE		1	0		
+калит	1	AUTO_SAFE		1	0		
+карава(j)	1	AUTO_SAFE		1	0		
+кар³	1	AUTO_SAFE		1	0		
+кат²	1	AUTO_SAFE		1	0		
+квел	1	AUTO_SAFE		1	0		
+кил	1	AUTO_SAFE		1	0		
+кип²	1	AUTO_SAFE		1	0		
+клешн	1	AUTO_SAFE		1	0		
+клуш	1	AUTO_SAFE		1	0		
+кляп	1	AUTO_SAFE		1	0		
+козн	1	AUTO_SAFE		1	0		
+колтун	1	AUTO_SAFE		1	0		
+конд	1	AUTO_SAFE		1	0		
+коромысл	1	AUTO_SAFE		1	0		
+коростел	1	AUTO_SAFE		1	0		
+корт	1	AUTO_SAFE		1	0		
+коршун	1	AUTO_SAFE		1	0		
+кросн	1	AUTO_SAFE		1	0		
+кувалд	1	AUTO_SAFE		1	0		
+кук²	1	AUTO_SAFE		1	0		
+кукол¹	1	AUTO_SAFE		1	0		
+кут⁵	1	AUTO_SAFE		1	0		
+куц	1	AUTO_SAFE		1	0		
+лапт	1	AUTO_SAFE		1	0		
+лед¹	1	AUTO_SAFE		1	0		
+лез³	1	AUTO_SAFE		1	0		
+лещ³	1	AUTO_SAFE		1	0		
+лопот	1	AUTO_SAFE		1	0		
+лун²	1	AUTO_SAFE		1	0		
+ляд	1	AUTO_SAFE		1	0		
+магарыч	1	AUTO_SAFE		1	0		
+мах²	1	AUTO_SAFE		1	0		
+мезг	1	AUTO_SAFE		1	0		
+мур¹	1	AUTO_SAFE		1	0		
+муруг	1	AUTO_SAFE		1	0		
+мурч	1	AUTO_SAFE		1	0		
+мутор	1	AUTO_SAFE		1	0		
+мымр	1	AUTO_SAFE		1	0		
+набекрень	1	AUTO_SAFE		1	0		
+рыв	1	AUTO_SAFE		1	0		
+нар	1	AUTO_SAFE		1	0		
+стыр	1	AUTO_SAFE		1	0		
+чек¹	1	AUTO_SAFE		1	0		
+теп	1	AUTO_SAFE		1	0		
+нетопыр	1	AUTO_SAFE		1	0		
+нив	1	AUTO_SAFE		1	0		
+овин	1	AUTO_SAFE		1	0		
+овощ	1	AUTO_SAFE		1	0		
+одр	1	AUTO_SAFE		1	0		
+олух	1	AUTO_SAFE		1	0		
+орав	1	AUTO_SAFE		1	0		
+ч²	1	AUTO_SAFE		1	0		
+очут	1	AUTO_SAFE		1	0		
+шу	1	AUTO_SAFE		1	0		
+дряг	1	AUTO_SAFE		1	0		
+перх²	1	AUTO_SAFE		1	0		
+плес	1	AUTO_SAFE		1	0		
+плюш¹	1	AUTO_SAFE		1	0		
+вап	1	AUTO_SAFE		1	0		
+подвох	1	AUTO_SAFE		1	0		
+ыл	1	AUTO_SAFE		1	0		
+штука	1	AUTO_SAFE		1	0		
+пороз	1	AUTO_SAFE		1	0		
+после	1	AUTO_SAFE		1	0		
+хны	1	AUTO_SAFE		1	0		
+июн|ыюн	1	AUTO_SAFE		1	0		
+кор³	1	AUTO_SAFE		1	0		
+противен	1	AUTO_SAFE		1	0		
+раж²	1	AUTO_SAFE		1	0		
+регот	1	AUTO_SAFE		1	0		
+рех	1	AUTO_SAFE		1	0		
+риг	1	AUTO_SAFE		1	0		
+рохл	1	AUTO_SAFE		1	0		
+рып	1	AUTO_SAFE		1	0		
+рюм¹	1	AUTO_SAFE		1	0		
+ряж²	1	AUTO_SAFE		1	0		
+свор	1	AUTO_SAFE		1	0		
+серн	1	AUTO_SAFE		1	0		
+сис	1	AUTO_SAFE		1	0		
+слег	1	AUTO_SAFE		1	0		
+лямз	1	AUTO_SAFE		1	0		
+со(j)	1	AUTO_SAFE		1	0		
+табан	1	AUTO_SAFE		1	0		
+тарабан	1	AUTO_SAFE		1	0		
+тез	1	AUTO_SAFE		1	0		
+тинь	1	AUTO_SAFE		1	0		
+тормаш	1	AUTO_SAFE		1	0		
+трест	1	AUTO_SAFE		1	0		
+тринь	1	AUTO_SAFE		1	0		
+тумак	1	AUTO_SAFE		1	0		
+турлы	1	AUTO_SAFE		1	0		
+тын	1	AUTO_SAFE		1	0		
+у²	1	AUTO_SAFE		1	0		
+упыр	1	AUTO_SAFE		1	0		
+фит	1	AUTO_SAFE		1	0		
+фурч	1	AUTO_SAFE		1	0		
+хар	1	AUTO_SAFE		1	0		
+хвощ	1	AUTO_SAFE		1	0		
+хлип²	1	AUTO_SAFE		1	0		
+хляб¹	1	AUTO_SAFE		1	0		
+хол³	1	AUTO_SAFE		1	0		
+цинг	1	AUTO_SAFE		1	0		
+чек²	1	AUTO_SAFE		1	0		
+чур³	1	AUTO_SAFE		1	0		
+чертог	1	AUTO_SAFE		1	0		
+чехард	1	AUTO_SAFE		1	0		
+чир¹	1	AUTO_SAFE		1	0		
+чох²	1	AUTO_SAFE		1	0		
+чубар	1	AUTO_SAFE		1	0		
+чумаз	1	AUTO_SAFE		1	0		
+чуш²	1	AUTO_SAFE		1	0		
+чуш¹	1	AUTO_SAFE		1	0		
+шав	1	AUTO_SAFE		1	0		
+шалаш	1	AUTO_SAFE		1	0		
+шир²	1	AUTO_SAFE		1	0		
+шорох	1	AUTO_SAFE		1	0		
+шрам	1	AUTO_SAFE		1	0		
+шуг²	1	AUTO_SAFE		1	0		
+шу(j)	1	AUTO_SAFE		1	0		
+щеколд	1	AUTO_SAFE		1	0		
+щун	1	AUTO_SAFE		1	0		
+щур³	1	AUTO_SAFE		1	0		
+юдол	1	AUTO_SAFE		1	0		
+ят	1	AUTO_SAFE		1	0		

@@ -7,6 +7,17 @@ dictionary family and match neither cluster.
 
 from __future__ import annotations
 
+from collections import defaultdict
+from pathlib import Path
+
+from games.censorly.lexical.core import fold
+from games.censorly.lexical.russian.compiler import (
+    _families,
+    _lines,
+    _norm,
+    _strip_note,
+)
+
 
 def install(sense, set_readings) -> None:
     for name, lemmas in CLUSTERS:
@@ -3967,6 +3978,242 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     )),
 )
 
+# Conservative manual separations reported from the corpus review.  These
+# are intentionally one-word clusters: the surrounding dictionary families
+# contain several unrelated modern meanings, and assigning only the observed
+# lemmas prevents a bad bridge without guessing a larger semantic inventory.
+_REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ('sense:review_several', ('несколько',)),
+    ('sense:review_quantity', ('количество',)),
+    ('sense:review_feed', ('питаться',)),
+    ('sense:review_education', ('воспитательный',)),
+    ('sense:review_nature', ('природа',)),
+    ('sense:review_relative', ('родственник',)),
+    ('sense:review_list', ('список',)),
+    ('sense:review_description', ('описание',)),
+    ('sense:review_reception', ('прием',)),
+    ('sense:review_acceptance', ('принятие',)),
+    ('sense:review_theater_box', ('ложа',)),
+    ('sense:review_fishing_season', ('путина',)),
+    ('sense:review_complex', ('сложный',)),
+    ('sense:review_assume', ('предполагать',)),
+    ('sense:review_lay_out', ('выложить',)),
+    ('sense:review_locate', ('располагаться',)),
+    ('sense:review_bribe', ('взятка',)),
+    ('sense:review_removed', ('снять', 'снятой', 'снятый')),
+    ('sense:review_advantage', ('преимущество',)),
+    ('sense:review_have', ('иметь',)),
+    ('sense:review_take_out', ('вынуть',)),
+    ('sense:review_tax', ('налог',)),
+    ('sense:review_offer', ('предложение',)),
+    ('sense:review_assumption', ('предположение',)),
+    ('sense:review_dispose', ('располагать',)),
+    ('sense:review_position', ('положение',)),
+    ('sense:review_migratory', ('перелетный',)),
+    ('sense:review_year', ('год',)),
+    ('sense:review_end', ('конец', 'кончать')),
+    ('sense:review_law', ('закон',)),
+    ('sense:review_cover', ('обложка',)),
+    ('sense:review_application', ('приложение',)),
+    ('sense:review_west', ('запад',)),
+    ('sense:review_attack', ('нападение',)),
+    ('sense:review_be_located', ('находиться',)),
+    ('sense:review_similar', ('похожий',)),
+    ('sense:review_fight', ('бой',)),
+    ('sense:review_killed', ('убить', 'убитый')),
+    ('sense:review_deed', ('дело', 'деловой')),
+    ('sense:review_monday', ('понедельник',)),
+    ('sense:review_assembly', ('собрание',)),
+    ('sense:review_choice', ('выбор',)),
+    ('sense:review_putin', ('путин',)),
+    ('sense:review_path', ('путь',)),
+)
+
+# Keep these after the broad curated clusters above: a review split is an
+# explicit override of the older family-level assignment.  Remove the
+# overridden lemmas from their old clusters as well; this keeps the manifest
+# unambiguous for audits that inspect CLUSTERS directly.
+_REVIEW_LEMMAS = frozenset(lemma for _name, lemmas in _REVIEW_SPLITS for lemma in lemmas)
+CLUSTERS = tuple(
+    (name, tuple(lemma for lemma in lemmas if lemma not in _REVIEW_LEMMAS))
+    for name, lemmas in CLUSTERS
+) + _REVIEW_SPLITS
+
+
+# The review list names a handful of collisions, but a split family must not
+# leave its other dictionary lemmas on the old root.  This is a deliberately
+# conservative first-pass classifier for the affected families.  The broad
+# buckets are semantic (not prefix-only); prefixes are used only as a stable
+# way to collect obvious derivatives of an already identified meaning.
+_REVIEW_FAMILIES = frozenset({
+    'кол³', 'пит|пич¹|пищ²', 'род|рож²|рожд', 'пис|пиш',
+    'лаг|лег²|леж|леч²|лог|лож¹', 'ем|им¹|йм|ним|ня|ым²|я¹|∅',
+    'лет²|лет', 'год|гож|гожд', 'кан|кон¹',
+    'па¹|пад|паж|пас¹|пащ', 'хаж|ход|хож|хожд',
+    'би(j)|бо(j)¹|бь', 'де(j)|де', 'бер|бир|бор¹|бр¹', 'пут²',
+})
+
+# A few productive prefixed verbs are assigned by the dictionary to another
+# historical family, but are still the same modern walking meaning.
+_REVIEW_EXTRA_CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ('sense:review_walking', (
+        'ходить', 'приходить', 'уходить', 'подходить', 'переходить',
+        'проходить', 'входить', 'выходить', 'отходить',
+    )),
+)
+
+
+def _review_family_clusters() -> tuple[tuple[str, tuple[str, ...]], ...]:
+    groups = _families(Path(__file__).resolve().parent / 'data' / 'dictionaries' / 'root_groups.txt')
+    members: dict[str, set[str]] = defaultdict(set)
+    lemmas_path = Path(__file__).resolve().parent / 'data' / 'dictionaries' / 'lemmas_to_roots.tsv'
+    for line in _lines(lemmas_path):
+        raw_lemma, raw_root = line.split('\t', 1)
+        family = groups.get(_norm(raw_root.strip()), _norm(raw_root.strip()))
+        if family in _REVIEW_FAMILIES:
+            members[family].add(fold(_strip_note(raw_lemma)))
+
+    already = {
+        fold(lemma)
+        for _name, lemmas in CLUSTERS + _REVIEW_EXTRA_CLUSTERS
+        for lemma in lemmas
+    }
+    buckets: dict[str, list[str]] = defaultdict(list)
+
+    def put(family: str, name: str, lemma: str) -> None:
+        if lemma in members[family] and lemma not in already:
+            buckets[name].append(lemma)
+
+    for family, family_lemmas in members.items():
+        for lemma in sorted(family_lemmas):
+            if lemma in already:
+                continue
+            name = _classify_review_lemma(family, lemma)
+            put(family, name, lemma)
+
+    return tuple(
+        (name, tuple(sorted(set(lemmas))))
+        for name, lemmas in sorted(buckets.items())
+        if lemmas
+    )
+
+
+def _classify_review_lemma(family: str, lemma: str) -> str:
+    if family == 'кол³':
+        return 'sense:review_quantity'
+    if family == 'пит|пич¹|пищ²':
+        if lemma.startswith(('воспит', 'перевоспит')):
+            return 'sense:review_education'
+        if lemma.startswith('питом'):
+            return 'sense:review_pet_nursery'
+        return 'sense:review_nutrition'
+    if family == 'род|рож²|рожд':
+        if lemma.startswith(('природ',)):
+            return 'sense:review_nature'
+        if lemma.startswith(('родн', 'породн', 'родствен')):
+            return 'sense:review_relative'
+        if lemma.startswith(('урод', 'изурод')):
+            return 'sense:review_ugly'
+        return 'sense:review_birth_origin'
+    if family == 'пис|пиш':
+        if lemma.startswith(('опис', 'неопис')):
+            return 'sense:review_description'
+        if lemma.startswith(('спис', 'перечис')):
+            return 'sense:review_list'
+        if lemma.startswith(('перепис', 'копир')):
+            return 'sense:review_copy'
+        if lemma.startswith(('запис', 'отпис', 'выпис')):
+            return 'sense:review_record'
+        return 'sense:review_writing'
+    if family == 'лаг|лег²|леж|леч²|лог|лож¹':
+        if lemma.startswith(('налог', 'нало')):
+            return 'sense:review_tax'
+        if lemma.startswith('предполож'):
+            return 'sense:review_assumption'
+        if lemma.startswith(('предлож', 'предлаг')):
+            return 'sense:review_offer'
+        if lemma.startswith(('располож', 'полож')):
+            return 'sense:review_position'
+        if lemma.startswith('облож'):
+            return 'sense:review_cover'
+        if lemma.startswith('прилож'):
+            return 'sense:review_application'
+        if lemma.startswith(('сложн', 'усложн')):
+            return 'sense:review_complex'
+        if lemma.startswith(('логов', 'логищ', 'лог')):
+            return 'sense:review_den'
+        if lemma.startswith(('леж', 'лег', 'залег', 'возлеж', 'вылеж', 'долеж')):
+            return 'sense:review_lying'
+        return 'sense:review_laying'
+    if family == 'ем|им¹|йм|ним|ня|ым²|я¹|∅':
+        if lemma.startswith(('взятк',)):
+            return 'sense:review_bribe'
+        if lemma.startswith(('преимущ',)):
+            return 'sense:review_advantage'
+        if lemma.startswith(('имет', 'имущ', 'имуще')):
+            return 'sense:review_have'
+        if lemma.startswith(('сним', 'снять', 'съем', 'выним', 'вын', 'изым', 'отним', 'разъем')):
+            return 'sense:review_removed'
+        if lemma.startswith(('заем', 'заним', 'найм', 'наем')):
+            return 'sense:review_loan'
+        if lemma.startswith(('прием', 'приним', 'принят', 'прия')):
+            return 'sense:review_receive'
+        return 'sense:review_taking'
+    if family == 'лет²|лет':
+        return 'sense:review_flight'
+    if family == 'год|гож|гожд':
+        if lemma.startswith(('погод', 'непогод', 'невзгод')):
+            return 'sense:review_weather'
+        if lemma.startswith(('выгод', 'безвыгод')):
+            return 'sense:review_benefit'
+        if lemma.startswith(('годи', 'годн', 'пригод', 'негод')):
+            return 'sense:review_suitability'
+        if lemma.startswith(('угод', 'угожд')):
+            return 'sense:review_please'
+        return 'sense:review_year_time'
+    if family == 'кан|кон¹':
+        if lemma.startswith(('закон', 'узакон', 'подзакон', 'беззакон')):
+            return 'sense:review_law'
+        return 'sense:review_end'
+    if family == 'хаж|ход|хож|хожд':
+        if lemma.startswith(('похож', 'подоб')):
+            return 'sense:review_similar'
+        if lemma.startswith(('наход', 'нахожд')):
+            return 'sense:review_finding'
+        if lemma.startswith(('доход', 'расход', 'приход', 'оприход')):
+            return 'sense:review_income_expense'
+        return 'sense:review_walking'
+    if family == 'бер|бир|бор¹|бр¹':
+        if lemma.startswith(('выбор', 'избир', 'избран', 'отбор', 'подбор')):
+            return 'sense:review_choice'
+        if lemma.startswith(('собр', 'сбир', 'сбор', 'собир')):
+            return 'sense:review_assembly'
+        if lemma.startswith('забор'):
+            return 'sense:review_fence'
+        if lemma.startswith('разбор'):
+            return 'sense:review_analysis'
+        return 'sense:review_taking'
+    if family == 'пут²':
+        return 'sense:review_travel_path'
+    if family == 'па¹|пад|паж|пас¹|пащ':
+        return 'sense:review_falling'
+    if family == 'би(j)|бо(j)¹|бь':
+        return 'sense:review_battle'
+    if family == 'де(j)|де':
+        return 'sense:review_deed'
+    return 'sense:review_misc'
+
+
+_REVIEW_FAMILY_CLUSTERS = _review_family_clusters()
+_merged_clusters: dict[str, list[str]] = defaultdict(list)
+for _name, _lemmas in CLUSTERS + _REVIEW_EXTRA_CLUSTERS + _REVIEW_FAMILY_CLUSTERS:
+    for _lemma in _lemmas:
+        if _lemma not in _merged_clusters[_name]:
+            _merged_clusters[_name].append(_lemma)
+CLUSTERS = tuple(
+    (name, tuple(lemmas)) for name, lemmas in _merged_clusters.items()
+)
+
 # Dictionary-family lemmas deliberately left on the parent id.
 UNRESOLVED: dict[str, tuple[str, ...]] = {
     'крас¹|краш': ('бескрасочный', 'красно', 'красочность', 'красочный'),
@@ -3979,6 +4226,18 @@ UNRESOLVED: dict[str, tuple[str, ...]] = {
 # Alternative semantic readings of one lexical lemma. Each name is its own
 # one-root structure. This is not a compound multiset.
 MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # One spelling, several modern meanings.  Keeping the readings separate
+    # lets a surface participate in each appropriate cluster without joining
+    # the clusters themselves.
+    ('лог', ('sense:review_den', 'sense:review_math_log')),
+    ('положение', (
+        'sense:review_position', 'sense:review_state', 'sense:review_document',
+    )),
+    ('прием', (
+        'sense:review_receive', 'sense:review_reception',
+        'sense:review_technique', 'sense:review_meal',
+    )),
+    ('питание', ('sense:review_nutrition', 'sense:review_power_supply')),
     ('марь', ('sense:haze', 'sense:plant')),
     ('отражать', ('sense:strike', 'sense:reflect')),
     ('отражаться', ('sense:strike', 'sense:reflect')),

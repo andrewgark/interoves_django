@@ -39,6 +39,13 @@ _TIKHONOV = Path(os.environ.get('CENSORLY_TIKHONOV', _DICT_DIR / 'RuMorphs-Lemma
 # ``чит`` and ``чт`` stay one reading root. ``чет`` does not join them.
 _READ_MORPHS = frozenset({'чит', 'чт', 'ч'})
 
+# Reviewed assignments are family/lemma assignments, never pair edges. The
+# opaque namespace is separate from Kuznetsova families by construction.
+REVIEWED_OPAQUE_ROOTS = frozenset({'сенат'})
+REVIEWED_DERIVED_ROOTS = {
+    fold('иволговый'): (('fam:иволг',),),
+}
+
 
 def structures_of(lemma: str) -> tuple[tuple[str, ...], ...]:
     """Root structures of one dictionary lemma. Empty when unknown."""
@@ -186,13 +193,32 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
     provenance: dict[str, dict] = {}
     # Sense-only lemmas (proper-name clusters) are absent from Kuznetsova and
     # Tikhonov; still install them so рим opens римский.
-    lemmas = set(kuz) | set(tikhonov) | set(_SENSE)
+    lemmas = (
+        set(kuz)
+        | set(tikhonov)
+        | set(_SENSE)
+        | set(REVIEWED_DERIVED_ROOTS)
+    )
     for lemma in lemmas:
         parts = tikhonov.get(lemma, ())
         senses = _SENSE.get(lemma) or ()
         if isinstance(senses, str):
             senses = (senses,)
         kuz_ids = kuz.get(lemma, ())
+
+        # Reviewed derived assignments are authoritative at lemma level. They
+        # provide a complete structure, so inflected surfaces can recover it
+        # through their pymorphy lemma without introducing pair edges.
+        reviewed = REVIEWED_DERIVED_ROOTS.get(lemma)
+        if reviewed is not None:
+            built[lemma] = reviewed
+            provenance[lemma] = {
+                'source': 'REVIEWED_DERIVED_ROOT',
+                'detail': ','.join('|'.join(item) for item in reviewed),
+                'refused': (),
+            }
+            audit['reviewed_derived_lemmas'] += 1
+            continue
         shape = 'multi' if len(parts) >= 2 else 'single'
         cand_lists = [
             _candidate_ids(part, plain_hits, morph_family) for part in parts
@@ -261,16 +287,21 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
         ids = list(kuz_ids)
         source = 'KUZNETSOVA_MULTI' if len(ids) > 1 else 'KUZNETSOVA'
         if not ids and len(parts) == 1:
-            candidates = cand_lists[0]
-            if len(candidates) == 1:
-                ids = list(candidates)
-                source = 'UNIQUE_SPELLING_FALLBACK'
-                audit['unique_spelling_fallback_components'] += 1
+            authorized, kind, extra = _authorize_component(
+                parts[0], (), plain_hits, morph_family,
+            )
+            if authorized:
+                ids = list(authorized)
+                source = kind
+                if kind == 'REVIEWED_OPAQUE_ROOT':
+                    audit['reviewed_opaque_lemmas'] += 1
+                elif kind == 'UNIQUE_SPELLING_FALLBACK':
+                    audit['unique_spelling_fallback_components'] += 1
             else:
                 provenance[lemma] = {
                     'source': 'UNRESOLVED',
-                    'detail': f'morph {parts[0]} matches {len(candidates)} game roots',
-                    'refused': candidates,
+                    'detail': f'morph {parts[0]} matches {len(extra)} game roots',
+                    'refused': extra,
                 }
                 audit['unresolved_components'] += 1
                 audit['whole_lemmas_unresolved'] += 1
@@ -354,9 +385,20 @@ def _authorize_component(morph, lemma_ids, plain_hits, morph_family):
         kind = 'KUZNETSOVA_MULTI' if len(allowed) > 1 else 'KUZNETSOVA'
         refused = tuple(item for item in candidates if item not in allowed)
         return allowed, kind, refused
+    opaque = _reviewed_opaque_id(morph, plain_hits)
+    if opaque:
+        return (opaque,), 'REVIEWED_OPAQUE_ROOT', ()
     if len(candidates) == 1:
         return candidates, 'UNIQUE_SPELLING_FALLBACK', ()
     return (), 'UNRESOLVED', candidates
+
+
+def _reviewed_opaque_id(morph, plain_hits) -> str:
+    """Return a reviewed opaque id only for a Tikhonov-only spelling."""
+    spelling = _plain(morph)
+    if spelling in REVIEWED_OPAQUE_ROOTS and not plain_hits.get(spelling):
+        return f'tikh:{spelling}'
+    return ''
 
 
 def _explode(parts, lemma_ids, plain_hits, morph_family):
@@ -400,7 +442,9 @@ def _explode(parts, lemma_ids, plain_hits, morph_family):
         ordered = tuple(sorted(combo))
         if ordered not in unique:
             unique.append(ordered)
-    if all(kind == 'UNIQUE_SPELLING_FALLBACK' for kind in kinds):
+    if all(kind == 'REVIEWED_OPAQUE_ROOT' for kind in kinds):
+        source = 'REVIEWED_OPAQUE_ROOT'
+    elif all(kind == 'UNIQUE_SPELLING_FALLBACK' for kind in kinds):
         source = 'UNIQUE_SPELLING_FALLBACK'
     elif len(unique) > 1:
         source = 'AUTHORIZED_ALTERNATIVES'
