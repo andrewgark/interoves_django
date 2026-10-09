@@ -175,12 +175,26 @@ def main():
     # apply the real guess-side pack (citation-form preference) only to that
     # reduced candidate set.
     reverse_candidates = set()
-    for surface, pack in after_targets.items():
-        if any(_relation(pack, after_targets[target]) for _rel, target, _lemmas, _families in after_affected_targets):
-            reverse_candidates.add(surface)
-    for surface, pack in before_targets.items():
-        if any(_relation(pack, before_targets[target]) for _rel, target, _lemmas, _families in before_affected_targets):
-            reverse_candidates.add(surface)
+    for target_map, affected_rows in (
+        (after_targets, after_affected_targets),
+        (before_targets, before_affected_targets),
+    ):
+        by_fold = defaultdict(set)
+        by_lexeme = defaultdict(set)
+        by_root = defaultdict(set)
+        for surface, pack in target_map.items():
+            by_fold[pack.fold].add(surface)
+            for key in pack.lexemes:
+                by_lexeme[key].add(surface)
+            for key in pack.roots:
+                by_root[key].add(surface)
+        for _rel, target, _lemmas, _families in affected_rows:
+            target_pack = target_map[target]
+            reverse_candidates.update(by_fold[target_pack.fold])
+            for key in target_pack.lexemes:
+                reverse_candidates.update(by_lexeme[key])
+            for key in target_pack.roots:
+                reverse_candidates.update(by_root[key])
     with _config(False):
         reverse_before_packs = _pack_rows(
             [(None, s, set(), set()) for s in reverse_candidates], guess=True

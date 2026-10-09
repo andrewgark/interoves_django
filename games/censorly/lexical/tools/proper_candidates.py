@@ -19,6 +19,11 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Iterator, Mapping
 from urllib.parse import quote
 
+try:  # Optional speed-up for multi-million-line offline dumps.
+    import ujson as _json
+except ImportError:  # pragma: no cover - standard-library fallback
+    _json = json
+
 from games.censorly.article_pool import load_article_pool
 from games.censorly.lexical.core import fold
 
@@ -511,8 +516,8 @@ def load_jsonl(path: Path) -> Iterator[JsonObject]:
             if not line.strip():
                 continue
             try:
-                value = json.loads(line)
-            except json.JSONDecodeError:
+                value = _json.loads(line)
+            except (ValueError, json.JSONDecodeError):
                 print(f'warning: skipped malformed JSONL line {line_number}', file=sys.stderr)
                 continue
             if isinstance(value, dict):
