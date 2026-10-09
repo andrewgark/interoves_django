@@ -176,6 +176,18 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertIn('прибыть', hits)
         self.assertIn('прибыль', hits)
 
+    def test_reviewed_missing_root_assignments_use_gameplay_matcher(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'сенатор', 'lemma': 'сенатор'},
+            {'kind': 'content', 'surface': 'сенатский', 'lemma': 'сенатский'},
+            {'kind': 'content', 'surface': 'иволговые', 'lemma': 'иволговый'},
+        ]
+        self.assertEqual(
+            matching_lemmas(tokens, 'сенат'),
+            {'сенатор', 'сенатский'},
+        )
+        self.assertEqual(matching_lemmas(tokens, 'иволга'), {'иволговый'})
+
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
             kind = relation_kind(left, right)

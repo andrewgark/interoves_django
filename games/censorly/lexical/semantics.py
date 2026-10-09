@@ -17,7 +17,7 @@ from functools import lru_cache
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.dispatcher import RUSSIAN, backend_name
 from games.censorly.lexical.proper_names import PAIR_RELATIONS
-from games.censorly.lexical.rootbank import structures_of
+from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
 
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL', 'INTJ'})
 _CONTENT = frozenset({
@@ -244,7 +244,7 @@ def _russian(surface: str, article_language: str) -> bool:
     if any(item.pos for item in readings_of(surface)):
         return True
     # Hyphenated compounds may be absent from pymorphy and still have roots.
-    return bool(structures_of(fold(surface)))
+    return bool(structures_of(fold(surface)) or _reviewed_derived_lemma(surface))
 
 
 def _roots(found, surface: str) -> set[tuple[str, ...]]:
@@ -252,10 +252,26 @@ def _roots(found, surface: str) -> set[tuple[str, ...]]:
     keys.update(structures_of(fold(surface)))
     for item in found:
         keys.update(structures_of(item.lemma))
+    reviewed_lemma = _reviewed_derived_lemma(surface)
+    if reviewed_lemma:
+        keys.update(structures_of(reviewed_lemma))
     hyphen = _hyphen_structure(surface)
     if hyphen:
         keys.update(hyphen)
     return keys
+
+
+def _reviewed_derived_lemma(surface: str) -> str:
+    """Allow only explicitly reviewed lemmas through predicted inflections."""
+    if not surface:
+        return ''
+    from games.matcher.norm_matcher import MORPH_ANALYZER
+
+    for parse in MORPH_ANALYZER.parse(fold(surface)):
+        lemma = fold(parse.normal_form)
+        if lemma in REVIEWED_DERIVED_ROOTS:
+            return lemma
+    return ''
 
 
 def _hyphen_structure(surface: str) -> tuple[tuple[str, ...], ...]:

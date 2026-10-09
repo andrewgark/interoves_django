@@ -220,6 +220,13 @@
       body: body.toString(),
     }).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (data) { update(taskId, data); })
+      .catch(function () {
+        document.querySelectorAll('[data-like-status="' + taskId + '"]').forEach(function (status) {
+          status.textContent = 'Не удалось сохранить. Попробуйте ещё раз.';
+          status.hidden = false;
+          window.setTimeout(function () { status.hidden = true; }, 5000);
+        });
+      })
       .finally(function () { delete requests[taskId]; });
   }
   document.querySelectorAll('[data-like-btn]').forEach(function (el) {

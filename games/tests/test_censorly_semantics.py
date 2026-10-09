@@ -944,6 +944,19 @@ class LexicalGameplayTests(TestCase):
 
 
 class ReviewedHomonymClusterTests(SimpleTestCase):
+    def test_pust_family_keeps_wasteland_and_trifle_labels(self):
+        from games.censorly.lexical.semantic_splits import _classify_review_lemma
+
+        family = 'пуст²|пущ¹'
+        self.assertEqual(
+            _classify_review_lemma(family, 'пустыня'),
+            'sense:review_wasteland',
+        )
+        self.assertEqual(
+            _classify_review_lemma(family, 'пустяк'),
+            'sense:review_trifle',
+        )
+
     def test_reviewed_homonym_clusters_stay_apart(self):
         groups = (
             ('несколько', 'количество'),
@@ -1159,6 +1172,22 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
     def test_careful_split_keeps_requested_bridges(self):
         self.assertTrue(opens('щуп', 'щуплый'))
         self.assertTrue(opens('льстить', 'обольстить'))
+
+    def test_latest_careful_split_batch_stays_apart(self):
+        pairs = (
+            ('вередить', 'вредить'),
+            ('здание', 'назидание'),
+            ('создать', 'зодчий'),
+            ('сукно', 'засучить'),
+            ('добрый', 'удобрение'),
+            ('удобрение', 'сдабривать'),
+            ('страж', 'предостеречь'),
+            ('предостеречь', 'подстерегать'),
+            ('лесть', 'прелесть'),
+        )
+        for left, right in pairs:
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
 
 
 class ConfirmedSingleTokenRelationTests(SimpleTestCase):

@@ -1102,6 +1102,14 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(resp.json()['likes'], 1)
         self.assertTrue(resp.json()['liked'])
 
+    def test_like_dislike_endpoint_rejects_malformed_reaction(self):
+        self.client.force_login(self.staff)
+        resp = self.client.post(
+            f'/like-dislike/{self.task.id}/',
+            {'game_id': CENSORLY_GAME_ID, 'likes': 'oops', 'dislikes': 0},
+        )
+        self.assertEqual(resp.status_code, 400)
+
     def test_random_game_post_redirects_non_subscriber(self):
         from unittest.mock import patch
 

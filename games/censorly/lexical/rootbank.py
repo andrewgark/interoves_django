@@ -206,19 +206,6 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
             senses = (senses,)
         kuz_ids = kuz.get(lemma, ())
 
-        # Reviewed derived assignments are authoritative at lemma level. They
-        # provide a complete structure, so inflected surfaces can recover it
-        # through their pymorphy lemma without introducing pair edges.
-        reviewed = REVIEWED_DERIVED_ROOTS.get(lemma)
-        if reviewed is not None:
-            built[lemma] = reviewed
-            provenance[lemma] = {
-                'source': 'REVIEWED_DERIVED_ROOT',
-                'detail': ','.join('|'.join(item) for item in reviewed),
-                'refused': (),
-            }
-            audit['reviewed_derived_lemmas'] += 1
-            continue
         shape = 'multi' if len(parts) >= 2 else 'single'
         cand_lists = [
             _candidate_ids(part, plain_hits, morph_family) for part in parts
@@ -250,6 +237,19 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
             for candidates in cand_lists:
                 if len(candidates) > 1:
                     audit['ambiguous_resolved_by_sense'] += 1
+            continue
+        # Reviewed derived assignments are authoritative after explicit
+        # semantic assignments, and before dictionary reconstruction. They
+        # provide complete structures, never pair edges or partial compounds.
+        reviewed = REVIEWED_DERIVED_ROOTS.get(lemma)
+        if reviewed is not None:
+            built[lemma] = reviewed
+            provenance[lemma] = {
+                'source': 'REVIEWED_DERIVED_ROOT',
+                'detail': ','.join('|'.join(item) for item in reviewed),
+                'refused': (),
+            }
+            audit['reviewed_derived_lemmas'] += 1
             continue
         if len(parts) >= 2:
             structs, refused, source, rows = _explode(

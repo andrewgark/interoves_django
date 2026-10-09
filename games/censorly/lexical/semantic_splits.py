@@ -4074,6 +4074,9 @@ _REVIEW_FAMILIES = frozenset({
     'верст²|верст', 'страч|строк|строч', 'тверд|тверж|твержд', 'яв',
     'пуст²|пущ¹', 'сме¹', 'меж|межд',
     'лес¹|леш', 'гал|гол', 'син', 'клан|клон', 'щуп',
+    'веред|вред|вреж|врежд', 'зд|зид|зижд|зод', 'сук³|суч³',
+    'дабр|добр', 'стерег|стереж|стереч|стораж|сторож|страж',
+    'лест|лещ²|льст|льщ',
 })
 
 # A few productive prefixed verbs are assigned by the dictionary to another
@@ -4634,6 +4637,36 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
         if lemma.startswith(('щупальц',)):
             return 'sense:review_tentacle'
         return 'sense:review_probing_thinness'
+    if family == 'веред|вред|вреж|врежд':
+        if lemma.startswith(('веред', 'приверед')):
+            return 'sense:review_fussiness'
+        return 'sense:review_harm_damage'
+    if family == 'зд|зид|зижд|зод':
+        if lemma.startswith(('зод',)):
+            return 'sense:review_architecture'
+        if lemma.startswith(('назид',)):
+            return 'sense:review_moral_instruction'
+        return 'sense:review_creation_building'
+    if family == 'сук³|суч³':
+        if lemma.startswith(('сукн',)):
+            return 'sense:review_cloth'
+        return 'sense:review_twisting'
+    if family == 'дабр|добр':
+        if lemma.startswith(('удобр',)):
+            return 'sense:review_fertilizer'
+        if lemma.startswith(('сдабр', 'сдоб')):
+            return 'sense:review_food_enrichment'
+        return 'sense:review_kindness'
+    if family == 'стерег|стереж|стереч|стораж|сторож|страж':
+        if lemma.startswith(('остерег', 'остереч', 'предостерег', 'предостереч')):
+            return 'sense:review_warning'
+        if lemma.startswith(('подстерег',)):
+            return 'sense:review_ambush'
+        return 'sense:review_guard'
+    if family == 'лест|лещ²|льст|льщ':
+        if lemma.startswith(('прелест',)):
+            return 'sense:review_charm_beauty'
+        return 'sense:review_flattery_seduction'
     if family == 'па¹|пад|паж|пас¹|пащ':
         return 'sense:review_falling'
     if family == 'би(j)|бо(j)¹|бь':

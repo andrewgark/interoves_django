@@ -4419,8 +4419,13 @@ def new_like_dislike(request, task_id):
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
             raise Http404()
 
-    likes = int(request.POST.get('likes', 0))
-    dislikes = int(request.POST.get('dislikes', 0))
+    try:
+        likes = int(request.POST.get('likes', 0) or 0)
+        dislikes = int(request.POST.get('dislikes', 0) or 0)
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Некорректная реакция.'}, status=400)
+    if likes not in (-1, 0, 1) or dislikes not in (-1, 0, 1) or (likes and dislikes):
+        return JsonResponse({'error': 'Некорректная реакция.'}, status=400)
     if likes == 1:
         reaction = 1
     elif dislikes == 1:
