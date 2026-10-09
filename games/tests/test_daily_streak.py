@@ -212,3 +212,13 @@ class DailyStreakLogicTests(TestCase):
         )
         self.assertEqual(statuses[self.links['ladder'][10].task_group_id], 'late')
         self.assertEqual(statuses[self.links['ladder'][11].task_group_id], 'streak')
+
+    def test_completion_statuses_mark_an_author_release_as_same_day(self):
+        self.links['ladder'][11].task_group.authors.add(self.profile)
+        statuses = daily_completion_statuses_for_actor(
+            game=self.games['ladder'],
+            links=[self.links['ladder'][11]],
+            user=self.user,
+            now=self.now,
+        )
+        self.assertEqual(statuses[self.links['ladder'][11].task_group_id], 'streak')

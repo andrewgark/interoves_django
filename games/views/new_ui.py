@@ -1132,9 +1132,13 @@ def _add_daily_completion_statuses(request, game, rows, links):
     from games.daily.streak import daily_completion_statuses_for_actor
 
     _team, user, anon_key = _resolve_game_page_actor(request, 'personal')
-    statuses = daily_completion_statuses_for_actor(
-        game=game, links=links, user=user, anon_key=anon_key,
-    )
+    try:
+        statuses = daily_completion_statuses_for_actor(
+            game=game, links=links, user=user, anon_key=anon_key,
+        )
+    except Exception:
+        logger.exception('Daily completion statuses failed for game=%s', game.id)
+        statuses = {}
     by_number = {}
     for link in links:
         game_link = link[1] if isinstance(link, tuple) else link

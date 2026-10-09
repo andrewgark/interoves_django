@@ -15,7 +15,7 @@
   {% include "new/partials/daily_archive_calendar.html" %}
   {% for row in rows %}<div id="censorly-{{ row.number }}" class="new-task {{ row.row_class }}{% if row.is_today %} new-task--today{% endif %}" data-fully-solved="{% if row.is_solved %}1{% else %}0{% endif %}">
     <a class="new-task__body" href="{{ row.play_url }}"><strong>{{ row.name }}</strong>{% if row.publish_date %}<small class="new-task__date">{{ row.publish_date|date:"j E Y" }}</small>{% endif %}{% if row.progress_meta %}<small class="new-task__meta">{{ row.progress_meta }}</small>{% endif %}</a>
-    {% if row.is_solved %}<span class="new-task__actions">{% if row.daily_completion_status %}<i class="ph ph-fire daily-solve-flame daily-solve-flame--{{ row.daily_completion_status }}" data-tooltip="{% if row.daily_completion_status == 'late' %}Задание решено спустя больше суток{% elif row.daily_completion_status == 'streak' %}Задание решено в те же сутки · текущий Streak{% else %}Задание решено в те же сутки{% endif %}" aria-label="{% if row.daily_completion_status == 'late' %}Задание решено спустя больше суток{% elif row.daily_completion_status == 'streak' %}Задание решено в те же сутки · текущий Streak{% else %}Задание решено в те же сутки{% endif %}"></i>{% endif %}<span class="new-pill new-pill--ok" data-tooltip="Решено">ок</span></span>{% endif %}
+    {% if row.is_solved %}<span class="new-task__actions">{% include "new/partials/daily_solve_flame.html" with status=row.daily_completion_status %}<span class="new-pill new-pill--ok" data-tooltip="Решено">ок</span></span>{% endif %}
   </div>{% endfor %}
 {% else %}<div class="new-empty"><p class="new-empty__text">Цензурки скоро появятся.</p></div>{% endif %}
 <script>

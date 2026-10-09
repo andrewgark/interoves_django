@@ -1,0 +1,8 @@
+{% if status %}
+  <span class="daily-solve-flame daily-solve-flame--{{ status }}"
+        data-tooltip="{% if status == 'late' %}Задание решено спустя больше суток{% elif status == 'streak' %}Задание решено в те же сутки · текущий Streak{% else %}Задание решено в те же сутки{% endif %}"
+        role="img"
+        aria-label="{% if status == 'late' %}Задание решено спустя больше суток{% elif status == 'streak' %}Задание решено в те же сутки · текущий Streak{% else %}Задание решено в те же сутки{% endif %}">
+    <i class="ph ph-fire" aria-hidden="true"></i>
+  </span>
+{% endif %}

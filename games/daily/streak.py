@@ -11,7 +11,7 @@ from django.db.models import Prefetch
 from django.utils import timezone
 
 from games.daily.section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
-from games.models import DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Profile
+from games.models import DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Profile, TaskGroup
 
 
 def streak_from_completion_dates(completed_dates, *, today):
@@ -130,6 +130,7 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
     today = now.astimezone(MOSCOW).date()
     links = list(links)
     link_dates = {}
+    link_publication_times = {}
     task_group_ids = []
     for link in links:
         game_link = link[1] if isinstance(link, tuple) else link
@@ -142,6 +143,7 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
         if task_group_id is None:
             continue
         link_dates[task_group_id] = published_at.astimezone(MOSCOW).date()
+        link_publication_times[task_group_id] = published_at
         task_group_ids.append(task_group_id)
     if not task_group_ids:
         return {}
@@ -166,6 +168,19 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
     ).only('task_group_id', 'completed_at'):
         if row.completed_at:
             completed_at_by_group.setdefault(row.task_group_id, row.completed_at)
+
+    # Match the existing Streak rule: an author gets personal credit for a
+    # published release without a completion row.
+    if user is not None and getattr(user, 'is_authenticated', False):
+        authored_groups = set(
+            TaskGroup.objects.filter(
+                pk__in=task_group_ids, authors__user_id=user.pk,
+            ).values_list('pk', flat=True)
+        )
+        for task_group_id in authored_groups:
+            published_at = link_publication_times.get(task_group_id)
+            if published_at is not None and published_at <= now:
+                completed_at_by_group.setdefault(task_group_id, published_at)
 
     same_day_dates = {
         link_dates[group_id]
