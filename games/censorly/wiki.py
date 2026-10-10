@@ -177,6 +177,11 @@ def _remove_tex_groups(text: str) -> str:
                         j += 1
                         break
                 j += 1
+            if depth > 0:
+                # A malformed/unclosed TeX group must not truncate the rest
+                # of the Wikipedia extract.
+                out.append(text[i:])
+                break
             i = j
             continue
         out.append(text[i])
