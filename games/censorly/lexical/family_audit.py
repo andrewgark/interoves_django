@@ -63,6 +63,11 @@ _PREFIXES = (
 # AGENT_THINKS_SAFE = agent judges one modern family; do not cut unless revisited.
 # SAFE_ONE_FAMILY = legacy human-safe (prefer AGENT_THINKS_SAFE for new marks).
 VERDICTS = {
+    'глав|голав|голов': (
+        'SPLIT',
+        'Голова и глава отделены от голавля; головня сохраняет чтения горящей головни и болезни растений.',
+        'HEAD/CHIEF: голова, глава; FISH: голавль, голавлевый; FIREBRAND: головешка, головня; SMUT: головня, головневый',
+    ),
     'крас¹|краш': (
         'SPLIT',
         'Красота и красный цвет — разные современные семьи. красочный и красно оставлены неразмеченными.',

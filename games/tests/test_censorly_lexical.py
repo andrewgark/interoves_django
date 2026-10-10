@@ -106,6 +106,18 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertEqual(structures_of('угореть'), (('sense:fumes',),))
         self.assertEqual(structures_of('гореть'), (('sense:burn',),))
 
+    def test_head_fish_and_firebrand_families_are_separate(self):
+        self.assertEqual(structures_of('голова'), (('root:head',),))
+        self.assertEqual(structures_of('главный'), (('root:chief',),))
+        self.assertEqual(structures_of('голавль'), (('sense:fish',),))
+        self.assertEqual(structures_of('голавлевый'), (('sense:fish',),))
+        self.assertEqual(structures_of('головешка'), (('sense:firebrand',),))
+        self.assertEqual(structures_of('головневый'), (('sense:smut',),))
+        self.assertEqual(
+            set(structures_of('головня')),
+            {('sense:firebrand',), ('sense:smut',)},
+        )
+
     def test_key_and_spring_keep_separate_readings(self):
         lock_root = ('sense:key',)
         spring_root = ('sense:key_spring',)

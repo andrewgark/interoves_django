@@ -5063,6 +5063,7 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('писать', ('sense:review_writing', 'sense:urinate')),
     ('писаться', ('sense:review_writing', 'sense:urinate')),
     ('звание', ('sense:review_calling', 'sense:review_title')),
+    ('головня', ('sense:firebrand', 'sense:smut')),
 )
 
 # ``ключ`` itself is polysemous; its derivatives below remain ordinary,
