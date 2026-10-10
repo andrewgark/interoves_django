@@ -329,8 +329,9 @@ class _TexTextParser:
                 return f"{arg[0]}{'˙' if name == 'dot' else '¨'}", arg[1]
             if name == 'hat' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 accented = unicodedata.normalize('NFC', arg[0] + '\u0302')
-                if len(accented) == 1:
-                    return accented, arg[1]
+                # Keep a combining circumflex when Unicode has no precomposed
+                # character (common for operator letters such as X and P).
+                return accented, arg[1]
             if name in ('overline', 'bar') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f'{arg[0]}¯', arg[1]
             if name == 'vec' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):

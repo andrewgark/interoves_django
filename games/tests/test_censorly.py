@@ -761,6 +761,10 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('N¯', entropy)
         quantum = clean_wiki_extract(_load_censorly_testdata('pool/quantum.txt'))
         self.assertIn('λ⃗', quantum)
+        self.assertIn('X̂', quantum)
+        self.assertIn('P̂', quantum)
+        self.assertNotIn('hat(X)', quantum)
+        self.assertNotIn('hat(P)', quantum)
         schrodinger = clean_wiki_extract(_load_censorly_testdata('pool/schrodinger.txt'))
         self.assertIn('r⃗', schrodinger)
 
