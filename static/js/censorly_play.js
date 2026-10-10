@@ -916,7 +916,11 @@
               var newly = data.newly_revealed || [];
               flashTokenIds(root, newly);
               if (newly.length) scrollToTokenId(root, newly[0]);
-              if (data.status !== 'won') setFeedback(root, 'Подсказка открыта', '');
+              if (data.status === 'already_open') {
+                setFeedback(root, 'Это слово уже открыто', 'info');
+              } else if (data.status !== 'won') {
+                setFeedback(root, 'Подсказка открыта', '');
+              }
             })
             .catch(function () {
               setFeedback(root, 'Сеть недоступна', 'error');
