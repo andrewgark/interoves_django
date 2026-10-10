@@ -466,6 +466,15 @@ class _TexTextParser:
         )
         rendered = re.sub(rf'([A-Za-zΑ-Ωα-ωℏ])\s+([{scripts}]+)', r'\1\2', rendered)
         rendered = re.sub(rf'([∂∇])\s+([{scripts}]+)', r'\1\2', rendered)
+        rendered = re.sub(r'([−+])\s+(∞)', r'\1\2', rendered)
+        rendered = re.sub(
+            rf'([∫∬∭∮][{scripts}]*₍[^₎]+₎)(?=[∂∇√])',
+            r'\1 ', rendered,
+        )
+        rendered = re.sub(
+            rf'([∫∬∭∮][{scripts}]*₍[^₎]+₎\^\([^)]*\))(?=[A-Za-zА-Яа-яα-ωΑ-Ω0-9])',
+            r'\1 ', rendered,
+        )
         rendered = re.sub(r'₍\s+', '₍', rendered)
         rendered = re.sub(r'\s+₎', '₎', rendered)
         return re.sub(r' {2,}', ' ', rendered).strip()

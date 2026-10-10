@@ -686,6 +686,7 @@ class CensorlyRandomGameTests(TestCase):
         self.assertNotIn('₍ ', gauss)
         self.assertNotIn('~', gauss)
         self.assertIn('∫₍V₎ 4π ρ dV', gauss)
+        self.assertIn('∫₍V₎ ∇ · E', gauss)
 
     def test_pool_formula_fixtures_keep_equations_instead_of_vertical_glyph_dumps(self):
         from games.censorly.wiki import clean_wiki_extract
@@ -766,6 +767,7 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('P̂', quantum)
         self.assertNotIn('hat(X)', quantum)
         self.assertNotIn('hat(P)', quantum)
+        self.assertIn('∫₍−∞₎^(+∞) C(k)', quantum)
         schrodinger = clean_wiki_extract(_load_censorly_testdata('pool/schrodinger.txt'))
         self.assertIn('r⃗', schrodinger)
 
