@@ -19,6 +19,7 @@ from games.censorly.lexical.core import fold
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
 REVIEW_FILE = DATA / 'pair_review.tsv'
+FAMILY_REVIEW_FILE = DATA / 'family_review.tsv'
 OPAQUE_FILE = DATA / 'reviewed_opaque_roots.tsv'
 DERIVED_FILE = DATA / 'reviewed_derived_roots.tsv'
 RUNTIME_STATUSES = {'APPROVED', 'APPLIED'}
@@ -36,7 +37,7 @@ def _write(path, fields, rows):
         writer.writerows(rows)
 
 
-def _approved_assignments(review_path):
+def _approved_assignments(review_path, family_review_path=FAMILY_REVIEW_FILE):
     opaque = {}
     derived = {}
     candidates = []
@@ -81,6 +82,18 @@ def _approved_assignments(review_path):
                 'guess': row['guess'], 'target': row['target'],
                 'fix_layer': layer, 'note': row['note'],
             })
+    if family_review_path and family_review_path.exists():
+        for row in _read(family_review_path):
+            if row.get('decision') != 'APPROVE_OPAQUE_FAMILY':
+                continue
+            root = fold(row.get('root', ''))
+            if not root:
+                raise RuntimeError('family review contains an empty root')
+            note = row.get('note', '')
+            previous = opaque.get(root)
+            if previous is not None and previous != note:
+                raise RuntimeError(f'conflicting family opaque notes for {root}')
+            opaque[root] = note
     return opaque, derived, candidates
 
 
@@ -96,8 +109,8 @@ def _canonical_rows(opaque, derived):
     return opaque_rows, derived_rows
 
 
-def _check(review_path):
-    opaque, derived, _ = _approved_assignments(review_path)
+def _check(review_path, family_review_path):
+    opaque, derived, _ = _approved_assignments(review_path, family_review_path)
     expected_opaque, expected_derived = _canonical_rows(opaque, derived)
     actual_opaque = _read(OPAQUE_FILE) if OPAQUE_FILE.exists() else []
     actual_derived = _read(DERIVED_FILE) if DERIVED_FILE.exists() else []
@@ -123,6 +136,7 @@ def _check(review_path):
 def main():
     parser = argparse.ArgumentParser(description='Apply approved reviewed assignments to canonical TSV files.')
     parser.add_argument('--review-file', type=Path, default=REVIEW_FILE)
+    parser.add_argument('--family-review-file', type=Path, default=FAMILY_REVIEW_FILE)
     parser.add_argument('--output-dir', type=Path, default=DATA)
     parser.add_argument('--check', action='store_true')
     args = parser.parse_args()
@@ -131,28 +145,36 @@ def main():
     OPAQUE_FILE = args.output_dir / 'reviewed_opaque_roots.tsv'
     DERIVED_FILE = args.output_dir / 'reviewed_derived_roots.tsv'
     if args.check:
-        return _check(args.review_file)
+        return _check(args.review_file, args.family_review_file)
 
-    opaque, derived, candidates = _approved_assignments(args.review_file)
+    opaque, derived, candidates = _approved_assignments(args.review_file, args.family_review_file)
     opaque_rows, derived_rows = _canonical_rows(opaque, derived)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _write(OPAQUE_FILE, ('root_spelling', 'note'), opaque_rows)
     _write(DERIVED_FILE, ('lemma', 'root_structure', 'note'), derived_rows)
     _write(args.output_dir / 'review_candidates.generated.tsv',
            ('guess', 'target', 'fix_layer', 'note'), candidates)
+    manifest = [
+        {
+            'guess': row['guess'], 'target': row['target'],
+            'fix_layer': row['fix_layer'], 'status': row['status'],
+            'generated': 'assignment-layer' if row['fix_layer'] in {
+                'REVIEWED_OPAQUE_ROOT', 'REVIEWED_DERIVED_ROOT'
+            } else 'candidate-only',
+        }
+        for row in _read(args.review_file)
+        if row['status'] in RUNTIME_STATUSES
+    ]
+    if args.family_review_file.exists():
+        manifest.extend({
+            'guess': row.get('root', ''), 'target': '',
+            'fix_layer': 'REVIEWED_OPAQUE_ROOT', 'status': row.get('decision', ''),
+            'generated': 'assignment-layer',
+        } for row in _read(args.family_review_file)
+        if row.get('decision') == 'APPROVE_OPAQUE_FAMILY')
     _write(args.output_dir / 'review_apply_manifest.tsv',
            ('guess', 'target', 'fix_layer', 'status', 'generated'),
-           [
-               {
-                   'guess': row['guess'], 'target': row['target'],
-                   'fix_layer': row['fix_layer'], 'status': row['status'],
-                   'generated': 'assignment-layer' if row['fix_layer'] in {
-                       'REVIEWED_OPAQUE_ROOT', 'REVIEWED_DERIVED_ROOT'
-                   } else 'candidate-only',
-               }
-               for row in _read(args.review_file)
-               if row['status'] in RUNTIME_STATUSES
-           ])
+           manifest)
     print(f'processed explicit decisions: {len(opaque_rows) + len(derived_rows)} assignments')
     print(f'generated: {OPAQUE_FILE}')
     print(f'generated: {DERIVED_FILE}')
