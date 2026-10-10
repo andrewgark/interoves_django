@@ -1661,6 +1661,37 @@ class CensorlyPoolExtractTests(SimpleTestCase):
 
 
 class CensorlyHeadingLevelTests(SimpleTestCase):
+    def test_formula_cleanup_preserves_heading_after_formula(self):
+        from games.censorly.tokenize import HEADING_START
+        from games.censorly.wiki import _trim_extract
+
+        body, truncated = _trim_extract(
+            'Формула {\\displaystyle x = 1}.\n\n'
+            '=== Подзаголовок ===\n\n'
+            'Текст после заголовка.'
+        )
+
+        self.assertFalse(truncated)
+        self.assertIn(HEADING_START, body)
+        self.assertNotIn('===', body)
+
+    def test_old_saved_extract_repairs_heading_joined_to_following_text(self):
+        from games.censorly import CENSORLY_SPLITTER_VERSION
+        from games.censorly.tokenize import resolve_puzzle_payload
+
+        resolved = resolve_puzzle_payload({
+            'wiki_title': 'Статья',
+            'body_text': 'Формула x = 1.\n\n=== Подзаголовок === Текст после заголовка.',
+            'splitter_version': CENSORLY_SPLITTER_VERSION - 1,
+        })
+
+        heading_words = [
+            token for token in resolved['body_tokens']
+            if token.get('in_heading') and token.get('kind') == 'content'
+        ]
+        self.assertEqual([token['surface'] for token in heading_words], ['Подзаголовок'])
+        self.assertNotIn('===', resolved['body_text'])
+
     def test_stacked_wiki_headings_keep_level(self):
         from games.censorly.tokenize import HEADING_END, HEADING_START
         from games.censorly.wiki import _headings_to_marked

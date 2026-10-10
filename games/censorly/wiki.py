@@ -36,6 +36,10 @@ _SECTION_HEADING_RE = re.compile(
     r'^(={2,})\s*(.+?)\s*\1\s*$',
     re.MULTILINE,
 )
+_SECTION_HEADING_PREFIX_RE = re.compile(
+    r'^(={2,})\s*(.+?)\s*\1(?=\s|$)',
+    re.MULTILINE,
+)
 
 class WikiFetchError(Exception):
     """Failed to load or validate a Wikipedia article."""
@@ -532,14 +536,22 @@ def _collapse_extract_whitespace(text: str) -> str:
     """Normalize blanks after math/image cleanup so prose reads as paragraphs."""
     if not text:
         return text
+
+    def collapse_prose_linebreak(match: re.Match[str]) -> str:
+        # Keep a wiki heading on its own line so _headings_to_marked can find it.
+        previous_line = (match.string[:match.start()] + match.group(1)).rsplit('\n', 1)[-1]
+        if _SECTION_HEADING_RE.fullmatch(previous_line.strip()):
+            return match.group(0)
+        return f'{match.group(1)} {match.group(2)}'
+
     text = text.replace('\u2061', '')  # function-application (MathML)
     text = re.sub(r'[ \t]+\n', '\n', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
     # Punctuation that followed a removed display formula.
     text = re.sub(r'\n{2,}[ \t]*([,.;:!?…])', r'\1', text)
     # Mid-sentence leftovers: "скорость\n\nсоответствует" / "скорость\n соответствует".
-    text = re.sub(r'([^\n])\n{2,}[ \t]*([^\W\d_])', r'\1 \2', text)
-    text = re.sub(r'([^\n])\n[ \t]*([^\W\d_])', r'\1 \2', text)
+    text = re.sub(r'([^\n])\n{2,}[ \t]*([^\W\d_])', collapse_prose_linebreak, text)
+    text = re.sub(r'([^\n])\n[ \t]*([^\W\d_])', collapse_prose_linebreak, text)
     # A run of formula-terminating semicolons, not a single prose semicolon.
     text = re.sub(r';{2,}', '', text)
     text = re.sub(r';\s*([.,])', r'\1', text)
@@ -622,7 +634,9 @@ def _headings_to_marked(extract: str) -> str:
         level = min(6, max(2, len(match.group(1) or '==')))
         return f'{HEADING_START}{level}{HEADING_LEVEL_SEP}{name}{HEADING_END}'
 
-    return _SECTION_HEADING_RE.sub(repl, extract or '')
+    # The prefix form also repairs older saved extracts where whitespace
+    # cleanup joined the text after a heading onto the same line.
+    return _SECTION_HEADING_PREFIX_RE.sub(repl, extract or '')
 
 
 def _trim_extract(extract: str) -> tuple[str, bool]:

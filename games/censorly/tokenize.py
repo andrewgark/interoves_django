@@ -449,6 +449,12 @@ def resolve_puzzle_payload(payload: dict[str, Any]) -> dict[str, Any]:
     if has_text:
         title = payload.get('wiki_title') or ''
         body = payload.get('body_text') or ''
+        if not version_ok:
+            # Older stored extracts may contain raw == heading == text because
+            # whitespace cleanup joined the following paragraph to the heading.
+            from games.censorly.wiki import _headings_to_marked
+
+            body = _headings_to_marked(body)
         source = payload
     else:
         source = upgrade_puzzle_payload(payload)
