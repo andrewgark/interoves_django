@@ -728,6 +728,28 @@ class CensorlyRandomGameTests(TestCase):
         entropy = clean_wiki_extract(_load_censorly_testdata('pool/entropy.txt'))
         self.assertIn('N¯', entropy)
 
+    def test_latex_function_names_are_separated_from_variables_and_arguments(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle p_i\log p_i + \sin x + \cos{\frac{a}{R}}}'
+        cleaned = clean_wiki_extract(raw)
+        self.assertIn('pᵢ log pᵢ + sin x + cos (a)/(R)', cleaned)
+        self.assertNotIn('cos ·', cleaned)
+
+        words = [
+            token['surface'] for token in tokenize_text(cleaned)
+            if token['kind'] == 'content'
+        ]
+        self.assertIn('pᵢ', words)
+        self.assertIn('log', words)
+        self.assertIn('sin', words)
+
+        entropy = clean_wiki_extract(_load_censorly_testdata('pool/entropy.txt'))
+        self.assertIn('pᵢ log pᵢ', entropy)
+        pythagoras = clean_wiki_extract(_load_censorly_testdata('pool/pythagoras.txt'))
+        self.assertIn('cos (c)/(R)', pythagoras)
+
     def test_strip_numeric_footnotes_keeps_miller_indices(self):
         from games.censorly.wiki import clean_wiki_extract
 

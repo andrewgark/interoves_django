@@ -195,6 +195,12 @@ _TEX_GROUP_COMMANDS = frozenset({
     'operatorname', 'operatorname*', 'mathrm', 'mathbf', 'mathit',
     'mathsf', 'mathtt', 'mathcal', 'mathbb', 'mathfrak', 'text',
 })
+_TEX_FUNCTION_COMMANDS = frozenset({
+    'arg', 'cos', 'cosh', 'cot', 'coth', 'csc', 'deg', 'det', 'dim',
+    'exp', 'gcd', 'hom', 'inf', 'ker', 'lg', 'lim', 'liminf', 'limsup',
+    'ln', 'log', 'max', 'min', 'Pr', 'sec', 'sin', 'sinh', 'sup', 'tan',
+    'tanh',
+})
 _SUPERSCRIPTS = str.maketrans({
     **dict(zip('0123456789+-=()', '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾')),
     **dict(zip('abcdefghijklmnoprstuvwxyz', 'ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ')),
@@ -233,6 +239,13 @@ class _TexTextParser:
 
     def __init__(self, text: str):
         self.text = text
+
+    @staticmethod
+    def _needs_implicit_product(previous: str) -> bool:
+        if not previous or not (previous[-1].isalnum() or previous[-1] == ')'):
+            return False
+        final_word = re.search(r'([A-Za-z]+)$', previous)
+        return not final_word or final_word.group(1) not in _TEX_FUNCTION_COMMANDS
 
     def _argument(self, pos: int) -> tuple[str, int] | None:
         while pos < len(self.text) and self.text[pos].isspace():
@@ -312,6 +325,10 @@ class _TexTextParser:
             return ' ', j
         if name in _TEX_SYMBOLS:
             return _TEX_SYMBOLS[name], j
+        if name in _TEX_FUNCTION_COMMANDS:
+            # TeX function commands are words, so keep them token-separated
+            # from adjacent variables even when the source has no whitespace.
+            return f' {name} ', j
         # Unknown commands remain legible instead of disappearing or leaking a slash.
         return name, j
 
@@ -323,9 +340,7 @@ class _TexTextParser:
             if ch == '\\':
                 previous = ''.join(out).rstrip()
                 value, i = self._command(i)
-                if re.fullmatch(r'\(.+\)/\(.+\)', value) and previous and (
-                    previous[-1].isalnum() or previous[-1] == ')'
-                ):
+                if re.fullmatch(r'\(.+\)/\(.+\)', value) and self._needs_implicit_product(previous):
                     out.append(' · ')
                 out.append(value)
                 continue
@@ -339,9 +354,7 @@ class _TexTextParser:
                 value, i = group
                 rendered_group = _TexTextParser(value).parse()
                 previous = ''.join(out).rstrip()
-                if re.fullmatch(r'\(.+\)/\(.+\)', rendered_group) and previous and (
-                    previous[-1].isalnum() or previous[-1] == ')'
-                ):
+                if re.fullmatch(r'\(.+\)/\(.+\)', rendered_group) and self._needs_implicit_product(previous):
                     out.append(' · ')
                 out.append(rendered_group)
                 continue
