@@ -82,13 +82,14 @@ html.new-ui-dark .censorly__dock {
   }
 
   /*
-    A long masked word is an inline-block whose natural width is the width of
-    all its █ glyphs. On a phone that width can be wider than the article and
-    otherwise creates horizontal overflow. Keep the mask as one visual token,
-    but allow its glyphs to wrap inside the article column.
+  A long masked word can be wider than the article on a phone. Let the glyphs
+  wrap across lines so the black mask stays inside the article column.
   */
   .censorly-tok--glyphs .censorly-tok__blocks {
-    max-width: 100%;
+    /* An inline-block stays one unbreakable box despite break-all. Make the
+       mask itself inline so the glyph run can fragment across article lines. */
+    display: inline;
+    max-width: none;
     white-space: normal;
     overflow-wrap: anywhere;
     word-break: break-all;
