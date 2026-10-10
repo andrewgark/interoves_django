@@ -103,16 +103,21 @@ html.new-ui-dark .censorly__dock {
   }
 
   .censorly__body {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
   }
 
   .censorly__title {
-    font-size: clamp(1.4rem, 6vw, 1.7rem);
+    font-size: clamp(1.3rem, 5.5vw, 1.55rem);
     line-height: 1.3;
   }
 
   .censorly__input {
+    font-size: 0.875rem;
     padding: 0.42rem 0.6rem;
+  }
+
+  .censorly__guess-table {
+    font-size: 0.85rem;
   }
 
   .censorly__dock {
