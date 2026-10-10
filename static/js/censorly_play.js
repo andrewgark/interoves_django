@@ -964,6 +964,7 @@
         if (!word) return;
         busy = true;
         hasLocalAction = true;
+        var revealScrollTokenId = null;
         setFeedback(root, '');
         postJson(guessUrl, { word: word }, root)
           .then(function (data) {
@@ -996,7 +997,7 @@
             input.value = '';
             var newly = data.newly_revealed || [];
             flashTokenIds(root, newly);
-            if (newly.length) scrollToTokenId(root, newly[0]);
+            if (newly.length) revealScrollTokenId = newly[0];
             if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit');
             else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error');
             else if (data.status === 'already_open') setFeedback(root, guessFeedbackHelper.feedback(data, word), '');
@@ -1007,6 +1008,11 @@
           .finally(function () {
             busy = false;
             if (input && !input.disabled) input.focus();
+            if (revealScrollTokenId != null) {
+              window.requestAnimationFrame(function () {
+                scrollToTokenId(root, revealScrollTokenId);
+              });
+            }
           });
       });
     }
