@@ -172,16 +172,23 @@ _TEX_SYMBOLS = {
     'infty': '∞', 'times': '×', 'cdot': '·', 'pm': '±', 'mp': '∓',
     'le': '≤', 'leq': '≤', 'ge': '≥', 'geq': '≥', 'neq': '≠',
     'ne': '≠', 'approx': '≈', 'equiv': '≡', 'notin': '∉',
-    'in': '∈', 'to': '→', 'rightarrow': '→', 'leftarrow': '←',
-    'leftrightarrow': '↔', 'cup': '∪', 'cap': '∩', 'land': '∧',
+    'in': '∈', 'to': '→', 'rightarrow': '→', 'longrightarrow': '⟶',
+    'leftarrow': '←', 'longleftarrow': '⟵', 'leftrightarrow': '↔',
+    'longleftrightarrow': '⟷', 'Rightarrow': '⇒', 'Longrightarrow': '⟹',
+    'Leftarrow': '⇐', 'Longleftarrow': '⟸', 'Leftrightarrow': '⇔',
+    'Longleftrightarrow': '⟺', 'mapsto': '↦', 'langle': '⟨', 'rangle': '⟩',
+    'cup': '∪', 'cap': '∩', 'land': '∧',
     'lor': '∨', 'degree': '°', 'circ': '∘', 'emptyset': '∅',
+    'triangle': '△', 'perp': '⊥', 'parallel': '∥', 'otimes': '⊗',
+    'sim': '∼', 'subseteq': '⊆', 'mid': '∣', 'angle': '∠', 'prime': '′',
     'ldots': '…', 'cdots': '…', 'dots': '…', 'over': ' / ',
     'int': '∫', 'iint': '∬', 'iiint': '∭', 'oint': '∮',
     'sum': '∑', 'prod': '∏', 'sqrt': '√',
 }
 _TEX_FORMAT_COMMANDS = frozenset({
     'displaystyle', 'textstyle', 'scriptstyle', 'scriptscriptstyle',
-    'limits', 'nolimits', 'left', 'right', 'middle', 'quad', 'qquad',
+    'limits', 'nolimits', 'left', 'right', 'middle', 'big', 'Big', 'bigg', 'Bigg',
+    'bigl', 'bigr', 'Bigl', 'Bigr', 'biggl', 'biggr', 'Biggl', 'Biggr', 'quad', 'qquad',
     '!', ',', ';', ':', ' ',
 })
 _TEX_GROUP_COMMANDS = frozenset({
@@ -354,6 +361,8 @@ class _TexTextParser:
         rendered = re.sub(r'[ \t\r\n]+', ' ', ''.join(out)).strip()
         rendered = re.sub(r'\s*([=+−×·≤≥≠≈])\s*', r' \1 ', rendered)
         rendered = re.sub(r'= +− +(?=[(\d])', '= −', rendered)
+        rendered = re.sub(r'([⟨])\s+', r'\1', rendered)
+        rendered = re.sub(r'\s+([⟩])', r'\1', rendered)
         scripts = re.escape(_SCRIPT_CHARS)
         rendered = re.sub(rf'([∫∬∭∮])\s+([{scripts}]+)', r'\1\2', rendered)
         rendered = re.sub(rf'([∫∬∭∮][{scripts}]+)(?=[A-Za-zА-Яа-яα-ωΑ-Ω])', r'\1 ', rendered)

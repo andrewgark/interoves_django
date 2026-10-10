@@ -678,6 +678,38 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('√', schrodinger_clean)
         self.assertNotIn('\\displaystyle', schrodinger_clean)
 
+    def test_latex_brackets_arrows_and_relations_render_as_open_math_tokens(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle \langle x\rangle '
+            r'\Longleftrightarrow \Rightarrow \longrightarrow '
+            r'\subseteq \perp \otimes}'
+        )
+        cleaned = clean_wiki_extract(raw)
+        self.assertIn('⟨x⟩ ⟺ ⇒ ⟶ ⊆ ⊥ ⊗', cleaned)
+
+        token_kinds = {
+            token['surface']: token['kind']
+            for token in tokenize_text(cleaned)
+            if token['surface'] in {'⟨', '⟩', '⟺', '⇒', '⟶', '⊆', '⊥', '⊗'}
+        }
+        self.assertEqual(
+            token_kinds,
+            {'⟨': 'stop', '⟩': 'stop', '⟺': 'stop', '⇒': 'stop', '⟶': 'stop',
+             '⊆': 'stop', '⊥': 'stop', '⊗': 'stop'},
+        )
+
+        stat_mech = clean_wiki_extract(_load_censorly_testdata('pool/stat_mech.txt'))
+        self.assertIn('⟨f⟩', stat_mech)
+        self.assertNotIn('langle', stat_mech)
+        self.assertNotIn('rangle', stat_mech)
+
+        pythagoras = clean_wiki_extract(_load_censorly_testdata('pool/pythagoras.txt'))
+        self.assertIn('⟺ a² + b² = c²', pythagoras)
+        self.assertNotIn('Longleftrightarrow', pythagoras)
+
     def test_strip_numeric_footnotes_keeps_miller_indices(self):
         from games.censorly.wiki import clean_wiki_extract
 
