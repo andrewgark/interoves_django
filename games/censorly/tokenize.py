@@ -31,11 +31,11 @@ _MATH_SERVICE_CLASS = re.escape(_MATH_SERVICE_SYMBOLS)
 
 # Greek, CJK, Cyrillic and Latin are words. Hyphen, ² and ₂ are not in the span.
 _TOKEN_RE = re.compile(
-    rf'[{_MATH_SERVICE_CLASS}]|(?:(?![{_MATH_SERVICE_CLASS}])[{WORD_CHARS}])+|[^{WORD_CHARS}\s]+|\s+',
+    rf'[{WORD_CHARS}]+⃗|[{_MATH_SERVICE_CLASS}]|(?:(?![{_MATH_SERVICE_CLASS}])[{WORD_CHARS}])+|[^{WORD_CHARS}\s]+|\s+',
 )
 
 _WORD_CORE_RE = re.compile(
-    rf'^[{WORD_CHARS}]+$',
+    rf'^[{WORD_CHARS}]+⃗?$',
 )
 
 _HEADING_SPLIT_RE = re.compile(
@@ -170,7 +170,7 @@ def _tokenize_plain(
         if not raw:
             continue
         # Drop combining accents from play surfaces (guessing / display).
-        surface = raw if raw.isspace() else strip_combining_marks(raw)
+        surface = raw if raw.isspace() or raw.endswith('⃗') else strip_combining_marks(raw)
         if not surface and not raw.isspace():
             continue
         if surface.isspace():

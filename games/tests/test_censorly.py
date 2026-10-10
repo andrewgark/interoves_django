@@ -714,19 +714,30 @@ class CensorlyRandomGameTests(TestCase):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import clean_wiki_extract
 
-        raw = r'{\displaystyle \Phi_{E,S} + \dot{q_i} + \overline{N} + \ddot{x}}'
+        raw = (
+            r'{\displaystyle \Phi_{E,S} + \dot{q_i} + \overline{N} + \ddot{x}'
+            r' + \vec{r} + \vec{\lambda} + \vec{AB} + \overline{E=mc^{2}}}'
+        )
         cleaned = clean_wiki_extract(raw)
-        self.assertIn('Φ₍E,S₎ + qᵢ˙ + N¯ + x¨', cleaned)
+        self.assertIn('Φ₍E,S₎ + qᵢ˙ + N¯ + x¨ + r⃗ + λ⃗ + vec(AB)', cleaned)
+        self.assertIn('overline(E = mc²)', cleaned)
 
         service = {token['surface']: token['kind'] for token in tokenize_text(cleaned)}
         for symbol in ('₍', '₎', '˙', '¯', '¨'):
             self.assertEqual(service[symbol], 'stop')
         self.assertEqual(service['qᵢ'], 'content')
+        self.assertEqual(service['r⃗'], 'content')
+        vector_token = next(token for token in tokenize_text(cleaned) if token['surface'] == 'r⃗')
+        self.assertEqual(vector_token['length'], 1)
 
         stat_mech = clean_wiki_extract(_load_censorly_testdata('pool/stat_mech.txt'))
         self.assertIn('qᵢ˙', stat_mech)
         entropy = clean_wiki_extract(_load_censorly_testdata('pool/entropy.txt'))
         self.assertIn('N¯', entropy)
+        quantum = clean_wiki_extract(_load_censorly_testdata('pool/quantum.txt'))
+        self.assertIn('λ⃗', quantum)
+        schrodinger = clean_wiki_extract(_load_censorly_testdata('pool/schrodinger.txt'))
+        self.assertIn('r⃗', schrodinger)
 
     def test_latex_function_names_are_separated_from_variables_and_arguments(self):
         from games.censorly.tokenize import tokenize_text

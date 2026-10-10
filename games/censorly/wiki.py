@@ -215,7 +215,9 @@ _SUBSCRIPTS = str.maketrans({
     **dict(zip('aehijklmnoprstuvx', 'ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ')),
 })
 _SCRIPT_CHARS = '₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ⁰¹²³⁴⁵⁶⁷⁸⁹'
-_SCRIPT_ATOM_RE = re.compile(r'[\wΑ-Ωα-ωϵϑϖϱςℏℓ]+[₀-₉₊₋₌₍₎ₐ-ₓᵃ-ᶻ⁰-⁹⁺⁻⁼⁽⁾]*$', re.UNICODE)
+_SINGLE_SCRIPT_ATOM_RE = re.compile(
+    rf'^[A-Za-zΑ-Ωα-ωϵϑϖϱςℏℓ][{re.escape(_SCRIPT_CHARS)}]*$'
+)
 
 
 def _tex_group(text: str, start: int) -> tuple[str, int] | None:
@@ -322,10 +324,12 @@ class _TexTextParser:
                 return name, j
             if name in _TEX_GROUP_COMMANDS:
                 return arg
-            if name in ('dot', 'ddot') and _SCRIPT_ATOM_RE.fullmatch(arg[0]):
+            if name in ('dot', 'ddot') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f"{arg[0]}{'˙' if name == 'dot' else '¨'}", arg[1]
-            if name in ('overline', 'bar') and _SCRIPT_ATOM_RE.fullmatch(arg[0]):
+            if name in ('overline', 'bar') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f'{arg[0]}¯', arg[1]
+            if name == 'vec' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
+                return f'{arg[0]}⃗', arg[1]
             return f'{name}({arg[0]})', arg[1]
         if name == 'begin' or name == 'end':
             env = self._argument(j)
