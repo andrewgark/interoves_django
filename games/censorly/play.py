@@ -29,7 +29,7 @@ from games.censorly.redact import (
     token_ids_for_guess,
 )
 from games.censorly.stopwords import is_stop_word
-from games.censorly.tokenize import resolve_puzzle_payload, title_content_lemmas
+from games.censorly.tokenize import all_tokens, resolve_puzzle_payload, title_content_lemmas
 from games.models import Attempt, ChainTaskState, Game, Task
 from games.results.share import format_elapsed, format_share_link, share_path
 
@@ -553,6 +553,19 @@ def _token_ids_for_lemmas(payload: dict[str, Any], lemmas: set[str]) -> list[int
     })
 
 
+def _primary_matching_lemma(
+    payload: dict[str, Any], candidates: set[str], preferred: str,
+) -> str:
+    """Choose a stable primary lemma, preferring the typed lemma then article order."""
+    if preferred in candidates:
+        return preferred
+    return next((
+        tok.get('lemma') or ''
+        for tok in all_tokens(payload)
+        if tok.get('kind') == 'content' and tok.get('lemma') in candidates
+    ), '')
+
+
 def get_play_state(
     *,
     game: Game,
@@ -723,7 +736,7 @@ def apply_guess(
     newly: list[int] = []
     primary_lemma = ''
     if new_matched:
-        primary_lemma = guess_lemma if guess_lemma in new_matched else next(iter(new_matched))
+        primary_lemma = _primary_matching_lemma(payload, new_matched, guess_lemma)
         for lem in new_matched:
             hits += count_hits(payload, lem)
             newly.extend(newly_revealed_ids(payload, lem))
@@ -732,7 +745,7 @@ def apply_guess(
         newly.sort()
     elif matched:
         # Already-open lemma (other surface form): do not consume an attempt.
-        primary_lemma = guess_lemma if guess_lemma in matched else next(iter(matched))
+        primary_lemma = _primary_matching_lemma(payload, matched, guess_lemma)
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_open'
         out['hits'] = 0
