@@ -19,6 +19,9 @@ def install(sense, set_readings) -> None:
 
 # Nominative lemmas only; inflected surfaces open via lexeme → lemma → sense.
 CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ('sense:buddha', (
+        'будда', 'буддийский', 'буддистский', 'буддизм',
+    )),
     ('sense:rome', (
         'рим', 'римский', 'римлянин', 'римлянка',
     )),
