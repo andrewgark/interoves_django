@@ -685,11 +685,11 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'травиться', 'травление', 'травленый', 'травливать', 'травля', 'травщик',
     )),
     ('sense:key', (
-        'клюка', 'ключ', 'ключарь', 'ключевой', 'ключик', 'ключица', 'ключичный', 'ключник',
+        'клюка', 'ключарь', 'ключевой', 'ключик', 'ключица', 'ключичный', 'ключник',
         'ключница', 'ключной', 'клюшка', 'надключичный', 'уключина',
     )),
     ('sense:key_spring', (
-        'ключ', 'ключевой', 'ключик',
+        'ключ',
     )),
     ('sense:include', (
         'включатель', 'включать', 'включаться', 'включение', 'включительно', 'включить',
@@ -4994,6 +4994,11 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('вычитываться', ('sense:count', 'root:read')),
 ) + _KOSA_MULTI_READINGS + (
     ('ключ', ('sense:key', 'sense:key_spring')),
-    ('ключевой', ('sense:key', 'sense:key_spring')),
-    ('ключик', ('sense:key', 'sense:key_spring')),
+)
+
+# ``ключ`` itself is polysemous; its derivatives below remain ordinary,
+# single-sense cluster members.
+CLUSTERS = tuple(
+    (name, tuple(lemma for lemma in lemmas if fold(lemma) != 'ключ'))
+    for name, lemmas in CLUSTERS
 )

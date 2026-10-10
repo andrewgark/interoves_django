@@ -72,10 +72,10 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
     def test_key_and_spring_keep_separate_readings(self):
         lock_root = ('sense:key',)
         spring_root = ('sense:key_spring',)
-        for lemma in ('ключ', 'ключевой', 'ключик'):
+        self.assertEqual(set(structures_of('ключ')), {lock_root, spring_root})
+        for lemma in ('ключевой', 'ключик'):
             with self.subTest(lemma=lemma):
-                self.assertIn(lock_root, structures_of(lemma))
-                self.assertIn(spring_root, structures_of(lemma))
+                self.assertEqual(structures_of(lemma), (lock_root,))
         self.assertEqual(structures_of('ключник'), (lock_root,))
 
     def test_counting_reading_and_honor_senses_are_separate(self):
