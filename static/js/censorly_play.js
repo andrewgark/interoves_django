@@ -99,7 +99,6 @@
     if (tok.revealed) {
       var revealedClass = 'censorly-tok censorly-tok--revealed' + headingClass(tok);
       if (tok.guessed) revealedClass += ' censorly-tok--guessed';
-      if (tok.just_revealed) revealedClass += ' censorly-tok--just';
       var revealed = el('span', revealedClass);
       revealed.dataset.id = String(tok.id);
       if (tok.lemma) revealed.dataset.lemma = tok.lemma;
@@ -340,12 +339,29 @@
     if (scroll) scrollToNodes(root, nodes);
   }
 
+  function flashTokenIds(root, tokenIds) {
+    var ids = {};
+    (Array.isArray(tokenIds) ? tokenIds : []).forEach(function (id) {
+      ids[String(id)] = true;
+    });
+    Object.keys(ids).forEach(function (id) {
+      var node = root.querySelector('.censorly-tok[data-id="' + id + '"]');
+      if (!node) return;
+      // Restart the animation only for an explicit reveal or history selection.
+      node.classList.remove('censorly-tok--just');
+      void node.offsetWidth;
+      node.classList.add('censorly-tok--just');
+    });
+  }
+
   function selectGuessRow(root, row) {
     var guessIndex = parseInt(row.dataset.guessIndex, 10);
     if (!Number.isInteger(guessIndex)) return;
     root.setAttribute('data-active-guess-index', String(guessIndex));
     var currentState = root._censorlyState || {};
     applyGuessHighlight(root, currentState.guesses || [], guessIndex);
+    var guess = currentState.guesses && currentState.guesses[guessIndex];
+    flashTokenIds(root, guess && guess.token_ids);
     scrollToGuess(root, row);
   }
 
@@ -890,6 +906,7 @@
               applyState(root, data, { preserveLen: true });
               if (data.status === 'already_open') focusTokenIds(root, data.active_token_ids, true);
               var newly = data.newly_revealed || [];
+              flashTokenIds(root, newly);
               if (newly.length) scrollToTokenId(root, newly[0]);
               if (data.status !== 'won') setFeedback(root, 'Подсказка открыта', '');
             })
@@ -978,6 +995,7 @@
             }
             input.value = '';
             var newly = data.newly_revealed || [];
+            flashTokenIds(root, newly);
             if (newly.length) scrollToTokenId(root, newly[0]);
             if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit');
             else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error');
