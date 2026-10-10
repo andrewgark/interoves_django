@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest import TestCase
 
 from games.censorly.lexical.tools.proper_candidates import (
+    classify_eponym_candidate,
     extract_candidates,
     load_jsonl,
     run_experiment,
@@ -40,6 +41,19 @@ def entry(word: str, *, categories=None, derived=None, related=None, etymology_t
 
 
 class ProperCandidateTests(TestCase):
+    def test_eponym_is_separate_and_never_auto_accepted(self):
+        row = {
+            'relation_type': 'etymological_derivation',
+            'category': 'person',
+            'status': 'confirmed',
+            'source_article': 'Дизель',
+            'derivative_article': 'дизелизация',
+            'reason': 'Назван в честь Рудольфа Дизеля.',
+        }
+        relation, category, status, flags = classify_eponym_candidate(row)
+        self.assertEqual((relation, category, status), ('eponym', 'acceptable_eponym', 'manual_review'))
+        self.assertIn('needs_frequency_check', flags)
+
     def test_direct_derived_is_confirmed_and_pool_is_prioritized(self):
         rows = [
             entry('Абиджан', categories=['Русские имена собственные', 'Города'], derived=[{'word': 'абиджанский'}]),

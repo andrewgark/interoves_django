@@ -53,6 +53,10 @@ _EXPLICIT_ETYMOLOGY_RE = re.compile(
     r"назван(?:о|а|ный|ная)?\s+в\s+честь)",
     re.IGNORECASE,
 )
+_EPONYM_EVIDENCE_RE = re.compile(
+    r"(?:назван(?:о|а|ный|ная)?\s+в\s+честь|от\s+(?:имени|фамилии)|"
+    r"имя\s+собственное\s+[А-ЯЁ][а-яё-]+)", re.IGNORECASE,
+)
 
 JsonObject = dict[str, Any]
 Normalizer = Callable[[str], tuple[str, tuple[str, ...]]]
@@ -357,6 +361,25 @@ def _relation_kind(field: str, *, explicit: bool, source_kind: str) -> tuple[str
     return 'unclassified_relation', 'low', 'high', ('missing_proper_name_signal',)
 
 
+def classify_eponym_candidate(candidate: Mapping[str, Any]) -> tuple[str, str, str, tuple[str, ...]]:
+    """Classify an eponym claim without confusing it with direct derivation.
+
+    Existing Wiktextract rows do not contain corpus frequency or an independent
+    public-dictionary score, so an eponym is never auto-accepted here.
+    """
+    reason = str(candidate.get('reason') or '')
+    source_article = str(candidate.get('source_article') or '')
+    derivative_article = str(candidate.get('derivative_article') or '')
+    if not _EPONYM_EVIDENCE_RE.search(reason):
+        return str(candidate.get('relation_type') or ''), str(candidate.get('category') or ''), str(candidate.get('status') or ''), ()
+    if (
+        source_article.casefold() == derivative_article.casefold()
+        or not source_article[:1].isupper()
+    ):
+        return str(candidate.get('relation_type') or ''), str(candidate.get('category') or ''), str(candidate.get('status') or ''), ('not_a_separate_eponym_pair',)
+    return 'eponym', 'acceptable_eponym', 'manual_review', ('needs_frequency_check', 'needs_public_dictionary_check')
+
+
 def _candidate_category(source_kind: str, source_entry: Mapping[str, Any], derivative_entry: Mapping[str, Any]) -> str:
     source_text = _entry_text(source_entry)
     derivative_text = _entry_text(derivative_entry)
@@ -528,6 +551,10 @@ def extract_candidates(
         reason = evidence or f'{relation_field} field in Wiktextract entry'
         if relation_field == 'related':
             reason = 'Поле related само по себе не доказывает словообразование'
+        if fold(name) == fold(derivative):
+            if stats is not None:
+                stats.rejected += 1
+            return
         if raw_sink is not None:
             raw_sink(
                 name=name, derivative=derivative, relation_field=relation_field,

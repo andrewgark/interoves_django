@@ -83,3 +83,21 @@ rank	root	members	decision	note	reviewer
 82	экзот	экзот|экзотика|экзотический|экзотичный	APPROVE_OPAQUE_FAMILY	Tikhonov family reviewed; opaque root assignment is family-level. Compound members retain complete structures and are not opened by component-only matching.	manual-audit
 83	юкагир	юкагир|юкагирка|юкагирский	APPROVE_OPAQUE_FAMILY	Tikhonov family reviewed; opaque root assignment is family-level. Compound members retain complete structures and are not opened by component-only matching.	manual-audit
 84	якут	якут|якутка|якутский|якутянин	APPROVE_OPAQUE_FAMILY	Tikhonov family reviewed; opaque root assignment is family-level. Compound members retain complete structures and are not opened by component-only matching.	manual-audit
+85	абзац		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+86	аспект		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+87	бретер		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; homonym risk reviewed and accepted.	manual-audit
+88	вакуоль		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; homonym risk reviewed and accepted.	manual-audit
+89	гейзер		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; technical derivative reviewed.	manual-audit
+90	гектар		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+91	градиент		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; technical derivative reviewed.	manual-audit
+92	департамент		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; proper-name risk reviewed and accepted.	manual-audit
+93	катет		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; technical derivative reviewed.	manual-audit
+94	лазер		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; technical derivatives reviewed.	manual-audit
+95	регион		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+96	стационар		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+97	стратег		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+98	шельф		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+99	эндем		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; proper-name/homonym risk reviewed and accepted.	manual-audit
+100	экватор		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+101	этап		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+102	факультет		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit

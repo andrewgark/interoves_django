@@ -1,0 +1,9 @@
+candidate	decision	note	proposed_assignment
+зобик	APPROVE_DERIVED_ROOT	Transparent diminutive of зоб; unique existing fam:зоб.	fam:зоб
+спиновый	APPROVE_DERIVED_ROOT	Transparent adjective from спин; unique existing fam:спин.	fam:спин
+ветровый	APPROVE_DERIVED_ROOT	Transparent adjective with the existing complete alternant structure.	fam:ветер|ветр
+грязевый	APPROVE_DERIVED_ROOT	Transparent adjective from грязь/гряз-; unique existing fam:гряз.	fam:гряз
+мостовый	APPROVE_DERIVED_ROOT	Transparent adjective from мост with the existing complete alternant structure.	fam:мащ²|мост|мощ²
+родный	APPROVE_DERIVED_ROOT	Existing complete род/рож/рожд alternation is direct lexical evidence.	fam:род|рож²|рожд
+степенной	APPROVE_DERIVED_ROOT	Transparent adjective from степень; existing fam:степен.	fam:степен
+хожение	APPROVE_DERIVED_ROOT	Nominal formation from ходить with the existing complete хаж/ход/хож/хожд structure.	fam:хаж|ход|хож|хожд

@@ -42,6 +42,9 @@ _REVIEWED_OPAQUE = Path(os.environ.get(
 _REVIEWED_DERIVED = Path(os.environ.get(
     'CENSORLY_REVIEWED_DERIVED', Path(__file__).resolve().parent / 'data' / 'reviewed_derived_roots.tsv'
 ))
+_REVIEWED_EXISTING = Path(os.environ.get(
+    'CENSORLY_REVIEWED_EXISTING', Path(__file__).resolve().parent / 'data' / 'reviewed_existing_root_assignments.tsv'
+))
 
 # Historical families whose join would glue unrelated modern words.
 # ``чит`` and ``чт`` stay one reading root. ``чет`` does not join them.
@@ -49,7 +52,10 @@ _READ_MORPHS = frozenset({'чит', 'чт', 'ч'})
 
 # Reviewed assignments are family/lemma assignments, never pair edges. The
 # opaque namespace is separate from Kuznetsova families by construction.
-_ROOT_ID_RE = re.compile(r'^(?:fam|tikh|sense|root):[^+|\s]+$')
+# ``+`` separates components of a complete structure.  ``|`` is part of
+# several existing Kuznetsova family IDs (for example ``fam:ветер|ветр``)
+# and must not be treated as an alternatives separator here.
+_ROOT_ID_RE = re.compile(r'^(?:fam|tikh|sense|root):[^+\s]+$')
 
 
 def _load_reviewed_assignments():
@@ -57,6 +63,8 @@ def _load_reviewed_assignments():
         raise RuntimeError(f'missing reviewed opaque data file: {_REVIEWED_OPAQUE}')
     if not _REVIEWED_DERIVED.exists():
         raise RuntimeError(f'missing reviewed derived data file: {_REVIEWED_DERIVED}')
+    if not _REVIEWED_EXISTING.exists():
+        raise RuntimeError(f'missing reviewed existing-root data file: {_REVIEWED_EXISTING}')
 
     opaque = set()
     with _REVIEWED_OPAQUE.open(encoding='utf-8', newline='') as stream:
@@ -89,10 +97,32 @@ def _load_reviewed_assignments():
             if structure in existing:
                 raise RuntimeError(f'duplicate reviewed derived assignment: {lemma} {raw_structure}')
             existing.append(structure)
-    return frozenset(opaque), {lemma: tuple(items) for lemma, items in derived.items()}
+    existing = {}
+    with _REVIEWED_EXISTING.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream, delimiter='\t')
+        if reader.fieldnames != ['lemma', 'root_structure', 'note']:
+            raise RuntimeError(f'invalid reviewed existing header in {_REVIEWED_EXISTING}')
+        for row in reader:
+            lemma = fold(row['lemma'])
+            raw_structure = row['root_structure'].strip()
+            if not lemma or not raw_structure:
+                raise RuntimeError(f'empty reviewed existing assignment in {lemma!r}')
+            parts = tuple(sorted(item.strip() for item in raw_structure.split('+')))
+            if not parts or any(not _ROOT_ID_RE.fullmatch(item) for item in parts):
+                raise RuntimeError(f'invalid reviewed existing structure {raw_structure!r} for {lemma}')
+            structure = tuple(parts)
+            previous = existing.get(lemma)
+            if previous is not None and previous != (structure,):
+                raise RuntimeError(f'conflicting reviewed existing assignment: {lemma}')
+            existing[lemma] = (structure,)
+    return (
+        frozenset(opaque),
+        {lemma: tuple(items) for lemma, items in derived.items()},
+        existing,
+    )
 
 
-REVIEWED_OPAQUE_ROOTS, REVIEWED_DERIVED_ROOTS = _load_reviewed_assignments()
+REVIEWED_OPAQUE_ROOTS, REVIEWED_DERIVED_ROOTS, REVIEWED_EXISTING_ROOTS = _load_reviewed_assignments()
 
 
 def structures_of(lemma: str) -> tuple[tuple[str, ...], ...]:
@@ -299,6 +329,16 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
                 'refused': (),
             }
             audit['reviewed_derived_lemmas'] += 1
+            continue
+        reviewed_existing = REVIEWED_EXISTING_ROOTS.get(lemma)
+        if reviewed_existing is not None:
+            built[lemma] = reviewed_existing
+            provenance[lemma] = {
+                'source': 'REVIEWED_EXISTING_ROOT',
+                'detail': ','.join('|'.join(item) for item in reviewed_existing),
+                'refused': (),
+            }
+            audit['reviewed_existing_lemmas'] += 1
             continue
         if len(parts) >= 2:
             structs, refused, source, rows = _explode(
