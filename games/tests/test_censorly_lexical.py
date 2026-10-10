@@ -12,6 +12,7 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
+from games.censorly.roots import opens_with
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.dispatcher import backend_name
 from games.censorly.lexical.generic_backend import CAPABILITIES as GENERIC_CAPS
@@ -29,9 +30,78 @@ from games.censorly.lexical.russian.decisions import REJECT
 from games.censorly.lexical.russian.context import inflection_matches, occurrence_of
 from games.censorly.lexical.russian.morphology import cognate_lemmas
 from games.censorly.lexical.match import matching_lemmas
+from games.censorly.lexical.rootbank import structures_of
 from games.censorly.normalize import lemma_of, normalize_surface
 from games.censorly.redact import lemmas_matching_guess
 from games.censorly.tokenize import build_puzzle_payload
+
+
+class ReviewedSemanticSplitTests(SimpleTestCase):
+    """Keep the meaning splits reviewed in the root-family audit separate."""
+
+    def test_dialogue_split_families_have_distinct_game_roots(self):
+        pairs = (
+            ('строительство', 'устройство'),
+            ('видеть', 'ненависть'),
+            ('найти', 'идти'),
+            ('найти', 'произойти'),
+            ('жизнь', 'животное'),
+            ('горький', 'гореть'),
+            ('ведать', 'ведомство'),
+            ('ряд', 'подрядчик'),
+            ('течь', 'втачивать'),
+            ('нести', 'отношение'),
+            ('год', 'погода'),
+            ('мать', 'наматывать'),
+            ('держать', 'дёргать'),
+            ('дело', 'действие'),
+            ('поддержка', 'задержанный'),
+        )
+        for left, right in pairs:
+            left_roots = set(structures_of(left))
+            right_roots = set(structures_of(right))
+            self.assertTrue(left_roots, f'no roots for {left}')
+            self.assertTrue(right_roots, f'no roots for {right}')
+            self.assertTrue(left_roots.isdisjoint(right_roots), f'{left} / {right}')
+
+    def test_part_and_frequency_words_stay_separate(self):
+        # части is an inflected form of часть; часто is a frequency adverb.
+        self.assertFalse(opens_with('части', 'часто'))
+        self.assertFalse(opens_with('часто', 'части'))
+
+    def test_key_and_spring_keep_separate_readings(self):
+        lock_root = ('sense:key',)
+        spring_root = ('sense:key_spring',)
+        for lemma in ('ключ', 'ключевой', 'ключик'):
+            with self.subTest(lemma=lemma):
+                self.assertIn(lock_root, structures_of(lemma))
+                self.assertIn(spring_root, structures_of(lemma))
+        self.assertEqual(structures_of('ключник'), (lock_root,))
+
+    def test_counting_reading_and_honor_senses_are_separate(self):
+        self.assertTrue(set(structures_of('счет')).isdisjoint(structures_of('читать')))
+        self.assertTrue(set(structures_of('расчет')).isdisjoint(structures_of('чтение')))
+        self.assertTrue(set(structures_of('почет')).isdisjoint(structures_of('читать')))
+        self.assertIn(('sense:count',), structures_of('считать'))
+        self.assertIn(('root:read',), structures_of('считать'))
+        self.assertIn(('sense:honor',), structures_of('почитать'))
+        self.assertIn(('root:read',), structures_of('почитать'))
+
+    def test_kosa_homonyms_keep_separate_readings(self):
+        self.assertEqual(
+            set(structures_of('коса')),
+            {
+                ('sense:scythe',),
+                ('sense:hair_braid',),
+                ('sense:spit_landform',),
+            },
+        )
+        self.assertEqual(
+            set(structures_of('косить')),
+            {('sense:scythe',), ('sense:oblique',)},
+        )
+        self.assertTrue(set(structures_of('косарь')).isdisjoint(structures_of('косичка')))
+        self.assertTrue(set(structures_of('косой')).isdisjoint(structures_of('косичка')))
 
 POSITIVES = (
     ('вместе', 'место'),
