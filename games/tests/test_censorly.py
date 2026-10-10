@@ -662,6 +662,31 @@ class CensorlyRandomGameTests(TestCase):
         self.assertEqual(service, {'∫': 'stop', '≤': 'stop'})
         self.assertTrue(any(tok['surface'] == 'P' and tok['kind'] == 'content' for tok in tokens))
 
+    def test_latex_primitive_fractions_spacing_and_hat_are_readable(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle {1 \over r^{2}} + {a+b \over c}; '
+            r'\Phi_{E,S}~\equiv~\oint_{ S}E; \hat{H}}'
+        )
+        cleaned = clean_wiki_extract(raw)
+        self.assertIn('(1)/(r²) + (a + b)/(c)', cleaned)
+        self.assertIn('Φ₍E,S₎ ≡ ∮₍S₎ E', cleaned)
+        self.assertIn('Ĥ', cleaned)
+        self.assertNotIn('~', cleaned)
+
+        token = next(token for token in tokenize_text(cleaned) if token['surface'] == '≡')
+        self.assertEqual(token['kind'], 'stop')
+
+        laplace = clean_wiki_extract(_load_censorly_testdata('pool/laplace.txt'))
+        self.assertNotIn(' / ', laplace)
+        self.assertIn('(∂²u)/(∂ x²)', laplace)
+        gauss = clean_wiki_extract(_load_censorly_testdata('pool/gauss.txt'))
+        self.assertNotIn('₍ ', gauss)
+        self.assertNotIn('~', gauss)
+        self.assertIn('∫₍V₎ 4π ρ dV', gauss)
+
     def test_pool_formula_fixtures_keep_equations_instead_of_vertical_glyph_dumps(self):
         from games.censorly.wiki import clean_wiki_extract
 

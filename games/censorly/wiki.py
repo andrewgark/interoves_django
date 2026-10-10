@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Optional
 from urllib.parse import parse_qs, unquote, urlparse
@@ -326,6 +327,10 @@ class _TexTextParser:
                 return arg
             if name in ('dot', 'ddot') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f"{arg[0]}{'˙' if name == 'dot' else '¨'}", arg[1]
+            if name == 'hat' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
+                accented = unicodedata.normalize('NFC', arg[0] + '\u0302')
+                if len(accented) == 1:
+                    return accented, arg[1]
             if name in ('overline', 'bar') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f'{arg[0]}¯', arg[1]
             if name == 'vec' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
@@ -352,6 +357,32 @@ class _TexTextParser:
         return name, j
 
     def parse(self) -> str:
+        # Plain TeX fractions occur in Wikipedia extracts as `{a \over b}`.
+        # The primitive applies to the surrounding group, so preserve both
+        # sides as explicit grouped fractions instead of an ambiguous slash.
+        depth = 0
+        over = None
+        cursor = 0
+        while cursor < len(self.text):
+            if self.text[cursor] == '{':
+                group = _tex_group(self.text, cursor)
+                if group:
+                    cursor = group[1]
+                    continue
+                depth += 1
+            elif self.text[cursor] == '}':
+                depth = max(0, depth - 1)
+            elif depth == 0 and self.text.startswith('\\over', cursor):
+                end = cursor + len('\\over')
+                if end == len(self.text) or not self.text[end].isalpha():
+                    over = cursor
+                    break
+            cursor += 1
+        if over is not None:
+            numerator = _TexTextParser(self.text[:over]).parse()
+            denominator = _TexTextParser(self.text[over + len('\\over'):]).parse()
+            if numerator and denominator:
+                return f'({numerator})/({denominator})'
         out: list[str] = []
         i = 0
         while i < len(self.text):
@@ -391,6 +422,10 @@ class _TexTextParser:
                 out.append(' ')
                 i += 1
                 continue
+            if ch == '~':
+                out.append(' ')
+                i += 1
+                continue
             if ch == '-':
                 out.append('−')
                 i += 1
@@ -411,14 +446,23 @@ class _TexTextParser:
             out.append(ch)
             i += 1
         rendered = re.sub(r'[ \t\r\n]+', ' ', ''.join(out)).strip()
-        rendered = re.sub(r'\s*([=+−×·≤≥≠≈])\s*', r' \1 ', rendered)
+        rendered = re.sub(r'\s*([=+−×·≤≥≠≈≡])\s*', r' \1 ', rendered)
         rendered = re.sub(r'= +− +(?=[(\d])', '= −', rendered)
         rendered = re.sub(r'([⟨])\s+', r'\1', rendered)
         rendered = re.sub(r'\s+([⟩])', r'\1', rendered)
+        rendered = re.sub(r'₍\s+', '₍', rendered)
+        rendered = re.sub(r'\s+₎', '₎', rendered)
         scripts = re.escape(_SCRIPT_CHARS)
         rendered = re.sub(rf'([∫∬∭∮])\s+([{scripts}]+)', r'\1\2', rendered)
-        rendered = re.sub(rf'([∫∬∭∮][{scripts}]+)(?=[A-Za-zА-Яа-яα-ωΑ-Ω])', r'\1 ', rendered)
+        rendered = re.sub(rf'([∫∬∭∮][{scripts}]+)(?=[A-Za-zА-Яа-яα-ωΑ-Ω0-9])', r'\1 ', rendered)
+        rendered = re.sub(
+            rf'([∫∬∭∮][{scripts}]*₍[^₎]+₎)(?=[A-Za-zА-Яа-яα-ωΑ-Ω0-9])',
+            r'\1 ', rendered,
+        )
         rendered = re.sub(rf'([A-Za-zΑ-Ωα-ωℏ])\s+([{scripts}]+)', r'\1\2', rendered)
+        rendered = re.sub(rf'([∂∇])\s+([{scripts}]+)', r'\1\2', rendered)
+        rendered = re.sub(r'₍\s+', '₍', rendered)
+        rendered = re.sub(r'\s+₎', '₎', rendered)
         return re.sub(r' {2,}', ' ', rendered).strip()
 
 
