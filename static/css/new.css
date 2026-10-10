@@ -1584,17 +1584,17 @@ html.new-ui-dark body.new-ui {
 }
 
 .new-hub-section__streak--active {
-  color: var(--accent);
-  filter: drop-shadow(0 0 4px color-mix(in srgb, #ffb11b 58%, transparent));
+  color: #e53924;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, #ff3b20 62%, transparent));
 }
 
 .new-hub-section__streak--active .ph-fire {
-  color: #b84f12;
+  color: #f0442d;
   animation: daily-solve-flame-flicker 1.15s ease-in-out infinite alternate;
 }
 
 html.new-ui-dark .new-hub-section__streak--active .ph-fire {
-  color: #ff9d62;
+  color: #ff6248;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1931,11 +1931,11 @@ body.new-modal-open { overflow: hidden; }
   justify-content: center;
   width: 1.25rem;
   height: 1.25rem;
-  color: #f08a24;
+  color: #f2a34a;
   font-size: 1.08rem;
   line-height: 1;
   cursor: help;
-  filter: drop-shadow(0 1px 2px color-mix(in srgb, #f08a24 34%, transparent));
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, #f2a34a 34%, transparent));
 }
 
 .daily-solve-flame--late {
@@ -1944,9 +1944,36 @@ body.new-modal-open { overflow: hidden; }
 }
 
 .daily-solve-flame--streak {
-  color: #ff6b18;
-  filter: drop-shadow(0 0 4px color-mix(in srgb, #ffb11b 68%, transparent));
+  color: #f0442d;
+  filter: drop-shadow(0 0 5px color-mix(in srgb, #ff3b20 72%, transparent));
   animation: daily-solve-flame-flicker 1.15s ease-in-out infinite alternate;
+}
+
+.daily-solve-flame--streak::before,
+.daily-solve-flame--streak::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  bottom: 0.08rem;
+  width: 0.9rem;
+  height: 1rem;
+  border-radius: 50% 50% 45% 45%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 75%, rgba(255, 91, 27, .58), rgba(255, 48, 27, .2) 48%, transparent 74%);
+  transform: translateX(-50%);
+  filter: blur(2px);
+}
+
+.daily-solve-flame--streak::before {
+  animation: daily-solve-fire-glow 900ms ease-in-out infinite alternate;
+}
+
+.daily-solve-flame--streak::after {
+  width: 1.25rem;
+  height: 1.35rem;
+  opacity: .72;
+  animation: daily-solve-fire-glow 1.2s ease-in-out infinite alternate-reverse;
 }
 
 @keyframes daily-solve-flame-flicker {
@@ -1954,8 +1981,15 @@ body.new-modal-open { overflow: hidden; }
   to { transform: translateY(-1px) scale(1.08) rotate(3deg); }
 }
 
+@keyframes daily-solve-fire-glow {
+  from { transform: translateX(-50%) scale(.78, .82) translateY(2px); opacity: .52; }
+  to { transform: translateX(-50%) scale(1.12, 1.16) translateY(-2px); opacity: .9; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .daily-solve-flame--streak { animation: none; }
+  .daily-solve-flame--streak,
+  .daily-solve-flame--streak::before,
+  .daily-solve-flame--streak::after { animation: none; }
 }
 
 /* Узкая карточка (телефон): шкала и «Результаты» друг под другом.
