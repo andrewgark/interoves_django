@@ -727,6 +727,9 @@ def apply_guess(
         for lem in new_matched:
             hits += count_hits(payload, lem)
             newly.extend(newly_revealed_ids(payload, lem))
+        # A guess can open several linked lemmas; token IDs follow article
+        # reading order, while ``new_matched`` is a set.
+        newly.sort()
     elif matched:
         # Already-open lemma (other surface form): do not consume an attempt.
         primary_lemma = guess_lemma if guess_lemma in matched else next(iter(matched))
