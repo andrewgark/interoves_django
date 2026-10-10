@@ -362,7 +362,7 @@
     applyGuessHighlight(root, currentState.guesses || [], guessIndex);
     var guess = currentState.guesses && currentState.guesses[guessIndex];
     flashTokenIds(root, guess && guess.token_ids);
-    scrollToGuess(root, row);
+    scrollToGuess(root, row, guessIndex);
   }
 
   function renderGuessTable(root, guesses, activeIndex) {
@@ -490,24 +490,32 @@
     scrollToNode(root, mode === 'nearest' ? nearestScrollNode(root, nodes) : nodes[0]);
   }
 
-  function scrollToGuess(root, row) {
+  function scrollToGuess(root, row, guessIndex) {
     var raw = row.dataset.tokenIds || '';
     var ids = raw ? raw.split(',') : [];
+    var nodes = [];
     if (ids.length) {
-      var nodes = ids.map(function (id) {
+      nodes = ids.map(function (id) {
         return root.querySelector('.censorly-tok[data-id="' + String(id) + '"]');
       }).filter(Boolean);
-      scrollToNodes(root, nodes);
-      return;
+    } else {
+      var lemma = row.dataset.lemma || row.dataset.word;
+      if (lemma) {
+        nodes = Array.prototype.slice.call(
+          root.querySelectorAll('.censorly-tok[data-lemma="' + CSS.escape(lemma) + '"]')
+        );
+      }
     }
-    scrollToLemma(root, row.dataset.lemma || row.dataset.word);
-  }
-
-  function scrollToLemma(root, lemma) {
-    if (!lemma) return;
-    var nodes = root.querySelectorAll('.censorly-tok[data-lemma="' + CSS.escape(lemma) + '"]');
     if (!nodes.length) return;
-    scrollToNodes(root, Array.prototype.slice.call(nodes));
+
+    var cycle = root._censorlyGuessScrollCycle;
+    var nextIndex = cycle && cycle.guessIndex === guessIndex ? cycle.nextIndex : 0;
+    var occurrenceIndex = nextIndex % nodes.length;
+    root._censorlyGuessScrollCycle = {
+      guessIndex: guessIndex,
+      nextIndex: (occurrenceIndex + 1) % nodes.length,
+    };
+    scrollToNode(root, nodes[occurrenceIndex]);
   }
 
   function hasRenderableState(data) {
