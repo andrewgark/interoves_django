@@ -156,8 +156,213 @@ def _strip_orphan_heading(extract: str) -> str:
     return text[: last.start()].rstrip()
 
 
-def _remove_tex_groups(text: str) -> str:
-    """Drop `{ \\command … }` the way competitors drop the math node."""
+_TEX_MATH_START_RE = re.compile(r'\{\\(?:displaystyle|textstyle)\b')
+_TEX_SYMBOLS = {
+    'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ',
+    'epsilon': 'ε', 'varepsilon': 'ϵ', 'zeta': 'ζ', 'eta': 'η',
+    'theta': 'θ', 'vartheta': 'ϑ', 'iota': 'ι', 'kappa': 'κ',
+    'lambda': 'λ', 'mu': 'μ', 'nu': 'ν', 'xi': 'ξ', 'pi': 'π',
+    'varpi': 'ϖ', 'rho': 'ρ', 'varrho': 'ϱ', 'sigma': 'σ',
+    'varsigma': 'ς', 'tau': 'τ', 'upsilon': 'υ', 'phi': 'φ',
+    'varphi': 'ϕ', 'chi': 'χ', 'psi': 'ψ', 'omega': 'ω',
+    'Gamma': 'Γ', 'Delta': 'Δ', 'Theta': 'Θ', 'Lambda': 'Λ',
+    'Xi': 'Ξ', 'Pi': 'Π', 'Sigma': 'Σ', 'Upsilon': 'Υ',
+    'Phi': 'Φ', 'Psi': 'Ψ', 'Omega': 'Ω',
+    'hbar': 'ℏ', 'ell': 'ℓ', 'partial': '∂', 'nabla': '∇',
+    'infty': '∞', 'times': '×', 'cdot': '·', 'pm': '±', 'mp': '∓',
+    'le': '≤', 'leq': '≤', 'ge': '≥', 'geq': '≥', 'neq': '≠',
+    'ne': '≠', 'approx': '≈', 'equiv': '≡', 'notin': '∉',
+    'in': '∈', 'to': '→', 'rightarrow': '→', 'leftarrow': '←',
+    'leftrightarrow': '↔', 'cup': '∪', 'cap': '∩', 'land': '∧',
+    'lor': '∨', 'degree': '°', 'circ': '∘', 'emptyset': '∅',
+    'ldots': '…', 'cdots': '…', 'dots': '…', 'over': ' / ',
+    'int': '∫', 'iint': '∬', 'iiint': '∭', 'oint': '∮',
+    'sum': '∑', 'prod': '∏', 'sqrt': '√',
+}
+_TEX_FORMAT_COMMANDS = frozenset({
+    'displaystyle', 'textstyle', 'scriptstyle', 'scriptscriptstyle',
+    'limits', 'nolimits', 'left', 'right', 'middle', 'quad', 'qquad',
+    '!', ',', ';', ':', ' ',
+})
+_TEX_GROUP_COMMANDS = frozenset({
+    'operatorname', 'operatorname*', 'mathrm', 'mathbf', 'mathit',
+    'mathsf', 'mathtt', 'mathcal', 'mathbb', 'mathfrak', 'text',
+})
+_SUPERSCRIPTS = str.maketrans({
+    **dict(zip('0123456789+-=()', '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾')),
+    **dict(zip('abcdefghijklmnoprstuvwxyz', 'ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ')),
+})
+_SUBSCRIPTS = str.maketrans({
+    **dict(zip('0123456789+-=()', '₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎')),
+    **dict(zip('aehijklmnoprstuvx', 'ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ')),
+})
+_SCRIPT_CHARS = '₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ⁰¹²³⁴⁵⁶⁷⁸⁹'
+
+
+def _tex_group(text: str, start: int) -> tuple[str, int] | None:
+    """Read a balanced {...} group, returning its contents and end offset."""
+    if start >= len(text) or text[start] != '{':
+        return None
+    depth = 0
+    for index in range(start, len(text)):
+        slashes = 0
+        cursor = index - 1
+        while cursor >= start and text[cursor] == '\\':
+            slashes += 1
+            cursor -= 1
+        escaped = slashes % 2 == 1
+        if text[index] == '{' and not escaped:
+            depth += 1
+        elif text[index] == '}' and not escaped:
+            depth -= 1
+            if depth == 0:
+                return text[start + 1:index], index + 1
+    return None
+
+
+class _TexTextParser:
+    """Render the common subset found in Wikipedia TextExtracts as readable text."""
+
+    def __init__(self, text: str):
+        self.text = text
+
+    def _argument(self, pos: int) -> tuple[str, int] | None:
+        while pos < len(self.text) and self.text[pos].isspace():
+            pos += 1
+        if pos >= len(self.text):
+            return None
+        if self.text[pos] == '{':
+            group = _tex_group(self.text, pos)
+            if group is None:
+                return None
+            value, end = group
+            return _TexTextParser(value).parse(), end
+        if self.text[pos] == '\\':
+            value, end = self._command(pos)
+            return value, end
+        return self.text[pos], pos + 1
+
+    def _command(self, pos: int) -> tuple[str, int]:
+        j = pos + 1
+        if j < len(self.text) and self.text[j].isalpha():
+            while j < len(self.text) and self.text[j].isalpha():
+                j += 1
+            name = self.text[pos + 1:j]
+        elif j < len(self.text):
+            name = self.text[j]
+            j += 1
+        else:
+            return '\\', j
+
+        if name == 'operatorname' and j < len(self.text) and self.text[j] == '*':
+            name = 'operatorname*'
+            j += 1
+
+        if name in ('frac', 'dfrac', 'tfrac'):
+            numerator = self._argument(j)
+            denominator = self._argument(numerator[1]) if numerator else None
+            if numerator and denominator:
+                return f'({numerator[0]})/({denominator[0]})', denominator[1]
+            return 'frac', j
+        if name == 'sqrt':
+            if j < len(self.text) and self.text[j] == '[':
+                close = self.text.find(']', j + 1)
+                if close >= 0:
+                    index = _TexTextParser(self.text[j + 1:close]).parse()
+                    radicand = self._argument(close + 1)
+                    if radicand:
+                        superscript = index.translate(_SUPERSCRIPTS)
+                        prefix = superscript if superscript != index else f'({index})'
+                        return f'{prefix}√({radicand[0]})', radicand[1]
+            radicand = self._argument(j)
+            if radicand:
+                return f'√({radicand[0]})', radicand[1]
+            return '√', j
+        if name in _TEX_FORMAT_COMMANDS:
+            return (' ' if name in ('quad', 'qquad', ',', ';', ':', ' ') else ''), j
+        if name in _TEX_GROUP_COMMANDS or name in ('overline', 'bar', 'vec', 'hat', 'dot', 'acute', 'tilde'):
+            arg = self._argument(j)
+            if not arg:
+                return name, j
+            if name in _TEX_GROUP_COMMANDS:
+                return arg
+            return f'{name}({arg[0]})', arg[1]
+        if name == 'begin' or name == 'end':
+            env = self._argument(j)
+            return ('; ' if name == 'end' and env and env[0] in ('cases', 'aligned', 'array') else ''), (env[1] if env else j)
+        if name == '\\':
+            return '; ', j
+        if name in ('{', '}'):
+            return name, j
+        if name == '.':
+            return '', j
+        if name == '&':
+            return ' ', j
+        if name in _TEX_SYMBOLS:
+            return _TEX_SYMBOLS[name], j
+        # Unknown commands remain legible instead of disappearing or leaking a slash.
+        return name, j
+
+    def parse(self) -> str:
+        out: list[str] = []
+        i = 0
+        while i < len(self.text):
+            ch = self.text[i]
+            if ch == '\\':
+                previous = ''.join(out).rstrip()
+                value, i = self._command(i)
+                if re.fullmatch(r'\(.+\)/\(.+\)', value) and previous and (
+                    previous[-1].isalnum() or previous[-1] == ')'
+                ):
+                    out.append(' · ')
+                out.append(value)
+                continue
+            if ch == '{':
+                group = _tex_group(self.text, i)
+                if group is None:
+                    # Incomplete TextExtracts occasionally end mid-formula.
+                    # Parse the available fragment without letting it leak TeX.
+                    out.append(_TexTextParser(self.text[i + 1:]).parse())
+                    break
+                value, i = group
+                rendered_group = _TexTextParser(value).parse()
+                previous = ''.join(out).rstrip()
+                if re.fullmatch(r'\(.+\)/\(.+\)', rendered_group) and previous and (
+                    previous[-1].isalnum() or previous[-1] == ')'
+                ):
+                    out.append(' · ')
+                out.append(rendered_group)
+                continue
+            if ch == '&':
+                out.append(' ')
+                i += 1
+                continue
+            if ch == '-':
+                out.append('−')
+                i += 1
+                continue
+            if ch in ('^', '_'):
+                arg = self._argument(i + 1)
+                if arg:
+                    value, i = arg
+                    trans = _SUPERSCRIPTS if ch == '^' else _SUBSCRIPTS
+                    translated = value.translate(trans)
+                    out.append(translated if translated != value else f'{ch}({value})')
+                    continue
+            out.append(ch)
+            i += 1
+        rendered = re.sub(r'[ \t\r\n]+', ' ', ''.join(out)).strip()
+        rendered = re.sub(r'\s*([=+−×·≤≥≠≈])\s*', r' \1 ', rendered)
+        rendered = re.sub(r'= +− +(?=[(\d])', '= −', rendered)
+        scripts = re.escape(_SCRIPT_CHARS)
+        rendered = re.sub(rf'([∫∬∭∮])\s+([{scripts}]+)', r'\1\2', rendered)
+        rendered = re.sub(rf'([∫∬∭∮][{scripts}]+)(?=[A-Za-zА-Яа-яα-ωΑ-Ω])', r'\1 ', rendered)
+        rendered = re.sub(rf'([A-Za-zΑ-Ωα-ωℏ])\s+([{scripts}]+)', r'\1\2', rendered)
+        return re.sub(r' {2,}', ' ', rendered).strip()
+
+
+def _replace_tex_groups(text: str) -> str:
+    """Convert balanced TeX source groups to readable formula text."""
     if not text or '\\' not in text:
         return text
     out: list[str] = []
@@ -165,24 +370,13 @@ def _remove_tex_groups(text: str) -> str:
     n = len(text)
     while i < n:
         if text[i] == '{' and i + 1 < n and text[i + 1] == '\\':
-            depth = 0
-            j = i
-            while j < n:
-                ch = text[j]
-                if ch == '{':
-                    depth += 1
-                elif ch == '}':
-                    depth -= 1
-                    if depth == 0:
-                        j += 1
-                        break
-                j += 1
-            if depth > 0:
-                # A malformed/unclosed TeX group must not truncate the rest
-                # of the Wikipedia extract.
-                out.append(text[i:])
+            group = _tex_group(text, i)
+            if group is None:
+                # Best-effort conversion for a truncated final formula.
+                out.append(_TexTextParser(text[i + 1:]).parse())
                 break
-            i = j
+            formula, i = group
+            out.append(_TexTextParser(formula).parse())
             continue
         out.append(text[i])
         i += 1
@@ -190,14 +384,29 @@ def _remove_tex_groups(text: str) -> str:
 
 
 def _strip_indented_math_lines(text: str) -> str:
-    """Drop indented MathML glyph lines. Prose and headings start at column 0."""
+    """Drop only indented MathML fallback blocks immediately before TeX source."""
     if not text:
         return text
-    kept = [
-        line for line in text.splitlines()
-        if not line.startswith('  ') and not line.startswith('\t')
-    ]
-    return '\n'.join(kept)
+    kept: list[str] = []
+    pending: list[str] = []
+    for line in text.splitlines(keepends=True):
+        indented = line.startswith((' ', '\t'))
+        has_tex = bool(_TEX_MATH_START_RE.search(line))
+        if has_tex:
+            # TextExtracts emits a vertical MathML text fallback before its
+            # canonical TeX source. The TeX form is enough to render it once.
+            pending.clear()
+            kept.append(line)
+        elif indented and not re.search(r'[А-Яа-яЁё]{2,}', line):
+            pending.append(line)
+        elif not line.strip():
+            pending.append(line)
+        else:
+            kept.extend(pending)
+            pending.clear()
+            kept.append(line)
+    kept.extend(pending)
+    return ''.join(kept)
 
 
 def _collapse_extract_whitespace(text: str) -> str:
@@ -210,10 +419,11 @@ def _collapse_extract_whitespace(text: str) -> str:
     # Punctuation that followed a removed display formula.
     text = re.sub(r'\n{2,}[ \t]*([,.;:!?…])', r'\1', text)
     # Mid-sentence leftovers: "скорость\n\nсоответствует" / "скорость\n соответствует".
-    text = re.sub(r'([^\n])\n{2,}[ \t]*([а-яёa-z])', r'\1 \2', text)
-    text = re.sub(r'([^\n])\n[ \t]*([а-яёa-z])', r'\1 \2', text)
+    text = re.sub(r'([^\n])\n{2,}[ \t]*([^\W\d_])', r'\1 \2', text)
+    text = re.sub(r'([^\n])\n[ \t]*([^\W\d_])', r'\1 \2', text)
     # A run of formula-terminating semicolons, not a single prose semicolon.
     text = re.sub(r';{2,}', '', text)
+    text = re.sub(r';\s*([.,])', r'\1', text)
     text = re.sub(r'[ \t]{2,}', ' ', text)
     text = re.sub(r'\(\s+', '(', text)
     text = re.sub(r'\s+\)', ')', text)
@@ -224,9 +434,12 @@ def _collapse_extract_whitespace(text: str) -> str:
 def _strip_ipa_brackets(text: str) -> str:
     """Drop […] groups that contain phonetic signs. Keep [100]/[010]/[001]."""
     def repl(match: re.Match[str]) -> str:
-        if _IPA_CHAR_RE.search(match.group(0)):
+        group = match.group(0)
+        if re.search(r'\\[A-Za-z]+|[=+−×*/^_∫∑∂∇≤≥]', group):
+            return group  # Square-bracketed formula or vector notation.
+        if _IPA_CHAR_RE.search(group):
             return ''
-        return match.group(0)
+        return group
 
     return _SQUARE_BRACKET_RE.sub(repl, text)
 
@@ -269,10 +482,10 @@ def _strip_bracket_notes(text: str) -> str:
 
 
 def clean_wiki_extract(extract: str) -> str:
-    """Remove formula/image TextExtracts noise; keep readable Russian prose."""
+    """Convert TextExtracts math dumps to readable, tokenizable raw text."""
     text = extract or ''
-    text = _remove_tex_groups(text)
     text = _strip_indented_math_lines(text)
+    text = _replace_tex_groups(text)
     text = _strip_bracket_notes(text)
     return _collapse_extract_whitespace(text)
 

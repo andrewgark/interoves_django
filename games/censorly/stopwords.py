@@ -22,7 +22,15 @@ _STOP_RAW = """
 """.split()
 
 STOP_WORDS = frozenset(normalize_surface(w) for w in _STOP_RAW if w.strip())
+# Mathematical operators are structural, always-visible tokens just like
+# punctuation. Keeping them here documents their open-by-default semantics.
+STOP_SYMBOLS = frozenset(
+    '∫ ∬ ∭ ∮ ≤ ≥ ≠ ≈ ∈ ∉ ∑ ∏ ∂ ∇ × · ± ∓ → ← ↔ ∪ ∩ ∧ ∨ √ ∞ '
+    'ᵃ ᵇ ᶜ ᵈ ᵉ ᶠ ᵍ ʰ ⁱ ʲ ᵏ ˡ ᵐ ⁿ ᵒ ᵖ ʳ ˢ ᵗ ᵘ ᵛ ʷ ˣ ʸ ᶻ'
+    .split()
+)
 
 
 def is_stop_word(surface: str) -> bool:
-    return normalize_surface(surface) in STOP_WORDS
+    normalized = normalize_surface(surface)
+    return normalized in STOP_WORDS or normalized in STOP_SYMBOLS

@@ -26,9 +26,11 @@ HEADING_LEVEL_SEP = '\x1f'
 FORMULA_START = '\ufdd2'
 FORMULA_END = '\ufdd3'
 
+_MATH_SERVICE_SYMBOLS = '∫∬∭∮≤≥≠≈∈∉∑∏∂∇×·±∓→←↔∪∩∧∨√∞ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
+
 # Greek, CJK, Cyrillic and Latin are words. Hyphen, ² and ₂ are not in the span.
 _TOKEN_RE = re.compile(
-    rf'[{WORD_CHARS}]+|[^{WORD_CHARS}\s]+|\s+',
+    rf'[{WORD_CHARS}]+|[{re.escape(_MATH_SERVICE_SYMBOLS)}]|[^{WORD_CHARS}\s]+|\s+',
 )
 
 _WORD_CORE_RE = re.compile(
@@ -187,7 +189,7 @@ def _tokenize_plain(
                 _stem, ending = split_stem_ending(surface)
                 stem_length = letter_length(_stem) if ending else length
         else:
-            kind = 'punct'
+            kind = 'stop' if is_stop_word(surface) else 'punct'
             lemma = ''
             length = 0
             ending = ''

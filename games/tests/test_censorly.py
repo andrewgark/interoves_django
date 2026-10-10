@@ -558,8 +558,8 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('Обзор книг', trimmed)
         self.assertIn('Литературный обзор', trimmed)
 
-    def test_clean_wiki_extract_strips_math_displaystyle_dumps(self):
-        """Wikipedia explaintext leaves MathML glyph lines + {\\displaystyle …}."""
+    def test_clean_wiki_extract_renders_math_displaystyle_dumps(self):
+        """TextExtracts MathML glyph lines collapse to readable tokenizable TeX."""
         from games.censorly.wiki import clean_wiki_extract, _trim_extract
 
         # Shape mirrors ruwiki «Магнетизм» / TextExtracts math dumps.
@@ -622,12 +622,14 @@ class CensorlyRandomGameTests(TestCase):
         self.assertNotIn('\\mathbf', cleaned)
         self.assertNotIn('\u2061', cleaned)
         self.assertNotIn('\\', cleaned)
-        # Indented glyph dump and the TeX line are both gone; the sentence closes.
-        self.assertNotIn('\n        div\n', cleaned)
-        self.assertNotIn('div h', cleaned)
+        # The duplicate glyph dump is removed; TeX is retained as raw formula text.
+        self.assertIn('div h = 0', cleaned)
+        self.assertIn('rot h = (1)/(c)', cleaned)
+        self.assertIn('(∂ e)/(∂ t)', cleaned)
+        self.assertIn('overline(h) = B', cleaned)
         self.assertIn('системой из двух уравнений (СГС):', cleaned)
         self.assertIn('где e — микроскопическая напряжённость', cleaned)
-        self.assertIn('скорость соответствует плотности тока', cleaned)
+        self.assertIn('скорость ρ v соответствует плотности тока', cleaned)
         self.assertIn('магнитной индукцией:', cleaned)
         self.assertIn('==== Токи намагничивания ====', cleaned)
         self.assertIn('токами намагничивания', cleaned)
@@ -635,7 +637,46 @@ class CensorlyRandomGameTests(TestCase):
         trimmed, truncated = _trim_extract(dirty)
         self.assertFalse(truncated)
         self.assertNotIn('displaystyle', trimmed)
-        self.assertIn('соответствует плотности тока', trimmed)
+        self.assertIn('rot h = (1)/(c)', trimmed)
+        self.assertIn('ρ v соответствует плотности тока', trimmed)
+
+    def test_latex_fraction_integral_and_relation_are_readable_tokens(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle P={\frac {24\times 10^{15}\times 3600}'
+            r'{24\times 365\times 3600}}=2,7\times 10^{12}}; '
+            r'{\displaystyle \int \limits _{a}^{b}f(x)dx}; '
+            r'{\displaystyle H(p,q)\leq E}'
+        )
+        cleaned = clean_wiki_extract(raw)
+        self.assertIn('P = (24 × 10¹⁵ × 3600)/(24 × 365 × 3600) = 2,7 × 10¹²', cleaned)
+        self.assertIn('∫ₐᵇ f(x)dx', cleaned)
+        self.assertIn('H(p,q) ≤ E', cleaned)
+        self.assertNotIn('\\frac', cleaned)
+        self.assertNotIn('\\int', cleaned)
+
+        tokens = tokenize_text(cleaned)
+        service = {tok['surface']: tok['kind'] for tok in tokens if tok['surface'] in ('∫', '≤')}
+        self.assertEqual(service, {'∫': 'stop', '≤': 'stop'})
+        self.assertTrue(any(tok['surface'] == 'P' and tok['kind'] == 'content' for tok in tokens))
+
+    def test_pool_formula_fixtures_keep_equations_instead_of_vertical_glyph_dumps(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        orbital = _load_censorly_testdata('pool/orbital.txt')
+        orbital_clean = clean_wiki_extract(orbital)
+        self.assertIn('E = −(1/2)', orbital_clean)
+        self.assertIn('mₑe⁴', orbital_clean)
+        self.assertIn('n²ℏ²', orbital_clean)
+
+        schrodinger = _load_censorly_testdata('pool/schrodinger.txt')
+        schrodinger_clean = clean_wiki_extract(schrodinger)
+        self.assertIn('∑', schrodinger_clean)
+        self.assertIn('∂', schrodinger_clean)
+        self.assertIn('√', schrodinger_clean)
+        self.assertNotIn('\\displaystyle', schrodinger_clean)
 
     def test_strip_numeric_footnotes_keeps_miller_indices(self):
         from games.censorly.wiki import clean_wiki_extract
@@ -667,8 +708,9 @@ class CensorlyRandomGameTests(TestCase):
         cleaned = clean_wiki_extract(raw)
         self.assertNotIn('displaystyle', cleaned)
         self.assertNotIn('\\mathbf', cleaned)
+        self.assertIn('rot h =', cleaned)
         self.assertIn('уравнениями Лоренца', cleaned)
-        self.assertIn('плотности тока', cleaned)
+        self.assertIn('ρ v соответствует плотности тока', cleaned)
 
     def test_fixtures_magnetism_keeps_miller_directions(self):
         from games.censorly.wiki import clean_wiki_extract
