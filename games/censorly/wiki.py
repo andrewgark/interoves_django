@@ -437,7 +437,11 @@ class _TexTextParser:
                     value, i = arg
                     trans = _SUPERSCRIPTS if ch == '^' else _SUBSCRIPTS
                     translated = value.translate(trans)
-                    if translated != value:
+                    fully_translated = all(
+                        char.isspace() or char.translate(trans) != char
+                        for char in value
+                    )
+                    if translated != value and fully_translated:
                         out.append(translated)
                     elif ch == '_':
                         out.append(f'₍{value}₎')

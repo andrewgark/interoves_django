@@ -730,6 +730,7 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('⟨f⟩', stat_mech)
         self.assertNotIn('langle', stat_mech)
         self.assertNotIn('rangle', stat_mech)
+        self.assertIn('∫₍H(p,q) ≤ E₎ dp dq', stat_mech)
 
         pythagoras = clean_wiki_extract(_load_censorly_testdata('pool/pythagoras.txt'))
         self.assertIn('⟺ a² + b² = c²', pythagoras)
