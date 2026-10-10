@@ -2640,6 +2640,10 @@ span.new-btn[aria-disabled="true"] {
   vertical-align: middle;
 }
 
+.new-random-game-loading[hidden] {
+  display: none;
+}
+
 .new-random-game-loading::before {
   content: "";
   width: 0.8rem;
