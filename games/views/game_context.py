@@ -40,13 +40,27 @@ def _offer_share_matches_task(request, task):
     return False
 
 
+def _is_word_salad_author(request, game, task):
+    """Let a logged-in salad author test their scheduled puzzle before release."""
+    if (
+        game is None
+        or game.id != 'salad'
+        or task is None
+        or not task.task_group_id
+        or not getattr(request.user, 'is_authenticated', False)
+    ):
+        return False
+    return task.task_group.authors.filter(user_id=request.user.pk).exists()
+
+
 def unpublished_scheduled_task_response(request, game, task):
     """Reject authoritative writes to a scheduled release before publication.
 
     Cleanup is asynchronous now, so pre-publication progress must not enter
     the normal gameplay namespace while the maintenance worker is pending.
     A custom salad or ladder opened by its share hash is already a public puzzle
-    and stays playable after it is queued on a future daily number.
+    and stays playable after it is queued on a future daily number. Salad authors
+    can also test their own scheduled puzzle from its daily URL before release.
     """
     if game is None or task is None or not is_scheduled_game(game.id):
         return None
@@ -56,7 +70,10 @@ def unpublished_scheduled_task_response(request, game, task):
         game=game, task_group_id=task.task_group_id,
     ).only('number').first()
     if link is not None and not scheduled_number_is_public(game, link.number):
-        if _offer_share_matches_task(request, task):
+        if (
+            _offer_share_matches_task(request, task)
+            or _is_word_salad_author(request, game, task)
+        ):
             return None
         incident_id = str(getattr(request, 'interoves_request_id', '') or '')[:64]
         if not incident_id:
