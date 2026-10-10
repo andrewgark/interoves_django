@@ -38,6 +38,11 @@
   align-items: start;
 }
 
+.censorly__dock {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /*
   Desktop: sticky dock under .new-nav (same offset as proportions pool / raddle pin).
   z-index below nav (10), above article content.
@@ -457,10 +462,13 @@ html.new-ui-dark .censorly__dock {
 .censorly__form {
   display: grid;
   gap: 0.4rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .censorly__controls {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.35rem;
 }
@@ -477,6 +485,8 @@ html.new-ui-dark .censorly__dock {
   display: flex;
   gap: 0.4rem;
   align-items: stretch;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .censorly__input {
@@ -519,6 +529,7 @@ html.new-ui-dark .censorly__dock {
   margin: 0.4rem 0 0;
   font-size: 0.9rem;
   color: var(--muted);
+  overflow-wrap: anywhere;
 }
 
 .censorly__feedback.is-error { color: #c23b22; }
