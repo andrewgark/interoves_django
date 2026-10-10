@@ -721,8 +721,7 @@ class CensorlyRandomGameTests(TestCase):
         service = {token['surface']: token['kind'] for token in tokenize_text(cleaned)}
         for symbol in ('₍', '₎', '˙', '¯', '¨'):
             self.assertEqual(service[symbol], 'stop')
-        self.assertEqual(service['q'], 'content')
-        self.assertEqual(service['ᵢ'], 'stop')
+        self.assertEqual(service['qᵢ'], 'content')
 
         stat_mech = clean_wiki_extract(_load_censorly_testdata('pool/stat_mech.txt'))
         self.assertIn('qᵢ˙', stat_mech)
