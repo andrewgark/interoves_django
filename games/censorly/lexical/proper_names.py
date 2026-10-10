@@ -165,6 +165,22 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
 # mutually open. Pairs connect a name only to its direct adjective, demonym,
 # or patronymic form; they do not connect those derived forms to each other.
 PAIR_RELATIONS: tuple[tuple[str, str], ...] = (
+    # Approved eponyms. Keep each as an explicit one-to-one relation: an
+    # eponym must not connect its name, derivative, or homonymous readings
+    # transitively to other members of a lexical family.
+    ('ленин', 'ленинизм'),
+    ('лоуренс', 'лоуренсий'),
+    ('менделеев', 'менделевий'),
+    ('нобель', 'нобелий'),
+    ('гёте', 'гётит'),
+    ('антонов', 'антоновский'),
+    ('клемент', 'клементина'),
+    ('бандера', 'бандеровщина'),
+    ('гитлер', 'гитлериана'),
+    ('фауст', 'фаустианство'),
+    ('свердлов', 'свердловский'),
+    ('пушкин', 'пушкинистика'),
+    ('фергюсон', 'фергусонит'),
     ('алжир', 'алжирский'),
     ('австрия', 'австрийский'),
     ('азербайджан', 'азербайджанский'),
