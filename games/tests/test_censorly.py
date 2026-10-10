@@ -750,6 +750,35 @@ class CensorlyRandomGameTests(TestCase):
         pythagoras = clean_wiki_extract(_load_censorly_testdata('pool/pythagoras.txt'))
         self.assertIn('cos (c)/(R)', pythagoras)
 
+    def test_latex_chemistry_and_text_wrappers_render_without_command_leaks(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle {\ce {H2O\ -\ e^{-}->H^{+}{}+{\dot {O}}H}}}; '
+            r'{\displaystyle {\ce {4{\dot {O}}H->O2{}+2H2O}}}; '
+            r'{\displaystyle {\begin{cases}0&{\mbox{при}}\ H<E,\\'
+            r'C&{\mbox{при}}\ H\leq E.\end{cases}}}'
+        )
+        cleaned = clean_wiki_extract(raw)
+        self.assertIn('H₂O − e^(−) → H⁺ + O˙H', cleaned)
+        self.assertIn('4O˙H → O₂ + 2H₂O', cleaned)
+        self.assertIn('0 при H<E; C при H ≤ E.', cleaned)
+        self.assertNotIn('\\ce', cleaned)
+        self.assertNotIn('mbox', cleaned)
+        self.assertNotIn('.;', cleaned)
+
+        arrow_tokens = [
+            token for token in tokenize_text(cleaned)
+            if token['surface'] == '→'
+        ]
+        self.assertEqual(len(arrow_tokens), 2)
+        self.assertTrue(all(token['kind'] == 'stop' for token in arrow_tokens))
+
+        photosynthesis = clean_wiki_extract(_load_censorly_testdata('pool/photosynthesis.txt'))
+        self.assertIn('H₂O − e^(−) → H⁺ + O˙H', photosynthesis)
+        self.assertNotIn('ce H2O', photosynthesis)
+
     def test_strip_numeric_footnotes_keeps_miller_indices(self):
         from games.censorly.wiki import clean_wiki_extract
 

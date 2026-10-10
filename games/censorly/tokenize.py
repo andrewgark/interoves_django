@@ -26,7 +26,7 @@ HEADING_LEVEL_SEP = '\x1f'
 FORMULA_START = '\ufdd2'
 FORMULA_END = '\ufdd3'
 
-_MATH_SERVICE_SYMBOLS = '∫∬∭∮≤≥≠≈∈∉∑∏∂∇×·±∓→←↔⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
+_MATH_SERVICE_SYMBOLS = '∫∬∭∮≤≥≠≈∈∉∑∏∂∇×·±∓→←↔⇌⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
 _MATH_SERVICE_CLASS = re.escape(_MATH_SERVICE_SYMBOLS)
 
 # Greek, CJK, Cyrillic and Latin are words. Hyphen, ² and ₂ are not in the span.

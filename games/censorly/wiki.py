@@ -157,6 +157,10 @@ def _strip_orphan_heading(extract: str) -> str:
 
 
 _TEX_MATH_START_RE = re.compile(r'\{\\(?:displaystyle|textstyle)\b')
+_TEX_TEXT_ARROWS = (
+    ('<=>', '⇌'), ('<->', '⇌'), ('->', '→'), ('<-', '←'),
+    ('=>', '⇒'), ('<=', '⇐'),
+)
 _TEX_SYMBOLS = {
     'alpha': 'α', 'beta': 'β', 'gamma': 'γ', 'delta': 'δ',
     'epsilon': 'ε', 'varepsilon': 'ϵ', 'zeta': 'ζ', 'eta': 'η',
@@ -181,6 +185,7 @@ _TEX_SYMBOLS = {
     'lor': '∨', 'degree': '°', 'circ': '∘', 'emptyset': '∅',
     'triangle': '△', 'perp': '⊥', 'parallel': '∥', 'otimes': '⊗',
     'sim': '∼', 'subseteq': '⊆', 'mid': '∣', 'angle': '∠', 'prime': '′',
+    'll': '≪',
     'ldots': '…', 'cdots': '…', 'dots': '…', 'over': ' / ',
     'int': '∫', 'iint': '∬', 'iiint': '∭', 'oint': '∮',
     'sum': '∑', 'prod': '∏', 'sqrt': '√',
@@ -193,7 +198,7 @@ _TEX_FORMAT_COMMANDS = frozenset({
 })
 _TEX_GROUP_COMMANDS = frozenset({
     'operatorname', 'operatorname*', 'mathrm', 'mathbf', 'mathit',
-    'mathsf', 'mathtt', 'mathcal', 'mathbb', 'mathfrak', 'text',
+    'mathsf', 'mathtt', 'mathcal', 'mathbb', 'mathfrak', 'text', 'mbox', 'rm',
 })
 _TEX_FUNCTION_COMMANDS = frozenset({
     'arg', 'cos', 'cosh', 'cot', 'coth', 'csc', 'deg', 'det', 'dim',
@@ -299,6 +304,16 @@ class _TexTextParser:
             if radicand:
                 return f'√({radicand[0]})', radicand[1]
             return '√', j
+        if name == 'ce':
+            formula = self._argument(j)
+            if formula:
+                # mhchem writes stoichiometric counts as ordinary digits.
+                rendered = re.sub(
+                    r'(?<=[A-Za-z)])([0-9]+)',
+                    lambda match: match.group(1).translate(_SUBSCRIPTS),
+                    formula[0],
+                )
+                return rendered, formula[1]
         if name in _TEX_FORMAT_COMMANDS:
             return (' ' if name in ('quad', 'qquad', ',', ';', ':', ' ') else ''), j
         if name in _TEX_GROUP_COMMANDS or name in ('overline', 'bar', 'vec', 'hat', 'dot', 'ddot', 'acute', 'tilde'):
@@ -336,6 +351,16 @@ class _TexTextParser:
         out: list[str] = []
         i = 0
         while i < len(self.text):
+            arrow = next(
+                ((source, replacement) for source, replacement in _TEX_TEXT_ARROWS
+                 if self.text.startswith(source, i)),
+                None,
+            )
+            if arrow:
+                source, replacement = arrow
+                out.append(f' {replacement} ')
+                i += len(source)
+                continue
             ch = self.text[i]
             if ch == '\\':
                 previous = ''.join(out).rstrip()
@@ -456,6 +481,7 @@ def _collapse_extract_whitespace(text: str) -> str:
     # A run of formula-terminating semicolons, not a single prose semicolon.
     text = re.sub(r';{2,}', '', text)
     text = re.sub(r';\s*([.,])', r'\1', text)
+    text = re.sub(r'([.!?…]);', r'\1', text)
     text = re.sub(r'[ \t]{2,}', ' ', text)
     text = re.sub(r'\(\s+', '(', text)
     text = re.sub(r'\s+\)', ')', text)
