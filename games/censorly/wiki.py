@@ -204,6 +204,7 @@ _SUBSCRIPTS = str.maketrans({
     **dict(zip('aehijklmnoprstuvx', 'ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ')),
 })
 _SCRIPT_CHARS = '₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ⁰¹²³⁴⁵⁶⁷⁸⁹'
+_SCRIPT_ATOM_RE = re.compile(r'[\wΑ-Ωα-ωϵϑϖϱςℏℓ]+[₀-₉₊₋₌₍₎ₐ-ₓᵃ-ᶻ⁰-⁹⁺⁻⁼⁽⁾]*$', re.UNICODE)
 
 
 def _tex_group(text: str, start: int) -> tuple[str, int] | None:
@@ -287,12 +288,16 @@ class _TexTextParser:
             return '√', j
         if name in _TEX_FORMAT_COMMANDS:
             return (' ' if name in ('quad', 'qquad', ',', ';', ':', ' ') else ''), j
-        if name in _TEX_GROUP_COMMANDS or name in ('overline', 'bar', 'vec', 'hat', 'dot', 'acute', 'tilde'):
+        if name in _TEX_GROUP_COMMANDS or name in ('overline', 'bar', 'vec', 'hat', 'dot', 'ddot', 'acute', 'tilde'):
             arg = self._argument(j)
             if not arg:
                 return name, j
             if name in _TEX_GROUP_COMMANDS:
                 return arg
+            if name in ('dot', 'ddot') and _SCRIPT_ATOM_RE.fullmatch(arg[0]):
+                return f"{arg[0]}{'˙' if name == 'dot' else '¨'}", arg[1]
+            if name in ('overline', 'bar') and _SCRIPT_ATOM_RE.fullmatch(arg[0]):
+                return f'{arg[0]}¯', arg[1]
             return f'{name}({arg[0]})', arg[1]
         if name == 'begin' or name == 'end':
             env = self._argument(j)
@@ -354,7 +359,12 @@ class _TexTextParser:
                     value, i = arg
                     trans = _SUPERSCRIPTS if ch == '^' else _SUBSCRIPTS
                     translated = value.translate(trans)
-                    out.append(translated if translated != value else f'{ch}({value})')
+                    if translated != value:
+                        out.append(translated)
+                    elif ch == '_':
+                        out.append(f'₍{value}₎')
+                    else:
+                        out.append(f'^({value})')
                     continue
             out.append(ch)
             i += 1

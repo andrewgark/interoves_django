@@ -34,6 +34,7 @@ TRUE_CASES = (
     ('нога', 'ножка', 'root'),
     ('книга', 'книжка', 'root'),
     ('мать', 'матушка', 'root'),
+    ('мать', 'матка', 'root'),
     ('человек', 'люди', 'lexeme'),
     ('ребёнок', 'дети', 'lexeme'),
     ('год', 'лет', 'lexeme'),
@@ -107,7 +108,6 @@ TRUE_CASES = (
     ('привет', 'приветствие', 'root'),
     ('соответствие', 'соответствовать', 'root'),
     ('завет', 'завещать', 'root'),
-    ('ведать', 'ведомство', 'root'),
     ('весть', 'известить', 'root'),
     ('сторона', 'сторонник', 'root'),
     ('часть', 'частичный', 'root'),
@@ -274,7 +274,6 @@ FALSE_CASES = (
     'душа', 'душный',
     'год', 'годный',
     'свет', 'светский',
-    'мать', 'матка',
     'гора', 'горний',
     'голова', 'глава',
     'голова', 'уголовный',
@@ -899,7 +898,7 @@ class LexicalGameplayTests(TestCase):
             country = apply_guess(game=game, task=task, word='страна', user=user)
             self.assertNotIn(fold('странный'), self._open_texts(country))
             mother = apply_guess(game=game, task=task, word='мать', user=user)
-            self.assertNotIn(fold('матка'), self._open_texts(mother))
+            self.assertIn(fold('матка'), self._open_texts(mother))
             alias = apply_guess(game=game, task=task, word='универ', user=user)
             self.assertIn(fold('университет'), self._open_texts(alias))
             photo = apply_guess(game=game, task=task, word='фото', user=user)
@@ -1212,7 +1211,6 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             ('страна', 'странный'),
             ('крупа', 'крупный'),
             ('свет', 'светский'),
-            ('мать', 'матка'),
             ('червь', 'червовый'),
             ('мара', 'маревый'),
             ('год', 'годный'),

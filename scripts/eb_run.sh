@@ -81,7 +81,7 @@ aws ec2-instance-connect send-ssh-public-key \
     || { echo "Failed to push SSH key" >&2; exit 1; }
 
 # ---- SSH helper through SSM (no public IP or direct SG route required) ------
-SSH=(ssh -tt -i "$KEY_FILE" \
+SSH=(ssh -T -i "$KEY_FILE" \
     -o "ProxyCommand=aws ssm start-session --region ${REGION} --target %h --document-name AWS-StartSSHSession --parameters portNumber=%p" \
     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
     -o LogLevel=ERROR -o ConnectTimeout=10 "${OS_USER}@${INSTANCE_ID}")
@@ -97,7 +97,7 @@ if [[ $RAW -eq 1 ]]; then
     # Raw mode: run a shell command with the EB env injected
     RAW_CMD="$*"
     RAW_CMD_B64=$(python3 -c "import base64, sys; print(base64.b64encode(sys.argv[1].encode()).decode())" "$RAW_CMD")
-    "${SSH[@]}" "sudo python3" <<PYEOF
+    "${SSH[@]}" "sudo python3 -" <<PYEOF
 import base64, os, subprocess, sys
 pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()
 env = dict(os.environ)
@@ -111,7 +111,7 @@ sys.exit(subprocess.call(['bash', '-c', raw_cmd], env=env))
 PYEOF
 else
     # manage.py mode: discover venv Python and run manage.py with prod env
-    "${SSH[@]}" "sudo python3" <<PYEOF
+    "${SSH[@]}" "sudo python3 -" <<PYEOF
 import base64, glob, json, os, subprocess, sys
 args = json.loads(base64.b64decode('${ARGS_B64}').decode())
 pid = subprocess.check_output(['pgrep','-of','daphne'], text=True).strip()

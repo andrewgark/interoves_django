@@ -26,11 +26,11 @@ HEADING_LEVEL_SEP = '\x1f'
 FORMULA_START = '\ufdd2'
 FORMULA_END = '\ufdd3'
 
-_MATH_SERVICE_SYMBOLS = '∫∬∭∮≤≥≠≈∈∉∑∏∂∇×·±∓→←↔⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
+_MATH_SERVICE_SYMBOLS = '∫∬∭∮≤≥≠≈∈∉∑∏∂∇×·±∓→←↔⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
 
 # Greek, CJK, Cyrillic and Latin are words. Hyphen, ² and ₂ are not in the span.
 _TOKEN_RE = re.compile(
-    rf'[{WORD_CHARS}]+|[{re.escape(_MATH_SERVICE_SYMBOLS)}]|[^{WORD_CHARS}\s]+|\s+',
+    rf'[{re.escape(_MATH_SERVICE_SYMBOLS)}]|[{WORD_CHARS}]+|[^{WORD_CHARS}\s]+|\s+',
 )
 
 _WORD_CORE_RE = re.compile(

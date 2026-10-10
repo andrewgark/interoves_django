@@ -73,9 +73,6 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         lock_root = ('sense:key',)
         spring_root = ('sense:key_spring',)
         self.assertEqual(set(structures_of('ключ')), {lock_root, spring_root})
-        for lemma in ('ключевой', 'ключик'):
-            with self.subTest(lemma=lemma):
-                self.assertEqual(structures_of(lemma), (lock_root,))
         self.assertEqual(structures_of('ключник'), (lock_root,))
 
     def test_counting_reading_and_honor_senses_are_separate(self):

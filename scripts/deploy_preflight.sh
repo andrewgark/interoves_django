@@ -18,7 +18,7 @@ if ! "$ROOT/scripts/with_rds.sh" manage.py migrate --plan >"$PLAN_FILE" 2>&1; th
     exit 1
 fi
 
-if ! rg -q "No planned migration operations\." "$PLAN_FILE"; then
+if ! grep -Fq "No planned migration operations." "$PLAN_FILE"; then
     cat "$PLAN_FILE" >&2
     echo "Deploy preflight failed: production has unapplied migrations." >&2
     echo "Apply the migrations first, then retry the deploy." >&2

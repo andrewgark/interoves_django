@@ -626,7 +626,7 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('div h = 0', cleaned)
         self.assertIn('rot h = (1)/(c)', cleaned)
         self.assertIn('(∂ e)/(∂ t)', cleaned)
-        self.assertIn('overline(h) = B', cleaned)
+        self.assertIn('h¯ = B', cleaned)
         self.assertIn('системой из двух уравнений (СГС):', cleaned)
         self.assertIn('где e — микроскопическая напряжённость', cleaned)
         self.assertIn('скорость ρ v соответствует плотности тока', cleaned)
@@ -709,6 +709,25 @@ class CensorlyRandomGameTests(TestCase):
         pythagoras = clean_wiki_extract(_load_censorly_testdata('pool/pythagoras.txt'))
         self.assertIn('⟺ a² + b² = c²', pythagoras)
         self.assertNotIn('Longleftrightarrow', pythagoras)
+
+    def test_latex_accents_and_unavailable_subscripts_stay_compact_and_tokenizable(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \Phi_{E,S} + \dot{q_i} + \overline{N} + \ddot{x}}'
+        cleaned = clean_wiki_extract(raw)
+        self.assertIn('Φ₍E,S₎ + qᵢ˙ + N¯ + x¨', cleaned)
+
+        service = {token['surface']: token['kind'] for token in tokenize_text(cleaned)}
+        for symbol in ('₍', '₎', '˙', '¯', '¨'):
+            self.assertEqual(service[symbol], 'stop')
+        self.assertEqual(service['q'], 'content')
+        self.assertEqual(service['ᵢ'], 'stop')
+
+        stat_mech = clean_wiki_extract(_load_censorly_testdata('pool/stat_mech.txt'))
+        self.assertIn('qᵢ˙', stat_mech)
+        entropy = clean_wiki_extract(_load_censorly_testdata('pool/entropy.txt'))
+        self.assertIn('N¯', entropy)
 
     def test_strip_numeric_footnotes_keeps_miller_indices(self):
         from games.censorly.wiki import clean_wiki_extract
