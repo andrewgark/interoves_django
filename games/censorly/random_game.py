@@ -57,46 +57,58 @@ def _create_from_article(
     if pool_title and pool_title != article.title:
         puzzle['source_pool_title'] = pool_title
     checker = CheckerType.objects.get(pk=CENSORLY_CHECKER_ID)
-    with transaction.atomic():
+    try:
+        with transaction.atomic():
+            existing = (
+                RandomCensorlyGame.objects.select_for_update()
+                .filter(wiki_title=article.title)
+                .first()
+            )
+            if existing is not None:
+                return existing
+            task_group = TaskGroup.objects.create(
+                label=('censorly:random:' + article.title)[:100],
+                checker=checker,
+                points=CENSORLY_BASE_POINTS,
+                max_attempts=None,
+            )
+            Task.objects.create(
+                task_group=task_group,
+                number='1',
+                task_type=CENSORLY_TASK_TYPE,
+                checker=checker,
+                checker_data='',
+                answer=article.title,
+                text='',
+                tags={CENSORLY_TAGS_KEY: puzzle},
+                points=CENSORLY_BASE_POINTS,
+                is_removed=False,
+            )
+            share_hash = allocate_share_hash()
+            row = RandomCensorlyGame.objects.create(
+                wiki_title=article.title,
+                share_hash=share_hash,
+                task_group=task_group,
+            )
+            GameTaskGroup.objects.create(
+                game=game,
+                task_group=task_group,
+                number=share_hash,
+                name=('Цензурка: ' + article.title)[:100],
+                share_hash=share_hash,
+            )
+            return row
+    except IntegrityError:
+        # A concurrent request may have created the canonical article after
+        # our initial lookup. The unique wiki_title constraint is the arbiter.
         existing = (
-            RandomCensorlyGame.objects.select_for_update()
-            .filter(wiki_title=article.title)
+            RandomCensorlyGame.objects.filter(wiki_title=article.title)
+            .select_related('task_group')
             .first()
         )
         if existing is not None:
             return existing
-        task_group = TaskGroup.objects.create(
-            label=('censorly:random:' + article.title)[:100],
-            checker=checker,
-            points=CENSORLY_BASE_POINTS,
-            max_attempts=None,
-        )
-        Task.objects.create(
-            task_group=task_group,
-            number='1',
-            task_type=CENSORLY_TASK_TYPE,
-            checker=checker,
-            checker_data='',
-            answer=article.title,
-            text='',
-            tags={CENSORLY_TAGS_KEY: puzzle},
-            points=CENSORLY_BASE_POINTS,
-            is_removed=False,
-        )
-        share_hash = allocate_share_hash()
-        row = RandomCensorlyGame.objects.create(
-            wiki_title=article.title,
-            share_hash=share_hash,
-            task_group=task_group,
-        )
-        GameTaskGroup.objects.create(
-            game=game,
-            task_group=task_group,
-            number=share_hash,
-            name=('Цензурка: ' + article.title)[:100],
-            share_hash=share_hash,
-        )
-        return row
+        raise
 
 
 def used_censorly_titles() -> set[str]:

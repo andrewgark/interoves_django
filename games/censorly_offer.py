@@ -37,8 +37,13 @@ def create_offer(user: User, party: RandomCensorlyGame, *, comment: str = '') ->
     if not ready:
         raise ValueError('Заполните профиль и привяжите Telegram')
     party = RandomCensorlyGame.objects.select_for_update().get(pk=party.pk)
-    if CensorlyOffer.objects.filter(user=user, party=party, status=CensorlyOffer.STATUS_SENT).exists():
-        raise ValueError('Вы уже предложили эту статью')
+    existing = CensorlyOffer.objects.filter(
+        user=user,
+        party=party,
+        status__in=(CensorlyOffer.STATUS_SENT, CensorlyOffer.STATUS_ACCEPTED),
+    ).order_by('-updated_at').first()
+    if existing is not None:
+        return existing
     return CensorlyOffer.objects.create(user=user, party=party, comment=(comment or '').strip()[:4000])
 
 

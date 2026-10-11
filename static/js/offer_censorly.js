@@ -139,6 +139,7 @@
       headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf()},
       body: JSON.stringify({title: input.value.trim(), comment: comment.value.trim()})
     }).then(function (data) {
+      offers = offers.filter(function (offer) { return offer.id !== data.offer.id; });
       offers.unshift(data.offer);
       renderOffers();
       input.value = '';
