@@ -16,6 +16,9 @@ django.setup()
 
 from games.censorly.lexical.tools.explain_pair import explain_pair
 from games.censorly.lexical.core import fold
+from games.models import CensorlyReviewCase
+from django.utils import timezone
+from django.db.utils import OperationalError
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
 REVIEW_FILE = DATA / 'pair_review.tsv'
@@ -26,6 +29,58 @@ EXISTING_FILE = DATA / 'reviewed_existing_root_assignments.tsv'
 DERIVED_REVIEW_FILE = DATA / 'derived_review.tsv'
 EXISTING_REVIEW_FILE = DATA / 'existing_root_review.tsv'
 RUNTIME_STATUSES = {'APPROVED', 'APPLIED'}
+
+
+def _pair_key_text(guess, target):
+    return '\x1f'.join(sorted((fold(guess), fold(target))))
+
+
+def _sync_durable_cases(review_path):
+    synced = 0
+    for row in _read(review_path):
+        if row.get('status') not in RUNTIME_STATUSES:
+            continue
+        expected = (row.get('expected') or '').strip().upper()
+        if expected not in {'OPEN', 'CLOSED'}:
+            continue
+        updated = CensorlyReviewCase.objects.filter(
+            pair_key=_pair_key_text(row.get('guess', ''), row.get('target', '')),
+            expected=expected,
+        ).update(
+            status=row['status'],
+            decision=row.get('decision', '') or '',
+            updated_at=timezone.now(),
+        )
+        synced += updated
+    return synced
+
+
+def _durable_case_drift(review_path):
+    problems = []
+    try:
+        for row in _read(review_path):
+            if row.get('status') not in RUNTIME_STATUSES:
+                continue
+            expected = (row.get('expected') or '').strip().upper()
+            if expected not in {'OPEN', 'CLOSED'}:
+                continue
+            case = CensorlyReviewCase.objects.filter(
+                pair_key=_pair_key_text(row.get('guess', ''), row.get('target', '')),
+                expected=expected,
+            ).first()
+            if case is not None and case.status != row['status']:
+                problems.append(
+                    '{} / {} expected={} DB={} TSV={}'.format(
+                        row.get('guess', ''), row.get('target', ''), expected,
+                        case.status, row['status'],
+                    ),
+                )
+    except OperationalError as exc:
+        if 'no such table' in str(exc).lower():
+            problems.append('durable review case table is missing; apply migrations first')
+        else:
+            raise
+    return problems
 
 
 def _read(path):
@@ -162,6 +217,7 @@ def _check(review_path, family_review_path, derived_review_path=None):
         problems.append('canonical derived data differs from approved/applied review decisions')
     if actual_existing != expected_existing:
         problems.append('canonical existing-root data differs from approved/applied review decisions')
+    problems.extend('durable case drift: {}'.format(item) for item in _durable_case_drift(review_path))
     if not OPAQUE_FILE.exists():
         problems.append(f'missing {OPAQUE_FILE}')
     if not DERIVED_FILE.exists():
@@ -228,7 +284,9 @@ def main():
     _write(args.output_dir / 'review_apply_manifest.tsv',
            ('guess', 'target', 'fix_layer', 'status', 'generated'),
            manifest)
+    synced_cases = _sync_durable_cases(args.review_file)
     print(f'processed explicit decisions: {len(opaque_rows) + len(derived_rows) + len(existing_rows)} assignments')
+    print(f'synced durable review cases: {synced_cases}')
     print(f'generated: {OPAQUE_FILE}')
     print(f'generated: {DERIVED_FILE}')
     print(f'generated: {EXISTING_FILE}')
