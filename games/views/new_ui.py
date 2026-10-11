@@ -961,6 +961,24 @@ def _build_hub_section_cards(request, *, team):
             play_mode, _ = _get_play_mode(request, game.project_id)
             play_mode = effective_play_mode(play_mode, game, user=request.user)
             card.update(_game_page_progress_context(request, game, play_mode))
+            # The streak is rendered from the initial response, so project the
+            # CTA's solved state here as well instead of waiting for one JSON
+            # request per card after the page has loaded.
+            if card.get('cta_number') and card.get('load_task_group_progress'):
+                actor_team, actor_user, anon_key = _resolve_game_page_actor(request, play_mode)
+                try:
+                    links = _player_visible_task_group_links(game)
+                    progress = _task_group_progress_payload(
+                        game, links, team=actor_team, user=actor_user,
+                        anon_key=anon_key,
+                        mode=game.get_current_mode(Attempt(time=timezone.now())),
+                    )
+                    card['is_solved'] = bool(
+                        (progress.get(str(card['cta_number'])) or {}).get('is_fully_solved')
+                    )
+                    card['progress_embedded'] = True
+                except Exception:
+                    logger.exception('Hub task-group progress failed; using JSON fallback game=%s', game.id)
             by_id[game_id] = card
 
     from games.daily_streak import daily_streaks_for_actor

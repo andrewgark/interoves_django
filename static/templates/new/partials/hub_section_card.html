@@ -18,14 +18,14 @@
   <p class="new-hub-section__desc">{{ card.description }}</p>
   {% if card.play_url %}
     <div class="new-hub-section__cta-row">
-      <a class="new-btn new-hub-section__cta{% if highlight_daily_cta and card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}"
+      <a class="new-btn new-hub-section__cta{% if highlight_daily_cta and card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}{% if card.is_solved %} new-hub-section__cta--solved{% endif %}"
          href="{{ card.play_url }}"
          data-hub-section-cta
          data-cta-number="{{ card.cta_number|default:'' }}"
-         {% if card.load_task_group_progress and card.task_group_progress_url %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}>
+         {% if card.load_task_group_progress and card.task_group_progress_url and not card.progress_embedded %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}{% if card.is_solved %} data-progress-embedded="1"{% endif %}>
         {{ card.cta_label }}
       </a>
-      <span class="new-hub-section__solved" hidden data-hub-solved-mark role="img" aria-label="Решено">
+      <span class="new-hub-section__solved"{% if not card.is_solved %} hidden{% endif %} data-hub-solved-mark role="img" aria-label="Решено"{% if card.is_solved %} tabindex="0"{% endif %}>
         <i class="ph ph-check-circle" aria-hidden="true"></i>
         <span class="new-tooltip new-tooltip--above new-hub-section__solved-tip" role="tooltip">Решено</span>
       </span>
