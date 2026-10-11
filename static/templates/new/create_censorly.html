@@ -1,0 +1,55 @@
+{% extends "new/base.html" %}
+{% load static %}
+{% block title %}Создать Цензурку{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+  <script src="{% static 'js/offer_censorly.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+{% endblock %}
+{% block content %}
+{% csrf_token %}
+{{ offers_json|json_script:"censorly-offers-bootstrap" }}
+<p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label }}</a></p>
+<h1 class="new-heading new-heading--page">Создать Цензурку</h1>
+
+{% if not profile_ready %}
+<section class="pal-card new-card">
+  <p class="pal-lead">Чтобы предлагать Цензурки в ежедневные, укажите имя, фамилию и привяжите Telegram.</p>
+  {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
+  <form method="post" class="new-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_profile">
+    <div class="new-two">
+      <div><label for="offer-first-name">Имя</label><input id="offer-first-name" type="text" name="first_name" value="{{ profile.first_name }}" required></div>
+      <div><label for="offer-last-name">Фамилия</label><input id="offer-last-name" type="text" name="last_name" value="{{ profile.last_name }}" required></div>
+    </div>
+    {% include "new/offer_telegram_link.html" %}
+    <button type="submit" class="new-btn">Сохранить и продолжить</button>
+  </form>
+</section>
+{% else %}
+<p class="new-login-hint new-stack-gap">Выберите статью русской Википедии — мы соберём по ней Цензурку. Её можно решить по ссылке и предложить в ежедневное расписание.</p>
+<section class="pal-card new-card new-stack-gap" aria-labelledby="censorly-create-title">
+  <h2 id="censorly-create-title" class="pal-title">Новая Цензурка</h2>
+  <label class="support-ladders-field" for="censorly-wiki-title">
+    <span>Статья русской Википедии</span>
+    <input id="censorly-wiki-title" type="search" autocomplete="off" maxlength="255" aria-autocomplete="list" aria-controls="censorly-wiki-suggestions" placeholder="Начните вводить название статьи">
+  </label>
+  <p class="support-hint">Можно ввести название или ссылку на русскую Википедию. При отправке проверим, что статья существует и подходит для игры.</p>
+  <div id="censorly-wiki-suggestions" class="support-ladder-list" role="listbox" aria-label="Статьи Википедии" hidden></div>
+  <label class="support-ladders-field">
+    <span>Комментарий для редактора (необязательно)</span>
+    <textarea id="censorly-offer-comment" rows="2" maxlength="4000" placeholder="Почему стоит взять эту статью"></textarea>
+  </label>
+  <p id="censorly-create-status" class="support-hint" role="status" aria-live="polite"></p>
+  <button type="button" class="new-btn" id="censorly-create-submit" disabled>Создать и предложить в ежедневные</button>
+</section>
+<section class="pal-card new-card new-stack-gap" aria-labelledby="censorly-my-offers-title">
+  <h2 id="censorly-my-offers-title" class="pal-title">Мои предложения</h2>
+  <div id="censorly-offer-list" class="support-ladder-list"></div>
+</section>
+{% endif %}
+<div id="censorly-offer-config"
+     data-create-url="{% url 'ui_create_censorly_create' %}"
+     data-suggest-url="{% url 'ui_create_censorly_suggest' %}"></div>
+{% endblock %}

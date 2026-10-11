@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass
@@ -9,6 +10,7 @@ from typing import Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
+from django.core.cache import cache
 
 WIKI_API = 'https://ru.wikipedia.org/w/api.php'
 USER_AGENT = 'InterovesCensorly/1.0 (https://interoves.com; game puzzle generator)'
@@ -728,3 +730,45 @@ def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> 
         truncated=truncated,
         revid=revid,
     )
+
+
+def suggest_article_titles(prefix: str, *, limit: int = 8, session: Optional[requests.Session] = None) -> list[str]:
+    """Return Russian Wikipedia prefix matches for a typeahead control."""
+    query = (prefix or '').strip()
+    if len(query) < 2:
+        return []
+    cache_input = f'{query.casefold()}:{min(max(int(limit), 1), 10)}'
+    cache_key = 'censorly_wiki_prefix_v1:' + hashlib.sha256(cache_input.encode('utf-8')).hexdigest()
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    sess = session or requests.Session()
+    try:
+        response = sess.get(
+            WIKI_API,
+            params={
+                'action': 'query', 'format': 'json', 'list': 'prefixsearch',
+                'pssearch': query, 'psnamespace': 0, 'pslimit': min(max(int(limit), 1), 10),
+            },
+            headers={'User-Agent': USER_AGENT},
+            timeout=5,
+        )
+        response.raise_for_status()
+        data = response.json()
+    except (requests.RequestException, ValueError) as exc:
+        raise WikiFetchError('Не удалось получить подсказки Wikipedia') from exc
+    if not isinstance(data, dict):
+        raise WikiFetchError('Не удалось получить подсказки Wikipedia')
+    query_data = data.get('query')
+    if not isinstance(query_data, dict):
+        return []
+    matches = query_data.get('prefixsearch')
+    if not isinstance(matches, list):
+        return []
+    titles = [
+        str(row.get('title') or '').strip()
+        for row in matches
+        if isinstance(row, dict) and str(row.get('title') or '').strip()
+    ]
+    cache.set(cache_key, titles, timeout=15 * 60)
+    return titles

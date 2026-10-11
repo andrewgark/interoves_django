@@ -12,7 +12,7 @@ from games.views.views import (
 
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|censorly|walls|replacements|palindromes|week_task|team|profile|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|censorly|walls|replacements|palindromes|week_task|team|profile|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad|create_censorly)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     path('start/', ui.start, name='ui_start'),
@@ -111,6 +111,9 @@ urlpatterns = [
     path('create_salad/<int:offer_id>/', ui.offer_salad_detail, name='ui_create_salad_detail'),
     path('create_salad/<int:offer_id>/send/', ui.offer_salad_send, name='ui_create_salad_send'),
     path('create_salad/<int:offer_id>/reset/', ui.offer_salad_reset, name='ui_create_salad_reset'),
+    path('create_censorly/', ui.offer_censorly_page, name='ui_create_censorly'),
+    path('create_censorly/create/', ui.offer_censorly_create, name='ui_create_censorly_create'),
+    path('create_censorly/suggest/', ui.offer_censorly_suggest, name='ui_create_censorly_suggest'),
     re_path(
         r'^salad/(?P<task_group_number>[a-f0-9]{16,32})/$',
         ui.task_group_page,

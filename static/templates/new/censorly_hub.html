@@ -4,6 +4,7 @@
 <p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
 {% include "new/partials/page_heading.html" with heading=page_title show_rules=True %}
 {% include "new/partials/censorly_random_button.html" %}
+<p class="new-stack-gap"><a class="new-btn new-btn--ghost" href="{% url 'ui_create_censorly' %}">Создать свою Цензурку</a></p>
 {% include "new/_rules_banner.html" %}
 <div id="rules-modal" class="new-rules-modal" role="dialog" aria-labelledby="rules-modal-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div><div class="new-rules-modal__box pal-card">

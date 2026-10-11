@@ -965,6 +965,20 @@ html.new-ui-dark .support-preview-banner {
   min-width: 0;
 }
 
+.support-censorly-suggestion {
+  width: 100%;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.support-censorly-suggestion:hover,
+.support-censorly-suggestion[aria-selected="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
 .support-ladder-item.is-today {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }

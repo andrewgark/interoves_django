@@ -152,6 +152,11 @@ from games.views.offer_salad import (  # noqa: E402
     offer_salad_reset,
     offer_salad_send,
 )
+from games.views.offer_censorly import (  # noqa: E402
+    offer_censorly_create,
+    offer_censorly_page,
+    offer_censorly_suggest,
+)
 from games.views.daily_timing_views import daily_solve_timing  # noqa: E402
 from games.tutorials.views import ladder_tutorial  # noqa: E402
 

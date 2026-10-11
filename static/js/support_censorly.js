@@ -9,6 +9,9 @@
   var list = document.getElementById('cz-list');
   var randomList = document.getElementById('cz-random-list');
   var randomPanel = document.getElementById('cz-random-panel');
+  var offersPanel = document.getElementById('cz-offers-panel');
+  var offersList = document.getElementById('cz-offers-list');
+  var offersLoaded = false;
   var busy = false;
   var currentTab = 'schedule';
   var scheduleUi = window.SupportScheduleTabs;
@@ -76,11 +79,25 @@
         actions('hash', row.share_hash) + '</div></div>';
     }).join('') : '<p class="support-empty">Пока пусто.</p>';
   }
+  function renderOffers(rows) {
+    offersList.innerHTML = rows.length ? rows.map(function (row) {
+      var actionsHtml = row.status === 'sent'
+        ? '<button class="new-btn new-btn--mini" data-offer-accept="' + row.id + '">В расписание</button> <button class="new-btn new-btn--mini new-btn--ghost" data-offer-reject="' + row.id + '">Не брать</button>'
+        : '';
+      return '<div class="support-ladder-item"><div class="support-ladder-item__num">' + esc(row.accepted_number ? '№' + row.accepted_number : '#' + row.id) + '</div>' +
+        '<div class="support-ladder-item__body"><div class="support-ladder-item__title">' + esc(row.wiki_title) + ' <span class="support-flag">' + esc(row.status_label) + '</span></div>' +
+        '<div class="support-ladder-item__meta">' + esc(row.user_name) + (row.telegram_handle ? ' · @' + esc(row.telegram_handle) : '') + ' · ' + esc(row.created_at) + '</div>' +
+        (row.comment ? '<div class="support-ladder-item__preview">' + esc(row.comment) + '</div>' : '') + '</div>' +
+        '<div class="support-ladder-item__actions"><a class="new-btn new-btn--mini new-btn--ghost" href="' + esc(row.play_url) + '" target="_blank" rel="noopener">превью</a> ' + actionsHtml + '</div></div>';
+    }).join('') : '<p class="support-empty">Пока нет предложений.</p>';
+  }
   function run(work) {
     if (busy) return;
     busy = true;
     work().catch(function (error) {
-      var node = document.getElementById('cz-error');
+      var node = currentTab === 'offers'
+        ? document.getElementById('cz-offers-error')
+        : document.getElementById('cz-error');
       node.hidden = false;
       node.textContent = error.message;
     }).finally(function () { busy = false; });
@@ -92,9 +109,12 @@
       currentTab = tab.getAttribute('data-tab');
       document.querySelectorAll('#cz-tabs [data-tab]').forEach(function (item) { item.classList.toggle('is-active', item === tab); });
       var isRandom = currentTab === 'random';
-      list.closest('.pal-card').hidden = isRandom;
-      document.querySelector('.support-ladder-insert').hidden = isRandom;
+      var isOffers = currentTab === 'offers';
+      var isAux = isRandom || isOffers;
+      list.closest('.pal-card').hidden = isAux;
+      document.querySelector('.support-ladder-insert').hidden = isAux;
       randomPanel.hidden = !isRandom;
+      offersPanel.hidden = !isOffers;
       if (isRandom && !randomLoaded) run(function () {
         return get(endpoint('random-list')).then(function (data) {
           random = data.rows || [];
@@ -102,7 +122,18 @@
           renderRandom(random);
         });
       });
-      if (!isRandom) renderSchedule(schedule);
+      if (isOffers && !offersLoaded) run(function () {
+        return get(endpoint('offers')).then(function (data) {
+          offersLoaded = true;
+          renderOffers(data.rows || []);
+        }).catch(function (error) {
+          var node = document.getElementById('cz-offers-error');
+          node.hidden = false;
+          node.textContent = error.message;
+          throw error;
+        });
+      });
+      if (!isAux) renderSchedule(schedule);
     });
   });
   document.getElementById('cz-save-start').onclick = function () { run(function () { return post(endpoint('publish'), {publish_start: document.getElementById('cz-publish-start').value}).then(function () { location.reload(); }); }); };
@@ -118,9 +149,19 @@
       return;
     }
     var button = event.target.closest('[data-action]');
-    if (!button) return;
-    var body = button.hasAttribute('data-number') ? {number: button.getAttribute('data-number')} : {share_hash: button.getAttribute('data-hash')};
-    run(function () { return post(endpoint(button.dataset.action === 'reset' ? 'reset' : 'refetch'), body).then(function () { location.reload(); }); });
+    if (button) {
+      var body = button.hasAttribute('data-number') ? {number: button.getAttribute('data-number')} : {share_hash: button.getAttribute('data-hash')};
+      run(function () { return post(endpoint(button.dataset.action === 'reset' ? 'reset' : 'refetch'), body).then(function () { location.reload(); }); });
+      return;
+    }
+    var accept = event.target.closest('[data-offer-accept]');
+    var reject = event.target.closest('[data-offer-reject]');
+    var offerButton = accept || reject;
+    if (!offerButton) return;
+    var offerId = offerButton.getAttribute(accept ? 'data-offer-accept' : 'data-offer-reject');
+    var urlTemplate = endpoint(accept ? 'offer-accept' : 'offer-reject');
+    var url = urlTemplate.replace('/0/', '/' + encodeURIComponent(offerId) + '/');
+    run(function () { return post(url, {}).then(function () { location.reload(); }); });
   });
 
   scheduleUi.mountSortable(list, {

@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import date, datetime
 from typing import Any, Optional
+import copy
 import uuid
 
 from django.db import transaction
@@ -30,7 +31,7 @@ from games.censorly_daily import (
     censorly_publish_start,
     is_censorly_number_published,
 )
-from games.models import CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
+from games.models import CensorlyOffer, CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
 from games.support.services.schedule_links import (
     defer_future_slot,
     effective_schedule_number,
@@ -224,6 +225,85 @@ def restore_censorly(link_id: int, *, now=None):
         not_found_msg='Отложенная Цензурка не найдена',
         now=now,
     )
+
+
+def list_censorly_offers(*, limit: int = 100) -> list[dict[str, Any]]:
+    offers = CensorlyOffer.objects.select_related('user', 'user__profile', 'party', 'accepted_link')[:limit]
+    rows = []
+    for offer in offers:
+        profile = getattr(offer.user, 'profile', None)
+        user_name = ' '.join(filter(None, [
+            (getattr(profile, 'first_name', '') or '').strip(),
+            (getattr(profile, 'last_name', '') or '').strip(),
+        ])) or offer.user.username
+        rows.append({
+            'id': offer.pk,
+            'wiki_title': offer.party.wiki_title,
+            'share_hash': offer.party.share_hash,
+            'play_url': offer.party.play_url(),
+            'status': offer.status,
+            'status_label': offer.status_label,
+            'comment': offer.comment,
+            'admin_note': offer.admin_note,
+            'created_at': timezone.localtime(offer.created_at).strftime('%Y-%m-%d %H:%M'),
+            'user_name': user_name,
+            'telegram_handle': (getattr(profile, 'telegram_handle', '') or '').strip(),
+            'accepted_number': offer.accepted_link.number if offer.accepted_link_id else None,
+        })
+    return rows
+
+
+@transaction.atomic
+def accept_censorly_offer(offer_id: int) -> CensorlyOffer:
+    offer = CensorlyOffer.objects.select_for_update().select_related('party').filter(pk=offer_id).first()
+    if offer is None:
+        raise CensorlySupportError('Предложение не найдено')
+    if offer.status != CensorlyOffer.STATUS_SENT:
+        raise CensorlySupportError('Предложение уже обработано')
+    game = Game.objects.select_for_update().get(pk=CENSORLY_GAME_ID)
+    active_numbers = [
+        int(value) for value in GameTaskGroup.objects.filter(game=game, is_deferred=False)
+        .values_list('number', flat=True) if _is_numeric_number(value)
+    ]
+    number = max(active_numbers, default=0) + 1
+    source_group = offer.party.task_group
+    daily_group = copy.copy(source_group)
+    daily_group.pk = None
+    daily_group.label = f'censorly:{number}'[:100]
+    daily_group.save()
+    if source_group.authors.exists():
+        daily_group.authors.set(source_group.authors.all())
+    link = GameTaskGroup.objects.create(
+        game=game,
+        task_group=daily_group,
+        number=str(number),
+        name=f'Цензурка #{number}',
+    )
+    source_tasks = list(Task.objects.filter(task_group=source_group).order_by('number'))
+    for source_task in source_tasks:
+        daily_task = copy.copy(source_task)
+        daily_task.pk = None
+        daily_task.task_group = daily_group
+        daily_task.attempt_revision = uuid.uuid4()
+        daily_task.save()
+    offer.status = CensorlyOffer.STATUS_ACCEPTED
+    offer.accepted_link = link
+    offer.accepted_at = timezone.now()
+    offer.save(update_fields=['status', 'accepted_link', 'accepted_at', 'updated_at'])
+    return offer
+
+
+@transaction.atomic
+def reject_censorly_offer(offer_id: int, *, note: str = '') -> CensorlyOffer:
+    offer = CensorlyOffer.objects.select_for_update().filter(pk=offer_id).first()
+    if offer is None:
+        raise CensorlySupportError('Предложение не найдено')
+    if offer.status != CensorlyOffer.STATUS_SENT:
+        raise CensorlySupportError('Предложение уже обработано')
+    offer.status = CensorlyOffer.STATUS_REJECTED
+    offer.admin_note = (note or '').strip()[:4000]
+    offer.save(update_fields=['status', 'admin_note', 'updated_at'])
+    return offer
 
 
 @transaction.atomic

@@ -75,6 +75,9 @@ urlpatterns = [
     path('create_salad/<int:offer_id>/send/', ui.offer_salad_send, name='new_create_salad_send'),
     path('create_salad/<int:offer_id>/convert/', ui.offer_salad_convert, name='new_create_salad_convert'),
     path('create_salad/<int:offer_id>/reset/', ui.offer_salad_reset, name='new_create_salad_reset'),
+    path('create_censorly/', ui.offer_censorly_page, name='new_create_censorly'),
+    path('create_censorly/create/', ui.offer_censorly_create, name='new_create_censorly_create'),
+    path('create_censorly/suggest/', ui.offer_censorly_suggest, name='new_create_censorly_suggest'),
     re_path(
         r'^salad/(?P<task_group_number>[a-f0-9]{16,32})/$',
         ui.task_group_page,

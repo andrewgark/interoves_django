@@ -39,13 +39,16 @@ from games.support.services.censorly import (
     CensorlySupportError,
     create_at_number as censorly_create_at_number,
     dashboard_context as censorly_dashboard_context,
+    accept_censorly_offer,
     defer_censorly,
     generate_from_title as censorly_create_from_title,
     generate_more as censorly_generate_more,
     generate_random as censorly_create_random,
     list_random_rows as censorly_list_random_rows,
+    list_censorly_offers,
     refetch_article_text as censorly_refetch_article_text,
     reset_my_progress as censorly_reset_my_progress,
+    reject_censorly_offer,
     reorder_censorly,
     restore_censorly,
     set_publish_start as censorly_set_publish_start_service,
@@ -1395,6 +1398,35 @@ def censorly_reorder(request):
     except CensorlySupportError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     return JsonResponse({'ok': True, 'rows': [row.to_dict() for row in rows]})
+
+
+@support_console_required
+@require_GET
+def censorly_offers_list(request):
+    return JsonResponse({'ok': True, 'rows': list_censorly_offers()})
+
+
+@support_console_required
+@require_POST
+def censorly_offer_accept(request, offer_id):
+    try:
+        offer = accept_censorly_offer(offer_id)
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'number': offer.accepted_link.number})
+
+
+@support_console_required
+@require_POST
+def censorly_offer_reject(request, offer_id):
+    body = _json_body(request)
+    if not isinstance(body, dict):
+        return JsonResponse({'ok': False, 'error': 'JSON должен быть объектом'}, status=400)
+    try:
+        reject_censorly_offer(offer_id, note=str(body.get('note') or ''))
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True})
 
 
 @support_console_required
