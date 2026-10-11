@@ -267,7 +267,7 @@ html.new-ui-dark .censorly__dock {
     position: relative;
   }
   .censorly-tok--reportable::after {
-    content: attr(data-tooltip);
+    content: 'Пожаловаться на матчинг слов';
     position: absolute;
     left: 50%;
     bottom: calc(100% + 0.5rem);

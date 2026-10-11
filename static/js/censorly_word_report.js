@@ -113,8 +113,16 @@
     }
   });
 
-  submitEl.addEventListener('click', function () {
+  if (!submitEl) return;
+  submitEl.addEventListener('click', function (event) {
+    event.preventDefault();
+    event.stopPropagation();
     if (submitting || !selectedToken) return;
+    if (!root.dataset.wordReportUrl) {
+      errorEl.textContent = 'Не удалось определить адрес жалобы.';
+      errorEl.hidden = false;
+      return;
+    }
     var reason = selectedReason();
     var other = (otherEl.value || '').trim();
     if (!reason) {

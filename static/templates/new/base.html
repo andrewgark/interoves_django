@@ -896,18 +896,24 @@
       var modal = opts.modal;
       var storageKey = opts.storageKey;
       var banner = opts.banner;
+      var returnFocus = null;
       if (!modal || !storageKey) return;
       function openRules(e) {
         if (e && e.preventDefault) e.preventDefault();
+        if (!modal.classList.contains('is-open')) returnFocus = document.activeElement;
         modal.removeAttribute('hidden');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';
+        var closeButton = modal.querySelector('button[data-rules-close]');
+        if (closeButton && closeButton.focus) closeButton.focus();
       }
       function closeRules() {
         modal.setAttribute('hidden', '');
         modal.classList.remove('is-open');
         document.body.style.overflow = '';
         try { localStorage.setItem(storageKey, '1'); } catch (e) {}
+        if (returnFocus && returnFocus.isConnected && returnFocus.focus) returnFocus.focus();
+        returnFocus = null;
       }
       function dismissBanner() {
         if (!banner) return;
@@ -922,7 +928,29 @@
         el.addEventListener('click', closeRules);
       });
       document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeRules();
+        if (!modal.classList.contains('is-open')) return;
+        if (e.key === 'Escape') {
+          closeRules();
+          return;
+        }
+        if (e.key !== 'Tab') return;
+        var focusable = Array.prototype.filter.call(
+          modal.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'),
+          function (el) { return el.getClientRects().length > 0; }
+        );
+        if (!focusable.length) {
+          e.preventDefault();
+          return;
+        }
+        var first = focusable[0];
+        var last = focusable[focusable.length - 1];
+        if (e.shiftKey && (document.activeElement === first || !modal.contains(document.activeElement))) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (document.activeElement === last || !modal.contains(document.activeElement))) {
+          e.preventDefault();
+          first.focus();
+        }
       });
       if (banner) {
         var openBtn = banner.querySelector('[data-rules-banner-open]');

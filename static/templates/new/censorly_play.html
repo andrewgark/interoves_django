@@ -289,6 +289,7 @@ window.revealReplayControl = window.revealReplayControl || function () {
 (function () {
   var modal = document.getElementById('new-bug-report-modal');
   if (!modal) return;
+  var root = document.getElementById('censorly-root');
   var textEl = document.getElementById('new-bug-report-text');
   var labelEl = document.getElementById('new-bug-report-task-label');
   var errorEl = document.getElementById('new-bug-report-error');
@@ -319,11 +320,21 @@ window.revealReplayControl = window.revealReplayControl || function () {
     if (e.target.closest && e.target.closest('[data-bug-report-submit]')) {
       if (!currentTaskId || !textEl) return;
       var url = "{% url 'new_bug_report' 0 %}".replace('/0/', '/' + currentTaskId + '/');
+      var body = new URLSearchParams();
+      body.set('text', textEl.value || '');
+      if (root) {
+        body.set('game_id', root.getAttribute('data-game-id') || '');
+        body.set('anon_key', root.getAttribute('data-anon-key') || '');
+      }
       fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-        body: JSON.stringify({ text: textEl.value || '' }),
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRFToken': csrf(),
+        },
+        body: body.toString(),
       }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok && d.ok !== false, data: d }; }); })
         .then(function (pack) {
           if (!pack.ok) {
