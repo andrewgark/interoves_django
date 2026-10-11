@@ -14,6 +14,7 @@
   var successEl = document.getElementById('censorly-word-report-success');
   var submitEl = modal.querySelector('[data-censorly-word-report-submit]');
   var selectedToken = null;
+  var previousFocus = null;
   var submitting = false;
 
   function csrf() {
@@ -43,10 +44,14 @@
     if (submitting) return;
     modal.hidden = true;
     modal.classList.remove('is-open');
+    document.body.classList.remove('new-modal-open');
     selectedToken = null;
+    if (previousFocus && document.contains(previousFocus)) previousFocus.focus();
+    previousFocus = null;
   }
 
   function open(token) {
+    previousFocus = document.activeElement;
     selectedToken = token;
     targetEl.textContent = token.dataset.surface || token.textContent.trim();
     modal.querySelectorAll('input[name=censorly-word-report-reason]').forEach(function (input) {
@@ -62,6 +67,7 @@
     otherEl.required = false;
     modal.hidden = false;
     modal.classList.add('is-open');
+    document.body.classList.add('new-modal-open');
     modal.querySelector('input[name=censorly-word-report-reason]').focus();
   }
 

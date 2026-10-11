@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import json
+import time
 from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
+from django.core.cache import caches
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
@@ -71,6 +73,11 @@ from games.views.new_ui import (
 from games.views.game_context import game_from_request_for_task
 from games.views.util import get_public_task_or_404, has_profile
 from games.censorly.lexical.core import fold
+
+
+CENSORLY_WORD_REPORT_LIMIT = 20
+CENSORLY_WORD_REPORT_WINDOW_SECONDS = 10 * 60
+censorly_report_cache = caches['censorly_api']
 
 
 def _share_host(request) -> str:
@@ -745,6 +752,25 @@ def censorly_word_report(request, task_id):
     ] if int(item.get('id', -1)) == token_id), None)
     if not token or not token.get('revealed') or fold(token.get('text') or '') != fold(target_surface):
         return JsonResponse({'ok': False, 'error': 'Пожаловаться можно только на открытое слово.'}, status=400)
+
+    actor_key = 'user:{}'.format(user.pk) if user is not None else 'anon:{}'.format(anon_key)
+    now = int(time.time())
+    bucket = now // CENSORLY_WORD_REPORT_WINDOW_SECONDS
+    rate_key = 'censorly_word_report_v1:{}:{}'.format(actor_key, bucket)
+    if censorly_report_cache.add(rate_key, 1, timeout=CENSORLY_WORD_REPORT_WINDOW_SECONDS):
+        report_count = 1
+    else:
+        try:
+            report_count = censorly_report_cache.incr(rate_key)
+        except ValueError:
+            censorly_report_cache.add(rate_key, 1, timeout=CENSORLY_WORD_REPORT_WINDOW_SECONDS)
+            report_count = 1
+    if report_count > CENSORLY_WORD_REPORT_LIMIT:
+        return JsonResponse(
+            {'ok': False, 'error': 'Слишком много жалоб. Попробуйте позже.'},
+            status=429,
+            headers={'Retry-After': str(CENSORLY_WORD_REPORT_WINDOW_SECONDS - now % CENSORLY_WORD_REPORT_WINDOW_SECONDS)},
+        )
 
     expected = 'CLOSED' if reason == 'FALSE_POSITIVE' else 'OPEN' if reason == 'FALSE_NEGATIVE' else ''
     diagnostic = None
