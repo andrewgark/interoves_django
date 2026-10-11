@@ -43,8 +43,10 @@ from games.support.services.censorly import (
     generate_from_title as censorly_create_from_title,
     generate_more as censorly_generate_more,
     generate_random as censorly_create_random,
+    list_random_rows as censorly_list_random_rows,
     refetch_article_text as censorly_refetch_article_text,
     reset_my_progress as censorly_reset_my_progress,
+    reorder_censorly,
     restore_censorly,
     set_publish_start as censorly_set_publish_start_service,
 )
@@ -1374,6 +1376,25 @@ def alphabetty_generate(request):
 def censorly_dashboard(request):
     ctx = censorly_dashboard_context()
     return render(request, 'support/censorly.html', ctx)
+
+
+@support_console_required
+@require_GET
+def censorly_random_list(request):
+    return JsonResponse({'ok': True, 'rows': [row.to_dict() for row in censorly_list_random_rows()]})
+
+
+@support_console_required
+@require_POST
+def censorly_reorder(request):
+    body = _json_body(request) or {}
+    try:
+        rows = reorder_censorly([int(value) for value in body.get('order', [])])
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Нужен корректный порядок'}, status=400)
+    except CensorlySupportError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'rows': [row.to_dict() for row in rows]})
 
 
 @support_console_required

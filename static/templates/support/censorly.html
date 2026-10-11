@@ -3,7 +3,6 @@
 
 {% block schedule_bootstrap %}
 {{ schedule_json|json_script:"censorly-schedule" }}
-{{ random_json|json_script:"censorly-random" }}
 {% endblock %}
 
 {% block schedule_lead %}
@@ -20,7 +19,24 @@
 {% endblock %}
 
 {% block schedule_before_content %}
-<section class="pal-card support-card">
+<div id="censorly-support-config"
+     data-publish-url="{% url 'support:censorly_publish_start' %}"
+     data-create-url="{% url 'support:censorly_schedule_create' %}"
+     data-generate-url="{% url 'support:censorly_schedule_generate' %}"
+     data-random-url="{% url 'support:censorly_generate' %}"
+     data-random-list-url="{% url 'support:censorly_random_list' %}"
+     data-reorder-url="{% url 'support:censorly_reorder' %}"
+     data-from-title-url="{% url 'support:censorly_from_title' %}"
+     data-reset-url="{% url 'support:censorly_reset_progress' %}"
+     data-refetch-url="{% url 'support:censorly_refetch_text' %}"></div>
+{% endblock %}
+
+{% block schedule_extra_tabs %}
+  <button type="button" class="support-tabs__btn" data-tab="random">Случайные партии</button>
+{% endblock %}
+
+{% block schedule_after_list %}
+<section class="pal-card support-card" id="cz-random-panel" hidden>
   <h2 class="pal-title" style="margin-top:0">Случайные партии</h2>
   <div class="support-action-row">
     <button type="button" class="new-btn" id="cz-random">Случайная из пула</button>
@@ -28,18 +44,8 @@
     <span class="support-hint" id="cz-status" aria-live="polite"></span>
   </div>
   <p class="support-hint support-ladder-edit-error" id="cz-error" hidden></p>
-  <div id="cz-random-list" class="support-ladder-list">
-    {% for row in random_rows %}<div class="support-ladder-item"><div class="support-ladder-item__body"><div class="support-ladder-item__title">{{ row.wiki_title }}</div><div class="support-ladder-item__meta"><code>{{ row.share_hash }}</code></div></div><div class="support-ladder-item__actions"><button class="new-btn new-btn--mini new-btn--ghost" data-cz-refetch="{{ row.share_hash }}">Скачать текст заново</button><button class="new-btn new-btn--mini new-btn--ghost" data-cz-reset="{{ row.share_hash }}">Сбросить мой прогресс</button></div></div>{% endfor %}
-  </div>
+  <div id="cz-random-list" class="support-ladder-list"><p class="support-empty">Откройте вкладку, чтобы загрузить список.</p></div>
 </section>
-<div id="censorly-support-config"
-     data-publish-url="{% url 'support:censorly_publish_start' %}"
-     data-create-url="{% url 'support:censorly_schedule_create' %}"
-     data-generate-url="{% url 'support:censorly_schedule_generate' %}"
-     data-random-url="{% url 'support:censorly_generate' %}"
-     data-from-title-url="{% url 'support:censorly_from_title' %}"
-     data-reset-url="{% url 'support:censorly_reset_progress' %}"
-     data-refetch-url="{% url 'support:censorly_refetch_text' %}"></div>
 {% endblock %}
 
 {% block schedule_page_scripts %}

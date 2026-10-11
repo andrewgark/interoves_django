@@ -48,7 +48,6 @@ class CensorlySupportError(Exception):
 class CensorlyScheduleRow:
     link_id: int
     task_group_id: int
-    task_id: Optional[int]
     number: int
     name: str
     wiki_title: str
@@ -56,7 +55,6 @@ class CensorlyScheduleRow:
     is_published: bool
     is_today: bool
     play_url: str
-    token_count: int = 0
     is_deferred: bool = False
 
     def to_dict(self) -> dict[str, Any]:
@@ -134,19 +132,24 @@ def list_schedule_rows(*, now: datetime | None = None) -> list[CensorlyScheduleR
         if _is_numeric_number(link.number)
     ]
     links.sort(key=lambda link: int(link.number))
+    tasks_by_group = {
+        task.task_group_id: task
+        for task in Task.objects.filter(
+            task_group_id__in=[link.task_group_id for link in links], number='1'
+        ).only('id', 'task_group_id', 'answer')
+    }
     rows: list[CensorlyScheduleRow] = []
     for link in links:
         number = effective_schedule_number(link)
         if number is None:
             continue
-        task = _task_for_link(link)
+        task = tasks_by_group.get(link.task_group_id)
         pub = censorly_publish_at(game, number)
         pub_date = pub.astimezone(MOSCOW).date().isoformat() if pub else None
         is_pub = not link.is_deferred and is_censorly_number_published(game, number, now)
         rows.append(CensorlyScheduleRow(
             link_id=link.pk,
             task_group_id=link.task_group_id,
-            task_id=task.pk if task else None,
             number=number,
             name=link.name or f'Цензурка #{number}',
             wiki_title=_title_from_task(task),
@@ -154,7 +157,6 @@ def list_schedule_rows(*, now: datetime | None = None) -> list[CensorlyScheduleR
             is_published=is_pub,
             is_today=bool(pub and pub.date() == today),
             play_url=f'/censorly/{number}/',
-            token_count=_token_count(task),
             is_deferred=bool(link.is_deferred),
         ))
     return rows
@@ -181,7 +183,6 @@ def dashboard_context() -> dict[str, Any]:
     game = get_censorly_game()
     start = censorly_publish_start(game)
     schedule = list_schedule_rows()
-    random_rows = list_random_rows()
     active_schedule = [row for row in schedule if not row.is_deferred]
     return {
         'page_title': 'Цензурки',
@@ -193,8 +194,6 @@ def dashboard_context() -> dict[str, Any]:
         'buffer_days': CENSORLY_BUFFER_DAYS,
         'schedule_rows': schedule,
         'schedule_json': [r.to_dict() for r in schedule],
-        'random_rows': random_rows,
-        'random_json': [r.to_dict() for r in random_rows],
         'schedule_count': len(active_schedule),
         'published_count': sum(1 for r in active_schedule if r.is_published),
         'future_count': sum(1 for r in active_schedule if not r.is_published),
@@ -225,6 +224,33 @@ def restore_censorly(link_id: int, *, now=None):
         not_found_msg='Отложенная Цензурка не найдена',
         now=now,
     )
+
+
+@transaction.atomic
+def reorder_censorly(ordered_link_ids: list[int], *, now=None) -> list[CensorlyScheduleRow]:
+    game = get_censorly_game()
+    if not ordered_link_ids:
+        raise CensorlySupportError('Пустой порядок')
+    if len(set(ordered_link_ids)) != len(ordered_link_ids):
+        raise CensorlySupportError('Дубликаты id в порядке')
+    links = list(
+        GameTaskGroup.objects.select_for_update()
+        .filter(game=game)
+        .select_related('task_group')
+    )
+    active = [link for link in links if not link.is_deferred and _is_numeric_number(link.number)]
+    by_id = {link.pk: link for link in active}
+    if set(ordered_link_ids) != set(by_id):
+        raise CensorlySupportError('Список id не совпадает с текущими Цензурками (обновите страницу и повторите)')
+    from games.support.services.schedule_links import assert_future_only_order
+    assert_future_only_order(
+        ordered_link_ids,
+        list_schedule_rows(now=now),
+        error_cls=CensorlySupportError,
+        published_msg='Нельзя менять порядок уже вышедших Цензурок (№1–{number}). Переставляйте только будущие.',
+    )
+    _renumber_censorly_links([by_id[pk] for pk in ordered_link_ids])
+    return list_schedule_rows(now=now)
 
 
 def set_publish_start(date_iso: str) -> str:
