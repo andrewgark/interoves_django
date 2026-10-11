@@ -515,11 +515,9 @@
   document.querySelectorAll('[data-confirm-close]').forEach(function (el) {
     el.addEventListener('click', closeConfirm);
   });
-  if (confirmModal) {
-    confirmModal.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeConfirm();
-    });
-  }
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && confirmModal && confirmModal.classList.contains('is-open')) closeConfirm();
+  });
   if (confirmYes) {
     confirmYes.addEventListener('click', function () {
       if (!pending) return closeConfirm();
@@ -628,8 +626,8 @@
     modal.querySelectorAll('[data-primary-modal-close]').forEach(function (el) {
       el.addEventListener('click', closeModal);
     });
-    modal.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape') closeModal();
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
     });
     function submitWithPrimary(val) {
       hidden.value = val;
