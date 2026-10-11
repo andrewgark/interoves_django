@@ -42,6 +42,8 @@ def _provenance(report):
         reasons.append('GRAMMAR')
     if layers['ALIAS']:
         reasons.append('ALIAS')
+    if layers['PROPER_PAIR']:
+        reasons.append('PROPER_PAIR')
     if layers['SERVICE_WORD']:
         reasons.append('SERVICE_WORD')
     if not reasons:
@@ -77,9 +79,9 @@ def _read(path):
 def _rows(cases):
     result = []
     for case in cases:
-        guess = case['guess'].strip()
-        target = case['target'].strip()
-        expected = case['expected'].strip().upper()
+        guess = (case.get('guess') or '').strip()
+        target = (case.get('target') or '').strip()
+        expected = (case.get('expected') or '').strip().upper()
         if not guess or not target or expected not in {'OPEN', 'CLOSED'}:
             raise ValueError(f'invalid case: {case!r}')
         report = explain_pair(guess, target)
@@ -87,14 +89,14 @@ def _rows(cases):
         result.append({
             'guess': guess,
             'target': target,
-            'article': case.get('article', '').strip(),
+            'article': (case.get('article') or '').strip(),
             'expected': expected,
             'actual': actual,
             'classification': _classification(report, expected, actual),
             'provenance': _provenance(report),
             'suggested_fix_layer': report['recommendation'],
-            'review_status': case.get('review_status', 'NEW').strip() or 'NEW',
-            'note': case.get('note', '').strip(),
+            'review_status': (case.get('review_status') or 'NEW').strip() or 'NEW',
+            'note': (case.get('note') or '').strip(),
         })
     return result
 

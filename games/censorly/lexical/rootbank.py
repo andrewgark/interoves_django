@@ -130,6 +130,12 @@ def structures_of(lemma: str) -> tuple[tuple[str, ...], ...]:
     return _bank()[0].get(fold(lemma), ())
 
 
+def tikhonov_roots_of(lemma: str) -> tuple[str, ...]:
+    """Raw Tikhonov root components for diagnostics, including duplicate rows."""
+    _bank()
+    return _TIKHONOV_ROOTS.get(fold(lemma), ())
+
+
 def families_of(lemma: str) -> tuple[str, ...]:
     """Kuznetsova family ids of a lemma, before the game-root split."""
     _bank()
@@ -162,6 +168,7 @@ def assignment_of(lemma: str) -> dict:
 
 
 _KUZ_FAMILY: dict[str, tuple[str, ...]] = {}
+_TIKHONOV_ROOTS: dict[str, tuple[str, ...]] = {}
 _PROVENANCE: dict[str, dict] = {}
 _SOURCE: dict[str, str] = {}
 _COMPONENT_AUDIT: dict[str, int] = {}
@@ -248,10 +255,11 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
         root_id = _game_id(numbered, family)
         if root_id not in kuz[lemma]:
             kuz[lemma].append(root_id)
-    global _KUZ_FAMILY
+    global _KUZ_FAMILY, _TIKHONOV_ROOTS
     _KUZ_FAMILY = {lemma: tuple(items) for lemma, items in kuz_families.items()}
 
     tikhonov: dict[str, tuple[str, ...]] = {}
+    tikhonov_all: dict[str, list[str]] = {}
     for line in _lines(_TIKHONOV):
         raw_lemma, seg = line.split('\t', 1)
         lemma = fold(_strip_note(raw_lemma))
@@ -266,6 +274,8 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
                     roots.append(plain)
         if lemma and roots:
             tikhonov[lemma] = tuple(roots)
+            tikhonov_all.setdefault(lemma, []).extend(roots)
+    _TIKHONOV_ROOTS = {lemma: tuple(roots) for lemma, roots in tikhonov_all.items()}
 
     audit: Counter[str] = Counter()
     built: dict[str, tuple[tuple[str, ...], ...]] = {}

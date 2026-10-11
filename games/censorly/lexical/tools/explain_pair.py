@@ -12,8 +12,8 @@ django.setup()
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.match import _GuessPack, _Pack, _relation
 from games.censorly.lexical.rootbank import (
-    _KUZ_LEMMAS, _TIKHONOV, _lines, _plain, _strip_note,
-    assignment_of, families_of, structures_of,
+    _KUZ_LEMMAS, assignment_of, families_of, structures_of,
+    tikhonov_roots_of,
 )
 from games.censorly.lexical.semantics import (
     _ALIAS_GROUPS, _GRAMMAR_GROUPS, _alias, _grammar,
@@ -23,20 +23,7 @@ from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, REVIEWED_OPA
 
 
 def _tikhonov_roots(lemma):
-    wanted = fold(lemma)
-    result = []
-    for line in _lines(_TIKHONOV):
-        raw, decomposition = line.split('\t', 1)
-        if fold(_strip_note(raw)) != wanted:
-            continue
-        roots = []
-        for part in decomposition.split('/'):
-            if ':' in part and part.rsplit(':', 1)[1] == 'ROOT':
-                root = _plain(part.rsplit(':', 1)[0])
-                if root:
-                    roots.append(root)
-        result.extend(roots)
-    return tuple(result)
+    return tikhonov_roots_of(lemma)
 
 
 def _reading_dict(item):
