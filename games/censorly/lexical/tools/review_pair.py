@@ -99,10 +99,6 @@ def record_review_case(guess, target, expected, *, note='', source=''):
     if expected not in {'OPEN', 'CLOSED'}:
         raise ValueError('expected must be OPEN or CLOSED')
     rows = _read()
-    report = explain_pair(guess, target)
-    actual = _actual(report)
-    classification = report['classification']
-    fix_layer = _fix_layer(report)
     detail = ' '.join(part for part in (source, note) if part).strip()
     existing = next((row for row in rows if (
         row.get('expected') == expected
@@ -114,7 +110,12 @@ def record_review_case(guess, target, expected, *, note='', source=''):
             existing['note'] = '{} | {}'.format(existing.get('note', ''), detail).strip(' |')
             _history(existing, previous, previous, existing['note'])
             _write(rows)
-        return existing, False, report
+        return existing, False, None
+
+    report = explain_pair(guess, target)
+    actual = _actual(report)
+    classification = report['classification']
+    fix_layer = _fix_layer(report)
 
     row = {
         'guess': guess,

@@ -1,4 +1,5 @@
 import html
+import logging
 
 from django.db import transaction
 from games.alphabetty.suggestions import (
@@ -10,6 +11,9 @@ from games.models import AlphabettyDictSuggestion, BugReport, TicketRequest
 from games.telegram.api import answer_callback_query, edit_message_reply_markup
 from games.telegram.notify import send_admin_message
 from games.ticket_service import accept_ticket_request, reject_ticket_request
+
+
+logger = logging.getLogger('application')
 
 
 def handle_callback_query(callback_query: dict) -> None:
@@ -104,6 +108,7 @@ def _handle_censorly(action: str, report_id: int, callback_id, chat_id, message_
                     note=metadata.get('comment') or '',
                 )
             except Exception:
+                logger.exception('Failed to create Censorly review case report_id=%s', report.pk)
                 answer_callback_query(callback_id, 'Не удалось добавить в review queue', show_alert=True)
                 return
             metadata['review_case_created'] = True

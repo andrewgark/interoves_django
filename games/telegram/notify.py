@@ -819,6 +819,7 @@ def format_censorly_word_report_message(report: BugReport) -> str:
     lines = [
         '🧩 <b>Censorly: жалоба на матчинг</b>',
         '',
+        'Автор: {}'.format(_escape(_bug_report_reporter(report))),
         'Тип: <b>{}</b>'.format(_escape(reason_labels.get(reason, reason))),
         'Статья: {}'.format(_escape(metadata.get('article') or '—')),
         'Открытое слово: «<code>{}</code>»'.format(_escape(metadata.get('target_surface') or '—')),

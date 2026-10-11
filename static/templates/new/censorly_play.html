@@ -50,7 +50,7 @@
   </div>
 </div>
 
-<div id="censorly-word-report-modal" class="new-rules-modal" role="dialog" aria-labelledby="censorly-word-report-title" aria-modal="true" hidden>
+<div id="censorly-word-report-modal" class="new-rules-modal" role="dialog" aria-labelledby="censorly-word-report-title" aria-describedby="censorly-word-report-error censorly-word-report-success" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-censorly-word-report-close></div>
   <div class="new-rules-modal__box pal-card censorly-word-report-modal__box">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-censorly-word-report-close><i class="ph ph-x" aria-hidden="true"></i></button>
@@ -70,8 +70,8 @@
       <span>Комментарий <em>(необязательно)</em></span>
       <textarea id="censorly-word-report-comment" rows="3" maxlength="5000" placeholder="Что именно показалось неправильным?"></textarea>
     </label>
-    <p id="censorly-word-report-error" class="new-bug-report-error" hidden></p>
-    <p id="censorly-word-report-success" class="new-bug-report-success" hidden>Спасибо! Жалоба отправлена.</p>
+    <p id="censorly-word-report-error" class="new-bug-report-error" role="alert" hidden></p>
+    <p id="censorly-word-report-success" class="new-bug-report-success" role="status" aria-live="polite" hidden>Спасибо! Жалоба отправлена.</p>
     <div class="new-rules-modal__actions">
       <button type="button" class="new-btn" data-censorly-word-report-submit>Отправить</button>
       <button type="button" class="new-btn new-btn--text" data-censorly-word-report-close>Отмена</button>
