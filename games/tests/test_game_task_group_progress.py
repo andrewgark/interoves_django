@@ -6,11 +6,13 @@ from django.contrib.auth.models import AnonymousUser
 from django.db import connection
 from django.test import Client, RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
+from django.template.loader import render_to_string
 from django.utils import timezone
 
 from games.analytics_identity import attach_anon_cookie, stamp_anon_identity
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Attempt
 from games.views.new_ui import (
+    _build_hub_section_cards,
     _game_page_progress_context,
     _initial_task_group_progress,
     _task_group_progress_payload,
@@ -167,6 +169,64 @@ class GameTaskGroupProgressTests(TestCase):
         row = resp.json()['rows']['1']
         self.assertEqual(row['n_solved'], 0)
         self.assertFalse(row['is_fully_solved'])
+
+    def test_hub_card_embeds_cta_solved_state_in_initial_context(self):
+        game = self._create_section_game('hub_ssr_progress')
+        actor_key = 'hub-ssr-progress-actor'
+        with patch('games.views.track.track_task_change'):
+            tg = TaskGroup.objects.create(label='hub-ssr-progress')
+            GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='One')
+            task = Task.objects.create(
+                task_group=tg,
+                number='1',
+                checker=CheckerType.objects.get(pk='equals_with_possible_spaces'),
+                answer='answer',
+                points=1,
+            )
+            Attempt.manager.create(
+                task=task,
+                game=game,
+                anon_key=actor_key,
+                text='answer',
+                status='Ok',
+                points=1,
+            )
+
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        request.session = {}
+        stamp_anon_identity(request, actor_key)
+        card_context = {
+            'id': game.id,
+            'game': game,
+            'cta_number': '1',
+            'cta_label': 'Играть',
+            'play_url': '/hub_ssr_progress/1/',
+        }
+        with (
+            patch('games.views.new_ui.HUB_DAILY_SECTION_IDS', (game.id,)),
+            patch('games.views.new_ui.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
+            patch('games.views.new_ui.ONBOARDING_GAME_IDS', (game.id,)),
+            patch.dict('games.views.new_ui.ONBOARDING_GAME_META', {game.id: {'badge': 'Test'}}),
+            patch('games.views.new_ui.get_training_section_hub_context', return_value=card_context),
+            patch('games.views.new_ui._get_play_mode', return_value=('personal', None)),
+            patch('games.views.new_ui.effective_play_mode', return_value='personal'),
+            patch('games.views.new_ui._game_page_progress_context', return_value={'load_task_group_progress': True}),
+            patch('games.views.new_ui._resolve_game_page_actor', return_value=(None, None, actor_key)),
+            patch('games.daily_streak.daily_streaks_for_actor', return_value={}),
+        ):
+            result = _build_hub_section_cards(request, team=None)
+
+        rendered_card = result['daily_hub_cards'][0]
+        self.assertTrue(rendered_card['is_solved'])
+        self.assertTrue(rendered_card['progress_embedded'])
+        html = render_to_string(
+            'new/partials/hub_section_card.html',
+            {'card': rendered_card, 'highlight_daily_cta': True},
+        )
+        self.assertIn('data-hub-solved-mark', html)
+        self.assertNotIn('new-hub-section__solved" hidden', html)
+        self.assertNotIn('data-progress-url=', html)
 
     def test_ladder_progress_api_returns_result_squares(self):
         from games.ladder_daily import LADDER_PUBLISH_START_TAG
