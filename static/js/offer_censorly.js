@@ -145,7 +145,9 @@
       input.value = '';
       comment.value = '';
       closeSuggestions();
-      setStatus('Цензурка создана и отправлена редактору. Спасибо!');
+      setStatus(data.offer.status === 'accepted'
+        ? 'Эта Цензурка уже принята в ежедневное расписание.'
+        : 'Цензурка создана и отправлена редактору. Спасибо!');
     }).catch(function (error) {
       setStatus(error.message, true);
     }).finally(function () {
