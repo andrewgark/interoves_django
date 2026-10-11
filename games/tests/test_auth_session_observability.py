@@ -20,7 +20,7 @@ from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.sessions.models import Session
 from django.core import signing
-from django.db import OperationalError
+from django.db import OperationalError, transaction
 from django.http import JsonResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
@@ -30,6 +30,7 @@ from games.auth_observability import (
     log_authenticated_request,
     log_gameplay_attempt_created,
     log_post_request,
+    record_gameplay_attempt_created,
     log_startup_auth_configuration,
     normalized_user_agent,
     session_fingerprint,
@@ -162,6 +163,57 @@ class AuthSessionObservabilityTests(TestCase):
         serialized = '\n'.join(record.getMessage() for record in logs.records)
         for forbidden in ('sessionid', 'Authorization', 'password', 'csrfmiddlewaretoken'):
             self.assertNotIn(forbidden, serialized)
+
+    def test_direct_attempt_audit_waits_for_commit_and_drops_on_rollback(self):
+        Profile.objects.create(
+            user=self.user,
+            first_name='Auth',
+            last_name='Submitter',
+        )
+        attempt = type('AttemptStub', (), {
+            'pk': 539224,
+            'user': self.user,
+            'team_id': None,
+            'submitted_by_profile_id': self.user.pk,
+            'anon_key': None,
+            'task': type('TaskStub', (), {'pk': 6159})(),
+        })()
+        request = self.factory.post(
+            '/censorly/1/guess/', HTTP_HOST='interoves.com',
+        )
+        request.user = self.user
+        request.session = SessionStore()
+        request.interoves_request_id = 'attempt-commit-test'
+
+        with self.assertLogs('interoves.auth', level='INFO') as logs:
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                with transaction.atomic():
+                    record_gameplay_attempt_created(
+                        request, attempt=attempt, actor_kind='user',
+                    )
+                    self.assertFalse(hasattr(request, 'interoves_attempt_id'))
+        self.assertEqual(len(callbacks), 1)
+        self.assertEqual(request.interoves_attempt_id, attempt.pk)
+        self.assertEqual(
+            json.loads(logs.records[0].getMessage())['attempt_id'], attempt.pk,
+        )
+
+        rolled_back_request = self.factory.post(
+            '/censorly/1/guess/', HTTP_HOST='interoves.com',
+        )
+        rolled_back_request.user = self.user
+        rolled_back_request.session = SessionStore()
+        with self.captureOnCommitCallbacks(execute=True) as rolled_back_callbacks:
+            with self.assertRaisesRegex(RuntimeError, 'rollback attempt'):
+                with transaction.atomic():
+                    record_gameplay_attempt_created(
+                        rolled_back_request,
+                        attempt=attempt,
+                        actor_kind='user',
+                    )
+                    raise RuntimeError('rollback attempt')
+        self.assertEqual(rolled_back_callbacks, [])
+        self.assertFalse(hasattr(rolled_back_request, 'interoves_attempt_id'))
 
     def test_shared_db_session_is_accepted_by_another_instance(self):
         session_key = self._new_auth_session()

@@ -57,6 +57,8 @@ status and result. Successful persisted attempts additionally emit
 That event records the submitter profile separately from the gameplay actor:
 for team attempts, `actor_kind` and `team_id` identify the scoring actor while
 `submitted_by_profile_id` identifies the authenticated member who sent it.
+Direct gameplay writers emit this event only after the database transaction
+commits, so a rolled-back attempt does not leave a creation event in the log.
 
 Auth login/logout/claim events retain the existing canonical `event_name`
 values (`auth_login_success`, `auth_logout`, `auth_account_claim`). Login and

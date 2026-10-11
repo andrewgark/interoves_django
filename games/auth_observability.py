@@ -12,6 +12,7 @@ import socket
 
 from django.conf import settings
 from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
+from django.db import transaction
 from django.dispatch import receiver
 from django.utils import timezone
 
@@ -397,9 +398,12 @@ def log_gameplay_attempt_created(request, *, attempt, actor_kind=None) -> None:
 
 
 def record_gameplay_attempt_created(request, *, attempt, actor_kind=None) -> None:
-    """Link a directly persisted gameplay attempt to the request audit event."""
-    request.interoves_attempt_id = getattr(attempt, 'pk', None)
-    log_gameplay_attempt_created(request, attempt=attempt, actor_kind=actor_kind)
+    """Audit a directly persisted attempt only after its transaction commits."""
+    def _record():
+        request.interoves_attempt_id = getattr(attempt, 'pk', None)
+        log_gameplay_attempt_created(request, attempt=attempt, actor_kind=actor_kind)
+
+    transaction.on_commit(_record)
 
 
 def log_startup_auth_configuration() -> None:
