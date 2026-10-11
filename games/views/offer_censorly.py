@@ -20,7 +20,7 @@ from games.views.util import has_profile
 
 SUGGEST_LIMIT = 60
 SUGGEST_WINDOW_SECONDS = 60
-CREATE_LIMIT = 10
+CREATE_LIMIT = 30
 CREATE_WINDOW_SECONDS = 60 * 60
 suggestion_cache = caches['censorly_api']
 
@@ -127,7 +127,7 @@ def offer_censorly_create(request):
     limited = _rate_limit_response(
         request.user.pk, 'create', limit=CREATE_LIMIT,
         window_seconds=CREATE_WINDOW_SECONDS,
-        message='Можно создать не больше 10 Цензурок в час. Попробуйте позже.',
+        message='Можно создать не больше 30 Цензурок в час. Попробуйте позже.',
     )
     if limited is not None:
         return limited
