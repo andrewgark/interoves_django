@@ -60,7 +60,6 @@ TRUE_CASES = (
     ('стоять', 'стоянка', 'root'),
     ('стать', 'становиться', 'root'),
     ('ставить', 'ставка', 'root'),
-    ('образ', 'образование', 'root'),
     ('разить', 'поражать', 'root'),
     ('отражать', 'поражать', 'root'),
     ('отражатель', 'отражение', 'root'),
@@ -78,7 +77,6 @@ TRUE_CASES = (
     ('завод', 'заводский', 'root'),
     ('общий', 'общность', 'root'),
     ('общество', 'общественный', 'root'),
-    ('один', 'однажды', 'root'),
     ('средний', 'середина', 'root'),
     ('длина', 'длинный', 'root'),
     ('удар', 'ударить', 'root'),
@@ -196,7 +194,6 @@ TRUE_CASES = (
     ('бред', 'бредовой', 'root'),
     ('брод', 'бродяга', 'root'),
     ('сват', 'свадьба', 'root'),
-    ('свой', 'усвоить', 'root'),
     ('опыт', 'испытать', 'root'),
     ('окно', 'окошко', 'root'),
     ('чудо', 'чудесный', 'root'),
@@ -271,6 +268,9 @@ FALSE_CASES = (
     'душа', 'душный',
     'год', 'годный',
     'свет', 'светский',
+    'образ', 'образование',
+    'один', 'однажды',
+    'свой', 'усвоить',
     'гора', 'горний',
     'голова', 'глава',
     'голова', 'уголовный',
@@ -658,14 +658,22 @@ class SemanticsTests(SimpleTestCase):
 
     def test_split_subfamilies_are_disjoint(self):
         from games.censorly.lexical.semantic_splits import CLUSTERS
+        from games.censorly.lexical.rootbank import structures_of
         by_name = {}
         seen = {}
         for name, lemmas in CLUSTERS:
             self.assertNotIn(name, by_name)
             by_name[name] = lemmas
             for lemma in lemmas:
-                self.assertNotIn(lemma, seen, f'{lemma} in {seen.get(lemma)} and {name}')
-                seen[lemma] = name
+                previous = seen.setdefault(lemma, [])
+                if previous:
+                    allowed = set(previous) | {name}
+                    readings = {item[0] for item in structures_of(lemma) if len(item) == 1}
+                    self.assertTrue(
+                        allowed.issubset(readings),
+                        f'{lemma} in {previous} and {name} without separate readings',
+                    )
+                previous.append(name)
         closed = (
             ('sense:beauty', 'sense:red'),
             ('sense:glory', 'sense:word'),
@@ -698,6 +706,24 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('мельник', 'молоть'))
         self.assertTrue(opens('цветок', 'цвести'))
         self.assertTrue(opens('бесцветный', 'цветной'))
+
+    def test_recent_multireadings_have_separate_root_structures(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        self.assertEqual(
+            set(structures_of('помещение')),
+            {('sense:room',), ('sense:placement',)},
+        )
+        self.assertEqual(
+            set(structures_of('полка')),
+            {('sense:weeding',), ('sense:shelf',)},
+        )
+        self.assertEqual(
+            set(structures_of('член')),
+            {('sense:membership',), ('sense:body_part',), ('sense:formal_term',)},
+        )
+        self.assertFalse(opens('образ', 'образование'))
+        self.assertFalse(opens('гора', 'горний'))
         self.assertTrue(opens('простой', 'упростить'))
         self.assertTrue(opens('простить', 'прощение'))
 
