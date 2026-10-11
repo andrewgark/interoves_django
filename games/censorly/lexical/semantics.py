@@ -20,6 +20,14 @@ from games.censorly.lexical.proper_names import PAIR_RELATIONS
 from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
 
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL', 'INTJ'})
+_PRONOUN_ADJECTIVE_LEMMAS = frozenset({
+    'этот', 'тот', 'такой', 'таков', 'таковой', 'столько', 'сколько',
+    'несколько', 'какой', 'какой-нибудь', 'какой-либо', 'который',
+    'чей', 'чей-нибудь', 'чей-либо', 'каков', 'каковой', 'весь',
+    'всякий', 'каждый', 'любой', 'иной',
+    'другой', 'сам', 'самый', 'мой', 'твой', 'наш', 'ваш', 'свой',
+    'никакой', 'ничей', 'некоторый', 'некий', 'один', 'оба',
+})
 _CONTENT = frozenset({
     'NOUN', 'VERB', 'INFN', 'ADJF', 'ADJS', 'NUMR', 'NPRO', 'ADVB',
     'GRND', 'PRTF', 'PRTS', 'COMP', 'PRED',
@@ -164,15 +172,29 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
 
 
 def initially_open(surface: str) -> bool:
-    """Prepositions, conjunctions, particles, interjections.
+    """Function words and unambiguous pronouns start open.
 
-    A content reading within 0.15 of the best service reading keeps the
-    token closed. Short pronouns are not opened by this rule.
+    Personal pronouns use the NPRO tag. Pronoun-adjectives use a reviewed set
+    of lemmas because pymorphy tags them as ADJF/NUMR. A competing reading
+    within 15% of the pronoun reading keeps the token closed.
     """
     found = readings_of(surface)
     if not found:
         return False
     best = max(item.score for item in found)
+    pronoun_scores = [
+        item.score for item in found
+        if item.pos == 'NPRO'
+        or item.lemma in _PRONOUN_ADJECTIVE_LEMMAS
+    ]
+    if pronoun_scores and max(pronoun_scores) >= best - 1e-9:
+        pronoun_best = max(pronoun_scores)
+        other_scores = [
+            item.score for item in found
+            if item.pos != 'NPRO' and item.lemma not in _PRONOUN_ADJECTIVE_LEMMAS
+        ]
+        if not other_scores or max(other_scores) < pronoun_best * 0.85:
+            return True
     if not any(item.pos in _SERVICE and item.score >= best - 1e-9 for item in found):
         return False
     service_best = max(item.score for item in found if item.pos in _SERVICE)

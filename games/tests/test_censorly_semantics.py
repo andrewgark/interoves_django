@@ -7,6 +7,7 @@ from django.test import SimpleTestCase, TestCase
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.semantics import explain, initially_open, opens
+from games.censorly.tokenize import tokenize_text
 
 TRUE_CASES = (
     ('пчела', 'пчёлами', 'lexeme'),
@@ -43,9 +44,6 @@ TRUE_CASES = (
     ('плохой', 'хуже', 'lexeme'),
     ('большой', 'больший', 'grammar'),
     ('большой', 'больше', 'lexeme'),
-    ('я', 'меня', 'lexeme'),
-    ('мы', 'нас', 'lexeme'),
-    ('один', 'первый', 'grammar'),
     ('два', 'второй', 'grammar'),
     ('три', 'третий', 'root'),
     ('пять', 'пятый', 'root'),
@@ -572,9 +570,52 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(initially_open('не'))
         self.assertFalse(opens('бы', 'быть'))
         self.assertFalse(opens('быть', 'бы'))
-        self.assertFalse(initially_open('он'))
+        self.assertTrue(initially_open('он'))
         self.assertFalse(initially_open('пчела'))
         self.assertFalse(initially_open('равно'))
+
+    def test_pronouns_start_open_across_inflectional_forms(self):
+        for pronoun in (
+            'я', 'меня', 'мне', 'мной', 'мною',
+            'ты', 'тебя', 'тебе', 'тобой',
+            'мы', 'нас', 'нам', 'нами', 'вы', 'вас', 'вам', 'вами',
+            'он', 'его', 'ему', 'него', 'нему', 'ним',
+            'она', 'её', 'ее', 'ей', 'ней', 'неё',
+            'оно', 'они', 'их', 'им', 'ними', 'себя', 'себе', 'собой',
+            'кто', 'никто', 'ничто', 'некто', 'нечто', 'некого',
+            'нечего', 'никого', 'никому', 'ничему', 'кое-кто', 'кое-что',
+        ):
+            self.assertTrue(initially_open(pronoun), pronoun)
+
+    def test_pronoun_adjectives_start_open(self):
+        for pronoun in (
+            'этот', 'эта', 'этого', 'этому', 'тот', 'та', 'того',
+            'такой', 'такая', 'который', 'которого', 'какой', 'какая',
+            'чей', 'чья', 'сам', 'сама', 'весь', 'вся', 'каждый',
+            'любой', 'мой', 'моя', 'твой', 'наш', 'ваш', 'свой',
+            'никакой', 'ничей', 'некоторый', 'один', 'оба', 'сколько',
+            'несколько', 'какой-нибудь', 'чей-либо', 'таков', 'каков',
+        ):
+            self.assertTrue(initially_open(pronoun), pronoun)
+        # A service/pronoun homonym and a weak NPRO reading stay closed.
+        self.assertFalse(initially_open('это'))
+        self.assertFalse(initially_open('нём'))
+        self.assertFalse(initially_open('ничего'))
+        self.assertFalse(initially_open('пчела'))
+
+    def test_hyphenated_pronouns_open_each_token_part(self):
+        for compound in (
+            'кто-то', 'кто-либо', 'кто-нибудь', 'кое-кто', 'кое-что',
+            'какой-нибудь', 'какой-либо', 'чей-нибудь', 'чей-либо',
+        ):
+            words = [
+                token for token in tokenize_text(compound)
+                if token['kind'] not in {'space', 'punct'}
+            ]
+            self.assertTrue(words, compound)
+            for token in words:
+                opened = token['kind'] == 'stop' or initially_open(token['surface'])
+                self.assertTrue(opened, f"{compound}: {token['surface']}")
 
     def test_generic_is_exact_only(self):
         self.assertEqual(explain('Apis', 'apis'), 'exact')
@@ -597,7 +638,8 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('фр', 'француз'))
         self.assertFalse(opens('англ', 'англичанин'))
         # Grammar does not pull in a later root neighbour.
-        self.assertEqual(explain('один', 'первый'), 'grammar')
+        self.assertTrue(initially_open('один'))
+        self.assertFalse(opens('один', 'первый'))
         self.assertFalse(opens('один', 'первенец'))
         # Irregular grammar does not continue into an unrelated root.
         self.assertEqual(explain('хороший', 'лучше'), 'lexeme')
