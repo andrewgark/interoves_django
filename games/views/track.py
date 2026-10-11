@@ -26,6 +26,7 @@ import logging
 import socket
 import threading
 import time
+from urllib.parse import parse_qs
 
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
@@ -463,6 +464,12 @@ def live_page_actor(user, session, game):
     ``profile.team_on`` drops personal progress: a sections player who also
     belongs to a team then sees an empty salad.
     """
+    team, actor_user, _mode = live_page_actor_for_mode(user, session, game)
+    return team, actor_user
+
+
+def live_page_actor_for_mode(user, session, game, requested_mode=None):
+    """Resolve the actor and mode represented by one page/socket."""
     from games.views.new_ui import _get_play_mode
     from games.views.util import effective_play_mode, has_profile, has_team
 
@@ -472,13 +479,15 @@ def live_page_actor(user, session, game):
     request = _SessionRequest()
     request.session = session if session is not None else {}
     request.user = user
-    play_mode, _key = _get_play_mode(request, getattr(game, 'project_id', None))
+    play_mode = requested_mode
+    if play_mode not in ('team', 'personal'):
+        play_mode, _key = _get_play_mode(request, getattr(game, 'project_id', None))
     play_mode = effective_play_mode(play_mode, game, user=user)
     if play_mode == 'team' and has_team(user):
-        return user.profile.team_on, None
+        return user.profile.team_on, None, play_mode
     if getattr(user, 'is_authenticated', False) and has_profile(user):
-        return None, user
-    return None, None
+        return None, user, play_mode
+    return None, None, play_mode
 
 
 def build_event_task_change(
@@ -720,12 +729,27 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
         game = games.first()
         if game is None or not game.has_access('see_game_preview', team=team):
             return None
+        query = parse_qs(
+            (self.scope.get('query_string') or b'').decode('ascii', errors='ignore'),
+        )
+        requested_mode = (query.get('play_mode') or [None])[0]
+        team_actor, _actor_user, play_mode = live_page_actor_for_mode(
+            user,
+            self.scope.get('session'),
+            game,
+            requested_mode=requested_mode,
+        )
+        # A personal page must not subscribe to its account's team stream.
+        # Keep the user stream for private lifecycle events in either mode.
+        if team is not None and (team_actor is None or team_actor.pk != team.pk):
+            team = None
         team_hash = team.get_name_hash() if team is not None else None
         return (
             user.id,
             team.pk if team is not None else None,
             team_hash,
             game_id,
+            play_mode,
         )
 
     async def connect(self):
@@ -733,11 +757,12 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
         if ctx is None:
             await self.close()
             return
-        user_id, team_id, team_name_hash, game_id = ctx
+        user_id, team_id, team_name_hash, game_id, play_mode = ctx
         self.user_id = user_id
         self.team_id = team_id
         self.team_name_hash = team_name_hash
         self.game_id = game_id
+        self.play_mode = play_mode
         self.group_game = CHANNEL_GROUPS['game'](self.game_id)
         self.group_game_team = (
             CHANNEL_GROUPS['game_team'](self.game_id, self.team_id)
@@ -776,7 +801,9 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
     def _build_task_changed_for_admin(self, event):
         user = self.scope['user']
         game = get_object_or_404(Game, id=self.game_id)
-        team, actor_user = live_page_actor(user, self.scope.get('session'), game)
+        team, actor_user, _mode = live_page_actor_for_mode(
+            user, self.scope.get('session'), game, requested_mode=self.play_mode,
+        )
         return build_event_task_change(
             get_object_or_404(Task, id=event['task']),
             team,

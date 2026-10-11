@@ -14,7 +14,7 @@ The same mechanism covers site changes that become relevant while a page is open
 |---|---|---|
 | Transport | Django Channels; authenticated game and user sockets; Redis in production; real Redis group delivery is tested between independent processes | Anonymous play has no socket |
 | Scopes | game, game+internal-team-PK, and user groups; unsafe/long PKs are deterministically encoded into Channels-safe ASCII group components; game subscription validates existence/access; supported rename changes only `visible_name` | Legacy name-hash group remains temporarily; changing the internal `Team.name` PK is unsupported without a surrogate-ID migration |
-| Team submissions | Task-group pages subscribe to the game/team socket; submissions, hints, raddle assist, review, and recheck use the central actor-task hook | Anonymous play still relies on the current POST response |
+| Actor-scoped submissions | Task-group sockets always receive personal lifecycle signals, and join the team task stream only when that page is in team mode; submissions, hints, raddle assist, review, and recheck use the central actor-task hook | Older cached pages can reconnect using the session's last selected mode until refreshed; anonymous play still relies on the current POST response |
 | Daily solve timer | Supported section daily games use one server-side `DailySolveTiming` row per canonical actor; personal and team rows aggregate independent `DailySolveTimingSession` leases, so each tab/device can solve and pause locally while the shared clock counts the union of active intervals | Session state is currently reconciled through the existing HTTP timer endpoint; a dedicated live timing invalidation is still optional |
 | Concurrent writes | Task/chain rows are locked during checking; simultaneous same-answer convergence is covered in two browsers; sequential replacements lines after a teammate live-update keep using the page CSRF token | Broader mixed-answer/load concurrency is not browser-tested |
 | Ordering | Actor-scoped `seq`; shared Redis revision cache in production; two-process atomic allocation is tested; new client ignores older sequences and checks revisions every 25 seconds | No durable replay yet |
@@ -75,6 +75,12 @@ state: render `server_now` and `next_transition_at`, schedule a local reconcilia
 at that instant, and optionally push the same invalidation from a scheduler.
 
 For reliable cross-process delivery, add a transactional outbox later. A worker publishes committed rows with idempotent event IDs; reconciliation still remains mandatory.
+
+Each task page must identify its actor scope explicitly on WebSocket connect and
+live-state reconciliation. Sessions are shared across tabs, so the session's
+last selected mode cannot safely identify an already-open page. Personal pages
+must not subscribe to team task updates, and clients must ignore task events from
+a different mode as a defense in depth.
 
 ## Delivery plan
 

@@ -1099,7 +1099,7 @@
     });
   })();
   </script>
-  <script src="{% static "js/track_ws.js" %}?8"></script>
+  <script src="{% static "js/track_ws.js" %}?9"></script>
   <script>
   (function () {
     if (!window.InterovesTrack || document.body.getAttribute('data-disable-track') === '1') return;
@@ -1107,7 +1107,11 @@
     if (document.body.getAttribute('data-authenticated') !== '1') return;
     var gid = document.body.getAttribute('data-track-game-id');
     if (gid) {
-      window.InterovesTrack.connectGame(gid, document.body.getAttribute('data-track-url'));
+      window.InterovesTrack.connectGame(
+        gid,
+        document.body.getAttribute('data-track-url'),
+        document.body.getAttribute('data-track-play-mode')
+      );
     } else {
       window.InterovesTrack.connectUserHub();
     }

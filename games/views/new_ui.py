@@ -4034,7 +4034,10 @@ def new_task_group_live_state(request, game_id, project_id=None):
         project_redirect = _root_project_game_redirect(request, game, 'live-state/')
         if project_redirect is not None:
             return project_redirect
-    play_mode, _play_mode_key = _get_play_mode(request, game.project_id)
+    requested_mode = request.GET.get('play_mode')
+    if requested_mode not in ('team', 'personal'):
+        requested_mode = None
+    play_mode = requested_mode or _get_play_mode(request, game.project_id)[0]
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     team = user = anon_key = None
 

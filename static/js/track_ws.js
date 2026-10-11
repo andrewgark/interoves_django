@@ -53,6 +53,17 @@
     }
   }
 
+  function taskChangeMatchesPageMode(msg) {
+    var body = global.document && global.document.body;
+    var mode = body && body.getAttribute
+      ? body.getAttribute('data-track-play-mode')
+      : '';
+    if (!mode) mode = global.InterovesPlayMode || '';
+    if (msg && msg.by === 'team' && mode === 'personal') return false;
+    if (msg && msg.by === 'personal' && mode === 'team') return false;
+    return true;
+  }
+
   function acceptFreshSequence(msg, seen) {
     if (!msg || typeof msg.seq !== 'number') return true;
     var namespace = String(msg.seq_namespace || 'legacy');
@@ -120,7 +131,14 @@
       return Promise.reject(new Error('live state unavailable'));
     }
     var joiner = endpoint.indexOf('?') === -1 ? '?' : '&';
-    return global.fetch(endpoint + joiner + 'task_ids=' + encodeURIComponent(taskIds.join(',')), {
+    var query = 'task_ids=' + encodeURIComponent(taskIds.join(','));
+    var playMode = body && body.getAttribute
+      ? body.getAttribute('data-track-play-mode')
+      : '';
+    if (playMode === 'team' || playMode === 'personal') {
+      query += '&play_mode=' + encodeURIComponent(playMode);
+    }
+    return global.fetch(endpoint + joiner + query, {
       credentials: 'same-origin',
       headers: {'X-Requested-With': 'XMLHttpRequest'},
       cache: 'no-store',
@@ -331,11 +349,14 @@
     });
   }
 
-  function connectGame(gameId, trackUrl) {
+  function connectGame(gameId, trackUrl, playMode) {
     if (!gameId) return null;
     var url = trackUrl || ('/games/' + encodeURIComponent(gameId) + '/track');
     if (!/^wss?:\/\//i.test(url)) {
       url = proto() + '://' + host() + (url.charAt(0) === '/' ? url : '/' + url);
+    }
+    if (playMode === 'team' || playMode === 'personal') {
+      url += (url.indexOf('?') === -1 ? '?' : '&') + 'play_mode=' + encodeURIComponent(playMode);
     }
     var initialReconciled = false;
     var initialReconcileInFlight = false;
@@ -344,6 +365,7 @@
         handleTrackEvent(msg);
         return;
       }
+      if (!taskChangeMatchesPageMode(msg)) return;
       applyTaskUpdates(msg);
     }, function () {
       return reconcileTaskGroup(global.document);
