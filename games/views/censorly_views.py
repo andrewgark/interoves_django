@@ -25,6 +25,7 @@ from games.analytics import (
     register_started_game,
 )
 from games.analytics_identity import gameplay_anon_key
+from games.auth_observability import record_gameplay_attempt_created
 from games.censorly.play import (
     CENSORLY_HINT_PENALTY,
     apply_guess,
@@ -991,6 +992,10 @@ def censorly_guess(request, number=None, share_hash=None):
             share_host=_share_host(request),
             play_path=play_path,
             submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
+            attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
+                request, attempt=attempt,
+                actor_kind='user' if user is not None else 'anon',
+            ),
             replay_slot=replay_slot,
         )
     result = _finish_completion(
@@ -1061,6 +1066,10 @@ def censorly_hint(request, number=None, share_hash=None):
         share_host=_share_host(request),
         play_path=play_path,
         submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
+        attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
+            request, attempt=attempt,
+            actor_kind='user' if user is not None else 'anon',
+        ),
         replay_slot=replay_slot,
     )
     result = _finish_completion(

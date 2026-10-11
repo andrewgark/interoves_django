@@ -383,6 +383,7 @@ def log_gameplay_attempt_created(request, *, attempt, actor_kind=None) -> None:
         request,
         attempt_id=getattr(attempt, 'pk', None),
         user_id=_safe_user_id(getattr(getattr(attempt, 'user', None), 'pk', None)),
+        team_id=_safe_user_id(getattr(attempt, 'team_id', None)),
         submitted_by_profile_id=_safe_user_id(
             getattr(attempt, 'submitted_by_profile_id', None),
         ),
@@ -393,6 +394,12 @@ def log_gameplay_attempt_created(request, *, attempt, actor_kind=None) -> None:
         if getattr(getattr(request, 'user', None), 'is_authenticated', False)
         else None,
     )
+
+
+def record_gameplay_attempt_created(request, *, attempt, actor_kind=None) -> None:
+    """Link a directly persisted gameplay attempt to the request audit event."""
+    request.interoves_attempt_id = getattr(attempt, 'pk', None)
+    log_gameplay_attempt_created(request, attempt=attempt, actor_kind=actor_kind)
 
 
 def log_startup_auth_configuration() -> None:

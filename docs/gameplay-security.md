@@ -55,7 +55,7 @@ ID, session fingerprint, actor namespace, route, task, normalized user agent,
 status and result. Successful persisted attempts additionally emit
 `gameplay_attempt_created` with the same request ID and `attempt_id`.
 That event records the submitter profile separately from the gameplay actor:
-for team attempts, the actor remains the team while
+for team attempts, `actor_kind` and `team_id` identify the scoring actor while
 `submitted_by_profile_id` identifies the authenticated member who sent it.
 
 Auth login/logout/claim events retain the existing canonical `event_name`

@@ -526,6 +526,7 @@ def _commit_guess(
     share_host: str,
     play_path: str | None,
     submitted_by_profile_id: int | None = None,
+    attempt_created_callback=None,
     replay_slot=None,
 ) -> dict[str, Any]:
     """Persist a new valid guess (caller already checked dict + duplicate without lock)."""
@@ -587,6 +588,8 @@ def _commit_guess(
             replay_slot=replay_slot, now=attempt.time,
         )
     attempt.save()
+    if attempt_created_callback is not None:
+        attempt_created_callback(attempt)
 
     row.state = dump_state(state)
     row.last_attempt = attempt
@@ -618,6 +621,7 @@ def apply_guess(
     share_host: str = 'interoves.com',
     play_path: str | None = None,
     submitted_by_profile_id: int | None = None,
+    attempt_created_callback=None,
     replay_slot=None,
 ) -> dict[str, Any]:
     """Применить отгадку; вернуть публичный payload + status."""
@@ -673,6 +677,7 @@ def apply_guess(
         share_host=share_host,
         play_path=play_path,
         submitted_by_profile_id=submitted_by_profile_id,
+        attempt_created_callback=attempt_created_callback,
         replay_slot=replay_slot,
     )
 

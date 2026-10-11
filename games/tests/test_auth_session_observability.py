@@ -40,6 +40,7 @@ from games.middleware.auth_session_observability import (
     RequestCorrelationMiddleware,
     _inspect_persisted_session,
 )
+from games.models import Profile
 
 
 TEST_FINGERPRINT_KEY = 'test-only-auth-log-fingerprint-key-with-high-entropy'
@@ -129,24 +130,35 @@ class AuthSessionObservabilityTests(TestCase):
         request.session[SESSION_KEY] = str(self.user.pk)
         request.interoves_request_id = 'request-correlation-test'
         request.interoves_gameplay_request = True
-        request.interoves_gameplay_actor_kind = 'user'
+        request.interoves_gameplay_actor_kind = 'team'
         request.interoves_gameplay_task_id = '6159'
         request.interoves_gameplay_context_result = 'valid'
         response = JsonResponse({}, status=200)
+        Profile.objects.create(
+            user=self.user,
+            first_name='Auth',
+            last_name='Submitter',
+        )
         attempt = type('AttemptStub', (), {
             'pk': 539223,
-            'user': self.user,
+            'user': None,
+            'team_id': 'Нут и Пряник',
+            'submitted_by_profile_id': self.user.pk,
             'task': type('TaskStub', (), {'pk': 6159})(),
         })()
         with self.assertLogs('interoves.auth', level='INFO') as logs:
             log_authenticated_request(request, response)
-            log_gameplay_attempt_created(request, attempt=attempt, actor_kind='user')
+            log_gameplay_attempt_created(request, attempt=attempt, actor_kind='team')
         payloads = [json.loads(record.getMessage()) for record in logs.records]
         self.assertEqual(payloads[0]['request_id'], payloads[1]['request_id'])
         self.assertEqual(payloads[0]['request_id'], 'request-correlation-test')
         self.assertEqual(payloads[0]['session_fingerprint'], payloads[1]['session_fingerprint'])
         self.assertEqual(payloads[1]['attempt_id'], 539223)
         self.assertEqual(payloads[1]['task_id'], 6159)
+        self.assertEqual(payloads[1]['actor_kind'], 'team')
+        self.assertEqual(payloads[1]['team_id'], 'Нут и Пряник')
+        self.assertNotIn('user_id', payloads[1])
+        self.assertEqual(payloads[1]['submitted_by_profile_id'], str(self.user.pk))
         serialized = '\n'.join(record.getMessage() for record in logs.records)
         for forbidden in ('sessionid', 'Authorization', 'password', 'csrfmiddlewaretoken'):
             self.assertNotIn(forbidden, serialized)

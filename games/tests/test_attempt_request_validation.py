@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.test import Client, RequestFactory, TestCase
 from django.utils import timezone
@@ -19,10 +20,12 @@ from games.models import (
     Hint,
     HintAttempt,
     Project,
+    Profile,
+    Team,
     Task,
     TaskGroup,
 )
-from games.views.attempt_views import process_send_attempt
+from games.views.attempt_views import check_attempt, process_send_attempt
 from games.views.hint_views import create_hint_attempt, send_hint_attempt
 
 
@@ -116,6 +119,33 @@ class AttemptRequestValidationTests(TestCase):
         self.test_bad_replacements_index_returns_invalid_form()
         self.test_bad_raddle_index_returns_invalid_form()
         self.assertFalse(Attempt.manager.filter(game=self.game).exists())
+
+    def test_team_attempt_keeps_submitter_profile_separate_from_actor(self):
+        team = Team.objects.create(name='validation-submit-team')
+        user = get_user_model().objects.create_user(username='validation-submitter')
+        profile = Profile.objects.create(
+            user=user,
+            first_name='Validation',
+            last_name='Submitter',
+            team_on=team,
+        )
+        request = RequestFactory().post('/send/')
+        request.user = user
+        attempt = Attempt(
+            team=team,
+            task=self.default,
+            game=self.game,
+            time=timezone.now(),
+            text='answer',
+        )
+
+        with patch('games.views.track.track_task_change'):
+            self.assertTrue(check_attempt(attempt, timing_request=request))
+
+        attempt.refresh_from_db()
+        self.assertEqual(attempt.team_id, team.pk)
+        self.assertIsNone(attempt.user_id)
+        self.assertEqual(attempt.submitted_by_profile_id, profile.pk)
 
     def test_stale_actor_context_is_rejected_before_attempt_creation(self):
         stale_token = issue_gameplay_context(

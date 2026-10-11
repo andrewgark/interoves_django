@@ -74,6 +74,7 @@ from games.views.new_ui import (
     _task_group_page_nav_context,
 )
 from games.analytics_identity import gameplay_anon_key
+from games.auth_observability import record_gameplay_attempt_created
 from games.gameplay_context import (
     context_error_response,
     issue_gameplay_context,
@@ -762,6 +763,10 @@ def alphabetty_guess(request, number):
             share_host=_share_host(request),
             play_path=play_path,
             submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
+            attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
+                request, attempt=attempt,
+                actor_kind='user' if user is not None else 'anon',
+            ),
             replay_slot=replay_slot,
         )
     analytics_events = []

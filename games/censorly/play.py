@@ -654,6 +654,7 @@ def apply_guess(
     share_host: str = 'interoves.com',
     play_path: str | None = None,
     submitted_by_profile_id: int | None = None,
+    attempt_created_callback=None,
     replay_slot=None,
 ) -> dict[str, Any]:
     payload = puzzle_from_task(task)
@@ -791,6 +792,8 @@ def apply_guess(
             now=attempt.time,
         )
     attempt.save()
+    if attempt_created_callback is not None:
+        attempt_created_callback(attempt)
 
     row.state = dump_state(state)
     row.last_attempt = attempt
@@ -828,6 +831,7 @@ def apply_hint(
     share_host: str = 'interoves.com',
     play_path: str | None = None,
     submitted_by_profile_id: int | None = None,
+    attempt_created_callback=None,
     replay_slot=None,
 ) -> dict[str, Any]:
     """Reveal one non-title content lemma for −1 point."""
@@ -897,6 +901,8 @@ def apply_hint(
             now=attempt.time,
         )
     attempt.save()
+    if attempt_created_callback is not None:
+        attempt_created_callback(attempt)
     row.state = dump_state(state)
     row.last_attempt = attempt
     row.save(update_fields=['state', 'last_attempt', 'updated_at'])
