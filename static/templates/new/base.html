@@ -1016,6 +1016,11 @@
         focusInside(dialog);
       }
     }, true);
+    document.addEventListener('pointerdown', function (event) {
+      if (activeDialog() || !event.target || !event.target.closest) return;
+      var target = event.target.closest('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])');
+      if (target) lastOutsideFocus = target;
+    }, true);
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Tab') return;
       var dialog = activeDialog();
