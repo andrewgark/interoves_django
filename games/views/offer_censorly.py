@@ -20,6 +20,8 @@ from games.views.util import has_profile
 
 SUGGEST_LIMIT = 60
 SUGGEST_WINDOW_SECONDS = 60
+CREATE_LIMIT = 10
+CREATE_WINDOW_SECONDS = 60 * 60
 suggestion_cache = caches['censorly_api']
 
 
@@ -42,6 +44,26 @@ def _page_context(profile, *, ready, missing, offers, error=None):
         'back_url': '/censorly/',
         'back_label': 'К Цензуркам',
     }
+
+
+def _rate_limit_response(user_id, action, *, limit, window_seconds, message):
+    now = int(time.time())
+    bucket = now // window_seconds
+    cache_key = f'censorly_rate_v1:{action}:{user_id}:{bucket}'
+    if suggestion_cache.add(cache_key, 1, timeout=window_seconds):
+        return None
+    try:
+        count = suggestion_cache.incr(cache_key)
+    except ValueError:
+        suggestion_cache.add(cache_key, 1, timeout=window_seconds)
+        count = 1
+    if count <= limit:
+        return None
+    return JsonResponse(
+        {'ok': False, 'error': message},
+        status=429,
+        headers={'Retry-After': str(window_seconds - now % window_seconds)},
+    )
 
 
 @login_required
@@ -72,19 +94,13 @@ def offer_censorly_suggest(request):
     query = (request.GET.get('q') or '').strip()
     if len(query) < 2:
         return JsonResponse({'ok': True, 'titles': []})
-    rate_key = f'censorly_wiki_suggest_rate_v1:{request.user.pk}:{int(time.time()) // SUGGEST_WINDOW_SECONDS}'
-    if not suggestion_cache.add(rate_key, 1, timeout=SUGGEST_WINDOW_SECONDS):
-        try:
-            count = suggestion_cache.incr(rate_key)
-        except ValueError:
-            suggestion_cache.add(rate_key, 1, timeout=SUGGEST_WINDOW_SECONDS)
-            count = 1
-        if count > SUGGEST_LIMIT:
-            return JsonResponse(
-                {'ok': False, 'error': 'Слишком много запросов. Подождите минуту.'},
-                status=429,
-                headers={'Retry-After': str(SUGGEST_WINDOW_SECONDS)},
-            )
+    limited = _rate_limit_response(
+        request.user.pk, 'suggest', limit=SUGGEST_LIMIT,
+        window_seconds=SUGGEST_WINDOW_SECONDS,
+        message='Слишком много запросов. Подождите минуту.',
+    )
+    if limited is not None:
+        return limited
     try:
         titles = suggest_article_titles(query)
     except WikiFetchError as exc:
@@ -108,6 +124,13 @@ def offer_censorly_create(request):
         return JsonResponse({'ok': False, 'error': 'Выберите статью Wikipedia'}, status=400)
     if len(title) > 255:
         return JsonResponse({'ok': False, 'error': 'Название слишком длинное'}, status=400)
+    limited = _rate_limit_response(
+        request.user.pk, 'create', limit=CREATE_LIMIT,
+        window_seconds=CREATE_WINDOW_SECONDS,
+        message='Можно создать не больше 10 Цензурок в час. Попробуйте позже.',
+    )
+    if limited is not None:
+        return limited
     try:
         party = create_from_title(title)
     except WikiFetchError as exc:
