@@ -352,6 +352,10 @@ NEGATIVES = (
 
 
 class LexicalResolverTests(SimpleTestCase):
+    def test_russian_language_stub_opens_russian(self):
+        tokens = [{'kind': 'content', 'surface': 'русский', 'lemma': 'русский'}]
+        self.assertEqual(matching_lemmas(tokens, 'рус'), {'русский'})
+
     def test_guess_prefers_citation_reading_over_inflected_homonym(self):
         tokens = [
             {'kind': 'content', 'surface': 'усталый', 'lemma': 'усталый'},
