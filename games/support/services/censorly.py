@@ -11,7 +11,13 @@ import uuid
 from django.db import transaction
 from django.utils import timezone
 
-from games.censorly import CENSORLY_CHECKER_ID, CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
+from games.censorly import (
+    CENSORLY_CHECKER_ID,
+    CENSORLY_GAME_ID,
+    CENSORLY_SPLITTER_VERSION,
+    CENSORLY_TAGS_KEY,
+    CENSORLY_TASK_TYPE,
+)
 from games.censorly.play import CENSORLY_BASE_POINTS, puzzle_from_task, reset_progress
 from games.censorly.random_game import (
     CensorlyPoolExhausted,
@@ -124,6 +130,20 @@ def _token_count(task: Optional[Task]) -> int:
     return len(payload.get('title_tokens') or []) + len(payload.get('body_tokens') or [])
 
 
+def _random_row_token_count(task: Optional[Task]) -> int:
+    """Read current random-game tokens from the already-loaded JSON payload."""
+    if task is not None and isinstance(task.tags, dict):
+        payload = task.tags.get(CENSORLY_TAGS_KEY)
+        if (
+            isinstance(payload, dict)
+            and payload.get('splitter_version') == CENSORLY_SPLITTER_VERSION
+            and isinstance(payload.get('title_tokens'), list)
+            and isinstance(payload.get('body_tokens'), list)
+        ):
+            return len(payload['title_tokens']) + len(payload['body_tokens'])
+    return _token_count(task)
+
+
 def list_schedule_rows(*, now: datetime | None = None) -> list[CensorlyScheduleRow]:
     game = get_censorly_game()
     now = now or timezone.now()
@@ -164,9 +184,21 @@ def list_schedule_rows(*, now: datetime | None = None) -> list[CensorlyScheduleR
 
 
 def list_random_rows(*, limit: int = 50) -> list[CensorlyRandomRow]:
+    random_games = list(
+        RandomCensorlyGame.objects.order_by('-created_at')[:limit]
+    )
+    tasks_by_group = {}
+    if random_games:
+        tasks = Task.objects.filter(
+            task_group_id__in=[row.task_group_id for row in random_games], number='1',
+        ).order_by('pk').only(
+            'id', 'task_group_id', 'tags', 'checker_data', 'attempt_revision',
+        )
+        for task in tasks:
+            tasks_by_group.setdefault(task.task_group_id, task)
     rows: list[CensorlyRandomRow] = []
-    for row in RandomCensorlyGame.objects.select_related('task_group').order_by('-created_at')[:limit]:
-        task = Task.objects.filter(task_group_id=row.task_group_id, number='1').first()
+    for row in random_games:
+        task = tasks_by_group.get(row.task_group_id)
         rows.append(CensorlyRandomRow(
             id=row.pk,
             wiki_title=row.wiki_title,
@@ -174,7 +206,7 @@ def list_random_rows(*, limit: int = 50) -> list[CensorlyRandomRow]:
             play_url=row.play_url(),
             created_at=timezone.localtime(row.created_at).strftime('%Y-%m-%d %H:%M') if row.created_at else '',
             task_id=task.pk if task else None,
-            token_count=_token_count(task),
+            token_count=_random_row_token_count(task),
             payload_bytes=puzzle_json_size(task) if task else 0,
         ))
     return rows
