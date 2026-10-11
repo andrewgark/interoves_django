@@ -824,6 +824,10 @@ def format_censorly_word_report_message(report: BugReport) -> str:
         'Статья: {}'.format(_escape(metadata.get('article') or '—')),
         'Открытое слово: «<code>{}</code>»'.format(_escape(metadata.get('target_surface') or '—')),
     ]
+    if report.censorly_review_case_id:
+        lines.append('Повторные reports по паре: <b>{}</b>'.format(
+            report.censorly_review_case.report_count,
+        ))
     if metadata.get('other_word'):
         lines.append('Слово пользователя: «<code>{}</code>»'.format(_escape(metadata['other_word'])))
     if metadata.get('expected'):
@@ -965,7 +969,10 @@ def format_admin_registration_milestone_message(game, count: int) -> str:
 def notify_new_bug_report(report: BugReport) -> bool:
     report = (
         BugReport.objects
-        .select_related('task', 'task__task_group', 'game', 'game__project', 'team', 'user')
+        .select_related(
+            'task', 'task__task_group', 'game', 'game__project', 'team', 'user',
+            'censorly_review_case',
+        )
         .get(pk=report.pk)
     )
     keyboard = (
