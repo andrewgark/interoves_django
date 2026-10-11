@@ -5,6 +5,7 @@ import argparse
 import csv
 import datetime as dt
 import os
+import tempfile
 from collections import Counter
 from pathlib import Path
 
@@ -36,14 +37,30 @@ def _read():
 
 
 def _write(rows):
-    DATA.mkdir(parents=True, exist_ok=True)
-    with REVIEW_FILE.open('w', encoding='utf-8', newline='') as stream:
-        writer = csv.DictWriter(stream, fieldnames=FIELDS, delimiter='\t', lineterminator='\n')
-        writer.writeheader()
-        writer.writerows(rows)
+    REVIEW_FILE.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_name = tempfile.mkstemp(
+        prefix='{}.tmp.'.format(REVIEW_FILE.name),
+        dir=str(REVIEW_FILE.parent),
+        text=True,
+    )
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='') as stream:
+            writer = csv.DictWriter(stream, fieldnames=FIELDS, delimiter='\t', lineterminator='\n')
+            writer.writeheader()
+            writer.writerows(rows)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temp_name, REVIEW_FILE)
+    except Exception:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def _history(row, previous_status, status, note):
+    HISTORY_FILE.parent.mkdir(parents=True, exist_ok=True)
     exists = HISTORY_FILE.exists()
     with HISTORY_FILE.open('a', encoding='utf-8', newline='') as stream:
         writer = csv.DictWriter(stream, fieldnames=HISTORY_FIELDS, delimiter='\t', lineterminator='\n')
