@@ -31,6 +31,7 @@ from games.models import (
     ChainTaskState,
     CheckerType,
     CorporateGameOrder,
+    CensorlyReviewCase,
     Game,
     GameAuthor,
     GameResultsSnapshot,
@@ -1915,12 +1916,16 @@ class BugReportAdminBase(admin.ModelAdmin):
         models.TextField: {'widget': Textarea(attrs={'rows': 4, 'cols': 60})},
     }
     raw_id_fields = ['task', 'game', 'team', 'user']
-    readonly_fields = ['time', 'page_url', 'anon_key', 'report_type', 'metadata', 'context_links']
+    readonly_fields = [
+        'time', 'page_url', 'anon_key', 'report_type', 'metadata',
+        'censorly_review_case', 'context_links',
+    ]
     fields = [
         'report_type',
         'status',
         'text',
         'metadata',
+        'censorly_review_case',
         'admin_notes',
         'context_links',
         'task',
@@ -1995,6 +2000,22 @@ class BugReportAdminBase(admin.ModelAdmin):
 @admin.register(BugReport)
 class BugReportAdmin(BugReportAdminBase):
     pass
+
+
+@admin.register(CensorlyReviewCase)
+class CensorlyReviewCaseAdmin(admin.ModelAdmin):
+    list_display = [
+        'id', 'guess', 'target', 'expected', 'actual', 'status',
+        'report_count', 'updated_at',
+    ]
+    list_filter = ['expected', 'status', 'fix_layer', 'classification']
+    search_fields = ['guess', 'target', 'pair_key', 'note']
+    readonly_fields = ['pair_key', 'created_at', 'updated_at', 'report_count']
+    fields = [
+        'pair_key', 'guess', 'target', 'expected', 'actual',
+        'classification', 'fix_layer', 'status', 'decision', 'note',
+        'report_count', 'created_at', 'updated_at',
+    ]
 
 
 @admin.register(PendingBugReport)

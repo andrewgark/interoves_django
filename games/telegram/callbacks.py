@@ -100,7 +100,7 @@ def _handle_censorly(action: str, report_id: int, callback_id, chat_id, message_
             try:
                 from games.censorly.lexical.tools.review_pair import record_review_case
 
-                _row, _created, _diagnostic = record_review_case(
+                _row, _created, _diagnostic, review_case = record_review_case(
                     other,
                     target,
                     expected,
@@ -113,6 +113,7 @@ def _handle_censorly(action: str, report_id: int, callback_id, chat_id, message_
                 return
             metadata['review_case_created'] = True
             metadata['review_queue_status'] = 'DIAGNOSED'
+            report.censorly_review_case = review_case
         metadata['admin_decision'] = 'CONFIRMED'
         report.status = BugReport.STATUS_REVIEWED
         answer = 'Confirmed; added to review queue' if expected else 'Confirmed for manual review'
@@ -125,7 +126,10 @@ def _handle_censorly(action: str, report_id: int, callback_id, chat_id, message_
         report.status = BugReport.STATUS_REVIEWED
         answer = 'Marked for review'
     report.metadata = metadata
-    report.save(update_fields=['status', 'metadata'])
+    update_fields = ['status', 'metadata']
+    if report.censorly_review_case_id:
+        update_fields.append('censorly_review_case')
+    report.save(update_fields=update_fields)
     answer_callback_query(callback_id, answer)
     if chat_id and message_id:
         edit_message_reply_markup(chat_id, message_id, reply_markup=None)

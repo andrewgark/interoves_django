@@ -3739,6 +3739,48 @@ class Donation(models.Model):
         return 'donation-{}'.format(self.pk)
 
 
+class CensorlyReviewCase(models.Model):
+    EXPECTED_OPEN = 'OPEN'
+    EXPECTED_CLOSED = 'CLOSED'
+    EXPECTED_CHOICES = (
+        (EXPECTED_OPEN, 'Ожидалось открытие'),
+        (EXPECTED_CLOSED, 'Ожидалось закрытие'),
+    )
+    STATUS_DIAGNOSED = 'DIAGNOSED'
+    STATUS_NEEDS_REVIEW = 'NEEDS_REVIEW'
+    STATUS_APPROVED = 'APPROVED'
+    STATUS_REJECTED = 'REJECTED'
+    STATUS_APPLIED = 'APPLIED'
+    STATUS_CHOICES = tuple((value, value) for value in (
+        STATUS_DIAGNOSED, STATUS_NEEDS_REVIEW, STATUS_APPROVED,
+        STATUS_REJECTED, STATUS_APPLIED,
+    ))
+
+    id = models.AutoField(primary_key=True)
+    pair_key = models.CharField(max_length=260)
+    guess = models.CharField(max_length=128)
+    target = models.CharField(max_length=128)
+    expected = models.CharField(max_length=6, choices=EXPECTED_CHOICES)
+    actual = models.CharField(max_length=6, blank=True, default='')
+    classification = models.CharField(max_length=128, blank=True, default='')
+    fix_layer = models.CharField(max_length=128, blank=True, default='')
+    status = models.CharField(max_length=32, choices=STATUS_CHOICES, default=STATUS_DIAGNOSED)
+    decision = models.CharField(max_length=32, blank=True, default='')
+    note = models.TextField(blank=True, default='')
+    report_count = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=('pair_key', 'expected'),
+                name='games_censorly_case_pair_expected_uniq',
+            ),
+        ]
+        ordering = ['-updated_at']
+
+
 class BugReport(models.Model):
     REPORT_TYPE_BUG = 'BUG'
     REPORT_TYPE_CENSORLY_WORD_MATCH = 'CENSORLY_WORD_MATCH'
@@ -3778,6 +3820,13 @@ class BugReport(models.Model):
     anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     text = models.TextField()
     metadata = models.JSONField(blank=True, default=dict)
+    censorly_review_case = models.ForeignKey(
+        CensorlyReviewCase,
+        related_name='reports',
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL,
+    )
     page_url = models.CharField(max_length=500, blank=True, default='')
     time = models.DateTimeField(auto_now_add=True, blank=True)
 

@@ -9,6 +9,7 @@ from games.models import (
     AlphabettyDictSuggestion,
     Attempt,
     BugReport,
+    CensorlyReviewCase,
     Game,
     GameTaskGroup,
     HTMLPage,
@@ -206,7 +207,16 @@ class TelegramNotifyTests(TestCase):
                 'comment': 'Очевидная семья',
             },
         )
-        record_mock.return_value = ({'status': 'DIAGNOSED'}, True, {'runtime_reason': 'CLOSED'})
+        review_case = CensorlyReviewCase.objects.create(
+            pair_key='сенат\x1fсенатор',
+            guess='сенат',
+            target='сенатор',
+            expected='OPEN',
+            actual='CLOSED',
+        )
+        record_mock.return_value = (
+            {'status': 'DIAGNOSED'}, True, {'runtime_reason': 'CLOSED'}, review_case,
+        )
         handle_callback_query({
             'id': 'cb-censorly-confirm',
             'data': 'censorly:confirm:{}'.format(report.pk),
@@ -216,6 +226,7 @@ class TelegramNotifyTests(TestCase):
         self.assertEqual(report.status, BugReport.STATUS_REVIEWED)
         self.assertTrue(report.metadata['review_case_created'])
         self.assertEqual(report.metadata['review_queue_status'], 'DIAGNOSED')
+        self.assertEqual(report.censorly_review_case_id, review_case.pk)
         record_mock.assert_called_once()
         self.assertEqual(record_mock.call_args.args[:3], ('сенат', 'сенатор', 'OPEN'))
         answer_mock.assert_called()

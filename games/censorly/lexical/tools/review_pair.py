@@ -15,6 +15,7 @@ django.setup()
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.tools.explain_pair import explain_pair
+from games.models import CensorlyReviewCase
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
 REVIEW_FILE = Path(os.environ.get('CENSORLY_PAIR_REVIEW_FILE', DATA / 'pair_review.tsv'))
@@ -86,6 +87,38 @@ def _pair_key(guess, target, symmetric=True):
     return tuple(sorted((left, right))) if symmetric else (left, right)
 
 
+def _pair_key_text(guess, target):
+    return '\x1f'.join(_pair_key(guess, target))
+
+
+def _record_durable_case(guess, target, expected, *, actual, classification, fix_layer, note):
+    from django.db import transaction
+    from django.db.models import F
+
+    pair_key = _pair_key_text(guess, target)
+    with transaction.atomic():
+        case, created = CensorlyReviewCase.objects.get_or_create(
+            pair_key=pair_key,
+            expected=expected,
+            defaults={
+                'guess': guess,
+                'target': target,
+                'actual': actual,
+                'classification': classification,
+                'fix_layer': fix_layer,
+                'note': note,
+                'report_count': 1,
+            },
+        )
+        if not created:
+            updates = {'report_count': F('report_count') + 1}
+            if note and note not in case.note:
+                updates['note'] = '{} | {}'.format(case.note, note).strip(' |')
+            CensorlyReviewCase.objects.filter(pk=case.pk).update(**updates)
+            case.refresh_from_db()
+    return case
+
+
 def _find(rows, guess, target):
     direct = _pair_key(guess, target, False)
     reverse = _pair_key(target, guess, False)
@@ -127,7 +160,14 @@ def record_review_case(guess, target, expected, *, note='', source=''):
             existing['note'] = '{} | {}'.format(existing.get('note', ''), detail).strip(' |')
             _history(existing, previous, previous, existing['note'])
             _write(rows)
-        return existing, False, None
+        case = _record_durable_case(
+            existing['guess'], existing['target'], expected,
+            actual=existing.get('actual', ''),
+            classification=existing.get('classification', ''),
+            fix_layer=existing.get('fix_layer', ''),
+            note=detail,
+        )
+        return existing, False, None, case
 
     report = explain_pair(guess, target)
     actual = _actual(report)
@@ -148,7 +188,14 @@ def record_review_case(guess, target, expected, *, note='', source=''):
     rows.append(row)
     _write(rows)
     _history(row, '', row['status'], row['note'])
-    return row, True, report
+    case = _record_durable_case(
+        guess, target, expected,
+        actual=actual,
+        classification=classification,
+        fix_layer=fix_layer,
+        note=row['note'],
+    )
+    return row, True, report, case
 
 
 def _decision_status(decision):
