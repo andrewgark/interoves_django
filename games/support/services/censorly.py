@@ -283,6 +283,7 @@ def accept_censorly_offer(offer_id: int) -> CensorlyOffer:
     for source_task in source_tasks:
         daily_task = copy.copy(source_task)
         daily_task.pk = None
+        daily_task._state.adding = True
         daily_task.task_group = daily_group
         daily_task.attempt_revision = uuid.uuid4()
         daily_task.save()
