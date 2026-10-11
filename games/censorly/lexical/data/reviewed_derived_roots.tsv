@@ -1,4 +1,11 @@
 lemma	root_structure	note
+алгебра	root:алгебр	Reviewed derivation linking алгебра and алгебраический.
+алгебраический	root:алгебр	Reviewed derivation linking алгебраический and алгебра.
+арифметика	root:арифмет	Reviewed derivation linking арифметика and арифметический.
+арифметический	root:арифмет	Reviewed derivation linking арифметический and арифметика.
+лат	root:латин	Reviewed abbreviation alias joins лат, латынь, and латинский.
+латинский	root:латин	Reviewed derivation and abbreviation link to лат and латынь.
+латынь	root:латин	Reviewed allomorph link from латынь to латинский and лат.
 ветровый	fam:ветер|ветр	Transparent adjective with the existing complete alternant structure.
 грязевый	fam:гряз	Transparent adjective from грязь/гряз-; unique existing fam:гряз.
 зобик	fam:зоб	Transparent diminutive of зоб; unique existing fam:зоб.
