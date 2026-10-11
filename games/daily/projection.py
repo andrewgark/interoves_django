@@ -506,6 +506,34 @@ def load_actor_task_result_points(game, tasks, actor):
     ).values_list('task_id', 'result_points', 'best_status')
     for task_id, points, status in rows:
         result[task_id] = (float(points or 0), True, status or None)
+
+    if _task_projection_compare_enabled():
+        from games.scoring import bulk_actor_task_result_points
+
+        canonical = bulk_actor_task_result_points(
+            task_ids=task_ids,
+            actor=actor,
+            mode='general',
+            game=game,
+            include_other_games=True,
+        )
+        mismatches = []
+        for task_id in task_ids:
+            expected = canonical.get(task_id, (0.0, False, None))
+            actual = result.get(task_id, (0.0, False, None))
+            if (
+                round(expected[0], 3) != round(actual[0], 3)
+                or bool(expected[1]) != bool(actual[1])
+                or (expected[2] or None) != (actual[2] or None)
+            ):
+                mismatches.append(task_id)
+        if mismatches:
+            logger.warning(
+                'daily_actor_task_projection_mismatch game=%s task_ids=%s; '
+                'using canonical progress',
+                game.pk, mismatches[:20],
+            )
+            return canonical
     return result
 
 

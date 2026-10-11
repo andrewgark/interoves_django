@@ -238,6 +238,31 @@ class DailyResultProjectionTests(TestCase):
         self.assertEqual(points[task.pk], (10.0, True, 'Ok'))
         canonical.assert_called_once()
 
+    def test_sampled_progress_mismatch_returns_canonical_value(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='progress-mismatch-actor',
+            text='answer', status='Ok', points=10,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        DailyTaskResultProjection.objects.filter(
+            game=self.game, task_group=self.group, task=task,
+        ).update(result_points=8)
+
+        with patch('games.daily.projection._task_projection_compare_enabled', return_value=True):
+            with self.assertLogs('application', level='WARNING') as captured:
+                solved, points = bulk_actor_task_progress(
+                    tasks=[task], actor=Actor(anon_key='progress-mismatch-actor'),
+                    game=self.game, include_other_games=True,
+                )
+
+        self.assertEqual(solved, {task.pk})
+        self.assertEqual(points[task.pk], (10.0, True, 'Ok'))
+        self.assertIn('daily_actor_task_projection_mismatch', captured.output[0])
+
     def test_scoped_results_use_task_projection_without_attempt_query(self):
         task = Task.objects.create(
             task_group=self.group, number='1', task_type='default', points=10,
