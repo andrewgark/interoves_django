@@ -453,6 +453,62 @@ def load_task_result_projection_rows(game, task_group, task_ids, actor_types=Non
     return result
 
 
+def load_actor_task_result_points(game, tasks, actor):
+    """Return authoritative per-task points for one actor, or ``None``.
+
+    This is the compact read path used by the game progress endpoint.  Every
+    represented release must have complete, current task-cell coverage before
+    any cells are trusted; callers can then fall back as one unit.
+    """
+    from games.models import DailyResultProjectionState, DailyTaskResultProjection
+
+    if not game or getattr(game, 'project_id', None) != 'sections':
+        return None
+    if getattr(game, 'id', None) == 'ladder' or not _task_projection_supported(game):
+        return None
+
+    tasks = [task for task in tasks or [] if task is not None and task.pk]
+    task_ids = list(dict.fromkeys(task.pk for task in tasks))
+    if not task_ids:
+        return {}
+    groups = {task.task_group_id for task in tasks if task.task_group_id}
+    if not groups or any(not task.task_group_id for task in tasks):
+        return None
+
+    states = {
+        state.task_group_id: state
+        for state in DailyResultProjectionState.objects.filter(
+            game=game, task_group_id__in=groups,
+        )
+    }
+    if any(
+        not task_projection_state_is_valid(states.get(group_id), game)
+        for group_id in groups
+    ):
+        return None
+
+    if actor.team_id is not None:
+        actor_type, actor_key = DailyTaskResultProjection.ACTOR_TEAM, str(actor.team_id)
+    elif actor.user_id is not None:
+        actor_type, actor_key = DailyTaskResultProjection.ACTOR_USER, str(actor.user_id)
+    elif actor.anon_key is not None:
+        actor_type, actor_key = DailyTaskResultProjection.ACTOR_ANON, str(actor.anon_key)
+    else:
+        return None
+
+    result = {task_id: (0.0, False, None) for task_id in task_ids}
+    rows = DailyTaskResultProjection.objects.filter(
+        game=game,
+        task_group_id__in=groups,
+        task_id__in=task_ids,
+        actor_type=actor_type,
+        actor_key=actor_key,
+    ).values_list('task_id', 'result_points', 'best_status')
+    for task_id, points, status in rows:
+        result[task_id] = (float(points or 0), True, status or None)
+    return result
+
+
 def load_projection_fallback_durations(game, task_group):
     """Return stored attempt-span durations keyed by canonical actor key."""
     return {

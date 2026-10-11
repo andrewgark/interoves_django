@@ -42,6 +42,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 
@@ -56,8 +57,6 @@ SQL_TIME_RE = re.compile(
     re.I,
 )
 TIME_RE = re.compile(r"^# Time:\s*(\S+)", re.I)
-COMMENT_RE = re.compile(r"/\*.*?\*/|--[^\n]*|#[^\n]*", re.S)
-STRING_RE = re.compile(r"'(?:''|\\.|[^'])*'|\"(?:\"\"|\\.|[^\"])*\"")
 NUMBER_RE = re.compile(r"(?<![A-Za-z_])[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?![A-Za-z_])")
 UUID_RE = re.compile(r"(?i)\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b")
 ACTOR_KEY_RE = re.compile(
@@ -122,13 +121,74 @@ class Collector:
             return None
 
 
+def strip_comments_and_strings(sql):
+    """Replace SQL comments and quoted values in one linear pass.
+
+    Slow-log statements can contain very large generated lists. Regexes that
+    search for a closing quote/comment across the whole statement can take an
+    excessive amount of time on those inputs.
+    """
+    output = []
+    index = 0
+    length = len(sql)
+    while index < length:
+        char = sql[index]
+        next_two = sql[index:index + 2]
+        if next_two == "/*":
+            end = sql.find("*/", index + 2)
+            index = length if end < 0 else end + 2
+            output.append(" ")
+            continue
+        if char == "#" or next_two == "--":
+            end = sql.find("\n", index + (1 if char == "#" else 2))
+            index = length if end < 0 else end
+            output.append(" ")
+            continue
+        if char == "`":
+            start = index
+            index += 1
+            while index < length:
+                if sql[index] == "`":
+                    if index + 1 < length and sql[index + 1] == "`":
+                        index += 2
+                        continue
+                    index += 1
+                    break
+                index += 1
+            output.append(sql[start:index])
+            continue
+        if char in ("'", '"'):
+            quote = char
+            index += 1
+            while index < length:
+                if sql[index] == "\\":
+                    index += 2
+                    continue
+                if sql[index] == quote:
+                    if index + 1 < length and sql[index + 1] == quote:
+                        index += 2
+                        continue
+                    index += 1
+                    break
+                index += 1
+            output.append("?")
+            continue
+        output.append(char)
+        index += 1
+    return "".join(output)
+
+
+MAX_SQL_CHARS = 1_000_000
+
+
 def normalize_sql(sql):
-    sql = COMMENT_RE.sub(" ", sql)
+    if len(sql) > MAX_SQL_CHARS:
+        sql = sql[:MAX_SQL_CHARS] + " /* statement truncated for report */"
+    sql = strip_comments_and_strings(sql)
     # MySQL slow-log boilerplate is not part of the statement fingerprint.
     sql = re.sub(r"\buse\s+[^;]+;", " ", sql, flags=re.I)
     sql = re.sub(r"\bset\s+timestamp\s*=\s*[^;]+;", " ", sql, flags=re.I)
     sql = UUID_RE.sub("?", sql)
-    sql = STRING_RE.sub("?", sql)
     sql = NUMBER_RE.sub("?", sql)
     sql = re.sub(r"\s+", " ", sql).strip().lower()
     # Keep the fingerprint useful while never printing actor-like identifiers.
@@ -362,8 +422,7 @@ def download_slow_logs(collector, start, end, tmpdir):
         written = dt.datetime.fromtimestamp(last_written / 1000, tz=dt.timezone.utc)
         if start - margin <= written <= end + margin:
             selected.append(name)
-    paths = []
-    for index, name in enumerate(selected):
+    def download_one(index, name):
         path = Path(tmpdir) / f"slow-{index}.log"
         marker = None
         pending = True
@@ -395,9 +454,13 @@ def download_slow_logs(collector, start, end, tmpdir):
                     )
                     break
                 marker = next_marker
-        if path.exists() and path.stat().st_size:
-            paths.append(path)
-    return paths
+        return path if path.exists() and path.stat().st_size else None
+
+    # Log-file downloads are independent; bounded concurrency avoids waiting
+    # for each hourly RDS log file in series.
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        paths = list(executor.map(lambda item: download_one(*item), enumerate(selected)))
+    return [path for path in paths if path is not None]
 
 
 def filter_records(records, start, end):
@@ -530,6 +593,7 @@ def build_parser():
     parser.add_argument("--timestamp", required=True, help="Incident timestamp in UTC ISO8601, for example 2026-09-29T21:00:24Z")
     parser.add_argument("--window", type=int, default=60, help="Incident window in seconds on each side (default: 60)")
     parser.add_argument("--offline", action="store_true", help="Do not call AWS; parse only --slow-log-file inputs")
+    parser.add_argument("--slow-only", action="store_true", help="Collect RDS slow SQL without Enhanced Monitoring or CloudWatch metrics")
     parser.add_argument("--slow-log-file", action="append", default=[], help="Local slow log file; repeatable, useful for parser tests")
     return parser
 
@@ -565,7 +629,7 @@ def main():
         os_events = []
         cloudwatch = {}
         cloudwatch_period = None
-        if not args.offline:
+        if not args.offline and not args.slow_only:
             os_events = fetch_os_events(collector, collection_start, collection_end)
             cloudwatch_period, cloudwatch = fetch_cloudwatch(collector, collection_start, collection_end)
 

@@ -31,6 +31,7 @@ from games.models import (
     DailyResultProjectionState, DailyTaskResultProjection, Game, GameTaskGroup, HTMLPage, Project,
     ChainTaskState, Hint, HintAttempt, Profile, ReplaySlot, Task, TaskGroup, HiddenAnonKey,
 )
+from games.scoring import Actor, _bulk_actor_task_result_points_sql, bulk_actor_task_progress
 from games.word_salad import dump_state, score_for_state
 
 
@@ -188,6 +189,54 @@ class DailyResultProjectionTests(TestCase):
             self.assertIsNone(load_task_result_projection_rows(
                 self.game, self.group, [task.pk], actor_types={'anon'},
             ))
+
+    def test_progress_reads_valid_task_projection_for_actor(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='progress-projection-actor',
+            text='answer', status='Ok', points=10,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+
+        with patch('games.scoring._bulk_actor_task_result_points_sql') as canonical:
+            solved, points = bulk_actor_task_progress(
+                tasks=[task], actor=Actor(anon_key='progress-projection-actor'),
+                game=self.game, include_other_games=True,
+            )
+
+        self.assertEqual(solved, {task.pk})
+        self.assertEqual(points[task.pk], (10.0, True, 'Ok'))
+        canonical.assert_not_called()
+
+    def test_progress_falls_back_when_any_projection_state_is_invalid(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='progress-fallback-actor',
+            text='answer', status='Ok', points=10,
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        DailyResultProjectionState.objects.filter(
+            game=self.game, task_group=self.group,
+        ).update(is_valid=False)
+
+        with patch(
+            'games.scoring._bulk_actor_task_result_points_sql',
+            wraps=_bulk_actor_task_result_points_sql,
+        ) as canonical:
+            solved, points = bulk_actor_task_progress(
+                tasks=[task], actor=Actor(anon_key='progress-fallback-actor'),
+                game=self.game, include_other_games=True,
+            )
+
+        self.assertEqual(solved, {task.pk})
+        self.assertEqual(points[task.pk], (10.0, True, 'Ok'))
+        canonical.assert_called_once()
 
     def test_scoped_results_use_task_projection_without_attempt_query(self):
         task = Task.objects.create(

@@ -300,13 +300,19 @@ def bulk_actor_task_progress(
     if not tasks:
         return set(), {}
     task_ids = [t.id for t in tasks if t and t.id]
-    pts_map = bulk_actor_task_result_points(
-        task_ids=task_ids,
-        actor=actor,
-        mode=mode,
-        game=game,
-        include_other_games=include_other_games,
-    )
+    pts_map = None
+    if mode == "general" and include_other_games:
+        from games.daily.projection import load_actor_task_result_points
+
+        pts_map = load_actor_task_result_points(game, tasks, actor)
+    if pts_map is None:
+        pts_map = bulk_actor_task_result_points(
+            task_ids=task_ids,
+            actor=actor,
+            mode=mode,
+            game=game,
+            include_other_games=include_other_games,
+        )
     solved: Set[int] = set()
     for t in tasks:
         pts, _has_any, best_status = pts_map.get(t.id, (0.0, False, None))
