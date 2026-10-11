@@ -1649,7 +1649,7 @@ class AttemptAdmin(admin.ModelAdmin):
     formfield_overrides = {
         models.TextField: {'widget': Textarea(attrs={'rows': 3, 'cols': 40})},
     }
-    raw_id_fields = ['task', 'team', 'user', 'game']
+    raw_id_fields = ['task', 'team', 'user', 'submitted_by_profile', 'game']
     list_display = ['__str__', 'team', 'task', 'game', 'get_pretty_text', 'get_answer', 'status', 'points', 'get_max_points', 'skip', 'time']
     actions = [
         confirm_prestatus,
@@ -1663,7 +1663,7 @@ class AttemptAdmin(admin.ModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.select_related('team', 'task', 'user')
+        return qs.select_related('team', 'task', 'user', 'submitted_by_profile')
 
     def get_readonly_fields(self, request, obj=None):
         """Keep ownership immutable in ordinary Attempt editing.
@@ -1673,7 +1673,10 @@ class AttemptAdmin(admin.ModelAdmin):
         """
         fields = list(super().get_readonly_fields(request, obj))
         if obj is not None:
-            fields.extend(field for field in ('user', 'anon_key', 'team') if field not in fields)
+            fields.extend(
+                field for field in ('user', 'anon_key', 'team', 'submitted_by_profile')
+                if field not in fields
+            )
         return tuple(fields)
 
 

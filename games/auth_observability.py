@@ -383,6 +383,9 @@ def log_gameplay_attempt_created(request, *, attempt, actor_kind=None) -> None:
         request,
         attempt_id=getattr(attempt, 'pk', None),
         user_id=_safe_user_id(getattr(getattr(attempt, 'user', None), 'pk', None)),
+        submitted_by_profile_id=_safe_user_id(
+            getattr(attempt, 'submitted_by_profile_id', None),
+        ),
         actor_kind=actor_kind,
         anon_fingerprint=anon_fingerprint,
         task_id=getattr(getattr(attempt, 'task', None), 'pk', None),

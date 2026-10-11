@@ -18,6 +18,21 @@ actor.
 The token is actor-bound rather than session-key-bound, so normal Django
 session-key rotation for the same user remains valid.
 
+## Attempt actor and submitter
+
+`Attempt.team`, `Attempt.user` and `Attempt.anon_key` identify the gameplay
+actor whose progress and score the attempt changes. Exactly one of these fields
+is populated for a persisted gameplay attempt. In team mode, `team` owns the
+result and `user` remains empty, even though an authenticated member submitted
+the answer.
+
+`Attempt.submitted_by_profile` records that authenticated member separately.
+It may be populated alongside `team` and does not change scoring, progress
+ownership, duplicate detection or replay scope. It is nullable for anonymous,
+system-generated and historical attempts where the submitter is not known.
+Historical team attempts must not be assigned to a member based only on team
+membership; that would not establish who submitted them.
+
 ### Rollout
 
 Phase A emits tokens and validates any token that is present. Requests without
@@ -39,6 +54,9 @@ gameplay requests emit `authenticated_gameplay_request` with request ID, user
 ID, session fingerprint, actor namespace, route, task, normalized user agent,
 status and result. Successful persisted attempts additionally emit
 `gameplay_attempt_created` with the same request ID and `attempt_id`.
+That event records the submitter profile separately from the gameplay actor:
+for team attempts, the actor remains the team while
+`submitted_by_profile_id` identifies the authenticated member who sent it.
 
 Auth login/logout/claim events retain the existing canonical `event_name`
 values (`auth_login_success`, `auth_logout`, `auth_account_claim`). Login and

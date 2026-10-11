@@ -653,6 +653,7 @@ def apply_guess(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    submitted_by_profile_id: int | None = None,
     replay_slot=None,
 ) -> dict[str, Any]:
     payload = puzzle_from_task(task)
@@ -773,6 +774,7 @@ def apply_guess(
     attempt = Attempt(
         task=task,
         game=game,
+        submitted_by_profile_id=submitted_by_profile_id,
         text=normalized,
         status='Ok' if won else ('Partial' if hits else 'Wrong'),
         points=pts if won else 0,
@@ -825,6 +827,7 @@ def apply_hint(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    submitted_by_profile_id: int | None = None,
     replay_slot=None,
 ) -> dict[str, Any]:
     """Reveal one non-title content lemma for −1 point."""
@@ -877,6 +880,7 @@ def apply_hint(
     attempt = Attempt(
         task=task,
         game=game,
+        submitted_by_profile_id=submitted_by_profile_id,
         text=f'#hint:{lemma}',
         status='Ok' if won else 'Partial',
         points=pts if won else 0,

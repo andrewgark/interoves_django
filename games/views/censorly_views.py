@@ -990,6 +990,7 @@ def censorly_guess(request, number=None, share_hash=None):
             number=play_number,
             share_host=_share_host(request),
             play_path=play_path,
+            submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
             replay_slot=replay_slot,
         )
     result = _finish_completion(
@@ -1059,6 +1060,7 @@ def censorly_hint(request, number=None, share_hash=None):
         number=play_number,
         share_host=_share_host(request),
         play_path=play_path,
+        submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
         replay_slot=replay_slot,
     )
     result = _finish_completion(

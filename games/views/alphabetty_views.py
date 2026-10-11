@@ -761,6 +761,7 @@ def alphabetty_guess(request, number):
             number=play_number,
             share_host=_share_host(request),
             play_path=play_path,
+            submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
             replay_slot=replay_slot,
         )
     analytics_events = []

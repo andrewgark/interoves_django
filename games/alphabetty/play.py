@@ -525,6 +525,7 @@ def _commit_guess(
     num: int | str,
     share_host: str,
     play_path: str | None,
+    submitted_by_profile_id: int | None = None,
     replay_slot=None,
 ) -> dict[str, Any]:
     """Persist a new valid guess (caller already checked dict + duplicate without lock)."""
@@ -570,6 +571,7 @@ def _commit_guess(
     attempt = Attempt(
         task=task,
         game=game,
+        submitted_by_profile_id=submitted_by_profile_id,
         text=normalized,
         status='Ok' if status == 'correct' else 'Partial',
         points=alphabetty_base_points(task) if status == 'correct' else 0,
@@ -615,6 +617,7 @@ def apply_guess(
     number: int | str | None = None,
     share_host: str = 'interoves.com',
     play_path: str | None = None,
+    submitted_by_profile_id: int | None = None,
     replay_slot=None,
 ) -> dict[str, Any]:
     """Применить отгадку; вернуть публичный payload + status."""
@@ -669,6 +672,7 @@ def apply_guess(
         num=num,
         share_host=share_host,
         play_path=play_path,
+        submitted_by_profile_id=submitted_by_profile_id,
         replay_slot=replay_slot,
     )
 

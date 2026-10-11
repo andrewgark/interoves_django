@@ -139,6 +139,15 @@ def check_attempt(
     answer to be persisted after the player's typo quota is exhausted.
     """
     task = attempt.task
+    request_user = getattr(timing_request, 'user', None)
+    if (
+        attempt.submitted_by_profile_id is None
+        and request_user is not None
+        and getattr(request_user, 'is_authenticated', False)
+    ):
+        # The gameplay actor may be the whole team; retain the submitting
+        # member separately from Attempt.user, which owns personal progress.
+        attempt.submitted_by_profile_id = request_user.pk
     team = attempt.team
     user = getattr(attempt, 'user', None)
     anon_key = getattr(attempt, 'anon_key', None)

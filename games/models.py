@@ -2362,6 +2362,10 @@ class Attempt(models.Model):
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     user = models.ForeignKey('auth.User', related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    submitted_by_profile = models.ForeignKey(
+        Profile, related_name='submitted_attempts', blank=True, null=True,
+        on_delete=models.SET_NULL, verbose_name='submitted by profile',
+    )
     anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     task = models.ForeignKey(Task, related_name='attempts', blank=True, null=True, on_delete=models.SET_NULL)
     game = models.ForeignKey(
