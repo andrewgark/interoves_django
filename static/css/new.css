@@ -3721,6 +3721,8 @@ html.new-ui-dark .new-team-switcher-active-box {
   white-space: nowrap;
 }
 
+.new-daily-game-header__date-compact { display: none; }
+
 .new-daily-game-header__description {
   margin: 0.2rem 0 0;
   color: var(--muted);
@@ -3737,49 +3739,49 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 @media (max-width: 560px) {
   .new-daily-game-header__topline {
-    align-items: flex-start;
-    gap: 0.45rem;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
   }
 
   .new-daily-game-header__title-wrap {
     flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: nowrap;
+  }
+
+  .new-daily-game-header__title-wrap .new-heading {
+    font-size: clamp(0.9rem, 4.2vw, 1.2rem);
+    line-height: 1.15;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .new-daily-game-header__controls {
+    flex: 0 0 auto;
     gap: 0.25rem;
   }
 
-  .new-daily-game-header__nav-button {
-    width: 2.35rem;
-    min-height: 2.5rem;
+  .new-daily-game-header .new-daily-game-header__nav-button {
+    width: 1.75rem;
+    min-height: 2.25rem;
   }
 
-  .new-daily-game-header__date {
-    padding: 0 0.1rem;
-    font-size: 0.82rem;
+  .new-daily-game-header .new-daily-game-header__date {
+    padding: 0 0.05rem;
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
   }
+
+  .new-daily-game-header__date-full { display: none; }
+  .new-daily-game-header__date-compact { display: inline; }
+
+  .new-daily-game-header .new-daily-timer__toggle,
+  .new-daily-game-header .new-replay-control__button { min-width: 2.25rem; min-height: 2.25rem; }
 
   .new-daily-game-header__description {
     font-size: 0.84rem;
-  }
-}
-
-/* Keep the title/rules row readable on narrow phones. */
-@media (max-width: 420px) {
-  .new-daily-game-header__topline {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.55rem;
-  }
-
-  .new-daily-game-header__title-wrap {
-    width: 100%;
-    flex: 0 0 auto;
-  }
-
-  .new-daily-game-header__controls {
-    width: 100%;
-    justify-content: flex-end;
   }
 }
 
