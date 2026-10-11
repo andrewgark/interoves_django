@@ -154,6 +154,8 @@
         'Content-Type': 'application/json',
         'X-CSRFToken': csrf(),
         'X-Requested-With': 'XMLHttpRequest',
+        'X-Interoves-Game': root.dataset.gameId || '',
+        'X-Interoves-Gameplay-Context': root.dataset.contextToken || '',
       },
       body: JSON.stringify(body),
     }).then(function (response) {
