@@ -6,7 +6,7 @@ import json
 import time
 
 from django.contrib.auth.decorators import login_required
-from django.core.cache import cache
+from django.core.cache import caches
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
@@ -20,6 +20,7 @@ from games.views.util import has_profile
 
 SUGGEST_LIMIT = 60
 SUGGEST_WINDOW_SECONDS = 60
+suggestion_cache = caches['censorly_api']
 
 
 def _json_body(request):
@@ -72,11 +73,11 @@ def offer_censorly_suggest(request):
     if len(query) < 2:
         return JsonResponse({'ok': True, 'titles': []})
     rate_key = f'censorly_wiki_suggest_rate_v1:{request.user.pk}:{int(time.time()) // SUGGEST_WINDOW_SECONDS}'
-    if not cache.add(rate_key, 1, timeout=SUGGEST_WINDOW_SECONDS):
+    if not suggestion_cache.add(rate_key, 1, timeout=SUGGEST_WINDOW_SECONDS):
         try:
-            count = cache.incr(rate_key)
+            count = suggestion_cache.incr(rate_key)
         except ValueError:
-            cache.add(rate_key, 1, timeout=SUGGEST_WINDOW_SECONDS)
+            suggestion_cache.add(rate_key, 1, timeout=SUGGEST_WINDOW_SECONDS)
             count = 1
         if count > SUGGEST_LIMIT:
             return JsonResponse(

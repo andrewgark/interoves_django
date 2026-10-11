@@ -587,6 +587,13 @@ if 'REDIS_HOST' in os.environ:
         'OPTIONS': _redis_cache_options,
     }
 
+# Censorly typeahead caching and throttling must be shared across web workers
+# when Redis is available, without mixing keys with track revisions.
+CACHES['censorly_api'] = CACHES['track_revisions'].copy()
+CACHES['censorly_api']['KEY_PREFIX'] = 'interoves-censorly-api'
+if CACHES['censorly_api']['BACKEND'] == 'django.core.cache.backends.locmem.LocMemCache':
+    CACHES['censorly_api']['LOCATION'] = 'interoves-censorly-api'
+
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 

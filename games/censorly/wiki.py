@@ -10,7 +10,7 @@ from typing import Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
-from django.core.cache import cache
+from django.core.cache import caches
 
 WIKI_API = 'https://ru.wikipedia.org/w/api.php'
 USER_AGENT = 'InterovesCensorly/1.0 (https://interoves.com; game puzzle generator)'
@@ -739,7 +739,8 @@ def suggest_article_titles(prefix: str, *, limit: int = 8, session: Optional[req
         return []
     cache_input = f'{query.casefold()}:{min(max(int(limit), 1), 10)}'
     cache_key = 'censorly_wiki_prefix_v1:' + hashlib.sha256(cache_input.encode('utf-8')).hexdigest()
-    cached = cache.get(cache_key)
+    suggestion_cache = caches['censorly_api']
+    cached = suggestion_cache.get(cache_key)
     if cached is not None:
         return cached
     sess = session or requests.Session()
@@ -770,5 +771,5 @@ def suggest_article_titles(prefix: str, *, limit: int = 8, session: Optional[req
         for row in matches
         if isinstance(row, dict) and str(row.get('title') or '').strip()
     ]
-    cache.set(cache_key, titles, timeout=15 * 60)
+    suggestion_cache.set(cache_key, titles, timeout=15 * 60)
     return titles
