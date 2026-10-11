@@ -883,7 +883,7 @@
       <progress class="new-audio-progress" data-audio-progress value="0" max="1"></progress>
     </div>
   </div>
-  {# До main/content: страницы вызывают initSectionRules из блока content. #}
+  {# Общий обработчик правил; контент шаблона рендерится ниже. #}
   <script>
   (function () {
     window.interovesUi = window.interovesUi || {};
@@ -956,6 +956,17 @@
     {% endif %}
     {% block content %}{% endblock %}
   </main>
+  <script>
+  (function () {
+    var modal = document.getElementById('rules-modal');
+    if (!modal || !modal.getAttribute('data-storage-key') || !document.querySelector('[data-rules-open]') || !window.interovesUi || !window.interovesUi.initSectionRules) return;
+    window.interovesUi.initSectionRules({
+      modal: modal,
+      storageKey: modal.getAttribute('data-storage-key'),
+      banner: document.querySelector('[data-rules-banner]')
+    });
+  })();
+  </script>
   {% block footer %}{% include "new/partials/site_footer.html" %}{% endblock %}
   <script>
   (function () {
