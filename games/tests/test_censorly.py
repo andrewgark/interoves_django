@@ -326,7 +326,7 @@ class CensorlyAccessTests(TestCase):
         self.assertContains(play, 'https://redactle.net')
         self.assertContains(play, 'мы благодарны им за идею цензурок')
         self.assertContains(play, 'aria-pressed="true"')
-        self.assertContains(play, 'placeholder="Найти слово в тексте"')
+        self.assertContains(play, 'placeholder="Слово"')
         self.assertNotContains(play, 'Полная статья на Википедии')
         self.assertNotContains(play, 'id="censorly-attempts"')
 
