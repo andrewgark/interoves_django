@@ -178,12 +178,16 @@ class AttemptRequestValidationTests(TestCase):
         self.assertEqual(response.status_code, 405)
 
     def test_hint_creation_is_single_save_and_duplicate_safe(self):
+        user = get_user_model().objects.create_user('hint_author', password='pw')
+        profile = Profile.objects.create(user=user)
         with patch('games.views.track.track_task_change') as track:
             hint_attempt, mode = create_hint_attempt(
                 self.hint, anon_key='hint-anon', game=self.game,
+                requested_by_profile=profile,
             )
         self.assertEqual(mode, 'tournament')
         self.assertTrue(hint_attempt.is_real_request)
+        self.assertEqual(hint_attempt.requested_by_profile, profile)
         self.assertEqual(HintAttempt.objects.filter(hint=self.hint).count(), 1)
         track.assert_not_called()
 

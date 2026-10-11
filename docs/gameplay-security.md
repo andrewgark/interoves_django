@@ -33,6 +33,16 @@ system-generated and historical attempts where the submitter is not known.
 Historical team attempts must not be assigned to a member based only on team
 membership; that would not establish who submitted them.
 
+`HintAttempt.requested_by_profile` records the authenticated member who asked
+for a hint. It remains separate from the actor fields for the same reason: a
+team owns the shared hint state, while one member initiated the request. It is
+nullable for anonymous, system-generated and historical requests.
+
+`RaddleUiState.updated_by_profile` records the authenticated member who made
+the latest accepted change to the shared draft or clue marks. `updated_at` and
+`revision` continue to describe when that shared state changed and its ordering;
+the profile field is attribution only. Stale updates do not replace the author.
+
 ### Rollout
 
 Phase A emits tokens and validates any token that is present. Requests without

@@ -2296,6 +2296,10 @@ class RaddleUiState(models.Model):
     game_mode = models.CharField(max_length=20)
     drafts = models.JSONField(default=dict, blank=True)
     clue_marks = models.JSONField(default=dict, blank=True)
+    updated_by_profile = models.ForeignKey(
+        Profile, related_name='updated_raddle_ui_states', blank=True, null=True,
+        on_delete=models.SET_NULL, verbose_name='last updated by profile',
+    )
     revision = models.PositiveBigIntegerField(default=0)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -2775,6 +2779,10 @@ class HintAttempt(models.Model):
     id = models.AutoField(primary_key=True)
     team = models.ForeignKey(Team, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
     user = models.ForeignKey('auth.User', related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
+    requested_by_profile = models.ForeignKey(
+        Profile, related_name='requested_hint_attempts', blank=True, null=True,
+        on_delete=models.SET_NULL, verbose_name='requested by profile',
+    )
     anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     hint = models.ForeignKey(Hint, related_name='hint_attempts', blank=True, null=True, on_delete=models.SET_NULL)
     replay_slot = models.ForeignKey(

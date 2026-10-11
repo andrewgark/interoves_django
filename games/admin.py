@@ -1238,12 +1238,18 @@ class HintAdmin(admin.ModelAdmin):
 
 @admin.register(HintAttempt)
 class HintAttemptAdmin(admin.ModelAdmin):
-    list_display = ['team', 'hint', 'time']
-    raw_id_fields = ['team', 'user', 'hint']
-    search_fields = ['id', 'anon_key', 'team__name', 'user__username']
+    list_display = ['team', 'requested_by_profile', 'hint', 'time']
+    raw_id_fields = ['team', 'user', 'requested_by_profile', 'hint']
+    readonly_fields = ['requested_by_profile']
+    search_fields = [
+        'id', 'anon_key', 'team__name', 'user__username',
+        'requested_by_profile__user__username',
+    ]
 
     def get_queryset(self, request):
-        return super().get_queryset(request).select_related('team', 'user', 'hint', 'hint__task')
+        return super().get_queryset(request).select_related(
+            'team', 'user', 'requested_by_profile', 'hint', 'hint__task',
+        )
 
 
 @admin.register(Like)

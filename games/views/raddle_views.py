@@ -125,7 +125,14 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
         hint = find_raddle_assist_hint(task, word_index, 2)
         if hint is not None:
             try:
-                create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot)
+                create_hint_attempt(
+                    hint, team=team, user=user, anon_key=anon_key, game=game,
+                    replay_slot=replay_slot,
+                    requested_by_profile=(
+                        request.user.profile
+                        if request.user.is_authenticated and has_profile(request.user) else None
+                    ),
+                )
             except DuplicateAttemptException:
                 pass
 
@@ -338,7 +345,14 @@ def process_send_raddle_assist(request, task_id):
         hint = find_raddle_assist_hint(task, word_index, tier)
         if hint is not None:
             try:
-                create_hint_attempt(hint, team=team, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot)
+                create_hint_attempt(
+                    hint, team=team, user=user, anon_key=anon_key, game=game,
+                    replay_slot=replay_slot,
+                    requested_by_profile=(
+                        request.user.profile
+                        if request.user.is_authenticated and has_profile(request.user) else None
+                    ),
+                )
             except DuplicateAttemptException:
                 return {'status': 'duplicate'}
 
@@ -527,8 +541,14 @@ def process_send_raddle_ui(request, task_id):
             )
             ui_row.drafts = state['drafts']
             ui_row.clue_marks = state['clue_marks']
+            ui_row.updated_by_profile = (
+                request.user.profile
+                if request.user.is_authenticated and has_profile(request.user) else None
+            )
             ui_row.revision = max(ui_row.revision + 1, requested_revision or 0)
-            ui_row.save(update_fields=['drafts', 'clue_marks', 'revision', 'updated_at'])
+            ui_row.save(update_fields=[
+                'drafts', 'clue_marks', 'updated_by_profile', 'revision', 'updated_at',
+            ])
         revision = ui_row.revision
 
     run_raddle_atomic_with_deadlock_retry(_save_ui_state, label='ui_state')

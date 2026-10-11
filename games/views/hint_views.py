@@ -47,7 +47,10 @@ def _hintattempt_filter(team=None, user=None, anon_key=None):
     return {'anon_key': anon_key, 'team__isnull': True, 'user__isnull': True}
 
 
-def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None, replay_slot=None):
+def create_hint_attempt(
+    hint, team=None, user=None, anon_key=None, game=None, replay_slot=None,
+    requested_by_profile=None,
+):
     task = hint.task
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
@@ -72,6 +75,7 @@ def create_hint_attempt(hint, team=None, user=None, anon_key=None, game=None, re
         hint_attempt = HintAttempt(
             team=team,
             user=user,
+            requested_by_profile=requested_by_profile,
             anon_key=anon_key,
             hint=hint,
             replay_slot=replay_slot,
@@ -149,6 +153,10 @@ def process_send_hint_attempt(request, task_id):
 
     hint_attempt, current_mode = create_hint_attempt(
         hint, team=team, user=user, anon_key=anon_key, game=game, replay_slot=replay_slot,
+        requested_by_profile=(
+            request.user.profile
+            if request.user.is_authenticated and has_profile(request.user) else None
+        ),
     )
 
     result = {

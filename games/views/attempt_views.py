@@ -740,6 +740,10 @@ def process_send_attempt(request, task_id):
                 create_hint_attempt(
                     hint, team=team, user=user, anon_key=anon_key,
                     game=game, replay_slot=replay_slot,
+                    requested_by_profile=(
+                        request.user.profile
+                        if request.user.is_authenticated and has_profile(request.user) else None
+                    ),
                 )
 
     analytics_events = []

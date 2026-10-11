@@ -151,9 +151,21 @@ class RaddleUiSyncTests(TestCase):
         row = RaddleUiState.objects.get(task=self.task, team=self.team)
         self.assertEqual(row.drafts, {'2': 'CCC'})
         self.assertEqual(row.clue_marks, {'1': True})
+        self.assertEqual(row.updated_by_profile, self.user_one.profile)
         self.assertFalse(ChainTaskState.objects.filter(task=self.task, team=self.team).exists())
 
         second = self._client('raddle_ui_two')
+        second.post(
+            f'/send_raddle_ui/{self.task.pk}/',
+            {
+                'game_id': self.game.pk,
+                'drafts': json.dumps({'3': 'DDD'}),
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+        row.refresh_from_db()
+        self.assertEqual(row.updated_by_profile, self.user_two.profile)
+
         page = second.get(f'/games/{self.game.pk}/1/')
         self.assertEqual(page.status_code, 200)
         html = page.content.decode('utf-8')
