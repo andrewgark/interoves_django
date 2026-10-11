@@ -921,8 +921,8 @@
       modal.querySelectorAll('[data-rules-close]').forEach(function (el) {
         el.addEventListener('click', closeRules);
       });
-      modal.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeRules();
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeRules();
       });
       if (banner) {
         var openBtn = banner.querySelector('[data-rules-banner-open]');
