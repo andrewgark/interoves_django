@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import time
 from urllib.parse import urlencode
 
@@ -73,6 +74,10 @@ from games.views.new_ui import (
 from games.views.game_context import game_from_request_for_task
 from games.views.util import get_public_task_or_404, has_profile
 from games.censorly.lexical.core import fold
+from games.telegram.game_urls import task_play_url
+
+
+logger = logging.getLogger('application')
 
 
 CENSORLY_WORD_REPORT_LIMIT = 20
@@ -788,6 +793,11 @@ def censorly_word_report(request, task_id):
                 'target_assignment': str(explained['target']['assignment']),
             }
         except Exception:
+            logger.exception(
+                'Censorly pair diagnostics failed task_id=%s reason=%s',
+                task.id,
+                reason,
+            )
             diagnostic = {'status': 'unavailable'}
 
     article = state.get('wiki_title') or getattr(task, 'answer', '') or ''
@@ -820,6 +830,7 @@ def censorly_word_report(request, task_id):
         'article': article,
         'game_id': game.id,
         'task_id': task.id,
+        'referer': (request.META.get('HTTP_REFERER') or '')[:500],
         'deploy_version': getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unknown',
         'diagnostic': diagnostic,
     }
@@ -835,7 +846,7 @@ def censorly_word_report(request, task_id):
         user=user,
         anon_key=anon_key,
         text='\n'.join(lines),
-        page_url=request.META.get('HTTP_REFERER') or request.build_absolute_uri(),
+        page_url=task_play_url(game, task)[:500],
         metadata=metadata,
         status=BugReport.STATUS_PENDING,
     )
