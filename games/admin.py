@@ -1915,10 +1915,12 @@ class BugReportAdminBase(admin.ModelAdmin):
         models.TextField: {'widget': Textarea(attrs={'rows': 4, 'cols': 60})},
     }
     raw_id_fields = ['task', 'game', 'team', 'user']
-    readonly_fields = ['time', 'page_url', 'anon_key', 'context_links']
+    readonly_fields = ['time', 'page_url', 'anon_key', 'report_type', 'metadata', 'context_links']
     fields = [
+        'report_type',
         'status',
         'text',
+        'metadata',
         'admin_notes',
         'context_links',
         'task',
@@ -1929,7 +1931,7 @@ class BugReportAdminBase(admin.ModelAdmin):
         'page_url',
         'time',
     ]
-    list_display = ['__str__', 'game', 'task', 'team', 'user', 'status', 'time']
+    list_display = ['__str__', 'report_type', 'game', 'task', 'team', 'user', 'status', 'time']
     list_filter = ['status']
     search_fields = ['text', 'task__number', 'game__id', 'game__name']
     actions = [mark_bug_report_reviewed, mark_bug_report_fixed, mark_bug_report_dismissed]

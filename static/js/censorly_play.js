@@ -97,10 +97,15 @@
       return open;
     }
     if (tok.revealed) {
-      var revealedClass = 'censorly-tok censorly-tok--revealed' + headingClass(tok);
+      var revealedClass = 'censorly-tok censorly-tok--revealed censorly-tok--reportable' + headingClass(tok);
       if (tok.guessed) revealedClass += ' censorly-tok--guessed';
       var revealed = el('span', revealedClass);
       revealed.dataset.id = String(tok.id);
+      revealed.dataset.surface = tok.text || '';
+      revealed.setAttribute('role', 'button');
+      revealed.setAttribute('tabindex', '0');
+      revealed.setAttribute('aria-label', 'Пожаловаться на слово «' + (tok.text || '') + '»');
+      revealed.setAttribute('data-tooltip', 'Пожаловаться на матчинг слов');
       if (tok.lemma) revealed.dataset.lemma = tok.lemma;
       if (tok.title_lemma) {
         revealed.dataset.titleLemma = '1';

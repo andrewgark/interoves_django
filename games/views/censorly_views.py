@@ -5,10 +5,12 @@ from __future__ import annotations
 import json
 from urllib.parse import urlencode
 
+from django.conf import settings
 from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -53,7 +55,7 @@ from games.gameplay_context import (
     validate_gameplay_context,
 )
 from games.middleware.request_timing import timing_phase
-from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Like, RandomCensorlyGame, Task
+from games.models import Attempt, BugReport, ChainTaskState, Game, GameTaskGroup, Like, RandomCensorlyGame, Task
 from games.section_hub import onboarding_followup_context, section_format_credit_context
 from games.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
@@ -66,7 +68,9 @@ from games.views.new_ui import (
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
-from games.views.util import has_profile
+from games.views.game_context import game_from_request_for_task
+from games.views.util import get_public_task_or_404, has_profile
+from games.censorly.lexical.core import fold
 
 
 def _share_host(request) -> str:
@@ -628,10 +632,12 @@ def _render_play(request, *, game, task, load_meta):
             'guess_url': f'{play_path}guess/',
             'state_url': f'{play_path}state/',
             'hint_url': f'{play_path}hint/',
+            'word_report_url': reverse('ui_censorly_word_report', args=[task.id]),
         },
         'guess_url': f'{play_path}guess/',
         'state_url': f'{play_path}state/',
         'hint_url': f'{play_path}hint/',
+        'word_report_url': reverse('ui_censorly_word_report', args=[task.id]),
         'censorly_hint_penalty': CENSORLY_HINT_PENALTY,
         'anon_key': anon_key if user is None else '',
         'is_authenticated': bool(user),
@@ -690,6 +696,124 @@ def censorly_play_page(request, number=None, share_hash=None):
     if game is None or task is None:
         raise Http404()
     return _render_play(request, game=game, task=task, load_meta=load_meta)
+
+
+@require_POST
+def censorly_word_report(request, task_id):
+    """Store a user report about one already revealed Censorly token."""
+    task = get_public_task_or_404(task_id)
+    game = game_from_request_for_task(request, task)
+    if game is None or game.id != CENSORLY_GAME_ID:
+        raise Http404()
+    user, anon_key = _resolve_actor(request)
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return context_error_response(context_error)
+    if user is None and not anon_key:
+        raise Http404()
+    if not game.has_access(
+        'read_googledoc', team=None, attempt=Attempt(time=timezone.now()),
+    ):
+        raise Http404()
+
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, TypeError, UnicodeDecodeError):
+        body = {}
+    reason = str(body.get('reason') or '').strip().upper()
+    if reason not in {'FALSE_POSITIVE', 'FALSE_NEGATIVE', 'OTHER'}:
+        return JsonResponse({'ok': False, 'error': 'Выберите причину жалобы.'}, status=400)
+    target_surface = ' '.join(str(body.get('target_surface') or '').split())
+    other_word = ' '.join(str(body.get('other_word') or '').split())
+    comment = str(body.get('comment') or '').strip()
+    if not target_surface or len(target_surface) > 128:
+        return JsonResponse({'ok': False, 'error': 'Не удалось определить открытое слово.'}, status=400)
+    if len(other_word) > 64 or len(comment) > 5000:
+        return JsonResponse({'ok': False, 'error': 'Слишком длинное сообщение.'}, status=400)
+    if reason in {'FALSE_POSITIVE', 'FALSE_NEGATIVE'} and not other_word:
+        return JsonResponse({'ok': False, 'error': 'Укажите второе слово.'}, status=400)
+
+    try:
+        token_id = int(body.get('token_id'))
+    except (TypeError, ValueError):
+        return JsonResponse({'ok': False, 'error': 'Не удалось определить позицию слова.'}, status=400)
+    state = get_play_state(game=game, task=task, user=user, anon_key=anon_key)
+    token = next((item for item in [
+        *(state.get('title_tokens') or []), *(state.get('body_tokens') or []),
+    ] if int(item.get('id', -1)) == token_id), None)
+    if not token or not token.get('revealed') or fold(token.get('text') or '') != fold(target_surface):
+        return JsonResponse({'ok': False, 'error': 'Пожаловаться можно только на открытое слово.'}, status=400)
+
+    expected = 'CLOSED' if reason == 'FALSE_POSITIVE' else 'OPEN' if reason == 'FALSE_NEGATIVE' else ''
+    diagnostic = None
+    if other_word:
+        try:
+            from games.censorly.lexical.tools.explain_pair import explain_pair
+            explained = explain_pair(other_word, target_surface)
+            diagnostic = {
+                'runtime': explained['runtime_reason'],
+                'classification': explained['classification'],
+                'recommendation': explained['recommendation'],
+                'guess_structures': [list(item) for item in explained['guess']['root_structures']],
+                'target_structures': [list(item) for item in explained['target']['root_structures']],
+                'guess_assignment': str(explained['guess']['assignment']),
+                'target_assignment': str(explained['target']['assignment']),
+            }
+        except Exception:
+            diagnostic = {'status': 'unavailable'}
+
+    article = state.get('wiki_title') or getattr(task, 'answer', '') or ''
+    reason_label = {
+        'FALSE_POSITIVE': 'Лишнее открытие',
+        'FALSE_NEGATIVE': 'Пропущенное открытие',
+        'OTHER': 'Другая проблема',
+    }[reason]
+    lines = [
+        'Жалоба на матчинг слов Цензурки',
+        'Причина: {}'.format(reason_label),
+        'Открытое слово: «{}»'.format(target_surface),
+    ]
+    if other_word:
+        lines.append('Слово пользователя: «{}»'.format(other_word))
+    if expected:
+        lines.append('Ожидание: {}'.format(expected))
+    if comment:
+        lines.extend(['', comment])
+    metadata = {
+        'reason': reason,
+        'expected': expected,
+        'target_surface': target_surface,
+        'target_normalized': fold(target_surface),
+        'target_token_id': token_id,
+        'target_lemma': token.get('lemma') or '',
+        'target_is_title': bool(token.get('title_lemma')),
+        'other_word': other_word,
+        'comment': comment,
+        'article': article,
+        'game_id': game.id,
+        'task_id': task.id,
+        'deploy_version': getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unknown',
+        'diagnostic': diagnostic,
+    }
+    try:
+        from games.runtime import deployment_environment
+        metadata['environment'] = deployment_environment()
+    except Exception:
+        metadata['environment'] = 'unknown'
+    report = BugReport.objects.create(
+        report_type=BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH,
+        task=task,
+        game=game,
+        user=user,
+        anon_key=anon_key,
+        text='\n'.join(lines),
+        page_url=request.META.get('HTTP_REFERER') or request.build_absolute_uri(),
+        metadata=metadata,
+        status=BugReport.STATUS_PENDING,
+    )
+    return JsonResponse({'ok': True, 'report_id': report.pk})
 
 
 def _finish_completion(request, *, game, task, user, anon_key, result, replay_slot=None):

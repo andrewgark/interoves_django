@@ -253,6 +253,82 @@ html.new-ui-dark .censorly__dock {
   border-radius: 0;
 }
 
+/* Revealed words are reportable without making the article look button-heavy. */
+.censorly-tok--reportable {
+  cursor: pointer;
+  border-radius: 2px;
+}
+.censorly-tok--reportable:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, #b08900) 70%, transparent);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .censorly-tok--reportable {
+    position: relative;
+  }
+  .censorly-tok--reportable::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 0.5rem);
+    z-index: 20;
+    width: max-content;
+    max-width: 15rem;
+    padding: 0.28rem 0.45rem;
+    border: 1px solid color-mix(in srgb, var(--border, #bbb) 80%, transparent);
+    border-radius: 4px;
+    background: var(--surface, var(--bg, #fff));
+    color: var(--text, #222);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+    font: 0.72rem/1.2 sans-serif;
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, 0.2rem);
+    transition: opacity 0.14s ease 1.45s, transform 0.14s ease 1.45s;
+  }
+  .censorly-tok--reportable:hover::after,
+  .censorly-tok--reportable:focus-visible::after {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.censorly-word-report-modal__box {
+  max-width: 34rem;
+}
+.censorly-word-report-reasons {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1rem 0;
+  padding: 0;
+  border: 0;
+}
+.censorly-word-report-reasons label,
+.censorly-word-report-field {
+  display: grid;
+  gap: 0.35rem;
+  line-height: 1.4;
+}
+.censorly-word-report-field {
+  margin: 0.8rem 0;
+}
+.censorly-word-report-field em {
+  color: var(--muted);
+  font-style: normal;
+  font-size: 0.9em;
+}
+.censorly-word-report-field input,
+.censorly-word-report-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.5rem;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.2));
+  border-radius: 5px;
+  background: var(--surface, var(--bg, #fff));
+  color: var(--text, #222);
+  font: inherit;
+}
+
 /* Redactle bar: block glyphs share the bar color. Length sits on the left. */
 .censorly-tok__blocks {
   position: relative;

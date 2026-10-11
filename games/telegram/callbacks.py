@@ -37,6 +37,8 @@ def handle_callback_query(callback_query: dict) -> None:
 
     if domain == 'bug':
         _handle_bug(action, obj_id, callback_id, chat_id, message_id)
+    elif domain == 'censorly':
+        _handle_censorly(action, obj_id, callback_id, chat_id, message_id)
     elif domain == 'ticket':
         _handle_ticket(action, obj_id, callback_id, chat_id, message_id)
     elif domain == 'abdict':
@@ -70,6 +72,56 @@ def _handle_bug(action: str, report_id: int, callback_id, chat_id, message_id) -
         answer_callback_query(callback_id, 'Unknown action')
         return
 
+    if chat_id and message_id:
+        edit_message_reply_markup(chat_id, message_id, reply_markup=None)
+
+
+def _handle_censorly(action: str, report_id: int, callback_id, chat_id, message_id) -> None:
+    report = BugReport.objects.filter(
+        pk=report_id, report_type=BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH,
+    ).first()
+    if report is None:
+        answer_callback_query(callback_id, 'Censorly report not found', show_alert=True)
+        return
+    if action not in {'confirm', 'reject', 'review'}:
+        answer_callback_query(callback_id, 'Unknown action')
+        return
+
+    metadata = dict(report.metadata or {})
+    if action == 'confirm':
+        expected = metadata.get('expected') or ''
+        other = metadata.get('other_word') or ''
+        target = metadata.get('target_surface') or ''
+        if expected and other and target and not metadata.get('review_case_created'):
+            try:
+                from games.censorly.lexical.tools.review_pair import record_review_case
+
+                _row, _created, _diagnostic = record_review_case(
+                    other,
+                    target,
+                    expected,
+                    source='USER_REPORT #{} article={}'.format(report.pk, metadata.get('article') or '—'),
+                    note=metadata.get('comment') or '',
+                )
+            except Exception:
+                answer_callback_query(callback_id, 'Не удалось добавить в review queue', show_alert=True)
+                return
+            metadata['review_case_created'] = True
+            metadata['review_queue_status'] = 'DIAGNOSED'
+        metadata['admin_decision'] = 'CONFIRMED'
+        report.status = BugReport.STATUS_REVIEWED
+        answer = 'Confirmed; added to review queue' if expected else 'Confirmed for manual review'
+    elif action == 'reject':
+        metadata['admin_decision'] = 'REJECTED'
+        report.status = BugReport.STATUS_DISMISSED
+        answer = 'Dismissed'
+    else:
+        metadata['admin_decision'] = 'NEEDS_REVIEW'
+        report.status = BugReport.STATUS_REVIEWED
+        answer = 'Marked for review'
+    report.metadata = metadata
+    report.save(update_fields=['status', 'metadata'])
+    answer_callback_query(callback_id, answer)
     if chat_id and message_id:
         edit_message_reply_markup(chat_id, message_id, reply_markup=None)
 

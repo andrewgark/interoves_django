@@ -112,6 +112,7 @@ from games.views.censorly_views import (  # noqa: E402
     censorly_random_game,
     censorly_state,
     censorly_today_page,
+    censorly_word_report,
 )
 
 

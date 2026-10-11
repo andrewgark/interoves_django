@@ -16,7 +16,7 @@ from games.censorly.play import apply_guess, apply_hint, get_play_state, hub_pro
 from games.censorly.redact import build_public_view, lemmas_matching_guess
 from games.censorly.stopwords import is_stop_word
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
-from games.models import Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, Project, RandomCensorlyGame, Task, TaskGroup
+from games.models import Attempt, BugReport, ChainTaskState, CheckerType, Game, GameTaskGroup, Project, RandomCensorlyGame, Task, TaskGroup
 from games.placement_share import allocate_share_hash
 
 _CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
@@ -242,6 +242,56 @@ class CensorlyAccessTests(TestCase):
         self.staff = User.objects.create_user('cz_staff', password='x', is_staff=True)
         self.plain = User.objects.create_user('cz_plain', password='x', is_staff=False)
         self.client = Client()
+
+    def test_word_match_report_requires_open_target_and_stores_diagnostic(self):
+        self.client.force_login(self.staff)
+        opened = apply_guess(
+            game=self.game, task=self.task, word='столица', user=self.staff,
+        )
+        self.assertEqual(opened['status'], 'hit')
+        state = get_play_state(game=self.game, task=self.task, user=self.staff)
+        target = next(
+            token for token in state['body_tokens']
+            if token.get('revealed') and token.get('lemma') == 'столица'
+        )
+        response = self.client.post(
+            f'/censorly/word-report/{self.task.id}/',
+            data=json.dumps({
+                'reason': 'FALSE_POSITIVE',
+                'target_surface': target['text'],
+                'token_id': target['id'],
+                'other_word': 'столица',
+                'comment': 'Проверка пользовательского report flow',
+                'game_id': CENSORLY_GAME_ID,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAME=CENSORLY_GAME_ID,
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['ok'])
+        report = BugReport.objects.get(pk=response.json()['report_id'])
+        self.assertEqual(report.report_type, BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH)
+        self.assertEqual(report.metadata['reason'], 'FALSE_POSITIVE')
+        self.assertEqual(report.metadata['target_surface'], target['text'])
+        self.assertIn('diagnostic', report.metadata)
+
+    def test_word_match_report_rejects_closed_target_and_missing_other_word(self):
+        self.client.force_login(self.staff)
+        state = get_play_state(game=self.game, task=self.task, user=self.staff)
+        target = next(token for token in state['body_tokens'] if not token.get('revealed'))
+        response = self.client.post(
+            f'/censorly/word-report/{self.task.id}/',
+            data=json.dumps({
+                'reason': 'FALSE_NEGATIVE',
+                'target_surface': target.get('text') or 'скрытое',
+                'token_id': target['id'],
+                'game_id': CENSORLY_GAME_ID,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAME=CENSORLY_GAME_ID,
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(BugReport.objects.filter(report_type=BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH).exists())
 
     def test_plain_user_gets_public_random_page(self):
         url = f'/censorly/r/{self.share_hash}/'

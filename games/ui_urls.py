@@ -149,6 +149,7 @@ urlpatterns = [
     path('censorly/last/', ui.censorly_last_page, name='ui_censorly_last'),
     path('censorly/', ui.censorly_hub_page, name='ui_censorly_hub'),
     path('censorly/random/', ui.censorly_random_game, name='ui_censorly_random'),
+    path('censorly/word-report/<int:task_id>/', ui.censorly_word_report, name='ui_censorly_word_report'),
     path('censorly/r/<str:share_hash>/guess/', ui.censorly_guess_random, name='ui_censorly_guess_random'),
     path('censorly/r/<str:share_hash>/state/', ui.censorly_state_random, name='ui_censorly_state_random'),
     path('censorly/r/<str:share_hash>/hint/', ui.censorly_hint_random, name='ui_censorly_hint_random'),

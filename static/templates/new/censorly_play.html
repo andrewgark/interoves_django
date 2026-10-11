@@ -50,7 +50,37 @@
   </div>
 </div>
 
+<div id="censorly-word-report-modal" class="new-rules-modal" role="dialog" aria-labelledby="censorly-word-report-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-censorly-word-report-close></div>
+  <div class="new-rules-modal__box pal-card censorly-word-report-modal__box">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-censorly-word-report-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="censorly-word-report-title" class="pal-title">Пожаловаться на матчинг слов</h2>
+    <p class="new-login-hint">Слово: «<strong id="censorly-word-report-target"></strong>»</p>
+    <fieldset class="censorly-word-report-reasons">
+      <legend class="sr-only">Причина жалобы</legend>
+      <label><input type="radio" name="censorly-word-report-reason" value="FALSE_POSITIVE"> Слово было открыто слишком слабо связанным словом</label>
+      <label><input type="radio" name="censorly-word-report-reason" value="FALSE_NEGATIVE"> Слово не было открыто близко связанным с ним словом</label>
+      <label><input type="radio" name="censorly-word-report-reason" value="OTHER"> Другая проблема</label>
+    </fieldset>
+    <label id="censorly-word-report-other-wrap" class="censorly-word-report-field" hidden>
+      <span id="censorly-word-report-other-label">Какое слово должно было его открыть?</span>
+      <input id="censorly-word-report-other" type="text" maxlength="64" autocomplete="off">
+    </label>
+    <label class="censorly-word-report-field">
+      <span>Комментарий <em>(необязательно)</em></span>
+      <textarea id="censorly-word-report-comment" rows="3" maxlength="5000" placeholder="Что именно показалось неправильным?"></textarea>
+    </label>
+    <p id="censorly-word-report-error" class="new-bug-report-error" hidden></p>
+    <p id="censorly-word-report-success" class="new-bug-report-success" hidden>Спасибо! Жалоба отправлена.</p>
+    <div class="new-rules-modal__actions">
+      <button type="button" class="new-btn" data-censorly-word-report-submit>Отправить</button>
+      <button type="button" class="new-btn new-btn--text" data-censorly-word-report-close>Отмена</button>
+    </div>
+  </div>
+</div>
+
 <div class="censorly" id="censorly-root"
+     data-game-id="{{ game.id }}"
      data-guess-url="{{ guess_url }}"
      data-state-url="{{ state_url }}"
      data-hint-url="{{ hint_url }}"
@@ -58,7 +88,8 @@
      data-scroll-mode="{{ censorly_scroll_mode|default:'first' }}"
      data-authenticated="{% if is_authenticated %}1{% else %}0{% endif %}"
      data-anon-key="{{ anon_key|default:'' }}"
-     data-context-token="{{ gameplay_context_token|default:'' }}">
+     data-context-token="{{ gameplay_context_token|default:'' }}"
+     data-word-report-url="{{ word_report_url }}">
 
   <div class="new-taskcard" id="new-task-{{ task.id }}">
     <button type="button" class="new-taskcard__bug-btn" data-bug-report-open data-task-id="{{ task.id }}" data-task-label="{{ bug_report_task_label|default:page_title }}" aria-label="Сообщить о проблеме: {{ bug_report_task_label|default:page_title }}" data-tooltip="Сообщить о проблеме"><i class="ph ph-bug" aria-hidden="true"></i></button>
@@ -177,6 +208,7 @@
 <script defer src="{% static 'js/daily_statistics.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endif %}
 <script src="{% static 'js/censorly_guess_feedback.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script src="{% static 'js/censorly_word_report.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/censorly_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script>
 // Цензурка использует ту же новую meta-полосу, что и остальные игры, но не

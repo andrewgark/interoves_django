@@ -16,8 +16,8 @@ from games.censorly.lexical.core import fold
 from games.censorly.lexical.tools.explain_pair import explain_pair
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
-REVIEW_FILE = DATA / 'pair_review.tsv'
-HISTORY_FILE = DATA / 'pair_review_history.tsv'
+REVIEW_FILE = Path(os.environ.get('CENSORLY_PAIR_REVIEW_FILE', DATA / 'pair_review.tsv'))
+HISTORY_FILE = Path(os.environ.get('CENSORLY_PAIR_REVIEW_HISTORY_FILE', DATA / 'pair_review_history.tsv'))
 FIELDS = ('guess', 'target', 'expected', 'actual', 'classification', 'decision', 'fix_layer', 'status', 'note')
 HISTORY_FIELDS = ('updated_at', 'guess', 'target', 'previous_status', 'status', 'decision', 'note')
 DECISIONS = {'APPROVE', 'REJECT', 'KEEP_CLOSED', 'KEEP_OPEN', 'NEEDS_MORE_DATA'}
@@ -87,6 +87,50 @@ def _find(rows, guess, target):
             except Exception:
                 pass
     return None
+
+
+def record_review_case(guess, target, expected, *, note='', source=''):
+    """Create or reuse a diagnosed case for an explicit human review source.
+
+    This is intentionally the same queue/lifecycle used by the CLI.  It never
+    approves, applies, or changes resolver data.
+    """
+    expected = (expected or '').strip().upper()
+    if expected not in {'OPEN', 'CLOSED'}:
+        raise ValueError('expected must be OPEN or CLOSED')
+    rows = _read()
+    report = explain_pair(guess, target)
+    actual = _actual(report)
+    classification = report['classification']
+    fix_layer = _fix_layer(report)
+    detail = ' '.join(part for part in (source, note) if part).strip()
+    existing = next((row for row in rows if (
+        row.get('expected') == expected
+        and _pair_key(row.get('guess', ''), row.get('target', '')) == _pair_key(guess, target)
+    )), None)
+    if existing is not None:
+        previous = existing['status']
+        if detail and detail not in existing.get('note', ''):
+            existing['note'] = '{} | {}'.format(existing.get('note', ''), detail).strip(' |')
+            _history(existing, previous, previous, existing['note'])
+            _write(rows)
+        return existing, False, report
+
+    row = {
+        'guess': guess,
+        'target': target,
+        'expected': expected,
+        'actual': actual,
+        'classification': classification,
+        'decision': '',
+        'fix_layer': fix_layer,
+        'status': 'DIAGNOSED',
+        'note': detail or report['recommendation'],
+    }
+    rows.append(row)
+    _write(rows)
+    _history(row, '', row['status'], row['note'])
+    return row, True, report
 
 
 def _decision_status(decision):

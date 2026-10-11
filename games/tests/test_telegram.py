@@ -127,6 +127,41 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), text)
 
     @patch('games.telegram.notify.send_message')
+    def test_notify_censorly_word_report_with_review_keyboard(self, send_message_mock):
+        send_message_mock.return_value = True
+        report = BugReport.objects.create(
+            report_type=BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH,
+            game=self.game,
+            task=self.task,
+            team=self.team,
+            text='Censorly report',
+            metadata={
+                'reason': 'FALSE_POSITIVE',
+                'expected': 'CLOSED',
+                'article': 'Китай',
+                'target_surface': 'поддержка',
+                'other_word': 'держать',
+                'comment': 'Слишком слабая связь',
+                'diagnostic': {
+                    'runtime': 'OPEN',
+                    'classification': 'D',
+                    'recommendation': 'SEMANTIC_SPLIT',
+                    'guess_structures': [['fam:держ']],
+                    'target_structures': [['fam:держ']],
+                },
+            },
+        )
+        notify_new_bug_report(report)
+        text = send_message_mock.call_args.args[1]
+        keyboard = str(send_message_mock.call_args.kwargs['reply_markup'])
+        self.assertIn('FALSE POSITIVE', text)
+        self.assertIn('поддержка', text)
+        self.assertIn('держать', text)
+        self.assertIn('censorly:confirm:{}'.format(report.pk), keyboard)
+        self.assertIn('censorly:reject:{}'.format(report.pk), keyboard)
+        self.assertIn('censorly:review:{}'.format(report.pk), keyboard)
+
+    @patch('games.telegram.notify.send_message')
     @patch('games.telegram.callbacks.answer_callback_query')
     @patch('games.telegram.callbacks.edit_message_reply_markup')
     def test_bug_fixed_callback(self, edit_markup_mock, answer_mock, send_message_mock):
@@ -149,6 +184,42 @@ class TelegramNotifyTests(TestCase):
         edit_markup_mock.assert_called_once()
         send_message_mock.assert_called()
         self.assertIn('Fixed', send_message_mock.call_args.args[1])
+
+    @patch('games.censorly.lexical.tools.review_pair.record_review_case')
+    @patch('games.telegram.callbacks.answer_callback_query')
+    @patch('games.telegram.callbacks.edit_message_reply_markup')
+    def test_censorly_confirm_creates_diagnosed_review_case(
+        self, edit_markup_mock, answer_mock, record_mock,
+    ):
+        report = BugReport.objects.create(
+            report_type=BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH,
+            game=self.game,
+            task=self.task,
+            team=self.team,
+            text='Censorly report',
+            metadata={
+                'reason': 'FALSE_NEGATIVE',
+                'expected': 'OPEN',
+                'article': 'Китай',
+                'target_surface': 'сенатор',
+                'other_word': 'сенат',
+                'comment': 'Очевидная семья',
+            },
+        )
+        record_mock.return_value = ({'status': 'DIAGNOSED'}, True, {'runtime_reason': 'CLOSED'})
+        handle_callback_query({
+            'id': 'cb-censorly-confirm',
+            'data': 'censorly:confirm:{}'.format(report.pk),
+            'message': {'chat': {'id': 12345}, 'message_id': 12},
+        })
+        report.refresh_from_db()
+        self.assertEqual(report.status, BugReport.STATUS_REVIEWED)
+        self.assertTrue(report.metadata['review_case_created'])
+        self.assertEqual(report.metadata['review_queue_status'], 'DIAGNOSED')
+        record_mock.assert_called_once()
+        self.assertEqual(record_mock.call_args.args[:3], ('сенат', 'сенатор', 'OPEN'))
+        answer_mock.assert_called()
+        edit_markup_mock.assert_called_once()
 
     @patch('games.telegram.notify.send_message')
     def test_dict_suggestion_notify_on_create(self, send_message_mock):

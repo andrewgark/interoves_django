@@ -3740,6 +3740,12 @@ class Donation(models.Model):
 
 
 class BugReport(models.Model):
+    REPORT_TYPE_BUG = 'BUG'
+    REPORT_TYPE_CENSORLY_WORD_MATCH = 'CENSORLY_WORD_MATCH'
+    REPORT_TYPE_VARIANTS = (
+        (REPORT_TYPE_BUG, 'Обычный баг-репорт'),
+        (REPORT_TYPE_CENSORLY_WORD_MATCH, 'Матчинг слов Цензурки'),
+    )
     STATUS_PENDING = 'Pending'
     STATUS_REVIEWED = 'Reviewed'
     STATUS_FIXED = 'Fixed'
@@ -3759,12 +3765,19 @@ class BugReport(models.Model):
     USER_REPLY_STATUSES = (STATUS_PENDING, STATUS_REVIEWED)
 
     id = models.AutoField(primary_key=True)
+    report_type = models.CharField(
+        max_length=32,
+        choices=REPORT_TYPE_VARIANTS,
+        default=REPORT_TYPE_BUG,
+        db_index=True,
+    )
     task = models.ForeignKey(Task, related_name='bug_reports', on_delete=models.CASCADE)
     game = models.ForeignKey(Game, related_name='bug_reports', on_delete=models.CASCADE)
     team = models.ForeignKey(Team, related_name='bug_reports', blank=True, null=True, on_delete=models.SET_NULL)
     user = models.ForeignKey('auth.User', related_name='bug_reports', blank=True, null=True, on_delete=models.SET_NULL)
     anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
     text = models.TextField()
+    metadata = models.JSONField(blank=True, default=dict)
     page_url = models.CharField(max_length=500, blank=True, default='')
     time = models.DateTimeField(auto_now_add=True, blank=True)
 

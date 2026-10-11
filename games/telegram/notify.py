@@ -508,6 +508,16 @@ def bug_report_keyboard(report_id: int) -> dict:
     }
 
 
+def censorly_word_report_keyboard(report_id: int) -> dict:
+    return {
+        'inline_keyboard': [[
+            {'text': '✅ Подтвердить проблему', 'callback_data': 'censorly:confirm:{}'.format(report_id)},
+            {'text': '❌ Отклонить', 'callback_data': 'censorly:reject:{}'.format(report_id)},
+            {'text': '🤔 Нужна проверка', 'callback_data': 'censorly:review:{}'.format(report_id)},
+        ]],
+    }
+
+
 def ticket_request_keyboard(ticket_id: int) -> dict:
     return {
         'inline_keyboard': [[
@@ -750,6 +760,8 @@ def notify_new_word_salad_offer(offer_id: int) -> bool:
 
 
 def format_bug_report_message(report: BugReport) -> str:
+    if report.report_type == BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH:
+        return format_censorly_word_report_message(report)
     task = report.task
     game = report.game
     task_label = task_display_name(game, task)
@@ -789,6 +801,55 @@ def format_bug_report_message(report: BugReport) -> str:
             thread_link, report_admin, queue_link, support_link,
         ),
     ])
+
+
+def format_censorly_word_report_message(report: BugReport) -> str:
+    from django.conf import settings
+
+    metadata = report.metadata if isinstance(report.metadata, dict) else {}
+    reason = metadata.get('reason') or 'OTHER'
+    reason_labels = {
+        'FALSE_POSITIVE': 'FALSE POSITIVE · лишнее открытие',
+        'FALSE_NEGATIVE': 'FALSE NEGATIVE · пропущенное открытие',
+        'OTHER': 'OTHER · другая проблема',
+    }
+    diagnostic = metadata.get('diagnostic') if isinstance(metadata.get('diagnostic'), dict) else {}
+    report_admin = _admin_link('/admin/games/bugreport/{}/change/'.format(report.pk))
+    queue_link = _admin_link('/admin/games/pendingbugreport/')
+    lines = [
+        '🧩 <b>Censorly: жалоба на матчинг</b>',
+        '',
+        'Тип: <b>{}</b>'.format(_escape(reason_labels.get(reason, reason))),
+        'Статья: {}'.format(_escape(metadata.get('article') or '—')),
+        'Открытое слово: «<code>{}</code>»'.format(_escape(metadata.get('target_surface') or '—')),
+    ]
+    if metadata.get('other_word'):
+        lines.append('Слово пользователя: «<code>{}</code>»'.format(_escape(metadata['other_word'])))
+    if metadata.get('expected'):
+        lines.append('Ожидание: <b>{}</b>'.format(_escape(metadata['expected'])))
+    if metadata.get('comment'):
+        lines.extend(['', 'Комментарий:', _escape(metadata['comment'][:2000])])
+    if diagnostic and diagnostic.get('status') != 'unavailable':
+        lines.extend([
+            '',
+            '<b>Диагностика</b>',
+            'Runtime: <code>{}</code>'.format(_escape(diagnostic.get('runtime') or '—')),
+            'Classification: <code>{}</code>'.format(_escape(diagnostic.get('classification') or '—')),
+            'Guess structures: <code>{}</code>'.format(_escape(diagnostic.get('guess_structures') or '—')),
+            'Target structures: <code>{}</code>'.format(_escape(diagnostic.get('target_structures') or '—')),
+            'Suggested fix: <code>{}</code>'.format(_escape(diagnostic.get('recommendation') or '—')),
+        ])
+    else:
+        lines.extend(['', 'Диагностика: unavailable'])
+    lines.extend([
+        '',
+        'Report ID: <code>{}</code>'.format(report.pk),
+        'Версия: <code>{}</code>'.format(_escape(getattr(settings, 'SITE_DEPLOY_VERSION', '') or 'unknown')),
+        '<a href="{}">Админка</a> · <a href="{}">Очередь</a>'.format(
+            _escape(report_admin), _escape(queue_link),
+        ),
+    ])
+    return _join_lines(lines)
 
 
 def format_ticket_request_message(ticket_request: TicketRequest) -> str:
@@ -906,10 +967,12 @@ def notify_new_bug_report(report: BugReport) -> bool:
         .select_related('task', 'task__task_group', 'game', 'game__project', 'team', 'user')
         .get(pk=report.pk)
     )
-    return send_admin_message(
-        format_bug_report_message(report),
-        reply_markup=bug_report_keyboard(report.pk),
+    keyboard = (
+        censorly_word_report_keyboard(report.pk)
+        if report.report_type == BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH
+        else bug_report_keyboard(report.pk)
     )
+    return send_admin_message(format_bug_report_message(report), reply_markup=keyboard)
 
 
 def bug_report_thread_url(report: BugReport) -> str:
