@@ -108,7 +108,12 @@ def title_from_user_input(raw: str) -> str:
     if not text:
         raise WikiFetchError('Пустой заголовок')
     if 'wikipedia.org' in text or text.startswith('http://') or text.startswith('https://'):
-        parsed = urlparse(text)
+        parsed = urlparse(text if text.startswith(('http://', 'https://')) else '//' + text)
+        host = (parsed.hostname or '').lower()
+        if host and host not in {'ru.wikipedia.org', 'www.ru.wikipedia.org', 'ru.m.wikipedia.org'}:
+            raise WikiFetchError('Укажите ссылку на русскую Википедию')
+        if not host and parsed.scheme:
+            raise WikiFetchError('Укажите ссылку на русскую Википедию')
         m = _TITLE_FROM_PATH.match(parsed.path or '')
         if m:
             return unquote(m.group(1).replace('_', ' '))
@@ -532,9 +537,12 @@ def _strip_indented_math_lines(text: str) -> str:
                 item.strip() for item in pending
                 if item.strip() and not item.startswith((' ', '\t'))
             ]
+            has_operator = any(re.search(r'[+=<>×·*/^_]', item) for item in unindented)
+            has_digit = any(re.search(r'\d', item) for item in unindented)
             is_vertical_dump = (
                 len(unindented) >= 3
-                and any(re.search(r'[+=<>×·*/^_]', item) for item in unindented)
+                and has_operator
+                and has_digit
             )
             if not unindented or is_vertical_dump:
                 pending.clear()
@@ -545,13 +553,22 @@ def _strip_indented_math_lines(text: str) -> str:
         elif indented and not re.search(r'[А-Яа-яЁё]{2,}', line):
             pending.append(line)
         elif (
-            not re.search(r'[А-Яа-яЁё]{2,}', line)
-            and len(line.strip()) <= 48
-            and re.fullmatch(r'[A-Za-z0-9０-９+−=<>()[\]{}.,;:/\\_^*|·×\s]*', line)
+            len(line.strip()) <= 48
+            and (
+                not re.search(r'[А-Яа-яЁё]{2,}', line)
+                or re.fullmatch(
+                    r'\s*(?:[A-Za-z0-9]+)?\s*\([А-Яа-яЁё]{2,}\.?\)\s*',
+                    line,
+                )
+            )
+            and re.fullmatch(
+                r'[A-Za-zА-Яа-яЁё0-9０-９+−=<>()[\]{}.,;:/\\_^*|·×\s]*',
+                line,
+            )
         ):
             # Unindented MathML fallback glyphs (for example A / g / + / 2 / H
-            # / N / O / 3) are ambiguous line by line. Buffer them and discard
-            # only if the whole block is followed by TeX and has math structure.
+            # / N / O / 3 / (конц.)) are ambiguous line by line. Buffer them
+            # and discard only when the following TeX confirms a numeric formula.
             pending.append(line)
         elif not line.strip():
             pending.append(line)
