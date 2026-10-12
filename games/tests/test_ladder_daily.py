@@ -44,6 +44,15 @@ class LadderDailyLogicTests(SimpleTestCase):
         self.assertIsNone(ladder_publish_at(game, 6824270918737837))
         self.assertFalse(is_ladder_number_published(game, 6824270918737837, after))
 
+    def test_open_without_start_still_rejects_invalid_numbers(self):
+        game = self._game(start=None)
+        now = datetime(2026, 7, 8, 1, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+
+        self.assertTrue(is_ladder_number_published(game, 1, now))
+        for number in ('invalid', None, 0, -1, 100_001):
+            with self.subTest(number=number):
+                self.assertFalse(is_ladder_number_published(game, number, now))
+
     def test_hub_context_today(self):
         game = self._game()
         now = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))

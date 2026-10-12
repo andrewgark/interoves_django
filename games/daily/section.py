@@ -86,10 +86,10 @@ class DailySchedule:
     def is_published(self, game, number: int | str, now: datetime | None = None) -> bool:
         now = now or timezone.now()
         try:
-            n = int(number)
+            number = int(number)
         except (TypeError, ValueError):
-            n = None
-        if n is not None and (n < 1 or n > 100_000):
+            return False
+        if number < 1 or number > 100_000:
             return False
         pub = self.publish_at(game, number)
         if pub is None:
