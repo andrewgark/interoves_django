@@ -30,6 +30,20 @@ def _offer_for_user(request, offer_id):
     )
 
 
+def _profile_context(profile, *, ready, missing, offers, profile_error=None):
+    return {
+        'page_title': 'Создать свою алфавитку',
+        'profile_ready': ready,
+        'profile_missing': missing,
+        'profile': profile,
+        'offers_json': [offer.to_dict() for offer in offers],
+        'show_sections_nav': True,
+        'profile_error': profile_error,
+        'back_url': '/alphabetty/',
+        'back_label': 'К алфавиткам',
+    }
+
+
 @login_required
 @require_http_methods(['GET', 'POST'])
 def offer_alphabetty_page(request):
@@ -44,30 +58,19 @@ def offer_alphabetty_page(request):
         profile.save(update_fields=['first_name', 'last_name'])
         ready_after, missing_after = profile_ready_for_offers(profile)
         if not ready_after:
-            return render(request, 'new/create_alphabetty.html', {
-                'page_title': 'Создать свою алфавитку',
-                'profile_ready': False,
-                'profile_missing': missing_after,
-                'profile': profile,
-                'offers_json': [],
-                'show_sections_nav': True,
-                'profile_error': offer_profile_error(missing_after),
-                'back_url': '/alphabetty/',
-                'back_label': 'К алфавиткам',
-            })
+            return render(request, 'new/create_alphabetty.html', _profile_context(
+                profile,
+                ready=False,
+                missing=missing_after,
+                offers=[],
+                profile_error=offer_profile_error(missing_after),
+            ))
         return redirect('new_create_alphabetty')
 
     offers = list_user_offers(request.user) if ready else []
-    return render(request, 'new/create_alphabetty.html', {
-        'page_title': 'Создать свою алфавитку',
-        'profile_ready': ready,
-        'profile_missing': missing,
-        'profile': profile,
-        'offers_json': [o.to_dict() for o in offers],
-        'show_sections_nav': True,
-        'back_url': '/alphabetty/',
-        'back_label': 'К алфавиткам',
-    })
+    return render(request, 'new/create_alphabetty.html', _profile_context(
+        profile, ready=ready, missing=missing, offers=offers,
+    ))
 
 
 @login_required
