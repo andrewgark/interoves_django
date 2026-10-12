@@ -12,7 +12,7 @@
     · {% autoescape off %}{{ tg_name }}{% endautoescape %}
   {% endif %}
 {% endblock %}
-{% block body_attrs %}data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode|default:'' }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}
+{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode|default:'' }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}
 {% block extrahead %}
   {% include "new/_18plus_gate_early.html" %}
   {% if html_forms_data %}
@@ -3617,17 +3617,6 @@
   window.initRaddleUi = initRaddleUi;
   window.setRaddleFocus = setRaddleFocus;
   withRaddleSource('init', function () { initRaddleUi(document); });
-
-  // bfcache: после back/forward DOM может быть от другого актёра (login↔anon).
-  // deploy_version_check.js тоже слушает pageshow и может увести страницу —
-  // перезагружаем ровно один раз, чтобы не получить двойную навигацию.
-  var raddleBfcacheReloading = false;
-  window.addEventListener('pageshow', function (e) {
-    if (!e.persisted || raddleBfcacheReloading) return;
-    if (!document.querySelector('.new-raddle-task')) return;
-    raddleBfcacheReloading = true;
-    window.location.reload();
-  });
 
   var raddleStickyResizeTimer = null;
   // Passive viewport/scroll handlers may only reposition and show/hide the fixed

@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   {% include "partials/deploy_version_meta.html" %}
   <script src="{% static "js/deploy_version_check.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+  <script src="{% static "js/game_bfcache.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
   {% include "partials/yandex_metrika.html" %}
   <script>
   (function () {
