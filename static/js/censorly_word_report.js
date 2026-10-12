@@ -35,6 +35,7 @@
     var needed = reason === 'FALSE_POSITIVE' || reason === 'FALSE_NEGATIVE';
     otherWrap.hidden = !needed;
     otherEl.required = needed;
+    if (!needed) otherEl.value = '';
     otherLabel.textContent = reason === 'FALSE_POSITIVE'
       ? 'Каким словом оно было открыто?'
       : 'Какое слово должно было его открыть?';
