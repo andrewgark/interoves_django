@@ -3,6 +3,7 @@
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
+import logging
 from types import SimpleNamespace
 
 from django.core.cache import cache
@@ -277,7 +278,8 @@ class _AggregatePage:
         return (self.number - 1) * self.paginator.per_page + len(self.object_list)
 
 
-def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggregate_sort='time'):
+def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggregate_sort='time',
+                          monthly_summary_month=None):
     """Aggregate, rank and page persisted score rows without hydrating all actors."""
     from django.db import connection
 
@@ -352,24 +354,71 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
              WHERE canonical.timing_rank = 1
         ),'''
 
-    actor_total_branches = []
-    for actor_type, timing_identity in timing_branches:
-        actor_total_branches.append(
-            f'''SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
-                       SUM(p.score) AS window_score, SUM(p.attempts_count) AS attempts_count,
-                       COUNT(p.id) AS played_count,
-                       CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
-                FROM {projection} p LEFT JOIN canonical_timing dt ON dt.game_id = p.game_id
-                  AND dt.task_group_id = p.task_group_id
-                  AND {timing_identity}
-                WHERE {eligibility} AND p.actor_type = '{actor_type}'
-                GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key'''
-        )
-    actor_totals_sql = '\n                    UNION ALL\n'.join(actor_total_branches)
+    if monthly_summary_month is not None:
+        monthly_projection = q('games_dailymonthlyresultprojection')
+        timing_actor_cte = f'''
+        eligible_timing AS (
+            SELECT dt.team_id, dt.user_id, dt.anon_key,
+                   SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) AS total_time_ms
+              FROM canonical_timing dt
+              JOIN {projection} p ON p.game_id = dt.game_id
+                AND p.task_group_id = dt.task_group_id
+                AND ((dt.team_id IS NOT NULL AND p.actor_type = 'team' AND p.team_id = dt.team_id)
+                  OR (dt.user_id IS NOT NULL AND p.actor_type = 'user' AND p.user_id = dt.user_id)
+                  OR (dt.anon_key IS NOT NULL AND p.actor_type = 'anon' AND p.anon_key = dt.anon_key))
+             WHERE p.game_id = %s AND p.task_group_id IN ({timing_group_placeholders})
+               AND p.is_prepublication = %s
+               AND NOT (p.actor_type = %s AND EXISTS (
+                   SELECT 1 FROM {author} a
+                    WHERE a.taskgroup_id = p.task_group_id AND a.profile_id = p.user_id))
+               AND NOT (p.actor_type = %s AND (
+                   EXISTS (SELECT 1 FROM {author} a JOIN {membership} m ON m.profile_id = a.profile_id
+                            WHERE a.taskgroup_id = p.task_group_id AND m.team_id = p.team_id)
+                   OR EXISTS (SELECT 1 FROM {author} a JOIN {profile} pr ON pr.user_id = a.profile_id
+                              WHERE a.taskgroup_id = p.task_group_id AND pr.team_on_id = p.team_id)))
+          GROUP BY dt.team_id, dt.user_id, dt.anon_key
+        ),'''
+        timing_params = [game.pk, *group_ids, False, 'user', 'team']
+        actor_totals_sql = f'''SELECT s.actor_type, s.actor_key, s.team_id, s.user_id, s.anon_key,
+                       s.score AS window_score, s.attempts_count, s.played_count,
+                       et.total_time_ms
+                FROM {monthly_projection} s LEFT JOIN eligible_timing et ON
+                  ((s.team_id IS NOT NULL AND et.team_id = s.team_id)
+                    OR (s.user_id IS NOT NULL AND et.user_id = s.user_id)
+                    OR (s.anon_key IS NOT NULL AND et.anon_key = s.anon_key))
+               WHERE s.game_id = %s AND s.month = %s
+                 AND s.actor_type IN ({actor_placeholders})
+                 AND (s.team_id IS NULL OR EXISTS (
+                     SELECT 1 FROM {team} t WHERE t.name = s.team_id AND t.is_hidden = %s))
+                 AND (s.user_id IS NULL OR NOT EXISTS (
+                     SELECT 1 FROM {profile} pr WHERE pr.user_id = s.user_id AND pr.is_hidden = %s))
+                 AND (s.anon_key IS NULL OR NOT EXISTS (
+                     SELECT 1 FROM {hidden_anon} ha WHERE ha.anon_key = s.anon_key))'''
+        actor_totals_params = [
+            *timing_params, game.pk, monthly_summary_month,
+            *sorted(actor_types), False, True,
+        ]
+    else:
+        actor_total_branches = []
+        for actor_type, timing_identity in timing_branches:
+            actor_total_branches.append(
+                f'''SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
+                           SUM(p.score) AS window_score, SUM(p.attempts_count) AS attempts_count,
+                           COUNT(p.id) AS played_count,
+                           CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
+                    FROM {projection} p LEFT JOIN canonical_timing dt ON dt.game_id = p.game_id
+                      AND dt.task_group_id = p.task_group_id
+                      AND {timing_identity}
+                    WHERE {eligibility} AND p.actor_type = '{actor_type}'
+                    GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key'''
+            )
+        actor_totals_sql = '\n                    UNION ALL\n'.join(actor_total_branches)
+        actor_totals_params = [*base_params, *base_params, *base_params]
+        timing_actor_cte = ''
     page_number = max(1, int(page_number or 1))
     with connection.cursor() as cursor:
         cursor.execute(
-            f'''WITH {canonical_timing_cte}
+            f'''WITH {canonical_timing_cte}{timing_actor_cte}
                 actor_totals AS (
                     {actor_totals_sql}
                 ), ranked AS (
@@ -400,8 +449,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                           actor_type, actor_key
                  LIMIT %s''',
             [
-                game.pk, *group_ids,
-                *base_params, *base_params, *base_params,
+                game.pk, *group_ids, *actor_totals_params,
                 page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
                 page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
                 PAGE_SIZE,
@@ -740,6 +788,18 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     from games.models import DailyResultProjection, Team, User
 
     group_ids = [column.link.task_group_id for column in columns]
+    monthly_summary_month = month_context[1] if month_context is not None else None
+    if monthly_summary_month is not None:
+        from games.results.monthly_projection import ensure_monthly_projection
+
+        if not ensure_monthly_projection(game, monthly_summary_month, group_ids):
+            logging.getLogger('application').warning(
+                'monthly_result_projection_unavailable game=%s month=%s; using canonical aggregate query',
+                game.pk, monthly_summary_month,
+            )
+            return _build_legacy_aggregate_page(
+                request, game, month_context=month_context,
+            )
     try:
         requested_page = int(request.GET.get('page', '1'))
     except (TypeError, ValueError):
@@ -750,6 +810,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         aggregate_sort = 'attempts'
     page_values, total_count, current_page = _projection_rank_page(
         game, group_ids, requested_page, actor_types, aggregate_sort,
+        monthly_summary_month=monthly_summary_month,
     )
     page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)
     team_ids = {row['team_id'] for row in page_values if row['team_id']}

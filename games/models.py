@@ -1025,6 +1025,39 @@ class DailyResultProjectionDirtyActor(models.Model):
         )]
 
 
+class DailyMonthlyResultProjectionState(models.Model):
+    """Version marker for a durable monthly actor aggregate."""
+    game = models.ForeignKey(Game, related_name='daily_monthly_result_projection_states', on_delete=models.CASCADE)
+    month = models.DateField()
+    source_signature = models.CharField(max_length=64, blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=('game', 'month'), name='uniq_daily_monthly_proj_state',
+        )]
+
+
+class DailyMonthlyResultProjection(models.Model):
+    """Rebuildable actor totals for one scheduled game and calendar month."""
+    game = models.ForeignKey(Game, related_name='daily_monthly_result_projections', on_delete=models.CASCADE)
+    month = models.DateField()
+    actor_type = models.CharField(max_length=8, choices=DailyResultProjection.ACTOR_CHOICES)
+    actor_key = models.CharField(max_length=100)
+    team = models.ForeignKey(Team, related_name='+', blank=True, null=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='+', blank=True, null=True, on_delete=models.CASCADE)
+    anon_key = models.CharField(max_length=64, blank=True, null=True)
+    score = models.DecimalField(max_digits=14, decimal_places=3)
+    attempts_count = models.PositiveIntegerField(default=0)
+    played_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=('game', 'month', 'actor_type', 'actor_key'),
+            name='uniq_daily_monthly_proj_actor',
+        )]
+
+
 class DailyGameDifficulty(models.Model):
     """Cached, explainable difficulty for one scheduled daily-game edition.
 
