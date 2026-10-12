@@ -17,6 +17,24 @@
   var scheduleUi = window.SupportScheduleTabs;
   var scheduleBusy = false;
   var endpoint = function (name) { return config.getAttribute('data-' + name + '-url'); };
+  var createModal = document.getElementById('cz-create-modal');
+  var createTitle = document.getElementById('cz-end-title');
+  var createError = document.getElementById('cz-end-error');
+
+  function closeCreateModal() {
+    createModal.classList.remove('is-open');
+    createModal.hidden = true;
+    document.body.classList.remove('new-modal-open');
+  }
+  function openCreateModal() {
+    createError.hidden = true;
+    createError.textContent = '';
+    createTitle.value = '';
+    createModal.hidden = false;
+    createModal.classList.add('is-open');
+    document.body.classList.add('new-modal-open');
+    createTitle.focus();
+  }
 
   function csrf() {
     var input = document.querySelector('input[name=csrfmiddlewaretoken]');
@@ -95,6 +113,11 @@
     if (busy) return;
     busy = true;
     work().catch(function (error) {
+      if (!createModal.hidden) {
+        createError.hidden = false;
+        createError.textContent = error.message;
+        return;
+      }
       var node = currentTab === 'offers'
         ? document.getElementById('cz-offers-error')
         : document.getElementById('cz-error');
@@ -138,16 +161,31 @@
   });
   document.getElementById('cz-save-start').onclick = function () { run(function () { return post(endpoint('publish'), {publish_start: document.getElementById('cz-publish-start').value}).then(function () { location.reload(); }); }); };
   document.getElementById('cz-create').onclick = function () { run(function () { return post(endpoint('create'), {at_number: document.getElementById('cz-at-number').value, title: document.getElementById('cz-slot-title').value}).then(function () { location.reload(); }); }); };
+  document.getElementById('cz-end-create').onclick = function () {
+    var title = createTitle.value.trim();
+    if (!title) {
+      createError.textContent = 'Укажите название статьи или ссылку на Википедию.';
+      createError.hidden = false;
+      createTitle.focus();
+      return;
+    }
+    run(function () {
+      return post(endpoint('create'), {
+        at_number: schedule.filter(function (row) { return !row.is_deferred; }).length + 1,
+        title: title,
+      }).then(function () { location.reload(); });
+    });
+  };
   document.getElementById('cz-gen-more').onclick = function () { run(function () { return post(endpoint('generate'), {n: document.getElementById('cz-gen-n').value}).then(function () { location.reload(); }); }); };
   document.getElementById('cz-random').onclick = function () { run(function () { return post(endpoint('random')).then(function (data) { random.unshift(data.row); renderRandom(random); }); }); };
   document.getElementById('cz-title-form').onsubmit = function (event) { event.preventDefault(); run(function () { return post(endpoint('from-title'), {title: document.getElementById('cz-title').value}).then(function (data) { random.unshift(data.row); renderRandom(random); }); }); };
   document.addEventListener('click', function (event) {
     var insertEnd = event.target.closest('[data-insert-end]');
     if (insertEnd) {
-      document.getElementById('cz-at-number').value = schedule.filter(function (row) { return !row.is_deferred; }).length + 1;
-      document.getElementById('cz-create').click();
+      openCreateModal();
       return;
     }
+    if (event.target.closest('[data-cz-create-close]')) closeCreateModal();
     var button = event.target.closest('[data-action]');
     if (button) {
       var body = button.hasAttribute('data-number') ? {number: button.getAttribute('data-number')} : {share_hash: button.getAttribute('data-hash')};
@@ -162,6 +200,9 @@
     var urlTemplate = endpoint(accept ? 'offer-accept' : 'offer-reject');
     var url = urlTemplate.replace('/0/', '/' + encodeURIComponent(offerId) + '/');
     run(function () { return post(url, {}).then(function () { location.reload(); }); });
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !createModal.hidden) closeCreateModal();
   });
 
   scheduleUi.mountSortable(list, {

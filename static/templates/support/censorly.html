@@ -57,6 +57,26 @@
 </section>
 {% endblock %}
 
+{% block schedule_modals %}
+<div id="cz-create-modal" class="new-rules-modal" role="dialog" aria-labelledby="cz-create-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-cz-create-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-cz-create-close>×</button>
+    <h2 id="cz-create-title" class="support-page-title support-page-title--modal">Добавить статью в расписание</h2>
+    <p class="support-hint">Введите название статьи или ссылку на русскую Википедию.</p>
+    <label class="support-ladders-field" for="cz-end-title">
+      <span>Статья русской Википедии</span>
+      <input id="cz-end-title" type="search" maxlength="255" autocomplete="off" placeholder="Например, Википедия">
+    </label>
+    <p class="support-hint support-ladder-edit-error" id="cz-end-error" role="alert" hidden></p>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="cz-end-create">Создать статью</button>
+      <button type="button" class="new-btn new-btn--ghost" data-cz-create-close>Отмена</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
 {% block schedule_page_scripts %}
 <script src="{% static 'js/support_censorly.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 {% endblock %}
