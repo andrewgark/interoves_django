@@ -24,7 +24,6 @@ class DailyGameRegistryTests(TestCase):
         self.assertIsNotNone(salad)
         self.assertEqual(salad.task_type, 'word_salad')
         self.assertEqual(salad.pager_label, 'салатиками')
-        self.assertEqual(salad.task_results_variant, 'salad_words')
         self.assertEqual(salad.board_adapter_key, 'word_salad')
         self.assertEqual(salad.share_adapter_key, 'salad')
         self.assertEqual(salad.statistics_adapter_key, 'salad')
@@ -43,10 +42,13 @@ class DailyGameRegistryTests(TestCase):
 
     def test_results_adapter_exposes_both_daily_results_variants(self):
         alphabetty = get_daily_results_adapter('alphabetty')
+        censorly = get_daily_results_adapter('censorly')
         salad = get_daily_results_adapter('salad')
 
         self.assertEqual(alphabetty.aggregate_variant, 'alphabetty')
         self.assertEqual(alphabetty.task_variant, 'alphabetty')
+        self.assertEqual(censorly.aggregate_variant, 'alphabetty')
+        self.assertEqual(censorly.task_variant, 'alphabetty')
         self.assertEqual(salad.aggregate_variant, 'standard')
         self.assertEqual(salad.task_variant, 'salad_words')
 

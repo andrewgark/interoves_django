@@ -41,8 +41,6 @@ class DailyGameDefinition:
     pager_label: str
     schedule: DailySchedule
     capabilities: DailyGameCapabilities = DailyGameCapabilities()
-    aggregate_results_variant: str = 'standard'
-    task_results_variant: str = 'standard'
     results_adapter_key: str | None = None
     projection_adapter_key: str | None = None
     completion_adapter_key: str | None = None
@@ -111,7 +109,6 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         short_title='Лесенка',
         pager_label='лесенками',
         schedule=LADDER_SCHEDULE,
-        aggregate_results_variant='ladder',
         board_adapter_key='raddle',
         share_adapter_key='ladder',
         statistics_adapter_key='ladder',
@@ -128,8 +125,6 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         pager_label='алфавитками',
         schedule=ALPHABETTY_SCHEDULE,
         capabilities=DailyGameCapabilities(share_card=False),
-        aggregate_results_variant='alphabetty',
-        task_results_variant='alphabetty',
         statistics_adapter_key='alphabet',
         results_adapter_key='alphabetty',
         projection_adapter_key='attempts_info',
@@ -148,8 +143,6 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
             statistics=True,
             aggregate_results=True,
         ),
-        aggregate_results_variant='alphabetty',
-        task_results_variant='alphabetty',
         statistics_adapter_key='censorly',
         results_adapter_key='censorly',
         projection_adapter_key='attempts_info',
@@ -163,7 +156,6 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         short_title='Салатик',
         pager_label='салатиками',
         schedule=WORD_SALAD_SCHEDULE,
-        task_results_variant='salad_words',
         board_adapter_key='word_salad',
         share_adapter_key='salad',
         statistics_adapter_key='salad',
