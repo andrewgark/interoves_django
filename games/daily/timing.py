@@ -539,9 +539,10 @@ def canonical_elapsed_seconds(
                 return None
         return legacy_seconds
     timing_snapshot = snapshot(row)
-    if int(timing_snapshot.get('accumulated_ms') or 0) <= 0:
+    accumulated_ms = int(timing_snapshot.get('accumulated_ms') or 0)
+    if accumulated_ms <= 0:
         return None
-    return max(0, int(timing_snapshot.get('accumulated_ms') or 0) // 1000)
+    return max(1, accumulated_ms // 1000)
 
 
 def timing_row_preference(row) -> tuple:
