@@ -11962,3 +11962,8 @@ button.new-word-salad__hint-btn:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+.censorly-filter-group { margin:1rem 0; }
+.censorly-filter-group label { display:inline-flex; align-items:center; gap:.4rem; margin:.25rem .75rem .25rem 0; }
+.censorly-filter-group details > label { display:block; }
+[data-random-censorly-modal] .new-rules-modal__box { max-height:min(84vh, 52rem); overflow-y:auto; }
+[data-random-censorly-validation] { color:var(--error,#b42318); }

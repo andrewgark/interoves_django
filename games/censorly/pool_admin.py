@@ -1,6 +1,7 @@
 """Read and update the tagged Censorly pool used by support and random play."""
 
 import csv
+from functools import lru_cache
 from pathlib import Path
 
 from games.models import CensorlyPoolEntry
@@ -9,10 +10,11 @@ TAGS_PATH = Path(__file__).with_name('article_pool_tags.tsv')
 DIFFICULTIES = ('легко', 'средне', 'сложно')
 
 
-def pool_rows():
+@lru_cache(maxsize=1)
+def _base_pool_rows():
     rows = {}
     if TAGS_PATH.exists():
-        with TAGS_PATH.open(encoding='utf-8', newline='') as stream:
+        with TAGS_PATH.open(encoding='utf-8-sig', newline='') as stream:
             for item in csv.DictReader(stream, delimiter='\t'):
                 title = (item.get('title') or '').strip()
                 if title:
@@ -23,6 +25,12 @@ def pool_rows():
                         'difficulty': (item.get('difficulty') or '').strip(),
                         'enabled': True,
                     }
+    return rows
+
+
+def pool_rows():
+    rows = {title: {**row, 'topics': list(row['topics']), 'types': list(row['types'])}
+            for title, row in _base_pool_rows().items()}
     for override in CensorlyPoolEntry.objects.all():
         rows[override.title] = {
             'title': override.title, 'topics': override.topics or [],
@@ -30,6 +38,16 @@ def pool_rows():
             'enabled': override.enabled,
         }
     return rows
+
+
+def active_pool_titles(rows=None):
+    """Pool titles with database additions and support-side exclusions applied."""
+    from games.censorly.article_pool import load_article_pool
+
+    rows = rows if rows is not None else pool_rows()
+    titles = list(load_article_pool())
+    titles.extend(title for title in rows if title not in titles)
+    return [title for title in titles if rows.get(title, {}).get('enabled', True)]
 
 
 def taxonomy(rows=None):
@@ -53,7 +71,25 @@ def save_pool_entry(title, topics, object_types, difficulty, enabled=True):
         raise ValueError('Укажите название статьи (до 255 символов)')
     if difficulty not in DIFFICULTIES:
         raise ValueError('Выберите сложность')
+    if not isinstance(enabled, bool):
+        raise ValueError('Некорректный статус статьи')
+    if not isinstance(topics, (list, tuple)) or not isinstance(object_types, (list, tuple)):
+        raise ValueError('Проверьте выбранные теги')
+    if any(not isinstance(value, str) for value in (*topics, *object_types)):
+        raise ValueError('Проверьте выбранные теги')
+    topics = list(dict.fromkeys(v.strip() for v in topics if isinstance(v, str) and v.strip()))
+    object_types = list(dict.fromkeys(v.strip() for v in object_types if isinstance(v, str) and v.strip()))
+    if enabled and not topics:
+        raise ValueError('Выберите хотя бы одну категорию')
+    known = taxonomy()
+    valid_topics = set(known['categories']) | {
+        parent + '/' + child for parent, children in known['categories'].items() for child in children
+    }
+    if any(topic not in valid_topics for topic in topics):
+        raise ValueError('Выберите категории из таксономии')
+    if any(item not in known['types'] for item in object_types):
+        raise ValueError('Выберите типы из списка')
     CensorlyPoolEntry.objects.update_or_create(title=title, defaults={
-        'topics': list(dict.fromkeys(topics)), 'object_types': list(dict.fromkeys(object_types)),
+        'topics': topics, 'object_types': object_types,
         'difficulty': difficulty, 'enabled': enabled,
     })

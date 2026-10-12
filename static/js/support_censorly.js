@@ -22,6 +22,7 @@
   var createTitle = document.getElementById('cz-end-title');
   var createError = document.getElementById('cz-end-error');
   var createAtNumber = null;
+  var createEditLinkId = null;
 
   function attachTitleSuggestions(input, listbox) {
     var timer = null;
@@ -120,18 +121,25 @@
   }
   function closeCreateModal() {
     resetCreateTitleInput();
+    createEditLinkId = null;
+    document.getElementById('cz-end-create').textContent = 'Создать статью';
     createModal.classList.remove('is-open');
     createModal.hidden = true;
     document.body.classList.remove('new-modal-open');
   }
-  function openCreateModal(atNumber) {
+  function openCreateModal(atNumber, editRow) {
     createError.hidden = true;
     createError.textContent = '';
     resetCreateTitleInput();
     createAtNumber = atNumber;
-    document.getElementById('cz-create-title').textContent = atNumber > schedule.filter(function (row) { return !row.is_deferred; }).length
-      ? 'Добавить статью в конец расписания'
-      : 'Добавить статью перед выпуском №' + atNumber;
+    createEditLinkId = editRow ? editRow.link_id : null;
+    document.getElementById('cz-create-title').textContent = editRow
+      ? 'Заменить статью в выпуске №' + editRow.number
+      : atNumber > schedule.filter(function (row) { return !row.is_deferred; }).length
+        ? 'Добавить статью в конец расписания'
+        : 'Добавить статью перед выпуском №' + atNumber;
+    document.getElementById('cz-end-create').textContent = editRow ? 'Заменить статью' : 'Создать статью';
+    if (editRow) createTitle.value = editRow.wiki_title || '';
     createModal.hidden = false;
     createModal.classList.add('is-open');
     document.body.classList.add('new-modal-open');
@@ -296,6 +304,17 @@
       createTitle.focus();
       return;
     }
+    if (createEditLinkId) {
+      var editUrl = endpoint('schedule-edit').replace('/0/', '/' + createEditLinkId + '/');
+      run(function () {
+        return post(editUrl, {title: title}).then(function (data) {
+          schedule = data.rows || [];
+          renderSchedule(schedule);
+          closeCreateModal();
+        });
+      });
+      return;
+    }
     run(function () {
       return post(endpoint('create'), {
         at_number: createAtNumber,
@@ -327,10 +346,7 @@
     var editSchedule = event.target.closest('[data-schedule-edit]');
     if (editSchedule) {
       var row = schedule.find(function (item) { return String(item.link_id) === editSchedule.dataset.scheduleEdit; });
-      var title = window.prompt('Новая статья Википедии', row ? row.wiki_title : '');
-      if (!title) return;
-      var editUrl = endpoint('schedule-edit').replace('/0/', '/' + editSchedule.dataset.scheduleEdit + '/');
-      run(function () { return post(editUrl, {title: title}).then(function (data) { schedule = data.rows || []; renderSchedule(schedule); }); });
+      if (row) openCreateModal(row.number, row);
       return;
     }
     var insertEnd = event.target.closest('[data-insert-end]');

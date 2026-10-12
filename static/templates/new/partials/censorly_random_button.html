@@ -17,6 +17,7 @@
         <div class="censorly-filter-group"><h3>Сложность</h3><label><input type="checkbox" value="легко" checked data-filter-difficulty> Простая</label><label><input type="checkbox" value="средне" checked data-filter-difficulty> Средняя</label><label><input type="checkbox" value="сложно" data-filter-difficulty> Сложная</label></div>
         <div class="censorly-filter-group"><h3>Категории</h3><div data-filter-categories></div></div>
         <div class="censorly-filter-group"><h3>Тип</h3><div data-filter-types></div></div>
+        <p class="support-hint" data-random-censorly-validation hidden>Выберите хотя бы один уровень сложности.</p>
         <button type="button" class="new-btn new-btn--yellow" data-random-censorly-start>Играть</button>
       </div>
     </div>
@@ -39,6 +40,8 @@
   var taxonomy = JSON.parse(document.getElementById('censorly-random-taxonomy').textContent || '{}') || {};
   var saved = {};
   try { saved = JSON.parse(localStorage.getItem('censorly-random-filters') || '{}'); } catch (_) {}
+  if (!saved || typeof saved !== 'object') saved = {};
+  ['categories', 'types', 'difficulties'].forEach(function (key) { if (!Array.isArray(saved[key])) saved[key] = null; });
   var categoryRoot = modal.querySelector('[data-filter-categories]');
   Object.keys(taxonomy.categories || {}).forEach(function (parent) {
     var children = taxonomy.categories[parent] || [];
@@ -58,12 +61,14 @@
   button.addEventListener('click', function () { modal.hidden = false; modal.classList.add('is-open'); document.body.classList.add('new-modal-open'); });
   modal.querySelectorAll('[data-random-censorly-close]').forEach(function (el) { el.addEventListener('click', close); });
   document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !modal.hidden) close(); });
+  modal.querySelectorAll('[data-filter-difficulty]').forEach(function (el) { el.addEventListener('change', function () { modal.querySelector('[data-random-censorly-validation]').hidden = true; }); });
   modal.querySelector('[data-random-censorly-start]').addEventListener('click', function () {
     var categories = Array.from(modal.querySelectorAll('[data-filter-category]:checked')).map(function (el) { return el.value; });
     var types = Array.from(modal.querySelectorAll('[data-filter-type]:checked')).map(function (el) { return el.value; });
     var difficulties = Array.from(modal.querySelectorAll('[data-filter-difficulty]:checked')).map(function (el) { return el.value; });
-    var state = {categories: categories, types: types, difficulties: difficulties};
-    localStorage.setItem('censorly-random-filters', JSON.stringify(state));
+    if (!difficulties.length) { modal.querySelector('[data-random-censorly-validation]').hidden = false; return; }
+    var state = {categories: categories, types: types, difficulties: difficulties, filter_difficulty: true};
+    try { localStorage.setItem('censorly-random-filters', JSON.stringify(state)); } catch (_) {}
     filtersInput.value = JSON.stringify(state);
     close();
     button.disabled = true;

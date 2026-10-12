@@ -446,14 +446,15 @@ def censorly_hub_page(request):
             for row in rows if row['row_class']
         },
     )
+    random_access = has_club_access(request.user)
     return render(request, 'new/censorly_hub.html', {
         'page_title': 'Цензурки',
         'create_link': create_game_link_context(CENSORLY_GAME_ID),
         'game': game,
         'rows': rows,
         'random_rows': random_rows,
-        'random_censorly_has_access': has_club_access(request.user),
-        'censorly_taxonomy': censorly_taxonomy(),
+        'random_censorly_has_access': random_access,
+        'censorly_taxonomy': censorly_taxonomy() if random_access else {},
         'support_url': '/support/censorly/',
         'show_sections_nav': False,
         'back_url': '/',
@@ -472,8 +473,10 @@ def censorly_random_game(request):
     if _get_game() is None:
         raise Http404()
     from games.censorly.random_game import (
+        CensorlyPoolFetchFailed,
         CensorlyPoolExhausted,
         EmptyCensorlyPool,
+        NoMatchingCensorlyArticles,
         get_or_create_random_game,
     )
 
@@ -490,10 +493,16 @@ def censorly_random_game(request):
             'Пул случайных Цензурок пока пуст. Попробуйте ещё раз позже.',
         )
         return redirect('ui_censorly_hub')
+    except NoMatchingCensorlyArticles:
+        messages.info(request, 'По выбранным тегам статей нет. Попробуйте изменить фильтры.')
+        return redirect('ui_censorly_hub')
+    except CensorlyPoolFetchFailed:
+        messages.warning(request, 'Не удалось загрузить статью из пула. Попробуйте ещё раз позже.')
+        return redirect('ui_censorly_hub')
     except CensorlyPoolExhausted:
         messages.info(
             request,
-            'Все статьи из пула уже стали случайными Цензурками.',
+            'Вы уже решили все статьи, подходящие под выбранные теги.',
         )
         return redirect('ui_censorly_hub')
     return redirect(f'/censorly/r/{random_game.share_hash}/')
@@ -612,12 +621,13 @@ def _render_play(request, *, game, task, load_meta):
     )
     stats_enabled = bool(get_daily_game(CENSORLY_GAME_ID) and get_daily_game(CENSORLY_GAME_ID).capabilities.statistics)
     stats_number = play_number if is_random else (link.number if link else play_number)
+    random_access = has_club_access(request.user)
     return render(request, 'new/censorly_play.html', {
         'game': game,
         'number': play_number,
         'tg_number': play_number,
-        'random_censorly_has_access': has_club_access(request.user),
-        'censorly_taxonomy': censorly_taxonomy(),
+        'random_censorly_has_access': random_access,
+        'censorly_taxonomy': censorly_taxonomy() if random_access else {},
         'link': link,
         'task': task,
         'page_title': page_title if not state.get('won') else (

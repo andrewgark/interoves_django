@@ -418,10 +418,10 @@ def _create_numbered_slot(*, number: int, article: WikiArticle, pool_title: str 
 
 
 def _pick_pool_article(used: set[str]) -> tuple[WikiArticle, str]:
-    from games.censorly.article_pool import load_article_pool
+    from games.censorly.pool_admin import active_pool_titles
     import random
 
-    pool = [title for title in load_article_pool() if title not in used]
+    pool = [title for title in active_pool_titles() if title not in used]
     if not pool:
         raise CensorlySupportError('Пул статей исчерпан')
     random.shuffle(pool)

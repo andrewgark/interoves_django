@@ -995,10 +995,14 @@ html.new-ui-dark .support-preview-banner {
 .censorly-pool-row > div { min-width:0; overflow-wrap:anywhere; }
 .censorly-pool-row small { display:block; color:var(--muted,#777); font-size:.82em; margin-top:.2rem; }
 .censorly-pool-row.is-disabled { opacity:.55; }
-.censorly-filter-group { margin:1rem 0; }
-.censorly-filter-group label { display:inline-flex; align-items:center; gap:.35rem; margin:.25rem .75rem .25rem 0; }
-.censorly-filter-group details > label { display:block; }
-@media (max-width: 800px) { .censorly-pool-columns { grid-template-columns:1fr; } }
+.censorly-pool-tag-picker { border:1px solid var(--border,#ddd); border-radius:.65rem; margin:.8rem 0; padding:.65rem; }
+.censorly-pool-tag-picker legend { font-weight:700; padding:0 .25rem; }
+.censorly-pool-tag-picker > div { display:grid; grid-template-columns:repeat(auto-fit,minmax(10rem,1fr)); gap:.25rem .65rem; }
+.censorly-pool-tag-category { display:flex; flex-direction:column; gap:.2rem; padding:.35rem; border-bottom:1px solid var(--border,#ddd); }
+.censorly-pool-tag-category strong { margin-bottom:.15rem; }
+.censorly-pool-tag-option { display:flex; align-items:flex-start; gap:.35rem; min-width:0; overflow-wrap:anywhere; }
+.censorly-pool-tag-option input { flex:0 0 auto; margin-top:.2rem; }
+@media (max-width: 919px) { .censorly-pool-columns { grid-template-columns:1fr; } }
 
 .support-censorly-suggestions {
   position: absolute;

@@ -13,14 +13,16 @@
     <button type="button" class="new-btn new-btn--mini" id="cz-pool-add">＋ Добавить статью</button>
     <span class="support-hint" id="cz-pool-status" aria-live="polite"></span>
   </div></section>
+  <p class="support-empty" id="cz-pool-prompt">Выберите категорию, чтобы загрузить статьи.</p>
   <div class="censorly-pool-columns" id="cz-pool-groups"></div>
+  <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="cz-pool-more" hidden>Показать ещё</button>
 </div>
 <div class="new-rules-modal" id="cz-pool-modal" role="dialog" aria-modal="true" aria-labelledby="cz-pool-modal-title" hidden>
   <div class="new-rules-overlay" data-pool-close></div><div class="new-rules-modal__box pal-card">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-pool-close>×</button><h2 id="cz-pool-modal-title" class="pal-title">Статья пула</h2>
     <label class="support-ladders-field"><span>Название статьи</span><input id="cz-pool-title" maxlength="255"></label>
-    <p class="support-hint">Категории (пути через точку с запятой), типы (через точку с запятой), сложность:</p>
-    <label class="support-ladders-field"><span>Категории</span><input id="cz-pool-topics"></label><label class="support-ladders-field"><span>Типы</span><input id="cz-pool-types"></label>
+    <fieldset class="censorly-pool-tag-picker"><legend>Категории</legend><div id="cz-pool-topics"></div></fieldset>
+    <fieldset class="censorly-pool-tag-picker"><legend>Типы</legend><div id="cz-pool-types"></div></fieldset>
     <label class="support-ladders-field"><span>Сложность</span><select id="cz-pool-difficulty"><option>легко</option><option>средне</option><option>сложно</option></select></label>
     <label><input type="checkbox" id="cz-pool-enabled" checked> Оставить в пуле</label>
     <p class="support-hint support-ladder-edit-error" id="cz-pool-error" hidden></p><button type="button" class="new-btn new-btn--yellow" id="cz-pool-save">Сохранить</button>
