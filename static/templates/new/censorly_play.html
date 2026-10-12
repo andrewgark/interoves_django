@@ -61,15 +61,24 @@
       <legend class="censorly-word-report-reasons__legend">Причина жалобы</legend>
       <label class="censorly-word-report-reason">
         <input type="radio" name="censorly-word-report-reason" value="FALSE_POSITIVE">
-        <span>Слово было открыто слишком слабо связанным словом</span>
+        <span class="censorly-word-report-reason__copy">
+          <strong>Лишнее открытие</strong>
+          <small>Слово открылось из-за слишком слабой связи</small>
+        </span>
       </label>
       <label class="censorly-word-report-reason">
         <input type="radio" name="censorly-word-report-reason" value="FALSE_NEGATIVE">
-        <span>Слово не было открыто близко связанным с ним словом</span>
+        <span class="censorly-word-report-reason__copy">
+          <strong>Пропущенное открытие</strong>
+          <small>Связанное слово не открыло этот текст</small>
+        </span>
       </label>
       <label class="censorly-word-report-reason">
         <input type="radio" name="censorly-word-report-reason" value="OTHER">
-        <span>Другая проблема</span>
+        <span class="censorly-word-report-reason__copy">
+          <strong>Другая проблема</strong>
+          <small>Например, ошибка в тексте или интерфейсе</small>
+        </span>
       </label>
     </fieldset>
     <label id="censorly-word-report-other-wrap" class="censorly-word-report-field" hidden>
@@ -82,7 +91,7 @@
     </label>
     <p id="censorly-word-report-error" class="new-bug-report-error" role="alert" hidden></p>
     <p id="censorly-word-report-success" class="new-bug-report-success" role="status" aria-live="polite" hidden>Спасибо! Жалоба отправлена.</p>
-    <div class="new-rules-modal__actions">
+    <div class="new-rules-modal__actions censorly-word-report-modal__actions">
       <button type="button" class="new-btn" data-censorly-word-report-submit>Отправить</button>
       <button type="button" class="new-btn new-btn--text" data-censorly-word-report-close>Отмена</button>
     </div>
