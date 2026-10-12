@@ -641,7 +641,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
         # Daily-game timings are stored in DailySolveTiming; the legacy result
         # aggregator's Attempt-like objects do not always carry active_time_ms.
         from games.daily.section import is_scheduled_game
-        from games.daily_timing import canonical_elapsed_seconds
+        from games.daily_timing import canonical_elapsed_seconds, timing_row_preference
         from games.models import DailySolveTiming
         if is_scheduled_game(game.id):
             timing_rows = DailySolveTiming.objects.filter(
@@ -651,25 +651,34 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
             ).only(
                 'task_group_id', 'team_id', 'user_id', 'anon_key',
                 'timing_version', 'status', 'frozen_ms', 'accumulated_ms',
+                'completed_at', 'updated_at', 'pk',
             )
             actors_by_key = {key: actor for key, actor in actors.items()}
             task_groups_by_id = {
                 column.link.task_group_id: column.link.task_group
                 for column in columns
             }
+            timing_preferences = {}
             for timing in timing_rows:
                 key = ('team', timing.team_id) if timing.team_id else (
                     ('user', timing.user_id) if timing.user_id else ('anon', timing.anon_key)
                 )
                 if key not in actors_by_key:
                     continue
+                if int(timing.frozen_ms if timing.frozen_ms is not None else timing.accumulated_ms or 0) <= 0:
+                    continue
+                duration_key = (key, timing.task_group_id)
+                preference = timing_row_preference(timing)
+                if preference <= timing_preferences.get(duration_key, ()):
+                    continue
+                timing_preferences[duration_key] = preference
                 seconds = canonical_elapsed_seconds(
                     game=game,
                     task_group=task_groups_by_id.get(timing.task_group_id),
                     timing_row=timing,
                 )
                 if seconds is not None:
-                    release_durations[(key, timing.task_group_id)] = seconds
+                    release_durations[duration_key] = seconds
         # Releases without a timer row still get the historical first-to-last
         # attempt duration, marked so the results table can explain it.
         from games.results.leaderboard import canonical_leaderboard_durations

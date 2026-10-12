@@ -544,6 +544,24 @@ def canonical_elapsed_seconds(
     return max(0, int(timing_snapshot.get('accumulated_ms') or 0) // 1000)
 
 
+def timing_row_preference(row) -> tuple:
+    """Rank duplicate first-play rows consistently with SQL leaderboard selection."""
+    completed_at = getattr(row, 'completed_at', None)
+    updated_at = getattr(row, 'updated_at', None)
+    return (
+        int(getattr(row, 'status', None) == STATUS_COMPLETED),
+        int(getattr(row, 'frozen_ms', None) is not None),
+        int(
+            getattr(row, 'frozen_ms', None)
+            if getattr(row, 'frozen_ms', None) is not None
+            else getattr(row, 'accumulated_ms', 0) or 0
+        ),
+        completed_at.timestamp() if completed_at else float('-inf'),
+        updated_at.timestamp() if updated_at else float('-inf'),
+        -int(getattr(row, 'pk', 0) or 0),
+    )
+
+
 def canonical_elapsed_label(**kwargs) -> str:
     seconds = canonical_elapsed_seconds(**kwargs)
     return '—' if seconds is None else format_elapsed(seconds)

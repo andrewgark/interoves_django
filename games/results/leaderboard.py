@@ -216,16 +216,19 @@ def canonical_leaderboard_durations(
     rows = DailySolveTiming.objects.filter(
         game=game, task_group=task_group, replay_slot__isnull=True,
     ).filter(Q(team_id__in=teams) | Q(user_id__in=users) | Q(anon_key__in=anons)).only(
-        'team_id', 'user_id', 'anon_key', 'timing_version', 'status', 'frozen_ms', 'accumulated_ms',
+        'team_id', 'user_id', 'anon_key', 'timing_version', 'status', 'frozen_ms',
+        'accumulated_ms', 'completed_at', 'updated_at', 'pk',
     )
-    from games.daily.timing import canonical_elapsed_seconds
+    from games.daily.timing import canonical_elapsed_seconds, timing_row_preference
     result = {}
-    by_key = {
-        (('team', row.team_id) if row.team_id else (
+    by_key = {}
+    for row in rows:
+        key = ('team', row.team_id) if row.team_id else (
             ('user', row.user_id) if row.user_id else ('anon', row.anon_key)
-        )): row
-        for row in rows
-    }
+        )
+        current = by_key.get(key)
+        if current is None or timing_row_preference(row) > timing_row_preference(current):
+            by_key[key] = row
     for actor in actors:
         key = actor_key(actor)
         row = by_key.get(key)
