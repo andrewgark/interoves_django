@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -11,7 +9,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from games.models import WordSaladOffer
 from games.telegram_linking import offer_profile_error
-from games.views.util import has_profile
+from games.views.util import has_profile, parse_json_object_body
 from games.word_salad_offer import (
     WordSaladOfferError,
     create_offer,
@@ -23,13 +21,6 @@ from games.word_salad_offer import (
     serialize_offer,
     update_offer_content,
 )
-
-
-def _json_body(request):
-    try:
-        return json.loads(request.body.decode('utf-8') or '{}')
-    except (ValueError, UnicodeDecodeError):
-        return None
 
 
 def _offer_for_user(request, offer_id):
@@ -91,7 +82,9 @@ def offer_salad_page(request):
 def offer_salad_create(request):
     if not has_profile(request.user):
         return JsonResponse({'ok': False, 'error': 'Нужен профиль'}, status=403)
-    body = _json_body(request) or {}
+    body = parse_json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
         offer = create_offer(request.user, kind=str(body.get('kind') or WordSaladOffer.KIND_FULL))
         row = serialize_offer(offer)
@@ -108,7 +101,7 @@ def offer_salad_detail(request, offer_id):
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
     if request.method == 'GET':
         return JsonResponse({'ok': True, 'offer': serialize_offer(offer).to_dict()})
-    body = _json_body(request)
+    body = parse_json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:

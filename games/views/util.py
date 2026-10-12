@@ -1,8 +1,19 @@
+import json
+
 from django.http import HttpResponseRedirect, HttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from games.access import game_has_ended, game_is_going_now
+
+
+def parse_json_object_body(request):
+    """Parse a request body only when it contains a JSON object."""
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except (TypeError, ValueError, UnicodeDecodeError):
+        return None
+    return body if isinstance(body, dict) else None
 
 
 def get_public_task_or_404(task_id):

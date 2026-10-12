@@ -514,6 +514,24 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(full.status_code, 200)
         self.assertEqual(full.json()['offer']['kind'], 'full')
 
+    def test_http_create_rejects_malformed_and_non_object_json(self):
+        client = Client()
+        client.force_login(self.user)
+        initial_count = WordSaladOffer.objects.filter(user=self.user).count()
+
+        for payload in ('{', '[]'):
+            with self.subTest(payload=payload):
+                response = client.post(
+                    '/create_salad/create/',
+                    data=payload,
+                    content_type='application/json',
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(
+                    WordSaladOffer.objects.filter(user=self.user).count(),
+                    initial_count,
+                )
+
     def test_support_accepts_sent_full_offer(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
         update_offer_content(

@@ -156,6 +156,7 @@ from games.support.services.social import (
     sync_from_telegram as social_sync_from_telegram,
     update_post as social_update_post,
 )
+from games.views.util import parse_json_object_body
 
 logger = logging.getLogger(__name__)
 
@@ -169,8 +170,7 @@ def _json_body(request):
 
 def _json_object_body(request):
     """Parse a JSON request whose top-level value must be an object."""
-    body = _json_body(request)
-    return body if isinstance(body, dict) else None
+    return parse_json_object_body(request)
 
 
 def _ordered_ids_from_request(request):

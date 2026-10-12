@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -22,14 +20,7 @@ from games.ladder_offer import (
 )
 from games.models import LadderOffer
 from games.telegram_linking import offer_profile_error
-from games.views.util import has_profile
-
-
-def _json_body(request):
-    try:
-        return json.loads(request.body.decode('utf-8') or '{}')
-    except (ValueError, UnicodeDecodeError):
-        return None
+from games.views.util import has_profile, parse_json_object_body
 
 
 def _offer_for_user(request, offer_id):
@@ -99,7 +90,7 @@ def offer_ladder_detail(request, offer_id):
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
     if request.method == 'GET':
         return JsonResponse({'ok': True, 'offer': serialize_offer(offer).to_dict()})
-    body = _json_body(request)
+    body = parse_json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     words = body.get('words')
