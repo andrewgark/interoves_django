@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import time
-from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
@@ -51,7 +50,11 @@ from games.censorly_daily import (
 from games.completion_coordinator import complete_logical_game
 from games.club_access import has_club_access
 from games.daily.page_context import build_daily_lifecycle_context, daily_statistics_url
-from games.daily_archive import build_daily_archive_context, build_daily_archive_items
+from games.daily_archive import (
+    archive_query_string,
+    build_daily_archive_context,
+    build_daily_archive_items,
+)
 from games.daily.registry import get_daily_game
 from games.daily_transitions import next_daily_content_transition_for_game
 from games.gameplay_context import (
@@ -386,9 +389,7 @@ def censorly_hub_page(request):
         today=timezone.localdate(),
         archive_url=request.path,
         game_label='Цензурка',
-        archive_query=urlencode(
-            [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
-        ),
+        archive_query=archive_query_string(request.GET),
         calendar_id='daily-archive-censorly',
     )
     selected = archive_context.get('daily_archive_selected')
@@ -437,9 +438,7 @@ def censorly_hub_page(request):
         today=timezone.localdate(),
         archive_url=request.path,
         game_label='Цензурка',
-        archive_query=urlencode(
-            [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
-        ),
+        archive_query=archive_query_string(request.GET),
         calendar_id='daily-archive-censorly',
         completed_keys={str(row['number']) for row in rows if row['is_solved']},
         status_by_key={

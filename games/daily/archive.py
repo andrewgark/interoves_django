@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import calendar
 from datetime import date
+from urllib.parse import urlencode
 
 
 MONTH_NAMES = (
@@ -14,6 +15,16 @@ MONTH_NAMES_GENITIVE = (
     '', 'января', 'февраля', 'марта', 'апреля', 'мая', 'июня',
     'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря',
 )
+
+
+def archive_query_string(query_params, *, excluded=('month',)) -> str:
+    """Encode request query parameters while omitting archive-owned keys."""
+    values = []
+    for key in query_params:
+        if key in excluded:
+            continue
+        values.extend((key, value) for value in query_params.getlist(key))
+    return urlencode(values)
 
 
 def build_daily_archive_items(links, *, game_id, publish_at_for_number,

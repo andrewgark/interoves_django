@@ -73,6 +73,7 @@ from games.daily_section import (
 from games.daily.authorship import is_author_auto_completion_active
 from games.daily_archive import (
     MONTH_NAMES,
+    archive_query_string,
     build_daily_archive_context,
     build_daily_archive_items,
 )
@@ -1135,14 +1136,12 @@ def _daily_archive_context(request, game, links, *, completed_numbers=(), status
         timezone_name=MOSCOW,
     )
     meta = SECTION_HUB_META.get(game.id) or {}
-    archive_params = request.GET.copy()
-    archive_params.pop('month', None)
     return build_daily_archive_context(
         items=items,
         requested_month=request.GET.get('month'),
         today=timezone.localdate(),
         archive_url=request.path,
-        archive_query=urlencode(archive_params, doseq=True),
+        archive_query=archive_query_string(request.GET),
         calendar_id='daily-archive-{}'.format(game.id),
         game_label=meta.get('archive_item_label') or meta.get('title') or game.name,
         completed_keys={str(number) for number in completed_numbers},

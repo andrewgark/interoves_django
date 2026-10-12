@@ -2,14 +2,24 @@ from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
 from django.test import SimpleTestCase
+from django.http import QueryDict
 
 from games.daily_archive import (
     build_daily_archive_context,
     build_daily_archive_items,
+    archive_query_string,
 )
 
 
 class DailyArchiveContextTests(SimpleTestCase):
+    def test_archive_query_string_keeps_repeated_values_and_omits_month(self):
+        query = QueryDict('month=2026-05&tag=one&tag=two&play_mode=team')
+
+        self.assertEqual(
+            archive_query_string(query),
+            'tag=one&tag=two&play_mode=team',
+        )
+
     def test_archive_items_share_one_neutral_shape(self):
         links = [SimpleNamespace(number=12), SimpleNamespace(number=13)]
         published = {

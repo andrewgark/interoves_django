@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from urllib.parse import urlencode
 
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -36,6 +35,7 @@ from games.analytics import (
 from games.completion_coordinator import complete_logical_game
 from games.daily_transitions import next_daily_content_transition_for_game
 from games.daily_archive import (
+    archive_query_string,
     build_daily_archive_context,
     build_daily_archive_items,
 )
@@ -268,9 +268,8 @@ def alphabetty_hub_page(request):
     archive_context = build_daily_archive_context(
         items=archive_items, requested_month=request.GET.get('month'),
         today=timezone.localdate(), archive_url=request.path,
-        game_label='Алфавитка', archive_query=urlencode(
-            [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
-        ), calendar_id='daily-archive-alphabetty',
+        game_label='Алфавитка', archive_query=archive_query_string(request.GET),
+        calendar_id='daily-archive-alphabetty',
     )
     if archive_context.get('daily_archive'):
         selected = archive_context['daily_archive_selected']
@@ -327,9 +326,8 @@ def alphabetty_hub_page(request):
     archive_context = build_daily_archive_context(
         items=archive_items, requested_month=request.GET.get('month'),
         today=timezone.localdate(), archive_url=request.path,
-        game_label='Алфавитка', archive_query=urlencode(
-            [(key, value) for key in request.GET for value in request.GET.getlist(key) if key != 'month']
-        ), calendar_id='daily-archive-alphabetty',
+        game_label='Алфавитка', archive_query=archive_query_string(request.GET),
+        calendar_id='daily-archive-alphabetty',
         completed_keys={str(row['number']) for row in rows if row['is_solved']},
         status_by_key={
             str(row['number']): ('solved' if row['is_solved'] else 'partial')

@@ -3,6 +3,7 @@
 from games.daily.archive import (
     MONTH_NAMES,
     MONTH_NAMES_GENITIVE,
+    archive_query_string,
     build_daily_archive_context,
     build_daily_archive_items,
     month_key,
@@ -12,6 +13,7 @@ from games.daily.archive import (
 __all__ = [
     'MONTH_NAMES',
     'MONTH_NAMES_GENITIVE',
+    'archive_query_string',
     'build_daily_archive_context',
     'build_daily_archive_items',
     'month_key',
