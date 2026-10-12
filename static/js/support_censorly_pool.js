@@ -6,6 +6,7 @@
   var category = document.getElementById('cz-pool-category'), sub = document.getElementById('cz-pool-subcategory');
   var groups = document.getElementById('cz-pool-groups'), modal = document.getElementById('cz-pool-modal'), current = '';
   var more = document.getElementById('cz-pool-more'), prompt = document.getElementById('cz-pool-prompt'), nextOffset = null, busy = false, requestId = 0, controller = null;
+  var saveButton = document.getElementById('cz-pool-save'), saveBusy = false;
   function csrf() { var el = document.querySelector('[name=csrfmiddlewaretoken]'); return el ? el.value : ''; }
   function addCheck(container, label, value, group) {
     var item = document.createElement('label'); item.className = 'censorly-pool-tag-option';
@@ -63,17 +64,26 @@
   sub.addEventListener('change', function () { load(true); });
   more.addEventListener('click', function () { load(false); });
   function open(row) {
+    if (saveBusy) return;
+    document.getElementById('cz-pool-error').hidden = true;
     current = row.title || ''; document.getElementById('cz-pool-title').value = current;
     setChecks(topicPicker, row.topics); setChecks(typePicker, row.types);
     document.getElementById('cz-pool-difficulty').value = row.difficulty || 'средне'; document.getElementById('cz-pool-enabled').checked = row.enabled !== false;
     document.getElementById('cz-pool-modal-title').textContent = current ? 'Изменить статью и теги' : 'Добавить статью';
     modal.hidden = false; modal.classList.add('is-open'); document.body.classList.add('new-modal-open');
   }
-  function close() { modal.hidden = true; modal.classList.remove('is-open'); document.body.classList.remove('new-modal-open'); }
+  function close(force) {
+    if (saveBusy && !force) return;
+    modal.hidden = true; modal.classList.remove('is-open'); document.body.classList.remove('new-modal-open');
+  }
   function save(body) {
+    if (saveBusy) return;
+    saveBusy = true; saveButton.disabled = true;
     fetch(root.dataset.saveUrl, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':csrf()}, body:JSON.stringify(body)})
-      .then(function (r) { return r.json(); }).then(function (d) { if (!d.ok) throw new Error(d.error); close(); if (category.value) load(true); })
-      .catch(function (err) { var box = document.getElementById('cz-pool-error'); box.textContent = err.message; box.hidden = false; });
+      .then(function (r) { return r.json().then(function (data) { if (!r.ok || !data.ok) throw new Error(data.error || 'Не удалось сохранить статью'); return data; }); })
+      .then(function () { close(true); if (category.value) load(true); })
+      .catch(function (err) { var box = document.getElementById('cz-pool-error'); box.textContent = err.message; box.hidden = false; })
+      .finally(function () { saveBusy = false; saveButton.disabled = false; });
   }
   document.getElementById('cz-pool-add').addEventListener('click', function () { open({}); });
   groups.addEventListener('click', function (event) {
@@ -83,8 +93,11 @@
     var levels = ['легко','средне','сложно'], next = Math.max(0, Math.min(2, levels.indexOf(row.difficulty) + Number(btn.dataset.delta)));
     save({title:row.title, replacement_title:row.title, topics:row.topics, types:row.types, difficulty:levels[next], enabled:row.enabled});
   });
-  modal.querySelectorAll('[data-pool-close]').forEach(function (el) { el.addEventListener('click', close); });
-  document.getElementById('cz-pool-save').addEventListener('click', function () {
+  modal.querySelectorAll('[data-pool-close]').forEach(function (el) { el.addEventListener('click', function () { close(); }); });
+  saveButton.addEventListener('click', function () {
     save({title:current, replacement_title:document.getElementById('cz-pool-title').value, topics:getChecks(topicPicker), types:getChecks(typePicker), difficulty:document.getElementById('cz-pool-difficulty').value, enabled:document.getElementById('cz-pool-enabled').checked});
+  });
+  document.addEventListener('keydown', function (event) {
+    if (event.key === 'Escape' && !modal.hidden) close();
   });
 })();
