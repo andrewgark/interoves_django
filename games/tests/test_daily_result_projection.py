@@ -2,6 +2,7 @@ import json
 import os
 from datetime import timedelta
 from decimal import Decimal
+from types import SimpleNamespace
 
 from django.test import TestCase
 from django.db import transaction
@@ -49,6 +50,29 @@ class DailyResultProjectionTests(TestCase):
         )
         self.group = TaskGroup.objects.create(label='projection group')
         GameTaskGroup.objects.create(game=self.game, task_group=self.group, number='1', name='Release 1')
+
+    def test_schedule_change_invalidates_prepublication_projection(self):
+        from games.daily.section import SCHEDULES
+
+        state = DailyResultProjectionState.objects.create(
+            game=self.game,
+            task_group=self.group,
+            source_revision=5,
+            coverage_complete=True,
+            is_valid=True,
+            full_refresh_required=False,
+        )
+        self.game.tags = {'projection_test_publish_start': '2026-01-01T00:00:00+03:00'}
+        with patch.dict(
+            SCHEDULES,
+            {'projection_test': SimpleNamespace(publish_start_tag='projection_test_publish_start')},
+        ):
+            self.game.save(update_fields=['tags'])
+
+        state.refresh_from_db()
+        self.assertEqual(state.source_revision, 6)
+        self.assertFalse(state.is_valid)
+        self.assertTrue(state.full_refresh_required)
 
     def test_salad_projection_uses_canonical_state_calculator(self):
         task = Task.objects.create(

@@ -1465,9 +1465,13 @@ def censorly_pool_save(request):
         return JsonResponse({'ok': False, 'error': 'Некорректный статус статьи'}, status=400)
     if old is None or replacement != title:
         try:
-            replacement = fetch_article(replacement).title
+            article = fetch_article(replacement)
         except WikiFetchError as exc:
             return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+        payload = build_puzzle_payload(wiki_title=article.title, body_text=article.extract)
+        if not title_content_lemmas(payload):
+            return JsonResponse({'ok': False, 'error': 'В названии статьи нет угадываемых слов'}, status=400)
+        replacement = article.title
     try:
         with transaction.atomic():
             save_pool_entry(replacement, topics, types, difficulty, enabled)

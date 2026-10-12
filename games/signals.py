@@ -269,14 +269,12 @@ def game_notify_registered_play_access(sender, instance, created, **kwargs):
     dispatch_uid='daily-difficulty-publish-schedule-sync',
 )
 def daily_difficulty_publish_schedule_saved(sender, instance, created, **kwargs):
-    """Move difficulty deadlines atomically with a daily schedule change."""
+    """Refresh schedule-dependent projections and difficulty deadlines."""
     if created:
         return
     from games.daily_section import schedule_for
     from games.difficulty import SUPPORTED_GAME_IDS, sync_daily_difficulty_schedule
 
-    if instance.pk not in SUPPORTED_GAME_IDS:
-        return
     schedule = schedule_for(instance.pk)
     old = getattr(instance, '_game_old_snapshot', None)
     if schedule is None or old is None:
@@ -285,7 +283,22 @@ def daily_difficulty_publish_schedule_saved(sender, instance, created, **kwargs)
     new_tags = instance.tags or {}
     if old_tags.get(schedule.publish_start_tag) == new_tags.get(schedule.publish_start_tag):
         return
-    sync_daily_difficulty_schedule(instance)
+    if instance.pk in SUPPORTED_GAME_IDS:
+        sync_daily_difficulty_schedule(instance)
+
+    # Projection rows cache whether each actor started before publication.
+    # Moving the schedule changes that classification even when attempts and
+    # scores stay untouched, so make those rows non-authoritative until the
+    # existing projection reconciler rebuilds them.
+    if instance.project_id == 'sections':
+        from django.db.models import F
+        from games.models import DailyResultProjectionState
+
+        DailyResultProjectionState.objects.filter(game=instance).update(
+            source_revision=F('source_revision') + 1,
+            is_valid=False,
+            full_refresh_required=True,
+        )
 
 
 post_save.connect(create_profile, sender=SocialAccount, dispatch_uid="socialaccount-profilecreation-signal")

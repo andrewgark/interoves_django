@@ -10,8 +10,8 @@ TAGS_PATH = Path(__file__).with_name('article_pool_tags.tsv')
 DIFFICULTIES = ('легко', 'средне', 'сложно')
 
 
-@lru_cache(maxsize=1)
-def _base_pool_rows():
+@lru_cache(maxsize=4)
+def _base_pool_rows(mtime_ns, file_size):
     rows = {}
     if TAGS_PATH.exists():
         with TAGS_PATH.open(encoding='utf-8-sig', newline='') as stream:
@@ -28,9 +28,17 @@ def _base_pool_rows():
     return rows
 
 
+def _cached_base_pool_rows():
+    try:
+        stat = TAGS_PATH.stat()
+    except FileNotFoundError:
+        return {}
+    return _base_pool_rows(stat.st_mtime_ns, stat.st_size)
+
+
 def pool_rows():
     rows = {title: {**row, 'topics': list(row['topics']), 'types': list(row['types'])}
-            for title, row in _base_pool_rows().items()}
+            for title, row in _cached_base_pool_rows().items()}
     for override in CensorlyPoolEntry.objects.all():
         rows[override.title] = {
             'title': override.title, 'topics': override.topics or [],
@@ -46,7 +54,8 @@ def active_pool_titles(rows=None):
 
     rows = rows if rows is not None else pool_rows()
     titles = list(load_article_pool())
-    titles.extend(title for title in rows if title not in titles)
+    known_titles = set(titles)
+    titles.extend(title for title in rows if title not in known_titles)
     return [title for title in titles if rows.get(title, {}).get('enabled', True)]
 
 
