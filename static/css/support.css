@@ -979,6 +979,71 @@ html.new-ui-dark .support-preview-banner {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 
+.support-censorly-autocomplete {
+  position: relative;
+}
+
+.support-censorly-suggestions {
+  position: absolute;
+  z-index: 120;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: 17rem;
+  overflow-y: auto;
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  box-shadow: 0 0.7rem 1.8rem rgba(0, 0, 0, 0.2);
+}
+
+.support-censorly-suggestions[hidden] {
+  display: none;
+}
+
+.support-censorly-suggestions .support-censorly-suggestion {
+  display: block;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--control-radius) - 0.15rem);
+  background: transparent;
+}
+
+.support-censorly-suggestions__loading,
+.support-censorly-suggestions__error {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.55rem 0.65rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.support-censorly-suggestions__error {
+  color: var(--danger, #b42318);
+}
+
+.support-censorly-suggestions__spinner {
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 1rem;
+  border: 2px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: support-censorly-spin 0.7s linear infinite;
+}
+
+@keyframes support-censorly-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .support-censorly-suggestions__spinner { animation-duration: 1.8s; }
+}
+
 .support-ladder-item.is-today {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
 }

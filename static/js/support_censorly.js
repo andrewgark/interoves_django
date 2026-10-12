@@ -26,11 +26,23 @@
     var timer = null;
     var controller = null;
     var activeIndex = -1;
+    var requestId = 0;
     function close() {
+      requestId += 1;
+      clearTimeout(timer);
+      if (controller) controller.abort();
+      controller = null;
       listbox.hidden = true;
       listbox.innerHTML = '';
+      listbox.removeAttribute('aria-busy');
       input.setAttribute('aria-expanded', 'false');
       activeIndex = -1;
+    }
+    function loading() {
+      listbox.innerHTML = '<div class="support-censorly-suggestions__loading" role="option" aria-disabled="true"><span class="support-censorly-suggestions__spinner" aria-hidden="true"></span><span>Загружается…</span></div>';
+      listbox.hidden = false;
+      listbox.setAttribute('aria-busy', 'true');
+      input.setAttribute('aria-expanded', 'true');
     }
     function select(title) {
       input.value = title;
@@ -43,6 +55,7 @@
         return '<button type="button" role="option" aria-selected="false" class="support-ladder-item support-censorly-suggestion" data-title-index="' + index + '">' + esc(title) + '</button>';
       }).join('');
       listbox.hidden = false;
+      listbox.removeAttribute('aria-busy');
       input.setAttribute('aria-expanded', 'true');
     }
     function activate(index) {
@@ -56,14 +69,23 @@
       var query = input.value.trim();
       clearTimeout(timer);
       if (controller) controller.abort();
+      controller = null;
+      requestId += 1;
       if (query.length < 2) { close(); return; }
+      var currentRequest = requestId;
+      loading();
       timer = setTimeout(function () {
         controller = new AbortController();
         var url = new URL(suggestUrl, window.location.href);
         url.searchParams.set('q', query);
         get(url.toString(), {signal: controller.signal}).then(function (data) {
-          if (input.value.trim() === query) show(data.titles || []);
-        }).catch(function () { if (input.value.trim() === query) close(); });
+          if (requestId !== currentRequest || input.value.trim() !== query) return;
+          show(data.titles || []);
+        }).catch(function (error) {
+          if (requestId !== currentRequest || error.name === 'AbortError' || input.value.trim() !== query) return;
+          listbox.innerHTML = '<div class="support-censorly-suggestions__error" role="option" aria-disabled="true">Не удалось загрузить подсказки</div>';
+          listbox.removeAttribute('aria-busy');
+        });
       }, 250);
     });
     input.addEventListener('keydown', function (event) {
