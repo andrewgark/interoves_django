@@ -1,6 +1,8 @@
 guess	target	fix_layer	status	generated
 сенат	сенатор	REVIEWED_OPAQUE_ROOT	APPLIED	assignment-layer
 иволга	иволговый	REVIEWED_DERIVED_ROOT	APPLIED	assignment-layer
+центральный	центр	REVIEWED_OPAQUE_ROOT	APPROVED	assignment-layer
+Наполеон	Наполеоновский	REVIEWED_OPAQUE_ROOT	APPROVED	assignment-layer
 параметр		REVIEWED_OPAQUE_ROOT	APPROVE_OPAQUE_FAMILY	assignment-layer
 пигмент		REVIEWED_OPAQUE_ROOT	APPROVE_OPAQUE_FAMILY	assignment-layer
 результат		REVIEWED_OPAQUE_ROOT	APPROVE_OPAQUE_FAMILY	assignment-layer
@@ -103,3 +105,4 @@ guess	target	fix_layer	status	generated
 экватор		REVIEWED_OPAQUE_ROOT	APPROVE_OPAQUE_FAMILY	assignment-layer
 этап		REVIEWED_OPAQUE_ROOT	APPROVE_OPAQUE_FAMILY	assignment-layer
 факультет		REVIEWED_OPAQUE_ROOT	APPROVE_OPAQUE_FAMILY	assignment-layer
+импер		REVIEWED_OPAQUE_ROOT	APPROVE_OPAQUE_FAMILY	assignment-layer

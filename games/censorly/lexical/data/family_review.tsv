@@ -101,3 +101,4 @@ rank	root	members	decision	note	reviewer
 100	экватор		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
 101	этап		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
 102	факультет		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
+103	импер		APPROVE_OPAQUE_FAMILY	Tikhonov root family linking император with the reviewed alternating stem империя (импер-/импери-).	manual-audit

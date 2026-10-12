@@ -16,3 +16,5 @@ guess	target	expected	actual	classification	decision	fix_layer	status	note
 белок	белки	OPEN	OPEN	-	KEEP_OPEN	NONE	CONFIRMED	same lexeme
 строить	три	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	current resolver result
 пара	испарять	CLOSED	CLOSED	-	KEEP_CLOSED	NONE	CONFIRMED	current resolver result
+центральный	центр	CLOSED	OPEN	B	APPROVE	REVIEWED_OPAQUE_ROOT	APPROVED	shared Tikhonov root; central / center is a coherent lexical family
+Наполеон	Наполеоновский	CLOSED	OPEN	B	APPROVE	REVIEWED_OPAQUE_ROOT	APPROVED	Napoleon proper name and its adjective share the Tikhonov root наполеон

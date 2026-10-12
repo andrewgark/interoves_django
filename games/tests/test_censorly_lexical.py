@@ -393,6 +393,18 @@ class LexicalResolverTests(SimpleTestCase):
         )
         self.assertEqual(matching_lemmas(tokens, 'иволга'), {'иволговый'})
 
+    def test_reviewed_opaque_and_alternating_roots_open_in_gameplay(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'империя', 'lemma': 'империя'},
+            {'kind': 'content', 'surface': 'император', 'lemma': 'император'},
+            {'kind': 'content', 'surface': 'Наполеон', 'lemma': 'наполеон'},
+            {'kind': 'content', 'surface': 'Наполеоновский', 'lemma': 'наполеоновский'},
+        ]
+        self.assertIn('император', matching_lemmas(tokens, 'империя'))
+        self.assertIn('империя', matching_lemmas(tokens, 'император'))
+        self.assertIn('наполеоновский', matching_lemmas(tokens, 'Наполеон'))
+        self.assertIn('наполеон', matching_lemmas(tokens, 'Наполеоновский'))
+
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
             kind = relation_kind(left, right)
