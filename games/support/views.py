@@ -1396,7 +1396,9 @@ def censorly_random_list(request):
 @support_console_required
 @require_POST
 def censorly_reorder(request):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
         rows = reorder_censorly([int(value) for value in body.get('order', [])])
     except (TypeError, ValueError):
@@ -1425,8 +1427,8 @@ def censorly_offer_accept(request, offer_id):
 @support_console_required
 @require_POST
 def censorly_offer_reject(request, offer_id):
-    body = _json_body(request)
-    if not isinstance(body, dict):
+    body = _json_object_body(request)
+    if body is None:
         return JsonResponse({'ok': False, 'error': 'JSON должен быть объектом'}, status=400)
     try:
         reject_censorly_offer(offer_id, note=str(body.get('note') or ''))
@@ -1451,8 +1453,10 @@ def censorly_generate_random(request):
 @support_console_required
 @require_POST
 def censorly_generate_from_title(request):
-    body = _json_body(request) or {}
-    title = (body.get('title') or body.get('url') or '').strip()
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    title = str(body.get('title') or body.get('url') or '').strip()
     if not title:
         return JsonResponse({'ok': False, 'error': 'Укажите заголовок или URL'}, status=400)
     try:
@@ -1468,9 +1472,11 @@ def censorly_generate_from_title(request):
 @support_console_required
 @require_POST
 def censorly_reset_progress(request):
-    body = _json_body(request) or {}
-    share_hash = (body.get('share_hash') or '').strip()
-    number = (body.get('number') or '').strip()
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    share_hash = str(body.get('share_hash') or '').strip()
+    number = str(body.get('number') or '').strip()
     try:
         deleted = censorly_reset_my_progress(
             user=request.user,
@@ -1485,8 +1491,10 @@ def censorly_reset_progress(request):
 @support_console_required
 @require_POST
 def censorly_refetch_text(request):
-    body = _json_body(request) or {}
-    share_hash = (body.get('share_hash') or '').strip()
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    share_hash = str(body.get('share_hash') or '').strip()
     number = str(body.get('number') or '').strip()
     if not share_hash and not number:
         return JsonResponse({'ok': False, 'error': 'Нужна партия'}, status=400)
@@ -1503,7 +1511,9 @@ def censorly_refetch_text(request):
 @support_console_required
 @require_POST
 def censorly_set_publish_start(request):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     date_iso = body.get('publish_start') or body.get('date')
     if not date_iso:
         return JsonResponse({'ok': False, 'error': 'Нужна publish_start (YYYY-MM-DD)'}, status=400)
@@ -1529,7 +1539,7 @@ def censorly_schedule_create(request):
         at_number = int(body.get('at_number'))
     except (TypeError, ValueError):
         return JsonResponse({'ok': False, 'error': 'Нужен at_number'}, status=400)
-    title = (body.get('title') or body.get('url') or '').strip() or None
+    title = str(body.get('title') or body.get('url') or '').strip() or None
     try:
         detail = censorly_create_at_number(at_number, title_or_url=title)
     except CensorlySupportError as exc:

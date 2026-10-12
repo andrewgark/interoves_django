@@ -114,7 +114,12 @@
     });
   }
 
+  function resetCreateTitleInput() {
+    createTitle.value = '';
+    createTitle.dispatchEvent(new Event('input', {bubbles: true}));
+  }
   function closeCreateModal() {
+    resetCreateTitleInput();
     createModal.classList.remove('is-open');
     createModal.hidden = true;
     document.body.classList.remove('new-modal-open');
@@ -122,8 +127,7 @@
   function openCreateModal(atNumber) {
     createError.hidden = true;
     createError.textContent = '';
-    createTitle.value = '';
-    createTitle.dispatchEvent(new Event('input', {bubbles: true}));
+    resetCreateTitleInput();
     createAtNumber = atNumber;
     document.getElementById('cz-create-title').textContent = atNumber > schedule.filter(function (row) { return !row.is_deferred; }).length
       ? 'Добавить статью в конец расписания'

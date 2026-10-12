@@ -1178,22 +1178,40 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(resp.json()['row']['wiki_title'], 'Тест')
         mocked.assert_called_once_with()
 
-    def test_schedule_create_rejects_non_object_json(self):
-        response = self.client.post(
+    def test_json_endpoints_reject_non_object_payloads(self):
+        endpoints = (
+            '/support/censorly/reorder/',
+            '/support/censorly/from-title/',
+            '/support/censorly/reset-progress/',
+            '/support/censorly/refetch-text/',
+            '/support/censorly/publish-start/',
             '/support/censorly/schedule/create/',
-            data=b'[]',
+            '/support/censorly/schedule/generate/',
+            '/support/censorly/offers/1/reject/',
+        )
+        for url in endpoints:
+            with self.subTest(url=url):
+                response = self.client.post(
+                    url,
+                    data=b'[]',
+                    content_type='application/json',
+                )
+
+                self.assertEqual(response.status_code, 400)
+
+    def test_numeric_party_identifiers_are_handled_as_bad_requests(self):
+        response = self.client.post(
+            '/support/censorly/reset-progress/',
+            data=json.dumps({'number': 123}),
             content_type='application/json',
         )
-
         self.assertEqual(response.status_code, 400)
 
-    def test_schedule_generate_rejects_non_object_json(self):
         response = self.client.post(
-            '/support/censorly/schedule/generate/',
-            data=b'[]',
+            '/support/censorly/refetch-text/',
+            data=json.dumps({'share_hash': 123}),
             content_type='application/json',
         )
-
         self.assertEqual(response.status_code, 400)
 
     def test_defer_and_restore_schedule_slot(self):
