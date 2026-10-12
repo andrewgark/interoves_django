@@ -818,16 +818,21 @@ def publish_date_for(game, number) -> Optional[date]:
     return pub_at.date()
 
 
-def elapsed_seconds_for(*, game, task, user=None, anon_key=None, attempts=None) -> int:
+def elapsed_seconds_for(*, game, task, user=None, anon_key=None, attempts=None) -> int | None:
     from games.daily_timing import canonical_elapsed_seconds
+    from games.results.share import elapsed_seconds_from_attempts
 
-    return canonical_elapsed_seconds(
+    seconds = canonical_elapsed_seconds(
         game=game,
         task_group=getattr(task, 'task_group', None),
         user=user,
         anon_key=anon_key,
         attempts=attempts or [],
     )
+    if seconds is None:
+        estimated = elapsed_seconds_from_attempts(attempts or [])
+        return estimated if estimated > 0 else None
+    return seconds
 
 
 def attach_ladder_share_card(

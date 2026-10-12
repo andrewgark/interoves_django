@@ -210,9 +210,29 @@ def _completed_times(game, task_group, actors):
         'team_id', 'user_id', 'anon_key', '-frozen_ms', '-completed_at', '-updated_at', 'pk',
     )
     values = {}
+    zero_timing_keys = set()
     for row in rows:
         if row.timing_version and row.frozen_ms is not None and int(row.frozen_ms) > 0:
             values.setdefault(_actor_key(row), int(row.frozen_ms) / 1000)
+        elif row.timing_version and row.frozen_ms is not None:
+            zero_timing_keys.add(_actor_key(row))
+    zero_timing_keys.difference_update(values)
+    if zero_timing_keys:
+        from games.results.share import elapsed_seconds_from_attempts
+
+        attempts_by_actor = defaultdict(list)
+        attempts = Attempt.manager.filter(
+            game=game, task__task_group=task_group, skip=False,
+            status__in=('Ok', 'Partial'), replay_slot__isnull=True,
+        ).filter(_actor_q(zero_timing_keys)).only(
+            'team_id', 'user_id', 'anon_key', 'time',
+        ).order_by('time', 'id')
+        for attempt in attempts:
+            attempts_by_actor[_actor_key(attempt)].append(attempt)
+        for key in zero_timing_keys:
+            seconds = elapsed_seconds_from_attempts(attempts_by_actor.get(key, []))
+            if seconds > 0:
+                values[key] = seconds
     return list(values.values())
 
 

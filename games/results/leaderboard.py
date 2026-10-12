@@ -203,9 +203,9 @@ def canonical_leaderboard_durations(
 ):
     """Active duration seconds, with a marked legacy attempt-time fallback.
 
-    The fallback is only used when no authoritative timer row exists. It is
-    deliberately returned separately so the UI can explain that the value is
-    not measured by the task-group timer.
+    The fallback is used when no authoritative duration is available, including
+    a zero snapshot. It is returned separately so the UI can explain that the
+    value is an attempt-time estimate, not measured active time.
     """
     actors = list(actors)
     users = {getattr(a, 'user_id', None) for a in actors} - {None}
@@ -233,9 +233,11 @@ def canonical_leaderboard_durations(
         key = actor_key(actor)
         row = by_key.get(key)
         if row and int(row.timing_version or 0) >= DailySolveTiming.TIMING_VERSION_ACTIVE:
-            result[actor] = canonical_elapsed_seconds(
+            seconds = canonical_elapsed_seconds(
                 game=game, task_group=task_group, timing_row=row,
             )
+            if seconds is not None:
+                result[actor] = seconds
     fallback_durations = fallback_durations or {}
     missing = [actor for actor in actors if actor not in result]
     missing_without_projection = []
