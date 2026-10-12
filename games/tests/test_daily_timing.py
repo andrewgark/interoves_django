@@ -185,6 +185,18 @@ class DailyTimingScopeTests(SimpleTestCase):
         self.assertEqual(reduced['frozen_ms'], 12000)
         self.assertEqual(reduced['session_count'], 2)
 
+    def test_heartbeat_just_after_lease_threshold_is_applied_before_expiry(self):
+        events = [
+            {'action': ACTION_START, 'session_id': 'a', 'event_id': 'a-start', 'seq': 1, 'occurred_at': _dt(0)},
+            {'action': ACTION_HEARTBEAT, 'session_id': 'a', 'event_id': 'a-heartbeat', 'seq': 4, 'occurred_at': _dt(45.233)},
+            {'action': ACTION_COMPLETE, 'session_id': 'b', 'event_id': 'b-complete', 'seq': 5, 'occurred_at': _dt(106.586)},
+        ]
+
+        reduced = reduce_personal_timing_events(events, now=_dt(106.586))
+
+        self.assertTrue(reduced['completed'])
+        self.assertEqual(reduced['frozen_ms'], 45_233)
+
     def test_recovered_completed_timing_rebuilds_missing_frozen_duration(self):
         sid = str(uuid4())
         events = [

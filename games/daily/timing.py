@@ -224,11 +224,16 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
             )
         interval_started_at = None
 
-    def expire(at):
+    def expire(at, *, current_heartbeat_session=None):
         nonlocal status
         cutoff = at - timedelta(milliseconds=LEASE_STALE_MS)
         running = [session for session in sessions.values() if session['status'] == STATUS_RUNNING]
         for session in running:
+            # A heartbeat is fresh evidence for its own session. Do not expire
+            # that lease immediately before applying the heartbeat, even when
+            # it arrives just beyond the stale threshold.
+            if current_heartbeat_session is not None and session is current_heartbeat_session:
+                continue
             if session['last_heartbeat_at'] and session['last_heartbeat_at'] < cutoff:
                 session['status'] = DailySolveTimingSession.STATUS_PAUSED
                 session['close_reason'] = 'stale'
@@ -246,8 +251,14 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
         if action not in MUTATING_ACTIONS:
             continue
         at = _event_value(event, 'occurred_at') or now or timezone.now()
-        expire(at)
         sid = str(_event_value(event, 'session_id') or '')
+        existing_session = sessions.get(sid)
+        expire(
+            at,
+            current_heartbeat_session=(
+                existing_session if action == ACTION_HEARTBEAT else None
+            ),
+        )
         if not sid:
             continue
         session = sessions.setdefault(sid, {
