@@ -1274,8 +1274,11 @@ class CensorlySupportViewTests(TestCase):
             state='{"guesses":["дом"],"won":false}',
         )
         page = self.client.get('/support/censorly/')
-        self.assertContains(page, 'Скачать текст заново')
-        self.assertContains(page, f'data-cz-refetch="{share_hash}"')
+        self.assertContains(page, 'support_censorly.js')
+        support_script = (Path(__file__).resolve().parents[2] / 'static' / 'js' / 'support_censorly.js').read_text(encoding='utf-8')
+        self.assertIn('Скачать текст заново', support_script)
+        self.assertIn("actions('number', row.number)", support_script)
+        self.assertIn("actions('hash', row.share_hash)", support_script)
 
         fresh = 'Новый текст статьи: кот сидит у окна и смотрит на двор.'
         article = WikiArticle(

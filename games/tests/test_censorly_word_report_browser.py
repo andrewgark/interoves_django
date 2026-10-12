@@ -46,6 +46,7 @@ class CensorlyWordReportBrowserTests(SimpleTestCase):
                       </div>
                       <label><input type="radio" name="censorly-word-report-reason" value="FALSE_POSITIVE">Лишнее</label>
                       <label><input type="radio" name="censorly-word-report-reason" value="FALSE_NEGATIVE">Пропущено</label>
+                      <label><input type="radio" name="censorly-word-report-reason" value="OTHER">Другое</label>
                       <textarea id="censorly-word-report-comment"></textarea>
                       <p id="censorly-word-report-error" hidden></p>
                       <p id="censorly-word-report-success" hidden>Спасибо</p>
@@ -68,6 +69,8 @@ class CensorlyWordReportBrowserTests(SimpleTestCase):
                 expect(page.locator('#censorly-word-report-modal')).to_be_visible()
                 expect(page.locator('#censorly-word-report-target')).to_have_text('Поддержка')
 
+                page.locator('input[value="OTHER"]').check()
+                expect(page.locator('#censorly-word-report-other-wrap')).to_be_hidden()
                 page.locator('input[value="FALSE_POSITIVE"]').check()
                 expect(page.locator('#censorly-word-report-other-wrap')).to_be_visible()
                 page.locator('#censorly-word-report-other').fill('Держать')

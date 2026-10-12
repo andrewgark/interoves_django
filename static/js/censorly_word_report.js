@@ -166,7 +166,7 @@
       },
       body: JSON.stringify(body),
     }).then(function (response) {
-      return response.json().then(function (data) {
+      return response.json().catch(function () { return {}; }).then(function (data) {
         return { ok: response.ok && data.ok !== false, data: data, response: response };
       });
     }).then(function (result) {
