@@ -37,7 +37,7 @@
     return 'support-flag--warn';
   }
 
-  function scheduleMeta(rows) {
+  function scheduleMeta(rows, todayLabel) {
     var allRows = rows || [];
     var scheduled = allRows.filter(function (row) { return !row.is_deferred; });
     var published = scheduled.filter(function (row) { return row.is_published; }).length;
@@ -47,7 +47,7 @@
     var deferred = allRows.length - scheduled.length;
     if (deferred) meta += ' · отложено ' + deferred;
     return meta +
-      (today ? ' · сегодня №' + today.number : '');
+      (today ? ' · ' + (todayLabel || 'сегодня') + ' №' + today.number : '');
   }
 
   function endpoint(template, id) {

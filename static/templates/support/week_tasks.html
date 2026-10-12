@@ -175,17 +175,7 @@
     return 'support-flag--warn';
   }
   function renderMeta(rows) {
-    var scheduled = rows.filter(function (r) { return !r.is_deferred; });
-    var published = 0, today = null;
-    scheduled.forEach(function (r) {
-      if (r.is_published) published += 1;
-      if (r.is_today) today = r.number;
-    });
-    var deferred = rows.length - scheduled.length;
-    var t = 'Всего ' + scheduled.length + ' · вышло ' + published + ' · впереди ' + (scheduled.length - published);
-    if (deferred) t += ' · отложено ' + deferred;
-    if (today != null) t += ' · эта неделя №' + today;
-    metaEl.textContent = t;
+    metaEl.textContent = tabs.scheduleMeta(rows, 'эта неделя');
   }
   function renderList(rows) {
     listEl.classList.toggle('support-schedule-readonly', !canReorder());
