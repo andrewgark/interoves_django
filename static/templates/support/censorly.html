@@ -12,9 +12,11 @@
 
 {% block schedule_toolbar_extra %}
   <label class="support-ladders-field"><span>Номер слота</span><input type="number" id="cz-at-number" min="1" value="{{ schedule_count|add:1 }}"></label>
-  <label class="support-ladders-field support-censorly-autocomplete"><span>Статья русской Википедии</span><input type="search" id="cz-slot-title" maxlength="255" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="cz-slot-suggestions" placeholder="Название статьи или URL">
+  <div class="support-ladders-field support-censorly-autocomplete">
+    <label for="cz-slot-title">Статья русской Википедии</label>
+    <input type="search" id="cz-slot-title" maxlength="255" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="cz-slot-suggestions" placeholder="Название статьи или URL">
     <div id="cz-slot-suggestions" class="support-censorly-suggestions" role="listbox" aria-label="Статьи Википедии" aria-live="polite" hidden></div>
-  </label>
+  </div>
   <button type="button" class="new-btn new-btn--mini" id="cz-create">Создать статью</button>
   <span class="support-hint support-ladder-edit-error" id="cz-create-error" role="alert" hidden></span>
   <label class="support-ladders-field"><span>Из пула</span><input type="number" id="cz-gen-n" min="1" max="60" value="5"></label>
@@ -68,11 +70,11 @@
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-cz-create-close>×</button>
     <h2 id="cz-create-title" class="support-page-title support-page-title--modal">Добавить статью в расписание</h2>
     <p class="support-hint">Введите название статьи или ссылку на русскую Википедию.</p>
-    <label class="support-ladders-field support-censorly-autocomplete" for="cz-end-title">
-      <span>Статья русской Википедии</span>
+    <div class="support-ladders-field support-censorly-autocomplete">
+      <label for="cz-end-title">Статья русской Википедии</label>
       <input id="cz-end-title" type="search" maxlength="255" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="cz-end-suggestions" placeholder="Начните вводить название статьи">
       <div id="cz-end-suggestions" class="support-censorly-suggestions" role="listbox" aria-label="Статьи Википедии" aria-live="polite" hidden></div>
-    </label>
+    </div>
     <p class="support-hint support-ladder-edit-error" id="cz-end-error" role="alert" hidden></p>
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="cz-end-create">Создать статью</button>
