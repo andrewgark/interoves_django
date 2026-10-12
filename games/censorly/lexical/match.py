@@ -26,9 +26,9 @@ _REJECT_CAP = 200
 class _Pack:
     __slots__ = ('fold', 'service', 'russian', 'lexemes', 'roots', 'reads', 'families')
 
-    def __init__(self, surface: str):
+    def __init__(self, surface: str, *, include_pronouns: bool = True):
         self.fold = fold(surface)
-        self.service = initially_open(surface)
+        self.service = initially_open(surface, include_pronouns=include_pronouns)
         self.reads = readings_of(surface)
         self.russian = _russian(surface, 'ru')
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
@@ -42,8 +42,8 @@ class _Pack:
 class _GuessPack(_Pack):
     """Article-independent pack with citation-form preference."""
 
-    def __init__(self, surface: str):
-        super().__init__(surface)
+    def __init__(self, surface: str, *, include_pronouns: bool = True):
+        super().__init__(surface, include_pronouns=include_pronouns)
         self.reads = guess_readings_of(surface)
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         self.roots = _roots(self.reads, surface)
@@ -98,8 +98,13 @@ def _reject(guess: _Pack, target: _Pack) -> str:
 
 
 @lru_cache(maxsize=8)
-def _index(rows: tuple[tuple[str, str], ...]) -> tuple[_Pack, ...]:
-    return tuple(_Pack(surface) for surface, _lemma in rows)
+def _index(
+    rows: tuple[tuple[str, str], ...], *, include_pronouns: bool
+) -> tuple[_Pack, ...]:
+    return tuple(
+        _Pack(surface, include_pronouns=include_pronouns)
+        for surface, _lemma in rows
+    )
 
 
 def matching_lemmas(tokens, guess: str) -> set[str]:
@@ -111,9 +116,13 @@ def matching_lemmas(tokens, guess: str) -> set[str]:
     )
     if not rows or not (guess or '').strip():
         return set()
-    guess_pack = _GuessPack(guess)
+    from games.censorly.flags import open_pronouns_enabled
+    include_pronouns = open_pronouns_enabled()
+    guess_pack = _GuessPack(guess, include_pronouns=include_pronouns)
     hits: set[str] = set()
-    for (surface, lemma), pack in zip(rows, _index(rows)):
+    for (surface, lemma), pack in zip(
+        rows, _index(rows, include_pronouns=include_pronouns)
+    ):
         if _opens(guess_pack, pack):
             hits.add(lemma or fold(surface) or guess_pack.fold)
     return hits
