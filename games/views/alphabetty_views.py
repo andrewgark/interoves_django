@@ -257,10 +257,14 @@ def alphabetty_hub_page(request):
             continue
         link_rows.append((n, link))
 
+    publish_at_by_number = {
+        number: alphabetty_publish_at(game, number)
+        for number, _link in link_rows
+    }
     archive_items = build_daily_archive_items(
         link_rows,
         game_id=ALPHABETTY_GAME_ID,
-        publish_at_for_number=lambda number: alphabetty_publish_at(game, number),
+        publish_at_for_number=publish_at_by_number.get,
         href_for_number=lambda number: section_play_path(ALPHABETTY_GAME_ID, number),
         timezone_name=MOSCOW,
         number_for_link=lambda pair: pair[0],
@@ -273,11 +277,15 @@ def alphabetty_hub_page(request):
     )
     if archive_context.get('daily_archive'):
         selected = archive_context['daily_archive_selected']
-        link_rows = [
-            (n, link) for n, link in link_rows
-            if (alphabetty_publish_at(game, n).astimezone(MOSCOW).year,
-                alphabetty_publish_at(game, n).astimezone(MOSCOW).month) == selected
-        ]
+        selected_link_rows = []
+        for number, link in link_rows:
+            published_at = publish_at_by_number.get(number)
+            if published_at is None:
+                continue
+            local_date = published_at.astimezone(MOSCOW).date()
+            if (local_date.year, local_date.month) == selected:
+                selected_link_rows.append((number, link))
+        link_rows = selected_link_rows
 
     tasks_by_tg = {
         t.task_group_id: t
@@ -303,12 +311,13 @@ def alphabetty_hub_page(request):
     rows = []
     for n, link in link_rows:
         prog = progress.get(n) or {}
+        published_at = publish_at_by_number.get(n)
         row_class = prog.get('row_class') or ''
         if not row_class and today_number is not None and n == today_number:
             row_class = 'new-task--partial'
         rows.append({
             'number': n,
-            'publish_date': alphabetty_publish_at(game, n).astimezone(MOSCOW).date() if alphabetty_publish_at(game, n) else None,
+            'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
             'name': f'Алфавитка №{n}',
             'play_url': section_play_path(ALPHABETTY_GAME_ID, n),
         'results_url': '{}results/'.format(section_play_path(ALPHABETTY_GAME_ID, n)),
