@@ -36,6 +36,7 @@ class DailyPageContextTests(TestCase):
             '/daily-statistics/salad/12/',
         )
         self.assertEqual(daily_statistics_url('salad', 12, enabled=False), '')
+        self.assertEqual(daily_statistics_url('week_task', 12, enabled=True), '')
 
     def test_lifecycle_context_keeps_shared_daily_flags_together(self):
         context = build_daily_lifecycle_context(

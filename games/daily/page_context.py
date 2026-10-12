@@ -24,7 +24,7 @@ def daily_statistics_url(game_id, number, *, enabled):
     if not enabled:
         return ''
     definition = get_daily_game(game_id)
-    if definition is not None and not definition.capabilities.statistics:
+    if definition is None or not definition.capabilities.statistics:
         return ''
     return '/daily-statistics/{}/{}/'.format(game_id, number)
 
