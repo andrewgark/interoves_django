@@ -39,7 +39,8 @@
       activeIndex = -1;
     }
     function loading() {
-      listbox.innerHTML = '<div class="support-censorly-suggestions__loading" role="option" aria-disabled="true"><span class="support-censorly-suggestions__spinner" aria-hidden="true"></span><span>Загружается…</span></div>';
+      activeIndex = -1;
+      listbox.innerHTML = '<div class="support-censorly-suggestions__loading"><span class="support-censorly-suggestions__spinner" aria-hidden="true"></span><span>Загружается…</span></div>';
       listbox.hidden = false;
       listbox.setAttribute('aria-busy', 'true');
       input.setAttribute('aria-expanded', 'true');
@@ -51,6 +52,7 @@
     }
     function show(titles) {
       if (!titles.length) { close(); return; }
+      activeIndex = -1;
       listbox.innerHTML = titles.map(function (title, index) {
         return '<button type="button" role="option" aria-selected="false" class="support-ladder-item support-censorly-suggestion" data-title-index="' + index + '">' + esc(title) + '</button>';
       }).join('');
@@ -83,7 +85,8 @@
           show(data.titles || []);
         }).catch(function (error) {
           if (requestId !== currentRequest || error.name === 'AbortError' || input.value.trim() !== query) return;
-          listbox.innerHTML = '<div class="support-censorly-suggestions__error" role="option" aria-disabled="true">Не удалось загрузить подсказки</div>';
+          activeIndex = -1;
+          listbox.innerHTML = '<div class="support-censorly-suggestions__error">Не удалось загрузить подсказки</div>';
           listbox.removeAttribute('aria-busy');
         });
       }, 250);
