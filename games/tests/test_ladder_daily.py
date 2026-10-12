@@ -95,6 +95,43 @@ class GameTaskGroupNumberOrderTests(TestCase):
         self.assertEqual(list(ordered_desc.values_list('number', flat=True)), ['20', '10', '2', '1'])
         game.delete()
 
+    def test_python_and_queryset_ordering_match_for_deferred_links(self):
+        from games.models import GameTaskGroup, Project
+
+        Project.objects.get_or_create(id='sections')
+        project = Project.objects.get(id='sections')
+        game, _ = Game.objects.get_or_create(
+            id='ladder_deferred_sort_test',
+            defaults={'name': 't', 'author': 't', 'project': project},
+        )
+        links = []
+        for number, is_deferred, deferred_number in (
+            ('2', False, ''),
+            ('10002', True, '2'),
+            ('1', False, ''),
+            ('10001', True, '1'),
+        ):
+            task_group = TaskGroup.objects.create(label=f'{number}-{deferred_number}')
+            links.append(GameTaskGroup.objects.create(
+                game=game,
+                task_group=task_group,
+                number=number,
+                name=number,
+                is_deferred=is_deferred,
+                deferred_number=deferred_number,
+            ))
+
+        queryset = GameTaskGroup.objects.filter(game=game)
+        python_order = GameTaskGroup.sorted_links(queryset, include_deferred=True)
+        queryset_order = GameTaskGroup.order_queryset_by_number(
+            queryset,
+            include_deferred=True,
+        )
+        expected_ids = [links[2].pk, links[0].pk, links[3].pk, links[1].pk]
+        self.assertEqual([link.pk for link in python_order], expected_ids)
+        self.assertEqual(list(queryset_order.values_list('pk', flat=True)), expected_ids)
+        game.delete()
+
 
 class FilterPublishedLadderLinksTests(TestCase):
     def test_returns_queryset_compatible_with_order_queryset_by_number(self):

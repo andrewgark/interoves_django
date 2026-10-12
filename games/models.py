@@ -692,6 +692,15 @@ class GameTaskGroup(models.Model):
     def key_sort(self):
         return self.number_key(self.number)
 
+    @classmethod
+    def _schedule_sort_key(cls, link, *, include_deferred):
+        if include_deferred and link.is_deferred:
+            # Deferred slots have their own queue numbering. Their technical
+            # ``number`` is only a temporary unique-index placeholder.
+            deferred_key = cls.try_number_key(link.deferred_number)
+            return (1, deferred_key if deferred_key is not None else (10**9,), link.pk)
+        return (0, link.key_sort(), link.pk)
+
 
     @classmethod
     def sorted_links(cls, queryset=None, *, game=None, reverse=False, include_deferred=False):
@@ -739,16 +748,14 @@ class GameTaskGroup(models.Model):
                     and link.task_group_id in random_task_group_ids
                 )
             ]
-        def sort_key(link):
-            if include_deferred and link.is_deferred:
-                # Deferred slots have their own queue numbering.  Their
-                # technical ``number`` is only a temporary unique-index
-                # placeholder and must not determine support-tab order.
-                deferred_key = cls.try_number_key(link.deferred_number)
-                return (1, deferred_key if deferred_key is not None else (10**9,), link.pk)
-            return (0, link.key_sort(), link.pk)
-
-        links = sorted(queryset, key=sort_key, reverse=reverse)
+        links = sorted(
+            queryset,
+            key=lambda link: cls._schedule_sort_key(
+                link,
+                include_deferred=include_deferred,
+            ),
+            reverse=reverse,
+        )
         return links
 
     @classmethod
@@ -769,13 +776,13 @@ class GameTaskGroup(models.Model):
         links = list(queryset)
         if not links:
             return queryset.none()
-        def sort_key(link):
-            if include_deferred and link.is_deferred:
-                deferred_key = cls.try_number_key(link.deferred_number)
-                return (1, deferred_key if deferred_key is not None else (10**9,), link.pk)
-            return (0, link.key_sort(), link.pk)
-
-        links.sort(key=sort_key, reverse=reverse)
+        links.sort(
+            key=lambda link: cls._schedule_sort_key(
+                link,
+                include_deferred=include_deferred,
+            ),
+            reverse=reverse,
+        )
         ordered_pks = [link.pk for link in links]
         preserved = models.Case(
             *[models.When(pk=pk, then=pos) for pos, pk in enumerate(ordered_pks)],
