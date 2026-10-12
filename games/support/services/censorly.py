@@ -177,7 +177,7 @@ def list_schedule_rows(*, now: datetime | None = None) -> list[CensorlyScheduleR
             wiki_title=_title_from_task(task),
             publish_date=pub_date,
             is_published=is_pub,
-            is_today=bool(pub and pub.date() == today),
+            is_today=bool(not link.is_deferred and pub and pub.date() == today),
             play_url=f'/censorly/{number}/',
             is_deferred=bool(link.is_deferred),
         ))
