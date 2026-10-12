@@ -1796,6 +1796,8 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         if fallback:
             return redirect('project_task_group', project_id=project.id, game_id=game.id, task_group_number=fallback.number)
         raise Http404()
+    if placement.is_deferred and not request.user.is_staff:
+        raise Http404()
     task_group = placement.task_group
     replay_slot = active_replay(
         request=request,
@@ -2884,6 +2886,8 @@ def new_game_task_results_page(request, game_id, number, project_id=None):
     placement = GameTaskGroup.objects.filter(game=game, number=str(number)).first()
     if not placement:
         raise Http404()
+    if is_scheduled_game(game.id) and placement.is_deferred and not request.user.is_staff:
+        raise Http404()
     base = _project_base(game.project_id)
     return _render_task_group_results_page(
         request, game, number,
@@ -3615,6 +3619,8 @@ def new_task_group_page(request, game_id, task_group_number):
             if fallback:
                 return redirect(_play_url_for_task_group(game, fallback.number))
             raise Http404()
+    if getattr(placement, 'is_deferred', False) and not may_open_unpublished_number(request.user):
+        raise Http404()
     task_group = placement.task_group
     if (game.id == LADDER_GAME_ID and ladder_offer is not None) or (
         game.id == WORD_SALAD_GAME_ID and salad_offer is not None
@@ -3737,7 +3743,10 @@ def new_task_group_page(request, game_id, task_group_number):
         is_daily_single_task=is_daily_single_task,
         placement_number=placement.number,
         placement_is_task_group=isinstance(placement, GameTaskGroup),
-        number_is_public=scheduled_number_is_public(game, placement.number),
+        number_is_public=(
+            not getattr(placement, 'is_deferred', False)
+            and scheduled_number_is_public(game, placement.number)
+        ),
         allow_unpublished=may_open_unpublished_number(request.user),
         fallback_label=section_nav_title(game.id) or None,
         fallback_pager_label=(
@@ -4043,7 +4052,7 @@ def new_task_group_live_state(request, game_id, project_id=None):
         from games.club_access import reject_if_club_archive_blocked
 
         for placement in placements:
-            if not scheduled_number_is_public(game, placement.number):
+            if placement.is_deferred or not scheduled_number_is_public(game, placement.number):
                 raise Http404()
             locked = reject_if_club_archive_blocked(
                 request, game, number=placement.number, json_mode=True,
