@@ -17,6 +17,7 @@ from games.support.services.banned import (
     remove_banned_unit,
 )
 from games.support.services.schedule_links import (
+    build_schedule_page_context,
     delete_future_slot,
     defer_future_slot,
     effective_schedule_number,
@@ -583,18 +584,19 @@ def week_task_dashboard_context(*, now: datetime | None = None) -> dict[str, Any
     now = now or timezone.now()
     rows = list_week_task_rows(now=now)
     game = get_week_task_game()
-    today_number = current_week_task_number(game, now)
-    published_count = sum(1 for r in rows if r.is_published)
-    future_count = len(rows) - published_count
+    schedule_context = build_schedule_page_context(
+        rows,
+        title='Задания недели',
+        prefix='week-task',
+        list_label='Список заданий недели',
+        publish_start=get_publish_start_iso(),
+    )
     return {
+        **schedule_context,
         'rows': rows,
         'week_tasks_json': [r.to_dict() for r in rows],
         'banned_json': list_banned_units(game),
-        'publish_start': get_publish_start_iso(),
-        'week_task_count': len(rows),
-        'published_count': published_count,
-        'future_count': future_count,
-        'today_number': today_number if any(r.is_today for r in rows) else None,
+        'week_task_count': schedule_context['schedule_count'],
         'locked_until': last_published_number(now=now),
         'buffer_weeks': WEEK_TASK_BUFFER_WEEKS,
     }
