@@ -32,7 +32,8 @@
 {% endif %}
 
 <p class="new-stack-gap">
-  <a class="new-link-dotted" href="/create_alphabetty/">Создать свою алфавитку</a>
+  {% url 'new_create_alphabetty' as alphabetty_create_url %}
+  {% include "new/partials/create_game_link.html" with create_url=alphabetty_create_url create_label="Создать свою алфавитку" %}
 </p>
 
 {% if rows %}

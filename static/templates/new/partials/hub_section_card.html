@@ -45,16 +45,19 @@
   <p class="new-hub-section__footer">
     <a class="new-link-dotted" href="{{ card.section_url }}">{{ card.all_link_label }}</a>
     {% if card.id == 'ladder' %}
-      <br><a class="new-link-dotted" href="/offer_ladder/">Создать свою лесенку</a>
+      <br>{% include "new/partials/create_game_link.html" with create_url="/offer_ladder/" create_label="Создать свою лесенку" %}
     {% elif card.id == 'alphabetty' %}
-      <br><a class="new-link-dotted" href="/create_alphabetty/">Создать свою алфавитку</a>
+      <br>{% include "new/partials/create_game_link.html" with create_url="/create_alphabetty/" create_label="Создать свою алфавитку" %}
     {% elif card.id == 'salad' %}
-      <br><a class="new-link-dotted" href="/create_salad/">Создать свой салатик</a>
+      <br>{% include "new/partials/create_game_link.html" with create_url="/create_salad/" create_label="Создать свой салатик" %}
+    {% elif card.id == 'censorly' %}
+      {% url 'ui_create_censorly' as censorly_create_url %}
+      <br>{% include "new/partials/create_game_link.html" with create_url=censorly_create_url create_label="Создать свою Цензурку" %}
     {% endif %}
   </p>
   {% elif card.id == 'ladder' %}
   <p class="new-hub-section__footer">
-    <a class="new-link-dotted" href="/offer_ladder/">Создать свою лесенку</a>
+    {% include "new/partials/create_game_link.html" with create_url="/offer_ladder/" create_label="Создать свою лесенку" %}
   </p>
   {% endif %}
 </section>
