@@ -21,7 +21,7 @@ from games.ladder_offer import (
 from games.models import LadderOffer
 from games.offer_profiles import update_offer_profile_names
 from games.telegram_linking import offer_profile_error
-from games.views.util import has_profile, parse_json_object_body
+from games.views.util import has_profile, json_boolean_field, parse_json_object_body
 
 
 def _offer_for_user(request, offer_id):
@@ -104,9 +104,10 @@ def offer_ladder_detail(request, offer_id):
     emojis = body.get('emojis')
     if emojis is not None and not isinstance(emojis, list):
         return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
-    mixed_script = body.get('mixed_script', False)
-    if not isinstance(mixed_script, bool):
-        return JsonResponse({'ok': False, 'error': 'mixed_script должен быть boolean'}, status=400)
+    try:
+        mixed_script = json_boolean_field(body, 'mixed_script')
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     try:
         offer = update_offer_content(
             offer,

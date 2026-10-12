@@ -164,7 +164,7 @@ from games.support.services.social import (
     sync_from_telegram as social_sync_from_telegram,
     update_post as social_update_post,
 )
-from games.views.util import parse_json_object_body
+from games.views.util import json_boolean_field, parse_json_object_body
 
 logger = logging.getLogger(__name__)
 
@@ -885,6 +885,10 @@ def ladder_offer_save(request, offer_id):
     if not isinstance(words, list) or not isinstance(hints, list):
         return JsonResponse({'ok': False, 'error': 'Нужны words и hints'}, status=400)
     try:
+        mixed_script = json_boolean_field(body, 'mixed_script')
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    try:
         offer = update_offer_content(
             offer,
             words=words,
@@ -892,7 +896,7 @@ def ladder_offer_save(request, offer_id):
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
             comment=str(body.get('comment') or ''),
-            mixed_script=bool(body.get('mixed_script')),
+            mixed_script=mixed_script,
             allow_non_draft=True,
         )
     except LadderOfferError as exc:
@@ -1052,6 +1056,10 @@ def ladders_create(request):
     if emojis is not None and not isinstance(emojis, list):
         return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
     try:
+        mixed_script = json_boolean_field(body, 'mixed_script')
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    try:
         detail = create_ladder(
             at_number=at_number,
             words=words,
@@ -1059,7 +1067,7 @@ def ladders_create(request):
             emojis=emojis,
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
-            mixed_script=bool(body.get('mixed_script')),
+            mixed_script=mixed_script,
         )
         rows = ladders_dashboard_context()['ladders']
     except LadderSupportError as exc:
@@ -1085,6 +1093,10 @@ def ladders_update(request, link_id):
     if emojis is not None and not isinstance(emojis, list):
         return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
     try:
+        mixed_script = json_boolean_field(body, 'mixed_script')
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    try:
         detail = update_ladder(
             int(link_id),
             words=words,
@@ -1092,7 +1104,7 @@ def ladders_update(request, link_id):
             emojis=emojis,
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
-            mixed_script=bool(body.get('mixed_script')),
+            mixed_script=mixed_script,
         )
         rows = ladders_dashboard_context()['ladders']
     except (TypeError, ValueError):
@@ -2070,12 +2082,17 @@ def social_publish(request, post_id):
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
+        force = json_boolean_field(body, 'force')
+        immediate = json_boolean_field(body, 'immediate', default=True)
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    try:
         post = social_get_post(post_id)
         post = social_publish_network(
             post,
             str(body.get('network') or ''),
-            force=bool(body.get('force')),
-            immediate=bool(body.get('immediate', True)),
+            force=force,
+            immediate=immediate,
             schedule_at=body.get('schedule_at') or body.get('queued_for'),
             action=str(body.get('action') or 'publish'),
         )

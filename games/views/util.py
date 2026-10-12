@@ -16,6 +16,14 @@ def parse_json_object_body(request):
     return body if isinstance(body, dict) else None
 
 
+def json_boolean_field(body, key, *, default=False):
+    """Read one JSON boolean without treating strings like ``"false"`` as true."""
+    value = body.get(key, default)
+    if not isinstance(value, bool):
+        raise ValueError('{} должен быть boolean'.format(key))
+    return value
+
+
 def get_public_task_or_404(task_id):
     """Задание для публичных вьюх: скрытые (is_removed) дают 404."""
     from games.models import Task
