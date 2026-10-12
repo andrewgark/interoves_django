@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from html import unescape
 from pathlib import Path
 from unittest.mock import patch
 
@@ -16,7 +17,8 @@ from games.censorly.play import apply_guess, apply_hint, get_play_state, hub_pro
 from games.censorly.redact import build_public_view, lemmas_matching_guess
 from games.censorly.stopwords import is_stop_word
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
-from games.models import Attempt, BugReport, ChainTaskState, CheckerType, Game, GameTaskGroup, Project, RandomCensorlyGame, Task, TaskGroup
+from games.analytics import game_instance_id_for_task_group
+from games.models import Attempt, BugReport, ChainTaskState, CheckerType, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, RandomCensorlyGame, Task, TaskGroup
 from games.placement_share import allocate_share_hash
 
 _CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
@@ -1319,6 +1321,46 @@ class CensorlyUxDailyTests(TestCase):
         self.task.save(update_fields=['points'])
         self.task.task_group.points = 20
         self.task.task_group.save(update_fields=['points'])
+
+    def test_replay_page_token_allows_guess_after_starting_over(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        tags = dict(self.game.tags or {})
+        tags['censorly_publish_start'] = (
+            f'{(timezone.localdate() - timedelta(days=1)).isoformat()}T00:00:00+03:00'
+        )
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        self.client.force_login(self.staff)
+        Profile.objects.create(user=self.staff, first_name='Staff', last_name='Tester')
+        PlayerCompletedGame.objects.create(
+            user=self.staff,
+            game=self.game,
+            task_group=self.task.task_group,
+            game_kind=CENSORLY_GAME_ID,
+            game_instance_id=game_instance_id_for_task_group(self.game, self.task.task_group),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+
+        page = self.client.get('/censorly/1/')
+        self.assertEqual(page.status_code, 200)
+        started = self.client.post('/censorly/1/replay/')
+        self.assertEqual(started.status_code, 302)
+        replay_page = self.client.get(started['Location'])
+        self.assertEqual(replay_page.status_code, 200)
+        match = re.search(r'data-context-token="([^"]+)"', replay_page.content.decode())
+        self.assertIsNotNone(match)
+
+        guess = self.client.post(
+            '/censorly/1/guess/',
+            data=json.dumps({'word': 'собака', 'gameplay_context': unescape(match.group(1))}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(guess.status_code, 200)
+        self.assertIn(guess.json()['status'], ('hit', 'miss', 'won'))
+        self.assertFalse(guess.json().get('reload_required'))
 
     def test_staff_opens_unpublished_number(self):
         self.client.force_login(self.staff)

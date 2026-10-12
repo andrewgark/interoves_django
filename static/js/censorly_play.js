@@ -717,10 +717,18 @@
     }
   }
 
-  function handleReplayFlags(data) {
+  function handleReplayFlags(root, data) {
     if (!data) return;
     if (data.reload_required) {
-      window.location.reload();
+      var feedback = root && root.querySelector('#censorly-feedback');
+      if (feedback) {
+        feedback.hidden = false;
+        feedback.className = 'censorly__feedback is-error';
+        feedback.textContent = 'Состояние игры обновилось. ';
+        var refresh = el('a', '', 'Обновить страницу');
+        refresh.href = window.location.href;
+        feedback.appendChild(refresh);
+      }
       return true;
     }
     if (data.replay_available && typeof window.revealReplayControl === 'function') {
@@ -908,7 +916,7 @@
           hasLocalAction = true;
           postJson(hintUrl, { token_id: Number(mask.dataset.id) }, root)
             .then(function (data) {
-              if (handleReplayFlags(data)) return;
+              if (handleReplayFlags(root, data)) return;
               if (data.status === 'error') {
                 setFeedback(root, data.error || 'Не удалось взять подсказку', 'error');
                 return;
@@ -985,7 +993,7 @@
         postJson(guessUrl, { word: word }, root)
           .then(function (data) {
             data = applyStateDelta(root, data);
-            if (handleReplayFlags(data)) return;
+            if (handleReplayFlags(root, data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
               var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
               setFeedback(root, guessFeedbackHelper.feedback(data, word), feedbackKind);

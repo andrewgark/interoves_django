@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 
 from django.conf import settings
 from django.core import signing
@@ -103,9 +104,18 @@ def validate_gameplay_context(
     Missing tokens are accepted during Phase A. A token, once present, is never
     trusted for ownership: current actor is independently resolved by the view.
     """
-    token = (request.POST.get(GAMEPLAY_CONTEXT_FIELD) or request.headers.get(
-        'X-Interoves-Gameplay-Context', ''
-    )).strip()
+    token = (
+        request.POST.get(GAMEPLAY_CONTEXT_FIELD)
+        or request.headers.get('X-Interoves-Gameplay-Context', '')
+    ).strip()
+    if not token and request.content_type == 'application/json':
+        try:
+            body = json.loads(request.body.decode('utf-8') or '{}')
+        except (AttributeError, UnicodeDecodeError, TypeError, ValueError):
+            body = {}
+        if isinstance(body, dict):
+            value = body.get(GAMEPLAY_CONTEXT_FIELD)
+            token = value.strip() if isinstance(value, str) else ''
     current_kind, current_id = actor_descriptor(
         team=team, user=user, anon_key=anon_key,
     )

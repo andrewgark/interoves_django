@@ -44,6 +44,18 @@ class GameplayContextTests(TestCase):
         ))
         self.assertEqual(request.interoves_gameplay_context_result, 'valid')
 
+    def test_json_gameplay_context_is_validated(self):
+        token = issue_gameplay_context(task=self.task, game=self.game, user=self.user)
+        request = self.factory.post(
+            '/guess/', data={'gameplay_context': token}, content_type='application/json',
+        )
+        request.user = self.user
+
+        self.assertIsNone(validate_gameplay_context(
+            request, task=self.task, game=self.game, user=self.user,
+        ))
+        self.assertEqual(request.interoves_gameplay_context_result, 'valid')
+
     def test_user_switch_is_rejected(self):
         token = issue_gameplay_context(task=self.task, game=self.game, user=self.user)
         other = get_user_model().objects.create_user(username='other-context-user')
