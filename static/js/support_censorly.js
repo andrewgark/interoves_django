@@ -123,6 +123,7 @@
     createError.hidden = true;
     createError.textContent = '';
     createTitle.value = '';
+    createTitle.dispatchEvent(new Event('input', {bubbles: true}));
     createAtNumber = atNumber;
     document.getElementById('cz-create-title').textContent = atNumber > schedule.filter(function (row) { return !row.is_deferred; }).length
       ? 'Добавить статью в конец расписания'

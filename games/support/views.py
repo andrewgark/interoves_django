@@ -167,6 +167,12 @@ def _json_body(request):
         return None
 
 
+def _json_object_body(request):
+    """Parse a JSON request whose top-level value must be an object."""
+    body = _json_body(request)
+    return body if isinstance(body, dict) else None
+
+
 def _ordered_ids_from_request(request):
     body = _json_body(request)
     if body is None:
@@ -1516,7 +1522,9 @@ def censorly_set_publish_start(request):
 @support_console_required
 @require_POST
 def censorly_schedule_create(request):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
         at_number = int(body.get('at_number'))
     except (TypeError, ValueError):
@@ -1535,7 +1543,9 @@ def censorly_schedule_create(request):
 @support_console_required
 @require_POST
 def censorly_schedule_generate(request):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
         n = int(body.get('n') or 5)
     except (TypeError, ValueError):

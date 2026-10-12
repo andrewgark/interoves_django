@@ -1178,6 +1178,24 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(resp.json()['row']['wiki_title'], 'Тест')
         mocked.assert_called_once_with()
 
+    def test_schedule_create_rejects_non_object_json(self):
+        response = self.client.post(
+            '/support/censorly/schedule/create/',
+            data=b'[]',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_schedule_generate_rejects_non_object_json(self):
+        response = self.client.post(
+            '/support/censorly/schedule/generate/',
+            data=b'[]',
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+
     def test_defer_and_restore_schedule_slot(self):
         from games.support.services.censorly import defer_censorly, restore_censorly
 
