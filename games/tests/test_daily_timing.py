@@ -422,6 +422,21 @@ class DailyTimingDomainTests(TestCase):
         self.assertTrue(snap['completed'])
         self.assertEqual(snap['frozen_ms'], 20000)
 
+    def test_late_heartbeat_is_not_expired_before_updating_timing_row(self):
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+
+        heartbeat = self._apply(
+            action=ACTION_HEARTBEAT, session=sid, seq=2,
+            claimed=45233, now=_dt(45.233),
+        )
+        completed = complete_daily_timing(
+            game=self.game, task_group=self.tg, user=self.user, now=_dt(106.586),
+        )
+
+        self.assertEqual(heartbeat['status'], 'running')
+        self.assertEqual(completed['frozen_ms'], 45_233)
+
     def test_hidden_tab_does_not_keep_counting(self):
         sid = uuid4()
         self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())

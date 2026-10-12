@@ -1183,7 +1183,9 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
     _team_expire_sessions(
         row,
         now,
-        exclude_session_id=sid if action in (ACTION_PAUSE, ACTION_AUTO_PAUSE) else None,
+        exclude_session_id=(
+            sid if action in (ACTION_HEARTBEAT, ACTION_PAUSE, ACTION_AUTO_PAUSE) else None
+        ),
     )
     try:
         seq = int(seq or 0)
