@@ -298,12 +298,49 @@ html.new-ui-dark .censorly__dock {
 }
 .censorly-word-report-reasons {
   display: grid;
-  gap: 0.65rem;
-  margin: 1rem 0;
+  gap: 0.5rem;
+  margin: 1.25rem 0 1rem;
   padding: 0;
   border: 0;
 }
-.censorly-word-report-reasons label,
+.censorly-word-report-reasons__legend {
+  margin-bottom: 0.25rem;
+  color: var(--text, #222);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.censorly-word-report-reason {
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.7rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.16));
+  border-radius: 0.7rem;
+  background: var(--surface, var(--bg, #fff));
+  color: var(--text, #222);
+  cursor: pointer;
+  line-height: 1.35;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+.censorly-word-report-reason:hover {
+  border-color: color-mix(in srgb, var(--accent, #5b6ee1) 55%, var(--border, #ccc));
+}
+.censorly-word-report-reason:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--accent, #5b6ee1) 55%, transparent);
+  outline-offset: 2px;
+}
+.censorly-word-report-reason:has(input:checked) {
+  border-color: var(--accent, #5b6ee1);
+  background: color-mix(in srgb, var(--accent, #5b6ee1) 8%, var(--surface, #fff));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent, #5b6ee1) 20%, transparent);
+}
+.censorly-word-report-reason input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0.1rem 0 0;
+  accent-color: var(--accent, #5b6ee1);
+}
 .censorly-word-report-field {
   display: grid;
   gap: 0.35rem;

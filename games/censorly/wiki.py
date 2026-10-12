@@ -188,6 +188,8 @@ _TEX_SYMBOLS = {
     'longleftrightarrow': '⟷', 'Rightarrow': '⇒', 'Longrightarrow': '⟹',
     'Leftarrow': '⇐', 'Longleftarrow': '⟸', 'Leftrightarrow': '⇔',
     'Longleftrightarrow': '⟺', 'mapsto': '↦', 'langle': '⟨', 'rangle': '⟩',
+    'uparrow': '↑', 'downarrow': '↓', 'updownarrow': '↕',
+    'Uparrow': '⇑', 'Downarrow': '⇓', 'Updownarrow': '⇕',
     'cup': '∪', 'cap': '∩', 'land': '∧',
     'lor': '∨', 'degree': '°', 'circ': '∘', 'emptyset': '∅',
     'triangle': '△', 'perp': '⊥', 'parallel': '∥', 'otimes': '⊗',
@@ -509,7 +511,13 @@ def _replace_tex_groups(text: str) -> str:
 
 
 def _strip_indented_math_lines(text: str) -> str:
-    """Drop only indented MathML fallback blocks immediately before TeX source."""
+    """Drop MathML fallback blocks immediately before their canonical TeX source.
+
+    TextExtracts has emitted the MathML glyphs with indentation in some formats,
+    and as one glyph per unindented line in others. Only remove an unindented
+    block when it has several short, non-Russian lines and clear math operators;
+    that keeps ordinary prose and standalone equations intact.
+    """
     if not text:
         return text
     kept: list[str] = []
@@ -520,9 +528,30 @@ def _strip_indented_math_lines(text: str) -> str:
         if has_tex:
             # TextExtracts emits a vertical MathML text fallback before its
             # canonical TeX source. The TeX form is enough to render it once.
-            pending.clear()
+            unindented = [
+                item.strip() for item in pending
+                if item.strip() and not item.startswith((' ', '\t'))
+            ]
+            is_vertical_dump = (
+                len(unindented) >= 3
+                and any(re.search(r'[+=<>×·*/^_]', item) for item in unindented)
+            )
+            if not unindented or is_vertical_dump:
+                pending.clear()
+            else:
+                kept.extend(pending)
+                pending.clear()
             kept.append(line)
         elif indented and not re.search(r'[А-Яа-яЁё]{2,}', line):
+            pending.append(line)
+        elif (
+            not re.search(r'[А-Яа-яЁё]{2,}', line)
+            and len(line.strip()) <= 48
+            and re.fullmatch(r'[A-Za-z0-9０-９+−=<>()[\]{}.,;:/\\_^*|·×\s]*', line)
+        ):
+            # Unindented MathML fallback glyphs (for example A / g / + / 2 / H
+            # / N / O / 3) are ambiguous line by line. Buffer them and discard
+            # only if the whole block is followed by TeX and has math structure.
             pending.append(line)
         elif not line.strip():
             pending.append(line)
@@ -530,6 +559,7 @@ def _strip_indented_math_lines(text: str) -> str:
             kept.extend(pending)
             pending.clear()
             kept.append(line)
+    # Do not discard a trailing candidate block unless a TeX line confirmed it.
     kept.extend(pending)
     return ''.join(kept)
 

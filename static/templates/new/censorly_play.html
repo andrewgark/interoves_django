@@ -58,10 +58,19 @@
     <h2 id="censorly-word-report-title" class="pal-title">Пожаловаться на матчинг слов</h2>
     <p class="new-login-hint">Слово: «<strong id="censorly-word-report-target"></strong>»</p>
     <fieldset class="censorly-word-report-reasons">
-      <legend class="sr-only">Причина жалобы</legend>
-      <label><input type="radio" name="censorly-word-report-reason" value="FALSE_POSITIVE"> Слово было открыто слишком слабо связанным словом</label>
-      <label><input type="radio" name="censorly-word-report-reason" value="FALSE_NEGATIVE"> Слово не было открыто близко связанным с ним словом</label>
-      <label><input type="radio" name="censorly-word-report-reason" value="OTHER"> Другая проблема</label>
+      <legend class="censorly-word-report-reasons__legend">Причина жалобы</legend>
+      <label class="censorly-word-report-reason">
+        <input type="radio" name="censorly-word-report-reason" value="FALSE_POSITIVE">
+        <span>Слово было открыто слишком слабо связанным словом</span>
+      </label>
+      <label class="censorly-word-report-reason">
+        <input type="radio" name="censorly-word-report-reason" value="FALSE_NEGATIVE">
+        <span>Слово не было открыто близко связанным с ним словом</span>
+      </label>
+      <label class="censorly-word-report-reason">
+        <input type="radio" name="censorly-word-report-reason" value="OTHER">
+        <span>Другая проблема</span>
+      </label>
     </fieldset>
     <label id="censorly-word-report-other-wrap" class="censorly-word-report-field" hidden>
       <span id="censorly-word-report-other-label">Какое слово должно было его открыть?</span>

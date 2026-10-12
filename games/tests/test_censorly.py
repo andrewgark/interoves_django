@@ -537,6 +537,29 @@ class CensorlyWikiHelperTests(TestCase):
 
 
 class CensorlyRandomGameTests(TestCase):
+    def test_used_titles_reads_censorly_tasks_once(self):
+        from games.censorly.random_game import used_censorly_titles
+
+        Task.objects.create(
+            number='1', task_type=CENSORLY_TASK_TYPE, answer='  Ответ  ',
+            tags={CENSORLY_TAGS_KEY: {
+                'wiki_title': 'Название из пазла',
+                'source_pool_title': 'Название из пула',
+            }},
+        )
+        Task.objects.create(
+            number='2', task_type=CENSORLY_TASK_TYPE, answer='Удалённое',
+            is_removed=True,
+        )
+        Task.objects.create(number='3', task_type='default', answer='Другая задача')
+
+        with self.assertNumQueries(2):  # random-game titles + one Task scan
+            titles = used_censorly_titles()
+
+        self.assertTrue({'Ответ', 'Название из пазла', 'Название из пула'} <= titles)
+        self.assertNotIn('Удалённое', titles)
+        self.assertNotIn('Другая задача', titles)
+
     def test_invalid_fetched_article_does_not_abort_pool_scan(self):
         from unittest.mock import patch
 

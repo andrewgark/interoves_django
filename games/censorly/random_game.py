@@ -116,14 +116,11 @@ def used_censorly_titles() -> set[str]:
     used: set[str] = set(
         RandomCensorlyGame.objects.values_list('wiki_title', flat=True)
     )
-    for answer in Task.objects.filter(
+    for answer, tags in Task.objects.filter(
         task_type=CENSORLY_TASK_TYPE, is_removed=False,
-    ).exclude(answer='').values_list('answer', flat=True):
+    ).values_list('answer', 'tags'):
         if answer:
             used.add(str(answer).strip())
-    for tags in Task.objects.filter(
-        task_type=CENSORLY_TASK_TYPE, is_removed=False,
-    ).values_list('tags', flat=True):
         if not isinstance(tags, dict):
             continue
         payload = tags.get(CENSORLY_TAGS_KEY) or {}
