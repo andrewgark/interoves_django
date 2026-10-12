@@ -38,10 +38,15 @@
   }
 
   function scheduleMeta(rows) {
-    var published = (rows || []).filter(function (row) { return row.is_published; }).length;
-    var today = (rows || []).find(function (row) { return row.is_today; });
-    return 'Всего ' + (rows || []).length + ' · вышло ' + published +
-      ' · впереди ' + ((rows || []).length - published) +
+    var allRows = rows || [];
+    var scheduled = allRows.filter(function (row) { return !row.is_deferred; });
+    var published = scheduled.filter(function (row) { return row.is_published; }).length;
+    var today = scheduled.find(function (row) { return row.is_today; });
+    var meta = 'Всего ' + scheduled.length + ' · вышло ' + published +
+      ' · впереди ' + (scheduled.length - published);
+    var deferred = allRows.length - scheduled.length;
+    if (deferred) meta += ' · отложено ' + deferred;
+    return meta +
       (today ? ' · сегодня №' + today.number : '');
   }
 
@@ -78,7 +83,13 @@
       event.preventDefault();
       button.disabled = true;
       postJson(endpoint(template, id), {}).then(function (data) {
-        if (onDone) onDone(data.rows || []);
+        var rows = data.rows || [];
+        var deferredTab = document.querySelector('[data-tab="deferred"]');
+        if (deferredTab) {
+          var deferredCount = rows.filter(function (row) { return row.is_deferred; }).length;
+          deferredTab.textContent = 'Отложенные' + (deferredCount ? ' (' + deferredCount + ')' : '');
+        }
+        if (onDone) onDone(rows);
       }).catch(function (err) { alert(err.message); button.disabled = false; });
     });
   }
