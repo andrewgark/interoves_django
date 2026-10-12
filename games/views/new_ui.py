@@ -146,7 +146,6 @@ from games.results.context import (
     results_actor_kind,
     results_actor_identity,
     results_column_count,
-    result_cell_class,
 )
 from games.results.access import (
     anon_key_from_request,
@@ -160,6 +159,7 @@ from games.results.tables import (
     results_table_headers_context,
 )
 from games.results.presentation import paginate_results_rows, render_results_rows_partial
+from games.results.cells import build_results_cells
 from games.tasks.result_details import (
     SaladResultHeader,
     SaladResultWord,
@@ -2424,76 +2424,13 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         sports_keys = {actor: sport_key(actor) for actor in teams_sorted}
     team_to_place = score_rank(teams_sorted, team_to_score)
 
-    # Prepare per-cell metadata for templates: color by points vs max.
-    tasks_flat = []
-    for p in placements:
-        for task in task_group_to_tasks[p.number]:
-            tasks_flat.append(task)
-
-    def _to_float(x):
-        try:
-            return float(x)
-        except Exception:
-            return 0.0
-
-    # Precompute once per task — get_results_max_points() can be expensive
-    # (e.g. replacements_lines tasks run a regex parse on every call).
-    task_max_points = {}
-    for task in tasks_flat:
-        try:
-            mp = (task.get_results_max_points() if hasattr(task, 'get_results_max_points')
-                  else getattr(task, 'get_points', None)() if hasattr(task, 'get_points')
-                  else getattr(task, 'points', 0))
-            task_max_points[task.id] = _to_float(mp)
-        except Exception:
-            task_max_points[task.id] = 0.0
-
-    team_to_cells = {}
-    for participant in teams_sorted:
-        cells = []
-        attempts_list = team_to_list_attempts_info.get(participant, [])
-        for idx, task in enumerate(tasks_flat):
-            ai = attempts_list[idx] if idx < len(attempts_list) else None
-            max_points = task_max_points[task.id]
-            points = 0.0
-            has_attempts = False
-            n_attempts = 0
-            hint_numbers = []
-            if ai:
-                try:
-                    n_attempts = int(
-                        ai.get_n_attempts()
-                        if callable(getattr(ai, 'get_n_attempts', None))
-                        else (ai.get_n_attempts or 0)
-                    )
-                    has_attempts = n_attempts > 0
-                except Exception:
-                    has_attempts = False
-                    n_attempts = 0
-                try:
-                    points = _to_float(ai.get_result_points())
-                except Exception:
-                    points = 0.0
-                try:
-                    hint_numbers = ai.get_hint_numbers() if callable(getattr(ai, 'get_hint_numbers', None)) else []
-                except Exception:
-                    hint_numbers = []
-
-            cls = result_cell_class(points, max_points, has_attempts=has_attempts)
-
-            cells.append({
-                'cls': cls,
-                'n_attempts': n_attempts,
-                'result_points': points,
-                'hint_numbers': hint_numbers,
-                'solved': (
-                    variant == ALPHABETTY_GAME_ID
-                    and max_points > 0
-                    and points >= max_points - 1e-9
-                ),
-                'answer': getattr(task, 'answer', '') if variant == ALPHABETTY_GAME_ID else '',
-            })
-        team_to_cells[participant] = cells
+    # Prepare per-cell metadata for templates in the results presentation layer.
+    team_to_cells = build_results_cells(
+        participants=teams_sorted,
+        tasks=tasks_flat,
+        attempts_by_participant=team_to_list_attempts_info,
+        alphabetty=variant == ALPHABETTY_GAME_ID,
+    )
 
     team_to_solve_duration = {}
     if mode == 'general' and task_group_number is not None:
