@@ -568,7 +568,7 @@ def _prepublication(game, link, actor, first_at):
             game=game, task_group=link.task_group, replay_slot__isnull=True,
             user__isnull=True, team__isnull=True, anon_key=anon_key,
         )
-        started_at = timing.values_list('created_at', flat=True).first()
+        started_at = timing.order_by('created_at', 'pk').values_list('created_at', flat=True).first()
         if started_at is not None:
             return started_at < publication
     return bool(first_at and first_at < publication)

@@ -165,7 +165,9 @@ def eligible_release_actor_keys(release_actors, *, game, published_at_by_release
             actor = ('team', team_id) if team_id else (
                 ('user', user_id) if user_id else ('anon', anon_key)
             )
-            starts[(release_id, actor)] = started_at
+            key = (release_id, actor)
+            if key not in starts or started_at < starts[key]:
+                starts[key] = started_at
 
     output = {}
     for release_id, actors in release_actors.items():
