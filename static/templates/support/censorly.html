@@ -12,8 +12,10 @@
 
 {% block schedule_toolbar_extra %}
   <label class="support-ladders-field"><span>Номер слота</span><input type="number" id="cz-at-number" min="1" value="{{ schedule_count|add:1 }}"></label>
-  <label class="support-ladders-field"><span>Wiki title/URL</span><input type="text" id="cz-slot-title" placeholder="пусто = из пула"></label>
-  <button type="button" class="new-btn new-btn--mini" id="cz-create">Создать слот</button>
+  <label class="support-ladders-field"><span>Статья русской Википедии</span><input type="search" id="cz-slot-title" maxlength="255" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="cz-slot-suggestions" placeholder="Название статьи или URL"></label>
+  <div id="cz-slot-suggestions" class="support-ladder-list" role="listbox" aria-label="Статьи Википедии" hidden></div>
+  <button type="button" class="new-btn new-btn--mini" id="cz-create">Создать статью</button>
+  <span class="support-hint support-ladder-edit-error" id="cz-create-error" role="alert" hidden></span>
   <label class="support-ladders-field"><span>Из пула</span><input type="number" id="cz-gen-n" min="1" max="60" value="5"></label>
   <button type="button" class="new-btn new-btn--mini" id="cz-gen-more">Нагенерить</button>
 {% endblock %}
@@ -30,6 +32,7 @@
      data-offer-accept-url="{% url 'support:censorly_offer_accept' 0 %}"
      data-offer-reject-url="{% url 'support:censorly_offer_reject' 0 %}"
      data-from-title-url="{% url 'support:censorly_from_title' %}"
+     data-suggest-url="{% url 'ui_create_censorly_suggest' %}"
      data-reset-url="{% url 'support:censorly_reset_progress' %}"
      data-refetch-url="{% url 'support:censorly_refetch_text' %}"></div>
 {% endblock %}
@@ -66,8 +69,9 @@
     <p class="support-hint">Введите название статьи или ссылку на русскую Википедию.</p>
     <label class="support-ladders-field" for="cz-end-title">
       <span>Статья русской Википедии</span>
-      <input id="cz-end-title" type="search" maxlength="255" autocomplete="off" placeholder="Например, Википедия">
+      <input id="cz-end-title" type="search" maxlength="255" autocomplete="off" aria-autocomplete="list" aria-expanded="false" aria-controls="cz-end-suggestions" placeholder="Начните вводить название статьи">
     </label>
+    <div id="cz-end-suggestions" class="support-ladder-list" role="listbox" aria-label="Статьи Википедии" hidden></div>
     <p class="support-hint support-ladder-edit-error" id="cz-end-error" role="alert" hidden></p>
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="cz-end-create">Создать статью</button>

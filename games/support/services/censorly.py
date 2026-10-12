@@ -28,7 +28,7 @@ from games.censorly.random_game import (
     used_censorly_titles,
 )
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
-from games.censorly.wiki import WikiFetchError, fetch_article
+from games.censorly.wiki import WikiArticle, WikiFetchError, fetch_article
 from games.censorly_daily import (
     CENSORLY_BUFFER_DAYS,
     CENSORLY_PUBLISH_START_TAG,
@@ -379,7 +379,7 @@ def set_publish_start(date_iso: str) -> str:
     return d.isoformat()
 
 
-def _create_numbered_slot(*, number: int, article, pool_title: str | None = None) -> GameTaskGroup:
+def _create_numbered_slot(*, number: int, article: WikiArticle, pool_title: str | None = None) -> GameTaskGroup:
     game = get_censorly_game()
     puzzle = build_puzzle_payload(
         wiki_title=article.title,
@@ -417,82 +417,107 @@ def _create_numbered_slot(*, number: int, article, pool_title: str | None = None
     )
 
 
-@transaction.atomic
-def create_at_number(at_number: int, *, title_or_url: str | None = None) -> dict[str, Any]:
-    if at_number < 1:
-        raise CensorlySupportError('Номер должен быть >= 1')
-    game = get_censorly_game()
-    if is_censorly_number_published(game, at_number):
-        raise CensorlySupportError(f'Нельзя вставлять в уже вышедший день №{at_number}')
+def _pick_pool_article(used: set[str]) -> tuple[WikiArticle, str]:
+    from games.censorly.article_pool import load_article_pool
+    import random
+
+    pool = [title for title in load_article_pool() if title not in used]
+    if not pool:
+        raise CensorlySupportError('Пул статей исчерпан')
+    random.shuffle(pool)
+    errors = []
+    for title in pool[:12]:
+        try:
+            article = fetch_article(title)
+        except WikiFetchError as exc:
+            errors.append(str(exc))
+            continue
+        if article.title in used:
+            used.add(title)
+            continue
+        used.add(article.title)
+        used.add(title)
+        return article, title
+    detail = '; '.join(errors[:2]) or 'не найдено свободной статьи'
+    raise CensorlySupportError('Не удалось загрузить статью: ' + detail)
+
+
+def _shift_censorly_schedule_from(at_number: int, game: Game) -> None:
     links = [
         link for link in GameTaskGroup.objects.filter(game=game)
         if not link.is_deferred and _is_numeric_number(link.number)
     ]
-    to_shift = []
-    for link in links:
-        n = int(link.number)
-        if n >= at_number:
-            to_shift.append((n, link))
-    if to_shift:
-        planned = [(old, old + 1, link) for old, link in to_shift]
-        def sync(link, new_num):
-            link.name = f'Цензурка #{new_num}'
-            tg = link.task_group
-            if (tg.label or '').startswith('censorly:'):
-                tg.label = f'censorly:{new_num}'
-                tg.save(update_fields=['label'])
-        shift_links(
-            [link for _o, _n, link in planned],
-            [new for _o, new, _l in planned],
-            sync_link=sync,
-        )
+    to_shift = [(int(link.number), link) for link in links if int(link.number) >= at_number]
+    if not to_shift:
+        return
+    planned = [(old, old + 1, link) for old, link in to_shift]
+
+    def sync(link, new_num):
+        link.name = f'Цензурка #{new_num}'
+        tg = link.task_group
+        if (tg.label or '').startswith('censorly:'):
+            tg.label = f'censorly:{new_num}'
+            tg.save(update_fields=['label'])
+
+    shift_links(
+        [link for _old, _new, link in planned],
+        [new for _old, new, _link in planned],
+        sync_link=sync,
+    )
+
+
+def create_at_number(at_number: int, *, title_or_url: str | None = None) -> dict[str, Any]:
+    if at_number < 1:
+        raise CensorlySupportError('Номер должен быть >= 1')
+    if is_censorly_number_published(get_censorly_game(), at_number):
+        raise CensorlySupportError(f'Нельзя вставлять в уже вышедший день №{at_number}')
+    pool_title = None
     if title_or_url:
-        article = fetch_article(title_or_url)
-        link = _create_numbered_slot(number=at_number, article=article)
+        try:
+            article = fetch_article(title_or_url)
+        except WikiFetchError as exc:
+            raise CensorlySupportError(str(exc)) from exc
     else:
-        # Use pool; skip redirects to already-used articles.
-        from games.censorly.article_pool import load_article_pool
-        import random
-        used = used_censorly_titles()
-        pool = [t for t in load_article_pool() if t not in used]
-        if not pool:
-            raise CensorlySupportError('Пул статей исчерпан')
-        random.shuffle(pool)
-        article = None
-        pool_title = None
-        errors = []
-        for title in pool[:12]:
-            try:
-                candidate = fetch_article(title)
-            except WikiFetchError as exc:
-                errors.append(str(exc))
-                continue
-            if candidate.title in used:
-                used.add(title)
-                continue
-            article = candidate
-            pool_title = title
-            break
-        if article is None:
-            raise CensorlySupportError('Не удалось загрузить статью: ' + '; '.join(errors[:2]))
+        article, pool_title = _pick_pool_article(used_censorly_titles())
+
+    with transaction.atomic():
+        game = get_censorly_game()
+        if is_censorly_number_published(game, at_number):
+            raise CensorlySupportError(f'Нельзя вставлять в уже вышедший день №{at_number}')
+        _shift_censorly_schedule_from(at_number, game)
         link = _create_numbered_slot(number=at_number, article=article, pool_title=pool_title)
-    rows = list_schedule_rows()
+        rows = list_schedule_rows()
     return {'link_id': link.pk, 'number': at_number, 'wiki_title': article.title, 'rows': [r.to_dict() for r in rows]}
 
 
-@transaction.atomic
 def generate_more(n: int = 5) -> dict[str, Any]:
     if n < 1 or n > 60:
         raise CensorlySupportError('N должно быть от 1 до 60')
     game = get_censorly_game()
-    max_num = 0
-    for link in GameTaskGroup.objects.filter(game=game):
-        if not link.is_deferred and _is_numeric_number(link.number):
-            max_num = max(max_num, int(link.number))
+    existing_numbers = [
+        int(link.number) for link in GameTaskGroup.objects.filter(game=game, is_deferred=False)
+        if _is_numeric_number(link.number)
+    ]
+    initial_max = max(existing_numbers, default=0)
+    for number in range(initial_max + 1, initial_max + n + 1):
+        if is_censorly_number_published(game, number):
+            raise CensorlySupportError(f'Нельзя добавлять статью в уже вышедший день №{number}')
+
+    used = used_censorly_titles()
+    articles = [_pick_pool_article(used) for _ in range(n)]
     created = []
-    for i in range(n):
-        detail = create_at_number(max_num + 1 + i, title_or_url=None)
-        created.append({'number': detail['number'], 'wiki_title': detail['wiki_title']})
+    with transaction.atomic():
+        game = get_censorly_game()
+        max_num = max((
+            int(link.number) for link in GameTaskGroup.objects.filter(game=game, is_deferred=False)
+            if _is_numeric_number(link.number)
+        ), default=0)
+        for offset, (article, pool_title) in enumerate(articles, start=1):
+            number = max_num + offset
+            if is_censorly_number_published(game, number):
+                raise CensorlySupportError(f'Нельзя добавлять статью в уже вышедший день №{number}')
+            _create_numbered_slot(number=number, article=article, pool_title=pool_title)
+            created.append({'number': number, 'wiki_title': article.title})
     return {
         'created_count': len(created),
         'created': created,

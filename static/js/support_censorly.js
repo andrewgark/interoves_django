@@ -17,9 +17,73 @@
   var scheduleUi = window.SupportScheduleTabs;
   var scheduleBusy = false;
   var endpoint = function (name) { return config.getAttribute('data-' + name + '-url'); };
+  var suggestUrl = endpoint('suggest');
   var createModal = document.getElementById('cz-create-modal');
   var createTitle = document.getElementById('cz-end-title');
   var createError = document.getElementById('cz-end-error');
+
+  function attachTitleSuggestions(input, listbox) {
+    var timer = null;
+    var controller = null;
+    var activeIndex = -1;
+    function close() {
+      listbox.hidden = true;
+      listbox.innerHTML = '';
+      input.setAttribute('aria-expanded', 'false');
+      activeIndex = -1;
+    }
+    function select(title) {
+      input.value = title;
+      close();
+      input.focus();
+    }
+    function show(titles) {
+      if (!titles.length) { close(); return; }
+      listbox.innerHTML = titles.map(function (title, index) {
+        return '<button type="button" role="option" aria-selected="false" class="support-ladder-item support-censorly-suggestion" data-title-index="' + index + '">' + esc(title) + '</button>';
+      }).join('');
+      listbox.hidden = false;
+      input.setAttribute('aria-expanded', 'true');
+    }
+    function activate(index) {
+      var options = listbox.querySelectorAll('[role="option"]');
+      if (!options.length) return;
+      activeIndex = (index + options.length) % options.length;
+      options.forEach(function (option, i) { option.setAttribute('aria-selected', i === activeIndex ? 'true' : 'false'); });
+      options[activeIndex].scrollIntoView({block: 'nearest'});
+    }
+    input.addEventListener('input', function () {
+      var query = input.value.trim();
+      clearTimeout(timer);
+      if (controller) controller.abort();
+      if (query.length < 2) { close(); return; }
+      timer = setTimeout(function () {
+        controller = new AbortController();
+        var url = new URL(suggestUrl, window.location.href);
+        url.searchParams.set('q', query);
+        get(url.toString(), {signal: controller.signal}).then(function (data) {
+          if (input.value.trim() === query) show(data.titles || []);
+        }).catch(function () { if (input.value.trim() === query) close(); });
+      }, 250);
+    });
+    input.addEventListener('keydown', function (event) {
+      var count = listbox.querySelectorAll('[role="option"]').length;
+      if (event.key === 'ArrowDown' && !listbox.hidden) { event.preventDefault(); activate(activeIndex + 1); }
+      else if (event.key === 'ArrowUp' && !listbox.hidden) { event.preventDefault(); activate(activeIndex <= 0 ? count - 1 : activeIndex - 1); }
+      else if (event.key === 'Enter' && activeIndex >= 0 && !listbox.hidden) {
+        event.preventDefault();
+        var option = listbox.querySelectorAll('[role="option"]')[activeIndex];
+        if (option) select(option.textContent);
+      } else if (event.key === 'Escape' && !listbox.hidden) { event.stopPropagation(); close(); }
+    });
+    listbox.addEventListener('click', function (event) {
+      var option = event.target.closest('[role="option"]');
+      if (option) select(option.textContent);
+    });
+    document.addEventListener('click', function (event) {
+      if (event.target !== input && !listbox.contains(event.target)) close();
+    });
+  }
 
   function closeCreateModal() {
     createModal.classList.remove('is-open');
@@ -52,8 +116,10 @@
       });
     });
   }
-  function get(url) {
-    return fetch(url, {credentials: 'same-origin'}).then(function (response) {
+  function get(url, options) {
+    options = options || {};
+    options.credentials = 'same-origin';
+    return fetch(url, options).then(function (response) {
       return response.json().then(function (data) {
         if (!response.ok || data.ok === false) throw new Error(data.error || 'Ошибка');
         return data;
@@ -127,6 +193,8 @@
   }
 
   renderSchedule(schedule);
+  attachTitleSuggestions(document.getElementById('cz-slot-title'), document.getElementById('cz-slot-suggestions'));
+  attachTitleSuggestions(createTitle, document.getElementById('cz-end-suggestions'));
   document.querySelectorAll('#cz-tabs [data-tab]').forEach(function (tab) {
     tab.addEventListener('click', function () {
       currentTab = tab.getAttribute('data-tab');
@@ -160,7 +228,14 @@
     });
   });
   document.getElementById('cz-save-start').onclick = function () { run(function () { return post(endpoint('publish'), {publish_start: document.getElementById('cz-publish-start').value}).then(function () { location.reload(); }); }); };
-  document.getElementById('cz-create').onclick = function () { run(function () { return post(endpoint('create'), {at_number: document.getElementById('cz-at-number').value, title: document.getElementById('cz-slot-title').value}).then(function () { location.reload(); }); }); };
+  document.getElementById('cz-create').onclick = function () {
+    var title = document.getElementById('cz-slot-title').value.trim();
+    var error = document.getElementById('cz-create-error');
+    error.hidden = Boolean(title);
+    error.textContent = title ? '' : 'Выберите или укажите статью. Для случайных статей используйте «Нагенерить». ';
+    if (!title) return;
+    run(function () { return post(endpoint('create'), {at_number: document.getElementById('cz-at-number').value, title: title}).then(function () { location.reload(); }); });
+  };
   document.getElementById('cz-end-create').onclick = function () {
     var title = createTitle.value.trim();
     if (!title) {
