@@ -102,6 +102,7 @@ from games.section_hub import (
     ONBOARDING_GAME_IDS,
     ONBOARDING_GAME_META,
     SECTION_HUB_META,
+    create_game_link_context,
     get_desyatochki_hub_context,
     get_scheduled_section_hub_card,
     get_source_desyatka_context,
@@ -2075,16 +2076,7 @@ def _render_section_game_page(request, game_id):
         'ladder_today_number': today_number if game_id == LADDER_GAME_ID else None,
         'section_today_play_url': section_today_play_url,
         'section_today_cta_label': section_today_cta_label,
-        'alphabetty_create_url': (
-            '/create_alphabetty/'
-            if game_id == ALPHABETTY_GAME_ID
-            else None
-        ),
-        'salad_create_url': (
-            '/create_salad/'
-            if game_id == WORD_SALAD_GAME_ID
-            else None
-        ),
+        'section_create_link': create_game_link_context(game_id),
         'back_url': '/',
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'team': team_for_access,

@@ -119,18 +119,9 @@
           <a class="new-btn" href="{{ section_today_play_url }}">{{ section_today_cta_label }}</a>
         </p>
       {% endif %}
-      {% if is_ladder_section %}
+      {% if section_create_link.create_url %}
         <p class="new-stack-gap">
-          {% url 'new_create_ladder' as ladder_create_url %}
-          {% include "new/partials/create_game_link.html" with create_url=ladder_create_url create_label="Создать свою лесенку" %}
-        </p>
-      {% elif is_alphabetty_section and alphabetty_create_url %}
-        <p class="new-stack-gap">
-          {% include "new/partials/create_game_link.html" with create_url=alphabetty_create_url create_label="Создать свою алфавитку" %}
-        </p>
-      {% elif is_salad_section and salad_create_url %}
-        <p class="new-stack-gap">
-          {% include "new/partials/create_game_link.html" with create_url=salad_create_url create_label="Создать свой салатик" %}
+          {% include "new/partials/create_game_link.html" with create_url=section_create_link.create_url create_label=section_create_link.create_label %}
         </p>
       {% endif %}
 

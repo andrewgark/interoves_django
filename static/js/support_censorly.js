@@ -56,7 +56,7 @@
       if (!titles.length) { close(); return; }
       activeIndex = -1;
       listbox.innerHTML = titles.map(function (title, index) {
-        return '<button type="button" id="' + listbox.id + '-option-' + index + '" role="option" tabindex="-1" aria-selected="false" class="support-ladder-item support-censorly-suggestion" data-title-index="' + index + '">' + esc(title) + '</button>';
+        return '<button type="button" id="' + listbox.id + '-option-' + index + '" role="option" tabindex="-1" aria-selected="false" class="support-autocomplete-option" data-title-index="' + index + '">' + esc(title) + '</button>';
       }).join('');
       listbox.hidden = false;
       listbox.removeAttribute('aria-busy');

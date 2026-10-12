@@ -31,10 +31,9 @@
   </div>
 {% endif %}
 
-<p class="new-stack-gap">
-  {% url 'new_create_alphabetty' as alphabetty_create_url %}
-  {% include "new/partials/create_game_link.html" with create_url=alphabetty_create_url create_label="Создать свою алфавитку" %}
-</p>
+{% if create_link.create_url %}<p class="new-stack-gap">
+  {% include "new/partials/create_game_link.html" with create_url=create_link.create_url create_label=create_link.create_label %}
+</p>{% endif %}
 
 {% if rows %}
   {% include "new/partials/daily_archive_calendar.html" %}

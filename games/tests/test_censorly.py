@@ -728,6 +728,20 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('rot h = (1)/(c)', trimmed)
         self.assertIn('ρ v соответствует плотности тока', trimmed)
 
+    def test_math_cleanup_keeps_short_ascii_prose_before_formula(self):
+        from games.censorly.wiki import _strip_indented_math_lines
+
+        text = (
+            'NASA studies planetary systems.\n'
+            'A simple relation is x = y.\n'
+            '{\\displaystyle x = y}\n'
+        )
+
+        cleaned = _strip_indented_math_lines(text)
+
+        self.assertIn('NASA studies planetary systems.', cleaned)
+        self.assertIn('A simple relation is x = y.', cleaned)
+
     def test_latex_fraction_integral_and_relation_are_readable_tokens(self):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import clean_wiki_extract

@@ -6,6 +6,7 @@ import re
 from datetime import timedelta
 from zoneinfo import ZoneInfo
 
+from django.urls import reverse
 from django.utils import timezone
 
 from games.daily.catalog.alphabetty import (
@@ -95,6 +96,8 @@ SECTION_HUB_META = {
         'format_credit_url': 'https://raddle.quest',
         'format_credit_name': 'raddle.quest',
         'format_credit_text': 'лесенок',
+        'create_url_name': 'new_create_ladder',
+        'create_label': 'Создать свою лесенку',
     },
     WORD_SALAD_GAME_ID: {
         'icon': '🥗',
@@ -111,6 +114,8 @@ SECTION_HUB_META = {
         'format_credit_url': 'https://wordsalad.online',
         'format_credit_name': 'wordsalad.online',
         'format_credit_text': 'салатиков',
+        'create_url_name': 'new_create_salad',
+        'create_label': 'Создать свой салатик',
     },
     'alphabetty': {
         'icon': '🔤',
@@ -125,6 +130,8 @@ SECTION_HUB_META = {
         'format_credit_url': 'https://alphaguess.com',
         'format_credit_name': 'alphaguess.com',
         'format_credit_text': 'алфавиток',
+        'create_url_name': 'new_create_alphabetty',
+        'create_label': 'Создать свою алфавитку',
     },
     'censorly': {
         'icon': '🖍️',
@@ -139,6 +146,8 @@ SECTION_HUB_META = {
         'format_credit_url': 'https://redactle.net',
         'format_credit_name': 'redactle.net',
         'format_credit_text': 'цензурок',
+        'create_url_name': 'new_create_censorly',
+        'create_label': 'Создать свою Цензурку',
     },
     'replacements': {
         'icon': '🔄',
@@ -177,6 +186,16 @@ SECTION_HUB_META = {
         'soon_emphasis': True,
     },
 }
+
+
+def create_game_link_context(game_id):
+    """Return the shared create-link data for games that accept submissions."""
+    meta = SECTION_HUB_META.get(game_id) or {}
+    route_name = meta.get('create_url_name')
+    label = meta.get('create_label')
+    if not route_name or not label:
+        return {'create_url': None, 'create_label': ''}
+    return {'create_url': reverse(route_name), 'create_label': label}
 
 DESYATOCHKI_HUB_META = {
     'icon': '🔟',
@@ -411,6 +430,7 @@ def get_scheduled_section_hub_card(game, *, published_numbers, now=None):
         'play_url': ctx.get(f'{prefix}_play_url'),
         'section_url': ctx.get(f'{prefix}_section_url'),
         'all_link_label': meta['all_link_label'],
+        **create_game_link_context(game_id),
         'status': ctx.get(f'{prefix}_status', 'empty'),
         'today_label': ctx.get(f'{prefix}_today_label'),
         'soon_text': meta.get('soon_text', ''),

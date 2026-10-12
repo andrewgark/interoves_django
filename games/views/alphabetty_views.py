@@ -62,7 +62,11 @@ from games.models import (
 )
 from games.club_access import has_club_access
 from games.middleware.request_timing import timing_phase
-from games.section_hub import onboarding_followup_context, section_format_credit_context
+from games.section_hub import (
+    create_game_link_context,
+    onboarding_followup_context,
+    section_format_credit_context,
+)
 from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.task_titles import task_display_name, task_group_page_title
 from games.views.daily_timing_views import daily_timing_page_context
@@ -340,6 +344,7 @@ def alphabetty_hub_page(request):
         'rows': rows,
         'hub': hub,
         'page_title': 'Алфавитка',
+        'create_link': create_game_link_context(ALPHABETTY_GAME_ID),
         'show_sections_nav': True,
         'back_url': '/',
         'section_results_url': section_results_path(ALPHABETTY_GAME_ID),

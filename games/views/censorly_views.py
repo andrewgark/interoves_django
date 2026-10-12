@@ -60,7 +60,11 @@ from games.gameplay_context import (
 )
 from games.middleware.request_timing import timing_phase
 from games.models import Attempt, BugReport, ChainTaskState, Game, GameTaskGroup, Like, RandomCensorlyGame, Task
-from games.section_hub import onboarding_followup_context, section_format_credit_context
+from games.section_hub import (
+    create_game_link_context,
+    onboarding_followup_context,
+    section_format_credit_context,
+)
 from games.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.support.access import user_has_support_access
@@ -444,6 +448,7 @@ def censorly_hub_page(request):
     )
     return render(request, 'new/censorly_hub.html', {
         'page_title': 'Цензурки',
+        'create_link': create_game_link_context(CENSORLY_GAME_ID),
         'game': game,
         'rows': rows,
         'random_rows': random_rows,
