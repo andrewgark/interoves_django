@@ -319,7 +319,7 @@ class WeekTaskSupportTests(TestCase):
         buf2 = ensure_future_buffer(3, now=now)
         self.assertEqual(buf2['added'], 0)
 
-    def test_deferred_slot_does_not_consume_technical_number_for_generation(self):
+    def test_deferred_slot_uses_separate_queue_number_for_generation(self):
         generate_more(2)
         rows = list_week_task_rows()
         deferred = next(row for row in rows if row.number == 2)
@@ -330,19 +330,19 @@ class WeekTaskSupportTests(TestCase):
         rows = list_week_task_rows()
         self.assertEqual(
             sorted((row.number, row.is_deferred) for row in rows),
-            [(1, False), (2, True), (3, False)],
+            [(1, False), (1, True), (2, False)],
         )
 
-    def test_deferred_detail_uses_public_number(self):
+    def test_deferred_detail_uses_deferred_queue_number(self):
         generate_more(2)
         deferred = next(row for row in list_week_task_rows() if row.number == 2)
         defer_week_task(deferred.link_id)
 
         detail = get_week_task_detail(deferred.link_id)
 
-        self.assertEqual(detail['number'], 2)
+        self.assertEqual(detail['number'], 1)
         self.assertFalse(detail['is_published'])
-        self.assertEqual(detail['play_url'], '/week_task/2/')
+        self.assertEqual(detail['play_url'], '/week_task/1/')
 
     def test_publish_start_must_be_monday(self):
         with self.assertRaises(WeekTaskSupportError):

@@ -366,7 +366,7 @@ def _word_salad_error_response(exc: WordSaladSupportError, status=400):
 
 def _word_salad_body(request):
     if request.content_type == 'application/json':
-        return _json_body(request)
+        return _json_object_body(request)
     return request.POST
 
 
@@ -542,7 +542,7 @@ def word_salad_offer_detail_json(request, offer_id):
 @support_console_required
 @require_POST
 def word_salad_offer_save(request, offer_id):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = WordSaladOffer.objects.filter(pk=offer_id).select_related('task_group').first()
@@ -592,7 +592,9 @@ def word_salad_offer_accept(request, offer_id):
 @support_console_required
 @require_POST
 def word_salad_offer_request_revision(request, offer_id):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = WordSaladOffer.objects.filter(pk=offer_id).first()
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
@@ -628,7 +630,9 @@ def word_salad_offer_reset_progress(request, offer_id):
 @support_console_required
 @require_POST
 def word_salad_link_request_revision(request, link_id):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = word_salad_offer_for_link(int(link_id))
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Нет автора в системе для этого салатика'}, status=404)
@@ -862,7 +866,7 @@ def ladder_offer_detail_json(request, offer_id):
 @support_console_required
 @require_POST
 def ladder_offer_save(request, offer_id):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = LadderOffer.objects.filter(pk=offer_id).select_related('task_group').first()
@@ -914,7 +918,9 @@ def ladder_offer_accept(request, offer_id):
 @support_console_required
 @require_POST
 def ladder_offer_request_revision(request, offer_id):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = LadderOffer.objects.filter(pk=offer_id).first()
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
@@ -932,7 +938,9 @@ def ladder_offer_request_revision(request, offer_id):
 @support_console_required
 @require_POST
 def ladder_link_request_revision(request, link_id):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = offer_for_link(int(link_id))
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Нет автора в системе для этой лесенки'}, status=404)
@@ -1019,7 +1027,7 @@ def ladders_reorder(request):
 @support_console_required
 @require_POST
 def ladders_create(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
@@ -1058,7 +1066,7 @@ def ladders_create(request):
 @support_console_required
 @require_POST
 def ladders_update(request, link_id):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     words = body.get('words')
@@ -1093,7 +1101,7 @@ def ladders_update(request, link_id):
 @support_console_required
 @require_POST
 def ladders_set_publish_start(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     date_iso = body.get('publish_start') or body.get('date')
@@ -1169,7 +1177,7 @@ def alphabetty_offer_detail_json(request, offer_id):
 @support_console_required
 @require_POST
 def alphabetty_offer_save(request, offer_id):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = AlphabettyOffer.objects.filter(pk=offer_id).select_related('task_group').first()
@@ -1213,7 +1221,9 @@ def alphabetty_offer_accept(request, offer_id):
 @support_console_required
 @require_POST
 def alphabetty_offer_request_revision(request, offer_id):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = AlphabettyOffer.objects.filter(pk=offer_id).first()
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
@@ -1247,7 +1257,9 @@ def alphabetty_offer_reset_progress(request, offer_id):
 @support_console_required
 @require_POST
 def alphabetty_link_request_revision(request, link_id):
-    body = _json_body(request) or {}
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     offer = alphabetty_offer_for_link(int(link_id))
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Нет автора в системе для этой алфавитки'}, status=404)
@@ -1293,7 +1305,7 @@ def alphabetty_reorder(request):
 @support_console_required
 @require_POST
 def alphabetty_create(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
@@ -1319,7 +1331,7 @@ def alphabetty_create(request):
 @support_console_required
 @require_POST
 def alphabetty_update(request, link_id):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     word = body.get('word')
@@ -1342,7 +1354,7 @@ def alphabetty_update(request, link_id):
 @support_console_required
 @require_POST
 def alphabetty_set_publish_start(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     date_iso = body.get('publish_start') or body.get('date')
@@ -1363,7 +1375,7 @@ def alphabetty_set_publish_start(request):
 @support_console_required
 @require_POST
 def alphabetty_generate(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
@@ -1600,7 +1612,7 @@ def alphabetty_forbid(request, link_id):
 @support_console_required
 @require_POST
 def alphabetty_unban(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     word = body.get('word')
@@ -1679,7 +1691,7 @@ def week_tasks_pool_catalog(request):
 @support_console_required
 @require_POST
 def week_tasks_create(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
@@ -1710,7 +1722,7 @@ def week_tasks_create(request):
 @support_console_required
 @require_POST
 def week_tasks_update(request, link_id):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
@@ -1741,7 +1753,7 @@ def week_tasks_update(request, link_id):
 @support_console_required
 @require_POST
 def week_tasks_set_publish_start(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     date_iso = body.get('publish_start') or body.get('date')
@@ -1762,7 +1774,7 @@ def week_tasks_set_publish_start(request):
 @support_console_required
 @require_POST
 def week_tasks_generate(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
@@ -1810,7 +1822,7 @@ def week_tasks_forbid(request, link_id):
 @support_console_required
 @require_POST
 def week_tasks_unban(request):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:
@@ -1878,9 +1890,10 @@ def social_update(request, post_id):
     image = request.FILES.get('image')
     # JSON body fallback for caption-only edits
     if caption is None and not request.FILES:
-        body = _json_body(request)
-        if body is not None:
-            caption = body.get('caption')
+        body = _json_object_body(request)
+        if body is None:
+            return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+        caption = body.get('caption')
     try:
         post = social_update_post(
             post,
@@ -1895,7 +1908,7 @@ def social_update(request, post_id):
 @support_console_required
 @require_POST
 def social_publish(request, post_id):
-    body = _json_body(request)
+    body = _json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     try:

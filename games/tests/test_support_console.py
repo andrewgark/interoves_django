@@ -90,6 +90,28 @@ class SupportAccessTests(TestCase):
         response = self.client.get(reverse('support:hub'))
         self.assertEqual(response.status_code, 200)
 
+    def test_game_console_json_endpoints_reject_non_object_payloads(self):
+        self.client.force_login(self.staff)
+        endpoints = (
+            ('word_salad_create', {}),
+            ('word_salad_offer_request_revision', {'offer_id': 1}),
+            ('ladders_create', {}),
+            ('ladder_offer_request_revision', {'offer_id': 1}),
+            ('alphabetty_generate', {}),
+            ('alphabetty_unban', {}),
+            ('week_tasks_generate', {}),
+            ('week_tasks_unban', {}),
+            ('social_publish', {'post_id': 1}),
+        )
+        for route_name, kwargs in endpoints:
+            with self.subTest(endpoint=route_name):
+                response = self.client.post(
+                    reverse(f'support:{route_name}', kwargs=kwargs),
+                    data='[]',
+                    content_type='application/json',
+                )
+                self.assertEqual(response.status_code, 400)
+
 
 class SupportSearchTests(TestCase):
     @classmethod
