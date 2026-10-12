@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Callable, TypeVar
 
 from django.db import transaction
@@ -14,6 +14,21 @@ RowT = TypeVar('RowT')
 
 class ScheduleLinkError(Exception):
     """Ошибка удаления/перенумерации слота."""
+
+
+def save_publish_start_date(game, tag_key, date_iso, *, error_cls, require_monday=False):
+    """Persist a schedule's first publication date at Moscow midnight."""
+    try:
+        publish_date = date.fromisoformat(str(date_iso).strip()[:10])
+    except ValueError as exc:
+        raise error_cls('Некорректная дата publish_start') from exc
+    if require_monday and publish_date.weekday() != 0:
+        raise error_cls('Дата №1 должна быть понедельником')
+    tags = dict(game.tags or {})
+    tags[tag_key] = '{}T00:00:00+03:00'.format(publish_date.isoformat())
+    game.tags = tags
+    game.save(update_fields=['tags'])
+    return publish_date.isoformat()
 
 
 def _renumber_deferred_links(game: Game) -> list[GameTaskGroup]:

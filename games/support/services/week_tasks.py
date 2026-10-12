@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any, Optional
 
 from django.db import transaction
@@ -22,6 +22,7 @@ from games.support.services.schedule_links import (
     effective_schedule_number,
     renumber_links,
     restore_deferred_slot,
+    save_publish_start_date,
     shift_links,
 )
 from games.week_task_pool import (
@@ -198,18 +199,10 @@ def get_publish_start_iso() -> Optional[str]:
 
 @transaction.atomic
 def set_publish_start(date_iso: str) -> str:
-    try:
-        d = date.fromisoformat(str(date_iso).strip()[:10])
-    except ValueError as exc:
-        raise WeekTaskSupportError('Некорректная дата publish_start') from exc
-    if d.weekday() != 0:
-        raise WeekTaskSupportError('Дата №1 должна быть понедельником')
-    game = get_week_task_game()
-    tags = dict(game.tags or {})
-    tags[WEEK_TASK_PUBLISH_START_TAG] = f'{d.isoformat()}T00:00:00+03:00'
-    game.tags = tags
-    game.save(update_fields=['tags'])
-    return d.isoformat()
+    return save_publish_start_date(
+        get_week_task_game(), WEEK_TASK_PUBLISH_START_TAG, date_iso,
+        error_cls=WeekTaskSupportError, require_monday=True,
+    )
 
 
 def last_published_number(*, now: datetime | None = None) -> int:

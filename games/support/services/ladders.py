@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any, Optional
 
 from django.db import transaction
@@ -40,6 +40,7 @@ from games.support.services.schedule_links import (
     shift_links,
     defer_future_slot,
     restore_deferred_slot,
+    save_publish_start_date,
 )
 
 AUTHOR_TAG = 'author'
@@ -337,16 +338,10 @@ def get_publish_start_iso() -> Optional[str]:
 @transaction.atomic
 def set_publish_start(date_iso: str) -> str:
     """Установить дату №1 (YYYY-MM-DD, полночь МСК)."""
-    try:
-        d = date.fromisoformat(str(date_iso).strip()[:10])
-    except ValueError as exc:
-        raise LadderSupportError('Некорректная дата publish_start') from exc
-    game = get_ladder_game()
-    tags = dict(game.tags or {})
-    tags[LADDER_PUBLISH_START_TAG] = f'{d.isoformat()}T00:00:00+03:00'
-    game.tags = tags
-    game.save(update_fields=['tags'])
-    return d.isoformat()
+    return save_publish_start_date(
+        get_ladder_game(), LADDER_PUBLISH_START_TAG, date_iso,
+        error_cls=LadderSupportError,
+    )
 
 
 def last_published_number(*, now: datetime | None = None) -> int:

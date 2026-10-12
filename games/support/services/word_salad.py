@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import asdict, dataclass
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from django.db import transaction
@@ -17,6 +17,7 @@ from games.support.services.schedule_links import (
     delete_future_slot,
     effective_schedule_number,
     renumber_links,
+    save_publish_start_date,
 )
 from games.word_salad import (
     WORD_SALAD_GAME_ID,
@@ -346,16 +347,10 @@ def get_publish_start_iso() -> Optional[str]:
 
 @transaction.atomic
 def set_publish_start(date_iso: str) -> str:
-    try:
-        publish_date = date.fromisoformat(str(date_iso).strip()[:10])
-    except ValueError as exc:
-        raise WordSaladSupportError('Некорректная дата publish_start') from exc
-    game = ensure_word_salad_game()
-    tags = dict(game.tags or {})
-    tags[WORD_SALAD_PUBLISH_START_TAG] = f'{publish_date.isoformat()}T00:00:00+03:00'
-    game.tags = tags
-    game.save(update_fields=['tags'])
-    return publish_date.isoformat()
+    return save_publish_start_date(
+        ensure_word_salad_game(), WORD_SALAD_PUBLISH_START_TAG, date_iso,
+        error_cls=WordSaladSupportError,
+    )
 
 
 def last_published_number(*, now: datetime | None = None) -> int:

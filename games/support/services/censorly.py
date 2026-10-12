@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any, Optional
 import copy
 import uuid
@@ -43,6 +43,7 @@ from games.support.services.schedule_links import (
     effective_schedule_number,
     renumber_links,
     restore_deferred_slot,
+    save_publish_start_date,
     shift_links,
 )
 
@@ -367,16 +368,10 @@ def reorder_censorly(ordered_link_ids: list[int], *, now=None) -> list[CensorlyS
 
 
 def set_publish_start(date_iso: str) -> str:
-    try:
-        d = date.fromisoformat(str(date_iso).strip()[:10])
-    except ValueError as exc:
-        raise CensorlySupportError('Некорректная дата publish_start') from exc
-    game = get_censorly_game()
-    tags = dict(game.tags or {})
-    tags[CENSORLY_PUBLISH_START_TAG] = f'{d.isoformat()}T00:00:00+03:00'
-    game.tags = tags
-    game.save(update_fields=['tags'])
-    return d.isoformat()
+    return save_publish_start_date(
+        get_censorly_game(), CENSORLY_PUBLISH_START_TAG, date_iso,
+        error_cls=CensorlySupportError,
+    )
 
 
 def _create_numbered_slot(*, number: int, article: WikiArticle, pool_title: str | None = None) -> GameTaskGroup:
