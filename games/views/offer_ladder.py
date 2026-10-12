@@ -152,7 +152,7 @@ def offer_ladder_reset(request, offer_id):
     # author happened to have selected in this browser tab. Clear both scopes:
     # otherwise switching modes can resurrect the old solution.
     reset_actors = [{'user': offer.user}]
-    team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
+    team = getattr(getattr(offer.user, 'profile', None), 'team_on', None)
     if team is not None:
         reset_actors.append({'team': team})
     try:

@@ -168,7 +168,7 @@ def offer_salad_reset(request, offer_id):
     # Reset both personal and shared solution scopes regardless of the current
     # browser mode, otherwise changing modes can resurrect the old solution.
     reset_actors = [{'user': offer.user}]
-    team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
+    team = getattr(getattr(offer.user, 'profile', None), 'team_on', None)
     if team is not None:
         reset_actors.append({'team': team})
     try:
