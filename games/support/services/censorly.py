@@ -39,6 +39,7 @@ from games.censorly_daily import (
 )
 from games.models import CensorlyOffer, CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
 from games.support.services.schedule_links import (
+    build_schedule_page_context,
     defer_future_slot,
     effective_schedule_number,
     renumber_links,
@@ -217,22 +218,19 @@ def dashboard_context() -> dict[str, Any]:
     game = get_censorly_game()
     start = censorly_publish_start(game)
     schedule = list_schedule_rows()
-    active_schedule = [row for row in schedule if not row.is_deferred]
     return {
         'page_title': 'Цензурки',
-        'schedule_title': 'Цензурки',
-        'schedule_prefix': 'cz',
-        'schedule_list_label': 'Список Цензурок',
+        **build_schedule_page_context(
+            schedule,
+            title='Цензурки',
+            prefix='cz',
+            list_label='Список Цензурок',
+            publish_start=start.date().isoformat() if start else '',
+        ),
         'hub_url': '/censorly/',
-        'publish_start': start.date().isoformat() if start else '',
         'buffer_days': CENSORLY_BUFFER_DAYS,
         'schedule_rows': schedule,
         'schedule_json': [r.to_dict() for r in schedule],
-        'schedule_count': len(active_schedule),
-        'published_count': sum(1 for r in active_schedule if r.is_published),
-        'future_count': sum(1 for r in active_schedule if not r.is_published),
-        'today_number': next((r.number for r in active_schedule if r.is_today), None),
-        'deferred_count': len(schedule) - len(active_schedule),
     }
 
 
