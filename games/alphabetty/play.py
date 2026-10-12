@@ -148,7 +148,7 @@ def build_share_lines(
     title = f'🔤 Алфавитка #{display_number}' if display_number else '🔤 Алфавитка'
     lines = [
         title,
-        f'🤔 {attempts} {ru_attempt_word(attempts)}',
+        f'🔄 {attempts} {ru_attempt_word(attempts)}',
     ]
     hints_line = format_hints_label(hints)
     if hints_line:

@@ -191,7 +191,7 @@ class AlphabettyCoreTests(TestCase):
         self.assertEqual(ru_attempt_word(5), 'попыток')
         lines = build_share_lines(number=1, attempts=5, elapsed_seconds=5564, host='interoves.com')
         self.assertEqual(lines[0], '🔤 Алфавитка #1')
-        self.assertEqual(lines[1], '🤔 5 попыток')
+        self.assertEqual(lines[1], '🔄 5 попыток')
         self.assertEqual(lines[2], '⏱️ 1ч 32м 44с')
         self.assertEqual(lines[3], '🔗 interoves.com/alphabetty/1')
         lines_hints = build_share_lines(
