@@ -111,7 +111,9 @@ def _load_daily_target(request, game_id, number, project_id=None):
 
     if not user_can_access_scheduled_number(request.user, game, raw_number):
         return None, None, None, None, None, _json_error('club_required', 403)
-    link = GameTaskGroup.objects.filter(game=game, number=raw_number).select_related('task_group').first()
+    link = GameTaskGroup.objects.filter(
+        game=game, number=raw_number, is_deferred=False,
+    ).select_related('task_group').first()
     if link is None:
         return None, None, None, None, None, _json_error('missing', 404)
     team, user, anon_key = _resolve_actor(request, game)

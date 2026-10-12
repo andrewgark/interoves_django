@@ -12,6 +12,7 @@ def resolve_daily_placement(game, number):
     return GameTaskGroup.objects.select_related('task_group').filter(
         game=game,
         number=segment,
+        is_deferred=False,
     ).first()
 
 

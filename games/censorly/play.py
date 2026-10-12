@@ -925,7 +925,7 @@ def get_task_for_number(game: Game, number: int | str):
     from games.models import GameTaskGroup
 
     link = (
-        GameTaskGroup.objects.filter(game=game, number=str(number))
+        GameTaskGroup.objects.filter(game=game, number=str(number), is_deferred=False)
         .select_related('task_group')
         .first()
     )
