@@ -721,13 +721,8 @@
     if (!data) return;
     if (data.reload_required) {
       var feedback = root && root.querySelector('#censorly-feedback');
-      if (feedback) {
-        feedback.hidden = false;
-        feedback.className = 'censorly__feedback is-error';
-        feedback.textContent = 'Состояние игры обновилось. ';
-        var refresh = el('a', '', 'Обновить страницу');
-        refresh.href = window.location.href;
-        feedback.appendChild(refresh);
+      if (window.CensorlyReloadRequired) {
+        window.CensorlyReloadRequired.show(feedback, window.location.href, document);
       }
       return true;
     }
@@ -754,15 +749,16 @@
   function postJson(url, payload, root) {
     var body = Object.assign({}, payload || {});
     var token = contextToken(root);
-    if (token) body.gameplay_context = token;
+    var headers = {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': csrfToken(),
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    if (token) headers['X-Interoves-Gameplay-Context'] = token;
     return fetch(url, {
       method: 'POST',
       credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-CSRFToken': csrfToken(),
-        'X-Requested-With': 'XMLHttpRequest',
-      },
+      headers: headers,
       body: JSON.stringify(body),
     }).then(function (res) {
       return res.text().then(function (text) {

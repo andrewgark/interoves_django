@@ -1354,8 +1354,9 @@ class CensorlyUxDailyTests(TestCase):
 
         guess = self.client.post(
             '/censorly/1/guess/',
-            data=json.dumps({'word': 'собака', 'gameplay_context': unescape(match.group(1))}),
+            data=json.dumps({'word': 'собака'}),
             content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=unescape(match.group(1)),
         )
 
         self.assertEqual(guess.status_code, 200)
