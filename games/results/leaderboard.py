@@ -239,7 +239,11 @@ def canonical_leaderboard_durations(
     for actor in missing:
         key = actor_key(actor)
         if key in fallback_durations:
-            result[actor] = int(fallback_durations[key] or 0)
+            seconds = int(fallback_durations[key] or 0)
+            from games.daily.section import is_daily_timing_game
+            if seconds <= 0 and is_daily_timing_game(getattr(game, 'id', None)):
+                continue
+            result[actor] = seconds
             if fallback_actors is not None:
                 fallback_actors.add(actor)
         else:
@@ -264,7 +268,11 @@ def canonical_leaderboard_durations(
             attempts = attempts_by_key.get(actor_key(actor), [])
             if not attempts:
                 continue
-            result[actor] = elapsed_seconds_from_attempts(attempts)
+            seconds = elapsed_seconds_from_attempts(attempts)
+            from games.daily.section import is_daily_timing_game
+            if seconds <= 0 and is_daily_timing_game(getattr(game, 'id', None)):
+                continue
+            result[actor] = seconds
             if fallback_actors is not None:
                 fallback_actors.add(actor)
     return result

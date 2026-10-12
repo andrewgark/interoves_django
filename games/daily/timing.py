@@ -532,7 +532,12 @@ def canonical_elapsed_seconds(
     if row is None or int(row.timing_version or 0) < TIMING_VERSION_ACTIVE:
         if team is not None:
             return None
-        return elapsed_seconds_from_attempts(attempts)
+        legacy_seconds = elapsed_seconds_from_attempts(attempts)
+        if legacy_seconds <= 0:
+            from games.daily.section import is_daily_timing_game
+            if is_daily_timing_game(getattr(game, 'id', None)):
+                return None
+        return legacy_seconds
     return max(0, int(snapshot(row).get('accumulated_ms') or 0) // 1000)
 
 
@@ -996,11 +1001,15 @@ def merge_timing_rows(target: DailySolveTiming, source: DailySolveTiming) -> Dai
         frozen = keep.frozen_ms
         if frozen is None:
             frozen = keep.accumulated_ms
-        if other.status == STATUS_COMPLETED and other.frozen_ms is not None:
-            # Same person, two completed rows: keep the already frozen value
-            # from the surviving identity, do not sum overlapping sessions.
-            if keep.pk != target.pk:
-                frozen = other.frozen_ms if other.pk == target.pk else frozen
+        if other.status == STATUS_COMPLETED:
+            other_frozen = other.frozen_ms
+            if other_frozen is None:
+                other_frozen = other.accumulated_ms
+            # A zero snapshot can come from a damaged or prematurely frozen
+            # timer. Preserve positive evidence from the duplicate identity,
+            # while never adding the two overlapping records together.
+            if int(frozen or 0) <= 0 < int(other_frozen or 0):
+                frozen = other_frozen
         target.status = STATUS_COMPLETED
         target.frozen_ms = int(frozen or 0)
         target.accumulated_ms = int(frozen or 0)
