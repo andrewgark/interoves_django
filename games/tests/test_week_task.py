@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import User
@@ -338,7 +339,11 @@ class WeekTaskSupportTests(TestCase):
         deferred = next(row for row in list_week_task_rows() if row.number == 2)
         defer_week_task(deferred.link_id)
 
-        detail = get_week_task_detail(deferred.link_id)
+        with patch(
+            'games.support.services.week_tasks.is_week_task_number_published',
+            return_value=True,
+        ):
+            detail = get_week_task_detail(deferred.link_id)
 
         self.assertEqual(detail['number'], 1)
         self.assertFalse(detail['is_published'])

@@ -167,7 +167,10 @@ def get_week_task_detail(link_id: int) -> dict[str, Any]:
     pub = week_task_publish_at(game, number)
     tags = (link.task_group.tags or {}) if link.task_group_id else {}
     src = source_summary_from_tags(tags)
-    is_pub = is_week_task_number_published(game, number)
+    is_pub = (
+        False if link.is_deferred
+        else is_week_task_number_published(game, number)
+    )
     return {
         'link_id': link.pk,
         'task_group_id': link.task_group_id,
