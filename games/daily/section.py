@@ -105,6 +105,7 @@ class DailySchedule:
     def filter_published(self, links, game, now: datetime | None = None):
         now = now or timezone.now()
         if hasattr(links, 'filter'):
+            links = links.filter(is_deferred=False)
             published_pks = [
                 link.pk for link in links
                 if self.is_published(game, link.number, now)
@@ -112,7 +113,11 @@ class DailySchedule:
             if not published_pks:
                 return links.none()
             return links.filter(pk__in=published_pks)
-        return [link for link in links if self.is_published(game, link.number, now)]
+        return [
+            link for link in links
+            if not getattr(link, 'is_deferred', False)
+            and self.is_published(game, link.number, now)
+        ]
 
     def visible_links(self, links, game, *, reverse=False, now: datetime | None = None):
         published = self.filter_published(links, game, now)

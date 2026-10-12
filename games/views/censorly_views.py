@@ -370,6 +370,8 @@ def censorly_hub_page(request):
     # random games use a separate path below and are unaffected.
     schedule_links = []
     for link in GameTaskGroup.objects.filter(game=game).select_related('task_group'):
+        if link.is_deferred:
+            continue
         if not str(link.number).isdigit():
             continue
         if is_censorly_number_published(game, int(link.number)):
