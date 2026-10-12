@@ -104,6 +104,9 @@ def offer_ladder_detail(request, offer_id):
     emojis = body.get('emojis')
     if emojis is not None and not isinstance(emojis, list):
         return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
+    mixed_script = body.get('mixed_script', False)
+    if not isinstance(mixed_script, bool):
+        return JsonResponse({'ok': False, 'error': 'mixed_script должен быть boolean'}, status=400)
     try:
         offer = update_offer_content(
             offer,
@@ -113,7 +116,7 @@ def offer_ladder_detail(request, offer_id):
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or profile_display_name(request.user.profile)),
             comment=str(body.get('comment') or ''),
-            mixed_script=bool(body.get('mixed_script')),
+            mixed_script=mixed_script,
             reset_actor_user=request.user,
         )
     except LadderOfferError as exc:
