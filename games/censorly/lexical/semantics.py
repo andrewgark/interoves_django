@@ -20,6 +20,8 @@ from games.censorly.lexical.proper_names import PAIR_RELATIONS
 from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
 
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL', 'INTJ'})
+# Dictionary homographs that should not be treated as initially open service words.
+_NEVER_INITIAL_OPEN = frozenset({'ла'})
 _PRONOUN_ADJECTIVE_LEMMAS = frozenset({
     'этот', 'тот', 'такой', 'таков', 'таковой', 'столько', 'сколько',
     'несколько', 'какой', 'какой-нибудь', 'какой-либо', 'который',
@@ -178,6 +180,8 @@ def initially_open(surface: str) -> bool:
     of lemmas because pymorphy tags them as ADJF/NUMR. A competing reading
     within 15% of the pronoun reading keeps the token closed.
     """
+    if fold(surface) in _NEVER_INITIAL_OPEN:
+        return False
     found = readings_of(surface)
     if not found:
         return False
