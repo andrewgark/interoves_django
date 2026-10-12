@@ -21,6 +21,7 @@
   var createModal = document.getElementById('cz-create-modal');
   var createTitle = document.getElementById('cz-end-title');
   var createError = document.getElementById('cz-end-error');
+  var createAtNumber = null;
 
   function attachTitleSuggestions(input, listbox) {
     var timer = null;
@@ -118,10 +119,14 @@
     createModal.hidden = true;
     document.body.classList.remove('new-modal-open');
   }
-  function openCreateModal() {
+  function openCreateModal(atNumber) {
     createError.hidden = true;
     createError.textContent = '';
     createTitle.value = '';
+    createAtNumber = atNumber;
+    document.getElementById('cz-create-title').textContent = atNumber > schedule.filter(function (row) { return !row.is_deferred; }).length
+      ? 'Добавить статью в конец расписания'
+      : 'Добавить статью перед выпуском №' + atNumber;
     createModal.hidden = false;
     createModal.classList.add('is-open');
     document.body.classList.add('new-modal-open');
@@ -169,11 +174,16 @@
   function renderSchedule(rows) {
     var visible = scheduleUi.rowsForTab(rows, currentTab);
     list.innerHTML = visible.length ? visible.map(function (row) {
+      var insertBefore = currentTab !== 'published' && currentTab !== 'deferred' &&
+        !row.is_published && !row.is_deferred
+        ? '<div class="support-ladder-insert"><button type="button" class="support-ladder-insert__btn" data-insert-at="' +
+          row.number + '" title="Вставить перед №' + row.number + '" aria-label="Добавить статью перед выпуском №' + row.number + '">+</button></div>'
+        : '';
       var move = row.is_deferred
         ? '<button class="new-btn new-btn--mini new-btn--ghost" data-defer-action="restore" data-link-id="' + row.link_id + '">Вернуть</button>'
         : '<button class="new-btn new-btn--mini new-btn--ghost" data-defer-action="defer" data-link-id="' + row.link_id + '">Отложить</button>';
       var status = row.is_deferred ? 'отложено' : row.is_published ? 'опубликован' : 'черновик';
-      return '<div class="support-ladder-item support-schedule-item' + (row.is_published ? ' is-published' : ' is-future') + '" data-link-id="' + row.link_id + '" data-published="' + (row.is_published ? '1' : '0') + '" draggable="' + (!row.is_published && !row.is_deferred) + '">' +
+      return insertBefore + '<div class="support-ladder-item support-schedule-item' + (row.is_published ? ' is-published' : ' is-future') + '" data-link-id="' + row.link_id + '" data-published="' + (row.is_published ? '1' : '0') + '" draggable="' + (!row.is_published && !row.is_deferred) + '">' +
         '<button type="button" class="support-ladder-item__handle support-schedule-handle" ' + (row.is_published || row.is_deferred ? 'disabled ' : '') + 'aria-label="Перетащить выпуск №' + row.number + '" title="Перетащить; стрелки вверх/вниз меняют порядок">⠿</button>' +
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body"><div class="support-ladder-item__title">' + esc(row.wiki_title || row.name) + '</div>' +
@@ -282,7 +292,7 @@
     }
     run(function () {
       return post(endpoint('create'), {
-        at_number: schedule.filter(function (row) { return !row.is_deferred; }).length + 1,
+        at_number: createAtNumber,
         title: title,
       }).then(function () { location.reload(); });
     });
@@ -303,7 +313,12 @@
   document.addEventListener('click', function (event) {
     var insertEnd = event.target.closest('[data-insert-end]');
     if (insertEnd) {
-      openCreateModal();
+      openCreateModal(schedule.filter(function (row) { return !row.is_deferred; }).length + 1);
+      return;
+    }
+    var insertAt = event.target.closest('[data-insert-at]');
+    if (insertAt) {
+      openCreateModal(parseInt(insertAt.getAttribute('data-insert-at'), 10));
       return;
     }
     if (event.target.closest('[data-cz-create-close]')) closeCreateModal();
