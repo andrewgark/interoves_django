@@ -32,7 +32,10 @@ def parse_publish_start(raw) -> datetime | None:
             return None
         if 'T' not in s and len(s) == 10:
             s = s + 'T00:00:00+03:00'
-        dt = datetime.fromisoformat(s)
+        try:
+            dt = datetime.fromisoformat(s)
+        except (TypeError, ValueError):
+            return None
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, MOSCOW)
     return dt.astimezone(MOSCOW)
