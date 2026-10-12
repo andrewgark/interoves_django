@@ -11,6 +11,41 @@ from games.daily.board import (
 
 
 class DailyBoardBuilderTests(TestCase):
+    def test_salad_adapter_returns_none_for_non_object_json_payload(self):
+        adapter = get_daily_board_adapter('word_salad')
+        result = adapter.prepare(
+            game=SimpleNamespace(id='salad'),
+            task=SimpleNamespace(checker_data='[]', answer='WORD'),
+            placement=None,
+            attempts_info=None,
+            team=None,
+            user=None,
+            anon_key='',
+            mode='general',
+            replay_slot=None,
+            resolve_chain_state=lambda *args, **kwargs: None,
+        )
+
+        self.assertIsNone(result)
+
+    @patch('games.daily.board.parse_word_salad_task_payload', side_effect=RuntimeError('bug'))
+    def test_salad_adapter_does_not_hide_unexpected_parser_errors(self, parse_task):
+        adapter = get_daily_board_adapter('word_salad')
+        with self.assertRaisesRegex(RuntimeError, 'bug'):
+            adapter.prepare(
+                game=SimpleNamespace(id='salad'),
+                task=SimpleNamespace(checker_data='{}', answer='WORD'),
+                placement=None,
+                attempts_info=None,
+                team=None,
+                user=None,
+                anon_key='',
+                mode='general',
+                replay_slot=None,
+                resolve_chain_state=lambda *args, **kwargs: None,
+            )
+        parse_task.assert_called_once_with('{}', 'WORD')
+
     def test_known_task_types_have_one_dispatch_entry(self):
         self.assertIs(
             get_daily_board_adapter('other', game_id='salad'),

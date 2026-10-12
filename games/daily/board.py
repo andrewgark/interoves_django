@@ -135,7 +135,7 @@ def prepare_word_salad_board_data(
             task.checker_data,
             task.answer,
         )
-    except Exception:
+    except (TypeError, ValueError):
         return None
     state = latest_daily_state(
         task,

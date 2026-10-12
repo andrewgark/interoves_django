@@ -566,6 +566,8 @@ def parse_task_payload(checker_data, answer):
         data = json.loads(checker_data or '{}')
     except (TypeError, ValueError):
         raise ValueError('checker_data должен быть JSON с полями grid и words.')
+    if not isinstance(data, dict):
+        raise ValueError('checker_data должен быть JSON-объектом с полями grid и words.')
     grid = parse_grid(data.get('grid'))
     words_raw = data.get('words') if data.get('words') is not None else answer
     words = parse_words(words_raw)
