@@ -8,6 +8,7 @@ from django.utils import timezone
 from games.ladder_daily import LADDER_PUBLISH_START_TAG
 from games.section_hub import (
     HUB_FROM_DESYATOCHKI_SECTION_IDS,
+    create_game_link_context,
     daily_nav_items,
     get_desyatochki_hub_context,
     get_ladder_section_hub_card,
@@ -155,11 +156,24 @@ class HubSectionCardTemplateTests(SimpleTestCase):
         )
         self.assertNotIn('new-hub-section__streak', empty_html)
 
-    def test_create_link_starts_on_new_line_for_ladder_and_alphabetty(self):
+    def test_daily_create_links_use_shared_metadata_and_template(self):
         for section_id, create_url in (
-            ('ladder', '/offer_ladder/'),
+            ('ladder', '/create_ladder/'),
+            ('salad', '/create_salad/'),
+            ('alphabetty', '/create_alphabetty/'),
+            ('censorly', '/create_censorly/'),
+        ):
+            with self.subTest(section_id=section_id):
+                create_link = create_game_link_context(section_id)
+                self.assertEqual(create_link['create_url'], create_url)
+                self.assertTrue(create_link['create_label'])
+
+    def test_create_link_starts_on_new_line_for_daily_games(self):
+        for section_id, create_url in (
+            ('ladder', '/create_ladder/'),
             ('alphabetty', '/create_alphabetty/'),
             ('salad', '/create_salad/'),
+            ('censorly', '/create_censorly/'),
         ):
             with self.subTest(section_id=section_id):
                 card = {
@@ -167,6 +181,7 @@ class HubSectionCardTemplateTests(SimpleTestCase):
                     'id': section_id,
                     'section_url': f'/{section_id}/',
                     'all_link_label': 'Все →',
+                    **create_game_link_context(section_id),
                 }
                 html = render_to_string(
                     'new/partials/hub_section_card.html',
