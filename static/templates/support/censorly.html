@@ -10,6 +10,8 @@
   <a href="{{ hub_url }}">Открыть список на сайте →</a>
 {% endblock %}
 
+{% block schedule_links %}<p><a class="new-btn new-btn--mini new-btn--ghost" href="{% url 'support:censorly_pool' %}">Управлять пулом</a></p>{% endblock %}
+
 {% block schedule_toolbar_extra %}
   <label class="support-ladders-field"><span>Номер слота</span><input type="number" id="cz-at-number" min="1" value="{{ schedule_count|add:1 }}"></label>
   <div class="support-ladders-field support-censorly-autocomplete">
@@ -38,7 +40,9 @@
      data-from-title-url="{% url 'support:censorly_from_title' %}"
      data-suggest-url="{% url 'ui_create_censorly_suggest' %}"
      data-reset-url="{% url 'support:censorly_reset_progress' %}"
-     data-refetch-url="{% url 'support:censorly_refetch_text' %}"></div>
+     data-refetch-url="{% url 'support:censorly_refetch_text' %}"
+     data-schedule-delete-url="{% url 'support:censorly_schedule_delete' 0 %}"
+     data-schedule-edit-url="{% url 'support:censorly_schedule_edit' 0 %}"></div>
 {% endblock %}
 
 {% block schedule_extra_tabs %}

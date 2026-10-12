@@ -173,8 +173,8 @@
     var attr = kind === 'number'
       ? 'data-number="' + esc(value) + '"'
       : 'data-hash="' + esc(value) + '"';
-    return '<button class="new-btn new-btn--mini new-btn--ghost" ' + attr + ' data-action="refetch">Скачать текст заново</button>' +
-      ' <button class="new-btn new-btn--mini new-btn--ghost" ' + attr + ' data-action="reset">Сбросить мой прогресс</button>';
+    return '<button class="new-btn new-btn--mini new-btn--ghost" ' + attr + ' data-action="refetch" title="Скачать текст заново" aria-label="Скачать текст заново">⟳</button>' +
+      ' <button class="new-btn new-btn--mini new-btn--ghost" ' + attr + ' data-action="reset" title="Сбросить мой прогресс" aria-label="Сбросить мой прогресс">↺</button>';
   }
   function renderSchedule(rows) {
     var visible = scheduleUi.rowsForTab(rows, currentTab);
@@ -193,7 +193,8 @@
         '<div class="support-ladder-item__num">№' + row.number + '</div>' +
         '<div class="support-ladder-item__body"><div class="support-ladder-item__title">' + esc(row.wiki_title || row.name) + '</div>' +
         '<div class="support-ladder-item__meta">' + esc(row.publish_date || '—') + ' · ' + status + '</div></div>' +
-        '<div class="support-ladder-item__actions"><a class="new-btn new-btn--mini" href="' + esc(row.play_url) + '" target="_blank" rel="noopener">сайт</a> ' +
+        '<div class="support-ladder-item__actions"><a class="new-btn new-btn--mini" href="' + esc(row.play_url) + '" target="_blank" rel="noopener" title="Открыть на сайте">↗</a> ' +
+        (row.is_published ? '' : '<button class="new-btn new-btn--mini new-btn--ghost" data-schedule-edit="' + row.link_id + '" title="Изменить статью" aria-label="Изменить статью">✎</button> <button class="new-btn new-btn--mini new-btn--ghost" data-schedule-delete="' + row.link_id + '" title="Удалить только из расписания" aria-label="Удалить из расписания">×</button> ') +
         (row.is_published ? '' : '<button class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="top" title="Поставить на завтра" aria-label="Поставить на завтра">↑</button> <button class="new-btn new-btn--mini new-btn--ghost support-schedule-jump" data-schedule-jump="bottom" title="Поставить в конец расписания" aria-label="Поставить в конец расписания">↓</button> ') +
         move + ' ' + actions('number', row.number) + '</div></div>';
     }).join('') : '<p class="support-empty">Расписание пусто.</p>';
@@ -316,6 +317,22 @@
   document.getElementById('cz-random').onclick = function () { run(function () { return post(endpoint('random')).then(function (data) { random.unshift(data.row); renderRandom(random); }); }); };
   document.getElementById('cz-title-form').onsubmit = function (event) { event.preventDefault(); run(function () { return post(endpoint('from-title'), {title: document.getElementById('cz-title').value}).then(function (data) { random.unshift(data.row); renderRandom(random); }); }); };
   document.addEventListener('click', function (event) {
+    var deleteSchedule = event.target.closest('[data-schedule-delete]');
+    if (deleteSchedule) {
+      if (!window.confirm('Убрать выпуск из расписания? Статья останется в пуле.')) return;
+      var deleteUrl = endpoint('schedule-delete').replace('/0/', '/' + deleteSchedule.dataset.scheduleDelete + '/');
+      run(function () { return post(deleteUrl, {}).then(function (data) { schedule = data.rows || []; document.getElementById('cz-meta').textContent = scheduleUi.scheduleMeta(schedule.filter(function (row) { return !row.is_deferred; })); renderSchedule(schedule); }); });
+      return;
+    }
+    var editSchedule = event.target.closest('[data-schedule-edit]');
+    if (editSchedule) {
+      var row = schedule.find(function (item) { return String(item.link_id) === editSchedule.dataset.scheduleEdit; });
+      var title = window.prompt('Новая статья Википедии', row ? row.wiki_title : '');
+      if (!title) return;
+      var editUrl = endpoint('schedule-edit').replace('/0/', '/' + editSchedule.dataset.scheduleEdit + '/');
+      run(function () { return post(editUrl, {title: title}).then(function (data) { schedule = data.rows || []; renderSchedule(schedule); }); });
+      return;
+    }
     var insertEnd = event.target.closest('[data-insert-end]');
     if (insertEnd) {
       openCreateModal(schedule.filter(function (row) { return !row.is_deferred; }).length + 1);

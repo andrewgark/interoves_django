@@ -8,6 +8,11 @@ from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from games.models import Game, Team
+from games.models import CensorlyPoolEntry, GameTaskGroup, Task
+from games.censorly.pool_admin import pool_rows, taxonomy as censorly_pool_taxonomy, save_pool_entry
+from games.censorly import CENSORLY_TAGS_KEY
+from games.censorly.tokenize import build_puzzle_payload
+from games.censorly.wiki import fetch_article
 from games.support.access import support_console_required
 from games.support.queues import dashboard_context as queues_dashboard_context
 from games.models import WordSaladRecheckJob
@@ -1397,6 +1402,103 @@ def alphabetty_generate(request):
 def censorly_dashboard(request):
     ctx = censorly_dashboard_context()
     return render(request, 'support/censorly.html', ctx)
+
+
+@support_console_required
+def censorly_pool(request):
+    return render(request, 'support/censorly_pool.html', {'taxonomy': censorly_pool_taxonomy()})
+
+
+@support_console_required
+@require_GET
+def censorly_pool_list(request):
+    rows = pool_rows()
+    parent = request.GET.get('category', '')
+    child = request.GET.get('subcategory', '')
+    difficulty = request.GET.get('difficulty', '')
+    if parent or child:
+        wanted = parent + ('/' + child if child else '')
+        rows = {title: row for title, row in rows.items() if any(
+            path == wanted or (not child and (path == parent or path.startswith(parent + '/'))) for path in row['topics']
+        )}
+    if difficulty:
+        rows = {title: row for title, row in rows.items() if row['difficulty'] == difficulty}
+    grouped = {level: [] for level in ('легко', 'средне', 'сложно')}
+    for row in rows.values():
+        grouped.setdefault(row['difficulty'] or 'без сложности', []).append(row)
+    return JsonResponse({'ok': True, 'groups': grouped})
+
+
+@support_console_required
+@require_POST
+def censorly_pool_save(request):
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    title = str(body.get('title') or '').strip()
+    replacement = str(body.get('replacement_title') or title).strip()
+    old = pool_rows().get(title)
+    if old is None and not replacement:
+        return JsonResponse({'ok': False, 'error': 'Статья не найдена'}, status=404)
+    topics = body.get('topics', old['topics'] if old else [])
+    types = body.get('types', old['types'] if old else [])
+    difficulty = body.get('difficulty', old['difficulty'] if old else 'средне')
+    try:
+        save_pool_entry(replacement, topics, types, difficulty, bool(body.get('enabled', True)))
+    except (TypeError, ValueError) as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    if title and title != replacement:
+        CensorlyPoolEntry.objects.update_or_create(title=title, defaults={
+            'topics': old['topics'], 'object_types': old['types'], 'difficulty': old['difficulty'], 'enabled': False,
+        })
+    return JsonResponse({'ok': True})
+
+
+@support_console_required
+@require_POST
+def censorly_schedule_delete(request, link_id):
+    link = GameTaskGroup.objects.filter(pk=link_id, game_id='censorly').first()
+    if link is None:
+        return JsonResponse({'ok': False, 'error': 'Слот не найден'}, status=404)
+    from games.censorly_daily import is_censorly_number_published
+    from games.support.services.censorly import _renumber_censorly_links, list_schedule_rows
+    try:
+        number = int(link.number)
+    except ValueError:
+        number = 0
+    if is_censorly_number_published(link.game, number):
+        return JsonResponse({'ok': False, 'error': 'Опубликованный выпуск удалить нельзя'}, status=400)
+    link.delete()  # Сохраняем статью и задачу; удаляется только место в расписании.
+    rows = list(GameTaskGroup.objects.filter(game_id='censorly', is_deferred=False).select_related('task_group').order_by('number'))
+    _renumber_censorly_links(rows)
+    return JsonResponse({'ok': True, 'rows': [r.to_dict() for r in list_schedule_rows()]})
+
+
+@support_console_required
+@require_POST
+def censorly_schedule_edit(request, link_id):
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    link = GameTaskGroup.objects.filter(pk=link_id, game_id='censorly').first()
+    if link is None:
+        return JsonResponse({'ok': False, 'error': 'Слот не найден'}, status=404)
+    from games.censorly_daily import is_censorly_number_published
+    from games.support.services.censorly import list_schedule_rows
+    try:
+        number = int(link.number)
+        if is_censorly_number_published(link.game, number):
+            return JsonResponse({'ok': False, 'error': 'Опубликованный выпуск редактировать нельзя'}, status=400)
+        article = fetch_article(str(body.get('title') or '').strip())
+        task = Task.objects.get(task_group_id=link.task_group_id, number='1')
+        payload = build_puzzle_payload(wiki_title=article.title, body_text=article.extract, wiki_pageid=article.pageid, wiki_revid=article.revid)
+        task.answer = article.title
+        tags = dict(task.tags or {}); tags[CENSORLY_TAGS_KEY] = payload; task.tags = tags
+        task.save(update_fields=['answer', 'tags'])
+        link.name = ('Цензурка: ' + article.title)[:100]; link.save(update_fields=['name'])
+    except Exception as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'rows': [r.to_dict() for r in list_schedule_rows()]})
 
 
 @support_console_required

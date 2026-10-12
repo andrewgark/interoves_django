@@ -990,6 +990,16 @@ html.new-ui-dark .support-preview-banner {
   position: relative;
 }
 
+.censorly-pool-columns { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1rem; align-items:start; }
+.censorly-pool-row { display:flex; align-items:center; justify-content:space-between; gap:.6rem; padding:.55rem 0; border-top:1px solid var(--border,#ddd); }
+.censorly-pool-row > div { min-width:0; overflow-wrap:anywhere; }
+.censorly-pool-row small { display:block; color:var(--muted,#777); font-size:.82em; margin-top:.2rem; }
+.censorly-pool-row.is-disabled { opacity:.55; }
+.censorly-filter-group { margin:1rem 0; }
+.censorly-filter-group label { display:inline-flex; align-items:center; gap:.35rem; margin:.25rem .75rem .25rem 0; }
+.censorly-filter-group details > label { display:block; }
+@media (max-width: 800px) { .censorly-pool-columns { grid-template-columns:1fr; } }
+
 .support-censorly-suggestions {
   position: absolute;
   z-index: 120;

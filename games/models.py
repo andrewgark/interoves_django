@@ -1901,12 +1901,15 @@ class AttemptManager(models.Manager):
             attempt_related.append('game')
         if mode != 'general' and game is None:
             attempt_related.append('task')
+        # Results are grouped by task below, so only per-task chronology matters.
+        # Putting task_id first lets the existing (task, actor, time) indexes
+        # provide the requested order without sorting all tasks together.
         attempts_qs = self._filter_by_actor(
             self.filter(task_id__in=task_ids, replay_slot=replay_slot).exclude(skip=True),
             team=team,
             user=user,
             anon_key=anon_key,
-        ).order_by('time', 'pk')
+        ).order_by('task_id', 'time', 'pk')
         if attempt_related:
             attempts_qs = attempts_qs.select_related(*attempt_related)
         if game is not None:
@@ -4953,6 +4956,23 @@ class RandomCensorlyGame(models.Model):
 
     def play_url(self):
         return '/censorly/r/{}/'.format(self.share_hash)
+
+
+class CensorlyPoolEntry(models.Model):
+    """Database overrides and additions for the curated Censorly article pool."""
+
+    title = models.CharField(max_length=255, unique=True)
+    topics = models.JSONField(default=list, blank=True)
+    object_types = models.JSONField(default=list, blank=True)
+    difficulty = models.CharField(max_length=16, blank=True, default='')
+    enabled = models.BooleanField(default=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['title']
+
+    def __str__(self):
+        return self.title
 
 
 class CensorlyOffer(models.Model):

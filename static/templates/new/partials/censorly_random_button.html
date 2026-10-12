@@ -1,12 +1,25 @@
 <p class="new-stack-gap new-alphabetty-random-cta">
   {% if random_censorly_has_access %}
+    {{ censorly_taxonomy|json_script:"censorly-random-taxonomy" }}
     <form method="post" action="{% url 'ui_censorly_random' %}" data-random-censorly-form>
       {% csrf_token %}
-      <button type="submit" class="new-btn new-btn--yellow" data-random-censorly-submit>
+      <input type="hidden" name="filters" value="{}" data-random-censorly-filters>
+      <button type="button" class="new-btn new-btn--yellow" data-random-censorly-open>
         <i class="ph ph-shuffle" aria-hidden="true"></i> Случайная игра
       </button>
       <span class="new-random-game-loading" data-random-censorly-loading hidden role="status" aria-live="polite">Текст статьи скачивается…</span>
     </form>
+    <div class="new-rules-modal" role="dialog" aria-modal="true" aria-labelledby="censorly-filter-title" data-random-censorly-modal hidden>
+      <div class="new-rules-overlay" data-random-censorly-close></div>
+      <div class="new-rules-modal__box pal-card">
+        <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-random-censorly-close>×</button>
+        <h2 id="censorly-filter-title" class="pal-title">Настроить случайную игру</h2>
+        <div class="censorly-filter-group"><h3>Сложность</h3><label><input type="checkbox" value="легко" checked data-filter-difficulty> Простая</label><label><input type="checkbox" value="средне" checked data-filter-difficulty> Средняя</label><label><input type="checkbox" value="сложно" data-filter-difficulty> Сложная</label></div>
+        <div class="censorly-filter-group"><h3>Категории</h3><div data-filter-categories></div></div>
+        <div class="censorly-filter-group"><h3>Тип</h3><div data-filter-types></div></div>
+        <button type="button" class="new-btn new-btn--yellow" data-random-censorly-start>Играть</button>
+      </div>
+    </div>
   {% else %}
     <a class="new-btn new-btn--yellow" href="/subscription/"
        data-tooltip="Доступна только для подписчиков клуба"
@@ -19,13 +32,45 @@
 (function () {
   var form = document.querySelector('[data-random-censorly-form]');
   if (!form) return;
-  var button = form.querySelector('[data-random-censorly-submit]');
+  var button = form.querySelector('[data-random-censorly-open]');
   var loading = form.querySelector('[data-random-censorly-loading]');
-  form.addEventListener('submit', function () {
+  var modal = document.querySelector('[data-random-censorly-modal]');
+  var filtersInput = form.querySelector('[data-random-censorly-filters]');
+  var taxonomy = JSON.parse(document.getElementById('censorly-random-taxonomy').textContent || '{}') || {};
+  var saved = {};
+  try { saved = JSON.parse(localStorage.getItem('censorly-random-filters') || '{}'); } catch (_) {}
+  var categoryRoot = modal.querySelector('[data-filter-categories]');
+  Object.keys(taxonomy.categories || {}).forEach(function (parent) {
+    var children = taxonomy.categories[parent] || [];
+    var wrap = document.createElement('details');
+    var summary = document.createElement('summary');
+    summary.textContent = parent;
+    var parentLabel = document.createElement('label');
+    var parentInput = document.createElement('input'); parentInput.type = 'checkbox'; parentInput.value = parent; parentInput.checked = !!(saved.categories || []).includes(parent); parentInput.dataset.filterCategory = '1';
+    parentLabel.append(parentInput, document.createTextNode(' Выбрать всё'));
+    wrap.append(summary, parentLabel);
+    children.forEach(function (child) { var label = document.createElement('label'); var input = document.createElement('input'); input.type = 'checkbox'; input.value = parent + '/' + child; input.dataset.filterCategory = '1'; input.checked = !!(saved.categories || []).includes(input.value); label.append(input, document.createTextNode(' ' + child)); wrap.append(label); });
+    categoryRoot.append(wrap);
+  });
+  (taxonomy.types || []).forEach(function (type) { var label = document.createElement('label'); var input = document.createElement('input'); input.type = 'checkbox'; input.value = type; input.dataset.filterType = '1'; input.checked = !!(saved.types || []).includes(type); label.append(input, document.createTextNode(' ' + type)); modal.querySelector('[data-filter-types]').append(label); });
+  modal.querySelectorAll('[data-filter-difficulty]').forEach(function (input) { if (saved.difficulties) input.checked = saved.difficulties.includes(input.value); });
+  function close() { modal.hidden = true; modal.classList.remove('is-open'); document.body.classList.remove('new-modal-open'); }
+  button.addEventListener('click', function () { modal.hidden = false; modal.classList.add('is-open'); document.body.classList.add('new-modal-open'); });
+  modal.querySelectorAll('[data-random-censorly-close]').forEach(function (el) { el.addEventListener('click', close); });
+  document.addEventListener('keydown', function (event) { if (event.key === 'Escape' && !modal.hidden) close(); });
+  modal.querySelector('[data-random-censorly-start]').addEventListener('click', function () {
+    var categories = Array.from(modal.querySelectorAll('[data-filter-category]:checked')).map(function (el) { return el.value; });
+    var types = Array.from(modal.querySelectorAll('[data-filter-type]:checked')).map(function (el) { return el.value; });
+    var difficulties = Array.from(modal.querySelectorAll('[data-filter-difficulty]:checked')).map(function (el) { return el.value; });
+    var state = {categories: categories, types: types, difficulties: difficulties};
+    localStorage.setItem('censorly-random-filters', JSON.stringify(state));
+    filtersInput.value = JSON.stringify(state);
+    close();
     button.disabled = true;
     button.classList.add('is-loading');
     button.setAttribute('aria-busy', 'true');
     loading.hidden = false;
+    form.submit();
   });
 })();
 </script>

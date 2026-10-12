@@ -1,0 +1,30 @@
+{% extends "support/base.html" %}
+{% load static %}
+{% block support_content %}
+{% csrf_token %}
+<h1 class="support-page-title">Пул Цензурок</h1>
+<p class="support-lead">Выберите категорию или подкатегорию. Статьи показаны по сложности; правки тегов и новые статьи сохраняются в базе.</p>
+<p><a class="new-btn new-btn--mini new-btn--ghost" href="{% url 'support:censorly' %}">← К расписанию</a></p>
+{{ taxonomy|json_script:"censorly-pool-taxonomy" }}
+<div id="cz-pool" data-list-url="{% url 'support:censorly_pool_list' %}" data-save-url="{% url 'support:censorly_pool_save' %}">
+  <section class="pal-card support-card support-ladders-toolbar"><div class="support-ladders-toolbar__row">
+    <label class="support-ladders-field"><span>Категория</span><select id="cz-pool-category"><option value="">Все категории</option>{% for parent, children in taxonomy.categories.items %}<option value="{{ parent }}">{{ parent }}</option>{% endfor %}</select></label>
+    <label class="support-ladders-field"><span>Подкатегория</span><select id="cz-pool-subcategory"><option value="">Вся категория</option></select></label>
+    <button type="button" class="new-btn new-btn--mini" id="cz-pool-add">＋ Добавить статью</button>
+    <span class="support-hint" id="cz-pool-status" aria-live="polite"></span>
+  </div></section>
+  <div class="censorly-pool-columns" id="cz-pool-groups"></div>
+</div>
+<div class="new-rules-modal" id="cz-pool-modal" role="dialog" aria-modal="true" aria-labelledby="cz-pool-modal-title" hidden>
+  <div class="new-rules-overlay" data-pool-close></div><div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-pool-close>×</button><h2 id="cz-pool-modal-title" class="pal-title">Статья пула</h2>
+    <label class="support-ladders-field"><span>Название статьи</span><input id="cz-pool-title" maxlength="255"></label>
+    <p class="support-hint">Категории (пути через точку с запятой), типы (через точку с запятой), сложность:</p>
+    <label class="support-ladders-field"><span>Категории</span><input id="cz-pool-topics"></label><label class="support-ladders-field"><span>Типы</span><input id="cz-pool-types"></label>
+    <label class="support-ladders-field"><span>Сложность</span><select id="cz-pool-difficulty"><option>легко</option><option>средне</option><option>сложно</option></select></label>
+    <label><input type="checkbox" id="cz-pool-enabled" checked> Оставить в пуле</label>
+    <p class="support-hint support-ladder-edit-error" id="cz-pool-error" hidden></p><button type="button" class="new-btn new-btn--yellow" id="cz-pool-save">Сохранить</button>
+  </div>
+</div>
+<script src="{% static 'js/support_censorly_pool.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+{% endblock %}

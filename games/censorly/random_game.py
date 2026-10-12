@@ -152,14 +152,36 @@ def create_from_title(title_or_url: str) -> RandomCensorlyGame:
     return _create_from_article(article, pool_title=title if title != article.title else None)
 
 
-def get_or_create_random_game(*, max_attempts: int = 12) -> RandomCensorlyGame:
+def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = None) -> RandomCensorlyGame:
     """Pick a random unused pool title, fetch wiki, create game."""
-    pool = load_article_pool()
+    pool = list(load_article_pool())
     if not pool:
         raise EmptyCensorlyPool('Пул статей Цензурок пуст')
 
     game = _get_game()
     used = _used_pool_titles()
+    if filters:
+        from games.censorly.pool_admin import pool_rows
+        tagged = pool_rows()
+        pool.extend(title for title in tagged if title not in pool and tagged[title]['enabled'])
+        difficulties = set(filters.get('difficulties') or [])
+        categories = set(filters.get('categories') or [])
+        types = set(filters.get('types') or [])
+        def matches(title):
+            row = tagged.get(title)
+            if not row or not row['enabled']:
+                return False
+            if difficulties and row['difficulty'] not in difficulties:
+                return False
+            if categories and not any(
+                path == category or path.startswith(category + '/') or category.startswith(path + '/')
+                for path in row['topics'] for category in categories
+            ):
+                return False
+            if types and not types.intersection(row['types']):
+                return False
+            return True
+        pool = [title for title in pool if matches(title)]
     available = [t for t in pool if t not in used]
     if not available:
         raise CensorlyPoolExhausted('Все статьи из пула уже использованы')

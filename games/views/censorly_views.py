@@ -37,6 +37,7 @@ from games.censorly.play import (
     load_state,
     ru_hint_word,
 )
+from games.censorly.pool_admin import taxonomy as censorly_taxonomy
 from games.censorly_daily import (
     CENSORLY_GAME_ID,
     MOSCOW,
@@ -453,6 +454,7 @@ def censorly_hub_page(request):
         'rows': rows,
         'random_rows': random_rows,
         'random_censorly_has_access': has_club_access(request.user),
+        'censorly_taxonomy': censorly_taxonomy(),
         'support_url': '/support/censorly/',
         'show_sections_nav': False,
         'back_url': '/',
@@ -478,7 +480,11 @@ def censorly_random_game(request):
 
     try:
         with timing_phase(request, 'create_random_censorly'):
-            random_game = get_or_create_random_game()
+            try:
+                filters = json.loads(request.POST.get('filters') or '{}')
+            except (TypeError, ValueError):
+                filters = {}
+            random_game = get_or_create_random_game(filters=filters if isinstance(filters, dict) else {})
     except EmptyCensorlyPool:
         messages.warning(
             request,
@@ -612,6 +618,7 @@ def _render_play(request, *, game, task, load_meta):
         'number': play_number,
         'tg_number': play_number,
         'random_censorly_has_access': has_club_access(request.user),
+        'censorly_taxonomy': censorly_taxonomy(),
         'link': link,
         'task': task,
         'page_title': page_title if not state.get('won') else (
