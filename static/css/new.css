@@ -1705,8 +1705,8 @@ html.new-ui-dark .new-hub-section__streak--active .ph-fire {
 
 .new-task.new-task--today {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
-  box-shadow: inset 3px 0 0 var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, var(--border));
+  outline-offset: 2px;
 }
 
 /* Shared archive calendar for scheduled daily games. */
@@ -6848,7 +6848,8 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 /* Текущий выпуск остаётся отмеченным и после появления статуса прогресса. */
 .new-task.new-task--today {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  box-shadow: inset 3px 0 0 var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 65%, var(--border));
+  outline-offset: 2px;
 }
 
 /* Заголовок раздела с кнопкой «Правила» */
