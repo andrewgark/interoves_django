@@ -537,7 +537,7 @@ def _strip_indented_math_lines(text: str) -> str:
                 item.strip() for item in pending
                 if item.strip() and not item.startswith((' ', '\t'))
             ]
-            has_operator = any(re.search(r'[+=<>×·*/^_]', item) for item in unindented)
+            has_operator = any(re.search(r'[+=<>×·*/^_↑↓↕⇑⇓⇕→←]', item) for item in unindented)
             has_digit = any(re.search(r'\d', item) for item in unindented)
             is_vertical_dump = (
                 len(unindented) >= 3
@@ -562,7 +562,7 @@ def _strip_indented_math_lines(text: str) -> str:
                 )
             )
             and re.fullmatch(
-                r'[A-Za-zА-Яа-яЁё0-9０-９+−=<>()[\]{}.,;:/\\_^*|·×\s]*',
+                r'[A-Za-zА-Яа-яЁё0-9０-９+−=<>()[\]{}.,;:/\\_^*|·×↑↓↕⇑⇓⇕→←\s]*',
                 line,
             )
         ):
@@ -717,7 +717,12 @@ def _trim_extract(extract: str) -> tuple[str, bool]:
     return _headings_to_marked(trimmed), True
 
 
-def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> WikiArticle:
+def fetch_article(
+    title: str,
+    *,
+    session: Optional[requests.Session] = None,
+    timeout: int = 30,
+) -> WikiArticle:
     """Load plaintext extract for a Russian Wikipedia title."""
     title = title_from_user_input(title)
     sess = session or requests.Session()
@@ -738,7 +743,7 @@ def fetch_article(title: str, *, session: Optional[requests.Session] = None) -> 
             WIKI_API,
             params=params,
             headers={'User-Agent': USER_AGENT},
-            timeout=30,
+            timeout=timeout,
         )
         resp.raise_for_status()
         data = resp.json()

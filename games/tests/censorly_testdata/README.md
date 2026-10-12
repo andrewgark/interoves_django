@@ -6,6 +6,9 @@ tests of `games.censorly.wiki.clean_wiki_extract` / `_trim_extract`.
 Do not fetch live Wikipedia in CI for these cases — update files deliberately
 when the cleaner’s contract changes.
 
+`silver_math_raw.txt` freezes an unindented vertical MathML dump with the
+Russian label “(конц.)” and TeX arrows from Серебро.
+
 | File | Source | What it covers |
 |------|--------|----------------|
 | `magnetism_math_raw.txt` | Магнетизм | MathML glyph dump + `{\displaystyle …}` |

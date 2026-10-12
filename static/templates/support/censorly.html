@@ -19,8 +19,9 @@
   </div>
   <button type="button" class="new-btn new-btn--mini" id="cz-create">Создать статью</button>
   <span class="support-hint support-ladder-edit-error" id="cz-create-error" role="alert" hidden></span>
-  <label class="support-ladders-field"><span>Из пула</span><input type="number" id="cz-gen-n" min="1" max="60" value="5"></label>
+  <label class="support-ladders-field"><span>Из пула (до 10)</span><input type="number" id="cz-gen-n" min="1" max="10" value="5"></label>
   <button type="button" class="new-btn new-btn--mini" id="cz-gen-more">Нагенерить</button>
+  <span class="support-hint" id="cz-gen-status" aria-live="polite"></span>
 {% endblock %}
 
 {% block schedule_before_content %}

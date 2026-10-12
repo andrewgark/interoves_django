@@ -426,9 +426,11 @@ def _pick_pool_article(used: set[str]) -> tuple[WikiArticle, str]:
         raise CensorlySupportError('Пул статей исчерпан')
     random.shuffle(pool)
     errors = []
-    for title in pool[:12]:
+    # Pool generation is synchronous in the support console. Keep the fallback
+    # scan short and use a tighter timeout than explicit article creation.
+    for title in pool[:3]:
         try:
-            article = fetch_article(title)
+            article = fetch_article(title, timeout=8)
         except WikiFetchError as exc:
             errors.append(str(exc))
             continue
@@ -491,8 +493,8 @@ def create_at_number(at_number: int, *, title_or_url: str | None = None) -> dict
 
 
 def generate_more(n: int = 5) -> dict[str, Any]:
-    if n < 1 or n > 60:
-        raise CensorlySupportError('N должно быть от 1 до 60')
+    if n < 1 or n > 10:
+        raise CensorlySupportError('N должно быть от 1 до 10')
     game = get_censorly_game()
     existing_numbers = [
         int(link.number) for link in GameTaskGroup.objects.filter(game=game, is_deferred=False)

@@ -1,0 +1,26 @@
+Однако в окислительной среде серебро растворяется:
+A
+g
++
+2
+H
+N
+O
+3
+(конц.)
+⟶
+A
+g
+N
+O
+3
++
+N
+O
+2
+↑
++
+H
+2
+O
+{\displaystyle {\mathsf {Ag+2HNO_{3{\text{(конц.)}}}\longrightarrow\ AgNO_{3}+NO_{2}{\uparrow}+H_{2}O}}}

@@ -528,6 +528,19 @@ class CensorlyPuzzleStorageTests(TestCase):
 
 
 class CensorlyWikiHelperTests(TestCase):
+    def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = _load_censorly_testdata('silver_math_raw.txt')
+        cleaned = clean_wiki_extract(raw)
+
+        self.assertIn('Ag + 2HNO', cleaned)
+        self.assertIn('⟶', cleaned)
+        self.assertIn('NO₂↑', cleaned)
+        self.assertIn('H₂O', cleaned)
+        self.assertNotIn('uparrow', cleaned)
+        self.assertNotIn('\nA\ng\n+', cleaned)
+
     def test_parse_index_php_title_url(self):
         from games.censorly.wiki import title_from_user_input
         title = title_from_user_input(

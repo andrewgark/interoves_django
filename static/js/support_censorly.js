@@ -207,6 +207,14 @@
     if (busy) return;
     busy = true;
     work().catch(function (error) {
+      var generateButton = document.getElementById('cz-gen-more');
+      if (generateButton.disabled) {
+        generateButton.disabled = false;
+        generateButton.textContent = 'Нагенерить';
+        var generateStatus = document.getElementById('cz-gen-status');
+        generateStatus.textContent = error.message;
+        return;
+      }
       if (!createModal.hidden) {
         createError.hidden = false;
         createError.textContent = error.message;
@@ -279,7 +287,17 @@
       }).then(function () { location.reload(); });
     });
   };
-  document.getElementById('cz-gen-more').onclick = function () { run(function () { return post(endpoint('generate'), {n: document.getElementById('cz-gen-n').value}).then(function () { location.reload(); }); }); };
+  document.getElementById('cz-gen-more').onclick = function () {
+    var button = document.getElementById('cz-gen-more');
+    var status = document.getElementById('cz-gen-status');
+    run(function () {
+      status.textContent = '';
+      button.disabled = true;
+      button.textContent = 'Генерируем…';
+      status.innerHTML = '<span class="support-censorly-suggestions__spinner" aria-hidden="true"></span> Загружаем статьи из Википедии';
+      return post(endpoint('generate'), {n: document.getElementById('cz-gen-n').value}).then(function () { location.reload(); });
+    });
+  };
   document.getElementById('cz-random').onclick = function () { run(function () { return post(endpoint('random')).then(function (data) { random.unshift(data.row); renderRandom(random); }); }); };
   document.getElementById('cz-title-form').onsubmit = function (event) { event.preventDefault(); run(function () { return post(endpoint('from-title'), {title: document.getElementById('cz-title').value}).then(function (data) { random.unshift(data.row); renderRandom(random); }); }); };
   document.addEventListener('click', function (event) {
