@@ -701,13 +701,8 @@ class GameTaskGroup(models.Model):
             return (1, deferred_key if deferred_key is not None else (10**9,), link.pk)
         return (0, link.key_sort(), link.pk)
 
-
-    @classmethod
-    def sorted_links(cls, queryset=None, *, game=None, reverse=False, include_deferred=False):
-        if queryset is None:
-            queryset = cls.objects.filter(game=game)
-        # Permanent random Alphabetty and Цензурка games use a hash as
-        # ``number`` and do not belong in numeric schedule/navigation lists.
+    @staticmethod
+    def _exclude_random_schedule_links(queryset):
         random_hash_q = (
             models.Q(
                 game_id='alphabetty',
@@ -718,10 +713,19 @@ class GameTaskGroup(models.Model):
                 task_group__random_censorly_game__isnull=False,
             )
         )
+        return queryset.exclude(random_hash_q)
+
+
+    @classmethod
+    def sorted_links(cls, queryset=None, *, game=None, reverse=False, include_deferred=False):
+        if queryset is None:
+            queryset = cls.objects.filter(game=game)
+        # Permanent random Alphabetty and Цензурка games use a hash as
+        # ``number`` and do not belong in numeric schedule/navigation lists.
         if hasattr(queryset, 'exclude'):
             if not include_deferred:
                 queryset = queryset.filter(is_deferred=False)
-            queryset = queryset.exclude(random_hash_q)
+            queryset = cls._exclude_random_schedule_links(queryset)
         else:
             links = list(queryset)
             if not include_deferred:
@@ -761,16 +765,7 @@ class GameTaskGroup(models.Model):
     @classmethod
     def order_queryset_by_number(cls, queryset, *, reverse=False, include_deferred=False):
         """Числовая сортировка номера круга (1, 2, …, 10), не лексикографическая."""
-        queryset = queryset.exclude(
-            models.Q(
-                game_id='alphabetty',
-                task_group__random_alphabetty_game__isnull=False,
-            )
-            | models.Q(
-                game_id='censorly',
-                task_group__random_censorly_game__isnull=False,
-            )
-        )
+        queryset = cls._exclude_random_schedule_links(queryset)
         if not include_deferred:
             queryset = queryset.filter(is_deferred=False)
         links = list(queryset)
