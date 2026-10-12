@@ -480,11 +480,6 @@ def reset_raddle_progress(
     else:
         raise LadderOfferError('Нужен актор для сброса')
 
-    from games.daily_result_projection import mark_projection_dirty
-    transaction.on_commit(
-        lambda game=game, task_group=task.task_group:
-        mark_projection_dirty(game, task_group, full=True),
-    )
     n = attempt_qs.count()
     # Chain.last_attempt → SET_NULL, можно удалять attempts.
     chain_qs.delete()
@@ -548,11 +543,6 @@ def reset_all_raddle_progress(
     n_chains = chain_qs.count()
     n_ui_states = ui_qs.count()
     n_hints = hint_qs.count()
-    from games.daily_result_projection import mark_projection_dirty
-    transaction.on_commit(
-        lambda game=game, task_group=task.task_group:
-        mark_projection_dirty(game, task_group, full=True),
-    )
     chain_qs.delete()
     ui_qs.delete()
     hint_qs.delete()
