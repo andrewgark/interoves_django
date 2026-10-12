@@ -350,6 +350,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                      WHERE dt.replay_slot_id IS NULL
                        AND dt.game_id = %s
                        AND dt.task_group_id IN ({timing_group_placeholders})
+                       AND COALESCE(dt.frozen_ms, dt.accumulated_ms) > 0
                    ) canonical
              WHERE canonical.timing_rank = 1
         ),'''

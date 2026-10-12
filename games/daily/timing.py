@@ -538,7 +538,10 @@ def canonical_elapsed_seconds(
             if is_daily_timing_game(getattr(game, 'id', None)):
                 return None
         return legacy_seconds
-    return max(0, int(snapshot(row).get('accumulated_ms') or 0) // 1000)
+    timing_snapshot = snapshot(row)
+    if int(timing_snapshot.get('accumulated_ms') or 0) <= 0:
+        return None
+    return max(0, int(timing_snapshot.get('accumulated_ms') or 0) // 1000)
 
 
 def canonical_elapsed_label(**kwargs) -> str:
@@ -1005,11 +1008,13 @@ def merge_timing_rows(target: DailySolveTiming, source: DailySolveTiming) -> Dai
             other_frozen = other.frozen_ms
             if other_frozen is None:
                 other_frozen = other.accumulated_ms
-            # A zero snapshot can come from a damaged or prematurely frozen
-            # timer. Preserve positive evidence from the duplicate identity,
-            # while never adding the two overlapping records together.
-            if int(frozen or 0) <= 0 < int(other_frozen or 0):
-                frozen = other_frozen
+        else:
+            other_frozen = other.accumulated_ms
+        # A zero snapshot can come from a damaged or prematurely frozen timer.
+        # Preserve positive evidence from the duplicate identity, while never
+        # adding the two overlapping records together.
+        if int(frozen or 0) <= 0 < int(other_frozen or 0):
+            frozen = other_frozen
         target.status = STATUS_COMPLETED
         target.frozen_ms = int(frozen or 0)
         target.accumulated_ms = int(frozen or 0)

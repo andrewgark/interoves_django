@@ -95,6 +95,7 @@ class Command(BaseCommand):
         ).iterator(chunk_size=1000)
         row_actor_keys = set()
         zero_with_events = 0
+        zero_without_events = 0
         completed_without_complete_event = 0
         for row in timing_rows:
             actor_key = row_actor_key(row)
@@ -105,6 +106,8 @@ class Command(BaseCommand):
                     completed_without_complete_event += 1
                 elif int(row['frozen_ms'] or 0) == 0 and actions:
                     zero_with_events += 1
+                elif int(row['frozen_ms'] or 0) == 0:
+                    zero_without_events += 1
                 if row['frozen_ms'] is not None and actions and 'complete' not in actions:
                     completed_without_complete_event += 1
         event_actor_keys = set(
@@ -115,13 +118,14 @@ class Command(BaseCommand):
         self.stdout.write(
             'summary events={} client_time_missing={} seq_regressions={} '
             'unknown_actor_events={} unmatched_actor_groups={} zero_with_events={} '
-            'completed_without_complete_event={}'.format(
+            'zero_without_events={} completed_without_complete_event={}'.format(
                 sum(counts.get('events', 0) for counts in grouped.values()),
                 missing_client_time,
                 seq_regressions,
                 unknown_actor_events,
                 len(event_actor_keys - row_actor_keys),
                 zero_with_events,
+                zero_without_events,
                 completed_without_complete_event,
             )
         )

@@ -204,7 +204,7 @@ def _completed_times(game, task_group, actors):
     ).filter(_timing_actor_q(actors)).only('user_id', 'anon_key', 'frozen_ms', 'timing_version')
     values = {}
     for row in rows:
-        if row.timing_version and row.frozen_ms is not None:
+        if row.timing_version and row.frozen_ms is not None and int(row.frozen_ms) > 0:
             values[_actor_key(row)] = int(row.frozen_ms) / 1000
     return list(values.values())
 
