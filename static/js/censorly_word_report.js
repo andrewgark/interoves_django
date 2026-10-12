@@ -33,6 +33,7 @@
   function updateOtherField() {
     var reason = selectedReason();
     var needed = reason === 'FALSE_POSITIVE' || reason === 'FALSE_NEGATIVE';
+    errorEl.hidden = true;
     otherWrap.hidden = !needed;
     otherEl.required = needed;
     if (!needed) otherEl.value = '';
@@ -136,6 +137,8 @@
     if (!reason) {
       errorEl.textContent = 'Выберите причину жалобы.';
       errorEl.hidden = false;
+      var firstReason = modal.querySelector('input[name=censorly-word-report-reason]');
+      if (firstReason) firstReason.focus();
       return;
     }
     if ((reason === 'FALSE_POSITIVE' || reason === 'FALSE_NEGATIVE') && !other) {
