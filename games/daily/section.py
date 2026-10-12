@@ -38,7 +38,10 @@ def parse_publish_start(raw) -> datetime | None:
             return None
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, MOSCOW)
-    return dt.astimezone(MOSCOW)
+    try:
+        return dt.astimezone(MOSCOW)
+    except (OverflowError, ValueError):
+        return None
 
 
 @dataclass(frozen=True)
