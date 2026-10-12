@@ -26,7 +26,7 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 18
+CACHE_VERSION = 19
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
@@ -172,7 +172,9 @@ def _actor_q(keys):
 def _timing_actor_q(keys):
     q = Q()
     for kind, value in keys:
-        if kind == 'user':
+        if kind == 'team':
+            q |= Q(team_id=value, user__isnull=True, anon_key__isnull=True)
+        elif kind == 'user':
             q |= Q(user_id=value, anon_key__isnull=True)
         elif kind == 'anon':
             q |= Q(anon_key=value, user__isnull=True)
@@ -201,11 +203,16 @@ def _completed_times(game, task_group, actors):
     rows = DailySolveTiming.objects.filter(
         game=game, task_group=task_group, status=DailySolveTiming.STATUS_COMPLETED,
         replay_slot__isnull=True,
-    ).filter(_timing_actor_q(actors)).only('user_id', 'anon_key', 'frozen_ms', 'timing_version')
+    ).filter(_timing_actor_q(actors)).only(
+        'team_id', 'user_id', 'anon_key', 'frozen_ms', 'timing_version',
+        'completed_at', 'updated_at', 'pk',
+    ).order_by(
+        'team_id', 'user_id', 'anon_key', '-frozen_ms', '-completed_at', '-updated_at', 'pk',
+    )
     values = {}
     for row in rows:
         if row.timing_version and row.frozen_ms is not None and int(row.frozen_ms) > 0:
-            values[_actor_key(row)] = int(row.frozen_ms) / 1000
+            values.setdefault(_actor_key(row), int(row.frozen_ms) / 1000)
     return list(values.values())
 
 
