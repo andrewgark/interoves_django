@@ -19,7 +19,7 @@ from games.leaderboard import actor_key
 from games.daily.registry import get_daily_game
 from games.results.share import elapsed_seconds_between
 from games.models import (
-    Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
+    Attempt, DailyResultProjection, DailyResultProjectionDirtyActor, DailySolveTiming,
     DailyTaskResultProjection,
     DailyResultProjectionState, GameTaskGroup, Task, Team,
 )
@@ -551,7 +551,6 @@ def load_projection_fallback_durations(game, task_group):
 def _prepublication(game, link, actor, first_at):
     """Use canonical daily start; fall back only to first canonical completion."""
     from games.daily_section import publish_at_for
-    from games.models import DailySolveTiming
 
     publication = publish_at_for(game, link.number)
     if publication is None:
@@ -570,9 +569,31 @@ def _prepublication(game, link, actor, first_at):
             user__isnull=True, team__isnull=True, anon_key=anon_key,
         )
         started_at = timing.order_by('created_at', 'pk').values_list('created_at', flat=True).first()
-        if started_at is not None:
-            return started_at < publication
+    else:
+        started_at = None
+    return _prepublication_from_times(publication, started_at, first_at)
+
+
+def _prepublication_from_times(publication, started_at, first_at):
+    if publication is None:
+        return False
+    if started_at is not None:
+        return started_at < publication
     return bool(first_at and first_at < publication)
+
+
+def _timing_starts_for_release(game, task_group):
+    starts = {}
+    rows = DailySolveTiming.objects.filter(
+        game=game, task_group=task_group, replay_slot__isnull=True,
+    ).values('team_id', 'user_id', 'anon_key').annotate(first_started_at=Min('created_at'))
+    for row in rows:
+        key = ('team', row['team_id']) if row['team_id'] is not None else (
+            ('user', row['user_id']) if row['user_id'] is not None else ('anon', row['anon_key'])
+        )
+        if key[1] is not None:
+            starts[key] = row['first_started_at']
+    return starts
 
 
 def refresh_daily_result_projection(game, task_group, *, results=None):
@@ -605,6 +626,10 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
     task_entries = _build_task_projection_entries(
         game, task_group, canonical_task_rows,
     )
+    from games.daily_section import publish_at_for
+
+    publication = publish_at_for(game, link.number)
+    timing_starts = _timing_starts_for_release(game, task_group)
     entries = []
     for data in results.values():
         actor = data['actor']
@@ -623,7 +648,9 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
             fallback_duration_seconds=elapsed_seconds_between(
                 data['first_at'], data['last_at'],
             ),
-            is_prepublication=_prepublication(game, link, actor, data['first_at']),
+            is_prepublication=_prepublication_from_times(
+                publication, timing_starts.get(actor_key(actor)), data['first_at'],
+            ),
             **actor_data,
         ))
     write_started_at = monotonic()
