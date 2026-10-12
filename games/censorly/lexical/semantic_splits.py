@@ -5223,6 +5223,7 @@ CLUSTERS = tuple(
 # distinct modern meanings.  Ambiguous lemmas stay in their default bucket;
 # MULTI_READINGS below adds their other sense-specific memberships.
 _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ('sense:fumes', ('угореть', 'угорелый', 'угорать')),
     ('sense:field', (
         'всполье', 'заполевать', 'заполье', 'запольный', 'поле', 'полевать',
         'полевица', 'полевка', 'полевой', 'поленика', 'поленица', 'полюшко',
