@@ -14,6 +14,11 @@ from django.db import transaction
 from django.utils import timezone
 
 from games.ladder_daily import LADDER_GAME_ID, ladder_publish_at
+from games.offer_profiles import (
+    normalize_telegram_handle,
+    profile_display_name,
+    profile_ready_for_offers,
+)
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -21,7 +26,6 @@ from games.models import (
     GameTaskGroup,
     HintAttempt,
     LadderOffer,
-    Profile,
     RaddleUiState,
     Task,
     TaskGroup,
@@ -48,31 +52,6 @@ _SHARE_HASH_RE = re.compile(r'^[a-f0-9]{16,32}$')
 
 class LadderOfferError(Exception):
     """Ошибка операции с предложением лесенки."""
-
-
-def normalize_telegram_handle(raw: str) -> str:
-    value = (raw or '').strip()
-    if value.startswith('@'):
-        value = value[1:].strip()
-    return value
-
-
-def profile_ready_for_offers(profile: Profile) -> tuple[bool, list[str]]:
-    missing = []
-    if not (profile.first_name or '').strip():
-        missing.append('first_name')
-    if not (profile.last_name or '').strip():
-        missing.append('last_name')
-    from games.telegram_linking import offer_telegram_gaps
-    missing.extend(offer_telegram_gaps(profile))
-    return (not missing, missing)
-
-
-def profile_display_name(profile: Profile) -> str:
-    return '{} {}'.format(
-        (profile.first_name or '').strip(),
-        (profile.last_name or '').strip(),
-    ).strip()
 
 
 def _new_share_hash() -> str:
