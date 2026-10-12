@@ -17,6 +17,7 @@ from django.utils import timezone
 
 from games.leaderboard import actor_key
 from games.daily.registry import get_daily_game
+from games.results.share import elapsed_seconds_between
 from games.models import (
     Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
     DailyTaskResultProjection,
@@ -574,12 +575,6 @@ def _prepublication(game, link, actor, first_at):
     return bool(first_at and first_at < publication)
 
 
-def _attempt_span_seconds(data):
-    if data.get('first_at') is None or data.get('last_at') is None:
-        return 0
-    return max(0, int((data['last_at'] - data['first_at']).total_seconds()))
-
-
 def refresh_daily_result_projection(game, task_group, *, results=None):
     """Idempotently replace one release's projection using the canonical scorer.
 
@@ -625,7 +620,9 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
             user_id=user_id,
             score=data['score'],
             attempts_count=data['attempts_count'],
-            fallback_duration_seconds=_attempt_span_seconds(data),
+            fallback_duration_seconds=elapsed_seconds_between(
+                data['first_at'], data['last_at'],
+            ),
             is_prepublication=_prepublication(game, link, actor, data['first_at']),
             **actor_data,
         ))
@@ -790,7 +787,9 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
                         'team': actor_data['team'], 'user_id': user_id,
                         'anon_key': actor_data['anon_key'], 'score': data['score'],
                         'attempts_count': data['attempts_count'],
-                        'fallback_duration_seconds': _attempt_span_seconds(data),
+                        'fallback_duration_seconds': elapsed_seconds_between(
+                            data['first_at'], data['last_at'],
+                        ),
                         'is_prepublication': _prepublication(
                             game, link, data['actor'], data['first_at'],
                         ),

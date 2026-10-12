@@ -66,7 +66,14 @@ def elapsed_seconds_from_attempts(attempts: Optional[list] = None) -> int:
     times = [item for item in times if item is not None]
     if not times:
         return 0
-    return max(0, int((max(times) - min(times)).total_seconds()))
+    return elapsed_seconds_between(min(times), max(times))
+
+
+def elapsed_seconds_between(first_at, last_at) -> int:
+    """Return the nonnegative whole-second span between two timestamps."""
+    if first_at is None or last_at is None:
+        return 0
+    return max(0, int((last_at - first_at).total_seconds()))
 
 
 def elapsed_label_from_attempts(attempts: Optional[list] = None) -> str:
