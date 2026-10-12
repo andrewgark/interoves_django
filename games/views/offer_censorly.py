@@ -13,7 +13,7 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from games.censorly.random_game import create_from_title
 from games.censorly.wiki import WikiFetchError, suggest_article_titles
 from games.censorly_offer import create_offer, list_user_offers, serialize_offer
-from games.ladder_offer import profile_ready_for_offers
+from games.offer_profiles import profile_ready_for_offers, update_offer_profile_names
 from games.telegram_linking import offer_profile_error
 from games.views.util import has_profile, parse_json_object_body
 
@@ -66,10 +66,9 @@ def offer_censorly_page(request):
     profile = request.user.profile
     ready, missing = profile_ready_for_offers(profile)
     if request.method == 'POST' and request.POST.get('action') == 'save_profile':
-        profile.first_name = (request.POST.get('first_name') or '').strip()
-        profile.last_name = (request.POST.get('last_name') or '').strip()
-        profile.save(update_fields=['first_name', 'last_name'])
-        ready, missing = profile_ready_for_offers(profile)
+        ready, missing = update_offer_profile_names(
+            profile, request.POST.get('first_name'), request.POST.get('last_name'),
+        )
         if ready:
             return redirect('ui_create_censorly')
         return render(request, 'new/create_censorly.html', _page_context(

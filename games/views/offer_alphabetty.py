@@ -18,6 +18,7 @@ from games.alphabetty_offer import (
     update_offer_content,
 )
 from games.models import AlphabettyOffer
+from games.offer_profiles import update_offer_profile_names
 from games.telegram_linking import offer_profile_error
 from games.views.util import has_profile, parse_json_object_body
 
@@ -53,10 +54,9 @@ def offer_alphabetty_page(request):
     ready, missing = profile_ready_for_offers(profile)
 
     if request.method == 'POST' and request.POST.get('action') == 'save_profile':
-        profile.first_name = (request.POST.get('first_name') or '').strip()
-        profile.last_name = (request.POST.get('last_name') or '').strip()
-        profile.save(update_fields=['first_name', 'last_name'])
-        ready_after, missing_after = profile_ready_for_offers(profile)
+        ready_after, missing_after = update_offer_profile_names(
+            profile, request.POST.get('first_name'), request.POST.get('last_name'),
+        )
         if not ready_after:
             return render(request, 'new/create_alphabetty.html', _profile_context(
                 profile,
