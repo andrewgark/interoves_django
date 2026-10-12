@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.core.cache import caches
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from games.censorly.random_game import create_from_title
 from games.censorly.wiki import WikiFetchError, suggest_article_titles
@@ -59,6 +59,7 @@ def _rate_limit_response(user_id, action, *, limit, window_seconds, message):
 
 
 @login_required
+@require_http_methods(['GET', 'POST'])
 def offer_censorly_page(request):
     if not has_profile(request.user):
         return redirect('/accounts/login/?next=/create_censorly/')
