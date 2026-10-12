@@ -36,10 +36,12 @@
       listbox.innerHTML = '';
       listbox.removeAttribute('aria-busy');
       input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
       activeIndex = -1;
     }
     function loading() {
       activeIndex = -1;
+      input.removeAttribute('aria-activedescendant');
       listbox.innerHTML = '<div class="support-censorly-suggestions__loading"><span class="support-censorly-suggestions__spinner" aria-hidden="true"></span><span>Загружается…</span></div>';
       listbox.hidden = false;
       listbox.setAttribute('aria-busy', 'true');
@@ -54,7 +56,7 @@
       if (!titles.length) { close(); return; }
       activeIndex = -1;
       listbox.innerHTML = titles.map(function (title, index) {
-        return '<button type="button" role="option" aria-selected="false" class="support-ladder-item support-censorly-suggestion" data-title-index="' + index + '">' + esc(title) + '</button>';
+        return '<button type="button" id="' + listbox.id + '-option-' + index + '" role="option" tabindex="-1" aria-selected="false" class="support-ladder-item support-censorly-suggestion" data-title-index="' + index + '">' + esc(title) + '</button>';
       }).join('');
       listbox.hidden = false;
       listbox.removeAttribute('aria-busy');
@@ -65,6 +67,7 @@
       if (!options.length) return;
       activeIndex = (index + options.length) % options.length;
       options.forEach(function (option, i) { option.setAttribute('aria-selected', i === activeIndex ? 'true' : 'false'); });
+      input.setAttribute('aria-activedescendant', options[activeIndex].id);
       options[activeIndex].scrollIntoView({block: 'nearest'});
     }
     input.addEventListener('input', function () {

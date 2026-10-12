@@ -735,6 +735,8 @@ def censorly_word_report(request, task_id):
         body = json.loads(request.body.decode('utf-8') or '{}')
     except (ValueError, TypeError, UnicodeDecodeError):
         body = {}
+    if not isinstance(body, dict):
+        body = {}
     reason = str(body.get('reason') or '').strip().upper()
     if reason not in {'FALSE_POSITIVE', 'FALSE_NEGATIVE', 'OTHER'}:
         return JsonResponse({'ok': False, 'error': 'Выберите причину жалобы.'}, status=400)
