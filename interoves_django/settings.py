@@ -233,6 +233,11 @@ CENSORLY_LEXICAL_RESOLVER = (
     os.environ.get('CENSORLY_LEXICAL_RESOLVER', '').strip().lower()
     in ('1', 'true', 'yes', 'on')
 )
+# Pronouns in lexical Censorly puzzles are hidden by default.
+CENSORLY_OPEN_PRONOUNS = (
+    os.environ.get('CENSORLY_OPEN_PRONOUNS', '').strip().lower()
+    in ('1', 'true', 'yes', 'on')
+)
 
 # HMAC key for the anonymous analytics identity signature cookie.
 # Production should set ANALYTICS_ANON_SIGNING_KEY to the same high-entropy

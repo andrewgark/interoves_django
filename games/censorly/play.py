@@ -98,8 +98,9 @@ def _is_initially_open_word(surface: str) -> bool:
     from games.censorly.flags import lexical_resolver_enabled
     if not lexical_resolver_enabled():
         return False
+    from games.censorly.flags import open_pronouns_enabled
     from games.censorly.lexical.semantics import initially_open
-    return initially_open(surface)
+    return initially_open(surface, include_pronouns=open_pronouns_enabled())
 
 
 def hub_progress_for_actor(*, game: Game, numbers_and_tasks: list[tuple[int, Task]], user=None, anon_key=None) -> dict[int, dict[str, Any]]:

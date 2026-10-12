@@ -213,7 +213,7 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
     return ''
 
 
-def initially_open(surface: str) -> bool:
+def initially_open(surface: str, *, include_pronouns: bool = True) -> bool:
     """Function words and unambiguous pronouns start open.
 
     Personal pronouns use the NPRO tag. Pronoun-adjectives use a reviewed set
@@ -231,7 +231,7 @@ def initially_open(surface: str) -> bool:
         if item.pos == 'NPRO'
         or item.lemma in _PRONOUN_ADJECTIVE_LEMMAS
     ]
-    if pronoun_scores and max(pronoun_scores) >= best - 1e-9:
+    if include_pronouns and pronoun_scores and max(pronoun_scores) >= best - 1e-9:
         pronoun_best = max(pronoun_scores)
         other_scores = [
             item.score for item in found
