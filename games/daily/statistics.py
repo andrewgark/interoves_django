@@ -204,32 +204,43 @@ def _completed_times(game, task_group, actors):
         game=game, task_group=task_group, status=DailySolveTiming.STATUS_COMPLETED,
         replay_slot__isnull=True,
     ).filter(_timing_actor_q(actors)).only(
-        'team_id', 'user_id', 'anon_key', 'frozen_ms', 'timing_version',
+        'team_id', 'user_id', 'anon_key', 'status', 'frozen_ms', 'accumulated_ms', 'timing_version',
         'completed_at', 'updated_at', 'pk',
-    ).order_by(
-        'team_id', 'user_id', 'anon_key', '-frozen_ms', '-completed_at', '-updated_at', 'pk',
     )
+    from games.daily.timing import canonical_elapsed_seconds, timing_row_preference
+
     values = {}
-    zero_timing_keys = set()
+    missing_timing_keys = set()
+    timing_preferences = {}
     for row in rows:
-        if row.timing_version and row.frozen_ms is not None and int(row.frozen_ms) > 0:
-            values.setdefault(_actor_key(row), int(row.frozen_ms) / 1000)
-        elif row.timing_version and row.frozen_ms is not None:
-            zero_timing_keys.add(_actor_key(row))
-    zero_timing_keys.difference_update(values)
-    if zero_timing_keys:
+        if not row.timing_version:
+            continue
+        key = _actor_key(row)
+        preference = timing_row_preference(row)
+        if preference <= timing_preferences.get(key, ()):
+            continue
+        timing_preferences[key] = preference
+        values.pop(key, None)
+        missing_timing_keys.discard(key)
+        seconds = canonical_elapsed_seconds(game=game, timing_row=row)
+        if seconds is not None:
+            values[key] = seconds
+        else:
+            missing_timing_keys.add(key)
+    missing_timing_keys.difference_update(values)
+    if missing_timing_keys:
         from games.results.share import elapsed_seconds_from_attempts
 
         attempts_by_actor = defaultdict(list)
         attempts = Attempt.manager.filter(
             game=game, task__task_group=task_group, skip=False,
             status__in=('Ok', 'Partial'), replay_slot__isnull=True,
-        ).filter(_actor_q(zero_timing_keys)).only(
+        ).filter(_actor_q(missing_timing_keys)).only(
             'team_id', 'user_id', 'anon_key', 'time',
         ).order_by('time', 'id')
         for attempt in attempts:
             attempts_by_actor[_actor_key(attempt)].append(attempt)
-        for key in zero_timing_keys:
+        for key in missing_timing_keys:
             seconds = elapsed_seconds_from_attempts(attempts_by_actor.get(key, []))
             if seconds > 0:
                 values[key] = seconds

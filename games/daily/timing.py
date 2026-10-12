@@ -538,8 +538,12 @@ def canonical_elapsed_seconds(
             if is_daily_timing_game(getattr(game, 'id', None)):
                 return None
         return legacy_seconds
-    timing_snapshot = snapshot(row)
-    accumulated_ms = int(timing_snapshot.get('accumulated_ms') or 0)
+    if row.status == STATUS_COMPLETED:
+        accumulated_ms = int(
+            row.frozen_ms if row.frozen_ms is not None else row.accumulated_ms or 0
+        )
+    else:
+        accumulated_ms = int(snapshot(row).get('accumulated_ms') or 0)
     if accumulated_ms <= 0:
         return None
     return max(1, accumulated_ms // 1000)
