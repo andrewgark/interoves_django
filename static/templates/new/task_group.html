@@ -255,7 +255,7 @@
   </div>
 </div>
 
-<div id="new-bug-report-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-bug-report-title" aria-modal="true" hidden>
+<div id="new-bug-report-modal" data-bug-report-url-template="{% url 'new_bug_report' 0 %}" data-bug-report-game-id="{{ game.id }}" class="new-rules-modal" role="dialog" aria-labelledby="new-bug-report-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-bug-report-close></div>
   <div class="new-rules-modal__box pal-card">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-bug-report-close><i class="ph ph-x" aria-hidden="true"></i></button>
@@ -279,6 +279,7 @@
 <script src="{% static 'js/raddle_keyboard_dismiss.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/raddle_state.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/raddle_tab_nav.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/new_bug_report.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/new_task_hints.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% if daily_timing_enabled %}
@@ -3996,107 +3997,6 @@
       submitLike(dtid, 0, disliked ? -1 : 1);
     }
   }, true);
-
-  // Bug report modal
-  (function () {
-    var modal = document.getElementById('new-bug-report-modal');
-    var textEl = document.getElementById('new-bug-report-text');
-    var labelEl = document.getElementById('new-bug-report-task-label');
-    var errorEl = document.getElementById('new-bug-report-error');
-    var successEl = document.getElementById('new-bug-report-success');
-    var submitBtn = document.querySelector('[data-bug-report-submit]');
-    var currentTaskId = null;
-
-    function resetBugReportForm() {
-      if (textEl) textEl.value = '';
-      if (errorEl) { errorEl.textContent = ''; errorEl.hidden = true; }
-      if (successEl) successEl.hidden = true;
-      if (submitBtn) submitBtn.disabled = false;
-    }
-
-    function openBugReport(taskId, taskLabel) {
-      if (!modal) return;
-      currentTaskId = taskId;
-      resetBugReportForm();
-      if (labelEl) labelEl.textContent = taskLabel || ('#' + taskId);
-      modal.removeAttribute('hidden');
-      modal.classList.add('is-open');
-      document.body.style.overflow = 'hidden';
-      if (textEl) textEl.focus();
-    }
-
-    function closeBugReport() {
-      if (!modal) return;
-      modal.setAttribute('hidden', '');
-      modal.classList.remove('is-open');
-      document.body.style.overflow = '';
-      currentTaskId = null;
-    }
-
-    function postBugReport() {
-      if (!currentTaskId || !textEl) return Promise.reject();
-      var body = new URLSearchParams();
-      body.set('text', textEl.value.trim());
-      body.set('game_id', '{{ game.id }}');
-      body.set('anon_key', anonKey);
-      var url = "{% url 'new_bug_report' 0 %}".replace('/0/', '/' + currentTaskId + '/');
-      return fetch(url, {
-        method: 'POST',
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRFToken': csrf(),
-          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-        },
-        body: body.toString(),
-        credentials: 'same-origin',
-      }).then(function (r) {
-        return r.json().then(function (data) {
-          if (!r.ok) throw data;
-          return data;
-        });
-      });
-    }
-
-    document.addEventListener('click', function (e) {
-      var openBtn = e.target && e.target.closest ? e.target.closest('[data-bug-report-open]') : null;
-      if (openBtn) {
-        e.preventDefault();
-        openBugReport(openBtn.getAttribute('data-task-id'), openBtn.getAttribute('data-task-label'));
-        return;
-      }
-      if (e.target && e.target.closest && e.target.closest('[data-bug-report-close]')) {
-        closeBugReport();
-        return;
-      }
-      if (e.target && e.target.closest && e.target.closest('[data-bug-report-submit]')) {
-        e.preventDefault();
-        if (!textEl || !textEl.value.trim()) {
-          if (errorEl) { errorEl.textContent = 'Опишите проблему.'; errorEl.hidden = false; }
-          return;
-        }
-        if (submitBtn) submitBtn.disabled = true;
-        if (errorEl) errorEl.hidden = true;
-        postBugReport().then(function (data) {
-          var link = document.getElementById('new-bug-report-success-link');
-          if (link && data && data.report_url) link.setAttribute('href', data.report_url);
-          if (successEl) successEl.hidden = false;
-          if (submitBtn) submitBtn.disabled = true;
-        }).catch(function (err) {
-          if (submitBtn) submitBtn.disabled = false;
-          if (errorEl) {
-            errorEl.textContent = (err && err.error) ? err.error : 'Не удалось отправить. Попробуйте ещё раз.';
-            errorEl.hidden = false;
-          }
-        });
-      }
-    });
-
-    if (modal) {
-      modal.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closeBugReport();
-      });
-    }
-  })();
 
   // Hide solved toggle (persisted across pages).
   // На лесенках кнопки нет (is_daily_single_task) — режим скрытия сюда не применяем,

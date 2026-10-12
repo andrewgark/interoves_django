@@ -40,6 +40,13 @@
       : 'Какое слово должно было его открыть?';
   }
 
+  function showNetworkError(message, response) {
+    var requestId = response && response.headers && response.headers.get('X-Request-ID');
+    var suffix = response && response.status ? ' (HTTP ' + response.status + ')' : '';
+    errorEl.textContent = message + suffix + (requestId ? ' · Код: ' + requestId : '');
+    errorEl.hidden = false;
+  }
+
   function close() {
     if (submitting) return;
     modal.hidden = true;
@@ -160,21 +167,22 @@
       body: JSON.stringify(body),
     }).then(function (response) {
       return response.json().then(function (data) {
-        return { ok: response.ok && data.ok !== false, data: data };
+        return { ok: response.ok && data.ok !== false, data: data, response: response };
       });
     }).then(function (result) {
       if (!result.ok) {
-        errorEl.textContent = (result.data && result.data.error) || 'Не удалось отправить жалобу.';
-        errorEl.hidden = false;
+        showNetworkError(
+          (result.data && result.data.error) || 'Не удалось отправить жалобу.',
+          result.response
+        );
         return;
       }
       errorEl.hidden = true;
       successEl.hidden = false;
       submitEl.hidden = true;
       modal.querySelectorAll('input, textarea').forEach(function (input) { input.disabled = true; });
-    }).catch(function () {
-      errorEl.textContent = 'Сеть недоступна.';
-      errorEl.hidden = false;
+    }).catch(function (error) {
+      showNetworkError(error && error.message === 'Failed to fetch' ? 'Сеть недоступна.' : 'Не удалось отправить жалобу.', error && error.response);
     }).finally(function () {
       submitting = false;
       submitEl.disabled = false;

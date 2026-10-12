@@ -34,7 +34,7 @@
   </div>
 </div>
 
-<div id="new-bug-report-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-bug-report-title" aria-modal="true" hidden>
+<div id="new-bug-report-modal" data-bug-report-url-template="{% url 'new_bug_report' 0 %}" data-bug-report-game-id="{{ game.id }}" class="new-rules-modal" role="dialog" aria-labelledby="new-bug-report-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-bug-report-close></div>
   <div class="new-rules-modal__box pal-card">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-bug-report-close><i class="ph ph-x" aria-hidden="true"></i></button>
@@ -208,6 +208,7 @@
 <script defer src="{% static 'js/daily_statistics.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endif %}
 <script src="{% static 'js/censorly_guess_feedback.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+<script src="{% static 'js/new_bug_report.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/censorly_word_report.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/censorly_play.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script>
@@ -286,68 +287,5 @@ window.revealReplayControl = window.revealReplayControl || function () {
     control.hidden = false;
   });
 };
-(function () {
-  var modal = document.getElementById('new-bug-report-modal');
-  if (!modal) return;
-  var root = document.getElementById('censorly-root');
-  var textEl = document.getElementById('new-bug-report-text');
-  var labelEl = document.getElementById('new-bug-report-task-label');
-  var errorEl = document.getElementById('new-bug-report-error');
-  var successEl = document.getElementById('new-bug-report-success');
-  var currentTaskId = null;
-  function csrf() {
-    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : '';
-  }
-  function close() {
-    modal.setAttribute('hidden', '');
-    modal.classList.remove('is-open');
-  }
-  function open(btn) {
-    currentTaskId = btn.getAttribute('data-task-id');
-    if (labelEl) labelEl.textContent = btn.getAttribute('data-task-label') || '';
-    if (textEl) textEl.value = '';
-    if (errorEl) errorEl.hidden = true;
-    if (successEl) successEl.hidden = true;
-    modal.removeAttribute('hidden');
-    modal.classList.add('is-open');
-    if (textEl) textEl.focus();
-  }
-  document.addEventListener('click', function (e) {
-    var openBtn = e.target.closest && e.target.closest('[data-bug-report-open]');
-    if (openBtn) { e.preventDefault(); open(openBtn); return; }
-    if (e.target.closest && e.target.closest('[data-bug-report-close]')) { close(); return; }
-    if (e.target.closest && e.target.closest('[data-bug-report-submit]')) {
-      if (!currentTaskId || !textEl) return;
-      var url = "{% url 'new_bug_report' 0 %}".replace('/0/', '/' + currentTaskId + '/');
-      var body = new URLSearchParams();
-      body.set('text', textEl.value || '');
-      if (root) {
-        body.set('game_id', root.getAttribute('data-game-id') || '');
-        body.set('anon_key', root.getAttribute('data-anon-key') || '');
-      }
-      fetch(url, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRFToken': csrf(),
-        },
-        body: body.toString(),
-      }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok && d.ok !== false, data: d }; }); })
-        .then(function (pack) {
-          if (!pack.ok) {
-            if (errorEl) { errorEl.hidden = false; errorEl.textContent = (pack.data && pack.data.error) || 'Не удалось отправить'; }
-            return;
-          }
-          if (successEl) successEl.hidden = false;
-          if (errorEl) errorEl.hidden = true;
-        }).catch(function () {
-          if (errorEl) { errorEl.hidden = false; errorEl.textContent = 'Сеть недоступна'; }
-        });
-    }
-  });
-})();
 </script>
 {% endblock %}
