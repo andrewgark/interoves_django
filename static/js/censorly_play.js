@@ -75,7 +75,8 @@
       var lengthLabel = lettersLabel(mask.dataset.len || 0);
       var ending = showEndings ? (mask.dataset.ending || '') : '';
       var endingLabel = ending ? ', окончание «' + ending + '»' : '';
-      mask.setAttribute('aria-label', 'скрытое слово, ' + lengthLabel + endingLabel);
+      var lockLabel = mask.dataset.lockLabel || 'скрытое слово';
+      mask.setAttribute('aria-label', lockLabel + ', ' + lengthLabel + endingLabel);
     });
   }
 
@@ -153,6 +154,7 @@
       var lockTip = tok.title_lemma
         ? 'Слово из названия статьи'
         : 'Слово, близкое к слову из названия статьи';
+      mask.dataset.lockLabel = lockTip;
       mask.setAttribute('data-tooltip', lockTip + ' · ' + lengthLabel);
       mask.setAttribute('title', lockTip);
       mask.setAttribute('aria-label', lockTip + ', ' + lengthLabel);
