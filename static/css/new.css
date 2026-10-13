@@ -10808,7 +10808,8 @@ html.new-ui-dark .new-word-salad__links line {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.25rem;
-  flex: 0 0 auto;
+  grid-column: 3;
+  justify-self: end;
 }
 
 .new-word-salad__orientation[hidden] {
@@ -10851,25 +10852,25 @@ html.new-ui-dark .new-word-salad__links line {
 
 .new-word-salad__selection {
   position: relative;
-  display: flex;
-  flex-direction: row-reverse;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
-  min-height: 5.75rem;
+  min-height: 3.85rem;
   margin-top: 0.5rem;
 }
 
 .new-word-salad__selection-main {
   position: relative;
   display: flex;
+  grid-column: 2;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  flex: 1 1 auto;
   width: auto;
   min-width: 0;
 }
@@ -10897,7 +10898,8 @@ html.new-ui-dark .new-word-salad__links line {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  flex: 0 0 auto;
+  grid-column: 1;
+  justify-self: start;
 }
 
 .new-word-salad__reset-wrap.is-idle {
@@ -10964,6 +10966,10 @@ html.new-ui-dark .new-word-salad__links line {
 }
 
 @media (hover: none) and (pointer: coarse) {
+  .new-word-salad__selection {
+    min-height: 5.75rem;
+  }
+
   .new-word-salad__reset-key {
     display: none;
   }
