@@ -721,6 +721,11 @@ html.new-ui-dark .censorly__dock {
   overflow-wrap: anywhere;
 }
 
+.censorly__no-hits {
+  color: var(--muted, #6b7280);
+  font-size: 0.85em;
+}
+
 .censorly__guess-word {
   display: block;
   width: 100%;

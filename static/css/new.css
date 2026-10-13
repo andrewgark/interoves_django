@@ -10808,7 +10808,7 @@ html.new-ui-dark .new-word-salad__links line {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.25rem;
-  grid-column: 3;
+  grid-area: orientation;
   justify-self: end;
 }
 
@@ -10853,7 +10853,10 @@ html.new-ui-dark .new-word-salad__links line {
 .new-word-salad__selection {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas:
+    "word word"
+    "reset orientation";
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
@@ -10867,7 +10870,7 @@ html.new-ui-dark .new-word-salad__links line {
 .new-word-salad__selection-main {
   position: relative;
   display: flex;
-  grid-column: 2;
+  grid-area: word;
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
@@ -10884,7 +10887,8 @@ html.new-ui-dark .new-word-salad__links line {
   font-weight: 700;
   letter-spacing: 0.04em;
   line-height: 1.25;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-wrap: normal;
   text-align: center;
 }
 
@@ -10898,7 +10902,7 @@ html.new-ui-dark .new-word-salad__links line {
   align-items: center;
   justify-content: center;
   gap: 0.4rem;
-  grid-column: 1;
+  grid-area: reset;
   justify-self: start;
 }
 

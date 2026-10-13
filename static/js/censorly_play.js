@@ -424,7 +424,17 @@
       tr.dataset.word = word;
       if (tokenIds.length) tr.dataset.tokenIds = tokenIds.join(',');
       tr.appendChild(el('td', null, String(i + 1)));
-      tr.appendChild(el('td', null, hits ? String(hits) : '—'));
+      var hitsCell = el('td');
+      if (hits) {
+        hitsCell.textContent = String(hits);
+      } else {
+        var noHits = el('i', 'ph ph-x censorly__no-hits');
+        noHits.setAttribute('aria-hidden', 'true');
+        noHits.setAttribute('title', 'Совпадений нет');
+        hitsCell.setAttribute('aria-label', 'Совпадений нет');
+        hitsCell.appendChild(noHits);
+      }
+      tr.appendChild(hitsCell);
       var wordCell = el('td');
       var wordButton = el('button', 'censorly__guess-word', word);
       wordButton.type = 'button';
@@ -1009,6 +1019,14 @@
         var word = (input.value || '').trim();
         if (!word) return;
         busy = true;
+        var submit = root.querySelector('#censorly-submit');
+        if (submit) {
+          submit.classList.add('is-loading');
+          submit.disabled = true;
+          submit.setAttribute('aria-busy', 'true');
+          submit.setAttribute('aria-label', 'Проверяем слово');
+          submit.setAttribute('data-tooltip', 'Проверяем слово');
+        }
         hasLocalAction = true;
         var revealScrollTokenId = null;
         setFeedback(root, '');
@@ -1053,6 +1071,13 @@
           })
           .finally(function () {
             busy = false;
+            if (submit) {
+              submit.classList.remove('is-loading');
+              submit.setAttribute('aria-busy', 'false');
+              submit.setAttribute('aria-label', 'Угадать');
+              submit.setAttribute('data-tooltip', 'Угадать');
+              submit.disabled = !!(input && input.disabled);
+            }
             if (input && !input.disabled) input.focus();
             if (revealScrollTokenId != null) {
               window.requestAnimationFrame(function () {

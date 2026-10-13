@@ -1,5 +1,5 @@
 {% load static %}
-<div class="new-stack-gap new-alphabetty-random-cta">
+<div class="new-stack-gap new-random-game-cta">
   {% if random_censorly_has_access %}
     {{ censorly_taxonomy|json_script:"censorly-random-taxonomy" }}
     <form method="post" action="{% url 'ui_censorly_random' %}" data-random-censorly-form>
@@ -18,8 +18,8 @@
         <section class="censorly-random-settings" id="censorly-random-settings" aria-labelledby="censorly-filter-title" data-random-censorly-settings hidden>
           <header class="censorly-random-dialog__header">
             <span class="censorly-random-dialog__eyebrow"><i class="ph ph-sliders-horizontal" aria-hidden="true"></i> Подбор по вашим темам</span>
-            <h2 id="censorly-filter-title" class="pal-title">Настройки случайной игры</h2>
-            <p>У статьи должны быть только выбранные типы и сложность. Для категорий достаточно совпадения хотя бы с одной.</p>
+            <h2 id="censorly-filter-title" class="pal-title">Соберите свою подборку</h2>
+            <p>Статья должна совпасть с выбранными типами и сложностью, а по категориям достаточно одного совпадения.</p>
           </header>
           <div class="censorly-random-dialog__top-grid">
             <section class="censorly-random-panel" aria-labelledby="censorly-difficulty-title">
@@ -55,4 +55,5 @@
     </a>
   {% endif %}
 </div>
+<script src="{% static 'js/censorly_taxonomy_icons.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/censorly_random_filters.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>

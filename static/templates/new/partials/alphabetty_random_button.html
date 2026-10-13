@@ -1,4 +1,4 @@
-<p class="new-stack-gap new-alphabetty-random-cta">
+<div class="new-stack-gap new-random-game-cta">
   {% if random_alphabetty_has_access %}
     <form method="post" action="{% url 'new_alphabetty_random' %}">
       {% csrf_token %}
@@ -13,4 +13,4 @@
       <i class="ph ph-lock-key" aria-hidden="true"></i> Случайная игра
     </a>
   {% endif %}
-</p>
+</div>

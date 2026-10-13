@@ -93,6 +93,14 @@ def hint_count(state: dict[str, Any]) -> int:
         return 0
 
 
+def _clean_lemma_list(value: Any) -> list[str]:
+    """Normalize persisted lemma arrays while ignoring malformed values."""
+    if not isinstance(value, list):
+        return []
+    cleaned = [normalize_surface(item) for item in value if isinstance(item, str)]
+    return [lemma for lemma in cleaned if lemma]
+
+
 def _is_initially_open_word(surface: str) -> bool:
     """Whether *surface* is visible before a player makes a guess."""
     if is_stop_word(surface):
@@ -167,8 +175,15 @@ def load_state(raw: str | None) -> dict[str, Any]:
     if isinstance(guesses, list):
         for item in guesses:
             if isinstance(item, dict):
-                word = normalize_surface(item.get('word') or '')
-                lemma = normalize_surface(item.get('lemma') or '') or lemma_of(word)
+                raw_word = item.get('word')
+                if not isinstance(raw_word, str):
+                    continue
+                word = normalize_surface(raw_word)
+                raw_lemma = item.get('lemma')
+                lemma = (
+                    normalize_surface(raw_lemma)
+                    if isinstance(raw_lemma, str) else ''
+                ) or lemma_of(word)
                 try:
                     hits = int(item.get('hits') or 0)
                 except (TypeError, ValueError):
@@ -179,17 +194,10 @@ def load_state(raw: str | None) -> dict[str, Any]:
                 w = normalize_surface(item)
                 cleaned.append({'word': w, 'lemma': lemma_of(w), 'hits': 0})
     state['guesses'] = cleaned
-    lemmas = data.get('revealed_lemmas') or []
-    if isinstance(lemmas, list):
-        state['revealed_lemmas'] = [
-            normalize_surface(x) for x in lemmas if normalize_surface(str(x))
-        ]
-    state['last_lemma'] = normalize_surface(data.get('last_lemma') or '')
-    hinted = data.get('hinted_lemmas') or []
-    state['hinted_lemmas'] = (
-        sorted({normalize_surface(x) for x in hinted if normalize_surface(str(x))})
-        if isinstance(hinted, list) else []
-    )
+    state['revealed_lemmas'] = _clean_lemma_list(data.get('revealed_lemmas'))
+    last_lemma = data.get('last_lemma')
+    state['last_lemma'] = normalize_surface(last_lemma) if isinstance(last_lemma, str) else ''
+    state['hinted_lemmas'] = sorted(set(_clean_lemma_list(data.get('hinted_lemmas'))))
     state['won'] = bool(data.get('won'))
     state['hints_taken'] = hint_count(data)
     return state
@@ -879,6 +887,12 @@ def apply_hint(
         out['status'] = 'already_open'
         out['active_token_ids'] = newly_revealed_ids(payload, lemma)
         out['error'] = 'Слово уже открыто'
+        return out
+    if _is_initially_open_word(str(tok.get('surface') or '')):
+        out = public_payload(state, payload, task=task)
+        out['status'] = 'already_open'
+        out['active_token_ids'] = newly_revealed_ids(payload, lemma)
+        out['error'] = 'Слово уже открыто изначально'
         return out
 
     revealed = set(state.get('revealed_lemmas') or [])

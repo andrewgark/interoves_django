@@ -1499,6 +1499,8 @@ def censorly_pool_save(request):
                 })
     except (TypeError, ValueError) as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except IntegrityError:
+        return JsonResponse({'ok': False, 'error': 'Статья с таким названием уже есть в пуле'}, status=409)
     return JsonResponse({'ok': True})
 
 
@@ -1513,6 +1515,8 @@ def censorly_pool_taxonomy_save(request):
     name = str(body.get('name') or '').strip()
     try:
         if kind == 'category':
+            if action == 'create' and body.get('id'):
+                raise ValueError('Для создания категории не передавайте id')
             node = CensorlyCategory.objects.filter(pk=body.get('id')).first() if body.get('id') else None
             if action not in ('create', 'save', 'delete'):
                 raise ValueError('Неизвестное действие')
@@ -1546,6 +1550,8 @@ def censorly_pool_taxonomy_save(request):
                 node.sort_order = sort_order
                 node.save()
         elif kind == 'type':
+            if action == 'create' and body.get('id'):
+                raise ValueError('Для создания типа не передавайте id')
             item = CensorlyObjectType.objects.filter(pk=body.get('id')).first() if body.get('id') else None
             if action == 'delete':
                 if item is None:

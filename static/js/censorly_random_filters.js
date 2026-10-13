@@ -14,18 +14,9 @@
   var categoryRoot = settings.querySelector('[data-filter-categories]');
   var typeRoot = settings.querySelector('[data-filter-types]');
   var validation = settings.querySelector('[data-random-censorly-validation]');
-  var categoryIcons = {
-    'Астрономия и космос':'ph-planet', 'Биология':'ph-leaf', 'География':'ph-globe-hemisphere-west',
-    'История':'ph-hourglass-medium', 'Культура':'ph-palette', 'Математика':'ph-function',
-    'Медицина':'ph-first-aid-kit', 'Общество':'ph-users-three', 'Техника и технологии':'ph-cpu',
-    'Физика':'ph-atom', 'Химия':'ph-flask', 'Язык и понятия':'ph-quotes'
-  };
-  var typeIcons = {
-    'Группа людей':'ph-users-three', 'Организация':'ph-buildings', 'Организм':'ph-leaf', 'Понятие':'ph-lightbulb',
-    'Предмет':'ph-cube', 'Природный объект':'ph-mountains', 'Произведение':'ph-book-open-text',
-    'Событие':'ph-calendar-star', 'Сооружение':'ph-bridge', 'Социальная роль':'ph-identification-card',
-    'Существо':'ph-bug', 'Технология/устройство':'ph-devices', 'Топоним':'ph-map-pin', 'Человек':'ph-user'
-  };
+  var taxonomyIcons = window.CensorlyTaxonomyIcons || {};
+  var categoryIcons = taxonomyIcons.categories || {};
+  var typeIcons = taxonomyIcons.types || {};
   function esc(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, function (char) {
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char];
@@ -84,6 +75,8 @@
       }
     });
   });
+  // Keep the order configured in the taxonomy editor; alphabetical ordering
+  // makes the filter disagree with the pool management screen.
   var roots = Object.keys(categoryNodes).filter(function (path) { return path.indexOf('/') === -1; });
   var types = (taxonomy.types || []).slice();
   var difficulties = ['легко', 'средне', 'сложно', 'очень сложно'];
@@ -145,7 +138,6 @@
     element.hidden = value;
     element.classList.toggle('is-hidden', value);
   }
-  roots.sort(function (a, b) { return categoryNodes[a].name.localeCompare(categoryNodes[b].name, 'ru'); });
   roots.forEach(function (path) { appendCategory(path, 0, categoryRoot); });
 
   types.forEach(function (type) {
@@ -191,6 +183,15 @@
     roots.forEach(function (root) { visit(root, false); });
     return output;
   }
+  function persistSelection() {
+    var state = {
+      version:2,
+      categories:compressedCategories(),
+      types:Array.from(selectedTypes),
+      difficulties:Array.from(selectedDifficulties)
+    };
+    try { localStorage.setItem('censorly-random-filters', JSON.stringify(state)); } catch (_) {}
+  }
   function updateCounts() {
     var selectedPaths = compressedCategories();
     var categoryCount = settings.querySelector('[data-category-count]');
@@ -232,6 +233,7 @@
       if (checked) selectedCategories.add(input.value); else selectedCategories.delete(input.value);
     });
     updateCategoryStates();
+    persistSelection();
   }
   categoryRoot.addEventListener('change', function (event) {
     var input = event.target.closest('[data-filter-category]');
@@ -241,6 +243,7 @@
     });
     updateCategoryStates();
     validation.hidden = true;
+    persistSelection();
   });
   categoryRoot.addEventListener('click', function (event) {
     var expand = event.target.closest('.censorly-category-tree__expand');
@@ -256,11 +259,13 @@
     var input = event.target.closest('[data-filter-type]'); if (!input) return;
     if (input.checked) selectedTypes.add(input.value); else selectedTypes.delete(input.value);
     updateCounts(); validation.hidden = true;
+    persistSelection();
   });
   settings.querySelectorAll('[data-filter-difficulty]').forEach(function (input) {
     input.addEventListener('change', function () {
       if (input.checked) selectedDifficulties.add(input.value); else selectedDifficulties.delete(input.value);
       validation.hidden = true;
+      persistSelection();
     });
   });
   settings.querySelector('[data-category-select-all]').addEventListener('click', function () { selectAllCategories(true); validation.hidden = true; });
@@ -268,15 +273,18 @@
   settings.querySelector('[data-type-select-all]').addEventListener('click', function () {
     typeRoot.querySelectorAll('[data-filter-type]').forEach(function (input) { input.checked = true; selectedTypes.add(input.value); });
     updateCounts(); validation.hidden = true;
+    persistSelection();
   });
   settings.querySelector('[data-type-clear]').addEventListener('click', function () {
     typeRoot.querySelectorAll('[data-filter-type]').forEach(function (input) { input.checked = false; selectedTypes.delete(input.value); });
     updateCounts(); validation.hidden = true;
+    persistSelection();
   });
   settings.querySelector('[data-difficulty-reset]').addEventListener('click', function () {
     selectedDifficulties = new Set();
     settings.querySelectorAll('[data-filter-difficulty]').forEach(function (input) { input.checked = false; });
     validation.hidden = true;
+    persistSelection();
   });
   function setSettingsOpen(open) {
     settings.hidden = !open;
@@ -305,7 +313,12 @@
     var chosenDifficulties = Array.from(selectedDifficulties);
     var chosenTypes = Array.from(selectedTypes);
     var chosenCategories = compressedCategories();
-    if (!chosenCategories.length || !chosenDifficulties.length || !chosenTypes.length) { validation.hidden = false; return; }
+    if (!chosenCategories.length || !chosenDifficulties.length || !chosenTypes.length) {
+      setSettingsOpen(true);
+      validation.hidden = false;
+      settingsToggle.focus();
+      return;
+    }
     var state = {version:2, categories:chosenCategories, types:chosenTypes, difficulties:chosenDifficulties};
     try { localStorage.setItem('censorly-random-filters', JSON.stringify(state)); } catch (_) {}
     filtersInput.value = JSON.stringify({

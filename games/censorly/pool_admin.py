@@ -83,41 +83,74 @@ def active_pool_titles(rows=None):
 def taxonomy(rows=None):
     categories = {}
     tree_nodes = []
-    active = list(CensorlyCategory.objects.filter(is_active=True).select_related('parent'))
-    if active:
-        by_id = {item.pk: item for item in active}
+    has_categories = CensorlyCategory.objects.exists()
+    active = list(
+        CensorlyCategory.objects.filter(is_active=True)
+        .select_related('parent')
+        .order_by('parent_id', 'sort_order', 'name', 'pk')
+    )
+    if has_categories:
+        all_parents = dict(CensorlyCategory.objects.values_list('pk', 'parent_id'))
+        active_by_id = {item.pk: item for item in active}
+        children_by_parent = {}
         for item in active:
+            children_by_parent.setdefault(item.parent_id, []).append(item)
+        ordered_active = []
+        pending = list(reversed(children_by_parent.get(None, [])))
+        while pending:
+            item = pending.pop()
+            ordered_active.append(item)
+            pending.extend(reversed(children_by_parent.get(item.pk, [])))
+        for item in ordered_active:
             names = [item.name]
             parent = item.parent
+            ancestors_active = True
+            seen = {item.pk}
             while parent is not None:
+                if parent.pk in seen:
+                    ancestors_active = False
+                    break
+                seen.add(parent.pk)
+                if parent.pk not in active_by_id:
+                    ancestors_active = False
+                    break
                 names.append(parent.name)
-                parent = by_id.get(parent.parent_id) if parent.parent_id else None
+                parent_id = all_parents.get(parent.pk)
+                parent = active_by_id.get(parent_id) if parent_id else None
+            if not ancestors_active:
+                continue
             path = '/'.join(reversed(names))
             parts = path.split('/')
+            categories.setdefault(parts[0], [])
             if len(parts) > 1:
-                categories.setdefault(parts[0], set()).add('/'.join(parts[1:]))
-            else:
-                categories.setdefault(parts[0], set())
+                # Keep every descendant path relative to its root. The support
+                # UI uses this map for both article tags and pool filtering.
+                relative_path = '/'.join(parts[1:])
+                if relative_path not in categories[parts[0]]:
+                    categories[parts[0]].append(relative_path)
             tree_nodes.append({'id': item.pk, 'name': item.name, 'parent_id': item.parent_id, 'path': path, 'sort_order': item.sort_order})
     else:
         rows = rows if rows is not None else pool_rows()
         for row in rows.values():
             for path in row['topics']:
                 parts = path.split('/', 1)
-                categories.setdefault(parts[0], set())
+                categories.setdefault(parts[0], [])
                 if len(parts) > 1:
-                    categories[parts[0]].add(parts[1])
+                    relative_path = parts[1]
+                    if relative_path not in categories[parts[0]]:
+                        categories[parts[0]].append(relative_path)
         tree_nodes = []
 
+    has_types = CensorlyObjectType.objects.exists()
     type_nodes = list(CensorlyObjectType.objects.filter(is_active=True).values('id', 'name', 'sort_order'))
-    if type_nodes:
+    if has_types:
         types = [item['name'] for item in type_nodes]
     else:
         rows = rows if rows is not None else pool_rows()
         types = sorted({name for row in rows.values() for name in row['types']})
         type_nodes = [{'id': name, 'name': name, 'sort_order': index} for index, name in enumerate(types)]
     return {
-        'categories': {key: sorted(value) for key, value in sorted(categories.items())},
+        'categories': categories,
         'types': types, 'type_nodes': type_nodes, 'tree': tree_nodes,
     }
 
@@ -138,6 +171,8 @@ def save_pool_entry(title, topics, object_types, difficulty, enabled=True):
     object_types = list(dict.fromkeys(v.strip() for v in object_types if isinstance(v, str) and v.strip()))
     if enabled and not topics:
         raise ValueError('Выберите хотя бы одну категорию')
+    if enabled and not object_types:
+        raise ValueError('Выберите хотя бы один тип объекта')
     known = taxonomy()
     valid_topics = {item['path']: item['id'] for item in known['tree']}
     if not valid_topics:

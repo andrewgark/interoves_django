@@ -35,15 +35,26 @@
   </div>
 </div>
 <div class="new-rules-modal" id="cz-pool-modal" role="dialog" aria-modal="true" aria-labelledby="cz-pool-modal-title" hidden>
-  <div class="new-rules-overlay" data-pool-close></div><div class="new-rules-modal__box pal-card">
+  <div class="new-rules-overlay" data-pool-close></div><div class="new-rules-modal__box pal-card censorly-pool-edit-modal">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-pool-close>×</button><h2 id="cz-pool-modal-title" class="pal-title">Статья пула</h2>
-    <label class="support-ladders-field"><span>Название статьи</span><input id="cz-pool-title" maxlength="255"></label>
-    <fieldset class="censorly-pool-tag-picker"><legend>Категории</legend><div id="cz-pool-topics"></div></fieldset>
-    <fieldset class="censorly-pool-tag-picker"><legend>Типы</legend><div id="cz-pool-types"></div></fieldset>
+    <label class="support-ladders-field"><span>Статья в Википедии</span><input id="cz-pool-title" maxlength="255" placeholder="Например, Северное сияние"><small>Текст статьи загрузится из Википедии при сохранении.</small></label>
+    <fieldset class="censorly-pool-tag-picker censorly-pool-topic-picker"><legend>Категории статьи</legend>
+      <div class="censorly-pool-tag-toolbar"><small data-pool-topic-count aria-live="polite"></small><div><button type="button" data-pool-topic-clear>Очистить</button></div></div>
+      <label class="censorly-pool-tag-search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Найти категорию" aria-label="Найти категорию" data-pool-topic-search></label>
+      <div id="cz-pool-topics" class="censorly-pool-category-tree"></div>
+      <small class="censorly-pool-tag-hint">Метка широкой категории подходит и для её подкатегорий.</small>
+    </fieldset>
+    <fieldset class="censorly-pool-tag-picker"><legend>Тип объекта</legend>
+      <div class="censorly-pool-tag-toolbar"><small data-pool-type-count aria-live="polite"></small><div><button type="button" data-pool-type-clear>Очистить</button></div></div>
+      <label class="censorly-pool-tag-search"><i class="ph ph-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Найти тип" aria-label="Найти тип объекта" data-pool-type-search></label>
+      <div id="cz-pool-types" class="censorly-pool-type-chips"></div>
+      <small class="censorly-pool-tag-hint">Для активной статьи выберите минимум один тип.</small>
+    </fieldset>
     <label class="support-ladders-field"><span>Сложность</span><select id="cz-pool-difficulty"><option>легко</option><option>средне</option><option>сложно</option><option>очень сложно</option></select></label>
     <label><input type="checkbox" id="cz-pool-enabled" checked> Оставить в пуле</label>
-    <p class="support-hint support-ladder-edit-error" id="cz-pool-error" hidden></p><button type="button" class="new-btn new-btn--yellow" id="cz-pool-save">Сохранить</button>
+    <p class="support-hint support-ladder-edit-error" id="cz-pool-error" role="alert" aria-live="polite" hidden></p><button type="button" class="new-btn new-btn--yellow" id="cz-pool-save">Сохранить</button>
   </div>
 </div>
+<script src="{% static 'js/censorly_taxonomy_icons.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/support_censorly_pool.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 {% endblock %}
