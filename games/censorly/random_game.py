@@ -168,6 +168,7 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
     pool = active_pool_titles(tagged)
     if not pool:
         raise EmptyCensorlyPool('Пул статей Цензурок пуст')
+    interactive_filters = filters is not None
     filters = filters or {}
     def selected_values(key):
         raw = filters.get(key) or []
@@ -180,7 +181,9 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
     difficulties = selected_values('difficulties')
     categories = selected_values('categories')
     types = selected_values('types')
-    filter_difficulty = filters.get('filter_difficulty', bool(difficulties))
+    filter_difficulty = interactive_filters or bool(filters.get('filter_difficulty'))
+    filter_types = interactive_filters or bool(filters.get('filter_types'))
+    filter_categories = interactive_filters or bool(filters.get('filter_categories'))
 
     def matches(title):
         row = tagged.get(title)
@@ -190,12 +193,12 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
             return False
         if filter_difficulty and (row is None or row['difficulty'] not in difficulties):
             return False
-        if categories and (row is None or not any(
+        if filter_categories and (row is None or not any(
             path == category or path.startswith(category + '/')
             for path in row['topics'] for category in categories
         )):
             return False
-        if types and (row is None or not types.intersection(row['types'])):
+        if filter_types and (row is None or not row['types'] or not set(row['types']).issubset(types)):
             return False
         return True
 

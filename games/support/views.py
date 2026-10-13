@@ -2,14 +2,14 @@ import json
 import logging
 
 from django.contrib.auth.views import LoginView
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.views.decorators.http import require_GET, require_POST
 
 from games.models import Game, Team
-from games.models import Attempt, ChainTaskState, CensorlyPoolEntry, GameTaskGroup, Task
+from games.models import Attempt, ChainTaskState, CensorlyCategory, CensorlyObjectType, CensorlyPoolEntry, GameTaskGroup, Task
 from games.censorly.pool_admin import pool_rows, taxonomy as censorly_pool_taxonomy, save_pool_entry
 from games.censorly import CENSORLY_TAGS_KEY
 from games.censorly.tokenize import build_puzzle_payload
@@ -1500,6 +1500,81 @@ def censorly_pool_save(request):
     except (TypeError, ValueError) as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     return JsonResponse({'ok': True})
+
+
+@support_console_required
+@require_POST
+def censorly_pool_taxonomy_save(request):
+    body = _json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    kind = body.get('kind')
+    action = body.get('action')
+    name = str(body.get('name') or '').strip()
+    try:
+        if kind == 'category':
+            node = CensorlyCategory.objects.filter(pk=body.get('id')).first() if body.get('id') else None
+            if action not in ('create', 'save', 'delete'):
+                raise ValueError('Неизвестное действие')
+            if action == 'delete':
+                if node is None:
+                    raise ValueError('Категория не найдена')
+                if node.children.exists() or node.pool_entries.exists():
+                    raise ValueError('Сначала перенесите подкатегории и снимите тег со статей')
+                node.delete()
+            else:
+                if not name or len(name) > 120 or '/' in name:
+                    raise ValueError('Название должно быть длиной до 120 символов и без символа /')
+                sort_order = int(body.get('sort_order') or 0)
+                if sort_order < 0:
+                    raise ValueError('Порядок не может быть отрицательным')
+                parent_id = body.get('parent_id') or None
+                parent = CensorlyCategory.objects.filter(pk=parent_id, is_active=True).first() if parent_id else None
+                if parent_id and parent is None:
+                    raise ValueError('Родительская категория не найдена')
+                if node and parent and (parent.pk == node.pk or node.pk in parent.get_ancestors_ids()):
+                    raise ValueError('Нельзя переместить категорию внутрь самой себя')
+                duplicate = CensorlyCategory.objects.filter(parent=parent, name__iexact=name)
+                if node:
+                    duplicate = duplicate.exclude(pk=node.pk)
+                if duplicate.exists():
+                    raise ValueError('Такое название уже есть на этом уровне')
+                if node is None and action != 'create':
+                    raise ValueError('Категория не найдена')
+                node = node or CensorlyCategory()
+                node.name, node.parent = name, parent
+                node.sort_order = sort_order
+                node.save()
+        elif kind == 'type':
+            item = CensorlyObjectType.objects.filter(pk=body.get('id')).first() if body.get('id') else None
+            if action == 'delete':
+                if item is None:
+                    raise ValueError('Тип не найден')
+                if item.pool_entries.exists():
+                    raise ValueError('Сначала снимите этот тип со статей')
+                item.delete()
+            elif action in ('create', 'save'):
+                if not name or len(name) > 120:
+                    raise ValueError('Название должно быть длиной до 120 символов')
+                sort_order = int(body.get('sort_order') or 0)
+                if sort_order < 0:
+                    raise ValueError('Порядок не может быть отрицательным')
+                if item is None and action != 'create':
+                    raise ValueError('Тип не найден')
+                if CensorlyObjectType.objects.filter(name__iexact=name).exclude(pk=item.pk if item else None).exists():
+                    raise ValueError('Такой тип уже существует')
+                item = item or CensorlyObjectType()
+                item.name, item.sort_order = name, sort_order
+                item.save()
+            else:
+                raise ValueError('Неизвестное действие')
+        else:
+            raise ValueError('Неизвестный вид тега')
+    except (ValueError, TypeError) as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    except IntegrityError:
+        return JsonResponse({'ok': False, 'error': 'Такое название уже существует'}, status=409)
+    return JsonResponse({'ok': True, 'taxonomy': censorly_pool_taxonomy()})
 
 
 @support_console_required

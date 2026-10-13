@@ -4,7 +4,7 @@ import csv
 from functools import lru_cache
 from pathlib import Path
 
-from games.models import CensorlyPoolEntry
+from games.models import CensorlyCategory, CensorlyObjectType, CensorlyPoolEntry
 
 TAGS_PATH = Path(__file__).with_name('article_pool_tags.tsv')
 DIFFICULTIES = ('легко', 'средне', 'сложно', 'очень сложно')
@@ -39,13 +39,34 @@ def _cached_base_pool_rows():
 def pool_rows():
     rows = {title: {**row, 'topics': list(row['topics']), 'types': list(row['types'])}
             for title, row in _cached_base_pool_rows().items()}
-    for override in CensorlyPoolEntry.objects.all():
+    overrides = list(CensorlyPoolEntry.objects.prefetch_related('categories', 'types'))
+    category_parents = {
+        category_id: (name, parent_id)
+        for category_id, name, parent_id in CensorlyCategory.objects.values_list('pk', 'name', 'parent_id')
+    } if overrides else {}
+    for override in overrides:
+        topics = [_category_path(category.pk, category_parents) for category in override.categories.all()]
+        types = [item.name for item in override.types.all()]
         rows[override.title] = {
-            'title': override.title, 'topics': override.topics or [],
-            'types': override.object_types or [], 'difficulty': override.difficulty,
+            'title': override.title, 'topics': topics or override.topics or [],
+            'types': types or override.object_types or [], 'difficulty': override.difficulty,
             'enabled': override.enabled,
         }
     return rows
+
+
+def _category_path(category_id, category_parents):
+    names = []
+    seen = set()
+    current_id = category_id
+    while current_id is not None and current_id not in seen:
+        seen.add(current_id)
+        node = category_parents.get(current_id)
+        if node is None:
+            break
+        name, current_id = node
+        names.append(name)
+    return '/'.join(reversed(names))
 
 
 def active_pool_titles(rows=None):
@@ -60,18 +81,45 @@ def active_pool_titles(rows=None):
 
 
 def taxonomy(rows=None):
-    rows = rows or pool_rows()
     categories = {}
-    types = set()
-    for row in rows.values():
-        types.update(row['types'])
-        for path in row['topics']:
-            if '/' in path:
-                parent, child = path.split('/', 1)
-                categories.setdefault(parent, set()).add(child)
+    tree_nodes = []
+    active = list(CensorlyCategory.objects.filter(is_active=True).select_related('parent'))
+    if active:
+        by_id = {item.pk: item for item in active}
+        for item in active:
+            names = [item.name]
+            parent = item.parent
+            while parent is not None:
+                names.append(parent.name)
+                parent = by_id.get(parent.parent_id) if parent.parent_id else None
+            path = '/'.join(reversed(names))
+            parts = path.split('/')
+            if len(parts) > 1:
+                categories.setdefault(parts[0], set()).add('/'.join(parts[1:]))
             else:
-                categories.setdefault(path, set())
-    return {'categories': {key: sorted(value) for key, value in sorted(categories.items())}, 'types': sorted(types)}
+                categories.setdefault(parts[0], set())
+            tree_nodes.append({'id': item.pk, 'name': item.name, 'parent_id': item.parent_id, 'path': path, 'sort_order': item.sort_order})
+    else:
+        rows = rows if rows is not None else pool_rows()
+        for row in rows.values():
+            for path in row['topics']:
+                parts = path.split('/', 1)
+                categories.setdefault(parts[0], set())
+                if len(parts) > 1:
+                    categories[parts[0]].add(parts[1])
+        tree_nodes = []
+
+    type_nodes = list(CensorlyObjectType.objects.filter(is_active=True).values('id', 'name', 'sort_order'))
+    if type_nodes:
+        types = [item['name'] for item in type_nodes]
+    else:
+        rows = rows if rows is not None else pool_rows()
+        types = sorted({name for row in rows.values() for name in row['types']})
+        type_nodes = [{'id': name, 'name': name, 'sort_order': index} for index, name in enumerate(types)]
+    return {
+        'categories': {key: sorted(value) for key, value in sorted(categories.items())},
+        'types': types, 'type_nodes': type_nodes, 'tree': tree_nodes,
+    }
 
 
 def save_pool_entry(title, topics, object_types, difficulty, enabled=True):
@@ -91,14 +139,22 @@ def save_pool_entry(title, topics, object_types, difficulty, enabled=True):
     if enabled and not topics:
         raise ValueError('Выберите хотя бы одну категорию')
     known = taxonomy()
-    valid_topics = set(known['categories']) | {
-        parent + '/' + child for parent, children in known['categories'].items() for child in children
-    }
+    valid_topics = {item['path']: item['id'] for item in known['tree']}
+    if not valid_topics:
+        valid_topics = set(known['categories']) | {
+            parent + '/' + child for parent, children in known['categories'].items() for child in children
+        }
     if any(topic not in valid_topics for topic in topics):
         raise ValueError('Выберите категории из таксономии')
-    if any(item not in known['types'] for item in object_types):
+    valid_types = {item.name: item.pk for item in CensorlyObjectType.objects.filter(is_active=True)}
+    if not valid_types:
+        valid_types = set(known['types'])
+    if any(item not in valid_types for item in object_types):
         raise ValueError('Выберите типы из списка')
-    CensorlyPoolEntry.objects.update_or_create(title=title, defaults={
-        'topics': topics, 'object_types': object_types,
-        'difficulty': difficulty, 'enabled': enabled,
+    entry, _ = CensorlyPoolEntry.objects.update_or_create(title=title, defaults={
+        'topics': topics, 'object_types': object_types, 'difficulty': difficulty, 'enabled': enabled,
     })
+    if isinstance(valid_topics, dict):
+        entry.categories.set(valid_topics[value] for value in topics)
+    if isinstance(valid_types, dict):
+        entry.types.set(valid_types[value] for value in object_types)

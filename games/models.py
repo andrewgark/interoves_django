@@ -4991,10 +4991,64 @@ class RandomCensorlyGame(models.Model):
         return '/censorly/r/{}/'.format(self.share_hash)
 
 
+class CensorlyCategory(models.Model):
+    """Editable node in the Censorly topic tree."""
+
+    name = models.CharField(max_length=120)
+    parent = models.ForeignKey(
+        'self', related_name='children', blank=True, null=True,
+        on_delete=models.PROTECT,
+    )
+    parent_key = models.BigIntegerField(default=0, editable=False)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['sort_order', 'name', 'pk']
+        constraints = [models.UniqueConstraint(
+            fields=('parent_key', 'name'), name='uniq_censorly_category_sibling_name',
+        )]
+
+    def save(self, *args, **kwargs):
+        self.parent_key = self.parent_id or 0
+        update_fields = kwargs.get('update_fields')
+        if update_fields is not None:
+            kwargs['update_fields'] = set(update_fields) | {'parent_key'}
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+    def get_ancestors_ids(self):
+        ids = set()
+        parent = self.parent
+        while parent is not None:
+            ids.add(parent.pk)
+            parent = parent.parent
+        return ids
+
+
+class CensorlyObjectType(models.Model):
+    """Editable flat object-type vocabulary for Censorly pool entries."""
+
+    name = models.CharField(max_length=120, unique=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ['sort_order', 'name', 'pk']
+
+    def __str__(self):
+        return self.name
+
+
 class CensorlyPoolEntry(models.Model):
     """Database overrides and additions for the curated Censorly article pool."""
 
     title = models.CharField(max_length=255, unique=True)
+    categories = models.ManyToManyField(CensorlyCategory, related_name='pool_entries', blank=True)
+    types = models.ManyToManyField(CensorlyObjectType, related_name='pool_entries', blank=True)
+    # Kept through the transition so the imported source can be audited/exported.
     topics = models.JSONField(default=list, blank=True)
     object_types = models.JSONField(default=list, blank=True)
     difficulty = models.CharField(max_length=16, blank=True, default='')

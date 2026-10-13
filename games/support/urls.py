@@ -121,6 +121,7 @@ urlpatterns = [
     path('censorly/pool/', views.censorly_pool, name='censorly_pool'),
     path('censorly/pool/list/', views.censorly_pool_list, name='censorly_pool_list'),
     path('censorly/pool/save/', views.censorly_pool_save, name='censorly_pool_save'),
+    path('censorly/pool/taxonomy/save/', views.censorly_pool_taxonomy_save, name='censorly_pool_taxonomy_save'),
     path('censorly/schedule/<int:link_id>/delete/', views.censorly_schedule_delete, name='censorly_schedule_delete'),
     path('censorly/schedule/<int:link_id>/edit/', views.censorly_schedule_edit, name='censorly_schedule_edit'),
     path('censorly/random-list/', views.censorly_random_list, name='censorly_random_list'),

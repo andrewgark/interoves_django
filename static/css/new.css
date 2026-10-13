@@ -11991,8 +11991,80 @@ button.new-word-salad__hint-btn:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-.censorly-filter-group { margin:1rem 0; }
-.censorly-filter-group label { display:inline-flex; align-items:center; gap:.4rem; margin:.25rem .75rem .25rem 0; }
-.censorly-filter-group details > label { display:block; }
-[data-random-censorly-modal] .new-rules-modal__box { max-height:min(84vh, 52rem); overflow-y:auto; }
-[data-random-censorly-validation] { color:var(--error,#b42318); }
+.censorly-random-dialog {
+  width: min(54rem, calc(100vw - 2rem));
+  max-height: min(88vh, 56rem);
+  max-height: min(88dvh, 56rem);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  padding: 1.25rem !important;
+}
+.censorly-random-dialog__header { padding-right: 2rem; }
+.censorly-random-dialog__header .pal-title { margin: .2rem 0 .25rem; font-size: 1.35rem; }
+.censorly-random-dialog__header p { margin: 0; color: var(--muted); font-size: .84rem; line-height: 1.45; }
+.censorly-random-dialog__eyebrow { display: inline-flex; align-items: center; gap: .35rem; color: var(--accent); font-size: .75rem; font-weight: 750; letter-spacing: .045em; text-transform: uppercase; }
+.censorly-random-dialog__top-grid { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: .7rem; min-height: 0; }
+.censorly-random-panel { min-width: 0; border: 1px solid var(--border); border-radius: .85rem; background: var(--surface); padding: .75rem; }
+.censorly-random-panel__heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .6rem; }
+.censorly-random-panel__heading h3 { margin: 0; font-size: .92rem; }
+.censorly-random-panel__heading small { display: block; margin-top: .1rem; color: var(--muted); font-size: .72rem; }
+.censorly-random-panel__quick-actions { display: flex; align-items: center; gap: .45rem; flex: 0 0 auto; }
+.censorly-random-text-button { border: 0; padding: .2rem .25rem; background: transparent; color: var(--accent); cursor: pointer; font: inherit; font-size: .75rem; font-weight: 700; }
+.censorly-random-text-button:hover { text-decoration: underline; }
+.censorly-difficulty-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+.censorly-difficulty-chip { position: relative; display: flex; align-items: center; gap: .45rem; min-width: 0; min-height: 2.45rem; padding: .45rem .55rem; border: 1px solid var(--border); border-radius: .65rem; background: var(--tile); cursor: pointer; font-size: .8rem; line-height: 1.2; transition: border-color .15s, background .15s, box-shadow .15s; }
+.censorly-difficulty-chip input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.censorly-difficulty-chip__dot { width: .55rem; height: .55rem; flex: 0 0 auto; border-radius: 50%; background: #a2aaa6; }
+.censorly-difficulty-chip:nth-child(1) .censorly-difficulty-chip__dot { background: #3b9b72; }
+.censorly-difficulty-chip:nth-child(2) .censorly-difficulty-chip__dot { background: #d3a635; }
+.censorly-difficulty-chip:nth-child(3) .censorly-difficulty-chip__dot { background: #e47b45; }
+.censorly-difficulty-chip:nth-child(4) .censorly-difficulty-chip__dot { background: #cc5b68; }
+.censorly-difficulty-chip:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent); }
+.censorly-difficulty-chip:focus-within, .censorly-type-chip:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.censorly-type-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .3rem; max-height: 8rem; overflow: auto; padding: .1rem .15rem .1rem 0; }
+.censorly-type-chip { display: flex; align-items: center; gap: .35rem; min-width: 0; padding: .3rem .4rem; border: 1px solid transparent; border-radius: .5rem; cursor: pointer; font-size: .76rem; line-height: 1.2; }
+.censorly-type-chip input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.censorly-type-chip i { flex: 0 0 auto; color: var(--muted); font-size: 1rem; }
+.censorly-type-chip span { overflow-wrap: anywhere; }
+.censorly-type-chip:has(input:checked) { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.censorly-type-chip:has(input:checked) i { color: var(--accent); }
+.censorly-category-panel { min-height: 0; }
+.censorly-random-panel__hint { margin: -.3rem 0 .55rem; color: var(--muted); font-size: .74rem; }
+.censorly-category-search { display: flex; align-items: center; gap: .4rem; width: 100%; margin-bottom: .5rem; padding: .4rem .55rem; border: 1px solid var(--border); border-radius: .55rem; color: var(--muted); }
+.censorly-category-search input { min-width: 0; width: 100%; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: .8rem; }
+.censorly-category-tree { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; max-height: 28vh; max-height: min(28vh, 20rem); max-height: min(28dvh, 20rem); overflow: auto; padding: .1rem .2rem .1rem 0; }
+.censorly-category-tree__node { min-width: 0; align-self: start; }
+.censorly-category-tree > .censorly-category-tree__node { border: 1px solid var(--border); border-radius: .6rem; background: color-mix(in srgb, var(--tile) 45%, var(--surface)); }
+.censorly-category-tree__line { display: flex; align-items: center; gap: .2rem; min-width: 0; padding: .35rem .4rem; }
+.censorly-category-tree__label { display: flex; align-items: center; gap: .35rem; min-width: 0; flex: 1; cursor: pointer; font-size: .78rem; line-height: 1.25; }
+.censorly-category-tree__label input { flex: 0 0 auto; width: .95rem; height: .95rem; margin: 0; accent-color: var(--accent); }
+.censorly-category-tree__label > i { flex: 0 0 auto; color: var(--accent); font-size: 1rem; }
+.censorly-category-tree__label > span { min-width: 0; overflow-wrap: anywhere; font-weight: 650; }
+.censorly-category-tree__label small { margin-left: auto; flex: 0 0 auto; color: var(--muted); font-size: .65rem; }
+.censorly-category-tree__expand { display: inline-grid; place-items: center; width: 1.65rem; height: 1.65rem; flex: 0 0 auto; border: 0; border-radius: .4rem; background: transparent; color: var(--muted); cursor: pointer; }
+.censorly-category-tree__expand:hover { background: var(--tile); color: var(--text); }
+.censorly-category-tree__children { margin: 0 .45rem .4rem .8rem; padding-left: .35rem; border-left: 1px solid var(--border); }
+.censorly-category-tree__children[hidden], .censorly-category-tree__node[hidden] { display: none !important; }
+.censorly-category-tree__children .censorly-category-tree__line { padding: .28rem .2rem; }
+.censorly-category-tree__children .censorly-category-tree__label { font-size: .74rem; font-weight: 450; }
+.censorly-category-tree__children .censorly-category-tree__label > i { color: var(--muted); }
+.censorly-category-tree__children .censorly-category-tree__label > span { font-weight: 450; }
+.censorly-random-dialog__footer { display: flex; align-items: center; justify-content: flex-end; gap: .75rem; }
+.censorly-random-validation { margin: 0 auto 0 0; color: var(--danger); font-size: .8rem; }
+.censorly-random-start { display: inline-flex; align-items: center; justify-content: center; gap: .45rem; min-width: 11rem; }
+[data-random-censorly-loading] { margin-left: .6rem; color: var(--muted); font-size: .85rem; }
+@media (max-width: 919px) {
+  .censorly-random-dialog { width: min(54rem, calc(100vw - 1rem)); max-height: min(94dvh, 58rem); gap: .65rem; padding: 1rem !important; }
+  .censorly-random-dialog__top-grid { grid-template-columns: 1fr; }
+  .censorly-type-options { max-height: 7rem; }
+  .censorly-category-tree { grid-template-columns: 1fr; max-height: 30dvh; }
+}
+@media (max-width: 480px) {
+  .censorly-random-dialog { max-height: calc(100dvh - 1rem); }
+  .censorly-category-tree { grid-template-columns: 1fr; }
+  .censorly-random-dialog__footer { align-items: stretch; flex-direction: column; }
+  .censorly-random-validation { margin: 0; }
+  .censorly-random-start { width: 100%; }
+}
