@@ -241,6 +241,13 @@
     descendants(input.value).forEach(function (item) {
       if (input.checked) selectedCategories.add(item.value); else selectedCategories.delete(item.value);
     });
+    if (!input.checked) {
+      var parts = input.value.split('/');
+      while (parts.length > 1) {
+        parts.pop();
+        selectedCategories.delete(parts.join('/'));
+      }
+    }
     updateCategoryStates();
     validation.hidden = true;
     persistSelection();
