@@ -1449,7 +1449,7 @@ def censorly_pool_list(request):
     ordered = sorted(rows.values(), key=lambda row: row['title'].casefold())
     total = len(ordered)
     page = ordered[offset:offset + 120]
-    grouped = {level: [] for level in ('легко', 'средне', 'сложно')}
+    grouped = {level: [] for level in ('легко', 'средне', 'сложно', 'очень сложно')}
     for row in page:
         grouped.setdefault(row['difficulty'] or 'без сложности', []).append(row)
     next_offset = offset + len(page) if offset + len(page) < total else None

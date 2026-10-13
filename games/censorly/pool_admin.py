@@ -7,7 +7,7 @@ from pathlib import Path
 from games.models import CensorlyPoolEntry
 
 TAGS_PATH = Path(__file__).with_name('article_pool_tags.tsv')
-DIFFICULTIES = ('легко', 'средне', 'сложно')
+DIFFICULTIES = ('легко', 'средне', 'сложно', 'очень сложно')
 
 
 @lru_cache(maxsize=4)

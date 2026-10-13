@@ -90,7 +90,7 @@
     var btn = event.target.closest('[data-edit], [data-delta]'); if (!btn) return;
     var row = JSON.parse(decodeURIComponent(btn.dataset.edit || btn.dataset.row));
     if (btn.hasAttribute('data-edit')) return open(row);
-    var levels = ['легко','средне','сложно'], next = Math.max(0, Math.min(2, levels.indexOf(row.difficulty) + Number(btn.dataset.delta)));
+    var levels = ['легко','средне','сложно','очень сложно'], next = Math.max(0, Math.min(3, levels.indexOf(row.difficulty) + Number(btn.dataset.delta)));
     save({title:row.title, replacement_title:row.title, topics:row.topics, types:row.types, difficulty:levels[next], enabled:row.enabled});
   });
   modal.querySelectorAll('[data-pool-close]').forEach(function (el) { el.addEventListener('click', function () { close(); }); });

@@ -584,9 +584,15 @@ class CensorlyRandomGameTests(TestCase):
             WikiArticle(title='Плохая статья', pageid=1, extract=''),
             WikiArticle(title='Хорошая статья', pageid=2, extract='body'),
         ]
-        with patch('games.censorly.random_game.load_article_pool', return_value=tuple(
+        with patch('games.censorly.pool_admin.active_pool_titles', return_value=tuple(
             article.title for article in articles
-        )), patch('games.censorly.random_game._get_game', return_value=object()), \
+        )), patch('games.censorly.pool_admin.pool_rows', return_value={
+            article.title: {
+                'title': article.title, 'topics': [], 'types': [],
+                'difficulty': 'средне', 'enabled': True,
+            }
+            for article in articles
+        }), patch('games.censorly.random_game._get_game', return_value=object()), \
              patch('games.censorly.random_game.fetch_article', side_effect=articles), \
              patch(
                  'games.censorly.random_game._create_from_article',
