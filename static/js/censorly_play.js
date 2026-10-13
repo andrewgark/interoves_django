@@ -115,7 +115,6 @@
         var revealedLockTip = tok.title_lemma
           ? 'Слово из названия статьи'
           : 'Слово, близкое к слову из названия статьи';
-        revealed.setAttribute('title', revealedLockTip);
         revealed.appendChild(el(
           'i', 'ph ph-lock-simple censorly-tok__lock' +
             (tok.title_lemma ? ' censorly-tok__lock--strong' : ' censorly-tok__lock--weak')
@@ -156,7 +155,6 @@
         : 'Слово, близкое к слову из названия статьи';
       mask.dataset.lockLabel = lockTip;
       mask.setAttribute('data-tooltip', lockTip + ' · ' + lengthLabel);
-      mask.setAttribute('title', lockTip);
       mask.setAttribute('tabindex', '0');
       mask.setAttribute('aria-label', lockTip + ', ' + lengthLabel);
       mask.classList.add(tok.title_lemma ? 'censorly-tok--title-lock' : 'censorly-tok--related-lock');
