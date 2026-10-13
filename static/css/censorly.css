@@ -358,6 +358,9 @@ html.new-ui-dark .censorly__dock {
   gap: 0.35rem;
   line-height: 1.4;
 }
+.censorly-word-report-field[hidden] {
+  display: none;
+}
 .censorly-word-report-field {
   margin: 0.8rem 0;
 }
