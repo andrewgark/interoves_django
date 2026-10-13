@@ -8791,7 +8791,7 @@ html.is-age-gated .new-wrap {
   border-radius: var(--control-radius);
   position: relative;
   z-index: 2;
-  background: transparent;
+  background: var(--surface);
   color: var(--text);
   caret-color: var(--text);
   font-family: var(--new-font-mono);
@@ -8804,7 +8804,7 @@ html.is-age-gated .new-wrap {
 .new-raddle-input:focus {
   outline: none;
   border-color: var(--accent);
-  background: transparent;
+  background: var(--surface);
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 .new-raddle-input:disabled {
@@ -11358,10 +11358,39 @@ button.new-word-salad__hint-btn:disabled {
   }
 
   .new-raddle-clue__mark {
+    position: relative;
     width: 2.75rem;
     min-width: 2.75rem;
     height: 2.75rem;
     margin-top: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  .new-raddle-clue__mark::before {
+    inset: 0;
+  }
+
+  .new-raddle-clue__mark::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0.85rem;
+    height: 0.85rem;
+    border: 1.5px solid color-mix(in srgb, var(--muted) 55%, var(--border));
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .new-raddle-clue__mark:hover::after {
+    border-color: color-mix(in srgb, var(--muted) 80%, var(--text));
+  }
+
+  .new-raddle-clue--struck .new-raddle-clue__mark::after {
+    border-color: color-mix(in srgb, var(--muted) 70%, var(--text));
+    background: color-mix(in srgb, var(--muted) 18%, transparent);
   }
 
   .new-proportions-attempts-popover__close {
