@@ -61,6 +61,15 @@
     return Array.from(new Set(ordered));
   }
   var categoryPaths = pathsFromTaxonomy();
+  var categoryIdToPath = {};
+  var categoryPathToId = {};
+  (taxonomy.tree || []).forEach(function (node) {
+    if (node.id != null && node.path) {
+      categoryIdToPath[String(node.id)] = node.path;
+      categoryPathToId[node.path] = String(node.id);
+    }
+  });
+  var hasStableCategoryIds = Object.keys(categoryIdToPath).length > 0;
   var categoryNodes = {};
   categoryPaths.forEach(function (path) {
     var parts = path.split('/');
@@ -81,10 +90,20 @@
   var types = (taxonomy.types || []).slice();
   var difficulties = ['легко', 'средне', 'сложно', 'очень сложно'];
   var defaultDifficulties = ['легко', 'средне'];
-  var selectedCategories = saved.version === 2 && Array.isArray(saved.categories)
-    ? new Set(saved.categories.filter(function (path) { return categoryNodes[path]; }))
-    : new Set(categoryPaths);
-  var selectedTypes = saved.version === 2 && Array.isArray(saved.types)
+  var selectedCategories;
+  if (saved.version === 3 && Array.isArray(saved.category_ids)) {
+    selectedCategories = new Set(saved.category_ids.map(function (id) {
+      var path = categoryIdToPath[String(id)];
+      if (!path && !hasStableCategoryIds && categoryNodes[String(id)]) path = String(id);
+      return path;
+    }).filter(function (path) { return path && categoryNodes[path]; }));
+  } else if (Array.isArray(saved.categories)) {
+    // Upgrade the previous path-based preference without changing selection.
+    selectedCategories = new Set(saved.categories.filter(function (path) { return categoryNodes[path]; }));
+  } else {
+    selectedCategories = new Set(categoryPaths);
+  }
+  var selectedTypes = Array.isArray(saved.types)
     ? new Set(saved.types.filter(function (type) { return types.indexOf(type) !== -1; }))
     : new Set(types);
   var selectedDifficulties = Array.isArray(saved.difficulties)
@@ -183,10 +202,15 @@
     roots.forEach(function (root) { visit(root, false); });
     return output;
   }
+  function categoryIds(paths) {
+    return paths.map(function (path) { return categoryPathToId[path] || path; });
+  }
   function persistSelection() {
+    var categories = compressedCategories();
     var state = {
-      version:2,
-      categories:compressedCategories(),
+      version:3,
+      categories:categories,
+      category_ids:categoryIds(categories),
       types:Array.from(selectedTypes),
       difficulties:Array.from(selectedDifficulties)
     };
@@ -326,7 +350,13 @@
       settingsToggle.focus();
       return;
     }
-    var state = {version:2, categories:chosenCategories, types:chosenTypes, difficulties:chosenDifficulties};
+    var state = {
+      version:3,
+      categories:chosenCategories,
+      category_ids:categoryIds(chosenCategories),
+      types:chosenTypes,
+      difficulties:chosenDifficulties
+    };
     try { localStorage.setItem('censorly-random-filters', JSON.stringify(state)); } catch (_) {}
     filtersInput.value = JSON.stringify({
       categories:state.categories, types:state.types, difficulties:state.difficulties,
