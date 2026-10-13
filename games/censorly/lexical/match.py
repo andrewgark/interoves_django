@@ -53,6 +53,12 @@ class _GuessPack(_Pack):
         self.families = families
 
 
+@lru_cache(maxsize=512)
+def _guess_pack(surface: str, *, include_pronouns: bool) -> _GuessPack:
+    """Reuse the article independent analysis across state renders and guesses."""
+    return _GuessPack(surface, include_pronouns=include_pronouns)
+
+
 def _relation(guess: _Pack, target: _Pack) -> str:
     if not guess.fold or not target.fold:
         return ''
@@ -118,7 +124,7 @@ def matching_lemmas(tokens, guess: str) -> set[str]:
         return set()
     from games.censorly.flags import open_pronouns_enabled
     include_pronouns = open_pronouns_enabled()
-    guess_pack = _GuessPack(guess, include_pronouns=include_pronouns)
+    guess_pack = _guess_pack(guess, include_pronouns=include_pronouns)
     hits: set[str] = set()
     for (surface, lemma), pack in zip(
         rows, _index(rows, include_pronouns=include_pronouns)
@@ -143,7 +149,7 @@ def decision(tokens, guess: str) -> dict:
         return {'readings': [], 'opened': [], 'rejected': [], 'rejected_total': 0}
     from games.censorly.flags import open_pronouns_enabled
     include_pronouns = open_pronouns_enabled()
-    guess_pack = _GuessPack(guess, include_pronouns=include_pronouns)
+    guess_pack = _guess_pack(guess, include_pronouns=include_pronouns)
     opened: dict[tuple, dict] = {}
     rejected: dict[tuple, dict] = {}
     for (surface, lemma), pack in zip(
