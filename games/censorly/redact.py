@@ -14,8 +14,10 @@ def _token_public(
     *,
     revealed_lemmas: set[str],
     last_lemma: str | None,
+    hinted_lemmas: set[str],
     won: bool,
     title_lemmas: set[str],
+    title_related_lemmas: set[str],
     show_endings: bool,
     lexical: bool = False,
 ) -> dict[str, Any]:
@@ -53,10 +55,13 @@ def _token_public(
     out['length'] = length
     if lemma and lemma in title_lemmas:
         out['title_lemma'] = True
+    elif lemma and lemma in title_related_lemmas:
+        out['title_related'] = True
     player_opened = bool(lemma and lemma in revealed_lemmas)
     is_open = won or player_opened
     out['revealed'] = bool(is_open)
     out['guessed'] = player_opened
+    out['hinted'] = bool(lemma and lemma in hinted_lemmas)
     if is_open:
         out['lemma'] = lemma
         out['text'] = strip_combining_marks(tok.get('surface') or '')
@@ -85,25 +90,30 @@ def build_public_view(
     *,
     revealed_lemmas: Iterable[str] | None = None,
     last_lemma: str | None = None,
+    hinted_lemmas: Iterable[str] | None = None,
     won: bool = False,
     show_endings: bool | None = None,
 ) -> dict[str, Any]:
     from games.censorly.flags import lexical_resolver_enabled
     revealed = {str(x) for x in (revealed_lemmas or []) if x}
+    hinted = {str(x) for x in (hinted_lemmas or []) if x}
     title_lemmas = title_content_lemmas(payload)
+    title_related_lemmas = title_opening_lemmas(payload) - title_lemmas
     lexical = lexical_resolver_enabled()
     endings_on = CENSORLY_SHOW_MASK_ENDINGS if show_endings is None else bool(show_endings)
     title = [
         _token_public(
-            t, revealed_lemmas=revealed, last_lemma=last_lemma, won=won,
-            title_lemmas=title_lemmas, show_endings=endings_on, lexical=lexical,
+            t, revealed_lemmas=revealed, last_lemma=last_lemma, hinted_lemmas=hinted, won=won,
+            title_lemmas=title_lemmas, title_related_lemmas=title_related_lemmas,
+            show_endings=endings_on, lexical=lexical,
         )
         for t in (payload.get('title_tokens') or [])
     ]
     body = [
         _token_public(
-            t, revealed_lemmas=revealed, last_lemma=last_lemma, won=won,
-            title_lemmas=title_lemmas, show_endings=endings_on, lexical=lexical,
+            t, revealed_lemmas=revealed, last_lemma=last_lemma, hinted_lemmas=hinted, won=won,
+            title_lemmas=title_lemmas, title_related_lemmas=title_related_lemmas,
+            show_endings=endings_on, lexical=lexical,
         )
         for t in (payload.get('body_tokens') or [])
     ]
@@ -139,6 +149,19 @@ def lemmas_matching_guess(payload: dict[str, Any], guess_lemma: str, guess_norm:
         elif guess_norm and surface_plain == guess_norm:
             hits.add(lemma or guess_norm)
     return hits
+
+
+def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
+    """Lemmas that guessing any title word would reveal in this puzzle."""
+    protected = set(title_content_lemmas(payload))
+    for token in (payload.get('title_tokens') or []):
+        if token.get('kind') != 'content':
+            continue
+        surface = str(token.get('surface') or '')
+        lemma = str(token.get('lemma') or '')
+        if surface and lemma:
+            protected.update(lemmas_matching_guess(payload, lemma, surface))
+    return protected
 
 
 def count_hits(payload: dict[str, Any], lemma: str) -> int:

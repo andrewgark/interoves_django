@@ -25,6 +25,7 @@ from games.censorly.redact import (
     count_hits,
     lemmas_matching_guess,
     newly_revealed_ids,
+    title_opening_lemmas,
     token_by_id,
     token_ids_for_guess,
 )
@@ -78,6 +79,7 @@ def default_state() -> dict[str, Any]:
     return {
         'guesses': [],
         'revealed_lemmas': [],
+        'hinted_lemmas': [],
         'last_lemma': '',
         'won': False,
         'hints_taken': 0,
@@ -183,6 +185,11 @@ def load_state(raw: str | None) -> dict[str, Any]:
             normalize_surface(x) for x in lemmas if normalize_surface(str(x))
         ]
     state['last_lemma'] = normalize_surface(data.get('last_lemma') or '')
+    hinted = data.get('hinted_lemmas') or []
+    state['hinted_lemmas'] = (
+        sorted({normalize_surface(x) for x in hinted if normalize_surface(str(x))})
+        if isinstance(hinted, list) else []
+    )
     state['won'] = bool(data.get('won'))
     state['hints_taken'] = hint_count(data)
     return state
@@ -193,6 +200,7 @@ def dump_state(state: dict[str, Any]) -> str:
         'guesses': list(state.get('guesses') or []),
         'revealed_lemmas': list(state.get('revealed_lemmas') or []),
         'last_lemma': state.get('last_lemma') or '',
+        'hinted_lemmas': list(state.get('hinted_lemmas') or []),
         'won': bool(state.get('won')),
         'hints_taken': hint_count(state),
     }, ensure_ascii=False)
@@ -478,6 +486,7 @@ def public_payload(
         payload,
         revealed_lemmas=revealed,
         last_lemma=state.get('last_lemma') or None,
+        hinted_lemmas=state.get('hinted_lemmas') or (),
         won=won,
     )
     guesses = []
@@ -849,10 +858,10 @@ def apply_hint(
     lemma = tok.get('lemma') or ''
     if not lemma:
         return {'status': 'error', 'error': 'Нечего открывать'}
-    if lemma in title_content_lemmas(payload):
+    if lemma in title_opening_lemmas(payload):
         return {
             'status': 'error',
-            'error': 'Нельзя открывать слова из названия',
+            'error': 'Нельзя открывать слова, связанные со словами из названия',
         }
 
     num = number if number is not None else ''
@@ -877,6 +886,7 @@ def apply_hint(
     state['revealed_lemmas'] = sorted(revealed)
     state['last_lemma'] = lemma
     state['hints_taken'] = hint_count(state) + 1
+    state['hinted_lemmas'] = sorted(set(state.get('hinted_lemmas') or []) | {lemma})
     won = _title_won(payload, revealed)
     state['won'] = won
     newly = newly_revealed_ids(payload, lemma)

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from django.contrib.auth.models import User
-from django.test import SimpleTestCase, TestCase
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.semantics import explain, initially_open, opens
-from games.censorly.tokenize import tokenize_text
+from games.censorly.tokenize import build_puzzle_payload, tokenize_text
 
 TRUE_CASES = (
     ('пчела', 'пчёлами', 'lexeme'),
@@ -553,6 +553,24 @@ class SemanticsTests(SimpleTestCase):
             self.assertTrue(opens(guess, target), f'{guess}/{target} stayed closed')
             self.assertEqual(explain(guess, target), reason, f'{guess}/{target}')
             self.assertTrue(opens(target, guess), f'{target}/{guess}')
+
+    @override_settings(CENSORLY_LEXICAL_RESOLVER=True)
+    def test_title_related_words_are_protected_and_marked_weak(self):
+        from games.censorly.redact import build_public_view, title_opening_lemmas
+
+        payload = build_puzzle_payload(wiki_title='Кот', body_text='Котик спит.')
+        body_word = next(
+            tok for tok in payload['body_tokens']
+            if tok.get('kind') == 'content' and tok.get('lemma')
+        )
+
+        self.assertIn(body_word['lemma'], title_opening_lemmas(payload))
+        view = build_public_view(payload, revealed_lemmas=(), won=False)
+        related = next(
+            tok for tok in view['body_tokens'] if tok.get('id') == body_word['id']
+        )
+        self.assertTrue(related.get('title_related'))
+        self.assertFalse(related.get('title_lemma'))
 
     def test_required_closures(self):
         pairs = list(zip(FALSE_CASES[0::2], FALSE_CASES[1::2]))

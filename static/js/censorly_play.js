@@ -99,6 +99,7 @@
     if (tok.revealed) {
       var revealedClass = 'censorly-tok censorly-tok--revealed censorly-tok--reportable' + headingClass(tok);
       if (tok.guessed) revealedClass += ' censorly-tok--guessed';
+      if (tok.hinted) revealedClass += ' censorly-tok--hinted';
       var revealed = el('span', revealedClass);
       revealed.dataset.id = String(tok.id);
       revealed.dataset.surface = tok.text || '';
@@ -106,8 +107,9 @@
       revealed.setAttribute('tabindex', '0');
       revealed.setAttribute('aria-label', 'Пожаловаться на слово «' + (tok.text || '') + '»');
       if (tok.lemma) revealed.dataset.lemma = tok.lemma;
-      if (tok.title_lemma) {
+      if (tok.title_lemma || tok.title_related) {
         revealed.dataset.titleLemma = '1';
+        revealed.setAttribute('title', tok.title_lemma ? 'Слово из названия статьи' : 'Слово, близкое к слову из названия статьи');
         revealed.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
       }
       revealed.appendChild(document.createTextNode(tok.text || ''));
@@ -138,23 +140,30 @@
     if (overrides.lenForced != null) {
       mask.dataset.lenForced = overrides.lenForced ? '1' : '0';
     }
-    if (tok.title_lemma) mask.dataset.titleLemma = '1';
+    if (tok.title_lemma || tok.title_related) {
+      mask.dataset.titleLemma = '1';
+      var lockTip = tok.title_lemma ? 'Слово из названия статьи' : 'Слово, близкое к слову из названия статьи';
+      mask.setAttribute('data-tooltip', lockTip);
+      mask.setAttribute('title', lockTip);
+      mask.setAttribute('aria-label', lockTip + ', ' + lengthLabel);
+      mask.classList.add(tok.title_lemma ? 'censorly-tok--title-lock' : 'censorly-tok--related-lock');
+    }
     var root = document.getElementById('censorly-root');
     if (root && root.classList.contains('censorly--bars')) {
       mask.style.setProperty('--ch', String(ch));
       var stem = el('span', 'censorly-tok__stem');
       stem.setAttribute('aria-hidden', 'true');
       stem.dataset.len = String(totalLen);
-      if (tok.title_lemma) {
-        stem.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+      if (tok.title_lemma || tok.title_related) {
+        stem.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock' + (tok.title_lemma ? ' censorly-tok__lock--strong' : ' censorly-tok__lock--weak')));
       }
       if (ending) stem.appendChild(el('span', 'censorly-tok__ending', ending));
       mask.appendChild(stem);
       return mask;
     }
     mask.classList.add('censorly-tok--glyphs');
-    if (tok.title_lemma) {
-      mask.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock'));
+    if (tok.title_lemma || tok.title_related) {
+      mask.appendChild(el('i', 'ph ph-lock-simple censorly-tok__lock' + (tok.title_lemma ? ' censorly-tok__lock--strong' : ' censorly-tok__lock--weak')));
     }
     var blocks = el('span', 'censorly-tok__blocks');
     blocks.dataset.len = String(totalLen);
@@ -904,7 +913,7 @@
       if (mask && root.contains(mask)) {
         if (root.classList.contains('censorly--hint-pick')) {
           if (mask.dataset.titleLemma === '1') {
-            setFeedback(root, 'Нельзя открывать слова из названия', 'error');
+            setFeedback(root, 'Нельзя открывать слова, связанные со словами из названия', 'error');
             return;
           }
           if (busy) return;
