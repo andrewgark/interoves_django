@@ -21,7 +21,7 @@ from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_o
 
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL', 'INTJ'})
 # Dictionary homographs that should not be treated as initially open service words.
-_NEVER_INITIAL_OPEN = frozenset({'ла'})
+_NEVER_INITIAL_OPEN = frozenset({'ла', 'де'})
 _PRONOUN_ADJECTIVE_LEMMAS = frozenset({
     'этот', 'тот', 'такой', 'таков', 'таковой', 'столько', 'сколько',
     'несколько', 'какой', 'какой-нибудь', 'какой-либо', 'который',
