@@ -8821,7 +8821,7 @@ html.is-age-gated .new-wrap {
 }
 .new-raddle-mask {
   position: absolute;
-  z-index: 0;
+  z-index: 3;
   /* Match the input content box: 0.35rem padding + 1px border. */
   inset: 0.3rem calc(0.35rem + 1px);
   display: flex;
