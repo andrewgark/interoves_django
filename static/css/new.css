@@ -2637,7 +2637,9 @@ span.new-btn[aria-disabled="true"] {
   width: 1rem;
   height: 1rem;
   margin: -0.5rem 0 0 -0.5rem;
-  border: 2px solid color-mix(in srgb, currentColor 25%, transparent);
+  /* The button text is transparent while loading, so currentColor cannot
+     provide a visible track here. Use the foreground explicitly. */
+  border: 2px solid rgba(255, 255, 255, 0.32);
   border-top-color: #fff;
   border-radius: 50%;
   animation: new-btn-spin 0.65s linear infinite;
@@ -2651,16 +2653,19 @@ span.new-btn[aria-disabled="true"] {
 .new-btn--ghost.is-loading::after,
 .new-btn--secondary.is-loading::after,
 .new-btn--text.is-loading::after {
+  border-color: color-mix(in srgb, var(--text) 25%, transparent);
   border-top-color: var(--text);
 }
 
 .new-btn--danger.new-btn--loading::after,
 .new-btn--danger.is-loading::after {
+  border-color: color-mix(in srgb, var(--danger) 25%, transparent);
   border-top-color: var(--danger);
 }
 
 .new-btn--yellow.new-btn--loading::after,
 .new-btn--yellow.is-loading::after {
+  border-color: rgba(26, 26, 26, 0.25);
   border-top-color: #1a1a1a;
 }
 
