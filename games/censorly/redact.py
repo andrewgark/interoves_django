@@ -153,14 +153,24 @@ def lemmas_matching_guess(payload: dict[str, Any], guess_lemma: str, guess_norm:
 
 def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
     """Lemmas that guessing any title word would reveal in this puzzle."""
-    protected = set(title_content_lemmas(payload))
-    for token in (payload.get('title_tokens') or []):
-        if token.get('kind') != 'content':
-            continue
-        surface = str(token.get('surface') or '')
-        lemma = str(token.get('lemma') or '')
-        if surface and lemma:
-            protected.update(lemmas_matching_guess(payload, lemma, surface))
+    title_tokens = [
+        token for token in (payload.get('title_tokens') or [])
+        if token.get('kind') == 'content'
+    ]
+    title_lemmas = {
+        str(token.get('lemma') or '') for token in title_tokens
+        if token.get('lemma')
+    }
+    protected = set(title_lemmas)
+    title_payload = {'title_tokens': title_tokens, 'body_tokens': []}
+    candidates = {
+        (str(token.get('lemma') or ''), str(token.get('surface') or ''))
+        for token in (payload.get('body_tokens') or [])
+        if token.get('kind') == 'content' and token.get('lemma') and token.get('surface')
+    }
+    for lemma, surface in candidates:
+        if lemmas_matching_guess(title_payload, lemma, surface) & title_lemmas:
+            protected.add(lemma)
     return protected
 
 

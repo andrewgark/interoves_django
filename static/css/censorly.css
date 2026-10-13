@@ -443,10 +443,8 @@ html.new-ui-dark .censorly__dock {
   vertical-align: 0.05em;
   pointer-events: none;
 }
-.censorly-tok__lock--strong { opacity: 1; }
-.censorly-tok__lock--weak { opacity: 0.38; }
-.censorly-tok--related-lock .censorly-tok__lock { opacity: 0.38; }
-.censorly-tok--title-lock .censorly-tok__lock { opacity: 1; }
+.censorly-tok--glyphs > .censorly-tok__lock--strong { opacity: 1; }
+.censorly-tok--glyphs > .censorly-tok__lock--weak { opacity: 0.38; }
 
 .censorly--bars .censorly-tok__stem {
   display: inline-flex;
@@ -508,6 +506,8 @@ html.new-ui-dark .censorly__dock {
   opacity: 0.95;
   z-index: 2;
 }
+.censorly--bars .censorly-tok__stem .censorly-tok__lock--strong { opacity: 1; }
+.censorly--bars .censorly-tok__stem .censorly-tok__lock--weak { opacity: 0.38; }
 .censorly--bars .censorly-tok__stem .censorly-tok__lock::before {
   font-size: 0.36em;
 }
@@ -575,6 +575,8 @@ html.new-ui-dark .censorly__dock {
   opacity: 0.85;
   vertical-align: 0.05em;
 }
+.censorly-tok--revealed > .censorly-tok__lock--strong { opacity: 1; }
+.censorly-tok--revealed > .censorly-tok__lock--weak { opacity: 0.38; }
 
 .censorly-tok--revealed {
   /* plain revealed text after win — no underline by default */

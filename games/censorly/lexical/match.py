@@ -141,10 +141,14 @@ def decision(tokens, guess: str) -> dict:
     )
     if not rows or not (guess or '').strip():
         return {'readings': [], 'opened': [], 'rejected': [], 'rejected_total': 0}
-    guess_pack = _GuessPack(guess)
+    from games.censorly.flags import open_pronouns_enabled
+    include_pronouns = open_pronouns_enabled()
+    guess_pack = _GuessPack(guess, include_pronouns=include_pronouns)
     opened: dict[tuple, dict] = {}
     rejected: dict[tuple, dict] = {}
-    for (surface, lemma), pack in zip(rows, _index(rows)):
+    for (surface, lemma), pack in zip(
+        rows, _index(rows, include_pronouns=include_pronouns)
+    ):
         stored = lemma or pack.fold
         reason = _relation(guess_pack, pack)
         bucket = opened
