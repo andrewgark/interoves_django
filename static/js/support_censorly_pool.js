@@ -255,23 +255,29 @@
   var taxonomyOrder = document.getElementById('cz-taxonomy-order');
   var taxonomyError = document.getElementById('cz-taxonomy-error');
   var taxonomyCurrent = null, taxonomyBusy = false;
-  function categoryNodes() { return taxonomy.tree || []; }
+  function categoryNodes() { return taxonomy.all_tree || taxonomy.tree || []; }
   function taxonomyLabel(item) { return '　'.repeat((item.path.match(/\//g) || []).length) + item.name; }
   function populateTaxonomyEditor() {
     var kind = taxonomyKind.value, selectedId = taxonomyCurrent && String(taxonomyCurrent.id);
-    var entries = kind === 'category' ? categoryNodes() : (taxonomy.type_nodes || (taxonomy.types || []).map(function (name, index) { return {id:name, name:name, path:name, sort_order:index}; }));
+    var entries = kind === 'category' ? categoryNodes() : (taxonomy.all_type_nodes || taxonomy.type_nodes || (taxonomy.types || []).map(function (name, index) { return {id:name, name:name, path:name, sort_order:index, is_active:true}; }));
     taxonomyItem.innerHTML = '<option value="">Новая запись</option>' + entries.map(function (item) {
-      return '<option value="' + esc(item.id) + '">' + esc(kind === 'category' ? taxonomyLabel(item) : item.name) + '</option>';
+      var label = kind === 'category' ? taxonomyLabel(item) : item.name;
+      return '<option value="' + esc(item.id) + '">' + esc(label + (item.is_active === false ? ' (выключена)' : '')) + '</option>';
     }).join('');
     taxonomyItem.value = entries.some(function (item) { return String(item.id) === selectedId; }) ? selectedId : '';
     document.getElementById('cz-taxonomy-parent-wrap').hidden = kind !== 'category';
     taxonomyParent.innerHTML = '<option value="">Верхний уровень</option>' + categoryNodes().filter(function (item) {
-      return !taxonomyCurrent || (String(item.id) !== String(taxonomyCurrent.id) && !item.path.startsWith(taxonomyCurrent.path + '/'));
-    }).map(function (item) { return '<option value="' + esc(item.id) + '">' + esc(item.path) + '</option>'; }).join('');
+      var isCurrentParent = taxonomyCurrent && String(item.id) === String(taxonomyCurrent.parent_id);
+      var outsideCurrentBranch = !taxonomyCurrent || (String(item.id) !== String(taxonomyCurrent.id) && !item.path.startsWith(taxonomyCurrent.path + '/'));
+      return outsideCurrentBranch && (item.is_active !== false || isCurrentParent);
+    }).map(function (item) {
+      return '<option value="' + esc(item.id) + '">' + esc(item.path) + (item.is_active === false ? ' (выключена)' : '') + '</option>';
+    }).join('');
     var selected = entries.find(function (item) { return String(item.id) === taxonomyItem.value; });
     taxonomyCurrent = selected || null;
     taxonomyName.value = selected ? selected.name : '';
     taxonomyOrder.value = selected && selected.sort_order !== undefined ? selected.sort_order : '0';
+    document.getElementById('cz-taxonomy-active').checked = selected ? selected.is_active !== false : true;
     taxonomyParent.value = kind === 'category' && selected && selected.parent_id ? String(selected.parent_id) : '';
     document.getElementById('cz-taxonomy-delete').disabled = !selected;
   }
@@ -290,7 +296,7 @@
   function saveTaxonomy(action) {
     if (taxonomyBusy) return;
     taxonomyBusy = true;
-    var body = {kind:taxonomyKind.value, action:action, name:taxonomyName.value.trim(), sort_order:Number(taxonomyOrder.value || 0)};
+    var body = {kind:taxonomyKind.value, action:action, name:taxonomyName.value.trim(), sort_order:Number(taxonomyOrder.value || 0), is_active:document.getElementById('cz-taxonomy-active').checked};
     if (action !== 'create' && taxonomyCurrent) body.id = taxonomyCurrent.id;
     if (taxonomyKind.value === 'category') body.parent_id = taxonomyParent.value || null;
     fetch(root.dataset.taxonomySaveUrl, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json','X-CSRFToken':csrf()}, body:JSON.stringify(body)})
@@ -313,7 +319,7 @@
   taxonomyModal.querySelectorAll('[data-taxonomy-close]').forEach(function (el) { el.addEventListener('click', closeTaxonomyEditor); });
   taxonomyKind.addEventListener('change', function () { taxonomyCurrent = null; populateTaxonomyEditor(); });
   taxonomyItem.addEventListener('change', function () {
-    var entries = taxonomyKind.value === 'category' ? categoryNodes() : (taxonomy.type_nodes || []);
+    var entries = taxonomyKind.value === 'category' ? categoryNodes() : (taxonomy.all_type_nodes || taxonomy.type_nodes || []);
     taxonomyCurrent = entries.find(function (item) { return String(item.id) === taxonomyItem.value; }) || null;
     populateTaxonomyEditor();
   });

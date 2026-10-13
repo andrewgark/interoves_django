@@ -1532,10 +1532,17 @@ def censorly_pool_taxonomy_save(request):
                 sort_order = int(body.get('sort_order') or 0)
                 if sort_order < 0:
                     raise ValueError('Порядок не может быть отрицательным')
+                is_active = body.get('is_active', node.is_active if node else True)
+                if not isinstance(is_active, bool):
+                    raise ValueError('Некорректный статус категории')
                 parent_id = body.get('parent_id') or None
-                parent = CensorlyCategory.objects.filter(pk=parent_id, is_active=True).first() if parent_id else None
+                parent = CensorlyCategory.objects.filter(pk=parent_id).first() if parent_id else None
                 if parent_id and parent is None:
                     raise ValueError('Родительская категория не найдена')
+                if parent and not parent.is_active and (node is None or node.parent_id != parent.pk):
+                    raise ValueError('Нельзя переместить категорию к выключенному родителю')
+                if is_active and parent and not parent.is_active:
+                    raise ValueError('Сначала включите родительскую категорию')
                 if node and parent and (parent.pk == node.pk or node.pk in parent.get_ancestors_ids()):
                     raise ValueError('Нельзя переместить категорию внутрь самой себя')
                 duplicate = CensorlyCategory.objects.filter(parent=parent, name__iexact=name)
@@ -1548,6 +1555,7 @@ def censorly_pool_taxonomy_save(request):
                 node = node or CensorlyCategory()
                 node.name, node.parent = name, parent
                 node.sort_order = sort_order
+                node.is_active = is_active
                 node.save()
         elif kind == 'type':
             if action == 'create' and body.get('id'):
@@ -1565,12 +1573,16 @@ def censorly_pool_taxonomy_save(request):
                 sort_order = int(body.get('sort_order') or 0)
                 if sort_order < 0:
                     raise ValueError('Порядок не может быть отрицательным')
+                is_active = body.get('is_active', item.is_active if item else True)
+                if not isinstance(is_active, bool):
+                    raise ValueError('Некорректный статус типа')
                 if item is None and action != 'create':
                     raise ValueError('Тип не найден')
                 if CensorlyObjectType.objects.filter(name__iexact=name).exclude(pk=item.pk if item else None).exists():
                     raise ValueError('Такой тип уже существует')
                 item = item or CensorlyObjectType()
                 item.name, item.sort_order = name, sort_order
+                item.is_active = is_active
                 item.save()
             else:
                 raise ValueError('Неизвестное действие')
