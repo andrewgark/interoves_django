@@ -157,6 +157,7 @@
       mask.dataset.lockLabel = lockTip;
       mask.setAttribute('data-tooltip', lockTip + ' · ' + lengthLabel);
       mask.setAttribute('title', lockTip);
+      mask.setAttribute('tabindex', '0');
       mask.setAttribute('aria-label', lockTip + ', ' + lengthLabel);
       mask.classList.add(tok.title_lemma ? 'censorly-tok--title-lock' : 'censorly-tok--related-lock');
     }
