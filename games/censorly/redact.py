@@ -45,6 +45,11 @@ def _token_public(
         from games.censorly.flags import open_pronouns_enabled
         from games.censorly.lexical.semantics import initially_open
         if initially_open(tok.get('surface') or '', include_pronouns=open_pronouns_enabled()):
+            lemma = tok.get('lemma') or ''
+            if lemma and lemma in title_lemmas:
+                out['title_lemma'] = True
+            elif lemma and lemma in title_related_lemmas:
+                out['title_related'] = True
             out['text'] = strip_combining_marks(tok.get('surface') or '')
             out['revealed'] = True
             out['guessed'] = False

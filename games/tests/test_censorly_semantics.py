@@ -572,6 +572,26 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(related.get('title_related'))
         self.assertFalse(related.get('title_lemma'))
 
+    @override_settings(
+        CENSORLY_LEXICAL_RESOLVER=True,
+        CENSORLY_OPEN_PRONOUNS=True,
+    )
+    def test_initially_open_title_word_keeps_strong_lock_metadata(self):
+        from games.censorly.redact import build_public_view
+
+        payload = build_puzzle_payload(wiki_title='Он', body_text='Он ждёт.')
+        body_word = next(
+            tok for tok in payload['body_tokens']
+            if tok.get('kind') == 'content' and tok.get('lemma')
+        )
+        view = build_public_view(payload, revealed_lemmas=(), won=False)
+        opened = next(
+            tok for tok in view['body_tokens'] if tok.get('id') == body_word['id']
+        )
+
+        self.assertTrue(opened.get('revealed'))
+        self.assertTrue(opened.get('title_lemma'))
+
     def test_required_closures(self):
         pairs = list(zip(FALSE_CASES[0::2], FALSE_CASES[1::2]))
         for guess, target in pairs:
