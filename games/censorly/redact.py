@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Any, Iterable
 
 from games.censorly import CENSORLY_SHOW_MASK_ENDINGS
@@ -158,25 +159,46 @@ def lemmas_matching_guess(payload: dict[str, Any], guess_lemma: str, guess_norm:
 
 def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
     """Lemmas that guessing any title word would reveal in this puzzle."""
-    title_tokens = [
-        token for token in (payload.get('title_tokens') or [])
+    from games.censorly.flags import lexical_resolver_enabled, open_pronouns_enabled
+
+    title_rows = tuple(
+        (str(token.get('surface') or ''), str(token.get('lemma') or ''))
+        for token in (payload.get('title_tokens') or [])
         if token.get('kind') == 'content'
-    ]
-    title_lemmas = {
-        str(token.get('lemma') or '') for token in title_tokens
-        if token.get('lemma')
-    }
-    protected = set(title_lemmas)
-    title_payload = {'title_tokens': title_tokens, 'body_tokens': []}
-    candidates = {
+    )
+    body_rows = tuple(sorted({
         (str(token.get('lemma') or ''), str(token.get('surface') or ''))
         for token in (payload.get('body_tokens') or [])
         if token.get('kind') == 'content' and token.get('lemma') and token.get('surface')
-    }
-    for lemma, surface in candidates:
+    }))
+    return set(_title_opening_lemmas_cached(
+        title_rows,
+        body_rows,
+        lexical_resolver_enabled(),
+        open_pronouns_enabled(),
+    ))
+
+
+@lru_cache(maxsize=16)
+def _title_opening_lemmas_cached(
+    title_rows: tuple[tuple[str, str], ...],
+    body_rows: tuple[tuple[str, str], ...],
+    _lexical_enabled: bool,
+    _pronouns_enabled: bool,
+) -> frozenset[str]:
+    # Keep both switches in the cache key; lemmas_matching_guess reads them
+    # from settings while calculating this variant.
+    title_tokens = [
+        {'kind': 'content', 'surface': surface, 'lemma': lemma}
+        for surface, lemma in title_rows
+    ]
+    title_lemmas = {lemma for _surface, lemma in title_rows if lemma}
+    protected = set(title_lemmas)
+    title_payload = {'title_tokens': title_tokens, 'body_tokens': []}
+    for lemma, surface in body_rows:
         if lemmas_matching_guess(title_payload, lemma, surface) & title_lemmas:
             protected.add(lemma)
-    return protected
+    return frozenset(protected)
 
 
 def count_hits(payload: dict[str, Any], lemma: str) -> int:

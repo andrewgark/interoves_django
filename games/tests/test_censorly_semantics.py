@@ -572,6 +572,17 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(related.get('title_related'))
         self.assertFalse(related.get('title_lemma'))
 
+    @override_settings(CENSORLY_LEXICAL_RESOLVER=False)
+    def test_related_title_protection_follows_matcher_flag(self):
+        from games.censorly.redact import title_opening_lemmas
+
+        payload = build_puzzle_payload(wiki_title='Кот', body_text='Котик спит.')
+        body_lemma = next(
+            tok['lemma'] for tok in payload['body_tokens']
+            if tok.get('kind') == 'content' and tok.get('lemma')
+        )
+        self.assertNotIn(body_lemma, title_opening_lemmas(payload))
+
     @override_settings(
         CENSORLY_LEXICAL_RESOLVER=True,
         CENSORLY_OPEN_PRONOUNS=True,
