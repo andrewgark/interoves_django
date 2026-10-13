@@ -1464,7 +1464,8 @@ def censorly_pool_save(request):
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
     title = str(body.get('title') or '').strip()
     replacement = str(body.get('replacement_title') or title).strip()
-    old = pool_rows().get(title)
+    rows = pool_rows()
+    old = rows.get(title)
     if title and old is None:
         return JsonResponse({'ok': False, 'error': 'Статья не найдена'}, status=404)
     if old is None and not replacement:
@@ -1484,6 +1485,11 @@ def censorly_pool_save(request):
         if not title_content_lemmas(payload):
             return JsonResponse({'ok': False, 'error': 'В названии статьи нет угадываемых слов'}, status=400)
         replacement = article.title
+    if replacement != title and replacement in rows:
+        return JsonResponse(
+            {'ok': False, 'error': 'Статья с таким названием уже есть в пуле'},
+            status=409,
+        )
     try:
         with transaction.atomic():
             save_pool_entry(replacement, topics, types, difficulty, enabled)
