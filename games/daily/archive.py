@@ -6,6 +6,8 @@ import calendar
 from datetime import date
 from urllib.parse import urlencode
 
+from django.utils import timezone
+
 
 MONTH_NAMES = (
     '', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
@@ -45,6 +47,65 @@ def build_daily_archive_items(links, *, game_id, publish_at_for_number,
             'href': href_for_number(number),
         })
     return items
+
+
+def prepare_daily_archive(request, links, *, game_id, publish_at_for_number,
+                          href_for_number, timezone_name, game_label,
+                          number_for_link=None, calendar_id=None):
+    """Build the shared archive items and initial month selection for a hub."""
+    items = build_daily_archive_items(
+        links,
+        game_id=game_id,
+        publish_at_for_number=publish_at_for_number,
+        href_for_number=href_for_number,
+        timezone_name=timezone_name,
+        number_for_link=number_for_link,
+    )
+    context = build_daily_archive_context(
+        items=items,
+        requested_month=request.GET.get('month'),
+        today=timezone.localdate(),
+        archive_url=request.path,
+        game_label=game_label,
+        archive_query=archive_query_string(request.GET),
+        calendar_id=calendar_id or 'daily-archive-{}'.format(game_id),
+    )
+    return items, context
+
+
+def links_for_archive_month(links, selected, *, publish_at_for_number,
+                            number_for_link=None, timezone_name=None):
+    """Keep links in the selected archive month, preserving their input order."""
+    if not selected:
+        return list(links)
+    selected_links = []
+    for link in links:
+        number = number_for_link(link) if number_for_link else link.number
+        published_at = publish_at_for_number(number)
+        if published_at is None:
+            continue
+        local_date = published_at.astimezone(timezone_name).date() if timezone_name else published_at.date()
+        if (local_date.year, local_date.month) == selected:
+            selected_links.append(link)
+    return selected_links
+
+
+def refresh_daily_archive_context(request, *, items, game_label, game_id,
+                                  completed_keys=(), status_by_key=None,
+                                  locked_keys=()):
+    """Rebuild archive state after a hub has computed row completion and locks."""
+    return build_daily_archive_context(
+        items=items,
+        requested_month=request.GET.get('month'),
+        today=timezone.localdate(),
+        archive_url=request.path,
+        game_label=game_label,
+        archive_query=archive_query_string(request.GET),
+        calendar_id='daily-archive-{}'.format(game_id),
+        completed_keys=completed_keys,
+        status_by_key=status_by_key,
+        locked_keys=locked_keys,
+    )
 
 
 def month_key(value: date) -> str:

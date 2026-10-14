@@ -51,9 +51,9 @@ from games.completion_coordinator import complete_logical_game
 from games.club_access import has_club_access
 from games.daily.page_context import build_daily_lifecycle_context, daily_statistics_url
 from games.daily_archive import (
-    archive_query_string,
-    build_daily_archive_context,
-    build_daily_archive_items,
+    links_for_archive_month,
+    prepare_daily_archive,
+    refresh_daily_archive_context,
 )
 from games.daily.registry import get_daily_game
 from games.daily_transitions import next_daily_content_transition_for_game
@@ -376,25 +376,24 @@ def censorly_hub_page(request):
             continue
         if is_censorly_number_published(game, int(link.number)):
             schedule_links.append(link)
-    schedule_links.sort(key=lambda link: int(link.number))
-    archive_items = build_daily_archive_items(
-        [(int(link.number), link) for link in schedule_links],
+    schedule_links.sort(key=lambda link: int(link.number), reverse=True)
+    archive_items, archive_context = prepare_daily_archive(
+        request,
+        schedule_links,
         game_id=CENSORLY_GAME_ID,
         publish_at_for_number=lambda number: censorly_publish_at(game, number),
         href_for_number=lambda number: section_play_path(CENSORLY_GAME_ID, number),
         timezone_name=MOSCOW,
-        number_for_link=lambda pair: pair[0],
-    )
-    archive_context = build_daily_archive_context(
-        items=archive_items,
-        requested_month=request.GET.get('month'),
-        today=timezone.localdate(),
-        archive_url=request.path,
+        number_for_link=lambda link: int(link.number),
         game_label='Цензурка',
-        archive_query=archive_query_string(request.GET),
         calendar_id='daily-archive-censorly',
     )
     selected = archive_context.get('daily_archive_selected')
+    visible_schedule_links = links_for_archive_month(
+        schedule_links, selected,
+        publish_at_for_number=lambda number: censorly_publish_at(game, number),
+        number_for_link=lambda link: int(link.number), timezone_name=MOSCOW,
+    )
     tasks_by_group = {
         task.task_group_id: task
         for task in Task.objects.filter(
@@ -414,13 +413,9 @@ def censorly_hub_page(request):
         anon_key=anon_key,
     )
     rows = []
-    for link in schedule_links:
+    for link in visible_schedule_links:
         number = int(link.number)
         published_at = censorly_publish_at(game, number)
-        if selected and published_at:
-            local_date = published_at.astimezone(MOSCOW).date()
-            if (local_date.year, local_date.month) != selected:
-                continue
         rows.append({
             'number': number,
             'placement_id': link.pk,
@@ -442,14 +437,9 @@ def censorly_hub_page(request):
         row['difficulty'] = difficulties.get(row.pop('placement_id'))
     from games.views.new_ui import _add_daily_completion_statuses
     _add_daily_completion_statuses(request, game, rows, schedule_links)
-    archive_context = build_daily_archive_context(
-        items=archive_items,
-        requested_month=request.GET.get('month'),
-        today=timezone.localdate(),
-        archive_url=request.path,
-        game_label='Цензурка',
-        archive_query=archive_query_string(request.GET),
-        calendar_id='daily-archive-censorly',
+    archive_context = refresh_daily_archive_context(
+        request, items=archive_items, game_label='Цензурка',
+        game_id=CENSORLY_GAME_ID,
         completed_keys={str(row['number']) for row in rows if row['is_solved']},
         status_by_key={
             str(row['number']): row['row_class'].replace('new-task--', '')

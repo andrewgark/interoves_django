@@ -73,9 +73,8 @@ from games.daily_section import (
 from games.daily.authorship import is_author_auto_completion_active
 from games.daily_archive import (
     MONTH_NAMES,
-    archive_query_string,
-    build_daily_archive_context,
     build_daily_archive_items,
+    refresh_daily_archive_context,
 )
 from games.daily.registry import get_daily_game
 from games.daily.page_context import (
@@ -1132,6 +1131,7 @@ def _published_numbers(game):
 def _daily_archive_context(request, game, links, *, completed_numbers=(), status_by_key=None,
                            locked_keys=()):
     """Adapt section placements to the neutral reusable archive component."""
+    meta = SECTION_HUB_META.get(game.id) or {}
     items = build_daily_archive_items(
         links,
         game_id=game.id,
@@ -1139,14 +1139,8 @@ def _daily_archive_context(request, game, links, *, completed_numbers=(), status
         href_for_number=lambda number: _play_url_for_task_group(game, number),
         timezone_name=MOSCOW,
     )
-    meta = SECTION_HUB_META.get(game.id) or {}
-    return build_daily_archive_context(
-        items=items,
-        requested_month=request.GET.get('month'),
-        today=timezone.localdate(),
-        archive_url=request.path,
-        archive_query=archive_query_string(request.GET),
-        calendar_id='daily-archive-{}'.format(game.id),
+    return refresh_daily_archive_context(
+        request, items=items, game_id=game.id,
         game_label=meta.get('archive_item_label') or meta.get('title') or game.name,
         completed_keys={str(number) for number in completed_numbers},
         status_by_key=status_by_key,
