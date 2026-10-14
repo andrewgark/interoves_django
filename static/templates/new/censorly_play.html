@@ -147,6 +147,31 @@
                       aria-label="Скрыть окончания">
                 <span class="censorly__ending-icon" aria-hidden="true">ые</span>
               </button>
+              <div class="censorly__scroll-settings">
+                <button type="button"
+                        class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
+                        id="censorly-scroll-settings-toggle"
+                        aria-expanded="false"
+                        aria-controls="censorly-scroll-settings-menu"
+                        aria-label="Настройки скролла"
+                        data-tooltip="Настройки скролла">
+                  <i class="ph ph-arrows-down-line" aria-hidden="true"></i>
+                </button>
+                <div class="censorly__scroll-menu" id="censorly-scroll-settings-menu" role="radiogroup" aria-label="Прокрутка после ввода" hidden>
+                  <button type="button" class="censorly__scroll-option is-selected" role="radio" aria-checked="true" data-scroll-option="first">
+                    <i class="ph ph-arrow-down" aria-hidden="true"></i><span>К первому вхождению</span><i class="ph ph-check censorly__scroll-check" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="censorly__scroll-option" role="radio" aria-checked="false" data-scroll-option="nearest">
+                    <i class="ph ph-crosshair" aria-hidden="true"></i><span>К ближайшему вхождению</span><i class="ph ph-check censorly__scroll-check" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="censorly__scroll-option" role="radio" aria-checked="false" data-scroll-option="next">
+                    <i class="ph ph-arrow-fat-down" aria-hidden="true"></i><span>К следующему вхождению</span><i class="ph ph-check censorly__scroll-check" aria-hidden="true"></i>
+                  </button>
+                  <button type="button" class="censorly__scroll-option" role="radio" aria-checked="false" data-scroll-option="off">
+                    <i class="ph ph-prohibit" aria-hidden="true"></i><span>Не прокручивать после ввода</span><i class="ph ph-check censorly__scroll-check" aria-hidden="true"></i>
+                  </button>
+                </div>
+              </div>
               <button type="button"
                       class="new-btn new-btn--ghost new-btn--icon new-btn--mini"
                       id="censorly-hint-btn"

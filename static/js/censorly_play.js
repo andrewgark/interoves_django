@@ -69,6 +69,18 @@
     } catch (err) {}
   }
 
+  function syncScrollSettings(root, menu, mode) {
+    var valid = ['first', 'nearest', 'next', 'off'];
+    mode = valid.indexOf(mode) >= 0 ? mode : 'first';
+    root.setAttribute('data-submit-scroll-mode', mode);
+    if (menu) menu.querySelectorAll('[data-scroll-option]').forEach(function (option) {
+      var selected = option.getAttribute('data-scroll-option') === mode;
+      option.classList.toggle('is-selected', selected);
+      option.setAttribute('aria-checked', selected ? 'true' : 'false');
+    });
+    return mode;
+  }
+
   function updateMaskAccessibility(root, showEndings) {
     if (!root) return;
     root.querySelectorAll('.censorly-tok--mask').forEach(function (mask) {
@@ -531,6 +543,27 @@
     scrollToNode(root, mode === 'nearest' ? nearestScrollNode(root, nodes) : nodes[0]);
   }
 
+  function scrollAfterGuess(root, tokenIds) {
+    var mode = root.getAttribute('data-submit-scroll-mode') || 'first';
+    if (mode === 'off') return;
+    var ids = Array.isArray(tokenIds) ? tokenIds : [];
+    var nodes = ids.map(function (id) {
+      return root.querySelector('.censorly-tok[data-id="' + String(id) + '"]');
+    }).filter(Boolean);
+    if (!nodes.length) return;
+    var node = nodes[0];
+    if (mode === 'nearest') node = nearestScrollNode(root, nodes);
+    if (mode === 'next') {
+      var bounds = mobileDockBounds(root);
+      var center = bounds ? (bounds.top + bounds.bottom) / 2 : window.innerHeight / 2;
+      node = nodes.find(function (candidate) {
+        var rect = candidate.getBoundingClientRect();
+        return rect.top + rect.height / 2 > center + 2;
+      }) || nodes[0];
+    }
+    scrollToNode(root, node);
+  }
+
   function scrollToGuess(root, row, guessIndex) {
     var raw = row.dataset.tokenIds || '';
     var ids = raw ? raw.split(',') : [];
@@ -847,11 +880,14 @@
     var historyBtn = root.querySelector('#censorly-history-toggle');
     var lengthsBtn = root.querySelector('#censorly-lengths-toggle');
     var endingsBtn = root.querySelector('#censorly-endings-toggle');
+    var scrollToggle = root.querySelector('#censorly-scroll-settings-toggle');
+    var scrollMenu = root.querySelector('#censorly-scroll-settings-menu');
     var hintBtn = root.querySelector('#censorly-hint-btn');
     var hintMode = root.querySelector('#censorly-hint-mode');
     var busy = false;
     var hasLocalAction = false;
     var preferences = readDisplayPreferences();
+    var scrollMode = syncScrollSettings(root, scrollMenu, preferences.scrollMode || root.getAttribute('data-scroll-mode'));
     var showEndings = typeof preferences.showEndings === 'boolean'
       ? preferences.showEndings
       : state.show_mask_endings !== false;
@@ -862,6 +898,49 @@
     applyState(root, state);
     syncEndingsToggle(root, endingsBtn, showEndings);
     syncLengthsToggle(root, lengthsBtn, showLengths);
+    if (scrollToggle && scrollMenu) {
+      scrollToggle.addEventListener('click', function () {
+        var open = scrollMenu.hidden;
+        scrollMenu.hidden = !open;
+        scrollToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+      scrollMenu.addEventListener('click', function (event) {
+        var option = event.target.closest('[data-scroll-option]');
+        if (!option) return;
+        scrollMode = syncScrollSettings(root, scrollMenu, option.getAttribute('data-scroll-option'));
+        preferences.scrollMode = scrollMode;
+        saveDisplayPreferences(preferences);
+        scrollMenu.hidden = true;
+        scrollToggle.setAttribute('aria-expanded', 'false');
+        scrollToggle.focus();
+      });
+      scrollMenu.addEventListener('keydown', function (event) {
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
+        var options = Array.prototype.slice.call(scrollMenu.querySelectorAll('[data-scroll-option]'));
+        var currentIndex = options.indexOf(document.activeElement);
+        if (!options.length || currentIndex < 0) return;
+        event.preventDefault();
+        var step = event.key === 'ArrowDown' ? 1 : -1;
+        var nextOption = options[(currentIndex + step + options.length) % options.length];
+        scrollMode = syncScrollSettings(root, scrollMenu, nextOption.getAttribute('data-scroll-option'));
+        preferences.scrollMode = scrollMode;
+        saveDisplayPreferences(preferences);
+        nextOption.focus();
+      });
+      document.addEventListener('click', function (event) {
+        if (!scrollMenu.hidden && !event.target.closest('.censorly__scroll-settings')) {
+          scrollMenu.hidden = true;
+          scrollToggle.setAttribute('aria-expanded', 'false');
+        }
+      });
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && !scrollMenu.hidden) {
+          scrollMenu.hidden = true;
+          scrollToggle.setAttribute('aria-expanded', 'false');
+          scrollToggle.focus();
+        }
+      });
+    }
     syncMobileDockOffset(root);
     syncMobileKeyboardOffset(root);
 
@@ -1092,7 +1171,7 @@
             if (input && !input.disabled) input.focus();
             if (revealScrollTokenId != null) {
               window.requestAnimationFrame(function () {
-                scrollToTokenId(root, revealScrollTokenId);
+                scrollAfterGuess(root, newly);
               });
             }
           });

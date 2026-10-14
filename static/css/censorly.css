@@ -99,6 +99,10 @@ html.new-ui-dark .censorly__dock {
 
   /* Keep the article visible above the sticky input dock on phones. */
   .censorly:not(.censorly--history-open) .censorly__controls {
+    display: flex;
+  }
+
+  .censorly:not(.censorly--history-open) .censorly__controls > :not(.censorly__scroll-settings) {
     display: none;
   }
 
@@ -631,6 +635,66 @@ html.new-ui-dark .censorly__dock {
   justify-content: flex-end;
   gap: 0.35rem;
 }
+
+.censorly__scroll-settings {
+  position: relative;
+}
+
+.censorly__scroll-menu {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
+  display: grid;
+  gap: 0.2rem;
+  width: min(19rem, calc(100vw - 2rem));
+  padding: 0.4rem;
+  border: 1px solid color-mix(in srgb, var(--border, rgba(0, 0, 0, 0.16)) 85%, transparent);
+  border-radius: 0.75rem;
+  background: var(--surface, var(--bg, #fff));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.censorly__scroll-menu[hidden] { display: none; }
+
+.censorly__scroll-option {
+  display: grid;
+  grid-template-columns: 1.4rem minmax(0, 1fr) 1.2rem;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  padding: 0.6rem 0.65rem;
+  border: 0;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.84rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.censorly__scroll-option > i:first-child {
+  color: var(--muted, #6b7280);
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.censorly__scroll-option:hover,
+.censorly__scroll-option:focus-visible {
+  outline: none;
+  background: color-mix(in srgb, var(--accent, #1f6f5e) 9%, transparent);
+}
+
+.censorly__scroll-option.is-selected {
+  background: color-mix(in srgb, var(--accent, #1f6f5e) 13%, transparent);
+  color: var(--accent, #1f6f5e);
+  font-weight: 650;
+}
+
+.censorly__scroll-option.is-selected > i:first-child { color: var(--accent, #1f6f5e); }
+.censorly__scroll-check { visibility: hidden; text-align: center; }
+.censorly__scroll-option.is-selected .censorly__scroll-check { visibility: visible; }
 
 .censorly__ending-icon {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
