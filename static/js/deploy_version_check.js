@@ -15,6 +15,17 @@
 
   var KEY = 'interoves_deploy_v';
   var URL = '/meta/deploy-version/';
+  var retryTimer = null;
+
+  function retryAfterDeployCheck() {
+    if (retryTimer !== null) {
+      return;
+    }
+    retryTimer = window.setTimeout(function () {
+      retryTimer = null;
+      run();
+    }, 30000);
+  }
 
   function embeddedVersion() {
     var h = document.documentElement.getAttribute('data-site-deploy-version');
@@ -68,6 +79,10 @@
         return r.json();
       })
       .then(function (data) {
+        if (data && data.deploying === true) {
+          retryAfterDeployCheck();
+          return;
+        }
         var serverV = data && data.version != null ? String(data.version).trim() : '';
         if (!serverV) {
           return;

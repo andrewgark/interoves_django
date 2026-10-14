@@ -63,9 +63,11 @@ key="interoves/green/${label}.zip"
 "$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk create-application-version \
     --region "$REGION" --application-name "$APP" --version-label "$label" \
     --source-bundle S3Bucket="$bucket",S3Key="$key" >/dev/null
+"$ROOT/scripts/deploy_refresh_gate.sh" enable
 "$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk update-environment \
     --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
     --version-label "$label" >/dev/null
 "$ROOT/scripts/wait_for_eb_deployment.sh" "$ENV_NAME" "$label" "$REGION"
 "$ROOT/scripts/smoke_prod_pages.sh"
+"$ROOT/scripts/deploy_refresh_gate.sh" disable
 echo "Green deploy complete: $label"

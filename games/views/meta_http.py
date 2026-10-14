@@ -1,7 +1,11 @@
 import json
 
 from django.conf import settings
+from django.core.cache import caches
 from django.http import JsonResponse
+
+
+DEPLOY_REFRESH_GATE_KEY = 'site:deploy-refresh-gate'
 
 
 def countries_task_100(request):
@@ -91,6 +95,10 @@ def deploy_version(request):
     Uncached JSON for clients to detect a new deploy (SITE_DEPLOY_VERSION on EB).
     """
     v = getattr(settings, 'SITE_DEPLOY_VERSION', '') or ''
-    resp = JsonResponse({'version': str(v).strip()})
+    deploying = caches['track_revisions'].get(DEPLOY_REFRESH_GATE_KEY) is not None
+    resp = JsonResponse({
+        'version': '' if deploying else str(v).strip(),
+        'deploying': deploying,
+    })
     resp['Cache-Control'] = 'no-store, max-age=0, must-revalidate'
     return resp

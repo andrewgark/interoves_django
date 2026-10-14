@@ -75,6 +75,11 @@ object `s3://elasticbeanstalk-<region>-<account>/<application>/<VersionLabel>.zi
   имена файлов стабильны, без manifest hash, поэтому старый и новый static
   могут временно разъехаться.
 
+Перед обновлением Green `deploy.sh` включает общий Redis gate для
+`deploy_version_check.js`; после успешного EB health wait и smoke gate
+снимается. При аварийном завершении ключ истекает через час. Для ручного
+переключения используйте `scripts/deploy_refresh_gate.sh enable|disable`.
+
 Миграции при деплое не выполняются: `01_migrate` из `django.config` работает
 только при `RUN_PRODUCTION_MIGRATIONS=true`. Колонки для нового кода сначала
 накатываются через `./scripts/with_rds.sh`, затем выкладывается Green; иначе
