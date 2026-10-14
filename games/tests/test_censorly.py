@@ -594,6 +594,19 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(len(formula_tokens), 1)
         self.assertEqual(formula_tokens[0]['kind'], 'punct')
 
+    def test_display_matrix_keeps_its_brackets_and_is_one_token(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \begin{pmatrix} a & b \\ c & d \end{pmatrix}}'
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+        expected = '(a b; c d)'
+
+        self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(tokens[0]['surface'], expected)
+
     def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
         from games.censorly.wiki import clean_wiki_extract
 

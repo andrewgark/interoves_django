@@ -352,7 +352,19 @@ class _TexTextParser:
             return f'{name}({arg[0]})', arg[1]
         if name == 'begin' or name == 'end':
             env = self._argument(j)
-            return ('; ' if name == 'end' and env and env[0] in ('cases', 'aligned', 'array') else ''), (env[1] if env else j)
+            if not env:
+                return '', j
+            wrappers = {
+                'pmatrix': ('(', ')'),
+                'bmatrix': ('[', ']'),
+                'Bmatrix': ('{', '}'),
+                'vmatrix': ('|', '|'),
+                'Vmatrix': ('‖', '‖'),
+                'cases': ('{', ''),
+            }
+            if env[0] in wrappers:
+                return wrappers[env[0]][0 if name == 'begin' else 1], env[1]
+            return ('; ' if name == 'end' and env[0] in ('aligned', 'array') else ''), env[1]
         if name == '\\':
             return '; ', j
         if name in ('{', '}'):
@@ -510,7 +522,11 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
             formula, i = group
             rendered = _TexTextParser(formula).parse()
             is_display_math = bool(re.match(r'\\(?:displaystyle|textstyle)\b', formula.strip()))
-            has_operator = bool(re.search(r'[=+−×·⋅*/^∫∑√≤≥≠≈]', rendered))
+            has_operator = bool(
+                re.search(r'[=+−×·⋅*/^∫∑√≤≥≠≈]', rendered)
+                or re.search(r'\\begin\{(?:p|b|B|v|V)?matrix\}', formula)
+                or r'\begin{cases}' in formula
+            )
             if mark_formulas and is_display_math and has_operator:
                 from games.censorly.tokenize import FORMULA_END, FORMULA_START
 
