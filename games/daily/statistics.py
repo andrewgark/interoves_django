@@ -547,6 +547,7 @@ def _censorly(task, game, actors):
     from games.censorly.play import hint_count as censorly_hint_count
     from games.censorly.play import load_state as load_censorly_state
     from games.censorly.play import puzzle_from_task
+    from games.censorly.redact import title_opening_lemmas
     from games.censorly.tokenize import title_content_lemmas
 
     # Wrong guesses count toward a Цензурка solve too; hints are filtered
@@ -555,6 +556,7 @@ def _censorly(task, game, actors):
     states = _latest_states(task, game, actors, attempts)
     payload = puzzle_from_task(task) or {}
     title_lemmas = title_content_lemmas(payload)
+    title_opening = title_opening_lemmas(payload)
     attempt_counts = []
     lemma_players = defaultdict(set)
     last_before_win = defaultdict(set)
@@ -594,7 +596,7 @@ def _censorly(task, game, actors):
                 break
             if row.text and not str(row.text).startswith('#hint:'):
                 lemma = lemma_from_row(row)
-                if lemma and lemma not in title_lemmas:
+                if lemma and lemma not in title_opening:
                     last_eligible_lemma = lemma
         if last_eligible_lemma:
             last_before_win[last_eligible_lemma].add(actor)
