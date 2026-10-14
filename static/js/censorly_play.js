@@ -488,23 +488,29 @@
     var dock = root && root.querySelector('.censorly__dock');
     var rootRect = root && root.getBoundingClientRect();
     var dockRect = dock && dock.getBoundingClientRect();
+    var viewport = window.visualViewport;
+    var viewportTop = viewport ? Math.max(0, viewport.offsetTop || 0) : 0;
+    var viewportBottom = viewport
+      ? viewportTop + viewport.height
+      : window.innerHeight;
     var mobileDock = dockRect && rootRect &&
-      dockRect.top < window.innerHeight && dockRect.bottom > 0 &&
+      dockRect.top < viewportBottom && dockRect.bottom > viewportTop &&
       dockRect.width >= rootRect.width * 0.8;
     if (!mobileDock) return null;
-    var top = 12;
+    var top = Math.max(12, viewportTop);
     return {
       top: top,
-      bottom: Math.max(top + 1, dockRect.top - 12),
+      bottom: Math.max(top + 1, Math.min(viewportBottom, dockRect.top - 12)),
     };
   }
 
   function visibleAreaTop(root) {
     var bounds = mobileDockBounds(root);
-    var viewportTop = window.visualViewport
-      ? Math.max(0, window.visualViewport.offsetTop || 0)
-      : 0;
-    var top = Math.max(bounds ? bounds.top : 0, viewportTop);
+    var viewport = window.visualViewport;
+    var top = Math.max(
+      bounds ? bounds.top : 0,
+      viewport ? Math.max(0, viewport.offsetTop || 0) : 0
+    );
     var nav = document.querySelector('.new-nav');
     if (nav) {
       var navRect = nav.getBoundingClientRect();
@@ -513,13 +519,23 @@
     return top;
   }
 
+  function visibleAreaCenter(root) {
+    var bounds = mobileDockBounds(root);
+    var viewport = window.visualViewport;
+    var top = visibleAreaTop(root);
+    var bottom = bounds
+      ? bounds.bottom
+      : (viewport ? (viewport.offsetTop || 0) + viewport.height : window.innerHeight);
+    return (top + Math.max(top + 1, bottom)) / 2;
+  }
+
   function scrollToNode(root, node) {
     if (!node) return;
     // On mobile the dock spans the game width and sticks over the bottom of
     // the article. Center within the unobscured area, not the whole viewport.
     var bounds = mobileDockBounds(root);
     if (bounds) {
-      var availableCenter = (bounds.top + bounds.bottom) / 2;
+      var availableCenter = visibleAreaCenter(root);
       var rect = node.getBoundingClientRect();
       var delta = rect.top + rect.height / 2 - availableCenter;
       if (rect.height > bounds.bottom - bounds.top) delta = rect.top - bounds.top;
@@ -546,10 +562,7 @@
 
   function nearestScrollNode(root, nodes) {
     if (!nodes.length) return null;
-    var bounds = mobileDockBounds(root);
-    var viewportCenter = bounds
-      ? (bounds.top + bounds.bottom) / 2
-      : window.innerHeight / 2;
+    var viewportCenter = visibleAreaCenter(root);
     return Array.prototype.reduce.call(nodes, function (nearest, node) {
       if (!nearest) return node;
       var nodeDistance = Math.abs(node.getBoundingClientRect().top + node.offsetHeight / 2 - viewportCenter);
