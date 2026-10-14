@@ -4988,15 +4988,24 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_rest'
         return 'sense:review_breathing'
     if family == 'торг²|торж²':
-        if lemma.startswith(('восторг',)):
-            return 'sense:review_rapture'
-        if lemma.startswith(('вторг',)):
-            return 'sense:review_intrusion'
-        if lemma.startswith(('исторг', 'отторг')):
-            return 'sense:review_extraction'
-        if lemma.startswith(('расторг',)):
-            return 'sense:review_termination'
-        return 'sense:review_trade_related'
+        # Kuznetsova groups these historically related forms together, but
+        # their modern meanings range from rapture to invasion and legal
+        # dissolution. Keep each meaning in a family-specific game root.
+        if lemma.startswith(('вторг', 'вторж')):
+            return 'sense:review_torg_intrusion'
+        if lemma.startswith(('исторг', 'исторж')):
+            return 'sense:review_torg_extraction'
+        if lemma.startswith(('отторг', 'отторж')):
+            return 'sense:review_torg_rejection'
+        if lemma.startswith(('расторг', 'расторж')):
+            return 'sense:review_torg_termination'
+        if lemma.startswith(('восторжеств', 'торжествова', 'торжествующ')):
+            return 'sense:review_torg_triumph'
+        if lemma.startswith(('торжествен',)) or lemma == 'торжество':
+            return 'sense:review_torg_celebration'
+        if lemma.startswith(('восторг', 'восторжен')):
+            return 'sense:review_torg_rapture'
+        return 'sense:review_torg_trade'
     if family == 'крест|крещ':
         if lemma.startswith(('крестец', 'крестц')):
             return 'sense:review_sacrum'
@@ -5921,6 +5930,7 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('снятие', ('sense:review_removed', 'sense:review_photography')),
     ('сняться', ('sense:review_removed', 'sense:review_photography', 'sense:review_occupation')),
     ('снять', ('sense:review_removed', 'sense:review_photography', 'sense:review_occupation')),
+    ('торжество', ('sense:review_torg_celebration', 'sense:review_torg_triumph')),
 )
 
 # ``ключ`` itself is polysemous; its derivatives below remain ordinary,
