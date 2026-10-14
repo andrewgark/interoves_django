@@ -1076,6 +1076,60 @@ class LexicalGameplayTests(TestCase):
 
 
 class ReviewedHomonymClusterTests(SimpleTestCase):
+    def test_silver_article_root_collisions_are_split_or_context_filtered(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.censorly.lexical.rootbank import structures_of
+        from games.censorly.tokenize import all_tokens, build_puzzle_payload
+
+        payload = build_puzzle_payload(
+            wiki_title='Проверка кластеров серебра',
+            body_text=(
+                'Вместе место. Есть объем. Всей поверхности сей металл. '
+                'Источник течение. Выключатель заключаются исключением. '
+                'Использование полезных веществ. Вредности повреждения.'
+            ),
+        )
+        tokens = all_tokens(payload)
+        for guess, closed_lemma in (
+            ('вместе', 'место'),
+            ('есть', 'объем'),
+            ('сей', 'весь'),
+            ('течение', 'источник'),
+            ('выключатель', 'заключаться'),
+            ('выключатель', 'исключение'),
+            ('использование', 'полезный'),
+            ('вредность', 'повреждение'),
+        ):
+            self.assertNotIn(closed_lemma, matching_lemmas(tokens, guess), guess)
+
+        self.assertEqual(structures_of('вместе'), (('sense:together',),))
+        self.assertEqual(structures_of('место'), (('sense:location',),))
+        self.assertEqual(structures_of('источник'), (('sense:source_origin',),))
+        self.assertEqual(structures_of('течение'), (('sense:flow',),))
+        self.assertEqual(structures_of('выключатель'), (('sense:switching',),))
+        self.assertEqual(structures_of('заключаться'), (('sense:conclusion',),))
+        self.assertEqual(structures_of('использование'), (('sense:review_use',),))
+        self.assertEqual(structures_of('полезный'), (('sense:review_benefit',),))
+        self.assertEqual(structures_of('вредность'), (('sense:review_harm',),))
+        self.assertEqual(structures_of('повреждение'), (('sense:review_physical_damage',),))
+
+        for guess, target in (
+            ('вместе', 'совместный'),
+            ('место', 'местный'),
+            ('источник', 'исток'),
+            ('включать', 'выключить'),
+            ('включать', 'исключать'),
+            ('использование', 'использовать'),
+            ('полезный', 'полезность'),
+            ('вредность', 'вредный'),
+            ('повреждение', 'повредить'),
+        ):
+            self.assertEqual(
+                _relation(_GuessPack(guess), _Pack(target)),
+                'root',
+                f'{guess} / {target} should remain connected within its cluster',
+            )
+
     def test_three_article_root_collisions_are_separated(self):
         from games.censorly.lexical.match import _GuessPack, _Pack, _relation
         from games.censorly.lexical.rootbank import structures_of
@@ -1480,6 +1534,13 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             ('хлор', 'хлорат'),
             ('хлор', 'хлорит'),
             ('хлор', 'хлороз'),
+            ('культура', 'культурный'),
+            ('датироваться', 'датировка'),
+            ('эллинистический', 'эллинский'),
+            ('археолог', 'археологический'),
+            ('античность', 'античный'),
+            ('троя', 'троянец'),
+            ('троянец', 'троянский'),
         ):
             self.assertTrue(opens(left, right), f'{left}/{right}')
             self.assertTrue(opens(right, left), f'{right}/{left}')

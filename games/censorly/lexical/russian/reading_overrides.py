@@ -28,6 +28,12 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     # parser also proposes the valid homograph «стечь»; retain that only when
     # the article lemmatizer actually selects it.
     ('стекла', 'стекло'): frozenset({'стекло'}),
+    # The tokenizer resolves these article occurrences to their ordinary
+    # lemmas. Pymorphy also proposes unrelated homographic readings
+    # ("всей" → "всеять", "объём" → "объесть"), which must not leak
+    # those roots into article matching.
+    ('всей', 'весь'): frozenset({'весь'}),
+    ('объем', 'объем'): frozenset({'объем'}),
 }
 
 

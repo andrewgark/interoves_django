@@ -217,6 +217,10 @@ _ATOMIC_LEXICALIZED = frozenset({
     fold('биограф'),
     fold('биография'),
     fold('биографический'),
+    # The archaeology family is a reviewed lexicalized compound. Keep the
+    # local family together without authorizing the broad архе/лог components.
+    fold('археолог'),
+    fold('археологический'),
 })
 
 
