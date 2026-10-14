@@ -611,6 +611,14 @@ html.new-ui-dark .censorly__dock {
   text-underline-offset: 0.12em;
 }
 
+.censorly-tok--solution-revealed {
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--muted, #6b7280);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.12em;
+}
+
 .censorly-tok--hinted::before {
   content: "💡";
   display: inline-block;

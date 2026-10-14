@@ -811,6 +811,11 @@
         ' / ' + totalCount + ')';
     }
     renderTokens(body, state.body_tokens || [], lenForced);
+    if (state.won && body) {
+      body.querySelectorAll('.censorly-tok--revealed:not(.censorly-tok--guessed)').forEach(function (token) {
+        token.classList.add('censorly-tok--solution-revealed');
+      });
+    }
     updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'));
     var trunc = root.querySelector('#censorly-truncated');
     if (trunc) trunc.hidden = !state.truncated;
