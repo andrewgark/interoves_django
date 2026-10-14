@@ -5623,6 +5623,7 @@ CLUSTERS = tuple(
 # distinct modern meanings.  Ambiguous lemmas stay in their default bucket;
 # MULTI_READINGS below adds their other sense-specific memberships.
 _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ('sense:prosperity', ('зажиточность', 'зажиточный')),
     ('sense:containment', (
         'вместилище', 'вместимость', 'вместительность', 'вместительный', 'вместить',
         'вместиться', 'вмещать', 'вмещаться', 'вмещение',

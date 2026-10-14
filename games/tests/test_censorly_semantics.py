@@ -555,6 +555,11 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('донской', 'донский'))
         self.assertTrue(opens('донский', 'донской'))
 
+    def test_lived_and_prosperous_meanings_stay_apart(self):
+        self.assertFalse(opens('жил', 'зажиточной'))
+        self.assertFalse(opens('зажиточной', 'жил'))
+        self.assertTrue(opens('зажиточный', 'зажиточность'))
+
     def test_domoy_does_not_use_spurious_domyit_reading(self):
         self.assertEqual(
             {(item.lemma, item.pos) for item in readings_of('домой')},
