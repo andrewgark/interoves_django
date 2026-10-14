@@ -588,6 +588,9 @@ def process_game_announcements(now=None) -> dict[str, int]:
         'no_coffins': 0,
         'results': 0,
         'admin_start_soon': 0,
+        'ladder_scheduled': 0,
+        'salad_scheduled': 0,
+        'censorly_scheduled': 0,
     }
 
     for game in Game.objects.all():
@@ -657,6 +660,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
         # until a later cutover. Shadow must not create those rows.
         stats['ladder_scheduled'] = 0
         stats['salad_scheduled'] = 0
+        stats['censorly_scheduled'] = 0
         stats['daily_review_sent'] = 0
         stats['alphabetty_buffer_added'] = 0
         stats['week_task_buffer_added'] = 0
@@ -680,6 +684,15 @@ def process_game_announcements(now=None) -> dict[str, int]:
     except Exception:
         logger.exception('Salad channel tick failed')
         stats['salad_scheduled'] = 0
+
+    try:
+        from games.telegram.censorly_channel import process_censorly_channel_tick
+
+        censorly_stats = process_censorly_channel_tick(now=now)
+        stats['censorly_scheduled'] = censorly_stats.get('scheduled', 0)
+    except Exception:
+        logger.exception('Censorly channel tick failed')
+        stats['censorly_scheduled'] = 0
 
     try:
         from games.telegram.daily_review import process_daily_review_tick

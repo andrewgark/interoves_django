@@ -19,11 +19,12 @@ class Command(BaseCommand):
             'start={start}, end_soon_15={end_soon_15}, end={end}, '
             'all_solved={all_solved}, results={results}, '
             'admin_start_soon={admin_start_soon}, ladder_scheduled={ladder_scheduled}, '
-            'salad_scheduled={salad_scheduled}, '
+            'salad_scheduled={salad_scheduled}, censorly_scheduled={censorly_scheduled}, '
             'daily_review_sent={daily_review_sent}, '
             'alphabetty_buffer_added={alphabetty_buffer_added}'.format(
                 ladder_scheduled=stats.get('ladder_scheduled', 0),
                 salad_scheduled=stats.get('salad_scheduled', 0),
+                censorly_scheduled=stats.get('censorly_scheduled', 0),
                 daily_review_sent=stats.get('daily_review_sent', 0),
                 alphabetty_buffer_added=stats.get('alphabetty_buffer_added', 0),
                 **{k: stats.get(k, 0) for k in (

@@ -251,6 +251,8 @@ def _plain_caption(post: SocialQueuePost) -> str:
         return text
     if post.source == SocialQueuePost.SOURCE_WORD_SALAD and post.ladder_number:
         return 'Салатик №{}\n{}'.format(post.ladder_number, post.play_url)
+    if post.source == SocialQueuePost.SOURCE_CENSORLY and post.ladder_number:
+        return 'Цензурка №{}\n{}'.format(post.ladder_number, post.play_url)
     if post.ladder_number:
         return 'Лесенка №{}\n{}'.format(post.ladder_number, post.play_url)
     return post.caption or ''
@@ -259,6 +261,8 @@ def _plain_caption(post: SocialQueuePost) -> str:
 def _filename(post: SocialQueuePost) -> str:
     if post.source == SocialQueuePost.SOURCE_WORD_SALAD and post.ladder_number:
         return 'salad-{}.png'.format(post.ladder_number)
+    if post.source == SocialQueuePost.SOURCE_CENSORLY and post.ladder_number:
+        return 'censorly-{}.png'.format(post.ladder_number)
     if post.ladder_number:
         return 'ladder-{}.png'.format(post.ladder_number)
     return 'social-{}.png'.format(post.pk or 'draft')

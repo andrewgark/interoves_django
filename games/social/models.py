@@ -12,11 +12,13 @@ class SocialQueuePost(models.Model):
     SOURCE_LADDER = 'ladder'
     SOURCE_GAME = 'game'
     SOURCE_WORD_SALAD = 'word_salad'
+    SOURCE_CENSORLY = 'censorly'
     SOURCE_CHOICES = (
         (SOURCE_MANUAL, 'Manual'),
         (SOURCE_LADDER, 'Ladder'),
         (SOURCE_GAME, 'Game'),
         (SOURCE_WORD_SALAD, 'Word salad'),
+        (SOURCE_CENSORLY, 'Censorly'),
     )
 
     STATUS_PENDING = 'pending'
@@ -145,6 +147,14 @@ class SocialQueuePost(models.Model):
             )
         if self.source == self.SOURCE_WORD_SALAD and self.ladder_number:
             return 'salad {} [tg={} x={} ig={} th={}]'.format(
+                self.ladder_number,
+                self.telegram_status,
+                self.twitter_status,
+                self.instagram_status,
+                self.threads_status,
+            )
+        if self.source == self.SOURCE_CENSORLY and self.ladder_number:
+            return 'censorly {} [tg={} x={} ig={} th={}]'.format(
                 self.ladder_number,
                 self.telegram_status,
                 self.twitter_status,

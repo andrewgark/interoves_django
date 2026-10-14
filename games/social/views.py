@@ -52,6 +52,27 @@ def _restore_missing_word_salad_image(post: SocialQueuePost) -> bool:
     return True
 
 
+def _restore_missing_censorly_image(post: SocialQueuePost) -> bool:
+    """Rebuild a Censorly teaser when integrations saved it only locally."""
+    if post.source != SocialQueuePost.SOURCE_CENSORLY or not post.ladder_number:
+        return False
+    from games.telegram.censorly_image import render_censorly_teaser_png
+    from games.section_paths import section_play_path
+    from games.telegram.game_urls import admin_url
+
+    url = admin_url(section_play_path('censorly', post.ladder_number))
+    try:
+        png = render_censorly_teaser_png(number=post.ladder_number, url=url)
+    except Exception:
+        logger.exception('Failed to rebuild social image for Censorly post pk=%s', post.pk)
+        return False
+    if not png:
+        return False
+    post.set_image_bytes(png, filename='censorly-{}.png'.format(post.ladder_number))
+    post.save(update_fields=['image', 'updated_at'])
+    return True
+
+
 def social_queue_instagram_jpg(request, pk):
     """Public JPEG for Instagram Graph API to fetch on publish."""
     post = get_object_or_404(SocialQueuePost, pk=pk)
@@ -62,7 +83,10 @@ def social_queue_instagram_jpg(request, pk):
     data = cache.get(cache_key)
     if data is None:
         raw = _read_social_image(post)
-        if not raw and _restore_missing_word_salad_image(post):
+        if not raw and (
+            _restore_missing_word_salad_image(post)
+            or _restore_missing_censorly_image(post)
+        ):
             post.refresh_from_db()
             raw = _read_social_image(post)
             cache_key = 'social_queue_jpg:{}:{}'.format(post.pk, post.updated_at.timestamp())

@@ -201,6 +201,9 @@ def screenshot_page_element_png(
     selectors: tuple[str, ...],
     *,
     viewport_width: int = 1100,
+    extra_css: str = '',
+    wait_for_selector: str | None = None,
+    require_selector: str | None = None,
 ) -> bytes:
     """
     Headless Chromium screenshot of a live page crop (same look as the site).
@@ -239,10 +242,17 @@ def screenshot_page_element_png(
             if confirm.count() and confirm.first.is_visible():
                 confirm.first.click()
                 page.wait_for_timeout(200)
-            page.add_style_tag(content=_SCREENSHOT_HIDE_CSS)
+            page.add_style_tag(content=_SCREENSHOT_HIDE_CSS + extra_css)
             if emoji_font:
                 _wait_for_emoji_font(page)
             page.wait_for_timeout(150)
+
+            if wait_for_selector:
+                page.locator(wait_for_selector).first.wait_for(state='visible', timeout=10000)
+            if require_selector and page.locator(require_selector).count() == 0:
+                raise RuntimeError(
+                    'Required screenshot selector not found: {}'.format(require_selector)
+                )
 
             raw = None
             for selector in selectors:
