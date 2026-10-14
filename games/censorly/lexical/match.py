@@ -269,8 +269,22 @@ class _ArticleIndex:
         return self._merge_postings(postings)
 
     def _merge_postings(self, postings) -> list[int]:
-        seen = bytearray(len(self.surfaces))
         candidates = []
+        posting_count = sum(len(posting) for posting in postings)
+        # Sparse guesses usually touch only a few IDs. A set keeps that work
+        # proportional to the postings instead of clearing a bitmap as large
+        # as the entire article for every guess. Dense queries use the bitmap,
+        # which is much smaller than a Python set at that scale.
+        if posting_count <= max(1, len(self.surfaces) // 8):
+            seen = set()
+            for posting in postings:
+                for surface_id in posting:
+                    if surface_id not in seen:
+                        seen.add(surface_id)
+                        candidates.append(surface_id)
+            return candidates
+
+        seen = bytearray(len(self.surfaces))
         for posting in postings:
             for surface_id in posting:
                 if not seen[surface_id]:
