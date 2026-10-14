@@ -102,7 +102,7 @@ html.new-ui-dark .censorly__dock {
     display: flex;
   }
 
-  .censorly:not(.censorly--history-open) .censorly__controls > :not(.censorly__scroll-settings) {
+  .censorly:not(.censorly--history-open) .censorly__controls > * {
     display: none;
   }
 
