@@ -54,7 +54,10 @@ _LETTER_NAME_LEMMAS = {'е': 'е', 'ш': 'ш'}
 
 
 class _Pack:
-    __slots__ = ('surface', 'fold', 'service', 'russian', 'lexemes', 'roots', 'reads', 'families')
+    __slots__ = (
+        'surface', 'fold', 'service', 'russian', 'lexemes', 'roots', 'root_ids',
+        'reads', 'families',
+    )
 
     def __init__(
         self, surface: str, *, include_pronouns: bool = True,
@@ -77,6 +80,7 @@ class _Pack:
         self.russian = _russian(surface, 'ru')
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         self.roots = _roots(self.reads, surface, include_surface=not contextual)
+        self.root_ids = frozenset(_root_ids(self.roots))
         families = set(families_of(self.fold))
         for item in self.reads:
             families.update(families_of(item.lemma))
@@ -103,6 +107,7 @@ class _GuessPack(_Pack):
             self.reads, contextual = target_readings(surface, article_lemma, self.reads)
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         self.roots = _roots(self.reads, surface, include_surface=not contextual)
+        self.root_ids = frozenset(_root_ids(self.roots))
         families = set(families_of(self.fold))
         for item in self.reads:
             families.update(families_of(item.lemma))
@@ -152,7 +157,7 @@ def _root_ids(structures) -> set[str]:
 def _reject(guess: _Pack, target: _Pack) -> str:
     if guess.service or target.service or not guess.russian or not target.russian:
         return ''
-    if _root_ids(guess.roots) & _root_ids(target.roots):
+    if guess.root_ids & target.root_ids:
         return 'root_overlap'
     if guess.families & target.families:
         return 'family_split'
@@ -177,18 +182,20 @@ class _ArticleIndex:
             for surface in surfaces
         )
         self.by_surface = dict(zip(surfaces, self.packs))
-        self.fold = defaultdict(set)
-        self.alias = defaultdict(set)
-        self.proper = defaultdict(set)
-        self.lexeme = defaultdict(set)
-        self.root = defaultdict(set)
-        self.grammar = defaultdict(set)
-        self.root_id = defaultdict(set)
-        self.family = defaultdict(set)
-        for surface, pack in zip(surfaces, self.packs):
-            self.fold[pack.fold].add(surface)
+        # Postings store compact integer surface IDs instead of repeating
+        # references to strings in many Python sets.
+        self.fold = defaultdict(list)
+        self.alias = defaultdict(list)
+        self.proper = defaultdict(list)
+        self.lexeme = defaultdict(list)
+        self.root = defaultdict(list)
+        self.grammar = defaultdict(list)
+        self.root_id = defaultdict(list)
+        self.family = defaultdict(list)
+        for surface_id, (surface, pack) in enumerate(zip(surfaces, self.packs)):
+            self.fold[pack.fold].append(surface_id)
             for group_id in _ALIAS_GROUPS_BY_WORD.get(pack.fold, ()):
-                self.alias[group_id].add(surface)
+                self.alias[group_id].append(surface_id)
             # _proper_pair uses readings_of directly, including the special
             # homographic readings omitted from gameplay's pack when needed.
             proper_reads = readings_of(surface)
@@ -196,44 +203,57 @@ class _ArticleIndex:
             for form in forms:
                 component = _PROPER_COMPONENT_BY_WORD.get(form)
                 if component:
-                    self.proper[component].add(surface)
+                    self.proper[component].append(surface_id)
                 for group in _GRAMMAR_GROUPS_BY_WORD.get(form, ()):
-                    self.grammar[group].add(surface)
+                    self.grammar[group].append(surface_id)
             for key in pack.lexemes:
-                self.lexeme[key].add(surface)
+                self.lexeme[key].append(surface_id)
             for structure in pack.roots:
-                self.root[structure].add(surface)
+                self.root[structure].append(surface_id)
                 for root_id in structure:
-                    self.root_id[root_id].add(surface)
+                    self.root_id[root_id].append(surface_id)
             for family in pack.families:
-                self.family[family].add(surface)
+                self.family[family].append(surface_id)
 
-    def candidates(self, guess: _Pack) -> set[str]:
-        """Return only surfaces that can open or be reported as near misses."""
-        out = set(self.fold.get(guess.fold, ()))
+    def candidate_ids(self, guess: _Pack) -> list[int]:
+        """Return unique surface IDs that can open or be reported as near misses."""
+        postings = [self.fold.get(guess.fold, ())]
         if guess.service:
-            return out
+            return self._merge_postings(postings)
         for alias_group in _ALIAS_GROUPS_BY_WORD.get(guess.fold, ()):
-            out.update(self.alias.get(alias_group, ()))
+            postings.append(self.alias.get(alias_group, ()))
         proper_reads = readings_of(guess.surface)
         for form in {guess.fold} | {fold(item.lemma) for item in proper_reads if item.lemma}:
             component = _PROPER_COMPONENT_BY_WORD.get(form)
             if component:
-                out.update(self.proper.get(component, ()))
+                postings.append(self.proper.get(component, ()))
         if guess.russian:
             for key in guess.lexemes:
-                out.update(self.lexeme.get(key, ()))
+                postings.append(self.lexeme.get(key, ()))
             for structure in guess.roots:
-                out.update(self.root.get(structure, ()))
+                postings.append(self.root.get(structure, ()))
             for item in guess.reads:
                 for group in _GRAMMAR_GROUPS_BY_WORD.get(item.lemma, ()):
-                    out.update(self.grammar.get(group, ()))
-            root_ids = _root_ids(guess.roots)
-            for root_id in root_ids:
-                out.update(self.root_id.get(root_id, ()))
+                    postings.append(self.grammar.get(group, ()))
+            for root_id in guess.root_ids:
+                postings.append(self.root_id.get(root_id, ()))
             for family in guess.families:
-                out.update(self.family.get(family, ()))
-        return out
+                postings.append(self.family.get(family, ()))
+        return self._merge_postings(postings)
+
+    def _merge_postings(self, postings) -> list[int]:
+        seen = bytearray(len(self.surfaces))
+        candidates = []
+        for posting in postings:
+            for surface_id in posting:
+                if not seen[surface_id]:
+                    seen[surface_id] = 1
+                    candidates.append(surface_id)
+        return candidates
+
+    def candidates(self, guess: _Pack) -> set[str]:
+        """Compatibility wrapper for tools that consume surface strings."""
+        return {self.surfaces[surface_id] for surface_id in self.candidate_ids(guess)}
 
 
 @lru_cache(maxsize=4)
@@ -291,7 +311,7 @@ def _build_article_analysis(
     return {
         'rows': rows,
         'counts_by_surface': counts_by_surface,
-        'lemmas_by_surface': _lemmas_by_surface(rows),
+        'lemmas_by_surface': lemmas_by_surface,
         'index': index,
         'surface_count': len(surfaces),
         'token_count': len(rows),
@@ -413,11 +433,12 @@ def analyze_guess(
     else:
         guess_pack = _guess_pack(guess, include_pronouns=include_pronouns)
     index = analysis['index']
-    candidate_surfaces = index.candidates(guess_pack)
+    candidate_ids = index.candidate_ids(guess_pack)
     if not include_report:
         hits = set()
-        for surface in candidate_surfaces:
-            pack = index.by_surface[surface]
+        for surface_id in candidate_ids:
+            surface = index.surfaces[surface_id]
+            pack = index.packs[surface_id]
             if _relation(guess_pack, pack):
                 hits.update(
                     lemma or pack.fold or guess_pack.fold
@@ -429,19 +450,20 @@ def analyze_guess(
 
     opened: dict[tuple, dict] = {}
     rejected: dict[tuple, dict] = {}
-    packs_by_surface = {surface: index.by_surface[surface] for surface in candidate_surfaces}
-    relations_by_surface = {}
-    rejections_by_surface = {}
+    relations_by_id = {}
+    rejections_by_id = {}
     hits: set[str] = set()
-    for surface, pack in packs_by_surface.items():
+    for surface_id in candidate_ids:
+        pack = index.packs[surface_id]
         relation = _relation(guess_pack, pack)
-        relations_by_surface[surface] = relation
+        relations_by_id[surface_id] = relation
         if not relation:
-            rejections_by_surface[surface] = _reject(guess_pack, pack)
+            rejections_by_id[surface_id] = _reject(guess_pack, pack)
 
-    for surface in candidate_surfaces:
-        if relations_by_surface[surface]:
-            pack = packs_by_surface[surface]
+    for surface_id in candidate_ids:
+        if relations_by_id[surface_id]:
+            surface = index.surfaces[surface_id]
+            pack = index.packs[surface_id]
             hits.update(
                 lemma or pack.fold or guess_pack.fold
                 for lemma in lemmas_by_surface[surface]
@@ -450,17 +472,18 @@ def analyze_guess(
     # Merge only candidate rows, then restore the previous first-seen report
     # order. This avoids walking every distinct article row on every guess.
     report_rows = sorted(
-        (order, surface, lemma, occurrences)
-        for surface in candidate_surfaces
-        for order, lemma, occurrences in counts_by_surface[surface]
+        (order, surface_id, lemma, occurrences)
+        for surface_id in candidate_ids
+        for order, lemma, occurrences in counts_by_surface[index.surfaces[surface_id]]
     )
-    for _order, surface, lemma, occurrences in report_rows:
-        pack = index.by_surface[surface]
+    for _order, surface_id, lemma, occurrences in report_rows:
+        surface = index.surfaces[surface_id]
+        pack = index.packs[surface_id]
         stored = lemma or pack.fold
-        reason = relations_by_surface.get(surface, '')
+        reason = relations_by_id.get(surface_id, '')
         bucket = opened
         if not reason:
-            reason = rejections_by_surface.get(surface, '')
+            reason = rejections_by_id.get(surface_id, '')
             bucket = rejected
         if not reason:
             continue
