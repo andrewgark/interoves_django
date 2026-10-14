@@ -26,7 +26,7 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 19
+CACHE_VERSION = 20
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
@@ -86,7 +86,7 @@ def _pct(n, total):
 
 
 def build_attempt_histogram(values, tail_from=30):
-    """Build the fixed 1..29 plus 30+ alphabet attempt histogram."""
+    """Build exact buckets below tail_from and one bucket for its upper tail."""
     if tail_from < 2:
         raise ValueError('tail_from must be at least 2')
 
@@ -123,6 +123,40 @@ def build_attempt_histogram(values, tail_from=30):
             'bar_percent': round(100.0 * count / largest_count, 1),
         })
     return histogram
+
+
+def _build_censorly_attempt_histogram(values):
+    """Group Censorly attempts into five-attempt buckets through 150."""
+    counts = Counter(int(value) for value in values if int(value) > 0)
+    if not counts:
+        return []
+
+    ranges = [(start, start + 4) for start in range(1, 151, 5)]
+    ranges.append((151, None))
+    total = sum(counts.values())
+    bucket_counts = [
+        sum(
+            count for value, count in counts.items()
+            if value >= start and (end is None or value <= end)
+        )
+        for start, end in ranges
+    ]
+    percentages = [_pct(count, total) for count in bucket_counts]
+    rounding_delta = round(100 - sum(percentages), 1)
+    if rounding_delta:
+        percentages[max(range(len(bucket_counts)), key=lambda index: bucket_counts[index])] += rounding_delta
+    largest_count = max(bucket_counts)
+    return [
+        {
+            'from': start,
+            'to': end,
+            'count': count,
+            'label': '{}+'.format(start) if end is None else '{}–{}'.format(start, end),
+            'percent': percent,
+            'bar_percent': round(100.0 * count / largest_count, 1),
+        }
+        for (start, end), count, percent in zip(ranges, bucket_counts, percentages)
+    ]
 
 
 def _results_actor(row):
@@ -181,11 +215,11 @@ def _timing_actor_q(keys):
     return q
 
 
-def _attempts_for(task, game, actors):
+def _attempts_for(task, game, actors, statuses=('Ok', 'Partial')):
     if not actors:
         return {}
     rows = Attempt.manager.filter(
-        task=task, game=game, skip=False, status__in=('Ok', 'Partial'),
+        task=task, game=game, skip=False, status__in=statuses,
         replay_slot__isnull=True,
     ).filter(_actor_q(actors)).only(
         'id', 'team_id', 'user_id', 'anon_key', 'text', 'state', 'status',
@@ -515,7 +549,9 @@ def _censorly(task, game, actors):
     from games.censorly.play import puzzle_from_task
     from games.censorly.tokenize import title_content_lemmas
 
-    attempts = _attempts_for(task, game, actors)
+    # Wrong guesses count toward a Цензурка solve too; hints are filtered
+    # from attempt_counts below using their #hint: marker.
+    attempts = _attempts_for(task, game, actors, statuses=('Ok', 'Partial', 'Wrong'))
     states = _latest_states(task, game, actors, attempts)
     payload = puzzle_from_task(task) or {}
     title_lemmas = title_content_lemmas(payload)
@@ -574,7 +610,7 @@ def _censorly(task, game, actors):
         for word, players in sorted(last_before_win.items(), key=lambda item: (-len(item[1]), item[0]))
         if len(players) >= 1
     ][:POPULAR_LIMIT]
-    histogram = build_attempt_histogram(attempt_counts)
+    histogram = _build_censorly_attempt_histogram(attempt_counts)
     return {
         'kind': 'censorly',
         'solved': len(actors),

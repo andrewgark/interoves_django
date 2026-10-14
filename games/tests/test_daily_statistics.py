@@ -231,6 +231,39 @@ class DailyStatisticsTests(TestCase):
 
         self.assertEqual(data['popular_words'], [{'word': 'слово', 'players': 1}])
 
+    def test_censorly_attempt_distribution_includes_wrong_guesses(self):
+        game = Game.objects.filter(id='censorly', project=self.project).first()
+        if game is None:
+            game = Game.objects.create(id='censorly', name='Цензурка', project=self.project)
+        tg = TaskGroup.objects.create(label='censorly nine attempts')
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='censorly')
+        checker, _ = CheckerType.objects.get_or_create(pk='censorly')
+        task = Task.objects.create(
+            task_group=tg, number='1', task_type='censorly', checker=checker,
+            checker_data=json.dumps({'title': 'Тест', 'text': 'Текст статьи.', 'guesses': []}),
+        )
+        user = self.users[0]
+        for index in range(9):
+            Attempt.manager.create(
+                user=user, game=game, task=task, text='слово{}'.format(index),
+                status='Ok' if index == 8 else 'Wrong',
+                state=json.dumps({'guesses': [{'lemma': 'слово{}'.format(index)}], 'won': index == 8}),
+            )
+        PlayerCompletedGame.objects.create(
+            user=user, game=game, task_group=tg, game_kind='censorly',
+            game_instance_id='censorly:{}'.format(tg.pk),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+
+        data = build_daily_statistics(game, tg)
+
+        self.assertEqual(len(data['distribution']), 31)
+        self.assertEqual(data['distribution'][0]['label'], '1–5')
+        self.assertEqual(data['distribution'][1]['from'], 6)
+        self.assertEqual(data['distribution'][1]['to'], 10)
+        self.assertEqual(data['distribution'][1]['count'], 1)
+        self.assertEqual(data['distribution'][-1]['label'], '151+')
+
     def test_ladder_uses_success_order_and_active_intervals(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()
         if game is None:

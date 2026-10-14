@@ -132,7 +132,7 @@
       var x = left + index * slot + slot * .2;
       var width = Math.max(2, slot * .6);
       var y = bottom - height;
-      var showLabel = index === 0 || index === rows.length - 1 || (Number(item.from) % 5 === 0);
+      var showLabel = index === 0 || index === rows.length - 1 || index % 5 === 0;
       return '<rect x="' + x.toFixed(2) + '" y="' + y.toFixed(2) + '" width="' + width.toFixed(2) + '" height="' + height.toFixed(2) + '" rx="3" fill="' + esc(accent) + '"><title>' + esc(label + ': ' + count + ' ' + playerWord(count) + ' · ' + percent(item.percent)) + '</title></rect>' +
         (showLabel ? '<text x="' + (x + width / 2).toFixed(2) + '" y="210" text-anchor="middle" fill="' + esc(muted) + '">' + esc(label) + '</text>' : '');
     }).join('');
@@ -207,8 +207,7 @@
               maxRotation: 0,
               autoSkip: false,
               callback: function (value, index) {
-                var item = rows[index];
-                return index === 0 || index === rows.length - 1 || (item && Number(item.from) % 5 === 0) ? this.getLabelForValue(value) : '';
+                return index === 0 || index === rows.length - 1 || index % 5 === 0 ? this.getLabelForValue(value) : '';
               }
             }
           },
