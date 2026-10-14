@@ -138,6 +138,7 @@
     var started = false;
     var destroyed = false;
     var awaitingServer = false;
+    var lastAppliedRequestSeq = 0;
 
     function localKey() {
       return STORAGE_PREFIX + url + ':' + (getAnonKey() || 'user');
@@ -235,6 +236,11 @@
     function applySnapshot(snap, opts) {
       opts = opts || {};
       if (destroyed || !snap) return;
+      var requestSeq = Number(opts.requestSeq);
+      if (isFinite(requestSeq)) {
+        if (requestSeq < lastAppliedRequestSeq) return;
+        lastAppliedRequestSeq = requestSeq;
+      }
       var incomingRunning = snap.status === 'running' && !snap.completed && !snap.manually_paused;
       if (incomingRunning && manuallyPaused) return;
       if (incomingRunning && visibilityOf(doc) === 'hidden') return;
@@ -250,7 +256,7 @@
       if (typeof snap.committed_ms === 'number') committedMs = snap.committed_ms;
       var incoming = Number(snap.accumulated_ms);
       if (completed && snap.frozen_ms != null) {
-        displayBaseMs = Number(snap.frozen_ms) || displayBaseMs;
+        displayBaseMs = Math.max(0, Number(snap.frozen_ms) || 0);
       } else if (!isNaN(incoming)) {
         // Never jump down: pause/hidden responses can lag behind the local monotonic tick.
         displayBaseMs = Math.max(displayBaseMs, incoming);
@@ -329,7 +335,7 @@
         return res && res.json ? res.json() : null;
       }).then(function (data) {
         if (destroyed) return data;
-        if (data && data.ok) applySnapshot(data, { replace: true });
+        if (data && data.ok) applySnapshot(data, { replace: true, requestSeq: eventSeq });
         return data;
       }).catch(function () { return null; });
     }

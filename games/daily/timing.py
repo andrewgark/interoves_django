@@ -809,7 +809,9 @@ def _apply_timing_event_once(
         row = _lock_existing_timing(qs)
     created_timing_row = False
     if row is None:
-        if not create or action not in (ACTION_START, ACTION_RESUME):
+        if not create or action not in (
+            ACTION_START, ACTION_RESUME, ACTION_PAUSE, ACTION_AUTO_PAUSE,
+        ):
             return empty_snapshot()
         # A missing timing row cannot itself be locked. Serialize first-row
         # creation on its release so concurrent tabs/team members observe the
@@ -1324,6 +1326,22 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
 
     if action in (ACTION_PAUSE, ACTION_AUTO_PAUSE):
         if session.status != DailySolveTimingSession.STATUS_RUNNING:
+            if action == ACTION_AUTO_PAUSE and session.close_reason == 'manual':
+                return
+            session.status = DailySolveTimingSession.STATUS_PAUSED
+            session.paused_at = now
+            session.close_reason = 'manual' if action == ACTION_PAUSE else 'auto'
+            _team_remember_event(session, event_id, seq)
+            session.save(update_fields=[
+                'status', 'paused_at', 'close_reason', 'last_seq', 'last_event_id',
+                'applied_event_ids', 'updated_at',
+            ])
+            if int(row.active_sessions_count or 0) == 0:
+                row.status = (
+                    STATUS_MANUALLY_PAUSED
+                    if action == ACTION_PAUSE else STATUS_AUTO_PAUSED
+                )
+                row.save(update_fields=['status', 'updated_at'])
             return
         session.status = DailySolveTimingSession.STATUS_PAUSED
         session.paused_at = now

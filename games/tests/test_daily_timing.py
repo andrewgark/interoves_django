@@ -422,6 +422,31 @@ class DailyTimingDomainTests(TestCase):
         self.assertTrue(snap['completed'])
         self.assertEqual(snap['frozen_ms'], 20000)
 
+    def test_auto_pause_arriving_before_initial_start_prevents_late_start(self):
+        sid = uuid4()
+        paused = self._apply(
+            action=ACTION_AUTO_PAUSE,
+            session=sid,
+            seq=2,
+            event='hide-before-start-response',
+            now=_dt(3),
+        )
+        late_start = self._apply(
+            action=ACTION_START,
+            session=sid,
+            seq=1,
+            event='initial-start',
+            now=_dt(),
+        )
+
+        row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
+        session = row.sessions.get(session_id=sid)
+        self.assertEqual(paused['status'], DailySolveTiming.STATUS_AUTO_PAUSED)
+        self.assertEqual(late_start['status'], DailySolveTiming.STATUS_AUTO_PAUSED)
+        self.assertEqual(session.last_seq, 2)
+        self.assertEqual(session.close_reason, 'auto')
+        self.assertIsNone(row.team_interval_started_at)
+
     def test_late_heartbeat_is_not_expired_before_updating_timing_row(self):
         sid = uuid4()
         self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
@@ -1515,7 +1540,29 @@ class DailyTimingApiTests(TestCase):
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_pause_without_row_is_missing_not_500(self, _pub):
-        self._assert_missing_without_row(ACTION_PAUSE)
+        session_id = str(uuid4())
+        paused = self._post({
+            'action': ACTION_PAUSE,
+            'session_id': session_id,
+            'event_id': 'pause-before-start',
+            'seq': 2,
+        })
+        self.assertEqual(paused.status_code, 200)
+        self.assertTrue(paused.json()['ok'])
+        self.assertEqual(paused.json()['status'], DailySolveTiming.STATUS_MANUALLY_PAUSED)
+
+        late_start = self._post({
+            'action': ACTION_START,
+            'session_id': session_id,
+            'event_id': 'late-start-after-pause',
+            'seq': 1,
+        })
+        self.assertEqual(late_start.status_code, 200)
+        self.assertEqual(late_start.json()['status'], DailySolveTiming.STATUS_MANUALLY_PAUSED)
+        session = DailySolveTiming.objects.get(
+            anon_key=self.anon, game=self.game, task_group=self.tg,
+        ).sessions.get(session_id=session_id)
+        self.assertEqual(session.last_seq, 2)
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_complete_without_row_is_missing_not_500(self, _pub):

@@ -460,6 +460,61 @@ function parsePostBody(init) {
   ctrl.destroy();
 })();
 
+(function testOlderMutationResponseCannotRollBackNewerTimerState() {
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return 'anon'; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    bootstrap: { status: 'auto_paused', is_authoritative: false, accumulated_ms: 4000, exists: true },
+  });
+
+  ctrl.applySnapshot({
+    status: 'running', is_authoritative: true, accumulated_ms: 6000, exists: true,
+  }, { requestSeq: 8 });
+  ctrl.applySnapshot({
+    status: 'manually_paused', manually_paused: true, accumulated_ms: 5000, exists: true,
+  }, { requestSeq: 7 });
+
+  assert.strictEqual(ctrl.state().status, 'running');
+  assert.strictEqual(ctrl.state().manually_paused, false);
+  assert.strictEqual(ctrl.displayedMs(), 6000);
+  ctrl.destroy();
+})();
+
+(function testAuthoritativeZeroCompletionReplacesLocalDisplay() {
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return 'anon'; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 7000, exists: true },
+  });
+
+  ctrl.applySnapshot({
+    status: 'completed', completed: true, frozen_ms: 0, accumulated_ms: 0, exists: true,
+  }, { requestSeq: 1 });
+
+  assert.strictEqual(ctrl.displayedMs(), 0);
+  ctrl.destroy();
+})();
+
 (function testHiddenIgnoresRunningSnapshot() {
   var clock = fakeClock(0);
   var doc = { visibilityState: 'visible', addEventListener: function () {} };
