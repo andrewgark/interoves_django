@@ -525,6 +525,48 @@ def _strip_indented_math_lines(text: str) -> str:
     """
     if not text:
         return text
+    # Some TextExtracts revisions put a complete MathML fallback before the
+    # canonical ``{\\displaystyle ...}`` source.  The fallback is not always
+    # indented consistently enough for the streaming logic below to keep it
+    # together, so remove a contiguous math-only block immediately before the
+    # TeX source when that source confirms it is a duplicate display formula.
+    lines = text.splitlines(keepends=True)
+    remove_ranges: list[tuple[int, int]] = []
+    for index, line in enumerate(lines):
+        if not _TEX_MATH_START_RE.search(line):
+            continue
+        start = index
+        nonempty: list[str] = []
+        scanned_chars = 0
+        cursor = index - 1
+        while cursor >= 0 and scanned_chars <= 12000:
+            candidate = lines[cursor]
+            stripped = candidate.strip()
+            math_chars = '+−-=<>[]{}.,;:/\\_^*|·⋅×↑↓↕⇑⇓⇕→←…π∞√'
+            if stripped and (
+                len(stripped) > 48
+                or any(
+                    not (char.isalnum() or char.isspace() or char in math_chars)
+                    for char in stripped
+                )
+            ):
+                break
+            scanned_chars += len(candidate)
+            if stripped:
+                nonempty.append(stripped)
+            start = cursor
+            cursor -= 1
+        fallback = '\n'.join(nonempty)
+        has_operator = bool(re.search(r'[+=<>×·⋅*/^_↑↓→←]', fallback))
+        has_digit = bool(re.search(r'\d', fallback))
+        if len(nonempty) >= 8 and has_operator and has_digit:
+            remove_ranges.append((start, index))
+    if remove_ranges:
+        removed: set[int] = set()
+        for start, end in remove_ranges:
+            removed.update(range(start, end))
+        text = ''.join(line for index, line in enumerate(lines) if index not in removed)
+
     kept: list[str] = []
     pending: list[str] = []
     for line in text.splitlines(keepends=True):

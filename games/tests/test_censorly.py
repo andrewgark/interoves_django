@@ -565,6 +565,24 @@ class CensorlyPuzzleStorageTests(TestCase):
 
 
 class CensorlyWikiHelperTests(TestCase):
+    def test_ramanujan_wikipedia_extract_keeps_the_display_formula_on_one_line(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        # Snapshot from ru.wikipedia.org, page 366175, revision 151975208.
+        # TextExtracts includes a vertical MathML fallback and canonical TeX.
+        raw = _load_censorly_testdata('ramanujan_first_formula_extract.txt')
+        cleaned = clean_wiki_extract(raw)
+
+        expected_formula = (
+            '1 + (1)/(1 · 3) + (1)/(1 · 3 · 5) + (1)/(1 · 3 · 5 · 7) + '
+            '(1)/(1 · 3 · 5 · 7 · 9) +… + (1)/(1 + (1)/(1 + (2)/(1 + '
+            '(3)/(1 + (4)/(1 + (5)/(1 +…)))))) = √((e · π)/(2)).'
+        )
+        self.assertIn(expected_formula, cleaned)
+        self.assertNotIn('1\n +\n', cleaned)
+        self.assertNotIn('\n\n', cleaned)
+        self.assertEqual(cleaned.count('\n'), 1)
+
     def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
         from games.censorly.wiki import clean_wiki_extract
 
