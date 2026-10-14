@@ -59,10 +59,13 @@ def _numbered_links(game):
     return qs.filter(number__regex=r'^\d+$')
 
 
-def _with_result_tasks(qs):
+def _with_result_tasks(qs, game_id):
+    task_queryset = Task.objects.visible().exclude(task_type='text_with_forms')
+    if game_id == 'censorly':
+        task_queryset = task_queryset.defer('tags')
     return qs.prefetch_related(Prefetch(
         'task_group__tasks',
-        queryset=Task.objects.visible().exclude(task_type='text_with_forms'),
+        queryset=task_queryset,
         to_attr='result_tasks',
     ))
 
@@ -79,7 +82,7 @@ def _choose_window(game, *, limit, anchor):
         except (TypeError, ValueError):
             cursor_ids = None
     if cursor_ids and len(cursor_ids) == limit:
-        by_id = {link.pk: link for link in _with_result_tasks(qs.filter(pk__in=cursor_ids))}
+        by_id = {link.pk: link for link in _with_result_tasks(qs.filter(pk__in=cursor_ids), game.id)}
         if len(by_id) == len(cursor_ids):
             current_window = [by_id[link_id] for link_id in cursor_ids]
             min_num = min(link._release_number for link in current_window)
@@ -117,7 +120,7 @@ def _choose_window(game, *, limit, anchor):
     )
     if not window_ids:
         return [], None, None
-    current_window = list(_with_result_tasks(qs.filter(pk__in=window_ids)).order_by('-_release_number', '-pk'))
+    current_window = list(_with_result_tasks(qs.filter(pk__in=window_ids), game.id).order_by('-_release_number', '-pk'))
     min_num = current_window[-1]._release_number
     max_num = current_window[0]._release_number
 
@@ -171,6 +174,7 @@ def _monthly_release_context(game, requested_month=None):
     selected_ids = [item['pk'] for item in selected_items]
     selected_links = list(_with_result_tasks(
         _numbered_links(game).filter(pk__in=selected_ids),
+        game.id,
     ))
     selected_links.sort(key=lambda link: (-link._release_number, -link.pk))
     return selected_links, selected_date, previous, following, published_at_by_link

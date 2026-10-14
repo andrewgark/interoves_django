@@ -25,10 +25,16 @@ def load_results_placements_and_tasks(game, task_group_number=None):
         # too late: for daily games it would load every release's tasks and
         # their potentially large payloads to render one release's results.
         links_query = links_query.filter(number=str(task_group_number))
+    task_queryset = Task.objects.visible().filter(~Q(task_type='text_with_forms'))
+    if game.id == 'censorly':
+        # Censorly stores its full article and puzzle payload in Task.tags.
+        # Results only need the compact scoring fields, so avoid transferring
+        # and decoding that large JSON blob on every cold results request.
+        task_queryset = task_queryset.defer('tags')
     links = list(links_query.prefetch_related(
         Prefetch(
             'task_group__tasks',
-            queryset=Task.objects.visible().filter(~Q(task_type='text_with_forms')),
+            queryset=task_queryset,
             to_attr='result_tasks',
         )
     ))
