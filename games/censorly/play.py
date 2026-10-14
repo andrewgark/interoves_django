@@ -636,7 +636,7 @@ def _lock_state(*, game, task, actor):
     )
 
 
-def _record_lexical_decision(*, user, game, task, guess, payload) -> None:
+def _record_lexical_decision(*, user, game, task, guess, payload, report=None) -> None:
     """Store which targets a guess opened and which near-misses it rejected."""
     from games.censorly.flags import lexical_resolver_enabled
     if not lexical_resolver_enabled():
@@ -645,7 +645,8 @@ def _record_lexical_decision(*, user, game, task, guess, payload) -> None:
         from games.censorly.lexical.match import decision
         from games.censorly.tokenize import all_tokens
         from games.models import StatisticsEvent
-        report = decision(all_tokens(payload), guess)
+        if report is None:
+            report = decision(all_tokens(payload), guess)
         actor = user if getattr(user, 'is_authenticated', False) else None
         with transaction.atomic():
             StatisticsEvent.record(
@@ -730,7 +731,13 @@ def apply_guess(
         out['error'] = 'Это слово уже вводили'
         return out
 
-    matched = lemmas_matching_guess(payload, guess_lemma, normalized)
+    from games.censorly.flags import lexical_resolver_enabled
+    lexical_report = None
+    if lexical_resolver_enabled():
+        from games.censorly.lexical.match import analyze_guess
+        matched, lexical_report = analyze_guess(all_tokens(payload), normalized)
+    else:
+        matched = lemmas_matching_guess(payload, guess_lemma, normalized)
     row = _lock_state(game=game, task=task, actor=actor)
     state = load_state(row.state)
     if _state_won(state, payload):
@@ -818,6 +825,7 @@ def apply_guess(
     row.save(update_fields=['state', 'last_attempt', 'updated_at'])
     _record_lexical_decision(
         user=user, game=game, task=task, guess=normalized, payload=payload,
+        report=lexical_report,
     )
 
     out = public_payload(state, payload, task=task)
