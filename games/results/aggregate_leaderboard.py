@@ -338,14 +338,28 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
     # selected before the result rows are aggregated, otherwise p.score is
     # multiplied by the number of matching timing rows.
     timing_table = q('games_dailysolvetiming')
+    timing_actor_projection = ''
+    timing_actor_outer_columns = ''
+    if monthly_summary_month is not None:
+        # Keep the monthly timing join on the projection's composite
+        # (game, release, actor_type, actor_key) index instead of matching
+        # three nullable actor columns with OR predicates.
+        timing_actor_projection = ''',
+                           CASE WHEN dt.team_id IS NOT NULL THEN 'team'
+                                WHEN dt.user_id IS NOT NULL THEN 'user'
+                                ELSE 'anon' END AS actor_type,
+                           CASE WHEN dt.team_id IS NOT NULL THEN CAST(dt.team_id AS CHAR)
+                                WHEN dt.user_id IS NOT NULL THEN CAST(dt.user_id AS CHAR)
+                                ELSE dt.anon_key END AS actor_key'''
+        timing_actor_outer_columns = ', actor_type, actor_key'
     canonical_timing_cte = f'''
         canonical_timing AS (
             SELECT id, game_id, task_group_id, team_id, user_id, anon_key,
-                   frozen_ms, accumulated_ms
+                   frozen_ms, accumulated_ms{timing_actor_outer_columns}
               FROM (
                     SELECT dt.id, dt.game_id, dt.task_group_id,
                            dt.team_id, dt.user_id, dt.anon_key,
-                           dt.frozen_ms, dt.accumulated_ms,
+                           dt.frozen_ms, dt.accumulated_ms{timing_actor_projection},
                            ROW_NUMBER() OVER (
                                PARTITION BY dt.game_id, dt.task_group_id,
                                             dt.team_id, dt.user_id, dt.anon_key
@@ -371,7 +385,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
         monthly_projection = q('games_dailymonthlyresultprojection')
         timing_actor_cte = f'''
         eligible_timing AS (
-            SELECT p.team_id, p.user_id, p.anon_key,
+            SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
                    NULLIF(SUM(CASE
                        WHEN dt.id IS NOT NULL THEN COALESCE(dt.frozen_ms, dt.accumulated_ms)
                        ELSE p.fallback_duration_seconds * 1000
@@ -383,9 +397,8 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
               FROM {projection} p
               LEFT JOIN canonical_timing dt ON dt.game_id = p.game_id
                 AND dt.task_group_id = p.task_group_id
-                AND ((p.actor_type = 'team' AND dt.team_id = p.team_id)
-                  OR (p.actor_type = 'user' AND dt.user_id = p.user_id)
-                  OR (p.actor_type = 'anon' AND dt.anon_key = p.anon_key))
+                AND p.actor_type = dt.actor_type
+                AND p.actor_key = dt.actor_key
              WHERE p.game_id = %s AND p.task_group_id IN ({timing_group_placeholders})
                AND p.is_prepublication = %s
                AND NOT (p.actor_type = %s AND EXISTS (
@@ -396,16 +409,14 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                             WHERE a.taskgroup_id = p.task_group_id AND m.team_id = p.team_id)
                    OR EXISTS (SELECT 1 FROM {author} a JOIN {profile} pr ON pr.user_id = a.profile_id
                               WHERE a.taskgroup_id = p.task_group_id AND pr.team_on_id = p.team_id)))
-          GROUP BY p.team_id, p.user_id, p.anon_key
+          GROUP BY p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key
         ),'''
         timing_params = [game.pk, *group_ids, False, 'user', 'team']
         actor_totals_sql = f'''SELECT s.actor_type, s.actor_key, s.team_id, s.user_id, s.anon_key,
                        s.score AS window_score, s.attempts_count, s.played_count,
                        et.total_time_ms, et.used_fallback_time
-                FROM {monthly_projection} s LEFT JOIN eligible_timing et ON
-                  ((s.team_id IS NOT NULL AND et.team_id = s.team_id)
-                    OR (s.user_id IS NOT NULL AND et.user_id = s.user_id)
-                    OR (s.anon_key IS NOT NULL AND et.anon_key = s.anon_key))
+                FROM {monthly_projection} s LEFT JOIN eligible_timing et
+                  ON s.actor_type = et.actor_type AND s.actor_key = et.actor_key
                WHERE s.game_id = %s AND s.month = %s
                  AND s.actor_type IN ({actor_placeholders})
                  AND (s.team_id IS NULL OR EXISTS (
