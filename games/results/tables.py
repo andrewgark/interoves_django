@@ -19,15 +19,19 @@ class ResultsTaskGroupHeader:
 
 
 def load_results_placements_and_tasks(game, task_group_number=None):
-    links = list(
-        game.task_group_links.select_related('task_group').prefetch_related(
-            Prefetch(
-                'task_group__tasks',
-                queryset=Task.objects.visible().filter(~Q(task_type='text_with_forms')),
-                to_attr='result_tasks',
-            )
+    links_query = game.task_group_links.select_related('task_group')
+    if task_group_number is not None:
+        # Scope the relation before prefetching. Filtering placements below is
+        # too late: for daily games it would load every release's tasks and
+        # their potentially large payloads to render one release's results.
+        links_query = links_query.filter(number=str(task_group_number))
+    links = list(links_query.prefetch_related(
+        Prefetch(
+            'task_group__tasks',
+            queryset=Task.objects.visible().filter(~Q(task_type='text_with_forms')),
+            to_attr='result_tasks',
         )
-    )
+    ))
     if is_scheduled_game(game.id):
         # A scoped result page may target a permanent random-game hash. Such
         # a placement is intentionally outside the numeric daily schedule.
