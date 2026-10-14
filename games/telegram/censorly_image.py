@@ -28,6 +28,9 @@ def render_censorly_teaser_png(
         ('#censorly-root .censorly__article',),
         viewport_width=1100,
         extra_css='''
+          #censorly-root #censorly-fetched {
+            display: none !important;
+          }
           #censorly-root .censorly__article {
             max-height: 1100px !important;
             overflow: hidden !important;

@@ -137,9 +137,9 @@ def build_caption(censorly: TodayCensorly | int, *, play_url: str | None = None)
         else admin_url(section_play_path(CENSORLY_GAME_ID, number))
     )
     return '\n'.join((
-        '🕵️ <b>Цензурка №{}</b>'.format(_escape(number)),
+        '🖍️ Цензурка №{}'.format(_escape(number)),
         '',
-        'Угадайте слова, скрытые в статье. Открытые окончания помогут найти ответ.',
+        '███████, ███ ██████████',
         '',
         url,
     ))
