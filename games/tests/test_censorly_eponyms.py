@@ -46,7 +46,7 @@ class ApprovedEponymPairTests(SimpleTestCase):
             self.assertEqual(explain(name, derivative), 'proper')
             self.assertEqual(explain(derivative, name), 'proper')
 
-    def test_pairs_do_not_create_transitive_edges(self):
+    def test_disconnected_eponym_components_stay_apart(self):
         unrelated = (
             ('ленин', 'менделеев'),
             ('ленинизм', 'менделевий'),
@@ -57,8 +57,8 @@ class ApprovedEponymPairTests(SimpleTestCase):
             self.assertFalse(opens(left, right), f'{left}/{right}')
             self.assertFalse(opens(right, left), f'{right}/{left}')
 
-        # пушкин is a legacy member of CLUSTERS; the new pair must not make
-        # its derivative join that cluster.
+        # пушкин is a legacy member of CLUSTERS; its eponym edge does not
+        # connect the derivative to the separate adjective in PAIR_RELATIONS.
         self.assertFalse(opens('пушкинистика', 'пушкинский'))
         self.assertFalse(opens('пушкинский', 'пушкинистика'))
 

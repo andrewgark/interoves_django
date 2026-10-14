@@ -160,14 +160,12 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     )),
 )
 
-# Explicit one-to-one relations. Keep these separate from CLUSTERS: a cluster
-# gives every member the same synthetic root and therefore makes all members
-# mutually open. Pairs connect a name only to its direct adjective, demonym,
-# or patronymic form; they do not connect those derived forms to each other.
+# Explicit relation edges. Keep these separate from CLUSTERS: related words
+# form connected components at match time, while clusters assign synthetic
+# roots and affect other lexical matching behavior.
 PAIR_RELATIONS: tuple[tuple[str, str], ...] = (
-    # Approved eponyms. Keep each as an explicit one-to-one relation: an
-    # eponym must not connect its name, derivative, or homonymous readings
-    # transitively to other members of a lexical family.
+    # Approved eponyms. Add only reviewed edges; shared endpoints connect
+    # their full component at match time.
     ('ленин', 'ленинизм'),
     ('лоуренс', 'лоуренсий'),
     ('менделеев', 'менделевий'),
@@ -182,8 +180,8 @@ PAIR_RELATIONS: tuple[tuple[str, str], ...] = (
     ('пушкин', 'пушкинистика'),
     ('фергюсон', 'фергусонит'),
     # Wikidata P1549 geographic demonyms approved for the next gameplay batch.
-    # Keep these as explicit edges, including feminine and plural surfaces:
-    # PAIR_RELATIONS must not infer adjective/demonym or other transitive edges.
+    # Keep feminine and plural surfaces explicit; shared endpoints connect
+    # the approved variants to one another at match time.
     ('эфиопия', 'эфиоп'),
     ('эфиопия', 'эфиопка'),
     ('великобритания', 'британец'),
@@ -476,10 +474,9 @@ PAIR_RELATIONS: tuple[tuple[str, str], ...] = (
 )
 
 # Common Russian short and familiar forms of given names. These groups are
-# expanded to pairwise edges because the lexical matcher intentionally does
-# not follow relations transitively: every spelling in a group must open every
-# other spelling directly. Keep this list conservative; diminutives can be
-# shared by unrelated names (for example, Женя).
+# expanded to pairwise edges for readable, explicit relation data. Keep the
+# list conservative; diminutives can be shared by unrelated names (for example,
+# Женя).
 GIVEN_NAME_VARIANTS: tuple[tuple[str, ...], ...] = (
     ('александр', 'саша', 'саня', 'шура', 'санёк', 'сашок', 'шурик'),
     ('алексей', 'лёша', 'лёха'),

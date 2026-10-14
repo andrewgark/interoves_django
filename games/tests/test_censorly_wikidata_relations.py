@@ -100,21 +100,16 @@ class WikidataGeographicRelationTests(SimpleTestCase):
         self.assertIn(('тель-авив', 'тель-авивец'), relations)
         self.assertNotIn(('тель', 'тель-авивец'), relations)
 
-    def test_new_relations_do_not_create_cross_demonym_edges(self):
+    def test_demonyms_from_the_same_source_open_each_other(self):
         by_source = {}
         for source, derivative in WIKIDATA_GEOGRAPHIC_PAIRS:
             by_source.setdefault(source, []).append(derivative)
         for source, derivatives in by_source.items():
             for index, left in enumerate(derivatives):
                 for right in derivatives[index + 1:]:
-                    # Германия already has an independent common-noun root
-                    # family for немец/немка; all other approved pairs must
-                    # remain explicit one-to-one edges.
-                    if {left, right} == {'немец', 'немка'}:
-                        continue
                     with self.subTest(source=source, left=left, right=right):
-                        self.assertFalse(opens(left, right))
-                        self.assertFalse(opens(right, left))
+                        self.assertTrue(opens(left, right))
+                        self.assertTrue(opens(right, left))
 
     def test_new_derivatives_do_not_intersect_clusters(self):
         from games.censorly.lexical.proper_names import CLUSTERS

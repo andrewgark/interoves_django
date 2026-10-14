@@ -389,18 +389,50 @@ _PROPER_PAIRS = frozenset(
 )
 
 
+def _proper_components() -> dict[str, str]:
+    """Map each explicitly related spelling to its connected component."""
+    neighbors: dict[str, set[str]] = {}
+    for pair in _PROPER_PAIRS:
+        left, right = tuple(pair)
+        neighbors.setdefault(left, set()).add(right)
+        neighbors.setdefault(right, set()).add(left)
+
+    component_by_word: dict[str, str] = {}
+    for word in neighbors:
+        if word in component_by_word:
+            continue
+        pending = [word]
+        component = set()
+        while pending:
+            current = pending.pop()
+            if current in component:
+                continue
+            component.add(current)
+            pending.extend(neighbors[current] - component)
+        component_id = min(component)
+        component_by_word.update({member: component_id for member in component})
+    return component_by_word
+
+
+_PROPER_COMPONENT_BY_WORD = _proper_components()
+
+
 @lru_cache(maxsize=262144)
 def _proper_pair(left: str, right: str) -> bool:
-    direct = frozenset((fold(left), fold(right)))
-    if direct in _PROPER_PAIRS:
-        return True
-    left_lemmas = {item.lemma for item in readings_of(left)}
-    right_lemmas = {item.lemma for item in readings_of(right)}
-    return any(
-        frozenset((left_lemma, right_lemma)) in _PROPER_PAIRS
-        for left_lemma in left_lemmas
-        for right_lemma in right_lemmas
-    )
+    left_forms = {fold(left)} | {
+        fold(item.lemma) for item in readings_of(left) if item.lemma
+    }
+    right_forms = {fold(right)} | {
+        fold(item.lemma) for item in readings_of(right) if item.lemma
+    }
+    left_components = {
+        _PROPER_COMPONENT_BY_WORD[form]
+        for form in left_forms if form in _PROPER_COMPONENT_BY_WORD
+    }
+    return bool(left_components & {
+        _PROPER_COMPONENT_BY_WORD[form]
+        for form in right_forms if form in _PROPER_COMPONENT_BY_WORD
+    })
 
 
 def _pos(grams: set[str]) -> str:

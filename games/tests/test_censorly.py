@@ -197,6 +197,11 @@ class CensorlyEngineTests(TestCase):
         matched = lemmas_matching_guess(payload, lemma, normalize_surface('москве'))
         self.assertIn(lemma, matched)
 
+    def test_yura_opens_yuryevich(self):
+        from games.censorly.lexical.semantics import explain
+
+        self.assertEqual(explain('Юра', 'Юрьевич'), 'proper')
+
     def test_guess_round_trip_to_win(self):
         game, task, _hash, puzzle = _make_puzzle_task(
             title='Кот',

@@ -1356,11 +1356,11 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
             self.assertEqual(explain(left, right), 'proper', f'{left}/{right}')
             self.assertEqual(explain(right, left), 'proper', f'{right}/{left}')
 
-    def test_proper_pairs_do_not_create_adjective_demonym_edges(self):
+    def test_proper_pair_components_connect_adjectives_and_demonyms(self):
         from collections import defaultdict
 
         from games.censorly.lexical.proper_names import PAIR_RELATIONS
-        from games.censorly.lexical.semantics import _PROPER_PAIRS, _proper_pair
+        from games.censorly.lexical.semantics import _proper_pair
 
         related = defaultdict(list)
         for left, right in PAIR_RELATIONS:
@@ -1373,10 +1373,8 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
             ]
             for adjective in adjectives:
                 for demonym in demonyms:
-                    pair = frozenset((adjective, demonym))
-                    self.assertNotIn(pair, _PROPER_PAIRS)
-                    self.assertFalse(_proper_pair(adjective, demonym))
-                    self.assertFalse(_proper_pair(demonym, adjective))
+                    self.assertTrue(_proper_pair(adjective, demonym))
+                    self.assertTrue(_proper_pair(demonym, adjective))
 
     def test_new_pairs_are_not_accidentally_clustered(self):
         from games.censorly.lexical.proper_names import CLUSTERS, PAIR_RELATIONS
