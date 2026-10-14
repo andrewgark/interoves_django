@@ -956,11 +956,13 @@ def complete_daily_timing_in_transaction(
         from games.models import TaskGroup
 
         TaskGroup.objects.select_for_update().only('pk').get(pk=task_group.pk)
-        row = _lock_existing_timing(
-            DailySolveTiming.objects.filter(
-                game=game, task_group=task_group, **filters,
-            )
-        )
+        # This must be a locking/current read: on MySQL REPEATABLE READ, the
+        # earlier missing-row lookup may have fixed a snapshot before waiting
+        # for TaskGroup, so repeating the ordinary lookup could miss the row
+        # that the concurrent start just committed.
+        row = DailySolveTiming.objects.select_for_update().filter(
+            game=game, task_group=task_group, **filters,
+        ).order_by('pk').first()
         if row is None:
             create_kwargs = {
                 'game': game,
