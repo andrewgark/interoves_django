@@ -136,8 +136,8 @@ SECTION_HUB_META = {
         'create_label': 'Создать свою Алфавитку',
     },
     'censorly': {
-        'icon': '🖍️',
-        'ph_icon': 'highlighter',
+        'icon': '📰',
+        'ph_icon': 'newspaper',
         'title': 'Цензурки',
         'nav_title': 'Цензурка',
         'description': 'Угадайте статью русской Википедии слово за словом',

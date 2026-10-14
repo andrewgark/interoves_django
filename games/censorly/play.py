@@ -384,7 +384,7 @@ def build_share_lines(
 ) -> list[str]:
     display_number = str(number or '').strip()
     path = share_path(play_path) if play_path else 'censorly/{}'.format(display_number)
-    title = f'🖍️ Цензурка #{display_number}' if display_number else '🖍️ Цензурка'
+    title = f'📰 Цензурка #{display_number}' if display_number else '📰 Цензурка'
     lines = [title, f'🔄 {attempts} {ru_attempt_word(attempts)}']
     if hints:
         lines.append(f'💡 {hints} {ru_hint_word(hints)}')

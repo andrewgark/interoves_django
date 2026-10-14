@@ -16,7 +16,7 @@ GAME_LABELS = {
     'raddle': '🪜 «Лесенки»',
     'word_salad': '🥗 «Салатики»',
     'alphabet': '🔤 «Алфавитки»',
-    'censorly': '🖍️ «Цензурки»',
+    'censorly': '📰 «Цензурки»',
 }
 METRIC_LABELS = {
     'players': 'Всего уникальных игроков',

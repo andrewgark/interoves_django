@@ -43,7 +43,7 @@ SECTION_META = {
     LADDER_SCHEDULE.game_id: ('🪜', 'Лесенка', '/support/ladders/'),
     ALPHABETTY_SCHEDULE.game_id: ('🔤', 'Алфавитка', '/support/alphabetty/'),
     WORD_SALAD_SCHEDULE.game_id: ('🥗', 'Салатик', '/support/salad/'),
-    CENSORLY_SCHEDULE.game_id: ('🖍️', 'Цензурка', '/support/censorly/'),
+    CENSORLY_SCHEDULE.game_id: ('📰', 'Цензурка', '/support/censorly/'),
     WEEK_TASK_SCHEDULE.game_id: ('📅', 'Задание недели', '/support/week-tasks/'),
 }
 
@@ -170,7 +170,7 @@ def _format_censorly(number: int, link: GameTaskGroup) -> tuple[list[str], bool]
     payload = puzzle_from_task(task)
     title = _plain_text((payload or {}).get('wiki_title'))
     body = _plain_text((payload or {}).get('body_text'))
-    lines = ['🖍️ <b>Цензурка №{}</b>'.format(number)]
+    lines = ['📰 <b>Цензурка №{}</b>'.format(number)]
     if title:
         lines.append('Статья: {}'.format(_spoiler(title)))
     else:
