@@ -156,11 +156,28 @@ html.new-ui-dark .censorly__dock {
   font-weight: 600;
 }
 
+.censorly__article-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin-bottom: 0.85rem;
+}
+
 .censorly__fetched {
-  margin: 0 0 0.85rem;
+  margin: 0;
   font-size: 0.9rem;
   line-height: 1.4;
   color: var(--muted);
+}
+
+.censorly__opened-words {
+  margin: 0 0 0 auto;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  text-align: right;
 }
 
 .censorly.censorly--hint-pick .censorly-tok--mask:not([data-title-lemma]) {

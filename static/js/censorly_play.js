@@ -769,6 +769,11 @@
       fetched.hidden = !fetchedLabel;
       fetched.textContent = fetchedLabel;
     }
+    var openedWords = root.querySelector('#censorly-opened-words');
+    if (openedWords) {
+      openedWords.textContent = 'Открыто слов: ' + (Number(state.opened_words_count) || 0) +
+        ' / ' + (Number(state.total_words_count) || 0);
+    }
     renderTokens(body, state.body_tokens || [], lenForced);
     updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'));
     var trunc = root.querySelector('#censorly-truncated');

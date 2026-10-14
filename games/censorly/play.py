@@ -500,6 +500,18 @@ def public_payload(
         hinted_lemmas=state.get('hinted_lemmas') or (),
         won=won,
     )
+    public_body_by_id = {token['id']: token for token in view['body_tokens']}
+    body_word_tokens = []
+    for token in payload.get('body_tokens') or []:
+        if token.get('kind') == 'content':
+            body_word_tokens.append(token)
+        elif token.get('kind') == 'stop':
+            try:
+                is_word = int(token.get('length') or 0) > 0
+            except (TypeError, ValueError):
+                is_word = False
+            if is_word:
+                body_word_tokens.append(token)
     guesses = []
     for guess in state.get('guesses') or []:
         if not isinstance(guess, dict):
@@ -526,6 +538,11 @@ def public_payload(
         'won': won,
         'title_tokens': view['title_tokens'],
         'body_tokens': view['body_tokens'],
+        'opened_words_count': sum(
+            bool(public_body_by_id.get(token['id'], {}).get('revealed'))
+            for token in body_word_tokens
+        ),
+        'total_words_count': len(body_word_tokens),
         'title_complete': view['title_complete'],
         'wiki_title': view.get('wiki_title'),
         'revealed_count': len(revealed),

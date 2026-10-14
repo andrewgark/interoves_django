@@ -1086,6 +1086,18 @@ class CensorlyRandomGameTests(TestCase):
             truncated=True,
         )
         before = public_payload({'revealed_lemmas': [], 'guesses': [], 'won': False}, payload)
+        body_words = [
+            token for token in payload['body_tokens']
+            if token.get('kind') == 'content'
+            or (token.get('kind') == 'stop' and token.get('length', 0) > 0)
+        ]
+        body_views = {token['id']: token for token in before['body_tokens']}
+        self.assertEqual(before['total_words_count'], len(body_words))
+        self.assertEqual(
+            before['opened_words_count'],
+            sum(bool(body_views[token['id']].get('revealed')) for token in body_words),
+        )
+        self.assertGreater(before['opened_words_count'], 0)  # «и» is open from the start.
         self.assertTrue(before['truncated'])
         self.assertIsNone(before.get('wiki_pageid'))
         self.assertIsNone(before.get('wiki_title'))
@@ -1102,6 +1114,16 @@ class CensorlyRandomGameTests(TestCase):
         )
         self.assertEqual(after.get('wiki_pageid'), 12345)
         self.assertEqual(after.get('wiki_title'), 'Кот')
+
+        with_guess = public_payload(
+            {'revealed_lemmas': ['кот'], 'guesses': [], 'won': False}, payload,
+        )
+        guessed_views = {token['id']: token for token in with_guess['body_tokens']}
+        self.assertEqual(
+            with_guess['opened_words_count'],
+            sum(bool(guessed_views[token['id']].get('revealed')) for token in body_words),
+        )
+        self.assertGreaterEqual(with_guess['opened_words_count'], before['opened_words_count'])
 
     def test_revealed_title_lemmas_are_treated_as_won_for_legacy_state(self):
         from games.censorly.play import public_payload
