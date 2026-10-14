@@ -5831,6 +5831,16 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_fish', ('голавлевый', 'голавль')),
     ('sense:firebrand', ('головешка', 'головня')),
     ('sense:smut', ('головневый',)),
+    ('sense:review_defeat', (
+        'поражать', 'поражаться', 'поражающий', 'поражение', 'пораженный',
+        'поразить', 'поразиться', 'разить', 'сражать', 'сражаться', 'сражение',
+        'сразить', 'сразиться',
+    )),
+    ('sense:review_defeatism', ('пораженец', 'пораженческий', 'пораженчество')),
+    ('sense:review_impression', (
+        'неотразимость', 'неотразимый', 'поразительный', 'разительность', 'разительный',
+    )),
+    ('sense:review_outbreak', ('разражаться', 'разразить', 'разразиться')),
 )
 _sense_destinations = {
     fold(lemma): name for name, lemmas in _SENSE_MOVES for lemma in lemmas
@@ -6025,12 +6035,12 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('освещать', ('sense:light', 'sense:review_enlightenment')),
     ('освещение', ('sense:light', 'sense:review_enlightenment')),
     ('марь', ('sense:haze', 'sense:plant')),
-    ('отражать', ('sense:strike', 'sense:reflect')),
-    ('отражаться', ('sense:strike', 'sense:reflect')),
-    ('отражение', ('sense:strike', 'sense:reflect')),
-    ('отразить', ('sense:strike', 'sense:reflect')),
-    ('отразиться', ('sense:strike', 'sense:reflect')),
-    ('отражаемость', ('sense:strike', 'sense:reflect')),
+    ('отражать', ('sense:reflect', 'sense:review_defense')),
+    ('отражаться', ('sense:reflect', 'sense:review_impact')),
+    ('отражение', ('sense:reflect', 'sense:review_defense')),
+    ('отразить', ('sense:reflect', 'sense:review_defense')),
+    ('отразиться', ('sense:reflect', 'sense:review_impact')),
+    ('отражаемость', ('sense:reflect',)),
     ('править', ('sense:govern', 'sense:correct')),
     ('заправить', ('sense:fuel', 'sense:season')),
     ('заправиться', ('sense:fuel', 'sense:season')),
