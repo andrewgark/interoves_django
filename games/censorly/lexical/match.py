@@ -6,8 +6,10 @@ and then reused. Comparison is the same existential check as ``explain``.
 
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import Counter, OrderedDict, defaultdict
+from concurrent.futures import Future
 from functools import lru_cache
+from threading import RLock
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.rootbank import families_of
@@ -35,6 +37,16 @@ def _group_ids_by_word(groups):
 
 _ALIAS_GROUPS_BY_WORD = _group_ids_by_word(_ALIASES)
 _GRAMMAR_GROUPS_BY_WORD = _group_ids_by_word(_GRAMMAR)
+_ARTICLE_ANALYSIS_CACHE_MAXSIZE = 4
+_ARTICLE_ANALYSIS_CACHE_MAX_SURFACES = 12000
+_ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_SURFACES = 6000
+_ARTICLE_ANALYSIS_CACHE_MAX_TOKENS = 40000
+_ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_TOKENS = 20000
+_article_analysis_cache = OrderedDict()
+_article_analysis_cache_surfaces = 0
+_article_analysis_cache_tokens = 0
+_article_analysis_cache_lock = RLock()
+_article_analysis_inflight: dict[tuple, Future] = {}
 
 
 class _Pack:
@@ -199,29 +211,113 @@ def _unique_surfaces(rows: tuple[tuple[str, str], ...]) -> tuple[str, ...]:
     return tuple(dict.fromkeys(surface for surface, _lemma in rows))
 
 
-def matching_lemmas(tokens, guess: str) -> set[str]:
-    """Stored lemmas of content tokens the guess opens."""
-    return analyze_guess(tokens, guess)[0]
-
-
-def analyze_guess(tokens, guess: str) -> tuple[set[str], dict]:
-    """Resolve hits and the lexical review report from one candidate pass."""
+def _build_article_analysis(
+    tokens, *, include_pronouns: bool, cache_index: bool = True,
+) -> dict:
     rows = tuple(
         ((tok.get('surface') or ''), (tok.get('lemma') or ''))
         for tok in tokens
         if tok.get('kind') == 'content'
     )
+    surfaces = _unique_surfaces(rows)
+    index = None
+    if rows:
+        index = (
+            _index(surfaces, include_pronouns=include_pronouns)
+            if cache_index else
+            _ArticleIndex(surfaces, include_pronouns=include_pronouns)
+        )
+    return {
+        'rows': rows,
+        'counts': Counter(rows),
+        'lemmas_by_surface': _lemmas_by_surface(rows),
+        'index': index,
+        'surface_count': len(surfaces),
+        'token_count': len(rows),
+    }
+
+
+def _lemmas_by_surface(rows: tuple[tuple[str, str], ...]) -> dict[str, set[str]]:
+    lemmas = defaultdict(set)
+    for surface, lemma in rows:
+        lemmas[surface].add(lemma)
+    return lemmas
+
+
+def _cached_article_analysis(cache_key, tokens, *, include_pronouns: bool) -> dict:
+    key = (cache_key, include_pronouns)
+    with _article_analysis_cache_lock:
+        analysis = _article_analysis_cache.get(key)
+        if analysis is not None:
+            _article_analysis_cache.move_to_end(key)
+            return analysis
+        future = _article_analysis_inflight.get(key)
+        if future is None:
+            future = Future()
+            _article_analysis_inflight[key] = future
+            is_builder = True
+        else:
+            is_builder = False
+    if not is_builder:
+        return future.result()
+
+    global _article_analysis_cache_surfaces, _article_analysis_cache_tokens
+    try:
+        # Only one worker builds an article index at a time. Other article
+        # keys remain independent, and oversized analyses can still be shared
+        # with requests already waiting for this same cold key.
+        built = _build_article_analysis(
+            tokens, include_pronouns=include_pronouns, cache_index=False,
+        )
+        if (
+            built['surface_count'] <= _ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_SURFACES
+            and built['token_count'] <= _ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_TOKENS
+        ):
+            with _article_analysis_cache_lock:
+                _article_analysis_cache[key] = built
+                _article_analysis_cache_surfaces += built['surface_count']
+                _article_analysis_cache_tokens += built['token_count']
+                while (
+                    len(_article_analysis_cache) > _ARTICLE_ANALYSIS_CACHE_MAXSIZE
+                    or _article_analysis_cache_surfaces > _ARTICLE_ANALYSIS_CACHE_MAX_SURFACES
+                    or _article_analysis_cache_tokens > _ARTICLE_ANALYSIS_CACHE_MAX_TOKENS
+                ):
+                    _old_key, old_analysis = _article_analysis_cache.popitem(last=False)
+                    _article_analysis_cache_surfaces -= old_analysis['surface_count']
+                    _article_analysis_cache_tokens -= old_analysis['token_count']
+        with _article_analysis_cache_lock:
+            _article_analysis_inflight.pop(key, None)
+            future.set_result(built)
+        return built
+    except BaseException as exc:
+        with _article_analysis_cache_lock:
+            _article_analysis_inflight.pop(key, None)
+            future.set_exception(exc)
+        raise
+
+
+def matching_lemmas(tokens, guess: str) -> set[str]:
+    """Stored lemmas of content tokens the guess opens."""
+    return analyze_guess(tokens, guess)[0]
+
+
+def analyze_guess(tokens, guess: str, *, cache_key=None) -> tuple[set[str], dict]:
+    """Resolve hits and the lexical review report from one candidate pass."""
+    from games.censorly.flags import open_pronouns_enabled
+    include_pronouns = open_pronouns_enabled()
+    if cache_key is None:
+        analysis = _build_article_analysis(tokens, include_pronouns=include_pronouns)
+    else:
+        analysis = _cached_article_analysis(
+            cache_key, tokens, include_pronouns=include_pronouns,
+        )
+    rows = analysis['rows']
     empty = {'readings': [], 'opened': [], 'rejected': [], 'rejected_total': 0}
     if not rows or not (guess or '').strip():
         return set(), empty
-    from games.censorly.flags import open_pronouns_enabled
-    include_pronouns = open_pronouns_enabled()
     guess_pack = _guess_pack(guess, include_pronouns=include_pronouns)
-    lemmas_by_surface: dict[str, set[str]] = {}
-    for surface, lemma in rows:
-        lemmas_by_surface.setdefault(surface, set()).add(lemma)
-    surfaces = _unique_surfaces(rows)
-    index = _index(surfaces, include_pronouns=include_pronouns)
+    lemmas_by_surface = analysis['lemmas_by_surface']
+    index = analysis['index']
     candidate_surfaces = index.candidates(guess_pack)
     opened: dict[tuple, dict] = {}
     rejected: dict[tuple, dict] = {}
@@ -246,7 +342,7 @@ def analyze_guess(tokens, guess: str) -> tuple[set[str], dict]:
     # Counter preserves the first-seen order of row pairs. Aggregating equal
     # occurrences keeps the review report identical while avoiding repeated
     # lexical comparisons for every occurrence of a surface.
-    for (surface, lemma), occurrences in Counter(rows).items():
+    for (surface, lemma), occurrences in analysis['counts'].items():
         pack = index.by_surface[surface]
         stored = lemma or pack.fold
         reason = relations_by_surface.get(surface, '')

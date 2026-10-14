@@ -8,6 +8,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 from functools import lru_cache
+from itertools import chain
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -734,7 +735,20 @@ def apply_guess(
     lexical_report = None
     if lexical_resolver_enabled():
         from games.censorly.lexical.match import analyze_guess
-        matched, lexical_report = analyze_guess(all_tokens(payload), normalized)
+        cache_key = None
+        if getattr(task, 'pk', None) and getattr(task, 'attempt_revision', None):
+            cache_key = (
+                task.pk,
+                str(task.attempt_revision),
+                CENSORLY_SPLITTER_VERSION,
+            )
+        tokens = chain(
+            payload.get('title_tokens') or (),
+            payload.get('body_tokens') or (),
+        )
+        matched, lexical_report = analyze_guess(
+            tokens, normalized, cache_key=cache_key,
+        )
     else:
         matched = lemmas_matching_guess(payload, guess_lemma, normalized)
     return _apply_guess_after_analysis(
