@@ -92,7 +92,7 @@ SECTION_HUB_META = {
         'cta_latest': 'Последняя Лесенка',
         'all_link_label': 'Все Лесенки →',
         'soon_text': 'Новая Лесенка — каждый день в полночь по Москве.',
-        'wide': True,
+        'wide': False,
         'nav_title': 'Лесенка',
         'archive_item_label': 'Лесенка',
         'format_credit_url': 'https://raddle.quest',

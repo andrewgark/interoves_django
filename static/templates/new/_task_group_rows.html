@@ -5,9 +5,8 @@
   {% if heading is not False %}
   <h2 class="new-heading new-stack-gap--lg">{{ heading|default:"Задания" }}</h2>
   {% endif %}
-  {% if game.id == 'ladder' %}<div class="daily-archive__ladder-grid">{% endif %}
   {% for row in task_group_rows %}
-    <div id="{{ game.id }}-{{ row.number }}" class="new-task daily-archive__card{% if game.id == 'ladder' %} new-task--ladder-archive{% endif %} {{ row.row_class|default:'' }}{% if row.is_today %} new-task--today{% endif %}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
+    <div id="{{ game.id }}-{{ row.number }}" class="new-task daily-archive__card {{ row.row_class|default:'' }}{% if row.is_today %} new-task--today{% endif %}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
       <a class="new-task__body{% if row.is_archive_locked %} is-archive-locked{% endif %}" href="{% if row.is_archive_locked %}/subscription/{% else %}{{ row.play_url }}{% endif %}"{% if row.is_archive_locked %} data-tooltip="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽."{% endif %}>
         {% if row.title %}
           <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}</strong>
@@ -48,7 +47,6 @@
       </span>
     </div>
   {% endfor %}
-  {% if game.id == 'ladder' %}</div>{% endif %}
 {% else %}
   <div class="new-empty">
     <p class="new-empty__text">{{ empty_text|default:"Здесь пока нет групп заданий." }}</p>
