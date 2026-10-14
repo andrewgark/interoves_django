@@ -4331,6 +4331,7 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_relative', ('родственник',)),
     ('sense:review_list', ('список',)),
     ('sense:review_description', ('описание',)),
+    ('sense:review_cleaning', ('чистить',)),
     ('sense:review_reception', ('прием',)),
     ('sense:review_acceptance', ('принятие',)),
     ('sense:review_theater_box', ('ложа',)),
@@ -4473,7 +4474,8 @@ CLUSTERS = tuple(
 # buckets are semantic (not prefix-only); prefixes are used only as a stable
 # way to collect obvious derivatives of an already identified meaning.
 _REVIEW_FAMILIES = frozenset({
-    'кол³', 'пит|пич¹|пищ²', 'род|рож²|рожд', 'пис|пиш',
+    'кол³', 'пит|пич¹|пищ²', 'род|рож²|рожд', 'пис|пиш', 'бол²',
+    'глав|голав|голов',
     'лаг|лег²|леж|леч²|лог|лож¹', 'ем|им¹|йм|ним|ня|ым²|я¹|∅',
     'лет²|лет', 'год|гож|гожд', 'кан|кон¹', 'мат¹|мач¹',
     'свес|свет|свеч|свещ', 'дер|дерг|держ|дир|дор|дорог³|др',
@@ -4509,6 +4511,7 @@ _REVIEW_FAMILIES = frozenset({
     'и¹|ид|й|йд|ыд', 'мал¹',
     'тач¹|тек|теч|ток¹|точ¹', 'вед¹|веж|вежд¹|вест|вещ¹', 'да¹|даж',
     'ви|во(j)¹|вь', 'сел',
+    'жен', 'мен¹', 'числ', 'сматр|смотр', 'чист|чищ',
 })
 
 # A few productive prefixed verbs are assigned by the dictionary to another
@@ -4559,6 +4562,82 @@ def _review_family_clusters() -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 
 def _classify_review_lemma(family: str, lemma: str) -> str:
+    if family == 'бол²':
+        if lemma in {'боле', 'более'}:
+            return 'sense:review_comparative_more'
+        if lemma.startswith(('большев', 'обольшев')):
+            return 'sense:review_bolshevism'
+        if lemma == 'большинство':
+            return 'sense:review_majority'
+        if lemma in {'большак', 'большуха', 'набольший'}:
+            return 'sense:review_family_elder'
+        return 'sense:review_size'
+    if family == 'жен':
+        if lemma.startswith(('женщин', 'женск', 'женствен', 'женк', 'женуш')):
+            return 'sense:review_female'
+        if lemma.startswith(('жених', 'жениш')):
+            return 'sense:review_betrothal'
+        if lemma.startswith(('женат',)):
+            return 'sense:review_married_state'
+        if lemma in {'жена', 'женин'}:
+            return 'sense:review_wife'
+        return 'sense:review_marriage_action'
+    if family == 'мен¹':
+        if lemma.startswith(('вмен',)):
+            return 'sense:review_imputation'
+        if lemma.startswith(('примен',)):
+            return 'sense:review_application'
+        if lemma.startswith(('измен',)):
+            if lemma.startswith(('измена', 'изменник', 'изменниц', 'изменничес', 'изменнич')):
+                return 'sense:review_betrayal'
+            return 'sense:review_change'
+        if lemma.startswith(('неизмен', 'бесперемен', 'непремен', 'поперемен', 'перемен')):
+            return 'sense:review_variation'
+        if lemma.startswith(('смен', 'бессмен', 'посмен')):
+            return 'sense:review_shift'
+        if lemma.startswith(('замен', 'подмен', 'подсмен')):
+            return 'sense:review_replacement'
+        if lemma.startswith(('обмен', 'размен', 'промен', 'вымен', 'намен')):
+            return 'sense:review_exchange'
+        if lemma.startswith(('отмен',)):
+            return 'sense:review_cancellation'
+        if lemma.startswith(('мен', 'взмен')):
+            return 'sense:review_exchange'
+        return 'sense:review_variation'
+    if family == 'числ':
+        if lemma.startswith(('вычисл',)):
+            return 'sense:review_calculation'
+        if lemma.startswith(('исчисл', 'начисл', 'расчисл', 'счисл')):
+            return 'sense:review_accounting'
+        if lemma.startswith(('зачисл', 'отчисл')):
+            return 'sense:review_enrollment'
+        if lemma.startswith(('причисл', 'сопричисл')):
+            return 'sense:review_attribution'
+        if lemma.startswith(('перечисл',)):
+            return 'sense:review_transfer_or_listing'
+        return 'sense:review_number'
+    if family == 'сматр|смотр':
+        if lemma.startswith(('всматр', 'всмотр', 'посматр', 'посмотр', 'насматр', 'насмотр', 'засматр', 'засмотр', 'подсматр', 'подсмотр')):
+            return 'sense:review_looking'
+        if lemma.startswith(('досматр', 'досмотр', 'надсматр', 'надсмотр', 'осматр', 'осмотр', 'присматр', 'присмотр')):
+            return 'sense:review_inspection'
+        if lemma.startswith(('рассматр', 'рассмотр', 'пересматр', 'пересмотр', 'просматр', 'просмотр', 'усматр', 'усмотр', 'предусматр', 'предусмотр')):
+            return 'sense:review_consideration'
+        if lemma.startswith(('высматр', 'высмотр')):
+            return 'sense:review_searching'
+        if lemma.startswith(('смотрин', 'смотритель', 'смотрщ', 'смотров')):
+            return 'sense:review_supervision'
+        return 'sense:review_looking'
+    if family == 'чист|чищ':
+        if lemma.startswith(('чистил', 'чистец', 'чистик', 'чистяк', 'чистюл', 'чистобел')):
+            return 'sense:review_cleaner_or_tool'
+        if lemma.startswith(('чистот', 'чистый', 'чистень', 'нечист', 'чистоба', 'нечистот')):
+            return 'sense:review_purity'
+        if lemma.startswith(('чистилищ',)):
+            return 'sense:review_purgatory'
+        if lemma.startswith(('вчист', 'дочист', 'начист', 'подчист', 'чист')):
+            return 'sense:review_cleanliness'
+        return 'sense:review_cleaning'
     if family == 'мал¹':
         if lemma.startswith(('мальч', 'малыш', 'малец')):
             return 'sense:review_boy'
@@ -4644,8 +4723,26 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_list'
         if lemma.startswith(('перепис', 'копир')):
             return 'sense:review_copy'
+        if lemma.startswith(('надпис',)):
+            return 'sense:review_inscription'
+        if lemma.startswith(('подпис',)):
+            return 'sense:review_signature'
+        if lemma.startswith(('предпис',)):
+            return 'sense:review_instruction'
+        if lemma.startswith(('припис',)):
+            return 'sense:review_attribution'
+        if lemma.startswith(('впис',)):
+            return 'sense:review_insertion'
+        if lemma.startswith(('пропис',)):
+            return 'sense:review_registration_spelling'
+        if lemma.startswith(('распис',)):
+            return 'sense:review_schedule_or_decoration'
         if lemma.startswith(('запис', 'отпис', 'выпис')):
             return 'sense:review_record'
+        if lemma.startswith(('писател', 'писар', 'писец', 'писак', 'писун', 'писач')):
+            return 'sense:review_writer'
+        if lemma.startswith(('письм', 'письмен', 'писч')):
+            return 'sense:review_written_text'
         return 'sense:review_writing'
     if family == 'лаг|лег²|леж|леч²|лог|лож¹':
         if lemma.startswith('налог'):
@@ -4913,9 +5010,41 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_theft'
         return 'sense:review_cunning'
     if family == 'вид|вист':
-        if lemma.startswith(('завид', 'завист', 'ненавид', 'ненавист', 'навид')):
+        if lemma.startswith(('завид', 'позавид', 'завист', 'ненавид', 'возненавид', 'ненавист', 'навид')):
             return 'sense:review_envy_hatred'
+        if lemma.startswith(('освидетел', 'переосвидетел')):
+            return 'sense:review_examination'
+        if lemma.startswith(('свидан', 'свидаться', 'свидеться', 'видаться', 'видеться', 'повидаться', 'увидаться')):
+            return 'sense:review_meeting'
+        if lemma.startswith(('свидет', 'засвидетел')):
+            return 'sense:review_testimony'
+        if lemma.startswith(('предвид', 'непредвид')):
+            return 'sense:review_foresight'
+        if lemma.startswith(('привид', 'провид', 'видени')):
+            return 'sense:review_vision'
+        if lemma.startswith(('невид', 'видим', 'видн')) or lemma == 'видный':
+            return 'sense:review_visibility'
         return 'sense:review_seeing'
+    if family == 'глав|голав|голов':
+        if lemma.startswith(('голав',)):
+            return 'sense:review_fish'
+        if lemma.startswith(('уголов',)):
+            return 'sense:review_crime'
+        if lemma.startswith(('головнев',)):
+            return 'sense:smut'
+        if lemma.startswith(('головешк', 'головня')):
+            return 'sense:firebrand'
+        if lemma.startswith(('заглав', 'озаглав', 'оглав', 'заголов', 'подзаголов')):
+            return 'sense:review_titles_headings'
+        if lemma == 'возглавие':
+            return 'sense:review_head'
+        if lemma.startswith(('глав', 'возглав')):
+            return 'sense:review_leadership'
+        if lemma.startswith(('поголов',)):
+            return 'sense:review_population'
+        if lemma.startswith(('безглав', 'безголов', 'голов', 'изголов', 'наголов', 'надглав', 'обезглав', 'оголов', 'подголов', 'суголов')):
+            return 'sense:review_head'
+        return 'sense:review_head'
     if family == 'и¹|ид|й|йд|ыд':
         if lemma.startswith(('найти', 'найден')):
             return 'sense:review_finding'
@@ -5675,6 +5804,33 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
         'задержание', 'задержанный', 'задержать', 'задержаться', 'задерживание',
         'задерживать', 'задерживаться', 'задержка',
     )),
+    ('sense:review_purgatory', ('чистилище',)),
+    ('sense:review_cleaner_or_tool', ('чистюля',)),
+    ('sense:review_narrative', (
+        'повесть', 'повествование', 'повествователь', 'повествовательный',
+        'повествовать', 'повествоваться', 'повестушка',
+    )),
+    ('sense:review_fame', (
+        'безвестность', 'безвестный', 'безызвестность', 'безызвестный',
+        'известность', 'известный',
+    )),
+    ('sense:review_summons', ('повестка',)),
+    ('sense:review_summons', ('повестить',)),
+    ('sense:review_messenger', (
+        'вестник', 'вестница', 'вестовой', 'вестовщик', 'вестовщица',
+        'провозвестник', 'провозвестница', 'уведомитель',
+    )),
+    ('sense:review_visit', ('навестить', 'навещать', 'навещаться')),
+    ('sense:review_omen', (
+        'предвестие', 'предвестник', 'предвестница', 'предвещание',
+        'предвещать', 'предвещаться', 'предвозвестие', 'предвозвеститель',
+        'предвозвестить', 'предвозвестник', 'предвозвестница',
+        'предвозвещать', 'предвозвещаться', 'предвозвещение',
+    )),
+    ('sense:review_crime', ('уголовник', 'уголовный', 'уголовщина')),
+    ('sense:review_fish', ('голавлевый', 'голавль')),
+    ('sense:firebrand', ('головешка', 'головня')),
+    ('sense:smut', ('головневый',)),
 )
 _sense_destinations = {
     fold(lemma): name for name, lemmas in _SENSE_MOVES for lemma in lemmas
@@ -5783,6 +5939,7 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     # lets a surface participate in each appropriate cluster without joining
     # the clusters themselves.
     ('лог', ('sense:review_den', 'sense:review_math_log')),
+    ('большак', ('sense:review_family_elder', 'sense:review_main_road')),
     ('полка', ('sense:weeding', 'sense:shelf')),
     ('полька', ('sense:polish_people', 'sense:polka_dance')),
     ('получаться', ('sense:receiving', 'sense:outcome')),
@@ -5922,6 +6079,7 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('знатный', ('sense:cognize', 'sense:nobility')),
     ('писать', ('sense:review_writing', 'sense:urinate')),
     ('писаться', ('sense:review_writing', 'sense:urinate')),
+    ('глава', ('sense:review_leadership', 'sense:review_titles_headings')),
     ('звание', ('sense:review_calling', 'sense:review_title')),
     ('головня', ('sense:firebrand', 'sense:smut')),
     ('понятой', ('sense:understand', 'sense:legal_witness')),
