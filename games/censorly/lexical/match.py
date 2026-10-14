@@ -10,7 +10,7 @@ from array import array
 from collections import Counter, OrderedDict, defaultdict
 from concurrent.futures import Future
 from functools import lru_cache
-from threading import RLock
+from threading import Lock, RLock
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.rootbank import families_of
@@ -222,8 +222,10 @@ class _ArticleIndex:
         self.lexeme = defaultdict(list)
         self.root = defaultdict(list)
         self.grammar = defaultdict(list)
-        self.root_id = defaultdict(list)
-        self.family = defaultdict(list)
+        self.root_id = {}
+        self.family = {}
+        self._rejection_index_ready = False
+        self._rejection_index_lock = Lock()
         for surface_id, (surface, pack) in enumerate(zip(surfaces, self.packs)):
             self.fold[pack.fold].append(surface_id)
             for group_id in _ALIAS_GROUPS_BY_WORD.get(pack.fold, ()):
@@ -242,20 +244,38 @@ class _ArticleIndex:
                 self.lexeme[key].append(surface_id)
             for structure in pack.roots:
                 self.root[structure].append(surface_id)
-                for root_id in structure:
-                    self.root_id[root_id].append(surface_id)
-            for family in pack.families:
-                self.family[family].append(surface_id)
         # Python lists are convenient while building postings, but their
         # pointer storage dominates for high-frequency keys. Keep small
         # postings as lists and pack only the long ones into 32-bit IDs.
         for posting_map in (
             self.fold, self.alias, self.proper, self.lexeme,
-            self.root, self.grammar, self.root_id, self.family,
+            self.root, self.grammar,
         ):
             for key, posting in posting_map.items():
                 if len(posting) >= 64:
                     posting_map[key] = array('I', posting)
+
+    def _ensure_rejection_postings(self) -> None:
+        """Build near-miss indexes only when a report needs them."""
+        if self._rejection_index_ready:
+            return
+        with self._rejection_index_lock:
+            if self._rejection_index_ready:
+                return
+            root_id = defaultdict(list)
+            family = defaultdict(list)
+            for surface_id, pack in enumerate(self.packs):
+                for key in pack.root_ids:
+                    root_id[key].append(surface_id)
+                for key in pack.families:
+                    family[key].append(surface_id)
+            for posting_map in (root_id, family):
+                for key, posting in posting_map.items():
+                    if len(posting) >= 64:
+                        posting_map[key] = array('I', posting)
+            self.root_id = root_id
+            self.family = family
+            self._rejection_index_ready = True
 
     def candidate_ids(
         self, guess: _Pack, *, include_rejections: bool = True,
@@ -280,6 +300,7 @@ class _ArticleIndex:
                 for group in _GRAMMAR_GROUPS_BY_WORD.get(item.lemma, ()):
                     postings.append(self.grammar.get(group, ()))
             if include_rejections:
+                self._ensure_rejection_postings()
                 for root_id in guess.root_ids:
                     postings.append(self.root_id.get(root_id, ()))
                 for family in guess.families:
