@@ -280,14 +280,14 @@ def hub_progress_for_actor(
         elapsed = timing.get(task.id, 0) if won else None
         meta = None
         if won:
-            meta = f'🤔 {attempts} {ru_attempt_word(attempts)}  ⏱️ {format_elapsed(elapsed or 0)}'
+            meta = f'🔄 {attempts} {ru_attempt_word(attempts)}  ⏱️ {format_elapsed(elapsed or 0)}'
             hints_line = format_hints_label(hints)
             if hints_line:
                 meta += f'  {hints_line}'
         elif attempts or hints:
             parts = []
             if attempts:
-                parts.append(f'🤔 {attempts} {ru_attempt_word(attempts)}')
+                parts.append(f'🔄 {attempts} {ru_attempt_word(attempts)}')
             hints_line = format_hints_label(hints)
             if hints_line:
                 parts.append(hints_line)

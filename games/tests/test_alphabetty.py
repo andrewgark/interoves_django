@@ -661,7 +661,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertTrue(guess.json().get('won'))
         response = self.client.get('/alphabetty/')
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '🤔 1 попытка')
+        self.assertContains(response, '🔄 1 попытка')
         self.assertContains(response, '⏱️ 0с')
 
     def test_create_page_shows_offer_flow(self):

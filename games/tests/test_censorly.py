@@ -388,7 +388,7 @@ class CensorlyAccessTests(TestCase):
         response = self.client.get('/censorly/')
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'daily-archive-censorly')
-        self.assertContains(response, '🤔 1 попытка')
+        self.assertContains(response, '🔄 1 попытка')
         self.assertContains(response, 'data-fully-solved="1"')
 
     def test_solved_archive_row_stays_open_when_club_archive_is_enabled(self):

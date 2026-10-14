@@ -137,7 +137,7 @@ def hub_progress_for_actor(*, game: Game, numbers_and_tasks: list[tuple[int, Tas
             continue
         parts = []
         if attempts:
-            parts.append(f'🤔 {attempts} {ru_attempt_word(attempts)}')
+            parts.append(f'🔄 {attempts} {ru_attempt_word(attempts)}')
         if hints:
             parts.append(f'💡 {hints} {ru_hint_word(hints)}')
         out[number] = {
