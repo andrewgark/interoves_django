@@ -560,6 +560,18 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('зажиточной', 'жил'))
         self.assertTrue(opens('зажиточный', 'зажиточность'))
 
+    def test_living_family_has_narrow_subclusters(self):
+        self.assertTrue(opens('жилище', 'жилищный'))
+        self.assertFalse(opens('жилище', 'живой'))
+        self.assertTrue(opens('заживление', 'заживлять'))
+        self.assertFalse(opens('заживление', 'жизнь'))
+        self.assertTrue(opens('сожительство', 'сожительствовать'))
+        self.assertFalse(opens('сожительство', 'жизнь'))
+        self.assertTrue(opens('нажива', 'наживка'))
+        self.assertFalse(opens('нажива', 'жить'))
+        self.assertTrue(opens('выживание', 'выжить'))
+        self.assertFalse(opens('выживание', 'жилище'))
+
     def test_domoy_does_not_use_spurious_domyit_reading(self):
         self.assertEqual(
             {(item.lemma, item.pos) for item in readings_of('домой')},
