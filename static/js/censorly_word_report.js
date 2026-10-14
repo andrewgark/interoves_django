@@ -6,6 +6,7 @@
   if (!root || !modal) return;
 
   var targetEl = document.getElementById('censorly-word-report-target');
+  var openedAfterEl = document.getElementById('censorly-word-report-opened-after');
   var otherWrap = document.getElementById('censorly-word-report-other-wrap');
   var otherLabel = document.getElementById('censorly-word-report-other-label');
   var otherEl = document.getElementById('censorly-word-report-other');
@@ -67,6 +68,12 @@
     previousFocus = document.activeElement;
     selectedToken = token;
     targetEl.textContent = token.dataset.surface || token.textContent.trim();
+    var openedByGuess = token.dataset.openedByGuess || '';
+    if (openedAfterEl) {
+      openedAfterEl.textContent = openedByGuess
+        ? ' · Было открыто после: «' + openedByGuess + '»' : '';
+      openedAfterEl.hidden = !openedByGuess;
+    }
     modal.querySelectorAll('input[name=censorly-word-report-reason]').forEach(function (input) {
       input.checked = false;
     });
