@@ -1851,6 +1851,17 @@ body.new-modal-open { overflow: hidden; }
   container-name: new-task;
 }
 
+/* На странице архива Лесенки карточки занимают половину строки. */
+.new-task--ladder-archive {
+  width: 50%;
+}
+
+@media (max-width: 600px) {
+  .new-task--ladder-archive {
+    width: 100%;
+  }
+}
+
 .new-task__body {
   align-self: stretch;
   display: flex;
