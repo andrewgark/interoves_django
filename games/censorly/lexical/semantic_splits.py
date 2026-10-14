@@ -4475,6 +4475,7 @@ CLUSTERS = tuple(
 # way to collect obvious derivatives of an already identified meaning.
 _REVIEW_FAMILIES = frozenset({
     'кол³', 'пит|пич¹|пищ²', 'род|рож²|рожд', 'пис|пиш', 'бол²',
+    'облад|област',
     'глав|голав|голов',
     'лаг|лег²|леж|леч²|лог|лож¹', 'ем|им¹|йм|ним|ня|ым²|я¹|∅',
     'лет²|лет', 'год|гож|гожд', 'кан|кон¹', 'мат¹|мач¹',
@@ -4562,6 +4563,14 @@ def _review_family_clusters() -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 
 def _classify_review_lemma(family: str, lemma: str) -> str:
+    if family == 'облад|област':
+        if lemma.startswith(('областнич',)):
+            return 'sense:review_regionalism'
+        if lemma.startswith(('област',)):
+            return 'sense:review_territory'
+        if lemma.startswith(('преоблад', 'возоблад')):
+            return 'sense:review_prevalence'
+        return 'sense:review_possession'
     if family == 'бол²':
         if lemma in {'боле', 'более'}:
             return 'sense:review_comparative_more'
@@ -5841,6 +5850,28 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
         'неотразимость', 'неотразимый', 'поразительный', 'разительность', 'разительный',
     )),
     ('sense:review_outbreak', ('разражаться', 'разразить', 'разразиться')),
+    ('sense:review_advice', (
+        'совет', 'насоветовать', 'отсоветовать', 'посоветовать', 'посоветоваться',
+        'присоветовать', 'рассоветовать', 'советник', 'советница', 'советничий',
+        'советовать', 'советоваться', 'советчик', 'советчица',
+    )),
+    ('sense:review_soviet', (
+        'досоветский', 'просоветский', 'советизация', 'советизировать',
+        'советизироваться', 'советский',
+    )),
+    ('sense:review_deliberation', (
+        'засовещаться', 'совещание', 'совещательный', 'совещаться',
+    )),
+    ('sense:review_sequence', (
+        'вослед', 'вслед', 'впоследствии', 'последовательность',
+        'последовательный', 'последовый', 'последующий', 'следующий',
+    )),
+    ('sense:review_consequence', ('вследствие', 'последствие', 'следовательно')),
+    ('sense:review_follower', ('последователь', 'последовательница')),
+    ('sense:track', (
+        'выслеживание', 'выслеживать', 'выслеживаться', 'заслеживать',
+        'исслеживать', 'последить', 'прослеживать', 'прослеживаться', 'услеживать',
+    )),
 )
 _sense_destinations = {
     fold(lemma): name for name, lemmas in _SENSE_MOVES for lemma in lemmas
@@ -5949,6 +5980,7 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     # lets a surface participate in each appropriate cluster without joining
     # the clusters themselves.
     ('лог', ('sense:review_den', 'sense:review_math_log')),
+    ('совет', ('sense:review_advice', 'sense:review_soviet')),
     ('большак', ('sense:review_family_elder', 'sense:review_main_road')),
     ('полка', ('sense:weeding', 'sense:shelf')),
     ('полька', ('sense:polish_people', 'sense:polka_dance')),
