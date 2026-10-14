@@ -369,6 +369,12 @@
     }
   }
 
+  function guessTokenIds(root, index) {
+    var state = root && root._censorlyState;
+    var guess = state && Array.isArray(state.guesses) ? state.guesses[index] : null;
+    return guess && Array.isArray(guess.token_ids) ? guess.token_ids : [];
+  }
+
   function focusTokenIds(root, tokenIds, scroll) {
     var ids = Array.isArray(tokenIds) ? tokenIds : [];
     var nodes = ids.map(function (id) {
@@ -1123,7 +1129,7 @@
           submit.setAttribute('data-tooltip', 'Проверяем слово');
         }
         hasLocalAction = true;
-        var revealScrollTokenId = null;
+        var submitScrollTokenIds = null;
         setFeedback(root, '');
         postJson(guessUrl, { word: word }, root)
           .then(function (data) {
@@ -1138,7 +1144,10 @@
               if (data.status !== 'error' || hasRenderableState(data)) {
                 applyState(root, data, { preserveLen: true });
               }
-              if (data.status === 'duplicate') focusGuess(root, data.active_guess_index, true);
+              if (data.status === 'duplicate') {
+                focusGuess(root, data.active_guess_index, false);
+                submitScrollTokenIds = guessTokenIds(root, data.active_guess_index);
+              }
               if (guessFeedbackHelper.shouldClearInput(data.status)) input.value = '';
               return;
             }
@@ -1148,15 +1157,19 @@
             applyState(root, data, { preserveLen: true });
             if (data.status === 'already_open') {
               if (Number.isInteger(data.active_guess_index)) {
-                focusGuess(root, data.active_guess_index, true);
+                focusGuess(root, data.active_guess_index, false);
+                submitScrollTokenIds = Array.isArray(data.active_token_ids) && data.active_token_ids.length
+                  ? data.active_token_ids
+                  : guessTokenIds(root, data.active_guess_index);
               } else {
-                focusTokenIds(root, data.active_token_ids, true);
+                focusTokenIds(root, data.active_token_ids, false);
+                submitScrollTokenIds = data.active_token_ids;
               }
             }
             input.value = '';
             var newly = data.newly_revealed || [];
             flashTokenIds(root, newly);
-            if (newly.length) revealScrollTokenId = newly[0];
+            if (newly.length) submitScrollTokenIds = newly;
             if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit');
             else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error');
             else if (data.status === 'already_open') setFeedback(root, guessFeedbackHelper.feedback(data, word), '');
@@ -1174,9 +1187,9 @@
               submit.disabled = !!(input && input.disabled);
             }
             if (input && !input.disabled) input.focus();
-            if (revealScrollTokenId != null) {
+            if (submitScrollTokenIds && submitScrollTokenIds.length) {
               window.requestAnimationFrame(function () {
-                scrollAfterGuess(root, newly);
+                scrollAfterGuess(root, submitScrollTokenIds);
               });
             }
           });
