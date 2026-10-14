@@ -374,6 +374,11 @@ def _build_article_analysis(
             counts_by_surface[surface].append((order, lemma, occurrences))
     index = None
     if rows:
+        cache_index = (
+            cache_index
+            and len(surfaces) <= _ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_SURFACES
+            and len(rows) <= _ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_TOKENS
+        )
         index = (
             _index(
                 surfaces,
