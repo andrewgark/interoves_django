@@ -1033,7 +1033,7 @@ def complete_daily_timing_in_transaction(
         seq=next_seq,
         claimed_ms=None,
     )
-    if row.status == STATUS_COMPLETED and not int(row.frozen_ms or 0):
+    if row.status == STATUS_COMPLETED:
         events = DailyTimingEvent.objects.filter(
             game=game,
             task_group=task_group,
@@ -1046,7 +1046,8 @@ def complete_daily_timing_in_transaction(
             events,
             completed_at=row.completed_at or now,
         )
-        if recovered_ms > 0:
+        frozen_ms = int(row.frozen_ms or 0)
+        if recovered_ms > frozen_ms:
             row.accumulated_ms = recovered_ms
             row.frozen_ms = recovered_ms
             row.save(update_fields=['accumulated_ms', 'frozen_ms', 'updated_at'])

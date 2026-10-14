@@ -1,4 +1,4 @@
-"""Repair completed daily timers whose snapshot was frozen at zero."""
+"""Repair completed daily timers when the event ledger proves a longer duration."""
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
@@ -8,7 +8,7 @@ from games.models import DailySolveTiming, DailyTimingEvent
 
 
 class Command(BaseCommand):
-    help = 'Repair completed zero-duration daily timers from the timing event ledger (dry-run by default).'
+    help = 'Repair completed daily timers from the timing event ledger (dry-run by default).'
 
     def add_arguments(self, parser):
         parser.add_argument('--game', required=True)
@@ -16,6 +16,11 @@ class Command(BaseCommand):
         parser.add_argument('--user', type=int)
         parser.add_argument('--team')
         parser.add_argument('--anon-key')
+        parser.add_argument(
+            '--include-underestimates',
+            action='store_true',
+            help='Also consider completed rows with a positive frozen duration.',
+        )
         parser.add_argument('--apply', action='store_true', help='Persist repairs; omitted means dry-run.')
 
     def handle(self, *args, **options):
@@ -28,8 +33,9 @@ class Command(BaseCommand):
             'task_group_id': options['task_group'],
             'replay_slot__isnull': True,
             'status': DailySolveTiming.STATUS_COMPLETED,
-            'frozen_ms': 0,
         }
+        if not options['include_underestimates']:
+            filters['frozen_ms'] = 0
         if options['user'] is not None:
             filters['user_id'] = options['user']
         elif options['team'] is not None:
@@ -57,25 +63,26 @@ class Command(BaseCommand):
                 completed_at=row.completed_at,
             )
             self.stdout.write(
-                'row={} actor={} recovered_ms={} mode={}'.format(
+                'row={} actor={} frozen_ms={} recovered_ms={} mode={}'.format(
                     row.pk,
                     actor_filter,
+                    row.frozen_ms,
                     recovered_ms,
                     'apply' if options['apply'] else 'dry-run',
                 )
             )
-            if options['apply'] and recovered_ms > 0:
+            if options['apply'] and recovered_ms > int(row.frozen_ms or 0):
                 with transaction.atomic():
                     locked = DailySolveTiming.objects.select_for_update().get(pk=row.pk)
                     if (
                         locked.status == DailySolveTiming.STATUS_COMPLETED
-                        and int(locked.frozen_ms or 0) == 0
+                        and recovered_ms > int(locked.frozen_ms or 0)
                     ):
                         locked.accumulated_ms = recovered_ms
                         locked.frozen_ms = recovered_ms
                         locked.save(update_fields=['accumulated_ms', 'frozen_ms', 'updated_at'])
                         changed += 1
-            elif recovered_ms > 0:
+            elif recovered_ms > int(row.frozen_ms or 0):
                 candidates += 1
 
         self.stdout.write(self.style.SUCCESS(

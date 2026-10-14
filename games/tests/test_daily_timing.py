@@ -313,6 +313,136 @@ class DailyTimingDomainTests(TestCase):
         row.refresh_from_db()
         self.assertEqual(row.frozen_ms, 12_000)
 
+    def test_repair_command_can_preview_and_apply_positive_underestimate(self):
+        completed_at = timezone.now()
+        row = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            accumulated_ms=13_284,
+            frozen_ms=13_284,
+            completed_at=completed_at,
+        )
+        session_id = 'repair-positive-session'
+        for action, event_id, seq, seconds_ago in (
+            (ACTION_START, 'positive-start', 1, 30),
+            (ACTION_HEARTBEAT, 'positive-heartbeat', 2, 15),
+        ):
+            event = DailyTimingEvent.objects.create(
+                game=self.game,
+                task_group=self.tg,
+                user=self.user,
+                actor_key='user:{}'.format(self.user.pk),
+                session_id=session_id,
+                event_id=event_id,
+                action=action,
+                seq=seq,
+            )
+            DailyTimingEvent.objects.filter(pk=event.pk).update(
+                occurred_at=completed_at - timedelta(seconds=seconds_ago),
+            )
+
+        dry_run = StringIO()
+        call_command(
+            'repair_daily_solve_timing',
+            game=self.game.pk,
+            task_group=self.tg.pk,
+            user=self.user.pk,
+            include_underestimates=True,
+            stdout=dry_run,
+        )
+        self.assertIn('frozen_ms=13284 recovered_ms=30000', dry_run.getvalue())
+        row.refresh_from_db()
+        self.assertEqual(row.frozen_ms, 13_284)
+
+        call_command(
+            'repair_daily_solve_timing',
+            game=self.game.pk,
+            task_group=self.tg.pk,
+            user=self.user.pk,
+            include_underestimates=True,
+            apply=True,
+            stdout=StringIO(),
+        )
+        row.refresh_from_db()
+        self.assertEqual(row.frozen_ms, 30_000)
+        self.assertEqual(row.accumulated_ms, 30_000)
+
+    def test_completion_recovers_positive_underestimate_from_event_ledger(self):
+        now = timezone.now().replace(microsecond=0)
+        row = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            accumulated_ms=13_284,
+            frozen_ms=13_284,
+            completed_at=now,
+        )
+        sid = 'underestimated-session'
+        event_specs = [(ACTION_START, 1, 200)] + [
+            (ACTION_HEARTBEAT, seq, seconds)
+            for seq, seconds in enumerate(range(185, 4, -15), start=2)
+        ]
+        for action, seq, seconds_ago in event_specs:
+            event = DailyTimingEvent.objects.create(
+                game=self.game,
+                task_group=self.tg,
+                user=self.user,
+                actor_key='user:{}'.format(self.user.pk),
+                session_id=sid,
+                event_id='ledger-{}'.format(seq),
+                action=action,
+                seq=seq,
+                claimed_ms=0 if action == ACTION_START else 15_000,
+            )
+            DailyTimingEvent.objects.filter(pk=event.pk).update(
+                occurred_at=now - timedelta(seconds=seconds_ago),
+            )
+
+        complete_daily_timing(
+            game=self.game, task_group=self.tg, user=self.user, now=now,
+        )
+
+        row.refresh_from_db()
+        self.assertGreaterEqual(row.frozen_ms, 200_000)
+        self.assertLess(row.frozen_ms, 201_000)
+        self.assertEqual(row.accumulated_ms, row.frozen_ms)
+
+    def test_completion_never_reduces_frozen_time_to_shorter_ledger_duration(self):
+        now = timezone.now().replace(microsecond=0)
+        row = DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            accumulated_ms=220_000,
+            frozen_ms=220_000,
+            completed_at=now,
+        )
+        event = DailyTimingEvent.objects.create(
+            game=self.game,
+            task_group=self.tg,
+            user=self.user,
+            actor_key='user:{}'.format(self.user.pk),
+            session_id='short-ledger-session',
+            event_id='short-ledger-start',
+            action=ACTION_START,
+            seq=1,
+        )
+        DailyTimingEvent.objects.filter(pk=event.pk).update(
+            occurred_at=now - timedelta(seconds=10),
+        )
+
+        complete_daily_timing(
+            game=self.game, task_group=self.tg, user=self.user, now=now,
+        )
+
+        row.refresh_from_db()
+        self.assertEqual(row.frozen_ms, 220_000)
+        self.assertEqual(row.accumulated_ms, 220_000)
+
     def test_database_constraints_enforce_team_actor_shape_and_play_uniqueness(self):
         team = Team.objects.create(name='timing-constraint-team', project_id='sections')
         first = DailySolveTiming.objects.create(
