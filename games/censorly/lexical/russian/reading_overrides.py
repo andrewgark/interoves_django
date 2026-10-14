@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from games.censorly.lexical.core import fold
 
+NEM_PRONOUN_CONTEXT = '__censorly_nem_pronoun__'
+NEM_NONPRONOUN_CONTEXT = '__censorly_nem_nonpronoun__'
+
 # (surface, lemma, part of speech). Keep the noun «ум» and discard pymorphy's
 # impossible verb reading «ум» → «умереть» (the verb forms are «умру», «умрёт»,
 # «умер», etc.).
@@ -31,6 +34,11 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
 # The key is (surface, lemma selected by tokenize_text); values are the only
 # readings retained for that occurrence. Guess-side readings stay context-free.
 TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
+    # «нем/нём» is a pronoun only in a prepositional construction («о нём»,
+    # «при нём»). Bare «нем» in article text is commonly an abbreviation or
+    # the adjective spelling, and must not inherit NPRO «он/оно».
+    ('нем', NEM_PRONOUN_CONTEXT): frozenset({'он', 'оно'}),
+    ('нем', NEM_NONPRONOUN_CONTEXT): frozenset({'нем', 'немой'}),
     # In this spelling, «лет» is overwhelmingly the genitive plural of «год».
     # Retain the rare noun «лёт» only where the article lemmatizer selects it.
     ('лет', 'год'): frozenset({'год'}),

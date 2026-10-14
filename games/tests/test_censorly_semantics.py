@@ -548,6 +548,35 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('мыли', 'домой'))
         self.assertFalse(opens('домой', 'мыли'))
 
+    def test_nem_pronoun_requires_preposition_in_article_context(self):
+        from games.censorly.lexical.match import _GuessPack, _build_article_analysis, _relation
+        from games.censorly.tokenize import tokenize_text
+
+        for phrase in ('нем', 'нем.'):
+            with self.subTest(phrase=phrase):
+                analysis = _build_article_analysis(
+                    tokenize_text(phrase), include_pronouns=False, cache_index=False,
+                )
+                target = analysis['index'].packs[0]
+                self.assertNotIn((2303, 'он'), target.lexemes)
+                self.assertNotIn((2306, 'оно'), target.lexemes)
+                self.assertEqual(
+                    _relation(
+                        _GuessPack('него', include_pronouns=False), target,
+                    ),
+                    '',
+                )
+
+        analysis = _build_article_analysis(
+            tokenize_text('о нем'), include_pronouns=False, cache_index=False,
+        )
+        target = analysis['index'].packs[-1]
+        self.assertIn((2303, 'он'), target.lexemes)
+        self.assertEqual(
+            _relation(_GuessPack('него', include_pronouns=False), target),
+            'lexeme',
+        )
+
     def test_valid_adverb_verb_homographs_remain_open(self):
         for adverb, verb in (
             ('стоя', 'стоить'),
@@ -1295,6 +1324,11 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
                 _relation(_GuessPack(left), _Pack(right)),
                 f'{left} / {right} should remain connected within its sense cluster',
             )
+
+    def test_evgeniy_does_not_open_zhenu(self):
+        self.assertFalse(opens('евгений', 'жену'))
+        self.assertFalse(opens('жену', 'евгений'))
+
     def test_additional_safe_family_splits_stay_apart(self):
         pairs = (
             ('гладкий', 'голодный'),

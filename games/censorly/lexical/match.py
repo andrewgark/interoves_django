@@ -14,7 +14,11 @@ from threading import Lock, RLock
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.rootbank import families_of
-from games.censorly.lexical.russian.reading_overrides import target_readings
+from games.censorly.lexical.russian.reading_overrides import (
+    NEM_NONPRONOUN_CONTEXT,
+    NEM_PRONOUN_CONTEXT,
+    target_readings,
+)
 from games.censorly.lexical.semantics import (
     _alias,
     _ALIASES,
@@ -362,11 +366,7 @@ def _build_article_analysis(
     )
     surfaces = _unique_surfaces(rows)
     lemmas_by_surface = _lemmas_by_surface(rows)
-    target_contexts = tuple(sorted(
-        (surface, next(iter(lemmas)))
-        for surface, lemmas in lemmas_by_surface.items()
-        if len(lemmas) == 1
-    ))
+    target_contexts = tuple(sorted(_target_contexts(tokens, rows).items()))
     counts_by_surface = None
     if include_report:
         counts_by_surface = defaultdict(list)
@@ -420,6 +420,50 @@ def _lemmas_by_surface(rows: tuple[tuple[str, str], ...]) -> dict[str, set[str]]
     for surface, lemma in rows:
         lemmas[surface].add(lemma)
     return lemmas
+
+
+def _target_contexts(tokens, rows):
+    """Return ordinary lemma contexts plus the narrow «нем» context marker."""
+    lemmas = _lemmas_by_surface(rows)
+    contexts = {
+        surface: next(iter(surface_lemmas))
+        for surface, surface_lemmas in lemmas.items()
+        if len(surface_lemmas) == 1
+    }
+    nem_positions = [
+        index for index, token in enumerate(tokens)
+        if token.get('kind') == 'content' and fold(token.get('surface') or '') == 'нем'
+    ]
+    if not nem_positions:
+        return contexts
+    prepositions = {
+        'в', 'во', 'к', 'ко', 'на', 'над', 'о', 'об', 'обо', 'от', 'при',
+        'с', 'со', 'у', 'перед', 'про', 'через',
+    }
+    nem_contexts = set()
+    for index in nem_positions:
+        previous = index - 1
+        while previous >= 0 and tokens[previous].get('kind') == 'space':
+            previous -= 1
+        next_index = index + 1
+        while next_index < len(tokens) and tokens[next_index].get('kind') == 'space':
+            next_index += 1
+        previous_surface = fold(tokens[previous].get('surface') or '') if previous >= 0 else ''
+        next_surface = tokens[next_index].get('surface') if next_index < len(tokens) else ''
+        if previous_surface in prepositions:
+            nem_contexts.add(NEM_PRONOUN_CONTEXT)
+        else:
+            nem_contexts.add(NEM_NONPRONOUN_CONTEXT)
+        if next_surface == '.':
+            nem_contexts.add(NEM_NONPRONOUN_CONTEXT)
+    if len(nem_contexts) == 1:
+        contexts['нем'] = next(iter(nem_contexts))
+    else:
+        # One surface pack cannot represent two occurrence-specific readings.
+        # Keep the ordinary tokenizer lemma rather than inventing a global
+        # pronoun/non-pronoun decision for the whole article.
+        contexts.pop('нем', None)
+    return contexts
 
 
 def _cached_article_analysis(cache_key, tokens, *, include_pronouns: bool) -> dict:
