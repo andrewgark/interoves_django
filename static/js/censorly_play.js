@@ -77,6 +77,7 @@
       var selected = option.getAttribute('data-scroll-option') === mode;
       option.classList.toggle('is-selected', selected);
       option.setAttribute('aria-checked', selected ? 'true' : 'false');
+      option.tabIndex = selected ? 0 : -1;
     });
     return mode;
   }
@@ -927,6 +928,10 @@
         var open = scrollMenu.hidden;
         scrollMenu.hidden = !open;
         scrollToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (open) {
+          var selectedOption = scrollMenu.querySelector('[aria-checked="true"]');
+          if (selectedOption) selectedOption.focus();
+        }
       });
       scrollMenu.addEventListener('click', function (event) {
         var option = event.target.closest('[data-scroll-option]');
