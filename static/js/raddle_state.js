@@ -1,5 +1,5 @@
 /**
- * Raddle (лесенка) client state machine.
+ * Raddle (Лесенка) client state machine.
  *
  * Central owner of everything the DOM layer used to infer from
  * document.activeElement / scattered data-attributes:

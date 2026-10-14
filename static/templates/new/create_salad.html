@@ -1,6 +1,6 @@
 {% extends "new/base.html" %}
 {% load static %}
-{% block title %}Создать свой салатик{% endblock %}
+{% block title %}Создать свой Салатик{% endblock %}
 {% block extrahead %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
@@ -10,11 +10,11 @@
 {% block content %}
 {% csrf_token %}
 {{ offers_json|json_script:"salad-offers-bootstrap" }}
-<h1 class="new-heading new-heading--page">Создать свой салатик</h1>
+<h1 class="new-heading new-heading--page">Создать свой Салатик</h1>
 
 {% if not profile_ready %}
 <section class="pal-card new-card">
-  <p class="pal-lead">Чтобы предлагать салатики, укажите имя, фамилию и привяжите Telegram.</p>
+  <p class="pal-lead">Чтобы предлагать Салатики, укажите имя, фамилию и привяжите Telegram.</p>
   {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
   <form method="post" class="new-form">
     {% csrf_token %}
@@ -35,22 +35,22 @@
 </section>
 {% else %}
 <p class="new-login-hint new-stack-gap">
-  Можно предложить идею без сетки или сразу собрать играбельный салатик 4×4.
+  Можно предложить идею без сетки или сразу собрать играбельный Салатик 4×4.
 </p>
 <div class="new-stack-gap new-stack-gap--after-button support-action-row salad-create-actions">
   <button type="button" class="new-btn" id="offer-create-idea-btn">Предложить идею</button>
-  <button type="button" class="new-btn" id="offer-create-full-btn">Предложить готовый салатик</button>
+  <button type="button" class="new-btn" id="offer-create-full-btn">Предложить готовый Салатик</button>
   <a class="new-btn new-btn--yellow salad-constructor-btn"
      href="https://vikhrovvs.github.io/word-grid/" target="_blank" rel="noopener">
-    <i class="ph ph-bowl-food" aria-hidden="true"></i> Конструктор салатиков
+    <i class="ph ph-bowl-food" aria-hidden="true"></i> Конструктор Салатиков
     <span aria-hidden="true">↗</span>
   </a>
 </div>
-<div class="support-tabs new-stack-gap" role="tablist" aria-label="Ваши салатики">
+<div class="support-tabs new-stack-gap" role="tablist" aria-label="Ваши Салатики">
   <button type="button" class="new-btn new-btn--mini" data-offer-tab="all" role="tab" aria-selected="true">Все предложения</button>
   <button type="button" class="new-btn new-btn--mini new-btn--ghost" data-offer-tab="accepted" role="tab" aria-selected="false">Принятые идеи</button>
 </div>
-<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши салатики"></section>
+<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши Салатики"></section>
 
 <div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-offer-close></div>
@@ -102,7 +102,7 @@
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Предложить опубликовать</button>
-      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать салатик</a>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать Салатик</a>
       <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
     </div>
   </div>
@@ -170,7 +170,7 @@
     if (!visibleOffers.length) {
       listEl.innerHTML = activeTab === 'accepted'
         ? '<p class="support-empty">Принятых идей пока нет.</p>'
-        : '<p class="support-empty">Пока нет предложений. Нажмите «Предложить идею» или «Предложить готовый салатик».</p>';
+        : '<p class="support-empty">Пока нет предложений. Нажмите «Предложить идею» или «Предложить готовый Салатик».</p>';
       return;
     }
     visibleOffers.forEach(function (o) {
@@ -371,7 +371,7 @@
     editKind = kind;
     document.getElementById('offer-idea-fields').hidden = kind !== 'idea';
     document.getElementById('offer-full-fields').hidden = kind !== 'full';
-    document.getElementById('offer-edit-title').textContent = kind === 'idea' ? 'Идея салатика' : 'Салатик';
+    document.getElementById('offer-edit-title').textContent = kind === 'idea' ? 'Идея Салатика' : 'Салатик';
   }
 
   function openEdit(offer) {
@@ -544,6 +544,6 @@
 {% endif %}
 
 <p class="new-tg-back new-tg-back--footer">
-  <a href="/salad/" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К салатикам</a>
+  <a href="/salad/" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К Салатикам</a>
 </p>
 {% endblock %}

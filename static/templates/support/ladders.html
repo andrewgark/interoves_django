@@ -30,7 +30,7 @@
     <h2 id="ladder-edit-title" class="support-page-title support-page-title--modal">Редактирование</h2>
     <p class="support-hint" id="ladder-edit-sub"></p>
     <label class="support-ladders-field">
-      <span>Текст перед лесенкой</span>
+      <span>Текст перед Лесенкой</span>
       <textarea id="ladder-edit-intro" rows="2"></textarea>
     </label>
     <label class="support-ladders-field">
@@ -61,11 +61,11 @@
   <div class="new-rules-overlay" data-offer-close></div>
   <div class="new-rules-modal__box pal-card support-ladder-modal">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-offer-close>×</button>
-    <h2 id="offer-edit-title" class="support-page-title support-page-title--modal">Отправленная лесенка</h2>
+    <h2 id="offer-edit-title" class="support-page-title support-page-title--modal">Отправленная Лесенка</h2>
     <p class="support-hint" id="offer-edit-sub"></p>
     <p class="support-hint">Используйте <code>____</code> как предыдущее слово, <code>...</code> как следующее слово</p>
     <label class="support-ladders-field">
-      <span>Текст перед лесенкой</span>
+      <span>Текст перед Лесенкой</span>
       <textarea id="offer-edit-intro" rows="2"></textarea>
     </label>
     <label class="support-ladders-field">
@@ -342,7 +342,7 @@
     var delBtn = e.target.closest('[data-delete]');
     if (delBtn) {
       var delId = parseInt(delBtn.getAttribute('data-delete'), 10);
-      if (!window.confirm('Удалить лесенку id ' + delId + ' из расписания?')) return;
+      if (!window.confirm('Удалить Лесенку id ' + delId + ' из расписания?')) return;
       if (busy) return;
       setBusy(true);
       postJson(endpoints.deleteTpl.replace('{id}', String(delId)), {})
@@ -586,7 +586,7 @@
 
   document.getElementById('ladder-edit-reset-progress').addEventListener('click', function () {
     if (!editLinkId || busy) return;
-    if (!window.confirm('Сбросить прогресс всех решавших эту лесенку?')) return;
+    if (!window.confirm('Сбросить прогресс всех решавших эту Лесенку?')) return;
     setBusy(true);
     postJson(endpoints.linkResetTpl.replace('{id}', String(editLinkId)), {})
       .then(function (data) {
@@ -752,7 +752,7 @@
 
   document.getElementById('offer-edit-accept').addEventListener('click', function () {
     if (!editOfferId || busy) return;
-    if (!window.confirm('Принять лесенку в расписание?')) return;
+    if (!window.confirm('Принять Лесенку в расписание?')) return;
     var cur = readOfferWordRows();
     setBusy(true);
     postJson(endpoints.offerSaveTpl.replace('{id}', String(editOfferId)), {
@@ -798,7 +798,7 @@
 
   document.getElementById('offer-edit-reset-progress').addEventListener('click', function () {
     if (!editOfferId || busy) return;
-    if (!window.confirm('Сбросить прогресс всех решавших эту лесенку?')) return;
+    if (!window.confirm('Сбросить прогресс всех решавших эту Лесенку?')) return;
     setBusy(true);
     postJson(endpoints.offerResetTpl.replace('{id}', String(editOfferId)), {})
       .then(function (data) {

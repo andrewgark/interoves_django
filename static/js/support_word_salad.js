@@ -254,12 +254,12 @@
   function renderSent() {
     list.innerHTML = '';
     list.classList.add('support-schedule-readonly');
-    document.getElementById('word-salad-meta').textContent = 'Отправленных салатиков: ' + sentOffers.length;
+    document.getElementById('word-salad-meta').textContent = 'Отправленных Салатиков: ' + sentOffers.length;
     document.querySelectorAll('[data-insert-end]').forEach(function (button) {
       button.closest('.support-ladder-insert').hidden = true;
     });
     if (!sentOffers.length) {
-      list.innerHTML = '<p class="support-empty">Нет отправленных салатиков.</p>';
+      list.innerHTML = '<p class="support-empty">Нет отправленных Салатиков.</p>';
       return;
     }
     sentOffers.slice().sort(function (a, b) {
@@ -375,7 +375,7 @@
   function fillOfferEditor(offer) {
     editOfferId = offer.id;
     document.getElementById('word-salad-offer-title').textContent =
-      offer.kind === 'idea' ? 'Отправленная идея' : 'Отправленный салатик';
+      offer.kind === 'idea' ? 'Отправленная идея' : 'Отправленный Салатик';
     document.getElementById('word-salad-offer-sub').textContent =
       (offer.user_name || '') + (offer.telegram_handle ? ' · @' + offer.telegram_handle : '');
     document.getElementById('word-salad-offer-theme').value = offer.theme || '';
@@ -454,7 +454,7 @@
   }
 
   function removeItem(linkId) {
-    if (busy || !window.confirm('Удалить этот выпуск салатика?')) return;
+    if (busy || !window.confirm('Удалить этот выпуск Салатика?')) return;
     setBusy(true);
     clearError();
     support.postJson(endpoint(endpoints.remove, linkId), {})
@@ -573,7 +573,7 @@
 
   document.getElementById('word-salad-edit-recheck').addEventListener('click', function () {
     if (busy || editLinkId == null) return;
-    if (!window.confirm('Перепроверить все посылки всех игроков? Цепочки будут пересобраны, уже собранным салатикам новые слова засчитаются в момент последней успешной посылки.')) return;
+    if (!window.confirm('Перепроверить все посылки всех игроков? Цепочки будут пересобраны, уже собранным Салатикам новые слова засчитаются в момент последней успешной посылки.')) return;
     clearError();
     setBusy(true);
     support.postJson(endpoint(endpoints.recheck, editLinkId), {})
@@ -658,7 +658,7 @@
 
   document.getElementById('word-salad-offer-reset-progress').addEventListener('click', function () {
     if (busy || editOfferId == null) return;
-    if (!window.confirm('Сбросить прогресс всех игроков по этому салатику?')) return;
+    if (!window.confirm('Сбросить прогресс всех игроков по этому Салатику?')) return;
     setBusy(true);
     support.postJson(endpoint(endpoints.offerReset, editOfferId), {})
       .then(function () { alert('Прогресс сброшен'); })

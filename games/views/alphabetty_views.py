@@ -385,13 +385,13 @@ def alphabetty_random_game(request):
     except RandomAlphabettyDictionaryExhausted:
         messages.info(
             request,
-            'Все слова из словаря уже стали случайными алфавитками.',
+            'Все слова из словаря уже стали случайными Алфавитками.',
         )
         return redirect('new_alphabetty_hub')
     except LookupError:
         messages.error(
             request,
-            'Не удалось создать случайную алфавитку. Попробуйте ещё раз.',
+            'Не удалось создать случайную Алфавитку. Попробуйте ещё раз.',
         )
         return redirect('new_alphabetty_hub')
     return redirect(section_play_path(ALPHABETTY_GAME_ID, random_game.share_hash))
@@ -414,7 +414,7 @@ def alphabetty_today_page(request):
 
 
 def alphabetty_last_page(request):
-    """Редирект на последнюю опубликованную алфавитку (как /ladder/last/)."""
+    """Редирект на последнюю опубликованную Алфавитку (как /ladder/last/)."""
     game = _get_game()
     if not game:
         raise Http404()
@@ -535,7 +535,7 @@ def alphabetty_play_page(request, number):
         ),
         allow_unpublished=may_open_unpublished_number(request.user),
         fallback_label='Алфавитка',
-        fallback_pager_label='алфавитками',
+        fallback_pager_label='Алфавитками',
     )
     return render(request, 'new/alphabetty_play.html', {
         'game': game,

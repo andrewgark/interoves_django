@@ -1,5 +1,5 @@
 /**
- * Tab / Shift+Tab between raddle (лесенка) word inputs, like a single HTML form.
+ * Tab / Shift+Tab between raddle (Лесенка) word inputs, like a single HTML form.
  * Skips 💡 / check / clue-mark controls and sticky-pin clones.
  *
  * Local check: node static/js/raddle_tab_nav.test.js

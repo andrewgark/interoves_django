@@ -744,7 +744,7 @@
           if (msg) msg.textContent = 'Не удалось отправить ответ. Обновите страницу и попробуйте ещё раз.';
           return;
         }
-        // Ниже — только не-raddle формы: лесенка вышла из этого потока выше.
+        // Ниже — только не-raddle формы: Лесенка вышла из этого потока выше.
         if (data.status === 'duplicate') {
           if (msg) msg.textContent = 'Вы уже отправляли такой ответ.';
           openAttemptsPopoverForTask(data.task_id || attemptFeedbackTaskId, data.attempt_id);
@@ -1300,7 +1300,7 @@
       el.classList.remove('new-raddle-clues__list--active');
     });
     if (hintIndex === null || hintIndex === undefined || hintIndex === '') return;
-    // Финал лесенки: два блока-варианта — один раз подсвечиваем только верный ul,
+    // Финал Лесенки: два блока-варианта — один раз подсвечиваем только верный ul,
     // без --active/--revealed на отдельных предложениях в обоих блоках.
     var correctOption = taskRoot.querySelector('[data-raddle-correct-option]');
     if (correctOption) {
@@ -1472,7 +1472,7 @@
     if (taskRoot) syncRaddleStickyPinRowState(taskRoot);
   }
 
-  // Клиентский таймаут одной попытки отправки ответа в лесенке (мс).
+  // Клиентский таймаут одной попытки отправки ответа в Лесенке (мс).
   // Abort не ретраим: сервер мог уже сохранить ход (lock напарника), а повтор
   // только усугубляет очередь. TypeError (offline) — до RADDLE_MAX_ATTEMPTS.
   var RADDLE_FETCH_TIMEOUT_MS = 15000;
@@ -2929,7 +2929,7 @@
 
   // Запрошенная ступенька может быть уже не playable: напарник её взял, или это
   // черновик середины. Берём ближайшую playable в ту сторону, куда шёл
-  // пользователь — иначе фокус с низа лесенки улетает на самый верх.
+  // пользователь — иначе фокус с низа Лесенки улетает на самый верх.
   function nearestRaddlePlayableRow(table, fromIndex, prefer) {
     var byIndex = Object.create(null);
     var indices = [];
@@ -2970,7 +2970,7 @@
       wordIndex = focusRow.getAttribute('data-word-index');
     }
     // ref-role=next — ступенька берётся снизу вверх. Направление нужно потом,
-    // чтобы перерисовка не увела пару в другой конец лесенки.
+    // чтобы перерисовка не увела пару в другой конец Лесенки.
     raddleSession.noteDirection(
       focusRow.getAttribute('data-ref-role') === 'next' ? 'up' : 'down'
     );
@@ -3178,7 +3178,7 @@
     pin.setAttribute('data-raddle-pin-task-id', String(taskRoot.getAttribute('data-task-id') || ''));
     pin.setAttribute('hidden', '');
     pin.setAttribute('aria-hidden', 'true');
-    // Без класса new-raddle-table — иначе querySelector путает пин с настоящей лесенкой.
+    // Без класса new-raddle-table — иначе querySelector путает пин с настоящей Лесенкой.
     pin.innerHTML = '<table class="new-raddle-sticky-pin__table" role="presentation"><colgroup><col class="new-raddle-col--word"><col class="new-raddle-col--check"></colgroup><tbody></tbody></table>';
     // Do not append inside .new-taskcard__text: iOS Safari may clip fixed
     // descendants of an overflow container. Body also gives the pin a stable
@@ -3570,7 +3570,7 @@
     withRaddleSource('server.advance', function () {
       if (isNaN(idx)) {
         // Индекса решённого слова нет — держимся хотя бы за текущий anchor,
-        // чтобы фокус не уехал на первую playable ступеньку лесенки.
+        // чтобы фокус не уехал на первую playable ступеньку Лесенки.
         var anchor = raddleSession.anchor;
         var anchorIndex = anchor && String(anchor.taskId) === String(taskId)
           ? anchor.wordIndex
@@ -3601,7 +3601,7 @@
       restoreRaddleClueMarks(taskRoot);
       // data-default-focus — первая playable ступенька сверху. Если пользователь
       // уже работает ниже, перерисовка (live-update напарника, raddle_stale_ui)
-      // не имеет права утащить выделенную пару на верх лесенки: держимся за
+      // не имеет права утащить выделенную пару на верх Лесенки: держимся за
       // anchor сессии, он переживает замену HTML.
       var focus = taskRoot.getAttribute('data-default-focus');
       var anchored = raddleAnchoredFocusIndex(taskRoot);
@@ -3988,7 +3988,7 @@
   }, true);
 
   // Hide solved toggle (persisted across pages).
-  // На лесенках кнопки нет (is_daily_single_task) — режим скрытия сюда не применяем,
+  // На Лесенках кнопки нет (is_daily_single_task) — режим скрытия сюда не применяем,
   // даже если localStorage включён с другой страницы.
   var HIDE_KEY = 'new_hide_solved';
   var HIDE_SOLVED_ENABLED = {% if is_daily_single_task %}false{% else %}true{% endif %};

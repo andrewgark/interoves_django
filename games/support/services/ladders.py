@@ -1,4 +1,4 @@
-"""Support console: управление лесенками (порядок, даты, контент).
+"""Support console: управление Лесенками (порядок, даты, контент).
 
 Внутренний id = GameTaskGroup.pk (и TaskGroup/Task) — стабильный.
 Публичный номер = GameTaskGroup.number — порядковый; дата публикации =
@@ -52,7 +52,7 @@ _DEFAULT_PLACEHOLDER = {
 
 
 class LadderSupportError(Exception):
-    """Ошибка операции с лесенками (валидация / конфликт)."""
+    """Ошибка операции с Лесенками (валидация / конфликт)."""
 
 
 @dataclass(frozen=True)
@@ -133,7 +133,7 @@ def validate_ladder_content(
 
 
 def _normalize_intro(intro: str) -> str:
-    """Intro — произвольный текст перед лесенкой; «Лесенка #N» туда не кладём."""
+    """Intro — произвольный текст перед Лесенкой; «Лесенка #N» туда не кладём."""
     text = (intro or '').strip()
     if not text or _TITLE_RE.match(text):
         return ''
@@ -355,7 +355,7 @@ def _assert_future_only_order(
     *,
     now: datetime | None = None,
 ) -> None:
-    """Вышедшие лесенки должны остаться префиксом 1..K в том же порядке."""
+    """Вышедшие Лесенки должны остаться префиксом 1..K в том же порядке."""
     assert_future_only_order(
         ordered_link_ids,
         list_ladder_rows(now=now),
@@ -391,7 +391,7 @@ def reorder_ladders(
     by_id = {link.pk: link for link in active}
     if set(ordered_link_ids) != set(by_id):
         raise LadderSupportError(
-            'Список id не совпадает с текущими лесенками '
+            'Список id не совпадает с текущими Лесенками '
             '(обновите страницу и повторите)'
         )
     _assert_future_only_order(ordered_link_ids, now=now)
@@ -541,7 +541,7 @@ def create_ladder(
     mixed_script: bool = False,
     now: datetime | None = None,
 ) -> dict[str, Any]:
-    """Вставить лесенку с публичным номером at_number; сдвинуть остальные вверх.
+    """Вставить Лесенку с публичным номером at_number; сдвинуть остальные вверх.
 
     Вставка среди уже вышедших запрещена (только после последнего вышедшего №).
     """
@@ -634,7 +634,7 @@ def update_ladder(
 
 @transaction.atomic
 def delete_ladder(link_id: int, *, now: datetime | None = None) -> list[LadderRow]:
-    """Удалить будущую лесенку и перенумеровать оставшиеся."""
+    """Удалить будущую Лесенку и перенумеровать оставшиеся."""
     game = get_ladder_game()
     return delete_future_slot(
         game=game,
@@ -644,7 +644,7 @@ def delete_ladder(link_id: int, *, now: datetime | None = None) -> list[LadderRo
         list_rows=list_ladder_rows,
         error_cls=LadderSupportError,
         not_found_msg='Лесенка не найдена',
-        published_msg='Нельзя удалять уже вышедшую лесенку №{number}',
+        published_msg='Нельзя удалять уже вышедшую Лесенку №{number}',
         now=now,
     )
 
@@ -653,13 +653,13 @@ def defer_ladder(link_id: int, *, now=None):
     return defer_future_slot(game=get_ladder_game(), link_id=link_id,
         is_number_published=is_ladder_number_published, renumber_links=_renumber_links,
         list_rows=list_ladder_rows, error_cls=LadderSupportError,
-        not_found_msg='Лесенка не найдена', published_msg='Нельзя откладывать уже вышедшую лесенку №{number}', now=now)
+        not_found_msg='Лесенка не найдена', published_msg='Нельзя откладывать уже вышедшую Лесенку №{number}', now=now)
 
 
 def restore_ladder(link_id: int, *, now=None):
     return restore_deferred_slot(game=get_ladder_game(), link_id=link_id,
         renumber_links=_renumber_links, list_rows=list_ladder_rows,
-        error_cls=LadderSupportError, not_found_msg='Отложенная лесенка не найдена', now=now)
+        error_cls=LadderSupportError, not_found_msg='Отложенная Лесенка не найдена', now=now)
 
 
 def dashboard_context(*, now: datetime | None = None) -> dict[str, Any]:

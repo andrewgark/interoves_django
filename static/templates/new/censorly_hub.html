@@ -9,7 +9,7 @@
     <a class="new-btn{% if censorly_is_today %} new-hub-section__cta--today{% endif %}" href="{{ censorly_play_url }}">{{ censorly_cta_label }}</a>
   </p>
 {% elif censorly_status == 'coming_soon' %}
-  <div class="new-empty"><p class="new-empty__text">Новая цензурка — каждый день в полночь по Москве.</p></div>
+  <div class="new-empty"><p class="new-empty__text">Новая Цензурка — каждый день в полночь по Москве.</p></div>
 {% endif %}
 {% if create_link.create_url %}<p class="new-stack-gap">{% include "new/partials/create_game_link.html" with create_url=create_link.create_url create_label=create_link.create_label %}</p>{% endif %}
 {% include "new/_rules_banner.html" %}

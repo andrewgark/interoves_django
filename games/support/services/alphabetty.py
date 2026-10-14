@@ -45,7 +45,7 @@ logger = logging.getLogger(__name__)
 
 
 class AlphabettySupportError(Exception):
-    """Ошибка операции с алфавитками."""
+    """Ошибка операции с Алфавитками."""
 
 
 @dataclass(frozen=True)
@@ -244,7 +244,7 @@ def reorder_alphabetty(
     by_id = {link.pk: link for link in existing}
     if set(ordered_link_ids) != set(by_id):
         raise AlphabettySupportError(
-            'Список id не совпадает с текущими алфавитками '
+            'Список id не совпадает с текущими Алфавитками '
             '(обновите страницу и повторите)'
         )
     _assert_future_only_order(ordered_link_ids, now=now)
@@ -424,7 +424,7 @@ def update_alphabetty(link_id: int, *, word: str, now: datetime | None = None) -
         number = 0
     if number and is_alphabetty_number_published(game, number, now):
         raise AlphabettySupportError(
-            f'Нельзя менять слово уже вышедшей алфавитки №{number}'
+            f'Нельзя менять слово уже вышедшей Алфавитки №{number}'
         )
     word_n = normalize_word(word)
     if not word_n:
@@ -543,7 +543,7 @@ def ensure_future_buffer(
 
 @transaction.atomic
 def delete_alphabetty(link_id: int, *, now: datetime | None = None) -> list[AlphabettyRow]:
-    """Удалить будущую алфавитку (слово может снова попасть в генерацию)."""
+    """Удалить будущую Алфавитку (слово может снова попасть в генерацию)."""
     game = get_alphabetty_game()
     return delete_future_slot(
         game=game,
@@ -553,7 +553,7 @@ def delete_alphabetty(link_id: int, *, now: datetime | None = None) -> list[Alph
         list_rows=list_alphabetty_rows,
         error_cls=AlphabettySupportError,
         not_found_msg='Алфавитка не найдена',
-        published_msg='Нельзя удалять уже вышедшую алфавитку №{number}',
+        published_msg='Нельзя удалять уже вышедшую Алфавитку №{number}',
         now=now,
     )
 
@@ -562,18 +562,18 @@ def defer_alphabetty(link_id: int, *, now=None):
     return defer_future_slot(game=get_alphabetty_game(), link_id=link_id,
         is_number_published=is_alphabetty_number_published, renumber_links=_renumber_links,
         list_rows=list_alphabetty_rows, error_cls=AlphabettySupportError,
-        not_found_msg='Алфавитка не найдена', published_msg='Нельзя откладывать уже вышедшую алфавитку №{number}', now=now)
+        not_found_msg='Алфавитка не найдена', published_msg='Нельзя откладывать уже вышедшую Алфавитку №{number}', now=now)
 
 
 def restore_alphabetty(link_id: int, *, now=None):
     return restore_deferred_slot(game=get_alphabetty_game(), link_id=link_id,
         renumber_links=_renumber_links, list_rows=list_alphabetty_rows,
-        error_cls=AlphabettySupportError, not_found_msg='Отложенная алфавитка не найдена', now=now)
+        error_cls=AlphabettySupportError, not_found_msg='Отложенная Алфавитка не найдена', now=now)
 
 
 @transaction.atomic
 def forbid_alphabetty(link_id: int, *, now: datetime | None = None) -> dict[str, Any]:
-    """Удалить будущую алфавитку и запретить её слово для генерации."""
+    """Удалить будущую Алфавитку и запретить её слово для генерации."""
     game = get_alphabetty_game()
     link = (
         GameTaskGroup.objects.filter(game=game, pk=link_id)

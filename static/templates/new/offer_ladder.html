@@ -1,6 +1,6 @@
 {% extends "new/base.html" %}
 {% load static %}
-{% block title %}Создать свою лесенку{% endblock %}
+{% block title %}Создать свою Лесенку{% endblock %}
 {% block extrahead %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
@@ -9,11 +9,11 @@
 {% block content %}
 {% csrf_token %}
 {{ offers_json|json_script:"offers-bootstrap" }}
-<h1 class="new-heading new-heading--page">Создать свою лесенку</h1>
+<h1 class="new-heading new-heading--page">Создать свою Лесенку</h1>
 
 {% if not profile_ready %}
 <section class="pal-card new-card">
-  <p class="pal-lead">Чтобы предлагать лесенки, укажите имя, фамилию и привяжите Telegram.</p>
+  <p class="pal-lead">Чтобы предлагать Лесенки, укажите имя, фамилию и привяжите Telegram.</p>
   {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
   <form method="post" class="new-form">
     {% csrf_token %}
@@ -34,12 +34,12 @@
 </section>
 {% else %}
 <p class="new-login-hint new-stack-gap">
-  Создайте свои лесенки. Можно их редактировать, решать, делиться с друзьями и предлагать сделать одной из ежедневных.
+  Создайте свои Лесенки. Можно их редактировать, решать, делиться с друзьями и предлагать сделать одной из ежедневных.
 </p>
 <div class="new-stack-gap new-stack-gap--after-button">
-  <button type="button" class="new-btn" id="offer-create-btn">Добавить лесенку</button>
+  <button type="button" class="new-btn" id="offer-create-btn">Добавить Лесенку</button>
 </div>
-<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши лесенки"></section>
+<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши Лесенки"></section>
 
 <div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-offer-close></div>
@@ -51,7 +51,7 @@
     </p>
     <p class="support-hint" id="offer-edit-sub"></p>
     <label class="support-ladders-field">
-      <span>Текст перед лесенкой</span>
+      <span>Текст перед Лесенкой</span>
       <textarea id="offer-edit-intro" rows="2"></textarea>
     </label>
     <label class="support-ladders-field">
@@ -82,7 +82,7 @@
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Предложить опубликовать</button>
-      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать лесенку</a>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать Лесенку</a>
       <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
     </div>
   </div>
@@ -140,7 +140,7 @@
   function renderList() {
     listEl.innerHTML = '';
     if (!offers.length) {
-      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Добавить лесенку».</p>';
+      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Добавить Лесенку».</p>';
       return;
     }
     offers.forEach(function (o) {
@@ -161,7 +161,7 @@
         '<div class="support-ladder-item__actions">' +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">Править</button>' : '') +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Предложить опубликовать</button>' : '') +
-          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать лесенку</a>' +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать Лесенку</a>' +
         '</div>';
       listEl.appendChild(item);
     });
@@ -469,7 +469,7 @@
 
   function sendOfferById(id) {
     if (!id || busy) return;
-    if (!window.confirm('Предложить опубликовать лесенку? После этого редактировать нельзя.')) return;
+    if (!window.confirm('Предложить опубликовать Лесенку? После этого редактировать нельзя.')) return;
     busy = true;
     postJson(endpoints.sendTpl.replace('{id}', String(id)), {})
       .then(function (data) {
@@ -522,7 +522,7 @@
 
   document.getElementById('offer-edit-send').addEventListener('click', function () {
     if (!editId || busy) return;
-    if (!window.confirm('Предложить опубликовать лесенку? После этого редактировать нельзя.')) return;
+    if (!window.confirm('Предложить опубликовать Лесенку? После этого редактировать нельзя.')) return;
     var sendingId = editId;
     busy = true;
     autosave.flush().then(function () {
@@ -544,6 +544,6 @@
 {% endif %}
 
 <p class="new-tg-back new-tg-back--footer">
-  <a href="{% url 'new_ladder_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К лесенкам</a>
+  <a href="{% url 'new_ladder_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К Лесенкам</a>
 </p>
 {% endblock %}

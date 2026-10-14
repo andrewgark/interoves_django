@@ -1,4 +1,4 @@
-# Карточки разделов на главной (лесенки, замены, стены, палиндромы, десяточки).
+# Карточки разделов на главной (Лесенки, замены, стены, палиндромы, десяточки).
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ ONBOARDING_GAME_META = {
         'badge': 'Рекомендуем начать здесь',
         'description': 'Найдите слова в сетке 4×4. Простые правила, но есть над чем подумать.',
         'duration': '5–10 минут',
-        'cta_label': 'Начать салатик',
+        'cta_label': 'Начать Салатик',
     },
     'alphabetty': {
         'title': 'Алфавитка',
@@ -69,7 +69,7 @@ ONBOARDING_GAME_META = {
         'badge': 'Самая простая',
         'description': 'Угадайте слово, постепенно сужая диапазон по алфавиту.',
         'duration': '',
-        'cta_label': 'Начать алфавитку',
+        'cta_label': 'Начать Алфавитку',
     },
     'ladder': {
         'title': 'Лесенка',
@@ -77,7 +77,7 @@ ONBOARDING_GAME_META = {
         'badge': 'Посложнее',
         'description': 'Восстановите цепочку связанных слов.',
         'duration': '',
-        'cta_label': 'Попробовать лесенку',
+        'cta_label': 'Попробовать Лесенку',
     },
 }
 
@@ -88,10 +88,10 @@ SECTION_HUB_META = {
         'ph_icon': 'ladder',
         'title': 'Лесенки',
         'description': 'Разгадайте цепочку слов по перемешанным подсказкам, связывающим соседние слова',
-        'cta_today': 'Сегодняшняя лесенка',
-        'cta_latest': 'Последняя лесенка',
-        'all_link_label': 'Все лесенки →',
-        'soon_text': 'Новая лесенка — каждый день в полночь по Москве.',
+        'cta_today': 'Сегодняшняя Лесенка',
+        'cta_latest': 'Последняя Лесенка',
+        'all_link_label': 'Все Лесенки →',
+        'soon_text': 'Новая Лесенка — каждый день в полночь по Москве.',
         'wide': True,
         'nav_title': 'Лесенка',
         'archive_item_label': 'Лесенка',
@@ -99,7 +99,7 @@ SECTION_HUB_META = {
         'format_credit_name': 'raddle.quest',
         'format_credit_text': 'лесенок',
         'create_url_name': 'new_create_ladder',
-        'create_label': 'Создать свою лесенку',
+        'create_label': 'Создать свою Лесенку',
     },
     WORD_SALAD_GAME_ID: {
         'icon': '🥗',
@@ -108,16 +108,16 @@ SECTION_HUB_META = {
         'nav_title': 'Салатик',
         'pager_label': 'Салатик',
         'description': 'Сетка 4×4: найдите все слова на одну тему, проводя дорожки по соседним буквам',
-        'cta_today': 'Сегодняшний салатик',
-        'cta_latest': 'Последний салатик',
-        'all_link_label': 'Все салатики →',
-        'soon_text': 'Новый салатик — каждый день в полночь по Москве.',
+        'cta_today': 'Сегодняшний Салатик',
+        'cta_latest': 'Последний Салатик',
+        'all_link_label': 'Все Салатики →',
+        'soon_text': 'Новый Салатик — каждый день в полночь по Москве.',
         'archive_item_label': 'Салатик',
         'format_credit_url': 'https://wordsalad.online',
         'format_credit_name': 'wordsalad.online',
-        'format_credit_text': 'салатиков',
+        'format_credit_text': 'Салатиков',
         'create_url_name': 'new_create_salad',
-        'create_label': 'Создать свой салатик',
+        'create_label': 'Создать свой Салатик',
     },
     'alphabetty': {
         'icon': '🔤',
@@ -125,15 +125,15 @@ SECTION_HUB_META = {
         'title': 'Алфавитки',
         'nav_title': 'Алфавитка',
         'description': 'Угадайте существительное, выясняя, раньше или позже оно по алфавиту, чем ваши догадки',
-        'cta_today': 'Сегодняшняя алфавитка',
-        'cta_latest': 'Последняя алфавитка',
-        'all_link_label': 'Все алфавитки →',
-        'soon_text': 'Новая алфавитка — каждый день в полночь по Москве.',
+        'cta_today': 'Сегодняшняя Алфавитка',
+        'cta_latest': 'Последняя Алфавитка',
+        'all_link_label': 'Все Алфавитки →',
+        'soon_text': 'Новая Алфавитка — каждый день в полночь по Москве.',
         'format_credit_url': 'https://alphaguess.com',
         'format_credit_name': 'alphaguess.com',
         'format_credit_text': 'алфавиток',
         'create_url_name': 'new_create_alphabetty',
-        'create_label': 'Создать свою алфавитку',
+        'create_label': 'Создать свою Алфавитку',
     },
     'censorly': {
         'icon': '🖍️',
@@ -141,15 +141,15 @@ SECTION_HUB_META = {
         'title': 'Цензурки',
         'nav_title': 'Цензурка',
         'description': 'Угадайте статью русской Википедии слово за словом',
-        'cta_today': 'Сегодняшняя цензурка',
-        'cta_latest': 'Последняя цензурка',
-        'all_link_label': 'Все цензурки →',
-        'soon_text': 'Новая цензурка — каждый день в полночь по Москве.',
+        'cta_today': 'Сегодняшняя Цензурка',
+        'cta_latest': 'Последняя Цензурка',
+        'all_link_label': 'Все Цензурки →',
+        'soon_text': 'Новая Цензурка — каждый день в полночь по Москве.',
         'format_credit_url': 'https://redactle.net',
         'format_credit_name': 'redactle.net',
         'format_credit_text': 'цензурок',
         'create_url_name': 'new_create_censorly',
-        'create_label': 'Создать свою цензурку',
+        'create_label': 'Создать свою Цензурку',
     },
     'replacements': {
         'icon': '🔄',
@@ -476,14 +476,14 @@ def get_week_task_hub_card():
 
 
 def get_ladder_section_hub_card(game, *, published_numbers, now=None):
-    """Карточка лесенки на главной из get_ladder_hub_context."""
+    """Карточка Лесенки на главной из get_ladder_hub_context."""
     return get_scheduled_section_hub_card(
         game, published_numbers=published_numbers, now=now,
     )
 
 
 def get_word_salad_section_hub_card(game, *, published_numbers, now=None):
-    """Карточка салатика на главной."""
+    """Карточка Салатика на главной."""
     return get_scheduled_section_hub_card(
         game, published_numbers=published_numbers, now=now,
     )

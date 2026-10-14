@@ -191,7 +191,7 @@ def _park_rows_holding(links: list[GameTaskGroup], reserved_numbers: set[str]) -
 
     Отложенные выпуски остаются в игре и держат unique(game, number). Если их
     номер попадает в диапазон активного расписания, запись активных слотов
-    падает с Duplicate entry — так было с салатиками №75–81.
+    падает с Duplicate entry — так было с Салатиками №75–81.
     """
     if not links or not reserved_numbers:
         return
@@ -305,7 +305,7 @@ def shift_links(
 def cascade_delete_link(link: GameTaskGroup) -> None:
     """Удалить связку GameTaskGroup → TaskGroup → Task.
 
-    Если TaskGroup — предложение лесенки (LadderOffer) или салатика
+    Если TaskGroup — предложение Лесенки (LadderOffer) или Салатика
     (WordSaladOffer), удаляем только слот расписания: Task/посылки/лайки
     и сам offer сохраняем.
     """

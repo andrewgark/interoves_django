@@ -34,7 +34,7 @@ def _offer_for_user(request, offer_id):
 
 def _profile_context(profile, *, ready, missing, offers, profile_error=None):
     return {
-        'page_title': 'Создать свою лесенку',
+        'page_title': 'Создать свою Лесенку',
         'profile_ready': ready,
         'profile_missing': missing,
         'profile': profile,
@@ -141,7 +141,7 @@ def offer_ladder_send(request, offer_id):
 @login_required
 @require_POST
 def offer_ladder_reset(request, offer_id):
-    """Сброс решения автора (или staff) на своей лесенке."""
+    """Сброс решения автора (или staff) на своей Лесенке."""
     offer = (
         LadderOffer.objects.select_related('task_group')
         .filter(pk=offer_id)

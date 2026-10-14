@@ -33,7 +33,7 @@ def _offer_for_user(request, offer_id):
 
 def _profile_context(profile, *, ready, missing, offers, profile_error=None):
     return {
-        'page_title': 'Создать свою алфавитку',
+        'page_title': 'Создать свою Алфавитку',
         'profile_ready': ready,
         'profile_missing': missing,
         'profile': profile,
@@ -41,7 +41,7 @@ def _profile_context(profile, *, ready, missing, offers, profile_error=None):
         'show_sections_nav': True,
         'profile_error': profile_error,
         'back_url': '/alphabetty/',
-        'back_label': 'К алфавиткам',
+        'back_label': 'К Алфавиткам',
     }
 
 
@@ -128,7 +128,7 @@ def offer_alphabetty_reopen(request, offer_id):
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
     if offer.status != AlphabettyOffer.STATUS_ACCEPTED:
-        return JsonResponse({'ok': False, 'error': 'Возврат доступен только для принятой алфавитки'}, status=400)
+        return JsonResponse({'ok': False, 'error': 'Возврат доступен только для принятой Алфавитки'}, status=400)
     try:
         offer = request_revision(offer, admin_note='')
     except AlphabettyOfferError as exc:

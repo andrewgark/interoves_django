@@ -414,7 +414,7 @@ def create_word_salad(
     locked_until = last_published_number(now=now)
     if at_number <= locked_until:
         raise WordSaladSupportError(
-            'Нельзя вставлять среди уже вышедших салатиков '
+            'Нельзя вставлять среди уже вышедших Салатиков '
             '(доступно с №{})'.format(locked_until + 1)
         )
     number = _temporary_number(links)
@@ -455,10 +455,10 @@ def attach_existing_task_group(
     at_number: int,
     now: datetime | None = None,
 ) -> GameTaskGroup:
-    """Вставить уже существующий TaskGroup в расписание салатиков."""
+    """Вставить уже существующий TaskGroup в расписание Салатиков."""
     game = get_word_salad_game()
     if GameTaskGroup.objects.filter(game=game, task_group=task_group).exists():
-        raise WordSaladSupportError('Этот набор заданий уже в расписании салатиков')
+        raise WordSaladSupportError('Этот набор заданий уже в расписании Салатиков')
     links = list(_sorted_links())
     try:
         at_number = int(at_number)
@@ -471,7 +471,7 @@ def attach_existing_task_group(
     locked_until = last_published_number(now=now)
     if at_number <= locked_until:
         raise WordSaladSupportError(
-            'Нельзя вставлять среди уже вышедших салатиков '
+            'Нельзя вставлять среди уже вышедших Салатиков '
             '(доступно с №{})'.format(locked_until + 1)
         )
     if (task_group.label or '').startswith('salad:') or not (task_group.label or '').strip():
@@ -607,14 +607,14 @@ def reorder_word_salads(
     by_id = {link.pk: link for link in active}
     if set(ordered_link_ids) != set(by_id):
         raise WordSaladSupportError(
-            'Список id не совпадает с текущими салатиками '
+            'Список id не совпадает с текущими Салатиками '
             '(обновите страницу и повторите)'
         )
     assert_future_only_order(
         ordered_link_ids,
         list_word_salad_rows(now=now),
         error_cls=WordSaladSupportError,
-        published_msg='Нельзя менять порядок уже вышедших салатиков (№1–{number}). '
+        published_msg='Нельзя менять порядок уже вышедших Салатиков (№1–{number}). '
         'Переставляйте только будущие.',
     )
     _renumber_links([by_id[pk] for pk in ordered_link_ids])
@@ -636,7 +636,7 @@ def delete_word_salad(
         list_rows=list_word_salad_rows,
         error_cls=WordSaladSupportError,
         not_found_msg='Салатик не найден',
-        published_msg='Нельзя удалять уже вышедший салатик №{number}',
+        published_msg='Нельзя удалять уже вышедший Салатик №{number}',
         now=now,
     )
 
@@ -645,13 +645,13 @@ def defer_word_salad(link_id: int, *, now=None):
     return defer_future_slot(game=get_word_salad_game(), link_id=link_id,
         is_number_published=is_word_salad_number_published, renumber_links=_renumber_links,
         list_rows=list_word_salad_rows, error_cls=WordSaladSupportError,
-        not_found_msg='Салатик не найден', published_msg='Нельзя откладывать уже вышедший салатик №{number}', now=now)
+        not_found_msg='Салатик не найден', published_msg='Нельзя откладывать уже вышедший Салатик №{number}', now=now)
 
 
 def restore_word_salad(link_id: int, *, now=None):
     return restore_deferred_slot(game=get_word_salad_game(), link_id=link_id,
         renumber_links=_renumber_links, list_rows=list_word_salad_rows,
-        error_cls=WordSaladSupportError, not_found_msg='Отложенный салатик не найден', now=now)
+        error_cls=WordSaladSupportError, not_found_msg='Отложенный Салатик не найден', now=now)
 
 
 def dashboard_context(

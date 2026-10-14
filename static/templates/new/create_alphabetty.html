@@ -1,6 +1,6 @@
 {% extends "new/base.html" %}
 {% load static %}
-{% block title %}Создать свою алфавитку{% endblock %}
+{% block title %}Создать свою Алфавитку{% endblock %}
 {% block extrahead %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
@@ -9,11 +9,11 @@
 {% block content %}
 {% csrf_token %}
 {{ offers_json|json_script:"alphabetty-offers-bootstrap" }}
-<h1 class="new-heading new-heading--page">Создать свою алфавитку</h1>
+<h1 class="new-heading new-heading--page">Создать свою Алфавитку</h1>
 
 {% if not profile_ready %}
 <section class="pal-card new-card">
-  <p class="pal-lead">Чтобы предлагать алфавитки, укажите имя, фамилию и привяжите Telegram.</p>
+  <p class="pal-lead">Чтобы предлагать Алфавитки, укажите имя, фамилию и привяжите Telegram.</p>
   {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
   <form method="post" class="new-form">
     {% csrf_token %}
@@ -34,12 +34,12 @@
 </section>
 {% else %}
 <p class="new-login-hint new-stack-gap">
-  Создайте свои алфавитки. Можно их редактировать, решать, делиться с друзьями и предлагать сделать одной из ежедневных.
+  Создайте свои Алфавитки. Можно их редактировать, решать, делиться с друзьями и предлагать сделать одной из ежедневных.
 </p>
 <div class="new-stack-gap new-stack-gap--after-button">
-  <button type="button" class="new-btn" id="offer-create-btn">Добавить алфавитку</button>
+  <button type="button" class="new-btn" id="offer-create-btn">Добавить Алфавитку</button>
 </div>
-<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши алфавитки"></section>
+<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши Алфавитки"></section>
 
 <div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
   <div class="new-rules-overlay" data-offer-close></div>
@@ -66,7 +66,7 @@
     <div class="support-action-row support-action-row--mt">
       <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
       <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Предложить опубликовать</button>
-      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать алфавитку</a>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать Алфавитку</a>
       <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
     </div>
   </div>
@@ -119,7 +119,7 @@
   function renderList() {
     listEl.innerHTML = '';
     if (!offers.length) {
-      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Добавить алфавитку».</p>';
+      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Добавить Алфавитку».</p>';
       return;
     }
     offers.forEach(function (o) {
@@ -140,7 +140,7 @@
         '<div class="support-ladder-item__actions">' +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">править</button>' : '') +
           (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Предложить опубликовать</button>' : '') +
-          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать алфавитку</a>' +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать Алфавитку</a>' +
         '</div>';
       listEl.appendChild(item);
     });
@@ -254,7 +254,7 @@
 
   function sendOfferById(id) {
     if (!id || busy) return;
-    if (!window.confirm('Предложить опубликовать алфавитку? После этого редактировать нельзя.')) return;
+    if (!window.confirm('Предложить опубликовать Алфавитку? После этого редактировать нельзя.')) return;
     busy = true;
     postJson(endpoints.sendTpl.replace('{id}', String(id)), {})
       .then(function (data) {
@@ -307,7 +307,7 @@
 
   document.getElementById('offer-edit-send').addEventListener('click', function () {
     if (!editId || busy) return;
-    if (!window.confirm('Предложить опубликовать алфавитку? После этого редактировать нельзя.')) return;
+    if (!window.confirm('Предложить опубликовать Алфавитку? После этого редактировать нельзя.')) return;
     var sendingId = editId;
     busy = true;
     autosave.flush().then(function () {
@@ -329,6 +329,6 @@
 {% endif %}
 
 <p class="new-tg-back new-tg-back--footer">
-  <a href="{% url 'new_alphabetty_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К алфавиткам</a>
+  <a href="{% url 'new_alphabetty_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К Алфавиткам</a>
 </p>
 {% endblock %}

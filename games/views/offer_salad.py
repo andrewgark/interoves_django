@@ -1,4 +1,4 @@
-"""Публичная страница создания салатиков (/create_salad/)."""
+"""Публичная страница создания Салатиков (/create_salad/)."""
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def _offer_for_user(request, offer_id):
 
 def _profile_context(profile, *, ready, missing, offers_json, profile_error=None):
     return {
-        'page_title': 'Создать свой салатик',
+        'page_title': 'Создать свой Салатик',
         'profile_ready': ready,
         'profile_missing': missing,
         'profile': profile,
@@ -42,7 +42,7 @@ def _profile_context(profile, *, ready, missing, offers_json, profile_error=None
         'show_sections_nav': True,
         'profile_error': profile_error,
         'back_url': '/salad/',
-        'back_label': 'К салатикам',
+        'back_label': 'К Салатикам',
     }
 
 

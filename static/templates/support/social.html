@@ -277,9 +277,9 @@
     listEl.innerHTML = posts.map(function (p) {
       var cap = escapeHtml((p.caption || '').slice(0, 220));
       var srcLabel = p.source === 'ladder'
-        ? ('лесенка №' + (p.ladder_number || '?'))
+        ? ('Лесенка №' + (p.ladder_number || '?'))
         : p.source === 'word_salad'
-          ? ('салатик №' + (p.ladder_number || '?'))
+          ? ('Салатик №' + (p.ladder_number || '?'))
           : 'ручной';
       var img = p.image_url
         ? '<img class="support-social-thumb" src="' + escapeHtml(p.image_url) + '" alt="">'

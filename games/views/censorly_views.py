@@ -627,7 +627,7 @@ def _render_play(request, *, game, task, load_meta):
         ),
         allow_unpublished=_may_open_unpublished(request.user),
         fallback_label='Цензурка',
-        fallback_pager_label='цензурками',
+        fallback_pager_label='Цензурками',
     )
     stats_enabled = bool(get_daily_game(CENSORLY_GAME_ID) and get_daily_game(CENSORLY_GAME_ID).capabilities.statistics)
     stats_number = play_number if is_random else (link.number if link else play_number)

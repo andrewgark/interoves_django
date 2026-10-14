@@ -538,7 +538,7 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             )
         else:
             progress_text = None
-        # Лесенка/салатик: квадраты. Полные → зелёный; с ⬜ → жёлтый partial.
+        # Лесенка/Салатик: квадраты. Полные → зелёный; с ⬜ → жёлтый partial.
         result_squares = result_squares_by_number.get(str(p.number))
         elapsed_label = elapsed_by_number.get(str(p.number))
         if result_squares:
@@ -1890,7 +1890,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
 
 
 def new_ladder_today_page(request):
-    """Редирект на сегодняшнюю (или последнюю опубликованную) лесенку."""
+    """Редирект на сегодняшнюю (или последнюю опубликованную) Лесенку."""
     ladder_game = _get_ladder_game()
     if not ladder_game:
         raise Http404()
@@ -1910,7 +1910,7 @@ def new_ladder_today_page(request):
 
 
 def new_ladder_last_page(request):
-    """Редирект на последнюю опубликованную лесенку."""
+    """Редирект на последнюю опубликованную Лесенку."""
     ladder_game = _get_ladder_game()
     if not ladder_game:
         raise Http404()
@@ -3754,8 +3754,8 @@ def new_task_group_page(request, game_id, task_group_number):
         allow_unpublished=may_open_unpublished_number(request.user),
         fallback_label=section_nav_title(game.id) or None,
         fallback_pager_label=(
-            'лесенками' if game.id == LADDER_GAME_ID
-            else 'салатиками' if game.id == WORD_SALAD_GAME_ID
+            'Лесенками' if game.id == LADDER_GAME_ID
+            else 'Салатиками' if game.id == WORD_SALAD_GAME_ID
             else 'заданиями недели' if game.id == WEEK_TASK_GAME_ID
             else 'кругами'
         ),

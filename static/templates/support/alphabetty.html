@@ -55,7 +55,7 @@
   <div class="new-rules-overlay" data-ab-offer-close></div>
   <div class="new-rules-modal__box pal-card support-ladder-modal">
     <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-ab-offer-close>×</button>
-    <h2 id="ab-offer-title" class="support-page-title support-page-title--modal">Отправленная алфавитка</h2>
+    <h2 id="ab-offer-title" class="support-page-title support-page-title--modal">Отправленная Алфавитка</h2>
     <p class="support-hint" id="ab-offer-sub"></p>
     <label class="support-ladders-field">
       <span>Загаданное слово</span>
@@ -401,7 +401,7 @@
     var forbidBtn = e.target.closest('[data-forbid]');
     if (forbidBtn) {
       var forbidId = parseInt(forbidBtn.getAttribute('data-forbid'), 10);
-      if (!window.confirm('Запретить слово и убрать алфавитку id ' + forbidId + '?')) return;
+      if (!window.confirm('Запретить слово и убрать Алфавитку id ' + forbidId + '?')) return;
       if (busy) return;
       setBusy(true);
       postJson(endpoints.forbidTpl.replace('{id}', String(forbidId)), {})
@@ -413,7 +413,7 @@
     var delBtn = e.target.closest('[data-delete]');
     if (delBtn) {
       var delId = parseInt(delBtn.getAttribute('data-delete'), 10);
-      if (!window.confirm('Удалить алфавитку id ' + delId + ' из расписания?')) return;
+      if (!window.confirm('Удалить Алфавитку id ' + delId + ' из расписания?')) return;
       if (busy) return;
       setBusy(true);
       postJson(endpoints.deleteTpl.replace('{id}', String(delId)), {})
@@ -565,7 +565,7 @@
   });
   document.getElementById('ab-offer-reset-progress').addEventListener('click', function () {
     if (!editOfferId || busy) return;
-    if (!window.confirm('Сбросить прогресс всех решавших эту алфавитку?')) return;
+    if (!window.confirm('Сбросить прогресс всех решавших эту Алфавитку?')) return;
     setBusy(true);
     postJson(endpoints.offerResetTpl.replace('{id}', String(editOfferId)), {})
       .then(function (data) {
