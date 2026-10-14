@@ -466,7 +466,7 @@ def censorly_hub_page(request):
         'random_censorly_has_access': random_access,
         'censorly_taxonomy': censorly_taxonomy() if random_access else {},
         'support_url': '/support/censorly/',
-        'show_sections_nav': False,
+        'show_sections_nav': True,
         'back_url': '/',
         'section_results_url': section_results_path(CENSORLY_GAME_ID),
         'can_see_results': game.has_access('see_results', team=team),
@@ -668,7 +668,7 @@ def _render_play(request, *, game, task, load_meta):
             stats_number,
             enabled=stats_enabled,
         ),
-        'show_sections_nav': False,
+        'show_sections_nav': True,
         'back_url': section_hub_path(CENSORLY_GAME_ID),
         'back_label': 'К списку',
         'bootstrap': {

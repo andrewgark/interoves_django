@@ -45,6 +45,7 @@ from games.models import (
     GameTaskGroup,
     HTMLPage,
     Project,
+    RandomCensorlyGame,
     Task,
     TaskGroup,
 )
@@ -412,6 +413,101 @@ class DifficultyObservationTests(TestCase):
         self.assertLess(aside_at, difficulty_at)
         if likes_at != -1:
             self.assertLess(difficulty_at, likes_at)
+
+
+class CensorlyDifficultyObservationTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.project, _ = Project.objects.get_or_create(id='sections')
+        cls.checker, _ = CheckerType.objects.get_or_create(id='censorly')
+        cls.game, _ = Game.objects.get_or_create(
+            id='censorly',
+            defaults={
+                'name': 'Censorly', 'author': 'test', 'project': cls.project,
+                'is_tournament': False, 'requires_ticket': False,
+            },
+        )
+        cls.group = TaskGroup.objects.create(label='difficulty censorly daily')
+        cls.task = cls._task(cls.group, 'daily')
+        cls.placement = GameTaskGroup.objects.create(
+            game=cls.game, task_group=cls.group, number='9981', name='Daily Censorly',
+        )
+
+        cls.random_group = TaskGroup.objects.create(label='difficulty censorly random')
+        cls.random_task = cls._task(cls.random_group, 'random')
+        RandomCensorlyGame.objects.create(
+            wiki_title='Random difficulty article',
+            share_hash='difficulty-random-cz',
+            task_group=cls.random_group,
+        )
+        cls.random_placement = GameTaskGroup.objects.create(
+            game=cls.game,
+            task_group=cls.random_group,
+            number='difficulty-random-cz',
+            name='Random difficulty article',
+            share_hash='difficulty-random-cz',
+        )
+
+    @classmethod
+    def _task(cls, group, suffix):
+        with patch('games.views.track.track_task_change'):
+            return Task.objects.create(
+                task_group=group,
+                number='1',
+                task_type='censorly',
+                checker=cls.checker,
+                answer='Москва',
+            )
+
+    def test_word_inputs_errors_hints_and_time_are_observed_separately(self):
+        first = timezone.now() - timedelta(seconds=30)
+        entries = (
+            ('столица', 'Wrong', 0),
+            ('россия', 'Partial', 5),
+            ('#hint:москва', 'Partial', 10),
+            ('москва', 'Ok', 20),
+        )
+        for text, status, offset in entries:
+            attempt = Attempt.manager.create(
+                anon_key='difficulty-censorly-player',
+                task=self.task,
+                game=self.game,
+                task_revision=self.task.attempt_revision,
+                text=text,
+                status=status,
+                state='{}',
+            )
+            Attempt.manager.filter(pk=attempt.pk).update(
+                time=first + timedelta(seconds=offset),
+            )
+
+        metrics = calculate_observed_metrics(self.placement, now=timezone.now())
+
+        self.assertEqual(metrics['n'], 1)
+        self.assertEqual(metrics['median_attempts'], 3)
+        self.assertEqual(metrics['median_errors'], 1)
+        self.assertEqual(metrics['help_rate'], 1)
+        self.assertEqual(metrics['median_time'], 20)
+
+    def test_random_censorly_placements_do_not_enter_daily_difficulty(self):
+        from games.difficulty import _supported_placements
+
+        self.assertIsNone(ensure_daily_difficulty_row(self.random_placement))
+        self.assertNotIn(
+            self.random_placement.pk,
+            {row.pk for row in _supported_placements(game_ids=('censorly',))},
+        )
+        self.assertEqual(get_cached_game_difficulties([self.random_placement]), {})
+
+    def test_censorly_rating_uses_word_attempts_as_a_component(self):
+        metrics = _metrics(median_attempts=10, median_errors=4)
+        norm = _norm(median_attempts=5, median_errors=2)
+
+        rating = rate_difficulty_metrics('censorly', metrics, norm)
+
+        self.assertEqual(rating['ratios']['attempts'], 2)
+        self.assertEqual(rating['scores']['attempts'], 5)
+        self.assertEqual(rating['weights']['attempts'], 0.35)
 
 
 class DifficultyHistoricalNormTests(TestCase):

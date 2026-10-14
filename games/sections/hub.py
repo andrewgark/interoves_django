@@ -47,7 +47,9 @@ WEEK_TASK_HUB_ID = WEEK_TASK_GAME_ID
 
 # На главной Лесенка — выделенная первая карточка, затем идут Салатик и
 # Алфавитка. Навигация должна повторять именно этот визуальный порядок.
-DAILY_NAV_SECTION_IDS = (LADDER_GAME_ID, WORD_SALAD_GAME_ID, ALPHABETTY_GAME_ID)
+DAILY_NAV_SECTION_IDS = (
+    LADDER_GAME_ID, WORD_SALAD_GAME_ID, 'censorly', ALPHABETTY_GAME_ID,
+)
 
 # Порядок и короткие формулировки именно для первого знакомства. Навигация
 # сохраняет привычный порядок, а onboarding всегда начинает с Салатика.

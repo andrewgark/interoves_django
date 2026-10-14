@@ -25,6 +25,7 @@ from games.models import (
     HiddenAnonKey,
     HintAttempt,
     RandomAlphabettyGame,
+    RandomCensorlyGame,
 )
 
 
@@ -149,6 +150,20 @@ def _is_random_alphabetty_placement(placement) -> bool:
             task_group_id=placement.task_group_id,
         ).exists()
     )
+
+
+def _is_random_censorly_placement(placement) -> bool:
+    return bool(
+        placement is not None
+        and placement.game_id == 'censorly'
+        and RandomCensorlyGame.objects.filter(
+            task_group_id=placement.task_group_id,
+        ).exists()
+    )
+
+
+def _is_random_daily_placement(placement) -> bool:
+    return _is_random_alphabetty_placement(placement) or _is_random_censorly_placement(placement)
 
 
 def _is_salad_hint(attempt):
@@ -382,6 +397,7 @@ def _norm_values_from_snapshots(game_id):
     rows = DailyGameDifficulty.objects.filter(
         placement__game_id=game_id,
         placement__task_group__random_alphabetty_game__isnull=True,
+        placement__task_group__random_censorly_game__isnull=True,
     ).only('n', 'payload')
     for row in rows.iterator():
         metrics = (row.payload or {}).get('metrics') or {}
@@ -537,7 +553,7 @@ def calculate_game_difficulty(placement, *, now=None, metrics=None, save=False):
     ``save=True`` is for admin/manual rebuilds. Request handlers must not call
     this; they read ``DailyGameDifficulty`` via ``get_game_difficulty``.
     """
-    if placement.game_id not in SUPPORTED_GAME_IDS or _is_random_alphabetty_placement(placement):
+    if placement.game_id not in SUPPORTED_GAME_IDS or _is_random_daily_placement(placement):
         return None
     now = now or timezone.now()
     metrics = metrics or calculate_observed_metrics(placement, now=now)
@@ -656,6 +672,7 @@ def _supported_placements(*, game_ids=None):
             game_id__in=game_ids,
             task_group__tasks__task_type__in=[TASK_TYPE_BY_GAME_ID[g] for g in game_ids],
             task_group__random_alphabetty_game__isnull=True,
+            task_group__random_censorly_game__isnull=True,
         )
         .select_related('game', 'task_group')
         .distinct()
@@ -708,7 +725,7 @@ def ensure_daily_difficulty_row(placement, *, now=None):
     if (
         placement is None
         or placement.game_id not in SUPPORTED_GAME_IDS
-        or _is_random_alphabetty_placement(placement)
+        or _is_random_daily_placement(placement)
     ):
         return None
     now = now or timezone.now()
@@ -753,6 +770,7 @@ def sync_daily_difficulty_schedule(game, *, now=None):
     placements = list(
         game.task_group_links.select_related('game', 'task_group').filter(
             task_group__random_alphabetty_game__isnull=True,
+            task_group__random_censorly_game__isnull=True,
         )
     )
     snapshots = {
@@ -976,7 +994,7 @@ def get_cached_game_difficulties(placements):
         placement
         for placement in placements
         if placement.game_id in SUPPORTED_GAME_IDS
-        and not _is_random_alphabetty_placement(placement)
+        and not _is_random_daily_placement(placement)
     ]
     if not eligible:
         return {}
@@ -996,7 +1014,7 @@ def get_game_difficulty(placement, *, force=False, now=None):
     if (
         placement is None
         or placement.game_id not in SUPPORTED_GAME_IDS
-        or _is_random_alphabetty_placement(placement)
+        or _is_random_daily_placement(placement)
     ):
         return None
     if force:

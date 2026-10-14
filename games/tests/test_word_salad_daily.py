@@ -166,7 +166,7 @@ class WordSaladSectionTests(TestCase):
     def test_hub_meta_and_daily_order(self):
         self.assertEqual(
             DAILY_NAV_SECTION_IDS,
-            ('ladder', WORD_SALAD_GAME_ID, 'alphabetty'),
+            ('ladder', WORD_SALAD_GAME_ID, 'censorly', 'alphabetty'),
         )
         meta = SECTION_HUB_META[WORD_SALAD_GAME_ID]
         self.assertEqual(meta['title'], 'Салатики')
@@ -181,7 +181,7 @@ class WordSaladSectionTests(TestCase):
         self.assertEqual(section_last_path(WORD_SALAD_GAME_ID), '/salad/last/')
         self.assertEqual(
             SECTION_HUB_META['ladder']['description'],
-            'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам.',
+            'Разгадайте цепочку слов по перемешанным подсказкам, связывающим соседние слова',
         )
         salad_live = resolve('/salad/live-state/')
         games_live = resolve('/games/salad/live-state/')
@@ -330,7 +330,7 @@ class WordSaladSectionTests(TestCase):
         page = resp.content.decode('utf-8')
         self.assertIn('Города России · 6 слов', page)
         self.assertIn(
-            'Сетка 4×4: найдите все слова, проводя дорожки по соседним буквам.',
+            'Сетка 4×4: найдите все слова на одну тему, проводя дорожки по соседним буквам',
             page,
         )
 
@@ -368,12 +368,14 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('ph-bowl-food', html)
         self.assertIn('/salad/', html)
         self.assertLess(html.find('Салатик'), html.find('Алфавитка'))
-        self.assertIn('new-hub-sections-grid--daily-primary', html)
-        self.assertIn('new-hub-sections-grid--daily-secondary', html)
+        self.assertIn('new-hub-sections-grid--daily', html)
+        self.assertLess(html.find('Лесенки'), html.find('Салатики'))
+        self.assertLess(html.find('Салатики'), html.find('Цензурки'))
+        self.assertLess(html.find('Цензурки'), html.find('Алфавитки'))
         # The first-visit recommendation now lives in the single compact
         # onboarding block above the daily grid, not on the Salad card itself.
         self.assertNotIn('new-hub-section--recommended', html)
         self.assertIn(
-            'Разгадайте цепочку связанных слов по перемешанным подсказкам-связкам.',
+            'Разгадайте цепочку слов по перемешанным подсказкам, связывающим соседние слова',
             html,
         )
