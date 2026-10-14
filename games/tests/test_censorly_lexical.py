@@ -466,6 +466,14 @@ class LexicalResolverTests(SimpleTestCase):
         hits = lemmas_matching_guess(payload, lemma_of('пчелиный'), normalize_surface('пчелиный'))
         self.assertNotIn('пчела', hits)
 
+    def test_article_wife_form_does_not_use_zhenya_reading(self):
+        payload = build_puzzle_payload(
+            wiki_title='Проверка',
+            body_text='Евгений говорил о жене. Он встретил жену.',
+        )
+        hits = lemmas_matching_guess(payload, lemma_of('евгений'), normalize_surface('евгений'))
+        self.assertNotIn('жена', hits)
+
     def test_non_russian_cyrillic_falls_back(self):
         for token in ('мова', 'сонце', 'що', 'геть', 'місто', 'від'):
             self.assertEqual(backend_name(token, article_language='ru'), 'generic', token)

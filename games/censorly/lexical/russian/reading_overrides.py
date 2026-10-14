@@ -57,6 +57,10 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     ('западу', 'запад'): frozenset({'запад'}),
     ('правило', 'правило'): frozenset({'правило'}),
     ('моря', 'море'): frozenset({'море'}),
+    # In article context «жене» is selected by the tokenizer as the dative
+    # of «жена».  Pymorphy also exposes the dative of the name «Женя»;
+    # retaining that alternative lets «Евгений» open the whole «жена» lemma.
+    ('жене', 'жена'): frozenset({'жена'}),
     # Keep the noun occurrence «дорога» from inheriting the short-adjective
     # reading «дорога»/«дорогой» when article tokenization selected the noun.
     ('дорога', 'дорога'): frozenset({'дорога'}),
