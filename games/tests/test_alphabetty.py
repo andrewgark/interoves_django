@@ -643,7 +643,7 @@ class AlphabettyPlayApiTests(TestCase):
             response = self.client.get('/alphabetty/')
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Создать свою алфавитку')
+        self.assertContains(response, 'Создать свою Алфавитку')
         self.assertContains(response, 'href="/create_alphabetty/"')
         self.assertEqual(publish_at.call_count, 1)
 
@@ -678,14 +678,14 @@ class AlphabettyPlayApiTests(TestCase):
         response = self.client.get('/create_alphabetty/')
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Создать свою алфавитку')
+        self.assertContains(response, 'Создать свою Алфавитку')
         self.assertContains(response, 'предлагать сделать одной из ежедневных')
         self.assertContains(response, 'Предложить опубликовать')
         self.assertNotContains(response, 'отправлять Андрею')
         self.assertNotContains(response, 'Отправить Андрею')
         self.assertEqual(response.context['offers_json'], [])
         self.assertContains(response, 'alphabetty-offers-bootstrap')
-        self.assertContains(response, 'Добавить алфавитку')
+        self.assertContains(response, 'Добавить Алфавитку')
         self.assertContains(response, 'offer_draft_autosave.js')
         self.assertContains(response, 'Автосохранение включено')
         self.assertNotContains(response, 'Номер раунда')
