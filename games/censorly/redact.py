@@ -134,12 +134,16 @@ def build_public_view(
     }
 
 
-def lemmas_matching_guess(payload: dict[str, Any], guess_lemma: str, guess_norm: str) -> set[str]:
+def lemmas_matching_guess(
+    payload: dict[str, Any], guess_lemma: str, guess_norm: str, *, cache_key=None,
+) -> set[str]:
     """Return lemmas in the puzzle that match the guess (lemma or surface)."""
     from games.censorly.flags import lexical_resolver_enabled
     if lexical_resolver_enabled():
         from games.censorly.lexical.match import matching_lemmas
-        return matching_lemmas(all_tokens(payload), guess_norm or guess_lemma)
+        return matching_lemmas(
+            all_tokens(payload), guess_norm or guess_lemma, cache_key=cache_key,
+        )
     hits: set[str] = set()
     if not guess_lemma and not guess_norm:
         return hits
@@ -219,13 +223,17 @@ def newly_revealed_ids(payload: dict[str, Any], lemma: str) -> list[int]:
     ]
 
 
-def token_ids_for_guess(payload: dict[str, Any], guess_lemma: str, guess_norm: str) -> list[int]:
+def token_ids_for_guess(
+    payload: dict[str, Any], guess_lemma: str, guess_norm: str, *, cache_key=None,
+) -> list[int]:
     """Content tokens this guess opens, in reading order.
 
     One guess can open several stored lemmas. History clicks walk this list,
     not only the primary lemma of the typed word.
     """
-    matched = lemmas_matching_guess(payload, guess_lemma, guess_norm)
+    matched = lemmas_matching_guess(
+        payload, guess_lemma, guess_norm, cache_key=cache_key,
+    )
     if not matched:
         return []
     return [

@@ -27,6 +27,8 @@ from games.censorly.lexical.semantics import (
 )
 
 _REJECT_CAP = 200
+
+
 def _group_ids_by_word(groups):
     members = defaultdict(list)
     for group_id, group in enumerate(groups):
@@ -213,6 +215,7 @@ def _unique_surfaces(rows: tuple[tuple[str, str], ...]) -> tuple[str, ...]:
 
 def _build_article_analysis(
     tokens, *, include_pronouns: bool, cache_index: bool = True,
+    include_report: bool = True,
 ) -> dict:
     rows = tuple(
         ((tok.get('surface') or ''), (tok.get('lemma') or ''))
@@ -220,6 +223,11 @@ def _build_article_analysis(
         if tok.get('kind') == 'content'
     )
     surfaces = _unique_surfaces(rows)
+    counts_by_surface = None
+    if include_report:
+        counts_by_surface = defaultdict(list)
+        for order, ((surface, lemma), occurrences) in enumerate(Counter(rows).items()):
+            counts_by_surface[surface].append((order, lemma, occurrences))
     index = None
     if rows:
         index = (
@@ -229,12 +237,25 @@ def _build_article_analysis(
         )
     return {
         'rows': rows,
-        'counts': Counter(rows),
+        'counts_by_surface': counts_by_surface,
         'lemmas_by_surface': _lemmas_by_surface(rows),
         'index': index,
         'surface_count': len(surfaces),
         'token_count': len(rows),
     }
+
+
+def _ensure_report_counts(analysis: dict) -> dict[str, list[tuple[int, str, int]]]:
+    with _article_analysis_cache_lock:
+        counts_by_surface = analysis.get('counts_by_surface')
+        if counts_by_surface is None:
+            counts_by_surface = defaultdict(list)
+            for order, ((surface, lemma), occurrences) in enumerate(
+                Counter(analysis['rows']).items()
+            ):
+                counts_by_surface[surface].append((order, lemma, occurrences))
+            analysis['counts_by_surface'] = counts_by_surface
+        return counts_by_surface
 
 
 def _lemmas_by_surface(rows: tuple[tuple[str, str], ...]) -> dict[str, set[str]]:
@@ -268,6 +289,7 @@ def _cached_article_analysis(cache_key, tokens, *, include_pronouns: bool) -> di
         # with requests already waiting for this same cold key.
         built = _build_article_analysis(
             tokens, include_pronouns=include_pronouns, cache_index=False,
+            include_report=False,
         )
         if (
             built['surface_count'] <= _ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_SURFACES
@@ -296,17 +318,24 @@ def _cached_article_analysis(cache_key, tokens, *, include_pronouns: bool) -> di
         raise
 
 
-def matching_lemmas(tokens, guess: str) -> set[str]:
+def matching_lemmas(tokens, guess: str, *, cache_key=None) -> set[str]:
     """Stored lemmas of content tokens the guess opens."""
-    return analyze_guess(tokens, guess)[0]
+    return analyze_guess(
+        tokens, guess, cache_key=cache_key, include_report=False,
+    )[0]
 
 
-def analyze_guess(tokens, guess: str, *, cache_key=None) -> tuple[set[str], dict]:
+def analyze_guess(
+    tokens, guess: str, *, cache_key=None, include_report: bool = True,
+) -> tuple[set[str], dict]:
     """Resolve hits and the lexical review report from one candidate pass."""
     from games.censorly.flags import open_pronouns_enabled
     include_pronouns = open_pronouns_enabled()
     if cache_key is None:
-        analysis = _build_article_analysis(tokens, include_pronouns=include_pronouns)
+        analysis = _build_article_analysis(
+            tokens, include_pronouns=include_pronouns,
+            include_report=include_report,
+        )
     else:
         analysis = _cached_article_analysis(
             cache_key, tokens, include_pronouns=include_pronouns,
@@ -319,6 +348,19 @@ def analyze_guess(tokens, guess: str, *, cache_key=None) -> tuple[set[str], dict
     lemmas_by_surface = analysis['lemmas_by_surface']
     index = analysis['index']
     candidate_surfaces = index.candidates(guess_pack)
+    if not include_report:
+        hits = set()
+        for surface in candidate_surfaces:
+            pack = index.by_surface[surface]
+            if _relation(guess_pack, pack):
+                hits.update(
+                    lemma or pack.fold or guess_pack.fold
+                    for lemma in lemmas_by_surface[surface]
+                )
+        return hits, empty
+
+    counts_by_surface = _ensure_report_counts(analysis)
+
     opened: dict[tuple, dict] = {}
     rejected: dict[tuple, dict] = {}
     packs_by_surface = {surface: index.by_surface[surface] for surface in candidate_surfaces}
@@ -339,10 +381,14 @@ def analyze_guess(tokens, guess: str, *, cache_key=None) -> tuple[set[str], dict
                 for lemma in lemmas_by_surface[surface]
             )
 
-    # Counter preserves the first-seen order of row pairs. Aggregating equal
-    # occurrences keeps the review report identical while avoiding repeated
-    # lexical comparisons for every occurrence of a surface.
-    for (surface, lemma), occurrences in analysis['counts'].items():
+    # Merge only candidate rows, then restore the previous first-seen report
+    # order. This avoids walking every distinct article row on every guess.
+    report_rows = sorted(
+        (order, surface, lemma, occurrences)
+        for surface in candidate_surfaces
+        for order, lemma, occurrences in counts_by_surface[surface]
+    )
+    for _order, surface, lemma, occurrences in report_rows:
         pack = index.by_surface[surface]
         stored = lemma or pack.fold
         reason = relations_by_surface.get(surface, '')

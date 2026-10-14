@@ -23,7 +23,6 @@ from games.censorly import (
 from games.censorly.normalize import is_guessable_word, lemma_of, normalize_surface
 from games.censorly.redact import (
     build_public_view,
-    count_hits,
     lemmas_matching_guess,
     newly_revealed_ids,
     title_opening_lemmas,
@@ -489,6 +488,7 @@ def public_payload(
     *,
     task: Task | None = None,
 ) -> dict[str, Any]:
+    cache_key = _lexical_cache_key(task)
     revealed = set(state.get('revealed_lemmas') or [])
     won = _state_won(state, payload)
     view = build_public_view(
@@ -505,6 +505,7 @@ def public_payload(
         item = dict(guess)
         item['token_ids'] = token_ids_for_guess(
             payload, item.get('lemma') or '', item.get('word') or '',
+            cache_key=cache_key,
         )
         guesses.append(item)
     hints = hint_count(state)
@@ -532,12 +533,19 @@ def public_payload(
     }
 
 
+def _lexical_cache_key(task: Task | None):
+    if getattr(task, 'pk', None) and getattr(task, 'attempt_revision', None):
+        return (task.pk, str(task.attempt_revision), CENSORLY_SPLITTER_VERSION)
+    return None
+
+
 def _history_index_for_guess(
     state: dict[str, Any],
     payload: dict[str, Any],
     *,
     word: str = '',
     target_lemmas: set[str] | None = None,
+    task: Task | None = None,
 ) -> int | None:
     """Find the history row which originally opened a repeated word."""
     guesses = state.get('guesses') or []
@@ -546,6 +554,7 @@ def _history_index_for_guess(
             return index
     if not target_lemmas:
         return None
+    cache_key = _lexical_cache_key(task)
     target_ids = {
         token_id
         for lemma in target_lemmas
@@ -558,31 +567,32 @@ def _history_index_for_guess(
             continue
         opened_ids = token_ids_for_guess(
             payload, guess.get('lemma') or '', guess.get('word') or '',
+            cache_key=cache_key,
         )
         if target_ids.intersection(opened_ids):
             return index
     return None
 
 
-def _token_ids_for_lemmas(payload: dict[str, Any], lemmas: set[str]) -> list[int]:
-    return sorted({
-        token_id
-        for lemma in lemmas
-        for token_id in newly_revealed_ids(payload, lemma)
-    })
-
-
-def _primary_matching_lemma(
-    payload: dict[str, Any], candidates: set[str], preferred: str,
-) -> str:
-    """Choose a stable primary lemma, preferring the typed lemma then article order."""
-    if preferred in candidates:
-        return preferred
-    return next((
-        tok.get('lemma') or ''
-        for tok in all_tokens(payload)
-        if tok.get('kind') == 'content' and tok.get('lemma') in candidates
-    ), '')
+def _matching_token_ids(
+    payload: dict[str, Any], lemmas: set[str],
+) -> tuple[str, dict[str, list[int]]]:
+    """Return first matching article lemma and token IDs in one token pass."""
+    token_ids = {lemma: [] for lemma in lemmas}
+    first_lemma = ''
+    for tok in chain(
+        payload.get('title_tokens') or (),
+        payload.get('body_tokens') or (),
+    ):
+        if tok.get('kind') != 'content':
+            continue
+        lemma = tok.get('lemma') or ''
+        if lemma not in token_ids:
+            continue
+        if not first_lemma:
+            first_lemma = lemma
+        token_ids[lemma].append(int(tok['id']))
+    return first_lemma, token_ids
 
 
 def get_play_state(
@@ -735,13 +745,7 @@ def apply_guess(
     lexical_report = None
     if lexical_resolver_enabled():
         from games.censorly.lexical.match import analyze_guess
-        cache_key = None
-        if getattr(task, 'pk', None) and getattr(task, 'attempt_revision', None):
-            cache_key = (
-                task.pk,
-                str(task.attempt_revision),
-                CENSORLY_SPLITTER_VERSION,
-            )
+        cache_key = _lexical_cache_key(task)
         tokens = chain(
             payload.get('title_tokens') or (),
             payload.get('body_tokens') or (),
@@ -793,25 +797,29 @@ def _apply_guess_after_analysis(
     newly: list[int] = []
     primary_lemma = ''
     if new_matched:
-        primary_lemma = _primary_matching_lemma(payload, new_matched, guess_lemma)
-        for lem in new_matched:
-            hits += count_hits(payload, lem)
-            newly.extend(newly_revealed_ids(payload, lem))
+        first_lemma, token_ids = _matching_token_ids(payload, new_matched)
+        primary_lemma = guess_lemma if guess_lemma in new_matched else first_lemma
+        for lemma_ids in token_ids.values():
+            hits += len(lemma_ids)
+            newly.extend(lemma_ids)
         # A guess can open several linked lemmas; token IDs follow article
         # reading order, while ``new_matched`` is a set.
         newly.sort()
     elif matched:
         # Already-open lemma (other surface form): do not consume an attempt.
-        primary_lemma = _primary_matching_lemma(payload, matched, guess_lemma)
+        first_lemma, token_ids = _matching_token_ids(payload, matched)
+        primary_lemma = guess_lemma if guess_lemma in matched else first_lemma
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_open'
         out['hits'] = 0
         out['newly_revealed'] = []
         out['guess_word'] = normalized
         out['active_guess_index'] = _history_index_for_guess(
-            state, payload, target_lemmas=matched,
+            state, payload, target_lemmas=matched, task=task,
         )
-        out['active_token_ids'] = _token_ids_for_lemmas(payload, matched)
+        out['active_token_ids'] = sorted({
+            token_id for lemma_ids in token_ids.values() for token_id in lemma_ids
+        })
         out['error'] = 'Уже открыто'
         return out
 
