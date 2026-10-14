@@ -10,7 +10,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from games.models import Game, Team
 from games.models import Attempt, ChainTaskState, CensorlyCategory, CensorlyObjectType, CensorlyPoolEntry, GameTaskGroup, Task
-from games.censorly.pool_admin import pool_rows, taxonomy as censorly_pool_taxonomy, save_pool_entry
+from games.censorly.pool_admin import DIFFICULTIES as CENSORLY_POOL_DIFFICULTIES, pool_rows, taxonomy as censorly_pool_taxonomy, save_pool_entry
 from games.censorly import CENSORLY_TAGS_KEY
 from games.censorly.tokenize import build_puzzle_payload
 from games.censorly.tokenize import title_content_lemmas
@@ -1502,6 +1502,47 @@ def censorly_pool_save(request):
     except IntegrityError:
         return JsonResponse({'ok': False, 'error': 'Статья с таким названием уже есть в пуле'}, status=409)
     return JsonResponse({'ok': True})
+
+
+@support_console_required
+@require_POST
+def censorly_pool_difficulty_save(request):
+    body = _json_object_body(request)
+    updates = body.get('updates') if body is not None else None
+    if not isinstance(updates, list) or not updates or len(updates) > 120:
+        return JsonResponse({'ok': False, 'error': 'Некорректный список изменений'}, status=400)
+
+    rows = pool_rows()
+    normalized = {}
+    for item in updates:
+        if not isinstance(item, dict):
+            return JsonResponse({'ok': False, 'error': 'Некорректное изменение сложности'}, status=400)
+        title = item.get('title')
+        difficulty = item.get('difficulty')
+        if not isinstance(title, str) or title not in rows:
+            return JsonResponse({'ok': False, 'error': 'Статья не найдена в пуле'}, status=404)
+        if difficulty not in CENSORLY_POOL_DIFFICULTIES:
+            return JsonResponse({'ok': False, 'error': 'Некорректная сложность'}, status=400)
+        normalized[title] = difficulty
+
+    try:
+        with transaction.atomic():
+            for title, difficulty in normalized.items():
+                row = rows[title]
+                entry, _ = CensorlyPoolEntry.objects.get_or_create(
+                    title=title,
+                    defaults={
+                        'topics': row['topics'],
+                        'object_types': row['types'],
+                        'difficulty': row['difficulty'],
+                        'enabled': row['enabled'],
+                    },
+                )
+                entry.difficulty = difficulty
+                entry.save(update_fields=('difficulty', 'updated_at'))
+    except IntegrityError:
+        return JsonResponse({'ok': False, 'error': 'Не удалось сохранить сложность'}, status=409)
+    return JsonResponse({'ok': True, 'saved': len(normalized)})
 
 
 @support_console_required

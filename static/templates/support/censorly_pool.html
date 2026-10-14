@@ -6,12 +6,14 @@
 <p class="support-lead">Выберите категорию или подкатегорию. Статьи показаны по сложности; правки тегов и новые статьи сохраняются в базе.</p>
 <p><a class="new-btn new-btn--mini new-btn--ghost" href="{% url 'support:censorly' %}">← К расписанию</a></p>
 {{ taxonomy|json_script:"censorly-pool-taxonomy" }}
-<div id="cz-pool" data-list-url="{% url 'support:censorly_pool_list' %}" data-save-url="{% url 'support:censorly_pool_save' %}" data-taxonomy-save-url="{% url 'support:censorly_pool_taxonomy_save' %}">
+<div id="cz-pool" data-list-url="{% url 'support:censorly_pool_list' %}" data-save-url="{% url 'support:censorly_pool_save' %}" data-difficulty-save-url="{% url 'support:censorly_pool_difficulty_save' %}" data-taxonomy-save-url="{% url 'support:censorly_pool_taxonomy_save' %}">
   <section class="pal-card support-card support-ladders-toolbar"><div class="support-ladders-toolbar__row">
     <label class="support-ladders-field"><span>Категория</span><select id="cz-pool-category"><option value="">Все категории</option>{% for parent, children in taxonomy.categories.items %}<option value="{{ parent }}">{{ parent }}</option>{% endfor %}</select></label>
     <label class="support-ladders-field"><span>Подкатегория</span><select id="cz-pool-subcategory"><option value="">Вся категория</option></select></label>
     <button type="button" class="new-btn new-btn--mini" id="cz-pool-add">＋ Добавить статью</button>
     <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="cz-pool-taxonomy-open">Теги и категории</button>
+    <button type="button" class="new-btn new-btn--mini new-btn--yellow" id="cz-pool-save-pending" hidden>Сохранить</button>
+    <span class="support-hint" id="cz-pool-save-status" aria-live="polite"></span>
     <span class="support-hint" id="cz-pool-status" aria-live="polite"></span>
   </div></section>
   <p class="support-empty" id="cz-pool-prompt">Выберите категорию, чтобы загрузить статьи.</p>

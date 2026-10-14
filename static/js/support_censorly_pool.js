@@ -12,7 +12,11 @@
   var groups = document.getElementById('cz-pool-groups'), modal = document.getElementById('cz-pool-modal'), current = '';
   var more = document.getElementById('cz-pool-more'), prompt = document.getElementById('cz-pool-prompt'), nextOffset = null, loadedCount = 0, busy = false, requestId = 0, controller = null, refreshState = null;
   var status = document.getElementById('cz-pool-status');
+  var difficultyStatus = document.getElementById('cz-pool-save-status');
   var saveButton = document.getElementById('cz-pool-save'), saveBusy = false;
+  var pendingSaveButton = document.getElementById('cz-pool-save-pending');
+  var difficultyQueue = new Map(), difficultyInFlight = new Map();
+  var difficultyTimer = null, difficultySavingPromise = null, difficultySaveError = false;
   var modalOpener = null, taxonomyOpener = null;
   function csrf() { var el = document.querySelector('[name=csrfmiddlewaretoken]'); return el ? el.value : ''; }
   function buildTagPickers() {
@@ -132,8 +136,7 @@
   function esc(v) { return String(v || '').replace(/[&<>"']/g, function (c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
   function articleHtml(row) {
           var encoded = esc(encodeURIComponent(JSON.stringify(row)));
-          var tags = (row.topics || []).concat(row.types || []).join(' · ');
-          return '<article class="censorly-pool-row' + (row.enabled ? '' : ' is-disabled') + '"><div class="censorly-pool-row__main"><strong title="' + esc(row.title) + '">' + esc(row.title) + '</strong><small title="' + esc(tags) + '">' + esc(tags) + '</small></div><div class="censorly-pool-actions"><button type="button" class="censorly-pool-action" data-delta="1" data-row="' + encoded + '" title="Усложнить" aria-label="Усложнить">↑</button><button type="button" class="censorly-pool-action" data-delta="-1" data-row="' + encoded + '" title="Упростить" aria-label="Упростить">↓</button><button type="button" class="censorly-pool-action" data-edit="' + encoded + '" title="Изменить статью и теги" aria-label="Изменить статью и теги">✎</button></div></article>';
+          return '<article class="censorly-pool-row' + (row.enabled ? '' : ' is-disabled') + '" data-article-title="' + esc(row.title) + '"><div class="censorly-pool-row__main"><strong title="' + esc(row.title) + '">' + esc(row.title) + '</strong></div><div class="censorly-pool-actions"><button type="button" class="censorly-pool-action" data-delta="1" data-row="' + encoded + '" title="Усложнить" aria-label="Усложнить">↑</button><button type="button" class="censorly-pool-action" data-delta="-1" data-row="' + encoded + '" title="Упростить" aria-label="Упростить">↓</button><button type="button" class="censorly-pool-action" data-edit="' + encoded + '" title="Изменить статью и теги" aria-label="Изменить статью и теги">✎</button></div></article>';
   }
   function load(reset) {
     if (!category.value) return;
@@ -181,7 +184,108 @@
   });
   sub.addEventListener('change', function () { load(true); });
   more.addEventListener('click', function () { load(false); });
-  function open(row) {
+  function updateDifficultySaveStatus() {
+    var pending = difficultyQueue.size;
+    var saving = difficultyInFlight.size > 0;
+    pendingSaveButton.hidden = !pending && !saving && !difficultySaveError;
+    pendingSaveButton.disabled = saving;
+    pendingSaveButton.textContent = saving ? 'Сохраняем…' : (difficultySaveError ? 'Повторить' : 'Сохранить');
+    if (saving && pending) difficultyStatus.textContent = 'Сохраняем; ещё не сохранено: ' + pending;
+    else if (saving) difficultyStatus.textContent = 'Сохраняем изменения…';
+    else if (difficultySaveError) difficultyStatus.textContent = 'Не удалось сохранить; изменений: ' + pending;
+    else if (pending) difficultyStatus.textContent = 'Несохранённых изменений: ' + pending;
+    else difficultyStatus.textContent = '';
+  }
+  function scheduleDifficultySave() {
+    clearTimeout(difficultyTimer);
+    difficultyTimer = setTimeout(flushDifficultyQueue, 1800);
+  }
+  function flushDifficultyQueue() {
+    clearTimeout(difficultyTimer);
+    difficultyTimer = null;
+    if (difficultySavingPromise) {
+      return difficultySavingPromise.then(function (ok) {
+        return difficultyQueue.size ? flushDifficultyQueue() : ok;
+      });
+    }
+    if (!difficultyQueue.size) return Promise.resolve(!difficultySaveError);
+    var batch = Array.from(difficultyQueue.values());
+    difficultyQueue.clear();
+    batch.forEach(function (item) { difficultyInFlight.set(item.row.title, item); });
+    difficultySaveError = false;
+    updateDifficultySaveStatus();
+    difficultySavingPromise = fetch(root.dataset.difficultySaveUrl, {
+      method:'POST', credentials:'same-origin',
+      headers:{'Content-Type':'application/json','X-CSRFToken':csrf()},
+      body:JSON.stringify({updates:batch.map(function (item) {
+        return {title:item.row.title, difficulty:item.row.difficulty};
+      })})
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        if (!response.ok || !data.ok) throw new Error(data.error || 'Не удалось сохранить сложность');
+        return data;
+      });
+    }).then(function () {
+      batch.forEach(function (item) {
+        var newer = difficultyQueue.get(item.row.title);
+        if (newer && newer.row.difficulty === item.row.difficulty) difficultyQueue.delete(item.row.title);
+        if (!difficultyQueue.has(item.row.title)) item.element.classList.remove('is-pending');
+      });
+      return true;
+    }).catch(function () {
+      batch.forEach(function (item) {
+        var newer = difficultyQueue.get(item.row.title);
+        if (!newer || newer.row.difficulty !== item.row.difficulty) difficultyQueue.set(item.row.title, item);
+      });
+      difficultySaveError = true;
+      return false;
+    }).finally(function () {
+      batch.forEach(function (item) { difficultyInFlight.delete(item.row.title); });
+      difficultySavingPromise = null;
+      updateDifficultySaveStatus();
+      if (difficultyQueue.size && !difficultySaveError) scheduleDifficultySave();
+    });
+    return difficultySavingPromise;
+  }
+  function levelRows(level) {
+    var section = Array.from(groups.querySelectorAll('[data-pool-level]')).find(function (node) { return node.dataset.poolLevel === level; });
+    if (!section) {
+      section = document.createElement('section'); section.className = 'pal-card support-card'; section.dataset.poolLevel = level;
+      var heading = document.createElement('h2'); heading.className = 'pal-title'; heading.textContent = level;
+      var rows = document.createElement('div'); rows.className = 'censorly-pool-level-rows';
+      section.append(heading, rows);
+      groups.append(section);
+    }
+    return section.querySelector('.censorly-pool-level-rows');
+  }
+  function moveArticle(element, row) {
+    element.dataset.articleTitle = row.title;
+    element.classList.toggle('is-disabled', !row.enabled);
+    var encoded = encodeURIComponent(JSON.stringify(row));
+    element.querySelectorAll('[data-row]').forEach(function (button) { button.dataset.row = encoded; });
+    var edit = element.querySelector('[data-edit]');
+    if (edit) edit.dataset.edit = encoded;
+    var target = levelRows(row.difficulty);
+    var title = row.title.toLocaleLowerCase('ru');
+    var before = Array.from(target.children).find(function (candidate) {
+      return (candidate.dataset.articleTitle || '').toLocaleLowerCase('ru').localeCompare(title, 'ru') > 0;
+    });
+    target.insertBefore(element, before || null);
+  }
+  function queueDifficultySave(row, element) {
+    difficultyQueue.set(row.title, {row:row, element:element});
+    element.classList.add('is-pending');
+    difficultySaveError = false;
+    updateDifficultySaveStatus();
+    scheduleDifficultySave();
+  }
+  window.addEventListener('beforeunload', function (event) {
+    if (!difficultyQueue.size && !difficultySavingPromise) return;
+    event.preventDefault();
+    event.returnValue = '';
+  });
+  pendingSaveButton.addEventListener('click', function () { flushDifficultyQueue(); });
+  function showEditor(row) {
     if (saveBusy) return;
     modalOpener = document.activeElement;
     document.getElementById('cz-pool-error').hidden = true;
@@ -193,6 +297,14 @@
     document.getElementById('cz-pool-modal-title').textContent = current ? 'Изменить статью и теги' : 'Добавить статью';
     modal.hidden = false; modal.classList.add('is-open'); document.body.classList.add('new-modal-open');
     document.getElementById('cz-pool-title').focus();
+  }
+  function open(row) {
+    if (saveBusy) return;
+    if (difficultyQueue.size || difficultySavingPromise) {
+      flushDifficultyQueue().then(function (ok) { if (ok) showEditor(row); });
+      return;
+    }
+    showEditor(row);
   }
   function close(force, restoreFocus) {
     if (saveBusy && !force) return;
@@ -232,10 +344,14 @@
   });
   groups.addEventListener('click', function (event) {
     var btn = event.target.closest('[data-edit], [data-delta]'); if (!btn) return;
+    var element = btn.closest('.censorly-pool-row');
     var row = JSON.parse(decodeURIComponent(btn.dataset.edit || btn.dataset.row));
     if (btn.hasAttribute('data-edit')) return open(row);
     var levels = ['легко','средне','сложно','очень сложно'], next = Math.max(0, Math.min(3, levels.indexOf(row.difficulty) + Number(btn.dataset.delta)));
-    save({title:row.title, replacement_title:row.title, topics:row.topics, types:row.types, difficulty:levels[next], enabled:row.enabled});
+    if (levels[next] === row.difficulty) return;
+    row.difficulty = levels[next];
+    moveArticle(element, row);
+    queueDifficultySave(row, element);
   });
   modal.querySelectorAll('[data-pool-close]').forEach(function (el) { el.addEventListener('click', function () { close(); }); });
   saveButton.addEventListener('click', function () {
