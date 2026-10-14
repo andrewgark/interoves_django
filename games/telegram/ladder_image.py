@@ -204,6 +204,8 @@ def screenshot_page_element_png(
     extra_css: str = '',
     wait_for_selector: str | None = None,
     require_selector: str | None = None,
+    capture_text_script: str = '',
+    capture_text_out: list[str] | None = None,
 ) -> bytes:
     """
     Headless Chromium screenshot of a live page crop (same look as the site).
@@ -253,6 +255,8 @@ def screenshot_page_element_png(
                 raise RuntimeError(
                     'Required screenshot selector not found: {}'.format(require_selector)
                 )
+            if capture_text_script and capture_text_out is not None:
+                capture_text_out.append(page.evaluate(capture_text_script))
 
             raw = None
             for selector in selectors:

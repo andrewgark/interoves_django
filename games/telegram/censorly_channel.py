@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html
 import logging
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 
@@ -76,6 +77,45 @@ def _escape(text) -> str:
     return html.escape(str(text), quote=False)
 
 
+def _trim_teaser_intro(text: str, *, max_chars: int = 120) -> str:
+    text = re.sub(r'\s+', ' ', str(text or '')).strip()
+    if not text:
+        return ''
+    sentence_end = re.search(r'[.!?…](?:\s|$)', text)
+    if sentence_end:
+        text = text[:sentence_end.start() + 1]
+    if len(text) > max_chars:
+        text = text[:max_chars - 1].rsplit(' ', 1)[0].rstrip(' ,;:') + '…'
+    return text
+
+
+def teaser_intro_for_task(task: Task) -> str:
+    """Keep the article opening's punctuation and mask every word in it."""
+    from games.censorly.play import puzzle_from_task
+
+    payload = puzzle_from_task(task)
+    if not payload:
+        return ''
+    pieces = []
+    for token in payload.get('body_tokens') or []:
+        kind = token.get('kind')
+        if kind == 'heading_break':
+            pieces.append(' ')
+            continue
+        surface = str(token.get('surface') or '')
+        if kind in ('content', 'stop'):
+            try:
+                length = int(token.get('length') or 0)
+            except (TypeError, ValueError):
+                length = 0
+            pieces.append('█' * max(1, length))
+        elif kind == 'heading':
+            pieces.append(re.sub(r'[^\W_]+', lambda match: '█' * len(match.group(0)), surface))
+        else:
+            pieces.append(surface)
+    return _trim_teaser_intro(''.join(pieces))
+
+
 def resolve_censorly_by_number(
     number: int,
     now: datetime | None = None,
@@ -130,16 +170,26 @@ def resolve_today_censorly(now: datetime | None = None) -> TodayCensorly | None:
     return resolve_censorly_by_number(number, now)
 
 
-def build_caption(censorly: TodayCensorly | int, *, play_url: str | None = None) -> str:
+def build_caption(
+    censorly: TodayCensorly | int,
+    *,
+    play_url: str | None = None,
+    intro: str | None = None,
+) -> str:
     number = censorly.number if isinstance(censorly, TodayCensorly) else int(censorly)
     url = play_url or (
         censorly.play_url if isinstance(censorly, TodayCensorly)
         else admin_url(section_play_path(CENSORLY_GAME_ID, number))
     )
+    if intro is None and isinstance(censorly, TodayCensorly):
+        intro = teaser_intro_for_task(censorly.task)
+    intro = _trim_teaser_intro(intro or '')
+    if not intro:
+        raise ValueError('Не удалось собрать скрытый фрагмент статьи')
     return '\n'.join((
         '🖍️ Цензурка №{}'.format(_escape(number)),
         '',
-        '███████, ███ ██████████',
+        _escape(intro),
         '',
         url,
     ))
@@ -167,8 +217,14 @@ def preview_censorly_to_admin(
         else admin_url(section_play_path(CENSORLY_GAME_ID, target_number))
     )
     try:
-        image_png = render_censorly_teaser_png(number=target_number, url=play_url)
-        caption = build_caption(target_number, play_url=play_url)
+        captured_intro = []
+        image_png = render_censorly_teaser_png(
+            number=target_number, url=play_url, captured_intro=captured_intro,
+        )
+        caption = build_caption(
+            target_number, play_url=play_url,
+            intro=captured_intro[0] if captured_intro else '',
+        )
     except Exception as exc:
         logger.exception('Censorly admin preview render failed')
         return False, 'Ошибка рендера: {}'.format(exc)
