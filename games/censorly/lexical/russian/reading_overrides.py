@@ -18,6 +18,12 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     # pymorphy reading lets washing forms leak the root «мы» into an article
     # token that should belong to the «дом» family.
     ('домой', 'домыть', 'VERB'),
+    # In isolated gameplay «почти» and «зря» are the ordinary adverbs
+    # «almost» and «in vain». Do not let rare verb/gerund analyses reconnect
+    # them to the unrelated honor/seeing families.
+    ('почти', 'почесть', 'VERB'),
+    ('почти', 'почтить', 'VERB'),
+    ('зря', 'зреть', 'GRND'),
 })
 
 # Article-context corrections for valid homographs that the parser otherwise

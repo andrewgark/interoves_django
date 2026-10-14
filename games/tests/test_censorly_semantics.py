@@ -548,6 +548,22 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('мыли', 'домой'))
         self.assertFalse(opens('домой', 'мыли'))
 
+    def test_valid_adverb_verb_homographs_remain_open(self):
+        for adverb, verb in (
+            ('стоя', 'стоить'),
+            ('стоя', 'стоять'),
+            ('сидя', 'сидеть'),
+        ):
+            with self.subTest(adverb=adverb, verb=verb):
+                self.assertTrue(opens(adverb, verb))
+                self.assertTrue(opens(verb, adverb))
+
+    def test_almost_and_in_vain_are_not_honor_or_seeing_roots(self):
+        for left, right in (('почти', 'почтить'), ('зря', 'зреть')):
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+                self.assertFalse(opens(right, left))
+
     def test_invalid_um_as_umeret_reading_does_not_open_mind(self):
         readings = readings_of('ум')
         self.assertEqual(

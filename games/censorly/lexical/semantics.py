@@ -345,10 +345,10 @@ def preferred_readings_of(surface: str) -> tuple:
             item for item in found
             if item.lemma == folded or item.pos == 'NOUN'
         )
-    # A non-noun citation form normally coexists harmlessly with another
-    # grammatical reading (for example the suppletive «лучше»).  If the
-    # alternative is a noun citation of another lemma, however, prefer the
-    # typed adjective/adverb (the «дорогой» side of «дорога»).
+    # A non-noun citation form may have a valid verb-like homograph: gerund
+    # adverbs such as «стоя»/«стоять» are intentionally existentially open.
+    # Only a competing noun citation is suppressed here (the «дорогой» side
+    # of «дорога»); demonstrably bad morphology belongs in REJECTED_READINGS.
     if any(item.pos == 'NOUN' for item in found if item.lemma != folded):
         return citation
     return found

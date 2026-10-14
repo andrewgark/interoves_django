@@ -4460,6 +4460,8 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'запад', 'западный', 'западно', 'западнее', 'западнейший',
         'западник', 'западнический', 'западничество',
     )),
+    ('sense:review_almost', ('почти',)),
+    ('sense:review_in_vain', ('зря',)),
     ('sense:review_attack', ('нападение',)),
     ('sense:review_be_located', ('находиться',)),
     ('sense:review_similar', ('похожий',)),
@@ -6285,6 +6287,10 @@ for _line in _lines(Path(__file__).resolve().parent / 'data' / 'dictionaries' / 
     if _root_groups.get(_norm(_raw_root.strip()), _norm(_raw_root.strip())) != 'ч³|чес²|чет|чит|чт':
         continue
     _lemma = fold(_strip_note(_raw_lemma))
+    if _lemma == 'почти':
+        # «почти» is the adverb «almost», not a member of the honor
+        # derivatives selected by the почт-/почит- prefix heuristic.
+        continue
     if _lemma.startswith(_HONOR_PREFIXES):
         _count_honor_overrides[_lemma] = 'sense:honor'
     elif _lemma.startswith(_COUNT_PREFIXES) and not _lemma.startswith(('вычитк',)):
