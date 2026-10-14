@@ -418,11 +418,12 @@ def analyze_guess(
     if not rows or not (guess or '').strip():
         return set(), empty
     lemmas_by_surface = analysis['lemmas_by_surface']
+    index = analysis['index']
+    guess_fold = fold(guess)
     article_lemmas = {
         lemma
-        for surface, lemmas in lemmas_by_surface.items()
-        if fold(surface) == fold(guess)
-        for lemma in lemmas
+        for surface_id in index.fold.get(guess_fold, ())
+        for lemma in lemmas_by_surface[index.surfaces[surface_id]]
     }
     if len(article_lemmas) == 1:
         guess_pack = _GuessPack(
@@ -432,7 +433,6 @@ def analyze_guess(
         )
     else:
         guess_pack = _guess_pack(guess, include_pronouns=include_pronouns)
-    index = analysis['index']
     candidate_ids = index.candidate_ids(guess_pack)
     if not include_report:
         hits = set()
