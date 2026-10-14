@@ -190,6 +190,11 @@ PAIR_RELATIONS: tuple[tuple[str, str], ...] = (
     ('бразилия', 'бразильянка'),
     ('россия', 'россиянин'),
     ('россия', 'россиянка'),
+    # Bridge the Russian adjective without merging its broad fam:рус² root.
+    # Keep both links explicit because российский belongs to sense:russia,
+    # outside the PAIR_RELATIONS component graph.
+    ('россия', 'русский'),
+    ('российский', 'русский'),
     ('канада', 'канадец'),
     ('канада', 'канадка'),
     ('германия', 'немец'),
