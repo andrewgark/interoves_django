@@ -20,6 +20,7 @@ from games.censorly.lexical.semantics import (
     _proper_pair, _roots, explain, initially_open, readings_of,
 )
 from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, REVIEWED_OPAQUE_ROOTS
+from games.censorly.flags import open_pronouns_enabled
 
 
 def _tikhonov_roots(lemma):
@@ -59,7 +60,7 @@ def _side(surface, pack):
     }
 
 
-def _layer_report(guess, target):
+def _layer_report(guess, target, *, include_pronouns):
     gread = readings_of(guess)
     tread = readings_of(target)
     glex = {(x.para_id, x.lemma) for x in gread}
@@ -73,7 +74,10 @@ def _layer_report(guess, target):
         'IRREGULAR_GRAMMAR': _grammar(gread, tread),
         'ALIAS': _alias(fold(guess), fold(target)),
         'PROPER_PAIR': _proper_pair(fold(guess), fold(target)),
-        'SERVICE_WORD': initially_open(guess) or initially_open(target),
+        'SERVICE_WORD': (
+            initially_open(guess, include_pronouns=include_pronouns)
+            or initially_open(target, include_pronouns=include_pronouns)
+        ),
         'russian_guess': bool(gread),
         'russian_target': bool(tread),
         'guess_roots': sorted(groots),
@@ -109,9 +113,10 @@ def _classification(report, guess, target, actual):
 
 
 def explain_pair(guess, target):
-    gp = _GuessPack(guess)
-    tp = _Pack(target)
-    layers = _layer_report(guess, target)
+    include_pronouns = open_pronouns_enabled()
+    gp = _GuessPack(guess, include_pronouns=include_pronouns)
+    tp = _Pack(target, include_pronouns=include_pronouns)
+    layers = _layer_report(guess, target, include_pronouns=include_pronouns)
     actual = _relation(gp, tp)
     classification, recommendation = _classification(layers, guess, target, actual)
     return {
