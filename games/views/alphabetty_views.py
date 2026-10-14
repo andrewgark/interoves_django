@@ -39,6 +39,7 @@ from games.daily_archive import (
     prepare_daily_archive,
     refresh_daily_archive_context,
 )
+from games.views.daily_hub import can_access_daily_game
 from games.daily.registry import get_daily_game
 from games.daily.page_context import build_daily_lifecycle_context
 from games.daily_section import MOSCOW
@@ -235,10 +236,8 @@ def alphabetty_hub_page(request):
     game = _get_game()
     if not game:
         raise Http404()
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
-    if not game.has_access('see_game_preview', team=team):
+    team = request.user.profile.team_on if has_profile(request.user) else None
+    if not can_access_daily_game(request, game):
         raise Http404()
 
     links = GameTaskGroup.sorted_links(
@@ -305,8 +304,6 @@ def alphabetty_hub_page(request):
         prog = progress.get(n) or {}
         published_at = publish_at_by_number.get(n)
         row_class = prog.get('row_class') or ''
-        if not row_class and today_number is not None and n == today_number:
-            row_class = 'new-task--partial'
         rows.append({
             'number': n,
             'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
@@ -339,8 +336,17 @@ def alphabetty_hub_page(request):
     return render(request, 'new/alphabetty_hub.html', {
         'game': game,
         'rows': rows,
-        'hub': hub,
         'page_title': 'Алфавитка',
+        'random_button_template': 'new/partials/alphabetty_random_button.html',
+        'daily_hub_play_url': hub['alphabetty_play_url'],
+        'daily_hub_cta_label': hub['alphabetty_cta_label'],
+        'daily_hub_is_today': hub['alphabetty_is_today'],
+        'daily_hub_status': hub['alphabetty_status'],
+        'daily_hub_coming_soon_text': 'Новая Алфавитка — каждый день в полночь по Москве.',
+        'rules_title': 'Алфавитка',
+        'rules_storage_key': 'section_rules_seen_alphabetty',
+        'rules_body_template': 'new/_alphabetty_rules_body.html',
+        'empty_text': 'Алфавитки скоро появятся.',
         'create_link': create_game_link_context(ALPHABETTY_GAME_ID),
         'show_sections_nav': True,
         'back_url': '/',
@@ -391,10 +397,7 @@ def alphabetty_today_page(request):
     game = _get_game()
     if not game:
         raise Http404()
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
-    if not game.has_access('see_game_preview', team=team):
+    if not can_access_daily_game(request, game):
         raise Http404()
     hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
     cta_number = hub.get('alphabetty_cta_number')
@@ -408,10 +411,7 @@ def alphabetty_last_page(request):
     game = _get_game()
     if not game:
         raise Http404()
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
-    if not game.has_access('see_game_preview', team=team):
+    if not can_access_daily_game(request, game):
         raise Http404()
     ints = []
     for n in _published_numbers(game):
@@ -610,10 +610,7 @@ def alphabetty_play_page(request, number):
     })
 
 def _preview_denied(request, game):
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
-    if not game.has_access('see_game_preview', team=team):
+    if not can_access_daily_game(request, game):
         return JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
     return None
 

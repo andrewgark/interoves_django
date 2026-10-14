@@ -197,9 +197,10 @@ class PageHeadingPartialTests(SimpleTestCase):
             'game_page.html',
         ):
             text = (TEMPLATES_NEW / rel).read_text(encoding='utf-8')
-            expected = (
-                'new/partials/daily_game_header.html'
-                if rel in ('task_group.html', 'alphabetty_play.html')
-                else 'new/partials/page_heading.html'
-            )
+            expected = {
+                'task_group.html': 'new/partials/daily_game_header.html',
+                'alphabetty_play.html': 'new/partials/daily_game_header.html',
+                'alphabetty_hub.html': 'extends "new/daily_hub.html"',
+                'game_page.html': 'new/partials/page_heading.html',
+            }[rel]
             self.assertIn(expected, text, msg='{} should use the shared page heading'.format(rel))

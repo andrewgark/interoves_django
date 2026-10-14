@@ -74,6 +74,7 @@ from games.section_paths import section_hub_path, section_play_path, section_rep
 from games.support.access import user_has_support_access
 from games.task_titles import task_display_name, task_group_page_title
 from games.views.daily_timing_views import daily_timing_page_context
+from games.views.daily_hub import can_access_daily_game
 from games.views.new_ui import (
     NEW_UI_SECTIONS_PROJECT,
     _archive_nav_target,
@@ -143,27 +144,14 @@ def _may_preview(user) -> bool:
     return user_has_support_access(user)
 
 
-def _censorly_is_public(game) -> bool:
-    """Opt-in public launch via Game.tags['censorly_public']; soft-launch otherwise."""
-    tags = game.tags if isinstance(game.tags, dict) else {}
-    return bool(tags.get('censorly_public'))
-
-
 def _may_open_unpublished(user) -> bool:
-    """Staff or support may preview unpublished numbered slots during soft launch."""
+    """Staff or support may preview numbered slots before their release."""
     return _may_preview(user)
 
 
 def _may_access_censorly(request, game) -> bool:
-    """Soft launch: staff/support only. After censorly_public: normal see_game_preview."""
-    if _may_preview(request.user):
-        return True
-    if not _censorly_is_public(game):
-        return False
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
-    return bool(game.has_access('see_game_preview', team=team))
+    """Use the same public preview permission as other daily games."""
+    return can_access_daily_game(request, game)
 
 
 def _published_numbers(game):
@@ -365,9 +353,9 @@ def censorly_hub_page(request):
         raise Http404()
     team = request.user.profile.team_on if has_profile(request.user) else None
     hub = get_censorly_hub_context(game, published_numbers=_published_numbers(game))
-    # Keep the daily hub/calendar empty during soft-launch.  Unpublished
-    # numbered slots remain available through their direct staff/support URLs;
-    # random games use a separate path below and are unaffected.
+    # The public archive shows released numbered slots only. Staff and support
+    # can still open unreleased numbers through their direct URLs; random games
+    # use a separate path below and are unaffected.
     schedule_links = []
     for link in GameTaskGroup.objects.filter(game=game).select_related('task_group'):
         if link.is_deferred:
@@ -450,6 +438,16 @@ def censorly_hub_page(request):
     random_access = has_club_access(request.user)
     return render(request, 'new/censorly_hub.html', {
         'page_title': 'Цензурки',
+        'random_button_template': 'new/partials/censorly_random_button.html',
+        'daily_hub_play_url': hub['censorly_play_url'],
+        'daily_hub_cta_label': hub['censorly_cta_label'],
+        'daily_hub_is_today': hub['censorly_is_today'],
+        'daily_hub_status': hub['censorly_status'],
+        'daily_hub_coming_soon_text': 'Новая Цензурка — каждый день в полночь по Москве.',
+        'rules_title': 'Цензурка',
+        'rules_storage_key': 'section_rules_seen_censorly',
+        'rules_body_template': 'new/_censorly_rules_body.html',
+        'empty_text': 'Цензурки скоро появятся.',
         'create_link': create_game_link_context(CENSORLY_GAME_ID),
         'game': game,
         'rows': rows,
@@ -461,7 +459,6 @@ def censorly_hub_page(request):
         'section_results_url': section_results_path(CENSORLY_GAME_ID),
         'can_see_results': game.has_access('see_results', team=team),
         **archive_context,
-        **hub,
     })
 
 
