@@ -606,10 +606,10 @@ def alphabetty_play_page(request, number):
             anon_key=anon_key,
             play_mode='personal',
             is_offer=(
-                is_random
-                or offer is not None
+                offer is not None
                 or (
                     offer is None
+                    and not is_random
                     and link is not None
                     and not is_alphabetty_number_published(game, link.number)
                     and not may_open_unpublished_number(request.user)

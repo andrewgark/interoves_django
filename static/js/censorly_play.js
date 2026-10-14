@@ -895,6 +895,11 @@
           };
         }
         data.__http = res.status;
+        if (data.daily_timing && document) {
+          document.dispatchEvent(new CustomEvent('interoves:daily-timing', {
+            detail: data.daily_timing,
+          }));
+        }
         return data;
       });
     });

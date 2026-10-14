@@ -12,7 +12,11 @@ from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 from django.db import OperationalError
 
-from games.daily_section import is_scheduled_game, scheduled_number_is_public
+from games.daily_section import (
+    is_daily_team_timing_game,
+    is_scheduled_game,
+    scheduled_number_is_public,
+)
 from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
@@ -86,7 +90,7 @@ def _resolve_actor(request, game):
         from games.views.new_ui import _get_play_mode
         play_mode, _ = _get_play_mode(request, game.project_id)
         play_mode = effective_play_mode(play_mode, game, user=request.user)
-        if play_mode == 'team':
+        if play_mode == 'team' and is_daily_team_timing_game(game.id):
             if not has_team(request.user):
                 return None, None, None
             return request.user.profile.team_on, None, None
@@ -103,33 +107,73 @@ def _load_daily_target(request, game_id, number, project_id=None):
         game_qs = game_qs.filter(project_id=project_id)
     game = get_object_or_404(game_qs)
     raw_number = str(number or '').strip()
-    if not raw_number or not raw_number.replace('.', '', 1).isdigit():
-        return None, None, None, None, None, _json_error('not_daily', 404)
-    if is_scheduled_game(game.id) and not scheduled_number_is_public(game, raw_number) and not request.user.is_staff:
-        return None, None, None, None, None, _json_error('not_published', 404)
-    from games.club_access import user_can_access_scheduled_number
+    random_link = _random_game_timing_link(game, raw_number)
+    is_numbered = bool(
+        random_link is None
+        and raw_number
+        and raw_number.replace('.', '', 1).isdigit()
+    )
+    if is_numbered:
+        if is_scheduled_game(game.id) and not scheduled_number_is_public(game, raw_number) and not request.user.is_staff:
+            return None, None, None, None, None, _json_error('not_published', 404)
+        from games.club_access import user_can_access_scheduled_number
 
-    if not user_can_access_scheduled_number(request.user, game, raw_number):
-        return None, None, None, None, None, _json_error('club_required', 403)
-    link = GameTaskGroup.objects.filter(
-        game=game, number=raw_number, is_deferred=False,
-    ).select_related('task_group').first()
+        if not user_can_access_scheduled_number(request.user, game, raw_number):
+            return None, None, None, None, None, _json_error('club_required', 403)
+        link = GameTaskGroup.objects.filter(
+            game=game, number=raw_number, is_deferred=False,
+        ).select_related('task_group').first()
+    else:
+        link = random_link
     if link is None:
         return None, None, None, None, None, _json_error('missing', 404)
+    if not is_numbered and game.id == 'censorly':
+        from games.views.censorly_views import _preview_denied
+
+        denied = _preview_denied(request, game)
+        if denied is not None:
+            return None, None, None, None, None, denied
     team, user, anon_key = _resolve_actor(request, game)
     if team is None and user is None and anon_key is None:
         return None, None, None, None, None, _json_error('no_actor', 400)
     if request.user.is_authenticated and user is None and team is None:
         return None, None, None, None, None, _json_error('no_profile_or_team', 403)
-    if team is not None and not game.has_access('play', team=team):
-        return None, None, None, None, None, _json_error('team_access_required', 403)
-    if team is None and not game.has_access(
-        'read_googledoc', team=None, attempt=Attempt(time=timezone.now()),
-    ):
-        return None, None, None, None, None, _json_error('play_access_required', 403)
-    if team is None and not game.is_playable:
-        return None, None, None, None, None, _json_error('not_playable', 404)
+    if is_numbered:
+        if team is not None and not game.has_access('play', team=team):
+            return None, None, None, None, None, _json_error('team_access_required', 403)
+        if team is None and not game.has_access(
+            'read_googledoc', team=None, attempt=Attempt(time=timezone.now()),
+        ):
+            return None, None, None, None, None, _json_error('play_access_required', 403)
+        if team is None and not game.is_playable:
+            return None, None, None, None, None, _json_error('not_playable', 404)
     return game, link.task_group, team, user, anon_key, None
+
+
+def _random_game_timing_link(game, share_hash):
+    """Resolve only permanent random games; proposals and daily shares stay out."""
+    from games.alphabetty_daily import ALPHABETTY_GAME_ID
+    from games.censorly import CENSORLY_GAME_ID
+    from games.models import RandomAlphabettyGame, RandomCensorlyGame
+    from games.placement_share import placement_by_share_hash
+
+    if game.id not in (ALPHABETTY_GAME_ID, CENSORLY_GAME_ID):
+        return None
+    share_hash = str(share_hash or '').strip().lower()
+    link = placement_by_share_hash(game, share_hash)
+    if link is None or link.is_deferred:
+        return None
+    if game.id == ALPHABETTY_GAME_ID:
+        is_random = RandomAlphabettyGame.objects.filter(
+            task_group_id=link.task_group_id,
+            share_hash=share_hash,
+        ).exists()
+    else:
+        is_random = RandomCensorlyGame.objects.filter(
+            task_group_id=link.task_group_id,
+            share_hash=share_hash,
+        ).exists()
+    return link if is_random else None
 
 
 def daily_timing_page_context(
@@ -144,6 +188,7 @@ def daily_timing_page_context(
     is_offer=False,
     replay_slot=None,
     official_completed=False,
+    timing_url=None,
 ):
     enabled = bool(
         game is not None
@@ -158,7 +203,7 @@ def daily_timing_page_context(
     gameplay_context_token = ''
     if enabled:
         from games.tasks.navigation import play_url_for_task_group
-        url = '{}timing/'.format(play_url_for_task_group(game, placement.number))
+        url = timing_url or '{}timing/'.format(play_url_for_task_group(game, placement.number))
         from games.gameplay_context import issue_gameplay_context
         gameplay_context_token = issue_gameplay_context(
             task_group=placement.task_group,
@@ -187,8 +232,12 @@ def daily_timing_page_context(
 
 
 @require_http_methods(['GET', 'POST'])
-def daily_solve_timing(request, game_id, number=None, task_group_number=None, project_id=None):
+def daily_solve_timing(
+    request, game_id, number=None, task_group_number=None, project_id=None,
+    share_hash=None,
+):
     number = number if number is not None else task_group_number
+    number = number if number is not None else share_hash
     if project_id is None:
         root_game = get_object_or_404(Game, id=game_id)
         if root_game.project_id not in ('main', 'sections'):

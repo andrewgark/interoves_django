@@ -716,8 +716,8 @@ def _render_play(request, *, game, task, load_meta):
             anon_key=anon_key,
             play_mode='personal',
             is_offer=(
-                is_random
-                or (
+                not is_random
+                and (
                     link is not None
                     and not is_censorly_number_published(game, link.number)
                     and not _may_open_unpublished(request.user)
@@ -725,6 +725,9 @@ def _render_play(request, *, game, task, load_meta):
             ),
             replay_slot=replay_slot,
             official_completed=official_completed,
+            timing_url=(
+                f'/censorly/r/{play_number}/timing/' if is_random else None
+            ),
         ),
     })
 
