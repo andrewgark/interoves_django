@@ -354,6 +354,13 @@ class _TexTextParser:
             env = self._argument(j)
             if not env:
                 return '', j
+            end = env[1]
+            if name == 'begin' and env[0] == 'array':
+                # The required array column specification (for example {cc}
+                # or {|c|r|}) controls layout and is not part of the formula.
+                column_spec = self._argument(end)
+                if column_spec:
+                    end = column_spec[1]
             wrappers = {
                 'pmatrix': ('(', ')'),
                 'bmatrix': ('[', ']'),
@@ -363,8 +370,8 @@ class _TexTextParser:
                 'cases': ('{', ''),
             }
             if env[0] in wrappers:
-                return wrappers[env[0]][0 if name == 'begin' else 1], env[1]
-            return ('; ' if name == 'end' and env[0] in ('aligned', 'array') else ''), env[1]
+                return wrappers[env[0]][0 if name == 'begin' else 1], end
+            return '', end
         if name == '\\':
             return '; ', j
         if name in ('{', '}'):

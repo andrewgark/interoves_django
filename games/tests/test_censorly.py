@@ -620,6 +620,13 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0]['surface'], expected)
 
+    def test_array_column_specification_is_not_rendered_as_formula_text(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \begin{array}{|c|r|}a&b\\c&d\end{array}}'
+
+        self.assertEqual(clean_wiki_extract(raw), 'a b; c d')
+
     def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
         from games.censorly.wiki import clean_wiki_extract
 
