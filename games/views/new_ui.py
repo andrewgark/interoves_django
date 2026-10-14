@@ -2257,6 +2257,13 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
     placements, task_group_to_tasks, tasks_flat, task_ids, task_group_headers = (
         _load_results_placements_and_tasks(game, task_group_number=task_group_number)
     )
+    scoped_placement = next(
+        (
+            placement for placement in placements
+            if str(placement.number) == str(task_group_number)
+        ),
+        None,
+    ) if mode == 'general' and task_group_number is not None else None
 
     # A rebuilt task-level projection is the read model for a single ordinary
     # release.  Keep the existing canonical path for aggregate pages,
@@ -2264,9 +2271,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
     projected_rows = None
     projection_fallback_durations = {}
     if mode == 'general' and task_group_number is not None:
-        projection_link = GameTaskGroup.objects.filter(
-            game=game, number=str(task_group_number),
-        ).select_related('task_group').first()
+        projection_link = scoped_placement
         if projection_link is not None:
             from games.daily.projection import load_task_result_projection_rows
             projected_rows = load_task_result_projection_rows(
@@ -2349,12 +2354,9 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
     solve_duration_seconds = {}
     solve_duration_fallback = set()
     result_times = {}
-    scoped_group = None
+    scoped_group = scoped_placement
     published_at = None
     if mode == 'general' and task_group_number is not None:
-        scoped_group = GameTaskGroup.objects.filter(
-            game=game, number=str(task_group_number),
-        ).select_related('task_group').first()
         if scoped_group:
             from games.daily_section import publish_at_for
             published_at = publish_at_for(game, scoped_group.number)
@@ -2736,7 +2738,7 @@ def new_section_results_page(request, game_id):
     })
 
 
-def _render_task_group_results_page(request, game, number, back_url):
+def _render_task_group_results_page(request, game, number, back_url, placement=None):
     """Shared renderer for a results table scoped to one task group."""
     team = request.user.profile.team_on if has_profile(request.user) else None
     play_mode, _ = _get_play_mode(request, game.project_id)
@@ -2759,9 +2761,10 @@ def _render_task_group_results_page(request, game, number, back_url):
     data = _set_current_result_header_answers(
         data, me_personal or me_anon_participant or team, game=game,
     )
-    placement = GameTaskGroup.objects.filter(
-        game=game, number=str(number),
-    ).first()
+    if placement is None:
+        placement = GameTaskGroup.objects.filter(
+            game=game, number=str(number),
+        ).select_related('task_group').first()
     results_title = task_group_page_title(game, placement) if placement else '{} №{}'.format(game.name, number)
     data = _paginate_results_rows(request, data, per_page=50)
     if request.GET.get('partial') == '1':
@@ -2866,6 +2869,7 @@ def new_section_task_results_page(request, game_id, number):
 
     return _render_task_group_results_page(
         request, game, number, section_play_path(game.id, number),
+        placement=placement,
     )
 
 
@@ -2887,7 +2891,9 @@ def new_game_task_results_page(request, game_id, number, project_id=None):
     team = _team_for_access(request)
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
-    placement = GameTaskGroup.objects.filter(game=game, number=str(number)).first()
+    placement = GameTaskGroup.objects.filter(
+        game=game, number=str(number),
+    ).select_related('task_group').first()
     if not placement:
         raise Http404()
     if is_scheduled_game(game.id) and placement.is_deferred and not request.user.is_staff:
@@ -2896,6 +2902,7 @@ def new_game_task_results_page(request, game_id, number, project_id=None):
     return _render_task_group_results_page(
         request, game, number,
         '{}/games/{}/{}/'.format(base, game.id, number),
+        placement=placement,
     )
 
 
