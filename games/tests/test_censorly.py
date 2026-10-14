@@ -391,6 +391,38 @@ class CensorlyAccessTests(TestCase):
         self.assertContains(response, '🤔 1 попытка')
         self.assertContains(response, 'data-fully-solved="1"')
 
+    def test_solved_archive_row_stays_open_when_club_archive_is_enabled(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        link = GameTaskGroup.objects.get(task_group=self.task.task_group)
+        RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
+        link.number = '1'
+        link.name = 'Цензурка #1'
+        link.save(update_fields=['number', 'name'])
+        tags = dict(self.game.tags or {})
+        tags['censorly_public'] = True
+        tags['censorly_publish_start'] = (
+            f'{(timezone.localdate() - timedelta(days=1)).isoformat()}T00:00:00+03:00'
+        )
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        ChainTaskState.objects.create(
+            task=self.task, game=self.game, user=self.plain,
+            game_mode='general',
+            state=json.dumps({'guesses': [{'word': 'кот', 'hits': 1}], 'won': True}),
+        )
+        self.client.force_login(self.plain)
+
+        with patch('games.club_access.scheduled_number_requires_club', return_value=True), \
+             patch('games.club_access.user_can_access_scheduled_number', return_value=False):
+            response = self.client.get('/censorly/')
+
+        self.assertEqual(response.status_code, 200)
+        row = next(row for row in response.context['rows'] if row['number'] == 1)
+        self.assertTrue(row['is_fully_solved'])
+        self.assertFalse(row['is_archive_locked'])
+
     def test_hub_hides_unpublished_slots_during_soft_launch(self):
         link = GameTaskGroup.objects.get(task_group=self.task.task_group)
         link.number = '1'

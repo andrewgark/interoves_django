@@ -365,7 +365,6 @@ def censorly_hub_page(request):
         raise Http404()
     team = request.user.profile.team_on if has_profile(request.user) else None
     hub = get_censorly_hub_context(game, published_numbers=_published_numbers(game))
-    random_rows = list(RandomCensorlyGame.objects.order_by('-created_at')[:40])
     # Keep the daily hub/calendar empty during soft-launch.  Unpublished
     # numbered slots remain available through their direct staff/support URLs;
     # random games use a separate path below and are unaffected.
@@ -431,6 +430,7 @@ def censorly_hub_page(request):
             'results_url': f'{section_play_path(CENSORLY_GAME_ID, number)}results/',
             'is_today': number == current_censorly_number(game),
             'is_solved': bool(progress.get(number, {}).get('is_solved')),
+            'is_fully_solved': bool(progress.get(number, {}).get('is_solved')),
             'row_class': progress.get(number, {}).get('row_class', ''),
             'progress_meta': progress.get(number, {}).get('progress_meta', ''),
         })
@@ -455,6 +455,7 @@ def censorly_hub_page(request):
             str(row['number']): row['row_class'].replace('new-task--', '')
             for row in rows if row['row_class']
         },
+        locked_keys={row['number'] for row in rows if row.get('is_archive_locked')},
     )
     random_access = has_club_access(request.user)
     return render(request, 'new/censorly_hub.html', {
@@ -462,7 +463,6 @@ def censorly_hub_page(request):
         'create_link': create_game_link_context(CENSORLY_GAME_ID),
         'game': game,
         'rows': rows,
-        'random_rows': random_rows,
         'random_censorly_has_access': random_access,
         'censorly_taxonomy': censorly_taxonomy() if random_access else {},
         'support_url': '/support/censorly/',
