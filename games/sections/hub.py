@@ -149,7 +149,7 @@ SECTION_HUB_META = {
         'format_credit_name': 'redactle.net',
         'format_credit_text': 'цензурок',
         'create_url_name': 'new_create_censorly',
-        'create_label': 'Создать свою Цензурку',
+        'create_label': 'Создать свою цензурку',
     },
     'replacements': {
         'icon': '🔄',

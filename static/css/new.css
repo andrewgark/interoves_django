@@ -1851,14 +1851,25 @@ body.new-modal-open { overflow: hidden; }
   container-name: new-task;
 }
 
-/* На странице архива Лесенки карточки занимают половину строки. */
+/* На странице архива Лесенки карточки стоят в две колонки. */
+.daily-archive__ladder-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .5rem 1rem;
+}
+
 .new-task--ladder-archive {
-  width: 50%;
+  width: 100%;
+  margin-bottom: 0;
 }
 
 @media (max-width: 600px) {
+  .daily-archive__ladder-grid {
+    grid-template-columns: 1fr;
+  }
+
   .new-task--ladder-archive {
-    width: 100%;
+    margin-bottom: 0;
   }
 }
 
