@@ -661,7 +661,6 @@ def _record_lexical_decision(*, user, game, task, guess, payload, report=None) -
         logging.getLogger(__name__).exception('censorly lexical decision log failed')
 
 
-@transaction.atomic
 def apply_guess(
     *,
     game: Game,
@@ -738,13 +737,30 @@ def apply_guess(
         matched, lexical_report = analyze_guess(all_tokens(payload), normalized)
     else:
         matched = lemmas_matching_guess(payload, guess_lemma, normalized)
+    return _apply_guess_after_analysis(
+        game=game, task=task, payload=payload, actor=actor,
+        normalized=normalized, guess_lemma=guess_lemma, matched=matched,
+        lexical_report=lexical_report, user=user, number=num,
+        share_host=share_host, play_path=play_path,
+        submitted_by_profile_id=submitted_by_profile_id,
+        attempt_created_callback=attempt_created_callback,
+    )
+
+
+@transaction.atomic
+def _apply_guess_after_analysis(
+    *, game, task, payload, actor, normalized, guess_lemma, matched,
+    lexical_report, user, number, share_host, play_path,
+    submitted_by_profile_id, attempt_created_callback,
+):
+    """Lock and persist a guess after its CPU-heavy lexical analysis."""
     row = _lock_state(game=game, task=task, actor=actor)
     state = load_state(row.state)
     if _state_won(state, payload):
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_won'
         return attach_solve_meta(
-            out, game=game, task=task, number=num, actor=actor,
+            out, game=game, task=task, number=number, actor=actor,
             host=share_host, play_path=play_path,
         )
     if normalized in {g.get('word') for g in state.get('guesses') or []}:
@@ -835,7 +851,7 @@ def apply_guess(
     if won:
         out['status'] = 'won'
         return attach_solve_meta(
-            out, game=game, task=task, number=num, actor=actor,
+            out, game=game, task=task, number=number, actor=actor,
             host=share_host, play_path=play_path,
         )
     if hits:
