@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 
 from games.censorly.lexical.core import fold
+from games.censorly.lexical.russian.reading_overrides import is_rejected
 from games.censorly.tokenize import tokenize_text
 
 _PROPER = frozenset({'Name', 'Surn', 'Patr', 'Geox', 'Orgn', 'Trad'})
@@ -544,10 +545,14 @@ def _ungated(folded: str) -> tuple[MorphReading, ...]:
         score = float(parse.score)
         if score < 0.05:
             continue
+        lemma = fold(parse.normal_form)
+        pos = _pos(grams)
+        if is_rejected(folded, lemma, pos):
+            continue
         parsed.append(MorphReading(
-            lemma=fold(parse.normal_form),
+            lemma=lemma,
             para_id=int(para_id),
-            pos=_pos(grams),
+            pos=pos,
             score=score,
             proper=bool(grams & _PROPER),
             case=_one(grams, _CASES),

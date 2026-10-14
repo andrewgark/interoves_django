@@ -18,6 +18,7 @@ from games.censorly.lexical.core import fold
 from games.censorly.lexical.dispatcher import RUSSIAN, backend_name
 from games.censorly.lexical.proper_names import PAIR_RELATIONS
 from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
+from games.censorly.lexical.russian.reading_overrides import is_rejected
 
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL', 'INTJ'})
 # Dictionary homographs that should not be treated as initially open service words.
@@ -276,6 +277,10 @@ def readings_of(surface: str) -> tuple:
             continue
         seen.add(key)
         parsed.append(_Reading(lemma, int(para_id), pos, float(parse.score)))
+    parsed = [
+        item for item in parsed
+        if not is_rejected(folded, item.lemma, item.pos)
+    ]
     return tuple(parsed)
 
 
