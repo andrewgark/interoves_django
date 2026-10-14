@@ -28,6 +28,26 @@ def install(sense, set_readings) -> None:
 
 # (game id, lemmas). Order is not meaningful.
 CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # The root-family review for дв contains 53 dictionary lemmas. Keep the
+    # ordinary numeral and its doubling derivatives together, while the
+    # birth sense (двойня) and lookalike sense (двойник) form separate clusters.
+    ('sense:two', (
+        'вдвое', 'вдвоем', 'вдвойне', 'вздваивание', 'вздваивать',
+        'вздваиваться', 'вздвоить', 'вздвоиться', 'два', 'дважды', 'двое',
+        'двоение', 'двоечка', 'двоечник', 'двоечница', 'двоешка', 'двоиться',
+        'двоица', 'двоичный', 'двойка', 'двойной', 'двойственность',
+        'двойственный', 'двойчатка', 'двоякий', 'задвоиться', 'надвое',
+        'передваивать', 'передвоить', 'раздваивать', 'раздваиваться',
+        'раздвоение', 'раздвоенность', 'раздвоенный', 'раздвоить',
+        'раздвоиться', 'сдваивать', 'сдваиваться', 'сдвоенность',
+        'сдвоенный', 'сдвоить', 'сдвоиться', 'сдвойка', 'удваивать',
+        'удваиваться', 'удвоение', 'удвоенный', 'удвоитель', 'удвоить',
+        'удвоиться',
+    )),
+    ('sense:twin_birth', ('двойня', 'двойняшка', 'двояшка')),
+    ('sense:lookalike', (
+        'двойник', 'двойниковый', 'двойничный', 'двойничок', 'двойница',
+    )),
     # The dictionary also analyzes the one-letter name of Е as a rare
     # present-tense form of быть. In Censorly, the standalone letter is its
     # own lexical sense; do not attach it to the быть family.

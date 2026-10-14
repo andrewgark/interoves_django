@@ -5,6 +5,7 @@ Cognates are not wired into play. These tests call the resolver directly.
 
 from __future__ import annotations
 
+import csv
 import gzip
 import hashlib
 import json
@@ -56,6 +57,7 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             ('держать', 'дёргать'),
             ('дело', 'действие'),
             ('поддержка', 'задержанный'),
+            ('двойня', 'двойник'),
         )
         for left, right in pairs:
             left_roots = set(structures_of(left))
@@ -63,6 +65,36 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             self.assertTrue(left_roots, f'no roots for {left}')
             self.assertTrue(right_roots, f'no roots for {right}')
             self.assertTrue(left_roots.isdisjoint(right_roots), f'{left} / {right}')
+
+    def test_two_family_senses_are_assigned_to_distinct_clusters(self):
+        from games.censorly.lexical.semantic_splits import CLUSTERS
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        clusters = {lemma: name for name, lemmas in CLUSTERS for lemma in lemmas}
+        family_review = (
+            Path(__file__).resolve().parents[1]
+            / 'censorly' / 'lexical' / 'data' / 'root_family_review.tsv'
+        )
+        with family_review.open(encoding='utf-8', newline='') as stream:
+            family = next(
+                row for row in csv.DictReader(stream, delimiter='\t')
+                if row['root_family'] == 'дв'
+            )
+        self.assertTrue(set(family['lemmas'].split(',')) <= clusters.keys())
+        self.assertEqual(clusters['двойня'], 'sense:twin_birth')
+        self.assertEqual(clusters['двойняшка'], 'sense:twin_birth')
+        self.assertEqual(clusters['двойник'], 'sense:lookalike')
+        self.assertEqual(clusters['два'], 'sense:two')
+        self.assertEqual(clusters['двойной'], 'sense:two')
+
+        twins = structures_of('двойня')
+        lookalike = structures_of('двойник')
+        self.assertEqual(twins, (('sense:twin_birth',),))
+        self.assertEqual(lookalike, (('sense:lookalike',),))
+        self.assertFalse(_relation(_GuessPack('двойня'), _Pack('двойник')))
+        self.assertFalse(_relation(_GuessPack('двойник'), _Pack('двойня')))
+        self.assertTrue(_relation(_GuessPack('двойня'), _Pack('двойняшка')))
+        self.assertTrue(_relation(_GuessPack('двойник'), _Pack('двойниковый')))
 
     def test_part_and_frequency_words_stay_separate(self):
         # части is an inflected form of часть; часто is a frequency adverb.
