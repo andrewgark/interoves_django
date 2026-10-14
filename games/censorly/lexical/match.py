@@ -253,8 +253,10 @@ class _ArticleIndex:
                 if len(posting) >= 64:
                     posting_map[key] = array('I', posting)
 
-    def candidate_ids(self, guess: _Pack) -> list[int]:
-        """Return unique surface IDs that can open or be reported as near misses."""
+    def candidate_ids(
+        self, guess: _Pack, *, include_rejections: bool = True,
+    ) -> list[int]:
+        """Return IDs that can open, plus optional near-miss candidates."""
         postings = [self.fold.get(guess.fold, ())]
         if guess.service:
             return self._merge_postings(postings)
@@ -273,10 +275,11 @@ class _ArticleIndex:
             for item in guess.reads:
                 for group in _GRAMMAR_GROUPS_BY_WORD.get(item.lemma, ()):
                     postings.append(self.grammar.get(group, ()))
-            for root_id in guess.root_ids:
-                postings.append(self.root_id.get(root_id, ()))
-            for family in guess.families:
-                postings.append(self.family.get(family, ()))
+            if include_rejections:
+                for root_id in guess.root_ids:
+                    postings.append(self.root_id.get(root_id, ()))
+                for family in guess.families:
+                    postings.append(self.family.get(family, ()))
         return self._merge_postings(postings)
 
     def _merge_postings(self, postings) -> list[int]:
@@ -485,7 +488,9 @@ def analyze_guess(
         )
     else:
         guess_pack = _guess_pack(guess, include_pronouns=include_pronouns)
-    candidate_ids = index.candidate_ids(guess_pack)
+    candidate_ids = index.candidate_ids(
+        guess_pack, include_rejections=include_report,
+    )
     if not include_report:
         hits = set()
         for surface_id in candidate_ids:
