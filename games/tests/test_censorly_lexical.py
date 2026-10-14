@@ -96,6 +96,21 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertTrue(_relation(_GuessPack('двойня'), _Pack('двойняшка')))
         self.assertTrue(_relation(_GuessPack('двойник'), _Pack('двойниковый')))
 
+    def test_binding_and_contact_senses_are_separate(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        self.assertEqual(structures_of('привязать'), (('sense:binding',),))
+        self.assertEqual(structures_of('связываться'), (('sense:contact',),))
+        self.assertFalse(_relation(
+            _GuessPack('связывалась'), _Pack('привязаны', article_lemma='привязать'),
+        ))
+        self.assertFalse(_relation(
+            _GuessPack('привязаны'), _Pack('связывалась', article_lemma='связываться'),
+        ))
+        self.assertTrue(_relation(_GuessPack('вязать'), _Pack('привязать')))
+        self.assertTrue(_relation(_GuessPack('связываться'), _Pack('связаться')))
+        self.assertTrue(_relation(_GuessPack('вязать'), _Pack('связь')))
+
     def test_part_and_frequency_words_stay_separate(self):
         # части is an inflected form of часть; часто is a frequency adverb.
         self.assertFalse(opens_with('части', 'часто'))
