@@ -896,7 +896,10 @@ def censorly_word_report(request, task_id):
     return JsonResponse({'ok': True, 'report_id': report.pk})
 
 
-def _finish_completion(request, *, game, task, user, anon_key, result, replay_slot=None):
+def _finish_completion(
+    request, *, game, task, user, anon_key, result, replay_slot=None,
+    timing_expected=True,
+):
     analytics_events = []
     if replay_slot is None and result.get('status') in ('hit', 'miss', 'already_open', 'won', 'hint'):
         analytics_events.extend(register_started_game(
@@ -933,6 +936,7 @@ def _finish_completion(request, *, game, task, user, anon_key, result, replay_sl
             result=PlayerCompletedGame.RESULT_SOLVED,
             mode=game.get_current_mode(Attempt(time=timezone.now())),
             source='censorly',
+            timing_expected=timing_expected,
         )
         if completion is not None:
             if completion.get('timing'):
@@ -1044,6 +1048,7 @@ def censorly_guess(request, number=None, share_hash=None):
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
+        timing_expected=not load_meta.get('is_random'),
     )
     # The compact meta bar does not change for ordinary hit/miss guesses.
     # Rendering it performs several unrelated DB reads, so refresh it only
@@ -1118,6 +1123,7 @@ def censorly_hint(request, number=None, share_hash=None):
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
+        timing_expected=not load_meta.get('is_random'),
     )
     result = _with_meta_bar(
         result,

@@ -249,6 +249,7 @@ def complete_logical_game(
     result=PlayerCompletedGame.RESULT_SOLVED,
     mode='general',
     source='task_completion',
+    timing_expected=True,
     now=None,
 ):
     """Finalize completion, retrying the whole transaction on MySQL locks.
@@ -274,7 +275,7 @@ def complete_logical_game(
                 source=source,
                 now=now,
             )
-            if result_data and replay_slot is None:
+            if result_data and replay_slot is None and timing_expected:
                 timing_data = result_data.get('timing') or {}
                 if not timing_data.get('exists') or int(
                     timing_data.get('frozen_ms', timing_data.get('accumulated_ms', 0)) or 0
