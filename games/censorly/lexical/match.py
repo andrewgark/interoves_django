@@ -6,6 +6,7 @@ and then reused. Comparison is the same existential check as ``explain``.
 
 from __future__ import annotations
 
+from array import array
 from collections import Counter, OrderedDict, defaultdict
 from concurrent.futures import Future
 from functools import lru_cache
@@ -241,6 +242,16 @@ class _ArticleIndex:
                     self.root_id[root_id].append(surface_id)
             for family in pack.families:
                 self.family[family].append(surface_id)
+        # Python lists are convenient while building postings, but their
+        # pointer storage dominates for high-frequency keys. Keep small
+        # postings as lists and pack only the long ones into 32-bit IDs.
+        for posting_map in (
+            self.fold, self.alias, self.proper, self.lexeme,
+            self.root, self.grammar, self.root_id, self.family,
+        ):
+            for key, posting in posting_map.items():
+                if len(posting) >= 64:
+                    posting_map[key] = array('I', posting)
 
     def candidate_ids(self, guess: _Pack) -> list[int]:
         """Return unique surface IDs that can open or be reported as near misses."""
