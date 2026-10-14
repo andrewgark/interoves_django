@@ -361,7 +361,9 @@ def notify_admin_club_subscription(
             title = '🔄 <b>Продление клубной подписки</b>'
         elif event_name in ('new_subscription', 'payment.succeeded'):
             title = '🟢 <b>Новая клубная подписка</b>'
-        elif event_name in ('cancelled_subscription', 'subscription_cancelled'):
+        elif event_name == 'subscription_cancelled':
+            title = '🟡 <b>Автопродление отключено</b>'
+        elif event_name == 'cancelled_subscription':
             title = '🔴 <b>Отмена клубной подписки</b>'
         else:
             title = '🔄 <b>Продление клубной подписки</b>'
@@ -378,10 +380,12 @@ def notify_admin_club_subscription(
                 _escape(subscription.currency),
             ),
         ]
-        if payment_kind:
+        if payment_kind and event_name != 'subscription_cancelled':
             lines.append('Тип платежа: {}'.format(_escape(payment_kind)))
         if subscription.paid_until:
             lines.append('Доступ до: {}'.format(subscription.paid_until.strftime('%d.%m.%Y %H:%M UTC')))
+        if event_name == 'subscription_cancelled':
+            lines.append('Новых списаний не будет.')
         invite_url = club_invite_url()
         if invite_url and event_name in ('new_subscription', 'payment.succeeded'):
             lines.extend([
