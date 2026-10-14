@@ -213,7 +213,6 @@ class _ArticleIndex:
             )
             for surface in surfaces
         )
-        self.by_surface = dict(zip(surfaces, self.packs))
         # Postings store compact integer surface IDs instead of repeating
         # references to strings in many Python sets.
         self.fold = defaultdict(list)
