@@ -506,15 +506,15 @@ def _projection_page_cells(game, group_ids, page_rows):
 
 
 def _alphabetty_projection_attempts_complete(game, group_ids):
-    """Return whether projected Alphabetty rows contain attempt totals.
+    """Return whether projected Alphabetty/Censorly rows contain attempt totals.
 
-    ``attempts_count`` was added after the first projection build.  Existing
+    ``attempts_count`` was added after the first projection build. Existing
     rows can therefore be marked usable for scores while still carrying the
-    field default of zero.  Alphabetty always has at least one real attempt
-    for a projected actor, so those rows must use the canonical fallback until
-    the background rebuild has populated the field.
+    field default of zero. Alphabetty and Censorly always have at least one
+    real attempt for a projected actor, so those rows must use the canonical
+    fallback until the background rebuild has populated the field.
     """
-    if getattr(game, 'id', None) != 'alphabetty' or not group_ids:
+    if getattr(game, 'id', None) not in ('alphabetty', 'censorly') or not group_ids:
         return True
     from games.models import DailyResultProjection
 
@@ -713,7 +713,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
 
     # Aggregate standings use the same sporting tuple as a single release:
     # points first, then total active solving time.
-    aggregate_sort = request.GET.get('sort') if game.id == 'alphabetty' else 'time'
+    aggregate_sort = request.GET.get('sort') if game.id in ('alphabetty', 'censorly') else 'time'
     if aggregate_sort not in ('attempts', 'time'):
         aggregate_sort = 'attempts'
 
@@ -780,7 +780,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
         'teams_sorted': [row['actor'] for row in rows],
         'aggregate_actor_types': actor_types,
         'aggregate_sort': aggregate_sort,
-        'aggregate_show_attempts': game.id == 'alphabetty',
+        'aggregate_show_attempts': game.id in ('alphabetty', 'censorly'),
         'aggregate_period': 'month' if month_context is not None else 'window',
     }
     if month_context is not None:
@@ -815,7 +815,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     except (TypeError, ValueError):
         requested_page = 1
     actor_types = aggregate_actor_filter_types(request)
-    aggregate_sort = request.GET.get('sort') if game.id == 'alphabetty' else 'time'
+    aggregate_sort = request.GET.get('sort') if game.id in ('alphabetty', 'censorly') else 'time'
     if aggregate_sort not in ('attempts', 'time'):
         aggregate_sort = 'attempts'
     page_values, total_count, current_page = _projection_rank_page(
@@ -900,7 +900,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         'teams_sorted': [row['actor'] for row in rows],
         'aggregate_actor_types': actor_types,
         'aggregate_sort': aggregate_sort,
-        'aggregate_show_attempts': game.id == 'alphabetty',
+        'aggregate_show_attempts': game.id in ('alphabetty', 'censorly'),
     }
     if month_context is not None:
         _, selected_month, previous_month, next_month, _ = month_context

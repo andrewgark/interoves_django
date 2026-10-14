@@ -75,7 +75,7 @@
       </tr></thead>
       <tbody>
         {% include "new/partials/aggregate_results_rows.html" %}
-        {% if not aggregate_rows %}<tr><td colspan="{{ aggregate_columns|length|add:4 }}">Пока нет результатов.</td></tr>{% endif %}
+        {% if not aggregate_rows %}<tr><td colspan="{% if aggregate_show_attempts %}{{ aggregate_columns|length|add:5 }}{% else %}{{ aggregate_columns|length|add:4 }}{% endif %}">Пока нет результатов.</td></tr>{% endif %}
       </tbody>
     </table>
 
