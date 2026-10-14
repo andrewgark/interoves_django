@@ -627,6 +627,24 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'a b; c d')
 
+    def test_set_relation_formulas_are_marked_as_single_tokens(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        formulas = (
+            (r'{\displaystyle x \in A}', 'x ∈ A'),
+            (r'{\displaystyle x \notin A}', 'x ∉ A'),
+            (r'{\displaystyle A \subseteq B}', 'A ⊆ B'),
+            (r'{\displaystyle A \cup B}', 'A ∪ B'),
+        )
+        for raw, expected in formulas:
+            with self.subTest(expected=expected):
+                cleaned = clean_wiki_extract(raw, mark_formulas=True)
+                self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+                tokens = tokenize_text(cleaned)
+                self.assertEqual(len(tokens), 1)
+                self.assertEqual(tokens[0]['surface'], expected)
+
     def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
         from games.censorly.wiki import clean_wiki_extract
 
@@ -1664,6 +1682,23 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         random_results = self.client.get(f'/censorly/{share_hash}/results/')
         self.assertEqual(random_results.status_code, 200)
+
+    def test_results_page_renders_through_compat_sql_aggregate_module(self):
+        from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
+
+        link = GameTaskGroup.objects.get(task_group=self.task.task_group)
+        RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
+        link.number = '1'
+        link.name = 'Цензурка #1'
+        link.save(update_fields=['number', 'name'])
+        self.client.force_login(self.staff)
+        with patch(
+            'games.results_sql_aggregate.get_sql_aggregated_game_actor_rows',
+            wraps=get_sql_aggregated_game_actor_rows,
+        ) as aggregate:
+            response = self.client.get('/censorly/1/results/')
+        self.assertEqual(response.status_code, 200)
+        aggregate.assert_called()
 
     def test_plain_cannot_open_unpublished(self):
         self.client.force_login(self.plain)
