@@ -607,6 +607,19 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0]['surface'], expected)
 
+    def test_piecewise_formula_with_strict_inequality_is_one_token(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \begin{cases}0&x<0,\\1&x>0.\end{cases}}'
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+        expected = '{0 x<0; 1 x>0.'
+
+        self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(tokens[0]['surface'], expected)
+
     def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
         from games.censorly.wiki import clean_wiki_extract
 

@@ -523,7 +523,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
             rendered = _TexTextParser(formula).parse()
             is_display_math = bool(re.match(r'\\(?:displaystyle|textstyle)\b', formula.strip()))
             has_operator = bool(
-                re.search(r'[=+−×·⋅*/^∫∑√≤≥≠≈]', rendered)
+                re.search(r'[=+−×·⋅*/^∫∑√<>≤≥≠≈]', rendered)
                 or re.search(r'\\begin\{(?:p|b|B|v|V)?matrix\}', formula)
                 or r'\begin{cases}' in formula
             )
