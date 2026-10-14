@@ -540,6 +540,14 @@ FALSE_CASES = (
 
 
 class SemanticsTests(SimpleTestCase):
+    def test_domoy_does_not_use_spurious_domyit_reading(self):
+        self.assertEqual(
+            {(item.lemma, item.pos) for item in readings_of('домой')},
+            {('домой', 'ADVB')},
+        )
+        self.assertFalse(opens('мыли', 'домой'))
+        self.assertFalse(opens('домой', 'мыли'))
+
     def test_invalid_um_as_umeret_reading_does_not_open_mind(self):
         readings = readings_of('ум')
         self.assertEqual(
