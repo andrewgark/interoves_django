@@ -804,8 +804,11 @@
     }
     var openedWords = root.querySelector('#censorly-opened-words');
     if (openedWords) {
-      openedWords.textContent = 'Открыто слов: ' + (Number(state.opened_words_count) || 0) +
-        ' / ' + (Number(state.total_words_count) || 0);
+      var openedCount = Number(state.opened_words_count) || 0;
+      var totalCount = Number(state.total_words_count) || 0;
+      var openedPercent = totalCount > 0 ? Math.round(openedCount * 100 / totalCount) : 0;
+      openedWords.textContent = 'Открыто слов: ' + openedPercent + '% (' + openedCount +
+        ' / ' + totalCount + ')';
     }
     renderTokens(body, state.body_tokens || [], lenForced);
     updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'));
