@@ -10,7 +10,7 @@ from games.telegram.mtproto import telegram_user_configured
 
 class Command(BaseCommand):
     help = (
-        'Schedule today\'s Censorly for 02:00 MSK. Default action=tick prepares '
+        'Schedule today\'s Censorly for 18:30 MSK. Default action=tick prepares '
         'it at 00:15 MSK.'
     )
 

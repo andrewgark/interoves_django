@@ -46,8 +46,8 @@ logger = logging.getLogger('application')
 
 PREPARE_HOUR = 0
 PREPARE_MINUTE = 15
-PUBLISH_HOUR = 2
-PUBLISH_MINUTE = 0
+PUBLISH_HOUR = 18
+PUBLISH_MINUTE = 30
 WINDOW_MINUTES = 5
 
 
@@ -66,7 +66,7 @@ def moscow_now(now: datetime | None = None) -> datetime:
 
 
 def publish_at_for_date(censorly_date: date) -> datetime:
-    """02:00 MSK, two hours after the daily puzzle opens at midnight."""
+    """18:30 MSK, two hours after the ladder's 16:30 MSK social post."""
     return datetime.combine(
         censorly_date, time(PUBLISH_HOUR, PUBLISH_MINUTE), tzinfo=MOSCOW,
     )
@@ -213,7 +213,7 @@ def schedule_censorly_channel_post(
     *, now: datetime | None = None, force: bool = False,
     immediate: bool = False, notify_admin: bool = True,
 ) -> SocialQueuePost | None:
-    """Render today's opening article, schedule Telegram for 02:00 MSK."""
+    """Render today's opening article, schedule Telegram for 18:30 MSK."""
     if not censorly_channel_ready():
         logger.debug('Censorly channel schedule skipped: Telegram channel is not configured')
         return None
@@ -296,7 +296,7 @@ def schedule_censorly_channel_post(
         schedule_at = None if immediate else publish_at_for_date(censorly.censorly_date)
         if schedule_at is not None and schedule_at <= moscow_now(now) + timedelta(seconds=10):
             error = (
-                '02:00 MSK already passed for {}; refusing immediate send. '
+                '18:30 MSK already passed for {}; refusing immediate send. '
                 'Use --now only for an intentional immediate post.'.format(censorly.censorly_date)
             )
             complete_telegram_publish(
@@ -331,7 +331,7 @@ def schedule_censorly_channel_post(
     if completed_by_caller and notify_admin and telegram_admin_configured() and post.telegram_ok:
         when = (
             'сразу' if post.telegram_status == SocialQueuePost.STATUS_SENT
-            else 'в отложенные на 02:00 МСК'
+            else 'в отложенные на 18:30 МСК'
         )
         caption_preview = 'Канал @interoves: Цензурка №{} — {}\n\n{}'.format(
             post.ladder_number, when, caption,
@@ -366,7 +366,7 @@ def _in_window(msk: datetime) -> bool:
 
 
 def process_censorly_channel_tick(now: datetime | None = None) -> dict[str, int]:
-    """Minute tick: prepare today's post at 00:15 for Telegram delivery at 02:00."""
+    """Minute tick: prepare at 00:15 for delivery two hours after the ladder teaser."""
     msk = moscow_now(now)
     stats = {'scheduled': 0, 'skipped': 1}
     if not _in_window(msk):
