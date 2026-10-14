@@ -1051,7 +1051,6 @@ def censorly_guess(request, number=None, share_hash=None):
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
-        timing_expected=not load_meta.get('is_random'),
     )
     # The compact meta bar does not change for ordinary hit/miss guesses.
     # Rendering it performs several unrelated DB reads, so refresh it only
@@ -1126,7 +1125,6 @@ def censorly_hint(request, number=None, share_hash=None):
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
-        timing_expected=not load_meta.get('is_random'),
     )
     result = _with_meta_bar(
         result,

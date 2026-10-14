@@ -101,6 +101,7 @@ def _complete_logical_game_once(
     result=PlayerCompletedGame.RESULT_SOLVED,
     mode='general',
     source='task_completion',
+    timing_expected=True,
     now=None,
 ):
     """Atomically finalize one already-persisted logical game completion.
@@ -177,6 +178,7 @@ def _complete_logical_game_once(
                     replay_slot=None,
                     now=now,
                     timing_phases=timing_phases,
+                    create_unknown_if_missing=timing_expected,
                 )
                 if timing is None:
                     timing = _completed_without_timing_row_snapshot()
@@ -273,13 +275,13 @@ def complete_logical_game(
                 result=result,
                 mode=mode,
                 source=source,
+                timing_expected=timing_expected,
                 now=now,
             )
             if result_data and replay_slot is None and timing_expected:
                 timing_data = result_data.get('timing') or {}
-                if not timing_data.get('exists') or int(
-                    timing_data.get('frozen_ms', timing_data.get('accumulated_ms', 0)) or 0
-                ) == 0:
+                frozen_ms = timing_data.get('frozen_ms')
+                if timing_data.get('exists') and frozen_ms is not None and int(frozen_ms) == 0:
                     from games.telegram.notify import notify_admin_zero_duration_completion
 
                     notify_admin_zero_duration_completion(

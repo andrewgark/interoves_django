@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from io import StringIO
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
@@ -14,7 +15,7 @@ from games.analytics import (
     register_completed_game,
 )
 from games.completion_coordinator import complete_logical_game
-from games.daily_timing import STATUS_COMPLETED
+from games.daily_timing import ACTION_START, STATUS_COMPLETED, apply_timing_event
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -190,24 +191,58 @@ class CompletionInvariantTests(TestCase):
         timing.refresh_from_db()
         self.assertEqual(timing.status, STATUS_COMPLETED)
 
-    def test_coordinator_returns_completed_snapshot_without_timing_row(self):
+    def test_completion_without_started_timer_records_unknown_duration_and_blocks_late_start(self):
+        game = self._game('ladder')
+        group, tasks = self._group(game, [('0', 'raddle')])
+        self._set_state(tasks[0], game)
+
+        with patch('games.telegram.notify.notify_admin_zero_duration_completion') as notify:
+            completion = complete_logical_game(
+                actor={'user': self.user}, game=game, task_group=group,
+                task=tasks[0], source='test-no-timing-row',
+                result=PlayerCompletedGame.RESULT_SOLVED,
+            )
+
+        self.assertIsNotNone(completion)
+        timing = DailySolveTiming.objects.get(
+            user=self.user, game=game, task_group=group,
+        )
+        self.assertEqual(completion['timing']['status'], STATUS_COMPLETED)
+        self.assertTrue(completion['timing']['completed'])
+        self.assertTrue(completion['timing']['exists'])
+        self.assertIsNone(completion['timing']['frozen_ms'])
+        self.assertIsNone(timing.frozen_ms)
+        notify.assert_not_called()
+
+        late_start = apply_timing_event(
+            game=game,
+            task_group=group,
+            user=self.user,
+            action=ACTION_START,
+            session_id=str(uuid4()),
+            event_id='late-start',
+            seq=1,
+        )
+
+        timing.refresh_from_db()
+        self.assertEqual(late_start['status'], STATUS_COMPLETED)
+        self.assertIsNone(timing.frozen_ms)
+        self.assertFalse(timing.sessions.exists())
+
+    def test_completion_without_expected_timing_does_not_create_timing_row(self):
         game = self._game('ladder')
         group, tasks = self._group(game, [('0', 'raddle')])
         self._set_state(tasks[0], game)
 
         completion = complete_logical_game(
             actor={'user': self.user}, game=game, task_group=group,
-            task=tasks[0], source='test-no-timing-row',
-            result=PlayerCompletedGame.RESULT_SOLVED,
+            task=tasks[0], source='test-untimed-completion', timing_expected=False,
         )
 
         self.assertIsNotNone(completion)
         self.assertFalse(
             DailySolveTiming.objects.filter(user=self.user, game=game, task_group=group).exists(),
         )
-        self.assertEqual(completion['timing']['status'], STATUS_COMPLETED)
-        self.assertTrue(completion['timing']['completed'])
-        self.assertFalse(completion['timing']['exists'])
 
     def test_coordinator_rolls_back_timing_when_completion_record_fails(self):
         game = self._game('ladder')

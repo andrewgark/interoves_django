@@ -103,7 +103,11 @@ class Command(BaseCommand):
             actions = actor_actions.get((row['game_id'], row['task_group_id'], actor_key), set())
             if row['status'] == DailySolveTiming.STATUS_COMPLETED:
                 if row['frozen_ms'] is None:
-                    completed_without_complete_event += 1
+                    # A completed row with no start has unknown duration, not
+                    # a broken zero. Completion creates this sentinel to stop
+                    # delayed start requests from reopening the clock.
+                    if actions:
+                        completed_without_complete_event += 1
                 elif int(row['frozen_ms'] or 0) == 0 and actions:
                     zero_with_events += 1
                 elif int(row['frozen_ms'] or 0) == 0:

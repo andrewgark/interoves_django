@@ -876,6 +876,12 @@ def _apply_timing_event_once(
         else:
             row = DailySolveTiming.objects.select_for_update().get(pk=row.pk)
 
+    # Completion can win a race against the page's asynchronous start request.
+    # Once a release is completed, a delayed start/resume must not reopen its
+    # timer or append an event after the completion event.
+    if row.status == STATUS_COMPLETED:
+        return snapshot(row, now=now, session_id=session_id)
+
     # Every actor now uses independent tab/device leases.  The old personal
     # fields are still converted lazily by _team_session() for compatibility.
     _apply_to_team_row(
@@ -921,12 +927,15 @@ def _apply_timing_event_once(
 def complete_daily_timing_in_transaction(
     *, game, task_group, user=None, anon_key=None, team=None,
     replay_slot=None, now=None, timing_phases=None,
+    create_unknown_if_missing=False,
 ) -> dict | None:
-    """Freeze an existing timing row inside the caller's transaction.
+    """Freeze a timing row inside the caller's transaction.
 
     Completion owns the transaction boundary.  This primitive deliberately
     does not create a savepoint or retry: callers that need the legacy public
-    API should use ``complete_daily_timing`` below.
+    API should use ``complete_daily_timing`` below. Canonical gameplay
+    completion can opt into an unknown-duration sentinel when no start row
+    exists, preventing a delayed start from reopening a completed game.
     """
     now = now or timezone.now()
     filters = actor_filter(team=team, user=user, anon_key=anon_key, replay_slot=replay_slot)
@@ -938,6 +947,46 @@ def complete_daily_timing_in_transaction(
             game=game, task_group=task_group, **filters,
         )
     )
+    if row is None:
+        if not create_unknown_if_missing:
+            return None
+        # Serialize against first-session creation. Without the release lock,
+        # completion could observe no row while a concurrent start is creating
+        # one, then commit before that start and leave a running timer behind.
+        from games.models import TaskGroup
+
+        TaskGroup.objects.select_for_update().only('pk').get(pk=task_group.pk)
+        row = _lock_existing_timing(
+            DailySolveTiming.objects.filter(
+                game=game, task_group=task_group, **filters,
+            )
+        )
+        if row is None:
+            create_kwargs = {
+                'game': game,
+                'task_group': task_group,
+                'timing_version': TIMING_VERSION_ACTIVE,
+                'status': STATUS_COMPLETED,
+                'accumulated_ms': 0,
+                'frozen_ms': None,
+                'completed_at': now,
+                'replay_slot': replay_slot,
+            }
+            if user is not None:
+                create_kwargs['user'] = user
+            elif team is not None:
+                create_kwargs['team'] = team
+                create_kwargs['team_timing_key'] = (
+                    'first' if replay_slot is None else 'replay:{}'.format(replay_slot.pk)
+                )
+            else:
+                create_kwargs['anon_key'] = str(anon_key)
+            row = DailySolveTiming.objects.create(**create_kwargs)
+            if timing_phases is not None:
+                timing_phases['timing_lock_ms'] = (
+                    timezone.now() - started
+                ).total_seconds() * 1000.0
+            return snapshot(row, now=now)
     if timing_phases is not None:
         timing_phases['timing_lock_ms'] = (
             timezone.now() - started
