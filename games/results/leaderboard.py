@@ -217,6 +217,7 @@ def canonical_leaderboard_durations(
         return {}
     rows = DailySolveTiming.objects.filter(
         game=game, task_group=task_group, replay_slot__isnull=True,
+        timing_version__gte=DailySolveTiming.TIMING_VERSION_ACTIVE,
     ).filter(Q(team_id__in=teams) | Q(user_id__in=users) | Q(anon_key__in=anons)).only(
         'team_id', 'user_id', 'anon_key', 'timing_version', 'status', 'frozen_ms',
         'accumulated_ms', 'completed_at', 'updated_at', 'pk',
