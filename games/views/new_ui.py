@@ -2408,7 +2408,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         teams_sorted = tournament_rows
     else:
         attempt_counts = {}
-        if variant == ALPHABETTY_GAME_ID:
+        if variant in (ALPHABETTY_GAME_ID, 'censorly'):
             for actor in team_to_score:
                 attempt_counts[actor] = sum(
                     int(info.get_n_attempts() or 0)

@@ -354,7 +354,7 @@ def individual_sports_key(*, score, duration, game_id='', attempts=0, alphabetty
     """Official individual ranking tuple; duration is seconds or NULL."""
     score_key = -score
     duration_key = (duration is None, duration if duration is not None else 0)
-    if str(game_id) == 'alphabetty':
+    if str(game_id) in ('alphabetty', 'censorly'):
         if alphabetty_sort == 'time':
             return (score_key, *duration_key, attempts)
         return (score_key, attempts, *duration_key)
