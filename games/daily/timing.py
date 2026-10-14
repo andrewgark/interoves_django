@@ -1042,12 +1042,23 @@ def complete_daily_timing_in_transaction(
             **({'user': user} if user is not None else {}),
             **({'anon_key': str(anon_key)} if anon_key else {}),
         ).order_by('occurred_at', 'pk')
+        events = list(events)
         recovered_ms = recovered_timing_ms_from_events(
             events,
             completed_at=row.completed_at or now,
         )
         frozen_ms = int(row.frozen_ms or 0)
         if recovered_ms > frozen_ms:
+            logger.warning(
+                'daily_timing_completion_reconciled timing_id=%s game=%s '
+                'task_group=%s frozen_ms=%s recovered_ms=%s event_count=%s',
+                row.pk,
+                game.pk,
+                task_group.pk,
+                frozen_ms,
+                recovered_ms,
+                len(events),
+            )
             row.accumulated_ms = recovered_ms
             row.frozen_ms = recovered_ms
             row.save(update_fields=['accumulated_ms', 'frozen_ms', 'updated_at'])
