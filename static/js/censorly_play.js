@@ -500,7 +500,10 @@
 
   function visibleAreaTop(root) {
     var bounds = mobileDockBounds(root);
-    var top = bounds ? bounds.top : 0;
+    var viewportTop = window.visualViewport
+      ? Math.max(0, window.visualViewport.offsetTop || 0)
+      : 0;
+    var top = Math.max(bounds ? bounds.top : 0, viewportTop);
     var nav = document.querySelector('.new-nav');
     if (nav) {
       var navRect = nav.getBoundingClientRect();
