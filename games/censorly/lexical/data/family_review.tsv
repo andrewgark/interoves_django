@@ -103,3 +103,5 @@ rank	root	members	decision	note	reviewer
 102	факультет		APPROVE_OPAQUE_FAMILY	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.	manual-audit
 103	импер		APPROVE_OPAQUE_FAMILY	Tikhonov root family linking император with the reviewed alternating stem империя (импер-/импери-).	manual-audit
 104	проз	проза|прозаик|прозаический|прозаичный|прозаизм	APPROVE_OPAQUE_FAMILY	Clean five-lemma Tikhonov family; Kuznetsova has no game root for проз.	user-review
+105	ассоци	ассоциация|ассоциационный|ассоциироваться|ассоциировать|ассоциированный|ассоциативный|ассоциационизм	APPROVE_OPAQUE_FAMILY	Clean Tikhonov association family; approved as reviewed opaque root ассоци.	user-review
+106	благодар	благодарный|благодарение|отблагодарить|неблагодарный|отблагодаренный|благодарить|возблагодаренный|возблагодарить|благодарность|благодарственный|благодарствовать|поблагодарить	APPROVE_OPAQUE_FAMILY	Clean Tikhonov gratitude family; approved as reviewed opaque root благодар.	user-review

@@ -13,6 +13,7 @@ from threading import RLock
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.rootbank import families_of
+from games.censorly.lexical.russian.reading_overrides import target_readings
 from games.censorly.lexical.semantics import (
     _alias,
     _ALIASES,
@@ -54,7 +55,10 @@ _article_analysis_inflight: dict[tuple, Future] = {}
 class _Pack:
     __slots__ = ('surface', 'fold', 'service', 'russian', 'lexemes', 'roots', 'reads', 'families')
 
-    def __init__(self, surface: str, *, include_pronouns: bool = True):
+    def __init__(
+        self, surface: str, *, include_pronouns: bool = True,
+        article_lemma: str | None = None,
+    ):
         self.surface = surface
         self.fold = fold(surface)
         self.service = initially_open(surface, include_pronouns=include_pronouns)
@@ -65,9 +69,12 @@ class _Pack:
         # not reveal it through the spurious homographic reading.
         if self.fold == 'е':
             self.reads = tuple(item for item in self.reads if item.lemma == 'е')
+        contextual = False
+        if article_lemma:
+            self.reads, contextual = target_readings(surface, article_lemma, self.reads)
         self.russian = _russian(surface, 'ru')
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
-        self.roots = _roots(self.reads, surface)
+        self.roots = _roots(self.reads, surface, include_surface=not contextual)
         families = set(families_of(self.fold))
         for item in self.reads:
             families.update(families_of(item.lemma))
@@ -77,11 +84,22 @@ class _Pack:
 class _GuessPack(_Pack):
     """Article-independent pack with citation-form preference."""
 
-    def __init__(self, surface: str, *, include_pronouns: bool = True):
+    def __init__(
+        self, surface: str, *, include_pronouns: bool = True,
+        article_lemma: str | None = None,
+    ):
         super().__init__(surface, include_pronouns=include_pronouns)
-        self.reads = guess_readings_of(surface)
+        self.reads = readings_of(surface) if article_lemma else guess_readings_of(surface)
+        # Keep the standalone letter-name correction when rebuilding the
+        # citation-form guess pack; otherwise article scans can resurrect the
+        # spurious «Е» -> «быть» reading filtered by _Pack.
+        if self.fold == 'е':
+            self.reads = tuple(item for item in self.reads if item.lemma == 'е')
+        contextual = False
+        if article_lemma:
+            self.reads, contextual = target_readings(surface, article_lemma, self.reads)
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
-        self.roots = _roots(self.reads, surface)
+        self.roots = _roots(self.reads, surface, include_surface=not contextual)
         families = set(families_of(self.fold))
         for item in self.reads:
             families.update(families_of(item.lemma))
@@ -141,9 +159,20 @@ def _reject(guess: _Pack, target: _Pack) -> str:
 class _ArticleIndex:
     """Inverted lexical postings for one article's distinct token surfaces."""
 
-    def __init__(self, surfaces: tuple[str, ...], *, include_pronouns: bool):
+    def __init__(
+        self, surfaces: tuple[str, ...], *, include_pronouns: bool,
+        target_contexts: tuple[tuple[str, str], ...] = (),
+    ):
         self.surfaces = surfaces
-        self.packs = tuple(_Pack(s, include_pronouns=include_pronouns) for s in surfaces)
+        context_by_surface = dict(target_contexts)
+        self.packs = tuple(
+            _Pack(
+                surface,
+                include_pronouns=include_pronouns,
+                article_lemma=context_by_surface.get(surface),
+            )
+            for surface in surfaces
+        )
         self.by_surface = dict(zip(surfaces, self.packs))
         self.fold = defaultdict(set)
         self.alias = defaultdict(set)
@@ -205,8 +234,15 @@ class _ArticleIndex:
 
 
 @lru_cache(maxsize=4)
-def _index(surfaces: tuple[str, ...], *, include_pronouns: bool) -> _ArticleIndex:
-    return _ArticleIndex(surfaces, include_pronouns=include_pronouns)
+def _index(
+    surfaces: tuple[str, ...], *, include_pronouns: bool,
+    target_contexts: tuple[tuple[str, str], ...] = (),
+) -> _ArticleIndex:
+    return _ArticleIndex(
+        surfaces,
+        include_pronouns=include_pronouns,
+        target_contexts=target_contexts,
+    )
 
 
 def _unique_surfaces(rows: tuple[tuple[str, str], ...]) -> tuple[str, ...]:
@@ -223,6 +259,12 @@ def _build_article_analysis(
         if tok.get('kind') == 'content'
     )
     surfaces = _unique_surfaces(rows)
+    lemmas_by_surface = _lemmas_by_surface(rows)
+    target_contexts = tuple(sorted(
+        (surface, next(iter(lemmas)))
+        for surface, lemmas in lemmas_by_surface.items()
+        if len(lemmas) == 1
+    ))
     counts_by_surface = None
     if include_report:
         counts_by_surface = defaultdict(list)
@@ -231,9 +273,17 @@ def _build_article_analysis(
     index = None
     if rows:
         index = (
-            _index(surfaces, include_pronouns=include_pronouns)
+            _index(
+                surfaces,
+                include_pronouns=include_pronouns,
+                target_contexts=target_contexts,
+            )
             if cache_index else
-            _ArticleIndex(surfaces, include_pronouns=include_pronouns)
+            _ArticleIndex(
+                surfaces,
+                include_pronouns=include_pronouns,
+                target_contexts=target_contexts,
+            )
         )
     return {
         'rows': rows,

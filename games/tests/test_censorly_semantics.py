@@ -64,7 +64,6 @@ TRUE_CASES = (
     ('стать', 'становиться', 'root'),
     ('ставить', 'ставка', 'root'),
     ('разить', 'поражать', 'root'),
-    ('отражать', 'поражать', 'root'),
     ('отражатель', 'отражение', 'root'),
     ('запас', 'запасать', 'root'),
     ('спасти', 'спасение', 'root'),
@@ -268,6 +267,7 @@ FALSE_CASES = (
     'душа', 'душный',
     'год', 'годный',
     'свет', 'светский',
+    'отражать', 'поражать',
     'образ', 'образование',
     'один', 'однажды',
     'свой', 'усвоить',
@@ -1361,6 +1361,30 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         ):
             self.assertFalse(opens(left, right), f'{left}/{right}')
             self.assertFalse(opens(right, left), f'{right}/{left}')
+
+    def test_article_root_review_batch(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        for left, right in (
+            ('беспомощный', 'мочь'),
+            ('близкий', 'приблизительный'),
+        ):
+            self.assertFalse(opens(left, right), f'{left}/{right}')
+            self.assertFalse(opens(right, left), f'{right}/{left}')
+
+        for root, left, right in (
+            ('ассоци', 'ассоциация', 'ассоциировать'),
+            ('благодар', 'благодарность', 'благодарный'),
+        ):
+            self.assertEqual(assignment_of(left)['source'], 'REVIEWED_OPAQUE_ROOT')
+            self.assertEqual(structures_of(left), ((f'tikh:{root}',),))
+            self.assertEqual(structures_of(right), ((f'tikh:{root}',),))
+            self.assertTrue(opens(left, right), f'{left}/{right}')
+            self.assertTrue(opens(right, left), f'{right}/{left}')
+
+        self.assertTrue(opens('биограф', 'биография'))
+        self.assertTrue(opens('биография', 'биографический'))
+        self.assertTrue(opens('выписать', 'написать'))
 
 class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
     def test_confirmed_proper_pairs_are_bidirectional(self):

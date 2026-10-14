@@ -212,6 +212,11 @@ _ATOMIC_LEXICALIZED = frozenset({
     fold('ленинградец'),
     fold('ленинградка'),
     fold('француженка'),
+    # The exact биограф+граф compound is a lexicalized biography family;
+    # do not authorize the broad international components био/граф globally.
+    fold('биограф'),
+    fold('биография'),
+    fold('биографический'),
 })
 
 

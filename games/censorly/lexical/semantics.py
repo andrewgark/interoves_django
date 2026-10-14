@@ -319,9 +319,12 @@ def _russian(surface: str, article_language: str) -> bool:
     return bool(structures_of(fold(surface)) or _reviewed_derived_lemma(surface))
 
 
-def _roots(found, surface: str) -> set[tuple[str, ...]]:
+def _roots(
+    found, surface: str, *, include_surface: bool = True,
+) -> set[tuple[str, ...]]:
     keys = set()
-    keys.update(structures_of(fold(surface)))
+    if include_surface:
+        keys.update(structures_of(fold(surface)))
     for item in found:
         keys.update(structures_of(item.lemma))
     reviewed_lemma = _reviewed_derived_lemma(surface)
