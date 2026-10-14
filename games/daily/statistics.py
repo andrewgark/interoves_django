@@ -588,16 +588,16 @@ def _censorly(task, game, actors):
             lemma = lemma_from_row(row)
             if lemma and lemma not in title_lemmas:
                 lemma_players[lemma].add(actor)
-        pre_win = []
+        last_eligible_lemma = ''
         for row in rows:
             if row.status == 'Ok':
                 break
             if row.text and not str(row.text).startswith('#hint:'):
-                pre_win.append(row)
-        if pre_win:
-            lemma = lemma_from_row(pre_win[-1])
-            if lemma and lemma not in title_lemmas:
-                last_before_win[lemma].add(actor)
+                lemma = lemma_from_row(row)
+                if lemma and lemma not in title_lemmas:
+                    last_eligible_lemma = lemma
+        if last_eligible_lemma:
+            last_before_win[last_eligible_lemma].add(actor)
 
     popular = [
         {'word': word, 'players': len(players)}
