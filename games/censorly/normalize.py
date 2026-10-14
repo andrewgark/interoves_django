@@ -76,9 +76,29 @@ def split_stem_ending(surface: str) -> tuple[str, str]:
     return stem, ending
 
 
-# redactle-unlimited tokens: /([\u00BF-\u1FFF\u2C00-\uD7FF\w]+)/
-# JS \w is ASCII [A-Za-z0-9_]. Python \w would swallow the rest of Unicode.
-WORD_CHARS = 'A-Za-z0-9_\u00BF-\u1FFF\u2C00-\uD7FF'
+# Keep the established Redactle ranges, and include letter characters from
+# supplementary Unicode planes (historic and less common scripts).
+def _supplementary_letter_ranges() -> str:
+    ranges: list[tuple[int, int]] = []
+    start = previous = None
+    for codepoint in range(0x10000, 0x110000):
+        if unicodedata.category(chr(codepoint)).startswith('L'):
+            if start is None:
+                start = codepoint
+            previous = codepoint
+        elif start is not None:
+            ranges.append((start, previous))
+            start = previous = None
+    if start is not None:
+        ranges.append((start, previous))
+    return ''.join(
+        f'\\U{first:08X}' if first == last
+        else f'\\U{first:08X}-\\U{last:08X}'
+        for first, last in ranges
+    )
+
+
+WORD_CHARS = 'A-Za-z0-9_\u00BF-\u1FFF\u2C00-\uD7FF' + _supplementary_letter_ranges()
 _WORD_RE = re.compile(f'^[{WORD_CHARS}]+$')
 
 
