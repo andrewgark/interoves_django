@@ -109,10 +109,10 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertEqual(structures_of('гореть'), (('sense:burn',),))
 
     def test_head_fish_and_firebrand_families_are_separate(self):
-        self.assertEqual(structures_of('голова'), (('root:head',),))
-        self.assertEqual(structures_of('главный'), (('root:chief',),))
-        self.assertEqual(structures_of('голавль'), (('sense:fish',),))
-        self.assertEqual(structures_of('голавлевый'), (('sense:fish',),))
+        self.assertEqual(structures_of('голова'), (('sense:review_head',),))
+        self.assertEqual(structures_of('главный'), (('sense:review_leadership',),))
+        self.assertEqual(structures_of('голавль'), (('sense:review_fish',),))
+        self.assertEqual(structures_of('голавлевый'), (('sense:review_fish',),))
         self.assertEqual(structures_of('головешка'), (('sense:firebrand',),))
         self.assertEqual(structures_of('головневый'), (('sense:smut',),))
         self.assertEqual(
