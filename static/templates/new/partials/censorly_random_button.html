@@ -1,5 +1,5 @@
 {% load static %}
-<div class="new-stack-gap new-random-game-cta">
+<div class="new-stack-gap new-stack-gap--after-button new-random-game-cta">
   {% if random_censorly_has_access %}
     {{ censorly_taxonomy|json_script:"censorly-random-taxonomy" }}
     <form method="post" action="{% url 'ui_censorly_random' %}" data-random-censorly-form>
