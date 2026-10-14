@@ -493,7 +493,7 @@ class _TexTextParser:
         return re.sub(r' {2,}', ' ', rendered).strip()
 
 
-def _replace_tex_groups(text: str) -> str:
+def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
     """Convert balanced TeX source groups to readable formula text."""
     if not text or '\\' not in text:
         return text
@@ -508,7 +508,15 @@ def _replace_tex_groups(text: str) -> str:
                 out.append(_TexTextParser(text[i + 1:]).parse())
                 break
             formula, i = group
-            out.append(_TexTextParser(formula).parse())
+            rendered = _TexTextParser(formula).parse()
+            is_display_math = bool(re.match(r'\\(?:displaystyle|textstyle)\b', formula.strip()))
+            has_operator = bool(re.search(r'[=+−×·⋅*/^∫∑√≤≥≠≈]', rendered))
+            if mark_formulas and is_display_math and has_operator:
+                from games.censorly.tokenize import FORMULA_END, FORMULA_START
+
+                out.append(f'{FORMULA_START}{rendered}{FORMULA_END}')
+            else:
+                out.append(rendered)
             continue
         out.append(text[i])
         i += 1
@@ -704,11 +712,11 @@ def _strip_bracket_notes(text: str) -> str:
     return text
 
 
-def clean_wiki_extract(extract: str) -> str:
+def clean_wiki_extract(extract: str, *, mark_formulas: bool = False) -> str:
     """Convert TextExtracts math dumps to readable, tokenizable raw text."""
     text = extract or ''
     text = _strip_indented_math_lines(text)
-    text = _replace_tex_groups(text)
+    text = _replace_tex_groups(text, mark_formulas=mark_formulas)
     text = _strip_bracket_notes(text)
     return _collapse_extract_whitespace(text)
 
@@ -730,9 +738,9 @@ def _headings_to_marked(extract: str) -> str:
     return _SECTION_HEADING_PREFIX_RE.sub(repl, extract or '')
 
 
-def _trim_extract(extract: str) -> tuple[str, bool]:
+def _trim_extract(extract: str, *, mark_formulas: bool = False) -> tuple[str, bool]:
     """Return (text, truncated). Prefer cutting before a section heading."""
-    text = clean_wiki_extract(extract or '')
+    text = clean_wiki_extract(extract or '', mark_formulas=mark_formulas)
     text = _strip_tail_sections(text)
     text = _strip_orphan_heading(text)
     if len(text) <= MAX_BODY_CHARS:
@@ -809,7 +817,7 @@ def fetch_article(
         raise WikiFetchError('Похоже на страницу неоднозначности')
     if len(extract) < MIN_BODY_CHARS:
         raise WikiFetchError('Статья слишком короткая')
-    extract, truncated = _trim_extract(extract)
+    extract, truncated = _trim_extract(extract, mark_formulas=True)
     if len(extract) < MIN_BODY_CHARS:
         raise WikiFetchError('Статья слишком короткая после очистки')
     revid_raw = page.get('lastrevid')

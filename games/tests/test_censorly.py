@@ -566,7 +566,8 @@ class CensorlyPuzzleStorageTests(TestCase):
 
 class CensorlyWikiHelperTests(TestCase):
     def test_ramanujan_wikipedia_extract_keeps_the_display_formula_on_one_line(self):
-        from games.censorly.wiki import clean_wiki_extract
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import _trim_extract, clean_wiki_extract
 
         # Snapshot from ru.wikipedia.org, page 366175, revision 151975208.
         # TextExtracts includes a vertical MathML fallback and canonical TeX.
@@ -582,6 +583,16 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertNotIn('1\n +\n', cleaned)
         self.assertNotIn('\n\n', cleaned)
         self.assertEqual(cleaned.count('\n'), 1)
+
+        marked, _truncated = _trim_extract(raw, mark_formulas=True)
+        formula = expected_formula
+        self.assertIn(f'{FORMULA_START}{formula}{FORMULA_END}', marked)
+        formula_tokens = [
+            token for token in tokenize_text(marked)
+            if token['surface'] == formula
+        ]
+        self.assertEqual(len(formula_tokens), 1)
+        self.assertEqual(formula_tokens[0]['kind'], 'punct')
 
     def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
         from games.censorly.wiki import clean_wiki_extract
