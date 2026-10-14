@@ -1076,6 +1076,41 @@ class LexicalGameplayTests(TestCase):
 
 
 class ReviewedHomonymClusterTests(SimpleTestCase):
+    def test_troy_article_candidates_keep_names_and_separate_other_senses(self):
+        from games.censorly.lexical.semantics import explain
+        from games.censorly.lexical.rootbank import structures_of
+        from games.censorly.tokenize import all_tokens, build_puzzle_payload
+
+        payload = build_puzzle_payload(
+            wiki_title='Проверка статьи о Трое',
+            body_text=(
+                'Троя была у моря. К западу пришел упадок. '
+                'Правило отличалось от правления. Мора у моря. '
+                'Вмещало местные поселения. Возведены перевод и вывод.'
+            ),
+        )
+        tokens = all_tokens(payload)
+        for guess, closed_lemma in (
+            ('западу', 'упадок'),
+            ('правило', 'правление'),
+            ('мора', 'море'),
+            ('вмещало', 'место'),
+            ('вмещало', 'местный'),
+            ('возведены', 'перевод'),
+            ('возведены', 'вывод'),
+        ):
+            self.assertNotIn(closed_lemma, matching_lemmas(tokens, guess), guess)
+
+        # This is a useful proper-name connection in this article, so keep it.
+        self.assertEqual(explain('троя', 'троянец'), 'root')
+        self.assertIn(('sense:review_troy',), structures_of('троянец'))
+        self.assertEqual(structures_of('вмещать'), (('sense:containment',),))
+        self.assertEqual(structures_of('место'), (('sense:location',),))
+        self.assertEqual(structures_of('возвести'), (('sense:erection',),))
+        self.assertEqual(structures_of('перевод'), (('sense:translation',),))
+        self.assertEqual(structures_of('вывод'), (('sense:deduction_output',),))
+        self.assertEqual(structures_of('приводить'), (('sense:conduct',),))
+
     def test_silver_article_root_collisions_are_split_or_context_filtered(self):
         from games.censorly.lexical.match import _GuessPack, _Pack, _relation
         from games.censorly.lexical.rootbank import structures_of

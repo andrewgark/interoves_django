@@ -34,6 +34,11 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     # those roots into article matching.
     ('всей', 'весь'): frozenset({'весь'}),
     ('объем', 'объем'): frozenset({'объем'}),
+    # In these article forms, the tokenizer selects the intended noun, while
+    # the morphology analyzer also proposes a different root-family reading.
+    ('западу', 'запад'): frozenset({'запад'}),
+    ('правило', 'правило'): frozenset({'правило'}),
+    ('моря', 'море'): frozenset({'море'}),
 }
 
 
