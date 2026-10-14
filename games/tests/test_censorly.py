@@ -645,6 +645,31 @@ class CensorlyWikiHelperTests(TestCase):
                 self.assertEqual(len(tokens), 1)
                 self.assertEqual(tokens[0]['surface'], expected)
 
+    def test_binomial_coefficient_is_rendered_as_combination_notation(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \binom{n}{k}}'
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+
+        self.assertEqual(cleaned, f'{FORMULA_START}C(n, k){FORMULA_END}')
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(tokens[0]['surface'], 'C(n, k)')
+
+    def test_substack_rows_remain_grouped_in_sum_index(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \sum_{\substack{i=1\\i\ne j}} a_{ij}}'
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+        expected = '∑₍i = 1; i ≠ j₎ aᵢⱼ'
+
+        self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(tokens[0]['surface'], expected)
+
     def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
         from games.censorly.wiki import clean_wiki_extract
 

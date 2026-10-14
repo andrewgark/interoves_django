@@ -306,6 +306,17 @@ class _TexTextParser:
             if numerator and denominator:
                 return f'({numerator[0]})/({denominator[0]})', denominator[1]
             return 'frac', j
+        if name in ('binom', 'tbinom', 'dbinom'):
+            top = self._argument(j)
+            bottom = self._argument(top[1]) if top else None
+            if top and bottom:
+                return f'C({top[0]}, {bottom[0]})', bottom[1]
+            return 'binom', j
+        if name == 'substack':
+            rows = self._argument(j)
+            if rows:
+                return rows
+            return 'substack', j
         if name == 'sqrt':
             if j < len(self.text) and self.text[j] == '[':
                 close = self.text.find(']', j + 1)
@@ -535,6 +546,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
                     r'→←↔⇒⇐⇔↦]',
                     rendered,
                 )
+                or re.search(r'\\(?:t|d)?binom\b', formula)
                 or re.search(r'\\begin\{(?:p|b|B|v|V)?matrix\}', formula)
                 or r'\begin{cases}' in formula
             )
