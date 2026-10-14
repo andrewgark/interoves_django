@@ -16,6 +16,7 @@ from games.daily_section import (
     WEEK_TASK_SCHEDULE,
     WORD_SALAD_SCHEDULE,
 )
+from games.daily.section import CENSORLY_SCHEDULE
 from games.models import Game, GameTaskGroup, Task
 from games.telegram.game_urls import admin_url, task_admin_url
 from games.telegram.models import TelegramDailyReview
@@ -26,6 +27,7 @@ DAILY_SCHEDULES = (
     LADDER_SCHEDULE,
     ALPHABETTY_SCHEDULE,
     WORD_SALAD_SCHEDULE,
+    CENSORLY_SCHEDULE,
 )
 
 MONTHS_RU = (
@@ -41,6 +43,7 @@ SECTION_META = {
     LADDER_SCHEDULE.game_id: ('🪜', 'Лесенка', '/support/ladders/'),
     ALPHABETTY_SCHEDULE.game_id: ('🔤', 'Алфавитка', '/support/alphabetty/'),
     WORD_SALAD_SCHEDULE.game_id: ('🥗', 'Салатик', '/support/salad/'),
+    CENSORLY_SCHEDULE.game_id: ('🖍️', 'Цензурка', '/support/censorly/'),
     WEEK_TASK_SCHEDULE.game_id: ('📅', 'Задание недели', '/support/week-tasks/'),
 }
 
@@ -158,6 +161,27 @@ def _format_salad(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
     return lines, len(grid) == 16 and bool(words)
 
 
+def _format_censorly(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
+    task = _task_for_link(link, 'censorly')
+    if task is None:
+        return ['⚠️ Нет статьи в выпуске.'], False
+    from games.censorly.play import puzzle_from_task
+
+    payload = puzzle_from_task(task)
+    title = _plain_text((payload or {}).get('wiki_title'))
+    body = _plain_text((payload or {}).get('body_text'))
+    lines = ['🖍️ <b>Цензурка №{}</b>'.format(number)]
+    if title:
+        lines.append('Статья: {}'.format(_spoiler(title)))
+    else:
+        lines.append('⚠️ Не удалось получить название статьи.')
+    lines.extend([
+        '',
+        '<a href="{}">Редактировать статью</a>'.format(task_admin_url(task)),
+    ])
+    return lines, bool(title and body and (payload or {}).get('title_tokens') is not None)
+
+
 def _format_week_task(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
     tasks = list(
         Task.objects.visible()
@@ -188,6 +212,7 @@ FORMATTERS = {
     LADDER_SCHEDULE.game_id: _format_ladder,
     ALPHABETTY_SCHEDULE.game_id: _format_alphabetty,
     WORD_SALAD_SCHEDULE.game_id: _format_salad,
+    CENSORLY_SCHEDULE.game_id: _format_censorly,
     WEEK_TASK_SCHEDULE.game_id: _format_week_task,
 }
 

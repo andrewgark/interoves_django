@@ -8,6 +8,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from games.models import PlayerCompletedGame, PlayerStartedGame
+from games.censorly_daily import CENSORLY_GAME_ID
 from games.telegram.models import TelegramAdminReport
 from games.telegram.notify import _join_lines, send_admin_message, telegram_admin_configured
 
@@ -15,12 +16,14 @@ GAME_LABELS = {
     'raddle': '🪜 «Лесенки»',
     'word_salad': '🥗 «Салатики»',
     'alphabet': '🔤 «Алфавитки»',
+    'censorly': '🖍️ «Цензурки»',
 }
 METRIC_LABELS = {
     'players': 'Всего уникальных игроков',
     'ladder': GAME_LABELS['raddle'],
     'salad': GAME_LABELS['word_salad'],
     'alphabet': GAME_LABELS['alphabet'],
+    'censorly': GAME_LABELS['censorly'],
     'new_users': 'Новые пользователи',
     'started': 'Начатые игры',
     'completed': 'Завершённые игры',
@@ -77,6 +80,7 @@ def collect_report_stats(since, until):
         ('ladder', ('ladder', 'raddle')),
         ('salad', ('salad', 'word_salad')),
         ('alphabet', ('alphabet',)),
+        ('censorly', (CENSORLY_GAME_ID,)),
     ):
         reg, anon = _actor_counts(started.filter(game_kind__in=game_kinds))
         result[key] = reg + anon
@@ -128,7 +132,7 @@ def build_admin_report(*, now=None):
     lines.append('Новые пользователи: {}'.format(_number(current_stats['new_users'])))
     lines.append('')
     lines.append('<b>Игры</b>')
-    for key in ('ladder', 'salad', 'alphabet'):
+    for key in ('ladder', 'salad', 'alphabet', 'censorly'):
         lines.append('{}: {} · {}'.format(METRIC_LABELS[key], _number(current_stats[key]), comparison_line(key)))
     lines.append('')
     lines.append('<b>Итого</b>')
