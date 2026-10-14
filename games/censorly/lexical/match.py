@@ -55,8 +55,8 @@ _LETTER_NAME_LEMMAS = {'е': 'е', 'ш': 'ш'}
 
 class _Pack:
     __slots__ = (
-        'surface', 'fold', 'service', 'russian', 'lexemes', 'roots', 'root_ids',
-        'reads', 'families',
+        'surface', 'fold', 'service', 'russian', 'lexemes', 'roots',
+        'root_ids', 'reads', 'families',
     )
 
     def __init__(
@@ -90,12 +90,24 @@ class _Pack:
 class _GuessPack(_Pack):
     """Article-independent pack with citation-form preference."""
 
+    __slots__ = ('lexemes_by_fold',)
+
     def __init__(
         self, surface: str, *, include_pronouns: bool = True,
         article_lemma: str | None = None,
     ):
         super().__init__(surface, include_pronouns=include_pronouns)
-        self.reads = readings_of(surface) if article_lemma else guess_readings_of(surface)
+        lexemes_by_fold = defaultdict(set)
+        for item in readings_of(surface):
+            lexemes_by_fold[fold(item.lemma)].add((item.para_id, item.lemma))
+        self.lexemes_by_fold = {
+            lemma_fold: frozenset(lexemes)
+            for lemma_fold, lexemes in lexemes_by_fold.items()
+        }
+        # Citation-form preference applies to the guess even when the same
+        # surface is also present among article targets.  Article context is
+        # still applied below only through explicit target-reading overrides.
+        self.reads = guess_readings_of(surface)
         # Keep the standalone letter-name correction when rebuilding the
         # citation-form guess pack; otherwise article scans can resurrect the
         # spurious «Е» -> «быть» reading filtered by _Pack.
@@ -137,7 +149,22 @@ def _relation(guess: _Pack, target: _Pack) -> str:
         return 'proper'
     if not guess.russian or not target.russian:
         return ''
+    # The guess pack may prefer citation-form readings for root matching, but
+    # that preference must not break the reverse direction of an inflectional
+    # lexeme such as «улья» / «улей».
     if guess.lexemes & target.lexemes:
+        return 'lexeme'
+    if isinstance(guess, _GuessPack):
+        reverse_lexemes = guess.lexemes_by_fold.get(target.fold, ())
+    else:
+        # Keep the helper's behavior for generic packs used by audits/tests;
+        # gameplay guesses use _GuessPack and take the precomputed lookup.
+        reverse_lexemes = {
+            (item.para_id, item.lemma)
+            for item in readings_of(guess.surface)
+            if fold(item.lemma) == target.fold
+        }
+    if reverse_lexemes and reverse_lexemes & target.lexemes:
         return 'lexeme'
     if guess.roots & target.roots:
         return 'root'

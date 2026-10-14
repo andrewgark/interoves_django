@@ -201,9 +201,20 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
         return 'proper'
     if not _russian(guess, article_language) or not _russian(target, article_language):
         return ''
-    guess_reads = readings_of(guess)
+    # A typed guess has no sentence context.  Prefer citation-form readings
+    # when the spelling is also an inflected homonym (for example «пара» is
+    # also an inflected form of «пар»).  The target keeps all live readings.
+    guess_reads = guess_readings_of(guess)
     target_reads = readings_of(target)
-    guess_lexemes = {(item.para_id, item.lemma) for item in guess_reads}
+    # Citation-form preference must not disconnect the reverse direction of
+    # an inflectional lexeme (for example «улья» -> «улей»).  Use the
+    # preferred readings for root semantics, but retain every valid reading
+    # for the exact SAME_LEXEME layer.
+    guess_lexemes = {
+        (item.para_id, item.lemma)
+        for item in readings_of(guess)
+        if fold(item.lemma) == fold(target)
+    } | {(item.para_id, item.lemma) for item in guess_reads}
     target_lexemes = {(item.para_id, item.lemma) for item in target_reads}
     if guess_lexemes & target_lexemes:
         return 'lexeme'

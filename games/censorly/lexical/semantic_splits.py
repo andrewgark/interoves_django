@@ -6047,7 +6047,6 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:interest', (
         'любитель', 'любительница', 'любительский', 'любительство', 'любительщина',
     )),
-    ('sense:preference', ('любой',)),
     ('sense:admire', ('облюбовывать', 'облюбовываться')),
     ('sense:preference', (
         'предпочесть', 'предпочитать', 'предпочитаться', 'предпочтение',
@@ -6132,6 +6131,90 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_uterus', (
         'безматок', 'безматочный', 'матица', 'матичный', 'матка', 'маточник',
         'маточный',
+    )),
+    # Article-play review: these are explicit modern lexical families.  They
+    # deliberately override the broad historical root families below; this is
+    # not a substring or pair-edge rule.
+    ('sense:review_geography', (
+        'география', 'географ', 'географический', 'географически',
+    )),
+    ('sense:review_roman', (
+        'роман', 'романтизм', 'романтический', 'романтика', 'романтик',
+    )),
+    ('sense:review_poetry', (
+        'поэт', 'поэзия', 'поэтика', 'поэтический', 'поэтичный',
+    )),
+    ('sense:review_cadet', (
+        'кадет', 'кадетский', 'кадетство', 'кадетка',
+    )),
+    ('sense:review_sometimes', ('иногда',)),
+    ('sense:review_any', ('любой',)),
+    ('sense:review_road', (
+        'дорога', 'дорожный', 'дорожка', 'дороженька',
+    )),
+    ('sense:review_expensive', (
+        'дорогой', 'дороговизна', 'дорогостоящий', 'недорогой', 'дороговатый',
+    )),
+    ('sense:review_small_amount', ('толика',)),
+    ('sense:review_so_many', ('столько',)),
+    ('sense:review_success', (
+        'удаться', 'удавшийся',
+    )),
+    ('sense:review_cleaning', (
+        'убирать', 'убраться', 'уборка', 'уборочный',
+    )),
+    ('sense:review_device', (
+        'прибор', 'приборный', 'приборостроение',
+    )),
+    ('sense:review_father', (
+        'отец', 'отцовский', 'отцовство', 'отчий',
+    )),
+    ('sense:review_homeland', (
+        'отечество', 'отечественный',
+    )),
+    ('sense:review_estate', ('вотчина', 'вотчинный')),
+    ('sense:review_death', (
+        'скончаться', 'скончание', 'скончавшийся',
+    )),
+    ('sense:review_wealth', (
+        'состоятельный', 'состоятельность',
+    )),
+    ('sense:review_state', (
+        'состояние', 'состоять', 'состояться',
+    )),
+    ('sense:review_trip', (
+        'поездка', 'поездить', 'поездочный',
+    )),
+    ('sense:review_passing', (
+        'проезжий', 'проезжать', 'проехать',
+    )),
+    ('sense:review_district', ('уезд', 'уездный')),
+    ('sense:review_reference', (
+        'ссылаться', 'ссылка', 'ссылочный', 'сослаться',
+    )),
+    ('sense:review_testimony', (
+        'показание', 'показания', 'свидетельство',
+    )),
+    ('sense:review_break', (
+        'разрыв', 'разрывать', 'разорвать', 'разрываться',
+    )),
+    ('sense:review_impulse', (
+        'порыв', 'порываться', 'порывистый',
+    )),
+    ('sense:review_elder', ('старший', 'старшой', 'старшина', 'старшинство')),
+    ('sense:review_village_head', ('староста', 'старостиха', 'старостин')),
+    # The historical сл/сыл family contains several distinct modern meanings.
+    # Keep message/mission, expulsion, and imposition separate; this is a
+    # semantic review, not a universal prefix rule.
+    ('sense:review_send_message', (
+        'послать', 'послание', 'посланец', 'посланник', 'посланница',
+        'посланный', 'посольство',
+    )),
+    ('sense:review_send_out', (
+        'выслать', 'высылать', 'высылаться', 'высылка',
+    )),
+    ('sense:review_send_upon', (
+        'наслать', 'насылать', 'насылаться',
     )),
 )
 _sense_destinations = {
@@ -6387,6 +6470,10 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('знатный', ('sense:cognize', 'sense:nobility')),
     ('писать', ('sense:review_writing', 'sense:urinate')),
     ('писаться', ('sense:review_writing', 'sense:urinate')),
+    # The writer and the written message retain their ordinary dedicated
+    # readings, while also participating in the broader writing family.
+    ('писатель', ('sense:review_writer', 'sense:review_writing')),
+    ('письмо', ('sense:review_written_text', 'sense:review_writing')),
     ('глава', ('sense:review_leadership', 'sense:review_titles_headings')),
     ('звание', ('sense:review_calling', 'sense:review_title')),
     ('головня', ('sense:firebrand', 'sense:smut')),

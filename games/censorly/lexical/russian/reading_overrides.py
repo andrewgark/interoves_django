@@ -39,6 +39,19 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     ('западу', 'запад'): frozenset({'запад'}),
     ('правило', 'правило'): frozenset({'правило'}),
     ('моря', 'море'): frozenset({'море'}),
+    # Keep the noun occurrence «дорога» from inheriting the short-adjective
+    # reading «дорога»/«дорогой» when article tokenization selected the noun.
+    ('дорога', 'дорога'): frozenset({'дорога'}),
+    # In article context these forms are forms of «выйти». Pymorphy also
+    # exposes the homographic «выслать», whose send-sense must not make a
+    # «послание» match an unrelated article sentence.
+    ('вышел', 'выйти'): frozenset({'выйти'}),
+    ('вышла', 'выйти'): frozenset({'выйти'}),
+    ('вышли', 'выйти'): frozenset({'выйти'}),
+    # The article tokenizer can occasionally choose «наслать» for the
+    # homographic surface «нашли»; when it selected the intended «найти»,
+    # discard the unrelated send reading.
+    ('нашли', 'найти'): frozenset({'найти'}),
 }
 
 

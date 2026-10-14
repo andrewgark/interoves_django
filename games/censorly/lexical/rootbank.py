@@ -178,6 +178,12 @@ _COMPONENT_AUDIT: dict[str, int] = {}
 _ATOMIC_LEXICALIZED = frozenset({
     fold('красивенький'),
     fold('мелюзга'),
+    # The dictionary decomposes these as гео+граф, but article play treats
+    # geography/geographer/geographical as one reviewed lexical family.
+    # This is explicit; it is not a general compound fallback.
+    fold('география'),
+    fold('географ'),
+    fold('географический'),
     fold('боевитость'),
     fold('горестный'),
     fold('духовенство'),

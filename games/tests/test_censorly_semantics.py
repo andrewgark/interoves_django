@@ -10,6 +10,7 @@ from games.censorly.lexical.semantics import (
     explain, initially_open, opens, readings_of,
 )
 from games.censorly.lexical.match import matching_lemmas
+from games.censorly.lexical.tools.explain_pair import explain_pair
 from games.censorly.tokenize import build_puzzle_payload, tokenize_text
 
 TRUE_CASES = (
@@ -49,15 +50,14 @@ TRUE_CASES = (
     ('два', 'второй', 'grammar'),
     ('три', 'третий', 'root'),
     ('пять', 'пятый', 'root'),
-    # «пара» is also the genitive of «пар» (steam). That reading is enough.
-    ('пара', 'испарять', 'root'),
     ('строить', 'страивать', 'root'),
     # Short masculine of «сырой» is also «сыр». Damp stays linked.
     ('сырой', 'сырость', 'root'),
     ('пологий', 'пологость', 'root'),
-    # «устав» is also the gerund of «устать», so the surface reaches the fatigue family.
+    # «устав» is also the gerund of «устать», so that lexical identity stays
+    # open, while the citation-form noun «уставать» is a separate semantic
+    # family and remains closed.
     ('устав', 'устать', 'lexeme'),
-    ('устав', 'уставать', 'root'),
     ('устать', 'усталость', 'root'),
     ('стоять', 'стоянка', 'root'),
     ('стать', 'становиться', 'root'),
@@ -1544,6 +1544,92 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertTrue(opens('биография', 'биографический'))
         self.assertTrue(opens('выписать', 'написать'))
 
+    def test_article_play_family_links_and_semantic_splits(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        linked = (
+            ('география', 'географическая'),
+            ('романтизм', 'роман'),
+            ('поэт', 'поэтическому'),
+            ('кадет', 'кадетский'),
+            ('написал', 'письме'),
+            ('писать', 'писатель'),
+        )
+        for left, right in linked:
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+                self.assertTrue(opens(right, left))
+
+        split = (
+            ('толика', 'столько'),
+            ('данное', 'удалось'),
+            ('удалось', 'данной'),
+            ('удалось', 'раздав'),
+            ('удалось', 'преданию'),
+            ('убирает', 'приборы'),
+            ('отец', 'Отечественной'),
+            ('отца', 'вотчин'),
+            ('конец', 'скончавшейся'),
+            ('состоятельных', 'состоянии'),
+            ('поездка', 'проезжей'),
+            ('поездка', 'уезде'),
+            ('послание', 'ссылаясь'),
+            ('показания', 'оказало'),
+            ('показания', 'показан'),
+            ('разрыв', 'порывы'),
+            ('старших', 'староста'),
+        )
+        for left, right in split:
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+                self.assertFalse(opens(right, left))
+
+        # «дорога» has a valid short-adjective homograph in pymorphy.  The
+        # article path knows which lemma was selected, so certify the intended
+        # noun-vs-adjective split with contextual packs rather than deleting a
+        # valid existential reading globally.
+        self.assertNotEqual(
+            _relation(
+                _GuessPack('дорогое'), _Pack('дорога', article_lemma='дорога')
+            ),
+            'root',
+        )
+
+    def test_article_context_filters_send_homographs(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        for surface, lemma in (
+            ('вышел', 'выйти'),
+            ('вышла', 'выйти'),
+            ('вышли', 'выйти'),
+            ('нашли', 'найти'),
+        ):
+            with self.subTest(surface=surface, lemma=lemma):
+                self.assertNotEqual(
+                    _relation(_GuessPack('послание'), _Pack(surface, article_lemma=lemma)),
+                    'root',
+                )
+
+    def test_send_family_has_narrow_modern_senses(self):
+        for left, right in (
+            ('послать', 'послание'),
+            ('послание', 'посланник'),
+            ('выслать', 'высылка'),
+            ('наслать', 'насылать'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+                self.assertTrue(opens(right, left))
+
+        for left, right in (
+            ('выслать', 'послание'),
+            ('наслать', 'послание'),
+            ('выслать', 'наслать'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+                self.assertFalse(opens(right, left))
+
     def test_reviewed_chemistry_and_norm_subfamilies(self):
         from games.censorly.lexical.rootbank import assignment_of, structures_of
 
@@ -1600,7 +1686,105 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             self.assertFalse(opens(left, right), f'{left}/{right}')
             self.assertFalse(opens(right, left), f'{right}/{left}')
 
+PRODUCTION_CONFIRMED_CENSORLY_CASES = (
+    # Snapshot of the confirmed Censorly word reports from production.
+    ('сказка', 'высказать', 'CLOSED'),
+    ('имеются', 'занимался', 'CLOSED'),
+    ('народ', 'рождественской', 'CLOSED'),
+    ('был', 'Е', 'CLOSED'),
+    ('понятие', 'внимания', 'CLOSED'),
+    ('смерть', 'умом', 'CLOSED'),
+    ('понятие', 'внимание', 'CLOSED'),
+    ('женился', 'женщиной', 'CLOSED'),
+    ('известный', 'Повести', 'CLOSED'),
+    ('писатель', 'надпись', 'CLOSED'),
+    ('главный', 'заглавием', 'CLOSED'),
+    ('видеть', 'свидания', 'CLOSED'),
+    ('известный', 'навещал', 'CLOSED'),
+    ('видеть', 'свидетельствует', 'CLOSED'),
+    ('проза', 'прозаик', 'OPEN'),
+    ('область', 'Обладала', 'CLOSED'),
+    ('советский', 'советоваться', 'CLOSED'),
+    ('прослеживаться', 'впоследствии', 'CLOSED'),
+    ('открытые', 'покров', 'CLOSED'),
+    ('образовать', 'изображение', 'CLOSED'),
+    ('были', 'Е', 'CLOSED'),
+    ('География', 'Географическая', 'OPEN'),
+    ('дорога', 'дорогое', 'CLOSED'),
+    ('толика', 'столько', 'CLOSED'),
+    ('другой', 'друга', 'CLOSED'),
+    ('романтизм', 'роман', 'OPEN'),
+    ('поэт', 'поэтическому', 'OPEN'),
+    ('данное', 'удалось', 'CLOSED'),
+    ('кадет', 'кадетский', 'OPEN'),
+    ('Вторжение', 'торжествующая', 'CLOSED'),
+    ('иногда', 'иных', 'CLOSED'),
+    ('убирает', 'приборы', 'CLOSED'),
+    ('удалось', 'данной', 'CLOSED'),
+    ('отец', 'Отечественной', 'CLOSED'),
+    ('любую', 'предпочитают', 'CLOSED'),
+    ('конец', 'скончавшейся', 'CLOSED'),
+    ('написал', 'письме', 'OPEN'),
+    ('состоятельных', 'состоянии', 'CLOSED'),
+    ('поездка', 'проезжей', 'CLOSED'),
+    ('послание', 'вышел', 'CLOSED'),
+    ('послание', 'вышли', 'CLOSED'),
+    ('послание', 'вышла', 'CLOSED'),
+    ('послание', 'ссылаясь', 'CLOSED'),
+    ('послание', 'нашли', 'CLOSED'),
+    ('показания', 'оказало', 'CLOSED'),
+    ('показания', 'показан', 'CLOSED'),
+    ('разрыв', 'порывы', 'CLOSED'),
+    ('отца', 'вотчин', 'CLOSED'),
+    ('старших', 'староста', 'CLOSED'),
+    ('поездка', 'уезде', 'CLOSED'),
+    ('удалось', 'раздав', 'CLOSED'),
+    ('удалось', 'преданию', 'CLOSED'),
+)
+
+
 class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
+    def test_confirmed_production_reports(self):
+        for guess, target, expected in PRODUCTION_CONFIRMED_CENSORLY_CASES:
+            with self.subTest(guess=guess, target=target):
+                actual = explain_pair(guess, target)['runtime_reason'] != 'CLOSED'
+                self.assertEqual(actual, expected == 'OPEN')
+
+    def test_confirmed_pair_reports_have_regressions(self):
+        # Keep the user-reviewed report set visible in the executable
+        # regression suite.  A typed «пара» prefers its citation-form
+        # readings over the inflected homonym «пар».
+        expected_open = (
+            ('сенат', 'сенатор'),
+            ('иволга', 'иволговый'),
+            ('белка', 'белки'),
+            ('белок', 'белки'),
+            ('центральный', 'центр'),
+            ('Наполеон', 'Наполеоновский'),
+        )
+        expected_closed = (
+            ('мир', 'море'),
+            ('пчела', 'пчеловод'),
+            ('мёд', 'медоносный'),
+            ('страна', 'странный'),
+            ('крупа', 'крупный'),
+            ('свет', 'светский'),
+            ('мать', 'матка'),
+            ('червь', 'червовый'),
+            ('мара', 'маревый'),
+            ('год', 'годный'),
+            ('душа', 'душный'),
+            ('устав', 'уставать'),
+            ('строить', 'три'),
+        )
+        for left, right in expected_open:
+            self.assertTrue(opens(left, right), f'{left}/{right}')
+            self.assertTrue(opens(right, left), f'{right}/{left}')
+        for left, right in expected_closed:
+            self.assertFalse(opens(left, right), f'{left}/{right}')
+            self.assertFalse(opens(right, left), f'{right}/{left}')
+        self.assertFalse(opens('пара', 'испарять'))
+
     def test_confirmed_proper_pairs_are_bidirectional(self):
         from games.censorly.lexical.proper_names import PAIR_RELATIONS
 

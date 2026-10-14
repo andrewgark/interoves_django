@@ -61,12 +61,17 @@ def _side(surface, pack):
 
 
 def _layer_report(guess, target, *, include_pronouns):
-    gread = readings_of(guess)
-    tread = readings_of(target)
-    glex = {(x.para_id, x.lemma) for x in gread}
-    tlex = {(x.para_id, x.lemma) for x in tread}
-    groots = _roots(gread, guess)
-    troots = _roots(tread, target)
+    # Diagnostics must describe the same packs and precedence as the runtime
+    # matcher.  Raw morphology here used to report openings through readings
+    # that the citation-form guess pack intentionally discarded.
+    gpack = _GuessPack(guess, include_pronouns=include_pronouns)
+    tpack = _Pack(target, include_pronouns=include_pronouns)
+    gread = gpack.reads
+    tread = tpack.reads
+    glex = gpack.lexemes
+    tlex = tpack.lexemes
+    groots = gpack.roots
+    troots = tpack.roots
     return {
         'EXACT': fold(guess) == fold(target),
         'SAME_LEXEME': bool(glex & tlex),
@@ -78,8 +83,8 @@ def _layer_report(guess, target, *, include_pronouns):
             initially_open(guess, include_pronouns=include_pronouns)
             or initially_open(target, include_pronouns=include_pronouns)
         ),
-        'russian_guess': bool(gread),
-        'russian_target': bool(tread),
+        'russian_guess': gpack.russian,
+        'russian_target': tpack.russian,
         'guess_roots': sorted(groots),
         'target_roots': sorted(troots),
         'shared_lexemes': sorted(glex & tlex),
