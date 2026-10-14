@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
+from games.middleware.request_timing import timing_phase
 from games.censorly import (
     CENSORLY_SHOW_MASK_ENDINGS,
     CENSORLY_SPLITTER_VERSION,
@@ -711,8 +712,10 @@ def apply_guess(
     submitted_by_profile_id: int | None = None,
     attempt_created_callback=None,
     replay_slot=None,
+    timing_request=None,
 ) -> dict[str, Any]:
-    payload = puzzle_from_task(task)
+    with timing_phase(timing_request, 'puzzle_load'):
+        payload = puzzle_from_task(task)
     if payload is None:
         return {'status': 'error', 'error': 'Пазл не настроен'}
 
@@ -732,7 +735,8 @@ def apply_guess(
         out['error'] = 'Введите одно слово (буквы/цифры)'
         return out
 
-    state = _read_actor_state(game=game, task=task, actor=actor)
+    with timing_phase(timing_request, 'actor_state_read'):
+        state = _read_actor_state(game=game, task=task, actor=actor)
     num = number if number is not None else ''
 
     if _state_won(state, payload):
@@ -755,7 +759,8 @@ def apply_guess(
         out['error'] = 'Это слово уже открыто изначально'
         return out
 
-    guess_lemma = lemma_of(normalized)
+    with timing_phase(timing_request, 'guess_normalize'):
+        guess_lemma = lemma_of(normalized)
 
     if normalized in {g.get('word') for g in state.get('guesses') or []}:
         out = public_payload(state, payload, task=task)
@@ -767,20 +772,21 @@ def apply_guess(
         out['error'] = 'Это слово уже вводили'
         return out
 
-    from games.censorly.flags import lexical_resolver_enabled
-    lexical_report = None
-    if lexical_resolver_enabled():
-        from games.censorly.lexical.match import analyze_guess
-        cache_key = _lexical_cache_key(task)
-        tokens = chain(
-            payload.get('title_tokens') or (),
-            payload.get('body_tokens') or (),
-        )
-        matched, lexical_report = analyze_guess(
-            tokens, normalized, cache_key=cache_key,
-        )
-    else:
-        matched = lemmas_matching_guess(payload, guess_lemma, normalized)
+    with timing_phase(timing_request, 'lexical_analysis'):
+        from games.censorly.flags import lexical_resolver_enabled
+        lexical_report = None
+        if lexical_resolver_enabled():
+            from games.censorly.lexical.match import analyze_guess
+            cache_key = _lexical_cache_key(task)
+            tokens = chain(
+                payload.get('title_tokens') or (),
+                payload.get('body_tokens') or (),
+            )
+            matched, lexical_report = analyze_guess(
+                tokens, normalized, cache_key=cache_key,
+            )
+        else:
+            matched = lemmas_matching_guess(payload, guess_lemma, normalized)
     return _apply_guess_after_analysis(
         game=game, task=task, payload=payload, actor=actor,
         normalized=normalized, guess_lemma=guess_lemma, matched=matched,
@@ -788,6 +794,7 @@ def apply_guess(
         share_host=share_host, play_path=play_path,
         submitted_by_profile_id=submitted_by_profile_id,
         attempt_created_callback=attempt_created_callback,
+        timing_request=timing_request,
     )
 
 
@@ -795,11 +802,13 @@ def apply_guess(
 def _apply_guess_after_analysis(
     *, game, task, payload, actor, normalized, guess_lemma, matched,
     lexical_report, user, number, share_host, play_path,
-    submitted_by_profile_id, attempt_created_callback,
+    submitted_by_profile_id, attempt_created_callback, timing_request=None,
 ):
     """Lock and persist a guess after its CPU-heavy lexical analysis."""
-    row = _lock_state(game=game, task=task, actor=actor)
-    state = load_state(row.state)
+    with timing_phase(timing_request, 'state_lock'):
+        row = _lock_state(game=game, task=task, actor=actor)
+    with timing_phase(timing_request, 'state_decode'):
+        state = load_state(row.state)
     if _state_won(state, payload):
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_won'
@@ -880,19 +889,21 @@ def _apply_guess_after_analysis(
             replay_slot=actor.get('replay_slot'),
             now=attempt.time,
         )
-    attempt.save()
-    if attempt_created_callback is not None:
-        attempt_created_callback(attempt)
+    with timing_phase(timing_request, 'attempt_persist'):
+        attempt.save()
+        if attempt_created_callback is not None:
+            attempt_created_callback(attempt)
 
-    row.state = dump_state(state)
-    row.last_attempt = attempt
-    row.save(update_fields=['state', 'last_attempt', 'updated_at'])
-    _record_lexical_decision(
-        user=user, game=game, task=task, guess=normalized, payload=payload,
-        report=lexical_report,
-    )
+        row.state = dump_state(state)
+        row.last_attempt = attempt
+        row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+        _record_lexical_decision(
+            user=user, game=game, task=task, guess=normalized, payload=payload,
+            report=lexical_report,
+        )
 
-    out = public_payload(state, payload, task=task)
+    with timing_phase(timing_request, 'response_payload'):
+        out = public_payload(state, payload, task=task)
     out['hits'] = hits
     out['newly_revealed'] = newly
     out['guess_word'] = normalized

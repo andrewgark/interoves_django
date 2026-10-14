@@ -1039,6 +1039,7 @@ def censorly_guess(request, number=None, share_hash=None):
                 actor_kind='user' if user is not None else 'anon',
             ),
             replay_slot=replay_slot,
+            timing_request=request,
         )
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
