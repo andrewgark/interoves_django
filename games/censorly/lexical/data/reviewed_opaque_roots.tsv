@@ -108,3 +108,9 @@ root_spelling	note
 этап	Tier B family review: coherent Tikhonov opaque family; compound members retain complete structures.
 юкагир	Tikhonov family reviewed; opaque root assignment is family-level. Compound members retain complete structures and are not opened by component-only matching.
 якут	Tikhonov family reviewed; opaque root assignment is family-level. Compound members retain complete structures and are not opened by component-only matching.
+аккумул	Reviewed clean accumulator family; compound members retain complete structures.
+медицин	Reviewed compact medical family; compound members retain complete structures.
+кислород	Reviewed oxygen family; compound members retain complete structures and component-only matching remains closed.
+комплекс	Reviewed coherent complex family; compounds retain complete structures.
+эффект	Reviewed coherent effect family; technical compounds retain complete structures.
+норм	Reviewed coherent norm/standard family; no broad compound or homonym collision found.

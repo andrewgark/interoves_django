@@ -327,7 +327,7 @@ def _roots(
         keys.update(structures_of(fold(surface)))
     for item in found:
         keys.update(structures_of(item.lemma))
-    reviewed_lemma = _reviewed_derived_lemma(surface)
+    reviewed_lemma = _reviewed_derived_lemma(surface) if include_surface else ''
     if reviewed_lemma:
         keys.update(structures_of(reviewed_lemma))
     hyphen = _hyphen_structure(surface)

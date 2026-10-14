@@ -50,6 +50,7 @@ _article_analysis_cache_surfaces = 0
 _article_analysis_cache_tokens = 0
 _article_analysis_cache_lock = RLock()
 _article_analysis_inflight: dict[tuple, Future] = {}
+_LETTER_NAME_LEMMAS = {'е': 'е', 'ш': 'ш'}
 
 
 class _Pack:
@@ -67,8 +68,9 @@ class _Pack:
         # rare present-tense form of «быть». Treat that token as the letter
         # sense installed in semantic_splits, so ordinary forms of «быть» do
         # not reveal it through the spurious homographic reading.
-        if self.fold == 'е':
-            self.reads = tuple(item for item in self.reads if item.lemma == 'е')
+        letter_lemma = _LETTER_NAME_LEMMAS.get(self.fold)
+        if letter_lemma:
+            self.reads = tuple(item for item in self.reads if item.lemma == letter_lemma)
         contextual = False
         if article_lemma:
             self.reads, contextual = target_readings(surface, article_lemma, self.reads)
@@ -93,8 +95,9 @@ class _GuessPack(_Pack):
         # Keep the standalone letter-name correction when rebuilding the
         # citation-form guess pack; otherwise article scans can resurrect the
         # spurious «Е» -> «быть» reading filtered by _Pack.
-        if self.fold == 'е':
-            self.reads = tuple(item for item in self.reads if item.lemma == 'е')
+        letter_lemma = _LETTER_NAME_LEMMAS.get(self.fold)
+        if letter_lemma:
+            self.reads = tuple(item for item in self.reads if item.lemma == letter_lemma)
         contextual = False
         if article_lemma:
             self.reads, contextual = target_readings(surface, article_lemma, self.reads)
@@ -394,8 +397,21 @@ def analyze_guess(
     empty = {'readings': [], 'opened': [], 'rejected': [], 'rejected_total': 0}
     if not rows or not (guess or '').strip():
         return set(), empty
-    guess_pack = _guess_pack(guess, include_pronouns=include_pronouns)
     lemmas_by_surface = analysis['lemmas_by_surface']
+    article_lemmas = {
+        lemma
+        for surface, lemmas in lemmas_by_surface.items()
+        if fold(surface) == fold(guess)
+        for lemma in lemmas
+    }
+    if len(article_lemmas) == 1:
+        guess_pack = _GuessPack(
+            guess,
+            include_pronouns=include_pronouns,
+            article_lemma=next(iter(article_lemmas)),
+        )
+    else:
+        guess_pack = _guess_pack(guess, include_pronouns=include_pronouns)
     index = analysis['index']
     candidate_surfaces = index.candidates(guess_pack)
     if not include_report:

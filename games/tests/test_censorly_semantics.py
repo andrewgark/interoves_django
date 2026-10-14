@@ -38,7 +38,6 @@ TRUE_CASES = (
     ('нога', 'ножка', 'root'),
     ('книга', 'книжка', 'root'),
     ('мать', 'матушка', 'root'),
-    ('мать', 'матка', 'root'),
     ('человек', 'люди', 'lexeme'),
     ('ребёнок', 'дети', 'lexeme'),
     ('год', 'лет', 'lexeme'),
@@ -1032,7 +1031,7 @@ class LexicalGameplayTests(TestCase):
             country = apply_guess(game=game, task=task, word='страна', user=user)
             self.assertNotIn(fold('странный'), self._open_texts(country))
             mother = apply_guess(game=game, task=task, word='мать', user=user)
-            self.assertIn(fold('матка'), self._open_texts(mother))
+            self.assertNotIn(fold('матка'), self._open_texts(mother))
             alias = apply_guess(game=game, task=task, word='универ', user=user)
             self.assertIn(fold('университет'), self._open_texts(alias))
             photo = apply_guess(game=game, task=task, word='фото', user=user)
@@ -1077,6 +1076,50 @@ class LexicalGameplayTests(TestCase):
 
 
 class ReviewedHomonymClusterTests(SimpleTestCase):
+    def test_three_article_root_collisions_are_separated(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.censorly.lexical.rootbank import structures_of
+        from games.censorly.tokenize import all_tokens, build_puzzle_payload
+
+        payload = build_puzzle_payload(
+            wiki_title='Проверка корневых семейств',
+            body_text='Будучи добыча. Стекла течение. Всего весьма.',
+        )
+        tokens = all_tokens(payload)
+        for guess, closed_lemma in (
+            ('будучи', 'добыча'),
+            ('стекла', 'течение'),
+            ('всего', 'весьма'),
+        ):
+            self.assertNotIn(closed_lemma, matching_lemmas(tokens, guess))
+
+        self.assertEqual(structures_of('быть'), (('sense:be',),))
+        self.assertEqual(structures_of('добыча'), (('sense:review_extraction',),))
+        self.assertEqual(structures_of('стекло'), (('sense:review_glass',),))
+        self.assertEqual(structures_of('стечь'), (('sense:flow',),))
+        self.assertIn(('sense:review_whole',), structures_of('весь'))
+        self.assertEqual(structures_of('весьма'), (('sense:review_intensifier',),))
+        self.assertEqual(structures_of('всякий'), structures_of('всяческий'))
+
+        for left, right in (
+            ('добыча', 'добывать'),
+            ('стекло', 'стеклянный'),
+        ):
+            self.assertTrue(
+                _relation(_GuessPack(left), _Pack(right)),
+                f'{left} / {right} should remain connected within its sense cluster',
+            )
+
+    def test_summer_is_separate_from_years(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.censorly.lexical.rootbank import structures_of
+
+        self.assertEqual(structures_of('лето'), (('sense:review_summer',),))
+        self.assertEqual(structures_of('год'), (('sense:review_year',),))
+        self.assertEqual(_relation(_GuessPack('ЛЕТО'), _Pack('ЛЕТ')), '')
+        self.assertEqual(_relation(_GuessPack('ЛЕТ'), _Pack('ЛЕТО')), '')
+        self.assertTrue(_relation(_GuessPack('лето'), _Pack('летний')))
+
     def test_pust_family_keeps_wasteland_and_trifle_labels(self):
         from games.censorly.lexical.semantic_splits import _classify_review_lemma
 
@@ -1115,6 +1158,32 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
                     self.assertFalse(opens(left, right), f'{left} / {right}')
                     self.assertFalse(opens(right, left), f'{right} / {left}')
 
+    def test_article_false_positive_roots_stay_apart_in_runtime_matcher(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.censorly.tokenize import all_tokens, build_puzzle_payload
+
+        payload = build_puzzle_payload(
+            wiki_title='Проверка',
+            body_text='Был была. Ш расширенный. Открытые покров. Образовать изображение.',
+        )
+        tokens = all_tokens(payload)
+        opened_by_e = matching_lemmas(tokens, 'Е')
+        self.assertNotIn('быть', opened_by_e)
+        self.assertNotIn('расширить', matching_lemmas(tokens, 'Ш'))
+        self.assertNotIn('покров', matching_lemmas(tokens, 'открытые'))
+        self.assertNotIn('изображение', matching_lemmas(tokens, 'образовать'))
+        self.assertNotIn('образовать', matching_lemmas(tokens, 'изображение'))
+
+        for left, right in (
+            ('открыть', 'открытие'),
+            ('покрыть', 'покрытие'),
+            ('изображать', 'изображение'),
+            ('преобразовать', 'преобразование'),
+        ):
+            self.assertTrue(
+                _relation(_GuessPack(left), _Pack(right)),
+                f'{left} / {right} should remain connected within its sense cluster',
+            )
     def test_additional_safe_family_splits_stay_apart(self):
         pairs = (
             ('гладкий', 'голодный'),
@@ -1385,6 +1454,55 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertTrue(opens('биограф', 'биография'))
         self.assertTrue(opens('биография', 'биографический'))
         self.assertTrue(opens('выписать', 'написать'))
+
+    def test_reviewed_chemistry_and_norm_subfamilies(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        for left, right in (
+            ('норма', 'норматив'),
+            ('антисептик', 'антисептический'),
+            ('сульфид', 'сульфидный'),
+            ('хлор', 'хлорид'),
+            ('химически', 'химический'),
+        ):
+            self.assertTrue(opens(left, right), f'{left}/{right}')
+            self.assertTrue(opens(right, left), f'{right}/{left}')
+
+        self.assertEqual(assignment_of('норма')['source'], 'REVIEWED_OPAQUE_ROOT')
+        self.assertEqual(structures_of('норма'), (('tikh:норм',),))
+
+        for left, right in (
+            ('сульфид', 'сульфат'),
+            ('сульфид', 'сульфит'),
+            ('сульфид', 'сульфирование'),
+            ('сульфид', 'сульфированный'),
+            ('сульфид', 'сульфидин'),
+            ('хлор', 'хлорат'),
+            ('хлор', 'хлорит'),
+            ('хлор', 'хлороз'),
+        ):
+            self.assertTrue(opens(left, right), f'{left}/{right}')
+            self.assertTrue(opens(right, left), f'{right}/{left}')
+
+        for left, right in (
+            ('мать', 'матушка'),
+            ('мать', 'материнский'),
+            ('матка', 'маточный'),
+            ('матка', 'маточник'),
+        ):
+            self.assertTrue(opens(left, right), f'{left}/{right}')
+            self.assertTrue(opens(right, left), f'{right}/{left}')
+
+        self.assertFalse(opens('мать', 'матка'))
+        self.assertFalse(opens('матка', 'мать'))
+
+        for left, right in (
+            ('антисептик', 'септима'),
+            ('хлор', 'хлоропласт'),
+            ('химически', 'биохимия'),
+        ):
+            self.assertFalse(opens(left, right), f'{left}/{right}')
+            self.assertFalse(opens(right, left), f'{right}/{left}')
 
 class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
     def test_confirmed_proper_pairs_are_bidirectional(self):

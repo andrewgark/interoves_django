@@ -80,7 +80,7 @@ def _article_surfaces(payload):
     return rows, lemmas
 
 
-def find_open_pairs(payload, *, include_open=False):
+def find_open_pairs(payload, *, include_open=False, root_only=True):
     rows, lemmas_by_surface = _article_surfaces(payload)
     lemma_surfaces = {}
     lemma_counts = Counter()
@@ -117,6 +117,11 @@ def find_open_pairs(payload, *, include_open=False):
                 continue
             reason_ab = _relation(guesses[word_a], targets.by_surface[word_b])
             reason_ba = _relation(guesses[word_b], targets.by_surface[word_a])
+            if root_only and (
+                'root' not in (reason_ab, reason_ba)
+                or 'lexeme' in (reason_ab, reason_ba)
+            ):
+                continue
             if not reason_ab and not reason_ba:
                 continue
             if reason_ab and reason_ba and not include_open:
@@ -155,7 +160,7 @@ def find_open_pairs(payload, *, include_open=False):
     # independent dictionary signal even when both packs are unresolved and
     # therefore absent from the gameplay inverted index.
     by_roots = {}
-    for lemma in lemma_surfaces:
+    for lemma in (() if root_only else lemma_surfaces):
         roots = tuple(sorted(fold(root) for root in tikhonov_roots_of(lemma) if root))
         if roots:
             by_roots.setdefault(roots, set()).add(lemma)
@@ -170,6 +175,11 @@ def find_open_pairs(payload, *, include_open=False):
                 word_b = sorted(lemma_surfaces[lemma_b])[0]
                 reason_ab = _relation(guesses[word_a], targets.by_surface[word_b])
                 reason_ba = _relation(guesses[word_b], targets.by_surface[word_a])
+                if root_only and (
+                    'root' not in (reason_ab, reason_ba)
+                    or 'lexeme' in (reason_ab, reason_ba)
+                ):
+                    continue
                 if not reason_ab and not reason_ba:
                     continue
                 if reason_ab and reason_ba:
@@ -228,7 +238,9 @@ def _write(path, rows):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Find pairs of article words that Censorly opens.')
+    parser = argparse.ArgumentParser(
+        description='Find article word pairs opened by shared roots rather than shared lemmas.'
+    )
     parser.add_argument('--text-file', type=Path)
     parser.add_argument('--payload-file', type=Path)
     parser.add_argument('--article-title', help='fetch the current Russian Wikipedia extract')
@@ -236,16 +248,24 @@ def main():
     parser.add_argument('--article', help='label used in reports for --text-file')
     parser.add_argument('--output', type=Path)
     parser.add_argument('--include-open', action='store_true', help='also show pairs already OPEN')
+    parser.add_argument(
+        '--all-reasons', action='store_true',
+        help='include lexeme, grammar, alias, and dictionary near-miss candidates',
+    )
     args = parser.parse_args()
     try:
         payload = _article_payload(args)
     except (LookupError, OSError, ValueError) as exc:
         parser.error(str(exc))
-    pairs, unique_surfaces, stats = find_open_pairs(payload, include_open=args.include_open)
+    root_only = not args.all_reasons
+    pairs, unique_surfaces, stats = find_open_pairs(
+        payload, include_open=args.include_open, root_only=root_only,
+    )
     print(f"article: {payload.get('wiki_title') or args.article or 'article'}")
     print(f"wiki revision: {payload.get('wiki_revid') or 'unknown'}")
     print(f'unique content surfaces: {unique_surfaces}')
-    print(f"candidate pairs with at least one opening direction: {stats['pairs']}")
+    mode = 'root-only' if root_only else 'all reasons'
+    print(f"candidate pairs ({mode}; at least one opening direction): {stats['pairs']}")
     print(f"mutual: {stats['mutual']}; one-way: {stats['one_way']}")
     print(f"candidate families: {stats['families']}")
     print('word_a\tword_b\tlemma_a\tlemma_b\ta_to_b\tb_to_a\ttikhonov_roots')

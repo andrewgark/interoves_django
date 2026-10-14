@@ -24,6 +24,10 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     # In this spelling, «лет» is overwhelmingly the genitive plural of «год».
     # Retain the rare noun «лёт» only where the article lemmatizer selects it.
     ('лет', 'год'): frozenset({'год'}),
+    # In the article sense «стёкла»/«стекла» is the plural of glass. The
+    # parser also proposes the valid homograph «стечь»; retain that only when
+    # the article lemmatizer actually selects it.
+    ('стекла', 'стекло'): frozenset({'стекло'}),
 }
 
 

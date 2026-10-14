@@ -32,6 +32,8 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     # present-tense form of быть. In Censorly, the standalone letter is its
     # own lexical sense; do not attach it to the быть family.
     ('sense:letter_e', ('е',)),
+    ('sense:letter_sh', ('ш',)),
+    ('sense:review_summer', ('лето', 'летний', 'летник', 'летом', 'летошний')),
     ('sense:beauty', (
         'изукрасить', 'изукраситься', 'изукрашивать', 'изукрашиваться', 'краса', 'красавец',
         'красавица', 'красавка', 'красавчик', 'красивенький', 'красивость', 'красивый',
@@ -4485,7 +4487,7 @@ _REVIEW_FAMILIES = frozenset({
     'глад²|глод|голод', 'гна|гни|гно(j)', 'жа²|жин|жн',
     'жир²|жор|жр¹', 'клик|клиц|клич', 'креп', 'твор²',
     'черт¹|черч', 'хит|хич|хищ', 'вид|вист', 'вел²|вл|вол¹',
-    'кров²|кры', 'печат', 'круг|круж¹', 'дуб', 'зем',
+    'кров²|кры', 'печат', 'круг|круж¹', 'дуб', 'зем', 'стекл|стекол',
     'грем|гром', 'лаз|лез¹|лес²', 'палз|полз|полоз',
     'страг|строг¹|строж|струг¹|струж¹', 'хлеб²|хлеб',
     'дых|дыш', 'торг²|торж²', 'крест|крещ', 'тереб|треб',
@@ -4498,6 +4500,7 @@ _REVIEW_FAMILIES = frozenset({
     'хот|хоч', 'черк', 'чу', 'желт|желч', 'прыс|прыск|прыщ',
     'хоран|хорон|хран', 'пыл²', 'трес|треск¹|трещ',
     'то|тон²|топ²', 'зван|звен²|звон²',
+    'вес⁴|вс',
     'блес|блеск|блест|блист', 'глад¹|глаж', 'грыж|грыз', 'черн',
     'щеп', 'ш|ше²|шед',
     'пле|плев¹|плев|плю', 'влад|власт|волост', 'муж', 'балт|болт¹',
@@ -4847,6 +4850,11 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_winding_soaking'
         if lemma.startswith(('безматер', 'материть', 'материться', 'матерн', 'матерщ', 'матерка')):
             return 'sense:review_profanity'
+        if lemma in {
+            'безматок', 'безматочный', 'матица', 'матичный', 'матка',
+            'маточник', 'маточный',
+        }:
+            return 'sense:review_uterus'
         return 'sense:review_mother'
     if family == 'свес|свет|свеч|свещ':
         if lemma.startswith(('просвещ', 'просветитель', 'просветлен', 'просветление')):
@@ -5074,7 +5082,35 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
     if family == 'кров²|кры':
         if lemma.startswith(('кровь', 'кровн', 'кровав', 'кровоп')):
             return 'sense:review_blood'
-        return 'sense:review_cover_open'
+        if lemma.startswith(('откры', 'приоткры', 'вскры', 'раскры')):
+            return 'sense:review_opening'
+        if lemma.startswith(('закры',)):
+            return 'sense:review_closing'
+        if lemma.startswith(('откров', 'разоткров')):
+            return 'sense:review_frankness'
+        if lemma.startswith(('покровитель',)):
+            return 'sense:review_patronage'
+        if lemma in {'сокровище', 'сокровищница'}:
+            return 'sense:review_treasure'
+        if lemma.startswith(('скры', 'сокры', 'сокровенн', 'скрыт')):
+            return 'sense:review_concealment'
+        if lemma.startswith(('кров', 'крыша', 'крыш')):
+            return 'sense:review_roof'
+        return 'sense:review_covering'
+    if family == 'стекл|стекол':
+        return 'sense:review_glass'
+    if family == 'вес⁴|вс':
+        if lemma == 'весьма':
+            return 'sense:review_intensifier'
+        if lemma == 'завсегдатай':
+            return 'sense:review_regular_visitor'
+        if lemma in {'всюду', 'отовсюду', 'повсюду'}:
+            return 'sense:review_everywhere'
+        if lemma in {'всегда', 'всегдашний', 'завсегда', 'завсегдашний', 'навсегда'}:
+            return 'sense:review_always'
+        if lemma in {'вовсе', 'вовсю', 'насовсем', 'совсем'}:
+            return 'sense:review_completely'
+        return 'sense:review_whole'
     if family == 'печат':
         if lemma.startswith(('впечат', 'впечатл')):
             return 'sense:review_impression'
@@ -5876,6 +5912,7 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_rise', (
         'восход', 'восходитель', 'восходить', 'восходящий', 'восхождение', 'всходы',
     )),
+    ('sense:review_flight', ('перелетать', 'перелететь')),
     ('sense:review_outcome_origin', (
         'исход', 'исходящий', 'происходить', 'происходящий', 'происхождение',
     )),
@@ -5886,6 +5923,58 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_courting', (
         'ухажер', 'ухажерский', 'ухажерство', 'ухаживание', 'ухаживатель', 'ухаживать',
     )),
+    ('sense:review_extraction', (
+        'добывание', 'добывать', 'добываться', 'добыток', 'добыточный', 'добытчик',
+        'добытчица', 'добыть', 'добыча', 'добычливость', 'добычливый', 'добычный',
+        'раздобывать', 'раздобываться', 'раздобыть',
+    )),
+    ('sense:review_profit', (
+        'безубыточность', 'безубыточный', 'бесприбыльность', 'бесприбыльный',
+        'прибылой', 'прибыль', 'прибыльность', 'прибыльный', 'прибыточный',
+    )),
+    ('sense:review_departure', (
+        'выбывание', 'выбывать', 'выбытие', 'выбыть', 'отбывание', 'отбывать',
+        'отбытие', 'отбыть',
+    )),
+    ('sense:review_arrival', ('прибывать', 'прибытие', 'прибыть')),
+    ('sense:review_trade', (
+        'сбывать', 'сбываться', 'сбыт', 'сбытовой', 'сбыточный', 'сбытчик',
+        'сбыть', 'сбыться',
+    )),
+    ('sense:review_decrease', (
+        'убывание', 'убывать', 'убыль', 'убыток', 'убыточность', 'убыточный', 'убыть',
+    )),
+    ('sense:review_surplus', (
+        'избыток', 'избыточествовать', 'избыточный', 'преизбыток',
+        'преизбыточествовать', 'преизбыточный',
+    )),
+    ('sense:review_exhaustion', (
+        'избывать', 'избываться', 'избыть', 'избыться', 'неизбывность', 'неизбывный',
+    )),
+    ('sense:review_folklore', (
+        'бывальщина', 'былевой', 'былина', 'былинный', 'былинщик', 'былой', 'быль',
+        'небылица', 'побывальщина',
+    )),
+    ('sense:forget', ('забвение', 'забвенный')),
+    ('sense:review_unfulfillable', ('несбыточный',)),
+    ('sense:formation', (
+        'образовать', 'образоваться', 'образовывать', 'образовываться',
+    )),
+    ('sense:transformation', (
+        'преображать', 'преображаться', 'преображение', 'преобразить', 'преобразиться',
+        'преобразование', 'преобразованный', 'преобразователь', 'преобразовательница',
+        'преобразовательный', 'преобразовательский', 'преобразовать', 'преобразоваться',
+        'преобразовывать', 'преобразовываться',
+    )),
+    ('sense:imagination', (
+        'воображаемый', 'воображала', 'воображать', 'воображаться', 'воображение',
+        'вообразимый', 'вообразить', 'вообразиться',
+    )),
+    ('sense:conformity', (
+        'сообразность', 'сообразный', 'сообразовать', 'сообразоваться',
+        'сообразовывать', 'сообразовываться',
+    )),
+    ('sense:incongruity', ('несообразный',)),
     ('sense:review_household', ('обиход', 'обиходность', 'обиходный')),
     ('sense:review_prank', ('выходка', 'выходочка')),
     ('sense:review_forgiving', ('отходчивость', 'отходчивый')),
@@ -5960,6 +6049,28 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:track', (
         'выслеживание', 'выслеживать', 'выслеживаться', 'заслеживать',
         'исслеживать', 'последить', 'прослеживать', 'прослеживаться', 'услеживать',
+    )),
+    # Narrow reviewed semantic subfamilies.  Keep the broader technical roots
+    # (септ, сульф, хлор, хим) split: these are lexical families, not global
+    # opaque roots or substring rules.
+    ('sense:antiseptic', (
+        'антисептик', 'антисептика', 'антисептирование', 'антисептический',
+    )),
+    ('sense:sulfide', (
+        'сульфидин', 'сульфид', 'сульфидный', 'сульфат', 'сульфит',
+        'сульфирование', 'сульфированный',
+    )),
+    ('sense:chlorine', (
+        'хлор', 'хлорат', 'хлорит', 'хлороз', 'хлорид', 'хлористый', 'хлорный',
+    )),
+    ('sense:chemistry', (
+        'химия', 'химик', 'химический', 'химически', 'химизация',
+        'химизировать', 'химизироваться', 'химизированный', 'химизатор',
+        'химизм', 'химикат', 'химикалии', 'химичить',
+    )),
+    ('sense:review_uterus', (
+        'безматок', 'безматочный', 'матица', 'матичный', 'матка', 'маточник',
+        'маточный',
     )),
 )
 _sense_destinations = {
@@ -6239,4 +6350,11 @@ CLUSTERS = CLUSTERS + (
     )),
     ('sense:approximate', ('приблизительный', 'приблизительно')),
     ('sense:biography', ('биограф', 'биография', 'биографический')),
+)
+
+# The lemma «весь» also has the historical ethnonym reading from a separate
+# dictionary family. Keep that alternative while assigning the common
+# determiner/adjective to its modern «whole» sense.
+MULTI_READINGS = MULTI_READINGS + (
+    ('весь', ('sense:review_whole', 'fam:вес³')),
 )
