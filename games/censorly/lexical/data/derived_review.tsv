@@ -1,4 +1,11 @@
 candidate	decision	note	proposed_assignment
+алгебра	APPROVE_DERIVED_ROOT	Reviewed derivation linking алгебра and алгебраический.	root:алгебр
+алгебраический	APPROVE_DERIVED_ROOT	Reviewed derivation linking алгебраический and алгебра.	root:алгебр
+арифметика	APPROVE_DERIVED_ROOT	Reviewed derivation linking арифметика and арифметический.	root:арифмет
+арифметический	APPROVE_DERIVED_ROOT	Reviewed derivation linking арифметический and арифметика.	root:арифмет
+лат	APPROVE_DERIVED_ROOT	Reviewed abbreviation alias joins лат, латынь, and латинский.	root:латин
+латинский	APPROVE_DERIVED_ROOT	Reviewed derivation and abbreviation link to лат and латынь.	root:латин
+латынь	APPROVE_DERIVED_ROOT	Reviewed allomorph link from латынь to латинский and лат.	root:латин
 зобик	APPROVE_DERIVED_ROOT	Transparent diminutive of зоб; unique existing fam:зоб.	fam:зоб
 спиновый	APPROVE_DERIVED_ROOT	Transparent adjective from спин; unique existing fam:спин.	fam:спин
 ветровый	APPROVE_DERIVED_ROOT	Transparent adjective with the existing complete alternant structure.	fam:ветер|ветр

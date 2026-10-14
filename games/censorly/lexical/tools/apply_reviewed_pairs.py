@@ -37,21 +37,25 @@ def _pair_key_text(guess, target):
 
 def _sync_durable_cases(review_path):
     synced = 0
-    for row in _read(review_path):
-        if row.get('status') not in RUNTIME_STATUSES:
-            continue
-        expected = (row.get('expected') or '').strip().upper()
-        if expected not in {'OPEN', 'CLOSED'}:
-            continue
-        updated = CensorlyReviewCase.objects.filter(
-            pair_key=_pair_key_text(row.get('guess', ''), row.get('target', '')),
-            expected=expected,
-        ).update(
-            status=row['status'],
-            decision=row.get('decision', '') or '',
-            updated_at=timezone.now(),
-        )
-        synced += updated
+    try:
+        for row in _read(review_path):
+            if row.get('status') not in RUNTIME_STATUSES:
+                continue
+            expected = (row.get('expected') or '').strip().upper()
+            if expected not in {'OPEN', 'CLOSED'}:
+                continue
+            updated = CensorlyReviewCase.objects.filter(
+                pair_key=_pair_key_text(row.get('guess', ''), row.get('target', '')),
+                expected=expected,
+            ).update(
+                status=row['status'],
+                decision=row.get('decision', '') or '',
+                updated_at=timezone.now(),
+            )
+            synced += updated
+    except OperationalError as exc:
+        if 'no such table' not in str(exc).lower():
+            raise
     return synced
 
 

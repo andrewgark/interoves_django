@@ -1340,6 +1340,15 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertTrue(opens('иволга', 'иволговый'))
         self.assertTrue(opens('иволга', 'иволговые'))
 
+        proza_family = ('проза', 'прозаик', 'прозаический', 'прозаичный', 'прозаизм')
+        for lemma in proza_family:
+            self.assertEqual(assignment_of(lemma)['source'], 'REVIEWED_OPAQUE_ROOT')
+            self.assertEqual(structures_of(lemma), (('tikh:проз',),))
+        for left in proza_family:
+            for right in proza_family:
+                if left != right:
+                    self.assertTrue(opens(left, right), f'{left}/{right}')
+
     def test_reviewed_assignments_keep_semantic_splits_closed(self):
         for left, right in (
             ('страна', 'странный'),
