@@ -85,6 +85,7 @@
     var toggleLabel = options.toggleLabel;
     var tooltipValue = options.tooltipValue;
     var popover = options.popover;
+    var errorEl = options.errorEl;
     var overlay = options.overlay;
     var resumeBtn = options.resumeBtn;
     var overlayTitle = options.overlayTitle;
@@ -134,6 +135,7 @@
     var heartbeatTimer = null;
     var startRetryTimer = null;
     var startAttempts = 0;
+    var startFailed = false;
     var raf = null;
     var started = false;
     var destroyed = false;
@@ -187,6 +189,12 @@
         toggleBtn.setAttribute('aria-label', paused ? 'Продолжить задание' : 'Показать время решения');
       }
       if (tooltipValue) tooltipValue.textContent = formatClock(ms);
+      if (errorEl) {
+        errorEl.hidden = !startFailed;
+        errorEl.textContent = startFailed
+          ? 'Не удалось запустить таймер. Время решения пока не записывается.'
+          : '';
+      }
       if (toggleLabel) toggleLabel.textContent = manuallyPaused ? 'Продолжить' : '';
       if (popover && manuallyPaused) popover.hidden = true;
       if (rootEl) {
@@ -352,6 +360,7 @@
         awaitingServer = false;
         if (data && data.ok) {
           startAttempts = 0;
+          startFailed = false;
           render();
           return;
         }
@@ -371,6 +380,9 @@
             startRetryTimer = null;
             startIfAllowed();
           }, delay);
+        } else if (!destroyed && !(data && data.reload_required)) {
+          startFailed = true;
+          if (popover) popover.hidden = false;
         }
         render();
       });
@@ -611,6 +623,7 @@
       toggleBtn: doc.querySelector('[data-daily-timer-toggle]'),
       toggleLabel: doc.querySelector('[data-daily-timer-toggle-label]'),
       tooltipValue: doc.querySelector('[data-daily-timer-tooltip-value]'),
+      errorEl: doc.querySelector('[data-daily-timer-error]'),
       popover: doc.querySelector('[data-daily-timer-popover]'),
       overlay: overlay,
       resumeBtn: doc.querySelector('[data-daily-timer-resume]'),

@@ -629,6 +629,68 @@ function parsePostBody(init) {
   ctrl.destroy();
 })();
 
+(async function testStartFailureIsVisibleAfterRetriesAndClearsAfterRecovery() {
+  var originalSetTimeout = global.setTimeout;
+  var originalClearTimeout = global.clearTimeout;
+  var pendingTimers = [];
+  var fail = true;
+  var errorEl = { hidden: true, textContent: '' };
+  var popover = { hidden: true };
+  global.setTimeout = function (callback) {
+    pendingTimers.push(callback);
+    return pendingTimers.length;
+  };
+  global.clearTimeout = function () {};
+  try {
+    var ctrl = timer.create({
+      url: '/ladder/retry/timing/',
+      document: { visibilityState: 'visible', addEventListener: function () {} },
+      getAnonKey: function () { return ''; },
+      getCsrf: function () { return ''; },
+      storage: memoryStorage(),
+      localStorage: memoryStorage(),
+      fetch: function () {
+        return Promise.resolve({
+          json: function () {
+            return Promise.resolve(fail ? {} : { ok: true, status: 'running', exists: true });
+          },
+        });
+      },
+      listenDocument: false,
+      enableHeartbeat: false,
+      enableBroadcast: false,
+      errorEl: errorEl,
+      popover: popover,
+      bootstrap: { status: 'auto_paused', accumulated_ms: 0, exists: false },
+    });
+    async function settlePost() {
+      await Promise.resolve();
+      await Promise.resolve();
+    }
+    ctrl.startIfAllowed();
+    await settlePost();
+    while (pendingTimers.length) {
+      pendingTimers.shift()();
+      await settlePost();
+    }
+    assert.strictEqual(errorEl.hidden, false);
+    assert.match(errorEl.textContent, /не записывается/);
+    assert.strictEqual(popover.hidden, false);
+
+    fail = false;
+    ctrl.startIfAllowed();
+    await settlePost();
+    assert.strictEqual(errorEl.hidden, true);
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = originalSetTimeout;
+    global.clearTimeout = originalClearTimeout;
+  }
+})().catch(function (error) {
+  console.error(error);
+  process.exitCode = 1;
+});
+
 (function testPersonalModeDoesNotShowForeignSessionOverlay() {
   var overlay = { hidden: true };
   var board = {

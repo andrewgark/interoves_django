@@ -3589,6 +3589,12 @@ html.new-ui-dark .new-team-switcher-active-box {
   font-size: 1.15rem;
 }
 
+.new-daily-timer__error {
+  margin: 0 0 0.65rem;
+  color: var(--danger, #b42318);
+  font-size: 0.8rem;
+}
+
 .new-daily-timer__popover .new-btn {
   width: 100%;
 }

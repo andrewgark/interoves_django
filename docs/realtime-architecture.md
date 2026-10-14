@@ -132,6 +132,7 @@ a different mode as a defense in depth.
 | Daily content publish boundary | Main/archive/play page refreshes from a server timestamp and exposes the new row without F5 | Domain + JS unit; browser pending |
 | Completion races initial timer start | Completion stores unknown duration when no start was recorded; a delayed start leaves the timing completed | Domain (`test_completion_invariant`) |
 | Pause races initial timer start or another timer action | The higher per-page request sequence wins; a delayed initial start cannot undo a pause, and an older response cannot roll the UI back | Domain + JS unit |
+| Timer start repeatedly fails | Player sees that time is not being recorded; a later successful retry clears the warning | JS unit |
 | Permanent random Censorly/Alphabetty timer | Hash play page starts an actor-scoped timer; completion freezes it, and unrelated share hashes cannot resolve as random timer targets | Not yet covered |
 | Team renamed while open | Subscription continues under stable internal team key | Playwright (`visible_name`) |
 | Unauthorized game socket | Connection is rejected and no task content is disclosed | ASGI integration test |
