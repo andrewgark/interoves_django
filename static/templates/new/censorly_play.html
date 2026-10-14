@@ -245,6 +245,14 @@
   var root = document.getElementById('censorly-root');
   if (!root) return;
   var anonKey = root.getAttribute('data-anon-key') || '';
+  if (window.interovesDailySolveTimer) {
+    window.interovesDailySolveTimer.bindFromDocument(document, {
+      getAnonKey: function () {
+        return root.getAttribute('data-authenticated') === '1' ? '' : anonKey;
+      },
+      getCsrf: csrf
+    });
+  }
   var requests = Object.create(null);
   function update(taskId, data) {
     document.querySelectorAll('[data-like-count="' + taskId + '"]').forEach(function (el) {
