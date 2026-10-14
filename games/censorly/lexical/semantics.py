@@ -177,6 +177,16 @@ _NUMERAL_ALIAS_GROUPS = tuple(
     (str(value), _roman(value)) for value in range(1, 100)
 )
 
+_LETTER_NAME_LEMMAS = {'е': 'е', 'ш': 'ш'}
+
+
+def _letter_name_readings(surface: str, found: tuple) -> tuple:
+    lemma = _LETTER_NAME_LEMMAS.get(fold(surface))
+    if not lemma:
+        return found
+    return tuple(item for item in found if item.lemma == lemma)
+
+
 # Reserved for a later transliteration audit. Empty on purpose.
 TRANSLIT_GROUPS: tuple[tuple[str, ...], ...] = ()
 
@@ -201,24 +211,23 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
         return 'proper'
     if not _russian(guess, article_language) or not _russian(target, article_language):
         return ''
-    # A typed guess has no sentence context.  Prefer citation-form readings
-    # when the spelling is also an inflected homonym (for example «пара» is
-    # also an inflected form of «пар»).  The target keeps all live readings.
+    # Prefer the reading appropriate to the spelling on both sides. This
+    # removes non-citation homographs such as «разрыв» (noun vs gerund of
+    # «разрыть») without removing noun/noun alternatives such as «улья».
     guess_reads = guess_readings_of(guess)
-    target_reads = readings_of(target)
-    # Citation-form preference must not disconnect the reverse direction of
-    # an inflectional lexeme (for example «улья» -> «улей»).  Use the
-    # preferred readings for root semantics, but retain every valid reading
-    # for the exact SAME_LEXEME layer.
+    target_reads = preferred_readings_of(target)
+    target_root_reads = guess_readings_of(target)
+    # SAME_LEXEME may use a second genuine noun reading (for example
+    # «улья»/«улей»), but root matching stays citation-preferred so noun
+    # «пара» does not open «испарять» through the inflected noun «пар».
     guess_lexemes = {
         (item.para_id, item.lemma)
-        for item in readings_of(guess)
-        if fold(item.lemma) == fold(target)
-    } | {(item.para_id, item.lemma) for item in guess_reads}
+        for item in preferred_readings_of(guess)
+    }
     target_lexemes = {(item.para_id, item.lemma) for item in target_reads}
     if guess_lexemes & target_lexemes:
         return 'lexeme'
-    if _roots(guess_reads, guess) & _roots(target_reads, target):
+    if _roots(guess_reads, guess) & _roots(target_root_reads, target):
         return 'root'
     if _grammar(guess_reads, target_reads):
         return 'grammar'
@@ -304,16 +313,45 @@ def guess_readings_of(surface: str) -> tuple:
     spelling is only an inflected form.  If it is not a citation form at all
     (for example ``прибыли``), retain every live reading.
 
-    This is deliberately applied only to the guess side.  Article tokens are
-    analyzed with their sentence context elsewhere and must keep their own
-    possible identities.
+    The same helper is used for article-independent target analysis, so the
+    two directions do not disagree merely because one word was typed first.
     """
-    found = readings_of(surface)
+    found = _letter_name_readings(surface, readings_of(surface))
     folded = fold(surface)
     if not folded:
         return found
     citation = tuple(item for item in found if item.lemma == folded)
     return citation or found
+
+
+@lru_cache(maxsize=262144)
+def preferred_readings_of(surface: str) -> tuple:
+    """Readings suitable for an isolated gameplay token.
+
+    If a spelling is itself a noun citation form, prefer that noun over a
+    valid homographic participle, gerund, or short-adjective inflection. Keep
+    other noun readings: they are genuine alternatives, e.g. ``улья`` as a
+    rare noun and as the genitive of ``улей``.
+    """
+    found = _letter_name_readings(surface, readings_of(surface))
+    folded = fold(surface)
+    if not folded:
+        return found
+    citation = tuple(item for item in found if item.lemma == folded)
+    if not citation:
+        return found
+    if any(item.pos == 'NOUN' for item in citation):
+        return tuple(
+            item for item in found
+            if item.lemma == folded or item.pos == 'NOUN'
+        )
+    # A non-noun citation form normally coexists harmlessly with another
+    # grammatical reading (for example the suppletive «лучше»).  If the
+    # alternative is a noun citation of another lemma, however, prefer the
+    # typed adjective/adverb (the «дорогой» side of «дорога»).
+    if any(item.pos == 'NOUN' for item in found if item.lemma != folded):
+        return citation
+    return found
 
 
 def _russian(surface: str, article_language: str) -> bool:

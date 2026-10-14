@@ -25,6 +25,7 @@ from games.censorly.lexical.semantics import (
     _russian,
     guess_readings_of,
     initially_open,
+    preferred_readings_of,
     readings_of,
 )
 
@@ -67,7 +68,7 @@ class _Pack:
         self.surface = surface
         self.fold = fold(surface)
         self.service = initially_open(surface, include_pronouns=include_pronouns)
-        self.reads = readings_of(surface)
+        self.reads = preferred_readings_of(surface)
         # OpenCorpora/pymorphy also tags the standalone letter name «Е» as a
         # rare present-tense form of «быть». Treat that token as the letter
         # sense installed in semantic_splits, so ordinary forms of «быть» do
@@ -80,7 +81,12 @@ class _Pack:
             self.reads, contextual = target_readings(surface, article_lemma, self.reads)
         self.russian = _russian(surface, 'ru')
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
-        self.roots = _roots(self.reads, surface, include_surface=not contextual)
+        # Root equality uses citation-preferred readings on both sides.  The
+        # broader noun alternatives remain in ``reads`` for SAME_LEXEME.
+        root_reads = guess_readings_of(surface)
+        if article_lemma:
+            root_reads, _ = target_readings(surface, article_lemma, root_reads)
+        self.roots = _roots(root_reads, surface, include_surface=not contextual)
         self.root_ids = frozenset(_root_ids(self.roots))
         families = set(families_of(self.fold))
         for item in self.reads:
@@ -99,15 +105,13 @@ class _GuessPack(_Pack):
     ):
         super().__init__(surface, include_pronouns=include_pronouns)
         lexemes_by_fold = defaultdict(set)
-        for item in readings_of(surface):
+        for item in preferred_readings_of(surface):
             lexemes_by_fold[fold(item.lemma)].add((item.para_id, item.lemma))
         self.lexemes_by_fold = {
             lemma_fold: frozenset(lexemes)
             for lemma_fold, lexemes in lexemes_by_fold.items()
         }
-        # Citation-form preference applies to the guess even when the same
-        # surface is also present among article targets.  Article context is
-        # still applied below only through explicit target-reading overrides.
+        # Use the same narrow citation-form preference as the target pack.
         self.reads = guess_readings_of(surface)
         # Keep the standalone letter-name correction when rebuilding the
         # citation-form guess pack; otherwise article scans can resurrect the

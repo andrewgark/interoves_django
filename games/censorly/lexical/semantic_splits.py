@@ -4456,7 +4456,10 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_law', ('закон',)),
     ('sense:review_cover', ('обложка',)),
     ('sense:review_application', ('приложение',)),
-    ('sense:review_west', ('запад', 'западный', 'западно', 'западнее', 'западнейший')),
+    ('sense:review_west', (
+        'запад', 'западный', 'западно', 'западнее', 'западнейший',
+        'западник', 'западнический', 'западничество',
+    )),
     ('sense:review_attack', ('нападение',)),
     ('sense:review_be_located', ('находиться',)),
     ('sense:review_similar', ('похожий',)),
@@ -6216,6 +6219,38 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_send_upon', (
         'наслать', 'насылать', 'насылаться',
     )),
+    ('sense:review_send_forward', (
+        'прислать', 'присыл', 'присылать', 'присылаться', 'присылка',
+    )),
+    ('sense:review_send_back', (
+        'отослать', 'отсылать', 'отсылаться', 'отсылка', 'отсылочный',
+    )),
+    ('sense:review_send_distribution', (
+        'разослать', 'рассылать', 'рассылаться', 'рассылка', 'рассылочный',
+        'рассыльный',
+    )),
+    ('sense:review_send_across', (
+        'переслать', 'пересылать', 'пересылаться', 'пересылка',
+        'пересылочный', 'пересыльный',
+    )),
+    ('sense:review_send_down', (
+        'дослать', 'досылать', 'досылаться', 'досылка',
+    )),
+    ('sense:review_send_in', (
+        'засылание', 'засылать', 'засылаться', 'засылка',
+    )),
+    ('sense:review_send_away', (
+        'услать', 'усылать', 'усылаться', 'усылка',
+    )),
+    ('sense:review_send_under', (
+        'подослать', 'подсыл', 'подсылать', 'подсылаться',
+    )),
+    ('sense:review_send_prior', (
+        'предпослать', 'предпосылать', 'предпосылаться', 'предпосылка',
+    )),
+    ('sense:review_send_exile', (
+        'сосланный', 'сослать',
+    )),
 )
 _sense_destinations = {
     fold(lemma): name for name, lemmas in _SENSE_MOVES for lemma in lemmas
@@ -6402,11 +6437,13 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('стачивать', ('sense:flow', 'sense:stitch', 'sense:sharpen')),
     ('стачиваться', ('sense:flow', 'sense:stitch', 'sense:sharpen')),
     ('уточка', ('sense:duck',)),
-    ('просвет', ('sense:light', 'sense:review_enlightenment')),
-    ('просветить', ('sense:light', 'sense:review_enlightenment')),
-    ('просветиться', ('sense:light', 'sense:review_enlightenment')),
-    ('просветление', ('sense:light', 'sense:review_enlightenment')),
-    ('просветленный', ('sense:light', 'sense:review_enlightenment')),
+    # Enlightenment/education is not the physical-light family.  Keep these
+    # forms out of sense:light so «свет» does not open them.
+    ('просвет', ('sense:review_enlightenment',)),
+    ('просветить', ('sense:review_enlightenment',)),
+    ('просветиться', ('sense:review_enlightenment',)),
+    ('просветление', ('sense:review_enlightenment',)),
+    ('просветленный', ('sense:review_enlightenment',)),
     ('осветить', ('sense:light', 'sense:review_enlightenment')),
     ('освещать', ('sense:light', 'sense:review_enlightenment')),
     ('освещение', ('sense:light', 'sense:review_enlightenment')),

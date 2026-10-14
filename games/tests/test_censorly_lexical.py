@@ -78,6 +78,8 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         boy = ('sense:review_boy',)
         self.assertEqual(structures_of('запад'), (west,))
         self.assertEqual(structures_of('западный'), (west,))
+        self.assertEqual(structures_of('западник'), (west,))
+        self.assertEqual(structures_of('западнический'), (west,))
         self.assertNotEqual(west, falling)
         self.assertEqual(structures_of('суд'), (court,))
         self.assertEqual(structures_of('судьба'), (fate,))

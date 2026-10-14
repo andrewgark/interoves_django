@@ -54,10 +54,6 @@ TRUE_CASES = (
     # Short masculine of «сырой» is also «сыр». Damp stays linked.
     ('сырой', 'сырость', 'root'),
     ('пологий', 'пологость', 'root'),
-    # «устав» is also the gerund of «устать», so that lexical identity stays
-    # open, while the citation-form noun «уставать» is a separate semantic
-    # family and remains closed.
-    ('устав', 'устать', 'lexeme'),
     ('устать', 'усталость', 'root'),
     ('стоять', 'стоянка', 'root'),
     ('стать', 'становиться', 'root'),
@@ -1253,11 +1249,15 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
 
         payload = build_puzzle_payload(
             wiki_title='Проверка',
-            body_text='Был была. Ш расширенный. Открытые покров. Образовать изображение.',
+            body_text='Был была. Быть. Ш расширенный. Открытые покров. Образовать изображение.',
         )
         tokens = all_tokens(payload)
         opened_by_e = matching_lemmas(tokens, 'Е')
         self.assertNotIn('быть', opened_by_e)
+        self.assertFalse(opens('Е', 'быть'))
+        self.assertFalse(opens('быть', 'Е'))
+        self.assertFalse(_relation(_GuessPack('Е'), _Pack('быть')))
+        self.assertFalse(_relation(_GuessPack('быть'), _Pack('Е')))
         self.assertNotIn('расширить', matching_lemmas(tokens, 'Ш'))
         self.assertNotIn('покров', matching_lemmas(tokens, 'открытые'))
         self.assertNotIn('изображение', matching_lemmas(tokens, 'образовать'))
@@ -1625,10 +1625,48 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             ('выслать', 'послание'),
             ('наслать', 'послание'),
             ('выслать', 'наслать'),
+            ('прислать', 'отослать'),
+            ('разослать', 'переслать'),
+            ('дослать', 'заслать'),
         ):
             with self.subTest(left=left, right=right):
                 self.assertFalse(opens(left, right))
                 self.assertFalse(opens(right, left))
+
+    def test_citation_nouns_do_not_use_gerund_or_adjective_homographs(self):
+        for left, right in (
+            ('дорога', 'дорогой'),
+            ('разрыв', 'разрыть'),
+            ('порыв', 'порыть'),
+            ('устав', 'устать'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+                self.assertFalse(opens(right, left))
+
+        # Genuine noun/noun alternatives remain available; this is not a
+        # blanket "one citation reading wins" rule.
+        self.assertTrue(opens('улей', 'улья'))
+        self.assertTrue(opens('улья', 'улей'))
+
+    def test_light_and_enlightenment_families_are_split(self):
+        for right in (
+            'просвет', 'просветить', 'просветление', 'просвещённый',
+        ):
+            with self.subTest(right=right):
+                self.assertFalse(opens('свет', right))
+                self.assertFalse(opens(right, 'свет'))
+
+    def test_falling_and_west_families_are_separate(self):
+        falling = ('упадок', 'упадёт', 'упадет', 'падать')
+        west = ('запад', 'западник')
+        for left in falling:
+            for right in west:
+                with self.subTest(left=left, right=right):
+                    self.assertFalse(opens(left, right))
+                    self.assertFalse(opens(right, left))
+        self.assertTrue(opens('запад', 'западник'))
+        self.assertTrue(opens('западник', 'запад'))
 
     def test_reviewed_chemistry_and_norm_subfamilies(self):
         from games.censorly.lexical.rootbank import assignment_of, structures_of
