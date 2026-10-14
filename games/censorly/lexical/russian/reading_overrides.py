@@ -27,6 +27,10 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     ('почти', 'почесть', 'VERB'),
     ('почти', 'почтить', 'VERB'),
     ('зря', 'зреть', 'GRND'),
+    # In gameplay, «белых» is always the inflected adjective «белый».  The
+    # fixed surname lemma «Белых» is not a useful lexical reading here and
+    # otherwise suppresses the ordinary adjective citation reading.
+    ('белых', 'белых', 'NOUN'),
 })
 
 # Article-context corrections for valid homographs that the parser otherwise

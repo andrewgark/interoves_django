@@ -540,6 +540,21 @@ FALSE_CASES = (
 
 
 class SemanticsTests(SimpleTestCase):
+    def test_belykh_uses_adjective_reading(self):
+        readings = {(item.lemma, item.pos) for item in readings_of('белых')}
+        self.assertIn(('белый', 'ADJF'), readings)
+        self.assertNotIn(('белых', 'NOUN'), readings)
+        self.assertTrue(opens('белый', 'белых'))
+        self.assertTrue(opens('белых', 'белый'))
+
+    def test_donskoy_adjective_variant_uses_existing_root(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        self.assertEqual(assignment_of('донский')['source'], 'REVIEWED_DERIVED_ROOT')
+        self.assertEqual(structures_of('донский'), (('fam:дн²|дон',),))
+        self.assertTrue(opens('донской', 'донский'))
+        self.assertTrue(opens('донский', 'донской'))
+
     def test_domoy_does_not_use_spurious_domyit_reading(self):
         self.assertEqual(
             {(item.lemma, item.pos) for item in readings_of('домой')},
