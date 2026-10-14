@@ -498,6 +498,17 @@
     };
   }
 
+  function visibleAreaTop(root) {
+    var bounds = mobileDockBounds(root);
+    var top = bounds ? bounds.top : 0;
+    var nav = document.querySelector('.new-nav');
+    if (nav) {
+      var navRect = nav.getBoundingClientRect();
+      if (navRect.top <= top && navRect.bottom > top) top = navRect.bottom;
+    }
+    return top;
+  }
+
   function scrollToNode(root, node) {
     if (!node) return;
     // On mobile the dock spans the game width and sticks over the bottom of
@@ -560,11 +571,10 @@
     var node = nodes[0];
     if (mode === 'nearest') node = nearestScrollNode(root, nodes);
     if (mode === 'next') {
-      var bounds = mobileDockBounds(root);
-      var center = bounds ? (bounds.top + bounds.bottom) / 2 : window.innerHeight / 2;
+      var visibleTop = visibleAreaTop(root);
       node = nodes.find(function (candidate) {
         var rect = candidate.getBoundingClientRect();
-        return rect.top + rect.height / 2 > center + 2;
+        return rect.top > visibleTop + 2;
       }) || nodes[0];
     }
     scrollToNode(root, node);
