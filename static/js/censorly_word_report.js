@@ -33,10 +33,14 @@
   function updateOtherField() {
     var reason = selectedReason();
     var needed = reason === 'FALSE_POSITIVE' || reason === 'FALSE_NEGATIVE';
+    var knownOpeningGuess = reason === 'FALSE_POSITIVE' && selectedToken
+      ? (selectedToken.dataset.openedByGuess || '') : '';
     errorEl.hidden = true;
     otherWrap.hidden = !needed;
-    otherEl.required = needed;
-    if (!needed) otherEl.value = '';
+    otherEl.readOnly = !!knownOpeningGuess;
+    otherEl.required = needed && !knownOpeningGuess;
+    if (knownOpeningGuess) otherEl.value = knownOpeningGuess;
+    else if (!needed || reason === 'FALSE_NEGATIVE') otherEl.value = '';
     otherLabel.textContent = reason === 'FALSE_POSITIVE'
       ? 'Каким словом оно было открыто?'
       : 'Какое слово должно было его открыть?';
@@ -67,6 +71,7 @@
       input.checked = false;
     });
     otherEl.value = '';
+    otherEl.readOnly = false;
     commentEl.value = '';
     errorEl.hidden = true;
     successEl.hidden = true;

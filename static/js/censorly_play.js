@@ -106,6 +106,7 @@
       var revealed = el('span', revealedClass);
       revealed.dataset.id = String(tok.id);
       revealed.dataset.surface = tok.text || '';
+      if (tok.opened_by_guess) revealed.dataset.openedByGuess = tok.opened_by_guess;
       revealed.setAttribute('role', 'button');
       revealed.setAttribute('tabindex', '0');
       revealed.setAttribute('aria-label', 'Пожаловаться на слово «' + (tok.text || '') + '»');
@@ -717,6 +718,16 @@
     var submit = root.querySelector('#censorly-submit');
     var hintBtn = root.querySelector('#censorly-hint-btn');
 
+    var openingGuessByToken = {};
+    (state.guesses || []).forEach(function (guess) {
+      (guess.token_ids || []).forEach(function (id) {
+        // Keep the first opening guess for a token, matching the original cause.
+        if (openingGuessByToken[id] == null) openingGuessByToken[id] = guess.word || '';
+      });
+    });
+    (state.title_tokens || []).concat(state.body_tokens || []).forEach(function (token) {
+      token.opened_by_guess = openingGuessByToken[token.id] || '';
+    });
     renderTokens(title, state.title_tokens || [], lenForced);
     renderTitleDecoration(title, state);
     var fetched = root.querySelector('#censorly-fetched');

@@ -778,9 +778,6 @@ def censorly_word_report(request, task_id):
         return JsonResponse({'ok': False, 'error': 'Не удалось определить открытое слово.'}, status=400)
     if len(other_word) > 64 or len(comment) > 5000:
         return JsonResponse({'ok': False, 'error': 'Слишком длинное сообщение.'}, status=400)
-    if reason in {'FALSE_POSITIVE', 'FALSE_NEGATIVE'} and not other_word:
-        return JsonResponse({'ok': False, 'error': 'Укажите второе слово.'}, status=400)
-
     try:
         token_id = int(body.get('token_id'))
     except (TypeError, ValueError):
@@ -791,6 +788,18 @@ def censorly_word_report(request, task_id):
     ] if int(item.get('id', -1)) == token_id), None)
     if not token or not token.get('revealed') or fold(token.get('text') or '') != fold(target_surface):
         return JsonResponse({'ok': False, 'error': 'Пожаловаться можно только на открытое слово.'}, status=400)
+
+    if reason == 'FALSE_POSITIVE':
+        # Use the recorded opening guess as the source of truth. The client
+        # displays this value read-only, but reports can also be posted directly.
+        for guess in state.get('guesses') or []:
+            if not isinstance(guess, dict):
+                continue
+            if token_id in (guess.get('token_ids') or []):
+                other_word = ' '.join(str(guess.get('word') or '').split())
+                break
+    if reason in {'FALSE_POSITIVE', 'FALSE_NEGATIVE'} and not other_word:
+        return JsonResponse({'ok': False, 'error': 'Укажите второе слово.'}, status=400)
 
     actor_key = 'user:{}'.format(user.pk) if user is not None else 'anon:{}'.format(anon_key)
     now = int(time.time())

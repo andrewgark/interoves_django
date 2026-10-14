@@ -36,7 +36,7 @@ class CensorlyWordReportBrowserTests(SimpleTestCase):
                     <main id="censorly-root" data-word-report-url="/censorly/word-report/"
                           data-game-id="censorly" data-context-token="ctx-test">
                       <button class="censorly-tok--reportable" data-id="42"
-                              data-surface="Поддержка">Поддержка</button>
+                              data-surface="Поддержка" data-opened-by-guess="Держать">Поддержка</button>
                     </main>
                     <div id="censorly-word-report-modal" hidden>
                       <div id="censorly-word-report-target"></div>
@@ -73,7 +73,8 @@ class CensorlyWordReportBrowserTests(SimpleTestCase):
                 expect(page.locator('#censorly-word-report-other-wrap')).to_be_hidden()
                 page.locator('input[value="FALSE_POSITIVE"]').check()
                 expect(page.locator('#censorly-word-report-other-wrap')).to_be_visible()
-                page.locator('#censorly-word-report-other').fill('Держать')
+                expect(page.locator('#censorly-word-report-other')).to_have_value('Держать')
+                expect(page.locator('#censorly-word-report-other')).to_have_attribute('readonly', '')
                 page.locator('#censorly-word-report-comment').fill('Проверка smoke workflow')
                 page.locator('[data-censorly-word-report-submit]').click()
 
