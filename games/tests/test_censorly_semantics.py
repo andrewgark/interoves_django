@@ -1329,6 +1329,43 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         self.assertFalse(opens('евгений', 'жену'))
         self.assertFalse(opens('жену', 'евгений'))
 
+    def test_merit_and_service_meanings_stay_apart(self):
+        self.assertFalse(opens('заслуги', 'службу'))
+        self.assertFalse(opens('службу', 'заслуги'))
+        self.assertTrue(opens('заслуга', 'заслуженный'))
+        self.assertTrue(opens('заслужить', 'заслуженный'))
+
+    def test_divine_service_subfamily_is_narrow(self):
+        self.assertTrue(opens('богослужение', 'богослужебный'))
+        self.assertFalse(opens('богослужение', 'служение'))
+        self.assertFalse(opens('священнослужитель', 'церковнослужитель'))
+
+    def test_servility_subfamily_is_narrow(self):
+        self.assertTrue(opens('прислуживать', 'прислужливый'))
+        self.assertTrue(opens('услужливость', 'услужливый'))
+        self.assertFalse(opens('прислужливый', 'служба'))
+        self.assertFalse(opens('услужливый', 'услуга'))
+
+    def test_show_and_meaning_families_are_narrow(self):
+        self.assertFalse(opens('показатели', 'оказалась'))
+        self.assertFalse(opens('оказалась', 'показатели'))
+        self.assertFalse(opens('ознаменовало', 'назначить'))
+        self.assertFalse(opens('назначить', 'ознаменовало'))
+        self.assertTrue(opens('показатель', 'показательный'))
+        self.assertTrue(opens('оказаться', 'оказать'))
+        self.assertTrue(opens('ознаменовать', 'ознаменование'))
+        self.assertTrue(opens('назначить', 'назначение'))
+
+    def test_creation_and_building_families_are_narrow(self):
+        self.assertFalse(opens('создатель', 'здание'))
+        self.assertFalse(opens('здание', 'создатель'))
+        self.assertTrue(opens('создатель', 'создание'))
+        self.assertTrue(opens('здание', 'зданьице'))
+        self.assertTrue(opens('созидатель', 'создание'))
+        self.assertFalse(opens('зиждитель', 'создатель'))
+        self.assertFalse(opens('зодчий', 'здание'))
+        self.assertFalse(opens('назидание', 'создание'))
+
     def test_additional_safe_family_splits_stay_apart(self):
         pairs = (
             ('гладкий', 'голодный'),
@@ -1553,6 +1590,10 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertTrue(opens('сенатор', 'сенатский'))
         self.assertTrue(opens('иволга', 'иволговый'))
         self.assertTrue(opens('иволга', 'иволговые'))
+        self.assertEqual(assignment_of('атом')['source'], 'REVIEWED_OPAQUE_ROOT')
+        self.assertEqual(structures_of('атом'), (('tikh:атом',),))
+        self.assertEqual(structures_of('атомный'), (('tikh:атом',),))
+        self.assertTrue(opens('атом', 'атомным'))
 
         proza_family = ('проза', 'прозаик', 'прозаический', 'прозаичный', 'прозаизм')
         for lemma in proza_family:
