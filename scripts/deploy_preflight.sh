@@ -12,7 +12,8 @@ echo "Running Django production checks"
 "$ROOT/scripts/eb_run.sh" manage.py check --deploy
 
 echo "Checking production migration state"
-if ! "$ROOT/scripts/with_rds.sh" manage.py migrate --plan >"$PLAN_FILE" 2>&1; then
+# Reuse Green's live production DB connection instead of opening a local RDS tunnel.
+if ! "$ROOT/scripts/eb_run.sh" manage.py migrate --plan >"$PLAN_FILE" 2>&1; then
     cat "$PLAN_FILE" >&2
     echo "Deploy preflight failed: migrate --plan could not complete." >&2
     exit 1
