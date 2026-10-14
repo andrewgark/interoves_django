@@ -181,7 +181,7 @@ def build_caption(
     if not title_mask:
         raise ValueError('Не удалось собрать скрытый заголовок статьи')
     return '\n'.join((
-        '📰 Цензурка №{}'.format(_escape(number)),
+        '📰 <b>Цензурка №{}</b>'.format(_escape(number)),
         '',
         _escape(title_mask),
         '',
