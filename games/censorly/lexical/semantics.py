@@ -476,11 +476,21 @@ _PROPER_COMPONENT_BY_WORD = _proper_components()
 
 @lru_cache(maxsize=262144)
 def _proper_pair(left: str, right: str) -> bool:
+    return _proper_pair_from_readings(
+        left,
+        right,
+        readings_of(left),
+        readings_of(right),
+    )
+
+
+def _proper_pair_from_readings(left, right, left_readings, right_readings) -> bool:
+    """Check proper-name relation using the readings selected by the caller."""
     left_forms = {fold(left)} | {
-        fold(item.lemma) for item in readings_of(left) if item.lemma
+        fold(item.lemma) for item in left_readings if item.lemma
     }
     right_forms = {fold(right)} | {
-        fold(item.lemma) for item in readings_of(right) if item.lemma
+        fold(item.lemma) for item in right_readings if item.lemma
     }
     left_components = {
         _PROPER_COMPONENT_BY_WORD[form]

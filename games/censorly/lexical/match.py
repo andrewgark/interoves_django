@@ -152,9 +152,14 @@ def _relation(guess: _Pack, target: _Pack) -> str:
         return 'alias'
     # Import lazily: semantics imports the root bank, whose proper-name
     # installation can otherwise create an import-time cycle through match.
-    from games.censorly.lexical.semantics import _proper_pair
+    from games.censorly.lexical.semantics import _proper_pair_from_readings
 
-    if _proper_pair(guess.fold, target.fold):
+    if _proper_pair_from_readings(
+        guess.fold,
+        target.fold,
+        guess.reads,
+        target.reads,
+    ):
         return 'proper'
     if not guess.russian or not target.russian:
         return ''
