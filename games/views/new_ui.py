@@ -953,6 +953,10 @@ def _build_hub_section_cards(request, *, team):
             game = Game.objects.filter(id=game_id, project=project).first()
             if not game or not game.has_access('see_game_preview', team=team):
                 continue
+            if game_id == 'censorly':
+                from games.views.censorly_views import _censorly_is_public
+                if not _censorly_is_public(game):
+                    continue
             if is_scheduled_game(game_id):
                 card = get_scheduled_section_hub_card(
                     game,
@@ -963,6 +967,8 @@ def _build_hub_section_cards(request, *, team):
             play_mode, _ = _get_play_mode(request, game.project_id)
             play_mode = effective_play_mode(play_mode, game, user=request.user)
             card.update(_game_page_progress_context(request, game, play_mode))
+            if game_id == 'censorly':
+                card['new_label'] = 'NEW'
             # The streak is rendered from the initial response, so project the
             # CTA's solved state here as well instead of waiting for one JSON
             # request per card after the page has loaded.
@@ -1008,16 +1014,14 @@ def _build_hub_section_cards(request, *, team):
     from_desyatochki = [
         by_id[i] for i in HUB_FROM_DESYATOCHKI_SECTION_IDS if i in by_id
     ]
-    daily_primary = by_id.get(LADDER_GAME_ID)
-    daily_secondary = [
-        by_id[i] for i in (WORD_SALAD_GAME_ID, ALPHABETTY_GAME_ID) if i in by_id
-    ]
+    daily_grid = [by_id[i] for i in HUB_DAILY_SECTION_IDS if i in by_id]
     return {
         'daily_hub_cards': daily,
-        'daily_hub_primary_card': daily_primary,
-        'daily_hub_secondary_cards': daily_secondary,
+        'daily_hub_primary_card': None,
+        'daily_hub_secondary_cards': [],
+        'daily_hub_grid_cards': daily_grid,
         'from_desyatochki_hub_cards': from_desyatochki,
-        'hub_section_cards': daily + from_desyatochki,
+        'hub_section_cards': daily_grid + from_desyatochki,
     }
 
 

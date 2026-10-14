@@ -363,6 +363,7 @@ def censorly_hub_page(request):
         raise Http404()
     if not _may_access_censorly(request, game):
         raise Http404()
+    team = request.user.profile.team_on if has_profile(request.user) else None
     hub = get_censorly_hub_context(game, published_numbers=_published_numbers(game))
     random_rows = list(RandomCensorlyGame.objects.order_by('-created_at')[:40])
     # Keep the daily hub/calendar empty during soft-launch.  Unpublished
@@ -423,6 +424,7 @@ def censorly_hub_page(request):
                 continue
         rows.append({
             'number': number,
+            'placement_id': link.pk,
             'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
             'name': f'Цензурка №{number}',
             'play_url': section_play_path(CENSORLY_GAME_ID, number),
@@ -432,6 +434,12 @@ def censorly_hub_page(request):
             'row_class': progress.get(number, {}).get('row_class', ''),
             'progress_meta': progress.get(number, {}).get('progress_meta', ''),
         })
+    from games.views.new_ui import _mark_locked_archive_rows
+    _mark_locked_archive_rows(request, game, rows)
+    from games.difficulty import get_cached_game_difficulties
+    difficulties = get_cached_game_difficulties(schedule_links)
+    for row in rows:
+        row['difficulty'] = difficulties.get(row.pop('placement_id'))
     from games.views.new_ui import _add_daily_completion_statuses
     _add_daily_completion_statuses(request, game, rows, schedule_links)
     archive_context = build_daily_archive_context(
@@ -461,7 +469,7 @@ def censorly_hub_page(request):
         'show_sections_nav': False,
         'back_url': '/',
         'section_results_url': section_results_path(CENSORLY_GAME_ID),
-        'can_see_results': False,
+        'can_see_results': game.has_access('see_results', team=team),
         **archive_context,
         **hub,
     })

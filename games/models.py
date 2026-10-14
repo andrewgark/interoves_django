@@ -1113,6 +1113,7 @@ class GameDifficultyNorm(models.Model):
 
     game_id = models.CharField(max_length=100, primary_key=True)
     typical_time = models.FloatField(blank=True, null=True)
+    typical_attempts = models.FloatField(blank=True, null=True)
     typical_errors = models.FloatField(blank=True, null=True)
     typical_help_rate = models.FloatField(blank=True, null=True)
     typical_unfinished_rate = models.FloatField(blank=True, null=True)

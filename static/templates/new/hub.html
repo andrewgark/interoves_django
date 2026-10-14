@@ -18,14 +18,9 @@
     <h2 id="hub-daily-heading" class="new-heading new-hub-group__title">Ежедневные игры</h2>
     {% if club_archive_gating_enabled %}<a class="new-btn new-btn--yellow new-btn--mini club-subscription-cta" href="/subscription/" aria-label="{% if club_archive_has_access %}Вы оплатили клубную подписку, вам доступен весь архив{% else %}Клубная подписка, доступ ко всему архиву{% endif %}" data-tooltip="{% if club_archive_has_access %}Вы оплатили клубную подписку, вам доступен весь архив{% else %}Клубная подписка, доступ ко всему архиву{% endif %}">{% if club_archive_has_access %}<i class="ph ph-crown" aria-hidden="true"></i>{% else %}<i class="ph ph-lock-key" aria-hidden="true"></i>{% endif %}</a>{% endif %}
   </div>
-  {% if daily_hub_primary_card %}
-    <div class="new-hub-sections-grid new-hub-sections-grid--daily-primary">
-      {% include "new/partials/hub_section_card.html" with card=daily_hub_primary_card highlight_daily_cta=True %}
-    </div>
-  {% endif %}
-  {% if daily_hub_secondary_cards %}
-    <div class="new-hub-sections-grid new-hub-sections-grid--daily-secondary">
-      {% for card in daily_hub_secondary_cards %}
+  {% if daily_hub_grid_cards %}
+    <div class="new-hub-sections-grid new-hub-sections-grid--daily">
+      {% for card in daily_hub_grid_cards %}
         {% include "new/partials/hub_section_card.html" with card=card highlight_daily_cta=True %}
       {% endfor %}
     </div>

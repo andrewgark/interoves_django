@@ -35,8 +35,8 @@ MOSCOW = ZoneInfo('Europe/Moscow')
 # inserts the separate «Десяточки» item between the two slices below.
 SECTION_HUB_ORDER = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder', 'week_task', 'replacements', 'walls', 'palindromes')
 
-# Группы карточек на главной (порядок внутри группы).
-HUB_DAILY_SECTION_IDS = SECTION_HUB_ORDER[:3]
+# Порядок карточек ежедневных игр на главной: две колонки, две строки.
+HUB_DAILY_SECTION_IDS = (LADDER_GAME_ID, WORD_SALAD_GAME_ID, 'censorly', 'alphabetty')
 # «Задание недели» пока оставляем в полном каталоге и support-консоли, но
 # скрываем из публичного хаба и верхней навигации. Это позволяет вернуть блок
 # без миграций и не затрагивает уже опубликованные задания.

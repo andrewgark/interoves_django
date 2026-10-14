@@ -594,6 +594,19 @@ html.new-ui-dark body.new-ui {
   margin-bottom: 1.5rem;
 }
 
+.new-hub-section__badge-new {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: .12rem .45rem;
+  background: #d92d20;
+  color: #fff;
+  font-size: .68rem;
+  font-weight: 800;
+  line-height: 1.25;
+  letter-spacing: .04em;
+}
+
 /* max-width must stay one below --new-break-wide (lint: scripts/lint_new_ui_responsive.sh). */
 @media (max-width: 919px) {
   .new-hub-sections-grid--daily {

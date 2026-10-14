@@ -1,4 +1,4 @@
-"""Dynamic, explainable difficulty for the three scheduled daily games.
+"""Dynamic, explainable difficulty for the scheduled daily games.
 
 The public value deliberately stays simple (1..5 stars).  The snapshot payload
 keeps the observed metrics and historical baselines so an administrator can
@@ -28,11 +28,12 @@ from games.models import (
 )
 
 
-SUPPORTED_GAME_IDS = ('ladder', 'alphabetty', 'salad')
+SUPPORTED_GAME_IDS = ('ladder', 'alphabetty', 'salad', 'censorly')
 TASK_TYPE_BY_GAME_ID = {
     'ladder': 'raddle',
     'alphabetty': 'alphabetty',
     'salad': 'word_salad',
+    'censorly': 'censorly',
 }
 
 # All calibration constants live here intentionally.
@@ -45,7 +46,7 @@ ACTION_GAP_CAP = timedelta(minutes=30)
 UNFINISHED_WINDOW = timedelta(minutes=30)
 DUE_REFRESH_LIMIT = 10
 RATE_EPSILON = 0.01
-NORM_METRICS = ('median_time', 'median_errors', 'help_rate', 'unfinished_rate')
+NORM_METRICS = ('median_time', 'median_attempts', 'median_errors', 'help_rate', 'unfinished_rate')
 # Cadence throttles dirty games; clean snapshots are not rebuilt just because time passed.
 REFRESH_INTERVALS = (
     (timedelta(hours=6), timedelta(minutes=5)),
@@ -87,6 +88,13 @@ BASE_WEIGHTS = {
         # Wrong paths are not persisted by the current Salad UI.
         'help': 0.15,
         'unfinished': 0.20,
+    },
+    'censorly': {
+        'time': 0.25,
+        'attempts': 0.35,
+        'errors': 0.15,
+        'help': 0.15,
+        'unfinished': 0.10,
     },
 }
 
@@ -202,6 +210,7 @@ def calculate_observed_metrics(placement, *, now=None):
         return {
             'n': 0,
             'median_time': None,
+            'median_attempts': None,
             'median_errors': None,
             'help_rate': None,
             'unfinished_rate': None,
@@ -274,12 +283,17 @@ def calculate_observed_metrics(placement, *, now=None):
         for actor, actor_attempts in attempts_by_actor.items():
             if any(int(_safe_state(a.state).get('hints_taken') or 0) > 0 for a in actor_attempts):
                 help_actors.add(actor)
+    elif game_id == 'censorly':
+        for actor, actor_attempts in attempts_by_actor.items():
+            if any(str(attempt.text or '').startswith('#hint:') for attempt in actor_attempts):
+                help_actors.add(actor)
 
     completed_times = []
     errors = []
     unfinished = 0
     unfinished_denominator = 0
     completed_n = 0
+    word_attempts = []
     parsed_raddles = {}
     if game_id == 'ladder':
         from games.raddle import parse_raddle_data
@@ -307,6 +321,11 @@ def calculate_observed_metrics(placement, *, now=None):
                 attempt.status != 'Ok'
                 for attempt in actor_attempts[:completed_index + 1 if completed_index is not None else None]
             ))
+        elif game_id == 'censorly':
+            observed_attempts = actor_attempts[:completed_index + 1 if completed_index is not None else None]
+            guesses = [attempt for attempt in observed_attempts if not str(attempt.text or '').startswith('#hint:')]
+            word_attempts.append(len(guesses))
+            errors.append(sum(attempt.status == 'Wrong' for attempt in guesses))
 
         first_at = actor_attempts[0].time
         completed_in_window = bool(
@@ -320,10 +339,11 @@ def calculate_observed_metrics(placement, *, now=None):
                 unfinished += 1
 
     n = len(attempts_by_actor)
-    error_available = game_id in ('ladder', 'alphabetty')
+    error_available = game_id in ('ladder', 'alphabetty', 'censorly')
     return {
         'n': n,
         'median_time': _median(completed_times),
+        'median_attempts': _median(word_attempts) if game_id == 'censorly' else None,
         'median_errors': _median(errors) if error_available else None,
         'help_rate': (len(help_actors & set(attempts_by_actor)) / n) if n else None,
         'unfinished_rate': (
@@ -395,6 +415,7 @@ def refresh_historical_norm(game_id, *, now=None):
     payload = {**typical, 'sources': sources}
     row, _created = GameDifficultyNorm.objects.get_or_create(game_id=game_id)
     row.typical_time = typical['median_time']
+    row.typical_attempts = typical['median_attempts']
     row.typical_errors = typical['median_errors']
     row.typical_help_rate = typical['help_rate']
     row.typical_unfinished_rate = typical['unfinished_rate']
@@ -402,7 +423,7 @@ def refresh_historical_norm(game_id, *, now=None):
     row.payload = payload
     row.version = int(row.version or 0) + 1
     row.save(update_fields=[
-        'typical_time', 'typical_errors', 'typical_help_rate',
+        'typical_time', 'typical_attempts', 'typical_errors', 'typical_help_rate',
         'typical_unfinished_rate', 'calculated_at', 'payload', 'version',
     ])
     return row
@@ -424,6 +445,7 @@ def _norm_dict_from_row(row):
     sources = ((row.payload or {}).get('sources') or {}) if row else {}
     return {
         'median_time': row.typical_time if row else None,
+        'median_attempts': row.typical_attempts if row else None,
         'median_errors': row.typical_errors if row else None,
         'help_rate': row.typical_help_rate if row else None,
         'unfinished_rate': row.typical_unfinished_rate if row else None,
@@ -448,6 +470,7 @@ def historical_norm(placement, metrics, *, now=None):
 def rate_difficulty_metrics(game_id, metrics, norm):
     ratios = {
         'time': _ratio(metrics.get('median_time'), norm.get('median_time')),
+        'attempts': _ratio(metrics.get('median_attempts'), norm.get('median_attempts')),
         'errors': _ratio(
             metrics.get('median_errors'),
             norm.get('median_errors'),
@@ -468,6 +491,7 @@ def rate_difficulty_metrics(game_id, metrics, norm):
     }
     scores = {
         'time': ratio_score(ratios['time'], TIME_RATIO_BOUNDS),
+        'attempts': ratio_score(ratios['attempts'], EFFORT_RATIO_BOUNDS),
         'errors': ratio_score(ratios['errors'], EFFORT_RATIO_BOUNDS),
         'help': ratio_score(ratios['help'], EFFORT_RATIO_BOUNDS),
         'unfinished': ratio_score(ratios['unfinished'], EFFORT_RATIO_BOUNDS),

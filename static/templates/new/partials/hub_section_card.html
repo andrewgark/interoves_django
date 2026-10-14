@@ -11,6 +11,7 @@
     {% if card.today_label %}
       <span class="new-pill{% if highlight_daily_cta and card.is_today %} new-hub-section__badge-today{% endif %}">{{ card.today_label }}</span>
     {% endif %}
+    {% if card.new_label %}<span class="new-hub-section__badge-new">{{ card.new_label }}</span>{% endif %}
   </div>
   {% if onboarding_hierarchy and card.onboarding_badge %}
     <p class="new-pill new-hub-section__onboarding-badge">{{ card.onboarding_badge }}</p>

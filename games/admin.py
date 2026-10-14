@@ -121,6 +121,7 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
     change_list_template = 'admin/games/dailygamedifficulty/change_list.html'
     list_display = (
         'placement', 'n', 'median_time', 'typical_time', 'time_ratio',
+        'median_attempts', 'typical_attempts', 'attempts_ratio',
         'median_errors', 'help_rate', 'unfinished_rate', 'raw_rating',
         'adjusted_rating', 'stars_display', 'is_preliminary', 'dirty',
         'data_revision', 'calculated_revision', 'refresh_not_before', 'calculated_at',
@@ -133,6 +134,7 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
         'refresh_claim_token', 'refresh_claimed_until', 'refresh_fail_count',
         'refresh_last_error', 'norm_version',
         'median_time', 'typical_time', 'time_ratio', 'median_errors', 'typical_errors',
+        'median_attempts', 'typical_attempts', 'attempts_ratio',
         'error_ratio', 'help_rate', 'typical_help_rate', 'unfinished_rate',
         'typical_unfinished_rate', 'raw_rating', 'adjusted_rating', 'component_scores',
     )
@@ -314,6 +316,15 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
     def time_ratio(self, obj):
         return self._number(self._payload_value(obj, 'ratios', 'time'))
 
+    def median_attempts(self, obj):
+        return self._number(self._payload_value(obj, 'metrics', 'median_attempts'), 1)
+
+    def typical_attempts(self, obj):
+        return self._number(self._payload_value(obj, 'typical', 'median_attempts'), 1)
+
+    def attempts_ratio(self, obj):
+        return self._number(self._payload_value(obj, 'ratios', 'attempts'))
+
     def median_errors(self, obj):
         return self._number(self._payload_value(obj, 'metrics', 'median_errors'), 1)
 
@@ -355,11 +366,11 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
 @admin.register(GameDifficultyNorm)
 class GameDifficultyNormAdmin(admin.ModelAdmin):
     list_display = (
-        'game_id', 'typical_time', 'typical_errors', 'typical_help_rate',
+        'game_id', 'typical_time', 'typical_attempts', 'typical_errors', 'typical_help_rate',
         'typical_unfinished_rate', 'version', 'calculated_at',
     )
     readonly_fields = (
-        'game_id', 'typical_time', 'typical_errors', 'typical_help_rate',
+        'game_id', 'typical_time', 'typical_attempts', 'typical_errors', 'typical_help_rate',
         'typical_unfinished_rate', 'version', 'calculated_at', 'payload',
     )
 

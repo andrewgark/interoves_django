@@ -3,8 +3,8 @@
 Status: implemented 2026-08-27.
 
 This document describes how Interoves stores and refreshes the 1–5 star
-difficulty badges for the three scheduled daily games (Лесенка / ladder,
-Алфавитка / alphabetty, Салатик / salad). It is the source of truth for the
+difficulty badges for the scheduled daily games (Лесенка / ladder,
+Алфавитка / alphabetty, Салатик / salad, Цензурка / censorly). It is the source of truth for the
 scheduler; the code comments only mark the non-obvious race and locking bits.
 
 ## 1. Purpose
@@ -56,7 +56,7 @@ queue.
 
 ## 3. Lifecycle of one edition
 
-1. A `GameTaskGroup` for ladder / alphabetty / salad is created (support
+1. A `GameTaskGroup` for a supported daily game is created (support
    console, admin, or backfill). `ensure_daily_difficulty_row` inserts
    `DailyGameDifficulty` with `data_revision=1`, `calculated_revision=0`,
    `dirty=True`, `refresh_not_before=published_at` (or `now` if unknown).
