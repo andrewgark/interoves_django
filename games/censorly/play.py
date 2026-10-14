@@ -489,6 +489,8 @@ def public_payload(
     task: Task | None = None,
 ) -> dict[str, Any]:
     cache_key = _lexical_cache_key(task)
+    history_tokens = None
+    ids_by_lemma: dict[str, list[int]] | None = None
     revealed = set(state.get('revealed_lemmas') or [])
     won = _state_won(state, payload)
     view = build_public_view(
@@ -502,10 +504,17 @@ def public_payload(
     for guess in state.get('guesses') or []:
         if not isinstance(guess, dict):
             continue
+        if history_tokens is None:
+            history_tokens = all_tokens(payload)
+            ids_by_lemma = {}
+            for tok in history_tokens:
+                if tok.get('kind') == 'content':
+                    ids_by_lemma.setdefault(tok.get('lemma') or '', []).append(int(tok['id']))
         item = dict(guess)
         item['token_ids'] = token_ids_for_guess(
             payload, item.get('lemma') or '', item.get('word') or '',
-            cache_key=cache_key,
+            cache_key=cache_key, tokens=history_tokens,
+            ids_by_lemma=ids_by_lemma,
         )
         guesses.append(item)
     hints = hint_count(state)
@@ -556,9 +565,9 @@ def _history_index_for_guess(
         return None
     cache_key = _lexical_cache_key(task)
     target_ids = {
-        token_id
-        for lemma in target_lemmas
-        for token_id in newly_revealed_ids(payload, lemma)
+        int(tok['id'])
+        for tok in all_tokens(payload)
+        if tok.get('kind') == 'content' and tok.get('lemma') in target_lemmas
     }
     if not target_ids:
         return None

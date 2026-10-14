@@ -135,19 +135,21 @@ def build_public_view(
 
 
 def lemmas_matching_guess(
-    payload: dict[str, Any], guess_lemma: str, guess_norm: str, *, cache_key=None,
+    payload: dict[str, Any], guess_lemma: str, guess_norm: str, *,
+    cache_key=None, tokens=None,
 ) -> set[str]:
     """Return lemmas in the puzzle that match the guess (lemma or surface)."""
+    tokens = all_tokens(payload) if tokens is None else tokens
     from games.censorly.flags import lexical_resolver_enabled
     if lexical_resolver_enabled():
         from games.censorly.lexical.match import matching_lemmas
         return matching_lemmas(
-            all_tokens(payload), guess_norm or guess_lemma, cache_key=cache_key,
+            tokens, guess_norm or guess_lemma, cache_key=cache_key,
         )
     hits: set[str] = set()
     if not guess_lemma and not guess_norm:
         return hits
-    for tok in all_tokens(payload):
+    for tok in tokens:
         if tok.get('kind') != 'content':
             continue
         lemma = tok.get('lemma') or ''
@@ -224,7 +226,8 @@ def newly_revealed_ids(payload: dict[str, Any], lemma: str) -> list[int]:
 
 
 def token_ids_for_guess(
-    payload: dict[str, Any], guess_lemma: str, guess_norm: str, *, cache_key=None,
+    payload: dict[str, Any], guess_lemma: str, guess_norm: str, *,
+    cache_key=None, tokens=None, ids_by_lemma=None,
 ) -> list[int]:
     """Content tokens this guess opens, in reading order.
 
@@ -232,13 +235,16 @@ def token_ids_for_guess(
     not only the primary lemma of the typed word.
     """
     matched = lemmas_matching_guess(
-        payload, guess_lemma, guess_norm, cache_key=cache_key,
+        payload, guess_lemma, guess_norm, cache_key=cache_key, tokens=tokens,
     )
     if not matched:
         return []
+    if ids_by_lemma is not None:
+        return sorted(token_id for lemma in matched for token_id in ids_by_lemma.get(lemma, ()))
+    tokens = all_tokens(payload) if tokens is None else tokens
     return [
         int(tok['id'])
-        for tok in all_tokens(payload)
+        for tok in tokens
         if tok.get('kind') == 'content' and (tok.get('lemma') or '') in matched
     ]
 
