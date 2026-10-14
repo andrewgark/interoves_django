@@ -28,6 +28,10 @@ def install(sense, set_readings) -> None:
 
 # (game id, lemmas). Order is not meaningful.
 CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # The dictionary also analyzes the one-letter name of Е as a rare
+    # present-tense form of быть. In Censorly, the standalone letter is its
+    # own lexical sense; do not attach it to the быть family.
+    ('sense:letter_e', ('е',)),
     ('sense:beauty', (
         'изукрасить', 'изукраситься', 'изукрашивать', 'изукрашиваться', 'краса', 'красавец',
         'красавица', 'красавка', 'красавчик', 'красивенький', 'красивость', 'красивый',

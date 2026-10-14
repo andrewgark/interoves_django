@@ -30,6 +30,12 @@ class _Pack:
         self.fold = fold(surface)
         self.service = initially_open(surface, include_pronouns=include_pronouns)
         self.reads = readings_of(surface)
+        # OpenCorpora/pymorphy also tags the standalone letter name «Е» as a
+        # rare present-tense form of «быть». Treat that token as the letter
+        # sense installed in semantic_splits, so ordinary forms of «быть» do
+        # not reveal it through the spurious homographic reading.
+        if self.fold == 'е':
+            self.reads = tuple(item for item in self.reads if item.lemma == 'е')
         self.russian = _russian(surface, 'ru')
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         self.roots = _roots(self.reads, surface)
