@@ -581,6 +581,14 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('математика', 'математический'))
         self.assertTrue(opens('математический', 'математика'))
 
+    def test_electrical_adverb_uses_existing_root(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        self.assertEqual(assignment_of('электрически')['source'], 'REVIEWED_DERIVED_ROOT')
+        self.assertEqual(structures_of('электрически'), (('fam:электр',),))
+        self.assertTrue(opens('электрон', 'электрически'))
+        self.assertTrue(opens('электрически', 'электрон'))
+
     def test_domoy_does_not_use_spurious_domyit_reading(self):
         self.assertEqual(
             {(item.lemma, item.pos) for item in readings_of('домой')},
