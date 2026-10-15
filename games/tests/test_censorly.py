@@ -1048,6 +1048,27 @@ class CensorlyRandomGameTests(TestCase):
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0]['surface'], expected)
 
+    def test_aligned_array_and_cases_drop_trailing_row_separators(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        formulas = (
+            (
+                r'{\displaystyle \begin{aligned}a&=b\\c&=d\\\end{aligned}}',
+                'a = b; c = d',
+            ),
+            (
+                r'{\displaystyle \begin{array}{cc}a&b\\c&d\\\end{array}}',
+                'a b; c d',
+            ),
+            (
+                r'{\displaystyle \begin{cases}0&x<0\\1&x\geq0\\\end{cases}}',
+                '{0 x < 0; 1 x ≥ 0',
+            ),
+        )
+        for raw, expected in formulas:
+            with self.subTest(expected=expected):
+                self.assertEqual(clean_wiki_extract(raw), expected)
+
     def test_latex_primitive_fractions_spacing_and_hat_are_readable(self):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import clean_wiki_extract

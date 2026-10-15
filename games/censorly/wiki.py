@@ -442,6 +442,8 @@ class _TexTextParser:
                 return wrappers[env[0]][0 if name == 'begin' else 1], end
             return '', end
         if name == '\\':
+            if re.match(r'\s*\\end\s*\{', self.text[j:]):
+                return '', j
             return '; ', j
         if name in ('{', '}'):
             return name, j
