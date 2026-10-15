@@ -634,6 +634,13 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'x → 0; y ∈ A; A ∪ B')
 
+    def test_less_common_greek_and_empty_set_symbols_are_rendered(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \varkappa+\digamma+\Digamma+\varnothing+\nexists+\nparallel}'
+
+        self.assertEqual(clean_wiki_extract(raw), 'ϰ + ϝ + Ϝ + ∅ + ∄ + ∦')
+
     def test_overset_and_underset_render_as_scripts(self):
         from games.censorly.wiki import clean_wiki_extract
 
