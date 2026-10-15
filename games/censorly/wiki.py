@@ -557,6 +557,14 @@ class _TexTextParser:
                     while out and out[-1].isspace():
                         out.pop()
                 out.append(value)
+                if re.fullmatch(r'\(.+\)/\(.+\)', value):
+                    next_char = i
+                    while next_char < len(self.text) and self.text[next_char].isspace():
+                        next_char += 1
+                    if next_char < len(self.text) and (
+                        self.text[next_char].isalnum() or self.text[next_char] == '{'
+                    ):
+                        out.append(' · ')
                 continue
             if ch == '{':
                 group = _tex_group(self.text, i)

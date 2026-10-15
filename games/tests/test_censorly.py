@@ -718,6 +718,16 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), '𝔸 + 𝕒 + 𝟙')
 
+    def test_fraction_followed_by_an_atom_has_an_explicit_product_separator(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \frac{a}{b}x + \dfrac{c}{d}{y}}'
+
+        self.assertEqual(
+            clean_wiki_extract(raw),
+            '(a)/(b) · x + (c)/(d) · y',
+        )
+
     def test_mathbb_styles_each_character_in_multi_character_groups(self):
         from games.censorly.wiki import clean_wiki_extract
 
