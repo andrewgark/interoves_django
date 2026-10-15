@@ -1008,6 +1008,19 @@ class CensorlyRandomGameTests(TestCase):
         self.assertEqual(service, {'∫': 'stop', '≤': 'stop'})
         self.assertTrue(any(tok['surface'] == 'P' and tok['kind'] == 'content' for tok in tokens))
 
+    def test_cfrac_supports_optional_alignment_argument(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle \cfrac{1}{2}; '
+            r'\cfrac[l]{a+b}{c}; \cfrac[r]{x}{y+z}}'
+        )
+
+        self.assertEqual(
+            clean_wiki_extract(raw),
+            '(1)/(2); (a + b)/(c); (x)/(y + z)',
+        )
+
     def test_latex_primitive_fractions_spacing_and_hat_are_readable(self):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import clean_wiki_extract

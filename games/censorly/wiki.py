@@ -306,12 +306,16 @@ class _TexTextParser:
             name = 'operatorname*'
             j += 1
 
-        if name in ('frac', 'dfrac', 'tfrac'):
+        if name == 'cfrac' and j < len(self.text) and self.text[j] == '[':
+            close = self.text.find(']', j + 1)
+            if close >= 0 and self.text[j + 1:close].strip() in ('l', 'r'):
+                j = close + 1
+        if name in ('frac', 'dfrac', 'tfrac', 'cfrac'):
             numerator = self._argument(j)
             denominator = self._argument(numerator[1]) if numerator else None
             if numerator and denominator:
                 return f'({numerator[0]})/({denominator[0]})', denominator[1]
-            return 'frac', j
+            return name, j
         if name in ('binom', 'tbinom', 'dbinom'):
             top = self._argument(j)
             bottom = self._argument(top[1]) if top else None
