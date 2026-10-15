@@ -11,4 +11,4 @@ CENSORLY_SHOW_MASK_ENDINGS = True
 
 # Bump when tokenization, lemmas, stop words, or endings change.
 # Stored puzzles keep their article text and rebuild the split when this differs.
-CENSORLY_SPLITTER_VERSION = 16
+CENSORLY_SPLITTER_VERSION = 17

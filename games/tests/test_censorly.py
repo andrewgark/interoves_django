@@ -703,6 +703,19 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0]['surface'], expected)
 
+    def test_floor_and_ceiling_delimiters_render_without_inner_spaces(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \lceil x \rceil; \lfloor y \rfloor}'
+        expected = '⌈x⌉; ⌊y⌋'
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+
+        self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(tokens[0]['surface'], expected)
+
     def test_array_column_specification_is_not_rendered_as_formula_text(self):
         from games.censorly.wiki import clean_wiki_extract
 

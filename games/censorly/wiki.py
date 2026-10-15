@@ -201,6 +201,7 @@ _TEX_SYMBOLS = {
     'sim': '∼', 'subseteq': '⊆', 'mid': '∣', 'angle': '∠', 'prime': '′',
     'lvert': '|', 'rvert': '|', 'vert': '|',
     'lVert': '‖', 'rVert': '‖', 'Vert': '‖',
+    'lceil': '⌈', 'rceil': '⌉', 'lfloor': '⌊', 'rfloor': '⌋',
     'll': '≪',
     'ldots': '…', 'cdots': '…', 'dots': '…', 'over': ' / ',
     'int': '∫', 'iint': '∬', 'iiint': '∭', 'oint': '∮',
@@ -556,6 +557,8 @@ class _TexTextParser:
         rendered = re.sub(r'= +− +(?=[(\d])', '= −', rendered)
         rendered = re.sub(r'([⟨])\s+', r'\1', rendered)
         rendered = re.sub(r'\s+([⟩])', r'\1', rendered)
+        rendered = re.sub(r'([⌈⌊])\s+', r'\1', rendered)
+        rendered = re.sub(r'\s+([⌉⌋])', r'\1', rendered)
         rendered = re.sub(r'₍\s+', '₍', rendered)
         rendered = re.sub(r'\s+₎', '₎', rendered)
         scripts = re.escape(_SCRIPT_CHARS)
@@ -610,6 +613,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
                 or re.search(r'\\(?:over|under)brace\b', formula)
                 or re.search(r'\\(?:stackrel|pmod|bmod)\b', formula)
                 or re.search(r'\\(?:lvert|rvert|vert|lVert|rVert|Vert)\b', formula)
+                or re.search(r'\\(?:lceil|rceil|lfloor|rfloor)\b', formula)
                 or re.search(r'\\begin\{(?:p|b|B|v|V)?matrix\}', formula)
                 or r'\begin{cases}' in formula
             )
