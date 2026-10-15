@@ -228,6 +228,28 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertNotIn('new-hub-section__solved" hidden', html)
         self.assertNotIn('data-progress-url=', html)
 
+    def test_censorly_hub_card_does_not_import_removed_visibility_helper(self):
+        game = self._create_section_game('censorly')
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        request.session = {}
+        card = {'id': game.id, 'game': game, 'title': 'Цензурки'}
+
+        with (
+            patch('games.views.new_ui.HUB_DAILY_SECTION_IDS', (game.id,)),
+            patch('games.views.new_ui.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
+            patch('games.views.new_ui.ONBOARDING_GAME_IDS', ()),
+            patch('games.views.new_ui.get_scheduled_section_hub_card', return_value=card),
+            patch('games.views.new_ui._get_play_mode', return_value=('personal', None)),
+            patch('games.views.new_ui.effective_play_mode', return_value='personal'),
+            patch('games.views.new_ui._game_page_progress_context', return_value={}),
+            patch('games.daily_streak.daily_streaks_for_actor', return_value={}),
+        ):
+            result = _build_hub_section_cards(request, team=None)
+
+        self.assertEqual(result['daily_hub_grid_cards'], [card])
+        self.assertEqual(card['new_label'], 'NEW')
+
     def test_ladder_progress_api_returns_result_squares(self):
         from games.ladder_daily import LADDER_PUBLISH_START_TAG
 

@@ -952,10 +952,6 @@ def _build_hub_section_cards(request, *, team):
             game = Game.objects.filter(id=game_id, project=project).first()
             if not game or not game.has_access('see_game_preview', team=team):
                 continue
-            if game_id == 'censorly':
-                from games.views.censorly_views import _censorly_is_public
-                if not _censorly_is_public(game):
-                    continue
             if is_scheduled_game(game_id):
                 card = get_scheduled_section_hub_card(
                     game,
