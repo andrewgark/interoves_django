@@ -538,12 +538,19 @@ class _TexTextParser:
                 continue
             ch = self.text[i]
             if ch == '\\':
+                tight_space = self.text.startswith(r'\!', i)
+                if tight_space:
+                    while out and out[-1].isspace():
+                        out.pop()
                 previous = ''.join(out).rstrip()
                 is_closing_bar = any(
                     self.text.startswith(command, i)
                     for command in (r'\rvert', r'\rVert')
                 )
                 value, i = self._command(i)
+                if tight_space:
+                    while i < len(self.text) and self.text[i].isspace():
+                        i += 1
                 if re.fullmatch(r'\(.+\)/\(.+\)', value) and self._needs_implicit_product(previous):
                     out.append(' · ')
                 if is_closing_bar:

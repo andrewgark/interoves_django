@@ -648,6 +648,13 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'H_2 & CO_2, 50% + x')
 
+    def test_negative_thin_space_does_not_leave_a_regular_space(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle a \! b + c\, d}'
+
+        self.assertEqual(clean_wiki_extract(raw), 'ab + c d')
+
     def test_overset_and_underset_render_as_scripts(self):
         from games.censorly.wiki import clean_wiki_extract
 
