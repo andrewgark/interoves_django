@@ -317,13 +317,20 @@ class _TexTextParser:
             if rows:
                 return rows
             return 'substack', j
-        if name in ('overset', 'underset'):
+        if name == 'pmod':
+            modulus = self._argument(j)
+            if modulus:
+                return f' (mod {modulus[0]})', modulus[1]
+            return 'pmod', j
+        if name == 'bmod':
+            return ' mod ', j
+        if name in ('overset', 'underset', 'stackrel'):
             annotation = self._argument(j)
             base = self._argument(annotation[1]) if annotation else None
             if annotation and base:
                 label = annotation[0].strip()
                 value = base[0].strip()
-                if name == 'overset':
+                if name in ('overset', 'stackrel'):
                     translated = label.translate(_SUPERSCRIPTS)
                     fully_translated = all(
                         char.isspace() or char.translate(_SUPERSCRIPTS) != char
@@ -580,6 +587,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
                 )
                 or re.search(r'\\(?:t|d)?binom\b', formula)
                 or re.search(r'\\(?:over|under)brace\b', formula)
+                or re.search(r'\\(?:stackrel|pmod|bmod)\b', formula)
                 or re.search(r'\\begin\{(?:p|b|B|v|V)?matrix\}', formula)
                 or r'\begin{cases}' in formula
             )

@@ -660,6 +660,23 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0]['surface'], expected)
 
+    def test_stackrel_and_modular_notation_render_readably(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        formulas = (
+            (r'{\displaystyle x \stackrel{def}{=} y}', 'x =ᵈᵉᶠ y'),
+            (r'{\displaystyle a\equiv b\pmod{m}}', 'a ≡ b (mod m)'),
+            (r'{\displaystyle a\bmod m}', 'a mod m'),
+        )
+        for raw, expected in formulas:
+            with self.subTest(expected=expected):
+                cleaned = clean_wiki_extract(raw, mark_formulas=True)
+                self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+                tokens = tokenize_text(cleaned)
+                self.assertEqual(len(tokens), 1)
+                self.assertEqual(tokens[0]['surface'], expected)
+
     def test_array_column_specification_is_not_rendered_as_formula_text(self):
         from games.censorly.wiki import clean_wiki_extract
 
