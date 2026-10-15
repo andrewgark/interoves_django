@@ -495,6 +495,7 @@ class _TexTextParser:
             i += 1
         rendered = re.sub(r'[ \t\r\n]+', ' ', ''.join(out)).strip()
         rendered = re.sub(r'\s*([=+−×·≤≥≠≈≡])\s*', r' \1 ', rendered)
+        rendered = re.sub(r'\s*([<>])\s*', r' \1 ', rendered)
         rendered = re.sub(r'= +− +(?=[(\d])', '= −', rendered)
         rendered = re.sub(r'([⟨])\s+', r'\1', rendered)
         rendered = re.sub(r'\s+([⟩])', r'\1', rendered)

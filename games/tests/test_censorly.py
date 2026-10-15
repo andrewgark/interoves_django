@@ -613,12 +613,19 @@ class CensorlyWikiHelperTests(TestCase):
 
         raw = r'{\displaystyle \begin{cases}0&x<0,\\1&x>0.\end{cases}}'
         cleaned = clean_wiki_extract(raw, mark_formulas=True)
-        expected = '{0 x<0; 1 x>0.'
+        expected = '{0 x < 0; 1 x > 0.'
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
         self.assertEqual(len(tokens), 1)
         self.assertEqual(tokens[0]['surface'], expected)
+
+    def test_strict_comparison_spacing_does_not_change_arrow_rendering(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle x->0}'
+
+        self.assertEqual(clean_wiki_extract(raw), 'x → 0')
 
     def test_array_column_specification_is_not_rendered_as_formula_text(self):
         from games.censorly.wiki import clean_wiki_extract
@@ -1056,7 +1063,7 @@ class CensorlyRandomGameTests(TestCase):
         cleaned = clean_wiki_extract(raw)
         self.assertIn('H₂O − e^(−) → H⁺ + O˙H', cleaned)
         self.assertIn('4O˙H → O₂ + 2H₂O', cleaned)
-        self.assertIn('0 при H<E; C при H ≤ E.', cleaned)
+        self.assertIn('0 при H < E; C при H ≤ E.', cleaned)
         self.assertNotIn('\\ce', cleaned)
         self.assertNotIn('mbox', cleaned)
         self.assertNotIn('.;', cleaned)
