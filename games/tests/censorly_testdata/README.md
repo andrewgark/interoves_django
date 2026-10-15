@@ -9,6 +9,10 @@ when the cleaner’s contract changes.
 `silver_math_raw.txt` freezes an unindented vertical MathML dump with the
 Russian label “(конц.)” and TeX arrows from Серебро.
 
+The MathML-only regression derives a no-TeX variant of the first display
+formula in `magnetism_math_raw.txt`, preserving the captured Wikipedia glyph
+dump while removing its canonical TeX alternative.
+
 | File | Source | What it covers |
 |------|--------|----------------|
 | `magnetism_math_raw.txt` | Магнетизм | MathML glyph dump + `{\displaystyle …}` |

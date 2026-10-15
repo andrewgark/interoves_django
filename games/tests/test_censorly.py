@@ -1202,6 +1202,24 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('уравнениями Лоренца', cleaned)
         self.assertIn('ρ v соответствует плотности тока', cleaned)
 
+    def test_mathml_dump_without_canonical_tex_does_not_leave_vertical_garbage(self):
+        from games.censorly.wiki import _tex_group, clean_wiki_extract
+
+        raw = _load_censorly_testdata('magnetism_math_raw.txt')
+        marker = r'{\displaystyle'
+        start = raw.find(marker)
+        self.assertGreaterEqual(start, 0)
+        group = _tex_group(raw, start)
+        self.assertIsNotNone(group)
+        mathml_only = raw[:start] + raw[group[1]:]
+        cleaned = clean_wiki_extract(mathml_only)
+
+        self.assertIn('описывается системой из двух уравнений (СГС):', cleaned)
+        self.assertIn('где e — микроскопическая напряжённость', cleaned)
+        self.assertNotIn('rot', cleaned)
+        self.assertNotIn('displaystyle', cleaned)
+        self.assertNotIn('\n        div\n', cleaned)
+
     def test_fixtures_magnetism_keeps_miller_directions(self):
         from games.censorly.wiki import clean_wiki_extract
 

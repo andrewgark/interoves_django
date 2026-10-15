@@ -629,6 +629,27 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
     return ''.join(out)
 
 
+def _is_unconfirmed_mathml_dump(lines: list[str]) -> bool:
+    """Recognize a long vertical formula dump even when no TeX follows it."""
+    items = [line.strip() for line in lines if line.strip()]
+    if len(items) < 8 or any(len(item) > 48 for item in items):
+        return False
+    math_chars = (
+        '+−-=<>(),{}.;:/_^*|·⋅×↑↓↕⇑⇓⇕→←…π∞√∂∫∑'
+        + '[]\\'
+        + '\u2061'
+    )
+    allowed = re.escape(math_chars)
+    if not all(
+        re.fullmatch(rf'[A-Za-z0-9Α-Ωα-ωϵϑϖϱςℏℓ{allowed} ]+', item)
+        for item in items
+    ):
+        return False
+    has_operator = any(re.search(r'[+=<>×·⋅*/^_↑↓→←]', item) for item in items)
+    has_digit = any(re.search(r'\d', item) for item in items)
+    return has_operator and has_digit
+
+
 def _strip_indented_math_lines(text: str) -> str:
     """Drop MathML fallback blocks immediately before their canonical TeX source.
 
@@ -729,11 +750,13 @@ def _strip_indented_math_lines(text: str) -> str:
         elif not line.strip():
             pending.append(line)
         else:
-            kept.extend(pending)
+            if not _is_unconfirmed_mathml_dump(pending):
+                kept.extend(pending)
             pending.clear()
             kept.append(line)
-    # Do not discard a trailing candidate block unless a TeX line confirmed it.
-    kept.extend(pending)
+    # Keep short/ambiguous candidates; drop only a strong MathML dump even at EOF.
+    if not _is_unconfirmed_mathml_dump(pending):
+        kept.extend(pending)
     return ''.join(kept)
 
 
