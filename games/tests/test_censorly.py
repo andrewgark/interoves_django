@@ -627,6 +627,13 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'x → 0')
 
+    def test_tex_relations_and_arrows_get_readable_spacing(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle x\to0; y\in A; A\cup B}'
+
+        self.assertEqual(clean_wiki_extract(raw), 'x → 0; y ∈ A; A ∪ B')
+
     def test_array_column_specification_is_not_rendered_as_formula_text(self):
         from games.censorly.wiki import clean_wiki_extract
 
