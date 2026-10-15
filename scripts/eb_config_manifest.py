@@ -76,8 +76,12 @@ def verify_green(root, before, current, commit):
         if not (root / relative).is_file():
             raise ValueError("Controlled deployment executor file is missing from bundle: " + relative)
     deploy_version = root / "interoves_django/deploy_version.txt"
-    expected_deploy_version = commit[:7]
-    if not deploy_version.is_file() or deploy_version.read_text().strip() != expected_deploy_version:
+    deploy_version_value = deploy_version.read_text().strip() if deploy_version.is_file() else ""
+    if (
+        len(deploy_version_value) < 7
+        or len(deploy_version_value) > len(commit)
+        or not commit.startswith(deploy_version_value)
+    ):
         raise ValueError("Bundle deploy_version does not match the source commit.")
     hook_root = root / ".platform/hooks"
     for path in hook_root.rglob("*") if hook_root.exists() else ():
@@ -156,7 +160,7 @@ def verify_archive(archive, environment, commit):
             if missing:
                 raise ValueError("Green ZIP is missing required files: " + ", ".join(sorted(missing)))
             version = bundle.read("interoves_django/deploy_version.txt").decode().strip()
-            if version != commit[:7]:
+            if len(version) < 7 or len(version) > len(commit) or not commit.startswith(version):
                 raise ValueError("Green ZIP deploy version does not match commit SHA.")
             for path in names:
                 if path.startswith(".platform/hooks/") and not path.endswith("/"):

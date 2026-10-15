@@ -31,7 +31,7 @@ class GreenBundleManifestTests(SimpleTestCase):
         old.parent.mkdir(parents=True, exist_ok=True)
         old.write_text("create_index_bg\n")
         (root / "interoves_django").mkdir(parents=True, exist_ok=True)
-        (root / "interoves_django/deploy_version.txt").write_text(self.commit[:7] + "\n")
+        (root / "interoves_django/deploy_version.txt").write_text(self.commit[:8] + "\n")
 
     def test_allowed_hook_removal_is_manifested_and_final_zip_is_verified(self):
         with tempfile.TemporaryDirectory() as temporary:
