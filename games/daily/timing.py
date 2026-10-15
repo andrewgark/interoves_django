@@ -40,6 +40,10 @@ APPLIED_EVENT_LIMIT = 64
 MAX_ACCUMULATED_MS = 12 * 60 * 60 * 1000  # 12h hard cap for one daily solve
 MYSQL_DEADLOCK_ERRNO = 1213
 TIMING_DEADLOCK_ATTEMPTS = 3
+
+
+class TimingEventConflict(Exception):
+    """An event ID was reused for a different immutable timing payload."""
 _UNSET = object()
 
 # Keep the established logger name while the implementation moves namespaces.
@@ -643,10 +647,10 @@ def record_timing_event(
 ):
     """Persist one immutable event before mutating the compatibility snapshot.
 
-    The insert is intentionally a separate short transaction.  It provides a
-    durable event ledger without extending the row-lock transaction used by
-    the current read-model implementation.  Duplicate delivery is normal for
-    browser retries and is treated as success.
+    The nested atomic block joins the caller's timing transaction when one
+    exists, so the ledger event and compatibility snapshot commit or roll back
+    together. An identical duplicate is success; reuse of an event ID with a
+    different payload raises ``TimingEventConflict``.
     """
     if not event_id or not session_id or action not in MUTATING_ACTIONS:
         return
@@ -655,7 +659,48 @@ def record_timing_event(
     )
     if not actor_key:
         return
-    values = {
+    values = _timing_event_ledger_values(
+        game=game, task_group=task_group, action=action, session_id=session_id,
+        event_id=event_id, seq=seq, claimed_ms=claimed_ms, team=team, user=user,
+        anon_key=anon_key, replay_slot=replay_slot,
+        client_occurred_at=client_occurred_at,
+    )
+    if not values:
+        return
+    try:
+        with transaction.atomic():
+            event, created = DailyTimingEvent.objects.get_or_create(
+                game=game,
+                task_group=task_group,
+                actor_key=values['actor_key'],
+                session_id=values['session_id'],
+                event_id=values['event_id'],
+                defaults=values,
+            )
+            if not created:
+                _assert_timing_event_matches(event, values)
+    except IntegrityError:
+        # A concurrent first delivery may have won the unique insert. Only
+        # suppress that specific race when its immutable payload is identical.
+        existing = _existing_timing_event(values)
+        if existing is not None:
+            _assert_timing_event_matches(existing, values)
+            return
+        raise
+
+
+def _timing_event_ledger_values(
+    *, game, task_group, action, session_id, event_id, seq, claimed_ms=None,
+    team=None, user=None, anon_key=None, replay_slot=None, client_occurred_at=None,
+):
+    if not event_id or not session_id or action not in MUTATING_ACTIONS:
+        return None
+    actor_key = _timing_event_actor_key(
+        team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
+    )
+    if not actor_key:
+        return None
+    return {
         'game': game,
         'task_group': task_group,
         'team': team,
@@ -674,29 +719,36 @@ def record_timing_event(
         ),
         'client_occurred_at': client_occurred_at,
     }
-    try:
-        with transaction.atomic():
-            DailyTimingEvent.objects.get_or_create(
-                game=game,
-                task_group=task_group,
-                actor_key=values['actor_key'],
-                session_id=values['session_id'],
-                event_id=values['event_id'],
-                defaults=values,
-            )
-    except IntegrityError:
-        # A concurrent first delivery may have won the unique insert.  Only
-        # suppress that specific race; malformed actor data, bad foreign keys,
-        # and future constraints must remain visible to callers.
-        if DailyTimingEvent.objects.filter(
-            game=game,
-            task_group=task_group,
-            actor_key=values['actor_key'],
-            session_id=values['session_id'],
-            event_id=values['event_id'],
-        ).exists():
-            return
-        raise
+
+
+def _existing_timing_event(values):
+    if not values:
+        return None
+    return DailyTimingEvent.objects.filter(
+        game=values['game'],
+        task_group=values['task_group'],
+        actor_key=values['actor_key'],
+        session_id=values['session_id'],
+        event_id=values['event_id'],
+    ).first()
+
+
+def _assert_timing_event_matches(existing, values):
+    for field in (
+        'game_id', 'task_group_id', 'team_id', 'user_id', 'anon_key',
+        'replay_slot_id', 'actor_key', 'session_id', 'event_id', 'action',
+        'seq', 'claimed_ms', 'client_occurred_at',
+    ):
+        foreign_key_field = field in {
+            'game_id', 'task_group_id', 'team_id', 'user_id', 'replay_slot_id',
+        }
+        expected_key = field[:-3] if foreign_key_field else field
+        expected = values.get(expected_key)
+        if foreign_key_field:
+            expected = getattr(expected, 'pk', None) if expected is not None else None
+        actual = getattr(existing, field)
+        if actual != expected:
+            raise TimingEventConflict('event_id payload mismatch: {}'.format(field))
 
 
 def _timing_event_actor_key(*, team=None, user=None, anon_key=None, replay_slot=None):
@@ -759,9 +811,10 @@ def apply_timing_event(
                 raise
             if attempt >= TIMING_DEADLOCK_ATTEMPTS:
                 logger.warning(
-                    'daily_timing deadlock exhausted attempts=%s action=%s',
+                    'daily_timing lock retries exhausted attempts=%s action=%s errno=%s',
                     attempt,
                     action_label,
+                    _mysql_errno(exc),
                 )
                 raise
             log_lock_retry(
@@ -877,6 +930,19 @@ def _apply_timing_event_once(
                 return empty_snapshot()
         else:
             row = DailySolveTiming.objects.select_for_update().get(pk=row.pk)
+
+    ledger_values = _timing_event_ledger_values(
+        game=game, task_group=task_group, team=team, user=user,
+        anon_key=anon_key, replay_slot=replay_slot, action=action,
+        session_id=session_id, event_id=event_id, seq=seq,
+        claimed_ms=claimed_ms, client_occurred_at=client_occurred_at,
+    )
+    existing_event = _existing_timing_event(ledger_values)
+    if existing_event is not None:
+        _assert_timing_event_matches(existing_event, ledger_values)
+        # The ledger and materialized timing row commit atomically. An exact
+        # duplicate therefore needs no second application of the mutation.
+        return snapshot(row, now=now, session_id=session_id)
 
     # Completion can win a race against the page's asynchronous start request.
     # Once a release is completed, a delayed start/resume must not reopen its

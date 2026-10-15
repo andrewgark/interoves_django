@@ -206,8 +206,11 @@ def _attempt_actor_specs():
         (
             'anon',
             'anon_key',
-            Q(team_id__isnull=True, user_id__isnull=True, anon_key__isnull=False)
-            & ~Q(anon_key=''),
+            # Empty anonymous keys are discarded when rows are materialized
+            # below. Avoid comparing this text column to a string literal in
+            # SQL: production schemas can retain a binary collation while the
+            # connection uses utf8mb4_0900_ai_ci.
+            Q(team_id__isnull=True, user_id__isnull=True, anon_key__isnull=False),
         ),
     )
 
@@ -318,8 +321,12 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None, actor_filter=None, i
             replay_slot__isnull=True,
         )
         .filter(**(actor_filter or {}))
+        .filter(
+            Q(team_id__isnull=False)
+            | Q(user_id__isnull=False)
+            | Q(anon_key__isnull=False)
+        )
         .annotate(actor_key=_hint_actor_key_annotation())
-        .exclude(actor_key='')
         .values(
             'hint__task_id',
             'actor_key',

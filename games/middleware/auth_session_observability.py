@@ -333,7 +333,8 @@ class AuthenticatedRequestAuditMiddleware:
 
             notify_admin_site_error(request, exception=exc)
             raise
-        if getattr(response, 'status_code', 0) >= 500:
+        transient_db_error = getattr(request, '_interoves_mysql_error_code', None)
+        if getattr(response, 'status_code', 0) >= 500 and transient_db_error is None:
             _log_http_500_response(request, response.status_code)
             from games.telegram.notify import notify_admin_site_error
 

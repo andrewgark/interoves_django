@@ -805,7 +805,7 @@ class ConcurrentSubmissionTests(TransactionTestCase):
         second.join(timeout=10)
 
         self.assertEqual(
-            Attempt.objects.filter(task=self.ordinary_task, team=self.team).count(),
+            Attempt.manager.filter(task=self.ordinary_task, team=self.team).count(),
             1,
         )
         self.assertEqual(len(errors), 1)

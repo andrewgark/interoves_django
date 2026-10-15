@@ -117,7 +117,7 @@ class AggregateLeaderboardTests(TestCase):
         ]
         cache.delete('aggregate:monthly-release-index:v1:{}'.format(self.game.pk))
         with patch('games.results.aggregate_leaderboard._numbered_links', return_value=links_qs), \
-             patch('games.results.aggregate_leaderboard._with_result_tasks', side_effect=lambda value: value), \
+             patch('games.results.aggregate_leaderboard._with_result_tasks', side_effect=lambda value, _game_id: value), \
              patch('games.results.aggregate_leaderboard.publish_at_for', side_effect=lambda _game, number: published[number]):
             selected, month, previous, following, published_at_by_link = _monthly_release_context(
                 self.game, '2026-09',

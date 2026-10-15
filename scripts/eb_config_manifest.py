@@ -4,6 +4,7 @@
 import hashlib
 import json
 import re
+import stat
 import sys
 import zipfile
 from pathlib import Path
@@ -37,6 +38,11 @@ REQUIRED_GREEN_APP_FILES = {
     "games/management/commands/ensure_games_0109_indexes.py",
     "games/management/commands/ensure_registration_indexes.py",
     "games/management/commands/backfill_chain_task_states.py",
+}
+OBSERVE_ONLY_GREEN_APP_FILES = {
+    "games/asgi_admission.py",
+    "interoves_django/asgi.py",
+    "Procfile",
 }
 
 
@@ -77,11 +83,7 @@ def verify_green(root, before, current, commit):
             raise ValueError("Controlled deployment executor file is missing from bundle: " + relative)
     deploy_version = root / "interoves_django/deploy_version.txt"
     deploy_version_value = deploy_version.read_text().strip() if deploy_version.is_file() else ""
-    if (
-        len(deploy_version_value) < 7
-        or len(deploy_version_value) > len(commit)
-        or not commit.startswith(deploy_version_value)
-    ):
+    if not _is_source_or_artifact_version(deploy_version_value, commit):
         raise ValueError("Bundle deploy_version does not match the source commit.")
     hook_root = root / ".platform/hooks"
     for path in hook_root.rglob("*") if hook_root.exists() else ():
@@ -155,18 +157,72 @@ def verify_archive(archive, environment, commit):
         if environment == GREEN_ENV:
             if OLD_BACKGROUND_HOOK in names:
                 raise ValueError("Legacy detached background DDL hook remains in Green ZIP.")
-            required = REQUIRED_GREEN_HOOKS | PROTECTED_GREEN_CONFIG | REQUIRED_GREEN_APP_FILES
+            release_profile = "full"
+            if "release-manifest.json" in names:
+                release_profile = json.loads(bundle.read("release-manifest.json")).get(
+                    "release_profile", "full",
+                )
+            app_files_by_profile = {
+                "full": REQUIRED_GREEN_APP_FILES,
+                "observe-only": OBSERVE_ONLY_GREEN_APP_FILES,
+            }
+            if release_profile not in app_files_by_profile:
+                raise ValueError("Unknown Green release profile: " + str(release_profile))
+            required = (
+                REQUIRED_GREEN_HOOKS
+                | PROTECTED_GREEN_CONFIG
+                | app_files_by_profile[release_profile]
+            )
             missing = required - names
             if missing:
                 raise ValueError("Green ZIP is missing required files: " + ", ".join(sorted(missing)))
             version = bundle.read("interoves_django/deploy_version.txt").decode().strip()
-            if len(version) < 7 or len(version) > len(commit) or not commit.startswith(version):
+            if not _archive_version_matches(bundle, version, commit):
                 raise ValueError("Green ZIP deploy version does not match commit SHA.")
             for path in names:
                 if path.startswith(".platform/hooks/") and not path.endswith("/"):
                     content = bundle.read(path).decode(errors="replace")
                     if "create_index_bg" in content or "INDEXES_ATTEMPT" in content:
                         raise ValueError("Legacy background index executor in ZIP: " + path)
+
+
+def _is_source_or_artifact_version(version, commit):
+    return (
+        7 <= len(version) <= len(commit)
+        and commit.startswith(version)
+    ) or bool(re.fullmatch(r"[0-9a-f]{16}", version))
+
+
+def _archive_version_matches(bundle, version, commit):
+    if 7 <= len(version) <= len(commit) and commit.startswith(version):
+        return True
+    if not re.fullmatch(r"[0-9a-f]{16}", version):
+        return False
+    if "release-manifest.json" not in bundle.namelist():
+        return False
+    manifest = json.loads(bundle.read("release-manifest.json"))
+    if manifest.get("source_commit") != commit:
+        return False
+    members = set(bundle.namelist()) - {"release-manifest.json"}
+    if members != set(manifest.get("files", {})):
+        return False
+    digest = hashlib.sha256()
+    digest.update(commit.encode())
+    for name in sorted(members):
+        data = bundle.read(name)
+        if hashlib.sha256(data).hexdigest() != manifest["files"].get(name):
+            return False
+        mode = stat.S_IMODE(bundle.getinfo(name).external_attr >> 16)
+        if mode != manifest.get("modes", {}).get(name):
+            return False
+        if name == "interoves_django/deploy_version.txt":
+            continue
+        digest.update(name.encode())
+        digest.update(b"\0")
+        digest.update(hashlib.sha256(data).digest())
+        digest.update(b"\0")
+        digest.update(format(mode, "04o").encode())
+    return version == digest.hexdigest()[:16]
 
 
 def main(argv):

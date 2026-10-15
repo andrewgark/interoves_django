@@ -378,6 +378,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
+    'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
     # Keep request timing outermost so slow_request covers session/auth
     # middleware and response-side session persistence, not only the view.
     'games.middleware.request_timing.RequestTimingMiddleware',

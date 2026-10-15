@@ -12,6 +12,11 @@
   root.interovesDailySolveTimer = api;
 })(typeof window !== 'undefined' ? window : global, function (root) {
   var HEARTBEAT_MS = 15000;
+  var EVENT_QUEUE_LIMIT = 8;
+  var EVENT_MAX_ATTEMPTS = 3;
+  var EVENT_MAX_AGE_MS = 20000;
+  var RETRY_AFTER_MAX_MS = 10000;
+  var RETRY_AFTER_FLOOR_MAX_MS = 8000;
   var STORAGE_PREFIX = 'interoves_task_group_timing_v1:';
   var WINDOW_SESSION_PREFIX = 'interoves-daily-timing:';
 
@@ -33,6 +38,24 @@
     var secs = seconds % 60;
     if (hours) return String(hours).padStart(2, '0') + ':' + String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
     return String(minutes).padStart(2, '0') + ':' + String(secs).padStart(2, '0');
+  }
+
+  function parseRetryAfter(value, now) {
+    if (value == null || String(value).trim() === '') return 0;
+    var raw = String(value).trim();
+    var seconds = Number(raw);
+    var delay = isFinite(seconds)
+      ? Math.max(0, seconds * 1000)
+      : Math.max(0, Date.parse(raw) - (now || Date.now()));
+    return isFinite(delay) ? Math.min(RETRY_AFTER_FLOOR_MAX_MS, delay) : 0;
+  }
+
+  function retryDelayMs(retryAfterMs, attempt, randomValue) {
+    var floor = Math.max(0, Math.min(RETRY_AFTER_FLOOR_MAX_MS, Number(retryAfterMs) || 0));
+    var spread = Math.min(4000, 250 * Math.pow(2, Math.max(0, attempt || 0)));
+    spread = Math.min(spread, RETRY_AFTER_MAX_MS - floor);
+    var random = Math.max(0, Math.min(0.999999, Number(randomValue) || 0));
+    return Math.min(RETRY_AFTER_MAX_MS, floor + (spread ? Math.max(1, Math.round(spread * random)) : 0));
   }
 
   function shouldRunLocally(state, visibility) {
@@ -136,6 +159,12 @@
     var startRetryTimer = null;
     var startAttempts = 0;
     var startFailed = false;
+    var startEvent = null;
+    var startEventCreatedAt = 0;
+    var timingEventCapability = bootstrap.timing_event_capability === 'stable-event-v1';
+    var eventQueue = [];
+    var eventQueueRunning = false;
+    var deliveryFailed = false;
     var raf = null;
     var started = false;
     var destroyed = false;
@@ -190,10 +219,12 @@
       }
       if (tooltipValue) tooltipValue.textContent = formatClock(ms);
       if (errorEl) {
-        errorEl.hidden = !startFailed;
-        errorEl.textContent = startFailed
-          ? 'Не удалось запустить таймер. Время решения пока не записывается.'
-          : '';
+        errorEl.hidden = !(startFailed || deliveryFailed);
+        errorEl.textContent = deliveryFailed
+          ? 'Не удалось подтвердить сохранение времени. Проверьте соединение и обновите состояние таймера.'
+          : (startFailed
+            ? 'Не удалось запустить таймер. Время решения пока не записывается.'
+            : '');
       }
       if (toggleLabel) toggleLabel.textContent = manuallyPaused ? 'Продолжить' : '';
       if (popover && manuallyPaused) popover.hidden = true;
@@ -296,14 +327,13 @@
       return claimed;
     }
 
-    function post(action, extra, keepalive) {
+    function makeEvent(action, extra) {
       extra = extra || {};
       var eventSeq = nextSeq();
-      if (options.offline) return Promise.resolve(null);
       var claimed = Object.prototype.hasOwnProperty.call(extra, 'claimed_ms')
         ? Math.max(0, Math.floor(Number(extra.claimed_ms) || 0))
         : currentClaimedMs();
-      var body = {
+      return {
         action: action,
         session_id: sessionId,
         event_id: extra.event_id || uuid(),
@@ -315,6 +345,10 @@
         client_occurred_at: new Date().toISOString(),
         anon_key: getAnonKey() || '',
       };
+    }
+
+    function requestEventOnce(body, keepalive) {
+      if (options.offline) return Promise.resolve({ data: null, status: 0, retryable: false });
       var headers = {
         'X-CSRFToken': getCsrf(),
         'X-Requested-With': 'XMLHttpRequest',
@@ -322,7 +356,7 @@
       var anon = getAnonKey();
       if (anon) headers['X-Interoves-Anon'] = anon;
       if (gameplayContext) headers['X-Interoves-Gameplay-Context'] = gameplayContext;
-      if (!fetchFn) return Promise.resolve(null);
+      if (!fetchFn) return Promise.resolve({ data: null, status: 0, retryable: false });
       var init = {
         method: 'POST',
         credentials: 'same-origin',
@@ -340,30 +374,190 @@
         init.body = JSON.stringify(body);
       }
       return fetchFn(url, init).then(function (res) {
-        return res && res.json ? res.json() : null;
-      }).then(function (data) {
-        if (destroyed) return data;
-        if (data && data.ok) applySnapshot(data, { replace: true, requestSeq: eventSeq });
-        return data;
-      }).catch(function () { return null; });
+        if (!res || !res.json) return { data: null, status: 0, retryable: false };
+        var responseStatus = Number(res.status) || 0;
+        var responseRetryAfterMs = res.headers && res.headers.get
+          ? parseRetryAfter(res.headers.get('Retry-After'), Date.now())
+          : 0;
+        return res.json().then(function (data) {
+          if (data && responseStatus) {
+            data._http_status = responseStatus;
+            data._retry_after_ms = responseRetryAfterMs;
+          }
+          return {
+            data: data,
+            status: responseStatus,
+            retryAfterMs: responseRetryAfterMs,
+            retryable: responseStatus === 503 || (
+              !timingEventCapability
+              && responseStatus === 409
+              && data
+              && data.error === 'busy'
+            ),
+          };
+        }, function () {
+          return {
+            data: null,
+            status: responseStatus,
+            retryAfterMs: responseRetryAfterMs,
+            retryable: responseStatus === 503,
+          };
+        });
+      }).catch(function () {
+        return { data: null, status: 0, retryable: true, networkError: true };
+      });
+    }
+
+    function indicateDeliveryFailure() {
+      deliveryFailed = true;
+      if (!completed && status === 'running') {
+        authoritative = false;
+        status = 'auto_paused';
+        runningSince = null;
+        syncTicker();
+      }
+      render();
+    }
+
+    function failQueuedEvents(data) {
+      indicateDeliveryFailure();
+      var failed = eventQueue.splice(0);
+      failed.forEach(function (item) { item.resolve(data || null); });
+    }
+
+    function pumpEventQueue() {
+      if (eventQueueRunning || !eventQueue.length || destroyed) return;
+      eventQueueRunning = true;
+      (async function () {
+        while (eventQueue.length && !destroyed) {
+          var item = eventQueue[0];
+          var result = null;
+          while (item.attempts < item.maxAttempts && Date.now() - item.createdAt < EVENT_MAX_AGE_MS) {
+            if (root.navigator && root.navigator.onLine === false) {
+              item.stalled = true;
+              eventQueueRunning = false;
+              if (root.setTimeout && !item.expiryTimer) {
+                item.expiryTimer = root.setTimeout(function () {
+                  if (eventQueue[0] === item) failQueuedEvents({ ok: false, error: 'delivery_timeout' });
+                }, Math.max(0, EVENT_MAX_AGE_MS - (Date.now() - item.createdAt)));
+              }
+              return;
+            }
+            item.attempts += 1;
+            result = await requestEventOnce(item.body, item.keepalive);
+            var data = result.data;
+            if (data && data.ok && (!result.status || (result.status >= 200 && result.status < 300))) {
+              if (result.status) data._http_status = result.status;
+              deliveryFailed = false;
+              if (!destroyed) applySnapshot(data, { replace: true, requestSeq: item.body.seq });
+              eventQueue.shift();
+              if (item.expiryTimer && root.clearTimeout) root.clearTimeout(item.expiryTimer);
+              item.resolve(data);
+              result = null;
+              break;
+            }
+            if (!result.retryable || item.attempts >= item.maxAttempts) break;
+            var random = (root.Math || Math).random();
+            await new Promise(function (resolve) {
+              root.setTimeout(resolve, retryDelayMs(result.retryAfterMs, item.attempts - 1, random));
+            });
+          }
+          if (result) {
+            if (root.navigator && root.navigator.onLine === false && item.attempts < item.maxAttempts) {
+              item.stalled = true;
+              eventQueueRunning = false;
+              return;
+            }
+            failQueuedEvents(result.data);
+            return;
+          }
+        }
+      })().catch(function () {
+        failQueuedEvents(null);
+      }).finally(function () {
+        eventQueueRunning = false;
+        if (eventQueue.length && !(eventQueue[0] && eventQueue[0].stalled)) pumpEventQueue();
+      });
+    }
+
+    function sendEvent(body, keepalive, attempt, allowRetry) {
+      if (options.offline) return Promise.resolve(null);
+      if (timingEventCapability) {
+        body.event_protocol = 1;
+        body.event_capability = 'stable-event-v1';
+      } else {
+        delete body.event_protocol;
+        delete body.event_capability;
+      }
+      return new Promise(function (resolve) {
+        if (body.action === 'heartbeat') {
+          var tailIndex = eventQueue.length - 1;
+          var tail = eventQueue[tailIndex];
+          if (tail && tail.body.action === 'heartbeat' && !(eventQueueRunning && tailIndex === 0)) {
+            tail.resolve({ ok: false, error: 'heartbeat_coalesced' });
+            eventQueue.pop();
+          }
+        }
+        if (eventQueue.length >= EVENT_QUEUE_LIMIT) {
+          indicateDeliveryFailure();
+          resolve({ ok: false, error: 'timing_queue_full' });
+          return;
+        }
+        eventQueue.push({
+          body: body,
+          keepalive: !!keepalive,
+          attempts: 0,
+          maxAttempts: allowRetry === false ? 1 : EVENT_MAX_ATTEMPTS,
+          createdAt: Date.now(),
+          resolve: resolve,
+          stalled: false,
+          expiryTimer: null,
+        });
+        pumpEventQueue();
+      });
+    }
+
+    if (root.addEventListener) {
+      root.addEventListener('online', function () {
+        if (eventQueue[0]) eventQueue[0].stalled = false;
+        pumpEventQueue();
+      });
+    }
+
+    function post(action, extra, keepalive) {
+      return sendEvent(makeEvent(action, extra), keepalive);
     }
 
     function startIfAllowed() {
-      if (destroyed || completed || manuallyPaused || awaitingServer) return;
+      if (destroyed || completed || manuallyPaused || awaitingServer || startFailed) return;
       if (visibilityOf(doc) !== 'visible') return;
       if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
       startRetryTimer = null;
       started = true;
       awaitingServer = true;
       startAttempts += 1;
-      post('start').then(function (data) {
+      if (!startEvent) {
+        startEvent = makeEvent('start');
+        startEventCreatedAt = Date.now();
+      }
+      // The outer start policy owns its six-attempt budget. Retrying in both
+      // layers would multiply attempts and could create a retry burst.
+      sendEvent(startEvent, false, 0, false).then(function (data) {
         awaitingServer = false;
         if (data && data.ok) {
           startAttempts = 0;
           startFailed = false;
+          startEvent = null;
+          startEventCreatedAt = 0;
           render();
           return;
         }
+        // Do not let an interval heartbeat overtake a start retry after an
+        // unacknowledged start. The server snapshot on acknowledgement will
+        // restore the authoritative running state.
+        authoritative = false;
+        if (!completed && !manuallyPaused) status = 'auto_paused';
+        syncTicker();
         // A transient network/5xx/CSRF failure used to leave the clock frozen
         // at 0s forever. Retry a few times while the page is visible; a
         // gameplay-context error is deliberate and must be handled by reload.
@@ -372,9 +566,14 @@
           && visibilityOf(doc) === 'visible'
           && !(data && data.reload_required)
           && startAttempts < 6
+          && Date.now() - startEventCreatedAt < EVENT_MAX_AGE_MS
           && root.setTimeout
         ) {
-          var delay = Math.min(15000, 1000 * Math.pow(2, startAttempts - 1));
+          var delay = retryDelayMs(
+            Number(data && data._retry_after_ms) || 0,
+            startAttempts - 1,
+            (root.Math || Math).random()
+          );
           if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
           startRetryTimer = root.setTimeout(function () {
             startRetryTimer = null;
@@ -421,7 +620,7 @@
     }
 
     function onHidden() {
-      if (completed || manuallyPaused) return;
+      if (completed || manuallyPaused || (!authoritative && status === 'auto_paused')) return;
       if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
       startRetryTimer = null;
       // Navigating into a private replay invalidates the official page's
@@ -450,7 +649,7 @@
       authoritative = false;
       status = 'manually_paused';
       syncTicker();
-      return post('pause', { claimed_ms: claimed }, true);
+      return post('pause', { claimed_ms: claimed }, false);
     }
 
     function resumeManual() {
@@ -458,7 +657,7 @@
       manuallyPaused = false;
       started = true;
       awaitingServer = true;
-      post('resume').then(function (data) {
+      return post('resume').then(function (data) {
         awaitingServer = false;
         if (!data || !data.ok) {
           manuallyPaused = true;
@@ -478,7 +677,7 @@
       else {
         var claimed = freezeOpenInterval();
         render();
-        post('complete', { claimed_ms: claimed }, true);
+        post('complete', { claimed_ms: claimed }, false);
       }
       syncTicker();
     }
@@ -553,6 +752,7 @@
         return res && res.json ? res.json() : null;
       }).then(function (data) {
         if (destroyed) return;
+        timingEventCapability = !!(data && data.timing_event_capability === 'stable-event-v1');
         if (data) applySnapshot(data, { replace: true });
         if (!completed && !manuallyPaused) {
           if (root.requestAnimationFrame) {
@@ -638,6 +838,8 @@
   return {
     formatElapsed: formatElapsed,
     formatClock: formatClock,
+    parseRetryAfter: parseRetryAfter,
+    retryDelayMs: retryDelayMs,
     shouldRunLocally: shouldRunLocally,
     create: create,
     bindFromDocument: bindFromDocument,

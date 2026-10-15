@@ -27,6 +27,11 @@ from games.models import (
     Team,
 )
 from games.results_snapshot import build_results_snapshot_payload
+from games.results.sql_aggregate import (
+    get_sql_aggregated_game_actor_rows as canonical_sql_aggregate,
+    tasks_need_orm_results_aggregate as canonical_orm_fallback_check,
+    AggregatedAttemptsInfo as canonical_attempts_info,
+)
 from games.results_sql_aggregate import (
     get_sql_aggregated_game_actor_rows,
     tasks_need_orm_results_aggregate,
@@ -104,6 +109,12 @@ def _normalize_payload(payload):
 
 
 class ResultsSqlAggregateTests(TestCase):
+    def test_legacy_results_aggregate_import_contract_is_preserved(self):
+        self.assertIs(get_sql_aggregated_game_actor_rows, canonical_sql_aggregate)
+        self.assertIs(tasks_need_orm_results_aggregate, canonical_orm_fallback_check)
+        from games.results_sql_aggregate import AggregatedAttemptsInfo
+        self.assertIs(AggregatedAttemptsInfo, canonical_attempts_info)
+
     @classmethod
     def setUpTestData(cls):
         _ensure_fixtures()
@@ -208,6 +219,16 @@ class ResultsSqlAggregateTests(TestCase):
         )
         sql = get_sql_aggregated_game_actor_rows(task_ids, game=self.game)
         self.assertEqual(_normalize_actor_rows(orm), _normalize_actor_rows(sql))
+
+    def test_empty_anonymous_key_is_ignored_without_sql_string_comparison(self):
+        Attempt.manager.create(
+            text='empty actor', status='Ok', points=1,
+            task=self.task1, anon_key='', team=None, user=None, game=self.game,
+        )
+        sql = get_sql_aggregated_game_actor_rows([self.task1.id], game=self.game)
+        normalized = _normalize_actor_rows(sql)
+        actors = {cell['actor'] for cell in normalized[self.task1.id]}
+        self.assertNotIn(('anon', ''), actors)
 
     def test_attempt_best_and_counts_use_one_database_query(self):
         with CaptureQueriesContext(connection) as captured:

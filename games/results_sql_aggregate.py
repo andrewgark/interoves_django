@@ -1,7 +1,19 @@
-"""Compatibility alias for SQL-backed results aggregation."""
+"""Compatibility exports for the SQL-backed results aggregation package.
 
-import sys
+Keep this module as a real module instead of replacing its ``sys.modules``
+entry. A stable export surface makes old imports and patches deterministic
+while implementation code can depend on ``games.results.sql_aggregate``.
+"""
 
-from games.results import sql_aggregate as _implementation
+from games.results.sql_aggregate import (
+    AggregatedAttemptsInfo,
+    _attempt_actor_specs,
+    get_sql_aggregated_game_actor_rows,
+    tasks_need_orm_results_aggregate,
+)
 
-sys.modules[__name__] = _implementation
+__all__ = [
+    'get_sql_aggregated_game_actor_rows',
+    'tasks_need_orm_results_aggregate',
+    'AggregatedAttemptsInfo',
+]

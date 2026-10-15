@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 from django.db import OperationalError
+from games.middleware.db_transient_response import mysql_error_code
 
 from games.daily_section import (
     is_daily_team_timing_game,
@@ -21,6 +22,7 @@ from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
     MUTATING_ACTIONS,
+    TimingEventConflict,
     apply_timing_event,
     empty_snapshot,
     lookup_timing,
@@ -236,6 +238,29 @@ def daily_solve_timing(
     request, game_id, number=None, task_group_number=None, project_id=None,
     share_hash=None,
 ):
+    response = _daily_solve_timing_impl(
+        request, game_id, number=number, task_group_number=task_group_number,
+        project_id=project_id, share_hash=share_hash,
+    )
+    # A transient failure in response middleware (for example DB-backed
+    # session persistence) happens after the view completed. Clear retry
+    # eligibility before Django starts that response phase.
+    request._interoves_timing_pre_mutation = False
+    request._interoves_timing_read_only = False
+    return response
+
+
+def _daily_solve_timing_impl(
+    request, game_id, number=None, task_group_number=None, project_id=None,
+    share_hash=None,
+):
+    # The early target/session reads precede timing writes. Mark that stage so
+    # connection loss there can be retried safely even by older clients.
+    request._interoves_timing_pre_mutation = request.method == 'POST'
+    # GET for this specific timing endpoint only performs target resolution
+    # and snapshot reads. The middleware's exception signal snapshots this
+    # marker if a DB error occurs before the view returns.
+    request._interoves_timing_read_only = request.method == 'GET'
     number = number if number is not None else task_group_number
     number = number if number is not None else share_hash
     if project_id is None:
@@ -272,6 +297,9 @@ def daily_solve_timing(
             session_id=session_id or None,
         )
         body['ok'] = True
+        # Advertise safe stable-event handling to clients before they opt into
+        # retrying a request whose commit outcome may be unknown.
+        body['timing_event_capability'] = 'stable-event-v1'
         return JsonResponse(body)
 
     payload = _payload(request)
@@ -302,8 +330,15 @@ def daily_solve_timing(
     event_id = payload.get('event_id')
     if not isinstance(session_id, str) or not session_id.strip():
         return _json_error('bad_session_id', 400)
-    if not isinstance(event_id, str) or not event_id.strip():
+    if not isinstance(event_id, str) or not event_id.strip() or len(event_id.strip()) > 64:
         return _json_error('bad_event_id', 400)
+    # Only clients on the stable-event protocol may be told to retry an
+    # unknown commit outcome. Legacy clients generated a fresh event ID on
+    # each start retry, so treating their retry as idempotent is unsafe.
+    request._interoves_timing_event_idempotent = (
+        payload.get('event_protocol') == 1
+        and payload.get('event_capability') == 'stable-event-v1'
+    )
     seq, seq_error = _timing_int(payload, 'seq', default=0)
     if seq_error:
         return _json_error(seq_error, 400)
@@ -322,6 +357,7 @@ def daily_solve_timing(
         response = context_error_response(context_error)
         if response is not None:
             return response
+    request._interoves_timing_pre_mutation = False
     try:
         result = apply_timing_event(
             game=game,
@@ -339,12 +375,22 @@ def daily_solve_timing(
             replay_slot=replay_slot,
             timing_request=request,
         )
+    except TimingEventConflict:
+        return _json_error('event_id_conflict', 409)
     except OperationalError as exc:
         # A competing timing mutation can exhaust the transaction retries.
         # This is transient contention, not a broken request: let the timer
         # retry instead of turning it into a Telegram-worthy HTTP 500.
-        if is_mysql_retryable_lock_error(exc):
-            return _json_error('busy', 409)
+        mysql_code = mysql_error_code(exc)
+        if is_mysql_retryable_lock_error(exc) or (
+            mysql_code in (2006, 2013)
+            and getattr(request, '_interoves_timing_event_idempotent', False)
+        ):
+            request._interoves_mysql_error_code = mysql_code
+            response = _json_error('temporarily_unavailable', 503)
+            response['Retry-After'] = '2'
+            response['Cache-Control'] = 'no-store'
+            return response
         raise
     if not result.get('exists') and action not in (ACTION_START, ACTION_RESUME):
         result['ok'] = False

@@ -483,6 +483,19 @@ class DailyTimingDomainTests(TestCase):
         )
         self.assertFalse(DailyTimingEvent.objects.filter(event_id='invalid-actor').exists())
 
+    def test_ledger_failure_rolls_back_timing_snapshot_mutation(self):
+        sid = uuid4()
+        with patch(
+            'games.daily.timing.record_timing_event',
+            side_effect=RuntimeError('simulated ledger write failure'),
+        ):
+            with self.assertRaisesRegex(RuntimeError, 'ledger write failure'):
+                self._apply(action=ACTION_START, session=sid, seq=1, event='atomic-start')
+        self.assertFalse(DailySolveTiming.objects.filter(
+            game=self.game, task_group=self.tg, user=self.user,
+        ).exists())
+        self.assertFalse(DailyTimingEvent.objects.filter(event_id='atomic-start').exists())
+
     def test_recovery_rebuilds_positive_duration_when_completion_snapshot_is_zero(self):
         sid = str(uuid4())
         events = [
@@ -1170,7 +1183,7 @@ class DailyTimingDomainTests(TestCase):
         self.assertEqual(ctx.exception.args[0], 1213)
         self.assertEqual(calls['n'], TIMING_DEADLOCK_ATTEMPTS)
         joined = '\n'.join(logs.output)
-        self.assertIn('daily_timing deadlock exhausted attempts=3 action=heartbeat', joined)
+        self.assertIn('daily_timing lock retries exhausted attempts=3 action=heartbeat errno=1213', joined)
         self.assertNotIn(self.user.username, joined)
         self.assertNotIn(self.user.email, joined)
 
@@ -1297,18 +1310,24 @@ class DailyTimingApiTests(TestCase):
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     def test_anonymous_start_and_pause(self, _pub):
         sid = uuid4()
-        resp = self._post({
+        event = {
             'action': ACTION_START,
             'session_id': str(sid),
             'event_id': 'e1',
             'seq': 1,
+            'event_protocol': 1,
+            'event_capability': 'stable-event-v1',
             'client_occurred_at': timezone.now().isoformat(),
-        })
+        }
+        resp = self._post(event)
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertTrue(data['ok'])
         self.assertEqual(data['status'], 'running')
         self.assertTrue(data['is_authoritative'])
+        duplicate = self._post(event)
+        self.assertEqual(duplicate.status_code, 200)
+        self.assertTrue(duplicate.json()['ok'])
         self.assertEqual(
             DailyTimingEvent.objects.filter(
                 game=self.game,
@@ -1320,20 +1339,48 @@ class DailyTimingApiTests(TestCase):
         )
         self.assertIsNotNone(DailyTimingEvent.objects.get(event_id='e1').client_occurred_at)
 
+        mismatch = dict(event, action='pause', claimed_ms=0)
+        conflict = self._post(mismatch)
+        self.assertEqual(conflict.status_code, 409)
+        self.assertEqual(conflict.json()['error'], 'event_id_conflict')
+        self.assertEqual(DailyTimingEvent.objects.filter(event_id='e1').count(), 1)
+        self.assertEqual(
+            DailySolveTiming.objects.get(game=self.game, task_group=self.tg, anon_key=self.anon).status,
+            DailySolveTiming.STATUS_RUNNING,
+        )
+
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    def test_timing_get_advertises_stable_event_capability(self, _pub):
+        response = self.client.get('/ladder/91002/timing/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['timing_event_capability'], 'stable-event-v1')
+
+    @patch(
+        'games.views.daily_timing_views.get_object_or_404',
+        side_effect=OperationalError(1040, 'Too many connections'),
+    )
+    def test_mysql_1040_during_timing_get_target_lookup_returns_retryable_503(self, _lookup):
+        response = Client(raise_request_exception=False).get('/ladder/91002/timing/')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response['Retry-After'], '2')
+        self.assertEqual(response['Cache-Control'], 'no-store')
+        self.assertFalse(response.json()['ok'])
+
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     @patch(
         'games.views.daily_timing_views.apply_timing_event',
         side_effect=OperationalError(1205, 'Lock wait timeout exceeded'),
     )
-    def test_lock_contention_returns_retryable_conflict_instead_of_500(self, _apply, _pub):
+    def test_lock_contention_returns_retryable_unavailable_instead_of_500(self, _apply, _pub):
         response = self._post({
             'action': ACTION_START,
             'session_id': str(uuid4()),
             'event_id': 'busy-start',
             'seq': 1,
         })
-        self.assertEqual(response.status_code, 409)
-        self.assertEqual(response.json()['error'], 'busy')
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()['error'], 'temporarily_unavailable')
+        self.assertEqual(response['Retry-After'], '2')
         self.assertFalse(response.json()['ok'])
 
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)

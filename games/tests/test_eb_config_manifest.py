@@ -65,3 +65,31 @@ class GreenBundleManifestTests(SimpleTestCase):
             (root / ".ebextensions/scaling.config").write_text("unexpected change\n")
             with self.assertRaisesRegex(ValueError, "Unexpected .platform/.ebextensions changes"):
                 MANIFEST.verify_green(root, json.loads(baseline.read_text()), MANIFEST.files(root), self.commit)
+
+    def test_observe_only_profile_does_not_require_schema_executor_sources(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary) / "stage"
+            root.mkdir()
+            self._fixture(root)
+            baseline = Path(temporary) / "baseline.json"
+            MANIFEST.snapshot(root, baseline)
+            (root / MANIFEST.OLD_BACKGROUND_HOOK).unlink()
+            output = Path(temporary) / "config-manifest.json"
+            MANIFEST.write_manifest(root, baseline, output, MANIFEST.GREEN_ENV, self.commit)
+            (root / "release-manifest.json").write_text(json.dumps({
+                "release_profile": "observe-only",
+                "source_commit": self.commit,
+            }))
+            for relative in MANIFEST.REQUIRED_GREEN_APP_FILES:
+                (root / relative).unlink()
+            for relative in MANIFEST.OBSERVE_ONLY_GREEN_APP_FILES:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("observe-only app source\n")
+
+            archive = Path(temporary) / "observe-only.zip"
+            with zipfile.ZipFile(archive, "w", zipfile.ZIP_DEFLATED) as bundle:
+                for path in root.rglob("*"):
+                    if path.is_file():
+                        bundle.write(path, path.relative_to(root).as_posix())
+            MANIFEST.verify_archive(archive, MANIFEST.GREEN_ENV, self.commit)
