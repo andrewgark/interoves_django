@@ -572,6 +572,15 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('выживание', 'выжить'))
         self.assertFalse(opens('выживание', 'жилище'))
 
+    def test_mathematics_opaque_family(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        for lemma in ('математика', 'математик', 'математический'):
+            self.assertEqual(assignment_of(lemma)['source'], 'REVIEWED_OPAQUE_ROOT')
+            self.assertEqual(structures_of(lemma), (('tikh:математ',),))
+        self.assertTrue(opens('математика', 'математический'))
+        self.assertTrue(opens('математический', 'математика'))
+
     def test_domoy_does_not_use_spurious_domyit_reading(self):
         self.assertEqual(
             {(item.lemma, item.pos) for item in readings_of('домой')},
