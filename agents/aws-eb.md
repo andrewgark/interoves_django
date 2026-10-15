@@ -209,8 +209,14 @@ Blue (`interoves-env`) остаётся rollback target. Перед откато
 - Предпочтительная проверка БД из production web: `./scripts/eb_run.sh manage.py check --database default`.
 - SSM-туннель: `./scripts/with_rds.sh`; по умолчанию он использует Green и `localhost:13306`.
 - Секрет БД берётся через Secrets Manager; не печатать password/ARN.
-- Долгие DDL и backfill выполняются отдельным background-процессом после
-  совместимой state migration, а не во время EB deploy.
+- Deferred index DDL выполняется синхронной management-командой
+  `run_deploy_background_work` после успешного EB update. Исторический
+  `ChainTaskState` backfill запускается только явно через
+  `run_deploy_background_work --include-chain-backfill` после проверки охвата:
+  штатная запись может создавать только строку текущего режима, поэтому
+  наличие строк не доказывает полноту backfill. На Green нельзя выполнять
+  schema work из per-instance hook или detached process; executor берёт
+  глобальный MySQL named lock и проверяет результат.
 
 ## Ключевые идентификаторы
 

@@ -10,7 +10,7 @@ will cause downtime.
 
 ---
 
-## The four pieces
+## The deployment-safe pieces
 
 ### 1. Migration — `SeparateDatabaseAndState`
 
@@ -61,7 +61,10 @@ Copy `ensure_registration_indexes.py` as a template.  Key points:
 - DDL always includes `ALGORITHM=INPLACE LOCK=NONE` (InnoDB online DDL).
 - `_index_exists()` checks `information_schema.statistics`.
 - Supports `--dry-run` and `--check-only`.
-- Idempotent: skips indexes that already exist (also catches MySQL errno 1061).
+- Idempotent: verifies the exact column order for existing indexes and refuses
+  to overwrite a same-name index with a different definition.
+- DDL runs under the shared MySQL named lock in
+  `games.management.commands._background_index_executor`.
 
 Register the new `INDEX_DDL` list in `check_background_migrations.py` so
 progress can be inspected:
@@ -72,25 +75,20 @@ from games.management.commands.ensure_yourmodel_indexes import INDEX_DDL as INDE
 _check_indexes(self, "0NNN – YourModel index", INDEX_DDL_0NNN, schema)
 ```
 
-### 4. Postdeploy hook — `02_background_migrations.sh`
+### 4. Green deploy executor
 
-Add a new array + loop in `.platform/hooks/postdeploy/02_background_migrations.sh`:
-
-```bash
-INDEXES_YOURMODEL=(
-    "games_yourm_field_a_field_b_idx|CREATE INDEX games_yourm_field_a_field_b_idx ON games_yourmodel (field_a_id, field_b_id) ALGORITHM=INPLACE LOCK=NONE"
-)
-
-log "--- 0NNN: checking/creating YourModel indexes ---"
-for entry in "${INDEXES_YOURMODEL[@]}"; do
-    name="${entry%%|*}"
-    sql="${entry#*|}"
-    create_index_bg "$name" "$sql" "games_yourmodel"
-done
-```
-
-`create_index_bg` checks existence first, then launches the DDL as a background
-process (`& disown`) with its own log at `/var/log/app/idx_<name>.log`.
+Do not add DDL or data backfills to an EB instance hook. The Green bundle
+removes the legacy `02_background_migrations.sh`; `scripts/deploy_green.sh`
+invokes `manage.py run_deploy_background_work` once after EB reports the new
+version healthy. That command holds the global MySQL named lock, verifies
+indexes by name and ordered columns, and performs missing online DDL
+synchronously. It does not infer backfill completion from `ChainTaskState`
+row presence because normal play creates only the current mode's row. The
+historical backfill remains an explicit operation via
+`run_deploy_background_work --include-chain-backfill` after a read-only scope
+and completeness review. An executor error exits the deploy pipeline. The bundle builder writes
+`interoves_eb_config_manifest.json` and fails if protected capacity, health, or
+deployment configuration changes unexpectedly.
 
 ---
 
@@ -110,9 +108,12 @@ Use a short memorable suffix (or a 6-char hash if following Django's auto-naming
 ./scripts/with_rds.sh manage.py check_background_migrations
 ```
 
-## Running manually (e.g. after the first deploy)
+## Running manually (only through a controlled maintenance window)
 
 ```bash
-./scripts/with_rds.sh manage.py ensure_registration_indexes
-./scripts/with_rds.sh manage.py ensure_games_0109_indexes
+./scripts/with_rds.sh manage.py run_deploy_background_work
 ```
+
+The two `ensure_*_indexes` commands remain useful for inspection with
+`--dry-run` / `--check-only`; execution also takes the shared database lock.
+Never background these commands with `nohup`, `&`, or `disown`.

@@ -29,6 +29,9 @@ trap 'rm -rf "$workdir"' EXIT
 live_zip="$workdir/live.zip"
 stage="$workdir/stage"
 rsync_filters="$workdir/rsync.filters"
+live_config_manifest="$workdir/live-config-manifest.json"
+config_manifest="$workdir/interoves-eb-config-manifest.json"
+PROJECT_PYTHON="${PROJECT_PYTHON:-$ROOT/../venv/interoves_django/bin/python}"
 mkdir -p "$stage"
 
 # .ebignore uses gitignore syntax; rsync needs an explicit filter prefix.
@@ -89,6 +92,13 @@ else
 fi
 "$ROOT/scripts/aws_with_role.sh" aws s3 cp "$source_uri" "$live_zip" --region "$REGION" --only-show-errors
 unzip -q "$live_zip" -d "$stage"
+if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
+    [[ -x "$PROJECT_PYTHON" ]] || {
+        echo "Project Python not found at $PROJECT_PYTHON" >&2
+        exit 1
+    }
+    "$PROJECT_PYTHON" "$ROOT/scripts/eb_config_manifest.py" snapshot "$stage" "$live_config_manifest"
+fi
 
 # .ebignore filters checkout files; live EB configuration is protected from the checkout.
 rsync -a --delete-delay \
@@ -97,6 +107,13 @@ rsync -a --delete-delay \
     --exclude='/.platform/***' \
     --exclude='/.elasticbeanstalk/***' \
     "$SOURCE_ROOT/" "$stage/"
+
+# Green web instances must not run detached schema work from a per-instance
+# postdeploy hook. The deploy orchestrator runs the controlled command once
+# after EB has completed the application update.
+if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
+    rm -f "$stage/.platform/hooks/postdeploy/02_background_migrations.sh"
+fi
 
 # A recovery base can come from the recheck worker when the target worker's
 # original bundle has been garbage-collected.  Do not carry recheck-only
@@ -180,9 +197,21 @@ if [[ "$SKIP_COLLECTSTATIC" == "1" ]]; then
 fi
 
 sha="${DEPLOY_SOURCE_SHA:-$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || printf unknown)}"
+commit="${DEPLOY_SOURCE_COMMIT:-$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || printf unknown)}"
 printf '%s\n' "$sha" > "$stage/interoves_django/deploy_version.txt"
+
+if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
+    "$PROJECT_PYTHON" "$ROOT/scripts/eb_config_manifest.py" write \
+        "$stage" "$live_config_manifest" "$config_manifest" "$ENV_NAME" "$commit"
+fi
 
 mkdir -p "$(dirname "$OUTPUT_ZIP")"
 rm -f "$OUTPUT_ZIP"
 (cd "$stage" && zip -q -r "$OUTPUT_ZIP" .)
+if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
+    "$PROJECT_PYTHON" "$ROOT/scripts/eb_config_manifest.py" verify-zip \
+        "$OUTPUT_ZIP" "$ENV_NAME" "$commit"
+fi
+bundle_hash="$(sha256sum "$OUTPUT_ZIP" | cut -d ' ' -f 1)"
+echo "Prepared bundle SHA256: $bundle_hash"
 echo "Prepared bundle: $OUTPUT_ZIP"

@@ -7,11 +7,13 @@ or any MySQL default DATABASE_URL pattern used by this project.
 Examples:
   python manage.py ensure_games_0109_indexes --dry-run
   python manage.py ensure_games_0109_indexes
-  nohup python manage.py ensure_games_0109_indexes > /tmp/ensure_0109.log 2>&1 &
+  # For deployment, prefer run_deploy_background_work (serialized and checked).
 """
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
+
+from games.management.commands._background_index_executor import ensure_indexes, schema_work_lock
 
 
 # Mirrors games.migrations.0109 MySQL forwards (table, index_name, full CREATE INDEX ...).
@@ -132,26 +134,6 @@ class Command(BaseCommand):
                 self.stdout.write(f"  would run: {ddl}")
             return
 
-        if not missing:
-            self.stdout.write(self.style.SUCCESS("Nothing to do."))
-            return
-
-        self.stdout.write(self.style.WARNING(f"Creating {len(missing)} index(es); this may take a long time on large tables."))
-        with connection.cursor() as cursor:
-            for table, index_name, ddl in missing:
-                self.stdout.write(f"Creating {index_name} on {table} ...")
-                try:
-                    cursor.execute(ddl)
-                except Exception as exc:
-                    err = str(exc)
-                    if "Duplicate key name" in err or "1061" in err:
-                        self.stdout.write(self.style.WARNING(f"  skip (already exists): {index_name}"))
-                        continue
-                    raise CommandError(f"Failed on {index_name}: {exc}") from exc
-                self.stdout.write(self.style.SUCCESS(f"  done {index_name}"))
-
-        self.stdout.write(self.style.SUCCESS("Finished creating indexes."))
-        self.stdout.write(
-            "If django_migrations does not list games 0109 yet, run: "
-            "python manage.py migrate games 0109 --fake"
-        )
+        with schema_work_lock(self) as native_connection:
+            ensure_indexes(self, INDEX_DDL, schema, native_connection)
+        self.stdout.write(self.style.SUCCESS("Finished creating/verifying indexes."))

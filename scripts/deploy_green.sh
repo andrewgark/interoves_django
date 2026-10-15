@@ -68,6 +68,8 @@ key="interoves/green/${label}.zip"
     --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
     --version-label "$label" >/dev/null
 "$ROOT/scripts/wait_for_eb_deployment.sh" "$ENV_NAME" "$label" "$REGION"
+echo "Running serialized deferred schema work on one healthy Green instance"
+"$ROOT/scripts/eb_run.sh" manage.py run_deploy_background_work
 "$ROOT/scripts/smoke_prod_pages.sh"
 "$ROOT/scripts/deploy_refresh_gate.sh" disable
 echo "Green deploy complete: $label"

@@ -31,6 +31,7 @@ fi
 
 export DEPLOY_SOURCE_DIR="$SOURCE_DIR"
 export DEPLOY_SOURCE_SHA="$SOURCE_SHORT_SHA"
+export DEPLOY_SOURCE_COMMIT="$SOURCE_SHA"
 export PYTHON="${PYTHON:-$REPO_ROOT/../venv/interoves_django/bin/python}"
 
 if [[ "${BUNDLE_MICROSITES:-0}" == "1" ]]; then
