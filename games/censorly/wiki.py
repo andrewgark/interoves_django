@@ -232,7 +232,9 @@ _TEX_FUNCTION_COMMANDS = frozenset({
     'tanh',
 })
 _TEX_BLACKBOARD_SYMBOLS = {
-    'C': 'ℂ', 'H': 'ℍ', 'N': 'ℕ', 'P': 'ℙ', 'Q': 'ℚ', 'R': 'ℝ', 'Z': 'ℤ',
+    **dict(zip('ABCDEFGHIJKLMNOPQRSTUVWXYZ', '𝔸𝔹ℂ𝔻𝔼𝔽𝔾ℍ𝕀𝕁𝕂𝕃𝕄ℕ𝕆ℙℚℝ𝕊𝕋𝕌𝕍𝕎𝕏𝕐ℤ')),
+    **dict(zip('abcdefghijklmnopqrstuvwxyz', '𝕒𝕓𝕔𝕕𝕖𝕗𝕘𝕙𝕚𝕛𝕜𝕝𝕞𝕟𝕠𝕡𝕢𝕣𝕤𝕥𝕦𝕧𝕨𝕩𝕪𝕫')),
+    **dict(zip('0123456789', '𝟘𝟙𝟚𝟛𝟜𝟝𝟞𝟟𝟠𝟡')),
 }
 _SUPERSCRIPTS = str.maketrans({
     **dict(zip('0123456789+-=()', '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾')),
