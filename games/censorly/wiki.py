@@ -220,6 +220,9 @@ _TEX_FUNCTION_COMMANDS = frozenset({
     'ln', 'log', 'max', 'min', 'Pr', 'sec', 'sin', 'sinh', 'sup', 'tan',
     'tanh',
 })
+_TEX_BLACKBOARD_SYMBOLS = {
+    'C': 'ℂ', 'H': 'ℍ', 'N': 'ℕ', 'P': 'ℙ', 'Q': 'ℚ', 'R': 'ℝ', 'Z': 'ℤ',
+}
 _SUPERSCRIPTS = str.maketrans({
     **dict(zip('0123456789+-=()', '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾')),
     **dict(zip('abcdefghijklmnoprstuvwxyz', 'ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ')),
@@ -380,6 +383,9 @@ class _TexTextParser:
             if not arg:
                 return name, j
             if name in _TEX_GROUP_COMMANDS:
+                if name == 'mathbb':
+                    symbol = arg[0].strip()
+                    return _TEX_BLACKBOARD_SYMBOLS.get(symbol, arg[0]), arg[1]
                 return arg
             if name in ('overbrace', 'underbrace'):
                 brace = '⏞' if name == 'overbrace' else '⏟'
