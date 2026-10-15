@@ -199,6 +199,8 @@ _TEX_SYMBOLS = {
     'lor': '∨', 'degree': '°', 'circ': '∘', 'emptyset': '∅',
     'triangle': '△', 'perp': '⊥', 'parallel': '∥', 'otimes': '⊗',
     'sim': '∼', 'subseteq': '⊆', 'mid': '∣', 'angle': '∠', 'prime': '′',
+    'lvert': '|', 'rvert': '|', 'vert': '|',
+    'lVert': '‖', 'rVert': '‖', 'Vert': '‖',
     'll': '≪',
     'ldots': '…', 'cdots': '…', 'dots': '…', 'over': ' / ',
     'int': '∫', 'iint': '∬', 'iiint': '∭', 'oint': '∮',
@@ -432,6 +434,12 @@ class _TexTextParser:
             return '', j
         if name == '&':
             return ' ', j
+        if name in ('lvert', 'lVert', 'vert'):
+            while j < len(self.text) and self.text[j].isspace():
+                j += 1
+            return _TEX_SYMBOLS[name], j
+        if name in ('rvert', 'rVert'):
+            return _TEX_SYMBOLS[name], j
         if name in _TEX_SYMBOLS:
             return _TEX_SYMBOLS[name], j
         if name in _TEX_FUNCTION_COMMANDS:
@@ -484,9 +492,16 @@ class _TexTextParser:
             ch = self.text[i]
             if ch == '\\':
                 previous = ''.join(out).rstrip()
+                is_closing_bar = any(
+                    self.text.startswith(command, i)
+                    for command in (r'\rvert', r'\rVert')
+                )
                 value, i = self._command(i)
                 if re.fullmatch(r'\(.+\)/\(.+\)', value) and self._needs_implicit_product(previous):
                     out.append(' · ')
+                if is_closing_bar:
+                    while out and out[-1].isspace():
+                        out.pop()
                 out.append(value)
                 continue
             if ch == '{':
@@ -594,6 +609,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
                 or re.search(r'\\(?:t|d)?binom\b', formula)
                 or re.search(r'\\(?:over|under)brace\b', formula)
                 or re.search(r'\\(?:stackrel|pmod|bmod)\b', formula)
+                or re.search(r'\\(?:lvert|rvert|vert|lVert|rVert|Vert)\b', formula)
                 or re.search(r'\\begin\{(?:p|b|B|v|V)?matrix\}', formula)
                 or r'\begin{cases}' in formula
             )
