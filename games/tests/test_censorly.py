@@ -728,6 +728,13 @@ class CensorlyWikiHelperTests(TestCase):
             '(a)/(b) · x + (c)/(d) · y',
         )
 
+    def test_primitive_fraction_followed_by_an_atom_has_separator(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle {a \over b}x}'
+
+        self.assertEqual(clean_wiki_extract(raw), '(a)/(b) · x')
+
     def test_mathbb_styles_each_character_in_multi_character_groups(self):
         from games.censorly.wiki import clean_wiki_extract
 

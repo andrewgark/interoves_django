@@ -579,6 +579,14 @@ class _TexTextParser:
                 if re.fullmatch(r'\(.+\)/\(.+\)', rendered_group) and self._needs_implicit_product(previous):
                     out.append(' · ')
                 out.append(rendered_group)
+                if re.fullmatch(r'\(.+\)/\(.+\)', rendered_group):
+                    next_char = i
+                    while next_char < len(self.text) and self.text[next_char].isspace():
+                        next_char += 1
+                    if next_char < len(self.text) and (
+                        self.text[next_char].isalnum() or self.text[next_char] == '{'
+                    ):
+                        out.append(' · ')
                 continue
             if ch == '&':
                 out.append(' ')
