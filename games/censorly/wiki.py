@@ -317,6 +317,28 @@ class _TexTextParser:
             if rows:
                 return rows
             return 'substack', j
+        if name in ('overset', 'underset'):
+            annotation = self._argument(j)
+            base = self._argument(annotation[1]) if annotation else None
+            if annotation and base:
+                label = annotation[0].strip()
+                value = base[0].strip()
+                if name == 'overset':
+                    translated = label.translate(_SUPERSCRIPTS)
+                    fully_translated = all(
+                        char.isspace() or char.translate(_SUPERSCRIPTS) != char
+                        for char in label
+                    )
+                    script = translated if translated != label and fully_translated else f'^{{{label}}}'
+                else:
+                    translated = label.translate(_SUBSCRIPTS)
+                    fully_translated = all(
+                        char.isspace() or char.translate(_SUBSCRIPTS) != char
+                        for char in label
+                    )
+                    script = translated if translated != label and fully_translated else f'₍{label}₎'
+                return f'{value}{script}', base[1]
+            return name, j
         if name == 'sqrt':
             if j < len(self.text) and self.text[j] == '[':
                 close = self.text.find(']', j + 1)
@@ -503,6 +525,8 @@ class _TexTextParser:
         rendered = re.sub(r'₍\s+', '₍', rendered)
         rendered = re.sub(r'\s+₎', '₎', rendered)
         scripts = re.escape(_SCRIPT_CHARS)
+        rendered = re.sub(r'([=+−×·≤≥≠≈≡<>])\s+(\^\{)', r'\1\2', rendered)
+        rendered = re.sub(rf'([=+−×·≤≥≠≈≡<>])\s+([{scripts}]+)', r'\1\2', rendered)
         rendered = re.sub(rf'([∫∬∭∮])\s+([{scripts}]+)', r'\1\2', rendered)
         rendered = re.sub(rf'([∫∬∭∮][{scripts}]+)(?=[A-Za-zА-Яа-яα-ωΑ-Ω0-9])', r'\1 ', rendered)
         rendered = re.sub(

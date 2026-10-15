@@ -634,6 +634,16 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'x → 0; y ∈ A; A ∪ B')
 
+    def test_overset_and_underset_render_as_scripts(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle \underset{x\to0}{\lim} f(x); '
+            r'\overset{!}{=}}'
+        )
+
+        self.assertEqual(clean_wiki_extract(raw), 'lim₍x → 0₎ f(x); =^{!}')
+
     def test_array_column_specification_is_not_rendered_as_formula_text(self):
         from games.censorly.wiki import clean_wiki_extract
 
