@@ -1021,6 +1021,17 @@ class CensorlyRandomGameTests(TestCase):
             '(1)/(2); (a + b)/(c); (x)/(y + z)',
         )
 
+    def test_equation_tags_labels_and_number_suppression_are_removed(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle x=1\tag{1}\label{eq:x}}; '
+            r'{\displaystyle y=2\tag*{A}\nonumber}; '
+            r'{\displaystyle z=3\notag}'
+        )
+
+        self.assertEqual(clean_wiki_extract(raw), 'x = 1; y = 2; z = 3')
+
     def test_latex_primitive_fractions_spacing_and_hat_are_readable(self):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import clean_wiki_extract

@@ -305,6 +305,14 @@ class _TexTextParser:
         if name == 'operatorname' and j < len(self.text) and self.text[j] == '*':
             name = 'operatorname*'
             j += 1
+        if name == 'tag' and j < len(self.text) and self.text[j] == '*':
+            j += 1
+
+        if name in ('tag', 'label'):
+            argument = self._argument(j)
+            return '', argument[1] if argument else j
+        if name in ('notag', 'nonumber'):
+            return '', j
 
         if name == 'cfrac' and j < len(self.text) and self.text[j] == '[':
             close = self.text.find(']', j + 1)
