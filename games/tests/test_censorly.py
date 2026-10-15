@@ -1032,6 +1032,22 @@ class CensorlyRandomGameTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'x = 1; y = 2; z = 3')
 
+    def test_operatorname_separates_function_name_from_its_argument(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle \operatorname{rank}A + '
+            r'\operatorname*{argmax}_{x} f(x)}'
+        )
+        expected = 'rank A + argmaxₓ f(x)'
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+
+        self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(tokens[0]['surface'], expected)
+
     def test_latex_primitive_fractions_spacing_and_hat_are_readable(self):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import clean_wiki_extract

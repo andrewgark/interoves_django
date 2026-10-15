@@ -401,6 +401,8 @@ class _TexTextParser:
                 if name == 'mathbb':
                     symbol = arg[0].strip()
                     return _TEX_BLACKBOARD_SYMBOLS.get(symbol, arg[0]), arg[1]
+                if name in ('operatorname', 'operatorname*'):
+                    return f' {arg[0].strip()} ', arg[1]
                 return arg
             if name in ('overbrace', 'underbrace'):
                 brace = '⏞' if name == 'overbrace' else '⏟'
@@ -624,6 +626,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
                 or re.search(r'\\(?:t|d)?binom\b', formula)
                 or re.search(r'\\(?:over|under)brace\b', formula)
                 or re.search(r'\\(?:stackrel|pmod|bmod)\b', formula)
+                or re.search(r'\\operatorname(?:\*)?(?=\s|\{)', formula)
                 or re.search(r'\\(?:lvert|rvert|vert|lVert|rVert|Vert)\b', formula)
                 or re.search(r'\\(?:lceil|rceil|lfloor|rfloor)\b', formula)
                 or re.search(r'\\begin\{(?:p|b|B|v|V)?matrix\}', formula)
