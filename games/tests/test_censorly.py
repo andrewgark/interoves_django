@@ -697,6 +697,13 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), '𝔸 + 𝕒 + 𝟙')
 
+    def test_mathbb_styles_each_character_in_multi_character_groups(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \mathbb{ABCxyz012}}'
+
+        self.assertEqual(clean_wiki_extract(raw), '𝔸𝔹ℂ𝕩𝕪𝕫𝟘𝟙𝟚')
+
     def test_absolute_value_and_norm_delimiters_render_as_bars(self):
         from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.censorly.wiki import clean_wiki_extract

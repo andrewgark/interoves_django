@@ -415,7 +415,11 @@ class _TexTextParser:
             if name in _TEX_GROUP_COMMANDS:
                 if name == 'mathbb':
                     symbol = arg[0].strip()
-                    return _TEX_BLACKBOARD_SYMBOLS.get(symbol, arg[0]), arg[1]
+                    rendered = ''.join(
+                        _TEX_BLACKBOARD_SYMBOLS.get(char, char)
+                        for char in symbol
+                    )
+                    return rendered, arg[1]
                 if name in ('operatorname', 'operatorname*'):
                     return f' {arg[0].strip()} ', arg[1]
                 return arg
