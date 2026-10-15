@@ -735,6 +735,16 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), '(a)/(b) · x')
 
+    def test_fraction_followed_by_tex_symbol_or_formatted_atom_has_separator(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \frac{a}{b}\alpha + \frac{c}{d}\mathbf{x}}'
+
+        self.assertEqual(
+            clean_wiki_extract(raw),
+            '(a)/(b) · α + (c)/(d) · x',
+        )
+
     def test_mathbb_styles_each_character_in_multi_character_groups(self):
         from games.censorly.wiki import clean_wiki_extract
 

@@ -273,6 +273,28 @@ def _tex_group(text: str, start: int) -> tuple[str, int] | None:
     return None
 
 
+def _starts_tex_atom(text: str, start: int) -> bool:
+    """Return whether a TeX fragment starts with a multiplicative atom."""
+    while start < len(text) and text[start].isspace():
+        start += 1
+    if start >= len(text):
+        return False
+    if text[start].isalnum() or text[start] == '{':
+        return True
+    if text[start] != '\\':
+        return False
+    command_match = re.match(r'\\([A-Za-z]+|.)', text[start:])
+    if not command_match:
+        return False
+    command = command_match.group(1)
+    return (
+        command in _TEX_GROUP_COMMANDS
+        or command in _TEX_FUNCTION_COMMANDS
+        or command == 'sqrt'
+        or (command in _TEX_SYMBOLS and _TEX_SYMBOLS[command].isalpha())
+    )
+
+
 class _TexTextParser:
     """Render the common subset found in Wikipedia TextExtracts as readable text."""
 
@@ -558,12 +580,7 @@ class _TexTextParser:
                         out.pop()
                 out.append(value)
                 if re.fullmatch(r'\(.+\)/\(.+\)', value):
-                    next_char = i
-                    while next_char < len(self.text) and self.text[next_char].isspace():
-                        next_char += 1
-                    if next_char < len(self.text) and (
-                        self.text[next_char].isalnum() or self.text[next_char] == '{'
-                    ):
+                    if _starts_tex_atom(self.text, i):
                         out.append(' · ')
                 continue
             if ch == '{':
@@ -580,12 +597,7 @@ class _TexTextParser:
                     out.append(' · ')
                 out.append(rendered_group)
                 if re.fullmatch(r'\(.+\)/\(.+\)', rendered_group):
-                    next_char = i
-                    while next_char < len(self.text) and self.text[next_char].isspace():
-                        next_char += 1
-                    if next_char < len(self.text) and (
-                        self.text[next_char].isalnum() or self.text[next_char] == '{'
-                    ):
+                    if _starts_tex_atom(self.text, i):
                         out.append(' · ')
                 continue
             if ch == '&':
