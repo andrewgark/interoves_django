@@ -11,6 +11,7 @@ from games.censorly.lexical.core import fold
 
 NEM_PRONOUN_CONTEXT = '__censorly_nem_pronoun__'
 NEM_NONPRONOUN_CONTEXT = '__censorly_nem_nonpronoun__'
+N_ERA_CONTEXT = '__censorly_n_era__'
 
 # (surface, lemma, part of speech). Keep the noun «ум» and discard pymorphy's
 # impossible verb reading «ум» → «умереть» (the verb forms are «умру», «умрёт»,
@@ -80,6 +81,15 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     ('нашли', 'найти'): frozenset({'найти'}),
 }
 
+# Some fixed abbreviations have a context-specific expansion rather than a
+# normal pymorphy reading.  The matcher uses these citation lemmas only for
+# the exact article context detected by ``_target_contexts``; this is not a
+# global alias from the abbreviation to the expanded word.
+TARGET_LEMMA_OVERRIDES: dict[tuple[str, str], tuple[str, ...]] = {
+    # «н. э.» = «нашей эры»: «н.» carries the possessive adjective «наш».
+    ('н', N_ERA_CONTEXT): ('наш',),
+}
+
 
 def is_rejected(surface: str, lemma: str, pos: str) -> bool:
     """Whether this exact dictionary reading is ruled out for a spelling."""
@@ -93,3 +103,8 @@ def target_readings(surface: str, article_lemma: str, readings):
         return tuple(readings), False
     filtered = tuple(item for item in readings if fold(item.lemma) in allowed)
     return filtered, bool(filtered)
+
+
+def target_lemma_override(surface: str, article_lemma: str) -> tuple[str, ...]:
+    """Return synthetic citation lemmas for a narrowly detected context."""
+    return TARGET_LEMMA_OVERRIDES.get((fold(surface), article_lemma), ())

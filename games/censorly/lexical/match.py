@@ -15,8 +15,10 @@ from threading import Lock, RLock
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.rootbank import families_of
 from games.censorly.lexical.russian.reading_overrides import (
+    N_ERA_CONTEXT,
     NEM_NONPRONOUN_CONTEXT,
     NEM_PRONOUN_CONTEXT,
+    target_lemma_override,
     target_readings,
 )
 from games.censorly.lexical.semantics import (
@@ -82,14 +84,35 @@ class _Pack:
             self.reads = tuple(item for item in self.reads if item.lemma == letter_lemma)
         contextual = False
         if article_lemma:
-            self.reads, contextual = target_readings(surface, article_lemma, self.reads)
+            override_lemmas = target_lemma_override(surface, article_lemma)
+            if override_lemmas:
+                self.reads = tuple(
+                    item
+                    for lemma in override_lemmas
+                    for item in preferred_readings_of(lemma)
+                )
+                contextual = True
+            else:
+                self.reads, contextual = target_readings(
+                    surface, article_lemma, self.reads,
+                )
         self.russian = _russian(surface, 'ru')
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         # Root equality uses citation-preferred readings on both sides.  The
         # broader noun alternatives remain in ``reads`` for SAME_LEXEME.
         root_reads = guess_readings_of(surface)
         if article_lemma:
-            root_reads, _ = target_readings(surface, article_lemma, root_reads)
+            override_lemmas = target_lemma_override(surface, article_lemma)
+            if override_lemmas:
+                root_reads = tuple(
+                    item
+                    for lemma in override_lemmas
+                    for item in guess_readings_of(lemma)
+                )
+            else:
+                root_reads, _ = target_readings(
+                    surface, article_lemma, root_reads,
+                )
         self.roots = _roots(root_reads, surface, include_surface=not contextual)
         self.root_ids = frozenset(_root_ids(self.roots))
         families = set(families_of(self.fold))
@@ -125,7 +148,18 @@ class _GuessPack(_Pack):
             self.reads = tuple(item for item in self.reads if item.lemma == letter_lemma)
         contextual = False
         if article_lemma:
-            self.reads, contextual = target_readings(surface, article_lemma, self.reads)
+            override_lemmas = target_lemma_override(surface, article_lemma)
+            if override_lemmas:
+                self.reads = tuple(
+                    item
+                    for lemma in override_lemmas
+                    for item in guess_readings_of(lemma)
+                )
+                contextual = True
+            else:
+                self.reads, contextual = target_readings(
+                    surface, article_lemma, self.reads,
+                )
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         self.roots = _roots(self.reads, surface, include_surface=not contextual)
         self.root_ids = frozenset(_root_ids(self.roots))
@@ -435,40 +469,90 @@ def _target_contexts(tokens, rows):
         for surface, surface_lemmas in lemmas.items()
         if len(surface_lemmas) == 1
     }
+    n_positions = [
+        index for index, token in enumerate(tokens)
+        if token.get('kind') == 'content' and fold(token.get('surface') or '') == 'н'
+    ]
+    n_era_positions = {
+        index for index in n_positions
+        if _is_n_era_abbreviation(tokens, index)
+    }
+    # A surface-level pack cannot represent occurrence-specific readings. If
+    # an article contains both «н. э.» and an unrelated standalone «н», keep
+    # the ordinary readings for all of them rather than over-expanding «н».
+    if n_positions and len(n_era_positions) == len(n_positions):
+        for index in n_era_positions:
+            surface = tokens[index].get('surface') or ''
+            contexts[surface] = N_ERA_CONTEXT
+
     nem_positions = [
         index for index, token in enumerate(tokens)
         if token.get('kind') == 'content' and fold(token.get('surface') or '') == 'нем'
     ]
-    if not nem_positions:
-        return contexts
-    prepositions = {
-        'в', 'во', 'к', 'ко', 'на', 'над', 'о', 'об', 'обо', 'от', 'при',
-        'с', 'со', 'у', 'перед', 'про', 'через',
-    }
-    nem_contexts = set()
-    for index in nem_positions:
-        previous = index - 1
-        while previous >= 0 and tokens[previous].get('kind') == 'space':
-            previous -= 1
-        next_index = index + 1
-        while next_index < len(tokens) and tokens[next_index].get('kind') == 'space':
-            next_index += 1
-        previous_surface = fold(tokens[previous].get('surface') or '') if previous >= 0 else ''
-        next_surface = tokens[next_index].get('surface') if next_index < len(tokens) else ''
-        if previous_surface in prepositions:
-            nem_contexts.add(NEM_PRONOUN_CONTEXT)
+    if nem_positions:
+        prepositions = {
+            'в', 'во', 'к', 'ко', 'на', 'над', 'о', 'об', 'обо', 'от', 'при',
+            'с', 'со', 'у', 'перед', 'про', 'через',
+        }
+        nem_contexts = set()
+        for index in nem_positions:
+            previous = index - 1
+            while previous >= 0 and tokens[previous].get('kind') == 'space':
+                previous -= 1
+            next_index = index + 1
+            while next_index < len(tokens) and tokens[next_index].get('kind') == 'space':
+                next_index += 1
+            previous_surface = fold(tokens[previous].get('surface') or '') if previous >= 0 else ''
+            next_surface = tokens[next_index].get('surface') if next_index < len(tokens) else ''
+            if previous_surface in prepositions:
+                nem_contexts.add(NEM_PRONOUN_CONTEXT)
+            else:
+                nem_contexts.add(NEM_NONPRONOUN_CONTEXT)
+            if next_surface == '.':
+                nem_contexts.add(NEM_NONPRONOUN_CONTEXT)
+        if len(nem_contexts) == 1:
+            contexts['нем'] = next(iter(nem_contexts))
         else:
-            nem_contexts.add(NEM_NONPRONOUN_CONTEXT)
-        if next_surface == '.':
-            nem_contexts.add(NEM_NONPRONOUN_CONTEXT)
-    if len(nem_contexts) == 1:
-        contexts['нем'] = next(iter(nem_contexts))
-    else:
-        # One surface pack cannot represent two occurrence-specific readings.
-        # Keep the ordinary tokenizer lemma rather than inventing a global
-        # pronoun/non-pronoun decision for the whole article.
-        contexts.pop('нем', None)
+            # One surface pack cannot represent two occurrence-specific readings.
+            # Keep the ordinary tokenizer lemma rather than inventing a global
+            # pronoun/non-pronoun decision for the whole article.
+            contexts.pop('нем', None)
     return contexts
+
+
+def _is_n_era_abbreviation(tokens, index: int) -> bool:
+    """Whether content token ``index`` is the «н.» in «н. э.» exactly."""
+    if index < 0 or index >= len(tokens):
+        return False
+    token = tokens[index]
+    if token.get('kind') != 'content' or fold(token.get('surface') or '') != 'н':
+        return False
+
+    def next_nonspace(position):
+        while position < len(tokens) and tokens[position].get('kind') == 'space':
+            position += 1
+        return position
+
+    dot_after_n = next_nonspace(index + 1)
+    if (
+        dot_after_n >= len(tokens)
+        or tokens[dot_after_n].get('kind') != 'punct'
+        or tokens[dot_after_n].get('surface') != '.'
+    ):
+        return False
+    e_position = next_nonspace(dot_after_n + 1)
+    if (
+        e_position >= len(tokens)
+        or tokens[e_position].get('kind') != 'content'
+        or fold(tokens[e_position].get('surface') or '') != 'э'
+    ):
+        return False
+    dot_after_e = next_nonspace(e_position + 1)
+    return (
+        dot_after_e < len(tokens)
+        and tokens[dot_after_e].get('kind') == 'punct'
+        and tokens[dot_after_e].get('surface') == '.'
+    )
 
 
 def _cached_article_analysis(cache_key, tokens, *, include_pronouns: bool) -> dict:

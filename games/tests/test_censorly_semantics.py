@@ -626,6 +626,39 @@ class SemanticsTests(SimpleTestCase):
             'lexeme',
         )
 
+    def test_n_in_n_era_context_uses_our_lemma_only_there(self):
+        from games.censorly.lexical.match import (
+            _GuessPack, _build_article_analysis, _relation,
+        )
+        from games.censorly.tokenize import tokenize_text
+
+        analysis = _build_article_analysis(
+            tokenize_text('Наша н. э.'),
+            include_pronouns=False,
+            cache_index=False,
+        )
+        target = next(
+            pack for surface, pack in zip(
+                analysis['index'].surfaces, analysis['index'].packs,
+            ) if surface == 'н'
+        )
+        self.assertIn((643, 'наш'), target.lexemes)
+        self.assertTrue(target.roots)
+        self.assertEqual(
+            _relation(_GuessPack('Наша', include_pronouns=False), target),
+            'lexeme',
+        )
+
+        standalone = _build_article_analysis(
+            tokenize_text('н'), include_pronouns=False, cache_index=False,
+        )
+        target = standalone['index'].packs[0]
+        self.assertNotIn((643, 'наш'), target.lexemes)
+        self.assertEqual(
+            _relation(_GuessPack('Наша', include_pronouns=False), target),
+            '',
+        )
+
     def test_valid_adverb_verb_homographs_remain_open(self):
         for adverb, verb in (
             ('стоя', 'стоить'),
