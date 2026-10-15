@@ -1069,6 +1069,24 @@ class CensorlyRandomGameTests(TestCase):
             with self.subTest(expected=expected):
                 self.assertEqual(clean_wiki_extract(raw), expected)
 
+    def test_negated_and_proportional_relations_render_as_single_tokens(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        formulas = (
+            (r'{\displaystyle A\not\subseteq B}', 'A ⊈ B'),
+            (r'{\displaystyle A\nsubseteq B}', 'A ⊈ B'),
+            (r'{\displaystyle x\not\in A}', 'x ∉ A'),
+            (r'{\displaystyle x\propto y}', 'x ∝ y'),
+        )
+        for raw, expected in formulas:
+            with self.subTest(expected=expected, raw=raw):
+                cleaned = clean_wiki_extract(raw, mark_formulas=True)
+                self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+                tokens = tokenize_text(cleaned)
+                self.assertEqual(len(tokens), 1)
+                self.assertEqual(tokens[0]['surface'], expected)
+
     def test_latex_primitive_fractions_spacing_and_hat_are_readable(self):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import clean_wiki_extract

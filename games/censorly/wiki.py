@@ -188,6 +188,9 @@ _TEX_SYMBOLS = {
     'infty': '∞', 'times': '×', 'cdot': '·', 'pm': '±', 'mp': '∓',
     'le': '≤', 'leq': '≤', 'ge': '≥', 'geq': '≥', 'neq': '≠',
     'ne': '≠', 'approx': '≈', 'equiv': '≡', 'notin': '∉',
+    'nsubset': '⊄', 'nsubseteq': '⊈', 'nsupset': '⊅', 'nsupseteq': '⊉',
+    'propto': '∝', 'cong': '≅', 'simeq': '≃', 'asymp': '≍', 'ni': '∋',
+    'nleq': '≰', 'ngeq': '≱', 'napprox': '≉', 'nequiv': '≢',
     'in': '∈', 'to': '→', 'rightarrow': '→', 'longrightarrow': '⟶',
     'leftarrow': '←', 'longleftarrow': '⟵', 'leftrightarrow': '↔',
     'longleftrightarrow': '⟷', 'Rightarrow': '⇒', 'Longrightarrow': '⟹',
@@ -206,6 +209,11 @@ _TEX_SYMBOLS = {
     'ldots': '…', 'cdots': '…', 'dots': '…', 'over': ' / ',
     'int': '∫', 'iint': '∬', 'iiint': '∭', 'oint': '∮',
     'sum': '∑', 'prod': '∏', 'sqrt': '√',
+}
+_TEX_NEGATED_SYMBOLS = {
+    '=': '≠', '∈': '∉', '∋': '∌', '⊂': '⊄', '⊆': '⊈', '⊃': '⊅',
+    '⊇': '⊉', '≤': '≰', '≥': '≱', '≈': '≉', '≡': '≢', '∼': '≁',
+    '∥': '∦',
 }
 _TEX_FORMAT_COMMANDS = frozenset({
     'displaystyle', 'textstyle', 'scriptstyle', 'scriptscriptstyle',
@@ -313,6 +321,11 @@ class _TexTextParser:
             return '', argument[1] if argument else j
         if name in ('notag', 'nonumber'):
             return '', j
+        if name == 'not':
+            target = self._argument(j)
+            if target:
+                return _TEX_NEGATED_SYMBOLS.get(target[0], f'¬{target[0]}'), target[1]
+            return '¬', j
 
         if name == 'cfrac' and j < len(self.text) and self.text[j] == '[':
             close = self.text.find(']', j + 1)
@@ -569,7 +582,10 @@ class _TexTextParser:
         rendered = re.sub(r'[ \t\r\n]+', ' ', ''.join(out)).strip()
         rendered = re.sub(r'\s*([=+−×·≤≥≠≈≡])\s*', r' \1 ', rendered)
         rendered = re.sub(r'\s*([<>])\s*', r' \1 ', rendered)
-        rendered = re.sub(r'\s*([∈∉⊂⊃⊆⊇∪∩→←↔⇒⇐⇔↦∧∨∥])\s*', r' \1 ', rendered)
+        rendered = re.sub(
+            r'\s*([∈∉∋∌⊂⊃⊄⊅⊆⊇⊈⊉∪∩→←↔⇒⇐⇔↦∧∨∥∦∝])\s*',
+            r' \1 ', rendered,
+        )
         rendered = re.sub(r'= +− +(?=[(\d])', '= −', rendered)
         rendered = re.sub(r'([⟨])\s+', r'\1', rendered)
         rendered = re.sub(r'\s+([⟩])', r'\1', rendered)
@@ -621,7 +637,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
             is_display_math = bool(re.match(r'\\(?:displaystyle|textstyle)\b', formula.strip()))
             has_operator = bool(
                 re.search(
-                    r'[=+−×·⋅*/^∫∑√<>≤≥≠≈≡∈∉⊂⊃⊆⊇∪∩∧∨⊥∥⊗∼'
+                    r'[=+−×·⋅*/^∫∑√<>≤≥≠≈≡∈∉∋∌⊂⊃⊄⊅⊆⊇⊈⊉∪∩∧∨⊥∥∦⊗∼≁≅≃≍≰≱≉≢∝'
                     r'→←↔⇒⇐⇔↦]',
                     rendered,
                 )
