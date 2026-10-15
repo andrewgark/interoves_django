@@ -641,6 +641,13 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'ϰ + ϝ + Ϝ + ∅ + ∄ + ∦')
 
+    def test_text_wrappers_keep_underscores_and_unescape_tex_punctuation(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = r'{\displaystyle \text{H_2 \& CO_2, 50\%} + x}'
+
+        self.assertEqual(clean_wiki_extract(raw), 'H_2 & CO_2, 50% + x')
+
     def test_overset_and_underset_render_as_scripts(self):
         from games.censorly.wiki import clean_wiki_extract
 

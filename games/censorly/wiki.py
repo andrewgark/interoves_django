@@ -325,6 +325,15 @@ class _TexTextParser:
             return '', argument[1] if argument else j
         if name in ('notag', 'nonumber'):
             return '', j
+        if name in ('text', 'mbox'):
+            while j < len(self.text) and self.text[j].isspace():
+                j += 1
+            group = _tex_group(self.text, j)
+            if group:
+                value, end = group
+                value = re.sub(r'\\([#$%&_{}])', r'\1', value)
+                value = value.replace('~', ' ')
+                return re.sub(r'\s+', ' ', value).strip(), end
         if name == 'not':
             target = self._argument(j)
             if target:
