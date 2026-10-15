@@ -644,6 +644,22 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'lim₍x → 0₎ f(x); =^{!}')
 
+    def test_overbrace_and_underbrace_keep_their_direction_and_annotations(self):
+        from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            r'{\displaystyle \overbrace{a+b}^{n}; '
+            r'\underbrace{x+y}_{0}}'
+        )
+        cleaned = clean_wiki_extract(raw, mark_formulas=True)
+        expected = '⏞(a + b)ⁿ; ⏟(x + y)₀'
+
+        self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(len(tokens), 1)
+        self.assertEqual(tokens[0]['surface'], expected)
+
     def test_array_column_specification_is_not_rendered_as_formula_text(self):
         from games.censorly.wiki import clean_wiki_extract
 

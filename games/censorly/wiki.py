@@ -365,12 +365,18 @@ class _TexTextParser:
                 return rendered, formula[1]
         if name in _TEX_FORMAT_COMMANDS:
             return (' ' if name in ('quad', 'qquad', ',', ';', ':', ' ') else ''), j
-        if name in _TEX_GROUP_COMMANDS or name in ('overline', 'bar', 'vec', 'hat', 'dot', 'ddot', 'acute', 'tilde'):
+        if name in _TEX_GROUP_COMMANDS or name in (
+            'overline', 'bar', 'vec', 'hat', 'dot', 'ddot', 'acute', 'tilde',
+            'overbrace', 'underbrace',
+        ):
             arg = self._argument(j)
             if not arg:
                 return name, j
             if name in _TEX_GROUP_COMMANDS:
                 return arg
+            if name in ('overbrace', 'underbrace'):
+                brace = '⏞' if name == 'overbrace' else '⏟'
+                return f'{brace}({arg[0]})', arg[1]
             if name in ('dot', 'ddot') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f"{arg[0]}{'˙' if name == 'dot' else '¨'}", arg[1]
             if name == 'hat' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
@@ -573,6 +579,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
                     rendered,
                 )
                 or re.search(r'\\(?:t|d)?binom\b', formula)
+                or re.search(r'\\(?:over|under)brace\b', formula)
                 or re.search(r'\\begin\{(?:p|b|B|v|V)?matrix\}', formula)
                 or r'\begin{cases}' in formula
             )
