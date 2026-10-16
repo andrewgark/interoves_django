@@ -839,6 +839,14 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(initially_open('пчела'))
         self.assertFalse(initially_open('равно'))
 
+    def test_interjections_are_not_initially_open(self):
+        for interjection in (
+            'Эврика', 'ура', 'ой', 'ах', 'эй', 'увы', 'ого', 'фу',
+            'алло', 'бис', 'аминь',
+        ):
+            with self.subTest(interjection=interjection):
+                self.assertFalse(initially_open(interjection))
+
     def test_pronouns_start_open_across_inflectional_forms(self):
         for pronoun in (
             'я', 'меня', 'мне', 'мной', 'мною',

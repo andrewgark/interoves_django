@@ -20,7 +20,10 @@ from games.censorly.lexical.proper_names import PAIR_RELATIONS
 from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
 from games.censorly.lexical.russian.reading_overrides import is_rejected
 
-_SERVICE = frozenset({'PREP', 'CONJ', 'PRCL', 'INTJ'})
+# Function words open before a player has guessed anything. Interjections
+# (INTJ) are lexical content in an article, not structural service words:
+# «Эврика», «ура» and «ой» must remain masked until guessed.
+_SERVICE = frozenset({'PREP', 'CONJ', 'PRCL'})
 # Dictionary homographs that should not be treated as initially open service words.
 _NEVER_INITIAL_OPEN = frozenset({'ла', 'де'})
 _DIGIT_CARDINAL_LEMMAS = {
