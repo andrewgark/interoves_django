@@ -8,6 +8,7 @@ from statistics import mean, median
 from typing import Callable
 
 from django.core.cache import caches
+from django.db import transaction
 from django.db.models import Q
 
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
@@ -29,6 +30,7 @@ from games.daily.registry import DAILY_GAME_REGISTRY
 
 CACHE_VERSION = 21
 CACHE_TIMEOUT = 10 * 60
+REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
 CENSORLY_POPULAR_MIN_ENTRIES = 1
@@ -73,6 +75,12 @@ def _versioned_cache_key(game_id, task_group_id, revision):
 def invalidate_daily_statistics(game_id, task_group_id):
     if not game_id or not task_group_id:
         return
+    transaction.on_commit(
+        lambda: _advance_daily_statistics_revision(game_id, task_group_id),
+    )
+
+
+def _advance_daily_statistics_revision(game_id, task_group_id):
     cache = caches['daily_statistics']
     revision_key = _cache_revision_key(game_id, task_group_id)
     try:
@@ -81,8 +89,14 @@ def invalidate_daily_statistics(game_id, task_group_id):
         except ValueError:
             # Initialize the counter, then retry if another invalidation won
             # the first-write race.
-            if not cache.add(revision_key, 1, timeout=None):
+            if cache.add(revision_key, 1, timeout=REVISION_TIMEOUT):
+                return
+            else:
                 cache.incr(revision_key)
+        # Results expire sooner than revision counters. Refreshing the counter
+        # TTL bounds Redis key growth without allowing a live result generation
+        # to become current again after its counter expires.
+        cache.touch(revision_key, REVISION_TIMEOUT)
     except Exception:
         # Cache is an optimization. A cache outage must not fail game completion.
         logger.warning(

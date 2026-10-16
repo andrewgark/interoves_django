@@ -5,7 +5,13 @@ from django.contrib.auth.models import User
 from django.core.cache import cache, caches
 from django.test import TestCase
 
-from games.daily_statistics import build_attempt_histogram, build_daily_statistics
+from games.daily_statistics import (
+    build_attempt_histogram,
+    build_daily_statistics,
+    cache_key,
+    invalidate_daily_statistics,
+    REVISION_TIMEOUT,
+)
 from games.models import (
     Attempt,
     CheckerType,
@@ -30,6 +36,26 @@ class DailyStatisticsTests(TestCase):
         if self.game is None:
             self.game = Game.objects.create(id='alphabetty', name='Алфавитка', project=self.project)
         self.users = [User.objects.create_user('stats{}'.format(i)) for i in range(3)]
+
+    def test_cache_invalidation_waits_for_database_commit(self):
+        revision_key = '{}:revision'.format(cache_key(self.game.id, 12345))
+        daily_cache = caches['daily_statistics']
+
+        with patch.object(daily_cache, 'add', wraps=daily_cache.add) as cache_add:
+            with self.captureOnCommitCallbacks(execute=True) as callbacks:
+                invalidate_daily_statistics(self.game.id, 12345)
+                self.assertIsNone(daily_cache.get(revision_key))
+
+        self.assertEqual(len(callbacks), 1)
+        self.assertEqual(daily_cache.get(revision_key), 1)
+        cache_add.assert_called_once_with(revision_key, 1, timeout=REVISION_TIMEOUT)
+
+        with patch.object(daily_cache, 'touch', wraps=daily_cache.touch) as cache_touch:
+            with self.captureOnCommitCallbacks(execute=True):
+                invalidate_daily_statistics(self.game.id, 12345)
+
+        self.assertEqual(daily_cache.get(revision_key), 2)
+        cache_touch.assert_called_once_with(revision_key, REVISION_TIMEOUT)
 
     def _task(self, task_type, answer='СЛОВО', checker_data=None):
         tg = TaskGroup.objects.create(label='stats')
