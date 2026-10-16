@@ -679,6 +679,7 @@ DAILY_STATISTICS_ADAPTERS.update({
 def build_daily_statistics(game, task_group):
     cache = caches['daily_statistics']
     revision_key = _cache_revision_key(game.id, task_group.id)
+    result = None
     for _attempt in range(3):
         try:
             revision = int(cache.get(revision_key, 0) or 0)
@@ -721,7 +722,7 @@ def build_daily_statistics(game, task_group):
     # A burst of completions can keep advancing the revision. Return the last
     # fresh calculation without caching it; the next request will use the new
     # generation.
-    return result
+    return result if result is not None else _build_daily_statistics_payload(game, task_group)
 
 
 def _build_daily_statistics_payload(game, task_group):

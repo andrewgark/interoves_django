@@ -57,6 +57,26 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(daily_cache.get(revision_key), 2)
         cache_touch.assert_called_once_with(revision_key, REVISION_TIMEOUT)
 
+    def test_cache_revision_churn_without_miss_falls_back_to_recompute(self):
+        tg = TaskGroup.objects.create(label='revision churn')
+        daily_cache = caches['daily_statistics']
+        revisions = iter((0, 1, 1, 2, 2, 3))
+
+        def cache_get(key, default=None):
+            if key.endswith(':revision'):
+                return next(revisions)
+            return {'cached': True}
+
+        with patch.object(daily_cache, 'get', side_effect=cache_get):
+            with patch(
+                'games.daily.statistics._build_daily_statistics_payload',
+                return_value={'fresh': True},
+            ) as build_payload:
+                result = build_daily_statistics(self.game, tg)
+
+        self.assertEqual(result, {'fresh': True})
+        build_payload.assert_called_once_with(self.game, tg)
+
     def _task(self, task_type, answer='СЛОВО', checker_data=None):
         tg = TaskGroup.objects.create(label='stats')
         GameTaskGroup.objects.create(game=self.game, task_group=tg, number=str(tg.pk), name='stats')
