@@ -23,6 +23,7 @@ from games.models import (
 from games.telegram.admin_commands import handle_admin_command, registration_milestone_reached
 from games.telegram.digest import build_daily_digest, collect_daily_digest_stats
 from games.telegram.announcements import (
+    format_game_day_before_announcement,
     format_game_end_announcement,
     format_game_end_soon_15_announcement,
     format_game_end_soon_announcement,
@@ -506,6 +507,11 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('завершилась', end)
         self.assertIn('answers', end)
         self.assertNotIn('Таблица результатов', end)
+
+    def test_day_before_announcement_uses_explicit_game_url(self):
+        text = format_game_day_before_announcement(self.game)
+        self.assertIn('https://interoves.com/games/tg_test_game/', text)
+        self.assertNotIn('Открыть игру', text)
 
     def test_start_does_not_offer_copy_for_non_google_conditions(self):
         self.game.game_url = 'https://example.com/conditions/editor-notes'

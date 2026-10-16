@@ -76,7 +76,7 @@ def format_game_day_before_announcement(game) -> str:
         'Начало в {} по МСК.'.format(start_local),
         '',
         'Не забудьте зарегистрировать команду и купить билеты.',
-        _link('Открыть игру', game_site_url(game)),
+        game_site_url(game),
     ])
 
 
