@@ -227,6 +227,10 @@ _ATOMIC_LEXICALIZED = frozenset({
     # local family together without authorizing the broad архе/лог components.
     fold('археолог'),
     fold('археологический'),
+    # The automobile pair is a reviewed lexicalized compound family; its
+    # dictionary segmentation авто+мобиль does not represent a useful split.
+    fold('автомобиль'),
+    fold('автомобильный'),
 })
 
 

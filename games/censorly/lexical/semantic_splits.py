@@ -6689,3 +6689,17 @@ MULTI_READINGS = MULTI_READINGS + (
     # in the narrower knitting cluster above.
     ('вязать', ('sense:binding', 'sense:knitting')),
 )
+
+# Explicitly reviewed lexical families requested from Censorly daily-article
+# analysis. These families are missing or unresolved in the dictionaries;
+# keep each pair together without adding a productive suffix rule.
+CLUSTERS = CLUSTERS + (
+    ('sense:drum', ('барабан', 'барабанщик')),
+    ('sense:gladiator', ('гладиатор', 'гладиаторский')),
+    ('sense:contraband', ('контрабанда', 'контрабандист')),
+    ('sense:revolution', ('революция', 'революционер')),
+    ('sense:concert', ('концерт', 'концертный')),
+    ('sense:architecture', ('архитектор', 'архитектура')),
+    ('sense:patriot', ('патриот', 'патриотизм')),
+    ('sense:automobile', ('автомобиль', 'автомобильный')),
+)
