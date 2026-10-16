@@ -932,6 +932,24 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(initially_open('ничего'))
         self.assertFalse(initially_open('пчела'))
 
+    def test_initial_pronoun_flag_is_enabled_by_default(self):
+        from games.censorly.flags import open_pronouns_enabled
+
+        self.assertTrue(open_pronouns_enabled())
+
+    def test_single_digit_numerals_and_their_forms_start_open(self):
+        for surface in (
+            '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+            'ноль', 'одного', 'двумя', 'третьего', 'второго',
+        ):
+            with self.subTest(surface=surface):
+                self.assertTrue(initially_open(surface))
+
+    def test_multi_digit_numerals_and_troya_do_not_start_open(self):
+        for surface in ('10', '11', 'десять', 'одиннадцать', 'десятый', 'троя'):
+            with self.subTest(surface=surface):
+                self.assertFalse(initially_open(surface))
+
     def test_hyphenated_pronouns_open_each_token_part(self):
         for compound in (
             'кто-то', 'кто-либо', 'кто-нибудь', 'кое-кто', 'кое-что',

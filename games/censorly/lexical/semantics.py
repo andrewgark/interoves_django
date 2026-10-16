@@ -45,6 +45,15 @@ _DIGIT_CARDINAL_LEMMAS = {
     '500': 'пятьсот', '600': 'шестьсот', '700': 'семьсот',
     '800': 'восемьсот', '900': 'девятьсот', '1000': 'тысяча',
 }
+_INITIAL_CARDINAL_LEMMAS = frozenset(
+    _DIGIT_CARDINAL_LEMMAS[str(number)] for number in range(10)
+)
+_INITIAL_ORDINAL_LEMMAS = frozenset({
+    'первый', 'второй', 'третий', 'четвертый', 'пятый',
+    'шестой', 'седьмой', 'восьмой', 'девятый',
+})
+_INITIAL_NUMBER_LEMMAS = _INITIAL_CARDINAL_LEMMAS | _INITIAL_ORDINAL_LEMMAS
+_INITIAL_DIGIT_SURFACES = frozenset(str(number) for number in range(10))
 _PRONOUN_ADJECTIVE_LEMMAS = frozenset({
     'этот', 'тот', 'такой', 'таков', 'таковой', 'столько', 'сколько',
     'несколько', 'какой', 'какой-нибудь', 'какой-либо', 'который',
@@ -226,8 +235,6 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
     if left == right:
         return 'exact'
     numeric_root_match = _numeric_root_match(guess, target)
-    if (initially_open(guess) or initially_open(target)) and not numeric_root_match:
-        return ''
     if _alias(left, right):
         return 'alias'
     if (left.isdigit() or right.isdigit()) and not numeric_root_match:
@@ -252,6 +259,26 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
         for item in preferred_readings_of(guess)
     }
     target_lexemes = {(item.para_id, item.lemma) for item in target_reads}
+    if (initially_open(guess) or initially_open(target)) and not numeric_root_match:
+        # Initial numeric forms keep their existing cardinal/ordinal grammar
+        # relations (except the deliberately split one/first case).
+        numeric_grammar = (
+            _grammar(guess_reads, target_reads)
+            and any(
+                item.lemma in (_INITIAL_CARDINAL_LEMMAS - {'один'})
+                for item in (*guess_reads, *target_reads)
+            )
+        )
+        pronoun_lexeme = (
+            bool(guess_lexemes & target_lexemes)
+            and any(
+                item.pos == 'NPRO'
+                or item.lemma in _PRONOUN_ADJECTIVE_LEMMAS
+                for item in (*guess_reads, *target_reads)
+            )
+        )
+        if not (numeric_grammar or pronoun_lexeme):
+            return ''
     if guess_lexemes & target_lexemes:
         return 'lexeme'
     if _roots(guess_reads, guess) & _roots(target_root_reads, target):
@@ -284,7 +311,7 @@ def _numeric_root_match(guess: str, target: str) -> bool:
 
 
 def initially_open(surface: str, *, include_pronouns: bool = True) -> bool:
-    """Function words and unambiguous pronouns start open.
+    """Function words, unambiguous pronouns, and 0–9 numerals start open.
 
     Personal pronouns use the NPRO tag. Pronoun-adjectives use a reviewed set
     of lemmas because pymorphy tags them as ADJF/NUMR. A competing reading
@@ -292,9 +319,13 @@ def initially_open(surface: str, *, include_pronouns: bool = True) -> bool:
     """
     if fold(surface) in _NEVER_INITIAL_OPEN:
         return False
+    if fold(surface) in _INITIAL_DIGIT_SURFACES:
+        return True
     found = readings_of(surface)
     if not found:
         return False
+    if any(item.lemma in _INITIAL_NUMBER_LEMMAS for item in found):
+        return True
     best = max(item.score for item in found)
     pronoun_scores = [
         item.score for item in found

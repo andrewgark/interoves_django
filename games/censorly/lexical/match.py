@@ -261,12 +261,40 @@ def _relation(guess: _Pack, target: _Pack) -> str:
         return 'alias'
     if (guess.fold.isdigit() or target.fold.isdigit()) and not numeric_root_match:
         return ''
-    if (guess.service or target.service) and not numeric_root_match:
-        return ''
     # Import lazily: semantics imports the root bank, whose proper-name
     # installation can otherwise create an import-time cycle through match.
-    from games.censorly.lexical.semantics import _proper_pair_from_readings
-
+    from games.censorly.lexical.semantics import (
+        _PRONOUN_ADJECTIVE_LEMMAS,
+        _proper_pair_from_readings,
+    )
+    if (guess.service or target.service) and not numeric_root_match:
+        # Initial pronoun/number visibility must not erase an existing
+        # lexeme relation (это/эти) or the reviewed cardinal/ordinal grammar
+        # relation (два/второй). Keep one/первый split and service words
+        # blocked as before.
+        if guess.lexemes & target.lexemes:
+            return 'lexeme'
+        if (
+            guess.roots & target.roots
+            and any(
+                item.pos == 'NPRO'
+                or item.lemma in _PRONOUN_ADJECTIVE_LEMMAS
+                for item in (*guess.reads, *target.reads)
+            )
+        ):
+            return 'root'
+        if (
+            _grammar(guess.reads, target.reads)
+            and any(
+                item.lemma in {
+                    'два', 'три', 'четыре', 'пять', 'шесть',
+                    'семь', 'восемь', 'девять',
+                }
+                for item in (*guess.reads, *target.reads)
+            )
+        ):
+            return 'grammar'
+        return ''
     if _proper_pair_from_readings(
         guess.fold,
         target.fold,

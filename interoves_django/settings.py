@@ -233,9 +233,10 @@ CENSORLY_LEXICAL_RESOLVER = (
     os.environ.get('CENSORLY_LEXICAL_RESOLVER', '').strip().lower()
     in ('1', 'true', 'yes', 'on')
 )
-# Pronouns in lexical Censorly puzzles are hidden by default.
+# Pronouns in lexical Censorly puzzles are visible by default. Set the
+# environment variable to 0/false to restore the opt-out behavior.
 CENSORLY_OPEN_PRONOUNS = (
-    os.environ.get('CENSORLY_OPEN_PRONOUNS', '').strip().lower()
+    os.environ.get('CENSORLY_OPEN_PRONOUNS', '1').strip().lower()
     in ('1', 'true', 'yes', 'on')
 )
 
