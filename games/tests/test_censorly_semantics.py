@@ -898,6 +898,11 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(initially_open('Ди'))
         self.assertFalse(initially_open('ди'))
 
+    def test_selected_service_homographs_are_not_initially_open(self):
+        for surface in ('фон', 'Ван', 'дер', 'значит', 'короче', 'максимум'):
+            with self.subTest(surface=surface):
+                self.assertFalse(initially_open(surface))
+
     def test_pronouns_start_open_across_inflectional_forms(self):
         for pronoun in (
             'я', 'меня', 'мне', 'мной', 'мною',
