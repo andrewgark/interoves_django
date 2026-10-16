@@ -634,6 +634,53 @@ class SemanticsTests(SimpleTestCase):
             with self.subTest(related=related):
                 self.assertFalse(opens('один', related))
 
+    def test_predmet_is_not_the_sweep_root(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        self.assertEqual(structures_of('предмет'), (('sense:object_item',),))
+        self.assertEqual(structures_of('метнуть'), (('sense:sweep',),))
+        self.assertFalse(opens('предмет', 'метнул'))
+        self.assertFalse(opens('метнул', 'предмет'))
+        self.assertTrue(opens('предмет', 'предметный'))
+        self.assertTrue(opens('метать', 'метнуть'))
+
+    def test_sweep_family_has_clear_lexicalized_splits(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        clusters = {
+            'сметана': 'sense:dairy',
+            'заметка': 'sense:note',
+            'разметка': 'sense:marking',
+            'опрометчивый': 'sense:reckless',
+        }
+        for word, root in clusters.items():
+            with self.subTest(word=word):
+                self.assertEqual(structures_of(word), ((root,),))
+                self.assertFalse(opens(word, 'метнул'))
+                self.assertFalse(opens('метнул', word))
+
+    def test_sweep_family_remaining_lexicalized_clusters_are_separate(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        clusters = {
+            'заметка': 'sense:note',
+            'приметка': 'sense:note',
+            'наметка': 'sense:sewing_baste',
+            'сметка': 'sense:sewing_baste',
+            'обметка': 'sense:sewing_baste',
+            'намет': 'sense:tent_stack',
+            'подметка': 'sense:sole',
+            'подметный': 'sense:anonymous_note',
+            'помет': 'sense:dung_mark',
+            'перемет': 'sense:fishing_net',
+            'переметчивый': 'sense:fickle',
+        }
+        for word, root in clusters.items():
+            with self.subTest(word=word):
+                self.assertEqual(structures_of(word), ((root,),))
+                self.assertFalse(opens(word, 'метнул'))
+                self.assertFalse(opens('метнул', word))
+
     def test_one_word_cardinal_numerals_share_digit_roots(self):
         from games.censorly.lexical.rootbank import structures_of
 
