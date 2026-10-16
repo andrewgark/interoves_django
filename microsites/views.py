@@ -3,8 +3,10 @@ import logging
 import mimetypes
 import os
 import re
+import signal
 import subprocess
 import sys
+import threading
 from datetime import datetime, timezone as dt_timezone
 from io import BytesIO
 from pathlib import Path
@@ -37,6 +39,7 @@ _BOOKLET_HTML_LOADING_MARKER = "data-booklet-loading-overlay"
 logger = logging.getLogger(__name__)
 
 _SAFE_WEB_NAME = re.compile(r"^[a-zA-Z0-9][-a-zA-Z0-9_.]*$")
+_NUTRIMATIC_SEARCH_GATE = threading.BoundedSemaphore(1)
 
 
 def expanduser_maybe(p: str) -> str:
@@ -124,28 +127,51 @@ def nutrimatic_search(request):
     env["QUERY_STRING"] = request.META.get("QUERY_STRING", "")
     env["NUTRIMATIC_FIND_EXPR"] = str(find_expr)
     env["NUTRIMATIC_INDEX"] = str(index)
+    if not _NUTRIMATIC_SEARCH_GATE.acquire(blocking=False):
+        return HttpResponse(
+            "Search is busy. Please retry shortly.",
+            status=503,
+            headers={"Retry-After": "5"},
+            content_type="text/plain; charset=utf-8",
+        )
     try:
-        proc = subprocess.run(
+        proc = subprocess.Popen(
             [sys.executable, str(cgi)],
             env=env,
             cwd=str(paths[0]),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            timeout=120,
+            start_new_session=True,
         )
-    except subprocess.TimeoutExpired:
+        try:
+            stdout, stderr = proc.communicate(timeout=45)
+        except subprocess.TimeoutExpired:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            stdout, stderr = proc.communicate()
+            return HttpResponse(
+                "Search timed out",
+                status=504,
+                content_type="text/plain; charset=utf-8",
+            )
+    except OSError:
+        logger.exception("Nutrimatic search process failed to start")
         return HttpResponse(
-            "Search timed out",
-            status=504,
+            "Search unavailable",
+            status=503,
             content_type="text/plain; charset=utf-8",
         )
+    finally:
+        _NUTRIMATIC_SEARCH_GATE.release()
 
     if proc.returncode != 0:
-        err = (proc.stderr or b"").decode("utf-8", errors="replace").strip()
+        err = (stderr or b"").decode("utf-8", errors="replace").strip()
         msg = err or f"nutrimatic exited with code {proc.returncode}"
         return HttpResponse(msg, status=500, content_type="text/plain; charset=utf-8")
 
-    body = _strip_cgi_headers(proc.stdout)
+    body = _strip_cgi_headers(stdout)
     body = body.replace(b'href="/favicon.ico"', b'href="/nutrimatic-ru/favicon.ico"')
     return HttpResponse(body, content_type="text/html; charset=utf-8")
 
