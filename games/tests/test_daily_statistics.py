@@ -1,4 +1,7 @@
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event, Lock
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
@@ -77,6 +80,33 @@ class DailyStatisticsTests(TestCase):
 
         self.assertEqual(result, {'fresh': True})
         build_payload.assert_called_once_with(self.game, tg)
+
+    def test_concurrent_cache_misses_share_one_statistics_build(self):
+        tg = TaskGroup.objects.create(label='concurrent cache miss')
+        build_started = Event()
+        build_count_lock = Lock()
+        build_count = 0
+
+        def slow_build(_game, _task_group):
+            nonlocal build_count
+            with build_count_lock:
+                build_count += 1
+            build_started.set()
+            time.sleep(0.05)
+            return {'fresh': True}
+
+        with patch(
+            'games.daily.statistics._build_daily_statistics_payload',
+            side_effect=slow_build,
+        ):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                first = executor.submit(build_daily_statistics, self.game, tg)
+                self.assertTrue(build_started.wait(timeout=1))
+                second = executor.submit(build_daily_statistics, self.game, tg)
+                results = [first.result(timeout=2), second.result(timeout=2)]
+
+        self.assertEqual(build_count, 1)
+        self.assertEqual(results, [{'fresh': True}, {'fresh': True}])
 
     def test_hiding_profile_invalidates_cached_daily_statistics(self):
         tg, _task = self._task('alphabetty')

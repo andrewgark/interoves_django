@@ -2,6 +2,8 @@
 
 import json
 import logging
+import time
+import uuid
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from statistics import mean, median
@@ -31,6 +33,9 @@ from games.daily.registry import DAILY_GAME_REGISTRY
 CACHE_VERSION = 21
 CACHE_TIMEOUT = 10 * 60
 REVISION_TIMEOUT = CACHE_TIMEOUT * 2
+CACHE_BUILD_LOCK_TIMEOUT = 30
+CACHE_BUILD_WAIT_SECONDS = 0.1
+CACHE_BUILD_POLL_INTERVAL = 0.01
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
 CENSORLY_POPULAR_MIN_ENTRIES = 1
@@ -702,22 +707,98 @@ def build_daily_statistics(game, task_group):
                 )
                 return _build_daily_statistics_payload(game, task_group)
             continue
-        result = _build_daily_statistics_payload(game, task_group)
 
-        # If a completion invalidated this generation during the calculation,
-        # rebuild against the newer participant set instead of caching/returning
-        # a result that was already obsolete when the request finished.
+        lock_key = '{}:build-lock'.format(result_key)
+        lock_token = uuid.uuid4().hex
         try:
-            current_revision = int(cache.get(revision_key, 0) or 0)
-            if current_revision != revision:
-                continue
-            cache.set(result_key, result, CACHE_TIMEOUT)
+            owns_lock = cache.add(
+                lock_key, lock_token, timeout=CACHE_BUILD_LOCK_TIMEOUT,
+            )
         except Exception:
             logger.warning(
-                'daily_statistics_cache_write_failed game=%s task_group=%s',
+                'daily_statistics_cache_lock_failed game=%s task_group=%s',
                 game.id, task_group.id, exc_info=True,
             )
-        return result
+            return _build_daily_statistics_payload(game, task_group)
+
+        if not owns_lock:
+            revision_changed = False
+            cache_failed = False
+            for _ in range(int(CACHE_BUILD_WAIT_SECONDS / CACHE_BUILD_POLL_INTERVAL)):
+                time.sleep(CACHE_BUILD_POLL_INTERVAL)
+                try:
+                    current_revision = int(cache.get(revision_key, 0) or 0)
+                    if current_revision != revision:
+                        revision_changed = True
+                        break
+                    cached = cache.get(result_key)
+                    if cached is not None:
+                        if int(cache.get(revision_key, 0) or 0) == revision:
+                            return cached
+                except Exception:
+                    cache_failed = True
+                    logger.warning(
+                        'daily_statistics_cache_wait_failed game=%s task_group=%s',
+                        game.id, task_group.id, exc_info=True,
+                    )
+                    break
+
+            if revision_changed:
+                continue
+
+            if not cache_failed:
+                try:
+                    current_revision = int(cache.get(revision_key, 0) or 0)
+                    if current_revision != revision:
+                        continue
+                    owns_lock = cache.add(
+                        lock_key, lock_token, timeout=CACHE_BUILD_LOCK_TIMEOUT,
+                    )
+                except Exception:
+                    owns_lock = False
+                    logger.warning(
+                        'daily_statistics_cache_lock_retry_failed game=%s task_group=%s',
+                        game.id, task_group.id, exc_info=True,
+                    )
+
+            if not owns_lock:
+                result = _build_daily_statistics_payload(game, task_group)
+                try:
+                    if int(cache.get(revision_key, 0) or 0) != revision:
+                        continue
+                except Exception:
+                    logger.warning(
+                        'daily_statistics_cache_revision_read_failed game=%s task_group=%s',
+                        game.id, task_group.id, exc_info=True,
+                    )
+                return result
+
+        try:
+            result = _build_daily_statistics_payload(game, task_group)
+
+            # If a completion invalidated this generation during the calculation,
+            # rebuild against the newer participant set instead of caching/returning
+            # a result that was already obsolete when the request finished.
+            try:
+                current_revision = int(cache.get(revision_key, 0) or 0)
+                if current_revision != revision:
+                    continue
+                cache.set(result_key, result, CACHE_TIMEOUT)
+            except Exception:
+                logger.warning(
+                    'daily_statistics_cache_write_failed game=%s task_group=%s',
+                    game.id, task_group.id, exc_info=True,
+                )
+            return result
+        finally:
+            try:
+                if cache.get(lock_key) == lock_token:
+                    cache.delete(lock_key)
+            except Exception:
+                logger.warning(
+                    'daily_statistics_cache_lock_release_failed game=%s task_group=%s',
+                    game.id, task_group.id, exc_info=True,
+                )
 
     # A burst of completions can keep advancing the revision. Return the last
     # fresh calculation without caching it; the next request will use the new
