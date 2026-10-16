@@ -2,7 +2,8 @@ import json
 import time
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event, Lock
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
 from django.contrib.auth.models import User
 from django.core.cache import cache, caches
@@ -15,6 +16,7 @@ from games.daily_statistics import (
     invalidate_daily_statistics,
     REVISION_TIMEOUT,
 )
+from games.daily.statistics import _RELEASE_CACHE_LOCK_SCRIPT, _release_build_lock
 from games.models import (
     Attempt,
     CheckerType,
@@ -108,6 +110,26 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(build_count, 1)
         self.assertEqual(results, [{'fresh': True}, {'fresh': True}])
 
+    def test_redis_build_lock_release_uses_atomic_token_check(self):
+        redis_client = Mock()
+        backend = SimpleNamespace(
+            get_client=Mock(return_value=redis_client),
+            _serializer=SimpleNamespace(dumps=Mock(return_value=b'encoded-token')),
+        )
+        cache_backend = SimpleNamespace(
+            _cache=backend,
+            make_key=lambda key: 'cache-prefix:{}'.format(key),
+        )
+
+        _release_build_lock(cache_backend, 'daily:build-lock', 'token')
+
+        redis_client.eval.assert_called_once_with(
+            _RELEASE_CACHE_LOCK_SCRIPT,
+            1,
+            'cache-prefix:daily:build-lock',
+            b'encoded-token',
+        )
+
     def test_hiding_profile_invalidates_cached_daily_statistics(self):
         tg, _task = self._task('alphabetty')
         user = self.users[0]
@@ -118,6 +140,22 @@ class DailyStatisticsTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             profile.is_hidden = True
             profile.save(update_fields=['is_hidden'])
+
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 0)
+
+    def test_creating_hidden_profile_invalidates_cached_daily_statistics(self):
+        tg, _task = self._task('alphabetty')
+        user = self.users[0]
+        self._complete(tg, user)
+
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 1)
+        with self.captureOnCommitCallbacks(execute=True):
+            Profile.objects.create(
+                user=user,
+                first_name='Hidden',
+                last_name='Player',
+                is_hidden=True,
+            )
 
         self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 0)
 

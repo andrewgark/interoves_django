@@ -36,6 +36,10 @@ REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 CACHE_BUILD_LOCK_TIMEOUT = 30
 CACHE_BUILD_WAIT_SECONDS = 0.1
 CACHE_BUILD_POLL_INTERVAL = 0.01
+_RELEASE_CACHE_LOCK_SCRIPT = (
+    "if redis.call('get', KEYS[1]) == ARGV[1] then "
+    "return redis.call('del', KEYS[1]) else return 0 end"
+)
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
 CENSORLY_POPULAR_MIN_ENTRIES = 1
@@ -75,6 +79,27 @@ def _cache_revision_key(game_id, task_group_id):
 
 def _versioned_cache_key(game_id, task_group_id, revision):
     return '{}:{}'.format(cache_key(game_id, task_group_id), int(revision))
+
+
+def _release_build_lock(cache, lock_key, lock_token):
+    """Release our lock atomically on Redis; preserve a generic-cache fallback."""
+    backend = getattr(cache, '_cache', None)
+    get_client = getattr(backend, 'get_client', None)
+    serializer = getattr(backend, '_serializer', None)
+    if callable(get_client) and serializer is not None:
+        client = get_client(cache.make_key(lock_key), write=True)
+        client.eval(
+            _RELEASE_CACHE_LOCK_SCRIPT,
+            1,
+            cache.make_key(lock_key),
+            serializer.dumps(lock_token),
+        )
+        return
+
+    # LocMem and other cache backends do not expose compare-and-delete. The
+    # fallback is process-local and the lock is only a duplicate-work guard.
+    if cache.get(lock_key) == lock_token:
+        cache.delete(lock_key)
 
 
 def invalidate_daily_statistics(game_id, task_group_id):
@@ -792,8 +817,7 @@ def build_daily_statistics(game, task_group):
             return result
         finally:
             try:
-                if cache.get(lock_key) == lock_token:
-                    cache.delete(lock_key)
+                _release_build_lock(cache, lock_key, lock_token)
             except Exception:
                 logger.warning(
                     'daily_statistics_cache_lock_release_failed game=%s task_group=%s',

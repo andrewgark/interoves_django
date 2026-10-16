@@ -68,7 +68,11 @@ def profile_old_eligibility(sender, instance, **kwargs):
 @receiver(post_save, sender=Profile, dispatch_uid='daily-statistics-profile-eligibility')
 def profile_eligibility_changed(sender, instance, created, **kwargs):
     old = getattr(instance, '_daily_statistics_old_eligibility', None)
-    if created or old is None:
+    if created:
+        if instance.is_hidden:
+            _invalidate_pairs(_actor_pairs(user_id=instance.user_id))
+        return
+    if old is None:
         return
     if old['is_hidden'] != instance.is_hidden:
         _invalidate_pairs(_actor_pairs(user_id=instance.user_id))
