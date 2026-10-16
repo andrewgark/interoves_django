@@ -565,6 +565,38 @@ class CensorlyPuzzleStorageTests(TestCase):
 
 
 class CensorlyWikiHelperTests(TestCase):
+    def test_lead_editorial_notes_remain_separate_paragraphs(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        # ru.wikipedia.org snapshots: Троянский конь (page 85276,
+        # revision 154264746) and Дона (page 8582684, revision 151083100).
+        extracts = [
+            (
+                'Это статья по античной мифологии. По вредоносным компьютерным '
+                'программам см. Троянская программа\n\n'
+                'Троянский конь — в древнегреческой мифологии огромный '
+                'деревянный конь, с постройкой которого связан один из '
+                'финальных эпизодов Троянской войны.'
+            ),
+            (
+                'Дона — многозначный термин:\n\n'
+                'Дона — одно из названий лекарства Глюкозамин.\n'
+                'Дона — город в Германии, в федеральной земле Саксония.'
+            ),
+        ]
+
+        for raw in extracts:
+            with self.subTest(first_paragraph=raw.splitlines()[0]):
+                cleaned = clean_wiki_extract(raw)
+                self.assertIn('\n\n', cleaned)
+                self.assertEqual(cleaned.count('\n'), 2)
+
+        # Ordinary internal line wraps still join into continuous prose.
+        self.assertEqual(
+            clean_wiki_extract('Обычное предложение\n\nпродолжается здесь.'),
+            'Обычное предложение продолжается здесь.',
+        )
+
     def test_ramanujan_wikipedia_extract_keeps_the_display_formula_on_one_line(self):
         from games.censorly.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.censorly.wiki import _trim_extract, clean_wiki_extract

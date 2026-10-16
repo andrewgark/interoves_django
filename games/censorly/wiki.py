@@ -82,6 +82,22 @@ _IPA_CHAR_RE = re.compile(
 )
 _SQUARE_BRACKET_RE = re.compile(r'\[[^\]]*\]')
 _EMPTY_PAREN_RE = re.compile(r'\([ \t\u00a0]*[,.;:!?…\-—]*[ \t\u00a0]*\)')
+# Ruwiki's plaintext extract puts editorial disambiguation notes in a short
+# opening paragraph, followed by a blank line and the actual article lead.
+# Preserve that one boundary; other blank lines may be artifacts around math.
+_LEAD_NOTE_RE = re.compile(
+    r'^(?:'
+    r'это\s+статья\b|'
+    r'не\s+следует\s+путать\b|'
+    r'не\s+путать\b|'
+    r'о\s+других\s+значениях\b|'
+    r'по\s+другим\s+значениям\b|'
+    r'термин\s+перенаправлен\b|'
+    r'для\s+других\s+значений\b|'
+    r'.*многозначный\s+термин[:.]?\s*$'
+    r')',
+    re.IGNORECASE,
+)
 
 
 @dataclass(frozen=True)
@@ -850,6 +866,15 @@ def _collapse_extract_whitespace(text: str) -> str:
     if not text:
         return text
 
+    # The extract API represents hatnotes / disambiguation notices as a short
+    # first paragraph. Keep its separation from the actual article lead while
+    # continuing to repair line breaks elsewhere in the extract.
+    lead_note_boundary = None
+    lead_match = re.match(r'^([^\n]+)\n{2,}', text)
+    if lead_match and _LEAD_NOTE_RE.match(lead_match.group(1).strip()):
+        lead_note_boundary = '\u0000CENSORLY_LEAD_NOTE_BOUNDARY\u0000'
+        text = lead_match.group(1) + lead_note_boundary + text[lead_match.end():]
+
     def collapse_prose_linebreak(match: re.Match[str]) -> str:
         # Keep a wiki heading on its own line so _headings_to_marked can find it.
         previous_line = (match.string[:match.start()] + match.group(1)).rsplit('\n', 1)[-1]
@@ -873,6 +898,7 @@ def _collapse_extract_whitespace(text: str) -> str:
     text = re.sub(r'\(\s+', '(', text)
     text = re.sub(r'\s+\)', ')', text)
     text = _EMPTY_PAREN_RE.sub('', text)
+    text = text.replace(lead_note_boundary or '\u0000CENSORLY_UNUSED_BOUNDARY\u0000', '\n\n')
     return text.strip()
 
 
