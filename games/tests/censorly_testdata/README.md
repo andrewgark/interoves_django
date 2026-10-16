@@ -1,10 +1,15 @@
 # Censorly Wikipedia extract fixtures
 
-Frozen slices of Russian Wikipedia `explaintext` extracts for offline regression
-tests of `games.censorly.wiki.clean_wiki_extract` / `_trim_extract`.
+Frozen slices of Russian Wikipedia TextExtracts for offline regression tests of
+`games.censorly.wiki.clean_wiki_extract` / `_trim_extract`.
 
 Do not fetch live Wikipedia in CI for these cases — update files deliberately
 when the cleaner’s contract changes.
+
+`root_functions_extract.html` is a frozen slice of the rendered HTML extract for
+«Корень» (page 294172, revision 155262811, fetched 2026-10-17). Unlike
+`explaintext`, the HTML extract retains the `<ul>/<li>` structure that the
+article display needs.
 
 `silver_math_raw.txt` freezes an unindented vertical MathML dump with the
 Russian label “(конц.)” and TeX arrows from Серебро.

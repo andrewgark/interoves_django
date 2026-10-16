@@ -6,6 +6,7 @@ import hashlib
 import re
 import unicodedata
 from dataclasses import dataclass
+from html.parser import HTMLParser
 from typing import Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
@@ -45,6 +46,118 @@ _SECTION_HEADING_PREFIX_RE = re.compile(
 
 class WikiFetchError(Exception):
     """Failed to load or validate a Wikipedia article."""
+
+
+class _WikiExtractHTMLParser(HTMLParser):
+    """Convert TextExtracts HTML to plaintext while retaining block structure."""
+
+    _SKIP_CLASSES = {'reference', 'mw-editsection', 'noprint'}
+    _VOID_TAGS = {
+        'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+        'link', 'meta', 'param', 'source', 'track', 'wbr',
+    }
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.list_markers: list[str] = []
+        self.skip_depth = 0
+        self.heading_level: int | None = None
+        self.table_row_cells = 0
+        self.definition_term_active = False
+
+    def _ensure_newlines(self, count: int) -> None:
+        current = ''.join(self.parts)
+        trailing = len(current) - len(current.rstrip('\n'))
+        if trailing < count:
+            self.parts.append('\n' * (count - trailing))
+
+    def handle_starttag(self, tag: str, attrs) -> None:
+        attrs = dict(attrs)
+        classes = set((attrs.get('class') or '').split())
+        if self.skip_depth:
+            if tag not in self._VOID_TAGS:
+                self.skip_depth += 1
+            return
+        if tag in {'script', 'style', 'noscript', 'svg'} or classes & self._SKIP_CLASSES:
+            self.skip_depth = 1
+            return
+        if tag == 'math':
+            # MathML includes canonical TeX in alttext; preserve the same form
+            # accepted by the existing formula cleaner and skip verbose MathML.
+            self.parts.append(attrs.get('alttext') or '')
+            self.skip_depth = 1
+            return
+        if tag in {'h2', 'h3', 'h4', 'h5', 'h6'}:
+            self.heading_level = int(tag[1])
+            self._ensure_newlines(2)
+            self.parts.append('=' * self.heading_level + ' ')
+        elif tag == 'p':
+            self._ensure_newlines(2)
+        elif tag in {'ul', 'ol'}:
+            self.list_markers.append('*' if tag == 'ul' else '#')
+        elif tag == 'li':
+            self._ensure_newlines(1)
+            self.parts.append(''.join(self.list_markers) + ' ')
+        elif tag == 'dl':
+            self._ensure_newlines(1)
+        elif tag == 'dt':
+            self._ensure_newlines(1)
+            self.parts.append('; ')
+            self.definition_term_active = True
+        elif tag == 'dd':
+            self._ensure_newlines(1)
+            self.parts.append(': ' if self.definition_term_active else '')
+            self.definition_term_active = False
+        elif tag == 'br':
+            self.parts.append('\n')
+        elif tag in {'td', 'th'}:
+            if self.table_row_cells:
+                self.parts.append(' | ')
+            self.table_row_cells += 1
+        elif tag == 'tr':
+            self._ensure_newlines(1)
+            self.parts.append('| ')
+            self.table_row_cells = 0
+        elif tag == 'img' and attrs.get('alt'):
+            self.parts.append(attrs['alt'])
+        elif tag == 'figcaption':
+            self._ensure_newlines(1)
+
+    def handle_endtag(self, tag: str) -> None:
+        if self.skip_depth:
+            self.skip_depth -= 1
+            return
+        if tag in {'h2', 'h3', 'h4', 'h5', 'h6'} and self.heading_level:
+            self.parts.append(' ' + '=' * self.heading_level)
+            self.heading_level = None
+            self._ensure_newlines(2)
+        elif tag == 'p':
+            self._ensure_newlines(2)
+        elif tag == 'li':
+            self._ensure_newlines(1)
+        elif tag in {'ul', 'ol'} and self.list_markers:
+            self.list_markers.pop()
+            self._ensure_newlines(1)
+        elif tag in {'tr', 'dt', 'dd', 'figcaption'}:
+            self._ensure_newlines(1)
+
+    def handle_data(self, data: str) -> None:
+        if not self.skip_depth:
+            self.parts.append(data)
+
+    def text(self) -> str:
+        return ''.join(self.parts).strip()
+
+
+def _html_extract_to_text(extract: str) -> str:
+    parser = _WikiExtractHTMLParser()
+    parser.feed(extract or '')
+    parser.close()
+    text = parser.text()
+    # HTML source formatting often inserts whitespace between sibling <li>s;
+    # the list items themselves should be separated by a single line break.
+    return re.sub(r'(?m)([*#]+ [^\n]+)\n{2,}(?=[*#]+ )', r'\1\n', text)
 
 
 # Citation footnotes [1] / [12] — not crystallographic Miller indices [100]/[010].
@@ -893,6 +1006,8 @@ def _collapse_extract_whitespace(text: str) -> str:
         if (
             re.match(r'^[ \t]*[*#;:]', next_line)
             or re.match(r'^[ \t]*[*#;:]', previous_line)
+            or re.match(r'^[ \t]*\| ', next_line)
+            or re.match(r'^[ \t]*\| ', previous_line)
             or previous_is_wrapped_list_text
         ):
             return match.group(0)
@@ -1018,6 +1133,14 @@ def _format_wiki_lists(text: str) -> str:
             last_list_item = False
             continue
 
+        table_row = re.match(r'^[ \t]*\|[ \t]*(.*)$', line)
+        if table_row:
+            output.append(table_row.group(1))
+            ordered_counters.clear()
+            definition_term = ''
+            last_list_item = False
+            continue
+
         # TextExtracts sometimes wraps one list item onto an unmarked line.
         # A lowercase continuation is a useful signal; capitalized prose after
         # the list remains a separate paragraph (as in the «Корень» extract).
@@ -1045,7 +1168,7 @@ def clean_wiki_extract(extract: str, *, mark_formulas: bool = False) -> str:
     text = _replace_tex_groups(text, mark_formulas=mark_formulas)
     text = _strip_bracket_notes(text)
     text = _collapse_extract_whitespace(text)
-    return _format_wiki_lists(text)
+    return _format_wiki_lists(text).strip('\n')
 
 
 def _headings_to_marked(extract: str) -> str:
@@ -1108,8 +1231,8 @@ def fetch_article(
         'format': 'json',
         'prop': 'extracts|info|pageprops',
         'ppprop': 'disambiguation',
-        'explaintext': 1,
-        # wiki headings (== Name ==) so we can strip tails / trim on sections.
+        # HTML retains list/table structure that the plaintext extract erases.
+        # Convert its block tags to the plaintext markers below before cleanup.
         'exsectionformat': 'wiki',
         'redirects': 1,
         'titles': title,
@@ -1135,7 +1258,7 @@ def fetch_article(
     page = next(iter(pages.values()))
     if page.get('missing') is not None or int(page.get('pageid') or 0) < 0:
         raise WikiFetchError('Статья не найдена')
-    extract = (page.get('extract') or '').strip()
+    extract = _html_extract_to_text(page.get('extract') or '')
     resolved_title = (page.get('title') or title).strip()
     pageprops = page.get('pageprops') or {}
     if 'disambiguation' in pageprops:

@@ -565,6 +565,98 @@ class CensorlyPuzzleStorageTests(TestCase):
 
 
 class CensorlyWikiHelperTests(TestCase):
+    def test_fetch_article_requests_html_extract_and_converts_its_lists(self):
+        from games.censorly.wiki import fetch_article
+
+        class Response:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    'query': {
+                        'pages': {
+                            '42': {
+                                'pageid': 42,
+                                'lastrevid': 123,
+                                'title': 'Пример',
+                                'extract': (
+                                    '<p>' + ('Достаточно длинный вводный абзац. ' * 20)
+                                    + '</p><ul><li>Первый пункт.</li>'
+                                    '<li>Второй пункт.</li></ul>'
+                                ),
+                            },
+                        },
+                    },
+                }
+
+        class Session:
+            params = None
+
+            def get(self, _url, *, params, headers, timeout):
+                self.params = params
+                return Response()
+
+        session = Session()
+        article = fetch_article('Пример', session=session)
+
+        self.assertNotIn('explaintext', session.params)
+        self.assertEqual(session.params['exsectionformat'], 'wiki')
+        self.assertIn('• Первый пункт.\n• Второй пункт.', article.extract)
+        self.assertEqual(article.revid, 123)
+
+    def test_html_extract_keeps_math_lists_tables_and_drops_reference_marks(self):
+        from games.censorly.wiki import _html_extract_to_text, clean_wiki_extract
+
+        raw = (
+            '<p>Формула <math alttext="{\\displaystyle x = 1}">'
+            '<semantics><annotation encoding="application/x-tex">ignored'
+            '</annotation></semantics></math>'
+            '<sup class="reference"><a>[7]</a></sup></p>'
+            '<ol><li>Первый</li><li>Второй</li></ol>'
+            '<table><tr><th>Имя</th><th>Значение</th></tr>'
+            '<tr><td>А</td><td>1</td></tr></table>'
+        )
+
+        marked = _html_extract_to_text(raw)
+        self.assertNotIn('[7]', marked)
+        self.assertIn('{\\displaystyle x = 1}', marked)
+        self.assertIn('# Первый\n# Второй', marked)
+        self.assertIn('| Имя | Значение', marked)
+        self.assertIn('| А | 1', marked)
+        cleaned = clean_wiki_extract(marked, mark_formulas=True)
+        self.assertIn('1. Первый\n2. Второй', cleaned)
+        self.assertIn('Имя | Значение', cleaned)
+        self.assertIn('А | 1', cleaned)
+        self.assertIn('Имя | Значение\nА | 1', cleaned)
+
+    def test_root_article_html_extract_preserves_real_list_items(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import _html_extract_to_text, clean_wiki_extract
+
+        raw_html = _load_censorly_testdata('root_functions_extract.html')
+        marked = _html_extract_to_text(raw_html)
+        self.assertIn('== Основные функции корня ==', marked)
+        self.assertIn(
+            '* Закрепление растения в субстрате.\n'
+            '* Всасывание, проведение воды и минеральных веществ.\n'
+            '* Запас питательных веществ в главном корне.',
+            marked,
+        )
+
+        cleaned = clean_wiki_extract(marked)
+        self.assertIn(
+            '• Закрепление растения в субстрате.\n'
+            '• Всасывание, проведение воды и минеральных веществ.\n'
+            '• Запас питательных веществ в главном корне.',
+            cleaned,
+        )
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(
+            sum(1 for token in tokens if token['kind'] == 'space' and '\n' in token['surface']),
+            8,
+        )
+
     def test_wikipedia_bullet_lists_keep_each_item_on_its_own_line(self):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import clean_wiki_extract
