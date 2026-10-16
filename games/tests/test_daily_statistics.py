@@ -18,6 +18,7 @@ from games.models import (
     DailySolveTiming,
     Game,
     GameTaskGroup,
+    HiddenAnonKey,
     PlayerCompletedGame,
     Profile,
     Project,
@@ -76,6 +77,58 @@ class DailyStatisticsTests(TestCase):
 
         self.assertEqual(result, {'fresh': True})
         build_payload.assert_called_once_with(self.game, tg)
+
+    def test_hiding_profile_invalidates_cached_daily_statistics(self):
+        tg, _task = self._task('alphabetty')
+        user = self.users[0]
+        profile = Profile.objects.create(user=user, first_name='Player', last_name='One')
+        self._complete(tg, user)
+
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 1)
+        with self.captureOnCommitCallbacks(execute=True):
+            profile.is_hidden = True
+            profile.save(update_fields=['is_hidden'])
+
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 0)
+
+    def test_changing_task_authors_invalidates_cached_daily_statistics(self):
+        tg, _task = self._task('alphabetty')
+        user = self.users[0]
+        profile = Profile.objects.create(user=user, first_name='Author', last_name='Player')
+        self._complete(tg, user)
+
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 1)
+        with self.captureOnCommitCallbacks(execute=True):
+            tg.authors.add(profile)
+
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 0)
+
+    def test_hiding_team_and_anonymous_actor_invalidates_statistics(self):
+        tg, _task = self._task('alphabetty')
+        team = Team.objects.create(name='hidden-stats-team')
+        PlayerCompletedGame.objects.create(
+            team=team, game=self.game, task_group=tg, game_kind='alphabet',
+            game_instance_id='alphabetty:{}:team'.format(tg.pk),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 1)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            team.is_hidden = True
+            team.save(update_fields=['is_hidden'])
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 0)
+
+        tg2, _task2 = self._task('alphabetty')
+        anon_key = 'daily-stats-hidden-anon'
+        PlayerCompletedGame.objects.create(
+            anon_key=anon_key, game=self.game, task_group=tg2, game_kind='alphabet',
+            game_instance_id='alphabetty:{}:anon'.format(tg2.pk),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        self.assertEqual(build_daily_statistics(self.game, tg2)['solved'], 1)
+        with self.captureOnCommitCallbacks(execute=True):
+            HiddenAnonKey.objects.create(anon_key=anon_key)
+        self.assertEqual(build_daily_statistics(self.game, tg2)['solved'], 0)
 
     def _task(self, task_type, answer='СЛОВО', checker_data=None):
         tg = TaskGroup.objects.create(label='stats')
