@@ -242,9 +242,14 @@ def calculate_observed_metrics(placement, *, now=None):
     attempts = (
         Attempt.manager.filter(task_id__in=task_ids, skip=False, replay_slot__isnull=True)
         .filter(Q(game=placement.game) | Q(game__isnull=True))
-        .select_related('task', 'team', 'user')
+        .select_related('team')
         .order_by('time', 'pk')
     )
+    if game_id == 'censorly':
+        # Censorly attempts store a growing puzzle-state JSON blob. Loading it
+        # for every historical guess can exhaust the 1 GiB worker even though
+        # difficulty only needs the guess text, status, timestamp, and actor.
+        attempts = attempts.defer('state', 'comment')
     for attempt in attempts.iterator():
         task = tasks_by_id.get(attempt.task_id)
         if task is None:

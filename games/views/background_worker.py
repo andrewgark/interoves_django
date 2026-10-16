@@ -16,6 +16,7 @@ from django.views.decorators.http import require_POST
 
 from games.background.messages import (
     DIFFICULTY_HEALTH_CHECK,
+    DIFFICULTY_CENSORLY_REFRESH,
     DIFFICULTY_REFRESH,
     PROJECTION_RECONCILE,
     PROJECTION_REFRESH,
@@ -59,7 +60,8 @@ def background_worker(request):
     except InvalidBackgroundMessage:
         return JsonResponse({'error': 'invalid payload'}, status=400)
     if message['type'] not in (
-        DIFFICULTY_REFRESH, DIFFICULTY_HEALTH_CHECK, PROJECTION_RECONCILE, PROJECTION_REFRESH,
+        DIFFICULTY_REFRESH, DIFFICULTY_CENSORLY_REFRESH, DIFFICULTY_HEALTH_CHECK,
+        PROJECTION_RECONCILE, PROJECTION_REFRESH,
     ):
         return JsonResponse({'error': 'unsupported type'}, status=400)
 
@@ -78,6 +80,37 @@ def background_worker(request):
         return _health_check(message, message_id)
     if message['type'] == PROJECTION_RECONCILE:
         return _projection_reconcile(message, message_id)
+
+    if message['type'] == DIFFICULTY_CENSORLY_REFRESH:
+        started = time.perf_counter()
+        try:
+            with distributed_cron_lock(
+                DIFFICULTY_REFRESH_LOCK,
+                ttl_seconds=DIFFICULTY_REFRESH_LOCK_TTL_SECONDS,
+            ) as acquired:
+                if not acquired:
+                    return JsonResponse({'status': 'skipped_locked'}, status=200)
+                results = run_daily_difficulty_refresh(
+                    # Censorly observations can contain thousands of attempts;
+                    # process one edition per tick to keep the worker's 1 GiB
+                    # memory limit below the observed OOM threshold.
+                    limit=1,
+                    game_ids=('censorly',),
+                    reset_progress=False,
+                    worker='background:censorly:{}'.format(message_id or 'unknown'),
+                )
+        except Exception:
+            logger.exception(
+                'background worker failed type=%s run_id=%s message_id=%s',
+                message['type'], message['run_id'], message_id,
+            )
+            return JsonResponse({'status': 'failed'}, status=500)
+        logger.info(
+            'background worker ok type=%s run_id=%s message_id=%s refreshed=%s duration_ms=%.1f',
+            message['type'], message['run_id'], message_id,
+            len(results), (time.perf_counter() - started) * 1000,
+        )
+        return JsonResponse({'status': 'ok', 'refreshed': len(results)}, status=200)
 
     started = time.perf_counter()
     try:

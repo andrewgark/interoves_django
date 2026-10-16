@@ -168,16 +168,17 @@ def refresh_due_daily_difficulties(
     limit=DUE_REFRESH_LIMIT,
     game_ids=None,
     dry_run=False,
+    reset_progress=True,
 ):
     """One cron tick: ensure recent rows, refresh stale norms, claim, calculate."""
     now = now or timezone.now()
     game_ids = tuple(game_ids) if game_ids else None
-    from games.daily_progress_reset import reset_current_daily_release_progress
+    if reset_progress:
+        from games.daily_progress_reset import reset_current_daily_release_progress
 
-    # The difficulty cron runs every minute on every EB instance.  Reuse that
-    # durable tick to perform the once-per-release progress reset before any
-    # fresh daily statistics are calculated.
-    reset_current_daily_release_progress(now=now, game_ids=game_ids or None)
+        # Legacy combined tick: perform the once-per-release progress reset
+        # before calculating fresh daily statistics.
+        reset_current_daily_release_progress(now=now, game_ids=game_ids or None)
     ensure_recent_difficulty_rows(now=now, game_ids=game_ids)
     refresh_stale_historical_norms(now=now, game_ids=game_ids)
     if dry_run:
@@ -206,6 +207,7 @@ def run_daily_difficulty_refresh(
     now=None,
     limit=DUE_REFRESH_LIMIT,
     game_ids=None,
+    reset_progress=True,
     worker='cron',
 ):
     """Run one tick and persist a singleton heartbeat for the admin dashboard."""
@@ -225,6 +227,7 @@ def run_daily_difficulty_refresh(
             now=now,
             limit=limit,
             game_ids=game_ids,
+            reset_progress=reset_progress,
         )
     except Exception as exc:
         DailyDifficultyQueueStatus.objects.filter(pk=1).update(

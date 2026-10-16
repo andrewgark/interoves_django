@@ -77,6 +77,7 @@ WORKER_REGISTRY = WorkerRegistry((
         endpoint="/internal/worker/background/",
         message_types=(
             "difficulty.refresh",
+            "difficulty.censorly.refresh",
             "difficulty.health_check",
             "projection.reconcile",
             "projection.refresh",

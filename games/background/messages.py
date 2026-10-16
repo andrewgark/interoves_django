@@ -7,6 +7,7 @@ from django.utils.dateparse import parse_datetime
 
 MESSAGE_VERSION = 1
 DIFFICULTY_REFRESH = 'difficulty.refresh'
+DIFFICULTY_CENSORLY_REFRESH = 'difficulty.censorly.refresh'
 DIFFICULTY_HEALTH_CHECK = 'difficulty.health_check'
 TELEGRAM_ANNOUNCEMENTS = 'telegram.announcements'
 TELEGRAM_ADMIN_REPORT = 'telegram.admin_report'

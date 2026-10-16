@@ -172,17 +172,15 @@ A real formula or baseline change is a **manual rebuild** (section 10).
 
 ## 9. Cron / infrastructure
 
-> **Operational hold (2026-10-03): keep the production reset disabled.**
-> The reset is called from `difficulty.refresh` before calculating difficulty
-> snapshots and currently runs inside a long transaction that can hold
-> `DailyGameDifficulty` row locks while rebuilding chain state. Do not re-enable
-> the production schedule until the lock incident is resolved and the reset is
-> either removed from the refresh path or split so the difficulty row lock is
-> not held during chain rebuilding. The production schedule is
-> `interoves-difficulty-refresh` in EventBridge Scheduler, targeting the
-> `interoves-background` SQS queue. This hold disables the reset indirectly;
-> it must not be implemented by stopping the whole background worker, because
-> that worker also handles projection refresh/reconcile and health checks.
+> **Operational hold (2026-10-03): keep the combined production reset disabled.**
+> The legacy `difficulty.refresh` path invokes the daily progress reset before
+> calculating snapshots. The reset can hold `DailyGameDifficulty` row locks
+> while rebuilding chain state. The production `interoves-difficulty-refresh`
+> schedule now sends `difficulty.censorly.refresh`, which recalculates only
+> censorly snapshots and explicitly skips the reset. Do not change it back to
+> `difficulty.refresh` until the lock incident is resolved. Keep the background
+> ECS worker running; it also handles projection refresh/reconcile and health
+> checks.
 
 | Item | Location |
 |---|---|
@@ -193,6 +191,11 @@ A real formula or baseline change is a **manual rebuild** (section 10).
 | Script (instance) | `/opt/interoves/difficulty_cron.sh` |
 | Log | `/var/log/difficulty_cron.log` |
 | Telegram cron | `.ebextensions/telegram_cron.config` — **separate** job |
+
+The censorly schedule sends `difficulty.censorly.refresh`, refreshes one
+placement per minute tick to stay within the background worker's 1 GiB memory
+limit. Censorly attempt state/comment blobs are deferred during aggregation, and
+the job skips the daily progress reset.
 
 An hourly health check runs at minute 7 through the same EB script with a
 separate local lock. It repairs queue metadata, runs an extra refresh tick,
