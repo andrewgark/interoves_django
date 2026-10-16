@@ -3430,6 +3430,7 @@ def daily_statistics(request, game_id, number):
         if placement is None:
             raise Http404()
     actor = {}
+    anon_key = None
     if request.user.is_authenticated:
         actor = {'user': request.user, 'team__isnull': True, 'anon_key__isnull': True}
     else:
@@ -3444,6 +3445,42 @@ def daily_statistics(request, game_id, number):
         return JsonResponse({'error': 'not_completed'}, status=403)
     from games.daily_statistics import build_daily_statistics
     payload = build_daily_statistics(game, placement.task_group)
+    from games.daily.timing import (
+        TIMING_VERSION_ACTIVE,
+        canonical_elapsed_seconds,
+        lookup_timing,
+    )
+    timing_row = lookup_timing(
+        game=game,
+        task_group=placement.task_group,
+        user=request.user if request.user.is_authenticated else None,
+        anon_key=anon_key,
+    )
+    legacy_attempts = None
+    if timing_row is None or int(timing_row.timing_version or 0) < TIMING_VERSION_ACTIVE:
+        legacy_actor = (
+            {'user': request.user, 'team__isnull': True, 'anon_key__isnull': True}
+            if request.user.is_authenticated
+            else {'anon_key': str(anon_key), 'user__isnull': True, 'team__isnull': True}
+        )
+        legacy_attempts = list(Attempt.manager.filter(
+            game=game,
+            task__task_group=placement.task_group,
+            skip=False,
+            replay_slot__isnull=True,
+            **legacy_actor,
+        ).only('time'))
+    payload = {
+        **payload,
+        'personal_time_seconds': canonical_elapsed_seconds(
+            game=game,
+            task_group=placement.task_group,
+            user=request.user if request.user.is_authenticated else None,
+            anon_key=anon_key,
+            attempts=legacy_attempts,
+            timing_row=timing_row,
+        ),
+    }
     notice = _public_exclusion_notice(
         request, game, placement.task_group, surface='statistics',
     )

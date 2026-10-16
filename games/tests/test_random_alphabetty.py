@@ -1,6 +1,7 @@
 from unittest.mock import patch
 
 from django.test import TestCase
+from django.core.cache import caches
 
 from games.alphabetty.random_game import (
     RandomAlphabettyDictionaryExhausted,
@@ -9,6 +10,7 @@ from games.alphabetty.random_game import (
 from games.difficulty import ensure_daily_difficulty_row, get_game_difficulty
 from games.models import (
     CheckerType,
+    DailySolveTiming,
     Game,
     GameTaskGroup,
     Project,
@@ -21,6 +23,9 @@ from games.results.tables import load_results_placements_and_tasks
 
 
 class RandomAlphabettyTests(TestCase):
+    def setUp(self):
+        caches['daily_statistics'].clear()
+
     @classmethod
     def setUpTestData(cls):
         project, _ = Project.objects.get_or_create(id='sections')
@@ -145,6 +150,13 @@ class RandomAlphabettyTests(TestCase):
             game_instance_id='alphabetty:{}'.format(random_game.task_group_id),
             result=PlayerCompletedGame.RESULT_SOLVED,
         )
+        DailySolveTiming.objects.create(
+            user=user,
+            game=self.game,
+            task_group=random_game.task_group,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            frozen_ms=277_000,
+        )
 
         statistics = self.client.get(
             '/daily-statistics/alphabetty/{}/'.format(random_game.share_hash),
@@ -153,6 +165,7 @@ class RandomAlphabettyTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertEqual(statistics.status_code, 200)
         self.assertEqual(statistics.json()['solved'], 1)
+        self.assertEqual(statistics.json()['personal_time_seconds'], 277)
 
     def _create_user(self, username):
         from django.contrib.auth.models import User

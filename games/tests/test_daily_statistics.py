@@ -2,7 +2,7 @@ import json
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.core.cache import cache
+from django.core.cache import cache, caches
 from django.test import TestCase
 
 from games.daily_statistics import build_attempt_histogram, build_daily_statistics
@@ -24,6 +24,7 @@ from games.models import (
 class DailyStatisticsTests(TestCase):
     def setUp(self):
         cache.clear()
+        caches['daily_statistics'].clear()
         self.project, _ = Project.objects.get_or_create(pk='sections')
         self.game = Game.objects.filter(id='alphabetty', project=self.project).first()
         if self.game is None:

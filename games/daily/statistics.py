@@ -1,12 +1,13 @@
 """Aggregated post-completion statistics for the three daily games."""
 
 import json
+import logging
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from statistics import mean, median
 from typing import Callable
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.db.models import Q
 
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
@@ -26,12 +27,13 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 20
+CACHE_VERSION = 21
 CACHE_TIMEOUT = 10 * 60
 POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
 CENSORLY_POPULAR_MIN_ENTRIES = 1
 BOUND_WORDS_LIMIT = 10
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -60,9 +62,33 @@ def cache_key(game_id, task_group_id):
     return 'daily-statistics:v{}:{}:{}'.format(CACHE_VERSION, game_id, task_group_id)
 
 
+def _cache_revision_key(game_id, task_group_id):
+    return '{}:revision'.format(cache_key(game_id, task_group_id))
+
+
+def _versioned_cache_key(game_id, task_group_id, revision):
+    return '{}:{}'.format(cache_key(game_id, task_group_id), int(revision))
+
+
 def invalidate_daily_statistics(game_id, task_group_id):
-    if game_id and task_group_id:
-        cache.delete(cache_key(game_id, task_group_id))
+    if not game_id or not task_group_id:
+        return
+    cache = caches['daily_statistics']
+    revision_key = _cache_revision_key(game_id, task_group_id)
+    try:
+        try:
+            cache.incr(revision_key)
+        except ValueError:
+            # Initialize the counter, then retry if another invalidation won
+            # the first-write race.
+            if not cache.add(revision_key, 1, timeout=None):
+                cache.incr(revision_key)
+    except Exception:
+        # Cache is an optimization. A cache outage must not fail game completion.
+        logger.warning(
+            'daily_statistics_cache_invalidation_failed game=%s task_group=%s',
+            game_id, task_group_id, exc_info=True,
+        )
 
 
 def _actor_key(row):
@@ -637,21 +663,67 @@ DAILY_STATISTICS_ADAPTERS.update({
 
 
 def build_daily_statistics(game, task_group):
-    cached = cache.get(cache_key(game.id, task_group.id))
-    if cached is not None:
-        return cached
+    cache = caches['daily_statistics']
+    revision_key = _cache_revision_key(game.id, task_group.id)
+    for _attempt in range(3):
+        try:
+            revision = int(cache.get(revision_key, 0) or 0)
+            result_key = _versioned_cache_key(game.id, task_group.id, revision)
+            cached = cache.get(result_key)
+        except Exception:
+            logger.warning(
+                'daily_statistics_cache_read_failed game=%s task_group=%s',
+                game.id, task_group.id, exc_info=True,
+            )
+            return _build_daily_statistics_payload(game, task_group)
+        if cached is not None:
+            try:
+                if int(cache.get(revision_key, 0) or 0) == revision:
+                    return cached
+            except Exception:
+                logger.warning(
+                    'daily_statistics_cache_revision_read_failed game=%s task_group=%s',
+                    game.id, task_group.id, exc_info=True,
+                )
+                return _build_daily_statistics_payload(game, task_group)
+            continue
+        result = _build_daily_statistics_payload(game, task_group)
+
+        # If a completion invalidated this generation during the calculation,
+        # rebuild against the newer participant set instead of caching/returning
+        # a result that was already obsolete when the request finished.
+        try:
+            current_revision = int(cache.get(revision_key, 0) or 0)
+            if current_revision != revision:
+                continue
+            cache.set(result_key, result, CACHE_TIMEOUT)
+        except Exception:
+            logger.warning(
+                'daily_statistics_cache_write_failed game=%s task_group=%s',
+                game.id, task_group.id, exc_info=True,
+            )
+        return result
+
+    # A burst of completions can keep advancing the revision. Return the last
+    # fresh calculation without caching it; the next request will use the new
+    # generation.
+    return result
+
+
+def _build_daily_statistics_payload(game, task_group):
     actors = _completed_actors(game, task_group)
     supported_task_types = tuple(
         definition.task_type
         for definition in DAILY_GAME_REGISTRY.all()
         if definition.capabilities.statistics and definition.statistics_adapter_key
     )
-    task = Task.objects.filter(task_group=task_group, task_type__in=supported_task_types).order_by('id').first()
+    task = Task.objects.filter(
+        task_group=task_group,
+        task_type__in=supported_task_types,
+    ).order_by('id').first()
     if task is None:
         return {'kind': None, 'solved': len(actors), 'summary': {'solved': len(actors)}}
     adapter = get_daily_statistics_adapter(task.task_type)
     if adapter is None:
         return {'kind': None, 'solved': len(actors), 'summary': {'solved': len(actors)}}
-    result = adapter.build(task, game, actors)
-    cache.set(cache_key(game.id, task_group.id), result, CACHE_TIMEOUT)
-    return result
+    return adapter.build(task, game, actors)

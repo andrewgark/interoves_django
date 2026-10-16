@@ -600,6 +600,15 @@ CACHES['censorly_api']['KEY_PREFIX'] = 'interoves-censorly-api'
 if CACHES['censorly_api']['BACKEND'] == 'django.core.cache.backends.locmem.LocMemCache':
     CACHES['censorly_api']['LOCATION'] = 'interoves-censorly-api'
 
+# Daily statistics are invalidated by game completions and must be visible to
+# every Green web process. Use the shared Redis backend when configured; local
+# development keeps the default LocMem backend and its shared location.
+if 'REDIS_HOST' in os.environ:
+    CACHES['daily_statistics'] = CACHES['track_revisions'].copy()
+    CACHES['daily_statistics']['KEY_PREFIX'] = 'interoves-daily-statistics'
+else:
+    CACHES['daily_statistics'] = CACHES['default'].copy()
+
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 
