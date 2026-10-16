@@ -38,6 +38,33 @@ from games.censorly.lexical.semantics import (
 )
 
 _REJECT_CAP = 200
+_DIGIT_CARDINAL_LEMMAS = {
+    '0': 'ноль', '1': 'один', '2': 'два', '3': 'три',
+    '4': 'четыре', '5': 'пять', '6': 'шесть', '7': 'семь',
+    '8': 'восемь', '9': 'девять', '10': 'десять',
+    '11': 'одиннадцать', '12': 'двенадцать', '13': 'тринадцать',
+    '14': 'четырнадцать', '15': 'пятнадцать', '16': 'шестнадцать',
+    '17': 'семнадцать', '18': 'восемнадцать', '19': 'девятнадцать',
+    '20': 'двадцать', '30': 'тридцать', '40': 'сорок',
+    '50': 'пятьдесят', '60': 'шестьдесят', '70': 'семьдесят',
+    '80': 'восемьдесят', '90': 'девяносто', '100': 'сто',
+    '200': 'двести', '300': 'триста', '400': 'четыреста',
+    '500': 'пятьсот', '600': 'шестьсот', '700': 'семьсот',
+    '800': 'восемьсот', '900': 'девятьсот', '1000': 'тысяча',
+}
+
+
+def _numeric_root_match(guess: _Pack, target: _Pack) -> bool:
+    """Allow a digit/cardinal root match despite «один» service status."""
+    if not (guess.fold.isdigit() or target.fold.isdigit()):
+        return False
+    digit = guess.fold if guess.fold.isdigit() else target.fold
+    other = target if digit == guess.fold else guess
+    cardinal = _DIGIT_CARDINAL_LEMMAS.get(digit)
+    if not cardinal or not any(item.lemma == cardinal for item in other.reads):
+        return False
+    common = guess.roots & target.roots
+    return bool(common)
 
 
 def _group_ids_by_word(groups):
@@ -229,10 +256,13 @@ def _relation(guess: _Pack, target: _Pack) -> str:
         return ''
     if guess.fold == target.fold:
         return 'exact'
-    if guess.service or target.service:
-        return ''
+    numeric_root_match = _numeric_root_match(guess, target)
     if _alias(guess.fold, target.fold):
         return 'alias'
+    if (guess.fold.isdigit() or target.fold.isdigit()) and not numeric_root_match:
+        return ''
+    if (guess.service or target.service) and not numeric_root_match:
+        return ''
     # Import lazily: semantics imports the root bank, whose proper-name
     # installation can otherwise create an import-time cycle through match.
     from games.censorly.lexical.semantics import _proper_pair_from_readings

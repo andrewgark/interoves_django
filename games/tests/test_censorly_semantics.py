@@ -601,6 +601,63 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('электрон', 'электроника'))
         self.assertTrue(opens('электронный', 'электроника'))
 
+    def test_numeric_forms_share_numeral_roots(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        for digit, word in (
+            ('0', 'ноль'), ('1', 'один'), ('2', 'два'), ('3', 'три'),
+            ('4', 'четыре'), ('5', 'пять'), ('6', 'шесть'), ('7', 'семь'),
+            ('8', 'восемь'), ('9', 'девять'), ('10', 'десять'),
+        ):
+            with self.subTest(digit=digit):
+                self.assertEqual(structures_of(digit), structures_of(word))
+                self.assertTrue(opens(digit, word))
+                self.assertTrue(opens(word, digit))
+        self.assertFalse(opens('1', 'однажды'))
+        self.assertFalse(opens('однажды', '1'))
+        self.assertFalse(opens('1', 'заодно'))
+        self.assertFalse(opens('заодно', '1'))
+
+    def test_one_family_is_split_into_small_modern_senses(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        self.assertEqual(structures_of('один'), (('sense:one',),))
+        self.assertEqual(structures_of('одинарный'), (('sense:one',),))
+        self.assertEqual(structures_of('однажды'), (('sense:once',),))
+        self.assertEqual(structures_of('одиножды'), (('sense:once',),))
+        self.assertEqual(structures_of('заодно'), (('sense:together_with',),))
+        self.assertEqual(structures_of('одинешенек'), (('sense:alone',),))
+        self.assertEqual(structures_of('одинокий'), (('sense:alone',),))
+        self.assertEqual(structures_of('одинаковый'), (('sense:same',),))
+        self.assertEqual(structures_of('однако'), (('sense:however',),))
+        for related in ('однажды', 'одиножды', 'заодно', 'одинокий', 'одинаковый', 'однако'):
+            with self.subTest(related=related):
+                self.assertFalse(opens('один', related))
+
+    def test_one_word_cardinal_numerals_share_digit_roots(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        for digit, word in (
+            ('11', 'одиннадцать'), ('12', 'двенадцать'),
+            ('13', 'тринадцать'), ('14', 'четырнадцать'),
+            ('15', 'пятнадцать'), ('16', 'шестнадцать'),
+            ('17', 'семнадцать'), ('18', 'восемнадцать'),
+            ('19', 'девятнадцать'), ('20', 'двадцать'),
+            ('30', 'тридцать'), ('40', 'сорок'), ('50', 'пятьдесят'),
+            ('60', 'шестьдесят'), ('70', 'семьдесят'),
+            ('80', 'восемьдесят'), ('90', 'девяносто'),
+            ('100', 'сто'), ('200', 'двести'), ('300', 'триста'),
+            ('400', 'четыреста'), ('500', 'пятьсот'),
+            ('600', 'шестьсот'), ('700', 'семьсот'),
+            ('800', 'восемьсот'), ('900', 'девятьсот'),
+            ('1000', 'тысяча'),
+        ):
+            with self.subTest(digit=digit):
+                self.assertTrue(structures_of(word))
+                self.assertEqual(structures_of(digit), structures_of(word))
+                self.assertTrue(opens(digit, word))
+                self.assertTrue(opens(word, digit))
+
     def test_domoy_does_not_use_spurious_domyit_reading(self):
         self.assertEqual(
             {(item.lemma, item.pos) for item in readings_of('домой')},
@@ -861,7 +918,7 @@ class SemanticsTests(SimpleTestCase):
         self.assertEqual(explain('4', 'IV'), 'alias')
         self.assertEqual(explain('99', 'XCIX'), 'alias')
         self.assertFalse(opens('20', 'XIX'))
-        self.assertFalse(opens('20', 'двадцать'))
+        self.assertTrue(opens('20', 'двадцать'))
         self.assertFalse(opens('I', 'II'))
 
     def test_split_subfamilies_are_disjoint(self):

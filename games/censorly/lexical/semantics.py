@@ -23,6 +23,20 @@ from games.censorly.lexical.russian.reading_overrides import is_rejected
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL', 'INTJ'})
 # Dictionary homographs that should not be treated as initially open service words.
 _NEVER_INITIAL_OPEN = frozenset({'ла', 'де'})
+_DIGIT_CARDINAL_LEMMAS = {
+    '0': 'ноль', '1': 'один', '2': 'два', '3': 'три',
+    '4': 'четыре', '5': 'пять', '6': 'шесть', '7': 'семь',
+    '8': 'восемь', '9': 'девять', '10': 'десять',
+    '11': 'одиннадцать', '12': 'двенадцать', '13': 'тринадцать',
+    '14': 'четырнадцать', '15': 'пятнадцать', '16': 'шестнадцать',
+    '17': 'семнадцать', '18': 'восемнадцать', '19': 'девятнадцать',
+    '20': 'двадцать', '30': 'тридцать', '40': 'сорок',
+    '50': 'пятьдесят', '60': 'шестьдесят', '70': 'семьдесят',
+    '80': 'восемьдесят', '90': 'девяносто', '100': 'сто',
+    '200': 'двести', '300': 'триста', '400': 'четыреста',
+    '500': 'пятьсот', '600': 'шестьсот', '700': 'семьсот',
+    '800': 'восемьсот', '900': 'девятьсот', '1000': 'тысяча',
+}
 _PRONOUN_ADJECTIVE_LEMMAS = frozenset({
     'этот', 'тот', 'такой', 'таков', 'таковой', 'столько', 'сколько',
     'несколько', 'какой', 'какой-нибудь', 'какой-либо', 'который',
@@ -203,14 +217,19 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
         return ''
     if left == right:
         return 'exact'
-    if initially_open(guess) or initially_open(target):
+    numeric_root_match = _numeric_root_match(guess, target)
+    if (initially_open(guess) or initially_open(target)) and not numeric_root_match:
         return ''
     if _alias(left, right):
         return 'alias'
+    if (left.isdigit() or right.isdigit()) and not numeric_root_match:
+        return ''
     if _proper_pair(left, right):
         return 'proper'
     if not _russian(guess, article_language) or not _russian(target, article_language):
         return ''
+    if numeric_root_match:
+        return 'root'
     # Prefer the reading appropriate to the spelling on both sides. This
     # removes non-citation homographs such as «разрыв» (noun vs gerund of
     # «разрыть») without removing noun/noun alternatives such as «улья».
@@ -232,6 +251,28 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
     if _grammar(guess_reads, target_reads):
         return 'grammar'
     return ''
+
+
+def _numeric_root_match(guess: str, target: str) -> bool:
+    # The special path exists for Arabic digit spellings, which otherwise do
+    # not participate in the normal morphology/service-word flow.  Do not
+    # let the shared cardinal root broaden ordinary lexical families such as
+    # «один»/«однажды» or replace ordinal grammar relations.
+    if not (fold(guess).isdigit() or fold(target).isdigit()):
+        return False
+    digit = fold(guess) if fold(guess).isdigit() else fold(target)
+    other = target if digit == fold(guess) else guess
+    cardinal = _DIGIT_CARDINAL_LEMMAS.get(digit)
+    if not cardinal or not any(
+        item.lemma == cardinal for item in guess_readings_of(other)
+    ):
+        return False
+    common = _roots(guess_readings_of(guess), guess) & _roots(
+        guess_readings_of(target), target,
+    )
+    # Compare the complete structure, including compound numerals such as
+    # ``200``/«двести» ({дв, сот}).
+    return bool(common)
 
 
 def initially_open(surface: str, *, include_pronouns: bool = True) -> bool:
@@ -356,6 +397,11 @@ def preferred_readings_of(surface: str) -> tuple:
 
 def _russian(surface: str, article_language: str) -> bool:
     if backend_name(surface, article_language=article_language) == RUSSIAN:
+        return True
+    # Reviewed Arabic numeral forms are lexical members of the corresponding
+    # Russian numeral roots.  They are not Cyrillic, so the script gate below
+    # would otherwise prevent root matching before structures are compared.
+    if (surface or '').strip().isdigit() and structures_of(fold(surface)):
         return True
     # The dispatcher drops weak readings. Gameplay keeps every dictionary hit
     # that still has a part of speech, except non-Russian scripts.

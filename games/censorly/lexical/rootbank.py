@@ -173,6 +173,53 @@ _PROVENANCE: dict[str, dict] = {}
 _SOURCE: dict[str, str] = {}
 _COMPONENT_AUDIT: dict[str, int] = {}
 
+# Digits are surface aliases of cardinal words, not new semantic clusters.
+# Install them after normal dictionary/sense resolution so e.g. ``5`` gets
+# exactly the existing structure of ``пять`` and does not alter the separate
+# ordinal relation ``пять``/``пятый``.
+_DIGIT_CARDINALS = {
+    '0': 'ноль',
+    '1': 'один',
+    '2': 'два',
+    '3': 'три',
+    '4': 'четыре',
+    '5': 'пять',
+    '6': 'шесть',
+    '7': 'семь',
+    '8': 'восемь',
+    '9': 'девять',
+    '10': 'десять',
+    # Additional one-word cardinal numerals.  A digit is installed only when
+    # the corresponding word already has a complete authorized structure.
+    '11': 'одиннадцать',
+    '12': 'двенадцать',
+    '13': 'тринадцать',
+    '14': 'четырнадцать',
+    '15': 'пятнадцать',
+    '16': 'шестнадцать',
+    '17': 'семнадцать',
+    '18': 'восемнадцать',
+    '19': 'девятнадцать',
+    '20': 'двадцать',
+    '30': 'тридцать',
+    '40': 'сорок',
+    '50': 'пятьдесят',
+    '60': 'шестьдесят',
+    '70': 'семьдесят',
+    '80': 'восемьдесят',
+    '90': 'девяносто',
+    '100': 'сто',
+    '200': 'двести',
+    '300': 'триста',
+    '400': 'четыреста',
+    '500': 'пятьсот',
+    '600': 'шестьсот',
+    '700': 'семьсот',
+    '800': 'восемьсот',
+    '900': 'девятьсот',
+    '1000': 'тысяча',
+}
+
 # Curated only. Do not add a lemma because Tikhonov segmented it badly.
 # Each entry is a separate decision that the whole word is one game family.
 _ATOMIC_LEXICALIZED = frozenset({
@@ -433,6 +480,29 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
                 audit['legitimate_multiple_components'] += 1
             built[lemma] = tuple((item,) for item in ids)
             provenance[lemma] = {'source': source, 'detail': '', 'refused': ()}
+    for digit, cardinal in _DIGIT_CARDINALS.items():
+        structures = built.get(cardinal, ())
+        if not structures:
+            # Some ordinary numeral lemmas have ambiguous/incomplete
+            # dictionary segmentation (e.g. «тридцать», «пятьдесят»).  A
+            # reviewed numeric identity links only the digit and that exact
+            # cardinal lemma; it does not authorize any of the guessed
+            # components from the incomplete dictionary analysis.
+            structures = ((f'sense:numeral_{digit}',),)
+            built[cardinal] = structures
+            provenance[cardinal] = {
+                'source': 'NUMERAL_CARDINAL_ROOT',
+                'detail': digit,
+                'refused': (),
+            }
+        if structures:
+            built[digit] = structures
+            provenance[digit] = {
+                'source': 'NUMERAL_DIGIT_ROOT',
+                'detail': cardinal,
+                'refused': (),
+            }
+
     global _PROVENANCE, _COMPONENT_AUDIT
     _PROVENANCE = provenance
     _COMPONENT_AUDIT = dict(audit)

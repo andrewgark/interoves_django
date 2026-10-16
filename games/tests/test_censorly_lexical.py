@@ -116,6 +116,18 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertFalse(opens_with('части', 'часто'))
         self.assertFalse(opens_with('часто', 'части'))
 
+    def test_arabic_digits_open_their_cardinal_words_in_gameplay(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        for digit, cardinal in (
+            ('0', 'ноль'), ('1', 'один'), ('2', 'два'), ('3', 'три'),
+            ('4', 'четыре'), ('5', 'пять'), ('6', 'шесть'), ('7', 'семь'),
+            ('8', 'восемь'), ('9', 'девять'), ('10', 'десять'),
+        ):
+            with self.subTest(digit=digit):
+                self.assertTrue(_relation(_GuessPack(digit), _Pack(cardinal)))
+                self.assertTrue(_relation(_GuessPack(cardinal), _Pack(digit)))
+
     def test_west_fate_and_small_boy_senses_are_separate(self):
         west = ('sense:review_west',)
         falling = ('sense:fall',)
