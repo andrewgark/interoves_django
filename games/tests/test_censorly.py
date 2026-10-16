@@ -630,6 +630,28 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertIn('А | 1', cleaned)
         self.assertIn('Имя | Значение\u2028А | 1', cleaned)
 
+    def test_html_extract_keeps_large_table_rows_and_mathml_alttext(self):
+        from games.censorly.wiki import _html_extract_to_text, clean_wiki_extract
+
+        rows = ''.join(
+            f'<tr><td><b>{index}</b></td><td>Элемент {index}</td>'
+            f'<td><math alttext="{{\\displaystyle x_{index} = {index}}}">'
+            '<semantics><mi>x</mi><annotation>ignored</annotation></semantics>'
+            '</math></td></tr>'
+            for index in range(1, 121)
+        )
+        raw = '<table><tr><th>№</th><th>Название</th><th>Формула</th></tr>' + rows + '</table>'
+
+        marked = _html_extract_to_text(raw)
+        self.assertEqual(sum(line.startswith('| ') for line in marked.splitlines()), 121)
+        self.assertIn('| 120 | Элемент 120 | {\\displaystyle x_120 = 120}', marked)
+        self.assertNotIn('ignored', marked)
+
+        cleaned = clean_wiki_extract(marked, mark_formulas=True)
+        self.assertIn('Элемент 1 |', cleaned)
+        # TeX subscripts consume one unbraced atom: x_120 means x₁ followed by 20.
+        self.assertIn('x₁20 = 120', cleaned)
+
     def test_root_article_html_extract_preserves_real_list_items(self):
         from games.censorly.tokenize import tokenize_text
         from games.censorly.wiki import _html_extract_to_text, clean_wiki_extract

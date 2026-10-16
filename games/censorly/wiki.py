@@ -67,8 +67,15 @@ class _WikiExtractHTMLParser(HTMLParser):
         self.definition_term_active = False
 
     def _ensure_newlines(self, count: int) -> None:
-        current = ''.join(self.parts)
-        trailing = len(current) - len(current.rstrip('\n'))
+        # HTML extracts can contain hundreds of list items and long tables.
+        # Joining all accumulated text at every block boundary made conversion
+        # quadratic in the size of the article.
+        trailing = 0
+        for part in reversed(self.parts):
+            suffix = part[len(part.rstrip('\n')):]
+            trailing += len(suffix)
+            if len(suffix) != len(part):
+                break
         if trailing < count:
             self.parts.append('\n' * (count - trailing))
 
@@ -891,6 +898,10 @@ def _strip_indented_math_lines(text: str) -> str:
         while cursor >= 0 and scanned_chars <= 12000:
             candidate = lines[cursor]
             stripped = candidate.strip()
+            # A table row is structured content, not the glyph-by-glyph
+            # fallback for the formula that follows it.
+            if stripped.startswith('|'):
+                break
             math_chars = '+−-=<>[]{}.,;:/\\_^*|·⋅×↑↓↕⇑⇓⇕→←…π∞√'
             if stripped and (
                 len(stripped) > 48
@@ -919,6 +930,11 @@ def _strip_indented_math_lines(text: str) -> str:
     kept: list[str] = []
     pending: list[str] = []
     for line in text.splitlines(keepends=True):
+        if line.lstrip().startswith('|'):
+            kept.extend(pending)
+            pending.clear()
+            kept.append(line)
+            continue
         indented = line.startswith((' ', '\t'))
         has_tex = bool(_TEX_MATH_START_RE.search(line))
         if has_tex:
