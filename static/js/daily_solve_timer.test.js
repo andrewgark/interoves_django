@@ -1086,5 +1086,45 @@ function parsePostBody(init) {
   ctrl.destroy();
 })();
 
+(function testManualPauseShowsOverlayAndMakesBoardInert() {
+  var overlay = { hidden: true };
+  var boardAttributes = {};
+  var board = {
+    setAttribute: function (name, value) { boardAttributes[name] = value; },
+    removeAttribute: function (name) { delete boardAttributes[name]; },
+    closest: function () { return null; },
+  };
+  var ctrl = timer.create({
+    url: '/censorly/1/timing/',
+    document: {
+      visibilityState: 'visible',
+      body: { classList: { toggle: function () {} } },
+      addEventListener: function () {},
+      dispatchEvent: function () {},
+    },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    boardEl: board,
+    overlay: overlay,
+    bootstrap: {
+      status: 'manually_paused',
+      manually_paused: true,
+      is_authoritative: false,
+      accumulated_ms: 1000,
+      exists: true,
+    },
+  });
+
+  assert.strictEqual(overlay.hidden, false);
+  assert.strictEqual(boardAttributes.inert, '');
+  ctrl.destroy();
+})();
+
 console.log('daily_solve_timer tests ok');
 process.exit(0);

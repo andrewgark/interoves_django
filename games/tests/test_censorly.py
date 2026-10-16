@@ -2038,6 +2038,46 @@ class CensorlyUxDailyTests(TestCase):
         self.task.task_group.points = 20
         self.task.task_group.save(update_fields=['points'])
 
+    def test_daily_play_page_renders_pause_overlay_around_censorly_board(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        tags = dict(self.game.tags or {})
+        tags['censorly_publish_start'] = (
+            f'{(timezone.localdate() - timedelta(days=1)).isoformat()}T00:00:00+03:00'
+        )
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        self.client.force_login(self.staff)
+
+        response = self.client.get('/censorly/1/')
+
+        self.assertEqual(response.status_code, 200)
+        html = response.content.decode()
+        self.assertIn('data-daily-pause-overlay', html)
+        self.assertIn('data-daily-solve-board', html)
+        self.assertIn('data-timing-url="/censorly/1/timing/"', html)
+        self.assertLess(
+            html.index('data-daily-pause-overlay'),
+            html.index('data-daily-solve-board'),
+        )
+        self.assertLess(
+            html.index('data-daily-solve-board'),
+            html.index('id="censorly-root"'),
+        )
+
+    def test_random_hash_timing_context_uses_random_timing_route(self):
+        self.client.force_login(self.staff)
+
+        response = self.client.get(f'/censorly/r/{self.share_hash}/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(
+            response,
+            f'data-timing-url="/censorly/r/{self.share_hash}/timing/"',
+        )
+        self.assertContains(response, 'data-daily-pause-overlay')
+
     def test_replay_page_token_allows_guess_after_starting_over(self):
         from datetime import timedelta
         from django.utils import timezone
