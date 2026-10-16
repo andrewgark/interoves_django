@@ -25,7 +25,7 @@ from games.censorly.lexical.russian.reading_overrides import is_rejected
 # «Эврика», «ура» and «ой» must remain masked until guessed.
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL'})
 # Dictionary homographs that should not be treated as initially open service words.
-_NEVER_INITIAL_OPEN = frozenset({'ла', 'де'})
+_NEVER_INITIAL_OPEN = frozenset({'ла', 'де', 'ди'})
 _DIGIT_CARDINAL_LEMMAS = {
     '0': 'ноль', '1': 'один', '2': 'два', '3': 'три',
     '4': 'четыре', '5': 'пять', '6': 'шесть', '7': 'семь',

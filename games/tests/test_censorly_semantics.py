@@ -894,6 +894,10 @@ class SemanticsTests(SimpleTestCase):
             with self.subTest(interjection=interjection):
                 self.assertFalse(initially_open(interjection))
 
+    def test_short_particle_di_is_not_initially_open(self):
+        self.assertFalse(initially_open('Ди'))
+        self.assertFalse(initially_open('ди'))
+
     def test_pronouns_start_open_across_inflectional_forms(self):
         for pronoun in (
             'я', 'меня', 'мне', 'мной', 'мною',
