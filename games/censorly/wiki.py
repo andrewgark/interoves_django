@@ -877,16 +877,23 @@ def _collapse_extract_whitespace(text: str) -> str:
 
     def collapse_prose_linebreak(match: re.Match[str]) -> str:
         # Keep a wiki heading on its own line so _headings_to_marked can find it.
-        previous_line = (match.string[:match.start()] + match.group(1)).rsplit('\n', 1)[-1]
+        preceding_lines = (match.string[:match.start()] + match.group(1)).split('\n')
+        previous_line = preceding_lines[-1]
         if _SECTION_HEADING_RE.fullmatch(previous_line.strip()):
             return match.group(0)
         next_line = match.group(2)
+        previous_is_wrapped_list_text = (
+            len(preceding_lines) >= 2
+            and bool(re.match(r'^[ \t]*[*#]+[ \t]*', preceding_lines[-2]))
+            and bool(previous_line.strip())
+        )
         # TextExtracts represents wiki list items as separate lines (usually
         # ``* item`` / ``# item``). Preserve those line breaks; ordinary prose
         # wraps still join into a continuous paragraph below.
         if (
             re.match(r'^[ \t]*[*#;:]', next_line)
             or re.match(r'^[ \t]*[*#;:]', previous_line)
+            or previous_is_wrapped_list_text
         ):
             return match.group(0)
         return f'{match.group(1)} {match.group(2)}'
@@ -967,12 +974,14 @@ def _format_wiki_lists(text: str) -> str:
     output: list[str] = []
     ordered_counters: dict[int, int] = {}
     definition_term = ''
+    last_list_item = False
 
     for line in lines:
         match = re.match(r'^([ \t]*)([*#]+)[ \t]*(.*)$', line)
         if match:
             indent, markers, item = match.groups()
-            depth = len(markers)
+            # Keep damaged/deeply nested source from producing huge indentation.
+            depth = min(len(markers), 6)
             marker = markers[-1]
             # A change in list kind/depth starts a new numbering sequence.
             if marker == '#':
@@ -991,6 +1000,7 @@ def _format_wiki_lists(text: str) -> str:
                 prefix = '• '
             output.append(f'{indent}{"  " * (depth - 1)}{prefix}{item}')
             definition_term = ''
+            last_list_item = True
             continue
 
         definition = re.match(r'^[ \t]*([;:])[ \t]*(.*)$', line)
@@ -1005,11 +1015,25 @@ def _format_wiki_lists(text: str) -> str:
             else:
                 output.append(f'  {value}')
             ordered_counters.clear()
+            last_list_item = False
             continue
 
+        # TextExtracts sometimes wraps one list item onto an unmarked line.
+        # A lowercase continuation is a useful signal; capitalized prose after
+        # the list remains a separate paragraph (as in the «Корень» extract).
+        stripped = line.strip()
+        if (
+            last_list_item
+            and stripped
+            and stripped[0].islower()
+            and output
+        ):
+            output[-1] = f'{output[-1]} {stripped}'
+            continue
         output.append(line)
         ordered_counters.clear()
         definition_term = ''
+        last_list_item = False
 
     return '\n'.join(output)
 

@@ -618,6 +618,31 @@ class CensorlyWikiHelperTests(TestCase):
             'Термин — его определение',
         )
 
+    def test_wikipedia_mixed_markers_and_wrapped_list_items_are_bounded(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            '*# Смешанный нумерованный подпункт\n'
+            '*# Следующий подпункт\n'
+            '#* Вложенный маркированный пункт\n'
+            '# Возврат к верхнему уровню\n'
+            '* Очень\n'
+            'длинное продолжение того же пункта.\n'
+            'Следующий абзац начинается отдельно.\n'
+            '********* Чрезмерная вложенность'
+        )
+
+        self.assertEqual(
+            clean_wiki_extract(raw),
+            '  1. Смешанный нумерованный подпункт\n'
+            '  2. Следующий подпункт\n'
+            '  • Вложенный маркированный пункт\n'
+            '1. Возврат к верхнему уровню\n'
+            '• Очень длинное продолжение того же пункта.\n'
+            'Следующий абзац начинается отдельно.\n'
+            '          • Чрезмерная вложенность',
+        )
+
     def test_lead_editorial_notes_remain_separate_paragraphs(self):
         from games.censorly.wiki import clean_wiki_extract
 
