@@ -5623,6 +5623,42 @@ CLUSTERS = tuple(
 # distinct modern meanings.  Ambiguous lemmas stay in their default bucket;
 # MULTI_READINGS below adds their other sense-specific memberships.
 _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # The жал-/жалован- spelling covers several synchronically unrelated
+    # families: salary, pity, complaint, and stinging.  Keep the split at
+    # family level so an inflected form inherits the same decision.
+    ('sense:salary', ('жалование', 'жалованье', 'жалованный')),
+    ('sense:pity', ('жаль', 'жалеть', 'жалость', 'жалостный', 'пожалеть')),
+    ('sense:complaint', (
+        'жалоба', 'жаловаться', 'жалобный', 'жалобщик', 'жалобщица',
+    )),
+    ('sense:sting', ('жалить', 'жалящий', 'ужалить', 'ужаливать', 'ужаленный')),
+    # The broad тереб/треб bucket contains both demanding and consuming /
+    # using.  Keep explicit subfamilies instead of relying on the spelling.
+    ('sense:demand', (
+        'требовать', 'требование', 'требовательный', 'требуемый',
+    )),
+    ('sense:usage', (
+        'употребление', 'употребить', 'употреблять',
+        'употребительный', 'употребительность',
+    )),
+    ('sense:consumption', (
+        'потребление', 'потреблять', 'потребитель', 'потребительский',
+        'потребность', 'потребный',
+    )),
+    ('sense:extermination', (
+        'истребить', 'истреблять', 'истребление', 'истребитель',
+    )),
+    ('sense:electron_particle', ('электрон',)),
+    ('sense:electronics', ('электронный', 'электроника')),
+    ('sense:knitting', (
+        'вяжущий', 'вязание', 'вязальный', 'вязальщик', 'вязальщица',
+        'вязаный', 'вязанье',
+    )),
+    ('sense:electricity', (
+        'электричество', 'электрификация', 'электрифицировать',
+        'электризовать', 'электризация',
+    )),
+    ('sense:electrical_adverb', ('электрически',)),
     ('sense:prosperity', ('зажиточность', 'зажиточный')),
     ('sense:residence', (
         'жилец', 'жилица', 'жиличка', 'жилище', 'жилищный', 'жилой',
@@ -6634,9 +6670,22 @@ CLUSTERS = CLUSTERS + (
     ('sense:biography', ('биограф', 'биография', 'биографический')),
 )
 
+# Narrow corrections harvested from confirmed Censorly reports. These are
+# lemma/family assignments, not pair edges: inflected forms inherit the
+# structure from their pymorphy lemma.
+CLUSTERS = CLUSTERS + (
+    ('sense:demonstrative', ('это', 'этот')),
+    # The adjective and adverb are both separate from the electron particle.
+    ('sense:electrical_adjective', ('электрический',)),
+)
+
 # The lemma «весь» also has the historical ethnonym reading from a separate
 # dictionary family. Keep that alternative while assigning the common
 # determiner/adjective to its modern «whole» sense.
 MULTI_READINGS = MULTI_READINGS + (
     ('весь', ('sense:review_whole', 'fam:вес³')),
+    # «вязать» is genuinely polysemous: physical binding and knitting are
+    # both valid game readings.  The participle/adjective «вяжущий» is kept
+    # in the narrower knitting cluster above.
+    ('вязать', ('sense:binding', 'sense:knitting')),
 )

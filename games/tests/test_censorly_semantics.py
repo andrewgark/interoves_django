@@ -581,13 +581,25 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('математика', 'математический'))
         self.assertTrue(opens('математический', 'математика'))
 
-    def test_electrical_adverb_uses_existing_root(self):
+    def test_electrical_adverb_is_separate_from_electron(self):
         from games.censorly.lexical.rootbank import assignment_of, structures_of
 
-        self.assertEqual(assignment_of('электрически')['source'], 'REVIEWED_DERIVED_ROOT')
-        self.assertEqual(structures_of('электрически'), (('fam:электр',),))
-        self.assertTrue(opens('электрон', 'электрически'))
-        self.assertTrue(opens('электрически', 'электрон'))
+        self.assertEqual(assignment_of('электрически')['source'], 'SEMANTIC_SPLIT')
+        self.assertEqual(structures_of('электрически'), (('sense:electrical_adverb',),))
+        self.assertFalse(opens('электрон', 'электрически'))
+        self.assertFalse(opens('электрически', 'электрон'))
+
+    def test_electron_and_electronics_are_distinct_clusters(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        self.assertEqual(structures_of('электрон'), (
+            ('sense:electron_particle',),
+        ))
+        self.assertEqual(structures_of('электронный'), (('sense:electronics',),))
+        self.assertEqual(structures_of('электроника'), (('sense:electronics',),))
+        self.assertFalse(opens('электрон', 'электронный'))
+        self.assertFalse(opens('электрон', 'электроника'))
+        self.assertTrue(opens('электронный', 'электроника'))
 
     def test_domoy_does_not_use_spurious_domyit_reading(self):
         self.assertEqual(

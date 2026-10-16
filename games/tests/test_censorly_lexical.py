@@ -34,7 +34,7 @@ from games.censorly.lexical.match import matching_lemmas
 from games.censorly.lexical.rootbank import structures_of
 from games.censorly.normalize import lemma_of, normalize_surface
 from games.censorly.redact import lemmas_matching_guess
-from games.censorly.tokenize import build_puzzle_payload
+from games.censorly.tokenize import build_puzzle_payload, tokenize_text
 
 
 class ReviewedSemanticSplitTests(SimpleTestCase):
@@ -397,6 +397,50 @@ NEGATIVES = (
 
 
 class LexicalResolverTests(SimpleTestCase):
+    def test_confirmed_censorly_word_match_reports_from_last_day(self):
+        """Keep the latest confirmed production reports reproducible locally."""
+        expected_open = (
+            ('математика', 'Математический'),
+            ('это', 'эти'),
+            ('ион', 'ионно'),
+        )
+        expected_closed = (
+            ('жалование', 'жалевшая'),
+            ('требовать', 'употребления'),
+            ('связано', 'вяжущих'),
+            ('электрон', 'электрическое'),
+            ('третий', 'Трои'),
+            ('имя', 'им'),
+            ('три', 'Трои'),
+        )
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in expected_open:
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in expected_closed:
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
+    def test_troy_forms_stay_with_troy_not_three(self):
+        """Troy's case forms are not the homographic three/троить family."""
+        troy_forms = ('Троя', 'Трои', 'Трою', 'Троей', 'Троею')
+        troy_adjectives = ('троянский', 'троянская', 'троянское', 'троянские', 'троянского')
+
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for left in troy_forms + troy_adjectives:
+            for right in troy_forms + troy_adjectives:
+                with self.subTest(expected='OPEN', guess=left, target=right):
+                    self.assertTrue(gameplay_opens(left, right))
+                    self.assertTrue(gameplay_opens(right, left))
+            for right in ('три', '3', 'троить'):
+                with self.subTest(expected='CLOSED', guess=left, target=right):
+                    self.assertFalse(gameplay_opens(left, right))
+                    self.assertFalse(gameplay_opens(right, left))
+
     def test_russian_language_stub_opens_russian(self):
         tokens = [{'kind': 'content', 'surface': 'русский', 'lemma': 'русский'}]
         self.assertEqual(matching_lemmas(tokens, 'рус'), {'русский'})

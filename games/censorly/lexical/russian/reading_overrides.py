@@ -79,6 +79,16 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     # homographic surface «нашли»; when it selected the intended «найти»,
     # discard the unrelated send reading.
     ('нашли', 'найти'): frozenset({'найти'}),
+    # In article context «им» is the personal pronoun «они», not the rare
+    # instrumental form of the noun «имя».
+    ('им', 'они'): frozenset({'они'}),
+    # «Трои» in article text is the proper name Troy. Do not let pymorphy's
+    # homographic verb reading «троить» expose the numeral family.
+    ('трои', 'троить'): frozenset(),
+    # In this article form the selected adjective is «вяжущий»; discard the
+    # unrelated participial reading of «вязать», which would reconnect it to
+    # «связать» through the binding sense.
+    ('вяжущих', 'вяжущий'): frozenset({'вяжущий'}),
 }
 
 # Some fixed abbreviations have a context-specific expansion rather than a
@@ -89,6 +99,14 @@ TARGET_LEMMA_OVERRIDES: dict[tuple[str, str], tuple[str, ...]] = {
     # «н. э.» = «нашей эры»: «н.» carries the possessive adjective «наш».
     ('н', N_ERA_CONTEXT): ('наш',),
 }
+
+# Proper-name root assignment is family-level rather than a separate rule per
+# case form.  Pymorphy maps several capitalized Troy forms to «троить»; the
+# spelling/capitalization identifies the proper-name family in article text
+# and for a capitalized guess.  Lowercase «трои» remains available to the
+# ordinary numeral/verb morphology.
+TROY_PROPER_ROOT_LEMMA = 'троя'
+TROY_PROPER_FORMS = frozenset({'троя', 'трои', 'трою', 'троей', 'троею'})
 
 
 def is_rejected(surface: str, lemma: str, pos: str) -> bool:
@@ -102,9 +120,25 @@ def target_readings(surface: str, article_lemma: str, readings):
     if allowed is None:
         return tuple(readings), False
     filtered = tuple(item for item in readings if fold(item.lemma) in allowed)
-    return filtered, bool(filtered)
+    # An explicit empty set deliberately suppresses all readings; it must not
+    # fall back to the surface spelling's root structure.
+    return filtered, True
 
 
 def target_lemma_override(surface: str, article_lemma: str) -> tuple[str, ...]:
     """Return synthetic citation lemmas for a narrowly detected context."""
     return TARGET_LEMMA_OVERRIDES.get((fold(surface), article_lemma), ())
+
+
+def guess_lemma_override(surface: str) -> tuple[str, ...]:
+    """Return narrow citation lemmas for context-free guess analysis."""
+    if surface and surface[0].isupper() and fold(surface) in TROY_PROPER_FORMS:
+        return (TROY_PROPER_ROOT_LEMMA,)
+    return ()
+
+
+def proper_name_root_lemma(surface: str) -> str:
+    """Return the reviewed proper-name root for a capitalized Troy form."""
+    if surface and surface[0].isupper() and fold(surface) in TROY_PROPER_FORMS:
+        return TROY_PROPER_ROOT_LEMMA
+    return ''

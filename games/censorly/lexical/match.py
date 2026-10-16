@@ -13,11 +13,13 @@ from functools import lru_cache
 from threading import Lock, RLock
 
 from games.censorly.lexical.core import fold
-from games.censorly.lexical.rootbank import families_of
+from games.censorly.lexical.rootbank import families_of, structures_of
 from games.censorly.lexical.russian.reading_overrides import (
     N_ERA_CONTEXT,
     NEM_NONPRONOUN_CONTEXT,
     NEM_PRONOUN_CONTEXT,
+    guess_lemma_override,
+    proper_name_root_lemma,
     target_lemma_override,
     target_readings,
 )
@@ -83,13 +85,19 @@ class _Pack:
         if letter_lemma:
             self.reads = tuple(item for item in self.reads if item.lemma == letter_lemma)
         contextual = False
-        if article_lemma:
+        override_lemmas = ()
+        proper_name_lemma = proper_name_root_lemma(surface)
+        if proper_name_lemma:
+            self.reads = ()
+            contextual = True
+        elif article_lemma:
             override_lemmas = target_lemma_override(surface, article_lemma)
             if override_lemmas:
                 self.reads = tuple(
                     item
                     for lemma in override_lemmas
                     for item in preferred_readings_of(lemma)
+                    if fold(item.lemma) == fold(lemma)
                 )
                 contextual = True
             else:
@@ -97,11 +105,20 @@ class _Pack:
                     surface, article_lemma, self.reads,
                 )
         self.russian = _russian(surface, 'ru')
+        if proper_name_lemma:
+            self.russian = True
+        if override_lemmas:
+            # Synthetic proper-name overrides can be morphologically
+            # unknown (for example «Троей»).  They are still Russian
+            # gameplay tokens because the override supplies their identity.
+            self.russian = True
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         # Root equality uses citation-preferred readings on both sides.  The
         # broader noun alternatives remain in ``reads`` for SAME_LEXEME.
         root_reads = guess_readings_of(surface)
-        if article_lemma:
+        if proper_name_lemma:
+            root_reads = ()
+        elif article_lemma:
             override_lemmas = target_lemma_override(surface, article_lemma)
             if override_lemmas:
                 root_reads = tuple(
@@ -113,7 +130,18 @@ class _Pack:
                 root_reads, _ = target_readings(
                     surface, article_lemma, root_reads,
                 )
-        self.roots = _roots(root_reads, surface, include_surface=not contextual)
+        if proper_name_lemma:
+            self.roots = set(structures_of(proper_name_lemma))
+        elif override_lemmas:
+            self.roots = {
+                structure
+                for lemma in override_lemmas
+                for structure in structures_of(lemma)
+            }
+        else:
+            self.roots = _roots(
+                root_reads, surface, include_surface=not contextual or not root_reads,
+            )
         self.root_ids = frozenset(_root_ids(self.roots))
         families = set(families_of(self.fold))
         for item in self.reads:
@@ -139,7 +167,18 @@ class _GuessPack(_Pack):
             for lemma_fold, lexemes in lexemes_by_fold.items()
         }
         # Use the same narrow citation-form preference as the target pack.
-        self.reads = guess_readings_of(surface)
+        guess_override = guess_lemma_override(surface)
+        if guess_override:
+            self.russian = True
+        self.reads = (
+            tuple(
+                item
+                for lemma in guess_override
+                for item in guess_readings_of(lemma)
+                if fold(item.lemma) == fold(lemma)
+            )
+            if guess_override else guess_readings_of(surface)
+        )
         # Keep the standalone letter-name correction when rebuilding the
         # citation-form guess pack; otherwise article scans can resurrect the
         # spurious «Е» -> «быть» reading filtered by _Pack.
@@ -147,6 +186,7 @@ class _GuessPack(_Pack):
         if letter_lemma:
             self.reads = tuple(item for item in self.reads if item.lemma == letter_lemma)
         contextual = False
+        override_lemmas = ()
         if article_lemma:
             override_lemmas = target_lemma_override(surface, article_lemma)
             if override_lemmas:
@@ -161,7 +201,16 @@ class _GuessPack(_Pack):
                     surface, article_lemma, self.reads,
                 )
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
-        self.roots = _roots(self.reads, surface, include_surface=not contextual)
+        if guess_override:
+            self.roots = {
+                structure
+                for lemma in guess_override
+                for structure in structures_of(lemma)
+            }
+        else:
+            self.roots = _roots(
+                self.reads, surface, include_surface=not contextual or not self.reads,
+            )
         self.root_ids = frozenset(_root_ids(self.roots))
         families = set(families_of(self.fold))
         for item in self.reads:
