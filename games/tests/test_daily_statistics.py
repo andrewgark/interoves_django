@@ -1,6 +1,7 @@
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import timedelta
 from threading import Event, Lock
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
@@ -8,6 +9,7 @@ from unittest.mock import Mock, patch
 from django.contrib.auth.models import User
 from django.core.cache import cache, caches
 from django.test import TestCase
+from django.utils import timezone
 
 from games.daily_statistics import (
     build_attempt_histogram,
@@ -81,7 +83,52 @@ class DailyStatisticsTests(TestCase):
                 result = build_daily_statistics(self.game, tg)
 
         self.assertEqual(result, {'fresh': True})
-        build_payload.assert_called_once_with(self.game, tg)
+        build_payload.assert_called_once_with(self.game, tg, published_at=None)
+
+    def test_prepublication_timing_is_excluded_and_cached_separately(self):
+        tg, _task = self._task('alphabetty')
+        user = self.users[0]
+        self._complete(tg, user)
+        published_at = timezone.now()
+        timing = DailySolveTiming.objects.create(
+            user=user,
+            game=self.game,
+            task_group=tg,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            accumulated_ms=5000,
+            frozen_ms=5000,
+        )
+        DailySolveTiming.objects.filter(pk=timing.pk).update(
+            created_at=published_at - timedelta(seconds=1),
+        )
+
+        self.assertEqual(build_daily_statistics(self.game, tg)['solved'], 1)
+        self.assertEqual(
+            build_daily_statistics(self.game, tg, published_at=published_at)['solved'],
+            0,
+        )
+
+    def test_prepublication_first_attempt_is_legacy_eligibility_fallback(self):
+        tg, task = self._task('alphabetty')
+        user = self.users[0]
+        self._complete(tg, user)
+        published_at = timezone.now()
+        attempt = Attempt.manager.create(
+            user=user,
+            game=self.game,
+            task=task,
+            text='СЛОВО',
+            status='Ok',
+            state=json.dumps({'guesses': ['СЛОВО'], 'won': True}),
+        )
+        Attempt.manager.filter(pk=attempt.pk).update(
+            time=published_at - timedelta(seconds=1),
+        )
+
+        self.assertEqual(
+            build_daily_statistics(self.game, tg, published_at=published_at)['solved'],
+            0,
+        )
 
     def test_concurrent_cache_misses_share_one_statistics_build(self):
         tg = TaskGroup.objects.create(label='concurrent cache miss')
@@ -89,7 +136,7 @@ class DailyStatisticsTests(TestCase):
         build_count_lock = Lock()
         build_count = 0
 
-        def slow_build(_game, _task_group):
+        def slow_build(_game, _task_group, *, published_at=None):
             nonlocal build_count
             with build_count_lock:
                 build_count += 1

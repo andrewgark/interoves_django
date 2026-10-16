@@ -3445,7 +3445,13 @@ def daily_statistics(request, game_id, number):
     ).exists():
         return JsonResponse({'error': 'not_completed'}, status=403)
     from games.daily_statistics import build_daily_statistics
-    payload = build_daily_statistics(game, placement.task_group)
+    published_at = None
+    if not is_share_hash_segment(str(number)):
+        from games.daily.section import publish_at_for
+        published_at = publish_at_for(game, placement.number)
+    payload = build_daily_statistics(
+        game, placement.task_group, published_at=published_at,
+    )
     from games.daily.timing import (
         TIMING_VERSION_ACTIVE,
         canonical_elapsed_seconds,

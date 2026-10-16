@@ -11,7 +11,7 @@ from typing import Callable
 
 from django.core.cache import caches
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Min, Q
 
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
 from games.raddle import load_raddle_state, parse_raddle_data, resolve_assist_tiers
@@ -30,7 +30,7 @@ from games.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 21
+CACHE_VERSION = 22
 CACHE_TIMEOUT = 10 * 60
 REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 CACHE_BUILD_LOCK_TIMEOUT = 30
@@ -77,8 +77,11 @@ def _cache_revision_key(game_id, task_group_id):
     return '{}:revision'.format(cache_key(game_id, task_group_id))
 
 
-def _versioned_cache_key(game_id, task_group_id, revision):
-    return '{}:{}'.format(cache_key(game_id, task_group_id), int(revision))
+def _versioned_cache_key(game_id, task_group_id, revision, published_at=None):
+    publication = published_at.isoformat() if published_at is not None else 'none'
+    return '{}:{}:{}'.format(
+        cache_key(game_id, task_group_id), int(revision), publication,
+    )
 
 
 def _release_build_lock(cache, lock_key, lock_token):
@@ -242,17 +245,50 @@ def _results_actor(row):
     return None
 
 
-def _completed_actors(game, task_group):
+def _completed_actors(game, task_group, published_at=None):
     rows = list(PlayerCompletedGame.objects.filter(
         game=game, task_group=task_group,
         result=PlayerCompletedGame.RESULT_SOLVED,
     ).select_related('team').only('team_id', 'user_id', 'anon_key', 'team'))
     from games.leaderboard import actor_key, eligible_public_actors
 
-    actors = [actor for actor in (_results_actor(row) for row in rows) if actor is not None]
+    actor_pairs = [
+        (_actor_key(row), actor)
+        for row in rows
+        for actor in [_results_actor(row)]
+        if actor is not None
+    ]
+    actors = [actor for _key, actor in actor_pairs]
+    result_times = {}
+    if published_at is not None and actors:
+        actors_by_key = dict(actor_pairs)
+        first_attempts = Attempt.manager.filter(
+            game=game,
+            task__task_group=task_group,
+            skip=False,
+            status__in=('Ok', 'Partial', 'Wrong'),
+            replay_slot__isnull=True,
+        ).filter(_actor_q(actors_by_key)).values(
+            'team_id', 'user_id', 'anon_key',
+        ).annotate(first_attempt=Min('time'))
+        for row in first_attempts:
+            key = (
+                ('team', row['team_id']) if row['team_id'] else
+                ('user', row['user_id']) if row['user_id'] else
+                ('anon', row['anon_key'])
+            )
+            actor = actors_by_key.get(key)
+            if actor is not None and row['first_attempt'] is not None:
+                result_times[actor] = row['first_attempt']
     eligible = {
         actor_key(actor)
-        for actor in eligible_public_actors(actors, task_group=task_group)
+        for actor in eligible_public_actors(
+            actors,
+            task_group=task_group,
+            game=game if published_at is not None else None,
+            published_at=published_at,
+            result_times=result_times,
+        )
     }
     return {
         _actor_key(row): row
@@ -706,21 +742,23 @@ DAILY_STATISTICS_ADAPTERS.update({
 })
 
 
-def build_daily_statistics(game, task_group):
+def build_daily_statistics(game, task_group, *, published_at=None):
     cache = caches['daily_statistics']
     revision_key = _cache_revision_key(game.id, task_group.id)
     result = None
     for _attempt in range(3):
         try:
             revision = int(cache.get(revision_key, 0) or 0)
-            result_key = _versioned_cache_key(game.id, task_group.id, revision)
+            result_key = _versioned_cache_key(
+                game.id, task_group.id, revision, published_at,
+            )
             cached = cache.get(result_key)
         except Exception:
             logger.warning(
                 'daily_statistics_cache_read_failed game=%s task_group=%s',
                 game.id, task_group.id, exc_info=True,
             )
-            return _build_daily_statistics_payload(game, task_group)
+            return _build_daily_statistics_payload(game, task_group, published_at=published_at)
         if cached is not None:
             try:
                 if int(cache.get(revision_key, 0) or 0) == revision:
@@ -730,7 +768,7 @@ def build_daily_statistics(game, task_group):
                     'daily_statistics_cache_revision_read_failed game=%s task_group=%s',
                     game.id, task_group.id, exc_info=True,
                 )
-                return _build_daily_statistics_payload(game, task_group)
+                return _build_daily_statistics_payload(game, task_group, published_at=published_at)
             continue
 
         lock_key = '{}:build-lock'.format(result_key)
@@ -744,7 +782,7 @@ def build_daily_statistics(game, task_group):
                 'daily_statistics_cache_lock_failed game=%s task_group=%s',
                 game.id, task_group.id, exc_info=True,
             )
-            return _build_daily_statistics_payload(game, task_group)
+            return _build_daily_statistics_payload(game, task_group, published_at=published_at)
 
         if not owns_lock:
             revision_changed = False
@@ -787,7 +825,9 @@ def build_daily_statistics(game, task_group):
                     )
 
             if not owns_lock:
-                result = _build_daily_statistics_payload(game, task_group)
+                result = _build_daily_statistics_payload(
+                    game, task_group, published_at=published_at,
+                )
                 try:
                     if int(cache.get(revision_key, 0) or 0) != revision:
                         continue
@@ -799,7 +839,9 @@ def build_daily_statistics(game, task_group):
                 return result
 
         try:
-            result = _build_daily_statistics_payload(game, task_group)
+            result = _build_daily_statistics_payload(
+                game, task_group, published_at=published_at,
+            )
 
             # If a completion invalidated this generation during the calculation,
             # rebuild against the newer participant set instead of caching/returning
@@ -827,11 +869,13 @@ def build_daily_statistics(game, task_group):
     # A burst of completions can keep advancing the revision. Return the last
     # fresh calculation without caching it; the next request will use the new
     # generation.
-    return result if result is not None else _build_daily_statistics_payload(game, task_group)
+    return result if result is not None else _build_daily_statistics_payload(
+        game, task_group, published_at=published_at,
+    )
 
 
-def _build_daily_statistics_payload(game, task_group):
-    actors = _completed_actors(game, task_group)
+def _build_daily_statistics_payload(game, task_group, *, published_at=None):
+    actors = _completed_actors(game, task_group, published_at=published_at)
     supported_task_types = tuple(
         definition.task_type
         for definition in DAILY_GAME_REGISTRY.all()

@@ -10,6 +10,7 @@ Usage:
 """
 from django.core.management.base import BaseCommand
 
+from games.daily.section import publish_at_for
 from games.daily.statistics import build_daily_statistics, invalidate_daily_statistics
 from games.models import Game, GameTaskGroup
 
@@ -51,7 +52,11 @@ class Command(BaseCommand):
         refreshed = 0
         for placement in placements.iterator():
             invalidate_daily_statistics(game.id, placement.task_group_id)
-            build_daily_statistics(game, placement.task_group)
+            build_daily_statistics(
+                game,
+                placement.task_group,
+                published_at=publish_at_for(game, placement.number),
+            )
             refreshed += 1
 
         self.stdout.write(self.style.SUCCESS(

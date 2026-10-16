@@ -144,18 +144,21 @@ def reconcile_task_group_actors(
     from games.analytics import reconcile_completed_game_after_recheck
 
     changed = 0
+    daily_statistics_changed = False
     for key in keys:
         actor = _resolve_actor(key)
         if actor is None:
             continue
         team, user, anon_key = actor
         if delete_instance_id:
-            changed += PlayerCompletedGame.objects.filter(
+            deleted = PlayerCompletedGame.objects.filter(
                 game_instance_id=delete_instance_id,
                 team=team,
                 user=user,
                 anon_key=anon_key,
             ).delete()[0]
+            changed += deleted
+            daily_statistics_changed = daily_statistics_changed or bool(deleted)
             continue
         if rebuild is not None:
             _rebuild_actor_task(
@@ -165,13 +168,15 @@ def reconcile_task_group_actors(
             continue
         task = Task.objects.filter(task_group=task_group).order_by('id').first()
         if task is None:
-            changed += PlayerCompletedGame.objects.filter(
+            deleted = PlayerCompletedGame.objects.filter(
                 game_id=game_id,
                 task_group_id=task_group_id,
                 team=team,
                 user=user,
                 anon_key=anon_key,
             ).delete()[0]
+            changed += deleted
+            daily_statistics_changed = daily_statistics_changed or bool(deleted)
             continue
         if reconcile_completed_game_after_recheck(
             task=task,
@@ -181,6 +186,9 @@ def reconcile_task_group_actors(
             anon_key=anon_key,
         ):
             changed += 1
+    if daily_statistics_changed:
+        from games.daily_statistics import invalidate_daily_statistics
+        invalidate_daily_statistics(game_id, task_group_id)
     return changed
 
 
