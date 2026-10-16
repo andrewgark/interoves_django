@@ -880,6 +880,15 @@ def _collapse_extract_whitespace(text: str) -> str:
         previous_line = (match.string[:match.start()] + match.group(1)).rsplit('\n', 1)[-1]
         if _SECTION_HEADING_RE.fullmatch(previous_line.strip()):
             return match.group(0)
+        next_line = match.group(2)
+        # TextExtracts represents wiki list items as separate lines (usually
+        # ``* item`` / ``# item``). Preserve those line breaks; ordinary prose
+        # wraps still join into a continuous paragraph below.
+        if (
+            re.match(r'^[ \t]*[*#;:]', next_line)
+            or re.match(r'^[ \t]*[*#;:]', previous_line)
+        ):
+            return match.group(0)
         return f'{match.group(1)} {match.group(2)}'
 
     text = text.replace('\u2061', '')  # function-application (MathML)
@@ -958,7 +967,10 @@ def clean_wiki_extract(extract: str, *, mark_formulas: bool = False) -> str:
     text = _strip_indented_math_lines(text)
     text = _replace_tex_groups(text, mark_formulas=mark_formulas)
     text = _strip_bracket_notes(text)
-    return _collapse_extract_whitespace(text)
+    text = _collapse_extract_whitespace(text)
+    # Plaintext extracts retain wiki's list markers. Convert them to a visible
+    # bullet, since the game renders article text without HTML list semantics.
+    return re.sub(r'(?m)^([ \t]*)\*+[ \t]*', r'\1• ', text)
 
 
 def _headings_to_marked(extract: str) -> str:

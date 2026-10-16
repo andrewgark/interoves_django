@@ -565,6 +565,36 @@ class CensorlyPuzzleStorageTests(TestCase):
 
 
 class CensorlyWikiHelperTests(TestCase):
+    def test_wikipedia_bullet_lists_keep_each_item_on_its_own_line(self):
+        from games.censorly.tokenize import tokenize_text
+        from games.censorly.wiki import clean_wiki_extract
+
+        # Snapshot-shaped extract from «Корень»: TextExtracts emits each wiki
+        # bullet as a line, but prose line wraps should still collapse.
+        raw = (
+            'Обычный абзац, перенесённый\n'
+            'на следующую строку.\n\n'
+            '* Закрепление растения в субстрате.\n'
+            '* Всасывание, проведение воды и минеральных веществ.\n'
+            '* Запас питательных веществ в главном корне.\n'
+            'Следующий абзац начинается здесь.'
+        )
+
+        cleaned = clean_wiki_extract(raw)
+        self.assertEqual(
+            cleaned,
+            'Обычный абзац, перенесённый на следующую строку.\n\n'
+            '• Закрепление растения в субстрате.\n'
+            '• Всасывание, проведение воды и минеральных веществ.\n'
+            '• Запас питательных веществ в главном корне.\n'
+            'Следующий абзац начинается здесь.',
+        )
+        tokens = tokenize_text(cleaned)
+        self.assertEqual(
+            sum(1 for token in tokens if token['kind'] == 'space' and '\n' in token['surface']),
+            4,
+        )
+
     def test_lead_editorial_notes_remain_separate_paragraphs(self):
         from games.censorly.wiki import clean_wiki_extract
 
