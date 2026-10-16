@@ -239,9 +239,12 @@ def reorder_alphabetty(
         raise AlphabettySupportError('Дубликаты id в порядке')
 
     existing = list(
-        GameTaskGroup.objects.filter(game=game, is_deferred=False).select_related('task_group')
+        GameTaskGroup.objects.select_for_update()
+        .filter(game=game)
+        .select_related('task_group')
     )
-    by_id = {link.pk: link for link in existing}
+    active = [link for link in existing if not link.is_deferred]
+    by_id = {link.pk: link for link in active}
     if set(ordered_link_ids) != set(by_id):
         raise AlphabettySupportError(
             'Список id не совпадает с текущими Алфавитками '
