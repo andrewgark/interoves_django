@@ -39,6 +39,10 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
 # The key is (surface, lemma selected by tokenize_text); values are the only
 # readings retained for that occurrence. Guess-side readings stay context-free.
 TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
+    # «статью» can also be the accusative of the rare noun «стать» (figure,
+    # stature). When the article tokenizer selected «статья», keep only the
+    # article reading so the become verb «стал» cannot open that target.
+    ('статью', 'статья'): frozenset({'статья'}),
     # «нем/нём» is a pronoun only in a prepositional construction («о нём»,
     # «при нём»). Bare «нем» in article text is commonly an abbreviation or
     # the adjective spelling, and must not inherit NPRO «он/оно».

@@ -431,7 +431,17 @@ class _ArticleIndex:
     ) -> list[int]:
         """Return IDs that can open, plus optional near-miss candidates."""
         postings = [self.fold.get(guess.fold, ())]
-        if guess.service:
+        from games.censorly.lexical.semantics import (
+            _INITIAL_NUMBER_LEMMAS,
+            _PRONOUN_ADJECTIVE_LEMMAS,
+        )
+        initial_semantic = any(
+            item.pos == 'NPRO'
+            or item.lemma in _INITIAL_NUMBER_LEMMAS
+            or item.lemma in _PRONOUN_ADJECTIVE_LEMMAS
+            for item in guess.reads
+        )
+        if guess.service and not initial_semantic:
             return self._merge_postings(postings)
         for alias_group in _ALIAS_GROUPS_BY_WORD.get(guess.fold, ()):
             postings.append(self.alias.get(alias_group, ()))

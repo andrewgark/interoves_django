@@ -926,11 +926,15 @@ class SemanticsTests(SimpleTestCase):
             'несколько', 'какой-нибудь', 'чей-либо', 'таков', 'каков',
         ):
             self.assertTrue(initially_open(pronoun), pronoun)
-        # A service/pronoun homonym and a weak NPRO reading stay closed.
-        self.assertFalse(initially_open('это'))
-        self.assertFalse(initially_open('нём'))
-        self.assertFalse(initially_open('ничего'))
+        # Weak/ambiguous readings without an explicit initial-open override
+        # stay closed.
         self.assertFalse(initially_open('пчела'))
+
+    def test_selected_ambiguous_pronouns_start_open_without_opening_german(self):
+        for surface in ('это', 'ничего', 'нем', 'нём'):
+            with self.subTest(surface=surface):
+                self.assertTrue(initially_open(surface))
+        self.assertFalse(initially_open('немецкий'))
 
     def test_initial_pronoun_flag_is_enabled_by_default(self):
         from games.censorly.flags import open_pronouns_enabled
@@ -1939,6 +1943,18 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
                     _relation(_GuessPack('послание'), _Pack(surface, article_lemma=lemma)),
                     'root',
                 )
+
+    def test_article_context_separates_stat_article_from_become(self):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        article = _Pack('статью', article_lemma='статья')
+        self.assertEqual(_relation(_GuessPack('стал'), article), '')
+        self.assertEqual(_relation(_GuessPack('стать'), article), '')
+        self.assertEqual(_relation(_GuessPack('статья'), article), 'lexeme')
+
+        self.assertTrue(opens('стать', 'становиться'))
+        self.assertFalse(opens('стать', 'статья'))
+        self.assertFalse(opens('стать', 'статный'))
 
     def test_send_family_has_narrow_modern_senses(self):
         for left, right in (

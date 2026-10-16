@@ -31,6 +31,10 @@ _NEVER_INITIAL_OPEN = frozenset({
     # before a player guesses them, despite a service-word reading.
     'фон', 'ван', 'дер', 'значит', 'короче', 'максимум',
 })
+# These common pronoun surfaces are intentionally visible despite competing
+# dictionary readings. This is an initial-visibility decision only; it does
+# not authorize their lexical homonyms or derivatives.
+_FORCE_INITIAL_OPEN_PRONOUNS = frozenset({'это', 'ничего', 'нем'})
 _DIGIT_CARDINAL_LEMMAS = {
     '0': 'ноль', '1': 'один', '2': 'два', '3': 'три',
     '4': 'четыре', '5': 'пять', '6': 'шесть', '7': 'семь',
@@ -319,6 +323,8 @@ def initially_open(surface: str, *, include_pronouns: bool = True) -> bool:
     """
     if fold(surface) in _NEVER_INITIAL_OPEN:
         return False
+    if fold(surface) in _FORCE_INITIAL_OPEN_PRONOUNS:
+        return True
     if fold(surface) in _INITIAL_DIGIT_SURFACES:
         return True
     found = readings_of(surface)
