@@ -98,6 +98,7 @@
   </div>
 </div>
 
+{% if daily_timing_enabled %}<div class="new-daily-solve"><div class="new-daily-solve__stage">{% include "new/partials/daily_solve_pause_overlay.html" %}<div data-daily-solve-board>{% endif %}
 <div class="censorly" id="censorly-root"
      data-game-id="{{ game.id }}"
      data-guess-url="{{ guess_url }}"
@@ -240,6 +241,7 @@
   {% if daily_statistics_url %}<section class="new-daily-statistics" data-daily-statistics data-statistics-url="{{ daily_statistics_url }}" hidden aria-live="polite"></section>{% endif %}
   {% if daily_statistics_url %}</div>{% endif %}
 </div>
+{% if daily_timing_enabled %}</div></div>{% endif %}
 
 {% if daily_timing_enabled %}</div>{% endif %}
 
