@@ -1087,6 +1087,7 @@ def _format_wiki_lists(text: str) -> str:
     """Render plaintext wiki list markers as readable article text."""
     lines = text.split('\n')
     output: list[str] = []
+    output_is_compact_row: list[bool] = []
     ordered_counters: dict[int, int] = {}
     definition_term = ''
     last_list_item = False
@@ -1114,6 +1115,7 @@ def _format_wiki_lists(text: str) -> str:
                 ordered_counters.pop(depth, None)
                 prefix = '• '
             output.append(f'{indent}{"  " * (depth - 1)}{prefix}{item}')
+            output_is_compact_row.append(True)
             definition_term = ''
             last_list_item = True
             continue
@@ -1124,11 +1126,13 @@ def _format_wiki_lists(text: str) -> str:
             if marker == ';':
                 definition_term = value
                 output.append(value)
+                output_is_compact_row.append(True)
             elif definition_term:
                 output[-1] = f'{output[-1]} — {value}'
                 definition_term = ''
             else:
                 output.append(f'  {value}')
+                output_is_compact_row.append(True)
             ordered_counters.clear()
             last_list_item = False
             continue
@@ -1136,6 +1140,7 @@ def _format_wiki_lists(text: str) -> str:
         table_row = re.match(r'^[ \t]*\|[ \t]*(.*)$', line)
         if table_row:
             output.append(table_row.group(1))
+            output_is_compact_row.append(True)
             ordered_counters.clear()
             definition_term = ''
             last_list_item = False
@@ -1154,11 +1159,20 @@ def _format_wiki_lists(text: str) -> str:
             output[-1] = f'{output[-1]} {stripped}'
             continue
         output.append(line)
+        output_is_compact_row.append(False)
         ordered_counters.clear()
         definition_term = ''
         last_list_item = False
 
-    return '\n'.join(output)
+    rendered: list[str] = []
+    for index, line in enumerate(output):
+        rendered.append(line)
+        if index + 1 < len(output):
+            if output_is_compact_row[index] and output_is_compact_row[index + 1]:
+                rendered.append('\u2028')
+            else:
+                rendered.append('\n')
+    return ''.join(rendered)
 
 
 def clean_wiki_extract(extract: str, *, mark_formulas: bool = False) -> str:

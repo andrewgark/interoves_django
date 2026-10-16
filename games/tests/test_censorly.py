@@ -602,7 +602,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertNotIn('explaintext', session.params)
         self.assertEqual(session.params['exsectionformat'], 'wiki')
-        self.assertIn('• Первый пункт.\n• Второй пункт.', article.extract)
+        self.assertIn('• Первый пункт.\u2028• Второй пункт.', article.extract)
         self.assertEqual(article.revid, 123)
 
     def test_html_extract_keeps_math_lists_tables_and_drops_reference_marks(self):
@@ -625,10 +625,10 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertIn('| Имя | Значение', marked)
         self.assertIn('| А | 1', marked)
         cleaned = clean_wiki_extract(marked, mark_formulas=True)
-        self.assertIn('1. Первый\n2. Второй', cleaned)
+        self.assertIn('1. Первый\u20282. Второй', cleaned)
         self.assertIn('Имя | Значение', cleaned)
         self.assertIn('А | 1', cleaned)
-        self.assertIn('Имя | Значение\nА | 1', cleaned)
+        self.assertIn('Имя | Значение\u2028А | 1', cleaned)
 
     def test_root_article_html_extract_preserves_real_list_items(self):
         from games.censorly.tokenize import tokenize_text
@@ -646,15 +646,15 @@ class CensorlyWikiHelperTests(TestCase):
 
         cleaned = clean_wiki_extract(marked)
         self.assertIn(
-            '• Закрепление растения в субстрате.\n'
-            '• Всасывание, проведение воды и минеральных веществ.\n'
+            '• Закрепление растения в субстрате.\u2028'
+            '• Всасывание, проведение воды и минеральных веществ.\u2028'
             '• Запас питательных веществ в главном корне.',
             cleaned,
         )
         tokens = tokenize_text(cleaned)
         self.assertEqual(
-            sum(1 for token in tokens if token['kind'] == 'space' and '\n' in token['surface']),
-            8,
+            sum(1 for token in tokens if token['kind'] == 'space' and '\u2028' in token['surface']),
+            5,
         )
 
     def test_wikipedia_bullet_lists_keep_each_item_on_its_own_line(self):
@@ -676,15 +676,15 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(
             cleaned,
             'Обычный абзац, перенесённый на следующую строку.\n\n'
-            '• Закрепление растения в субстрате.\n'
-            '• Всасывание, проведение воды и минеральных веществ.\n'
+            '• Закрепление растения в субстрате.\u2028'
+            '• Всасывание, проведение воды и минеральных веществ.\u2028'
             '• Запас питательных веществ в главном корне.\n'
             'Следующий абзац начинается здесь.',
         )
         tokens = tokenize_text(cleaned)
         self.assertEqual(
             sum(1 for token in tokens if token['kind'] == 'space' and '\n' in token['surface']),
-            4,
+            2,
         )
 
     def test_wikipedia_ordered_nested_and_definition_lists_are_formatted(self):
@@ -702,11 +702,11 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(
             clean_wiki_extract(raw),
-            '1. Первый пункт\n'
-            '  1. Вложенный пункт\n'
+            '1. Первый пункт\u2028'
+            '  1. Вложенный пункт\u2028'
             '2. Второй пункт\n\n'
-            '• Внешний пункт\n'
-            '  • Вложенный пункт\n'
+            '• Внешний пункт\u2028'
+            '  • Вложенный пункт\u2028'
             'Термин — его определение',
         )
 
@@ -726,10 +726,10 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(
             clean_wiki_extract(raw),
-            '  1. Смешанный нумерованный подпункт\n'
-            '  2. Следующий подпункт\n'
-            '  • Вложенный маркированный пункт\n'
-            '1. Возврат к верхнему уровню\n'
+            '  1. Смешанный нумерованный подпункт\u2028'
+            '  2. Следующий подпункт\u2028'
+            '  • Вложенный маркированный пункт\u2028'
+            '1. Возврат к верхнему уровню\u2028'
             '• Очень длинное продолжение того же пункта.\n'
             'Следующий абзац начинается отдельно.\n'
             '          • Чрезмерная вложенность',

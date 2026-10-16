@@ -238,6 +238,18 @@ html.new-ui-dark .censorly__dock {
   user-select: none;
 }
 
+/* Compact separator between adjacent list items and table rows. */
+.censorly-tok--compact-break {
+  display: block;
+  height: 0.2em;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  white-space: normal;
+  pointer-events: none;
+  user-select: none;
+}
+
 /*
   Wiki headings are blocks so neighbouring margins collapse, as on redactle.
   Sizes track h2 / h3 / h4 of their article (body ≈ 16.4px): 1.5em, 1.25em, 1.1em.

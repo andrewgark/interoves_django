@@ -235,6 +235,10 @@
     return !!(tok && tok.kind === 'space' && /\n/.test(tok.text || ''));
   }
 
+  function isCompactArticleBreak(tok) {
+    return !!(tok && tok.kind === 'space' && /\u2028/.test(tok.text || ''));
+  }
+
   function isHeadingEdge(tok) {
     return !!(tok && (tok.kind === 'heading_break' || tok.kind === 'heading'));
   }
@@ -261,6 +265,17 @@
     var i = 0;
     while (i < list.length) {
       var tok = list[i];
+      if (isCompactArticleBreak(tok)) {
+        var compactBreakText = tok.text || '';
+        var compactBreakIndex = compactBreakText.indexOf('\u2028');
+        var compactPrefix = compactBreakText.slice(0, compactBreakIndex);
+        var compactIndent = compactBreakText.slice(compactBreakIndex + 1);
+        if (compactPrefix) container.appendChild(document.createTextNode(compactPrefix));
+        container.appendChild(el('span', 'censorly-tok censorly-tok--compact-break'));
+        if (compactIndent) container.appendChild(document.createTextNode(compactIndent));
+        i += 1;
+        continue;
+      }
       if (isNewlineSpace(tok)) {
         var prev = list[i - 1];
         // A newline after a heading would stack on its margin. One before a
