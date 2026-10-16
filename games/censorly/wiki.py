@@ -961,6 +961,59 @@ def _strip_bracket_notes(text: str) -> str:
     return text
 
 
+def _format_wiki_lists(text: str) -> str:
+    """Render plaintext wiki list markers as readable article text."""
+    lines = text.split('\n')
+    output: list[str] = []
+    ordered_counters: dict[int, int] = {}
+    definition_term = ''
+
+    for line in lines:
+        match = re.match(r'^([ \t]*)([*#]+)[ \t]*(.*)$', line)
+        if match:
+            indent, markers, item = match.groups()
+            depth = len(markers)
+            marker = markers[-1]
+            # A change in list kind/depth starts a new numbering sequence.
+            if marker == '#':
+                ordered_counters = {
+                    level: count for level, count in ordered_counters.items()
+                    if level <= depth
+                }
+                ordered_counters[depth] = ordered_counters.get(depth, 0) + 1
+                prefix = f'{ordered_counters[depth]}. '
+            else:
+                ordered_counters = {
+                    level: count for level, count in ordered_counters.items()
+                    if level < depth
+                }
+                ordered_counters.pop(depth, None)
+                prefix = '• '
+            output.append(f'{indent}{"  " * (depth - 1)}{prefix}{item}')
+            definition_term = ''
+            continue
+
+        definition = re.match(r'^[ \t]*([;:])[ \t]*(.*)$', line)
+        if definition:
+            marker, value = definition.groups()
+            if marker == ';':
+                definition_term = value
+                output.append(value)
+            elif definition_term:
+                output[-1] = f'{output[-1]} — {value}'
+                definition_term = ''
+            else:
+                output.append(f'  {value}')
+            ordered_counters.clear()
+            continue
+
+        output.append(line)
+        ordered_counters.clear()
+        definition_term = ''
+
+    return '\n'.join(output)
+
+
 def clean_wiki_extract(extract: str, *, mark_formulas: bool = False) -> str:
     """Convert TextExtracts math dumps to readable, tokenizable raw text."""
     text = extract or ''
@@ -968,9 +1021,7 @@ def clean_wiki_extract(extract: str, *, mark_formulas: bool = False) -> str:
     text = _replace_tex_groups(text, mark_formulas=mark_formulas)
     text = _strip_bracket_notes(text)
     text = _collapse_extract_whitespace(text)
-    # Plaintext extracts retain wiki's list markers. Convert them to a visible
-    # bullet, since the game renders article text without HTML list semantics.
-    return re.sub(r'(?m)^([ \t]*)\*+[ \t]*', r'\1• ', text)
+    return _format_wiki_lists(text)
 
 
 def _headings_to_marked(extract: str) -> str:

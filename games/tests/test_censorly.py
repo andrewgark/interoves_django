@@ -595,6 +595,29 @@ class CensorlyWikiHelperTests(TestCase):
             4,
         )
 
+    def test_wikipedia_ordered_nested_and_definition_lists_are_formatted(self):
+        from games.censorly.wiki import clean_wiki_extract
+
+        raw = (
+            '# Первый пункт\n'
+            '## Вложенный пункт\n'
+            '# Второй пункт\n\n'
+            '* Внешний пункт\n'
+            '** Вложенный пункт\n'
+            '; Термин\n'
+            ': его определение'
+        )
+
+        self.assertEqual(
+            clean_wiki_extract(raw),
+            '1. Первый пункт\n'
+            '  1. Вложенный пункт\n'
+            '2. Второй пункт\n\n'
+            '• Внешний пункт\n'
+            '  • Вложенный пункт\n'
+            'Термин — его определение',
+        )
+
     def test_lead_editorial_notes_remain_separate_paragraphs(self):
         from games.censorly.wiki import clean_wiki_extract
 
