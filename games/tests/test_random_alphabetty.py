@@ -164,6 +164,7 @@ class RandomAlphabettyTests(TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(statistics.status_code, 200)
+        self.assertIn('no-store', statistics['Cache-Control'])
         self.assertEqual(statistics.json()['solved'], 1)
         self.assertEqual(statistics.json()['personal_time_seconds'], 277)
 

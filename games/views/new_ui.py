@@ -3408,6 +3408,7 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
     }
 
 
+@never_cache
 def daily_statistics(request, game_id, number):
     """Spoiler-safe statistics endpoint: completed participants only."""
     definition = get_daily_game(game_id)
