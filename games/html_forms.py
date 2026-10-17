@@ -2,11 +2,20 @@ import json
 import re
 
 from django.template.loader import render_to_string
+from django.templatetags.static import static
 
 from games.util import clean_text
 
 
 TOKEN_RE = re.compile(r'\{\{\s*html_form:([A-Za-z0-9_.:-]+)\s*\}\}')
+GRAPH_CSS_TAG_RE = re.compile(
+    r'<link\b(?=[^>]*\bhref=["\']/static/css/html_forms_graph_demo\.css(?:\?[^"\']*)?["'])[^>]*>',
+    re.IGNORECASE,
+)
+GRAPH_JS_TAG_RE = re.compile(
+    r'<script\b(?=[^>]*\bsrc=["\']/static/js/html_forms_graph_demo\.js(?:\?[^"\']*)?["'])[^>]*>\s*</script\s*>',
+    re.IGNORECASE,
+)
 
 
 def normalize_html_form_answer(value):
@@ -137,4 +146,22 @@ def render_html_forms_task(request, task, attempts_info, gameplay_context_token,
     missing = [form for form in forms if form['key'] not in rendered_keys]
     if missing:
         html += ''.join(render_form(form) for form in missing)
+    if new_ui:
+        # The new task-group template includes these assets using Django's
+        # versioned static URL. Avoid retaining legacy root-prefix tags from
+        # task HTML stored in the database.
+        html = GRAPH_CSS_TAG_RE.sub('', html)
+        html = GRAPH_JS_TAG_RE.sub('', html)
+    else:
+        # Legacy templates do not have the new UI's asset includes. Resolve
+        # the stored root URLs at render time so they follow the current static
+        # release prefix instead of a stale unversioned S3 object.
+        html = html.replace(
+            '/static/css/html_forms_graph_demo.css',
+            static('css/html_forms_graph_demo.css'),
+        )
+        html = html.replace(
+            '/static/js/html_forms_graph_demo.js',
+            static('js/html_forms_graph_demo.js'),
+        )
     return html
