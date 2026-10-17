@@ -6,6 +6,8 @@ from datetime import date, datetime
 from typing import Callable, TypeVar
 
 from django.db import transaction
+from django.db.models import F
+from django.utils import timezone
 
 from games.models import Game, GameTaskGroup, Task, TaskGroup
 
@@ -14,6 +16,16 @@ RowT = TypeVar('RowT')
 
 class ScheduleLinkError(Exception):
     """Ошибка удаления/перенумерации слота."""
+
+
+def _sync_difficulty_schedule_after_commit(game_id):
+    from games.difficulty import SUPPORTED_GAME_IDS, sync_daily_difficulty_schedule
+
+    if game_id not in SUPPORTED_GAME_IDS:
+        return
+    game = Game.objects.filter(pk=game_id).first()
+    if game is not None:
+        sync_daily_difficulty_schedule(game)
 
 
 def save_publish_start_date(game, tag_key, date_iso, *, error_cls, require_monday=False):
@@ -213,6 +225,7 @@ def _park_rows_holding(links: list[GameTaskGroup], reserved_numbers: set[str]) -
         GameTaskGroup.objects.bulk_update(blockers, ['number'])
 
 
+@transaction.atomic
 def _assign_numbers_without_collision(
     links: list[GameTaskGroup],
     new_numbers: list[int],
@@ -220,6 +233,10 @@ def _assign_numbers_without_collision(
     sync_link: Callable[[GameTaskGroup, int], None] | None,
     sync_links: Callable[[list[GameTaskGroup], list[int]], None] | None,
 ) -> None:
+    changed_number_links = [
+        link for link, new_number in zip(links, new_numbers)
+        if str(link.number) != str(new_number)
+    ]
     _park_rows_holding(links, {str(number) for number in new_numbers})
     temp_base = _free_number_base(_occupied_numbers({link.game_id for link in links}), len(links))
     for offset, link in enumerate(links):
@@ -242,6 +259,28 @@ def _assign_numbers_without_collision(
     from games.results.aggregate_leaderboard import invalidate_monthly_release_index
     for game_id in {link.game_id for link in links}:
         invalidate_monthly_release_index(game_id)
+
+    if changed_number_links:
+        from games.models import DailyResultProjectionState
+
+        projection_groups_by_game = {}
+        for link in changed_number_links:
+            projection_groups_by_game.setdefault(link.game_id, set()).add(link.task_group_id)
+        for game_id, task_group_ids in projection_groups_by_game.items():
+            DailyResultProjectionState.objects.filter(
+                game_id=game_id,
+                game__project_id='sections',
+                task_group_id__in=task_group_ids,
+            ).update(
+                source_revision=F('source_revision') + 1,
+                is_valid=False,
+                full_refresh_required=True,
+                completed_at=timezone.now(),
+            )
+            transaction.on_commit(
+                lambda value=game_id: _sync_difficulty_schedule_after_commit(value),
+                robust=True,
+            )
 
 
 def renumber_links(
