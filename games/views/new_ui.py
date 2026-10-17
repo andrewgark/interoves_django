@@ -2610,7 +2610,7 @@ def new_section_results_page(request, game_id):
         else 'standard'
     )
 
-    from games.aggregate_leaderboard import build_aggregate_page
+    from games.results.aggregate_leaderboard import build_aggregate_page
     data = build_aggregate_page(request, game)
     aggregate_subscriber_ids = _club_subscriber_user_ids(
         row.get('actor') for row in data.get('aggregate_rows', [])
