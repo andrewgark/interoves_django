@@ -40,7 +40,7 @@ from django.core.cache import caches
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from games.models import Attempt, Game, GameTaskGroup, Task
+from games.models import Attempt, Game, GameTaskGroup, Profile, Task
 from games.auth_observability import log_realtime_sync
 from games.results.share import DEFAULT_SHARE_HOST
 from games.views.render_task import update_task_html
@@ -924,7 +924,12 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
         game = Game.objects.filter(pk=self.game_id).first()
         if game is None:
             return False
-        profile = getattr(user, 'profile', None)
+        # The ASGI scope's User instance can retain a cached Profile from
+        # connect(); fetch it fresh so a team removal is visible on this socket.
+        profile = Profile.objects.filter(user_id=user.pk).select_related('team_on').first()
+        if profile is None:
+            return False
+        user.profile = profile
         current_team = profile.team_on if profile is not None else None
         if not game.has_access('see_game_preview', team=current_team):
             return False

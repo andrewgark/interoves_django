@@ -440,7 +440,9 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
                 )
         layer.group_send.assert_called_once()
         args, _kwargs = layer.group_send.call_args
-        self.assertEqual(args[0], CHANNEL_GROUPS['user'](self.user.id))
+        self.assertEqual(
+            args[0], CHANNEL_GROUPS['user_game'](self.user.id, self.game.id),
+        )
         self.assertEqual(args[1]['by'], 'personal')
         self.assertEqual(args[1]['personal'], 1)
         self.assertEqual(
@@ -1088,6 +1090,34 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
         second = async_to_sync(reconnect)()
         self.assertEqual(second['type'], 'track.resync_required')
         self.assertEqual(second['missed'][namespace], current_track_seq(namespace))
+
+    def test_game_track_reconnect_detects_revision_counter_reset(self):
+        from interoves_django.asgi import application
+        from games.views import track
+
+        headers = self._session_headers()
+        namespace = team_track_namespace(self.game.id, self.team.pk)
+        track.track_revision_cache.set(f'track:seq:{namespace}', 2, timeout=None)
+
+        async def reconnect():
+            communicator = WebsocketCommunicator(
+                application,
+                f'/games/{self.game.id}/track/',
+                headers=headers,
+            )
+            connected, _ = await communicator.connect()
+            assert connected
+            await communicator.send_json_to({
+                'type': 'track.sync',
+                'seen': {namespace: 9},
+            })
+            message = await communicator.receive_json_from(timeout=5)
+            await communicator.disconnect()
+            return message
+
+        message = async_to_sync(reconnect)()
+        self.assertEqual(message['type'], 'track.resync_required')
+        self.assertEqual(message['reset'][namespace], 2)
 
     @override_settings(TRACK_WS_GROUP_DISCARD_TIMEOUT=0.05, TRACK_WS_IDLE_TIMEOUT=0)
     def test_disconnect_bounded_when_group_discard_hangs(self):

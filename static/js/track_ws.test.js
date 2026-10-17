@@ -162,5 +162,51 @@ assert.deepStrictEqual(delivered, []);
 finishReconcile({versions: {'game:queued:team:7': 6}});
 Promise.resolve().then(function () {
   assert.deepStrictEqual(delivered, [7]);
-  console.log('track_ws.test.js: ok');
+  var scoped = [];
+  window.InterovesTrack.openTrackSocket(
+    'wss://example.test/games/scoped-filter/track',
+    function (msg) { scoped.push(msg.seq); },
+    null,
+    null,
+    function (msg) { return String(msg.game_id) === 'wanted'; }
+  );
+  var scopedSocket = FakeWebSocket.instances[4];
+  scopedSocket.onopen();
+  scopedSocket.onmessage({data: JSON.stringify({
+    type: 'track.synced',
+    versions: {'user:1:game:wanted': 0},
+  })});
+  scopedSocket.onmessage({data: JSON.stringify({
+    type: 'task.changed', game_id: 'other',
+    seq_namespace: 'user:1:game:wanted', seq: 1,
+  })});
+  scopedSocket.onmessage({data: JSON.stringify({
+    type: 'task.changed', game_id: 'wanted',
+    seq_namespace: 'user:1:game:wanted', seq: 1,
+  })});
+  assert.deepStrictEqual(scoped, [1]);
+
+  var resetDelivered = [];
+  window.InterovesTrack.openTrackSocket(
+    'wss://example.test/games/reset/track',
+    function (msg) { resetDelivered.push(msg.seq); },
+    function (msg) { return Promise.resolve({versions: msg.versions}); }
+  );
+  var resetSocket = FakeWebSocket.instances[5];
+  resetSocket.onopen();
+  resetSocket.onmessage({data: JSON.stringify({
+    type: 'track.synced', versions: {'game:reset:team:1': 9},
+  })});
+  resetSocket.onmessage({data: JSON.stringify({
+    type: 'track.resync_required',
+    versions: {'game:reset:team:1': 2},
+    reset: {'game:reset:team:1': 2},
+  })});
+  return Promise.resolve().then(function () {
+    resetSocket.onmessage({data: JSON.stringify({
+      type: 'task.changed', seq_namespace: 'game:reset:team:1', seq: 3,
+    })});
+    assert.deepStrictEqual(resetDelivered, [3]);
+    console.log('track_ws.test.js: ok');
+  });
 });
