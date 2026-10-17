@@ -443,7 +443,15 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(args[0], CHANNEL_GROUPS['user'](self.user.id))
         self.assertEqual(args[1]['by'], 'personal')
         self.assertEqual(args[1]['personal'], 1)
-        self.assertEqual(args[1]['seq_namespace'], user_track_namespace(self.user.id))
+        self.assertEqual(
+            args[0],
+            CHANNEL_GROUPS['user_game'](self.user.id, self.game.id),
+        )
+        self.assertEqual(args[1]['game_id'], str(self.game.id))
+        self.assertEqual(
+            args[1]['seq_namespace'],
+            'user:{}:game:{}'.format(self.user.id, self.game.id),
+        )
 
     @override_settings(
         CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
@@ -935,6 +943,67 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
 
         async_to_sync(cannot_connect)(f'/games/{closed_game.id}/track/')
         async_to_sync(cannot_connect)('/games/missing_track_game/track/')
+
+    def test_team_socket_closes_after_actor_team_is_revoked(self):
+        """An already-open team socket must not survive a membership change."""
+        from interoves_django.asgi import application
+
+        headers = self._session_headers()
+        path = f'/games/{self.game.id}/track/?play_mode=team'
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            group = CHANNEL_GROUPS['game_team'](self.game.id, self.team.pk)
+            self.assertIn(group, get_channel_layer().groups)
+
+            await database_sync_to_async(
+                lambda: Profile.objects.filter(user_id=self.user.id).update(team_on=None)
+            )()
+            await communicator.send_json_to({'type': 'ping'})
+            close_message = await communicator.receive_output(timeout=5)
+            self.assertEqual(close_message['type'], 'websocket.close')
+            self.assertEqual(close_message['code'], 4403)
+
+        async_to_sync(run)()
+
+    def test_personal_task_events_use_game_scoped_group_and_revision(self):
+        """Two game tabs for one account must not share a task revision stream."""
+        second_game = Game.objects.create(
+            pk='test_game_track_personal_scope',
+            name='Personal scope',
+            author='test',
+            author_extra='',
+            is_ready=True,
+        )
+        GameTaskGroup.objects.create(
+            game=second_game, task_group=self.task_group, number=1, name='tg',
+        )
+        layer = MagicMock()
+        layer.group_send = AsyncMock(return_value=None)
+        with patch('games.views.track.get_channel_layer', return_value=layer):
+            with self.captureOnCommitCallbacks(execute=True):
+                track_task_change(
+                    self.task,
+                    user=self.user,
+                    update_html={'personal': 1},
+                )
+
+        self.assertEqual(layer.group_send.call_count, 2)
+        groups = {call.args[0] for call in layer.group_send.call_args_list}
+        self.assertEqual(groups, {
+            CHANNEL_GROUPS['user_game'](self.user.id, self.game.id),
+            CHANNEL_GROUPS['user_game'](self.user.id, second_game.id),
+        })
+        namespaces = {
+            call.args[1]['seq_namespace']
+            for call in layer.group_send.call_args_list
+        }
+        self.assertEqual(namespaces, {
+            'user:{}:game:{}'.format(self.user.id, self.game.id),
+            'user:{}:game:{}'.format(self.user.id, second_game.id),
+        })
 
     def test_user_track_websocket_receives_user_group(self):
         from interoves_django.asgi import application
