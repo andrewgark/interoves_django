@@ -2358,6 +2358,26 @@ class CensorlyUxDailyTests(TestCase):
         )
         self.assertContains(response, 'data-daily-pause-overlay')
 
+    def test_orphan_random_hash_cannot_start_official_timer(self):
+        self.client.force_login(self.staff)
+        RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
+
+        response = self.client.post(
+            f'/censorly/r/{self.share_hash}/timing/',
+            data=json.dumps({
+                'action': 'start',
+                'session_id': str(uuid4()),
+                'event_id': str(uuid4()),
+                'seq': 1,
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(DailySolveTiming.objects.filter(
+            game=self.game, task_group=self.task.task_group, user=self.staff,
+        ).exists())
+
     def test_replay_page_token_allows_guess_after_starting_over(self):
         from datetime import timedelta
         from django.utils import timezone
