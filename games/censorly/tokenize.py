@@ -264,8 +264,16 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
 
 
 _PREPOSITION_SURFACES = frozenset({
-    'в', 'во', 'к', 'ко', 'на', 'над', 'о', 'об', 'обо', 'от', 'при',
-    'с', 'со', 'у', 'перед', 'про', 'через',
+    'без', 'в', 'во', 'вместо', 'вне', 'для', 'до', 'за', 'из', 'изо',
+    'из-за', 'из-под', 'к', 'ко', 'кроме', 'между', 'меж', 'на', 'над',
+    'надо', 'несмотря', 'о', 'об', 'обо', 'от', 'ото', 'перед', 'передо',
+    'по', 'под', 'подо', 'при', 'про', 'ради', 'с', 'со', 'сквозь', 'среди',
+    'у',
+})
+_PRONOUN_MODIFIERS = frozenset({
+    'сам', 'сама', 'само', 'сами', 'самого', 'самой', 'самому', 'самим',
+    'самом', 'самих', 'самими', 'один', 'одна', 'одно', 'одни', 'одного',
+    'одной', 'одном', 'одному', 'одним', 'одних', 'одними',
 })
 
 
@@ -282,6 +290,22 @@ def _previous_nonspace(tokens: list[dict[str, Any]], index: int) -> int:
     return index
 
 
+def _is_preposition_governing_pronoun(tokens: list[dict[str, Any]], index: int) -> bool:
+    """Recognize a preposition before «нем» with optional «сам»/«один» forms."""
+    cursor = _previous_nonspace(tokens, index)
+    while cursor >= 0:
+        token = tokens[cursor]
+        if token.get('kind') not in {'content', 'stop'}:
+            return False
+        surface = normalize_surface(token.get('surface') or '')
+        if surface in _PREPOSITION_SURFACES:
+            return True
+        if surface not in _PRONOUN_MODIFIERS:
+            return False
+        cursor = _previous_nonspace(tokens, cursor)
+    return False
+
+
 def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach high-confidence, occurrence-specific readings before matching."""
     for index, tok in enumerate(tokens):
@@ -290,10 +314,6 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
         surface = tok.get('surface') or ''
         word = normalize_surface(surface)
         previous = _previous_nonspace(tokens, index)
-        previous_surface = (
-            normalize_surface(tokens[previous].get('surface') or '')
-            if previous >= 0 else ''
-        )
         after_word = _next_nonspace(tokens, index + 1)
         has_period = (
             after_word < len(tokens)
@@ -321,7 +341,7 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
         # «нем.» is the abbreviation for German only without ё and outside a
         # prepositional phrase. A preceding preposition wins over the period.
         if word == 'нем':
-            if previous_surface in _PREPOSITION_SURFACES or 'ё' in surface.lower():
+            if _is_preposition_governing_pronoun(tokens, index) or 'ё' in surface.lower():
                 tok['lemma'] = NEM_PRONOUN_CONTEXT
                 tok['context_reading'] = NEM_PRONOUN_CONTEXT
             elif has_period:

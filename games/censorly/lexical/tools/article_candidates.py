@@ -91,16 +91,16 @@ def find_open_pairs(payload, *, include_open=False, root_only=True):
             lemma_surfaces.setdefault(lemma, set()).add(surface)
     include_pronouns = open_pronouns_enabled()
     surfaces = tuple(sorted(lemmas_by_surface))
-    target_contexts = tuple(sorted(
-        (surface, next(iter(lemmas)))
-        for surface, lemmas in lemmas_by_surface.items()
-        if len(lemmas) == 1
-    ))
+    entries = tuple(sorted(rows))
     targets = _ArticleIndex(
-        surfaces,
+        entries,
         include_pronouns=include_pronouns,
-        target_contexts=target_contexts,
     )
+    entries_by_surface = {}
+    target_by_entry = {}
+    for entry, pack in zip(entries, targets.packs):
+        entries_by_surface.setdefault(entry[0], []).append(entry)
+        target_by_entry[entry] = pack
     guesses = {
         surface: _GuessPack(
             surface,
@@ -112,49 +112,27 @@ def find_open_pairs(payload, *, include_open=False, root_only=True):
     }
     lemma_pairs = {}
     for word_a in surfaces:
-        for word_b in targets.candidates(guesses[word_a]):
-            if word_b <= word_a:
+        candidate_surfaces = {
+            targets.surfaces[target_id]
+            for target_id in targets.candidate_ids(guesses[word_a])
+        }
+        for word_b in candidate_surfaces:
+            if word_b == word_a:
                 continue
-            reason_ab = _relation(guesses[word_a], targets.by_surface[word_b])
-            reason_ba = _relation(guesses[word_b], targets.by_surface[word_a])
-            if root_only and (
-                'root' not in (reason_ab, reason_ba)
-                or 'lexeme' in (reason_ab, reason_ba)
-            ):
-                continue
-            if not reason_ab and not reason_ba:
-                continue
-            if reason_ab and reason_ba and not include_open:
-                continue
-            for lemma_a in sorted(lemmas_by_surface[word_a]):
-                for lemma_b in sorted(lemmas_by_surface[word_b]):
-                    if lemma_a == lemma_b:
-                        continue
-                    pair_a, pair_b = sorted((lemma_a, lemma_b))
-                    key = (pair_a, pair_b)
-                    pair = lemma_pairs.setdefault(key, {
-                        'article': payload.get('wiki_title') or '',
-                        'lemma_a': pair_a,
-                        'lemma_b': pair_b,
-                        'surfaces_a': set(),
-                        'surfaces_b': set(),
-                        'reasons_a_to_b': set(),
-                        'reasons_b_to_a': set(),
-                    })
-                    if lemma_a == pair_a:
-                        pair['surfaces_a'].add(word_a)
-                        pair['surfaces_b'].add(word_b)
-                        if reason_ab:
-                            pair['reasons_a_to_b'].add(reason_ab)
-                        if reason_ba:
-                            pair['reasons_b_to_a'].add(reason_ba)
-                    else:
-                        pair['surfaces_a'].add(word_b)
-                        pair['surfaces_b'].add(word_a)
-                        if reason_ab:
-                            pair['reasons_b_to_a'].add(reason_ab)
-                        if reason_ba:
-                            pair['reasons_a_to_b'].add(reason_ba)
+            for entry_a in entries_by_surface[word_a]:
+                for entry_b in entries_by_surface[word_b]:
+                    _record_open_pair(
+                        lemma_pairs,
+                        article=payload.get('wiki_title') or '',
+                        word_a=word_a,
+                        word_b=word_b,
+                        lemma_a=entry_a[1],
+                        lemma_b=entry_b[1],
+                        reason_ab=_relation(guesses[word_a], target_by_entry[entry_b]),
+                        reason_ba=_relation(guesses[word_b], target_by_entry[entry_a]),
+                        include_open=include_open,
+                        root_only=root_only,
+                    )
 
     # Near-miss candidates: equal complete Tikhonov ROOT spelling is an
     # independent dictionary signal even when both packs are unresolved and
@@ -173,31 +151,22 @@ def find_open_pairs(payload, *, include_open=False, root_only=True):
                     continue
                 word_a = sorted(lemma_surfaces[lemma_a])[0]
                 word_b = sorted(lemma_surfaces[lemma_b])[0]
-                reason_ab = _relation(guesses[word_a], targets.by_surface[word_b])
-                reason_ba = _relation(guesses[word_b], targets.by_surface[word_a])
-                if root_only and (
-                    'root' not in (reason_ab, reason_ba)
-                    or 'lexeme' in (reason_ab, reason_ba)
-                ):
-                    continue
-                if not reason_ab and not reason_ba:
-                    continue
-                if reason_ab and reason_ba:
-                    if not include_open:
-                        continue
-                pair = lemma_pairs.setdefault(key, {
-                    'article': payload.get('wiki_title') or '',
-                    'lemma_a': lemma_a,
-                    'lemma_b': lemma_b,
-                    'surfaces_a': set(lemma_surfaces[lemma_a]),
-                    'surfaces_b': set(lemma_surfaces[lemma_b]),
-                    'reasons_a_to_b': set(),
-                    'reasons_b_to_a': set(),
-                })
-                if reason_ab:
-                    pair['reasons_a_to_b'].add(reason_ab)
-                if reason_ba:
-                    pair['reasons_b_to_a'].add(reason_ba)
+                _record_open_pair(
+                    lemma_pairs,
+                    article=payload.get('wiki_title') or '',
+                    word_a=word_a,
+                    word_b=word_b,
+                    lemma_a=lemma_a,
+                    lemma_b=lemma_b,
+                    reason_ab=_relation(
+                        guesses[word_a], target_by_entry[(word_b, lemma_b)],
+                    ),
+                    reason_ba=_relation(
+                        guesses[word_b], target_by_entry[(word_a, lemma_a)],
+                    ),
+                    include_open=include_open,
+                    root_only=root_only,
+                )
 
     results = []
     for pair in lemma_pairs.values():
@@ -227,6 +196,47 @@ def find_open_pairs(payload, *, include_open=False, root_only=True):
         families=len({row['tikhonov_roots'] for row in results if row['tikhonov_roots']}),
     )
     return results, len(lemmas_by_surface), stats
+
+
+def _record_open_pair(
+    pairs, *, article, word_a, word_b, lemma_a, lemma_b,
+    reason_ab, reason_ba, include_open, root_only,
+):
+    if lemma_a == lemma_b:
+        return
+    if root_only and (
+        'root' not in (reason_ab, reason_ba)
+        or 'lexeme' in (reason_ab, reason_ba)
+    ):
+        return
+    if not reason_ab and not reason_ba:
+        return
+    if reason_ab and reason_ba and not include_open:
+        return
+    pair_a, pair_b = sorted((lemma_a, lemma_b))
+    pair = pairs.setdefault((pair_a, pair_b), {
+        'article': article,
+        'lemma_a': pair_a,
+        'lemma_b': pair_b,
+        'surfaces_a': set(),
+        'surfaces_b': set(),
+        'reasons_a_to_b': set(),
+        'reasons_b_to_a': set(),
+    })
+    if lemma_a == pair_a:
+        pair['surfaces_a'].add(word_a)
+        pair['surfaces_b'].add(word_b)
+        if reason_ab:
+            pair['reasons_a_to_b'].add(reason_ab)
+        if reason_ba:
+            pair['reasons_b_to_a'].add(reason_ba)
+    else:
+        pair['surfaces_a'].add(word_b)
+        pair['surfaces_b'].add(word_a)
+        if reason_ab:
+            pair['reasons_b_to_a'].add(reason_ab)
+        if reason_ba:
+            pair['reasons_a_to_b'].add(reason_ba)
 
 
 def _write(path, rows):

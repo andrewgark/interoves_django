@@ -742,6 +742,63 @@ class SemanticsTests(SimpleTestCase):
             'lexeme',
         )
 
+    def test_nem_pronoun_recognizes_preposition_before_modifier(self):
+        from games.censorly.lexical.russian.reading_overrides import NEM_PRONOUN_CONTEXT
+        from games.censorly.tokenize import tokenize_text
+
+        tokens = tokenize_text('Говорили о самом нем.')
+        nem = next(token for token in tokens if token.get('surface') == 'нем')
+        self.assertEqual(nem['lemma'], NEM_PRONOUN_CONTEXT)
+
+    def test_article_candidate_tools_use_current_article_index_api(self):
+        from games.censorly.lexical.tools.article_candidates import find_open_pairs
+        from games.censorly.lexical.tools.near_miss_candidates import find_near_misses
+        from games.censorly.tokenize import build_puzzle_payload
+
+        payload = build_puzzle_payload(
+            wiki_title='Вода',
+            body_text='Вода была холодной, водный поток быстро исчез.',
+        )
+        pairs, surface_count, _stats = find_open_pairs(
+            payload, include_open=True, root_only=False,
+        )
+        near_misses, near_surface_count, _lemma_count = find_near_misses(payload)
+
+        self.assertGreater(surface_count, 0)
+        self.assertGreater(near_surface_count, 0)
+        self.assertIsInstance(pairs, list)
+        self.assertIsInstance(near_misses, list)
+
+    def test_article_candidate_index_keeps_same_surface_readings_distinct(self):
+        from games.censorly.lexical.core import fold
+        from games.censorly.lexical.match import _ArticleIndex, _GuessPack, _relation
+        from games.censorly.lexical.russian.reading_overrides import (
+            NEM_GERMAN_CONTEXT,
+            NEM_PRONOUN_CONTEXT,
+        )
+        from games.censorly.lexical.tools.article_candidates import _article_surfaces
+        from games.censorly.tokenize import build_puzzle_payload
+
+        payload = build_puzzle_payload(wiki_title='Контекст', body_text='Нем. О нем.')
+        rows, _lemmas = _article_surfaces(payload)
+        entries = tuple(sorted(rows))
+        targets = _ArticleIndex(entries, include_pronouns=True)
+        by_entry = {
+            entry: pack for entry, pack in zip(entries, targets.packs)
+        }
+        guess = _GuessPack('нем', include_pronouns=True)
+
+        self.assertIn((fold('нем'), NEM_GERMAN_CONTEXT), entries)
+        self.assertIn((fold('нем'), NEM_PRONOUN_CONTEXT), entries)
+        self.assertEqual(
+            _relation(guess, by_entry[(fold('нем'), NEM_GERMAN_CONTEXT)]),
+            'exact',
+        )
+        self.assertEqual(
+            _relation(guess, by_entry[(fold('нем'), NEM_PRONOUN_CONTEXT)]),
+            '',
+        )
+
     def test_contextual_readings_are_stored_per_article_occurrence(self):
         from games.censorly.lexical.match import matching_lemmas
         from games.censorly.lexical.russian.reading_overrides import (

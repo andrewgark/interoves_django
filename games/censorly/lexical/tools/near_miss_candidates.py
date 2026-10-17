@@ -65,15 +65,17 @@ def find_near_misses(payload, *, limit=200):
     surfaces_by_lemma, counts, lemmas_by_surface = _lemma_data(payload)
     surfaces = tuple(sorted(lemmas_by_surface))
     include_pronouns = open_pronouns_enabled()
-    contexts = tuple(sorted(
-        (surface, next(iter(lemmas)))
+    entries = tuple(sorted(
+        (surface, lemma)
         for surface, lemmas in lemmas_by_surface.items()
-        if len(lemmas) == 1
+        for lemma in lemmas
     ))
     targets = _ArticleIndex(
-        surfaces, include_pronouns=include_pronouns,
-        target_contexts=contexts,
+        entries, include_pronouns=include_pronouns,
     )
+    target_by_entry = {
+        entry: pack for entry, pack in zip(entries, targets.packs)
+    }
     packs = {
         surface: _GuessPack(
             surface, include_pronouns=include_pronouns,
@@ -101,8 +103,12 @@ def find_near_misses(payload, *, limit=200):
                 continue
             surface_a = sorted(surfaces_by_lemma[lemma_a])[0]
             surface_b = sorted(surfaces_by_lemma[lemma_b])[0]
-            reason_ab = _relation(packs[surface_a], targets.by_surface[surface_b])
-            reason_ba = _relation(packs[surface_b], targets.by_surface[surface_a])
+            reason_ab = _relation(
+                packs[surface_a], target_by_entry[(surface_b, lemma_b)],
+            )
+            reason_ba = _relation(
+                packs[surface_b], target_by_entry[(surface_a, lemma_a)],
+            )
             if reason_ab or reason_ba:
                 continue
             candidates.append({

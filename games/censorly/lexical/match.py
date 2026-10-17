@@ -515,11 +515,6 @@ class _ArticleIndex:
                     candidates.append(surface_id)
         return candidates
 
-    def candidates(self, guess: _Pack) -> set[str]:
-        """Compatibility wrapper for tools that consume surface strings."""
-        return {self.surfaces[surface_id] for surface_id in self.candidate_ids(guess)}
-
-
 @lru_cache(maxsize=4)
 def _index(
     entries: tuple[tuple[str, str], ...], *, include_pronouns: bool,
