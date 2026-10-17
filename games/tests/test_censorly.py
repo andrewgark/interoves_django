@@ -258,7 +258,7 @@ class CensorlyEngineTests(TestCase):
 
 class CensorlyAccessTests(TestCase):
     def setUp(self):
-        self.game, self.task, self.share_hash, _ = _make_puzzle_task()
+        self.game, self.task, self.share_hash, self.puzzle = _make_puzzle_task()
         # Soft-launch gate ignores is_ready; production migration sets ready=True.
         self.game.is_ready = True
         self.game.save(update_fields=['is_ready'])
@@ -387,10 +387,25 @@ class CensorlyAccessTests(TestCase):
         self.assertEqual(guess.status_code, 200)
         data = guess.json()
         self.assertIn(data['status'], ('hit', 'miss', 'won'))
+        solved_data = data
         if data['status'] != 'won':
             self.assertNotIn('title_tokens', data)
             self.assertNotIn('body_tokens', data)
             self.assertIn('state_delta', data)
+            solved = self.client.post(
+                f'/censorly/r/{self.share_hash}/guess/',
+                data=json.dumps({
+                    'word': self.puzzle['wiki_title'],
+                    'timing_session_id': session_id,
+                }),
+                content_type='application/json',
+                HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=context_token,
+            )
+            self.assertEqual(solved.status_code, 200)
+            solved_data = solved.json()
+        self.assertEqual(solved_data['status'], 'won')
+        self.assertTrue(solved_data['daily_timing']['completed'])
+        self.assertIsNotNone(solved_data['daily_timing']['frozen_ms'])
 
     def test_initially_open_word_api_does_not_record_attempt(self):
         self.client.force_login(self.staff)

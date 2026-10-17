@@ -1216,5 +1216,67 @@ function parsePostBody(init) {
   ctrl.destroy();
 })();
 
+(function testStaleCompletionClearsPauseOverlay() {
+  var listeners = {};
+  var overlay = { hidden: true };
+  var boardAttributes = {};
+  var board = {
+    setAttribute: function (name, value) { boardAttributes[name] = value; },
+    removeAttribute: function (name) { delete boardAttributes[name]; },
+    closest: function () { return null; },
+  };
+  var rootEl = {
+    hidden: false,
+    classList: { toggle: function () {} },
+    setAttribute: function () {},
+  };
+  var ctrl = timer.create({
+    url: '/censorly/1/timing/',
+    document: {
+      visibilityState: 'visible',
+      body: { classList: { toggle: function () {} } },
+      addEventListener: function (name, callback) { listeners[name] = callback; },
+      dispatchEvent: function () {},
+    },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    root: rootEl,
+    boardEl: board,
+    overlay: overlay,
+    bootstrap: { status: 'auto_paused', exists: true },
+  });
+
+  ctrl.applySnapshot({
+    status: 'auto_paused',
+    is_authoritative: false,
+    exists: true,
+    resume_required: true,
+  });
+  assert.strictEqual(overlay.hidden, false);
+  assert.strictEqual(boardAttributes.inert, '');
+
+  // A visibility/pause update advanced the local revision after this winning
+  // gameplay request started. Its completed snapshot must still be terminal.
+  listeners['interoves:daily-timing']({ detail: {
+    completed: true,
+    status: 'completed',
+    exists: true,
+    accumulated_ms: 5000,
+    frozen_ms: 5000,
+    _client_revision: 0,
+  } });
+
+  assert.strictEqual(ctrl.state().completed, true);
+  assert.strictEqual(rootEl.hidden, true);
+  assert.strictEqual(overlay.hidden, true);
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(boardAttributes, 'inert'), false);
+  ctrl.destroy();
+})();
+
 console.log('daily_solve_timer tests ok');
 process.exit(0);
