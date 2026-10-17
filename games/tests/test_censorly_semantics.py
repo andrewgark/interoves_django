@@ -2124,6 +2124,19 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertTrue(opens('программа', 'программного'))
         self.assertTrue(opens('программой', 'программы'))
 
+    def test_man_hour_and_carry_families_are_split_by_sense(self):
+        self.assertFalse(opens('муж', 'мужчин'))
+        self.assertTrue(opens('мужчина', 'мужской'))
+
+        self.assertFalse(opens('перенесли', 'относиться'))
+        self.assertTrue(opens('перенесли', 'перенести'))
+        self.assertTrue(opens('относиться', 'отношение'))
+
+        self.assertFalse(opens('час', 'часовне'))
+        self.assertTrue(opens('часовня', 'часовенка'))
+        self.assertFalse(opens('час', 'часовщик'))
+        self.assertTrue(opens('часовщик', 'часовщичий'))
+
     def test_send_family_has_narrow_modern_senses(self):
         for left, right in (
             ('послать', 'послание'),

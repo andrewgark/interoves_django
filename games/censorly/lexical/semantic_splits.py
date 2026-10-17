@@ -6605,7 +6605,7 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('рядить', ('sense:series', 'sense:outfit')),
     ('рядиться', ('sense:series', 'sense:outfit')),
     ('относить', ('sense:carry', 'sense:relation')),
-    ('относиться', ('sense:carry', 'sense:relation')),
+    ('относиться', ('sense:relation',)),
     ('доносить', ('sense:carry', 'sense:denunciation', 'sense:wear')),
     ('доноситься', ('sense:carry', 'sense:denunciation')),
     ('поносить', ('sense:wear', 'sense:diarrhea', 'sense:insult')),
@@ -6748,7 +6748,7 @@ MULTI_READINGS = MULTI_READINGS + (
 # Explicitly reviewed lexical families requested from Censorly daily-article
 # analysis. These families are missing or unresolved in the dictionaries;
 # keep each pair together without adding a productive suffix rule.
-CLUSTERS = CLUSTERS + (
+_LATE_REVIEW_SPLITS = (
     ('sense:drum', ('барабан', 'барабанщик')),
     ('sense:gladiator', ('гладиатор', 'гладиаторский')),
     ('sense:contraband', ('контрабанда', 'контрабандист')),
@@ -6758,4 +6758,28 @@ CLUSTERS = CLUSTERS + (
     ('sense:patriot', ('патриот', 'патриотизм')),
     ('sense:automobile', ('автомобиль', 'автомобильный')),
     ('sense:program', ('программа', 'программный')),
+    ('sense:relation_narrow', ('относиться',)),
+    ('sense:review_husband', (
+        'муж',
+    )),
+    ('sense:review_manhood_narrow', (
+        'возмужалость', 'возмужалый', 'возмужание', 'возмужать', 'мужать',
+        'мужаться', 'муженёк', 'мужественность', 'мужественный', 'мужество',
+        'мужик', 'мужиковатость', 'мужиковатый', 'мужицкий', 'мужичий',
+        'мужичка', 'мужичок', 'мужичонка', 'мужичьё', 'мужлан', 'мужской',
+        'мужчина',
+    )),
+    ('sense:hour', (
+        'подчас', 'подчасок', 'почасный', 'почасовик', 'почасовой', 'час',
+        'часик', 'часики', 'часовой', 'часок', 'часом', 'часочек',
+    )),
+    ('sense:chapel', ('часовенка', 'часовенный', 'часовня')),
+    ('sense:watchmaker', ('часовщик', 'часовщичий')),
 )
+_LATE_REVIEW_LEMMAS = frozenset(
+    lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
+)
+CLUSTERS = tuple(
+    (name, tuple(lemma for lemma in lemmas if lemma not in _LATE_REVIEW_LEMMAS))
+    for name, lemmas in CLUSTERS
+) + _LATE_REVIEW_SPLITS
