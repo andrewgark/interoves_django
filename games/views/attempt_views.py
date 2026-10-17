@@ -1010,7 +1010,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
         result['analytics_events'] = analytics_events
     if replay_available:
         result['replay_available'] = True
-    if credited['answer']:
+    if credited_any:
         update_html = update_task_html(
             request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
             replay_slot=replay_slot,
@@ -1025,7 +1025,10 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
                 user=user,
                 anon_key=anon_key,
                 current_mode=current_mode,
-                reason='attempt.submitted',
+                reason=(
+                    'attempt.submitted' if credited['answer']
+                    else 'word_salad.side_find'
+                ),
             )
         result.update(update_html)
     return result

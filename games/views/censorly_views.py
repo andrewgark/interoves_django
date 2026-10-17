@@ -307,6 +307,7 @@ def _censorly_timing_session_guard(
             user=user,
             anon_key=anon_key,
             session_id=body.get('timing_session_id'),
+        )
 
     return guard
 
@@ -327,6 +328,7 @@ def _censorly_timing_session_precheck(
             user=user,
             anon_key=anon_key,
             session_id=body.get('timing_session_id'),
+        )
 
     return precheck
 
@@ -1125,6 +1127,12 @@ def censorly_guess(request, number=None, share_hash=None):
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
     )
+    if result.get('status') in ('hit', 'miss', 'won'):
+        from games.daily.realtime import publish_actor_state_change
+        publish_actor_state_change(
+            task=task, game=game, user=user, replay_slot=replay_slot,
+            reason='censorly.state_changed',
+        )
     # The compact meta bar does not change for ordinary hit/miss guesses.
     # Rendering it performs several unrelated DB reads, so refresh it only
     # when the solve result can actually change its visible values.
@@ -1203,12 +1211,19 @@ def censorly_hint(request, number=None, share_hash=None):
             ),
             timing_session_guard=timing_session_guard,
             replay_slot=replay_slot,
+        )
     except TimingSessionNotActive as exc:
         return _daily_timing_inactive_response(exc)
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
     )
+    if result.get('status') in ('hint', 'won'):
+        from games.daily.realtime import publish_actor_state_change
+        publish_actor_state_change(
+            task=task, game=game, user=user, replay_slot=replay_slot,
+            reason='censorly.state_changed',
+        )
     result = _with_meta_bar(
         result,
         request,

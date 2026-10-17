@@ -53,6 +53,14 @@
     }
   }
 
+  function dispatchPageSyncEvent(name, detail) {
+    var doc = global.document;
+    if (!doc || typeof doc.dispatchEvent !== 'function' || typeof global.CustomEvent !== 'function') return false;
+    var event = new global.CustomEvent(name, {detail: detail});
+    doc.dispatchEvent(event);
+    return true;
+  }
+
   function taskChangeMatchesPageMode(msg) {
     var body = global.document && global.document.body;
     var mode = body && body.getAttribute
@@ -65,7 +73,7 @@
   }
 
   function acceptFreshSequence(msg, seen) {
-    if (!msg || typeof msg.seq !== 'number') return true;
+    if (!msg || typeof msg.seq !== 'number' || !Number.isFinite(msg.seq)) return true;
     var namespace = String(msg.seq_namespace || 'legacy');
     var previous = seen[namespace];
     if (typeof previous === 'number' && msg.seq <= previous) return false;
@@ -167,7 +175,7 @@
    * Persistent WebSocket with exponential reconnect backoff and revision sync.
    * onMessage(msg) receives parsed JSON except ping/pong.
    */
-  function openTrackSocket(url, onMessage, onResync, onSynced) {
+  function openTrackSocket(url, onMessage, onResync, onSynced, isRelevantMessage) {
     var delay = RECONNECT_MIN_MS;
     var socket = null;
     var pingTimer = null;
@@ -198,6 +206,50 @@
       });
     }
 
+    function replaceSeenVersions(versions) {
+      if (!versions || typeof versions !== 'object') return;
+      Object.keys(versions).forEach(function (namespace) {
+        var value = Number(versions[namespace]);
+        if (Number.isFinite(value) && value >= 0) seenSequences[namespace] = value;
+      });
+    }
+
+    function processMessage(msg) {
+      // Filter scope before sequence tracking: another open game must not
+      // advance this socket's revision or trigger a false gap/reconciliation.
+      if (typeof isRelevantMessage === 'function' && !isRelevantMessage(msg)) return;
+      if (resyncing) {
+        queuedMessages.push(msg);
+        return;
+      }
+      if (msg && typeof msg.seq === 'number' && Number.isFinite(msg.seq)) {
+        var namespace = String(msg.seq_namespace || 'legacy');
+        var previous = seenSequences[namespace];
+        if (typeof previous === 'number' && msg.seq > previous + 1) {
+          queuedMessages.push(msg);
+          if (typeof onResync !== 'function') {
+            reloadTrackEventOnce('sequence-gap:' + url + ':' + namespace);
+            return;
+          }
+          var versions = {};
+          versions[namespace] = msg.seq;
+          var gap = {
+            type: 'track.resync_required',
+            versions: versions,
+            missed: versions,
+          };
+          runReconcile(
+            function () { return onResync(gap); }, true,
+            'sequence-gap:' + url + ':' + namespace,
+            versions,
+          );
+          return;
+        }
+      }
+      if (!acceptFreshSequence(msg, seenSequences)) return;
+      if (typeof onMessage === 'function') onMessage(msg);
+    }
+
     function flushQueuedMessages() {
       var messages = queuedMessages;
       queuedMessages = [];
@@ -205,15 +257,29 @@
         return Number(left.seq || 0) - Number(right.seq || 0);
       });
       messages.forEach(function (msg) {
-        if (!acceptFreshSequence(msg, seenSequences)) return;
-        if (typeof onMessage === 'function') onMessage(msg);
+        processMessage(msg);
       });
     }
 
-    function runReconcile(work, fallbackToReload, fallbackKey, versions) {
+    function runReconcile(work, fallbackToReload, fallbackKey, versions, resetNamespaces) {
       resyncing = true;
+      try {
+        if (typeof work === 'function') work = work();
+      } catch (error) {
+        work = Promise.reject(error);
+      }
       Promise.resolve(work).then(function (result) {
         advanceSeenVersions((result && result.versions) || versions);
+        if (resetNamespaces && resetNamespaces.length) {
+          var resetVersions = (result && result.versions) || versions || {};
+          var exactReset = {};
+          resetNamespaces.forEach(function (namespace) {
+            if (Object.prototype.hasOwnProperty.call(resetVersions, namespace)) {
+              exactReset[namespace] = resetVersions[namespace];
+            }
+          });
+          replaceSeenVersions(exactReset);
+        }
         resyncing = false;
         flushQueuedMessages();
       }).catch(function () {
@@ -283,26 +349,20 @@
               return;
             }
             runReconcile(
-              onResync(msg), true, 'resync:' + url, msg.versions
+              function () { return onResync(msg); },
+              true, 'resync:' + url, msg.versions,
+              msg.reset && Object.keys(msg.reset)
             );
             return;
           }
           if (msg.type === 'track.synced') {
             rememberSyncBaseline(msg.versions);
             if (typeof onSynced === 'function' && !resyncing) {
-              var syncedWork = onSynced(msg);
-              if (syncedWork && typeof syncedWork.then === 'function') {
-                runReconcile(syncedWork, false, '', msg.versions);
-              }
+              runReconcile(function () { return onSynced(msg); }, false, '', msg.versions);
             }
             return;
           }
-          if (resyncing) {
-            queuedMessages.push(msg);
-            return;
-          }
-          if (!acceptFreshSequence(msg, seenSequences)) return;
-          if (typeof onMessage === 'function') onMessage(msg);
+          processMessage(msg);
         } catch (e) {}
       };
 
@@ -366,16 +426,51 @@
         return;
       }
       if (!taskChangeMatchesPageMode(msg)) return;
+      dispatchPageSyncEvent('interoves:track-task-changed', {
+        gameId: String(gameId),
+        taskId: msg.task == null ? '' : String(msg.task),
+        reason: msg.reason || '',
+      });
       applyTaskUpdates(msg);
-    }, function () {
+    }, function (msg) {
+      var detail = {
+        gameId: String(gameId),
+        versions: (msg && msg.versions) || {},
+        promise: null,
+      };
+      dispatchPageSyncEvent('interoves:track-resync', detail);
+      if (detail.promise && typeof detail.promise.then === 'function') {
+        return detail.promise.then(function () {
+          return {versions: detail.versions};
+        });
+      }
       return reconcileTaskGroup(global.document);
-    }, function () {
+    }, function (msg) {
       var body = global.document && global.document.body;
-      if (
-        initialReconciled || initialReconcileInFlight || !body ||
-        !body.getAttribute('data-track-live-state-url')
-      ) return;
+      if (initialReconciled || initialReconcileInFlight) return;
       initialReconcileInFlight = true;
+      var detail = {
+        gameId: String(gameId),
+        versions: (msg && msg.versions) || {},
+        initial: true,
+        promise: null,
+      };
+      dispatchPageSyncEvent('interoves:track-synced', detail);
+      if (detail.promise && typeof detail.promise.then === 'function') {
+        return detail.promise.then(function (data) {
+          initialReconciled = true;
+          initialReconcileInFlight = false;
+          return data || {versions: detail.versions};
+        }).catch(function (error) {
+          initialReconcileInFlight = false;
+          throw error;
+        });
+      }
+      if (!body || !body.getAttribute('data-track-live-state-url')) {
+        initialReconciled = true;
+        initialReconcileInFlight = false;
+        return;
+      }
       return reconcileTaskGroup(global.document).then(function (data) {
         initialReconciled = true;
         initialReconcileInFlight = false;
@@ -385,6 +480,13 @@
         initialReconcileInFlight = false;
         throw new Error('initial live-state reconciliation failed');
       });
+    }, function (msg) {
+      if (!msg) return false;
+      var eventGameId = msg.game_id;
+      if (eventGameId == null && msg.type === 'track.event' && msg.payload) {
+        eventGameId = msg.payload.game_id;
+      }
+      return eventGameId == null || String(eventGameId) === String(gameId);
     });
   }
 

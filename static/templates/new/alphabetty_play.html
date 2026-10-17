@@ -1,5 +1,5 @@
 {% extends "new/base.html" %}
-{% block body_attrs %}data-game-state-page="1"{% endblock %}
+{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="personal"{% endblock %}
 {% load filters static %}
 {% block title %}{{ page_title }}{% endblock %}
 {% block content %}
@@ -46,6 +46,8 @@
   {% include "new/task-content/task-meta-bar.html" %}
   <div class="new-taskcard__body">
 <div class="new-alphabetty" id="alphabetty-root"
+     data-game-id="{{ game.id }}"
+     data-task-id="{{ task.id }}"
      data-guess-url="{{ guess_url }}"
      data-state-url="{{ state_url }}"
      data-prefix-url="{{ prefix_url }}"
@@ -208,6 +210,11 @@
   var prefixOpen = false;
   var busy = false;
   var stateGen = 0;
+  var actorSyncInFlight = false;
+  var actorSyncPending = false;
+  var actorSyncGeneration = 0;
+  var actorSyncPromise = null;
+  var actorSyncWaiters = [];
 
   var elAbove = document.getElementById('ab-above');
   var elBelow = document.getElementById('ab-below');
@@ -743,7 +750,9 @@
     }
   }
 
-  function applyState(data) {
+  function applyState(data, opts) {
+    opts = opts || {};
+    var inputHadFocus = document.activeElement === input;
     ['guesses', 'earlier', 'later', 'bounds', 'known_prefix', 'hint_prefix', 'hints', 'next_hint_letter', 'prefix_hint', 'hint_reveal', 'won', 'attempts', 'secret', 'max_word_length', 'share_lines', 'share_text', 'share_card', 'elapsed_label', 'attempts_label'].forEach(function (k) {
       if (data[k] !== undefined) state[k] = data[k];
     });
@@ -753,9 +762,88 @@
     expanded = {};
     preservePageScroll(function () {
       renderBoard();
-      if (!state.won) focusInput();
+      if (!state.won && (!opts.remote || inputHadFocus)) focusInput();
     });
   }
+
+  function syncActorState() {
+    if (!isAuthenticated || !stateUrl) return Promise.reject(new Error('state unavailable'));
+    if (busy) {
+      actorSyncPending = true;
+      return new Promise(function (resolve, reject) {
+        actorSyncWaiters.push({resolve: resolve, reject: reject});
+      });
+    }
+    if (actorSyncInFlight) {
+      actorSyncPending = true;
+      return actorSyncPromise;
+    }
+    actorSyncPending = false;
+    actorSyncInFlight = true;
+    var requestGeneration = actorSyncGeneration;
+    actorSyncPromise = fetch(stateUrl, {
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+    }).then(function (response) {
+      if (!response.ok) throw new Error('state unavailable');
+      return response.json();
+    }).then(function (data) {
+      if (!data || data.status !== 'ok') throw new Error('state unavailable');
+      if (requestGeneration !== actorSyncGeneration) {
+        actorSyncPending = true;
+        return;
+      }
+      if (busy) actorSyncPending = true;
+      else if (JSON.stringify([
+        state.guesses || [], state.hint_prefix || '', state.hints || 0, !!state.won,
+      ]) !== JSON.stringify([
+        data.guesses || [], data.hint_prefix || '', data.hints || 0, !!data.won,
+      ])) applyState(data, {remote: true});
+    }).then(function (data) {
+      actorSyncInFlight = false;
+      if (actorSyncPending && !busy) {
+        actorSyncPending = false;
+        return syncActorState().then(function () { return data; });
+      }
+      return data;
+    }, function (error) {
+      actorSyncInFlight = false;
+      if (actorSyncPending && !busy) {
+        actorSyncPending = false;
+        return syncActorState();
+      }
+      throw error;
+    });
+    actorSyncPromise.then(function () {
+      if (actorSyncPending || actorSyncInFlight) return;
+      actorSyncWaiters.splice(0).forEach(function (waiter) { waiter.resolve(); });
+    }, function (error) {
+      actorSyncWaiters.splice(0).forEach(function (waiter) { waiter.reject(error); });
+    });
+    return actorSyncPromise;
+  }
+
+  function onActorTrackEvent(event) {
+    var detail = event && event.detail || {};
+    if (String(detail.gameId || '') !== String(root.getAttribute('data-game-id') || '')) return;
+    if (detail.taskId && String(detail.taskId) !== String(root.getAttribute('data-task-id') || '')) return;
+    actorSyncGeneration += 1;
+    syncActorState().catch(function () {});
+  }
+  document.addEventListener('interoves:track-task-changed', onActorTrackEvent);
+  document.addEventListener('interoves:track-synced', function (event) {
+    var detail = event && event.detail || {};
+    if (!detail.initial || String(detail.gameId || '') !== String(root.getAttribute('data-game-id') || '')) return;
+    actorSyncGeneration += 1;
+    detail.promise = syncActorState();
+  });
+  document.addEventListener('interoves:track-resync', function (event) {
+    var detail = event && event.detail || {};
+    if (String(detail.gameId || '') !== String(root.getAttribute('data-game-id') || '')) return;
+    actorSyncGeneration += 1;
+    detail.promise = syncActorState();
+  });
 
   function replaceMetaBar(html) {
     if (!elTaskMeta || !html) return;
@@ -960,6 +1048,7 @@
     busy = true;
     showMsg('');
     stateGen += 1;
+    actorSyncGeneration += 1;
     var headers = gameplayHeaders();
     function recoverGuessFromState() {
       if (!stateUrl) return Promise.reject(new Error('Состояние игры недоступно'));
@@ -1069,7 +1158,11 @@
           showMsg((e && e.message) || 'Сеть недоступна', 'error');
         });
       })
-      .finally(function () { busy = false; updateHintButton(); });
+      .finally(function () {
+        busy = false;
+        updateHintButton();
+        if (actorSyncPending) syncActorState().catch(function () {});
+      });
   }
 
   function takeAlphabettyHint() {
@@ -1078,6 +1171,7 @@
     updateHintButton();
     showMsg('');
     stateGen += 1;
+    actorSyncGeneration += 1;
     var headers = gameplayHeaders();
     fetch(hintUrl, {
       method: 'POST',
@@ -1111,7 +1205,11 @@
         if (data.hint_reveal) showHintReveal(data.hint_reveal);
       })
       .catch(function (e) { showMsg((e && e.message) || 'Сеть недоступна', 'error'); })
-      .finally(function () { busy = false; updateHintButton(); });
+      .finally(function () {
+        busy = false;
+        updateHintButton();
+        if (actorSyncPending) syncActorState().catch(function () {});
+      });
   }
 
   if (elHint) {

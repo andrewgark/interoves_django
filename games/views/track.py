@@ -23,6 +23,7 @@ cannot block Daphne application close (prod 504 / "took too long to shut down").
 import asyncio
 import hashlib
 import logging
+import queue
 import socket
 import threading
 import time
@@ -51,6 +52,47 @@ _track_redis_clients = weakref.WeakKeyDictionary()
 _open_track_sockets = 0
 _open_track_sockets_lock = threading.Lock()
 
+_CHANNEL_BROADCAST_QUEUE_MAXSIZE = 64
+_CHANNEL_BROADCAST_WORKER_COUNT = 2
+_channel_broadcast_queue = queue.Queue(maxsize=_CHANNEL_BROADCAST_QUEUE_MAXSIZE)
+_channel_broadcast_workers_lock = threading.Lock()
+_channel_broadcast_workers_started = False
+
+
+def _channel_broadcast_worker():
+    while True:
+        job = _channel_broadcast_queue.get()
+        try:
+            job()
+        except Exception:
+            logger.exception('Channel broadcast worker failed')
+        finally:
+            _channel_broadcast_queue.task_done()
+
+
+def _enqueue_channel_broadcast(job):
+    """Run broadcasts on a fixed worker pool; drop with a revision gap on overload."""
+    global _channel_broadcast_workers_started
+    if not _channel_broadcast_workers_started:
+        with _channel_broadcast_workers_lock:
+            if not _channel_broadcast_workers_started:
+                for index in range(_CHANNEL_BROADCAST_WORKER_COUNT):
+                    threading.Thread(
+                        target=_channel_broadcast_worker,
+                        daemon=True,
+                        name='interoves_channel_broadcast_{}'.format(index + 1),
+                    ).start()
+                _channel_broadcast_workers_started = True
+    try:
+        _channel_broadcast_queue.put_nowait(job)
+    except queue.Full:
+        logger.error(
+            'Channel broadcast queue full; dropping notification queue_size=%s',
+            _channel_broadcast_queue.qsize(),
+        )
+        return False
+    return True
+
 
 def _track_ws_open_delta(delta: int) -> int:
     global _open_track_sockets
@@ -61,6 +103,10 @@ def _track_ws_open_delta(delta: int) -> int:
 
 class TrackWsLifecycleMixin:
     """Ping/pong, idle close, and timed channel-layer group_discard."""
+
+    async def _ensure_current_access(self):
+        # The user-only hub has no game authorization to recheck.
+        return True
 
     def _track_touch_activity(self):
         self._track_last_activity = time.monotonic()
@@ -134,9 +180,13 @@ class TrackWsLifecycleMixin:
     async def receive_json(self, content, **kwargs):
         self._track_touch_activity()
         if isinstance(content, dict) and content.get('type') == 'ping':
+            if not await self._ensure_current_access():
+                return
             await self.send_json({'type': 'pong'})
             return
         if isinstance(content, dict) and content.get('type') == 'track.sync':
+            if not await self._ensure_current_access():
+                return
             seen = content.get('seen')
             if not isinstance(seen, dict):
                 seen = {}
@@ -145,6 +195,11 @@ class TrackWsLifecycleMixin:
                 namespace: current
                 for namespace, current in versions.items()
                 if namespace in seen and _track_seq_int(seen.get(namespace)) < current
+            }
+            reset = {
+                namespace: current
+                for namespace, current in versions.items()
+                if namespace in seen and _track_seq_int(seen.get(namespace)) > current
             }
             log_realtime_sync(
                 'reconcile_request',
@@ -155,9 +210,10 @@ class TrackWsLifecycleMixin:
                 missed_namespaces=list(missed),
             )
             await self.send_json({
-                'type': 'track.resync_required' if missed else 'track.synced',
+                'type': 'track.resync_required' if missed or reset else 'track.synced',
                 'versions': versions,
                 'missed': missed,
+                'reset': reset,
             })
             return
         await super().receive_json(content, **kwargs)
@@ -165,14 +221,16 @@ class TrackWsLifecycleMixin:
 
 def _schedule_channel_broadcast(fn, *, prepare=None):
     """
-    Run fn after DB commit. Default: fn runs in a daemon thread so async_to_sync(group_send)
-    does not block the Daphne/ASGI loop waiting on Redis (production symptom: POST hangs, :6379 in stack).
+    Run fn after DB commit. Sequence allocation stays in commit-callback order;
+    channel-layer I/O runs on a bounded daemon worker pool so Redis waits do not
+    create one unbounded thread per mutation or block the request path.
     """
 
     def after_commit():
         # Allocate ordering metadata synchronously in commit-callback order.
-        # Redis I/O remains deferred, but a slower older thread can no longer
-        # receive a newer seq and overwrite fresher HTML on the client.
+        # Revision allocation remains synchronous to preserve commit ordering;
+        # channel-layer I/O is deferred. A slower worker cannot make an older
+        # event receive a newer sequence and overwrite fresher HTML.
         try:
             prepared = prepare() if prepare is not None else None
         except Exception:
@@ -186,11 +244,7 @@ def _schedule_channel_broadcast(fn, *, prepare=None):
                 logger.exception('Channel broadcast failed')
 
         if getattr(settings, 'DEFER_CHANNEL_BROADCAST', True):
-            threading.Thread(
-                target=run_safe,
-                daemon=True,
-                name='interoves_channel_broadcast',
-            ).start()
+            _enqueue_channel_broadcast(run_safe)
         else:
             run_safe()
 
@@ -239,6 +293,7 @@ CHANNEL_GROUPS = {
     'game_team': _game_team_group,
     'game_team_legacy': _legacy_game_team_group,
     'user': (lambda user_id: f'track.user.{user_id}'),
+    'user_game': (lambda user_id, game_id: f'track.user.{user_id}.game.{_channel_group_component(game_id, max_length=32)}'),
 
     # 'game_results': (lambda game_id: f'track.game.{game_id}.results'),
     # 'total_results': (lambda project_id: f'track.project.{project_id}.total_results'),
@@ -258,6 +313,10 @@ def user_track_namespace(user_id) -> str:
     return f'user:{user_id}'
 
 
+def user_game_track_namespace(user_id, game_id) -> str:
+    return f'user:{user_id}:game:{game_id}'
+
+
 def _track_seq_int(value) -> int:
     try:
         return max(0, int(value))
@@ -275,6 +334,8 @@ def current_track_versions(game_id=None, *, user_id=None, team_id=None) -> dict:
         namespaces.append(game_track_namespace(game_id))
     if user_id is not None:
         namespaces.append(user_track_namespace(user_id))
+        if game_id is not None:
+            namespaces.append(user_game_track_namespace(user_id, game_id))
     if game_id is not None and team_id is not None:
         namespaces.append(team_track_namespace(game_id, team_id))
     return {namespace: current_track_seq(namespace) for namespace in namespaces}
@@ -605,6 +666,7 @@ def build_event_task_change(
         'type': 'task.changed',
         'task': task.id,
         'by': by,
+        'game_id': str(game.id) if game is not None else None,
     }
     if reason:
         channel_event['reason'] = reason
@@ -643,7 +705,7 @@ def track_task_change(
         if team is not None:
             return team_track_namespace(g.id, team.pk)
         if user is not None:
-            return user_track_namespace(user.id)
+            return user_game_track_namespace(user.id, g.id)
         return game_track_namespace(g.id)
 
     def prepare():
@@ -694,7 +756,7 @@ def track_task_change(
                     delivery='user',
                 )
                 async_to_sync(channel_layer.group_send)(
-                    CHANNEL_GROUPS['user'](user.id),
+                    CHANNEL_GROUPS['user_game'](user.id, g.id),
                     channel_event,
                 )
             elif anon_key:
@@ -829,6 +891,7 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
             else None
         )
         self.group_user = CHANNEL_GROUPS['user'](user_id)
+        self.group_user_game = CHANNEL_GROUPS['user_game'](user_id, game_id)
 
         await self.accept()
 
@@ -841,6 +904,7 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
                     self.group_game_team_legacy, self.channel_name,
                 )
             await self.channel_layer.group_add(self.group_user, self.channel_name)
+            await self.channel_layer.group_add(self.group_user_game, self.channel_name)
         await self._track_start_lifecycle()
 
     @database_sync_to_async
@@ -850,6 +914,40 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
             user_id=self.user_id,
             team_id=self.team_id,
         )
+
+    @database_sync_to_async
+    def _has_current_access(self):
+        """Recheck game access and the actor represented by this socket."""
+        user = self.scope['user']
+        if not getattr(user, 'is_authenticated', False):
+            return False
+        game = Game.objects.filter(pk=self.game_id).first()
+        if game is None:
+            return False
+        profile = getattr(user, 'profile', None)
+        current_team = profile.team_on if profile is not None else None
+        if not game.has_access('see_game_preview', team=current_team):
+            return False
+        selected_team, _actor_user, _mode = live_page_actor_for_mode(
+            user,
+            self.scope.get('session'),
+            game,
+            requested_mode=self.play_mode,
+        )
+        selected_team_id = selected_team.pk if selected_team is not None else None
+        return selected_team_id == self.team_id
+
+    async def _ensure_current_access(self):
+        if await self._has_current_access():
+            return True
+        logger.info(
+            'track_websocket_access_revoked game_id=%s user_id=%s team_id=%s',
+            getattr(self, 'game_id', None),
+            getattr(self, 'user_id', None),
+            getattr(self, 'team_id', None),
+        )
+        await self.close(code=4403)
+        return False
 
     @database_sync_to_async
     def _build_task_changed_for_admin(self, event):
@@ -866,6 +964,8 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
         )
 
     async def task_changed(self, event):
+        if not await self._ensure_current_access():
+            return
         self._track_touch_activity()
         log_realtime_sync(
             'deliver', game_id=getattr(self, 'game_id', None),
@@ -902,6 +1002,7 @@ class TrackGame(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):
         await self._track_group_discard(getattr(self, 'group_game_team', None))
         await self._track_group_discard(getattr(self, 'group_game_team_legacy', None))
         await self._track_group_discard(getattr(self, 'group_user', None))
+        await self._track_group_discard(getattr(self, 'group_user_game', None))
 
 
 class UserTrackConsumer(TrackWsLifecycleMixin, AsyncJsonWebsocketConsumer):

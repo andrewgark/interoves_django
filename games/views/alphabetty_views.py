@@ -818,6 +818,12 @@ def alphabetty_guess(request, number):
                 ))
     if analytics_events:
         result['analytics_events'] = analytics_events
+    if result.get('status') in ('earlier', 'later', 'correct'):
+        from games.daily.realtime import publish_actor_state_change
+        publish_actor_state_change(
+            task=task, game=game, user=user, replay_slot=replay_slot,
+            reason='alphabetty.state_changed',
+        )
     with timing_phase(request, 'render_meta'):
         result = _with_meta_bar(
             result,
@@ -898,6 +904,11 @@ def alphabetty_hint(request, number):
         replay_slot=replay_slot,
     )
     if result.get('status') == 'ok':
+        from games.daily.realtime import publish_actor_state_change
+        publish_actor_state_change(
+            task=task, game=game, user=user, replay_slot=replay_slot,
+            reason='alphabetty.state_changed',
+        )
         analytics_events = [] if replay_slot is not None else register_started_game(
             user=user,
             anon_key=anon_key,

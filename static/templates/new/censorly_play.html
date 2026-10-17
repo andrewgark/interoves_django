@@ -1,5 +1,5 @@
 {% extends "new/base.html" %}
-{% block body_attrs %}data-game-state-page="1"{% endblock %}
+{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="personal"{% endblock %}
 {% load static %}
 {% block title %}{{ page_title }}{% endblock %}
 {% block extrahead %}
@@ -101,6 +101,7 @@
 {% if daily_timing_enabled %}<div class="new-daily-solve"><div class="new-daily-solve__stage">{% include "new/partials/daily_solve_pause_overlay.html" %}<div data-daily-solve-board>{% endif %}
 <div class="censorly" id="censorly-root"
      data-game-id="{{ game.id }}"
+     data-task-id="{{ task.id }}"
      data-guess-url="{{ guess_url }}"
      data-state-url="{{ state_url }}"
      data-hint-url="{{ hint_url }}"

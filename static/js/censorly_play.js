@@ -961,12 +961,106 @@
     var hintMode = root.querySelector('#censorly-hint-mode');
     var busy = false;
     var hasLocalAction = false;
+    var actorSyncInFlight = false;
+    var actorSyncPending = false;
+    var actorSyncGeneration = 0;
+    var actorSyncPromise = null;
+    var actorSyncWaiters = [];
     var preferences = readDisplayPreferences();
     var scrollMode = syncScrollSettings(root, scrollMenu, preferences.scrollMode || root.getAttribute('data-scroll-mode'));
     var showEndings = typeof preferences.showEndings === 'boolean'
       ? preferences.showEndings
       : state.show_mask_endings !== false;
     var showLengths = preferences.showLengths === true;
+
+    function syncActorState() {
+      if (!stateUrl) return Promise.reject(new Error('state unavailable'));
+      if (busy) {
+        actorSyncPending = true;
+        return new Promise(function (resolve, reject) {
+          actorSyncWaiters.push({resolve: resolve, reject: reject});
+        });
+      }
+      if (actorSyncInFlight) {
+        actorSyncPending = true;
+        return actorSyncPromise;
+      }
+      actorSyncInFlight = true;
+      actorSyncPending = false;
+      var requestGeneration = actorSyncGeneration;
+      actorSyncPromise = fetch(stateUrl, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      }).then(function (response) {
+        if (!response.ok) throw new Error('state unavailable');
+        return response.json();
+      }).then(function (data) {
+        if (!data || data.status !== 'ok') throw new Error('state unavailable');
+        if (requestGeneration !== actorSyncGeneration) {
+          actorSyncPending = true;
+          return;
+        }
+        if (busy) actorSyncPending = true;
+        else {
+          var current = root._censorlyState || {};
+          var before = JSON.stringify([
+            current.guesses || [], current.hints || current.hints_taken || 0,
+            current.hinted_lemmas || [], !!current.won,
+          ]);
+          var after = JSON.stringify([
+            data.guesses || [], data.hints || data.hints_taken || 0,
+            data.hinted_lemmas || [], !!data.won,
+          ]);
+          if (before !== after) applyState(root, data, { preserveLen: true });
+        }
+      }).then(function (data) {
+        actorSyncInFlight = false;
+        if (actorSyncPending && !busy) {
+          actorSyncPending = false;
+          return syncActorState().then(function () { return data; });
+        }
+        return data;
+      }, function (error) {
+        actorSyncInFlight = false;
+        if (actorSyncPending && !busy) {
+          actorSyncPending = false;
+          return syncActorState();
+        }
+        throw error;
+      });
+      actorSyncPromise.then(function () {
+        if (actorSyncPending || actorSyncInFlight) return;
+        var waiters = actorSyncWaiters.splice(0);
+        waiters.forEach(function (waiter) { waiter.resolve(); });
+      }, function (error) {
+        var waiters = actorSyncWaiters.splice(0);
+        waiters.forEach(function (waiter) { waiter.reject(error); });
+      });
+      return actorSyncPromise;
+    }
+
+    function onActorTrackEvent(event) {
+      var detail = event && event.detail || {};
+      if (String(detail.gameId || '') !== String(root.getAttribute('data-game-id') || '')) return;
+      if (detail.taskId && String(detail.taskId) !== String(root.getAttribute('data-task-id') || '')) return;
+      actorSyncGeneration += 1;
+      syncActorState().catch(function () {});
+    }
+
+    document.addEventListener('interoves:track-task-changed', onActorTrackEvent);
+    document.addEventListener('interoves:track-synced', function (event) {
+      var detail = event && event.detail || {};
+      if (!detail.initial || String(detail.gameId || '') !== String(root.getAttribute('data-game-id') || '')) return;
+      actorSyncGeneration += 1;
+      detail.promise = syncActorState();
+    });
+    document.addEventListener('interoves:track-resync', function (event) {
+      var detail = event && event.detail || {};
+      if (String(detail.gameId || '') !== String(root.getAttribute('data-game-id') || '')) return;
+      actorSyncGeneration += 1;
+      detail.promise = syncActorState();
+    });
 
     root.classList.toggle('censorly--show-endings', showEndings);
     root.classList.toggle('censorly--show-lengths', showLengths);
@@ -1114,6 +1208,7 @@
           }
           if (busy) return;
           busy = true;
+          actorSyncGeneration += 1;
           hasLocalAction = true;
           postJson(hintUrl, { token_id: Number(mask.dataset.id) }, root)
             .then(function (data) {
@@ -1138,7 +1233,10 @@
             .catch(function () {
               setFeedback(root, 'Сеть недоступна', 'error');
             })
-            .finally(function () { busy = false; });
+            .finally(function () {
+              busy = false;
+              if (actorSyncPending) syncActorState().catch(function () {});
+            });
           return;
         }
         // Per-token length override (2-state, depends on global toggle).
@@ -1188,6 +1286,7 @@
         var word = (input.value || '').trim();
         if (!word) return;
         busy = true;
+        actorSyncGeneration += 1;
         var submit = root.querySelector('#censorly-submit');
         if (submit) {
           submit.classList.add('is-loading');
@@ -1247,6 +1346,7 @@
           })
           .finally(function () {
             busy = false;
+            if (actorSyncPending) syncActorState().catch(function () {});
             if (submit) {
               submit.classList.remove('is-loading');
               submit.setAttribute('aria-busy', 'false');
