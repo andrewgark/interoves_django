@@ -152,6 +152,7 @@
     var status = bootstrap.status || (solved ? 'completed' : 'auto_paused');
     var completed = !!bootstrap.completed || status === 'completed' || solved;
     var manuallyPaused = !!bootstrap.manually_paused || status === 'manually_paused';
+    var resumeRequired = false;
     var authoritative = !!bootstrap.is_authoritative;
     var exists = !!bootstrap.exists;
     var runningSince = null;
@@ -206,6 +207,7 @@
         manually_paused: manuallyPaused,
         completed: completed,
         exists: exists,
+        resume_required: resumeRequired,
       };
     }
 
@@ -213,7 +215,7 @@
       var ms = displayedMs();
       if (displayEl) displayEl.textContent = formatElapsed(ms);
       if (toggleBtn) {
-        var paused = manuallyPaused;
+        var paused = manuallyPaused || resumeRequired;
         toggleBtn.setAttribute('aria-expanded', (!paused && popover && !popover.hidden) ? 'true' : 'false');
         toggleBtn.setAttribute('aria-label', paused ? 'Продолжить задание' : 'Показать время решения');
       }
@@ -226,18 +228,15 @@
             ? 'Не удалось запустить таймер. Время решения пока не записывается.'
             : '');
       }
-      if (toggleLabel) toggleLabel.textContent = manuallyPaused ? 'Продолжить' : '';
-      if (popover && manuallyPaused) popover.hidden = true;
+      if (toggleLabel) toggleLabel.textContent = (manuallyPaused || resumeRequired) ? 'Продолжить' : '';
+      if (popover && (manuallyPaused || resumeRequired)) popover.hidden = true;
       if (rootEl) {
         rootEl.hidden = completed;
         rootEl.classList.toggle('is-paused', manuallyPaused || (!authoritative && !completed && status !== 'running'));
         rootEl.classList.toggle('is-completed', completed);
       }
-      if (pauseBtn) pauseBtn.hidden = completed;
-      var showOverlay = false;
-      if (!completed) {
-        if (manuallyPaused) showOverlay = true;
-      }
+      if (pauseBtn) pauseBtn.hidden = completed || resumeRequired;
+      var showOverlay = !completed && (manuallyPaused || resumeRequired);
       var wrap = boardEl && boardEl.closest ? boardEl.closest('.new-daily-solve') : null;
       if (wrap) {
         if (showOverlay) wrap.setAttribute('data-daily-paused', '');
@@ -262,12 +261,16 @@
         }
       }
       if (overlayTitle) {
-        overlayTitle.textContent = manuallyPaused ? 'Пауза' : 'Игра открыта в другой вкладке';
+        overlayTitle.textContent = manuallyPaused
+          ? 'Пауза'
+          : (resumeRequired ? 'Таймер остановлен' : 'Игра открыта в другой вкладке');
       }
       if (overlayText) {
         overlayText.textContent = manuallyPaused
           ? 'Время остановлено. Нажмите «Продолжить», чтобы вернуться к заданию.'
-          : 'Это задание открыто в другом окне. Нажмите «Продолжить», чтобы вести время здесь.';
+          : (resumeRequired
+            ? 'Вкладка долго не подтверждала активность. Время остановлено; нажмите «Продолжить», чтобы снова начать его учитывать.'
+            : 'Это задание открыто в другом окне. Нажмите «Продолжить», чтобы вести время здесь.');
       }
       onState(currentState());
     }
@@ -288,9 +291,11 @@
       if (completed) {
         status = 'completed';
         manuallyPaused = false;
+        resumeRequired = false;
       } else {
         manuallyPaused = !!snap.manually_paused || snap.status === 'manually_paused';
         status = snap.status || status;
+        if (incomingRunning && snap.is_authoritative) resumeRequired = false;
       }
       if (typeof snap.committed_ms === 'number') committedMs = snap.committed_ms;
       var incoming = Number(snap.accumulated_ms);
@@ -420,8 +425,18 @@
     }
 
     function failQueuedEvents(data) {
-      indicateDeliveryFailure();
       var failed = eventQueue.splice(0);
+      var heartbeatFailed = failed.some(function (item) {
+        return item.body && item.body.action === 'heartbeat';
+      });
+      indicateDeliveryFailure();
+      if (heartbeatFailed && !completed && !manuallyPaused) {
+        // The server may have expired the lease even though its response was
+        // lost. Require an explicit resume instead of silently restarting it
+        // when connectivity returns.
+        resumeRequired = true;
+        render();
+      }
       failed.forEach(function (item) { item.resolve(data || null); });
     }
 
@@ -450,6 +465,27 @@
               if (result.status) data._http_status = result.status;
               deliveryFailed = false;
               if (!destroyed) applySnapshot(data, { replace: true, requestSeq: item.body.seq });
+              if (
+                !destroyed
+                && item.body.action === 'heartbeat'
+                && data.status !== 'completed'
+                && !data.completed
+                && !data.manually_paused
+                && data.status !== 'manually_paused'
+                && !data.is_authoritative
+              ) {
+                // The server expired this tab's lease. Do not silently leave
+                // an editable board with a stopped clock: require a deliberate
+                // resume, which establishes a fresh interval.
+                resumeRequired = true;
+                authoritative = false;
+                runningSince = null;
+                var serverElapsed = Number(data.accumulated_ms);
+                if (isFinite(serverElapsed)) displayBaseMs = Math.max(0, serverElapsed);
+                var serverCommitted = Number(data.committed_ms);
+                if (isFinite(serverCommitted)) committedMs = Math.max(0, serverCommitted);
+                render();
+              }
               eventQueue.shift();
               if (item.expiryTimer && root.clearTimeout) root.clearTimeout(item.expiryTimer);
               item.resolve(data);
@@ -517,10 +553,21 @@
       });
     }
 
+    function retryAfterConnectivity() {
+      if (startFailed || deliveryFailed) {
+        startFailed = false;
+        startAttempts = 0;
+        startEvent = null;
+        startEventCreatedAt = 0;
+      }
+      startIfAllowed();
+    }
+
     if (root.addEventListener) {
       root.addEventListener('online', function () {
         if (eventQueue[0]) eventQueue[0].stalled = false;
         pumpEventQueue();
+        if (!completed && !manuallyPaused && !resumeRequired) retryAfterConnectivity();
       });
     }
 
@@ -529,7 +576,10 @@
     }
 
     function startIfAllowed() {
-      if (destroyed || completed || manuallyPaused || awaitingServer || startFailed) return;
+      if (
+        destroyed || completed || manuallyPaused || resumeRequired || awaitingServer
+        || startFailed || eventQueue.length || eventQueueRunning
+      ) return;
       if (visibilityOf(doc) !== 'visible') return;
       if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
       startRetryTimer = null;
@@ -635,11 +685,11 @@
     }
 
     function onVisible() {
-      if (completed || manuallyPaused) {
+      if (completed || manuallyPaused || resumeRequired) {
         render();
         return;
       }
-      startIfAllowed();
+      retryAfterConnectivity();
     }
 
     function pauseManual() {
@@ -655,14 +705,18 @@
     function resumeManual() {
       if (completed) return;
       manuallyPaused = false;
+      resumeRequired = false;
       started = true;
       awaitingServer = true;
       return post('resume').then(function (data) {
         awaitingServer = false;
         if (!data || !data.ok) {
-          manuallyPaused = true;
+          manuallyPaused = !!(data && (
+            data.manually_paused || data.status === 'manually_paused'
+          ));
+          resumeRequired = !manuallyPaused;
           authoritative = false;
-          status = 'manually_paused';
+          status = manuallyPaused ? 'manually_paused' : 'auto_paused';
         }
         render();
       });
@@ -705,7 +759,7 @@
     if (pauseBtn && pauseBtn.addEventListener) pauseBtn.addEventListener('click', pauseManual);
     if (resumeBtn && resumeBtn.addEventListener) resumeBtn.addEventListener('click', resumeManual);
     if (toggleBtn && toggleBtn.addEventListener) toggleBtn.addEventListener('click', function () {
-      if (manuallyPaused) {
+      if (manuallyPaused || resumeRequired) {
         resumeManual();
         return;
       }

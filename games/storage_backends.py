@@ -3,7 +3,7 @@ from django.conf import settings
 
 
 class StaticStorage(S3Boto3Storage):
-    location = 'static'
+    location = settings.STATIC_LOCATION
     default_acl = 'public-read'
 
     def url(self, name, parameters=None, expire=None, http_method=None):

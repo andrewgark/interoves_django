@@ -66,7 +66,8 @@ else
 fi
 
 workdir="$(mktemp -d /tmp/interoves-green-deploy.XXXXXX)"
-trap 'rm -rf "$workdir"' EXIT
+source "$ROOT/scripts/deploy_gate_cleanup.sh"
+deploy_gate_cleanup_install "$ROOT" "$workdir"
 bundle="$workdir/interoves-green.zip"
 release_source="${DEPLOY_SOURCE_DIR:-$ROOT}"
 if [[ -n "${PREBUILT_RELEASE_ARTIFACT:-}" ]]; then
@@ -96,18 +97,40 @@ key="interoves/green/${label}.zip"
 "$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk create-application-version \
     --region "$REGION" --application-name "$APP" --version-label "$label" \
     --source-bundle S3Bucket="$bucket",S3Key="$key" >/dev/null
-"$ROOT/scripts/deploy_refresh_gate.sh" enable
-"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk update-environment \
-    --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
-    --version-label "$label" >/dev/null
-"$ROOT/scripts/wait_for_eb_deployment.sh" "$ENV_NAME" "$label" "$REGION"
+
+# Publish assets under an immutable release prefix before switching any web
+# instance. Old instances and cached HTML keep using their own prefix.
 if [[ -n "${PREBUILT_RELEASE_ARTIFACT:-}" ]]; then
-    # Unpack only after a successful backend rollout. Dry-run never extracts,
-    # packages, or publishes assets from the immutable artifact.
     release_source="$workdir/release-source"
     mkdir -p "$release_source"
     unzip -q "$bundle" -d "$release_source"
 fi
+release_static_id="$(cd "$release_source" && bash scripts/static_source_fingerprint.sh)"
+bundle_static_id="$(unzip -p "$bundle" interoves_django/static_release_id.txt 2>/dev/null || true)"
+if [[ "$bundle_static_id" != "$release_static_id" ]]; then
+    echo "Static source fingerprint in the EB bundle does not match its assets." >&2
+    exit 1
+fi
+if [[ "$RELEASE_PROFILE" == "observe-only" ]]; then
+    STATIC_RELEASE_ID="$release_static_id" DEPLOY_SOURCE_DIR="$release_source" \
+        "$ROOT/scripts/publish_static.sh" --verify-only
+    echo "Observe-only artifact has no frontend release; skipping static publication."
+else
+    STATIC_RELEASE_ID="$release_static_id" DEPLOY_SOURCE_DIR="$release_source" \
+        "$ROOT/scripts/publish_static.sh"
+fi
+
+# A failed enable/update/wait/smoke must not strand the refresh gate. Arm
+# cleanup before enabling so even a partially failed enable is followed by a
+# best-effort delete; the Redis TTL remains the final fallback.
+deploy_gate_cleanup_arm
+"$ROOT/scripts/deploy_refresh_gate.sh" enable
+deploy_gate_cleanup_update_requested
+"$ROOT/scripts/aws_with_role.sh" aws elasticbeanstalk update-environment \
+    --region "$REGION" --application-name "$APP" --environment-name "$ENV_NAME" \
+    --version-label "$label" >/dev/null
+"$ROOT/scripts/wait_for_eb_deployment.sh" "$ENV_NAME" "$label" "$REGION"
+deploy_gate_cleanup_backend_ready
 # DDL remains opt-in and is disabled for normal application releases. The
 # schema-work command is deliberately outside the default deploy path.
 case "${ENABLE_POSTDEPLOY_SCHEMA_WORK:-0}" in
@@ -118,13 +141,7 @@ case "${ENABLE_POSTDEPLOY_SCHEMA_WORK:-0}" in
         ;;
     *) echo "ENABLE_POSTDEPLOY_SCHEMA_WORK must be 0 or 1." >&2; exit 2 ;;
 esac
-# Activate static files only after every backend instance runs the compatible
-# application version. Publishing them earlier creates a mixed-version window.
-if [[ "$RELEASE_PROFILE" == "observe-only" ]]; then
-    echo "Observe-only artifact has no frontend release; skipping static publication."
-else
-    DEPLOY_SOURCE_DIR="$release_source" "$ROOT/scripts/publish_static.sh"
-fi
 "$ROOT/scripts/smoke_prod_pages.sh"
 "$ROOT/scripts/deploy_refresh_gate.sh" disable
+deploy_gate_cleanup_disarm
 echo "Green deploy complete: $label"

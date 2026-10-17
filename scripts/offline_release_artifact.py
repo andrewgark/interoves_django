@@ -6,12 +6,14 @@ import hashlib
 import json
 import re
 import stat
+import subprocess
 import zipfile
 from pathlib import Path
 
 
 MANIFEST_NAME = "release-manifest.json"
 PROFILE_FILE = "interoves_django/release_profile.txt"
+STATIC_RELEASE_ID_FILE = "interoves_django/static_release_id.txt"
 REQUIRED_FILES = {
     "games/asgi_admission.py",
     "games/management/commands/audit_chain_task_state_completeness.py",
@@ -22,11 +24,13 @@ REQUIRED_FILES = {
     "games/results/sql_aggregate.py",
     "static/js/daily_solve_timer.js",
     "interoves_django/asgi.py",
+    STATIC_RELEASE_ID_FILE,
     "Procfile",
 }
 OBSERVE_ONLY_REQUIRED_FILES = {
     "games/asgi_admission.py",
     "interoves_django/asgi.py",
+    STATIC_RELEASE_ID_FILE,
     "Procfile",
 }
 RELEASE_PROFILES = {
@@ -103,6 +107,17 @@ def build(source, output, manifest_output, source_sha, release_profile="full"):
     profile_path = source / PROFILE_FILE
     profile_path.parent.mkdir(parents=True, exist_ok=True)
     profile_path.write_text(release_profile + "\n", encoding="utf-8")
+    static_fingerprint_script = source / "scripts/static_source_fingerprint.sh"
+    if static_fingerprint_script.is_file():
+        static_release_id = subprocess.check_output(
+            ["bash", str(static_fingerprint_script)], cwd=source, text=True
+        ).strip()
+    else:
+        # Small synthetic test fixtures may not include the static source tree.
+        static_release_id = hashlib.sha256(b"").hexdigest()
+    static_release_file = source / STATIC_RELEASE_ID_FILE
+    static_release_file.parent.mkdir(parents=True, exist_ok=True)
+    static_release_file.write_text(static_release_id + "\n", encoding="utf-8")
     deploy_version = source / "interoves_django/deploy_version.txt"
     if (source / "interoves_django").is_dir():
         deploy_version.parent.mkdir(parents=True, exist_ok=True)

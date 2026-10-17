@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 
 import json
 import os
+import re
 import requests
 import sys
 
@@ -99,6 +100,24 @@ def _eb_version_label(path: str = '/opt/elasticbeanstalk/deployment/app_version_
 
 
 SITE_DEPLOY_VERSION = _get_site_deploy_version()
+
+
+def _get_static_release_id() -> str:
+    """Resolve the immutable static prefix prepared alongside an EB bundle."""
+    value = (os.environ.get('STATIC_RELEASE_ID') or '').strip()
+    if not value:
+        path = os.path.join(BASE_DIR, 'interoves_django', 'static_release_id.txt')
+        try:
+            with open(path, encoding='utf-8') as f:
+                value = f.read().strip()
+        except OSError:
+            value = ''
+    if not value:
+        value = SITE_DEPLOY_VERSION
+    return re.sub(r'[^A-Za-z0-9._-]', '', value) or 'unversioned'
+
+
+STATIC_RELEASE_ID = _get_static_release_id()
 
 # Nutrimatic (Russian Wikipedia index): directory with build/find-expr, *.index,
 # and cgi_scripts/cgi-search.py. Override with NUTRIMATIC_ROOT on EB.
@@ -699,6 +718,7 @@ STORAGES = {
 }
 
 USE_S3 = _env_flag("USE_S3")
+STATIC_LOCATION = 'static'
 
 if USE_S3:
     # Prefer IAM role credentials on Elastic Beanstalk.
@@ -719,16 +739,18 @@ if USE_S3:
     AWS_DEFAULT_ACL = 'public-read'
     AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
     AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
-    # s3 static settings
-    STATIC_LOCATION = 'static'
+    # Keep every release's assets immutable and addressable while EB replaces
+    # instances. Old HTML can keep loading its own release's files during and
+    # after a rolling deployment.
+    STATIC_LOCATION = f'static/releases/{STATIC_RELEASE_ID}'
     # Templates use STATIC_URL; uploads still go to S3 (StaticStorage). Prod serves
     # the same objects under interoves.com/static/… (proxy/CDN). Optional override for
     # non-prod S3 envs: DJANGO_STATIC_URL=https://host/static
     _django_static_url = (os.environ.get("DJANGO_STATIC_URL") or "").strip().rstrip("/")
     if _django_static_url:
-        STATIC_URL = f"{_django_static_url}/"
+        STATIC_URL = f"{_django_static_url}/releases/{STATIC_RELEASE_ID}/"
     elif IS_PROD:
-        STATIC_URL = "https://interoves.com/static/"
+        STATIC_URL = f"https://interoves.com/{STATIC_LOCATION}/"
     else:
         STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/"
     STORAGES['staticfiles']['BACKEND'] = 'games.storage_backends.StaticStorage'

@@ -11,6 +11,7 @@ from scripts.offline_release_artifact import (
     OBSERVE_ONLY_REQUIRED_FILES,
     PROFILE_FILE,
     REQUIRED_FILES,
+    STATIC_RELEASE_ID_FILE,
     build,
     verify,
 )
@@ -90,6 +91,8 @@ class OfflineReleaseArtifactTests(SimpleTestCase):
             build(root, archive, Path(temp) / 'manifest.json', 'd' * 40)
             with zipfile.ZipFile(archive) as bundle:
                 version = bundle.read('interoves_django/deploy_version.txt').decode().strip()
+                static_id = bundle.read(STATIC_RELEASE_ID_FILE).decode().strip()
+                self.assertEqual(len(static_id), 64)
                 self.assertTrue(_archive_version_matches(bundle, version, 'd' * 40))
                 self.assertFalse(_archive_version_matches(bundle, 'e' * 16, 'd' * 40))
 

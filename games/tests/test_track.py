@@ -148,6 +148,100 @@ class MsgpackSafeTrackPayloadTests(TestCase):
         again = _msgpack_redis_roundtrip(out)
         self.assertEqual(again['update_task_html_new']['99'], 'html')
 
+    def test_async_sequence_allocation_is_atomic_and_does_not_block_loop(self):
+        from django.core.cache.backends.redis import RedisCache
+        from games.views import track
+
+        class FakeRedis:
+            def __init__(self):
+                self.values = {}
+                self.lock = asyncio.Lock()
+                self.keys = []
+
+            async def incr(self, key):
+                self.keys.append(key)
+                # Simulate network latency while allowing the event loop to run.
+                await asyncio.sleep(0.01)
+                async with self.lock:
+                    self.values[key] = self.values.get(key, 0) + 1
+                    return self.values[key]
+
+        fake = FakeRedis()
+        cache = RedisCache('redis://localhost:6379/0', {'KEY_PREFIX': 'test-track'})
+
+        async def run():
+            ticker = 0
+            finished = asyncio.Event()
+
+            async def tick():
+                nonlocal ticker
+                while not finished.is_set():
+                    ticker += 1
+                    await asyncio.sleep(0)
+
+            ticker_task = asyncio.create_task(tick())
+            with patch.object(track, 'track_revision_cache', cache), patch.object(
+                track, '_async_track_redis_client', return_value=fake,
+            ):
+                values = await asyncio.gather(*(
+                    track.next_track_seq_async('game:concurrent') for _ in range(40)
+                ))
+                envelope = await track.envelope_track_message_async(
+                    {'type': 'task.changed', 'by': 'team'}, 'concurrent',
+                )
+            finished.set()
+            await ticker_task
+            expected_key = cache.make_key('track:seq:game:concurrent')
+            return values, envelope, ticker, fake.keys, expected_key
+
+        values, envelope, ticker, keys, expected_key = async_to_sync(run)()
+        self.assertEqual(sorted(values), list(range(1, 41)))
+        self.assertGreater(ticker, 40)
+        self.assertEqual(set(keys), {expected_key, cache.make_key('track:seq:game:concurrent')})
+        self.assertEqual(envelope['seq_namespace'], 'game:concurrent')
+        self.assertEqual(envelope['seq'], 41)
+
+    def test_async_sequence_propagates_redis_timeout(self):
+        from django.core.cache.backends.redis import RedisCache
+        from games.views import track
+
+        class TimeoutRedis:
+            async def incr(self, key):
+                raise TimeoutError('redis timed out')
+
+        async def run():
+            cache = RedisCache('redis://localhost:6379/0', {})
+            with patch.object(track, 'track_revision_cache', cache), patch.object(
+                track, '_async_track_redis_client', return_value=TimeoutRedis(),
+            ):
+                with self.assertRaises(TimeoutError):
+                    await track.next_track_seq_async('user:timeout')
+
+        async_to_sync(run)()
+
+    def test_async_redis_pool_has_a_per_process_connection_cap(self):
+        from games.views import track
+
+        async def run():
+            loop = asyncio.get_running_loop()
+            track._track_redis_clients.pop(loop, None)
+            config = {
+                'track_revisions': {
+                    'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+                    'LOCATION': 'redis://localhost:6379/0',
+                    'OPTIONS': {'socket_timeout': 0.5},
+                },
+            }
+            with patch.object(track.settings, 'CACHES', config), patch(
+                'redis.asyncio.Redis.from_url', return_value=object(),
+            ) as from_url:
+                track._async_track_redis_client()
+                return from_url.call_args.kwargs
+
+        options = async_to_sync(run)()
+        self.assertEqual(options['max_connections'], 8)
+        self.assertEqual(options['socket_timeout'], 0.5)
+
 
 @override_settings(DEFER_CHANNEL_BROADCAST=False)
 class TrackChannelTests(TrackGameFixtureMixin, TestCase):

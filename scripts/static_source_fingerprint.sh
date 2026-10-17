@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Print the content fingerprint used to decide whether collectstatic is needed.
+# Print the content fingerprint used as the immutable S3 static release ID.
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -17,5 +17,5 @@ cd "$APP_DIR"
                 -path '*/templates' -prune -o \
                 -type f -print0
         done | sort -zu | xargs -0 -r sha256sum
-    sha256sum interoves_django/settings.py requirements.txt
+    sha256sum games/storage_backends.py requirements.txt
 } | sha256sum | awk '{print $1}'

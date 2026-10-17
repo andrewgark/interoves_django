@@ -83,6 +83,7 @@ if [[ -n "${PREBUILT_RELEASE_ARTIFACT:-}" ]]; then
     nutrimatic_bundle/build/find-expr \
     nutrimatic_bundle/cgi_scripts/cgi-search.py \
     interoves_django/deploy_version.txt \
+    interoves_django/static_release_id.txt \
     interoves_eb_config_manifest.json; do
     grep -Fxq "$required_member" <<< "$members" || {
       echo "Prebuilt artifact is missing required file: $required_member" >&2

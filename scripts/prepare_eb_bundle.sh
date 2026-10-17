@@ -201,6 +201,8 @@ commit="${DEPLOY_SOURCE_COMMIT:-$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || p
 printf '%s\n' "$sha" > "$stage/interoves_django/deploy_version.txt"
 
 if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
+    static_release_id="$(cd "$SOURCE_ROOT" && bash scripts/static_source_fingerprint.sh)"
+    printf '%s\n' "$static_release_id" > "$stage/interoves_django/static_release_id.txt"
     "$PROJECT_PYTHON" "$ROOT/scripts/eb_config_manifest.py" write \
         "$stage" "$live_config_manifest" "$config_manifest" "$ENV_NAME" "$commit"
 fi

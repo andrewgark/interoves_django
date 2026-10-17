@@ -36,6 +36,9 @@ ACTION_COMPLETE = 'complete'
 
 HEARTBEAT_MAX_CREDIT_MS = 60_000
 LEASE_STALE_MS = 45_000
+# Allow small scheduling/network jitter without letting a sleeping tab extend
+# an interval indefinitely when its next heartbeat arrives much later.
+HEARTBEAT_STALE_GRACE_MS = 5_000
 APPLIED_EVENT_LIMIT = 64
 MAX_ACCUMULATED_MS = 12 * 60 * 60 * 1000  # 12h hard cap for one daily solve
 MYSQL_DEADLOCK_ERRNO = 1213
@@ -231,14 +234,19 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
     def expire(at, *, current_heartbeat_session=None):
         nonlocal status
         cutoff = at - timedelta(milliseconds=LEASE_STALE_MS)
+        heartbeat_cutoff = at - timedelta(
+            milliseconds=LEASE_STALE_MS + HEARTBEAT_STALE_GRACE_MS,
+        )
         running = [session for session in sessions.values() if session['status'] == STATUS_RUNNING]
         for session in running:
-            # A heartbeat is fresh evidence for its own session. Do not expire
-            # that lease immediately before applying the heartbeat, even when
-            # it arrives just beyond the stale threshold.
+            last_heartbeat = session['last_heartbeat_at']
             if current_heartbeat_session is not None and session is current_heartbeat_session:
-                continue
-            if session['last_heartbeat_at'] and session['last_heartbeat_at'] < cutoff:
+                # Tolerate small delivery jitter for the heartbeat being
+                # applied, but never let a substantially late heartbeat
+                # revive the interval it was meant to keep alive.
+                if last_heartbeat and last_heartbeat >= heartbeat_cutoff:
+                    continue
+            if last_heartbeat and last_heartbeat < cutoff:
                 session['status'] = DailySolveTimingSession.STATUS_PAUSED
                 session['close_reason'] = 'stale'
         active = [session for session in running if session['status'] == STATUS_RUNNING]
@@ -248,6 +256,8 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
                 default=at,
             )
             close_interval(end)
+            if status == STATUS_RUNNING:
+                status = STATUS_AUTO_PAUSED
         return active
 
     for event in ordered:
@@ -1312,7 +1322,9 @@ def _team_safe_session_end(session, now):
     return min(now, anchor + timedelta(milliseconds=LEASE_STALE_MS))
 
 
-def _team_expire_sessions(row, now, exclude_session_id=None):
+def _team_expire_sessions(
+    row, now, protected_session_id=None, heartbeat_session_id=None,
+):
     original_aggregate_state = (
         row.status,
         row.active_sessions_count,
@@ -1323,14 +1335,22 @@ def _team_expire_sessions(row, now, exclude_session_id=None):
         status=DailySolveTimingSession.STATUS_RUNNING,
     ))
     cutoff = now - timedelta(milliseconds=LEASE_STALE_MS)
+    heartbeat_cutoff = now - timedelta(
+        milliseconds=LEASE_STALE_MS + HEARTBEAT_STALE_GRACE_MS,
+    )
+    expired_count = 0
     for session in running:
-        if exclude_session_id and session.session_id == exclude_session_id:
+        if session.session_id == protected_session_id and session.session_id != heartbeat_session_id:
             continue
+        if session.session_id == heartbeat_session_id and session.last_heartbeat_at:
+            if session.last_heartbeat_at >= heartbeat_cutoff:
+                continue
         if session.last_heartbeat_at and session.last_heartbeat_at < cutoff:
             session.status = DailySolveTimingSession.STATUS_PAUSED
             session.paused_at = session.last_heartbeat_at
             session.close_reason = 'stale'
             session.save(update_fields=['status', 'paused_at', 'close_reason', 'updated_at'])
+            expired_count += 1
     active = [
         session for session in running
         if session.status == DailySolveTimingSession.STATUS_RUNNING
@@ -1342,6 +1362,8 @@ def _team_expire_sessions(row, now, exclude_session_id=None):
             default=now,
         )
         _team_close_aggregate_interval(row, end)
+        if row.status == STATUS_RUNNING:
+            row.status = STATUS_AUTO_PAUSED
     aggregate_state_changed = original_aggregate_state != (
         row.status,
         row.active_sessions_count,
@@ -1353,6 +1375,16 @@ def _team_expire_sessions(row, now, exclude_session_id=None):
             'status', 'active_sessions_count', 'team_interval_started_at',
             'accumulated_ms', 'updated_at',
         ])
+    if expired_count:
+        timing_id = row.pk
+        game_id = row.game_id
+        task_group_id = row.task_group_id
+        active_count = len(active)
+        transaction.on_commit(lambda: logger.info(
+            'daily_timing_sessions_expired timing_id=%s game_id=%s '
+            'task_group_id=%s expired_count=%s active_count=%s',
+            timing_id, game_id, task_group_id, expired_count, active_count,
+        ))
     return active
 
 
@@ -1368,9 +1400,10 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
     _team_expire_sessions(
         row,
         now,
-        exclude_session_id=(
+        protected_session_id=(
             sid if action in (ACTION_HEARTBEAT, ACTION_PAUSE, ACTION_AUTO_PAUSE) else None
         ),
+        heartbeat_session_id=sid if action == ACTION_HEARTBEAT else None,
     )
     try:
         seq = int(seq or 0)
