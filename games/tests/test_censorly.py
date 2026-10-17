@@ -2141,6 +2141,22 @@ class CensorlyUxDailyTests(TestCase):
         self.assertIn(guess.json()['status'], ('hit', 'miss', 'won'))
         self.assertFalse(guess.json().get('reload_required'))
 
+    def test_active_replay_control_is_visible_without_official_completion(self):
+        from django.template.loader import render_to_string
+
+        html = render_to_string('new/partials/replay_controls.html', {
+            'replay_active': True,
+            'official_completed': False,
+            'custom_reset_enabled': False,
+            'replay_url': '/censorly/1/replay/',
+            'replay_exit_url': '/censorly/1/replay/exit/',
+        })
+        controls = re.search(r'<div class="new-replay-controls[^>]*>', html)
+
+        self.assertIsNotNone(controls)
+        self.assertNotIn(' hidden', controls.group(0))
+        self.assertIn('Вернуться к первому решению', html)
+
     def test_staff_opens_unpublished_number(self):
         self.client.force_login(self.staff)
         resp = self.client.get('/censorly/1/')
