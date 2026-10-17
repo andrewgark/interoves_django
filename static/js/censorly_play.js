@@ -890,6 +890,12 @@
   function postJson(url, payload, root) {
     var body = Object.assign({}, payload || {});
     var token = contextToken(root);
+    var timerRoot = document.querySelector('[data-daily-timer]');
+    var timingSessionId = timerRoot && timerRoot.getAttribute('data-timing-session-id');
+    var timingStateRevision = timerRoot && Number(
+      timerRoot.getAttribute('data-timing-state-revision')
+    );
+    if (timingSessionId) body.timing_session_id = timingSessionId;
     var headers = {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrfToken(),
@@ -919,6 +925,9 @@
         }
         data.__http = res.status;
         if (data.daily_timing && document) {
+          if (isFinite(timingStateRevision)) {
+            data.daily_timing._client_revision = timingStateRevision;
+          }
           document.dispatchEvent(new CustomEvent('interoves:daily-timing', {
             detail: data.daily_timing,
           }));

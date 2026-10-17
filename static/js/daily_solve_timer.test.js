@@ -499,6 +499,42 @@ function parsePostBody(init) {
   ctrl.destroy();
 })();
 
+(function testResumeRequiredOverridesStaleRunningAuthority() {
+  var clock = fakeClock(0);
+  var ctrl = timer.create({
+    url: '/censorly/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return 'anon'; },
+    getCsrf: function () { return ''; },
+    clock: clock,
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({}); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 1000, exists: true },
+  });
+
+  clock.advance(5000);
+  ctrl.applySnapshot({
+    status: 'running',
+    is_authoritative: true,
+    resume_required: true,
+    accumulated_ms: 5000,
+    committed_ms: 1000,
+    exists: true,
+  }, { replace: true });
+
+  assert.strictEqual(ctrl.state().resume_required, true);
+  assert.strictEqual(ctrl.state().is_authoritative, false);
+  var pausedAt = ctrl.displayedMs();
+  clock.advance(5000);
+  assert.strictEqual(ctrl.displayedMs(), pausedAt);
+  ctrl.destroy();
+})();
+
 (function testAuthoritativeZeroCompletionReplacesLocalDisplay() {
   var ctrl = timer.create({
     url: '/ladder/1/timing/',
@@ -1123,6 +1159,60 @@ function parsePostBody(init) {
 
   assert.strictEqual(overlay.hidden, false);
   assert.strictEqual(boardAttributes.inert, '');
+  ctrl.destroy();
+})();
+
+(function testServerRequiredResumeShowsOverlayAndExposesSessionId() {
+  var overlay = { hidden: true };
+  var boardAttributes = {};
+  var timerAttributes = {};
+  var board = {
+    setAttribute: function (name, value) { boardAttributes[name] = value; },
+    removeAttribute: function (name) { delete boardAttributes[name]; },
+    closest: function () { return null; },
+  };
+  var rootEl = {
+    hidden: false,
+    classList: { toggle: function () {} },
+    setAttribute: function (name, value) { timerAttributes[name] = value; },
+  };
+  var ctrl = timer.create({
+    url: '/censorly/1/timing/',
+    document: {
+      visibilityState: 'visible',
+      body: { classList: { toggle: function () {} } },
+      addEventListener: function () {},
+      dispatchEvent: function () {},
+    },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return ''; },
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    root: rootEl,
+    boardEl: board,
+    overlay: overlay,
+    bootstrap: {
+      status: 'auto_paused',
+      is_authoritative: false,
+      accumulated_ms: 1000,
+      exists: true,
+    },
+  });
+
+  ctrl.applySnapshot({
+    status: 'auto_paused',
+    is_authoritative: false,
+    accumulated_ms: 1000,
+    exists: true,
+    resume_required: true,
+  });
+  assert.strictEqual(overlay.hidden, false);
+  assert.strictEqual(boardAttributes.inert, '');
+  assert.strictEqual(timerAttributes['data-timing-session-id'], ctrl.state().session_id);
   ctrl.destroy();
 })();
 

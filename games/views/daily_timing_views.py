@@ -88,6 +88,11 @@ def _payload(request):
 def _resolve_actor(request, game):
     if request.user.is_authenticated:
         if not has_profile(request.user):
+            # Censorly permits authenticated players without a Profile; keep
+            # their official solve timing on the User actor just like its
+            # guess endpoint does.
+            if game.id == 'censorly':
+                return None, request.user, None
             return None, None, None
         from games.views.new_ui import _get_play_mode
         play_mode, _ = _get_play_mode(request, game.project_id)

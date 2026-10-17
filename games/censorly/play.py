@@ -722,6 +722,8 @@ def apply_guess(
     play_path: str | None = None,
     submitted_by_profile_id: int | None = None,
     attempt_created_callback=None,
+    timing_session_guard=None,
+    timing_session_precheck=None,
     replay_slot=None,
     timing_request=None,
 ) -> dict[str, Any]:
@@ -786,6 +788,11 @@ def apply_guess(
         out['error'] = 'Это слово уже вводили'
         return out
 
+    # Return validation and already-processed responses before requiring a
+    # live clock. The locked guard still rechecks the lease before any write.
+    if timing_session_precheck is not None:
+        timing_session_precheck()
+
     with timing_phase(timing_request, 'lexical_analysis'):
         from games.censorly.flags import lexical_resolver_enabled
         lexical_report = None
@@ -808,6 +815,7 @@ def apply_guess(
         share_host=share_host, play_path=play_path,
         submitted_by_profile_id=submitted_by_profile_id,
         attempt_created_callback=attempt_created_callback,
+        timing_session_guard=timing_session_guard,
         timing_request=timing_request,
     )
 
@@ -816,9 +824,12 @@ def apply_guess(
 def _apply_guess_after_analysis(
     *, game, task, payload, actor, normalized, guess_lemma, matched,
     lexical_report, user, number, share_host, play_path,
-    submitted_by_profile_id, attempt_created_callback, timing_request=None,
+    submitted_by_profile_id, attempt_created_callback, timing_session_guard=None,
+    timing_request=None,
 ):
     """Lock and persist a guess after its CPU-heavy lexical analysis."""
+    if timing_session_guard is not None:
+        timing_session_guard()
     with timing_phase(timing_request, 'state_lock'):
         row = _lock_state(game=game, task=task, actor=actor)
     with timing_phase(timing_request, 'state_decode'):
@@ -947,6 +958,7 @@ def apply_hint(
     play_path: str | None = None,
     submitted_by_profile_id: int | None = None,
     attempt_created_callback=None,
+    timing_session_guard=None,
     replay_slot=None,
 ) -> dict[str, Any]:
     """Reveal one non-title content lemma for −1 point."""
@@ -970,6 +982,8 @@ def apply_hint(
         }
 
     num = number if number is not None else ''
+    if timing_session_guard is not None:
+        timing_session_guard()
     row = _lock_state(game=game, task=task, actor=actor)
     state = load_state(row.state)
     if _state_won(state, payload):

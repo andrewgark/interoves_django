@@ -47,6 +47,16 @@ TIMING_DEADLOCK_ATTEMPTS = 3
 
 class TimingEventConflict(Exception):
     """An event ID was reused for a different immutable timing payload."""
+
+
+class TimingSessionNotActive(Exception):
+    """Gameplay was submitted without a fresh timing lease."""
+
+    def __init__(self, timing_snapshot):
+        super().__init__('timing session is not active')
+        self.timing_snapshot = timing_snapshot
+
+
 _UNSET = object()
 
 # Keep the established logger name while the implementation moves namespaces.
@@ -102,6 +112,76 @@ def lookup_timing(*, game, task_group, team=None, user=None, anon_key=None, repl
         task_group=task_group,
         **filters,
     ).first()
+
+
+def require_active_timing_session(
+    *, game, task_group, user=None, anon_key=None, team=None, session_id,
+    now=None, lock=False,
+):
+    """Require a fresh lease, optionally locking it for a gameplay write.
+
+    The read-only form can reject stale requests before expensive work. The
+    locking form must run in the same transaction as the gameplay write and
+    serializes pause/resume against that write.
+    """
+    now = now or timezone.now()
+    filters = actor_filter(
+        team=team, user=user, anon_key=anon_key, replay_slot=None,
+    )
+    sid = _as_uuid(session_id)
+    row = None
+    if filters is not None and sid is not None:
+        logical_qs = DailySolveTiming.objects.filter(
+            game=game,
+            task_group=task_group,
+            **filters,
+        )
+        row = (
+            _lock_existing_timing(logical_qs)
+            if lock else logical_qs.order_by('pk').first()
+        )
+    session = None
+    if row is not None:
+        session_qs = DailySolveTimingSession.objects.filter(
+            timing=row,
+            session_id=sid,
+        )
+        if lock:
+            session_qs = session_qs.select_for_update()
+        session = session_qs.first()
+    fresh_cutoff = now - timedelta(milliseconds=LEASE_STALE_MS)
+    if (
+        row is not None
+        and session is not None
+        and session.status == DailySolveTimingSession.STATUS_RUNNING
+        and session.last_heartbeat_at is not None
+        and session.last_heartbeat_at >= fresh_cutoff
+    ):
+        return
+
+    timing_snapshot = snapshot(row, now=now, session_id=sid)
+    timing_snapshot['resume_required'] = True
+    # A database session may still say RUNNING until a later timing mutation
+    # expires its lease. It is no longer authoritative for this request/tab.
+    timing_snapshot['is_authoritative'] = False
+    raise TimingSessionNotActive(timing_snapshot)
+
+
+def lock_active_timing_session(
+    *, game, task_group, user=None, anon_key=None, team=None, session_id,
+    now=None,
+):
+    """Lock and require the caller's fresh lease during a gameplay write."""
+    return require_active_timing_session(
+        game=game,
+        task_group=task_group,
+        user=user,
+        anon_key=anon_key,
+        team=team,
+        session_id=session_id,
+        now=now,
+        lock=True,
+    )
 
 
 def _lock_existing_timing(logical_qs):

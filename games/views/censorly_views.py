@@ -55,6 +55,7 @@ from games.daily_archive import (
     prepare_daily_archive,
     refresh_daily_archive_context,
 )
+from games.daily.timing import TimingSessionNotActive
 from games.daily.registry import get_daily_game
 from games.daily_transitions import next_daily_content_transition_for_game
 from games.gameplay_context import (
@@ -272,6 +273,73 @@ def _preview_denied(request, game):
     if _may_access_censorly(request, game):
         return None
     return JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+
+
+def _censorly_timing_enabled(game, load_meta, user, replay_slot):
+    """Match the timer visibility rules used by the Censorly play page."""
+    if replay_slot is not None or not load_meta:
+        return False
+    link = load_meta.get('accepted_link')
+    if link is None:
+        return False
+    is_random = bool(load_meta.get('is_random'))
+    is_offer = (
+        not is_random
+        and not is_censorly_number_published(game, link.number)
+        and not _may_open_unpublished(user)
+    )
+    return not is_offer
+
+
+def _censorly_timing_session_guard(
+    *, game, task, user, anon_key, replay_slot, body, timing_enabled=True,
+):
+    """Require a live timer lease for official Censorly mutations."""
+    if replay_slot is not None or not timing_enabled:
+        return None
+
+    def guard():
+        from games.daily.timing import lock_active_timing_session
+
+        lock_active_timing_session(
+            game=game,
+            task_group=task.task_group,
+            user=user,
+            anon_key=anon_key,
+            session_id=body.get('timing_session_id'),
+
+    return guard
+
+
+def _censorly_timing_session_precheck(
+    *, game, task, user, anon_key, replay_slot, body, timing_enabled=True,
+):
+    """Reject stale sessions before running expensive guess matching."""
+    if replay_slot is not None or not timing_enabled:
+        return None
+
+    def precheck():
+        from games.daily.timing import require_active_timing_session
+
+        require_active_timing_session(
+            game=game,
+            task_group=task.task_group,
+            user=user,
+            anon_key=anon_key,
+            session_id=body.get('timing_session_id'),
+
+    return precheck
+
+
+def _daily_timing_inactive_response(exc):
+    timing_snapshot = dict(exc.timing_snapshot)
+    timing_snapshot['resume_required'] = True
+    return JsonResponse({
+        'status': 'error',
+        'error': 'Таймер остановлен. Продолжите его и повторите действие.',
+        'error_code': 'timer_not_running',
+        'daily_timing': timing_snapshot,
+    }, status=409)
 
 
 def _load_random(share_hash: str):
@@ -997,6 +1065,8 @@ def censorly_guess(request, number=None, share_hash=None):
         body = json.loads(request.body.decode('utf-8') or '{}')
     except (ValueError, TypeError, UnicodeDecodeError):
         body = {}
+    if not isinstance(body, dict):
+        body = {}
     word = body.get('word') or body.get('guess') or request.POST.get('word') or ''
     user, anon_key = _resolve_actor(request, body=body)
     context_error = validate_gameplay_context(
@@ -1015,26 +1085,42 @@ def censorly_guess(request, number=None, share_hash=None):
         game=game, task_group=task.task_group, user=user, anon_key=anon_key,
     ):
         return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
+    timing_enabled = _censorly_timing_enabled(game, load_meta, request.user, replay_slot)
+    timing_session_guard = _censorly_timing_session_guard(
+        game=game, task=task, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, body=body,
+        timing_enabled=timing_enabled,
+    )
+    timing_session_precheck = _censorly_timing_session_precheck(
+        game=game, task=task, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, body=body,
+        timing_enabled=timing_enabled,
+    )
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
-    with timing_phase(request, 'apply_guess'):
-        result = apply_guess(
-            game=game,
-            task=task,
-            word=word,
-            user=user,
-            anon_key=anon_key,
-            number=play_number,
-            share_host=_share_host(request),
-            play_path=play_path,
-            submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
-            attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
-                request, attempt=attempt,
-                actor_kind='user' if user is not None else 'anon',
-            ),
-            replay_slot=replay_slot,
-            timing_request=request,
-        )
+    try:
+        with timing_phase(request, 'apply_guess'):
+            result = apply_guess(
+                game=game,
+                task=task,
+                word=word,
+                user=user,
+                anon_key=anon_key,
+                number=play_number,
+                share_host=_share_host(request),
+                play_path=play_path,
+                submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
+                attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
+                    request, attempt=attempt,
+                    actor_kind='user' if user is not None else 'anon',
+                ),
+                timing_session_guard=timing_session_guard,
+                timing_session_precheck=timing_session_precheck,
+                replay_slot=replay_slot,
+                timing_request=request,
+            )
+    except TimingSessionNotActive as exc:
+        return _daily_timing_inactive_response(exc)
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
@@ -1070,6 +1156,8 @@ def censorly_hint(request, number=None, share_hash=None):
         body = json.loads(request.body.decode('utf-8') or '{}')
     except (ValueError, TypeError, UnicodeDecodeError):
         body = {}
+    if not isinstance(body, dict):
+        body = {}
     try:
         token_id = int(body.get('token_id'))
     except (TypeError, ValueError):
@@ -1091,24 +1179,32 @@ def censorly_hint(request, number=None, share_hash=None):
         game=game, task_group=task.task_group, user=user, anon_key=anon_key,
     ):
         return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
+    timing_session_guard = _censorly_timing_session_guard(
+        game=game, task=task, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, body=body,
+        timing_enabled=_censorly_timing_enabled(game, load_meta, request.user, replay_slot),
+    )
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
-    result = apply_hint(
-        game=game,
-        task=task,
-        token_id=token_id,
-        user=user,
-        anon_key=anon_key,
-        number=play_number,
-        share_host=_share_host(request),
-        play_path=play_path,
-        submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
-        attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
-            request, attempt=attempt,
-            actor_kind='user' if user is not None else 'anon',
-        ),
-        replay_slot=replay_slot,
-    )
+    try:
+        result = apply_hint(
+            game=game,
+            task=task,
+            token_id=token_id,
+            user=user,
+            anon_key=anon_key,
+            number=play_number,
+            share_host=_share_host(request),
+            play_path=play_path,
+            submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
+            attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
+                request, attempt=attempt,
+                actor_kind='user' if user is not None else 'anon',
+            ),
+            timing_session_guard=timing_session_guard,
+            replay_slot=replay_slot,
+    except TimingSessionNotActive as exc:
+        return _daily_timing_inactive_response(exc)
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,

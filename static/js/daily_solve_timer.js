@@ -171,6 +171,14 @@
     var destroyed = false;
     var awaitingServer = false;
     var lastAppliedRequestSeq = 0;
+    var stateRevision = 0;
+
+    function advanceStateRevision() {
+      stateRevision += 1;
+      if (rootEl && rootEl.setAttribute) {
+        rootEl.setAttribute('data-timing-state-revision', String(stateRevision));
+      }
+    }
 
     function localKey() {
       return STORAGE_PREFIX + url + ':' + (getAnonKey() || 'user');
@@ -201,6 +209,7 @@
     function currentState() {
       return {
         status: status,
+        session_id: sessionId,
         accumulated_ms: displayedMs(),
         committed_ms: committedMs,
         is_authoritative: authoritative,
@@ -237,6 +246,10 @@
       }
       if (pauseBtn) pauseBtn.hidden = completed || resumeRequired;
       var showOverlay = !completed && (manuallyPaused || resumeRequired);
+      if (rootEl && rootEl.setAttribute) {
+        rootEl.setAttribute('data-timing-session-id', sessionId);
+        rootEl.setAttribute('data-timing-state-revision', String(stateRevision));
+      }
       var wrap = boardEl && boardEl.closest ? boardEl.closest('.new-daily-solve') : null;
       if (wrap) {
         if (showOverlay) wrap.setAttribute('data-daily-paused', '');
@@ -283,9 +296,12 @@
         if (requestSeq < lastAppliedRequestSeq) return;
         lastAppliedRequestSeq = requestSeq;
       }
+      var clientRevision = Number(opts.clientRevision);
+      if (isFinite(clientRevision) && clientRevision < stateRevision) return;
       var incomingRunning = snap.status === 'running' && !snap.completed && !snap.manually_paused;
       if (incomingRunning && manuallyPaused) return;
       if (incomingRunning && visibilityOf(doc) === 'hidden') return;
+      advanceStateRevision();
       exists = snap.exists !== false;
       completed = completed || !!snap.completed || snap.status === 'completed';
       if (completed) {
@@ -295,7 +311,8 @@
       } else {
         manuallyPaused = !!snap.manually_paused || snap.status === 'manually_paused';
         status = snap.status || status;
-        if (incomingRunning && snap.is_authoritative) resumeRequired = false;
+        if (snap.resume_required) resumeRequired = true;
+        if (incomingRunning && snap.is_authoritative && !snap.resume_required) resumeRequired = false;
       }
       if (typeof snap.committed_ms === 'number') committedMs = snap.committed_ms;
       var incoming = Number(snap.accumulated_ms);
@@ -305,7 +322,7 @@
         // Never jump down: pause/hidden responses can lag behind the local monotonic tick.
         displayBaseMs = Math.max(displayBaseMs, incoming);
       }
-      authoritative = !!snap.is_authoritative;
+      authoritative = !!snap.is_authoritative && !snap.resume_required;
       if (authoritative && status === 'running' && !completed && !manuallyPaused) {
         runningSince = nowMs(clock);
       }
@@ -419,6 +436,7 @@
         authoritative = false;
         status = 'auto_paused';
         runningSince = null;
+        advanceStateRevision();
         syncTicker();
       }
       render();
@@ -435,6 +453,7 @@
         // lost. Require an explicit resume instead of silently restarting it
         // when connectivity returns.
         resumeRequired = true;
+        advanceStateRevision();
         render();
       }
       failed.forEach(function (item) { item.resolve(data || null); });
@@ -484,6 +503,7 @@
                 if (isFinite(serverElapsed)) displayBaseMs = Math.max(0, serverElapsed);
                 var serverCommitted = Number(data.committed_ms);
                 if (isFinite(serverCommitted)) committedMs = Math.max(0, serverCommitted);
+                advanceStateRevision();
                 render();
               }
               eventQueue.shift();
@@ -607,6 +627,7 @@
         // restore the authoritative running state.
         authoritative = false;
         if (!completed && !manuallyPaused) status = 'auto_paused';
+        advanceStateRevision();
         syncTicker();
         // A transient network/5xx/CSRF failure used to leave the clock frozen
         // at 0s forever. Retry a few times while the page is visible; a
@@ -680,6 +701,7 @@
       var claimed = freezeOpenInterval();
       authoritative = false;
       status = 'auto_paused';
+      advanceStateRevision();
       syncTicker();
       return post('auto_pause', { claimed_ms: claimed }, true);
     }
@@ -698,6 +720,7 @@
       manuallyPaused = true;
       authoritative = false;
       status = 'manually_paused';
+      advanceStateRevision();
       syncTicker();
       return post('pause', { claimed_ms: claimed }, false);
     }
@@ -708,6 +731,7 @@
       resumeRequired = false;
       started = true;
       awaitingServer = true;
+      advanceStateRevision();
       return post('resume').then(function (data) {
         awaitingServer = false;
         if (!data || !data.ok) {
@@ -717,6 +741,8 @@
           resumeRequired = !manuallyPaused;
           authoritative = false;
           status = manuallyPaused ? 'manually_paused' : 'auto_paused';
+          advanceStateRevision();
+          render();
         }
         render();
       });
@@ -727,6 +753,7 @@
       manuallyPaused = false;
       authoritative = false;
       status = 'completed';
+      advanceStateRevision();
       if (snap) applySnapshot(snap, { replace: true });
       else {
         var claimed = freezeOpenInterval();
@@ -750,8 +777,13 @@
       }, true);
       doc.addEventListener('interoves:daily-timing', function (ev) {
         if (ev && ev.detail) {
+          var clientRevision = Number(ev.detail._client_revision);
+          if (isFinite(clientRevision) && clientRevision < stateRevision) return;
           if (ev.detail.completed) markComplete(ev.detail);
-          else applySnapshot(ev.detail, { replace: true });
+          else applySnapshot(ev.detail, {
+            replace: true,
+            clientRevision: clientRevision,
+          });
         }
       });
     }

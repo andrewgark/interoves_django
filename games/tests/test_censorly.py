@@ -7,6 +7,7 @@ import re
 from html import unescape
 from pathlib import Path
 from unittest.mock import patch
+from uuid import uuid4
 
 from django.contrib.auth.models import User
 from django.test import Client, SimpleTestCase, TestCase
@@ -18,7 +19,7 @@ from games.censorly.redact import build_public_view, lemmas_matching_guess
 from games.censorly.stopwords import is_stop_word
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
 from games.analytics import game_instance_id_for_task_group
-from games.models import Attempt, BugReport, ChainTaskState, CheckerType, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, RandomCensorlyGame, Task, TaskGroup
+from games.models import Attempt, BugReport, ChainTaskState, CheckerType, DailySolveTiming, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, RandomCensorlyGame, Task, TaskGroup
 from games.placement_share import allocate_share_hash
 
 _CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
@@ -352,10 +353,36 @@ class CensorlyAccessTests(TestCase):
         self.assertNotContains(play, 'Полная статья на Википедии')
         self.assertNotContains(play, 'id="censorly-attempts"')
 
+        context_match = re.search(
+            r'id="censorly-root"[^>]*data-context-token="([^"]+)"',
+            play.content.decode(),
+        )
+        self.assertIsNotNone(context_match)
+        context_token = unescape(context_match.group(1))
+        timing_context_match = re.search(
+            r'data-gameplay-context="([^"]+)"', play.content.decode(),
+        )
+        self.assertIsNotNone(timing_context_match)
+        timing_context_token = unescape(timing_context_match.group(1))
+        session_id = str(uuid4())
+        timing = self.client.post(
+            f'/censorly/r/{self.share_hash}/timing/',
+            data=json.dumps({
+                'action': 'start',
+                'session_id': session_id,
+                'event_id': str(uuid4()),
+                'seq': 1,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=timing_context_token,
+        )
+        self.assertEqual(timing.status_code, 200)
+
         guess = self.client.post(
             f'/censorly/r/{self.share_hash}/guess/',
-            data=json.dumps({'word': 'столица'}),
+            data=json.dumps({'word': 'столица', 'timing_session_id': session_id}),
             content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=context_token,
         )
         self.assertEqual(guess.status_code, 200)
         data = guess.json()
@@ -2075,6 +2102,31 @@ class CensorlyUxDailyTests(TestCase):
         self.task.task_group.points = 20
         self.task.task_group.save(update_fields=['points'])
 
+    def _official_page_context(self):
+        page = self.client.get('/censorly/1/')
+        self.assertEqual(page.status_code, 200)
+        html = page.content.decode()
+        timing_match = re.search(r'data-gameplay-context="([^"]+)"', html)
+        gameplay_match = re.search(
+            r'id="censorly-root"[^>]*data-context-token="([^"]+)"', html,
+        )
+        self.assertIsNotNone(timing_match)
+        self.assertIsNotNone(gameplay_match)
+        return unescape(timing_match.group(1)), unescape(gameplay_match.group(1))
+
+    def _start_official_timer(self, context_token, session_id):
+        return self.client.post(
+            '/censorly/1/timing/',
+            data=json.dumps({
+                'action': 'start',
+                'session_id': session_id,
+                'event_id': str(uuid4()),
+                'seq': 1,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=context_token,
+        )
+
     def test_daily_play_page_renders_pause_overlay_around_censorly_board(self):
         from datetime import timedelta
         from django.utils import timezone
@@ -2102,6 +2154,182 @@ class CensorlyUxDailyTests(TestCase):
             html.index('data-daily-solve-board'),
             html.index('id="censorly-root"'),
         )
+
+    def test_guess_is_rejected_while_official_timer_has_no_active_session(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        tags = dict(self.game.tags or {})
+        tags['censorly_publish_start'] = (
+            f'{(timezone.localdate() - timedelta(days=1)).isoformat()}T00:00:00+03:00'
+        )
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        self.client.force_login(self.staff)
+        timing_context_token, gameplay_context_token = self._official_page_context()
+
+        blocked = self.client.post(
+            '/censorly/1/guess/',
+            data=json.dumps({'word': 'собака'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
+        )
+
+        self.assertEqual(blocked.status_code, 409)
+        self.assertEqual(blocked.json()['error_code'], 'timer_not_running')
+        self.assertTrue(blocked.json()['daily_timing']['resume_required'])
+        self.assertFalse(Attempt.manager.filter(task=self.task, user=self.staff).exists())
+        self.assertFalse(ChainTaskState.objects.filter(task=self.task, user=self.staff).exists())
+
+        session_id = str(uuid4())
+        started = self._start_official_timer(timing_context_token, session_id)
+        self.assertEqual(started.status_code, 200)
+        self.assertTrue(started.json()['is_authoritative'])
+
+        auto_paused = self.client.post(
+            '/censorly/1/timing/',
+            data=json.dumps({
+                'action': 'auto_pause',
+                'session_id': session_id,
+                'event_id': str(uuid4()),
+                'seq': 2,
+                'claimed_ms': 0,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=timing_context_token,
+        )
+        self.assertEqual(auto_paused.status_code, 200)
+
+        blocked_while_paused = self.client.post(
+            '/censorly/1/guess/',
+            data=json.dumps({
+                'word': 'собака',
+                'timing_session_id': session_id,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
+        )
+        self.assertEqual(blocked_while_paused.status_code, 409)
+        self.assertEqual(blocked_while_paused.json()['error_code'], 'timer_not_running')
+        self.assertFalse(Attempt.manager.filter(task=self.task, user=self.staff).exists())
+
+        resumed = self.client.post(
+            '/censorly/1/timing/',
+            data=json.dumps({
+                'action': 'resume',
+                'session_id': session_id,
+                'event_id': str(uuid4()),
+                'seq': 3,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=timing_context_token,
+        )
+        self.assertEqual(resumed.status_code, 200)
+
+        accepted = self.client.post(
+            '/censorly/1/guess/',
+            data=json.dumps({
+                'word': 'собака',
+                'timing_session_id': session_id,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
+        )
+
+        self.assertEqual(accepted.status_code, 200)
+        self.assertIn(accepted.json()['status'], ('hit', 'miss', 'won'))
+        self.assertTrue(Attempt.manager.filter(task=self.task, user=self.staff).exists())
+
+    def test_hint_is_rejected_while_official_timer_is_manually_paused(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        tags = dict(self.game.tags or {})
+        tags['censorly_publish_start'] = (
+            f'{(timezone.localdate() - timedelta(days=1)).isoformat()}T00:00:00+03:00'
+        )
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        self.client.force_login(self.staff)
+        timing_context_token, gameplay_context_token = self._official_page_context()
+        session_id = str(uuid4())
+        started = self._start_official_timer(timing_context_token, session_id)
+        self.assertEqual(started.status_code, 200)
+
+        paused = self.client.post(
+            '/censorly/1/timing/',
+            data=json.dumps({
+                'action': 'pause',
+                'session_id': session_id,
+                'event_id': str(uuid4()),
+                'seq': 2,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=timing_context_token,
+        )
+        self.assertEqual(paused.status_code, 200)
+        from games.censorly.redact import title_opening_lemmas
+        title_lemmas = title_opening_lemmas(self.puzzle)
+        target = next(
+            token for token in self.puzzle['body_tokens']
+            if token.get('kind') == 'content'
+            and token.get('lemma') not in title_lemmas
+            and token.get('initially_open') is not True
+        )
+
+        response = self.client.post(
+            '/censorly/1/hint/',
+            data=json.dumps({
+                'token_id': target['id'],
+                'timing_session_id': session_id,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
+        )
+
+        self.assertEqual(response.status_code, 409, response.json())
+        self.assertEqual(response.json()['error_code'], 'timer_not_running')
+        self.assertFalse(ChainTaskState.objects.filter(task=self.task, user=self.staff).exists())
+
+    def test_stale_timer_lease_response_revokes_local_authority(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        tags = dict(self.game.tags or {})
+        tags['censorly_publish_start'] = (
+            f'{(timezone.localdate() - timedelta(days=1)).isoformat()}T00:00:00+03:00'
+        )
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        self.client.force_login(self.staff)
+        timing_context_token, gameplay_context_token = self._official_page_context()
+        session_id = str(uuid4())
+        started = self._start_official_timer(timing_context_token, session_id)
+        self.assertEqual(started.status_code, 200)
+
+        timing = DailySolveTiming.objects.get(
+            game=self.game,
+            task_group=self.task.task_group,
+            user=self.staff,
+        )
+        session = timing.sessions.get(session_id=session_id)
+        session.last_heartbeat_at = timezone.now() - timedelta(seconds=60)
+        session.save(update_fields=['last_heartbeat_at'])
+
+        response = self.client.post(
+            '/censorly/1/guess/',
+            data=json.dumps({
+                'word': 'собака',
+                'timing_session_id': session_id,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
+        )
+
+        self.assertEqual(response.status_code, 409)
+        timing_state = response.json()['daily_timing']
+        self.assertTrue(timing_state['resume_required'])
+        self.assertFalse(timing_state['is_authoritative'])
 
     def test_random_hash_timing_context_uses_random_timing_route(self):
         self.client.force_login(self.staff)
