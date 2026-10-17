@@ -34,6 +34,9 @@ def aggregate_month_index_game_saved(sender, instance, **kwargs):
 
 @receiver(post_save, sender=GameTaskGroup, dispatch_uid='aggregate-month-index-release-save')
 def aggregate_month_index_release_saved(sender, instance, **kwargs):
+    old_game_id = getattr(instance, '_aggregate_month_index_old_game_id', None)
+    if old_game_id and old_game_id != instance.game_id:
+        _invalidate_monthly_release_index(old_game_id)
     _invalidate_monthly_release_index(instance.game_id)
 
 
@@ -46,10 +49,12 @@ def aggregate_month_index_release_deleted(sender, instance, **kwargs):
 def completion_mapping_old_snapshot(sender, instance, **kwargs):
     if not instance.pk:
         instance._completion_mapping_old = None
+        instance._aggregate_month_index_old_game_id = None
         instance._completion_mapping_actor_keys = set()
         return
     old = GameTaskGroup.objects.filter(pk=instance.pk).first()
     instance._completion_mapping_old = old
+    instance._aggregate_month_index_old_game_id = old.game_id if old is not None else None
     instance._completion_mapping_actor_keys = set()
     if old is not None:
         from games.targeted_completion_reconciliation import _actor_keys_for_group

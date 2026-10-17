@@ -24,7 +24,7 @@ from games.models import (
 )
 from games.sections.paths import section_play_path
 from games.daily.archive import parse_month
-from games.daily.section import publish_at_for, MOSCOW
+from games.daily.section import current_number_for, publish_at_for, MOSCOW
 
 
 WINDOW_CHOICES = (10, 20, 30)
@@ -33,7 +33,7 @@ MONTH_INDEX_CACHE_SECONDS = 300
 
 
 def _monthly_release_index_cache_key(game_id):
-    return 'aggregate:monthly-release-index:v2:{}'.format(game_id)
+    return 'aggregate:monthly-release-index:v3:{}'.format(game_id)
 
 
 def invalidate_monthly_release_index(game_id):
@@ -161,8 +161,9 @@ def _choose_window(game, *, limit, anchor):
 def _monthly_release_context(game, requested_month=None):
     """Return published scheduled releases belonging to one calendar month."""
     cache_key = _monthly_release_index_cache_key(game.pk)
-    release_index = cache.get(cache_key)
-    if release_index is None:
+    today_number = current_number_for(game)
+    cached = cache.get(cache_key)
+    if not isinstance(cached, dict) or cached.get('today_number') != today_number:
         release_index = []
         for link in _numbered_links(game):
             published_at = publish_at_for(game, link.number)
@@ -173,7 +174,12 @@ def _monthly_release_context(game, requested_month=None):
                     'release_number': link._release_number,
                     'published_at': published_at.isoformat(),
                 })
-        cache.set(cache_key, release_index, MONTH_INDEX_CACHE_SECONDS)
+        cache.set(cache_key, {
+            'today_number': today_number,
+            'releases': release_index,
+        }, MONTH_INDEX_CACHE_SECONDS)
+    else:
+        release_index = cached.get('releases', [])
 
     dated = []
     published_at_by_link = {}
