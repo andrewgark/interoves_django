@@ -98,7 +98,10 @@ class AggregateLeaderboardTests(TestCase):
         )
 
     def test_ladder_month_context_selects_month_and_adjacent_navigation(self):
-        from games.results.aggregate_leaderboard import _monthly_release_context
+        from games.results.aggregate_leaderboard import (
+            _monthly_release_context,
+            _monthly_release_index_cache_key,
+        )
 
         links = [
             SimpleNamespace(pk=1, number='1', _release_number=1),
@@ -115,7 +118,7 @@ class AggregateLeaderboardTests(TestCase):
         links_qs.filter.side_effect = lambda **kwargs: [
             link for link in links if link.pk in kwargs['pk__in']
         ]
-        cache.delete('aggregate:monthly-release-index:v1:{}'.format(self.game.pk))
+        cache.delete(_monthly_release_index_cache_key(self.game.pk))
         with patch('games.results.aggregate_leaderboard._numbered_links', return_value=links_qs), \
              patch('games.results.aggregate_leaderboard._with_result_tasks', side_effect=lambda value, _game_id: value), \
              patch('games.results.aggregate_leaderboard.publish_at_for', side_effect=lambda _game, number: published[number]):

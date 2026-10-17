@@ -22,6 +22,26 @@ from games.models import (
 from games.recheck import recheck_queue_from_next, recheck_full
 
 
+def _invalidate_monthly_release_index(game_id):
+    from games.results.aggregate_leaderboard import invalidate_monthly_release_index
+    invalidate_monthly_release_index(game_id)
+
+
+@receiver(post_save, sender=Game, dispatch_uid='aggregate-month-index-game-save')
+def aggregate_month_index_game_saved(sender, instance, **kwargs):
+    _invalidate_monthly_release_index(instance.pk)
+
+
+@receiver(post_save, sender=GameTaskGroup, dispatch_uid='aggregate-month-index-release-save')
+def aggregate_month_index_release_saved(sender, instance, **kwargs):
+    _invalidate_monthly_release_index(instance.game_id)
+
+
+@receiver(post_delete, sender=GameTaskGroup, dispatch_uid='aggregate-month-index-release-delete')
+def aggregate_month_index_release_deleted(sender, instance, **kwargs):
+    _invalidate_monthly_release_index(instance.game_id)
+
+
 @receiver(pre_save, sender=GameTaskGroup, dispatch_uid='completion-mapping-old-snapshot')
 def completion_mapping_old_snapshot(sender, instance, **kwargs):
     if not instance.pk:

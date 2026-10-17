@@ -8,6 +8,7 @@ from types import SimpleNamespace
 
 from django.core.cache import cache
 from django.core.paginator import Paginator
+from django.db import transaction
 from django.db.models import Prefetch, IntegerField
 from django.db.models.functions import Cast
 from django.utils.dateparse import parse_datetime
@@ -31,6 +32,18 @@ PAGE_SIZE = 50
 MONTH_INDEX_CACHE_SECONDS = 300
 
 
+def _monthly_release_index_cache_key(game_id):
+    return 'aggregate:monthly-release-index:v2:{}'.format(game_id)
+
+
+def invalidate_monthly_release_index(game_id):
+    """Drop the cached calendar index after a schedule or release change."""
+    if not game_id:
+        return
+    key = _monthly_release_index_cache_key(game_id)
+    transaction.on_commit(lambda: cache.delete(key))
+
+
 def _format_aggregate_time(seconds):
     if seconds is None:
         return ''
@@ -51,7 +64,10 @@ def _numbered_links(game):
     """Select published integer releases in the site's public number order."""
     from games.daily.section import current_number_for, schedule_for
 
-    qs = GameTaskGroup.objects.filter(game=game).select_related('task_group').annotate(
+    qs = GameTaskGroup.objects.filter(
+        game=game,
+        is_deferred=False,
+    ).select_related('task_group').annotate(
         _release_number=Cast('number', IntegerField()),
     )
     schedule = schedule_for(game.id)
@@ -144,7 +160,7 @@ def _choose_window(game, *, limit, anchor):
 
 def _monthly_release_context(game, requested_month=None):
     """Return published scheduled releases belonging to one calendar month."""
-    cache_key = 'aggregate:monthly-release-index:v1:{}'.format(game.pk)
+    cache_key = _monthly_release_index_cache_key(game.pk)
     release_index = cache.get(cache_key)
     if release_index is None:
         release_index = []
