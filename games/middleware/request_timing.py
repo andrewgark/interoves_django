@@ -11,8 +11,15 @@ from django.conf import settings
 
 logger = logging.getLogger('interoves.request_timing')
 
-_ALPHABETTY_GUESS = re.compile(r'^/alphabetty/\d+/guess/?$')
-_DAILY_TIMING = re.compile(r'^/(?:ladder|salad|alphabetty|replacements)/\d+/timing/?$')
+_ALPHABETTY_GUESS = re.compile(r'^/alphabetty/[^/]+/guess/?$')
+# Task numbers and permanent share hashes both occupy one URL segment. Censorly
+# random games have an extra ``r/`` segment, so include that route explicitly.
+_DAILY_TIMING = re.compile(
+    r'^/(?:ladder|salad|alphabetty|replacements|censorly)/(?:r/)?[^/]+/timing/?$'
+)
+_GENERIC_GAME_TIMING = re.compile(
+    r'^/(?:[a-zA-Z0-9_-]+/)?games/[a-zA-Z0-9_]+/[^/]+/timing/?$'
+)
 _RADDLE_UI = re.compile(r'^/send_raddle_ui/\d+/?$')
 _CENSORLY_RANDOM = re.compile(r'^/censorly/random/?$')
 _CENSORLY_GUESS = re.compile(r'^/censorly/(?:r/[^/]+|[^/]+)/guess/?$')
@@ -24,6 +31,7 @@ def _watch_path(path: str) -> bool:
     return bool(
         _ALPHABETTY_GUESS.match(path)
         or _DAILY_TIMING.match(path)
+        or _GENERIC_GAME_TIMING.match(path)
         or _RADDLE_UI.match(path)
         or _CENSORLY_RANDOM.match(path)
         or _CENSORLY_GUESS.match(path)
