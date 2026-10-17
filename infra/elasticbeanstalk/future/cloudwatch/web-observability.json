@@ -1,0 +1,65 @@
+{
+  "metrics": {
+    "namespace": "InterOves/Web",
+    "append_dimensions": {
+      "AutoScalingGroupName": "${aws:AutoScalingGroupName}",
+      "InstanceId": "${aws:InstanceId}"
+    },
+    "metrics_collected": {
+      "mem": {
+        "measurement": ["mem_available", "mem_available_percent", "mem_used_percent"],
+        "metrics_collection_interval": 60
+      },
+      "swap": {
+        "measurement": ["used_percent"],
+        "metrics_collection_interval": 60
+      },
+      "procstat": [
+        {
+          "pattern": "daphne.*interoves_django\\.asgi:application",
+          "measurement": ["memory_rss", "num_threads", "pid_count"],
+          "metrics_collection_interval": 60
+        },
+        {
+          "pattern": "cgi-search\\.py",
+          "measurement": ["pid_count"],
+          "metrics_collection_interval": 60
+        },
+        {
+          "exe": "find-expr",
+          "measurement": ["pid_count"],
+          "metrics_collection_interval": 60
+        }
+      ]
+    }
+  },
+  "logs": {
+    "logs_collected": {
+      "journald": {
+        "collect_list": [
+          {
+            "units": ["web.service"],
+            "priority": "info",
+            "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/systemd",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 14
+          },
+          {
+            "matches": [{"_TRANSPORT": "kernel"}],
+            "priority": "warning",
+            "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/kernel",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 14
+          },
+          {
+            "units": ["systemd-oomd.service", "amazon-cloudwatch-agent.service"],
+            "priority": "warning",
+            "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/systemd",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 14
+          }
+        ]
+      }
+    }
+  }
+}
