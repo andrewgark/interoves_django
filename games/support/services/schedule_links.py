@@ -18,14 +18,19 @@ class ScheduleLinkError(Exception):
     """Ошибка удаления/перенумерации слота."""
 
 
-def _sync_difficulty_schedule_after_commit(game_id):
-    from games.difficulty import SUPPORTED_GAME_IDS, sync_daily_difficulty_schedule
+def _sync_difficulty_schedule_after_commit(game_id, placement_ids):
+    from games.difficulty import SUPPORTED_GAME_IDS, ensure_daily_difficulty_row
 
     if game_id not in SUPPORTED_GAME_IDS:
         return
-    game = Game.objects.filter(pk=game_id).first()
-    if game is not None:
-        sync_daily_difficulty_schedule(game)
+    placements = GameTaskGroup.objects.filter(
+        game_id=game_id,
+        pk__in=placement_ids,
+        task_group__random_alphabetty_game__isnull=True,
+        task_group__random_censorly_game__isnull=True,
+    ).select_related('game', 'task_group')
+    for placement in placements:
+        ensure_daily_difficulty_row(placement)
 
 
 def save_publish_start_date(game, tag_key, date_iso, *, error_cls, require_monday=False):
@@ -263,10 +268,11 @@ def _assign_numbers_without_collision(
     if changed_number_links:
         from games.models import DailyResultProjectionState
 
-        projection_groups_by_game = {}
+        changed_links_by_game = {}
         for link in changed_number_links:
-            projection_groups_by_game.setdefault(link.game_id, set()).add(link.task_group_id)
-        for game_id, task_group_ids in projection_groups_by_game.items():
+            changed_links_by_game.setdefault(link.game_id, []).append(link)
+        for game_id, changed_links in changed_links_by_game.items():
+            task_group_ids = {link.task_group_id for link in changed_links}
             DailyResultProjectionState.objects.filter(
                 game_id=game_id,
                 game__project_id='sections',
@@ -278,7 +284,8 @@ def _assign_numbers_without_collision(
                 completed_at=timezone.now(),
             )
             transaction.on_commit(
-                lambda value=game_id: _sync_difficulty_schedule_after_commit(value),
+                lambda value=game_id, placement_ids=tuple(link.pk for link in changed_links):
+                _sync_difficulty_schedule_after_commit(value, placement_ids),
                 robust=True,
             )
 
