@@ -622,6 +622,7 @@ class AuthSessionConfigurationTests(TestCase):
         self.assertIn('$hostname', timing_config)
         self.assertIn('$request_method $interoves_safe_uri $server_protocol', timing_config)
         self.assertIn('/telegram/webhook/<secret>', timing_config)
+        self.assertIn('"~^/(ladder|salad|alphabetty|replacements)/[a-f0-9]{16,32}(/.*)?$"', timing_config)
         self.assertIn('$request_method $uri $server_protocol', main_config)
         self.assertNotIn('"$request"', timing_config)
         self.assertNotIn('"$request"', main_config)
