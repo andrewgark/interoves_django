@@ -48,6 +48,14 @@ class WikiFetchError(Exception):
     """Failed to load or validate a Wikipedia article."""
 
 
+class CensorlyArticleRejected(WikiFetchError):
+    """Wikipedia returned an article that cannot be used as a puzzle."""
+
+
+class WikipediaRequestFailed(WikiFetchError):
+    """Wikipedia could not provide a usable API response temporarily."""
+
+
 class _WikiExtractHTMLParser(HTMLParser):
     """Convert TextExtracts HTML to plaintext while retaining block structure."""
 
@@ -1278,28 +1286,32 @@ def fetch_article(
         resp.raise_for_status()
         data = resp.json()
     except requests.RequestException as exc:
-        raise WikiFetchError(f'Не удалось загрузить статью: {exc}') from exc
+        raise WikipediaRequestFailed(f'Не удалось загрузить статью: {exc}') from exc
     except ValueError as exc:
-        raise WikiFetchError('Некорректный ответ Wikipedia API') from exc
+        raise WikipediaRequestFailed('Некорректный ответ Wikipedia API') from exc
 
     pages = (data.get('query') or {}).get('pages') or {}
     if not pages:
-        raise WikiFetchError('Статья не найдена')
+        raise WikipediaRequestFailed('Wikipedia API вернул ответ без списка страниц')
     page = next(iter(pages.values()))
-    if page.get('missing') is not None or int(page.get('pageid') or 0) < 0:
-        raise WikiFetchError('Статья не найдена')
+    try:
+        pageid = int(page.get('pageid') or 0)
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise WikipediaRequestFailed('Некорректный идентификатор страницы в ответе Wikipedia API') from exc
+    if page.get('missing') is not None or pageid < 0:
+        raise CensorlyArticleRejected('Статья не найдена')
     extract = _html_extract_to_text(page.get('extract') or '')
     resolved_title = (page.get('title') or title).strip()
     pageprops = page.get('pageprops') or {}
     if 'disambiguation' in pageprops:
-        raise WikiFetchError('Это страница неоднозначности')
+        raise CensorlyArticleRejected('Это страница неоднозначности')
     if _looks_like_disambiguation(extract):
-        raise WikiFetchError('Похоже на страницу неоднозначности')
+        raise CensorlyArticleRejected('Похоже на страницу неоднозначности')
     if len(extract) < MIN_BODY_CHARS:
-        raise WikiFetchError('Статья слишком короткая')
+        raise CensorlyArticleRejected('Статья слишком короткая')
     extract, truncated = _trim_extract(extract, mark_formulas=True)
     if len(extract) < MIN_BODY_CHARS:
-        raise WikiFetchError('Статья слишком короткая после очистки')
+        raise CensorlyArticleRejected('Статья слишком короткая после очистки')
     revid_raw = page.get('lastrevid')
     try:
         revid = int(revid_raw) if revid_raw else None

@@ -55,6 +55,24 @@ def pool_rows():
     return rows
 
 
+def mark_unplayable(title, row=None):
+    """Disable an article that was fetched but cannot form a playable puzzle."""
+    defaults = {'enabled': False}
+    if row is not None:
+        defaults.update({
+            'topics': list(row.get('topics') or []),
+            'object_types': list(row.get('types') or []),
+            'difficulty': str(row.get('difficulty') or ''),
+        })
+    entry, created = CensorlyPoolEntry.objects.get_or_create(
+        title=title,
+        defaults=defaults,
+    )
+    if not created and entry.enabled:
+        entry.enabled = False
+        entry.save(update_fields=['enabled', 'updated_at'])
+
+
 def _category_path(category_id, category_parents):
     names = []
     seen = set()

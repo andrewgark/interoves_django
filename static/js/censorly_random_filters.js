@@ -3,7 +3,6 @@
   var form = document.querySelector('[data-random-censorly-form]');
   if (!form) return;
   var button = form.querySelector('[data-random-censorly-open]');
-  var loading = form.querySelector('[data-random-censorly-loading]');
   var launcher = form.querySelector('[data-random-censorly-launcher]');
   var settings = launcher.querySelector('[data-random-censorly-settings]');
   var settingsToggle = launcher.querySelector('[data-random-censorly-settings-toggle]');
@@ -372,7 +371,7 @@
     });
     launcher.hidden = true; button.setAttribute('aria-expanded', 'false');
     button.disabled = true; button.classList.add('is-loading');
-    button.setAttribute('aria-busy', 'true'); loading.hidden = false; form.submit();
+    button.setAttribute('aria-busy', 'true'); form.submit();
   });
   updateCategoryStates();
 })();

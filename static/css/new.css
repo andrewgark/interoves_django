@@ -2682,30 +2682,6 @@ span.new-btn[aria-disabled="true"] {
   border-top-color: #1a1a1a;
 }
 
-.new-random-game-loading {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-inline-start: 0.7rem;
-  color: var(--muted);
-  font-size: 0.9rem;
-  vertical-align: middle;
-}
-
-.new-random-game-loading[hidden] {
-  display: none;
-}
-
-.new-random-game-loading::before {
-  content: "";
-  width: 0.8rem;
-  height: 0.8rem;
-  border: 2px solid color-mix(in srgb, var(--muted) 28%, transparent);
-  border-top-color: var(--text);
-  border-radius: 50%;
-  animation: new-btn-spin 0.65s linear infinite;
-}
-
 @keyframes new-btn-spin {
   to { transform: rotate(360deg); }
 }
@@ -12086,7 +12062,6 @@ button.new-word-salad__hint-btn:disabled {
 .censorly-category-tree__children .censorly-category-tree__label > i { color: var(--muted); }
 .censorly-category-tree__children .censorly-category-tree__label > span { font-weight: 450; }
 .censorly-random-validation { margin: 0; color: var(--danger); font-size: .8rem; }
-[data-random-censorly-loading] { margin-left: .6rem; color: var(--muted); font-size: .85rem; }
 @media (max-width: 919px) {
   .censorly-random-dialog__top-grid { grid-template-columns: 1fr; }
   .censorly-type-options { max-height: 7rem; }

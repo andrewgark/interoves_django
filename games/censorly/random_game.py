@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import html
 import json
+import logging
 import random
 
 from django.db import IntegrityError, transaction
@@ -11,9 +13,18 @@ from django.utils import timezone
 from games.censorly import CENSORLY_CHECKER_ID, CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
 from games.censorly.play import CENSORLY_BASE_POINTS
 from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
-from games.censorly.wiki import WikiArticle, WikiFetchError, fetch_article, title_from_user_input
+from games.censorly.wiki import (
+    CensorlyArticleRejected,
+    WikiArticle,
+    WikiFetchError,
+    WikipediaRequestFailed,
+    fetch_article,
+    title_from_user_input,
+)
 from games.models import CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
 from games.placement_share import allocate_share_hash
+
+logger = logging.getLogger('application')
 
 
 class EmptyCensorlyPool(LookupError):
@@ -60,7 +71,7 @@ def _create_from_article(
         truncated=bool(getattr(article, 'truncated', False)),
     )
     if not title_content_lemmas(puzzle):
-        raise WikiFetchError('В названии нет угадываемых слов')
+        raise CensorlyArticleRejected('В названии нет угадываемых слов')
     if pool_title and pool_title != article.title:
         puzzle['source_pool_title'] = pool_title
     checker = CheckerType.objects.get(pk=CENSORLY_CHECKER_ID)
@@ -217,8 +228,25 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
             break
         tried += 1
         try:
-            article = fetch_article(title)
+            article = fetch_article(title, timeout=8)
+        except CensorlyArticleRejected as exc:
+            from games.censorly.pool_admin import mark_unplayable
+
+            mark_unplayable(title, tagged.get(title))
+            logger.warning(
+                'event=censorly_pool_article_rejected title=%r reason=%s',
+                title, exc,
+            )
+            errors.append(f'{title}: {exc}')
+            continue
+        except WikipediaRequestFailed as exc:
+            _report_wikipedia_request_failure(title, exc)
+            errors.append(f'{title}: {exc}')
+            continue
         except WikiFetchError as exc:
+            # Unknown validation failures are not enough evidence to disable a
+            # curated title; keep it eligible and surface the details.
+            _report_wikipedia_request_failure(title, exc)
             errors.append(f'{title}: {exc}')
             continue
         if article.title in used:
@@ -231,10 +259,23 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
             continue
         try:
             return _create_from_article(article, game=game, pool_title=title)
+        except CensorlyArticleRejected as exc:
+            from games.censorly.pool_admin import mark_unplayable
+
+            mark_unplayable(title, tagged.get(title))
+            logger.warning(
+                'event=censorly_pool_article_rejected title=%r reason=%s',
+                title, exc,
+            )
+            errors.append(f'{title}: {exc}')
+            continue
         except WikiFetchError as exc:
-            # A fetched article can still fail puzzle validation (for example,
-            # when its title has no guessable content). Treat it like a bad
-            # pool candidate and continue with the next article.
+            # Unclassified puzzle-generation errors are logged for diagnosis,
+            # but don't disable the pool title or report them as network faults.
+            logger.exception(
+                'event=censorly_pool_article_validation_failed title=%r reason=%s',
+                title, exc,
+            )
             errors.append(f'{title}: {exc}')
             continue
         except IntegrityError:
@@ -250,6 +291,35 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
             continue
     detail = '; '.join(errors[:3]) if errors else 'нет доступных статей'
     raise CensorlyPoolFetchFailed(f'Не удалось создать цензурку ({detail})')
+
+
+def _report_wikipedia_request_failure(title: str, exc: Exception) -> None:
+    cause = exc.__cause__
+    detail = '{}: {}'.format(type(cause).__name__, cause) if cause else str(exc)
+    logger.warning(
+        'event=censorly_wikipedia_request_failed title=%r error_type=%s detail=%s',
+        title, type(cause or exc).__name__, detail,
+        exc_info=(type(exc), exc, exc.__traceback__),
+    )
+    try:
+        from games.telegram.admin_alert_events import publish_admin_alert
+
+        escaped_title = html.escape(title[:255], quote=False)
+        escaped_detail = html.escape(detail[:3000], quote=False)
+        publish_admin_alert(
+            alert='censorly_wikipedia_failure',
+            dedupe_key='telegram.admin_alert:censorly_wikipedia_failure',
+            payload={
+                'text': (
+                    '⚠️ <b>Не удалось загрузить статью для случайной Цензурки</b>\n\n'
+                    'Статья: <b>{}</b>\n'
+                    'Ошибка: <code>{}</code>\n'
+                    'Детали: {}'
+                ).format(escaped_title, html.escape(type(cause or exc).__name__), escaped_detail),
+            },
+        )
+    except Exception:
+        logger.exception('event=censorly_wikipedia_admin_alert_failed title=%r', title)
 
 
 def puzzle_json_size(task: Task) -> int:
