@@ -256,6 +256,22 @@
     }));
   }
 
+  function isWordDisplayToken(tok) {
+    return !!tok && (tok.kind === 'content' || tok.kind === 'stop' || tok.revealed);
+  }
+
+  function appendWordWithPunctuation(container, tokens, index, lenForced) {
+    var cluster = el('span', 'censorly-tok__word-punctuation');
+    appendToken(cluster, tokens[index], lenForced);
+    var next = index + 1;
+    while (next < tokens.length && tokens[next].kind === 'punct') {
+      appendToken(cluster, tokens[next], lenForced);
+      next += 1;
+    }
+    container.appendChild(cluster);
+    return next;
+  }
+
   function renderTokens(container, tokens, lenForced) {
     lenForced = lenForced || {};
     container.textContent = '';
@@ -307,13 +323,21 @@
         }
         if (!inner.length) continue;
         var block = el('span', 'censorly-heading censorly-heading--' + level);
-        inner.forEach(function (part) {
+        var partIndex = 0;
+        while (partIndex < inner.length) {
+          var part = inner[partIndex];
           if (part.kind === 'heading') {
             block.appendChild(document.createTextNode(part.text || ''));
-            return;
+            partIndex += 1;
+            continue;
+          }
+          if (isWordDisplayToken(part)) {
+            partIndex = appendWordWithPunctuation(block, inner, partIndex, lenForced);
+            continue;
           }
           appendToken(block, part, lenForced);
-        });
+          partIndex += 1;
+        }
         container.appendChild(block);
         started = true;
         prevWasPara = false;
@@ -321,6 +345,10 @@
       }
       prevWasPara = false;
       if (tok.kind !== 'space') started = true;
+      if (isWordDisplayToken(tok)) {
+        i = appendWordWithPunctuation(container, list, i, lenForced);
+        continue;
+      }
       appendToken(container, tok, lenForced);
       i += 1;
     }

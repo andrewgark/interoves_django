@@ -226,6 +226,13 @@ html.new-ui-dark .censorly__dock {
   display: inline;
 }
 
+/* Keep punctuation attached to the word it closes when a line wraps. */
+.censorly-tok__word-punctuation {
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: baseline;
+}
+
 /* Blank line between wikipedia paragraphs: redactle's collapsed p margin, 0.75em. */
 .censorly-tok--para {
   display: block;
