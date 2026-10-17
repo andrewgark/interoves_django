@@ -1132,6 +1132,17 @@
       detail.promise = syncActorState();
     });
 
+    // Anonymous pages do not have a Track socket. Reconcile when a player
+    // returns to this tab so a guess made in another tab is reflected without
+    // polling throughout the whole session.
+    if (root.getAttribute('data-authenticated') !== '1') {
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState !== 'visible') return;
+        actorSyncGeneration += 1;
+        syncActorState().catch(function () {});
+      });
+    }
+
     root.classList.toggle('censorly--show-endings', showEndings);
     root.classList.toggle('censorly--show-lengths', showLengths);
     applyState(root, state);
