@@ -38,6 +38,7 @@ def _empty_reset_result():
         'attempts': 0,
         'hint_attempts': 0,
         'timings': 0,
+        'replay_slots': 0,
         'started': 0,
         'completed': 0,
         'projections': 0,
@@ -169,6 +170,10 @@ def reset_daily_release_progress(placement, *, now=None):
         game=placement.game, task_group=placement.task_group,
         completed_at__lt=published_at,
     )
+    stale_replay_slots = ReplaySlot.objects.filter(
+        game=placement.game, task_group=placement.task_group,
+        created_at__lt=published_at,
+    )
     stale_states = ChainTaskState.objects.filter(
         game=placement.game, task_id__in=task_ids, updated_at__lt=published_at,
     )
@@ -177,7 +182,7 @@ def reset_daily_release_progress(placement, *, now=None):
     )
     if not any(qs.exists() for qs in (
         old_attempts, old_hint_attempts, stale_timing, stale_started,
-        stale_completed, stale_states,
+        stale_completed, stale_states, stale_replay_slots,
     )):
         return _empty_reset_result()
 
@@ -206,6 +211,7 @@ def reset_daily_release_progress(placement, *, now=None):
         'timings': stale_timing.count(),
         'started': stale_started.count(),
         'completed': stale_completed.count(),
+        'replay_slots': stale_replay_slots.count(),
         'projections': stale_projection.count(),
         'projection_states': DailyResultProjectionState.objects.filter(
             game=placement.game, task_group=placement.task_group,
@@ -216,6 +222,10 @@ def reset_daily_release_progress(placement, *, now=None):
     stale_timing.delete()
     stale_started.delete()
     stale_completed.delete()
+    # A replay is only valid while its official completion exists. Slots
+    # created before publication belong to the accidental pre-release state
+    # being reset; delete them so a stale session cannot suppress the timer.
+    stale_replay_slots.delete()
     # Projections are derived. Keep the last committed projection visible
     # until the post-commit rebuild succeeds; never create a missing/empty
     # projection window inside the canonical cleanup transaction.

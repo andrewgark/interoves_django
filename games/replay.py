@@ -76,6 +76,17 @@ def active_replay(*, request, game, task_group, team=None, user=None, anon_key=N
         **actor,
     ).first()
     if slot is None:
+        # Heal a session cookie left behind after a daily reset deleted its
+        # replay slot. Otherwise downstream page context can keep treating
+        # this request as a replay and hide official timing UI.
+        clear_replay_session(request, game, task_group)
+        return None
+    if not _official_exists(
+        game=game, task_group=task_group, team=team, user=user, anon_key=anon_key,
+    ):
+        # Replay access is subordinate to the official completion that
+        # authorized it. A reset or repair may remove that completion later.
+        clear_replay_session(request, game, task_group)
         return None
     return slot
 
