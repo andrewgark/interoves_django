@@ -254,7 +254,9 @@
     var node = renderToken(tok, {
       lenForced: forced === '1' ? true : (forced === '0' ? false : null),
     });
-    if (extraClass) node.classList.add(extraClass);
+    if (extraClass) extraClass.split(/\s+/).forEach(function (name) {
+      if (name) node.classList.add(name);
+    });
     container.appendChild(node);
   }
 
@@ -262,39 +264,47 @@
     return !!tok && (tok.kind === 'content' || tok.kind === 'stop' || tok.revealed);
   }
 
-  var OPENING_PUNCTUATION = '([{«‹“‘„‚〈《「『【〔〖〘〚¿¡';
-  var CLOSING_PUNCTUATION = ')]}>»›”’〉》」』】〕〗〙.,!?;:…';
-
-  function punctuationDirection(tok) {
+  function punctuationAttachments(tok, hasPreviousWord, hasNextWord) {
     var text = String((tok && (tok.text || tok.surface)) || '');
-    var chars = Array.from(text);
-    if (chars.length && OPENING_PUNCTUATION.indexOf(chars[0]) !== -1) return 'opening';
-    if (chars.length && CLOSING_PUNCTUATION.indexOf(chars[chars.length - 1]) !== -1) return 'closing';
-    return 'neutral';
+    return window.CensorlyPunctuation.attachments(text, hasPreviousWord, hasNextWord);
   }
 
   function appendWordWithPunctuation(container, tokens, index, lenForced) {
     appendToken(container, tokens[index], lenForced);
     var next = index + 1;
-    while (
-      next < tokens.length && tokens[next].kind === 'punct' &&
-      punctuationDirection(tokens[next]) !== 'opening'
-    ) {
-      appendToken(container, tokens[next], lenForced, 'censorly-tok--no-break-before');
+    while (next < tokens.length && tokens[next].kind === 'punct') {
+      var attachments = punctuationAttachments(
+        tokens[next], true, isWordDisplayToken(tokens[next + 1])
+      );
+      if (!attachments.before) break;
+      var classes = [];
+      if (attachments.before) classes.push('censorly-tok--no-break-before');
+      if (attachments.after) classes.push('censorly-tok--no-break-after');
+      appendToken(container, tokens[next], lenForced, classes.join(' '));
       next += 1;
     }
     return next;
   }
 
   function appendOpeningPunctuationWithWord(container, tokens, index, lenForced) {
+    var start = index;
     var next = index;
-    while (next < tokens.length && tokens[next].kind === 'punct' &&
-        punctuationDirection(tokens[next]) === 'opening') {
-      next += 1;
-    }
+    while (next < tokens.length && tokens[next].kind === 'punct') next += 1;
     if (!isWordDisplayToken(tokens[next])) return index;
+    var attachmentsByToken = [];
+    var hasAfterAttachment = false;
+    for (var cursor = index; cursor < next; cursor += 1) {
+      var attachments = punctuationAttachments(tokens[cursor], isWordDisplayToken(tokens[index - 1]), true);
+      attachmentsByToken.push(attachments);
+      hasAfterAttachment = hasAfterAttachment || attachments.after;
+    }
+    if (!hasAfterAttachment) return index;
     while (index < next) {
-      appendToken(container, tokens[index], lenForced, 'censorly-tok--no-break-after');
+      var tokenAttachments = attachmentsByToken[index - start];
+      var classes = [];
+      if (tokenAttachments.before) classes.push('censorly-tok--no-break-before');
+      if (tokenAttachments.after) classes.push('censorly-tok--no-break-after');
+      appendToken(container, tokens[index], lenForced, classes.join(' '));
       index += 1;
     }
     return appendWordWithPunctuation(container, tokens, next, lenForced);
@@ -363,7 +373,7 @@
             partIndex = appendWordWithPunctuation(block, inner, partIndex, lenForced);
             continue;
           }
-          if (part.kind === 'punct' && punctuationDirection(part) === 'opening') {
+          if (part.kind === 'punct') {
             var nextPartIndex = appendOpeningPunctuationWithWord(block, inner, partIndex, lenForced);
             if (nextPartIndex !== partIndex) {
               partIndex = nextPartIndex;
@@ -384,7 +394,7 @@
         i = appendWordWithPunctuation(container, list, i, lenForced);
         continue;
       }
-      if (tok.kind === 'punct' && punctuationDirection(tok) === 'opening') {
+      if (tok.kind === 'punct') {
         var nextIndex = appendOpeningPunctuationWithWord(container, list, i, lenForced);
         if (nextIndex !== i) {
           i = nextIndex;
