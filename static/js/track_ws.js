@@ -486,6 +486,9 @@
       if (eventGameId == null && msg.type === 'track.event' && msg.payload) {
         eventGameId = msg.payload.game_id;
       }
+      if (msg.type === 'task.changed' && msg.by === 'personal' && eventGameId == null) {
+        return false;
+      }
       return eventGameId == null || String(eventGameId) === String(gameId);
     });
   }

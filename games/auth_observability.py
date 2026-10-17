@@ -351,6 +351,7 @@ def log_realtime_sync(
     seq_namespace=None,
     delivery=None,
     missed_namespaces=None,
+    reset_namespaces=None,
 ) -> None:
     """Log sync metadata only; never include rendered HTML or client payloads."""
     log_auth_event(
@@ -369,6 +370,10 @@ def log_realtime_sync(
         missed_namespaces=(
             [str(value)[:160] for value in missed_namespaces[:20]]
             if isinstance(missed_namespaces, (list, tuple)) else None
+        ),
+        reset_namespaces=(
+            [str(value)[:160] for value in reset_namespaces[:20]]
+            if isinstance(reset_namespaces, (list, tuple)) else None
         ),
     )
 

@@ -13,7 +13,7 @@ from channels.testing import WebsocketCommunicator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.contrib.auth.models import User
-from django.test import Client, TestCase, override_settings
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from datetime import timedelta
 
@@ -218,6 +218,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
                     await track.next_track_seq_async('user:timeout')
 
         async_to_sync(run)()
+
 
     def test_async_redis_pool_has_a_per_process_connection_cap(self):
         from games.views import track
@@ -635,6 +636,7 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
 
         async_to_sync(run)()
 
+
     def test_project_websocket_route_uses_scoped_game(self):
         from interoves_django.asgi import application
 
@@ -949,30 +951,6 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
         async_to_sync(cannot_connect)(f'/games/{closed_game.id}/track/')
         async_to_sync(cannot_connect)('/games/missing_track_game/track/')
 
-    def test_team_socket_closes_after_actor_team_is_revoked(self):
-        """An already-open team socket must not survive a membership change."""
-        from interoves_django.asgi import application
-
-        headers = self._session_headers()
-        path = f'/games/{self.game.id}/track/?play_mode=team'
-
-        async def run():
-            communicator = WebsocketCommunicator(application, path, headers=headers)
-            connected, _ = await communicator.connect()
-            assert connected
-            group = CHANNEL_GROUPS['game_team'](self.game.id, self.team.pk)
-            self.assertIn(group, get_channel_layer().groups)
-
-            await database_sync_to_async(
-                lambda: Profile.objects.filter(user_id=self.user.id).update(team_on=None)
-            )()
-            await communicator.send_json_to({'type': 'ping'})
-            close_message = await communicator.receive_output(timeout=5)
-            self.assertEqual(close_message['type'], 'websocket.close')
-            self.assertEqual(close_message['code'], 4403)
-
-        async_to_sync(run)()
-
     def test_personal_task_events_use_game_scoped_group_and_revision(self):
         """Two game tabs for one account must not share a task revision stream."""
         second_game = Game.objects.create(
@@ -1096,6 +1074,75 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(second['type'], 'track.resync_required')
         self.assertEqual(second['missed'][namespace], current_track_seq(namespace))
 
+    @override_settings(TRACK_WS_GROUP_DISCARD_TIMEOUT=0.05, TRACK_WS_IDLE_TIMEOUT=0)
+    def test_disconnect_bounded_when_group_discard_hangs(self):
+        """Slow Redis group_discard must not block disconnect beyond TRACK_WS_GROUP_DISCARD_TIMEOUT."""
+        from interoves_django.asgi import application
+
+        headers = self._session_headers()
+        path = '/ws/track/'
+
+        async def slow_discard(group, channel):
+            await asyncio.sleep(30)
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            layer = get_channel_layer()
+            with patch.object(layer, 'group_discard', side_effect=slow_discard):
+                t0 = time.monotonic()
+                await communicator.disconnect()
+                elapsed = time.monotonic() - t0
+            self.assertLess(elapsed, 2.0)
+
+        async_to_sync(run)()
+
+
+@override_settings(
+    CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
+    TRACK_WS_IDLE_TIMEOUT=0,
+)
+class TrackWebsocketSecurityRegressionTests(TrackGameFixtureMixin, TransactionTestCase):
+    """TransactionTestCase permits DB updates while ASGI uses another thread."""
+
+    def setUp(self):
+        super().setUp()
+        TrackGameFixtureMixin.setUpTestData.__func__(self.__class__)
+
+    def _session_headers(self):
+        client = Client()
+        client.force_login(self.user)
+        return [
+            (b'cookie', f"sessionid={client.cookies['sessionid'].value}".encode()),
+            (b'host', b'testserver'),
+        ]
+
+    def test_team_socket_closes_after_actor_team_is_revoked(self):
+        from interoves_django.asgi import application
+
+        headers = self._session_headers()
+        path = f'/games/{self.game.id}/track/?play_mode=team'
+
+        async def run():
+            communicator = WebsocketCommunicator(application, path, headers=headers)
+            connected, _ = await communicator.connect()
+            assert connected
+            group = CHANNEL_GROUPS['game_team'](self.game.id, self.team.pk)
+            self.assertIn(group, get_channel_layer().groups)
+
+            await database_sync_to_async(
+                lambda: Profile.objects.get(user_id=self.user.id).remove_team_membership(
+                    Team.objects.get(pk=self.team.pk)
+                )
+            )()
+            await communicator.send_json_to({'type': 'ping'})
+            close_message = await communicator.receive_output(timeout=5)
+            self.assertEqual(close_message['type'], 'websocket.close')
+            self.assertEqual(close_message['code'], 4403)
+
+        async_to_sync(run)()
+
     def test_game_track_reconnect_detects_revision_counter_reset(self):
         from interoves_django.asgi import application
         from games.views import track
@@ -1123,27 +1170,3 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
         message = async_to_sync(reconnect)()
         self.assertEqual(message['type'], 'track.resync_required')
         self.assertEqual(message['reset'][namespace], 2)
-
-    @override_settings(TRACK_WS_GROUP_DISCARD_TIMEOUT=0.05, TRACK_WS_IDLE_TIMEOUT=0)
-    def test_disconnect_bounded_when_group_discard_hangs(self):
-        """Slow Redis group_discard must not block disconnect beyond TRACK_WS_GROUP_DISCARD_TIMEOUT."""
-        from interoves_django.asgi import application
-
-        headers = self._session_headers()
-        path = '/ws/track/'
-
-        async def slow_discard(group, channel):
-            await asyncio.sleep(30)
-
-        async def run():
-            communicator = WebsocketCommunicator(application, path, headers=headers)
-            connected, _ = await communicator.connect()
-            assert connected
-            layer = get_channel_layer()
-            with patch.object(layer, 'group_discard', side_effect=slow_discard):
-                t0 = time.monotonic()
-                await communicator.disconnect()
-                elapsed = time.monotonic() - t0
-            self.assertLess(elapsed, 2.0)
-
-        async_to_sync(run)()
