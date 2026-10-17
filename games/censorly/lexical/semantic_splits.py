@@ -6757,4 +6757,5 @@ CLUSTERS = CLUSTERS + (
     ('sense:architecture', ('архитектор', 'архитектура')),
     ('sense:patriot', ('патриот', 'патриотизм')),
     ('sense:automobile', ('автомобиль', 'автомобильный')),
+    ('sense:program', ('программа', 'программный')),
 )

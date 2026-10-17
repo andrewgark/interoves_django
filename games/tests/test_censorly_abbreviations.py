@@ -60,6 +60,40 @@ class CensorlyAbbreviationAliasTests(SimpleTestCase):
         self.assertEqual(explain('КГЦ', 'Килогерц'), 'alias')
         self.assertEqual(explain('мГц', 'МЕГАГЕРЦ'), 'alias')
 
+    def test_bit_and_byte_prefix_aliases_are_bidirectional(self):
+        pairs = (
+            ('килобит', 'кбит'),
+            ('мегабит', 'мбит'),
+            ('гигабит', 'гбит'),
+            ('терабит', 'тбит'),
+            ('петабит', 'пбит'),
+            ('эксабит', 'эбит'),
+            ('килобайт', 'кб'),
+            ('мегабайт', 'мб'),
+            ('гигабайт', 'гб'),
+            ('терабайт', 'тб'),
+            ('петабайт', 'пб'),
+            ('эксабайт', 'эб'),
+        )
+        for full, abbreviation in pairs:
+            with self.subTest(full=full, abbreviation=abbreviation):
+                self.assertEqual(explain(full, abbreviation), 'alias')
+                self.assertEqual(explain(abbreviation, full), 'alias')
+                self.assertTrue(opens(full, abbreviation))
+                self.assertTrue(opens(abbreviation, full))
+
+    def test_bit_and_byte_aliases_do_not_cross_units_or_prefixes(self):
+        for left, right in (
+            ('тбит', 'тбайт'),
+            ('мбит', 'мбайт'),
+            ('мб', 'мбит'),
+            ('тб', 'гб'),
+            ('пбит', 'эбит'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+                self.assertFalse(opens(right, left))
+
     def test_alias_groups_do_not_create_unwanted_transitivity(self):
         for left, right in (
             ('кгц', 'мегагерц'),

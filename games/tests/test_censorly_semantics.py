@@ -2116,6 +2116,10 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             tokenize_text('операционная'), 'операция',
         ))
 
+    def test_program_and_programmatic_adjective_share_reviewed_family(self):
+        self.assertTrue(opens('программа', 'программного'))
+        self.assertTrue(opens('программой', 'программы'))
+
     def test_send_family_has_narrow_modern_senses(self):
         for left, right in (
             ('послать', 'послание'),
