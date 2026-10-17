@@ -25,6 +25,7 @@ _GENERIC_GAME_TIMING = re.compile(
 _RADDLE_UI = re.compile(r'^/send_raddle_ui/\d+/?$')
 _CENSORLY_RANDOM = re.compile(r'^/censorly/random/?$')
 _CENSORLY_GUESS = re.compile(r'^/censorly/(?:r/[^/]+|[^/]+)/guess/?$')
+_CENSORLY_PAGE = re.compile(r'^/censorly/(?:r/[^/]+|[^/]+)/?$')
 
 
 def _watch_path(path: str) -> bool:
@@ -37,6 +38,7 @@ def _watch_path(path: str) -> bool:
         or _RADDLE_UI.match(path)
         or _CENSORLY_RANDOM.match(path)
         or _CENSORLY_GUESS.match(path)
+        or _CENSORLY_PAGE.match(path)
     )
 
 

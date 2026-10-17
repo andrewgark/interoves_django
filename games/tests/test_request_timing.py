@@ -3,7 +3,7 @@
 from django.test import RequestFactory, TestCase
 from django.urls import resolve
 
-from games.middleware.request_timing import RequestTimingMiddleware, timing_phase
+from games.middleware.request_timing import RequestTimingMiddleware, _watch_path, timing_phase
 
 
 class RequestTimingMiddlewareTests(TestCase):
@@ -49,6 +49,11 @@ class RequestTimingMiddlewareTests(TestCase):
             self.middleware.slow_ms = 0
             with self.assertLogs('interoves.request_timing', level='WARNING'):
                 self.middleware(request)
+
+    def test_watches_censorly_play_pages_but_not_nested_state_routes(self):
+        self.assertTrue(_watch_path('/censorly/5/'))
+        self.assertTrue(_watch_path('/censorly/r/abcd1234/'))
+        self.assertFalse(_watch_path('/censorly/5/state/'))
 
     def test_logs_named_phases_without_request_payload(self):
         def response(request):

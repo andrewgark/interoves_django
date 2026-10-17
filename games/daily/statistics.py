@@ -10,7 +10,7 @@ from statistics import mean, median
 from typing import Callable
 
 from django.core.cache import caches
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Min, Q
 
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
@@ -34,8 +34,8 @@ CACHE_VERSION = 22
 CACHE_TIMEOUT = 10 * 60
 REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 CACHE_BUILD_LOCK_TIMEOUT = 30
-CACHE_BUILD_WAIT_SECONDS = 0.1
-CACHE_BUILD_POLL_INTERVAL = 0.01
+CACHE_BUILD_WAIT_SECONDS = 8
+CACHE_BUILD_POLL_INTERVAL = 0.1
 _RELEASE_CACHE_LOCK_SCRIPT = (
     "if redis.call('get', KEYS[1]) == ARGV[1] then "
     "return redis.call('del', KEYS[1]) else return 0 end"
@@ -105,6 +105,61 @@ def _release_build_lock(cache, lock_key, lock_token):
         cache.delete(lock_key)
 
 
+def _build_daily_statistics_observed(game, task_group, *, published_at=None):
+    """Run one canonical build and record its database cost without SQL text."""
+    query_count = 0
+    query_seconds = 0.0
+    started = time.perf_counter()
+
+    def observe(execute, sql, params, many, context):
+        nonlocal query_count, query_seconds
+        query_count += 1
+        query_started = time.perf_counter()
+        try:
+            return execute(sql, params, many, context)
+        finally:
+            query_seconds += time.perf_counter() - query_started
+
+    try:
+        with connection.execute_wrapper(observe):
+            result = _build_daily_statistics_payload(
+                game, task_group, published_at=published_at,
+            )
+    except Exception:
+        logger.exception(
+            'daily_statistics_build_failed game=%s task_group=%s elapsed_ms=%.1f '
+            'sql_count=%s sql_ms=%.1f',
+            game.pk, task_group.pk, (time.perf_counter() - started) * 1000,
+            query_count, query_seconds * 1000,
+        )
+        raise
+    logger.info(
+        'daily_statistics_build game=%s task_group=%s elapsed_ms=%.1f '
+        'sql_count=%s sql_ms=%.1f',
+        game.pk, task_group.pk, (time.perf_counter() - started) * 1000,
+        query_count, query_seconds * 1000,
+    )
+    return result
+
+
+def _previous_revision_payload(cache, game_id, task_group_id, revision, published_at):
+    """Return the last completed generation for a short stale-while-build read."""
+    if revision <= 0:
+        return None
+    key = _versioned_cache_key(
+        game_id, task_group_id, revision - 1, published_at,
+    )
+    payload = cache.get(key)
+    if payload is None:
+        return None
+    # Existing clients ignore unknown JSON fields. This marks the bounded,
+    # previous generation returned only while its replacement is building.
+    if isinstance(payload, dict):
+        payload = dict(payload)
+        payload['_stale'] = True
+    return payload
+
+
 def invalidate_daily_statistics(game_id, task_group_id):
     if not game_id or not task_group_id:
         return
@@ -116,6 +171,7 @@ def invalidate_daily_statistics(game_id, task_group_id):
 def _advance_daily_statistics_revision(game_id, task_group_id):
     cache = caches['daily_statistics']
     revision_key = _cache_revision_key(game_id, task_group_id)
+    revision = None
     try:
         try:
             cache.incr(revision_key)
@@ -123,17 +179,32 @@ def _advance_daily_statistics_revision(game_id, task_group_id):
             # Initialize the counter, then retry if another invalidation won
             # the first-write race.
             if cache.add(revision_key, 1, timeout=REVISION_TIMEOUT):
-                return
+                revision = 1
             else:
                 cache.incr(revision_key)
         # Results expire sooner than revision counters. Refreshing the counter
         # TTL bounds Redis key growth without allowing a live result generation
         # to become current again after its counter expires.
+        if revision is None:
+            revision = int(cache.get(revision_key, 0) or 0)
         cache.touch(revision_key, REVISION_TIMEOUT)
     except Exception:
         # Cache is an optimization. A cache outage must not fail game completion.
         logger.warning(
             'daily_statistics_cache_invalidation_failed game=%s task_group=%s',
+            game_id, task_group_id, exc_info=True,
+        )
+    try:
+        from games.projection_events import publish_daily_statistics_refresh
+
+        publish_daily_statistics_refresh(
+            game_id, task_group_id, revision=revision,
+        )
+    except Exception:
+        # Statistics are still correct on demand; queue publication is an
+        # optimization and must never fail the canonical game completion.
+        logger.warning(
+            'daily_statistics_refresh_schedule_failed game=%s task_group=%s',
             game_id, task_group_id, exc_info=True,
         )
 
@@ -758,7 +829,7 @@ def build_daily_statistics(game, task_group, *, published_at=None):
                 'daily_statistics_cache_read_failed game=%s task_group=%s',
                 game.id, task_group.id, exc_info=True,
             )
-            return _build_daily_statistics_payload(game, task_group, published_at=published_at)
+            return _build_daily_statistics_observed(game, task_group, published_at=published_at)
         if cached is not None:
             try:
                 if int(cache.get(revision_key, 0) or 0) == revision:
@@ -768,7 +839,7 @@ def build_daily_statistics(game, task_group, *, published_at=None):
                     'daily_statistics_cache_revision_read_failed game=%s task_group=%s',
                     game.id, task_group.id, exc_info=True,
                 )
-                return _build_daily_statistics_payload(game, task_group, published_at=published_at)
+                return _build_daily_statistics_observed(game, task_group, published_at=published_at)
             continue
 
         lock_key = '{}:build-lock'.format(result_key)
@@ -782,7 +853,9 @@ def build_daily_statistics(game, task_group, *, published_at=None):
                 'daily_statistics_cache_lock_failed game=%s task_group=%s',
                 game.id, task_group.id, exc_info=True,
             )
-            return _build_daily_statistics_payload(game, task_group, published_at=published_at)
+            return _build_daily_statistics_observed(
+                game, task_group, published_at=published_at,
+            )
 
         if not owns_lock:
             revision_changed = False
@@ -798,6 +871,11 @@ def build_daily_statistics(game, task_group, *, published_at=None):
                     if cached is not None:
                         if int(cache.get(revision_key, 0) or 0) == revision:
                             return cached
+                    stale = _previous_revision_payload(
+                        cache, game.id, task_group.id, revision, published_at,
+                    )
+                    if stale is not None:
+                        return stale
                 except Exception:
                     cache_failed = True
                     logger.warning(
@@ -825,7 +903,7 @@ def build_daily_statistics(game, task_group, *, published_at=None):
                     )
 
             if not owns_lock:
-                result = _build_daily_statistics_payload(
+                result = _build_daily_statistics_observed(
                     game, task_group, published_at=published_at,
                 )
                 try:
@@ -839,7 +917,7 @@ def build_daily_statistics(game, task_group, *, published_at=None):
                 return result
 
         try:
-            result = _build_daily_statistics_payload(
+            result = _build_daily_statistics_observed(
                 game, task_group, published_at=published_at,
             )
 
@@ -869,7 +947,7 @@ def build_daily_statistics(game, task_group, *, published_at=None):
     # A burst of completions can keep advancing the revision. Return the last
     # fresh calculation without caching it; the next request will use the new
     # generation.
-    return result if result is not None else _build_daily_statistics_payload(
+    return result if result is not None else _build_daily_statistics_observed(
         game, task_group, published_at=published_at,
     )
 

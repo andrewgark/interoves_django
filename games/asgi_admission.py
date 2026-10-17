@@ -292,6 +292,12 @@ class DatabaseAdmissionASGIMiddleware:
         if scope.get('type') != 'http':
             return await self.app(scope, receive, send)
 
+        # The load balancer's liveness check must be able to distinguish a
+        # responsive Django process from DB saturation. This view is explicitly
+        # dependency-free, so let it run outside the DB admission queue.
+        if scope.get('path') in ('/health/live', '/health/live/'):
+            return await self.app(scope, receive, send)
+
         try:
             admitted, waited_ms, rejection_reason = await self.gate.acquire()
         except asyncio.CancelledError:

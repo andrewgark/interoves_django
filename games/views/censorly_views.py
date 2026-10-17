@@ -834,16 +834,18 @@ def _render_play(request, *, game, task, load_meta):
 
 
 def censorly_play_page(request, number=None, share_hash=None):
-    game, task, load_meta, err = _load_visible_task(
-        request, number, json_mode=False, random_hash=share_hash,
-    )
+    with timing_phase(request, 'censorly_task_load'):
+        game, task, load_meta, err = _load_visible_task(
+            request, number, json_mode=False, random_hash=share_hash,
+        )
     if err is not None:
         if getattr(err, 'status_code', None) == 403:
             return err
         raise Http404()
     if game is None or task is None:
         raise Http404()
-    return _render_play(request, game=game, task=task, load_meta=load_meta)
+    with timing_phase(request, 'censorly_page_render'):
+        return _render_play(request, game=game, task=task, load_meta=load_meta)
 
 
 @require_POST

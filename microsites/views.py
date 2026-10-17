@@ -40,7 +40,6 @@ logger = logging.getLogger(__name__)
 _SAFE_WEB_NAME = re.compile(r"^[a-zA-Z0-9][-a-zA-Z0-9_.]*$")
 _NUTRIMATIC_SEARCH_GATE = None
 _NUTRIMATIC_GATE_LOCK = None
-_NUTRIMATIC_LAG_TASK = None
 _NUTRIMATIC_PATHS_TASK = None
 _NUTRIMATIC_PATHS_VALUE = None
 _NUTRIMATIC_ACTIVE = 0
@@ -54,16 +53,14 @@ _NUTRIMATIC_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
 
 def _nutrimatic_async_gate():
     """Create loop-local gate lazily (Daphne serves this app on one loop)."""
-    global _NUTRIMATIC_SEARCH_GATE, _NUTRIMATIC_GATE_LOCK, _NUTRIMATIC_LAG_TASK
+    global _NUTRIMATIC_SEARCH_GATE, _NUTRIMATIC_GATE_LOCK
     loop = asyncio.get_running_loop()
     if getattr(_NUTRIMATIC_SEARCH_GATE, "_loop", loop) not in (None, loop):
         _NUTRIMATIC_SEARCH_GATE = None
         _NUTRIMATIC_GATE_LOCK = None
-        _NUTRIMATIC_LAG_TASK = None
     if _NUTRIMATIC_SEARCH_GATE is None:
         _NUTRIMATIC_SEARCH_GATE = asyncio.Semaphore(1)
         _NUTRIMATIC_GATE_LOCK = asyncio.Lock()
-        _NUTRIMATIC_LAG_TASK = asyncio.create_task(_log_event_loop_lag())
     return _NUTRIMATIC_SEARCH_GATE, _NUTRIMATIC_GATE_LOCK
 
 
@@ -83,16 +80,6 @@ async def _nutrimatic_paths_async():
     _NUTRIMATIC_PATHS_VALUE = value
     _NUTRIMATIC_PATHS_TASK = None
     return value
-
-
-async def _log_event_loop_lag():
-    loop = asyncio.get_running_loop()
-    interval = 10.0
-    while True:
-        expected = loop.time() + interval
-        await asyncio.sleep(interval)
-        lag = max(0.0, loop.time() - expected)
-        logger.info("asgi_event_loop_lag seconds=%.3f", lag)
 
 
 async def _nutrimatic_acquire():

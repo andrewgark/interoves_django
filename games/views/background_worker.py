@@ -18,6 +18,7 @@ from games.background.messages import (
     DIFFICULTY_HEALTH_CHECK,
     DIFFICULTY_CENSORLY_REFRESH,
     DIFFICULTY_REFRESH,
+    DAILY_STATISTICS_REFRESH,
     PROJECTION_RECONCILE,
     PROJECTION_REFRESH,
     InvalidBackgroundMessage,
@@ -39,7 +40,10 @@ from games.difficulty_refresh import (
     DIFFICULTY_REFRESH_LOCK_TTL_SECONDS,
     run_daily_difficulty_refresh,
 )
-from games.projection_events import run_named_projection_refresh
+from games.projection_events import (
+    run_named_daily_statistics_refresh,
+    run_named_projection_refresh,
+)
 from games.runtime import RUNTIME_ROLE_BACKGROUND, runtime_role
 from games.subscription_gift_payments import reconcile_yookassa_gift_payments
 from games.subscription_gifts import expire_subscription_gifts
@@ -61,7 +65,7 @@ def background_worker(request):
         return JsonResponse({'error': 'invalid payload'}, status=400)
     if message['type'] not in (
         DIFFICULTY_REFRESH, DIFFICULTY_CENSORLY_REFRESH, DIFFICULTY_HEALTH_CHECK,
-        PROJECTION_RECONCILE, PROJECTION_REFRESH,
+        PROJECTION_RECONCILE, PROJECTION_REFRESH, DAILY_STATISTICS_REFRESH,
     ):
         return JsonResponse({'error': 'unsupported type'}, status=400)
 
@@ -69,6 +73,8 @@ def background_worker(request):
     now = timezone.now()
     if message['type'] == PROJECTION_REFRESH:
         return _projection_refresh(message, message_id)
+    if message['type'] == DAILY_STATISTICS_REFRESH:
+        return _daily_statistics_refresh(message, message_id)
     if is_stale(message['scheduled_for'], now=now):
         logger.info(
             'background worker skipped_stale type=%s run_id=%s scheduled_for=%s message_id=%s',
@@ -228,10 +234,44 @@ def _projection_refresh(message, message_id):
         return JsonResponse({'status': 'failed'}, status=500)
     logger.info(
         'background worker ok type=%s run_id=%s scheduled_for=%s message_id=%s '
-        'mode=%s status=%s duration_ms=%.1f',
+        'mode=%s status=%s queue_wait_ms=%.1f duration_ms=%.1f',
         message['type'], message['run_id'], message['scheduled_for'].isoformat(), message_id,
-        mode, status, (time.perf_counter() - started) * 1000,
+        mode, status,
+        max(0.0, (timezone.now() - message['scheduled_for']).total_seconds() * 1000),
+        (time.perf_counter() - started) * 1000,
     )
+    return JsonResponse({'status': status}, status=500 if status == 'retry' else 200)
+
+
+def _daily_statistics_refresh(message, message_id):
+    payload = message['payload']
+    game_id = payload.get('game_id')
+    task_group_id = payload.get('task_group_id')
+    if (
+        not isinstance(game_id, str) or not game_id
+        or isinstance(task_group_id, bool) or not isinstance(task_group_id, int)
+    ):
+        return JsonResponse({'error': 'invalid payload'}, status=400)
+    started = time.perf_counter()
+    try:
+        status = run_named_daily_statistics_refresh(
+            game_id=game_id, task_group_id=task_group_id,
+        )
+    except Exception:
+        logger.exception(
+            'background worker failed type=%s run_id=%s message_id=%s',
+            message['type'], message['run_id'], message_id,
+        )
+        return JsonResponse({'status': 'failed'}, status=500)
+    logger.info(
+        'background worker ok type=%s run_id=%s message_id=%s status=%s '
+        'queue_wait_ms=%.1f duration_ms=%.1f',
+        message['type'], message['run_id'], message_id, status,
+        max(0.0, (timezone.now() - message['scheduled_for']).total_seconds() * 1000),
+        (time.perf_counter() - started) * 1000,
+    )
+    if status == 'retry':
+        return JsonResponse({'status': status}, status=500)
     return JsonResponse({'status': status}, status=200)
 
 

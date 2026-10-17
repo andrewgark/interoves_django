@@ -1,4 +1,5 @@
 import json
+import os
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import timedelta
@@ -18,7 +19,13 @@ from games.daily_statistics import (
     invalidate_daily_statistics,
     REVISION_TIMEOUT,
 )
-from games.daily.statistics import _RELEASE_CACHE_LOCK_SCRIPT, _release_build_lock
+from games.daily.statistics import (
+    CACHE_BUILD_LOCK_TIMEOUT,
+    CACHE_TIMEOUT,
+    _RELEASE_CACHE_LOCK_SCRIPT,
+    _release_build_lock,
+    _versioned_cache_key,
+)
 from games.models import (
     Attempt,
     CheckerType,
@@ -64,6 +71,52 @@ class DailyStatisticsTests(TestCase):
 
         self.assertEqual(daily_cache.get(revision_key), 2)
         cache_touch.assert_called_once_with(revision_key, REVISION_TIMEOUT)
+
+    @patch.dict(os.environ, {
+        'PROJECTION_REFRESH_EVENTS': '1',
+        'PROJECTION_REFRESH_SQS_QUEUE_URL': 'https://example/interoves-background',
+    })
+    @patch('games.projection_events.boto3.client')
+    def test_completion_coalesces_a_background_statistics_refresh(self, client):
+        from games.projection_events import _cache, _daily_statistics_mark_key
+
+        tg = TaskGroup.objects.create(label='statistics refresh event')
+        _cache().delete(_daily_statistics_mark_key(self.game.id, tg.id))
+        with self.captureOnCommitCallbacks(execute=True):
+            invalidate_daily_statistics(self.game.id, tg.id)
+            invalidate_daily_statistics(self.game.id, tg.id)
+
+        send = client.return_value.send_message
+        self.assertEqual(send.call_count, 1)
+        body = json.loads(send.call_args.kwargs['MessageBody'])
+        self.assertEqual(body['type'], 'daily_statistics.refresh')
+        self.assertEqual(body['payload']['game_id'], self.game.id)
+        self.assertEqual(body['payload']['task_group_id'], tg.id)
+        # The first event carries the generation that caused it; the worker
+        # always reads the latest revision before publishing the snapshot.
+        self.assertEqual(body['payload']['revision'], 1)
+
+    def test_worker_refresh_warms_the_current_statistics_generation(self):
+        from games.daily.statistics import _cache_revision_key, _versioned_cache_key
+        from games.projection_events import (
+            _cache, _daily_statistics_mark_key,
+            run_named_daily_statistics_refresh,
+        )
+
+        tg = TaskGroup.objects.create(label='statistics worker refresh')
+        _cache().set(_daily_statistics_mark_key(self.game.id, tg.id), '1', timeout=60)
+        status = run_named_daily_statistics_refresh(
+            game_id=self.game.id, task_group_id=tg.id,
+        )
+
+        revision = caches['daily_statistics'].get(
+            _cache_revision_key(self.game.id, tg.id), 0,
+        )
+        self.assertEqual(status, 'ok')
+        self.assertIsNotNone(caches['daily_statistics'].get(
+            _versioned_cache_key(self.game.id, tg.id, revision),
+        ))
+        self.assertIsNone(_cache().get(_daily_statistics_mark_key(self.game.id, tg.id)))
 
     def test_cache_revision_churn_without_miss_falls_back_to_recompute(self):
         tg = TaskGroup.objects.create(label='revision churn')
@@ -141,7 +194,9 @@ class DailyStatisticsTests(TestCase):
             with build_count_lock:
                 build_count += 1
             build_started.set()
-            time.sleep(0.05)
+            # Longer than the former 100 ms miss wait: a second request must
+            # not start another full aggregate while the first is working.
+            time.sleep(0.25)
             return {'fresh': True}
 
         with patch(
@@ -156,6 +211,32 @@ class DailyStatisticsTests(TestCase):
 
         self.assertEqual(build_count, 1)
         self.assertEqual(results, [{'fresh': True}, {'fresh': True}])
+
+    def test_cache_waiter_serves_last_generation_while_refresh_is_running(self):
+        tg = TaskGroup.objects.create(label='stale statistics generation')
+        daily_cache = caches['daily_statistics']
+        revision_key = '{}:revision'.format(cache_key(self.game.id, tg.id))
+        daily_cache.set(revision_key, 1, timeout=REVISION_TIMEOUT)
+        daily_cache.set(
+            _versioned_cache_key(self.game.id, tg.id, 0),
+            {'kind': 'alphabet', 'solved': 2},
+            timeout=CACHE_TIMEOUT,
+        )
+        result_key = _versioned_cache_key(self.game.id, tg.id, 1)
+        daily_cache.set(
+            '{}:build-lock'.format(result_key), 'another-builder',
+            timeout=CACHE_BUILD_LOCK_TIMEOUT,
+        )
+
+        with patch(
+            'games.daily.statistics._build_daily_statistics_payload',
+        ) as build_payload:
+            result = build_daily_statistics(self.game, tg)
+
+        self.assertEqual(result, {
+            'kind': 'alphabet', 'solved': 2, '_stale': True,
+        })
+        build_payload.assert_not_called()
 
     def test_redis_build_lock_release_uses_atomic_token_check(self):
         redis_client = Mock()

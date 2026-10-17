@@ -81,6 +81,7 @@ WORKER_REGISTRY = WorkerRegistry((
             "difficulty.health_check",
             "projection.reconcile",
             "projection.refresh",
+            "daily_statistics.refresh",
         ),
         allowed_modes=("eb", "ecs-fargate", "ecs-fargate-spot", "lambda", "green-process"),
         queue_url_env="BACKGROUND_SQS_QUEUE_URL",

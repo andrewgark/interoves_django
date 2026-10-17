@@ -247,6 +247,33 @@ class BackgroundWorkerTests(SimpleTestCase):
             game_id='missing-release', task_group_id=1, mode='actor',
         )
 
+    def test_incomplete_projection_refresh_is_retried(self):
+        with patch(
+            'games.views.background_worker.run_named_projection_refresh',
+            return_value='retry',
+        ):
+            response = self._post(_body(
+                type='projection.refresh',
+                payload={'game_id': 'ladder', 'task_group_id': 42, 'mode': 'actor'},
+            ))
+        self.assertEqual(response.status_code, 500)
+        self.assertEqual(response.json()['status'], 'retry')
+
+    def test_daily_statistics_refresh_is_not_stale_skipped(self):
+        scheduled = timezone.now() - timedelta(minutes=4)
+        with patch(
+            'games.views.background_worker.run_named_daily_statistics_refresh',
+            return_value='ok',
+        ) as refresh:
+            response = self._post(_body(
+                type='daily_statistics.refresh',
+                scheduled_for=scheduled.isoformat(),
+                payload={'game_id': 'ladder', 'task_group_id': 42, 'revision': 3},
+            ))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+        refresh.assert_called_once_with(game_id='ladder', task_group_id=42)
+
     def test_projection_refresh_rejects_unknown_mode(self):
         scheduled = timezone.now().isoformat()
         response = self._post(_body(

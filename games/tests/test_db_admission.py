@@ -243,3 +243,27 @@ class DatabaseAdmissionASGITests(SimpleTestCase):
         await gate({'type': 'lifespan'}, None, None)
         self.assertEqual(called, ['lifespan'])
         self.assertEqual(gate.gate.stats()['active'], 0)
+
+    async def test_liveness_endpoint_bypasses_a_full_admission_queue(self):
+        entered = asyncio.Event()
+        release = asyncio.Event()
+
+        async def app(scope, receive, send):
+            if scope['path'] == '/slow/':
+                entered.set()
+                await release.wait()
+            await send({'type': 'http.response.start', 'status': 200, 'headers': []})
+            await send({'type': 'http.response.body', 'body': b'ok'})
+
+        gate = DatabaseAdmissionASGIMiddleware(
+            app, max_active=1, max_waiters=0, wait_timeout=0,
+        )
+        active = asyncio.create_task(_invoke(gate, '/slow/'))
+        await entered.wait()
+        health = await _invoke(gate, '/health/live/')
+        health_start = next(event for event in health if event['type'] == 'http.response.start')
+        self.assertEqual(health_start['status'], 200)
+        self.assertEqual(gate.gate.stats()['active'], 1)
+        self.assertEqual(gate.gate.stats()['rejected'], 0)
+        release.set()
+        await active

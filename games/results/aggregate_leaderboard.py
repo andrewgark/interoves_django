@@ -4,12 +4,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
 import logging
+import time
 from types import SimpleNamespace
 import uuid
 
 from django.core.cache import caches
 from django.core.paginator import Paginator
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Prefetch, IntegerField
 from django.db.models.functions import Cast
 from django.utils.dateparse import parse_datetime
@@ -908,6 +909,51 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
     return result
 
 
+def _build_legacy_aggregate_page_observed(
+    request, game, *, reason, group_count, stale_count=0, month_context=None,
+    window_context=None,
+):
+    """Measure canonical fallback cost without logging SQL or request data."""
+    query_count = 0
+    query_seconds = 0.0
+    started = time.perf_counter()
+
+    def observe(execute, sql, params, many, context):
+        nonlocal query_count, query_seconds
+        query_count += 1
+        query_started = time.perf_counter()
+        try:
+            return execute(sql, params, many, context)
+        finally:
+            query_seconds += time.perf_counter() - query_started
+
+    try:
+        with connection.execute_wrapper(observe):
+            result = _build_legacy_aggregate_page(
+                request, game, month_context=month_context,
+                window_context=window_context,
+            )
+    except Exception:
+        logger.exception(
+            'canonical_result_fallback_failed game=%s month=%s reason=%s groups=%s stale=%s '
+            'elapsed_ms=%.1f sql_count=%s sql_ms=%.1f',
+            game.pk, month_context[1] if month_context else None,
+            reason, group_count, stale_count,
+            (time.perf_counter() - started) * 1000,
+            query_count, query_seconds * 1000,
+        )
+        raise
+    logger.warning(
+        'canonical_result_fallback game=%s month=%s reason=%s groups=%s stale=%s '
+        'elapsed_ms=%.1f sql_count=%s sql_ms=%.1f',
+        game.pk, month_context[1] if month_context else None,
+        reason, group_count, stale_count,
+        (time.perf_counter() - started) * 1000,
+        query_count, query_seconds * 1000,
+    )
+    return result
+
+
 def _build_projection_aggregate_page(request, game, columns, *, aggregate_period='window',
                                       month_context=None):
     """Build a paginated leaderboard from validated daily-result projections."""
@@ -919,12 +965,10 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         from games.results.monthly_projection import ensure_monthly_projection
 
         if not ensure_monthly_projection(game, monthly_summary_month, group_ids):
-            logging.getLogger('application').warning(
-                'monthly_result_projection_unavailable game=%s month=%s; using canonical aggregate query',
-                game.pk, monthly_summary_month,
-            )
-            return _build_legacy_aggregate_page(
-                request, game, month_context=month_context,
+            return _build_legacy_aggregate_page_observed(
+                request, game, reason='monthly_projection_unavailable',
+                group_count=len(group_ids), stale_count=0,
+                month_context=month_context,
             )
     try:
         requested_page = int(request.GET.get('page', '1'))
@@ -1063,11 +1107,12 @@ def build_aggregate_page(request, game):
         ]
         attempts_incomplete = not _alphabetty_projection_attempts_complete(game, group_ids)
         if stale_groups or attempts_incomplete:
-            logger.warning(
-                'monthly_result_projection_incomplete game=%s month=%s stale=%s attempts_incomplete=%s expected=%s; using canonical legacy builder',
-                game.pk, selected_month, len(stale_groups), attempts_incomplete, len(group_ids),
+            return _build_legacy_aggregate_page_observed(
+                request, game,
+                reason='monthly_projection_incomplete:attempts={}'.format(attempts_incomplete),
+                group_count=len(group_ids), stale_count=len(stale_groups),
+                month_context=month_context,
             )
-            return _build_legacy_aggregate_page(request, game, month_context=month_context)
         return _build_projection_aggregate_page(
             request, game, columns, aggregate_period='month', month_context=month_context,
         )
@@ -1099,12 +1144,11 @@ def build_aggregate_page(request, game):
     covered = len(set(group_ids)) - len(set(stale_groups))
     attempts_incomplete = not _alphabetty_projection_attempts_complete(game, group_ids)
     if stale_groups or attempts_incomplete:
-        logger.warning(
-            'daily_result_projection_incomplete game=%s covered=%s attempts_incomplete=%s expected=%s; using canonical legacy builder',
-            game.pk, covered, attempts_incomplete, len(set(group_ids)),
-        )
-        return _build_legacy_aggregate_page(
-            request, game, window_context=(limit, window, older, newer, columns),
+        return _build_legacy_aggregate_page_observed(
+            request, game,
+            reason='daily_projection_incomplete:attempts={}'.format(attempts_incomplete),
+            group_count=len(set(group_ids)), stale_count=len(stale_groups),
+            window_context=(limit, window, older, newer, columns),
         )
 
     result = _build_projection_aggregate_page(request, game, columns)
