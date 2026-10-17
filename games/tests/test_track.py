@@ -380,7 +380,8 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(event['k'], 'v')
 
     @override_settings(
-        CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
+        CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
+        DEFER_CHANNEL_BROADCAST=False,
     )
     def test_track_task_change_sends_to_team_group_after_commit(self):
         layer = MagicMock()
@@ -410,7 +411,8 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertIsInstance(args[1]['seq'], int)
 
     @override_settings(
-        CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
+        CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
+        DEFER_CHANNEL_BROADCAST=False,
     )
     def test_track_task_change_sends_to_game_group_for_admin(self):
         layer = MagicMock()
@@ -426,7 +428,8 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(args[1]['seq_namespace'], game_track_namespace(self.game.id))
 
     @override_settings(
-        CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}}
+        CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
+        DEFER_CHANNEL_BROADCAST=False,
     )
     def test_track_task_change_sends_personal_html_only_to_user_group(self):
         layer = MagicMock()
@@ -984,7 +987,9 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
         )
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)
-        with patch('games.views.track.get_channel_layer', return_value=layer):
+        with patch('games.views.track.get_channel_layer', return_value=layer), patch(
+            'games.views.track.settings.DEFER_CHANNEL_BROADCAST', False,
+        ):
             with self.captureOnCommitCallbacks(execute=True):
                 track_task_change(
                     self.task,
