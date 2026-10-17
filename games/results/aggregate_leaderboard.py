@@ -5,8 +5,9 @@ from dataclasses import dataclass
 from datetime import date
 import logging
 from types import SimpleNamespace
+import uuid
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.core.paginator import Paginator
 from django.db import transaction
 from django.db.models import Prefetch, IntegerField
@@ -27,21 +28,61 @@ from games.daily.archive import parse_month
 from games.daily.section import current_number_for, publish_at_for, MOSCOW
 
 
+logger = logging.getLogger(__name__)
 WINDOW_CHOICES = (10, 20, 30)
 PAGE_SIZE = 50
 MONTH_INDEX_CACHE_SECONDS = 300
+MONTH_INDEX_GENERATION_SECONDS = MONTH_INDEX_CACHE_SECONDS * 2
+MONTH_INDEX_CACHE_ALIAS = 'daily_statistics'
 
 
-def _monthly_release_index_cache_key(game_id):
-    return 'aggregate:monthly-release-index:v3:{}'.format(game_id)
+def _monthly_release_index_generation_key(game_id):
+    return 'aggregate:monthly-release-index:generation:v4:{}'.format(game_id)
+
+
+def _monthly_release_index_cache_key(game_id, generation=None, today_number=None):
+    base = 'aggregate:monthly-release-index:v4:{}'.format(game_id)
+    if generation is None:
+        return base
+    return '{}:{}:{}'.format(base, generation, today_number)
+
+
+def _monthly_release_index_cache():
+    return caches[MONTH_INDEX_CACHE_ALIAS]
+
+
+def _monthly_release_index_generation(game_id, cache):
+    key = _monthly_release_index_generation_key(game_id)
+    # An opaque token avoids an old generation becoming current again if a
+    # bounded cache evicts or expires its generation key. Its lifetime exceeds
+    # cached indexes, so an old index cannot become current again on expiry.
+    token = uuid.uuid4().hex
+    if cache.add(key, token, timeout=MONTH_INDEX_GENERATION_SECONDS):
+        return token
+    return cache.get(key)
 
 
 def invalidate_monthly_release_index(game_id):
-    """Drop the cached calendar index after a schedule or release change."""
+    """Advance the shared calendar-index generation after a schedule change."""
     if not game_id:
         return
-    key = _monthly_release_index_cache_key(game_id)
-    transaction.on_commit(lambda: cache.delete(key))
+
+    def advance_generation():
+        cache = _monthly_release_index_cache()
+        try:
+            cache.set(
+                _monthly_release_index_generation_key(game_id),
+                uuid.uuid4().hex,
+                timeout=MONTH_INDEX_GENERATION_SECONDS,
+            )
+        except Exception:
+            logger.warning(
+                'aggregate_monthly_release_index_invalidation_failed game=%s',
+                game_id,
+                exc_info=True,
+            )
+
+    transaction.on_commit(advance_generation, robust=True)
 
 
 def _format_aggregate_time(seconds):
@@ -160,9 +201,23 @@ def _choose_window(game, *, limit, anchor):
 
 def _monthly_release_context(game, requested_month=None):
     """Return published scheduled releases belonging to one calendar month."""
-    cache_key = _monthly_release_index_cache_key(game.pk)
+    index_cache = _monthly_release_index_cache()
     today_number = current_number_for(game)
-    cached = cache.get(cache_key)
+    try:
+        generation = _monthly_release_index_generation(game.pk, index_cache)
+        cache_key = _monthly_release_index_cache_key(
+            game.pk, generation, today_number,
+        )
+        cached = index_cache.get(cache_key)
+    except Exception:
+        logger.warning(
+            'aggregate_monthly_release_index_cache_read_failed game=%s',
+            game.pk,
+            exc_info=True,
+        )
+        generation = None
+        cache_key = None
+        cached = None
     if not isinstance(cached, dict) or cached.get('today_number') != today_number:
         release_index = []
         for link in _numbered_links(game):
@@ -174,10 +229,18 @@ def _monthly_release_context(game, requested_month=None):
                     'release_number': link._release_number,
                     'published_at': published_at.isoformat(),
                 })
-        cache.set(cache_key, {
-            'today_number': today_number,
-            'releases': release_index,
-        }, MONTH_INDEX_CACHE_SECONDS)
+        if cache_key is not None:
+            try:
+                index_cache.set(cache_key, {
+                    'today_number': today_number,
+                    'releases': release_index,
+                }, MONTH_INDEX_CACHE_SECONDS)
+            except Exception:
+                logger.warning(
+                    'aggregate_monthly_release_index_cache_write_failed game=%s',
+                    game.pk,
+                    exc_info=True,
+                )
     else:
         release_index = cached.get('releases', [])
 

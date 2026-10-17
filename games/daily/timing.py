@@ -1313,6 +1313,12 @@ def _team_safe_session_end(session, now):
 
 
 def _team_expire_sessions(row, now, exclude_session_id=None):
+    original_aggregate_state = (
+        row.status,
+        row.active_sessions_count,
+        row.team_interval_started_at,
+        row.accumulated_ms,
+    )
     running = list(row.sessions.select_for_update().filter(
         status=DailySolveTimingSession.STATUS_RUNNING,
     ))
@@ -1336,6 +1342,17 @@ def _team_expire_sessions(row, now, exclude_session_id=None):
             default=now,
         )
         _team_close_aggregate_interval(row, end)
+    aggregate_state_changed = original_aggregate_state != (
+        row.status,
+        row.active_sessions_count,
+        row.team_interval_started_at,
+        row.accumulated_ms,
+    )
+    if aggregate_state_changed:
+        row.save(update_fields=[
+            'status', 'active_sessions_count', 'team_interval_started_at',
+            'accumulated_ms', 'updated_at',
+        ])
     return active
 
 
