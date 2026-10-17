@@ -120,6 +120,12 @@ urlpatterns = [
         {'game_id': 'salad'},
         name='ui_salad_offer_task_group',
     ),
+    path(
+        'salad/<str:number>/results/',
+        ui.section_task_results_page,
+        {'game_id': 'salad'},
+        name='ui_salad_task_results',
+    ),
     path('alphabetty/today/', ui.alphabetty_today_page, name='ui_alphabetty_today'),
     path('alphabetty/last/', ui.alphabetty_last_page, name='ui_alphabetty_last'),
     path('alphabetty/progress/', ui.game_task_group_progress, {'game_id': 'alphabetty'}, name='ui_alphabetty_progress'),

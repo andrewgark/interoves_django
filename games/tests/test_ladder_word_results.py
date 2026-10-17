@@ -185,7 +185,7 @@ class LadderWordResultsTests(TestCase):
         request = self.factory.get('/ladder/9100/results/')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.views.new_ui.is_ladder_number_published', return_value=True):
+        with patch('games.daily.placement.resolve_accessible_daily_placement', return_value=self.placement):
             with patch('games.views.new_ui.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
                 ctx = render_mock.call_args[0][2]
@@ -210,7 +210,7 @@ class LadderWordResultsTests(TestCase):
         request = self.factory.get('/ladder/9100/results/?page=1&partial=1')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.views.new_ui.is_ladder_number_published', return_value=True):
+        with patch('games.daily.placement.resolve_accessible_daily_placement', return_value=self.placement):
             with patch('games.views.new_ui.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
                 self.assertEqual(render_mock.call_args[0][1], 'new/partials/results_rows.html')
@@ -219,7 +219,7 @@ class LadderWordResultsTests(TestCase):
                 self.assertTrue(ctx['is_ladder_word_results'])
 
     def test_unpublished_ladder_404(self):
-        with patch('games.views.new_ui.is_ladder_number_published', return_value=False):
+        with patch('games.daily.placement.resolve_accessible_daily_placement', return_value=None):
             request = self.factory.get('/ladder/9100/results/')
             request.user = AnonymousUser()
             request.session = {}
@@ -235,7 +235,7 @@ class LadderWordResultsTests(TestCase):
         request = self.factory.get('/ladder/9100/results/')
         request.user = staff
         request.session = {}
-        with patch('games.views.new_ui.is_ladder_number_published', return_value=False):
+        with patch('games.daily.placement.resolve_accessible_daily_placement', return_value=self.placement):
             with patch('games.views.new_ui.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
         self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')

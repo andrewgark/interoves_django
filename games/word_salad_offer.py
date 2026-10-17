@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import secrets
 import uuid
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
@@ -69,13 +68,12 @@ class WordSaladOfferError(Exception):
 
 
 def _new_share_hash() -> str:
-    for _ in range(20):
-        token = secrets.token_hex(8)
-        if token in _RESERVED_SALAD_SEGMENTS or token.isdigit():
-            continue
-        if not WordSaladOffer.objects.filter(share_hash=token).exists():
-            return token
-    raise WordSaladOfferError('Не удалось сгенерировать share_hash')
+    from games.placement_share import allocate_share_hash
+
+    try:
+        return allocate_share_hash()
+    except RuntimeError as exc:
+        raise WordSaladOfferError('Не удалось сгенерировать share_hash') from exc
 
 
 def is_share_hash_segment(segment: str) -> bool:

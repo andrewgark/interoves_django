@@ -1,0 +1,43 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "PublishGreenWebMetrics",
+      "Effect": "Allow",
+      "Action": "cloudwatch:PutMetricData",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "cloudwatch:namespace": "InterOves/Web"
+        }
+      }
+    },
+    {
+      "Sid": "ResolveEc2MetricDimensions",
+      "Effect": "Allow",
+      "Action": "ec2:DescribeTags",
+      "Resource": "*"
+    },
+    {
+      "Sid": "WriteGreenSystemLogs",
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": [
+        "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/elasticbeanstalk/interoves-web-green-lb/kernel:log-stream:*",
+        "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/elasticbeanstalk/interoves-web-green-lb/systemd:log-stream:*"
+      ]
+    },
+    {
+      "Sid": "FindGreenSystemLogStreams",
+      "Effect": "Allow",
+      "Action": "logs:DescribeLogStreams",
+      "Resource": [
+        "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/elasticbeanstalk/interoves-web-green-lb/kernel",
+        "arn:aws:logs:eu-central-1:916000456640:log-group:/aws/elasticbeanstalk/interoves-web-green-lb/systemd"
+      ]
+    }
+  ]
+}

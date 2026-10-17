@@ -1,6 +1,7 @@
 """Tests for slow-request logging middleware."""
 
 from django.test import RequestFactory, TestCase
+from django.urls import resolve
 
 from games.middleware.request_timing import RequestTimingMiddleware, timing_phase
 
@@ -19,10 +20,15 @@ class RequestTimingMiddlewareTests(TestCase):
             self.middleware(request)
         self.assertTrue(any('slow_request' in line for line in cm.output))
 
-    def test_ignores_unrelated_paths(self):
+    def test_logs_slow_unrelated_paths_too(self):
         request = self.factory.get('/alphabetty/1/')
-        with self.assertNoLogs('interoves.request_timing', level='WARNING'):
+        request.resolver_match = resolve(request.path)
+        self.middleware.slow_ms = 0
+        with self.assertLogs('interoves.request_timing', level='WARNING') as cm:
             self.middleware(request)
+        log = '\n'.join(cm.output)
+        self.assertIn('endpoint=alphabetty/<str:number>/', log)
+        self.assertIn('pid=', log)
 
     def test_watches_alphabetty_guess(self):
         request = self.factory.post('/alphabetty/3/guess/')
@@ -58,6 +64,21 @@ class RequestTimingMiddlewareTests(TestCase):
         log = '\n'.join(cm.output)
         self.assertIn('phases=check_attempt:', log)
         self.assertNotIn('secret answer', log)
+
+    def test_slow_request_log_has_correlation_and_process_context_without_query(self):
+        request = self.factory.get(
+            '/censorly/r/abcd1234abcd1234/state/?code=secret-code'
+        )
+        request.resolver_match = resolve(request.path)
+        request.interoves_request_id = 'safe-request-id'
+        self.middleware.slow_ms = 0
+        with self.assertLogs('interoves.request_timing', level='WARNING') as cm:
+            self.middleware(request)
+        log = '\n'.join(cm.output)
+        self.assertIn('request_id=safe-request-id', log)
+        self.assertIn('endpoint=censorly/r/<str:share_hash>/state/', log)
+        self.assertNotIn('abcd1234abcd1234', log)
+        self.assertNotIn('secret-code', log)
 
     def test_logs_slow_exception(self):
         def response(_request):

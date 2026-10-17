@@ -276,6 +276,13 @@
       body.set('offer_share', explicit);
       return;
     }
+    var pageShare = global.document && global.document.body
+      ? String(global.document.body.getAttribute('data-offer-share-hash') || '').trim()
+      : '';
+    if (pageShare) {
+      body.set('offer_share', pageShare);
+      return;
+    }
     var share = offerShareFromPath(global.location && global.location.pathname);
     if (share) body.set('offer_share', share);
   }

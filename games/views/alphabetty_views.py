@@ -529,6 +529,11 @@ def alphabetty_play_page(request, number):
     )
     return render(request, 'new/alphabetty_play.html', {
         'game': game,
+        'offer_share_hash': (
+            offer.share_hash if offer is not None
+            else link.share_hash if link is not None and str(play_number) == str(link.share_hash)
+            else ''
+        ),
         'number': play_number,
         'tg_number': play_number,
         'link': link,
@@ -600,12 +605,18 @@ def alphabetty_play_page(request, number):
                 or (
                     offer is None
                     and not is_random
+                    and not load_meta.get('is_share_link')
                     and link is not None
                     and not is_alphabetty_number_published(game, link.number)
                     and not may_open_unpublished_number(request.user)
                 )
             ),
             official_completed=official_completed,
+            timing_url=(
+                f'/alphabetty/{play_number}/timing/'
+                if offer is None and load_meta.get('is_share_link')
+                else None
+            ),
         ),
     })
 
@@ -619,12 +630,14 @@ def _load_visible_task(request, number, *, json_mode=True):
     game = _get_game()
     if not game:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
-    from games.placement_share import may_open_unpublished_number, placement_by_share_hash
+    from games.daily.placement import resolve_accessible_daily_placement
     from games.models import RandomAlphabettyGame
 
     offer = get_offer_by_share_hash(str(number))
     if offer is None:
-        share_placement = placement_by_share_hash(game, str(number))
+        share_placement = resolve_accessible_daily_placement(
+            game, number, user=request.user,
+        )
         if share_placement is not None:
             task = Task.objects.filter(
                 task_group_id=share_placement.task_group_id, number='1',
@@ -641,10 +654,13 @@ def _load_visible_task(request, number, *, json_mode=True):
                 'accepted_link': share_placement,
                 'schedule_number': None if is_random else int(share_placement.number),
                 'is_random': is_random,
+                'is_share_link': True,
             }
             return game, task, meta, None
     if offer is not None:
         if not can_access_offer_hash(offer, request.user):
+            return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+        if offer.accepted_link_id and offer.accepted_link.is_deferred:
             return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
         task = Task.objects.filter(task_group_id=offer.task_group_id, number='1').first()
         if task is None:
@@ -654,6 +670,7 @@ def _load_visible_task(request, number, *, json_mode=True):
             'play_number': offer.share_hash,
             'play_path': offer.play_url(),
             'accepted_link': offer.accepted_link,
+            'is_share_link': False,
         }
         return game, task, meta, None
     denied = _preview_denied(request, game)
@@ -663,7 +680,8 @@ def _load_visible_task(request, number, *, json_mode=True):
         n = int(number)
     except (TypeError, ValueError):
         return None, None, None, JsonResponse({'status': 'error', 'error': 'bad number'}, status=400)
-    if not is_alphabetty_number_published(game, n) and not may_open_unpublished_number(request.user):
+    placement = resolve_accessible_daily_placement(game, n, user=request.user)
+    if placement is None:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
     from games.club_access import reject_if_club_archive_blocked
 
@@ -679,6 +697,7 @@ def _load_visible_task(request, number, *, json_mode=True):
         'play_number': n,
         'play_path': section_play_path(ALPHABETTY_GAME_ID, n),
         'accepted_link': link,
+        'is_share_link': False,
     }
     return game, task, meta, None
 

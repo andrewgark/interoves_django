@@ -151,6 +151,17 @@ if [[ "$ENV_NAME" == "interoves-web-green" || "$ENV_NAME" == "interoves-web-gree
         "$stage/.platform/hooks/postdeploy/06_install_playwright_chromium.sh"
 fi
 
+# The live Green bundle keeps platform files protected from routine source
+# overlays. Install this reviewed observability hook explicitly for the ALB tier.
+if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
+    install -D -m 0755 \
+        "$ROOT/.platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh" \
+        "$stage/.platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh"
+    install -D -m 0644 \
+        "$ROOT/.platform/nginx/conf.d/interoves_timing_logformat.conf" \
+        "$stage/.platform/nginx/conf.d/interoves_timing_logformat.conf"
+fi
+
 if [[ "$ENV_NAME" == "interoves-web-green" ]]; then
     install -D -m 0755 \
         "$ROOT/.platform/hooks/postdeploy/11_associate_green_origin_eip.sh" \

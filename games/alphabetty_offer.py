@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-import secrets
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
 
@@ -49,13 +48,12 @@ class AlphabettyOfferError(Exception):
 
 
 def _new_share_hash() -> str:
-    for _ in range(20):
-        token = secrets.token_hex(8)
-        if token in _RESERVED_ALPHABETTY_SEGMENTS or token.isdigit():
-            continue
-        if not AlphabettyOffer.objects.filter(share_hash=token).exists():
-            return token
-    raise AlphabettyOfferError('Не удалось сгенерировать share_hash')
+    from games.placement_share import allocate_share_hash
+
+    try:
+        return allocate_share_hash()
+    except RuntimeError as exc:
+        raise AlphabettyOfferError('Не удалось сгенерировать share_hash') from exc
 
 
 def is_share_hash_segment(segment: str) -> bool:
@@ -367,14 +365,11 @@ def offer_is_production_published(offer: AlphabettyOffer, *, now=None) -> bool:
 
 
 def can_access_offer_hash(offer: AlphabettyOffer, user, *, now=None) -> bool:
-    if not offer.accepted_link_id:
-        return True
-    if not offer_is_production_published(offer, now=now):
-        if user is None or not getattr(user, 'is_authenticated', False):
-            return False
-        if offer.user_id == user.id or getattr(user, 'is_staff', False):
-            return True
-        return False
+    """An opaque share URL remains public after the offer enters the schedule.
+
+    Publication embargoes apply to numeric schedule URLs, not explicit share
+    links, matching the access contract for Ladder and Word Salad offers.
+    """
     return True
 
 

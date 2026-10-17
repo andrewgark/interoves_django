@@ -82,7 +82,10 @@ from games.views.new_ui import (
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
-from games.views.game_context import game_from_request_for_task
+from games.views.game_context import (
+    game_from_request_for_task,
+    unpublished_scheduled_task_response,
+)
 from games.views.util import get_public_task_or_404, has_profile
 from games.censorly.lexical.core import fold
 from games.telegram.game_urls import task_play_url
@@ -283,8 +286,10 @@ def _censorly_timing_enabled(game, load_meta, user, replay_slot):
     if link is None:
         return False
     is_random = bool(load_meta.get('is_random'))
+    is_share_link = bool(load_meta.get('is_share_link'))
     is_offer = (
         not is_random
+        and not is_share_link
         and not is_censorly_number_published(game, link.number)
         and not _may_open_unpublished(user)
     )
@@ -372,6 +377,8 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
             row, task, link = _load_random(random_hash)
         except LookupError:
             return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+        if link is not None and link.is_deferred:
+            return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
         denied = _preview_denied(request, game)
         if denied is not None:
             return None, None, None, denied
@@ -391,9 +398,39 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
     try:
         n = int(number)
     except (TypeError, ValueError):
+        # Numbered scheduled tasks may also be opened through their share hash.
+        from games.daily.placement import resolve_accessible_daily_placement
+        from games.models import RandomCensorlyGame
+
+        shared_link = resolve_accessible_daily_placement(
+            game, number, user=request.user,
+        )
+        if shared_link is not None and not RandomCensorlyGame.objects.filter(
+            task_group_id=shared_link.task_group_id,
+        ).exists():
+            task = Task.objects.filter(
+                task_group_id=shared_link.task_group_id, number='1',
+            ).first()
+            if task is None:
+                return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
+            denied = _preview_denied(request, game)
+            if denied is not None:
+                return None, None, None, denied
+            meta = {
+                'play_number': shared_link.share_hash,
+                'play_path': section_play_path(CENSORLY_GAME_ID, shared_link.share_hash),
+                'accepted_link': shared_link,
+                'schedule_number': int(shared_link.number),
+                'is_random': False,
+                'is_share_link': True,
+                'random_row': None,
+            }
+            return game, task, meta, None
         # Permanent random games use share_hash as GameTaskGroup.number.
         return _load_visible_task(request, None, json_mode=json_mode, random_hash=str(number))
-    if not is_censorly_number_published(game, n) and not _may_open_unpublished(request.user):
+    from games.daily.placement import resolve_accessible_daily_placement
+
+    if resolve_accessible_daily_placement(game, n, user=request.user) is None:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
     from games.club_access import reject_if_club_archive_blocked
 
@@ -410,6 +447,7 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
         'accepted_link': link,
         'schedule_number': n,
         'is_random': False,
+        'is_share_link': False,
         'random_row': None,
     }
     return game, task, meta, None
@@ -691,6 +729,9 @@ def _render_play(request, *, game, task, load_meta):
     random_access = has_club_access(request.user)
     return render(request, 'new/censorly_play.html', {
         'game': game,
+        'offer_share_hash': (
+            play_number if is_random or (link is not None and load_meta.get('is_share_link')) else ''
+        ),
         'number': play_number,
         'tg_number': play_number,
         'random_censorly_has_access': random_access,
@@ -774,6 +815,7 @@ def _render_play(request, *, game, task, load_meta):
             play_mode='personal',
             is_offer=(
                 not is_random
+                and not bool(load_meta.get('is_share_link'))
                 and (
                     link is not None
                     and not is_censorly_number_published(game, link.number)
@@ -783,7 +825,9 @@ def _render_play(request, *, game, task, load_meta):
             replay_slot=replay_slot,
             official_completed=official_completed,
             timing_url=(
-                f'/censorly/r/{play_number}/timing/' if is_random else None
+                f'/censorly/r/{play_number}/timing/' if is_random
+                else f'/censorly/{play_number}/timing/' if load_meta.get('is_share_link')
+                else None
             ),
         ),
     })
@@ -808,6 +852,8 @@ def censorly_word_report(request, task_id):
     task = get_public_task_or_404(task_id)
     game = game_from_request_for_task(request, task)
     if game is None or game.id != CENSORLY_GAME_ID:
+        raise Http404()
+    if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
     user, anon_key = _resolve_actor(request)
     context_error = validate_gameplay_context(

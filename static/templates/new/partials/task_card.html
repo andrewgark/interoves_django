@@ -51,6 +51,7 @@
                   <form class="new-hint-form" action="/send_hint_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}">
                     {% csrf_token %}
                     <input type="hidden" name="game_id" value="{{ game.id }}">
+                    {% if offer_share_hash %}<input type="hidden" name="offer_share" value="{{ offer_share_hash }}">{% endif %}
                     <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
                     <input type="hidden" name="hint_number" value="{{ hint.number }}">
                     <input type="hidden" name="anon_key" class="new-anon-key-field" value="">

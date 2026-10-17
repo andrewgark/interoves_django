@@ -12,7 +12,7 @@
     · {% autoescape off %}{{ tg_name }}{% endautoescape %}
   {% endif %}
 {% endblock %}
-{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode|default:'' }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}
+{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode|default:'' }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if offer_share_hash %} data-offer-share-hash="{{ offer_share_hash }}"{% endif %}{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}
 {% block extrahead %}
   {% include "new/_18plus_gate_early.html" %}
   {% if html_forms_data %}
@@ -3817,6 +3817,9 @@
     try {
       var u = new URL(url, window.location.origin);
       u.searchParams.set('game_id', '{{ game.id }}');
+      if (document.body.getAttribute('data-offer-share-hash')) {
+        u.searchParams.set('offer_share', document.body.getAttribute('data-offer-share-hash'));
+      }
       url = u.toString();
     } catch (e) {}
     fetch(url, {
@@ -3838,6 +3841,9 @@
     try {
       var u = new URL(url, window.location.origin);
       u.searchParams.set('game_id', '{{ game.id }}');
+      if (document.body.getAttribute('data-offer-share-hash')) {
+        u.searchParams.set('offer_share', document.body.getAttribute('data-offer-share-hash'));
+      }
       url = u.toString();
     } catch (e) {}
     fetch(url, {
@@ -3859,6 +3865,9 @@
     try {
       var u = new URL(url, window.location.origin);
       u.searchParams.set('game_id', '{{ game.id }}');
+      if (document.body.getAttribute('data-offer-share-hash')) {
+        u.searchParams.set('offer_share', document.body.getAttribute('data-offer-share-hash'));
+      }
       url = u.toString();
     } catch (e) {}
     fetch(url, {
@@ -3890,6 +3899,9 @@
     body.set('dislikes', String(dislikesDelta));
     body.set('game_id', '{{ game.id }}');
     body.set('anon_key', anonKey);
+    if (document.body.getAttribute('data-offer-share-hash')) {
+      body.set('offer_share', document.body.getAttribute('data-offer-share-hash'));
+    }
     var url = "{% url 'new_like_dislike' 0 %}".replace('/0/', '/' + taskId + '/');
     return fetch(url, {
       method: 'POST',

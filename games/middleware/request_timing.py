@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
+import socket
 import time
 from contextlib import contextmanager
 
@@ -59,10 +61,8 @@ class RequestTimingMiddleware:
 
     def __call__(self, request):
         path = request.path
-        if not _watch_path(path):
-            return self.get_response(request)
-
-        request._interoves_timing_phases = {}
+        watched_path = _watch_path(path)
+        request._interoves_timing_phases = {} if watched_path else None
         t0 = time.perf_counter()
         request._interoves_started_at = t0
         response = None
@@ -73,18 +73,29 @@ class RequestTimingMiddleware:
             elapsed_ms = (time.perf_counter() - t0) * 1000.0
             request._interoves_elapsed_ms = elapsed_ms
             if elapsed_ms >= self.slow_ms:
-                phases_total_ms = sum(request._interoves_timing_phases.values())
+                resolver_match = getattr(request, 'resolver_match', None)
+                endpoint = (
+                    getattr(resolver_match, 'route', None)
+                    or getattr(resolver_match, 'view_name', None)
+                    or 'unresolved'
+                )
+                phases = request._interoves_timing_phases or {}
+                phases_total_ms = sum(phases.values())
                 unaccounted_ms = max(0.0, elapsed_ms - phases_total_ms)
-                phases = ','.join(
+                phase_summary = ','.join(
                     '{}:{:.0f}'.format(name, duration_ms)
-                    for name, duration_ms in request._interoves_timing_phases.items()
+                    for name, duration_ms in phases.items()
                 ) or '-'
                 logger.warning(
-                    'slow_request path=%s method=%s status=%s duration_ms=%.0f unaccounted_ms=%.0f phases=%s',
-                    path,
+                    'slow_request request_id=%s endpoint=%s method=%s status=%s '
+                    'duration_ms=%.0f unaccounted_ms=%.0f instance=%s pid=%s phases=%s',
+                    getattr(request, 'interoves_request_id', 'unavailable'),
+                    endpoint,
                     request.method,
                     getattr(response, 'status_code', 'exception'),
                     elapsed_ms,
                     unaccounted_ms,
-                    phases,
+                    getattr(settings, 'INSTANCE_ID', '') or socket.gethostname() or 'unknown',
+                    os.getpid(),
+                    phase_summary,
                 )

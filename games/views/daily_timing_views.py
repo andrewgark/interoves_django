@@ -115,8 +115,19 @@ def _load_daily_target(request, game_id, number, project_id=None):
     game = get_object_or_404(game_qs)
     raw_number = str(number or '').strip()
     random_link = _random_game_timing_link(game, raw_number)
+    share_link = None
+    if random_link is None:
+        from games.placement_share import is_share_hash_segment
+
+        if is_share_hash_segment(raw_number):
+            from games.daily.placement import resolve_accessible_daily_placement
+
+            share_link = resolve_accessible_daily_placement(
+                game, raw_number, user=request.user,
+            )
     is_numbered = bool(
         random_link is None
+        and share_link is None
         and raw_number
         and raw_number.replace('.', '', 1).isdigit()
     )
@@ -131,7 +142,7 @@ def _load_daily_target(request, game_id, number, project_id=None):
             game=game, number=raw_number, is_deferred=False,
         ).select_related('task_group').first()
     else:
-        link = random_link
+        link = random_link or share_link
     if link is None:
         return None, None, None, None, None, _json_error('missing', 404)
     if not is_numbered and game.id == 'censorly':

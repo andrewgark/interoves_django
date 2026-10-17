@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import re
-import secrets
 import uuid
 from dataclasses import asdict, dataclass
 from typing import Any, Optional
@@ -55,13 +54,12 @@ class LadderOfferError(Exception):
 
 
 def _new_share_hash() -> str:
-    for _ in range(20):
-        token = secrets.token_hex(8)  # 16 hex chars
-        if token in _RESERVED_LADDER_SEGMENTS or token.isdigit():
-            continue
-        if not LadderOffer.objects.filter(share_hash=token).exists():
-            return token
-    raise LadderOfferError('Не удалось сгенерировать share_hash')
+    from games.placement_share import allocate_share_hash
+
+    try:
+        return allocate_share_hash()
+    except RuntimeError as exc:
+        raise LadderOfferError('Не удалось сгенерировать share_hash') from exc
 
 
 def is_share_hash_segment(segment: str) -> bool:

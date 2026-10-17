@@ -1,0 +1,22 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "UseAwsRunShellScriptDocument",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ssm:eu-central-1::document/AWS-RunShellScript"
+    },
+    {
+      "Sid": "SendCommandOnlyToGreenInstances",
+      "Effect": "Allow",
+      "Action": "ssm:SendCommand",
+      "Resource": "arn:aws:ec2:eu-central-1:916000456640:instance/*",
+      "Condition": {
+        "StringEquals": {
+          "ssm:resourceTag/elasticbeanstalk:environment-name": "interoves-web-green-lb"
+        }
+      }
+    }
+  ]
+}

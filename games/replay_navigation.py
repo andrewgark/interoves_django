@@ -50,18 +50,29 @@ def replay_actor_for_request(
     return team, user, anon_key
 
 
-def replay_game_and_placement(game_id, task_group_number, project_id=None):
+def replay_game_and_placement(game_id, task_group_number, project_id=None, *, user=None):
     """Load the game and its task-group placement for a replay endpoint."""
     if project_id:
         project = get_object_or_404(Project, id=project_id)
         game = get_object_or_404(Game, id=game_id, project=project)
     else:
         game = get_object_or_404(Game, id=game_id)
-    placement = get_object_or_404(
-        GameTaskGroup.objects.select_related('task_group'),
-        game=game,
-        number=str(task_group_number),
-    )
+    from games.daily.placement import resolve_accessible_daily_placement
+    from games.daily_section import is_scheduled_game
+    from games.placement_share import is_share_hash_segment
+
+    if is_scheduled_game(game.id) or is_share_hash_segment(str(task_group_number)):
+        placement = resolve_accessible_daily_placement(
+            game, task_group_number, user=user,
+        )
+        if placement is None:
+            raise Http404()
+    else:
+        placement = get_object_or_404(
+            GameTaskGroup.objects.select_related('task_group'),
+            game=game,
+            number=str(task_group_number),
+        )
     return game, placement
 
 

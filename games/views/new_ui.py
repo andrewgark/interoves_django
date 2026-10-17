@@ -86,9 +86,9 @@ from games.daily.board import (
 from games.daily.results import get_daily_results_adapter
 from games.daily.placement import is_random_daily_placement
 from games.ladder_daily import (
+    is_ladder_number_published,
     LADDER_GAME_ID,
     get_ladder_hub_context,
-    is_ladder_number_published,
 )
 from games.next_game_vote import PHASE_CLOSED, campaign_phase
 from games.week_task_weekly import WEEK_TASK_GAME_ID
@@ -2837,15 +2837,12 @@ def new_section_task_results_page(request, game_id, number):
     game = Game.objects.filter(project=project, id=game_id).first()
     if not game:
         raise Http404()
-    from games.placement_share import is_share_hash_segment, may_open_unpublished_number
-    from games.daily.placement import resolve_daily_placement
-    if is_share_hash_segment(str(number)):
-        share_placement = resolve_daily_placement(game, number)
-        if share_placement is None:
-            raise Http404()
-        number = share_placement.number
-    elif not scheduled_number_is_public(game, number) and not may_open_unpublished_number(request.user):
+    from games.daily.placement import resolve_accessible_daily_placement
+    play_segment = number
+    placement = resolve_accessible_daily_placement(game, play_segment, user=request.user)
+    if placement is None:
         raise Http404()
+    number = placement.number
     from games.club_access import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, number=number)
     if locked is not None:
@@ -2853,12 +2850,8 @@ def new_section_task_results_page(request, game_id, number):
     team = request.user.profile.team_on if has_profile(request.user) else None
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
-    placement = resolve_daily_placement(game, number)
-    if not placement:
-        raise Http404()
-
     return _render_task_group_results_page(
-        request, game, number, section_play_path(game.id, number),
+        request, game, number, section_play_path(game.id, play_segment),
         placement=placement,
     )
 
@@ -2927,13 +2920,15 @@ def new_ladder_word_results_page(request, task_group_number):
 
     from games.ladder_offer import get_offer_by_share_hash, is_share_hash_segment
     from types import SimpleNamespace
+    from games.daily.placement import resolve_accessible_daily_placement
 
     ladder_offer = None
     if is_share_hash_segment(str(task_group_number)):
         ladder_offer = get_offer_by_share_hash(str(task_group_number))
         if ladder_offer is None:
-            from games.placement_share import placement_by_share_hash
-            placement = placement_by_share_hash(game, str(task_group_number))
+            placement = resolve_accessible_daily_placement(
+                game, task_group_number, user=request.user,
+            )
             if placement is None:
                 raise Http404()
         else:
@@ -2941,6 +2936,8 @@ def new_ladder_word_results_page(request, task_group_number):
             if not can_access_offer_hash(ladder_offer, request.user):
                 raise Http404()
             if ladder_offer.accepted_link_id:
+                if ladder_offer.accepted_link.is_deferred:
+                    raise Http404()
                 placement = (
                     GameTaskGroup.objects.select_related('task_group')
                     .filter(pk=ladder_offer.accepted_link_id)
@@ -2955,15 +2952,8 @@ def new_ladder_word_results_page(request, task_group_number):
                     task_group=ladder_offer.task_group,
                 )
     else:
-        if (
-            not is_ladder_number_published(game, task_group_number)
-            and not request.user.is_staff
-        ):
-            raise Http404()
-        placement = (
-            GameTaskGroup.objects.select_related('task_group')
-            .filter(game=game, number=str(task_group_number))
-            .first()
+        placement = resolve_accessible_daily_placement(
+            game, task_group_number, user=request.user,
         )
         if not placement:
             raise Http404()
@@ -3418,16 +3408,15 @@ def daily_statistics(request, game_id, number):
     from games.placement_share import is_share_hash_segment
     from games.daily.placement import (
         is_random_daily_placement,
-        resolve_daily_placement,
+        resolve_accessible_daily_placement,
     )
 
-    placement = resolve_daily_placement(game, number)
-    if is_share_hash_segment(str(number)):
+    segment_is_share_hash = is_share_hash_segment(str(number))
+    placement = resolve_accessible_daily_placement(game, number, user=request.user)
+    if segment_is_share_hash:
         if placement is None or not is_random_daily_placement(placement):
             raise Http404()
     else:
-        if not scheduled_number_is_public(game, number) and not request.user.is_staff:
-            raise Http404()
         if placement is None:
             raise Http404()
     actor = {}
@@ -3446,7 +3435,7 @@ def daily_statistics(request, game_id, number):
         return JsonResponse({'error': 'not_completed'}, status=403)
     from games.daily_statistics import build_daily_statistics
     published_at = None
-    if not is_share_hash_segment(str(number)):
+    if not segment_is_share_hash:
         from games.daily.section import publish_at_for
         published_at = publish_at_for(game, placement.number)
     payload = build_daily_statistics(
@@ -3501,6 +3490,7 @@ def new_task_group_page(request, game_id, task_group_number):
         Game.objects.select_related('section_default_rules'),
         id=game_id,
     )
+    from games.section_paths import section_play_path
     project_redirect = _root_project_game_redirect(
         request, game, '{}/'.format(task_group_number),
     )
@@ -3559,15 +3549,17 @@ def new_task_group_page(request, game_id, task_group_number):
             raise Http404()
         from games.placement_share import (
             is_share_hash_segment,
-            placement_by_share_hash,
         )
+        from games.daily.placement import resolve_accessible_daily_placement
         share_placement = None
         segment = str(task_group_number)
         if game_id == LADDER_GAME_ID and is_share_hash_segment(segment):
             from games.ladder_offer import can_access_offer_hash, get_offer_by_share_hash
             ladder_offer = get_offer_by_share_hash(segment)
             if ladder_offer is None:
-                share_placement = placement_by_share_hash(game, segment)
+                share_placement = resolve_accessible_daily_placement(
+                    game, segment, user=request.user,
+                )
                 if share_placement is None:
                     raise Http404()
             elif not can_access_offer_hash(ladder_offer, request.user):
@@ -3579,19 +3571,24 @@ def new_task_group_page(request, game_id, task_group_number):
             )
             salad_offer = get_salad_offer_by_share_hash(segment)
             if salad_offer is None:
-                share_placement = placement_by_share_hash(game, segment)
+                share_placement = resolve_accessible_daily_placement(
+                    game, segment, user=request.user,
+                )
                 if share_placement is None:
                     raise Http404()
             elif not can_access_salad_offer_hash(salad_offer, request.user):
                 raise Http404()
         elif is_scheduled_game(game_id) and is_share_hash_segment(segment):
-            share_placement = placement_by_share_hash(game, segment)
+            share_placement = resolve_accessible_daily_placement(
+                game, segment, user=request.user,
+            )
             if share_placement is None:
                 raise Http404()
         elif (
             is_scheduled_game(game_id)
-            and not scheduled_number_is_public(game, task_group_number)
-            and not may_open_unpublished_number(request.user)
+            and resolve_accessible_daily_placement(
+                game, task_group_number, user=request.user,
+            ) is None
         ):
             raise Http404()
         if ladder_offer is None and salad_offer is None and share_placement is None:
@@ -3775,11 +3772,20 @@ def new_task_group_page(request, game_id, task_group_number):
                 offer_reset_url = '/create_salad/{}/reset/'.format(salad_offer.pk)
 
     custom_daily_task = draft_offer is not None
+    public_task_segment = (
+        share_placement.share_hash if share_placement is not None
+        else draft_offer.share_hash if draft_offer is not None and draft_offer.accepted_link_id
+        else placement.number
+    )
+    offer_share_hash = (
+        (getattr(placement, 'share_hash', '') or '').strip()
+        or (getattr(draft_offer, 'share_hash', '') or '').strip()
+    )
 
     if ladder_offer is not None:
         ladder_results_url = ladder_word_results_path(ladder_offer.share_hash)
     elif game.id == LADDER_GAME_ID:
-        ladder_results_url = ladder_word_results_path(placement.number)
+        ladder_results_url = ladder_word_results_path(public_task_segment)
     else:
         ladder_results_url = None
 
@@ -3880,10 +3886,13 @@ def new_task_group_page(request, game_id, task_group_number):
             request, game, next_tg,
             _play_url_for_task_group(game, next_tg.number) if next_tg else None,
         )[1],
-        'task_group_results_url': _task_group_results_url(game, placement.number),
+        'task_group_results_url': (
+            '' if salad_offer is not None and not salad_offer.accepted_link_id
+            else _task_group_results_url(game, public_task_segment)
+        ),
         'task_group_live_state_url': _task_group_live_state_url(game),
-        'replay_url': _task_group_replay_url(game, placement.number),
-        'replay_exit_url': _task_group_replay_exit_url(game, placement.number),
+        'replay_url': _task_group_replay_url(game, public_task_segment),
+        'replay_exit_url': _task_group_replay_exit_url(game, public_task_segment),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,
@@ -3897,6 +3906,7 @@ def new_task_group_page(request, game_id, task_group_number):
         'week_task_source_url': week_task_source_url,
         'source_desyatka': source_desyatka,
         'custom_daily_task': custom_daily_task,
+        'offer_share_hash': offer_share_hash,
         'daily_publish_date': daily_publish_date,
         'difficulty': difficulty,
         'ladder_word_results_url': ladder_results_url,
@@ -3939,18 +3949,16 @@ def new_task_group_page(request, game_id, task_group_number):
             user=user,
             anon_key=anon_key,
             play_mode=play_mode,
-            is_offer=(
-                draft_offer is not None
-                or (
-                    share_placement is not None
-                    and not scheduled_number_is_public(game, share_placement.number)
-                    and not may_open_unpublished_number(request.user)
-                )
-            ),
+            is_offer=draft_offer is not None,
             replay_slot=replay_slot,
             # The author already has the official daily credit; do not start
             # a solving timer merely because they opened their own release.
             official_completed=official_completed or author_auto_completed,
+            timing_url=(
+                '{}timing/'.format(section_play_path(game.id, share_placement.share_hash))
+                if share_placement is not None and draft_offer is None
+                else None
+            ),
         ),
     })
 
@@ -3968,8 +3976,8 @@ def _replay_actor_for_request(request, game):
     )
 
 
-def _replay_game_and_placement(game_id, task_group_number, project_id=None):
-    return replay_game_and_placement(game_id, task_group_number, project_id)
+def _replay_game_and_placement(game_id, task_group_number, project_id=None, user=None):
+    return replay_game_and_placement(game_id, task_group_number, project_id, user=user)
 
 
 def _redirect_after_replay_action(game, number, project_id=None):
@@ -3979,7 +3987,9 @@ def _redirect_after_replay_action(game, number, project_id=None):
 @require_POST
 def new_replay_start(request, game_id, task_group_number, project_id=None):
     """Explicitly start/reset the private replay slot for one task group."""
-    game, placement = _replay_game_and_placement(game_id, task_group_number, project_id)
+    game, placement = _replay_game_and_placement(
+        game_id, task_group_number, project_id, user=request.user,
+    )
     from games.club_access import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, number=placement.number)
     if locked is not None:
@@ -3993,16 +4003,18 @@ def new_replay_start(request, game_id, task_group_number, project_id=None):
         user=user,
         anon_key=anon_key,
     )
-    return redirect(_redirect_after_replay_action(game, placement.number, project_id))
+    return redirect(_redirect_after_replay_action(game, task_group_number, project_id))
 
 
 @require_POST
 def new_replay_exit(request, game_id, task_group_number, project_id=None):
     """Leave the private replay and show the preserved official solution."""
-    game, placement = _replay_game_and_placement(game_id, task_group_number, project_id)
+    game, placement = _replay_game_and_placement(
+        game_id, task_group_number, project_id, user=request.user,
+    )
     team, user, anon_key = _replay_actor_for_request(request, game)
     clear_replay_session(request, game, placement.task_group)
-    return redirect(_redirect_after_replay_action(game, placement.number, project_id))
+    return redirect(_redirect_after_replay_action(game, task_group_number, project_id))
 
 
 @never_cache
@@ -4095,10 +4107,18 @@ def new_task_group_live_state(request, game_id, project_id=None):
 
     if not request.user.is_staff:
         from games.club_access import reject_if_club_archive_blocked
+        from games.views.game_context import unpublished_scheduled_task_response
 
         for placement in placements:
-            if placement.is_deferred or not scheduled_number_is_public(game, placement.number):
+            if placement.is_deferred:
                 raise Http404()
+            if not scheduled_number_is_public(game, placement.number):
+                task = next(
+                    (item for item in tasks if item.task_group_id == placement.task_group_id),
+                    None,
+                )
+                if task is None or unpublished_scheduled_task_response(request, game, task) is not None:
+                    raise Http404()
             locked = reject_if_club_archive_blocked(
                 request, game, number=placement.number, json_mode=True,
             )
@@ -4175,6 +4195,9 @@ def new_get_answer(request, task_id):
     task = get_public_task_or_404(task_id)
     game = game_from_request_for_task(request, task)
     if game is None:
+        raise Http404()
+    from games.views.game_context import unpublished_scheduled_task_response
+    if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
@@ -4253,6 +4276,9 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
+    from games.views.game_context import unpublished_scheduled_task_response
+    if unpublished_scheduled_task_response(request, game, task) is not None:
+        raise Http404()
     from games.club_access import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, task=task, json_mode=True)
     if locked is not None:
@@ -4314,6 +4340,9 @@ def new_get_raddle_word_answer(request, task_id, word_index):
         raise Http404()
     game = game_from_request_for_task(request, task)
     if game is None:
+        raise Http404()
+    from games.views.game_context import unpublished_scheduled_task_response
+    if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
     from games.club_access import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, task=task, json_mode=True)
@@ -4405,6 +4434,9 @@ def new_like_dislike(request, task_id):
             game = Game.objects.filter(id=game_hint).first()
         if game is None:
             raise Http404()
+    from games.views.game_context import unpublished_scheduled_task_response
+    if unpublished_scheduled_task_response(request, game, task) is not None:
+        raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
@@ -4462,6 +4494,9 @@ def new_bug_report(request, task_id):
     task = get_public_task_or_404(task_id)
     game = game_from_request_for_task(request, task)
     if game is None:
+        raise Http404()
+    from games.views.game_context import unpublished_scheduled_task_response
+    if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
 
     play_mode, _ = _get_play_mode(request, game.project_id)

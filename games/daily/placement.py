@@ -2,6 +2,7 @@
 
 from games.models import GameTaskGroup
 from games.placement_share import is_share_hash_segment, placement_by_share_hash
+from games.daily_section import is_scheduled_game, scheduled_number_is_public
 
 
 def resolve_daily_placement(game, number):
@@ -12,6 +13,33 @@ def resolve_daily_placement(game, number):
     return GameTaskGroup.objects.select_related('task_group').filter(
         game=game,
         number=segment,
+        is_deferred=False,
+    ).first()
+
+
+def resolve_accessible_daily_placement(game, segment, *, user=None):
+    """Resolve a public share URL or an allowed numbered daily URL.
+
+    Opaque placement hashes are public, including before their schedule date.
+    Numbered URLs follow the game's publication date and staff preview policy.
+    Deferred placements are never addressable through a public hash.
+    """
+    value = str(segment or '').strip()
+    if not value:
+        return None
+    if is_share_hash_segment(value):
+        placement = placement_by_share_hash(game, value)
+        if placement is None or placement.is_deferred:
+            return None
+        return placement
+    if is_scheduled_game(game.id) and not scheduled_number_is_public(game, value):
+        from games.placement_share import may_open_unpublished_number
+
+        if not may_open_unpublished_number(user):
+            return None
+    return GameTaskGroup.objects.select_related('task_group').filter(
+        game=game,
+        number=value,
         is_deferred=False,
     ).first()
 

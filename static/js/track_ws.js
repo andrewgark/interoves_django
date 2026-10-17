@@ -146,6 +146,10 @@
     if (playMode === 'team' || playMode === 'personal') {
       query += '&play_mode=' + encodeURIComponent(playMode);
     }
+    var shareHash = body && body.getAttribute
+      ? body.getAttribute('data-offer-share-hash')
+      : '';
+    if (shareHash) query += '&offer_share=' + encodeURIComponent(shareHash);
     return global.fetch(endpoint + joiner + query, {
       credentials: 'same-origin',
       headers: {'X-Requested-With': 'XMLHttpRequest'},

@@ -880,8 +880,8 @@ class AlphabettyPlayApiTests(TestCase):
 
         _ensure_login_modal_deps()
         anon = Client()
-        denied = anon.get(f'/alphabetty/{offer.share_hash}/')
-        self.assertEqual(denied.status_code, 404)
+        public = anon.get(f'/alphabetty/{offer.share_hash}/')
+        self.assertEqual(public.status_code, 200)
 
         owner = Client()
         owner.force_login(user)

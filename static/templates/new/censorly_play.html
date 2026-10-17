@@ -1,5 +1,5 @@
 {% extends "new/base.html" %}
-{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="personal"{% endblock %}
+{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="personal"{% if offer_share_hash %} data-offer-share-hash="{{ offer_share_hash }}"{% endif %}{% endblock %}
 {% load static %}
 {% block title %}{{ page_title }}{% endblock %}
 {% block extrahead %}
@@ -308,6 +308,9 @@
     var body = new URLSearchParams({
       likes: String(likes), dislikes: String(dislikes), game_id: '{{ game.id }}', anon_key: anonKey,
     });
+    if (document.body.getAttribute('data-offer-share-hash')) {
+      body.set('offer_share', document.body.getAttribute('data-offer-share-hash'));
+    }
     var url = "{% url 'new_like_dislike' 0 %}".replace('/0/', '/' + taskId + '/');
     fetch(url, {
       method: 'POST', credentials: 'same-origin',

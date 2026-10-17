@@ -85,6 +85,12 @@ urlpatterns = [
         name='new_salad_offer_task_group',
     ),
     path(
+        'salad/<str:number>/results/',
+        ui.section_task_results_page,
+        {'game_id': 'salad'},
+        name='new_salad_task_results',
+    ),
+    path(
         'alphabetty/<str:number>/timing/',
         ui.daily_solve_timing,
         {'game_id': 'alphabetty'},

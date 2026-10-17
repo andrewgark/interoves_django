@@ -22,6 +22,10 @@ def like_dislike(request, task_id):
     if game is None:
         return JsonResponse({'error': 'not found'}, status=404)
 
+    from games.views.game_context import unpublished_scheduled_task_response
+    if unpublished_scheduled_task_response(request, game, task) is not None:
+        return JsonResponse({'error': 'not found'}, status=404)
+
     if not game.has_access('send_attempt', team=team):
         return JsonResponse({'error': 'no access'}, status=403)
 

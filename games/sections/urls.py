@@ -67,6 +67,10 @@ def section_root_urlpatterns(
             r'^(?P<game_id>' + _RESULTS_GAME_ID_RE + r')/(?P<number>\d+(?:\.\d+)?)/results/$',
             ui.section_task_results_page,
         ),
+        re_path(
+            r'^(?P<game_id>week_task)/(?P<number>[a-f0-9]{16,32})/results/$',
+            ui.section_task_results_page,
+        ),
         path(
             'section/ladder/results/',
             RedirectView.as_view(url='/ladder/results/', permanent=True, query_string=True),
@@ -117,6 +121,14 @@ def section_root_urlpatterns(
         re_path(
             r'^(?P<game_id>week_task)/(?P<task_group_number>[a-f0-9]{16,32})/$',
             ui.task_group_page,
+        ),
+        re_path(
+            r'^(?P<game_id>week_task)/(?P<task_group_number>[a-f0-9]{16,32})/replay/$',
+            ui.new_replay_start,
+        ),
+        re_path(
+            r'^(?P<game_id>week_task)/(?P<task_group_number>[a-f0-9]{16,32})/replay/exit/$',
+            ui.new_replay_exit,
         ),
         re_path(
             r'^(?P<game_id>' + _SECTION_GAME_ID_RE + r')/(?P<task_group_number>\d+(?:\.\d+)?)/replay/$',

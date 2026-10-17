@@ -86,6 +86,8 @@
     body.set('text', textEl.value.trim());
     body.set('game_id', modal.getAttribute('data-bug-report-game-id') || root.getAttribute('data-game-id') || '');
     body.set('anon_key', anonKey(root));
+    var shareHash = document.body.getAttribute('data-offer-share-hash');
+    if (shareHash) body.set('offer_share', shareHash);
     return fetch(endpoint(), {
       method: 'POST',
       credentials: 'same-origin',

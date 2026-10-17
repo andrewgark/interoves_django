@@ -25,7 +25,11 @@ def _offer_share_matches_task(request, task):
     """True when this POST proves the player opened the custom offer, not the future daily number."""
     token = ''
     if request is not None:
-        token = (request.POST.get('offer_share') or '').strip().lower()
+        token = (
+            request.POST.get('offer_share')
+            or request.GET.get('offer_share')
+            or ''
+        ).strip().lower()
     if not token or task is None or not task.task_group_id:
         return False
     from games.placement_share import share_matches_task
@@ -33,7 +37,12 @@ def _offer_share_matches_task(request, task):
         return True
     from games.ladder_offer import get_offer_by_share_hash as ladder_offer_by_share_hash
     from games.word_salad_offer import get_offer_by_share_hash as salad_offer_by_share_hash
-    for getter in (salad_offer_by_share_hash, ladder_offer_by_share_hash):
+    from games.alphabetty_offer import get_offer_by_share_hash as alphabetty_offer_by_share_hash
+    for getter in (
+        salad_offer_by_share_hash,
+        ladder_offer_by_share_hash,
+        alphabetty_offer_by_share_hash,
+    ):
         offer = getter(token)
         if offer is not None and offer.task_group_id == task.task_group_id:
             return True
@@ -68,7 +77,9 @@ def unpublished_scheduled_task_response(request, game, task):
         return None
     link = GameTaskGroup.objects.filter(
         game=game, task_group_id=task.task_group_id,
-    ).only('number').first()
+    ).only('number', 'is_deferred').first()
+    if link is not None and link.is_deferred:
+        return {'status': 'not_published', 'error': 'not_published'}
     if link is not None and not scheduled_number_is_public(game, link.number):
         if (
             _offer_share_matches_task(request, task)

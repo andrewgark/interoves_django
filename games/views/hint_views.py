@@ -15,7 +15,10 @@ from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.replay import StaleReplayError, replay_for_request
-from games.views.game_context import game_from_request_for_task
+from games.views.game_context import (
+    game_from_request_for_task,
+    unpublished_scheduled_task_response,
+)
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.views.util import (
@@ -99,6 +102,9 @@ def process_send_hint_attempt(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'status': 'ambiguous_game'}
+    unpublished = unpublished_scheduled_task_response(request, game, task)
+    if unpublished is not None:
+        return unpublished
     from games.club_access import user_can_access_task_archive
     if not user_can_access_task_archive(request.user, game, task):
         raise NoGameAccessException('Club subscription required for archived game')
