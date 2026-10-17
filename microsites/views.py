@@ -1,12 +1,11 @@
 import json
+import asyncio
 import logging
 import mimetypes
 import os
 import re
 import signal
-import subprocess
 import sys
-import threading
 from datetime import datetime, timezone as dt_timezone
 from io import BytesIO
 from pathlib import Path
@@ -16,7 +15,7 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
-from django.http import Http404, HttpResponse, HttpResponseRedirect, FileResponse
+from django.http import Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect, FileResponse
 from django.shortcuts import render
 from django.utils.http import http_date
 from django.views.decorators.http import require_GET
@@ -39,7 +38,141 @@ _BOOKLET_HTML_LOADING_MARKER = "data-booklet-loading-overlay"
 logger = logging.getLogger(__name__)
 
 _SAFE_WEB_NAME = re.compile(r"^[a-zA-Z0-9][-a-zA-Z0-9_.]*$")
-_NUTRIMATIC_SEARCH_GATE = threading.BoundedSemaphore(1)
+_NUTRIMATIC_SEARCH_GATE = None
+_NUTRIMATIC_GATE_LOCK = None
+_NUTRIMATIC_LAG_TASK = None
+_NUTRIMATIC_PATHS_TASK = None
+_NUTRIMATIC_PATHS_VALUE = None
+_NUTRIMATIC_ACTIVE = 0
+_NUTRIMATIC_QUEUED = 0
+_NUTRIMATIC_QUEUE_LIMIT = 1
+_NUTRIMATIC_QUEUE_WAIT_SECONDS = 1.0
+_NUTRIMATIC_DEADLINE_SECONDS = 45.0
+_NUTRIMATIC_KILL_GRACE_SECONDS = 1.0
+_NUTRIMATIC_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
+
+
+def _nutrimatic_async_gate():
+    """Create loop-local gate lazily (Daphne serves this app on one loop)."""
+    global _NUTRIMATIC_SEARCH_GATE, _NUTRIMATIC_GATE_LOCK, _NUTRIMATIC_LAG_TASK
+    loop = asyncio.get_running_loop()
+    if getattr(_NUTRIMATIC_SEARCH_GATE, "_loop", loop) not in (None, loop):
+        _NUTRIMATIC_SEARCH_GATE = None
+        _NUTRIMATIC_GATE_LOCK = None
+        _NUTRIMATIC_LAG_TASK = None
+    if _NUTRIMATIC_SEARCH_GATE is None:
+        _NUTRIMATIC_SEARCH_GATE = asyncio.Semaphore(1)
+        _NUTRIMATIC_GATE_LOCK = asyncio.Lock()
+        _NUTRIMATIC_LAG_TASK = asyncio.create_task(_log_event_loop_lag())
+    return _NUTRIMATIC_SEARCH_GATE, _NUTRIMATIC_GATE_LOCK
+
+
+async def _nutrimatic_paths_async():
+    """Resolve paths off-loop and share one in-flight S3/cache initialization."""
+    global _NUTRIMATIC_PATHS_TASK, _NUTRIMATIC_PATHS_VALUE
+    if _NUTRIMATIC_PATHS_VALUE is not None:
+        return _NUTRIMATIC_PATHS_VALUE
+    if _NUTRIMATIC_PATHS_TASK is None or _NUTRIMATIC_PATHS_TASK.get_loop() is not asyncio.get_running_loop():
+        _NUTRIMATIC_PATHS_TASK = asyncio.create_task(asyncio.to_thread(_nutrimatic_paths))
+    try:
+        value = await asyncio.shield(_NUTRIMATIC_PATHS_TASK)
+    except BaseException:
+        if _NUTRIMATIC_PATHS_TASK.done():
+            _NUTRIMATIC_PATHS_TASK = None
+        raise
+    _NUTRIMATIC_PATHS_VALUE = value
+    _NUTRIMATIC_PATHS_TASK = None
+    return value
+
+
+async def _log_event_loop_lag():
+    loop = asyncio.get_running_loop()
+    interval = 10.0
+    while True:
+        expected = loop.time() + interval
+        await asyncio.sleep(interval)
+        lag = max(0.0, loop.time() - expected)
+        logger.info("asgi_event_loop_lag seconds=%.3f", lag)
+
+
+async def _nutrimatic_acquire():
+    global _NUTRIMATIC_QUEUED, _NUTRIMATIC_ACTIVE
+    gate, lock = _nutrimatic_async_gate()
+    async with lock:
+        if not gate.locked():
+            await gate.acquire()
+            _NUTRIMATIC_ACTIVE += 1
+            return True
+        if _NUTRIMATIC_QUEUED >= _NUTRIMATIC_QUEUE_LIMIT:
+            return False
+        _NUTRIMATIC_QUEUED += 1
+    permit_acquired = False
+    try:
+        await asyncio.wait_for(gate.acquire(), timeout=_NUTRIMATIC_QUEUE_WAIT_SECONDS)
+        permit_acquired = True
+        async with lock:
+            _NUTRIMATIC_ACTIVE += 1
+            permit_acquired = False
+        return True
+    except asyncio.TimeoutError:
+        return False
+    except BaseException:
+        if permit_acquired:
+            gate.release()
+        raise
+    finally:
+        async with lock:
+            _NUTRIMATIC_QUEUED -= 1
+
+
+async def _nutrimatic_release():
+    global _NUTRIMATIC_ACTIVE
+    gate, lock = _nutrimatic_async_gate()
+    async with lock:
+        _NUTRIMATIC_ACTIVE -= 1
+        gate.release()
+
+
+async def _read_bounded(stream, limit):
+    chunks = []
+    size = 0
+    while True:
+        chunk = await stream.read(min(65536, limit + 1 - size))
+        if not chunk:
+            return b"".join(chunks)
+        size += len(chunk)
+        if size > limit:
+            raise ValueError("Nutrimatic output exceeded configured limit")
+        chunks.append(chunk)
+
+
+async def _terminate_nutrimatic_group(proc, *tasks):
+    try:
+        os.killpg(proc.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass
+    deadline = asyncio.get_running_loop().time() + _NUTRIMATIC_KILL_GRACE_SECONDS
+    while asyncio.get_running_loop().time() < deadline:
+        try:
+            os.killpg(proc.pid, 0)
+        except ProcessLookupError:
+            break
+        await asyncio.sleep(min(0.05, max(0.0, deadline - asyncio.get_running_loop().time())))
+    else:
+        # The CGI may exit before a grandchild which ignores SIGTERM. Check
+        # the process group itself, not just the asyncio child/pipe futures.
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    await proc.wait()
+    # Closing the leader does not close pipes retained by escaped descendants.
+    for task in tasks:
+        if task is not None and not task.done():
+            task.cancel()
+    transport = getattr(proc, "_transport", None)
+    if transport is not None:
+        transport.close()
 
 
 def expanduser_maybe(p: str) -> str:
@@ -98,10 +231,25 @@ def _nutrimatic_paths():
     return root, find_expr, index, cgi
 
 
-@require_GET
-def nutrimatic_search(request):
-    paths = _nutrimatic_paths()
+async def nutrimatic_search(request):
+    if request.method != "GET":
+        return HttpResponseNotAllowed(["GET"])
+    started = asyncio.get_running_loop().time()
+    if not await _nutrimatic_acquire():
+        logger.info("nutrimatic rejected active=%d queued=%d", _NUTRIMATIC_ACTIVE, _NUTRIMATIC_QUEUED)
+        return HttpResponse(
+            "Search is busy. Please retry shortly.",
+            status=503,
+            headers={"Retry-After": "5"},
+            content_type="text/plain; charset=utf-8",
+        )
+    try:
+        paths = await _nutrimatic_paths_async()
+    except BaseException:
+        await _nutrimatic_release()
+        raise
     if not paths:
+        await _nutrimatic_release()
         return HttpResponse(
             "<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"utf-8\"><title>Nutrimatic</title></head>"
             "<body><h1>Nutrimatic</h1>"
@@ -113,6 +261,7 @@ def nutrimatic_search(request):
         )
     _, find_expr, index, cgi = paths
     if not find_expr.is_file() or not index.is_file() or not cgi.is_file():
+        await _nutrimatic_release()
         return HttpResponse(
             "<!DOCTYPE html><html lang=\"ru\"><head><meta charset=\"utf-8\"><title>Nutrimatic</title></head>"
             "<body><h1>Nutrimatic</h1>"
@@ -127,44 +276,61 @@ def nutrimatic_search(request):
     env["QUERY_STRING"] = request.META.get("QUERY_STRING", "")
     env["NUTRIMATIC_FIND_EXPR"] = str(find_expr)
     env["NUTRIMATIC_INDEX"] = str(index)
-    if not _NUTRIMATIC_SEARCH_GATE.acquire(blocking=False):
-        return HttpResponse(
-            "Search is busy. Please retry shortly.",
-            status=503,
-            headers={"Retry-After": "5"},
-            content_type="text/plain; charset=utf-8",
-        )
+    proc = None
+    stdout_task = stderr_task = wait_task = None
     try:
-        proc = subprocess.Popen(
-            [sys.executable, str(cgi)],
-            env=env,
-            cwd=str(paths[0]),
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+        proc = await asyncio.create_subprocess_exec(
+            sys.executable, str(cgi),
+            env=env, cwd=str(paths[0]),
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
             start_new_session=True,
         )
+        logger.info("nutrimatic start pid=%d pgid=%d active=%d queued=%d", proc.pid, proc.pid, _NUTRIMATIC_ACTIVE, _NUTRIMATIC_QUEUED)
+        stdout_task = asyncio.create_task(_read_bounded(proc.stdout, _NUTRIMATIC_MAX_OUTPUT_BYTES))
+        stderr_task = asyncio.create_task(_read_bounded(proc.stderr, _NUTRIMATIC_MAX_OUTPUT_BYTES))
+        wait_task = asyncio.create_task(proc.wait())
+        result_task = asyncio.gather(stdout_task, stderr_task, wait_task)
         try:
-            stdout, stderr = proc.communicate(timeout=45)
-        except subprocess.TimeoutExpired:
-            try:
-                os.killpg(proc.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
-            stdout, stderr = proc.communicate()
-            return HttpResponse(
-                "Search timed out",
-                status=504,
-                content_type="text/plain; charset=utf-8",
+            stdout, stderr, _ = await asyncio.wait_for(
+                asyncio.shield(result_task),
+                timeout=_NUTRIMATIC_DEADLINE_SECONDS,
             )
+        except asyncio.TimeoutError:
+            await _finish_nutrimatic_cleanup(proc, stdout_task, stderr_task, wait_task)
+            logger.warning(
+                "nutrimatic timeout pid=%d pgid=%d exit_code=%s duration=%.3f",
+                proc.pid, proc.pid, proc.returncode,
+                asyncio.get_running_loop().time() - started,
+            )
+            return HttpResponse("Search timed out", status=504, content_type="text/plain; charset=utf-8")
+        except ValueError:
+            await _finish_nutrimatic_cleanup(proc, stdout_task, stderr_task, wait_task)
+            logger.warning("nutrimatic output_limit pid=%d", proc.pid)
+            return HttpResponse("Search unavailable", status=502, content_type="text/plain; charset=utf-8")
+    except asyncio.CancelledError:
+        if proc is not None:
+            cleanup = asyncio.create_task(_finish_nutrimatic_cleanup(proc, stdout_task, stderr_task, wait_task))
+            while not cleanup.done():
+                try:
+                    await asyncio.shield(cleanup)
+                except asyncio.CancelledError:
+                    continue
+        logger.info(
+            "nutrimatic cancelled pid=%s pgid=%s exit_code=%s duration=%.3f",
+            proc.pid if proc is not None else "unstarted",
+            proc.pid if proc is not None else "unstarted",
+            proc.returncode if proc is not None else "unstarted",
+            asyncio.get_running_loop().time() - started,
+        )
+        raise
     except OSError:
         logger.exception("Nutrimatic search process failed to start")
-        return HttpResponse(
-            "Search unavailable",
-            status=503,
-            content_type="text/plain; charset=utf-8",
-        )
+        return HttpResponse("Search unavailable", status=503, content_type="text/plain; charset=utf-8")
     finally:
-        _NUTRIMATIC_SEARCH_GATE.release()
+        await _nutrimatic_release()
+
+    logger.info("nutrimatic finish pid=%d exit_code=%s duration=%.3f", proc.pid, proc.returncode, asyncio.get_running_loop().time() - started)
 
     if proc.returncode != 0:
         err = (stderr or b"").decode("utf-8", errors="replace").strip()
@@ -174,6 +340,13 @@ def nutrimatic_search(request):
     body = _strip_cgi_headers(stdout)
     body = body.replace(b'href="/favicon.ico"', b'href="/nutrimatic-ru/favicon.ico"')
     return HttpResponse(body, content_type="text/html; charset=utf-8")
+
+
+async def _finish_nutrimatic_cleanup(proc, *tasks):
+    await _terminate_nutrimatic_group(proc, *tasks)
+    pending = [task for task in tasks if task is not None]
+    if pending:
+        await asyncio.gather(*pending, return_exceptions=True)
 
 
 def _strip_cgi_headers(raw: bytes) -> bytes:

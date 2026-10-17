@@ -13,6 +13,8 @@ import os
 import resource
 import signal
 import subprocess
+import atexit
+import tempfile
 import sys
 import urllib
 
@@ -208,18 +210,47 @@ resource.setrlimit(resource.RLIMIT_AS, (hard, hard))
 
 # Pass query as UTF-8 bytes so find-expr receives correct encoding (e.g. Cyrillic).
 query_bytes = query.encode('utf-8') if isinstance(query, str) else query
+def _cleanup_find_expr(child):
+  if child.poll() is None:
+    try:
+      child.terminate()
+    except ProcessLookupError:
+      pass
+    try:
+      child.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+      try:
+        child.kill()
+      except ProcessLookupError:
+        pass
+      child.wait()
+
+
+# Keep stderr off a pipe while stdout is streamed; cap the diagnostic file.
+soft, hard = resource.getrlimit(resource.RLIMIT_FSIZE)
+file_limit = 1024 * 1024
+if hard != -1:
+  file_limit = min(file_limit, hard)
+resource.setrlimit(resource.RLIMIT_FSIZE, (file_limit, hard))
+stderr_file = tempfile.TemporaryFile(mode="w+b")
 proc = subprocess.Popen([binary, index, query_bytes],
     preexec_fn=lambda: signal.signal(signal.SIGPIPE, signal.SIG_DFL),
-    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout=subprocess.PIPE, stderr=stderr_file)
+atexit.register(_cleanup_find_expr, proc)
 
 print(RESULT_PAGE_BEGIN % {"query": html.escape(query)})
 
 rn = 0
 seen = set()
 while 1:
-  line = proc.stdout.readline().decode()
+  line = proc.stdout.readline(65537).decode()
+  if len(line) > 65536 and not line.endswith("\\n"):
+    print(RESULT_ERROR % {"text": "find-expr output line exceeded limit"})
+    break
   if not line:
-    error = proc.stderr.read().decode().strip()
+    proc.wait()
+    stderr_file.seek(0)
+    error = stderr_file.read(file_limit).decode("utf-8", errors="replace").strip()
     if error:
       print(RESULT_ERROR % {"text": html.escape(error).replace("\n", "<br>")})
     elif proc.poll():
@@ -279,3 +310,4 @@ while 1:
   rn += 1
 
 print(RESULT_PAGE_END)
+stderr_file.close()

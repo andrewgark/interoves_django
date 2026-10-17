@@ -1,4 +1,6 @@
+import logging
 import os
+from django.conf import settings
 from django.core.asgi import get_asgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 django_asgi_app = get_asgi_application()
@@ -49,3 +51,10 @@ application = ProtocolTypeRouter({
         ])
     )
 })
+
+logging.getLogger("daphne").info(
+    "asgi_process_start pid=%d ppid=%d deploy_version=%s",
+    os.getpid(),
+    os.getppid(),
+    getattr(settings, "SITE_DEPLOY_VERSION", "unknown"),
+)

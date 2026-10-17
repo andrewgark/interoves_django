@@ -1,10 +1,13 @@
+import asyncio
+import os
+import signal
 import shutil
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from django.conf import settings as dj_settings
-from django.test import Client, SimpleTestCase, override_settings
+from django.test import AsyncClient, Client, SimpleTestCase, override_settings
 from django.urls import resolve, reverse
 
 from microsites.eurovision_booklet_sync import (
@@ -429,3 +432,181 @@ class BookletLazyAssetProxyTests(SimpleTestCase):
         self.assertTrue(cached.is_file())
         mock_fetch.assert_called_once()
 
+
+class NutrimaticAsyncTests(SimpleTestCase):
+    def setUp(self):
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tempdir.cleanup)
+        self.root = Path(self.tempdir.name)
+        self.cgi = self.root / "cgi.py"
+        self.find_expr = self.root / "find-expr"
+        self.find_expr.touch()
+        self.index = self.root / "words.index"
+        self.index.touch()
+        from microsites import views
+        views._NUTRIMATIC_SEARCH_GATE = None
+        views._NUTRIMATIC_GATE_LOCK = None
+        views._NUTRIMATIC_PATHS_TASK = None
+        views._NUTRIMATIC_PATHS_VALUE = None
+        views._NUTRIMATIC_ACTIVE = 0
+        views._NUTRIMATIC_QUEUED = 0
+
+    def write_cgi(self, source):
+        self.cgi.write_text(source)
+
+    def mock_paths(self):
+        return patch(
+            "microsites.views._nutrimatic_paths",
+            return_value=(self.root, self.find_expr, self.index, self.cgi),
+        )
+
+    async def call_view(self, query="q=test&start=0&num=100"):
+        from django.test import RequestFactory
+        from microsites.views import nutrimatic_search
+        return await nutrimatic_search(RequestFactory().get("/nutrimatic-ru/?" + query))
+
+    async def test_async_search_preserves_cgi_response(self):
+        self.write_cgi("import sys; print('Content-type: text/html\\n\\n<html>ok</html>')")
+        with self.mock_paths():
+            response = await self.call_view()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"<html>ok</html>", response.content)
+
+    async def test_cgi_start_error_returns_503(self):
+        from microsites.views import nutrimatic_search
+        with self.mock_paths(), patch("microsites.views.asyncio.create_subprocess_exec", side_effect=OSError("no exec")):
+            response = await self.call_view()
+        self.assertEqual(response.status_code, 503)
+
+    async def test_deadline_cleans_up_and_returns_504(self):
+        from microsites import views
+        self.write_cgi("import time; time.sleep(10)")
+        with self.mock_paths(), patch.object(views, "_NUTRIMATIC_DEADLINE_SECONDS", 0.1):
+            response = await self.call_view()
+        self.assertEqual(response.status_code, 504)
+        self.assertEqual(views._NUTRIMATIC_ACTIVE, 0)
+
+    async def test_large_stderr_is_drained_while_stdout_is_read(self):
+        self.write_cgi("import sys; sys.stderr.write('x' * 200000); print('Content-type: text/html\\n\\nOK')")
+        with self.mock_paths():
+            response = await self.call_view()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"OK", response.content)
+
+    async def test_real_cgi_streams_find_expr_and_preserves_query_paging(self):
+        self.cgi = Path(__file__).resolve().parent.parent / "nutrimatic_bundle/cgi_scripts/cgi-search.py"
+        self.find_expr.write_text(
+            "#!/usr/bin/env python3\\nimport sys\\nsys.stderr.write('e' * 200000)\\nprint('1.0 Moscow')\\n"
+        )
+        self.find_expr.chmod(0o755)
+        with self.mock_paths():
+            response = await self.call_view("q=capital&start=0&num=100")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Moscow", response.content)
+        self.assertIn(b"capital", response.content)
+
+    async def test_health_endpoint_remains_responsive_during_long_job_through_middleware(self):
+        self.write_cgi("import time; time.sleep(0.4); print('Content-type: text/html\\n\\nOK')")
+        from microsites.views import nutrimatic_search
+        self.assertTrue(asyncio.iscoroutinefunction(nutrimatic_search))
+        with self.mock_paths():
+            client = AsyncClient()
+            search_task = asyncio.create_task(client.get("/nutrimatic-ru/?q=slow"))
+            await asyncio.sleep(0.05)
+            health = await client.get("/health/live/")
+            self.assertEqual(health.status_code, 200)
+            self.assertFalse(search_task.done())
+            self.assertEqual((await search_task).status_code, 200)
+
+    async def test_client_cancellation_kills_process_group(self):
+        self.write_cgi(
+            "import os,time; open(os.environ['PID_FILE'],'w').write(str(os.getpid())); time.sleep(10)"
+        )
+        pidfile = self.root / "pid"
+        with self.mock_paths(), patch.dict(os.environ, {"PID_FILE": str(pidfile)}):
+            task = asyncio.create_task(self.call_view())
+            deadline = asyncio.get_running_loop().time() + 2
+            while not pidfile.exists() and asyncio.get_running_loop().time() < deadline:
+                await asyncio.sleep(0.01)
+            self.assertTrue(pidfile.exists())
+            pid = int(pidfile.read_text())
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+        await asyncio.sleep(0.05)
+        try:
+            state = Path(f"/proc/{pid}/stat").read_text().split()[2]
+        except FileNotFoundError:
+            state = None
+        self.assertIsNone(state)
+
+    async def test_second_cancellation_does_not_abort_process_cleanup(self):
+        from microsites import views
+        self.write_cgi("import time; time.sleep(10)")
+        with self.mock_paths(), patch.object(views, "_NUTRIMATIC_KILL_GRACE_SECONDS", 0.2):
+            task = asyncio.create_task(self.call_view())
+            await asyncio.sleep(0.05)
+            task.cancel()
+            await asyncio.sleep(0.03)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+        self.assertEqual(views._NUTRIMATIC_ACTIVE, 0)
+
+    async def test_cancellation_kills_find_expr_in_same_process_group(self):
+        from microsites import views
+        self.cgi = Path(__file__).resolve().parent.parent / "nutrimatic_bundle/cgi_scripts/cgi-search.py"
+        self.find_expr.write_text(
+            "#!/usr/bin/env python3\n"
+            "import os, signal, time\n"
+            "open(os.environ['CHILD_PID_FILE'], 'w').write(f'{os.getpid()} {os.getpgrp()} {os.getsid(0)}')\n"
+            "signal.signal(signal.SIGTERM, signal.SIG_IGN)\n"
+            "time.sleep(10)\n"
+        )
+        self.find_expr.chmod(0o755)
+        child_pidfile = self.root / "child-pid"
+        kill_calls = []
+        real_killpg = os.killpg
+        def track_killpg(pgid, sig):
+            kill_calls.append((pgid, sig))
+            return real_killpg(pgid, sig)
+        with self.mock_paths(), patch.dict(os.environ, {"CHILD_PID_FILE": str(child_pidfile)}), patch.object(
+            views, "_NUTRIMATIC_KILL_GRACE_SECONDS", 0.05
+        ), patch.object(views.os, "killpg", side_effect=track_killpg):
+            task = asyncio.create_task(self.call_view("q=slow&start=0&num=100"))
+            deadline = asyncio.get_running_loop().time() + 2
+            while not child_pidfile.exists() and asyncio.get_running_loop().time() < deadline:
+                await asyncio.sleep(0.01)
+            self.assertTrue(child_pidfile.exists())
+            child_pid, child_pgid, child_sid = map(int, child_pidfile.read_text().split())
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+        state = "S"
+        for _ in range(20):
+            try:
+                state = Path(f"/proc/{child_pid}/stat").read_text().split()[2]
+            except FileNotFoundError:
+                state = None
+                break
+            await asyncio.sleep(0.01)
+        if state is not None:
+            try:
+                os.killpg(child_pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        self.assertIsNone(state, f"find-expr remained in pgid={child_pgid} sid={child_sid}; kill_calls={kill_calls}")
+
+    async def test_gate_rejects_when_active_and_single_queue_slot_is_full(self):
+        from microsites import views
+        self.write_cgi("import time; time.sleep(0.3); print('Content-type: text/html\\n\\nOK')")
+        with self.mock_paths(), patch.object(views, "_NUTRIMATIC_QUEUE_WAIT_SECONDS", 0.05):
+            first = asyncio.create_task(self.call_view())
+            await asyncio.sleep(0.02)
+            second = asyncio.create_task(self.call_view())
+            await asyncio.sleep(0.02)
+            third = await self.call_view()
+            self.assertEqual(third.status_code, 503)
+            self.assertEqual(third.headers.get("Retry-After"), "5")
+            self.assertEqual((await first).status_code, 200)
+            self.assertEqual((await second).status_code, 503)
