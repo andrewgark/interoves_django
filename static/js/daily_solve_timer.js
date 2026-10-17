@@ -778,12 +778,16 @@
       doc.addEventListener('interoves:daily-timing', function (ev) {
         if (ev && ev.detail) {
           var clientRevision = Number(ev.detail._client_revision);
-          if (isFinite(clientRevision) && clientRevision < stateRevision) return;
+          // Completion is terminal. A visibility/pause event can advance the
+          // local revision while a successful gameplay request is in flight;
+          // never let that stale request revision hide the solved state.
           if (ev.detail.completed) markComplete(ev.detail);
-          else applySnapshot(ev.detail, {
-            replace: true,
-            clientRevision: clientRevision,
-          });
+          else if (!isFinite(clientRevision) || clientRevision >= stateRevision) {
+            applySnapshot(ev.detail, {
+              replace: true,
+              clientRevision: clientRevision,
+            });
+          }
         }
       });
     }
