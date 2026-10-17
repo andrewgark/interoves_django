@@ -6,6 +6,7 @@ var reloads = 0;
 var periodicSync = null;
 var visibilityHandlers = [];
 var timeoutDelays = [];
+var timeoutCallbacks = [];
 
 function FakeWebSocket(url) {
   this.url = url;
@@ -23,7 +24,8 @@ global.clearInterval = function () {};
 global.setTimeout = function (fn, delay) {
   reconnect = fn;
   timeoutDelays.push(delay);
-  return 1;
+  timeoutCallbacks.push(fn);
+  return timeoutCallbacks.length;
 };
 global.clearTimeout = function () {};
 global.window = {
@@ -78,6 +80,27 @@ assert.strictEqual(
   window.InterovesTrack.nextGamePhaseAt(dailyRoot, Date.parse('2026-08-20T20:00:00Z')),
   Date.parse('2026-08-21T00:00:00+03:00')
 );
+assert.strictEqual(window.InterovesTrack.transitionJitterMs(
+  dailyRoot, Date.parse('2026-08-21T00:00:00+03:00')
+), 20000);
+var seed = 17;
+var clientDelays = {};
+for (var client = 0; client < 500; client += 1) {
+  seed = (seed * 48271) % 2147483647;
+  var virtualDelay = window.InterovesTrack.randomDelayMs(20000, seed / 2147483647);
+  assert(virtualDelay >= 0 && virtualDelay <= 20000);
+  clientDelays[virtualDelay] = true;
+}
+assert(Object.keys(clientDelays).length > 450);
+assert.strictEqual(window.InterovesTrack.randomDelayMs(3000, 0.5), 1500);
+var priorRandom = Math.random;
+Math.random = function () { return 0.5; };
+var reloadTimerCount = timeoutCallbacks.length;
+window.InterovesTrack.scheduleReload('daily:test', 20000);
+window.InterovesTrack.scheduleReload('daily:test', 20000);
+assert.strictEqual(timeoutCallbacks.length, reloadTimerCount + 1);
+assert.strictEqual(timeoutDelays[timeoutDelays.length - 1], 10000);
+Math.random = priorRandom;
 assert.deepStrictEqual(window.InterovesTrack.collectTaskIds({
   querySelectorAll: function () {
     return [
@@ -111,7 +134,8 @@ assert.deepStrictEqual(first.sent[2], {
 });
 first.onclose();
 assert.strictEqual(typeof reconnect, 'function');
-assert(timeoutDelays[0] >= 1000 && timeoutDelays[0] <= 1250);
+var reconnectDelay = timeoutDelays[timeoutDelays.length - 1];
+assert(reconnectDelay >= 1000 && reconnectDelay <= 6000);
 reconnect();
 
 window.InterovesTrack.connectGame('scoped', '/glowbyte/games/scoped/track');
@@ -131,7 +155,8 @@ second.onmessage({data: JSON.stringify({
   versions: {'game:g:team:7': 5},
   missed: {'game:g:team:7': 5},
 })});
-assert.strictEqual(reloads, 1);
+// Recovery failure is jittered instead of reloading in the message callback.
+assert.strictEqual(reloads, 0);
 
 var delivered = [];
 var finishReconcile = null;

@@ -16,6 +16,7 @@
   var KEY = 'interoves_deploy_v';
   var URL = '/meta/deploy-version/';
   var retryTimer = null;
+  var navigationTimer = null;
 
   function retryAfterDeployCheck() {
     if (retryTimer !== null) {
@@ -24,7 +25,7 @@
     retryTimer = window.setTimeout(function () {
       retryTimer = null;
       run();
-    }, 30000);
+    }, 25000 + Math.floor(Math.random() * 20001));
   }
 
   function embeddedVersion() {
@@ -58,6 +59,16 @@
   }
 
   function hardNavigate() {
+    if (navigationTimer !== null) return;
+    // A deployment changes one shared value; spread the resulting document
+    // requests so every open page does not hit the app in the same instant.
+    navigationTimer = window.setTimeout(function () {
+      navigationTimer = null;
+      navigateNow();
+    }, Math.floor(Math.random() * 20001));
+  }
+
+  function navigateNow() {
     var path = window.location.pathname + stripCacheBustQuery(window.location.search);
     var sep = path.indexOf('?') >= 0 ? '&' : '?';
     window.location.replace(

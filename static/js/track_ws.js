@@ -4,7 +4,10 @@
   var SYNC_MS = 25000;
   var RECONNECT_MIN_MS = 1000;
   var RECONNECT_MAX_MS = 30000;
-  var RECONNECT_JITTER_MS = 250;
+  // Spread recovery traffic across clients after a shared outage.
+  var RECONNECT_JITTER_MS = 5000;
+  var DAILY_TRANSITION_JITTER_MS = 20000;
+  var GAME_TRANSITION_JITTER_MS = 3000;
 
   function proto() {
     return window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -16,12 +19,39 @@
 
   var lastReloadKey = '';
   var lastReloadAt = 0;
+  var RELOAD_COOLDOWN_MS = 30000;
+  var pendingReloadTimer = null;
+  var pendingReloadKey = '';
   function reloadTrackEventOnce(key) {
     var now = Date.now();
     if (key === lastReloadKey && now - lastReloadAt < 2000) return;
+    try {
+      var storageKey = 'interoves_track_reload:' + key;
+      var previous = Number(global.sessionStorage.getItem(storageKey)) || 0;
+      if (previous && now - previous < RELOAD_COOLDOWN_MS) return;
+      global.sessionStorage.setItem(storageKey, String(now));
+    } catch (e) {}
     lastReloadKey = key;
     lastReloadAt = now;
     window.location.reload();
+  }
+
+  function randomDelayMs(maxJitterMs, randomValue) {
+    var max = Math.max(0, Number(maxJitterMs) || 0);
+    var random = typeof randomValue === 'number' ? randomValue : Math.random();
+    random = Math.max(0, Math.min(0.999999999, random));
+    return Math.floor(random * (max + 1));
+  }
+
+  function scheduleReload(key, maxJitterMs) {
+    if (key === lastReloadKey || (pendingReloadTimer && pendingReloadKey === key)) return;
+    if (pendingReloadTimer) clearTimeout(pendingReloadTimer);
+    pendingReloadKey = key;
+    pendingReloadTimer = setTimeout(function () {
+      pendingReloadTimer = null;
+      pendingReloadKey = '';
+      reloadTrackEventOnce(key);
+    }, randomDelayMs(maxJitterMs));
   }
 
   function handleTrackEvent(msg) {
@@ -32,7 +62,7 @@
       msg.event === 'game.ended'
     ) {
       var gid = (msg.payload && msg.payload.game_id) || '';
-      reloadTrackEventOnce(msg.event + ':' + gid);
+      scheduleReload(msg.event + ':' + gid, GAME_TRANSITION_JITTER_MS);
     }
   }
 
@@ -97,19 +127,29 @@
     return Math.min.apply(Math, candidates);
   }
 
+  function transitionJitterMs(root, transitionAt) {
+    var gameStartAt = Date.parse(root.getAttribute('data-game-start-at') || '');
+    var gameEndAt = Date.parse(root.getAttribute('data-game-end-at') || '');
+    if (gameStartAt === transitionAt || gameEndAt === transitionAt) {
+      return GAME_TRANSITION_JITTER_MS;
+    }
+    var dailyAt = Date.parse(root.getAttribute('data-live-next-transition-at') || '');
+    return dailyAt === transitionAt ? DAILY_TRANSITION_JITTER_MS : GAME_TRANSITION_JITTER_MS;
+  }
+
   function scheduleGamePhaseReload(root) {
     var MAX_DELAY_MS = 2147483000;
     function schedule() {
       var now = Date.now();
       var transitionAt = nextGamePhaseAt(root, now);
       if (transitionAt === null) return;
-      var remaining = transitionAt - now + 250;
+      var remaining = transitionAt - now;
       setTimeout(function () {
         if (remaining > MAX_DELAY_MS) {
           schedule();
           return;
         }
-        reloadTrackEventOnce('game-phase:' + transitionAt);
+        scheduleReload('game-phase:' + transitionAt, transitionJitterMs(root, transitionAt));
       }, Math.min(remaining, MAX_DELAY_MS));
     }
     schedule();
@@ -232,7 +272,7 @@
         if (typeof previous === 'number' && msg.seq > previous + 1) {
           queuedMessages.push(msg);
           if (typeof onResync !== 'function') {
-            reloadTrackEventOnce('sequence-gap:' + url + ':' + namespace);
+            scheduleReload('sequence-gap:' + url + ':' + namespace, RECONNECT_JITTER_MS);
             return;
           }
           var versions = {};
@@ -289,7 +329,7 @@
       }).catch(function () {
         resyncing = false;
         if (fallbackToReload) {
-          reloadTrackEventOnce(fallbackKey);
+          scheduleReload(fallbackKey, RECONNECT_JITTER_MS);
         } else {
           flushQueuedMessages();
         }
@@ -349,7 +389,7 @@
           if (msg.type === 'track.resync_required') {
             if (resyncing) return;
             if (typeof onResync !== 'function') {
-              reloadTrackEventOnce('resync:' + url);
+              scheduleReload('resync:' + url, RECONNECT_JITTER_MS);
               return;
             }
             runReconcile(
@@ -503,6 +543,9 @@
     openTrackSocket: openTrackSocket,
     acceptFreshSequence: acceptFreshSequence,
     nextGamePhaseAt: nextGamePhaseAt,
+    randomDelayMs: randomDelayMs,
+    scheduleReload: scheduleReload,
+    transitionJitterMs: transitionJitterMs,
     scheduleGamePhaseReload: scheduleGamePhaseReload,
     collectTaskIds: collectTaskIds,
     reconcileTaskGroup: reconcileTaskGroup,
