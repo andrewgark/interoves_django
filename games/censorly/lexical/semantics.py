@@ -26,7 +26,7 @@ from games.censorly.lexical.russian.reading_overrides import is_rejected
 _SERVICE = frozenset({'PREP', 'CONJ', 'PRCL'})
 # Dictionary homographs that should not be treated as initially open service words.
 _NEVER_INITIAL_OPEN = frozenset({
-    'ла', 'де', 'ди',
+    'ла', 'де', 'ди', 'аль',
     # Short homographs and discourse/lexical words that must not be shown
     # before a player guesses them, despite a service-word reading.
     'фон', 'ван', 'дер', 'значит', 'короче', 'максимум',

@@ -1033,6 +1033,10 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(initially_open('Ди'))
         self.assertFalse(initially_open('ди'))
 
+    def test_al_is_not_initially_open(self):
+        self.assertFalse(initially_open('АЛЬ'))
+        self.assertFalse(initially_open('аль'))
+
     def test_selected_service_homographs_are_not_initially_open(self):
         for surface in ('фон', 'Ван', 'дер', 'значит', 'короче', 'максимум'):
             with self.subTest(surface=surface):
