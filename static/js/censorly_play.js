@@ -1333,14 +1333,11 @@
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
               var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
               setFeedback(root, guessFeedbackHelper.feedback(data, word), feedbackKind);
-              if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
-                root.setAttribute('data-active-guess-index', String(data.active_guess_index));
-              }
               if (data.status !== 'error' || hasRenderableState(data)) {
                 applyState(root, data, { preserveLen: true });
               }
-              if (data.status === 'duplicate') {
-                focusGuess(root, data.active_guess_index, false);
+              if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
+                focusGuess(root, data.active_guess_index, true);
                 submitScrollTokenIds = guessTokenIds(root, data.active_guess_index);
               }
               if (guessFeedbackHelper.shouldClearInput(data.status)) input.value = '';
@@ -1352,7 +1349,7 @@
             applyState(root, data, { preserveLen: true });
             if (data.status === 'already_open') {
               if (Number.isInteger(data.active_guess_index)) {
-                focusGuess(root, data.active_guess_index, false);
+                focusGuess(root, data.active_guess_index, true);
                 submitScrollTokenIds = Array.isArray(data.active_token_ids) && data.active_token_ids.length
                   ? data.active_token_ids
                   : guessTokenIds(root, data.active_guess_index);
