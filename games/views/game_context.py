@@ -77,10 +77,30 @@ def unpublished_scheduled_task_response(request, game, task):
         return None
     link = GameTaskGroup.objects.filter(
         game=game, task_group_id=task.task_group_id,
-    ).only('number', 'is_deferred').first()
+    ).only('number', 'is_deferred', 'share_hash').first()
     if link is not None and link.is_deferred:
         return {'status': 'not_published', 'error': 'not_published'}
     if link is not None and not scheduled_number_is_public(game, link.number):
+        # Permanent random editions use an opaque hash as their GameTaskGroup
+        # number. They are public by design, but are not daily schedule slots.
+        is_public_random = False
+        if link.share_hash:
+            if game.id == 'alphabetty':
+                from games.models import RandomAlphabettyGame
+
+                is_public_random = RandomAlphabettyGame.objects.filter(
+                    task_group_id=task.task_group_id,
+                    share_hash=link.share_hash,
+                ).exists()
+            elif game.id == 'censorly':
+                from games.models import RandomCensorlyGame
+
+                is_public_random = RandomCensorlyGame.objects.filter(
+                    task_group_id=task.task_group_id,
+                    share_hash=link.share_hash,
+                ).exists()
+        if is_public_random:
+            return None
         if (
             _offer_share_matches_task(request, task)
             or _is_word_salad_author(request, game, task)

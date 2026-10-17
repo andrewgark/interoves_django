@@ -2867,23 +2867,28 @@ def new_game_task_results_page(request, game_id, number, project_id=None):
         if project_redirect is not None:
             return project_redirect
     game = get_object_or_404(Game, id=game_id, project_id=expected_project_id)
+    if is_scheduled_game(game.id):
+        from games.daily.placement import resolve_accessible_daily_placement
+
+        placement = resolve_accessible_daily_placement(game, number, user=request.user)
+        if placement is None:
+            raise Http404()
+    else:
+        placement = GameTaskGroup.objects.filter(
+            game=game, number=str(number),
+        ).select_related('task_group').first()
+        if placement is None:
+            raise Http404()
     from games.club_access import reject_if_club_archive_blocked
-    locked = reject_if_club_archive_blocked(request, game, number=number)
+    locked = reject_if_club_archive_blocked(request, game, number=placement.number)
     if locked is not None:
         return locked
     team = _team_for_access(request)
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
-    placement = GameTaskGroup.objects.filter(
-        game=game, number=str(number),
-    ).select_related('task_group').first()
-    if not placement:
-        raise Http404()
-    if is_scheduled_game(game.id) and placement.is_deferred and not request.user.is_staff:
-        raise Http404()
     base = _project_base(game.project_id)
     return _render_task_group_results_page(
-        request, game, number,
+        request, game, placement.number,
         '{}/games/{}/{}/'.format(base, game.id, number),
         placement=placement,
     )
