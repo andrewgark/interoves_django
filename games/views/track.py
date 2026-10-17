@@ -208,6 +208,7 @@ class TrackWsLifecycleMixin:
                 team_id=getattr(self, 'team_id', None),
                 delivery='websocket',
                 missed_namespaces=list(missed),
+                reset_namespaces=list(reset),
             )
             await self.send_json({
                 'type': 'track.resync_required' if missed or reset else 'track.synced',
