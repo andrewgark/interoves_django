@@ -34,6 +34,22 @@ from games.middleware.request_timing import timing_phase
 logger = logging.getLogger('application')
 
 _SEND_ATTEMPT_PATH = re.compile(r'^/send_attempt/(?P<task_id>\d+)/?$')
+_SENSITIVE_PATHS = (
+    (re.compile(r'^(/censorly/r/)[^/]+'), r'\1<share_hash>'),
+    (re.compile(r'^/(ladder|salad|alphabetty|replacements)/[a-f0-9]{16,32}'), r'/\1/<share_hash>'),
+    (re.compile(r'^(/donate/status/)[^/]+'), r'\1<token>'),
+    (re.compile(r'^(.*/team/invite/)[^/]+'), r'\1<token>'),
+    (re.compile(r'^(/anon-merge-jobs/)[^/]+'), r'\1<job_id>'),
+    (re.compile(r'^(/profile/merge/status/)[^/]+'), r'\1<job_id>'),
+    (re.compile(r'^(/actor/anon/)[^/]+'), r'\1<anon_key>'),
+    (re.compile(r'^(/telegram/webhook/)[^/]+'), r'\1<secret>'),
+)
+
+
+def _safe_request_path(path: str) -> str:
+    for pattern, replacement in _SENSITIVE_PATHS:
+        path = pattern.sub(replacement, path, count=1)
+    return path
 
 
 def _request_error_context(request) -> dict:
@@ -51,7 +67,7 @@ def _request_error_context(request) -> dict:
         'method': getattr(request, 'method', 'unknown') or 'unknown',
         # Deliberately use path instead of get_full_path(): query parameters can
         # contain OAuth codes, tokens, or user-provided secrets.
-        'path': path,
+        'path': _safe_request_path(path),
         'route': getattr(resolver_match, 'url_name', None) or 'unavailable',
         'task_id': task_match.group('task_id') if task_match else 'unavailable',
         'instance': (
@@ -80,10 +96,9 @@ def _db_error_details(exception):
         if is_db_error:
             if code is None and args and isinstance(args[0], int):
                 code = args[0]
-            # Keep driver args useful but bounded; never include request
-            # query/body/cookies in this record.
-            safe_args = tuple(str(value)[:300] for value in args[:4])
-            return code, repr(safe_args)[:800]
+            # Driver messages can contain SQL fragments or user supplied
+            # values. Keep only the numeric error code in request logs.
+            return code, None
         current = getattr(current, '__cause__', None) or getattr(current, '__context__', None)
     return None, None
 

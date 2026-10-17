@@ -13,6 +13,7 @@ SYSTEMD_LOG_GROUP="/aws/elasticbeanstalk/${ENV_NAME}/systemd"
 KERNEL_LOG_GROUP="/aws/elasticbeanstalk/${ENV_NAME}/kernel"
 POLICY_FILE="$ROOT/infra/elasticbeanstalk/green/cloudwatch/web-instance-observability-policy.json"
 AWS_WRAPPER="$ROOT/scripts/aws_with_role.sh"
+AWS_PROFILE_OVERRIDE="${OBSERVABILITY_AWS_PROFILE:-}"
 ACTION="${1:---plan}"
 
 if [[ $# -gt 1 || ( "$ACTION" != "--plan" && "$ACTION" != "--apply" ) ]]; then
@@ -21,7 +22,11 @@ if [[ $# -gt 1 || ( "$ACTION" != "--plan" && "$ACTION" != "--apply" ) ]]; then
 fi
 
 aws_prod() {
-    "$AWS_WRAPPER" aws "$@"
+    if [[ -n "$AWS_PROFILE_OVERRIDE" ]]; then
+        aws --profile "$AWS_PROFILE_OVERRIDE" "$@"
+    else
+        "$AWS_WRAPPER" aws "$@"
+    fi
 }
 
 LB_ARN="$(aws_prod elasticbeanstalk describe-environment-resources \
@@ -44,7 +49,7 @@ for value in "$LB_ARN" "$TG_ARN" "$ASG_NAME" "$SNS_TOPIC_ARN"; do
 done
 
 LB_DIM="${LB_ARN#*loadbalancer/}"
-TG_DIM="${TG_ARN#*targetgroup/}"
+TG_DIM="targetgroup/${TG_ARN#*targetgroup/}"
 
 echo "Environment: $ENV_NAME"
 echo "Load balancer: $LB_DIM"
@@ -127,7 +132,7 @@ ensure_alarm interoves-elb-unhealthy-hosts \
     UnHealthyHostCount Maximum 60 5 3 1 GreaterThanOrEqualToThreshold notBreaching "$target_dimensions"
 ensure_alarm interoves-elb-no-healthy-hosts \
     "Green ALB has no healthy targets" AWS/ApplicationELB \
-    HealthyHostCount Minimum 60 3 3 1 LessThanThreshold breaching "$target_dimensions"
+    HealthyHostCount Minimum 60 3 3 1 LessThanThreshold notBreaching "$target_dimensions"
 ensure_alarm interoves-green-alb-generated-502 \
     "Green ALB generated at least three HTTP 502 responses in five minutes" AWS/ApplicationELB \
     HTTPCode_ELB_502_Count Sum 300 1 1 3 GreaterThanOrEqualToThreshold notBreaching "$elb_dimensions"

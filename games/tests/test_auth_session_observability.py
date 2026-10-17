@@ -452,7 +452,7 @@ class AuthSessionObservabilityTests(TestCase):
     @patch('games.telegram.notify.notify_admin_site_error')
     def test_uncaught_500_log_contains_forensic_context_and_db_details(self, notify_mock):
         request = self.factory.get(
-            '/broken/?token=must-not-be-logged',
+            '/telegram/webhook/pathsecret/?token=must-not-be-logged',
             HTTP_COOKIE='sessionid=must-not-be-logged',
         )
         request.interoves_request_id = 'uncaught-500-id'
@@ -469,11 +469,12 @@ class AuthSessionObservabilityTests(TestCase):
         output = '\n'.join(record.getMessage() for record in logs.records)
         self.assertIn('http_500_uncaught', output)
         self.assertIn('uncaught-500-id', output)
-        self.assertIn('path=/broken/', output)
+        self.assertIn('path=/telegram/webhook/<secret>/', output)
         self.assertIn('environment=blue', output)
         self.assertIn('exception_type=django.db.utils.OperationalError', output)
         self.assertIn('db_error_code=1213', output)
-        self.assertIn('deadlock while updating task', output)
+        self.assertIn('db_error_args=unavailable', output)
+        self.assertNotIn('deadlock while updating task', output)
         self.assertNotIn('must-not-be-logged', output)
         notify_mock.assert_called_once_with(request, exception=mock_exception)
 
@@ -619,7 +620,8 @@ class AuthSessionConfigurationTests(TestCase):
         self.assertIn('$request_id', timing_config)
         self.assertIn('$upstream_http_x_request_id', timing_config)
         self.assertIn('$hostname', timing_config)
-        self.assertIn('$request_method $uri $server_protocol', timing_config)
+        self.assertIn('$request_method $interoves_safe_uri $server_protocol', timing_config)
+        self.assertIn('/telegram/webhook/<secret>', timing_config)
         self.assertIn('$request_method $uri $server_protocol', main_config)
         self.assertNotIn('"$request"', timing_config)
         self.assertNotIn('"$request"', main_config)

@@ -47,7 +47,7 @@ groups retain their current 14-day policy and survive instance termination.
    least-privilege web instance role policy, metric filters and alarms:
 
    ```bash
-   ./scripts/apply_green_observability.sh --apply
+   OBSERVABILITY_AWS_PROFILE=default ./scripts/apply_green_observability.sh --apply
    ```
 
    This does not deploy the application or enable ALB access logs. It creates
@@ -56,12 +56,19 @@ groups retain their current 14-day policy and survive instance termination.
    alarms. Existing alarms are rebound to the current Green ALB and target
    group. All alarm actions use the existing SNS topic.
 
+   The normal `ai-bot` role can create the log groups and alarms but does not
+   have `iam:PutRolePolicy` or `logs:PutMetricFilter`. Use the existing
+   `default` administrator profile for this explicitly authorized apply; the
+   script supports that via `OBSERVABILITY_AWS_PROFILE` and does not widen
+   `ai-bot` permissions.
+
 3. Deploy the application bundle with the regular Green deploy process. The
    Green bundle builder explicitly overlays the reviewed CloudWatch Agent hook
    and Nginx timing format because it otherwise preserves live `.platform`
-   files. On every new/replaced web instance the hook installs this agent
-   config and restarts the agent; worker behavior remains on its existing
-   config.
+   files. On every new/replaced web instance the hook applies this agent
+   config through `amazon-cloudwatch-agent-ctl append-config`, preserving the
+   EB-managed fragment and enabling the service. The worker continues to use
+   its existing metrics config through the same supported append mechanism.
 
 4. Verify the new instance streams under the two log groups, metrics in
    `InterOves/Web`, alarm dimensions, Nginx-to-Django request IDs and the
@@ -80,7 +87,10 @@ IAM/log groups can be prepared before the new hook is deployed.
   responses.
 - Target-generated 5xx: 3 or more in five minutes.
 - At least one unhealthy target for three of five one-minute periods; zero
-  healthy targets for three consecutive minutes, including missing data.
+  healthy targets for three consecutive one-minute periods. Missing
+  HealthyHostCount data is treated as non-breaching because the ALB can omit
+  datapoints while idle; the separate unhealthy-target alarm covers reported
+  target failures.
 - Memory at or above 85% for two of three one-minute periods; root free space
   below 1 GiB for two of three periods; CPU at or above 90% for three of five
   one-minute periods.
@@ -110,14 +120,16 @@ separate infrastructure change and is not included in the apply script.
 
 The agent publishes eight metric types with per-instance and Auto Scaling group
 dimensions. With two active instances, that is up to 24 metric series; the two
-event metrics add up to two more when they emit data. At the current first tier
-of about $0.30 per custom metric, budget up to $7.80/month for these metrics.
-Seven standard alarms are new (about $0.70/month at $0.10 each); three existing
-alarms are updated in place. This is roughly $8.50/month before account
-allowances. No one-minute EC2 detailed monitoring charge is added. Kernel and
-systemd log ingestion is usage-based; plan around $0.50 per additional GB
-ingested, with the exact CloudWatch Logs rate and any account allowance
-determined by the AWS bill. The systemd/kernel filters keep volume bounded; the
+event metrics add up to two more when they emit data. At the published
+reference rate of $0.30 per custom metric, budget up to $7.80/month for these
+metrics. Seven standard alarms are new (about $0.70/month at the reference rate
+of $0.10 each); three existing alarms are updated in place. This is roughly
+$8.50/month before account allowances. AWS pricing examples quote US East
+rates; actual Frankfurt rates can differ. No one-minute EC2 detailed
+monitoring charge is added. Kernel and systemd log ingestion is usage-based;
+for planning, allow about $0.50 per additional GB ingested. The regional rate,
+retention storage, actual volume and account allowances need confirmation from
+billing. The systemd/kernel filters keep volume bounded; the
 existing app and Nginx log volume is unchanged apart from a few safe fields per
 Nginx request.
 
