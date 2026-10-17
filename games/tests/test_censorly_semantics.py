@@ -1956,6 +1956,31 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertFalse(opens('стать', 'статья'))
         self.assertFalse(opens('стать', 'статный'))
 
+    def test_operation_and_opera_families_are_separate(self):
+        operation = (
+            'операция', 'операционный', 'оперировать', 'оператор', 'оперативный',
+        )
+        opera = ('опера', 'оперный', 'оперетта', 'оперетка')
+        for left in operation:
+            for right in operation:
+                with self.subTest(cluster='operation', left=left, right=right):
+                    self.assertTrue(opens(left, right))
+        for left in opera:
+            for right in opera:
+                with self.subTest(cluster='opera', left=left, right=right):
+                    self.assertTrue(opens(left, right))
+        for left in operation:
+            for right in opera:
+                with self.subTest(cluster='split', left=left, right=right):
+                    self.assertFalse(opens(left, right))
+
+        from games.censorly.lexical.match import matching_lemmas
+        from games.censorly.tokenize import tokenize_text
+
+        self.assertIn('операционный', matching_lemmas(
+            tokenize_text('операционная'), 'операция',
+        ))
+
     def test_send_family_has_narrow_modern_senses(self):
         for left, right in (
             ('послать', 'послание'),
