@@ -249,27 +249,55 @@
     return 2;
   }
 
-  function appendToken(container, tok, lenForced) {
+  function appendToken(container, tok, lenForced, extraClass) {
     var forced = lenForced[String(tok.id)];
-    container.appendChild(renderToken(tok, {
+    var node = renderToken(tok, {
       lenForced: forced === '1' ? true : (forced === '0' ? false : null),
-    }));
+    });
+    if (extraClass) node.classList.add(extraClass);
+    container.appendChild(node);
   }
 
   function isWordDisplayToken(tok) {
     return !!tok && (tok.kind === 'content' || tok.kind === 'stop' || tok.revealed);
   }
 
+  var OPENING_PUNCTUATION = '([{«‹“‘„‚〈《「『【〔〖〘〚¿¡';
+  var CLOSING_PUNCTUATION = ')]}>»›”’〉》」』】〕〗〙.,!?;:…';
+
+  function punctuationDirection(tok) {
+    var text = String((tok && (tok.text || tok.surface)) || '');
+    var chars = Array.from(text);
+    if (chars.length && OPENING_PUNCTUATION.indexOf(chars[0]) !== -1) return 'opening';
+    if (chars.length && CLOSING_PUNCTUATION.indexOf(chars[chars.length - 1]) !== -1) return 'closing';
+    return 'neutral';
+  }
+
   function appendWordWithPunctuation(container, tokens, index, lenForced) {
-    var cluster = el('span', 'censorly-tok__word-punctuation');
-    appendToken(cluster, tokens[index], lenForced);
+    appendToken(container, tokens[index], lenForced);
     var next = index + 1;
-    while (next < tokens.length && tokens[next].kind === 'punct') {
-      appendToken(cluster, tokens[next], lenForced);
+    while (
+      next < tokens.length && tokens[next].kind === 'punct' &&
+      punctuationDirection(tokens[next]) !== 'opening'
+    ) {
+      appendToken(container, tokens[next], lenForced, 'censorly-tok--no-break-before');
       next += 1;
     }
-    container.appendChild(cluster);
     return next;
+  }
+
+  function appendOpeningPunctuationWithWord(container, tokens, index, lenForced) {
+    var next = index;
+    while (next < tokens.length && tokens[next].kind === 'punct' &&
+        punctuationDirection(tokens[next]) === 'opening') {
+      next += 1;
+    }
+    if (!isWordDisplayToken(tokens[next])) return index;
+    while (index < next) {
+      appendToken(container, tokens[index], lenForced, 'censorly-tok--no-break-after');
+      index += 1;
+    }
+    return appendWordWithPunctuation(container, tokens, next, lenForced);
   }
 
   function renderTokens(container, tokens, lenForced) {
@@ -335,6 +363,13 @@
             partIndex = appendWordWithPunctuation(block, inner, partIndex, lenForced);
             continue;
           }
+          if (part.kind === 'punct' && punctuationDirection(part) === 'opening') {
+            var nextPartIndex = appendOpeningPunctuationWithWord(block, inner, partIndex, lenForced);
+            if (nextPartIndex !== partIndex) {
+              partIndex = nextPartIndex;
+              continue;
+            }
+          }
           appendToken(block, part, lenForced);
           partIndex += 1;
         }
@@ -348,6 +383,13 @@
       if (isWordDisplayToken(tok)) {
         i = appendWordWithPunctuation(container, list, i, lenForced);
         continue;
+      }
+      if (tok.kind === 'punct' && punctuationDirection(tok) === 'opening') {
+        var nextIndex = appendOpeningPunctuationWithWord(container, list, i, lenForced);
+        if (nextIndex !== i) {
+          i = nextIndex;
+          continue;
+        }
       }
       appendToken(container, tok, lenForced);
       i += 1;
