@@ -12,6 +12,12 @@ from games.censorly.lexical.core import fold
 NEM_PRONOUN_CONTEXT = '__censorly_nem_pronoun__'
 NEM_NONPRONOUN_CONTEXT = '__censorly_nem_nonpronoun__'
 N_ERA_CONTEXT = '__censorly_n_era__'
+PO_SOFTWARE_CONTEXT = '__censorly_po_software__'
+NEM_GERMAN_CONTEXT = '__censorly_nem_german__'
+YEAR_ABBR_CONTEXT = '__censorly_year_abbr__'
+CITY_ABBR_CONTEXT = '__censorly_city_abbr__'
+PAGE_ABBR_CONTEXT = '__censorly_page_abbr__'
+STREET_ABBR_CONTEXT = '__censorly_street_abbr__'
 
 # (surface, lemma, part of speech). Keep the noun «ум» and discard pymorphy's
 # impossible verb reading «ум» → «умереть» (the verb forms are «умру», «умрёт»,
@@ -43,9 +49,10 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     # stature). When the article tokenizer selected «статья», keep only the
     # article reading so the become verb «стал» cannot open that target.
     ('статью', 'статья'): frozenset({'статья'}),
-    # «нем/нём» is a pronoun only in a prepositional construction («о нём»,
-    # «при нём»). Bare «нем» in article text is commonly an abbreviation or
-    # the adjective spelling, and must not inherit NPRO «он/оно».
+    ('стекла', 'стечь'): frozenset({'стечь'}),
+    # «нем/нём» is a pronoun in a prepositional construction («о нём»,
+    # «при нём»). The tokenizer assigns this identity per occurrence; a
+    # standalone «нем.» is classified separately as the German abbreviation.
     ('нем', NEM_PRONOUN_CONTEXT): frozenset({'он', 'оно'}),
     ('нем', NEM_NONPRONOUN_CONTEXT): frozenset({'нем', 'немой'}),
     # In this spelling, «лет» is overwhelmingly the genitive plural of «год».
@@ -96,12 +103,20 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
 }
 
 # Some fixed abbreviations have a context-specific expansion rather than a
-# normal pymorphy reading.  The matcher uses these citation lemmas only for
-# the exact article context detected by ``_target_contexts``; this is not a
-# global alias from the abbreviation to the expanded word.
+# normal pymorphy reading. Tokenization records these identities per occurrence;
+# the matcher uses these citation lemmas without treating them as global aliases.
 TARGET_LEMMA_OVERRIDES: dict[tuple[str, str], tuple[str, ...]] = {
     # «н. э.» = «нашей эры»: «н.» carries the possessive adjective «наш».
     ('н', N_ERA_CONTEXT): ('наш',),
+    # These token identities encode parser decisions. The software acronym
+    # intentionally has no lexical expansion: only the exact spelling opens it.
+    ('по', PO_SOFTWARE_CONTEXT): (PO_SOFTWARE_CONTEXT,),
+    ('нем', NEM_GERMAN_CONTEXT): ('немец',),
+    ('нем', NEM_PRONOUN_CONTEXT): ('он', 'оно'),
+    ('г', YEAR_ABBR_CONTEXT): ('год',),
+    ('г', CITY_ABBR_CONTEXT): ('город',),
+    ('стр', PAGE_ABBR_CONTEXT): ('страница',),
+    ('ул', STREET_ABBR_CONTEXT): ('улица',),
 }
 
 # Proper-name root assignment is family-level rather than a separate rule per

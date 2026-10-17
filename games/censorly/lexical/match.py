@@ -15,9 +15,15 @@ from threading import Lock, RLock
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.rootbank import families_of, structures_of
 from games.censorly.lexical.russian.reading_overrides import (
-    N_ERA_CONTEXT,
+    CITY_ABBR_CONTEXT,
+    NEM_GERMAN_CONTEXT,
     NEM_NONPRONOUN_CONTEXT,
     NEM_PRONOUN_CONTEXT,
+    N_ERA_CONTEXT,
+    PAGE_ABBR_CONTEXT,
+    PO_SOFTWARE_CONTEXT,
+    STREET_ABBR_CONTEXT,
+    YEAR_ABBR_CONTEXT,
     guess_lemma_override,
     proper_name_root_lemma,
     target_lemma_override,
@@ -93,7 +99,7 @@ _LETTER_NAME_LEMMAS = {'е': 'е', 'ш': 'ш'}
 class _Pack:
     __slots__ = (
         'surface', 'fold', 'service', 'russian', 'lexemes', 'roots',
-        'root_ids', 'reads', 'families',
+        'root_ids', 'reads', 'families', 'contextual_reading',
     )
 
     def __init__(
@@ -102,6 +108,7 @@ class _Pack:
     ):
         self.surface = surface
         self.fold = fold(surface)
+        self.contextual_reading = article_lemma or ''
         self.service = initially_open(surface, include_pronouns=include_pronouns)
         self.reads = preferred_readings_of(surface)
         # OpenCorpora/pymorphy also tags the standalone letter name «Е» as a
@@ -255,7 +262,16 @@ def _relation(guess: _Pack, target: _Pack) -> str:
     if not guess.fold or not target.fold:
         return ''
     if guess.fold == target.fold:
+        if guess.service and target.service:
+            return ''
         return 'exact'
+    if target.contextual_reading == NEM_PRONOUN_CONTEXT:
+        if (
+            guess.lexemes & target.lexemes
+            and any(item.lemma in {'он', 'оно'} for item in guess.reads)
+        ):
+            return 'lexeme'
+        return ''
     numeric_root_match = _numeric_root_match(guess, target)
     if _alias(guess.fold, target.fold):
         return 'alias'
@@ -347,22 +363,31 @@ def _reject(guess: _Pack, target: _Pack) -> str:
 
 
 class _ArticleIndex:
-    """Inverted lexical postings for one article's distinct token surfaces."""
+    """Inverted lexical postings for distinct surface and reading pairs."""
 
     def __init__(
-        self, surfaces: tuple[str, ...], *, include_pronouns: bool,
-        target_contexts: tuple[tuple[str, str], ...] = (),
+        self, entries: tuple[tuple[str, str], ...], *, include_pronouns: bool,
     ):
-        self.surfaces = surfaces
-        context_by_surface = dict(target_contexts)
+        self.entries = entries
+        self.surfaces = tuple(surface for surface, _lemma in entries)
+        self.lemmas = tuple(lemma for _surface, lemma in entries)
         self.packs = tuple(
             _Pack(
                 surface,
                 include_pronouns=include_pronouns,
-                article_lemma=context_by_surface.get(surface),
+                article_lemma=lemma or None,
             )
-            for surface in surfaces
+            for surface, lemma in entries
         )
+        closed_contexts = {
+            CITY_ABBR_CONTEXT, NEM_GERMAN_CONTEXT, NEM_NONPRONOUN_CONTEXT,
+            N_ERA_CONTEXT,
+            PAGE_ABBR_CONTEXT, PO_SOFTWARE_CONTEXT, STREET_ABBR_CONTEXT,
+            YEAR_ABBR_CONTEXT,
+        }
+        for pack, lemma in zip(self.packs, self.lemmas):
+            if lemma in closed_contexts:
+                pack.service = False
         # Postings store compact integer surface IDs instead of repeating
         # references to strings in many Python sets.
         self.fold = defaultdict(list)
@@ -375,7 +400,7 @@ class _ArticleIndex:
         self.family = {}
         self._rejection_index_ready = False
         self._rejection_index_lock = Lock()
-        for surface_id, (surface, pack) in enumerate(zip(surfaces, self.packs)):
+        for surface_id, (surface, pack) in enumerate(zip(self.surfaces, self.packs)):
             self.fold[pack.fold].append(surface_id)
             for group_id in _ALIAS_GROUPS_BY_WORD.get(pack.fold, ()):
                 self.alias[group_id].append(surface_id)
@@ -497,18 +522,16 @@ class _ArticleIndex:
 
 @lru_cache(maxsize=4)
 def _index(
-    surfaces: tuple[str, ...], *, include_pronouns: bool,
-    target_contexts: tuple[tuple[str, str], ...] = (),
+    entries: tuple[tuple[str, str], ...], *, include_pronouns: bool,
 ) -> _ArticleIndex:
     return _ArticleIndex(
-        surfaces,
+        entries,
         include_pronouns=include_pronouns,
-        target_contexts=target_contexts,
     )
 
 
-def _unique_surfaces(rows: tuple[tuple[str, str], ...]) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(surface for surface, _lemma in rows))
+def _unique_entries(rows: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str], ...]:
+    return tuple(dict.fromkeys(rows))
 
 
 def _build_article_analysis(
@@ -520,55 +543,52 @@ def _build_article_analysis(
         for tok in tokens
         if tok.get('kind') == 'content'
     )
-    surfaces = _unique_surfaces(rows)
     lemmas_by_surface = _lemmas_by_surface(rows)
-    target_contexts = tuple(sorted(_target_contexts(tokens, rows).items()))
-    counts_by_surface = None
+    counts_by_entry = None
     if include_report:
-        counts_by_surface = defaultdict(list)
+        counts_by_entry = defaultdict(list)
         for order, ((surface, lemma), occurrences) in enumerate(Counter(rows).items()):
-            counts_by_surface[surface].append((order, lemma, occurrences))
+            counts_by_entry[(surface, lemma)].append((order, lemma, occurrences))
     index = None
     if rows:
+        entries = _unique_entries(rows)
         cache_index = (
             cache_index
-            and len(surfaces) <= _ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_SURFACES
+            and len(entries) <= _ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_SURFACES
             and len(rows) <= _ARTICLE_ANALYSIS_CACHE_MAX_SINGLE_TOKENS
         )
         index = (
             _index(
-                surfaces,
+                entries,
                 include_pronouns=include_pronouns,
-                target_contexts=target_contexts,
             )
             if cache_index else
             _ArticleIndex(
-                surfaces,
+                entries,
                 include_pronouns=include_pronouns,
-                target_contexts=target_contexts,
             )
         )
     return {
         'rows': rows,
-        'counts_by_surface': counts_by_surface,
+        'counts_by_entry': counts_by_entry,
         'lemmas_by_surface': lemmas_by_surface,
         'index': index,
-        'surface_count': len(surfaces),
+        'surface_count': len(_unique_entries(rows)),
         'token_count': len(rows),
     }
 
 
-def _ensure_report_counts(analysis: dict) -> dict[str, list[tuple[int, str, int]]]:
+def _ensure_report_counts(analysis: dict) -> dict[tuple[str, str], list[tuple[int, str, int]]]:
     with _article_analysis_cache_lock:
-        counts_by_surface = analysis.get('counts_by_surface')
-        if counts_by_surface is None:
-            counts_by_surface = defaultdict(list)
+        counts_by_entry = analysis.get('counts_by_entry')
+        if counts_by_entry is None:
+            counts_by_entry = defaultdict(list)
             for order, ((surface, lemma), occurrences) in enumerate(
                 Counter(analysis['rows']).items()
             ):
-                counts_by_surface[surface].append((order, lemma, occurrences))
-            analysis['counts_by_surface'] = counts_by_surface
-        return counts_by_surface
+                counts_by_entry[(surface, lemma)].append((order, lemma, occurrences))
+            analysis['counts_by_entry'] = counts_by_entry
+        return counts_by_entry
 
 
 def _lemmas_by_surface(rows: tuple[tuple[str, str], ...]) -> dict[str, set[str]]:
@@ -576,100 +596,6 @@ def _lemmas_by_surface(rows: tuple[tuple[str, str], ...]) -> dict[str, set[str]]
     for surface, lemma in rows:
         lemmas[surface].add(lemma)
     return lemmas
-
-
-def _target_contexts(tokens, rows):
-    """Return ordinary lemma contexts plus the narrow «нем» context marker."""
-    lemmas = _lemmas_by_surface(rows)
-    contexts = {
-        surface: next(iter(surface_lemmas))
-        for surface, surface_lemmas in lemmas.items()
-        if len(surface_lemmas) == 1
-    }
-    n_positions = [
-        index for index, token in enumerate(tokens)
-        if token.get('kind') == 'content' and fold(token.get('surface') or '') == 'н'
-    ]
-    n_era_positions = {
-        index for index in n_positions
-        if _is_n_era_abbreviation(tokens, index)
-    }
-    # A surface-level pack cannot represent occurrence-specific readings. If
-    # an article contains both «н. э.» and an unrelated standalone «н», keep
-    # the ordinary readings for all of them rather than over-expanding «н».
-    if n_positions and len(n_era_positions) == len(n_positions):
-        for index in n_era_positions:
-            surface = tokens[index].get('surface') or ''
-            contexts[surface] = N_ERA_CONTEXT
-
-    nem_positions = [
-        index for index, token in enumerate(tokens)
-        if token.get('kind') == 'content' and fold(token.get('surface') or '') == 'нем'
-    ]
-    if nem_positions:
-        prepositions = {
-            'в', 'во', 'к', 'ко', 'на', 'над', 'о', 'об', 'обо', 'от', 'при',
-            'с', 'со', 'у', 'перед', 'про', 'через',
-        }
-        nem_contexts = set()
-        for index in nem_positions:
-            previous = index - 1
-            while previous >= 0 and tokens[previous].get('kind') == 'space':
-                previous -= 1
-            next_index = index + 1
-            while next_index < len(tokens) and tokens[next_index].get('kind') == 'space':
-                next_index += 1
-            previous_surface = fold(tokens[previous].get('surface') or '') if previous >= 0 else ''
-            next_surface = tokens[next_index].get('surface') if next_index < len(tokens) else ''
-            if previous_surface in prepositions:
-                nem_contexts.add(NEM_PRONOUN_CONTEXT)
-            else:
-                nem_contexts.add(NEM_NONPRONOUN_CONTEXT)
-            if next_surface == '.':
-                nem_contexts.add(NEM_NONPRONOUN_CONTEXT)
-        if len(nem_contexts) == 1:
-            contexts['нем'] = next(iter(nem_contexts))
-        else:
-            # One surface pack cannot represent two occurrence-specific readings.
-            # Keep the ordinary tokenizer lemma rather than inventing a global
-            # pronoun/non-pronoun decision for the whole article.
-            contexts.pop('нем', None)
-    return contexts
-
-
-def _is_n_era_abbreviation(tokens, index: int) -> bool:
-    """Whether content token ``index`` is the «н.» in «н. э.» exactly."""
-    if index < 0 or index >= len(tokens):
-        return False
-    token = tokens[index]
-    if token.get('kind') != 'content' or fold(token.get('surface') or '') != 'н':
-        return False
-
-    def next_nonspace(position):
-        while position < len(tokens) and tokens[position].get('kind') == 'space':
-            position += 1
-        return position
-
-    dot_after_n = next_nonspace(index + 1)
-    if (
-        dot_after_n >= len(tokens)
-        or tokens[dot_after_n].get('kind') != 'punct'
-        or tokens[dot_after_n].get('surface') != '.'
-    ):
-        return False
-    e_position = next_nonspace(dot_after_n + 1)
-    if (
-        e_position >= len(tokens)
-        or tokens[e_position].get('kind') != 'content'
-        or fold(tokens[e_position].get('surface') or '') != 'э'
-    ):
-        return False
-    dot_after_e = next_nonspace(e_position + 1)
-    return (
-        dot_after_e < len(tokens)
-        and tokens[dot_after_e].get('kind') == 'punct'
-        and tokens[dot_after_e].get('surface') == '.'
-    )
 
 
 def _cached_article_analysis(cache_key, tokens, *, include_pronouns: bool) -> dict:
@@ -757,7 +683,7 @@ def analyze_guess(
     article_lemmas = {
         lemma
         for surface_id in index.fold.get(guess_fold, ())
-        for lemma in lemmas_by_surface[index.surfaces[surface_id]]
+        for lemma in (index.lemmas[surface_id],)
     }
     if len(article_lemmas) == 1:
         guess_pack = _GuessPack(
@@ -773,16 +699,13 @@ def analyze_guess(
     if not include_report:
         hits = set()
         for surface_id in candidate_ids:
-            surface = index.surfaces[surface_id]
             pack = index.packs[surface_id]
             if _relation(guess_pack, pack):
-                hits.update(
-                    lemma or pack.fold or guess_pack.fold
-                    for lemma in lemmas_by_surface[surface]
-                )
+                lemma = index.lemmas[surface_id]
+                hits.add(lemma or pack.fold or guess_pack.fold)
         return hits, empty
 
-    counts_by_surface = _ensure_report_counts(analysis)
+    counts_by_entry = _ensure_report_counts(analysis)
 
     opened: dict[tuple, dict] = {}
     rejected: dict[tuple, dict] = {}
@@ -798,19 +721,18 @@ def analyze_guess(
 
     for surface_id in candidate_ids:
         if relations_by_id[surface_id]:
-            surface = index.surfaces[surface_id]
             pack = index.packs[surface_id]
-            hits.update(
-                lemma or pack.fold or guess_pack.fold
-                for lemma in lemmas_by_surface[surface]
-            )
+            lemma = index.lemmas[surface_id]
+            hits.add(lemma or pack.fold or guess_pack.fold)
 
     # Merge only candidate rows, then restore the previous first-seen report
     # order. This avoids walking every distinct article row on every guess.
     report_rows = sorted(
         (order, surface_id, lemma, occurrences)
         for surface_id in candidate_ids
-        for order, lemma, occurrences in counts_by_surface[index.surfaces[surface_id]]
+        for order, lemma, occurrences in counts_by_entry[(
+            index.surfaces[surface_id], index.lemmas[surface_id],
+        )]
     )
     for _order, surface_id, lemma, occurrences in report_rows:
         surface = index.surfaces[surface_id]

@@ -45,7 +45,12 @@ def _token_public(
     if lexical:
         from games.censorly.flags import open_pronouns_enabled
         from games.censorly.lexical.semantics import initially_open
-        if initially_open(tok.get('surface') or '', include_pronouns=open_pronouns_enabled()):
+        token_open = tok.get('initially_open')
+        is_open = (
+            bool(token_open) if token_open is not None else
+            initially_open(tok.get('surface') or '', include_pronouns=open_pronouns_enabled())
+        )
+        if is_open:
             lemma = tok.get('lemma') or ''
             if lemma and lemma in title_lemmas:
                 out['title_lemma'] = True

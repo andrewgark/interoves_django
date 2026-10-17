@@ -114,6 +114,17 @@ def _is_initially_open_word(surface: str) -> bool:
     return initially_open(surface, include_pronouns=open_pronouns_enabled())
 
 
+def _has_closed_exact_target(payload: dict[str, Any], guess: str) -> bool:
+    """An open spelling may also name a closed, explicitly parsed reading."""
+    normalized = normalize_surface(guess)
+    return any(
+        tok.get('kind') == 'content'
+        and tok.get('initially_open') is False
+        and normalize_surface(tok.get('surface') or '') == normalized
+        for tok in all_tokens(payload)
+    )
+
+
 def hub_progress_for_actor(*, game: Game, numbers_and_tasks: list[tuple[int, Task]], user=None, anon_key=None) -> dict[int, dict[str, Any]]:
     """Return compact solve progress for the daily Censorly archive."""
     actor = _actor_filters(user=user, anon_key=anon_key)
@@ -750,7 +761,10 @@ def apply_guess(
     # Function words are rendered as open from the start and are not part of
     # the guessable content-token set. Reject them before touching the actor
     # state so they never consume an attempt or create a history row.
-    if _is_initially_open_word(normalized):
+    if (
+        _is_initially_open_word(normalized)
+        and not _has_closed_exact_target(payload, normalized)
+    ):
         out = public_payload(state, payload, task=task)
         out['status'] = 'initially_open'
         out['hits'] = 0
@@ -971,7 +985,10 @@ def apply_hint(
         out['active_token_ids'] = newly_revealed_ids(payload, lemma)
         out['error'] = 'Слово уже открыто'
         return out
-    if _is_initially_open_word(str(tok.get('surface') or '')):
+    if (
+        tok.get('initially_open') is not False
+        and _is_initially_open_word(str(tok.get('surface') or ''))
+    ):
         out = public_payload(state, payload, task=task)
         out['status'] = 'already_open'
         out['active_token_ids'] = newly_revealed_ids(payload, lemma)

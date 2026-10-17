@@ -742,6 +742,84 @@ class SemanticsTests(SimpleTestCase):
             'lexeme',
         )
 
+    def test_contextual_readings_are_stored_per_article_occurrence(self):
+        from games.censorly.lexical.match import matching_lemmas
+        from games.censorly.lexical.russian.reading_overrides import (
+            CITY_ABBR_CONTEXT,
+            NEM_GERMAN_CONTEXT,
+            NEM_PRONOUN_CONTEXT,
+            N_ERA_CONTEXT,
+            PAGE_ABBR_CONTEXT,
+            PO_SOFTWARE_CONTEXT,
+            STREET_ABBR_CONTEXT,
+            YEAR_ABBR_CONTEXT,
+        )
+
+        payload = build_puzzle_payload(
+            wiki_title='Контекст чтения',
+            body_text=(
+                'ПО и по. Нем. язык не похож на воду. О нем. '
+                'Наша н. э. началась позже. 5 г. назад в г. Москве '
+                'прочитали на стр. 15 и ул. Пушкина. '
+                'Вода стекла с крыши, разбитые стекла лежали рядом. 5 лет.'
+            ),
+        )
+        tokens = payload['body_tokens']
+        by_surface = {}
+        for token in tokens:
+            if token.get('kind') == 'content':
+                by_surface.setdefault(token['surface'], []).append(token)
+
+        self.assertEqual(by_surface['ПО'][0]['lemma'], PO_SOFTWARE_CONTEXT)
+        self.assertFalse(by_surface['ПО'][0]['initially_open'])
+        self.assertTrue(any(t['kind'] == 'stop' and t['surface'] == 'по' for t in tokens))
+        self.assertEqual(by_surface['Нем'][0]['lemma'], NEM_GERMAN_CONTEXT)
+        self.assertFalse(by_surface['Нем'][0]['initially_open'])
+        self.assertEqual(by_surface['нем'][0]['lemma'], NEM_PRONOUN_CONTEXT)
+        self.assertEqual(by_surface['нем'][0]['context_reading'], NEM_PRONOUN_CONTEXT)
+        self.assertEqual(by_surface['н'][0]['lemma'], N_ERA_CONTEXT)
+        self.assertEqual(by_surface['г'][0]['lemma'], YEAR_ABBR_CONTEXT)
+        self.assertEqual(by_surface['г'][1]['lemma'], CITY_ABBR_CONTEXT)
+        self.assertEqual(by_surface['стр'][0]['lemma'], PAGE_ABBR_CONTEXT)
+        self.assertEqual(by_surface['ул'][0]['lemma'], STREET_ABBR_CONTEXT)
+        self.assertEqual(by_surface['стекла'][0]['lemma'], 'стечь')
+        self.assertEqual(by_surface['стекла'][1]['lemma'], 'стекло')
+        self.assertEqual(by_surface['лет'][0]['lemma'], 'год')
+
+        article_tokens = payload['title_tokens'] + tokens
+        self.assertIn(PO_SOFTWARE_CONTEXT, matching_lemmas(article_tokens, 'по'))
+        self.assertNotIn(PO_SOFTWARE_CONTEXT, matching_lemmas(article_tokens, 'программное'))
+        self.assertEqual(
+            matching_lemmas(article_tokens, 'нем'),
+            {NEM_GERMAN_CONTEXT},
+        )
+        self.assertIn(NEM_GERMAN_CONTEXT, matching_lemmas(article_tokens, 'немецкий'))
+        self.assertNotIn(NEM_PRONOUN_CONTEXT, matching_lemmas(article_tokens, 'немецкий'))
+        self.assertIn(NEM_PRONOUN_CONTEXT, matching_lemmas(article_tokens, 'него'))
+        self.assertNotIn(NEM_GERMAN_CONTEXT, matching_lemmas(article_tokens, 'него'))
+        self.assertIn(N_ERA_CONTEXT, matching_lemmas(article_tokens, 'наша'))
+        self.assertIn(YEAR_ABBR_CONTEXT, matching_lemmas(article_tokens, 'год'))
+        self.assertIn(CITY_ABBR_CONTEXT, matching_lemmas(article_tokens, 'город'))
+        self.assertIn(PAGE_ABBR_CONTEXT, matching_lemmas(article_tokens, 'страница'))
+        self.assertIn(STREET_ABBR_CONTEXT, matching_lemmas(article_tokens, 'улица'))
+        self.assertIn('стечь', matching_lemmas(article_tokens, 'течение'))
+        self.assertNotIn('стекло', matching_lemmas(article_tokens, 'течение'))
+
+    def test_contextual_token_readings_rebuild_from_old_article_snapshot(self):
+        from games.censorly import CENSORLY_SPLITTER_VERSION
+        from games.censorly.lexical.russian.reading_overrides import PO_SOFTWARE_CONTEXT
+        from games.censorly.tokenize import resolve_puzzle_payload
+
+        old = build_puzzle_payload(wiki_title='ПО', body_text='ПО')
+        old['splitter_version'] = CENSORLY_SPLITTER_VERSION - 1
+        old['body_tokens'][0].update({'kind': 'stop', 'lemma': 'по'})
+
+        refreshed = resolve_puzzle_payload(old)
+
+        self.assertEqual(refreshed['splitter_version'], CENSORLY_SPLITTER_VERSION)
+        self.assertEqual(refreshed['body_tokens'][0]['kind'], 'content')
+        self.assertEqual(refreshed['body_tokens'][0]['lemma'], PO_SOFTWARE_CONTEXT)
+
     def test_n_in_n_era_context_uses_our_lemma_only_there(self):
         from games.censorly.lexical.match import (
             _GuessPack, _build_article_analysis, _relation,

@@ -239,6 +239,21 @@ class CensorlyEngineTests(TestCase):
         self.assertFalse(Attempt.manager.filter(task=task, user=user).exists())
         self.assertFalse(ChainTaskState.objects.filter(task=task, user=user).exists())
 
+    def test_uppercase_po_can_be_guessed_despite_lowercase_preposition(self):
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='ПО',
+            body='ПО и по.',
+        )
+        # The acronym is an exact, closed reading; the lowercase preposition
+        # stays visible and must not reject the same input before matching.
+        user = User.objects.create_user('cz_po_acronym', password='x')
+
+        result = apply_guess(game=game, task=task, word='по', user=user)
+
+        self.assertEqual(result['status'], 'won')
+        self.assertGreaterEqual(result['hits'], 1)
+        self.assertEqual(result['attempts'], 1)
+
 
 class CensorlyAccessTests(TestCase):
     def setUp(self):

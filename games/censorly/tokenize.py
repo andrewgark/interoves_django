@@ -14,6 +14,17 @@ from games.censorly.normalize import (
     split_stem_ending,
     strip_combining_marks,
 )
+from games.censorly.lexical.russian.reading_overrides import (
+    CITY_ABBR_CONTEXT,
+    NEM_GERMAN_CONTEXT,
+    NEM_NONPRONOUN_CONTEXT,
+    NEM_PRONOUN_CONTEXT,
+    N_ERA_CONTEXT,
+    PAGE_ABBR_CONTEXT,
+    PO_SOFTWARE_CONTEXT,
+    STREET_ABBR_CONTEXT,
+    YEAR_ABBR_CONTEXT,
+)
 from games.censorly.stopwords import is_stop_word
 
 # Private-use markers wrap wiki section titles after fetch (see wiki._headings_to_marked).
@@ -180,13 +191,17 @@ def _tokenize_plain(
             ending = ''
             stem_length = 0
         elif _WORD_CORE_RE.fullmatch(raw) or _WORD_CORE_RE.fullmatch(surface):
-            kind = _kind_for_word(surface)
+            software_acronym = surface == 'ПО'
+            kind = 'content' if software_acronym else _kind_for_word(surface)
             plain = strip_combining_marks(surface)
-            lemma = lemma_of(plain) if kind == 'content' else normalize_surface(plain)
+            lemma = (
+                PO_SOFTWARE_CONTEXT if software_acronym else
+                lemma_of(plain) if kind == 'content' else normalize_surface(plain)
+            )
             length = letter_length(surface)
             ending = ''
             stem_length = length
-            if kind == 'content':
+            if kind == 'content' and not software_acronym:
                 _stem, ending = split_stem_ending(surface)
                 stem_length = letter_length(_stem) if ending else length
         else:
@@ -207,6 +222,9 @@ def _tokenize_plain(
         if kind == 'content' and ending:
             tok['ending'] = ending
             tok['stem_length'] = stem_length
+        if kind == 'content' and surface == 'ПО':
+            tok['context_reading'] = PO_SOFTWARE_CONTEXT
+            tok['initially_open'] = False
         tokens.append(tok)
         tid += 1
     return tokens
@@ -242,6 +260,130 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
         tokens.extend(chunk)
     elif pos == 0 and not tokens:
         tokens = _tokenize_chunk(raw, in_title=in_title, start_id=start_id)
+    return _annotate_contextual_readings(tokens)
+
+
+_PREPOSITION_SURFACES = frozenset({
+    'в', 'во', 'к', 'ко', 'на', 'над', 'о', 'об', 'обо', 'от', 'при',
+    'с', 'со', 'у', 'перед', 'про', 'через',
+})
+
+
+def _next_nonspace(tokens: list[dict[str, Any]], index: int) -> int:
+    while index < len(tokens) and tokens[index].get('kind') == 'space':
+        index += 1
+    return index
+
+
+def _previous_nonspace(tokens: list[dict[str, Any]], index: int) -> int:
+    index -= 1
+    while index >= 0 and tokens[index].get('kind') == 'space':
+        index -= 1
+    return index
+
+
+def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Attach high-confidence, occurrence-specific readings before matching."""
+    for index, tok in enumerate(tokens):
+        if tok.get('kind') != 'content':
+            continue
+        surface = tok.get('surface') or ''
+        word = normalize_surface(surface)
+        previous = _previous_nonspace(tokens, index)
+        previous_surface = (
+            normalize_surface(tokens[previous].get('surface') or '')
+            if previous >= 0 else ''
+        )
+        after_word = _next_nonspace(tokens, index + 1)
+        has_period = (
+            after_word < len(tokens)
+            and tokens[after_word].get('kind') == 'punct'
+            and tokens[after_word].get('surface') == '.'
+        )
+        after_period = _next_nonspace(tokens, after_word + 1) if has_period else len(tokens)
+
+        # In «вода стекла с крыши» the word is the past-tense verb «стечь»;
+        # a noun phrase such as «осколки стекла с рисунком» must stay «стекло».
+        # Keep this deliberately narrow until we have syntactic case analysis.
+        if word == 'стекла' and previous >= 0:
+            previous_token = tokens[previous]
+            following = tokens[after_word] if after_word < len(tokens) else {}
+            following_surface = normalize_surface(following.get('surface') or '')
+            if (
+                previous_token.get('lemma') == 'вода'
+                and following_surface in {'с', 'со', 'из', 'изо', 'в', 'во', 'вниз'}
+            ):
+                tok['lemma'] = 'стечь'
+                tok['context_reading'] = 'verb:стечь'
+                tok['initially_open'] = False
+                continue
+
+        # «нем.» is the abbreviation for German only without ё and outside a
+        # prepositional phrase. A preceding preposition wins over the period.
+        if word == 'нем':
+            if previous_surface in _PREPOSITION_SURFACES or 'ё' in surface.lower():
+                tok['lemma'] = NEM_PRONOUN_CONTEXT
+                tok['context_reading'] = NEM_PRONOUN_CONTEXT
+            elif has_period:
+                tok['lemma'] = NEM_GERMAN_CONTEXT
+                tok['context_reading'] = NEM_GERMAN_CONTEXT
+                tok['initially_open'] = False
+            else:
+                tok['lemma'] = NEM_NONPRONOUN_CONTEXT
+                tok['context_reading'] = NEM_NONPRONOUN_CONTEXT
+                tok['initially_open'] = False
+            continue
+
+        # The two-letter abbreviation is case-sensitive; sentence-initial
+        # «По» remains the ordinary preposition.
+        if surface == 'ПО':
+            tok['lemma'] = PO_SOFTWARE_CONTEXT
+            tok['context_reading'] = PO_SOFTWARE_CONTEXT
+            tok['initially_open'] = False
+            continue
+
+        # «н. э.» has an established contextual reading (“нашей эры”).
+        if word == 'н' and has_period and after_period < len(tokens):
+            e_index = _next_nonspace(tokens, after_period)
+            if (
+                e_index < len(tokens)
+                and tokens[e_index].get('kind') == 'content'
+                and normalize_surface(tokens[e_index].get('surface') or '') == 'э'
+            ):
+                e_dot = _next_nonspace(tokens, e_index + 1)
+                if (
+                    e_dot < len(tokens)
+                    and tokens[e_dot].get('kind') == 'punct'
+                    and tokens[e_dot].get('surface') == '.'
+                ):
+                    tok['lemma'] = N_ERA_CONTEXT
+                    tok['context_reading'] = N_ERA_CONTEXT
+                    tok['initially_open'] = False
+                    continue
+
+        if not has_period:
+            continue
+        next_word_index = after_period
+        next_surface = (
+            tokens[next_word_index].get('surface') or ''
+            if next_word_index < len(tokens) else ''
+        )
+        if word == 'г' and previous >= 0 and (tokens[previous].get('surface') or '').isdigit():
+            tok['lemma'] = YEAR_ABBR_CONTEXT
+            tok['context_reading'] = YEAR_ABBR_CONTEXT
+            tok['initially_open'] = False
+        elif word == 'г' and next_surface[:1].isupper():
+            tok['lemma'] = CITY_ABBR_CONTEXT
+            tok['context_reading'] = CITY_ABBR_CONTEXT
+            tok['initially_open'] = False
+        elif word == 'стр' and next_surface.isdigit():
+            tok['lemma'] = PAGE_ABBR_CONTEXT
+            tok['context_reading'] = PAGE_ABBR_CONTEXT
+            tok['initially_open'] = False
+        elif word == 'ул' and next_surface[:1].isupper():
+            tok['lemma'] = STREET_ABBR_CONTEXT
+            tok['context_reading'] = STREET_ABBR_CONTEXT
+            tok['initially_open'] = False
     return tokens
 
 
