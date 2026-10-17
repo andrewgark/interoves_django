@@ -22,6 +22,14 @@
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char];
     });
   }
+  function ruSectionWord(count) {
+    var remainder100 = count % 100;
+    if (remainder100 >= 11 && remainder100 <= 14) return 'разделов';
+    var remainder10 = count % 10;
+    if (remainder10 === 1) return 'раздел';
+    if (remainder10 >= 2 && remainder10 <= 4) return 'раздела';
+    return 'разделов';
+  }
   function readSaved() {
     try {
       var value = JSON.parse(localStorage.getItem('censorly-random-filters') || 'null');
@@ -133,7 +141,7 @@
     label.className = 'censorly-category-tree__label';
     var name = document.createElement('span'); name.textContent = node.name;
     var amount = document.createElement('small');
-    if (node.children.length) amount.textContent = node.children.length + (node.children.length === 1 ? ' раздел' : ' раздела');
+    if (node.children.length) amount.textContent = node.children.length + ' ' + ruSectionWord(node.children.length);
     label.append(checkbox, icon, name);
     if (node.children.length) label.append(amount);
     line.append(label);
