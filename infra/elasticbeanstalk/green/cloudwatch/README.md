@@ -17,9 +17,11 @@ existing alarm names in place. It uses the already-configured
 
 ## What is collected
 
-- Kernel journal messages at info priority (includes kernel OOM-killer lines).
-- systemd manager lifecycle/failure messages, `systemd-oomd`, and CloudWatch
-  Agent warnings. Daphne stdout/stderr remains in the existing EB
+- Two small `journalctl --follow` services write kernel messages at info
+  priority and systemd manager/`systemd-oomd`/CloudWatch Agent messages to
+  bounded rotating files. The installed CloudWatch Agent version does not
+  accept its newer journald input, so it collects these files using its
+  supported file input. Daphne stdout/stderr remains in the existing EB
   `web.stdout.log` stream; it is not copied into another log group.
 - Per-instance and Auto Scaling group metrics every 60 seconds: CPU, used and
   available memory, swap used percentage, root filesystem used percentage and
@@ -67,8 +69,9 @@ groups retain their current 14-day policy and survive instance termination.
    and Nginx timing format because it otherwise preserves live `.platform`
    files. On every new/replaced web instance the hook applies this agent
    config through `amazon-cloudwatch-agent-ctl append-config`, preserving the
-   EB-managed fragment and enabling the service. The worker continues to use
-   its existing metrics config through the same supported append mechanism.
+   EB-managed fragment and enabling the service. It also enables the two
+   journal forwarders on web instances only. The worker continues to use its
+   existing metrics config through the same supported append mechanism.
 
 4. Verify the new instance streams under the two log groups, metrics in
    `InterOves/Web`, alarm dimensions, Nginx-to-Django request IDs and the

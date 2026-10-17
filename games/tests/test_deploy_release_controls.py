@@ -309,6 +309,21 @@ class DeployReleaseControlTests(SimpleTestCase):
         self.assertEqual(journal[0]['retention_in_days'], 14)
         self.assertEqual(journal[1]['matches'], [{'_TRANSPORT': 'kernel'}])
 
+    def test_green_cloudwatch_agent_uses_file_input_for_journal_streams(self):
+        config = json.loads((
+            ROOT / 'infra/elasticbeanstalk/green/cloudwatch/web-observability.json'
+        ).read_text())
+        logs = config['logs']['logs_collected']['files']['collect_list']
+        self.assertEqual(
+            {item['file_path'] for item in logs},
+            {'/var/log/interoves/kernel.log', '/var/log/interoves/systemd.log'},
+        )
+        self.assertEqual(len({item['log_group_name'] for item in logs}), 2)
+        hook = (ROOT / '.platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh').read_text()
+        self.assertIn('journalctl --follow', hook)
+        self.assertIn('interoves-kernel-journal.service', hook)
+        self.assertIn('interoves-systemd-journal.service', hook)
+
     def _write_mock_gate(self, root):
         scripts = root / 'scripts'
         scripts.mkdir(exist_ok=True)

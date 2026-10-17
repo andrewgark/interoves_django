@@ -41,29 +41,15 @@
   },
   "logs": {
     "logs_collected": {
-      "journald": {
+      "files": {
         "collect_list": [
           {
-            "matches": [{"_TRANSPORT": "kernel"}],
-            "priority": "info",
+            "file_path": "/var/log/interoves/kernel.log",
             "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/kernel",
             "log_stream_name": "{instance_id}"
           },
           {
-            "matches": [{"_COMM": "systemd"}],
-            "priority": "info",
-            "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/systemd",
-            "log_stream_name": "{instance_id}"
-          },
-          {
-            "units": ["systemd-oomd.service"],
-            "priority": "info",
-            "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/systemd",
-            "log_stream_name": "{instance_id}"
-          },
-          {
-            "units": ["amazon-cloudwatch-agent.service"],
-            "priority": "warning",
+            "file_path": "/var/log/interoves/systemd.log",
             "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/systemd",
             "log_stream_name": "{instance_id}"
           }
