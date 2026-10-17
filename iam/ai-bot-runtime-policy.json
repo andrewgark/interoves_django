@@ -67,7 +67,7 @@
       "Resource": "arn:aws:ssm:eu-central-1::document/AWS-RunShellScript"
     },
     {
-      "Sid": "SSMSendCommandWorkerNodes",
+      "Sid": "SSMSendCommandDiagnosticNodes",
       "Effect": "Allow",
       "Action": "ssm:SendCommand",
       "Resource": "arn:aws:ec2:eu-central-1:916000456640:instance/*",
@@ -75,7 +75,8 @@
         "StringEquals": {
           "ssm:resourceTag/elasticbeanstalk:environment-name": [
             "interoves-word-salad-worker",
-            "interoves-recheck-worker"
+            "interoves-env",
+            "interoves-web-green"
           ]
         }
       }
@@ -86,10 +87,19 @@
       "Action": "sqs:GetQueueAttributes",
       "Resource": [
         "arn:aws:sqs:eu-central-1:916000456640:interoves-word-salad",
-        "arn:aws:sqs:eu-central-1:916000456640:interoves-word-salad-dlq",
-        "arn:aws:sqs:eu-central-1:916000456640:interoves-recheck",
-        "arn:aws:sqs:eu-central-1:916000456640:interoves-recheck-dlq"
+        "arn:aws:sqs:eu-central-1:916000456640:interoves-word-salad-dlq"
       ]
+    },
+    {
+      "Sid": "SSMCancelCommandRegional",
+      "Effect": "Allow",
+      "Action": "ssm:CancelCommand",
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:RequestedRegion": "eu-central-1"
+        }
+      }
     }
   ]
 }
