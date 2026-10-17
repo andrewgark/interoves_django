@@ -1190,6 +1190,7 @@
     if (stateUrl) {
       fetch(stateUrl, {
         credentials: 'same-origin',
+        cache: 'no-store',
         headers: { 'X-Requested-With': 'XMLHttpRequest' },
       })
         .then(function (r) {

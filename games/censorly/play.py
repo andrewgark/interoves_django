@@ -584,6 +584,7 @@ def _history_index_for_guess(
     word: str = '',
     target_lemmas: set[str] | None = None,
     task: Task | None = None,
+    public_guesses: list[dict[str, Any]] | None = None,
 ) -> int | None:
     """Find the history row which originally opened a repeated word."""
     guesses = state.get('guesses') or []
@@ -599,6 +600,13 @@ def _history_index_for_guess(
         if tok.get('kind') == 'content' and tok.get('lemma') in target_lemmas
     }
     if not target_ids:
+        return None
+    if public_guesses is not None:
+        for index, guess in enumerate(public_guesses):
+            if not isinstance(guess, dict):
+                continue
+            if target_ids.intersection(guess.get('token_ids') or ()):
+                return index
         return None
     for index, guess in enumerate(guesses):
         if not isinstance(guess, dict):
@@ -876,6 +884,7 @@ def _apply_guess_after_analysis(
         out['guess_word'] = normalized
         out['active_guess_index'] = _history_index_for_guess(
             state, payload, target_lemmas=matched, task=task,
+            public_guesses=out.get('guesses'),
         )
         out['active_token_ids'] = sorted({
             token_id for lemma_ids in token_ids.values() for token_id in lemma_ids
