@@ -324,6 +324,42 @@
     return appendWordWithPunctuation(container, tokens, next, lenForced);
   }
 
+  function appendTightRun(container, tokens, start, end, lenForced) {
+    var run = tokens.slice(start, end);
+    var target = container;
+    if (run.length > 1) {
+      target = el('span', 'censorly-tok-group');
+      container.appendChild(target);
+    }
+    var index = 0;
+    while (index < run.length) {
+      var tok = run[index];
+      if (isWordDisplayToken(tok)) {
+        index = appendWordWithPunctuation(target, run, index, lenForced);
+        continue;
+      }
+      if (tok.kind === 'punct') {
+        var nextIndex = appendOpeningPunctuationWithWord(target, run, index, lenForced);
+        if (nextIndex !== index) {
+          index = nextIndex;
+          continue;
+        }
+      }
+      appendToken(target, tok, lenForced);
+      index += 1;
+    }
+  }
+
+  function tightRunEnd(tokens, start) {
+    var end = start;
+    while (
+      end < tokens.length &&
+      tokens[end].kind !== 'space' &&
+      !isHeadingEdge(tokens[end])
+    ) end += 1;
+    return end;
+  }
+
   function renderTokens(container, tokens, lenForced) {
     lenForced = lenForced || {};
     container.textContent = '';
@@ -383,19 +419,14 @@
             partIndex += 1;
             continue;
           }
-          if (isWordDisplayToken(part)) {
-            partIndex = appendWordWithPunctuation(block, inner, partIndex, lenForced);
+          if (part.kind === 'space') {
+            appendToken(block, part, lenForced);
+            partIndex += 1;
             continue;
           }
-          if (part.kind === 'punct') {
-            var nextPartIndex = appendOpeningPunctuationWithWord(block, inner, partIndex, lenForced);
-            if (nextPartIndex !== partIndex) {
-              partIndex = nextPartIndex;
-              continue;
-            }
-          }
-          appendToken(block, part, lenForced);
-          partIndex += 1;
+          var partEnd = tightRunEnd(inner, partIndex);
+          appendTightRun(block, inner, partIndex, partEnd, lenForced);
+          partIndex = partEnd;
         }
         container.appendChild(block);
         started = true;
@@ -404,19 +435,14 @@
       }
       prevWasPara = false;
       if (tok.kind !== 'space') started = true;
-      if (isWordDisplayToken(tok)) {
-        i = appendWordWithPunctuation(container, list, i, lenForced);
+      if (tok.kind === 'space') {
+        appendToken(container, tok, lenForced);
+        i += 1;
         continue;
       }
-      if (tok.kind === 'punct') {
-        var nextIndex = appendOpeningPunctuationWithWord(container, list, i, lenForced);
-        if (nextIndex !== i) {
-          i = nextIndex;
-          continue;
-        }
-      }
-      appendToken(container, tok, lenForced);
-      i += 1;
+      var runEnd = tightRunEnd(list, i);
+      appendTightRun(container, list, i, runEnd, lenForced);
+      i = runEnd;
     }
   }
 

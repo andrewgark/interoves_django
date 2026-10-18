@@ -41,6 +41,11 @@ FORMULA_END = '\ufdd3'
 _MATH_SERVICE_SYMBOLS = '°∫∬∭∮≤≥≠≈≡∈∉∑∏∂∇×·±∓→←↔⇌⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
 _MATH_SERVICE_SYMBOL_SET = frozenset(_MATH_SERVICE_SYMBOLS)
 _MATH_SERVICE_CLASS = re.escape(_MATH_SERVICE_SYMBOLS)
+# Mathematical and currency symbols are structural text, not hidden pictures.
+# A few common marks live in Unicode's broad "Other Symbol" category alongside
+# emoji and pictograms, so list only the marks that are safe to show.
+_OPEN_SYMBOL_CATEGORIES = frozenset({'Sm', 'Sc'})
+_OPEN_OTHER_SYMBOLS = frozenset({'^', '№', '©', '®', '℗', '™', '℠'})
 
 # Greek, CJK, Cyrillic and Latin are words. Hyphen, ² and ₂ are not in the span.
 _TOKEN_RE = re.compile(
@@ -181,6 +186,16 @@ def _plain_token_surfaces(text: str):
                 yield ''.join(chars)
 
 
+def _is_open_symbol_run(raw: str) -> bool:
+    """True for structural symbols that should remain visible in the article."""
+    return bool(raw) and all(
+        char in _MATH_SERVICE_SYMBOL_SET
+        or char in _OPEN_OTHER_SYMBOLS
+        or unicodedata.category(char) in _OPEN_SYMBOL_CATEGORIES
+        for char in raw
+    )
+
+
 def _tokenize_plain(
     text: str,
     *,
@@ -219,7 +234,7 @@ def _tokenize_plain(
                 _stem, ending = split_stem_ending(surface)
                 stem_length = letter_length(_stem) if ending else length
         elif (
-            raw not in _MATH_SERVICE_SYMBOL_SET
+            not _is_open_symbol_run(raw)
             and any(unicodedata.category(char).startswith('S') for char in raw)
         ):
             # Hide pictographic symbols (chess pieces, emoji, etc.), while

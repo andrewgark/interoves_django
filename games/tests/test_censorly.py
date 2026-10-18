@@ -79,6 +79,37 @@ def _make_puzzle_task(*, title='Москва', body='Москва — столи
 
 
 class CensorlySymbolTokenTests(SimpleTestCase):
+    def test_structural_symbols_are_visible_but_pictograms_stay_masked(self):
+        from games.censorly.tokenize import tokenize_text
+
+        tokens = [
+            token for token in tokenize_text('+ = − № $ € ₽ < > ^ © ™ ♄ ♕')
+            if token['kind'] != 'space'
+        ]
+        self.assertEqual(
+            [(token['surface'], token['kind']) for token in tokens],
+            [
+                ('+', 'punct'), ('=', 'punct'), ('−', 'punct'),
+                ('№', 'punct'), ('$', 'punct'), ('€', 'punct'),
+                ('₽', 'punct'), ('<', 'punct'), ('>', 'punct'),
+                ('^', 'punct'), ('©', 'punct'), ('™', 'punct'),
+                ('♄', 'symbol'), ('♕', 'symbol'),
+            ],
+        )
+        payload = build_puzzle_payload(
+            wiki_title='Знаки', body_text='+23 pH = 4,5 дом № 252 $100 ♄ ♕',
+        )
+        view = build_public_view(payload, revealed_lemmas=set(), won=False)
+        visible = ''.join(
+            token.get('text', '') for token in view['body_tokens'] if token['revealed']
+        )
+        self.assertIn('+', visible)
+        self.assertIn('=', visible)
+        self.assertIn('№', visible)
+        self.assertIn('$', visible)
+        self.assertNotIn('♄', visible)
+        self.assertNotIn('♕', visible)
+
     def test_degree_and_punctuation_stay_visible_next_to_masked_tokens(self):
         from games.censorly.tokenize import tokenize_text
 

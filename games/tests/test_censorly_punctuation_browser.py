@@ -17,56 +17,46 @@ ROOT = Path(__file__).resolve().parents[2]
 
 @skipUnless(os.environ.get('INTEROVES_LIVE_BROWSER_TESTS') == '1', 'Requires Chromium')
 class CensorlyPunctuationBrowserTests(SimpleTestCase):
-    def test_parentheses_stay_with_words_at_line_boundaries(self):
+    def test_source_runs_without_spaces_stay_together_at_line_boundaries(self):
         from playwright.sync_api import sync_playwright
 
-        payload = build_puzzle_payload(
-            wiki_title='Немецкая овчарка', body_text='Собака (примерно 45°), собака',
-        )
+        cases = ('(примерно)', '45°),', '29,5', 'км/с', '16/28',
+                 '4,6×1018', 'Вояджера−1', '$100', 'R♄')
         with sync_playwright() as playwright:
             if not Path(playwright.chromium.executable_path).exists():
                 raise SkipTest('Playwright Chromium is not installed')
             browser = playwright.chromium.launch(headless=True, args=['--no-sandbox'])
             try:
                 page = browser.new_page()
-                for won, viewport in product((False, True), (560, 800, 1000)):
-                    page.set_viewport_size({'width': viewport, 'height': 800})
-                    state = build_public_view(payload, won=won)
-                    page.set_content(
-                        '<main id="censorly-root" class="censorly">'
-                        '<div id="censorly-title"></div>'
-                        '<div id="censorly-body" class="censorly__body"></div></main>'
-                        '<script id="censorly-bootstrap" type="application/json">'
-                        + json.dumps(state) + '</script>'
-                    )
-                    page.add_style_tag(path=str(ROOT / 'static/css/censorly.css'))
-                    page.add_script_tag(path=str(ROOT / 'static/js/censorly_punctuation.js'))
-                    page.add_script_tag(path=str(ROOT / 'static/js/censorly_play.js'))
-                    # Exercise both inline mobile masks and desktop inline-block masks.
-                    for width in range(120, 401, 7):
-                        page.locator('#censorly-body').evaluate(
-                            '(body, width) => { body.style.width = width + "px"; }', width,
+                for case in cases:
+                    payload = build_puzzle_payload(wiki_title='Тест', body_text=case)
+                    for won, viewport in product((False, True), (560, 800, 1000)):
+                        page.set_viewport_size({'width': viewport, 'height': 800})
+                        state = build_public_view(payload, won=won)
+                        page.set_content(
+                            '<main id="censorly-root" class="censorly">'
+                            '<div id="censorly-title"></div>'
+                            '<div id="censorly-body" class="censorly__body"></div></main>'
+                            '<script id="censorly-bootstrap" type="application/json">'
+                            + json.dumps(state) + '</script>'
                         )
-                        positions = page.locator('#censorly-body').evaluate('''body => {
-                            const nodes = Array.from(body.querySelectorAll('.censorly-tok'));
-                            function line(node) {
-                                const range = document.createRange();
-                                range.selectNodeContents(node);
-                                return range.getBoundingClientRect().top;
-                            }
-                            const opening = nodes.findIndex(node => node.textContent === '(');
-                            const closing = nodes.findIndex(node => node.textContent === '),');
-                            return {
-                                opening: line(nodes[opening]), next: line(nodes[opening + 1]),
-                                closing: line(nodes[closing]), previous: line(nodes[closing - 1]),
-                                number: line(nodes[closing - 2]),
-                                degreeVisible: nodes[closing - 1].textContent === '°',
-                            };
-                        }''')
-                        with self.subTest(won=won, viewport=viewport, width=width):
-                            self.assertLess(abs(positions['opening'] - positions['next']), 5)
-                            self.assertLess(abs(positions['closing'] - positions['previous']), 5)
-                            self.assertLess(abs(positions['closing'] - positions['number']), 5)
-                            self.assertTrue(positions['degreeVisible'])
+                        page.add_style_tag(path=str(ROOT / 'static/css/censorly.css'))
+                        page.add_script_tag(path=str(ROOT / 'static/js/censorly_punctuation.js'))
+                        page.add_script_tag(path=str(ROOT / 'static/js/censorly_play.js'))
+                        for width in (20, 30, 40, 50, 60, 80, 100, 120, 160):
+                            page.locator('#censorly-body').evaluate(
+                                '(body, value) => { body.style.width = value + "px"; }', width,
+                            )
+                            lines = page.locator('#censorly-body').evaluate('''body =>
+                                Array.from(body.querySelectorAll('.censorly-tok')).map(node => {
+                                    const range = document.createRange();
+                                    range.selectNodeContents(node);
+                                    return Math.round(range.getBoundingClientRect().top);
+                                })
+                            ''')
+                            with self.subTest(case=case, won=won, viewport=viewport, width=width):
+                                # Text and block masks have slightly different baselines;
+                                # a real line break is roughly one full line-height (20+ px).
+                                self.assertLess(max(lines) - min(lines), 10)
             finally:
                 browser.close()
