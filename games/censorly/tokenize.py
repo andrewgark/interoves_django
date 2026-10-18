@@ -38,6 +38,7 @@ FORMULA_START = '\ufdd2'
 FORMULA_END = '\ufdd3'
 
 _MATH_SERVICE_SYMBOLS = '∫∬∭∮≤≥≠≈≡∈∉∑∏∂∇×·±∓→←↔⇌⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
+_MATH_SERVICE_SYMBOL_SET = frozenset(_MATH_SERVICE_SYMBOLS)
 _MATH_SERVICE_CLASS = re.escape(_MATH_SERVICE_SYMBOLS)
 
 # Greek, CJK, Cyrillic and Latin are words. Hyphen, ² and ₂ are not in the span.
@@ -204,6 +205,20 @@ def _tokenize_plain(
             if kind == 'content' and not software_acronym:
                 _stem, ending = split_stem_ending(surface)
                 stem_length = letter_length(_stem) if ending else length
+        elif (
+            raw not in _MATH_SERVICE_SYMBOL_SET
+            and any(unicodedata.category(char).startswith('S') for char in raw)
+        ):
+            # Hide pictographic symbols (chess pieces, emoji, etc.), while
+            # keeping the explicitly listed math service glyphs visible.
+            kind = 'symbol'
+            lemma = ''
+            length = sum(
+                1 for char in raw
+                if unicodedata.category(char).startswith('S')
+            )
+            ending = ''
+            stem_length = length
         else:
             kind = 'stop' if is_stop_word(surface) else 'punct'
             lemma = ''

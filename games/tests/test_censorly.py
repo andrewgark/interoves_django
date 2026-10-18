@@ -74,6 +74,31 @@ def _make_puzzle_task(*, title='Москва', body='Москва — столи
     return game, task, share_hash, puzzle
 
 
+class CensorlySymbolTokenTests(SimpleTestCase):
+    def test_chess_symbols_are_masked_but_math_service_symbols_stay_visible(self):
+        from games.censorly.tokenize import tokenize_text
+
+        tokens = [
+            token for token in tokenize_text('♕ ♛ ∑ → ± √')
+            if token['kind'] != 'space'
+        ]
+        self.assertEqual(
+            [(token['kind'], token['surface']) for token in tokens],
+            [
+                ('symbol', '♕'), ('symbol', '♛'),
+                ('stop', '∑'), ('stop', '→'), ('stop', '±'), ('stop', '√'),
+            ],
+        )
+
+        payload = build_puzzle_payload(wiki_title='Фигуры', body_text='♕ ♛ ∑ → ± √')
+        view = build_public_view(payload, revealed_lemmas=set(), won=False)
+        symbols = [token for token in view['body_tokens'] if token['kind'] == 'symbol']
+        math = [token for token in view['body_tokens'] if token['kind'] == 'stop']
+        self.assertEqual(len(symbols), 2)
+        self.assertTrue(all(not token['revealed'] and 'text' not in token for token in symbols))
+        self.assertEqual([token['text'] for token in math], ['∑', '→', '±', '√'])
+
+
 class CensorlyEngineTests(TestCase):
     def test_guess_response_compacts_unchanged_article(self):
         from games.views.censorly_views import _compact_guess_response
