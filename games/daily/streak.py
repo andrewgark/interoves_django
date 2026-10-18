@@ -1,8 +1,8 @@
 """Streaks for the official daily sections.
 
-The streak is deliberately derived from completion history.  A completion only
-counts when it happened on the Moscow calendar date on which that edition was
-published; solving an old edition later therefore cannot repair a gap.
+The streak is deliberately derived from completion history. A completion is
+assigned to its edition's Moscow publication date when it happens within the
+36-hour streak window; solving an older edition after that cannot repair a gap.
 """
 
 from datetime import timedelta
@@ -12,6 +12,12 @@ from django.utils import timezone
 
 from games.daily.section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
 from games.models import DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Profile, TaskGroup
+
+STREAK_COMPLETION_WINDOW = timedelta(hours=36)
+
+
+def _within_streak_window(completed_at, published_at):
+    return published_at <= completed_at <= published_at + STREAK_COMPLETION_WINDOW
 
 
 def streak_from_completion_dates(completed_dates, *, today):
@@ -81,11 +87,15 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
     ).only('game_id', 'task_group_id', 'completed_at')
     for completion in completions:
         game_id = str(completion.game_id)
-        published_date = link_dates.get((game_id, completion.task_group_id))
-        if published_date is None:
+        key = (game_id, completion.task_group_id)
+        published_date = link_dates.get(key)
+        published_at = link_publication_times.get(key)
+        if published_date is None or published_at is None:
             continue
-        completed_date = completion.completed_at.astimezone(MOSCOW).date()
-        if completed_date == published_date and published_date <= today:
+        if (
+            published_date <= today
+            and _within_streak_window(completion.completed_at, published_at)
+        ):
             completed_dates[game_id].add(published_date)
 
     # Daily releases are calendar-backed rather than materialized publication
@@ -182,16 +192,18 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
             if published_at is not None and published_at <= now:
                 completed_at_by_group.setdefault(task_group_id, published_at)
 
-    same_day_dates = {
+    on_time_dates = {
         link_dates[group_id]
         for group_id, completed_at in completed_at_by_group.items()
         if group_id in link_dates
-        and completed_at.astimezone(MOSCOW).date() == link_dates[group_id]
         and link_dates[group_id] <= today
+        and _within_streak_window(
+            completed_at, link_publication_times[group_id],
+        )
     }
-    cursor = today if today in same_day_dates else today - timedelta(days=1)
+    cursor = today if today in on_time_dates else today - timedelta(days=1)
     active_dates = set()
-    while cursor in same_day_dates:
+    while cursor in on_time_dates:
         active_dates.add(cursor)
         cursor -= timedelta(days=1)
 
@@ -200,8 +212,9 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
         published_date = link_dates.get(group_id)
         if published_date is None:
             continue
-        completed_date = completed_at.astimezone(MOSCOW).date()
-        if completed_date == published_date:
+        if _within_streak_window(
+            completed_at, link_publication_times[group_id],
+        ):
             statuses[group_id] = 'streak' if published_date in active_dates else 'same_day'
         else:
             statuses[group_id] = 'late'

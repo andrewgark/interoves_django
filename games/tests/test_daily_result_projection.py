@@ -510,6 +510,35 @@ class DailyResultProjectionTests(TestCase):
         self.assertEqual(state.source_revision, 4)
         self.assertEqual(publish.call_count, 2)
 
+    def test_projection_outbox_cleanup_removes_only_a_bounded_expired_batch(self):
+        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+
+        now = timezone.now()
+        expired = DailyResultProjectionRefreshOutbox.objects.bulk_create([
+            DailyResultProjectionRefreshOutbox(
+                game=self.game, task_group=self.group,
+                actor_type='anon', actor_key='expired-{}'.format(index),
+                status='sent', sent_at=now - timedelta(days=31),
+            )
+            for index in range(501)
+        ])
+        fresh = DailyResultProjectionRefreshOutbox.objects.create(
+            game=self.game, task_group=self.group,
+            actor_type='anon', actor_key='fresh', status='sent', sent_at=now,
+        )
+
+        self.assertEqual(
+            dispatch_actor_projection_outbox(limit=0, now=now),
+            {'claimed': 0, 'sent': 0, 'failed': 0},
+        )
+        self.assertEqual(DailyResultProjectionRefreshOutbox.objects.count(), 2)
+        self.assertTrue(DailyResultProjectionRefreshOutbox.objects.filter(pk=expired[-1].pk).exists())
+        dispatch_actor_projection_outbox(limit=0, now=now)
+        self.assertEqual(
+            list(DailyResultProjectionRefreshOutbox.objects.values_list('pk', flat=True)),
+            [fresh.pk],
+        )
+
     def test_projection_outbox_keeps_string_team_primary_key(self):
         from games.daily.projection_outbox import dispatch_actor_projection_outbox
 

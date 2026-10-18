@@ -178,9 +178,11 @@ def dispatch_actor_projection_outbox(*, limit=10, now=None):
                 'daily_result_projection_outbox failed outbox_id=%s game=%s task_group=%s',
                 row.pk, row.game_id, row.task_group_id,
             )
-    stale_ids = DailyResultProjectionRefreshOutbox.objects.filter(
+    # MySQL does not support LIMIT inside an IN subquery. Materialize this
+    # bounded batch before deleting it from the same table.
+    stale_ids = list(DailyResultProjectionRefreshOutbox.objects.filter(
         status=DailyResultProjectionRefreshOutbox.STATUS_SENT,
         sent_at__lt=now - OUTBOX_RETENTION,
-    ).order_by('id').values_list('id', flat=True)[:500]
+    ).order_by('id').values_list('id', flat=True)[:500])
     DailyResultProjectionRefreshOutbox.objects.filter(pk__in=stale_ids).delete()
     return {'claimed': len(rows), 'sent': sent, 'failed': failed}

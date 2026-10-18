@@ -74,11 +74,11 @@ class DailyStreakLogicTests(TestCase):
         )
         PlayerCompletedGame.objects.filter(pk=row.pk).update(completed_at=completed_at)
 
-    def streak(self, *game_ids):
+    def streak(self, *game_ids, now=None):
         return daily_streaks_for_user(
             self.user,
             games=[self.games[game_id] for game_id in game_ids],
-            now=self.now,
+            now=now or self.now,
         )
 
     def test_no_completed_daily_games(self):
@@ -147,8 +147,9 @@ class DailyStreakLogicTests(TestCase):
         self.assertEqual(self.streak('ladder')['ladder'], 1)
 
     def test_late_completion_does_not_repair_gap(self):
-        self.completion('ladder', 10, self.now)
-        self.assertEqual(self.streak('ladder')['ladder'], 0)
+        after_window = datetime(2026, 9, 11, 13, tzinfo=MOSCOW)
+        self.completion('ladder', 10, after_window)
+        self.assertEqual(self.streak('ladder', now=after_window)['ladder'], 0)
 
     def test_daily_games_have_independent_streaks(self):
         self.completion('ladder', 11, self.now)
@@ -201,7 +202,7 @@ class DailyStreakLogicTests(TestCase):
             1,
         )
 
-    def test_completion_statuses_distinguish_same_day_late_and_active_streak(self):
+    def test_completion_statuses_include_solves_within_36_hours_in_active_streak(self):
         self.completion('ladder', 10, self.now)
         self.completion('ladder', 11, self.now)
         statuses = daily_completion_statuses_for_actor(
@@ -210,7 +211,7 @@ class DailyStreakLogicTests(TestCase):
             user=self.user,
             now=self.now,
         )
-        self.assertEqual(statuses[self.links['ladder'][10].task_group_id], 'late')
+        self.assertEqual(statuses[self.links['ladder'][10].task_group_id], 'streak')
         self.assertEqual(statuses[self.links['ladder'][11].task_group_id], 'streak')
 
     def test_completion_statuses_mark_an_author_release_as_same_day(self):
