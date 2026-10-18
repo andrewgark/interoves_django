@@ -218,17 +218,63 @@ def _nutrimatic_paths():
     return root, find_expr, index, cgi
 
 
+def _nutrimatic_query_options_valid(request) -> bool:
+    if "q" not in request.GET:
+        return True
+    if len(request.GET.getlist("q")) > 1:
+        return False
+    bounds = {
+        "start": (0, 2_147_483_647),
+        "num": (1, 10_000),
+        "comp": (1, 2_147_483_647),
+    }
+    for key, (minimum, maximum) in bounds.items():
+        values = request.GET.getlist(key)
+        if not values:
+            continue
+        if len(values) != 1 or len(values[0]) > 10:
+            return False
+        try:
+            value = int(values[0])
+        except (TypeError, ValueError):
+            return False
+        if not minimum <= value <= maximum:
+            return False
+    return True
+
+
 async def nutrimatic_search(request):
     if request.method != "GET":
         return HttpResponseNotAllowed(["GET"])
+    if not _nutrimatic_query_options_valid(request):
+        return HttpResponse(
+            "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+            "<title>Nutrimatic — некорректный запрос</title></head><body>"
+            "<main><h1>Nutrimatic</h1>"
+            "<p>Параметры запроса некорректны. Проверьте их и повторите поиск.</p>"
+            "<p><a href=\"/nutrimatic-ru/\">На главную</a></p>"
+            "</main></body></html>",
+            status=400,
+            content_type="text/html; charset=utf-8",
+        )
     started = asyncio.get_running_loop().time()
     if not await _nutrimatic_acquire():
         logger.info("nutrimatic rejected active=%d queued=%d", _NUTRIMATIC_ACTIVE, _NUTRIMATIC_QUEUED)
+        retry_query = html.escape(request.GET.urlencode(), quote=True)
+        retry_href = f"?{retry_query}" if retry_query else "/nutrimatic-ru/"
         return HttpResponse(
-            "Search is busy. Please retry shortly.",
-            status=503,
+            "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
+            "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+            "<title>Nutrimatic — поиск занят</title></head><body>"
+            "<main><h1>Nutrimatic</h1>"
+            "<p role=\"status\"><strong>Сейчас выполняется другой поиск.</strong></p>"
+            "<p>Ваш запрос пока не запущен. Подождите несколько секунд и повторите.</p>"
+            f"<p><a href=\"{retry_href}\">Повторить запрос</a></p>"
+            "</main></body></html>",
+            status=429,
             headers={"Retry-After": "5"},
-            content_type="text/plain; charset=utf-8",
+            content_type="text/html; charset=utf-8",
         )
     try:
         paths = await _nutrimatic_paths_async()
@@ -312,7 +358,9 @@ async def nutrimatic_search(request):
         )
         raise
     except OSError:
-        logger.exception("Nutrimatic search process failed to start")
+        if proc is not None:
+            await _finish_nutrimatic_cleanup(proc, stdout_task, stderr_task, wait_task)
+        logger.exception("Nutrimatic search process failed")
         return HttpResponse("Search unavailable", status=503, content_type="text/plain; charset=utf-8")
     finally:
         await _nutrimatic_release()
@@ -320,12 +368,19 @@ async def nutrimatic_search(request):
     logger.info("nutrimatic finish pid=%d exit_code=%s duration=%.3f", proc.pid, proc.returncode, asyncio.get_running_loop().time() - started)
 
     if proc.returncode != 0:
-        err = (stderr or b"").decode("utf-8", errors="replace").strip()
-        msg = err or f"nutrimatic exited with code {proc.returncode}"
-        return HttpResponse(msg, status=500, content_type="text/plain; charset=utf-8")
+        logger.error(
+            "nutrimatic cgi failed pid=%d exit_code=%s stderr_bytes=%d",
+            proc.pid, proc.returncode, len(stderr or b""),
+        )
+        return HttpResponse(
+            "Поиск не удалось выполнить. Попробуйте изменить запрос или повторить позже.",
+            status=500,
+            content_type="text/plain; charset=utf-8",
+        )
 
     body = _strip_cgi_headers(stdout)
-    body = body.replace(b'href="/favicon.ico"', b'href="/nutrimatic-ru/favicon.ico"')
+    favicon_url = f'{settings.STATIC_URL.rstrip("/")}/img/favicon/favicon.ico'
+    body = body.replace(b'href="/favicon.ico"', f'href="{favicon_url}"'.encode())
     return HttpResponse(body, content_type="text/html; charset=utf-8")
 
 
