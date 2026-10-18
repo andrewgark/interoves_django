@@ -164,8 +164,6 @@ TRUE_CASES = (
     ('ступать', 'ступень', 'root'),
     ('преступление', 'преступник', 'root'),
     ('простоять', 'застой', 'root'),
-    ('оставить', 'остальной', 'root'),
-    ('остаться', 'остаток', 'root'),
     ('состоять', 'состояние', 'root'),
     ('поставить', 'поставка', 'root'),
     ('состав', 'составить', 'root'),
@@ -645,6 +643,44 @@ class SemanticsTests(SimpleTestCase):
                         any(not part.startswith('sense:') for part in structure),
                         lemma,
                     )
+
+    def test_audit_confirmed_semantic_root_assignments_restore_only_clear_cases(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        expected = {
+            'архитектура': 'root:architecture',
+            'вспомнить': 'fam:мин¹|мн|мя²',
+            'гладиатор': 'root:gladiator',
+            'горестный': 'fam:гар|гор²',
+            'живьем': 'fam:жи',
+            'житейский': 'fam:жи',
+            'житийный': 'fam:жи',
+            'контрабанда': 'root:contraband',
+            'концерт': 'root:concert',
+            'неблизкий': 'fam:ближ|близ',
+            'недорогой': 'fam:дорог¹|дорож¹|драж²',
+            'операбельный': 'root:operation',
+            'патриотизм': 'root:patriot',
+            'приборный': 'fam:бер|бир|бор¹|бр¹',
+            'революция': 'root:revolution',
+            'рабыня': 'fam:раб',
+            'снятый': 'fam:ем|им¹|йм|ним|ня|ым²|я¹|∅',
+            'ткацкий': 'fam:тк|ток²|точ²|тык|тыч',
+            'ужаленный': 'fam:жал²',
+            'химизатор': 'root:chemistry',
+        }
+        for lemma, root in expected.items():
+            with self.subTest(lemma=lemma):
+                self.assertEqual(structures_of(lemma)[0][0], root)
+                self.assertEqual(
+                    assignment_of(lemma)['source'], 'SEMANTIC_ROOT_ASSIGNMENT',
+                )
+
+        # Multi-component or ambiguous Tikhonov analyses remain unresolved;
+        # the audit must not turn a component resemblance into a root.
+        for lemma in ('автомобиль', 'духовенство'):
+            with self.subTest(lemma=lemma):
+                self.assertEqual(structures_of(lemma), ())
 
     def test_numeric_forms_share_numeral_roots(self):
         from games.censorly.lexical.rootbank import structures_of
@@ -2038,6 +2074,228 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         ):
             self.assertFalse(opens(left, right), f'{left}/{right}')
             self.assertFalse(opens(right, left), f'{right}/{left}')
+
+    def test_root_sense_migration_keeps_confirmed_false_negatives_open(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        pairs = (
+            ('предпочесть', 'предпочитать'),
+            ('близкий', 'неблизкий'),
+            ('плотнеть', 'уплотнение'),
+            ('почет', 'почитание'),
+            ('чертёжный', 'черчение'),
+            ('связь', 'связать'),
+            ('оставление', 'оставлять'),
+            ('пихать', 'пихаться'),
+            ('пустынник', 'пустыня'),
+        )
+        for left, right in pairs:
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+                self.assertTrue(opens(right, left))
+                self.assertTrue(structures_of(left))
+                self.assertTrue(structures_of(right))
+                self.assertNotEqual(assignment_of(left)['source'], 'UNRESOLVED')
+                self.assertNotEqual(assignment_of(right)['source'], 'UNRESOLVED')
+
+        # The assignments apply to the semantic families, not just the two
+        # submitted surfaces.  Inflectional and ordinary derivatives remain
+        # rooted as well.
+        for left, right in (
+            ('предпочтение', 'предпочтительный'),
+            ('уплотнить', 'уплотненный'),
+            ('почтить', 'чтить'),
+            ('оставить', 'оставление'),
+            ('пихнуть', 'пихание'),
+            ('пустынный', 'пустынница'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+
+        for left, right in (
+            ('оставить', 'остальной'),
+            ('остаться', 'остаток'),
+            ('оставление', 'останки'),
+            ('оставление', 'остаток'),
+            ('оставлять', 'остаточный'),
+            ('останки', 'остаток'),
+            ('остальной', 'остаточный'),
+            ('пустыня', 'пустошь'),
+            ('пустыня', 'пустырь'),
+            ('пустынник', 'пустырник'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+
+        self.assertTrue(opens('остаток', 'остаточный'))
+
+    def test_reviewed_root_alternants_and_semantic_boundaries(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        for left, right in (
+            ('идти', 'ходить'),
+            ('найти', 'находить'),
+            ('перелететь', 'лететь'),
+            ('перелетать', 'лететь'),
+            ('показание', 'показания'),
+            ('чертить', 'чертёж'),
+            ('горе', 'пригорюниться'),
+            ('сходственный', 'сходство'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+                self.assertTrue(opens(right, left))
+
+        self.assertFalse(opens('идти', 'найти'))
+        self.assertFalse(opens('найти', 'идти'))
+
+        for left, right in (
+            ('применение', 'приложение'),
+            ('показание', 'свидетельство'),
+            ('убирать', 'чистить'),
+            ('добывать', 'вынимать'),
+            ('звонить', 'взывать'),
+            ('нарушать', 'громить'),
+            ('поддерживать', 'опираться'),
+            ('страсть', 'пристрастие'),
+            ('родина', 'отечество'),
+            ('посылать', 'посол'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+                self.assertFalse(opens(right, left))
+
+        # The compound reading of «простой» remains complete and does not
+        # leak into the unrelated forgiveness/standing families.
+        self.assertTrue(opens('простой', 'упростить'))
+        self.assertFalse(opens('простой', 'простить'))
+        self.assertFalse(opens('простой', 'состоять'))
+
+        # «ведение» is polysemous: the knowledge reading can match «ведать»,
+        # while its administration reading remains separately represented.
+        self.assertTrue(opens('ведать', 'ведение'))
+        self.assertTrue(opens('честь', 'почет'))
+
+    def test_single_root_unresolved_semantic_members_are_authorized(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        expected = {
+            'двоешка': 'fam:дв',
+            'солодовенный': 'fam:слад|слажд|сласт|слащ|солаж|солод|солож|солощ',
+            'горняцкий': 'fam:гор¹',
+            'отягощение': 'fam:тя|тяг|тяж|тяз',
+            'обожествление': 'fam:бог|бож',
+            'столешник': 'fam:сл²|стел|стил|стл|стол',
+            'узорочье': 'fam:зар|зер|зир|зор|зр',
+            'литейщик': 'fam:ле(j)|ли|ло(j)|ль²',
+            'обобществление': 'fam:общ',
+            'верховенство': 'fam:верх|верш¹',
+            'трешка': 'fam:тр¹',
+            'родненький': 'fam:род|рож²|рожд',
+            'синюшка': 'fam:син',
+            'мальчишечка': 'fam:мал¹',
+            'чистюля': 'fam:чист|чищ',
+            'трещоточный': 'fam:трес|треск¹|трещ',
+            'твердыня': 'fam:тверд|тверж|твержд',
+            'крышечный': 'fam:кров²|кры',
+            'боевитость': 'fam:би(j)|бо(j)¹|бь',
+            'праматерь': 'fam:мат¹|мач¹',
+        }
+        for lemma, root in expected.items():
+            with self.subTest(lemma=lemma):
+                self.assertEqual(structures_of(lemma)[0][0], root)
+                self.assertEqual(
+                    assignment_of(lemma)['source'], 'SEMANTIC_ROOT_ASSIGNMENT',
+                )
+
+    def test_prefixed_unresolved_semantic_members_restore_existing_root_families(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        expected = {
+            'россказни': 'fam:каж¹|кажд¹|каз¹',
+            'приказчичий': 'fam:каж¹|кажд¹|каз¹',
+            'складчинный': 'fam:кла|клад|клаж|клас',
+            'врастяжку': 'fam:тя|тяг|тяж|тяз',
+            'враскачку': 'fam:кат¹|кач¹',
+            'росплывь': 'fam:пла|плав|плов|плы',
+            'роспуск': 'fam:пуск|пуст¹|пущ²',
+            'роспуски': 'fam:пуск|пуст¹|пущ²',
+            'росчисть': 'fam:чист|чищ',
+            'росчерк': 'fam:черк',
+            'роспись': 'fam:пис|пиш',
+            'враструску': 'fam:трус³|трух²|труш',
+        }
+        for lemma, root in expected.items():
+            with self.subTest(lemma=lemma):
+                self.assertEqual(structures_of(lemma)[0][0], root)
+                self.assertEqual(
+                    assignment_of(lemma)['source'], 'SEMANTIC_ROOT_ASSIGNMENT',
+                )
+
+        for left, right in (
+            ('россказни', 'рассказ'),
+            ('приказчичий', 'приказчик'),
+            ('складчинный', 'складчина'),
+            ('врастяжку', 'растяжение'),
+            ('враскачку', 'раскачиваться'),
+            ('росплывь', 'сплывать'),
+            ('роспуск', 'выпуск'),
+            ('роспуски', 'выпуск'),
+            ('росчисть', 'расчистить'),
+            ('росчерк', 'прочерк'),
+            ('роспись', 'писать'),
+            ('враструску', 'раструсить'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+                self.assertTrue(opens(right, left))
+
+    def test_reviewed_unresolved_sense_boundaries(self):
+        from games.censorly.lexical.rootbank import structures_of
+
+        exclamation = (
+            'fam:клик|клиц|клич', 'sense:review_exclamation',
+        )
+        for lemma in (
+            'восклицание', 'восклицательный', 'восклицать', 'воскликнуть',
+        ):
+            with self.subTest(lemma=lemma):
+                self.assertIn(exclamation, structures_of(lemma))
+
+        self.assertIn(
+            ('fam:клик|клиц|клич', 'sense:review_click'),
+            structures_of('кликнуть'),
+        )
+        self.assertTrue(opens('восклицание', 'воскликнуть'))
+        self.assertFalse(opens('воскликнуть', 'кликнуть'))
+
+        self.assertIn(
+            ('fam:мал¹', 'sense:review_small_creature'),
+            structures_of('малявка'),
+        )
+        self.assertNotEqual(
+            structures_of('малявка'), structures_of('маленький'),
+        )
+
+        self.assertIn(
+            ('fam:пут²', 'sense:ticket'),
+            structures_of('путевка'),
+        )
+        self.assertFalse(opens('путевка', 'путевой'))
+
+        self.assertIn(
+            ('fam:хаж|ход|хож|хожд', 'sense:review_occurrence'),
+            structures_of('происходить'),
+        )
+        self.assertIn(
+            ('fam:хаж|ход|хож|хожд', 'sense:review_occurrence'),
+            structures_of('происходящий'),
+        )
+        self.assertIn(
+            ('fam:хаж|ход|хож|хожд', 'sense:review_outcome_origin'),
+            structures_of('происхождение'),
+        )
+        self.assertFalse(opens('происходить', 'происхождение'))
 
     def test_article_root_review_batch(self):
         from games.censorly.lexical.rootbank import assignment_of, structures_of
