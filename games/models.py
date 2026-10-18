@@ -20,16 +20,6 @@ from games.wall import Wall
 from allauth.socialaccount.models import SocialAccount
 
 
-def _schedule_actor_projection_after_commit(game_id, task_group_id, actor_ids):
-    """Invalidate a daily projection only after its source row committed."""
-    game = Game.objects.filter(pk=game_id, project_id='sections').first()
-    task_group = TaskGroup.objects.filter(pk=task_group_id).first()
-    if game is None or task_group is None:
-        return
-    from games.daily_result_projection import schedule_actor_projection
-    schedule_actor_projection(game, task_group, **actor_ids)
-
-
 class Project(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
 
@@ -1023,6 +1013,45 @@ class DailyResultProjectionDirtyActor(models.Model):
             fields=('game', 'task_group', 'source_revision'),
             name='games_drp_dirty_release_idx',
         )]
+
+
+class DailyResultProjectionRefreshOutbox(models.Model):
+    """Transactional wake-up for projection work, separate from its hot state row."""
+
+    STATUS_PENDING = 'pending'
+    STATUS_SENDING = 'sending'
+    STATUS_SENT = 'sent'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Ожидает отправки'),
+        (STATUS_SENDING, 'Отправляется'),
+        (STATUS_SENT, 'Отправлено'),
+    )
+
+    game = models.ForeignKey(
+        Game, related_name='daily_result_projection_outbox', on_delete=models.CASCADE,
+    )
+    task_group = models.ForeignKey(
+        TaskGroup, related_name='daily_result_projection_outbox', on_delete=models.CASCADE,
+    )
+    actor_type = models.CharField(max_length=8)
+    actor_key = models.CharField(max_length=160)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True)
+    attempts = models.PositiveIntegerField(default=0)
+    claim_token = models.UUIDField(blank=True, null=True)
+    claimed_until = models.DateTimeField(blank=True, null=True)
+    prepared_revision = models.PositiveBigIntegerField(blank=True, null=True)
+    next_attempt_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    last_error = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['status', 'next_attempt_at'], name='games_drpo_due_idx'),
+            models.Index(fields=['status', 'claimed_until'], name='games_drpo_claim_idx'),
+            models.Index(fields=['status', 'sent_at'], name='games_drpo_sent_idx'),
+        ]
 
 
 class DailyMonthlyResultProjectionState(models.Model):
@@ -2479,17 +2508,12 @@ class Attempt(models.Model):
                     pk=self.game_id, project_id='sections',
                 ).first()
                 if group_id and game is not None:
-                    actor_ids = {
-                        'team_id': self.team_id,
-                        'user_id': self.user_id,
-                        'anon_key': self.anon_key,
-                    }
-                    transaction.on_commit(
-                        lambda game_id=game.pk, group_id=group_id, actor_ids=actor_ids:
-                        _schedule_actor_projection_after_commit(
-                            game_id, group_id, actor_ids,
-                        ),
-                        robust=True,
+                    from games.daily.projection_outbox import enqueue_actor_projection_refresh
+                    enqueue_actor_projection_refresh(
+                        game, TaskGroup.objects.get(pk=group_id),
+                        team_id=self.team_id,
+                        user_id=self.user_id,
+                        anon_key=self.anon_key,
                     )
 
     def get_answer(self):
@@ -2852,18 +2876,13 @@ class HintAttempt(models.Model):
                     task_group_id=group_id, game__project_id='sections',
                 ).values_list('game_id', flat=True) if group_id else []
                 if task_group is not None:
-                    actor_ids = {
-                        'team_id': self.team_id,
-                        'user_id': self.user_id,
-                        'anon_key': self.anon_key,
-                    }
-                    for game_id in game_ids:
-                        transaction.on_commit(
-                            lambda game_id=game_id, group_id=group_id, actor_ids=actor_ids:
-                            _schedule_actor_projection_after_commit(
-                                game_id, group_id, actor_ids,
-                            ),
-                            robust=True,
+                    from games.daily.projection_outbox import enqueue_actor_projection_refresh
+                    for game in Game.objects.filter(pk__in=game_ids, project_id='sections'):
+                        enqueue_actor_projection_refresh(
+                            game, task_group,
+                            team_id=self.team_id,
+                            user_id=self.user_id,
+                            anon_key=self.anon_key,
                         )
 
     def __str__(self):

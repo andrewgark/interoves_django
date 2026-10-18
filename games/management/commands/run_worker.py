@@ -65,6 +65,21 @@ class Command(BaseCommand):
         signal.signal(signal.SIGTERM, request_stop)
         signal.signal(signal.SIGINT, request_stop)
         while True:
+            if config.worker.name == 'background':
+                try:
+                    from games.daily.projection_outbox import dispatch_actor_projection_outbox
+                    close_old_connections()
+                    dispatched = dispatch_actor_projection_outbox(limit=10)
+                    if dispatched['claimed']:
+                        self.stdout.write(
+                            'projection outbox sent={sent} failed={failed}.'.format(**dispatched),
+                        )
+                except Exception as exc:
+                    self.stderr.write(
+                        'projection outbox dispatch failed: {}: {}'.format(
+                            exc.__class__.__name__, exc,
+                        ),
+                    )
             if config.worker.name == 'recheck':
                 try:
                     from games.word_salad_outbox import dispatch_recheck_outbox

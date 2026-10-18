@@ -224,6 +224,7 @@ class DailyTimingDomainTests(TestCase):
         HTMLPage.objects.get_or_create(name='Правила турнирного режима', defaults={'html': ''})
         HTMLPage.objects.get_or_create(name='Правила тренировочного режима', defaults={'html': ''})
         CheckerType.objects.get_or_create(pk='equals')
+        CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
         cls.game = Game.objects.filter(id='ladder', project_id='sections').first()
         if cls.game is None:
             cls.game = Game.objects.create(
@@ -929,7 +930,7 @@ class DailyTimingDomainTests(TestCase):
             SimpleNamespace(time=t0),
             SimpleNamespace(time=t0 + timedelta(seconds=90)),
         ]
-        team = Team.objects.create(name='legacy-team')
+        team = Team.objects.create(name='legacy-team', project_id='sections')
         self.assertIsNone(
             canonical_elapsed_seconds(
                 game=self.game,

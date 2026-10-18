@@ -31,6 +31,7 @@ from games.models import (
     AnonAccountClaim, Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
     DailyResultProjectionState, DailyTaskResultProjection, Game, GameTaskGroup, HTMLPage, Project,
     ChainTaskState, Hint, HintAttempt, Profile, ReplaySlot, Task, TaskGroup, HiddenAnonKey,
+    DailyResultProjectionRefreshOutbox, CheckerType, Team,
 )
 from games.scoring import Actor, _bulk_actor_task_result_points_sql, bulk_actor_task_progress
 from games.word_salad import dump_state, score_for_state
@@ -39,7 +40,8 @@ from games.word_salad import dump_state, score_for_state
 class DailyResultProjectionTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        Project.objects.get_or_create(pk='sections', defaults={'name': 'Sections'})
+        Project.objects.get_or_create(pk='sections')
+        CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
         for name in ('Правила Десяточки', 'Правила турнирного режима', 'Правила тренировочного режима'):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
 
@@ -373,11 +375,14 @@ class DailyResultProjectionTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             attempt.points = 8
             attempt.save(update_fields=['points'])
+        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+        dispatch_actor_projection_outbox(limit=20)
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('8'))
         with self.captureOnCommitCallbacks(execute=True):
             HintAttempt.objects.create(
                 hint=hint, anon_key='mutable-actor', is_real_request=True,
             )
+        dispatch_actor_projection_outbox(limit=20)
         state = DailyResultProjectionState.objects.get(
             game=self.game, task_group=self.group,
         )
@@ -436,6 +441,93 @@ class DailyResultProjectionTests(TestCase):
             except RuntimeError:
                 pass
         self.assertFalse(DailyResultProjection.objects.exists())
+
+    def test_attempt_projection_wakeup_is_transactional_without_locking_projection_state(self):
+        from games.models import DailyResultProjectionState
+
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        state = DailyResultProjectionState.objects.create(
+            game=self.game, task_group=self.group, source_revision=4,
+            coverage_complete=True, is_valid=True, full_refresh_required=False,
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='outbox-actor',
+            text='answer', status='Ok', points=7,
+        )
+        outbox = DailyResultProjectionRefreshOutbox.objects.get(
+            game=self.game, task_group=self.group,
+        )
+        self.assertEqual((outbox.actor_type, outbox.actor_key), ('anon', 'outbox-actor'))
+        state.refresh_from_db()
+        self.assertEqual(state.source_revision, 4)
+        self.assertTrue(state.is_valid)
+
+        with self.assertRaisesRegex(RuntimeError, 'rollback source write'):
+            with transaction.atomic():
+                Attempt.manager.create(
+                    task=task, game=self.game, anon_key='rolled-back-outbox',
+                    text='another answer', status='Wrong', points=0,
+                )
+                raise RuntimeError('rollback source write')
+        self.assertFalse(DailyResultProjectionRefreshOutbox.objects.filter(
+            actor_key='rolled-back-outbox',
+        ).exists())
+
+    @patch.dict(os.environ, {'PROJECTION_REFRESH_EVENTS': '1'})
+    @patch('games.projection_events.publish_projection_refresh', side_effect=[False, True])
+    def test_projection_outbox_retries_publish_without_advancing_revision_twice(self, publish):
+        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+
+        state = DailyResultProjectionState.objects.create(
+            game=self.game, task_group=self.group, source_revision=3,
+            coverage_complete=True, is_valid=True, full_refresh_required=False,
+        )
+        outbox = DailyResultProjectionRefreshOutbox.objects.create(
+            game=self.game, task_group=self.group,
+            actor_type='anon', actor_key='retry-outbox-actor',
+        )
+
+        first = dispatch_actor_projection_outbox(limit=1)
+        self.assertEqual(first, {'claimed': 1, 'sent': 0, 'failed': 1})
+        outbox.refresh_from_db()
+        state.refresh_from_db()
+        self.assertEqual(outbox.status, DailyResultProjectionRefreshOutbox.STATUS_PENDING)
+        self.assertEqual(outbox.prepared_revision, 4)
+        self.assertEqual(state.source_revision, 4)
+        self.assertFalse(state.is_valid)
+
+        DailyResultProjectionRefreshOutbox.objects.filter(pk=outbox.pk).update(
+            next_attempt_at=timezone.now() - timedelta(seconds=1),
+        )
+        second = dispatch_actor_projection_outbox(limit=1)
+        self.assertEqual(second, {'claimed': 1, 'sent': 1, 'failed': 0})
+        outbox.refresh_from_db()
+        state.refresh_from_db()
+        self.assertEqual(outbox.status, DailyResultProjectionRefreshOutbox.STATUS_SENT)
+        self.assertEqual(state.source_revision, 4)
+        self.assertEqual(publish.call_count, 2)
+
+    def test_projection_outbox_keeps_string_team_primary_key(self):
+        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+
+        team = Team.objects.create(name='projection-team-actor', project_id='sections')
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, team=team,
+            text='answer', status='Ok', points=7,
+        )
+
+        result = dispatch_actor_projection_outbox(limit=10)
+
+        self.assertEqual(result['sent'], 1)
+        projection = DailyResultProjection.objects.get(game=self.game, task_group=self.group)
+        self.assertEqual(projection.team_id, team.pk)
 
     @patch.dict(os.environ, {
         'PROJECTION_REFRESH_EVENTS': '1',
@@ -673,8 +765,9 @@ class DailyResultProjectionTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             Attempt.manager.create(task=task, game=self.game, anon_key='reconcile-a', text='answer', status='Ok', points=7)
             Attempt.manager.create(task=task, game=self.game, anon_key='reconcile-b', text='answer', status='Ok', points=8)
-        # The model hook now refreshes asynchronously after commit; this test
-        # builds an intentionally mismatched projection by hand.
+        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+        dispatch_actor_projection_outbox(limit=20)
+        # Build an intentionally mismatched projection after processing its wake-ups.
         DailyResultProjection.objects.all().delete()
         DailyResultProjection.objects.create(
             game=self.game, task_group=self.group, actor_type='anon',
@@ -748,7 +841,8 @@ class DailyResultProjectionTests(TestCase):
 class ProjectionAggregatePerformanceTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        Project.objects.get_or_create(pk='sections', defaults={'name': 'Sections'})
+        Project.objects.get_or_create(pk='sections')
+        CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
         for name in ('Правила Десяточки', 'Правила турнирного режима', 'Правила тренировочного режима'):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
 

@@ -889,7 +889,7 @@ def _refresh_dirty_actors(game_id, group_id):
     ).values('actor_type', 'actor_key', 'source_revision'))
     for row in rows:
         actor_filter = {
-            'team_id': int(row['actor_key']) if row['actor_type'] == 'team' else None,
+            'team_id': row['actor_key'] if row['actor_type'] == 'team' else None,
             'user_id': int(row['actor_key']) if row['actor_type'] == 'user' else None,
             'anon_key': row['actor_key'] if row['actor_type'] == 'anon' else None,
         }

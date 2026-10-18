@@ -1068,16 +1068,11 @@ def _apply_timing_event_once(
         client_occurred_at=client_occurred_at,
     )
     if created_timing_row and replay_slot is None and getattr(game, 'project_id', None) == 'sections':
-        from games.daily_result_projection import schedule_actor_projection
-        # Keep the hot timing transaction limited to DailySolveTiming.  The
-        # projection state has its own writer (the projection worker); touching
-        # it here creates a cross-table lock cycle with a refresh in progress.
-        # Register the invalidation only after the timing row commits.
-        transaction.on_commit(
-            lambda game=game, task_group=task_group, team=team, user=user, anon_key=anon_key:
-            schedule_actor_projection(
-                game, task_group, team=team, user=user, anon_key=anon_key,
-            )
+        from games.daily.projection_outbox import enqueue_actor_projection_refresh
+        # Persist the wake-up with the timing row, but leave the projection
+        # state lock to the background dispatcher to avoid a lock cycle.
+        enqueue_actor_projection_refresh(
+            game, task_group, team=team, user=user, anon_key=anon_key,
         )
     return snapshot(row, now=now, session_id=session_id)
 
