@@ -264,7 +264,9 @@ def process_send_raddle_assist(request, task_id):
     if unpublished is not None:
         return unpublished
     from games.club_access import user_can_access_task_archive
-    if not user_can_access_task_archive(request.user, game, task):
+    if not user_can_access_task_archive(
+        request.user, game, task, offer_share=request.POST.get('offer_share'),
+    ):
         raise NoGameAccessException('Club subscription required for archived game')
 
     team, user, anon_key, err = _actor_from_request(request, game)
@@ -445,7 +447,9 @@ def process_send_raddle_ui(request, task_id):
     if unpublished is not None:
         return unpublished
     from games.club_access import user_can_access_task_archive
-    if not user_can_access_task_archive(request.user, game, task):
+    if not user_can_access_task_archive(
+        request.user, game, task, offer_share=request.POST.get('offer_share'),
+    ):
         raise NoGameAccessException('Club subscription required for archived game')
 
     team, user, anon_key, err = _actor_from_request(request, game)

@@ -106,7 +106,9 @@ def process_send_hint_attempt(request, task_id):
     if unpublished is not None:
         return unpublished
     from games.club_access import user_can_access_task_archive
-    if not user_can_access_task_archive(request.user, game, task):
+    if not user_can_access_task_archive(
+        request.user, game, task, offer_share=request.POST.get('offer_share'),
+    ):
         raise NoGameAccessException('Club subscription required for archived game')
     play_mode = _get_play_mode(request, game)
 

@@ -236,9 +236,23 @@ def club_archive_number_for_task(game, task):
     return str(link.number)
 
 
-def user_can_access_task_archive(user, game, task, *, now=None) -> bool:
+def user_can_access_task_archive(user, game, task, *, now=None, offer_share=None) -> bool:
     if desyatka_requires_club(game):
         return user_can_access_desyatka(user, game, now=now)
+    # A public custom offer keeps its share URL even after it is assigned an
+    # old daily number. The token must belong to this exact task group.
+    if offer_share and game is not None and task is not None:
+        getter = None
+        if game.id == 'ladder':
+            from games.ladder_offer import get_offer_by_share_hash
+            getter = get_offer_by_share_hash
+        elif game.id == WORD_SALAD_GAME_ID:
+            from games.word_salad_offer import get_offer_by_share_hash
+            getter = get_offer_by_share_hash
+        if getter is not None:
+            offer = getter(offer_share)
+            if offer is not None and offer.task_group_id == task.task_group_id:
+                return True
     number = club_archive_number_for_task(game, task)
     if number is None:
         return True

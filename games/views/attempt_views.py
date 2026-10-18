@@ -517,7 +517,9 @@ def process_send_attempt(request, task_id):
 
     from games.club_access import user_can_access_task_archive
 
-    if not user_can_access_task_archive(request.user, game, task):
+    if not user_can_access_task_archive(
+        request.user, game, task, offer_share=request.POST.get('offer_share'),
+    ):
         raise NoGameAccessException('Club subscription required for archived game')
 
     context_error = validate_gameplay_context(

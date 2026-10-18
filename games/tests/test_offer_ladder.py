@@ -3,7 +3,7 @@
 import json
 
 from django.contrib.auth.models import Group, User
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from games.analytics import game_instance_id_for_task_group
@@ -440,6 +440,45 @@ class LadderOfferFlowTests(TestCase):
         data = resp.json()
         self.assertNotEqual(data.get('status'), 'ambiguous_game')
         self.assertNotEqual(data.get('status'), 'no_access')
+
+    @override_settings(CLUB_ARCHIVE_GATING_ENABLED=True)
+    def test_other_player_can_solve_archived_accepted_offer_by_hash(self):
+        self.game.tags = {
+            **(self.game.tags or {}),
+            LADDER_PUBLISH_START_TAG: '2020-01-01T00:00:00+03:00',
+        }
+        self.game.save(update_fields=['tags'])
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='Анна')
+        send_offer(offer)
+        accept_offer(offer, at_number=1)
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        client = Client()
+        client.force_login(self.other)
+        self.assertEqual(client.get(offer.play_url()).status_code, 200)
+
+        payload = {'game_id': LADDER_GAME_ID, 'word_index': '1', 'word': 'РОТ'}
+        url = '/send_attempt/{}/'.format(task.pk)
+        self.assertEqual(client.post(url, payload).json()['status'], 'no_access')
+        self.assertEqual(
+            client.post(url, dict(payload, offer_share='0' * 16)).json()['status'],
+            'no_access',
+        )
+        other_offer = create_offer(self.user)
+        self.assertEqual(
+            client.post(url, dict(payload, offer_share=other_offer.share_hash)).json()['status'],
+            'no_access',
+        )
+        ui_url = '/send_raddle_ui/{}/'.format(task.pk)
+        ui_payload = {'game_id': LADDER_GAME_ID, 'drafts': json.dumps({'1': 'РО'})}
+        self.assertEqual(client.post(ui_url, ui_payload).json()['status'], 'no_access')
+        self.assertEqual(
+            client.post(ui_url, dict(ui_payload, offer_share=offer.share_hash)).json()['status'],
+            'ok',
+        )
+        result = client.post(url, dict(payload, offer_share=offer.share_hash)).json()
+        self.assertEqual(result['status'], 'ok')
+        self.assertTrue(Attempt.manager.filter(task=task, user=self.other).exists())
 
     def test_delete_accepted_slot_keeps_offer_task(self):
         from games.support.services.ladders import delete_ladder
