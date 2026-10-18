@@ -63,6 +63,33 @@ wall, mode-isolation, and chain-recheck tests passed. The dedicated tests
 assert that task-instance history uses one query without a task join and
 that reading `attempt.task` does not cause additional queries.
 
-Production rollout and observation are required before declaring the incident
-resolved. Check replacement events, ELB 5xx, host memory/EBS reads, and
-absence of the amplified history query after rollout.
+## Production verification
+
+Released commit `cf443724` as
+`app-green-cf443724-20261018110923` through `./deploy.sh --deploy` after user
+approval. EB completed the update at 11:23:23; the release script completed
+after the Green health wait, all 34 page smoke checks, and refresh-gate
+cleanup. Both retained instances run this version and report `Ok`;
+the public version endpoint reports `cf443724` with `deploying: false`.
+
+At 11:17, a read-only check on the first updated production instance loaded
+the same 117-attempt history in one query without a task join: 16.0 ms,
+with 0.77 MiB increase in process peak RSS. All returned attempts shared
+the supplied task object. The measurement excludes loading that one task
+before the history query, which is also how the normal caller uses it.
+
+At 11:22 both updated hosts answered local health checks with 200 and had
+approximately 760 MiB and 1,056 MiB of available RAM. The last old instance
+was intentionally terminated as excess deployment capacity, not as another
+health-failure replacement.
+
+The initial postdeployment observation is short. Continued absence of the
+replacement loop under normal traffic is needed for longer-term confidence;
+the query amplification itself has been verified as removed in production.
+
+At 11:28:29, EB remained `Ready/Green` with both instances `Ok`, and there
+were no new Auto Scaling activities since 11:24. CloudWatch had published
+355 requests for minute buckets 11:24–11:27 and no ELB- or target-generated
+5xx in the postdeployment window. The public health endpoint returned 200
+in 0.111 seconds. These are initial observations, not a guarantee against
+unrelated future failures.
