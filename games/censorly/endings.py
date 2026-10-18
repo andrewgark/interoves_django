@@ -37,6 +37,13 @@ from games.matcher.norm_matcher import MORPH_ANALYZER
 
 _MIN_STEM = 2
 
+# Exact normalized word forms → reviewed endings; '' means a zero ending.
+# Keep these separate from lemma/matching overrides: only the mask is affected.
+_ENDING_OVERRIDES: dict[str, str] = {
+    # pymorphy predicts «нотрдать» by analogy with «дам».
+    'нотрдам': '',
+}
+
 # (number, case) → overt endings, longest match wins.
 _NOUN_ENDINGS: dict[tuple[str, str], tuple[str, ...]] = {
     ('sing', 'nomn'): ('а', 'я', 'о', 'е'),
@@ -272,13 +279,17 @@ def grammatical_split(word: str) -> tuple[str, str]:
     word minus that tail. A zero ending is ``(word, '')``. This does not
     apply the censorly hint-length filter.
 
-    Only the highest-scoring pymorphy reading is used. If several inflected
-    readings share that score, the longer tail wins (мышью → ью, not ю).
+    Reviewed exact-form overrides take precedence over pymorphy readings.
+    Otherwise, only the highest-scoring pymorphy reading is used. If several
+    inflected readings share that score, the longer tail wins (мышью → ью, not ю).
     A tied indeclinable reading (particle, adverb, preposition) keeps the
     first parse, so «это» and «ночью» stay unsplit.
     """
     if not word:
         return '', ''
+    if word in _ENDING_OVERRIDES:
+        ending = _ENDING_OVERRIDES[word]
+        return (word[:-len(ending)], ending) if ending else (word, '')
     try:
         parses = MORPH_ANALYZER.parse(word)
     except Exception:

@@ -726,6 +726,20 @@ class WikipediaArticleEndingTests(SimpleTestCase):
 
 
 class GrammaticalEndingTests(SimpleTestCase):
+    def test_notrdam_override_only_changes_the_exact_word_form(self):
+        self.assertEqual(grammatical_split('нотрдам'), ('нотрдам', ''))
+        cases = {
+            'Нотрдам': ('нотрдам', ''),
+            'НОТРДАМ': ('нотрдам', ''),
+            'Нотрдама': ('нотрдам', 'а'),
+            'Нотрдамом': ('нотрдам', 'ом'),
+            'дам': ('да', 'м'),
+            'досоздам': ('досозда', 'м'),
+        }
+        for word, expected in cases.items():
+            with self.subTest(word=word):
+                self.assertEqual(split_stem_ending(word), expected)
+
     def test_golden_corpus_is_large_enough(self):
         self.assertGreaterEqual(len(GOLDEN), 150)
         surfaces = [normalize_surface(word) for word, _stem, _ending in GOLDEN]
