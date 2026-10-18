@@ -133,3 +133,17 @@ it finds a usable example link. It excludes task JSON, checker text, attempt
 text, and attempt state. Existing counting, solved-task exclusion, example
 ordering, and legacy game resolution are retained. Regression coverage also
 checks a missing example link followed by a usable one.
+
+At 15:12:41 a temporary low-memory observer captured a live recurrence on
+`i-0b1200be5f3bd7f56`: Daphne RSS was 1,349,824 KiB and available host memory
+was 85 MiB. `py-spy` showed an active worker in `json.decoder.raw_decode`,
+called by Django `JSONField.from_db_value`, queryset materialization, and
+`new_anon_migrate_count` at `new_ui.py:4667`. This directly identifies the
+counter's JSON decoding at the memory spike; it was not the identity worker.
+
+The deployment preflight also selected this host after it had become
+unresponsive. `eb_run.sh` now prefers an EB instance with health `Ok`, with
+the existing running-instance selection retained for diagnosis when no healthy
+host is available. Shell syntax and a live health read on the selected healthy
+host were checked. The counter and related identity/history suites passed
+66 tests.

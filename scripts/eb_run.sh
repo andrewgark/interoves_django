@@ -54,10 +54,19 @@ if [[ $# -eq 0 ]]; then
 fi
 
 # ---- Resolve instance -------------------------------------------------------
-INSTANCE_ID=$(aws ec2 describe-instances --region "$REGION" \
-    --filters "Name=tag:elasticbeanstalk:environment-name,Values=${ENV_NAME}" \
-              "Name=instance-state-name,Values=running" \
-    --query 'Reservations[].Instances[].InstanceId | [0]' --output text)
+# Prefer a serving host during replacements and rolling deployments. A running
+# EC2 instance can still be bootstrapping or unresponsive to management access.
+INSTANCE_ID=$(aws elasticbeanstalk describe-instances-health --region "$REGION" \
+    --environment-name "$ENV_NAME" --attribute-names HealthStatus \
+    --query 'InstanceHealthList[?HealthStatus==`Ok`].InstanceId | [0]' \
+    --output text 2>/dev/null) || INSTANCE_ID=""
+if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "None" ]]; then
+    # Retain access for diagnosis when EB has no healthy host or enhanced health.
+    INSTANCE_ID=$(aws ec2 describe-instances --region "$REGION" \
+        --filters "Name=tag:elasticbeanstalk:environment-name,Values=${ENV_NAME}" \
+                  "Name=instance-state-name,Values=running" \
+        --query 'Reservations[].Instances[].InstanceId | [0]' --output text)
+fi
 if [[ -z "$INSTANCE_ID" || "$INSTANCE_ID" == "None" ]]; then
     echo "No running instance found for EB environment ${ENV_NAME}" >&2
     exit 1
