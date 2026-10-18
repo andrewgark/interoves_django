@@ -1485,6 +1485,56 @@ class DailyTimingApiTests(TestCase):
         )
 
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    def test_ordinary_game_timer_uses_the_page_team_actor(self, _club):
+        from games.gameplay_context import issue_gameplay_context
+
+        Project.objects.get_or_create(pk='main')
+        game = Game.objects.create(
+            id='des174_test', name='Timing probe', author='t', project_id='main',
+            is_ready=True, rules=None, tournament_rules=None, general_rules=None,
+        )
+        GameTaskGroup.objects.create(game=game, task_group=self.tg, number='1')
+        team = Team.objects.create(name='ordinary-timing-team', project_id='main')
+        user = User.objects.create_user('ordinary_timing_player')
+        client = self._team_client(user, team)
+        session = client.session
+        session['play_mode_main'] = 'team'
+        session.save()
+        token = issue_gameplay_context(game=game, task_group=self.tg, team=team)
+        url = '/games/des174_test/1/timing/'
+        sid = str(uuid4())
+
+        # Like a tournament page: team play is allowed, personal play is not.
+        def team_access(access, **kwargs):
+            return access == 'play' and kwargs.get('team') == team
+
+        with patch('games.models.Game.has_access', side_effect=team_access):
+            response = client.get(url)
+            self.assertEqual(response.status_code, 200, response.content)
+            for seq, action in enumerate((ACTION_START, ACTION_HEARTBEAT, ACTION_PAUSE), 1):
+                response = client.post(
+                    url,
+                    data=json.dumps({
+                        'action': action, 'session_id': sid,
+                        'event_id': 'ordinary-team-{}'.format(seq), 'seq': seq,
+                        'user_id': user.pk, 'team_id': 'forged-team',
+                    }),
+                    content_type='application/json',
+                    HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=token,
+                )
+                self.assertEqual(response.status_code, 200, response.content)
+                self.assertTrue(response.json()['ok'])
+
+        row = DailySolveTiming.objects.get(game=game, task_group=self.tg)
+        self.assertEqual(row.team, team)
+        self.assertIsNone(row.user_id)
+        self.assertEqual(row.status, DailySolveTiming.STATUS_MANUALLY_PAUSED)
+        with patch('games.models.Game.has_access', return_value=False):
+            denied = client.get(url)
+        self.assertEqual(denied.status_code, 403)
+        self.assertEqual(denied.json()['error'], 'team_access_required')
+
+    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_team_api_uses_server_resolved_shared_actor(self, _access, _pub, _club):

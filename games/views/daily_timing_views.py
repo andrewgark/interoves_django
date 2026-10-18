@@ -97,7 +97,11 @@ def _resolve_actor(request, game):
         from games.views.new_ui import _get_play_mode
         play_mode, _ = _get_play_mode(request, game.project_id)
         play_mode = effective_play_mode(play_mode, game, user=request.user)
-        if play_mode == 'team' and is_daily_team_timing_game(game.id):
+        # Ordinary game pages (including Desyatka) also solve as a team.
+        # The section allowlist only applies to section-specific play UIs.
+        if play_mode == 'team' and (
+            game.project_id != 'sections' or is_daily_team_timing_game(game.id)
+        ):
             if not has_team(request.user):
                 return None, None, None
             return request.user.profile.team_on, None, None
