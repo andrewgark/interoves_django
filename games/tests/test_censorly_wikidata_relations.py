@@ -12,12 +12,8 @@ WIKIDATA_GEOGRAPHIC_PAIRS = (
     ('великобритания', 'британка'),
     ('бразилия', 'бразилец'),
     ('бразилия', 'бразильянка'),
-    ('россия', 'россиянин'),
-    ('россия', 'россиянка'),
     ('канада', 'канадец'),
     ('канада', 'канадка'),
-    ('германия', 'немец'),
-    ('германия', 'немка'),
     ('беларусь', 'белорус'),
     ('беларусь', 'белоруска'),
     ('исландия', 'исландец'),
@@ -51,7 +47,7 @@ class WikidataGeographicRelationTests(SimpleTestCase):
         from games.censorly.lexical.proper_names import PAIR_RELATIONS
 
         relations = set(PAIR_RELATIONS)
-        self.assertEqual(len(WIKIDATA_GEOGRAPHIC_PAIRS), 37)
+        self.assertEqual(len(WIKIDATA_GEOGRAPHIC_PAIRS), 33)
         for left, right in WIKIDATA_GEOGRAPHIC_PAIRS:
             with self.subTest(left=left, right=right):
                 self.assertIn((left, right), relations)
@@ -77,8 +73,6 @@ class WikidataGeographicRelationTests(SimpleTestCase):
 
     def test_supported_inflected_forms_remain_bidirectional(self):
         cases = (
-            ('России', 'россиянином'),
-            ('Германии', 'немкой'),
             ('Канады', 'канадкой'),
             ('Великобритании', 'британкой'),
             ('Баку', 'бакинцем'),
@@ -110,6 +104,81 @@ class WikidataGeographicRelationTests(SimpleTestCase):
                     with self.subTest(source=source, left=left, right=right):
                         self.assertTrue(opens(left, right))
                         self.assertTrue(opens(right, left))
+
+    def test_germany_and_german_words_share_root_and_sense(self):
+        from games.censorly.lexical.proper_names import PAIR_RELATIONS
+        from games.censorly.lexical.rootbank import structures_of
+
+        family = (('fam:нем', 'sense:german'),)
+        for lemma in (
+            'германия', 'германский', 'германец', 'германка',
+            'германизация', 'германизм', 'германист', 'германистика',
+            'германизировать', 'германизироваться', 'германизированный',
+            'немец', 'немецкий', 'немка', 'онемечивание',
+        ):
+            with self.subTest(lemma=lemma):
+                self.assertEqual(structures_of(lemma), family)
+
+        for country, related in (
+            ('Германия', 'германская'),
+            ('Германия', 'немцы'),
+            ('Германии', 'немкой'),
+            ('Германия', 'немецкая'),
+            ('германизации', 'немцев'),
+        ):
+            with self.subTest(country=country, related=related):
+                self.assertEqual(explain(country, related), 'root')
+                self.assertEqual(explain(related, country), 'root')
+
+        for word in ('немой', 'неметь', 'немота'):
+            with self.subTest(word=word):
+                self.assertFalse(opens('Германия', word))
+                self.assertFalse(opens(word, 'Германия'))
+
+        for pair in (
+            ('германия', 'германский'),
+            ('германия', 'немец'),
+            ('германия', 'немка'),
+        ):
+            self.assertNotIn(pair, PAIR_RELATIONS)
+
+    def test_russia_and_russian_words_share_root_and_sense(self):
+        from games.censorly.lexical.proper_names import PAIR_RELATIONS
+        from games.censorly.lexical.rootbank import structures_of
+
+        family = (('fam:рус²', 'sense:russian'),)
+        for lemma in (
+            'россия', 'российский', 'россиянин', 'россиянка',
+            'русь', 'русский',
+            'обрусеть', 'русин', 'русизм',
+        ):
+            with self.subTest(lemma=lemma):
+                self.assertEqual(structures_of(lemma), family)
+
+        for left, right in (
+            ('Россия', 'русский'),
+            ('России', 'русские'),
+            ('России', 'россиянином'),
+            ('русский', 'россиянка'),
+            ('российский', 'обрусеть'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertEqual(explain(left, right), 'root')
+                self.assertEqual(explain(right, left), 'root')
+
+        for word in ('русый', 'русачий', 'русалка'):
+            with self.subTest(word=word):
+                self.assertFalse(opens('Россия', word))
+                self.assertFalse(opens(word, 'Россия'))
+
+        for pair in (
+            ('россия', 'русский'),
+            ('российский', 'русский'),
+            ('русь', 'русский'),
+            ('россия', 'россиянин'),
+            ('россия', 'россиянка'),
+        ):
+            self.assertNotIn(pair, PAIR_RELATIONS)
 
     def test_new_derivatives_do_not_intersect_clusters(self):
         from games.censorly.lexical.proper_names import CLUSTERS

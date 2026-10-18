@@ -3615,7 +3615,7 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'занемелый', 'занеметь', 'неметь', 'немой', 'немота', 'немотствовать',
         'онемевать', 'онемелость', 'онемелый', 'онемение', 'онеметь',
     )),
-    ('sense:german_ethnonym', (
+    ('sense:german', (
         'неметчина', 'немец', 'немецкий', 'немка', 'немчура', 'онемечение',
         'онемечивание', 'онемечивать', 'онемечиваться', 'онемечить', 'онемечиться',
     )),
@@ -5820,7 +5820,7 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
         'занемелый', 'занеметь', 'неметь', 'немой', 'немота', 'немотствовать',
         'онемевать', 'онемелость', 'онемелый', 'онемение', 'онеметь',
     )),
-    ('sense:german_ethnonym', (
+    ('sense:german', (
         'неметчина', 'немец', 'немецкий', 'немка', 'немчура', 'онемечение',
         'онемечивание', 'онемечивать', 'онемечиваться', 'онемечить', 'онемечиться',
     )),
@@ -6817,6 +6817,24 @@ CLUSTERS = tuple(
 # have no Kuznetsova/Tikhonov root at all.  These are deliberately per-lemma
 # assignments: a sense name is never used as an implicit root fallback.
 SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
+    # Country names and герман- derivatives join the reviewed national
+    # families. Their sense keeps немой apart from German words.
+    'германия': (('fam:нем',),),
+    'германский': (('fam:нем',),),
+    'германец': (('fam:нем',),),
+    'германка': (('fam:нем',),),
+    'германизация': (('fam:нем',),),
+    'германизм': (('fam:нем',),),
+    'германист': (('fam:нем',),),
+    'германистика': (('fam:нем',),),
+    'германизировать': (('fam:нем',),),
+    'германизироваться': (('fam:нем',),),
+    'германизированный': (('fam:нем',),),
+    'россия': (('fam:рус²',),),
+    'российский': (('fam:рус²',),),
+    'россиянин': (('fam:рус²',),),
+    'россиянка': (('fam:рус²',),),
+    'русь': (('fam:рус²',),),
     'приблизительно': (('root:приблиз',),),
     'требуемый': (('root:треб',),),
     'это': (('root:эт',),),
@@ -6841,7 +6859,7 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
     'троянский': (('root:proper_troy',),),
     'старостин': (('root:старост',),),
     'электрически': (('tikh:электр',),),
-    'онемечивание': (('root:немец',),),
+    'онемечивание': (('fam:нем',),),
     # These lemmas are absent from both source root dictionaries but belong
     # to an already reviewed semantic family.  Keep the assignment explicit;
     # the sense label itself is never used as their root.

@@ -1,10 +1,10 @@
 """Popular proper-name stems missing from Kuznetsova, with obvious cognates.
 
-These are not dictionary-family cuts. Each cluster is a synthetic game root
-so the place/person opens its adjective and demonym (рим → римской).
+These clusters supply a sense for place/person families. Rootbank gives each
+lemma a real or reviewed game root (рим → римской).
 
-Do not list lemmas that already have a real Kuznetsova family (немец, русский,
-грек, земля, …): overriding them would detach the common-word nest.
+Existing Kuznetsova families normally keep their own roots. The reviewed
+Russian family below shares a sense with Россия while retaining fam:рус².
 """
 
 from __future__ import annotations
@@ -104,9 +104,12 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:france', (
         'франция', 'французский', 'француз', 'француженка',
     )),
-    # немец / немецкий stay on fam:нем
-    ('sense:germany', (
-        'германия', 'германский',
+    # The German and нем- branches share fam:нем with a German sense;
+    # sense:mute remains separate on the same dictionary root.
+    ('sense:german', (
+        'германия', 'германский', 'германец', 'германка',
+        'германизация', 'германизм', 'германист', 'германистика',
+        'германизировать', 'германизироваться', 'германизированный',
     )),
     ('sense:england', (
         'англия', 'английский', 'англичанин', 'англичанка',
@@ -129,9 +132,14 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:america', (
         'америка', 'американский', 'американец', 'американка',
     )),
-    # русский stays on fam:рус²
-    ('sense:russia', (
-        'россия', 'российский', 'русь',
+    # Only the human/national fam:рус² joins Россия; русый and the
+    # rabbit reading of русак remain on fam:рус¹.
+    ('sense:russian', (
+        'россия', 'российский', 'россиянин', 'россиянка',
+        'русь', 'русский',
+        'обруселый', 'обрусение', 'обрусеть', 'обруситель',
+        'обрусительный', 'обрусить', 'русачка', 'русизм',
+        'русин', 'русинка', 'русинский', 'русист', 'русистский',
     )),
     ('sense:europe', (
         'европа', 'европейский', 'европеец', 'европейка',
@@ -188,18 +196,8 @@ PAIR_RELATIONS: tuple[tuple[str, str], ...] = (
     ('великобритания', 'британка'),
     ('бразилия', 'бразилец'),
     ('бразилия', 'бразильянка'),
-    ('россия', 'россиянин'),
-    ('россия', 'россиянка'),
-    # Bridge the Russian adjective without merging its broad fam:рус² root.
-    # Keep both links explicit because российский belongs to sense:russia,
-    # outside the PAIR_RELATIONS component graph.
-    ('россия', 'русский'),
-    ('российский', 'русский'),
-    ('русь', 'русский'),
     ('канада', 'канадец'),
     ('канада', 'канадка'),
-    ('германия', 'немец'),
-    ('германия', 'немка'),
     ('беларусь', 'белорус'),
     ('беларусь', 'белоруска'),
     ('исландия', 'исландец'),
