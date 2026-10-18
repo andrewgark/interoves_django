@@ -18,6 +18,7 @@ from games.censorly.lexical.core import fold
 from games.censorly.lexical.dispatcher import RUSSIAN, backend_name
 from games.censorly.lexical.proper_names import PAIR_RELATIONS
 from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
+from games.censorly.lexical.semantic_splits import SENSE_COMPATIBLE
 from games.censorly.lexical.russian.reading_overrides import is_rejected
 
 # Function words open before a player has guessed anything. Interjections
@@ -238,7 +239,7 @@ def opens(guess: str, target: str, *, article_language: str = 'ru') -> bool:
 
 
 def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
-    """``exact``, ``lexeme``, ``grammar``, ``alias``, ``proper``, ``root`` or ``''``."""
+    """Return the winning relation layer for a pair of surfaces."""
     left = fold(guess)
     right = fold(target)
     if not left or not right:
@@ -292,8 +293,12 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
             return ''
     if guess_lexemes & target_lexemes:
         return 'lexeme'
-    if _roots(guess_reads, guess) & _roots(target_root_reads, target):
+    guess_roots = _roots(guess_reads, guess)
+    target_roots = _roots(target_root_reads, target)
+    if guess_roots & target_roots:
         return 'root'
+    if _root_sense_compatible(guess_roots, target_roots):
+        return 'root_sense_compatible'
     if _grammar(guess_reads, target_reads):
         return 'grammar'
     return ''
@@ -481,6 +486,32 @@ def _roots(
     if hyphen:
         keys.update(hyphen)
     return keys
+
+
+def _root_sense_compatible(guess_structures, target_structures) -> bool:
+    """Allow only explicitly reviewed sense compatibility within one root."""
+    for guess_structure in guess_structures:
+        guess_root = {
+            part for part in guess_structure if not part.startswith('sense:')
+        }
+        guess_sense = {
+            part for part in guess_structure if part.startswith('sense:')
+        }
+        if not guess_root or not guess_sense:
+            continue
+        for target_structure in target_structures:
+            target_root = {
+                part for part in target_structure if not part.startswith('sense:')
+            }
+            target_sense = {
+                part for part in target_structure if part.startswith('sense:')
+            }
+            if (
+                guess_root == target_root
+                and frozenset(guess_sense | target_sense) in SENSE_COMPATIBLE
+            ):
+                return True
+    return False
 
 
 def _reviewed_derived_lemma(surface: str) -> str:

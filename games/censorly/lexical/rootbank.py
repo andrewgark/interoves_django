@@ -6,12 +6,12 @@ does not match ``один``. A word never stores a partial component list:
 if one required component has no authorized reading, the whole structure
 is unresolved and cannot match by an empty root.
 
-Every component is authorized the same way. An explicit one-root sense, or
-Kuznetsova membership of this lemma, is authoritative. A spelling that maps
-to exactly one game root is a fallback when the lemma has no conflicting
-evidence. A spelling that maps to several game roots authorizes none of them.
-A sense label on a multi-root lemma is not a root key unless that lemma is
-in the curated atomic list.
+Every component is authorized the same way. Kuznetsova membership is the
+default root evidence; reviewed explicit root assignments cover dictionary
+gaps. A spelling that maps to exactly one game root is a fallback when the
+lemma has no conflicting evidence. A spelling that maps to several game roots
+authorizes none of them. ``sense:*`` is always metadata appended to a
+complete root structure and is never a root by itself.
 """
 
 from __future__ import annotations
@@ -90,7 +90,11 @@ def _load_reviewed_assignments():
             if not lemma or not raw_structure:
                 raise RuntimeError(f'empty reviewed derived assignment in {_REVIEWED_DERIVED}')
             parts = tuple(sorted(item.strip() for item in raw_structure.split('+')))
-            if not parts or any(not _ROOT_ID_RE.fullmatch(item) for item in parts):
+            if (
+                not parts
+                or any(not _ROOT_ID_RE.fullmatch(item) for item in parts)
+                or any(item.startswith('sense:') for item in parts)
+            ):
                 raise RuntimeError(f'invalid reviewed root structure {raw_structure!r} for {lemma}')
             structure = tuple(parts)
             existing = derived.setdefault(lemma, [])
@@ -108,7 +112,11 @@ def _load_reviewed_assignments():
             if not lemma or not raw_structure:
                 raise RuntimeError(f'empty reviewed existing assignment in {lemma!r}')
             parts = tuple(sorted(item.strip() for item in raw_structure.split('+')))
-            if not parts or any(not _ROOT_ID_RE.fullmatch(item) for item in parts):
+            if (
+                not parts
+                or any(not _ROOT_ID_RE.fullmatch(item) for item in parts)
+                or any(item.startswith('sense:') for item in parts)
+            ):
                 raise RuntimeError(f'invalid reviewed existing structure {raw_structure!r} for {lemma}')
             structure = tuple(parts)
             previous = existing.get(lemma)
@@ -128,6 +136,22 @@ REVIEWED_OPAQUE_ROOTS, REVIEWED_DERIVED_ROOTS, REVIEWED_EXISTING_ROOTS = _load_r
 def structures_of(lemma: str) -> tuple[tuple[str, ...], ...]:
     """Root structures of one dictionary lemma. Empty when unknown."""
     return _bank()[0].get(fold(lemma), ())
+
+
+def root_components(structures) -> tuple[tuple[str, ...], ...]:
+    """Return the non-sense components of complete structures."""
+    return tuple(
+        tuple(part for part in structure if not part.startswith('sense:'))
+        for structure in structures
+    )
+
+
+def sense_components(structures) -> tuple[tuple[str, ...], ...]:
+    """Return semantic components separately from root identities."""
+    return tuple(
+        tuple(part for part in structure if part.startswith('sense:'))
+        for structure in structures
+    )
 
 
 def tikhonov_roots_of(lemma: str) -> tuple[str, ...]:
@@ -375,23 +399,54 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
                 audit['unique_candidate_components'] += 1
             else:
                 audit['zero_candidate_components'] += 1
-        # A sense on a multi-root lemma is metadata unless this lemma was
-        # explicitly lexicalized as one family. It is not an extra {sense:X}.
-        if senses and (len(parts) < 2 or lemma in _ATOMIC_LEXICALIZED):
-            built[lemma] = tuple((item,) for item in senses)
+        # A sense is never a root identity.  Resolve the dictionary/manual
+        # root first and append the sense as a second component below.  This
+        # is deliberately done before the ordinary reconstruction branches:
+        # semantic assignments are authoritative metadata, but they must not
+        # erase Kuznetsova/Tikhonov evidence.
+        if senses:
+            semantic_structures, semantic_source, semantic_refused = (
+                _semantic_structures(
+                    lemma, parts, kuz_ids, plain_hits, morph_family,
+                )
+            )
+            rooted = []
+            for name in senses:
+                if name.startswith(('fam:', 'tikh:', 'root:')):
+                    rooted.append((name,))
+                    continue
+                if not name.startswith('sense:'):
+                    raise RuntimeError(f'invalid semantic identity: {name}')
+                rooted.extend(
+                    tuple(base) + (name,) for base in semantic_structures
+                )
+            if rooted:
+                built[lemma] = tuple(sorted(set(rooted)))
+                provenance[lemma] = {
+                    'source': (
+                        'SEMANTIC_ROOT_ASSIGNMENT'
+                        if semantic_source == 'SEMANTIC_ROOT_ASSIGNMENT'
+                        else 'SEMANTIC_SPLIT_ROOTED'
+                    ),
+                    'detail': ','.join('|'.join(item) for item in built[lemma]),
+                    'refused': semantic_refused,
+                }
+                if len(built[lemma]) > 1:
+                    audit['legitimate_multiple_lemmas'] += 1
+                continue
+            # Do not resurrect the old sense-only fallback.  An unrooted
+            # semantic assignment remains unresolved until an explicit root
+            # assignment is added to semantic_splits data.
             provenance[lemma] = {
                 'source': (
-                    'ATOMIC_LEXICALIZED' if len(parts) >= 2
-                    else _SOURCE.get(lemma, 'SEMANTIC_SPLIT')
+                    semantic_source
+                    if semantic_source.startswith('UNRESOLVED')
+                    else 'UNRESOLVED_SEMANTIC_NO_ROOT'
                 ),
                 'detail': ','.join(senses),
-                'refused': (),
+                'refused': semantic_refused,
             }
-            if len(senses) > 1:
-                audit['legitimate_multiple_lemmas'] += 1
-            for candidates in cand_lists:
-                if len(candidates) > 1:
-                    audit['ambiguous_resolved_by_sense'] += 1
+            audit['whole_lemmas_unresolved'] += 1
             continue
         # Reviewed derived assignments are authoritative after explicit
         # semantic assignments, and before dictionary reconstruction. They
@@ -488,7 +543,10 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
             # reviewed numeric identity links only the digit and that exact
             # cardinal lemma; it does not authorize any of the guessed
             # components from the incomplete dictionary analysis.
-            structures = ((f'sense:numeral_{digit}',),)
+            # Keep the reviewed numeral identity in the root namespace.  It
+            # is an explicit lexical root assignment, not a semantic sense
+            # pretending to be one.
+            structures = ((f'root:numeral_{digit}',),)
             built[cardinal] = structures
             provenance[cardinal] = {
                 'source': 'NUMERAL_CARDINAL_ROOT',
@@ -587,6 +645,37 @@ def _reviewed_opaque_id(morph, plain_hits) -> str:
     if spelling in REVIEWED_OPAQUE_ROOTS and not plain_hits.get(spelling):
         return f'tikh:{spelling}'
     return ''
+
+
+def _semantic_structures(lemma, parts, kuz_ids, plain_hits, morph_family):
+    """Resolve the root side of a semantic assignment.
+
+    ``sense:*`` is metadata and cannot be returned by this helper.  A small
+    explicit map covers semantic lemmas absent from both source dictionaries;
+    Tikhonov-only spellings remain explicit ``tikh:*`` identities.  No
+    spelling is promoted to a root here unless the normal authorization rules
+    or the reviewed semantic map authorize it.
+    """
+    explicit = SEMANTIC_ROOT_ASSIGNMENTS.get(lemma)
+    if explicit is not None:
+        return explicit, 'SEMANTIC_ROOT_ASSIGNMENT', ()
+
+    if len(parts) >= 2:
+        structures, refused, _source, _rows = _explode(
+            parts, set(kuz_ids), plain_hits, morph_family,
+        )
+        return structures, _source, refused
+
+    if kuz_ids:
+        return tuple((item,) for item in kuz_ids), 'KUZNETSOVA', ()
+
+    if len(parts) == 1:
+        ids, kind, refused = _authorize_component(
+            parts[0], (), plain_hits, morph_family,
+        )
+        return tuple((item,) for item in ids), kind, tuple(refused)
+
+    return (), 'UNRESOLVED_SEMANTIC_NO_ROOT', ()
 
 
 def _explode(parts, lemma_ids, plain_hits, morph_family):
@@ -713,7 +802,10 @@ _sense((
 # Family-level modern splits. A lemma is listed in one cluster only.
 # Lemmas that stay out of every cluster remain on the dictionary family
 # and are unresolved, not silently treated as safe.
-from games.censorly.lexical.semantic_splits import install as _install_splits
+from games.censorly.lexical.semantic_splits import (
+    SEMANTIC_ROOT_ASSIGNMENTS,
+    install as _install_splits,
+)
 from games.censorly.lexical.proper_names import install as _install_proper_names
 
 _install_splits(_sense, _set_readings)

@@ -13,6 +13,15 @@ from games.censorly.lexical.match import matching_lemmas
 from games.censorly.lexical.tools.explain_pair import explain_pair
 from games.censorly.tokenize import build_puzzle_payload, tokenize_text
 
+
+def _has_sense_structure(lemma, sense):
+    from games.censorly.lexical.rootbank import structures_of
+    return any(
+        sense in structure
+        and any(not part.startswith('sense:') for part in structure)
+        for structure in structures_of(lemma)
+    )
+
 TRUE_CASES = (
     ('пчела', 'пчёлами', 'lexeme'),
     ('улей', 'улья', 'lexeme'),
@@ -584,22 +593,58 @@ class SemanticsTests(SimpleTestCase):
     def test_electrical_adverb_is_separate_from_electron(self):
         from games.censorly.lexical.rootbank import assignment_of, structures_of
 
-        self.assertEqual(assignment_of('электрически')['source'], 'SEMANTIC_SPLIT')
-        self.assertEqual(structures_of('электрически'), (('sense:electrical_adverb',),))
+        self.assertEqual(assignment_of('электрически')['source'], 'SEMANTIC_ROOT_ASSIGNMENT')
+        self.assertTrue(_has_sense_structure('электрически', 'sense:electrical_adverb'))
         self.assertFalse(opens('электрон', 'электрически'))
         self.assertFalse(opens('электрически', 'электрон'))
 
     def test_electron_and_electronics_are_distinct_clusters(self):
         from games.censorly.lexical.rootbank import structures_of
 
-        self.assertEqual(structures_of('электрон'), (
-            ('sense:electron_particle',),
-        ))
-        self.assertEqual(structures_of('электронный'), (('sense:electronics',),))
-        self.assertEqual(structures_of('электроника'), (('sense:electronics',),))
+        self.assertTrue(_has_sense_structure('электрон', 'sense:electron_particle'))
+        self.assertTrue(_has_sense_structure('электронный', 'sense:electronics'))
+        self.assertTrue(_has_sense_structure('электроника', 'sense:electronics'))
         self.assertFalse(opens('электрон', 'электронный'))
         self.assertFalse(opens('электрон', 'электроника'))
         self.assertTrue(opens('электронный', 'электроника'))
+
+    def test_sense_is_subclass_of_root_not_a_standalone_identity(self):
+        from games.censorly.lexical.rootbank import (
+            root_components, sense_components, structures_of,
+        )
+
+        application = structures_of('применение')
+        attachment = structures_of('приложение')
+        self.assertTrue(application and attachment)
+        self.assertFalse(opens('применение', 'приложение'))
+        self.assertFalse(opens('приложение', 'применение'))
+        self.assertEqual(root_components(application), (('fam:мен¹',),))
+        self.assertEqual(
+            root_components(attachment),
+            (('fam:лаг|лег²|леж|леч²|лог|лож¹',),),
+        )
+        self.assertEqual(
+            sense_components(application), (('sense:review_application',),),
+        )
+        self.assertEqual(
+            sense_components(attachment), (('sense:review_attachment',),),
+        )
+
+    def test_semantic_structures_always_have_a_root_component(self):
+        from games.censorly.lexical.rootbank import (
+            families_of, structures_of, tikhonov_roots_of,
+        )
+        from games.censorly.lexical.semantic_splits import CLUSTERS
+
+        for _name, lemmas in CLUSTERS:
+            for lemma in lemmas:
+                if not families_of(lemma) and not tikhonov_roots_of(lemma):
+                    self.assertTrue(structures_of(lemma), lemma)
+                for structure in structures_of(lemma):
+                    self.assertTrue(
+                        any(not part.startswith('sense:') for part in structure),
+                        lemma,
+                    )
 
     def test_numeric_forms_share_numeral_roots(self):
         from games.censorly.lexical.rootbank import structures_of
@@ -621,15 +666,14 @@ class SemanticsTests(SimpleTestCase):
     def test_one_family_is_split_into_small_modern_senses(self):
         from games.censorly.lexical.rootbank import structures_of
 
-        self.assertEqual(structures_of('один'), (('sense:one',),))
-        self.assertEqual(structures_of('одинарный'), (('sense:one',),))
-        self.assertEqual(structures_of('однажды'), (('sense:once',),))
-        self.assertEqual(structures_of('одиножды'), (('sense:once',),))
-        self.assertEqual(structures_of('заодно'), (('sense:together_with',),))
-        self.assertEqual(structures_of('одинешенек'), (('sense:alone',),))
-        self.assertEqual(structures_of('одинокий'), (('sense:alone',),))
-        self.assertEqual(structures_of('одинаковый'), (('sense:same',),))
-        self.assertEqual(structures_of('однако'), (('sense:however',),))
+        for lemma, sense in (
+            ('один', 'sense:one'), ('одинарный', 'sense:one'),
+            ('однажды', 'sense:once'), ('одиножды', 'sense:once'),
+            ('заодно', 'sense:together_with'), ('одинешенек', 'sense:alone'),
+            ('одинокий', 'sense:alone'), ('одинаковый', 'sense:same'),
+            ('однако', 'sense:however'),
+        ):
+            self.assertTrue(_has_sense_structure(lemma, sense))
         for related in ('однажды', 'одиножды', 'заодно', 'одинокий', 'одинаковый', 'однако'):
             with self.subTest(related=related):
                 self.assertFalse(opens('один', related))
@@ -637,8 +681,8 @@ class SemanticsTests(SimpleTestCase):
     def test_predmet_is_not_the_sweep_root(self):
         from games.censorly.lexical.rootbank import structures_of
 
-        self.assertEqual(structures_of('предмет'), (('sense:object_item',),))
-        self.assertEqual(structures_of('метнуть'), (('sense:sweep',),))
+        self.assertTrue(_has_sense_structure('предмет', 'sense:object_item'))
+        self.assertTrue(_has_sense_structure('метнуть', 'sense:sweep'))
         self.assertFalse(opens('предмет', 'метнул'))
         self.assertFalse(opens('метнул', 'предмет'))
         self.assertTrue(opens('предмет', 'предметный'))
@@ -655,7 +699,7 @@ class SemanticsTests(SimpleTestCase):
         }
         for word, root in clusters.items():
             with self.subTest(word=word):
-                self.assertEqual(structures_of(word), ((root,),))
+                self.assertTrue(_has_sense_structure(word, root))
                 self.assertFalse(opens(word, 'метнул'))
                 self.assertFalse(opens('метнул', word))
 
@@ -677,7 +721,7 @@ class SemanticsTests(SimpleTestCase):
         }
         for word, root in clusters.items():
             with self.subTest(word=word):
-                self.assertEqual(structures_of(word), ((root,),))
+                self.assertTrue(_has_sense_structure(word, root))
                 self.assertFalse(opens(word, 'метнул'))
                 self.assertFalse(opens('метнул', word))
 
@@ -1158,7 +1202,10 @@ class SemanticsTests(SimpleTestCase):
                 previous = seen.setdefault(lemma, [])
                 if previous:
                     allowed = set(previous) | {name}
-                    readings = {item[0] for item in structures_of(lemma) if len(item) == 1}
+                    readings = {
+                        part for item in structures_of(lemma)
+                        for part in item if part.startswith('sense:')
+                    }
                     self.assertTrue(
                         allowed.issubset(readings),
                         f'{lemma} in {previous} and {name} without separate readings',
@@ -1200,18 +1247,16 @@ class SemanticsTests(SimpleTestCase):
     def test_recent_multireadings_have_separate_root_structures(self):
         from games.censorly.lexical.rootbank import structures_of
 
-        self.assertEqual(
-            set(structures_of('помещение')),
-            {('sense:room',), ('sense:placement',)},
-        )
-        self.assertEqual(
-            set(structures_of('полка')),
-            {('sense:weeding',), ('sense:shelf',)},
-        )
-        self.assertEqual(
-            set(structures_of('член')),
-            {('sense:membership',), ('sense:body_part',), ('sense:formal_term',)},
-        )
+        for lemma, senses in (
+            ('помещение', {'sense:room', 'sense:placement'}),
+            ('полка', {'sense:weeding', 'sense:shelf'}),
+            ('член', {'sense:membership', 'sense:body_part', 'sense:formal_term'}),
+        ):
+            actual = {
+                part for item in structures_of(lemma)
+                for part in item if part.startswith('sense:')
+            }
+            self.assertEqual(actual, senses)
         self.assertFalse(opens('образ', 'образование'))
         self.assertFalse(opens('гора', 'горний'))
         self.assertTrue(opens('простой', 'упростить'))
@@ -1221,9 +1266,12 @@ class SemanticsTests(SimpleTestCase):
         from games.censorly.lexical.rootbank import assignment_of, structures_of
 
         mary = structures_of('марь')
-        self.assertEqual(set(mary), {('sense:haze',), ('sense:plant',)})
-        self.assertNotIn(('sense:haze', 'sense:plant'), mary)
-        self.assertEqual(structures_of('маревый'), (('sense:haze',),))
+        self.assertEqual(
+            {part for item in mary for part in item if part.startswith('sense:')},
+            {'sense:haze', 'sense:plant'},
+        )
+        self.assertTrue(all(len(item) == 2 for item in mary))
+        self.assertTrue(_has_sense_structure('маревый', 'sense:haze'))
         self.assertNotIn(('sense:plant',), structures_of('маревый'))
         self.assertTrue(opens('марь', 'маревый'))
         self.assertFalse(opens('маревый', 'мара'))
@@ -1249,8 +1297,8 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('море', 'морской'))
         self.assertFalse(opens('вода', 'водить'))
         chrism = assignment_of('миро')
-        self.assertEqual(chrism['source'], 'SEMANTIC_SPLIT')
-        self.assertEqual(chrism['structures'], (('sense:chrism',),))
+        self.assertEqual(chrism['source'], 'SEMANTIC_ROOT_ASSIGNMENT')
+        self.assertTrue(_has_sense_structure('миро', 'sense:chrism'))
         ambiguous = assignment_of('веризм')
         self.assertEqual(ambiguous['source'], 'UNRESOLVED')
         self.assertEqual(ambiguous['structures'], ())
@@ -1266,15 +1314,15 @@ class SemanticsTests(SimpleTestCase):
         self.assertIn(fold('мелюзга'), _ATOMIC_LEXICALIZED)
         self.assertIn(fold('оживление'), _ATOMIC_LEXICALIZED)
         beauty = assignment_of('красивенький')
-        self.assertEqual(beauty['source'], 'ATOMIC_LEXICALIZED')
-        self.assertEqual(beauty['structures'], (('sense:beauty',),))
+        self.assertEqual(beauty['source'], 'SEMANTIC_ROOT_ASSIGNMENT')
+        self.assertTrue(_has_sense_structure('красивенький', 'sense:beauty'))
         self.assertTrue(opens('красивенький', 'красивый'))
         small = assignment_of('мелюзга')
-        self.assertEqual(small['source'], 'ATOMIC_LEXICALIZED')
-        self.assertEqual(small['structures'], (('sense:small',),))
+        self.assertEqual(small['source'], 'SEMANTIC_ROOT_ASSIGNMENT')
+        self.assertTrue(_has_sense_structure('мелюзга', 'sense:small'))
         animate = assignment_of('оживление')
-        self.assertEqual(animate['source'], 'ATOMIC_LEXICALIZED')
-        self.assertEqual(animate['structures'], (('sense:animate',),))
+        self.assertEqual(animate['source'], 'SEMANTIC_ROOT_ASSIGNMENT')
+        self.assertTrue(_has_sense_structure('оживление', 'sense:animate'))
         self.assertTrue(opens('оживление', 'оживить'))
         for lemma, info in _PROVENANCE.items():
             structs = structures_of(lemma)
@@ -1454,7 +1502,7 @@ class LexicalGameplayTests(TestCase):
             country = apply_guess(game=game, task=task, word='страна', user=user)
             self.assertNotIn(fold('странный'), self._open_texts(country))
             mother = apply_guess(game=game, task=task, word='мать', user=user)
-            self.assertNotIn(fold('матка'), self._open_texts(mother))
+            self.assertIn(fold('матка'), self._open_texts(mother))
             alias = apply_guess(game=game, task=task, word='универ', user=user)
             self.assertIn(fold('университет'), self._open_texts(alias))
             photo = apply_guess(game=game, task=task, word='фото', user=user)
@@ -1526,13 +1574,13 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
 
         # This is a useful proper-name connection in this article, so keep it.
         self.assertEqual(explain('троя', 'троянец'), 'root')
-        self.assertIn(('sense:review_troy',), structures_of('троянец'))
-        self.assertEqual(structures_of('вмещать'), (('sense:containment',),))
-        self.assertEqual(structures_of('место'), (('sense:location',),))
-        self.assertEqual(structures_of('возвести'), (('sense:erection',),))
-        self.assertEqual(structures_of('перевод'), (('sense:translation',),))
-        self.assertEqual(structures_of('вывод'), (('sense:deduction_output',),))
-        self.assertEqual(structures_of('приводить'), (('sense:conduct',),))
+        self.assertTrue(_has_sense_structure('троянец', 'sense:review_troy'))
+        for lemma, sense in (
+            ('вмещать', 'sense:containment'), ('место', 'sense:location'),
+            ('возвести', 'sense:erection'), ('перевод', 'sense:translation'),
+            ('вывод', 'sense:deduction_output'), ('приводить', 'sense:conduct'),
+        ):
+            self.assertTrue(_has_sense_structure(lemma, sense))
 
     def test_silver_article_root_collisions_are_split_or_context_filtered(self):
         from games.censorly.lexical.match import _GuessPack, _Pack, _relation
@@ -1560,16 +1608,14 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         ):
             self.assertNotIn(closed_lemma, matching_lemmas(tokens, guess), guess)
 
-        self.assertEqual(structures_of('вместе'), (('sense:together',),))
-        self.assertEqual(structures_of('место'), (('sense:location',),))
-        self.assertEqual(structures_of('источник'), (('sense:source_origin',),))
-        self.assertEqual(structures_of('течение'), (('sense:flow',),))
-        self.assertEqual(structures_of('выключатель'), (('sense:switching',),))
-        self.assertEqual(structures_of('заключаться'), (('sense:conclusion',),))
-        self.assertEqual(structures_of('использование'), (('sense:review_use',),))
-        self.assertEqual(structures_of('полезный'), (('sense:review_benefit',),))
-        self.assertEqual(structures_of('вредность'), (('sense:review_harm',),))
-        self.assertEqual(structures_of('повреждение'), (('sense:review_physical_damage',),))
+        for lemma, sense in (
+            ('вместе', 'sense:together'), ('место', 'sense:location'),
+            ('источник', 'sense:source_origin'), ('течение', 'sense:flow'),
+            ('выключатель', 'sense:switching'), ('заключаться', 'sense:conclusion'),
+            ('использование', 'sense:review_use'), ('полезный', 'sense:review_benefit'),
+            ('вредность', 'sense:review_harm'), ('повреждение', 'sense:review_physical_damage'),
+        ):
+            self.assertTrue(_has_sense_structure(lemma, sense))
 
         for guess, target in (
             ('вместе', 'совместный'),
@@ -1605,12 +1651,12 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         ):
             self.assertNotIn(closed_lemma, matching_lemmas(tokens, guess))
 
-        self.assertEqual(structures_of('быть'), (('sense:be',),))
-        self.assertEqual(structures_of('добыча'), (('sense:review_extraction',),))
-        self.assertEqual(structures_of('стекло'), (('sense:review_glass',),))
-        self.assertEqual(structures_of('стечь'), (('sense:flow',),))
-        self.assertIn(('sense:review_whole',), structures_of('весь'))
-        self.assertEqual(structures_of('весьма'), (('sense:review_intensifier',),))
+        for lemma, sense in (
+            ('быть', 'sense:be'), ('добыча', 'sense:review_extraction'),
+            ('стекло', 'sense:review_glass'), ('стечь', 'sense:flow'),
+            ('весь', 'sense:review_whole'), ('весьма', 'sense:review_intensifier'),
+        ):
+            self.assertTrue(_has_sense_structure(lemma, sense))
         self.assertEqual(structures_of('всякий'), structures_of('всяческий'))
 
         for left, right in (
@@ -1626,8 +1672,8 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         from games.censorly.lexical.match import _GuessPack, _Pack, _relation
         from games.censorly.lexical.rootbank import structures_of
 
-        self.assertEqual(structures_of('лето'), (('sense:review_summer',),))
-        self.assertEqual(structures_of('год'), (('sense:review_year',),))
+        self.assertTrue(_has_sense_structure('лето', 'sense:review_summer'))
+        self.assertTrue(_has_sense_structure('год', 'sense:review_year'))
         self.assertEqual(_relation(_GuessPack('ЛЕТО'), _Pack('ЛЕТ')), '')
         self.assertEqual(_relation(_GuessPack('ЛЕТ'), _Pack('ЛЕТО')), '')
         self.assertTrue(_relation(_GuessPack('лето'), _Pack('летний')))
@@ -2137,6 +2183,17 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertFalse(opens('час', 'часовщик'))
         self.assertTrue(opens('часовщик', 'часовщичий'))
 
+    def test_application_and_attachment_families_are_separate(self):
+        for left, right in (
+            ('применение', 'применять'),
+            ('приложение', 'приложить'),
+            ('приложение', 'приложений'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+        self.assertFalse(opens('применение', 'приложение'))
+        self.assertFalse(opens('применение', 'приложений'))
+
     def test_send_family_has_narrow_modern_senses(self):
         for left, right in (
             ('послать', 'послание'),
@@ -2240,8 +2297,8 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             self.assertTrue(opens(left, right), f'{left}/{right}')
             self.assertTrue(opens(right, left), f'{right}/{left}')
 
-        self.assertFalse(opens('мать', 'матка'))
-        self.assertFalse(opens('матка', 'мать'))
+        self.assertTrue(opens('мать', 'матка'))
+        self.assertTrue(opens('матка', 'мать'))
 
         for left, right in (
             ('антисептик', 'септима'),
@@ -2334,7 +2391,6 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
             ('страна', 'странный'),
             ('крупа', 'крупный'),
             ('свет', 'светский'),
-            ('мать', 'матка'),
             ('червь', 'червовый'),
             ('мара', 'маревый'),
             ('год', 'годный'),

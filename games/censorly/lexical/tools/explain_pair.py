@@ -11,8 +11,10 @@ django.setup()
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+from games.censorly.lexical.match import _root_sense_compatible
 from games.censorly.lexical.rootbank import (
-    _KUZ_LEMMAS, assignment_of, families_of, structures_of,
+    _KUZ_LEMMAS, assignment_of, families_of, root_components,
+    sense_components, structures_of,
     tikhonov_roots_of,
 )
 from games.censorly.lexical.semantics import (
@@ -50,11 +52,18 @@ def _side(surface, pack):
         'guess_readings': [_reading_dict(item) for item in pack.reads],
         'lexemes': sorted(pack.lexemes),
         'root_structures': sorted(pack.roots),
+        'root_families': sorted({item for item in root_components(pack.roots)}),
+        'sense_subclusters': sorted({item for item in sense_components(pack.roots)}),
         'families': sorted(pack.families),
         'assignment': assignment_of(surface),
         'reviewed_opaque': fold(surface) in REVIEWED_OPAQUE_ROOTS,
         'reviewed_derived': fold(surface) in REVIEWED_DERIVED_ROOTS,
         'tikhonov_roots': _tikhonov_roots(surface),
+        'manual_root_assignment': assignment_of(surface)['source'] in {
+            'SEMANTIC_ROOT_ASSIGNMENT', 'SEMANTIC_SPLIT_ROOTED',
+            'REVIEWED_OPAQUE_ROOT', 'REVIEWED_DERIVED_ROOT',
+            'REVIEWED_EXISTING_ROOT',
+        },
         'service_word': pack.service,
         'russian': pack.russian,
     }
@@ -76,6 +85,7 @@ def _layer_report(guess, target, *, include_pronouns):
         'EXACT': fold(guess) == fold(target),
         'SAME_LEXEME': bool(glex & tlex),
         'ROOT_SET_EQUALITY': bool(groots & troots),
+        'ROOT_SENSE_COMPATIBILITY': _root_sense_compatible(groots, troots),
         'IRREGULAR_GRAMMAR': _grammar(gread, tread),
         'ALIAS': _alias(fold(guess), fold(target)),
         'PROPER_PAIR': _proper_pair(fold(guess), fold(target)),
@@ -87,6 +97,10 @@ def _layer_report(guess, target, *, include_pronouns):
         'russian_target': tpack.russian,
         'guess_roots': sorted(groots),
         'target_roots': sorted(troots),
+        'guess_root_families': sorted({item for item in root_components(groots)}),
+        'target_root_families': sorted({item for item in root_components(troots)}),
+        'guess_senses': sorted({item for item in sense_components(groots)}),
+        'target_senses': sorted({item for item in sense_components(troots)}),
         'shared_lexemes': sorted(glex & tlex),
     }
 
@@ -150,6 +164,8 @@ def print_report(report):
         print(f"  service_word={side['service_word']} russian={side['russian']}")
         print(f"  tikhonov_roots={_fmt(side['tikhonov_roots'])}")
         print(f"  root_structures={_fmt(side['root_structures'])}")
+        print(f"  root_families={_fmt(side['root_families'])}")
+        print(f"  sense_subclusters={_fmt(side['sense_subclusters'])}")
         print(f"  families={_fmt(side['families'])}")
         print(f"  assignment={_fmt(side['assignment'])}")
         print(f"  reviewed_opaque={side['reviewed_opaque']} reviewed_derived={side['reviewed_derived']}")
@@ -163,6 +179,10 @@ def print_report(report):
     print(f"  shared_lexemes: {_fmt(report['layers']['shared_lexemes'])}")
     print(f"  guess_roots: {_fmt(report['layers']['guess_roots'])}")
     print(f"  target_roots: {_fmt(report['layers']['target_roots'])}")
+    print(f"  guess_root_families: {_fmt(report['layers']['guess_root_families'])}")
+    print(f"  target_root_families: {_fmt(report['layers']['target_root_families'])}")
+    print(f"  guess_senses: {_fmt(report['layers']['guess_senses'])}")
+    print(f"  target_senses: {_fmt(report['layers']['target_senses'])}")
     print(f"\nFINAL: {report['runtime_reason'].upper()}")
     print(f"CLASSIFICATION: {report['classification']}")
     print(f"RECOMMENDATION: {report['recommendation']}")

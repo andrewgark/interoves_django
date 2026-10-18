@@ -2569,7 +2569,10 @@ def build_inventory():
             numbered.add(root)
         family = morph_family.get(root, root)
         senses = _sense_ids(lemma)
-        games = senses or (_game_id(root, family),)
+        # A semantic label is metadata for the Kuznetsova family, never an
+        # alternative game root.  Keep it in the separate ``senses`` counter
+        # while inventory identities remain rooted in the dictionary family.
+        games = (_game_id(root, family),)
         for game in games:
             lemma_roots[lemma].append((family, game, root))
         bucket = grouped.setdefault(family, {

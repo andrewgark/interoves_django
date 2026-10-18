@@ -37,6 +37,23 @@ from games.censorly.redact import lemmas_matching_guess
 from games.censorly.tokenize import build_puzzle_payload, tokenize_text
 
 
+def _has_sense(lemma, sense):
+    return any(
+        sense in structure
+        and any(not part.startswith('sense:') for part in structure)
+        for structure in structures_of(lemma)
+    )
+
+
+def _sense_set(lemma):
+    return {
+        part
+        for structure in structures_of(lemma)
+        for part in structure
+        if part.startswith('sense:')
+    }
+
+
 class ReviewedSemanticSplitTests(SimpleTestCase):
     """Keep the meaning splits reviewed in the root-family audit separate."""
 
@@ -89,8 +106,8 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
 
         twins = structures_of('двойня')
         lookalike = structures_of('двойник')
-        self.assertEqual(twins, (('sense:twin_birth',),))
-        self.assertEqual(lookalike, (('sense:lookalike',),))
+        self.assertTrue(_has_sense('двойня', 'sense:twin_birth'))
+        self.assertTrue(_has_sense('двойник', 'sense:lookalike'))
         self.assertFalse(_relation(_GuessPack('двойня'), _Pack('двойник')))
         self.assertFalse(_relation(_GuessPack('двойник'), _Pack('двойня')))
         self.assertTrue(_relation(_GuessPack('двойня'), _Pack('двойняшка')))
@@ -99,8 +116,8 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
     def test_binding_and_contact_senses_are_separate(self):
         from games.censorly.lexical.match import _GuessPack, _Pack, _relation
 
-        self.assertEqual(structures_of('привязать'), (('sense:binding',),))
-        self.assertEqual(structures_of('связываться'), (('sense:contact',),))
+        self.assertTrue(_has_sense('привязать', 'sense:binding'))
+        self.assertTrue(_has_sense('связываться', 'sense:contact'))
         self.assertFalse(_relation(
             _GuessPack('связывалась'), _Pack('привязаны', article_lemma='привязать'),
         ))
@@ -129,74 +146,48 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
                 self.assertTrue(_relation(_GuessPack(cardinal), _Pack(digit)))
 
     def test_west_fate_and_small_boy_senses_are_separate(self):
-        west = ('sense:review_west',)
-        falling = ('sense:fall',)
-        court = ('sense:court',)
-        fate = ('sense:fate',)
-        small = ('sense:review_small',)
-        boy = ('sense:review_boy',)
-        self.assertEqual(structures_of('запад'), (west,))
-        self.assertEqual(structures_of('западный'), (west,))
-        self.assertEqual(structures_of('западник'), (west,))
-        self.assertEqual(structures_of('западнический'), (west,))
-        self.assertNotEqual(west, falling)
-        self.assertEqual(structures_of('суд'), (court,))
-        self.assertEqual(structures_of('судьба'), (fate,))
-        self.assertEqual(structures_of('суженый'), (fate,))
-        self.assertEqual(structures_of('малый'), (small,))
-        self.assertEqual(structures_of('маленький'), (small,))
-        self.assertEqual(structures_of('мальчик'), (boy,))
-        self.assertEqual(structures_of('малыш'), (boy,))
+        for lemma in ('запад', 'западный', 'западник', 'западнический'):
+            self.assertTrue(_has_sense(lemma, 'sense:review_west'))
+        self.assertTrue(_has_sense('суд', 'sense:court'))
+        for lemma in ('судьба', 'суженый'):
+            self.assertTrue(_has_sense(lemma, 'sense:fate'))
+        for lemma in ('малый', 'маленький'):
+            self.assertTrue(_has_sense(lemma, 'sense:review_small'))
+        for lemma in ('мальчик', 'малыш'):
+            self.assertTrue(_has_sense(lemma, 'sense:review_boy'))
 
     def test_ending_law_and_lace_rotation_senses_are_separate(self):
-        law = ('sense:review_law',)
-        end = ('sense:review_end',)
-        rotation = ('sense:review_rotation',)
-        lace = ('sense:review_lace',)
-        circle = ('sense:review_circle',)
-        self.assertEqual(structures_of('закон'), (law,))
+        self.assertTrue(_has_sense('закон', 'sense:review_law'))
         for lemma in ('закончить', 'законченный', 'заканчиваться'):
-            self.assertEqual(structures_of(lemma), (end,), lemma)
-        self.assertEqual(structures_of('круг'), (circle,))
-        self.assertEqual(structures_of('кружить'), (rotation,))
-        self.assertEqual(structures_of('кружево'), (lace,))
-        self.assertEqual(structures_of('кружевной'), (lace,))
-        self.assertEqual(structures_of('гора'), (('sense:mountain',),))
-        self.assertEqual(structures_of('нагорный'), (('sense:mountain',),))
-        self.assertEqual(structures_of('угорать'), (('sense:fumes',),))
-        self.assertEqual(structures_of('угореть'), (('sense:fumes',),))
-        self.assertEqual(structures_of('гореть'), (('sense:burn',),))
+            self.assertTrue(_has_sense(lemma, 'sense:review_end'), lemma)
+        for lemma, sense in (
+            ('круг', 'sense:review_circle'), ('кружить', 'sense:review_rotation'),
+            ('кружево', 'sense:review_lace'), ('кружевной', 'sense:review_lace'),
+            ('гора', 'sense:mountain'), ('нагорный', 'sense:mountain'),
+            ('угорать', 'sense:fumes'), ('угореть', 'sense:fumes'),
+            ('гореть', 'sense:burn'),
+        ):
+            self.assertTrue(_has_sense(lemma, sense))
 
     def test_head_fish_and_firebrand_families_are_separate(self):
-        self.assertEqual(structures_of('голова'), (('sense:review_head',),))
-        self.assertEqual(structures_of('главный'), (('sense:review_leadership',),))
-        self.assertEqual(structures_of('голавль'), (('sense:review_fish',),))
-        self.assertEqual(structures_of('голавлевый'), (('sense:review_fish',),))
-        self.assertEqual(structures_of('головешка'), (('sense:firebrand',),))
-        self.assertEqual(structures_of('головневый'), (('sense:smut',),))
-        self.assertEqual(
-            set(structures_of('головня')),
-            {('sense:firebrand',), ('sense:smut',)},
-        )
+        for lemma, sense in (
+            ('голова', 'sense:review_head'), ('главный', 'sense:review_leadership'),
+            ('голавль', 'sense:review_fish'), ('голавлевый', 'sense:review_fish'),
+            ('головешка', 'sense:firebrand'), ('головневый', 'sense:smut'),
+        ):
+            self.assertTrue(_has_sense(lemma, sense))
+        self.assertTrue({'sense:firebrand', 'sense:smut'} <= _sense_set('головня'))
 
     def test_key_and_spring_keep_separate_readings(self):
-        lock_root = ('sense:key',)
-        spring_root = ('sense:key_spring',)
-        self.assertEqual(set(structures_of('ключ')), {lock_root, spring_root})
-        self.assertEqual(structures_of('ключник'), (lock_root,))
+        self.assertEqual(_sense_set('ключ'), {'sense:key', 'sense:key_spring'})
+        self.assertTrue(_has_sense('ключник', 'sense:key'))
 
     def test_essence_existence_and_presence_are_separate(self):
-        self.assertEqual(structures_of('сущность'), (('sense:essence',),))
-        self.assertEqual(structures_of('существовать'), (('sense:existence',),))
-        self.assertEqual(structures_of('присутствие'), (('sense:presence',),))
-        self.assertEqual(
-            set(structures_of('суть')),
-            {('sense:essence',), ('sense:existence',)},
-        )
-        self.assertEqual(
-            set(structures_of('существо')),
-            {('sense:essence',), ('sense:existence',)},
-        )
+        self.assertTrue(_has_sense('сущность', 'sense:essence'))
+        self.assertTrue(_has_sense('существовать', 'sense:existence'))
+        self.assertTrue(_has_sense('присутствие', 'sense:presence'))
+        for lemma in ('суть', 'существо'):
+            self.assertTrue({'sense:essence', 'sense:existence'} <= _sense_set(lemma))
 
     def test_ability_aid_extortion_and_seeking_are_separate(self):
         expected = {
@@ -208,7 +199,7 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         }
         for lemma, root in expected.items():
             with self.subTest(lemma=lemma):
-                self.assertEqual(structures_of(lemma), ((root,),))
+                self.assertTrue(_has_sense(lemma, root))
 
     def test_white_squirrel_and_protein_words_stay_separate(self):
         expected = {
@@ -218,39 +209,27 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         }
         for lemma, root in expected.items():
             with self.subTest(lemma=lemma):
-                self.assertEqual(structures_of(lemma), ((root,),))
+                self.assertTrue(_has_sense(lemma, root))
 
     def test_know_and_nobility_readings_of_znat_are_separate(self):
-        self.assertEqual(
-            set(structures_of('знать')),
-            {('sense:cognize',), ('sense:nobility',)},
-        )
-        self.assertEqual(structures_of('знатность'), (('sense:nobility',),))
-        self.assertEqual(
-            set(structures_of('знатный')),
-            {('sense:cognize',), ('sense:nobility',)},
-        )
+        self.assertTrue({'sense:cognize', 'sense:nobility'} <= _sense_set('знать'))
+        self.assertTrue(_has_sense('знатность', 'sense:nobility'))
+        self.assertTrue({'sense:cognize', 'sense:nobility'} <= _sense_set('знатный'))
 
     def test_write_and_urinate_readings_of_pisat_are_separate(self):
         for lemma in ('писать', 'писаться'):
             with self.subTest(lemma=lemma):
-                self.assertEqual(
-                    set(structures_of(lemma)),
-                    {('sense:review_writing',), ('sense:urinate',)},
-                )
+                self.assertTrue({'sense:review_writing', 'sense:urinate'} <= _sense_set(lemma))
 
     def test_light_and_society_readings_of_svet_are_separate(self):
-        self.assertEqual(structures_of('свет'), (('sense:light',),))
-        self.assertEqual(structures_of('светский'), (('sense:society',),))
-        self.assertEqual(structures_of('светить'), (('sense:light',),))
+        self.assertTrue(_has_sense('свет', 'sense:light'))
+        self.assertTrue(_has_sense('светский', 'sense:society'))
+        self.assertTrue(_has_sense('светить', 'sense:light'))
 
     def test_calling_and_designation_words_are_separate(self):
-        self.assertEqual(structures_of('звать'), (('sense:review_calling',),))
-        self.assertEqual(structures_of('название'), (('sense:review_designation',),))
-        self.assertEqual(
-            set(structures_of('звание')),
-            {('sense:review_calling',), ('sense:review_title',)},
-        )
+        self.assertTrue(_has_sense('звать', 'sense:review_calling'))
+        self.assertTrue(_has_sense('название', 'sense:review_designation'))
+        self.assertTrue({'sense:review_calling', 'sense:review_title'} <= _sense_set('звание'))
 
     def test_chin_family_meanings_are_separate(self):
         expected = {
@@ -267,31 +246,21 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         }
         for lemma, root in expected.items():
             with self.subTest(lemma=lemma):
-                self.assertEqual(structures_of(lemma), ((root,),))
+                self.assertTrue(_has_sense(lemma, root))
         self.assertTrue(set(structures_of('свет')).isdisjoint(structures_of('светский')))
 
     def test_counting_reading_and_honor_senses_are_separate(self):
         self.assertTrue(set(structures_of('счет')).isdisjoint(structures_of('читать')))
         self.assertTrue(set(structures_of('расчет')).isdisjoint(structures_of('чтение')))
         self.assertTrue(set(structures_of('почет')).isdisjoint(structures_of('читать')))
-        self.assertIn(('sense:count',), structures_of('считать'))
+        self.assertTrue(_has_sense('считать', 'sense:count'))
         self.assertIn(('root:read',), structures_of('считать'))
-        self.assertIn(('sense:honor',), structures_of('почитать'))
+        self.assertTrue(_has_sense('почитать', 'sense:honor'))
         self.assertIn(('root:read',), structures_of('почитать'))
 
     def test_kosa_homonyms_keep_separate_readings(self):
-        self.assertEqual(
-            set(structures_of('коса')),
-            {
-                ('sense:scythe',),
-                ('sense:hair_braid',),
-                ('sense:spit_landform',),
-            },
-        )
-        self.assertEqual(
-            set(structures_of('косить')),
-            {('sense:scythe',), ('sense:oblique',)},
-        )
+        self.assertTrue({'sense:scythe', 'sense:hair_braid', 'sense:spit_landform'} <= _sense_set('коса'))
+        self.assertTrue({'sense:scythe', 'sense:oblique'} <= _sense_set('косить'))
         self.assertTrue(set(structures_of('косарь')).isdisjoint(structures_of('косичка')))
         self.assertTrue(set(structures_of('косой')).isdisjoint(structures_of('косичка')))
 

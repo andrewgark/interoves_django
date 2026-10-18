@@ -42,6 +42,7 @@ from games.censorly.lexical.semantics import (
     preferred_readings_of,
     readings_of,
 )
+from games.censorly.lexical.semantic_splits import SENSE_COMPATIBLE
 
 _REJECT_CAP = 200
 _DIGIT_CARDINAL_LEMMAS = {
@@ -71,6 +72,32 @@ def _numeric_root_match(guess: _Pack, target: _Pack) -> bool:
         return False
     common = guess.roots & target.roots
     return bool(common)
+
+
+def _root_sense_compatible(guess_structures, target_structures) -> bool:
+    """Match reviewed compatible senses only inside the same root family."""
+    for guess_structure in guess_structures:
+        guess_roots = {
+            part for part in guess_structure if not part.startswith('sense:')
+        }
+        guess_senses = {
+            part for part in guess_structure if part.startswith('sense:')
+        }
+        if not guess_roots or not guess_senses:
+            continue
+        for target_structure in target_structures:
+            target_roots = {
+                part for part in target_structure if not part.startswith('sense:')
+            }
+            target_senses = {
+                part for part in target_structure if part.startswith('sense:')
+            }
+            if (
+                guess_roots == target_roots
+                and frozenset(guess_senses | target_senses) in SENSE_COMPATIBLE
+            ):
+                return True
+    return False
 
 
 def _group_ids_by_word(groups):
@@ -339,6 +366,8 @@ def _relation(guess: _Pack, target: _Pack) -> str:
         return 'lexeme'
     if guess.roots & target.roots:
         return 'root'
+    if _root_sense_compatible(guess.roots, target.roots):
+        return 'root_sense_compatible'
     if _grammar(guess.reads, target.reads):
         return 'grammar'
     return ''
@@ -349,7 +378,17 @@ def _opens(guess: _Pack, target: _Pack) -> bool:
 
 
 def _root_ids(structures) -> set[str]:
-    return {part for item in structures for part in item}
+    return {
+        part for item in structures for part in item
+        if not part.startswith('sense:')
+    }
+
+
+def _sense_ids(structures) -> set[str]:
+    return {
+        part for item in structures for part in item
+        if part.startswith('sense:')
+    }
 
 
 def _reject(guess: _Pack, target: _Pack) -> str:
