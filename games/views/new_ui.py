@@ -4658,18 +4658,22 @@ def new_anon_migrate_count(request):
         Attempt.manager.filter(
             anon_key=anon_key, user__isnull=True, team__isnull=True, task__isnull=False,
         )
-        .select_related('task', 'game')
-        .order_by('time')
+        .exclude(task_id__in=solved_task_ids)
     )
 
-    n = 0
+    # Count in SQL: materializing the history with full related tasks repeats
+    # large puzzle JSON for every attempt and can exhaust a web host's RAM.
+    n = anon_attempts.count()
     example = None
-    for attempt in anon_attempts:
-        if attempt.task_id in solved_task_ids:
-            continue
-        n += 1
-        if example is None:
-            example = _anon_task_group_link(attempt)
+    examples = (
+        anon_attempts.select_related('task', 'game')
+        .only('task__task_group_id', 'game__name')
+        .order_by('time')
+    )
+    for attempt in examples.iterator(chunk_size=100):
+        example = _anon_task_group_link(attempt)
+        if example is not None:
+            break
 
     counts = anon_migration_counts(anon_key)
     counts['unsolved_attempts'] = n

@@ -93,3 +93,43 @@ were no new Auto Scaling activities since 11:24. CloudWatch had published
 5xx in the postdeployment window. The public health endpoint returned 200
 in 0.111 seconds. These are initial observations, not a guarantee against
 unrelated future failures.
+
+## Recurrence at 14:59–15:01 UTC
+
+The environment was running `app-green-a1ab52ba-20261018135332` with three
+instances. Two hosts stopped publishing application/system logs and metrics:
+
+- `i-0d22e364aadb73f10`: last application log at 14:59:37; terminated by
+  Auto Scaling at 15:01:19 following an ELB health check failure.
+- `i-04bc046c192ee57ca`: last application log at 15:01:30; SSM commands
+  remained pending while the host became unhealthy and was replaced.
+
+Both hosts had around 680–694 MB of available RAM in their last minute
+samples. During the 15:00 five-minute bucket, EBS reads jumped to 38.6 GB
+and 20.1 GB respectively. Retained EC2 consoles did not contain an OOM kill.
+
+The RDS slow log identifies a second heavy query path immediately before
+each freeze. `new_anon_migrate_count()` loads an anonymous actor's entire
+attempt history with `select_related('task', 'game')`, including task JSON
+and attempt payloads, to count transferable attempts and choose one example
+link. This public endpoint for authenticated users is polled by the UI.
+
+At 14:59:42, the query from the first host returned 270 attempt rows. A
+read-only SQL aggregate measured 218,960,843 bytes of repeated Censorly task
+JSON across 248 of those attempts, covering only five distinct puzzles.
+At 15:01:30, the query from the second host returned 1,538 attempt rows;
+137 Censorly rows repeated 140,734,617 bytes of task JSON across four puzzles.
+The aggregate returned sizes and counts only; the expensive history query
+was not rerun during investigation.
+
+The morning fix removed this amplification from `get_all_attempts()`, but
+the migration-prompt counter still had its own full-task join. The new query
+timings, volumes, and disk behavior strongly support memory exhaustion and
+file-page reclaim as the recurrence mechanism; no OOM event was captured.
+
+The counter fix performs the unsolved-attempt count in SQL and streams only
+attempt identity, task-group identity, game identity, and game name until
+it finds a usable example link. It excludes task JSON, checker text, attempt
+text, and attempt state. Existing counting, solved-task exclusion, example
+ordering, and legacy game resolution are retained. Regression coverage also
+checks a missing example link followed by a usable one.

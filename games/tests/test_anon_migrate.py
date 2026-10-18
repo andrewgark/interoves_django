@@ -2,7 +2,9 @@ from datetime import timedelta
 import json
 
 from django.contrib.auth.models import User
+from django.db import connection
 from django.test import Client, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
 from unittest.mock import patch
 from django.utils import timezone
@@ -487,6 +489,62 @@ class AnonMigrateTests(TestCase):
         })
         self.assertEqual(data['example_url'], expected_url)
         self.assertEqual(data['example_label'], 'G1')
+
+    def test_migrate_count_does_not_load_puzzle_or_attempt_payloads(self):
+        Task.objects.filter(pk=self.task.pk).update(tags={'large_puzzle': 'x' * 1000})
+        Attempt.manager.bulk_create([
+            Attempt(
+                anon_key=self.anon_key, task=self.task, game=self.game,
+                text='long guess', state='large history state', status='Wrong',
+            )
+            for _ in range(3)
+        ])
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.get(
+                reverse('new_anon_migrate_count'), {'anon_key': self.anon_key},
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['attempts'], 5)
+        self.assertEqual(response.json()['example_label'], 'G1')
+        quote = connection.ops.quote_name
+        history_queries = [
+            row['sql'] for row in queries
+            if 'FROM {}'.format(quote('games_attempt')) in row['sql']
+            and 'JOIN {}'.format(quote('games_task')) in row['sql']
+        ]
+        self.assertEqual(len(history_queries), 1)
+        for table, field in (
+            ('games_task', 'tags'), ('games_task', 'checker_data'),
+            ('games_task', 'text'), ('games_attempt', 'state'),
+            ('games_attempt', 'text'),
+        ):
+            self.assertNotIn('{}.{}'.format(quote(table), quote(field)), history_queries[0])
+
+    def test_migrate_count_example_resolves_legacy_attempt_without_game(self):
+        Attempt.manager.filter(anon_key=self.anon_key).update(game=None)
+        response = self.client.get(
+            reverse('new_anon_migrate_count'), {'anon_key': self.anon_key},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['attempts'], 2)
+        self.assertEqual(response.json()['example_label'], 'G1')
+
+    def test_migrate_count_finds_example_after_unlinked_task(self):
+        with patch('games.views.track.track_task_change'):
+            group = TaskGroup.objects.create(label='unlinked migration history')
+            task = Task.objects.create(task_group=group, number='1', checker_id='equals')
+            attempt = Attempt.manager.create(
+                anon_key=self.anon_key, task=task, status='Wrong', text='unlinked',
+            )
+        Attempt.manager.filter(pk=attempt.pk).update(time=timezone.now() - timedelta(days=1))
+        response = self.client.get(
+            reverse('new_anon_migrate_count'), {'anon_key': self.anon_key},
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['attempts'], 3)
+        self.assertEqual(response.json()['example_label'], 'G1')
 
     def test_club_archive_offer_last_shown_is_saved_in_profile(self):
         before = timezone.now() - timedelta(seconds=1)
