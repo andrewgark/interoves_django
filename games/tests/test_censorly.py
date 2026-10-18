@@ -76,7 +76,8 @@ def _make_puzzle_task(*, title='Москва', body='Москва — столи
 
 class CensorlySymbolTokenTests(SimpleTestCase):
     def test_chess_symbols_are_masked_but_math_service_symbols_stay_visible(self):
-        from games.censorly.tokenize import tokenize_text
+        from games.censorly import CENSORLY_SPLITTER_VERSION
+        from games.censorly.tokenize import resolve_puzzle_payload, tokenize_text
 
         tokens = [
             token for token in tokenize_text('♕ ♛ ∑ → ± √')
@@ -97,6 +98,23 @@ class CensorlySymbolTokenTests(SimpleTestCase):
         self.assertEqual(len(symbols), 2)
         self.assertTrue(all(not token['revealed'] and 'text' not in token for token in symbols))
         self.assertEqual([token['text'] for token in math], ['∑', '→', '±', '√'])
+
+        from games.censorly.redact import unsolved_share_runs
+        _title, lead = unsolved_share_runs(payload)
+        self.assertEqual(
+            [run['length'] for run in lead if run.get('kind') == 'mask'],
+            [1, 1],
+        )
+        self.assertNotIn('♕', json.dumps(lead, ensure_ascii=False))
+        self.assertNotIn('♛', json.dumps(lead, ensure_ascii=False))
+        self.assertIn('∑', json.dumps(lead, ensure_ascii=False))
+
+        refreshed = resolve_puzzle_payload({
+            'wiki_title': 'Фигуры',
+            'body_text': '♕',
+            'splitter_version': CENSORLY_SPLITTER_VERSION - 1,
+        })
+        self.assertEqual(refreshed['body_tokens'][0]['kind'], 'symbol')
 
 
 class CensorlyEngineTests(TestCase):

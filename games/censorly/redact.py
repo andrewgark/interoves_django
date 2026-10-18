@@ -319,7 +319,7 @@ def share_mask_runs(
         if '\n' in text:
             push_break()
             continue
-        if kind == 'content' and not tok.get('revealed'):
+        if kind in ('content', 'symbol') and not tok.get('revealed'):
             try:
                 length = int(tok.get('length') or 0)
             except (TypeError, ValueError):
