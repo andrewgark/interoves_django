@@ -1838,7 +1838,9 @@ class AttemptManager(models.Manager):
         return GameTaskGroup.resolve_game_for_task(row.hint.task)
 
     def get_all_attempts(self, team, task, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
-        queryset = super().get_queryset().select_related('task')
+        queryset = super().get_queryset()
+        if not isinstance(task, Task):
+            queryset = queryset.select_related('task')
         if exclude_skip:
             queryset = queryset.exclude(skip=exclude_skip)
         queryset = self._filter_by_actor(queryset, team=team, user=user, anon_key=anon_key)
@@ -1846,7 +1848,14 @@ class AttemptManager(models.Manager):
         if game is not None:
             queryset = queryset.filter(game=game)
         queryset = self._namespace(queryset, replay_slot)
-        return sorted(queryset, key=lambda x: (x.time, x.pk))
+        attempts = sorted(queryset, key=lambda x: (x.time, x.pk))
+        if isinstance(task, Task):
+            # Reuse the task the caller already loaded. Joining it to every
+            # attempt duplicates large puzzle JSON in both the DB response and
+            # Python objects (hundreds of MB for a long Censorly history).
+            for attempt in attempts:
+                attempt.task = task
+        return attempts
 
     def get_all_attempts_after_equal(self, team, task, time, exclude_skip=True, user=None, anon_key=None, game=None, replay_slot=None):
         queryset = super().get_queryset()
