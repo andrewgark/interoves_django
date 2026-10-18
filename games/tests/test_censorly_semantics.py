@@ -1117,10 +1117,19 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(initially_open('АЛЬ'))
         self.assertFalse(initially_open('аль'))
 
-    def test_selected_service_homographs_are_not_initially_open(self):
-        for surface in ('фон', 'Ван', 'дер', 'значит', 'короче', 'максимум'):
+    def test_ibn_is_not_initially_open(self):
+        for surface in ('ибн', 'Ибн', 'ИБН'):
             with self.subTest(surface=surface):
                 self.assertFalse(initially_open(surface))
+
+    def test_selected_service_homographs_are_not_initially_open(self):
+        for word in (
+            'фон', 'ван', 'дер', 'значит', 'короче', 'максимум',
+            'бин', 'дель', 'ле', 'эль', 'ин', 'герне', 'мол', 'ка', 'ок', 'окей',
+        ):
+            for surface in (word, word.title(), word.upper()):
+                with self.subTest(surface=surface):
+                    self.assertFalse(initially_open(surface))
 
     def test_pronouns_start_open_across_inflectional_forms(self):
         for pronoun in (

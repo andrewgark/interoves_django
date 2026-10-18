@@ -271,6 +271,57 @@ class CensorlyEngineTests(TestCase):
         title_content = [t for t in state['title_tokens'] if t['kind'] == 'content']
         self.assertTrue(all(t['revealed'] for t in title_content))
 
+    def test_ibn_stays_masked_until_guessed(self):
+        from django.test import override_settings
+
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='Ибн Сина',
+            body='Сабит ибн Курра. ИБН.',
+        )
+        user = User.objects.create_user('cz_ibn', password='x')
+        with override_settings(CENSORLY_LEXICAL_RESOLVER=True):
+            initial = get_play_state(game=game, task=task, user=user)
+            result = apply_guess(game=game, task=task, word='ибн', user=user)
+
+        self.assertEqual(result['status'], 'hit')
+        self.assertEqual(result['attempts'], 1)
+        for section in ('title_tokens', 'body_tokens'):
+            for token in puzzle[section]:
+                if normalize_surface(token['surface']) != 'ибн':
+                    continue
+                with self.subTest(section=section, surface=token['surface']):
+                    before = next(t for t in initial[section] if t['id'] == token['id'])
+                    self.assertFalse(before['revealed'])
+                    self.assertNotIn('text', before)
+                    after = next(t for t in result[section] if t['id'] == token['id'])
+                    self.assertTrue(after['revealed'])
+                    self.assertEqual(after['text'], token['surface'])
+
+    def test_selected_particles_stay_masked_until_guessed(self):
+        from django.test import override_settings
+
+        user = User.objects.create_user('cz_hidden_particles', password='x')
+        for word in ('бин', 'дель', 'ле', 'эль', 'ин', 'герне', 'мол', 'ка', 'ок', 'окей'):
+            with self.subTest(word=word), override_settings(CENSORLY_LEXICAL_RESOLVER=True):
+                game, task, _hash, _puzzle = _make_puzzle_task(
+                    title=f'Корзина {word}',
+                    body=f'{word} {word.title()} {word.upper()}',
+                )
+                initial = get_play_state(game=game, task=task, user=user)
+                content = [t for t in initial['body_tokens'] if t['kind'] == 'content']
+                self.assertEqual(len(content), 3)
+                for token in content:
+                    self.assertFalse(token['revealed'])
+                    self.assertNotIn('text', token)
+
+                result = apply_guess(game=game, task=task, word=word, user=user)
+
+                self.assertEqual(result['status'], 'hit')
+                self.assertEqual(result['attempts'], 1)
+                opened = [t for t in result['body_tokens'] if t['kind'] == 'content']
+                self.assertTrue(all(t['revealed'] for t in opened))
+                self.assertEqual([t['text'] for t in opened], [word, word.title(), word.upper()])
+
     def test_initially_open_stop_word_is_rejected_without_attempt(self):
         game, task, _hash, _puzzle = _make_puzzle_task(
             title='Кот',
