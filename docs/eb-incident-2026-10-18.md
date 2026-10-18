@@ -147,3 +147,70 @@ the existing running-instance selection retained for diagnosis when no healthy
 host is available. Shell syntax and a live health read on the selected healthy
 host were checked. The counter and related identity/history suites passed
 66 tests.
+
+The release is `app-green-6ddad60f-20261018151720`: `d0c2522c` contains
+the counter fix and regression tests; `6ddad60f` also makes management access
+prefer a healthy host. On the first updated host, a read-only invocation of
+the actual counter endpoint with the two affected anonymous histories passed:
+
+| Total attempts | Unsolved for the verification user | Endpoint time | Peak RSS increase |
+|---|---:|---:|---:|
+| 270 | 0 | 1,852.4 ms | 0.0 MiB |
+| 1,538 | 521 | 992.9 ms | 8.65 MiB |
+
+Captured SQL selected no task payload columns. Times include endpoint setup
+and cold URL imports; the solved-attempt exclusions depend on the verification
+user. Neither invocation transferred history or changed the source records.
+
+During the rolling deployment, the old hosts temporarily returned an explicit
+503 only for `/anon-migrate-count/`, hiding the optional migration prompt and
+preventing another memory spike. This accounts for counter 503s in deployment
+health metrics. The guards were runtime nginx files, outside the application
+bundle, and are removed from each host after its fixed version is confirmed.
+The actual merge endpoint and ECS identity worker were not disabled.
+
+An unhealthy host disappeared while EB was adding a deployment batch, leaving
+three running instances against temporary desired capacity four. EB had
+suspended Launch; resuming that process allowed the missing instance to start.
+EB detected it and included it in the ongoing application update.
+
+The newly launched host then received overlapping `self-startup` and
+`app-deploy` operations. At 15:40:55 the latter failed in `FlipApplication`
+because `/var/app/staging/Procfile` was already gone. The startup operation
+completed at 15:41:17, and the host answered local health 200 on the fixed
+code, but EB aborted the overall rollout. Capacity returned to three and all
+ASG processes resumed. A retry uses an isolated checkout of `6ddad60f` to
+keep unrelated new commits in the shared checkout out of this release.
+
+The isolated retry started at 15:46:38 with version
+`app-green-6ddad60f-20261018154602`. At 15:58:48, the counter verification
+passed again on the new first-batch host (`i-07d9cadf9cd58ce4d`): the two
+histories took 135.5 ms / 0.0 MiB and 1,155.6 ms / 8.64 MiB respectively,
+with task payload columns absent from SQL. The ECS identity service was also
+checked: ACTIVE, desired/running 1/1, pending 0, rollout COMPLETED.
+
+A deployment-time access-log sample contained 57 counter-guard 503s on the
+old host and two other 503s on the new host (`/games/des174/` and
+`/meta/deploy-version/`). The latter two are not attributed to the counter
+guard. No claim of zero application 5xx is made for the rollout window.
+
+### Final rollout verification
+
+EB completed the retry successfully at **16:04:02 UTC**. The deploy script
+exited 0 after all 34 public-page smoke checks and refresh-gate cleanup.
+The public version endpoint reports `6ddad60f` and `deploying: false`.
+
+Green is `Ready / Green / Ok`. The three retained instances are
+`i-07d9cadf9cd58ce4d`, `i-0e4bd5582035af4b2`, and
+`i-01e31e61181d23937`; each reports `Ok` on the retry version. The extra
+old-version host `i-0a679bb25826da853` is intentionally terminating as excess
+deployment capacity. ASG min/max/desired are 3/3/3 and no processes remain
+suspended. The scheduled return to 2/2/2 remains set for 22:00 UTC
+(02:00 on October 19 in Yerevan).
+
+An explicit check on all three retained hosts confirmed no counter guard
+file, local health 200, and the normal unauthenticated counter redirect 302.
+Available RAM was 710, 792, and 1,229 MiB in that sample. Published ALB minute
+buckets 16:01 and 16:02 contained 400 and 377 requests with no target or
+ELB 5xx datapoints. The 16:03 bucket was still partial at the time of the
+check. This is short initial observation, not a long-term stability claim.
