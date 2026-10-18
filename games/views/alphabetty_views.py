@@ -309,7 +309,7 @@ def alphabetty_hub_page(request):
             'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
             'name': f'Алфавитка №{n}',
             'play_url': section_play_path(ALPHABETTY_GAME_ID, n),
-        'results_url': '{}results/'.format(section_play_path(ALPHABETTY_GAME_ID, n)),
+            'results_url': '{}results/'.format(section_play_path(ALPHABETTY_GAME_ID, n)),
             'is_today': today_number is not None and n == today_number,
             'is_solved': bool(prog.get('is_solved')),
             'row_class': row_class,
@@ -632,9 +632,10 @@ def _load_visible_task(request, number, *, json_mode=True):
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
     from games.daily.placement import resolve_accessible_daily_placement
     from games.models import RandomAlphabettyGame
+    from games.placement_share import is_share_hash_segment
 
     offer = get_offer_by_share_hash(str(number))
-    if offer is None:
+    if offer is None and is_share_hash_segment(str(number)):
         share_placement = resolve_accessible_daily_placement(
             game, number, user=request.user,
         )

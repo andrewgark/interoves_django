@@ -633,6 +633,27 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertIn('new-rules-trigger--compact', html)
         self.assertIn('Угадайте слово по алфавиту', html)
 
+    def test_daily_play_url_keeps_its_number_or_share_hash(self):
+        _ensure_login_modal_deps()
+        link = GameTaskGroup.objects.get(game=self.game, task_group=self.task.task_group)
+
+        numbered = self.client.get('/alphabetty/1/')
+        self.assertEqual(numbered.status_code, 200)
+        self.assertContains(numbered, 'data-guess-url="/alphabetty/1/guess/"')
+        self.assertContains(numbered, 'href="/alphabetty/1/results/"')
+        self.assertNotContains(numbered, 'data-offer-share-hash=')
+
+        shared = self.client.get(f'/alphabetty/{link.share_hash}/')
+        self.assertEqual(shared.status_code, 200)
+        self.assertContains(
+            shared,
+            f'data-guess-url="/alphabetty/{link.share_hash}/guess/"',
+        )
+        self.assertContains(
+            shared,
+            f'href="/alphabetty/{link.share_hash}/results/"',
+        )
+
     def test_hub_page_has_create_link(self):
         _ensure_login_modal_deps()
         from games.alphabetty_daily import alphabetty_publish_at
