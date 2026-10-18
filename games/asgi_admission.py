@@ -308,7 +308,11 @@ class DatabaseAdmissionASGIMiddleware:
             # Rejections are aggregated into low-cardinality JSON samples. Do
             # not emit one warning per request during a sustained overload.
             self._maybe_emit_metrics()
-            body = b'{"ok":false,"error":"temporarily_unavailable"}'
+            body = json.dumps({
+                'ok': False,
+                'error': 'temporarily_unavailable',
+                'reason': rejection_reason,
+            }, separators=(',', ':')).encode('ascii')
             await send({
                 'type': 'http.response.start',
                 'status': 503,
@@ -318,6 +322,7 @@ class DatabaseAdmissionASGIMiddleware:
                     (b'retry-after', str(self.retry_after_seconds).encode('ascii')),
                     (b'cache-control', b'no-store'),
                     (b'x-request-id', request_id.encode('ascii')),
+                    (b'x-interoves-admission-rejection', rejection_reason.encode('ascii')),
                 ],
             })
             await send({'type': 'http.response.body', 'body': body, 'more_body': False})
