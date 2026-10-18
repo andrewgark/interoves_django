@@ -109,7 +109,7 @@ def format_game_start_announcement(game) -> str:
 
 def format_game_end_soon_announcement(game) -> str:
     """Legacy 30-minute copy (kept for old tests / rows)."""
-    name = _escape(game.get_no_html_name())
+    name = _game_name_genitive(game)
     end = game.end_time
     end_local = timezone.localtime(end).strftime('%H:%M')
     return _join_lines([
@@ -121,7 +121,7 @@ def format_game_end_soon_announcement(game) -> str:
 
 
 def format_game_end_soon_15_announcement(game) -> str:
-    name = _escape(game.get_no_html_name())
+    name = _game_name_genitive(game)
     end_local = timezone.localtime(game.end_time).strftime('%H:%M')
     return _join_lines([
         '⏳ <b>До конца {} — 15 минут</b> (окончание в {})'.format(name, end_local),
@@ -151,6 +151,15 @@ def _all_solved_game_phrase(game) -> str:
     if raw.startswith(prefix):
         return _escape('Десяточке' + raw[len(prefix):])
     return 'игре {}'.format(_escape(raw))
+
+
+def _game_name_genitive(game) -> str:
+    """Game name after «до конца»: «Десяточки 174», other names unchanged."""
+    raw = game.get_no_html_name() or ''
+    prefix = 'Десяточка'
+    if raw.startswith(prefix):
+        return _escape('Десяточки' + raw[len(prefix):])
+    return _escape(raw)
 
 
 def _format_points_amount(n) -> str:

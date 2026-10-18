@@ -508,6 +508,16 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('answers', end)
         self.assertNotIn('Таблица результатов', end)
 
+    def test_end_soon_announcements_use_genitive_for_desyatochka(self):
+        self.game.no_html_name = 'Десяточка 174'
+        self.game.save(update_fields=['no_html_name'])
+
+        for formatter in (
+            format_game_end_soon_announcement,
+            format_game_end_soon_15_announcement,
+        ):
+            self.assertIn('До конца Десяточки 174', formatter(self.game))
+
     def test_day_before_announcement_uses_explicit_game_url(self):
         text = format_game_day_before_announcement(self.game)
         self.assertIn('https://interoves.com/games/tg_test_game/', text)
