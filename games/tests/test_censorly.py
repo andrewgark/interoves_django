@@ -44,6 +44,10 @@ def _make_puzzle_task(*, title='Москва', body='Москва — столи
             'is_ready': False,
             'is_playable': True,
             'is_tournament': False,
+            'rules': None,
+            'tournament_rules': None,
+            'general_rules': None,
+            'section_default_rules': None,
         },
     )
     puzzle = build_puzzle_payload(wiki_title=title, body_text=body, wiki_pageid=1)
@@ -1892,6 +1896,10 @@ class CensorlySupportViewTests(TestCase):
                 'is_ready': False,
                 'is_playable': True,
                 'is_tournament': False,
+                'rules': None,
+                'tournament_rules': None,
+                'general_rules': None,
+                'section_default_rules': None,
             },
         )
         self.staff = User.objects.create_superuser('cz_sup', 'a@b.c', 'x')
@@ -2418,6 +2426,26 @@ class CensorlyUxDailyTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
         self.assertFalse(DailySolveTiming.objects.filter(
+            game=self.game, task_group=self.task.task_group, user=self.staff,
+        ).exists())
+
+    def test_daily_share_hash_can_start_timer_without_random_game_marker(self):
+        self.client.force_login(self.staff)
+        RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
+
+        response = self.client.post(
+            f'/censorly/{self.share_hash}/timing/',
+            data=json.dumps({
+                'action': 'start',
+                'session_id': str(uuid4()),
+                'event_id': str(uuid4()),
+                'seq': 1,
+            }),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertTrue(DailySolveTiming.objects.filter(
             game=self.game, task_group=self.task.task_group, user=self.staff,
         ).exists())
 

@@ -108,7 +108,9 @@ def _resolve_actor(request, game):
     return None, None, None
 
 
-def _load_daily_target(request, game_id, number, project_id=None):
+def _load_daily_target(
+    request, game_id, number, project_id=None, *, random_game_only=False,
+):
     game_qs = Game.objects.filter(id=game_id)
     if project_id:
         game_qs = game_qs.filter(project_id=project_id)
@@ -116,7 +118,13 @@ def _load_daily_target(request, game_id, number, project_id=None):
     raw_number = str(number or '').strip()
     random_link = _random_game_timing_link(game, raw_number)
     share_link = None
-    if random_link is None:
+    if random_game_only:
+        # The explicit /r/<hash>/ route denotes a permanent random game.
+        # Do not reinterpret a stale random URL as a daily placement merely
+        # because its GameTaskGroup row still carries the same share hash.
+        if random_link is None:
+            return None, None, None, None, None, _json_error('missing', 404)
+    elif random_link is None:
         from games.placement_share import is_share_hash_segment
 
         if is_share_hash_segment(raw_number):
@@ -141,6 +149,8 @@ def _load_daily_target(request, game_id, number, project_id=None):
         link = GameTaskGroup.objects.filter(
             game=game, number=raw_number, is_deferred=False,
         ).select_related('task_group').first()
+    elif random_game_only:
+        link = random_link
     else:
         link = random_link or share_link
     if link is None:
@@ -289,7 +299,11 @@ def _daily_solve_timing_impl(
             from django.shortcuts import redirect
             return redirect(path, permanent=True)
     game, task_group, team, user, anon_key, err = _load_daily_target(
-        request, game_id, number, project_id=project_id,
+        request,
+        game_id,
+        number,
+        project_id=project_id,
+        random_game_only=share_hash is not None,
     )
     if err is not None:
         return err
