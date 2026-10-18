@@ -230,6 +230,9 @@ html.new-ui-dark .censorly__dock {
 .censorly-tok--no-break-before::before { content: "\2060"; }
 .censorly-tok--no-break-after::after { content: "\2060"; }
 
+/* Inline-block masks need a shared nowrap context with their punctuation. */
+.censorly-tok-group { white-space: nowrap; }
+
 /* Blank line between wikipedia paragraphs: redactle's collapsed p margin, 0.75em. */
 .censorly-tok--para {
   display: block;

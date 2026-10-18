@@ -79,6 +79,24 @@ def _make_puzzle_task(*, title='Москва', body='Москва — столи
 
 
 class CensorlySymbolTokenTests(SimpleTestCase):
+    def test_degree_and_punctuation_stay_visible_next_to_masked_tokens(self):
+        from games.censorly.tokenize import tokenize_text
+
+        tokens = tokenize_text('(примерно 45°), ♕), (×)')
+        self.assertEqual(
+            [(token['surface'], token['kind']) for token in tokens],
+            [
+                ('(', 'punct'), ('примерно', 'content'), (' ', 'space'),
+                ('45', 'content'), ('°', 'punct'), ('),', 'punct'),
+                (' ', 'space'), ('♕', 'symbol'), ('),', 'punct'),
+                (' ', 'space'), ('(', 'punct'), ('×', 'stop'), (')', 'punct'),
+            ],
+        )
+        payload = build_puzzle_payload(wiki_title='Немецкая овчарка', body_text='(примерно 45°),')
+        view = build_public_view(payload, revealed_lemmas=set(), won=False)
+        visible = [token['text'] for token in view['body_tokens'] if token['revealed']]
+        self.assertEqual(visible, ['(', ' ', '°', '),'])
+
     def test_chess_symbols_are_masked_but_math_service_symbols_stay_visible(self):
         from games.censorly import CENSORLY_SPLITTER_VERSION
         from games.censorly.tokenize import resolve_puzzle_payload, tokenize_text

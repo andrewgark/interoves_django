@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from itertools import groupby
 from typing import Any
 
 from games.censorly import CENSORLY_SPLITTER_VERSION
@@ -37,13 +38,13 @@ HEADING_LEVEL_SEP = '\x1f'
 FORMULA_START = '\ufdd2'
 FORMULA_END = '\ufdd3'
 
-_MATH_SERVICE_SYMBOLS = '∫∬∭∮≤≥≠≈≡∈∉∑∏∂∇×·±∓→←↔⇌⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
+_MATH_SERVICE_SYMBOLS = '°∫∬∭∮≤≥≠≈≡∈∉∑∏∂∇×·±∓→←↔⇌⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
 _MATH_SERVICE_SYMBOL_SET = frozenset(_MATH_SERVICE_SYMBOLS)
 _MATH_SERVICE_CLASS = re.escape(_MATH_SERVICE_SYMBOLS)
 
 # Greek, CJK, Cyrillic and Latin are words. Hyphen, ² and ₂ are not in the span.
 _TOKEN_RE = re.compile(
-    rf'[{WORD_CHARS}]+⃗|[{_MATH_SERVICE_CLASS}]|(?:(?![{_MATH_SERVICE_CLASS}])[{WORD_CHARS}])+|[^{WORD_CHARS}\s]+|\s+',
+    rf'[{WORD_CHARS}]+⃗|[{_MATH_SERVICE_CLASS}]|(?:(?![{_MATH_SERVICE_CLASS}])[{WORD_CHARS}])+|[^{WORD_CHARS}{_MATH_SERVICE_CLASS}\s]+|\s+',
 )
 
 _WORD_CORE_RE = re.compile(
@@ -167,6 +168,19 @@ def _tokenize_chunk(
     return tokens
 
 
+def _plain_token_surfaces(text: str):
+    """Keep punctuation outside masked symbol runs (e.g. «♕),»)."""
+    for match in _TOKEN_RE.finditer(text):
+        raw = match.group(0)
+        if raw.isspace() or _WORD_CORE_RE.fullmatch(raw):
+            yield raw
+        else:
+            for _is_symbol, chars in groupby(
+                raw, key=lambda char: unicodedata.category(char).startswith('S'),
+            ):
+                yield ''.join(chars)
+
+
 def _tokenize_plain(
     text: str,
     *,
@@ -177,8 +191,7 @@ def _tokenize_plain(
     tokens: list[dict[str, Any]] = []
     tid = start_id
     cleaned = unicodedata.normalize('NFC', _strip_invisible(text))
-    for match in _TOKEN_RE.finditer(cleaned):
-        raw = match.group(0)
+    for raw in _plain_token_surfaces(cleaned):
         if not raw:
             continue
         # Drop combining accents from play surfaces (guessing / display).

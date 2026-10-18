@@ -261,7 +261,8 @@
   }
 
   function isWordDisplayToken(tok) {
-    return !!tok && (tok.kind === 'content' || tok.kind === 'stop' || tok.revealed);
+    // Structural tokens are revealed too; punctuation must reach its attachment handler.
+    return !!tok && (tok.kind === 'content' || tok.kind === 'stop' || tok.kind === 'symbol');
   }
 
   function punctuationAttachments(tok, hasPreviousWord, hasNextWord) {
@@ -269,7 +270,19 @@
     return window.CensorlyPunctuation.attachments(text, hasPreviousWord, hasNextWord);
   }
 
+  function punctuationContainer(container, tok) {
+    if (tok.revealed || container.classList.contains('censorly-tok-group')) return container;
+    // Desktop masks are inline-blocks; word joiners alone do not bind them
+    // to adjacent punctuation. Keep only masked words in a nowrap group.
+    var group = el('span', 'censorly-tok-group');
+    container.appendChild(group);
+    return group;
+  }
+
   function appendWordWithPunctuation(container, tokens, index, lenForced) {
+    if (tokens[index + 1] && tokens[index + 1].kind === 'punct') {
+      container = punctuationContainer(container, tokens[index]);
+    }
     appendToken(container, tokens[index], lenForced);
     var next = index + 1;
     while (next < tokens.length && tokens[next].kind === 'punct') {
@@ -299,6 +312,7 @@
       hasAfterAttachment = hasAfterAttachment || attachments.after;
     }
     if (!hasAfterAttachment) return index;
+    container = punctuationContainer(container, tokens[next]);
     while (index < next) {
       var tokenAttachments = attachmentsByToken[index - start];
       var classes = [];
