@@ -486,7 +486,7 @@
       </div>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
         <button type="button" class="new-btn" data-migrate-confirm>Перенести</button>
-        <button type="button" class="new-btn new-btn--text" data-migrate-close>Позже</button>
+        <button type="button" class="new-btn new-btn--text" data-migrate-close>Напомнить через 3 дня</button>
         <button type="button" class="new-btn new-btn--ghost" data-migrate-separate>Оставить отдельно</button>
       </div>
     </div>
@@ -511,10 +511,20 @@
     function laterKey(anonKey) {
       return 'interoves_anon_migrate_later:' + userId + ':' + anonKey;
     }
+    var postponeMs = 72 * 60 * 60 * 1000;
     function shouldPrompt(anonKey) {
       try {
-        return localStorage.getItem(decisionKey(anonKey)) !== '1'
-          && sessionStorage.getItem(laterKey(anonKey)) !== '1';
+        if (localStorage.getItem(decisionKey(anonKey)) === '1') return false;
+        var key = laterKey(anonKey);
+        var postponedUntil = Number(localStorage.getItem(key)) || 0;
+        // Older versions stored "Позже" only for the current tab. Give those
+        // dismissals a full 72 hours when the new version first sees them.
+        if (sessionStorage.getItem(key) === '1') {
+          postponedUntil = Math.max(postponedUntil, Date.now() + postponeMs);
+          localStorage.setItem(key, String(postponedUntil));
+          sessionStorage.removeItem(key);
+        }
+        return Date.now() >= postponedUntil;
       } catch (e) { return true; }
     }
     var anonKey = getAnonKey();
@@ -594,7 +604,7 @@
       document.body.style.overflow = '';
     }
     function postpone() {
-      try { sessionStorage.setItem(laterKey(anonKey), '1'); } catch (e) {}
+      try { localStorage.setItem(laterKey(anonKey), String(Date.now() + postponeMs)); } catch (e) {}
       close();
     }
     function keepSeparate() {

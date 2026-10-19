@@ -248,6 +248,7 @@
       var userId = document.body.getAttribute('data-user-id') || '';
       if (anonKey) {
         try { localStorage.removeItem('interoves_anon_migrate_separate:' + userId + ':' + anonKey); } catch (e) {}
+        try { localStorage.removeItem('interoves_anon_migrate_later:' + userId + ':' + anonKey); } catch (e) {}
         try { sessionStorage.removeItem('interoves_anon_migrate_later:' + userId + ':' + anonKey); } catch (e) {}
       }
       window.location.reload();
