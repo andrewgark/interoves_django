@@ -587,6 +587,18 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('математика', 'математический'))
         self.assertTrue(opens('математический', 'математика'))
 
+    def test_chess_reviewed_family(self):
+        from games.censorly.lexical.rootbank import assignment_of, structures_of
+
+        for lemma in ('шахматы', 'шахматный', 'шахматист', 'шахматистка'):
+            self.assertEqual(assignment_of(lemma)['source'], 'REVIEWED_DERIVED_ROOT')
+            self.assertEqual(structures_of(lemma), (('root:шахмат',),))
+        self.assertTrue(opens('шахматы', 'шахматная'))
+        self.assertTrue(opens('шахматная', 'шахматы'))
+        self.assertTrue(opens('шахматы', 'шахматистов'))
+        self.assertFalse(opens('шахматы', 'мат'))
+        self.assertFalse(opens('шах', 'шахматы'))
+
     def test_electrical_adverb_is_separate_from_electron(self):
         from games.censorly.lexical.rootbank import assignment_of, structures_of
 

@@ -17,3 +17,7 @@ lemma	root_structure	note
 спиновый	fam:спин	Transparent adjective from спин; unique existing fam:спин.
 степенной	fam:степен	Transparent adjective from степень; existing fam:степен.
 хожение	fam:хаж|ход|хож|хожд	Nominal formation from ходить with the existing complete хаж/ход/хож/хожд structure.
+шахматист	root:шахмат	Reviewed chess family: шахматист shares the compound stem шахмат.
+шахматистка	root:шахмат	Reviewed chess family: шахматистка shares the compound stem шахмат.
+шахматный	root:шахмат	Reviewed derivation linking шахматный and шахматы.
+шахматы	root:шахмат	Reviewed chess family: шахматы, шахматный, шахматист.
