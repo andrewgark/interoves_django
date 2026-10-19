@@ -656,8 +656,8 @@ VERDICTS = {
     ),
     'снов': (
         'SPLIT',
-        'auto≥30: разностеблевые ROOT-пары (основа/сновка, основа/сновать)',
-        'FOUNDATION / WEAVE_WARP',
+        'Основа и основать отделены от основного; засновать относится к сновать.',
+        'FOUNDATION / PRIMARY / WEAVE_WARP',
     ),
     'сыт¹|сыщ': (
         'AGENT_THINKS_SAFE',
@@ -2001,8 +2001,8 @@ VERDICTS = {
     ),
     'ем|им¹|йм|ним|ня|ым²|я¹|∅': (
         'SPLIT',
-        'взять ≠ понять ≠ нанять ≠ ёмкость',
-        'CAPACITY / HIRE / TAKE / UNDERSTAND',
+        'Взять, понять, нанять, заниматься, заём, съёмка и пойма разделены по значению.',
+        'CAPACITY / HIRE / TAKE / UNDERSTAND / OCCUPATION / LOAN / PHOTOGRAPHY / FLOODPLAIN',
     ),
     'жи': (
         'SPLIT',
@@ -2491,8 +2491,8 @@ VERDICTS = {
     ),
     'рук|руч¹|руш¹': (
         'SPLIT',
-        'Обруч вынесен. Рука, ручка и обручение остаются семьёй руки.',
-        'HAND: рука, ручка, обручение; HOOP: обруч',
+        'Рука отделена от выручки, выручить, вручить, поручить, приручить и обручить.',
+        'HAND / REVENUE / RESCUE / HANDOVER / ENTRUST / TAMING / BETROTHAL / OFFICER_RANK / HOOP',
     ),
     'след|слеж': (
         'SPLIT',

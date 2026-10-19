@@ -1647,7 +1647,6 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
             ('течение', 'источник'),
             ('выключатель', 'заключаться'),
             ('выключатель', 'исключение'),
-            ('использование', 'полезный'),
             ('вредность', 'повреждение'),
         ):
             self.assertNotIn(closed_lemma, matching_lemmas(tokens, guess), guess)
@@ -1656,7 +1655,7 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
             ('вместе', 'sense:together'), ('место', 'sense:location'),
             ('источник', 'sense:source_origin'), ('течение', 'sense:flow'),
             ('выключатель', 'sense:switching'), ('заключаться', 'sense:conclusion'),
-            ('использование', 'sense:review_use'), ('полезный', 'sense:review_benefit'),
+            ('использование', 'sense:review_utility'), ('полезный', 'sense:review_utility'),
             ('вредность', 'sense:review_harm'), ('повреждение', 'sense:review_physical_damage'),
         ):
             self.assertTrue(_has_sense_structure(lemma, sense))
@@ -1668,6 +1667,7 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
             ('включать', 'выключить'),
             ('включать', 'исключать'),
             ('использование', 'использовать'),
+            ('использование', 'полезный'),
             ('полезный', 'полезность'),
             ('вредность', 'вредный'),
             ('повреждение', 'повредить'),
@@ -1677,6 +1677,92 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
                 'root',
                 f'{guess} / {target} should remain connected within its cluster',
             )
+
+    def test_reported_article_words_follow_reviewed_sense_clusters(self):
+        from games.censorly.lexical.rootbank import structures_of
+        from games.censorly.tokenize import all_tokens, build_puzzle_payload
+
+        payload = build_puzzle_payload(
+            wiki_title='Проверка жалоб на матчинг',
+            body_text=(
+                'В основном занимался делом. Она использовалась. '
+                'По выручке судили.'
+            ),
+        )
+        tokens = all_tokens(payload)
+        for guess, target_lemma in (
+            ('основать', 'основное'),
+            ('снять', 'заниматься'),
+            ('руки', 'выручка'),
+        ):
+            with self.subTest(guess=guess, target=target_lemma):
+                self.assertNotIn(target_lemma, matching_lemmas(tokens, guess))
+        self.assertIn('использоваться', matching_lemmas(tokens, 'польза'))
+
+        for left, right in (
+            ('основа', 'основать'),
+            ('основной', 'основный'),
+            ('заниматься', 'занятие'),
+            ('снять', 'снимать'),
+            ('польза', 'использоваться'),
+            ('рука', 'ручка'),
+            ('выручка', 'недовыручка'),
+            ('выручить', 'выручать'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+                self.assertTrue(opens(right, left))
+
+        self.assertNotEqual(structures_of('выручка'), structures_of('рука'))
+        self.assertNotEqual(structures_of('основной'), structures_of('основать'))
+
+    def test_affected_families_keep_distinct_meanings_apart(self):
+        closed_pairs = (
+            ('основать', 'засновать'),
+            ('заниматься', 'призанимать'),
+            ('занятный', 'занятие'),
+            ('заем', 'перенаем'),
+            ('заем', 'заимка'),
+            ('заимка', 'займище'),
+            ('съемка', 'съемный'),
+            ('рука', 'вручение'),
+            ('вручную', 'вручение'),
+            ('рука', 'поручительство'),
+            ('рука', 'приручение'),
+            ('рука', 'обручение'),
+            ('поручик', 'поручительство'),
+            ('выручить', 'выручка'),
+        )
+        for left, right in closed_pairs:
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+                self.assertFalse(opens(right, left))
+
+        connected_pairs = (
+            ('сновать', 'засновать'),
+            ('заниматься', 'подзаняться'),
+            ('занятный', 'занятность'),
+            ('нанять', 'перенаем'),
+            ('заем', 'призанимать'),
+            ('заем', 'перезанять'),
+            ('снять', 'съемный'),
+            ('съем', 'съемный'),
+            ('вынуть', 'вынимать'),
+            ('принятие', 'принять'),
+            ('поем', 'пойма'),
+            ('заимка', 'заимочный'),
+            ('вручить', 'вручение'),
+            ('рука', 'вручную'),
+            ('поручить', 'поручительство'),
+            ('приручить', 'приручение'),
+            ('обручить', 'обручение'),
+            ('поручик', 'подпоручик'),
+            ('выручка', 'недовыручка'),
+        )
+        for left, right in connected_pairs:
+            with self.subTest(left=left, right=right):
+                self.assertEqual(explain(left, right), 'root')
+                self.assertEqual(explain(right, left), 'root')
 
     def test_three_article_root_collisions_are_separated(self):
         from games.censorly.lexical.match import _GuessPack, _Pack, _relation

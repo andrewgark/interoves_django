@@ -4596,6 +4596,7 @@ _REVIEW_FAMILIES = frozenset({
     'глав|голав|голов',
     'лаг|лег²|леж|леч²|лог|лож¹', 'ем|им¹|йм|ним|ня|ым²|я¹|∅',
     'лет²|лет', 'год|гож|гожд', 'кан|кон¹', 'мат¹|мач¹',
+    'рук|руч¹|руш¹',
     'свес|свет|свеч|свещ', 'дер|дерг|держ|дир|дор|дорог³|др',
     'па¹|пад|паж|пас¹|пащ', 'хаж|ход|хож|хожд',
     'би(j)|бо(j)¹|бь', 'де(j)|де', 'бер|бир|бор¹|бр¹', 'пут²',
@@ -4683,12 +4684,37 @@ def _review_family_clusters() -> tuple[tuple[str, tuple[str, ...]], ...]:
 def _classify_review_lemma(family: str, lemma: str) -> str:
     if family == 'лез²|льз':
         if lemma.startswith(('польза', 'полез', 'бесполез')):
-            return 'sense:review_benefit'
+            return 'sense:review_utility'
         if lemma in {'нельзя', 'донельзя'}:
             return 'sense:review_prohibition'
         if lemma.startswith(('польз', 'использ', 'воспольз', 'выпольз', 'попольз')):
-            return 'sense:review_use'
+            return 'sense:review_utility'
         return None
+    if family == 'рук|руч¹|руш¹':
+        if lemma in {'выручка', 'недовыручка'}:
+            return 'sense:review_revenue'
+        if lemma.startswith('выруч'):
+            return 'sense:review_rescue'
+        if lemma == 'вручную':
+            return 'sense:review_hand'
+        if lemma.startswith('вруч'):
+            return 'sense:review_handover'
+        if lemma.startswith('прируч'):
+            return 'sense:review_taming'
+        if lemma in {'обручальный', 'обручать', 'обручаться', 'обручение',
+                     'обрученный', 'обручить', 'обручиться'}:
+            return 'sense:review_betrothal'
+        if lemma in {'поручик', 'подпоручик'}:
+            return 'sense:review_officer_rank'
+        if (
+            lemma in {'порука', 'ручательство', 'ручаться'}
+            or (
+                lemma.startswith(('заруч', 'перепоруч', 'препоруч', 'поруч'))
+                and lemma not in {'поручень', 'поручи'}
+            )
+        ):
+            return 'sense:review_entrust'
+        return 'sense:review_hand'
     if family == 'облад|област':
         if lemma.startswith(('областнич',)):
             return 'sense:review_regionalism'
@@ -6717,11 +6743,12 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('звание', ('sense:review_calling', 'sense:review_title')),
     ('головня', ('sense:firebrand', 'sense:smut')),
     ('понятой', ('sense:understand', 'sense:legal_witness')),
-    ('снимать', ('sense:review_removed', 'sense:review_photography', 'sense:review_occupation')),
-    ('сниматься', ('sense:review_removed', 'sense:review_photography', 'sense:review_occupation')),
+    ('снимать', ('sense:review_removed', 'sense:review_photography')),
+    ('сниматься', ('sense:review_removed', 'sense:review_photography')),
     ('снятие', ('sense:review_removed', 'sense:review_photography')),
-    ('сняться', ('sense:review_removed', 'sense:review_photography', 'sense:review_occupation')),
-    ('снять', ('sense:review_removed', 'sense:review_photography', 'sense:review_occupation')),
+    ('сняться', ('sense:review_removed', 'sense:review_photography')),
+    ('снять', ('sense:review_removed', 'sense:review_photography')),
+    ('съем', ('sense:review_removed', 'sense:review_photography')),
     ('торжество', ('sense:review_torg_celebration', 'sense:review_torg_triumph')),
     ('выписать', ('sense:review_record', 'sense:review_writing')),
 )
@@ -6768,6 +6795,28 @@ MULTI_READINGS = MULTI_READINGS + (
 # analysis. These families are missing or unresolved in the dictionaries;
 # keep each pair together without adding a productive suffix rule.
 _LATE_REVIEW_SPLITS = (
+    # «В основном» names the main part, not the act of founding.
+    ('sense:review_primary', ('основной', 'основный')),
+    ('sense:weave_warp', ('засновать',)),
+    # The broad take/borrow family also contains hiring, engaging in an
+    # activity, removable objects, and land near a river.
+    ('sense:hire', (
+        'перенаем', 'поднаем', 'принанимать', 'принанять',
+        'поднаниматель', 'поднанять', 'сонаниматель',
+    )),
+    ('sense:review_loan', (
+        'перезанимать', 'перезанять', 'призанимать', 'призанять',
+    )),
+    ('sense:review_entertaining', ('занятность', 'занятный')),
+    ('sense:review_removed', ('съемный', 'сымать')),
+    ('sense:review_extraction', ('вынуть',)),
+    ('sense:review_receiving', ('принятие',)),
+    ('sense:review_occupation', ('подзаняться',)),
+    ('sense:review_floodplain', (
+        'поем', 'поемный', 'займище', 'займищный',
+        'пойма', 'пойменный', 'припойменный', 'надпойменный',
+    )),
+    ('sense:review_settlement', ('заимка', 'заимочный')),
     # Exclamation and clicking share the modern клик/клиц/клич root family,
     # but are distinct semantic subclusters.
     ('sense:review_exclamation', (
@@ -6808,10 +6857,18 @@ _LATE_REVIEW_SPLITS = (
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
 )
+_late_merged_clusters: dict[str, list[str]] = defaultdict(list)
+for _name, _lemmas in CLUSTERS:
+    _late_merged_clusters[_name].extend(
+        lemma for lemma in _lemmas if lemma not in _LATE_REVIEW_LEMMAS
+    )
+for _name, _lemmas in _LATE_REVIEW_SPLITS:
+    _late_merged_clusters[_name].extend(_lemmas)
 CLUSTERS = tuple(
-    (name, tuple(lemma for lemma in lemmas if lemma not in _LATE_REVIEW_LEMMAS))
-    for name, lemmas in CLUSTERS
-) + _LATE_REVIEW_SPLITS
+    (name, tuple(dict.fromkeys(lemmas)))
+    for name, lemmas in _late_merged_clusters.items()
+    if lemmas
+)
 
 # Explicit root identities for semantic assignments whose dictionary sources
 # have no Kuznetsova/Tikhonov root at all.  These are deliberately per-lemma
