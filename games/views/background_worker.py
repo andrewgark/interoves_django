@@ -169,6 +169,9 @@ def _projection_reconcile(message, message_id):
     )
     try:
         result = reconcile_projection_releases(apply=True, limit=PROJECTION_REPAIR_LIMIT)
+        if not result['skipped_locked']:
+            from games.results.aggregate_snapshots import reconcile_monthly_snapshots
+            result['aggregate_snapshots'] = reconcile_monthly_snapshots(limit=2)
     except Exception as exc:
         finish_queue_heartbeat(
             PROJECTION_CRON_LOCK_NAME,

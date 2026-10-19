@@ -26,6 +26,9 @@
     var loading = false;
     var loadError = false;
     var loadedMore = false;
+    var snapshot = root.getAttribute('data-snapshot') || '';
+    var snapshotView = root.getAttribute('data-snapshot-view') || '';
+    var reloadRequired = false;
 
     function countRows() {
       return tbody.querySelectorAll('tr[data-result-row]:not(.is-hidden)').length;
@@ -37,6 +40,8 @@
         url.searchParams.set('loaded', String(count));
         url.searchParams.delete('page');
         url.searchParams.delete('partial');
+        if (snapshot) url.searchParams.set('snapshot', snapshot);
+        if (snapshotView) url.searchParams.set('snapshot_view', snapshotView);
         window.history.replaceState(window.history.state, '', url.toString());
       } catch (e) {}
     }
@@ -48,7 +53,9 @@
       button.hidden = !nextPage && !loadError;
       if (!status) return;
       status.hidden = !loadedMore && !nextPage && !loadError;
-      status.textContent = loadError
+      status.textContent = reloadRequired
+        ? 'Версия таблицы больше не доступна. Обновите таблицу.'
+        : loadError
         ? 'Не удалось загрузить следующую порцию.'
         : nextPage
           ? 'Загружено ' + count + ' из ' + total
@@ -74,15 +81,27 @@
         var url = new URL(window.location.href);
         url.searchParams.set('page', String(nextPage));
         url.searchParams.set('partial', '1');
+        if (snapshot) url.searchParams.set('snapshot', snapshot);
         var fetchOptions = { credentials: 'same-origin' };
         if (controller) fetchOptions.signal = controller.signal;
         var response = await fetch(url.toString(), fetchOptions);
+        if (response.status === 409 && response.headers.get('X-Results-Reload') === '1') {
+          reloadRequired = true;
+        }
         if (!response.ok) throw new Error('HTTP ' + response.status);
         var rowsBefore = countRows();
         var tmp = document.createElement('tbody');
         tmp.innerHTML = await response.text();
         var meta = tmp.querySelector('template[data-results-meta="1"]');
         if (!meta) throw new Error('Missing results metadata');
+        if (snapshot && meta.getAttribute('data-snapshot') !== snapshot) {
+          reloadRequired = true;
+          throw new Error('Results version changed');
+        }
+        if (snapshotView && meta.getAttribute('data-snapshot-view') !== snapshotView) {
+          reloadRequired = true;
+          throw new Error('Results visibility changed');
+        }
         nextPage = meta.getAttribute('data-has-next') === '1'
           ? (parseInt(meta.getAttribute('data-next-page') || '', 10) || 0) : 0;
         total = parseInt(meta.getAttribute('data-total') || total, 10) || total;
@@ -101,12 +120,20 @@
         button.disabled = false;
         button.removeAttribute('aria-busy');
         root.removeAttribute('aria-busy');
-        button.textContent = loadError ? 'Повторить' : 'Загрузить ещё';
+        button.textContent = reloadRequired ? 'Обновить таблицу' : loadError ? 'Повторить' : 'Загрузить ещё';
         updateState();
       }
     }
 
-    button.addEventListener('click', loadNext);
+    button.addEventListener('click', function () {
+      if (reloadRequired) {
+        var url = new URL(window.location.href);
+        ['snapshot', 'snapshot_view', 'loaded', 'page', 'partial'].forEach(function (key) { url.searchParams.delete(key); });
+        window.location.assign(url.toString());
+        return;
+      }
+      loadNext();
+    });
     document.addEventListener('results:visibility-changed', updateState);
     updateState();
 
@@ -114,7 +141,7 @@
     // This is opt-in via ?loaded=... and does not affect ordinary visits.
     if (restoreTarget > countRows()) {
       (async function () {
-        while (nextPage && countRows() < restoreTarget) await loadNext();
+        while (nextPage && !loadError && countRows() < restoreTarget) await loadNext();
       })();
     }
   });

@@ -6,6 +6,7 @@ This module only turns their output into a rebuildable actor/release projection.
 from collections import defaultdict
 from decimal import Decimal
 import random
+import uuid
 from time import monotonic
 
 import logging
@@ -51,6 +52,18 @@ SCORER_ADAPTER_VERSIONS = {
     'attempts_info': 2,
     'salad_state': 1,
 }
+
+
+def _mark_projection_published(state):
+    """Publication metadata survives later invalidations of the source data."""
+    from games.results.aggregate_snapshots import request_snapshots_for_release
+
+    state.published_at = timezone.now()
+    state.published_version = uuid.uuid4()
+    transaction.on_commit(
+        lambda: request_snapshots_for_release(state.game_id, state.task_group_id),
+        robust=True,
+    )
 
 
 def scorer_adapter_version(game, task_group=None):
@@ -675,9 +688,11 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
         state.full_refresh_required = False
         state.pending_actor_refreshes = 0
         state.completed_at = timezone.now()
+        _mark_projection_published(state)
         state.save(update_fields=[
             'adapter_version', 'coverage_complete', 'is_valid',
             'full_refresh_required', 'pending_actor_refreshes', 'completed_at',
+            'published_at', 'published_version',
         ])
         DailyResultProjectionDirtyActor.objects.filter(
             game=game, task_group=task_group, source_revision__lte=start_revision,
@@ -852,7 +867,11 @@ def _refresh_actor_by_ids(game_id, group_id, actor_filter, *, expected_revision=
             ):
                 state.is_valid = True
             state.pending_actor_refreshes = pending
-            state.save(update_fields=['pending_actor_refreshes', 'is_valid', 'completed_at'])
+            _mark_projection_published(state)
+            state.save(update_fields=[
+                'pending_actor_refreshes', 'is_valid', 'completed_at',
+                'published_at', 'published_version',
+            ])
         logger.info(
             'daily_result_projection_actor_refresh game=%s task_group=%s '
             'actor_type=%s actor_key=%s task_cells=%s compute_ms=%.1f write_ms=%.1f total_ms=%.1f',

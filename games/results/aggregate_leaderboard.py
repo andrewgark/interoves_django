@@ -100,6 +100,7 @@ class ReleaseColumn:
     label: str
     url: str
     published_at: object = None
+    pending: bool = False
 
 
 def _numbered_links(game):
@@ -376,7 +377,7 @@ class _AggregatePage:
 
 
 def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggregate_sort='time',
-                          monthly_summary_month=None):
+                          monthly_summary_month=None, snapshot_build=False, page_size=PAGE_SIZE):
     """Aggregate, rank and page persisted score rows without hydrating all actors."""
     from django.db import connection
 
@@ -400,11 +401,11 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
       AND p.actor_type IN ({actor_placeholders})
       AND p.is_prepublication = %s
       AND (p.team_id IS NULL OR EXISTS (
-          SELECT 1 FROM {team} t WHERE t.name = p.team_id AND t.is_hidden = %s))
+          SELECT 1 FROM {team} t WHERE t.name = p.team_id AND (t.is_hidden = %s OR {int(snapshot_build)} = 1)))
       AND (p.user_id IS NULL OR NOT EXISTS (
-          SELECT 1 FROM {profile} pr WHERE pr.user_id = p.user_id AND pr.is_hidden = %s))
+          SELECT 1 FROM {profile} pr WHERE pr.user_id = p.user_id AND pr.is_hidden = %s AND {int(not snapshot_build)} = 1))
       AND (p.anon_key IS NULL OR NOT EXISTS (
-          SELECT 1 FROM {hidden_anon} ha WHERE ha.anon_key = p.anon_key))
+          SELECT 1 FROM {hidden_anon} ha WHERE ha.anon_key = p.anon_key AND {int(not snapshot_build)} = 1))
       AND NOT (p.actor_type = %s AND EXISTS (
           SELECT 1 FROM {author} a WHERE a.taskgroup_id = p.task_group_id AND a.profile_id = p.user_id))
       AND NOT (p.actor_type = %s AND (
@@ -517,13 +518,20 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
         ]
     else:
         actor_total_branches = []
+        fallback_sql = ('MAX(CASE WHEN dt.id IS NULL AND p.fallback_duration_seconds > 0 THEN 1 ELSE 0 END)'
+                        if snapshot_build else '0')
+        time_sql = ('''NULLIF(SUM(CASE WHEN dt.id IS NOT NULL
+                          THEN COALESCE(dt.frozen_ms, dt.accumulated_ms)
+                          ELSE p.fallback_duration_seconds * 1000 END), 0)'''
+                    if snapshot_build else
+                    'CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END')
         for actor_type, timing_identity in timing_branches:
             actor_total_branches.append(
                 f'''SELECT p.actor_type, p.actor_key, p.team_id, p.user_id, p.anon_key,
                            SUM(p.score) AS window_score, SUM(p.attempts_count) AS attempts_count,
                            COUNT(p.id) AS played_count,
-                           0 AS used_fallback_time,
-                           CASE WHEN COUNT(dt.id) = 0 THEN NULL ELSE SUM(COALESCE(dt.frozen_ms, dt.accumulated_ms)) END AS total_time_ms
+                           {fallback_sql} AS used_fallback_time,
+                           {time_sql} AS total_time_ms
                     FROM {projection} p LEFT JOIN canonical_timing dt ON dt.game_id = p.game_id
                       AND dt.task_group_id = p.task_group_id
                       AND {timing_identity}
@@ -534,6 +542,11 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
         actor_totals_params = [*base_params, *base_params, *base_params]
         timing_actor_cte = ''
     page_number = max(1, int(page_number or 1))
+    tie_order = ("attempts_count, total_time_ms IS NULL, total_time_ms"
+                 if aggregate_sort == 'attempts'
+                 else "total_time_ms IS NULL, total_time_ms, attempts_count")
+    page_order = ('actor_type, actor_key' if snapshot_build else
+                  'window_score DESC, {}, actor_type, actor_key'.format(tie_order))
     with connection.cursor() as cursor:
         cursor.execute(
             f'''WITH {canonical_timing_cte}{timing_actor_cte}
@@ -549,9 +562,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                            window_score, attempts_count, played_count, total_time_ms, used_fallback_time, place,
                            COUNT(*) OVER () AS total_count,
                            ROW_NUMBER() OVER (
-                               ORDER BY window_score DESC,
-                                        {"attempts_count, total_time_ms IS NULL, total_time_ms" if aggregate_sort == 'attempts' else "total_time_ms IS NULL, total_time_ms, attempts_count"},
-                                        actor_type, actor_key
+                               ORDER BY {page_order}
                            ) AS page_row
                     FROM ranked
                 ) SELECT actor_type, actor_key, team_id, user_id, anon_key,
@@ -562,15 +573,13 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                                          THEN %s ELSE ((total_count + %s - 1) / %s) END - 1) * %s)
                    AND page_row <= ((CASE WHEN %s < ((total_count + %s - 1) / %s)
                                           THEN %s ELSE ((total_count + %s - 1) / %s) END) * %s)
-                 ORDER BY window_score DESC,
-                          {"attempts_count, total_time_ms IS NULL, total_time_ms" if aggregate_sort == 'attempts' else "total_time_ms IS NULL, total_time_ms, attempts_count"},
-                          actor_type, actor_key
+                 ORDER BY {page_order}
                  LIMIT %s''',
             [
                 game.pk, *group_ids, *actor_totals_params,
-                page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
-                page_number, PAGE_SIZE, PAGE_SIZE, page_number, PAGE_SIZE, PAGE_SIZE, PAGE_SIZE,
-                PAGE_SIZE,
+                page_number, page_size, page_size, page_number, page_size, page_size, page_size,
+                page_number, page_size, page_size, page_number, page_size, page_size, page_size,
+                page_size,
             ],
         )
         rows = [dict(zip((c[0] for c in cursor.description), row)) for row in cursor.fetchall()]
@@ -581,11 +590,11 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
     for row in rows:
         row.pop('total_count', None)
         row.pop('page_row', None)
-    current_page = ((first_page_row - 1) // PAGE_SIZE) + 1
+    current_page = ((first_page_row - 1) // page_size) + 1
     return rows, total, current_page
 
 
-def _projection_page_cells(game, group_ids, page_rows):
+def _projection_page_cells(game, group_ids, page_rows, *, include_hidden=False):
     """Fetch only the page's eligible release cells, applying the same row policy."""
     from django.db import connection
 
@@ -602,9 +611,9 @@ def _projection_page_cells(game, group_ids, page_rows):
         identities.append('(p.actor_type = %s AND p.actor_key = %s)')
         identity_args.extend((row['actor_type'], row['actor_key']))
     eligible = f'''p.game_id = %s AND p.task_group_id IN ({release_args}) AND p.is_prepublication = %s
-      AND (p.team_id IS NULL OR EXISTS (SELECT 1 FROM {team} t WHERE t.name=p.team_id AND t.is_hidden=%s))
-      AND (p.user_id IS NULL OR NOT EXISTS (SELECT 1 FROM {profile} pr WHERE pr.user_id=p.user_id AND pr.is_hidden=%s))
-      AND (p.anon_key IS NULL OR NOT EXISTS (SELECT 1 FROM {hidden_anon} ha WHERE ha.anon_key=p.anon_key))
+      AND (p.team_id IS NULL OR EXISTS (SELECT 1 FROM {team} t WHERE t.name=p.team_id AND (t.is_hidden=%s OR {int(include_hidden)}=1)))
+      AND (p.user_id IS NULL OR NOT EXISTS (SELECT 1 FROM {profile} pr WHERE pr.user_id=p.user_id AND pr.is_hidden=%s AND {int(not include_hidden)}=1))
+      AND (p.anon_key IS NULL OR NOT EXISTS (SELECT 1 FROM {hidden_anon} ha WHERE ha.anon_key=p.anon_key AND {int(not include_hidden)}=1))
       AND NOT (p.actor_type=%s AND EXISTS (SELECT 1 FROM {author} a WHERE a.taskgroup_id=p.task_group_id AND a.profile_id=p.user_id))
       AND NOT (p.actor_type=%s AND (
         EXISTS (SELECT 1 FROM {author} a JOIN {membership} m ON m.profile_id=a.profile_id WHERE a.taskgroup_id=p.task_group_id AND m.team_id=p.team_id)
@@ -955,13 +964,13 @@ def _build_legacy_aggregate_page_observed(
 
 
 def _build_projection_aggregate_page(request, game, columns, *, aggregate_period='window',
-                                      month_context=None):
+                                      month_context=None, saved_monthly=False, snapshot_version=None):
     """Build a paginated leaderboard from validated daily-result projections."""
     from games.models import DailyResultProjection, Team, User
 
     group_ids = [column.link.task_group_id for column in columns]
     monthly_summary_month = month_context[1] if month_context is not None else None
-    if monthly_summary_month is not None:
+    if monthly_summary_month is not None and not saved_monthly:
         from games.results.monthly_projection import ensure_monthly_projection
 
         if not ensure_monthly_projection(game, monthly_summary_month, group_ids):
@@ -978,10 +987,24 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     aggregate_sort = request.GET.get('sort') if game.id in ('alphabetty', 'censorly') else 'time'
     if aggregate_sort not in ('attempts', 'time'):
         aggregate_sort = 'attempts'
-    page_values, total_count, current_page = _projection_rank_page(
-        game, group_ids, requested_page, actor_types, aggregate_sort,
-        monthly_summary_month=monthly_summary_month,
-    )
+    if saved_monthly:
+        from games.results.aggregate_snapshot_read import read_snapshot_page
+        if snapshot_version is None:
+            page_values, total_count, current_page, cells, snapshot_view = [], 0, 1, {}, ''
+        else:
+            page_values, total_count, current_page, cells, snapshot_view = read_snapshot_page(
+                snapshot_version, requested_page, actor_types, aggregate_sort,
+            )
+            if request.GET.get('partial') == '1' and request.GET.get('snapshot_view') != snapshot_view:
+                from games.results.aggregate_snapshots import SnapshotVersionExpired
+                raise SnapshotVersionExpired()
+        request._aggregate_snapshot_view = snapshot_view
+    else:
+        page_values, total_count, current_page = _projection_rank_page(
+            game, group_ids, requested_page, actor_types, aggregate_sort,
+            monthly_summary_month=monthly_summary_month,
+        )
+        cells = _projection_page_cells(game, group_ids, page_values)
     page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)
     team_ids = {row['team_id'] for row in page_values if row['team_id']}
     user_ids = {row['user_id'] for row in page_values if row['user_id']}
@@ -1001,7 +1024,6 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         else:
             actor_by_identity[identity] = PersonalResultsParticipant(anon_key=result['anon_key'])
 
-    cells = _projection_page_cells(game, group_ids, page_values)
     window_max = sum(column.max_score for column in columns if column.max_score is not None)
     column_max = {column.link.pk: column.max_score for column in columns}
     release_links = [column.link for column in columns]
@@ -1046,7 +1068,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         'aggregate_columns': columns,
         'aggregate_rows': rows,
         'aggregate_window_max': window_max,
-        'aggregate_has_unknown_max': any(column.max_score is None for column in columns),
+        'aggregate_has_unknown_max': any(column.max_score is None and not column.pending for column in columns),
         # Kept for compatibility with callers that still inspect this field.
         'aggregate_limit': len(columns) or 10,
         'aggregate_period': aggregate_period,
@@ -1074,11 +1096,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
 
 
 def build_aggregate_page(request, game):
-    """Use SQL ranking only when every displayed release has a rebuilt projection.
-
-    During rollout, an incomplete window uses the exact existing calculator as
-    a whole-page fallback; it never mixes projected totals with missing rows.
-    """
+    """Scheduled months read immutable publications; legacy windows retain their contract."""
     import logging
     from games.models import DailyResultProjectionState
     from games.daily.projection import projection_state_is_valid
@@ -1096,26 +1114,8 @@ def build_aggregate_page(request, game):
         month_context = (
             columns, selected_month, previous_month, next_month, published_at_by_link,
         )
-        group_ids = [column.link.task_group_id for column in columns]
-        states = {
-            state.task_group_id: state
-            for state in DailyResultProjectionState.objects.filter(game=game, task_group_id__in=group_ids)
-        } if group_ids else {}
-        stale_groups = [
-            column.link.task_group_id for column in columns
-            if not projection_state_is_valid(states.get(column.link.task_group_id), game)
-        ]
-        attempts_incomplete = not _alphabetty_projection_attempts_complete(game, group_ids)
-        if stale_groups or attempts_incomplete:
-            return _build_legacy_aggregate_page_observed(
-                request, game,
-                reason='monthly_projection_incomplete:attempts={}'.format(attempts_incomplete),
-                group_count=len(group_ids), stale_count=len(stale_groups),
-                month_context=month_context,
-            )
-        return _build_projection_aggregate_page(
-            request, game, columns, aggregate_period='month', month_context=month_context,
-        )
+        from games.results.aggregate_snapshots import build_saved_monthly_page
+        return build_saved_monthly_page(request, game, columns, month_context)
 
     try:
         requested = int(request.GET.get('limit', '10'))

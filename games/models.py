@@ -983,6 +983,8 @@ class DailyResultProjectionState(models.Model):
     game = models.ForeignKey(Game, related_name='daily_result_projection_states', on_delete=models.CASCADE)
     task_group = models.ForeignKey(TaskGroup, related_name='daily_result_projection_states', on_delete=models.CASCADE)
     completed_at = models.DateTimeField(auto_now=True)
+    published_at = models.DateTimeField(blank=True, null=True)
+    published_version = models.UUIDField(blank=True, null=True)
     adapter_version = models.PositiveIntegerField(default=1)
     source_revision = models.PositiveBigIntegerField(default=0)
     coverage_complete = models.BooleanField(default=False, db_index=True)
@@ -1084,6 +1086,69 @@ class DailyMonthlyResultProjection(models.Model):
         constraints = [models.UniqueConstraint(
             fields=('game', 'month', 'actor_type', 'actor_key'),
             name='uniq_daily_monthly_proj_actor',
+        )]
+
+
+class DailyAggregateSnapshot(models.Model):
+    """Durable refresh request and publication pointer for one monthly table."""
+    game = models.ForeignKey(Game, on_delete=models.CASCADE)
+    month = models.DateField()
+    published_version = models.ForeignKey(
+        'DailyAggregateSnapshotVersion', on_delete=models.SET_NULL,
+        blank=True, null=True, related_name='+',
+    )
+    requested_revision = models.PositiveBigIntegerField(default=1)
+    completed_revision = models.PositiveBigIntegerField(default=0)
+    requested_signature = models.CharField(max_length=64, blank=True, default='')
+    requested_at = models.DateTimeField(default=timezone.now)
+    checked_at = models.DateTimeField(default=timezone.now)
+    next_attempt_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    lease_until = models.DateTimeField(blank=True, null=True)
+    lease_token = models.UUIDField(blank=True, null=True)
+    attempts = models.PositiveIntegerField(default=0)
+    last_error = models.TextField(blank=True, default='')
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=('game', 'month'), name='uniq_daily_aggregate_snapshot',
+        )]
+
+
+class DailyAggregateSnapshotVersion(models.Model):
+    """Immutable columns and source versions shared by every displayed page."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    snapshot = models.ForeignKey(
+        DailyAggregateSnapshot, on_delete=models.CASCADE, related_name='versions',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    published_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    columns = models.JSONField(default=list)
+    source_versions = models.JSONField(default=dict)
+    dependency_signature = models.CharField(max_length=64, blank=True, default='')
+    missing_releases = models.JSONField(default=list)
+
+
+class DailyAggregateSnapshotRow(models.Model):
+    """One compact actor row; attempts are never needed by the HTTP reader."""
+    version = models.ForeignKey(
+        DailyAggregateSnapshotVersion, on_delete=models.CASCADE, related_name='rows',
+    )
+    actor_type = models.CharField(max_length=8, choices=DailyResultProjection.ACTOR_CHOICES)
+    actor_key = models.CharField(max_length=160)
+    team = models.ForeignKey(Team, related_name='+', blank=True, null=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, related_name='+', blank=True, null=True, on_delete=models.CASCADE)
+    anon_key = models.CharField(max_length=64, blank=True, null=True)
+    score = models.DecimalField(max_digits=14, decimal_places=3)
+    attempts_count = models.PositiveIntegerField(default=0)
+    played_count = models.PositiveIntegerField(default=0)
+    total_time_ms = models.DecimalField(max_digits=20, decimal_places=3, blank=True, null=True)
+    used_fallback_time = models.BooleanField(default=False)
+    cells = models.JSONField(default=dict)
+
+    class Meta:
+        indexes = [models.Index(fields=('version', 'score'), name='agg_snap_ver_score_idx')]
+        constraints = [models.UniqueConstraint(
+            fields=('version', 'actor_type', 'actor_key'), name='uniq_aggregate_snapshot_actor',
         )]
 
 

@@ -2611,7 +2611,14 @@ def new_section_results_page(request, game_id):
     )
 
     from games.results.aggregate_leaderboard import build_aggregate_page
-    data = build_aggregate_page(request, game)
+    from games.results.aggregate_snapshots import SnapshotVersionExpired
+    try:
+        data = build_aggregate_page(request, game)
+    except SnapshotVersionExpired:
+        return HttpResponse(
+            'Таблица обновилась. Обновите страницу.', status=409,
+            headers={'X-Results-Reload': '1'},
+        )
     aggregate_subscriber_ids = _club_subscriber_user_ids(
         row.get('actor') for row in data.get('aggregate_rows', [])
     )
@@ -2647,6 +2654,14 @@ def new_section_results_page(request, game_id):
         # The progressive participant list is a client-side view state; any
         # filter/window change starts a fresh list from its first page.
         params.pop('loaded', None)
+        if any(key in overrides for key in ('month', 'anchor', 'limit')):
+            params.pop('snapshot', None)
+        elif data.get('aggregate_snapshot_id'):
+            params['snapshot'] = data['aggregate_snapshot_id']
+        if any(key in overrides for key in ('month', 'anchor', 'limit')):
+            params.pop('snapshot_view', None)
+        elif data.get('aggregate_snapshot_view'):
+            params['snapshot_view'] = data['aggregate_snapshot_view']
         if 'anchor' not in overrides and data.get('aggregate_window_anchor') and not params.get('anchor'):
             params['anchor'] = data['aggregate_window_anchor']
         for key, value in overrides.items():
@@ -2708,6 +2723,7 @@ def new_section_results_page(request, game_id):
             value: query_url(sort=value, page=None)
             for value in ('attempts', 'time')
         },
+        'aggregate_refresh_url': query_url(snapshot=None, page=None, loaded=None),
         'older_url': query_url(anchor=data['aggregate_older_anchor'], page=None) if data['aggregate_older_anchor'] else None,
         'newer_url': query_url(anchor=data['aggregate_newer_anchor'], page=None) if data['aggregate_newer_anchor'] else None,
         'previous_page_url': query_url(page=data['aggregate_page'].previous_page_number()) if data['aggregate_page'].has_previous() else None,
