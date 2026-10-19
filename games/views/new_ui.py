@@ -4984,6 +4984,19 @@ def new_profile(request, project_id=None):
             messages.info(request, 'Заполните имя и фамилию профиля, чтобы продолжить оформление.')
     else:
         profile = request.user.profile
+    # ModelForm can update its instance with valid fields even when another
+    # field fails validation. Keep the read-only card on saved values.
+    display_first_name = (profile.first_name or '').strip()
+    display_last_name = (profile.last_name or '').strip()
+    profile_avatar_url = profile.avatar_url
+    profile_timezone = profile.timezone
+    profile_telegram_handle = (
+        (profile.telegram_username or profile.telegram_handle or '').strip()
+    )
+    profile_telegram_label = (
+        ('@' + profile_telegram_handle if profile_telegram_handle else 'Подключён')
+        if profile.telegram_verified else 'Не подключён'
+    )
     connected_accounts = list(
         SocialAccount.objects.filter(user=request.user).order_by('provider', 'id')
     )
@@ -5014,6 +5027,12 @@ def new_profile(request, project_id=None):
             return _profile_redirect(request)
     else:
         form = ProfileSettingsForm(instance=profile)
+    profile_has_complete_name = bool(display_first_name and display_last_name)
+    profile_edit_open = (
+        request.GET.get('edit') == '1'
+        or bool(form.errors)
+        or not profile_has_complete_name
+    )
     def _utc_offset_label(tz_name):
         try:
             tz = pytz.timezone(tz_name)
@@ -5036,6 +5055,16 @@ def new_profile(request, project_id=None):
     from games.feedback import profile_cabinet_flags
     ctx = {
         'form': form,
+        'profile_display_name': (
+            ' '.join(part for part in (display_first_name, display_last_name) if part)
+            or 'Имя пока не указано'
+        ),
+        'profile_initials': ''.join(part[0] for part in (display_first_name, display_last_name) if part) or '?',
+        'profile_avatar_url': profile_avatar_url,
+        'profile_timezone_label': _utc_offset_label(profile_timezone),
+        'profile_telegram_label': profile_telegram_label,
+        'profile_has_complete_name': profile_has_complete_name,
+        'profile_edit_open': profile_edit_open,
         'profile_next_path': profile_next_path,
         'connected_providers': connected,
         'connected_accounts': connected_accounts,

@@ -148,9 +148,9 @@ class FeedbackCabinetTests(TestCase):
         self.assertContains(response, 'class="new-cabinet"')
         self.assertContains(response, reverse('new_profile_reports'))
         self.assertContains(response, 'Мои обращения')
-        self.assertNotContains(response, 'Мои лесенки')
-        self.assertNotContains(response, 'Мои алфавитки')
-        self.assertNotContains(response, 'Мои салатики')
+        self.assertNotContains(response, 'Мои Лесенки')
+        self.assertNotContains(response, 'Мои Алфавитки')
+        self.assertNotContains(response, 'Мои Салатики')
         self.assertNotContains(response, '/create_ladder/')
         self.assertNotContains(response, '/create_alphabetty/')
         self.assertNotContains(response, '/create_salad/')
@@ -163,9 +163,61 @@ class FeedbackCabinetTests(TestCase):
         response = client.get(reverse('new_profile'))
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'class="new-cabinet"')
-        self.assertNotContains(response, 'Мои лесенки')
-        self.assertNotContains(response, 'Мои алфавитки')
-        self.assertNotContains(response, 'Мои салатики')
+        self.assertNotContains(response, 'Мои Лесенки')
+        self.assertNotContains(response, 'Мои Алфавитки')
+        self.assertNotContains(response, 'Мои Салатики')
+
+    def test_profile_shows_values_until_editing_and_keeps_invalid_form_open(self):
+        url = reverse('new_profile')
+        response = self.client.get(url)
+        self.assertContains(response, 'Федя Багов')
+        self.assertContains(response, 'ph-pencil-simple')
+        self.assertContains(response, 'data-profile-editor hidden')
+        self.assertContains(response, 'name="first_name"')
+        self.assertContains(response, 'data-guest-progress-preview hidden')
+        self.assertContains(response, 'data-guest-progress-transfer hidden')
+
+        response = self.client.get(url, {'edit': '1'})
+        self.assertContains(response, 'name="first_name"')
+        self.assertContains(response, 'name="timezone"')
+        self.assertNotContains(response, 'data-profile-editor hidden')
+        self.assertContains(response, 'href="/profile/">Отмена')
+
+        response = self.client.get(url)
+        self.assertContains(response, 'data-profile-editor hidden')
+
+        response = self.client.post(url, {
+            'first_name': 'Несохранённое имя',
+            'last_name': 'Багов',
+            'timezone': 'Invalid/Timezone',
+            'avatar_url': '',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="first_name"')
+        self.assertContains(response, 'Неизвестная таймзона.')
+        self.assertContains(response, 'id="profile-display-name" class="new-profile-card__name">Федя Багов</h2>')
+
+        response = self.client.post(url, {
+            'first_name': 'Фёдор',
+            'last_name': 'Багов',
+            'timezone': 'Europe/Moscow',
+            'avatar_url': '',
+        }, follow=True)
+        self.assertContains(response, 'Фёдор Багов')
+        self.assertContains(response, 'data-profile-editor hidden')
+
+    def test_profile_with_missing_name_opens_editor(self):
+        user = User.objects.create_user('unnamed-profile', 'unnamed@example.com', 'secret')
+        Profile.objects.create(
+            user=user, first_name='   ', last_name='',
+            telegram_verified=True, telegram_username='', telegram_handle='',
+        )
+        client = Client()
+        client.force_login(user)
+        response = client.get(reverse('new_profile'))
+        self.assertContains(response, 'Имя пока не указано')
+        self.assertContains(response, 'name="first_name"')
+        self.assertRegex(response.content.decode(), r'<dt>Telegram</dt>\s*<dd>\s*Подключён\s*</dd>')
 
     def test_profile_shows_offer_links_when_content_exists(self):
         LadderOffer.objects.create(
@@ -184,11 +236,11 @@ class FeedbackCabinetTests(TestCase):
             kind=WordSaladOffer.KIND_IDEA,
         )
         response = self.client.get(reverse('new_profile'))
-        self.assertContains(response, 'Мои лесенки')
+        self.assertContains(response, 'Мои Лесенки')
         self.assertContains(response, '/create_ladder/')
-        self.assertContains(response, 'Мои алфавитки')
+        self.assertContains(response, 'Мои Алфавитки')
         self.assertContains(response, '/create_alphabetty/')
-        self.assertContains(response, 'Мои салатики')
+        self.assertContains(response, 'Мои Салатики')
         self.assertContains(response, '/create_salad/')
         self.assertNotContains(response, 'черновики и статусы')
 
