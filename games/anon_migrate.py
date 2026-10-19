@@ -677,6 +677,18 @@ def migrate_anon_chain_task_states(user, anon_key, *, batch_size=None):
             existing.last_attempt = row.last_attempt
             existing.save(update_fields=['state', 'last_attempt', 'updated_at'])
         row.delete()
+        if getattr(row.task, 'task_type', None) == 'word_salad':
+            # Перенесённые гостевые попытки хранят state своего прохождения
+            # с нуля; результат Салатика берётся по последней попытке, поэтому
+            # без переигровки поздний гостевой ход обнуляет решённый салат.
+            from games.recheck import recheck_word_salad_actor
+            recheck_word_salad_actor(
+                row.task,
+                user=user,
+                replay_slot=row.replay_slot,
+                game=row.game,
+                notify=False,
+            )
         moved += 1
     return moved
 

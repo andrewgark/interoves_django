@@ -473,6 +473,61 @@ class AnonMigrateTests(TestCase):
             anon_guesses + user_guesses,
         )
 
+    def test_word_salad_migrate_replays_guest_attempts_after_user_solve(self):
+        checker = CheckerType.objects.get_or_create(pk='word_salad')[0]
+        tg = TaskGroup.objects.create(label='anon_migrate_salad', checker=checker, points=1)
+        GameTaskGroup.objects.create(
+            game=self.game, task_group=tg, number='9', name='Салатик #9',
+        )
+        task = Task.objects.create(
+            task_group=tg,
+            number='1',
+            task_type='word_salad',
+            checker=checker,
+            checker_data=json.dumps({
+                'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
+                'words': ['ABCD', 'EFGH'],
+            }),
+            points=2,
+        )
+        base = timezone.now() - timedelta(hours=1)
+
+        def attempt(path, *, offset, **actor):
+            created = Attempt.manager.create(
+                task=task,
+                game=self.game,
+                text=json.dumps({'action': 'solve', 'path': path}),
+                status='Partial',
+                points=0,
+                **actor,
+            )
+            Attempt.manager.filter(pk=created.pk).update(time=base + timedelta(seconds=offset))
+            return created
+
+        attempt([0, 1, 2, 3], offset=0, user=self.user)
+        attempt([7, 6, 5, 4], offset=1, user=self.user)
+        guest = attempt([0, 1, 2, 3], offset=100, anon_key=self.anon_key)
+        with patch('games.views.track.track_actor_task_change'):
+            from games.recheck import recheck_word_salad_actor
+            recheck_word_salad_actor(task, user=self.user, game=self.game, notify=False)
+            recheck_word_salad_actor(task, anon_key=self.anon_key, game=self.game, notify=False)
+        guest.refresh_from_db()
+        self.assertEqual(json.loads(guest.state)['solved_indices'], [0])
+
+        Attempt.manager.filter(pk=guest.pk).update(user=self.user, anon_key=None)
+        with patch('games.views.track.track_actor_task_change'):
+            moved = migrate_anon_chain_task_states(self.user, self.anon_key)
+        self.assertTrue(moved)
+
+        guest.refresh_from_db()
+        self.assertEqual(sorted(json.loads(guest.state)['solved_indices']), [0, 1])
+        self.assertEqual(float(guest.points), 2.0)
+        row = ChainTaskState.objects.get(
+            user=self.user, task=task, game=self.game, game_mode='general',
+        )
+        self.assertEqual(row.last_attempt_id, guest.pk)
+        self.assertEqual(sorted(json.loads(row.state)['solved_indices']), [0, 1])
+
     def test_migrate_count_endpoint(self):
         url = reverse('new_anon_migrate_count')
         resp = self.client.get(url, {'anon_key': self.anon_key})
