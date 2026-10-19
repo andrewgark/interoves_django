@@ -46,7 +46,8 @@ def render_censorly_teaser_png(
         ('#censorly-root .censorly__article',),
         viewport_width=1100,
         extra_css='''
-          #censorly-root #censorly-fetched {
+          #censorly-root #censorly-fetched,
+          #censorly-root #censorly-opened-words {
             display: none !important;
           }
           #censorly-root .censorly__article {
