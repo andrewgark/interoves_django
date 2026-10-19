@@ -1,8 +1,10 @@
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
+from unittest.mock import patch
 
-from django.test import TestCase
+from django.contrib.auth.models import AnonymousUser
+from django.test import RequestFactory, TestCase
 
 from games.models import (
     DailyAggregateSnapshot,
@@ -13,7 +15,9 @@ from games.models import (
     Project,
     Team,
 )
+from games.results.aggregate_leaderboard import _build_projection_aggregate_page
 from games.results.aggregate_snapshot_read import read_snapshot_page
+from games.results.aggregate_snapshots import SnapshotVersionExpired
 
 
 class AggregateSnapshotReadTests(TestCase):
@@ -87,3 +91,43 @@ class AggregateSnapshotReadTests(TestCase):
 
         self.assertEqual(total, 2)
         self.assertNotEqual(original_view, changed_view)
+
+    def _saved_page(self, query):
+        request = RequestFactory().get('/snapshot_read_test/results/', query)
+        request.user = AnonymousUser()
+        request.session = {}
+        return request, _build_projection_aggregate_page(
+            request, self.game, [], aggregate_period='month',
+            saved_monthly=True, snapshot_version=self.version,
+        )
+
+    def test_partial_page_accepts_matching_view_token(self):
+        _, _, _, _, view = read_snapshot_page(self.version, 1, {'team'}, 'time')
+
+        request, _ = self._saved_page({'actors': 'team', 'page': '1', 'partial': '1', 'snapshot_view': view})
+
+        self.assertEqual(request._aggregate_snapshot_view, view)
+
+    def test_partial_page_rejects_missing_or_stale_view_token(self):
+        for token in (None, 'stale'):
+            query = {'actors': 'team', 'page': '1', 'partial': '1'}
+            if token is not None:
+                query['snapshot_view'] = token
+            with self.subTest(token=token), self.assertRaises(SnapshotVersionExpired):
+                self._saved_page(query)
+
+    def test_saved_page_with_every_actor_type_filtered_out(self):
+        request, data = self._saved_page({'actors': ''})
+
+        self.assertEqual(data['aggregate_page'].paginator.count, 0)
+        self.assertEqual(len(request._aggregate_snapshot_view), 64)
+
+    def test_results_view_turns_expired_snapshot_into_reload_response(self):
+        with patch(
+            'games.results.aggregate_leaderboard.build_aggregate_page',
+            side_effect=SnapshotVersionExpired(),
+        ):
+            response = self.client.get('/ladder/results/', {'partial': '1', 'page': '2'})
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(response['X-Results-Reload'], '1')

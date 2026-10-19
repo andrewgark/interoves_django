@@ -2658,10 +2658,9 @@ def new_section_results_page(request, game_id):
             params.pop('snapshot', None)
         elif data.get('aggregate_snapshot_id'):
             params['snapshot'] = data['aggregate_snapshot_id']
-        if any(key in overrides for key in ('month', 'anchor', 'limit')):
-            params.pop('snapshot_view', None)
-        elif data.get('aggregate_snapshot_view'):
-            params['snapshot_view'] = data['aggregate_snapshot_view']
+        # The view token belongs to the current filter and visibility; only
+        # progressive partial requests send it, from the page's data attribute.
+        params.pop('snapshot_view', None)
         if 'anchor' not in overrides and data.get('aggregate_window_anchor') and not params.get('anchor'):
             params['anchor'] = data['aggregate_window_anchor']
         for key, value in overrides.items():
