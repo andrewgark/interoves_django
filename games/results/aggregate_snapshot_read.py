@@ -7,9 +7,17 @@ from django.db import connection
 from games.models import DailyAggregateSnapshotRow
 
 
+def _snapshot_view_token(version, actor_types, total, hidden_identities):
+    view = json.dumps(
+        [str(version.pk), sorted(actor_types), total, hidden_identities],
+        ensure_ascii=False, separators=(',', ':'),
+    )
+    return hashlib.sha256(view.encode('utf-8')).hexdigest()
+
+
 def read_snapshot_page(version, page_number, actor_types, aggregate_sort, *, page_size=50):
     if not actor_types:
-        return [], 0, 1, {}
+        return [], 0, 1, {}, _snapshot_view_token(version, actor_types, 0, [])
     q = connection.ops.quote_name
     table = q(DailyAggregateSnapshotRow._meta.db_table)
     team, profile, hidden = q('games_team'), q('games_profile'), q('games_hiddenanonkey')
@@ -65,9 +73,5 @@ def read_snapshot_page(version, page_number, actor_types, aggregate_sort, *, pag
         if isinstance(data, str):
             data = json.loads(data)
         cells[(row['actor_type'], row['actor_key'])] = {int(key): value for key, value in data.items()}
-    view = json.dumps(
-        [str(version.pk), sorted(actor_types), total, hidden_identities],
-        ensure_ascii=False, separators=(',', ':'),
-    )
-    view_token = hashlib.sha256(view.encode('utf-8')).hexdigest()
+    view_token = _snapshot_view_token(version, actor_types, total, hidden_identities)
     return rows, total, page, cells, view_token

@@ -50,6 +50,15 @@ class AggregateLeaderboardTests(TestCase):
         return request
 
     @staticmethod
+    def _scheduled_game(game_id):
+        # Saved monthly tables persist a snapshot row, so routing tests need a real Game.
+        game, _ = Game.objects.get_or_create(id=game_id, defaults={
+            'name': game_id, 'author': 'test', 'author_extra': '',
+            'project_id': 'sections', 'is_ready': True,
+        })
+        return game
+
+    @staticmethod
     def _info(points, at=None):
         return SimpleNamespace(
             attempts=[SimpleNamespace(time=at or timezone.now())],
@@ -153,7 +162,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(result['aggregate_columns'], [])
 
     def test_alphabetty_monthly_aggregate_uses_projection_path(self):
-        game = SimpleNamespace(id='alphabetty', pk=4321)
+        game = self._scheduled_game('alphabetty')
         request = self._request()
         request.path = '/alphabetty/results/'
         month = date(2026, 9, 1)
@@ -197,7 +206,7 @@ class AggregateLeaderboardTests(TestCase):
 
         month = date(2026, 9, 1)
         for game_id in SCHEDULES:
-            game = SimpleNamespace(id=game_id, pk=1000 + len(game_id))
+            game = self._scheduled_game(game_id)
             request = self._request()
             request.path = '/{}/results/'.format(game_id)
             with self.subTest(game_id=game_id), patch(

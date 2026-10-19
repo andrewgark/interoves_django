@@ -82,6 +82,7 @@
         url.searchParams.set('page', String(nextPage));
         url.searchParams.set('partial', '1');
         if (snapshot) url.searchParams.set('snapshot', snapshot);
+        if (snapshotView) url.searchParams.set('snapshot_view', snapshotView);
         var fetchOptions = { credentials: 'same-origin' };
         if (controller) fetchOptions.signal = controller.signal;
         var response = await fetch(url.toString(), fetchOptions);
