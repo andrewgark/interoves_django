@@ -3372,17 +3372,29 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'одушевленность', 'одушевленный', 'одушевлять', 'одушевляться',
     )),
     ('sense:mind', (
-        'безуметь', 'безумец', 'безумие', 'безумный', 'безумство', 'безумствовать',
-        'вразумительность', 'вразумительный', 'вразумить', 'вразумиться', 'вразумление',
-        'вразумлять', 'вразумляться', 'заумник', 'заумничать', 'заумный', 'заумь', 'изумительный',
-        'изумить', 'изумиться', 'изумление', 'изумленный', 'изумлять', 'изумляться',
-        'изумничаться', 'надоумить', 'надоумливать', 'наобум', 'недоразумение', 'недоумевать',
-        'недоумение', 'недоуменный', 'недоумие', 'недоумок', 'неразумие', 'обезумевший',
-        'обезуметь', 'образумить', 'образумиться', 'подразумевать', 'подразумеваться', 'поумнеть',
-        'поумничать', 'поумствовать', 'разум', 'разумение', 'разуметь', 'разуметься', 'разумник',
-        'разумница', 'разумность', 'разумный', 'суметь', 'ум', 'умише', 'умишко', 'умненький',
+        'надоумить', 'надоумливать', 'наобум', 'образумить', 'образумиться', 'поумнеть',
+        'поумничать', 'поумствовать', 'разум', 'разумение', 'разумник', 'разумница',
+        'разумность', 'разумный', 'ум', 'умише', 'умишко', 'умненький',
         'умнеть', 'умник', 'умница', 'умничанье', 'умничать', 'умный', 'умственный', 'умствование',
         'умствовать', 'уразумевать', 'уразумение', 'уразуметь',
+    )),
+    ('sense:madness', (
+        'безуметь', 'безумец', 'безумие', 'безумный', 'безумство', 'безумствовать',
+        'обезумевший', 'обезуметь',
+    )),
+    ('sense:astonishment', (
+        'изумительный', 'изумить', 'изумиться', 'изумление', 'изумленный', 'изумлять',
+        'изумляться', 'изумничаться',
+    )),
+    ('sense:zaum', ('заумник', 'заумничать', 'заумный', 'заумь')),
+    ('sense:confusion', (
+        'недоразумение', 'недоумевать', 'недоумение', 'недоуменный', 'недоумие',
+        'недоумок', 'неразумие',
+    )),
+    ('sense:understand', (
+        'вразумительность', 'вразумительный', 'вразумить', 'вразумиться', 'вразумление',
+        'вразумлять', 'вразумляться', 'подразумевать', 'подразумеваться', 'разуметь',
+        'разуметься',
     )),
     ('sense:bottom', (
         'вонзать', 'вонзаться', 'вонзить', 'вонзиться', 'вынизать', 'вынизывание', 'вынизывать',
@@ -3870,7 +3882,7 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'напоить', 'поить', 'пойло', 'спаивать', 'спаиваться',
     )),
     ('sense:can', (
-        'умелец', 'умелый', 'умение', 'уметь',
+        'суметь', 'умелец', 'умелый', 'умение', 'уметь',
     )),
     ('sense:collar', (
         'ворот', 'воротник', 'воротниковый', 'воротничок',
@@ -4549,6 +4561,9 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_assumption', ('предположение',)),
     ('sense:review_dispose', ('располагать',)),
     ('sense:review_position', ('положение',)),
+    ('sense:review_positive', ('положительность', 'положительный')),
+    # Далее is the temporal/sequential adverb; даль is spatial distance.
+    ('sense:review_further', ('далее',)),
     ('sense:review_migratory', ('перелетный',)),
     ('sense:review_year', ('год',)),
     ('sense:review_end', ('конец', 'кончать')),
@@ -4594,7 +4609,7 @@ _REVIEW_FAMILIES = frozenset({
     'кол³', 'пит|пич¹|пищ²', 'род|рож²|рожд', 'пис|пиш', 'бол²',
     'облад|област',
     'глав|голав|голов',
-    'лаг|лег²|леж|леч²|лог|лож¹', 'ем|им¹|йм|ним|ня|ым²|я¹|∅',
+    'лаг|лег²|леж|леч²|лог|лож¹', 'дал', 'ем|им¹|йм|ним|ня|ым²|я¹|∅',
     'лет²|лет', 'год|гож|гожд', 'кан|кон¹', 'мат¹|мач¹',
     'рук|руч¹|руш¹',
     'свес|свет|свеч|свещ', 'дер|дерг|держ|дир|дор|дорог³|др',
@@ -4631,7 +4646,8 @@ _REVIEW_FAMILIES = frozenset({
     'и¹|ид|й|йд|ыд', 'мал¹',
     'тач¹|тек|теч|ток¹|точ¹', 'вед¹|веж|вежд¹|вест|вещ¹', 'да¹|даж',
     'ви|во(j)¹|вь', 'сел', 'лез²|льз',
-    'жен', 'мен¹', 'числ', 'сматр|смотр', 'чист|чищ',
+    'жен', 'мен¹', 'числ', 'сматр|смотр', 'чист|чищ', 'полн', 'люб',
+    'серед|сред',
 })
 
 # A few productive prefixed verbs are assigned by the dictionary to another
@@ -4682,6 +4698,44 @@ def _review_family_clusters() -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 
 def _classify_review_lemma(family: str, lemma: str) -> str:
+    if family == 'дал':
+        if lemma.startswith((
+            'удалить', 'удалять', 'удаление', 'удаленный', 'удаляем', 'удаляв',
+        )):
+            return 'sense:review_removal'
+        return 'sense:review_distance'
+    if family == 'полн':
+        if lemma.startswith((
+            'исполн', 'выполн', 'недовыполн', 'перевыполн',
+        )):
+            return 'sense:review_execution'
+        if lemma.startswith((
+            'заполн', 'наполн', 'переполн', 'дополн', 'восполн', 'пополн',
+        )):
+            return 'sense:review_filling'
+        if lemma.startswith(('полн', 'сполн', 'дополна', 'наполно', 'вполне')):
+            return 'sense:review_fullness'
+        return None
+    if family == 'люб':
+        if lemma == 'любой':
+            return 'sense:review_arbitrary'
+        if lemma.startswith(('любез', 'полюбез', 'разлюбез', 'слюбез')):
+            return 'sense:review_courtesy'
+        if lemma.startswith(('любова', 'залюбова', 'полюбова', 'налюбова')):
+            return 'sense:review_enjoyment'
+        if lemma.startswith(('люб', 'влюб', 'возлюб', 'невзлюб', 'недолюб', 'разлюб', 'слюб')):
+            return 'sense:review_affection'
+        return None
+    if family == 'серед|сред':
+        if lemma.startswith(('посред', 'опосред')):
+            return 'sense:review_mediation'
+        if lemma.startswith(('средств',)):
+            return 'sense:review_means'
+        if lemma.startswith((
+            'серед', 'средин', 'средний', 'средне', 'средник', 'средь',
+        )):
+            return 'sense:review_middle'
+        return None
     if family == 'лез²|льз':
         if lemma.startswith(('польза', 'полез', 'бесполез')):
             return 'sense:review_utility'
@@ -4906,6 +4960,28 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_written_text'
         return 'sense:review_writing'
     if family == 'лаг|лег²|леж|леч²|лог|лож¹':
+        if lemma.startswith(('разлаг', 'разлож')):
+            return 'sense:lag_decomposition'
+        if lemma.startswith(('прилег', 'прилежащ', 'прилежать')):
+            return 'sense:lag_adjacency'
+        if lemma.startswith('облег'):
+            return 'sense:lag_encompass'
+        if lemma.startswith(('влаг', 'влож')):
+            return 'sense:lag_investment_or_insertion'
+        if lemma.startswith(('пролож', 'пролаг')):
+            return 'sense:lag_path'
+        if lemma.startswith('подложн'):
+            return 'sense:review_fraud'
+        if lemma.startswith(('прилагательн', 'сослагательн')):
+            return 'sense:lag_language'
+        if lemma.startswith(('предполага', 'предполаг')):
+            return 'sense:review_assumption'
+        if lemma in {'положить', 'положенный'}:
+            return 'sense:review_laying'
+        if lemma == 'положиться':
+            return 'sense:review_rely'
+        if lemma.startswith(('налагать', 'налагаться', 'возлаг', 'возлож')):
+            return 'sense:lag_imposition'
         if lemma.startswith('налог'):
             return 'sense:review_tax'
         if lemma.startswith('наложниц'):
@@ -4952,6 +5028,8 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_tax'
         if lemma.startswith(('предлож', 'предлаг')):
             return 'sense:review_offer'
+        if lemma.startswith(('положительн',)):
+            return 'sense:review_positive'
         if lemma.startswith(('располож', 'полож')):
             return 'sense:review_position'
         if lemma.startswith('облож'):
@@ -4963,8 +5041,8 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
         if lemma.startswith(('логов', 'логищ', 'лог')):
             return 'sense:review_den'
         if lemma.startswith((
-            'леж', 'лег', 'залег', 'возлеж', 'возлег', 'вылеж', 'долеж', 'отлеж',
-            'перележ', 'полеж', 'прилеж', 'пролеж', 'слег', 'улеж', 'улечь', 'слечь',
+            'леж', 'лег', 'лечь', 'належ', 'залег', 'возлеж', 'возлег', 'возлеч', 'вылеж', 'долеж', 'отлеж', 'отлеч',
+            'перележ', 'перелеч', 'полеж', 'прилеж', 'прилечь', 'пролеж', 'пролечь', 'подлечь', 'слег', 'улеж', 'улечь', 'слечь',
         )):
             return 'sense:review_lying'
         return 'sense:review_laying'
@@ -6797,6 +6875,18 @@ MULTI_READINGS = MULTI_READINGS + (
     ('отлив', ('sense:pour', 'sense:review_tide')),
     # Проводить мероприятие / проводить друга.
     ('проводить', ('sense:review_carry_out', 'sense:escort')),
+    # Удаление can be an act of moving something away or removing it;
+    # удалённый likewise means either remote or deleted.
+    ('удаление', ('sense:review_distance', 'sense:review_removal')),
+    ('удаленный', ('sense:review_distance', 'sense:review_removal')),
+    ('удалить', ('sense:review_distance', 'sense:review_removal')),
+    ('удалять', ('sense:review_distance', 'sense:review_removal')),
+    # Разложить/разложение cover both decomposition and placing things out.
+    ('разложить', ('sense:lag_decomposition', 'sense:review_laying')),
+    ('разложение', ('sense:lag_decomposition', 'sense:review_laying')),
+    ('прилежать', ('sense:lag_adjacency', 'sense:review_lying')),
+    ('вложить', ('sense:lag_investment_or_insertion', 'sense:review_laying')),
+    ('вложение', ('sense:lag_investment_or_insertion', 'sense:review_laying')),
 )
 
 # Explicitly reviewed lexical families requested from Censorly daily-article
