@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Собрать games/alphabetty/dictionaries/ru_words_valid.txt.gz
+"""Собрать games/alphabetty/dictionaries/ru_words_valid.cp1251.gz
 
 База: experiments/dictionaries/russian_words.txt (+ ru_nouns_valid).
 Wiktionary: experiments/dictionaries/ru_wiktionary.txt
@@ -16,13 +16,17 @@ Wiktionary: experiments/dictionaries/ru_wiktionary.txt
 from __future__ import annotations
 
 import argparse
-import gzip
 import json
 import re
 import sys
 from pathlib import Path
 
 _REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(_REPO))
+
+from games.alphabetty.dicts import VALID_PACKED_GZ, write_packed_word_set  # noqa: E402
+from games.alphabetty.word_set import PackedWordSet  # noqa: E402
+
 _DICT_DIR = _REPO / 'games' / 'alphabetty' / 'dictionaries'
 _EXPERIMENTS = _REPO.parent / 'experiments' / 'dictionaries'
 _CITIES_JSON = _REPO.parent / 'experiments' / 'russia_cities' / 'ru-cities.json'
@@ -126,7 +130,7 @@ def main() -> int:
     ap.add_argument(
         '--out',
         type=Path,
-        default=_DICT_DIR / 'ru_words_valid.txt.gz',
+        default=VALID_PACKED_GZ,
     )
     args = ap.parse_args()
     names_dir: Path = args.names_dir
@@ -182,12 +186,11 @@ def main() -> int:
         print('no words collected', file=sys.stderr)
         return 1
 
-    ordered = sorted(words)
-    payload = ('\n'.join(ordered) + '\n').encode('utf-8')
+    packed = PackedWordSet.from_words(words)
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_bytes(gzip.compress(payload, compresslevel=9))
+    write_packed_word_set(args.out, packed)
 
-    print(f'wrote {args.out} words={len(ordered)} bytes={args.out.stat().st_size}')
+    print(f'wrote {args.out} words={len(packed)} bytes={args.out.stat().st_size}')
     for label, added in sources:
         print(f'  +{added:7d}  {label}')
     return 0

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import random
+from collections.abc import Set
 from typing import Any, Optional
 
 # Полный алфавит (ввод допускает Ё). При сравнении Ё ≡ Е.
@@ -38,7 +39,7 @@ def compare_words(a: str, b: str) -> int:
 
 def is_valid_guess(
     word: str,
-    valid: frozenset[str] | None = None,
+    valid: Set[str] | None = None,
     *,
     user=None,
     anon_key: str | None = None,
@@ -82,11 +83,12 @@ def guess_status(guess: str, secret: str) -> str:
     return 'later'
 
 
-def max_word_length(valid: frozenset[str] | None = None) -> int:
+def max_word_length(valid: Set[str] | None = None) -> int:
     from games.alphabetty.dicts import get_valid_set
 
-    pool = valid if valid is not None else get_valid_set()
-    return max((len(w) for w in pool), default=20)
+    if valid is None:
+        return get_valid_set().max_length or 20
+    return max((len(w) for w in valid), default=20)
 
 
 def pick_answer_words(

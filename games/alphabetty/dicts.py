@@ -7,14 +7,15 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+from games.alphabetty.word_set import PackedWordSet
+
 DICT_DIR = Path(__file__).resolve().parent / 'dictionaries'
-# Полный словарь форм (не только им.п. сущ.): gzip, одна словоформа на строку.
-_VALID_GZ = DICT_DIR / 'ru_words_valid.txt.gz'
-# Запасной плоский список (если gzip ещё не собран) + старый nouns-only.
-_VALID_FALLBACKS = (
-    DICT_DIR / 'ru_words_valid.txt',
-    DICT_DIR / 'ru_nouns_valid.txt',
-)
+# Полный словарь форм (не только им.п. сущ.): gzip от PackedWordSet.to_bytes(),
+# слова уже нормализованы (normalize_word). Собирает
+# scripts/build_alphabetty_valid_dict.py.
+VALID_PACKED_GZ = DICT_DIR / 'ru_words_valid.cp1251.gz'
+# Запасной старый nouns-only список, если упакованный словарь не собран.
+_VALID_FALLBACK = DICT_DIR / 'ru_nouns_valid.txt'
 
 # Одобренные через админку слова (поверх файла). Сбрасывается invalidate_dict_caches().
 _approved_extras: Optional[frozenset[str]] = None
@@ -33,28 +34,22 @@ def _read_words(path: Path) -> list[str]:
     return words
 
 
-def _read_valid_raw() -> list[str]:
-    if _VALID_GZ.is_file():
-        words: list[str] = []
-        with gzip.open(_VALID_GZ, 'rt', encoding='utf-8') as f:
-            for line in f:
-                w = line.strip()
-                if w:
-                    words.append(w)
-        return words
-    for path in _VALID_FALLBACKS:
-        raw = _read_words(path)
-        if raw:
-            return raw
-    return []
+def read_packed_word_set(path: Path) -> PackedWordSet:
+    return PackedWordSet(gzip.decompress(path.read_bytes()))
+
+
+def write_packed_word_set(path: Path, words: PackedWordSet) -> None:
+    path.write_bytes(gzip.compress(words.to_bytes(), compresslevel=9, mtime=0))
 
 
 @lru_cache(maxsize=1)
-def load_valid_set() -> frozenset[str]:
+def load_valid_set() -> PackedWordSet:
+    if VALID_PACKED_GZ.is_file():
+        return read_packed_word_set(VALID_PACKED_GZ)
     from games.alphabetty.core import normalize_word
 
-    raw = _read_valid_raw()
-    return frozenset(normalize_word(w) for w in raw if normalize_word(w))
+    normalized = (normalize_word(w) for w in _read_words(_VALID_FALLBACK))
+    return PackedWordSet.from_words(w for w in normalized if w)
 
 
 @lru_cache(maxsize=1)
@@ -75,7 +70,7 @@ def load_answer_pool() -> tuple[str, ...]:
     return tuple(ordered)
 
 
-def get_valid_set() -> frozenset[str]:
+def get_valid_set() -> PackedWordSet:
     return load_valid_set()
 
 
