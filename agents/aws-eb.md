@@ -218,6 +218,22 @@ Blue (`interoves-env`) остаётся rollback target. Перед откато
   schema work из per-instance hook или detached process; executor берёт
   глобальный MySQL named lock и проверяет результат.
 
+## Секреты приложения
+
+Все секретные переменные окружения лежат в одном JSON-секрете
+`interoves/production/runtime-config` (ключ = имя переменной). Django читает
+его при старте через `INTEROVES_CONFIG_SECRET_ID`
+(`interoves_django/runtime_env.py`); переменная, уже заданная в окружении,
+имеет приоритет. RDS-пароль остаётся отдельным управляемым секретом `rds!db-*`.
+
+- Новый или изменённый секрет: обновить ключ в бандле
+  (`aws secretsmanager put-secret-value` с полным JSON), затем перезапустить
+  процессы — значения читаются только при старте.
+- `scripts/build_runtime_config_secret.py` пересобирает бандл из старых
+  секретов `interoves/production/<NAME>`; нужен только для миграции.
+- ECS-воркеры получают ARN бандла из `scripts/deploy_ecs_worker.sh`.
+- Green переведён разово через `scripts/migrate_green_runtime_config.sh`.
+
 ## Ключевые идентификаторы
 
 | Resource | Значение |
