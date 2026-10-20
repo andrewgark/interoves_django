@@ -7,7 +7,11 @@ from pathlib import Path
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 import django
-django.setup()
+from django.apps import apps
+
+# Also imported by the integrations worker; set up Django only for the CLI.
+if not apps.ready:
+    django.setup()
 
 from games.censorly.lexical.core import fold
 from games.censorly.lexical.match import _GuessPack, _Pack, _relation

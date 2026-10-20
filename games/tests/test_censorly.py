@@ -424,26 +424,33 @@ class CensorlyAccessTests(TestCase):
             token for token in state['body_tokens']
             if token.get('revealed') and token.get('lemma') == 'столица'
         )
-        response = self.client.post(
-            f'/censorly/word-report/{self.task.id}/',
-            data=json.dumps({
-                'reason': 'FALSE_POSITIVE',
-                'target_surface': target['text'],
-                'token_id': target['id'],
-                'other_word': 'столица',
-                'comment': 'Проверка пользовательского report flow',
-                'game_id': CENSORLY_GAME_ID,
-            }),
-            content_type='application/json',
-            HTTP_X_INTEROVES_GAME=CENSORLY_GAME_ID,
-        )
+        with patch('games.telegram.admin_alert_events.publish_admin_alert', return_value=True) as publish, \
+                patch('games.telegram.signals.notify_new_bug_report') as notify, \
+                self.captureOnCommitCallbacks(execute=True):
+            response = self.client.post(
+                f'/censorly/word-report/{self.task.id}/',
+                data=json.dumps({
+                    'reason': 'FALSE_POSITIVE',
+                    'target_surface': target['text'],
+                    'token_id': target['id'],
+                    'other_word': 'столица',
+                    'comment': 'Проверка пользовательского report flow',
+                    'game_id': CENSORLY_GAME_ID,
+                }),
+                content_type='application/json',
+                HTTP_X_INTEROVES_GAME=CENSORLY_GAME_ID,
+            )
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.json()['ok'])
         report = BugReport.objects.get(pk=response.json()['report_id'])
         self.assertEqual(report.report_type, BugReport.REPORT_TYPE_CENSORLY_WORD_MATCH)
         self.assertEqual(report.metadata['reason'], 'FALSE_POSITIVE')
         self.assertEqual(report.metadata['target_surface'], target['text'])
-        self.assertIn('diagnostic', report.metadata)
+        # The worker fills the diagnostic in and notifies the admin chat.
+        self.assertEqual(report.metadata['diagnostic'], {'status': 'pending'})
+        publish.assert_called_once()
+        self.assertEqual(publish.call_args.kwargs['payload'], {'report_id': report.pk})
+        notify.assert_not_called()
 
     def test_word_match_report_rejects_closed_target_and_missing_other_word(self):
         self.client.force_login(self.staff)

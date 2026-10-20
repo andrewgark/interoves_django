@@ -35,7 +35,9 @@ the same queues.
 - `games/telegram/admin_alert_events.py` — publishes safe web-originated
   Telegram admin alerts to the integrations queue. Alert subtypes include
   `word_salad_submission`, `site_error`, `club_subscription_attempt_failed`,
-  `club_subscription_state`, and `club_renewal_failed`;
+  `club_subscription_state`, `club_renewal_failed`, and
+  `censorly_word_report` (the worker computes the Censorly pair diagnostic,
+  stores it on the report and then notifies; see `games/censorly/word_reports.py`);
 - `games/models.py` — durable merge state in `AccountMergeJob`,
   `AnonymousMergeJob`, and `AnonymousMergeReconcileItem`.
 

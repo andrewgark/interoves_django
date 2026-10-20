@@ -67,6 +67,10 @@ def run_admin_alert_live(*, alert: str, payload: dict, dedupe_key: str = ''):
         from games.telegram.notify import notify_admin_alert_message
 
         return notify_admin_alert_message(str(payload.get('text') or ''), dedupe_key=dedupe_key)
+    if alert == 'censorly_word_report':
+        from games.censorly.word_reports import complete_report
+
+        return complete_report(int(payload['report_id']))
     raise ValueError('unsupported admin alert: {}'.format(alert))
 
 

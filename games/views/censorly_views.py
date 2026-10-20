@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 
 from django.conf import settings
@@ -37,6 +36,7 @@ from games.censorly.play import (
     ru_hint_word,
 )
 from games.censorly.pool_admin import taxonomy as censorly_taxonomy
+from games.censorly import word_reports as censorly_word_reports
 from games.censorly_daily import (
     CENSORLY_GAME_ID,
     MOSCOW,
@@ -89,9 +89,6 @@ from games.views.game_context import (
 from games.views.util import get_public_task_or_404, has_profile
 from games.censorly.lexical.core import fold
 from games.telegram.game_urls import task_play_url
-
-
-logger = logging.getLogger('application')
 
 
 CENSORLY_WORD_REPORT_LIMIT = 20
@@ -944,27 +941,9 @@ def censorly_word_report(request, task_id):
         )
 
     expected = 'CLOSED' if reason == 'FALSE_POSITIVE' else 'OPEN' if reason == 'FALSE_NEGATIVE' else ''
-    diagnostic = None
-    if other_word:
-        try:
-            from games.censorly.lexical.tools.explain_pair import explain_pair
-            explained = explain_pair(other_word, target_surface)
-            diagnostic = {
-                'runtime': explained['runtime_reason'],
-                'classification': explained['classification'],
-                'recommendation': explained['recommendation'],
-                'guess_structures': [list(item) for item in explained['guess']['root_structures']],
-                'target_structures': [list(item) for item in explained['target']['root_structures']],
-                'guess_assignment': str(explained['guess']['assignment']),
-                'target_assignment': str(explained['target']['assignment']),
-            }
-        except Exception:
-            logger.exception(
-                'Censorly pair diagnostics failed task_id=%s reason=%s',
-                task.id,
-                reason,
-            )
-            diagnostic = {'status': 'unavailable'}
+    # The pair diagnostic is filled in by the integrations worker before the
+    # admin is notified; computing it here would pin ~100 MB in this process.
+    diagnostic = censorly_word_reports.initial_diagnostic(other_word)
 
     article = state.get('wiki_title') or getattr(task, 'answer', '') or ''
     reason_label = {
@@ -1016,6 +995,8 @@ def censorly_word_report(request, task_id):
         metadata=metadata,
         status=BugReport.STATUS_PENDING,
     )
+    if diagnostic is not None:
+        censorly_word_reports.request_completion(report.pk)
     return JsonResponse({'ok': True, 'report_id': report.pk})
 
 
