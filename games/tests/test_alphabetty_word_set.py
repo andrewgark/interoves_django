@@ -76,6 +76,15 @@ class PackedWordSetTests(TestCase):
         self.assertEqual(words & {'КОТ', 'ЯК'}, {'КОТ'})
         self.assertTrue(words <= {'АБА', 'КОТ', 'ЯК'})
 
+    def test_equality_between_packed_sets_compares_buffers(self):
+        words = PackedWordSet.from_words(['АБА', 'КОТ'])
+
+        with patch.object(PackedWordSet, '__contains__', side_effect=AssertionError):
+            self.assertEqual(words, PackedWordSet.from_words(['КОТ', 'АБА']))
+            self.assertNotEqual(words, PackedWordSet.from_words(['АБА']))
+        with self.assertRaises(TypeError):
+            hash(words)
+
     def test_max_length_is_correct_across_scan_chunks(self):
         words = PackedWordSet.from_words(['А', 'БВ', 'ВГДЕЖЗ', 'Е', 'ЖЖЖЖ'])
 

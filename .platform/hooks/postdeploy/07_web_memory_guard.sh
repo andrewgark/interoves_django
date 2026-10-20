@@ -11,21 +11,49 @@
 # Restart=always in the EB-generated unit brings it back in seconds. The
 # small swap file is headroom for the agents, not for Daphne
 # (MemorySwapMax=0), so Daphne never slows down by swapping.
+#
+# EB does not rerun postdeploy hooks after a reboot, so swap and swappiness
+# are also persisted in fstab and sysctl.d; the drop-in already lives in /etc.
 set -euo pipefail
 
+# Tests run the hook against a scratch tree with stub system commands.
+ROOT="${MEMORY_GUARD_ROOT:-}"
 SWAPFILE=/var/swapfile
 SWAP_MB=512
-WEB_MEMORY_MAX=1400M
-DROPIN_DIR=/etc/systemd/system/web.service.d
+# Memory left to nginx, healthd, the CloudWatch/SSM agents and page cache
+# (~300 MB RSS together on t3.small) once Daphne reaches its limit.
+RESERVE_MB=512
+DROPIN_DIR="$ROOT/etc/systemd/system/web.service.d"
+
+mem_total_mb=$(awk '/^MemTotal:/ {print int($2 / 1024)}' "$ROOT/proc/meminfo")
+web_memory_max_mb=$((mem_total_mb - RESERVE_MB))
+# Never squeeze Daphne below 60% of RAM on a smaller instance.
+floor_mb=$((mem_total_mb * 60 / 100))
+if (( web_memory_max_mb < floor_mb )); then
+    web_memory_max_mb=$floor_mb
+fi
+WEB_MEMORY_MAX="${web_memory_max_mb}M"
+
+create_swapfile() {
+    rm -f "$ROOT$SWAPFILE"
+    dd if=/dev/zero of="$ROOT$SWAPFILE" bs=1M count="$SWAP_MB" status=none
+    chmod 0600 "$ROOT$SWAPFILE"
+    mkswap "$ROOT$SWAPFILE" >/dev/null
+}
 
 if ! swapon --show=NAME --noheadings | grep -qx "$SWAPFILE"; then
-    if [[ ! -f "$SWAPFILE" ]]; then
-        dd if=/dev/zero of="$SWAPFILE" bs=1M count="$SWAP_MB" status=none
-        chmod 0600 "$SWAPFILE"
-        mkswap "$SWAPFILE" >/dev/null
+    # A file left by an interrupted earlier run may lack a swap signature.
+    if [[ ! -f "$ROOT$SWAPFILE" ]] || ! swapon "$ROOT$SWAPFILE" 2>/dev/null; then
+        create_swapfile
+        swapon "$ROOT$SWAPFILE"
     fi
-    swapon "$SWAPFILE"
 fi
+if ! grep -qs "^$SWAPFILE " "$ROOT/etc/fstab"; then
+    printf '%s none swap defaults,nofail 0 0\n' "$SWAPFILE" >>"$ROOT/etc/fstab"
+fi
+
+install -d -m 0755 "$ROOT/etc/sysctl.d"
+printf 'vm.swappiness = 10\n' >"$ROOT/etc/sysctl.d/90-interoves-swappiness.conf"
 sysctl -q -w vm.swappiness=10
 
 install -d -m 0755 "$DROPIN_DIR"
@@ -43,3 +71,4 @@ systemctl daemon-reload
 # the Daphne process that is already running after this deploy.
 systemctl set-property --runtime web.service \
     MemoryMax="$WEB_MEMORY_MAX" MemorySwapMax=0
+echo "web.service MemoryMax=$WEB_MEMORY_MAX (MemTotal=${mem_total_mb}M), swap $SWAPFILE"

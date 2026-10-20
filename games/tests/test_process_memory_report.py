@@ -41,6 +41,10 @@ class LruCacheSizesTests(TestCase):
         self.assertEqual(sizes, {'games.fake_cache.lookup': 3})
 
 
+    def test_empty_module_mapping_reports_nothing(self):
+        self.assertEqual(lru_cache_sizes({}), {})
+
+
 class ProcessMemoryReporterTests(TestCase):
     def test_report_logs_one_line_with_rss_and_cache_sizes(self):
         with self.assertLogs('application', level='INFO') as logs:

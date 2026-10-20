@@ -84,6 +84,15 @@ class PackedWordSet(Set):
                 hi = start
         return False
 
+    def __eq__(self, other: object) -> bool:
+        # Set.__eq__ проверял бы каждое слово бинарным поиском; у двух
+        # упакованных множеств канонический буфер, его достаточно сравнить.
+        if isinstance(other, PackedWordSet):
+            return self._blob == other._blob
+        return super().__eq__(other)
+
+    __hash__ = None
+
     def __iter__(self) -> Iterator[str]:
         blob = self._blob
         start = 0

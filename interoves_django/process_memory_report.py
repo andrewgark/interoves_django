@@ -50,7 +50,7 @@ def _proc_status_mb(path="/proc/self/status"):
 def lru_cache_sizes(modules=None):
     """``{"module.function": currsize}`` for project-level lru caches."""
     sizes = {}
-    for name, module in list((modules or sys.modules).items()):
+    for name, module in list((sys.modules if modules is None else modules).items()):
         if module is None or not name.startswith(PROJECT_MODULE_PREFIXES):
             continue
         for attr, value in list(vars(module).items()):
