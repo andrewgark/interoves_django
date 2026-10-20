@@ -20,6 +20,7 @@ MODE=""
 # there, so tasks in other AZs pay for cross-AZ traffic on every query.
 ECS_SUBNET_IDS="${INTEROVES_ECS_SUBNET_IDS:-subnet-29483d42}"
 ECS_ASSIGN_PUBLIC_IP="${INTEROVES_ECS_ASSIGN_PUBLIC_IP:-ENABLED}"
+RUNTIME_CONFIG_SECRET="${INTEROVES_RUNTIME_CONFIG_SECRET:-interoves/production/runtime-config}"
 
 usage() {
     echo "Usage: $0 WORKER IMAGE_URI [--image-commit SHA] [--profile quiet|normal|game-day] [--mode ecs-fargate|ecs-fargate-spot] [--desired-count N] [--apply]" >&2
@@ -105,13 +106,11 @@ aws_cmd() {
 ENVIRONMENT="interoves-${WORKER}-worker"
 [[ "$WORKER" == recheck ]] && ENVIRONMENT=interoves-recheck-worker
 env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name "$ENVIRONMENT" --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment`].{name:OptionName,value:Value}' --output json)"
-secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name "$ENVIRONMENT" --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets`].OptionName' --output json)"
 # The legacy recheck EB environment predates the shared Tribute/Telegram
 # settings required by Django system checks.  Reuse only missing shared
 # settings from identity; keep all recheck-specific values authoritative.
 if [[ "$WORKER" == recheck ]]; then
     shared_env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name interoves-identity-worker --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment`].{name:OptionName,value:Value}' --output json)"
-    shared_secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name interoves-identity-worker --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets`].OptionName' --output json)"
     env_json="$(printf '%s\0%s\0' "$env_json" "$shared_env_json" | "$PYTHON" -c '
 import json, sys
 base, shared = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
@@ -119,39 +118,21 @@ names = {item["name"] for item in base}
 base.extend(item for item in shared if item["name"] not in names)
 print(json.dumps(base, separators=(",", ":")))
 ')"
-    secret_names_json="$(printf '%s\0%s\0' "$secret_names_json" "$shared_secret_names_json" | "$PYTHON" -c '
-import json, sys
-base, shared = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
-seen = set(base)
-for name in shared:
-    if name not in seen:
-        base.append(name)
-        seen.add(name)
-print(json.dumps(base, separators=(",", ":")))
-')"
 fi
-all_secrets_json="$(aws_cmd secretsmanager list-secrets --query "SecretList[?starts_with(Name, 'interoves/production/')].{name:Name,arn:ARN}" --output json)"
-config_json="$(printf '%s\0%s\0%s\0' "$env_json" "$secret_names_json" "$all_secrets_json" | "$PYTHON" -c '
+config_json="$(printf '%s' "$env_json" | "$PYTHON" -c '
 import json, sys
-env, names, secrets = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:3]]
-values = {item["name"]: item.get("value", "") for item in env}
-arns = {item["name"]: item["arn"] for item in secrets}
-secret_map = {}
-for name in names:
-    arn = arns.get("interoves/production/" + name)
-    if not arn:
-        raise SystemExit("Missing Secrets Manager reference: " + name)
-    secret_map[name] = arn
-print(json.dumps({"values": values, "secret_map": secret_map}, separators=(",", ":")))
+env = json.load(sys.stdin)
+print(json.dumps({"values": {item["name"]: item.get("value", "") for item in env}}, separators=(",", ":")))
 ')"
 value() { printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(json.load(sys.stdin)["values"].get(sys.argv[1], ""))' "$1"; }
-secret_map="$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["secret_map"], separators=(",", ":")))')"
-secret_arns="$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(",".join(json.load(sys.stdin)["secret_map"].values()))')"
+# Secrets come from one JSON bundle (scripts/build_runtime_config_secret.py),
+# loaded at startup by interoves_django.runtime_env.
+CONFIG_SECRET_ARN="$(aws_cmd secretsmanager describe-secret --secret-id "$RUNTIME_CONFIG_SECRET" --query ARN --output text)"
 RDS_SECRET_ARN="$(value RDS_SECRET_ARN)"
 [[ -n "$RDS_SECRET_ARN" && "$RDS_SECRET_ARN" != None ]] || { echo "RDS_SECRET_ARN missing in $ENVIRONMENT" >&2; exit 1; }
 SOCIAL_QUEUE_S3_BUCKET="$(value SOCIAL_QUEUE_S3_BUCKET)"
 SOCIAL_QUEUE_S3_BUCKET="${SOCIAL_QUEUE_S3_BUCKET:-interoves-django-static}"
-secret_arns="$secret_arns,$RDS_SECRET_ARN"
+secret_arns="$CONFIG_SECRET_ARN,$RDS_SECRET_ARN"
 
 QUEUE_NAME="interoves-${WORKER}"
 QUEUE_URL="$(aws_cmd sqs get-queue-url --queue-name "$QUEUE_NAME" --query QueueUrl --output text)"
@@ -183,4 +164,4 @@ reserved = {
 }
 print(json.dumps({key: value for key, value in values.items() if key not in reserved}, separators=(",", ":")))
 ')"
-aws_cmd cloudformation deploy --stack-name "$SERVICE_STACK" --template-file "$ROOT/infra/ecs/worker-service.yaml" --parameter-overrides ClusterName=interoves-workers ServiceName="interoves-${WORKER}-ecs" WorkerName="$WORKER" RuntimeRole="$RUNTIME_ROLE" DeploymentMode="$MODE" ImageUri="$IMAGE_URI" ImageCommit="$IMAGE_COMMIT" Cpu="$CPU" Memory="$MEMORY" TaskExecutionRoleArn="$EXECUTION_ROLE_ARN" TaskRoleArn="$TASK_ROLE_ARN" QueueUrl="$QUEUE_URL" ConfigSecretArn='' ConfigSecretMap="$secret_map" ConfigEnvJson="$plain_env_json" SubnetIds="$ECS_SUBNET_IDS" SecurityGroupIds=sg-0e8becbf991186aba AssignPublicIp="$ECS_ASSIGN_PUBLIC_IP" DesiredCount="$DESIRED_COUNT" LogGroupName="/interoves/workers/$WORKER" RdsSecretArn="$RDS_SECRET_ARN" RdsDbName="$(value RDS_DB_NAME)" RdsHostname="$(value RDS_HOSTNAME)" RdsPort="$(value RDS_PORT)" RdsUsername="$(value RDS_USERNAME)" RedisHost="$(value REDIS_HOST)" RedisPort="$(value REDIS_PORT)" RedisTls="$(value REDIS_TLS)" IsProd="$(value IS_PROD)" DebugOn="$(value DEBUG_ON)" AsgiThreads="$(value ASGI_THREADS)" ExtraAllowedHosts="$(value EXTRA_ALLOWED_HOSTS)" TributeClubSubscriptionEurId="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID)" TributeClubSubscriptionEurUrl="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL)" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
+aws_cmd cloudformation deploy --stack-name "$SERVICE_STACK" --template-file "$ROOT/infra/ecs/worker-service.yaml" --parameter-overrides ClusterName=interoves-workers ServiceName="interoves-${WORKER}-ecs" WorkerName="$WORKER" RuntimeRole="$RUNTIME_ROLE" DeploymentMode="$MODE" ImageUri="$IMAGE_URI" ImageCommit="$IMAGE_COMMIT" Cpu="$CPU" Memory="$MEMORY" TaskExecutionRoleArn="$EXECUTION_ROLE_ARN" TaskRoleArn="$TASK_ROLE_ARN" QueueUrl="$QUEUE_URL" ConfigSecretArn="$CONFIG_SECRET_ARN" ConfigSecretMap='{}' ConfigEnvJson="$plain_env_json" SubnetIds="$ECS_SUBNET_IDS" SecurityGroupIds=sg-0e8becbf991186aba AssignPublicIp="$ECS_ASSIGN_PUBLIC_IP" DesiredCount="$DESIRED_COUNT" LogGroupName="/interoves/workers/$WORKER" RdsSecretArn="$RDS_SECRET_ARN" RdsDbName="$(value RDS_DB_NAME)" RdsHostname="$(value RDS_HOSTNAME)" RdsPort="$(value RDS_PORT)" RdsUsername="$(value RDS_USERNAME)" RedisHost="$(value REDIS_HOST)" RedisPort="$(value REDIS_PORT)" RedisTls="$(value REDIS_TLS)" IsProd="$(value IS_PROD)" DebugOn="$(value DEBUG_ON)" AsgiThreads="$(value ASGI_THREADS)" ExtraAllowedHosts="$(value EXTRA_ALLOWED_HOSTS)" TributeClubSubscriptionEurId="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_ID)" TributeClubSubscriptionEurUrl="$(value TRIBUTE_CLUB_SUBSCRIPTION_EUR_URL)" --capabilities CAPABILITY_NAMED_IAM --no-fail-on-empty-changeset
