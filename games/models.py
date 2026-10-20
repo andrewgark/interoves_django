@@ -1794,10 +1794,12 @@ class Task(models.Model):
 
 
 class AttemptsInfo:
-    def __init__(self, best_attempt, attempts, hint_attempts):
+    def __init__(self, best_attempt, attempts, hint_attempts, letter_hint_penalty=None):
         self.best_attempt = best_attempt
         self.attempts = attempts
         self.hint_attempts = hint_attempts
+        # Preloaded alphabetty letter-hint penalty; None looks it up per row.
+        self.letter_hint_penalty = letter_hint_penalty
         self.last_attempt = None
         if attempts:
             self.last_attempt = attempts[-1]
@@ -1825,6 +1827,8 @@ class AttemptsInfo:
         return total
 
     def _alphabetty_letter_hint_penalty(self):
+        if self.letter_hint_penalty is not None:
+            return self.letter_hint_penalty
         sample = self.best_attempt or (self.attempts[-1] if self.attempts else None)
         if sample is None:
             return 0
@@ -2133,9 +2137,11 @@ class AttemptManager(models.Manager):
         O(1) bulk alternative to calling get_general_results_task_actor_rows or
         get_task_attempts_infos for every task individually.
 
-        Loads all attempts + hint attempts for the given task IDs in exactly
-        2 queries, groups by (task_id, actor) in Python, and returns:
+        Loads tasks, attempts, hint attempts, hidden anon keys and (for
+        alphabetty) letter-hint states in a fixed number of queries, groups by
+        (task_id, actor) in Python, and returns:
             {task_id: [(actor, AttemptsInfo), ...]}
+        Scoring the returned AttemptsInfo objects needs no further queries.
 
         Hidden teams are already filtered out.  For 'general' mode all actor
         types (team / personal user / anon) are returned; for 'tournament' mode
@@ -2151,6 +2157,8 @@ class AttemptManager(models.Manager):
             return {}
 
         hidden_anons = hidden_anon_keys()
+        # 1 query: one shared Task per id instead of a lazy load per attempt.
+        tasks_by_id = Task.objects.in_bulk(task_ids)
 
         # 1 query: all attempts for all tasks (optionally scoped to one game).
         attempt_related = ['team', 'user', 'game']
@@ -2160,6 +2168,10 @@ class AttemptManager(models.Manager):
         if game is not None:
             attempt_qs = attempt_qs.filter(game=game)
         all_attempts = list(attempt_qs)
+        for a in all_attempts:
+            task = tasks_by_id.get(a.task_id)
+            if task is not None:
+                a.task = task
         if mode == 'tournament':
             all_attempts = self.filter_attempts_with_mode(all_attempts, mode)
 
@@ -2198,6 +2210,17 @@ class AttemptManager(models.Manager):
                 kind, _ = b
                 actor_obj_cache[b] = ha.team if kind == 'team' else (ha.user if kind == 'user' else ha.anon_key)
 
+        # 1 query when alphabetty tasks are present.  Like the per-row lookup,
+        # the penalty is keyed by the sample attempt's game and always reads
+        # the official (replay_slot NULL) state.
+        letter_penalties = {}
+        alphabetty_ids = [pk for pk, task in tasks_by_id.items() if task.task_type == 'alphabetty']
+        if alphabetty_ids:
+            from games.alphabetty.play import letter_hint_penalties_by_actor
+            letter_penalties = letter_hint_penalties_by_actor(
+                alphabetty_ids, game=game, actor_filter=actor_filter,
+            )
+
         # Build {task_id: [(actor, AttemptsInfo), ...]}
         result = {}
         for task_id in task_ids:
@@ -2212,7 +2235,11 @@ class AttemptManager(models.Manager):
                 if not att and not hints:
                     continue
                 best = self.get_best_attempt(att)
-                ai = AttemptsInfo(best, att, hints)
+                sample = best or (att[-1] if att else None)
+                letter_penalty = 0
+                if sample is not None:
+                    letter_penalty = letter_penalties.get((sample.task_id, sample.game_id, b), 0)
+                ai = AttemptsInfo(best, att, hints, letter_hint_penalty=letter_penalty)
                 kind, key = b
                 obj = actor_obj_cache.get(b)
                 if kind == 'team':

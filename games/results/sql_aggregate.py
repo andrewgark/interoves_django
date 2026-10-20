@@ -32,7 +32,6 @@ from django.db.models.functions import Cast, Coalesce, Concat, RowNumber
 
 from games.models import (
     Attempt,
-    ChainTaskState,
     Hint,
     HintAttempt,
     PersonalResultsParticipant,
@@ -361,50 +360,13 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None, actor_filter=None, i
 
     # Alphabetty letter hints live in ChainTaskState rather than HintAttempt.
     # Load them once for all result cells.  The legacy ORM path looks up the
-    # state for the game of the best attempt, so keep game_id in the key to
+    # state for the game of the best attempt, so game_id is part of the key to
     # preserve that behaviour when shared TaskGroups are aggregated unscoped.
-    from games.alphabetty.play import (
-        alphabetty_hint_penalty_points,
-        hint_count,
-        load_state,
-    )
+    from games.alphabetty.play import letter_hint_penalties_by_actor
 
-    chain_state_qs = ChainTaskState.objects.filter(
-        task_id__in=task_ids,
-        task__task_type='alphabetty',
-        game_mode='general',
-        replay_slot__isnull=True,
+    alphabetty_penalty = letter_hint_penalties_by_actor(
+        task_ids, game=game, actor_filter=actor_filter,
     )
-    if game is not None:
-        chain_state_qs = chain_state_qs.filter(game=game)
-    if actor_filter:
-        chain_state_qs = chain_state_qs.filter(**actor_filter)
-
-    alphabetty_penalty = {}
-    for row in chain_state_qs.values(
-        'task_id', 'game_id', 'team_id', 'user_id', 'anon_key', 'state',
-    ):
-        if (
-            row['team_id'] is not None
-            and row['user_id'] is None
-            and row['anon_key'] is None
-        ):
-            actor_key = 't:{}'.format(row['team_id'])
-        elif (
-            row['user_id'] is not None
-            and row['team_id'] is None
-            and row['anon_key'] is None
-        ):
-            actor_key = 'u:{}'.format(row['user_id'])
-        elif row['anon_key'] and row['team_id'] is None and row['user_id'] is None:
-            actor_key = 'a:{}'.format(row['anon_key'])
-        else:
-            continue
-        alphabetty_penalty[(
-            row['task_id'], actor_key, row['game_id'],
-        )] = alphabetty_hint_penalty_points(
-            hint_count(load_state(row['state']))
-        )
 
     # Actors that only have hints (no attempts) still need a row.
     actors_by_task = defaultdict(dict)  # task_id -> actor_key -> meta
@@ -470,7 +432,7 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None, actor_filter=None, i
             letter_penalty = 0
             if best is not None and best.get('game_id') is not None:
                 letter_penalty = alphabetty_penalty.get(
-                    (task_id, actor_key, best['game_id']), 0,
+                    (task_id, best['game_id'], parsed), 0,
                 )
             ai = AggregatedAttemptsInfo(
                 best_points=best['points'] if best else None,
