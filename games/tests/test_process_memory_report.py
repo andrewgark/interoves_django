@@ -1,6 +1,7 @@
 import functools
 import tracemalloc
 import types
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
@@ -53,6 +54,18 @@ class ProcessMemoryReporterTests(TestCase):
         self.assertEqual(len(logs.output), 1)
         self.assertIn('asgi_memory pid=1 instance=test rss_mb=', logs.output[0])
         self.assertIn('py_blocks=', logs.output[0])
+
+    def test_report_shows_malloc_arena_setting(self):
+        with patch.dict('os.environ', {'MALLOC_ARENA_MAX': '2'}), \
+                self.assertLogs('application', level='INFO') as logs:
+            ProcessMemoryReporter().report(pid=1, instance='test')
+
+        self.assertIn('malloc_arena_max=2 ', logs.output[0])
+
+    def test_procfile_limits_glibc_malloc_arenas_for_daphne(self):
+        procfile = (Path(__file__).resolve().parents[2] / 'Procfile').read_text()
+
+        self.assertRegex(procfile, r'^web: env MALLOC_ARENA_MAX=2 daphne ')
 
     def test_tracemalloc_report_compares_with_previous_snapshot(self):
         reporter = ProcessMemoryReporter()

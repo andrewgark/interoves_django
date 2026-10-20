@@ -8,6 +8,9 @@ of RAM. One log line every few minutes separates the usual causes:
 - both rising together points at Python objects, and ``lru`` shows whether
   the module-level ``functools.lru_cache`` tables are the ones growing.
 
+``malloc_arena_max`` echoes the glibc setting from the Procfile, so series
+from before and after an allocator change are told apart.
+
 ``INTEROVES_TRACEMALLOC=1`` additionally starts ``tracemalloc`` at import and
 logs the source lines whose allocations grew most since the previous report.
 It costs memory and CPU, so it is meant for a short diagnostic window only.
@@ -75,7 +78,8 @@ class ProcessMemoryReporter:
         top = sorted(sizes.items(), key=lambda item: item[1], reverse=True)
         logger.info(
             "asgi_memory pid=%s instance=%s rss_mb=%.0f rss_anon_mb=%.0f "
-            "rss_file_mb=%.0f py_blocks=%s gc_counts=%s lru_entries=%s lru=%s",
+            "rss_file_mb=%.0f py_blocks=%s gc_counts=%s malloc_arena_max=%s "
+            "lru_entries=%s lru=%s",
             pid,
             instance,
             status.get("VmRSS", 0),
@@ -83,6 +87,7 @@ class ProcessMemoryReporter:
             status.get("RssFile", 0),
             sys.getallocatedblocks(),
             "/".join(str(count) for count in gc.get_count()),
+            os.environ.get("MALLOC_ARENA_MAX", "default"),
             sum(sizes.values()),
             ",".join(f"{name}={size}" for name, size in top[:LRU_REPORT_LIMIT]),
         )
