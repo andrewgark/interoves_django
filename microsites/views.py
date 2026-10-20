@@ -1,5 +1,6 @@
 import json
 import asyncio
+import html
 import logging
 import mimetypes
 import os
