@@ -36,6 +36,31 @@ class EventLoopLagMonitorMiddlewareTests(IsolatedAsyncioTestCase):
             await first_task
         middleware._stall_watchdog.stop()
 
+    async def test_memory_report_runs_every_n_ticks_and_survives_errors(self):
+        middleware = EventLoopLagMonitorMiddleware(
+            lambda *_args: None, interval_seconds=0.001, memory_report_every=2,
+        )
+        calls = []
+
+        def report(**kwargs):
+            calls.append(kwargs)
+            raise RuntimeError('boom')
+
+        middleware._memory_reporter.report = report
+        loop = asyncio.get_running_loop()
+        with self.assertLogs('application', level='INFO') as logs:
+            task = loop.create_task(middleware._monitor(loop))
+            while len(calls) < 2:
+                await asyncio.sleep(0.005)
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError):
+                await task
+
+        self.assertEqual(calls[0], {'pid': middleware._pid, 'instance': middleware._instance})
+        self.assertTrue(any('asgi_memory_report_failed' in line for line in logs.output))
+        lag_lines = [line for line in logs.output if 'asgi_event_loop_lag' in line]
+        self.assertGreaterEqual(len(lag_lines), 4)
+
     def test_rejects_non_positive_interval(self):
         with self.assertRaisesRegex(ValueError, "interval_seconds must be positive"):
             EventLoopLagMonitorMiddleware(lambda *_args: None, interval_seconds=0)

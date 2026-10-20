@@ -13,6 +13,8 @@ import threading
 import time
 import weakref
 
+from interoves_django.process_memory_report import ProcessMemoryReporter
+
 
 logger = logging.getLogger("application")
 
@@ -94,11 +96,17 @@ class EventLoopStallWatchdog:
 class EventLoopLagMonitorMiddleware:
     """Start one periodic lag monitor whenever an ASGI loop serves a scope."""
 
-    def __init__(self, app, *, interval_seconds: float = 10.0):
+    def __init__(
+        self, app, *, interval_seconds: float = 10.0, memory_report_every: int = 30,
+    ):
         if interval_seconds <= 0:
             raise ValueError("interval_seconds must be positive")
+        if memory_report_every <= 0:
+            raise ValueError("memory_report_every must be positive")
         self.app = app
         self.interval_seconds = interval_seconds
+        self.memory_report_every = memory_report_every
+        self._memory_reporter = ProcessMemoryReporter()
         self._tasks = weakref.WeakKeyDictionary()
         self._pid = os.getpid()
         self._instance = socket.gethostname() or "unknown"
@@ -119,6 +127,7 @@ class EventLoopLagMonitorMiddleware:
 
     async def _monitor(self, loop):
         interval = self.interval_seconds
+        ticks = 0
         while True:
             expected = loop.time() + interval
             await asyncio.sleep(interval)
@@ -129,6 +138,21 @@ class EventLoopLagMonitorMiddleware:
                 self._pid,
                 self._instance,
                 threading.active_count(),
+            )
+            ticks += 1
+            if ticks % self.memory_report_every == 0:
+                await self._report_memory()
+
+    async def _report_memory(self):
+        # A tracemalloc snapshot can take a while; keep it off the loop thread.
+        try:
+            await asyncio.to_thread(
+                self._memory_reporter.report, pid=self._pid, instance=self._instance,
+            )
+        except Exception:
+            logger.exception(
+                "event=asgi_memory_report_failed instance=%s pid=%s",
+                self._instance, self._pid,
             )
 
     async def __call__(self, scope, receive, send):
