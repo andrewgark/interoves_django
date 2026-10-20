@@ -26,8 +26,10 @@ from games.daily.statistics import (
     _release_build_lock,
     _versioned_cache_key,
 )
+from games.censorly.normalize import lemma_of
 from games.models import (
     Attempt,
+    ChainTaskState,
     CheckerType,
     DailySolveTiming,
     Game,
@@ -526,6 +528,80 @@ class DailyStatisticsTests(TestCase):
         data = build_daily_statistics(game, tg)
 
         self.assertEqual(data['popular_words'], [{'word': 'слово', 'players': 1}])
+
+    def _censorly_task(self, label):
+        game = Game.objects.filter(id='censorly', project=self.project).first()
+        if game is None:
+            game = Game.objects.create(id='censorly', name='Цензурка', project=self.project)
+        tg = TaskGroup.objects.create(label=label)
+        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='censorly')
+        checker, _ = CheckerType.objects.get_or_create(pk='censorly')
+        task = Task.objects.create(
+            task_group=tg, number='1', task_type='censorly', checker=checker,
+            checker_data=json.dumps({'title': 'Тест', 'text': 'Текст статьи.', 'guesses': []}),
+        )
+        return game, tg, task
+
+    def _censorly_solve(self, game, tg, task, user, rows):
+        for text, status, state in rows:
+            Attempt.manager.create(
+                user=user, game=game, task=task, text=text, status=status, state=state,
+            )
+        PlayerCompletedGame.objects.create(
+            user=user, game=game, task_group=tg, game_kind='censorly',
+            game_instance_id='censorly:{}'.format(tg.pk),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+
+    def test_censorly_lemmas_come_from_attempt_state_without_loading_it(self):
+        from games.daily import statistics as daily_statistics
+
+        game, tg, task = self._censorly_task('censorly state lemmas')
+        history = [{'lemma': 'кошка'}]
+        self._censorly_solve(game, tg, task, self.users[0], [
+            # The resolver lemma wins over the typed surface.
+            ('кошек', 'Wrong', json.dumps({'guesses': history})),
+            # Unreadable states fall back to the typed word.
+            ('собаки', 'Wrong', '{not json'),
+            ('столы', 'Wrong', json.dumps({'guesses': []})),
+            ('окна', 'Partial', json.dumps({'guesses': [{'lemma': None}]})),
+            ('реки', 'Ok', json.dumps({'guesses': history + [{'lemma': 'река'}], 'won': True})),
+        ])
+        ChainTaskState.objects.create(
+            user=self.users[0], game=game, task=task, game_mode='general',
+            state=json.dumps({'guesses': history, 'won': True}),
+        )
+        loaded = []
+        grouped = daily_statistics._grouped_by_actor
+
+        def spy(rows):
+            rows = list(rows)
+            loaded.extend(rows)
+            return grouped(rows)
+
+        with patch.object(daily_statistics, '_grouped_by_actor', side_effect=spy):
+            data = build_daily_statistics(game, tg)
+
+        self.assertTrue(loaded)
+        self.assertTrue(all('state' in row.get_deferred_fields() for row in loaded))
+        words = {row['word'] for row in data['popular_words']}
+        self.assertTrue({'кошка', 'река'} <= words)
+        self.assertNotIn('кошек', words)
+        self.assertEqual(data['last_words'], [{'word': lemma_of('окна'), 'players': 1}])
+
+    def test_censorly_actor_without_chain_state_uses_latest_attempt_state(self):
+        from games.censorly.play import dump_state
+
+        game, tg, task = self._censorly_task('censorly no chain state')
+        self._censorly_solve(game, tg, task, self.users[0], [
+            ('#hint:кошка', 'Partial', dump_state({'guesses': [], 'hints_taken': 1})),
+            ('кошка', 'Ok', dump_state({'guesses': [{'lemma': 'кошка'}], 'hints_taken': 1, 'won': True})),
+        ])
+        self.assertFalse(ChainTaskState.objects.filter(task=task).exists())
+
+        data = build_daily_statistics(game, tg)
+
+        self.assertEqual(data['summary']['without_hints_percent'], 0.0)
 
     def test_censorly_attempt_distribution_includes_wrong_guesses(self):
         game = Game.objects.filter(id='censorly', project=self.project).first()

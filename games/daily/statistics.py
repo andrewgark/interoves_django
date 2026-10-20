@@ -11,7 +11,7 @@ from typing import Callable
 
 from django.core.cache import caches
 from django.db import connection, transaction
-from django.db.models import Min, Q
+from django.db.models import Func, Min, Q, TextField
 
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
 from games.raddle import load_raddle_state, parse_raddle_data, resolve_assist_tiers
@@ -392,20 +392,55 @@ def _timing_actor_q(keys):
     return q
 
 
-def _attempts_for(task, game, actors, statuses=('Ok', 'Partial')):
-    if not actors:
-        return {}
-    rows = Attempt.manager.filter(
+def _attempt_rows(task, game, actors, statuses):
+    return Attempt.manager.filter(
         task=task, game=game, skip=False, status__in=statuses,
         replay_slot__isnull=True,
-    ).filter(_actor_q(actors)).only(
-        'id', 'team_id', 'user_id', 'anon_key', 'text', 'state', 'status',
-        'time', 'active_time_ms',
-    ).order_by('time', 'id')
+    ).filter(_actor_q(actors)).order_by('time', 'id')
+
+
+def _grouped_by_actor(rows):
     grouped = defaultdict(list)
     for row in rows:
         grouped[_actor_key(row)].append(row)
     return grouped
+
+
+def _attempts_for(task, game, actors, statuses=('Ok', 'Partial')):
+    if not actors:
+        return {}
+    return _grouped_by_actor(_attempt_rows(task, game, actors, statuses).only(
+        'id', 'team_id', 'user_id', 'anon_key', 'text', 'state', 'status',
+        'time', 'active_time_ms',
+    ))
+
+
+class _LastGuessLemma(Func):
+    """``state.guesses[-1].lemma`` of an attempt, computed by the database.
+
+    Every Цензурка attempt stores the whole game state so far: one popular
+    edition holds 14k attempts and ~60 MB of state JSON, which the
+    statistics worker loaded into memory only to read this one string.
+    Invalid JSON, an empty history or a non-string lemma give NULL.
+    """
+
+    output_field = TextField()
+    _MYSQL = (
+        "CASE WHEN JSON_VALID(%(expressions)s) AND JSON_TYPE(JSON_EXTRACT("
+        "%(expressions)s, '$.guesses[last].lemma')) = 'STRING' THEN JSON_UNQUOTE("
+        "JSON_EXTRACT(%(expressions)s, '$.guesses[last].lemma')) END"
+    )
+    _SQLITE = (
+        "CASE WHEN json_valid(%(expressions)s) AND json_type(%(expressions)s, "
+        "'$.guesses[#-1].lemma') = 'text' THEN json_extract(%(expressions)s, "
+        "'$.guesses[#-1].lemma') END"
+    )
+
+    def as_mysql(self, compiler, connection, **extra_context):
+        return self.as_sql(compiler, connection, template=self._MYSQL, **extra_context)
+
+    def as_sqlite(self, compiler, connection, **extra_context):
+        return self.as_sql(compiler, connection, template=self._SQLITE, **extra_context)
 
 
 def _completed_times(game, task_group, actors):
@@ -458,13 +493,29 @@ def _completed_times(game, task_group, actors):
     return list(values.values())
 
 
-def _latest_states(task, game, actors, attempts):
-    states = {}
+def _chain_states(task, game, actors):
     rows = ChainTaskState.objects.filter(
         task=task, game=game, game_mode='general', replay_slot__isnull=True,
     ).filter(_actor_q(actors)).only('team_id', 'user_id', 'anon_key', 'state')
+    return {_actor_key(row): row.state for row in rows}
+
+
+def _latest_attempt_states(task, game, actors, statuses):
+    """Latest non-empty attempt state per actor, without loading the others."""
+    latest_ids = {}
+    rows = _attempt_rows(task, game, actors, statuses).exclude(
+        state__isnull=True,
+    ).exclude(state='').only('id', 'team_id', 'user_id', 'anon_key')
     for row in rows:
-        states[_actor_key(row)] = row.state
+        latest_ids[_actor_key(row)] = row.id
+    rows = Attempt.manager.filter(id__in=latest_ids.values()).only(
+        'id', 'team_id', 'user_id', 'anon_key', 'state',
+    )
+    return {_actor_key(row): row.state for row in rows}
+
+
+def _latest_states(task, game, actors, attempts):
+    states = _chain_states(task, game, actors)
     for key, values in attempts.items():
         if key not in states:
             for row in reversed(values):
@@ -729,8 +780,18 @@ def _censorly(task, game, actors):
 
     # Wrong guesses count toward a Цензурка solve too; hints are filtered
     # from attempt_counts below using their #hint: marker.
-    attempts = _attempts_for(task, game, actors, statuses=('Ok', 'Partial', 'Wrong'))
-    states = _latest_states(task, game, actors, attempts)
+    statuses = ('Ok', 'Partial', 'Wrong')
+    attempts = _grouped_by_actor(
+        _attempt_rows(task, game, actors, statuses)
+        .only('id', 'team_id', 'user_id', 'anon_key', 'text', 'status', 'time')
+        .annotate(last_guess_lemma=_LastGuessLemma('state'))
+    ) if actors else {}
+    states = _chain_states(task, game, actors) if actors else {}
+    missing = [actor for actor in actors if actor not in states]
+    if missing:
+        # Actors without a chain state fall back to their latest attempt
+        # state, as for the other games, loading one state per actor.
+        states.update(_latest_attempt_states(task, game, missing, statuses))
     payload = puzzle_from_task(task) or {}
     title_lemmas = title_content_lemmas(payload)
     title_opening = title_opening_lemmas(payload)
@@ -740,16 +801,7 @@ def _censorly(task, game, actors):
     no_hints = 0
 
     def lemma_from_row(row):
-        try:
-            dumped = json.loads(row.state or '{}')
-            guesses = dumped.get('guesses') or []
-            if guesses:
-                lemma = (guesses[-1] or {}).get('lemma') or ''
-                if lemma:
-                    return lemma
-        except (TypeError, ValueError):
-            pass
-        return lemma_of(normalize_surface(row.text or ''))
+        return row.last_guess_lemma or lemma_of(normalize_surface(row.text or ''))
 
     for actor in actors:
         rows = attempts.get(actor, [])
