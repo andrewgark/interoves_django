@@ -42,7 +42,7 @@ profiles:
     integrations: ecs-fargate
   normal:
     background: ecs-fargate-spot
-    identity: ecs-fargate
+    identity: ecs-fargate-spot
     recheck: ecs-fargate-spot
     integrations: ecs-fargate
   game-day:

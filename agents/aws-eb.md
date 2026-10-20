@@ -27,7 +27,7 @@ interoves-env` для определения прода не подходят.
 
 | Окружение | Роль | Прод? | Примечание |
 |---|---|---:|---|
-| `interoves-web-green-lb` | web, `INTEROVES_RUNTIME_ROLE=web` | да | ALB, baseline 1× `t3.small`, ASG 1/2, On-Demand, health `/health/live/` |
+| `interoves-web-green-lb` | web, `INTEROVES_RUNTIME_ROLE=web` | да | ALB в 1a/1b, 2× `t3.small` (ASG 2/2), On-Demand, health `/health/live/` |
 | `interoves-env` | Blue web | нет | только rollback DNS; Blue не деплоить и не «чинить» без явного запроса |
 | `interoves-background-worker` | background-worker | нет | difficulty, проекции результатов, фоновые тики |
 | `interoves-identity-worker` | legacy EB identity-worker | нет | неактуальный consumer; identity merge сейчас обслуживает ECS `interoves-identity-ecs` |

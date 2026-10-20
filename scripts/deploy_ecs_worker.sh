@@ -16,8 +16,9 @@ MODE=""
 # ECS workers currently run in the VPC's public subnets.  Keep these defaults
 # aligned with the live services so an ordinary deploy does not accidentally
 # place Fargate tasks in the isolated legacy subnets, where they cannot reach
-# ECR without NAT/VPC endpoints.
-ECS_SUBNET_IDS="${INTEROVES_ECS_SUBNET_IDS:-subnet-df8b26a2,subnet-29483d42}"
+# ECR without NAT/VPC endpoints.  Only eu-central-1a: RDS and Redis live
+# there, so tasks in other AZs pay for cross-AZ traffic on every query.
+ECS_SUBNET_IDS="${INTEROVES_ECS_SUBNET_IDS:-subnet-29483d42}"
 ECS_ASSIGN_PUBLIC_IP="${INTEROVES_ECS_ASSIGN_PUBLIC_IP:-ENABLED}"
 
 usage() {
@@ -52,7 +53,7 @@ fi
 
 case "$DEPLOY_PROFILE" in
     quiet) [[ "$WORKER" == background ]] && PROFILE_MODE=lambda || PROFILE_MODE=ecs-fargate-spot ;;
-    normal) [[ "$WORKER" == background || "$WORKER" == recheck ]] && PROFILE_MODE=ecs-fargate-spot || PROFILE_MODE=ecs-fargate ;;
+    normal) [[ "$WORKER" == integrations ]] && PROFILE_MODE=ecs-fargate || PROFILE_MODE=ecs-fargate-spot ;;
     game-day) PROFILE_MODE=ecs-fargate ;;
     *) echo "Unsupported profile: $DEPLOY_PROFILE" >&2; exit 2 ;;
 esac
