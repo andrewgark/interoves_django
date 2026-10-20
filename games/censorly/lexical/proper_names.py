@@ -187,6 +187,10 @@ PAIR_RELATIONS: tuple[tuple[str, str], ...] = (
     ('свердлов', 'свердловский'),
     ('пушкин', 'пушкинистика'),
     ('фергюсон', 'фергусонит'),
+    # Surname Даль (Владимир Даль): pymorphy parses «Даля»/«Далю» as an
+    # unrelated lemma «даля» and «Далем» as «далем».
+    ('даль', 'даля'),
+    ('даль', 'далем'),
     # Wikidata P1549 geographic demonyms approved for the next gameplay batch.
     # Keep feminine and plural surfaces explicit; shared endpoints connect
     # the approved variants to one another at match time.

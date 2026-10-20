@@ -587,6 +587,11 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('математика', 'математический'))
         self.assertTrue(opens('математический', 'математика'))
 
+    def test_surname_dal_opens_oblique_forms(self):
+        for form in ('Даля', 'Далю', 'Далем'):
+            self.assertTrue(opens('Даль', form))
+            self.assertTrue(opens(form, 'Даль'))
+
     def test_chess_reviewed_family(self):
         from games.censorly.lexical.rootbank import assignment_of, structures_of
 
@@ -2773,7 +2778,7 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
     def test_confirmed_proper_pairs_are_bidirectional(self):
         from games.censorly.lexical.proper_names import PAIR_RELATIONS
 
-        self.assertEqual(len(PAIR_RELATIONS), 570)
+        self.assertEqual(len(PAIR_RELATIONS), 572)
         for left, right in PAIR_RELATIONS:
             self.assertEqual(explain(left, right), 'proper', f'{left}/{right}')
             self.assertEqual(explain(right, left), 'proper', f'{right}/{left}')
