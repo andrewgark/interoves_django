@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from games.censorly.lexical.core import fold
+from games.censorly.lexical.core import WORD_CACHE_SIZE, fold
 from games.censorly.lexical.dispatcher import RUSSIAN, backend_name
 from games.censorly.lexical.proper_names import PAIR_RELATIONS
 from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
@@ -373,7 +373,7 @@ def initially_open(surface: str, *, include_pronouns: bool = True) -> bool:
     return True
 
 
-@lru_cache(maxsize=262144)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def readings_of(surface: str) -> tuple:
     folded = fold(surface)
     if not folded:
@@ -403,7 +403,7 @@ def readings_of(surface: str) -> tuple:
     return tuple(parsed)
 
 
-@lru_cache(maxsize=262144)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def guess_readings_of(surface: str) -> tuple:
     """Readings to use for a word typed as a guess.
 
@@ -423,7 +423,7 @@ def guess_readings_of(surface: str) -> tuple:
     return citation or found
 
 
-@lru_cache(maxsize=262144)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def preferred_readings_of(surface: str) -> tuple:
     """Readings suitable for an isolated gameplay token.
 
@@ -604,7 +604,7 @@ def _proper_components() -> dict[str, str]:
 _PROPER_COMPONENT_BY_WORD = _proper_components()
 
 
-@lru_cache(maxsize=262144)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def _proper_pair(left: str, right: str) -> bool:
     return _proper_pair_from_readings(
         left,

@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
-from games.censorly.lexical.core import fold
+from games.censorly.lexical.core import WORD_CACHE_SIZE, fold
 from games.censorly.lexical.russian.reading_overrides import is_rejected
 from games.censorly.tokenize import tokenize_text
 
@@ -85,7 +85,7 @@ class TargetOccurrence:
         return frozenset(lemma for _para, lemma in self.lexemes)
 
 
-@lru_cache(maxsize=262144)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def guess_inflection_ids(surface: str) -> frozenset[tuple[int, str]]:
     """Context-free guess identities.
 
@@ -118,7 +118,7 @@ def ungated_readings(surface: str) -> tuple[MorphReading, ...]:
     return _ungated(folded)
 
 
-@lru_cache(maxsize=262144)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def bare_target(surface: str) -> TargetOccurrence:
     """Identity of a surface with no sentence.
 
@@ -530,7 +530,7 @@ def _proper_pool(found: list[MorphReading]) -> list[MorphReading]:
     return [item for item in found if item.score >= best - 0.15 and item.score >= 0.05]
 
 
-@lru_cache(maxsize=262144)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def _ungated(folded: str) -> tuple[MorphReading, ...]:
     from games.matcher.norm_matcher import MORPH_ANALYZER
 

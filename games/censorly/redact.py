@@ -22,12 +22,16 @@ def _token_public(
     show_endings: bool,
     lexical: bool = False,
 ) -> dict[str, Any]:
+    # Flags are sent only when true: a 7k-token article otherwise spends a
+    # third of its JSON on "in_title":false, "guessed":false, "hinted":false.
+    # The client reads all of them as truthiness checks.
     kind = tok.get('kind') or 'content'
     out: dict[str, Any] = {
         'id': tok['id'],
         'kind': kind,
-        'in_title': bool(tok.get('in_title')),
     }
+    if tok.get('in_title'):
+        out['in_title'] = True
     if tok.get('in_heading'):
         out['in_heading'] = True
         try:
@@ -58,7 +62,6 @@ def _token_public(
                 out['title_related'] = True
             out['text'] = strip_combining_marks(tok.get('surface') or '')
             out['revealed'] = True
-            out['guessed'] = False
             return out
 
     lemma = tok.get('lemma') or ''
@@ -71,12 +74,15 @@ def _token_public(
     player_opened = bool(lemma and lemma in revealed_lemmas)
     is_open = won or player_opened
     out['revealed'] = bool(is_open)
-    out['guessed'] = player_opened
-    out['hinted'] = bool(lemma and lemma in hinted_lemmas)
+    if player_opened:
+        out['guessed'] = True
+    if lemma and lemma in hinted_lemmas:
+        out['hinted'] = True
     if is_open:
         out['lemma'] = lemma
         out['text'] = strip_combining_marks(tok.get('surface') or '')
-        out['just_revealed'] = bool(last_lemma and lemma == last_lemma)
+        if last_lemma and lemma == last_lemma:
+            out['just_revealed'] = True
     elif show_endings:
         ending = (tok.get('ending') or '').strip()
         try:

@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
-from games.censorly.lexical.core import fold
+from games.censorly.lexical.core import WORD_CACHE_SIZE, fold
 from games.censorly.lexical.russian.reading_overrides import is_rejected
 
 _PROPER = frozenset({'Name', 'Surn', 'Patr', 'Geox', 'Orgn', 'Trad'})
@@ -70,7 +70,7 @@ def cognate_lemma(surface: str) -> str:
     return next(iter(lemmas))
 
 
-@lru_cache(maxsize=524288)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def pos_of(lemma: str) -> str:
     found = readings(lemma)
     if not found:
@@ -86,7 +86,7 @@ def aspect_of(lemma: str) -> str:
     return ''
 
 
-@lru_cache(maxsize=524288)
+@lru_cache(maxsize=WORD_CACHE_SIZE)
 def _readings(folded: str) -> tuple[DictionaryReading, ...]:
     from games.matcher.norm_matcher import MORPH_ANALYZER
 

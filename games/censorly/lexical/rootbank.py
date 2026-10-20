@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import csv
 import re
+import sys
 from collections import Counter
 from functools import lru_cache
 from pathlib import Path
@@ -156,8 +157,7 @@ def sense_components(structures) -> tuple[tuple[str, ...], ...]:
 
 def tikhonov_roots_of(lemma: str) -> tuple[str, ...]:
     """Raw Tikhonov root components for diagnostics, including duplicate rows."""
-    _bank()
-    return _TIKHONOV_ROOTS.get(fold(lemma), ())
+    return _diagnostics()[1].get(fold(lemma), ())
 
 
 def families_of(lemma: str) -> tuple[str, ...]:
@@ -173,9 +173,8 @@ def assignment_of(lemma: str) -> dict:
     not assigned. An unresolved lemma has no structures, so it cannot match
     another unresolved lemma by an empty root.
     """
-    _bank()
     folded = fold(lemma)
-    info = _PROVENANCE.get(folded)
+    info = provenance().get(folded)
     if info is None:
         return {
             'structures': (),
@@ -192,8 +191,6 @@ def assignment_of(lemma: str) -> dict:
 
 
 _KUZ_FAMILY: dict[str, tuple[str, ...]] = {}
-_TIKHONOV_ROOTS: dict[str, tuple[str, ...]] = {}
-_PROVENANCE: dict[str, dict] = {}
 _SOURCE: dict[str, str] = {}
 _COMPONENT_AUDIT: dict[str, int] = {}
 
@@ -316,8 +313,62 @@ def load_seconds() -> float:
     return _bank()[1]
 
 
+def provenance() -> dict[str, dict]:
+    """Per-lemma assignment source for diagnostics (see ``assignment_of``)."""
+    return _diagnostics()[0]
+
+
+def reset_cache() -> None:
+    """Forget the bank and its diagnostics, e.g. after patching reviewed data."""
+    _bank.cache_clear()
+    _diagnostics.cache_clear()
+
+
 @lru_cache(maxsize=1)
 def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
+    global _KUZ_FAMILY, _COMPONENT_AUDIT
+    built, seconds, _KUZ_FAMILY, _tikhonov, _provenance, _COMPONENT_AUDIT = (
+        _build_bank(record=False)
+    )
+    return built, seconds
+
+
+@lru_cache(maxsize=1)
+def _diagnostics() -> tuple[dict[str, dict], dict[str, tuple[str, ...]]]:
+    # Provenance (~40 MB) and raw Tikhonov rows (~23 MB) only serve tools and
+    # tests, so a web process never keeps them: they are rebuilt on demand.
+    _built, _seconds, _kuz, tikhonov, provenance_, _audit = _build_bank(record=True)
+    return provenance_, tikhonov
+
+
+class _DiscardWrites(dict):
+    """Provenance sink for gameplay builds: assignments are not recorded."""
+
+    def __setitem__(self, key, value):
+        pass
+
+
+def _shared(mapping: dict) -> dict:
+    """Intern keys and give equal values one object.
+
+    ~65k lemmas share ~6.5k distinct structures and ~4.6k distinct root ids,
+    but each lemma otherwise holds its own copies of them.
+    """
+    canonical: dict = {}
+    return {
+        sys.intern(key): canonical.setdefault(value, value)
+        for key, value in ((key, _interned(value)) for key, value in mapping.items())
+    }
+
+
+def _interned(value):
+    if isinstance(value, str):
+        return sys.intern(value)
+    return tuple(_interned(item) for item in value)
+
+
+def _build_bank(*, record: bool):
+    """Build game root structures; ``record`` also keeps diagnostics."""
     import time
 
     started = time.perf_counter()
@@ -345,8 +396,7 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
         root_id = _game_id(numbered, family)
         if root_id not in kuz[lemma]:
             kuz[lemma].append(root_id)
-    global _KUZ_FAMILY, _TIKHONOV_ROOTS
-    _KUZ_FAMILY = {lemma: tuple(items) for lemma, items in kuz_families.items()}
+    kuz_family = _shared({lemma: tuple(items) for lemma, items in kuz_families.items()})
 
     tikhonov: dict[str, tuple[str, ...]] = {}
     tikhonov_all: dict[str, list[str]] = {}
@@ -364,12 +414,13 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
                     roots.append(plain)
         if lemma and roots:
             tikhonov[lemma] = tuple(roots)
-            tikhonov_all.setdefault(lemma, []).extend(roots)
-    _TIKHONOV_ROOTS = {lemma: tuple(roots) for lemma, roots in tikhonov_all.items()}
+            if record:
+                tikhonov_all.setdefault(lemma, []).extend(roots)
+    tikhonov_roots = {lemma: tuple(roots) for lemma, roots in tikhonov_all.items()}
 
     audit: Counter[str] = Counter()
     built: dict[str, tuple[tuple[str, ...], ...]] = {}
-    provenance: dict[str, dict] = {}
+    provenance: dict[str, dict] = {} if record else _DiscardWrites()
     # Sense-only lemmas (proper-name clusters) are absent from Kuznetsova and
     # Tikhonov; still install them so рим opens римский.
     lemmas = (
@@ -561,10 +612,14 @@ def _bank() -> tuple[dict[str, tuple[tuple[str, ...], ...]], float]:
                 'refused': (),
             }
 
-    global _PROVENANCE, _COMPONENT_AUDIT
-    _PROVENANCE = provenance
-    _COMPONENT_AUDIT = dict(audit)
-    return built, time.perf_counter() - started
+    return (
+        _shared(built),
+        time.perf_counter() - started,
+        kuz_family,
+        tikhonov_roots,
+        provenance,
+        dict(audit),
+    )
 
 
 _SUP = str.maketrans('', '', '¹²³⁴⁵⁶⁷⁸⁹⁰')

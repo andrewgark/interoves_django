@@ -2907,7 +2907,7 @@ class CensorlyUxDailyTests(TestCase):
         }
         self.assertTrue(by_lemma[lemma_of('кот')]['guessed'])
         self.assertTrue(by_lemma[lemma_of('собака')]['revealed'])
-        self.assertFalse(by_lemma[lemma_of('собака')]['guessed'])
+        self.assertFalse(by_lemma[lemma_of('собака')].get('guessed'))
 
     def test_accented_guess_is_accepted(self):
         from games.censorly.normalize import is_guessable_word, normalize_surface

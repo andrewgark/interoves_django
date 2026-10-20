@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import gzip
 import re
+import sys
 import unicodedata
 from collections import defaultdict
 from dataclasses import dataclass
@@ -479,22 +480,33 @@ def _load_index() -> tuple[dict[str, tuple[_Variant, ...]], dict[str, tuple[str,
     grouped: dict[str, list[_Variant]] = defaultdict(list)
     segs: dict[str, tuple[str, ...]] = {}
     plain_families: dict[str, set[str]] = defaultdict(set)
+    # ~54k lemmas share ~4.4k distinct variant lists and ~24k segmentations;
+    # one object per distinct value roughly halves the index in memory.
+    canonical: dict = {}
+
+    def shared(value):
+        return canonical.setdefault(value, value)
+
+    intern = sys.intern
     with gzip.open(_INDEX_PATH, 'rt', encoding='utf-8') as handle:
         for line in handle:
             kind, payload = line.rstrip('\n').split('\t', 1)
             if kind == 'A':
                 lemma, sig = payload.split('\t', 1)
-                grouped[lemma].append(_Variant(sig, None))
+                grouped[intern(lemma)].append(shared(_Variant(intern(sig), None)))
             elif kind == 'K':
                 lemma, sig, raw, family, size = payload.split('\t', 4)
-                plain = _plain(raw)
-                root = _Root(raw, plain, family, int(size))
-                grouped[lemma].append(_Variant(sig, root))
+                plain = intern(_plain(raw))
+                family = intern(family)
+                root = shared(_Root(intern(raw), plain, family, int(size)))
+                grouped[intern(lemma)].append(shared(_Variant(intern(sig), root)))
                 plain_families[plain].add(family)
             elif kind == 'T':
                 lemma, morphs = payload.split('\t', 1)
-                segs[lemma] = tuple(part for part in morphs.split(',') if part)
-    _index = {lemma: tuple(items) for lemma, items in grouped.items()}
+                segs[intern(lemma)] = shared(
+                    tuple(intern(part) for part in morphs.split(',') if part)
+                )
+    _index = {lemma: shared(tuple(items)) for lemma, items in grouped.items()}
     _segments = segs
     _plain_families = {plain: frozenset(families) for plain, families in plain_families.items()}
     return _index, _segments

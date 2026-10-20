@@ -13,6 +13,12 @@ EXACT_MATCH = 'exact'
 INFLECTION = 'inflection'
 DERIVATION_GRAPH = 'derivation'
 
+# Size of the per-surface lexical caches (pymorphy readings, contextual
+# identities). An entry costs ~0.6 KB; a daily article has ~6k distinct
+# surfaces, so this keeps several articles and their guesses warm while
+# bounding each cache to ~20 MB per web process.
+WORD_CACHE_SIZE = 32_768
+
 
 @dataclass(frozen=True)
 class LexicalNode:

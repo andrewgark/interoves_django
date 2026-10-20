@@ -103,6 +103,21 @@ def _share_host(request) -> str:
     return request.get_host() or 'interoves.com'
 
 
+def _article_json(payload, *, status=200):
+    """JSON for responses that carry the masked article.
+
+    A full article is several thousand token objects; Django's default
+    ``ensure_ascii`` writes each Cyrillic letter as a 6-byte ``\\uXXXX``
+    escape and pads every separator with a space, which adds up on a
+    several-hundred-kilobyte article.
+    """
+    return JsonResponse(
+        payload,
+        status=status,
+        json_dumps_params={'ensure_ascii': False, 'separators': (',', ':')},
+    )
+
+
 def _compact_guess_response(result):
     """Drop the unchanged article from ordinary guess responses.
 
@@ -1101,7 +1116,7 @@ def censorly_state(request, number=None, share_hash=None):
         anon_key=anon_key,
         placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
     )
-    return JsonResponse(payload)
+    return _article_json(payload)
 
 
 @require_POST
@@ -1198,7 +1213,7 @@ def censorly_guess(request, number=None, share_hash=None):
     status_code = 200
     if result.get('status') == 'error':
         status_code = 400
-    return JsonResponse(_compact_guess_response(result), status=status_code)
+    return _article_json(_compact_guess_response(result), status=status_code)
 
 
 @require_POST
@@ -1284,4 +1299,4 @@ def censorly_hint(request, number=None, share_hash=None):
     status_code = 200
     if result.get('status') == 'error':
         status_code = 400
-    return JsonResponse(result, status=status_code)
+    return _article_json(result, status=status_code)

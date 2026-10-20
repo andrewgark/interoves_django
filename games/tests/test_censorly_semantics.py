@@ -1368,7 +1368,7 @@ class SemanticsTests(SimpleTestCase):
 
     def test_compounds_keep_full_structures_only(self):
         from games.censorly.lexical.rootbank import (
-            _ATOMIC_LEXICALIZED, _PROVENANCE, _SENSE, assignment_of, structures_of,
+            _ATOMIC_LEXICALIZED, _SENSE, assignment_of, provenance, structures_of,
         )
 
         self.assertIn(fold('красивенький'), _ATOMIC_LEXICALIZED)
@@ -1385,7 +1385,7 @@ class SemanticsTests(SimpleTestCase):
         self.assertEqual(animate['source'], 'SEMANTIC_ROOT_ASSIGNMENT')
         self.assertTrue(_has_sense_structure('оживление', 'sense:animate'))
         self.assertTrue(opens('оживление', 'оживить'))
-        for lemma, info in _PROVENANCE.items():
+        for lemma, info in provenance().items():
             structs = structures_of(lemma)
             self.assertLessEqual(len(structs), 32, lemma)
             if info['source'] in ('UNRESOLVED', 'UNRESOLVED_TOO_AMBIGUOUS'):

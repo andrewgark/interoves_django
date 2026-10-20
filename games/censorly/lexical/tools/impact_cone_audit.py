@@ -34,7 +34,7 @@ def _phase(name: str, started: float) -> float:
 
 
 def _clear_bank():
-    rootbank._bank.cache_clear()
+    rootbank.reset_cache()
 
 
 @contextmanager
