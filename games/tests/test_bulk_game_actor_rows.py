@@ -314,10 +314,19 @@ class BulkGameActorRowsQueryCountTests(TestCase):
             score_all_rows(Attempt.manager.get_bulk_game_actor_rows(fx['task_ids'], mode='general', game=fx['game']))
         return len(ctx.captured_queries)
 
-    def test_query_count_grows_per_actor(self):
-        # Baseline: attempts + hint attempts + hidden anon keys, then per actor
-        # one lazy Task load for each of the 3 cells and one ChainTaskState
-        # lookup for the alphabetty cell.
+    def test_query_count_is_constant_in_actors(self):
+        # hidden anon keys + tasks + attempts + hint attempts + alphabetty
+        # letter-hint states; scoring the cells issues no further queries.
+        # (Before bulk loading this was 3 + 4 * N.)
         for n_actors in (1, 5, 20):
             with self.subTest(n_actors=n_actors):
-                self.assertEqual(self.count_queries(n_actors), 3 + 4 * n_actors)
+                self.assertEqual(self.count_queries(n_actors), 5)
+
+    def test_attempts_info_without_preloaded_penalty_looks_it_up(self):
+        fx = build_scoring_fixture('bulkdefault', 3)
+        _, actor = fx['actors'][2]
+        info = Attempt.manager.get_attempts_info(
+            team=None, task=fx['alphabetty'], game=fx['game'], **actor,
+        )
+        self.assertIsNone(info.letter_hint_penalty)
+        self.assertEqual(info.get_result_points(), expected_cell('alphabetty', 2)[0])

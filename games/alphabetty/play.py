@@ -78,6 +78,41 @@ def letter_hint_penalty_for_actor(*, game, task, user=None, anon_key=None, team=
     return alphabetty_hint_penalty_points(hint_count(load_state(row.state)))
 
 
+def letter_hint_penalties_by_actor(task_ids, *, game=None, actor_filter=None) -> dict:
+    """Batched ``letter_hint_penalty_for_actor`` for official general-mode states.
+
+    Returns ``{(task_id, game_id, (kind, actor_id)): penalty}`` with kind
+    ``'team' | 'user' | 'anon'``.  Like the per-actor lookup, only
+    ``replay_slot IS NULL`` states count and a key with several rows uses the
+    lowest pk (``qs.first()``).
+    """
+    qs = ChainTaskState.objects.filter(
+        task_id__in=task_ids,
+        task__task_type='alphabetty',
+        game_mode='general',
+        replay_slot__isnull=True,
+    )
+    if game is not None:
+        qs = qs.filter(game=game)
+    if actor_filter:
+        qs = qs.filter(**actor_filter)
+
+    penalties = {}
+    for row in qs.order_by('pk').values('task_id', 'game_id', 'team_id', 'user_id', 'anon_key', 'state'):
+        if row['team_id'] is not None and row['user_id'] is None and row['anon_key'] is None:
+            actor = ('team', row['team_id'])
+        elif row['user_id'] is not None and row['team_id'] is None and row['anon_key'] is None:
+            actor = ('user', row['user_id'])
+        elif row['anon_key'] and row['team_id'] is None and row['user_id'] is None:
+            actor = ('anon', row['anon_key'])
+        else:
+            continue
+        key = (row['task_id'], row['game_id'], actor)
+        if key not in penalties:
+            penalties[key] = alphabetty_hint_penalty_points(hint_count(load_state(row['state'])))
+    return penalties
+
+
 def ru_hint_word(n: int) -> str:
     n = abs(int(n))
     n10, n100 = n % 10, n % 100
