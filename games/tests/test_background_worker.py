@@ -192,6 +192,9 @@ class BackgroundWorkerTests(SimpleTestCase):
             'games.views.background_worker.reconcile_projection_releases',
             return_value=summary,
         ) as reconcile, patch(
+            'games.results.aggregate_snapshots.reconcile_monthly_snapshots',
+            return_value={'rebuilt': 0},
+        ) as reconcile_snapshots, patch(
             'games.views.background_worker.start_queue_heartbeat',
             return_value=0.0,
         ), patch('games.views.background_worker.finish_queue_heartbeat'):
@@ -201,6 +204,7 @@ class BackgroundWorkerTests(SimpleTestCase):
                 dedupe_key='projection.reconcile:minute',
             ))
         self.assertEqual(response.status_code, 200)
+        reconcile_snapshots.assert_called_once_with(limit=2)
         body = response.json()
         self.assertEqual(body['mode'], 'apply')
         self.assertEqual(body['missing'], 1)

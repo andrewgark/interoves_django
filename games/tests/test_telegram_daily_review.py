@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 from django.test import TestCase, override_settings
 
 from games.alphabetty_daily import ALPHABETTY_PUBLISH_START_TAG
+from games.daily.catalog.censorly import CENSORLY_PUBLISH_START_TAG
 from games.ladder_daily import LADDER_PUBLISH_START_TAG
 from games.models import Game, GameTaskGroup, Project, Task, TaskGroup
 from games.telegram.daily_review import build_daily_review, process_daily_review_tick
@@ -60,6 +61,22 @@ class TelegramDailyReviewTests(TestCase):
             answer='',
             text='Буквы',
         )
+        self._create_edition(
+            game_id='censorly',
+            game_name='Цензурка',
+            start_tag=CENSORLY_PUBLISH_START_TAG,
+            start=start,
+            task_type='censorly',
+            checker_data='',
+            answer='',
+        )
+        censorly_puzzle = patch('games.censorly.play.puzzle_from_task', return_value={
+            'wiki_title': 'Москва',
+            'body_text': 'Москва — столица России.',
+            'title_tokens': [],
+        })
+        censorly_puzzle.start()
+        self.addCleanup(censorly_puzzle.stop)
         self.now = datetime(2026, 8, 27, 22, 0, tzinfo=MOSCOW)
 
     def _create_edition(
@@ -115,12 +132,12 @@ class TelegramDailyReviewTests(TestCase):
         self.assertIn('Салатик №1', text)
         self.assertIn('<pre>А Б В Г', text)
         self.assertIn('<tg-spoiler>АБВГ · ДЕЖЗ · ИЙКЛ · МНОП</tg-spoiler>', text)
-        self.assertIn('✅ Все 3 выпуска на месте.', text)
+        self.assertIn('✅ Все 4 выпуска на месте.', text)
         self.assertLessEqual(len(text), 4096)
 
         buttons = keyboard['inline_keyboard'][0]
         self.assertEqual([button['text'] for button in buttons], [
-            '🪜 Лесенка', '🔤 Алфавитка', '🥗 Салатик',
+            '🪜 Лесенка', '🔤 Алфавитка', '🥗 Салатик', '📰 Цензурка',
         ])
         self.assertEqual(buttons[0]['url'], 'https://interoves.com/support/ladders/')
 
@@ -153,7 +170,7 @@ class TelegramDailyReviewTests(TestCase):
         text, _keyboard = build_daily_review(self.now.date().replace(day=28))
 
         self.assertIn('нет выпуска №1', text)
-        self.assertIn('Готово выпусков: 2 из 3', text)
+        self.assertIn('Готово выпусков: 3 из 4', text)
 
     def test_includes_week_task_only_on_the_eve_of_its_publication(self):
         self._create_edition(
