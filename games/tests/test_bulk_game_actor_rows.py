@@ -6,6 +6,7 @@ the rows plus scoring every cell.
 """
 
 import json
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
@@ -13,6 +14,7 @@ from django.contrib.auth.models import User
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
 
 from games.models import (
     Attempt,
@@ -205,8 +207,11 @@ class BulkGameActorRowsCharacterizationTests(TestCase):
             for a in Attempt.manager.filter(task_id=task_id, game=fx['game']).order_by('time', 'pk'):
                 attempt_buckets.setdefault(Attempt.manager._general_results_actor_bucket(a), None)
             hint_buckets = {}
-            for ha in HintAttempt.objects.filter(hint__task_id=task_id):
+            for ha in HintAttempt.objects.filter(hint__task_id=task_id).order_by('pk'):
                 hint_buckets.setdefault(Attempt.manager._general_results_actor_bucket(ha), None)
+            # Every hint actor also has attempts, so the union adds nothing new
+            # and the (unordered) hint queryset cannot affect the row order.
+            self.assertLessEqual(set(hint_buckets), set(attempt_buckets))
             self.assertEqual(
                 [actor_identity(actor) for actor, _ in rows[task_id]],
                 list(set(attempt_buckets.keys()) | set(hint_buckets.keys())),
@@ -262,14 +267,15 @@ class BulkGameActorRowsCharacterizationTests(TestCase):
         actor = {'anon_key': 'bulkgame-other-anon'}
         with patch('games.views.track.track_task_change'):
             Attempt.manager.create(text='abc', status='Ok', points=10, task=fx['alphabetty'], game=other_game, **actor)
-        ChainTaskState.objects.create(
-            task=fx['alphabetty'], game=other_game, game_mode='general',
-            state=json.dumps({'hints_taken': 2}), **actor,
-        )
-        # A state in the scoped game for the same actor must not be used.
+        # A state in the scoped game for the same actor must not be used.  It
+        # gets the lower pk so "game ignored, lowest pk wins" would pick it.
         ChainTaskState.objects.create(
             task=fx['alphabetty'], game=fx['game'], game_mode='general',
             state=json.dumps({'hints_taken': 7}), **actor,
+        )
+        ChainTaskState.objects.create(
+            task=fx['alphabetty'], game=other_game, game_mode='general',
+            state=json.dumps({'hints_taken': 2}), **actor,
         )
         scoped = Attempt.manager.get_bulk_game_actor_rows(fx['task_ids'], mode='general', game=fx['game'])
         self.assertNotIn(('anon', actor['anon_key']), {actor_identity(a) for a, _ in scoped[fx['alphabetty'].pk]})
@@ -301,6 +307,66 @@ class BulkGameActorRowsCharacterizationTests(TestCase):
         self.assertEqual([actor_identity(c[0]) for c in cells], [('user', user.pk)])
         # Today's behavior: replay rows are penalised by the replay_slot=NULL state.
         self.assertEqual(cells[0][1], Decimal(9))
+
+    def test_tournament_mode_filters_attempts_and_uses_general_letter_hint_state(self):
+        fx = build_scoring_fixture('bulktour', 0)
+        game = fx['game']
+        now = timezone.now()
+        game.is_tournament = True
+        game.start_time = now - timedelta(hours=1)
+        game.end_time = now + timedelta(hours=1)
+        game.save()
+        team = Team.objects.create(name='bulktour_team', visible_name='T')
+        late = {'anon_key': 'bulktour-late'}
+        with patch('games.views.track.track_task_change'):
+            Attempt.manager.create(text='abc', status='Ok', points=10, task=fx['alphabetty'], game=game, team=team)
+            late_attempt = Attempt.manager.create(
+                text='abc', status='Ok', points=10, task=fx['alphabetty'], game=game, **late,
+            )
+        # auto_now_add ignores a passed time; move this attempt after the window.
+        Attempt.manager.filter(pk=late_attempt.pk).update(time=now + timedelta(hours=2))
+        # The tournament-mode state has the lower pk; per-row scoring read the
+        # general one in every mode.
+        for game_mode, hints in (('tournament', 3), ('general', 1)):
+            ChainTaskState.objects.create(
+                task=fx['alphabetty'], game=game, game_mode=game_mode, team=team,
+                state=json.dumps({'hints_taken': hints}),
+            )
+        ChainTaskState.objects.create(
+            task=fx['alphabetty'], game=game, game_mode='general',
+            state=json.dumps({'hints_taken': 2}), **late,
+        )
+        rows = score_all_rows(Attempt.manager.get_bulk_game_actor_rows(
+            fx['task_ids'], mode='tournament', game=game, include_hidden=True,
+        ))
+        cells = rows[fx['alphabetty'].pk]
+        self.assertEqual([actor_identity(c[0]) for c in cells], [('team', team.pk)])
+        self.assertEqual(cells[0][1], Decimal(9))
+
+    def test_team_attempt_with_user_is_scored_as_the_team(self):
+        fx = build_scoring_fixture('bulkmixed', 0)
+        team = Team.objects.create(name='bulkmixed_team', visible_name='T')
+        user = User.objects.create_user(username='bulkmixed_user', password='x')
+        with patch('games.views.track.track_task_change'):
+            attempt = Attempt.manager.create(
+                text='abc', status='Ok', points=10, task=fx['alphabetty'], game=fx['game'], team=team, user=user,
+            )
+        # The user's own personal state has the lower pk; per-row scoring used
+        # the team-only state because the attempt has a team.
+        ChainTaskState.objects.create(
+            task=fx['alphabetty'], game=fx['game'], game_mode='general', user=user,
+            state=json.dumps({'hints_taken': 4}),
+        )
+        ChainTaskState.objects.create(
+            task=fx['alphabetty'], game=fx['game'], game_mode='general', team=team,
+            state=json.dumps({'hints_taken': 1}),
+        )
+        rows = score_all_rows(Attempt.manager.get_bulk_game_actor_rows(
+            fx['task_ids'], mode='general', game=fx['game'],
+        ))
+        cells = rows[fx['alphabetty'].pk]
+        self.assertEqual([actor_identity(c[0]) for c in cells], [('team', team.pk)])
+        self.assertEqual((cells[0][1], cells[0][3].pk), (Decimal(9), attempt.pk))
 
 
 class BulkGameActorRowsQueryCountTests(TestCase):
