@@ -6789,6 +6789,14 @@ MULTI_READINGS = MULTI_READINGS + (
     # both valid game readings.  The participle/adjective «вяжущий» is kept
     # in the narrower knitting cluster above.
     ('вязать', ('sense:binding', 'sense:knitting')),
+    # Слить воду / слить компании; отлив is both ebb tide and pouring off.
+    ('слить', ('sense:pour', 'sense:review_merge')),
+    ('слиться', ('sense:pour', 'sense:review_merge')),
+    ('сливать', ('sense:pour', 'sense:review_merge')),
+    ('сливаться', ('sense:pour', 'sense:review_merge')),
+    ('отлив', ('sense:pour', 'sense:review_tide')),
+    # Проводить мероприятие / проводить друга.
+    ('проводить', ('sense:review_carry_out', 'sense:escort')),
 )
 
 # Explicitly reviewed lexical families requested from Censorly daily-article
@@ -6853,6 +6861,35 @@ _LATE_REVIEW_SPLITS = (
     )),
     ('sense:chapel', ('часовенка', 'часовенный', 'часовня')),
     ('sense:watchmaker', ('часовщик', 'часовщичий')),
+    # A village is a place; поселиться/переселить/население name the act of
+    # settling and the people it produces.
+    ('sense:review_village', (
+        'село', 'сельский', 'сельцо', 'сельчанин', 'сельчанка', 'селянин',
+        'селянка', 'селянский', 'селянство', 'селяночный', 'селение',
+        'селеньице', 'сельбище', 'посельский', 'поселянин', 'поселянка',
+        'поселок', 'поселковый', 'поселочный', 'выселок', 'выселки',
+        'приселки', 'приселок', 'новоселка',
+    )),
+    # Pouring keeps лить/полить/налить; merging, metal casting, cream and
+    # the bay/tide geography are lexicalized meanings of the same root.
+    ('sense:review_merge', ('слияние', 'слитность', 'слитный', 'слитие')),
+    ('sense:review_casting', (
+        'литейный', 'литейщик', 'литье', 'литьевой', 'литой', 'литник',
+        'литка', 'льяло', 'льячка', 'отливка', 'отливщик', 'слиток',
+        'слитковый', 'слиточный', 'бесслитковый', 'золотослитковый',
+    )),
+    ('sense:review_cream', (
+        'сливки', 'сливочки', 'сливочный', 'сливочник', 'сливкоотделитель',
+    )),
+    ('sense:review_bay', ('залив', 'заливчик', 'пролив')),
+    ('sense:review_tide', ('прилив', 'приливный', 'приливо-отливный')),
+    # Провести/проводить mean carrying out an event or conducting current,
+    # not leading somebody somewhere; проводы are a farewell.
+    ('sense:review_carry_out', (
+        'провести', 'проведение', 'провод', 'проводимость', 'проводка',
+        'проводник', 'проводниковый', 'проводница', 'проводной', 'проводчик',
+    )),
+    ('sense:escort', ('проводы', 'провождение')),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas

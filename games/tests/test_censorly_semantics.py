@@ -1733,6 +1733,50 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         self.assertNotEqual(structures_of('выручка'), structures_of('рука'))
         self.assertNotEqual(structures_of('основной'), structures_of('основать'))
 
+    def test_reported_pour_settle_and_conduct_senses_are_split(self):
+        for guess, target in (
+            ('слияние', 'полей'),
+            ('село', 'переселившим'),
+            ('село', 'поселились'),
+            ('проводимой', 'Повести'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(opens(guess, target))
+
+        for left, right in (
+            ('село', 'поселиться'),
+            ('лить', 'слияние'),
+            ('лить', 'литье'),
+            ('лить', 'сливки'),
+            ('лить', 'залив'),
+            ('лить', 'прилив'),
+            ('вести', 'провести'),
+            ('вести', 'проводник'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertFalse(opens(left, right))
+                self.assertFalse(opens(right, left))
+
+        for left, right in (
+            ('село', 'сельский'),
+            ('село', 'поселок'),
+            ('поселиться', 'переселить'),
+            ('поселиться', 'население'),
+            ('лить', 'полить'),
+            ('слияние', 'слиться'),
+            ('слить', 'полить'),
+            ('литье', 'слиток'),
+            ('сливки', 'сливочный'),
+            ('залив', 'пролив'),
+            ('прилив', 'отлив'),
+            ('провести', 'проводник'),
+            ('проводить', 'провожать'),
+            ('вести', 'повести'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertEqual(explain(left, right), 'root')
+                self.assertEqual(explain(right, left), 'root')
+
     def test_affected_families_keep_distinct_meanings_apart(self):
         closed_pairs = (
             ('основать', 'засновать'),
