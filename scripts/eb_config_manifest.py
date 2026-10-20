@@ -17,6 +17,7 @@ ALLOWED_GREEN_CHANGES = {
     OLD_BACKGROUND_HOOK,
     ".platform/hooks/postdeploy/06_install_playwright_chromium.sh",
     ".platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh",
+    ".platform/hooks/postdeploy/07_web_memory_guard.sh",
     ".platform/nginx/conf.d/interoves_timing_logformat.conf",
     ".ebextensions/playwright.config",
 }
@@ -27,6 +28,7 @@ REQUIRED_GREEN_HOOKS = {
     ".platform/hooks/postdeploy/04_background_worker_no_web_cron.sh",
     ".platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh",
     ".platform/hooks/postdeploy/06_install_playwright_chromium.sh",
+    ".platform/hooks/postdeploy/07_web_memory_guard.sh",
     ".platform/nginx/conf.d/interoves_timing_logformat.conf",
 }
 PROTECTED_GREEN_CONFIG = {

@@ -157,6 +157,9 @@ if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
     install -D -m 0755 \
         "$ROOT/.platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh" \
         "$stage/.platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh"
+    install -D -m 0755 \
+        "$ROOT/.platform/hooks/postdeploy/07_web_memory_guard.sh" \
+        "$stage/.platform/hooks/postdeploy/07_web_memory_guard.sh"
     install -D -m 0644 \
         "$ROOT/.platform/nginx/conf.d/interoves_timing_logformat.conf" \
         "$stage/.platform/nginx/conf.d/interoves_timing_logformat.conf"
