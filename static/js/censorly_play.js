@@ -511,7 +511,7 @@
     return guess && Array.isArray(guess.token_ids) ? guess.token_ids : [];
   }
 
-  function focusTokenIds(root, tokenIds, scroll) {
+  function focusTokenIds(root, tokenIds) {
     var ids = Array.isArray(tokenIds) ? tokenIds : [];
     var nodes = ids.map(function (id) {
       return root.querySelector('.censorly-tok[data-id="' + String(id) + '"]');
@@ -521,7 +521,6 @@
       node.classList.remove('censorly-tok--selected');
     });
     nodes.forEach(function (node) { node.classList.add('censorly-tok--selected'); });
-    if (scroll) scrollToNodes(root, nodes);
   }
 
   function flashTokenIds(root, tokenIds) {
@@ -690,11 +689,6 @@
     }
   }
 
-  function scrollToTokenId(root, tokenId) {
-    if (tokenId == null) return;
-    scrollToNode(root, root.querySelector('.censorly-tok[data-id="' + String(tokenId) + '"]'));
-  }
-
   function nearestScrollNode(root, nodes) {
     if (!nodes.length) return null;
     var viewportCenter = visibleAreaCenter(root);
@@ -704,14 +698,6 @@
       var nearestDistance = Math.abs(nearest.getBoundingClientRect().top + nearest.offsetHeight / 2 - viewportCenter);
       return nodeDistance < nearestDistance ? node : nearest;
     }, null);
-  }
-
-  function scrollToNodes(root, nodes) {
-    if (!nodes.length) return;
-    // Follow the player's scroll setting, not the server default it started from.
-    var mode = root.getAttribute('data-submit-scroll-mode') || 'first';
-    if (mode === 'off') return;
-    scrollToNode(root, mode === 'nearest' ? nearestScrollNode(root, nodes) : nodes[0]);
   }
 
   function scrollAfterGuess(root, tokenIds) {
@@ -1001,6 +987,16 @@
     }
   }
 
+  // Guesses made in another tab or on another device: highlight the newest.
+  function applySyncedState(root, data) {
+    var previous = (root._censorlyState || {}).guesses || [];
+    var guesses = data.guesses || [];
+    if (guesses.length > previous.length) {
+      root.setAttribute('data-active-guess-index', String(guesses.length - 1));
+    }
+    applyState(root, data, { preserveLen: true });
+  }
+
   function handleReplayFlags(root, data) {
     if (!data) return;
     if (data.reload_required) {
@@ -1155,7 +1151,7 @@
             data.guesses || [], data.hints || data.hints_taken || 0,
             data.hinted_lemmas || [], !!data.won,
           ]);
-          if (before !== after) applyState(root, data, { preserveLen: true });
+          if (before !== after) applySyncedState(root, data);
         }
       }).then(function (data) {
         actorSyncInFlight = false;
@@ -1288,7 +1284,7 @@
         })
         .then(function (data) {
           if (!hasLocalAction && data && data.status !== 'error') {
-            applyState(root, data, { preserveLen: true });
+            applySyncedState(root, data);
           }
         })
         .catch(function () {});
@@ -1374,10 +1370,10 @@
               root.classList.remove('censorly--hint-pick');
               if (hintMode) hintMode.hidden = true;
               applyState(root, data, { preserveLen: true });
-              if (data.status === 'already_open') focusTokenIds(root, data.active_token_ids, true);
+              if (data.status === 'already_open') focusTokenIds(root, data.active_token_ids);
               var newly = data.newly_revealed || [];
               flashTokenIds(root, newly);
-              if (newly.length) scrollToTokenId(root, newly[0]);
+              scrollAfterGuess(root, newly.length ? newly : data.active_token_ids);
               if (data.status === 'already_open') {
                 setFeedback(root, 'Это слово уже открыто', 'info');
               } else if (data.status !== 'won') {
@@ -1416,7 +1412,8 @@
 
     if (hintBtn) {
       hintBtn.addEventListener('click', function () {
-        if (state.won || root.classList.contains('censorly--hint-pick')) {
+        var currentState = root._censorlyState || {};
+        if (currentState.won || root.classList.contains('censorly--hint-pick')) {
           root.classList.remove('censorly--hint-pick');
           if (hintMode) hintMode.hidden = true;
           return;
@@ -1480,7 +1477,7 @@
                   ? data.active_token_ids
                   : guessTokenIds(root, data.active_guess_index);
               } else {
-                focusTokenIds(root, data.active_token_ids, false);
+                focusTokenIds(root, data.active_token_ids);
                 submitScrollTokenIds = data.active_token_ids;
               }
             }
