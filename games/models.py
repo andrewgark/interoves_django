@@ -1182,6 +1182,8 @@ class DailyGameDifficulty(models.Model):
     refresh_fail_count = models.PositiveIntegerField(default=0)
     refresh_last_error = models.TextField(blank=True, default='')
     norm_version = models.PositiveIntegerField(default=0)
+    # Last edit of one of the edition's tasks; restarts the fast refresh cadence.
+    content_changed_at = models.DateTimeField(blank=True, null=True)
 
     class Meta:
         ordering = ['placement__game_id', 'placement__number']
@@ -1200,6 +1202,52 @@ class DailyGameDifficulty(models.Model):
             '☆' * (5 - self.stars),
         )
         return '{} · N={} · {}'.format(self.placement, self.n, stars)
+
+
+class DailyDifficultyActorResult(models.Model):
+    """One player's outcome on one daily edition.
+
+    Kept so an edition's difficulty can compare every returning player with
+    their own earlier editions of the same game. Rewritten with each snapshot.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    placement = models.ForeignKey(
+        GameTaskGroup,
+        related_name='difficulty_actor_results',
+        on_delete=models.CASCADE,
+    )
+    game_id = models.CharField(max_length=100)
+    published_at = models.DateTimeField(blank=True, null=True)
+    actor = models.CharField(max_length=80)
+    completed = models.BooleanField(default=False)
+    abandoned = models.BooleanField(default=False)
+    # Solve time when completed; otherwise the active time played so far.
+    time_seconds = models.FloatField(blank=True, null=True)
+    attempts = models.PositiveIntegerField(blank=True, null=True)
+    errors = models.PositiveIntegerField(blank=True, null=True)
+    used_help = models.BooleanField(default=False)
+    # Null until the outcome is known (30 minutes after the first attempt).
+    unfinished = models.BooleanField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'результат игрока для сложности'
+        verbose_name_plural = 'результаты игроков для сложности'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['placement', 'actor'],
+                name='games_ddar_placement_actor_uniq',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['game_id', 'actor', 'published_at'],
+                name='games_ddar_history_idx',
+            ),
+        ]
+
+    def __str__(self):
+        return '{} · {}'.format(self.placement_id, self.actor)
 
 
 class GameDifficultyNorm(models.Model):

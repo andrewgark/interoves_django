@@ -17,6 +17,10 @@
   var IDLE_MS = 10 * 60 * 1000;
   // How long a visible page may go without a running clock before it reports.
   var WATCHDOG_MS = 30000;
+  // A stopped clock on a page the player is using gets a restart attempt.
+  var HEAL_AFTER_MS = 10000;
+  var HEAL_THROTTLE_MS = 10000;
+  var STOPPED_REPORT_AFTER_MS = 60000;
   var ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'input', 'wheel', 'touchstart', 'focusin'];
   var EVENT_QUEUE_LIMIT = 8;
   var EVENT_MAX_ATTEMPTS = 3;
@@ -206,6 +210,8 @@
     var lastFailure = null;
     var reportsSent = {};
     var watchdogTimer = null;
+    var stoppedSince = null;
+    var lastHealAt = 0;
     var startAttempts = 0;
     var startFailed = false;
     var startEvent = null;
@@ -807,9 +813,37 @@
 
     function noteActivity() {
       lastActivityAt = Date.now();
-      if (!idlePaused) return;
-      idlePaused = false;
-      if (!completed && !manuallyPaused && !resumeRequired) retryAfterConnectivity();
+      if (idlePaused) {
+        idlePaused = false;
+        if (!completed && !manuallyPaused && !resumeRequired) retryAfterConnectivity();
+        return;
+      }
+      healStoppedClock();
+    }
+
+    // Whatever stopped the clock (an auto_pause lost on unload, a bfcache
+    // restore, a cause nobody anticipated), a player who is visibly working
+    // should not stay on a dead timer. Retry, and report it once so we learn
+    // about the cause.
+    function healStoppedClock() {
+      if (destroyed || completed || manuallyPaused || resumeRequired) return;
+      if (authoritative && status === 'running') {
+        stoppedSince = null;
+        return;
+      }
+      if (visibilityOf(doc) !== 'visible') return;
+      var now = Date.now();
+      if (stoppedSince == null) {
+        stoppedSince = now;
+        return;
+      }
+      if (now - stoppedSince < HEAL_AFTER_MS || now - lastHealAt < HEAL_THROTTLE_MS) return;
+      if (startFailed || awaitingServer || eventQueue.length || eventQueueRunning) return;
+      lastHealAt = now;
+      if (everRunning && now - stoppedSince >= STOPPED_REPORT_AFTER_MS) {
+        reportProblem('stopped_while_active');
+      }
+      retryAfterConnectivity();
     }
 
     function onHidden() {
@@ -898,6 +932,7 @@
 
     function onVisible() {
       visibleSince = Date.now();
+      stoppedSince = null;
       lastActivityAt = Date.now();
       idlePaused = false;
       if (completed || manuallyPaused || resumeRequired) {
@@ -972,6 +1007,11 @@
         else onVisible();
       });
       root.addEventListener && root.addEventListener('pagehide', onHidden);
+      // A page restored from the back/forward cache resumes without a fresh
+      // boot; treat it like the tab becoming visible again.
+      root.addEventListener && root.addEventListener('pageshow', function (event) {
+        if (event && event.persisted && visibilityOf(doc) === 'visible') onVisible();
+      });
       doc.addEventListener('submit', function (event) {
         var form = event && event.target;
         if (form && form.closest && form.closest('form[data-replay-submit]') && doc.documentElement) {

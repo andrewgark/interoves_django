@@ -38,6 +38,14 @@ logger = logging.getLogger('application')
 DIFFICULTY_REFRESH_LOCK = 'daily_difficulty_refresh'
 DIFFICULTY_REFRESH_LOCK_TTL_SECONDS = 600
 
+# One minute tick covers every daily game. Censorly observations can hold
+# thousands of attempts, so at most one censorly edition is calculated per
+# tick to keep the background worker below its 1 GiB memory limit.
+MINUTE_REFRESH_BATCHES = (
+    (tuple(game_id for game_id in SUPPORTED_GAME_IDS if game_id != 'censorly'), DUE_REFRESH_LIMIT),
+    (('censorly',), 1),
+)
+
 
 @dataclass(frozen=True)
 class ClaimedDifficultyRefresh:
@@ -209,8 +217,14 @@ def run_daily_difficulty_refresh(
     game_ids=None,
     reset_progress=True,
     worker='cron',
+    batches=None,
 ):
-    """Run one tick and persist a singleton heartbeat for the admin dashboard."""
+    """Run one tick and persist a singleton heartbeat for the admin dashboard.
+
+    ``batches`` is a sequence of ``(game_ids, limit)`` pairs processed in
+    order under one heartbeat; it replaces ``game_ids`` and ``limit``.
+    """
+    batches = tuple(batches) if batches else ((game_ids, limit),)
     started_at = now or timezone.now()
     worker_label = '{}:{}:{}'.format(worker, socket.gethostname(), os.getpid())[:255]
     DailyDifficultyQueueStatus.objects.update_or_create(
@@ -218,17 +232,19 @@ def run_daily_difficulty_refresh(
         defaults={
             'last_started_at': started_at,
             'last_error': '',
-            'last_limit': max(0, int(limit)),
+            'last_limit': sum(max(0, int(batch_limit)) for _games, batch_limit in batches),
             'last_worker': worker_label,
         },
     )
     try:
-        results = refresh_due_daily_difficulties(
-            now=now,
-            limit=limit,
-            game_ids=game_ids,
-            reset_progress=reset_progress,
-        )
+        results = []
+        for batch_game_ids, batch_limit in batches:
+            results.extend(refresh_due_daily_difficulties(
+                now=now,
+                limit=batch_limit,
+                game_ids=batch_game_ids,
+                reset_progress=reset_progress,
+            ))
     except Exception as exc:
         DailyDifficultyQueueStatus.objects.filter(pk=1).update(
             last_finished_at=timezone.now(),
@@ -243,6 +259,20 @@ def run_daily_difficulty_refresh(
         last_refreshed_count=len(results),
     )
     return results
+
+
+def run_minute_difficulty_refresh(*, now=None, worker='minute'):
+    """Minute tick for every daily game, without the legacy progress reset.
+
+    The reset can hold ``DailyGameDifficulty`` row locks while rebuilding
+    chain state (operational hold of 2026-10-03), so it stays out of here.
+    """
+    return run_daily_difficulty_refresh(
+        now=now,
+        batches=MINUTE_REFRESH_BATCHES,
+        reset_progress=False,
+        worker=worker,
+    )
 
 
 def repair_daily_difficulty_queue(*, now=None):

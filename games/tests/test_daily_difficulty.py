@@ -1,4 +1,5 @@
 import json
+import math
 import uuid
 from datetime import timedelta
 from unittest.mock import patch
@@ -12,7 +13,10 @@ from django.utils import timezone
 
 from games.daily_section import MOSCOW
 from games.difficulty import (
+    _censored_median,
     _public_context,
+    blend_difficulty_ratios,
+    calculate_game_difficulty,
     calculate_observed_metrics,
     difficulty_refresh_interval,
     ensure_daily_difficulty_row,
@@ -22,6 +26,8 @@ from games.difficulty import (
     historical_norm,
     is_difficulty_refresh_due,
     mark_game_difficulty_changed,
+    observe_actor_results,
+    paired_difficulty_ratios,
     persist_difficulty_snapshot,
     rate_difficulty_metrics,
     refresh_due_daily_difficulties,
@@ -34,14 +40,17 @@ from games.difficulty_refresh import (
     claim_due_daily_difficulties,
     repair_daily_difficulty_queue,
     run_daily_difficulty_refresh,
+    run_minute_difficulty_refresh,
     refresh_claimed_difficulty,
 )
 from games.models import (
     Attempt,
     CheckerType,
+    DailyDifficultyActorResult,
     DailyDifficultyQueueStatus,
     DailyGameDifficulty,
     Game,
+    GameDifficultyNorm,
     GameTaskGroup,
     HTMLPage,
     Project,
@@ -196,6 +205,106 @@ class DifficultyScoringTests(SimpleTestCase):
         self.assertEqual(html.count('ph-brain'), 5)
 
 
+def _actor_row(actor, **overrides):
+    row = {
+        'actor': actor,
+        'completed': True,
+        'abandoned': False,
+        'time_seconds': 100.0,
+        'attempts': None,
+        'errors': 1,
+        'used_help': False,
+        'unfinished': False,
+    }
+    row.update(overrides)
+    return row
+
+
+class DifficultyCensoringTests(SimpleTestCase):
+    def test_censored_median_matches_plain_median_when_everyone_solved(self):
+        self.assertEqual(_censored_median([(10, True), (20, True)]), (15.0, True))
+
+    def test_players_still_playing_push_the_median_up(self):
+        median, reached = _censored_median([(100, True), (400, False), (500, False)])
+        self.assertFalse(reached)
+        self.assertEqual(median, 500)
+
+    def test_abandoned_players_never_reach_the_finish(self):
+        observations = [(100, True), (200, True), (math.inf, False), (math.inf, False)]
+        self.assertEqual(_censored_median(observations), (200.0, True))
+
+    def test_lower_bound_below_the_norm_says_nothing_about_time(self):
+        rating = rate_difficulty_metrics(
+            'ladder',
+            _metrics(n=20, median_time=50, median_time_censored=True),
+            _norm(),
+        )
+        self.assertIsNone(rating['scores']['time'])
+
+    def test_lower_bound_above_the_norm_already_reads_as_hard(self):
+        rating = rate_difficulty_metrics(
+            'salad',
+            _metrics(n=20, median_time=420, median_time_censored=True, unfinished_rate=None),
+            _norm(),
+        )
+        self.assertEqual(rating['scores']['time'], 5)
+        self.assertTrue(rating['is_visible'])
+
+    def test_hints_alone_do_not_publish_a_rating(self):
+        rating = rate_difficulty_metrics(
+            'salad',
+            _metrics(n=12, median_time=None, unfinished_rate=None, help_rate=0.0),
+            _norm(),
+        )
+        self.assertFalse(rating['is_visible'])
+        self.assertFalse(rating['is_preliminary'])
+
+
+class PairedDifficultyTests(SimpleTestCase):
+    def test_strong_players_slower_than_usual_make_a_hard_ratio(self):
+        rows = [_actor_row('user:{}'.format(index), time_seconds=120.0) for index in range(6)]
+        histories = {row['actor']: [_actor_row(row['actor'], time_seconds=60.0)] * 3 for row in rows}
+
+        paired = paired_difficulty_ratios(rows, histories)
+
+        self.assertAlmostEqual(paired['ratios']['time'], 2.0)
+        self.assertEqual(paired['n']['time'], 6)
+        self.assertAlmostEqual(paired['ratios']['errors'], 1.0)
+
+    def test_newcomers_are_left_to_the_classic_ratio(self):
+        rows = [_actor_row('anon:new')]
+        paired = paired_difficulty_ratios(rows, {'anon:new': [_actor_row('anon:new')] * 2})
+
+        ratios, weights = blend_difficulty_ratios({'time': 0.6}, paired)
+
+        self.assertEqual(paired['n']['time'], 0)
+        self.assertEqual(ratios['time'], 0.6)
+        self.assertEqual(weights['time'], 0.0)
+
+    def test_blend_weight_grows_with_returning_players(self):
+        ratios, weights = blend_difficulty_ratios(
+            {'time': 0.5},
+            {'ratios': {'time': 2.0}, 'n': {'time': 10}},
+        )
+        self.assertAlmostEqual(weights['time'], 0.5)
+        self.assertAlmostEqual(ratios['time'], 1.0)
+
+    def test_players_who_gave_up_count_as_slower_than_usual(self):
+        rows = [_actor_row('user:1', time_seconds=60.0)] + [
+            _actor_row(
+                'user:{}'.format(index),
+                completed=False, abandoned=True, time_seconds=30.0, unfinished=True,
+            )
+            for index in (2, 3)
+        ]
+        histories = {row['actor']: [_actor_row(row['actor'], time_seconds=60.0)] * 3 for row in rows}
+
+        paired = paired_difficulty_ratios(rows, histories)
+
+        self.assertGreaterEqual(paired['ratios']['time'], 1.0)
+        self.assertGreater(paired['ratios']['unfinished'], 2.0)
+
+
 class DifficultyObservationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -268,6 +377,119 @@ class DifficultyObservationTests(TestCase):
         self.assertEqual(metrics['median_time'], 20)
         self.assertEqual(metrics['median_errors'], 1)
 
+    def test_attempts_before_a_task_edit_still_count(self):
+        base = timezone.now() - timedelta(hours=2)
+        early = self._attempt('early-player', base, 'XXX', 'Wrong')
+        solved = self._attempt('early-player', base + timedelta(seconds=40), 'BBB', 'Ok')
+        Attempt.manager.filter(pk__in=[early.pk, solved.pk]).update(task_revision=uuid.uuid4())
+        self._attempt('late-player', base + timedelta(minutes=50), 'XXX', 'Wrong')
+        self._attempt('late-player', base + timedelta(minutes=51), 'BBB', 'Ok')
+
+        metrics = calculate_observed_metrics(self.placement, now=timezone.now())
+
+        self.assertEqual(metrics['n'], 2)
+        self.assertEqual(metrics['median_time'], 50)
+
+    def test_player_is_judged_on_the_revision_they_solved(self):
+        base = timezone.now() - timedelta(hours=2)
+        before_edit = [
+            self._attempt('reviser', base, 'XXX', 'Wrong'),
+            self._attempt('reviser', base + timedelta(seconds=10), 'XXX', 'Wrong'),
+            self._attempt('reviser', base + timedelta(seconds=30), 'BBB', 'Ok'),
+        ]
+        Attempt.manager.filter(pk__in=[a.pk for a in before_edit]).update(task_revision=uuid.uuid4())
+        self._attempt('reviser', base + timedelta(minutes=10), 'XXX', 'Wrong')
+
+        rows = observe_actor_results(self.placement, now=timezone.now())
+
+        self.assertEqual(len(rows), 1)
+        self.assertTrue(rows[0]['completed'])
+        self.assertEqual(rows[0]['time_seconds'], 30)
+        self.assertEqual(rows[0]['errors'], 2)
+
+    def test_players_still_playing_make_a_fresh_edition_look_slow(self):
+        now = timezone.now()
+        for index in range(6):
+            self._attempt('playing-{}'.format(index), now - timedelta(minutes=7), 'XXX', 'Wrong')
+
+        metrics = calculate_observed_metrics(self.placement, now=now)
+
+        self.assertEqual(metrics['completed_n'], 0)
+        self.assertTrue(metrics['median_time_censored'])
+        self.assertAlmostEqual(metrics['median_time'], 420, delta=1)
+        self.assertIsNone(metrics['unfinished_rate'])
+
+    def test_rating_compares_returning_players_with_their_history(self):
+        now = timezone.now()
+        published_at = now - timedelta(hours=3)
+        GameDifficultyNorm.objects.update_or_create(
+            game_id='ladder',
+            defaults={
+                'typical_time': 200.0,
+                'typical_errors': 1.0,
+                'typical_help_rate': 0.1,
+                'typical_unfinished_rate': 0.1,
+                'calculated_at': now,
+                'version': 1,
+            },
+        )
+        keys = ['fan-{}'.format(index) for index in range(12)]
+        for edition in range(3):
+            past = GameTaskGroup.objects.create(
+                game=self.game,
+                task_group=TaskGroup.objects.create(label='history {}'.format(edition)),
+                number=str(9970 + edition),
+                name='History {}'.format(edition),
+            )
+            DailyDifficultyActorResult.objects.bulk_create([
+                DailyDifficultyActorResult(
+                    placement=past,
+                    game_id='ladder',
+                    published_at=published_at - timedelta(days=edition + 1),
+                    actor='anon:{}'.format(key),
+                    completed=True,
+                    time_seconds=60.0,
+                    errors=1,
+                    unfinished=False,
+                )
+                for key in keys
+            ])
+        base = now - timedelta(hours=2)
+        for key in keys:
+            self._attempt(key, base, 'XXX', 'Wrong')
+            self._attempt(key, base + timedelta(seconds=120), 'BBB', 'Ok')
+
+        with patch('games.difficulty_domain.core.published_at_for_placement', return_value=published_at):
+            result = calculate_game_difficulty(self.placement, now=now, save=True)
+
+        self.assertAlmostEqual(result['ratios_classic']['time'], 0.6)
+        self.assertAlmostEqual(result['ratios_paired']['time'], 2.0)
+        self.assertEqual(result['paired_n']['time'], 12)
+        self.assertGreater(result['ratios']['time'], result['ratios_classic']['time'])
+        self.assertNotIn('actor_rows', result)
+        stored = DailyDifficultyActorResult.objects.filter(placement=self.placement)
+        self.assertEqual(stored.count(), 12)
+        self.assertEqual(set(stored.values_list('published_at', flat=True)), {published_at})
+        self.assertNotIn('actor_rows', DailyGameDifficulty.objects.get(placement=self.placement).payload)
+
+    def test_task_edit_wakes_a_published_edition(self):
+        now = timezone.now()
+        snapshot = _write_snapshot(
+            self.placement,
+            dirty=False,
+            published_at=now - timedelta(days=2),
+            calculated_at=now - timedelta(minutes=5),
+            refresh_not_before=now + timedelta(hours=2),
+        )
+
+        with patch('games.views.track.track_task_change'), self.captureOnCommitCallbacks(execute=True):
+            self.task.save()
+
+        snapshot.refresh_from_db()
+        self.assertTrue(snapshot.dirty)
+        self.assertIsNotNone(snapshot.content_changed_at)
+        self.assertLessEqual(snapshot.refresh_not_before, timezone.now())
+
     def test_cached_contexts_include_only_visible_difficulties(self):
         visible = {
             'n': 12,
@@ -313,18 +535,28 @@ class DifficultyObservationTests(TestCase):
         calc.assert_not_called()
 
     def test_refresh_interval_decays_with_age(self):
-        self.assertEqual(refresh_interval_for_age(timedelta(hours=1)), timedelta(minutes=5))
-        self.assertEqual(refresh_interval_for_age(timedelta(hours=10)), timedelta(minutes=15))
-        self.assertEqual(refresh_interval_for_age(timedelta(days=2)), timedelta(hours=1))
+        self.assertEqual(refresh_interval_for_age(timedelta(minutes=20)), timedelta(minutes=1))
+        self.assertEqual(refresh_interval_for_age(timedelta(hours=1)), timedelta(minutes=10))
+        self.assertEqual(refresh_interval_for_age(timedelta(hours=10)), timedelta(minutes=30))
+        self.assertEqual(refresh_interval_for_age(timedelta(days=2)), timedelta(hours=2))
         self.assertEqual(refresh_interval_for_age(timedelta(days=5)), timedelta(hours=6))
         self.assertEqual(refresh_interval_for_age(timedelta(days=10)), timedelta(hours=24))
         self.assertEqual(refresh_interval_for_age(timedelta(days=40)), timedelta(days=7))
         now = timezone.now()
         self.assertEqual(
             difficulty_refresh_interval(now - timedelta(hours=1), now),
-            timedelta(minutes=5),
+            timedelta(minutes=10),
         )
         self.assertEqual(difficulty_refresh_interval(None, now), timedelta(days=7))
+
+    def test_task_edit_restarts_fast_refresh_cadence(self):
+        now = timezone.now()
+        published_at = now - timedelta(days=2)
+        self.assertEqual(difficulty_refresh_interval(published_at, now), timedelta(hours=2))
+        self.assertEqual(
+            difficulty_refresh_interval(published_at, now, changed_at=now - timedelta(minutes=5)),
+            timedelta(minutes=1),
+        )
 
     def test_fresh_snapshot_is_not_due(self):
         now = timezone.now()
@@ -507,7 +739,7 @@ class CensorlyDifficultyObservationTests(TestCase):
 
         self.assertEqual(rating['ratios']['attempts'], 2)
         self.assertEqual(rating['scores']['attempts'], 5)
-        self.assertEqual(rating['weights']['attempts'], 0.35)
+        self.assertEqual(rating['weights']['attempts'], 0.30)
 
 
 class DifficultyHistoricalNormTests(TestCase):
@@ -655,6 +887,36 @@ class DifficultySchedulerTests(TestCase):
         self.assertEqual(snapshot.calculated_revision, 1)
         self.assertGreater(snapshot.refresh_not_before, now)
         self.assertFalse(is_difficulty_refresh_due(placement, snapshot, now=now))
+
+    def test_minute_tick_covers_every_game_but_one_censorly_edition(self):
+        now = timezone.now()
+        censorly, _ = Game.objects.get_or_create(
+            id='censorly',
+            defaults={
+                'name': 'Censorly', 'author': 'test', 'project': self.project,
+                'is_tournament': False, 'requires_ticket': False,
+            },
+        )
+        for index in range(2):
+            self._due_snapshot(self._placement(8850 + index), now=now)
+            self._due_snapshot(
+                GameTaskGroup.objects.create(
+                    game=censorly,
+                    task_group=TaskGroup.objects.create(label='minute censorly {}'.format(index)),
+                    number=str(8860 + index),
+                    name='Minute censorly {}'.format(index),
+                ),
+                now=now,
+            )
+
+        with patch(
+            'games.difficulty_refresh.calculate_game_difficulty',
+            side_effect=lambda placement, **kwargs: _rating_result(placement),
+        ):
+            results = run_minute_difficulty_refresh(now=now)
+
+        self.assertEqual(sorted(row['game_id'] for row in results), ['censorly', 'ladder', 'ladder'])
+        self.assertEqual(DailyDifficultyQueueStatus.objects.get(pk=1).last_refreshed_count, 3)
 
     def test_first_run_deadline_follows_changed_publication_schedule(self):
         now = timezone.now()

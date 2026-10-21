@@ -10,9 +10,11 @@ scheduler; the code comments only mark the non-obvious race and locking bits.
 ## 1. Purpose
 
 Difficulty is an aggregate over every player of one edition: active time,
-errors, help, unfinished rate, compared to a same-type historical baseline.
-That aggregation is too expensive to run when someone opens a page, and it
-gets more expensive as the archive grows.
+errors, help, unfinished rate. Each component is compared twice — with the
+same-type historical baseline, and every returning player with their own
+earlier editions (section 14) — and the two ratios are blended. That
+aggregation is too expensive to run when someone opens a page, and it gets
+more expensive as the archive grows.
 
 Pages therefore **only read** a stored snapshot (`DailyGameDifficulty`).
 They never call `calculate_game_difficulty()`. If no visible snapshot exists,
@@ -72,7 +74,10 @@ queue.
    `n >= 5` the public badge stays hidden; the snapshot still exists.
 4. A later attempt / hint / letter reveal / completion runs
    `mark_game_difficulty_changed`: cheap `data_revision = data_revision + 1`,
-   `dirty=True`. No aggregation in the request.
+   `dirty=True`. No aggregation in the request. Editing one of the
+   edition's tasks runs `mark_game_difficulty_content_changed`, which also
+   stamps `content_changed_at` and, for a published edition, releases the
+   current throttle so the next minute tick recalculates.
 5. Cron will not calculate again until `refresh_not_before`. That timestamp
    is **throttle**, not a scheduled rebuild of clean games.
 6. When the throttle expires and the row is still dirty, cron claims it,
@@ -84,11 +89,15 @@ queue.
 Defined in `games/difficulty.py` as `REFRESH_INTERVALS` /
 `REFRESH_INTERVAL_OLD`.
 
-| Age since `published_at` | Max refresh frequency |
+Age counts from `published_at` or from `content_changed_at` (the last task
+edit), whichever is newer.
+
+| Age | Max refresh frequency |
 |---|---|
-| < 6 hours | 5 minutes |
-| 6–24 hours | 15 minutes |
-| 1–3 days | 1 hour |
+| < 1 hour | 1 minute |
+| 1–6 hours | 10 minutes |
+| 6–24 hours | 30 minutes |
+| 1–3 days | 2 hours |
 | 3–7 days | 6 hours |
 | 7–30 days | 24 hours |
 | > 30 days | 7 days |
@@ -176,11 +185,15 @@ A real formula or baseline change is a **manual rebuild** (section 10).
 > The legacy `difficulty.refresh` path invokes the daily progress reset before
 > calculating snapshots. The reset can hold `DailyGameDifficulty` row locks
 > while rebuilding chain state. The production `interoves-difficulty-refresh`
-> schedule now sends `difficulty.censorly.refresh`, which recalculates only
-> censorly snapshots and explicitly skips the reset. Do not change it back to
-> `difficulty.refresh` until the lock incident is resolved. Keep the background
-> ECS worker running; it also handles projection refresh/reconcile and health
-> checks.
+> schedule therefore sends the minute tick (`difficulty.minute.refresh`, or its
+> historical name `difficulty.censorly.refresh`), which skips the reset. Do not
+> change it back to `difficulty.refresh` until the lock incident is resolved.
+> Keep the background ECS worker running; it also handles projection
+> refresh/reconcile and health checks.
+>
+> Until 2026-10-21 the censorly-named tick refreshed **only** censorly, so
+> ladder, alphabetty and salad were recalculated just by the hourly health
+> check. The minute tick now covers every game (`run_minute_difficulty_refresh`).
 
 | Item | Location |
 |---|---|
@@ -192,10 +205,11 @@ A real formula or baseline change is a **manual rebuild** (section 10).
 | Log | `/var/log/difficulty_cron.log` |
 | Telegram cron | `.ebextensions/telegram_cron.config` — **separate** job |
 
-The censorly schedule sends `difficulty.censorly.refresh`, refreshes one
-placement per minute tick to stay within the background worker's 1 GiB memory
-limit. Censorly attempt state/comment blobs are deferred during aggregation, and
-the job skips the daily progress reset.
+The minute tick (`MINUTE_REFRESH_BATCHES`) claims up to 10 due ladder,
+alphabetty and salad editions, then at most one censorly edition, to stay
+within the background worker's 1 GiB memory limit. Censorly attempt
+state/comment blobs are deferred during aggregation, and the tick skips the
+daily progress reset.
 
 An hourly health check runs at minute 7 through the same EB script with a
 separate local lock. It repairs queue metadata, runs an extra refresh tick,
@@ -307,3 +321,51 @@ Two different operations:
   re-observes every edition, refreshes `GameDifficultyNorm`, then re-rates.
   Do this after changing weights, bounds, or how metrics are collected.
   Updating the cached norm alone will not rebuild the archive.
+
+## 14. Formula details
+
+Calibration constants live at the top of `games/difficulty_domain/core.py`.
+
+**Per-player rows.** `observe_actor_results` produces one row per visible
+player: completed, abandoned, time, attempts, errors, help, unfinished.
+`aggregate_actor_results` turns them into the edition metrics. The rows are
+stored in `DailyDifficultyActorResult` with every snapshot write (same claim
+guard) and by pass one of `recalculate_daily_difficulty`.
+
+**Time counts players who have not finished.** The median solve time is a
+Kaplan–Meier median: a player still on the puzzle is right-censored at the
+active time played so far, and a player idle for 30 minutes without solving
+(abandoned) never solves. If at most half have solved, the stored
+`median_time` is a lower bound (`median_time_censored = true`). Such a bound
+counts only when it is already at or above the norm; below it, time is
+unknown. Right after release this shows a hard edition as hard before anyone
+finishes it.
+
+**A rating needs an outcome.** A badge is visible only with `n >= 5` and a
+time or unfinished score. Help alone (the first minutes) is not enough.
+
+**Within-player comparison.** For each player with at least
+`PAIRED_MIN_HISTORY` earlier editions of the same game (latest
+`PAIRED_HISTORY_WINDOW` before this edition's `published_at`):
+
+| Component | Paired ratio |
+|---|---|
+| time | censored median of `log(time / own median solve time)`, exponentiated |
+| attempts, errors | median of `(value + 1) / (own median + 1)` |
+| help, unfinished | observed share against the players' own average shares, with the usual epsilon |
+
+A ratio of 1 means "as usual for the players who came". Each component is
+blended with the classic ratio geometrically, weight
+`paired_n / (paired_n + PAIRED_PRIOR_N)`. The payload stores
+`ratios_classic`, `ratios_paired`, `paired_n` and `blend_weights`; `ratios` is
+the blend that is scored.
+
+**Task edits.** A published task edit rotates `attempt_revision`. Each player
+is judged on one revision per task: the one they first solved, else the one
+they played last. Before 2026-10-21 every older-revision attempt was dropped,
+which removed most of an edition's players after a fix.
+
+Changing any of this is a formula change: run
+`recalculate_daily_difficulty --all` (section 13). The rebuild writes the
+per-player rows of every edition before rating, so the paired comparison is
+complete from the first run.

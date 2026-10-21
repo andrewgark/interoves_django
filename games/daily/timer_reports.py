@@ -25,6 +25,7 @@ CLIENT_REPORT_REASONS = {
     'start_failed': 'Таймер не запустился после всех попыток',
     'start_not_running': 'Сервер принял старт, но таймер не идёт',
     'never_started': 'Видимая страница без идущего таймера',
+    'stopped_while_active': 'Таймер остановился, а игрок продолжает решать',
 }
 # Only these diagnostics are kept; anything else from the client is dropped.
 DETAIL_KEYS = (
@@ -94,7 +95,7 @@ def _alert_text(*, reason, actor_label, path, details, user_agent) -> str:
         user_agent.get('os_family') or '?',
     )
     return '\n'.join([
-        '⏱ <b>Не удалось запустить таймер</b>',
+        '⏱ <b>Таймер решения не идёт</b>',
         '',
         'Причина: {}'.format(html.escape(CLIENT_REPORT_REASONS[reason])),
         'Игрок: <b>{}</b>'.format(html.escape(actor_label)),

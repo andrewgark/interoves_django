@@ -2337,7 +2337,7 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(publish.call_count, 1)
         kwargs = publish.call_args.kwargs
         self.assertEqual(kwargs['alert'], 'daily_timer_client_report')
-        self.assertIn('Не удалось запустить таймер', kwargs['payload']['text'])
+        self.assertIn('Таймер не запустился после всех попыток', kwargs['payload']['text'])
         self.assertIn('club_required', kwargs['payload']['text'])
         logged = [line for line in logs.output if 'daily_timer_client_report' in line]
         self.assertEqual(len(logged), 2)

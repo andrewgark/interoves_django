@@ -78,6 +78,7 @@ WORKER_REGISTRY = WorkerRegistry((
         message_types=(
             "difficulty.refresh",
             "difficulty.censorly.refresh",
+            "difficulty.minute.refresh",
             "difficulty.health_check",
             "projection.reconcile",
             "projection.refresh",

@@ -9,7 +9,7 @@ this file and the live AWS resources before changing production.
 | Worker | Current runtime | Queue | DLQ | CloudWatch log group | Message types |
 |---|---|---|---|---|---|
 | identity | ECS service `interoves-identity-ecs` | `interoves-identity` | `interoves-identity-dlq` | `/interoves/workers/identity` | `anonymous.merge`, `anonymous.merge_reconcile`, `account.merge` |
-| background | ECS service `interoves-background-ecs` (Fargate Spot) | `interoves-background` | `interoves-background-dlq` | `/interoves/workers/background` | `difficulty.refresh`, `difficulty.censorly.refresh`, `difficulty.health_check`, `projection.reconcile`, `projection.refresh` |
+| background | ECS service `interoves-background-ecs` (Fargate Spot) | `interoves-background` | `interoves-background-dlq` | `/interoves/workers/background` | `difficulty.refresh`, `difficulty.minute.refresh` (alias `difficulty.censorly.refresh`), `difficulty.health_check`, `projection.reconcile`, `projection.refresh` |
 | integrations | ECS service `interoves-integrations-ecs` (Fargate On-Demand) | `interoves-integrations` | `interoves-integrations-dlq` | `/interoves/workers/integrations` | `telegram.announcements`, `telegram.admin_report`, `telegram.admin_alert`, `instagram.token_refresh`, `social.publish` |
 | recheck | ECS service `interoves-recheck-ecs` (Fargate Spot) | `interoves-recheck` | `interoves-recheck-dlq` | `/interoves/workers/recheck` | `word_salad.recheck` |
 

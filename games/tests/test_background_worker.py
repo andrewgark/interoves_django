@@ -113,6 +113,23 @@ class BackgroundWorkerTests(SimpleTestCase):
         self.assertEqual(refresh.call_args.kwargs['limit'], 10)
         self.assertEqual(lock.calls, [('daily_difficulty_refresh', 600), ('subscription_gifts_yookassa_reconcile', 300)])
 
+    def test_minute_tick_refreshes_every_game_under_both_names(self):
+        for message_type in ('difficulty.minute.refresh', 'difficulty.censorly.refresh'):
+            with self.subTest(message_type=message_type):
+                scheduled = timezone.now().isoformat()
+                with _lock(True) as lock, patch(
+                    'games.views.background_worker.distributed_cron_lock',
+                    lock,
+                ), patch(
+                    'games.views.background_worker.run_minute_difficulty_refresh',
+                    return_value=[{'game_id': 'salad'}, {'game_id': 'censorly'}],
+                ) as refresh:
+                    response = self._post(_body(type=message_type, scheduled_for=scheduled))
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json(), {'status': 'ok', 'refreshed': 2})
+                refresh.assert_called_once_with(worker='background:minute:message-1')
+                self.assertEqual(lock.calls, [('daily_difficulty_refresh', 600)])
+
     def test_refresh_exception_is_retried(self):
         scheduled = timezone.now().isoformat()
         with _lock(True) as lock, patch(

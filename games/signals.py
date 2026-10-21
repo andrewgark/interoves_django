@@ -509,7 +509,13 @@ def daily_difficulty_state_saved(sender, instance, **kwargs):
 def daily_difficulty_task_saved(sender, instance, created, **kwargs):
     if created or not instance.task_group_id:
         return
-    _mark_daily_difficulty_changed(task_group_id=instance.task_group_id)
+    task_group_id = instance.task_group_id
+
+    def mark_content_changed():
+        from games.difficulty import mark_game_difficulty_content_changed
+        mark_game_difficulty_content_changed(task_group_id=task_group_id)
+
+    transaction.on_commit(mark_content_changed)
 
 
 @receiver(post_save, sender=GameTaskGroup, dispatch_uid='daily-difficulty-placement-ensure')

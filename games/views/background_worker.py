@@ -1,6 +1,7 @@
 """Private EB Worker endpoint for scheduled background jobs.
 
-Accepts ``difficulty.refresh``, ``difficulty.health_check``,
+Accepts ``difficulty.refresh``, ``difficulty.minute.refresh`` (and its
+historical name ``difficulty.censorly.refresh``), ``difficulty.health_check``,
 ``projection.reconcile``, and ``projection.refresh``. The reconcile scan
 is the safety net. ``projection.refresh`` rebuilds one dirty release and
 is not stale-skipped. Other runtime roles return 503.
@@ -17,6 +18,7 @@ from django.views.decorators.http import require_POST
 from games.background.messages import (
     DIFFICULTY_HEALTH_CHECK,
     DIFFICULTY_CENSORLY_REFRESH,
+    DIFFICULTY_MINUTE_REFRESH,
     DIFFICULTY_REFRESH,
     DAILY_STATISTICS_REFRESH,
     PROJECTION_RECONCILE,
@@ -39,6 +41,7 @@ from games.difficulty_refresh import (
     DIFFICULTY_REFRESH_LOCK,
     DIFFICULTY_REFRESH_LOCK_TTL_SECONDS,
     run_daily_difficulty_refresh,
+    run_minute_difficulty_refresh,
 )
 from games.projection_events import (
     run_named_daily_statistics_refresh,
@@ -64,7 +67,8 @@ def background_worker(request):
     except InvalidBackgroundMessage:
         return JsonResponse({'error': 'invalid payload'}, status=400)
     if message['type'] not in (
-        DIFFICULTY_REFRESH, DIFFICULTY_CENSORLY_REFRESH, DIFFICULTY_HEALTH_CHECK,
+        DIFFICULTY_REFRESH, DIFFICULTY_CENSORLY_REFRESH, DIFFICULTY_MINUTE_REFRESH,
+        DIFFICULTY_HEALTH_CHECK,
         PROJECTION_RECONCILE, PROJECTION_REFRESH, DAILY_STATISTICS_REFRESH,
     ):
         return JsonResponse({'error': 'unsupported type'}, status=400)
@@ -87,7 +91,9 @@ def background_worker(request):
     if message['type'] == PROJECTION_RECONCILE:
         return _projection_reconcile(message, message_id)
 
-    if message['type'] == DIFFICULTY_CENSORLY_REFRESH:
+    if message['type'] in (DIFFICULTY_MINUTE_REFRESH, DIFFICULTY_CENSORLY_REFRESH):
+        # ``difficulty.censorly.refresh`` is the historical name of the minute
+        # tick; it now covers every daily game, like ``difficulty.minute.refresh``.
         started = time.perf_counter()
         try:
             with distributed_cron_lock(
@@ -96,14 +102,8 @@ def background_worker(request):
             ) as acquired:
                 if not acquired:
                     return JsonResponse({'status': 'skipped_locked'}, status=200)
-                results = run_daily_difficulty_refresh(
-                    # Censorly observations can contain thousands of attempts;
-                    # process one edition per tick to keep the worker's 1 GiB
-                    # memory limit below the observed OOM threshold.
-                    limit=1,
-                    game_ids=('censorly',),
-                    reset_progress=False,
-                    worker='background:censorly:{}'.format(message_id or 'unknown'),
+                results = run_minute_difficulty_refresh(
+                    worker='background:minute:{}'.format(message_id or 'unknown'),
                 )
         except Exception:
             logger.exception(

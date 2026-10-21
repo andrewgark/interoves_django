@@ -1490,6 +1490,68 @@ asyncTest(async function testHealthyTimerSendsNoReports() {
   }
 });
 
+asyncTest(async function testActivityHealsAStoppedClockAndReportsIt() {
+  // The timer ran, then stopped for an unknown reason (e.g. an auto_pause
+  // lost while the page was unloading) while the player kept solving.
+  var oldNow = Date.now;
+  var now = 9000000;
+  var actions = [];
+  var reports = [];
+  Date.now = function () { return now; };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      actions.push(body.action);
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({ ok: true, exists: true, status: 'running', is_authoritative: true });
+      } });
+    }, { bootstrap: { status: 'running', is_authoritative: true, exists: true } });
+    // Stop the clock locally the way a lost lease does, with no restart.
+    ctrl.applySnapshot({ status: 'auto_paused', is_authoritative: false, exists: true });
+    assert.strictEqual(ctrl.state().status, 'auto_paused');
+
+    ctrl.noteActivity();
+    now += 5000;
+    ctrl.noteActivity();
+    await flush();
+    assert.deepStrictEqual(actions, [], 'no restart before the grace period');
+
+    now += 6000;
+    ctrl.noteActivity();
+    await flush();
+    assert.deepStrictEqual(actions, ['start']);
+    assert.strictEqual(ctrl.state().status, 'running');
+    assert.deepStrictEqual(reports, [], 'a short stop is healed silently');
+
+    // Stopped again for over a minute of activity: heal and report once.
+    ctrl.applySnapshot({ status: 'auto_paused', is_authoritative: false, exists: true });
+    ctrl.noteActivity();
+    now += 61000;
+    ctrl.noteActivity();
+    await flush();
+    assert.deepStrictEqual(actions, ['start', 'start']);
+    assert.strictEqual(reports.length, 1);
+    assert.strictEqual(reports[0].reason, 'stopped_while_active');
+
+    // A deliberate pause is left alone.
+    ctrl.pauseManual();
+    await flush();
+    now += 61000;
+    ctrl.noteActivity();
+    now += 61000;
+    ctrl.noteActivity();
+    await flush();
+    assert.deepStrictEqual(actions, ['start', 'start', 'pause']);
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+  }
+});
+
 asyncTest(async function testTimerFailuresNeverLockTheBoard() {
   // Expired lease reported by a heartbeat: restart quietly, no overlay.
   var oldSetInterval = global.setInterval;

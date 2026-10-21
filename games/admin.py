@@ -120,7 +120,7 @@ def enqueue_selected_difficulties(modeladmin, request, queryset):
 class DailyGameDifficultyAdmin(admin.ModelAdmin):
     change_list_template = 'admin/games/dailygamedifficulty/change_list.html'
     list_display = (
-        'placement', 'n', 'median_time', 'typical_time', 'time_ratio',
+        'placement', 'n', 'median_time', 'typical_time', 'time_ratio', 'paired_time_ratio',
         'median_attempts', 'typical_attempts', 'attempts_ratio',
         'median_errors', 'help_rate', 'unfinished_rate', 'raw_rating',
         'adjusted_rating', 'stars_display', 'is_preliminary', 'dirty',
@@ -137,6 +137,7 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
         'median_attempts', 'typical_attempts', 'attempts_ratio',
         'error_ratio', 'help_rate', 'typical_help_rate', 'unfinished_rate',
         'typical_unfinished_rate', 'raw_rating', 'adjusted_rating', 'component_scores',
+        'content_changed_at', 'classic_ratios', 'paired_ratios', 'paired_n', 'blend_weights',
     )
     actions = (enqueue_selected_difficulties, recalculate_selected_difficulties)
 
@@ -354,6 +355,21 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
 
     def component_scores(self, obj):
         return self._payload_value(obj, 'scores') or '—'
+
+    def paired_time_ratio(self, obj):
+        return self._number(self._payload_value(obj, 'ratios_paired', 'time'))
+
+    def classic_ratios(self, obj):
+        return self._payload_value(obj, 'ratios_classic') or '—'
+
+    def paired_ratios(self, obj):
+        return self._payload_value(obj, 'ratios_paired') or '—'
+
+    def paired_n(self, obj):
+        return self._payload_value(obj, 'paired_n') or '—'
+
+    def blend_weights(self, obj):
+        return self._payload_value(obj, 'blend_weights') or '—'
 
     def stars_display(self, obj):
         if obj.stars is None:
