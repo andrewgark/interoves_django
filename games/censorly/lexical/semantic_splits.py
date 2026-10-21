@@ -726,19 +726,27 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'распространиться', 'распространять', 'распространяться',
     )),
     ('sense:part', (
-        'отчасти', 'частица', 'частичка', 'частичность', 'частичный', 'частник', 'частница',
-        'частнический', 'частное', 'частность', 'частный', 'часть', 'частью',
+        'отчасти', 'частица', 'частичка', 'частичность', 'частичный', 'частность', 'частный',
+        'часть', 'частью',
     )),
+    ('sense:private', ('частник', 'частница', 'частнический', 'частный')),
+    ('sense:quotient', ('частное',)),
     ('sense:plot', (
         'участковый', 'участок', 'участочек',
     )),
     ('sense:share', (
-        'безучастие', 'безучастность', 'безучастный', 'причастие', 'причастить', 'причаститься',
-        'причастник', 'причастница', 'причастность', 'причастный', 'причащать', 'причащаться',
-        'причащение', 'сопричастность', 'сопричастный', 'соучаствовать', 'соучастие', 'соучастник',
-        'соучастница', 'соучастный', 'участвовать', 'участвующие', 'участие', 'участливость',
-        'участливый', 'участник', 'участница',
+        'причастность', 'причастный', 'сопричастность', 'сопричастный', 'соучаствовать',
+        'соучастие', 'соучастник', 'соучастница', 'соучастный', 'участвовать', 'участвующие',
+        'участие', 'участник', 'участница',
     )),
+    ('sense:compassion', (
+        'безучастие', 'безучастность', 'безучастный', 'участливость', 'участливый',
+    )),
+    ('sense:communion', (
+        'причастие', 'причастить', 'причаститься', 'причастник', 'причастница', 'причащать',
+        'причащаться', 'причащение',
+    )),
+    ('sense:participle', ('причастие', 'причастный')),
     ('sense:fate', (
         'участь',
     )),
@@ -746,6 +754,7 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'бессчастный', 'несчастный', 'осчастливить', 'осчастливливать', 'осчастливливаться',
         'посчастливеть', 'посчастливиться', 'счастливец', 'счастливить', 'счастливиться',
         'счастливица', 'счастливчик', 'счастливый', 'счастье', 'счастьице',
+        'несчастие', 'несчастье',
     )),
     ('sense:sweet', (
         'всласть', 'засластить', 'заслащивать', 'заслащиваться', 'насладить', 'насладиться',
@@ -787,16 +796,25 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'травиться', 'травление', 'травленый', 'травливать', 'травля', 'травщик',
     )),
     ('sense:key', (
-        'клюка', 'ключарь', 'ключевой', 'ключик', 'ключица', 'ключичный', 'ключник',
-        'ключница', 'ключной', 'клюшка', 'надключичный', 'уключина',
+        'ключарь', 'ключевой', 'ключик', 'ключица', 'ключичный', 'ключник', 'ключница',
+        'ключной', 'надключичный',
     )),
+    ('sense:crook_stick', ('клюка', 'клюшка')),
+    ('sense:oarlock', ('уключина',)),
     ('sense:key_spring', (
         'ключ',
     )),
     ('sense:include', (
         'включать', 'включаться', 'включение', 'включительно', 'включить',
-        'включиться', 'исключать', 'исключаться', 'исключение', 'исключенный', 'исключительно',
-        'исключительность', 'исключительный', 'исключить',
+        'включиться',
+    )),
+    # Исключать is the opposite action; keep it apart from включать.
+    ('sense:exclude', (
+        'исключать', 'исключаться', 'исключение', 'исключенный', 'исключить',
+    )),
+    # Исключительный is "exceptional / exclusive", not the act of excluding.
+    ('sense:exceptional', (
+        'исключение', 'исключительно', 'исключительность', 'исключительный',
     )),
     ('sense:switching', (
         'включатель', 'включать', 'включаться', 'включение', 'включить', 'включиться',
@@ -4567,6 +4585,8 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_migratory', ('перелетный',)),
     ('sense:review_year', ('год',)),
     ('sense:review_end', ('конец', 'кончать')),
+    # Наиболее forms superlatives like более forms comparatives.
+    ('sense:review_comparative_more', ('наиболее',)),
     ('sense:review_law', ('закон',)),
     ('sense:review_cover', ('обложка',)),
     ('sense:review_attachment', ('приложение',)),
@@ -4647,7 +4667,7 @@ _REVIEW_FAMILIES = frozenset({
     'тач¹|тек|теч|ток¹|точ¹', 'вед¹|веж|вежд¹|вест|вещ¹', 'да¹|даж',
     'ви|во(j)¹|вь', 'сел', 'лез²|льз',
     'жен', 'мен¹', 'числ', 'сматр|смотр', 'чист|чищ', 'полн', 'люб',
-    'серед|сред',
+    'серед|сред', 'шир¹',
 })
 
 # A few productive prefixed verbs are assigned by the dictionary to another
@@ -4698,6 +4718,15 @@ def _review_family_clusters() -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 
 def _classify_review_lemma(family: str, lemma: str) -> str:
+    if family == 'шир¹':
+        # Обширный is "vast / extensive", not physical width.
+        if lemma.startswith('обшир'):
+            return 'sense:review_vast'
+        if lemma.startswith(('ширинк', 'шириноч')):
+            return 'sense:review_trouser_fly'
+        if lemma.startswith('широт'):
+            return 'sense:review_latitude'
+        return 'sense:review_width'
     if family == 'дал':
         if lemma.startswith((
             'удалить', 'удалять', 'удаление', 'удаленный', 'удаляем', 'удаляв',
@@ -5184,7 +5213,24 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_nonsense'
         return 'sense:review_misc'
     if family == 'кан|кон¹':
-        if lemma.startswith(('законч', 'доконч', 'поконч', 'приконч')):
+        # Искони/исконный/испокон mean "primordial", not an end.
+        if lemma.startswith(('искон', 'испокон', 'спокон')):
+            return 'sense:review_primordial'
+        if lemma == 'конечно':
+            return 'sense:review_of_course'
+        if lemma == 'конечность':
+            return 'sense:review_limb'
+        if lemma.startswith('доскональн'):
+            return 'sense:review_thorough'
+        if lemma.startswith(('приканч', 'приконч', 'доканыв', 'доконат')):
+            return 'sense:review_finish_off'
+        if lemma == 'кончина':
+            return 'sense:review_death'
+        if lemma.startswith(('наконечн', 'оконечн')):
+            return 'sense:review_tip'
+        if lemma in {'кон', 'коновый'}:
+            return 'sense:review_game_round'
+        if lemma.startswith(('законч', 'доконч', 'поконч')):
             return 'sense:review_end'
         if lemma.startswith(('закон', 'узакон', 'подзакон', 'беззакон')):
             return 'sense:review_law'
@@ -6887,6 +6933,15 @@ MULTI_READINGS = MULTI_READINGS + (
     ('прилежать', ('sense:lag_adjacency', 'sense:review_lying')),
     ('вложить', ('sense:lag_investment_or_insertion', 'sense:review_laying')),
     ('вложение', ('sense:lag_investment_or_insertion', 'sense:review_laying')),
+    # Широта is both latitude and breadth; конечность is a limb or finiteness.
+    ('широта', ('sense:review_width', 'sense:review_latitude')),
+    ('конечность', ('sense:review_limb', 'sense:review_end')),
+    # Исключение is an act of excluding or an exception to a rule.
+    ('исключение', ('sense:exclude', 'sense:exceptional')),
+    # Частный is private or partial; причастие is communion or a participle.
+    ('частный', ('sense:part', 'sense:private')),
+    ('причастие', ('sense:communion', 'sense:participle')),
+    ('причастный', ('sense:share', 'sense:participle')),
 )
 
 # Explicitly reviewed lexical families requested from Censorly daily-article
@@ -7377,6 +7432,9 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
     'снятый': (('fam:ем|им¹|йм|ним|ня|ым²|я¹|∅',),),
     'ткацкий': (('fam:тк|ток²|точ²|тык|тыч',),),
     'ужаленный': (('fam:жал²',),),
+    'наиболее': (('fam:бол²',),),
+    'несчастие': (('fam:част¹|чащ¹',),),
+    'несчастье': (('fam:част¹|чащ¹',),),
     'химизатор': (('root:chemistry',),),
     'химизированный': (('root:chemistry',),),
     'химизировать': (('root:chemistry',),),

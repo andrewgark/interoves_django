@@ -612,6 +612,55 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('электрон', 'электрически'))
         self.assertFalse(opens('электрически', 'электрон'))
 
+    def test_reported_mississippi_sense_splits(self):
+        self.assertFalse(opens('широта', 'обширной'))
+        self.assertTrue(opens('обширность', 'обширный'))
+        self.assertFalse(opens('конец', 'исконный'))
+        self.assertTrue(opens('искони', 'исконный'))
+        self.assertFalse(opens('включать', 'исключительно'))
+        self.assertTrue(opens('исключать', 'исключение'))
+        self.assertTrue(opens('исключительный', 'исключительно'))
+
+    def test_fine_sense_splits_for_shir_kon_klyuch_chast(self):
+        self.assertTrue(opens('широкий', 'расширение'))
+        self.assertTrue(opens('широта', 'широкий'))
+        self.assertTrue(opens('широта', 'широтный'))
+        self.assertFalse(opens('широкий', 'широтный'))
+        self.assertFalse(opens('ширина', 'ширинка'))
+
+        self.assertTrue(opens('конец', 'окончание'))
+        self.assertFalse(opens('конец', 'конечно'))
+        self.assertFalse(opens('конец', 'досконально'))
+        self.assertFalse(opens('конец', 'наконечник'))
+        self.assertFalse(opens('конец', 'испокон'))
+        self.assertTrue(opens('конец', 'конечность'))
+        self.assertTrue(opens('кончина', 'скончаться'))
+
+        self.assertFalse(opens('ключ', 'клюшка'))
+        self.assertFalse(opens('ключ', 'уключина'))
+        self.assertFalse(opens('включать', 'исключительный'))
+        for include in ('включать', 'включаться', 'включение', 'включить', 'включиться'):
+            for exclude in ('исключать', 'исключаться', 'исключение', 'исключить'):
+                self.assertFalse(opens(include, exclude), (include, exclude))
+                self.assertFalse(opens(exclude, include), (exclude, include))
+        self.assertTrue(opens('исключение', 'исключительный'))
+        self.assertTrue(opens('исключение', 'исключить'))
+
+        self.assertTrue(opens('часть', 'частный'))
+        self.assertTrue(opens('частник', 'частный'))
+        self.assertFalse(opens('часть', 'частник'))
+        self.assertFalse(opens('участие', 'участливый'))
+        self.assertFalse(opens('участие', 'причащение'))
+        self.assertTrue(opens('причастие', 'причащение'))
+
+    def test_naibolee_joins_comparative_more(self):
+        self.assertTrue(opens('более', 'наиболее'))
+        self.assertTrue(opens('наиболее', 'более'))
+
+    def test_neschastye_joins_luck_family(self):
+        self.assertTrue(opens('счастье', 'несчастье'))
+        self.assertTrue(opens('несчастный', 'несчастье'))
+
     def test_electron_and_electronics_are_distinct_clusters(self):
         from games.censorly.lexical.rootbank import structures_of
 
@@ -1664,6 +1713,8 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
             ('течение', 'источник'),
             ('выключатель', 'заключаться'),
             ('выключатель', 'исключение'),
+            ('включиться', 'исключение'),
+            ('включать', 'исключение'),
             ('вредность', 'повреждение'),
         ):
             self.assertNotIn(closed_lemma, matching_lemmas(tokens, guess), guess)
@@ -1682,7 +1733,7 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
             ('место', 'местный'),
             ('источник', 'исток'),
             ('включать', 'выключить'),
-            ('включать', 'исключать'),
+            ('исключать', 'исключение'),
             ('использование', 'использовать'),
             ('использование', 'полезный'),
             ('полезный', 'полезность'),
