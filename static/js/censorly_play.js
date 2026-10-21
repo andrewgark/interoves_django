@@ -1410,6 +1410,16 @@
       }
     });
 
+    var guessList = root.querySelector('#censorly-guess-list');
+    if (guessList && input) {
+      // Tapping a history row while typing should not close the soft
+      // keyboard: the viewport would resize mid-scroll and the player would
+      // have to refocus the input for the next word.
+      guessList.addEventListener('mousedown', function (ev) {
+        if (document.activeElement === input && ev.target.closest('tr')) ev.preventDefault();
+      });
+    }
+
     if (hintBtn) {
       hintBtn.addEventListener('click', function () {
         var currentState = root._censorlyState || {};
