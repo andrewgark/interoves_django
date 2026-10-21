@@ -672,6 +672,13 @@ class SemanticsTests(SimpleTestCase):
             self.assertTrue(opens(negated, base), (negated, base))
         self.assertEqual(assignment_of('неизвестный')['source'], 'NEGATION_OF_BASE')
 
+    def test_okhotno_is_willingness_and_okhotnik_is_hunting(self):
+        self.assertTrue(opens('хотеть', 'охотно'))
+        self.assertTrue(opens('охота', 'охотник'))
+        self.assertTrue(opens('охотник', 'охотничий'))
+        self.assertFalse(opens('охотник', 'охотно'))
+        self.assertTrue(opens('охотно', 'неохотно'))
+
     def test_negation_lookalikes_stay_closed(self):
         for base, lookalike in (
             ('водить', 'неводить'),

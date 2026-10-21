@@ -4607,6 +4607,7 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_choice', ('выбор',)),
     ('sense:review_putin', ('путин',)),
     ('sense:review_path', ('путь',)),
+    ('sense:review_hunting', ('охотник', 'охотница')),
 )
 
 # Keep these after the broad curated clusters above: a review split is an
@@ -5564,6 +5565,9 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_decay_failure'
         return 'sense:review_destruction'
     if family == 'хот|хоч':
+        # Охотно / охотка are willingness, not hunting.
+        if lemma in {'охотно', 'охотка'}:
+            return 'sense:review_desire'
         if lemma.startswith(('охот',)):
             return 'sense:review_hunting'
         if lemma.startswith(('похот',)):
@@ -6935,6 +6939,8 @@ MULTI_READINGS = MULTI_READINGS + (
     ('вложение', ('sense:lag_investment_or_insertion', 'sense:review_laying')),
     # Широта is both latitude and breadth; конечность is a limb or finiteness.
     ('широта', ('sense:review_width', 'sense:review_latitude')),
+    # Охота is hunting or wanting (охота поесть).
+    ('охота', ('sense:review_hunting', 'sense:review_desire')),
     ('конечность', ('sense:review_limb', 'sense:review_end')),
     # Исключение is an act of excluding or an exception to a rule.
     ('исключение', ('sense:exclude', 'sense:exceptional')),
@@ -7433,6 +7439,8 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
     'ткацкий': (('fam:тк|ток²|точ²|тык|тыч',),),
     'ужаленный': (('fam:жал²',),),
     'наиболее': (('fam:бол²',),),
+    'охотник': (('fam:хот|хоч',),),
+    'охотница': (('fam:хот|хоч',),),
     'несчастие': (('fam:част¹|чащ¹',),),
     'несчастье': (('fam:част¹|чащ¹',),),
     'химизатор': (('root:chemistry',),),
