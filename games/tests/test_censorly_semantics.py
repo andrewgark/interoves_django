@@ -653,6 +653,37 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('участие', 'причащение'))
         self.assertTrue(opens('причастие', 'причащение'))
 
+    def test_reviewed_negations_take_base_structures(self):
+        from games.censorly.lexical.rootbank import assignment_of
+
+        for base, negated in (
+            ('большой', 'небольшой'),
+            ('зависимый', 'независимый'),
+            ('известный', 'неизвестный'),
+            ('известность', 'неизвестный'),
+            ('законный', 'незаконный'),
+            ('определенность', 'неопределенность'),
+            ('возможно', 'невозможно'),
+            ('простой', 'непростой'),
+            ('удача', 'неудача'),
+            ('эффективный', 'неэффективность'),
+        ):
+            self.assertTrue(opens(base, negated), (base, negated))
+            self.assertTrue(opens(negated, base), (negated, base))
+        self.assertEqual(assignment_of('неизвестный')['source'], 'NEGATION_OF_BASE')
+
+    def test_negation_lookalikes_stay_closed(self):
+        for base, lookalike in (
+            ('водить', 'неводить'),
+            ('дельный', 'недельный'),
+            ('кий', 'некий'),
+            ('ведомый', 'неведомый'),
+            ('посредственный', 'непосредственный'),
+            ('хватка', 'нехватка'),
+            ('сушка', 'несушка'),
+        ):
+            self.assertFalse(opens(base, lookalike), (base, lookalike))
+
     def test_naibolee_joins_comparative_more(self):
         self.assertTrue(opens('более', 'наиболее'))
         self.assertTrue(opens('наиболее', 'более'))

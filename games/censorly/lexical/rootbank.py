@@ -46,6 +46,9 @@ _REVIEWED_DERIVED = Path(os.environ.get(
 _REVIEWED_EXISTING = Path(os.environ.get(
     'CENSORLY_REVIEWED_EXISTING', Path(__file__).resolve().parent / 'data' / 'reviewed_existing_root_assignments.tsv'
 ))
+_NEGATION_PAIRS = Path(os.environ.get(
+    'CENSORLY_NEGATION_PAIRS', Path(__file__).resolve().parent / 'data' / 'negation_pairs.tsv'
+))
 
 # Historical families whose join would glue unrelated modern words.
 # ``чит`` and ``чт`` stay one reading root. ``чет`` does not join them.
@@ -132,6 +135,35 @@ def _load_reviewed_assignments():
 
 
 REVIEWED_OPAQUE_ROOTS, REVIEWED_DERIVED_ROOTS, REVIEWED_EXISTING_ROOTS = _load_reviewed_assignments()
+
+
+def _load_negation_pairs() -> dict[str, str]:
+    """Reviewed не- lemmas whose meaning is the negation of the base lemma."""
+    if not _NEGATION_PAIRS.exists():
+        raise RuntimeError(f'missing negation pairs data file: {_NEGATION_PAIRS}')
+    pairs = {}
+    with _NEGATION_PAIRS.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream, delimiter='\t')
+        if reader.fieldnames != ['negated', 'base']:
+            raise RuntimeError(f'invalid negation pairs header in {_NEGATION_PAIRS}')
+        for row in reader:
+            negated, base = fold(row['negated']), fold(row['base'])
+            if negated != 'не' + base:
+                raise RuntimeError(f'invalid negation pair: {negated} / {base}')
+            if negated in pairs:
+                raise RuntimeError(f'duplicate negation pair: {negated}')
+            pairs[negated] = base
+    return pairs
+
+
+NEGATION_PAIRS = _load_negation_pairs()
+
+
+def _bare_roots(structures) -> set[tuple[str, ...]]:
+    return {
+        tuple(part for part in structure if not part.startswith('sense:'))
+        for structure in structures
+    }
 
 
 def structures_of(lemma: str) -> tuple[tuple[str, ...], ...]:
@@ -586,6 +618,27 @@ def _build_bank(*, record: bool):
                 audit['legitimate_multiple_components'] += 1
             built[lemma] = tuple((item,) for item in ids)
             provenance[lemma] = {'source': source, 'detail': '', 'refused': ()}
+    # Dictionaries rarely list не- negations, so неизвестный would have no
+    # root at all.  A reviewed negation takes its base structures when it has
+    # no root of its own, or only the bare base root without a sense; a
+    # negation with its own different reading (неводить, недельный) is kept.
+    for negated, base in NEGATION_PAIRS.items():
+        base_structures = built.get(base)
+        if not base_structures:
+            continue
+        own = built.get(negated)
+        if own and (
+            any(part.startswith('sense:') for structure in own for part in structure)
+            or not _bare_roots(own) <= _bare_roots(base_structures)
+        ):
+            continue
+        built[negated] = base_structures
+        provenance[negated] = {
+            'source': 'NEGATION_OF_BASE',
+            'detail': base,
+            'refused': (),
+        }
+        audit['negation_lemmas'] += 1
     for digit, cardinal in _DIGIT_CARDINALS.items():
         structures = built.get(cardinal, ())
         if not structures:
