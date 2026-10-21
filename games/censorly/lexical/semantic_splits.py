@@ -7453,6 +7453,34 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
     'химичить': (('root:chemistry',),),
 }
 
+# Every member of a proper-name cluster shares one root, so Япония opens
+# японский and японец.  The root is the one already assigned to a member
+# (root:proper_china), or one named after the cluster.  Clusters that keep
+# a dictionary family root (Россия with fam:рус², German with fam:нем) are
+# left alone, and an explicit per-lemma assignment always wins.
+def _proper_cluster_roots() -> dict[str, tuple[tuple[str, ...], ...]]:
+    from games.censorly.lexical.proper_names import CLUSTERS as PROPER_CLUSTERS
+
+    assigned = {}
+    for name, lemmas in PROPER_CLUSTERS:
+        if name in {'sense:russian', 'sense:german'}:
+            continue
+        roots = {
+            SEMANTIC_ROOT_ASSIGNMENTS[lemma]
+            for lemma in lemmas if lemma in SEMANTIC_ROOT_ASSIGNMENTS
+        }
+        if len(roots) > 1:
+            raise RuntimeError(f'proper cluster {name} has several roots: {roots}')
+        root = roots.pop() if roots else (('root:proper_' + name.removeprefix('sense:'),),)
+        for lemma in lemmas:
+            if lemma not in SEMANTIC_ROOT_ASSIGNMENTS:
+                assigned[lemma] = root
+    return assigned
+
+
+SEMANTIC_ROOT_ASSIGNMENTS.update(_proper_cluster_roots())
+
+
 # A small reviewed compatibility relation for senses inside one root family.
 # This is not a pair edge: it applies to every complete structure carrying
 # the two reviewed subclasses.  Most different senses remain incompatible.

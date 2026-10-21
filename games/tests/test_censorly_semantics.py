@@ -705,6 +705,34 @@ class SemanticsTests(SimpleTestCase):
         ):
             self.assertFalse(opens(guess, target), (guess, target))
 
+    def test_proper_name_clusters_share_one_root(self):
+        from games.censorly.lexical.proper_names import CLUSTERS
+        from games.censorly.lexical.rootbank import structures_of
+
+        for name, lemmas in CLUSTERS:
+            roots = {
+                tuple(part for part in structure if not part.startswith('sense:'))
+                for lemma in lemmas
+                for structure in structures_of(lemma)
+            }
+            self.assertEqual(len(roots), 1, (name, roots))
+            self.assertTrue(all(structures_of(lemma) for lemma in lemmas), name)
+        for place, derived in (
+            ('Япония', 'японский'),
+            ('Япония', 'японец'),
+            ('Европа', 'европейский'),
+            ('Америка', 'американский'),
+            ('Китай', 'китаец'),
+            ('Франция', 'француз'),
+            ('Париж', 'парижанин'),
+            ('Лондон', 'лондонский'),
+            ('Италия', 'итальянец'),
+        ):
+            self.assertTrue(opens(place, derived), (place, derived))
+            self.assertTrue(opens(derived, place), (derived, place))
+        # «франция» is also a form of франций, so only europium is checked here.
+        self.assertFalse(opens('Европа', 'европий'))
+
     def test_negation_lookalikes_stay_closed(self):
         for base, lookalike in (
             ('водить', 'неводить'),
