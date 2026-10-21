@@ -2300,6 +2300,29 @@ class CensorlyUxDailyTests(TestCase):
             HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=context_token,
         )
 
+    def test_timing_rejects_non_uuid_session_id(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        tags = dict(self.game.tags or {})
+        tags['censorly_publish_start'] = (
+            f'{(timezone.localdate() - timedelta(days=1)).isoformat()}T00:00:00+03:00'
+        )
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        self.client.force_login(self.staff)
+        timing_context_token, _gameplay_context_token = self._official_page_context()
+
+        # The timing core keys leases by UUID; anything else used to return
+        # 200 while silently never starting the clock.
+        response = self._start_official_timer(timing_context_token, '1729000000000-123456789')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'bad_session_id')
+        self.assertFalse(DailySolveTiming.objects.filter(
+            game=self.game, task_group=self.task.task_group, user=self.staff,
+        ).exists())
+
     def test_daily_play_page_renders_pause_overlay_around_censorly_board(self):
         from datetime import timedelta
         from django.utils import timezone
@@ -2328,7 +2351,7 @@ class CensorlyUxDailyTests(TestCase):
             html.index('id="censorly-root"'),
         )
 
-    def test_guess_is_rejected_while_official_timer_has_no_active_session(self):
+    def test_guess_is_accepted_when_timer_failed_but_rejected_while_manually_paused(self):
         from datetime import timedelta
         from django.utils import timezone
 
@@ -2341,18 +2364,17 @@ class CensorlyUxDailyTests(TestCase):
         self.client.force_login(self.staff)
         timing_context_token, gameplay_context_token = self._official_page_context()
 
-        blocked = self.client.post(
+        # The timer never started (network, browser quirk): not the player's
+        # fault, so solving continues and the time just goes uncounted.
+        without_timer = self.client.post(
             '/censorly/1/guess/',
-            data=json.dumps({'word': 'собака'}),
+            data=json.dumps({'word': 'собака', 'timing_session_id': str(uuid4())}),
             content_type='application/json',
             HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
         )
 
-        self.assertEqual(blocked.status_code, 409)
-        self.assertEqual(blocked.json()['error_code'], 'timer_not_running')
-        self.assertTrue(blocked.json()['daily_timing']['resume_required'])
-        self.assertFalse(Attempt.manager.filter(task=self.task, user=self.staff).exists())
-        self.assertFalse(ChainTaskState.objects.filter(task=self.task, user=self.staff).exists())
+        self.assertEqual(without_timer.status_code, 200, without_timer.json())
+        self.assertIn(without_timer.json()['status'], ('hit', 'miss', 'won'))
 
         session_id = str(uuid4())
         started = self._start_official_timer(timing_context_token, session_id)
@@ -2373,10 +2395,35 @@ class CensorlyUxDailyTests(TestCase):
         )
         self.assertEqual(auto_paused.status_code, 200)
 
+        after_auto_pause = self.client.post(
+            '/censorly/1/guess/',
+            data=json.dumps({
+                'word': 'кошка',
+                'timing_session_id': session_id,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
+        )
+        self.assertEqual(after_auto_pause.status_code, 200, after_auto_pause.json())
+
+        paused = self.client.post(
+            '/censorly/1/timing/',
+            data=json.dumps({
+                'action': 'pause',
+                'session_id': session_id,
+                'event_id': str(uuid4()),
+                'seq': 3,
+            }),
+            content_type='application/json',
+            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=timing_context_token,
+        )
+        self.assertEqual(paused.status_code, 200)
+        attempts_before = Attempt.manager.filter(task=self.task, user=self.staff).count()
+
         blocked_while_paused = self.client.post(
             '/censorly/1/guess/',
             data=json.dumps({
-                'word': 'собака',
+                'word': 'дом',
                 'timing_session_id': session_id,
             }),
             content_type='application/json',
@@ -2384,7 +2431,11 @@ class CensorlyUxDailyTests(TestCase):
         )
         self.assertEqual(blocked_while_paused.status_code, 409)
         self.assertEqual(blocked_while_paused.json()['error_code'], 'timer_not_running')
-        self.assertFalse(Attempt.manager.filter(task=self.task, user=self.staff).exists())
+        self.assertTrue(blocked_while_paused.json()['daily_timing']['manually_paused'])
+        self.assertEqual(
+            Attempt.manager.filter(task=self.task, user=self.staff).count(),
+            attempts_before,
+        )
 
         resumed = self.client.post(
             '/censorly/1/timing/',
@@ -2392,7 +2443,7 @@ class CensorlyUxDailyTests(TestCase):
                 'action': 'resume',
                 'session_id': session_id,
                 'event_id': str(uuid4()),
-                'seq': 3,
+                'seq': 4,
             }),
             content_type='application/json',
             HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=timing_context_token,
@@ -2402,7 +2453,7 @@ class CensorlyUxDailyTests(TestCase):
         accepted = self.client.post(
             '/censorly/1/guess/',
             data=json.dumps({
-                'word': 'собака',
+                'word': 'дом',
                 'timing_session_id': session_id,
             }),
             content_type='application/json',
@@ -2464,7 +2515,7 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(response.json()['error_code'], 'timer_not_running')
         self.assertFalse(ChainTaskState.objects.filter(task=self.task, user=self.staff).exists())
 
-    def test_stale_timer_lease_response_revokes_local_authority(self):
+    def test_stale_timer_lease_does_not_block_guesses(self):
         from datetime import timedelta
         from django.utils import timezone
 
@@ -2499,10 +2550,8 @@ class CensorlyUxDailyTests(TestCase):
             HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
         )
 
-        self.assertEqual(response.status_code, 409)
-        timing_state = response.json()['daily_timing']
-        self.assertTrue(timing_state['resume_required'])
-        self.assertFalse(timing_state['is_authoritative'])
+        self.assertEqual(response.status_code, 200, response.json())
+        self.assertIn(response.json()['status'], ('hit', 'miss', 'won'))
 
     def test_random_hash_timing_context_uses_random_timing_route(self):
         self.client.force_login(self.staff)

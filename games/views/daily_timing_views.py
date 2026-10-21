@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from uuid import UUID
 
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -363,6 +364,12 @@ def _daily_solve_timing_impl(
     session_id = payload.get('session_id')
     event_id = payload.get('event_id')
     if not isinstance(session_id, str) or not session_id.strip():
+        return _json_error('bad_session_id', 400)
+    try:
+        UUID(session_id.strip())
+    except ValueError:
+        # The timing core keys leases by UUID and would silently ignore any
+        # other ID, leaving the client with a clock that never runs.
         return _json_error('bad_session_id', 400)
     if not isinstance(event_id, str) or not event_id.strip() or len(event_id.strip()) > 64:
         return _json_error('bad_event_id', 400)

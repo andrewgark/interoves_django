@@ -154,7 +154,7 @@ class TimingMySQL1040AsgiTests(SimpleTestCase):
                 method='POST',
                 payload={
                     'action': 'start',
-                    'session_id': 'phase22-1040-session',
+                    'session_id': '00000000-0000-4000-8000-000000001040',
                     'event_id': 'phase22-1040-event',
                     'event_protocol': 1,
                     'event_capability': 'stable-event-v1',

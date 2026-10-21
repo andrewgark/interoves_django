@@ -311,7 +311,7 @@ def _censorly_timing_enabled(game, load_meta, user, replay_slot):
 def _censorly_timing_session_guard(
     *, game, task, user, anon_key, replay_slot, body, timing_enabled=True,
 ):
-    """Require a live timer lease for official Censorly mutations."""
+    """Reject official Censorly mutations from a manually paused timer tab."""
     if replay_slot is not None or not timing_enabled:
         return None
 
@@ -332,7 +332,7 @@ def _censorly_timing_session_guard(
 def _censorly_timing_session_precheck(
     *, game, task, user, anon_key, replay_slot, body, timing_enabled=True,
 ):
-    """Reject stale sessions before running expensive guess matching."""
+    """Reject manually paused tabs before running expensive guess matching."""
     if replay_slot is not None or not timing_enabled:
         return None
 
@@ -355,7 +355,7 @@ def _daily_timing_inactive_response(exc):
     timing_snapshot['resume_required'] = True
     return JsonResponse({
         'status': 'error',
-        'error': 'Таймер остановлен. Продолжите его и повторите действие.',
+        'error': 'Задание на паузе. Нажмите «Продолжить» и повторите действие.',
         'error_code': 'timer_not_running',
         'daily_timing': timing_snapshot,
     }, status=409)

@@ -12,12 +12,15 @@
   root.interovesDailySolveTimer = api;
 })(typeof window !== 'undefined' ? window : global, function (root) {
   var HEARTBEAT_MS = 15000;
+  // A visible tab nobody touches is not solving. Generous on purpose: people
+  // think for minutes over a wall or an article without any input.
+  var IDLE_MS = 10 * 60 * 1000;
+  var ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'input', 'wheel', 'touchstart', 'focusin'];
   var EVENT_QUEUE_LIMIT = 8;
   var EVENT_MAX_ATTEMPTS = 3;
   var EVENT_MAX_AGE_MS = 20000;
   var RETRY_AFTER_MAX_MS = 10000;
   var RETRY_AFTER_FLOOR_MAX_MS = 8000;
-  var STORAGE_PREFIX = 'interoves_task_group_timing_v1:';
   var WINDOW_SESSION_PREFIX = 'interoves-daily-timing:';
 
   function formatElapsed(ms) {
@@ -65,11 +68,33 @@
     return !!state.is_authoritative && state.status === 'running';
   }
 
+  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+  function isUuid(value) {
+    return typeof value === 'string' && UUID_RE.test(value);
+  }
+
   function uuid() {
     try {
       if (root.crypto && root.crypto.randomUUID) return root.crypto.randomUUID();
     } catch (e) {}
-    return String(Date.now()) + '-' + String(Math.random()).slice(2);
+    // crypto.randomUUID is missing on older Safari/Chrome. The server parses
+    // session IDs as UUIDs and silently ignores anything else, so the
+    // fallback must still be a well-formed v4 UUID.
+    var bytes = new Array(16);
+    try {
+      if (root.crypto && root.crypto.getRandomValues) {
+        bytes = Array.prototype.slice.call(root.crypto.getRandomValues(new Uint8Array(16)));
+      }
+    } catch (e2) {}
+    for (var i = 0; i < 16; i++) {
+      if (typeof bytes[i] !== 'number') bytes[i] = Math.floor(Math.random() * 256);
+    }
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    var hex = bytes.map(function (b) { return (b + 0x100).toString(16).slice(1); }).join('');
+    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16)
+      + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
   }
 
   function nowMs(clock) {
@@ -91,7 +116,6 @@
     var getCsrf = options.getCsrf || function () { return ''; };
     var fetchFn = options.fetch || (root && root.fetch && root.fetch.bind(root));
     var storage = options.storage || (root && root.sessionStorage);
-    var localStore = options.localStorage || (root && root.localStorage);
     var windowIdentity = options.windowIdentity || (
       root && root.window === root ? root : null
     );
@@ -99,7 +123,7 @@
     var bootstrap = options.bootstrap || {};
     var solved = !!options.solved;
     var heartbeatMs = options.heartbeatMs || HEARTBEAT_MS;
-    var onState = options.onState || function () {};
+    var idleMs = options.idleMs || IDLE_MS;
 
     var rootEl = options.root;
     var displayEl = options.displayEl;
@@ -116,7 +140,11 @@
     var boardEl = options.boardEl;
 
     var sessionKey = 'session:' + url;
-    var seqKey = sessionKey + ':seq';
+    // Pre-fix clients kept seq per URL. The server checks seq per session, and
+    // one task group is reachable through several URLs (number, share hash),
+    // so a per-URL counter restarted at 1 and the server ignored the start.
+    var legacySeqKey = sessionKey + ':seq';
+    var seqKey = legacySeqKey;
     var sessionId = '';
     var seq = 0;
     try {
@@ -129,24 +157,32 @@
       // sessionStorage can be cloned into a window.open() child.  A
       // window.name marker survives reloads but is not cloned, so an unnamed
       // child gets a genuinely new lease instead of reusing its opener's ID.
-      if (namedSession) {
+      // IDs minted by the old non-UUID fallback are never accepted as a lease
+      // by the server; replace them instead of reusing them forever.
+      if (isUuid(namedSession)) {
         sessionId = namedSession;
-      } else if (windowIdentity && !windowName) {
+      } else if (windowIdentity && (!windowName || namedSession)) {
         sessionId = uuid();
         windowIdentity.name = WINDOW_SESSION_PREFIX + sessionId;
       } else {
         sessionId = (storage && storage.getItem(sessionKey)) || '';
+        if (!isUuid(sessionId)) sessionId = '';
       }
       if (sessionId && storage && storage.getItem(sessionKey) !== sessionId) {
         storage.setItem(sessionKey, sessionId);
       }
-      seq = parseInt((storage && storage.getItem(seqKey)) || '0', 10) || 0;
     } catch (e) {}
     if (!sessionId) {
       sessionId = uuid();
-      seq = 0;
       try { if (storage) storage.setItem(sessionKey, sessionId); } catch (e2) {}
     }
+    seqKey = 'session-seq:' + sessionId;
+    try {
+      seq = Math.max(
+        parseInt((storage && storage.getItem(seqKey)) || '0', 10) || 0,
+        parseInt((storage && storage.getItem(legacySeqKey)) || '0', 10) || 0
+      );
+    } catch (e3) {}
     var committedMs = Number(bootstrap.committed_ms || bootstrap.accumulated_ms || 0) || 0;
     var displayBaseMs = Number(bootstrap.accumulated_ms || committedMs) || 0;
     var status = bootstrap.status || (solved ? 'completed' : 'auto_paused');
@@ -158,6 +194,9 @@
     var runningSince = null;
     var heartbeatTimer = null;
     var startRetryTimer = null;
+    var recoveryTimer = null;
+    var lastActivityAt = Date.now();
+    var idlePaused = false;
     var startAttempts = 0;
     var startFailed = false;
     var startEvent = null;
@@ -167,33 +206,18 @@
     var eventQueueRunning = false;
     var deliveryFailed = false;
     var raf = null;
-    var started = false;
     var destroyed = false;
     var awaitingServer = false;
     var lastAppliedRequestSeq = 0;
     var stateRevision = 0;
+    var lastPausedSignal = null;
+    var startPending = false;
 
     function advanceStateRevision() {
       stateRevision += 1;
       if (rootEl && rootEl.setAttribute) {
         rootEl.setAttribute('data-timing-state-revision', String(stateRevision));
       }
-    }
-
-    function localKey() {
-      return STORAGE_PREFIX + url + ':' + (getAnonKey() || 'user');
-    }
-
-    function persistLocal() {
-      try {
-        if (!localStore) return;
-        localStore.setItem(localKey(), JSON.stringify({
-          accumulated_ms: displayedMs(),
-          status: status,
-          manually_paused: manuallyPaused,
-          completed: completed,
-        }));
-      } catch (e) {}
     }
 
     function displayedMs() {
@@ -231,10 +255,10 @@
       if (tooltipValue) tooltipValue.textContent = formatClock(ms);
       if (errorEl) {
         errorEl.hidden = !(startFailed || deliveryFailed);
-        errorEl.textContent = deliveryFailed
-          ? 'Не удалось подтвердить сохранение времени. Проверьте соединение и обновите состояние таймера.'
-          : (startFailed
-            ? 'Не удалось запустить таймер. Время решения пока не записывается.'
+        errorEl.textContent = startFailed
+          ? 'Не удалось запустить таймер. Время решения пока не записывается.'
+          : (deliveryFailed
+            ? 'Не удалось подтвердить сохранение времени. Проверьте соединение и обновите состояние таймера.'
             : '');
       }
       if (toggleLabel) toggleLabel.textContent = (manuallyPaused || resumeRequired) ? 'Продолжить' : '';
@@ -258,7 +282,10 @@
       // The raddle sticky pin is mounted on <body>, outside the board's
       // stacking context. Keep it out of the pause state as well, otherwise
       // it can paint above the pause overlay and remain interactive.
-      if (doc && doc.body) {
+      if (doc && doc.body && showOverlay !== lastPausedSignal) {
+        // render() runs on every animation frame while the clock ticks; the
+        // raddle listener measures layout, so only signal real changes.
+        lastPausedSignal = showOverlay;
         doc.body.classList.toggle('is-daily-solve-paused', showOverlay);
         if (typeof doc.dispatchEvent === 'function' && typeof root.CustomEvent === 'function') {
           doc.dispatchEvent(new root.CustomEvent('interoves:daily-solve-paused', {
@@ -285,7 +312,6 @@
             ? 'Вкладка долго не подтверждала активность. Время остановлено; нажмите «Продолжить», чтобы снова начать его учитывать.'
             : 'Это задание открыто в другом окне. Нажмите «Продолжить», чтобы вести время здесь.');
       }
-      onState(currentState());
     }
 
     function applySnapshot(snap, opts) {
@@ -326,7 +352,6 @@
       if (authoritative && status === 'running' && !completed && !manuallyPaused) {
         runningSince = nowMs(clock);
       }
-      persistLocal();
       render();
       syncTicker();
     }
@@ -430,6 +455,18 @@
       });
     }
 
+    // A broken timer must never lock the board: the player keeps solving and
+    // the timer quietly tries to start a fresh interval again later.
+    function scheduleRecovery() {
+      if (destroyed || recoveryTimer || !root.setTimeout) return;
+      recoveryTimer = root.setTimeout(function () {
+        recoveryTimer = null;
+        if (destroyed || completed || manuallyPaused || resumeRequired) return;
+        if (authoritative && status === 'running') return;
+        retryAfterConnectivity();
+      }, heartbeatMs);
+    }
+
     function indicateDeliveryFailure() {
       deliveryFailed = true;
       if (!completed && status === 'running') {
@@ -440,22 +477,12 @@
         syncTicker();
       }
       render();
+      scheduleRecovery();
     }
 
     function failQueuedEvents(data) {
       var failed = eventQueue.splice(0);
-      var heartbeatFailed = failed.some(function (item) {
-        return item.body && item.body.action === 'heartbeat';
-      });
       indicateDeliveryFailure();
-      if (heartbeatFailed && !completed && !manuallyPaused) {
-        // The server may have expired the lease even though its response was
-        // lost. Require an explicit resume instead of silently restarting it
-        // when connectivity returns.
-        resumeRequired = true;
-        advanceStateRevision();
-        render();
-      }
       failed.forEach(function (item) { item.resolve(data || null); });
     }
 
@@ -467,7 +494,18 @@
           var item = eventQueue[0];
           var result = null;
           while (item.attempts < item.maxAttempts && Date.now() - item.createdAt < EVENT_MAX_AGE_MS) {
-            if (root.navigator && root.navigator.onLine === false) {
+            item.attempts += 1;
+            result = await requestEventOnce(item.body, item.keepalive);
+            // navigator.onLine can be stuck at false while the network works
+            // (seen in Chrome with VPN/virtual adapters). Gating sends on it
+            // kept the start event from ever leaving, while gameplay requests
+            // went through and were rejected for lacking a lease. Only wait
+            // for the "online" event after a send has actually failed.
+            if (
+              result.networkError
+              && root.navigator && root.navigator.onLine === false
+              && item.attempts < item.maxAttempts
+            ) {
               item.stalled = true;
               eventQueueRunning = false;
               if (root.setTimeout && !item.expiryTimer) {
@@ -477,8 +515,6 @@
               }
               return;
             }
-            item.attempts += 1;
-            result = await requestEventOnce(item.body, item.keepalive);
             var data = result.data;
             if (data && data.ok && (!result.status || (result.status >= 200 && result.status < 300))) {
               if (result.status) data._http_status = result.status;
@@ -493,18 +529,21 @@
                 && data.status !== 'manually_paused'
                 && !data.is_authoritative
               ) {
-                // The server expired this tab's lease. Do not silently leave
-                // an editable board with a stopped clock: require a deliberate
-                // resume, which establishes a fresh interval.
-                resumeRequired = true;
+                // The server expired this tab's lease although the tab is
+                // visible, i.e. heartbeats did not get through. That is a
+                // timer failure, not the player's: keep the board usable and
+                // start a fresh interval once the queue drains.
                 authoritative = false;
+                status = 'auto_paused';
                 runningSince = null;
                 var serverElapsed = Number(data.accumulated_ms);
                 if (isFinite(serverElapsed)) displayBaseMs = Math.max(0, serverElapsed);
                 var serverCommitted = Number(data.committed_ms);
                 if (isFinite(serverCommitted)) committedMs = Math.max(0, serverCommitted);
                 advanceStateRevision();
-                render();
+                syncTicker();
+                if (root.setTimeout) root.setTimeout(retryAfterConnectivity, 0);
+                scheduleRecovery();
               }
               eventQueue.shift();
               if (item.expiryTimer && root.clearTimeout) root.clearTimeout(item.expiryTimer);
@@ -533,6 +572,10 @@
       }).finally(function () {
         eventQueueRunning = false;
         if (eventQueue.length && !(eventQueue[0] && eventQueue[0].stalled)) pumpEventQueue();
+        else if (!eventQueue.length && startPending) {
+          startPending = false;
+          startIfAllowed();
+        }
       });
     }
 
@@ -596,14 +639,20 @@
     }
 
     function startIfAllowed() {
+      if (eventQueue.length || eventQueueRunning) {
+        // E.g. a quick tab switch: the auto_pause is still in flight when the
+        // page becomes visible again. Start once the queue drains instead of
+        // leaving the clock stopped until the next visibility change.
+        startPending = true;
+        return;
+      }
       if (
         destroyed || completed || manuallyPaused || resumeRequired || awaitingServer
-        || startFailed || eventQueue.length || eventQueueRunning
+        || startFailed || idlePaused
       ) return;
       if (visibilityOf(doc) !== 'visible') return;
       if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
       startRetryTimer = null;
-      started = true;
       awaitingServer = true;
       startAttempts += 1;
       if (!startEvent) {
@@ -619,6 +668,7 @@
           startFailed = false;
           startEvent = null;
           startEventCreatedAt = 0;
+          releaseLeaseIfHidden(data);
           render();
           return;
         }
@@ -653,6 +703,7 @@
         } else if (!destroyed && !(data && data.reload_required)) {
           startFailed = true;
           if (popover) popover.hidden = false;
+          scheduleRecovery();
         }
         render();
       });
@@ -672,8 +723,13 @@
         render();
         return;
       }
+      var lastShownSecond = -1;
       function tick() {
-        render();
+        var shownSecond = Math.floor(displayedMs() / 1000);
+        if (shownSecond !== lastShownSecond) {
+          lastShownSecond = shownSecond;
+          render();
+        }
         if (shouldRunLocally({
           completed: completed,
           manually_paused: manuallyPaused,
@@ -686,8 +742,46 @@
       if (root.requestAnimationFrame) raf = root.requestAnimationFrame(tick);
       else render();
       if (options.enableHeartbeat !== false && root.setInterval) {
-        heartbeatTimer = root.setInterval(function () { post('heartbeat'); }, heartbeatMs);
+        heartbeatTimer = root.setInterval(onHeartbeatTick, heartbeatMs);
       }
+    }
+
+    // onHidden() has nothing to pause while a start/resume is in flight. If
+    // the tab got hidden meanwhile, the server has just opened a lease that no
+    // heartbeat will keep: close it now instead of letting it run until it
+    // goes stale (~45 s of hidden time credited).
+    function releaseLeaseIfHidden(data) {
+      if (visibilityOf(doc) !== 'hidden' || destroyed || completed || manuallyPaused) return;
+      if (!data || data.status !== 'running') return;
+      post('auto_pause', { claimed_ms: 0 }, true);
+    }
+
+    function onHeartbeatTick() {
+      if (Date.now() - lastActivityAt >= idleMs) {
+        pauseForIdle();
+        return;
+      }
+      post('heartbeat');
+    }
+
+    // Idle is an automatic stop like a hidden tab: no overlay, nothing to
+    // press. The next input simply starts a fresh interval.
+    function pauseForIdle() {
+      if (completed || manuallyPaused || !authoritative) return;
+      idlePaused = true;
+      var claimed = freezeOpenInterval();
+      authoritative = false;
+      status = 'auto_paused';
+      advanceStateRevision();
+      syncTicker();
+      post('auto_pause', { claimed_ms: claimed }, false);
+    }
+
+    function noteActivity() {
+      lastActivityAt = Date.now();
+      if (!idlePaused) return;
+      idlePaused = false;
+      if (!completed && !manuallyPaused && !resumeRequired) retryAfterConnectivity();
     }
 
     function onHidden() {
@@ -707,6 +801,8 @@
     }
 
     function onVisible() {
+      lastActivityAt = Date.now();
+      idlePaused = false;
       if (completed || manuallyPaused || resumeRequired) {
         render();
         return;
@@ -727,21 +823,27 @@
 
     function resumeManual() {
       if (completed) return;
+      var wasManuallyPaused = manuallyPaused;
       manuallyPaused = false;
       resumeRequired = false;
-      started = true;
       awaitingServer = true;
       advanceStateRevision();
       return post('resume').then(function (data) {
         awaitingServer = false;
+        if (data && data.ok) releaseLeaseIfHidden(data);
         if (!data || !data.ok) {
-          manuallyPaused = !!(data && (
+          // A deliberate pause stays until a resume succeeds: the server keeps
+          // rejecting gameplay for it, and the player can simply press again.
+          // Any other stop is a timer failure: unlock the board anyway and
+          // keep retrying in the background.
+          manuallyPaused = wasManuallyPaused || !!(data && (
             data.manually_paused || data.status === 'manually_paused'
           ));
-          resumeRequired = !manuallyPaused;
+          resumeRequired = false;
           authoritative = false;
           status = manuallyPaused ? 'manually_paused' : 'auto_paused';
           advanceStateRevision();
+          if (!manuallyPaused) indicateDeliveryFailure();
           render();
         }
         render();
@@ -764,6 +866,10 @@
     }
 
     if (options.listenDocument !== false && doc && doc.addEventListener) {
+      ACTIVITY_EVENTS.forEach(function (name) {
+        doc.addEventListener(name, noteActivity, { capture: true, passive: true });
+      });
+      if (root.addEventListener) root.addEventListener('scroll', noteActivity, { passive: true });
       doc.addEventListener('visibilitychange', function () {
         if (visibilityOf(doc) === 'hidden') onHidden();
         else onVisible();
@@ -826,7 +932,6 @@
           authoritative = true;
           status = 'running';
           runningSince = nowMs(clock);
-          started = true;
           syncTicker();
         }
         return;
@@ -839,9 +944,13 @@
         getUrl += (url.indexOf('?') >= 0 ? '&' : '?') + 'session_id=' + encodeURIComponent(sessionId);
       }
       fetchFn(getUrl, { credentials: 'same-origin', headers: headers }).then(function (res) {
-        return res && res.json ? res.json() : null;
+        // An error body (403 club_required, 503 busy, ...) is not a timing
+        // snapshot: applying it would e.g. flip `exists` to true.
+        if (!res || !res.json || res.ok === false) return null;
+        return res.json();
       }).then(function (data) {
         if (destroyed) return;
+        if (data && data.ok === false) data = null;
         timingEventCapability = !!(data && data.timing_event_capability === 'stable-event-v1');
         if (data) applySnapshot(data, { replace: true });
         if (!completed && !manuallyPaused) {
@@ -868,12 +977,15 @@
       markComplete: markComplete,
       onHidden: onHidden,
       onVisible: onVisible,
+      noteActivity: noteActivity,
       boot: boot,
       destroy: function () {
         destroyed = true;
         awaitingServer = false;
         if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
         startRetryTimer = null;
+        if (recoveryTimer && root.clearTimeout) root.clearTimeout(recoveryTimer);
+        recoveryTimer = null;
         if (heartbeatTimer && root.clearInterval) root.clearInterval(heartbeatTimer);
         heartbeatTimer = null;
         if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
@@ -896,8 +1008,13 @@
     var url = extras.url || (timerRoot && timerRoot.getAttribute('data-timing-url')) || '';
     var solved = extras.solved;
     if (solved == null) {
-      var card = doc.querySelector('.new-taskcard[data-solved], [data-alphabetty-meta][data-solved]');
-      solved = !!(card && card.getAttribute('data-solved') === '1');
+      // Walls, replacements and palindromes have many tasks per group: the
+      // first solved card does not mean the group is done. (A completed group
+      // does not render the timer at all.)
+      var cards = doc.querySelectorAll('.new-taskcard[data-solved], [data-alphabetty-meta][data-solved]');
+      solved = cards.length > 0 && Array.prototype.every.call(cards, function (card) {
+        return card.getAttribute('data-solved') === '1';
+      });
     }
     var controller = create({
       document: doc,
@@ -934,5 +1051,6 @@
     create: create,
     bindFromDocument: bindFromDocument,
     HEARTBEAT_MS: HEARTBEAT_MS,
+    IDLE_MS: IDLE_MS,
   };
 });

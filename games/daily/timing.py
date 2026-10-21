@@ -118,9 +118,15 @@ def require_active_timing_session(
     *, game, task_group, user=None, anon_key=None, team=None, session_id,
     now=None, lock=False,
 ):
-    """Require a fresh lease, optionally locking it for a gameplay write.
+    """Reject gameplay from a tab that the player deliberately paused.
 
-    The read-only form can reject stale requests before expensive work. The
+    Only an explicit manual pause of this tab's session blocks the write:
+    the player can lift it with «Продолжить». A missing, stale, auto-paused
+    or never-started lease means the timer itself failed (network, browser
+    quirks), which must not stop the player from solving; that time simply
+    goes uncounted.
+
+    The read-only form can reject paused requests before expensive work. The
     locking form must run in the same transaction as the gameplay write and
     serializes pause/resume against that write.
     """
@@ -149,20 +155,16 @@ def require_active_timing_session(
         if lock:
             session_qs = session_qs.select_for_update()
         session = session_qs.first()
-    fresh_cutoff = now - timedelta(milliseconds=LEASE_STALE_MS)
     if (
-        row is not None
-        and session is not None
-        and session.status == DailySolveTimingSession.STATUS_RUNNING
-        and session.last_heartbeat_at is not None
-        and session.last_heartbeat_at >= fresh_cutoff
+        row is None
+        or session is None
+        or session.status == DailySolveTimingSession.STATUS_RUNNING
+        or session.close_reason != 'manual'
     ):
         return
 
     timing_snapshot = snapshot(row, now=now, session_id=sid)
     timing_snapshot['resume_required'] = True
-    # A database session may still say RUNNING until a later timing mutation
-    # expires its lease. It is no longer authoritative for this request/tab.
     timing_snapshot['is_authoritative'] = False
     raise TimingSessionNotActive(timing_snapshot)
 
