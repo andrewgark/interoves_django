@@ -29,6 +29,7 @@ from games.daily_timing import (
     lookup_timing,
     snapshot,
 )
+from games.daily.timer_reports import CLIENT_REPORT_ACTION, handle_client_report
 from games.db_retry import is_mysql_retryable_lock_error
 from games.models import Attempt, Game, GameTaskGroup
 from games.analytics_identity import gameplay_anon_key
@@ -269,6 +270,15 @@ def daily_solve_timing(
     request, game_id, number=None, task_group_number=None, project_id=None,
     share_hash=None,
 ):
+    if request.method == 'POST':
+        payload = _payload(request)
+        if payload.get('action') == CLIENT_REPORT_ACTION:
+            # Handled before target/access checks on purpose: a refused
+            # target is one of the failures this report exists to surface.
+            accepted, error = handle_client_report(request, payload)
+            if not accepted:
+                return _json_error(error, 400)
+            return JsonResponse({'ok': True})
     response = _daily_solve_timing_impl(
         request, game_id, number=number, task_group_number=task_group_number,
         project_id=project_id, share_hash=share_hash,

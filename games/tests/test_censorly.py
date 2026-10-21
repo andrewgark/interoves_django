@@ -2300,6 +2300,61 @@ class CensorlyUxDailyTests(TestCase):
             HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=context_token,
         )
 
+    def test_timer_client_report_is_logged_and_alerted_once(self):
+        from unittest.mock import patch
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client.force_login(self.staff)
+        report = {
+            'action': 'client_report',
+            'reason': 'start_failed',
+            'details': {
+                'online': False,
+                'last_status': 403,
+                'last_error': 'club_required',
+                'session_id': str(uuid4()),
+                'cookie': 'must not be kept',
+            },
+        }
+        with patch(
+            'games.telegram.admin_alert_events.publish_admin_alert',
+            return_value=True,
+        ) as publish, self.assertLogs('interoves.auth', level='INFO') as logs:
+            # Accepted before any target/access checks: a refused target is
+            # one of the failures the report exists to surface.
+            first = self.client.post(
+                '/censorly/999/timing/', data=json.dumps(report),
+                content_type='application/json',
+            )
+            second = self.client.post(
+                '/censorly/999/timing/', data=json.dumps(report),
+                content_type='application/json',
+            )
+
+        self.assertEqual(first.status_code, 200, first.content)
+        self.assertEqual(second.status_code, 200)
+        self.assertEqual(publish.call_count, 1)
+        kwargs = publish.call_args.kwargs
+        self.assertEqual(kwargs['alert'], 'daily_timer_client_report')
+        self.assertIn('Не удалось запустить таймер', kwargs['payload']['text'])
+        self.assertIn('club_required', kwargs['payload']['text'])
+        logged = [line for line in logs.output if 'daily_timer_client_report' in line]
+        self.assertEqual(len(logged), 2)
+        self.assertIn('club_required', logged[0])
+        self.assertNotIn('must not be kept', logged[0])
+        self.assertFalse(DailySolveTiming.objects.filter(user=self.staff).exists())
+
+    def test_timer_client_report_rejects_unknown_reason(self):
+        response = self.client.post(
+            '/censorly/1/timing/',
+            data=json.dumps({'action': 'client_report', 'reason': 'anything'}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'bad_reason')
+
     def test_timing_rejects_non_uuid_session_id(self):
         from datetime import timedelta
         from django.utils import timezone

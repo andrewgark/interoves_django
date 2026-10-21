@@ -15,6 +15,8 @@
   // A visible tab nobody touches is not solving. Generous on purpose: people
   // think for minutes over a wall or an article without any input.
   var IDLE_MS = 10 * 60 * 1000;
+  // How long a visible page may go without a running clock before it reports.
+  var WATCHDOG_MS = 30000;
   var ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'input', 'wheel', 'touchstart', 'focusin'];
   var EVENT_QUEUE_LIMIT = 8;
   var EVENT_MAX_ATTEMPTS = 3;
@@ -197,6 +199,13 @@
     var recoveryTimer = null;
     var lastActivityAt = Date.now();
     var idlePaused = false;
+    var reportProblems = !!options.reportProblems;
+    var createdAt = Date.now();
+    var visibleSince = visibilityOf(doc) === 'visible' ? createdAt : null;
+    var everRunning = false;
+    var lastFailure = null;
+    var reportsSent = {};
+    var watchdogTimer = null;
     var startAttempts = 0;
     var startFailed = false;
     var startEvent = null;
@@ -351,6 +360,7 @@
       authoritative = !!snap.is_authoritative && !snap.resume_required;
       if (authoritative && status === 'running' && !completed && !manuallyPaused) {
         runningSince = nowMs(clock);
+        everRunning = true;
       }
       render();
       syncTicker();
@@ -496,6 +506,14 @@
           while (item.attempts < item.maxAttempts && Date.now() - item.createdAt < EVENT_MAX_AGE_MS) {
             item.attempts += 1;
             result = await requestEventOnce(item.body, item.keepalive);
+            if (!(result.data && result.data.ok)) {
+              lastFailure = {
+                action: item.body.action,
+                status: result.status || 0,
+                error: (result.data && result.data.error) || '',
+                network: !!result.networkError,
+              };
+            }
             // navigator.onLine can be stuck at false while the network works
             // (seen in Chrome with VPN/virtual adapters). Gating sends on it
             // kept the start event from ever leaving, while gameplay requests
@@ -669,6 +687,15 @@
           startEvent = null;
           startEventCreatedAt = 0;
           releaseLeaseIfHidden(data);
+          if (
+            visibilityOf(doc) === 'visible'
+            && data.status !== 'running' && data.status !== 'manually_paused'
+            && data.status !== 'completed' && !data.completed && !data.manually_paused
+          ) {
+            // Accepted but not running, e.g. the server ignored the start as
+            // stale. Nothing retries this on its own, so make it visible.
+            reportProblem('start_not_running', { response_status: data.status || '' });
+          }
           render();
           return;
         }
@@ -704,6 +731,7 @@
           startFailed = true;
           if (popover) popover.hidden = false;
           scheduleRecovery();
+          reportProblem('start_failed');
         }
         render();
       });
@@ -785,6 +813,7 @@
     }
 
     function onHidden() {
+      visibleSince = null;
       if (completed || manuallyPaused || (!authoritative && status === 'auto_paused')) return;
       if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
       startRetryTimer = null;
@@ -800,7 +829,75 @@
       return post('auto_pause', { claimed_ms: claimed }, true);
     }
 
+    // Tell the server a timer could not run so admins learn about it; the
+    // player is never blocked by this. One report per reason per page.
+    function reportProblem(reason, extra) {
+      if (!reportProblems || destroyed || options.offline || !fetchFn || !url) return;
+      if (reportsSent[reason]) return;
+      reportsSent[reason] = true;
+      var details = {
+        online: root.navigator ? root.navigator.onLine : null,
+        visibility: visibilityOf(doc),
+        status: status,
+        authoritative: authoritative,
+        start_attempts: startAttempts,
+        start_failed: startFailed,
+        delivery_failed: deliveryFailed,
+        awaiting_server: awaitingServer,
+        resume_required: resumeRequired,
+        manually_paused: manuallyPaused,
+        idle_paused: idlePaused,
+        queue_length: eventQueue.length,
+        queue_stalled: !!(eventQueue[0] && eventQueue[0].stalled),
+        last_action: lastFailure ? lastFailure.action : null,
+        last_status: lastFailure ? lastFailure.status : null,
+        last_error: lastFailure ? lastFailure.error : null,
+        last_network: lastFailure ? lastFailure.network : null,
+        session_id: sessionId,
+        capability: timingEventCapability,
+        page_age_s: Math.round((Date.now() - createdAt) / 1000),
+      };
+      Object.keys(extra || {}).forEach(function (key) { details[key] = extra[key]; });
+      var headers = {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrf(),
+        'X-Requested-With': 'XMLHttpRequest',
+      };
+      var anon = getAnonKey();
+      if (anon) headers['X-Interoves-Anon'] = anon;
+      try {
+        fetchFn(url, {
+          method: 'POST',
+          credentials: 'same-origin',
+          keepalive: true,
+          headers: headers,
+          body: JSON.stringify({ action: 'client_report', reason: reason, details: details }),
+        }).catch(function () {});
+      } catch (e) {}
+    }
+
+    // Catch-all for causes nobody anticipated (like a start that never left
+    // the browser): a page visible for a while whose clock never ran.
+    function scheduleWatchdog(delay) {
+      if (!reportProblems || destroyed || watchdogTimer || !root.setTimeout) return;
+      watchdogTimer = root.setTimeout(function () {
+        watchdogTimer = null;
+        if (destroyed || completed || everRunning || Object.keys(reportsSent).length) return;
+        if (manuallyPaused || resumeRequired || idlePaused || visibleSince == null) {
+          scheduleWatchdog();
+          return;
+        }
+        var visibleFor = Date.now() - visibleSince;
+        if (visibleFor < WATCHDOG_MS) {
+          scheduleWatchdog(WATCHDOG_MS - visibleFor);
+          return;
+        }
+        reportProblem('never_started');
+      }, delay || WATCHDOG_MS);
+    }
+
     function onVisible() {
+      visibleSince = Date.now();
       lastActivityAt = Date.now();
       idlePaused = false;
       if (completed || manuallyPaused || resumeRequired) {
@@ -927,6 +1024,7 @@
 
     function boot() {
       if (destroyed) return;
+      scheduleWatchdog();
       if (!fetchFn || !url) {
         if (!completed && !manuallyPaused) {
           authoritative = true;
@@ -982,6 +1080,8 @@
       destroy: function () {
         destroyed = true;
         awaitingServer = false;
+        if (watchdogTimer && root.clearTimeout) root.clearTimeout(watchdogTimer);
+        watchdogTimer = null;
         if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
         startRetryTimer = null;
         if (recoveryTimer && root.clearTimeout) root.clearTimeout(recoveryTimer);
@@ -1037,6 +1137,7 @@
       overlayTitle: doc.querySelector('[data-daily-pause-title]'),
       overlayText: doc.querySelector('[data-daily-pause-text]'),
       boardEl: board,
+      reportProblems: true,
     });
     controller.boot();
     return controller;
