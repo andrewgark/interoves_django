@@ -679,6 +679,32 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('охотник', 'охотно'))
         self.assertTrue(opens('охотно', 'неохотно'))
 
+    def test_reviewed_loanword_families_share_tikhonov_roots(self):
+        for guess, target in (
+            ('система', 'системный'),
+            ('система', 'систематический'),
+            ('энергия', 'энергетический'),
+            ('теория', 'теоретический'),
+            ('функция', 'функциональный'),
+            ('физика', 'физический'),
+            ('квант', 'квантовый'),
+            ('интеграл', 'интегрировать'),
+            ('механика', 'механический'),
+            ('термодинамика', 'термодинамический'),
+            ('литература', 'литературный'),
+            ('анализ', 'аналитический'),
+            ('потенциал', 'потенциальный'),
+            ('реакция', 'реакционный'),
+        ):
+            self.assertTrue(opens(guess, target), (guess, target))
+            self.assertTrue(opens(target, guess), (target, guess))
+        for guess, target in (
+            ('цикл', 'циклевать'),
+            ('фаза', 'афазия'),
+            ('максимум', 'максима'),
+        ):
+            self.assertFalse(opens(guess, target), (guess, target))
+
     def test_negation_lookalikes_stay_closed(self):
         for base, lookalike in (
             ('водить', 'неводить'),
