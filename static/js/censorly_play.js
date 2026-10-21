@@ -729,10 +729,26 @@
         return rect.top > visibleTop + 2;
       }) || nodes[0];
     }
+    rememberGuessScroll(root, node);
     scrollToNode(root, node);
   }
 
-  function scrollToGuess(root, row, guessIndex) {
+  // A tap on the guess row right after submit should move on from the
+  // occurrence the submit scroll has already shown, not repeat it.
+  function rememberGuessScroll(root, node) {
+    var guessIndex = parseInt(root.getAttribute('data-active-guess-index'), 10);
+    if (!Number.isInteger(guessIndex)) return;
+    var row = root.querySelector('#censorly-guess-list tr[data-guess-index="' + String(guessIndex) + '"]');
+    var nodes = row ? guessRowNodes(root, row) : [];
+    var position = nodes.indexOf(node);
+    if (position < 0) return;
+    root._censorlyGuessScrollCycle = {
+      guessIndex: guessIndex,
+      nextIndex: (position + 1) % nodes.length,
+    };
+  }
+
+  function guessRowNodes(root, row) {
     var raw = row.dataset.tokenIds || '';
     var ids = raw ? raw.split(',') : [];
     var nodes = [];
@@ -748,6 +764,11 @@
         );
       }
     }
+    return nodes;
+  }
+
+  function scrollToGuess(root, row, guessIndex) {
+    var nodes = guessRowNodes(root, row);
     if (!nodes.length) return;
 
     var cycle = root._censorlyGuessScrollCycle;

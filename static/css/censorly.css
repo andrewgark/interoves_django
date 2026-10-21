@@ -875,8 +875,10 @@ html.new-ui-dark .censorly__dock {
   cursor: pointer;
 }
 
-.censorly__guess-table tbody tr:hover {
-  background: color-mix(in srgb, var(--accent, #c9a227) 12%, transparent);
+@media (hover: hover) {
+  .censorly__guess-table tbody tr:hover {
+    background: color-mix(in srgb, var(--accent, #c9a227) 12%, transparent);
+  }
 }
 
 .censorly__guess-table tbody tr.is-active {
