@@ -124,6 +124,25 @@ html.new-ui-dark .censorly__dock {
     font-size: 0.85rem;
   }
 
+  .censorly__guess-table thead {
+    display: none;
+  }
+
+  /* Collapsed dock: peek at the latest guess only (rows are newest first). */
+  .censorly:not(.censorly--history-open) .censorly__history {
+    margin-top: 0.4rem;
+    overflow: hidden;
+  }
+
+  .censorly:not(.censorly--history-open) .censorly__guess-table tbody tr:not(:first-child),
+  .censorly:not(.censorly--history-open) .censorly__history:has(.censorly__history-empty) {
+    display: none;
+  }
+
+  .censorly:not(.censorly--history-open) .censorly__guess-table td {
+    border-bottom: none;
+  }
+
   .censorly__dock {
     position: sticky;
     bottom: var(--censorly-keyboard-offset, 0px);

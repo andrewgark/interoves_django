@@ -1273,24 +1273,26 @@
 
     if (historyBtn && historyWrap) {
       // On a narrow component the dock should start in its compact state:
-      // history and its optional controls are available from the history
-      // button, but do not cover the article while playing.
+      // only the latest guess stays visible (it still cycles through its
+      // occurrences on tap); the full history and its optional controls are
+      // available from the history button, but do not cover the article.
       var wasNarrowComponent = null;
+      var historyOpen = true;
+      function applyHistoryState(isNarrowComponent) {
+        historyWrap.hidden = !historyOpen && !isNarrowComponent;
+        root.classList.toggle('censorly--history-open', historyOpen);
+        historyBtn.setAttribute('aria-pressed', historyOpen ? 'true' : 'false');
+        historyBtn.setAttribute('aria-expanded', historyOpen ? 'true' : 'false');
+      }
       function syncHistoryLayout() {
         var isNarrowComponent = root.getBoundingClientRect().width <= 919;
-        if (wasNarrowComponent === null) {
-          wasNarrowComponent = isNarrowComponent;
-          if (isNarrowComponent) historyWrap.hidden = true;
-        } else if (wasNarrowComponent !== isNarrowComponent) {
+        if (wasNarrowComponent !== isNarrowComponent) {
           // Re-enter the compact mode after rotation, and restore the full
           // history panel when returning to the wide layout.
           wasNarrowComponent = isNarrowComponent;
-          historyWrap.hidden = isNarrowComponent;
+          historyOpen = !isNarrowComponent;
         }
-        var open = !historyWrap.hidden;
-        root.classList.toggle('censorly--history-open', open);
-        historyBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
-        historyBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        applyHistoryState(isNarrowComponent);
       }
       syncHistoryLayout();
       window.addEventListener('resize', syncHistoryLayout);
@@ -1300,11 +1302,8 @@
         root._censorlyHistoryLayoutObserver = historyLayoutObserver;
       }
       historyBtn.addEventListener('click', function () {
-        var open = historyWrap.hidden;
-        historyWrap.hidden = !open;
-        historyBtn.setAttribute('aria-pressed', open ? 'true' : 'false');
-        historyBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        root.classList.toggle('censorly--history-open', open);
+        historyOpen = !historyOpen;
+        applyHistoryState(!!wasNarrowComponent);
       });
     }
 
