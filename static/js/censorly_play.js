@@ -708,7 +708,9 @@
 
   function scrollToNodes(root, nodes) {
     if (!nodes.length) return;
-    var mode = root.getAttribute('data-scroll-mode') || 'first';
+    // Follow the player's scroll setting, not the server default it started from.
+    var mode = root.getAttribute('data-submit-scroll-mode') || 'first';
+    if (mode === 'off') return;
     scrollToNode(root, mode === 'nearest' ? nearestScrollNode(root, nodes) : nodes[0]);
   }
 
