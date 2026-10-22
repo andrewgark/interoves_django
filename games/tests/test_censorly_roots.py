@@ -300,3 +300,9 @@ class ReportedSenseSplitTests(SimpleTestCase):
         ):
             with self.subTest(guess=guess, target=target):
                 self.assertEqual(self._relation(guess, target), 'root')
+
+    def test_reviewed_out_of_dictionary_word_opens_its_own_forms(self):
+        # pymorphy only predicts квадривиум; reviewed_derived_roots.tsv lets
+        # its inflections through.
+        self.assertEqual(self._relation('квадривиум', 'квадривиуму'), 'root')
+        self.assertFalse(self._relation('тривиум', 'квадривиум'))
