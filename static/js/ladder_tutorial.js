@@ -201,7 +201,7 @@
         setTimeout(function () {
           tutorial.showMessage({
             title: 'Вернуться к Лесенке?',
-            text: 'Обучение можно пройти позже — кнопка с шапочкой рядом с правилами.',
+            text: 'Обучение можно пройти позже — кнопка рядом с правилами или ссылка в самих правилах.',
             label: onward.label,
             href: onward.url,
             onAction: trackReturn,

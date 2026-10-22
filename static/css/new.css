@@ -9317,6 +9317,8 @@ html.new-ui-dark .pal-card {
 .tutorial-shell :focus-visible { outline: 3px solid var(--warning); outline-offset: 3px; }
 .new-btn.new-btn--mini.tutorial-clue-pick { flex: 0 0 auto; align-self: center; margin-left: auto; min-height: 1.85rem; padding: 0 .65rem; font-size: .8rem; white-space: nowrap; }
 .new-rules-modal__box.ladder-tutorial-offer { max-width: 30rem; }
+.new-rules-tutorial-link { padding: .6rem .8rem; border-radius: var(--radius, 10px); background: color-mix(in srgb, var(--accent) 10%, var(--surface)); }
+.new-rules-tutorial-link a { color: var(--accent); font-weight: 600; }
 .ladder-tutorial-next { margin-top: 1rem; }
 .ladder-tutorial-next[hidden] { display: none; }
 @media (max-width: 560px) {

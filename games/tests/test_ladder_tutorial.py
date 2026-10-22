@@ -24,6 +24,7 @@ from games.tutorials.ladder import (
     is_ladder_tutorial_task_group,
     is_new_ladder_player,
     ladder_tutorial_return,
+    with_ladder_tutorial_link,
 )
 
 
@@ -187,3 +188,12 @@ class LadderTutorialEntryTests(TestCase):
 
         self.assertNotContains(response, 'evil.com')
         self.assertContains(response, '"return_url": ""')
+
+    def test_ladder_rules_start_with_a_link_to_the_tutorial(self):
+        html = '<h2 class="pal-title">Лесенка</h2><p>Правила</p>'
+
+        linked = str(with_ladder_tutorial_link(html, '/ladder/tutorial/?next=/ladder/40/'))
+
+        self.assertLess(linked.index('</h2>'), linked.index('href="/ladder/tutorial/?next=/ladder/40/"'))
+        self.assertLess(linked.index('Пройдите обучение'), linked.index('<p>Правила</p>'))
+        self.assertIsNone(with_ladder_tutorial_link(None, '/ladder/tutorial/'))

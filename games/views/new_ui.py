@@ -256,6 +256,7 @@ from games.tutorials.ladder import (
     LADDER_TUTORIAL_TITLE,
     is_new_ladder_player,
     ladder_tutorial_payload,
+    with_ladder_tutorial_link,
     ladder_tutorial_url,
     reset_ladder_tutorial_progress,
 )
@@ -2060,6 +2061,10 @@ def _render_section_game_page(request, game_id):
         section_rules_type = game_id if game_id in SECTION_RULES_GAME_IDS else None
         section_tutorial_html = _section_tutorial_html_for_game(game)
         show_palindrome_rules = game_id == PALINDROMES_GAME_ID
+    if game_id == LADDER_GAME_ID:
+        tutorial_url = ladder_tutorial_url()
+        section_task_groups_rules_html = with_ladder_tutorial_link(section_task_groups_rules_html, tutorial_url)
+        section_tutorial_html = with_ladder_tutorial_link(section_tutorial_html, tutorial_url)
     return render(request, 'ui/game_page.html', {
         'game': game,
         'task_group_rows': task_group_rows,
@@ -3901,6 +3906,7 @@ def new_task_group_page(
             user=request.user if request.user.is_authenticated else None,
             anon_key=anon_key,
         )
+        section_tutorial_html = with_ladder_tutorial_link(section_tutorial_html, ladder_tutorial_entry_url)
 
     difficulty = None
     if draft_offer is None and isinstance(placement, GameTaskGroup):

@@ -103,6 +103,29 @@ def ladder_tutorial_url(next_path=None):
     return url
 
 
+def with_ladder_tutorial_link(rules_html, tutorial_url):
+    """Ladder rules open with an explicit way into the tutorial.
+
+    The link goes right after the rules title; it is built per page so that
+    the tutorial can lead back to the Ladder the rules were opened from.
+    """
+    from django.utils.html import escape
+    from django.utils.safestring import mark_safe
+
+    if not rules_html or not tutorial_url:
+        return rules_html
+    link = (
+        '<p class="pal-lead new-rules-tutorial-link"><i class="ph ph-student" aria-hidden="true"></i> '
+        'Впервые здесь? <a href="{}">Пройдите обучение</a> на маленькой Лесенке — это около минуты.</p>'
+    ).format(escape(tutorial_url))
+    html = str(rules_html)
+    if '</h2>' in html:
+        html = html.replace('</h2>', '</h2>\n' + link, 1)
+    else:
+        html = link + html
+    return mark_safe(html)
+
+
 def is_new_ladder_player(*, user=None, anon_key=None):
     """No Ladder started yet: the player is offered the tutorial."""
     from games.ladder_daily import LADDER_GAME_ID
