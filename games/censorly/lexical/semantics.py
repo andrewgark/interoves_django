@@ -420,6 +420,13 @@ def guess_readings_of(surface: str) -> tuple:
     if not folded:
         return found
     citation = tuple(item for item in found if item.lemma == folded)
+    # An «-о» adverb is the same spelling as the neuter short adjective
+    # («близко»/«близкий»); keep the adjective so the adverb reaches its root.
+    if any(item.pos == 'ADVB' for item in citation):
+        citation += tuple(
+            item for item in found
+            if item.pos == 'ADJS' and item not in citation
+        )
     return citation or found
 
 

@@ -242,6 +242,10 @@ TRUE_CASES = (
     ('байкал', 'байкальский', 'root'),
     ('толстой', 'толстовский', 'root'),
     ('петербург', 'петербургский', 'root'),
+    # An «-о» adverb is the neuter short form of its adjective.
+    ('близко', 'близких', 'lexeme'),
+    ('широко', 'широких', 'lexeme'),
+    ('легко', 'лёгких', 'lexeme'),
     # Halves of hyphenated compounds are tokens of their own.
     ('юг', 'юго', 'root'),
     ('южный', 'юго', 'root'),
