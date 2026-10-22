@@ -121,11 +121,23 @@ html.new-ui-dark .censorly__dock {
   }
 
   .censorly__guess-table {
-    font-size: 0.85rem;
+    font-size: 0.82rem;
+    line-height: 1.25;
+  }
+
+  .censorly__guess-table td {
+    padding: 0.18rem 0.35rem;
   }
 
   .censorly__guess-table thead {
     display: none;
+  }
+
+  /* dvh ignores the soft keyboard on overlay-keyboard browsers: size the
+     open history from the part of the screen left above the keyboard. */
+  .censorly--history-open .censorly__history {
+    max-height: min(22rem, calc((100vh - var(--censorly-keyboard-offset, 0px)) * 0.4));
+    max-height: min(22rem, calc((100dvh - var(--censorly-keyboard-offset, 0px)) * 0.4));
   }
 
   /* Collapsed dock: peek at the latest guess only (rows are newest first). */
@@ -158,6 +170,17 @@ html.new-ui-dark .censorly__dock {
     border-bottom: none;
     border-radius: 10px 10px 0 0;
     box-shadow: 0 -8px 24px color-mix(in srgb, var(--text) 12%, transparent);
+  }
+}
+
+/* Small phones: tighter dock so more of the article stays visible. */
+@container censorly (max-width: 380px) {
+  .censorly__guess-table {
+    font-size: 0.78rem;
+  }
+
+  .censorly__guess-table td {
+    padding: 0.12rem 0.3rem;
   }
 }
 
@@ -896,3 +919,50 @@ html.new-ui-dark .censorly__dock {
 
 .censorly.censorly--digits-2 .censorly__col-n { width: 3.5ch; }
 .censorly.censorly--digits-3 .censorly__col-n { width: 4.5ch; }
+
+/* Mobile feedback toast (see showToast in censorly_play.js). */
+.censorly-toast {
+  position: fixed;
+  z-index: 120;
+  left: 50%;
+  max-width: calc(100vw - 2rem);
+  width: max-content;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--border, rgba(0, 0, 0, 0.12)) 80%, transparent);
+  border-radius: var(--card-radius, 8px);
+  background: var(--surface, var(--bg, #fff));
+  box-shadow: 0 0.45rem 1.2rem color-mix(in srgb, var(--text) 14%, transparent);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0;
+  transform: translate(-50%, 0.45rem) scale(0.97);
+  transition: opacity 0.2s ease, transform 0.22s cubic-bezier(0.2, 0.9, 0.25, 1);
+}
+
+.censorly-toast.is-in {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+}
+
+.censorly-toast.is-out {
+  opacity: 0;
+  transform: translate(-50%, 0.45rem) scale(0.97);
+  transition-duration: 0.28s;
+}
+
+.censorly-toast.is-error { color: #c23b22; }
+.censorly-toast.is-hit { color: #1a7f37; }
+.censorly-toast.is-info { color: #6b5b1f; }
+
+@media (prefers-reduced-motion: reduce) {
+  .censorly-toast,
+  .censorly-toast.is-in,
+  .censorly-toast.is-out {
+    transition: none;
+  }
+}

@@ -591,11 +591,76 @@
     }
   }
 
-  function softKeyboardOpen() {
+  function isTouchDevice() {
+    return !!(window.matchMedia && window.matchMedia('(hover: none) and (pointer: coarse)').matches);
+  }
+
+  var keyboardClosedAt = 0;
+  var KEYBOARD_SETTLE_MS = 500;
+
+  // Scroll positions measured while the soft keyboard is closing are stale:
+  // the viewport grows right after. Wait for the resize to finish first.
+  function afterKeyboardSettles(callback) {
+    var remaining = keyboardClosedAt + KEYBOARD_SETTLE_MS - Date.now();
     var viewport = window.visualViewport;
-    if (!viewport) return false;
-    // Pinch zoom shrinks the visual viewport too; scale it back before comparing.
-    return viewport.height * viewport.scale < window.innerHeight - 120;
+    if (remaining <= 0 || !viewport) {
+      window.requestAnimationFrame(callback);
+      return;
+    }
+    var done = false;
+    // No resize soon after blur: the keyboard was already hidden (Android Back).
+    var quietTimer = window.setTimeout(function () { finish(); }, 200);
+    var finish = function () {
+      if (done) return;
+      done = true;
+      window.clearTimeout(quietTimer);
+      window.clearTimeout(fallbackTimer);
+      viewport.removeEventListener('resize', onResize);
+      window.requestAnimationFrame(callback);
+    };
+    var onResize = function () {
+      window.clearTimeout(quietTimer);
+      quietTimer = window.setTimeout(finish, 80);
+    };
+    var fallbackTimer = window.setTimeout(finish, remaining);
+    viewport.addEventListener('resize', onResize);
+  }
+
+  function isNarrowLayout(root) {
+    return !!root && root.getBoundingClientRect().width <= 919;
+  }
+
+  var TOAST_HOLD_MS = 1600;
+  var TOAST_ERROR_HOLD_MS = 2400;
+  var TOAST_FADE_MS = 280;
+
+  // Mobile counterpart of the inline feedback line: a fading toast above the
+  // dock, so short results do not grow the dock and jump the article.
+  function showToast(root, text, kind) {
+    var toast = document.querySelector('.censorly-toast');
+    if (!toast) {
+      toast = el('div', 'censorly-toast');
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
+      toast.setAttribute('aria-atomic', 'true');
+      document.body.appendChild(toast);
+    }
+    window.clearTimeout(toast._holdTimer);
+    window.clearTimeout(toast._hideTimer);
+    toast.className = 'censorly-toast' + (kind ? ' is-' + kind : '');
+    toast.textContent = text;
+    var dock = root.querySelector('.censorly__dock');
+    var dockTop = dock ? dock.getBoundingClientRect().top : window.innerHeight;
+    toast.style.bottom = Math.max(16, window.innerHeight - dockTop + 10) + 'px';
+    void toast.offsetWidth;
+    toast.classList.add('is-in');
+    toast._holdTimer = window.setTimeout(function () {
+      toast.classList.remove('is-in');
+      toast.classList.add('is-out');
+      toast._hideTimer = window.setTimeout(function () {
+        toast.remove();
+      }, TOAST_FADE_MS);
+    }, kind === 'error' ? TOAST_ERROR_HOLD_MS : TOAST_HOLD_MS);
   }
 
   function guessTokenIds(root, index) {
@@ -639,7 +704,9 @@
     applyGuessHighlight(root, currentState.guesses || [], guessIndex);
     var guess = currentState.guesses && currentState.guesses[guessIndex];
     flashTokenIds(root, guess && guess.token_ids);
-    scrollToGuess(root, row, guessIndex);
+    afterKeyboardSettles(function () {
+      scrollToGuess(root, row, guessIndex);
+    });
   }
 
   function guessKey(g) {
@@ -1163,9 +1230,16 @@
     return false;
   }
 
-  function setFeedback(root, text, kind) {
+  // `transient` messages are one-off results: on the mobile dock they show as
+  // a toast instead of a line that grows the dock.
+  function setFeedback(root, text, kind, transient) {
     var node = root.querySelector('#censorly-feedback');
     if (!node) return;
+    if (text && transient && isNarrowLayout(root)) {
+      setFeedback(root, '');
+      showToast(root, text, kind);
+      return;
+    }
     if (!text) {
       node.hidden = true;
       node.textContent = '';
@@ -1419,6 +1493,8 @@
     syncMobileKeyboardOffset(root);
 
     if (stateUrl) {
+      // A Track/visibility sync started meanwhile is newer than this snapshot.
+      var initialSyncGeneration = actorSyncGeneration;
       fetch(stateUrl, {
         credentials: 'same-origin',
         cache: 'no-store',
@@ -1434,7 +1510,8 @@
           });
         })
         .then(function (data) {
-          if (!hasLocalAction && data && data.status !== 'error') {
+          if (!hasLocalAction && initialSyncGeneration === actorSyncGeneration &&
+              data && data.status !== 'error') {
             applySyncedState(root, data);
           }
         })
@@ -1504,7 +1581,7 @@
       if (mask && root.contains(mask)) {
         if (root.classList.contains('censorly--hint-pick')) {
           if (mask.dataset.titleLemma === '1') {
-            setFeedback(root, 'Нельзя открывать слова, связанные со словами из названия', 'error');
+            setFeedback(root, 'Нельзя открывать слова, связанные со словами из названия', 'error', true);
             return;
           }
           if (busy) return;
@@ -1528,9 +1605,9 @@
               flashTokenIds(root, newly);
               scrollAfterGuess(root, newly.length ? newly : data.active_token_ids);
               if (data.status === 'already_open') {
-                setFeedback(root, 'Это слово уже открыто', 'info');
+                setFeedback(root, 'Это слово уже открыто', 'info', true);
               } else if (data.status !== 'won') {
-                setFeedback(root, 'Подсказка открыта', '');
+                setFeedback(root, 'Подсказка открыта', '', true);
               }
             })
             .catch(function () {
@@ -1563,18 +1640,25 @@
       }
     });
 
-    var guessList = root.querySelector('#censorly-guess-list');
-    if (guessList && input) {
-      // Tapping a history row while typing should not close the soft
-      // keyboard: the viewport would resize mid-scroll and the player would
-      // have to refocus the input for the next word. Only while the keyboard
-      // is actually open: on Android the input stays focused after Back hides
-      // the keyboard, and keeping focus on tap would bring the keyboard back.
-      guessList.addEventListener('mousedown', function (ev) {
-        if (document.activeElement === input && ev.target.closest('tr') && softKeyboardOpen()) {
-          ev.preventDefault();
-        }
+    if (input) {
+      // Touch: the soft keyboard stays only while the player works with the
+      // input itself. Any other tap closes it (iOS keeps focus on taps on
+      // plain text, so blur explicitly); the submit button must not steal
+      // focus, the post-submit logic decides whether the keyboard stays.
+      input.addEventListener('blur', function () {
+        if (isTouchDevice()) keyboardClosedAt = Date.now();
       });
+      var submitBtn = root.querySelector('#censorly-submit');
+      if (submitBtn) {
+        submitBtn.addEventListener('mousedown', function (ev) {
+          if (isTouchDevice() && document.activeElement === input) ev.preventDefault();
+        });
+      }
+      document.addEventListener('click', function (ev) {
+        if (!isTouchDevice() || document.activeElement !== input) return;
+        if (ev.target.closest && ev.target.closest('#censorly-word, #censorly-submit')) return;
+        input.blur();
+      }, true);
     }
 
     if (hintBtn) {
@@ -1623,7 +1707,11 @@
             if (handleReplayFlags(root, data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
               var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
-              setFeedback(root, guessFeedbackHelper.feedback(data, word), feedbackKind);
+              var feedbackText = guessFeedbackHelper.feedback(data, word);
+              if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
+                feedbackText += ' (#' + (data.active_guess_index + 1) + ')';
+              }
+              setFeedback(root, feedbackText, feedbackKind, data.status !== 'error');
               if (data.status !== 'error' || hasRenderableState(data)) {
                 applyState(root, data, { preserveLen: true, changedTokenIds: changedTokenIds });
               }
@@ -1653,9 +1741,9 @@
             var newly = data.newly_revealed || [];
             flashTokenIds(root, newly);
             if (newly.length) submitScrollTokenIds = newly;
-            if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit');
-            else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error');
-            else if (data.status === 'already_open') setFeedback(root, guessFeedbackHelper.feedback(data, word), '');
+            if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit', true);
+            else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error', true);
+            else if (data.status === 'already_open') setFeedback(root, guessFeedbackHelper.feedback(data, word), '', true);
           })
           .catch(function () {
             setFeedback(root, 'Сеть недоступна', 'error');
@@ -1670,9 +1758,15 @@
               submit.setAttribute('data-tooltip', 'Угадать');
               submit.disabled = !!(input && input.disabled);
             }
-            if (input && !input.disabled) input.focus();
-            if (submitScrollTokenIds && submitScrollTokenIds.length) {
-              window.requestAnimationFrame(function () {
+            var hasRevealToShow = !!(submitScrollTokenIds && submitScrollTokenIds.length);
+            if (input && !input.disabled) {
+              // Touch: a found word closes the keyboard so the opened text is
+              // visible; a miss keeps it up for the next attempt.
+              if (isTouchDevice() && hasRevealToShow) input.blur();
+              else input.focus();
+            }
+            if (hasRevealToShow) {
+              afterKeyboardSettles(function () {
                 scrollAfterGuess(root, submitScrollTokenIds);
               });
             }
