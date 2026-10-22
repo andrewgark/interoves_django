@@ -505,6 +505,13 @@
     }
   }
 
+  function softKeyboardOpen() {
+    var viewport = window.visualViewport;
+    if (!viewport) return false;
+    // Pinch zoom shrinks the visual viewport too; scale it back before comparing.
+    return viewport.height * viewport.scale < window.innerHeight - 120;
+  }
+
   function guessTokenIds(root, index) {
     var state = root && root._censorlyState;
     var guess = state && Array.isArray(state.guesses) ? state.guesses[index] : null;
@@ -1414,9 +1421,13 @@
     if (guessList && input) {
       // Tapping a history row while typing should not close the soft
       // keyboard: the viewport would resize mid-scroll and the player would
-      // have to refocus the input for the next word.
+      // have to refocus the input for the next word. Only while the keyboard
+      // is actually open: on Android the input stays focused after Back hides
+      // the keyboard, and keeping focus on tap would bring the keyboard back.
       guessList.addEventListener('mousedown', function (ev) {
-        if (document.activeElement === input && ev.target.closest('tr')) ev.preventDefault();
+        if (document.activeElement === input && ev.target.closest('tr') && softKeyboardOpen()) {
+          ev.preventDefault();
+        }
       });
     }
 
