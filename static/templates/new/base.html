@@ -949,6 +949,9 @@
         }
         if (dismissBtn) dismissBtn.addEventListener('click', dismissBanner);
       }
+      // A page with its own onboarding (the Ladder tutorial) keeps the rules
+      // behind the button instead of opening them over it.
+      if (opts.autoOpen === false) return;
       try {
         if (localStorage.getItem(storageKey)) return;
         if (window.interovesUi.isMobileLayout()) {
@@ -972,7 +975,9 @@
   </main>
   <script>
   (function () {
-    var dialogs = Array.prototype.slice.call(document.querySelectorAll('.new-rules-modal[role="dialog"]'));
+    // Tutorial popups are not modal: their action steps hand focus to the board,
+    // and tutorial_shell.js keeps its own Tab loop.
+    var dialogs = Array.prototype.slice.call(document.querySelectorAll('.new-rules-modal[role="dialog"]:not(.tutorial-shell)'));
     if (!dialogs.length) return;
     var openState = new WeakMap();
     var returnFocus = new WeakMap();
@@ -1064,7 +1069,8 @@
     window.interovesUi.initSectionRules({
       modal: modal,
       storageKey: modal.getAttribute('data-storage-key'),
-      banner: document.querySelector('[data-rules-banner]')
+      banner: document.querySelector('[data-rules-banner]'),
+      autoOpen: modal.getAttribute('data-rules-autoopen') !== '0'
     });
   })();
   </script>

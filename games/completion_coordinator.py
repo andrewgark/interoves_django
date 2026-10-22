@@ -28,6 +28,7 @@ from games.analytics import (
 from games.daily_timing import complete_daily_timing_in_transaction
 from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
 from games.models import ChainTaskState, PlayerCompletedGame
+from games.tutorials.ladder import is_ladder_tutorial_task_group
 from games.replay import StaleReplayError
 
 
@@ -123,6 +124,10 @@ def _complete_logical_game_once(
 
     game_kind = analytics_game_kind(game)
     if not game_kind:
+        return None
+    if is_ladder_tutorial_task_group(task_group):
+        # The tutorial is solved on the real page but is not a played game:
+        # no timing, completion record, streak or analytics goal.
         return None
     now = now or timezone.now()
     timing_phases = {}

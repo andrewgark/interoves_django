@@ -43,10 +43,10 @@
       var next = shell.querySelector('[data-tutorial-next]');
       var back = shell.querySelector('[data-tutorial-back]');
       var feedback = shell.querySelector('[data-tutorial-feedback-global]');
-      var actions = shell.querySelector('.new-rules-modal__actions');
       var index = 0;
       var closed = false;
       var completed = false;
+      var message = null;
       var activeTargets = [];
       var calloutTargets = [];
       var rafPending = false;
@@ -93,7 +93,6 @@
       }
       function renderSpotlight(nodes) {
         clearSpotlight();
-        if (!nodes.length) return;
         var width = global.innerWidth;
         var height = global.innerHeight;
         var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -155,7 +154,15 @@
         var left;
         var top;
         var step = options.steps[index];
-        if (step.calloutSide === 'below') {
+        // 'over' lays the popup on top of its callout target (wide screens
+        // only; narrow ones fall back to 'below').
+        var side = step.calloutSide === 'over' && global.innerWidth <= 720 ? 'below' : step.calloutSide;
+        if (side === 'over') {
+          box.style.width = '';
+          boxWidth = box.getBoundingClientRect().width || Math.min(432, global.innerWidth - 24);
+          left = Math.max(margin, Math.min(leftEdge, global.innerWidth - boxWidth - margin));
+          top = Math.max(margin, Math.min(topEdge, global.innerHeight - boxHeight - margin));
+        } else if (side === 'below') {
           box.style.width = '';
           boxWidth = box.getBoundingClientRect().width || Math.min(432, global.innerWidth - 24);
           left = Math.max(margin, Math.min((leftEdge + rightEdge - boxWidth) / 2, global.innerWidth - boxWidth - margin));
@@ -166,7 +173,7 @@
           } else {
             top = Math.max(margin, topEdge - boxHeight - 14);
           }
-        } else if (step.calloutSide === 'right-above-or-left-below' && global.innerWidth > 720) {
+        } else if (side === 'right-above-or-left-below' && global.innerWidth > 720) {
           var availableRight = global.innerWidth - rightEdge - 28;
           var aboveSpace = topEdge - margin;
           var desiredWidth = Math.min(432, availableRight);
@@ -181,7 +188,7 @@
             left = Math.max(margin, Math.min(leftEdge, global.innerWidth - boxWidth - margin));
             top = Math.min(bottomEdge + 14, global.innerHeight - boxHeight - margin);
           }
-        } else if (step.calloutSide === 'right' && global.innerWidth > 720) {
+        } else if (side === 'right' && global.innerWidth > 720) {
           var availableRight = global.innerWidth - rightEdge - 28;
           if (availableRight >= 230) {
             box.style.width = Math.min(432, availableRight) + 'px';
@@ -213,12 +220,43 @@
         box.style.bottom = 'auto';
         box.style.transform = 'none';
       }
+      // Targets are looked up again on every pass: the page may replace the
+      // highlighted nodes (a re-rendered card) while a step stays open.
+      function resolveTargets() {
+        var step = options.steps[index];
+        if (completed) {
+          activeTargets = [];
+          calloutTargets = targets((message || options.finish || {}).calloutTarget);
+          return;
+        }
+        activeTargets = targets(step.targets);
+        calloutTargets = targets(step.calloutTarget || step.targets);
+      }
+      // A message popup sits in the middle of a fully dimmed page.
+      function centerCallout() {
+        var box = shell.querySelector('.tutorial-shell__callout');
+        box.style.width = '';
+        var rect = box.getBoundingClientRect();
+        box.style.left = Math.round(Math.max(12, (global.innerWidth - rect.width) / 2)) + 'px';
+        box.style.top = Math.round(Math.max(12, (global.innerHeight - rect.height) / 2)) + 'px';
+        box.style.bottom = 'auto';
+        box.style.transform = 'none';
+      }
       function scheduleReposition() {
-        if (rafPending || shell.hidden || !activeTargets.length) return;
+        if (rafPending || shell.hidden) return;
         rafPending = true;
         global.requestAnimationFrame(function () {
           rafPending = false;
-          renderSpotlight(activeTargets);
+          if (shell.hidden) return;
+          resolveTargets();
+          if (completed && message) {
+            renderSpotlight([]);
+            centerCallout();
+          } else if (completed) {
+            positionCallout(calloutTargets);
+          } else {
+            renderSpotlight(activeTargets);
+          }
         });
       }
       function render() {
@@ -230,16 +268,15 @@
         next.hidden = step.kind !== 'info';
         next.textContent = step.nextLabel || 'Дальше';
         if (back) back.hidden = index === 0 || step.kind !== 'info' || options.steps[index - 1].kind !== 'info';
-        activeTargets = targets(step.targets);
-        calloutTargets = targets(step.calloutTarget || step.targets);
+        resolveTargets();
         if (options.onStep) options.onStep(index);
         root.dispatchEvent(new CustomEvent('tutorial:step', {detail: index}));
         var focus = activeTargets[0];
         if (focus && focus.scrollIntoView) focus.scrollIntoView({block: step.calloutSide === 'below' ? 'center' : 'nearest', behavior: 'auto'});
-        global.requestAnimationFrame(function () { renderSpotlight(activeTargets); });
+        scheduleReposition();
         if (step.kind === 'action' && !activeTargets.some(function (node) { return node === document.activeElement || (node.contains && node.contains(document.activeElement)); })) {
           global.requestAnimationFrame(function () {
-            var candidate = activeTargets.reduce(function (found, node) {
+            var candidate = interactiveTargets().reduce(function (found, node) {
               if (found) return found;
               if (node.matches && node.matches('[tabindex="0"], input:not([readonly]), button:not([disabled])')) return node;
               return node.querySelector ? node.querySelector('[tabindex="0"], input:not([readonly]), button:not([disabled])') : null;
@@ -287,52 +324,141 @@
         persist('completed');
         track('tutorial_step_complete', root, index + 1);
         track('tutorial_complete', root, options.steps.length);
-        title.textContent = 'Готово!';
-        text.textContent = 'Теперь ты знаешь, как играть.\nПродолжай связывать слова подсказками, пока верхняя и нижняя части Лесенки не встретятся. Закрой окно крестиком, чтобы доиграть эту Лесенку.';
+        var done = options.finish || {};
+        title.textContent = done.title || 'Готово!';
+        text.textContent = done.text || 'Теперь ты знаешь, как играть.';
         progress.textContent = options.steps.length + ' / ' + options.steps.length;
-        actions.hidden = true;
+        next.hidden = false;
+        next.textContent = done.label || 'Закрыть';
+        if (back) back.hidden = true;
         clearSpotlight();
         if (options.onFinish) options.onFinish();
-        global.requestAnimationFrame(function () { positionCallout(calloutTargets); });
-        shell.querySelector('[data-tutorial-close]').focus();
+        scheduleReposition();
+        next.focus();
       }
-      next.addEventListener('click', function () { if (!closed) go(1); });
+      // A popup after the steps are over, e.g. once the whole board is solved.
+      // ``href`` turns its button into a link onward.
+      function showMessage(opts) {
+        message = opts || {};
+        completed = true;
+        closed = false;
+        shell.hidden = false;
+        shell.classList.add('is-open');
+        progress.textContent = '';
+        title.textContent = message.title || '';
+        text.textContent = message.text || '';
+        feedback.textContent = '';
+        next.hidden = false;
+        next.textContent = message.label || 'Закрыть';
+        if (back) back.hidden = true;
+        clearSpotlight();
+        scheduleReposition();
+        next.focus();
+      }
+      next.addEventListener('click', function () {
+        if (closed) return;
+        if (message && message.href) global.location.href = message.href;
+        else if (completed) close('tutorial_finish');
+        else go(1);
+      });
       if (back) back.addEventListener('click', function () { if (!closed) go(-1); });
       shell.querySelectorAll('[data-tutorial-close]').forEach(function (node) { node.addEventListener('click', function () { close('tutorial_skip'); }); });
       function targetContains(target, element) {
         return target === element || !!(target.contains && target.contains(element));
       }
-      document.addEventListener('click', function (event) {
-        if (shell.hidden || shell.contains(event.target)) return;
+      // A page dialog opened by an allowed action (e.g. the hint confirmation
+      // after 💡) must stay usable on top of the tutorial.
+      function inPageDialog(element) {
+        var dialog = element && element.closest && element.closest('.new-rules-modal:not(.tutorial-shell)');
+        return !!(dialog && !dialog.hidden);
+      }
+      // ``interactive`` narrows what an action step lets the player touch;
+      // the rest of its targets are only highlighted.
+      function interactiveTargets() {
         var step = options.steps[index];
-        var allowed = step.kind === 'action' && activeTargets.some(function (target) { return targetContains(target, event.target); });
-        if (!allowed) {
-          event.preventDefault();
-          event.stopImmediatePropagation();
-        }
+        if (completed || step.kind !== 'action') return [];
+        resolveTargets();
+        return step.interactive ? targets(step.interactive) : activeTargets;
+      }
+      function inActionTarget(element) {
+        return interactiveTargets().some(function (target) { return targetContains(target, element); });
+      }
+      function eventAllowed(event) {
+        if (shell.hidden || shell.contains(event.target)) return true;
+        return inPageDialog(event.target) || inActionTarget(event.target);
+      }
+      function block(event) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      }
+      // Window capture runs before every page handler, including the ones the
+      // play page registers on document in the capture phase (likes, Tab nav).
+      ['click', 'dblclick', 'auxclick', 'contextmenu', 'pointerdown', 'mousedown', 'touchstart'].forEach(function (type) {
+        global.addEventListener(type, function (event) {
+          if (!eventAllowed(event)) block(event);
+        }, {capture: true, passive: false});
+      });
+      // Focus never rests on a page control the step does not offer: text
+      // from soft keyboards and IME arrives without keydown events.
+      global.addEventListener('focusin', function (event) {
+        if (shell.hidden || shell.contains(event.target) || inPageDialog(event.target)) return;
+        if (inActionTarget(event.target)) return;
+        if (event.target.blur) event.target.blur();
+        if (!next.hidden) next.focus();
       }, true);
-      document.addEventListener('keydown', function (event) {
-        if (event.key !== 'Tab' || shell.hidden) return;
-        var nodes = Array.prototype.slice.call(shell.querySelectorAll('button:not([disabled]):not([hidden]), a[href], input:not([readonly]):not([disabled]), [tabindex="0"]'));
-        if (options.steps[index].kind === 'action') {
-          activeTargets.forEach(function (target) {
-            if (target.matches && target.matches('button:not([disabled]), input:not([readonly]):not([disabled]), [tabindex="0"]')) nodes.push(target);
-            if (target.querySelectorAll) nodes = nodes.concat(Array.prototype.slice.call(target.querySelectorAll('button:not([disabled]), input:not([readonly]):not([disabled]), [tabindex="0"]')));
+      // A page dialog (the hint confirmation) goes above the tutorial: the
+      // popup and its dimming step aside until the dialog closes.
+      function syncPageDialog() {
+        var open = Array.prototype.some.call(
+          document.querySelectorAll('.new-rules-modal:not(.tutorial-shell)'),
+          function (dialog) { return !dialog.hidden; }
+        );
+        var yielding = shell.classList.contains('tutorial-shell--yield');
+        if (open === yielding) return;
+        shell.classList.toggle('tutorial-shell--yield', open);
+        if (!open) scheduleReposition();
+      }
+      new MutationObserver(syncPageDialog).observe(document.body, {
+        attributes: true, attributeFilter: ['hidden'], subtree: true,
+      });
+      function tabStops() {
+        var selector = 'button:not([disabled]):not([hidden]), a[href], input:not([readonly]):not([disabled]), [tabindex="0"]';
+        var nodes = Array.prototype.slice.call(shell.querySelectorAll(selector));
+        if (!completed && options.steps[index].kind === 'action') {
+          interactiveTargets().forEach(function (target) {
+            if (target.matches && target.matches(selector)) nodes.push(target);
+            if (target.querySelectorAll) nodes = nodes.concat(Array.prototype.slice.call(target.querySelectorAll(selector)));
           });
         }
-        nodes = nodes.filter(function (node, position) { return nodes.indexOf(node) === position && node.getClientRects().length; });
-        if (!nodes.length) { event.preventDefault(); return; }
-        var first = nodes[0];
-        var last = nodes[nodes.length - 1];
-        if (event.shiftKey && (document.activeElement === first || !nodes.includes(document.activeElement))) {
-          event.preventDefault(); last.focus();
-        } else if (!event.shiftKey && (document.activeElement === last || !nodes.includes(document.activeElement))) {
-          event.preventDefault(); first.focus();
+        return nodes.filter(function (node, position) { return nodes.indexOf(node) === position && node.getClientRects().length; });
+      }
+      global.addEventListener('keydown', function (event) {
+        if (shell.hidden || inPageDialog(event.target)) return;
+        if (event.key === 'Escape') {
+          block(event);
+          close('tutorial_skip');
+          return;
         }
-      });
-      document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && !shell.hidden) close('tutorial_skip');
-      });
+        if (event.key === 'Tab') {
+          // Tab cycles only through the popup and the highlighted controls.
+          block(event);
+          var nodes = tabStops();
+          if (!nodes.length) return;
+          var position = nodes.indexOf(document.activeElement);
+          var nextIndex = position < 0
+            ? (event.shiftKey ? nodes.length - 1 : 0)
+            : (position + (event.shiftKey ? -1 : 1) + nodes.length) % nodes.length;
+          nodes[nextIndex].focus();
+          return;
+        }
+        // Keys on the page itself (scrolling) stay; keys aimed at its
+        // controls (typing, Enter, Space) only work on highlighted ones.
+        // Printable keys are blocked even off the controls: the play page
+        // routes stray typing into the current word.
+        var control = event.target.closest && event.target.closest('input, textarea, select, button, a[href], [tabindex]');
+        var typing = event.key && event.key.length === 1 && event.key !== ' ' && !event.ctrlKey && !event.metaKey && !event.altKey;
+        if ((control || typing) && !eventAllowed(event)) block(event);
+      }, true);
       global.addEventListener('resize', scheduleReposition);
       global.addEventListener('scroll', scheduleReposition, true);
       global.addEventListener('load', scheduleReposition, {once: true});
@@ -341,6 +467,8 @@
       open();
       return {
         setStep: setStep, next: function () { go(1); }, back: function () { go(-1); },
+        refresh: scheduleReposition,
+        showMessage: showMessage,
         finish: finish, close: close, feedback: function (value) { feedback.textContent = value || ''; },
         isOpen: function () { return !shell.hidden; },
       };

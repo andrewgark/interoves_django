@@ -1,255 +1,200 @@
 (function (global) {
   'use strict';
 
+  // Popup layer of the tutorial Ladder. The board under it is the regular
+  // play page (task_group.html): answers go through /send_attempt/ and the
+  // card is re-rendered by the server, so this file only reads that DOM.
   var root = document.querySelector('[data-ladder-tutorial]');
   if (!root) return;
-  var configNode = document.getElementById('ladder-tutorial-data');
-  var config = JSON.parse(configNode.textContent);
+  var config = JSON.parse(document.getElementById('ladder-tutorial-data').textContent);
   var first = config.steps.first;
   var second = config.steps.second;
   var lowerPair = config.steps.lower_pair;
-  var phase = 'locked';
-  var solvedIndices = new Set(config.initial_solved_indices);
+  var phase = 'intro';
+  // Indices into the steps list below.
+  var STEP = {chooseFirst: 3, answerFirst: 4, lowerPair: 5, chooseSecond: 8, answerSecond: 9};
+  var currentStep = 0;
 
-  function row(index) { return root.querySelector('[data-tutorial-slot="' + index + '"]'); }
-  function clue(index) { return root.querySelector('[data-tutorial-clue="' + index + '"]'); }
-  function input(index) { return root.querySelector('[data-tutorial-answer-input="' + index + '"]'); }
-  function clueTarget(index) { return root.querySelector('[data-tutorial-clue="' + index + '"]'); }
+  function board() {
+    return document.querySelector('.new-raddle-task[data-task-id="' + config.task_id + '"]');
+  }
+  function query(selector) {
+    var node = board();
+    return node ? node.querySelector(selector) : null;
+  }
+  function row(index) { return query('.new-raddle-row[data-word-index="' + index + '"]'); }
+  function input(index) {
+    var node = row(index);
+    return node ? node.querySelector('input.new-raddle-input') : null;
+  }
+  function wordList() { return query('.new-raddle-ladder'); }
+  function unusedClues() { return query('.new-raddle-clues__section--unused'); }
+  function assistButton(index) {
+    var node = row(index);
+    return node ? node.querySelector('.new-raddle-assist-btn') : null;
+  }
+  function usedClues() { return query('.new-raddle-clues__section--used'); }
+  function clue(index) { return query('[data-raddle-unused-clues] .new-raddle-clue[data-hint-index="' + index + '"]'); }
   function region(indices) {
     return global.InterovesTutorial.combineTargets(indices.map(row).filter(Boolean));
   }
-  function setLocked(value) { root.dataset.tutorialLocked = value ? '1' : '0'; }
-  function setInputsLocked(allowed) {
-    var permitted = Array.isArray(allowed) ? new Set(allowed) : null;
-    root.querySelectorAll('[data-tutorial-answer-input]').forEach(function (node) {
-      var answerIndex = Number(node.dataset.tutorialAnswerInput);
-      var format = node.getAttribute('data-raddle-format') || '';
-      var slots = (format.match(/#/g) || []).length;
-      if (slots) node.maxLength = slots;
-      var enabled = allowed === 'all' || (permitted ? permitted.has(answerIndex) : allowed !== null && answerIndex === allowed);
-      node.readOnly = !enabled;
-      node.setAttribute('aria-disabled', enabled ? 'false' : 'true');
-      node.classList.toggle('tutorial-input--locked', !enabled);
-    });
+  function isSolved(index) {
+    var node = row(index);
+    return !!(node && node.classList.contains('new-raddle-row--solved'));
   }
-  function activateInput(index, shouldFocus) {
-    var r = row(index);
-    if (!r) return;
-    r.classList.add('new-raddle-row--playable', 'new-raddle-row--focus');
-    r.classList.remove('new-raddle-row--draft', 'new-raddle-row--locked');
-    var actions = r.querySelector('.new-raddle-actions');
-    if (actions && !actions.querySelector('[data-tutorial-form]')) {
-      actions.innerHTML = '<form class="new-raddle-line-form" action="#" method="post" data-tutorial-form="' + index + '" id="tutorial-raddle-form-' + index + '"><button type="submit" class="new-replacements-check-btn" aria-label="Проверить слово"><i class="ph ph-check" aria-hidden="true"></i></button></form>';
-    }
-    var form = actions && actions.querySelector('[data-tutorial-form]');
-    if (form && !form.querySelector('button[type="submit"]')) {
-      var button = document.createElement('button');
-      button.type = 'submit';
-      button.className = 'new-replacements-check-btn';
-      button.setAttribute('aria-label', 'Проверить слово');
-      button.innerHTML = '<i class="ph ph-check" aria-hidden="true"></i>';
-      form.appendChild(button);
-    }
-    var field = input(index);
-    if (field) {
-      if (form && form.id) field.setAttribute('form', form.id);
-    }
-    setInputsLocked(index);
-    if (field && shouldFocus !== false) field.focus();
-  }
-  function markClueUsed(index) {
-    var node = clue(index);
-    if (!node) return;
-    var used = root.querySelector('[data-tutorial-target="clues-used"] ul');
-    if (!used) return;
-    var html = (config.used_hint_display && config.used_hint_display[index]) || '';
-    node.remove();
-    var item = document.createElement('li');
-    item.className = 'new-raddle-clue new-raddle-clue--used';
-    item.dataset.tutorialClue = String(index);
-    item.dataset.hintIndex = String(index);
-    item.innerHTML = '<span class="new-raddle-clue__text">' + html + '</span>';
-    used.appendChild(item);
-  }
-  function markSolved(index, answer) {
-    var r = row(index);
-    if (!r) return;
-    solvedIndices.add(index);
-    r.classList.remove('new-raddle-row--playable', 'new-raddle-row--focus', 'new-raddle-row--draft');
-    r.classList.add('new-raddle-row--solved', 'tutorial-slot--correct');
-    var line = r.querySelector('.new-raddle-line');
-    if (line) line.innerHTML = '<span class="new-raddle-line__solved-text"><strong>' + answer + '</strong></span>';
-    var actions = r.querySelector('.new-raddle-actions');
-    if (actions) actions.innerHTML = '<span class="new-replacements-check-btn new-replacements-check-btn--done" data-tooltip="Верно"><i class="ph ph-check" aria-hidden="true"></i></span>';
-    setInputsLocked(null);
-  }
-  function freePlayEdges() {
-    var top = null;
-    var bottom = null;
+  function remainingIndex() {
     for (var i = 0; i < config.words.length; i += 1) {
-      if (!solvedIndices.has(i) && solvedIndices.has(i - 1)) { top = i; break; }
+      if (!isSolved(i)) return i;
     }
-    for (var j = config.words.length - 1; j >= 0; j -= 1) {
-      if (!solvedIndices.has(j) && solvedIndices.has(j + 1)) { bottom = j; break; }
+    return null;
+  }
+
+  // Point the production pair highlight and clue rendering at a row without
+  // focusing its input (no mobile keyboard under an info popup).
+  function showPair(index) {
+    if (typeof global.setRaddleFocusForTask === 'function') {
+      global.setRaddleFocusForTask(config.task_id, index);
     }
-    return Array.from(new Set([top, bottom].filter(function (value) { return value !== null; })));
   }
-  function startFreePlay() {
-    phase = 'freeplay';
-    var edges = freePlayEdges();
-    edges.forEach(function (index) { activateInput(index, false); });
-    setLocked(false);
-    setInputsLocked(edges);
+  // After a tap outside the row the board treats an immediate programmatic
+  // focus as stolen by a closing keyboard (raddle_keyboard_dismiss.js), so
+  // the caret is placed once that window is over. Touch players tap the
+  // field themselves, as in a normal game.
+  var FOCUS_GUARD_MS = 750;
+  function focusInputSoon(index, stepIndex) {
+    if (global.matchMedia && global.matchMedia('(pointer: coarse)').matches) return;
+    setTimeout(function () {
+      var field = input(index);
+      if (!field || !tutorial.isOpen() || currentStep !== stepIndex) return;
+      if (document.activeElement === field) return;
+      field.focus({preventScroll: true});
+    }, FOCUS_GUARD_MS);
   }
-  function setFreePlayFeedback(index, message) {
-    var r = row(index);
-    if (!r) return;
-    var cell = r.querySelector('.new-raddle-block__word');
-    var status = cell.querySelector('.tutorial-local-feedback');
-    if (!status) {
-      status = document.createElement('div');
-      status.className = 'new-attempt-msg new-raddle-word-msg tutorial-local-feedback';
-      cell.appendChild(status);
-    }
-    status.textContent = message;
+  function releaseBoardFocus() {
+    var active = document.activeElement;
+    if (active && board() && board().contains(active) && active.blur) active.blur();
   }
-  function selectHint(index) {
-    if (phase !== 'choose-first' && phase !== 'choose-second') return;
-    var expected = phase === 'choose-first' ? first.hint_index : second.hint_index;
-    if (index !== expected) {
+
+  // «Вот эта» buttons exist only while the player has to pick a clue.
+  function addPickButtons() {
+    var list = query('[data-raddle-unused-clues]');
+    if (!list) return null;
+    var firstButton = null;
+    list.querySelectorAll('.new-raddle-clue[data-hint-index]').forEach(function (item) {
+      if (item.querySelector('[data-tutorial-pick]')) return;
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'new-btn new-btn--mini tutorial-clue-pick';
+      button.dataset.tutorialPick = item.getAttribute('data-hint-index');
+      button.textContent = 'Вот эта';
+      item.appendChild(button);
+      if (!firstButton) firstButton = button;
+    });
+    return firstButton;
+  }
+  function removePickButtons() {
+    document.querySelectorAll('[data-tutorial-pick]').forEach(function (node) { node.remove(); });
+  }
+  function pickClue(index) {
+    var expected = phase === 'choose-first' ? first : second;
+    if (index !== expected.hint_index) {
       tutorial.feedback('Не эта. Попробуй другую.');
       return;
     }
-    var selected = clue(index);
-    if (selected) selected.classList.add('new-raddle-clue--active');
+    removePickButtons();
     phase = phase === 'choose-first' ? 'answer-first' : 'answer-second';
-    setLocked(false);
-    activateInput(phase === 'answer-first' ? first.word_index : second.word_index);
-    tutorial.setStep(phase === 'answer-first' ? 5 : 8);
+    tutorial.setStep(phase === 'answer-first' ? STEP.answerFirst : STEP.answerSecond);
   }
-  function submit(index, value) {
-    if (phase === 'freeplay') {
-      if (!freePlayEdges().includes(index)) return;
-      if (String(value || '').trim().toUpperCase() !== config.words[index]) {
-        setFreePlayFeedback(index, 'Не совсем. Попробуй ещё раз.');
-        return;
-      }
-      var edgeHint = solvedIndices.has(index - 1) ? index - 1 : index;
-      markSolved(index, config.words[index]);
-      markClueUsed(edgeHint);
-      if (solvedIndices.size >= config.words.length) {
-        phase = 'complete';
-        setLocked(true);
-        setInputsLocked(null);
-        var completion = root.querySelector('[data-ladder-tutorial-complete]');
-        if (completion) completion.hidden = false;
-        return;
-      }
-      setTimeout(startFreePlay, 0);
-      return;
-    }
-    if (phase !== 'answer-first' && phase !== 'answer-second') return;
-    var expected = phase === 'answer-first' ? first : second;
-    if (index !== expected.word_index) return;
-    if (String(value || '').trim().toUpperCase() !== expected.answer) {
-      tutorial.feedback('Не совсем. Попробуй ещё раз.');
-      return;
-    }
-    markSolved(index, expected.answer);
-    markClueUsed(expected.hint_index);
-    tutorial.feedback('Верно!');
-    if (phase === 'answer-first') {
+
+  // The page's own result card stays; the tutorial adds the way onward:
+  // a congratulation popup once, and a button under the card after it.
+  function showNextStep() {
+    var next = root.querySelector('[data-ladder-tutorial-next]');
+    var card = document.getElementById('new-task-' + config.task_id);
+    if (!next || !next.hidden || !card) return;
+    card.insertAdjacentElement('afterend', next);
+    next.hidden = false;
+    phase = 'solved';
+    setTimeout(function () {
+      tutorial.showMessage({
+        title: 'Поздравляем!',
+        text: 'Обучающая Лесенка решена.\nСегодняшняя Лесенка длиннее и может оказаться сложной. Не бойся брать подсказки 💡 — решение с ними тоже засчитывается.',
+        label: 'Решить сегодняшнюю Лесенку',
+        href: config.today_url,
+      });
+    }, 400);
+  }
+
+  // The card is replaced after every accepted word; react to the new state.
+  function onBoardChange() {
+    if (remainingIndex() === null) showNextStep();
+    if (phase === 'answer-first' && isSolved(first.word_index)) {
       phase = 'lower-explain';
-      setLocked(true);
-      setTimeout(function () { tutorial.setStep(6); }, 250);
-    } else {
+      setTimeout(function () { tutorial.setStep(STEP.lowerPair); }, 250);
+    } else if (phase === 'answer-second' && isSolved(second.word_index)) {
       phase = 'finished';
-      setLocked(true);
       setTimeout(function () { tutorial.finish(); }, 250);
     }
   }
 
   var tutorial = global.InterovesTutorial.createShell(root, {
-    steps: [
-      {kind: 'info', title: 'Это Лесенка', text: 'Нужно соединить верхнее слово «' + config.words[0] + '» с нижним «' + config.words[config.words.length - 1] + '».', targets: ['[data-tutorial-target="word-list"]']},
-      {kind: 'info', title: 'Соседние слова', text: 'Соседние слова связывает подсказка.\nИщи её для следующей ступеньки после «' + config.words[0] + '».', targets: [function () { return region([0, 1]); }, function () { return clue(first.hint_index); }], calloutTarget: [function () { return clue(first.hint_index); }], calloutSide: 'right-above-or-left-below'},
-      {kind: 'info', title: 'Длина слова', text: 'Число в скобках показывает длину слова.\nЗдесь нужно слово из ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }]},
-      {kind: 'info', title: 'Подсказки не по порядку', text: 'Подсказки расположены не по порядку.\nНайди ту, что поможет продолжить от «' + config.words[0] + '».', nextLabel: 'Попробовать', targets: ['[data-tutorial-target="clues-unused"]']},
-      {kind: 'action', title: 'Выбери подсказку', text: 'Выбери подсказку для следующего слова.', targets: ['[data-tutorial-target="clues-unused"]']},
-      {kind: 'action', title: 'Введи слово', text: 'Отлично. Теперь введи следующее слово.\nВ нём ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }, function () { return clueTarget(first.hint_index); }], calloutTarget: [function () { return input(first.word_index); }], calloutSide: 'below'},
-      {kind: 'info', title: 'Можно идти с двух сторон', text: 'Лесенку можно собирать с обоих концов.\nЗдесь нужно найти слово перед «' + config.words[lowerPair.word_indices[1]] + '».', targets: [function () { return region(lowerPair.word_indices); }]},
-      {kind: 'info', title: 'Подсказка снизу', text: 'Та же подсказка связывает два соседних слова — теперь у нижнего края.', nextLabel: 'Теперь сам', targets: [function () { return region(lowerPair.word_indices); }, function () { return clue(lowerPair.hint_index); }]},
-      {kind: 'action', title: 'Попробуй сам', text: 'Теперь выбери подходящую подсказку и введи следующее слово.', targets: ['[data-tutorial-target="clues-unused"]']},
-    ],
-    onFinish: function () {
-      root.classList.add('tutorial-complete');
-      setInputsLocked(null);
-      setLocked(true);
+    finish: {
+      text: 'Теперь ты знаешь, как играть.\nОсталось одно слово посередине — оно связано подсказками и с верхним, и с нижним соседом.',
+      label: 'Доиграть',
+      calloutTarget: [function () { return row(remainingIndex()); }],
     },
+    steps: [
+      {kind: 'info', title: 'Это Лесенка', text: 'Нужно соединить верхнее слово «' + config.words[0] + '» с нижним «' + config.words[config.words.length - 1] + '».', targets: [wordList]},
+      {kind: 'info', title: 'Длина слова', text: 'Число в скобках показывает длину слова.\nЗдесь нужно слово из ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }]},
+      {kind: 'info', title: 'Подсказки не по порядку', text: 'Соседние слова связывает подсказка, но подсказки перемешаны.\nОдна из них загадывает слово, идущее после «' + config.words[0] + '».', nextLabel: 'Попробовать', targets: [function () { return region([0, 1]); }, unusedClues], calloutTarget: [function () { return region([0, 1]); }], calloutSide: 'below'},
+      {kind: 'action', title: 'Выбери подсказку', text: 'Какая подсказка ведёт от «' + config.words[0] + '» к следующему слову? Нажми «Вот эта» рядом с ней.', targets: [unusedClues]},
+      {kind: 'action', title: 'Введи слово', text: 'Отлично. Теперь введи следующее слово.\nВ нём ' + config.lengths[first.word_index] + ' букв — ответ проверится сам.', targets: [function () { return row(first.word_index); }, function () { return clue(first.hint_index); }], interactive: [function () { return row(first.word_index); }], calloutTarget: [function () { return input(first.word_index); }], calloutSide: 'below'},
+      {kind: 'info', title: 'Можно идти с двух сторон', text: 'Лесенку можно собирать с обоих концов.\nЗдесь нужно найти слово перед «' + config.words[lowerPair.word_indices[1]] + '».', targets: [function () { return region(lowerPair.word_indices); }]},
+      {kind: 'info', title: 'Подсказка снизу', text: 'Если угадываешь снизу, нижнее слово сразу подставляется в подсказки зелёным.', targets: [function () { return region(lowerPair.word_indices); }, unusedClues]},
+      {kind: 'info', title: 'Если не получается', text: 'Нажми 💡 у слова. Первое нажатие подсветит подходящую подсказку, второе откроет само слово.\nСлово с подсказкой приносит меньше баллов, но решение всё равно засчитается.', nextLabel: 'Теперь сам', targets: [function () { return assistButton(second.word_index); }], calloutSide: 'below'},
+      {kind: 'action', title: 'Попробуй сам', text: 'Найди подсказку, которая ведёт к «' + config.words[lowerPair.word_indices[1]] + '», и нажми «Вот эта».', targets: [unusedClues]},
+      {kind: 'action', title: 'Введи слово', text: 'Верно. Введи слово перед «' + config.words[lowerPair.word_indices[1]] + '».', targets: [function () { return row(second.word_index); }, function () { return clue(second.hint_index); }], interactive: [function () { return row(second.word_index); }], calloutTarget: [function () { return global.innerWidth > 720 ? usedClues() : input(second.word_index); }], calloutSide: 'over'},
+    ],
     onStep: function (stepIndex) {
-      if (stepIndex === 4) phase = 'choose-first';
-      if (stepIndex === 8) phase = 'choose-second';
-      if (stepIndex === 3 || stepIndex === 6 || stepIndex === 7) {
-        setLocked(true);
-        setInputsLocked(null);
+      currentStep = stepIndex;
+      var choosing = stepIndex === STEP.chooseFirst || stepIndex === STEP.chooseSecond;
+      if (!choosing) removePickButtons();
+      if (stepIndex >= STEP.lowerPair) showPair(lowerPair.word_indices[0]);
+      if (choosing) {
+        phase = stepIndex === STEP.chooseFirst ? 'choose-first' : 'choose-second';
+        releaseBoardFocus();
+        var button = addPickButtons();
+        // Focus now so the shell does not move it onto a clue's mark circle.
+        if (button) button.focus();
+      } else if (stepIndex === STEP.answerFirst || stepIndex === STEP.answerSecond) {
+        focusInputSoon(stepIndex === STEP.answerFirst ? first.word_index : second.word_index, stepIndex);
+      } else {
+        releaseBoardFocus();
       }
     },
-    onClose: function (eventName) {
-      startFreePlay();
+    onClose: function () {
+      phase = 'freeplay';
+      removePickButtons();
     },
   });
 
-  root.querySelectorAll('[data-tutorial-clue]').forEach(function (node) {
-    node.setAttribute('role', 'button');
-    node.tabIndex = -1;
-    node.addEventListener('click', function (event) {
-      if (event.target.closest('[data-tutorial-close]')) return;
-      selectHint(Number(node.dataset.tutorialClue));
-    });
-    node.addEventListener('keydown', function (event) {
-      if (event.key !== 'Enter' && event.key !== ' ') return;
-      event.preventDefault();
-      node.click();
-    });
-  });
-  root.addEventListener('submit', function (event) {
-    var form = event.target.closest('[data-tutorial-form]');
-    if (!form) return;
+  // Capture phase: runs before the production handler that would strike the
+  // clue through, so its mark circle counts as a choice too.
+  document.addEventListener('click', function (event) {
+    if (phase !== 'choose-first' && phase !== 'choose-second') return;
+    var trigger = event.target.closest && event.target.closest('[data-tutorial-pick], .new-raddle-clue__mark');
+    var item = trigger && trigger.closest('[data-raddle-unused-clues] .new-raddle-clue[data-hint-index]');
+    if (!item || !board() || !board().contains(item)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    var field = input(Number(form.dataset.tutorialForm));
-    submit(Number(form.dataset.tutorialForm), field && global.RaddleMaskedInput
-      ? global.RaddleMaskedInput.getSubmitValue(field) : field && field.value);
+    pickClue(Number(item.getAttribute('data-hint-index')));
   }, true);
-  root.addEventListener('keydown', function (event) {
-    if (event.key !== 'Enter') return;
-    var field = event.target.closest('[data-tutorial-answer-input]');
-    if (!field) return;
-    event.preventDefault();
-    submit(Number(field.dataset.tutorialAnswerInput), global.RaddleMaskedInput
-      ? global.RaddleMaskedInput.getSubmitValue(field) : field.value);
-  }, true);
-  if (global.RaddleMaskedInput && global.RaddleMaskedInput.bindAll) {
-    global.RaddleMaskedInput.bindAll(root, {
-      onComplete: function (field, letters) {
-        if (!field || !field.matches('[data-tutorial-answer-input]')) return;
-        submit(Number(field.dataset.tutorialAnswerInput), letters);
-      },
-    });
-  }
-  root.addEventListener('click', function (event) {
-    if (event.target.closest('[data-tutorial-clue]')) return;
-    if (root.dataset.tutorialLocked === '1' && event.target.closest('button[type="submit"]')) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    }
-  }, true);
-  root.addEventListener('tutorial:step', function (event) {
-    var selectable = event.detail === 4 || event.detail === 8;
-    root.querySelectorAll('[data-tutorial-clue]').forEach(function (node) {
-      if (node.closest('[data-tutorial-target="clues-unused"]')) node.tabIndex = selectable ? 0 : -1;
-    });
-  });
-  setLocked(true);
-  setInputsLocked(null);
+
+  new MutationObserver(function (mutations) {
+    // The spotlight itself lives in the popup layer; only board changes count.
+    var boardChanged = mutations.some(function (mutation) { return !root.contains(mutation.target); });
+    if (!boardChanged) return;
+    onBoardChange();
+    tutorial.refresh();
+  }).observe(document.body, {childList: true, subtree: true});
 }(window));

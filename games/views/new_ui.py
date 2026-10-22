@@ -252,6 +252,9 @@ from games.payment_routes import (
     unit_price_for as ticket_unit_price_for,
 )
 from games.yookassa_util import configure_yookassa_from_env
+from games.tutorials.ladder import (
+    LADDER_TUTORIAL_TITLE, ladder_tutorial_payload, reset_ladder_tutorial_progress,
+)
 
 from yookassa import Payment
 
@@ -3505,7 +3508,12 @@ def daily_statistics(request, game_id, number):
     return JsonResponse(payload)
 
 
-def new_task_group_page(request, game_id, task_group_number):
+def new_task_group_page(request, game_id, task_group_number, ladder_tutorial_task=None):
+    """Play page of one task group.
+
+    ``ladder_tutorial_task`` renders the tutorial Ladder (games/tutorials) on
+    this same page, the way a draft ladder offer is rendered.
+    """
     game = get_object_or_404(
         Game.objects.select_related('section_default_rules'),
         id=game_id,
@@ -3535,6 +3543,9 @@ def new_task_group_page(request, game_id, task_group_number):
 
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
+    if ladder_tutorial_task is not None:
+        # The tutorial is always a personal board, never a team's.
+        play_mode = 'personal'
     anon_key = None
 
     if not request.user.is_authenticated:
@@ -3573,7 +3584,9 @@ def new_task_group_page(request, game_id, task_group_number):
         from games.daily.placement import resolve_accessible_daily_placement
         share_placement = None
         segment = str(task_group_number)
-        if game_id == LADDER_GAME_ID and is_share_hash_segment(segment):
+        if ladder_tutorial_task is not None:
+            pass
+        elif game_id == LADDER_GAME_ID and is_share_hash_segment(segment):
             from games.ladder_offer import can_access_offer_hash, get_offer_by_share_hash
             ladder_offer = get_offer_by_share_hash(segment)
             if ladder_offer is None:
@@ -3611,7 +3624,10 @@ def new_task_group_page(request, game_id, task_group_number):
             ) is None
         ):
             raise Http404()
-        if ladder_offer is None and salad_offer is None and share_placement is None:
+        if (
+            ladder_offer is None and salad_offer is None and share_placement is None
+            and ladder_tutorial_task is None
+        ):
             from games.club_access import reject_if_club_archive_blocked
 
             locked = reject_if_club_archive_blocked(
@@ -3631,7 +3647,21 @@ def new_task_group_page(request, game_id, task_group_number):
 
     mode = game.get_current_mode(Attempt(time=timezone.now()))
     draft_offer = ladder_offer or salad_offer
-    if ladder_offer is not None:
+    if ladder_tutorial_task is not None:
+        from types import SimpleNamespace
+        reset_ladder_tutorial_progress(
+            ladder_tutorial_task, team=team, user=user, anon_key=anon_key,
+        )
+        # Behaves as an unaccepted draft offer: no archive neighbours, replay,
+        # official release or results table.
+        draft_offer = SimpleNamespace(accepted_link_id=None, share_hash='', user_id=None)
+        placement = SimpleNamespace(
+            pk=None,
+            number=str(task_group_number),
+            name=LADDER_TUTORIAL_TITLE,
+            task_group=ladder_tutorial_task.task_group,
+        )
+    elif ladder_offer is not None:
         from types import SimpleNamespace
         if ladder_offer.accepted_link_id:
             placement = (
@@ -3684,7 +3714,7 @@ def new_task_group_page(request, game_id, task_group_number):
     if getattr(placement, 'is_deferred', False) and not may_open_unpublished_number(request.user):
         raise Http404()
     task_group = placement.task_group
-    if (game.id == LADDER_GAME_ID and ladder_offer is not None) or (
+    if ladder_tutorial_task is not None or (game.id == LADDER_GAME_ID and ladder_offer is not None) or (
         game.id == WORD_SALAD_GAME_ID and salad_offer is not None
     ):
         prev_tg, next_tg = None, None
@@ -3762,7 +3792,9 @@ def new_task_group_page(request, game_id, task_group_number):
         published_at=pub_at if draft_offer is None else None,
         now=timezone.now(),
     )
-    if draft_offer is not None:
+    if ladder_tutorial_task is not None:
+        page_title = placement.name
+    elif draft_offer is not None:
         if draft_offer.accepted_link_id and str(getattr(draft_offer.accepted_link, 'number', '')).isdigit():
             page_title = '{} №{}'.format(
                 game.outside_name or game.name,
@@ -3783,7 +3815,7 @@ def new_task_group_page(request, game_id, task_group_number):
 
     can_reset_offer = False
     offer_reset_url = None
-    if draft_offer is not None and request.user.is_authenticated:
+    if draft_offer is not None and request.user.is_authenticated and ladder_tutorial_task is None:
         if draft_offer.user_id == request.user.id or request.user.is_staff:
             can_reset_offer = True
             if ladder_offer is not None:
@@ -3802,7 +3834,9 @@ def new_task_group_page(request, game_id, task_group_number):
         or (getattr(draft_offer, 'share_hash', '') or '').strip()
     )
 
-    if ladder_offer is not None:
+    if ladder_tutorial_task is not None:
+        ladder_results_url = None
+    elif ladder_offer is not None:
         ladder_results_url = ladder_word_results_path(ladder_offer.share_hash)
     elif game.id == LADDER_GAME_ID:
         ladder_results_url = ladder_word_results_path(public_task_segment)
@@ -3907,12 +3941,19 @@ def new_task_group_page(request, game_id, task_group_number):
             _play_url_for_task_group(game, next_tg.number) if next_tg else None,
         )[1],
         'task_group_results_url': (
-            '' if salad_offer is not None and not salad_offer.accepted_link_id
+            '' if ladder_tutorial_task is not None
+            or (salad_offer is not None and not salad_offer.accepted_link_id)
             else _task_group_results_url(game, public_task_segment)
         ),
         'task_group_live_state_url': _task_group_live_state_url(game),
-        'replay_url': _task_group_replay_url(game, public_task_segment),
-        'replay_exit_url': _task_group_replay_exit_url(game, public_task_segment),
+        'replay_url': (
+            None if ladder_tutorial_task is not None
+            else _task_group_replay_url(game, public_task_segment)
+        ),
+        'replay_exit_url': (
+            None if ladder_tutorial_task is not None
+            else _task_group_replay_exit_url(game, public_task_segment)
+        ),
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,
@@ -3936,6 +3977,10 @@ def new_task_group_page(request, game_id, task_group_number):
         **daily_lifecycle_context,
         **section_format_credit_context(game.id),
         'ladder_offer': ladder_offer,
+        'ladder_tutorial': (
+            ladder_tutorial_payload(ladder_tutorial_task)
+            if ladder_tutorial_task is not None else None
+        ),
         'can_reset_ladder_offer': can_reset_offer,
         'ladder_offer_reset_url': offer_reset_url,
         'custom_reset_enabled': can_reset_offer,

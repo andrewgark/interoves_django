@@ -23,7 +23,12 @@ def _task_card_public_identity(game, task_group, slot):
 
     if game.id == 'ladder':
         from games.models import LadderOffer
+        from games.tutorials.ladder import (
+            LADDER_TUTORIAL_SEGMENT, LADDER_TUTORIAL_TITLE, is_ladder_tutorial_task_group,
+        )
 
+        if is_ladder_tutorial_task_group(task_group):
+            return LADDER_TUTORIAL_SEGMENT, LADDER_TUTORIAL_TITLE
         offer = LadderOffer.objects.filter(task_group_id=task_group.pk).first()
         if offer is not None:
             return offer.share_hash, (offer.author or 'Лесенка').strip() or 'Лесенка'

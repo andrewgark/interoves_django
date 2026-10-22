@@ -1,15 +1,22 @@
-"""Immutable, isolated demo payload for the short Ladder tutorial."""
+"""Short Ladder tutorial: a real raddle task played on the production page.
+
+The task lives in its own TaskGroup outside the ladder archive (like a draft
+ladder offer), so it is solved through the same templates, JS and
+``/send_attempt/`` contract as a daily Ladder. Only the popup layer
+(``static/js/ladder_tutorial.js``) is tutorial-specific.
+"""
 
 import json
-from types import SimpleNamespace
 
-from games.raddle import build_raddle_ui_context, parse_raddle_data, used_clue_display
+from django.db import transaction
 
 
-LADDER_TUTORIAL_VERSION = 'v7'
+LADDER_TUTORIAL_VERSION = 'v9'
+LADDER_TUTORIAL_LABEL = 'ladder_tutorial'
+LADDER_TUTORIAL_SEGMENT = 'tutorial'
+LADDER_TUTORIAL_TITLE = 'Обучающая Лесенка'
 
 _WORDS = ('ПЕРВАЯ', 'ПЯТАЯ', 'ЗАПЯТАЯ', 'ТОЧКА', 'ЛАСТОЧКА')
-_LENGTHS = tuple(len(word) for word in _WORDS)
 _HINTS = (
     'А и Д — это ____ и ... буквы алфавита',
     'Знак препинания, заканчивающийся на ____',
@@ -18,60 +25,72 @@ _HINTS = (
 )
 
 
-class LadderTutorialAdapter:
-    task_id = 'ladder-tutorial-demo'
-    # The endpoints define the puzzle; every word between them starts blank.
-    initial_solved_indices = (0, 4)
-    initial_used_hint_indices = ()
+def _checker_payload():
+    from games.support.services.ladders import build_checker_payload
 
-    def task(self):
-        checker_data = json.dumps({
-            'lengths': list(_LENGTHS), 'hints': list(_HINTS),
-            'words': list(_WORDS),
-            'raddle_assist': {'enabled': True, 'fractions': [1, 0.5, 0]},
-        }, ensure_ascii=False)
-        return SimpleNamespace(
-            id=self.task_id, number='17', task_type='raddle',
-            text='Короткая Лесенка', answer='\n'.join(_WORDS),
-            checker_data=checker_data,
-            attempt_revision='ladder-tutorial-v7', tags={},
+    return build_checker_payload(list(_WORDS), list(_HINTS))
+
+
+def is_ladder_tutorial_task_group(task_group):
+    return bool(task_group is not None and getattr(task_group, 'label', None) == LADDER_TUTORIAL_LABEL)
+
+
+@transaction.atomic
+def ensure_ladder_tutorial_task():
+    """Return the tutorial Task, creating it or syncing its content with code."""
+    from games.models import CheckerType, Task, TaskGroup
+    from games.raddle import ensure_raddle_assist_hints
+
+    checker = CheckerType.objects.get(id='raddle')
+    task_group = (
+        TaskGroup.objects.select_for_update()
+        .filter(label=LADDER_TUTORIAL_LABEL).order_by('pk').first()
+    )
+    if task_group is None:
+        task_group = TaskGroup.objects.create(
+            label=LADDER_TUTORIAL_LABEL, checker=checker, points=1, max_attempts=3,
         )
-
-    def parsed(self):
-        return parse_raddle_data(self.task())
-
-    def initial_state(self):
-        return {
-            'solved_indices': list(self.initial_solved_indices),
-            'used_hints': list(self.initial_used_hint_indices),
-            'assist_tier': {}, 'drafts': {},
-        }
-
-    def ui_context(self, state=None):
-        return build_raddle_ui_context(
-            self.parsed(), state or self.initial_state(), mode='daily',
+    checker_data = json.dumps(_checker_payload(), ensure_ascii=False)
+    answer = '\n'.join(_WORDS)
+    task = Task.objects.filter(task_group=task_group, number='1').first()
+    if task is None:
+        task = Task.objects.create(
+            task_group=task_group, number='1', task_type='raddle', checker=checker,
+            checker_data=checker_data, answer=answer, text='', tags={},
+            points=1, max_attempts=None, is_removed=False,
         )
-
-    def payload(self):
-        return {
-            'version': LADDER_TUTORIAL_VERSION, 'game': 'ladder',
-            'task_id': self.task_id, 'words': _WORDS, 'lengths': _LENGTHS,
-            'hints': _HINTS,
-            # Use the same renderer as production's used-clue list so newly
-            # solved demo edges get their solved-word chips/colors, not the
-            # stale unused-clue markup captured before the answer.
-            'used_hint_display': [
-                used_clue_display(hint, index, _WORDS, html=True)
-                for index, hint in enumerate(_HINTS)
-            ],
-            'initial_solved_indices': self.initial_solved_indices,
-            'initial_used_hint_indices': self.initial_used_hint_indices,
-            'steps': {
-                'first': {'hint_index': 0, 'word_index': 1, 'answer': _WORDS[1]},
-                'second': {'hint_index': 3, 'word_index': 3, 'answer': _WORDS[3]},
-                'lower_pair': {'word_indices': (3, 4), 'hint_index': 3},
-            },
-        }
+    elif task.checker_data != checker_data or task.answer != answer:
+        # Saving semantic fields rotates attempt_revision, so only do it on change.
+        task.checker_data = checker_data
+        task.answer = answer
+        task.save()
+    ensure_raddle_assist_hints(task)
+    return task
 
 
-LADDER_TUTORIAL = LadderTutorialAdapter()
+def reset_ladder_tutorial_progress(task, *, team=None, user=None, anon_key=None):
+    """Every visit starts the tutorial from a clean board."""
+    from games.ladder_offer import reset_raddle_progress
+
+    if team is None and user is None and not anon_key:
+        return 0
+    return reset_raddle_progress(task=task, team=team, user=user, anon_key=anon_key)
+
+
+def ladder_tutorial_payload(task):
+    """Data for the popup layer; the board itself comes from the real page."""
+    from django.urls import reverse
+
+    return {
+        'version': LADDER_TUTORIAL_VERSION,
+        'game': 'ladder',
+        'task_id': task.id,
+        'today_url': reverse('new_ladder_today'),
+        'words': _WORDS,
+        'lengths': tuple(len(word) for word in _WORDS),
+        'steps': {
+            'first': {'hint_index': 0, 'word_index': 1},
+            'second': {'hint_index': 3, 'word_index': 3},
+            'lower_pair': {'word_indices': (3, 4), 'hint_index': 3},
+        },
+    }

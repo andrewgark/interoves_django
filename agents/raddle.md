@@ -277,3 +277,18 @@ node static/js/raddle_masked_input.test.js
     async-ответ не открывает её повторно и не запускает каскад.
 
 При багрепорте приложить из Network JSON ответа: `status`, `raddle_correct`, `raddle_needs_sync`, `raddle_duplicate_solved`, `raddle_word_index`.
+
+## Туториал (`/ladder/tutorial/`)
+
+Учебная Лесенка — настоящее задание raddle в отдельной `TaskGroup`
+(`label='ladder_tutorial'`, `games/tutorials/ladder.py`), вне архива, как
+черновик предложения. Страница — обычный `new_task_group_page` с
+`ladder_tutorial_task`: та же разметка, тот же JS `task_group.html`, тот же
+`/send_attempt/`. Каждый заход сбрасывает прогресс актора; решение не пишет
+`PlayerStartedGame` / `PlayerCompletedGame` и цели аналитики.
+
+Отличается только слой попапов: `new/partials/ladder_tutorial_overlay.html` +
+`static/js/ladder_tutorial.js` (+ `tutorial_shell.js`). Он читает настоящий DOM
+доски и реагирует на перерисовку карточки; подсветку пары двигает через
+`window.setRaddleFocusForTask` (тот же `setRaddleFocus` + `moveAnchor`).
+Не добавляйте туториальных развилок в `task-raddle.html` и в логику доски.

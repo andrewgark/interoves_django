@@ -14,6 +14,7 @@ from django.utils import timezone
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
 from games.ladder_daily import LADDER_GAME_ID
 from games.word_salad import WORD_SALAD_GAME_ID
+from games.tutorials.ladder import is_ladder_tutorial_task_group
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -681,6 +682,9 @@ def register_started_game(
     game_kind = analytics_game_kind(game)
     if not game_kind or task is None or task.task_group is None:
         return []
+    # The tutorial Ladder is played on the real page but is not a game start.
+    if is_ladder_tutorial_task_group(task.task_group):
+        return []
     actor = _analytics_actor_kwargs(
         analytics_user=analytics_user,
         user=user,
@@ -1217,6 +1221,8 @@ def register_completed_game(
 ):
     game_kind = supported_game_kind(game)
     if not game_kind or task is None or task.task_group is None:
+        return []
+    if is_ladder_tutorial_task_group(task.task_group):
         return []
 
     analytics_actor = _analytics_actor_kwargs(

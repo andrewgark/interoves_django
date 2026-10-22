@@ -813,7 +813,7 @@ class GameTaskGroup(models.Model):
 
         Для черновиков предложений лесенок/салатиков GameTaskGroup ещё нет —
         если task_group связан с LadderOffer или WordSaladOffer, вернуть
-        соответствующую игру.
+        соответствующую игру. Учебная Лесенка (games/tutorials) играется так же.
         """
         if task is None or task.task_group_id is None:
             return None
@@ -831,11 +831,16 @@ class GameTaskGroup(models.Model):
         from games.ladder_daily import LADDER_GAME_ID
         from games.word_salad import WORD_SALAD_GAME_ID
         from games.models import Game, LadderOffer, WordSaladOffer
+        from games.tutorials.ladder import is_ladder_tutorial_task_group
 
+        is_ladder_draft = (
+            is_ladder_tutorial_task_group(task.task_group)
+            or LadderOffer.objects.filter(task_group_id=task.task_group_id).exists()
+        )
         if game_id:
             gid = str(game_id)
             if gid == LADDER_GAME_ID:
-                if LadderOffer.objects.filter(task_group_id=task.task_group_id).exists():
+                if is_ladder_draft:
                     return Game.objects.filter(pk=LADDER_GAME_ID).first()
                 return None
             if gid == WORD_SALAD_GAME_ID:
@@ -843,7 +848,7 @@ class GameTaskGroup(models.Model):
                     return Game.objects.filter(pk=WORD_SALAD_GAME_ID).first()
                 return None
             return None
-        if LadderOffer.objects.filter(task_group_id=task.task_group_id).exists():
+        if is_ladder_draft:
             return Game.objects.filter(pk=LADDER_GAME_ID).first()
         if WordSaladOffer.objects.filter(task_group_id=task.task_group_id).exists():
             return Game.objects.filter(pk=WORD_SALAD_GAME_ID).first()

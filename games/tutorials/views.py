@@ -1,16 +1,12 @@
-from django.shortcuts import render
-
-from games.tutorials.ladder import LADDER_TUTORIAL
+from games.ladder_daily import LADDER_GAME_ID
+from games.tutorials.ladder import LADDER_TUTORIAL_SEGMENT, ensure_ladder_tutorial_task
 
 
 def ladder_tutorial(request):
-    """Render an isolated raddle demo; never resolve a production task."""
-    task = LADDER_TUTORIAL.task()
-    return render(request, 'new/ladder_tutorial.html', {
-        'tutorial': LADDER_TUTORIAL.payload(),
-        'tutorial_task': task,
-        'tutorial_ai': {'is_solved': False, 'get_result_points': 0,
-                        'get_n_attempts': 0, 'attempts': []},
-        'tutorial_task_ui': {'show_attempts': False, 'show_answer': False},
-        'tutorial_raddle': {'ui': LADDER_TUTORIAL.ui_context()},
-    })
+    """The tutorial Ladder on the regular play page, restarted on every visit."""
+    from games.views.new_ui import new_task_group_page
+
+    return new_task_group_page(
+        request, LADDER_GAME_ID, LADDER_TUTORIAL_SEGMENT,
+        ladder_tutorial_task=ensure_ladder_tutorial_task(),
+    )

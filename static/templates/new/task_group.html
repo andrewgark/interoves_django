@@ -62,7 +62,7 @@
 {% endif %}
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
-<div id="rules-modal" data-storage-key="section_rules_seen_{{ game.id|escapejs }}" class="new-rules-modal" role="dialog" {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}aria-labelledby="rules-modal-title"{% else %}aria-label="Правила"{% endif %} aria-modal="true" hidden>
+<div id="rules-modal" data-storage-key="section_rules_seen_{{ game.id|escapejs }}"{% if ladder_tutorial %} data-rules-autoopen="0"{% endif %} class="new-rules-modal" role="dialog" {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}aria-labelledby="rules-modal-title"{% else %}aria-label="Правила"{% endif %} aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div>
   <div class="new-rules-modal__box pal-card">
     {% if task_group.rules and task_group.rules.html %}
@@ -271,6 +271,21 @@
   </div>
 </div>
 
+{% if ladder_tutorial %}
+<script>
+(function () {
+  // Every tutorial visit starts from a clean board (the server progress was
+  // just reset), so drop drafts and clue marks left by a previous visit.
+  var prefixes = ['raddle_drafts_{{ ladder_tutorial.task_id }}', 'raddle_clue_marks_{{ ladder_tutorial.task_id }}'];
+  try {
+    for (var i = sessionStorage.length - 1; i >= 0; i--) {
+      var key = sessionStorage.key(i) || '';
+      if (prefixes.some(function (prefix) { return key.indexOf(prefix) === 0; })) sessionStorage.removeItem(key);
+    }
+  } catch (e) {}
+})();
+</script>
+{% endif %}
 <script src="{% static 'js/replacements_input_parse.js' %}"></script>
 <script src="{% static 'js/fetch_json.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/imask.min.js' %}"></script>
@@ -2249,9 +2264,6 @@
 
   function submitRaddleAuto(input, val) {
     if (!input || input.getAttribute('data-raddle-busy') === '1') return;
-    // Tutorial forms use the real masked input UI but must never enter the
-    // production attempt path (including completion from the mobile pin).
-    if (input.closest && input.closest('[data-ladder-tutorial]')) return;
     var row = input.closest('.new-raddle-row');
     if (row && !row.classList.contains('new-raddle-row--playable')) {
       // Устаревший DOM (bfcache / смена сессии): не шлём not-playable.
@@ -2943,6 +2955,15 @@
     var pick = RaddleCtl.pickNearestPlayable(indices, fromIndex, prefer);
     return pick === null ? null : (byIndex[pick] || null);
   }
+
+  // The tutorial popups point at a pair without focusing its input. The
+  // anchor follows, so a later focus on that pair is not taken for a steal.
+  window.setRaddleFocusForTask = function (taskId, wordIndex) {
+    var taskRoot = document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+    if (!taskRoot) return;
+    raddleSession.moveAnchor(taskId, wordIndex);
+    setRaddleFocus(taskRoot, wordIndex);
+  };
 
   function setRaddleFocus(taskRoot, wordIndex, opts) {
     if (!taskRoot) return;
@@ -4493,6 +4514,7 @@
 </script>
 {% endif %}
 
+{% if ladder_tutorial %}{% include "new/partials/ladder_tutorial_overlay.html" %}{% endif %}
 {% include "new/partials/onboarding_followup.html" %}
 {% include "new/partials/daily_task_footer.html" %}
 {% include "new/_18plus_gate.html" %}
