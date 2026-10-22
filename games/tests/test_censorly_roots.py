@@ -183,3 +183,38 @@ class CognateRelationTests(SimpleTestCase):
         self.assertFalse(opens_with('строить', 'три'))
         self.assertFalse(opens_with(build, 'три'))
         self.assertFalse(opens_with(triple, 'три'))
+
+
+class HalfCompoundTests(SimpleTestCase):
+    def _relation(self, guess, target):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        return _relation(_GuessPack(guess), _Pack(target))
+
+    def test_half_compound_opens_from_its_base_and_from_half(self):
+        for guess, target in (
+            ('остров', 'полуострова'),
+            ('полуостров', 'остров'),
+            ('остров', 'полуостровной'),
+            ('час', 'полчаса'),
+            ('круг', 'полукруг'),
+            ('шар', 'полушарие'),
+            ('половина', 'полуостров'),
+            ('пополам', 'полчаса'),
+            ('полукруг', 'полчаса'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertEqual(self._relation(guess, target), 'root')
+
+    def test_other_pol_roots_stay_out_of_the_half_cluster(self):
+        for guess, target in (
+            ('пол', 'полуостров'),
+            ('полка', 'полуостров'),
+            ('полоть', 'полчаса'),
+            ('поле', 'полевод'),
+            ('половина', 'полдень'),
+            ('половина', 'поломойка'),
+            ('половина', 'полярный'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(self._relation(guess, target))

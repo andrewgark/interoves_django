@@ -49,6 +49,11 @@ _REVIEWED_EXISTING = Path(os.environ.get(
 _NEGATION_PAIRS = Path(os.environ.get(
     'CENSORLY_NEGATION_PAIRS', Path(__file__).resolve().parent / 'data' / 'negation_pairs.tsv'
 ))
+_HALF_COMPOUNDS = Path(os.environ.get(
+    'CENSORLY_HALF_COMPOUNDS', Path(__file__).resolve().parent / 'data' / 'half_compounds.tsv'
+))
+# The reading «половина», «пополам» and «наполовину» share in rootbank.
+HALF_STRUCTURE = ('fam:пол⁵', 'sense:half')
 
 # Historical families whose join would glue unrelated modern words.
 # ``чит`` and ``чт`` stay one reading root. ``чет`` does not join them.
@@ -157,6 +162,31 @@ def _load_negation_pairs() -> dict[str, str]:
 
 
 NEGATION_PAIRS = _load_negation_pairs()
+
+
+def _load_half_compounds() -> dict[str, str]:
+    """Reviewed пол-/полу- lemmas where «пол» means half, with their base.
+
+    An empty base means the base word has no game root of its own.
+    """
+    if not _HALF_COMPOUNDS.exists():
+        raise RuntimeError(f'missing half compounds data file: {_HALF_COMPOUNDS}')
+    pairs = {}
+    with _HALF_COMPOUNDS.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream, delimiter='\t')
+        if reader.fieldnames != ['compound', 'base']:
+            raise RuntimeError(f'invalid half compounds header in {_HALF_COMPOUNDS}')
+        for row in reader:
+            compound, base = fold(row['compound']), fold(row['base'] or '')
+            if 'пол' not in compound:
+                raise RuntimeError(f'invalid half compound: {compound}')
+            if compound in pairs:
+                raise RuntimeError(f'duplicate half compound: {compound}')
+            pairs[compound] = base
+    return pairs
+
+
+HALF_COMPOUNDS = _load_half_compounds()
 
 
 def _bare_roots(structures) -> set[tuple[str, ...]]:
@@ -639,6 +669,18 @@ def _build_bank(*, record: bool):
             'refused': (),
         }
         audit['negation_lemmas'] += 1
+    # Dictionaries leave полуостров, полчаса, полукруг unresolved: «пол» has
+    # several root families. Each reviewed compound reads as half and,
+    # separately, as its base word, so остров and половина both open it.
+    for compound, base in HALF_COMPOUNDS.items():
+        base_structures = built.get(base, ()) if base else ()
+        built[compound] = tuple(sorted({HALF_STRUCTURE, *base_structures}))
+        provenance[compound] = {
+            'source': 'HALF_COMPOUND',
+            'detail': base,
+            'refused': (),
+        }
+        audit['half_compound_lemmas'] += 1
     for digit, cardinal in _DIGIT_CARDINALS.items():
         structures = built.get(cardinal, ())
         if not structures:
