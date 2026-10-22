@@ -126,6 +126,10 @@ def _compact_play_response(result):
     """
     if result.get('status') in ('won', 'already_won'):
         return result
+    # Errors carry no article; a delta would only copy their fields into
+    # the client's game state.
+    if 'title_tokens' not in result and 'body_tokens' not in result:
+        return result
     title_tokens = result.get('title_tokens') or []
     body_tokens = result.get('body_tokens') or []
     revealed_ids = {str(token_id) for token_id in result.get('newly_revealed') or []}

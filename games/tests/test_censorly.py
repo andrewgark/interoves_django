@@ -189,6 +189,8 @@ class CensorlyEngineTests(TestCase):
         self.assertNotIn('body_tokens', compact)
         self.assertEqual(compact['state_delta']['token_updates'], [result['body_tokens'][0]])
         self.assertEqual(_compact_play_response({'status': 'won'}), {'status': 'won'})
+        error = {'status': 'error', 'error': 'Нечего открывать'}
+        self.assertEqual(_compact_play_response(error), error)
 
     def test_hub_progress_reports_partial_and_solved_states(self):
         game, task, _hash, puzzle = _make_puzzle_task(

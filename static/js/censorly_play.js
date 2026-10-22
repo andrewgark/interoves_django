@@ -436,6 +436,14 @@
     container.textContent = '';
     var list = tokens || [];
     var units = [];
+    // Every token maps to its unit, or -1 when it is drawn outside any unit
+    // (spaces between runs, paragraph breaks).
+    var unitById = {};
+    list.forEach(function (token) { unitById[String(token.id)] = -1; });
+    function addUnit(kind, start, end, nodes) {
+      for (var k = start; k < end; k += 1) unitById[String(list[k].id)] = units.length;
+      units.push({ kind: kind, start: start, end: end, nodes: nodes });
+    }
     var started = false;
     var prevWasPara = false;
     var i = 0;
@@ -469,7 +477,7 @@
         var heading = renderHeadingAt(list, i, lenForced);
         if (heading.block) {
           container.appendChild(heading.block);
-          units.push({ kind: 'heading', start: i, end: heading.next, nodes: [heading.block] });
+          addUnit('heading', i, heading.next, [heading.block]);
           started = true;
           prevWasPara = false;
         }
@@ -486,16 +494,9 @@
       var runEnd = tightRunEnd(list, i);
       var last = container.lastChild;
       appendTightRun(container, list, i, runEnd, lenForced);
-      units.push({ kind: 'run', start: i, end: runEnd, nodes: nodesAfter(container, last) });
+      addUnit('run', i, runEnd, nodesAfter(container, last));
       i = runEnd;
     }
-    // Every token of this container maps to its unit, or -1 when it was
-    // rendered outside any unit (spaces, paragraph breaks).
-    var unitById = {};
-    list.forEach(function (token) { unitById[String(token.id)] = -1; });
-    units.forEach(function (unit, unitIndex) {
-      for (var k = unit.start; k < unit.end; k += 1) unitById[String(list[k].id)] = unitIndex;
-    });
     container._censorlyRender = { units: units, unitById: unitById, length: list.length };
   }
 
@@ -503,7 +504,7 @@
   // Returns the new top-level nodes, or null when the container has to be
   // rendered in full (no index yet, a different article shape, or a change
   // to a token that lives outside any unit).
-  function patchTokens(container, tokens, changedIds, preserveLen) {
+  function patchTokens(container, tokens, changedIds) {
     var render = container && container._censorlyRender;
     var list = tokens || [];
     if (!render || render.length !== list.length) return null;
@@ -517,7 +518,7 @@
     var fresh = [];
     Object.keys(touched).forEach(function (key) {
       var unit = render.units[key];
-      var lenForced = preserveLen ? collectLenForced(container, unit.nodes) : {};
+      var lenForced = collectLenForced(container, unit.nodes);
       var fragment = document.createDocumentFragment();
       if (unit.kind === 'heading') {
         var heading = renderHeadingAt(list, unit.start, lenForced);
@@ -1055,9 +1056,11 @@
     title.appendChild(el('span', 'censorly__solved', '— Решено!'));
   }
 
-  function applyStateDelta(root, data) {
+  // A compact guess/hint response carries only the changed tokens; rebuild
+  // the full state from the previous one.
+  function applyStateDelta(previous, data) {
     if (!data || !data.state_delta) return data;
-    var previous = root._censorlyState || {};
+    previous = previous || {};
     var delta = data.state_delta;
     var next = Object.assign({}, previous, delta);
     var titleTokens = (previous.title_tokens || []).slice();
@@ -1079,17 +1082,13 @@
     return merged;
   }
 
-  // Token ids a compact guess response changed, or null for a full state.
-  function deltaTokenIds(data) {
-    if (!data || !data.state_delta) return null;
-    return (data.state_delta.token_updates || []).map(function (tok) { return tok.id; });
-  }
-
   // Ids of tokens that render differently in next than in previous, or null
-  // when the article itself differs (another puzzle, a win or a replay).
-  // Both states must already carry opened_by_guess.
-  function changedTokenIdsSince(previous, next) {
+  // when the whole article must be redrawn (first render, a win or a replay
+  // reset, another article shape). A delta names its tokens; a full state is
+  // compared token by token, so both states must carry opened_by_guess.
+  function changedTokenIds(previous, next, delta) {
     if (!previous || previous.won || next.won) return null;
+    if (delta) return (delta.token_updates || []).map(function (tok) { return tok.id; });
     var changed = [];
     var keys = ['title_tokens', 'body_tokens'];
     for (var k = 0; k < keys.length; k += 1) {
@@ -1104,14 +1103,34 @@
     return changed;
   }
 
-  // opts.changedTokenIds: redraw only these tokens' runs instead of the whole
-  // article (falls back to a full render when patching is not possible).
-  // opts.previousState: find the changed tokens by comparing with it.
-  function applyState(root, state, opts) {
-    opts = opts || {};
-    root._censorlyState = state;
+  // Redraw the title and body: only the runs of changedIds when given, else
+  // everything. Returns the redrawn nodes, or null after a full render.
+  function renderArticle(root, state, changedIds) {
     var title = root.querySelector('#censorly-title');
     var body = root.querySelector('#censorly-body');
+    if (changedIds) {
+      var titleNodes = patchTokens(title, state.title_tokens, changedIds);
+      var bodyNodes = titleNodes && patchTokens(body, state.body_tokens, changedIds);
+      if (bodyNodes) return titleNodes.concat(bodyNodes);
+    }
+    var lenForced = collectLenForced(root);
+    renderTokens(title, state.title_tokens || [], lenForced);
+    renderTitleDecoration(title, state);
+    renderTokens(body, state.body_tokens || [], lenForced);
+    if (state.won && body) {
+      body.querySelectorAll('.censorly-tok--revealed:not(.censorly-tok--guessed)').forEach(function (token) {
+        token.classList.add('censorly-tok--solution-revealed');
+      });
+    }
+    return null;
+  }
+
+  // Apply a full state or a compact guess/hint response, redrawing only
+  // what changed since the state shown now.
+  function applyState(root, data) {
+    var previous = root._censorlyState;
+    var state = applyStateDelta(previous, data);
+    root._censorlyState = state;
     var input = root.querySelector('#censorly-word');
     var submit = root.querySelector('#censorly-submit');
     var hintBtn = root.querySelector('#censorly-hint-btn');
@@ -1126,26 +1145,7 @@
     (state.title_tokens || []).concat(state.body_tokens || []).forEach(function (token) {
       token.opened_by_guess = openingGuessByToken[token.id] || '';
     });
-    var changedTokenIds = opts.previousState
-      ? changedTokenIdsSince(opts.previousState, state)
-      : opts.changedTokenIds;
-    var patched = null;
-    if (Array.isArray(changedTokenIds) && !state.won) {
-      var titleNodes = patchTokens(title, state.title_tokens, changedTokenIds, opts.preserveLen);
-      var bodyNodes = titleNodes && patchTokens(body, state.body_tokens, changedTokenIds, opts.preserveLen);
-      if (bodyNodes) patched = titleNodes.concat(bodyNodes);
-    }
-    if (!patched) {
-      var lenForced = opts.preserveLen ? collectLenForced(root) : {};
-      renderTokens(title, state.title_tokens || [], lenForced);
-      renderTitleDecoration(title, state);
-      renderTokens(body, state.body_tokens || [], lenForced);
-      if (state.won && body) {
-        body.querySelectorAll('.censorly-tok--revealed:not(.censorly-tok--guessed)').forEach(function (token) {
-          token.classList.add('censorly-tok--solution-revealed');
-        });
-      }
-    }
+    var redrawn = renderArticle(root, state, changedTokenIds(previous, state, data.state_delta));
     var fetched = root.querySelector('#censorly-fetched');
     if (fetched) {
       var fetchedLabel = state.wiki_fetched_label || '';
@@ -1160,7 +1160,7 @@
       openedWords.textContent = 'Открыто слов: ' + openedPercent + '% (' + openedCount +
         ' / ' + totalCount + ')';
     }
-    updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'), patched);
+    updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'), redrawn);
     var trunc = root.querySelector('#censorly-truncated');
     if (trunc) trunc.hidden = !state.truncated;
     var guesses = state.guesses || [];
@@ -1189,13 +1189,12 @@
 
   // Guesses made in another tab or on another device: highlight the newest.
   function applySyncedState(root, data) {
-    var previousState = root._censorlyState;
-    var previous = (previousState || {}).guesses || [];
+    var previous = (root._censorlyState || {}).guesses || [];
     var guesses = data.guesses || [];
     if (guesses.length > previous.length) {
       root.setAttribute('data-active-guess-index', String(guesses.length - 1));
     }
-    applyState(root, data, { preserveLen: true, previousState: previousState });
+    applyState(root, data);
   }
 
   function handleReplayFlags(root, data) {
@@ -1577,11 +1576,9 @@
                 setFeedback(root, data.error || 'Не удалось взять подсказку', 'error');
                 return;
               }
-              var changedTokenIds = deltaTokenIds(data);
-              data = applyStateDelta(root, data);
               root.classList.remove('censorly--hint-pick');
               if (hintMode) hintMode.hidden = true;
-              applyState(root, data, { preserveLen: true, changedTokenIds: changedTokenIds });
+              applyState(root, data);
               if (data.status === 'already_open') focusTokenIds(root, data.active_token_ids);
               var newly = data.newly_revealed || [];
               flashTokenIds(root, newly);
@@ -1684,8 +1681,6 @@
         setFeedback(root, '');
         postJson(guessUrl, { word: word }, root)
           .then(function (data) {
-            var changedTokenIds = deltaTokenIds(data);
-            data = applyStateDelta(root, data);
             if (handleReplayFlags(root, data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
               var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
@@ -1695,7 +1690,7 @@
               }
               setFeedback(root, feedbackText, feedbackKind, data.status !== 'error');
               if (data.status !== 'error' || hasRenderableState(data)) {
-                applyState(root, data, { preserveLen: true, changedTokenIds: changedTokenIds });
+                applyState(root, data);
               }
               if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
                 focusGuess(root, data.active_guess_index, true);
@@ -1709,7 +1704,7 @@
             if (data.status !== 'already_open' && Array.isArray(data.guesses) && data.guesses.length) {
               root.setAttribute('data-active-guess-index', String(data.guesses.length - 1));
             }
-            applyState(root, data, { preserveLen: true, changedTokenIds: changedTokenIds });
+            applyState(root, data);
             if (data.status === 'already_open') {
               if (Number.isInteger(data.active_guess_index)) {
                 focusGuess(root, data.active_guess_index, true);

@@ -213,14 +213,9 @@ class CensorlyPatchBrowserTests(SimpleTestCase):
                 document.addEventListener('DOMContentLoaded', () => {
                     const fetch = window.fetch;
                     window.fetch = (...args) => new Promise(resolve => setTimeout(resolve, 0))
-                        .then(() => {
-                            document.querySelectorAll('#censorly-body > *').forEach(n => { n._kept = true; });
-                            document.querySelectorAll('.censorly-tok--mask')
-                                .forEach(n => { n.dataset.lenForced = '1'; });
-                            return fetch(...args);
-                        });
+                        .then(() => { (%s)(); return fetch(...args); });
                 });
-            ''')
+            ''' % MARK_NODES)
             page.goto(ORIGIN + '/play')
             page.wait_for_function('() => document.querySelectorAll("#censorly-guess-list tr").length === 2')
             self._assert_matches_full_render(page, reference, pages, synced_state)
