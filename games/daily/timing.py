@@ -9,6 +9,7 @@ backfills that gap.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import timedelta
 from types import SimpleNamespace
 from uuid import UUID, uuid4
@@ -203,6 +204,39 @@ def lock_active_timing_session(
         now=now,
         lock=True,
     )
+
+
+@dataclass(frozen=True)
+class GameplayTimingSession:
+    """One tab's timer lease as seen by a gameplay move (a guess, a hint).
+
+    A move calls ``check()`` once its input is valid and before expensive
+    work, ``lock()`` inside the transaction that writes the move, and
+    ``note_activity()`` after the move was accepted.
+    """
+
+    game: object
+    task_group: object
+    session_id: object
+    user: object = None
+    anon_key: object = None
+    claimed_ms: object = None
+
+    def _identity(self):
+        return {
+            'game': self.game, 'task_group': self.task_group,
+            'user': self.user, 'anon_key': self.anon_key,
+            'session_id': self.session_id,
+        }
+
+    def check(self):
+        require_active_timing_session(**self._identity())
+
+    def lock(self):
+        lock_active_timing_session(**self._identity())
+
+    def note_activity(self) -> dict | None:
+        return record_gameplay_activity(**self._identity(), claimed_ms=self.claimed_ms)
 
 
 def _lock_existing_timing(logical_qs):

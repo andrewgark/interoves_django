@@ -1214,6 +1214,17 @@
 
   // `transient` messages are one-off results: on the mobile dock they show as
   // a toast instead of a line that grows the dock.
+  function setSubmitBusy(submit, on) {
+    if (!submit) return;
+    var label = on ? 'Проверяем слово' : 'Угадать';
+    submit.classList.toggle('is-loading', on);
+    submit.setAttribute('aria-busy', on ? 'true' : 'false');
+    submit.setAttribute('aria-label', label);
+    submit.setAttribute('data-tooltip', label);
+    var input = document.getElementById('censorly-word');
+    submit.disabled = on || !!(input && input.disabled);
+  }
+
   function setFeedback(root, text, kind, transient) {
     var node = root.querySelector('#censorly-feedback');
     if (!node) return;
@@ -1570,37 +1581,7 @@
             setFeedback(root, 'Нельзя открывать слова, связанные со словами из названия', 'error', true);
             return;
           }
-          if (busy) return;
-          busy = true;
-          actorSyncGeneration += 1;
-          hasLocalAction = true;
-          postJson(hintUrl, { token_id: Number(mask.dataset.id) }, root)
-            .then(function (data) {
-              if (handleReplayFlags(root, data)) return;
-              if (data.status === 'error') {
-                setFeedback(root, data.error || 'Не удалось взять подсказку', 'error');
-                return;
-              }
-              root.classList.remove('censorly--hint-pick');
-              if (hintMode) hintMode.hidden = true;
-              applyState(root, data);
-              if (data.status === 'already_open') focusTokenIds(root, data.active_token_ids);
-              var newly = data.newly_revealed || [];
-              flashTokenIds(root, newly);
-              scrollAfterGuess(root, newly.length ? newly : data.active_token_ids);
-              if (data.status === 'already_open') {
-                setFeedback(root, 'Это слово уже открыто', 'info', true);
-              } else if (data.status !== 'won') {
-                setFeedback(root, 'Подсказка открыта', '', true);
-              }
-            })
-            .catch(function () {
-              setFeedback(root, 'Сеть недоступна', 'error');
-            })
-            .finally(function () {
-              busy = false;
-              if (actorSyncPending) syncActorState().catch(function () {});
-            });
+          runMove(hintUrl, { token_id: Number(mask.dataset.id) }, showHintResult);
           return;
         }
         // Per-token length override (2-state, depends on global toggle).
@@ -1645,6 +1626,94 @@
       }, true);
     }
 
+    // A guess or a hint: one request at a time, newer than any sync in flight.
+    // onResult runs for a response the page can show; onDone always runs.
+    function runMove(url, payload, onResult, onDone) {
+      if (busy) return;
+      busy = true;
+      actorSyncGeneration += 1;
+      hasLocalAction = true;
+      postJson(url, payload, root)
+        .then(function (data) {
+          if (!handleReplayFlags(root, data)) onResult(data);
+        })
+        .catch(function () {
+          setFeedback(root, 'Сеть недоступна', 'error');
+        })
+        .finally(function () {
+          busy = false;
+          if (actorSyncPending) syncActorState().catch(function () {});
+          if (onDone) onDone();
+        });
+    }
+
+    function showHintResult(data) {
+      if (data.status === 'error') {
+        setFeedback(root, data.error || 'Не удалось взять подсказку', 'error');
+        return;
+      }
+      root.classList.remove('censorly--hint-pick');
+      if (hintMode) hintMode.hidden = true;
+      applyState(root, data);
+      if (data.status === 'already_open') focusTokenIds(root, data.active_token_ids);
+      var newly = data.newly_revealed || [];
+      flashTokenIds(root, newly);
+      scrollAfterGuess(root, newly.length ? newly : data.active_token_ids);
+      if (data.status === 'already_open') {
+        setFeedback(root, data.error || 'Это слово уже открыто', 'info', true);
+      } else if (data.status !== 'won') {
+        setFeedback(root, 'Подсказка открыта', '', true);
+      }
+    }
+
+    // Show a guess result; return the tokens to scroll to once the keyboard
+    // has settled, if there is something new to look at.
+    function showGuessResult(data, word) {
+      if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
+        var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
+        var feedbackText = guessFeedbackHelper.feedback(data, word);
+        if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
+          feedbackText += ' (#' + (data.active_guess_index + 1) + ')';
+        }
+        setFeedback(root, feedbackText, feedbackKind, data.status !== 'error');
+        if (data.status !== 'error' || hasRenderableState(data)) {
+          applyState(root, data);
+        }
+        if (guessFeedbackHelper.shouldClearInput(data.status)) input.value = '';
+        if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
+          focusGuess(root, data.active_guess_index, true);
+          return guessTokenIds(root, data.active_guess_index);
+        }
+        return null;
+      }
+      // already_open adds no history row: keep the selection unless the
+      // server names the guess that opened the word.
+      if (data.status !== 'already_open' && Array.isArray(data.guesses) && data.guesses.length) {
+        root.setAttribute('data-active-guess-index', String(data.guesses.length - 1));
+      }
+      applyState(root, data);
+      var revealTokenIds = null;
+      if (data.status === 'already_open') {
+        if (Number.isInteger(data.active_guess_index)) {
+          focusGuess(root, data.active_guess_index, true);
+          revealTokenIds = Array.isArray(data.active_token_ids) && data.active_token_ids.length
+            ? data.active_token_ids
+            : guessTokenIds(root, data.active_guess_index);
+        } else {
+          focusTokenIds(root, data.active_token_ids);
+          revealTokenIds = data.active_token_ids;
+        }
+      }
+      input.value = '';
+      var newly = data.newly_revealed || [];
+      flashTokenIds(root, newly);
+      if (newly.length) revealTokenIds = newly;
+      if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit', true);
+      else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error', true);
+      else if (data.status === 'already_open') setFeedback(root, guessFeedbackHelper.feedback(data, word), '', true);
+      return revealTokenIds;
+    }
+
     if (hintBtn) {
       hintBtn.addEventListener('click', function () {
         var currentState = root._censorlyState || {};
@@ -1671,90 +1740,27 @@
         if (busy || !input || input.disabled) return;
         var word = (input.value || '').trim();
         if (!word) return;
-        busy = true;
-        actorSyncGeneration += 1;
         var submit = root.querySelector('#censorly-submit');
-        if (submit) {
-          submit.classList.add('is-loading');
-          submit.disabled = true;
-          submit.setAttribute('aria-busy', 'true');
-          submit.setAttribute('aria-label', 'Проверяем слово');
-          submit.setAttribute('data-tooltip', 'Проверяем слово');
-        }
-        hasLocalAction = true;
-        var submitScrollTokenIds = null;
+        var revealTokenIds = null;
+        setSubmitBusy(submit, true);
         setFeedback(root, '');
-        postJson(guessUrl, { word: word }, root)
-          .then(function (data) {
-            if (handleReplayFlags(root, data)) return;
-            if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
-              var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
-              var feedbackText = guessFeedbackHelper.feedback(data, word);
-              if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
-                feedbackText += ' (#' + (data.active_guess_index + 1) + ')';
-              }
-              setFeedback(root, feedbackText, feedbackKind, data.status !== 'error');
-              if (data.status !== 'error' || hasRenderableState(data)) {
-                applyState(root, data);
-              }
-              if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
-                focusGuess(root, data.active_guess_index, true);
-                submitScrollTokenIds = guessTokenIds(root, data.active_guess_index);
-              }
-              if (guessFeedbackHelper.shouldClearInput(data.status)) input.value = '';
-              return;
-            }
-            // already_open adds no history row: keep the selection unless the
-            // server names the guess that opened the word.
-            if (data.status !== 'already_open' && Array.isArray(data.guesses) && data.guesses.length) {
-              root.setAttribute('data-active-guess-index', String(data.guesses.length - 1));
-            }
-            applyState(root, data);
-            if (data.status === 'already_open') {
-              if (Number.isInteger(data.active_guess_index)) {
-                focusGuess(root, data.active_guess_index, true);
-                submitScrollTokenIds = Array.isArray(data.active_token_ids) && data.active_token_ids.length
-                  ? data.active_token_ids
-                  : guessTokenIds(root, data.active_guess_index);
-              } else {
-                focusTokenIds(root, data.active_token_ids);
-                submitScrollTokenIds = data.active_token_ids;
-              }
-            }
-            input.value = '';
-            var newly = data.newly_revealed || [];
-            flashTokenIds(root, newly);
-            if (newly.length) submitScrollTokenIds = newly;
-            if (data.status === 'hit') setFeedback(root, 'Есть совпадения: ' + (data.hits || 0), 'hit', true);
-            else if (data.status === 'miss') setFeedback(root, 'Нет в тексте', 'error', true);
-            else if (data.status === 'already_open') setFeedback(root, guessFeedbackHelper.feedback(data, word), '', true);
-          })
-          .catch(function () {
-            setFeedback(root, 'Сеть недоступна', 'error');
-          })
-          .finally(function () {
-            busy = false;
-            if (actorSyncPending) syncActorState().catch(function () {});
-            if (submit) {
-              submit.classList.remove('is-loading');
-              submit.setAttribute('aria-busy', 'false');
-              submit.setAttribute('aria-label', 'Угадать');
-              submit.setAttribute('data-tooltip', 'Угадать');
-              submit.disabled = !!(input && input.disabled);
-            }
-            var hasRevealToShow = !!(submitScrollTokenIds && submitScrollTokenIds.length);
-            if (input && !input.disabled) {
-              // Touch: a found word closes the keyboard so the opened text is
-              // visible; a miss keeps it up for the next attempt.
-              if (isTouchDevice() && hasRevealToShow) input.blur();
-              else input.focus();
-            }
-            if (hasRevealToShow) {
-              afterKeyboardSettles(function () {
-                scrollAfterGuess(root, submitScrollTokenIds);
-              });
-            }
-          });
+        runMove(guessUrl, { word: word }, function (data) {
+          revealTokenIds = showGuessResult(data, word);
+        }, function () {
+          setSubmitBusy(submit, false);
+          var hasRevealToShow = !!(revealTokenIds && revealTokenIds.length);
+          if (input && !input.disabled) {
+            // Touch: a found word closes the keyboard so the opened text is
+            // visible; a miss keeps it up for the next attempt.
+            if (isTouchDevice() && hasRevealToShow) input.blur();
+            else input.focus();
+          }
+          if (hasRevealToShow) {
+            afterKeyboardSettles(function () {
+              scrollAfterGuess(root, revealTokenIds);
+            });
+          }
+        });
       });
     }
   }

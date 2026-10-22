@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import uuid
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from functools import lru_cache
@@ -720,6 +721,127 @@ def _record_lexical_decision(*, user, game, task, guess, payload, report=None) -
         logging.getLogger(__name__).exception('censorly lexical decision log failed')
 
 
+@dataclass(frozen=True)
+class _Move:
+    """One actor's guess or hint in one puzzle, and how its result is shared.
+
+    Guesses and hints follow the same steps: validate the input, answer moves
+    that change nothing from an unlocked read, ``timing.check()`` before any
+    expensive work, then lock the timer lease and the state, re-check, and
+    save.
+    """
+
+    game: Game
+    task: Task
+    payload: dict
+    actor: dict
+    number: int | str
+    share_host: str
+    play_path: str | None
+    submitted_by_profile_id: int | None
+    attempt_created_callback: Any
+    timing: Any
+    timing_request: Any
+
+    def view(self, state: dict, status: str, **fields) -> dict[str, Any]:
+        out = public_payload(state, self.payload, task=self.task)
+        out['status'] = status
+        out.update(fields)
+        return out
+
+    def solved(self, out: dict[str, Any]) -> dict[str, Any]:
+        return attach_solve_meta(
+            out, game=self.game, task=self.task, number=self.number, actor=self.actor,
+            host=self.share_host, play_path=self.play_path,
+        )
+
+    def already_won(self, state: dict) -> dict[str, Any] | None:
+        if not _state_won(state, self.payload):
+            return None
+        return self.solved(self.view(state, 'already_won'))
+
+    def read_state(self) -> dict:
+        with timing_phase(self.timing_request, 'actor_state_read'):
+            return _read_actor_state(game=self.game, task=self.task, actor=self.actor)
+
+    def check_timing(self) -> None:
+        if self.timing is not None:
+            self.timing.check()
+
+    def lock_state(self):
+        """Lock the timer lease, then the actor state (always in this order)."""
+        if self.timing is not None:
+            self.timing.lock()
+        with timing_phase(self.timing_request, 'state_lock'):
+            row = _lock_state(game=self.game, task=self.task, actor=self.actor)
+        with timing_phase(self.timing_request, 'state_decode'):
+            return row, load_state(row.state)
+
+    def save(self, row, state: dict, *, text: str, status: str) -> None:
+        """Store a move that changed the state, with its Attempt."""
+        won = bool(state.get('won'))
+        attempt = Attempt(
+            task=self.task,
+            game=self.game,
+            submitted_by_profile_id=self.submitted_by_profile_id,
+            text=text,
+            status='Ok' if won else status,
+            points=points_for_state(state, task=self.task) if won else 0,
+            state=dump_state(state),
+            **self.actor,
+        )
+        attempt.time = timezone.now()
+        if won:
+            from games.daily_timing import active_time_ms_for_attempt
+            attempt.active_time_ms = active_time_ms_for_attempt(
+                game=self.game, task_group=self.task.task_group,
+                user=self.actor.get('user'), anon_key=self.actor.get('anon_key'),
+                replay_slot=self.actor.get('replay_slot'),
+                now=attempt.time,
+            )
+        with timing_phase(self.timing_request, 'attempt_persist'):
+            attempt.save()
+            if self.attempt_created_callback is not None:
+                self.attempt_created_callback(attempt)
+            row.state = dump_state(state)
+            row.last_attempt = attempt
+            row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+
+    def saved(self, state: dict, status: str, **fields) -> dict[str, Any]:
+        with timing_phase(self.timing_request, 'response_payload'):
+            out = self.view(state, status, **fields)
+        if state.get('won'):
+            out['status'] = 'won'
+            return self.solved(out)
+        return out
+
+
+def _begin_move(
+    *, game, task, user, anon_key, replay_slot, number, share_host, play_path,
+    submitted_by_profile_id, attempt_created_callback, timing, timing_request,
+):
+    """Return (move, None), or (None, error response) when the move cannot start."""
+    with timing_phase(timing_request, 'puzzle_load'):
+        payload = puzzle_from_task(task)
+    if payload is None:
+        return None, {'status': 'error', 'error': 'Пазл не настроен'}
+    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot)
+    if actor is None:
+        return None, {
+            'status': 'error',
+            'error': 'Нужен пользователь',
+            **public_payload(default_state(), payload, task=task),
+        }
+    return _Move(
+        game=game, task=task, payload=payload, actor=actor,
+        number=number if number is not None else '',
+        share_host=share_host, play_path=play_path,
+        submitted_by_profile_id=submitted_by_profile_id,
+        attempt_created_callback=attempt_created_callback,
+        timing=timing, timing_request=timing_request,
+    ), None
+
+
 def apply_guess(
     *,
     game: Game,
@@ -732,46 +854,36 @@ def apply_guess(
     play_path: str | None = None,
     submitted_by_profile_id: int | None = None,
     attempt_created_callback=None,
-    timing_session_guard=None,
-    timing_session_precheck=None,
+    timing=None,
     replay_slot=None,
     timing_request=None,
 ) -> dict[str, Any]:
-    with timing_phase(timing_request, 'puzzle_load'):
-        payload = puzzle_from_task(task)
-    if payload is None:
-        return {'status': 'error', 'error': 'Пазл не настроен'}
-
-    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot)
-    if actor is None:
-        return {
-            'status': 'error',
-            'error': 'Нужен пользователь',
-            **public_payload(default_state(), payload, task=task),
-        }
+    """Open every lemma a guessed word matches. ``timing``: GameplayTimingSession."""
+    move, error = _begin_move(
+        game=game, task=task, user=user, anon_key=anon_key, replay_slot=replay_slot,
+        number=number, share_host=share_host, play_path=play_path,
+        submitted_by_profile_id=submitted_by_profile_id,
+        attempt_created_callback=attempt_created_callback,
+        timing=timing, timing_request=timing_request,
+    )
+    if error is not None:
+        return error
+    payload = move.payload
 
     normalized = normalize_surface(word).strip(_GUESS_EDGE_PUNCTUATION)
     if not normalized or not is_guessable_word(normalized):
-        state = _read_actor_state(game=game, task=task, actor=actor)
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'invalid'
-        out['error'] = (
-            'Вводите части слова через дефис по отдельности'
-            if '-' in normalized else 'Введите одно слово (буквы/цифры)'
+        return move.view(
+            move.read_state(), 'invalid',
+            error=(
+                'Вводите части слова через дефис по отдельности'
+                if '-' in normalized else 'Введите одно слово (буквы/цифры)'
+            ),
         )
-        return out
 
-    with timing_phase(timing_request, 'actor_state_read'):
-        state = _read_actor_state(game=game, task=task, actor=actor)
-    num = number if number is not None else ''
-
-    if _state_won(state, payload):
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'already_won'
-        return attach_solve_meta(
-            out, game=game, task=task, number=num, actor=actor,
-            host=share_host, play_path=play_path,
-        )
+    state = move.read_state()
+    already_won = move.already_won(state)
+    if already_won is not None:
+        return already_won
 
     # Function words are rendered as open from the start and are not part of
     # the guessable content-token set. Reject them before touching the actor
@@ -780,32 +892,19 @@ def apply_guess(
         _is_initially_open_word(normalized)
         and not _has_closed_exact_target(payload, normalized)
     ):
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'initially_open'
-        out['hits'] = 0
-        out['newly_revealed'] = []
-        out['guess_word'] = normalized
-        out['error'] = 'Это слово уже открыто изначально'
-        return out
+        return move.view(
+            state, 'initially_open', hits=0, newly_revealed=[], guess_word=normalized,
+            error='Это слово уже открыто изначально',
+        )
 
     with timing_phase(timing_request, 'guess_normalize'):
         guess_lemma = lemma_of(normalized)
 
-    if normalized in {g.get('word') for g in state.get('guesses') or []}:
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'duplicate'
-        out['guess_word'] = normalized
-        out['active_guess_index'] = _history_index_for_guess(
-            state, payload, word=normalized,
-        )
-        out['error'] = 'Это слово уже вводили'
-        return out
+    duplicate = _duplicate_guess(move, state, normalized)
+    if duplicate is not None:
+        return duplicate
 
-    # Return validation and already-processed responses before requiring a
-    # live clock. The locked guard still rechecks the lease before any write.
-    if timing_session_precheck is not None:
-        timing_session_precheck()
-
+    move.check_timing()
     with timing_phase(timing_request, 'lexical_analysis'):
         from games.censorly.flags import lexical_resolver_enabled
         lexical_report = None
@@ -821,48 +920,33 @@ def apply_guess(
             )
         else:
             matched = lemmas_matching_guess(payload, guess_lemma, normalized)
-    return _apply_guess_after_analysis(
-        game=game, task=task, payload=payload, actor=actor,
-        normalized=normalized, guess_lemma=guess_lemma, matched=matched,
-        lexical_report=lexical_report, user=user, number=num,
-        share_host=share_host, play_path=play_path,
-        submitted_by_profile_id=submitted_by_profile_id,
-        attempt_created_callback=attempt_created_callback,
-        timing_session_guard=timing_session_guard,
-        timing_request=timing_request,
+    return _save_guess(
+        move, normalized=normalized, guess_lemma=guess_lemma, matched=matched,
+        lexical_report=lexical_report, user=user,
+    )
+
+
+def _duplicate_guess(move: _Move, state: dict, normalized: str) -> dict[str, Any] | None:
+    if normalized not in {g.get('word') for g in state.get('guesses') or []}:
+        return None
+    return move.view(
+        state, 'duplicate', guess_word=normalized,
+        active_guess_index=_history_index_for_guess(state, move.payload, word=normalized),
+        error='Это слово уже вводили',
     )
 
 
 @transaction.atomic
-def _apply_guess_after_analysis(
-    *, game, task, payload, actor, normalized, guess_lemma, matched,
-    lexical_report, user, number, share_host, play_path,
-    submitted_by_profile_id, attempt_created_callback, timing_session_guard=None,
-    timing_request=None,
-):
+def _save_guess(move: _Move, *, normalized, guess_lemma, matched, lexical_report, user):
     """Lock and persist a guess after its CPU-heavy lexical analysis."""
-    if timing_session_guard is not None:
-        timing_session_guard()
-    with timing_phase(timing_request, 'state_lock'):
-        row = _lock_state(game=game, task=task, actor=actor)
-    with timing_phase(timing_request, 'state_decode'):
-        state = load_state(row.state)
-    if _state_won(state, payload):
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'already_won'
-        return attach_solve_meta(
-            out, game=game, task=task, number=number, actor=actor,
-            host=share_host, play_path=play_path,
-        )
-    if normalized in {g.get('word') for g in state.get('guesses') or []}:
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'duplicate'
-        out['guess_word'] = normalized
-        out['active_guess_index'] = _history_index_for_guess(
-            state, payload, word=normalized,
-        )
-        out['error'] = 'Это слово уже вводили'
-        return out
+    payload = move.payload
+    row, state = move.lock_state()
+    already_won = move.already_won(state)
+    if already_won is not None:
+        return already_won
+    duplicate = _duplicate_guess(move, state, normalized)
+    if duplicate is not None:
+        return duplicate
 
     already_revealed = set(state.get('revealed_lemmas') or [])
     new_matched = matched - already_revealed
@@ -880,21 +964,18 @@ def _apply_guess_after_analysis(
         newly.sort()
     elif matched:
         # Already-open lemma (other surface form): do not consume an attempt.
-        first_lemma, token_ids = _matching_token_ids(payload, matched)
-        primary_lemma = guess_lemma if guess_lemma in matched else first_lemma
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'already_open'
-        out['hits'] = 0
-        out['newly_revealed'] = []
-        out['guess_word'] = normalized
+        _first_lemma, token_ids = _matching_token_ids(payload, matched)
+        out = move.view(
+            state, 'already_open', hits=0, newly_revealed=[], guess_word=normalized,
+            active_token_ids=sorted({
+                token_id for lemma_ids in token_ids.values() for token_id in lemma_ids
+            }),
+            error='Уже открыто',
+        )
         out['active_guess_index'] = _history_index_for_guess(
-            state, payload, target_lemmas=matched, task=task,
+            state, payload, target_lemmas=matched, task=move.task,
             public_guesses=out.get('guesses'),
         )
-        out['active_token_ids'] = sorted({
-            token_id for lemma_ids in token_ids.values() for token_id in lemma_ids
-        })
-        out['error'] = 'Уже открыто'
         return out
 
     revealed = already_revealed | new_matched
@@ -905,61 +986,18 @@ def _apply_guess_after_analysis(
         'hits': hits,
     }]
     state['last_lemma'] = primary_lemma if hits else ''
-    won = _title_won(payload, revealed)
-    state['won'] = won
-    pts = points_for_state(state, task=task)
-
-    attempt = Attempt(
-        task=task,
-        game=game,
-        submitted_by_profile_id=submitted_by_profile_id,
-        text=normalized,
-        status='Ok' if won else ('Partial' if hits else 'Wrong'),
-        points=pts if won else 0,
-        state=dump_state(state),
-        **actor,
+    state['won'] = _title_won(payload, revealed)
+    move.save(row, state, text=normalized, status='Partial' if hits else 'Wrong')
+    _record_lexical_decision(
+        user=user, game=move.game, task=move.task, guess=normalized, payload=payload,
+        report=lexical_report,
     )
-    attempt.time = timezone.now()
-    if won:
-        from games.daily_timing import active_time_ms_for_attempt
-        attempt.active_time_ms = active_time_ms_for_attempt(
-            game=game, task_group=task.task_group,
-            user=actor.get('user'), anon_key=actor.get('anon_key'),
-            replay_slot=actor.get('replay_slot'),
-            now=attempt.time,
-        )
-    with timing_phase(timing_request, 'attempt_persist'):
-        attempt.save()
-        if attempt_created_callback is not None:
-            attempt_created_callback(attempt)
-
-        row.state = dump_state(state)
-        row.last_attempt = attempt
-        row.save(update_fields=['state', 'last_attempt', 'updated_at'])
-        _record_lexical_decision(
-            user=user, game=game, task=task, guess=normalized, payload=payload,
-            report=lexical_report,
-        )
-
-    with timing_phase(timing_request, 'response_payload'):
-        out = public_payload(state, payload, task=task)
-    out['hits'] = hits
-    out['newly_revealed'] = newly
-    out['guess_word'] = normalized
-    if won:
-        out['status'] = 'won'
-        return attach_solve_meta(
-            out, game=game, task=task, number=number, actor=actor,
-            host=share_host, play_path=play_path,
-        )
-    if hits:
-        out['status'] = 'hit'
-    else:
-        out['status'] = 'miss'
-    return out
+    return move.saved(
+        state, 'hit' if hits else 'miss',
+        hits=hits, newly_revealed=newly, guess_word=normalized,
+    )
 
 
-@transaction.atomic
 def apply_hint(
     *,
     game: Game,
@@ -972,16 +1010,21 @@ def apply_hint(
     play_path: str | None = None,
     submitted_by_profile_id: int | None = None,
     attempt_created_callback=None,
-    timing_session_guard=None,
+    timing=None,
     replay_slot=None,
+    timing_request=None,
 ) -> dict[str, Any]:
-    """Reveal one non-title content lemma for −1 point."""
-    payload = puzzle_from_task(task)
-    if payload is None:
-        return {'status': 'error', 'error': 'Пазл не настроен'}
-    actor = _actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot)
-    if actor is None:
-        return {'status': 'error', 'error': 'Нужен пользователь'}
+    """Reveal one non-title content lemma for −1 point. ``timing``: GameplayTimingSession."""
+    move, error = _begin_move(
+        game=game, task=task, user=user, anon_key=anon_key, replay_slot=replay_slot,
+        number=number, share_host=share_host, play_path=play_path,
+        submitted_by_profile_id=submitted_by_profile_id,
+        attempt_created_callback=attempt_created_callback,
+        timing=timing, timing_request=timing_request,
+    )
+    if error is not None:
+        return error
+    payload = move.payload
 
     tok = token_by_id(payload, int(token_id))
     if tok is None or tok.get('kind') != 'content':
@@ -995,33 +1038,39 @@ def apply_hint(
             'error': 'Нельзя открывать слова, связанные со словами из названия',
         }
 
-    num = number if number is not None else ''
-    if timing_session_guard is not None:
-        timing_session_guard()
-    row = _lock_state(game=game, task=task, actor=actor)
-    state = load_state(row.state)
-    if _state_won(state, payload):
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'already_won'
-        return attach_solve_meta(
-            out, game=game, task=task, number=num, actor=actor,
-            host=share_host, play_path=play_path,
-        )
+    unchanged = _unchanged_hint(move, move.read_state(), tok, lemma)
+    if unchanged is not None:
+        return unchanged
+    move.check_timing()
+    return _save_hint(move, tok, lemma)
+
+
+def _unchanged_hint(move: _Move, state: dict, tok: dict, lemma: str) -> dict[str, Any] | None:
+    """Answer a hint that would open nothing."""
+    already_won = move.already_won(state)
+    if already_won is not None:
+        return already_won
     if lemma in set(state.get('revealed_lemmas') or []):
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'already_open'
-        out['active_token_ids'] = newly_revealed_ids(payload, lemma)
-        out['error'] = 'Слово уже открыто'
-        return out
-    if (
+        error = 'Слово уже открыто'
+    elif (
         tok.get('initially_open') is not False
         and _is_initially_open_word(str(tok.get('surface') or ''))
     ):
-        out = public_payload(state, payload, task=task)
-        out['status'] = 'already_open'
-        out['active_token_ids'] = newly_revealed_ids(payload, lemma)
-        out['error'] = 'Слово уже открыто изначально'
-        return out
+        error = 'Слово уже открыто изначально'
+    else:
+        return None
+    return move.view(
+        state, 'already_open',
+        active_token_ids=newly_revealed_ids(move.payload, lemma), error=error,
+    )
+
+
+@transaction.atomic
+def _save_hint(move: _Move, tok: dict, lemma: str):
+    row, state = move.lock_state()
+    unchanged = _unchanged_hint(move, state, tok, lemma)
+    if unchanged is not None:
+        return unchanged
 
     revealed = set(state.get('revealed_lemmas') or [])
     revealed.add(lemma)
@@ -1029,48 +1078,12 @@ def apply_hint(
     state['last_lemma'] = lemma
     state['hints_taken'] = hint_count(state) + 1
     state['hinted_lemmas'] = sorted(set(state.get('hinted_lemmas') or []) | {lemma})
-    won = _title_won(payload, revealed)
-    state['won'] = won
-    newly = newly_revealed_ids(payload, lemma)
-    pts = points_for_state(state, task=task)
-
-    attempt = Attempt(
-        task=task,
-        game=game,
-        submitted_by_profile_id=submitted_by_profile_id,
-        text=f'#hint:{lemma}',
-        status='Ok' if won else 'Partial',
-        points=pts if won else 0,
-        state=dump_state(state),
-        **actor,
+    state['won'] = _title_won(move.payload, revealed)
+    move.save(row, state, text=f'#hint:{lemma}', status='Partial')
+    return move.saved(
+        state, 'hint',
+        newly_revealed=newly_revealed_ids(move.payload, lemma), hint_lemma=lemma,
     )
-    attempt.time = timezone.now()
-    if won:
-        from games.daily_timing import active_time_ms_for_attempt
-        attempt.active_time_ms = active_time_ms_for_attempt(
-            game=game, task_group=task.task_group,
-            user=actor.get('user'), anon_key=actor.get('anon_key'),
-            replay_slot=actor.get('replay_slot'),
-            now=attempt.time,
-        )
-    attempt.save()
-    if attempt_created_callback is not None:
-        attempt_created_callback(attempt)
-    row.state = dump_state(state)
-    row.last_attempt = attempt
-    row.save(update_fields=['state', 'last_attempt', 'updated_at'])
-
-    out = public_payload(state, payload, task=task)
-    out['newly_revealed'] = newly
-    out['hint_lemma'] = lemma
-    if won:
-        out['status'] = 'won'
-        return attach_solve_meta(
-            out, game=game, task=task, number=num, actor=actor,
-            host=share_host, play_path=play_path,
-        )
-    out['status'] = 'hint'
-    return out
 
 
 def get_task_for_number(game: Game, number: int | str):

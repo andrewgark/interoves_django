@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import time
+from dataclasses import dataclass
 
 from django.conf import settings
 from django.contrib import messages
@@ -57,7 +58,7 @@ from games.daily_archive import (
     prepare_daily_archive,
     refresh_daily_archive_context,
 )
-from games.daily.timing import TimingSessionNotActive
+from games.daily.timing import GameplayTimingSession, TimingSessionNotActive
 from games.daily.registry import get_daily_game
 from games.daily_transitions import next_daily_content_transition_for_game
 from games.gameplay_context import (
@@ -315,71 +316,6 @@ def _censorly_timing_enabled(game, load_meta, user, replay_slot):
     return not is_offer
 
 
-def _censorly_timing_session_guard(
-    *, game, task, user, anon_key, replay_slot, body, timing_enabled=True,
-):
-    """Reject official Censorly mutations from a manually paused timer tab."""
-    if replay_slot is not None or not timing_enabled:
-        return None
-
-    def guard():
-        from games.daily.timing import lock_active_timing_session
-
-        lock_active_timing_session(
-            game=game,
-            task_group=task.task_group,
-            user=user,
-            anon_key=anon_key,
-            session_id=body.get('timing_session_id'),
-        )
-
-    return guard
-
-
-def _censorly_timing_session_precheck(
-    *, game, task, user, anon_key, replay_slot, body, timing_enabled=True,
-):
-    """Reject manually paused tabs before running expensive guess matching."""
-    if replay_slot is not None or not timing_enabled:
-        return None
-
-    def precheck():
-        from games.daily.timing import require_active_timing_session
-
-        require_active_timing_session(
-            game=game,
-            task_group=task.task_group,
-            user=user,
-            anon_key=anon_key,
-            session_id=body.get('timing_session_id'),
-        )
-
-    return precheck
-
-
-def _note_censorly_timing_activity(
-    result, *, game, task, user, anon_key, replay_slot, body, timing_enabled,
-):
-    """Let an accepted guess or hint keep the tab's timer lease alive."""
-    if replay_slot is not None or not timing_enabled:
-        return result
-    if result.get('status') not in ('hit', 'miss', 'already_open', 'won', 'hint'):
-        return result
-    from games.daily.timing import record_gameplay_activity
-
-    snap = record_gameplay_activity(
-        game=game,
-        task_group=task.task_group,
-        user=user,
-        anon_key=anon_key,
-        session_id=body.get('timing_session_id'),
-        claimed_ms=body.get('timing_unconfirmed_ms'),
-    )
-    if snap is not None:
-        result['daily_timing'] = snap
-    return result
-
-
 def _daily_timing_inactive_response(exc):
     timing_snapshot = dict(exc.timing_snapshot)
     timing_snapshot['resume_required'] = True
@@ -389,6 +325,25 @@ def _daily_timing_inactive_response(exc):
         'error_code': 'timer_not_running',
         'daily_timing': timing_snapshot,
     }, status=409)
+
+
+def _json_body(request) -> dict:
+    try:
+        body = json.loads(request.body.decode('utf-8') or '{}')
+    except (ValueError, TypeError, UnicodeDecodeError):
+        return {}
+    return body if isinstance(body, dict) else {}
+
+
+def _play_location(load_meta, number):
+    """(number shown in shares, play page path) of the loaded puzzle."""
+    if load_meta:
+        return load_meta.get('play_number'), load_meta.get('play_path')
+    return number, section_play_path(CENSORLY_GAME_ID, number)
+
+
+def _meta_placement(load_meta):
+    return load_meta.get('accepted_link') if not load_meta.get('is_random') else None
 
 
 def _load_random(share_hash: str):
@@ -912,12 +867,7 @@ def censorly_word_report(request, task_id):
     ):
         raise Http404()
 
-    try:
-        body = json.loads(request.body.decode('utf-8') or '{}')
-    except (ValueError, TypeError, UnicodeDecodeError):
-        body = {}
-    if not isinstance(body, dict):
-        body = {}
+    body = _json_body(request)
     reason = str(body.get('reason') or '').strip().upper()
     if reason not in {'FALSE_POSITIVE', 'FALSE_NEGATIVE', 'OTHER'}:
         return JsonResponse({'ok': False, 'error': 'Выберите причину жалобы.'}, status=400)
@@ -1030,16 +980,137 @@ def censorly_word_report(request, task_id):
     return JsonResponse({'ok': True, 'report_id': report.pk})
 
 
-def _finish_completion(
-    request, *, game, task, user, anon_key, result, replay_slot=None,
-    timing_expected=True, share_meta=None,
-):
+# Moves the game accepted: they start the game and keep the timer lease alive.
+_ACCEPTED_MOVE_STATUSES = frozenset({'hit', 'miss', 'already_open', 'hint', 'won'})
+# Moves that changed the actor's state: other tabs and devices must sync.
+_STATE_CHANGING_STATUSES = frozenset({'hit', 'miss', 'hint', 'won'})
+# Moves that can change the meta bar (hint count, solve result). Rendering it
+# performs several unrelated DB reads, so other moves skip it.
+_META_BAR_STATUSES = frozenset({'hint', 'won', 'already_won'})
+
+
+@dataclass(frozen=True)
+class _MoveRequest:
+    """A guess or hint request that passed access, context and replay checks."""
+
+    request: object
+    game: Game
+    task: Task
+    load_meta: dict
+    number: object
+    body: dict
+    user: object
+    anon_key: object
+    replay_slot: object
+    timing: GameplayTimingSession | None
+
+    @property
+    def play_location(self):
+        return _play_location(self.load_meta, self.number)
+
+    def play_kwargs(self) -> dict:
+        """Arguments shared by ``apply_guess`` and ``apply_hint``."""
+        request, user = self.request, self.user
+        number, play_path = self.play_location
+        return {
+            'game': self.game,
+            'task': self.task,
+            'user': user,
+            'anon_key': self.anon_key,
+            'number': number,
+            'share_host': _share_host(request),
+            'play_path': play_path,
+            'submitted_by_profile_id': request.user.pk if has_profile(request.user) else None,
+            'attempt_created_callback': lambda attempt: record_gameplay_attempt_created(
+                request, attempt=attempt,
+                actor_kind='user' if user is not None else 'anon',
+            ),
+            'timing': self.timing,
+            'replay_slot': self.replay_slot,
+            'timing_request': request,
+        }
+
+
+def _start_move(request, number, share_hash):
+    """Return (move request, None), or (None, response) when the move is refused."""
+    game, task, load_meta, err = _load_visible_task(request, number, random_hash=share_hash)
+    if err is not None:
+        return None, err
+    body = _json_body(request)
+    user, anon_key = _resolve_actor(request, body=body)
+    context_error = validate_gameplay_context(
+        request, task=task, game=game, user=user, anon_key=anon_key,
+    )
+    if context_error:
+        return None, context_error_response(context_error)
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            user=user, anon_key=anon_key,
+        )
+    except StaleReplayError:
+        return None, JsonResponse({'status': 'error', 'error': 'stale_replay', 'reload_required': True})
+    if replay_slot is None and _official_exists(
+        game=game, task_group=task.task_group, user=user, anon_key=anon_key,
+    ):
+        return None, JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
+    timing = None
+    if _censorly_timing_enabled(game, load_meta, request.user, replay_slot):
+        timing = GameplayTimingSession(
+            game=game,
+            task_group=task.task_group,
+            user=user,
+            anon_key=anon_key,
+            session_id=body.get('timing_session_id'),
+            claimed_ms=body.get('timing_unconfirmed_ms'),
+        )
+    return _MoveRequest(
+        request=request, game=game, task=task, load_meta=load_meta, number=number,
+        body=body, user=user, anon_key=anon_key, replay_slot=replay_slot, timing=timing,
+    ), None
+
+
+def _run_move(move: _MoveRequest, phase: str, apply_move):
+    try:
+        with timing_phase(move.request, phase):
+            result = apply_move(**move.play_kwargs())
+    except TimingSessionNotActive as exc:
+        return _daily_timing_inactive_response(exc)
+
+    status = result.get('status')
+    if move.timing is not None and status in _ACCEPTED_MOVE_STATUSES:
+        snap = move.timing.note_activity()
+        if snap is not None:
+            result['daily_timing'] = snap
+    result = _finish_completion(move, result)
+    if status in _STATE_CHANGING_STATUSES:
+        from games.daily.realtime import publish_actor_state_change
+        publish_actor_state_change(
+            task=move.task, game=move.game, user=move.user, replay_slot=move.replay_slot,
+            reason='censorly.state_changed',
+        )
+    if status in _META_BAR_STATUSES:
+        with timing_phase(move.request, 'render_meta'):
+            result = _with_meta_bar(
+                result, move.request, game=move.game, task=move.task,
+                user=move.user, anon_key=move.anon_key,
+                placement=_meta_placement(move.load_meta),
+            )
+    return _article_json(
+        _compact_play_response(result), status=400 if status == 'error' else 200,
+    )
+
+
+def _finish_completion(move: _MoveRequest, result):
+    request, game, task = move.request, move.game, move.task
+    user, anon_key, replay_slot = move.user, move.anon_key, move.replay_slot
+    analytics_user = request.user if request.user.is_authenticated else None
     analytics_events = []
-    if replay_slot is None and result.get('status') in ('hit', 'miss', 'already_open', 'won', 'hint'):
+    if replay_slot is None and result.get('status') in _ACCEPTED_MOVE_STATUSES:
         analytics_events.extend(register_started_game(
             user=user,
             anon_key=anon_key,
-            analytics_user=request.user if request.user.is_authenticated else None,
+            analytics_user=analytics_user,
             task=task,
             game=game,
         ))
@@ -1066,29 +1137,29 @@ def _finish_completion(
             task=task,
             replay_slot=replay_slot,
             run_id=getattr(request, 'interoves_replay_run_id', None),
-            analytics_user=request.user if request.user.is_authenticated else None,
+            analytics_user=analytics_user,
             result=PlayerCompletedGame.RESULT_SOLVED,
             mode=game.get_current_mode(Attempt(time=timezone.now())),
             source='censorly',
-            timing_expected=timing_expected,
         )
         if completion is not None:
             if completion.get('timing'):
                 result['daily_timing'] = completion['timing']
                 # The share was built before completion froze the time; build
                 # it again so it shows the same duration as the results.
-                if share_meta is not None and result.get('won'):
+                if result.get('won'):
+                    number, play_path = move.play_location
                     attach_solve_meta(
-                        result, game=game, task=task,
+                        result, game=game, task=task, number=number,
                         actor=_actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot),
-                        **share_meta,
+                        host=_share_host(request), play_path=play_path,
                     )
             analytics_events.extend(publish_completion_analytics(
                 record=completion['record'],
                 created=completion['created'],
                 user=user,
                 anon_key=anon_key,
-                analytics_user=request.user if request.user.is_authenticated else None,
+                analytics_user=analytics_user,
                 game=game,
                 task_group=task.task_group,
             ))
@@ -1107,8 +1178,7 @@ def censorly_state(request, number=None, share_hash=None):
     if err is not None:
         return err
     user, anon_key = _resolve_actor(request)
-    play_number = load_meta.get('play_number') if load_meta else number
-    play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
+    play_number, play_path = _play_location(load_meta, number)
     try:
         replay_slot = replay_for_request(
             request=request, game=game, task_group=task.task_group,
@@ -1133,200 +1203,27 @@ def censorly_state(request, number=None, share_hash=None):
         task=task,
         user=user,
         anon_key=anon_key,
-        placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
+        placement=_meta_placement(load_meta),
     )
     return _article_json(payload)
 
 
 @require_POST
 def censorly_guess(request, number=None, share_hash=None):
-    game, task, load_meta, err = _load_visible_task(
-        request, number, random_hash=share_hash,
-    )
-    if err is not None:
-        return err
-    try:
-        body = json.loads(request.body.decode('utf-8') or '{}')
-    except (ValueError, TypeError, UnicodeDecodeError):
-        body = {}
-    if not isinstance(body, dict):
-        body = {}
-    word = body.get('word') or body.get('guess') or request.POST.get('word') or ''
-    user, anon_key = _resolve_actor(request, body=body)
-    context_error = validate_gameplay_context(
-        request, task=task, game=game, user=user, anon_key=anon_key,
-    )
-    if context_error:
-        return context_error_response(context_error)
-    try:
-        replay_slot = replay_for_request(
-            request=request, game=game, task_group=task.task_group,
-            user=user, anon_key=anon_key,
-        )
-    except StaleReplayError:
-        return JsonResponse({'status': 'error', 'error': 'stale_replay', 'reload_required': True})
-    if replay_slot is None and _official_exists(
-        game=game, task_group=task.task_group, user=user, anon_key=anon_key,
-    ):
-        return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
-    timing_enabled = _censorly_timing_enabled(game, load_meta, request.user, replay_slot)
-    timing_session_guard = _censorly_timing_session_guard(
-        game=game, task=task, user=user, anon_key=anon_key,
-        replay_slot=replay_slot, body=body,
-        timing_enabled=timing_enabled,
-    )
-    timing_session_precheck = _censorly_timing_session_precheck(
-        game=game, task=task, user=user, anon_key=anon_key,
-        replay_slot=replay_slot, body=body,
-        timing_enabled=timing_enabled,
-    )
-    play_number = load_meta.get('play_number') if load_meta else number
-    play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
-    try:
-        with timing_phase(request, 'apply_guess'):
-            result = apply_guess(
-                game=game,
-                task=task,
-                word=word,
-                user=user,
-                anon_key=anon_key,
-                number=play_number,
-                share_host=_share_host(request),
-                play_path=play_path,
-                submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
-                attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
-                    request, attempt=attempt,
-                    actor_kind='user' if user is not None else 'anon',
-                ),
-                timing_session_guard=timing_session_guard,
-                timing_session_precheck=timing_session_precheck,
-                replay_slot=replay_slot,
-                timing_request=request,
-            )
-    except TimingSessionNotActive as exc:
-        return _daily_timing_inactive_response(exc)
-    result = _note_censorly_timing_activity(
-        result, game=game, task=task, user=user, anon_key=anon_key,
-        replay_slot=replay_slot, body=body, timing_enabled=timing_enabled,
-    )
-    result = _finish_completion(
-        request, game=game, task=task, user=user, anon_key=anon_key, result=result,
-        replay_slot=replay_slot,
-        share_meta={'number': play_number, 'host': _share_host(request), 'play_path': play_path},
-    )
-    if result.get('status') in ('hit', 'miss', 'won'):
-        from games.daily.realtime import publish_actor_state_change
-        publish_actor_state_change(
-            task=task, game=game, user=user, replay_slot=replay_slot,
-            reason='censorly.state_changed',
-        )
-    # The compact meta bar does not change for ordinary hit/miss guesses.
-    # Rendering it performs several unrelated DB reads, so refresh it only
-    # when the solve result can actually change its visible values.
-    if result.get('status') in ('won', 'already_won'):
-        with timing_phase(request, 'render_meta'):
-            result = _with_meta_bar(
-                result,
-                request,
-                game=game,
-                task=task,
-                user=user,
-                anon_key=anon_key,
-                placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
-            )
-    status_code = 200
-    if result.get('status') == 'error':
-        status_code = 400
-    return _article_json(_compact_play_response(result), status=status_code)
+    move, refused = _start_move(request, number, share_hash)
+    if refused is not None:
+        return refused
+    word = move.body.get('word') or move.body.get('guess') or request.POST.get('word') or ''
+    return _run_move(move, 'apply_guess', lambda **kwargs: apply_guess(word=word, **kwargs))
 
 
 @require_POST
 def censorly_hint(request, number=None, share_hash=None):
-    game, task, load_meta, err = _load_visible_task(
-        request, number, random_hash=share_hash,
-    )
-    if err is not None:
-        return err
+    move, refused = _start_move(request, number, share_hash)
+    if refused is not None:
+        return refused
     try:
-        body = json.loads(request.body.decode('utf-8') or '{}')
-    except (ValueError, TypeError, UnicodeDecodeError):
-        body = {}
-    if not isinstance(body, dict):
-        body = {}
-    try:
-        token_id = int(body.get('token_id'))
+        token_id = int(move.body.get('token_id'))
     except (TypeError, ValueError):
         return JsonResponse({'status': 'error', 'error': 'Укажите token_id'}, status=400)
-    user, anon_key = _resolve_actor(request, body=body)
-    context_error = validate_gameplay_context(
-        request, task=task, game=game, user=user, anon_key=anon_key,
-    )
-    if context_error:
-        return context_error_response(context_error)
-    try:
-        replay_slot = replay_for_request(
-            request=request, game=game, task_group=task.task_group,
-            user=user, anon_key=anon_key,
-        )
-    except StaleReplayError:
-        return JsonResponse({'status': 'error', 'error': 'stale_replay', 'reload_required': True})
-    if replay_slot is None and _official_exists(
-        game=game, task_group=task.task_group, user=user, anon_key=anon_key,
-    ):
-        return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
-    timing_enabled = _censorly_timing_enabled(game, load_meta, request.user, replay_slot)
-    timing_session_guard = _censorly_timing_session_guard(
-        game=game, task=task, user=user, anon_key=anon_key,
-        replay_slot=replay_slot, body=body,
-        timing_enabled=timing_enabled,
-    )
-    play_number = load_meta.get('play_number') if load_meta else number
-    play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
-    try:
-        result = apply_hint(
-            game=game,
-            task=task,
-            token_id=token_id,
-            user=user,
-            anon_key=anon_key,
-            number=play_number,
-            share_host=_share_host(request),
-            play_path=play_path,
-            submitted_by_profile_id=(request.user.pk if has_profile(request.user) else None),
-            attempt_created_callback=lambda attempt: record_gameplay_attempt_created(
-                request, attempt=attempt,
-                actor_kind='user' if user is not None else 'anon',
-            ),
-            timing_session_guard=timing_session_guard,
-            replay_slot=replay_slot,
-        )
-    except TimingSessionNotActive as exc:
-        return _daily_timing_inactive_response(exc)
-    result = _note_censorly_timing_activity(
-        result, game=game, task=task, user=user, anon_key=anon_key,
-        replay_slot=replay_slot, body=body, timing_enabled=timing_enabled,
-    )
-    result = _finish_completion(
-        request, game=game, task=task, user=user, anon_key=anon_key, result=result,
-        replay_slot=replay_slot,
-        share_meta={'number': play_number, 'host': _share_host(request), 'play_path': play_path},
-    )
-    if result.get('status') in ('hint', 'won'):
-        from games.daily.realtime import publish_actor_state_change
-        publish_actor_state_change(
-            task=task, game=game, user=user, replay_slot=replay_slot,
-            reason='censorly.state_changed',
-        )
-    result = _with_meta_bar(
-        result,
-        request,
-        game=game,
-        task=task,
-        user=user,
-        anon_key=anon_key,
-        placement=load_meta.get('accepted_link') if not load_meta.get('is_random') else None,
-    )
-    status_code = 200
-    if result.get('status') == 'error':
-        status_code = 400
-    return _article_json(_compact_play_response(result), status=status_code)
+    return _run_move(move, 'apply_hint', lambda **kwargs: apply_hint(token_id=token_id, **kwargs))

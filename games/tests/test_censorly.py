@@ -2563,7 +2563,8 @@ class CensorlyUxDailyTests(TestCase):
         self.assertIn(accepted.json()['status'], ('hit', 'miss', 'won'))
         self.assertTrue(Attempt.manager.filter(task=self.task, user=self.staff).exists())
 
-    def test_hint_is_rejected_while_official_timer_is_manually_paused(self):
+    def test_paused_timer_rejects_new_hints_but_answers_open_words(self):
+        # Same order as guesses: moves that change nothing do not need the timer.
         from datetime import timedelta
         from django.utils import timezone
 
@@ -2579,6 +2580,29 @@ class CensorlyUxDailyTests(TestCase):
         started = self._start_official_timer(timing_context_token, session_id)
         self.assertEqual(started.status_code, 200)
 
+        from games.censorly.redact import title_opening_lemmas
+        title_lemmas = title_opening_lemmas(self.puzzle)
+        targets = []
+        for token in self.puzzle['body_tokens']:
+            if (
+                token.get('kind') == 'content'
+                and token.get('lemma') not in title_lemmas
+                and token.get('initially_open') is not True
+                and token.get('lemma') not in {t['lemma'] for t in targets}
+            ):
+                targets.append(token)
+        opened, target = targets[:2]
+
+        def hint(token):
+            return self.client.post(
+                '/censorly/1/hint/',
+                data=json.dumps({'token_id': token['id'], 'timing_session_id': session_id}),
+                content_type='application/json',
+                HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
+            )
+
+        self.assertEqual(hint(opened).json()['status'], 'hint')
+
         paused = self.client.post(
             '/censorly/1/timing/',
             data=json.dumps({
@@ -2591,28 +2615,15 @@ class CensorlyUxDailyTests(TestCase):
             HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=timing_context_token,
         )
         self.assertEqual(paused.status_code, 200)
-        from games.censorly.redact import title_opening_lemmas
-        title_lemmas = title_opening_lemmas(self.puzzle)
-        target = next(
-            token for token in self.puzzle['body_tokens']
-            if token.get('kind') == 'content'
-            and token.get('lemma') not in title_lemmas
-            and token.get('initially_open') is not True
-        )
+        again = hint(opened)
+        self.assertEqual(again.status_code, 200, again.json())
+        self.assertEqual(again.json()['status'], 'already_open')
 
-        response = self.client.post(
-            '/censorly/1/hint/',
-            data=json.dumps({
-                'token_id': target['id'],
-                'timing_session_id': session_id,
-            }),
-            content_type='application/json',
-            HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
-        )
-
+        response = hint(target)
         self.assertEqual(response.status_code, 409, response.json())
         self.assertEqual(response.json()['error_code'], 'timer_not_running')
-        self.assertFalse(ChainTaskState.objects.filter(task=self.task, user=self.staff).exists())
+        state = json.loads(ChainTaskState.objects.get(task=self.task, user=self.staff).state)
+        self.assertNotIn(target['lemma'], state['revealed_lemmas'])
 
     def test_stale_timer_lease_does_not_block_guesses(self):
         from datetime import timedelta
