@@ -461,6 +461,9 @@ def _russian(surface: str, article_language: str) -> bool:
     # would otherwise prevent root matching before structures are compared.
     if (surface or '').strip().isdigit() and structures_of(fold(surface)):
         return True
+    # Reviewed language labels («укр») are absent from the dictionary.
+    if label_lemmas(surface):
+        return True
     # The dispatcher drops weak readings. Gameplay keeps every dictionary hit
     # that still has a part of speech, except non-Russian scripts.
     from games.censorly.lexical.core import script_of
@@ -472,12 +475,37 @@ def _russian(surface: str, article_language: str) -> bool:
     return bool(structures_of(fold(surface)) or _reviewed_derived_lemma(surface))
 
 
+# Language labels that also carry the root and sense of their full form, so
+# «Франция» opens «фр.» exactly as it opens «французский». Only stubs without
+# a competing ordinary word; homographs such as «кит.» get the full form only
+# in a label position (LANGUAGE_LABEL_CONTEXTS in the tokenizer).
+_ROOT_ALIAS_LEMMAS = {
+    'англ': 'английский',
+    'рус': 'русский',
+    'фр': 'французский',
+    'франц': 'французский',
+    'нем': 'немецкий',
+    'итал': 'итальянский',
+    'исп': 'испанский',
+    'греч': 'греческий',
+    'яп': 'японский',
+    'укр': 'украинский',
+}
+
+
+def label_lemmas(surface: str) -> tuple[str, ...]:
+    lemma = _ROOT_ALIAS_LEMMAS.get(fold(surface))
+    return (lemma,) if lemma else ()
+
+
 def _roots(
     found, surface: str, *, include_surface: bool = True,
 ) -> set[tuple[str, ...]]:
     keys = set()
     if include_surface:
         keys.update(structures_of(fold(surface)))
+        for lemma in label_lemmas(surface):
+            keys.update(structures_of(lemma))
     for item in found:
         keys.update(structures_of(item.lemma))
     reviewed_lemma = _reviewed_derived_lemma(surface) if include_surface else ''
@@ -614,14 +642,25 @@ def _proper_pair(left: str, right: str) -> bool:
     )
 
 
-def _proper_pair_from_readings(left, right, left_readings, right_readings) -> bool:
-    """Check proper-name relation using the readings selected by the caller."""
+def _proper_pair_from_readings(
+    left, right, left_readings, right_readings, *,
+    left_label: bool = True, right_label: bool = True,
+) -> bool:
+    """Check proper-name relation using the readings selected by the caller.
+
+    A reviewed language label («укр», «греч») also carries its full form,
+    unless the caller resolved the occurrence to another context.
+    """
     left_forms = {fold(left)} | {
         fold(item.lemma) for item in left_readings if item.lemma
     }
     right_forms = {fold(right)} | {
         fold(item.lemma) for item in right_readings if item.lemma
     }
+    if left_label:
+        left_forms.update(label_lemmas(left))
+    if right_label:
+        right_forms.update(label_lemmas(right))
     left_components = {
         _PROPER_COMPONENT_BY_WORD[form]
         for form in left_forms if form in _PROPER_COMPONENT_BY_WORD

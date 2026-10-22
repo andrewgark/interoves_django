@@ -7140,6 +7140,7 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
     'армения': (('root:proper_armenia',),),
     'армянский': (('root:proper_armenia',),),
     'беларусь': (('root:proper_belarus',),),
+    'белоруссия': (('root:proper_belarus',),),
     'белорусский': (('root:proper_belarus',),),
     'бразилия': (('root:proper_brazil',),),
     'бразильский': (('root:proper_brazil',),),

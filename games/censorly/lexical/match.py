@@ -16,6 +16,7 @@ from games.censorly.lexical.core import fold
 from games.censorly.lexical.rootbank import families_of, structures_of
 from games.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
+    LANGUAGE_LABEL_CONTEXTS,
     NEM_GERMAN_CONTEXT,
     NEM_NONPRONOUN_CONTEXT,
     NEM_PRONOUN_CONTEXT,
@@ -39,6 +40,7 @@ from games.censorly.lexical.semantics import (
     _russian,
     guess_readings_of,
     initially_open,
+    label_lemmas,
     preferred_readings_of,
     readings_of,
 )
@@ -343,6 +345,8 @@ def _relation(guess: _Pack, target: _Pack) -> str:
         target.fold,
         guess.reads,
         target.reads,
+        left_label=not guess.contextual_reading.startswith('__censorly_'),
+        right_label=not target.contextual_reading.startswith('__censorly_'),
     ):
         return 'proper'
     if not guess.russian or not target.russian:
@@ -422,7 +426,7 @@ class _ArticleIndex:
             CITY_ABBR_CONTEXT, NEM_GERMAN_CONTEXT, NEM_NONPRONOUN_CONTEXT,
             N_ERA_CONTEXT,
             PAGE_ABBR_CONTEXT, PO_SOFTWARE_CONTEXT, STREET_ABBR_CONTEXT,
-            YEAR_ABBR_CONTEXT,
+            YEAR_ABBR_CONTEXT, *LANGUAGE_LABEL_CONTEXTS.values(),
         }
         for pack, lemma in zip(self.packs, self.lemmas):
             if lemma in closed_contexts:
@@ -447,10 +451,16 @@ class _ArticleIndex:
             # homographic readings omitted from gameplay's pack when needed.
             proper_reads = readings_of(surface)
             forms = {pack.fold} | {fold(item.lemma) for item in proper_reads if item.lemma}
-            for form in forms:
+            # Contextual language labels («кит.» → китайский) and reviewed
+            # label stubs («укр») reach their country through these lemmas.
+            proper_forms = forms | set(label_lemmas(surface)) | {
+                fold(item.lemma) for item in pack.reads if item.lemma
+            }
+            for form in proper_forms:
                 component = _PROPER_COMPONENT_BY_WORD.get(form)
                 if component:
                     self.proper[component].append(surface_id)
+            for form in forms:
                 for group in _GRAMMAR_GROUPS_BY_WORD.get(form, ()):
                     self.grammar[group].append(surface_id)
             for key in pack.lexemes:
@@ -510,7 +520,10 @@ class _ArticleIndex:
         for alias_group in _ALIAS_GROUPS_BY_WORD.get(guess.fold, ()):
             postings.append(self.alias.get(alias_group, ()))
         proper_reads = readings_of(guess.surface)
-        for form in {guess.fold} | {fold(item.lemma) for item in proper_reads if item.lemma}:
+        for form in (
+            {guess.fold, *label_lemmas(guess.surface)}
+            | {fold(item.lemma) for item in proper_reads if item.lemma}
+        ):
             component = _PROPER_COMPONENT_BY_WORD.get(form)
             if component:
                 postings.append(self.proper.get(component, ()))

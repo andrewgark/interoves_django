@@ -1371,8 +1371,9 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('универ', 'университетский'))
         self.assertEqual(explain('фр', 'французский'), 'alias')
         self.assertEqual(explain('англ', 'английский'), 'alias')
-        self.assertFalse(opens('фр', 'француз'))
-        self.assertFalse(opens('англ', 'англичанин'))
+        # Reviewed language labels inherit the full form's root instead.
+        self.assertEqual(explain('фр', 'француз'), 'root')
+        self.assertEqual(explain('англ', 'англичанин'), 'root')
         # Grammar does not pull in a later root neighbour.
         self.assertTrue(initially_open('один'))
         self.assertFalse(opens('один', 'первый'))

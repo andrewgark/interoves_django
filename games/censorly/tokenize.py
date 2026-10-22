@@ -17,6 +17,7 @@ from games.censorly.normalize import (
 )
 from games.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
+    LANGUAGE_LABEL_CONTEXTS,
     NEM_GERMAN_CONTEXT,
     NEM_NONPRONOUN_CONTEXT,
     NEM_PRONOUN_CONTEXT,
@@ -349,6 +350,23 @@ def _is_preposition_governing_pronoun(tokens: list[dict[str, Any]], index: int) 
     return False
 
 
+def _is_language_label_position(
+    tokens: list[dict[str, Any]], previous: int, next_word: int,
+) -> bool:
+    """Recognize «(кит. …», «; лат. …», «от лат. …» or a non-Cyrillic gloss."""
+    if previous >= 0:
+        token = tokens[previous]
+        surface = token.get('surface') or ''
+        if token.get('kind') == 'punct' and surface.endswith(('(', ',', ';')):
+            return True
+        if normalize_surface(surface) in {'от', 'из'}:
+            return True
+    if next_word < len(tokens):
+        first = (tokens[next_word].get('surface') or '')[:1]
+        return first.isalpha() and not ('а' <= first.lower() <= 'я' or first.lower() == 'ё')
+    return False
+
+
 def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach high-confidence, occurrence-specific readings before matching."""
     for index, tok in enumerate(tokens):
@@ -395,6 +413,18 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
                 tok['lemma'] = NEM_NONPRONOUN_CONTEXT
                 tok['context_reading'] = NEM_NONPRONOUN_CONTEXT
                 tok['initially_open'] = False
+            continue
+
+        # «кит.», «тур.», «лат.» are language labels only before a gloss;
+        # «синий кит.» at the end of a sentence stays the animal.
+        label_context = LANGUAGE_LABEL_CONTEXTS.get(word)
+        if (
+            label_context and has_period
+            and _is_language_label_position(tokens, previous, after_period)
+        ):
+            tok['lemma'] = label_context
+            tok['context_reading'] = label_context
+            tok['initially_open'] = False
             continue
 
         # The two-letter abbreviation is case-sensitive; sentence-initial
