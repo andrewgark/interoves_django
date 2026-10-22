@@ -411,13 +411,17 @@ class DifficultyObservationTests(TestCase):
         now = timezone.now()
         for index in range(6):
             self._attempt('playing-{}'.format(index), now - timedelta(minutes=7), 'XXX', 'Wrong')
+        self._attempt('fast-solver', now - timedelta(minutes=6), 'XXX', 'Wrong')
+        self._attempt('fast-solver', now - timedelta(minutes=5), 'BBB', 'Ok')
 
         metrics = calculate_observed_metrics(self.placement, now=now)
 
-        self.assertEqual(metrics['completed_n'], 0)
+        self.assertEqual(metrics['completed_n'], 1)
         self.assertTrue(metrics['median_time_censored'])
         self.assertAlmostEqual(metrics['median_time'], 420, delta=1)
+        # A quick early solver must not read as "nobody leaves it unfinished".
         self.assertIsNone(metrics['unfinished_rate'])
+        self.assertIsNone(metrics['help_rate'])
 
     def test_rating_compares_returning_players_with_their_history(self):
         now = timezone.now()
@@ -692,7 +696,7 @@ class CensorlyDifficultyObservationTests(TestCase):
             )
 
     def test_word_inputs_errors_hints_and_time_are_observed_separately(self):
-        first = timezone.now() - timedelta(seconds=30)
+        first = timezone.now() - timedelta(hours=2)
         entries = (
             ('столица', 'Wrong', 0),
             ('россия', 'Partial', 5),

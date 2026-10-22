@@ -422,8 +422,10 @@ def observe_actor_results(placement, *, now=None):
             time_seconds = _active_seconds(actor_attempts, len(actor_attempts) - 1)
         else:
             time_seconds = _played_seconds(actor_attempts, now)
+        # The outcome is known only for players who started a full window ago.
+        # Counting early solvers sooner made a fresh edition look unfinished-free.
         unfinished = None
-        if completed or now - first_at >= UNFINISHED_WINDOW:
+        if now - first_at >= UNFINISHED_WINDOW:
             unfinished = not (completed and completed_at - first_at <= UNFINISHED_WINDOW)
         rows.append({
             'actor': '{}:{}'.format(*actor),
@@ -454,7 +456,10 @@ def aggregate_actor_results(game_id, rows):
         if row['abandoned'] or row['time_seconds'] is not None
     ]
     median_time, reached = _censored_median(time_observations)
-    unfinished = [row['unfinished'] for row in rows if row['unfinished'] is not None]
+    # Help and unfinished use the same cohort: players who started at least
+    # UNFINISHED_WINDOW ago. Players still early in a game have not reached
+    # for hints yet, so counting them would make a fresh edition look easy.
+    settled = [row for row in rows if row['unfinished'] is not None]
     return {
         'n': n,
         'median_time': median_time,
@@ -467,11 +472,11 @@ def aggregate_actor_results(game_id, rows):
             _median([row['errors'] for row in rows if row['errors'] is not None])
             if error_available else None
         ),
-        'help_rate': (sum(bool(row['used_help']) for row in rows) / n) if n else None,
-        'unfinished_rate': (sum(unfinished) / len(unfinished)) if unfinished else None,
+        'help_rate': (sum(bool(row['used_help']) for row in settled) / len(settled)) if settled else None,
+        'unfinished_rate': (sum(bool(row['unfinished']) for row in settled) / len(settled)) if settled else None,
         'completed_n': sum(bool(row['completed']) for row in rows),
         'abandoned_n': sum(bool(row['abandoned']) for row in rows),
-        'unfinished_denominator': len(unfinished),
+        'unfinished_denominator': len(settled),
         'error_available': error_available,
     }
 
@@ -685,12 +690,13 @@ def paired_difficulty_ratios(actor_rows, histories):
             past_values = [item[component] for item in past if item[component] is not None]
             if row[component] is not None and len(past_values) >= PAIRED_MIN_HISTORY:
                 effort[component].append((row[component] + 1.0) / (statistics.median(past_values) + 1.0))
+        settled_past = [item for item in past if item['unfinished'] is not None]
+        if row['unfinished'] is None or len(settled_past) < PAIRED_MIN_HISTORY:
+            continue
         help_observed.append(bool(row['used_help']))
-        help_expected.append(sum(bool(item['used_help']) for item in past) / len(past))
-        past_unfinished = [bool(item['unfinished']) for item in past if item['unfinished'] is not None]
-        if row['unfinished'] is not None and len(past_unfinished) >= PAIRED_MIN_HISTORY:
-            unfinished_observed.append(bool(row['unfinished']))
-            unfinished_expected.append(sum(past_unfinished) / len(past_unfinished))
+        help_expected.append(sum(bool(item['used_help']) for item in settled_past) / len(settled_past))
+        unfinished_observed.append(bool(row['unfinished']))
+        unfinished_expected.append(sum(bool(item['unfinished']) for item in settled_past) / len(settled_past))
 
     log_median, reached = _censored_median(time_observations)
     time_ratio = None if log_median is None else math.exp(log_median)
