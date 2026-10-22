@@ -8482,7 +8482,7 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__finding-pill.is-rare::after { content: attr(data-tooltip); position: absolute; z-index: 3; left: 0; bottom: calc(100% + .4rem); width: max-content; max-width: 15rem; padding: .35rem .5rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--surface); color: var(--text); box-shadow: 0 .3rem .9rem color-mix(in srgb, var(--text) 15%, transparent); font-family: inherit; font-size: .72rem; font-weight: 500; letter-spacing: 0; line-height: 1.2; white-space: normal; opacity: 0; pointer-events: none; transform: translateY(.15rem); transition: opacity .12s ease, transform .12s ease; }
 .new-daily-statistics__finding-pill.is-rare:hover::after, .new-daily-statistics__finding-pill.is-rare:focus-visible::after { opacity: 1; transform: translateY(0); }
 /* Share column widths across rows, including complexity and hint percentages. */
-.new-daily-statistics__list--salad { grid-template-columns: minmax(6rem, 8rem) minmax(4rem, 1fr) max-content max-content; gap: .65rem .6rem; }
+.new-daily-statistics__list--salad { grid-template-columns: minmax(6rem, max-content) minmax(4rem, 1fr) max-content max-content; gap: .65rem .6rem; }
 .new-daily-statistics__list--salad .new-daily-statistics__salad-word { display: grid !important; grid-column: 1 / -1; grid-template-columns: subgrid; gap: inherit; align-items: center; min-width: 0; }
 .new-daily-statistics__salad-word > .new-daily-statistics__word-pill { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .new-daily-statistics__hint-rate { display: inline-flex; align-items: center; gap: .18rem; color: var(--muted); font-size: .76rem; white-space: nowrap; }
@@ -8517,7 +8517,7 @@ html.is-age-gated .new-wrap {
     overflow-wrap: anywhere;
     text-align: left;
   }
-  .new-daily-statistics__list--salad { grid-template-columns: minmax(5rem, 7rem) minmax(3rem, 1fr) max-content max-content; column-gap: .4rem; }
+  .new-daily-statistics__list--salad { grid-template-columns: minmax(5rem, max-content) minmax(3rem, 1fr) max-content max-content; column-gap: .4rem; }
   .new-daily-statistics__list li strong { font-size: .76rem; }
   .new-daily-statistics__body { gap: .8rem; }
   .new-daily-statistics__histogram { height: 160px; }
