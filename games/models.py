@@ -4760,6 +4760,9 @@ class DailySolveTiming(models.Model):
     last_event_id = models.CharField(max_length=64, blank=True, default='')
     applied_event_ids = models.JSONField(default=list, blank=True)
     frozen_ms = models.BigIntegerField(blank=True, null=True)
+    # Part of accumulated_ms that rests on the client's claim after its lease
+    # went stale (lost heartbeats), not on server-confirmed heartbeats.
+    client_credited_ms = models.BigIntegerField(default=0)
     completed_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -4814,6 +4817,7 @@ class DailyTimingEvent(models.Model):
         ('auto_pause', 'Auto-pause'),
         ('pause', 'Pause'),
         ('complete', 'Complete'),
+        ('activity', 'Gameplay activity'),
     )
 
     game = models.ForeignKey(Game, related_name='daily_timing_events', on_delete=models.CASCADE)

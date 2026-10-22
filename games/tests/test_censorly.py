@@ -21,6 +21,7 @@ from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
 from games.analytics import game_instance_id_for_task_group
 from games.models import Attempt, BugReport, ChainTaskState, CheckerType, DailySolveTiming, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, RandomCensorlyGame, Task, TaskGroup
 from games.placement_share import allocate_share_hash
+from games.results.share import format_elapsed
 
 _CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
 
@@ -2650,6 +2651,57 @@ class CensorlyUxDailyTests(TestCase):
 
         self.assertEqual(response.status_code, 200, response.json())
         self.assertIn(response.json()['status'], ('hit', 'miss', 'won'))
+
+    def test_guess_revives_a_stale_lease_and_share_shows_the_frozen_time(self):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        tags = dict(self.game.tags or {})
+        tags['censorly_publish_start'] = (
+            f'{(timezone.localdate() - timedelta(days=1)).isoformat()}T00:00:00+03:00'
+        )
+        self.game.tags = tags
+        self.game.save(update_fields=['tags'])
+        self.client.force_login(self.staff)
+        timing_context_token, gameplay_context_token = self._official_page_context()
+        session_id = str(uuid4())
+        self.assertEqual(self._start_official_timer(timing_context_token, session_id).status_code, 200)
+
+        # Heartbeats lost for a minute while the player kept reading.
+        timing = DailySolveTiming.objects.get(
+            game=self.game, task_group=self.task.task_group, user=self.staff,
+        )
+        minute_ago = timezone.now() - timedelta(seconds=60)
+        timing.team_interval_started_at = minute_ago
+        timing.save(update_fields=['team_interval_started_at'])
+        timing.sessions.filter(session_id=session_id).update(
+            started_at=minute_ago, last_heartbeat_at=minute_ago,
+        )
+
+        def guess(word):
+            return self.client.post(
+                '/censorly/1/guess/',
+                data=json.dumps({
+                    'word': word,
+                    'timing_session_id': session_id,
+                    'timing_unconfirmed_ms': 50_000,
+                }),
+                content_type='application/json',
+                HTTP_X_INTEROVES_GAMEPLAY_CONTEXT=gameplay_context_token,
+            )
+
+        revived = guess('собака')
+        self.assertEqual(revived.status_code, 200, revived.json())
+        self.assertTrue(revived.json()['daily_timing']['is_authoritative'])
+        timing.refresh_from_db()
+        self.assertEqual(timing.client_credited_ms, 50_000)
+
+        won = guess('кот').json()
+        self.assertEqual(won['status'], 'won')
+        timing.refresh_from_db()
+        self.assertEqual(timing.client_credited_ms, 50_000)
+        self.assertGreaterEqual(timing.frozen_ms, 50_000)
+        self.assertIn('⏱️ {}'.format(format_elapsed(timing.frozen_ms // 1000)), won['share_text'])
 
     def test_random_hash_timing_context_uses_random_timing_route(self):
         self.client.force_login(self.staff)

@@ -25,6 +25,9 @@
   var EVENT_QUEUE_LIMIT = 8;
   var EVENT_MAX_ATTEMPTS = 3;
   var EVENT_MAX_AGE_MS = 20000;
+  // A request on a silently dead connection can hang for half a minute and
+  // hold the whole queue; give up early so a retry can use a fresh one.
+  var REQUEST_TIMEOUT_MS = 10000;
   var RETRY_AFTER_MAX_MS = 10000;
   var RETRY_AFTER_FLOOR_MAX_MS = 8000;
   var WINDOW_SESSION_PREFIX = 'interoves-daily-timing:';
@@ -227,6 +230,10 @@
     var stateRevision = 0;
     var lastPausedSignal = null;
     var startPending = false;
+    // Wall-clock start of visible time the server has not confirmed because
+    // the lease's heartbeats got lost. Sent as claimed_ms when the tab
+    // restarts, so the server can credit it within its own bounds.
+    var unconfirmedSince = null;
 
     function advanceStateRevision() {
       stateRevision += 1;
@@ -367,9 +374,25 @@
       if (authoritative && status === 'running' && !completed && !manuallyPaused) {
         runningSince = nowMs(clock);
         everRunning = true;
+        unconfirmedSince = null;
       }
+      if (completed || manuallyPaused) unconfirmedSince = null;
       render();
       syncTicker();
+    }
+
+    // The clock was running when the server stopped confirming it.
+    function noteUnconfirmedFromRunning() {
+      if (runningSince == null || unconfirmedSince != null) return;
+      if (completed || manuallyPaused || visibilityOf(doc) !== 'visible') return;
+      unconfirmedSince = Date.now() - Math.max(0, nowMs(clock) - runningSince);
+    }
+
+    // Visible time since the last confirmation, up to the idle cut-off.
+    function unconfirmedMs() {
+      if (unconfirmedSince == null || completed || manuallyPaused) return 0;
+      var end = Math.min(Date.now(), lastActivityAt + idleMs);
+      return Math.max(0, Math.floor(end - unconfirmedSince));
     }
 
     function nextSeq() {
@@ -426,6 +449,11 @@
         keepalive: !!keepalive,
         headers: headers,
       };
+      try {
+        if (root.AbortSignal && typeof root.AbortSignal.timeout === 'function') {
+          init.signal = root.AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+        }
+      } catch (e) {}
       if (keepalive) {
         var params = new URLSearchParams();
         Object.keys(body).forEach(function (k) { params.set(k, String(body[k])); });
@@ -486,6 +514,7 @@
     function indicateDeliveryFailure() {
       deliveryFailed = true;
       if (!completed && status === 'running') {
+        noteUnconfirmedFromRunning();
         authoritative = false;
         status = 'auto_paused';
         runningSince = null;
@@ -557,6 +586,7 @@
                 // visible, i.e. heartbeats did not get through. That is a
                 // timer failure, not the player's: keep the board usable and
                 // start a fresh interval once the queue drains.
+                noteUnconfirmedFromRunning();
                 authoritative = false;
                 status = 'auto_paused';
                 runningSince = null;
@@ -680,7 +710,7 @@
       awaitingServer = true;
       startAttempts += 1;
       if (!startEvent) {
-        startEvent = makeEvent('start');
+        startEvent = makeEvent('start', { claimed_ms: unconfirmedMs() });
         startEventCreatedAt = Date.now();
       }
       // The outer start policy owns its six-attempt budget. Retrying in both
@@ -801,6 +831,7 @@
     // Idle is an automatic stop like a hidden tab: no overlay, nothing to
     // press. The next input simply starts a fresh interval.
     function pauseForIdle() {
+      unconfirmedSince = null;
       if (completed || manuallyPaused || !authoritative) return;
       idlePaused = true;
       var claimed = freezeOpenInterval();
@@ -848,6 +879,8 @@
 
     function onHidden() {
       visibleSince = null;
+      // Time hidden is not solving; a claim covers one visible stretch only.
+      unconfirmedSince = null;
       if (completed || manuallyPaused || (!authoritative && status === 'auto_paused')) return;
       if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
       startRetryTimer = null;
@@ -944,6 +977,7 @@
 
     function pauseManual() {
       if (completed) return;
+      unconfirmedSince = null;
       var claimed = freezeOpenInterval();
       manuallyPaused = true;
       authoritative = false;
@@ -1116,6 +1150,7 @@
       onHidden: onHidden,
       onVisible: onVisible,
       noteActivity: noteActivity,
+      unconfirmedMs: unconfirmedMs,
       boot: boot,
       destroy: function () {
         destroyed = true;
@@ -1180,10 +1215,11 @@
       reportProblems: true,
     });
     controller.boot();
+    api.current = controller;
     return controller;
   }
 
-  return {
+  var api = {
     formatElapsed: formatElapsed,
     formatClock: formatClock,
     parseRetryAfter: parseRetryAfter,
@@ -1193,5 +1229,7 @@
     bindFromDocument: bindFromDocument,
     HEARTBEAT_MS: HEARTBEAT_MS,
     IDLE_MS: IDLE_MS,
+    current: null,
   };
+  return api;
 });

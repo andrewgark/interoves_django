@@ -1278,6 +1278,134 @@ asyncTest(async function testBootIgnoresErrorResponseAsSnapshot() {
   assert.strictEqual(global.requestAnimationFrame, oldRaf);
 });
 
+function lostLeaseHarness() {
+  var h = {
+    now: 1000000,
+    perf: 5000,
+    tick: null,
+    timers: [],
+    sent: [],
+    old: {
+      setInterval: global.setInterval,
+      clearInterval: global.clearInterval,
+      setTimeout: global.setTimeout,
+      clearTimeout: global.clearTimeout,
+      now: Date.now,
+    },
+  };
+  Date.now = function () { return h.now; };
+  global.setInterval = function (callback) { h.tick = callback; return 1; };
+  global.clearInterval = function () {};
+  global.setTimeout = function (callback, delay) { h.timers.push({ callback: callback, delay: delay }); return h.timers.length; };
+  global.clearTimeout = function () {};
+  h.advance = function (ms) { h.now += ms; h.perf += ms; };
+  h.restore = function () {
+    Date.now = h.old.now;
+    global.setInterval = h.old.setInterval;
+    global.clearInterval = h.old.clearInterval;
+    global.setTimeout = h.old.setTimeout;
+    global.clearTimeout = h.old.clearTimeout;
+  };
+  h.create = function (doc) {
+    return timer.create({
+      url: '/censorly/9/timing/',
+      document: doc,
+      getAnonKey: function () { return ''; },
+      getCsrf: function () { return ''; },
+      storage: memoryStorage(),
+      clock: { now: function () { return h.perf; } },
+      fetch: function (url, init) {
+        var body = JSON.parse(init.body);
+        h.sent.push(body);
+        // The server let the lease expire: heartbeats did not get through.
+        var running = body.action === 'start';
+        return Promise.resolve({ status: 200, json: function () {
+          return Promise.resolve({
+            ok: true, exists: true, accumulated_ms: 0,
+            status: running ? 'running' : 'auto_paused', is_authoritative: running,
+          });
+        } });
+      },
+      listenDocument: false,
+      enableBroadcast: false,
+      bootstrap: { status: 'running', is_authoritative: true, exists: true },
+    });
+  };
+  h.runZeroDelayTimers = function () {
+    var due = h.timers.filter(function (item) { return item.delay === 0; });
+    h.timers = h.timers.filter(function (item) { return item.delay !== 0; });
+    due.forEach(function (item) { item.callback(); });
+  };
+  return h;
+}
+
+asyncTest(async function testRestartAfterLostLeaseClaimsUnconfirmedVisibleTime() {
+  var h = lostLeaseHarness();
+  try {
+    var ctrl = h.create({ visibilityState: 'visible', addEventListener: function () {} });
+    h.advance(40000);
+    h.tick();
+    await flush();
+    assert.strictEqual(h.sent[0].action, 'heartbeat');
+    assert.strictEqual(ctrl.unconfirmedMs(), 40000);
+
+    h.advance(5000);
+    h.runZeroDelayTimers();
+    await flush();
+    var start = h.sent[h.sent.length - 1];
+    assert.strictEqual(start.action, 'start');
+    assert.strictEqual(start.claimed_ms, 45000);
+    // The server confirmed the clock again; nothing left to claim.
+    assert.strictEqual(ctrl.unconfirmedMs(), 0);
+    ctrl.destroy();
+  } finally {
+    h.restore();
+  }
+});
+
+asyncTest(async function testHiddenTimeIsNeverClaimed() {
+  var h = lostLeaseHarness();
+  try {
+    var doc = { visibilityState: 'visible', addEventListener: function () {} };
+    var ctrl = h.create(doc);
+    h.advance(40000);
+    h.tick();
+    await flush();
+    assert.strictEqual(ctrl.unconfirmedMs(), 40000);
+
+    doc.visibilityState = 'hidden';
+    ctrl.onHidden();
+    await flush();
+    assert.strictEqual(ctrl.unconfirmedMs(), 0);
+    h.advance(600000);
+    doc.visibilityState = 'visible';
+    h.timers = [];
+    ctrl.onVisible();
+    await flush();
+    var start = h.sent[h.sent.length - 1];
+    assert.strictEqual(start.action, 'start');
+    assert.strictEqual(start.claimed_ms, 0);
+    ctrl.destroy();
+  } finally {
+    h.restore();
+  }
+});
+
+asyncTest(async function testUnconfirmedTimeStopsAtTheIdleLimit() {
+  var h = lostLeaseHarness();
+  try {
+    var ctrl = h.create({ visibilityState: 'visible', addEventListener: function () {} });
+    h.advance(30000);
+    h.tick();
+    await flush();
+    h.advance(3600000);
+    assert.strictEqual(ctrl.unconfirmedMs(), timer.IDLE_MS);
+    ctrl.destroy();
+  } finally {
+    h.restore();
+  }
+});
+
 asyncTest(async function testIdleVisibleTabPausesAndActivityRestarts() {
   var oldSetInterval = global.setInterval;
   var oldClearInterval = global.clearInterval;

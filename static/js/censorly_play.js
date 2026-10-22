@@ -1242,6 +1242,11 @@
       timerRoot.getAttribute('data-timing-state-revision')
     );
     if (timingSessionId) body.timing_session_id = timingSessionId;
+    // Visible time the timer could not confirm (lost heartbeats); the server
+    // credits it within its own bounds when the guess revives the lease.
+    var dailyTimer = window.interovesDailySolveTimer && window.interovesDailySolveTimer.current;
+    var unconfirmedMs = dailyTimer && dailyTimer.unconfirmedMs ? dailyTimer.unconfirmedMs() : 0;
+    if (timingSessionId && unconfirmedMs > 0) body.timing_unconfirmed_ms = unconfirmedMs;
     var headers = {
       'Content-Type': 'application/json',
       'X-CSRFToken': csrfToken(),

@@ -27,6 +27,7 @@ from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
     HEARTBEAT_MAX_CREDIT_MS,
+    CLIENT_CREDIT_MAX_MS,
     TIMING_DEADLOCK_ATTEMPTS,
     _is_mysql_deadlock,
     apply_timing_event,
@@ -36,6 +37,7 @@ from games.daily_timing import (
     merge_timing_rows,
     migrate_timing_events,
     record_timing_event,
+    record_gameplay_activity,
     reduce_personal_timing_events,
     recovered_timing_ms_from_events,
     reduce_team_timing_events,
@@ -172,6 +174,32 @@ class DailyTimingScopeTests(SimpleTestCase):
         reduced = reduce_personal_timing_events(events, now=_dt(1))
         self.assertEqual(reduced['status'], 'manually_paused')
         self.assertEqual(reduced['accumulated_ms'], 1000)
+
+    def test_reducer_replays_client_credit_and_activity_like_the_live_row(self):
+        # Shape of a real case: heartbeats lost, the tab restarts every minute.
+        events = [
+            {'action': ACTION_START, 'session_id': 'a', 'event_id': 's1', 'seq': 38,
+             'claimed_ms': 0, 'occurred_at': _dt(0)},
+            {'action': ACTION_START, 'session_id': 'a', 'event_id': 's2', 'seq': 42,
+             'claimed_ms': 58_000, 'occurred_at': _dt(61)},
+            {'action': 'activity', 'session_id': 'a', 'event_id': 'activity:1', 'seq': 42,
+             'claimed_ms': 0, 'occurred_at': _dt(90)},
+            {'action': ACTION_COMPLETE, 'session_id': 'a', 'event_id': 'complete', 'seq': 43,
+             'occurred_at': _dt(100)},
+        ]
+        reduced = reduce_personal_timing_events(events, now=_dt(100))
+        self.assertEqual(reduced['frozen_ms'], 58_000 + 39_000)
+        self.assertEqual(reduced['client_credited_ms'], 58_000)
+        self.assertEqual(reduced['applied_event_count'], 4)
+
+    def test_reducer_ignores_activity_for_a_session_that_never_started(self):
+        events = [
+            {'action': 'activity', 'session_id': 'a', 'event_id': 'activity:1', 'seq': 0,
+             'occurred_at': _dt(0)},
+            {'action': ACTION_COMPLETE, 'session_id': 'a', 'event_id': 'complete', 'seq': 1,
+             'occurred_at': _dt(30)},
+        ]
+        self.assertEqual(reduce_personal_timing_events(events, now=_dt(30))['frozen_ms'], 0)
 
     def test_team_event_reducer_counts_union_of_sessions(self):
         events = [
@@ -605,6 +633,133 @@ class DailyTimingDomainTests(TestCase):
 
         self.assertEqual(heartbeat['status'], 'running')
         self.assertEqual(completed['frozen_ms'], 45_233)
+
+    def test_start_after_own_lease_went_stale_reopens_the_interval(self):
+        # Heartbeats lost on the network: the same tab restarts a minute later.
+        # The restart used to leave the row without an open interval, so the
+        # clock stayed at zero until completion recovered it from the ledger.
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        restarted = self._apply(action=ACTION_START, session=sid, seq=5, now=_dt(60))
+        self._apply(action=ACTION_HEARTBEAT, session=sid, seq=6, claimed=15000, now=_dt(75))
+        running = self._apply(action=ACTION_HEARTBEAT, session=sid, seq=7, claimed=15000, now=_dt(90))
+
+        self.assertTrue(restarted['is_authoritative'])
+        self.assertEqual(restarted['active_sessions_count'], 1)
+        self.assertEqual(running['accumulated_ms'], 30_000)
+        completed = complete_daily_timing(
+            game=self.game, task_group=self.tg, user=self.user, now=_dt(100),
+        )
+        self.assertEqual(completed['frozen_ms'], 40_000)
+
+    def _ledger(self):
+        return list(DailyTimingEvent.objects.filter(
+            game=self.game, task_group=self.tg, user=self.user,
+        ).order_by('occurred_at', 'pk'))
+
+    def test_restart_after_lost_heartbeats_credits_bounded_client_claim(self):
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        # Visible for 60 s, but no heartbeat reached the server.
+        restarted = self._apply(action=ACTION_START, session=sid, seq=5, claimed=58_000, now=_dt(60))
+
+        row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
+        self.assertEqual(row.accumulated_ms, 58_000)
+        self.assertEqual(row.client_credited_ms, 58_000)
+        self.assertTrue(restarted['is_authoritative'])
+        completed = complete_daily_timing(
+            game=self.game, task_group=self.tg, user=self.user, now=_dt(70),
+        )
+        self.assertEqual(completed['frozen_ms'], 68_000)
+
+    def test_client_claim_never_exceeds_the_server_gap_or_the_idle_limit(self):
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        self._apply(action=ACTION_START, session=sid, seq=2, claimed=999_999, now=_dt(60))
+        row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
+        self.assertEqual(row.accumulated_ms, 60_000)
+
+        self._apply(action=ACTION_START, session=sid, seq=3, claimed=10**9, now=_dt(60 + 3600))
+        row.refresh_from_db()
+        self.assertEqual(row.accumulated_ms, 60_000 + CLIENT_CREDIT_MAX_MS)
+
+    def test_client_claim_is_ignored_for_a_fresh_lease_or_after_hidden_pause(self):
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        self._apply(action=ACTION_START, session=sid, seq=2, claimed=30_000, now=_dt(30))
+        self._apply(action=ACTION_AUTO_PAUSE, session=sid, seq=3, claimed=0, now=_dt(40))
+        self._apply(action=ACTION_START, session=sid, seq=4, claimed=300_000, now=_dt(400))
+
+        row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
+        self.assertEqual(row.accumulated_ms, 40_000)
+        self.assertEqual(row.client_credited_ms, 0)
+
+    def test_client_claim_is_ignored_when_another_tab_covered_the_gap(self):
+        stale, other = uuid4(), uuid4()
+        self._apply(action=ACTION_START, session=stale, seq=1, now=_dt())
+        self._apply(action=ACTION_START, session=other, seq=1, now=_dt(10))
+        self._apply(action=ACTION_HEARTBEAT, session=other, seq=2, now=_dt(25))
+        self._apply(action=ACTION_HEARTBEAT, session=other, seq=3, now=_dt(40))
+        self._apply(action=ACTION_HEARTBEAT, session=other, seq=4, now=_dt(55))
+        self._apply(action=ACTION_START, session=stale, seq=5, claimed=60_000, now=_dt(60))
+
+        row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
+        self.assertEqual(row.client_credited_ms, 0)
+
+    def test_gameplay_activity_keeps_the_lease_without_moving_client_seq(self):
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=7, now=_dt())
+        # A guess every 30 s keeps the lease alive although heartbeats are lost.
+        record_gameplay_activity(
+            game=self.game, task_group=self.tg, user=self.user, session_id=sid, now=_dt(30),
+        )
+        snap = record_gameplay_activity(
+            game=self.game, task_group=self.tg, user=self.user, session_id=sid, now=_dt(60),
+        )
+        self.assertTrue(snap['is_authoritative'])
+        self.assertEqual(snap['accumulated_ms'], 60_000)
+        heartbeat = self._apply(action=ACTION_HEARTBEAT, session=sid, seq=8, now=_dt(70))
+        self.assertEqual(heartbeat['accumulated_ms'], 70_000)
+        row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
+        self.assertEqual(row.sessions.get(session_id=sid).last_seq, 8)
+        self.assertEqual(
+            [event.action for event in self._ledger()].count('activity'), 2,
+        )
+
+        completed = complete_daily_timing(
+            game=self.game, task_group=self.tg, user=self.user, now=_dt(80),
+        )
+        self.assertEqual(completed['frozen_ms'], 80_000)
+
+    def test_gameplay_activity_reopens_a_stale_lease_with_the_client_claim(self):
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        snap = record_gameplay_activity(
+            game=self.game, task_group=self.tg, user=self.user, session_id=sid,
+            claimed_ms=50_000, now=_dt(50),
+        )
+        self.assertTrue(snap['is_authoritative'])
+        self.assertEqual(snap['accumulated_ms'], 50_000)
+
+    def test_gameplay_activity_never_opens_a_session_or_reverses_a_manual_pause(self):
+        self.assertIsNone(record_gameplay_activity(
+            game=self.game, task_group=self.tg, user=self.user, session_id=uuid4(), now=_dt(),
+        ))
+        sid = uuid4()
+        self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
+        self._apply(action=ACTION_PAUSE, session=sid, seq=2, claimed=5000, now=_dt(5))
+        record_gameplay_activity(
+            game=self.game, task_group=self.tg, user=self.user, session_id=sid,
+            claimed_ms=60_000, now=_dt(65),
+        )
+        unknown = record_gameplay_activity(
+            game=self.game, task_group=self.tg, user=self.user, session_id=uuid4(), now=_dt(66),
+        )
+        row = lookup_timing(game=self.game, task_group=self.tg, user=self.user)
+        self.assertEqual(row.status, DailySolveTiming.STATUS_MANUALLY_PAUSED)
+        self.assertEqual(row.accumulated_ms, 5000)
+        self.assertEqual(row.sessions.count(), 1)
+        self.assertFalse(unknown['is_authoritative'])
 
     def test_hidden_tab_does_not_keep_counting(self):
         sid = uuid4()
@@ -1662,6 +1817,20 @@ class DailyTimingApiTests(TestCase):
         }, t0 + timedelta(seconds=20))
         self.assertEqual(completed.status_code, 200)
         self.assertEqual(completed.json()['frozen_ms'], 20_000)
+
+    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.models.Game.has_access', return_value=True)
+    def test_http_clients_cannot_send_server_side_activity(self, _access, _pub, _game_access):
+        user = User.objects.create_user('timing_http_activity', 'http-activity@example.com', 'secret')
+        Profile.objects.create(user=user, first_name='A', last_name='T')
+        client = Client()
+        client.force_login(user)
+        response = self._post_at(client, {
+            'action': 'activity', 'session_id': str(uuid4()), 'event_id': 'forged', 'seq': 1,
+        }, datetime(2026, 9, 3, 10, 0, 0, tzinfo=dt_timezone.utc))
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.json()['error'], 'bad_action')
 
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)

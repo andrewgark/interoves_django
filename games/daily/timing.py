@@ -33,6 +33,8 @@ ACTION_HEARTBEAT = 'heartbeat'
 ACTION_AUTO_PAUSE = 'auto_pause'
 ACTION_PAUSE = 'pause'
 ACTION_COMPLETE = 'complete'
+# Server-side only: an accepted gameplay request proves the tab is in use.
+ACTION_ACTIVITY = 'activity'
 
 HEARTBEAT_MAX_CREDIT_MS = 60_000
 LEASE_STALE_MS = 45_000
@@ -41,6 +43,10 @@ LEASE_STALE_MS = 45_000
 HEARTBEAT_STALE_GRACE_MS = 5_000
 APPLIED_EVENT_LIMIT = 64
 MAX_ACCUMULATED_MS = 12 * 60 * 60 * 1000  # 12h hard cap for one daily solve
+# A tab whose heartbeats were lost may claim the visible time the server never
+# confirmed. The claim is bounded by the server-side gap since the lease's last
+# confirmation and by the client's own idle limit.
+CLIENT_CREDIT_MAX_MS = 10 * 60 * 1000
 MYSQL_DEADLOCK_ERRNO = 1213
 TIMING_DEADLOCK_ATTEMPTS = 3
 
@@ -62,7 +68,7 @@ _UNSET = object()
 # Keep the established logger name while the implementation moves namespaces.
 logger = logging.getLogger('games.daily_timing')
 
-MUTATING_ACTIONS = {
+CLIENT_ACTIONS = {
     ACTION_START,
     ACTION_RESUME,
     ACTION_HEARTBEAT,
@@ -70,6 +76,19 @@ MUTATING_ACTIONS = {
     ACTION_PAUSE,
     ACTION_COMPLETE,
 }
+MUTATING_ACTIONS = CLIENT_ACTIONS | {ACTION_ACTIVITY}
+REOPENING_ACTIONS = (ACTION_START, ACTION_RESUME, ACTION_ACTIVITY)
+
+
+def client_credit_ms(claimed_ms, *, stale_since, now) -> int:
+    """Credit for visible time a stale lease never got confirmed."""
+    if stale_since is None or now is None:
+        return 0
+    try:
+        claimed = int(claimed_ms or 0)
+    except (TypeError, ValueError):
+        return 0
+    return max(0, min(claimed, _ms_between(stale_since, now), CLIENT_CREDIT_MAX_MS))
 
 
 def _has_prior_statistical_activity(*, game, task_group, actor, replay_slot=None):
@@ -303,6 +322,7 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
     frozen_ms = None
     completed_at = None
     applied = 0
+    client_credited_ms = 0
 
     def close_interval(end):
         nonlocal accumulated_ms, interval_started_at
@@ -367,10 +387,14 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
         })
         event_id = str(_event_value(event, 'event_id') or '')[:64]
         seq = int(_event_value(event, 'seq') or 0)
-        if (event_id and event_id in session['event_ids']) or seq <= session['last_seq']:
+        if event_id and event_id in session['event_ids']:
             continue
+        # Server-side activity has no client seq and must not shift it.
+        if action != ACTION_ACTIVITY:
+            if seq <= session['last_seq']:
+                continue
+            session['last_seq'] = seq
         session['event_ids'].add(event_id)
-        session['last_seq'] = seq
         applied += 1
 
         if action == ACTION_COMPLETE:
@@ -406,9 +430,24 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
                 close_interval(at)
                 status = STATUS_MANUALLY_PAUSED if action == ACTION_PAUSE else STATUS_AUTO_PAUSED
             continue
-        if action in (ACTION_START, ACTION_RESUME):
-            if action == ACTION_START and session['close_reason'] == 'manual':
+        if action in REOPENING_ACTIONS:
+            if action != ACTION_RESUME and session['close_reason'] == 'manual':
                 continue
+            if action == ACTION_ACTIVITY and session['started_at'] is None:
+                continue
+            if session['status'] != STATUS_RUNNING and session['close_reason'] == 'stale':
+                stale_since = session['last_heartbeat_at']
+                overlapped = any(
+                    item is not session and item['last_heartbeat_at']
+                    and stale_since and item['last_heartbeat_at'] > stale_since
+                    for item in sessions.values()
+                )
+                credit = 0 if overlapped else client_credit_ms(
+                    _event_value(event, 'claimed_ms'), stale_since=stale_since, now=at,
+                )
+                if credit:
+                    accumulated_ms = min(MAX_ACCUMULATED_MS, accumulated_ms + credit)
+                    client_credited_ms += credit
             if not any(item['status'] == STATUS_RUNNING for item in sessions.values()):
                 interval_started_at = at
             session['status'] = STATUS_RUNNING
@@ -433,6 +472,7 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
         'applied_event_count': applied,
         'session_count': len(sessions),
         'completed_at': completed_at,
+        'client_credited_ms': client_credited_ms,
     }
 
 
@@ -919,6 +959,42 @@ def apply_timing_event(
     raise last_exc
 
 
+def record_gameplay_activity(
+    *, game, task_group, session_id, user=None, anon_key=None, team=None,
+    claimed_ms=None, now=None,
+) -> dict | None:
+    """Treat an accepted gameplay request as a heartbeat of its tab's lease.
+
+    Gameplay requests reach the server even when the timer's own heartbeats
+    get lost, so they keep or reopen the lease. Timing must never break play:
+    any failure is logged and ignored.
+    """
+    if not _as_uuid(session_id):
+        return None
+    try:
+        snap = apply_timing_event(
+            game=game,
+            task_group=task_group,
+            user=user,
+            anon_key=anon_key,
+            team=team,
+            action=ACTION_ACTIVITY,
+            session_id=session_id,
+            event_id='activity:{}'.format(uuid4()),
+            seq=0,
+            claimed_ms=claimed_ms,
+            now=now,
+            create=False,
+        )
+    except Exception:
+        logger.exception(
+            'daily_timing_activity_failed game=%s task_group=%s',
+            getattr(game, 'pk', None), getattr(task_group, 'pk', None),
+        )
+        return None
+    return snap if snap and snap.get('exists') else None
+
+
 @transaction.atomic
 def _apply_timing_event_once(
     *,
@@ -1051,6 +1127,7 @@ def _apply_timing_event_once(
         event_id=event_id,
         seq=seq,
         now=now,
+        claimed_ms=_parse_claimed_ms(claimed_ms),
     )
     # Keep the immutable ledger and compatibility snapshot in the same
     # transaction. Failed commands (missing rows) return above and are not
@@ -1465,13 +1542,14 @@ def _team_expire_sessions(
     return active
 
 
-def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
+def _apply_to_team_row(row, *, action, session_id, event_id, seq, now, claimed_ms=None):
     if row.status == STATUS_COMPLETED:
         return
     sid = _as_uuid(session_id)
     if not sid:
         return
-    session = _team_session(row, sid, now=now)
+    # Gameplay activity only keeps an existing lease; it never opens a session.
+    session = _team_session(row, sid, create=action != ACTION_ACTIVITY, now=now)
     if session is None:
         return
     _team_expire_sessions(
@@ -1482,12 +1560,21 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
         ),
         heartbeat_session_id=sid if action == ACTION_HEARTBEAT else None,
     )
+    # Expiry may have just paused this very session. A stale in-memory
+    # "running" copy made a restart skip reopening the interval and then
+    # wrote "running" back, leaving the row without an interval for good.
+    session.refresh_from_db(fields=['status', 'paused_at', 'close_reason'])
     try:
         seq = int(seq or 0)
     except (TypeError, ValueError):
         return
     event_id = str(event_id or '').strip()[:64]
-    if _team_event_is_stale(session, event_id, seq):
+    if action == ACTION_ACTIVITY:
+        if event_id in (session.applied_event_ids or []) or session.started_at is None:
+            return
+        # Keep the client's seq untouched: its next event must not look stale.
+        seq = int(session.last_seq or 0)
+    elif _team_event_is_stale(session, event_id, seq):
         return
 
     if action == ACTION_COMPLETE:
@@ -1567,12 +1654,14 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
         ])
         return
 
-    if action in (ACTION_START, ACTION_RESUME):
+    if action in REOPENING_ACTIONS:
         if session.status == DailySolveTimingSession.STATUS_RUNNING:
             session.last_heartbeat_at = now
-        elif action == ACTION_START and session.close_reason == 'manual':
+        elif action != ACTION_RESUME and session.close_reason == 'manual':
             return
         else:
+            if session.close_reason == 'stale':
+                _credit_unconfirmed_time(row, session, claimed_ms=claimed_ms, now=now)
             if int(row.active_sessions_count or 0) == 0:
                 row.team_interval_started_at = now
             row.active_sessions_count = int(row.active_sessions_count or 0) + 1
@@ -1588,8 +1677,30 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now):
         ])
         row.status = STATUS_RUNNING
         row.save(update_fields=[
-            'status', 'active_sessions_count', 'team_interval_started_at', 'updated_at',
+            'status', 'active_sessions_count', 'team_interval_started_at',
+            'accumulated_ms', 'client_credited_ms', 'updated_at',
         ])
+
+
+def _credit_unconfirmed_time(row, session, *, claimed_ms, now):
+    """Add a stale tab's claimed visible time that no other lease covered."""
+    stale_since = session.last_heartbeat_at
+    if stale_since is None:
+        return
+    overlapped = row.sessions.exclude(pk=session.pk).filter(
+        last_heartbeat_at__gt=stale_since,
+    ).exists()
+    if overlapped:
+        return
+    credit = client_credit_ms(claimed_ms, stale_since=stale_since, now=now)
+    if not credit:
+        return
+    row.accumulated_ms = min(MAX_ACCUMULATED_MS, int(row.accumulated_ms or 0) + credit)
+    row.client_credited_ms = int(row.client_credited_ms or 0) + credit
+    logger.info(
+        'daily_timing_client_credit timing_id=%s game=%s task_group=%s credit_ms=%s claimed_ms=%s',
+        row.pk, row.game_id, row.task_group_id, credit, claimed_ms,
+    )
 
 
 def _apply_to_row(row: DailySolveTiming, *, action, session_id, event_id, seq, claimed_ms, now):

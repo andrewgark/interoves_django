@@ -26,8 +26,10 @@ from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import record_gameplay_attempt_created
 from games.censorly.play import (
     CENSORLY_HINT_PENALTY,
+    _actor_filters,
     apply_guess,
     apply_hint,
+    attach_solve_meta,
     get_play_state,
     get_task_for_number,
     hint_count,
@@ -353,6 +355,29 @@ def _censorly_timing_session_precheck(
         )
 
     return precheck
+
+
+def _note_censorly_timing_activity(
+    result, *, game, task, user, anon_key, replay_slot, body, timing_enabled,
+):
+    """Let an accepted guess or hint keep the tab's timer lease alive."""
+    if replay_slot is not None or not timing_enabled:
+        return result
+    if result.get('status') not in ('hit', 'miss', 'already_open', 'won', 'hint'):
+        return result
+    from games.daily.timing import record_gameplay_activity
+
+    snap = record_gameplay_activity(
+        game=game,
+        task_group=task.task_group,
+        user=user,
+        anon_key=anon_key,
+        session_id=body.get('timing_session_id'),
+        claimed_ms=body.get('timing_unconfirmed_ms'),
+    )
+    if snap is not None:
+        result['daily_timing'] = snap
+    return result
 
 
 def _daily_timing_inactive_response(exc):
@@ -1007,7 +1032,7 @@ def censorly_word_report(request, task_id):
 
 def _finish_completion(
     request, *, game, task, user, anon_key, result, replay_slot=None,
-    timing_expected=True,
+    timing_expected=True, share_meta=None,
 ):
     analytics_events = []
     if replay_slot is None and result.get('status') in ('hit', 'miss', 'already_open', 'won', 'hint'):
@@ -1050,6 +1075,14 @@ def _finish_completion(
         if completion is not None:
             if completion.get('timing'):
                 result['daily_timing'] = completion['timing']
+                # The share was built before completion froze the time; build
+                # it again so it shows the same duration as the results.
+                if share_meta is not None and result.get('won'):
+                    attach_solve_meta(
+                        result, game=game, task=task,
+                        actor=_actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot),
+                        **share_meta,
+                    )
             analytics_events.extend(publish_completion_analytics(
                 record=completion['record'],
                 created=completion['created'],
@@ -1172,9 +1205,14 @@ def censorly_guess(request, number=None, share_hash=None):
             )
     except TimingSessionNotActive as exc:
         return _daily_timing_inactive_response(exc)
+    result = _note_censorly_timing_activity(
+        result, game=game, task=task, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, body=body, timing_enabled=timing_enabled,
+    )
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
+        share_meta={'number': play_number, 'host': _share_host(request), 'play_path': play_path},
     )
     if result.get('status') in ('hit', 'miss', 'won'):
         from games.daily.realtime import publish_actor_state_change
@@ -1236,10 +1274,11 @@ def censorly_hint(request, number=None, share_hash=None):
         game=game, task_group=task.task_group, user=user, anon_key=anon_key,
     ):
         return JsonResponse({'status': 'error', 'error': 'replay_required', 'reload_required': True})
+    timing_enabled = _censorly_timing_enabled(game, load_meta, request.user, replay_slot)
     timing_session_guard = _censorly_timing_session_guard(
         game=game, task=task, user=user, anon_key=anon_key,
         replay_slot=replay_slot, body=body,
-        timing_enabled=_censorly_timing_enabled(game, load_meta, request.user, replay_slot),
+        timing_enabled=timing_enabled,
     )
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(CENSORLY_GAME_ID, number)
@@ -1263,9 +1302,14 @@ def censorly_hint(request, number=None, share_hash=None):
         )
     except TimingSessionNotActive as exc:
         return _daily_timing_inactive_response(exc)
+    result = _note_censorly_timing_activity(
+        result, game=game, task=task, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, body=body, timing_enabled=timing_enabled,
+    )
     result = _finish_completion(
         request, game=game, task=task, user=user, anon_key=anon_key, result=result,
         replay_slot=replay_slot,
+        share_meta={'number': play_number, 'host': _share_host(request), 'play_path': play_path},
     )
     if result.get('status') in ('hint', 'won'):
         from games.daily.realtime import publish_actor_state_change

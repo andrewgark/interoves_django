@@ -22,7 +22,7 @@ from games.daily_section import (
 from games.daily_timing import (
     ACTION_RESUME,
     ACTION_START,
-    MUTATING_ACTIONS,
+    CLIENT_ACTIONS,
     TimingEventConflict,
     apply_timing_event,
     empty_snapshot,
@@ -366,7 +366,7 @@ def _daily_solve_timing_impl(
     if not isinstance(raw_action, str):
         return _json_error('bad_action', 400)
     action = raw_action.strip()
-    if action not in MUTATING_ACTIONS:
+    if action not in CLIENT_ACTIONS:
         return _json_error('bad_action', 400)
     request.interoves_timing_game_id = game.id
     request.interoves_timing_task_group_id = task_group.id
