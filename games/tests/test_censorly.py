@@ -172,7 +172,7 @@ class CensorlySymbolTokenTests(SimpleTestCase):
 
 class CensorlyEngineTests(TestCase):
     def test_guess_response_compacts_unchanged_article(self):
-        from games.views.censorly_views import _compact_guess_response
+        from games.views.censorly_views import _compact_play_response
 
         result = {
             'status': 'hit',
@@ -184,11 +184,11 @@ class CensorlyEngineTests(TestCase):
             'newly_revealed': [2],
             'guesses': [{'word': 'слово', 'token_ids': [2]}],
         }
-        compact = _compact_guess_response(result)
+        compact = _compact_play_response(result)
         self.assertNotIn('title_tokens', compact)
         self.assertNotIn('body_tokens', compact)
         self.assertEqual(compact['state_delta']['token_updates'], [result['body_tokens'][0]])
-        self.assertEqual(_compact_guess_response({'status': 'won'}), {'status': 'won'})
+        self.assertEqual(_compact_play_response({'status': 'won'}), {'status': 'won'})
 
     def test_hub_progress_reports_partial_and_solved_states(self):
         game, task, _hash, puzzle = _make_puzzle_task(
@@ -560,6 +560,33 @@ class CensorlyAccessTests(TestCase):
         self.assertEqual(solved_data['status'], 'won')
         self.assertTrue(solved_data['daily_timing']['completed'])
         self.assertIsNotNone(solved_data['daily_timing']['frozen_ms'])
+
+    def test_hint_response_carries_only_changed_tokens(self):
+        from games.censorly.redact import title_opening_lemmas
+
+        self.client.force_login(self.staff)
+        title_lemmas = title_opening_lemmas(self.puzzle)
+        target = next(
+            token for token in self.puzzle['body_tokens']
+            if token.get('kind') == 'content'
+            and token.get('lemma') not in title_lemmas
+            and token.get('initially_open') is not True
+        )
+
+        response = self.client.post(
+            f'/censorly/r/{self.share_hash}/hint/',
+            data=json.dumps({'token_id': target['id']}),
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200, response.json())
+        data = response.json()
+        self.assertEqual(data['status'], 'hint')
+        self.assertNotIn('title_tokens', data)
+        self.assertNotIn('body_tokens', data)
+        updated = {token['id'] for token in data['state_delta']['token_updates']}
+        self.assertIn(target['id'], updated)
+        self.assertEqual(updated, set(data['newly_revealed']))
 
     def test_initially_open_word_api_does_not_record_attempt(self):
         self.client.force_login(self.staff)

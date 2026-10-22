@@ -115,11 +115,12 @@ def _article_json(payload, *, status=200):
     )
 
 
-def _compact_guess_response(result):
-    """Drop the unchanged article from ordinary guess responses.
+def _compact_play_response(result):
+    """Drop the unchanged article from ordinary guess and hint responses.
 
     The initial page/state response already contains the full masked article.
-    Only newly revealed public tokens need to cross the wire after a guess.
+    Only newly revealed public tokens need to cross the wire after a guess or
+    a hint.
     Winning responses stay full so the final reveal remains a simple, robust
     compatibility path.
     """
@@ -1194,7 +1195,7 @@ def censorly_guess(request, number=None, share_hash=None):
     status_code = 200
     if result.get('status') == 'error':
         status_code = 400
-    return _article_json(_compact_guess_response(result), status=status_code)
+    return _article_json(_compact_play_response(result), status=status_code)
 
 
 @require_POST
@@ -1280,4 +1281,4 @@ def censorly_hint(request, number=None, share_hash=None):
     status_code = 200
     if result.get('status') == 'error':
         status_code = 400
-    return _article_json(result, status=status_code)
+    return _article_json(_compact_play_response(result), status=status_code)

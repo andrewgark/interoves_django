@@ -1035,8 +1035,28 @@
     return (data.state_delta.token_updates || []).map(function (tok) { return tok.id; });
   }
 
+  // Ids of tokens that render differently in next than in previous, or null
+  // when the article itself differs (another puzzle, a win or a replay).
+  // Both states must already carry opened_by_guess.
+  function changedTokenIdsSince(previous, next) {
+    if (!previous || previous.won || next.won) return null;
+    var changed = [];
+    var keys = ['title_tokens', 'body_tokens'];
+    for (var k = 0; k < keys.length; k += 1) {
+      var before = previous[keys[k]] || [];
+      var after = next[keys[k]] || [];
+      if (before.length !== after.length) return null;
+      for (var i = 0; i < after.length; i += 1) {
+        if (before[i].id !== after[i].id) return null;
+        if (JSON.stringify(before[i]) !== JSON.stringify(after[i])) changed.push(after[i].id);
+      }
+    }
+    return changed;
+  }
+
   // opts.changedTokenIds: redraw only these tokens' runs instead of the whole
   // article (falls back to a full render when patching is not possible).
+  // opts.previousState: find the changed tokens by comparing with it.
   function applyState(root, state, opts) {
     opts = opts || {};
     root._censorlyState = state;
@@ -1056,10 +1076,13 @@
     (state.title_tokens || []).concat(state.body_tokens || []).forEach(function (token) {
       token.opened_by_guess = openingGuessByToken[token.id] || '';
     });
+    var changedTokenIds = opts.previousState
+      ? changedTokenIdsSince(opts.previousState, state)
+      : opts.changedTokenIds;
     var patched = null;
-    if (Array.isArray(opts.changedTokenIds) && !state.won) {
-      var titleNodes = patchTokens(title, state.title_tokens, opts.changedTokenIds, opts.preserveLen);
-      var bodyNodes = titleNodes && patchTokens(body, state.body_tokens, opts.changedTokenIds, opts.preserveLen);
+    if (Array.isArray(changedTokenIds) && !state.won) {
+      var titleNodes = patchTokens(title, state.title_tokens, changedTokenIds, opts.preserveLen);
+      var bodyNodes = titleNodes && patchTokens(body, state.body_tokens, changedTokenIds, opts.preserveLen);
       if (bodyNodes) patched = titleNodes.concat(bodyNodes);
     }
     if (!patched) {
@@ -1116,12 +1139,13 @@
 
   // Guesses made in another tab or on another device: highlight the newest.
   function applySyncedState(root, data) {
-    var previous = (root._censorlyState || {}).guesses || [];
+    var previousState = root._censorlyState;
+    var previous = (previousState || {}).guesses || [];
     var guesses = data.guesses || [];
     if (guesses.length > previous.length) {
       root.setAttribute('data-active-guess-index', String(guesses.length - 1));
     }
-    applyState(root, data, { preserveLen: true });
+    applyState(root, data, { preserveLen: true, previousState: previousState });
   }
 
   function handleReplayFlags(root, data) {
@@ -1494,9 +1518,11 @@
                 setFeedback(root, data.error || 'Не удалось взять подсказку', 'error');
                 return;
               }
+              var changedTokenIds = deltaTokenIds(data);
+              data = applyStateDelta(root, data);
               root.classList.remove('censorly--hint-pick');
               if (hintMode) hintMode.hidden = true;
-              applyState(root, data, { preserveLen: true });
+              applyState(root, data, { preserveLen: true, changedTokenIds: changedTokenIds });
               if (data.status === 'already_open') focusTokenIds(root, data.active_token_ids);
               var newly = data.newly_revealed || [];
               flashTokenIds(root, newly);
