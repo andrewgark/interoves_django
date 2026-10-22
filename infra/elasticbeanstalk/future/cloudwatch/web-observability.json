@@ -42,21 +42,21 @@
             "priority": "info",
             "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/systemd",
             "log_stream_name": "{instance_id}",
-            "retention_in_days": 14
+            "retention_in_days": 3
           },
           {
             "matches": [{"_TRANSPORT": "kernel"}],
             "priority": "warning",
             "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/kernel",
             "log_stream_name": "{instance_id}",
-            "retention_in_days": 14
+            "retention_in_days": 3
           },
           {
             "units": ["systemd-oomd.service", "amazon-cloudwatch-agent.service"],
             "priority": "warning",
             "log_group_name": "/aws/elasticbeanstalk/interoves-web-green-lb/systemd",
             "log_stream_name": "{instance_id}",
-            "retention_in_days": 14
+            "retention_in_days": 3
           }
         ]
       }

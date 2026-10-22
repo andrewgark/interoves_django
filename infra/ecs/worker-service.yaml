@@ -60,7 +60,7 @@ Parameters:
     Type: String
   LogRetentionDays:
     Type: Number
-    Default: 30
+    Default: 3
   IsProd:
     Type: String
     Default: 'TRUE'

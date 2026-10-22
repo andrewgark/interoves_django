@@ -5,7 +5,7 @@ current environment is Amazon Linux 2023 / Python 3.12, uses `systemd` and
 `web.service` (Daphne), has two `t3.small` instances at present, and publishes
 EC2 CPU metrics at the default five-minute interval. Green already streams
 `web.stdout.log`, Nginx access/error logs, and EB engine/hooks logs to CloudWatch
-Logs with 14-day retention and `DeleteOnTerminate: false`.
+Logs with 3-day retention and `DeleteOnTerminate: false`.
 
 Before this configuration is applied, the Green postdeploy hook skips the web
 role, no `InterOves/Web` custom metrics are present, and no systemd/kernel log
@@ -34,8 +34,8 @@ existing alarm names in place. It uses the already-configured
   limited to its current watched endpoints. Request bodies and query strings
   are not logged.
 
-System logs use per-instance streams and 14-day retention. The existing EB log
-groups retain their current 14-day policy and survive instance termination.
+System logs use per-instance streams and 3-day retention. The existing EB log
+groups retain a 3-day policy and survive instance termination.
 
 ## Apply sequence
 

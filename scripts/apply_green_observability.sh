@@ -56,7 +56,7 @@ echo "Load balancer: $LB_DIM"
 echo "Target group: $TG_DIM"
 echo "Auto Scaling group: $ASG_NAME"
 echo "Alarm topic: $SNS_TOPIC_ARN"
-echo "Log groups: $SYSTEMD_LOG_GROUP, $KERNEL_LOG_GROUP (14 days)"
+echo "Log groups: $SYSTEMD_LOG_GROUP, $KERNEL_LOG_GROUP (3 days)"
 echo "IAM role policy: $ROLE_NAME/$POLICY_NAME"
 echo "Existing Green alarms will be updated in place; ELB 502/504, resource, OOM and Daphne failure alarms will be added."
 
@@ -74,7 +74,7 @@ ensure_log_group() {
         aws_prod logs create-log-group --region "$REGION" --log-group-name "$group_name"
     fi
     aws_prod logs put-retention-policy --region "$REGION" \
-        --log-group-name "$group_name" --retention-in-days 14
+        --log-group-name "$group_name" --retention-in-days 3
 }
 
 ensure_alarm() {
