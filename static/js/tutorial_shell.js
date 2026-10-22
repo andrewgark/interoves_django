@@ -357,7 +357,10 @@
       }
       next.addEventListener('click', function () {
         if (closed) return;
-        if (message && message.href) global.location.href = message.href;
+        if (message && message.href) {
+          if (message.onAction) message.onAction();
+          global.location.href = message.href;
+        }
         else if (completed) close('tutorial_finish');
         else go(1);
       });

@@ -106,21 +106,41 @@
     tutorial.setStep(phase === 'answer-first' ? STEP.answerFirst : STEP.answerSecond);
   }
 
+  // The way onward: back to the Ladder the player left for the tutorial,
+  // otherwise today's Ladder.
+  var onward = config.return_url
+    ? {url: config.return_url, label: config.return_label, name: 'Твоя Лесенка'}
+    : {url: config.today_url, label: 'Решить сегодняшнюю Лесенку', name: 'Сегодняшняя Лесенка'};
+  var returnOffered = false;
+  function trackReturn() {
+    try {
+      if (global.interovesAnalytics && typeof global.interovesAnalytics.trackYandexGoal === 'function') {
+        global.interovesAnalytics.trackYandexGoal('ladder_tutorial_return', {game: 'ladder', solved: phase === 'solved'});
+      }
+    } catch (_) {}
+  }
+
   // The page's own result card stays; the tutorial adds the way onward:
   // a congratulation popup once, and a button under the card after it.
   function showNextStep() {
     var next = root.querySelector('[data-ladder-tutorial-next]');
     var card = document.getElementById('new-task-' + config.task_id);
     if (!next || !next.hidden || !card) return;
+    var link = next.querySelector('a');
+    link.href = onward.url;
+    link.textContent = onward.label;
+    link.addEventListener('click', trackReturn);
     card.insertAdjacentElement('afterend', next);
     next.hidden = false;
     phase = 'solved';
+    returnOffered = true;
     setTimeout(function () {
       tutorial.showMessage({
         title: 'Поздравляем!',
-        text: 'Обучающая Лесенка решена.\nСегодняшняя Лесенка длиннее и может оказаться сложной. Не бойся брать подсказки 💡 — решение с ними тоже засчитывается.',
-        label: 'Решить сегодняшнюю Лесенку',
-        href: config.today_url,
+        text: 'Обучающая Лесенка решена.\n' + onward.name + ' длиннее и может оказаться сложной. Не бойся брать подсказки 💡 — решение с ними тоже засчитывается.',
+        label: onward.label,
+        href: onward.url,
+        onAction: trackReturn,
       });
     }, 400);
   }
@@ -172,9 +192,24 @@
         releaseBoardFocus();
       }
     },
-    onClose: function () {
-      phase = 'freeplay';
+    onClose: function (eventName) {
       removePickButtons();
+      // Leaving the tutorial early must not strand a player who came from a
+      // Ladder: offer the way back once.
+      if (eventName === 'tutorial_skip' && config.return_url && !returnOffered && phase !== 'solved') {
+        returnOffered = true;
+        setTimeout(function () {
+          tutorial.showMessage({
+            title: 'Вернуться к Лесенке?',
+            text: 'Обучение можно пройти позже — кнопка с шапочкой рядом с правилами.',
+            label: onward.label,
+            href: onward.url,
+            onAction: trackReturn,
+          });
+        }, 0);
+        return;
+      }
+      phase = 'freeplay';
     },
   });
 

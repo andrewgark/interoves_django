@@ -62,7 +62,7 @@
 {% endif %}
 
 {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}
-<div id="rules-modal" data-storage-key="section_rules_seen_{{ game.id|escapejs }}"{% if ladder_tutorial %} data-rules-autoopen="0"{% endif %} class="new-rules-modal" role="dialog" {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}aria-labelledby="rules-modal-title"{% else %}aria-label="Правила"{% endif %} aria-modal="true" hidden>
+<div id="rules-modal" data-storage-key="section_rules_seen_{{ game.id|escapejs }}"{% if ladder_tutorial or ladder_tutorial_offer %} data-rules-autoopen="0"{% endif %} class="new-rules-modal" role="dialog" {% if task_group.rules and task_group.rules.html or section_tutorial_html or show_palindrome_rules or section_rules_type %}aria-labelledby="rules-modal-title"{% else %}aria-label="Правила"{% endif %} aria-modal="true" hidden>
   <div class="new-rules-overlay" data-rules-close></div>
   <div class="new-rules-modal__box pal-card">
     {% if task_group.rules and task_group.rules.html %}
@@ -271,6 +271,7 @@
   </div>
 </div>
 
+{% if ladder_tutorial_offer %}{% include "new/partials/ladder_tutorial_offer.html" %}{% endif %}
 {% if ladder_tutorial %}
 <script>
 (function () {
@@ -336,7 +337,8 @@
     el.value = anonKey;
   });
 
-  if (window.interovesDailySolveTimer) {
+  function bindDailySolveTimer() {
+    if (!window.interovesDailySolveTimer) return;
     window.interovesDailySolveTimer.bindFromDocument(document, {
       teamMode: {% if daily_timing_team_mode %}true{% else %}false{% endif %},
       getAnonKey: function () { return isAuthenticated ? '' : anonKey; },
@@ -347,6 +349,9 @@
       }
     });
   }
+  // The Ladder tutorial offer holds the clock until the player answers it.
+  if (window.interovesTimerGate) window.interovesTimerGate.then(bindDailySolveTimer);
+  else bindDailySolveTimer();
 
   function anonCookieWorks() {
     return !!anonKey && readAnonCookie() === anonKey;

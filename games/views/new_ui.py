@@ -253,7 +253,11 @@ from games.payment_routes import (
 )
 from games.yookassa_util import configure_yookassa_from_env
 from games.tutorials.ladder import (
-    LADDER_TUTORIAL_TITLE, ladder_tutorial_payload, reset_ladder_tutorial_progress,
+    LADDER_TUTORIAL_TITLE,
+    is_new_ladder_player,
+    ladder_tutorial_payload,
+    ladder_tutorial_url,
+    reset_ladder_tutorial_progress,
 )
 
 from yookassa import Payment
@@ -3508,11 +3512,14 @@ def daily_statistics(request, game_id, number):
     return JsonResponse(payload)
 
 
-def new_task_group_page(request, game_id, task_group_number, ladder_tutorial_task=None):
+def new_task_group_page(
+    request, game_id, task_group_number, ladder_tutorial_task=None, ladder_tutorial_return_to=None,
+):
     """Play page of one task group.
 
     ``ladder_tutorial_task`` renders the tutorial Ladder (games/tutorials) on
-    this same page, the way a draft ladder offer is rendered.
+    this same page, the way a draft ladder offer is rendered;
+    ``ladder_tutorial_return_to`` is the Ladder the player came from.
     """
     game = get_object_or_404(
         Game.objects.select_related('section_default_rules'),
@@ -3879,6 +3886,21 @@ def new_task_group_page(request, game_id, task_group_number, ladder_tutorial_tas
         back_url = '/create_ladder/'
     elif salad_offer is not None and request.user.is_authenticated and salad_offer.user_id == request.user.id:
         back_url = '/create_salad/'
+    back_label = None
+    if ladder_tutorial_return_to is not None:
+        back_url = ladder_tutorial_return_to['url']
+        back_label = 'Назад к Лесенке'
+
+    # Ladder play pages link to the tutorial; a player who has never started
+    # a Ladder is offered it right away.
+    ladder_tutorial_entry_url = None
+    ladder_tutorial_offer = False
+    if game.id == LADDER_GAME_ID and ladder_tutorial_task is None and replay_slot is None:
+        ladder_tutorial_entry_url = ladder_tutorial_url(request.path)
+        ladder_tutorial_offer = is_new_ladder_player(
+            user=request.user if request.user.is_authenticated else None,
+            anon_key=anon_key,
+        )
 
     difficulty = None
     if draft_offer is None and isinstance(placement, GameTaskGroup):
@@ -3978,15 +4000,19 @@ def new_task_group_page(request, game_id, task_group_number, ladder_tutorial_tas
         **section_format_credit_context(game.id),
         'ladder_offer': ladder_offer,
         'ladder_tutorial': (
-            ladder_tutorial_payload(ladder_tutorial_task)
+            ladder_tutorial_payload(ladder_tutorial_task, ladder_tutorial_return_to)
             if ladder_tutorial_task is not None else None
         ),
+        'ladder_tutorial_entry_url': ladder_tutorial_entry_url,
+        'ladder_tutorial_offer': ladder_tutorial_offer,
         'can_reset_ladder_offer': can_reset_offer,
         'ladder_offer_reset_url': offer_reset_url,
         'custom_reset_enabled': can_reset_offer,
         'custom_reset_url': offer_reset_url,
         'back_url': back_url,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
+        # After the nav context: the tutorial labels its way back to the Ladder.
+        **({'back_label': back_label} if back_label else {}),
         'page_title': page_title,
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),

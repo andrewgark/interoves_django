@@ -7,6 +7,8 @@ ladder offer), so it is solved through the same templates, JS and
 """
 
 import json
+import re
+from urllib.parse import quote
 
 from django.db import transaction
 
@@ -77,7 +79,48 @@ def reset_ladder_tutorial_progress(task, *, team=None, user=None, anon_key=None)
     return reset_raddle_progress(task=task, team=team, user=user, anon_key=anon_key)
 
 
-def ladder_tutorial_payload(task):
+# Only a Ladder play page can be the way back from the tutorial.
+_RETURN_PATH_RE = re.compile(r'^/ladder/(?P<segment>[A-Za-z0-9_-]{1,64})/$')
+_NOT_A_LADDER_SEGMENTS = {LADDER_TUTORIAL_SEGMENT, 'results', 'progress', 'live-state'}
+
+
+def ladder_tutorial_return(next_path):
+    """The Ladder the player came from, or None for an unsafe/unknown path."""
+    match = _RETURN_PATH_RE.match(str(next_path or ''))
+    if not match or match.group('segment') in _NOT_A_LADDER_SEGMENTS:
+        return None
+    segment = match.group('segment')
+    label = 'Вернуться к Лесенке №{}'.format(segment) if segment.isdigit() else 'Вернуться к Лесенке'
+    return {'url': match.group(0), 'label': label}
+
+
+def ladder_tutorial_url(next_path=None):
+    from django.urls import reverse
+
+    url = reverse('new_ladder_tutorial')
+    if ladder_tutorial_return(next_path):
+        url += '?next=' + quote(next_path)
+    return url
+
+
+def is_new_ladder_player(*, user=None, anon_key=None):
+    """No Ladder started yet: the player is offered the tutorial."""
+    from games.ladder_daily import LADDER_GAME_ID
+    from games.models import PlayerCompletedGame, PlayerStartedGame
+
+    if user is not None:
+        actor = {'user': user}
+    elif anon_key:
+        actor = {'anon_key': str(anon_key)}
+    else:
+        return True
+    return not (
+        PlayerStartedGame.objects.filter(game_id=LADDER_GAME_ID, **actor).exists()
+        or PlayerCompletedGame.objects.filter(game_id=LADDER_GAME_ID, **actor).exists()
+    )
+
+
+def ladder_tutorial_payload(task, return_to=None):
     """Data for the popup layer; the board itself comes from the real page."""
     from django.urls import reverse
 
@@ -86,6 +129,8 @@ def ladder_tutorial_payload(task):
         'game': 'ladder',
         'task_id': task.id,
         'today_url': reverse('new_ladder_today'),
+        'return_url': return_to['url'] if return_to else '',
+        'return_label': return_to['label'] if return_to else '',
         'words': _WORDS,
         'lengths': tuple(len(word) for word in _WORDS),
         'steps': {
