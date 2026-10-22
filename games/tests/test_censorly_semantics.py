@@ -950,6 +950,11 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('мыли', 'домой'))
         self.assertFalse(opens('домой', 'мыли'))
 
+    def test_lone_ye_letter_is_not_a_form_of_byt(self):
+        self.assertFalse(opens('был', 'е'))
+        self.assertFalse(opens('быть', 'е'))
+        self.assertTrue(opens('был', 'была'))
+
     def test_nem_pronoun_requires_preposition_in_article_context(self):
         from games.censorly.lexical.match import _GuessPack, _build_article_analysis, _relation
         from games.censorly.tokenize import tokenize_text

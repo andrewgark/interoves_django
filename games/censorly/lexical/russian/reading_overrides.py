@@ -52,6 +52,10 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     # fixed surname lemma «Белых» is not a useful lexical reading here and
     # otherwise suppresses the ordinary adjective citation reading.
     ('белых', 'белых', 'NOUN'),
+    # A lone «е» in article text is a letter, an index or a Latin «E» from a
+    # product name (Microsoft articles), never the archaic «е» = «есть». That
+    # reading would let every form of «быть» open it.
+    ('е', 'быть', 'VERB'),
 })
 
 # Article-context corrections for valid homographs that the parser otherwise
