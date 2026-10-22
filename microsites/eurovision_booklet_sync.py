@@ -881,3 +881,7 @@ def html_url_for(
     from django.urls import reverse
 
     return reverse("eurovision_booklet_html", kwargs={"slug": slug})
+
+
+ASIA_BOOKLET_PDF_FILENAMES = ("eurovision_asia_2026_final_en.pdf", "eurovision_asia_2026_final_ru.pdf")
+ASIA_BOOKLET_HTML_SLUGS = ("eurovision_asia_2026_final_en", "eurovision_asia_2026_final_ru")

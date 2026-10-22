@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Eurovision 2026 — Booklet</title>
+  <title>{{ booklet_title|default:"Eurovision 2026 — Booklet" }}</title>
   <style>
     :root {
       --bg: #0f1114;
@@ -241,7 +241,7 @@
   </div>
   <div class="wrap">
     <header class="booklet-page-head">
-      <h1>Eurovision 2026 — Booklet</h1>
+      <h1>{{ booklet_title|default:"Eurovision 2026 — Booklet" }}</h1>
       {% if booklet_source_url or booklet_last_updated %}
       <div class="booklet-page-sub">
         {% if booklet_source_url %}

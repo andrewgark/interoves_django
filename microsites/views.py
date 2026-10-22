@@ -22,6 +22,8 @@ from django.utils.http import http_date
 from django.views.decorators.http import require_GET
 
 from microsites.eurovision_booklet_sync import (
+    ASIA_BOOKLET_HTML_SLUGS,
+    ASIA_BOOKLET_PDF_FILENAMES,
     BOOKLET_HTML_SLUGS,
     BOOKLET_MINISITE_SECTIONS,
     BOOKLET_PDF_FILENAMES,
@@ -538,6 +540,55 @@ def _booklet_last_updated_display(manifest: dict) -> dict | None:
     if dt is None:
         return None
     return {"dt": dt, "iso": dt.isoformat()}
+
+
+@require_GET
+def eurovision_booklet_index(request):
+    return render(request, "microsites/eurovision_booklet_index.html")
+
+
+@require_GET
+def eurovision_booklet_asia_2026(request):
+    sections = [{"id":"final", "title":"Grand Final", "pdf_ru_url":f"/eurovision_booklet/2026asia/pdf/{ASIA_BOOKLET_PDF_FILENAMES[1]}", "pdf_en_url":f"/eurovision_booklet/2026asia/pdf/{ASIA_BOOKLET_PDF_FILENAMES[0]}", "html_ru_url":f"/eurovision_booklet/2026asia/eurovision-asia-2026/html/{ASIA_BOOKLET_HTML_SLUGS[1]}/", "html_en_url":f"/eurovision_booklet/2026asia/eurovision-asia-2026/html/{ASIA_BOOKLET_HTML_SLUGS[0]}/"}]
+    return render(request, "microsites/eurovision_booklet_2026.html", {"booklet_sections":sections, "booklet_title":"Eurovision Asia 2026 — Booklet", "booklet_sync_configured":sync_configured(settings), "booklet_branch_tip":"", "booklet_synced_at":"", "booklet_last_updated":None, "booklet_source_url":""})
+
+
+@require_GET
+def eurovision_booklet_asia_pdf(request, filename: str):
+    if filename not in ASIA_BOOKLET_PDF_FILENAMES: raise Http404()
+    return _serve_asia_booklet_file(filename, "pdf")
+
+
+@require_GET
+def eurovision_booklet_asia_html_bundle(request, slug: str, relpath: str = "index.html"):
+    if slug not in ASIA_BOOKLET_HTML_SLUGS: raise Http404()
+    rel=(relpath or "").strip().strip("/") or "index.html"
+    if ".." in Path(rel).parts: raise Http404()
+    return _serve_asia_booklet_file(f"html/{slug}/{rel}", "html")
+
+
+@require_GET
+def eurovision_booklet_asia_assets(request, relpath: str):
+    rel=relpath.strip().strip("/")
+    if not rel or ".." in Path(rel).parts: raise Http404()
+    return _serve_asia_booklet_file(f"assets/{rel}", "asset")
+
+
+def _serve_asia_booklet_file(relpath: str, kind: str):
+    root=Path(settings.BASE_DIR)/"var"/"eurovision_booklet"/"2026asia"
+    cached=_safe_booklet_bundle_file(root, relpath)
+    if cached is not None:
+        if kind=="pdf": return FileResponse(cached.open("rb"), content_type="application/pdf")
+        return _file_response_booklet_asset(cached)
+    repo_path=("dist/eurovision-asia-2026/"+relpath if kind in ("pdf","html") else "editions/eurovision-asia-2026/"+relpath)
+    fetched=_fetch_github_raw_booklet(settings, repo_path)
+    if fetched is None: raise Http404()
+    body,ctype=fetched
+    dest=root/relpath
+    try: dest.parent.mkdir(parents=True,exist_ok=True); dest.write_bytes(body)
+    except OSError: logger.info("Eurovision Asia booklet: cache write failed",exc_info=True)
+    if kind=="pdf": return HttpResponse(body,content_type="application/pdf",headers={"Cache-Control":booklet_cache_control(settings)})
+    return _http_response_booklet_bytes(body,ctype)
 
 
 @require_GET

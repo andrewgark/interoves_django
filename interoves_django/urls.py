@@ -48,7 +48,34 @@ nutrimatic_patterns = [
 eurovision_booklet_patterns = [
     path(
         "",
-        RedirectView.as_view(url="/eurovision_booklet/2026/", permanent=False),
+        microsites_views.eurovision_booklet_index,
+        name="eurovision_booklet_index",
+    ),
+    path(
+        "editions/eurovision-asia-2026/assets/<path:relpath>",
+        microsites_views.eurovision_booklet_asia_assets,
+        name="eurovision_booklet_asia_assets",
+    ),
+    path(
+        "2026asia/pdf/<str:filename>",
+        microsites_views.eurovision_booklet_asia_pdf,
+        name="eurovision_booklet_asia_pdf",
+    ),
+    path(
+        "2026asia/eurovision-asia-2026/html/<slug:slug>/<path:relpath>",
+        microsites_views.eurovision_booklet_asia_html_bundle,
+        name="eurovision_booklet_asia_html_asset",
+    ),
+    path(
+        "2026asia/eurovision-asia-2026/html/<slug:slug>/",
+        microsites_views.eurovision_booklet_asia_html_bundle,
+        kwargs={"relpath": "index.html"},
+        name="eurovision_booklet_asia_html",
+    ),
+    path(
+        "2026asia/",
+        microsites_views.eurovision_booklet_asia_2026,
+        name="eurovision_booklet_asia_2026",
     ),
     path(
         "assets/<path:relpath>",
