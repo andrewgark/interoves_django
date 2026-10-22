@@ -5874,11 +5874,13 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
         'вяжущий', 'вязание', 'вязальный', 'вязальщик', 'вязальщица',
         'вязаный', 'вязанье',
     )),
+    # Electricity, the adjective and the adverb are one sense, apart from
+    # the electron particle and electronics.
     ('sense:electricity', (
         'электричество', 'электрификация', 'электрифицировать',
-        'электризовать', 'электризация',
+        'электризовать', 'электризация', 'электрический', 'электрически',
+        'электрик', 'электрика', 'электричка',
     )),
-    ('sense:electrical_adverb', ('электрически',)),
     ('sense:prosperity', ('зажиточность', 'зажиточный')),
     ('sense:residence', (
         'жилец', 'жилица', 'жиличка', 'жилище', 'жилищный', 'жилой',
@@ -6917,8 +6919,6 @@ CLUSTERS = CLUSTERS + (
 # structure from their pymorphy lemma.
 CLUSTERS = CLUSTERS + (
     ('sense:demonstrative', ('это', 'этот')),
-    # The adjective and adverb are both separate from the electron particle.
-    ('sense:electrical_adjective', ('электрический',)),
 )
 
 # The lemma «весь» also has the historical ethnonym reading from a separate
@@ -7177,7 +7177,8 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
     'троянец': (('root:proper_troy',),),
     'троянский': (('root:proper_troy',),),
     'старостин': (('root:старост',),),
-    'электрически': (('tikh:электр',),),
+    'электрически': (('fam:электр',),),
+    'электрика': (('fam:электр',),),
     'онемечивание': (('fam:нем',),),
     # These lemmas are absent from both source root dictionaries but belong
     # to an already reviewed semantic family.  Keep the assignment explicit;

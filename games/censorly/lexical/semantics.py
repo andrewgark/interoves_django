@@ -493,8 +493,44 @@ _ROOT_ALIAS_LEMMAS = {
 }
 
 
+# First halves of hyphenated compounds («юго-западный», «англо-саксонский»).
+# The tokenizer splits on the hyphen, so «юго» is a word of its own and
+# carries the root of its full form. Regular «-ско» and «-ико» halves
+# (русско, политико) are derived in _combining_form_lemma.
+_COMBINING_FORM_LEMMAS = {
+    'юго': 'юг',
+    'северо': 'север',
+    'англо': 'английский',
+    'франко': 'французский',
+    'германо': 'германский',
+    'австро': 'австрийский',
+    'греко': 'греческий',
+    'испано': 'испанский',
+    'итало': 'итальянский',
+    'японо': 'японский',
+    'американо': 'американский',
+    'чехо': 'чешский',
+    'взаимо': 'взаимный',
+    'финансово': 'финансовый',
+    'электро': 'электрический',
+}
+
+
+def _combining_form_lemma(word: str) -> str:
+    lemma = _COMBINING_FORM_LEMMAS.get(word)
+    if lemma:
+        return lemma
+    for half, full in (('ико', 'ический'), ('ско', 'ский'), ('цко', 'цкий')):
+        if len(word) > len(half) + 2 and word.endswith(half):
+            lemma = word[:-len(half)] + full
+            if structures_of(lemma):
+                return lemma
+    return ''
+
+
 def label_lemmas(surface: str) -> tuple[str, ...]:
-    lemma = _ROOT_ALIAS_LEMMAS.get(fold(surface))
+    word = fold(surface)
+    lemma = _ROOT_ALIAS_LEMMAS.get(word) or _combining_form_lemma(word)
     return (lemma,) if lemma else ()
 
 
@@ -574,6 +610,8 @@ def _hyphen_structure(surface: str) -> tuple[tuple[str, ...], ...]:
         structures = []
         for item in options:
             structures.extend(structures_of(item.lemma))
+        for lemma in label_lemmas(part):
+            structures.extend(structures_of(lemma))
         if not structures:
             return ()
         combos = [prev + structure for prev in combos for structure in structures]

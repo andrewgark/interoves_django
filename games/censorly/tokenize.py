@@ -25,6 +25,7 @@ from games.censorly.lexical.russian.reading_overrides import (
     PAGE_ABBR_CONTEXT,
     PO_SOFTWARE_CONTEXT,
     STREET_ABBR_CONTEXT,
+    TELE_PREFIX_CONTEXT,
     YEAR_ABBR_CONTEXT,
 )
 from games.censorly.stopwords import is_stop_word
@@ -425,6 +426,17 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             tok['lemma'] = label_context
             tok['context_reading'] = label_context
             tok['initially_open'] = False
+            continue
+
+        # «теле-шоу» splits into «теле» and «шоу»; «в теле» stays «тело».
+        if (
+            word == 'теле'
+            and index + 1 < len(tokens)
+            and tokens[index + 1].get('kind') == 'punct'
+            and tokens[index + 1].get('surface') == '-'
+        ):
+            tok['lemma'] = TELE_PREFIX_CONTEXT
+            tok['context_reading'] = TELE_PREFIX_CONTEXT
             continue
 
         # The two-letter abbreviation is case-sensitive; sentence-initial

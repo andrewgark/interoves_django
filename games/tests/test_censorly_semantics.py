@@ -242,6 +242,15 @@ TRUE_CASES = (
     ('байкал', 'байкальский', 'root'),
     ('толстой', 'толстовский', 'root'),
     ('петербург', 'петербургский', 'root'),
+    # Halves of hyphenated compounds are tokens of their own.
+    ('юг', 'юго', 'root'),
+    ('южный', 'юго', 'root'),
+    ('север', 'северо', 'root'),
+    ('русский', 'русско', 'root'),
+    ('политика', 'политико', 'root'),
+    ('история', 'историко', 'root'),
+    ('английский', 'англо', 'root'),
+    ('взаимный', 'взаимо', 'root'),
     ('20', 'XX', 'alias'),
     ('19', 'XIX', 'alias'),
     ('1', 'I', 'alias'),
@@ -605,13 +614,19 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('шахматы', 'мат'))
         self.assertFalse(opens('шах', 'шахматы'))
 
-    def test_electrical_adverb_is_separate_from_electron(self):
-        from games.censorly.lexical.rootbank import assignment_of, structures_of
+    def test_electricity_family_is_separate_from_electron(self):
+        from games.censorly.lexical.rootbank import assignment_of
 
         self.assertEqual(assignment_of('электрически')['source'], 'SEMANTIC_ROOT_ASSIGNMENT')
-        self.assertTrue(_has_sense_structure('электрически', 'sense:electrical_adverb'))
-        self.assertFalse(opens('электрон', 'электрически'))
-        self.assertFalse(opens('электрически', 'электрон'))
+        for lemma in ('электричество', 'электрический', 'электрически', 'электрик', 'электричка'):
+            with self.subTest(lemma=lemma):
+                self.assertTrue(_has_sense_structure(lemma, 'sense:electricity'))
+                self.assertFalse(opens('электрон', lemma))
+                self.assertFalse(opens('электроника', lemma))
+        self.assertTrue(opens('электричество', 'электрический'))
+        self.assertTrue(opens('электрический', 'электрически'))
+        self.assertTrue(opens('электричество', 'электричка'))
+        self.assertTrue(opens('электричество', 'электро'))
 
     def test_reported_mississippi_sense_splits(self):
         self.assertFalse(opens('широта', 'обширной'))

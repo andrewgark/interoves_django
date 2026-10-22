@@ -213,3 +213,18 @@ class CensorlyLanguageLabelRootTests(SimpleTestCase):
                 self.assertFalse(
                     matching_lemmas(tokens, guess) & set(LANGUAGE_LABEL_CONTEXTS.values()),
                 )
+
+
+class HyphenHalfTests(SimpleTestCase):
+    def test_hyphen_halves_open_from_their_full_form(self):
+        tokens = tokenize_text('Юго-западный ветер, русско-японская война.')
+        self.assertEqual(matching_lemmas(tokens, 'юг'), {'юго'})
+        self.assertEqual(matching_lemmas(tokens, 'южный'), {'юго'})
+        self.assertEqual(matching_lemmas(tokens, 'россия'), {'русско'})
+
+    def test_tele_and_mini_halves_are_not_body_or_pass(self):
+        tokens = tokenize_text('Он вёл теле-шоу, а мини-юбка была в теле.')
+        self.assertEqual(matching_lemmas(tokens, 'тело'), {'тело'})
+        self.assertIn('__censorly_tele_prefix__', matching_lemmas(tokens, 'теле'))
+        self.assertFalse(matching_lemmas(tokens, 'минуть'))
+        self.assertFalse(matching_lemmas(tokens, 'миновать'))

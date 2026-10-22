@@ -18,6 +18,7 @@ YEAR_ABBR_CONTEXT = '__censorly_year_abbr__'
 CITY_ABBR_CONTEXT = '__censorly_city_abbr__'
 PAGE_ABBR_CONTEXT = '__censorly_page_abbr__'
 STREET_ABBR_CONTEXT = '__censorly_street_abbr__'
+TELE_PREFIX_CONTEXT = '__censorly_tele_prefix__'
 # Homographic language labels before a foreign gloss: «(кит. 北京)»,
 # «от лат. felis». Each label has its own identity, so revealing «кит.» does
 # not also reveal «тур.»; outside that position the ordinary word stays.
@@ -56,6 +57,9 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     # product name (Microsoft articles), never the archaic «е» = «есть». That
     # reading would let every form of «быть» open it.
     ('е', 'быть', 'VERB'),
+    # «мини» is the half of «мини-юбка», not a form of «минуть».
+    ('мини', 'минуть', 'VERB'),
+    ('мини', 'минь', 'NOUN'),
 })
 
 # Article-context corrections for valid homographs that the parser otherwise
@@ -135,6 +139,9 @@ TARGET_LEMMA_OVERRIDES: dict[tuple[str, str], tuple[str, ...]] = {
     ('г', CITY_ABBR_CONTEXT): ('город',),
     ('стр', PAGE_ABBR_CONTEXT): ('страница',),
     ('ул', STREET_ABBR_CONTEXT): ('улица',),
+    # «теле-» before a hyphen is the television prefix, not «тело»; only the
+    # exact spelling opens it.
+    ('теле', TELE_PREFIX_CONTEXT): (TELE_PREFIX_CONTEXT,),
     **{
         (label, LANGUAGE_LABEL_CONTEXTS[label]): (lemma,)
         for label, lemma in LANGUAGE_LABEL_LEMMAS.items()
