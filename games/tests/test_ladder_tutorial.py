@@ -158,7 +158,8 @@ class LadderTutorialEntryTests(TestCase):
         self.assertEqual(response.status_code, 200)
         entry = '/ladder/tutorial/?next=' + self.ladder_path
         self.assertContains(response, 'id="ladder-tutorial-offer"')
-        self.assertContains(response, 'href="{}"'.format(entry), count=2)
+        self.assertContains(response, 'href="{}" data-ladder-tutorial-offer-accept'.format(entry))
+        self.assertContains(response, 'href="{}" aria-label="Обучение"'.format(entry))
         self.assertContains(response, 'data-rules-autoopen="0"')
         self.assertContains(response, 'window.interovesTimerGate')
 
