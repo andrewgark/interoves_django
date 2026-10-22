@@ -257,6 +257,9 @@ class ReportedSenseSplitTests(SimpleTestCase):
             ('печать', 'опечатка'),
             ('печать', 'отпечаток'),
             ('напечатать', 'запечатать'),
+            ('присоединение', 'единственного'),
+            ('единица', 'единственный'),
+            ('поединок', 'единый'),
         ):
             with self.subTest(guess=guess, target=target):
                 self.assertFalse(self._relation(guess, target))
@@ -286,6 +289,9 @@ class ReportedSenseSplitTests(SimpleTestCase):
             ('печать', 'запечатать'),
             ('распечатать', 'печатать'),
             ('распечатать', 'запечатать'),
+            ('соединить', 'объединение'),
+            ('единый', 'единство'),
+            ('уединение', 'наедине'),
         ):
             with self.subTest(guess=guess, target=target):
                 self.assertEqual(self._relation(guess, target), 'root')
