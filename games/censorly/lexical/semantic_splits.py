@@ -7252,6 +7252,27 @@ _LATE_REVIEW_SPLITS = (
         'уединять', 'уединяться', 'наедине',
     )),
     ('sense:duel', ('поединок',)),
+    # The свят family had no split: dedicating or initiating (посвятить),
+    # consecrating (освятить), the clergy and Christmastide separate from
+    # holiness itself.
+    ('sense:dedicate_initiate', (
+        'посвятительный', 'посвятить', 'посвятиться', 'посвящать',
+        'посвящаться', 'посвящение', 'посвященный',
+    )),
+    ('sense:holy', (
+        'святой', 'святость', 'святейший', 'святейшество', 'святилище',
+        'святилищный', 'священный', 'святоша', 'святошество', 'святцы',
+        'преосвященный', 'преосвященство',
+    )),
+    ('sense:consecrate', (
+        'освятить', 'освящать', 'освящаться', 'освящение', 'святить',
+        'святиться', 'свяченый',
+    )),
+    ('sense:clergy', (
+        'священник', 'священнический', 'священство', 'священствовать',
+        'святитель', 'святительский',
+    )),
+    ('sense:yuletide', ('святки', 'святочный')),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
