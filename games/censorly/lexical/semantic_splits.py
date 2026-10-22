@@ -6961,6 +6961,8 @@ MULTI_READINGS = MULTI_READINGS + (
     ('частный', ('sense:part', 'sense:private')),
     ('причастие', ('sense:communion', 'sense:participle')),
     ('причастный', ('sense:share', 'sense:participle')),
+    # Низменный is both low-lying (terrain) and base (conduct).
+    ('низменный', ('sense:lowland', 'sense:baseness')),
 )
 
 # Explicitly reviewed lexical families requested from Censorly daily-article
@@ -7054,6 +7056,65 @@ _LATE_REVIEW_SPLITS = (
         'проводник', 'проводниковый', 'проводница', 'проводной', 'проводчик',
     )),
     ('sense:escort', ('проводы', 'провождение')),
+    # Growing keeps расти/вырасти/рост; a plant, age and adulthood, an
+    # industry branch and usury are lexicalized meanings of the same root.
+    ('sense:vegetation', (
+        'растение', 'растеньице', 'растительность', 'растительный',
+    )),
+    ('sense:age_maturity', (
+        'возраст', 'возрастной', 'повозрастной', 'взрослеть', 'взрослый',
+        'повзрослеть', 'подросток', 'подростковый', 'подросточек', 'переросток',
+        'недоросль', 'недоросток', 'предросток',
+    )),
+    ('sense:industry_branch', ('отрасль', 'отраслевой', 'подотрасль')),
+    ('sense:usury', (
+        'ростовщик', 'ростовщица', 'ростовщический', 'ростовщичество',
+        'ростовщичий',
+    )),
+    # A limit (предел, запредельный) and an appanage or lot (удел, удельный)
+    # are not acts of dividing.
+    ('sense:limit', (
+        'предел', 'предельность', 'предельный', 'беспредельность',
+        'беспредельный', 'запредельный', 'предельческий', 'предельщик',
+    )),
+    ('sense:appanage', ('удел', 'удельный')),
+    # Flowing keeps течь/протекать/вытекать. Streams, inflow and outflow,
+    # drains, channels, electric current, edema, streamlining, molasses, the
+    # forerunner, estrus and running away do not open the verbs of flowing
+    # or each other.
+    ('sense:stream', ('поток', 'поточный', 'поточность')),
+    ('sense:inflow_outflow', ('приток', 'приточный', 'отток', 'подток')),
+    ('sense:drain', ('сток', 'стоковый', 'сточный', 'бессточный')),
+    ('sense:channel', ('проток', 'протока', 'проточный')),
+    ('sense:electric_current', ('ток',)),
+    ('sense:edema', ('отек', 'отекание', 'отекать', 'отечность', 'отечный', 'отечь')),
+    ('sense:streamlined', ('обтекаемость', 'обтекаемый')),
+    ('sense:molasses', ('патока', 'паточный')),
+    ('sense:forerunner', ('предтеча',)),
+    ('sense:estrus', ('течка',)),
+    ('sense:flee_off', ('наутек',)),
+    # The ниж/низ family had no split: low position and lowering stay
+    # together, while lowland geography, humiliation and baseness separate.
+    ('sense:low', (
+        'вниз', 'внизу', 'донизу', 'изнизу', 'исподнизу', 'книзу', 'нанизу',
+        'понизу', 'снизу', 'низом', 'нижний', 'низ', 'низенький', 'низехонько',
+        'низкий', 'низкость', 'низок', 'низший',
+        'занижать', 'занижаться', 'занижение', 'заниженный', 'занизить',
+        'понижать', 'понижаться', 'понижение', 'пониженный', 'понизительный',
+        'понизить', 'понизиться', 'снижать', 'снижаться', 'снижение',
+        'снизить', 'снизиться',
+    )),
+    ('sense:lowland', (
+        'низина', 'низинный', 'низменность', 'низовье', 'низовой', 'низовский',
+        'низовка', 'понизовье', 'понизовый', 'понизовщина',
+    )),
+    ('sense:humiliate', (
+        'принижать', 'принижаться', 'принижение', 'приниженность',
+        'приниженный', 'принизить', 'унижать', 'унижаться', 'унижение',
+        'униженность', 'униженный', 'унизительность', 'унизительный',
+        'унизить', 'унизиться',
+    )),
+    ('sense:baseness', ('низменный', 'низость')),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas

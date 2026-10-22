@@ -226,3 +226,47 @@ class HalfCompoundTests(SimpleTestCase):
     def test_sharecropping_is_its_own_pol_cluster(self):
         self.assertEqual(self._relation('испольщик', 'исполу'), 'root')
         self.assertEqual(self._relation('полть', 'половина'), 'root')
+
+
+class ReportedSenseSplitTests(SimpleTestCase):
+    def _relation(self, guess, target):
+        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        return _relation(_GuessPack(guess), _Pack(target))
+
+    def test_reported_cognates_stay_closed(self):
+        for guess, target in (
+            ('растение', 'выросла'),
+            ('распределение', 'пределами'),
+            ('приток', 'Протекает'),
+            ('нижний', 'низменность'),
+            ('возраст', 'расти'),
+            ('отрасль', 'вырасти'),
+            ('удел', 'делить'),
+            ('отек', 'течь'),
+            ('унизить', 'низкий'),
+            ('поток', 'приток'),
+            ('ток', 'поток'),
+            ('сток', 'протока'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(self._relation(guess, target))
+
+    def test_split_clusters_still_open_within_themselves(self):
+        for guess, target in (
+            ('растение', 'растительность'),
+            ('вырасти', 'рост'),
+            ('взрослый', 'возраст'),
+            ('предел', 'запредельный'),
+            ('делить', 'распределение'),
+            ('приток', 'отток'),
+            ('сток', 'сточный'),
+            ('протока', 'проточный'),
+            ('течь', 'протекает'),
+            ('нижний', 'вниз'),
+            ('снизить', 'низкий'),
+            ('низина', 'низменность'),
+            ('низость', 'низменный'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertEqual(self._relation(guess, target), 'root')
