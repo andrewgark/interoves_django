@@ -550,7 +550,21 @@ def eurovision_booklet_index(request):
 @require_GET
 def eurovision_booklet_asia_2026(request):
     sections = [{"id":"final", "title":"Grand Final", "pdf_ru_url":f"/eurovision_booklet/2026asia/pdf/{ASIA_BOOKLET_PDF_FILENAMES[1]}", "pdf_en_url":f"/eurovision_booklet/2026asia/pdf/{ASIA_BOOKLET_PDF_FILENAMES[0]}", "html_ru_url":f"/eurovision_booklet/2026asia/eurovision-asia-2026/html/{ASIA_BOOKLET_HTML_SLUGS[1]}/", "html_en_url":f"/eurovision_booklet/2026asia/eurovision-asia-2026/html/{ASIA_BOOKLET_HTML_SLUGS[0]}/"}]
-    return render(request, "microsites/eurovision_booklet_2026.html", {"booklet_sections":sections, "booklet_title":"Eurovision Asia 2026 — Booklet", "booklet_sync_configured":sync_configured(settings), "booklet_branch_tip":"", "booklet_synced_at":"", "booklet_last_updated":None, "booklet_source_url":""})
+    return render(request, "microsites/eurovision_booklet_2026.html", {
+        "booklet_sections": sections,
+        "booklet_title": "Eurovision Asia 2026 — Booklet",
+        "booklet_sync_configured": sync_configured(settings),
+        "booklet_branch_tip": "",
+        "booklet_synced_at": "",
+        "booklet_source_url": (
+            getattr(settings, "EUROVISION_BOOKLET_SOURCE_URL", "")
+            or "https://github.com/andrewgark/eurovision2026booklet"
+        ).strip(),
+        "booklet_last_updated": {
+            "iso": "2026-10-22T18:35:00+00:00",
+            "display": "22 October 2026, 21:35 MSK",
+        },
+    })
 
 
 @require_GET

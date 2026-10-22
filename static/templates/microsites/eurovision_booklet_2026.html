@@ -252,7 +252,7 @@
         {% if booklet_last_updated %}
         <p class="booklet-last-updated meta-sub">
           Last updated:
-          <time datetime="{{ booklet_last_updated.iso }}">{{ booklet_last_updated.dt|date:"j E Y, H:i e" }}</time>
+          <time datetime="{{ booklet_last_updated.iso }}">{% if booklet_last_updated.display %}{{ booklet_last_updated.display }}{% else %}{{ booklet_last_updated.dt|date:"j E Y, H:i e" }}{% endif %}</time>
         </p>
         {% endif %}
       </div>
@@ -309,7 +309,6 @@
 
     <footer class="site-footer">
       <p>Made by <a href="https://interoves.com/" rel="noopener">interoves.com</a> — Community for Russian-speaking fans of puzzle games</p>
-      <p><a href="/terms/">Terms</a> · <a href="/refunds/">Refunds</a> · <a href="/privacy/">Privacy</a> · <a href="/sellers/">Sellers</a> · <a href="/contacts/">Contacts</a></p>
     </footer>
   </div>
   <script>
