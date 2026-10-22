@@ -242,6 +242,10 @@ TRUE_CASES = (
     ('байкал', 'байкальский', 'root'),
     ('толстой', 'толстовский', 'root'),
     ('петербург', 'петербургский', 'root'),
+    # Nursery «мама» is reviewed into the мать root.
+    ('мама', 'мать', 'root'),
+    ('мать', 'мама', 'root'),
+    ('мамочка', 'материнский', 'root'),
     # An «-о» adverb is the neuter short form of its adjective.
     ('близко', 'близких', 'lexeme'),
     ('широко', 'широких', 'lexeme'),
@@ -262,6 +266,7 @@ TRUE_CASES = (
 )
 
 FALSE_CASES = (
+    'мама', 'материться',
     'сад', 'сажать',
     'расти', 'растение',
     'пчела', 'пчеловод',
@@ -1737,7 +1742,7 @@ class LexicalGameplayTests(TestCase):
             country = apply_guess(game=game, task=task, word='страна', user=user)
             self.assertNotIn(fold('странный'), self._open_texts(country))
             mother = apply_guess(game=game, task=task, word='мать', user=user)
-            self.assertIn(fold('матка'), self._open_texts(mother))
+            self.assertNotIn(fold('матка'), self._open_texts(mother))
             alias = apply_guess(game=game, task=task, word='универ', user=user)
             self.assertIn(fold('университет'), self._open_texts(alias))
             photo = apply_guess(game=game, task=task, word='фото', user=user)
@@ -2888,8 +2893,9 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             self.assertTrue(opens(left, right), f'{left}/{right}')
             self.assertTrue(opens(right, left), f'{right}/{left}')
 
-        self.assertTrue(opens('мать', 'матка'))
-        self.assertTrue(opens('матка', 'мать'))
+        self.assertFalse(opens('мать', 'матка'))
+        self.assertFalse(opens('матка', 'мать'))
+        self.assertFalse(opens('мама', 'матка'))
 
         for left, right in (
             ('антисептик', 'септима'),

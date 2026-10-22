@@ -6913,6 +6913,12 @@ CLUSTERS = CLUSTERS + (
         'близлежащий', 'близость',
     )),
     ('sense:approximate', ('приблизительный', 'приблизительно')),
+    # Nursery «мама» is reviewed into the мать root (SEMANTIC_ROOT_ASSIGNMENTS)
+    # and takes the mother sense, apart from матка and the profanity words.
+    ('sense:review_mother', (
+        'мама', 'мамаша', 'мамашенька', 'маменька', 'маменькин', 'мамин',
+        'мамка', 'мамонька', 'мамочка', 'мамуля', 'мамуся', 'мамушка',
+    )),
     ('sense:biography', ('биограф', 'биография', 'биографический')),
 )
 
@@ -7287,6 +7293,19 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
     'старостин': (('root:старост',),),
     'электрически': (('fam:электр',),),
     'электрика': (('fam:электр',),),
+    # Nursery «мама» shares one root with «мать».
+    'мама': (('fam:мат¹|мач¹',),),
+    'мамаша': (('fam:мат¹|мач¹',),),
+    'мамашенька': (('fam:мат¹|мач¹',),),
+    'маменька': (('fam:мат¹|мач¹',),),
+    'маменькин': (('fam:мат¹|мач¹',),),
+    'мамин': (('fam:мат¹|мач¹',),),
+    'мамка': (('fam:мат¹|мач¹',),),
+    'мамонька': (('fam:мат¹|мач¹',),),
+    'мамочка': (('fam:мат¹|мач¹',),),
+    'мамуля': (('fam:мат¹|мач¹',),),
+    'мамуся': (('fam:мат¹|мач¹',),),
+    'мамушка': (('fam:мат¹|мач¹',),),
     'онемечивание': (('fam:нем',),),
     # These lemmas are absent from both source root dictionaries but belong
     # to an already reviewed semantic family.  Keep the assignment explicit;
@@ -7667,7 +7686,6 @@ SEMANTIC_ROOT_ASSIGNMENTS.update(_proper_cluster_roots())
 
 # A small reviewed compatibility relation for senses inside one root family.
 # This is not a pair edge: it applies to every complete structure carrying
-# the two reviewed subclasses.  Most different senses remain incompatible.
-SENSE_COMPATIBLE = frozenset({
-    frozenset({'sense:review_mother', 'sense:review_uterus'}),
-})
+# the two reviewed subclasses.  Most different senses remain incompatible;
+# мать and матка were compatible once and are now apart.
+SENSE_COMPATIBLE: frozenset[frozenset[str]] = frozenset()
