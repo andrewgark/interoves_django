@@ -950,6 +950,12 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('мыли', 'домой'))
         self.assertFalse(opens('домой', 'мыли'))
 
+    def test_criticism_family_shares_one_root_without_prakrit(self):
+        for target in ('критикуют', 'критик', 'раскритиковали', 'критический', 'критиканство'):
+            with self.subTest(target=target):
+                self.assertTrue(opens('критика', target))
+        self.assertFalse(opens('критика', 'пракрит'))
+
     def test_lone_ye_letter_is_not_a_form_of_byt(self):
         self.assertFalse(opens('был', 'е'))
         self.assertFalse(opens('быть', 'е'))
