@@ -60,6 +60,15 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     # «мини» is the half of «мини-юбка», not a form of «минуть».
     ('мини', 'минуть', 'VERB'),
     ('мини', 'минь', 'NOUN'),
+    # These are ordinary common-word forms, not given-name inflections:
+    # «в санях» is the locative plural of сани, and «лень» is the noun.
+    # The analyzer's саня/Лёня readings connect those words to Alexander and
+    # Leonid through the reviewed nickname graph.
+    ('санях', 'саня', 'NOUN'),
+    ('лень', 'леня', 'NOUN'),
+    # «листьев» is the genitive plural of лист. Treating this spelling as its
+    # own noun citation form makes a context-free guess lose the лист root.
+    ('листьев', 'листьев', 'NOUN'),
 })
 
 # Article-context corrections for valid homographs that the parser otherwise

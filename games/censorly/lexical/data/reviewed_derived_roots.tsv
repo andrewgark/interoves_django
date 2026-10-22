@@ -130,3 +130,19 @@ lemma	root_structure	note
 критический	root:критика	Criticism words; Tikhonov крит also holds пракрит (Prakrit) and раскритиковать is segmented as критик.
 некритический	root:критика	Criticism words; Tikhonov крит also holds пракрит (Prakrit) and раскритиковать is segmented as критик.
 квадривиум	root:квадривиум	Medieval four-subject curriculum; pymorphy only predicts its forms (квадривиуму).
+архитектурный	root:architecture	Reviewed adjective derived from архитектура; share the isolated architecture root.
+биолог	root:biology	Reviewed biological family; use a complete root rather than the ambiguous Tikhonov био+лог components.
+биология	root:biology	Reviewed biological family; use a complete root rather than the ambiguous Tikhonov био+лог components.
+биологический	root:biology	Reviewed biological family; use a complete root rather than the ambiguous Tikhonov био+лог components.
+психолог	root:psychology	Reviewed psychology family; keep the opaque compound distinct from unrelated псих and лог families.
+психология	root:psychology	Reviewed psychology family; keep the opaque compound distinct from unrelated псих and лог families.
+психологический	root:psychology	Reviewed psychology family; keep the opaque compound distinct from unrelated псих and лог families.
+физиолог	root:physiology	Reviewed physiology family; use a complete root rather than the ambiguous Tikhonov физи+лог components.
+физиология	root:physiology	Reviewed physiology family; use a complete root rather than the ambiguous Tikhonov физи+лог components.
+физиологический	root:physiology	Reviewed physiology family; use a complete root rather than the ambiguous Tikhonov физи+лог components.
+этимолог	root:etymology	Reviewed etymology family; use a complete root rather than the ambiguous Tikhonov этим+лог components.
+этимология	root:etymology	Reviewed etymology family; use a complete root rather than the ambiguous Tikhonov этим+лог components.
+этимологический	root:etymology	Reviewed etymology family; use a complete root rather than the ambiguous Tikhonov этим+лог components.
+демократ	root:democracy	Reviewed democracy family; use a complete root rather than the ambiguous Tikhonov дем+крат components.
+демократия	root:democracy	Reviewed democracy family; use a complete root rather than the ambiguous Tikhonov дем+крат components.
+демократический	root:democracy	Reviewed democracy family; use a complete root rather than the ambiguous Tikhonov дем+крат components.
