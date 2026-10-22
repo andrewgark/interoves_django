@@ -64,10 +64,6 @@
     background: var(--surface, var(--bg, #fff));
     box-shadow: 0 6px 20px color-mix(in srgb, var(--text) 8%, transparent);
   }
-
-  .censorly {
-    padding-bottom: 1rem;
-  }
 }
 
 html.new-ui-dark .censorly__dock {
@@ -77,10 +73,6 @@ html.new-ui-dark .censorly__dock {
 /* Narrow / mobile: form bar sticks to the bottom (thumb reach), with blur chrome. */
 /* Must match the new UI wide breakpoint (920px). */
 @container censorly (max-width: 919px) {
-  .censorly {
-    padding-bottom: max(7rem, var(--censorly-dock-height, 7rem));
-  }
-
   /* Keep each masked word intact; line wrapping happens at the spaces between
      article tokens. Slightly smaller glyphs help long words fit on phones. */
   .censorly-tok--glyphs {

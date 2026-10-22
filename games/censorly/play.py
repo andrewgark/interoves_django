@@ -38,6 +38,8 @@ from games.results.share import format_elapsed, format_share_link, share_path
 CENSORLY_BASE_POINTS = 20
 CENSORLY_HINT_PENALTY = 1
 _WIKI_FETCHED_TZ = ZoneInfo('Europe/Moscow')
+# Phone keyboards autocorrect a word into «кот.» or wrap it in quotes.
+_GUESS_EDGE_PUNCTUATION = ' \t.,!?;:…"\'«»„“”()[]'
 _RU_MONTHS_GENITIVE = (
     '',
     'января',
@@ -748,12 +750,15 @@ def apply_guess(
             **public_payload(default_state(), payload, task=task),
         }
 
-    normalized = normalize_surface(word)
+    normalized = normalize_surface(word).strip(_GUESS_EDGE_PUNCTUATION)
     if not normalized or not is_guessable_word(normalized):
         state = _read_actor_state(game=game, task=task, actor=actor)
         out = public_payload(state, payload, task=task)
         out['status'] = 'invalid'
-        out['error'] = 'Введите одно слово (буквы/цифры)'
+        out['error'] = (
+            'Вводите части слова через дефис по отдельности'
+            if '-' in normalized else 'Введите одно слово (буквы/цифры)'
+        )
         return out
 
     with timing_phase(timing_request, 'actor_state_read'):

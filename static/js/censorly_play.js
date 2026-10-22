@@ -18,8 +18,12 @@
   function csrfToken() {
     var input = document.querySelector('#censorly-form input[name=csrfmiddlewaretoken]');
     if (input && input.value) return input.value;
-    var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-    return m ? decodeURIComponent(m[1]) : '';
+    try {
+      var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+      return m ? decodeURIComponent(m[1]) : '';
+    } catch (err) {
+      return '';
+    }
   }
 
   function contextToken(root) {
@@ -675,9 +679,8 @@
       return root.querySelector('.censorly-tok[data-id="' + String(id) + '"]');
     }).filter(Boolean);
     if (!nodes.length) return;
-    root.querySelectorAll('.censorly-tok--selected').forEach(function (node) {
-      node.classList.remove('censorly-tok--selected');
-    });
+    // These tokens belong to no history row: drop the row selection too.
+    applyGuessHighlight(root, [], null);
     nodes.forEach(function (node) { node.classList.add('censorly-tok--selected'); });
   }
 
@@ -953,26 +956,6 @@
       Array.isArray(data.body_tokens) ||
       Array.isArray(data.guesses)
     ));
-  }
-
-  function syncMobileDockOffset(root) {
-    var dock = root.querySelector('.censorly__dock');
-    if (!dock) return;
-    var update = function () {
-      var rootWidth = root.getBoundingClientRect().width;
-      var dockWidth = dock.getBoundingClientRect().width;
-      if (rootWidth && dockWidth >= rootWidth * 0.8) {
-        root.style.setProperty('--censorly-dock-height', (dock.offsetHeight + 16) + 'px');
-      } else {
-        root.style.removeProperty('--censorly-dock-height');
-      }
-    };
-    update();
-    if (window.ResizeObserver) {
-      var observer = new ResizeObserver(update);
-      observer.observe(dock);
-      root._censorlyDockObserver = observer;
-    }
   }
 
   function syncMobileKeyboardOffset(root) {
@@ -1489,7 +1472,6 @@
         }
       });
     }
-    syncMobileDockOffset(root);
     syncMobileKeyboardOffset(root);
 
     if (stateUrl) {
@@ -1722,7 +1704,9 @@
               if (guessFeedbackHelper.shouldClearInput(data.status)) input.value = '';
               return;
             }
-            if (Array.isArray(data.guesses) && data.guesses.length) {
+            // already_open adds no history row: keep the selection unless the
+            // server names the guess that opened the word.
+            if (data.status !== 'already_open' && Array.isArray(data.guesses) && data.guesses.length) {
               root.setAttribute('data-active-guess-index', String(data.guesses.length - 1));
             }
             applyState(root, data, { preserveLen: true, changedTokenIds: changedTokenIds });

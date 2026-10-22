@@ -22,8 +22,14 @@
     if (window.InterovesPageCsrf) return window.InterovesPageCsrf.pageToken();
     var form = document.querySelector('#censorly-form input[name=csrfmiddlewaretoken]');
     if (form) return form.value;
-    var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : '';
+    // Reading cookies throws in sandboxed frames; that must not leave the
+    // submit button disabled mid-request.
+    try {
+      var match = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[1]) : '';
+    } catch (err) {
+      return '';
+    }
   }
 
   function selectedReason() {

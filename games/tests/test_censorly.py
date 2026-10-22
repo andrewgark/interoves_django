@@ -320,6 +320,20 @@ class CensorlyEngineTests(TestCase):
         title_content = [t for t in state['title_tokens'] if t['kind'] == 'content']
         self.assertTrue(all(t['revealed'] for t in title_content))
 
+    def test_guess_ignores_autocorrect_punctuation(self):
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='Кот',
+            body='Кот сидит на окне. Собака спит.',
+        )
+        user = User.objects.create_user('cz_punct', password='x')
+        hit = apply_guess(game=game, task=task, word='«Собака.» ', user=user)
+        self.assertEqual(hit['status'], 'hit')
+        self.assertEqual(hit['guess_word'], 'собака')
+
+        hyphen = apply_guess(game=game, task=task, word='кот-воркот', user=user)
+        self.assertEqual(hyphen['status'], 'invalid')
+        self.assertIn('дефис', hyphen['error'])
+
     def test_ibn_stays_masked_until_guessed(self):
         from django.test import override_settings
 
