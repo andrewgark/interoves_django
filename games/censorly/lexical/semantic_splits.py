@@ -4285,12 +4285,23 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:gender_sex', (
         'бесполый', 'пол', 'половой',
     )),
+    # Half itself, including the half carcass (полть, полоток) and the
+    # half-coin полушка. Kuznetsova's «по́лоть» (carcass) and «полка» (small
+    # пола) are spelled like the weeding verb and the shelf, which keep
+    # their own clusters.
     ('sense:half', (
-        'вполовину', 'исполовник', 'исполовничать', 'исполовничество', 'исполу', 'испольничать',
-        'испольничество', 'испольный', 'испольщик', 'испольщина', 'испольщица', 'наполовину',
-        'напополам', 'пола', 'полка', 'половина', 'половинка', 'половинный', 'половинчатость',
-        'половинчатый', 'половинщик', 'половник', 'половничать', 'половничество', 'полоток',
-        'полоть', 'полтевой', 'полть', 'полушечный', 'полушка', 'пополам', 'спольщик', 'спольщина',
+        'вполовину', 'наполовину', 'напополам', 'половина', 'половинка', 'половинный',
+        'половинчатость', 'половинчатый', 'полоток', 'полтевой', 'полть', 'полушечный',
+        'полушка', 'пополам',
+    )),
+    # Working land «исполу», for half of the harvest.
+    ('sense:sharecropping', (
+        'исполовник', 'исполовничать', 'исполовничество', 'исполу', 'испольничать',
+        'испольничество', 'испольный', 'испольщик', 'испольщина', 'испольщица',
+        'половинщик', 'половничать', 'половничество', 'спольщик', 'спольщина',
+    )),
+    ('sense:coat_flap', (
+        'пола',
     )),
     ('sense:dough_add', (
         'сдоба', 'сдобить', 'сдобный',
@@ -6718,6 +6729,8 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('совет', ('sense:review_advice', 'sense:review_soviet')),
     ('большак', ('sense:review_family_elder', 'sense:review_main_road')),
     ('полка', ('sense:weeding', 'sense:shelf')),
+    # The ladle in modern use; the archaic sharecropper is the other reading.
+    ('половник', ('sense:ladle', 'sense:sharecropping')),
     ('полька', ('sense:polish_people', 'sense:polka_dance')),
     ('получаться', ('sense:receiving', 'sense:outcome')),
     ('получиться', ('sense:receiving', 'sense:outcome')),

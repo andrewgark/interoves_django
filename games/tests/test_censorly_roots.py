@@ -215,6 +215,14 @@ class HalfCompoundTests(SimpleTestCase):
             ('половина', 'полдень'),
             ('половина', 'поломойка'),
             ('половина', 'полярный'),
+            ('половник', 'половина'),
+            ('половник', 'полуостров'),
+            ('пола', 'половина'),
+            ('испольщик', 'половина'),
         ):
             with self.subTest(guess=guess, target=target):
                 self.assertFalse(self._relation(guess, target))
+
+    def test_sharecropping_is_its_own_pol_cluster(self):
+        self.assertEqual(self._relation('испольщик', 'исполу'), 'root')
+        self.assertEqual(self._relation('полть', 'половина'), 'root')

@@ -597,7 +597,7 @@ VERDICTS = {
     'пол⁵': (
         'SPLIT',
         'auto≥30: разностеблевые ROOT-пары (пол/исполу, пол/пополам, пола/исполу)',
-        'GENDER_SEX / HALF',
+        'GENDER_SEX / HALF / SHARECROPPING / COAT_FLAP / LADLE',
     ),
     'пол²': (
         'SPLIT',
