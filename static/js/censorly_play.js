@@ -82,9 +82,22 @@
     return mode;
   }
 
-  function updateMaskAccessibility(root, showEndings) {
+  // Visit nodes matching selector in root, or only inside the given scope nodes.
+  function forEachMatching(root, scopes, selector, fn) {
+    if (!scopes) {
+      root.querySelectorAll(selector).forEach(fn);
+      return;
+    }
+    scopes.forEach(function (scope) {
+      if (scope.nodeType !== 1) return;
+      if (scope.matches(selector)) fn(scope);
+      scope.querySelectorAll(selector).forEach(fn);
+    });
+  }
+
+  function updateMaskAccessibility(root, showEndings, scopes) {
     if (!root) return;
-    root.querySelectorAll('.censorly-tok--mask').forEach(function (mask) {
+    forEachMatching(root, scopes, '.censorly-tok--mask', function (mask) {
       var lengthLabel = lettersLabel(mask.dataset.len || 0);
       var ending = showEndings ? (mask.dataset.ending || '') : '';
       var endingLabel = ending ? ', окончание «' + ending + '»' : '';
@@ -223,9 +236,9 @@
     button.setAttribute('data-tooltip', label);
   }
 
-  function collectLenForced(root) {
+  function collectLenForced(root, scopes) {
     var map = {};
-    root.querySelectorAll('.censorly-tok--mask[data-len-forced]').forEach(function (node) {
+    forEachMatching(root, scopes, '.censorly-tok--mask[data-len-forced]', function (node) {
       map[node.dataset.id] = node.dataset.lenForced;
     });
     return map;
@@ -271,7 +284,10 @@
   }
 
   function punctuationContainer(container, tok) {
-    if (tok.revealed || container.classList.contains('censorly-tok-group')) return container;
+    // A patched run renders into a DocumentFragment, which has no classList.
+    if (tok.revealed || (container.classList && container.classList.contains('censorly-tok-group'))) {
+      return container;
+    }
     // Desktop masks are inline-blocks; word joiners alone do not bind them
     // to adjacent punctuation. Keep only masked words in a nowrap group.
     var group = el('span', 'censorly-tok-group');
@@ -360,10 +376,62 @@
     return end;
   }
 
+  // Render the heading that starts at list[start]. Returns the heading block
+  // (null for an empty heading) and the index right after the heading.
+  function renderHeadingAt(list, start, lenForced) {
+    var tok = list[start];
+    var level = headingLevel(tok);
+    var inner = [];
+    var i = start + 1;
+    if (tok.kind === 'heading') {
+      inner.push(tok);
+    } else {
+      while (i < list.length && list[i].kind !== 'heading_break') {
+        var part = list[i];
+        if (part.heading_level) level = headingLevel(part);
+        if (!isNewlineSpace(part)) inner.push(part);
+        i += 1;
+      }
+      if (i < list.length && list[i].kind === 'heading_break') i += 1;
+    }
+    if (!inner.length) return { block: null, next: i };
+    var block = el('span', 'censorly-heading censorly-heading--' + level);
+    var partIndex = 0;
+    while (partIndex < inner.length) {
+      var innerPart = inner[partIndex];
+      if (innerPart.kind === 'heading') {
+        block.appendChild(document.createTextNode(innerPart.text || ''));
+        partIndex += 1;
+        continue;
+      }
+      if (innerPart.kind === 'space') {
+        appendToken(block, innerPart, lenForced);
+        partIndex += 1;
+        continue;
+      }
+      var partEnd = tightRunEnd(inner, partIndex);
+      appendTightRun(block, inner, partIndex, partEnd, lenForced);
+      partIndex = partEnd;
+    }
+    return { block: block, next: i };
+  }
+
+  // Nodes appended to container after `last` (null: from the first child).
+  function nodesAfter(container, last) {
+    var nodes = [];
+    for (var node = last ? last.nextSibling : container.firstChild; node; node = node.nextSibling) {
+      nodes.push(node);
+    }
+    return nodes;
+  }
+
+  // Renders the whole article and remembers which DOM nodes every tight run
+  // and heading produced, so patchTokens can later redraw just those units.
   function renderTokens(container, tokens, lenForced) {
     lenForced = lenForced || {};
     container.textContent = '';
     var list = tokens || [];
+    var units = [];
     var started = false;
     var prevWasPara = false;
     var i = 0;
@@ -394,43 +462,14 @@
         continue;
       }
       if (tok.kind === 'heading_break' || tok.kind === 'heading') {
-        var level = headingLevel(tok);
-        var inner = [];
-        if (tok.kind === 'heading') {
-          inner.push(tok);
-          i += 1;
-        } else {
-          i += 1;
-          while (i < list.length && list[i].kind !== 'heading_break') {
-            var part = list[i];
-            if (part.heading_level) level = headingLevel(part);
-            if (!isNewlineSpace(part)) inner.push(part);
-            i += 1;
-          }
-          if (i < list.length && list[i].kind === 'heading_break') i += 1;
+        var heading = renderHeadingAt(list, i, lenForced);
+        if (heading.block) {
+          container.appendChild(heading.block);
+          units.push({ kind: 'heading', start: i, end: heading.next, nodes: [heading.block] });
+          started = true;
+          prevWasPara = false;
         }
-        if (!inner.length) continue;
-        var block = el('span', 'censorly-heading censorly-heading--' + level);
-        var partIndex = 0;
-        while (partIndex < inner.length) {
-          var part = inner[partIndex];
-          if (part.kind === 'heading') {
-            block.appendChild(document.createTextNode(part.text || ''));
-            partIndex += 1;
-            continue;
-          }
-          if (part.kind === 'space') {
-            appendToken(block, part, lenForced);
-            partIndex += 1;
-            continue;
-          }
-          var partEnd = tightRunEnd(inner, partIndex);
-          appendTightRun(block, inner, partIndex, partEnd, lenForced);
-          partIndex = partEnd;
-        }
-        container.appendChild(block);
-        started = true;
-        prevWasPara = false;
+        i = heading.next;
         continue;
       }
       prevWasPara = false;
@@ -441,9 +480,55 @@
         continue;
       }
       var runEnd = tightRunEnd(list, i);
+      var last = container.lastChild;
       appendTightRun(container, list, i, runEnd, lenForced);
+      units.push({ kind: 'run', start: i, end: runEnd, nodes: nodesAfter(container, last) });
       i = runEnd;
     }
+    // Every token of this container maps to its unit, or -1 when it was
+    // rendered outside any unit (spaces, paragraph breaks).
+    var unitById = {};
+    list.forEach(function (token) { unitById[String(token.id)] = -1; });
+    units.forEach(function (unit, unitIndex) {
+      for (var k = unit.start; k < unit.end; k += 1) unitById[String(list[k].id)] = unitIndex;
+    });
+    container._censorlyRender = { units: units, unitById: unitById, length: list.length };
+  }
+
+  // Redraw only the runs and headings that contain the changed tokens.
+  // Returns the new top-level nodes, or null when the container has to be
+  // rendered in full (no index yet, a different article shape, or a change
+  // to a token that lives outside any unit).
+  function patchTokens(container, tokens, changedIds, preserveLen) {
+    var render = container && container._censorlyRender;
+    var list = tokens || [];
+    if (!render || render.length !== list.length) return null;
+    var touched = {};
+    for (var c = 0; c < changedIds.length; c += 1) {
+      var unitIndex = render.unitById[String(changedIds[c])];
+      if (unitIndex === -1) return null;
+      // Undefined: the token belongs to the other container (title vs body).
+      if (unitIndex != null) touched[unitIndex] = true;
+    }
+    var fresh = [];
+    Object.keys(touched).forEach(function (key) {
+      var unit = render.units[key];
+      var lenForced = preserveLen ? collectLenForced(container, unit.nodes) : {};
+      var fragment = document.createDocumentFragment();
+      if (unit.kind === 'heading') {
+        var heading = renderHeadingAt(list, unit.start, lenForced);
+        if (heading.block) fragment.appendChild(heading.block);
+      } else {
+        appendTightRun(fragment, list, unit.start, unit.end, lenForced);
+      }
+      var nodes = Array.prototype.slice.call(fragment.childNodes);
+      var anchor = unit.nodes[0];
+      anchor.parentNode.insertBefore(fragment, anchor);
+      unit.nodes.forEach(function (node) { node.parentNode.removeChild(node); });
+      unit.nodes = nodes;
+      fresh = fresh.concat(nodes);
+    });
+    return fresh;
   }
 
   function digitClass(n) {
@@ -482,10 +567,11 @@
     }
     var tokenIds = Array.isArray(guesses[index].token_ids) ? guesses[index].token_ids : [];
     if (!tokenIds.length) return;
-    var wanted = {};
-    tokenIds.forEach(function (id) { wanted[String(id)] = true; });
-    root.querySelectorAll('.censorly-tok[data-id]').forEach(function (node) {
-      if (wanted[node.dataset.id]) node.classList.add('censorly-tok--selected');
+    var selector = tokenIds.map(function (id) {
+      return '.censorly-tok[data-id="' + String(id) + '"]';
+    }).join(',');
+    root.querySelectorAll(selector).forEach(function (node) {
+      node.classList.add('censorly-tok--selected');
     });
   }
 
@@ -556,15 +642,61 @@
     scrollToGuess(root, row, guessIndex);
   }
 
+  function guessKey(g) {
+    if (typeof g === 'string') return g;
+    return [g.word || '', g.lemma || '', g.hits | 0, (g.token_ids || []).join(',')].join('|');
+  }
+
+  function buildGuessRow(g, i) {
+    var word = typeof g === 'string' ? g : (g.word || '');
+    var lemma = typeof g === 'object' ? (g.lemma || '') : '';
+    var hits = typeof g === 'object' ? (g.hits | 0) : 0;
+    var tokenIds = (typeof g === 'object' && Array.isArray(g.token_ids)) ? g.token_ids : [];
+    var tr = document.createElement('tr');
+    tr.dataset.guessIndex = String(i);
+    tr.dataset.lemma = lemma || word;
+    tr.dataset.word = word;
+    if (tokenIds.length) tr.dataset.tokenIds = tokenIds.join(',');
+    tr.appendChild(el('td', null, String(i + 1)));
+    var hitsCell = el('td');
+    if (hits) {
+      hitsCell.textContent = String(hits);
+    } else {
+      var noHits = el('i', 'ph ph-x censorly__no-hits');
+      noHits.setAttribute('aria-hidden', 'true');
+      noHits.setAttribute('title', 'Совпадений нет');
+      hitsCell.setAttribute('aria-label', 'Совпадений нет');
+      hitsCell.appendChild(noHits);
+    }
+    tr.appendChild(hitsCell);
+    var wordCell = el('td');
+    var wordButton = el('button', 'censorly__guess-word', word);
+    wordButton.type = 'button';
+    wordButton.setAttribute('aria-label', 'Показать слово «' + word + '» в тексте');
+    wordCell.appendChild(wordButton);
+    tr.appendChild(wordCell);
+    return tr;
+  }
+
   function renderGuessTable(root, guesses, activeIndex) {
     var tbody = root.querySelector('#censorly-guess-list');
     if (!tbody) return;
-    tbody.textContent = '';
     var items = guesses || [];
     var total = items.length;
     root.classList.remove('censorly--digits-2', 'censorly--digits-3');
     var dc = digitClass(total);
     if (dc) root.classList.add(dc);
+    var keys = items.map(guessKey);
+    // Guesses only grow: when the rendered rows are a prefix of the new list,
+    // add the missing rows on top (newest first) instead of rebuilding.
+    var rendered = tbody._censorlyGuessKeys;
+    var grows = !!rendered && rendered.length > 0 && rendered.length <= total &&
+      rendered.every(function (key, index) { return key === keys[index]; });
+    if (!grows) {
+      tbody.textContent = '';
+      rendered = [];
+    }
+    tbody._censorlyGuessKeys = keys;
     if (!total) {
       var empty = document.createElement('tr');
       var td = el('td', 'censorly__history-empty', 'Пока нет догадок');
@@ -573,36 +705,8 @@
       tbody.appendChild(empty);
       return;
     }
-    for (var i = total - 1; i >= 0; i--) {
-      var g = items[i];
-      var word = typeof g === 'string' ? g : (g.word || '');
-      var lemma = typeof g === 'object' ? (g.lemma || '') : '';
-      var hits = typeof g === 'object' ? (g.hits | 0) : 0;
-      var tokenIds = (typeof g === 'object' && Array.isArray(g.token_ids)) ? g.token_ids : [];
-      var tr = document.createElement('tr');
-      tr.dataset.guessIndex = String(i);
-      tr.dataset.lemma = lemma || word;
-      tr.dataset.word = word;
-      if (tokenIds.length) tr.dataset.tokenIds = tokenIds.join(',');
-      tr.appendChild(el('td', null, String(i + 1)));
-      var hitsCell = el('td');
-      if (hits) {
-        hitsCell.textContent = String(hits);
-      } else {
-        var noHits = el('i', 'ph ph-x censorly__no-hits');
-        noHits.setAttribute('aria-hidden', 'true');
-        noHits.setAttribute('title', 'Совпадений нет');
-        hitsCell.setAttribute('aria-label', 'Совпадений нет');
-        hitsCell.appendChild(noHits);
-      }
-      tr.appendChild(hitsCell);
-      var wordCell = el('td');
-      var wordButton = el('button', 'censorly__guess-word', word);
-      wordButton.type = 'button';
-      wordButton.setAttribute('aria-label', 'Показать слово «' + word + '» в тексте');
-      wordCell.appendChild(wordButton);
-      tr.appendChild(wordCell);
-      tbody.appendChild(tr);
+    for (var i = rendered.length; i < total; i++) {
+      tbody.insertBefore(buildGuessRow(items[i], i), tbody.firstChild);
     }
     applyGuessHighlight(root, items, activeIndex);
   }
@@ -925,10 +1029,17 @@
     return merged;
   }
 
+  // Token ids a compact guess response changed, or null for a full state.
+  function deltaTokenIds(data) {
+    if (!data || !data.state_delta) return null;
+    return (data.state_delta.token_updates || []).map(function (tok) { return tok.id; });
+  }
+
+  // opts.changedTokenIds: redraw only these tokens' runs instead of the whole
+  // article (falls back to a full render when patching is not possible).
   function applyState(root, state, opts) {
     opts = opts || {};
     root._censorlyState = state;
-    var lenForced = opts.preserveLen ? collectLenForced(root) : {};
     var title = root.querySelector('#censorly-title');
     var body = root.querySelector('#censorly-body');
     var input = root.querySelector('#censorly-word');
@@ -945,8 +1056,23 @@
     (state.title_tokens || []).concat(state.body_tokens || []).forEach(function (token) {
       token.opened_by_guess = openingGuessByToken[token.id] || '';
     });
-    renderTokens(title, state.title_tokens || [], lenForced);
-    renderTitleDecoration(title, state);
+    var patched = null;
+    if (Array.isArray(opts.changedTokenIds) && !state.won) {
+      var titleNodes = patchTokens(title, state.title_tokens, opts.changedTokenIds, opts.preserveLen);
+      var bodyNodes = titleNodes && patchTokens(body, state.body_tokens, opts.changedTokenIds, opts.preserveLen);
+      if (bodyNodes) patched = titleNodes.concat(bodyNodes);
+    }
+    if (!patched) {
+      var lenForced = opts.preserveLen ? collectLenForced(root) : {};
+      renderTokens(title, state.title_tokens || [], lenForced);
+      renderTitleDecoration(title, state);
+      renderTokens(body, state.body_tokens || [], lenForced);
+      if (state.won && body) {
+        body.querySelectorAll('.censorly-tok--revealed:not(.censorly-tok--guessed)').forEach(function (token) {
+          token.classList.add('censorly-tok--solution-revealed');
+        });
+      }
+    }
     var fetched = root.querySelector('#censorly-fetched');
     if (fetched) {
       var fetchedLabel = state.wiki_fetched_label || '';
@@ -961,13 +1087,7 @@
       openedWords.textContent = 'Открыто слов: ' + openedPercent + '% (' + openedCount +
         ' / ' + totalCount + ')';
     }
-    renderTokens(body, state.body_tokens || [], lenForced);
-    if (state.won && body) {
-      body.querySelectorAll('.censorly-tok--revealed:not(.censorly-tok--guessed)').forEach(function (token) {
-        token.classList.add('censorly-tok--solution-revealed');
-      });
-    }
-    updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'));
+    updateMaskAccessibility(root, root.classList.contains('censorly--show-endings'), patched);
     var trunc = root.querySelector('#censorly-truncated');
     if (trunc) trunc.hidden = !state.truncated;
     var guesses = state.guesses || [];
@@ -1472,13 +1592,14 @@
         setFeedback(root, '');
         postJson(guessUrl, { word: word }, root)
           .then(function (data) {
+            var changedTokenIds = deltaTokenIds(data);
             data = applyStateDelta(root, data);
             if (handleReplayFlags(root, data)) return;
             if (data.status === 'invalid' || data.status === 'duplicate' || data.status === 'initially_open' || data.status === 'error') {
               var feedbackKind = data.status === 'initially_open' ? 'info' : 'error';
               setFeedback(root, guessFeedbackHelper.feedback(data, word), feedbackKind);
               if (data.status !== 'error' || hasRenderableState(data)) {
-                applyState(root, data, { preserveLen: true });
+                applyState(root, data, { preserveLen: true, changedTokenIds: changedTokenIds });
               }
               if (data.status === 'duplicate' && Number.isInteger(data.active_guess_index)) {
                 focusGuess(root, data.active_guess_index, true);
@@ -1490,7 +1611,7 @@
             if (Array.isArray(data.guesses) && data.guesses.length) {
               root.setAttribute('data-active-guess-index', String(data.guesses.length - 1));
             }
-            applyState(root, data, { preserveLen: true });
+            applyState(root, data, { preserveLen: true, changedTokenIds: changedTokenIds });
             if (data.status === 'already_open') {
               if (Number.isInteger(data.active_guess_index)) {
                 focusGuess(root, data.active_guess_index, true);
