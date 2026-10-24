@@ -1763,14 +1763,6 @@ class Task(models.Model):
         score = getattr(puzzle, 'results_max_points', None) if puzzle is not None else None
         if score is not None:
             return score(self, m)
-        if self.task_type == 'raddle':
-            from games.raddle import parse_raddle_data
-            parsed = parse_raddle_data(self)
-            if parsed:
-                middle = max(0, parsed['n_words'] - 2)
-                if middle > 0:
-                    return m * middle
-            return m
         if self.task_type == 'word_salad':
             try:
                 from games.word_salad import parse_task_data

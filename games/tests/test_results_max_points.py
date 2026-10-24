@@ -21,6 +21,15 @@ class TaskResultsMaxPointsTests(SimpleTestCase):
         t = Task(task_type='replacements_lines', points=2, checker_data=checker_data, text='')
         self.assertEqual(t.get_results_max_points(), 6.0)
 
+    def test_raddle_scores_the_middle_words(self):
+        checker_data = json.dumps({
+            'lengths': [4, 4, 4, 4],
+            'hints': ['a', 'b', 'c'],
+            'words': ['AAAA', 'BBBB', 'CCCC', 'DDDD'],
+        })
+        t = Task(task_type='raddle', points=2, checker_data=checker_data, text='')
+        self.assertEqual(t.get_results_max_points(), 4)
+
     def test_word_salad_awards_one_point_per_word(self):
         checker_data = json.dumps({
             'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],

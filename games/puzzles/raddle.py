@@ -23,6 +23,16 @@ from games.raddle import (
 )
 
 
+def results_max_points(task, m):
+    """Green-cell maximum: every word except the two ends, times the multiplier."""
+    parsed = parse_raddle_data(task)
+    if parsed:
+        middle = max(0, parsed['n_words'] - 2)
+        if middle > 0:
+            return m * middle
+    return m
+
+
 def build_raddle_board_data(
     *,
     game,
@@ -156,3 +166,4 @@ class RaddlePuzzle(Puzzle):
     duplicate_fields = staticmethod(duplicate_fields)
     write_move_result = staticmethod(write_move_result)
     include_task_html = staticmethod(include_task_html)
+    results_max_points = staticmethod(results_max_points)
