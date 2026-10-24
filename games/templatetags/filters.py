@@ -333,38 +333,162 @@ def get_show_status(attempt):
     raise Exception('Unknown task_type {}'.format(attempt.task.task_type))
 
 
-def _raddle_word_opened_ids(items, order):
-    """Попытки лесенки, которые открыли слово, даже если балл не вырос.
-
-    Вторая подсказка (ответ) даёт 0 баллов. Список попыток иначе рисует такое
-    уже решённое слово как «неверно», потому что смотрит только на сумму.
-    """
-    opened = set()
-    solved = set()
-    for i in order:
-        attempt = items[i]
-        if getattr(getattr(attempt, 'task', None), 'task_type', None) != 'raddle':
-            continue
+def _int_tuple(value):
+    if not isinstance(value, list):
+        return ()
+    numbers = []
+    for item in value:
         try:
-            payload = json.loads(getattr(attempt, 'text', None) or '')
-            word_index = int(payload.get('word_index', -1))
-            state = json.loads(getattr(attempt, 'state', None) or '{}')
-            solved_now = {int(idx) for idx in (state.get('solved_indices') or [])}
-        except (TypeError, ValueError, AttributeError):
+            numbers.append(int(item))
+        except (TypeError, ValueError):
             continue
-        if word_index >= 0 and word_index in solved_now and word_index not in solved:
-            opened.add(id(attempt))
-        solved = solved_now
-    return opened
+    return tuple(sorted(set(numbers)))
+
+
+def _text_tuple(value):
+    if not isinstance(value, list):
+        return ()
+    return tuple(sorted(str(item) for item in value))
+
+
+def _wall_groups(value):
+    if not isinstance(value, list):
+        return ()
+    groups = []
+    for group in value:
+        if isinstance(group, list):
+            groups.append(tuple(str(item) for item in group))
+        else:
+            groups.append((str(group),))
+    return tuple(sorted(groups))
+
+
+def _slot_pairs(value):
+    if not isinstance(value, dict):
+        return ()
+    pairs = []
+    for line, indexes in value.items():
+        pairs.append((str(line), _int_tuple(indexes if isinstance(indexes, list) else [])))
+    return tuple(sorted(pairs))
+
+
+def _chain_progress_signature(attempt):
+    """Что уже решено после попытки. Подсказки и штраф баллов сюда не входят.
+
+    None — у попытки нет читаемого состояния, и прогресс остаётся на совести баллов.
+    """
+    task_type = getattr(getattr(attempt, 'task', None), 'task_type', None)
+    try:
+        state = json.loads(getattr(attempt, 'state', None) or '')
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(state, dict):
+        return None
+    if task_type == 'word_salad':
+        return (
+            'salad',
+            _int_tuple(state.get('solved_indices')),
+            _int_tuple(state.get('found_rare')),
+            _text_tuple(state.get('found_extra')),
+        )
+    if task_type == 'replacements_lines':
+        slots = state.get('solved_slots')
+        if isinstance(slots, dict) and slots:
+            return ('slots', _slot_pairs(slots))
+        return ('lines', _int_tuple(state.get('solved_lines')))
+    if task_type == 'html_forms':
+        return ('forms', _text_tuple(state.get('solved_keys')))
+    if task_type == 'wall':
+        return (
+            'wall',
+            _wall_groups(state.get('guessed_words')),
+            _wall_groups(state.get('guessed_explanations')),
+        )
+    return None
+
+
+def _signature_grew(previous, current):
+    """Текущее решённое множество строго шире предыдущего, без потерь."""
+    if not previous or not current or previous[0] != current[0]:
+        return False
+    if previous[0] == 'slots':
+        old = dict(previous[1])
+        new = dict(current[1])
+        if set(old) - set(new):
+            return False
+        grew = False
+        for line, indexes in new.items():
+            before = set(old.get(line, ()))
+            after = set(indexes)
+            if not before <= after:
+                return False
+            grew = grew or before < after
+        return grew
+    for before, after in zip(previous[1:], current[1:]):
+        before_set = set(before)
+        after_set = set(after)
+        if not before_set <= after_set:
+            return False
+        if before_set < after_set:
+            return True
+    return False
+
+
+def _raddle_submission_opened(attempt, solved_before):
+    """Сданное слово впервые попало в решённые.
+
+    Края лесенки уже решены до первой посылки, поэтому сам факт непустого
+    снимка прогрессом не считается.
+    """
+    try:
+        payload = json.loads(getattr(attempt, 'text', None) or '')
+        word_index = int(payload.get('word_index', -1))
+        state = json.loads(getattr(attempt, 'state', None) or '')
+        solved_now = set(_int_tuple(state.get('solved_indices')))
+    except (TypeError, ValueError, AttributeError):
+        return False, None
+    opened = word_index >= 0 and word_index in solved_now and word_index not in solved_before
+    return opened, solved_now
+
+
+def _chain_progress_ids(items, order):
+    """Попытки, которые расширили решённую часть, даже если балл не вырос."""
+    progressed = set()
+    seen = {}
+    raddle_solved = {}
+    for index in order:
+        attempt = items[index]
+        task = getattr(attempt, 'task', None)
+        task_type = getattr(task, 'task_type', None)
+        key = (task_type, getattr(task, 'pk', None))
+        if task_type == 'raddle':
+            opened, solved_now = _raddle_submission_opened(
+                attempt, raddle_solved.get(key, set()),
+            )
+            if opened:
+                progressed.add(id(attempt))
+            if solved_now is not None:
+                raddle_solved[key] = solved_now
+            continue
+        signature = _chain_progress_signature(attempt)
+        if signature is None:
+            continue
+        previous = seen.get(key)
+        if previous is None:
+            previous = (signature[0],) + tuple(() for _ in signature[1:])
+        if _signature_grew(previous, signature):
+            progressed.add(id(attempt))
+        seen[key] = signature
+    return progressed
 
 
 @register.filter
 def attempts_with_status(attempts):
     """
     Помечает попытки для списка: 'ok' / 'partial' / 'wrong' / 'pending'.
-    Для цепочечных заданий (raddle/wall/replacements) статус часто «...», поэтому
-    считаем частичным верным ту попытку, которая добавила баллы (cumulative points выросли).
-    Для лесенки слово, открытое без прироста баллов (подсказка-ответ), тоже частично верное.
+    Для цепочечных заданий статус попытки часто описывает всё задание, а не этот ход.
+    Ход частично верный, если вырос балл или расширилось решённое множество.
+    Подсказка сама по себе множество не расширяет и остаётся неверной.
     """
     from decimal import Decimal
     from games.models import CHAIN_TASK_TYPES
@@ -384,7 +508,7 @@ def attempts_with_status(attempts):
         if pts > best:
             gained_ids.add(id(a))
             best = pts
-    raddle_opened_ids = _raddle_word_opened_ids(items, order)
+    progress_ids = _chain_progress_ids(items, order)
 
     result = []
     for a in items:
@@ -396,7 +520,7 @@ def attempts_with_status(attempts):
             # chain step was wrong.  Never replace it with a progress verdict.
             mark = 'pending'
         elif is_chain:
-            mark = 'partial' if id(a) in gained_ids or id(a) in raddle_opened_ids else 'wrong'
+            mark = 'partial' if id(a) in gained_ids or id(a) in progress_ids else 'wrong'
         elif a.status == 'Partial':
             mark = 'partial'
         elif a.status == 'Wrong':

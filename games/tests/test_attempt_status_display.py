@@ -87,3 +87,84 @@ class AttemptsWithStatusTests(SimpleTestCase):
             ['partial', 'wrong', 'partial', 'wrong'],
         )
         self.assertEqual(rendered[2]['label'], 'частично')
+
+    def test_raddle_given_ends_are_not_progress_of_a_wrong_guess(self):
+        rendered = attempts_with_status([
+            _attempt(
+                'Partial',
+                task_type='raddle',
+                points=0,
+                time=1,
+                text=json.dumps({'word_index': 4, 'word': 'КОТЯ'}),
+                state=json.dumps({'solved_indices': [0, 10]}),
+            ),
+        ])
+
+        self.assertEqual(rendered[0]['mark'], 'wrong')
+
+    def test_word_salad_find_is_partial_when_hints_keep_the_score_flat(self):
+        def salad(points, time, solved, *, hints=0, action='solve'):
+            return _attempt(
+                'Partial',
+                task_type='word_salad',
+                points=points,
+                time=time,
+                text=json.dumps({'action': action}),
+                state=json.dumps({
+                    'solved_indices': solved,
+                    'found_rare': [],
+                    'found_extra': [],
+                    'hint_counts': {'1': hints} if hints else {},
+                }),
+            )
+
+        rendered = attempts_with_status([
+            salad(1, 1, [0]),
+            salad('0.5', 2, [0], hints=1, action='hint'),
+            salad(0, 3, [0], hints=2, action='hint'),
+            salad(1, 4, [0, 1]),
+        ])
+
+        self.assertEqual(
+            [item['mark'] for item in rendered],
+            ['partial', 'wrong', 'wrong', 'partial'],
+        )
+
+    def test_replacements_cell_is_partial_before_the_line_scores(self):
+        def line(time, slots, solved_lines):
+            return _attempt(
+                'Partial',
+                task_type='replacements_lines',
+                points=0,
+                time=time,
+                state=json.dumps({
+                    'solved_slots': slots,
+                    'solved_lines': solved_lines,
+                    'total': len(solved_lines),
+                }),
+            )
+
+        rendered = attempts_with_status([
+            line(1, {'0': [0]}, []),
+            line(2, {'0': [0]}, []),
+            line(3, {'0': [0, 1]}, [0]),
+        ])
+
+        self.assertEqual(
+            [item['mark'] for item in rendered],
+            ['partial', 'wrong', 'partial'],
+        )
+
+    def test_alphabetty_misses_stay_wrong_as_the_guess_list_grows(self):
+        rendered = attempts_with_status([
+            _attempt(
+                'Partial', task_type='alphabetty', points=0, time=1,
+                state=json.dumps({'guesses': ['АИСТ'], 'won': False}),
+            ),
+            _attempt(
+                'Partial', task_type='alphabetty', points=0, time=2,
+                state=json.dumps({'guesses': ['АИСТ', 'БЕРКУТ'], 'won': False}),
+            ),
+        ])
+
+        self.assertEqual([item['mark'] for item in rendered], ['wrong', 'wrong'])
