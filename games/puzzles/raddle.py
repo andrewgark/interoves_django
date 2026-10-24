@@ -109,6 +109,17 @@ def state_summary(state):
     return '{} words solved ({} pts)'.format(solved, total)
 
 
+def write_response(response):
+    """Copy the ladder verdict onto the JSON body. The view still owns HTML."""
+    return write_move_result(
+        response.result,
+        response.attempt.task,
+        response.attempt,
+        response.word_index,
+        response.word,
+    )
+
+
 def build_raddle_board_data(
     *,
     game,
@@ -228,6 +239,7 @@ def prepare_raddle_board_data(
 class RaddlePuzzle(Puzzle):
     task_type = 'raddle'
     checker_id = 'raddle'
+    report_attempt_status = False
 
     build_board = staticmethod(build_raddle_board_data)
     prepare_board = staticmethod(prepare_raddle_board_data)
@@ -241,6 +253,7 @@ class RaddlePuzzle(Puzzle):
     stale_payload = staticmethod(stale_payload)
     duplicate_fields = staticmethod(duplicate_fields)
     write_move_result = staticmethod(write_move_result)
+    write_response = staticmethod(write_response)
     include_task_html = staticmethod(include_task_html)
     results_max_points = staticmethod(results_max_points)
     submission_opened = staticmethod(submission_opened)

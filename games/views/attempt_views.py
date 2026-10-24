@@ -42,7 +42,7 @@ from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
 from games.puzzles.grid import GridPuzzle
 from games.puzzles.quota import revision_quota_message
 from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
-from games.puzzles.move import MoveRefusal
+from games.puzzles.move import MoveRefusal, MoveResponse
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.raddle_submission import RaddleMoveRefusal
 from games.puzzles.word_salad import WordSaladPuzzle
@@ -435,6 +435,8 @@ def process_send_attempt(request, task_id):
     except StaleReplayError:
         return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
     is_game_start_interaction = False
+    word_index = None
+    word = None
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
         if not form.is_valid():
@@ -634,28 +636,35 @@ def process_send_attempt(request, task_id):
     # The transport status above only says that the submission was processed.
     # Give the new UI the persisted verdict as well, so ordinary tasks can show
     # explicit feedback without trying to infer it from freshly rendered HTML.
-    # Keep raddle on its dedicated response contract (raddle_correct / needs_sync).
-    if attempt_persisted and task.task_type != 'raddle':
+    # Raddle keeps its own contract and does not add attempt_status.
+    puzzle = get_puzzle(task.task_type)
+    if attempt_persisted and getattr(puzzle, 'report_attempt_status', True):
         result['attempt_status'] = attempt.status
         result['attempt_id'] = attempt.id
     if analytics_events:
         result['analytics_events'] = analytics_events
-    if task.task_type == 'raddle':
-        RaddlePuzzle.write_move_result(result, task, attempt, word_index, word)
-    if task.task_type == 'word_salad':
+    response = MoveResponse(
+        result=result,
+        attempt=attempt,
+        attempt_persisted=bool(attempt_persisted),
+        user=user,
+        anon_key=anon_key,
+        word_index=word_index,
+        word=word,
+    )
+    writer = getattr(puzzle, 'write_response', None) if puzzle is not None else None
+    if writer is not None:
+        writer(response)
+    elif task.task_type == 'word_salad':
         WordSaladPuzzle.write_move_result(
             result, task, attempt,
             attempt_persisted=attempt_persisted, user=user, anon_key=anon_key,
         )
-    if task.task_type == 'grid-puzzle':
+    elif task.task_type == 'grid-puzzle':
         result['grid_puzzle_correct'] = attempt.status == 'Ok'
 
-    # Raddle wrong answers: client updates locally (showRaddleWrongFeedback); skip ~40KB HTML.
-    need_task_html = (
-        task.task_type != 'raddle' or RaddlePuzzle.include_task_html(result)
-    ) and (
-        task.task_type != 'word_salad' or WordSaladPuzzle.include_task_html(result)
-    )
+    include = getattr(puzzle, 'include_task_html', None) if puzzle is not None else None
+    need_task_html = True if include is None else include(result)
     if need_task_html:
         with timing_phase(request, 'render_task'):
             update_html = update_task_html(
