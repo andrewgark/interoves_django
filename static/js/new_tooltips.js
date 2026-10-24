@@ -99,6 +99,11 @@
     if (element && (!event.relatedTarget || !element.contains(event.relatedTarget))) hide(element);
   });
 
+  document.addEventListener('click', function (event) {
+    var element = getTarget(event);
+    if (element) hide(element);
+  });
+
   document.addEventListener('pointerdown', function (event) {
     if (event.pointerType === 'touch') {
       var element = getTarget(event);

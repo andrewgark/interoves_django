@@ -134,15 +134,13 @@
     next.hidden = false;
     phase = 'solved';
     returnOffered = true;
-    setTimeout(function () {
-      tutorial.showMessage({
-        title: 'Поздравляем!',
-        text: 'Обучающая Лесенка решена.\n' + onward.name + ' длиннее и может оказаться сложной. Не бойся брать подсказки 💡 — решение с ними тоже засчитывается.',
-        label: onward.label,
-        href: onward.url,
-        onAction: trackReturn,
-      });
-    }, 400);
+    tutorial.showMessage({
+      title: 'Поздравляем!',
+      text: 'Обучающая Лесенка решена.\n' + onward.name + ' длиннее и может оказаться сложной. Не бойся брать подсказки 💡 — решение с ними тоже засчитывается.',
+      label: onward.label,
+      href: onward.url,
+      onAction: trackReturn,
+    });
   }
 
   // The card is replaced after every accepted word; react to the new state.
@@ -150,14 +148,17 @@
     if (remainingIndex() === null) showNextStep();
     if (phase === 'answer-first' && isSolved(first.word_index)) {
       phase = 'lower-explain';
-      setTimeout(function () { tutorial.setStep(STEP.lowerPair); }, 250);
+      if (tutorial.isOpen()) tutorial.setStep(STEP.lowerPair);
     } else if (phase === 'answer-second' && isSolved(second.word_index)) {
       phase = 'finished';
-      setTimeout(function () { tutorial.finish(); }, 250);
+      if (tutorial.isOpen()) tutorial.finish();
     }
   }
 
   var tutorial = global.InterovesTutorial.createShell(root, {
+    // On touch devices the player should choose when to open the keyboard.
+    // Desktop input focus is handled separately by focusInputSoon().
+    autoFocusInteractive: false,
     finish: {
       text: 'Теперь ты знаешь, как играть.\nОсталось одно слово посередине — оно связано подсказками и с верхним, и с нижним соседом.',
       label: 'Доиграть',
@@ -166,9 +167,9 @@
     steps: [
       {kind: 'info', title: 'Это Лесенка', text: 'Нужно соединить верхнее слово «' + config.words[0] + '» с нижним «' + config.words[config.words.length - 1] + '».', targets: [wordList]},
       {kind: 'info', title: 'Длина слова', text: 'Число в скобках показывает длину слова.\nЗдесь нужно слово из ' + config.lengths[first.word_index] + ' букв.', targets: [function () { return row(first.word_index); }]},
-      {kind: 'info', title: 'Подсказки не по порядку', text: 'Соседние слова связывает подсказка, но подсказки перемешаны.\nОдна из них загадывает слово, идущее после «' + config.words[0] + '».', nextLabel: 'Попробовать', targets: [function () { return region([0, 1]); }, unusedClues], calloutTarget: [function () { return region([0, 1]); }], calloutSide: 'below'},
+      {kind: 'info', title: 'Подсказки расположены не по порядку', text: 'Соседние слова связывает подсказка, но подсказки перемешаны.\nОдна из них загадывает слово, идущее после «' + config.words[0] + '».', nextLabel: 'Попробовать', targets: [function () { return region([0, 1]); }, unusedClues], calloutTarget: [function () { return region([0, 1]); }], calloutSide: 'below'},
       {kind: 'action', title: 'Выбери подсказку', text: 'Какая подсказка ведёт от «' + config.words[0] + '» к следующему слову? Нажми «Вот эта» рядом с ней.', targets: [unusedClues]},
-      {kind: 'action', title: 'Введи слово', text: 'Отлично. Теперь введи следующее слово.\nВ нём ' + config.lengths[first.word_index] + ' букв — ответ проверится сам.', targets: [function () { return row(first.word_index); }, function () { return clue(first.hint_index); }], interactive: [function () { return row(first.word_index); }], calloutTarget: [function () { return input(first.word_index); }], calloutSide: 'below'},
+      {kind: 'action', title: 'Введи слово', text: 'Отлично. Теперь введи следующее слово.\nВ нём ' + config.lengths[first.word_index] + ' букв — ответ проверится автоматически.', targets: [function () { return row(first.word_index); }, function () { return clue(first.hint_index); }], interactive: [function () { return row(first.word_index); }], calloutTarget: [function () { return input(first.word_index); }], calloutSide: 'below'},
       {kind: 'info', title: 'Можно идти с двух сторон', text: 'Лесенку можно собирать с обоих концов.\nЗдесь нужно найти слово перед «' + config.words[lowerPair.word_indices[1]] + '».', targets: [function () { return region(lowerPair.word_indices); }]},
       {kind: 'info', title: 'Подсказка снизу', text: 'Если угадываешь снизу, нижнее слово сразу подставляется в подсказки зелёным.', targets: [function () { return region(lowerPair.word_indices); }, unusedClues]},
       {kind: 'info', title: 'Если не получается', text: 'Нажми 💡 у слова. Первое нажатие подсветит подходящую подсказку, второе откроет само слово.\nСлово с подсказкой приносит меньше баллов, но решение всё равно засчитается.', nextLabel: 'Теперь сам', targets: [function () { return assistButton(second.word_index); }], calloutSide: 'below'},
@@ -186,14 +187,40 @@
         var button = addPickButtons();
         // Focus now so the shell does not move it onto a clue's mark circle.
         if (button) button.focus();
-      } else if (stepIndex === STEP.answerFirst || stepIndex === STEP.answerSecond) {
-        focusInputSoon(stepIndex === STEP.answerFirst ? first.word_index : second.word_index, stepIndex);
+      } else if (stepIndex === STEP.answerFirst) {
+        if (isSolved(first.word_index)) {
+          phase = 'lower-explain';
+          global.requestAnimationFrame(function () {
+            if (tutorial.isOpen() && currentStep === STEP.answerFirst) tutorial.setStep(STEP.lowerPair);
+          });
+        } else {
+          phase = 'answer-first';
+          focusInputSoon(first.word_index, stepIndex);
+        }
+      } else if (stepIndex === STEP.answerSecond) {
+        if (isSolved(second.word_index)) {
+          phase = 'finished';
+          global.requestAnimationFrame(function () {
+            if (tutorial.isOpen() && currentStep === STEP.answerSecond) tutorial.finish();
+          });
+        } else {
+          phase = 'answer-second';
+          focusInputSoon(second.word_index, stepIndex);
+        }
+      } else if (stepIndex >= STEP.lowerPair && stepIndex < STEP.chooseSecond) {
+        phase = 'lower-explain';
+        releaseBoardFocus();
+      } else if (stepIndex < STEP.chooseFirst) {
+        phase = 'intro';
+        releaseBoardFocus();
       } else {
         releaseBoardFocus();
       }
     },
     onClose: function (eventName) {
       removePickButtons();
+      var resumeWrap = document.querySelector('[data-ladder-tutorial-resume-wrap]');
+      if (resumeWrap) resumeWrap.hidden = phase === 'solved';
       // Leaving the tutorial early must not strand a player who came from a
       // Ladder: offer the way back once.
       if (eventName === 'tutorial_skip' && config.return_url && !returnOffered && phase !== 'solved') {
@@ -212,6 +239,15 @@
       phase = 'freeplay';
     },
   });
+
+  var resumeButton = document.querySelector('[data-ladder-tutorial-resume]');
+  if (resumeButton) {
+    resumeButton.addEventListener('click', function () {
+      var resumeWrap = document.querySelector('[data-ladder-tutorial-resume-wrap]');
+      if (resumeWrap) resumeWrap.hidden = true;
+      tutorial.resume();
+    });
+  }
 
   // Capture phase: runs before the production handler that would strike the
   // clue through, so its mark circle counts as a choice too.

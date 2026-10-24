@@ -12,7 +12,7 @@
     · {% autoescape off %}{{ tg_name }}{% endautoescape %}
   {% endif %}
 {% endblock %}
-{% block body_attrs %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode|default:'' }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if offer_share_hash %} data-offer-share-hash="{{ offer_share_hash }}"{% endif %}{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}
+{% block body_attrs %}{% if ladder_tutorial %}data-disable-track="1" {% endif %}data-game-state-page="1" data-track-game-id="{{ game.id }}" data-track-url="{{ ui_project_base|default:'' }}/games/{{ game.id }}/track" data-track-play-mode="{{ play_mode|default:'' }}" data-game-start-at="{{ game.start_time|date:'c' }}" data-game-end-at="{{ game.end_time|date:'c' }}"{% if offer_share_hash %} data-offer-share-hash="{{ offer_share_hash }}"{% endif %}{% if not ladder_offer %} data-track-live-state-url="{{ task_group_live_state_url|default:'' }}"{% endif %}{% endblock %}
 {% block extrahead %}
   {% include "new/_18plus_gate_early.html" %}
   {% if html_forms_data %}
@@ -41,6 +41,11 @@
 {% endif %}
 {% else %}
 {% include "new/partials/page_heading.html" %}
+{% if ladder_tutorial %}
+<p class="new-stack-gap ladder-tutorial-resume" data-ladder-tutorial-resume-wrap hidden>
+  <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-ladder-tutorial-resume>Продолжить обучение</button>
+</p>
+{% endif %}
 <div class="new-task-group-meta-row">
   <p class="new-login-hint new-meta-line">
     {% if is_daily_single_task %}

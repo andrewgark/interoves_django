@@ -139,10 +139,17 @@
         positionCallout(calloutTargets.length ? calloutTargets : nodes);
       }
       function positionCallout(nodes) {
-        if (shell.hidden || !nodes.length) return;
+        if (shell.hidden) return;
+        if (!nodes.length) {
+          centerCallout();
+          return;
+        }
         var box = shell.querySelector('.tutorial-shell__callout');
         var bounds = nodes.map(function (node) { return visibleRect(node, 6); }).filter(Boolean);
-        if (!bounds.length) return;
+        if (!bounds.length) {
+          centerCallout();
+          return;
+        }
         var leftEdge = Math.min.apply(Math, bounds.map(function (r) { return r.left; }));
         var rightEdge = Math.max.apply(Math, bounds.map(function (r) { return r.right; }));
         var topEdge = Math.min.apply(Math, bounds.map(function (r) { return r.top; }));
@@ -243,7 +250,9 @@
         box.style.transform = 'none';
       }
       function scheduleReposition() {
-        if (rafPending || shell.hidden) return;
+        if (shell.hidden) return;
+        shell.classList.add('tutorial-shell--repositioning');
+        if (rafPending) return;
         rafPending = true;
         global.requestAnimationFrame(function () {
           rafPending = false;
@@ -257,6 +266,7 @@
           } else {
             renderSpotlight(activeTargets);
           }
+          shell.classList.remove('tutorial-shell--repositioning');
         });
       }
       function render() {
@@ -274,7 +284,7 @@
         var focus = activeTargets[0];
         if (focus && focus.scrollIntoView) focus.scrollIntoView({block: step.calloutSide === 'below' ? 'center' : 'nearest', behavior: 'auto'});
         scheduleReposition();
-        if (step.kind === 'action' && !activeTargets.some(function (node) { return node === document.activeElement || (node.contains && node.contains(document.activeElement)); })) {
+        if (options.autoFocusInteractive !== false && step.kind === 'action' && !activeTargets.some(function (node) { return node === document.activeElement || (node.contains && node.contains(document.activeElement)); })) {
           global.requestAnimationFrame(function () {
             var candidate = interactiveTargets().reduce(function (found, node) {
               if (found) return found;
@@ -294,6 +304,32 @@
         track('tutorial_start', root, index + 1);
         render();
         next.focus();
+      }
+      function resume() {
+        if (!closed) return;
+        if (completed && !message) {
+          closed = false;
+          shell.hidden = false;
+          shell.classList.add('is-open');
+          var done = options.finish || {};
+          title.textContent = done.title || 'Готово!';
+          text.textContent = done.text || 'Теперь ты знаешь, как играть.';
+          progress.textContent = options.steps.length + ' / ' + options.steps.length;
+          next.hidden = false;
+          next.textContent = done.label || 'Закрыть';
+          if (back) back.hidden = true;
+          clearSpotlight();
+          scheduleReposition();
+          next.focus();
+          return;
+        }
+        // A dismissed onward prompt is not a tutorial step; resume the saved
+        // step instead of reopening the stale link action.
+        if (message) {
+          message = null;
+          completed = false;
+        }
+        open();
       }
       function close(eventName) {
         closed = true;
@@ -425,7 +461,7 @@
         attributes: true, attributeFilter: ['hidden'], subtree: true,
       });
       function tabStops() {
-        var selector = 'button:not([disabled]):not([hidden]), a[href], input:not([readonly]):not([disabled]), [tabindex="0"]';
+        var selector = 'button:not([disabled]):not([hidden]):not([tabindex="-1"]), a[href]:not([tabindex="-1"]), input:not([readonly]):not([disabled]):not([tabindex="-1"]), [tabindex="0"]';
         var nodes = Array.prototype.slice.call(shell.querySelectorAll(selector));
         if (!completed && options.steps[index].kind === 'action') {
           interactiveTargets().forEach(function (target) {
@@ -470,6 +506,7 @@
       open();
       return {
         setStep: setStep, next: function () { go(1); }, back: function () { go(-1); },
+        resume: resume,
         refresh: scheduleReposition,
         showMessage: showMessage,
         finish: finish, close: close, feedback: function (value) { feedback.textContent = value || ''; },

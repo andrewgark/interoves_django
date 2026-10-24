@@ -9169,6 +9169,10 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
 .new-raddle-clue:last-child {
   border-bottom: none;
 }
+/* Let the active clue's blue left marker meet its rounded highlight cleanly. */
+.new-raddle-clue:has(+ .new-raddle-clue--active) {
+  border-bottom-color: transparent;
+}
 .new-raddle-clue__mark {
   flex: 0 0 auto;
   position: relative;
@@ -9307,6 +9311,8 @@ html.new-ui-dark .pal-card {
 .tutorial-shell__spotlights { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 .tutorial-shell__spotlights svg { display: block; width: 100%; height: 100%; }
 .tutorial-shell__callout { position: fixed; z-index: 1; display: grid; gap: .45rem; box-sizing: border-box; width: min(27rem, calc(100vw - 2rem)); max-height: min(22rem, calc(100vh - 2rem)); max-height: min(22rem, calc(100dvh - 2rem)); overflow: auto; margin: 0 !important; padding: 1rem 1.1rem; pointer-events: auto; }
+.tutorial-shell--repositioning .tutorial-shell__callout,
+.tutorial-shell--repositioning .tutorial-shell__spotlights { visibility: hidden; }
 .new-rules-modal__box.pal-card.tutorial-shell__callout { padding: 1rem 1.1rem; }
 .tutorial-shell__top { display: flex; justify-content: space-between; align-items: center; min-height: 2rem; color: var(--muted); font-size: .82rem; }
 .tutorial-shell__close { position: static; inset: auto; flex: 0 0 auto; width: 2rem; height: 2rem; margin: 0; }
