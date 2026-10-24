@@ -1709,10 +1709,6 @@ class Task(models.Model):
                 validate_grid_checker_data(parsed, grid_checker_id(self))
             except GridPuzzleDataError as exc:
                 raise ValidationError({'checker_data': str(exc)})
-        if self.task_type == 'html_forms':
-            from games.html_forms import parse_html_forms_data
-            if not parse_html_forms_data(self.checker_data):
-                raise ValidationError({'checker_data': 'Нужен JSON со списком forms и ответами.'})
 
     def get_checker(self):
         if self.checker:

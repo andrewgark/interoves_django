@@ -39,6 +39,14 @@ def progress_signature(state):
     return ('forms', _text_tuple(state.get('solved_keys')))
 
 
+def clean_checker_data(task):
+    """Reject an html-forms payload that has no answered forms."""
+    from django.core.exceptions import ValidationError
+    from games.html_forms import parse_html_forms_data
+    if not parse_html_forms_data(task.checker_data):
+        raise ValidationError({'checker_data': 'Нужен JSON со списком forms и ответами.'})
+
+
 def results_max_points(task, m):
     """Green-cell maximum: form count times the task multiplier."""
     from games.html_forms import parse_html_forms_data
@@ -56,4 +64,5 @@ class HtmlFormsPuzzle(Puzzle):
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
     progress_signature = staticmethod(progress_signature)
+    clean_checker_data = staticmethod(clean_checker_data)
     results_max_points = staticmethod(results_max_points)
