@@ -3,19 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 
 from games.puzzles.base import Puzzle
-
-
-@dataclass(frozen=True)
-class HtmlFormsMove:
-    text: str
-
-
-@dataclass(frozen=True)
-class HtmlFormsMoveRefusal:
-    status: str
+from games.puzzles.move import MoveRefusal, TextMove
 
 
 def parse_move(post):
@@ -23,10 +13,10 @@ def parse_move(post):
     form_key = str(post.get('form_key') or '').strip()
     answer_text = (post.get('text') or '').strip()
     if not form_key:
-        return HtmlFormsMoveRefusal('invalid_form')
+        return MoveRefusal('invalid_form')
     if not answer_text:
-        return HtmlFormsMoveRefusal('empty')
-    return HtmlFormsMove(json.dumps(
+        return MoveRefusal('empty')
+    return TextMove(json.dumps(
         {'form_key': form_key, 'text': answer_text},
         ensure_ascii=False,
     ))

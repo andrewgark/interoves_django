@@ -3,19 +3,9 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 
 from games.puzzles.base import Puzzle
-
-
-@dataclass(frozen=True)
-class ReplacementsMove:
-    text: str
-
-
-@dataclass(frozen=True)
-class ReplacementsMoveRefusal:
-    status: str
+from games.puzzles.move import MoveRefusal, TextMove
 
 
 def parse_move(post):
@@ -23,7 +13,7 @@ def parse_move(post):
     try:
         line_index = int(post.get('line_index', 0))
     except (TypeError, ValueError):
-        return ReplacementsMoveRefusal('invalid_form')
+        return MoveRefusal('invalid_form')
     answers_raw = post.get('answers')
     if answers_raw is not None:
         try:
@@ -33,11 +23,11 @@ def parse_move(post):
     else:
         answers = post.getlist('answers[]')
     if not isinstance(answers, list):
-        return ReplacementsMoveRefusal('invalid_form')
+        return MoveRefusal('invalid_form')
     answers = list(answers)
     if not answers or all(str(answer).strip() == '' for answer in answers):
-        return ReplacementsMoveRefusal('empty')
-    return ReplacementsMove(json.dumps({'line_index': line_index, 'answers': answers}))
+        return MoveRefusal('empty')
+    return TextMove(json.dumps({'line_index': line_index, 'answers': answers}))
 
 
 class ReplacementsPuzzle(Puzzle):

@@ -24,7 +24,26 @@ def get_puzzle(task_type):
     return _BY_TASK_TYPE.get(str(task_type))
 
 
+# Posted attempts whose stored text is the whole move. These puzzles do not
+# own attempt-limit or duplicate checks, so they stay out of get_puzzle.
+_TEXT_MOVE = {
+    WallPuzzle.task_type: WallPuzzle,
+    ReplacementsPuzzle.task_type: ReplacementsPuzzle,
+    HtmlFormsPuzzle.task_type: HtmlFormsPuzzle,
+}
+POSTED_TEXT_TASK_TYPES = frozenset(_TEXT_MOVE)
+
+
+def parse_posted_text(task_type, post):
+    """Read a wall, replacements, or html-forms POST. None for any other type."""
+    puzzle = _TEXT_MOVE.get(task_type)
+    if puzzle is None:
+        return None
+    return puzzle.parse_move(post)
+
+
 __all__ = [
     'AlphabettyPuzzle', 'CensorlyPuzzle', 'HtmlFormsPuzzle', 'RaddlePuzzle',
-    'ReplacementsPuzzle', 'WallPuzzle', 'WordSaladPuzzle', 'get_puzzle',
+    'POSTED_TEXT_TASK_TYPES', 'ReplacementsPuzzle', 'WallPuzzle',
+    'WordSaladPuzzle', 'get_puzzle', 'parse_posted_text',
 ]

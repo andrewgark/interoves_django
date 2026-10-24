@@ -45,12 +45,10 @@ from games.views.game_context import (
 )
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
-from games.puzzles import get_puzzle
+from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
 from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
-from games.puzzles.html_forms import HtmlFormsMoveRefusal, HtmlFormsPuzzle
+from games.puzzles.move import MoveRefusal
 from games.puzzles.raddle import RaddlePuzzle
-from games.puzzles.replacements import ReplacementsMoveRefusal, ReplacementsPuzzle
-from games.puzzles.wall import WallMoveRefusal, WallPuzzle
 from games.puzzles.raddle_submission import RaddleMoveRefusal
 from games.puzzles.word_salad import WordSaladPuzzle
 from games.puzzles.word_salad_submission import SaladMoveRefusal, SaladSync
@@ -484,19 +482,9 @@ def process_send_attempt(request, task_id):
             raise InvalidFormException('attempt form {} is not valid'.format(form))
 
         attempt = form.save(commit=False)
-    elif task.task_type == 'wall':
-        move = WallPuzzle.parse_move(request.POST)
-        if isinstance(move, WallMoveRefusal):
-            return {'status': move.status}
-        attempt = Attempt(text=move.text)
-    elif task.task_type == 'replacements_lines':
-        move = ReplacementsPuzzle.parse_move(request.POST)
-        if isinstance(move, ReplacementsMoveRefusal):
-            return {'status': move.status}
-        attempt = Attempt(text=move.text)
-    elif task.task_type == 'html_forms':
-        move = HtmlFormsPuzzle.parse_move(request.POST)
-        if isinstance(move, HtmlFormsMoveRefusal):
+    elif task.task_type in POSTED_TEXT_TASK_TYPES:
+        move = parse_posted_text(task.task_type, request.POST)
+        if isinstance(move, MoveRefusal):
             return {'status': move.status}
         attempt = Attempt(text=move.text)
     elif task.task_type == 'raddle':

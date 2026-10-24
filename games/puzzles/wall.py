@@ -3,26 +3,16 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 
 from games.puzzles.base import Puzzle
-
-
-@dataclass(frozen=True)
-class WallMove:
-    text: str
-
-
-@dataclass(frozen=True)
-class WallMoveRefusal:
-    status: str
+from games.puzzles.move import MoveRefusal, TextMove
 
 
 def parse_move(post):
     """Read a wall POST. Statuses are the existing JSON codes."""
     stage = post.get('stage')
     if stage not in ('cat_words', 'cat_explanation'):
-        return WallMoveRefusal('invalid_form')
+        return MoveRefusal('invalid_form')
     try:
         if 'text' not in post:
             words = post.getlist('words[]')
@@ -37,12 +27,12 @@ def parse_move(post):
                 'stage': stage,
             }
     except (TypeError, ValueError, json.JSONDecodeError):
-        return WallMoveRefusal('invalid_form')
+        return MoveRefusal('invalid_form')
     if not request_data['words'] or any(not isinstance(word, str) for word in request_data['words']):
-        return WallMoveRefusal('invalid_form')
+        return MoveRefusal('invalid_form')
     if stage == 'cat_explanation' and not request_data.get('explanation'):
-        return WallMoveRefusal('empty')
-    return WallMove(json.dumps(request_data))
+        return MoveRefusal('empty')
+    return TextMove(json.dumps(request_data))
 
 
 class WallPuzzle(Puzzle):
