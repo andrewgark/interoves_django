@@ -188,7 +188,9 @@ class _Pack:
         self.lexemes = {(item.para_id, item.lemma) for item in self.reads}
         # Root equality uses citation-preferred readings on both sides.  The
         # broader noun alternatives remain in ``reads`` for SAME_LEXEME.
-        root_reads = guess_readings_of(surface)
+        # An explicit article reading takes precedence over citation-form
+        # preference: «лет» selected as «год» must not fall back to «лёт».
+        root_reads = self.reads if contextual else guess_readings_of(surface)
         if proper_name_lemma:
             root_reads = ()
         elif article_lemma:
@@ -213,7 +215,7 @@ class _Pack:
             }
         else:
             self.roots = _roots(
-                root_reads, surface, include_surface=not contextual or not root_reads,
+                root_reads, surface, include_surface=not contextual,
             )
         self.root_ids = frozenset(_root_ids(self.roots))
         families = set(families_of(self.fold))

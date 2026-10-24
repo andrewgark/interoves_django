@@ -214,7 +214,7 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
     def test_know_and_nobility_readings_of_znat_are_separate(self):
         self.assertTrue({'sense:cognize', 'sense:nobility'} <= _sense_set('знать'))
         self.assertTrue(_has_sense('знатность', 'sense:nobility'))
-        self.assertTrue({'sense:cognize', 'sense:nobility'} <= _sense_set('знатный'))
+        self.assertEqual(_sense_set('знатный'), {'sense:nobility'})
 
     def test_write_and_urinate_readings_of_pisat_are_separate(self):
         for lemma in ('писать', 'писаться'):

@@ -1253,8 +1253,10 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'узнаваться', 'узнать',
     )),
     ('sense:denominator', ('знаменатель',)),
+    # «Знатный» describes status, not cognition. Only the homograph «знать»
+    # (verb / collective noun) retains both readings in MULTI_READINGS.
     ('sense:nobility', (
-        'знатность',
+        'знатность', 'знатный',
     )),
     ('sense:fame', ('знаменитость', 'знаменитый')),
     ('sense:omen', ('предзнаменование', 'предзнаменовать')),
@@ -6920,7 +6922,6 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('суть', ('sense:essence', 'sense:existence')),
     ('существо', ('sense:essence', 'sense:existence')),
     ('знать', ('sense:cognize', 'sense:nobility')),
-    ('знатный', ('sense:cognize', 'sense:nobility')),
     ('писать', ('sense:review_writing', 'sense:urinate')),
     ('писаться', ('sense:review_writing', 'sense:urinate')),
     # The writer and the written message retain their ordinary dedicated

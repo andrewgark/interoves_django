@@ -1024,6 +1024,34 @@ class SemanticsTests(SimpleTestCase):
         nem = next(token for token in tokens if token.get('surface') == 'нем')
         self.assertEqual(nem['lemma'], NEM_PRONOUN_CONTEXT)
 
+    def test_article_year_reading_does_not_inherit_flight_from_let(self):
+        from games.censorly.lexical.match import _Pack
+        from games.censorly.lexical.rootbank import structures_of
+
+        tokens = tokenize_text('В 1975 году. Спустя пять лет совершили полёт.')
+        for guess in ('полет', 'полёт', 'лететь', 'летать'):
+            with self.subTest(guess=guess):
+                matches = matching_lemmas(tokens, guess)
+                self.assertNotIn('год', matches)
+                self.assertIn('полет', matches)
+        for guess in ('год', 'года'):
+            with self.subTest(guess=guess):
+                self.assertIn('год', matching_lemmas(tokens, guess))
+        self.assertEqual(_Pack('лет', article_lemma='год').roots, set(structures_of('год')))
+        self.assertEqual(_Pack('лёт', article_lemma='лет').roots, set(structures_of('лет')))
+
+    def test_noble_sense_is_separate_from_cognition_and_acknowledgement(self):
+        tokens = tokenize_text('Знатный холостяк признаётся в ошибке. Знатность рода.')
+        for guess in ('признается', 'признаться', 'признать', 'знание', 'узнавать'):
+            with self.subTest(guess=guess):
+                self.assertNotIn('знатный', matching_lemmas(tokens, guess))
+                self.assertFalse(opens(guess, 'Знатный'))
+                self.assertFalse(opens('знатный', guess))
+        self.assertTrue(opens('знатность', 'Знатный'))
+        self.assertTrue(opens('знатный', 'знатного'))
+        self.assertTrue(opens('признаться', 'признается'))
+        self.assertTrue(opens('знание', 'узнавать'))
+
     def test_coma_context_stays_hidden_and_matches_only_the_noun(self):
         from games.censorly.redact import build_public_view
 
@@ -1712,6 +1740,27 @@ class LexicalGameplayTests(TestCase):
             for tok in result['body_tokens']
             if tok.get('revealed') and tok.get('text')
         }
+
+    @override_settings(CENSORLY_LEXICAL_RESOLVER=True)
+    def test_reported_sense_collisions_do_not_reveal_other_lemma_occurrences(self):
+        from games.censorly.play import apply_guess
+        from games.tests.test_censorly import _make_puzzle_task
+
+        for title, body, guess, closed_surfaces in (
+            ('Microsoft', 'В 1975 году. Спустя пять лет. Полёт.', 'полет', {'году', 'лет'}),
+            ('Доктор Ватсон', 'Знатный холостяк признаётся в ошибке.', 'признается', {'Знатный'}),
+        ):
+            with self.subTest(title=title):
+                game, task, _hash, puzzle = _make_puzzle_task(title=title, body=body)
+                closed_ids = {
+                    t['id'] for t in puzzle['body_tokens'] if t['surface'] in closed_surfaces
+                }
+                result = apply_guess(game=game, task=task, word=guess, anon_key='sense-reports')
+                self.assertTrue(result['guesses'][-1]['token_ids'])
+                for token in result['body_tokens']:
+                    if token['id'] in closed_ids:
+                        self.assertFalse(token['revealed'])
+                        self.assertNotIn('text', token)
 
     @override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
     def test_watson_coma_rebuilds_old_snapshot_and_accepts_exact_guess(self):
