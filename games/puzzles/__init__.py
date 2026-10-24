@@ -3,6 +3,7 @@
 from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.censorly import CensorlyPuzzle
 from games.puzzles.raddle import RaddlePuzzle
+from games.puzzles.wall import WallPuzzle
 from games.puzzles.word_salad import WordSaladPuzzle
 
 # Puzzles that own attempt-limit and duplicate checks. A duplicate is one of
@@ -21,4 +22,7 @@ def get_puzzle(task_type):
     return _BY_TASK_TYPE.get(str(task_type))
 
 
-__all__ = ['AlphabettyPuzzle', 'CensorlyPuzzle', 'RaddlePuzzle', 'WordSaladPuzzle', 'get_puzzle']
+__all__ = [
+    'AlphabettyPuzzle', 'CensorlyPuzzle', 'RaddlePuzzle', 'WallPuzzle',
+    'WordSaladPuzzle', 'get_puzzle',
+]

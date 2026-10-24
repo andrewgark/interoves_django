@@ -48,6 +48,7 @@ from games.views.track import track_actor_task_change
 from games.puzzles import get_puzzle
 from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
 from games.puzzles.raddle import RaddlePuzzle
+from games.puzzles.wall import WallMoveRefusal, WallPuzzle
 from games.puzzles.raddle_submission import RaddleMoveRefusal
 from games.puzzles.word_salad import WordSaladPuzzle
 from games.puzzles.word_salad_submission import SaladMoveRefusal, SaladSync
@@ -482,29 +483,10 @@ def process_send_attempt(request, task_id):
 
         attempt = form.save(commit=False)
     elif task.task_type == 'wall':
-        stage = request.POST.get('stage')
-        if stage not in ('cat_words', 'cat_explanation'):
-            return {'status': 'invalid_form'}
-        try:
-            if 'text' not in request.POST:
-                words = request.POST.getlist('words[]')
-                request_data = {'words': sorted(words), 'stage': stage}
-            else:
-                words = json.loads(request.POST.get('words', ''))
-                if not isinstance(words, list):
-                    raise ValueError('wall words must be a list')
-                request_data = {
-                    'explanation': request.POST.get('text', '').strip(),
-                    'words': words,
-                    'stage': stage,
-                }
-        except (TypeError, ValueError, json.JSONDecodeError):
-            return {'status': 'invalid_form'}
-        if not request_data['words'] or any(not isinstance(word, str) for word in request_data['words']):
-            return {'status': 'invalid_form'}
-        if stage == 'cat_explanation' and not request_data.get('explanation'):
-            return {'status': 'empty'}
-        attempt = Attempt(text=json.dumps(request_data))
+        move = WallPuzzle.parse_move(request.POST)
+        if isinstance(move, WallMoveRefusal):
+            return {'status': move.status}
+        attempt = Attempt(text=move.text)
     elif task.task_type == 'replacements_lines':
         try:
             line_index = int(request.POST.get('line_index', 0))
