@@ -2409,10 +2409,11 @@ class ChainTaskState(models.Model):
         try:
             s = json.loads(self.state)
             task = self.task
-            if task and task.task_type == 'replacements_lines':
-                solved = len(s.get('solved_lines', []))
-                total = s.get('total', '?')
-                return '{} lines solved ({} pts)'.format(solved, total)
+            from games.puzzles import get_puzzle
+            puzzle = get_puzzle(getattr(task, 'task_type', None)) if task else None
+            summary = getattr(puzzle, 'state_summary', None) if puzzle is not None else None
+            if summary is not None:
+                return summary(s)
             if task and task.task_type == 'html_forms':
                 solved = len(s.get('solved_keys', []))
                 total = s.get('total', '?')
