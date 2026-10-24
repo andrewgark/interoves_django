@@ -368,6 +368,45 @@ def _is_language_label_position(
     return False
 
 
+def _is_coma_context(tokens: list[dict[str, Any]], index: int) -> bool:
+    """Distinguish accusative «кому» from dative «кому» = «кто».
+
+    «В кому», including agreeing modifiers («в глубокую кому»), selects the noun.
+    A dative preposition («к кому», «по кому») does not resolve the homograph.
+    """
+    following = _next_nonspace(tokens, index + 1)
+    if following < len(tokens) and normalize_surface(
+        tokens[following].get('surface') or ''
+    ) in {'-', '‐', '‑', 'угодно'}:
+        # «В знакомую кому-то / кому угодно историю»: a dative complement.
+        return False
+
+    from games.matcher.norm_matcher import MORPH_ANALYZER
+
+    cursor = index
+    while cursor > 0:
+        previous = _previous_nonspace(tokens, cursor)
+        if previous < 0 or tokens[previous].get('kind') not in {'content', 'stop'}:
+            return False
+        # Do not connect words from different paragraphs or list items.
+        if any(
+            any(char in token.get('surface', '') for char in '\n\r\u2028\u2029')
+            for token in tokens[previous + 1:cursor]
+        ):
+            return False
+        surface = normalize_surface(tokens[previous].get('surface') or '')
+        if surface in {'в', 'во'}:
+            return True
+        if not any(
+            parse.tag.POS in {'ADJF', 'PRTF'}
+            and {'femn', 'sing', 'accs'} <= parse.tag.grammemes
+            for parse in MORPH_ANALYZER.parse(surface)
+        ):
+            return False
+        cursor = previous
+    return False
+
+
 def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach high-confidence, occurrence-specific readings before matching."""
     for index, tok in enumerate(tokens):
@@ -383,6 +422,12 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             and tokens[after_word].get('surface') == '.'
         )
         after_period = _next_nonspace(tokens, after_word + 1) if has_period else len(tokens)
+
+        if word == 'кому' and _is_coma_context(tokens, index):
+            tok['lemma'] = 'кома'
+            tok['context_reading'] = 'noun:кома'
+            tok['initially_open'] = False
+            continue
 
         # In «вода стекла с крыши» the word is the past-tense verb «стечь»;
         # a noun phrase such as «осколки стекла с рисунком» must stay «стекло».

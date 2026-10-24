@@ -147,6 +147,8 @@ class _Pack:
         self.fold = fold(surface)
         self.contextual_reading = article_lemma or ''
         self.service = initially_open(surface, include_pronouns=include_pronouns)
+        if (self.fold, article_lemma) == ('кому', 'кома'):
+            self.service = False
         self.reads = preferred_readings_of(surface)
         # OpenCorpora/pymorphy also tags the standalone letter name «Е» as a
         # rare present-tense form of «быть». Treat that token as the letter

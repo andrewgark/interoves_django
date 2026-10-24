@@ -1024,6 +1024,50 @@ class SemanticsTests(SimpleTestCase):
         nem = next(token for token in tokens if token.get('surface') == 'нем')
         self.assertEqual(nem['lemma'], NEM_PRONOUN_CONTEXT)
 
+    def test_coma_context_stays_hidden_and_matches_only_the_noun(self):
+        from games.censorly.redact import build_public_view
+
+        for phrase in (
+            'В результате которой впадает в кому.',
+            'Пациента ввели в глубокую искусственную кому.',
+            'Пациент впал в диабетическую кому.',
+        ):
+            for pronouns in (True, False):
+                with self.subTest(phrase=phrase, pronouns=pronouns), override_settings(
+                    CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=pronouns,
+                ):
+                    payload = build_puzzle_payload(wiki_title='Пациент', body_text=phrase)
+                    tokens = payload['body_tokens']
+                    target = next(t for t in tokens if t['surface'] == 'кому')
+                    view = build_public_view(payload)
+                    public = next(t for t in view['body_tokens'] if t['id'] == target['id'])
+                    self.assertFalse(public['revealed'])
+                    self.assertNotIn('text', public)
+                    for guess in ('кома', 'комой', 'кому'):
+                        self.assertIn('кома', matching_lemmas(tokens, guess), guess)
+                    for guess in ('кто', 'кого'):
+                        self.assertNotIn('кома', matching_lemmas(tokens, guess), guess)
+
+    @override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
+    def test_komu_pronoun_is_not_reclassified_across_other_words_or_boundaries(self):
+        from games.censorly.redact import build_public_view
+
+        for phrase in (
+            'Он знает, кому доверять.', 'К кому обратиться?', 'По кому скучают?',
+            'В доме кому мешали?', 'Глубокую? Кому она нужна?',
+            'Глубокую\nкому передать?', 'В\nкому',
+            'Книгу, знакомую кому угодно.',
+            'Он попал в знакомую кому-то историю.',
+            'Он попал в знакомую кому угодно историю.',
+        ):
+            with self.subTest(phrase=phrase):
+                payload = build_puzzle_payload(wiki_title='Вопрос', body_text=phrase)
+                target = next(t for t in payload['body_tokens'] if fold(t['surface']) == 'кому')
+                view = build_public_view(payload)
+                public = next(t for t in view['body_tokens'] if t['id'] == target['id'])
+                self.assertTrue(public['revealed'])
+                self.assertNotIn('кто', matching_lemmas(payload['body_tokens'], 'кома'))
+
     def test_article_candidate_tools_use_current_article_index_api(self):
         from games.censorly.lexical.tools.article_candidates import find_open_pairs
         from games.censorly.lexical.tools.near_miss_candidates import find_near_misses
@@ -1668,6 +1712,36 @@ class LexicalGameplayTests(TestCase):
             for tok in result['body_tokens']
             if tok.get('revealed') and tok.get('text')
         }
+
+    @override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
+    def test_watson_coma_rebuilds_old_snapshot_and_accepts_exact_guess(self):
+        from games.censorly import CENSORLY_SPLITTER_VERSION, CENSORLY_TAGS_KEY
+        from games.censorly.play import apply_guess, get_play_state
+        from games.tests.test_censorly import _make_puzzle_task
+
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='Доктор Ватсон',
+            body='Холмс знает, кому доверять. Ватсон впадает в кому.',
+        )
+        pronoun, noun = [t for t in puzzle['body_tokens'] if t['surface'] == 'кому']
+        noun['lemma'] = 'кто'
+        noun.pop('initially_open')
+        noun.pop('context_reading')
+        puzzle['splitter_version'] = CENSORLY_SPLITTER_VERSION - 1
+        task.tags = {CENSORLY_TAGS_KEY: puzzle}
+        task.save(update_fields=['tags'])
+        actor = {'game': game, 'task': task, 'anon_key': 'watson-coma'}
+
+        before = get_play_state(**actor)
+        by_id = {t['id']: t for t in before['body_tokens']}
+        self.assertTrue(by_id[pronoun['id']]['revealed'])
+        self.assertFalse(by_id[noun['id']]['revealed'])
+
+        result = apply_guess(**actor, word='кому')
+        self.assertNotEqual(result['status'], 'initially_open')
+        self.assertEqual(result['guesses'][-1]['token_ids'], [noun['id']])
+        by_id = {t['id']: t for t in result['body_tokens']}
+        self.assertTrue(by_id[noun['id']]['revealed'])
 
     def test_flag_off_does_not_open_root_neighbours(self):
         from django.test import override_settings

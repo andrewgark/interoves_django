@@ -81,6 +81,9 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     # article reading so the become verb «стал» cannot open that target.
     ('статью', 'статья'): frozenset({'статья'}),
     ('стекла', 'стечь'): frozenset({'стечь'}),
+    # Accusative in «в кому» / «глубокую кому», not dative «кто» or «ком».
+    ('кому', 'кома'): frozenset({'кома'}),
+    ('кому', 'кто'): frozenset({'кто'}),
     # «нем/нём» is a pronoun in a prepositional construction («о нём»,
     # «при нём»). The tokenizer assigns this identity per occurrence; a
     # standalone «нем.» is classified separately as the German abbreviation.
