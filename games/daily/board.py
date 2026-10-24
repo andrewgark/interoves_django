@@ -4,14 +4,7 @@ from dataclasses import dataclass
 from typing import Callable
 
 from games.daily.registry import get_daily_game
-from games.daily.share import get_daily_share_adapter
-from games.daily.state import latest_daily_state
-from games.puzzles import RaddlePuzzle
-from games.word_salad import (
-    build_ui_context as build_word_salad_ui_context,
-    load_state as load_word_salad_state,
-    parse_task_payload as parse_word_salad_task_payload,
-)
+from games.puzzles import RaddlePuzzle, WordSaladPuzzle
 
 
 @dataclass(frozen=True)
@@ -28,42 +21,14 @@ class DailyBoardAdapter:
     show_answer: bool | None = None
 
 
-def build_word_salad_board_data(
-    *,
-    game,
-    task,
-    placement,
-    grid,
-    words,
-    rare_words,
-    state,
-    attempts,
-    user,
-    anon_key,
-):
-    """Build Salad's board UI and attach its optional share-card payload."""
-    ui = build_word_salad_ui_context(
-        grid,
-        words,
-        state,
-        attempts=attempts,
-        rare_words=rare_words,
-    )
-    share_adapter = get_daily_share_adapter(game.id)
-    if share_adapter is not None:
-        share_adapter.attach(
-            ui,
-            words=words,
-            grid=grid,
-            state=state,
-            game=game,
-            task=task,
-            placement=placement,
-            user=user,
-            anon_key=anon_key,
-            attempts=attempts,
-        )
-    return ui
+def build_word_salad_board_data(**kwargs):
+    """Compatibility facade. The salad board lives on ``WordSaladPuzzle``."""
+    return WordSaladPuzzle.build_board(**kwargs)
+
+
+def prepare_word_salad_board_data(**kwargs):
+    """Compatibility facade. The salad board lives on ``WordSaladPuzzle``."""
+    return WordSaladPuzzle.prepare_board(**kwargs)
 
 
 def build_raddle_board_data(**kwargs):
@@ -76,64 +41,13 @@ def prepare_raddle_board_data(**kwargs):
     return RaddlePuzzle.prepare_board(**kwargs)
 
 
-def prepare_word_salad_board_data(
-    *,
-    game,
-    task,
-    placement,
-    attempts_info,
-    team,
-    user,
-    anon_key,
-    mode,
-    replay_slot,
-    resolve_chain_state,
-    **ignored,
-):
-    """Parse, resolve, and build one Salad board payload."""
-    try:
-        grid, words, rare_words = parse_word_salad_task_payload(
-            task.checker_data,
-            task.answer,
-        )
-    except (TypeError, ValueError):
-        return None
-    state = latest_daily_state(
-        task,
-        game,
-        attempts_info,
-        default_state=load_word_salad_state(None),
-        decode_state=load_word_salad_state,
-        resolve_chain_state=resolve_chain_state,
-        chain_state_kwargs={
-            'team': team,
-            'user': user,
-            'anon_key': anon_key,
-            'mode': mode,
-            'replay_slot': replay_slot,
-        },
-    )
-    return build_word_salad_board_data(
-        game=game,
-        task=task,
-        placement=placement,
-        grid=grid,
-        words=words,
-        rare_words=rare_words,
-        state=state,
-        attempts=(attempts_info.attempts if attempts_info else []),
-        user=user,
-        anon_key=anon_key,
-    )
-
-
 DAILY_BOARD_ADAPTERS = {
     adapter.task_type: adapter
     for adapter in (
         DailyBoardAdapter(
-            'word_salad',
-            build_word_salad_board_data,
-            prepare_word_salad_board_data,
+            WordSaladPuzzle.task_type,
+            WordSaladPuzzle.build_board,
+            WordSaladPuzzle.prepare_board,
             'word_salad',
             'task-content/task-word-salad.html',
             True,

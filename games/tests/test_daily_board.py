@@ -28,7 +28,7 @@ class DailyBoardBuilderTests(TestCase):
 
         self.assertIsNone(result)
 
-    @patch('games.daily.board.parse_word_salad_task_payload', side_effect=RuntimeError('bug'))
+    @patch('games.puzzles.word_salad.parse_word_salad_task_payload', side_effect=RuntimeError('bug'))
     def test_salad_adapter_does_not_hide_unexpected_parser_errors(self, parse_task):
         adapter = get_daily_board_adapter('word_salad')
         with self.assertRaisesRegex(RuntimeError, 'bug'):
@@ -58,8 +58,8 @@ class DailyBoardBuilderTests(TestCase):
         self.assertIs(get_daily_board_adapter('word_salad'), DAILY_BOARD_ADAPTERS['word_salad'])
         self.assertIsNone(get_daily_board_adapter('future_daily_game'))
 
-    @patch('games.daily.board.get_daily_share_adapter')
-    @patch('games.daily.board.build_word_salad_ui_context', return_value={'board': 'ui'})
+    @patch('games.puzzles.word_salad.get_daily_share_adapter')
+    @patch('games.puzzles.word_salad.build_word_salad_ui_context', return_value={'board': 'ui'})
     def test_salad_builder_keeps_ui_shape_and_share_boundary(
         self, build_ui, get_share,
     ):
@@ -83,8 +83,8 @@ class DailyBoardBuilderTests(TestCase):
         get_share.assert_called_once_with('salad')
         attach_share.assert_called_once()
 
-    @patch('games.daily.board.get_daily_share_adapter')
-    @patch('games.daily.board.build_word_salad_ui_context', return_value={'board': 'ui'})
+    @patch('games.puzzles.word_salad.get_daily_share_adapter')
+    @patch('games.puzzles.word_salad.build_word_salad_ui_context', return_value={'board': 'ui'})
     def test_salad_builder_does_not_attach_share_card_for_other_games(
         self, build_ui, get_share,
     ):
@@ -142,10 +142,10 @@ class DailyBoardBuilderTests(TestCase):
         build_ui.assert_called_once()
         attach_share.assert_called_once()
 
-    @patch('games.daily.board.build_word_salad_board_data', return_value={'prepared': 'salad'})
-    @patch('games.daily.board.latest_daily_state', return_value={'state': 'salad'})
+    @patch('games.puzzles.word_salad.build_word_salad_board_data', return_value={'prepared': 'salad'})
+    @patch('games.puzzles.word_salad.latest_daily_state', return_value={'state': 'salad'})
     @patch(
-        'games.daily.board.parse_word_salad_task_payload',
+        'games.puzzles.word_salad.parse_word_salad_task_payload',
         return_value=(['A'], ['WORD'], []),
     )
     def test_salad_adapter_pipeline_is_explicit(

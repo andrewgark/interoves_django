@@ -1,17 +1,20 @@
 """Task-type behavior. One subclass per puzzle; shared daily lifecycle stays in games.daily."""
 
 from games.puzzles.raddle import RaddlePuzzle
+from games.puzzles.word_salad import WordSaladPuzzle
 
+# Only puzzles that own attempt-limit and duplicate checks. Salad still uses
+# the generic text duplicate, which records the previous attempt id.
 _BY_TASK_TYPE = {
     RaddlePuzzle.task_type: RaddlePuzzle,
 }
 
 
 def get_puzzle(task_type):
-    """Return the puzzle class for a task type, or None when it is not split out yet."""
+    """Return the puzzle class that owns check_attempt hooks, or None."""
     if not task_type:
         return None
     return _BY_TASK_TYPE.get(str(task_type))
 
 
-__all__ = ['RaddlePuzzle', 'get_puzzle']
+__all__ = ['RaddlePuzzle', 'WordSaladPuzzle', 'get_puzzle']

@@ -48,6 +48,8 @@ from games.views.track import track_actor_task_change
 from games.puzzles import get_puzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.raddle_submission import RaddleMoveRefusal
+from games.puzzles.word_salad import WordSaladPuzzle
+from games.puzzles.word_salad_submission import SaladMoveRefusal, SaladSync
 from games.raddle_concurrency import (
     lock_or_create_raddle_state,
     run_raddle_atomic_with_deadlock_retry,
@@ -542,43 +544,16 @@ def process_send_attempt(request, task_id):
             return {'status': 'empty'}
         attempt = Attempt(text=word)
     elif task.task_type == 'word_salad':
-        action = (request.POST.get('action') or 'solve').strip().lower()
-        if action == 'sync_finds':
+        move = WordSaladPuzzle.parse_move(request.POST)
+        if isinstance(move, SaladMoveRefusal):
+            return {'status': move.status}
+        if isinstance(move, SaladSync):
             return _process_word_salad_sync_finds(
                 request, task, team, user, anon_key, game, replay_slot=replay_slot,
             )
-        if action == 'hint':
-            try:
-                word_index = int(request.POST.get('word_index', -1))
-            except (TypeError, ValueError):
-                return {'status': 'empty'}
-            if word_index < 0:
-                return {'status': 'empty'}
-            hint_payload = {'action': 'hint', 'word_index': word_index}
-            hint_number = request.POST.get('hint_number')
-            if hint_number not in (None, ''):
-                try:
-                    hint_payload['hint_number'] = int(hint_number)
-                except (TypeError, ValueError):
-                    return {'status': 'empty'}
-            attempt = Attempt(text=json.dumps(hint_payload))
-        else:
-            path_raw = request.POST.get('path') or request.POST.get('path_json') or '[]'
-            if isinstance(path_raw, str):
-                try:
-                    path = json.loads(path_raw)
-                except (TypeError, ValueError):
-                    path = []
-            else:
-                path = list(path_raw)
-            try:
-                path = [int(value) for value in path]
-            except (TypeError, ValueError):
-                return {'status': 'empty'}
-            if not path:
-                return {'status': 'empty'}
-            attempt = Attempt(text=json.dumps({'action': 'solve', 'path': path}))
-            is_game_start_interaction = True
+        attempt = Attempt(text=move.text)
+        action = move.action
+        is_game_start_interaction = move.starts_game
     elif task.task_type == 'grid-puzzle':
         try:
             puzzle = parse_grid_puzzle_data(task.checker_data)
@@ -771,36 +746,10 @@ def process_send_attempt(request, task_id):
     if task.task_type == 'raddle':
         RaddlePuzzle.write_move_result(result, task, attempt, word_index, word)
     if task.task_type == 'word_salad':
-        from games.word_salad import (
-            EXTRA_FOUND_COMMENT,
-            RARE_FOUND_COMMENT,
-            extra_found_word_from_attempt,
-            path_word_from_attempt,
+        WordSaladPuzzle.write_move_result(
+            result, task, attempt,
+            attempt_persisted=attempt_persisted, user=user, anon_key=anon_key,
         )
-
-        rare_found = attempt_persisted and (attempt.comment or '') == RARE_FOUND_COMMENT
-        extra_found = attempt_persisted and (attempt.comment or '') == EXTRA_FOUND_COMMENT
-        result['word_salad_correct'] = bool(attempt_persisted) and not rare_found and not extra_found
-        if rare_found:
-            written, _words, _rare_words = path_word_from_attempt(task, attempt)
-            if written:
-                result['word_salad_rare'] = written
-            result['word_salad_keep_selection'] = True
-        elif extra_found:
-            written, _words, _rare_words = path_word_from_attempt(task, attempt)
-            if written:
-                result['word_salad_extra'] = written
-            result['word_salad_keep_selection'] = True
-        elif result['word_salad_correct']:
-            result['word_salad_keep_selection'] = False
-        if not attempt_persisted:
-            if attempt.comment:
-                result['word_salad_comment'] = attempt.comment
-            extra = extra_found_word_from_attempt(
-                task, attempt, user=user, anon_key=anon_key,
-            )
-            if extra:
-                result['word_salad_extra'] = extra
     if task.task_type == 'grid-puzzle':
         result['grid_puzzle_correct'] = attempt.status == 'Ok'
 
@@ -808,8 +757,7 @@ def process_send_attempt(request, task_id):
     need_task_html = (
         task.task_type != 'raddle' or RaddlePuzzle.include_task_html(result)
     ) and (
-        task.task_type != 'word_salad'
-        or result.get('word_salad_correct')
+        task.task_type != 'word_salad' or WordSaladPuzzle.include_task_html(result)
     )
     if need_task_html:
         with timing_phase(request, 'render_task'):
