@@ -257,6 +257,12 @@ def attempt_advanced(attempt, last_state):
     )
 
 
+def read_post(post, task):
+    """Read a salad POST. Sync of side finds is still answered by the view."""
+    del task
+    return parse_move(post)
+
+
 def write_response(response):
     """Copy the salad verdict onto the JSON body. The view still owns HTML."""
     return write_move_result(
@@ -279,6 +285,7 @@ class WordSaladPuzzle(Puzzle):
     prepare_board = staticmethod(prepare_word_salad_board_data)
     load_board = staticmethod(load_salad_board)
     parse_move = staticmethod(parse_move)
+    read_post = staticmethod(read_post)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
     write_move_result = staticmethod(write_move_result)

@@ -44,8 +44,7 @@ from games.puzzles.quota import revision_quota_message
 from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.move import MoveRefusal, MoveResponse
 from games.puzzles.raddle import RaddlePuzzle
-from games.puzzles.word_salad import WordSaladPuzzle
-from games.puzzles.word_salad_submission import SaladMoveRefusal, SaladSync
+from games.puzzles.word_salad_submission import SaladSync
 from games.raddle_concurrency import (
     lock_or_create_raddle_state,
     run_raddle_atomic_with_deadlock_retry,
@@ -466,17 +465,6 @@ def process_send_attempt(request, task_id):
             word = move.word
         action = getattr(move, 'action', None)
         is_game_start_interaction = bool(getattr(move, 'starts_game', False))
-    elif task.task_type == 'word_salad':
-        move = WordSaladPuzzle.parse_move(request.POST)
-        if isinstance(move, SaladMoveRefusal):
-            return {'status': move.status}
-        if isinstance(move, SaladSync):
-            return _process_word_salad_sync_finds(
-                request, task, team, user, anon_key, game, replay_slot=replay_slot,
-            )
-        attempt = Attempt(text=move.text)
-        action = move.action
-        is_game_start_interaction = move.starts_game
     elif task.task_type == 'grid-puzzle':
         move = GridPuzzle.parse_move(request.POST, task)
         if isinstance(move, MoveRefusal):
