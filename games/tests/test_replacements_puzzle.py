@@ -74,4 +74,4 @@ class ReplacementsMoveTests(SimpleTestCase):
 
     def test_quota_is_a_check_attempt_hook_without_a_checker(self):
         self.assertIs(get_puzzle('replacements_lines'), ReplacementsPuzzle)
-        self.assertIsNone(ReplacementsPuzzle.checker_id)
+        self.assertEqual(ReplacementsPuzzle.checker_id, 'replacements_lines')

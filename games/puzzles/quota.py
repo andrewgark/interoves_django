@@ -29,3 +29,14 @@ def json_field_quota(attempt, revision_attempts, task, team, *, field, label):
             team, max_attempts, task, label, current + 1,
         )
     return None
+
+
+def revision_quota_message(attempt, revision_attempts, task, team):
+    """Quota for every attempt in this revision. None means tries remain."""
+    n_attempts = len(revision_attempts)
+    max_attempts = task.get_max_attempts()
+    if n_attempts >= max_attempts:
+        return 'Team {} exceeds attempts limit ({}) in task {}'.format(
+            team, max_attempts, task,
+        )
+    return None

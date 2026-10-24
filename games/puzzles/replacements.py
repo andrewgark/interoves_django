@@ -46,7 +46,7 @@ def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt
 
 class ReplacementsPuzzle(Puzzle):
     task_type = 'replacements_lines'
-    checker_id = None
+    checker_id = 'replacements_lines'
 
     parse_move = staticmethod(parse_move)
     attempt_limit_message = staticmethod(attempt_limit_message)

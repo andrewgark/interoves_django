@@ -12,6 +12,7 @@ from games.puzzles.word_salad import WordSaladPuzzle
 # three answers: not a duplicate, a duplicate without an attempt id, or a
 # duplicate that names the previous attempt.
 _BY_TASK_TYPE = {
+    HtmlFormsPuzzle.task_type: HtmlFormsPuzzle,
     RaddlePuzzle.task_type: RaddlePuzzle,
     ReplacementsPuzzle.task_type: ReplacementsPuzzle,
     WallPuzzle.task_type: WallPuzzle,

@@ -31,14 +31,7 @@ from games.views.util import (
     is_browser_form_submission,
     redirect_after_browser_submission,
 )
-from games.grid_puzzle import (
-    GridPuzzleDataError,
-    grid_checker_id,
-    parse_grid_puzzle_attempt,
-    parse_grid_puzzle_data,
-    parse_grid_shading_attempt,
-    validate_grid_checker_data,
-)
+from games.grid_puzzle import grid_checker_id
 from games.views.game_context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
@@ -46,6 +39,8 @@ from games.views.game_context import (
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
+from games.puzzles.grid import GridPuzzle
+from games.puzzles.quota import revision_quota_message
 from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
 from games.puzzles.move import MoveRefusal
 from games.puzzles.raddle import RaddlePuzzle
@@ -205,24 +200,16 @@ def check_attempt(
                     last_attempt_state = attempts[-1].state
 
             if mode == 'tournament' and not bypass_attempt_limit:
-                if task.task_type == 'html_forms':
-                    n_attempts = len(revision_attempts)
-                    max_attempts = task.get_max_attempts()
-                    if n_attempts >= max_attempts:
-                        raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
-                elif puzzle is not None:
+                if puzzle is not None:
                     message = puzzle.attempt_limit_message(
                         attempt, revision_attempts, task, team,
                         attempts=attempts,
                         chain_state=chain_state_row.state if chain_state_row else None,
                     )
-                    if message:
-                        raise TooManyAttemptsException(message)
                 else:
-                    n_attempts = len(revision_attempts)
-                    max_attempts = task.get_max_attempts()
-                    if n_attempts >= max_attempts:
-                        raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {}'.format(team, max_attempts, task))
+                    message = revision_quota_message(attempt, revision_attempts, task, team)
+                if message:
+                    raise TooManyAttemptsException(message)
 
             for other_attempt in revision_attempts:
                 if puzzle is not None:
@@ -246,10 +233,6 @@ def check_attempt(
                     raise exc
 
         checker_type = task.get_checker()
-        if task.task_type == 'replacements_lines':
-            checker_type = CheckerType.objects.get(id='replacements_lines')
-        if task.task_type == 'html_forms':
-            checker_type = CheckerType.objects.get(id='html_forms')
         if puzzle is not None and puzzle.checker_id:
             checker_type = CheckerType.objects.get(id=puzzle.checker_id)
         if task.task_type == 'grid-puzzle':
@@ -488,28 +471,10 @@ def process_send_attempt(request, task_id):
         action = move.action
         is_game_start_interaction = move.starts_game
     elif task.task_type == 'grid-puzzle':
-        try:
-            puzzle = parse_grid_puzzle_data(task.checker_data)
-            checker_id = grid_checker_id(task)
-            validate_grid_checker_data(puzzle, checker_id)
-            if checker_id == 'grid-wall-checker':
-                walls_raw = request.POST.get('walls', '[]')
-                attempt_payload = parse_grid_puzzle_attempt(
-                    json.dumps({'walls': json.loads(walls_raw)}),
-                    puzzle['rows'],
-                    puzzle['cols'],
-                    can_set_walls=puzzle['can_set_walls'],
-                )
-            else:
-                shading_raw = request.POST.get('shading', '[]')
-                attempt_payload = parse_grid_shading_attempt(
-                    json.dumps({'shading': json.loads(shading_raw)}),
-                    puzzle['rows'],
-                    puzzle['cols'],
-                )
-        except (GridPuzzleDataError, TypeError, ValueError):
-            return {'status': 'invalid_form'}
-        attempt = Attempt(text=json.dumps(attempt_payload, separators=(',', ':')))
+        move = GridPuzzle.parse_move(request.POST, task)
+        if isinstance(move, MoveRefusal):
+            return {'status': move.status}
+        attempt = Attempt(text=move.text)
     else:
         raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team

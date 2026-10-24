@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 from django.http import QueryDict
 from django.test import SimpleTestCase
@@ -6,6 +7,7 @@ from django.test import SimpleTestCase
 from games.puzzles import get_puzzle, parse_posted_text
 from games.puzzles.html_forms import HtmlFormsPuzzle
 from games.puzzles.move import MoveRefusal, TextMove
+from games.puzzles.quota import revision_quota_message
 
 
 def _post(**values):
@@ -34,5 +36,28 @@ class HtmlFormsMoveTests(SimpleTestCase):
             MoveRefusal('empty'),
         )
 
-    def test_parse_is_not_a_check_attempt_hook(self):
-        self.assertIsNone(get_puzzle('html_forms'))
+    def test_limit_message_counts_the_revision(self):
+        task = SimpleNamespace(get_max_attempts=lambda: 1)
+        attempt = SimpleNamespace()
+        previous = [SimpleNamespace()]
+
+        self.assertIsNone(HtmlFormsPuzzle.attempt_limit_message(attempt, [], task, 'Red'))
+        message = HtmlFormsPuzzle.attempt_limit_message(attempt, previous, task, 'Red')
+        self.assertEqual(
+            message,
+            'Team Red exceeds attempts limit (1) in task {}'.format(task),
+        )
+        self.assertEqual(message, revision_quota_message(attempt, previous, task, 'Red'))
+
+    def test_same_text_names_the_previous_attempt(self):
+        other = SimpleNamespace(id=3)
+        verdict = HtmlFormsPuzzle.blocks_duplicate(
+            'a', 'a', task=None, state_raw=None, other_attempt=other,
+        )
+
+        self.assertTrue(verdict.blocked)
+        self.assertEqual(verdict.attempt_id, 3)
+
+    def test_quota_is_a_check_attempt_hook_without_a_checker(self):
+        self.assertIs(get_puzzle('html_forms'), HtmlFormsPuzzle)
+        self.assertEqual(HtmlFormsPuzzle.checker_id, 'html_forms')
