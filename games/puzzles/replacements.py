@@ -130,6 +130,20 @@ def state_summary(state):
     return '{} lines solved ({} pts)'.format(solved, total)
 
 
+def merge_state(task, source_json, target_json):
+    """Union solved lines from two accounts. Bad JSON does not merge."""
+    del task
+    try:
+        source = json.loads(source_json or '{}')
+        target = json.loads(target_json or '{}')
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(source, dict) or not isinstance(target, dict):
+        return None
+    solved = sorted(set(source.get('solved_lines') or []) | set(target.get('solved_lines') or []))
+    return json.dumps({'solved_lines': solved, 'total': len(solved)}, ensure_ascii=False)
+
+
 def assign_answer_rows(task):
     """Store the answer-row count before the task row is saved."""
     task.replacements_answer_rows = task._replacements_lines_n_answer_rows()
@@ -158,5 +172,6 @@ class ReplacementsPuzzle(Puzzle):
     attempt_answer = staticmethod(attempt_answer)
     pretty_text = staticmethod(pretty_text)
     state_summary = staticmethod(state_summary)
+    merge_state = staticmethod(merge_state)
     assign_answer_rows = staticmethod(assign_answer_rows)
     results_max_points = staticmethod(results_max_points)

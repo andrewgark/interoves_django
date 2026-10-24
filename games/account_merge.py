@@ -466,6 +466,12 @@ def _merge_personal_words(target, source):
 
 def _merge_chain_state_json(task, source_json, target_json):
     """Union compatible task progress so disjoint solutions are not lost."""
+    from games.puzzles import get_puzzle
+    puzzle = get_puzzle(getattr(task, 'task_type', None))
+    merger = getattr(puzzle, 'merge_state', None) if puzzle is not None else None
+    if merger is not None:
+        return merger(task, source_json, target_json)
+
     try:
         source = json.loads(source_json or '{}')
         target = json.loads(target_json or '{}')
@@ -475,10 +481,6 @@ def _merge_chain_state_json(task, source_json, target_json):
         return None
 
     task_type = getattr(task, 'task_type', None)
-    if task_type == 'replacements_lines':
-        solved = sorted(set(source.get('solved_lines') or []) | set(target.get('solved_lines') or []))
-        return json.dumps({'solved_lines': solved, 'total': len(solved)}, ensure_ascii=False)
-
     if task_type == 'raddle':
         from games.raddle import (
             dump_raddle_state,
