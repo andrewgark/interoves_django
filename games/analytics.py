@@ -248,19 +248,6 @@ def _state_complete_censorly(state_raw):
     return _state_complete_alphabetty(state_raw)
 
 
-def _state_complete_word_salad(task, state_raw):
-    if not state_raw:
-        return False
-    try:
-        from games.word_salad import load_state, parse_task_data
-
-        _grid, words = parse_task_data(task.checker_data, task.answer)
-        solved = set(load_state(state_raw).get('solved_indices') or [])
-        return bool(words) and set(range(len(words))).issubset(solved)
-    except Exception:
-        return False
-
-
 def is_task_completion_state(task, state_raw):
     if task is None:
         return False
@@ -273,8 +260,6 @@ def is_task_completion_state(task, state_raw):
         return _state_complete_alphabetty(state_raw)
     if task.task_type == 'censorly':
         return _state_complete_censorly(state_raw)
-    if task.task_type == 'word_salad':
-        return _state_complete_word_salad(task, state_raw)
     return False
 
 

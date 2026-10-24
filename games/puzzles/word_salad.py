@@ -144,6 +144,19 @@ def clean_checker_data(task):
     validate_task_data(task.checker_data, '')
 
 
+def is_complete(task, state_raw):
+    """True when every salad word is solved."""
+    if not state_raw:
+        return False
+    try:
+        from games.word_salad import load_state
+        _grid, words = parse_task_data(task.checker_data, task.answer)
+        solved = set(load_state(state_raw).get('solved_indices') or [])
+        return bool(words) and set(range(len(words))).issubset(solved)
+    except Exception:
+        return False
+
+
 def scale_points(task, raw_points):
     """Salad points are already on the result scale. The task multiplier is not applied."""
     from decimal import Decimal
@@ -180,4 +193,5 @@ class WordSaladPuzzle(Puzzle):
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
     scale_points = staticmethod(scale_points)
+    is_complete = staticmethod(is_complete)
     results_max_points = staticmethod(results_max_points)
