@@ -4,6 +4,8 @@ from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
 from games.puzzles.base import Puzzle
 from games.puzzles.raddle_submission import (
+    accept_ui_draft,
+    assist_block,
     attempt_limit_message,
     blocks_duplicate,
     duplicate_fields,
@@ -134,6 +136,8 @@ class RaddlePuzzle(Puzzle):
     build_board = staticmethod(build_raddle_board_data)
     prepare_board = staticmethod(prepare_raddle_board_data)
     parse_move = staticmethod(parse_move)
+    assist_block = staticmethod(assist_block)
+    accept_ui_draft = staticmethod(accept_ui_draft)
     posted_word_index = staticmethod(posted_word_index)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)

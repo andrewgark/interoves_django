@@ -7,9 +7,11 @@ from dataclasses import dataclass
 
 from games.raddle import (
     load_raddle_state,
+    merge_raddle_ui_payload,
     parse_raddle_data,
     playable_word_indices,
     raddle_blocks_as_duplicate,
+    resolve_assist_tiers,
     serialize_raddle_attempt_text,
     word_matches,
 )
@@ -40,6 +42,51 @@ def parse_move(post):
         word_index,
         word,
         serialize_raddle_attempt_text(word_index, word),
+    )
+
+
+def assist_block(state, n_words, word_index, tier):
+    """Status when a ladder hint must not be written. None means the view may write it."""
+    state = state or {}
+    if word_index in set(state.get('solved_indices') or []):
+        return 'already_solved'
+    if word_index not in playable_word_indices(state, n_words):
+        return 'not_playable'
+    current_tier = resolve_assist_tiers(state).get(word_index, 0)
+    if int(tier) == 2 and current_tier < 1:
+        return 'need_clue_first'
+    if int(tier) == 1 and current_tier >= 1:
+        return 'duplicate'
+    return None
+
+
+@dataclass(frozen=True)
+class RaddleUiAcceptance:
+    stale: bool
+    state: dict
+    revision: int
+
+
+def accept_ui_draft(
+    stored, n_words, *, stored_revision, requested_revision,
+    drafts_patch, clue_marks_patch,
+):
+    """Keep the stored draft when the client is not newer. Otherwise merge the patch."""
+    stored = {
+        'drafts': dict((stored or {}).get('drafts') or {}),
+        'clue_marks': dict((stored or {}).get('clue_marks') or {}),
+    }
+    stored_revision = int(stored_revision or 0)
+    stale = requested_revision is not None and requested_revision <= stored_revision
+    if stale:
+        return RaddleUiAcceptance(True, stored, stored_revision)
+    merged = merge_raddle_ui_payload(
+        stored, n_words, drafts_patch=drafts_patch, clue_marks_patch=clue_marks_patch,
+    )
+    return RaddleUiAcceptance(
+        False,
+        merged,
+        max(stored_revision + 1, requested_revision or 0),
     )
 
 

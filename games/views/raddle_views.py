@@ -19,6 +19,7 @@ from games.exception import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, RaddleUiState, Task
 from games.auth_observability import log_gameplay_attempt_created
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
+from games.puzzles.raddle import RaddlePuzzle
 from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.replay import replay_for_request, StaleReplayError, _official_exists
 from games.raddle import (
@@ -27,11 +28,8 @@ from games.raddle import (
     ensure_raddle_assist_hints,
     find_raddle_assist_hint,
     load_raddle_state,
-    merge_raddle_ui_payload,
     parse_raddle_data,
-    playable_word_indices,
     raddle_ui_payload,
-    resolve_assist_tiers,
     serialize_raddle_attempt_text,
 )
 from games.raddle_concurrency import (
@@ -99,12 +97,9 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
             row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
             replay_slot=replay_slot,
         )
-        if word_index in set(state.get('solved_indices') or []):
-            return {'status': 'already_solved'}
-        if word_index not in playable_word_indices(state, n):
-            return {'status': 'not_playable'}
-        if resolve_assist_tiers(state).get(word_index, 0) < 1:
-            return {'status': 'need_clue_first'}
+        blocked = RaddlePuzzle.assist_block(state, n, word_index, 2)
+        if blocked:
+            return {'status': blocked}
 
         ensure_raddle_assist_hints(task)
         hint = find_raddle_assist_hint(task, word_index, 2)
@@ -317,16 +312,9 @@ def process_send_raddle_assist(request, task_id):
             chain_row, n, team=team, user=user, anon_key=anon_key, task=task, game=game,
             replay_slot=replay_slot,
         )
-        if word_index in set(state.get('solved_indices') or []):
-            return {'status': 'already_solved'}
-        playable = playable_word_indices(state, n)
-        if word_index not in playable:
-            return {'status': 'not_playable'}
-
-        assist_tiers = resolve_assist_tiers(state)
-        current_tier = assist_tiers.get(word_index, 0)
-        if current_tier >= 1:
-            return {'status': 'duplicate'}
+        blocked = RaddlePuzzle.assist_block(state, n, word_index, tier)
+        if blocked:
+            return {'status': blocked}
 
         ensure_raddle_assist_hints(task)
         hint = find_raddle_assist_hint(task, word_index, tier)
@@ -516,25 +504,27 @@ def process_send_raddle_ui(request, task_id):
                     n_words=n,
                 ),
             )
-        state = {
-            'drafts': dict(ui_row.drafts or {}),
-            'clue_marks': dict(ui_row.clue_marks or {}),
-        }
-        stale = (
-            requested_revision is not None
-            and requested_revision <= ui_row.revision
+        accepted = RaddlePuzzle.accept_ui_draft(
+            {
+                'drafts': dict(ui_row.drafts or {}),
+                'clue_marks': dict(ui_row.clue_marks or {}),
+            },
+            n,
+            stored_revision=ui_row.revision,
+            requested_revision=requested_revision,
+            drafts_patch=drafts_patch,
+            clue_marks_patch=marks_patch,
         )
+        state = accepted.state
+        stale = accepted.stale
         if not stale:
-            state = merge_raddle_ui_payload(
-                state, n, drafts_patch=drafts_patch, clue_marks_patch=marks_patch,
-            )
             ui_row.drafts = state['drafts']
             ui_row.clue_marks = state['clue_marks']
             ui_row.updated_by_profile = (
                 request.user.profile
                 if request.user.is_authenticated and has_profile(request.user) else None
             )
-            ui_row.revision = max(ui_row.revision + 1, requested_revision or 0)
+            ui_row.revision = accepted.revision
             ui_row.save(update_fields=[
                 'drafts', 'clue_marks', 'updated_by_profile', 'revision', 'updated_at',
             ])
