@@ -346,18 +346,10 @@ def _chain_progress_signature(attempt):
     if not isinstance(state, dict):
         return None
     from games.puzzles import get_puzzle
-    from games.puzzles.progress import _int_tuple, _text_tuple
     puzzle = get_puzzle(task_type)
     signature = getattr(puzzle, 'progress_signature', None) if puzzle is not None else None
     if signature is not None:
         return signature(state)
-    if task_type == 'word_salad':
-        return (
-            'salad',
-            _int_tuple(state.get('solved_indices')),
-            _int_tuple(state.get('found_rare')),
-            _text_tuple(state.get('found_extra')),
-        )
     return None
 
 

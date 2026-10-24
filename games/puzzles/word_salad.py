@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
 from games.puzzles.base import Puzzle
+from games.puzzles.progress import _int_tuple, _text_tuple
 from games.puzzles.word_salad_board import load_salad_board
 from games.puzzles.word_salad_submission import (
     attempt_limit_message,
@@ -127,6 +128,16 @@ def prepare_word_salad_board_data(
     )
 
 
+def progress_signature(state):
+    """Solved words, rare words, and extras. Hints are not part of the signature."""
+    return (
+        'salad',
+        _int_tuple(state.get('solved_indices')),
+        _int_tuple(state.get('found_rare')),
+        _text_tuple(state.get('found_extra')),
+    )
+
+
 def results_max_points(task, m):
     """Green-cell maximum: the word count. The task multiplier is not applied."""
     del m
@@ -153,4 +164,5 @@ class WordSaladPuzzle(Puzzle):
     blocks_duplicate = staticmethod(blocks_duplicate)
     write_move_result = staticmethod(write_move_result)
     include_task_html = staticmethod(include_task_html)
+    progress_signature = staticmethod(progress_signature)
     results_max_points = staticmethod(results_max_points)
