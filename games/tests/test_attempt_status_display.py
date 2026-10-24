@@ -155,6 +155,27 @@ class AttemptsWithStatusTests(SimpleTestCase):
             ['partial', 'wrong', 'partial'],
         )
 
+    def test_html_forms_new_key_is_partial_when_points_stay_flat(self):
+        def form(time, keys):
+            return _attempt(
+                'Partial',
+                task_type='html_forms',
+                points=0,
+                time=time,
+                state=json.dumps({'solved_keys': keys}),
+            )
+
+        rendered = attempts_with_status([
+            form(1, ['a']),
+            form(2, ['a']),
+            form(3, ['a', 'b']),
+        ])
+
+        self.assertEqual(
+            [item['mark'] for item in rendered],
+            ['partial', 'wrong', 'partial'],
+        )
+
     def test_alphabetty_misses_stay_wrong_as_the_guess_list_grows(self):
         rendered = attempts_with_status([
             _attempt(

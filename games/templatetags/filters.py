@@ -358,8 +358,6 @@ def _chain_progress_signature(attempt):
             _int_tuple(state.get('found_rare')),
             _text_tuple(state.get('found_extra')),
         )
-    if task_type == 'html_forms':
-        return ('forms', _text_tuple(state.get('solved_keys')))
     return None
 
 

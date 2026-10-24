@@ -7,6 +7,7 @@ import json
 from games.puzzles.base import Puzzle
 from games.puzzles.duplicate import same_text_verdict
 from games.puzzles.move import MoveRefusal, TextMove
+from games.puzzles.progress import _text_tuple
 from games.puzzles.quota import revision_quota_message
 
 
@@ -33,6 +34,11 @@ def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt
     return same_text_verdict(attempt_text, other_text, other_attempt)
 
 
+def progress_signature(state):
+    """Solved form keys. Points are not part of the signature."""
+    return ('forms', _text_tuple(state.get('solved_keys')))
+
+
 def results_max_points(task, m):
     """Green-cell maximum: form count times the task multiplier."""
     from games.html_forms import parse_html_forms_data
@@ -49,4 +55,5 @@ class HtmlFormsPuzzle(Puzzle):
     parse_move = staticmethod(parse_move)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
+    progress_signature = staticmethod(progress_signature)
     results_max_points = staticmethod(results_max_points)
