@@ -500,7 +500,8 @@ def process_send_attempt(request, task_id):
 
     current_mode = game.get_current_mode(attempt)
 
-    if task.task_type == 'raddle':
+    stale_for = getattr(post_puzzle, 'stale_payload', None) if post_puzzle is not None else None
+    if stale_for is not None and word_index is not None:
         stale = _raddle_stale_submit_response(
             request, task, team, user, anon_key, game, current_mode, word_index, replay_slot,
         )
