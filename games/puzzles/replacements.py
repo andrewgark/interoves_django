@@ -63,6 +63,36 @@ def clean_checker_data(task):
         raise ValidationError({'checker_data': str(exc)})
 
 
+def is_complete(task, state_raw):
+    """True when every replacements row has all of its cells solved."""
+    if not state_raw:
+        return False
+    try:
+        from games.replacements_lines import (
+            parse_replacements_checker_json_lines,
+            parse_replacements_lines_text,
+            replacements_solved_slots_from_state,
+        )
+
+        parsed = parse_replacements_lines_text(task.text, (task.checker_data or '').strip() or None)
+        checker_rows = parse_replacements_checker_json_lines(task.checker_data or '')
+        answer_rows = checker_rows[0] if checker_rows else (parsed.get('answers') or [])
+        total = len(answer_rows)
+        if total <= 0:
+            return False
+        state = json.loads(state_raw)
+        solved_slots = replacements_solved_slots_from_state(
+            state,
+            dict(parsed, answers=answer_rows),
+        )
+        return all(
+            bool(row) and len(solved_slots.get(index, set())) == len(row)
+            for index, row in enumerate(answer_rows)
+        )
+    except Exception:
+        return False
+
+
 def results_max_points(task, m):
     """Green-cell maximum: answer rows times the task multiplier."""
     n = task.replacements_answer_rows
@@ -82,4 +112,5 @@ class ReplacementsPuzzle(Puzzle):
     blocks_duplicate = staticmethod(blocks_duplicate)
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
+    is_complete = staticmethod(is_complete)
     results_max_points = staticmethod(results_max_points)

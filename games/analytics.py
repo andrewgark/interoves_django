@@ -234,35 +234,6 @@ def _swallow_analytics_invariant(fn):
     return wrapped
 
 
-def _state_complete_replacements(task, state_raw):
-    if not state_raw:
-        return False
-    try:
-        from games.replacements_lines import (
-            parse_replacements_checker_json_lines,
-            parse_replacements_lines_text,
-            replacements_solved_slots_from_state,
-        )
-
-        parsed = parse_replacements_lines_text(task.text, (task.checker_data or '').strip() or None)
-        checker_rows = parse_replacements_checker_json_lines(task.checker_data or '')
-        answer_rows = checker_rows[0] if checker_rows else (parsed.get('answers') or [])
-        total = len(answer_rows)
-        if total <= 0:
-            return False
-        state = json.loads(state_raw)
-        solved_slots = replacements_solved_slots_from_state(
-            state,
-            dict(parsed, answers=answer_rows),
-        )
-        return all(
-            bool(row) and len(solved_slots.get(index, set())) == len(row)
-            for index, row in enumerate(answer_rows)
-        )
-    except Exception:
-        return False
-
-
 def _state_complete_alphabetty(state_raw):
     if not state_raw:
         return False
@@ -298,8 +269,6 @@ def is_task_completion_state(task, state_raw):
     complete = getattr(puzzle, 'is_complete', None) if puzzle is not None else None
     if complete is not None:
         return complete(task, state_raw)
-    if task.task_type == 'replacements_lines':
-        return _state_complete_replacements(task, state_raw)
     if task.task_type == 'html_forms':
         from games.html_forms import html_forms_is_complete
         return html_forms_is_complete(task, state_raw)
