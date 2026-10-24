@@ -53,6 +53,38 @@ def is_complete(task, state_raw):
     return html_forms_is_complete(task, state_raw)
 
 
+def attempt_answer(attempt):
+    """The accepted answer for the submitted form key."""
+    try:
+        payload = json.loads(attempt.text)
+        key = str(payload.get('form_key') or '')
+    except (ValueError, TypeError):
+        return attempt.task.answer or ''
+    from games.html_forms import parse_html_forms_data
+    for form in parse_html_forms_data(attempt.task.checker_data):
+        if form['key'] == key:
+            return form['answer']
+    return '—'
+
+
+def pretty_text(attempt):
+    """List label for one html form, without exposing the private key."""
+    from django.utils.html import format_html
+    from games.html_forms import parse_html_forms_data
+    try:
+        payload = json.loads(attempt.text)
+        if not isinstance(payload, dict):
+            return '—'
+        key = str(payload.get('form_key') or '')
+        answer = str(payload.get('text') or '')
+        for form in parse_html_forms_data(attempt.task.checker_data):
+            if form['key'] == key:
+                return format_html('{}: {}', form['placeholder'], answer)
+        return format_html('{}', answer) if answer else '—'
+    except (ValueError, TypeError):
+        return '—'
+
+
 def results_max_points(task, m):
     """Green-cell maximum: form count times the task multiplier."""
     from games.html_forms import parse_html_forms_data
@@ -72,4 +104,6 @@ class HtmlFormsPuzzle(Puzzle):
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
     is_complete = staticmethod(is_complete)
+    attempt_answer = staticmethod(attempt_answer)
+    pretty_text = staticmethod(pretty_text)
     results_max_points = staticmethod(results_max_points)

@@ -12,7 +12,6 @@ from django.db.models import F
 from django.db.models.functions import Coalesce
 from django.dispatch import receiver
 from django.utils import timezone
-from django.utils.html import format_html
 from games.access import get_game_access
 from games.util import better_status
 from games.wall import Wall
@@ -2537,17 +2536,6 @@ class Attempt(models.Model):
         reader = getattr(puzzle, 'attempt_answer', None) if puzzle is not None else None
         if reader is not None:
             return reader(self)
-        if self.task.task_type == 'html_forms':
-            try:
-                payload = json.loads(self.text)
-                key = str(payload.get('form_key') or '')
-            except (ValueError, TypeError):
-                return self.task.answer or ''
-            from games.html_forms import parse_html_forms_data
-            for form in parse_html_forms_data(self.task.checker_data):
-                if form['key'] == key:
-                    return form['answer']
-            return '—'
         return self.task.answer
 
     def get_max_points(self):
@@ -2565,20 +2553,6 @@ class Attempt(models.Model):
             return reader(self)
         if self.task.task_type in ('default', 'with_tag', 'text_with_forms', 'autohint', 'proportions'):
             return self.text
-        if self.task.task_type == 'html_forms':
-            try:
-                p = json.loads(self.text)
-                if not isinstance(p, dict):
-                    return '—'
-                key = str(p.get('form_key') or '')
-                answer = str(p.get('text') or '')
-                from games.html_forms import parse_html_forms_data
-                for form in parse_html_forms_data(self.task.checker_data):
-                    if form['key'] == key:
-                        return format_html('{}: {}', form['placeholder'], answer)
-                return format_html('{}', answer) if answer else '—'
-            except (ValueError, TypeError):
-                return '—'
         if self.task.task_type == 'alphabetty':
             return self.text
         if self.task.task_type == 'word_salad':
