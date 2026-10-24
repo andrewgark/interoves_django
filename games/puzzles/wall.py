@@ -7,6 +7,7 @@ import json
 from games.puzzles.base import Puzzle
 from games.puzzles.duplicate import same_text_verdict
 from games.puzzles.move import MoveRefusal, TextMove
+from games.puzzles.progress import _wall_groups
 
 
 def parse_move(post):
@@ -53,6 +54,15 @@ def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt
     return same_text_verdict(attempt_text, other_text, other_attempt)
 
 
+def progress_signature(state):
+    """Solved wall groups. Points and hints are not part of the signature."""
+    return (
+        'wall',
+        _wall_groups(state.get('guessed_words')),
+        _wall_groups(state.get('guessed_explanations')),
+    )
+
+
 def results_max_points(task, m):
     """Green-cell maximum: the wall's own scale times the task multiplier."""
     try:
@@ -71,4 +81,5 @@ class WallPuzzle(Puzzle):
     parse_move = staticmethod(parse_move)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
+    progress_signature = staticmethod(progress_signature)
     results_max_points = staticmethod(results_max_points)

@@ -333,45 +333,6 @@ def get_show_status(attempt):
     raise Exception('Unknown task_type {}'.format(attempt.task.task_type))
 
 
-def _int_tuple(value):
-    if not isinstance(value, list):
-        return ()
-    numbers = []
-    for item in value:
-        try:
-            numbers.append(int(item))
-        except (TypeError, ValueError):
-            continue
-    return tuple(sorted(set(numbers)))
-
-
-def _text_tuple(value):
-    if not isinstance(value, list):
-        return ()
-    return tuple(sorted(str(item) for item in value))
-
-
-def _wall_groups(value):
-    if not isinstance(value, list):
-        return ()
-    groups = []
-    for group in value:
-        if isinstance(group, list):
-            groups.append(tuple(str(item) for item in group))
-        else:
-            groups.append((str(group),))
-    return tuple(sorted(groups))
-
-
-def _slot_pairs(value):
-    if not isinstance(value, dict):
-        return ()
-    pairs = []
-    for line, indexes in value.items():
-        pairs.append((str(line), _int_tuple(indexes if isinstance(indexes, list) else [])))
-    return tuple(sorted(pairs))
-
-
 def _chain_progress_signature(attempt):
     """Что уже решено после попытки. Подсказки и штраф баллов сюда не входят.
 
@@ -384,6 +345,12 @@ def _chain_progress_signature(attempt):
         return None
     if not isinstance(state, dict):
         return None
+    from games.puzzles import get_puzzle
+    from games.puzzles.progress import _int_tuple, _slot_pairs, _text_tuple
+    puzzle = get_puzzle(task_type)
+    signature = getattr(puzzle, 'progress_signature', None) if puzzle is not None else None
+    if signature is not None:
+        return signature(state)
     if task_type == 'word_salad':
         return (
             'salad',
@@ -398,12 +365,6 @@ def _chain_progress_signature(attempt):
         return ('lines', _int_tuple(state.get('solved_lines')))
     if task_type == 'html_forms':
         return ('forms', _text_tuple(state.get('solved_keys')))
-    if task_type == 'wall':
-        return (
-            'wall',
-            _wall_groups(state.get('guessed_words')),
-            _wall_groups(state.get('guessed_explanations')),
-        )
     return None
 
 
@@ -444,6 +405,7 @@ def _raddle_submission_opened(attempt, solved_before):
         payload = json.loads(getattr(attempt, 'text', None) or '')
         word_index = int(payload.get('word_index', -1))
         state = json.loads(getattr(attempt, 'state', None) or '')
+        from games.puzzles.progress import _int_tuple
         solved_now = set(_int_tuple(state.get('solved_indices')))
     except (TypeError, ValueError, AttributeError):
         return False, None
