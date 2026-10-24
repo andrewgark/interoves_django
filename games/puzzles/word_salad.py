@@ -20,6 +20,7 @@ from games.word_salad import (
     load_state as load_word_salad_state,
     parse_task_data,
     parse_task_payload as parse_word_salad_task_payload,
+    result_points_from_attempts,
     validate_task_data,
 )
 
@@ -268,6 +269,11 @@ def persist_wrong(post, action):
     return not (action == 'solve' and post.get('correct_only') == '1')
 
 
+def result_points(info):
+    """Salad score is the last attempt's state, not the best attempt minus hints."""
+    return result_points_from_attempts(info.attempts)
+
+
 def write_response(response):
     """Copy the salad verdict onto the JSON body. The view still owns HTML."""
     return write_move_result(
@@ -296,6 +302,7 @@ class WordSaladPuzzle(Puzzle):
     blocks_duplicate = staticmethod(blocks_duplicate)
     write_move_result = staticmethod(write_move_result)
     write_response = staticmethod(write_response)
+    result_points = staticmethod(result_points)
     include_task_html = staticmethod(include_task_html)
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
