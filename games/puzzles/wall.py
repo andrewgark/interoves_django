@@ -83,6 +83,11 @@ def show_status(attempt):
     return json.loads(attempt.state)['last_attempt']['status']
 
 
+def diff_points(attempt):
+    """Point increment shown beside a wall attempt, including one still in review."""
+    return json.loads(attempt.state)['last_attempt']['points']
+
+
 def state_summary(state):
     """Admin one-line summary of a wall chain."""
     pts = state.get('best_points', 0)
@@ -112,5 +117,6 @@ class WallPuzzle(Puzzle):
     progress_signature = staticmethod(progress_signature)
     pretty_text = staticmethod(pretty_text)
     show_status = staticmethod(show_status)
+    diff_points = staticmethod(diff_points)
     state_summary = staticmethod(state_summary)
     results_max_points = staticmethod(results_max_points)

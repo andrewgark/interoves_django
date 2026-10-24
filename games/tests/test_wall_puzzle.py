@@ -7,7 +7,7 @@ from django.test import SimpleTestCase
 from games.puzzles import get_puzzle, parse_posted_text
 from games.puzzles.move import MoveRefusal, TextMove
 from games.puzzles.wall import WallPuzzle
-from games.templatetags.filters import get_show_status
+from games.templatetags.filters import get_diff_points, get_show_status
 
 
 def _post(**values):
@@ -120,3 +120,23 @@ class WallShowStatusTests(SimpleTestCase):
         with self.assertRaises(Exception) as caught:
             get_show_status(attempt)
         self.assertEqual(str(caught.exception), 'Unknown task_type raddle')
+
+
+class WallDiffPointsTests(SimpleTestCase):
+    def test_points_come_from_the_last_step_while_pending(self):
+        attempt = SimpleNamespace(
+            status='Pending',
+            state=json.dumps({'last_attempt': {'points': 3}}),
+            task=SimpleNamespace(task_type='wall'),
+        )
+        self.assertEqual(get_diff_points(attempt), 3)
+
+    def test_plain_type_adds_nothing(self):
+        attempt = SimpleNamespace(status='Ok', task=SimpleNamespace(task_type='grid-puzzle'))
+        self.assertEqual(get_diff_points(attempt), 0)
+
+    def test_unknown_type_is_rejected(self):
+        attempt = SimpleNamespace(status='Ok', task=SimpleNamespace(task_type='word_salad'))
+        with self.assertRaises(Exception) as caught:
+            get_diff_points(attempt)
+        self.assertEqual(str(caught.exception), 'Unknown task_type word_salad')

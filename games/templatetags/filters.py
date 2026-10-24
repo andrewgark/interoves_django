@@ -471,10 +471,13 @@ def attempts_with_status(attempts):
 
 @register.filter
 def get_diff_points(attempt):
+    from games.puzzles import get_puzzle
+    puzzle = get_puzzle(attempt.task.task_type)
+    points = getattr(puzzle, 'diff_points', None) if puzzle is not None else None
+    if points is not None:
+        return points(attempt)
     if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions', 'grid-puzzle', 'html_forms'):
         return 0
-    elif attempt.task.task_type == 'wall':
-        return json.loads(attempt.state)['last_attempt']['points']
     raise Exception('Unknown task_type {}'.format(attempt.task.task_type))
 
 
