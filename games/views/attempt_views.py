@@ -439,6 +439,8 @@ def process_send_attempt(request, task_id):
     post_reader = getattr(post_puzzle, 'read_post', None) if post_puzzle is not None else None
     if post_reader is None and task.task_type == 'alphabetty':
         post_reader = AlphabettyPuzzle.read_post
+    if post_reader is None and task.task_type == 'grid-puzzle':
+        post_reader = GridPuzzle.read_post
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
         if not form.is_valid():
@@ -465,11 +467,6 @@ def process_send_attempt(request, task_id):
             word = move.word
         action = getattr(move, 'action', None)
         is_game_start_interaction = bool(getattr(move, 'starts_game', False))
-    elif task.task_type == 'grid-puzzle':
-        move = GridPuzzle.parse_move(request.POST, task)
-        if isinstance(move, MoveRefusal):
-            return {'status': move.status}
-        attempt = Attempt(text=move.text)
     else:
         raise Exception('Unknown task_type: {}'.format(task.task_type))
     attempt.team = team

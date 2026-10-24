@@ -65,6 +65,11 @@ def pretty_text(attempt):
         return attempt.text
 
 
+def read_post(post, task):
+    """Read a grid POST. The checker payload still comes from the task."""
+    return parse_move(post, task)
+
+
 def write_response(response):
     """The grid flag is true only when the checker accepted the picture."""
     response.result['grid_puzzle_correct'] = response.attempt.status == 'Ok'
@@ -74,6 +79,7 @@ class GridPuzzle(Puzzle):
     task_type = 'grid-puzzle'
 
     parse_move = staticmethod(parse_move)
+    read_post = staticmethod(read_post)
     clean_checker_data = staticmethod(clean_checker_data)
     pretty_text = staticmethod(pretty_text)
     write_response = staticmethod(write_response)
