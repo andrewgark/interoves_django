@@ -269,9 +269,6 @@ def is_task_completion_state(task, state_raw):
     complete = getattr(puzzle, 'is_complete', None) if puzzle is not None else None
     if complete is not None:
         return complete(task, state_raw)
-    if task.task_type == 'html_forms':
-        from games.html_forms import html_forms_is_complete
-        return html_forms_is_complete(task, state_raw)
     if task.task_type == 'alphabetty':
         return _state_complete_alphabetty(state_raw)
     if task.task_type == 'censorly':

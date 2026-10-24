@@ -47,6 +47,12 @@ def clean_checker_data(task):
         raise ValidationError({'checker_data': 'Нужен JSON со списком forms и ответами.'})
 
 
+def is_complete(task, state_raw):
+    """True when every form key is solved."""
+    from games.html_forms import html_forms_is_complete
+    return html_forms_is_complete(task, state_raw)
+
+
 def results_max_points(task, m):
     """Green-cell maximum: form count times the task multiplier."""
     from games.html_forms import parse_html_forms_data
@@ -65,4 +71,5 @@ class HtmlFormsPuzzle(Puzzle):
     blocks_duplicate = staticmethod(blocks_duplicate)
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
+    is_complete = staticmethod(is_complete)
     results_max_points = staticmethod(results_max_points)
