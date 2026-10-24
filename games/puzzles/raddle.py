@@ -1,8 +1,11 @@
 """Лесенка: board payload and the rules of one submitted word."""
 
+import json
+
 from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
 from games.puzzles.base import Puzzle
+from games.puzzles.progress import _int_tuple
 from games.puzzles.raddle_board import load_ladder_board
 from games.puzzles.raddle_submission import (
     accept_ui_draft,
@@ -31,6 +34,19 @@ def results_max_points(task, m):
         if middle > 0:
             return m * middle
     return m
+
+
+def submission_opened(attempt, solved_before):
+    """The submitted word is newly solved. Ladder ends already solved do not count."""
+    try:
+        payload = json.loads(getattr(attempt, 'text', None) or '')
+        word_index = int(payload.get('word_index', -1))
+        state = json.loads(getattr(attempt, 'state', None) or '')
+        solved_now = set(_int_tuple(state.get('solved_indices')))
+    except (TypeError, ValueError, AttributeError):
+        return False, None
+    opened = word_index >= 0 and word_index in solved_now and word_index not in solved_before
+    return opened, solved_now
 
 
 def build_raddle_board_data(
@@ -167,3 +183,4 @@ class RaddlePuzzle(Puzzle):
     write_move_result = staticmethod(write_move_result)
     include_task_html = staticmethod(include_task_html)
     results_max_points = staticmethod(results_max_points)
+    submission_opened = staticmethod(submission_opened)

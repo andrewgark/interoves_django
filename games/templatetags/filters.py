@@ -388,26 +388,10 @@ def _signature_grew(previous, current):
     return False
 
 
-def _raddle_submission_opened(attempt, solved_before):
-    """Сданное слово впервые попало в решённые.
-
-    Края лесенки уже решены до первой посылки, поэтому сам факт непустого
-    снимка прогрессом не считается.
-    """
-    try:
-        payload = json.loads(getattr(attempt, 'text', None) or '')
-        word_index = int(payload.get('word_index', -1))
-        state = json.loads(getattr(attempt, 'state', None) or '')
-        from games.puzzles.progress import _int_tuple
-        solved_now = set(_int_tuple(state.get('solved_indices')))
-    except (TypeError, ValueError, AttributeError):
-        return False, None
-    opened = word_index >= 0 and word_index in solved_now and word_index not in solved_before
-    return opened, solved_now
-
-
 def _chain_progress_ids(items, order):
     """Попытки, которые расширили решённую часть, даже если балл не вырос."""
+    from games.puzzles import get_puzzle
+
     progressed = set()
     seen = {}
     raddle_solved = {}
@@ -416,10 +400,10 @@ def _chain_progress_ids(items, order):
         task = getattr(attempt, 'task', None)
         task_type = getattr(task, 'task_type', None)
         key = (task_type, getattr(task, 'pk', None))
-        if task_type == 'raddle':
-            opened, solved_now = _raddle_submission_opened(
-                attempt, raddle_solved.get(key, set()),
-            )
+        puzzle = get_puzzle(task_type)
+        opener = getattr(puzzle, 'submission_opened', None) if puzzle is not None else None
+        if opener is not None:
+            opened, solved_now = opener(attempt, raddle_solved.get(key, set()))
             if opened:
                 progressed.add(id(attempt))
             if solved_now is not None:
