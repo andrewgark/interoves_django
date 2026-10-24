@@ -105,3 +105,21 @@ class WordSaladResultAttemptTests(SimpleTestCase):
         info = SimpleNamespace(last_attempt=latest, best_attempt=earlier)
 
         self.assertIs(AttemptsInfo.get_result_attempt(info), earlier)
+
+
+class WordSaladMergeStateTests(SimpleTestCase):
+    def test_disjoint_solved_indices_are_united(self):
+        task = SimpleNamespace(
+            task_type='word_salad',
+            checker_data=json.dumps({
+                'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
+                'words': ['ABCDEFGHIJKLMNOP'],
+            }),
+            answer='',
+        )
+        merged = WordSaladPuzzle.merge_state(
+            task,
+            json.dumps({'solved_indices': [0]}),
+            json.dumps({'solved_indices': [1]}),
+        )
+        self.assertEqual(json.loads(merged)['solved_indices'], [0, 1])

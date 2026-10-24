@@ -481,66 +481,6 @@ def _merge_chain_state_json(task, source_json, target_json):
         return None
 
     task_type = getattr(task, 'task_type', None)
-    if task_type == 'word_salad':
-        from games.word_salad import (
-            dump_state,
-            load_state,
-            normalize_word,
-            parse_task_payload,
-            removable_cells,
-        )
-
-        source_state = load_state(source)
-        target_state = load_state(target)
-        solved = set(source_state.get('solved_indices') or []) | set(target_state.get('solved_indices') or [])
-        hint_counts = dict(source_state.get('hint_counts') or {})
-        for index, count in (target_state.get('hint_counts') or {}).items():
-            hint_counts[index] = max(int(hint_counts.get(index, 0) or 0), int(count or 0))
-        try:
-            grid, words, rare_words = parse_task_payload(task.checker_data, task.answer)
-        except (TypeError, ValueError):
-            return None
-        active = set(range(16))
-        while True:
-            removable = removable_cells(grid, words, active, solved)
-            if not removable:
-                break
-            active.discard(removable[0])
-        found_extra = []
-        found_rare_words = []
-        for state in (source_state, target_state):
-            for word in state.get('found_extra') or []:
-                word = normalize_word(word)
-                if word and word not in found_extra:
-                    found_extra.append(word)
-            for word in state.get('found_rare_words') or []:
-                word = normalize_word(word)
-                if word and word not in found_rare_words:
-                    found_rare_words.append(word)
-            for index in state.get('found_rare') or []:
-                try:
-                    index = int(index)
-                except (TypeError, ValueError):
-                    continue
-                if 0 <= index < len(rare_words):
-                    word = normalize_word(rare_words[index])
-                    if word and word not in found_rare_words:
-                        found_rare_words.append(word)
-        rare_index = {normalize_word(word): index for index, word in enumerate(rare_words)}
-        found_rare = sorted({
-            rare_index[word] for word in found_rare_words if word in rare_index
-        })
-        found_extra = [word for word in found_extra if word not in rare_index]
-        return dump_state({
-            'solved_indices': sorted(solved),
-            'hints': sorted(hint_counts),
-            'hint_counts': hint_counts,
-            'active': sorted(active),
-            'found_rare': found_rare,
-            'found_rare_words': found_rare_words,
-            'found_extra': found_extra,
-        })
-
     if task_type == 'wall':
         def union_rows(primary, secondary):
             result = list(primary or [])
