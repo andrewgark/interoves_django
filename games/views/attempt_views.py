@@ -48,6 +48,7 @@ from games.views.track import track_actor_task_change
 from games.puzzles import get_puzzle
 from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
 from games.puzzles.raddle import RaddlePuzzle
+from games.puzzles.replacements import ReplacementsMoveRefusal, ReplacementsPuzzle
 from games.puzzles.wall import WallMoveRefusal, WallPuzzle
 from games.puzzles.raddle_submission import RaddleMoveRefusal
 from games.puzzles.word_salad import WordSaladPuzzle
@@ -488,24 +489,10 @@ def process_send_attempt(request, task_id):
             return {'status': move.status}
         attempt = Attempt(text=move.text)
     elif task.task_type == 'replacements_lines':
-        try:
-            line_index = int(request.POST.get('line_index', 0))
-        except (TypeError, ValueError):
-            return {'status': 'invalid_form'}
-        answers_raw = request.POST.get('answers')
-        if answers_raw is not None:
-            try:
-                answers = json.loads(answers_raw)
-            except (ValueError, TypeError):
-                answers = request.POST.getlist('answers[]')
-        else:
-            answers = request.POST.getlist('answers[]')
-        if not isinstance(answers, list):
-            return {'status': 'invalid_form'}
-        answers = list(answers)
-        if not answers or all(str(a).strip() == '' for a in answers):
-            return {'status': 'empty'}
-        attempt = Attempt(text=json.dumps({'line_index': line_index, 'answers': answers}))
+        move = ReplacementsPuzzle.parse_move(request.POST)
+        if isinstance(move, ReplacementsMoveRefusal):
+            return {'status': move.status}
+        attempt = Attempt(text=move.text)
     elif task.task_type == 'html_forms':
         form_key = str(request.POST.get('form_key') or '').strip()
         answer_text = (request.POST.get('text') or '').strip()
