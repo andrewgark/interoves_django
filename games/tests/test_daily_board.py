@@ -142,6 +142,7 @@ class DailyBoardBuilderTests(TestCase):
         build_ui.assert_called_once()
         attach_share.assert_called_once()
 
+    @patch('games.puzzles.word_salad.load_salad_board')
     @patch('games.puzzles.word_salad.build_word_salad_board_data', return_value={'prepared': 'salad'})
     @patch('games.puzzles.word_salad.latest_daily_state', return_value={'state': 'salad'})
     @patch(
@@ -149,10 +150,11 @@ class DailyBoardBuilderTests(TestCase):
         return_value=(['A'], ['WORD'], []),
     )
     def test_salad_adapter_pipeline_is_explicit(
-        self, parse_task, resolve_state, build_board,
+        self, parse_task, resolve_state, build_board, load_board,
     ):
         task = SimpleNamespace(checker_data='payload', answer='answer')
         attempts = SimpleNamespace(attempts=['attempt'])
+        load_board.return_value = SimpleNamespace(chain=None, attempts=['attempt'])
 
         result = get_daily_board_adapter('word_salad').prepare(
             game=SimpleNamespace(id='salad'),
@@ -169,6 +171,7 @@ class DailyBoardBuilderTests(TestCase):
 
         self.assertEqual(result, {'prepared': 'salad'})
         parse_task.assert_called_once_with('payload', 'answer')
+        load_board.assert_called_once()
         resolve_state.assert_called_once()
         build_board.assert_called_once()
 

@@ -1,8 +1,11 @@
 """Салатик: board payload and the fields of one submitted path or hint."""
 
+from types import SimpleNamespace
+
 from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
 from games.puzzles.base import Puzzle
+from games.puzzles.word_salad_board import load_salad_board
 from games.puzzles.word_salad_submission import (
     attempt_limit_message,
     blocks_duplicate,
@@ -77,13 +80,30 @@ def prepare_word_salad_board_data(
         )
     except (TypeError, ValueError):
         return None
+    if attempts_info is None:
+        preloaded_attempts = None
+    else:
+        preloaded_attempts = attempts_info.attempts
+    board = load_salad_board(
+        game=game,
+        task=task,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+        replay_slot=replay_slot,
+        attempts=preloaded_attempts,
+    )
+    state_source = attempts_info if attempts_info is not None else SimpleNamespace(
+        attempts=board.attempts,
+    )
     state = latest_daily_state(
         task,
         game,
-        attempts_info,
+        state_source,
         default_state=load_word_salad_state(None),
         decode_state=load_word_salad_state,
-        resolve_chain_state=resolve_chain_state,
+        resolve_chain_state=lambda task, game, **kwargs: board.chain,
         chain_state_kwargs={
             'team': team,
             'user': user,
@@ -100,7 +120,7 @@ def prepare_word_salad_board_data(
         words=words,
         rare_words=rare_words,
         state=state,
-        attempts=(attempts_info.attempts if attempts_info else []),
+        attempts=board.attempts,
         user=user,
         anon_key=anon_key,
     )
@@ -114,6 +134,7 @@ class WordSaladPuzzle(Puzzle):
 
     build_board = staticmethod(build_word_salad_board_data)
     prepare_board = staticmethod(prepare_word_salad_board_data)
+    load_board = staticmethod(load_salad_board)
     parse_move = staticmethod(parse_move)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
