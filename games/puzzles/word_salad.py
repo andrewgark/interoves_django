@@ -144,6 +144,13 @@ def clean_checker_data(task):
     validate_task_data(task.checker_data, '')
 
 
+def scale_points(task, raw_points):
+    """Salad points are already on the result scale. The task multiplier is not applied."""
+    from decimal import Decimal
+    del task
+    return Decimal(str(raw_points or 0))
+
+
 def results_max_points(task, m):
     """Green-cell maximum: the word count. The task multiplier is not applied."""
     del m
@@ -172,4 +179,5 @@ class WordSaladPuzzle(Puzzle):
     include_task_html = staticmethod(include_task_html)
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
+    scale_points = staticmethod(scale_points)
     results_max_points = staticmethod(results_max_points)

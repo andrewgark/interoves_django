@@ -254,9 +254,9 @@ def check_attempt(
             attempt.possible_status = attempt.status
             attempt.status = check_result.tournament_status
         from decimal import Decimal
-        # Word Salad has an intrinsic scale: +1 per word and -0.5 per hint.
-        if task.task_type == 'word_salad':
-            attempt.points = Decimal(str(attempt.points or 0))
+        scaler = getattr(puzzle, 'scale_points', None) if puzzle is not None else None
+        if scaler is not None:
+            attempt.points = scaler(task, attempt.points)
         else:
             attempt.points = Decimal(str(attempt.points or 0)) * task.get_points()
 
