@@ -234,21 +234,6 @@ def _swallow_analytics_invariant(fn):
     return wrapped
 
 
-def _state_complete_raddle(task, state_raw):
-    if not state_raw:
-        return False
-    try:
-        from games.raddle import load_raddle_state, parse_raddle_data
-
-        parsed = parse_raddle_data(task)
-        if not parsed:
-            return False
-        state = load_raddle_state(state_raw, parsed['n_words'])
-        return len(set(state.get('solved_indices') or [])) >= parsed['n_words']
-    except Exception:
-        return False
-
-
 def _state_complete_replacements(task, state_raw):
     if not state_raw:
         return False
@@ -308,8 +293,11 @@ def _state_complete_word_salad(task, state_raw):
 def is_task_completion_state(task, state_raw):
     if task is None:
         return False
-    if task.task_type == 'raddle':
-        return _state_complete_raddle(task, state_raw)
+    from games.puzzles import get_puzzle
+    puzzle = get_puzzle(getattr(task, 'task_type', None))
+    complete = getattr(puzzle, 'is_complete', None) if puzzle is not None else None
+    if complete is not None:
+        return complete(task, state_raw)
     if task.task_type == 'replacements_lines':
         return _state_complete_replacements(task, state_raw)
     if task.task_type == 'html_forms':

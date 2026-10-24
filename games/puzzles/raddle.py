@@ -49,6 +49,20 @@ def submission_opened(attempt, solved_before):
     return opened, solved_now
 
 
+def is_complete(task, state_raw):
+    """True when every ladder word is solved."""
+    if not state_raw:
+        return False
+    try:
+        parsed = parse_raddle_data(task)
+        if not parsed:
+            return False
+        state = load_raddle_state(state_raw, parsed['n_words'])
+        return len(set(state.get('solved_indices') or [])) >= parsed['n_words']
+    except Exception:
+        return False
+
+
 def build_raddle_board_data(
     *,
     game,
@@ -184,3 +198,4 @@ class RaddlePuzzle(Puzzle):
     include_task_html = staticmethod(include_task_html)
     results_max_points = staticmethod(results_max_points)
     submission_opened = staticmethod(submission_opened)
+    is_complete = staticmethod(is_complete)
