@@ -2511,6 +2511,9 @@ class Attempt(models.Model):
         if puzzle is None and self.task.task_type == 'grid-puzzle':
             from games.puzzles.grid import GridPuzzle
             puzzle = GridPuzzle
+        if puzzle is None and self.task.task_type == 'distribute_to_teams':
+            from games.puzzles.distribute_to_teams import DistributeToTeamsPuzzle
+            puzzle = DistributeToTeamsPuzzle
         reader = getattr(puzzle, 'pretty_text', None) if puzzle is not None else None
         if reader is not None:
             return reader(self)
@@ -2518,16 +2521,6 @@ class Attempt(models.Model):
             return self.text
         if self.task.task_type == 'alphabetty':
             return self.text
-        if self.task.task_type == 'distribute_to_teams':
-            try:
-                g = self.game_id and self.game or GameTaskGroup.resolve_game_for_task(self.task)
-                distr_text = json.loads(self.task.text)['list'][self.team.get_team_reg_number(g)]
-            except Exception as e:
-                distr_text = 'ERROR: {}'.format(e)
-            return '{} ({})'.format(
-                self.text,
-                distr_text
-            )
         return self.text
 
 
