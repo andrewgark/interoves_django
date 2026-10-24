@@ -257,6 +257,18 @@ def attempt_advanced(attempt, last_state):
     )
 
 
+def write_response(response):
+    """Copy the salad verdict onto the JSON body. The view still owns HTML."""
+    return write_move_result(
+        response.result,
+        response.attempt.task,
+        response.attempt,
+        attempt_persisted=response.attempt_persisted,
+        user=response.user,
+        anon_key=response.anon_key,
+    )
+
+
 class WordSaladPuzzle(Puzzle):
     """Board, response contract, and text duplicates that name the previous attempt."""
 
@@ -270,6 +282,7 @@ class WordSaladPuzzle(Puzzle):
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
     write_move_result = staticmethod(write_move_result)
+    write_response = staticmethod(write_response)
     include_task_html = staticmethod(include_task_html)
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)

@@ -655,11 +655,6 @@ def process_send_attempt(request, task_id):
     writer = getattr(puzzle, 'write_response', None) if puzzle is not None else None
     if writer is not None:
         writer(response)
-    elif task.task_type == 'word_salad':
-        WordSaladPuzzle.write_move_result(
-            result, task, attempt,
-            attempt_persisted=attempt_persisted, user=user, anon_key=anon_key,
-        )
     elif task.task_type == 'grid-puzzle':
         result['grid_puzzle_correct'] = attempt.status == 'Ok'
 
