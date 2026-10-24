@@ -1758,15 +1758,11 @@ class Task(models.Model):
             m = float(mul)
         except (TypeError, ValueError):
             m = 0.0
-        if self.task_type == 'wall':
-            try:
-                w = self.get_wall()
-                base = getattr(w, 'max_points', None)
-                if base is not None:
-                    return float(base) * m
-            except Exception:
-                pass
-            return m
+        from games.puzzles import get_puzzle
+        puzzle = get_puzzle(self.task_type)
+        score = getattr(puzzle, 'results_max_points', None) if puzzle is not None else None
+        if score is not None:
+            return score(self, m)
         if self.task_type == 'replacements_lines':
             n = self.replacements_answer_rows
             if n is None:

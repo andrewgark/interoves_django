@@ -53,6 +53,17 @@ def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt
     return same_text_verdict(attempt_text, other_text, other_attempt)
 
 
+def results_max_points(task, m):
+    """Green-cell maximum: the wall's own scale times the task multiplier."""
+    try:
+        base = getattr(task.get_wall(), 'max_points', None)
+        if base is not None:
+            return float(base) * m
+    except Exception:
+        pass
+    return m
+
+
 class WallPuzzle(Puzzle):
     task_type = 'wall'
     checker_id = None
@@ -60,3 +71,4 @@ class WallPuzzle(Puzzle):
     parse_move = staticmethod(parse_move)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
+    results_max_points = staticmethod(results_max_points)
