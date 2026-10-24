@@ -140,3 +140,23 @@ class WallDiffPointsTests(SimpleTestCase):
         with self.assertRaises(Exception) as caught:
             get_diff_points(attempt)
         self.assertEqual(str(caught.exception), 'Unknown task_type word_salad')
+
+
+class WallMergeStateTests(SimpleTestCase):
+    def test_words_unite_and_a_stray_explanation_drops(self):
+        task = SimpleNamespace(task_type='wall', checker_data='not-json')
+        merged = WallPuzzle.merge_state(
+            task,
+            json.dumps({
+                'guessed_words': ['кот'],
+                'guessed_explanations': ['кот'],
+            }),
+            json.dumps({
+                'guessed_words': ['пёс'],
+                'guessed_explanations': ['чужое'],
+            }),
+        )
+        state = json.loads(merged)
+        self.assertEqual(state['guessed_words'], ['кот', 'пёс'])
+        self.assertEqual(state['guessed_explanations'], ['кот'])
+
