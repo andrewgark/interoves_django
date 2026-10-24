@@ -4629,13 +4629,39 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
         'овеществиться', 'овеществление', 'овеществлять', 'овеществляться',
     )),
     # «Свойство» and its adjectival derivatives mean an attribute; the
-    # possessive «свой» and kinship/appropriation derivatives stay in sense:own.
+    # possessive «свой» stays separate from kinship, mastery and appropriation.
     ('sense:review_attribute', (
         'свойственность', 'свойственный', 'свойство',
     )),
-    # Keep reasoning with the existing reason cluster, apart from the court
-    # sense of the same historical root.
-    ('sense:reason', ('рассуждать', 'рассуждение', 'рассуживать')),
+    ('sense:review_affinity', (
+        'свойственник', 'свойственница', 'свояк', 'свояченица',
+    )),
+    ('sense:review_mastery', (
+        'осваивание', 'осваивать', 'осваиваться', 'освоение', 'освоить',
+        'освоиться', 'усваивание', 'усваивать', 'усваиваться', 'усвоение',
+        'усвоить', 'усвоиться', 'усвояемость', 'усвояемый', 'усвоять',
+        'усвояться',
+    )),
+    ('sense:review_appropriation', (
+        'присваивание', 'присваивать', 'присваиваться', 'присвоение',
+        'присвоить', 'присвоять',
+    )),
+    # Separate reasoning/discussion, gossip, lending and irrationality from
+    # the court family while retaining the common historical root.
+    ('sense:reason', (
+        'обсудить', 'обсуждать', 'обсуждаться', 'обсуждение', 'обсуживать',
+        'предрассуждение', 'рассуждать', 'рассуждение', 'рассуживать',
+        'суждение',
+    )),
+    ('sense:review_gossip', (
+        'пересуд', 'пересуды', 'пересуживать', 'пересуживаться', 'посудачить',
+        'судачить',
+    )),
+    ('sense:loan', ('ссужать', 'ссужаться')),
+    ('sense:review_irrationality', (
+        'безрассудность', 'безрассудный', 'безрассудство',
+    )),
+    ('sense:review_prejudice', ('предрассудок',)),
 )
 
 # Keep these after the broad curated clusters above: a review split is an
