@@ -715,7 +715,15 @@ def canonical_elapsed_seconds(
     else:
         accumulated_ms = int(snapshot(row).get('accumulated_ms') or 0)
     if accumulated_ms <= 0:
-        return None
+        # A completion with no started timer stores an active row of zero
+        # milliseconds. Daily games keep that as unknown. Other games still
+        # show the span between attempts, including a same-second solve.
+        from games.daily.section import is_daily_timing_game
+        if is_daily_timing_game(getattr(game, 'id', None)):
+            return None
+        if team is not None:
+            return None
+        return elapsed_seconds_from_attempts(attempts)
     return max(1, accumulated_ms // 1000)
 
 

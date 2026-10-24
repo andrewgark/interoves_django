@@ -1079,6 +1079,55 @@ class DailyTimingDomainTests(TestCase):
         )
         self.assertEqual(share_elapsed(attempts), 50)
 
+    def test_non_daily_zero_sentinel_uses_the_attempt_clock(self):
+        other = Game.objects.create(
+            id='timing_sentinel_game',
+            name='Sentinel',
+            author='t',
+            project_id='sections',
+            is_ready=True,
+        )
+        DailySolveTiming.objects.create(
+            user=self.user,
+            game=other,
+            task_group=self.tg,
+            timing_version=1,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            accumulated_ms=0,
+            frozen_ms=None,
+            completed_at=_dt(),
+        )
+        t0 = _dt()
+        attempts = [SimpleNamespace(time=t0), SimpleNamespace(time=t0)]
+        self.assertEqual(
+            canonical_elapsed_seconds(
+                game=other, task_group=self.tg, user=self.user, attempts=attempts,
+            ),
+            0,
+        )
+
+    def test_daily_zero_sentinel_stays_unknown(self):
+        DailySolveTiming.objects.create(
+            user=self.user,
+            game=self.game,
+            task_group=self.tg,
+            timing_version=1,
+            status=DailySolveTiming.STATUS_COMPLETED,
+            accumulated_ms=0,
+            frozen_ms=None,
+            completed_at=_dt(),
+        )
+        t0 = _dt()
+        attempts = [
+            SimpleNamespace(time=t0),
+            SimpleNamespace(time=t0 + timedelta(seconds=40)),
+        ]
+        self.assertIsNone(
+            canonical_elapsed_seconds(
+                game=self.game, task_group=self.tg, user=self.user, attempts=attempts,
+            ),
+        )
+
     def test_team_actor_without_authoritative_row_has_no_guessed_duration(self):
         t0 = _dt()
         attempts = [
