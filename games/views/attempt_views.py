@@ -653,10 +653,10 @@ def process_send_attempt(request, task_id):
         word=word,
     )
     writer = getattr(puzzle, 'write_response', None) if puzzle is not None else None
+    if writer is None and task.task_type == 'grid-puzzle':
+        writer = GridPuzzle.write_response
     if writer is not None:
         writer(response)
-    elif task.task_type == 'grid-puzzle':
-        result['grid_puzzle_correct'] = attempt.status == 'Ok'
 
     include = getattr(puzzle, 'include_task_html', None) if puzzle is not None else None
     need_task_html = True if include is None else include(result)
