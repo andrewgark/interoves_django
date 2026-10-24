@@ -1709,12 +1709,6 @@ class Task(models.Model):
                 validate_grid_checker_data(parsed, grid_checker_id(self))
             except GridPuzzleDataError as exc:
                 raise ValidationError({'checker_data': str(exc)})
-        if self.task_type == 'replacements_lines':
-            from games.replacements_lines import validate_replacements_checker_json_data
-            try:
-                validate_replacements_checker_json_data(self.checker_data)
-            except ValueError as exc:
-                raise ValidationError({'checker_data': str(exc)})
         if self.task_type == 'html_forms':
             from games.html_forms import parse_html_forms_data
             if not parse_html_forms_data(self.checker_data):

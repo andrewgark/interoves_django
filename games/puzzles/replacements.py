@@ -9,6 +9,7 @@ from games.puzzles.duplicate import same_text_verdict
 from games.puzzles.move import MoveRefusal, TextMove
 from games.puzzles.progress import _int_tuple, _slot_pairs
 from games.puzzles.quota import json_field_quota
+from games.replacements_lines import validate_replacements_checker_json_data
 
 
 def parse_move(post):
@@ -53,6 +54,15 @@ def progress_signature(state):
     return ('lines', _int_tuple(state.get('solved_lines')))
 
 
+def clean_checker_data(task):
+    """Reject replacements checker JSON that the checker itself would reject."""
+    from django.core.exceptions import ValidationError
+    try:
+        validate_replacements_checker_json_data(task.checker_data)
+    except ValueError as exc:
+        raise ValidationError({'checker_data': str(exc)})
+
+
 def results_max_points(task, m):
     """Green-cell maximum: answer rows times the task multiplier."""
     n = task.replacements_answer_rows
@@ -71,4 +81,5 @@ class ReplacementsPuzzle(Puzzle):
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
     progress_signature = staticmethod(progress_signature)
+    clean_checker_data = staticmethod(clean_checker_data)
     results_max_points = staticmethod(results_max_points)
