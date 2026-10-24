@@ -1763,12 +1763,6 @@ class Task(models.Model):
         score = getattr(puzzle, 'results_max_points', None) if puzzle is not None else None
         if score is not None:
             return score(self, m)
-        if self.task_type == 'html_forms':
-            from games.html_forms import parse_html_forms_data
-            n = len(parse_html_forms_data(self.checker_data))
-            if n > 0:
-                return m * n
-            return m
         if self.task_type == 'raddle':
             from games.raddle import parse_raddle_data
             parsed = parse_raddle_data(self)

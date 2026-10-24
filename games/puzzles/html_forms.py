@@ -33,6 +33,15 @@ def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt
     return same_text_verdict(attempt_text, other_text, other_attempt)
 
 
+def results_max_points(task, m):
+    """Green-cell maximum: form count times the task multiplier."""
+    from games.html_forms import parse_html_forms_data
+    n = len(parse_html_forms_data(task.checker_data))
+    if n > 0:
+        return m * n
+    return m
+
+
 class HtmlFormsPuzzle(Puzzle):
     task_type = 'html_forms'
     checker_id = 'html_forms'
@@ -40,3 +49,4 @@ class HtmlFormsPuzzle(Puzzle):
     parse_move = staticmethod(parse_move)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
+    results_max_points = staticmethod(results_max_points)
