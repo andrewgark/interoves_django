@@ -7,6 +7,7 @@ from django.test import SimpleTestCase
 from games.puzzles import get_puzzle, parse_posted_text
 from games.puzzles.move import MoveRefusal, TextMove
 from games.puzzles.wall import WallPuzzle
+from games.templatetags.filters import get_show_status
 
 
 def _post(**values):
@@ -91,3 +92,31 @@ class WallMoveTests(SimpleTestCase):
         self.assertIs(get_puzzle('wall'), WallPuzzle)
         self.assertIsNone(WallPuzzle.checker_id)
         self.assertIsNone(parse_posted_text('raddle', _post(stage='cat_words')))
+
+
+class WallShowStatusTests(SimpleTestCase):
+    def test_pending_stays_pending(self):
+        attempt = SimpleNamespace(
+            status='Pending',
+            state=json.dumps({'last_attempt': {'status': 'Ok'}}),
+            task=SimpleNamespace(task_type='wall'),
+        )
+        self.assertEqual(get_show_status(attempt), 'Pending')
+
+    def test_status_comes_from_the_last_step(self):
+        attempt = SimpleNamespace(
+            status='Ok',
+            state=json.dumps({'last_attempt': {'status': 'Wrong'}}),
+            task=SimpleNamespace(task_type='wall'),
+        )
+        self.assertEqual(get_show_status(attempt), 'Wrong')
+
+    def test_plain_type_returns_the_attempt_status(self):
+        attempt = SimpleNamespace(status='Ok', task=SimpleNamespace(task_type='html_forms'))
+        self.assertEqual(get_show_status(attempt), 'Ok')
+
+    def test_unknown_type_is_rejected(self):
+        attempt = SimpleNamespace(status='Ok', task=SimpleNamespace(task_type='raddle'))
+        with self.assertRaises(Exception) as caught:
+            get_show_status(attempt)
+        self.assertEqual(str(caught.exception), 'Unknown task_type raddle')

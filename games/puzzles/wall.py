@@ -76,6 +76,13 @@ def pretty_text(attempt):
         return attempt.text
 
 
+def show_status(attempt):
+    """List status. A review stays Pending; otherwise the wall's last step."""
+    if attempt.status == 'Pending':
+        return 'Pending'
+    return json.loads(attempt.state)['last_attempt']['status']
+
+
 def state_summary(state):
     """Admin one-line summary of a wall chain."""
     pts = state.get('best_points', 0)
@@ -104,5 +111,6 @@ class WallPuzzle(Puzzle):
     blocks_duplicate = staticmethod(blocks_duplicate)
     progress_signature = staticmethod(progress_signature)
     pretty_text = staticmethod(pretty_text)
+    show_status = staticmethod(show_status)
     state_summary = staticmethod(state_summary)
     results_max_points = staticmethod(results_max_points)

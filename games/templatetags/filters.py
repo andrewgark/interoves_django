@@ -324,12 +324,13 @@ def get_guessed_tiles(wall, attempts_info):
 
 @register.filter
 def get_show_status(attempt):
+    from games.puzzles import get_puzzle
+    puzzle = get_puzzle(attempt.task.task_type)
+    shower = getattr(puzzle, 'show_status', None) if puzzle is not None else None
+    if shower is not None:
+        return shower(attempt)
     if attempt.task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions', 'grid-puzzle', 'html_forms'):
         return attempt.status
-    elif attempt.task.task_type == 'wall':
-        if attempt.status == 'Pending':
-            return 'Pending'
-        return json.loads(attempt.state)['last_attempt']['status']
     raise Exception('Unknown task_type {}'.format(attempt.task.task_type))
 
 
