@@ -109,6 +109,12 @@ def state_summary(state):
     return '{} words solved ({} pts)'.format(solved, total)
 
 
+def read_post(post, task):
+    """Read a ladder POST. The view still owns the stale-submit check."""
+    del task
+    return parse_move(post)
+
+
 def write_response(response):
     """Copy the ladder verdict onto the JSON body. The view still owns HTML."""
     return write_move_result(
@@ -244,6 +250,7 @@ class RaddlePuzzle(Puzzle):
     build_board = staticmethod(build_raddle_board_data)
     prepare_board = staticmethod(prepare_raddle_board_data)
     parse_move = staticmethod(parse_move)
+    read_post = staticmethod(read_post)
     load_board = staticmethod(load_ladder_board)
     assist_block = staticmethod(assist_block)
     accept_ui_draft = staticmethod(accept_ui_draft)

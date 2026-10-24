@@ -44,7 +44,6 @@ from games.puzzles.quota import revision_quota_message
 from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
 from games.puzzles.move import MoveRefusal, MoveResponse
 from games.puzzles.raddle import RaddlePuzzle
-from games.puzzles.raddle_submission import RaddleMoveRefusal
 from games.puzzles.word_salad import WordSaladPuzzle
 from games.puzzles.word_salad_submission import SaladMoveRefusal, SaladSync
 from games.raddle_concurrency import (
@@ -437,6 +436,8 @@ def process_send_attempt(request, task_id):
     is_game_start_interaction = False
     word_index = None
     word = None
+    post_puzzle = get_puzzle(task.task_type)
+    post_reader = getattr(post_puzzle, 'read_post', None) if post_puzzle is not None else None
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
         if not form.is_valid():
@@ -448,13 +449,21 @@ def process_send_attempt(request, task_id):
         if isinstance(move, MoveRefusal):
             return {'status': move.status}
         attempt = Attempt(text=move.text)
-    elif task.task_type == 'raddle':
-        move = RaddlePuzzle.parse_move(request.POST)
-        if isinstance(move, RaddleMoveRefusal):
-            return {'status': move.status}
-        word_index = move.word_index
-        word = move.word
-        attempt = Attempt(text=move.text)
+    elif post_reader is not None:
+        move = post_reader(request.POST, task)
+        status = getattr(move, 'status', None)
+        if status is not None:
+            return {'status': status}
+        if isinstance(move, SaladSync):
+            return _process_word_salad_sync_finds(
+                request, task, team, user, anon_key, game, replay_slot=replay_slot,
+            )
+        attempt = Attempt(text=move.text if hasattr(move, 'text') else move.word)
+        word_index = getattr(move, 'word_index', None)
+        if word_index is not None:
+            word = move.word
+        action = getattr(move, 'action', None)
+        is_game_start_interaction = bool(getattr(move, 'starts_game', False))
     elif task.task_type == 'alphabetty':
         move = AlphabettyPuzzle.parse_move(request.POST)
         if isinstance(move, AlphabettyMoveRefusal):
