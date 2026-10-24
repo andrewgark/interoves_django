@@ -333,12 +333,38 @@ def get_show_status(attempt):
     raise Exception('Unknown task_type {}'.format(attempt.task.task_type))
 
 
+def _raddle_word_opened_ids(items, order):
+    """Попытки лесенки, которые открыли слово, даже если балл не вырос.
+
+    Вторая подсказка (ответ) даёт 0 баллов. Список попыток иначе рисует такое
+    уже решённое слово как «неверно», потому что смотрит только на сумму.
+    """
+    opened = set()
+    solved = set()
+    for i in order:
+        attempt = items[i]
+        if getattr(getattr(attempt, 'task', None), 'task_type', None) != 'raddle':
+            continue
+        try:
+            payload = json.loads(getattr(attempt, 'text', None) or '')
+            word_index = int(payload.get('word_index', -1))
+            state = json.loads(getattr(attempt, 'state', None) or '{}')
+            solved_now = {int(idx) for idx in (state.get('solved_indices') or [])}
+        except (TypeError, ValueError, AttributeError):
+            continue
+        if word_index >= 0 and word_index in solved_now and word_index not in solved:
+            opened.add(id(attempt))
+        solved = solved_now
+    return opened
+
+
 @register.filter
 def attempts_with_status(attempts):
     """
     Помечает попытки для списка: 'ok' / 'partial' / 'wrong' / 'pending'.
     Для цепочечных заданий (raddle/wall/replacements) статус часто «...», поэтому
     считаем частичным верным ту попытку, которая добавила баллы (cumulative points выросли).
+    Для лесенки слово, открытое без прироста баллов (подсказка-ответ), тоже частично верное.
     """
     from decimal import Decimal
     from games.models import CHAIN_TASK_TYPES
@@ -358,6 +384,7 @@ def attempts_with_status(attempts):
         if pts > best:
             gained_ids.add(id(a))
             best = pts
+    raddle_opened_ids = _raddle_word_opened_ids(items, order)
 
     result = []
     for a in items:
@@ -369,7 +396,7 @@ def attempts_with_status(attempts):
             # chain step was wrong.  Never replace it with a progress verdict.
             mark = 'pending'
         elif is_chain:
-            mark = 'partial' if id(a) in gained_ids else 'wrong'
+            mark = 'partial' if id(a) in gained_ids or id(a) in raddle_opened_ids else 'wrong'
         elif a.status == 'Partial':
             mark = 'partial'
         elif a.status == 'Wrong':

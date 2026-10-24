@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 from django.test import SimpleTestCase
@@ -5,12 +6,14 @@ from django.test import SimpleTestCase
 from games.templatetags.filters import attempts_with_status
 
 
-def _attempt(status, *, task_type='default', points=0, time=0):
+def _attempt(status, *, task_type='default', points=0, time=0, text='', state=''):
     return SimpleNamespace(
         status=status,
         task=SimpleNamespace(task_type=task_type),
         points=points,
         time=time,
+        text=text,
+        state=state,
     )
 
 
@@ -53,3 +56,34 @@ class AttemptsWithStatusTests(SimpleTestCase):
 
         self.assertEqual(rendered[0]['mark'], 'pending')
         self.assertEqual(rendered[0]['label'], 'проверяется')
+
+    def test_raddle_answer_hint_solve_is_partial_when_points_stay_flat(self):
+        def raddle(word, solved, time):
+            return _attempt(
+                'Partial',
+                task_type='raddle',
+                points=5,
+                time=time,
+                text=json.dumps({'word_index': 4, 'word': word}),
+                state=json.dumps({'solved_indices': solved}),
+            )
+
+        rendered = attempts_with_status([
+            _attempt(
+                'Partial',
+                task_type='raddle',
+                points=5,
+                time=0,
+                text=json.dumps({'word_index': 3, 'word': 'КОШКА'}),
+                state=json.dumps({'solved_indices': [0, 1, 2, 3]}),
+            ),
+            raddle('КОТЯ', [0, 1, 2, 3], 1),
+            raddle('КИСА', [0, 1, 2, 3, 4], 2),
+            raddle('КИСА', [0, 1, 2, 3, 4], 3),
+        ])
+
+        self.assertEqual(
+            [item['mark'] for item in rendered],
+            ['partial', 'wrong', 'partial', 'wrong'],
+        )
+        self.assertEqual(rendered[2]['label'], 'частично')
