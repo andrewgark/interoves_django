@@ -46,6 +46,7 @@ from games.views.game_context import (
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.puzzles import get_puzzle
+from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.raddle_submission import RaddleMoveRefusal
 from games.puzzles.word_salad import WordSaladPuzzle
@@ -539,10 +540,10 @@ def process_send_attempt(request, task_id):
         word = move.word
         attempt = Attempt(text=move.text)
     elif task.task_type == 'alphabetty':
-        word = (request.POST.get('word') or request.POST.get('text') or '').strip()
-        if not word:
-            return {'status': 'empty'}
-        attempt = Attempt(text=word)
+        move = AlphabettyPuzzle.parse_move(request.POST)
+        if isinstance(move, AlphabettyMoveRefusal):
+            return {'status': move.status}
+        attempt = Attempt(text=move.word)
     elif task.task_type == 'word_salad':
         move = WordSaladPuzzle.parse_move(request.POST)
         if isinstance(move, SaladMoveRefusal):
