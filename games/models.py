@@ -1691,9 +1691,12 @@ class Task(models.Model):
         return old_grid != new_grid
 
     def clean(self):
-        if self.task_type == 'word_salad':
-            from games.word_salad import validate_task_data
-            validate_task_data(self.checker_data, '')
+        from games.puzzles import get_puzzle
+        puzzle = get_puzzle(self.task_type)
+        cleaner = getattr(puzzle, 'clean_checker_data', None) if puzzle is not None else None
+        if cleaner is not None:
+            cleaner(self)
+            return
         if self.task_type == 'grid-puzzle':
             from games.grid_puzzle import (
                 GridPuzzleDataError,

@@ -19,6 +19,7 @@ from games.word_salad import (
     load_state as load_word_salad_state,
     parse_task_data,
     parse_task_payload as parse_word_salad_task_payload,
+    validate_task_data,
 )
 
 
@@ -138,6 +139,11 @@ def progress_signature(state):
     )
 
 
+def clean_checker_data(task):
+    """Reject a salad payload that is not a playable grid."""
+    validate_task_data(task.checker_data, '')
+
+
 def results_max_points(task, m):
     """Green-cell maximum: the word count. The task multiplier is not applied."""
     del m
@@ -165,4 +171,5 @@ class WordSaladPuzzle(Puzzle):
     write_move_result = staticmethod(write_move_result)
     include_task_html = staticmethod(include_task_html)
     progress_signature = staticmethod(progress_signature)
+    clean_checker_data = staticmethod(clean_checker_data)
     results_max_points = staticmethod(results_max_points)
