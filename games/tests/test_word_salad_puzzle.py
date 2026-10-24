@@ -38,6 +38,14 @@ class WordSaladMoveTests(SimpleTestCase):
     def test_sync_finds_is_its_own_request(self):
         self.assertIsInstance(WordSaladPuzzle.parse_move({'action': 'sync_finds'}), SaladSync)
 
+    def test_same_text_names_the_previous_attempt(self):
+        other = SimpleNamespace(id=9)
+
+        self.assertFalse(WordSaladPuzzle.blocks_duplicate('a', 'b', task=None, state_raw=None, other_attempt=other).blocked)
+        verdict = WordSaladPuzzle.blocks_duplicate('a', 'a', task=None, state_raw=None, other_attempt=other)
+        self.assertTrue(verdict.blocked)
+        self.assertEqual(verdict.attempt_id, 9)
+
     def test_credited_solve_is_correct_and_clears_the_selection(self):
         result = {}
         attempt = SimpleNamespace(comment='')

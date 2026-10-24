@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from games.puzzles.duplicate import DuplicateVerdict
+from games.puzzles.duplicate import same_text_verdict
 from games.word_salad import (
     EXTRA_FOUND_COMMENT,
     RARE_FOUND_COMMENT,
@@ -81,9 +81,7 @@ def attempt_limit_message(attempt, revision_attempts, task, team):
 
 def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt=None):
     """Same posted text is a duplicate, and the previous attempt id stays on it."""
-    if attempt_text != other_text:
-        return DuplicateVerdict(False)
-    return DuplicateVerdict(True, getattr(other_attempt, 'id', None))
+    return same_text_verdict(attempt_text, other_text, other_attempt)
 
 
 def write_move_result(result, task, attempt, *, attempt_persisted, user, anon_key):

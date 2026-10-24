@@ -13,3 +13,10 @@ from dataclasses import dataclass
 class DuplicateVerdict:
     blocked: bool
     attempt_id: int | None = None
+
+
+def same_text_verdict(attempt_text, other_text, other_attempt):
+    """Same posted text names the previous attempt. Different text does not."""
+    if attempt_text != other_text:
+        return DuplicateVerdict(False)
+    return DuplicateVerdict(True, getattr(other_attempt, 'id', None))
