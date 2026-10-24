@@ -88,3 +88,13 @@ class RaddleAttemptAdvancedTests(SimpleTestCase):
         self.assertTrue(RaddlePuzzle.attempt_advanced(grew, json.dumps({'solved_indices': [0]})))
         self.assertFalse(RaddlePuzzle.attempt_advanced(same, json.dumps({'solved_indices': [0]})))
         self.assertFalse(RaddlePuzzle.attempt_advanced(broken, '{'))
+
+
+class RaddlePlayerHintTests(SimpleTestCase):
+    def test_in_game_clue_is_hidden_and_a_normal_hint_stays(self):
+        from games.models import Task
+        clue = SimpleNamespace(desc='raddle_clue:1')
+        shown = SimpleNamespace(desc='Обычная подсказка')
+        task = SimpleNamespace(task_type='raddle', get_hints=lambda: [clue, shown])
+
+        self.assertEqual(Task.get_player_hints(task), [shown])

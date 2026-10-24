@@ -21,6 +21,7 @@ from games.puzzles.raddle_submission import (
 )
 from games.raddle import (
     build_raddle_ui_context,
+    is_raddle_in_game_assist_hint,
     load_raddle_state,
     parse_raddle_data,
 )
@@ -242,6 +243,11 @@ def prepare_raddle_board_data(
     )
 
 
+def player_hints(hints):
+    """Hints shown to the player. In-game clue and answer rows stay hidden."""
+    return [hint for hint in hints if not is_raddle_in_game_assist_hint(hint)]
+
+
 class RaddlePuzzle(Puzzle):
     task_type = 'raddle'
     checker_id = 'raddle'
@@ -262,6 +268,7 @@ class RaddlePuzzle(Puzzle):
     write_move_result = staticmethod(write_move_result)
     write_response = staticmethod(write_response)
     include_task_html = staticmethod(include_task_html)
+    player_hints = staticmethod(player_hints)
     results_max_points = staticmethod(results_max_points)
     submission_opened = staticmethod(submission_opened)
     is_complete = staticmethod(is_complete)

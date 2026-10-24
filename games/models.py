@@ -1756,11 +1756,13 @@ class Task(models.Model):
         return list(self.hints.all())
 
     def get_player_hints(self):
-        """Подсказки для панели игрока (без in-game raddle_clue/answer)."""
+        """Подсказки для панели игрока. Пазл может скрыть свои служебные строки."""
         hints = self.get_hints()
-        if self.task_type == 'raddle':
-            from games.raddle import is_raddle_in_game_assist_hint
-            return [h for h in hints if not is_raddle_in_game_assist_hint(h)]
+        from games.puzzles import get_puzzle
+        puzzle = get_puzzle(self.task_type)
+        visible = getattr(puzzle, 'player_hints', None) if puzzle is not None else None
+        if visible is not None:
+            return visible(hints)
         return hints
 
 
