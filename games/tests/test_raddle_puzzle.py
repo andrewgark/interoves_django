@@ -98,3 +98,10 @@ class RaddlePlayerHintTests(SimpleTestCase):
         task = SimpleNamespace(task_type='raddle', get_hints=lambda: [clue, shown])
 
         self.assertEqual(Task.get_player_hints(task), [shown])
+
+
+class RaddleHintPenaltyTests(SimpleTestCase):
+    def test_in_game_rows_are_skipped_and_a_normal_hint_counts(self):
+        self.assertTrue(RaddlePuzzle.skips_hint_penalty(SimpleNamespace(desc='raddle_clue:1')))
+        self.assertTrue(RaddlePuzzle.skips_hint_penalty(SimpleNamespace(desc='raddle_answer:2')))
+        self.assertFalse(RaddlePuzzle.skips_hint_penalty(SimpleNamespace(desc='Обычная подсказка')))

@@ -286,14 +286,14 @@ def _process_day_before(game: Game, now, stats: dict) -> None:
 
 def _scoring_hint_count(attempts_info) -> int:
     """Count real player hints (same exclusions as AttemptsInfo.get_sum_hint_penalty)."""
-    from games.raddle import is_raddle_in_game_assist_hint
+    from games.puzzles.raddle import RaddlePuzzle
 
     n = 0
     for hint_attempt in attempts_info.hint_attempts or []:
         if not hint_attempt.is_real_request:
             continue
         hint = hint_attempt.hint
-        if hint is None or is_raddle_in_game_assist_hint(hint):
+        if hint is None or RaddlePuzzle.skips_hint_penalty(hint):
             continue
         n += 1
     return n
@@ -307,7 +307,7 @@ def _teams_with_all_tasks_ok(game: Game) -> list[tuple[Team, int, object]]:
     from django.db.models.functions import RowNumber
 
     from games.models import Attempt, HintAttempt, Team
-    from games.raddle import is_raddle_in_game_assist_hint
+    from games.puzzles.raddle import RaddlePuzzle
     from games.views.new_ui import _load_results_placements_and_tasks
 
     _placements, _tg_map, _tasks_flat, task_ids, _headers = _load_results_placements_and_tasks(game)
@@ -384,7 +384,7 @@ def _teams_with_all_tasks_ok(game: Game) -> list[tuple[Team, int, object]]:
         if not tid:
             continue
         hint = ha.hint
-        if hint is None or is_raddle_in_game_assist_hint(hint):
+        if hint is None or RaddlePuzzle.skips_hint_penalty(hint):
             continue
         hint_counts[tid] = hint_counts.get(tid, 0) + 1
         hint_penalties[tid] = hint_penalties.get(tid, Decimal(0)) + Decimal(

@@ -1784,7 +1784,7 @@ class AttemptsInfo:
         return self.best_attempt and self.best_attempt.status == 'Ok'
 
     def get_sum_hint_penalty(self):
-        from games.raddle import is_raddle_in_game_assist_hint
+        from games.puzzles.raddle import RaddlePuzzle
         total = 0
         if self.hint_attempts:
             for hint_attempt in self.hint_attempts:
@@ -1793,7 +1793,7 @@ class AttemptsInfo:
                 hint = hint_attempt.hint
                 if hint is None:
                     continue
-                if is_raddle_in_game_assist_hint(hint):
+                if RaddlePuzzle.skips_hint_penalty(hint):
                     continue
                 total += hint.points_penalty or 0
         total += self._alphabetty_letter_hint_penalty()

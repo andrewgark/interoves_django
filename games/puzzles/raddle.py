@@ -248,6 +248,11 @@ def player_hints(hints):
     return [hint for hint in hints if not is_raddle_in_game_assist_hint(hint)]
 
 
+def skips_hint_penalty(hint):
+    """An in-game clue or answer does not add a penalty and is not a taken hint."""
+    return is_raddle_in_game_assist_hint(hint)
+
+
 class RaddlePuzzle(Puzzle):
     task_type = 'raddle'
     checker_id = 'raddle'
@@ -269,6 +274,7 @@ class RaddlePuzzle(Puzzle):
     write_response = staticmethod(write_response)
     include_task_html = staticmethod(include_task_html)
     player_hints = staticmethod(player_hints)
+    skips_hint_penalty = staticmethod(skips_hint_penalty)
     results_max_points = staticmethod(results_max_points)
     submission_opened = staticmethod(submission_opened)
     is_complete = staticmethod(is_complete)

@@ -58,7 +58,7 @@ def _best_attempt(attempts: Iterable[Attempt]) -> Optional[Attempt]:
 
 
 def _sum_hint_penalty(hint_attempts: Iterable[HintAttempt]) -> float:
-    from games.raddle import is_raddle_in_game_assist_hint
+    from games.puzzles.raddle import RaddlePuzzle
     total = 0.0
     for ha in hint_attempts or []:
         try:
@@ -67,7 +67,7 @@ def _sum_hint_penalty(hint_attempts: Iterable[HintAttempt]) -> float:
             hint = getattr(ha, "hint", None)
             if hint is None:
                 continue
-            if is_raddle_in_game_assist_hint(hint):
+            if RaddlePuzzle.skips_hint_penalty(hint):
                 continue
             total += float(getattr(hint, "points_penalty", 0) or 0)
         except Exception:
@@ -154,7 +154,7 @@ def _bulk_actor_task_result_points_sql(
     """
     from django.db.models import Case, F, IntegerField, Value, When
 
-    from games.raddle import is_raddle_in_game_assist_hint
+    from games.puzzles.raddle import RaddlePuzzle
 
     att_qs = Attempt.manager.filter(
         task_id__in=task_ids, skip=False, replay_slot__isnull=True,
@@ -205,7 +205,7 @@ def _bulk_actor_task_result_points_sql(
         if tid not in penalties:
             continue
         has_hint_tasks.add(tid)
-        if is_raddle_in_game_assist_hint(SimpleNamespace(desc=hr['hint__desc'])):
+        if RaddlePuzzle.skips_hint_penalty(SimpleNamespace(desc=hr['hint__desc'])):
             continue
         try:
             penalties[tid] += float(hr['hint__points_penalty'] or 0)

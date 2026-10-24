@@ -38,7 +38,7 @@ from games.models import (
     Team,
     hidden_anon_keys,
 )
-from games.raddle import is_raddle_in_game_assist_hint
+from games.puzzles.raddle import RaddlePuzzle
 
 
 def _actor_key_annotation():
@@ -345,7 +345,7 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None, actor_filter=None, i
         hint_numbers[key].append(number)
         # Penalty excludes raddle in-game assists (same as AttemptsInfo).
         fake_hint = SimpleNamespace(desc=hr['hint__desc'])
-        if is_raddle_in_game_assist_hint(fake_hint):
+        if RaddlePuzzle.skips_hint_penalty(fake_hint):
             continue
         pen = hr['hint__points_penalty']
         if pen is None:
