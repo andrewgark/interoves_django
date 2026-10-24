@@ -2414,10 +2414,6 @@ class ChainTaskState(models.Model):
             summary = getattr(puzzle, 'state_summary', None) if puzzle is not None else None
             if summary is not None:
                 return summary(s)
-            if task and task.task_type == 'html_forms':
-                solved = len(s.get('solved_keys', []))
-                total = s.get('total', '?')
-                return '{} forms solved ({} pts)'.format(solved, total)
             if task and task.task_type == 'raddle':
                 solved = len(s.get('solved_indices', []))
                 total = s.get('total', '?')

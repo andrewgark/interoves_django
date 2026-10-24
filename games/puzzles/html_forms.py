@@ -85,6 +85,13 @@ def pretty_text(attempt):
         return '—'
 
 
+def state_summary(state):
+    """Admin one-line summary of an html-forms chain."""
+    solved = len(state.get('solved_keys', []))
+    total = state.get('total', '?')
+    return '{} forms solved ({} pts)'.format(solved, total)
+
+
 def results_max_points(task, m):
     """Green-cell maximum: form count times the task multiplier."""
     from games.html_forms import parse_html_forms_data
@@ -106,4 +113,5 @@ class HtmlFormsPuzzle(Puzzle):
     is_complete = staticmethod(is_complete)
     attempt_answer = staticmethod(attempt_answer)
     pretty_text = staticmethod(pretty_text)
+    state_summary = staticmethod(state_summary)
     results_max_points = staticmethod(results_max_points)
