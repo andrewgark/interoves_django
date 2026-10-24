@@ -63,6 +63,19 @@ def progress_signature(state):
     )
 
 
+def pretty_text(attempt):
+    """List label for a wall group, including media the wall itself renders."""
+    from games.models import AudioManager, ImageManager
+    try:
+        return attempt.task.get_wall().get_attempt_text(
+            json.loads(attempt.text),
+            ImageManager(),
+            AudioManager(),
+        )
+    except Exception:
+        return attempt.text
+
+
 def results_max_points(task, m):
     """Green-cell maximum: the wall's own scale times the task multiplier."""
     try:
@@ -82,4 +95,5 @@ class WallPuzzle(Puzzle):
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
     progress_signature = staticmethod(progress_signature)
+    pretty_text = staticmethod(pretty_text)
     results_max_points = staticmethod(results_max_points)

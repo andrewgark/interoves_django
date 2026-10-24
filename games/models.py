@@ -2565,15 +2565,6 @@ class Attempt(models.Model):
                 return '{} {}'.format(len(walls), 'wall' if len(walls) == 1 else 'walls')
             except (TypeError, ValueError, AttributeError):
                 return self.text
-        if self.task.task_type == 'wall':
-            try:
-                return self.task.get_wall().get_attempt_text(
-                    json.loads(self.text),
-                    ImageManager(),
-                    AudioManager()
-                )
-            except Exception:
-                return self.text
         if self.task.task_type == 'distribute_to_teams':
             try:
                 g = self.game_id and self.game or GameTaskGroup.resolve_game_for_task(self.task)
