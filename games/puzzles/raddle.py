@@ -63,6 +63,32 @@ def is_complete(task, state_raw):
         return False
 
 
+def attempt_answer(attempt):
+    """The ladder word the attempt was scored against."""
+    try:
+        payload = json.loads(attempt.text)
+        idx = int(payload.get('word_index', -1))
+    except (ValueError, TypeError):
+        return attempt.task.answer or ''
+    parsed = parse_raddle_data(attempt.task)
+    if parsed and 0 <= idx < parsed['n_words']:
+        return parsed['words'][idx]
+    return '—'
+
+
+def pretty_text(attempt):
+    """List label for one ladder word."""
+    try:
+        payload = json.loads(attempt.text)
+        idx = int(payload.get('word_index', -1))
+        word = payload.get('word', '')
+        if idx >= 0:
+            return 'Слово {}: {}'.format(idx + 1, word)
+        return str(word) or attempt.text
+    except (ValueError, TypeError):
+        return attempt.text
+
+
 def build_raddle_board_data(
     *,
     game,
@@ -199,3 +225,5 @@ class RaddlePuzzle(Puzzle):
     results_max_points = staticmethod(results_max_points)
     submission_opened = staticmethod(submission_opened)
     is_complete = staticmethod(is_complete)
+    attempt_answer = staticmethod(attempt_answer)
+    pretty_text = staticmethod(pretty_text)

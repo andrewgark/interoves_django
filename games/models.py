@@ -2537,17 +2537,6 @@ class Attempt(models.Model):
         reader = getattr(puzzle, 'attempt_answer', None) if puzzle is not None else None
         if reader is not None:
             return reader(self)
-        if self.task.task_type == 'raddle':
-            try:
-                payload = json.loads(self.text)
-                idx = int(payload.get('word_index', -1))
-            except (ValueError, TypeError):
-                return self.task.answer or ''
-            from games.raddle import parse_raddle_data
-            parsed = parse_raddle_data(self.task)
-            if parsed and 0 <= idx < parsed['n_words']:
-                return parsed['words'][idx]
-            return '—'
         if self.task.task_type == 'html_forms':
             try:
                 payload = json.loads(self.text)
@@ -2576,16 +2565,6 @@ class Attempt(models.Model):
             return reader(self)
         if self.task.task_type in ('default', 'with_tag', 'text_with_forms', 'autohint', 'proportions'):
             return self.text
-        if self.task.task_type == 'raddle':
-            try:
-                p = json.loads(self.text)
-                idx = int(p.get('word_index', -1))
-                word = p.get('word', '')
-                if idx >= 0:
-                    return 'Слово {}: {}'.format(idx + 1, word)
-                return str(word) or self.text
-            except (ValueError, TypeError):
-                return self.text
         if self.task.task_type == 'html_forms':
             try:
                 p = json.loads(self.text)
