@@ -7,6 +7,7 @@ import json
 from games.puzzles.base import Puzzle
 from games.puzzles.duplicate import same_text_verdict
 from games.puzzles.move import MoveRefusal, TextMove
+from games.puzzles.progress import _int_tuple, _slot_pairs
 from games.puzzles.quota import json_field_quota
 
 
@@ -44,6 +45,14 @@ def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt
     return same_text_verdict(attempt_text, other_text, other_attempt)
 
 
+def progress_signature(state):
+    """Solved replacement cells, or whole lines when no cell map is stored."""
+    slots = state.get('solved_slots')
+    if isinstance(slots, dict) and slots:
+        return ('slots', _slot_pairs(slots))
+    return ('lines', _int_tuple(state.get('solved_lines')))
+
+
 def results_max_points(task, m):
     """Green-cell maximum: answer rows times the task multiplier."""
     n = task.replacements_answer_rows
@@ -61,4 +70,5 @@ class ReplacementsPuzzle(Puzzle):
     parse_move = staticmethod(parse_move)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
+    progress_signature = staticmethod(progress_signature)
     results_max_points = staticmethod(results_max_points)
