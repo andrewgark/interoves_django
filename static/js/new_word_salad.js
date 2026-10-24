@@ -178,10 +178,10 @@
     return kind === 'rare' || kind === 'extra';
   }
 
-  function rememberExtraWord(words, word, answers) {
+  function rememberExtraWord(words, word, answers, minLength) {
     word = normalizeWord(word);
     words = words ? words.slice() : [];
-    if (!word || word.length < EXTRA_MIN_LENGTH) {
+    if (!word || word.length < (minLength || EXTRA_MIN_LENGTH)) {
       return { words: words, latest: '', changed: false };
     }
     if (answers && answers[word]) {
@@ -728,7 +728,7 @@
 
       function scheduleIdleFind() {
         cancelIdleFind();
-        if (currentPath.length < EXTRA_MIN_LENGTH) return;
+        if (currentPath.length < EXTRA_MIN_LENGTH && !isConfiguredRare(selectedWord())) return;
         idleFindPathKey = currentPath.join(',');
         idleFindTimer = window.setTimeout(function () {
           idleFindTimer = 0;
@@ -1066,7 +1066,7 @@
       }
 
       function addRareWord(word) {
-        var remembered = rememberExtraWord(rareWords, word, requiredAnswerSet());
+        var remembered = rememberExtraWord(rareWords, word, requiredAnswerSet(), 1);
         if (!remembered.latest) return false;
         if (remembered.changed) {
           rareWords = remembered.words;
