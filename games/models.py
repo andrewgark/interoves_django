@@ -1551,14 +1551,11 @@ class Task(models.Model):
         else:
             self.replacements_answer_rows = None
         is_existing = not self._state.adding
-        previous_word_salad = None
         previous_semantics = None
         old_actor_keys = set()
         old_game_ids = set()
-        if is_existing and self.task_type == 'word_salad':
-            previous_word_salad = type(self).objects.filter(pk=self.pk).values_list(
-                'checker_data', 'task_type',
-            ).first()
+        capture = getattr(puzzle, 'capture_before_save', None) if puzzle is not None else None
+        previous_puzzle = capture(self) if capture is not None and is_existing else None
         if is_existing:
             previous_semantics = type(self).objects.filter(pk=self.pk).values(
                 'task_group_id', 'is_removed', 'task_type', 'checker_id',
@@ -1611,23 +1608,9 @@ class Task(models.Model):
                         lambda game=link.game, task_group=link.task_group:
                         mark_projection_dirty(game, task_group, full=True),
                     )
-        # A changed Word Salad grid starts a new chain.  Changing only the
-        # answer/rare-word lists must keep the accumulated projection alive:
-        # the existing attempts are still valid evidence and the recheck can
-        # replay them into the corrected ChainTaskState.
-        if (
-            is_existing
-            and self.task_type == 'word_salad'
-            and self._word_salad_grid_changed(previous_word_salad)
-        ):
-            from games.word_salad import default_state, dump_state
-            ChainTaskState.objects.filter(task=self).update(
-                # A non-null empty state is intentional: check_attempt falls
-                # back to historical Attempt.state only when the projection is
-                # null (used for legacy anon-key migrations).
-                state=dump_state(default_state()),
-                last_attempt=None,
-            )
+        after = getattr(puzzle, 'after_save', None) if puzzle is not None else None
+        if after is not None:
+            after(self, is_existing=is_existing, previous=previous_puzzle)
         if is_existing and previous_semantics:
             changed_fields = {
                 field for field in (
@@ -1676,20 +1659,6 @@ class Task(models.Model):
                 actor_keys=actor_keys,
             )
         track_task_change(self)
-
-    def _word_salad_grid_changed(self, previous):
-        """Return whether this save changes the Word Salad 4x4 grid."""
-        from games.word_salad import parse_task_payload
-
-        if previous is None or previous[1] != 'word_salad':
-            return True
-        try:
-            old_grid, _old_words, _old_rare = parse_task_payload(previous[0], '')
-            new_grid, _new_words, _new_rare = parse_task_payload(self.checker_data, '')
-        except (TypeError, ValueError, json.JSONDecodeError):
-            # A malformed/legacy payload is unsafe to treat as the same grid.
-            return True
-        return old_grid != new_grid
 
     def clean(self):
         from games.puzzles import get_puzzle

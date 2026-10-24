@@ -197,6 +197,41 @@ def pretty_text(attempt):
         return attempt.text
 
 
+def capture_before_save(task):
+    """The checker payload from before this save, used to detect a new grid."""
+    return type(task).objects.filter(pk=task.pk).values_list(
+        'checker_data', 'task_type',
+    ).first()
+
+
+def _grid_changed(task, previous):
+    """Return whether this save changes the Word Salad 4x4 grid."""
+    if previous is None or previous[1] != 'word_salad':
+        return True
+    try:
+        old_grid, _old_words, _old_rare = parse_word_salad_task_payload(previous[0], '')
+        new_grid, _new_words, _new_rare = parse_word_salad_task_payload(task.checker_data, '')
+    except (TypeError, ValueError, json.JSONDecodeError):
+        # A malformed/legacy payload is unsafe to treat as the same grid.
+        return True
+    return old_grid != new_grid
+
+
+def after_save(task, *, is_existing, previous):
+    """A changed grid starts a new chain. Answer-only edits keep the old chain."""
+    if not is_existing or not _grid_changed(task, previous):
+        return
+    from games.models import ChainTaskState
+    from games.word_salad import default_state, dump_state
+    ChainTaskState.objects.filter(task=task).update(
+        # A non-null empty state is intentional: check_attempt falls
+        # back to historical Attempt.state only when the projection is
+        # null (used for legacy anon-key migrations).
+        state=dump_state(default_state()),
+        last_attempt=None,
+    )
+
+
 def results_max_points(task, m):
     """Green-cell maximum: the word count. The task multiplier is not applied."""
     del m
@@ -228,4 +263,6 @@ class WordSaladPuzzle(Puzzle):
     scale_points = staticmethod(scale_points)
     is_complete = staticmethod(is_complete)
     pretty_text = staticmethod(pretty_text)
+    capture_before_save = staticmethod(capture_before_save)
+    after_save = staticmethod(after_save)
     results_max_points = staticmethod(results_max_points)
