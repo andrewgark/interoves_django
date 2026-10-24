@@ -263,6 +263,11 @@ def read_post(post, task):
     return parse_move(post)
 
 
+def persist_wrong(post, action):
+    """A correct-only solve probe is dropped when the path is wrong."""
+    return not (action == 'solve' and post.get('correct_only') == '1')
+
+
 def write_response(response):
     """Copy the salad verdict onto the JSON body. The view still owns HTML."""
     return write_move_result(
@@ -286,6 +291,7 @@ class WordSaladPuzzle(Puzzle):
     load_board = staticmethod(load_salad_board)
     parse_move = staticmethod(parse_move)
     read_post = staticmethod(read_post)
+    persist_wrong = staticmethod(persist_wrong)
     attempt_limit_message = staticmethod(attempt_limit_message)
     blocks_duplicate = staticmethod(blocks_duplicate)
     write_move_result = staticmethod(write_move_result)

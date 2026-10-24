@@ -508,15 +508,12 @@ def process_send_attempt(request, task_id):
         if stale is not None:
             return stale
 
-    correct_only = (
-        task.task_type == 'word_salad'
-        and action == 'solve'
-        and request.POST.get('correct_only') == '1'
-    )
+    keeper = getattr(post_puzzle, 'persist_wrong', None) if post_puzzle is not None else None
+    persist_wrong = keeper(request.POST, action) if keeper is not None else True
     with timing_phase(request, 'check_attempt'):
         attempt_persisted = check_attempt(
             attempt,
-            persist_wrong=not correct_only,
+            persist_wrong=persist_wrong,
             timing_request=request,
         )
     if attempt_persisted:
