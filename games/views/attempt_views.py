@@ -16,7 +16,7 @@ from games.analytics import (
 from games.check import CheckerFactory
 from games.exception import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
 from games.forms import AttemptForm
-from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, Team, CHAIN_TASK_TYPES
+from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, CHAIN_TASK_TYPES
 from games.replay import StaleReplayError, replay_for_request
 from games.completion_coordinator import complete_logical_game
 from games.daily.completion import daily_completion_effects_for_game
@@ -313,18 +313,11 @@ def check_attempt(
 
     # if some task had tag on this task, recheck it too
     if task.task_type == 'with_tag':
-        tag_task_number = task.tags.get('task')
-        tag_team_name = task.tags.get('team')
-        if tag_task_number is None or tag_team_name is None:
+        from games.puzzles.with_tag import WithTagPuzzle
+        pair = WithTagPuzzle.dependent_actor(task)
+        if pair is None:
             return True
-        try:
-            tag_task = Task.objects.visible().get(
-                task_group=task.task_group, checker_data__contains=tag_task_number,
-            )
-            tag_team = Team.objects.get(name=tag_team_name)
-            assert tag_task.task_type != 'with_tag'
-        except Exception:
-            return True
+        tag_task, tag_team = pair
 
         tag_attempts = Attempt.manager.filter(task=tag_task, team=tag_team, game=game)
         rechecked = False
