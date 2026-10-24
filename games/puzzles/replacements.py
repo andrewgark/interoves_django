@@ -130,6 +130,11 @@ def state_summary(state):
     return '{} lines solved ({} pts)'.format(solved, total)
 
 
+def assign_answer_rows(task):
+    """Store the answer-row count before the task row is saved."""
+    task.replacements_answer_rows = task._replacements_lines_n_answer_rows()
+
+
 def results_max_points(task, m):
     """Green-cell maximum: answer rows times the task multiplier."""
     n = task.replacements_answer_rows
@@ -153,4 +158,5 @@ class ReplacementsPuzzle(Puzzle):
     attempt_answer = staticmethod(attempt_answer)
     pretty_text = staticmethod(pretty_text)
     state_summary = staticmethod(state_summary)
+    assign_answer_rows = staticmethod(assign_answer_rows)
     results_max_points = staticmethod(results_max_points)

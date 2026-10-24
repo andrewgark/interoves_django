@@ -1543,8 +1543,11 @@ class Task(models.Model):
     def save(self, *args, **kwargs):
         skip_semantics_reconciliation = kwargs.pop('skip_semantics_reconciliation', False)
         from games.views.track import track_task_change
-        if self.task_type == 'replacements_lines':
-            self.replacements_answer_rows = self._replacements_lines_n_answer_rows()
+        from games.puzzles import get_puzzle
+        puzzle = get_puzzle(self.task_type)
+        assign_rows = getattr(puzzle, 'assign_answer_rows', None) if puzzle is not None else None
+        if assign_rows is not None:
+            assign_rows(self)
         else:
             self.replacements_answer_rows = None
         is_existing = not self._state.adding
