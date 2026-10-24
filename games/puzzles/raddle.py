@@ -248,6 +248,54 @@ def player_hints(hints):
     return [hint for hint in hints if not is_raddle_in_game_assist_hint(hint)]
 
 
+def merge_state(task, source_json, target_json):
+    """Union two ladder chains. The raw strings are loaded again, not the parsed dicts."""
+    try:
+        source = json.loads(source_json or '{}')
+        target = json.loads(target_json or '{}')
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(source, dict) or not isinstance(target, dict):
+        return None
+    from games.raddle import (
+        dump_raddle_state,
+        resolve_assist_tiers,
+        word_solve_credit,
+    )
+    parsed = parse_raddle_data(task)
+    if not parsed:
+        return None
+    source_state = load_raddle_state(source_json, parsed['n_words'])
+    target_state = load_raddle_state(target_json, parsed['n_words'])
+    solved = sorted(
+        set(source_state.get('solved_indices') or [])
+        | set(target_state.get('solved_indices') or [])
+    )
+    used_hints = sorted(
+        set(source_state.get('used_hints') or [])
+        | set(target_state.get('used_hints') or [])
+    )
+    assist = resolve_assist_tiers(source_state)
+    for index, tier in resolve_assist_tiers(target_state).items():
+        assist[index] = max(assist.get(index, 0), tier)
+    total = sum(
+        word_solve_credit(assist.get(index, 0), parsed.get('assist') or {})
+        for index in solved
+        if index not in (0, parsed['n_words'] - 1)
+    )
+    return json.dumps(dump_raddle_state({
+        'solved_indices': solved,
+        'used_hints': used_hints,
+        'assist_tier': {str(index): tier for index, tier in assist.items()},
+        'total': float(total),
+        'drafts': dict(source_state.get('drafts') or {}, **(target_state.get('drafts') or {})),
+        'clue_marks': dict(
+            source_state.get('clue_marks') or {},
+            **(target_state.get('clue_marks') or {}),
+        ),
+    }, parsed['n_words']), ensure_ascii=False)
+
+
 def skips_hint_penalty(hint):
     """An in-game clue or answer does not add a penalty and is not a taken hint."""
     return is_raddle_in_game_assist_hint(hint)
@@ -274,6 +322,7 @@ class RaddlePuzzle(Puzzle):
     write_response = staticmethod(write_response)
     include_task_html = staticmethod(include_task_html)
     player_hints = staticmethod(player_hints)
+    merge_state = staticmethod(merge_state)
     skips_hint_penalty = staticmethod(skips_hint_penalty)
     results_max_points = staticmethod(results_max_points)
     submission_opened = staticmethod(submission_opened)

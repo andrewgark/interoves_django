@@ -105,3 +105,14 @@ class RaddleHintPenaltyTests(SimpleTestCase):
         self.assertTrue(RaddlePuzzle.skips_hint_penalty(SimpleNamespace(desc='raddle_clue:1')))
         self.assertTrue(RaddlePuzzle.skips_hint_penalty(SimpleNamespace(desc='raddle_answer:2')))
         self.assertFalse(RaddlePuzzle.skips_hint_penalty(SimpleNamespace(desc='Обычная подсказка')))
+
+
+class RaddleMergeStateTests(SimpleTestCase):
+    def test_disjoint_solved_indices_are_united(self):
+        task = SimpleNamespace(checker_data=json.dumps(MINI_LADDER), task_type='raddle')
+        merged = RaddlePuzzle.merge_state(
+            task,
+            json.dumps({'solved_indices': [1]}),
+            json.dumps({'solved_indices': [2]}),
+        )
+        self.assertEqual(json.loads(merged)['solved_indices'], [0, 1, 2, 3])
