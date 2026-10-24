@@ -74,3 +74,14 @@ class WordSaladMoveTests(SimpleTestCase):
         self.assertEqual(result['word_salad_rare'], 'РЕКА')
         self.assertTrue(result['word_salad_keep_selection'])
         self.assertFalse(WordSaladPuzzle.include_task_html(result))
+
+
+class WordSaladAttemptAdvancedTests(SimpleTestCase):
+    def test_a_new_solved_index_advances_and_a_repeat_or_bad_json_does_not(self):
+        grew = SimpleNamespace(state=json.dumps({'solved_indices': [0, 1]}))
+        same = SimpleNamespace(state=json.dumps({'solved_indices': [0]}))
+        broken = SimpleNamespace(state='{')
+
+        self.assertTrue(WordSaladPuzzle.attempt_advanced(grew, json.dumps({'solved_indices': [0]})))
+        self.assertFalse(WordSaladPuzzle.attempt_advanced(same, json.dumps({'solved_indices': [0]})))
+        self.assertFalse(WordSaladPuzzle.attempt_advanced(broken, '{'))

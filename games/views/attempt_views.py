@@ -270,16 +270,6 @@ def check_attempt(
                 advanced = advancer(attempt, last_attempt_state)
             elif task.task_type == 'alphabetty':
                 advanced = attempt.status == 'Ok'
-            elif task.task_type == 'word_salad':
-                try:
-                    before = json.loads(last_attempt_state or '{}')
-                    after = json.loads(attempt.state or '{}')
-                except (TypeError, ValueError):
-                    before, after = {}, {}
-                advanced = bool(
-                    set(after.get('solved_indices') or [])
-                    - set(before.get('solved_indices') or [])
-                )
             if advanced:
                 from games.daily_timing import active_time_ms_for_attempt
                 attempt.active_time_ms = active_time_ms_for_attempt(

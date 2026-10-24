@@ -244,6 +244,19 @@ def results_max_points(task, m):
     return 0
 
 
+def attempt_advanced(attempt, last_state):
+    """True when this answer added a solved word. Bad JSON does not count."""
+    try:
+        before = json.loads(last_state or '{}')
+        after = json.loads(getattr(attempt, 'state', None) or '{}')
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        set(after.get('solved_indices') or [])
+        - set(before.get('solved_indices') or [])
+    )
+
+
 class WordSaladPuzzle(Puzzle):
     """Board, response contract, and text duplicates that name the previous attempt."""
 
@@ -265,4 +278,5 @@ class WordSaladPuzzle(Puzzle):
     pretty_text = staticmethod(pretty_text)
     capture_before_save = staticmethod(capture_before_save)
     after_save = staticmethod(after_save)
+    attempt_advanced = staticmethod(attempt_advanced)
     results_max_points = staticmethod(results_max_points)
