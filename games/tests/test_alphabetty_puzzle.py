@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.test import SimpleTestCase
@@ -47,3 +48,10 @@ class AlphabettyMoveTests(SimpleTestCase):
 
         self.assertEqual(result['status'], 'ok')
         apply_hint.assert_called_once_with(game='g', replay_slot=None)
+
+
+class AlphabettyAttemptAdvancedTests(SimpleTestCase):
+    def test_only_an_accepted_answer_advances(self):
+        self.assertTrue(AlphabettyPuzzle.attempt_advanced(SimpleNamespace(status='Ok'), None))
+        self.assertFalse(AlphabettyPuzzle.attempt_advanced(SimpleNamespace(status='Partial'), None))
+        self.assertIsNone(get_puzzle('alphabetty'))

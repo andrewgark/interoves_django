@@ -45,6 +45,12 @@ def apply_posted_hint(**play_kwargs):
     return apply_hint(**play_kwargs)
 
 
+def attempt_advanced(attempt, last_state):
+    """An alphabetty answer advances the clock only when it is accepted."""
+    del last_state
+    return attempt.status == 'Ok'
+
+
 class AlphabettyPuzzle(Puzzle):
     task_type = 'alphabetty'
 
@@ -52,3 +58,4 @@ class AlphabettyPuzzle(Puzzle):
     posted_guess = staticmethod(posted_guess)
     apply_posted_guess = staticmethod(apply_posted_guess)
     apply_posted_hint = staticmethod(apply_posted_hint)
+    attempt_advanced = staticmethod(attempt_advanced)

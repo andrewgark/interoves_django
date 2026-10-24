@@ -265,11 +265,13 @@ def check_attempt(
         # must never become per-answer observations.
         if attempt.status in ('Ok', 'Partial'):
             advanced = False
-            advancer = getattr(puzzle, 'attempt_advanced', None) if puzzle is not None else None
+            subject = puzzle
+            if subject is None and task.task_type == 'alphabetty':
+                from games.puzzles.alphabetty import AlphabettyPuzzle
+                subject = AlphabettyPuzzle
+            advancer = getattr(subject, 'attempt_advanced', None) if subject is not None else None
             if advancer is not None:
                 advanced = advancer(attempt, last_attempt_state)
-            elif task.task_type == 'alphabetty':
-                advanced = attempt.status == 'Ok'
             if advanced:
                 from games.daily_timing import active_time_ms_for_attempt
                 attempt.active_time_ms = active_time_ms_for_attempt(
