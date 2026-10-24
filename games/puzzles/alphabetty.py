@@ -45,6 +45,12 @@ def apply_posted_hint(**play_kwargs):
     return apply_hint(**play_kwargs)
 
 
+def read_post(post, task):
+    """Read an alphabetty POST. The stored text is the posted word."""
+    del task
+    return parse_move(post)
+
+
 def attempt_advanced(attempt, last_state):
     """An alphabetty answer advances the clock only when it is accepted."""
     del last_state
@@ -55,6 +61,7 @@ class AlphabettyPuzzle(Puzzle):
     task_type = 'alphabetty'
 
     parse_move = staticmethod(parse_move)
+    read_post = staticmethod(read_post)
     posted_guess = staticmethod(posted_guess)
     apply_posted_guess = staticmethod(apply_posted_guess)
     apply_posted_hint = staticmethod(apply_posted_hint)

@@ -41,7 +41,7 @@ from games.views.track import track_actor_task_change
 from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
 from games.puzzles.grid import GridPuzzle
 from games.puzzles.quota import revision_quota_message
-from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
+from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.move import MoveRefusal, MoveResponse
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.word_salad import WordSaladPuzzle
@@ -438,6 +438,8 @@ def process_send_attempt(request, task_id):
     word = None
     post_puzzle = get_puzzle(task.task_type)
     post_reader = getattr(post_puzzle, 'read_post', None) if post_puzzle is not None else None
+    if post_reader is None and task.task_type == 'alphabetty':
+        post_reader = AlphabettyPuzzle.read_post
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(request.POST)
         if not form.is_valid():
@@ -464,11 +466,6 @@ def process_send_attempt(request, task_id):
             word = move.word
         action = getattr(move, 'action', None)
         is_game_start_interaction = bool(getattr(move, 'starts_game', False))
-    elif task.task_type == 'alphabetty':
-        move = AlphabettyPuzzle.parse_move(request.POST)
-        if isinstance(move, AlphabettyMoveRefusal):
-            return {'status': move.status}
-        attempt = Attempt(text=move.word)
     elif task.task_type == 'word_salad':
         move = WordSaladPuzzle.parse_move(request.POST)
         if isinstance(move, SaladMoveRefusal):
