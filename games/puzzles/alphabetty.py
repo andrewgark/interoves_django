@@ -57,6 +57,26 @@ def attempt_advanced(attempt, last_state):
     return attempt.status == 'Ok'
 
 
+def letter_hint_penalty(info):
+    """Letter-hint penalty already computed, or looked up for an alphabetty actor."""
+    if info.letter_hint_penalty is not None:
+        return info.letter_hint_penalty
+    sample = info.best_attempt or (info.attempts[-1] if info.attempts else None)
+    if sample is None:
+        return 0
+    task = sample.task
+    if task is None or getattr(task, 'task_type', None) != 'alphabetty':
+        return 0
+    from games.alphabetty.play import letter_hint_penalty_for_actor
+    return letter_hint_penalty_for_actor(
+        game=sample.game,
+        task=task,
+        user=sample.user,
+        anon_key=sample.anon_key,
+        team=sample.team,
+    )
+
+
 class AlphabettyPuzzle(Puzzle):
     task_type = 'alphabetty'
 
@@ -66,3 +86,4 @@ class AlphabettyPuzzle(Puzzle):
     apply_posted_guess = staticmethod(apply_posted_guess)
     apply_posted_hint = staticmethod(apply_posted_hint)
     attempt_advanced = staticmethod(attempt_advanced)
+    letter_hint_penalty = staticmethod(letter_hint_penalty)

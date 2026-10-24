@@ -1796,26 +1796,9 @@ class AttemptsInfo:
                 if RaddlePuzzle.skips_hint_penalty(hint):
                     continue
                 total += hint.points_penalty or 0
-        total += self._alphabetty_letter_hint_penalty()
+        from games.puzzles.alphabetty import AlphabettyPuzzle
+        total += AlphabettyPuzzle.letter_hint_penalty(self)
         return total
-
-    def _alphabetty_letter_hint_penalty(self):
-        if self.letter_hint_penalty is not None:
-            return self.letter_hint_penalty
-        sample = self.best_attempt or (self.attempts[-1] if self.attempts else None)
-        if sample is None:
-            return 0
-        task = sample.task
-        if task is None or getattr(task, 'task_type', None) != 'alphabetty':
-            return 0
-        from games.alphabetty.play import letter_hint_penalty_for_actor
-        return letter_hint_penalty_for_actor(
-            game=sample.game,
-            task=task,
-            user=sample.user,
-            anon_key=sample.anon_key,
-            team=sample.team,
-        )
 
     def get_result_points(self):
         sample = self.last_attempt or self.best_attempt

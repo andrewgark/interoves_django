@@ -55,3 +55,14 @@ class AlphabettyAttemptAdvancedTests(SimpleTestCase):
         self.assertTrue(AlphabettyPuzzle.attempt_advanced(SimpleNamespace(status='Ok'), None))
         self.assertFalse(AlphabettyPuzzle.attempt_advanced(SimpleNamespace(status='Partial'), None))
         self.assertIsNone(get_puzzle('alphabetty'))
+
+
+class AlphabettyLetterHintTests(SimpleTestCase):
+    def test_a_precomputed_penalty_is_kept(self):
+        info = SimpleNamespace(letter_hint_penalty=4, attempts=[], best_attempt=None)
+        self.assertEqual(AlphabettyPuzzle.letter_hint_penalty(info), 4)
+
+    def test_another_puzzle_adds_nothing(self):
+        sample = SimpleNamespace(task=SimpleNamespace(task_type='default'))
+        info = SimpleNamespace(letter_hint_penalty=None, attempts=[sample], best_attempt=None)
+        self.assertEqual(AlphabettyPuzzle.letter_hint_penalty(info), 0)
