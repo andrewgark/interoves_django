@@ -124,6 +124,14 @@ _article_analysis_cache_lock = RLock()
 _article_analysis_inflight: dict[tuple, Future] = {}
 _LETTER_NAME_LEMMAS = {'е': 'е', 'ш': 'ш'}
 
+# Narrow, reviewed lexical links reported missing in Censorly gameplay.
+# These lemma pairs are handled separately from root-family matching.
+_REVIEWED_LEXICAL_LINKS = frozenset({
+    frozenset({'фамилия', 'фамильный'}),
+    frozenset({'поменять', 'сменить'}),
+    frozenset({'долгоживущий', 'долгоживучий'}),
+})
+
 
 class _Pack:
     __slots__ = (
@@ -304,6 +312,13 @@ def _relation(guess: _Pack, target: _Pack) -> str:
     numeric_root_match = _numeric_root_match(guess, target)
     if _alias(guess.fold, target.fold):
         return 'alias'
+    guess_lemmas = {item.lemma for item in guess.reads}
+    target_lemmas = {item.lemma for item in target.reads}
+    for pair in _REVIEWED_LEXICAL_LINKS:
+        guess_pair = pair & guess_lemmas
+        target_pair = pair & target_lemmas
+        if guess_pair and target_pair and not guess_pair & target_pair:
+            return 'reviewed_lexical'
     if (guess.fold.isdigit() or target.fold.isdigit()) and not numeric_root_match:
         return ''
     # Import lazily: semantics imports the root bank, whose proper-name

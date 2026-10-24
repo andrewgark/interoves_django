@@ -4619,6 +4619,23 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_putin', ('путин',)),
     ('sense:review_path', ('путь',)),
     ('sense:review_hunting', ('охотник', 'охотница')),
+    # The common root «вещ» covers both concrete objects and substances.
+    # Keep their established derivatives with the matching modern meaning.
+    ('sense:review_object', (
+        'вещевой', 'вещица', 'вещичка', 'вещность', 'вещный', 'вещь',
+    )),
+    ('sense:review_substance', (
+        'вещественность', 'вещественный', 'вещество', 'овеществить',
+        'овеществиться', 'овеществление', 'овеществлять', 'овеществляться',
+    )),
+    # «Свойство» and its adjectival derivatives mean an attribute; the
+    # possessive «свой» and kinship/appropriation derivatives stay in sense:own.
+    ('sense:review_attribute', (
+        'свойственность', 'свойственный', 'свойство',
+    )),
+    # Keep reasoning with the existing reason cluster, apart from the court
+    # sense of the same historical root.
+    ('sense:reason', ('рассуждать', 'рассуждение', 'рассуживать')),
 )
 
 # Keep these after the broad curated clusters above: a review split is an
@@ -7273,6 +7290,11 @@ _LATE_REVIEW_SPLITS = (
         'святитель', 'святительский',
     )),
     ('sense:yuletide', ('святки', 'святочный')),
+    # Matching reports: align cognate/variant lemmas at both root and sense
+    # level so gameplay uses the normal reviewed-root comparison.
+    ('sense:review_family_name', ('фамилия', 'фамильный')),
+    ('sense:review_change', ('поменять', 'сменить')),
+    ('sense:review_long_lived', ('долгоживущий', 'долгоживучий')),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
@@ -7294,6 +7316,10 @@ CLUSTERS = tuple(
 # have no Kuznetsova/Tikhonov root at all.  These are deliberately per-lemma
 # assignments: a sense name is never used as an implicit root fallback.
 SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
+    'фамилия': (('root:family_name',),),
+    'фамильный': (('root:family_name',),),
+    'долгоживущий': (('root:long_lived',),),
+    'долгоживучий': (('root:long_lived',),),
     # Country names and герман- derivatives join the reviewed national
     # families. Their sense keeps немой apart from German words.
     'германия': (('fam:нем',),),
