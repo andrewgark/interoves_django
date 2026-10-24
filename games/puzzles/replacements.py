@@ -5,7 +5,9 @@ from __future__ import annotations
 import json
 
 from games.puzzles.base import Puzzle
+from games.puzzles.duplicate import same_text_verdict
 from games.puzzles.move import MoveRefusal, TextMove
+from games.puzzles.quota import json_field_quota
 
 
 def parse_move(post):
@@ -30,7 +32,22 @@ def parse_move(post):
     return TextMove(json.dumps({'line_index': line_index, 'answers': answers}))
 
 
+def attempt_limit_message(attempt, revision_attempts, task, team, *, attempts=None, chain_state=None):
+    """Tournament quota for one replacements line. None means the line still has tries."""
+    return json_field_quota(
+        attempt, revision_attempts, task, team,
+        field='line_index', label='line',
+    )
+
+
+def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt=None):
+    return same_text_verdict(attempt_text, other_text, other_attempt)
+
+
 class ReplacementsPuzzle(Puzzle):
     task_type = 'replacements_lines'
+    checker_id = None
 
     parse_move = staticmethod(parse_move)
+    attempt_limit_message = staticmethod(attempt_limit_message)
+    blocks_duplicate = staticmethod(blocks_duplicate)

@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 from django.http import QueryDict
 from django.test import SimpleTestCase
@@ -45,5 +46,32 @@ class ReplacementsMoveTests(SimpleTestCase):
             MoveRefusal('invalid_form'),
         )
 
-    def test_parse_is_not_a_check_attempt_hook(self):
-        self.assertIsNone(get_puzzle('replacements_lines'))
+    def test_limit_message_counts_only_the_same_line(self):
+        task = SimpleNamespace(get_max_attempts=lambda: 2)
+        attempt = SimpleNamespace(text=json.dumps({'line_index': 1, 'answers': ['а']}))
+        previous = [
+            SimpleNamespace(text=json.dumps({'line_index': 1, 'answers': ['б']})),
+            SimpleNamespace(text=json.dumps({'line_index': 0, 'answers': ['в']})),
+        ]
+
+        self.assertIsNone(ReplacementsPuzzle.attempt_limit_message(
+            attempt, previous, task, None, attempts=['ignored'], chain_state='raw',
+        ))
+        previous.append(SimpleNamespace(text=json.dumps({'line_index': 1, 'answers': ['г']})))
+        self.assertIn(
+            'for line 2',
+            ReplacementsPuzzle.attempt_limit_message(attempt, previous, task, None),
+        )
+
+    def test_same_text_names_the_previous_attempt(self):
+        other = SimpleNamespace(id=8)
+        verdict = ReplacementsPuzzle.blocks_duplicate(
+            'a', 'a', task=None, state_raw=None, other_attempt=other,
+        )
+
+        self.assertTrue(verdict.blocked)
+        self.assertEqual(verdict.attempt_id, 8)
+
+    def test_quota_is_a_check_attempt_hook_without_a_checker(self):
+        self.assertIs(get_puzzle('replacements_lines'), ReplacementsPuzzle)
+        self.assertIsNone(ReplacementsPuzzle.checker_id)

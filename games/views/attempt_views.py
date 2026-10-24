@@ -205,24 +205,7 @@ def check_attempt(
                     last_attempt_state = attempts[-1].state
 
             if mode == 'tournament' and not bypass_attempt_limit:
-                if task.task_type == 'replacements_lines':
-                    try:
-                        current_payload = json.loads(attempt.text)
-                        current_line = int(current_payload.get('line_index', -1))
-                    except (ValueError, TypeError):
-                        current_line = -1
-                    n_attempts_this_line = 0
-                    for a in revision_attempts:
-                        try:
-                            p = json.loads(a.text)
-                            if int(p.get('line_index', -1)) == current_line:
-                                n_attempts_this_line += 1
-                        except (ValueError, TypeError):
-                            pass
-                    max_attempts = task.get_max_attempts()
-                    if n_attempts_this_line >= max_attempts:
-                        raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in task {} for line {}'.format(team, max_attempts, task, current_line + 1))
-                elif task.task_type == 'html_forms':
+                if task.task_type == 'html_forms':
                     n_attempts = len(revision_attempts)
                     max_attempts = task.get_max_attempts()
                     if n_attempts >= max_attempts:
