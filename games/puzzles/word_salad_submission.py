@@ -74,7 +74,7 @@ def parse_move(post):
     )
 
 
-def attempt_limit_message(attempt, revision_attempts, task, team):
+def attempt_limit_message(attempt, revision_attempts, task, team, *, attempts=None, chain_state=None):
     """Salad has no tournament quota. Hints are limited by the word itself."""
     return None
 

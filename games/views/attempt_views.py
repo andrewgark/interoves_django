@@ -205,15 +205,7 @@ def check_attempt(
                     last_attempt_state = attempts[-1].state
 
             if mode == 'tournament' and not bypass_attempt_limit:
-                if task.task_type == 'wall':
-                    current_state = chain_state_row.state if chain_state_row else None
-                    validation_data = task.get_wall().validate_max_attempts(
-                        attempts, attempt, current_state=current_state,
-                    )
-                    if validation_data is not None:
-                        stage, n_attempts, max_attempts = validation_data
-                        raise TooManyAttemptsException('Team {} exceeds attempts limit ({}) in wall task {} on stage {}'.format(team, max_attempts, task, stage))
-                elif task.task_type == 'replacements_lines':
+                if task.task_type == 'replacements_lines':
                     try:
                         current_payload = json.loads(attempt.text)
                         current_line = int(current_payload.get('line_index', -1))
@@ -238,6 +230,8 @@ def check_attempt(
                 elif puzzle is not None:
                     message = puzzle.attempt_limit_message(
                         attempt, revision_attempts, task, team,
+                        attempts=attempts,
+                        chain_state=chain_state_row.state if chain_state_row else None,
                     )
                     if message:
                         raise TooManyAttemptsException(message)

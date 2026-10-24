@@ -13,6 +13,7 @@ from games.puzzles.word_salad import WordSaladPuzzle
 # duplicate that names the previous attempt.
 _BY_TASK_TYPE = {
     RaddlePuzzle.task_type: RaddlePuzzle,
+    WallPuzzle.task_type: WallPuzzle,
     WordSaladPuzzle.task_type: WordSaladPuzzle,
 }
 
@@ -24,8 +25,8 @@ def get_puzzle(task_type):
     return _BY_TASK_TYPE.get(str(task_type))
 
 
-# Posted attempts whose stored text is the whole move. These puzzles do not
-# own attempt-limit or duplicate checks, so they stay out of get_puzzle.
+# Posted attempts whose stored text is the whole move. Limit and duplicate
+# hooks stay in get_puzzle and are not implied by this set.
 _TEXT_MOVE = {
     WallPuzzle.task_type: WallPuzzle,
     ReplacementsPuzzle.task_type: ReplacementsPuzzle,

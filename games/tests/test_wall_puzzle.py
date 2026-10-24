@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace
 
 from django.http import QueryDict
 from django.test import SimpleTestCase
@@ -50,6 +51,43 @@ class WallMoveTests(SimpleTestCase):
             MoveRefusal('invalid_form'),
         )
 
-    def test_parse_is_not_a_check_attempt_hook(self):
-        self.assertIsNone(get_puzzle('wall'))
+    def test_quota_uses_every_attempt_and_the_raw_chain_state(self):
+        attempts = ['all']
+        chain_state = '{"guessed_words": []}'
+        seen = {}
+
+        def validate_max_attempts(got_attempts, attempt, current_state=None):
+            seen['attempts'] = got_attempts
+            seen['state'] = current_state
+            if got_attempts is attempts:
+                return 'cat_words', 3, 3
+            return None
+
+        task = SimpleNamespace(get_wall=lambda: SimpleNamespace(validate_max_attempts=validate_max_attempts))
+        attempt = SimpleNamespace(text='{}')
+        message = WallPuzzle.attempt_limit_message(
+            attempt, ['revision-only'], task, 'Red',
+            attempts=attempts, chain_state=chain_state,
+        )
+
+        self.assertEqual(seen['attempts'], attempts)
+        self.assertEqual(seen['state'], chain_state)
+        self.assertEqual(
+            message,
+            'Team Red exceeds attempts limit (3) in wall task {} on stage cat_words'.format(task),
+        )
+        self.assertIsNone(WallPuzzle.attempt_limit_message(
+            attempt, [], task, 'Red', attempts=[], chain_state=None,
+        ))
+
+    def test_same_text_names_the_previous_attempt(self):
+        other = SimpleNamespace(id=4)
+        verdict = WallPuzzle.blocks_duplicate('a', 'a', task=None, state_raw=None, other_attempt=other)
+
+        self.assertTrue(verdict.blocked)
+        self.assertEqual(verdict.attempt_id, 4)
+
+    def test_quota_is_a_check_attempt_hook_without_a_checker(self):
+        self.assertIs(get_puzzle('wall'), WallPuzzle)
+        self.assertIsNone(WallPuzzle.checker_id)
         self.assertIsNone(parse_posted_text('raddle', _post(stage='cat_words')))

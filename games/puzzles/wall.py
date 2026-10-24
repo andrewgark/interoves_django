@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from games.puzzles.base import Puzzle
+from games.puzzles.duplicate import same_text_verdict
 from games.puzzles.move import MoveRefusal, TextMove
 
 
@@ -35,7 +36,27 @@ def parse_move(post):
     return TextMove(json.dumps(request_data))
 
 
+def attempt_limit_message(attempt, revision_attempts, task, team, *, attempts=None, chain_state=None):
+    """Tournament quota for one wall stage. None means the stage still has tries."""
+    validation = task.get_wall().validate_max_attempts(
+        attempts, attempt, current_state=chain_state,
+    )
+    if validation is None:
+        return None
+    stage, _n_attempts, max_attempts = validation
+    return 'Team {} exceeds attempts limit ({}) in wall task {} on stage {}'.format(
+        team, max_attempts, task, stage,
+    )
+
+
+def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt=None):
+    return same_text_verdict(attempt_text, other_text, other_attempt)
+
+
 class WallPuzzle(Puzzle):
     task_type = 'wall'
+    checker_id = None
 
     parse_move = staticmethod(parse_move)
+    attempt_limit_message = staticmethod(attempt_limit_message)
+    blocks_duplicate = staticmethod(blocks_duplicate)

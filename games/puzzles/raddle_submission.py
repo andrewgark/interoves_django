@@ -99,7 +99,7 @@ def posted_word_index(post, default=-1):
         return default
 
 
-def attempt_limit_message(attempt, revision_attempts, task, team):
+def attempt_limit_message(attempt, revision_attempts, task, team, *, attempts=None, chain_state=None):
     """Tournament quota for one ladder word. None means the word still has tries."""
     return json_field_quota(
         attempt, revision_attempts, task, team,
