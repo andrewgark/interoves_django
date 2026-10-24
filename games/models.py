@@ -2532,18 +2532,11 @@ class Attempt(models.Model):
     def get_answer(self):
         if self.task is None:
             return 'DELETED'
-        if self.task.task_type == 'replacements_lines':
-            from games.replacements_lines import task_replacements_canonical_answer_row
-
-            try:
-                payload = json.loads(self.text)
-                line_idx = int(payload.get('line_index', -1))
-            except (ValueError, TypeError):
-                return self.task.answer or ''
-            row = task_replacements_canonical_answer_row(self.task, line_idx)
-            if row is None:
-                return '—'
-            return ' | '.join(str(c) for c in row)
+        from games.puzzles import get_puzzle
+        puzzle = get_puzzle(self.task.task_type)
+        reader = getattr(puzzle, 'attempt_answer', None) if puzzle is not None else None
+        if reader is not None:
+            return reader(self)
         if self.task.task_type == 'raddle':
             try:
                 payload = json.loads(self.text)
@@ -2576,21 +2569,13 @@ class Attempt(models.Model):
     def get_pretty_text(self):
         if self.task is None:
             return 'DELETED TASK'
+        from games.puzzles import get_puzzle
+        puzzle = get_puzzle(self.task.task_type)
+        reader = getattr(puzzle, 'pretty_text', None) if puzzle is not None else None
+        if reader is not None:
+            return reader(self)
         if self.task.task_type in ('default', 'with_tag', 'text_with_forms', 'autohint', 'proportions'):
             return self.text
-        if self.task.task_type == 'replacements_lines':
-            try:
-                p = json.loads(self.text)
-                line_idx = int(p.get('line_index', -1))
-                answers = p.get('answers', [])
-                if not isinstance(answers, list):
-                    answers = []
-                shown = ' | '.join(str(a) for a in answers)
-                if line_idx >= 0:
-                    return 'Строка {}: {}'.format(line_idx + 1, shown)
-                return shown or self.text
-            except (ValueError, TypeError):
-                return self.text
         if self.task.task_type == 'raddle':
             try:
                 p = json.loads(self.text)

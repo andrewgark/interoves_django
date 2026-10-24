@@ -93,6 +93,36 @@ def is_complete(task, state_raw):
         return False
 
 
+def attempt_answer(attempt):
+    """Canonical answer row for the submitted replacements line."""
+    from games.replacements_lines import task_replacements_canonical_answer_row
+    try:
+        payload = json.loads(attempt.text)
+        line_idx = int(payload.get('line_index', -1))
+    except (ValueError, TypeError):
+        return attempt.task.answer or ''
+    row = task_replacements_canonical_answer_row(attempt.task, line_idx)
+    if row is None:
+        return '—'
+    return ' | '.join(str(c) for c in row)
+
+
+def pretty_text(attempt):
+    """List label for a replacements line."""
+    try:
+        payload = json.loads(attempt.text)
+        line_idx = int(payload.get('line_index', -1))
+        answers = payload.get('answers', [])
+        if not isinstance(answers, list):
+            answers = []
+        shown = ' | '.join(str(answer) for answer in answers)
+        if line_idx >= 0:
+            return 'Строка {}: {}'.format(line_idx + 1, shown)
+        return shown or attempt.text
+    except (ValueError, TypeError):
+        return attempt.text
+
+
 def results_max_points(task, m):
     """Green-cell maximum: answer rows times the task multiplier."""
     n = task.replacements_answer_rows
@@ -113,4 +143,6 @@ class ReplacementsPuzzle(Puzzle):
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
     is_complete = staticmethod(is_complete)
+    attempt_answer = staticmethod(attempt_answer)
+    pretty_text = staticmethod(pretty_text)
     results_max_points = staticmethod(results_max_points)
