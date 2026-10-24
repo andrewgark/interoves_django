@@ -47,6 +47,7 @@ from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.puzzles import get_puzzle
 from games.puzzles.alphabetty import AlphabettyMoveRefusal, AlphabettyPuzzle
+from games.puzzles.html_forms import HtmlFormsMoveRefusal, HtmlFormsPuzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.replacements import ReplacementsMoveRefusal, ReplacementsPuzzle
 from games.puzzles.wall import WallMoveRefusal, WallPuzzle
@@ -494,13 +495,10 @@ def process_send_attempt(request, task_id):
             return {'status': move.status}
         attempt = Attempt(text=move.text)
     elif task.task_type == 'html_forms':
-        form_key = str(request.POST.get('form_key') or '').strip()
-        answer_text = (request.POST.get('text') or '').strip()
-        if not form_key:
-            return {'status': 'invalid_form'}
-        if not answer_text:
-            return {'status': 'empty'}
-        attempt = Attempt(text=json.dumps({'form_key': form_key, 'text': answer_text}, ensure_ascii=False))
+        move = HtmlFormsPuzzle.parse_move(request.POST)
+        if isinstance(move, HtmlFormsMoveRefusal):
+            return {'status': move.status}
+        attempt = Attempt(text=move.text)
     elif task.task_type == 'raddle':
         move = RaddlePuzzle.parse_move(request.POST)
         if isinstance(move, RaddleMoveRefusal):

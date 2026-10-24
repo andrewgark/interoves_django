@@ -2,6 +2,7 @@
 
 from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.censorly import CensorlyPuzzle
+from games.puzzles.html_forms import HtmlFormsPuzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.replacements import ReplacementsPuzzle
 from games.puzzles.wall import WallPuzzle
@@ -24,6 +25,6 @@ def get_puzzle(task_type):
 
 
 __all__ = [
-    'AlphabettyPuzzle', 'CensorlyPuzzle', 'RaddlePuzzle', 'ReplacementsPuzzle',
-    'WallPuzzle', 'WordSaladPuzzle', 'get_puzzle',
+    'AlphabettyPuzzle', 'CensorlyPuzzle', 'HtmlFormsPuzzle', 'RaddlePuzzle',
+    'ReplacementsPuzzle', 'WallPuzzle', 'WordSaladPuzzle', 'get_puzzle',
 ]
