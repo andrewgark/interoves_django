@@ -89,6 +89,13 @@ def pretty_text(attempt):
         return attempt.text
 
 
+def state_summary(state):
+    """Admin one-line summary of a raddle chain."""
+    solved = len(state.get('solved_indices', []))
+    total = state.get('total', '?')
+    return '{} words solved ({} pts)'.format(solved, total)
+
+
 def build_raddle_board_data(
     *,
     game,
@@ -227,3 +234,4 @@ class RaddlePuzzle(Puzzle):
     is_complete = staticmethod(is_complete)
     attempt_answer = staticmethod(attempt_answer)
     pretty_text = staticmethod(pretty_text)
+    state_summary = staticmethod(state_summary)
