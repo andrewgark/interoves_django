@@ -1,5 +1,6 @@
 """Салатик: board payload and the fields of one submitted path or hint."""
 
+import json
 from types import SimpleNamespace
 
 from games.daily.share import get_daily_share_adapter
@@ -164,6 +165,38 @@ def scale_points(task, raw_points):
     return Decimal(str(raw_points or 0))
 
 
+def pretty_text(attempt):
+    """List label for a salad path or hint."""
+    try:
+        payload = json.loads(attempt.text)
+        action = (payload.get('action') or 'solve').strip().lower()
+        if action == 'hint':
+            idx = int(payload.get('word_index', -1))
+            if idx >= 0:
+                return 'Подсказка слова {}'.format(idx + 1)
+            return 'Подсказка'
+        path = payload.get('path') or []
+        if not isinstance(path, list):
+            return attempt.text
+        try:
+            path = [int(value) for value in path]
+        except (TypeError, ValueError):
+            return attempt.text
+        letters = ''
+        try:
+            grid, _words = parse_task_data(attempt.task.checker_data, attempt.task.answer or '')
+            letters = ''.join(grid[i] for i in path if 0 <= i < len(grid))
+        except Exception:
+            letters = ''
+        if letters:
+            return letters
+        if path:
+            return 'Путь: {}'.format('-'.join(str(i) for i in path))
+        return attempt.text
+    except (ValueError, TypeError, AttributeError):
+        return attempt.text
+
+
 def results_max_points(task, m):
     """Green-cell maximum: the word count. The task multiplier is not applied."""
     del m
@@ -194,4 +227,5 @@ class WordSaladPuzzle(Puzzle):
     clean_checker_data = staticmethod(clean_checker_data)
     scale_points = staticmethod(scale_points)
     is_complete = staticmethod(is_complete)
+    pretty_text = staticmethod(pretty_text)
     results_max_points = staticmethod(results_max_points)

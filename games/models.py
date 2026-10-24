@@ -2555,36 +2555,6 @@ class Attempt(models.Model):
             return self.text
         if self.task.task_type == 'alphabetty':
             return self.text
-        if self.task.task_type == 'word_salad':
-            try:
-                payload = json.loads(self.text)
-                action = (payload.get('action') or 'solve').strip().lower()
-                if action == 'hint':
-                    idx = int(payload.get('word_index', -1))
-                    if idx >= 0:
-                        return 'Подсказка слова {}'.format(idx + 1)
-                    return 'Подсказка'
-                path = payload.get('path') or []
-                if not isinstance(path, list):
-                    return self.text
-                try:
-                    path = [int(value) for value in path]
-                except (TypeError, ValueError):
-                    return self.text
-                letters = ''
-                try:
-                    from games.word_salad import parse_task_data
-                    grid, _words = parse_task_data(self.task.checker_data, self.task.answer or '')
-                    letters = ''.join(grid[i] for i in path if 0 <= i < len(grid))
-                except Exception:
-                    letters = ''
-                if letters:
-                    return letters
-                if path:
-                    return 'Путь: {}'.format('-'.join(str(i) for i in path))
-                return self.text
-            except (ValueError, TypeError, AttributeError):
-                return self.text
         if self.task.task_type == 'grid-puzzle':
             try:
                 payload = json.loads(self.text)
