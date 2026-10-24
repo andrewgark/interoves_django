@@ -28,8 +28,6 @@ from games.auth_observability import record_gameplay_attempt_created
 from games.censorly.play import (
     CENSORLY_HINT_PENALTY,
     _actor_filters,
-    apply_guess,
-    apply_hint,
     attach_solve_meta,
     get_play_state,
     get_task_for_number,
@@ -38,6 +36,7 @@ from games.censorly.play import (
     load_state,
     ru_hint_word,
 )
+from games.puzzles.censorly import CensorlyMoveRefusal, CensorlyPuzzle
 from games.censorly.pool_admin import taxonomy as censorly_taxonomy
 from games.censorly import word_reports as censorly_word_reports
 from games.censorly_daily import (
@@ -1213,8 +1212,11 @@ def censorly_guess(request, number=None, share_hash=None):
     move, refused = _start_move(request, number, share_hash)
     if refused is not None:
         return refused
-    word = move.body.get('word') or move.body.get('guess') or request.POST.get('word') or ''
-    return _run_move(move, 'apply_guess', lambda **kwargs: apply_guess(word=word, **kwargs))
+    word_source = (move.body, request.POST)
+    return _run_move(
+        move, 'apply_guess',
+        lambda **kwargs: CensorlyPuzzle.apply_posted_guess(*word_source, **kwargs),
+    )
 
 
 @require_POST
@@ -1222,8 +1224,10 @@ def censorly_hint(request, number=None, share_hash=None):
     move, refused = _start_move(request, number, share_hash)
     if refused is not None:
         return refused
-    try:
-        token_id = int(move.body.get('token_id'))
-    except (TypeError, ValueError):
-        return JsonResponse({'status': 'error', 'error': 'Укажите token_id'}, status=400)
-    return _run_move(move, 'apply_hint', lambda **kwargs: apply_hint(token_id=token_id, **kwargs))
+    prepared = CensorlyPuzzle.posted_hint_token(move.body)
+    if isinstance(prepared, CensorlyMoveRefusal):
+        return JsonResponse({'status': 'error', 'error': prepared.error}, status=400)
+    return _run_move(
+        move, 'apply_hint',
+        lambda **kwargs: CensorlyPuzzle.apply_posted_hint(move.body, **kwargs),
+    )

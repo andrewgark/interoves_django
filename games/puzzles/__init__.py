@@ -1,6 +1,7 @@
 """Task-type behavior. One subclass per puzzle; shared daily lifecycle stays in games.daily."""
 
 from games.puzzles.alphabetty import AlphabettyPuzzle
+from games.puzzles.censorly import CensorlyPuzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.word_salad import WordSaladPuzzle
 
@@ -20,4 +21,4 @@ def get_puzzle(task_type):
     return _BY_TASK_TYPE.get(str(task_type))
 
 
-__all__ = ['AlphabettyPuzzle', 'RaddlePuzzle', 'WordSaladPuzzle', 'get_puzzle']
+__all__ = ['AlphabettyPuzzle', 'CensorlyPuzzle', 'RaddlePuzzle', 'WordSaladPuzzle', 'get_puzzle']
