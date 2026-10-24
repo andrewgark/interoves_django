@@ -118,7 +118,8 @@ def process_send_hint_attempt(request, task_id):
     anon_key = resolved.anon_key
 
     if task.task_type == 'autohint':
-        raise InvalidFormException('Hints in this task can only be taken by answer submit')
+        from games.puzzles.autohint import AutohintPuzzle
+        raise InvalidFormException(AutohintPuzzle.manual_hint_message())
 
     context_error = validate_gameplay_context(
         request, task=task, game=game, team=team, user=user, anon_key=anon_key,

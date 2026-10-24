@@ -518,21 +518,23 @@ def process_send_attempt(request, task_id):
                 actor_kind=request.interoves_gameplay_actor_kind,
             )
 
-    if attempt_persisted and task.task_type == 'autohint' and attempt.status in ('Pending', 'Wrong'):
-        with timing_phase(request, 'autohint'):
-            hint = get_first_new_hint_actor(
-                task, team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
-            )
-            if hint is not None:
-                from games.views.hint_views import create_hint_attempt
-                create_hint_attempt(
-                    hint, team=team, user=user, anon_key=anon_key,
-                    game=game, replay_slot=replay_slot,
-                    requested_by_profile=(
-                        request.user.profile
-                        if request.user.is_authenticated and has_profile(request.user) else None
-                    ),
+    if attempt_persisted and task.task_type == 'autohint':
+        from games.puzzles.autohint import AutohintPuzzle
+        if AutohintPuzzle.opens_on_wrong(attempt):
+            with timing_phase(request, 'autohint'):
+                hint = get_first_new_hint_actor(
+                    task, team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
                 )
+                if hint is not None:
+                    from games.views.hint_views import create_hint_attempt
+                    create_hint_attempt(
+                        hint, team=team, user=user, anon_key=anon_key,
+                        game=game, replay_slot=replay_slot,
+                        requested_by_profile=(
+                            request.user.profile
+                            if request.user.is_authenticated and has_profile(request.user) else None
+                        ),
+                    )
 
     analytics_events = []
     daily_timing = None
