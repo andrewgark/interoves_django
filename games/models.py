@@ -6,7 +6,6 @@ import os
 import re
 
 from django.contrib.auth.models import User
-from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator, RegexValidator
 from django.db import models, transaction
 from django.db.models import F
@@ -1693,22 +1692,13 @@ class Task(models.Model):
     def clean(self):
         from games.puzzles import get_puzzle
         puzzle = get_puzzle(self.task_type)
+        if puzzle is None and self.task_type == 'grid-puzzle':
+            from games.puzzles.grid import GridPuzzle
+            puzzle = GridPuzzle
         cleaner = getattr(puzzle, 'clean_checker_data', None) if puzzle is not None else None
         if cleaner is not None:
             cleaner(self)
             return
-        if self.task_type == 'grid-puzzle':
-            from games.grid_puzzle import (
-                GridPuzzleDataError,
-                grid_checker_id,
-                parse_grid_puzzle_data,
-                validate_grid_checker_data,
-            )
-            try:
-                parsed = parse_grid_puzzle_data(self.checker_data)
-                validate_grid_checker_data(parsed, grid_checker_id(self))
-            except GridPuzzleDataError as exc:
-                raise ValidationError({'checker_data': str(exc)})
 
     def get_checker(self):
         if self.checker:

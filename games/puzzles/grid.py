@@ -42,7 +42,18 @@ def parse_move(post, task):
     return TextMove(json.dumps(attempt_payload, separators=(',', ':')))
 
 
+def clean_checker_data(task):
+    """Reject a grid payload the checker would refuse."""
+    from django.core.exceptions import ValidationError
+    try:
+        parsed = parse_grid_puzzle_data(task.checker_data)
+        validate_grid_checker_data(parsed, grid_checker_id(task))
+    except GridPuzzleDataError as exc:
+        raise ValidationError({'checker_data': str(exc)})
+
+
 class GridPuzzle(Puzzle):
     task_type = 'grid-puzzle'
 
     parse_move = staticmethod(parse_move)
+    clean_checker_data = staticmethod(clean_checker_data)
