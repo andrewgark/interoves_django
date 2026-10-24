@@ -17,8 +17,8 @@ from games.completion_coordinator import complete_logical_game
 from games.daily.completion import daily_completion_effects_for_game
 from games.exception import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, RaddleUiState, Task
-from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import log_gameplay_attempt_created
+from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.replay import replay_for_request, StaleReplayError, _official_exists
 from games.raddle import (
@@ -47,7 +47,7 @@ from games.middleware.request_timing import timing_phase
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.views.util import is_browser_form_submission, redirect_after_browser_submission
-from games.views.util import effective_play_mode, get_public_task_or_404, has_profile, has_team
+from games.views.util import effective_play_mode, get_public_task_or_404, has_profile
 
 
 def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None, replay_slot=None):
@@ -67,25 +67,10 @@ def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_
 def _actor_from_request(request, game):
     play_mode = _get_play_mode(request, game)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
-    team = user = anon_key = None
-    if play_mode == 'team':
-        if not request.user.is_authenticated or not has_team(request.user):
-            return None, None, None, 'no_team'
-        team = request.user.profile.team_on
-        if not game.has_access('send_attempt', team=team):
-            raise NoGameAccessException('User has no access to game {}'.format(game))
-    else:
-        if request.user.is_authenticated:
-            if not has_profile(request.user):
-                return None, None, None, 'no_profile'
-            user = request.user
-        else:
-            anon_key = gameplay_anon_key(request)
-            if not anon_key:
-                return None, None, None, 'no_anon'
-        if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
-            raise NoGameAccessException('User has no access to game {}'.format(game))
-    return team, user, anon_key, None
+    resolved = resolve_gameplay_actor(request, game, play_mode)
+    if isinstance(resolved, ActorRefusal):
+        return None, None, None, resolved.status
+    return resolved.team, resolved.user, resolved.anon_key, None
 
 
 def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, word_index, current_mode, replay_slot=None):

@@ -11,8 +11,8 @@ from games.exception import (
     NoGameAccessException,
 )
 from games.analytics import register_started_game
-from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import context_error_response, validate_gameplay_context
+from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.replay import StaleReplayError, replay_for_request
 from games.views.game_context import (
@@ -25,7 +25,6 @@ from games.views.util import (
     effective_play_mode,
     get_public_task_or_404,
     has_profile,
-    has_team,
     is_browser_form_submission,
     redirect_after_browser_submission,
 )
@@ -111,27 +110,12 @@ def process_send_hint_attempt(request, task_id):
     ):
         raise NoGameAccessException('Club subscription required for archived game')
     play_mode = _get_play_mode(request, game)
-
-    team = None
-    user = None
-    anon_key = None
-    if play_mode == 'team':
-        if not request.user.is_authenticated or not has_team(request.user):
-            return {'status': 'no_team'}
-        team = request.user.profile.team_on
-        if not game.has_access('send_attempt', team=team):
-            raise NoGameAccessException('User has no access to game {}'.format(game))
-    else:
-        if request.user.is_authenticated:
-            if not has_profile(request.user):
-                return {'status': 'no_profile'}
-            user = request.user
-        else:
-            anon_key = gameplay_anon_key(request)
-            if not anon_key:
-                return {'status': 'no_anon'}
-        if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
-            raise NoGameAccessException('User has no access to game {}'.format(game))
+    resolved = resolve_gameplay_actor(request, game, play_mode)
+    if isinstance(resolved, ActorRefusal):
+        return {'status': resolved.status}
+    team = resolved.team
+    user = resolved.user
+    anon_key = resolved.anon_key
 
     if task.task_type == 'autohint':
         raise InvalidFormException('Hints in this task can only be taken by answer submit')
