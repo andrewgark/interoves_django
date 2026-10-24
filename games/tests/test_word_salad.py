@@ -755,6 +755,7 @@ class WordSaladTests(TestCase):
             ['game_start', 'game_complete'],
         )
         self.assertEqual(repeated.json()['status'], 'duplicate')
+        self.assertEqual(repeated.json()['attempt_id'], Attempt.manager.get(task=self.task).id)
         self.assertNotIn('analytics_events', repeated.json())
         self.assertEqual(PlayerStartedGame.objects.filter(anon_key=anon_key).count(), 1)
         self.assertEqual(PlayerCompletedGame.objects.filter(anon_key=anon_key).count(), 1)

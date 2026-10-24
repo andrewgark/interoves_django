@@ -4,10 +4,12 @@ from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.word_salad import WordSaladPuzzle
 
-# Only puzzles that own attempt-limit and duplicate checks. Salad still uses
-# the generic text duplicate, which records the previous attempt id.
+# Puzzles that own attempt-limit and duplicate checks. A duplicate is one of
+# three answers: not a duplicate, a duplicate without an attempt id, or a
+# duplicate that names the previous attempt.
 _BY_TASK_TYPE = {
     RaddlePuzzle.task_type: RaddlePuzzle,
+    WordSaladPuzzle.task_type: WordSaladPuzzle,
 }
 
 

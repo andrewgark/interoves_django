@@ -4,6 +4,8 @@ from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
 from games.puzzles.base import Puzzle
 from games.puzzles.word_salad_submission import (
+    attempt_limit_message,
+    blocks_duplicate,
     include_task_html,
     parse_move,
     write_move_result,
@@ -105,12 +107,15 @@ def prepare_word_salad_board_data(
 
 
 class WordSaladPuzzle(Puzzle):
-    """Board and response contract. Duplicate checks stay generic until this class owns them."""
+    """Board, response contract, and text duplicates that name the previous attempt."""
 
     task_type = 'word_salad'
+    checker_id = None
 
     build_board = staticmethod(build_word_salad_board_data)
     prepare_board = staticmethod(prepare_word_salad_board_data)
     parse_move = staticmethod(parse_move)
+    attempt_limit_message = staticmethod(attempt_limit_message)
+    blocks_duplicate = staticmethod(blocks_duplicate)
     write_move_result = staticmethod(write_move_result)
     include_task_html = staticmethod(include_task_html)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from games.puzzles.duplicate import DuplicateVerdict
 from games.word_salad import (
     EXTRA_FOUND_COMMENT,
     RARE_FOUND_COMMENT,
@@ -71,6 +72,18 @@ def parse_move(post):
         json.dumps({'action': 'solve', 'path': path}),
         True,
     )
+
+
+def attempt_limit_message(attempt, revision_attempts, task, team):
+    """Salad has no tournament quota. Hints are limited by the word itself."""
+    return None
+
+
+def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt=None):
+    """Same posted text is a duplicate, and the previous attempt id stays on it."""
+    if attempt_text != other_text:
+        return DuplicateVerdict(False)
+    return DuplicateVerdict(True, getattr(other_attempt, 'id', None))
 
 
 def write_move_result(result, task, attempt, *, attempt_persisted, user, anon_key):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
+from games.puzzles.duplicate import DuplicateVerdict
 from games.raddle import (
     load_raddle_state,
     merge_raddle_ui_payload,
@@ -121,13 +122,15 @@ def attempt_limit_message(attempt, revision_attempts, task, team):
 
 
 def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt=None):
-    return raddle_blocks_as_duplicate(
+    if not raddle_blocks_as_duplicate(
         attempt_text,
         other_text,
         task=task,
         state_raw=state_raw,
         other_attempt=other_attempt,
-    )
+    ):
+        return DuplicateVerdict(False)
+    return DuplicateVerdict(True)
 
 
 def chain_state(task, team, user, anon_key, game, current_mode, replay_slot=None):

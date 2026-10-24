@@ -240,10 +240,6 @@ def check_attempt(
                     )
                     if message:
                         raise TooManyAttemptsException(message)
-                elif task.task_type == 'word_salad':
-                    # Support creates salads with max_attempts=None: wrong paths are
-                    # not persisted, and hints are limited by the word, not a quota.
-                    pass
                 else:
                     n_attempts = len(revision_attempts)
                     max_attempts = task.get_max_attempts()
@@ -252,14 +248,18 @@ def check_attempt(
 
             for other_attempt in revision_attempts:
                 if puzzle is not None:
-                    if puzzle.blocks_duplicate(
+                    verdict = puzzle.blocks_duplicate(
                         attempt.text, other_attempt.text,
                         task=task, state_raw=last_attempt_state,
                         other_attempt=other_attempt,
-                    ):
-                        raise DuplicateAttemptException(
+                    )
+                    if verdict.blocked:
+                        exc = DuplicateAttemptException(
                             'Attempt duplicates one of the previous attempts by this team'
                         )
+                        if verdict.attempt_id is not None:
+                            exc.attempt_id = verdict.attempt_id
+                        raise exc
                 elif attempt.text == other_attempt.text:
                     exc = DuplicateAttemptException(
                         'Attempt duplicates one of the previous attempts by this team'

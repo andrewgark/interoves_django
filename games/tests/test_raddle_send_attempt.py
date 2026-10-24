@@ -220,6 +220,7 @@ class RaddleSendAttemptTests(TestCase):
         self.assertEqual(second.status_code, 200)
         data = second.json()
         self.assertEqual(data['status'], 'duplicate')
+        self.assertNotIn('attempt_id', data)
         self.assertFalse(data['raddle_duplicate_solved'])
         self.assertEqual(data['raddle_word_index'], 1)
         self.assertNotIn('update_task_html_new', data)
