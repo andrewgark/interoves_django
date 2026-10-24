@@ -85,3 +85,23 @@ class WordSaladAttemptAdvancedTests(SimpleTestCase):
         self.assertTrue(WordSaladPuzzle.attempt_advanced(grew, json.dumps({'solved_indices': [0]})))
         self.assertFalse(WordSaladPuzzle.attempt_advanced(same, json.dumps({'solved_indices': [0]})))
         self.assertFalse(WordSaladPuzzle.attempt_advanced(broken, '{'))
+
+
+class WordSaladResultAttemptTests(SimpleTestCase):
+    def test_the_row_shows_the_latest_attempt_when_an_earlier_one_scored_more(self):
+        from games.models import AttemptsInfo
+        task = SimpleNamespace(task_type='word_salad')
+        latest = SimpleNamespace(task=task, id='latest')
+        earlier = SimpleNamespace(task=task, id='earlier')
+        info = SimpleNamespace(last_attempt=latest, best_attempt=earlier)
+
+        self.assertIs(AttemptsInfo.get_result_attempt(info), latest)
+
+    def test_another_puzzle_shows_the_best_attempt(self):
+        from games.models import AttemptsInfo
+        task = SimpleNamespace(task_type='default')
+        latest = SimpleNamespace(task=task, id='latest')
+        earlier = SimpleNamespace(task=task, id='earlier')
+        info = SimpleNamespace(last_attempt=latest, best_attempt=earlier)
+
+        self.assertIs(AttemptsInfo.get_result_attempt(info), earlier)

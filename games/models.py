@@ -1815,9 +1815,14 @@ class AttemptsInfo:
         return max(0, result_points - self.get_sum_hint_penalty())
 
     def get_result_attempt(self):
+        from games.puzzles import get_puzzle
         sample = self.last_attempt or self.best_attempt
-        if sample is not None and getattr(getattr(sample, 'task', None), 'task_type', None) == 'word_salad':
-            return self.last_attempt
+        puzzle = None
+        if sample is not None:
+            puzzle = get_puzzle(getattr(getattr(sample, 'task', None), 'task_type', None))
+        reader = getattr(puzzle, 'result_attempt', None) if puzzle is not None else None
+        if reader is not None:
+            return reader(self)
         return self.best_attempt
 
     def get_hint_numbers(self):

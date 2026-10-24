@@ -427,6 +427,7 @@ class WordSaladTests(TestCase):
         info = Attempt.manager.get_attempts_info(self.team, self.task, game=self.game)
         self.assertEqual(solve.points, 0.5)
         self.assertEqual(info.get_result_points(), 0.5)
+        self.assertEqual(info.get_result_attempt().pk, solve.pk)
         self.assertEqual(info.get_hint_numbers(), ['1.1'])
         from games.views.new_ui import _new_results_compute
         results = _new_results_compute(self.game, mode='general')

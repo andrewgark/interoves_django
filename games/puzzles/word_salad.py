@@ -274,6 +274,11 @@ def result_points(info):
     return result_points_from_attempts(info.attempts)
 
 
+def result_attempt(info):
+    """The salad row shows the latest attempt, even when an earlier one scored more."""
+    return info.last_attempt
+
+
 def write_response(response):
     """Copy the salad verdict onto the JSON body. The view still owns HTML."""
     return write_move_result(
@@ -303,6 +308,7 @@ class WordSaladPuzzle(Puzzle):
     write_move_result = staticmethod(write_move_result)
     write_response = staticmethod(write_response)
     result_points = staticmethod(result_points)
+    result_attempt = staticmethod(result_attempt)
     include_task_html = staticmethod(include_task_html)
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
