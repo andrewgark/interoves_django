@@ -77,3 +77,14 @@ class RaddleMoveTests(SimpleTestCase):
 
         self.assertFalse(result['raddle_correct'])
         self.assertTrue(result['raddle_needs_sync'])
+
+
+class RaddleAttemptAdvancedTests(SimpleTestCase):
+    def test_a_new_solved_index_advances_and_a_repeat_or_bad_json_does_not(self):
+        grew = SimpleNamespace(state=json.dumps({'solved_indices': [0, 1]}))
+        same = SimpleNamespace(state=json.dumps({'solved_indices': [0]}))
+        broken = SimpleNamespace(state='{')
+
+        self.assertTrue(RaddlePuzzle.attempt_advanced(grew, json.dumps({'solved_indices': [0]})))
+        self.assertFalse(RaddlePuzzle.attempt_advanced(same, json.dumps({'solved_indices': [0]})))
+        self.assertFalse(RaddlePuzzle.attempt_advanced(broken, '{'))

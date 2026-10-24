@@ -63,6 +63,19 @@ def is_complete(task, state_raw):
         return False
 
 
+def attempt_advanced(attempt, last_state):
+    """True when this answer added a solved ladder word. Bad JSON does not count."""
+    try:
+        before = json.loads(last_state or '{}')
+        after = json.loads(getattr(attempt, 'state', None) or '{}')
+    except (TypeError, ValueError):
+        return False
+    return bool(
+        set(after.get('solved_indices') or [])
+        - set(before.get('solved_indices') or [])
+    )
+
+
 def attempt_answer(attempt):
     """The ladder word the attempt was scored against."""
     try:
@@ -232,6 +245,7 @@ class RaddlePuzzle(Puzzle):
     results_max_points = staticmethod(results_max_points)
     submission_opened = staticmethod(submission_opened)
     is_complete = staticmethod(is_complete)
+    attempt_advanced = staticmethod(attempt_advanced)
     attempt_answer = staticmethod(attempt_answer)
     pretty_text = staticmethod(pretty_text)
     state_summary = staticmethod(state_summary)
