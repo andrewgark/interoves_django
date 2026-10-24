@@ -2418,11 +2418,6 @@ class ChainTaskState(models.Model):
                 guesses = len(s.get('guesses') or [])
                 won = 'won' if s.get('won') else 'playing'
                 return '{} guesses ({})'.format(guesses, won)
-            if task and task.task_type == 'wall':
-                pts = s.get('best_points', 0)
-                stage = s.get('last_attempt', {}).get('stage', '?')
-                guessed = len(s.get('guessed_words', []))
-                return 'stage={}, pts={}, guessed={} cats'.format(stage, pts, guessed)
         except Exception:
             pass
         return (self.state or '')[:100]

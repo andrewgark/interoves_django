@@ -76,6 +76,14 @@ def pretty_text(attempt):
         return attempt.text
 
 
+def state_summary(state):
+    """Admin one-line summary of a wall chain."""
+    pts = state.get('best_points', 0)
+    stage = state.get('last_attempt', {}).get('stage', '?')
+    guessed = len(state.get('guessed_words', []))
+    return 'stage={}, pts={}, guessed={} cats'.format(stage, pts, guessed)
+
+
 def results_max_points(task, m):
     """Green-cell maximum: the wall's own scale times the task multiplier."""
     try:
@@ -96,4 +104,5 @@ class WallPuzzle(Puzzle):
     blocks_duplicate = staticmethod(blocks_duplicate)
     progress_signature = staticmethod(progress_signature)
     pretty_text = staticmethod(pretty_text)
+    state_summary = staticmethod(state_summary)
     results_max_points = staticmethod(results_max_points)
