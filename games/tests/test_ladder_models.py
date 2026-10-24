@@ -1,8 +1,9 @@
 from django.test import SimpleTestCase
 
+from games.alphabetty.models import AlphabettyOffer as AlphabettyOfferPackage
 from games.ladder.models import LadderOffer as LadderOfferPackage
 from games.ladder.models import RaddleUiState as RaddleUiStatePackage
-from games.models import LadderOffer, RaddleUiState
+from games.models import AlphabettyOffer, LadderOffer, RaddleUiState
 
 
 class LadderModelLocationTests(SimpleTestCase):
@@ -13,3 +14,8 @@ class LadderModelLocationTests(SimpleTestCase):
         self.assertEqual(RaddleUiState._meta.app_label, 'games')
         self.assertEqual(LadderOffer._meta.db_table, 'games_ladderoffer')
         self.assertEqual(RaddleUiState._meta.db_table, 'games_raddleuistate')
+
+    def test_alphabetty_offer_keeps_the_games_table(self):
+        self.assertIs(AlphabettyOffer, AlphabettyOfferPackage)
+        self.assertEqual(AlphabettyOffer._meta.app_label, 'games')
+        self.assertEqual(AlphabettyOffer._meta.db_table, 'games_alphabettyoffer')
