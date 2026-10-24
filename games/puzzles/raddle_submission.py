@@ -6,6 +6,7 @@ import json
 from dataclasses import dataclass
 
 from games.puzzles.duplicate import DuplicateVerdict
+from games.puzzles.quota import json_field_quota
 from games.raddle import (
     load_raddle_state,
     merge_raddle_ui_payload,
@@ -100,25 +101,10 @@ def posted_word_index(post, default=-1):
 
 def attempt_limit_message(attempt, revision_attempts, task, team):
     """Tournament quota for one ladder word. None means the word still has tries."""
-    try:
-        current_payload = json.loads(attempt.text)
-        current_word = int(current_payload.get('word_index', -1))
-    except (ValueError, TypeError):
-        current_word = -1
-    n_attempts_this_word = 0
-    for previous in revision_attempts:
-        try:
-            payload = json.loads(previous.text)
-            if int(payload.get('word_index', -1)) == current_word:
-                n_attempts_this_word += 1
-        except (ValueError, TypeError):
-            pass
-    max_attempts = task.get_max_attempts()
-    if n_attempts_this_word >= max_attempts:
-        return 'Team {} exceeds attempts limit ({}) in task {} for word {}'.format(
-            team, max_attempts, task, current_word + 1,
-        )
-    return None
+    return json_field_quota(
+        attempt, revision_attempts, task, team,
+        field='word_index', label='word',
+    )
 
 
 def blocks_duplicate(attempt_text, other_text, *, task, state_raw, other_attempt=None):
