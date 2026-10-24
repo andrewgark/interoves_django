@@ -2548,6 +2548,9 @@ class Attempt(models.Model):
             return 'DELETED TASK'
         from games.puzzles import get_puzzle
         puzzle = get_puzzle(self.task.task_type)
+        if puzzle is None and self.task.task_type == 'grid-puzzle':
+            from games.puzzles.grid import GridPuzzle
+            puzzle = GridPuzzle
         reader = getattr(puzzle, 'pretty_text', None) if puzzle is not None else None
         if reader is not None:
             return reader(self)
@@ -2555,16 +2558,6 @@ class Attempt(models.Model):
             return self.text
         if self.task.task_type == 'alphabetty':
             return self.text
-        if self.task.task_type == 'grid-puzzle':
-            try:
-                payload = json.loads(self.text)
-                if 'shading' in payload:
-                    joined = ''.join(payload.get('shading') or [])
-                    return '{} black, {} green cells'.format(joined.count('B'), joined.count('G'))
-                walls = payload.get('walls', [])
-                return '{} {}'.format(len(walls), 'wall' if len(walls) == 1 else 'walls')
-            except (TypeError, ValueError, AttributeError):
-                return self.text
         if self.task.task_type == 'distribute_to_teams':
             try:
                 g = self.game_id and self.game or GameTaskGroup.resolve_game_for_task(self.task)

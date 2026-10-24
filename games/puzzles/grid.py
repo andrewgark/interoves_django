@@ -52,8 +52,22 @@ def clean_checker_data(task):
         raise ValidationError({'checker_data': str(exc)})
 
 
+def pretty_text(attempt):
+    """List label for a grid walls or shading attempt."""
+    try:
+        payload = json.loads(attempt.text)
+        if 'shading' in payload:
+            joined = ''.join(payload.get('shading') or [])
+            return '{} black, {} green cells'.format(joined.count('B'), joined.count('G'))
+        walls = payload.get('walls', [])
+        return '{} {}'.format(len(walls), 'wall' if len(walls) == 1 else 'walls')
+    except (TypeError, ValueError, AttributeError):
+        return attempt.text
+
+
 class GridPuzzle(Puzzle):
     task_type = 'grid-puzzle'
 
     parse_move = staticmethod(parse_move)
     clean_checker_data = staticmethod(clean_checker_data)
+    pretty_text = staticmethod(pretty_text)
