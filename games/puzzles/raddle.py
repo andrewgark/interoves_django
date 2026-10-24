@@ -3,6 +3,7 @@
 from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
 from games.puzzles.base import Puzzle
+from games.puzzles.raddle_board import load_ladder_board
 from games.puzzles.raddle_submission import (
     accept_ui_draft,
     assist_block,
@@ -90,13 +91,30 @@ def prepare_raddle_board_data(
     parsed = parse_raddle_data(task)
     if not parsed:
         return None
+    if attempts_info is None:
+        preloaded_attempts = None
+        preloaded_hints = None
+    else:
+        preloaded_attempts = attempts_info.attempts
+        preloaded_hints = attempts_info.hint_attempts
+    board = load_ladder_board(
+        game=game,
+        task=task,
+        team=team,
+        user=user,
+        anon_key=anon_key,
+        mode=mode,
+        replay_slot=replay_slot,
+        attempts=preloaded_attempts,
+        hint_attempts=preloaded_hints,
+    )
     state = latest_daily_state(
         task,
         game,
         attempts_info,
         default_state=load_raddle_state(None, parsed['n_words']),
         decode_state=lambda raw: load_raddle_state(raw, parsed['n_words']),
-        resolve_chain_state=resolve_chain_state,
+        resolve_chain_state=lambda task, game, **kwargs: board.chain,
         chain_state_kwargs={
             'team': team,
             'user': user,
@@ -111,18 +129,10 @@ def prepare_raddle_board_data(
         placement=placement,
         parsed=parsed,
         state=state,
-        attempts=(attempts_info.attempts if attempts_info else []),
-        hint_attempts=(attempts_info.hint_attempts if attempts_info else []),
+        attempts=board.attempts,
+        hint_attempts=board.hint_attempts,
         mode=mode,
-        ui_state=raddle_ui_state_for_actor(
-            game,
-            task,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            mode=mode,
-            replay_slot=replay_slot,
-        ),
+        ui_state=board.ui_state,
         share_title=share_title,
         user=user,
         anon_key=anon_key,
@@ -136,6 +146,7 @@ class RaddlePuzzle(Puzzle):
     build_board = staticmethod(build_raddle_board_data)
     prepare_board = staticmethod(prepare_raddle_board_data)
     parse_move = staticmethod(parse_move)
+    load_board = staticmethod(load_ladder_board)
     assist_block = staticmethod(assist_block)
     accept_ui_draft = staticmethod(accept_ui_draft)
     posted_word_index = staticmethod(posted_word_index)

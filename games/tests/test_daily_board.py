@@ -172,15 +172,21 @@ class DailyBoardBuilderTests(TestCase):
         resolve_state.assert_called_once()
         build_board.assert_called_once()
 
+    @patch('games.puzzles.raddle.load_ladder_board')
     @patch('games.puzzles.raddle.build_raddle_board_data', return_value={'prepared': 'raddle'})
     @patch('games.puzzles.raddle.latest_daily_state', return_value={'state': 'raddle'})
     @patch('games.puzzles.raddle.parse_raddle_data', return_value={'n_words': 2})
     def test_raddle_adapter_pipeline_passes_ui_state_and_share_title(
-        self, parse_task, resolve_state, build_board,
+        self, parse_task, resolve_state, build_board, load_board,
     ):
         task = SimpleNamespace()
         attempts = SimpleNamespace(attempts=['attempt'], hint_attempts=['hint'])
-        ui_state = lambda *args, **kwargs: SimpleNamespace(drafts={}, clue_marks={})
+        load_board.return_value = SimpleNamespace(
+            chain=None,
+            attempts=['attempt'],
+            hint_attempts=['hint'],
+            ui_state=SimpleNamespace(drafts={}, clue_marks={}),
+        )
 
         result = get_daily_board_adapter('raddle').prepare(
             game=SimpleNamespace(id='ladder'),
@@ -193,11 +199,12 @@ class DailyBoardBuilderTests(TestCase):
             mode='general',
             replay_slot=None,
             resolve_chain_state=lambda *args, **kwargs: None,
-            raddle_ui_state_for_actor=ui_state,
+            raddle_ui_state_for_actor=lambda *args, **kwargs: None,
             share_title=None,
         )
 
         self.assertEqual(result, {'prepared': 'raddle'})
         parse_task.assert_called_once_with(task)
+        load_board.assert_called_once()
         resolve_state.assert_called_once()
         build_board.assert_called_once()
