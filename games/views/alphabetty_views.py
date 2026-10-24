@@ -16,8 +16,6 @@ from games.alphabetty.core import build_prefix_level, normalize_word
 from games.alphabetty_offer import can_access_offer_hash, get_offer_by_share_hash
 from games.alphabetty.play import (
     ALPHABETTY_HINT_PENALTY,
-    apply_guess,
-    apply_hint,
     get_play_state,
     get_task_for_number,
     hint_count,
@@ -25,6 +23,7 @@ from games.alphabetty.play import (
     load_state,
     ru_hint_word,
 )
+from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.analytics import (
     PlayerCompletedGame,
     is_task_completion_state,
@@ -748,8 +747,6 @@ def alphabetty_guess(request, number):
         body = json.loads(request.body.decode('utf-8') or '{}')
     except (ValueError, TypeError):
         body = {}
-    word = body.get('word') or request.POST.get('word') or ''
-
     user, anon_key = _resolve_actor(request, body=body)
 
     context_error = validate_gameplay_context(
@@ -772,10 +769,11 @@ def alphabetty_guess(request, number):
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
     with timing_phase(request, 'apply_guess'):
-        result = apply_guess(
+        result = AlphabettyPuzzle.apply_posted_guess(
+            body,
+            request.POST,
             game=game,
             task=task,
-            word=word,
             user=user,
             anon_key=anon_key,
             number=play_number,
@@ -913,7 +911,7 @@ def alphabetty_hint(request, number):
 
     play_number = load_meta.get('play_number') if load_meta else number
     play_path = load_meta.get('play_path') if load_meta else section_play_path(ALPHABETTY_GAME_ID, number)
-    result = apply_hint(
+    result = AlphabettyPuzzle.apply_posted_hint(
         game=game,
         task=task,
         user=user,

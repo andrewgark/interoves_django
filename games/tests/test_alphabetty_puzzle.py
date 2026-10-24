@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from django.test import SimpleTestCase
 
 from games.puzzles import get_puzzle
@@ -24,3 +26,24 @@ class AlphabettyMoveTests(SimpleTestCase):
 
     def test_parse_is_not_a_check_attempt_hook(self):
         self.assertIsNone(get_puzzle('alphabetty'))
+
+    def test_daily_word_comes_from_json_then_the_form(self):
+        self.assertEqual(AlphabettyPuzzle.posted_guess({'word': 'кот'}, {'word': 'пёс'}), 'кот')
+        self.assertEqual(AlphabettyPuzzle.posted_guess({}, {'word': 'пёс'}), 'пёс')
+        self.assertEqual(AlphabettyPuzzle.posted_guess({'word': ''}, {'word': 'пёс'}), 'пёс')
+
+    @patch('games.puzzles.alphabetty.apply_guess', return_value={'status': 'correct'})
+    def test_posted_guess_is_applied_without_rewriting_the_word(self, apply_guess):
+        result = AlphabettyPuzzle.apply_posted_guess(
+            {'word': ' Кот '}, {}, game='g', task='t',
+        )
+
+        self.assertEqual(result['status'], 'correct')
+        apply_guess.assert_called_once_with(word=' Кот ', game='g', task='t')
+
+    @patch('games.puzzles.alphabetty.apply_hint', return_value={'status': 'ok'})
+    def test_posted_hint_is_applied_with_the_play_arguments(self, apply_hint):
+        result = AlphabettyPuzzle.apply_posted_hint(game='g', replay_slot=None)
+
+        self.assertEqual(result['status'], 'ok')
+        apply_hint.assert_called_once_with(game='g', replay_slot=None)
