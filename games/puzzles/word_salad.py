@@ -17,6 +17,7 @@ from games.puzzles.word_salad_submission import (
 )
 from games.word_salad import (
     build_ui_context as build_word_salad_ui_context,
+    hint_numbers_from_attempts,
     load_state as load_word_salad_state,
     parse_task_data,
     parse_task_payload as parse_word_salad_task_payload,
@@ -279,6 +280,11 @@ def result_attempt(info):
     return info.last_attempt
 
 
+def hint_numbers(info):
+    """Hint labels from the latest salad state, in answer-list order."""
+    return hint_numbers_from_attempts(info.attempts)
+
+
 def write_response(response):
     """Copy the salad verdict onto the JSON body. The view still owns HTML."""
     return write_move_result(
@@ -309,6 +315,7 @@ class WordSaladPuzzle(Puzzle):
     write_response = staticmethod(write_response)
     result_points = staticmethod(result_points)
     result_attempt = staticmethod(result_attempt)
+    hint_numbers = staticmethod(hint_numbers)
     include_task_html = staticmethod(include_task_html)
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
