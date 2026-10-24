@@ -1763,17 +1763,6 @@ class Task(models.Model):
         score = getattr(puzzle, 'results_max_points', None) if puzzle is not None else None
         if score is not None:
             return score(self, m)
-        if self.task_type == 'word_salad':
-            try:
-                from games.word_salad import parse_task_data
-                _, words = parse_task_data(self.checker_data, '')
-                if words:
-                    return len(words)
-            except Exception:
-                pass
-            return 0
-        if self.task_type == 'alphabetty':
-            return m
         return m
 
     def get_max_attempts(self):

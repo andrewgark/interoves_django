@@ -16,6 +16,7 @@ from games.puzzles.word_salad_submission import (
 from games.word_salad import (
     build_ui_context as build_word_salad_ui_context,
     load_state as load_word_salad_state,
+    parse_task_data,
     parse_task_payload as parse_word_salad_task_payload,
 )
 
@@ -126,6 +127,18 @@ def prepare_word_salad_board_data(
     )
 
 
+def results_max_points(task, m):
+    """Green-cell maximum: the word count. The task multiplier is not applied."""
+    del m
+    try:
+        _, words = parse_task_data(task.checker_data, '')
+        if words:
+            return len(words)
+    except Exception:
+        pass
+    return 0
+
+
 class WordSaladPuzzle(Puzzle):
     """Board, response contract, and text duplicates that name the previous attempt."""
 
@@ -140,3 +153,4 @@ class WordSaladPuzzle(Puzzle):
     blocks_duplicate = staticmethod(blocks_duplicate)
     write_move_result = staticmethod(write_move_result)
     include_task_html = staticmethod(include_task_html)
+    results_max_points = staticmethod(results_max_points)
