@@ -16,7 +16,7 @@ from games.daily_section import (
     WEEK_TASK_SCHEDULE,
     WORD_SALAD_SCHEDULE,
 )
-from games.daily.section import CENSORLY_SCHEDULE
+from games.daily.page.section import CENSORLY_SCHEDULE
 from games.models import Game, GameTaskGroup, Task
 from games.telegram.game_urls import admin_url, task_admin_url
 from games.telegram.models import TelegramDailyReview

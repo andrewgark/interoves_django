@@ -70,21 +70,21 @@ from games.daily_section import (
     visible_links,
     MOSCOW,
 )
-from games.daily.authorship import is_author_auto_completion_active
+from games.daily.page.share.authorship import is_author_auto_completion_active
 from games.daily_archive import (
     MONTH_NAMES,
     build_daily_archive_items,
     refresh_daily_archive_context,
 )
 from games.daily.registry import get_daily_game
-from games.daily.page_context import (
+from games.daily.page.context import (
     build_daily_lifecycle_context,
 )
-from games.daily.board import (
+from games.daily.page.board import (
     get_daily_board_adapter,
 )
 from games.daily.results import get_daily_results_adapter
-from games.daily.placement import is_random_daily_placement
+from games.daily.page.placement import is_random_daily_placement
 from games.ladder_daily import (
     is_ladder_number_published,
     LADDER_GAME_ID,
@@ -2864,7 +2864,7 @@ def new_section_task_results_page(request, game_id, number):
     game = Game.objects.filter(project=project, id=game_id).first()
     if not game:
         raise Http404()
-    from games.daily.placement import resolve_accessible_daily_placement
+    from games.daily.page.placement import resolve_accessible_daily_placement
     play_segment = number
     placement = resolve_accessible_daily_placement(game, play_segment, user=request.user)
     if placement is None:
@@ -2895,7 +2895,7 @@ def new_game_task_results_page(request, game_id, number, project_id=None):
             return project_redirect
     game = get_object_or_404(Game, id=game_id, project_id=expected_project_id)
     if is_scheduled_game(game.id):
-        from games.daily.placement import resolve_accessible_daily_placement
+        from games.daily.page.placement import resolve_accessible_daily_placement
 
         placement = resolve_accessible_daily_placement(game, number, user=request.user)
         if placement is None:
@@ -2952,7 +2952,7 @@ def new_ladder_word_results_page(request, task_group_number):
 
     from games.ladder_offer import get_offer_by_share_hash, is_share_hash_segment
     from types import SimpleNamespace
-    from games.daily.placement import resolve_accessible_daily_placement
+    from games.daily.page.placement import resolve_accessible_daily_placement
 
     ladder_offer = None
     if is_share_hash_segment(str(task_group_number)):
@@ -3438,7 +3438,7 @@ def daily_statistics(request, game_id, number):
         raise Http404()
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
     from games.placement_share import is_share_hash_segment
-    from games.daily.placement import (
+    from games.daily.page.placement import (
         is_random_daily_placement,
         resolve_accessible_daily_placement,
     )
@@ -3468,7 +3468,7 @@ def daily_statistics(request, game_id, number):
     from games.daily_statistics import build_daily_statistics
     published_at = None
     if not segment_is_share_hash:
-        from games.daily.section import publish_at_for
+        from games.daily.page.section import publish_at_for
         published_at = publish_at_for(game, placement.number)
     payload = build_daily_statistics(
         game, placement.task_group, published_at=published_at,
@@ -3593,7 +3593,7 @@ def new_task_group_page(
         from games.placement_share import (
             is_share_hash_segment,
         )
-        from games.daily.placement import resolve_accessible_daily_placement
+        from games.daily.page.placement import resolve_accessible_daily_placement
         share_placement = None
         segment = str(task_group_number)
         if ladder_tutorial_task is not None:

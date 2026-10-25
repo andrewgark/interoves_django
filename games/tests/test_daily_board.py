@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from unittest.mock import patch
 
-from games.daily.board import (
+from games.daily.page.board import (
     DAILY_BOARD_ADAPTERS,
     build_raddle_board_data,
     build_word_salad_board_data,

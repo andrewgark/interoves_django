@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404
 
-from games.daily.page_context import daily_statistics_url
+from games.daily.page.context import daily_statistics_url
 from games.views.new_ui import (
     build_task_group_task_context_dicts,
 )

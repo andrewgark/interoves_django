@@ -1,6 +1,6 @@
 """Compatibility facade for the daily schedule domain."""
 
-from games.daily.section import (
+from games.daily.page.section import (
     ALPHABETTY_SCHEDULE,
     DAILY_TEAM_TIMING_GAME_IDS,
     DAILY_TIMING_GAME_IDS,

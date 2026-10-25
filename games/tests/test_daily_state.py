@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 from unittest import TestCase
 
-from games.daily.state import latest_daily_state
+from games.daily.page.state import latest_daily_state
 
 
 class DailyStateTests(TestCase):

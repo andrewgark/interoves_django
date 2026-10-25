@@ -134,7 +134,7 @@ def _load_daily_target(
         from games.placement_share import is_share_hash_segment
 
         if is_share_hash_segment(raw_number):
-            from games.daily.placement import resolve_accessible_daily_placement
+            from games.daily.page.placement import resolve_accessible_daily_placement
 
             share_link = resolve_accessible_daily_placement(
                 game, raw_number, user=request.user,

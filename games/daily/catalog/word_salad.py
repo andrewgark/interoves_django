@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from django.utils import timezone
 
-from games.daily.section import MOSCOW, WORD_SALAD_SCHEDULE
+from games.daily.page.section import MOSCOW, WORD_SALAD_SCHEDULE
 
 WORD_SALAD_PUBLISH_START_TAG = WORD_SALAD_SCHEDULE.publish_start_tag
 WORD_SALAD_DEFAULT_PUBLISH_START = '2026-08-23T00:00:00+03:00'

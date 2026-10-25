@@ -704,7 +704,7 @@ def canonical_elapsed_seconds(
             return None
         legacy_seconds = elapsed_seconds_from_attempts(attempts)
         if legacy_seconds <= 0:
-            from games.daily.section import is_daily_timing_game
+            from games.daily.page.section import is_daily_timing_game
             if is_daily_timing_game(getattr(game, 'id', None)):
                 return None
         return legacy_seconds
@@ -718,7 +718,7 @@ def canonical_elapsed_seconds(
         # A completion with no started timer stores an active row of zero
         # milliseconds. Daily games keep that as unknown. Other games still
         # show the span between attempts, including a same-second solve.
-        from games.daily.section import is_daily_timing_game
+        from games.daily.page.section import is_daily_timing_game
         if is_daily_timing_game(getattr(game, 'id', None)):
             return None
         if team is not None:
@@ -1092,7 +1092,7 @@ def _apply_timing_event_once(
         # by results, then let the current session take over. Returning an
         # empty snapshot here leaves the timer permanently frozen for exactly
         # those players.
-        from games.daily.section import is_daily_timing_game
+        from games.daily.page.section import is_daily_timing_game
         if is_daily_timing_game(getattr(game, 'id', None)) and _has_prior_statistical_activity(
             game=game, task_group=task_group, actor=filters, replay_slot=replay_slot,
         ):

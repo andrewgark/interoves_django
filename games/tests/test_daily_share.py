@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from games.daily.share import (
+from games.daily.page.share import (
     DAILY_SHARE_ADAPTERS,
     get_daily_share_adapter,
 )

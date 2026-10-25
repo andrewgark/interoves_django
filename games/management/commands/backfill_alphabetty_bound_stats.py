@@ -10,7 +10,7 @@ Usage:
 """
 from django.core.management.base import BaseCommand
 
-from games.daily.section import publish_at_for
+from games.daily.page.section import publish_at_for
 from games.daily.statistics import build_daily_statistics, invalidate_daily_statistics
 from games.models import Game, GameTaskGroup
 

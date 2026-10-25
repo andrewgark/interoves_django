@@ -319,7 +319,7 @@ def build_results_snapshot_payload(game, mode='tournament'):
     # Use the same ordering/filtering rules as results pages.
     from django.db.models import Q
 
-    from games.daily.section import is_scheduled_game, visible_links
+    from games.daily.page.section import is_scheduled_game, visible_links
     from games.models import GameTaskGroup
 
     links = game.task_group_links.select_related('task_group')

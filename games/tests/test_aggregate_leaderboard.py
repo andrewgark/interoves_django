@@ -201,7 +201,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertTrue(_alphabetty_projection_attempts_complete(game, [group.pk]))
 
     def test_all_scheduled_games_use_monthly_aggregate_period(self):
-        from games.daily.section import SCHEDULES
+        from games.daily.page.section import SCHEDULES
         from games.results.standings.aggregate_leaderboard import build_aggregate_page
 
         month = date(2026, 9, 1)

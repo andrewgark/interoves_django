@@ -248,7 +248,7 @@ def canonical_leaderboard_durations(
         key = actor_key(actor)
         if key in fallback_durations:
             seconds = int(fallback_durations[key] or 0)
-            from games.daily.section import is_daily_timing_game
+            from games.daily.page.section import is_daily_timing_game
             if seconds <= 0 and is_daily_timing_game(getattr(game, 'id', None)):
                 continue
             result[actor] = seconds
@@ -277,7 +277,7 @@ def canonical_leaderboard_durations(
             if not attempts:
                 continue
             seconds = elapsed_seconds_from_attempts(attempts)
-            from games.daily.section import is_daily_timing_game
+            from games.daily.page.section import is_daily_timing_game
             if seconds <= 0 and is_daily_timing_game(getattr(game, 'id', None)):
                 continue
             result[actor] = seconds

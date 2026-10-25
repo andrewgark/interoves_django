@@ -25,8 +25,8 @@ from games.models import (
     TaskGroup,
 )
 from games.sections.paths import section_play_path
-from games.daily.archive import parse_month
-from games.daily.section import current_number_for, publish_at_for, MOSCOW
+from games.daily.page.archive import parse_month
+from games.daily.page.section import current_number_for, publish_at_for, MOSCOW
 
 
 logger = logging.getLogger(__name__)
@@ -105,7 +105,7 @@ class ReleaseColumn:
 
 def _numbered_links(game):
     """Select published integer releases in the site's public number order."""
-    from games.daily.section import current_number_for, schedule_for
+    from games.daily.page.section import current_number_for, schedule_for
 
     qs = GameTaskGroup.objects.filter(
         game=game,
@@ -659,7 +659,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
         get_sql_aggregated_game_actor_rows,
         tasks_need_orm_results_aggregate,
     )
-    from games.daily.section import publish_at_for
+    from games.daily.page.section import publish_at_for
     from games.results.snapshots.snapshot import results_attempts_scope_game
 
     if month_context is not None:
@@ -766,7 +766,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
     if actors:
         # Daily-game timings are stored in DailySolveTiming; the legacy result
         # aggregator's Attempt-like objects do not always carry active_time_ms.
-        from games.daily.section import is_scheduled_game
+        from games.daily.page.section import is_scheduled_game
         from games.daily_timing import canonical_elapsed_seconds, timing_row_preference
         from games.models import DailySolveTiming
         if is_scheduled_game(game.id):
@@ -1100,7 +1100,7 @@ def build_aggregate_page(request, game):
     import logging
     from games.models import DailyResultProjectionState
     from games.daily.projection import projection_state_is_valid
-    from games.daily.section import is_scheduled_game, publish_at_for
+    from games.daily.page.section import is_scheduled_game, publish_at_for
 
     logger = logging.getLogger(__name__)
     # All daily and weekly tasks are published on a calendar schedule, so their

@@ -1,6 +1,6 @@
 """Compatibility facade for daily archive helpers."""
 
-from games.daily.archive import (
+from games.daily.page.archive import (
     MONTH_NAMES,
     MONTH_NAMES_GENITIVE,
     archive_query_string,

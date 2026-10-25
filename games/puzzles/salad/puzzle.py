@@ -3,8 +3,8 @@
 import json
 from types import SimpleNamespace
 
-from games.daily.share import get_daily_share_adapter
-from games.daily.state import latest_daily_state
+from games.daily.page.share import get_daily_share_adapter
+from games.daily.page.state import latest_daily_state
 from games.puzzles.core.base import Puzzle
 from games.puzzles.core.progress import _int_tuple, _text_tuple
 from games.puzzles.salad.board import load_salad_board

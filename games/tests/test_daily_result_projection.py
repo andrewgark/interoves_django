@@ -54,7 +54,7 @@ class DailyResultProjectionTests(TestCase):
         GameTaskGroup.objects.create(game=self.game, task_group=self.group, number='1', name='Release 1')
 
     def test_schedule_change_invalidates_prepublication_projection(self):
-        from games.daily.section import SCHEDULES
+        from games.daily.page.section import SCHEDULES
 
         state = DailyResultProjectionState.objects.create(
             game=self.game,

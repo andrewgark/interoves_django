@@ -12,7 +12,7 @@ from django.db.models import F
 from django.utils import timezone
 
 from games.daily.registry import DAILY_GAME_REGISTRY, get_daily_game
-from games.daily.section import current_number_for, publish_at_for, schedule_for
+from games.daily.page.section import current_number_for, publish_at_for, schedule_for
 from games.models import (
     Attempt, ChainTaskState, DailyGameDifficulty, DailyResultProjection,
     DailyResultProjectionState, DailySolveTiming, Game, GameTaskGroup,

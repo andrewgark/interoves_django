@@ -11,7 +11,7 @@ from pathlib import Path
 
 from django.conf import settings
 
-from games.daily.share_card import CARD_HEIGHT, CARD_WIDTH
+from games.daily.page.share.card import CARD_HEIGHT, CARD_WIDTH
 from games.telegram.ladder_image import (
     _ensure_playwright_browsers_path,
     _playwright_cache_has_chromium,

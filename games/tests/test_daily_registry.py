@@ -6,9 +6,9 @@ from games.daily.registry import (
     DailyGameRegistry,
     get_daily_game,
 )
-from games.daily.board import DAILY_BOARD_ADAPTERS
+from games.daily.page.board import DAILY_BOARD_ADAPTERS
 from games.daily.results import get_daily_results_adapter
-from games.daily.share import DAILY_SHARE_ADAPTERS
+from games.daily.page.share import DAILY_SHARE_ADAPTERS
 
 
 class DailyGameRegistryTests(TestCase):

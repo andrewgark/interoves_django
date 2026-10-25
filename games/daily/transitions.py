@@ -2,7 +2,7 @@
 
 from django.utils import timezone
 
-from games.daily.section import publish_at_for, schedule_for
+from games.daily.page.section import publish_at_for, schedule_for
 
 
 def next_daily_content_transition(game, numbers, *, now=None):

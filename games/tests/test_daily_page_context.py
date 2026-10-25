@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from games.daily.page_context import (
+from games.daily.page.context import (
     build_daily_lifecycle_context,
     build_daily_page_context,
     daily_statistics_url,

@@ -10,7 +10,7 @@ from datetime import timedelta
 from django.db.models import Prefetch
 from django.utils import timezone
 
-from games.daily.section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
+from games.daily.page.section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
 from games.models import DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Profile, TaskGroup
 
 STREAK_COMPLETION_WINDOW = timedelta(hours=36)

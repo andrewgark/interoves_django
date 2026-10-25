@@ -40,7 +40,7 @@ from games.daily_archive import (
 )
 from games.views.daily_hub import can_access_daily_game
 from games.daily.registry import get_daily_game
-from games.daily.page_context import build_daily_lifecycle_context
+from games.daily.page.context import build_daily_lifecycle_context
 from games.daily_section import MOSCOW
 from games.alphabetty.suggestions import suggest_word
 from games.alphabetty_daily import (
@@ -629,7 +629,7 @@ def _load_visible_task(request, number, *, json_mode=True):
     game = _get_game()
     if not game:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
-    from games.daily.placement import resolve_accessible_daily_placement
+    from games.daily.page.placement import resolve_accessible_daily_placement
     from games.models import RandomAlphabettyGame
     from games.placement_share import is_share_hash_segment
 

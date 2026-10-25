@@ -2,7 +2,7 @@
 
 from django.core.management.base import BaseCommand, CommandError
 
-from games.daily.section import is_scheduled_game
+from games.daily.page.section import is_scheduled_game
 from games.models import DailyAggregateSnapshot, Game
 from games.results.standings.aggregate_leaderboard import _monthly_columns
 from games.results.snapshots.aggregate_snapshots import request_monthly_snapshot, refresh_monthly_snapshot

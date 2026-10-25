@@ -209,7 +209,7 @@ def run_named_daily_statistics_refresh(*, game_id, task_group_id):
     ).values_list('number', flat=True))
     published_at_values = set()
     if links:
-        from games.daily.section import publish_at_for
+        from games.daily.page.section import publish_at_for
 
         for number in links:
             published_at_values.add(publish_at_for(game, number))

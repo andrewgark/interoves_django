@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from django.contrib.auth.models import User
 from django.test import TestCase
 
-from games.daily.authorship import is_author_auto_completion_active
+from games.daily.page.share.authorship import is_author_auto_completion_active
 from games.daily_streak import (
     daily_completion_statuses_for_actor,
     daily_streaks_for_actor,

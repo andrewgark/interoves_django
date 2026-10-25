@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from games.daily.section import CENSORLY_SCHEDULE, MOSCOW
+from games.daily.page.section import CENSORLY_SCHEDULE, MOSCOW
 
 CENSORLY_GAME_ID = CENSORLY_SCHEDULE.game_id
 CENSORLY_PUBLISH_START_TAG = CENSORLY_SCHEDULE.publish_start_tag

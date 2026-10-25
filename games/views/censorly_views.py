@@ -51,7 +51,7 @@ from games.censorly_daily import (
 )
 from games.completion_coordinator import complete_logical_game
 from games.club_access import has_club_access
-from games.daily.page_context import build_daily_lifecycle_context, daily_statistics_url
+from games.daily.page.context import build_daily_lifecycle_context, daily_statistics_url
 from games.daily_archive import (
     links_for_archive_month,
     prepare_daily_archive,
@@ -395,7 +395,7 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
         n = int(number)
     except (TypeError, ValueError):
         # Numbered scheduled tasks may also be opened through their share hash.
-        from games.daily.placement import resolve_accessible_daily_placement
+        from games.daily.page.placement import resolve_accessible_daily_placement
         from games.models import RandomCensorlyGame
 
         shared_link = resolve_accessible_daily_placement(
@@ -424,7 +424,7 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
             return game, task, meta, None
         # Permanent random games use share_hash as GameTaskGroup.number.
         return _load_visible_task(request, None, json_mode=json_mode, random_hash=str(number))
-    from games.daily.placement import resolve_accessible_daily_placement
+    from games.daily.page.placement import resolve_accessible_daily_placement
 
     if resolve_accessible_daily_placement(game, n, user=request.user) is None:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)

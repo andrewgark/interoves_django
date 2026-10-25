@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from django.utils import timezone
 
-from games.daily.section import MOSCOW, WEEK_TASK_SCHEDULE
+from games.daily.page.section import MOSCOW, WEEK_TASK_SCHEDULE
 
 WEEK_TASK_GAME_ID = WEEK_TASK_SCHEDULE.game_id
 WEEK_TASK_PUBLISH_START_TAG = WEEK_TASK_SCHEDULE.publish_start_tag

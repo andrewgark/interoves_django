@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from django.utils import timezone
 
-from games.daily.section import LADDER_SCHEDULE, MOSCOW
+from games.daily.page.section import LADDER_SCHEDULE, MOSCOW
 
 LADDER_GAME_ID = LADDER_SCHEDULE.game_id
 LADDER_PUBLISH_START_TAG = LADDER_SCHEDULE.publish_start_tag

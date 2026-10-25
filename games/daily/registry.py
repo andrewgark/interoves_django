@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from games.daily.section import (
+from games.daily.page.section import (
     ALPHABETTY_SCHEDULE,
     CENSORLY_SCHEDULE,
     LADDER_SCHEDULE,
