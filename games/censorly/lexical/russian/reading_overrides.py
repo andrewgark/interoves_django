@@ -140,6 +140,8 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
 # normal pymorphy reading. Tokenization records these identities per occurrence;
 # the matcher uses these citation lemmas without treating them as global aliases.
 TARGET_LEMMA_OVERRIDES: dict[tuple[str, str], tuple[str, ...]] = {
+    # In «в каждой команде есть вратарь», the token is «быть», not «есть» = eat.
+    ('есть', 'быть'): ('быть',),
     # «н. э.» = «нашей эры»: «н.» carries the possessive adjective «наш».
     ('н', N_ERA_CONTEXT): ('наш',),
     # These token identities encode parser decisions. The software acronym

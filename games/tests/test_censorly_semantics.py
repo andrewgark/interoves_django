@@ -1076,6 +1076,32 @@ class SemanticsTests(SimpleTestCase):
                     for guess in ('кто', 'кого'):
                         self.assertNotIn('кома', matching_lemmas(tokens, guess), guess)
 
+    def test_existential_est_uses_case_and_does_not_capture_eating_infinitive(self):
+        existential = (
+            'В каждой команде есть вратарь.',
+            'В каждой команде есть хороший вратарь.',
+            'И есть хороший вратарь.',
+            'Любимая еда есть на столе.',
+            'Еда, и есть на столе.',
+        )
+        eating = (
+            'Пора есть суп.',
+            'Кашу есть ложкой.',
+            'Кашу есть с молоком.',
+        )
+        for phrase in existential:
+            with self.subTest(phrase=phrase):
+                tokens = tokenize_text(phrase)
+                target = next(t for t in tokens if t.get('surface') == 'есть')
+                self.assertEqual(target['lemma'], 'быть')
+                self.assertNotIn('есть', matching_lemmas(tokens, 'еда'))
+        for phrase in eating:
+            with self.subTest(phrase=phrase):
+                tokens = tokenize_text(phrase)
+                target = next(t for t in tokens if t.get('surface') == 'есть')
+                self.assertEqual(target['lemma'], 'есть')
+                self.assertIn('есть', matching_lemmas(tokens, 'еда'))
+
     @override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
     def test_komu_pronoun_is_not_reclassified_across_other_words_or_boundaries(self):
         from games.censorly.redact import build_public_view

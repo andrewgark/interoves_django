@@ -368,6 +368,104 @@ def _is_language_label_position(
     return False
 
 
+def _is_existential_est(tokens: list[dict[str, Any]], index: int) -> bool:
+    """Select «быть» for copular/existential «есть», not the verb «есть» food."""
+    previous = _previous_nonspace(tokens, index)
+    following = _next_nonspace(tokens, index + 1)
+    if following >= len(tokens):
+        return False
+    right = tokens[following]
+
+    from games.matcher.norm_matcher import MORPH_ANALYZER
+
+    def parses(token):
+        surface = normalize_surface(token.get('surface') or '')
+        return tuple(
+            parse for parse in MORPH_ANALYZER.parse(surface)
+            if parse.methods_stack
+            and type(parse.methods_stack[0][0]).__name__ == 'DictionaryAnalyzer'
+        )
+
+    nominal_pos = {'NOUN', 'NPRO', 'ADJF', 'ADJS', 'PRTF', 'PRTS'}
+
+    # A nominative predicate after «есть» is the clearest signal («есть
+    # вратарь»). Ignore forms that can also be accusative unless the left side
+    # supports a copula; «пора есть суп» has a predicate «пора» and an object.
+    if right.get('kind') == 'content':
+        right_parses = parses(right)
+        right_nominative = any(
+            parse.tag.POS in nominal_pos and 'nomn' in parse.tag.grammemes
+            for parse in right_parses
+        )
+        right_accusative = any(
+            parse.tag.POS in nominal_pos and 'accs' in parse.tag.grammemes
+            for parse in right_parses
+        )
+        if right_nominative and not right_accusative:
+            return True
+        if right_nominative and previous >= 0 and tokens[previous].get('kind') == 'content':
+            left_parses = parses(tokens[previous])
+            if any(parse.tag.POS == 'PRED' for parse in left_parses):
+                return False
+            if any(
+                parse.tag.POS in {'NOUN', 'NPRO'}
+                and 'nomn' in parse.tag.grammemes
+                for parse in left_parses
+            ):
+                return True
+
+        # Let an unambiguous nominative head resolve a preceding adjective:
+        # «есть хороший вратарь».
+        if any(parse.tag.POS in {'ADJF', 'ADJS', 'PRTF', 'PRTS'} for parse in right_parses):
+            cursor = following
+            for _ in range(4):
+                cursor = _next_nonspace(tokens, cursor + 1)
+                if cursor >= len(tokens) or tokens[cursor].get('kind') != 'content':
+                    break
+                head_parses = parses(tokens[cursor])
+                if any(
+                    parse.tag.POS in {'NOUN', 'NPRO'}
+                    and 'nomn' in parse.tag.grammemes
+                    and 'accs' not in parse.tag.grammemes
+                    for parse in head_parses
+                ):
+                    return True
+                if not any(
+                    parse.tag.POS in {'ADJF', 'ADJS', 'PRTF', 'PRTS'}
+                    for parse in head_parses
+                ):
+                    break
+
+    # An oblique phrase can follow existential «есть» («еда есть на столе»),
+    # but only after a nominative subject and a locative preposition.
+    if right.get('kind') != 'stop' or normalize_surface(
+        right.get('surface') or ''
+    ) not in {'в', 'во', 'на', 'над', 'под', 'за', 'перед', 'при', 'у', 'около'}:
+        return False
+
+    cursor = previous
+    while cursor >= 0:
+        token = tokens[cursor]
+        if token.get('kind') == 'punct' and token.get('surface') == ',':
+            cursor = _previous_nonspace(tokens, cursor)
+            continue
+        if token.get('kind') == 'stop' and normalize_surface(
+            token.get('surface') or ''
+        ) in {'и', 'а', 'но'}:
+            cursor = _previous_nonspace(tokens, cursor)
+            continue
+        break
+    if cursor < 0 or tokens[cursor].get('kind') != 'content':
+        return False
+    left_parses = parses(tokens[cursor])
+    return any(
+        parse.tag.POS in {'NOUN', 'NPRO'}
+        and 'nomn' in parse.tag.grammemes
+        and 'accs' not in parse.tag.grammemes
+        for parse in left_parses
+    )
+
+
 def _is_coma_context(tokens: list[dict[str, Any]], index: int) -> bool:
     """Distinguish accusative «кому» from dative «кому» = «кто».
 
@@ -422,6 +520,12 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             and tokens[after_word].get('surface') == '.'
         )
         after_period = _next_nonspace(tokens, after_word + 1) if has_period else len(tokens)
+
+        if word == 'есть' and _is_existential_est(tokens, index):
+            tok['lemma'] = 'быть'
+            tok['context_reading'] = 'verb:быть'
+            tok['initially_open'] = False
+            continue
 
         if word == 'кому' and _is_coma_context(tokens, index):
             tok['lemma'] = 'кома'
