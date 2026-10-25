@@ -44,7 +44,7 @@ from games.puzzles.core.move import MoveRefusal, MoveResponse
 from games.puzzles.core.quota import revision_quota_message
 from games.puzzles.grid import GridPuzzle
 from games.puzzles.raddle import RaddlePuzzle
-from games.puzzles.word_salad_submission import SaladSync
+from games.puzzles.salad import SaladSync
 from games.raddle_concurrency import (
     lock_or_create_raddle_state,
     run_raddle_atomic_with_deadlock_retry,

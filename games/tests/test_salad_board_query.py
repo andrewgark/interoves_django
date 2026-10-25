@@ -11,7 +11,7 @@ from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
-from games.puzzles.word_salad import WordSaladPuzzle
+from games.puzzles.salad import WordSaladPuzzle
 from games.tasks.actor_state import chain_state_for_actor
 
 PUZZLE = {

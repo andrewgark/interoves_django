@@ -4,8 +4,8 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from games.puzzles.word_salad import WordSaladPuzzle
-from games.puzzles.word_salad_submission import (
+from games.puzzles.salad import WordSaladPuzzle
+from games.puzzles.salad.submission import (
     SaladMove,
     SaladMoveRefusal,
     SaladSync,
@@ -59,7 +59,7 @@ class WordSaladMoveTests(SimpleTestCase):
         self.assertTrue(WordSaladPuzzle.include_task_html(result))
 
     @patch(
-        'games.puzzles.word_salad_submission.path_word_from_attempt',
+        'games.puzzles.salad.submission.path_word_from_attempt',
         return_value=('РЕКА', [], []),
     )
     def test_rare_find_keeps_the_selection(self, _path_word):

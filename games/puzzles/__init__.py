@@ -5,8 +5,8 @@ from games.puzzles.censorly import CensorlyPuzzle
 from games.puzzles.html_forms import HtmlFormsPuzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.replacements import ReplacementsPuzzle
+from games.puzzles.salad import WordSaladPuzzle
 from games.puzzles.wall import WallPuzzle
-from games.puzzles.word_salad import WordSaladPuzzle
 
 # Puzzles that own attempt-limit and duplicate checks. A duplicate is one of
 # three answers: not a duplicate, a duplicate without an attempt id, or a
