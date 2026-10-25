@@ -209,7 +209,7 @@ class BackgroundWorkerTests(SimpleTestCase):
             'games.views.background_worker.reconcile_projection_releases',
             return_value=summary,
         ) as reconcile, patch(
-            'games.results.aggregate_snapshots.reconcile_monthly_snapshots',
+            'games.results.snapshots.aggregate_snapshots.reconcile_monthly_snapshots',
             return_value={'rebuilt': 0},
         ) as reconcile_snapshots, patch(
             'games.views.background_worker.start_queue_heartbeat',

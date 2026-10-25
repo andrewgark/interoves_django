@@ -660,7 +660,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
         tasks_need_orm_results_aggregate,
     )
     from games.daily.section import publish_at_for
-    from games.results.snapshot import results_attempts_scope_game
+    from games.results.snapshots.snapshot import results_attempts_scope_game
 
     if month_context is not None:
         columns, selected_month, previous_month, next_month, _published_at = month_context
@@ -971,7 +971,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     group_ids = [column.link.task_group_id for column in columns]
     monthly_summary_month = month_context[1] if month_context is not None else None
     if monthly_summary_month is not None and not saved_monthly:
-        from games.results.monthly_projection import ensure_monthly_projection
+        from games.results.snapshots.monthly_projection import ensure_monthly_projection
 
         if not ensure_monthly_projection(game, monthly_summary_month, group_ids):
             return _build_legacy_aggregate_page_observed(
@@ -988,7 +988,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     if aggregate_sort not in ('attempts', 'time'):
         aggregate_sort = 'attempts'
     if saved_monthly:
-        from games.results.aggregate_snapshot_read import read_snapshot_page
+        from games.results.snapshots.aggregate_snapshot_read import read_snapshot_page
         if snapshot_version is None:
             page_values, total_count, current_page, cells, snapshot_view = [], 0, 1, {}, ''
         else:
@@ -996,7 +996,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
                 snapshot_version, requested_page, actor_types, aggregate_sort,
             )
             if request.GET.get('partial') == '1' and request.GET.get('snapshot_view') != snapshot_view:
-                from games.results.aggregate_snapshots import SnapshotVersionExpired
+                from games.results.snapshots.aggregate_snapshots import SnapshotVersionExpired
                 raise SnapshotVersionExpired()
         request._aggregate_snapshot_view = snapshot_view
     else:
@@ -1114,7 +1114,7 @@ def build_aggregate_page(request, game):
         month_context = (
             columns, selected_month, previous_month, next_month, published_at_by_link,
         )
-        from games.results.aggregate_snapshots import build_saved_monthly_page
+        from games.results.snapshots.aggregate_snapshots import build_saved_monthly_page
         return build_saved_monthly_page(request, game, columns, month_context)
 
     try:

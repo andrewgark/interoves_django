@@ -56,7 +56,7 @@ SCORER_ADAPTER_VERSIONS = {
 
 def _mark_projection_published(state):
     """Publication metadata survives later invalidations of the source data."""
-    from games.results.aggregate_snapshots import request_snapshots_for_release
+    from games.results.snapshots.aggregate_snapshots import request_snapshots_for_release
 
     state.published_at = timezone.now()
     state.published_version = uuid.uuid4()
@@ -194,7 +194,7 @@ def mark_projection_dirty(game, task_group, *, actor=False, full=False, actor_fi
 
 def _canonical_group_results(game, task_group, *, actor_filter=None, with_task_rows=False):
     """Return exact existing AttemptsInfo scores for the release, grouped by actor."""
-    from games.results.snapshot import results_attempts_scope_game
+    from games.results.snapshots.snapshot import results_attempts_scope_game
 
     tasks = list(Task.objects.visible().filter(task_group=task_group).exclude(task_type='text_with_forms').order_by('number', 'pk'))
     if not tasks:
@@ -275,7 +275,7 @@ def _canonical_task_results(game, task_group, *, actor_filter=None):
     """
     if not _task_projection_supported(game):
         return {}
-    from games.results.snapshot import results_attempts_scope_game
+    from games.results.snapshots.snapshot import results_attempts_scope_game
 
     tasks = list(
         Task.objects.visible()
