@@ -168,10 +168,10 @@ urlpatterns = [
     path("eurovision_booklet/", include(eurovision_booklet_patterns)),
 
     # Main UI still POSTs to /send_attempt/, links to /games/..., /register/, team moderation URLs.
-    path('', include('games.root_shared_urls')),
-    path('old/', include('games.old_urls')),
-    path('', include('games.ui_urls')),
-    path('', include('games.new_urls')),
+    path('', include('games.site.urls.root')),
+    path('old/', include('games.site.urls.old')),
+    path('', include('games.site.urls.ui')),
+    path('', include('games.site.urls.new')),
 ]
 
 # In development, serve from STATICFILES_DIRS and app static (not only STATIC_ROOT).

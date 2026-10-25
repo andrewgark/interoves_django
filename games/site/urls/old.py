@@ -1,0 +1,58 @@
+from django.urls import path, re_path as url
+
+from games.views.meta_http import capitals_task_100, countries_task_100
+from games.views.registration import register_to_game
+from games.views.ticket import check_order, request_ticket
+from games.views.views import (
+    MainPageView,
+    confirm_user_joining_team,
+    create_team,
+    easter_egg_2021,
+    game_page,
+    get_answer,
+    get_tournament_results,
+    join_team,
+    kick_out_user,
+    like_dislike,
+    quit_from_team,
+    reject_user_joining_team,
+    results_page,
+    return_intentional_503,
+    send_attempt,
+    send_hint_attempt,
+    total_results_page,
+)
+
+urlpatterns = [
+    path("", MainPageView.as_view(project_name="main")),
+    path("main/", MainPageView.as_view(project_name="main")),
+    path("glowbyte/", MainPageView.as_view(project_name="glowbyte")),
+    path("tinkoff/", MainPageView.as_view(project_name="tinkoff")),
+    path("lksh/", MainPageView.as_view(project_name="lksh")),
+    path("tennet/", MainPageView.as_view(project_name="tennet")),
+    path("tinkoffgeneration/", MainPageView.as_view(project_name="tinkoffgeneration")),
+    path("umind/", MainPageView.as_view(project_name="umind")),
+    path("create_team/", create_team, name="create_team"),
+    path("join_team/", join_team, name="join_team"),
+    path("quit_from_team/", quit_from_team, name="quit_from_team"),
+    url(r"^confirm_user_joining_team/(?P<user_id>\d+)/$", confirm_user_joining_team),
+    url(r"^reject_user_joining_team/(?P<user_id>\d+)/$", reject_user_joining_team),
+    url(r"^kick_out_user/(?P<user_id>\d+)/$", kick_out_user),
+    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/$", game_page),
+    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)$", game_page),
+    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)/(?P<task>[0-9.a-zA-Zа-яА-Я]+)$", game_page),
+    url(r"^send_attempt/(?P<task_id>\d+)/$", send_attempt),
+    url(r"^send_hint_attempt/(?P<task_id>\d+)/$", send_hint_attempt),
+    url(r"^get_answer/(?P<task_id>\d+)/$", get_answer),
+    url(r"^like_dislike/(?P<task_id>\d+)/", like_dislike),
+    url(r"^register/(?P<game_id>[a-zA-Z0-9_]+)/$", register_to_game),
+    url(r"^request_ticket/", request_ticket, name="request_ticket"),
+    url(r"^check-order/", check_order, name="check_order"),
+    url(r"^results/(?P<game_id>[a-zA-Z0-9_]+)/$", results_page),
+    url(r"^tournament_results/(?P<game_id>[a-zA-Z0-9_]+)/$", get_tournament_results),
+    url(r"^total_results/(?P<project_id>[a-zA-Z0-9_]+)/$", total_results_page),
+    url("cw_hint", return_intentional_503),
+    url("easter_egg_2021", easter_egg_2021),
+    url("meta100-1", capitals_task_100),
+    url("meta100-2", countries_task_100),
+]
