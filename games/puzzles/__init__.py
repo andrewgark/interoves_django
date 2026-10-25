@@ -2,9 +2,9 @@
 
 from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.censorly import CensorlyPuzzle
-from games.puzzles.html_forms import HtmlFormsPuzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.replacements import ReplacementsPuzzle
+from games.puzzles.replacements.html_forms import HtmlFormsPuzzle
 from games.puzzles.salad import WordSaladPuzzle
 from games.puzzles.wall import WallPuzzle
 

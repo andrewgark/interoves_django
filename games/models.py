@@ -1664,7 +1664,7 @@ class Task(models.Model):
         from games.puzzles import get_puzzle
         puzzle = get_puzzle(self.task_type)
         if puzzle is None and self.task_type == 'grid-puzzle':
-            from games.puzzles.grid import GridPuzzle
+            from games.puzzles.replacements.grid import GridPuzzle
             puzzle = GridPuzzle
         cleaner = getattr(puzzle, 'clean_checker_data', None) if puzzle is not None else None
         if cleaner is not None:
@@ -2507,7 +2507,7 @@ class Attempt(models.Model):
         from games.puzzles import get_puzzle
         puzzle = get_puzzle(self.task.task_type)
         if puzzle is None and self.task.task_type == 'grid-puzzle':
-            from games.puzzles.grid import GridPuzzle
+            from games.puzzles.replacements.grid import GridPuzzle
             puzzle = GridPuzzle
         if puzzle is None and self.task.task_type == 'distribute_to_teams':
             from games.puzzles.core.short.distribute_to_teams import DistributeToTeamsPuzzle

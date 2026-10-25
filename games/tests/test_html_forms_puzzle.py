@@ -7,7 +7,7 @@ from django.test import SimpleTestCase
 from games.puzzles import get_puzzle, parse_posted_text
 from games.puzzles.core.move import MoveRefusal, TextMove
 from games.puzzles.core.quota import revision_quota_message
-from games.puzzles.html_forms import HtmlFormsPuzzle
+from games.puzzles.replacements.html_forms import HtmlFormsPuzzle
 
 
 def _post(**values):

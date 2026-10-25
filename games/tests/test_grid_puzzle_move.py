@@ -5,7 +5,7 @@ from django.test import SimpleTestCase
 
 from games.puzzles import get_puzzle
 from games.puzzles.core.move import MoveRefusal, TextMove
-from games.puzzles.grid import GridPuzzle
+from games.puzzles.replacements.grid import GridPuzzle
 
 
 WALLS = {

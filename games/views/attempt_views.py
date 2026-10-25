@@ -42,8 +42,8 @@ from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
 from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.core.move import MoveRefusal, MoveResponse
 from games.puzzles.core.quota import revision_quota_message
-from games.puzzles.grid import GridPuzzle
 from games.puzzles.raddle import RaddlePuzzle
+from games.puzzles.replacements.grid import GridPuzzle
 from games.puzzles.salad import SaladSync
 from games.raddle_concurrency import (
     lock_or_create_raddle_state,
