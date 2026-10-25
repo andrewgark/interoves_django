@@ -67,7 +67,7 @@ class Command(BaseCommand):
         while True:
             if config.worker.name == 'background':
                 try:
-                    from games.daily.projection_outbox import dispatch_actor_projection_outbox
+                    from games.daily.projection.outbox import dispatch_actor_projection_outbox
                     close_old_connections()
                     dispatched = dispatch_actor_projection_outbox(limit=10)
                     if dispatched['claimed']:

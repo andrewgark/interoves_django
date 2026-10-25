@@ -2,6 +2,6 @@
 
 import sys
 
-from games.daily import projection_cron as _implementation
+from games.daily.projection import cron as _implementation
 
 sys.modules[__name__] = _implementation

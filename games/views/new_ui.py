@@ -83,7 +83,7 @@ from games.daily.page.context import (
 from games.daily.page.board import (
     get_daily_board_adapter,
 )
-from games.daily.results import get_daily_results_adapter
+from games.daily.projection.results import get_daily_results_adapter
 from games.daily.page.placement import is_random_daily_placement
 from games.ladder_daily import (
     is_ladder_number_published,

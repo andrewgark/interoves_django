@@ -7,7 +7,7 @@ from games.daily.registry import (
     get_daily_game,
 )
 from games.daily.page.board import DAILY_BOARD_ADAPTERS
-from games.daily.results import get_daily_results_adapter
+from games.daily.projection.results import get_daily_results_adapter
 from games.daily.page.share import DAILY_SHARE_ADAPTERS
 
 

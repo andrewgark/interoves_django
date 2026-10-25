@@ -1083,7 +1083,7 @@ def _run_move(move: _MoveRequest, phase: str, apply_move):
             result['daily_timing'] = snap
     result = _finish_completion(move, result)
     if status in _STATE_CHANGING_STATUSES:
-        from games.daily.realtime import publish_actor_state_change
+        from games.daily.projection.realtime import publish_actor_state_change
         publish_actor_state_change(
             task=move.task, game=move.game, user=move.user, replay_slot=move.replay_slot,
             reason='censorly.state_changed',

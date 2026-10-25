@@ -375,7 +375,7 @@ class DailyResultProjectionTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             attempt.points = 8
             attempt.save(update_fields=['points'])
-        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+        from games.daily.projection.outbox import dispatch_actor_projection_outbox
         dispatch_actor_projection_outbox(limit=20)
         self.assertEqual(DailyResultProjection.objects.get().score, Decimal('8'))
         with self.captureOnCommitCallbacks(execute=True):
@@ -479,7 +479,7 @@ class DailyResultProjectionTests(TestCase):
     @patch.dict(os.environ, {'PROJECTION_REFRESH_EVENTS': '1'})
     @patch('games.projection_events.publish_projection_refresh', side_effect=[False, True])
     def test_projection_outbox_retries_publish_without_advancing_revision_twice(self, publish):
-        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+        from games.daily.projection.outbox import dispatch_actor_projection_outbox
 
         state = DailyResultProjectionState.objects.create(
             game=self.game, task_group=self.group, source_revision=3,
@@ -511,7 +511,7 @@ class DailyResultProjectionTests(TestCase):
         self.assertEqual(publish.call_count, 2)
 
     def test_projection_outbox_cleanup_removes_only_a_bounded_expired_batch(self):
-        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+        from games.daily.projection.outbox import dispatch_actor_projection_outbox
 
         now = timezone.now()
         expired = DailyResultProjectionRefreshOutbox.objects.bulk_create([
@@ -540,7 +540,7 @@ class DailyResultProjectionTests(TestCase):
         )
 
     def test_projection_outbox_keeps_string_team_primary_key(self):
-        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+        from games.daily.projection.outbox import dispatch_actor_projection_outbox
 
         team = Team.objects.create(name='projection-team-actor', project_id='sections')
         task = Task.objects.create(
@@ -794,7 +794,7 @@ class DailyResultProjectionTests(TestCase):
         with self.captureOnCommitCallbacks(execute=True):
             Attempt.manager.create(task=task, game=self.game, anon_key='reconcile-a', text='answer', status='Ok', points=7)
             Attempt.manager.create(task=task, game=self.game, anon_key='reconcile-b', text='answer', status='Ok', points=8)
-        from games.daily.projection_outbox import dispatch_actor_projection_outbox
+        from games.daily.projection.outbox import dispatch_actor_projection_outbox
         dispatch_actor_projection_outbox(limit=20)
         # Build an intentionally mismatched projection after processing its wake-ups.
         DailyResultProjection.objects.all().delete()

@@ -1189,7 +1189,7 @@ def _apply_timing_event_once(
         client_occurred_at=client_occurred_at,
     )
     if created_timing_row and replay_slot is None and getattr(game, 'project_id', None) == 'sections':
-        from games.daily.projection_outbox import enqueue_actor_projection_refresh
+        from games.daily.projection.outbox import enqueue_actor_projection_refresh
         # Persist the wake-up with the timing row, but leave the projection
         # state lock to the background dispatcher to avoid a lock cycle.
         enqueue_actor_projection_refresh(

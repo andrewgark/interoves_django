@@ -2478,7 +2478,7 @@ class Attempt(models.Model):
                     pk=self.game_id, project_id='sections',
                 ).first()
                 if group_id and game is not None:
-                    from games.daily.projection_outbox import enqueue_actor_projection_refresh
+                    from games.daily.projection.outbox import enqueue_actor_projection_refresh
                     enqueue_actor_projection_refresh(
                         game, TaskGroup.objects.get(pk=group_id),
                         team_id=self.team_id,
@@ -2732,7 +2732,7 @@ class HintAttempt(models.Model):
                     task_group_id=group_id, game__project_id='sections',
                 ).values_list('game_id', flat=True) if group_id else []
                 if task_group is not None:
-                    from games.daily.projection_outbox import enqueue_actor_projection_refresh
+                    from games.daily.projection.outbox import enqueue_actor_projection_refresh
                     for game in Game.objects.filter(pk__in=game_ids, project_id='sections'):
                         enqueue_actor_projection_refresh(
                             game, task_group,

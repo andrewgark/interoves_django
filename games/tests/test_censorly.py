@@ -3150,7 +3150,7 @@ class CensorlyUxDailyTests(TestCase):
         self.assertIn(result['status'], ('hit', 'won'))
 
     def test_results_adapter_registered(self):
-        from games.daily.results import get_daily_results_adapter
+        from games.daily.projection.results import get_daily_results_adapter
         adapter = get_daily_results_adapter('censorly')
         self.assertIsNotNone(adapter)
         self.assertEqual(adapter.task_variant, 'alphabetty')
