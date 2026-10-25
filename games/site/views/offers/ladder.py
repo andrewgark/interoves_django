@@ -1,0 +1,173 @@
+"""Публичная страница создания лесенок (/create_ladder/)."""
+
+from __future__ import annotations
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.shortcuts import redirect, render
+from django.views.decorators.http import require_http_methods, require_POST
+
+from games.ladder_offer import (
+    LadderOfferError,
+    create_offer,
+    list_user_offers,
+    profile_display_name,
+    profile_ready_for_offers,
+    reset_raddle_progress,
+    send_offer,
+    serialize_offer,
+    update_offer_content,
+)
+from games.models import LadderOffer
+from games.offer_profiles import update_offer_profile_names
+from games.telegram_linking import offer_profile_error
+from games.views.util import has_profile, json_boolean_field, parse_json_object_body
+
+
+def _offer_for_user(request, offer_id):
+    return (
+        LadderOffer.objects.select_related('task_group', 'accepted_link')
+        .filter(pk=offer_id, user=request.user)
+        .first()
+    )
+
+
+def _profile_context(profile, *, ready, missing, offers, profile_error=None):
+    return {
+        'page_title': 'Создать свою Лесенку',
+        'profile_ready': ready,
+        'profile_missing': missing,
+        'profile': profile,
+        'offers': offers,
+        'offers_json': [offer.to_dict() for offer in offers],
+        'show_sections_nav': True,
+        'profile_error': profile_error,
+    }
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def offer_ladder_page(request):
+    if not has_profile(request.user):
+        return redirect('/accounts/login/?next=/create_ladder/')
+    profile = request.user.profile
+    ready, missing = profile_ready_for_offers(profile)
+
+    if request.method == 'POST' and request.POST.get('action') == 'save_profile':
+        ready_after, missing_after = update_offer_profile_names(
+            profile, request.POST.get('first_name'), request.POST.get('last_name'),
+        )
+        if not ready_after:
+            return render(request, 'ui/offer_ladder.html', _profile_context(
+                profile,
+                ready=False,
+                missing=missing_after,
+                offers=[],
+                profile_error=offer_profile_error(missing_after),
+            ))
+        return redirect('new_create_ladder')
+
+    offers = list_user_offers(request.user) if ready else []
+    return render(request, 'ui/offer_ladder.html', _profile_context(
+        profile, ready=ready, missing=missing, offers=offers,
+    ))
+
+
+@login_required
+@require_POST
+def offer_ladder_create(request):
+    if not has_profile(request.user):
+        return JsonResponse({'ok': False, 'error': 'Нужен профиль'}, status=403)
+    try:
+        offer = create_offer(request.user)
+        row = serialize_offer(offer)
+    except LadderOfferError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'offer': row.to_dict()})
+
+
+@login_required
+@require_http_methods(['GET', 'POST'])
+def offer_ladder_detail(request, offer_id):
+    offer = _offer_for_user(request, offer_id)
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    if request.method == 'GET':
+        return JsonResponse({'ok': True, 'offer': serialize_offer(offer).to_dict()})
+    body = parse_json_object_body(request)
+    if body is None:
+        return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
+    words = body.get('words')
+    hints = body.get('hints')
+    if not isinstance(words, list) or not isinstance(hints, list):
+        return JsonResponse({'ok': False, 'error': 'Нужны words и hints'}, status=400)
+    emojis = body.get('emojis')
+    if emojis is not None and not isinstance(emojis, list):
+        return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
+    try:
+        mixed_script = json_boolean_field(body, 'mixed_script')
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    try:
+        offer = update_offer_content(
+            offer,
+            words=words,
+            hints=hints,
+            emojis=emojis,
+            intro=str(body.get('intro') or ''),
+            author=str(body.get('author') or profile_display_name(request.user.profile)),
+            comment=str(body.get('comment') or ''),
+            mixed_script=mixed_script,
+            reset_actor_user=request.user,
+        )
+    except LadderOfferError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'offer': serialize_offer(offer).to_dict()})
+
+
+@login_required
+@require_POST
+def offer_ladder_send(request, offer_id):
+    offer = _offer_for_user(request, offer_id)
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    try:
+        offer = send_offer(offer)
+    except LadderOfferError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'offer': serialize_offer(offer).to_dict()})
+
+
+@login_required
+@require_POST
+def offer_ladder_reset(request, offer_id):
+    """Сброс решения автора (или staff) на своей Лесенке."""
+    offer = (
+        LadderOffer.objects.select_related('task_group')
+        .filter(pk=offer_id)
+        .first()
+    )
+    if offer is None:
+        return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
+    is_owner = offer.user_id == request.user.id
+    is_staff = bool(getattr(request.user, 'is_staff', False))
+    if not is_owner and not is_staff:
+        return JsonResponse({'ok': False, 'error': 'Нет доступа'}, status=403)
+    task = offer.task_group.tasks.filter(number='1').first()
+    if task is None:
+        return JsonResponse({'ok': False, 'error': 'Задание не найдено'}, status=404)
+    # The reset button belongs to the offer, not to whichever play mode the
+    # author happened to have selected in this browser tab. Clear both scopes:
+    # otherwise switching modes can resurrect the old solution.
+    reset_actors = [{'user': offer.user}]
+    team = getattr(getattr(offer.user, 'profile', None), 'team_on', None)
+    if team is not None:
+        reset_actors.append({'team': team})
+    try:
+        n = sum(
+            reset_raddle_progress(task=task, **actor)
+            for actor in reset_actors
+        )
+    except LadderOfferError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    return JsonResponse({'ok': True, 'deleted_attempts': n})

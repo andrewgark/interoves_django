@@ -1,0 +1,217 @@
+"""Main UI views (neutral naming, without ``new``)."""
+
+from games.views.new_ui import (
+    daily_statistics,
+    get_section_games,
+    new_account_merge_confirm,
+    new_account_merge_status,
+    new_account_merge_retry,
+    new_anon_migrate_count,
+    new_anon_merge_job_status,
+    new_bug_report,
+    new_club_archive_offer_action,
+    new_create_crypto_donation,
+    new_create_crypto_ticket_payment,
+    new_create_ticket_payment,
+    new_create_tribute_ticket_payment,
+    new_dismiss_unverified_telegram_handle,
+    new_donate_page,
+    new_donation_status,
+    new_folder,
+    new_game_task_group_progress,
+    new_game_task_results_page,
+    new_get_answer,
+    new_get_raddle_word_answer,
+    new_get_replacements_line_answer,
+    new_hub,
+    new_ladder_hub_page,
+    new_ladder_last_page,
+    new_ladder_today_page,
+    new_ladder_word_results_page,
+    new_like_dislike,
+    new_main_game_page,
+    new_migrate_anon_attempts,
+    new_pay_page,
+    new_profile,
+    new_profile_report_detail,
+    new_profile_reports,
+    new_replay_exit,
+    new_replay_start,
+    new_results_page,
+    new_section_game_page,
+    new_section_last_page,
+    new_section_results_page,
+    new_section_task_results_page,
+    new_set_play_mode,
+    new_social_account_disconnect,
+    new_start,
+    new_task_group_live_state,
+    new_task_group_page,
+    new_team,
+    new_team_create,
+    new_team_info,
+    new_team_invite,
+    new_team_invite_accept,
+    new_team_invite_create,
+    new_team_join_by_password,
+    new_team_join_page,
+    new_team_name_check,
+    new_team_password,
+    new_team_rename,
+    new_team_request_join,
+    new_team_set_primary,
+    new_telegram_link_start,
+    new_ticket_payment_status,
+    new_tournament_results_page,
+    project_folder_games,
+    project_game_task_group_progress,
+    project_hub,
+    project_main_game_page,
+    project_results_page,
+    project_task_group_page,
+    project_tournament_results_page,
+)
+
+# Neutral aliases for handlers.
+hub = new_hub
+start = new_start
+folder = new_folder
+section_game_page = new_section_game_page
+section_results_page = new_section_results_page
+ladder_word_results_page = new_ladder_word_results_page
+section_task_results_page = new_section_task_results_page
+game_task_results_page = new_game_task_results_page
+main_game_page = new_main_game_page
+results_page = new_results_page
+tournament_results_page = new_tournament_results_page
+task_group_page = new_task_group_page
+task_group_live_state = new_task_group_live_state
+ladder_today_page = new_ladder_today_page
+ladder_last_page = new_ladder_last_page
+ladder_hub_page = new_ladder_hub_page
+section_last_page = new_section_last_page
+
+from games.views.alphabetty_views import (  # noqa: E402
+    alphabetty_guess,
+    alphabetty_hint,
+    alphabetty_hub_page,
+    alphabetty_random_game,
+    alphabetty_last_page,
+    alphabetty_play_page,
+    alphabetty_prefix,
+    alphabetty_state,
+    alphabetty_suggest,
+    alphabetty_today_page,
+)
+from games.views.censorly_views import (  # noqa: E402
+    censorly_guess,
+    censorly_hint,
+    censorly_hub_page,
+    censorly_last_page,
+    censorly_play_page,
+    censorly_random_game,
+    censorly_state,
+    censorly_today_page,
+    censorly_word_report,
+)
+
+
+def censorly_play_random(request, share_hash):
+    return censorly_play_page(request, share_hash=share_hash)
+
+
+def censorly_guess_random(request, share_hash):
+    return censorly_guess(request, share_hash=share_hash)
+
+
+def censorly_state_random(request, share_hash):
+    return censorly_state(request, share_hash=share_hash)
+
+
+def censorly_hint_random(request, share_hash):
+    return censorly_hint(request, share_hash=share_hash)
+
+from games.views.offer_alphabetty import (  # noqa: E402
+    offer_alphabetty_create as alphabetty_create_submit,
+    offer_alphabetty_detail,
+    offer_alphabetty_page as alphabetty_create_page,
+    offer_alphabetty_reopen,
+    offer_alphabetty_send,
+)
+from games.views.offer_ladder import (  # noqa: E402
+    offer_ladder_create,
+    offer_ladder_detail,
+    offer_ladder_page,
+    offer_ladder_reset,
+    offer_ladder_send,
+)
+from games.views.offer_salad import (  # noqa: E402
+    offer_salad_create,
+    offer_salad_convert,
+    offer_salad_detail,
+    offer_salad_page,
+    offer_salad_reset,
+    offer_salad_send,
+)
+from games.views.offer_censorly import (  # noqa: E402
+    offer_censorly_create,
+    offer_censorly_page,
+    offer_censorly_suggest,
+)
+from games.views.daily_timing_views import daily_solve_timing  # noqa: E402
+from games.tutorials.views import ladder_tutorial  # noqa: E402
+
+game_task_group_progress = new_game_task_group_progress
+project_game_task_group_progress = project_game_task_group_progress
+get_answer = new_get_answer
+get_replacements_line_answer = new_get_replacements_line_answer
+get_raddle_word_answer = new_get_raddle_word_answer
+like_dislike = new_like_dislike
+bug_report = new_bug_report
+set_play_mode = new_set_play_mode
+migrate_anon_attempts = new_migrate_anon_attempts
+anon_migrate_count = new_anon_migrate_count
+club_archive_offer_action = new_club_archive_offer_action
+profile = new_profile
+dismiss_unverified_telegram_handle = new_dismiss_unverified_telegram_handle
+profile_reports = new_profile_reports
+profile_report_detail = new_profile_report_detail
+account_merge_confirm = new_account_merge_confirm
+account_merge_status = new_account_merge_status
+account_merge_retry = new_account_merge_retry
+social_account_disconnect = new_social_account_disconnect
+team = new_team
+pay_page = new_pay_page
+create_ticket_payment = new_create_ticket_payment
+create_crypto_ticket_payment = new_create_crypto_ticket_payment
+create_tribute_ticket_payment = new_create_tribute_ticket_payment
+telegram_link_start = new_telegram_link_start
+ticket_payment_status = new_ticket_payment_status
+
+from games.views.subscription import (  # noqa: E402
+    subscription_checkout,
+    subscription_page,
+    subscription_payment_method_detach,
+    subscription_yookassa_cancel,
+    subscription_yookassa_monthly_start,
+    subscription_yookassa_resume,
+    subscription_claim_gift,
+    subscription_reveal_gift_code,
+    subscription_gift_tribute_start,
+    subscription_gift_yookassa_start,
+)
+donate_page = new_donate_page
+create_crypto_donation = new_create_crypto_donation
+donation_status = new_donation_status
+team_name_check = new_team_name_check
+team_info = new_team_info
+team_create = new_team_create
+team_join_page = new_team_join_page
+team_request_join = new_team_request_join
+team_join_by_password = new_team_join_by_password
+team_password = new_team_password
+team_rename = new_team_rename
+team_set_primary = new_team_set_primary
+team_invite = new_team_invite
+team_invite_accept = new_team_invite_accept
+team_invite_create = new_team_invite_create

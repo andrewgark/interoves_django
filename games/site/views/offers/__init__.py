@@ -1,0 +1,1 @@
+"""Player-authored puzzle offers."""
