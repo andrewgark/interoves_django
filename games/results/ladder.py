@@ -24,7 +24,7 @@ from games.raddle import (
     resolve_assist_tiers,
     word_solve_credit,
 )
-from games.results.sql_aggregate import _attempt_actor_specs
+from games.results.sql import _attempt_actor_specs
 
 
 class _WordColHeader:

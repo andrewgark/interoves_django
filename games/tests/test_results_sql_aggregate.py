@@ -27,7 +27,7 @@ from games.models import (
     Team,
 )
 from games.results_snapshot import build_results_snapshot_payload
-from games.results.sql_aggregate import (
+from games.results.sql import (
     get_sql_aggregated_game_actor_rows as canonical_sql_aggregate,
     tasks_need_orm_results_aggregate as canonical_orm_fallback_check,
     AggregatedAttemptsInfo as canonical_attempts_info,
