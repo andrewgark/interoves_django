@@ -1,6 +1,6 @@
 """Compatibility facade for daily statistics helpers."""
 
-from games.daily.statistics import (
+from games.daily.timing.statistics import (
     CACHE_TIMEOUT,
     CACHE_VERSION,
     POPULAR_LIMIT,

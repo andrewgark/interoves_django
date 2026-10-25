@@ -29,7 +29,7 @@ from games.daily_timing import (
     lookup_timing,
     snapshot,
 )
-from games.daily.timer_reports import CLIENT_REPORT_ACTION, handle_client_report
+from games.daily.timing.reports import CLIENT_REPORT_ACTION, handle_client_report
 from games.db_retry import is_mysql_retryable_lock_error
 from games.models import Attempt, Game, GameTaskGroup
 from games.analytics_identity import gameplay_anon_key

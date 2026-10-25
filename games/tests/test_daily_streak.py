@@ -110,7 +110,7 @@ class DailyStreakLogicTests(TestCase):
                     return future
                 return datetime(2026, 9, int(number), tzinfo=MOSCOW)
 
-        with patch('games.daily.streak.schedule_for', return_value=FutureSchedule()):
+        with patch('games.daily.timing.streak.schedule_for', return_value=FutureSchedule()):
             self.assertEqual(self.streak('ladder')['ladder'], 0)
 
     def test_author_auto_completion_is_personal_only(self):

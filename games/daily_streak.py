@@ -1,6 +1,6 @@
 """Compatibility facade for daily streak helpers."""
 
-from games.daily.streak import (
+from games.daily.timing.streak import (
     daily_completion_statuses_for_actor,
     daily_streaks_for_actor,
     daily_streaks_for_user,

@@ -2,6 +2,6 @@
 
 import sys
 
-from games.daily import progress_reset as _implementation
+from games.daily.timing import reset as _implementation
 
 sys.modules[__name__] = _implementation

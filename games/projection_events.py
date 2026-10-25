@@ -192,7 +192,7 @@ def publish_daily_statistics_refresh(game_id, task_group_id, *, revision=None):
 
 def run_named_daily_statistics_refresh(*, game_id, task_group_id):
     """Build the current public statistics generation after its source commit."""
-    from games.daily.statistics import (
+    from games.daily.timing.statistics import (
         build_daily_statistics, _cache_revision_key, _versioned_cache_key,
     )
     from games.models import Game, GameTaskGroup, TaskGroup

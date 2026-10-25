@@ -19,7 +19,7 @@ from games.daily_statistics import (
     invalidate_daily_statistics,
     REVISION_TIMEOUT,
 )
-from games.daily.statistics import (
+from games.daily.timing.statistics import (
     CACHE_BUILD_LOCK_TIMEOUT,
     CACHE_TIMEOUT,
     _RELEASE_CACHE_LOCK_SCRIPT,
@@ -99,7 +99,7 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(body['payload']['revision'], 1)
 
     def test_worker_refresh_warms_the_current_statistics_generation(self):
-        from games.daily.statistics import _cache_revision_key, _versioned_cache_key
+        from games.daily.timing.statistics import _cache_revision_key, _versioned_cache_key
         from games.projection_events import (
             _cache, _daily_statistics_mark_key,
             run_named_daily_statistics_refresh,
@@ -132,7 +132,7 @@ class DailyStatisticsTests(TestCase):
 
         with patch.object(daily_cache, 'get', side_effect=cache_get):
             with patch(
-                'games.daily.statistics._build_daily_statistics_payload',
+                'games.daily.timing.statistics._build_daily_statistics_payload',
                 return_value={'fresh': True},
             ) as build_payload:
                 result = build_daily_statistics(self.game, tg)
@@ -202,7 +202,7 @@ class DailyStatisticsTests(TestCase):
             return {'fresh': True}
 
         with patch(
-            'games.daily.statistics._build_daily_statistics_payload',
+            'games.daily.timing.statistics._build_daily_statistics_payload',
             side_effect=slow_build,
         ):
             with ThreadPoolExecutor(max_workers=2) as executor:
@@ -231,7 +231,7 @@ class DailyStatisticsTests(TestCase):
         )
 
         with patch(
-            'games.daily.statistics._build_daily_statistics_payload',
+            'games.daily.timing.statistics._build_daily_statistics_payload',
         ) as build_payload:
             result = build_daily_statistics(self.game, tg)
 
@@ -554,7 +554,7 @@ class DailyStatisticsTests(TestCase):
         )
 
     def test_censorly_lemmas_come_from_attempt_state_without_loading_it(self):
-        from games.daily import statistics as daily_statistics
+        from games.daily.timing import statistics as daily_statistics
 
         game, tg, task = self._censorly_task('censorly state lemmas')
         history = [{'lemma': 'кошка'}]

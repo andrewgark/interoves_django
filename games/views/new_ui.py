@@ -1154,7 +1154,7 @@ def _daily_archive_context(request, game, links, *, completed_numbers=(), status
 
 def _add_daily_completion_statuses(request, game, rows, links):
     """Add the small flame state shown next to a solved daily task."""
-    from games.daily.streak import daily_completion_statuses_for_actor
+    from games.daily.timing.streak import daily_completion_statuses_for_actor
 
     _team, user, anon_key = _resolve_game_page_actor(request, 'personal')
     try:

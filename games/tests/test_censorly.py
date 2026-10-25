@@ -3156,7 +3156,7 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(adapter.task_variant, 'alphabetty')
 
     def test_statistics_adapter_smoke(self):
-        from games.daily.statistics import DAILY_STATISTICS_ADAPTERS, _censorly
+        from games.daily.timing.statistics import DAILY_STATISTICS_ADAPTERS, _censorly
         self.assertIn('censorly', DAILY_STATISTICS_ADAPTERS)
         data = _censorly(self.task, self.game, {})
         self.assertEqual(data['kind'], 'censorly')

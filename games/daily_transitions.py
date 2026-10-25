@@ -1,6 +1,6 @@
 """Compatibility facade for daily content transition helpers."""
 
-from games.daily.transitions import (
+from games.daily.timing.transitions import (
     next_daily_content_transition,
     next_daily_content_transition_for_game,
     next_daily_content_transition_for_games,
