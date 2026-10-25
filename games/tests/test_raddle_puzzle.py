@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 
 from games.puzzles.raddle import RaddlePuzzle
-from games.puzzles.raddle_submission import RaddleMove, RaddleMoveRefusal
+from games.puzzles.raddle.submission import RaddleMove, RaddleMoveRefusal
 
 
 MINI_LADDER = {

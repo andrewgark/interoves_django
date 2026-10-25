@@ -6,8 +6,8 @@ from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
 from games.puzzles.core.base import Puzzle
 from games.puzzles.core.progress import _int_tuple
-from games.puzzles.raddle_board import load_ladder_board
-from games.puzzles.raddle_submission import (
+from games.puzzles.raddle.board import load_ladder_board
+from games.puzzles.raddle.submission import (
     accept_ui_draft,
     assist_block,
     attempt_limit_message,

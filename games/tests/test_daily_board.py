@@ -105,8 +105,8 @@ class DailyBoardBuilderTests(TestCase):
         build_ui.assert_called_once()
         get_share.assert_called_once_with('other')
 
-    @patch('games.puzzles.raddle.get_daily_share_adapter')
-    @patch('games.puzzles.raddle.build_raddle_ui_context', return_value={'board': 'ui'})
+    @patch('games.puzzles.raddle.puzzle.get_daily_share_adapter')
+    @patch('games.puzzles.raddle.puzzle.build_raddle_ui_context', return_value={'board': 'ui'})
     def test_raddle_builder_preserves_ui_state_and_result_shape(
         self, build_ui, get_share,
     ):
@@ -175,10 +175,10 @@ class DailyBoardBuilderTests(TestCase):
         resolve_state.assert_called_once()
         build_board.assert_called_once()
 
-    @patch('games.puzzles.raddle.load_ladder_board')
-    @patch('games.puzzles.raddle.build_raddle_board_data', return_value={'prepared': 'raddle'})
-    @patch('games.puzzles.raddle.latest_daily_state', return_value={'state': 'raddle'})
-    @patch('games.puzzles.raddle.parse_raddle_data', return_value={'n_words': 2})
+    @patch('games.puzzles.raddle.puzzle.load_ladder_board')
+    @patch('games.puzzles.raddle.puzzle.build_raddle_board_data', return_value={'prepared': 'raddle'})
+    @patch('games.puzzles.raddle.puzzle.latest_daily_state', return_value={'state': 'raddle'})
+    @patch('games.puzzles.raddle.puzzle.parse_raddle_data', return_value={'n_words': 2})
     def test_raddle_adapter_pipeline_passes_ui_state_and_share_title(
         self, parse_task, resolve_state, build_board, load_board,
     ):
