@@ -463,7 +463,7 @@ class DifficultyObservationTests(TestCase):
             self._attempt(key, base, 'XXX', 'Wrong')
             self._attempt(key, base + timedelta(seconds=120), 'BBB', 'Ok')
 
-        with patch('games.difficulty_domain.core.published_at_for_placement', return_value=published_at):
+        with patch('games.daily.difficulty.core.published_at_for_placement', return_value=published_at):
             result = calculate_game_difficulty(self.placement, now=now, save=True)
 
         self.assertAlmostEqual(result['ratios_classic']['time'], 0.6)

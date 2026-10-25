@@ -2,6 +2,6 @@
 
 import sys
 
-from games.difficulty_domain import refresh as _implementation
+from games.daily.difficulty import refresh as _implementation
 
 sys.modules[__name__] = _implementation

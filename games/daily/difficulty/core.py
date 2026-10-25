@@ -1335,5 +1335,5 @@ def get_game_difficulty(placement, *, force=False, now=None):
 
 
 def refresh_due_daily_difficulties(*, now=None, limit=DUE_REFRESH_LIMIT, game_ids=None, dry_run=False):
-    from games.difficulty_domain.refresh import refresh_due_daily_difficulties as _refresh
+    from games.daily.difficulty.refresh import refresh_due_daily_difficulties as _refresh
     return _refresh(now=now, limit=limit, game_ids=game_ids, dry_run=dry_run)
