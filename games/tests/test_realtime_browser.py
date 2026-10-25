@@ -765,7 +765,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
     @patch('games.club_access.reject_if_club_archive_blocked', return_value=None)
     @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
-    @patch('games.views.new_ui.scheduled_number_is_public', return_value=True)
+    @patch('games.site.ui.play.page.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_personal_daily_timer_keeps_both_browser_tabs_active(
         self, _game_access, _page_published, _published, _reject_archive,

@@ -186,7 +186,7 @@ class LadderWordResultsTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
-            with patch('games.views.new_ui.render') as render_mock:
+            with patch('games.site.ui.results.pages.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
                 ctx = render_mock.call_args[0][2]
                 self.assertTrue(ctx['is_ladder_word_results'])
@@ -211,7 +211,7 @@ class LadderWordResultsTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
-            with patch('games.views.new_ui.render') as render_mock:
+            with patch('games.site.ui.results.pages.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
                 self.assertEqual(render_mock.call_args[0][1], 'new/partials/results_rows.html')
                 ctx = render_mock.call_args[0][2]
@@ -236,6 +236,6 @@ class LadderWordResultsTests(TestCase):
         request.user = staff
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
-            with patch('games.views.new_ui.render') as render_mock:
+            with patch('games.site.ui.results.pages.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
         self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')

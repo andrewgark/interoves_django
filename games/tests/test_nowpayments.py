@@ -199,7 +199,7 @@ class NowPaymentsCreatePaymentTests(TestCase):
         self.client = Client()
         self.assertTrue(self.client.login(username='np_pay_user', password='secret'))
 
-    @patch('games.views.new_ui.nowpayments_create_invoice')
+    @patch('games.site.ui.pay.pages.nowpayments_create_invoice')
     def test_create_crypto_payment_returns_embed(self, create_mock):
         create_mock.return_value = {
             'id': '6064785541',
@@ -233,7 +233,7 @@ class NowPaymentsCreatePaymentTests(TestCase):
         self.assertEqual(kwargs['order_id'], str(ticket.id))
 
     @patch(
-        'games.views.new_ui.nowpayments_create_invoice',
+        'games.site.ui.pay.pages.nowpayments_create_invoice',
         side_effect=RuntimeError('Missing NOWPayments API key: ...'),
     )
     def test_create_crypto_payment_missing_credentials(self, _create_mock):
@@ -398,7 +398,7 @@ class CryptoDonationCreateTests(TestCase):
     def setUp(self):
         self.client = Client()
 
-    @patch('games.views.new_ui.nowpayments_create_invoice')
+    @patch('games.site.ui.pay.pages.nowpayments_create_invoice')
     def test_anon_create_donation(self, create_mock):
         create_mock.return_value = {
             'id': 'don-inv-1',
@@ -431,7 +431,7 @@ class CryptoDonationCreateTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['reason'], 'amount')
 
-    @patch('games.views.new_ui.nowpayments_create_invoice')
+    @patch('games.site.ui.pay.pages.nowpayments_create_invoice')
     def test_authed_create_links_user(self, create_mock):
         create_mock.return_value = {'id': 'don-inv-2', 'invoice_url': 'https://x'}
         user = User.objects.create_user('donor', 'd@example.com', 'secret')

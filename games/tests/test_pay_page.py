@@ -177,8 +177,8 @@ class TicketPaymentCreationTests(TestCase):
         self.client = Client()
         self.assertTrue(self.client.login(username='pay_create', password='secret'))
 
-    @patch('games.views.new_ui.configure_yookassa_from_env')
-    @patch('games.views.new_ui.Payment.create')
+    @patch('games.site.ui.pay.pages.configure_yookassa_from_env')
+    @patch('games.site.ui.pay.pages.Payment.create')
     def test_yookassa_uses_server_price_and_stores_route(self, create_mock, _configure_mock):
         create_mock.return_value = {
             'id': 'pay-route-1',

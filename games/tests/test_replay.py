@@ -99,8 +99,8 @@ class ReplaySlotTests(TestCase):
             request=request, game=self.game, task_group=self.group, user=self.user,
         )
         request.user = self.user
-        with patch('games.views.new_ui._get_play_mode', return_value=('personal', 'personal')), \
-             patch('games.views.new_ui.has_profile', return_value=True):
+        with patch('games.site.ui.play.replay._get_play_mode', return_value=('personal', 'personal')), \
+             patch('games.site.ui.play.replay.has_profile', return_value=True):
             response = new_replay_exit(request, self.game.id, '1')
         self.assertEqual(response.status_code, 302)
         self.assertIsNone(

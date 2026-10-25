@@ -804,7 +804,7 @@ class WordSaladTests(TestCase):
         )
         request.user = AnonymousUser()
         request.session = {'play_mode_sections': 'personal'}
-        with patch('games.views.new_ui.render', side_effect=lambda _request, _template, context: context):
+        with patch('games.site.ui.play.page.render', side_effect=lambda _request, _template, context: context):
             context = new_task_group_page(request, self.game.pk, '1')
         self.assertIn(self.task.pk, context['word_salad_data'])
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['grid_rows']), 4)

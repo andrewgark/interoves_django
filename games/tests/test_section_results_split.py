@@ -87,7 +87,7 @@ class SectionResultsSplitTests(TestCase):
         request = self.factory.get('/section/sec_res/results/')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.views.new_ui.render') as render_mock:
+        with patch('games.site.ui.results.pages.render') as render_mock:
             new_section_results_page(request, 'sec_res')
         context = render_mock.call_args[0][2]
         self.assertEqual(context['game'].pk, game.pk)
@@ -113,7 +113,7 @@ class SectionResultsSplitTests(TestCase):
         request = self.factory.get('/alphabetty/8/results/')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.views.new_ui.render') as render_mock:
+        with patch('games.site.ui.results.pages.render') as render_mock:
             new_section_task_results_page(request, **match.kwargs)
         self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')
 
@@ -145,7 +145,7 @@ class SectionResultsSplitTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.models.Attempt.manager.get_bulk_game_actor_rows') as bulk_mock:
-            with patch('games.views.new_ui.render') as render_mock:
+            with patch('games.site.ui.results.pages.render') as render_mock:
                 new_section_results_page(request, LADDER_GAME_ID)
                 bulk_mock.assert_not_called()
                 ctx = render_mock.call_args[0][2]
@@ -182,7 +182,7 @@ class SectionResultsSplitTests(TestCase):
             'aggregate_period': 'month', 'aggregate_limit': 10,
         }
         with patch('games.aggregate_leaderboard.build_aggregate_page', return_value=aggregate_data):
-            with patch('games.views.new_ui.render') as render_mock:
+            with patch('games.site.ui.results.pages.render') as render_mock:
                 new_section_results_page(request, ladder.id)
 
         context = render_mock.call_args[0][2]
@@ -212,7 +212,7 @@ class SectionResultsSplitTests(TestCase):
         request = self.factory.get('/ladder/results/?limit=10')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.views.new_ui.render') as render_mock:
+        with patch('games.site.ui.results.pages.render') as render_mock:
             new_section_results_page(request, LADDER_GAME_ID)
             ctx = render_mock.call_args[0][2]
             self.assertEqual(render_mock.call_args[0][1], 'new/aggregate_results.html')
@@ -233,7 +233,7 @@ class SectionResultsSplitTests(TestCase):
                 text='y',
             )
 
-        with patch('games.views.new_ui.render') as render_mock:
+        with patch('games.site.ui.results.pages.render') as render_mock:
             for page in (1, 2):
                 request = self.factory.get('/ladder/results/?page={}'.format(page))
                 request.user = AnonymousUser()
@@ -308,7 +308,7 @@ class SectionResultsSplitTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.results_snapshot.snapshot_to_results_context') as full_snap:
-            with patch('games.views.new_ui.render') as render_mock:
+            with patch('games.site.ui.results.pages.render') as render_mock:
                 new_section_results_page(request, LADDER_GAME_ID)
                 full_snap.assert_not_called()
                 ctx = render_mock.call_args[0][2]

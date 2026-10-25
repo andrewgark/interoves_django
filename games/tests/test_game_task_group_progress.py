@@ -204,15 +204,15 @@ class GameTaskGroupProgressTests(TestCase):
             'play_url': '/hub_ssr_progress/1/',
         }
         with (
-            patch('games.views.new_ui.HUB_DAILY_SECTION_IDS', (game.id,)),
-            patch('games.views.new_ui.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
-            patch('games.views.new_ui.ONBOARDING_GAME_IDS', (game.id,)),
-            patch.dict('games.views.new_ui.ONBOARDING_GAME_META', {game.id: {'badge': 'Test'}}),
-            patch('games.views.new_ui.get_training_section_hub_context', return_value=card_context),
-            patch('games.views.new_ui._get_play_mode', return_value=('personal', None)),
-            patch('games.views.new_ui.effective_play_mode', return_value='personal'),
-            patch('games.views.new_ui._game_page_progress_context', return_value={'load_task_group_progress': True}),
-            patch('games.views.new_ui._resolve_game_page_actor', return_value=(None, None, actor_key)),
+            patch('games.site.ui.hub.cards.HUB_DAILY_SECTION_IDS', (game.id,)),
+            patch('games.site.ui.hub.cards.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
+            patch('games.site.ui.hub.cards.ONBOARDING_GAME_IDS', (game.id,)),
+            patch.dict('games.site.ui.hub.cards.ONBOARDING_GAME_META', {game.id: {'badge': 'Test'}}),
+            patch('games.site.ui.hub.cards.get_training_section_hub_context', return_value=card_context),
+            patch('games.site.ui.hub.cards._get_play_mode', return_value=('personal', None)),
+            patch('games.site.ui.hub.cards.effective_play_mode', return_value='personal'),
+            patch('games.site.ui.hub.cards._game_page_progress_context', return_value={'load_task_group_progress': True}),
+            patch('games.site.ui.hub.cards._resolve_game_page_actor', return_value=(None, None, actor_key)),
             patch('games.daily_streak.daily_streaks_for_actor', return_value={}),
         ):
             result = _build_hub_section_cards(request, team=None)
@@ -236,13 +236,13 @@ class GameTaskGroupProgressTests(TestCase):
         card = {'id': game.id, 'game': game, 'title': 'Цензурки'}
 
         with (
-            patch('games.views.new_ui.HUB_DAILY_SECTION_IDS', (game.id,)),
-            patch('games.views.new_ui.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
-            patch('games.views.new_ui.ONBOARDING_GAME_IDS', ()),
-            patch('games.views.new_ui.get_scheduled_section_hub_card', return_value=card),
-            patch('games.views.new_ui._get_play_mode', return_value=('personal', None)),
-            patch('games.views.new_ui.effective_play_mode', return_value='personal'),
-            patch('games.views.new_ui._game_page_progress_context', return_value={}),
+            patch('games.site.ui.hub.cards.HUB_DAILY_SECTION_IDS', (game.id,)),
+            patch('games.site.ui.hub.cards.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
+            patch('games.site.ui.hub.cards.ONBOARDING_GAME_IDS', ()),
+            patch('games.site.ui.hub.cards.get_scheduled_section_hub_card', return_value=card),
+            patch('games.site.ui.hub.cards._get_play_mode', return_value=('personal', None)),
+            patch('games.site.ui.hub.cards.effective_play_mode', return_value='personal'),
+            patch('games.site.ui.hub.cards._game_page_progress_context', return_value={}),
             patch('games.daily_streak.daily_streaks_for_actor', return_value={}),
         ):
             result = _build_hub_section_cards(request, team=None)
@@ -694,7 +694,7 @@ class GameTaskGroupProgressTests(TestCase):
         stamp_anon_identity(request, 'fallback-actor')
 
         with patch(
-            'games.views.new_ui._task_group_progress_payload',
+            'games.site.ui.game.progress._task_group_progress_payload',
             side_effect=RuntimeError('projection failed'),
         ), self.assertLogs('games.views.new_ui', level='ERROR'):
             hydrated_rows, progress_context = _initial_task_group_progress(

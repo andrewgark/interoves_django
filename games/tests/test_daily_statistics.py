@@ -757,7 +757,7 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['summary']['median_attempts'], 1)
 
     @patch('games.club_access.reject_if_club_archive_blocked', return_value=None)
-    @patch('games.views.new_ui.scheduled_number_is_public', return_value=True)
+    @patch('games.site.ui.results.pages.scheduled_number_is_public', return_value=True)
     def test_results_and_statistics_explain_why_the_viewer_is_omitted(self, _public, _club):
         tg, task = self._task('alphabetty')
         author = self.users[0]
