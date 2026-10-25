@@ -229,7 +229,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertNotIn('data-progress-url=', html)
 
     def test_censorly_hub_card_does_not_import_removed_visibility_helper(self):
-        game = self._create_section_game('censorly')
+        game = Game.objects.get(id='censorly')
         request = RequestFactory().get('/')
         request.user = AnonymousUser()
         request.session = {}
@@ -300,7 +300,8 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertTrue(row['is_fully_solved'])
         self.assertEqual(row['row_class'], 'new-task--solved')
         self.assertEqual(row['result_squares'], '🟥')
-        self.assertEqual(row['elapsed_label'], '0с')
+        # Лесенка — ежедневная игра. Без активного таймера ноль секунд не показываем.
+        self.assertEqual(row['elapsed_label'], '—')
 
     def test_ladder_progress_assisted_half_credit_still_solved(self):
         from games.ladder_daily import LADDER_PUBLISH_START_TAG
@@ -349,7 +350,7 @@ class GameTaskGroupProgressTests(TestCase):
         row = resp.json()['rows']['1']
         self.assertTrue(row['is_fully_solved'])
         self.assertEqual(row['result_squares'], '🟨')
-        self.assertEqual(row['elapsed_label'], '0с')
+        self.assertEqual(row['elapsed_label'], '—')
 
     def test_ladder_progress_partial_shows_white_squares(self):
         from games.ladder_daily import LADDER_PUBLISH_START_TAG

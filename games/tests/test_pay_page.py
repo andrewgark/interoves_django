@@ -393,7 +393,7 @@ class HubPayCtaTests(TestCase):
         self.assertIn('href="/alphabetty/"', body)
         self.assertIn('href="/salad/"', body)
         self.assertIn('href="/nutrimatic-ru/"', body)
-        self.assertIn('href="/eurovision_booklet/2026/"', body)
+        self.assertIn('href="/eurovision_booklet/"', body)
         self.assertIn('href="/vpn/"', body)
         self.assertIn('href="/order-game/"', body)
         self.assertIn('alt="Логотип Pinely"', body)

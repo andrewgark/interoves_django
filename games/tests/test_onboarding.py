@@ -188,7 +188,7 @@ class OnboardingPageTests(TestCase):
         self.assertIn('data-onboarding-followup', body)
         self.assertIn('data-onboarding-social-prompt', body)
         self.assertIn('Хочешь ещё?', body)
-        self.assertIn('Новые Лесенки и Салатики регулярно появляются в Inter Oves.', body)
+        self.assertIn('Новые Лесенки, Салатики и Цензурки регулярно появляются в Inter Oves.', body)
         self.assertIn('Telegram →', body)
         self.assertIn('data-onboarding-social-platform="telegram"', body)
         self.assertIn('data-onboarding-social-platform="instagram"', body)
@@ -206,17 +206,11 @@ class OnboardingPageTests(TestCase):
         self.assertIn('>Командные игры</h2>', body)
         self.assertLess(body.index('id="hub-daily-heading"'), body.index('id="hub-team-heading"'))
         self.assertLess(body.index('id="hub-team-heading"'), body.index('id="desyatochki-heading"'))
-        self.assertIn('Выбираем донатами, какую игру добавить следующей', body)
-        self.assertLess(
-            body.index('id="hub-daily-heading"'),
-            body.index('Выбираем донатами, какую игру добавить следующей'),
-        )
-        self.assertLess(
-            body.index('Выбираем донатами, какую игру добавить следующей'),
-            body.index('id="hub-team-heading"'),
-        )
-        self.assertLess(body.index('hub-section-salad'), body.index('hub-section-alphabetty'))
-        self.assertLess(body.index('hub-section-alphabetty'), body.index('hub-section-ladder'))
+        # Голосование за следующую игру закрылось 27 сентября 2026.
+        self.assertNotIn('Выбираем донатами, какую игру добавить следующей', body)
+        self.assertLess(body.index('hub-section-ladder'), body.index('hub-section-salad'))
+        self.assertLess(body.index('hub-section-salad'), body.index('hub-section-censorly'))
+        self.assertLess(body.index('hub-section-censorly'), body.index('hub-section-alphabetty'))
         self.assertNotIn('new-hub-section--recommended', body)
         self.assertIn('>Как играть</button>', body)
         self.assertIn('id="desyatochki-rules-modal"', body)
