@@ -2622,7 +2622,7 @@ def new_section_results_page(request, game_id):
         else 'standard'
     )
 
-    from games.results.aggregate_leaderboard import build_aggregate_page
+    from games.results.standings.aggregate_leaderboard import build_aggregate_page
     from games.results.aggregate_snapshots import SnapshotVersionExpired
     try:
         data = build_aggregate_page(request, game)

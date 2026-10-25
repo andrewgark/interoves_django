@@ -14,7 +14,7 @@ from django.db import connection, transaction
 from django.db.models import Prefetch, IntegerField
 from django.db.models.functions import Cast
 from django.utils.dateparse import parse_datetime
-from games.results.leaderboard import eligible_release_actor_keys, score_rank
+from games.results.standings.leaderboard import eligible_release_actor_keys, score_rank
 from games.results.table.context import result_cell_class
 from games.models import (
     DailySolveTiming,
@@ -807,7 +807,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
                     release_durations[duration_key] = seconds
         # Releases without a timer row still get the historical first-to-last
         # attempt duration, marked so the results table can explain it.
-        from games.results.leaderboard import canonical_leaderboard_durations
+        from games.results.standings.leaderboard import canonical_leaderboard_durations
         for column in columns:
             release_id = column.link.task_group_id
             release_actors = [

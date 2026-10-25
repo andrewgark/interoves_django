@@ -15,7 +15,7 @@ from games.models import (
     Project,
     Team,
 )
-from games.results.aggregate_leaderboard import _build_projection_aggregate_page
+from games.results.standings.aggregate_leaderboard import _build_projection_aggregate_page
 from games.results.aggregate_snapshot_read import read_snapshot_page
 from games.results.aggregate_snapshots import SnapshotVersionExpired
 
@@ -124,7 +124,7 @@ class AggregateSnapshotReadTests(TestCase):
 
     def test_results_view_turns_expired_snapshot_into_reload_response(self):
         with patch(
-            'games.results.aggregate_leaderboard.build_aggregate_page',
+            'games.results.standings.aggregate_leaderboard.build_aggregate_page',
             side_effect=SnapshotVersionExpired(),
         ):
             response = self.client.get('/ladder/results/', {'partial': '1', 'page': '2'})

@@ -23,7 +23,7 @@ from games.recheck import recheck_queue_from_next, recheck_full
 
 
 def _invalidate_monthly_release_index(game_id):
-    from games.results.aggregate_leaderboard import invalidate_monthly_release_index
+    from games.results.standings.aggregate_leaderboard import invalidate_monthly_release_index
     invalidate_monthly_release_index(game_id)
 
 

@@ -261,7 +261,7 @@ def _assign_numbers_without_collision(
     GameTaskGroup.objects.bulk_update(links, ['number'])
     # bulk_update bypasses model signals, so invalidate the aggregate calendar
     # after the enclosing schedule transaction commits.
-    from games.results.aggregate_leaderboard import invalidate_monthly_release_index
+    from games.results.standings.aggregate_leaderboard import invalidate_monthly_release_index
     for game_id in {link.game_id for link in links}:
         invalidate_monthly_release_index(game_id)
 

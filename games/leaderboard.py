@@ -2,6 +2,6 @@
 
 import sys
 
-from games.results import leaderboard as _implementation
+from games.results.standings import leaderboard as _implementation
 
 sys.modules[__name__] = _implementation

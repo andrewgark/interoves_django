@@ -132,7 +132,7 @@ def request_monthly_snapshot(game, month, columns):
 
 
 def _version_columns(version):
-    from games.results.aggregate_leaderboard import ReleaseColumn
+    from games.results.standings.aggregate_leaderboard import ReleaseColumn
 
     task_ids = [pk for col in version.columns for pk in col.get('task_ids', [])]
     tasks = {task.pk: task for task in Task.objects.filter(pk__in=task_ids).only(
@@ -159,7 +159,7 @@ def _version_columns(version):
 
 
 def build_saved_monthly_page(request, game, columns, month_context):
-    from games.results.aggregate_leaderboard import _build_projection_aggregate_page
+    from games.results.standings.aggregate_leaderboard import _build_projection_aggregate_page
 
     month = month_context[1]
     if month is None:
@@ -261,7 +261,7 @@ def _claim(snapshot_id):
 
 
 def _publish(snapshot):
-    from games.results.aggregate_leaderboard import (
+    from games.results.standings.aggregate_leaderboard import (
         _monthly_columns, _projection_page_cells, _projection_rank_page,
     )
 
@@ -413,7 +413,7 @@ def reconcile_monthly_snapshots(*, limit=2):
     check_rows = list(DailyAggregateSnapshot.objects.filter(
         checked_at__lt=now - timedelta(minutes=5),
     ).select_related('game').order_by('checked_at')[:limit])
-    from games.results.aggregate_leaderboard import _monthly_columns
+    from games.results.standings.aggregate_leaderboard import _monthly_columns
     for row in check_rows:
         columns, selected, *_ = _monthly_columns(row.game, row.month.strftime('%Y-%m'))
         request_monthly_snapshot(row.game, row.month, columns if selected == row.month else [])

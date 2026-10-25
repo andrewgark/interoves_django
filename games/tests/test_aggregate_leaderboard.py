@@ -107,7 +107,7 @@ class AggregateLeaderboardTests(TestCase):
         )
 
     def test_ladder_month_context_selects_month_and_adjacent_navigation(self):
-        from games.results.aggregate_leaderboard import (
+        from games.results.standings.aggregate_leaderboard import (
             _monthly_release_context,
             _monthly_release_index_cache_key,
         )
@@ -128,9 +128,9 @@ class AggregateLeaderboardTests(TestCase):
             link for link in links if link.pk in kwargs['pk__in']
         ]
         cache.delete(_monthly_release_index_cache_key(self.game.pk))
-        with patch('games.results.aggregate_leaderboard._numbered_links', return_value=links_qs), \
-             patch('games.results.aggregate_leaderboard._with_result_tasks', side_effect=lambda value, _game_id: value), \
-             patch('games.results.aggregate_leaderboard.publish_at_for', side_effect=lambda _game, number: published[number]):
+        with patch('games.results.standings.aggregate_leaderboard._numbered_links', return_value=links_qs), \
+             patch('games.results.standings.aggregate_leaderboard._with_result_tasks', side_effect=lambda value, _game_id: value), \
+             patch('games.results.standings.aggregate_leaderboard.publish_at_for', side_effect=lambda _game, number: published[number]):
             selected, month, previous, following, published_at_by_link = _monthly_release_context(
                 self.game, '2026-09',
             )
@@ -142,14 +142,14 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(len(published_at_by_link), 3)
 
     def test_monthly_projection_builder_marks_month_period(self):
-        from games.results.aggregate_leaderboard import build_aggregate_page
+        from games.results.standings.aggregate_leaderboard import build_aggregate_page
 
         ladder = Game.objects.get(id='ladder')
         request = self._request()
         request.path = '/ladder/results/'
         month = date(2026, 9, 1)
         with patch(
-            'games.results.aggregate_leaderboard._monthly_columns',
+            'games.results.standings.aggregate_leaderboard._monthly_columns',
             return_value=([], month, None, None, {}),
         ), patch(
             'games.daily.projection.projection_state_is_valid',
@@ -172,10 +172,10 @@ class AggregateLeaderboardTests(TestCase):
             'aggregate_show_attempts': True,
         }
         with patch(
-            'games.results.aggregate_leaderboard._monthly_columns',
+            'games.results.standings.aggregate_leaderboard._monthly_columns',
             return_value=([], month, None, None, {}),
         ), patch(
-            'games.results.aggregate_leaderboard._build_projection_aggregate_page',
+            'games.results.standings.aggregate_leaderboard._build_projection_aggregate_page',
             return_value=projection_result,
         ) as projection_builder:
             result = build_aggregate_page(request, game)
@@ -185,7 +185,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(result['aggregate_period'], 'month')
 
     def test_alphabetty_projection_with_default_attempts_is_not_authoritative(self):
-        from games.results.aggregate_leaderboard import _alphabetty_projection_attempts_complete
+        from games.results.standings.aggregate_leaderboard import _alphabetty_projection_attempts_complete
 
         game = self.game
         game.id = 'alphabetty'
@@ -202,7 +202,7 @@ class AggregateLeaderboardTests(TestCase):
 
     def test_all_scheduled_games_use_monthly_aggregate_period(self):
         from games.daily.section import SCHEDULES
-        from games.results.aggregate_leaderboard import build_aggregate_page
+        from games.results.standings.aggregate_leaderboard import build_aggregate_page
 
         month = date(2026, 9, 1)
         for game_id in SCHEDULES:
@@ -210,7 +210,7 @@ class AggregateLeaderboardTests(TestCase):
             request = self._request()
             request.path = '/{}/results/'.format(game_id)
             with self.subTest(game_id=game_id), patch(
-                'games.results.aggregate_leaderboard._monthly_columns',
+                'games.results.standings.aggregate_leaderboard._monthly_columns',
                 return_value=([], month, None, None, {}),
             ) as monthly_columns, patch(
                 'games.daily.projection.projection_state_is_valid',
