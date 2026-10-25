@@ -15,7 +15,7 @@ from django.db.models import Prefetch, IntegerField
 from django.db.models.functions import Cast
 from django.utils.dateparse import parse_datetime
 from games.results.leaderboard import eligible_release_actor_keys, score_rank
-from games.results.context import result_cell_class
+from games.results.table.context import result_cell_class
 from games.models import (
     DailySolveTiming,
     GameTaskGroup,

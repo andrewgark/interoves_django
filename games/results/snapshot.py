@@ -10,7 +10,7 @@ from games.models import (
     Team,
     anon_key_is_hidden,
 )
-from games.results.context import result_cell_class
+from games.results.table.context import result_cell_class
 
 # Soft-cache for live (non-frozen) results tables. Progressive ?partial=1 pages
 # must not re-run a full compute for every page of 10–50 rows.

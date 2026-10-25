@@ -23,7 +23,7 @@ def auth_next(context):
 @register.filter
 def same_results_actor(actor, current_actor):
     """Compare result actors by stable team/user/anonymous identity."""
-    from games.results.context import results_actors_match
+    from games.results.table.context import results_actors_match
 
     return results_actors_match(actor, current_actor)
 

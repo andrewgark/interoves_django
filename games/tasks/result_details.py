@@ -6,7 +6,7 @@ from games.tasks.actor_state import (
     latest_attempt_state_for_result_actor,
 )
 from games.models import Attempt, ChainTaskState, GameTaskGroup, RaddleUiState
-from games.results.context import results_actor_identity
+from games.results.table.context import results_actor_identity
 from games.word_salad import WORD_SALAD_GAME_ID
 
 

@@ -11,7 +11,7 @@ from games.models import (
     PersonalResultsParticipant, Project, Task, TaskGroup, Team,
 )
 from games.views.new_ui import _attach_results_club_badges, _new_results_compute
-from games.results.context import result_cell_class
+from games.results.table.context import result_cell_class
 from games.results_snapshot import build_results_snapshot_payload, snapshot_to_results_context
 
 

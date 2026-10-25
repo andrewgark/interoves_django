@@ -3,7 +3,7 @@
 from django.core.paginator import Paginator
 from django.shortcuts import render
 
-from games.results.context import attach_results_club_badges
+from games.results.table.context import attach_results_club_badges
 
 
 def paginate_results_rows(request, data, per_page=50):

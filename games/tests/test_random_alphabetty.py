@@ -19,7 +19,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.results.tables import load_results_placements_and_tasks
+from games.results.table.tables import load_results_placements_and_tasks
 
 
 class RandomAlphabettyTests(TestCase):

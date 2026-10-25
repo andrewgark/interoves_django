@@ -1,6 +1,6 @@
 """Compatibility facade for the results context domain."""
 
-from games.results.context import (
+from games.results.table.context import (
     attach_results_club_badges,
     club_subscriber_user_ids,
     empty_results_rows_context,

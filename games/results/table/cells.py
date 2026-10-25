@@ -1,6 +1,6 @@
 """Build per-task cell metadata for results table rows."""
 
-from games.results.context import result_cell_class
+from games.results.table.context import result_cell_class
 
 
 def build_results_cells(*, participants, tasks, attempts_by_participant, alphabetty=False):
