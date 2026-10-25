@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 
-from games.puzzles.base import Puzzle
-from games.puzzles.duplicate import same_text_verdict
-from games.puzzles.move import MoveRefusal, TextMove
-from games.puzzles.progress import _wall_groups
+from games.puzzles.core.base import Puzzle
+from games.puzzles.core.duplicate import same_text_verdict
+from games.puzzles.core.move import MoveRefusal, TextMove
+from games.puzzles.core.progress import _wall_groups
 
 
 def parse_move(post):

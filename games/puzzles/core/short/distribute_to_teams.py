@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from games.puzzles.base import Puzzle
+from games.puzzles.core.base import Puzzle
 
 
 def pretty_text(attempt):

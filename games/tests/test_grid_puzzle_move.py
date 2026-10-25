@@ -4,8 +4,8 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 
 from games.puzzles import get_puzzle
+from games.puzzles.core.move import MoveRefusal, TextMove
 from games.puzzles.grid import GridPuzzle
-from games.puzzles.move import MoveRefusal, TextMove
 
 
 WALLS = {

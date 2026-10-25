@@ -5,8 +5,8 @@ from types import SimpleNamespace
 
 from games.daily.share import get_daily_share_adapter
 from games.daily.state import latest_daily_state
-from games.puzzles.base import Puzzle
-from games.puzzles.progress import _int_tuple, _text_tuple
+from games.puzzles.core.base import Puzzle
+from games.puzzles.core.progress import _int_tuple, _text_tuple
 from games.puzzles.word_salad_board import load_salad_board
 from games.puzzles.word_salad_submission import (
     attempt_limit_message,

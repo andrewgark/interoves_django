@@ -39,10 +39,10 @@ from games.views.game_context import (
 from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
-from games.puzzles.grid import GridPuzzle
-from games.puzzles.quota import revision_quota_message
 from games.puzzles.alphabetty import AlphabettyPuzzle
-from games.puzzles.move import MoveRefusal, MoveResponse
+from games.puzzles.core.move import MoveRefusal, MoveResponse
+from games.puzzles.core.quota import revision_quota_message
+from games.puzzles.grid import GridPuzzle
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.word_salad_submission import SaladSync
 from games.raddle_concurrency import (
@@ -313,7 +313,7 @@ def check_attempt(
 
     # if some task had tag on this task, recheck it too
     if task.task_type == 'with_tag':
-        from games.puzzles.with_tag import WithTagPuzzle
+        from games.puzzles.core.short.with_tag import WithTagPuzzle
         pair = WithTagPuzzle.dependent_actor(task)
         if pair is None:
             return True
@@ -519,7 +519,7 @@ def process_send_attempt(request, task_id):
             )
 
     if attempt_persisted and task.task_type == 'autohint':
-        from games.puzzles.autohint import AutohintPuzzle
+        from games.puzzles.core.short.autohint import AutohintPuzzle
         if AutohintPuzzle.opens_on_wrong(attempt):
             with timing_phase(request, 'autohint'):
                 hint = get_first_new_hint_actor(

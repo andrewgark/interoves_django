@@ -5,7 +5,7 @@ from django.test import SimpleTestCase
 
 from games.models import Attempt
 from games.puzzles import get_puzzle
-from games.puzzles.distribute_to_teams import DistributeToTeamsPuzzle
+from games.puzzles.core.short.distribute_to_teams import DistributeToTeamsPuzzle
 
 
 class DistributePrettyTextTests(SimpleTestCase):

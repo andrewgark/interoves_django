@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 
 from games.puzzles import get_puzzle
-from games.puzzles.with_tag import WithTagPuzzle
+from games.puzzles.core.short.with_tag import WithTagPuzzle
 
 
 class WithTagDependentActorTests(SimpleTestCase):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from games.puzzles.base import Puzzle
+from games.puzzles.core.base import Puzzle
 
 
 def dependent_actor(task):

@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from games.censorly.play import apply_guess, apply_hint
-from games.puzzles.base import Puzzle
+from games.puzzles.core.base import Puzzle
 
 
 @dataclass(frozen=True)

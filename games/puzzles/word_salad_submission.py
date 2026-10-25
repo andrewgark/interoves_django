@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from games.puzzles.duplicate import same_text_verdict
+from games.puzzles.core.duplicate import same_text_verdict
 from games.word_salad import (
     EXTRA_FOUND_COMMENT,
     RARE_FOUND_COMMENT,

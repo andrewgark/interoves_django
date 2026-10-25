@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 
 from games.puzzles import get_puzzle
-from games.puzzles.autohint import AutohintPuzzle
+from games.puzzles.core.short.autohint import AutohintPuzzle
 
 
 class AutohintRuleTests(SimpleTestCase):

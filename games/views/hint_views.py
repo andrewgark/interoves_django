@@ -118,7 +118,7 @@ def process_send_hint_attempt(request, task_id):
     anon_key = resolved.anon_key
 
     if task.task_type == 'autohint':
-        from games.puzzles.autohint import AutohintPuzzle
+        from games.puzzles.core.short.autohint import AutohintPuzzle
         raise InvalidFormException(AutohintPuzzle.manual_hint_message())
 
     context_error = validate_gameplay_context(
