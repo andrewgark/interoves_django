@@ -1,4 +1,4 @@
-from games.puzzles.alphabetty.puzzle import (
+from games.puzzles.alphabetty.play import (
     AlphabettyMove,
     AlphabettyMoveRefusal,
     AlphabettyPuzzle,

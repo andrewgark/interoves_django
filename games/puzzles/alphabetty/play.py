@@ -1,0 +1,836 @@
+"""Игровой прогресс Алфавитки: состояние, попытки, ответ API."""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from typing import Any, Optional
+
+from django.db import transaction
+from django.db.models import Min, Max
+from django.utils import timezone
+
+from games.alphabetty.core import (
+    build_prefix_level,
+    guess_status,
+    is_valid_guess,
+    known_prefix,
+    max_word_length,
+    normalize_word,
+)
+from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
+from games.puzzles.core.base import Puzzle
+from games.results.share import format_elapsed, format_share_link, share_path
+
+# Базовые очки за угаданное слово; каждая буквенная подсказка −1.
+ALPHABETTY_BASE_POINTS = 10
+ALPHABETTY_HINT_PENALTY = 1
+
+
+def default_state() -> dict[str, Any]:
+    return {'guesses': [], 'won': False, 'hint_prefix': '', 'hints_taken': 0}
+
+
+def hint_count(state: dict[str, Any]) -> int:
+    taken = state.get('hints_taken')
+    if taken is not None:
+        try:
+            return max(0, int(taken))
+        except (TypeError, ValueError):
+            pass
+    # Старые сохранения без hints_taken: одна подсказка = одна буква с начала.
+    return len(normalize_word(state.get('hint_prefix') or ''))
+
+
+def alphabetty_base_points(task: Optional[Task] = None):
+    """Максимум баллов за алфавитку (обычно 10)."""
+    from decimal import Decimal
+    if task is not None:
+        try:
+            p = task.get_points()
+            if p is not None:
+                return Decimal(str(p))
+        except Exception:
+            pass
+    return Decimal(ALPHABETTY_BASE_POINTS)
+
+
+def alphabetty_hint_penalty_points(hints: int) -> int:
+    return max(0, int(hints or 0)) * ALPHABETTY_HINT_PENALTY
+
+
+def letter_hint_penalty_for_actor(*, game, task, user=None, anon_key=None, team=None, replay_slot=None) -> int:
+    """Штраф за буквенные подсказки из ChainTaskState (−1 за каждую)."""
+    if task is None or getattr(task, 'task_type', None) != 'alphabetty':
+        return 0
+    if game is None:
+        return 0
+    qs = ChainTaskState.objects.filter(task=task, game=game, game_mode='general', replay_slot=replay_slot)
+    if team is not None:
+        qs = qs.filter(team=team, user__isnull=True, anon_key__isnull=True)
+    elif user is not None:
+        qs = qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
+    elif anon_key:
+        qs = qs.filter(anon_key=str(anon_key), team__isnull=True, user__isnull=True)
+    else:
+        return 0
+    row = qs.first()
+    if row is None:
+        return 0
+    return alphabetty_hint_penalty_points(hint_count(load_state(row.state)))
+
+
+def letter_hint_penalties_by_actor(task_ids, *, game=None, actor_filter=None) -> dict:
+    """Batched ``letter_hint_penalty_for_actor`` for official general-mode states.
+
+    Returns ``{(task_id, game_id, (kind, actor_id)): penalty}`` with kind
+    ``'team' | 'user' | 'anon'``.  Like the per-actor lookup, only
+    ``replay_slot IS NULL`` states count and a key with several rows uses the
+    lowest pk (``qs.first()``).
+    """
+    qs = ChainTaskState.objects.filter(
+        task_id__in=task_ids,
+        task__task_type='alphabetty',
+        game_mode='general',
+        replay_slot__isnull=True,
+    )
+    if game is not None:
+        qs = qs.filter(game=game)
+    if actor_filter:
+        qs = qs.filter(**actor_filter)
+
+    penalties = {}
+    for row in qs.order_by('pk').values('task_id', 'game_id', 'team_id', 'user_id', 'anon_key', 'state'):
+        if row['team_id'] is not None and row['user_id'] is None and row['anon_key'] is None:
+            actor = ('team', row['team_id'])
+        elif row['user_id'] is not None and row['team_id'] is None and row['anon_key'] is None:
+            actor = ('user', row['user_id'])
+        elif row['anon_key'] and row['team_id'] is None and row['user_id'] is None:
+            actor = ('anon', row['anon_key'])
+        else:
+            continue
+        key = (row['task_id'], row['game_id'], actor)
+        if key not in penalties:
+            penalties[key] = alphabetty_hint_penalty_points(hint_count(load_state(row['state'])))
+    return penalties
+
+
+def ru_hint_word(n: int) -> str:
+    n = abs(int(n))
+    n10, n100 = n % 10, n % 100
+    if n10 == 1 and n100 != 11:
+        return 'подсказка'
+    if 2 <= n10 <= 4 and not 12 <= n100 <= 14:
+        return 'подсказки'
+    return 'подсказок'
+
+
+def ru_hint_taken(n: int) -> str:
+    n = abs(int(n))
+    n10, n100 = n % 10, n % 100
+    if n10 == 1 and n100 != 11:
+        return 'Взята'
+    return 'Взято'
+
+
+def format_hints_label(count: int) -> str:
+    """💡💡 Взято N подсказки — для share и списка."""
+    n = max(0, int(count))
+    if n <= 0:
+        return ''
+    return f'{"💡" * n} {ru_hint_taken(n)} {n} {ru_hint_word(n)}'
+
+
+def ru_attempt_word(n: int) -> str:
+    n = abs(int(n))
+    n10, n100 = n % 10, n % 100
+    if n10 == 1 and n100 != 11:
+        return 'попытка'
+    if 2 <= n10 <= 4 and not 12 <= n100 <= 14:
+        return 'попытки'
+    return 'попыток'
+
+
+def elapsed_seconds_for_actor(*, game: Game, task: Task, actor: dict) -> int:
+    """Active solving time for daily alphabetty; first-to-last otherwise."""
+    from games.daily_timing import canonical_elapsed_seconds
+
+    attempts = list(
+        Attempt.manager.filter(task=task, game=game, **actor).exclude(time__isnull=True)
+    )
+    return canonical_elapsed_seconds(
+        game=game,
+        task_group=getattr(task, 'task_group', None),
+        user=actor.get('user'),
+        anon_key=actor.get('anon_key'),
+        replay_slot=actor.get('replay_slot'),
+        attempts=attempts,
+    )
+
+
+def build_share_lines(
+    *,
+    number: int | str,
+    attempts: int,
+    elapsed_seconds: int,
+    hints: int = 0,
+    host: str = 'interoves.com',
+    play_path: str | None = None,
+) -> list[str]:
+    display_number = str(number or '').strip()
+    if play_path:
+        path = share_path(play_path)
+    else:
+        path = 'alphabetty/{}'.format(display_number)
+    title = f'🔤 Алфавитка #{display_number}' if display_number else '🔤 Алфавитка'
+    lines = [
+        title,
+        f'🔄 {attempts} {ru_attempt_word(attempts)}',
+    ]
+    hints_line = format_hints_label(hints)
+    if hints_line:
+        lines.append(hints_line)
+    lines.extend([
+        f'⏱️ {format_elapsed(elapsed_seconds)}',
+        format_share_link(host, path),
+    ])
+    return lines
+
+
+def attach_solve_meta(
+    payload: dict[str, Any],
+    *,
+    game: Game,
+    task: Task,
+    number: int | str,
+    actor: Optional[dict],
+    host: str = 'interoves.com',
+    play_path: str | None = None,
+) -> dict[str, Any]:
+    """Добавить attempts_label; для решённой — ещё время/share-текст."""
+    attempts = int(payload.get('attempts') or 0)
+    payload['attempts_label'] = f'{attempts} {ru_attempt_word(attempts)}'
+    if not payload.get('won'):
+        return payload
+    hints = int(payload.get('hints') or 0)
+    elapsed = elapsed_seconds_for_actor(game=game, task=task, actor=actor) if actor else 0
+    lines = build_share_lines(
+        number=number,
+        attempts=attempts,
+        elapsed_seconds=elapsed,
+        hints=hints,
+        host=host,
+        play_path=play_path,
+    )
+    payload['elapsed_seconds'] = elapsed
+    payload['elapsed_label'] = format_elapsed(elapsed)
+    if actor.get('replay_slot') is not None:
+        # Replay results are private and must never produce a public share card.
+        return payload
+    payload['share_lines'] = lines
+    payload['share_text'] = '\n'.join(lines)
+    from games.daily_share_card import build_alphabetty_share_payload, publish_date_for
+    placement = None
+    if getattr(task, 'task_group_id', None):
+        placement = (
+            GameTaskGroup.objects
+            .filter(game_id=game.pk, task_group_id=task.task_group_id)
+            .only('number')
+            .first()
+        )
+    payload['share_card'] = build_alphabetty_share_payload(
+        number=number,
+        date_value=publish_date_for(game, getattr(placement, 'number', number)),
+        elapsed_seconds=elapsed,
+        attempts=attempts,
+        hints=hints,
+        locale='ru',
+        brand_host=host,
+        play_path=play_path,
+    )
+    return payload
+
+
+def hub_progress_for_actor(
+    *,
+    game: Game,
+    numbers_and_tasks: list[tuple[int, Task]],
+    user=None,
+    anon_key=None,
+) -> dict[int, dict[str, Any]]:
+    """Прогресс для списка алфавиток: won / attempts / elapsed / meta."""
+    actor = _actor_filters(user=user, anon_key=anon_key)
+    out: dict[int, dict[str, Any]] = {}
+    if actor is None or not numbers_and_tasks:
+        return out
+    task_ids = [t.id for _, t in numbers_and_tasks]
+    states = {
+        row.task_id: load_state(row.state)
+        for row in ChainTaskState.objects.filter(
+            game=game,
+            game_mode='general',
+            task_id__in=task_ids,
+            replay_slot__isnull=True,
+            **actor,
+        )
+    }
+    # Время по всем task_id одним запросом.
+    timing_rows = (
+        Attempt.manager.filter(
+            task_id__in=task_ids, game=game, replay_slot__isnull=True, **actor,
+        )
+        .exclude(time__isnull=True)
+        .values('task_id')
+        .annotate(t0=Min('time'), t1=Max('time'))
+    )
+    timing = {
+        r['task_id']: max(0, int((r['t1'] - r['t0']).total_seconds()))
+        for r in timing_rows
+        if r['t0'] is not None and r['t1'] is not None
+    }
+    from games.daily_timing import canonical_elapsed_seconds, timing_rows_for_task_groups
+    daily_rows = timing_rows_for_task_groups(
+        game=game,
+        task_group_ids=[t.task_group_id for _, t in numbers_and_tasks if getattr(t, 'task_group_id', None)],
+        user=user,
+        anon_key=anon_key,
+    )
+    for number, task in numbers_and_tasks:
+        daily_row = daily_rows.get(task.task_group_id)
+        if daily_row is None:
+            continue
+        timing[task.id] = canonical_elapsed_seconds(
+            game=game,
+            task_group=task.task_group,
+            user=user,
+            anon_key=anon_key,
+            attempts=None,
+            timing_row=daily_row,
+        )
+    for number, task in numbers_and_tasks:
+        state = states.get(task.id) or default_state()
+        won = bool(state.get('won'))
+        attempts = len(state.get('guesses') or [])
+        hints = hint_count(state)
+        if not won and not attempts and not hints:
+            continue
+        elapsed = timing.get(task.id, 0) if won else None
+        meta = None
+        if won:
+            meta = f'🔄 {attempts} {ru_attempt_word(attempts)}  ⏱️ {format_elapsed(elapsed or 0)}'
+            hints_line = format_hints_label(hints)
+            if hints_line:
+                meta += f'  {hints_line}'
+        elif attempts or hints:
+            parts = []
+            if attempts:
+                parts.append(f'🔄 {attempts} {ru_attempt_word(attempts)}')
+            hints_line = format_hints_label(hints)
+            if hints_line:
+                parts.append(hints_line)
+            meta = '  '.join(parts)
+        out[number] = {
+            'won': won,
+            'attempts': attempts,
+            'hints': hints,
+            'elapsed_seconds': elapsed,
+            'progress_meta': meta,
+            'row_class': 'new-task--solved' if won else 'new-task--partial',
+            'is_solved': won,
+        }
+    return out
+
+
+def load_state(raw: str | None) -> dict[str, Any]:
+    state = default_state()
+    if not raw:
+        return state
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return state
+    if not isinstance(data, dict):
+        return state
+    guesses = data.get('guesses') or []
+    if isinstance(guesses, list):
+        state['guesses'] = [normalize_word(g) for g in guesses if normalize_word(g)]
+    state['won'] = bool(data.get('won'))
+    state['hint_prefix'] = normalize_word(data.get('hint_prefix') or '')
+    try:
+        state['hints_taken'] = max(0, int(data.get('hints_taken') or 0))
+    except (TypeError, ValueError):
+        state['hints_taken'] = 0
+    return state
+
+
+def dump_state(state: dict[str, Any]) -> str:
+    return json.dumps({
+        'guesses': list(state.get('guesses') or []),
+        'won': bool(state.get('won')),
+        'hint_prefix': normalize_word(state.get('hint_prefix') or ''),
+        'hints_taken': hint_count(state),
+    }, ensure_ascii=False)
+
+
+def secret_from_task(task: Task) -> str:
+    return normalize_word((task.answer or '').strip().splitlines()[0] if task.answer else '')
+
+
+def split_ladder(guesses: list[str], secret: str) -> tuple[list[str], list[str]]:
+    """Слова раньше секрета (по возрастанию) и позже (по возрастанию)."""
+    from games.alphabetty.core import alphabet_key, compare_words
+
+    earlier = sorted(
+        [g for g in guesses if compare_words(g, secret) < 0],
+        key=alphabet_key,
+    )
+    later = sorted(
+        [g for g in guesses if compare_words(g, secret) > 0],
+        key=alphabet_key,
+    )
+    return earlier, later
+
+
+def public_payload(
+    state: dict[str, Any],
+    secret: str,
+    *,
+    reveal_secret: bool = False,
+) -> dict[str, Any]:
+    guesses = list(state.get('guesses') or [])
+    won = bool(state.get('won')) or (normalize_word(secret) in guesses)
+    earlier, later = split_ladder(guesses, secret)
+    lo = earlier[-1] if earlier else None
+    hi = later[0] if later else None
+    hp = normalize_word(state.get('hint_prefix') or '')
+    kp = known_prefix(lo, hi, hint_prefix=hp)
+    secret_n = normalize_word(secret)
+    prefix_expand = kp if kp else ''
+    prefix_hint = (
+        build_prefix_level(lo, hi, expand_prefix=prefix_expand)
+        if (lo or hi or prefix_expand) and not won
+        else []
+    )
+    next_hint_letter = len(kp) + 1 if not won and len(kp) < len(secret_n) else None
+    payload = {
+        'guesses': guesses,
+        'earlier': earlier,
+        'later': later,
+        'bounds': {'lo': lo, 'hi': hi},
+        'known_prefix': kp,
+        'hint_prefix': hp,
+        'hints': hint_count(state),
+        'next_hint_letter': next_hint_letter,
+        'prefix_hint': prefix_hint,
+        'won': won,
+        'attempts': len(guesses),
+        'attempts_label': f'{len(guesses)} {ru_attempt_word(len(guesses))}',
+        'max_word_length': max_word_length(),
+    }
+    if won or reveal_secret:
+        payload['secret'] = normalize_word(secret)
+    return payload
+
+
+@transaction.atomic
+def apply_hint(
+    *,
+    game: Game,
+    task: Task,
+    user=None,
+    anon_key=None,
+    number: int | str | None = None,
+    share_host: str = 'interoves.com',
+    play_path: str | None = None,
+    replay_slot=None,
+) -> dict[str, Any]:
+    """Раскрыть следующую букву загаданного слова."""
+    actor = _actor_filters(user=user, anon_key=anon_key)
+    secret = secret_from_task(task)
+    if not secret:
+        return {'status': 'error', 'error': 'Загадка не настроена'}
+    if actor is None:
+        return {
+            'status': 'error',
+            'error': 'Нужен пользователь или anon_key',
+            **public_payload(default_state(), secret),
+        }
+    actor['replay_slot'] = replay_slot
+
+    num = number if number is not None else task.task_group_id
+
+    ChainTaskState.objects.get_or_create(
+        task=task,
+        game=game,
+        game_mode='general',
+        defaults={'state': dump_state(default_state())},
+        **actor,
+    )
+    row = ChainTaskState.objects.select_for_update().get(
+        task=task,
+        game=game,
+        game_mode='general',
+        **actor,
+    )
+    state = load_state(row.state)
+
+    if state['won']:
+        payload = public_payload(state, secret)
+        payload['status'] = 'already_won'
+        return attach_solve_meta(
+            payload,
+            game=game,
+            task=task,
+            number=num,
+            actor=actor,
+            host=share_host,
+            play_path=play_path,
+        )
+
+    hp = normalize_word(state.get('hint_prefix') or '')
+    guesses = list(state.get('guesses') or [])
+    earlier, later = split_ladder(guesses, secret)
+    lo = earlier[-1] if earlier else None
+    hi = later[0] if later else None
+    kp = known_prefix(lo, hi, hint_prefix=hp)
+    pos = len(kp)
+    if pos >= len(secret):
+        payload = public_payload(state, secret)
+        payload['status'] = 'no_more_hints'
+        payload['error'] = 'Все буквы уже раскрыты'
+        return payload
+
+    revealed = secret[pos]
+    state['hint_prefix'] = kp + revealed
+    state['hints_taken'] = hint_count(state) + 1
+    row.state = dump_state(state)
+    row.save(update_fields=['state', 'updated_at'])
+
+    payload = public_payload(state, secret)
+    payload['status'] = 'ok'
+    payload['hint_reveal'] = {
+        'position': pos + 1,
+        'letter': revealed,
+        'prefix': kp + revealed,
+    }
+    return payload
+
+
+def get_task_for_number(game: Game, number: int | str) -> tuple[GameTaskGroup, Task]:
+    link = (
+        GameTaskGroup.objects.filter(game=game, number=str(number), is_deferred=False)
+        .select_related('task_group')
+        .first()
+    )
+    if link is None:
+        raise LookupError('puzzle_not_found')
+    task = Task.objects.filter(task_group_id=link.task_group_id, number='1').first()
+    if task is None:
+        raise LookupError('task_not_found')
+    return link, task
+
+
+def _actor_filters(user=None, anon_key=None):
+    if user is not None and getattr(user, 'is_authenticated', False):
+        return {'user': user, 'team': None, 'anon_key': None}
+    if anon_key:
+        return {'user': None, 'team': None, 'anon_key': str(anon_key)}
+    return None
+
+
+def _read_actor_state(*, game: Game, task: Task, actor: dict) -> dict[str, Any]:
+    """Read ChainTaskState without creating a row or taking a lock."""
+    row = ChainTaskState.objects.filter(
+        task=task,
+        game=game,
+        game_mode='general',
+        **actor,
+    ).first()
+    if row is None:
+        return default_state()
+    return load_state(row.state)
+
+
+@transaction.atomic
+def _commit_guess(
+    *,
+    game: Game,
+    task: Task,
+    normalized: str,
+    secret: str,
+    actor: dict,
+    num: int | str,
+    share_host: str,
+    play_path: str | None,
+    submitted_by_profile_id: int | None = None,
+    attempt_created_callback=None,
+    replay_slot=None,
+) -> dict[str, Any]:
+    """Persist a new valid guess (caller already checked dict + duplicate without lock)."""
+    ChainTaskState.objects.get_or_create(
+        task=task,
+        game=game,
+        game_mode='general',
+        defaults={'state': dump_state(default_state())},
+        **actor,
+    )
+    row = ChainTaskState.objects.select_for_update().get(
+        task=task,
+        game=game,
+        game_mode='general',
+        **actor,
+    )
+    state = load_state(row.state)
+
+    if state['won']:
+        payload = public_payload(state, secret)
+        payload['status'] = 'correct'
+        return attach_solve_meta(
+            payload,
+            game=game,
+            task=task,
+            number=num,
+            actor=actor,
+            host=share_host,
+            play_path=play_path,
+        )
+
+    if normalized in state['guesses']:
+        payload = public_payload(state, secret)
+        payload['status'] = 'duplicate'
+        payload['error'] = 'Это слово уже вводили'
+        return payload
+
+    status = guess_status(normalized, secret)
+    state['guesses'].append(normalized)
+    if status == 'correct':
+        state['won'] = True
+
+    attempt = Attempt(
+        task=task,
+        game=game,
+        submitted_by_profile_id=submitted_by_profile_id,
+        text=normalized,
+        status='Ok' if status == 'correct' else 'Partial',
+        points=alphabetty_base_points(task) if status == 'correct' else 0,
+        state=dump_state(state),
+        **actor,
+    )
+    attempt.time = timezone.now()
+    if status == 'correct':
+        from games.daily_timing import active_time_ms_for_attempt
+        attempt.active_time_ms = active_time_ms_for_attempt(
+            game=game, task_group=task.task_group,
+            user=actor.get('user'), anon_key=actor.get('anon_key'),
+            replay_slot=replay_slot, now=attempt.time,
+        )
+    attempt.save()
+    if attempt_created_callback is not None:
+        attempt_created_callback(attempt)
+
+    row.state = dump_state(state)
+    row.last_attempt = attempt
+    row.save(update_fields=['state', 'last_attempt', 'updated_at'])
+
+    payload = public_payload(state, secret)
+    payload['status'] = status
+    if status == 'correct':
+        return attach_solve_meta(
+            payload,
+            game=game,
+            task=task,
+            number=num,
+            actor=actor,
+            host=share_host,
+            play_path=play_path,
+        )
+    return payload
+
+
+def apply_guess(
+    *,
+    game: Game,
+    task: Task,
+    word: str,
+    user=None,
+    anon_key=None,
+    number: int | str | None = None,
+    share_host: str = 'interoves.com',
+    play_path: str | None = None,
+    submitted_by_profile_id: int | None = None,
+    attempt_created_callback=None,
+    replay_slot=None,
+) -> dict[str, Any]:
+    """Применить отгадку; вернуть публичный payload + status."""
+    actor = _actor_filters(user=user, anon_key=anon_key)
+    if actor is None:
+        return {
+            'status': 'error',
+            'error': 'Нужен пользователь или anon_key',
+            **public_payload(default_state(), secret_from_task(task)),
+        }
+
+    actor['replay_slot'] = replay_slot
+    secret = secret_from_task(task)
+    if not secret:
+        return {'status': 'error', 'error': 'Загадка не настроена'}
+
+    normalized = normalize_word(word)
+    num = number if number is not None else task.task_group_id
+    state = _read_actor_state(game=game, task=task, actor=actor)
+
+    if state['won']:
+        payload = public_payload(state, secret)
+        payload['status'] = 'correct'
+        return attach_solve_meta(
+            payload,
+            game=game,
+            task=task,
+            number=num,
+            actor=actor,
+            host=share_host,
+            play_path=play_path,
+        )
+
+    if not is_valid_guess(normalized, user=user, anon_key=anon_key, task=task):
+        payload = public_payload(state, secret)
+        payload['status'] = 'invalid'
+        payload['error'] = 'Слова нет в словаре'
+        return payload
+
+    if normalized in state['guesses']:
+        payload = public_payload(state, secret)
+        payload['status'] = 'duplicate'
+        payload['error'] = 'Это слово уже вводили'
+        return payload
+
+    return _commit_guess(
+        game=game,
+        task=task,
+        normalized=normalized,
+        secret=secret,
+        actor=actor,
+        num=num,
+        share_host=share_host,
+        play_path=play_path,
+        submitted_by_profile_id=submitted_by_profile_id,
+        attempt_created_callback=attempt_created_callback,
+        replay_slot=replay_slot,
+    )
+
+
+def get_play_state(
+    *,
+    game: Game,
+    task: Task,
+    user=None,
+    anon_key=None,
+    number: int | str | None = None,
+    share_host: str = 'interoves.com',
+    play_path: str | None = None,
+    replay_slot=None,
+) -> dict[str, Any]:
+    """Прочитать прогресс. Не создаёт пустой ChainTaskState (иначе anon-migrate
+    может проиграть merge пустому state от простого открытия страницы)."""
+    actor = _actor_filters(user=user, anon_key=anon_key)
+    if actor is not None:
+        actor['replay_slot'] = replay_slot
+    secret = secret_from_task(task)
+    num = number if number is not None else 0
+    if actor is None:
+        return public_payload(default_state(), secret)
+    row = ChainTaskState.objects.filter(
+        task=task,
+        game=game,
+        game_mode='general',
+        **actor,
+    ).first()
+    if row is None:
+        return public_payload(default_state(), secret)
+    payload = public_payload(load_state(row.state), secret)
+    return attach_solve_meta(
+        payload,
+        game=game,
+        task=task,
+        number=num,
+        actor=actor,
+        host=share_host,
+        play_path=play_path,
+    )
+
+
+@dataclass(frozen=True)
+class AlphabettyMove:
+    word: str
+
+
+@dataclass(frozen=True)
+class AlphabettyMoveRefusal:
+    status: str
+
+
+def parse_move(post):
+    """Read an alphabetty POST. ``word`` wins over ``text`` when it is present."""
+    word = (post.get('word') or post.get('text') or '').strip()
+    if not word:
+        return AlphabettyMoveRefusal('empty')
+    return AlphabettyMove(word)
+
+
+def posted_guess(body, post):
+    """Daily guess word: JSON ``word``, otherwise the form field. No stripping."""
+    body = body or {}
+    post = post or {}
+    return body.get('word') or post.get('word') or ''
+
+
+def apply_posted_guess(body, post, **play_kwargs):
+    return apply_guess(word=posted_guess(body, post), **play_kwargs)
+
+
+def apply_posted_hint(**play_kwargs):
+    return apply_hint(**play_kwargs)
+
+
+def read_post(post, task):
+    """Read an alphabetty POST. The stored text is the posted word."""
+    del task
+    return parse_move(post)
+
+
+def attempt_advanced(attempt, last_state):
+    """An alphabetty answer advances the clock only when it is accepted."""
+    del last_state
+    return attempt.status == 'Ok'
+
+
+def letter_hint_penalty(info):
+    """Letter-hint penalty already computed, or looked up for an alphabetty actor."""
+    if info.letter_hint_penalty is not None:
+        return info.letter_hint_penalty
+    sample = info.best_attempt or (info.attempts[-1] if info.attempts else None)
+    if sample is None:
+        return 0
+    task = sample.task
+    if task is None or getattr(task, 'task_type', None) != 'alphabetty':
+        return 0
+    from games.alphabetty.play import letter_hint_penalty_for_actor
+    return letter_hint_penalty_for_actor(
+        game=sample.game,
+        task=task,
+        user=sample.user,
+        anon_key=sample.anon_key,
+        team=sample.team,
+    )
+
+
+class AlphabettyPuzzle(Puzzle):
+    task_type = 'alphabetty'
+
+    parse_move = staticmethod(parse_move)
+    read_post = staticmethod(read_post)
+    posted_guess = staticmethod(posted_guess)
+    apply_posted_guess = staticmethod(apply_posted_guess)
+    apply_posted_hint = staticmethod(apply_posted_hint)
+    attempt_advanced = staticmethod(attempt_advanced)
+    letter_hint_penalty = staticmethod(letter_hint_penalty)

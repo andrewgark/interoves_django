@@ -33,7 +33,7 @@ class AlphabettyMoveTests(SimpleTestCase):
         self.assertEqual(AlphabettyPuzzle.posted_guess({}, {'word': 'пёс'}), 'пёс')
         self.assertEqual(AlphabettyPuzzle.posted_guess({'word': ''}, {'word': 'пёс'}), 'пёс')
 
-    @patch('games.puzzles.alphabetty.puzzle.apply_guess', return_value={'status': 'correct'})
+    @patch('games.puzzles.alphabetty.play.apply_guess', return_value={'status': 'correct'})
     def test_posted_guess_is_applied_without_rewriting_the_word(self, apply_guess):
         result = AlphabettyPuzzle.apply_posted_guess(
             {'word': ' Кот '}, {}, game='g', task='t',
@@ -42,7 +42,7 @@ class AlphabettyMoveTests(SimpleTestCase):
         self.assertEqual(result['status'], 'correct')
         apply_guess.assert_called_once_with(word=' Кот ', game='g', task='t')
 
-    @patch('games.puzzles.alphabetty.puzzle.apply_hint', return_value={'status': 'ok'})
+    @patch('games.puzzles.alphabetty.play.apply_hint', return_value={'status': 'ok'})
     def test_posted_hint_is_applied_with_the_play_arguments(self, apply_hint):
         result = AlphabettyPuzzle.apply_posted_hint(game='g', replay_slot=None)
 

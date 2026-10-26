@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Собрать games/alphabetty/dictionaries/ru_words_valid.cp1251.gz
+"""Собрать games/puzzles/alphabetty/dictionaries/ru_words_valid.cp1251.gz
 
 База: experiments/dictionaries/russian_words.txt (+ ru_nouns_valid).
 Wiktionary: experiments/dictionaries/ru_wiktionary.txt
@@ -27,7 +27,7 @@ sys.path.insert(0, str(_REPO))
 from games.alphabetty.dicts import VALID_PACKED_GZ, write_packed_word_set  # noqa: E402
 from games.alphabetty.word_set import PackedWordSet  # noqa: E402
 
-_DICT_DIR = _REPO / 'games' / 'alphabetty' / 'dictionaries'
+_DICT_DIR = _REPO / 'games' / 'puzzles' / 'alphabetty' / 'dictionaries'
 _EXPERIMENTS = _REPO.parent / 'experiments' / 'dictionaries'
 _CITIES_JSON = _REPO.parent / 'experiments' / 'russia_cities' / 'ru-cities.json'
 _SUBJECTS_JSON = _REPO.parent / 'experiments' / 'russia_cities' / 'ru-subjects.json'
