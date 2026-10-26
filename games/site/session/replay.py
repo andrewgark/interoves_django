@@ -8,7 +8,7 @@ from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 
-from games.analytics import game_instance_id_for_task_group
+from games.ops.analytics.events import game_instance_id_for_task_group
 from games.models import (
     DailySolveTiming,
     GameTaskGroup,

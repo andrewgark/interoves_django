@@ -30,7 +30,7 @@ from django.test import RequestFactory  # noqa: E402
 
 from games.puzzles.core.check_runtime import CheckerFactory  # noqa: E402
 from games.models import Attempt, CheckerType, Game, GameTaskGroup, Task  # noqa: E402
-from games.replacements_lines import (  # noqa: E402
+from games.puzzles.replacements.lines import (  # noqa: E402
     parse_replacements_lines_text,
     task_replacements_canonical_answer_row,
 )

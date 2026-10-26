@@ -138,7 +138,7 @@ def _format_alphabetty(number: int, link: GameTaskGroup) -> tuple[list[str], boo
 
 
 def _format_salad(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
-    from games.word_salad import format_grid_text, parse_task_data, theme_from_text
+    from games.puzzles.salad.rules import format_grid_text, parse_task_data, theme_from_text
 
     task = _task_for_link(link, 'word_salad')
     if task is None:

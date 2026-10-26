@@ -9,7 +9,7 @@ from django.test.utils import CaptureQueriesContext
 from django.core.cache import cache
 from django.utils import timezone
 
-from games.aggregate_leaderboard import build_aggregate_page
+from games.results.standings.aggregate_leaderboard import build_aggregate_page
 from games.models import (
     DailyResultProjection, DailyResultProjectionState, DailySolveTiming, Game,
     GameTaskGroup, HTMLPage, PersonalResultsParticipant, Profile, Project,
@@ -71,7 +71,7 @@ class AggregateLeaderboardTests(TestCase):
                 group = TaskGroup.objects.create(label='aggregate-{}'.format(n))
                 GameTaskGroup.objects.create(game=self.game, task_group=group, number=str(n), name=str(n))
                 Task.objects.create(task_group=group, number='1', points=1, text='x', checker_data='x')
-        empty = patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value={})
+        empty = patch('games.results.sql.get_sql_aggregated_game_actor_rows', return_value={})
         with empty:
             default = build_aggregate_page(self._request(), self.game)
             twenty = build_aggregate_page(self._request('?limit=20'), self.game)
@@ -231,7 +231,7 @@ class AggregateLeaderboardTests(TestCase):
             self.links[0][1].pk: [(actor_a, self._info(5, at)), (actor_b, self._info(5, at))],
             self.links[1][1].pk: [(actor_a, self._info(0, at))],
         }
-        with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value=payload):
+        with patch('games.results.sql.get_sql_aggregated_game_actor_rows', return_value=payload):
             result = build_aggregate_page(self._request(), self.game)
         rows = {row['actor'].pk: row for row in result['aggregate_rows']}
         self.assertEqual(result['aggregate_window_max'], 20)
@@ -252,7 +252,7 @@ class AggregateLeaderboardTests(TestCase):
             self.links[0][1].pk: [(actor, self._info(5, at))],
             self.links[1][1].pk: [(actor, self._info(15, at))],
         }
-        with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value=payload):
+        with patch('games.results.sql.get_sql_aggregated_game_actor_rows', return_value=payload):
             result = build_aggregate_page(self._request(), self.game)
         self.assertEqual(len(result['aggregate_rows']), 1)
         row = result['aggregate_rows'][0]
@@ -264,7 +264,7 @@ class AggregateLeaderboardTests(TestCase):
     def test_invalid_anchor_falls_back_to_newest_and_page_is_backend_bounded(self):
         actors = [PersonalResultsParticipant(anon_key='page-{:03}'.format(i)) for i in range(65)]
         payload = {self.links[0][1].pk: [(actor, self._info(5)) for actor in actors]}
-        with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value=payload):
+        with patch('games.results.sql.get_sql_aggregated_game_actor_rows', return_value=payload):
             with CaptureQueriesContext(connection) as first_queries:
                 first = build_aggregate_page(self._request('?anchor=does-not-exist'), self.game)
             with CaptureQueriesContext(connection) as second_queries:
@@ -286,7 +286,7 @@ class AggregateLeaderboardTests(TestCase):
                 group = TaskGroup.objects.create(label='query-aggregate-{}'.format(n))
                 GameTaskGroup.objects.create(game=self.game, task_group=group, number=str(n), name=str(n))
                 Task.objects.create(task_group=group, number='1', points=1, text='x', checker_data='x')
-        with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value={}):
+        with patch('games.results.sql.get_sql_aggregated_game_actor_rows', return_value={}):
             with CaptureQueriesContext(connection) as ten_queries:
                 build_aggregate_page(self._request('?limit=10'), self.game)
             with CaptureQueriesContext(connection) as thirty_queries:
@@ -303,14 +303,14 @@ class AggregateLeaderboardTests(TestCase):
             unknown_task = Task.objects.create(task_group=group, number='1', task_type='default', points=1, checker_data='x', text='x')
         original_get_max = Task.get_results_max_points
         with patch('games.models.Task.get_results_max_points', autospec=True, side_effect=lambda task: None if task.pk == unknown_task.pk else original_get_max(task)):
-            with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value={}):
+            with patch('games.results.sql.get_sql_aggregated_game_actor_rows', return_value={}):
                 result = build_aggregate_page(self._request('?limit=10'), self.game)
         self.assertTrue(any(column.max_score is None for column in result['aggregate_columns']))
         self.assertTrue(result['aggregate_has_unknown_max'])
         self.assertEqual(result['aggregate_window_max'], 20)
 
     def test_aggregate_places_use_competition_rank_for_score_ties(self):
-        from games.aggregate_leaderboard import _projection_rank_page
+        from games.results.standings.aggregate_leaderboard import _projection_rank_page
 
         group = self.links[0][0].task_group
         DailyResultProjectionState.objects.create(
@@ -328,7 +328,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual([row['place'] for row in rows], [1, 1, 3])
 
     def test_projection_rank_page_has_exact_count_and_clamps_to_last_page(self):
-        from games.aggregate_leaderboard import _projection_rank_page
+        from games.results.standings.aggregate_leaderboard import _projection_rank_page
 
         group = self.links[0][0].task_group
         DailyResultProjectionState.objects.create(
@@ -356,7 +356,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(beyond[0]['actor_key'], 'page-050')
 
     def test_projection_rank_page_empty_result_has_zero_count(self):
-        from games.aggregate_leaderboard import _projection_rank_page
+        from games.results.standings.aggregate_leaderboard import _projection_rank_page
 
         group = self.links[0][0].task_group
         DailyResultProjectionState.objects.create(
@@ -367,7 +367,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual((rows, total, page), ([], 0, 1))
 
     def test_projection_timing_join_preserves_actor_and_replay_semantics(self):
-        from games.aggregate_leaderboard import _projection_rank_page
+        from games.results.standings.aggregate_leaderboard import _projection_rank_page
 
         group = self.links[0][0].task_group
         team = Team.objects.create(
@@ -428,7 +428,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertIsNone(by_actor['aggregate-timing-none']['total_time_ms'])
 
     def test_projection_rank_deduplicates_historical_first_play_timings(self):
-        from games.aggregate_leaderboard import _projection_rank_page
+        from games.results.standings.aggregate_leaderboard import _projection_rank_page
 
         user = User.objects.create_user(username='aggregate-duplicate-timing-user')
         groups = [self.links[0][0].task_group]
@@ -480,7 +480,7 @@ class AggregateLeaderboardTests(TestCase):
                 coverage_complete=True, is_valid=True, full_refresh_required=False,
             )
         with patch('games.daily.projection.scorer_adapter_version', return_value=2):
-            with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value={}):
-                with patch('games.aggregate_leaderboard._projection_rank_page', side_effect=AssertionError('stale projection read')):
+            with patch('games.results.sql.get_sql_aggregated_game_actor_rows', return_value={}):
+                with patch('games.results.standings.aggregate_leaderboard._projection_rank_page', side_effect=AssertionError('stale projection read')):
                     result = build_aggregate_page(self._request(), self.game)
         self.assertEqual(result['aggregate_rows'], [])

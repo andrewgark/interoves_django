@@ -36,7 +36,7 @@ from games.models import (
     HTMLPage,
     Project,
 )
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
 )
 

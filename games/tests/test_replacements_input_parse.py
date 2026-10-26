@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from games.replacements_input_parse import parse_repl_line_answers_smart_no_dom
+from games.puzzles.replacements.lines.input_parse import parse_repl_line_answers_smart_no_dom
 
 
 class ReplacementsInputParseTests(SimpleTestCase):

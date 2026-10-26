@@ -4,7 +4,7 @@ from django.apps import apps
 from django.db import connections
 from django.db.models import Count, Q
 
-from games.analytics_persistence import ANALYTICS_UNIQUE_SPECS
+from games.ops.analytics.persistence import ANALYTICS_UNIQUE_SPECS
 
 
 TARGET_MODEL_NAMES = (

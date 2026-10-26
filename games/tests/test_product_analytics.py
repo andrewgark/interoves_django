@@ -12,7 +12,7 @@ from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.analytics import (
+from games.ops.analytics.events import (
     is_task_completion_state,
     register_completed_game,
     register_started_game,
@@ -41,7 +41,7 @@ class ProductAnalyticsTests(TestCase):
         # These tests exercise analytics delivery/idempotency directly.  The
         # gameplay invariant is covered by test_completion_invariant.py.
         self._completion_check = patch(
-            'games.analytics.is_task_group_complete', return_value=True,
+            'games.ops.analytics.events.is_task_group_complete', return_value=True,
         )
         self._completion_check.start()
         self.addCleanup(self._completion_check.stop)
@@ -161,7 +161,7 @@ class ProductAnalyticsTests(TestCase):
             state=json.dumps({'won': True}),
         )
 
-        with patch('games.analytics._backfill_supported_game_completions') as legacy_backfill:
+        with patch('games.ops.analytics.events._backfill_supported_game_completions') as legacy_backfill:
             goals = register_completed_game(user=self.user, task=task, game=game)
 
         legacy_backfill.assert_not_called()
@@ -256,7 +256,7 @@ class ProductAnalyticsTests(TestCase):
             ))
         game, task = self._make_supported_task('ladder', 'raddle', 3)
 
-        with patch('games.analytics._backfill_supported_game_completions') as legacy_backfill:
+        with patch('games.ops.analytics.events._backfill_supported_game_completions') as legacy_backfill:
             goals = register_completed_game(user=self.user, task=task, game=game)
 
         legacy_backfill.assert_not_called()

@@ -8,7 +8,7 @@ from games.puzzles.core.base import Puzzle
 from games.puzzles.core.primitives import MoveRefusal, TextMove, same_text_verdict
 from games.puzzles.core.progress import _int_tuple, _slot_pairs
 from games.puzzles.core.quota import json_field_quota
-from games.replacements_lines import validate_replacements_checker_json_data
+from games.puzzles.replacements.lines import validate_replacements_checker_json_data
 
 
 def parse_move(post):
@@ -67,7 +67,7 @@ def is_complete(task, state_raw):
     if not state_raw:
         return False
     try:
-        from games.replacements_lines import (
+        from games.puzzles.replacements.lines import (
             parse_replacements_checker_json_lines,
             parse_replacements_lines_text,
             replacements_solved_slots_from_state,
@@ -94,7 +94,7 @@ def is_complete(task, state_raw):
 
 def attempt_answer(attempt):
     """Canonical answer row for the submitted replacements line."""
-    from games.replacements_lines import task_replacements_canonical_answer_row
+    from games.puzzles.replacements.lines import task_replacements_canonical_answer_row
     try:
         payload = json.loads(attempt.text)
         line_idx = int(payload.get('line_index', -1))

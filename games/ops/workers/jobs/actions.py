@@ -4,7 +4,7 @@ from django.db import transaction
 from games.models import Attempt, Hint, HintAttempt, TicketRequest
 from games.ops.workers.jobs.recheck import recheck
 from games.realtime.track_compat import track_attempt_change
-from games.ticket_service import (
+from games.club.billing.tickets import (
     accept_ticket_request as accept_ticket_request_record,
     reject_ticket_request as reject_ticket_request_record,
 )

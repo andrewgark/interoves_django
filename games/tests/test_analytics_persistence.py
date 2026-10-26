@@ -6,8 +6,8 @@ from django.db import IntegrityError, connection
 from django.test import TestCase
 from django.utils import timezone
 
-from games.analytics import register_started_game
-from games.analytics_persistence import (
+from games.ops.analytics.events import register_started_game
+from games.ops.analytics.persistence import (
     AnalyticsRowInvariantError,
     _mysql_duplicate_matches,
     analytics_unique_spec,
@@ -148,7 +148,7 @@ class AnalyticsPersistenceTests(TestCase):
             'game_instance_id': self.instance_id,
         }
         with patch(
-            'games.analytics_persistence.read_exact_analytics_row',
+            'games.ops.analytics.persistence.read_exact_analytics_row',
             side_effect=[None, existing],
         ):
             row, created = create_or_reread_analytics_row(
@@ -172,7 +172,7 @@ class AnalyticsPersistenceTests(TestCase):
             'game_instance_id': self.instance_id,
         }
         with patch(
-            'games.analytics_persistence.read_exact_analytics_row',
+            'games.ops.analytics.persistence.read_exact_analytics_row',
             side_effect=[None, None],
         ):
             with self.assertRaises(IntegrityError):
@@ -213,7 +213,7 @@ class AnalyticsPersistenceTests(TestCase):
 
     def test_register_started_game_swallows_invariant(self):
         with patch(
-            'games.analytics.create_or_reread_analytics_row',
+            'games.ops.analytics.events.create_or_reread_analytics_row',
             side_effect=AnalyticsRowInvariantError('broken placement'),
         ):
             self.assertEqual(
@@ -447,7 +447,7 @@ class AnalyticsPersistenceTests(TestCase):
             'game_instance_id': self.instance_id,
         }
         with patch(
-            'games.analytics_persistence.read_exact_analytics_row',
+            'games.ops.analytics.persistence.read_exact_analytics_row',
             side_effect=[None, target],
         ):
             canonical = reassign_or_merge_analytics_row(

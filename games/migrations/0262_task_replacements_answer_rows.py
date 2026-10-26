@@ -3,7 +3,7 @@ from django.db import migrations, models
 
 def populate_replacements_answer_rows(apps, schema_editor):
     Task = apps.get_model('games', 'Task')
-    from games.replacements_lines import (
+    from games.puzzles.replacements.lines import (
         parse_replacements_checker_json_lines,
         parse_replacements_lines_text,
     )

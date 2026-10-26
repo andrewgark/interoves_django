@@ -101,7 +101,7 @@ def set_current_result_header_answers(data, actor, game=None):
     ]
     salad_task = data.get('_salad_result_task')
     if game is not None and getattr(game, 'id', None) == WORD_SALAD_GAME_ID and salad_task is not None:
-        from games.word_salad import load_state
+        from games.puzzles.salad.rules import load_state
         raw_state = latest_actor_task_state(game, salad_task, actor)
         solved_indices = set(load_state(raw_state).get('solved_indices') or [])
         for index, task in enumerate(tasks):
@@ -137,7 +137,7 @@ def word_salad_release_breakdown(data, game, number):
     if not tasks:
         return data
     task = tasks[0]
-    from games.word_salad import load_state, parse_task_payload, words_in_display_order
+    from games.puzzles.salad.rules import load_state, parse_task_payload, words_in_display_order
     try:
         _grid, words, _rare = parse_task_payload(task.checker_data, task.answer or task.text or '')
     except Exception:

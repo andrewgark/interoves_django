@@ -24,7 +24,7 @@ from games.models import (
 )
 from games.support.constants import SUPPORT_CONSOLE_GROUP
 from games.support.services.word_salad import ensure_word_salad_game, set_publish_start
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
     parse_task_data,
     parse_task_payload,
@@ -284,7 +284,7 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertTrue(link.share_hash)
         self.assertIn('/salad/{}/'.format(link.share_hash), detail['site_url'])
         task = Task.objects.get(task_group_id=link.task_group_id, number='1')
-        from games.word_salad import serialize_task_data
+        from games.puzzles.salad.rules import serialize_task_data
         task.checker_data = serialize_task_data(VALID_GRID, 'BCDE\nFGHI\nJKLM\nNOPQ')
         task.save(update_fields=['checker_data'])
 

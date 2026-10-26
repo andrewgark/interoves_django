@@ -187,7 +187,7 @@ class LegacyCompletionReconciliationTests(TestCase):
         self._state(user=self.user, game=first_game, task=first_task)
         self._state(user=self.other_user, game=second_game, task=second_task)
 
-        from games.analytics import reconcile_legacy_completed_games_for_actor as real_reconcile
+        from games.ops.analytics.events import reconcile_legacy_completed_games_for_actor as real_reconcile
 
         def flaky_reconcile(**kwargs):
             if kwargs['user'].pk == self.user.pk:

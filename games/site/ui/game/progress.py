@@ -42,7 +42,7 @@ from games.models import (
 from games.puzzles.raddle.engine import (
     raddle_hub_result_for_actor,
 )
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
     salad_hub_result_for_actor,
 )

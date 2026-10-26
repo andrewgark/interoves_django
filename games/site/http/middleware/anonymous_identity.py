@@ -8,7 +8,7 @@ class AnonymousIdentityMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        from games.analytics_identity import (
+        from games.ops.analytics.identity import (
             apply_anonymous_identity_cookies,
             bind_anonymous_identity,
         )

@@ -13,7 +13,7 @@ import json
 from django.test import SimpleTestCase
 
 from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
-from games.replacements_lines import (
+from games.puzzles.replacements.lines import (
     canonical_replacements_checker_line,
     parse_replacements_lines_text,
 )

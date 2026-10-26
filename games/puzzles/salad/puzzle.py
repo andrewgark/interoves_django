@@ -15,7 +15,7 @@ from games.puzzles.salad.submission import (
     parse_move,
     write_move_result,
 )
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     build_ui_context as build_word_salad_ui_context,
     hint_numbers_from_attempts,
     load_state as load_word_salad_state,
@@ -152,7 +152,7 @@ def is_complete(task, state_raw):
     if not state_raw:
         return False
     try:
-        from games.word_salad import load_state
+        from games.puzzles.salad.rules import load_state
         _grid, words = parse_task_data(task.checker_data, task.answer)
         solved = set(load_state(state_raw).get('solved_indices') or [])
         return bool(words) and set(range(len(words))).issubset(solved)
@@ -224,7 +224,7 @@ def after_save(task, *, is_existing, previous):
     if not is_existing or not _grid_changed(task, previous):
         return
     from games.models import ChainTaskState
-    from games.word_salad import default_state, dump_state
+    from games.puzzles.salad.rules import default_state, dump_state
     ChainTaskState.objects.filter(task=task).update(
         # A non-null empty state is intentional: check_attempt falls
         # back to historical Attempt.state only when the projection is
@@ -294,7 +294,7 @@ def merge_state(task, source_json, target_json):
         return None
     if not isinstance(source, dict) or not isinstance(target, dict):
         return None
-    from games.word_salad import (
+    from games.puzzles.salad.rules import (
         dump_state,
         load_state,
         normalize_word,

@@ -3,7 +3,7 @@ from django.templatetags.static import static
 from django.shortcuts import render
 from django.views.decorators.http import require_GET
 
-from games.analytics import (
+from games.ops.analytics.events import (
     YANDEX_GOAL_NEXT_GAME_VOTE_RETURN,
     YANDEX_GOAL_NEXT_GAME_VOTE_VIEW,
     queue_pending_goal,

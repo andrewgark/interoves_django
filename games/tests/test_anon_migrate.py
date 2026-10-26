@@ -32,7 +32,7 @@ from games.models import (
     TaskGroup,
     AnonymousMergeJob,
 )
-from games.analytics_identity import attach_anon_cookie
+from games.ops.analytics.identity import attach_anon_cookie
 from games.anon_migrate import (
     heal_orphaned_likes_from_migrate_events,
     migrate_anon_chain_task_states,

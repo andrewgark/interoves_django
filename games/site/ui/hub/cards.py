@@ -9,7 +9,7 @@ from django.utils import timezone
 
 
 
-from games.analytics_identity import (
+from games.ops.analytics.identity import (
     browser_anon_key,
     is_valid_anon_key,
 )
@@ -50,7 +50,7 @@ from games.models import (
 from games.puzzles.raddle.engine import (
     parse_raddle_data,
 )
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
     archive_card_meta as word_salad_archive_card_meta,
 )

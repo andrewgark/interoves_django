@@ -5,7 +5,7 @@ from django.urls import resolve, reverse
 from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
-from games.analytics_identity import attach_anon_cookie
+from games.ops.analytics.identity import attach_anon_cookie
 from games.models import (
     Attempt,
     CheckerType,
@@ -20,7 +20,7 @@ from games.models import (
 )
 from games.sections.hub import onboarding_followup_context
 from games.site.ui.hub.cards import _onboarding_starter_salad_url
-from games.word_salad import WORD_SALAD_GAME_ID
+from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
 
 
 def _ensure_social_apps():

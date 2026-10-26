@@ -16,14 +16,14 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from games.analytics import (
+from games.ops.analytics.events import (
     PlayerCompletedGame,
     is_task_completion_state,
     is_task_group_complete,
     publish_completion_analytics,
     register_started_game,
 )
-from games.analytics_identity import gameplay_anon_key
+from games.ops.analytics.identity import gameplay_anon_key
 from games.auth_observability import record_gameplay_attempt_created
 from games.puzzles.censorly.play import (
     CENSORLY_HINT_PENALTY,

@@ -503,7 +503,7 @@ class GameTaskGroup(models.Model):
 
         # Нет (нужной) привязки в расписании — черновик LadderOffer / WordSaladOffer?
         from games.daily.catalog.ladder import LADDER_GAME_ID
-        from games.word_salad import WORD_SALAD_GAME_ID
+        from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
         from games.models import Game, LadderOffer, WordSaladOffer
         from games.tutorials.ladder import is_ladder_tutorial_task_group
 
@@ -752,7 +752,7 @@ class Task(models.Model):
 
     def _replacements_lines_n_answer_rows(self):
         """Число строк ответа (как в ReplacementsLinesChecker._resolve_answer_rows)."""
-        from games.replacements_lines import (
+        from games.puzzles.replacements.lines import (
             parse_replacements_checker_json_lines,
             parse_replacements_lines_text,
         )

@@ -32,7 +32,7 @@ from games.results.sql import (
     tasks_need_orm_results_aggregate as canonical_orm_fallback_check,
     AggregatedAttemptsInfo as canonical_attempts_info,
 )
-from games.results_sql_aggregate import (
+from games.results.sql import (
     get_sql_aggregated_game_actor_rows,
     tasks_need_orm_results_aggregate,
 )
@@ -112,7 +112,7 @@ class ResultsSqlAggregateTests(TestCase):
     def test_legacy_results_aggregate_import_contract_is_preserved(self):
         self.assertIs(get_sql_aggregated_game_actor_rows, canonical_sql_aggregate)
         self.assertIs(tasks_need_orm_results_aggregate, canonical_orm_fallback_check)
-        from games.results_sql_aggregate import AggregatedAttemptsInfo
+        from games.results.sql import AggregatedAttemptsInfo
         self.assertIs(AggregatedAttemptsInfo, canonical_attempts_info)
 
     @classmethod
@@ -260,7 +260,7 @@ class ResultsSqlAggregateTests(TestCase):
 
     def test_snapshot_general_uses_sql_not_bulk(self):
         with patch(
-            'games.results_sql_aggregate.get_sql_aggregated_game_actor_rows',
+            'games.results.sql.get_sql_aggregated_game_actor_rows',
             wraps=get_sql_aggregated_game_actor_rows,
         ) as sql_mock:
             with patch(
@@ -274,7 +274,7 @@ class ResultsSqlAggregateTests(TestCase):
 
     def test_snapshot_sql_matches_orm_forced(self):
         with patch(
-            'games.results_sql_aggregate.tasks_need_orm_results_aggregate',
+            'games.results.sql.tasks_need_orm_results_aggregate',
             return_value=True,
         ):
             orm_payload = build_results_snapshot_payload(self.game, mode='general')

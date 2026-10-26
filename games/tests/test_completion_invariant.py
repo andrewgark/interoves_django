@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 
-from games.analytics import (
+from games.ops.analytics.events import (
     _backfill_supported_game_completions,
     is_task_group_complete,
     register_completed_game,

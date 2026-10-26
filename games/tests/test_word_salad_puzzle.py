@@ -10,7 +10,7 @@ from games.puzzles.salad.submission import (
     SaladMoveRefusal,
     SaladSync,
 )
-from games.word_salad import RARE_FOUND_COMMENT
+from games.puzzles.salad.rules import RARE_FOUND_COMMENT
 
 
 class WordSaladMoveTests(SimpleTestCase):

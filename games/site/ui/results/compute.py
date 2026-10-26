@@ -162,7 +162,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
     if projected_rows is not None:
         bulk_rows = projected_rows
     elif mode == 'general':
-        from games.results_sql_aggregate import (
+        from games.results.sql import (
             get_sql_aggregated_game_actor_rows,
             tasks_need_orm_results_aggregate,
         )

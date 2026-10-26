@@ -9,7 +9,7 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 
 from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
-from games.ladder_word_results import (
+from games.results.ladder import (
     build_ladder_word_results_context,
     ladder_word_results_headers_context,
 )

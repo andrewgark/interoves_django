@@ -9,7 +9,7 @@ from django.test.utils import CaptureQueriesContext
 from django.template.loader import render_to_string
 from django.utils import timezone
 
-from games.analytics_identity import attach_anon_cookie, stamp_anon_identity
+from games.ops.analytics.identity import attach_anon_cookie, stamp_anon_identity
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Attempt
 from games.site.ui.game.progress import (
     _game_page_progress_context,
@@ -471,7 +471,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertEqual(row['elapsed_label'], '3м 46с')
 
     def test_salad_progress_api_returns_squares_and_elapsed(self):
-        from games.word_salad import WORD_SALAD_GAME_ID
+        from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
         from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
 
         game = Game.objects.filter(id=WORD_SALAD_GAME_ID, project_id='sections').first()
@@ -581,7 +581,7 @@ class GameTaskGroupProgressTests(TestCase):
             self.assertEqual([attempt.text for attempt in info.attempts], ['actor-a'])
 
     def test_salad_progress_query_count_does_not_scale_per_archive_row(self):
-        from games.word_salad import WORD_SALAD_GAME_ID
+        from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
 
         game = Game.objects.get(id=WORD_SALAD_GAME_ID, project_id='sections')
         anon_key = 'bulk-salad-progress'
@@ -631,7 +631,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertTrue(all(row['is_fully_solved'] for row in rows.values()))
 
     def test_initial_salad_page_embeds_actor_progress_without_json_fetch(self):
-        from games.word_salad import WORD_SALAD_GAME_ID
+        from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
         from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
 
         _ensure_login_modal_deps()

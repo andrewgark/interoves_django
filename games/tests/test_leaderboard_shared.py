@@ -334,7 +334,7 @@ class LeaderboardSharedTests(TestCase):
     def test_salad_breakdown_uses_saved_word_state_and_preserves_aggregate_score(self):
         from types import SimpleNamespace
         from games.site.ui.results.pages import _word_salad_release_breakdown
-        from games.word_salad import serialize_task_data
+        from games.puzzles.salad.rules import serialize_task_data
 
         task = Task.objects.create(
             task_group=self.group, number='salad', task_type='word_salad',

@@ -23,7 +23,7 @@ from games.models import (
     PlayerCompletedGame,
     PlayerStartedGame,
 )
-from games.analytics_persistence import (
+from games.ops.analytics.persistence import (
     AnalyticsRowInvariantError,
     create_or_reread_analytics_row,
 )
@@ -108,7 +108,7 @@ YANDEX_GOAL_NEXT_GAME_VOTE_RETURN = 'next_game_vote_tribute_return'
 YANDEX_GOAL_NEXT_GAME_VOTE_PAYMENT = 'next_game_vote_payment'
 
 SESSION_KEY_PENDING_GOALS = 'interoves_pending_yandex_goals'
-ANALYTICS_ACK_SIGNING_SALT = 'games.analytics.goal-ack.v1'
+ANALYTICS_ACK_SIGNING_SALT = 'games.ops.analytics.events.goal-ack.v1'
 PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION = 2
 
 GAME_KIND_BY_ID = {

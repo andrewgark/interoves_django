@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from games.models import HTMLPage, Project, Team, TicketRequest
 from games.telegram.callbacks import _handle_ticket
-from games.ticket_service import (
+from games.club.billing.tickets import (
     STUCK_TICKET_REQUEST_MINUTES,
     accept_ticket_request,
     build_stuck_tickets_alert,

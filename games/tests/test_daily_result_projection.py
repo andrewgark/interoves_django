@@ -34,7 +34,7 @@ from games.models import (
     DailyResultProjectionRefreshOutbox, CheckerType, Team,
 )
 from games.scoring import Actor, _bulk_actor_task_result_points_sql, bulk_actor_task_progress
-from games.word_salad import dump_state, score_for_state
+from games.puzzles.salad.rules import dump_state, score_for_state
 
 
 class DailyResultProjectionTests(TestCase):
@@ -836,7 +836,7 @@ class DailyResultProjectionTests(TestCase):
         self.assertIn('task_cell_mismatch=0', output.getvalue())
 
     def test_sql_eligibility_excludes_author_cell_but_keeps_actor_other_release(self):
-        from games.aggregate_leaderboard import build_aggregate_page
+        from games.results.standings.aggregate_leaderboard import build_aggregate_page
 
         second = TaskGroup.objects.create(label='projection second group')
         GameTaskGroup.objects.create(game=self.game, task_group=second, number='2', name='Release 2')
@@ -876,7 +876,7 @@ class ProjectionAggregatePerformanceTests(TestCase):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
 
     def test_thirty_release_120_actor_pages_use_page_sized_sql_results(self):
-        from games.aggregate_leaderboard import build_aggregate_page
+        from games.results.standings.aggregate_leaderboard import build_aggregate_page
 
         game = Game.objects.create(
             id='projection_perf_test', name='Projection perf', author='test', author_extra='',
@@ -946,7 +946,7 @@ class ProjectionAggregatePerformanceTests(TestCase):
         self.assertEqual(len(second_queries), 9)
         self.assertEqual(len(ten_release_queries), 9)
         self.assertEqual(len(first_queries), len(second_queries))
-        from games.aggregate_leaderboard import _build_legacy_aggregate_page
+        from games.results.standings.aggregate_leaderboard import _build_legacy_aggregate_page
         legacy_first = _build_legacy_aggregate_page(page('/projection_perf_test/results/?limit=30'), game)
         legacy_second = _build_legacy_aggregate_page(page('/projection_perf_test/results/?limit=30&page=2'), game)
         new_rows = first['aggregate_rows'] + second['aggregate_rows']

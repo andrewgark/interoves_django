@@ -6,8 +6,8 @@ from django.dispatch import receiver
 from django.utils import timezone
 from allauth.account.signals import user_signed_up
 
-from games.analytics import queue_pending_goal, signup_goal_payload
-from games.analytics_persistence import create_or_reread_analytics_row
+from games.ops.analytics.events import queue_pending_goal, signup_goal_payload
+from games.ops.analytics.persistence import create_or_reread_analytics_row
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -425,7 +425,7 @@ def _auto_claim_signup_anon_history(request, user):
     if request is None or user is None:
         return
     try:
-        from games.analytics_identity import browser_anon_key, rotate_anonymous_identity
+        from games.ops.analytics.identity import browser_anon_key, rotate_anonymous_identity
         from games.anon_migrate import claim_and_migrate_anon_history
         from games.auth_observability import log_auth_event, request_session_fingerprint
         from games.site.session.gameplay_context import anonymous_actor_fingerprint

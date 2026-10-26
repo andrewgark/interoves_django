@@ -23,7 +23,7 @@ def recheck(_, attempt_id, *, notify=True):
         attempt.skip = True
         attempt.save()
     if attempt.task.task_type not in CHAIN_TASK_TYPES:
-        from games.analytics import reconcile_completed_game_after_recheck
+        from games.ops.analytics.events import reconcile_completed_game_after_recheck
         reconcile_completed_game_after_recheck(
             task=attempt.task,
             game=attempt.game,
@@ -74,7 +74,7 @@ def recheck_full(_, attempt_id=None, task=None):
 
 
 def _reconcile_rechecked_attempts(attempts):
-    from games.analytics import reconcile_completed_game_after_recheck
+    from games.ops.analytics.events import reconcile_completed_game_after_recheck
 
     seen = set()
     for attempt in attempts:
@@ -201,7 +201,7 @@ def recheck_chain_task(
     - Each Attempt.state is updated in the DB as the audit trail.
     """
     from games.puzzles.core.check_runtime import CheckerFactory
-    from games.analytics import reconcile_completed_game_after_recheck
+    from games.ops.analytics.events import reconcile_completed_game_after_recheck
 
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
@@ -386,7 +386,7 @@ def _word_salad_attempts(task, *, team=None, user=None, anon_key=None, game=None
 
 
 def _expand_salad_active_for_path(last_state, text):
-    from games.word_salad import dump_state, load_state
+    from games.puzzles.salad.rules import dump_state, load_state
 
     try:
         payload = json.loads(text)
@@ -414,7 +414,7 @@ def _expand_salad_active_for_path(last_state, text):
 
 def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *, expand_active=False):
     from games.puzzles.core.check_runtime import CheckerFactory
-    from games.word_salad import (
+    from games.puzzles.salad.rules import (
         EXTRA_FOUND_COMMENT,
         RARE_FOUND_COMMENT,
         dump_state,
@@ -519,7 +519,7 @@ def _checker_extension_actor_is_complete(
         return False
 
     if task.task_type == 'replacements_lines':
-        from games.replacements_lines import parse_replacements_lines_text
+        from games.puzzles.replacements.lines import parse_replacements_lines_text
         parsed = parse_replacements_lines_text(
             task.text or '', (task.checker_data or '').strip() or None,
         )
@@ -624,7 +624,7 @@ def _credit_new_word_salad_answers(
     attempts=None,
     pending_resolution=None,
 ):
-    from games.word_salad import find_paths, load_state, parse_task_payload
+    from games.puzzles.salad.rules import find_paths, load_state, parse_task_payload
 
     last_ok_times = last_ok_times or {}
     grid, words, _rare_words = parse_task_payload(task.checker_data, task.answer or '')
@@ -777,7 +777,7 @@ def recheck_word_salad_actor(
         # direction.  Keep the canonical PCG in the same transaction and use
         # the repair path so historical corrections never emit goals.
         if replay_slot is None:
-            from games.analytics import reconcile_completed_game_after_recheck
+            from games.ops.analytics.events import reconcile_completed_game_after_recheck
             reconcile_completed_game_after_recheck(
                 task=task,
                 game=game,
@@ -841,7 +841,7 @@ def sync_word_salad_finds(
     replay_slot=None,
 ):
     """Persist localStorage finds against the current answer/rare/extra lists."""
-    from games.word_salad import (
+    from games.puzzles.salad.rules import (
         EXTRA_FOUND_COMMENT,
         RARE_FOUND_COMMENT,
         _FOUND_EXTRA_LIMIT,

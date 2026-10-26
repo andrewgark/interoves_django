@@ -5,8 +5,8 @@ from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 
-from games.analytics import game_instance_id_for_task_group, is_task_group_complete
-from games.analytics_identity import stamp_anon_identity
+from games.ops.analytics.events import game_instance_id_for_task_group, is_task_group_complete
+from games.ops.analytics.identity import stamp_anon_identity
 from games.models import (
     Attempt,
     CheckerType,
@@ -28,7 +28,7 @@ from games.site.session.replay import StaleReplayError, replay_for_request, star
 from games.account_merge import _merge_replay_slots
 from games.site.views.game.attempt import process_send_attempt
 from games.site.ui.play.replay import new_replay_exit
-from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
+from games.results.sql import get_sql_aggregated_game_actor_rows
 
 
 class ReplaySlotTests(TestCase):

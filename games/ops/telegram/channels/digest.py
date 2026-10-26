@@ -5,7 +5,7 @@ from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
 from games.models import Attempt, BugReport, CorporateGameOrder, Game, HintAttempt, Registration, TicketRequest
-from games.ticket_service import stuck_pending_ticket_count
+from games.club.billing.tickets import stuck_pending_ticket_count
 from games.telegram.notify import _escape, _join_lines
 
 DIGEST_TOP_GAMES = 5

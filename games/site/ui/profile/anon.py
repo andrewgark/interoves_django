@@ -19,7 +19,7 @@ from django.utils import timezone
 from games.auth_observability import log_auth_event, request_session_fingerprint
 from games.site.session.gameplay_context import anonymous_actor_fingerprint
 
-from games.analytics_identity import (
+from games.ops.analytics.identity import (
     browser_anon_key,
     is_valid_anon_key,
     rotate_anonymous_identity,

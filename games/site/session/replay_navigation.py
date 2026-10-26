@@ -3,7 +3,7 @@
 from django.shortcuts import get_object_or_404
 from django.http import Http404
 
-from games.analytics_identity import gameplay_anon_key
+from games.ops.analytics.identity import gameplay_anon_key
 from games.models import Game, GameTaskGroup, Project
 from games.site.session.play_mode import get_play_mode
 from games.sections.project_navigation import project_base

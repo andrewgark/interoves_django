@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from games.analytics import (
+from games.ops.analytics.events import (
     consume_pending_goals,
     pending_next_game_vote_payment_goals,
     pending_signup_goals,

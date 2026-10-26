@@ -6,7 +6,7 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from games.analytics import game_instance_id_for_task_group
+from games.ops.analytics.events import game_instance_id_for_task_group
 from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
 from games.club.offers.ladder import (
     accept_offer,

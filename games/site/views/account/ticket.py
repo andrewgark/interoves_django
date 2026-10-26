@@ -11,7 +11,7 @@ from games.site.http.exceptions import InvalidFormException
 from games.forms import TicketRequestForm
 from games.models import TicketRequest
 from games.nowpayments_util import verify_ipn_signature
-from games.ticket_service import accept_ticket_request, reject_ticket_request
+from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
 from games.tribute_util import verify_webhook_signature as verify_tribute_webhook_signature
 from games.site.views.pages.util import has_team, redirect_to_referer
 from games.yookassa_util import configure_yookassa_from_env

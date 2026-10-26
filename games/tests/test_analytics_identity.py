@@ -10,7 +10,7 @@ from django.test import Client, RequestFactory, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.analytics_identity import (
+from games.ops.analytics.identity import (
     ANON_COOKIE_NAME,
     ANON_SIG_COOKIE_NAME,
     attach_anon_cookie,

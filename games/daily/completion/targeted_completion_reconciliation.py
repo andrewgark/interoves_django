@@ -141,7 +141,7 @@ def reconcile_task_group_actors(
     if rebuild is not None and task_group is None:
         rebuild = None
 
-    from games.analytics import reconcile_completed_game_after_recheck
+    from games.ops.analytics.events import reconcile_completed_game_after_recheck
 
     changed = 0
     daily_statistics_changed = False

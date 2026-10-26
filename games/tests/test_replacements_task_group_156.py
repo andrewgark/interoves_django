@@ -6,11 +6,11 @@ https://interoves.com/games/replacements/156/
 """
 from django.test import SimpleTestCase
 
-from games.replacements_input_parse import (
+from games.puzzles.replacements.lines.input_parse import (
     literals_from_right_tokens,
     parse_repl_line_answers_smart,
 )
-from games.replacements_lines import parse_replacements_lines_text
+from games.puzzles.replacements.lines import parse_replacements_lines_text
 
 # Текст задания (левая колонка) с сайта.
 TASK_156_LEFT = """РАБОТЯЩЕГО ГУСИКА запускали на РАБОТЕ в ЛИБЕРТИ-СИТИ

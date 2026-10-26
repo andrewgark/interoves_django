@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from games.analytics import (
+from games.ops.analytics.events import (
     PlayerCompletedGame,
     analytics_game_kind,
     is_task_completion_state,

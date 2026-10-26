@@ -10,7 +10,7 @@ from django.utils import timezone
 
 
 
-from games.analytics_identity import (
+from games.ops.analytics.identity import (
     gameplay_anon_key,
 )
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
@@ -24,7 +24,7 @@ from games.models import (
     Like,
     Task,
 )
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
 )
 from games.site.views.game.context import game_from_request_for_task

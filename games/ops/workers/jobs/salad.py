@@ -644,7 +644,7 @@ def _process_claimed_item(job, item, item_token):
             skipped_complete = False
             if is_dictionary_scan:
                 from games.daily.timing.statistics import invalidate_daily_statistics
-                from games.word_salad import add_longest_missing_words
+                from games.puzzles.salad.rules import add_longest_missing_words
 
                 checker_data = add_longest_missing_words(task.checker_data)
                 updated = type(task).objects.filter(

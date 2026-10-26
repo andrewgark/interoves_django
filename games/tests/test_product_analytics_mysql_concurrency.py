@@ -8,9 +8,9 @@ from django.contrib.auth.models import User
 from django.db import close_old_connections, connection
 from django.test import TransactionTestCase
 
-from games.analytics import register_completed_game, register_started_game
+from games.ops.analytics.events import register_completed_game, register_started_game
 from games.daily.completion.completion_coordinator import complete_logical_game
-from games.analytics_persistence import (
+from games.ops.analytics.persistence import (
     ANALYTICS_UNIQUE_SPECS,
     create_or_reread_analytics_row,
 )
@@ -66,7 +66,7 @@ class ProductAnalyticsMySQLConcurrencyTests(TransactionTestCase):
 
     def setUp(self):
         self._completion_check = patch(
-            'games.analytics.is_task_group_complete', return_value=True,
+            'games.ops.analytics.events.is_task_group_complete', return_value=True,
         )
         self._completion_check.start()
         self.addCleanup(self._completion_check.stop)
@@ -118,7 +118,7 @@ class ProductAnalyticsMySQLConcurrencyTests(TransactionTestCase):
             return row
 
         with patch(
-            'games.analytics_persistence.read_exact_analytics_row',
+            'games.ops.analytics.persistence.read_exact_analytics_row',
             side_effect=synchronized,
         ):
             yield

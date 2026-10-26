@@ -3,7 +3,7 @@
 import json
 
 from games.puzzles.core.check_runtime import BaseChecker, CheckResult
-from games.replacements_lines import (
+from games.puzzles.replacements.lines import (
     parse_replacements_checker_json_lines,
     parse_replacements_lines_text,
     replacements_solved_slots_from_state,

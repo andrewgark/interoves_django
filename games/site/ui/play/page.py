@@ -50,7 +50,7 @@ from games.models import (
     PlayerCompletedGame,
 )
 from games.site.session.replay import active_replay
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
 )
 from games.results.share import share_host_from_request

@@ -4,7 +4,7 @@ from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
 from games.results.util import clean_text
 import json
 
-from games.replacements_lines import (
+from games.puzzles.replacements.lines import (
     canonical_replacements_checker_line,
     parse_replacements_checker_json_lines,
     parse_replacements_lines_text,

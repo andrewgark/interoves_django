@@ -8,7 +8,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
-from games.analytics import register_completed_game, register_started_game
+from games.ops.analytics.events import register_completed_game, register_started_game
 from games.models import (
     CheckerType,
     Game,
@@ -21,13 +21,13 @@ from games.models import (
     TaskGroup,
     WordSaladOffer,
 )
-from games.word_salad import WORD_SALAD_GAME_ID
+from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
 
 
 class ProductAnalyticsInstrumentationVersionTests(TestCase):
     def setUp(self):
         self._completion_check = patch(
-            'games.analytics.is_task_group_complete', return_value=True,
+            'games.ops.analytics.events.is_task_group_complete', return_value=True,
         )
         self._completion_check.start()
         self.addCleanup(self._completion_check.stop)

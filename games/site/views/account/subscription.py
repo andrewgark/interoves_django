@@ -15,7 +15,7 @@ from django.utils.formats import date_format
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
-from games.analytics import (
+from games.ops.analytics.events import (
     YANDEX_GOAL_SUBSCRIPTION_CHECKOUT,
     YANDEX_GOAL_SUBSCRIPTION_VIEW,
     queue_pending_goal,

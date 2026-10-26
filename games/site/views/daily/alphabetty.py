@@ -24,7 +24,7 @@ from games.alphabetty.play import (
     ru_hint_word,
 )
 from games.puzzles.alphabetty import AlphabettyPuzzle
-from games.analytics import (
+from games.ops.analytics.events import (
     PlayerCompletedGame,
     is_task_completion_state,
     is_task_group_complete,
@@ -77,7 +77,7 @@ from games.site.ui.game.progress import (
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
-from games.analytics_identity import gameplay_anon_key
+from games.ops.analytics.identity import gameplay_anon_key
 from games.auth_observability import record_gameplay_attempt_created
 from games.site.session.gameplay_context import (
     context_error_response,

@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from games.analytics import (
+from games.ops.analytics.events import (
     PlayerCompletedGame,
     analytics_game_kind,
     is_task_completion_state,
@@ -676,7 +676,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
         return {'status': 'invalid_form'}
 
     from games.ops.workers.jobs.recheck import sync_word_salad_finds
-    from games.word_salad import build_ui_context, parse_task_payload
+    from games.puzzles.salad.rules import build_ui_context, parse_task_payload
 
     stats = sync_word_salad_finds(
         task, raw_words,

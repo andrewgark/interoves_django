@@ -1,8 +1,8 @@
 from django.core.management.base import BaseCommand, CommandError
 from django.utils.dateparse import parse_datetime
 
-from games.analytics import analytics_game_kind, game_instance_id_for_task_group
-from games.analytics_persistence import (
+from games.ops.analytics.events import analytics_game_kind, game_instance_id_for_task_group
+from games.ops.analytics.persistence import (
     create_or_reread_analytics_row,
     read_exact_analytics_row,
 )

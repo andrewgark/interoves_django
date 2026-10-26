@@ -18,7 +18,7 @@ import time
 from django.db import OperationalError, transaction
 from django.utils import timezone
 
-from games.analytics import (
+from games.ops.analytics.events import (
     _analytics_actor_kwargs,
     _ensure_completed_record,
     analytics_game_kind,

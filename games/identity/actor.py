@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 from django.utils import timezone
 
-from games.analytics_identity import gameplay_anon_key
+from games.ops.analytics.identity import gameplay_anon_key
 from games.site.http.exceptions import NoGameAccessException
 from games.site.views.pages.util import has_profile, has_team
 

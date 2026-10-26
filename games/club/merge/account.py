@@ -12,7 +12,7 @@ from django.db import transaction
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
-from games.analytics_persistence import (
+from games.ops.analytics.persistence import (
     AnalyticsRowInvariantError,
     merge_analytics_state_rows,
     merge_completed_analytics_rows,

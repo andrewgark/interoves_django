@@ -27,14 +27,14 @@ from games.models import (
     GameTaskGroup,
     Like,
 )
-from games.replacements_lines import (
+from games.puzzles.replacements.lines import (
     parse_replacements_lines_text,
     replacements_solved_slots_from_state,
 )
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
 )
-from games.proportions import build_proportions_chips_for_tasks
+from games.puzzles.replacements.proportions import build_proportions_chips_for_tasks
 from games.puzzles.replacements.forms import render_html_forms_task
 
 

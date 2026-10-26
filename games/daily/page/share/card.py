@@ -125,7 +125,7 @@ def _share_grid_letters(grid) -> list[str]:
     if not grid:
         return []
     try:
-        from games.word_salad import parse_grid
+        from games.puzzles.salad.rules import parse_grid
 
         return parse_grid(grid)
     except (TypeError, ValueError):
@@ -414,7 +414,7 @@ def build_salad_share_payload(
     author: str | None = None,
     play_path: str | None = None,
 ) -> dict[str, Any]:
-    from games.word_salad import load_state, words_in_display_order
+    from games.puzzles.salad.rules import load_state, words_in_display_order
 
     loaded = load_state(state)
     hint_counts = loaded.get('hint_counts') or {}
@@ -653,7 +653,7 @@ _SYNTHETIC_CENSORLY_LONG_LEAD = (
 def synthetic_preview_payloads() -> list[dict[str, Any]]:
     """Marked synthetic results for visual QA. No production user data."""
     from games.puzzles.raddle.engine import default_raddle_state, parse_raddle_data
-    from games.word_salad import default_state as salad_default_state
+    from games.puzzles.salad.rules import default_state as salad_default_state
 
     parsed = parse_raddle_data(_FakeTask(_SYNTHETIC_LADDER))
     n = parsed['n_words']
@@ -892,7 +892,7 @@ def attach_salad_share_card(
 ) -> dict[str, Any]:
     if not ui or not ui.get('is_complete'):
         return ui
-    from games.word_salad import theme_from_text
+    from games.puzzles.salad.rules import theme_from_text
 
     number = getattr(placement, 'number', None)
     elapsed = elapsed_seconds_for(

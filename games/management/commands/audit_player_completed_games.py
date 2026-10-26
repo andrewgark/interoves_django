@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Prefetch, Q
 
-from games.analytics import is_task_completion_state
+from games.ops.analytics.events import is_task_completion_state
 from games.models import Attempt, ChainTaskState, PlayerCompletedGame, Task
 
 CHAIN_TASK_TYPES = {'raddle', 'replacements_lines', 'html_forms', 'alphabetty', 'word_salad'}

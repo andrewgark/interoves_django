@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 
 from django.test import SimpleTestCase
 
-from games.wall import Wall, get_wall_default_max_attempts
+from games.puzzles.wall.engine import Wall, get_wall_default_max_attempts
 
 
 def _wall_task(*, n_cat=4, attempts=None, max_attempts=3):

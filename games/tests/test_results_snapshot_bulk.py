@@ -181,7 +181,7 @@ class ResultsSnapshotBulkTests(TestCase):
         self.assertEqual(len(payload['rows']), 3)
 
     def test_general_payload_matches_per_task_oracle(self):
-        from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
+        from games.results.sql import get_sql_aggregated_game_actor_rows
 
         bulk_payload = build_results_snapshot_payload(self.game, mode='general')
         with patch(
@@ -191,7 +191,7 @@ class ResultsSnapshotBulkTests(TestCase):
             ),
         ):
             with patch(
-                'games.results_sql_aggregate.tasks_need_orm_results_aggregate',
+                'games.results.sql.tasks_need_orm_results_aggregate',
                 return_value=True,
             ):
                 legacy_payload = build_results_snapshot_payload(self.game, mode='general')

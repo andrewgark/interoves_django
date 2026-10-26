@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 from games.puzzles.core.check_runtime import BaseChecker, CheckResult
 from games.puzzles.core.primitives import same_text_verdict
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     EXTRA_FOUND_COMMENT,
     EXTRA_NOT_FOUND_COMMENT,
     RARE_FOUND_COMMENT,

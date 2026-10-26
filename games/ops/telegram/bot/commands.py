@@ -25,7 +25,7 @@ from games.telegram.config import (
 )
 from games.telegram.game_urls import admin_url, game_site_url
 from games.telegram.notify import REGISTRATION_MILESTONES, _escape, _join_lines, send_admin_message
-from games.ticket_service import build_stuck_tickets_alert, stuck_pending_ticket_count, stuck_pending_ticket_requests
+from games.club.billing.tickets import build_stuck_tickets_alert, stuck_pending_ticket_count, stuck_pending_ticket_requests
 
 
 def _help_text() -> str:

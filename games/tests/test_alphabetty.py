@@ -11,7 +11,7 @@ from django.test import Client, TestCase
 
 from allauth.socialaccount.models import SocialApp
 
-from games.analytics_identity import attach_anon_cookie
+from games.ops.analytics.identity import attach_anon_cookie
 
 from games.alphabetty.core import (
     build_prefix_level,

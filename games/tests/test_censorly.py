@@ -18,7 +18,7 @@ from games.puzzles.censorly.play import apply_guess, apply_hint, get_play_state,
 from games.puzzles.censorly.article.redact import build_public_view, lemmas_matching_guess
 from games.puzzles.censorly.text.stopwords import is_stop_word
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
-from games.analytics import game_instance_id_for_task_group
+from games.ops.analytics.events import game_instance_id_for_task_group
 from games.models import Attempt, BugReport, ChainTaskState, CheckerType, DailySolveTiming, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, RandomCensorlyGame, Task, TaskGroup
 from games.sections.placement_share import allocate_share_hash
 from games.results.share import format_elapsed
@@ -2910,7 +2910,7 @@ class CensorlyUxDailyTests(TestCase):
         self.assertEqual(random_results.status_code, 200)
 
     def test_results_page_renders_through_compat_sql_aggregate_module(self):
-        from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
+        from games.results.sql import get_sql_aggregated_game_actor_rows
 
         link = GameTaskGroup.objects.get(task_group=self.task.task_group)
         RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
@@ -2919,7 +2919,7 @@ class CensorlyUxDailyTests(TestCase):
         link.save(update_fields=['number', 'name'])
         self.client.force_login(self.staff)
         with patch(
-            'games.results_sql_aggregate.get_sql_aggregated_game_actor_rows',
+            'games.results.sql.get_sql_aggregated_game_actor_rows',
             wraps=get_sql_aggregated_game_actor_rows,
         ) as aggregate:
             response = self.client.get('/censorly/1/results/')

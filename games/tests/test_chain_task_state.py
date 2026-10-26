@@ -21,7 +21,7 @@ from games.models import (
 from games.site.http.exceptions import DuplicateAttemptException, TooManyAttemptsException
 from games.ops.workers.jobs.recheck import recheck_chain_task
 from games.site.views.game.attempt import check_attempt
-from games.wall import Wall
+from games.puzzles.wall.engine import Wall
 
 
 # ---------------------------------------------------------------------------
@@ -566,7 +566,7 @@ class RecheckChainTaskTests(_ChainFixture, TestCase):
         check_attempt(a2)
 
         # The fixture uses a team actor; the completion row is keyed by that team.
-        with patch('games.analytics.supported_game_kind', return_value='replacement'):
+        with patch('games.ops.analytics.events.supported_game_kind', return_value='replacement'):
             recheck_chain_task(task=self.repl_task, team=self.team)
 
         self.assertTrue(PlayerCompletedGame.objects.filter(
@@ -592,7 +592,7 @@ class RecheckChainTaskTests(_ChainFixture, TestCase):
         a1.text = _repl_text(0, ['wrong'])
         a1.save(update_fields=['text'])
 
-        with patch('games.analytics.supported_game_kind', return_value='replacement'):
+        with patch('games.ops.analytics.events.supported_game_kind', return_value='replacement'):
             recheck_chain_task(task=self.repl_task, team=self.team)
 
         self.assertFalse(PlayerCompletedGame.objects.filter(

@@ -14,7 +14,7 @@ from games.telegram.ladder_image import (
     _load_font,
     screenshot_page_element_png,
 )
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
     build_ui_context,
     default_state,

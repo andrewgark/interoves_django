@@ -5,7 +5,7 @@ from django.db.models import Exists, F, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from games.analytics import GAME_KIND_BY_ID
+from games.ops.analytics.events import GAME_KIND_BY_ID
 from games.models import (
     AnonAccountClaim,
     GameTaskGroup,

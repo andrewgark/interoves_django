@@ -8,7 +8,7 @@ from django.test.utils import CaptureQueriesContext
 from django.test import Client, TestCase
 from django.utils import timezone
 
-from games.analytics_identity import attach_anon_cookie
+from games.ops.analytics.identity import attach_anon_cookie
 from games.models import (
     Attempt,
     ChainTaskState,

@@ -6,7 +6,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.analytics_identity import attach_anon_cookie
+from games.ops.analytics.identity import attach_anon_cookie
 from games.anonymous_merge import (
     claim_next_merge_job,
     process_merge_job,

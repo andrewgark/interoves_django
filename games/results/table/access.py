@@ -1,6 +1,6 @@
 """Viewer-specific access and participant helpers for results pages."""
 
-from games.analytics_identity import gameplay_anon_key
+from games.ops.analytics.identity import gameplay_anon_key
 from games.site.session.play_mode import get_play_mode
 from games.results.table.context import results_me_participants as build_me_participants
 from games.site.views.pages.util import effective_play_mode, has_profile

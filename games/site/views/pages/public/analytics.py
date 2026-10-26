@@ -2,7 +2,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from games.analytics import acknowledge_analytics_goal
+from games.ops.analytics.events import acknowledge_analytics_goal
 
 
 @csrf_exempt

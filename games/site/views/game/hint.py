@@ -10,7 +10,7 @@ from games.site.http.exceptions import (
     NotAllRequiredHintsTakenException,
     NoGameAccessException,
 )
-from games.analytics import register_started_game
+from games.ops.analytics.events import register_started_game
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt

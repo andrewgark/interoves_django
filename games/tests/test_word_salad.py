@@ -8,7 +8,7 @@ from django.contrib.admin import site
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils import timezone
 
-from games.analytics_identity import attach_anon_cookie
+from games.ops.analytics.identity import attach_anon_cookie
 
 from games.puzzles.core.check_runtime import CheckerFactory
 from games.admin import TaskAdmin, WordSaladTaskForm
@@ -34,7 +34,7 @@ from games.site.ui.play.context import build_task_group_task_context_dicts
 from games.site.ui.play.page import new_task_group_page
 from games.site.views.game.render import render_new_ui_task_card_html
 from games.ops.workers.jobs.recheck import recheck_word_salad_task
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     OVERFLOW_HINT_SQUARE,
     archive_card_meta,
     add_longest_missing_words,
@@ -194,7 +194,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(theme_from_text(''), '')
 
     def test_extra_found_word_uses_salad_noun_dictionary(self):
-        from games.word_salad import load_extra_noun_set
+        from games.puzzles.salad.rules import load_extra_noun_set
 
         nouns = load_extra_noun_set()
         self.assertGreater(len(nouns), 10000)
@@ -294,7 +294,7 @@ class WordSaladTests(TestCase):
         self.assertIn('longest_missing_words', scanned)
 
     def test_validate_rejects_rare_word_overlap(self):
-        from games.word_salad import validate_puzzle
+        from games.puzzles.salad.rules import validate_puzzle
         with self.assertRaises(ValueError) as ctx:
             validate_puzzle(_puzzle()['grid'], _puzzle()['words'], _puzzle()['words'][0])
         self.assertIn('совпадать', str(ctx.exception))
@@ -637,7 +637,7 @@ class WordSaladTests(TestCase):
             status=DailySolveTiming.STATUS_RUNNING,
             accumulated_ms=3000,
         )
-        with patch.dict('games.analytics.GAME_KIND_BY_ID', {self.game.id: 'salad'}):
+        with patch.dict('games.ops.analytics.events.GAME_KIND_BY_ID', {self.game.id: 'salad'}):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -728,7 +728,7 @@ class WordSaladTests(TestCase):
 
     def test_supported_salad_completion_returns_start_then_complete_once(self):
         anon_key = 'word-salad-onboarding-flow'
-        with patch.dict('games.analytics.GAME_KIND_BY_ID', {self.game.id: 'salad'}), patch(
+        with patch.dict('games.ops.analytics.events.GAME_KIND_BY_ID', {self.game.id: 'salad'}), patch(
             'games.site.views.game.attempt.track_actor_task_change'
         ):
             first = self._post(

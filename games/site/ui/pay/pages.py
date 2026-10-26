@@ -16,7 +16,7 @@ from django.utils import timezone
 
 from games.club.link import user_has_telegram_link
 
-from games.analytics import (
+from games.ops.analytics.events import (
     YANDEX_GOAL_TICKET_CHECKOUT,
     analytics_ack_payload,
     ticket_purchase_goal_payload,

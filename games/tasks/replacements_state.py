@@ -1,7 +1,7 @@
 """Authoritative actor state for replacements-lines tasks."""
 
 from games.tasks.actor_state import chain_state_for_actor
-from games.replacements_lines import parse_replacements_lines_text, replacements_line_done_from_state
+from games.puzzles.replacements.lines import parse_replacements_lines_text, replacements_line_done_from_state
 
 
 def current_state(task, *, game=None, team=None, user=None, anon_key=None,

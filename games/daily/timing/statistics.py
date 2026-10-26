@@ -15,7 +15,7 @@ from django.db.models import Func, Min, Q, TextField
 
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
 from games.puzzles.raddle.engine import load_raddle_state, parse_raddle_data, resolve_assist_tiers
-from games.word_salad import (
+from games.puzzles.salad.rules import (
     load_state as load_salad_state,
     longest_dictionary_words,
     parse_task_payload,

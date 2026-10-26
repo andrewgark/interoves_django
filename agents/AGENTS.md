@@ -252,6 +252,13 @@ If the resolved version is empty, the client check is skipped.
 | Raddle engine helpers | `games.puzzles.raddle.engine` | `games.raddle` |
 | Raddle DB locks | `games.puzzles.raddle.concurrency` | `games.raddle_concurrency` |
 | Admin bulk recheck actions | `games.ops.workers.jobs.bulk` | `games.attempt_admin_bulk` |
+| Product analytics | `games.ops.analytics.{events,identity,persistence}` | `games.analytics*` |
+| Ticket billing service | `games.club.billing.tickets` | `games.ticket_service` |
+| Results share formatting | `games.results.share` | `games.share_result` |
+| SQL results aggregate | `games.results.sql` | `games.results_sql_aggregate` |
+| Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `games.wall`, `word_salad`, `replacements_*` |
+
+На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Для `WORD_SALAD_GAME_ID` в `daily.page.section`, `sections.*`, `tasks.result_details`, `ops.analytics.events` пока оставлен `games.word_salad`; `models.catalog.Wall` — `games.wall`.
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

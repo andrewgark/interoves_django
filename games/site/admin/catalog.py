@@ -301,7 +301,7 @@ class WordSaladTaskForm(ModelForm):
             task_type = self.initial.get('task_type') or getattr(self.instance, 'task_type', None)
         if getattr(self.instance, 'task_type', None) == 'word_salad' and getattr(self.instance, 'checker_data', None):
             try:
-                from games.word_salad import format_grid_text, format_words_text, parse_task_payload
+                from games.puzzles.salad.rules import format_grid_text, format_words_text, parse_task_payload
 
                 grid, words, rare_words = parse_task_payload(self.instance.checker_data, self.instance.answer)
                 self.fields['word_salad_grid_text'].initial = format_grid_text(grid)
@@ -329,7 +329,7 @@ class WordSaladTaskForm(ModelForm):
         cleaned = super().clean()
         task_type = cleaned.get('task_type') or getattr(self.instance, 'task_type', None)
         if task_type == 'word_salad':
-            from games.word_salad import serialize_task_data, validate_puzzle
+            from games.puzzles.salad.rules import serialize_task_data, validate_puzzle
 
             try:
                 validate_puzzle(
@@ -393,7 +393,7 @@ class TaskAdmin(admin.ModelAdmin):
         if obj.task_type == 'word_salad' and obj.pk:
             previous = Task.objects.filter(pk=obj.pk).values('checker_data', 'answer').first()
             if previous:
-                from games.word_salad import task_data_signature
+                from games.puzzles.salad.rules import task_data_signature
                 previous_signature = task_data_signature(
                     previous['checker_data'], previous['answer'],
                 )
@@ -406,7 +406,7 @@ class TaskAdmin(admin.ModelAdmin):
                 return
         super(TaskAdmin, self).save_model(request, obj, form, change)
         if obj.task_type == 'word_salad' and obj.task_group is not None:
-            from games.word_salad import task_data_signature
+            from games.puzzles.salad.rules import task_data_signature
             current_signature = task_data_signature(obj.checker_data, obj.answer)
             if previous_signature != current_signature:
                 from games.ops.workers.jobs.salad import enqueue_word_salad_recheck

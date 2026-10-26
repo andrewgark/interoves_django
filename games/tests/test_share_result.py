@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from games.share_result import (
+from games.results.share import (
     elapsed_label_from_attempts,
     elapsed_seconds_from_attempts,
     format_archive_result_line,

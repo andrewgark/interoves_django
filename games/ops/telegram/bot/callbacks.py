@@ -10,7 +10,7 @@ from games.alphabetty.suggestions import (
 from games.models import AlphabettyDictSuggestion, BugReport, TicketRequest
 from games.telegram.api import answer_callback_query, edit_message_reply_markup
 from games.telegram.notify import send_admin_message
-from games.ticket_service import accept_ticket_request, reject_ticket_request
+from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
 
 
 logger = logging.getLogger('application')

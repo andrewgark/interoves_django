@@ -201,7 +201,7 @@ def _canonical_group_results(game, task_group, *, actor_filter=None, with_task_r
         return ({}, {}) if with_task_rows else {}
     scope_game = results_attempts_scope_game(game, 'general')
     task_ids = [task.pk for task in tasks]
-    from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows, tasks_need_orm_results_aggregate
+    from games.results.sql import get_sql_aggregated_game_actor_rows, tasks_need_orm_results_aggregate
     if tasks_need_orm_results_aggregate(tasks):
         result_rows = Attempt.manager.get_bulk_game_actor_rows(
             task_ids, mode='general', game=scope_game, actor_filter=actor_filter, include_hidden=True,
@@ -287,7 +287,7 @@ def _canonical_task_results(game, task_group, *, actor_filter=None):
         return {}
     scope_game = results_attempts_scope_game(game, 'general')
     task_ids = [task.pk for task in tasks]
-    from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
+    from games.results.sql import get_sql_aggregated_game_actor_rows
     result_rows = get_sql_aggregated_game_actor_rows(
         task_ids,
         game=scope_game,
@@ -419,7 +419,7 @@ def load_task_result_projection_rows(game, task_group, task_ids, actor_types=Non
     release with no visible result cells.
     """
     from games.models import DailyResultProjectionState, PersonalResultsParticipant
-    from games.results_sql_aggregate import AggregatedAttemptsInfo
+    from games.results.sql import AggregatedAttemptsInfo
 
     state = DailyResultProjectionState.objects.filter(
         game=game, task_group=task_group,

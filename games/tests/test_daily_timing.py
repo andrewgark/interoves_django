@@ -12,7 +12,7 @@ from django.test import Client, SimpleTestCase, TestCase
 from django.urls import resolve
 from django.utils import timezone
 
-from games.analytics_identity import attach_anon_cookie
+from games.ops.analytics.identity import attach_anon_cookie
 from games import daily_timing as daily_timing_mod
 from games.daily.page.section import is_daily_team_timing_game, is_daily_timing_game
 from games.management.commands.repair_daily_attempt_timing import (
@@ -58,8 +58,8 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.share_result import elapsed_seconds_from_attempts as share_elapsed
-from games.word_salad import WORD_SALAD_GAME_ID
+from games.results.share import elapsed_seconds_from_attempts as share_elapsed
+from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
 
 
 def _dt(seconds=0):

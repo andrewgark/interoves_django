@@ -20,7 +20,7 @@ from games.daily.projection.results import get_daily_results_adapter
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
-from games.ladder_word_results import (
+from games.results.ladder import (
     build_ladder_word_results_context,
 )
 from games.tasks.titles import task_group_page_title

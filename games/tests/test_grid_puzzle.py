@@ -7,7 +7,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 from django.test import Client, RequestFactory, TestCase
 
-from games.analytics_identity import attach_anon_cookie
+from games.ops.analytics.identity import attach_anon_cookie
 from games.puzzles.core.check_runtime import GridShadingChecker, GridWallChecker
 from games.puzzles.replacements.grid_puzzle import (
     GridPuzzleDataError,

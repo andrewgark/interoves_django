@@ -236,7 +236,7 @@ def run():
                         # This script writes authoritative attempt/chain state
                         # directly, so keep the canonical PCG in the same
                         # transaction and never emit historical analytics goals.
-                        from games.analytics import reconcile_completed_game_after_recheck
+                        from games.ops.analytics.events import reconcile_completed_game_after_recheck
                         reconcile_completed_game_after_recheck(
                             task=task,
                             game=game,

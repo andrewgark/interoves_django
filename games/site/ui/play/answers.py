@@ -17,7 +17,7 @@ from games.puzzles.replacements.grid_puzzle import GridPuzzleDataError, public_g
 from games.models import (
     Attempt,
 )
-from games.replacements_lines import (
+from games.puzzles.replacements.lines import (
     task_replacements_canonical_answer_row,
 )
 from games.puzzles.raddle.engine import (
