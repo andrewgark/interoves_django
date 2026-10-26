@@ -1,27 +1,13 @@
-"""Pick a backend for one token.
+"""Compatibility alias. Implementation lives in games.puzzles.censorly.lexical.match.dispatcher."""
+import importlib.util
+import sys
+from pathlib import Path
 
-The article language is a prior, not a hard label. A single short token
-is not run through language detection. Latin inside a Russian article
-stays generic: ``Apis`` is not treated as English.
-"""
-
-from __future__ import annotations
-
-from games.censorly.lexical.core import fold, script_of
-from games.censorly.lexical.generic_backend import NAME as GENERIC
-
-RUSSIAN = 'russian'
-# Letters that mark Ukrainian, Belarusian or Serbian rather than Russian.
-_NON_RUSSIAN_CYRILLIC = frozenset('іїєґўјљњћџђѓѕ')
-
-
-def backend_name(token: str, *, article_language: str = '') -> str:
-    if script_of(token) != 'Cyrl' or article_language not in ('', 'ru'):
-        return GENERIC
-    folded = fold(token)
-    if any(char in _NON_RUSSIAN_CYRILLIC for char in folded):
-        return GENERIC
-    from games.censorly.lexical.russian.morphology import readings
-    if not any(item.pos for item in readings(token)):
-        return GENERIC
-    return RUSSIAN
+# Load the implementation file directly. Importing its package first runs a
+# package init that imports this facade again.
+_path = Path(__file__).resolve().parents[2] / 'puzzles' / 'censorly' / 'lexical' / 'match' / 'dispatcher.py'
+_spec = importlib.util.spec_from_file_location('games.puzzles.censorly.lexical.match.dispatcher', _path)
+_implementation = importlib.util.module_from_spec(_spec)
+sys.modules['games.puzzles.censorly.lexical.match.dispatcher'] = _implementation
+sys.modules[__name__] = _implementation
+_spec.loader.exec_module(_implementation)

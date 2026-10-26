@@ -1,23 +1,13 @@
-"""Exact identity for any Unicode token.
+"""Compatibility alias. Implementation lives in games.puzzles.censorly.lexical.match.generic_backend."""
+import importlib.util
+import sys
+from pathlib import Path
 
-No stemming and no etymology. An unknown script or language opens only
-the same normalized token.
-"""
-
-from __future__ import annotations
-
-from games.censorly.lexical.core import EXACT_MATCH, LexicalNode, fold, script_of
-
-CAPABILITIES = frozenset({EXACT_MATCH})
-NAME = 'generic'
-
-
-def node_for(token: str) -> LexicalNode:
-    normalized = fold(token)
-    return LexicalNode(
-        backend=NAME,
-        key=normalized,
-        language='',
-        script=script_of(token),
-        normalized=normalized,
-    )
+# Load the implementation file directly. Importing its package first runs a
+# package init that imports this facade again.
+_path = Path(__file__).resolve().parents[2] / 'puzzles' / 'censorly' / 'lexical' / 'match' / 'generic_backend.py'
+_spec = importlib.util.spec_from_file_location('games.puzzles.censorly.lexical.match.generic_backend', _path)
+_implementation = importlib.util.module_from_spec(_spec)
+sys.modules['games.puzzles.censorly.lexical.match.generic_backend'] = _implementation
+sys.modules[__name__] = _implementation
+_spec.loader.exec_module(_implementation)

@@ -90,7 +90,7 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         clusters = {lemma: name for name, lemmas in CLUSTERS for lemma in lemmas}
         family_review = (
             Path(__file__).resolve().parents[1]
-            / 'censorly' / 'lexical' / 'data' / 'root_family_review.tsv'
+            / 'puzzles' / 'censorly' / 'lexical' / 'data' / 'root_family_review.tsv'
         )
         with family_review.open(encoding='utf-8', newline='') as stream:
             family = next(
@@ -641,7 +641,7 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertFalse(inflection_matches('главное', main))
 
 
-_GRAPH = Path(__file__).resolve().parents[1] / 'censorly' / 'lexical' / 'data' / 'ru_graph.tsv.gz'
+_GRAPH = Path(__file__).resolve().parents[1] / 'puzzles' / 'censorly' / 'lexical' / 'data' / 'ru_graph.tsv.gz'
 _META = _GRAPH.with_name('ru_graph.meta.json')
 _PROVENANCE = _GRAPH.with_name('ru_graph.provenance.tsv')
 

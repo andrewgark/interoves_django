@@ -28,9 +28,9 @@ CANDIDATES_TXT = VAR / 'obscure_drop_candidates.txt'
 DECISIONS = VAR / 'pool_review_decisions.json'
 LEGACY_DECISIONS = VAR / 'obscure_review_decisions.json'
 ACCEPTED = VAR / 'accepted.json'
-POOL = Path('games/censorly/article_pool.txt')
+POOL = Path('games/puzzles/censorly/article/article_pool.txt')
 DRAFT = VAR / 'pool_draft.txt'
-UI = Path('games/censorly/pool_build/review_ui.html')
+UI = Path('games/puzzles/censorly/pool_build/review_ui.html')
 
 
 def _load_accepted_by_title() -> dict[str, dict]:
