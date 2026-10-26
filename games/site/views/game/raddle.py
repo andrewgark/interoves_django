@@ -36,16 +36,21 @@ from games.raddle_concurrency import (
     lock_or_create_raddle_state,
     run_raddle_atomic_with_deadlock_retry,
 )
-from games.views.game_context import (
+from games.middleware.request_timing import timing_phase
+from games.realtime.track_compat import track_actor_task_change
+from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.views.hint_views import _get_play_mode, create_hint_attempt
-from games.middleware.request_timing import timing_phase
-from games.views.render_task import update_task_html
-from games.views.track import track_actor_task_change
-from games.views.util import is_browser_form_submission, redirect_after_browser_submission
-from games.views.util import effective_play_mode, get_public_task_or_404, has_profile
+from games.site.views.game.hint import _get_play_mode, create_hint_attempt
+from games.site.views.game.render import update_task_html
+from games.site.views.pages.util import (
+    effective_play_mode,
+    get_public_task_or_404,
+    has_profile,
+    is_browser_form_submission,
+    redirect_after_browser_submission,
+)
 
 
 def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None, replay_slot=None):
@@ -73,7 +78,7 @@ def _actor_from_request(request, game):
 
 def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, word_index, current_mode, replay_slot=None):
     """Тир 2 (💡💡): открыть ответ, послав верную посылку, чтобы слово зачлось."""
-    from games.views.attempt_views import check_attempt
+    from games.site.views.game.attempt import check_attempt
 
     n = parsed['n_words']
     attempt = None

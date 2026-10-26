@@ -15,13 +15,13 @@ from games.gameplay_context import context_error_response, validate_gameplay_con
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.replay import StaleReplayError, replay_for_request
-from games.views.game_context import (
+from games.realtime.track_compat import track_actor_task_change
+from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.views.render_task import update_task_html
-from games.views.track import track_actor_task_change
-from games.views.util import (
+from games.site.views.game.render import update_task_html
+from games.site.views.pages.util import (
     effective_play_mode,
     get_public_task_or_404,
     has_profile,
@@ -96,7 +96,7 @@ def create_hint_attempt(
 def process_send_hint_attempt(request, task_id):
     task = get_public_task_or_404(task_id)
     if task.task_type == 'word_salad':
-        from games.views.attempt_views import process_send_attempt
+        from games.site.views.game.attempt import process_send_attempt
         return process_send_attempt(request, task_id)
     game = game_from_request_for_task(request, task)
     if game is None:

@@ -3,8 +3,8 @@ from django.http import JsonResponse, HttpResponse
 from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
 from games.models import Like
-from games.views.game_context import game_from_request_for_task
-from games.views.util import (
+from games.site.views.game.context import game_from_request_for_task
+from games.site.views.pages.util import (
     get_public_task_or_404,
     has_team,
     is_browser_form_submission,
@@ -22,7 +22,7 @@ def like_dislike(request, task_id):
     if game is None:
         return JsonResponse({'error': 'not found'}, status=404)
 
-    from games.views.game_context import unpublished_scheduled_task_response
+    from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         return JsonResponse({'error': 'not found'}, status=404)
 

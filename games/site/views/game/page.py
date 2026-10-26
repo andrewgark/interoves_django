@@ -9,12 +9,12 @@ from games.access import game_has_started
 from games.exception import NoGameAccessException
 from games.models import Game, Team, Attempt, ImageManager, AudioManager
 from games.project_navigation import non_root_project_game_path
-from games.views.render_task import get_task_to_attempts_info, get_all_text_with_forms_to_html
 from games.gameplay_context import issue_gameplay_context
 from games.html_forms import render_html_forms_task
-from games.views.team_views import get_team_to_play_page
-from games.views.util import has_profile, has_team
-from games.views.results_views import results_page
+from games.site.views.account.team import get_team_to_play_page
+from games.site.views.game.render import get_all_text_with_forms_to_html, get_task_to_attempts_info
+from games.site.views.pages.util import has_profile, has_team
+from games.site.views.results.pages import results_page
 
 
 def game_page(request, game_id, task_group=None, task=None):

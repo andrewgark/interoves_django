@@ -24,20 +24,20 @@ from games.middleware.request_timing import timing_phase
 from games.auth_observability import log_gameplay_attempt_created
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.gameplay_context import context_error_response, validate_gameplay_context
-from games.views.util import (
+from games.grid_puzzle import grid_checker_id
+from games.realtime.track_compat import track_actor_task_change
+from games.site.views.game.context import (
+    game_from_request_for_task,
+    unpublished_scheduled_task_response,
+)
+from games.site.views.game.render import update_task_html
+from games.site.views.pages.util import (
     effective_play_mode,
     get_public_task_or_404,
     has_profile,
     is_browser_form_submission,
     redirect_after_browser_submission,
 )
-from games.grid_puzzle import grid_checker_id
-from games.views.game_context import (
-    game_from_request_for_task,
-    unpublished_scheduled_task_response,
-)
-from games.views.render_task import update_task_html
-from games.views.track import track_actor_task_change
 from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
 from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.core.primitives import MoveRefusal, MoveResponse
@@ -526,7 +526,7 @@ def process_send_attempt(request, task_id):
                     task, team=team, user=user, anon_key=anon_key, replay_slot=replay_slot,
                 )
                 if hint is not None:
-                    from games.views.hint_views import create_hint_attempt
+                    from games.site.views.game.hint import create_hint_attempt
                     create_hint_attempt(
                         hint, team=team, user=user, anon_key=anon_key,
                         game=game, replay_slot=replay_slot,

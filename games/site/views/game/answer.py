@@ -1,10 +1,10 @@
 from django.http import JsonResponse
 from django.shortcuts import render, get_object_or_404
-from games.views.game_context import (
+from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.views.util import get_public_task_or_404, has_profile, has_team
+from games.site.views.pages.util import get_public_task_or_404, has_profile, has_team
 
 
 def task_ok_by_team(task, team, mode):
