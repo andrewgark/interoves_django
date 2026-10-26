@@ -3,7 +3,7 @@ import json
 
 from django.db import transaction
 
-from games.alphabetty.core import normalize_word
+from games.puzzles.alphabetty.core import normalize_word
 from games.ops.analytics.persistence import (
     AnalyticsRowInvariantError,
     merge_analytics_state_rows,

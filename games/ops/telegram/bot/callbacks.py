@@ -2,7 +2,7 @@ import html
 import logging
 
 from django.db import transaction
-from games.alphabetty.suggestions import (
+from games.puzzles.alphabetty.suggestions import (
     approve_suggestions,
     approve_suggestions_for_answer,
     reject_suggestions,

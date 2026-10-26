@@ -13,7 +13,7 @@ from allauth.socialaccount.models import SocialApp
 
 from games.ops.analytics.identity import attach_anon_cookie
 
-from games.alphabetty.core import (
+from games.puzzles.alphabetty.core import (
     build_prefix_level,
     compare_words,
     guess_status,
@@ -22,7 +22,7 @@ from games.alphabetty.core import (
     normalize_word,
     pick_answer_words,
 )
-from games.alphabetty.play import (
+from games.puzzles.alphabetty.play import (
     apply_guess,
     apply_hint,
     build_share_lines,
@@ -33,8 +33,8 @@ from games.alphabetty.play import (
     ru_attempt_word,
 )
 from games.club.merge.anon import _solved_count
-from games.alphabetty.dicts import get_answer_pool, invalidate_approved_extras
-from games.alphabetty.suggestions import (
+from games.puzzles.alphabetty.dicts import get_answer_pool, invalidate_approved_extras
+from games.puzzles.alphabetty.suggestions import (
     approve_suggestions,
     approve_suggestions_for_answer,
     reject_suggestions,

@@ -289,6 +289,8 @@ If the resolved version is empty, the client check is skipped.
 | Results share formatting | `games.results.share` | `games.share_result` |
 | SQL results aggregate | `games.results.sql` | `games.results_sql_aggregate` |
 | Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `games.wall`, `word_salad`, `replacements_*` |
+| Alphabetty engine | `games.puzzles.alphabetty.*` | `games.alphabetty.*` |
+| Alphabetty/Censorly offer models in `models/__init__` | keep `games.alphabetty.models` / `games.censorly.models` facades (avoid `games.puzzles` at Django model load) |
 
 На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Константа `WORD_SALAD_GAME_ID` живёт в `games.daily.page.section` (не тянет puzzles); `models.catalog.Wall` — `games.wall`.
 

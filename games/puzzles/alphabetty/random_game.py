@@ -6,8 +6,8 @@ import random
 
 from django.db import IntegrityError, transaction
 
-from games.alphabetty.core import normalize_word
-from games.alphabetty.dicts import get_answer_pool
+from games.puzzles.alphabetty.core import normalize_word
+from games.puzzles.alphabetty.dicts import get_answer_pool
 from games.models import CheckerType, GameTaskGroup, RandomAlphabettyGame, Task, TaskGroup
 from games.sections.placement_share import allocate_share_hash
 

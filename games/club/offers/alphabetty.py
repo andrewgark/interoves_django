@@ -10,7 +10,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
-from games.alphabetty.core import normalize_word
+from games.puzzles.alphabetty.core import normalize_word
 from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
     alphabetty_publish_at,

@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from games.alphabetty.word_set import PackedWordSet
+from games.puzzles.alphabetty.word_set import PackedWordSet
 
 DICT_DIR = Path(__file__).resolve().parent / 'dictionaries'
 # Полный словарь форм (не только им.п. сущ.): gzip от PackedWordSet.to_bytes(),
@@ -46,7 +46,7 @@ def write_packed_word_set(path: Path, words: PackedWordSet) -> None:
 def load_valid_set() -> PackedWordSet:
     if VALID_PACKED_GZ.is_file():
         return read_packed_word_set(VALID_PACKED_GZ)
-    from games.alphabetty.core import normalize_word
+    from games.puzzles.alphabetty.core import normalize_word
 
     normalized = (normalize_word(w) for w in _read_words(_VALID_FALLBACK))
     return PackedWordSet.from_words(w for w in normalized if w)
@@ -55,7 +55,7 @@ def load_valid_set() -> PackedWordSet:
 @lru_cache(maxsize=1)
 def load_answer_pool() -> tuple[str, ...]:
     """Уникальные загадки из файлов: easy ∪ hard, в стабильном порядке."""
-    from games.alphabetty.core import normalize_word
+    from games.puzzles.alphabetty.core import normalize_word
 
     easy = _read_words(DICT_DIR / 'ru_nouns_easy.txt')
     hard = _read_words(DICT_DIR / 'ru_nouns_hard.txt')
@@ -150,7 +150,7 @@ def is_personal_dict_word(
     anon_key: str | None = None,
 ) -> bool:
     """Слово есть в личном словаре актёра."""
-    from games.alphabetty.core import normalize_word
+    from games.puzzles.alphabetty.core import normalize_word
     from games.models import AlphabettyPersonalDictWord
 
     n = normalize_word(word)
@@ -172,7 +172,7 @@ def add_personal_dict_word(
     anon_key: str | None = None,
 ) -> bool:
     """Добавить слово в личный словарь. True если создана новая запись."""
-    from games.alphabetty.core import normalize_word
+    from games.puzzles.alphabetty.core import normalize_word
     from games.models import AlphabettyPersonalDictWord
 
     n = normalize_word(word)

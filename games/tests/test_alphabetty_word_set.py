@@ -4,14 +4,14 @@ from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
-from games.alphabetty.core import max_word_length, normalize_word
-from games.alphabetty.dicts import (
+from games.puzzles.alphabetty.core import max_word_length, normalize_word
+from games.puzzles.alphabetty.dicts import (
     VALID_PACKED_GZ,
     load_valid_set,
     read_packed_word_set,
     write_packed_word_set,
 )
-from games.alphabetty.word_set import PackedWordSet
+from games.puzzles.alphabetty.word_set import PackedWordSet
 
 
 class PackedWordSetTests(TestCase):
@@ -88,7 +88,7 @@ class PackedWordSetTests(TestCase):
     def test_max_length_is_correct_across_scan_chunks(self):
         words = PackedWordSet.from_words(['А', 'БВ', 'ВГДЕЖЗ', 'Е', 'ЖЖЖЖ'])
 
-        with patch('games.alphabetty.word_set._SCAN_CHUNK', 1):
+        with patch('games.puzzles.alphabetty.word_set._SCAN_CHUNK', 1):
             self.assertEqual(words.max_length, 6)
         self.assertEqual(PackedWordSet(words.to_bytes()).max_length, 6)
 

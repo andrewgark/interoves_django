@@ -12,9 +12,9 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from games.alphabetty.core import build_prefix_level, normalize_word
+from games.puzzles.alphabetty.core import build_prefix_level, normalize_word
 from games.club.offers.alphabetty import can_access_offer_hash, get_offer_by_share_hash
-from games.alphabetty.play import (
+from games.puzzles.alphabetty.play import (
     ALPHABETTY_HINT_PENALTY,
     get_play_state,
     get_task_for_number,
@@ -42,7 +42,7 @@ from games.site.views.daily.hub import can_access_daily_game
 from games.daily.registry import get_daily_game
 from games.daily.page.context import build_daily_lifecycle_context
 from games.daily.page.section import MOSCOW
-from games.alphabetty.suggestions import suggest_word
+from games.puzzles.alphabetty.suggestions import suggest_word
 from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
     alphabetty_publish_at,
@@ -363,7 +363,7 @@ def alphabetty_random_game(request):
         return redirect('/subscription/')
     if _get_game() is None:
         raise Http404()
-    from games.alphabetty.random_game import (
+    from games.puzzles.alphabetty.random_game import (
         EmptyRandomAlphabettyDictionary,
         RandomAlphabettyDictionaryExhausted,
         get_or_create_random_game,

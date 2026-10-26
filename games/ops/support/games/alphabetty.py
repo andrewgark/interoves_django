@@ -10,8 +10,8 @@ from typing import Any, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from games.alphabetty.core import normalize_word, pick_answer_words
-from games.alphabetty.play import ALPHABETTY_BASE_POINTS
+from games.puzzles.alphabetty.core import normalize_word, pick_answer_words
+from games.puzzles.alphabetty.play import ALPHABETTY_BASE_POINTS
 from games.daily.catalog.alphabetty import (
     ALPHABETTY_BUFFER_DAYS,
     ALPHABETTY_GAME_ID,

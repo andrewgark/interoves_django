@@ -10,7 +10,7 @@ from django.db import transaction
 from django.db.models import Min, Max
 from django.utils import timezone
 
-from games.alphabetty.core import (
+from games.puzzles.alphabetty.core import (
     build_prefix_level,
     guess_status,
     is_valid_guess,
@@ -379,7 +379,7 @@ def secret_from_task(task: Task) -> str:
 
 def split_ladder(guesses: list[str], secret: str) -> tuple[list[str], list[str]]:
     """Слова раньше секрета (по возрастанию) и позже (по возрастанию)."""
-    from games.alphabetty.core import alphabet_key, compare_words
+    from games.puzzles.alphabetty.core import alphabet_key, compare_words
 
     earlier = sorted(
         [g for g in guesses if compare_words(g, secret) < 0],
@@ -815,7 +815,7 @@ def letter_hint_penalty(info):
     task = sample.task
     if task is None or getattr(task, 'task_type', None) != 'alphabetty':
         return 0
-    from games.alphabetty.play import letter_hint_penalty_for_actor
+    from games.puzzles.alphabetty.play import letter_hint_penalty_for_actor
     return letter_hint_penalty_for_actor(
         game=sample.game,
         task=task,

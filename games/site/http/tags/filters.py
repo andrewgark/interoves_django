@@ -199,7 +199,7 @@ def ru_day_word(n):
 def meta_bar_hint_penalty(ai, task, alphabetty_hints=None):
     """Штраф подсказок для meta-bar: у алфавитки — буквенные (−1 каждая)."""
     if getattr(task, 'task_type', None) == 'alphabetty':
-        from games.alphabetty.play import ALPHABETTY_HINT_PENALTY
+        from games.puzzles.alphabetty.play import ALPHABETTY_HINT_PENALTY
         if alphabetty_hints not in (None, ''):
             try:
                 return max(0, int(alphabetty_hints)) * ALPHABETTY_HINT_PENALTY

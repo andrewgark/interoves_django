@@ -24,8 +24,8 @@ from pathlib import Path
 _REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_REPO))
 
-from games.alphabetty.dicts import VALID_PACKED_GZ, write_packed_word_set  # noqa: E402
-from games.alphabetty.word_set import PackedWordSet  # noqa: E402
+from games.puzzles.alphabetty.dicts import VALID_PACKED_GZ, write_packed_word_set  # noqa: E402
+from games.puzzles.alphabetty.word_set import PackedWordSet  # noqa: E402
 
 _DICT_DIR = _REPO / 'games' / 'puzzles' / 'alphabetty' / 'dictionaries'
 _EXPERIMENTS = _REPO.parent / 'experiments' / 'dictionaries'

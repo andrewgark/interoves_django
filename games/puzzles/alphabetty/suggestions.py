@@ -8,8 +8,8 @@ from typing import Any, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from games.alphabetty.core import is_valid_guess, normalize_word
-from games.alphabetty.dicts import add_personal_dict_word, invalidate_dict_caches
+from games.puzzles.alphabetty.core import is_valid_guess, normalize_word
+from games.puzzles.alphabetty.dicts import add_personal_dict_word, invalidate_dict_caches
 from games.models import AlphabettyDictSuggestion
 
 _WORD_RE = re.compile(r'^[А-Я]+$')

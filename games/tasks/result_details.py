@@ -115,7 +115,7 @@ def set_current_result_header_answers(data, actor, game=None):
         cell = cells[index] if index < len(cells) else {}
         solved = cell.get('solved')
         if not solved and game is not None and getattr(task, 'task_type', None) == 'alphabetty':
-            from games.alphabetty.play import load_state
+            from games.puzzles.alphabetty.play import load_state
             raw_state = latest_actor_task_state(game, task, actor)
             solved = bool(raw_state and load_state(raw_state).get('won'))
         answer = cell.get('answer') or getattr(task, 'answer', '')

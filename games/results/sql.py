@@ -362,7 +362,7 @@ def get_sql_aggregated_game_actor_rows(task_ids, game=None, actor_filter=None, i
     # Load them once for all result cells.  The legacy ORM path looks up the
     # state for the game of the best attempt, so game_id is part of the key to
     # preserve that behaviour when shared TaskGroups are aggregated unscoped.
-    from games.alphabetty.play import letter_hint_penalties_by_actor
+    from games.puzzles.alphabetty.play import letter_hint_penalties_by_actor
 
     alphabetty_penalty = letter_hint_penalties_by_actor(
         task_ids, game=game, actor_filter=actor_filter,

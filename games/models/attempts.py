@@ -424,7 +424,7 @@ class AttemptManager(models.Manager):
         letter_penalties = {}
         alphabetty_ids = [pk for pk, task in tasks_by_id.items() if task.task_type == 'alphabetty']
         if alphabetty_ids:
-            from games.alphabetty.play import letter_hint_penalties_by_actor
+            from games.puzzles.alphabetty.play import letter_hint_penalties_by_actor
             letter_penalties = letter_hint_penalties_by_actor(
                 alphabetty_ids, game=game, actor_filter=actor_filter,
             )

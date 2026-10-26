@@ -6,7 +6,7 @@ from typing import Any
 
 from django.utils import timezone
 
-from games.alphabetty.core import normalize_word
+from games.puzzles.alphabetty.core import normalize_word
 from games.models import Game
 
 ALPHABETTY_BANNED_WORDS_TAG = 'support_banned_words'

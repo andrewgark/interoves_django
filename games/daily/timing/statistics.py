@@ -20,8 +20,8 @@ from games.puzzles.salad.rules import (
     longest_dictionary_words,
     parse_task_payload,
 )
-from games.alphabetty.core import normalize_word
-from games.alphabetty.play import (
+from games.puzzles.alphabetty.core import normalize_word
+from games.puzzles.alphabetty.play import (
     hint_count as alphabetty_hint_count,
     load_state as load_alphabetty_state,
     secret_from_task,

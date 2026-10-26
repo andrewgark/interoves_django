@@ -231,7 +231,7 @@ def new_section_results_page(request, game_id):
             answer = getattr(task, 'answer', '') if task else ''
             solved = score is not None and float(score or 0) > 0
             if task is not None:
-                from games.alphabetty.play import load_state
+                from games.puzzles.alphabetty.play import load_state
                 raw_state = _latest_actor_task_state(game, task, current_actor)
                 solved = solved or bool(raw_state and load_state(raw_state).get('won'))
             if solved and answer:

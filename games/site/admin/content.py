@@ -320,7 +320,7 @@ mark_bug_report_dismissed.short_description = 'Mark Dismissed'
 
 
 def approve_alphabetty_dict_suggestions(modeladmin, request, queryset):
-    from games.alphabetty.suggestions import approve_suggestions
+    from games.puzzles.alphabetty.suggestions import approve_suggestions
 
     n = approve_suggestions(queryset)
     modeladmin.message_user(
@@ -331,7 +331,7 @@ def approve_alphabetty_dict_suggestions(modeladmin, request, queryset):
 
 
 def approve_alphabetty_dict_suggestions_for_answer(modeladmin, request, queryset):
-    from games.alphabetty.suggestions import approve_suggestions_for_answer
+    from games.puzzles.alphabetty.suggestions import approve_suggestions_for_answer
 
     n = approve_suggestions_for_answer(queryset)
     modeladmin.message_user(
@@ -342,7 +342,7 @@ def approve_alphabetty_dict_suggestions_for_answer(modeladmin, request, queryset
 
 
 def reject_alphabetty_dict_suggestions(modeladmin, request, queryset):
-    from games.alphabetty.suggestions import reject_suggestions
+    from games.puzzles.alphabetty.suggestions import reject_suggestions
 
     n = reject_suggestions(queryset)
     modeladmin.message_user(
@@ -388,7 +388,7 @@ class AlphabettyDictSuggestionAdminBase(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         from django.utils import timezone
-        from games.alphabetty.dicts import invalidate_dict_caches
+        from games.puzzles.alphabetty.dicts import invalidate_dict_caches
 
         if change and 'status' in form.changed_data:
             if obj.status in (

@@ -45,7 +45,7 @@ def is_valid_guess(
     anon_key: str | None = None,
     task=None,
 ) -> bool:
-    from games.alphabetty.dicts import (
+    from games.puzzles.alphabetty.dicts import (
         get_valid_set,
         is_approved_dict_word,
         is_personal_dict_word,
@@ -84,7 +84,7 @@ def guess_status(guess: str, secret: str) -> str:
 
 
 def max_word_length(valid: Set[str] | None = None) -> int:
-    from games.alphabetty.dicts import get_valid_set
+    from games.puzzles.alphabetty.dicts import get_valid_set
 
     if valid is None:
         return get_valid_set().max_length or 20
@@ -98,7 +98,7 @@ def pick_answer_words(
     rng: random.Random | None = None,
 ) -> list[str]:
     """Случайные уникальные слова из answer-пула, не входящие в exclude."""
-    from games.alphabetty.dicts import get_answer_pool
+    from games.puzzles.alphabetty.dicts import get_answer_pool
 
     if n <= 0:
         return []

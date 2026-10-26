@@ -3,7 +3,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.core.cache import caches
 
-from games.alphabetty.random_game import (
+from games.puzzles.alphabetty.random_game import (
     RandomAlphabettyDictionaryExhausted,
     get_or_create_random_game,
 )
@@ -43,7 +43,7 @@ class RandomAlphabettyTests(TestCase):
         )
         cls.checker, _ = CheckerType.objects.get_or_create(id='alphabetty')
 
-    @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
+    @patch('games.puzzles.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
     def test_same_word_reuses_hash_and_game(self, _pool):
         first = get_or_create_random_game(game=self.game)
         second = get_or_create_random_game(game=self.game)
@@ -57,7 +57,7 @@ class RandomAlphabettyTests(TestCase):
         )
         self.assertEqual(Task.objects.filter(task_group=first.task_group).count(), 1)
 
-    @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
+    @patch('games.puzzles.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
     def test_random_placement_is_not_daily_difficulty(self, _pool):
         random_game = get_or_create_random_game(game=self.game)
         placement = GameTaskGroup.objects.get(
@@ -68,7 +68,7 @@ class RandomAlphabettyTests(TestCase):
         self.assertIsNone(ensure_daily_difficulty_row(placement))
         self.assertIsNone(get_game_difficulty(placement))
 
-    @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО', 'ВТОРОЕ'))
+    @patch('games.puzzles.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО', 'ВТОРОЕ'))
     def test_random_words_are_not_repeated_until_dictionary_is_exhausted(self, _pool):
         first = get_or_create_random_game(game=self.game)
         second = get_or_create_random_game(game=self.game)
@@ -77,7 +77,7 @@ class RandomAlphabettyTests(TestCase):
         with self.assertRaises(RandomAlphabettyDictionaryExhausted):
             get_or_create_random_game(game=self.game)
 
-    @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
+    @patch('games.puzzles.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
     def test_numeric_sorting_excludes_random_placement(self, _pool):
         random_game = get_or_create_random_game(game=self.game)
         regular_group = self._create_regular_placement('99999')
@@ -95,7 +95,7 @@ class RandomAlphabettyTests(TestCase):
             [placement.task_group_id for placement in list_placements],
         )
 
-    @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
+    @patch('games.puzzles.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
     def test_hash_results_are_loaded_as_scoped_placement(self, _pool):
         random_game = get_or_create_random_game(game=self.game)
         placements, groups, _tasks, _ids, _headers = load_results_placements_and_tasks(
@@ -114,7 +114,7 @@ class RandomAlphabettyTests(TestCase):
         self.assertEqual(response['Location'], '/subscription/')
 
     @patch('games.site.views.daily.alphabetty.has_club_access', return_value=True)
-    @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
+    @patch('games.puzzles.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
     def test_random_game_post_reuses_existing_word_game(self, _pool, _access):
         first = self.client.post('/alphabetty/random/')
         second = self.client.post('/alphabetty/random/')
@@ -125,7 +125,7 @@ class RandomAlphabettyTests(TestCase):
         self.assertEqual(RandomAlphabettyGame.objects.count(), 1)
 
     @patch('games.site.views.daily.alphabetty.has_club_access', return_value=True)
-    @patch('games.alphabetty.random_game.get_answer_pool', return_value=())
+    @patch('games.puzzles.alphabetty.random_game.get_answer_pool', return_value=())
     def test_empty_random_dictionary_shows_message(self, _pool, _access):
         response = self.client.post('/alphabetty/random/')
 
@@ -136,7 +136,7 @@ class RandomAlphabettyTests(TestCase):
         )
 
     @patch('games.site.views.daily.alphabetty.has_club_access', return_value=True)
-    @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
+    @patch('games.puzzles.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
     def test_random_game_has_daily_statistics_endpoint(self, _pool, _access):
         user = self._create_user('random-stats')
         self.client.force_login(user)
