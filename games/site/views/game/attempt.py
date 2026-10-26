@@ -40,7 +40,7 @@ from games.views.render_task import update_task_html
 from games.views.track import track_actor_task_change
 from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
 from games.puzzles.alphabetty import AlphabettyPuzzle
-from games.puzzles.core.move import MoveRefusal, MoveResponse
+from games.puzzles.core.primitives import MoveRefusal, MoveResponse
 from games.puzzles.core.quota import revision_quota_message
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.replacements.grid import GridPuzzle

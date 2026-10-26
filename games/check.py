@@ -26,12 +26,16 @@ from games.raddle import (
 from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
 from games.alphabetty.core import guess_status, is_valid_guess, normalize_word
 from games.alphabetty.play import dump_state, load_state
-from games.grid_puzzle import (
-    GridPuzzleDataError,
-    parse_grid_puzzle_attempt,
-    parse_grid_puzzle_data,
-    parse_grid_shading_attempt,
-    validate_grid_checker_data,
+from games.grid_puzzle import GridShadingChecker, GridWallChecker
+from games.puzzles.core.check_runtime import (
+    BaseChecker,
+    CheckResult,
+    SimpleBoolChecker,
+    clean,
+    clean_but_ё_stays,
+    delete_punctuation,
+    delete_punctuation_metagram,
+    delete_spaces,
 )
 from games.html_forms import (
     html_forms_answer_matches,
@@ -39,77 +43,6 @@ from games.html_forms import (
     html_forms_state_payload,
     parse_html_forms_data,
 )
-
-
-class CheckResult:
-    def __init__(self, status, tournament_status, points, state=None, comment=None):
-        self.status = status
-        self.tournament_status = tournament_status
-        self.points = points
-        self.state = state
-        self.comment = comment
-
-
-def clean(func):
-   def func_wrapper(self, text, *args, **kw):
-       return func(self, clean_text(text), *args, **kw)
-   return func_wrapper
-
-
-def clean_but_ё_stays(func):
-    def func_wrapper(self, text, *args, **kw):
-        return func(self, clean_text(text, replace_ё=False), *args, **kw)
-    return func_wrapper
-
-
-def delete_spaces(func):
-    def func_wrapper(self, text, *args, **kw):
-        return func(self, re.sub(r"[^\S\r\n]+", "", text), *args, **kw)
-    return func_wrapper
-
-
-def delete_punctuation(func):
-    def func_wrapper(self, text, *args, **kw):
-        result = []
-        for line in text.split('\n'):
-            line = line.strip()
-            if len(line) != 1:
-                new_line = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—–]+", "", line)
-                new_line = re.sub(r" +", " ", new_line)
-                result.append(new_line)
-            else:
-                result.append(line) # односимвольную пунктуацию не нужно удалять
-        new_text = '\n'.join(result)
-        return func(self, new_text, *args, **kw)
-    return func_wrapper
-
-
-def delete_punctuation_metagram(func):
-    def func_wrapper(self, text, *args, **kw):
-        new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—]+", " ", text)
-        new_text = re.sub(r" +", " ", new_text)
-        return func(self, new_text, *args, **kw)
-    return func_wrapper
-
-
-class BaseChecker:
-    def __init__(self, data, last_attempt_state=None):
-        pass
-
-    def check(self, text, attempt):
-        pass
-
-
-class SimpleBoolChecker(BaseChecker):
-    def bool_check(self, text):
-        pass
-
-    def check(self, text, attempt):
-        is_ok = self.bool_check(text)
-        if is_ok:
-            return CheckResult('Ok', 'Ok', 1)
-        else:
-            return CheckResult('Wrong', 'Pending', 0)
 
 
 class EqualsChecker(SimpleBoolChecker):
@@ -516,41 +449,6 @@ class WallChecker(BaseChecker):
             return self.check_category_explanation(attempt, category)
 
         raise Exception('Unknown wall stage: {}'.format(attempt['stage']))
-
-
-class GridWallChecker(SimpleBoolChecker):
-    """Exact, order-independent comparison of internal grid edges."""
-
-    def __init__(self, data, last_attempt_state=None):
-        self.puzzle = parse_grid_puzzle_data(data)
-        validate_grid_checker_data(self.puzzle, 'grid-wall-checker')
-
-    def bool_check(self, text):
-        try:
-            attempt = parse_grid_puzzle_attempt(
-                text, self.puzzle['rows'], self.puzzle['cols'],
-                can_set_walls=self.puzzle['can_set_walls'],
-            )
-        except GridPuzzleDataError:
-            return False
-        return attempt['walls'] == self.puzzle['solution_walls']
-
-
-class GridShadingChecker(SimpleBoolChecker):
-    """Exact comparison of a complete black/light-green cell matrix."""
-
-    def __init__(self, data, last_attempt_state=None):
-        self.puzzle = parse_grid_puzzle_data(data)
-        validate_grid_checker_data(self.puzzle, 'grid-shading-checker')
-
-    def bool_check(self, text):
-        try:
-            attempt = parse_grid_shading_attempt(
-                text, self.puzzle['rows'], self.puzzle['cols'],
-            )
-        except GridPuzzleDataError:
-            return False
-        return attempt['shading'] == self.puzzle['solution_shading']
 
 
 class ReplacementsLinesChecker(BaseChecker):

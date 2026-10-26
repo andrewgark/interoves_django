@@ -3,6 +3,8 @@
 import json
 import re
 
+from games.puzzles.core.check_runtime import SimpleBoolChecker
+
 
 MIN_GRID_SIZE = 2
 MAX_GRID_SIZE = 20
@@ -222,3 +224,38 @@ def public_grid_puzzle_context(task, *, reveal_solution=False, readonly=False):
         else:
             result['shading'] = parsed['solution_shading']
     return result
+
+
+class GridWallChecker(SimpleBoolChecker):
+    """Exact, order-independent comparison of internal grid edges."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self.puzzle = parse_grid_puzzle_data(data)
+        validate_grid_checker_data(self.puzzle, 'grid-wall-checker')
+
+    def bool_check(self, text):
+        try:
+            attempt = parse_grid_puzzle_attempt(
+                text, self.puzzle['rows'], self.puzzle['cols'],
+                can_set_walls=self.puzzle['can_set_walls'],
+            )
+        except GridPuzzleDataError:
+            return False
+        return attempt['walls'] == self.puzzle['solution_walls']
+
+
+class GridShadingChecker(SimpleBoolChecker):
+    """Exact comparison of a complete black/light-green cell matrix."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self.puzzle = parse_grid_puzzle_data(data)
+        validate_grid_checker_data(self.puzzle, 'grid-shading-checker')
+
+    def bool_check(self, text):
+        try:
+            attempt = parse_grid_shading_attempt(
+                text, self.puzzle['rows'], self.puzzle['cols'],
+            )
+        except GridPuzzleDataError:
+            return False
+        return attempt['shading'] == self.puzzle['solution_shading']

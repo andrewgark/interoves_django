@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 
 from games.puzzles.core.base import Puzzle
-from games.puzzles.core.duplicate import same_text_verdict
-from games.puzzles.core.move import MoveRefusal, TextMove
+from games.puzzles.core.primitives import MoveRefusal, TextMove, same_text_verdict
 from games.puzzles.core.progress import _text_tuple
 from games.puzzles.core.quota import revision_quota_message
 

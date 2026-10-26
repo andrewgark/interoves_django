@@ -13,7 +13,7 @@ from games.grid_puzzle import (
     validate_grid_checker_data,
 )
 from games.puzzles.core.base import Puzzle
-from games.puzzles.core.move import MoveRefusal, TextMove
+from games.puzzles.core.primitives import MoveRefusal, TextMove
 
 
 def parse_move(post, task):

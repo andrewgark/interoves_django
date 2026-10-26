@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 
-from games.puzzles.core.duplicate import DuplicateVerdict
+from games.puzzles.core.primitives import DuplicateVerdict
 from games.puzzles.core.quota import json_field_quota
 from games.raddle import (
     load_raddle_state,
