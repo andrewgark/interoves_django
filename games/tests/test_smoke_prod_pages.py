@@ -31,7 +31,8 @@ class SmokeProdPagesListTests(SimpleTestCase):
                 self.fail('{} does not resolve (add a route or drop from smoke list)'.format(path))
 
     def test_ladder_results_not_task_group_catch_all(self):
-        from games.views.new_ui import new_section_results_page, new_task_group_page
+        from games.site.ui.play.page import new_task_group_page
+        from games.site.ui.results.pages import new_section_results_page
 
         match = resolve('/ladder/results/')
         self.assertIs(match.func, new_section_results_page)

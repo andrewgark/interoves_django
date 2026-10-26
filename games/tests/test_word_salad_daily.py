@@ -278,7 +278,7 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('new-daily-game-header__description', html)
 
     def test_section_tutorial_html_uses_default_rules_after_rename(self):
-        from games.views.new_ui import _section_tutorial_html_for_game
+        from games.site.ui import _section_tutorial_html_for_game
 
         game = Game.objects.select_related('section_default_rules').get(id=WORD_SALAD_GAME_ID)
         self.assertEqual(game.id, 'salad')
@@ -293,7 +293,7 @@ class WordSaladSectionTests(TestCase):
 
     def test_archive_cards_show_theme_and_word_count(self):
         from django.template.loader import render_to_string
-        from games.views.new_ui import _ladder_task_group_rows
+        from games.site.ui.hub.cards import _ladder_task_group_rows
 
         CheckerType.objects.get_or_create(pk='word_salad')
         game = Game.objects.get(id=WORD_SALAD_GAME_ID)

@@ -25,7 +25,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.views.new_ui import new_ladder_word_results_page
+from games.site.ui.results.pages import new_ladder_word_results_page
 
 MINI_LADDER = {
     'lengths': [3, 3, 3, 3],

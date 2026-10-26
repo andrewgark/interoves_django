@@ -11,14 +11,14 @@ from django.utils import timezone
 
 from games.analytics_identity import attach_anon_cookie, stamp_anon_identity
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Attempt
-from games.views.new_ui import (
-    _build_hub_section_cards,
+from games.site.ui.game.progress import (
     _game_page_progress_context,
+    _game_task_group_links,
     _initial_task_group_progress,
     _task_group_progress_payload,
     _task_group_rows_skeleton,
-    _game_task_group_links,
 )
+from games.site.ui.hub.cards import _build_hub_section_cards
 
 
 def _ensure_min_fixtures():

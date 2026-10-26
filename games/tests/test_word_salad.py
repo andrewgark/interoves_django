@@ -30,7 +30,8 @@ from games.models import (
 )
 from games.site.views.game.attempt import check_attempt
 from games.site.views.game.hint import process_send_hint_attempt
-from games.views.new_ui import build_task_group_task_context_dicts, new_task_group_page
+from games.site.ui.play.context import build_task_group_task_context_dicts
+from games.site.ui.play.page import new_task_group_page
 from games.site.views.game.render import render_new_ui_task_card_html
 from games.recheck import recheck_word_salad_task
 from games.word_salad import (
@@ -429,7 +430,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(info.get_result_points(), 0.5)
         self.assertEqual(info.get_result_attempt().pk, solve.pk)
         self.assertEqual(info.get_hint_numbers(), ['1.1'])
-        from games.views.new_ui import _new_results_compute
+        from games.site.ui.results.compute import _new_results_compute
         results = _new_results_compute(self.game, mode='general')
         cell = results['team_to_cells'][self.team][0]
         self.assertEqual(cell['result_points'], 0.5)
@@ -936,7 +937,7 @@ class WordSaladTests(TestCase):
             self.task.save(update_fields=['checker_data'])
 
     def test_section_games_use_task_type_name_in_pager(self):
-        from games.views.new_ui import _task_group_page_nav_context
+        from games.site.ui.game.progress import _task_group_page_nav_context
 
         for game_id, label in (
             ('replacements', 'Замены'),
@@ -958,7 +959,7 @@ class WordSaladTests(TestCase):
         old_id = self.game.id
         self.game.id = 'salad'
         try:
-            from games.views.new_ui import _task_group_page_nav_context
+            from games.site.ui.game.progress import _task_group_page_nav_context
             context = _task_group_page_nav_context(self.game)
         finally:
             self.game.id = old_id

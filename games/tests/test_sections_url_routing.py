@@ -1,7 +1,7 @@
 from django.test import Client, TestCase
 
 from games.models import Game, Project
-from games.views.new_ui import _project_urls_context
+from games.site.ui import _project_urls_context
 
 
 class SectionsUrlRoutingTests(TestCase):

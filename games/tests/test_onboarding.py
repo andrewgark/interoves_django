@@ -19,7 +19,7 @@ from games.models import (
     TaskGroup,
 )
 from games.section_hub import onboarding_followup_context
-from games.views.new_ui import _onboarding_starter_salad_url
+from games.site.ui.hub.cards import _onboarding_starter_salad_url
 from games.word_salad import WORD_SALAD_GAME_ID
 
 

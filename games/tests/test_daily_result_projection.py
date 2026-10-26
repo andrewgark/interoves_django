@@ -299,7 +299,7 @@ class DailyResultProjectionTests(TestCase):
             text='answer', status='Ok', points=10,
         )
         refresh_daily_result_projection(self.game, self.group)
-        from games.views.new_ui import _new_results_compute_uncached
+        from games.site.ui.results.compute import _new_results_compute_uncached
         with patch(
             'games.daily.projection._task_projection_compare_enabled',
             return_value=False,

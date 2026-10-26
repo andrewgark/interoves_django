@@ -23,12 +23,9 @@ from games.models import (
     TaskGroup,
 )
 from games.results_snapshot import freeze_game_results, results_attempts_scope_game
-from games.views.new_ui import (
-    _results_table_headers_context,
-    new_section_results_page,
-    new_section_task_results_page,
-    new_task_group_page,
-)
+from games.site.ui.play.page import new_task_group_page
+from games.site.ui.results.compute import _results_table_headers_context
+from games.site.ui.results.pages import new_section_results_page, new_section_task_results_page
 
 
 def _ensure_min_fixtures():

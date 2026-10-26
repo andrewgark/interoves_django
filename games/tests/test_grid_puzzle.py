@@ -29,7 +29,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.views.new_ui import _task_ui_descriptor
+from games.site.ui.play.context import _task_ui_descriptor
 from games.site.views.game.render import render_new_ui_task_card_html
 
 
