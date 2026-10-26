@@ -1,5 +1,6 @@
-"""Compatibility facade for results presentation helpers."""
+"""Compatibility alias. Implementation lives in games.results.table.presentation."""
+import sys
 
-from games.results.table.presentation import paginate_results_rows, render_results_rows_partial
+from games.results.table import presentation as _implementation
 
-__all__ = ['paginate_results_rows', 'render_results_rows_partial']
+sys.modules[__name__] = _implementation

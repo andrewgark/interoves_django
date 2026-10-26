@@ -1,15 +1,6 @@
-"""Compatibility facade for results access helpers."""
+"""Compatibility alias. Implementation lives in games.results.table.access."""
+import sys
 
-from games.results.table.access import (
-    anon_key_from_request,
-    public_exclusion_notice,
-    results_actor_for_request,
-    results_me_participants,
-)
+from games.results.table import access as _implementation
 
-__all__ = [
-    'anon_key_from_request',
-    'public_exclusion_notice',
-    'results_actor_for_request',
-    'results_me_participants',
-]
+sys.modules[__name__] = _implementation

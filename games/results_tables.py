@@ -1,13 +1,6 @@
-"""Compatibility facade for results table helpers."""
+"""Compatibility alias. Implementation lives in games.results.table.tables."""
+import sys
 
-from games.results.table.tables import (
-    ResultsTaskGroupHeader,
-    load_results_placements_and_tasks,
-    results_table_headers_context,
-)
+from games.results.table import tables as _implementation
 
-__all__ = [
-    'ResultsTaskGroupHeader',
-    'load_results_placements_and_tasks',
-    'results_table_headers_context',
-]
+sys.modules[__name__] = _implementation

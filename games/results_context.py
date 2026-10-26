@@ -1,23 +1,6 @@
-"""Compatibility facade for the results context domain."""
+"""Compatibility alias. Implementation lives in games.results.table.context."""
+import sys
 
-from games.results.table.context import (
-    attach_results_club_badges,
-    club_subscriber_user_ids,
-    empty_results_rows_context,
-    results_actor_filter_types,
-    results_actor_filter_urls,
-    results_actor_kind,
-    results_column_count,
-    results_me_participants,
-)
+from games.results.table import context as _implementation
 
-__all__ = [
-    'attach_results_club_badges',
-    'club_subscriber_user_ids',
-    'empty_results_rows_context',
-    'results_actor_filter_types',
-    'results_actor_filter_urls',
-    'results_actor_kind',
-    'results_column_count',
-    'results_me_participants',
-]
+sys.modules[__name__] = _implementation
