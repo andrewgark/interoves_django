@@ -13,7 +13,7 @@ from django.urls import resolve
 from django.utils import timezone
 
 from games.ops.analytics.identity import attach_anon_cookie
-from games import daily_timing as daily_timing_mod
+import games.daily.timing as daily_timing_mod
 from games.daily.page.section import is_daily_team_timing_game, is_daily_timing_game
 from games.management.commands.repair_daily_attempt_timing import (
     TIMING_RECOVERY_GRACE_SECONDS,

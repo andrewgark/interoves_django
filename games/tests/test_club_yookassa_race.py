@@ -14,7 +14,7 @@ from django.db import connection, connections
 from django.test import TransactionTestCase, override_settings
 from django.utils import timezone
 
-from games import club_yookassa as billing
+import games.club.billing.yookassa.club as billing
 from games.models import ClubSubscription, ClubYooKassaPayment, SavedPaymentMethod
 
 
