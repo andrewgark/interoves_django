@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.word_salad_outbox import reconcile_word_salad_recheck_outbox
+from games.ops.workers.jobs.outbox import reconcile_word_salad_recheck_outbox
 
 
 class Command(BaseCommand):

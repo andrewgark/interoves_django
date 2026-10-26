@@ -474,7 +474,7 @@ def _merge_chain_state_json(task, source_json, target_json):
 
 
 def _merge_chain_states(target, source):
-    from games.anon_migrate import (
+    from games.club.merge.anon import (
         _merge_alphabetty_states,
         _rebuild_alphabetty_state_from_attempts,
         _solved_count,

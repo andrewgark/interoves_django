@@ -12,11 +12,11 @@ from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from games.account_merge_queue import (
+from games.club.merge.queue import (
     publish_unmarked_account_merge_jobs,
     run_account_merge_job,
 )
-from games.anonymous_merge import publish_unmarked_due_merge_jobs, run_named_merge_job
+from games.club.merge.anonymous import publish_unmarked_due_merge_jobs, run_named_merge_job
 from games.background.messages import (
     ACCOUNT_MERGE,
     ANONYMOUS_MERGE,

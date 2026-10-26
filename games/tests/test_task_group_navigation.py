@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from games.task_group_navigation import (
+from games.tasks.navigation import (
     neighbors_by_pk,
     play_url_for_task_group,
     replay_exit_url_for_task_group,

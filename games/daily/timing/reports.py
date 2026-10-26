@@ -16,7 +16,7 @@ import logging
 from django.core.cache import cache
 
 from games.ops.analytics.identity import gameplay_anon_key
-from games.auth_observability import log_auth_event, normalized_user_agent
+from games.site.http.auth_observability import log_auth_event, normalized_user_agent
 
 logger = logging.getLogger('games.daily_timing')
 

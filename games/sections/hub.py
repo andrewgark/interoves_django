@@ -21,7 +21,7 @@ from games.daily.catalog.week_task import (
     WEEK_TASK_GAME_ID,
     filter_published_week_task_links,
 )
-from games.word_salad import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.daily.catalog.word_salad import (
     filter_published_word_salad_links,
 )

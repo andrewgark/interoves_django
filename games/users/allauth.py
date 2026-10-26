@@ -7,7 +7,7 @@ from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from games.models import Profile
 from django.shortcuts import redirect
 
-from games.account_merge import stash_pending_account_merge
+from games.club.merge.account import stash_pending_account_merge
 
 
 logger = logging.getLogger(__name__)

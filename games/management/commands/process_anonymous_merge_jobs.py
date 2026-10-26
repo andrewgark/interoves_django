@@ -2,7 +2,7 @@ import socket
 
 from django.core.management.base import BaseCommand
 
-from games.anonymous_merge import run_anonymous_merge_queue
+from games.club.merge.anonymous import run_anonymous_merge_queue
 
 
 class Command(BaseCommand):

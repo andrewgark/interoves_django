@@ -4,7 +4,7 @@ import time
 from django.core.management.base import BaseCommand, CommandError
 
 from games.runtime import heavy_processing_allowed
-from games.word_salad_outbox import dispatch_word_salad_recheck_outbox
+from games.ops.workers.jobs.outbox import dispatch_word_salad_recheck_outbox
 
 
 class Command(BaseCommand):

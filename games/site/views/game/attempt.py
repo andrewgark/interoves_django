@@ -21,7 +21,7 @@ from games.site.session.replay import StaleReplayError, replay_for_request
 from games.daily.completion.completion_coordinator import complete_logical_game
 from games.daily.completion import daily_completion_effects_for_game
 from games.middleware.request_timing import timing_phase
-from games.auth_observability import log_gameplay_attempt_created
+from games.site.http.auth_observability import log_gameplay_attempt_created
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.puzzles.replacements.grid_puzzle import grid_checker_id

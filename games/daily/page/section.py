@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
-from games.word_salad import WORD_SALAD_GAME_ID
+WORD_SALAD_GAME_ID = 'salad'
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 

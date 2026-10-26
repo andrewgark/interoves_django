@@ -7,7 +7,7 @@ from games.tasks.actor_state import (
 )
 from games.models import Attempt, ChainTaskState, GameTaskGroup, RaddleUiState
 from games.results.table.context import results_actor_identity
-from games.word_salad import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID
 
 
 class SaladResultHeader:

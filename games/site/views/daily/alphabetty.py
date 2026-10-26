@@ -78,7 +78,7 @@ from games.site.ui.game.progress import (
     _task_group_page_nav_context,
 )
 from games.ops.analytics.identity import gameplay_anon_key
-from games.auth_observability import record_gameplay_attempt_created
+from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.site.session.gameplay_context import (
     context_error_response,
     issue_gameplay_context,

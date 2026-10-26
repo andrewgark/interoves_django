@@ -16,7 +16,7 @@ from django.db import IntegrityError
 
 from allauth.socialaccount.models import SocialAccount
 
-from games.account_merge import social_provider_label
+from games.club.merge.account import social_provider_label
 
 from games.models import (
     BugReport,
@@ -246,13 +246,13 @@ def new_profile(request, project_id=None):
 @require_http_methods(['GET', 'POST'])
 def new_account_merge_confirm(request):
     from django.contrib.auth import get_user_model
-    from games.account_merge import (
+    from games.club.merge.account import (
         AccountMergeError,
         build_account_merge_preview,
         clear_pending_account_merge,
         get_pending_account_merge,
     )
-    from games.account_merge_queue import enqueue_account_merge
+    from games.club.merge.queue import enqueue_account_merge
 
     pending = get_pending_account_merge(request)
     if pending is None:
@@ -323,7 +323,7 @@ def new_account_merge_confirm(request):
 @login_required
 @require_http_methods(['GET'])
 def new_account_merge_status(request, job_id):
-    from games.account_merge_queue import serialize_account_merge_job
+    from games.club.merge.queue import serialize_account_merge_job
     from games.models import AccountMergeJob
 
     job = AccountMergeJob.objects.filter(
@@ -346,8 +346,8 @@ def new_account_merge_status(request, job_id):
 @require_http_methods(['POST'])
 def new_account_merge_retry(request, job_id):
     from django.contrib.auth import get_user_model
-    from games.account_merge import AccountMergeError
-    from games.account_merge_queue import enqueue_account_merge
+    from games.club.merge.account import AccountMergeError
+    from games.club.merge.queue import enqueue_account_merge
     from games.models import AccountMergeJob
 
     job = AccountMergeJob.objects.filter(

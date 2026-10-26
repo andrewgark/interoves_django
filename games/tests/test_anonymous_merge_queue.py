@@ -7,7 +7,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from games.ops.analytics.identity import attach_anon_cookie
-from games.anonymous_merge import (
+from games.club.merge.anonymous import (
     claim_next_merge_job,
     process_merge_job,
     publish_unmarked_due_merge_jobs,
@@ -27,7 +27,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.anonymous_merge import enqueue_anonymous_merge
+from games.club.merge.anonymous import enqueue_anonymous_merge
 
 
 class AnonymousMergeQueueTests(TestCase):
@@ -274,7 +274,7 @@ class AnonymousMergeQueueTests(TestCase):
         self.assertEqual(AnonymousMergeJob.objects.get(pk=job.pk).attempt_count, attempts)
 
     def test_cron_skips_a_job_already_sent_to_sqs(self):
-        from games.anonymous_merge_events import mark_merge_event
+        from games.club.merge.events import mark_merge_event
         key = self._key('event-owned')
         Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
         job = self._enqueue(key)
@@ -283,8 +283,8 @@ class AnonymousMergeQueueTests(TestCase):
         self.assertEqual(AnonymousMergeJob.objects.get(pk=job.pk).status, AnonymousMergeJob.STATUS_PENDING)
 
     def test_cron_recovers_a_stale_event_marker(self):
-        from games.anonymous_merge import MERGE_EVENT_RETRY_AFTER
-        from games.anonymous_merge_events import mark_merge_event
+        from games.club.merge.anonymous import MERGE_EVENT_RETRY_AFTER
+        from games.club.merge.events import mark_merge_event
 
         key = self._key('stale-event')
         Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
@@ -300,7 +300,7 @@ class AnonymousMergeQueueTests(TestCase):
         publish.assert_called_once_with(job.pk)
 
     def test_enqueue_schedules_an_event_after_commit(self):
-        from games.anonymous_merge_events import publish_anonymous_merge_event
+        from games.club.merge.events import publish_anonymous_merge_event
         key = self._key('event-schedule')
         Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
         with patch(
@@ -317,8 +317,8 @@ class AnonymousMergeQueueTests(TestCase):
         self.assertEqual(result['status'], 'missing')
 
     def test_reconcile_publishes_only_unmarked_due_jobs(self):
-        from games.anonymous_merge import publish_unmarked_due_merge_jobs
-        from games.anonymous_merge_events import mark_merge_event
+        from games.club.merge.anonymous import publish_unmarked_due_merge_jobs
+        from games.club.merge.events import mark_merge_event
         Attempt.manager.create(anon_key='finder-leased', task=self.tasks[0], game=self.game, text='x', status='Wrong')
         leased = self._enqueue('finder-leased')
         self.assertIsNotNone(claim_next_merge_job(worker='cron'))

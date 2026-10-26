@@ -20,7 +20,7 @@ from games.ops.analytics.identity import (
     signature_is_valid,
     stamp_anon_identity,
 )
-from games.anonymous_merge import claim_next_merge_job, process_merge_job
+from games.club.merge.anonymous import claim_next_merge_job, process_merge_job
 from games.models import (
     AnonAccountClaim,
     Attempt,

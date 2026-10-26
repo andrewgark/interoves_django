@@ -33,11 +33,11 @@ from games.models import (
     AnonymousMergeJob,
 )
 from games.ops.analytics.identity import attach_anon_cookie
-from games.anon_migrate import (
+from games.club.merge.anon import (
     heal_orphaned_likes_from_migrate_events,
     migrate_anon_chain_task_states,
 )
-from games.anonymous_merge import (
+from games.club.merge.anonymous import (
     claim_next_merge_job,
     process_merge_job,
     serialize_merge_job,

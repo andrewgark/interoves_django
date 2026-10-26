@@ -14,8 +14,8 @@ from games.ops.analytics.persistence import (
     ANALYTICS_UNIQUE_SPECS,
     create_or_reread_analytics_row,
 )
-from games.account_merge import merge_accounts
-from games.anon_migrate import migrate_anon_started_games
+from games.club.merge.account import merge_accounts
+from games.club.merge.anon import migrate_anon_started_games
 from games.models import (
     AccountMerge,
     ChainTaskState,

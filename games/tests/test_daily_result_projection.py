@@ -26,7 +26,7 @@ from games.daily.projection import (
     compare_task_result_projection,
     load_task_result_projection_rows,
 )
-from games.anon_migrate import claim_and_migrate_anon_history
+from games.club.merge.anon import claim_and_migrate_anon_history
 from games.models import (
     AnonAccountClaim, Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
     DailyResultProjectionState, DailyTaskResultProjection, Game, GameTaskGroup, HTMLPage, Project,

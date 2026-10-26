@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from games.daily.page.section import current_number_for
 from games.tribute_config import club_archive_gating_enabled
-from games.word_salad import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID
 
 CLUB_ARCHIVE_GAME_IDS = frozenset({
     'ladder',

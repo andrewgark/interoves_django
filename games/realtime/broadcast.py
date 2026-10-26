@@ -9,7 +9,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from games.auth_observability import log_realtime_sync
+from games.site.http.auth_observability import log_realtime_sync
 from games.models import Attempt, GameTaskGroup
 from games.realtime.counter import envelope_track_message, msgpack_safe_keys, next_track_seq
 from games.realtime.groups import (

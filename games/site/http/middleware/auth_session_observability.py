@@ -21,7 +21,7 @@ from django.core import signing
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
-from games.auth_observability import (
+from games.site.http.auth_observability import (
     log_auth_event,
     log_authenticated_request,
     log_post_request,

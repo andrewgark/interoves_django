@@ -5,7 +5,7 @@ from django.contrib.sites.models import Site
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 
-from games.account_merge import (
+from games.club.merge.account import (
     PENDING_ACCOUNT_MERGE_SESSION_KEY,
     social_provider_label,
 )

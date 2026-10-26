@@ -6,7 +6,7 @@ from django.urls import reverse
 
 from allauth.socialaccount.models import SocialAccount
 
-from games.account_merge_queue import (
+from games.club.merge.queue import (
     _claim_job,
     _mark_failed,
     enqueue_account_merge,
@@ -24,7 +24,7 @@ class AccountMergeQueueTests(TestCase):
             user=self.source, provider='telegram', uid='telegram-source',
         )
 
-    @patch('games.account_merge_queue.schedule_account_merge_event')
+    @patch('games.club.merge.queue.schedule_account_merge_event')
     def test_enqueue_is_idempotent(self, schedule):
         first = enqueue_account_merge(
             target_user=self.target,
@@ -43,7 +43,7 @@ class AccountMergeQueueTests(TestCase):
         self.assertEqual(AccountMergeJob.objects.count(), 1)
         schedule.assert_called_once_with(first.pk)
 
-    @patch('games.account_merge_queue.merge_accounts')
+    @patch('games.club.merge.queue.merge_accounts')
     def test_worker_completes_and_duplicate_delivery_is_safe(self, merge):
         job = AccountMergeJob.objects.create(
             target_user=self.target,
@@ -109,7 +109,7 @@ class AccountMergeQueueTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Профили объединяются')
 
-    @patch('games.account_merge_queue.schedule_account_merge_event')
+    @patch('games.club.merge.queue.schedule_account_merge_event')
     def test_failed_status_can_be_retried(self, schedule):
         job = AccountMergeJob.objects.create(
             target_user=self.target,

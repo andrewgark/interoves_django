@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.anon_migrate import heal_orphaned_likes_from_migrate_events
+from games.club.merge.anon import heal_orphaned_likes_from_migrate_events
 
 
 class Command(BaseCommand):

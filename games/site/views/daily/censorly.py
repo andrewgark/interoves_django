@@ -24,7 +24,7 @@ from games.ops.analytics.events import (
     register_started_game,
 )
 from games.ops.analytics.identity import gameplay_anon_key
-from games.auth_observability import record_gameplay_attempt_created
+from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.puzzles.censorly.play import (
     CENSORLY_HINT_PENALTY,
     _actor_filters,

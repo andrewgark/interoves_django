@@ -579,7 +579,7 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(game_hinted.id, WORD_SALAD_GAME_ID)
 
     def test_merge_preview_counts_salad_offers(self):
-        from games.account_merge import build_account_merge_preview
+        from games.club.merge.account import build_account_merge_preview
 
         create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
         preview = build_account_merge_preview(self.other, self.user)

@@ -2,7 +2,7 @@
 
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import LADDER_GAME_ID
-from games.word_salad import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID
 
 # Served at site root: /ladder/, /walls/, … (not /section/<id>/ or /games/<id>/ hub).
 ROOT_SECTION_GAME_IDS = frozenset({

@@ -11,7 +11,7 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 
-from games.auth_observability import log_realtime_sync
+from games.site.http.auth_observability import log_realtime_sync
 from games.models import Game, Profile, Task
 from games.realtime.broadcast import build_event_task_change, live_page_actor_for_mode
 from games.realtime.counter import (

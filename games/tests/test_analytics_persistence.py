@@ -16,7 +16,7 @@ from games.ops.analytics.persistence import (
     read_exact_analytics_row,
     reassign_or_merge_analytics_row,
 )
-from games.anon_migrate import (
+from games.club.merge.anon import (
     migrate_anon_analytics_state,
     migrate_anon_completed_games,
     migrate_anon_started_games,

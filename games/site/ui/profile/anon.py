@@ -16,7 +16,7 @@ from django.db import transaction
 from django.utils import timezone
 
 
-from games.auth_observability import log_auth_event, request_session_fingerprint
+from games.site.http.auth_observability import log_auth_event, request_session_fingerprint
 from games.site.session.gameplay_context import anonymous_actor_fingerprint
 
 from games.ops.analytics.identity import (
@@ -116,7 +116,7 @@ def new_anon_migrate_count(request):
     else:
         anon_key = canonical
 
-    from games.anon_migrate import anon_migration_counts
+    from games.club.merge.anon import anon_migration_counts
     from games.models import AnonAccountClaim, HiddenAnonKey
 
     if HiddenAnonKey.objects.filter(anon_key=anon_key).exists():
@@ -231,7 +231,7 @@ def new_migrate_anon_attempts(request):
         return JsonResponse({'status': 'invalid_anon_key'}, status=400)
     if posted_anon_key and not _anon_key_matches_browser(request, posted_anon_key):
         return JsonResponse({'status': 'anon_key_mismatch'}, status=403)
-    from games.anonymous_merge import enqueue_anonymous_merge, serialize_merge_job
+    from games.club.merge.anonymous import enqueue_anonymous_merge, serialize_merge_job
 
     job, status = enqueue_anonymous_merge(request.user, anon_key)
     if status == 'hidden_anon':
@@ -260,7 +260,7 @@ def new_migrate_anon_attempts(request):
 @login_required
 @require_http_methods(['GET', 'POST'])
 def new_anon_merge_job_status(request, job_id=None):
-    from games.anonymous_merge import active_merge_job_for_user, serialize_merge_job
+    from games.club.merge.anonymous import active_merge_job_for_user, serialize_merge_job
     from games.models import AnonymousMergeJob
 
     if job_id:
@@ -275,7 +275,7 @@ def new_anon_merge_job_status(request, job_id=None):
             return HttpResponse(status=204)
         return JsonResponse({'status': 'not_found'}, status=404)
     if request.method == 'POST':
-        from games.anonymous_merge import retry_merge_job
+        from games.club.merge.anonymous import retry_merge_job
         job = retry_merge_job(request.user, job.id)
         if job is None:
             return JsonResponse({'status': 'not_retryable'}, status=409)

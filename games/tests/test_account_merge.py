@@ -14,7 +14,7 @@ from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.account_merge import (
+from games.club.merge.account import (
     AccountMergeError,
     PENDING_ACCOUNT_MERGE_SESSION_KEY,
     build_account_merge_preview,
@@ -591,7 +591,7 @@ class AccountMergeTests(TestCase):
         session.save()
 
         with patch(
-            'games.account_merge_queue.enqueue_account_merge',
+            'games.club.merge.queue.enqueue_account_merge',
             side_effect=IntegrityError('duplicate'),
         ):
             response = client.post(reverse('ui_account_merge_confirm'), {

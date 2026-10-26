@@ -32,7 +32,7 @@ from games.alphabetty.play import (
     public_payload,
     ru_attempt_word,
 )
-from games.anon_migrate import _solved_count
+from games.club.merge.anon import _solved_count
 from games.alphabetty.dicts import get_answer_pool, invalidate_approved_extras
 from games.alphabetty.suggestions import (
     approve_suggestions,

@@ -223,6 +223,10 @@ If the resolved version is empty, the client check is skipped.
 | Daily play (alphabetty, censorly) | `games.site.views.daily.*` | `games.views.alphabetty_views`, `censorly_views` |
 | Recheck / chain replay jobs | `games.ops.workers.jobs.recheck` | `games.recheck` |
 | Word salad async recheck queue | `games.ops.workers.jobs.salad` | `games.word_salad_recheck` |
+| Recheck outbox transport | `games.ops.workers.jobs.outbox` | `games.word_salad_outbox` |
+| Auth/session gameplay diagnostics | `games.site.http.auth_observability` | `games.auth_observability` |
+| Account / anonymous merge | `games.club.merge.{account,anon,anonymous,queue,events}` | `games.account_merge`, `anon_migrate`, … |
+| Task group navigation | `games.tasks.navigation` | `games.task_group_navigation` |
 | HTML-forms puzzle rendering | `games.puzzles.replacements.forms` | `games.html_forms` |
 | Results leaderboard semantics | `games.results.standings.leaderboard` | `games.leaderboard` |
 | Daily difficulty cache | `games.daily.difficulty.{core,refresh,health}` | `games.difficulty`, `difficulty_refresh`, `difficulty_health` |
@@ -258,7 +262,7 @@ If the resolved version is empty, the client check is skipped.
 | SQL results aggregate | `games.results.sql` | `games.results_sql_aggregate` |
 | Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `games.wall`, `word_salad`, `replacements_*` |
 
-На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Для `WORD_SALAD_GAME_ID` в `daily.page.section`, `sections.*`, `tasks.result_details`, `ops.analytics.events` пока оставлен `games.word_salad`; `models.catalog.Wall` — `games.wall`.
+На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Константа `WORD_SALAD_GAME_ID` живёт в `games.daily.page.section` (не тянет puzzles); `models.catalog.Wall` — `games.wall`.
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

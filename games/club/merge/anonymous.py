@@ -17,7 +17,7 @@ from django.db import IntegrityError, connection, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from games.anon_migrate import (
+from games.club.merge.anon import (
     ANON_MIGRATION_STEPS,
     anon_migration_counts,
     migrate_anon_history_step,
@@ -130,7 +130,7 @@ def enqueue_anonymous_merge(user, anon_key):
         job.last_error = ''
         job.save(update_fields=['status', 'next_attempt_at', 'last_error', 'updated_at'])
         _reset_unfinished_reconcile_items(job)
-    from games.anonymous_merge_events import schedule_anonymous_merge_event
+    from games.club.merge.events import schedule_anonymous_merge_event
     schedule_anonymous_merge_event(job.pk)
     return job, 'ok'
 
@@ -162,7 +162,7 @@ def retry_merge_job(user, job_id):
         'claim_token', 'claimed_until', 'updated_at',
     ])
     _reset_unfinished_reconcile_items(job)
-    from games.anonymous_merge_events import schedule_anonymous_merge_event
+    from games.club.merge.events import schedule_anonymous_merge_event
     schedule_anonymous_merge_event(job.pk)
     return job
 
@@ -194,7 +194,7 @@ def claim_next_merge_job(*, now=None, worker='cron'):
     ).order_by('created_at')
     with transaction.atomic():
         candidates = list(_lock_queryset(due)[:20])
-        from games.anonymous_merge_events import merge_event_owned
+        from games.club.merge.events import merge_event_owned
         job = next((candidate for candidate in candidates if not merge_event_owned(candidate.pk)), None)
         if job is None:
             return None
@@ -224,7 +224,7 @@ def publish_unmarked_due_merge_jobs(*, limit=5, now=None):
     is no longer trusted and the event is republished. The named runner still
     fences duplicate deliveries with the database lease.
     """
-    from games.anonymous_merge_events import merge_event_owned, publish_anonymous_merge_event
+    from games.club.merge.events import merge_event_owned, publish_anonymous_merge_event
 
     now = now or timezone.now()
     stale_at = now - MERGE_EVENT_RETRY_AFTER
@@ -248,7 +248,7 @@ def publish_unmarked_due_merge_jobs(*, limit=5, now=None):
 
 def _release_for_event_chain(job, token):
     """Drop the lease after one batch so the follow-up message can claim it."""
-    from games.anonymous_merge_events import events_enabled, mark_merge_event
+    from games.club.merge.events import events_enabled, mark_merge_event
 
     job.refresh_from_db()
     if not events_enabled():
@@ -612,7 +612,7 @@ def run_named_merge_job(job_id, *, worker='identity'):
 
 
 def _continue_named_merge_job(job):
-    from games.anonymous_merge_events import events_enabled, publish_anonymous_merge_event
+    from games.club.merge.events import events_enabled, publish_anonymous_merge_event
     if not events_enabled():
         return
     if job.status in (

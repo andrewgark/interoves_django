@@ -82,7 +82,7 @@ class Command(BaseCommand):
                     )
             if config.worker.name == 'recheck':
                 try:
-                    from games.word_salad_outbox import dispatch_recheck_outbox
+                    from games.ops.workers.jobs.outbox import dispatch_recheck_outbox
                     close_old_connections()
                     dispatched = dispatch_recheck_outbox(limit=10)
                     self.stdout.write(

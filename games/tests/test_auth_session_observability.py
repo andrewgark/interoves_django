@@ -25,7 +25,7 @@ from django.http import JsonResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
-from games.auth_observability import (
+from games.site.http.auth_observability import (
     log_auth_event,
     log_authenticated_request,
     log_gameplay_attempt_created,

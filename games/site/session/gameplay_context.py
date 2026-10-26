@@ -70,7 +70,7 @@ def _error(request, code, *, expected=None, expected_id=None, current=None):
     request.interoves_gameplay_context_expected = expected
     request.interoves_gameplay_context_current = current
     try:
-        from games.auth_observability import log_auth_event, request_session_fingerprint
+        from games.site.http.auth_observability import log_auth_event, request_session_fingerprint
         current_user = getattr(request, 'user', None)
         log_auth_event(
             'gameplay_actor_context_mismatch'

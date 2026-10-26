@@ -16,7 +16,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from games.account_merge import AccountMergeError, merge_accounts
+from games.club.merge.account import AccountMergeError, merge_accounts
 from games.models import AccountMerge, AccountMergeJob
 
 logger = logging.getLogger('application')
