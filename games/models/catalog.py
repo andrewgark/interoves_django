@@ -813,7 +813,7 @@ class Task(models.Model):
         return Wall(self)
 
     def get_attempt_form(self, *args, **kwargs):
-        from games.forms import AttemptForm
+        from games.site.forms import AttemptForm
         kwargs['field_text_width'] = self.field_text_width
         return AttemptForm(*args, **kwargs)
     

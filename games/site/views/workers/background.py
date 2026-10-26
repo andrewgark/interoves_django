@@ -15,7 +15,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from games.background.messages import (
+from games.ops.workers.messages import (
     DIFFICULTY_HEALTH_CHECK,
     DIFFICULTY_CENSORLY_REFRESH,
     DIFFICULTY_MINUTE_REFRESH,

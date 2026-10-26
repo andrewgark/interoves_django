@@ -15,7 +15,7 @@ from games.ops.analytics.events import (
 )
 from games.puzzles.core.check_runtime import CheckerFactory
 from games.site.http.exceptions import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
-from games.forms import AttemptForm
+from games.site.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, CHAIN_TASK_TYPES
 from games.site.session.replay import StaleReplayError, replay_for_request
 from games.daily.completion.completion_coordinator import complete_logical_game

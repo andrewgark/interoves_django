@@ -6,7 +6,7 @@ from unittest.mock import patch
 from django.test import Client, SimpleTestCase, override_settings
 from django.utils import timezone
 
-from games.background.messages import parse_background_message
+from games.ops.workers.messages import parse_background_message
 
 
 def _body(**overrides):

@@ -3,7 +3,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
-from games.forms import CreateTeamForm, JoinTeamForm
+from games.site.forms import CreateTeamForm, JoinTeamForm
 from games.models import ProfileTeamMembership, Team
 from games.site.views.pages.util import redirect_to_referer, has_profile, has_team
 
@@ -111,7 +111,7 @@ def kick_out_user(request, user_id, project_id=None):
 
 
 def get_team_to_play_page(request, game):
-    from games.forms import CreateTeamForm, JoinTeamForm
+    from games.site.forms import CreateTeamForm, JoinTeamForm
     return render(request, 'get_team_to_play.html', {
         'game': game,
         'create_team_form': CreateTeamForm(game.project),

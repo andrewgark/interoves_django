@@ -11,7 +11,7 @@ import boto3
 from botocore.config import Config
 from django.utils import timezone
 
-from games.background.messages import TELEGRAM_ADMIN_ALERT
+from games.ops.workers.messages import TELEGRAM_ADMIN_ALERT
 
 logger = logging.getLogger('application')
 

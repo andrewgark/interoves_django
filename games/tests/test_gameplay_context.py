@@ -9,7 +9,7 @@ from games.site.session.gameplay_context import (
     issue_gameplay_context,
     validate_gameplay_context,
 )
-from games.admin import AttemptAdmin
+from games.site.admin import AttemptAdmin
 from games.models import Attempt
 
 

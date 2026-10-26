@@ -17,7 +17,7 @@ from games.club.merge.queue import (
     run_account_merge_job,
 )
 from games.club.merge.anonymous import publish_unmarked_due_merge_jobs, run_named_merge_job
-from games.background.messages import (
+from games.ops.workers.messages import (
     ACCOUNT_MERGE,
     ANONYMOUS_MERGE,
     ANONYMOUS_MERGE_RECONCILE,

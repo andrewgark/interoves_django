@@ -11,7 +11,7 @@ from django.utils import timezone
 from games.ops.analytics.identity import attach_anon_cookie
 
 from games.puzzles.core.check_runtime import CheckerFactory
-from games.admin import TaskAdmin, WordSaladTaskForm
+from games.site.admin import TaskAdmin, WordSaladTaskForm
 from games.models import (
     Attempt,
     ChainTaskState,

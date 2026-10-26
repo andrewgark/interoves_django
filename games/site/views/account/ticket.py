@@ -8,7 +8,7 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
 from games.site.http.exceptions import InvalidFormException
-from games.forms import TicketRequestForm
+from games.site.forms import TicketRequestForm
 from games.models import TicketRequest
 from games.club.billing.crypto import verify_ipn_signature
 from games.club.billing.tickets import accept_ticket_request, reject_ticket_request

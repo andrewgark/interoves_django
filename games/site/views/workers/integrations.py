@@ -14,7 +14,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from games.background.messages import (
+from games.ops.workers.messages import (
     ADMIN_REPORT_STALE_AFTER,
     ADMIN_ALERT_STALE_AFTER,
     ANNOUNCEMENT_STALE_AFTER,

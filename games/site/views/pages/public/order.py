@@ -5,7 +5,7 @@ from django.core.mail import send_mail
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from games.forms import CorporateGameOrderForm
+from games.site.forms import CorporateGameOrderForm
 from games.models import CorporateGameOrder, OrderGameClient, OrderGameReview
 
 logger = logging.getLogger('application')

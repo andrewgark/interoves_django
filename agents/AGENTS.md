@@ -259,7 +259,9 @@ If the resolved version is empty, the client check is skipped.
 | Daily timing core | `games.daily.timing` (+ `timing.reset`) | `games.daily_timing`, `daily_progress_reset` |
 | Daily share card PNG/payload | `games.daily.page.share.{card,render}` | `games.daily_share_card`, `daily_share_card_render` |
 | Projection / stats refresh events | `games.realtime.projection` | `games.projection_events` |
-| EB worker poll/config/contract | `games.ops.workers.{http,config,contract,polling,lambda_entry,heartbeat}` | `games.worker_*`, `queue_heartbeat` |
+| EB worker poll/config/contract | `games.ops.workers.{http,config,contract,polling,lambda_entry,heartbeat,messages}` | `games.worker_*`, `queue_heartbeat`, `background.messages` |
+| Site HTTP forms | `games.site.forms` | `games.forms` |
+| Django admin registrations | `games.site.admin` | `games.admin` (autodiscover entry) |
 | Distributed cron locks | `games.ops.cron.lock` | `games.cron_lock` |
 | Profile feedback reports | `games.site.ui.profile.feedback` | `games.feedback` |
 | Product metrics CLI | `games.ops.analytics.metrics` | `games.product_metrics` |
