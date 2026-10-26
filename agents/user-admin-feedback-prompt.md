@@ -27,12 +27,12 @@
 | Что | Где |
 |-----|-----|
 | Модель | `games.models.BugReport`: `task`, `game`, `team`, `user`, `anon_key`, `text`, `page_url`, `time`, `status` (`Pending` / `Reviewed` / `Dismissed`), `admin_notes` |
-| Отправка с сайта | `games.views.new_ui.new_bug_report` (`POST /bug-report/<task_id>/`), модалка в `static/templates/new/task_group.html` |
-| Telegram админу | `post_save` → `notify_new_bug_report` (`games/telegram/signals.py`, `notify.py`): текст + inline-кнопки Reviewed / Dismiss |
-| Колбэки TG | `games/telegram/callbacks.py` `_handle_bug` |
-| Support | очередь `/support/pending/` (`games/support/services/pending.py`), действия `bug_reviewed` / `bug_dismissed` (`games/support/actions.py`) |
+| Отправка с сайта | `games.site.ui.play.reactions.new_bug_report` (`POST /bug-report/<task_id>/`; фасад `games.views.new_ui`), модалка в `static/templates/new/task_group.html` |
+| Telegram админу | `post_save` → `notify_new_bug_report` (`games.ops.telegram.signals`, `games.ops.telegram.bot.notify`): текст + inline-кнопки Reviewed / Dismiss |
+| Колбэки TG | `games.ops.telegram.bot.callbacks._handle_bug` |
+| Support | очередь `/support/pending/` (`games.ops.support.people.pending`; фасад `games.support.services.pending`), действия `bug_reviewed` / `bug_dismissed` (`games.ops.support.http.actions`; фасад `games.support.actions`) |
 | Django admin | `BugReport` + proxy `PendingBugReport` |
-| Гость → аккаунт | `anon_key`; перенос в `games/anon_migrate.py` (`migrate_anon_attributions`) и `account_merge` |
+| Гость → аккаунт | `anon_key`; перенос в `games.club.merge.anon.migrate_anon_attributions` и `games.club.merge.account` |
 
 Важно: в **командном** режиме `new_bug_report` пишет `team`, а `user=None`. Из‑за этого «мои репорты» по `user=` пустые для командной игры. При сохранении, если пользователь залогинен, **всегда писать `user`**, `team` оставлять как сейчас. Старые строки без user — решить явно (см. итерацию 1).
 
@@ -48,7 +48,7 @@ Support: `/support/ladders/`, `/support/alphabetty/` (accept / revision с `admi
 
 ### Профиль и навигация
 
-- `/profile/` — `games.views.new_ui.new_profile`, шаблон `static/templates/new/profile.html`: имя, фото, Telegram-хэндл, таймзона, соц. аккаунты. Ссылок на репорты/офферы нет.
+- `/profile/` — `games.site.ui.profile.pages.new_profile` (фасад `games.views.new_ui`), шаблон `static/templates/new/profile.html`: имя, фото, Telegram-хэндл, таймзона, соц. аккаунты. Ссылок на репорты/офферы нет.
 - В шапке (`new/base.html`) Профиль — иконка + пункт меню. **Не** добавлять в основной nav пять новых пунктов.
 - Рекомендуемое место ссылок: **блок на странице Профиля** после формы/аккаунтов (секция вроде «Мои материалы и обращения»). Опционально — короткая ссылка из дровера рядом с «Профиль», не в quick-nav.
 
@@ -56,7 +56,7 @@ Support: `/support/ladders/`, `/support/alphabetty/` (accept / revision с `admi
 
 - `send_admin_message` шлёт **только** в admin-чат (`TELEGRAM_ADMIN_CHAT_ID`). Пользователю бот сейчас почти ничего не пишет (кроме привязки `/start <token>` и публичных `/des`).
 - Для DM пользователю нужен **chat id** = `Profile.telegram_user_id` (верифицированная identity через бота или Telegram login). Поле `telegram_handle` — публичный @username, **не** id чата; по нему слать нельзя.
-- Вебхук (`games/telegram/webhook.py`): callback-кнопки только из admin-чата; произвольный текст не из admin-чата игнорируется. Переписка «ответил reply’ем в Telegram на карточку бага» — отдельная итерация, не блокер сайта.
+- Вебхук (`games.ops.telegram.transport.webhook`; фасад `games.telegram.webhook` если есть): callback-кнопки только из admin-чата; произвольный текст не из admin-чата игнорируется. Переписка «ответил reply’ем в Telegram на карточку бага» — отдельная итерация, не блокер сайта.
 
 Связанные сущности на потом (не в первый срез, но не сломать): `AlphabettyDictSuggestion`, заявки на билеты, корпоративные заявки.
 

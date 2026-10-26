@@ -150,7 +150,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 
     def test_async_sequence_allocation_is_atomic_and_does_not_block_loop(self):
         from django.core.cache.backends.redis import RedisCache
-        from games.realtime import counter as track
+        import games.realtime.counter as track
 
         class FakeRedis:
             def __init__(self):
@@ -203,7 +203,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 
     def test_async_sequence_propagates_redis_timeout(self):
         from django.core.cache.backends.redis import RedisCache
-        from games.realtime import counter as track
+        import games.realtime.counter as track
 
         class TimeoutRedis:
             async def incr(self, key):
@@ -221,7 +221,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 
 
     def test_async_redis_pool_has_a_per_process_connection_cap(self):
-        from games.realtime import counter as track
+        import games.realtime.counter as track
 
         async def run():
             loop = asyncio.get_running_loop()
@@ -1145,7 +1145,7 @@ class TrackWebsocketSecurityRegressionTests(TrackGameFixtureMixin, TransactionTe
 
     def test_game_track_reconnect_detects_revision_counter_reset(self):
         from interoves_django.asgi import application
-        from games.realtime import counter as track
+        import games.realtime.counter as track
 
         headers = self._session_headers()
         namespace = team_track_namespace(self.game.id, self.team.pk)
