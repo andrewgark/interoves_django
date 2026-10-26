@@ -9,7 +9,7 @@ from games.util import clean_text, status_key
 
 class WallChecker(BaseChecker):
     def __init__(self, data, last_attempt_state):
-        from games.check import EqualsWithPossibleSpacesChecker
+        from games.puzzles.core.check_runtime import EqualsWithPossibleSpacesChecker
 
         self.data = json.loads(data)
         if last_attempt_state is None:
