@@ -215,6 +215,7 @@ If the resolved version is empty, the client check is skipped.
 | Live track / WebSocket helpers | `games.realtime.track_compat` | `games.views.track` |
 | MySQL lock retry helpers | `games.realtime.db` | `games.db_retry` |
 | ASGI DB admission middleware | `games.realtime.admission` | `games.asgi_admission` |
+| HTTP middleware (timing, anon identity, DB transient) | `games.site.http.middleware.*` | `games.middleware.*` (settings keep legacy strings) |
 | Yandex Direct ads CLI | `games.ops.social.ads.*` | `games.ads_direct.*` |
 | Main UI symbol bundle | `games.site.views.pages.ui_exports` | `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | `games.matcher.norm_matcher` |

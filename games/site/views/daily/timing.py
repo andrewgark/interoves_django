@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 from django.db import OperationalError
-from games.middleware.db_transient_response import mysql_error_code
+from games.site.http.middleware.db_transient_response import mysql_error_code
 
 from games.daily.page.section import (
     is_daily_team_timing_game,

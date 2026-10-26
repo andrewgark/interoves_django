@@ -28,7 +28,7 @@ from games.site.http.auth_observability import (
     session_fingerprint,
 )
 from games.ops.cron.runtime import deployment_environment
-from games.middleware.request_timing import timing_phase
+from games.site.http.middleware.request_timing import timing_phase
 
 
 logger = logging.getLogger('application')

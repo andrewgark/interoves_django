@@ -1,6 +1,6 @@
 """Bind server-issued anonymous identity on normal site requests."""
 
-from games.middleware.request_timing import timing_phase
+from games.site.http.middleware.request_timing import timing_phase
 
 
 class AnonymousIdentityMiddleware:

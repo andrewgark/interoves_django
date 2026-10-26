@@ -65,7 +65,7 @@ from games.site.session.gameplay_context import (
     issue_gameplay_context,
     validate_gameplay_context,
 )
-from games.middleware.request_timing import timing_phase
+from games.site.http.middleware.request_timing import timing_phase
 from games.models import Attempt, BugReport, ChainTaskState, Game, GameTaskGroup, Like, RandomCensorlyGame, Task
 from games.sections.hub import (
     create_game_link_context,

@@ -61,7 +61,7 @@ from games.models import (
     Task,
 )
 from games.club.access.archive import has_club_access
-from games.middleware.request_timing import timing_phase
+from games.site.http.middleware.request_timing import timing_phase
 from games.sections.hub import (
     create_game_link_context,
     onboarding_followup_context,

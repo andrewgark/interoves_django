@@ -36,7 +36,7 @@ from games.puzzles.raddle.concurrency import (
     lock_or_create_raddle_state,
     run_raddle_atomic_with_deadlock_retry,
 )
-from games.middleware.request_timing import timing_phase
+from games.site.http.middleware.request_timing import timing_phase
 from games.realtime.track_compat import track_actor_task_change
 from games.site.views.game.context import (
     game_from_request_for_task,

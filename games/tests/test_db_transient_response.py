@@ -12,7 +12,7 @@ from django.db.utils import OperationalError, ProgrammingError
 from django.urls import path
 from django.core.handlers.asgi import ASGIHandler
 
-from games.middleware.db_transient_response import (
+from games.site.http.middleware.db_transient_response import (
     TransientDatabaseResponseMiddleware,
     mysql_error_code,
 )

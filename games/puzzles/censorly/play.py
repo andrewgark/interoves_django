@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.middleware.request_timing import timing_phase
+from games.site.http.middleware.request_timing import timing_phase
 from games.puzzles.censorly.ids import (
     CENSORLY_SHOW_MASK_ENDINGS,
     CENSORLY_SPLITTER_VERSION,

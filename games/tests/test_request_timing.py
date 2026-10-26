@@ -3,7 +3,7 @@
 from django.test import RequestFactory, TestCase
 from django.urls import resolve
 
-from games.middleware.request_timing import RequestTimingMiddleware, _watch_path, timing_phase
+from games.site.http.middleware.request_timing import RequestTimingMiddleware, _watch_path, timing_phase
 
 
 class RequestTimingMiddlewareTests(TestCase):

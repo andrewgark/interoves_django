@@ -35,7 +35,7 @@ from games.site.http.auth_observability import (
     normalized_user_agent,
     session_fingerprint,
 )
-from games.middleware.auth_session_observability import (
+from games.site.http.middleware.auth_session_observability import (
     AuthSessionDiagnosticMiddleware,
     AuthenticatedRequestAuditMiddleware,
     RequestCorrelationMiddleware,
