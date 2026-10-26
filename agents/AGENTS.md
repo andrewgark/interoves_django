@@ -303,7 +303,7 @@ If the resolved version is empty, the client check is skipped.
 | Alphabetty engine | `games.puzzles.alphabetty.*` | `games.alphabetty.*` |
 | Alphabetty/Censorly offer models in `models/__init__` | keep `games.alphabetty.models` / `games.censorly.models` facades (avoid `games.puzzles` at Django model load) |
 
-На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Константа `WORD_SALAD_GAME_ID` живёт в `games.daily.page.section` (не тянет puzzles); `models.catalog.Wall` — `games.wall`.
+На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Константа `WORD_SALAD_GAME_ID` живёт в `games.daily.page.section` (не тянет puzzles); `games.puzzles.salad.rules` только re-export для legacy. `models.catalog.Wall` — `games.wall`.
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

@@ -19,8 +19,8 @@ from games.ops.support.http.schedule import (
     renumber_links,
     save_publish_start_date,
 )
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
     format_grid_text,
     format_words_text,
     parse_task_payload,
@@ -281,8 +281,6 @@ def _grid_preview(grid):
 
 def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
     from games.sections.placement_share import site_urls_by_task_group
-    from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
-
     return site_urls_by_task_group(WORD_SALAD_GAME_ID, task_group_ids)
 
 

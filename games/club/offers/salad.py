@@ -24,8 +24,8 @@ from games.models import (
     TaskGroup,
     WordSaladOffer,
 )
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
     format_grid_text,
     format_words_text,
     parse_grid,

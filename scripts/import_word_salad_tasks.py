@@ -40,7 +40,8 @@ from games.ops.support.games.salad import (  # noqa: E402
     WORD_SALAD_SECTION_TITLE,
     ensure_word_salad_game,
 )
-from games.puzzles.salad.rules import WORD_SALAD_GAME_ID, validate_puzzle  # noqa: E402
+from games.daily.page.section import WORD_SALAD_GAME_ID  # noqa: E402
+from games.puzzles.salad.rules import validate_puzzle  # noqa: E402
 from games.daily.catalog.word_salad import (  # noqa: E402
     WORD_SALAD_DEFAULT_PUBLISH_START,
     WORD_SALAD_PUBLISH_START_TAG,

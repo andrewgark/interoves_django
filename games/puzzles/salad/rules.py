@@ -7,12 +7,13 @@ from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
+from games.daily.page.section import WORD_SALAD_GAME_ID
+
 _EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'salad_valid_words.txt.gz'
 _LEGACY_EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'word_salad_nouns.txt'
 
 WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
 _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d+$', re.IGNORECASE)
-WORD_SALAD_GAME_ID = 'salad'
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
 EXTRA_MIN_LENGTH = 4

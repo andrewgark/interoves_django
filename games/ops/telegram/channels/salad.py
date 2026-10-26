@@ -36,7 +36,8 @@ from games.ops.telegram.images.errors import (
     describe_post_failure,
     describe_render_failure,
 )
-from games.puzzles.salad.rules import WORD_SALAD_GAME_ID, theme_from_text
+from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.puzzles.salad.rules import theme_from_text
 from games.daily.catalog.word_salad import (
     MOSCOW,
     current_word_salad_number,
