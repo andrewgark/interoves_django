@@ -8,8 +8,8 @@ from django.core.cache import cache
 from django.utils import timezone
 
 from games.models import (
-    AlphabettyOffer,
     AlphabettyDictSuggestion,
+    AlphabettyOffer,
     BugReport,
     BugReportMessage,
     CorporateGameOrder,
@@ -18,16 +18,8 @@ from games.models import (
     TicketRequest,
     WordSaladOffer,
 )
-from games.ops.telegram.transport.api import send_message, send_photo
+from games.ops.cron.runtime import deployment_environment
 from games.ops.telegram.bot.alerts import publish_admin_alert
-from games.ops.telegram.transport.config import (
-    admin_chat_id,
-    admin_is_muted,
-    announce_chat_ids,
-    club_invite_url,
-    telegram_admin_configured,
-    telegram_bot_configured,
-)
 from games.ops.telegram.links import (
     admin_url,
     game_admin_url,
@@ -36,8 +28,16 @@ from games.ops.telegram.links import (
     task_group_admin_url,
     task_play_url,
 )
-from games.tasks.titles import task_display_name
-from games.ops.cron.runtime import deployment_environment
+from games.ops.telegram.transport.api import send_message, send_photo
+from games.ops.telegram.transport.config import (
+    admin_chat_id,
+    admin_is_muted,
+    announce_chat_ids,
+    club_invite_url,
+    telegram_admin_configured,
+    telegram_bot_configured,
+)
+from games.task_group.titles import task_display_name
 
 logger = logging.getLogger('application')
 
@@ -988,7 +988,7 @@ def notify_new_bug_report(report: BugReport) -> bool:
 
 
 def bug_report_thread_url(report: BugReport) -> str:
-    from games.site.ui.profile.feedback import profile_reports_path
+    from games.site.pages.profile.feedback import profile_reports_path
 
     return _admin_link(profile_reports_path(report_id=report.pk))
 
@@ -1118,6 +1118,7 @@ def notify_donation_event(donation: Donation, event: str) -> bool:
 
 def fetch_recent_telegram_chat_ids() -> list[dict]:
     import requests
+
     from games.ops.telegram.transport.api import _safe_error_text
 
     if not settings.TELEGRAM_BOT_TOKEN:

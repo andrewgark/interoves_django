@@ -8,7 +8,7 @@ from games.models import Game, GameTaskGroup, Project
 from games.ops.analytics.identity import gameplay_anon_key
 from games.sections.project_navigation import project_base
 from games.site.session.play_mode import effective_play_mode, get_play_mode
-from games.tasks.navigation import play_url_for_task_group
+from games.task_group.navigation import play_url_for_task_group
 
 
 def replay_actor_for_request(

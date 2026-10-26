@@ -13,12 +13,13 @@ from django.db import close_old_connections
 from django.test import Client, override_settings
 from django.utils import timezone
 
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 from games.models import (
     CheckerType,
-    Game,
-    GameTaskGroup,
     DailySolveTiming,
     DailySolveTimingSession,
+    Game,
+    GameTaskGroup,
     HTMLPage,
     Profile,
     Project,
@@ -26,8 +27,6 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
-
 
 LONG_LADDER = {
     'lengths': [3, 3, 3, 3, 3],
@@ -765,7 +764,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
     @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
     @patch('games.club.access.archive.reject_if_club_archive_blocked', return_value=None)
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
-    @patch('games.site.ui.play.page.scheduled_number_is_public', return_value=True)
+    @patch('games.site.pages.play.page.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_personal_daily_timer_keeps_both_browser_tabs_active(
         self, _game_access, _page_published, _published, _reject_archive,

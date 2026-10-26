@@ -1,0 +1,104 @@
+{% extends "site/base.html" %}
+{% load filters static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="new-ui new-ui--section">
+  <p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Назад</a></p>
+
+  <div class="new-section-header new-section-header--results">
+    <div>
+      <div class="new-login-hint new-meta-kicker">Результаты</div>
+      <h1 class="new-heading new-heading--page">{{ page_title }}</h1>
+      <p class="new-meta-kicker">
+        {% if aggregate_period == 'month' %}
+          Выпуски за выбранный месяц
+        {% elif request.GET.anchor %}
+          Выбранное окно: {{ aggregate_limit }} выпусков
+        {% else %}
+          Последние {{ aggregate_limit }} выпусков
+        {% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="results-filter-panel" aria-label="Фильтры результатов">
+    {% if aggregate_period == 'month' %}
+    <div class="results-filter-group">
+      <span class="results-filter-label">Месяц</span>
+      <nav class="new-daily-game-header__nav" aria-label="Переход между месяцами">
+        {% if aggregate_previous_month_url %}<a class="new-daily-game-header__nav-button" href="{{ aggregate_previous_month_url }}" aria-label="Предыдущий месяц"><i class="ph ph-caret-left" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Предыдущий месяц"><i class="ph ph-caret-left" aria-hidden="true"></i></button>{% endif %}
+        <span class="new-daily-game-header__date">{{ aggregate_month_label|default:"Нет данных" }}</span>
+        {% if aggregate_next_month_url %}<a class="new-daily-game-header__nav-button" href="{{ aggregate_next_month_url }}" aria-label="Следующий месяц"><i class="ph ph-caret-right" aria-hidden="true"></i></a>{% else %}<button type="button" class="new-daily-game-header__nav-button" disabled aria-label="Следующий месяц"><i class="ph ph-caret-right" aria-hidden="true"></i></button>{% endif %}
+      </nav>
+    </div>
+    {% else %}
+    <div class="results-filter-group">
+      <span class="results-filter-label">Количество выпусков</span>
+      <span class="results-filter-options">
+        {% for size, url in limit_urls.items %}
+          <a class="results-filter-chip{% if size == aggregate_limit %} is-active{% endif %}" href="{{ url }}"{% if size == aggregate_limit %} aria-current="true"{% endif %}>{{ size }} выпусков</a>
+        {% endfor %}
+      </span>
+    </div>
+    {% endif %}
+    <div class="results-filter-group">
+      <span class="results-filter-label">Показывать</span>
+      <span class="results-filter-options">
+        {% for item in aggregate_actor_filter_urls %}<a class="results-filter-chip{% if item.active %} is-active{% endif %}" href="{{ item.url }}" aria-pressed="{% if item.active %}true{% else %}false{% endif %}" data-tooltip="{{ item.title }}"><i class="ph {{ item.icon }}" aria-hidden="true"></i><span>{{ item.label }}</span></a>{% endfor %}
+      </span>
+    </div>
+    {% if aggregate_show_attempts %}
+    <div class="results-filter-group">
+      <span class="results-filter-label">При равенстве баллов</span>
+      <span class="results-filter-options">
+        <a class="results-filter-chip{% if aggregate_sort == 'attempts' %} is-active{% endif %}" href="{{ aggregate_sort_urls.attempts }}">По попыткам</a>
+        <a class="results-filter-chip{% if aggregate_sort == 'time' %} is-active{% endif %}" href="{{ aggregate_sort_urls.time }}">По времени</a>
+      </span>
+    </div>
+    {% endif %}
+  </div>
+  {% if aggregate_has_unknown_max %}<p class="new-meta-kicker">Для некоторых опубликованных выпусков максимум не определён. Они остаются в таблице, но не входят в показанный знаменатель.</p>{% endif %}
+  {% if aggregate_snapshot_preparing %}
+    <p class="new-meta-kicker" role="status">Таблица готовится.{% if aggregate_snapshot_delayed %} Обновление задерживается.{% endif %} <a href="{{ aggregate_refresh_url }}">Обновить таблицу</a></p>
+  {% elif aggregate_snapshot_updated_at %}
+    <p class="new-meta-kicker" role="status">
+      Последнее обновление: {{ aggregate_snapshot_updated_at|date:"d.m.Y H:i" }}.
+      {% if aggregate_snapshot_newer %}Доступна новая версия таблицы.{% elif aggregate_snapshot_delayed %}Обновление задерживается; показан сохранённый результат.{% elif aggregate_snapshot_updating %}Есть новые результаты, таблица обновляется.{% endif %}
+      {% if aggregate_snapshot_missing %}Для {{ aggregate_snapshot_missing|length }} выпусков результаты ещё готовятся.{% endif %}
+      {% if aggregate_snapshot_expired %}Предыдущая версия таблицы больше не доступна.{% endif %}
+      <a href="{{ aggregate_refresh_url }}">Обновить таблицу</a>
+    </p>
+  {% endif %}
+</div>
+
+<div class="new-results-fullbleed new-results-fullbleed--aggregate">
+  <div class="new-results-wrap aggregate-table-wrap" role="region" aria-label="Сводная таблица результатов" tabindex="0">
+    <table class="new-results-table aggregate-results-table">
+      <thead><tr>
+        <th scope="col" class="is-sticky-left is-sticky-top aggregate-place">Место</th>
+        <th scope="col" class="is-sticky-left-2 is-sticky-top col-team aggregate-participant">Участник</th>
+        <th scope="col" class="is-sticky-left-3 is-sticky-top col-score aggregate-score" data-tooltip="Сумма баллов за выбранные выпуски" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>
+        <th scope="col" class="is-sticky-left-4 is-sticky-top aggregate-time" data-tooltip="Суммарное время решения" aria-label="Суммарное время"><i class="ph ph-clock" aria-hidden="true"></i></th>
+        {% if aggregate_show_attempts %}<th scope="col" class="is-sticky-top aggregate-attempts results-attempts" data-tooltip="Суммарное количество попыток" aria-label="Попытки"><i class="ph ph-repeat" aria-hidden="true"></i></th>{% endif %}
+        {% for column in aggregate_columns %}<th class="aggregate-release{% if aggregate_column_labels|get_item:column.link.pk %} aggregate-word-answer{% endif %}"><a href="{{ column.url }}" data-tooltip="Выпуск {{ column.label }} · {{ column.published_at|date:'d.m.Y' }}{% if column.pending %} · Результаты готовятся{% endif %}">{% if aggregate_column_labels|get_item:column.link.pk %}{{ aggregate_column_labels|get_item:column.link.pk }}{% else %}{{ column.label }}{% endif %}{% if column.pending %} ·{% endif %}</a></th>{% endfor %}
+      </tr></thead>
+      <tbody>
+        {% include "site/partials/aggregate_results_rows.html" %}
+        {% if not aggregate_rows %}<tr><td colspan="{% if aggregate_show_attempts %}{{ aggregate_columns|length|add:5 }}{% else %}{{ aggregate_columns|length|add:4 }}{% endif %}">{% if aggregate_snapshot_preparing %}Таблица готовится.{% elif aggregate_snapshot_missing %}Часть результатов ещё готовится.{% else %}Пока нет результатов.{% endif %}</td></tr>{% endif %}
+      </tbody>
+    </table>
+
+    <div class="results-load-more aggregate-pagination" data-results-progressive data-results-tbody=".aggregate-results-table tbody" data-snapshot="{{ aggregate_snapshot_id|default:'' }}" data-snapshot-view="{{ aggregate_snapshot_view|default:'' }}" data-next-page="{% if aggregate_page.has_next %}{{ aggregate_page.next_page_number }}{% else %}0{% endif %}" data-total="{{ aggregate_page.paginator.count|default:0 }}" data-subject-one="участник" data-subject-few="участника" data-subject-many="участников"{% if not aggregate_page.has_next %} hidden{% endif %}>
+      <span class="results-load-more__status" data-aggregate-load-more-status aria-live="polite"{% if not aggregate_page.has_next %} hidden{% endif %}>Показаны {{ aggregate_page.start_index|default:0 }}–{{ aggregate_page.end_index|default:0 }} из {{ aggregate_page.paginator.count|default:0 }}</span>
+      <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-results-load-more-button{% if not aggregate_page.has_next %} hidden{% endif %}>Загрузить ещё</button>
+    </div>
+    <noscript class="results-noscript-pager">
+      {% if aggregate_page.has_next %}<a class="new-btn new-btn--ghost new-btn--mini" href="{{ next_page_url }}">Показать следующих участников</a>{% else %}Показаны все участники.{% endif %}
+    </noscript>
+  </div>
+</div>
+
+<script src="{% static 'js/results_progressive.js' %}"></script>
+{% endblock %}

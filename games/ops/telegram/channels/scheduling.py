@@ -12,10 +12,15 @@ from games.models import Attempt, Game, Team
 from games.ops.social.models import SocialQueuePost
 from games.ops.social.publish import (
     publish_instagram,
-    publish_threads,
     publish_telegram,
+    publish_threads,
     publish_twitter,
     queue_failed_network_retries,
+)
+from games.ops.telegram.bot.notify import (
+    send_admin_message,
+    send_announce_message,
+    send_announce_photo,
 )
 from games.ops.telegram.channels.announcements import (
     ANNOUNCEMENT_FORMATTERS,
@@ -25,17 +30,12 @@ from games.ops.telegram.channels.announcements import (
     format_game_results_announcement,
     format_no_coffins_announcement,
 )
+from games.ops.telegram.links import game_site_url
+from games.ops.telegram.models import TelegramGameAnnouncement
 from games.ops.telegram.transport.config import (
     game_telegram_announce_chat_ids,
     game_telegram_announce_enabled,
     game_telegram_social_as_chat,
-)
-from games.ops.telegram.links import game_site_url
-from games.ops.telegram.models import TelegramGameAnnouncement
-from games.ops.telegram.bot.notify import (
-    send_admin_message,
-    send_announce_message,
-    send_announce_photo,
 )
 
 logger = logging.getLogger('application')
@@ -308,7 +308,7 @@ def _teams_with_all_tasks_ok(game: Game) -> list[tuple[Team, int, object]]:
 
     from games.models import Attempt, HintAttempt, Team
     from games.puzzles.raddle import RaddlePuzzle
-    from games.site.ui.results.compute import _load_results_placements_and_tasks
+    from games.site.pages.results.compute import _load_results_placements_and_tasks
 
     _placements, _tg_map, _tasks_flat, task_ids, _headers = _load_results_placements_and_tasks(game)
     if not task_ids:
@@ -435,7 +435,7 @@ def _last_task_first_taken_for_full_score(game: Game):
     """Return the task that most recently got its first full-score tournament result."""
     from decimal import Decimal, InvalidOperation
 
-    from games.site.ui.results.compute import _load_results_placements_and_tasks
+    from games.site.pages.results.compute import _load_results_placements_and_tasks
 
     placements, task_group_to_tasks, tasks, task_ids, _headers = (
         _load_results_placements_and_tasks(game)
@@ -541,7 +541,7 @@ def _process_results(game: Game, now, stats: dict, results_png_cache: dict) -> N
     if _game_has_pending_attempts(game):
         return
 
-    from games.site.ui.results.compute import _load_game_results_data
+    from games.site.pages.results.compute import _load_game_results_data
 
     data = _load_game_results_data(game, 'tournament')
     podium = build_podium(
@@ -713,7 +713,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
         if msk_now.hour == 0 and msk_now.minute < 5:
             day_key = msk_now.date().isoformat()
             try:
-                from games.ops.support.games.alphabetty import ensure_future_buffer
+                from games.console.games.alphabetty import ensure_future_buffer
                 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 
                 ab_game = Game.objects.filter(pk=ALPHABETTY_GAME_ID).first()
@@ -723,7 +723,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
             except Exception:
                 logger.exception('Alphabetty buffer ensure failed')
             try:
-                from games.ops.support.games.week import (
+                from games.console.games.week import (
                     ensure_future_buffer as week_task_ensure_future_buffer,
                 )
                 from games.daily.catalog.week_task import WEEK_TASK_GAME_ID

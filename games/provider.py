@@ -1,6 +1,9 @@
-"""Compatibility alias. Implementation lives in games.club.provider."""
+"""Compatibility alias. Implementation lives in games.identity.provider.
+
+Allauth autodiscover imports ``games.provider``.
+"""
 import sys
 
-from games.club import provider as _implementation
+from games.identity import provider as _implementation
 
 sys.modules[__name__] = _implementation

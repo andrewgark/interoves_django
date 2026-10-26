@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta, timezone as dt_timezone
+import json
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
-import json
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
@@ -12,13 +13,9 @@ from django.test import Client, SimpleTestCase, TestCase
 from django.urls import resolve
 from django.utils import timezone
 
-from games.ops.analytics.identity import attach_anon_cookie
 import games.daily.timing as daily_timing_mod
-from games.daily.page.section import is_daily_team_timing_game, is_daily_timing_game
-from games.management.commands.repair_daily_attempt_timing import (
-    TIMING_RECOVERY_GRACE_SECONDS,
-    events_for_attempt,
-)
+import games.daily.timing.session as daily_timing_session
+from games.daily.page.section import WORD_SALAD_GAME_ID, is_daily_team_timing_game, is_daily_timing_game
 from games.daily.timing import (
     ACTION_AUTO_PAUSE,
     ACTION_COMPLETE,
@@ -26,8 +23,8 @@ from games.daily.timing import (
     ACTION_PAUSE,
     ACTION_RESUME,
     ACTION_START,
-    HEARTBEAT_MAX_CREDIT_MS,
     CLIENT_CREDIT_MAX_MS,
+    HEARTBEAT_MAX_CREDIT_MS,
     TIMING_DEADLOCK_ATTEMPTS,
     _is_mysql_deadlock,
     apply_timing_event,
@@ -36,13 +33,16 @@ from games.daily.timing import (
     lookup_timing,
     merge_timing_rows,
     migrate_timing_events,
-    record_timing_event,
     record_gameplay_activity,
-    reduce_personal_timing_events,
+    record_timing_event,
     recovered_timing_ms_from_events,
+    reduce_personal_timing_events,
     reduce_team_timing_events,
 )
-from games.site.views.daily.timing import daily_timing_page_context
+from games.management.commands.repair_daily_attempt_timing import (
+    TIMING_RECOVERY_GRACE_SECONDS,
+    events_for_attempt,
+)
 from games.models import (
     CheckerType,
     DailySolveTiming,
@@ -58,8 +58,9 @@ from games.models import (
     TaskGroup,
     Team,
 )
+from games.ops.analytics.identity import attach_anon_cookie
 from games.results.share import elapsed_seconds_from_attempts as share_elapsed
-from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.site.views.daily.timing import daily_timing_page_context
 
 
 def _dt(seconds=0):
@@ -515,7 +516,7 @@ class DailyTimingDomainTests(TestCase):
     def test_ledger_failure_rolls_back_timing_snapshot_mutation(self):
         sid = uuid4()
         with patch(
-            'games.daily.timing.record_timing_event',
+            'games.daily.timing.session.record_timing_event',
             side_effect=RuntimeError('simulated ledger write failure'),
         ):
             with self.assertRaisesRegex(RuntimeError, 'ledger write failure'):
@@ -1353,7 +1354,7 @@ class DailyTimingDomainTests(TestCase):
 
     def test_retries_mysql_deadlock_then_succeeds(self):
         calls = {'n': 0}
-        orig = daily_timing_mod._apply_timing_event_once
+        orig = daily_timing_session._apply_timing_event_once
 
         def flaky(**kwargs):
             calls['n'] += 1
@@ -1362,7 +1363,7 @@ class DailyTimingDomainTests(TestCase):
             return orig(**kwargs)
 
         sid = uuid4()
-        with patch.object(daily_timing_mod, '_apply_timing_event_once', side_effect=flaky):
+        with patch.object(daily_timing_session, '_apply_timing_event_once', side_effect=flaky):
             with self.assertLogs('games.daily_timing', level='WARNING') as logs:
                 snap = self._apply(action=ACTION_START, session=sid, seq=1, now=_dt())
         self.assertEqual(calls['n'], 2)
@@ -1381,7 +1382,7 @@ class DailyTimingDomainTests(TestCase):
             raise OperationalError(1213, 'Deadlock found when trying to get lock')
 
         sid = uuid4()
-        with patch.object(daily_timing_mod, '_apply_timing_event_once', side_effect=boom):
+        with patch.object(daily_timing_session, '_apply_timing_event_once', side_effect=boom):
             with self.assertLogs('games.daily_timing', level='WARNING') as logs:
                 with self.assertRaises(OperationalError) as ctx:
                     self._apply(action=ACTION_HEARTBEAT, session=sid, seq=1, now=_dt())
@@ -1398,7 +1399,7 @@ class DailyTimingDomainTests(TestCase):
             calls['n'] += 1
             raise OperationalError(1205, 'Lock wait timeout exceeded')
 
-        with patch.object(daily_timing_mod, '_apply_timing_event_once', side_effect=timeout):
+        with patch.object(daily_timing_session, '_apply_timing_event_once', side_effect=timeout):
             with self.assertRaises(OperationalError) as ctx:
                 self._apply(action=ACTION_START, session=sid, seq=2, now=_dt())
         self.assertEqual(ctx.exception.args[0], 1205)
@@ -2112,8 +2113,10 @@ class DailyTimingApiTests(TestCase):
 
 class DailyTimingAuditCommandTests(TestCase):
     def test_audit_reports_counts_without_mutation_or_anonymous_keys(self):
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
+
         from games.models import Attempt
 
         game = Game.objects.get(pk='ladder')

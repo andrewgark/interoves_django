@@ -1,1 +1,1 @@
-"""Task-group play: the page, answers, and replay."""
+"""Compatibility alias. Implementation lives in games.site.pages.play."""

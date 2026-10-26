@@ -1,1 +1,1 @@
-"""Game pages, progress, and registration gates."""
+"""Compatibility alias. Implementation lives in games.site.pages.game."""

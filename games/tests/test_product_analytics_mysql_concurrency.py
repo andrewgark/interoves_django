@@ -8,14 +8,9 @@ from django.contrib.auth.models import User
 from django.db import close_old_connections, connection
 from django.test import TransactionTestCase
 
-from games.ops.analytics.events import register_completed_game, register_started_game
 from games.daily.completion.completion_coordinator import complete_logical_game
-from games.ops.analytics.persistence import (
-    ANALYTICS_UNIQUE_SPECS,
-    create_or_reread_analytics_row,
-)
-from games.club.merge.account import merge_accounts
-from games.club.merge.anon import migrate_anon_started_games
+from games.identity.merge.account import merge_accounts
+from games.identity.merge.anon_steps import migrate_anon_started_games
 from games.models import (
     AccountMerge,
     ChainTaskState,
@@ -28,6 +23,11 @@ from games.models import (
     Project,
     Task,
     TaskGroup,
+)
+from games.ops.analytics.events import register_completed_game, register_started_game
+from games.ops.analytics.persistence import (
+    ANALYTICS_UNIQUE_SPECS,
+    create_or_reread_analytics_row,
 )
 
 

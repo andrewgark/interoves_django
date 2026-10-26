@@ -1,12 +1,12 @@
+import json
 from datetime import datetime, timedelta
 from io import StringIO
-import json
 
 from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import TestCase
 
-from games.club.merge.anon import claim_and_migrate_anon_history
+from games.identity.merge.anon_steps import claim_and_migrate_anon_history
 from games.models import (
     Game,
     GameTaskGroup,

@@ -1,8 +1,8 @@
 from datetime import timedelta
 
 from allauth.socialaccount.models import SocialApp
-from django.test import TestCase
 from django.contrib.sites.models import Site
+from django.test import TestCase
 from django.utils import timezone
 
 from games.models import Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
@@ -210,7 +210,7 @@ class ProjectLegacyRedirectTests(TestCase):
         )
 
     def test_task_group_navigation_helpers_infer_project_scope(self):
-        from games.tasks.navigation import (
+        from games.task_group.navigation import (
             play_url_for_task_group,
             replay_exit_url_for_task_group,
             replay_url_for_task_group,

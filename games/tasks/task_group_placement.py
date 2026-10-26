@@ -1,17 +1,6 @@
-"""GameTaskGroup placement lookup for task-group UI."""
+"""Compatibility alias. Implementation lives in games.task_group.task_group_placement."""
+import sys
 
-from games.models import GameTaskGroup
+from games.task_group import task_group_placement as _implementation
 
-
-def resolve_task_group_placement(game, task_group, placement=None):
-    """Return explicit placement or load GameTaskGroup row for game + task_group."""
-    if placement is not None:
-        return placement
-    if not (getattr(task_group, 'pk', None) and getattr(game, 'pk', None)):
-        return placement
-    return (
-        GameTaskGroup.objects
-        .filter(game_id=game.pk, task_group_id=task_group.pk)
-        .only('number', 'name')
-        .first()
-    )
+sys.modules[__name__] = _implementation

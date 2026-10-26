@@ -2,7 +2,7 @@
 """node --check for <script> blocks embedded in Django templates.
 
 Django tags are neutralised into JS literals first, so this catches real syntax
-errors in large inline scripts (static/templates/new/task_group.html) that no
+errors in large inline scripts (static/templates/site/task_group.html) that no
 other check in the repo looks at.
 
 Usage: python scripts/check_inline_js_syntax.py <template> [<template> ...]

@@ -1,14 +1,13 @@
 from unittest.mock import patch
 
+from allauth.core.exceptions import ImmediateHttpResponse
+from allauth.socialaccount.models import SocialAccount
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect
 from django.test import RequestFactory, TestCase
 
-from allauth.core.exceptions import ImmediateHttpResponse
-from allauth.socialaccount.models import SocialAccount
-
+from games.identity.telegram_oidc import TelegramCallbackView, TelegramProvider, telegram_callback
 from games.models import Profile
-from games.club.telegram_oidc import TelegramCallbackView, TelegramProvider, telegram_callback
 
 
 class TelegramOIDCTests(TestCase):
@@ -86,15 +85,15 @@ class TelegramOIDCTests(TestCase):
         self.assertEqual(profile.telegram_handle, 'realname')
         self.assertTrue(profile.telegram_verified)
 
-    @patch('games.club.telegram_oidc.jwtkit.verify_and_decode')
+    @patch('games.identity.telegram_oidc.jwtkit.verify_and_decode')
     def test_id_token_is_verified_against_telegram_jwks(self, verify):
         verify.return_value = {'sub': '42', 'given_name': 'Tg'}
-        adapter = object.__new__(__import__('games.club.telegram_oidc', fromlist=['TelegramOIDCAdapter']).TelegramOIDCAdapter)
+        adapter = object.__new__(__import__('games.identity.telegram_oidc', fromlist=['TelegramOIDCAdapter']).TelegramOIDCAdapter)
         provider = object.__new__(TelegramProvider)
         provider.app = type('App', (), {'client_id': 'client-id'})()
         adapter.get_provider = lambda: provider
         request = object()
-        with patch.object(provider, 'sociallogin_from_response', return_value='login') as build:
+        with patch.object(provider, 'sociallogin_from_response', return_value='login') as _build:
             result = adapter.complete_login(request, provider.app, None, {'id_token': 'signed'})
         self.assertEqual(result, 'login')
         verify.assert_called_once()

@@ -1,6 +1,6 @@
 # Interoves Design System (new UI)
 
-Рабочий документ для `static/css/new.css` и шаблонов `static/templates/new/`.  
+Рабочий документ для `static/css/new.css` и шаблонов `static/templates/site/`.  
 Legacy Bootstrap UI, microsites и Django admin — вне скоупа, кроме явных пересечений с `.new-btn`.
 
 Источник правды по токенам и компонентам — этот файл + `:root` / `html.new-ui-dark` в `new.css`.  
@@ -282,6 +282,6 @@ Spacing: у `.new-btn` нет дефолтного `margin-top`; у `.new-form >
 |-----|-----|
 | Токены + кнопки + new UI | `static/css/new.css` |
 | Support overrides | `static/css/support.css` |
-| Shell | `static/templates/new/base.html` |
+| Shell | `static/templates/site/base.html` |
 | Agent conventions | `agents/AGENTS.md` |
 | Этот документ | `agents/DESIGN_SYSTEM.md` |

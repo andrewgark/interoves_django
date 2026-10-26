@@ -1,0 +1,257 @@
+{% extends "site/base.html" %}
+{% load tz %}
+{% block title %}Десяточки{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Десяточки</h1>
+<div class="new-games-list-wrap">
+  <div class="new-games-list" id="newGamesList" data-total-games="{{ total_games }}" data-games-per-page="{{ games_per_page }}">
+    {% include "site/games_list_items.html" with games=games game_list_offset=0 %}
+  </div>
+  {% comment %}
+  Кастомный скроллбар списка игр (отключён): вернуть вместе с закомментированным CSS в new.css
+  и блоком JS в конце <script> ниже. Тогда info/loading перенести в колонку справа, id счётчика — newScrollbarInfo.
+  <div class="new-smart-scrollbar-container">
+    <div class="new-smart-scrollbar" id="newSmartScrollbar">
+      <div class="new-smart-scrollbar-track" id="newScrollbarTrack" aria-hidden="true"></div>
+      <div class="new-smart-scrollbar-thumb" id="newScrollbarThumb" role="slider" aria-orientation="vertical" tabindex="0"></div>
+    </div>
+    <div class="new-scrollbar-info" id="newScrollbarInfo">Показано {{ games|length }} из {{ total_games }} игр</div>
+    <div class="new-loading" id="newLoading" hidden>Загрузка…</div>
+  </div>
+  {% endcomment %}
+  <div class="new-games-list-footer">
+    <div class="new-scrollbar-info" id="newGamesListInfo">Показано {{ games|length }} из {{ total_games }} игр</div>
+    <div class="new-loading" id="newLoading" hidden>Загрузка…</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var list = document.getElementById('newGamesList');
+  var totalGames = parseInt(list.dataset.totalGames || '0', 10);
+  var perPage = parseInt(list.dataset.gamesPerPage || '20', 10);
+  var totalPages = Math.max(1, Math.ceil(totalGames / perPage));
+  var currentPage = 1;
+  var loadedPages = new Set([1]);
+  var isLoading = false;
+
+  var info = document.getElementById('newGamesListInfo');
+  var loading = document.getElementById('newLoading');
+
+  function showLoading() { isLoading = true; if (loading) loading.hidden = false; }
+  function hideLoading() { isLoading = false; if (loading) loading.hidden = true; }
+
+  function updateLoadedInfo() {
+    var loaded = Math.min(currentPage * perPage, totalGames);
+    if (info) info.textContent = 'Показано ' + loaded + ' из ' + totalGames + ' игр';
+  }
+
+  var scrollRaf = null;
+  function onWindowScroll() {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(function () {
+      scrollRaf = null;
+      loadNextIfNeeded();
+    });
+  }
+
+  async function loadPage(page) {
+    if (loadedPages.has(page)) return;
+    showLoading();
+    try {
+      var r = await fetch(window.location.pathname + '?page=' + page, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+      var data = await r.json();
+      if (data.games_html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = data.games_html;
+        var newImgs = tmp.querySelectorAll('img[src]');
+        for (var i = 0; i < newImgs.length; i++) {
+          try {
+            newImgs[i].setAttribute('loading', 'eager');
+            var pre = new Image();
+            pre.src = newImgs[i].currentSrc || newImgs[i].src;
+          } catch (e) {}
+        }
+        while (tmp.firstChild) list.appendChild(tmp.firstChild);
+        loadedPages.add(page);
+      }
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function loadNextIfNeeded() {
+    if (isLoading || currentPage >= totalPages) return;
+    var nearBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 500;
+    if (!nearBottom) return;
+    await loadPage(currentPage + 1);
+    currentPage += 1;
+    updateLoadedInfo();
+  }
+
+  updateLoadedInfo();
+  window.addEventListener('scroll', onWindowScroll, { passive: true });
+})();
+
+/*
+ * Кастомный скроллбар (отключён): раскомментировать разметку колонки скролла (блок comment/endcomment выше), CSS в new.css,
+ * заменить активный IIFE на скрипт ниже; убрать .new-games-list-footer или оставить только loading в колонке.
+ *
+(function () {
+  var list = document.getElementById('newGamesList');
+  var totalGames = parseInt(list.dataset.totalGames || '0', 10);
+  var perPage = parseInt(list.dataset.gamesPerPage || '20', 10);
+  var totalPages = Math.max(1, Math.ceil(totalGames / perPage));
+  var currentPage = 1;
+  var loadedPages = new Set([1]);
+  var isLoading = false;
+
+  var scrollbar = document.getElementById('newSmartScrollbar');
+  var track = document.getElementById('newScrollbarTrack');
+  var thumb = document.getElementById('newScrollbarThumb');
+  var info = document.getElementById('newScrollbarInfo');
+  var loading = document.getElementById('newLoading');
+
+  function showLoading() { isLoading = true; if (loading) loading.hidden = false; }
+  function hideLoading() { isLoading = false; if (loading) loading.hidden = true; }
+
+  function updateScrollbar() {
+    var loaded = Math.min(currentPage * perPage, totalGames);
+    if (info) info.textContent = 'Показано ' + loaded + ' из ' + totalGames + ' игр';
+  }
+
+  function getProgressAmongAllGames() {
+    if (totalGames <= 1) return 0;
+    var cards = list.querySelectorAll('.new-game-card[data-game-list-index]');
+    if (!cards.length) {
+      var docEl = document.documentElement;
+      var scrollTop = window.scrollY || docEl.scrollTop || 0;
+      var docH = Math.max(docEl.scrollHeight, document.body ? document.body.scrollHeight : 0);
+      var viewH = window.innerHeight;
+      var maxScroll = Math.max(0, docH - viewH);
+      return maxScroll > 0 ? scrollTop / maxScroll : 0;
+    }
+    var anchorY = window.scrollY + Math.min(140, window.innerHeight * 0.12);
+    var bestIdx = 0;
+    for (var i = 0; i < cards.length; i++) {
+      var idx = parseInt(cards[i].getAttribute('data-game-list-index'), 10);
+      if (isNaN(idx)) continue;
+      var top = cards[i].getBoundingClientRect().top + window.scrollY;
+      if (top <= anchorY) bestIdx = idx;
+      else break;
+    }
+    return Math.max(0, Math.min(1, bestIdx / (totalGames - 1)));
+  }
+
+  function pctAlongBarToGameIndex(pct) {
+    if (totalGames <= 1) return 0;
+    pct = Math.max(0, Math.min(1, pct));
+    return Math.max(0, Math.min(totalGames - 1, Math.ceil(pct * totalGames) - 1));
+  }
+
+  function syncScrollThumb() {
+    if (!scrollbar || !thumb || !track) return;
+    var h = scrollbar.getBoundingClientRect().height || 0;
+    var th = thumb.offsetHeight || thumb.getBoundingClientRect().height || 22;
+    var scrollPct = getProgressAmongAllGames();
+    var top = Math.max(0, Math.min(h - th, scrollPct * (h - th)));
+    thumb.style.top = top + 'px';
+    var fillPct = h > 0 ? Math.min(100, ((top + th) / h) * 100) : 0;
+    track.style.height = fillPct + '%';
+  }
+
+  var scrollRaf = null;
+  function onWindowScroll() {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(function () {
+      scrollRaf = null;
+      loadNextIfNeeded();
+      syncScrollThumb();
+    });
+  }
+
+  async function loadPage(page) {
+    if (loadedPages.has(page)) return;
+    showLoading();
+    try {
+      var r = await fetch(window.location.pathname + '?page=' + page, { headers: { 'X-Requested-With': 'XMLHttpRequest' }});
+      var data = await r.json();
+      if (data.games_html) {
+        var tmp = document.createElement('div');
+        tmp.innerHTML = data.games_html;
+        var newImgs = tmp.querySelectorAll('img[src]');
+        for (var i = 0; i < newImgs.length; i++) {
+          try {
+            newImgs[i].setAttribute('loading', 'eager');
+            var pre = new Image();
+            pre.src = newImgs[i].currentSrc || newImgs[i].src;
+          } catch (e) {}
+        }
+        while (tmp.firstChild) list.appendChild(tmp.firstChild);
+        loadedPages.add(page);
+      }
+    } finally {
+      hideLoading();
+    }
+  }
+
+  async function loadNextIfNeeded() {
+    if (isLoading || currentPage >= totalPages) return;
+    var nearBottom = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 500;
+    if (!nearBottom) return;
+    await loadPage(currentPage + 1);
+    currentPage += 1;
+    updateScrollbar();
+    syncScrollThumb();
+  }
+
+  function jumpToGameIndex(targetIdx) {
+    targetIdx = Math.max(0, Math.min(totalGames - 1, targetIdx));
+    var targetPage = Math.floor(targetIdx / perPage) + 1;
+    var promise = Promise.resolve();
+    for (var p = 1; p <= targetPage; p++) {
+      (function (pp) { promise = promise.then(function () { return loadPage(pp); }); })(p);
+    }
+    promise.then(function () {
+      currentPage = targetPage;
+      updateScrollbar();
+      var el = list.children[targetIdx];
+      if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      requestAnimationFrame(syncScrollThumb);
+    });
+  }
+
+  if (scrollbar && thumb) {
+    scrollbar.addEventListener('click', function (e) {
+      if (isLoading) return;
+      if (e.target === thumb || (thumb.contains && thumb.contains(e.target))) return;
+      var rect = scrollbar.getBoundingClientRect();
+      var clickY = e.clientY - rect.top;
+      var pct = rect.height > 0 ? clickY / rect.height : 0;
+      jumpToGameIndex(pctAlongBarToGameIndex(pct));
+    });
+    var dragging = false;
+    thumb.addEventListener('mousedown', function (e) { dragging = true; e.preventDefault(); });
+    document.addEventListener('mousemove', function (e) {
+      if (!dragging) return;
+      var rect = scrollbar.getBoundingClientRect();
+      var y = e.clientY - rect.top;
+      var pct = rect.height > 0 ? Math.max(0, Math.min(1, y / rect.height)) : 0;
+      jumpToGameIndex(pctAlongBarToGameIndex(pct));
+    });
+    document.addEventListener('mouseup', function () { dragging = false; });
+  }
+
+  updateScrollbar();
+  syncScrollThumb();
+  window.addEventListener('scroll', onWindowScroll, { passive: true });
+  window.addEventListener('resize', function () {
+    updateScrollbar();
+    syncScrollThumb();
+  });
+})();
+ */
+</script>
+
+<p class="new-tg-back new-tg-back--footer"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
+{% endblock %}

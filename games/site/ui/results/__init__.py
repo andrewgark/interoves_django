@@ -1,1 +1,1 @@
-"""Results tables and per-task result pages."""
+"""Compatibility alias. Implementation lives in games.site.pages.results."""

@@ -1,0 +1,57 @@
+{% load filters %}
+<section class="new-hub-section{% if card.wide and not onboarding_hierarchy %} new-hub-section--wide{% endif %}{% if highlight_daily_cta and card.is_today %} new-hub-section--today{% endif %}{% if onboarding_hierarchy and card.id == 'salad' %} new-hub-section--recommended{% endif %}" aria-labelledby="hub-section-{{ card.id }}">
+  <div class="new-hub-section__head">
+    <h2 id="hub-section-{{ card.id }}" class="new-hub-section__title">
+      {% if card.section_url %}
+        <a class="new-hub-section__title-link" href="{{ card.section_url }}">{% include "site/partials/section_ph_icon.html" with ph_icon=card.ph_icon extra_class="new-hub-section__icon" %}{{ card.title }}</a>
+      {% else %}
+        {% include "site/partials/section_ph_icon.html" with ph_icon=card.ph_icon extra_class="new-hub-section__icon" %}{{ card.title }}
+      {% endif %}
+    </h2>
+    {% if card.today_label %}
+      <span class="new-pill{% if highlight_daily_cta and card.is_today %} new-hub-section__badge-today{% endif %}">{{ card.today_label }}</span>
+    {% endif %}
+    {% if card.new_label %}<span class="new-hub-section__badge-new">{{ card.new_label }}</span>{% endif %}
+  </div>
+  {% if onboarding_hierarchy and card.onboarding_badge %}
+    <p class="new-pill new-hub-section__onboarding-badge">{{ card.onboarding_badge }}</p>
+  {% endif %}
+  <p class="new-hub-section__desc">{{ card.description }}</p>
+  {% if card.play_url %}
+    <div class="new-hub-section__cta-row">
+      <a class="new-btn new-hub-section__cta{% if highlight_daily_cta and card.is_today %} new-hub-section__cta--today{% elif card.cta_label %} new-hub-section__cta--latest{% endif %}{% if card.is_solved %} new-hub-section__cta--solved{% endif %}"
+         href="{{ card.play_url }}"
+         data-hub-section-cta
+         data-cta-number="{{ card.cta_number|default:'' }}"
+         {% if card.load_task_group_progress and card.task_group_progress_url and not card.progress_embedded %}data-progress-url="{{ card.task_group_progress_url }}"{% endif %}{% if card.is_solved %} data-progress-embedded="1"{% endif %}>
+        {{ card.cta_label }}
+      </a>
+      <span class="new-hub-section__solved"{% if not card.is_solved %} hidden{% endif %} data-hub-solved-mark role="img" aria-label="Решено"{% if card.is_solved %} tabindex="0"{% endif %}>
+        <i class="ph ph-check-circle" aria-hidden="true"></i>
+        <span class="new-tooltip new-tooltip--above new-hub-section__solved-tip" role="tooltip">Решено</span>
+      </span>
+      {% if card.streak %}
+        <span class="new-hub-section__streak new-hub-section__streak--active" data-tooltip="{{ card.streak }} {{ card.streak|ru_day_word }} подряд" aria-label="{{ card.streak }} {{ card.streak|ru_day_word }} подряд">
+          <i class="ph ph-fire" aria-hidden="true"></i><span>{{ card.streak }}</span>
+        </span>
+      {% endif %}
+    </div>
+  {% elif card.status == 'coming_soon' %}
+    <p class="new-hub-section__soon{% if card.soon_emphasis %} new-hub-section__soon--announce{% endif %}">
+      {% if card.soon_text %}{{ card.soon_text }}
+      {% else %}Новое задание появится в полночь по Москве.{% endif %}
+    </p>
+  {% endif %}
+  {% if card.section_url and card.all_link_label %}
+  <p class="new-hub-section__footer">
+    <a class="new-link-dotted" href="{{ card.section_url }}">{{ card.all_link_label }}</a>
+    {% if card.create_url %}
+      <br>{% include "site/partials/create_game_link.html" with create_url=card.create_url create_label=card.create_label %}
+    {% endif %}
+  </p>
+  {% elif card.create_url %}
+  <p class="new-hub-section__footer">
+    {% include "site/partials/create_game_link.html" with create_url=card.create_url create_label=card.create_label %}
+  </p>
+  {% endif %}
+</section>

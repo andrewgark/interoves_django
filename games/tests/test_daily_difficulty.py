@@ -4,14 +4,12 @@ import uuid
 from datetime import timedelta
 from unittest.mock import patch
 
-from django.contrib.auth.models import AnonymousUser
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
 from django.template.loader import render_to_string
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.daily.page.section import MOSCOW
 from games.daily.difficulty.core import (
     _censored_median,
     _public_context,
@@ -38,11 +36,12 @@ from games.daily.difficulty.core import (
 from games.daily.difficulty.refresh import (
     ClaimedDifficultyRefresh,
     claim_due_daily_difficulties,
+    refresh_claimed_difficulty,
     repair_daily_difficulty_queue,
     run_daily_difficulty_refresh,
     run_minute_difficulty_refresh,
-    refresh_claimed_difficulty,
 )
+from games.daily.page.section import MOSCOW
 from games.models import (
     Attempt,
     CheckerType,
@@ -164,7 +163,7 @@ class DifficultyScoringTests(SimpleTestCase):
         self.assertEqual(context['star_slots'], [True, True, False, False, False])
 
         html = render_to_string(
-            'new/partials/difficulty_badge.html',
+            'site/partials/difficulty_badge.html',
             {'difficulty': context},
         )
         self.assertIn(
@@ -190,7 +189,7 @@ class DifficultyScoringTests(SimpleTestCase):
         })
 
         html = render_to_string(
-            'new/partials/difficulty_badge.html',
+            'site/partials/difficulty_badge.html',
             {'difficulty': context},
         )
 

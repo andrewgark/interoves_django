@@ -1,6 +1,5 @@
 from django.core.management.base import BaseCommand
-
-from games.club.merge.anon import heal_orphaned_chain_states_from_migrate_events
+from games.identity.merge.anon_steps import heal_orphaned_chain_states_from_migrate_events
 
 
 class Command(BaseCommand):
@@ -18,8 +17,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         if options['dry_run']:
-            from games.models import ChainTaskState, StatisticsEvent
             from django.contrib.auth import get_user_model
+            from games.models import ChainTaskState, StatisticsEvent
 
             User = get_user_model()
             events = 0

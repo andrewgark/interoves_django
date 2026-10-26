@@ -11,3 +11,5 @@ ignore = ["E501"]
 "games/migrations/*.py" = ["E501", "I"]
 # URL facade: imports exist for ``ui.<name>`` re-exports, not local use.
 "games/site/views/pages/ui.py" = ["F401", "I001"]
+# Offline Censorly scripts bootstrap Django, then import. Moved unchanged.
+"games/puzzles/censorly/offline/**/*.py" = ["E402", "E701", "F401", "F541", "F811", "F841"]

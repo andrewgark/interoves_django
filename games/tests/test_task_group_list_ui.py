@@ -14,7 +14,7 @@ class TaskGroupListUiTests(SimpleTestCase):
             is_ready=True,
         )
         return render_to_string(
-            'new/_task_group_rows.html',
+            'site/_task_group_rows.html',
             {
                 'game': game,
                 'team': None,

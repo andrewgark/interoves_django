@@ -1,0 +1,76 @@
+{% extends "site/base.html" %}
+{% load static %}
+
+{% block title %}С чего начать{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <meta name="description" content="Начните знакомство с Inter Oves с Салатика — ежедневной интеллектуальной игры с понятными правилами.">
+  <link rel="canonical" href="https://interoves.com/start/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="Inter Oves">
+  <meta property="og:title" content="С чего начать · Inter Oves">
+  <meta property="og:description" content="Новая интеллектуальная игра каждый день и архив предыдущих. Начните с Салатика.">
+  <meta property="og:url" content="https://interoves.com/start/">
+{% endblock %}
+
+{% block content %}
+<div class="new-start-page">
+  <header class="new-start-hero">
+    <p class="new-start-hero__kicker">Первое знакомство</p>
+    <h1 class="new-heading new-heading--page">Впервые в Inter Oves?</h1>
+  </header>
+
+  {% if onboarding_salad_card %}
+  <section class="new-start-primary" aria-labelledby="start-primary-heading">
+    <div class="new-start-primary__head">
+      <i class="ph ph-{{ onboarding_salad_card.ph_icon }} new-start-primary__icon" aria-hidden="true"></i>
+      <div>
+        <p class="new-pill new-start-primary__badge">Рекомендуем для первой игры</p>
+        <h2 id="start-primary-heading" class="new-start-primary__title">Начните с Салатика</h2>
+      </div>
+    </div>
+    <p class="new-start-primary__desc">Найдите слова в сетке 4×4. Правила понятны за минуту.</p>
+    <p class="new-start-primary__duration"><i class="ph ph-clock" aria-hidden="true"></i>5–10 минут</p>
+    <a class="new-btn new-start-primary__cta"
+       href="{{ onboarding_salad_card.play_url }}"
+       data-onboarding-game="salad"
+       data-onboarding-recommended="1">Начать первую игру</a>
+  </section>
+  {% endif %}
+
+  {% if onboarding_alternative_cards %}
+  <section class="new-start-alternatives" aria-labelledby="start-alternatives-heading">
+    <h2 id="start-alternatives-heading" class="new-start-alternatives__title">Не хотите Салатик? Выберите другой формат</h2>
+    <div class="new-start-alternatives__grid">
+      {% for card in onboarding_alternative_cards %}
+      <article class="new-start-alternative">
+        <div class="new-start-alternative__body">
+          <div class="new-start-alternative__head">
+            <i class="ph ph-{{ card.ph_icon }}" aria-hidden="true"></i>
+            <h3>{{ card.title }}</h3>
+            <span class="new-pill">{{ card.badge }}</span>
+          </div>
+          <p>{{ card.description }}</p>
+        </div>
+        <a class="new-btn new-btn--ghost new-btn--mini"
+           href="{{ card.play_url }}"
+           data-onboarding-game="{{ card.analytics_game }}"
+           data-onboarding-recommended="0">Попробовать</a>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="new-start-all-games"><a class="new-link-dotted" href="/">Посмотреть все игры →</a></p>
+</div>
+
+<script src="{% static 'js/onboarding.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script>
+(function () {
+  if (window.interovesOnboarding) window.interovesOnboarding.initStartPage();
+})();
+</script>
+{% endblock %}

@@ -1,1 +1,1 @@
-"""Profile, reports, account merge, and anonymous migration."""
+"""Compatibility alias. Implementation lives in games.site.pages.profile."""

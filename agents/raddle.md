@@ -1,6 +1,6 @@
 # Raddle (Лесенка) — контракт API и чеклисты
 
-Код: bootstrap `games/raddle.py` → `games/puzzles/raddle/engine.py`; HTTP — `games/site/views/game/{attempt,raddle}.py`; UI — `static/templates/new/task_group.html`, `task-content/task-raddle.html`.
+Код: bootstrap `games/raddle.py` → `games/puzzles/raddle/engine.py`; HTTP — `games/site/views/game/{attempt,raddle}.py`; UI — `static/templates/site/task_group.html`, `task-content/task-raddle.html`.
 
 Матрица сценариев в коде: [`games/puzzles/raddle/contract.py`](../games/puzzles/raddle/contract.py) (источник правды для тестов).
 
@@ -87,7 +87,7 @@ DOM-free, тестируется в node. `task_group.html` только чит�
 
 ## Мобилка: sticky-пин текущей пары
 
-Источник правды для UX. Код: `static/templates/new/task_group.html`,
+Источник правды для UX. Код: `static/templates/site/task_group.html`,
 `static/js/raddle_keyboard_dismiss.js`, `.new-raddle-sticky-pin` в `new.css`.
 Только узкий layout (`max-width: 919px`); на десктопе пина нет.
 
@@ -211,7 +211,7 @@ node static/js/raddle_state.test.js
 node static/js/raddle_keyboard_dismiss.test.js
 node static/js/raddle_tab_nav.test.js
 node static/js/raddle_masked_input.test.js
-../venv/interoves_django/bin/python scripts/check_inline_js_syntax.py static/templates/new/task_group.html
+../venv/interoves_django/bin/python scripts/check_inline_js_syntax.py static/templates/site/task_group.html
 ```
 
 - `test_raddle.py` — checker, UI context, парсинг.
@@ -287,7 +287,7 @@ node static/js/raddle_masked_input.test.js
 `/send_attempt/`. Каждый заход сбрасывает прогресс актора; решение не пишет
 `PlayerStartedGame` / `PlayerCompletedGame` и цели аналитики.
 
-Отличается только слой попапов: `new/partials/ladder_tutorial_overlay.html` +
+Отличается только слой попапов: `site/partials/ladder_tutorial_overlay.html` +
 `static/js/ladder_tutorial.js` (+ `tutorial_shell.js`). Он читает настоящий DOM
 доски и реагирует на перерисовку карточки; подсветку пары двигает через
 `window.setRaddleFocusForTask` (тот же `setRaddleFocus` + `moveAnchor`).

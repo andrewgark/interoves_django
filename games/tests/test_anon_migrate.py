@@ -1,17 +1,27 @@
-from datetime import timedelta
 import json
+from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.db import connection
 from django.test import Client, TestCase
 from django.test.utils import CaptureQueriesContext
 from django.urls import reverse
-from unittest.mock import patch
 from django.utils import timezone
 
+from games.identity.merge.anon_queue import (
+    claim_next_merge_job,
+    process_merge_job,
+    serialize_merge_job,
+)
+from games.identity.merge.anon_steps import (
+    heal_orphaned_likes_from_migrate_events,
+    migrate_anon_chain_task_states,
+)
 from games.models import (
-    AnonAccountClaim,
     AlphabettyDictSuggestion,
+    AnonAccountClaim,
+    AnonymousMergeJob,
     Attempt,
     BugReport,
     ChainTaskState,
@@ -30,18 +40,8 @@ from games.models import (
     StatisticsEvent,
     Task,
     TaskGroup,
-    AnonymousMergeJob,
 )
 from games.ops.analytics.identity import attach_anon_cookie
-from games.club.merge.anon import (
-    heal_orphaned_likes_from_migrate_events,
-    migrate_anon_chain_task_states,
-)
-from games.club.merge.anonymous import (
-    claim_next_merge_job,
-    process_merge_job,
-    serialize_merge_job,
-)
 
 
 class AnonMigrateTests(TestCase):
@@ -114,7 +114,7 @@ class AnonMigrateTests(TestCase):
             response = raw_post(*args, **kwargs)
             if response.status_code != 202:
                 return response
-            payload = response.json()
+            _payload = response.json()
             claimed = claim_next_merge_job(worker='test')
             self.assertIsNotNone(claimed)
             job, token = claimed
@@ -226,7 +226,7 @@ class AnonMigrateTests(TestCase):
         Like.manager.create(user=self.user, task=self.task, value=1)
         Like.manager.create(anon_key=self.anon_key, task=self.task, value=1)
 
-        resp = self.client.post(
+        _resp = self.client.post(
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
 
@@ -248,7 +248,7 @@ class AnonMigrateTests(TestCase):
         Like.manager.create(user=self.user, task=self.task, value=-1)
         Like.manager.create(anon_key=self.anon_key, task=self.task, value=1)
 
-        resp = self.client.post(
+        _resp = self.client.post(
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
 
@@ -294,7 +294,7 @@ class AnonMigrateTests(TestCase):
         url = reverse('new_migrate_anon_attempts')
         resp = self.client.post(url, {'anon_key': self.anon_key})
         self.assertEqual(resp.status_code, 200)
-        data = resp.json()
+        _data = resp.json()
         self.assertEqual(StatisticsEvent.objects.get(
             kind=StatisticsEvent.KIND_ANON_ATTEMPTS_MIGRATED, user=self.user,
         ).payload['moved_states'], 1)
@@ -328,7 +328,7 @@ class AnonMigrateTests(TestCase):
             game_mode='general',
             state='{"solved_indices": [0, 1, 2, 12], "total": 0.5}',
         )
-        resp = self.client.post(
+        _resp = self.client.post(
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
         self.assertEqual(StatisticsEvent.objects.get(
@@ -359,7 +359,7 @@ class AnonMigrateTests(TestCase):
             game_mode='general',
             state=anon_state,
         )
-        resp = self.client.post(
+        _resp = self.client.post(
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
         self.assertEqual(StatisticsEvent.objects.get(
@@ -386,7 +386,7 @@ class AnonMigrateTests(TestCase):
             game_mode='general',
             state='{"guesses": ["ЯБЛОКО"], "won": false}',
         )
-        resp = self.client.post(
+        _resp = self.client.post(
             reverse('new_migrate_anon_attempts'), {'anon_key': self.anon_key},
         )
         self.assertEqual(StatisticsEvent.objects.get(

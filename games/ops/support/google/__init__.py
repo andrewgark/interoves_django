@@ -1,1 +1,1 @@
-"""Google Docs export helpers for support and admin."""
+"""Compatibility alias. Implementation lives in games.console.google."""

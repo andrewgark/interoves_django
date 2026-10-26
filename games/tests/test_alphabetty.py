@@ -5,69 +5,18 @@ from __future__ import annotations
 import json
 from unittest.mock import patch
 
-from django.contrib.sites.models import Site
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
+from django.contrib.sites.models import Site
 from django.test import Client, TestCase
 
-from allauth.socialaccount.models import SocialApp
-
-from games.ops.analytics.identity import attach_anon_cookie
-
-from games.puzzles.alphabetty.core import (
-    build_prefix_level,
-    compare_words,
-    guess_status,
-    is_valid_guess,
-    known_prefix,
-    normalize_word,
-    pick_answer_words,
-)
-from games.puzzles.alphabetty.play import (
-    apply_guess,
-    apply_hint,
-    build_share_lines,
-    format_elapsed,
-    format_hints_label,
-    get_play_state,
-    public_payload,
-    ru_attempt_word,
-)
-from games.club.merge.anon import _solved_count
-from games.puzzles.alphabetty.dicts import get_answer_pool, invalidate_approved_extras
-from games.puzzles.alphabetty.suggestions import (
-    approve_suggestions,
-    approve_suggestions_for_answer,
-    reject_suggestions,
-    suggest_word,
-)
 from games.club.offers.alphabetty import (
     accept_offer as accept_alphabetty_offer,
+)
+from games.club.offers.alphabetty import (
     reset_all_alphabetty_progress,
 )
-from games.models import (
-    AlphabettyDictSuggestion,
-    AlphabettyPersonalDictWord,
-    Attempt,
-    ChainTaskState,
-)
-from games.daily.catalog.alphabetty import (
-    ALPHABETTY_GAME_ID,
-    ALPHABETTY_PUBLISH_START_TAG,
-)
-from games.models import (
-    CheckerType,
-    Game,
-    GameTaskGroup,
-    HTMLPage,
-    Like,
-    PlayerStartedGame,
-    Profile,
-    Project,
-    Task,
-    TaskGroup,
-)
-from games.results.snapshots.snapshot import build_results_snapshot_payload
-from games.ops.support.games.alphabetty import (
+from games.console.games.alphabetty import (
     AlphabettySupportError,
     delete_alphabetty,
     ensure_future_buffer,
@@ -79,7 +28,54 @@ from games.ops.support.games.alphabetty import (
     set_publish_start,
     update_alphabetty,
 )
-from games.ops.support.people.banned import banned_word_set, list_banned_words
+from games.console.people.banned import banned_word_set
+from games.daily.catalog.alphabetty import (
+    ALPHABETTY_GAME_ID,
+    ALPHABETTY_PUBLISH_START_TAG,
+)
+from games.identity.merge.anon_steps import _solved_count
+from games.models import (
+    AlphabettyDictSuggestion,
+    Attempt,
+    ChainTaskState,
+    CheckerType,
+    Game,
+    GameTaskGroup,
+    HTMLPage,
+    Like,
+    PlayerStartedGame,
+    Profile,
+    Project,
+    Task,
+    TaskGroup,
+)
+from games.ops.analytics.identity import attach_anon_cookie
+from games.puzzles.alphabetty.core import (
+    build_prefix_level,
+    compare_words,
+    guess_status,
+    is_valid_guess,
+    known_prefix,
+    normalize_word,
+    pick_answer_words,
+)
+from games.puzzles.alphabetty.dicts import get_answer_pool, invalidate_approved_extras
+from games.puzzles.alphabetty.play import (
+    apply_guess,
+    build_share_lines,
+    format_elapsed,
+    format_hints_label,
+    get_play_state,
+    public_payload,
+    ru_attempt_word,
+)
+from games.puzzles.alphabetty.suggestions import (
+    approve_suggestions,
+    approve_suggestions_for_answer,
+    reject_suggestions,
+    suggest_word,
+)
+from games.results.snapshots.snapshot import build_results_snapshot_payload
 
 _FAKE_WORD = 'БЛЯМБУРГЕТОНИК'
 
@@ -493,6 +489,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['secret'], 'СЛОВО')
         self.assertTrue(data['replay_available'])
         from decimal import Decimal
+
         from games.models import Attempt
         ok = Attempt.manager.filter(
             task=self.task, anon_key='testanon1', status='Ok',
@@ -546,6 +543,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['hints'], 1)
         self.assertIn('💡 Взята 1 подсказка', '\n'.join(data['share_lines']))
         from decimal import Decimal
+
         from games.models import Attempt
         ok = Attempt.manager.filter(
             task=self.task, anon_key='hintanon', status='Ok',
@@ -562,7 +560,7 @@ class AlphabettyPlayApiTests(TestCase):
     def test_hint_skips_letters_known_from_guesses(self):
         checker = CheckerType.objects.get(id='alphabetty')
         tg = TaskGroup.objects.create(label='alphabetty:psy', checker=checker, points=1)
-        task = Task.objects.create(
+        _task = Task.objects.create(
             task_group=tg,
             number='1',
             task_type='alphabetty',
@@ -891,7 +889,7 @@ class AlphabettyPlayApiTests(TestCase):
         offer = AlphabettyOffer.objects.get(pk=offer_id)
         accept_alphabetty_offer(offer)
         offer.refresh_from_db()
-        from games.ops.support.games.alphabetty import get_alphabetty_detail, list_alphabetty_rows
+        from games.console.games.alphabetty import get_alphabetty_detail, list_alphabetty_rows
         from games.ops.telegram.links import task_play_url
         row = next(item for item in list_alphabetty_rows() if item.link_id == offer.accepted_link_id)
         self.assertEqual(row.site_url, offer.play_url())
@@ -1006,8 +1004,8 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertIn('ГОД', data['earlier'])
 
     def test_unguessable_secret_allowed_in_support(self):
+        from games.console.games.alphabetty import _create_slot
         from games.models import Task
-        from games.ops.support.games.alphabetty import _create_slot
         link = _create_slot(number=99, word='QQNOTAWORD')
         self.assertEqual(link.number, '99')
         self.assertEqual(

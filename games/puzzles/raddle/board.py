@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from games.models import Attempt
-from games.tasks.actor_state import chain_state_for_actor
-from games.tasks.result_details import raddle_ui_state_for_actor
+from games.task_group.actor_state import chain_state_for_actor
+from games.task_group.result_details import raddle_ui_state_for_actor
 
 
 @dataclass(frozen=True)

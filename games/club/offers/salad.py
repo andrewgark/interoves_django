@@ -16,6 +16,15 @@ from games.club.offers.profiles import (
     profile_display_name,
     profile_ready_for_offers,
 )
+from games.console.games.salad import (
+    WordSaladSupportError,
+    attach_existing_task_group,
+    ensure_word_salad_game,
+    get_word_salad_game,
+    list_word_salad_rows,
+)
+from games.daily.catalog.word_salad import word_salad_publish_at
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -24,7 +33,6 @@ from games.models import (
     TaskGroup,
     WordSaladOffer,
 )
-from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.puzzles.salad.rules import (
     format_grid_text,
     format_words_text,
@@ -34,14 +42,6 @@ from games.puzzles.salad.rules import (
     parse_words,
     serialize_task_data,
     validate_puzzle,
-)
-from games.daily.catalog.word_salad import word_salad_publish_at
-from games.ops.support.games.salad import (
-    WordSaladSupportError,
-    attach_existing_task_group,
-    ensure_word_salad_game,
-    get_word_salad_game,
-    list_word_salad_rows,
 )
 
 _RESERVED_SALAD_SEGMENTS = frozenset({

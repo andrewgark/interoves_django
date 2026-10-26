@@ -5,8 +5,8 @@ from django.core.mail import send_mail
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from games.site.forms import CorporateGameOrderForm
 from games.models import CorporateGameOrder, OrderGameClient, OrderGameReview
+from games.site.forms import CorporateGameOrderForm
 
 logger = logging.getLogger('application')
 
@@ -74,7 +74,7 @@ def order_game_landing(request):
     clients = list(OrderGameClient.objects.filter(is_published=True))
     reviews = list(OrderGameReview.objects.filter(is_published=True))
 
-    return render(request, 'new/order_game.html', {
+    return render(request, 'site/order_game.html', {
         'form': form,
         'submitted': submitted,
         'page_title': 'Игры для компаний',

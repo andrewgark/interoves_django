@@ -63,7 +63,7 @@
         <div id="prop-wall-explanations-{{ task.id }}-{{ exptile.id }}" popover="auto" class="new-proportions-attempts-popover">
           <div class="new-proportions-attempts-popover__header"><div class="new-proportions-attempts-popover__title">Попытки объяснения категории {{ exptile.id|add:'1' }}</div><button type="button" class="new-proportions-attempts-popover__close" popovertarget="prop-wall-explanations-{{ task.id }}-{{ exptile.id }}" popovertargetaction="hide" aria-label="Закрыть список попыток"><i class="ph ph-x" aria-hidden="true"></i></button></div>
           <div class="new-attempts__list new-proportions-attempts-popover__list">
-            {% for item in explanation_items %}{% with a=item.attempt %}{% include "new/task-content/attempt-row.html" %}{% endwith %}{% endfor %}
+            {% for item in explanation_items %}{% with a=item.attempt %}{% include "site/task-content/attempt-row.html" %}{% endwith %}{% endfor %}
           </div>
         </div>
         {% endwith %}

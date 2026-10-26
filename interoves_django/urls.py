@@ -16,17 +16,18 @@ Including another URLconf
 from django.conf import settings
 from django.contrib import admin
 from django.contrib.auth.views import LogoutView
-from django.urls import path, include, re_path
 from django.shortcuts import redirect
+from django.urls import include, path, re_path
 from django.views.generic import RedirectView, TemplateView
-
-from microsites import views as microsites_views
+from games.ops.social.views import social_queue_instagram_jpg
+from games.ops.telegram.transport.urls import urlpatterns as telegram_urlpatterns
 from games.site.views.account.ticket import nowpayments_ipn, tribute_webhook, yookassa_webhook
 from games.site.views.pages import ui as ui_views
 from games.site.views.pages.meta import deploy_version
 from games.site.views.pages.public.analytics import analytics_goal_ack
 from games.site.views.pages.public.feed import instagram_feed, ladder_teaser_jpg
-from games.site.views.pages.public.health import live as health_live, ready as health_ready
+from games.site.views.pages.public.health import live as health_live
+from games.site.views.pages.public.health import ready as health_ready
 from games.site.views.pages.public.legal import legal_page
 from games.site.views.pages.public.order import order_game_landing
 from games.site.views.pages.public.vote import next_game_vote_page
@@ -34,8 +35,7 @@ from games.site.views.workers.background import background_worker
 from games.site.views.workers.identity import identity_worker
 from games.site.views.workers.integrations import integrations_worker
 from games.site.views.workers.word_salad import recheck_worker, word_salad_worker
-from games.ops.social.views import social_queue_instagram_jpg
-from games.ops.telegram.transport.urls import urlpatterns as telegram_urlpatterns
+from microsites import views as microsites_views
 
 nutrimatic_patterns = [
     path("", microsites_views.nutrimatic_search, name="nutrimatic_home"),
@@ -125,8 +125,8 @@ urlpatterns = [
     re_path(r'^terms-of-use/?$', RedirectView.as_view(url='/terms/', permanent=True, query_string=True)),
     path('tickets/', RedirectView.as_view(url='/pay/', permanent=True), name='legacy_tickets'),
     re_path(r'^ticket-agreement/?$', RedirectView.as_view(url='/terms/russia/', permanent=True, query_string=True)),
-    path('about/', TemplateView.as_view(template_name='new/about.html'), name='about'),
-    path('vpn/', TemplateView.as_view(template_name="new/pigeon_vpn.html"), name='pigeon_vpn'),
+    path('about/', TemplateView.as_view(template_name='site/about.html'), name='about'),
+    path('vpn/', TemplateView.as_view(template_name="site/pigeon_vpn.html"), name='pigeon_vpn'),
     path('donate/', ui_views.donate_page, name='donate'),
     path('vote/next-game/', next_game_vote_page, name='next_game_vote'),
     path('donate/create-crypto-payment/', ui_views.create_crypto_donation, name='donate_create_crypto'),
@@ -162,7 +162,7 @@ urlpatterns = [
 
     path('explorer/', include('explorer.urls')),
 
-    path('support/', include('games.ops.support.http.urls')),
+    path('support/', include('games.console.http.urls')),
 
     path("nutrimatic-ru/", include(nutrimatic_patterns)),
     path("eurovision_booklet/", include(eurovision_booklet_patterns)),

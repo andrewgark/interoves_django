@@ -10,16 +10,17 @@ class GamesConfig(AppConfig):
         from games.site.http import auth_observability
 
         auth_observability.log_startup_auth_configuration()
+        from health_check.plugins import plugin_dir
+
         import games.club.billing.tribute.checks  # noqa: F401
-        import games.site.http.signals  # noqa: F401
         import games.daily.timing.signals  # noqa: F401 — public statistics eligibility cache
         import games.ops.analytics.identity  # noqa: F401 — logout rotation receiver
-        import games.ops.telegram.models  # noqa: F401
         import games.ops.social.instagram.models  # noqa: F401
         import games.ops.social.models  # noqa: F401
+        import games.ops.telegram.models  # noqa: F401
         import games.ops.telegram.signals
-        import games.site.ui.profile.feedback  # noqa: F401
         import games.puzzles.core.norm_matcher
-        from health_check.plugins import plugin_dir
+        import games.site.http.signals  # noqa: F401
+        import games.site.pages.profile.feedback  # noqa: F401
         from games.ops.health.checks import MediaStorageHealthCheck
         plugin_dir.register(MediaStorageHealthCheck)

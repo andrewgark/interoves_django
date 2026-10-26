@@ -1,11 +1,10 @@
 from django import forms
 from django.contrib import admin, messages
-from django.forms import Textarea, ModelForm
 from django.db import models
+from django.forms import ModelForm, Textarea
 from django.shortcuts import get_object_or_404
-from django.urls import path
-from django.utils.html import format_html
-from games.ops.support.google.actions import create_google_doc
+
+from games.console.google.actions import create_google_doc
 from games.models import (
     Audio,
     CheckerType,
@@ -21,7 +20,6 @@ from games.models import (
     TaskGroup,
 )
 from games.results.snapshots.snapshot import freeze_game_results
-
 
 admin.site.register([CheckerType, HTMLPage, Image, Audio, Project])
 
@@ -66,6 +64,7 @@ class TaskGroupAdmin(admin.ModelAdmin):
 
     def week_task_source_link(self, obj):
         from django.utils.html import format_html
+
         from games.sections.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 
         if obj is None:

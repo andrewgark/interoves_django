@@ -17,6 +17,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from games.club.access.archive import has_club_access
+from games.console.http.access import user_has_support_access
 from games.daily.catalog.censorly import (
     CENSORLY_GAME_ID,
     MOSCOW,
@@ -47,7 +48,6 @@ from games.ops.analytics.events import (
     register_started_game,
 )
 from games.ops.analytics.identity import gameplay_anon_key
-from games.ops.support.http.access import user_has_support_access
 from games.ops.telegram.links import task_play_url
 from games.puzzles.censorly import CensorlyMoveRefusal, CensorlyPuzzle
 from games.puzzles.censorly.article import reports as censorly_word_reports
@@ -73,26 +73,26 @@ from games.sections.paths import section_hub_path, section_play_path, section_re
 from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.site.http.middleware.request_timing import timing_phase
 from games.site.http.request_util import get_public_task_or_404
+from games.site.pages import NEW_UI_SECTIONS_PROJECT
+from games.site.pages.game.progress import (
+    _archive_nav_target,
+    _neighbors_by_pk,
+    _task_group_page_nav_context,
+)
 from games.site.session.gameplay_context import (
     context_error_response,
     issue_gameplay_context,
     validate_gameplay_context,
 )
 from games.site.session.replay import StaleReplayError, _official_exists, active_replay, replay_for_request
-from games.site.ui import NEW_UI_SECTIONS_PROJECT
-from games.site.ui.game.progress import (
-    _archive_nav_target,
-    _neighbors_by_pk,
-    _task_group_page_nav_context,
-)
 from games.site.views.daily.hub import can_access_daily_game
 from games.site.views.daily.timing import daily_timing_page_context
 from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.tasks.likes_meta import likes_meta_by_task_id
-from games.tasks.titles import task_display_name, task_group_page_title
+from games.task_group.likes_meta import likes_meta_by_task_id
+from games.task_group.titles import task_display_name, task_group_page_title
 
 CENSORLY_WORD_REPORT_LIMIT = 20
 CENSORLY_WORD_REPORT_WINDOW_SECONDS = 10 * 60
@@ -257,7 +257,7 @@ def _meta_context(request, *, game, task, user, anon_key, placement=None):
 
 def _meta_bar_html(request, *, game, task, user, anon_key, placement=None) -> str:
     return render_to_string(
-        'new/task-content/task-meta-bar.html',
+        'site/task-content/task-meta-bar.html',
         _meta_context(
             request,
             game=game,
@@ -513,13 +513,13 @@ def censorly_hub_page(request):
             'row_class': progress.get(number, {}).get('row_class', ''),
             'progress_meta': progress.get(number, {}).get('progress_meta', ''),
         })
-    from games.site.ui.game.progress import _mark_locked_archive_rows
+    from games.site.pages.game.progress import _mark_locked_archive_rows
     _mark_locked_archive_rows(request, game, rows)
     from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties(schedule_links)
     for row in rows:
         row['difficulty'] = difficulties.get(row.pop('placement_id'))
-    from games.site.ui.hub.cards import _add_daily_completion_statuses
+    from games.site.pages.hub.cards import _add_daily_completion_statuses
     _add_daily_completion_statuses(request, game, rows, schedule_links)
     archive_context = refresh_daily_archive_context(
         request, items=archive_items, game_label='Цензурка',
@@ -532,9 +532,9 @@ def censorly_hub_page(request):
         locked_keys={row['number'] for row in rows if row.get('is_archive_locked')},
     )
     random_access = has_club_access(request.user)
-    return render(request, 'new/censorly_hub.html', {
+    return render(request, 'site/censorly_hub.html', {
         'page_title': 'Цензурки',
-        'random_button_template': 'new/partials/censorly_random_button.html',
+        'random_button_template': 'site/partials/censorly_random_button.html',
         'daily_hub_play_url': hub['censorly_play_url'],
         'daily_hub_cta_label': hub['censorly_cta_label'],
         'daily_hub_is_today': hub['censorly_is_today'],
@@ -542,7 +542,7 @@ def censorly_hub_page(request):
         'daily_hub_coming_soon_text': 'Новая Цензурка — каждый день в полночь по Москве.',
         'rules_title': 'Цензурка',
         'rules_storage_key': 'section_rules_seen_censorly',
-        'rules_body_template': 'new/_censorly_rules_body.html',
+        'rules_body_template': 'site/_censorly_rules_body.html',
         'empty_text': 'Цензурки скоро появятся.',
         'create_link': create_game_link_context(CENSORLY_GAME_ID),
         'game': game,
@@ -715,7 +715,7 @@ def _render_play(request, *, game, task, load_meta):
     stats_enabled = bool(get_daily_game(CENSORLY_GAME_ID) and get_daily_game(CENSORLY_GAME_ID).capabilities.statistics)
     stats_number = play_number if is_random else (link.number if link else play_number)
     random_access = has_club_access(request.user)
-    return render(request, 'new/censorly_play.html', {
+    return render(request, 'site/censorly_play.html', {
         'game': game,
         'offer_share_hash': (
             play_number if is_random or (link is not None and load_meta.get('is_share_link')) else ''

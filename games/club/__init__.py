@@ -1,1 +1,1 @@
-"""People and money: access, merges, billing, offers, and the next-game vote."""
+"""People and money: access, merges, billing, offers, and the next-game campaign."""

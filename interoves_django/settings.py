@@ -13,13 +13,12 @@ https://docs.djangoproject.com/en/2.1/ref/settings/
 import json
 import os
 import re
-import requests
 import sys
 
+import requests
 from django.core.exceptions import ImproperlyConfigured
 
 from interoves_django.runtime_env import load_runtime_environment
-
 
 # All deployment modes may opt into the same Secrets Manager-backed environment
 # loader.  With no INTEROVES_CONFIG_SECRET_ID this is a no-op, preserving the
@@ -853,8 +852,8 @@ SOCIALACCOUNT_PROVIDERS = {
 # TELEGRAM_BOT_TOKEN = load_secret('telegram_token.txt')
 # TELEGRAM_LOGIN_REDIRECT_URL = 'fat-owl-8.loca.lt'
 
-ACCOUNT_ADAPTER = 'games.users.allauth.AccountAdapter'
-SOCIALACCOUNT_ADAPTER = "games.users.allauth.SocialAccountAdapter"
+ACCOUNT_ADAPTER = 'games.identity.allauth.AccountAdapter'
+SOCIALACCOUNT_ADAPTER = "games.identity.allauth.SocialAccountAdapter"
 SOCIALACCOUNT_AUTO_SIGNUP = True
 
 YANDEX_METRIKA_COUNTER_ID = int(os.environ.get('YANDEX_METRIKA_COUNTER_ID') or 108320022)

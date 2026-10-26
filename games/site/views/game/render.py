@@ -6,7 +6,7 @@ from games.models import Attempt, AudioManager, GameTaskGroup, ImageManager
 from games.ops.analytics.identity import gameplay_anon_key
 from games.puzzles.replacements.forms import render_html_forms_task
 from games.site.session.gameplay_context import issue_gameplay_context
-from games.tasks.task_group_context import build_task_group_task_context_dicts
+from games.task_group.task_group_context import build_task_group_task_context_dicts
 
 
 def _task_card_public_identity(game, task_group, slot):
@@ -304,7 +304,7 @@ def render_new_ui_task_card_html(
         from games.daily.difficulty.core import get_cached_game_difficulties
         difficulty = get_cached_game_difficulties([slot]).get(slot.pk)
     from games.results.share import share_host_from_request
-    return render(request, 'new/partials/task_card.html', {
+    return render(request, 'site/partials/task_card.html', {
         'game': game,
         'task_group': task_group,
         'tg_number': tg_number,

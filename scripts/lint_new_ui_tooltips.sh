@@ -17,7 +17,7 @@ search_file() {
   if command -v rg >/dev/null; then rg -n "$1" "$2"; else grep -nP "$1" "$2"; fi
 }
 
-paths=(static/templates/new static/templates/task-content)
+paths=(static/templates/site static/templates/task-content)
 violations="$(search_html '(?<![\w.-])title\s*=' "${paths[@]}" 2>/dev/null | grep -Ev '\b(var|let|const) title\b|\.title\s*=' || true)"
 if [[ -n "$violations" ]]; then
   printf '%s\n' "$violations" >&2

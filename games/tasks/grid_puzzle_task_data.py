@@ -1,20 +1,6 @@
-"""Grid-puzzle template payloads keyed by task id (task-group UI)."""
+"""Compatibility alias. Implementation lives in games.task_group.grid_puzzle_task_data."""
+import sys
 
-from games.puzzles.replacements.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
+from games.task_group import grid_puzzle_task_data as _implementation
 
-
-def grid_puzzle_data_by_task_id(tasks, attempts_info_by_task_id) -> dict:
-    """Build ``{task_id: public_grid_puzzle_context(...)}`` for grid-puzzle tasks."""
-    out = {}
-    for t in tasks:
-        if t.task_type != 'grid-puzzle':
-            continue
-        ai = attempts_info_by_task_id.get(t.id)
-        solved = bool(ai and ai.is_solved())
-        try:
-            out[t.id] = public_grid_puzzle_context(
-                t, reveal_solution=solved, readonly=solved,
-            )
-        except GridPuzzleDataError:
-            continue
-    return out
+sys.modules[__name__] = _implementation

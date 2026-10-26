@@ -2,16 +2,16 @@ import html
 import logging
 
 from django.db import transaction
+
+from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
+from games.models import AlphabettyDictSuggestion, BugReport, TicketRequest
+from games.ops.telegram.bot.notify import send_admin_message
+from games.ops.telegram.transport.api import answer_callback_query, edit_message_reply_markup
 from games.puzzles.alphabetty.suggestions import (
     approve_suggestions,
     approve_suggestions_for_answer,
     reject_suggestions,
 )
-from games.models import AlphabettyDictSuggestion, BugReport, TicketRequest
-from games.ops.telegram.transport.api import answer_callback_query, edit_message_reply_markup
-from games.ops.telegram.bot.notify import send_admin_message
-from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
-
 
 logger = logging.getLogger('application')
 
@@ -98,7 +98,7 @@ def _handle_censorly(action: str, report_id: int, callback_id, chat_id, message_
         target = metadata.get('target_surface') or ''
         if expected and other and target and not metadata.get('review_case_created'):
             try:
-                from games.puzzles.censorly.lexical.tools.review_pair import record_review_case
+                from games.puzzles.censorly.offline.tools.review_pair import record_review_case
 
                 _row, _created, _diagnostic, review_case = record_review_case(
                     other,

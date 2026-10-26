@@ -59,11 +59,16 @@ INTEROVES_TEST_DB_PATH=/tmp/interoves_test.sqlite3 ./run_tests.sh
 ## Где искать код
 
 - `games/models/` — модели и локальные инварианты данных.
-- `games/site/` (views, ui, urls, http) — HTTP-слой и main UI; `games/site/data/` — JSON для legacy meta100 endpoints (`meta.py`).
-- `games/ops/telegram/`, `games/ops/social/` — интеграционные адаптеры.
+- `games/puzzles/markers/` — типы заданий без обычной проверки ответа (метка, автоподсказка, раздача по командам). Старый путь `games.puzzles.core.short` — шим.
+- `games/site/` — HTTP. Экраны текущего интерфейса в `games/site/pages/` (шим `games/site/ui/`), прочие обработчики в `games/site/views/`, плюс `urls` и `http`. `games/site/data/` — JSON для legacy meta100 endpoints (`meta.py`).
+- Имена игр: лесенка — каталог `ladder`, движок `games/puzzles/raddle/`, тип задания `raddle`; салатик — движок `games/puzzles/salad/`, каталог и тип `word_salad`. Алфавитки и Цензорли: `alphabetty`, `censorly`. Офлайн-инструменты Цензорли — `games/puzzles/censorly/offline/` (шим `lexical/tools` и `lexical/audit`).
+- `games/identity/` — кто играет (`actor`, `profile`), склейка аккаунтов (`merge/`), allauth-адаптер и Telegram OIDC. Старые пути `games.club.merge`, `games.club.telegram_oidc`, `games.users.allauth` — шимы.
+- Тело ежедневного тайминга — `games/daily/timing/session.py`, тело проекций — `games/daily/projection/materialize.py`. Импорт по-прежнему `games.daily.timing` и `games.daily.projection`: пакет реэкспортирует реализацию.
+- `games/console/` — консоль поддержки (`/support/`). Старый путь `games.ops.support` — шим. Лесенка внутри консоли — `games.console.games.ladder`.
+- `games/task_group/` — контекст карточки задания (навигация, заголовки, состояние). Старый путь `games.tasks` — шим. Очереди воркеров остаются в `games/ops/workers/`.
 - `games/management/commands/` — административные и разовые команды.
 - `scripts/` — deploy, cron, smoke-тесты и операционные инструменты.
-- `static/templates/`, `static/css/`, `static/js/` — пользовательский UI.
+- `static/templates/site/` — экраны текущего интерфейса. Рядом в `static/templates/` остаются старые `results.html`, `team.html`, `game.html`. Стили — `static/css/new.css` и `static/css/`, скрипты — `static/js/`. Классы `new-rules-modal` без переименования.
 - `microsites/` и `nutrimatic_bundle/` — отдельные сайты и их bundles.
 - `docs/` — архитектурные решения и контракты.
 - `agents/` — доп. контекст для AI/агентов (deploy, UI, raddle и т.д.).

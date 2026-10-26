@@ -2,38 +2,50 @@ import json
 import os
 from datetime import timedelta
 from decimal import Decimal
-from types import SimpleNamespace
-
-from django.test import TestCase
-from django.db import transaction
-from django.core.management import call_command
 from io import StringIO
+from types import SimpleNamespace
 from unittest.mock import patch
-from django.test import RequestFactory
-from django.test.utils import CaptureQueriesContext
-from django.db import connection
-from django.utils import timezone
-from django.contrib.auth.models import AnonymousUser
-from django.contrib.auth.models import User
 
+from django.contrib.auth.models import AnonymousUser, User
+from django.core.management import call_command
+from django.db import connection, transaction
+from django.test import RequestFactory, TestCase
+from django.test.utils import CaptureQueriesContext
+from django.utils import timezone
+
+from games.daily.completion.scoring import Actor, _bulk_actor_task_result_points_sql, bulk_actor_task_progress
 from games.daily.projection import (
     _canonical_group_results,
+    compare_task_result_projection,
+    load_task_result_projection_rows,
     refresh_daily_result_projection,
     schedule_actor_projection,
     schedule_full_projection_refresh,
 )
-from games.daily.projection import (
-    compare_task_result_projection,
-    load_task_result_projection_rows,
-)
-from games.club.merge.anon import claim_and_migrate_anon_history
+from games.identity.merge.anon_steps import claim_and_migrate_anon_history
 from games.models import (
-    AnonAccountClaim, Attempt, DailyResultProjection, DailyResultProjectionDirtyActor,
-    DailyResultProjectionState, DailyTaskResultProjection, Game, GameTaskGroup, HTMLPage, Project,
-    ChainTaskState, Hint, HintAttempt, Profile, ReplaySlot, Task, TaskGroup, HiddenAnonKey,
-    DailyResultProjectionRefreshOutbox, CheckerType, Team,
+    AnonAccountClaim,
+    Attempt,
+    ChainTaskState,
+    CheckerType,
+    DailyResultProjection,
+    DailyResultProjectionDirtyActor,
+    DailyResultProjectionRefreshOutbox,
+    DailyResultProjectionState,
+    DailyTaskResultProjection,
+    Game,
+    GameTaskGroup,
+    HiddenAnonKey,
+    Hint,
+    HintAttempt,
+    HTMLPage,
+    Profile,
+    Project,
+    ReplaySlot,
+    Task,
+    TaskGroup,
+    Team,
 )
-from games.daily.completion.scoring import Actor, _bulk_actor_task_result_points_sql, bulk_actor_task_progress
 from games.puzzles.salad.rules import dump_state, score_for_state
 
 
@@ -209,7 +221,7 @@ class DailyResultProjectionTests(TestCase):
             game=self.game, task_group=self.group, task=task,
         ).update(result_points=8)
         with patch(
-            'games.daily.projection._task_projection_compare_enabled',
+            'games.daily.projection.materialize._task_projection_compare_enabled',
             return_value=True,
         ):
             self.assertIsNone(load_task_result_projection_rows(
@@ -278,7 +290,7 @@ class DailyResultProjectionTests(TestCase):
             game=self.game, task_group=self.group, task=task,
         ).update(result_points=8)
 
-        with patch('games.daily.projection._task_projection_compare_enabled', return_value=True):
+        with patch('games.daily.projection.materialize._task_projection_compare_enabled', return_value=True):
             with self.assertLogs('application', level='WARNING') as captured:
                 solved, points = bulk_actor_task_progress(
                     tasks=[task], actor=Actor(anon_key='progress-mismatch-actor'),
@@ -299,9 +311,9 @@ class DailyResultProjectionTests(TestCase):
             text='answer', status='Ok', points=10,
         )
         refresh_daily_result_projection(self.game, self.group)
-        from games.site.ui.results.compute import _new_results_compute_uncached
+        from games.site.pages.results.compute import _new_results_compute_uncached
         with patch(
-            'games.daily.projection._task_projection_compare_enabled',
+            'games.daily.projection.materialize._task_projection_compare_enabled',
             return_value=False,
         ):
             with CaptureQueriesContext(connection) as queries:
@@ -349,7 +361,7 @@ class DailyResultProjectionTests(TestCase):
 
     def test_partial_refresh_failure_never_publishes_valid_state(self):
         with patch(
-            'games.daily.projection._canonical_group_results',
+            'games.daily.projection.materialize._canonical_group_results',
             side_effect=RuntimeError('canonical failure'),
         ):
             with self.assertRaises(RuntimeError):
@@ -602,7 +614,9 @@ class DailyResultProjectionTests(TestCase):
     @patch('games.realtime.projection.boto3.client')
     def test_missing_projection_queue_does_not_stick_refresh_marker(self, client):
         from games.realtime.projection import (
-            _cache, _mark_key, clear_projection_refresh_mark,
+            _cache,
+            _mark_key,
+            clear_projection_refresh_mark,
             publish_projection_refresh,
         )
 
@@ -728,7 +742,7 @@ class DailyResultProjectionTests(TestCase):
         refresh_daily_result_projection(self.game, self.group)
         user = User.objects.create_user('failed-claim', 'failed@example.com', 'secret')
         with patch(
-            'games.daily.projection.refresh_daily_result_projection',
+            'games.daily.projection.materialize.refresh_daily_result_projection',
             side_effect=RuntimeError('refresh failed'),
         ):
             with self.captureOnCommitCallbacks(execute=True):

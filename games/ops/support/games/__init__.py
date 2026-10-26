@@ -1,1 +1,1 @@
-"""Support tools for puzzle sections."""
+"""Compatibility alias. Implementation lives in games.console.games."""

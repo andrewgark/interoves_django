@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from games.tasks.navigation import (
+from games.task_group.navigation import (
     neighbors_by_pk,
     play_url_for_task_group,
     replay_exit_url_for_task_group,
@@ -78,7 +78,7 @@ class TaskGroupNavigationTests(SimpleTestCase):
             name='',
         )
 
-        with patch.dict('games.tasks.navigation.SECTION_HUB_META', {'salad': {}}, clear=False):
+        with patch.dict('games.task_group.navigation.SECTION_HUB_META', {'salad': {}}, clear=False):
             context = task_group_page_nav_context(game)
 
         self.assertEqual(context['task_group_pager_label'], 'Салатик')

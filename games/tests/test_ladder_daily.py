@@ -1,21 +1,19 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from django.test import SimpleTestCase, TestCase
 from django.template.loader import render_to_string
-from django.utils import timezone
+from django.test import SimpleTestCase, TestCase
 
 import games.daily.catalog.ladder as ladder_daily
 from games.daily.catalog.ladder import (
     LADDER_PUBLISH_START_TAG,
-    current_ladder_number,
     get_ladder_hub_context,
     is_ladder_number_published,
     ladder_number_for_date,
     ladder_publish_at,
     ladder_publish_start,
 )
-from games.models import DailyGameDifficulty, Game, Project, Task, TaskGroup
+from games.models import DailyGameDifficulty, Game, Task, TaskGroup
 
 
 class LadderDailyLogicTests(SimpleTestCase):
@@ -172,7 +170,7 @@ class FilterPublishedLadderLinksTests(TestCase):
 class LadderSectionPageTests(TestCase):
     def test_ladder_archive_rows_show_first_and_last_words(self):
         from games.models import GameTaskGroup
-        from games.site.ui.hub.cards import _ladder_task_group_rows
+        from games.site.pages.hub.cards import _ladder_task_group_rows
 
         game = Game.objects.get(id='ladder', project_id='sections')
         task_group = TaskGroup.objects.create(label='ladder-endpoints')
@@ -211,7 +209,7 @@ class LadderSectionPageTests(TestCase):
         self.assertEqual(rows[0]['raddle_start_word'], 'ПАРИЖ')
         self.assertEqual(rows[0]['raddle_end_word'], 'ДАКАР')
         html = render_to_string(
-            'new/_task_group_rows.html',
+            'site/_task_group_rows.html',
             {'task_group_rows': rows, 'game': game},
         )
         self.assertIn('ПАРИЖ → ДАКАР', html)
@@ -223,7 +221,7 @@ class LadderSectionPageTests(TestCase):
         self.assertEqual(html.count('ph-brain'), 5)
 
     def test_hub_section_task_group_links_ladder_does_not_crash(self):
-        from games.site.ui.hub.cards import _hub_section_task_group_links
+        from games.site.pages.hub.cards import _hub_section_task_group_links
 
         game = Game.objects.filter(id='ladder', project_id='sections').first()
         self.assertIsNotNone(game)
@@ -319,7 +317,7 @@ class LadderResultsVisibilityTests(TestCase):
         from zoneinfo import ZoneInfo
 
         from games.models import GameTaskGroup, Project
-        from games.site.ui.results.compute import _results_table_headers_context
+        from games.site.pages.results.compute import _results_table_headers_context
 
         Project.objects.get_or_create(id='sections')
         project = Project.objects.get(id='sections')

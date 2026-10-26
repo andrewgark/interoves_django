@@ -1,7 +1,7 @@
 from django.test import SimpleTestCase
 from django.urls import resolve
 
-from games.site.ui.play.replay import new_replay_exit, new_replay_start
+from games.site.pages.play.replay import new_replay_exit, new_replay_start
 
 
 class ReplayUrlTests(SimpleTestCase):

@@ -5,11 +5,11 @@ from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
-from django.utils import timezone
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase
+from django.utils import timezone
 
-TEMPLATES_NEW = Path(__file__).resolve().parents[2] / 'static' / 'templates' / 'new'
+TEMPLATES_SITE = Path(__file__).resolve().parents[2] / 'static' / 'templates' / 'site'
 
 
 def section_header_inner(html: str) -> str:
@@ -47,7 +47,7 @@ def assert_rules_beside_title(test_case, html):
 class PageHeadingPartialTests(SimpleTestCase):
     def test_daily_header_keeps_replay_button_during_a_replay(self):
         html = render_to_string(
-            'new/partials/daily_game_header.html',
+            'site/partials/daily_game_header.html',
             {
                 'heading': 'Салатик №25',
                 'daily_publish_date': timezone.localdate(),
@@ -63,7 +63,7 @@ class PageHeadingPartialTests(SimpleTestCase):
 
     def test_daily_header_hides_replay_button_without_official_completion(self):
         html = render_to_string(
-            'new/partials/daily_game_header.html',
+            'site/partials/daily_game_header.html',
             {
                 'heading': 'Салатик №25',
                 'daily_publish_date': timezone.localdate(),
@@ -81,7 +81,7 @@ class PageHeadingPartialTests(SimpleTestCase):
     def test_daily_header_combines_date_navigation_and_timer(self):
         today = timezone.localdate()
         html = render_to_string(
-            'new/partials/daily_game_header.html',
+            'site/partials/daily_game_header.html',
             {
                 'heading': 'Салатик №20',
                 'show_rules': True,
@@ -108,7 +108,7 @@ class PageHeadingPartialTests(SimpleTestCase):
 
     def test_daily_header_prefers_section_description_over_game_theme(self):
         html = render_to_string(
-            'new/partials/daily_game_header.html',
+            'site/partials/daily_game_header.html',
             {
                 'heading': 'Лесенка №90',
                 'section_tagline': 'Разгадайте цепочку слов по перемешанным подсказкам, связывающим соседние слова',
@@ -121,7 +121,7 @@ class PageHeadingPartialTests(SimpleTestCase):
 
     def test_custom_daily_header_has_reset_without_date_navigation(self):
         html = render_to_string(
-            'new/partials/daily_game_header.html',
+            'site/partials/daily_game_header.html',
             {
                 'heading': 'Мой салатик',
                 'custom_daily_task': True,
@@ -140,7 +140,7 @@ class PageHeadingPartialTests(SimpleTestCase):
 
     def test_random_alphabetty_header_hides_daily_date_navigation(self):
         html = render_to_string(
-            'new/partials/daily_game_header.html',
+            'site/partials/daily_game_header.html',
             {
                 'heading': 'Алфавитка #слово',
                 'daily_publish_date': None,
@@ -154,14 +154,14 @@ class PageHeadingPartialTests(SimpleTestCase):
     def test_daily_header_shows_year_for_other_year(self):
         date = timezone.localdate() - timedelta(days=400)
         html = render_to_string(
-            'new/partials/daily_game_header.html',
+            'site/partials/daily_game_header.html',
             {'heading': 'Лесенка №1', 'daily_publish_date': date, 'game': SimpleNamespace(theme='', tags={})},
         )
         self.assertIn(str(date.year), html)
 
     def test_long_tagline_does_not_wrap_title_and_rules(self):
         html = render_to_string(
-            'new/partials/page_heading.html',
+            'site/partials/page_heading.html',
             {
                 'heading': 'Салат №1',
                 'tagline': 'Сетка 4×4: найдите все слова по соседним буквам.',
@@ -177,7 +177,7 @@ class PageHeadingPartialTests(SimpleTestCase):
 
     def test_hub_shows_eye_and_rules_before_tagline(self):
         html = render_to_string(
-            'new/partials/page_heading.html',
+            'site/partials/page_heading.html',
             {
                 'heading': 'Лесенка',
                 'tagline': 'Одна лестница слов в день',
@@ -196,11 +196,11 @@ class PageHeadingPartialTests(SimpleTestCase):
             'alphabetty_hub.html',
             'game_page.html',
         ):
-            text = (TEMPLATES_NEW / rel).read_text(encoding='utf-8')
+            text = (TEMPLATES_SITE / rel).read_text(encoding='utf-8')
             expected = {
-                'task_group.html': 'new/partials/daily_game_header.html',
-                'alphabetty_play.html': 'new/partials/daily_game_header.html',
-                'alphabetty_hub.html': 'extends "new/daily_hub.html"',
-                'game_page.html': 'new/partials/page_heading.html',
+                'task_group.html': 'site/partials/daily_game_header.html',
+                'alphabetty_play.html': 'site/partials/daily_game_header.html',
+                'alphabetty_hub.html': 'extends "site/daily_hub.html"',
+                'game_page.html': 'site/partials/page_heading.html',
             }[rel]
             self.assertIn(expected, text, msg='{} should use the shared page heading'.format(rel))

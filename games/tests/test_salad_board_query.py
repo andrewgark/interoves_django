@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 from games.puzzles.salad import WordSaladPuzzle
-from games.tasks.actor_state import chain_state_for_actor
+from games.task_group.actor_state import chain_state_for_actor
 
 PUZZLE = {
     'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],

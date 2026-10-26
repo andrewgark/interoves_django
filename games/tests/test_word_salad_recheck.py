@@ -1,6 +1,6 @@
-import json
 import hashlib
 import hmac
+import json
 import uuid
 from datetime import timedelta
 from unittest.mock import patch
@@ -9,6 +9,7 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
+from games.console.games.salad import create_word_salad
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -18,7 +19,6 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
-from games.ops.support.games.salad import create_word_salad
 from games.ops.workers.jobs.outbox import (
     FakeWordSaladTransport,
     _payload,
@@ -26,8 +26,8 @@ from games.ops.workers.jobs.outbox import (
     reconcile_word_salad_recheck_outbox,
 )
 from games.ops.workers.jobs.salad import (
-    enqueue_word_salad_recheck,
     enqueue_actor_rechecks,
+    enqueue_word_salad_recheck,
     process_word_salad_recheck_item,
     process_word_salad_rechecks,
     serialize_enqueue_result,

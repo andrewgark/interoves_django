@@ -2,10 +2,10 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from games.puzzles.censorly.article import reports as word_reports
-from games.puzzles.censorly.lexical.match import rootbank
 from games.models import BugReport
 from games.ops.telegram.bot.shadow import run_admin_alert_live
+from games.puzzles.censorly.article import reports as word_reports
+from games.puzzles.censorly.lexical.match import rootbank
 from games.tests.test_censorly import _make_puzzle_task
 
 _DIAGNOSTIC = {'runtime': 'OPEN', 'classification': 'OPEN', 'recommendation': 'no fix required'}
@@ -112,7 +112,7 @@ class WordReportCompletionTests(TestCase):
         self.assertEqual(rootbank._diagnostics.cache_info().currsize, 0)
 
     def test_diagnostic_failure_is_reported_as_unavailable(self):
-        with patch('games.puzzles.censorly.lexical.tools.review.explain_pair.explain_pair',
+        with patch('games.puzzles.censorly.offline.tools.review.explain_pair.explain_pair',
                    side_effect=RuntimeError('boom')), \
                 self.assertLogs('application', level='ERROR'):
             self.assertEqual(

@@ -13,20 +13,17 @@ from django.test import TestCase
 from django.utils import timezone
 
 from games.daily.timing.statistics import (
+    _RELEASE_CACHE_LOCK_SCRIPT,
+    CACHE_BUILD_LOCK_TIMEOUT,
+    CACHE_TIMEOUT,
+    REVISION_TIMEOUT,
+    _release_build_lock,
+    _versioned_cache_key,
     build_attempt_histogram,
     build_daily_statistics,
     cache_key,
     invalidate_daily_statistics,
-    REVISION_TIMEOUT,
 )
-from games.daily.timing.statistics import (
-    CACHE_BUILD_LOCK_TIMEOUT,
-    CACHE_TIMEOUT,
-    _RELEASE_CACHE_LOCK_SCRIPT,
-    _release_build_lock,
-    _versioned_cache_key,
-)
-from games.puzzles.censorly.text.normalize import lemma_of
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -42,6 +39,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
+from games.puzzles.censorly.text.normalize import lemma_of
 
 
 class DailyStatisticsTests(TestCase):
@@ -101,7 +99,8 @@ class DailyStatisticsTests(TestCase):
     def test_worker_refresh_warms_the_current_statistics_generation(self):
         from games.daily.timing.statistics import _cache_revision_key, _versioned_cache_key
         from games.realtime.projection import (
-            _cache, _daily_statistics_mark_key,
+            _cache,
+            _daily_statistics_mark_key,
             run_named_daily_statistics_refresh,
         )
 
@@ -757,7 +756,7 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['summary']['median_attempts'], 1)
 
     @patch('games.club.access.archive.reject_if_club_archive_blocked', return_value=None)
-    @patch('games.site.ui.results.pages.scheduled_number_is_public', return_value=True)
+    @patch('games.site.pages.results.pages.scheduled_number_is_public', return_value=True)
     def test_results_and_statistics_explain_why_the_viewer_is_omitted(self, _public, _club):
         tg, task = self._task('alphabetty')
         author = self.users[0]

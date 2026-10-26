@@ -42,7 +42,7 @@
 
 ### 3. Первый домен для декомпозиции
 
-Статус games refactor (2026): prod/tests на **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`**, **`games.identity`**, **`games.ops.*`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**. **Oct 2026:** ~120 корневых alias-файлов и каталоги `games/views`, `games/support`, `games/telegram`, … **удалены**; остались Django entry shims (`admin`, `provider`, `templatetags`, …) — **`agents/AGENTS.md`**. Settings: middleware/context/inlineedit/storage → **`games.site.http.*`** / **`games.ops.health.storage`**; allauth **`games.provider`**. Logger names (`games.views.new_ui`, …) не менять.
+Статус games refactor (2026): prod/tests на **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`**, **`games.identity`**, **`games.ops.*`**, **`games.club.*`**, **`games.daily.*`**, **`games.task_group.*`**. **Oct 2026:** ~120 корневых alias-файлов и каталоги `games/views`, `games/support`, `games/telegram`, … **удалены**; остались Django entry shims (`admin`, `provider`, `templatetags`, …) — **`agents/AGENTS.md`**. Settings: middleware/context/inlineedit/storage → **`games.site.http.*`** / **`games.ops.health.storage`**; allauth **`games.provider`**. Logger names (`games.views.new_ui`, …) не менять.
 
 Main UI уже в `games/site/ui` + `games/site/views/pages/ui.py`; дальше — точечная декомпозиция без смены URL-контрактов:
 
@@ -107,8 +107,8 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 - `games/daily/statistics.py` — adapter dispatch для агрегированной статистики;
 - `games/daily/completion.py` — registry-backed adapter для replay-safe timing и
   analytics effects;
-- `static/templates/new/partials/daily_task_board.html` — общий shell task board;
-- `static/templates/new/partials/task_card.html` — generic `daily_board`
+- `static/templates/site/partials/daily_task_board.html` — общий shell task board;
+- `static/templates/site/partials/task_card.html` — generic `daily_board`
   contract для game-specific board templates при сохранении legacy `rd/ws`;
 - daily board adapters также декларативно задают body template и wrapper policy;
 - `games/site/ui/*`, Alphabetty play и partial renderer используют общий lifecycle

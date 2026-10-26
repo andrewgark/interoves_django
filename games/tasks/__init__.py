@@ -1,1 +1,1 @@
-"""Task domain helpers: navigation, progress, state, and presentation."""
+"""Compatibility alias. Implementation lives in games.task_group."""

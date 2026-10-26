@@ -9,7 +9,7 @@ from django.db import OperationalError
 from django.test import Client, TestCase
 from django.utils import timezone
 
-from games.club.merge.anon import migrate_anon_raddle_ui_states
+from games.identity.merge.anon_steps import migrate_anon_raddle_ui_states
 from games.models import (
     ChainTaskState,
     CheckerType,

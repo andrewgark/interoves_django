@@ -5,8 +5,8 @@ from unittest import skipUnless
 from django.db import connection, transaction
 from django.test import TransactionTestCase
 
+from games.console.http.schedule import renumber_links
 from games.models import Game, GameTaskGroup, HTMLPage, Project, TaskGroup
-from games.ops.support.http.schedule import renumber_links
 
 
 @skipUnless(connection.vendor == 'mysql', 'requires an independent MySQL backend')

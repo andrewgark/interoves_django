@@ -1,1 +1,1 @@
-"""Account merge and anonymous history migration."""
+"""Compatibility alias. Implementation lives in games.identity.merge."""

@@ -1,17 +1,10 @@
-from datetime import datetime
 import json
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from django.test import SimpleTestCase, TestCase
 from django.urls import resolve
 
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
-from games.sections.hub import (
-    DAILY_NAV_SECTION_IDS,
-    SECTION_HUB_META,
-    get_word_salad_section_hub_card,
-)
-from games.sections.paths import section_hub_path, section_last_path
 from games.daily.catalog.word_salad import (
     WORD_SALAD_DEFAULT_PUBLISH_START,
     WORD_SALAD_PUBLISH_START_TAG,
@@ -21,11 +14,16 @@ from games.daily.catalog.word_salad import (
     word_salad_publish_at,
     word_salad_publish_start,
 )
-from games.puzzles.salad.sheet import parse_word_salad_csv
 from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 from games.puzzles.salad.rules import validate_puzzle
-from games.tests.test_page_heading import assert_rules_beside_title
-
+from games.puzzles.salad.sheet import parse_word_salad_csv
+from games.sections.hub import (
+    DAILY_NAV_SECTION_IDS,
+    SECTION_HUB_META,
+    get_word_salad_section_hub_card,
+)
+from games.sections.paths import section_hub_path, section_last_path
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
@@ -279,7 +277,7 @@ class WordSaladSectionTests(TestCase):
         self.assertIn('new-daily-game-header__description', html)
 
     def test_section_tutorial_html_uses_default_rules_after_rename(self):
-        from games.site.ui import _section_tutorial_html_for_game
+        from games.site.pages import _section_tutorial_html_for_game
 
         game = Game.objects.select_related('section_default_rules').get(id=WORD_SALAD_GAME_ID)
         self.assertEqual(game.id, 'salad')
@@ -294,7 +292,8 @@ class WordSaladSectionTests(TestCase):
 
     def test_archive_cards_show_theme_and_word_count(self):
         from django.template.loader import render_to_string
-        from games.site.ui.hub.cards import _ladder_task_group_rows
+
+        from games.site.pages.hub.cards import _ladder_task_group_rows
 
         CheckerType.objects.get_or_create(pk='word_salad')
         game = Game.objects.get(id=WORD_SALAD_GAME_ID)
@@ -320,7 +319,7 @@ class WordSaladSectionTests(TestCase):
         )
         self.assertEqual(rows[0]['salad_meta'], 'Города России · 6 слов')
         html = render_to_string(
-            'new/_task_group_rows.html',
+            'site/_task_group_rows.html',
             {'task_group_rows': rows, 'game': game},
         )
         self.assertIn('Города России · 6 слов', html)
@@ -341,7 +340,7 @@ class WordSaladSectionTests(TestCase):
         CheckerType.objects.get_or_create(pk='word_salad')
         game = Game.objects.get(id=WORD_SALAD_GAME_ID)
         html = render_to_string(
-            'new/_task_group_rows.html',
+            'site/_task_group_rows.html',
             {
                 'game': game,
                 'task_group_rows': [{

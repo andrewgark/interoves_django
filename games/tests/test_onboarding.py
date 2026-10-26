@@ -1,11 +1,11 @@
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
 from django.test import Client, TestCase, override_settings
 from django.urls import resolve, reverse
 from django.utils import timezone
-from allauth.socialaccount.models import SocialApp
 
-from games.ops.analytics.identity import attach_anon_cookie
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.models import (
     Attempt,
     CheckerType,
@@ -18,9 +18,9 @@ from games.models import (
     Task,
     TaskGroup,
 )
+from games.ops.analytics.identity import attach_anon_cookie
 from games.sections.hub import onboarding_followup_context
-from games.site.ui.hub.cards import _onboarding_starter_salad_url
-from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.site.pages.hub.cards import _onboarding_starter_salad_url
 
 
 def _ensure_social_apps():

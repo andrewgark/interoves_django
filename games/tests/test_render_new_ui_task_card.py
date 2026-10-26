@@ -3,31 +3,31 @@ import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import AnonymousUser
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.template.loader import render_to_string
 from django.test import RequestFactory, TestCase
 
 from games.models import (
+    AlphabettyOffer,
     CheckerType,
     Game,
     GameTaskGroup,
-    AlphabettyOffer,
     Hint,
     HTMLPage,
     Image,
+    LadderOffer,
     Project,
     Task,
     TaskGroup,
-    LadderOffer,
     WordSaladOffer,
 )
+from games.site.pages.play.context import _task_ui_descriptor, _wall_ui_context
 from games.site.views.game.render import (
     _task_card_public_identity,
     render_new_ui_task_card_html,
 )
-from games.site.ui.play.context import _task_ui_descriptor, _wall_ui_context
 
 
 def _setup_db():
@@ -145,7 +145,7 @@ class RenderNewUiTaskCardTests(TestCase):
 
         self.assertEqual(
             _task_ui_descriptor(default)['body_template'],
-            'new/task-content/task-default.html',
+            'site/task-content/task-default.html',
         )
         self.assertEqual(
             _task_ui_descriptor(raddle, rd={'max_points_total': 4})['base_max'],
@@ -183,7 +183,7 @@ class RenderNewUiTaskCardTests(TestCase):
 
         descriptor = _task_ui_descriptor(
             task,
-            body_template_override='new/task-content/task-default.html',
+            body_template_override='site/task-content/task-default.html',
             show_attempts_override=False,
             show_answer_override=False,
         )
@@ -197,13 +197,13 @@ class RenderNewUiTaskCardTests(TestCase):
         descriptor = _task_ui_descriptor(
             future_task,
             board_context_key='future_daily',
-            body_template_override='new/task-content/task-future-daily.html',
+            body_template_override='site/task-content/task-future-daily.html',
             body_wrapper_override=True,
         )
 
         self.assertEqual(
             descriptor['body_template'],
-            'new/task-content/task-future-daily.html',
+            'site/task-content/task-future-daily.html',
         )
         self.assertEqual(descriptor['board_context_key'], 'future_daily')
         self.assertTrue(descriptor['body_wrapper'])

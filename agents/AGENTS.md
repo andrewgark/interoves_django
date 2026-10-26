@@ -142,7 +142,7 @@ To schedule Telegram / X / Instagram posts into prod `SocialQueuePost`, use the 
 
 ## Modals / popups (new UI)
 
-For **new** pages under `static/templates/new/`, use **one** pattern: the `new-rules-modal` stack (see `static/css/new.css` and examples in `new/base.html`, `new/team.html`, `new/task_group.html`).
+For **new** pages under `static/templates/site/`, use **one** pattern: the `new-rules-modal` stack (see `static/css/new.css` and examples in `site/base.html`, `site/team.html`, `site/task_group.html`).
 
 - Outer: `class="new-rules-modal"`, `role="dialog"`, `aria-modal="true"`, `hidden` by default; open with `classList.add('is-open')` and remove `hidden`, close the reverse; lock scroll on `document.body` while open.
 - Backdrop: `new-rules-overlay` with a `data-*-close` handler (or equivalent) where needed.
@@ -162,7 +162,7 @@ If the resolved version is empty, the client check is skipped.
 
 ## Responsive layout (new UI)
 
-Общие правила для `static/css/new.css` и шаблонов `static/templates/new/`. Источник числовых констант — `:root` в `new.css` (`--new-break-wide`, `--new-wrap-*`, `--raddle-*`).
+Общие правила для `static/css/new.css` и шаблонов `static/templates/site/`. Источник числовых констант — `:root` в `new.css` (`--new-break-wide`, `--new-wrap-*`, `--raddle-*`).
 
 ### Принципы
 
@@ -212,19 +212,22 @@ If the resolved version is empty, the client check is skipped.
 
 **Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.provider` (allauth autodiscover), `games.templatetags.filters`, `games.site.http.adaptors` (inlineedit). Ladder tutorial: **`games.daily.ladder.tutorial`**. Django settings: HTTP **`games.site.http.*`**. Yandex Direct — только **`games.ops.social.ads.*`**.
 
+**Имена игр.** Продуктовое имя и пакет движка могут расходиться; строки типов заданий не переименовывать. Лесенка: страницы и каталог `ladder` (`games.daily.catalog.ladder`), движок `games.puzzles.raddle`, тип задания `raddle`. Салатик: движок `games.puzzles.salad`, каталог и тип задания `word_salad` (`games.daily.catalog.word_salad`). Алфавитки и Цензорли совпадают: `alphabetty`, `censorly`.
+
 | Concern | Canonical import | Notes |
 |--------|------------------|-------|
 | Checkers + `CheckerFactory` | `games.puzzles.core.check_runtime` | — |
-| HTTP / main UI handlers | `games.site.views.*`, `games.site.ui.*` | `games.views.*` removed |
+| Tag / autohint / team-line puzzles | `games.puzzles.markers` | shim `games.puzzles.core.short` |
+| HTTP / main UI handlers | `games.site.views.*`, `games.site.pages.*` | shim `games.site.ui`; `games.views.*` removed |
 | Live track / WebSocket helpers | `games.realtime.track_compat` | logger `games.views.track` |
 | MySQL lock retry helpers | `games.realtime.db` | — |
 | ASGI DB admission middleware | `games.realtime.admission` | — |
 | HTTP middleware (timing, anon identity, DB transient) | `games.site.http.middleware.*` | `settings.MIDDLEWARE` |
 | Yandex Direct ads CLI | `games.ops.social.ads.*` | — |
-| Main UI URL handlers | `games.site.views.pages.ui` (imports `games.site.ui.*`) | logger `games.views.new_ui` |
+| Main UI URL handlers | `games.site.views.pages.ui` (imports `games.site.pages.*`) | logger `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | — |
 | Censorly IDs / flags | `games.puzzles.censorly.ids` | — |
-| Censorly implementation | `games.puzzles.censorly.*` | — |
+| Censorly implementation | `games.puzzles.censorly.*` | offline tools/audits: `games.puzzles.censorly.offline.{tools,audit}`; shim `lexical.tools` / `lexical.audit` |
 | Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | — |
 | SQS worker handlers | `games.site.views.workers.{background,identity,integrations,word_salad}` | — |
 | Worker registry / ECS config / Lambda SQS | `games.ops.workers.{contract,config,lambda_entry}` | — |
@@ -236,22 +239,22 @@ If the resolved version is empty, the client check is skipped.
 | Word salad async recheck queue | `games.ops.workers.jobs.salad` | — |
 | Recheck outbox transport | `games.ops.workers.jobs.outbox` | — |
 | Auth/session gameplay diagnostics | `games.site.http.auth_observability` | `games.apps` ready hook |
-| Account / anonymous merge | `games.club.merge.{account,anon,anonymous,queue,events}` | — |
-| Task group navigation | `games.tasks.navigation` | — |
+| Account / anonymous merge | `games.identity.merge.{account,anon_steps,anon_queue,account_queue,events}` | shims `games.club.merge.*` |
+| Task group navigation | `games.task_group.navigation` | shim `games.tasks.navigation` |
 | HTML-forms puzzle rendering | `games.puzzles.replacements.forms` | — |
 | Results leaderboard semantics | `games.results.standings.leaderboard` | — |
 | Daily difficulty cache | `games.daily.difficulty.{core,refresh,health}` | — |
 | Admin/support attempt ops | `games.ops.workers.jobs.actions` | — |
 | Attempt text normalize helpers | `games.results.util` | — |
 | Section URLs / hub / share hashes | `games.sections.{paths,hub,navigation,placement_share,week_task_pool,project_navigation}` | — |
-| Daily result projection | `games.daily.projection` (+ `projection.cron`) | — |
+| Daily result projection | `games.daily.projection` (body in `projection.materialize`, plus `projection.cron`) | package re-exports `materialize` |
 | Targeted completion reconcile | `games.daily.completion.targeted_completion_reconciliation` | — |
 | Chain replay planning | `games.site.session.replay_planner` | — |
 | Weekly task catalog | `games.daily.catalog.week_task` | — |
-| Next-game vote campaign | `games.club.vote` | — |
+| Next-game vote campaign | `games.club.next_game` | shim `games.club.vote` |
 | Actor task scoring / progress SQL | `games.daily.completion.scoring` | — |
 | Raddle response contract matrix | `games.puzzles.raddle.contract` | — |
-| Telegram OIDC auth | `games.club.telegram_oidc` | `games.urls`, tests |
+| Telegram OIDC auth | `games.identity.telegram_oidc` | shim `games.club.telegram_oidc`; `games.urls` |
 | Template context processors | `games.site.http.context` | `settings.TEMPLATES` |
 | Daily schedule / section page | `games.daily.page.section` | — |
 | Daily archive UI helpers | `games.daily.page.archive` | — |
@@ -264,7 +267,7 @@ If the resolved version is empty, the client check is skipped.
 | Offer profile names | `games.club.offers.profiles` | — |
 | Results snapshot builders | `games.results.snapshots.snapshot` | — |
 | Logical game completion | `games.daily.completion.completion_coordinator` | — |
-| Daily timing core | `games.daily.timing` (+ `timing.reset`) | — |
+| Daily timing core | `games.daily.timing` (body in `timing.session`, plus `timing.reset`) | logger `games.daily_timing`; package re-exports `session` |
 | Daily share card PNG/payload | `games.daily.page.share.{card,render}` | — |
 | Projection / stats refresh events | `games.realtime.projection` | — |
 | EB worker poll/config/contract | `games.ops.workers.{http,config,contract,polling,lambda_entry,heartbeat,messages}` | — |
@@ -273,20 +276,20 @@ If the resolved version is empty, the client check is skipped.
 | Template filter helpers | `games.site.http.tags.filters` | `games.templatetags.filters` (Django tag library path) |
 | Distributed cron locks | `games.ops.cron.lock` | — |
 | EB runtime role / heavy-processing gate | `games.ops.cron.runtime` | — |
-| Profile feedback reports | `games.site.ui.profile.feedback` | — |
+| Profile feedback reports | `games.site.pages.profile.feedback` | — |
 | Product metrics CLI | `games.ops.analytics.metrics` | — |
 | Media storage health check | `games.ops.health.checks` | — |
 | Daily UI transitions / streak | `games.daily.timing.{transitions,streak}` | — |
-| Task display titles | `games.tasks.titles` | — |
-| Chain task state lookup (board/daily kwargs) | `games.tasks.actor_state.chain_state_for_actor` | — |
-| Chain state for results-table actors | `games.tasks.result_details.chain_state_for_actor` (signature `game, task, actor`) | — |
+| Task display titles | `games.task_group.titles` | shim `games.tasks.titles` |
+| Chain task state lookup (board/daily kwargs) | `games.task_group.actor_state.chain_state_for_actor` | shim `games.tasks.actor_state` |
+| Chain state for results-table actors | `games.task_group.result_details.chain_state_for_actor` (signature `game, task, actor`) | shim `games.tasks.result_details` |
 | Game access / schedule gates | `games.club.access.game` | — |
 | Attempt/view exceptions | `games.site.http.exceptions` | — |
 | Daily statistics API | `games.daily.timing.statistics` | — |
 | Telegram offer linking | `games.club.link` | — |
-| Allauth custom providers (`provider_classes`) | `games.club.provider` | `games.provider` (allauth autodiscover) |
+| Allauth custom providers (`provider_classes`) | `games.identity.provider` | shim `games.club.provider`; `games.provider` autodiscover |
 | Telegram bot/channels/images/transport | `games.ops.telegram.*`, `games.ops.cron.telegram` | — |
-| Support console / observatory | `games.ops.support.{http,feed,games,people,observatory,google}` | — |
+| Support console / observatory | `games.console.{http,feed,games,people,observatory,google}` | shim `games.ops.support.*`; ladder screens `games.console.games.ladder` |
 | Product analytics persistence | `games.ops.analytics.persistence` | — |
 | Social queue / Instagram API | `games.ops.social.{models,publish,views,instagram.*}` | — |
 | Raddle engine helpers | `games.puzzles.raddle.engine` | — |

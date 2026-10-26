@@ -1,1 +1,1 @@
-"""Support tools for players and teams."""
+"""Compatibility alias. Implementation lives in games.console.people."""

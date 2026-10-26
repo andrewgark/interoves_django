@@ -3,7 +3,6 @@ from zoneinfo import ZoneInfo
 
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase
-from django.utils import timezone
 
 from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 from games.sections.hub import (
@@ -111,7 +110,7 @@ class HubSectionCardTemplateTests(SimpleTestCase):
 
     def test_daily_card_uses_green_today_cta(self):
         html = render_to_string(
-            'new/partials/hub_section_card.html',
+            'site/partials/hub_section_card.html',
             {'card': self.card, 'highlight_daily_cta': True},
         )
 
@@ -122,7 +121,7 @@ class HubSectionCardTemplateTests(SimpleTestCase):
 
     def test_non_daily_card_uses_outline_cta_even_when_current(self):
         html = render_to_string(
-            'new/partials/hub_section_card.html',
+            'site/partials/hub_section_card.html',
             {'card': self.card, 'highlight_daily_cta': False},
         )
 
@@ -135,7 +134,7 @@ class HubSectionCardTemplateTests(SimpleTestCase):
         for streak, word in ((1, 'день'), (2, 'дня'), (4, 'дня'), (5, 'дней'), (11, 'дней'), (21, 'день')):
             with self.subTest(streak=streak):
                 html = render_to_string(
-                    'new/partials/hub_section_card.html',
+                    'site/partials/hub_section_card.html',
                     {'card': {**self.card, 'streak': streak}},
                 )
 
@@ -144,14 +143,14 @@ class HubSectionCardTemplateTests(SimpleTestCase):
 
     def test_active_streak_gets_animated_flame_and_zero_streak_is_hidden(self):
         active_html = render_to_string(
-            'new/partials/hub_section_card.html',
+            'site/partials/hub_section_card.html',
             {'card': {**self.card, 'streak': 3}},
         )
         self.assertIn('new-hub-section__streak--active', active_html)
         self.assertIn('ph ph-fire', active_html)
 
         empty_html = render_to_string(
-            'new/partials/hub_section_card.html',
+            'site/partials/hub_section_card.html',
             {'card': {**self.card, 'streak': 0}},
         )
         self.assertNotIn('new-hub-section__streak', empty_html)
@@ -184,7 +183,7 @@ class HubSectionCardTemplateTests(SimpleTestCase):
                     **create_game_link_context(section_id),
                 }
                 html = render_to_string(
-                    'new/partials/hub_section_card.html',
+                    'site/partials/hub_section_card.html',
                     {'card': card},
                 )
 

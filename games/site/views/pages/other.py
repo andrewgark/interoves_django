@@ -1,3 +1,9 @@
+"""Legacy endpoints still mounted by the old URL conf.
+
+``like_dislike`` is the team-gated reaction handler. The main UI uses
+``games.site.pages.play.reactions.like_dislike``.
+"""
+
 from django.contrib.auth.decorators import user_passes_test
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
@@ -30,7 +36,7 @@ def like_dislike(request, task_id):
     if not game.has_access('send_attempt', team=team):
         return JsonResponse({'error': 'no access'}, status=403)
 
-    from games.site.ui.play.reactions import _posted_reaction
+    from games.site.pages.play.reactions import _posted_reaction
     reaction = _posted_reaction(request)
     if isinstance(reaction, JsonResponse):
         return reaction

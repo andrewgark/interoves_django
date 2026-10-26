@@ -17,7 +17,7 @@ from games.models import (
     TaskGroup,
 )
 from games.ops.analytics.identity import attach_anon_cookie
-from games.tasks.likes_meta import like_totals_by_task_group_id
+from games.task_group.likes_meta import like_totals_by_task_group_id
 from games.tests.test_raddle_send_attempt import MINI_LADDER, _ensure_fixtures
 
 
@@ -113,11 +113,11 @@ class TaskGroupLikeTotalsTests(TestCase):
 
         self.assertEqual(totals, {tg.id: {'likes': 2, 'dislikes': 1}})
         html = render_to_string(
-            'new/partials/like_totals_badge.html', {'like_totals': totals[tg.id]},
+            'site/partials/like_totals_badge.html', {'like_totals': totals[tg.id]},
         )
         self.assertIn('Лайков: 2, дизлайков: 1', html)
         self.assertEqual(
-            render_to_string('new/partials/like_totals_badge.html', {'like_totals': None}).strip(),
+            render_to_string('site/partials/like_totals_badge.html', {'like_totals': None}).strip(),
             '',
         )
 
@@ -133,7 +133,7 @@ class ClueLikeOwnershipTests(TestCase):
         cls.other = User.objects.create_user('clue_like_other')
 
     def test_anon_migration_moves_and_collapses(self):
-        from games.club.merge.anon import (
+        from games.identity.merge.anon_steps import (
             anon_migration_counts,
             claim_and_migrate_anon_history,
         )
@@ -154,7 +154,7 @@ class ClueLikeOwnershipTests(TestCase):
         self.assertEqual(mine, {0: 1, 1: -1})
 
     def test_anon_migration_step_batches(self):
-        from games.club.merge.anon import migrate_anon_history_step
+        from games.identity.merge.anon_steps import migrate_anon_history_step
 
         for i in range(3):
             RaddleClueLike.objects.create(task=self.task, hint_index=i, anon_key='g2', value=1)
@@ -183,7 +183,7 @@ class ClueLikeOwnershipTests(TestCase):
 
 class LikesMetaTests(TestCase):
     def test_two_queries_for_many_tasks(self):
-        from games.tasks.likes_meta import likes_meta_by_task_id
+        from games.task_group.likes_meta import likes_meta_by_task_id
 
         tg = TaskGroup.objects.create(label='likes meta')
         tasks = [Task.objects.create(task_group=tg, number=str(i)) for i in range(5)]
@@ -209,7 +209,7 @@ class PostedReactionTests(TestCase):
     def _reaction(self, likes, dislikes):
         from django.test import RequestFactory
 
-        from games.site.ui.play.reactions import _posted_reaction
+        from games.site.pages.play.reactions import _posted_reaction
 
         request = RequestFactory().post('/', {'likes': likes, 'dislikes': dislikes})
         return _posted_reaction(request)

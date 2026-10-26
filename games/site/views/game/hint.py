@@ -1,29 +1,32 @@
 from django.db import transaction
-from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
+from games.models import Attempt, GameTaskGroup, Hint, HintAttempt, Task
+from games.ops.analytics.events import register_started_game
+from games.realtime.track_compat import track_actor_task_change
 from games.site.http.exceptions import (
     DuplicateAttemptException,
     InvalidFormException,
-    NotAllRequiredHintsTakenException,
     NoGameAccessException,
+    NotAllRequiredHintsTakenException,
 )
-from games.ops.analytics.events import register_started_game
+from games.site.http.request_util import (
+    get_public_task_or_404,
+    is_browser_form_submission,
+    redirect_after_browser_submission,
+)
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
-from games.identity import ActorRefusal, resolve_gameplay_actor
-from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
+from games.site.session.play_mode import effective_play_mode
 from games.site.session.replay import StaleReplayError, replay_for_request
-from games.realtime.track_compat import track_actor_task_change
 from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
 from games.site.views.game.render import update_task_html
-from games.identity import has_profile
-from games.site.session.play_mode import effective_play_mode
-from games.site.http.request_util import get_public_task_or_404, is_browser_form_submission, redirect_after_browser_submission
 
 
 def _get_play_mode(request, game):
@@ -114,7 +117,7 @@ def process_send_hint_attempt(request, task_id):
     anon_key = resolved.anon_key
 
     if task.task_type == 'autohint':
-        from games.puzzles.core.short.autohint import AutohintPuzzle
+        from games.puzzles.markers.autohint import AutohintPuzzle
         raise InvalidFormException(AutohintPuzzle.manual_hint_message())
 
     context_error = validate_gameplay_context(

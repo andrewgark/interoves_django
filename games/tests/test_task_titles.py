@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from games.tasks.titles import raddle_share_title, task_display_name, task_group_page_title
+from games.task_group.titles import raddle_share_title, task_display_name, task_group_page_title
 
 
 class TaskTitlesTests(SimpleTestCase):

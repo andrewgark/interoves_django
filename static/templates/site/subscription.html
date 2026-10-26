@@ -1,0 +1,635 @@
+{% extends "site/base.html" %}
+{% load static %}
+{% block title %}Клубная подписка{% endblock %}
+{% block extrahead %}
+<meta name="robots" content="noindex,nofollow">
+{% endblock %}
+
+{% block content %}
+<p class="new-tg-back"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
+
+{% if payment_success_return and club_archive_telegram_url %}
+<div id="new-sub-payment-success-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-sub-payment-success-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-sub-payment-success-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-sub-payment-success-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <p class="pal-kicker">Inter Oves Elite</p>
+    <h2 id="new-sub-payment-success-title" class="pal-title">Вы успешно оплатили клубную подписку!</h2>
+    <p class="pal-lead">Вступите в Telegram-чат клуба Inter Oves Elite.</p>
+    <p><a class="new-btn new-btn--yellow" href="{{ club_archive_telegram_url }}" target="_blank" rel="noopener noreferrer"><i class="ph ph-telegram-logo" aria-hidden="true"></i> Вступить в чат</a></p>
+    <button type="button" class="new-btn new-btn--ghost" data-sub-payment-success-close>Позже</button>
+  </div>
+</div>
+{% endif %}
+
+<div class="new-pay-checkout new-pay-checkout--subscription">
+  {% if messages %}
+    {% for message in messages %}
+      <p class="new-pay-security">{{ message }}</p>
+    {% endfor %}
+  {% endif %}
+  <header class="new-pay-checkout__header">
+    <h1 class="new-heading new-heading--page">Клубная подписка</h1>
+    {% if club_status == 'active' %}
+      {% if club_archive_gating_enabled %}
+        <p class="new-pay-checkout__lead"><strong>Подписка активна.</strong> Весь архив заданий доступен.</p>
+      {% else %}
+        <p class="new-pay-checkout__lead"><strong>Подписка активна.</strong> Спасибо, что поддерживаете Inter Oves.</p>
+      {% endif %}
+    {% elif club_status == 'cancelled' %}
+      {% if club_archive_gating_enabled %}
+        <p class="new-pay-checkout__lead"><strong>Автопродление отключено.</strong> Архив останется доступен{% if paid_until_label %} до {{ paid_until_label }}{% endif %}.</p>
+      {% else %}
+        <p class="new-pay-checkout__lead"><strong>Автопродление отключено.</strong> Подписка действует{% if paid_until_label %} до {{ paid_until_label }}{% endif %}. Спасибо за поддержку проекта.</p>
+      {% endif %}
+    {% elif club_status == 'expired' %}
+      {% if club_archive_gating_enabled %}
+        <p class="new-pay-checkout__lead">Оплаченный период закончился. Оформите подписку снова, чтобы открыть весь архив заданий Inter Oves.</p>
+      {% else %}
+        <p class="new-pay-checkout__lead">Период подписки закончился. Если хотите и дальше поддерживать Inter Oves, её можно оформить снова.</p>
+      {% endif %}
+    {% elif club_status == 'pending' %}
+      <p class="new-pay-checkout__lead">Ожидаем подтверждение оплаты. Если уже оплатили — обновите страницу через минуту.</p>
+    {% elif not approval_preview %}
+      {% if not club_archive_gating_enabled %}
+        <p class="new-pay-checkout__lead"><strong>Поддержите развитие Inter Oves клубной подпиской.</strong></p>
+      {% endif %}
+    {% endif %}
+  </header>
+
+  {% if approval_preview %}
+    <p class="new-login-hint">Демонстрационные данные; действия не меняют подписку.</p>
+  {% endif %}
+
+  {% if telegram_linked_notice %}
+    <p class="new-login-hint">Telegram привязан{% if telegram_username %}: @{{ telegram_username }}{% endif %}. Можно оформить подписку через Tribute.</p>
+  {% endif %}
+  {% if payment_return and not payment_success_return %}
+    {% if club_archive_gating_enabled %}
+      <p class="new-login-hint">Если оплата прошла, доступ к архиву откроется после подтверждения от ЮKassa. Обновите страницу через несколько секунд.</p>
+    {% else %}
+      <p class="new-login-hint">Если оплата прошла, статус подписки обновится после подтверждения от ЮKassa. Обновите страницу через несколько секунд.</p>
+    {% endif %}
+  {% endif %}
+  {% if gift_payment_return %}
+    <p class="new-login-hint">Платёж за подарок отправлен на проверку. Код появится в этом разделе после подтверждения оплаты.</p>
+  {% endif %}
+
+  <div class="new-card new-pay-order-card">
+    {% if club_archive_gating_enabled %}
+      {% if not has_club_access %}
+        <h2 class="new-pay-order__name new-pay-order__name--club">
+          <span class="new-pay-order__name--club-icons" aria-hidden="true"><i class="ph ph-key"></i><i class="ph ph-lock-key"></i></span>
+          <span>Разблокируйте весь архив заданий</span>
+        </h2>
+      {% else %}
+        <div class="new-pay-order__name">Весь архив заданий</div>
+      {% endif %}
+      <div class="new-pay-order__meta">Без подписки в каждом разделе доступны последние 7 заданий. Более ранние выпуски — с клубной подпиской.</div>
+      <div class="new-pay-order__also">Также:</div>
+      <ul class="new-pay-order__benefits">
+        <li><i class="ph ph-crown" aria-hidden="true"></i> Корона в таблице результатов</li>
+        <li><i class="ph ph-check-circle" aria-hidden="true"></i> Доступ в секретный чат резидентов клуба Inter Oves</li>
+        <li><i class="ph ph-check-circle" aria-hidden="true"></i> Возможность играть случайные <a href="{% url 'new_alphabetty_hub' %}">Алфавитки</a> и <a href="{% url 'ui_censorly_hub' %}">Цензурки</a></li>
+      </ul>
+    {% else %}
+      <div class="new-pay-order__name">Поддержка проекта</div>
+      <div class="new-pay-order__meta">Клубная подписка помогает развивать Inter Oves и создавать новые задания.</div>
+    {% endif %}
+    {% if club_status == 'active' or club_status == 'cancelled' %}
+      <dl class="new-sub-status">
+        {% if paid_until_label %}
+          <div><dt>Оплачено до</dt><dd>{{ paid_until_label }}</dd></div>
+        {% endif %}
+        {% if next_charge_amount_label %}
+          <div><dt>Следующее списание</dt><dd>{{ next_charge_amount_label }}</dd></div>
+        {% elif next_charge_label %}
+          <div><dt>Следующее списание</dt><dd>{{ next_charge_label }}</dd></div>
+        {% endif %}
+        {% if price_label %}
+          <div><dt>Стоимость</dt><dd>{{ price_label }}</dd></div>
+        {% endif %}
+        {% if club_status == 'cancelled' and is_monthly_plan %}
+          <div><dt>Автопродление</dt><dd>отключено</dd></div>
+        {% endif %}
+      </dl>
+    {% endif %}
+  </div>
+  {% if club_archive_telegram_url %}
+  <p class="club-member-chat"><a class="new-btn new-btn--ghost" href="{{ club_archive_telegram_url }}" target="_blank" rel="noopener noreferrer"><i class="ph ph-telegram-logo" aria-hidden="true"></i> Чат клуба Inter Oves Elite</a></p>
+  {% endif %}
+
+  {% if saved_payment_method_label %}
+    <section id="new-sub-payment-method" class="new-card new-pay-payment-card" aria-labelledby="new-sub-payment-method-title">
+      <h2 id="new-sub-payment-method-title" class="new-pay-section-title">Способ оплаты</h2>
+      <p>{{ saved_payment_method_label }}</p>
+      <p class="new-pay-order__meta">При отключении автопродления карта остаётся привязанной: с ней можно возобновить подписку. Отвязать карту можно в любой момент.</p>
+      <button type="button" class="new-btn" id="new-sub-detach-open">Отвязать карту</button>
+    </section>
+    <div id="new-sub-detach-modal" class="new-rules-modal" role="dialog" aria-modal="true" aria-labelledby="new-sub-detach-title" hidden>
+      <div class="new-rules-overlay" data-detach-close></div>
+      <div class="new-rules-modal__box pal-card">
+        <button type="button" class="new-rules-modal__close" data-detach-close aria-label="Закрыть">×</button>
+        <h2 id="new-sub-detach-title" class="new-pay-section-title">Отвязать карту?</h2>
+        <p>После отвязки автоматическое продление подписки будет отключено.</p>
+        <p>Доступ сохранится до конца уже оплаченного периода{% if paid_until_label %} — {{ paid_until_label }}{% endif %}.</p>
+        <form id="new-sub-detach-form" {% if approval_preview %}method="get" action="{% url 'new_subscription' %}" data-approval-preview="1"{% else %}method="post" action="{% url 'new_subscription_payment_method_detach' %}"{% endif %}>
+          {% if approval_preview %}
+            <input type="hidden" name="approval_preview" value="1">
+          {% else %}
+            {% csrf_token %}
+          {% endif %}
+          <button type="button" class="new-btn" data-detach-close>Отмена</button>
+          <button type="submit" class="new-btn">Отвязать карту</button>
+        </form>
+        <p id="new-sub-detach-message" class="new-login-hint" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  {% endif %}
+  {% if payment_method_detached or approval_preview %}
+    <section id="new-sub-detached" class="new-card new-pay-payment-card" aria-labelledby="new-sub-detached-title" {% if approval_preview %}hidden tabindex="-1"{% endif %}>
+      <h2 id="new-sub-detached-title" class="new-pay-section-title">Карта отвязана</h2>
+      <p>Автопродление отключено.</p>
+      {% if has_club_access %}<p>Доступ к подписке сохранится до {{ paid_until_label }}.</p>{% endif %}
+    </section>
+  {% endif %}
+
+  {% if renewal_pending_at_detach %}
+    <p class="new-login-hint" role="status">Платёж на продление был запущен до отвязки карты; он ещё может завершиться. Отвязка не отменяет уже запущенный платёж. Новых списаний по отвязанной карте не будет.</p>
+  {% endif %}
+
+  {% if show_checkout %}
+    {% if user.is_authenticated and has_profile_user and not telegram_linked %}
+    <form id="new-sub-telegram-link-form" method="post" action="{% url 'new_telegram_link_start' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="/subscription/?telegram=linked">
+    </form>
+    {% endif %}
+
+    <div class="new-card new-pay-payment-card new-sub-checkout-card">
+      <h2 class="new-pay-section-title">Оформить подписку</h2>
+      <p class="new-pay-order__meta">Одна клубная подписка, два способа оплаты. Выберите подходящий.</p>
+
+      <div class="new-sub-providers">
+        <section class="new-sub-provider{% if not club_yookassa_enabled %} new-sub-provider--unavailable{% endif %}" aria-labelledby="new-sub-yookassa-title">
+          <header class="new-sub-provider__header">
+            <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
+            <div>
+              <h3 id="new-sub-yookassa-title">ЮKassa</h3>
+              <p>Оплата российской картой · ₽</p>
+            </div>
+            {% if not club_yookassa_enabled %}<span class="new-sub-provider__availability">Временно недоступна</span>{% endif %}
+          </header>
+          <div class="new-sub-provider__offers">
+            <article class="new-sub-offer">
+              <div class="new-sub-offer__term">Каждый месяц</div>
+              {% if intro_available %}
+                <strong class="new-sub-offer__price">{{ monthly_intro_label }} <span>первый месяц</span></strong>
+                <strong class="new-sub-offer__price new-sub-offer__price--regular">Затем {{ monthly_regular_label }} <span>в месяц</span></strong>
+                <p>Автопродление можно отменить в любой момент.</p>
+              {% else %}
+                <strong class="new-sub-offer__price">{{ monthly_regular_label }} <span>в месяц</span></strong>
+                <p>Автопродление можно отменить в любой момент.</p>
+              {% endif %}
+            </article>
+          </div>
+          <div class="new-sub-provider__action">
+            {% if not club_yookassa_enabled %}
+              <button type="button" class="new-btn" disabled>Этот способ временно недоступен</button>
+            {% elif not user.is_authenticated %}
+              <button type="button" class="new-btn" data-login-open>Войти, чтобы оформить</button>
+            {% elif not has_profile_user %}
+              <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
+            {% else %}
+              <div class="new-sub-provider__plan-actions">
+                <form method="post" action="{% url 'new_subscription_yookassa_monthly' %}" data-sub-yk data-plan="monthly">
+                  {% csrf_token %}
+                  <button type="submit" class="new-btn">{{ monthly_cta_label }} · в месяц</button>
+                </form>
+              </div>
+            {% endif %}
+          </div>
+        </section>
+
+        <section class="new-sub-provider{% if not club_checkout_enabled or not club_eur %} new-sub-provider--unavailable{% endif %}" aria-labelledby="new-sub-tribute-title">
+          <header class="new-sub-provider__header">
+            <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
+            <div>
+              <h3 id="new-sub-tribute-title">Tribute</h3>
+              <p>Оплата иностранной картой · €</p>
+            </div>
+            {% if not club_checkout_enabled or not club_eur %}<span class="new-sub-provider__availability">Временно недоступна</span>{% endif %}
+          </header>
+          <div class="new-sub-provider__offers">
+            {% if club_eur %}
+              <article class="new-sub-offer">
+                <div class="new-sub-offer__term">Каждый месяц</div>
+                {% if club_eur.first_amount_display and tribute_intro_available %}
+                  <strong class="new-sub-offer__price">€{{ club_eur.first_amount_display }} <span>первый месяц + Service Fee</span></strong>
+                  <strong class="new-sub-offer__price new-sub-offer__price--regular">Затем €{{ club_eur.amount_display }} <span>в месяц + Service Fee</span></strong>
+                  <p>Управление подпиской — в Tribute.</p>
+                {% else %}
+                  <strong class="new-sub-offer__price">€{{ club_eur.amount_display }} <span>в месяц + Service Fee</span></strong>
+                  <p>Управление подпиской — в Tribute.</p>
+                {% endif %}
+              </article>
+            {% else %}
+              <article class="new-sub-offer">
+                <div class="new-sub-offer__term">Тарифы</div>
+                <p>Сейчас оплата через Tribute недоступна.</p>
+              </article>
+            {% endif %}
+          </div>
+          <div class="new-sub-provider__action">
+            {% if not club_checkout_enabled or not club_eur %}
+              <button type="button" class="new-btn" disabled>Этот способ временно недоступен</button>
+            {% elif not user.is_authenticated %}
+              <button type="button" class="new-btn" data-login-open>Войти, чтобы оформить</button>
+            {% elif not has_profile_user %}
+              <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
+            {% elif not telegram_linked %}
+              <button type="submit" class="new-btn" form="new-sub-telegram-link-form">Привязать Telegram</button>
+            {% else %}
+              <form method="post" action="{% url 'new_subscription_checkout' %}" data-sub-checkout data-currency="eur">
+                {% csrf_token %}
+                <input type="hidden" name="currency" value="eur">
+                <button type="submit" class="new-btn">Перейти к выбору тарифа</button>
+              </form>
+            {% endif %}
+          </div>
+        </section>
+      </div>
+
+      <p class="new-pay-seller">
+        <span>{{ tribute_seller }}</span>
+        <a href="{{ tribute_seller_url }}">Реквизиты</a>
+      </p>
+      <p class="new-pay-order__meta">Inter Oves не получает и не хранит данные банковской карты. <a href="/privacy/" target="_blank">Политика конфиденциальности</a> · <a href="/refunds/" target="_blank">Возвраты</a></p>
+      <p id="new-sub-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
+    </div>
+  {% elif not approval_preview %}
+    <div class="new-card new-pay-payment-card">
+      {% if is_yookassa and is_monthly_plan and club_status == 'active' %}
+        <p class="new-pay-security">Автопродление включено. Отключить можно в любой момент — доступ сохранится до конца оплаченного периода.</p>
+        <form method="post" action="{% url 'new_subscription_yookassa_cancel' %}" data-sub-yk-manage>
+          {% csrf_token %}
+          <button type="submit" class="new-btn">Отключить автопродление</button>
+        </form>
+      {% elif is_yookassa and is_monthly_plan and club_status == 'cancelled' %}
+        <p class="new-pay-security">Автопродление отключено. Доступ сохранится{% if paid_until_label %} до {{ paid_until_label }}{% endif %}.</p>
+        {% if can_resume_yookassa %}
+        <form method="post" action="{% url 'new_subscription_yookassa_resume' %}" data-sub-yk-manage>
+          {% csrf_token %}
+          <button type="submit" class="new-btn">Возобновить автопродление</button>
+        </form>
+        {% else %}
+        <p class="new-pay-security">Можно снова оформить подписку с новой привязкой карты. Новый месяц начнётся после уже оплаченного периода.</p>
+        {% if payment_method_detached and club_yookassa_enabled %}
+        <form method="post" action="{% url 'new_subscription_yookassa_monthly' %}" data-sub-yk data-plan="monthly">
+          {% csrf_token %}
+          <button type="submit" class="new-btn">{{ monthly_cta_label }}</button>
+        </form>
+        {% endif %}
+        {% endif %}
+      {% else %}
+        <p class="new-pay-security">Управлять автопродлением Tribute можно в боте. Inter Oves изменит статус после подтверждения от Tribute.</p>
+        <a class="new-btn" href="{{ club_management_url }}" target="_blank" rel="noopener noreferrer">Управлять подпиской</a>
+      {% endif %}
+      <p id="new-sub-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
+    </div>
+  {% endif %}
+
+  <section class="new-sub-gift-section" aria-labelledby="new-sub-gift-section-title">
+    <header class="new-sub-gift-section__header">
+      <h2 id="new-sub-gift-section-title">Подписка в подарок</h2>
+      <p>Здесь можно активировать полученный код или купить подписку для другого человека.</p>
+    </header>
+
+  <div class="new-card new-pay-payment-card">
+    <h2 class="new-pay-section-title">Подарочная подписка</h2>
+    <p class="new-pay-order__meta">Если вам подарили подписку, введите код. Подарок активируется в текущем аккаунте.</p>
+    <form method="post" action="{% url 'new_subscription_claim_gift' %}">
+      {% csrf_token %}
+      <label for="subscription-gift-code">Код подарка</label>
+      <input id="subscription-gift-code" name="code" type="text" autocomplete="off" placeholder="IO-XXXX-XXXX" required>
+      <button type="submit" class="new-btn">Активировать подарок</button>
+    </form>
+  </div>
+
+  <div class="new-card new-pay-payment-card new-sub-gift-buy">
+    <h2 class="new-pay-section-title">Подарить подписку</h2>
+    <p class="new-pay-order__meta">Выберите срок и способ оплаты. Это разовая покупка без автопродления. После оплаты код появится в вашем аккаунте.</p>
+    {% for offer in gift_subscription_offers %}
+      <div class="new-sub-gift-offer">
+        <div class="new-sub-gift-offer__term">
+          Подписка в подарок на {{ offer.months }} месяц{% if offer.months == 3 %}а{% endif %}
+        </div>
+        <div class="new-sub-providers new-sub-gift-method-grid">
+          {% if offer.yookassa_label %}
+          <section class="new-sub-provider new-sub-gift-method" aria-label="Российская карта">
+            <header class="new-sub-provider__header">
+              <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
+              <div>
+                <h3>ЮKassa</h3>
+                <p>Оплата российской картой · ₽</p>
+              </div>
+            </header>
+            <div class="new-sub-provider__offers">
+              <article class="new-sub-offer">
+                <div class="new-sub-offer__term">Разовая покупка</div>
+                <strong class="new-sub-offer__price">{{ offer.yookassa_label }}</strong>
+                <p>Без автопродления.</p>
+              </article>
+            </div>
+            <div class="new-sub-provider__action">
+              {% if user.is_authenticated and has_profile_user %}
+                <form method="post" action="{% url 'new_subscription_gift_yookassa_start' %}" data-sub-gift>
+                  {% csrf_token %}
+                  <input type="hidden" name="months" value="{{ offer.months }}">
+                  <button type="submit" class="new-btn">Оплатить через ЮKassa</button>
+                </form>
+              {% elif user.is_authenticated %}
+                <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
+              {% else %}
+                <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
+              {% endif %}
+            </div>
+          </section>
+          {% endif %}
+          {% if offer.tribute_product %}
+          <section class="new-sub-provider new-sub-gift-method" aria-label="Оплата иностранной картой">
+            <header class="new-sub-provider__header">
+              <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
+              <div>
+                <h3>Tribute</h3>
+                <p>Оплата иностранной картой · €</p>
+              </div>
+            </header>
+            <div class="new-sub-provider__offers">
+              <article class="new-sub-offer">
+                <div class="new-sub-offer__term">Разовая покупка</div>
+                <strong class="new-sub-offer__price">€{{ offer.tribute_product.amount_display }}</strong>
+                <p>Без автопродления.</p>
+              </article>
+            </div>
+            <div class="new-sub-provider__action">
+              {% if user.is_authenticated and telegram_linked %}
+                <form method="post" action="{% url 'new_subscription_gift_tribute_start' %}" data-sub-gift>
+                  {% csrf_token %}
+                  <input type="hidden" name="months" value="{{ offer.months }}">
+                  <button type="submit" class="new-btn">Оплатить через Tribute</button>
+                </form>
+              {% elif user.is_authenticated and has_profile_user %}
+                <form method="post" action="{% url 'new_telegram_link_start' %}">
+                  {% csrf_token %}
+                  <input type="hidden" name="next" value="/subscription/?telegram=linked">
+                  <button type="submit" class="new-btn">Привязать Telegram</button>
+                </form>
+              {% elif user.is_authenticated %}
+                <a class="new-btn" href="{% url 'new_profile' %}?next=/subscription/">Создать профиль и продолжить</a>
+              {% else %}
+                <button type="button" class="new-btn" data-login-open>Войти, чтобы купить</button>
+              {% endif %}
+            </div>
+          </section>
+          {% endif %}
+        </div>
+      </div>
+    {% empty %}
+      <p class="new-pay-order__meta">Покупка подарочных подписок временно недоступна. Попробуйте позже.</p>
+    {% endfor %}
+    <p id="new-sub-gift-message" class="new-login-hint new-pay-message" aria-live="polite"></p>
+  </div>
+
+  {% if purchased_subscription_gifts %}
+  <div class="new-card new-pay-payment-card new-sub-gift-list">
+    <h2 class="new-pay-section-title">Мои подарочные подписки</h2>
+    <p class="new-pay-order__meta">Передайте код получателю. Он активирует подарок в своём аккаунте.</p>
+    {% for item in purchased_subscription_gifts %}
+      <div class="new-sub-gift-item">
+        <div>
+          <strong>Подарок на {{ item.duration_label }}</strong>
+          <div class="new-pay-order__meta">
+            {% if item.gift.status == 'created' %}
+              {% if item.gift.payment.status == 'manual_review' %}
+                Платёж проверяется
+              {% else %}
+                Ожидается подтверждение оплаты
+              {% endif %}
+            {% elif item.gift.status == 'claimed' %}
+              Активирован{% if item.gift.claimed_at %} {{ item.gift.claimed_at|date:'j E Y' }}{% endif %}
+            {% elif item.gift.status == 'revoked' %}
+              Отозван
+            {% elif item.gift.status == 'expired' %}
+              Срок действия истёк
+            {% else %}
+              Готов к передаче
+            {% endif %}
+          </div>
+        </div>
+        <div class="new-sub-gift-code-row">
+          {% if item.gift.status == 'paid' or item.gift.status == 'claimed' %}
+            <code class="is-blurred" data-gift-code aria-label="Скрытый код подарка">•••••••••••</code>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-reveal-gift-code data-reveal-url="{% url 'new_subscription_gift_reveal' item.gift.pk %}" aria-expanded="false">Показать код</button>
+            <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-copy-gift-code hidden>Скопировать</button>
+          {% elif item.gift.status == 'expired' or item.gift.status == 'revoked' %}
+            <span class="new-pay-order__meta">Код недоступен</span>
+          {% else %}
+            <span class="new-pay-order__meta">Код появится после подтверждения оплаты</span>
+          {% endif %}
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  </section>
+</div>
+{% if user.is_authenticated %}
+<script>
+(function () {
+  function csrfToken() {
+    var el = document.querySelector('[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function setMessage(text, selector) {
+    var box = document.querySelector(selector || '#new-sub-message');
+    if (!box) return;
+    box.textContent = text || '';
+  }
+  function bindFetchForms(selector, busyText, reloadOnOk) {
+    document.querySelectorAll(selector).forEach(function (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var btn = form.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = true;
+        var messageSelector = form.getAttribute('data-message') || '#new-sub-message';
+        setMessage(busyText || '…', messageSelector);
+        fetch(form.action, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': csrfToken()
+          },
+          body: new URLSearchParams(new FormData(form)),
+          credentials: 'same-origin'
+        }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+          .then(function (res) {
+            if (res.data && res.data.analytics_events && window.interovesAnalytics && window.interovesAnalytics.flushPendingGoals) {
+              window.interovesAnalytics.flushPendingGoals(res.data.analytics_events);
+            }
+            if (!res.ok || !res.data || res.data.status !== 'ok') {
+              setMessage((res.data && res.data.message) || 'Не получилось. Попробуйте ещё раз.', messageSelector);
+              if (btn) btn.disabled = false;
+              return;
+            }
+            if (res.data.payment_url) {
+              window.location = res.data.payment_url;
+              return;
+            }
+            if (reloadOnOk) {
+              window.location.reload();
+              return;
+            }
+            setMessage(res.data.message || 'Готово.', messageSelector);
+            if (btn) btn.disabled = false;
+          })
+          .catch(function () {
+            setMessage('Ошибка сети. Попробуйте ещё раз.', messageSelector);
+            if (btn) btn.disabled = false;
+          });
+      });
+    });
+  }
+  bindFetchForms('form[data-sub-checkout]', 'Переходим в Tribute…', false);
+  bindFetchForms('form[data-sub-yk]', 'Переходим к оплате…', false);
+  bindFetchForms('form[data-sub-yk-manage]', 'Сохраняем…', true);
+  document.querySelectorAll('form[data-sub-gift]').forEach(function (form) {
+    form.setAttribute('data-message', '#new-sub-gift-message');
+  });
+  bindFetchForms('form[data-sub-gift]', 'Переходим к оплате…', false);
+  document.querySelectorAll('[data-copy-gift-code]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var codeElement = button.parentElement && button.parentElement.querySelector('[data-gift-code]');
+      var code = codeElement ? codeElement.textContent.trim() : '';
+      if (!navigator.clipboard) return;
+      navigator.clipboard.writeText(code).then(function () {
+        var old = button.textContent;
+        button.textContent = 'Скопировано';
+        window.setTimeout(function () { button.textContent = old; }, 1500);
+      });
+    });
+  });
+  document.querySelectorAll('[data-reveal-gift-code]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var row = button.parentElement;
+      var code = row && row.querySelector('[data-gift-code]');
+      var copy = row && row.querySelector('[data-copy-gift-code]');
+      if (!code) return;
+      button.disabled = true;
+      fetch(button.getAttribute('data-reveal-url'), {
+        method: 'POST',
+        headers: {'X-CSRFToken': csrfToken()},
+        credentials: 'same-origin'
+      }).then(function (r) {
+        return r.json().then(function (data) { return {ok: r.ok, data: data}; });
+      }).then(function (res) {
+        if (!res.ok || !res.data || res.data.status !== 'ok' || !res.data.code) {
+          button.disabled = false;
+          return;
+        }
+        code.textContent = res.data.code;
+        code.classList.remove('is-blurred');
+        code.classList.add('is-revealed');
+        button.hidden = true;
+        if (copy) copy.hidden = false;
+        button.setAttribute('aria-expanded', 'true');
+      }).catch(function () {
+        button.disabled = false;
+      });
+    });
+  });
+  var modal = document.getElementById('new-sub-detach-modal');
+  var opener = document.getElementById('new-sub-detach-open');
+  if (modal && opener) {
+    var form = document.getElementById('new-sub-detach-form');
+    var status = document.getElementById('new-sub-detach-message');
+    var submitting = false;
+    var previousOverflow = '';
+    function closeModal() {
+      if (submitting) return;
+      modal.classList.remove('is-open');
+      modal.hidden = true;
+      document.body.style.overflow = previousOverflow;
+      opener.focus({preventScroll: true});
+    }
+    opener.addEventListener('click', function () {
+      previousOverflow = document.body.style.overflow;
+      modal.hidden = false;
+      modal.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      window.requestAnimationFrame(function () {
+        if (!modal.hidden) form.querySelector('[data-detach-close]').focus();
+      });
+    });
+    modal.querySelectorAll('[data-detach-close]').forEach(function (button) {
+      button.addEventListener('click', closeModal);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (modal.hidden) return;
+      if (event.key === 'Escape') { event.preventDefault(); closeModal(); }
+      if (event.key === 'Tab') {
+        var buttons = modal.querySelectorAll('button:not(:disabled)');
+        var first = buttons[0], last = buttons[buttons.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault(); first.focus();
+        }
+      }
+    });
+    form.addEventListener('submit', function (event) {
+      event.preventDefault();
+      if (form.dataset.approvalPreview === '1') {
+        closeModal();
+        document.getElementById('new-sub-payment-method').hidden = true;
+        var detached = document.getElementById('new-sub-detached');
+        detached.hidden = false;
+        detached.focus({preventScroll: true});
+        return;
+      }
+      if (submitting) return;
+      submitting = true;
+      var button = form.querySelector('[type="submit"]');
+      button.disabled = true;
+      status.textContent = 'Отвязываем карту…';
+      fetch(form.action, {
+        method: 'POST', credentials: 'same-origin', headers: {'X-CSRFToken': csrfToken()}
+      }).then(function (response) {
+        if (!response.ok) throw new Error('detach failed');
+        return response.json();
+      }).then(function (data) {
+        if (data.status !== 'ok') throw new Error('detach failed');
+        window.location.reload();
+      }).catch(function () {
+        status.textContent = 'Не удалось подтвердить отвязку. Проверьте соединение и повторите действие.';
+        submitting = false;
+        button.disabled = false;
+      });
+    });
+  }
+  var successModal = document.getElementById('new-sub-payment-success-modal');
+  if (successModal) {
+    function closeSuccessModal() {
+      successModal.classList.remove('is-open');
+      successModal.hidden = true;
+    }
+    successModal.querySelectorAll('[data-sub-payment-success-close]').forEach(function (button) {
+      button.addEventListener('click', closeSuccessModal);
+    });
+    successModal.hidden = false;
+    successModal.classList.add('is-open');
+  }
+})();
+</script>
+{% endif %}
+{% endblock %}

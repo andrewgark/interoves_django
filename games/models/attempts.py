@@ -751,7 +751,7 @@ class Attempt(models.Model):
             from games.puzzles.replacements.grid import GridPuzzle
             puzzle = GridPuzzle
         if puzzle is None and self.task.task_type == 'distribute_to_teams':
-            from games.puzzles.core.short.distribute_to_teams import DistributeToTeamsPuzzle
+            from games.puzzles.markers.distribute_to_teams import DistributeToTeamsPuzzle
             puzzle = DistributeToTeamsPuzzle
         reader = getattr(puzzle, 'pretty_text', None) if puzzle is not None else None
         if reader is not None:

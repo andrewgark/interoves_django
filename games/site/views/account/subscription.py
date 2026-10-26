@@ -4,24 +4,27 @@ from __future__ import annotations
 import logging
 from zoneinfo import ZoneInfo
 
-from django.core.cache import cache
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.shortcuts import redirect
+from django.core.cache import cache
 from django.http import JsonResponse
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.formats import date_format
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 
-from games.ops.analytics.events import (
-    YANDEX_GOAL_SUBSCRIPTION_CHECKOUT,
-    YANDEX_GOAL_SUBSCRIPTION_VIEW,
-    queue_pending_goal,
-    yandex_goal_payload,
-)
 from games.club.access.archive import get_club_subscription, has_club_access
+from games.club.billing.gifts.offers import claim_gift, decrypt_gift_code, gift_duration_label, purchaser_gifts
+from games.club.billing.gifts.payments import start_tribute_gift, start_yookassa_gift, yookassa_gift_amount
+from games.club.billing.tribute.config import (
+    club_archive_gating_enabled,
+    club_checkout_enabled,
+    club_management_url,
+    configured_club_gift,
+    configured_club_product,
+    merchant_public_copy,
+)
 from games.club.billing.yookassa.club import (
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,
@@ -36,20 +39,16 @@ from games.club.billing.yookassa.club import (
     start_monthly_subscription,
     yookassa_recurring_enabled,
 )
-from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMethod, SubscriptionGift
-from games.club.billing.gifts.offers import claim_gift, decrypt_gift_code, gift_duration_label, purchaser_gifts
-from games.club.billing.gifts.payments import start_tribute_gift, start_yookassa_gift, yookassa_gift_amount
 from games.club.link import user_has_telegram_link
-from games.club.billing.tribute.config import (
-    club_archive_gating_enabled,
-    club_checkout_enabled,
-    club_management_url,
-    configured_club_product,
-    merchant_public_copy,
-    configured_club_gift,
-)
-from games.site.ui import NEW_UI_PROJECT, _project_urls_context
 from games.identity import has_profile
+from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMethod, SubscriptionGift
+from games.ops.analytics.events import (
+    YANDEX_GOAL_SUBSCRIPTION_CHECKOUT,
+    YANDEX_GOAL_SUBSCRIPTION_VIEW,
+    queue_pending_goal,
+    yandex_goal_payload,
+)
+from games.site.pages import NEW_UI_PROJECT, _project_urls_context
 
 logger = logging.getLogger('games.views.subscription')
 

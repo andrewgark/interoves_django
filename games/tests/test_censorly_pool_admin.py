@@ -6,8 +6,8 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 from games.models import CensorlyPoolEntry
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 
 
 class CensorlyPoolAdminTests(TestCase):
@@ -44,9 +44,9 @@ class CensorlyPoolAdminTests(TestCase):
         self.assertIn('Культура/Музыка/Песни', payload['groups']['очень сложно'][0]['topics'])
         self.assertEqual(payload['groups']['очень сложно'][0]['title'], 'Ааа тестовая статья пула')
 
-    @patch('games.ops.support.http.views.title_content_lemmas', return_value=True)
-    @patch('games.ops.support.http.views.build_puzzle_payload', return_value={'title': 'Тест'})
-    @patch('games.ops.support.http.views.fetch_article')
+    @patch('games.console.http.views.title_content_lemmas', return_value=True)
+    @patch('games.console.http.views.build_puzzle_payload', return_value={'title': 'Тест'})
+    @patch('games.console.http.views.fetch_article')
     def test_add_article_persists_tags_and_difficulty(self, fetch_article, _payload, _lemmas):
         fetch_article.return_value = SimpleNamespace(
             title='Тестовая песня', extract='Текст песни', pageid=1, revid=2,

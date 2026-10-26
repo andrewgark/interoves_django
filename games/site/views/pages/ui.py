@@ -1,7 +1,7 @@
 """Main UI views (neutral naming, without ``new``)."""
 
-from games.site.ui.hub.cards import get_section_games
-from games.site.ui.hub.pages import (
+from games.site.pages.hub.cards import get_section_games
+from games.site.pages.hub.pages import (
     new_folder,
     new_hub,
     new_ladder_hub_page,
@@ -12,11 +12,11 @@ from games.site.ui.hub.pages import (
     project_folder_games,
     project_hub,
 )
-from games.site.ui.game.progress import (
+from games.site.pages.game.progress import (
     new_game_task_group_progress,
     project_game_task_group_progress,
 )
-from games.site.ui.game.pages import (
+from games.site.pages.game.pages import (
     new_main_game_page,
     new_section_game_page,
     project_main_game_page,
@@ -24,7 +24,7 @@ from games.site.ui.game.pages import (
     project_task_group_page,
     project_tournament_results_page,
 )
-from games.site.ui.results.pages import (
+from games.site.pages.results.pages import (
     new_game_task_results_page,
     new_ladder_word_results_page,
     new_results_page,
@@ -32,23 +32,23 @@ from games.site.ui.results.pages import (
     new_section_task_results_page,
     new_tournament_results_page,
 )
-from games.site.ui.play.page import daily_statistics, new_task_group_page
-from games.site.ui.play.replay import new_replay_exit, new_replay_start
-from games.site.ui.play.live import new_task_group_live_state
-from games.site.ui.play.answers import (
+from games.site.pages.play.page import daily_statistics, new_task_group_page
+from games.site.pages.play.replay import new_replay_exit, new_replay_start
+from games.site.pages.play.live import new_task_group_live_state
+from games.site.pages.play.answers import (
     new_get_answer,
     new_get_raddle_word_answer,
     new_get_replacements_line_answer,
 )
-from games.site.ui.play.reactions import new_bug_report, new_like_dislike, new_raddle_clue_like
-from games.site.ui.profile.anon import (
+from games.site.pages.play.reactions import new_bug_report, new_like_dislike, new_raddle_clue_like
+from games.site.pages.profile.anon import (
     new_anon_merge_job_status,
     new_anon_migrate_count,
     new_club_archive_offer_action,
     new_migrate_anon_attempts,
     new_set_play_mode,
 )
-from games.site.ui.profile.pages import (
+from games.site.pages.profile.pages import (
     new_account_merge_confirm,
     new_account_merge_retry,
     new_account_merge_status,
@@ -58,7 +58,7 @@ from games.site.ui.profile.pages import (
     new_profile_reports,
     new_social_account_disconnect,
 )
-from games.site.ui.team.pages import (
+from games.site.pages.team.pages import (
     new_team,
     new_team_create,
     new_team_info,
@@ -73,7 +73,7 @@ from games.site.ui.team.pages import (
     new_team_request_join,
     new_team_set_primary,
 )
-from games.site.ui.pay.pages import (
+from games.site.pages.pay.pages import (
     new_create_crypto_donation,
     new_create_crypto_ticket_payment,
     new_create_ticket_payment,
@@ -99,6 +99,9 @@ results_page = new_results_page
 tournament_results_page = new_tournament_results_page
 task_group_page = new_task_group_page
 task_group_live_state = new_task_group_live_state
+replay_start = new_replay_start
+replay_exit = new_replay_exit
+anon_merge_job_status = new_anon_merge_job_status
 ladder_today_page = new_ladder_today_page
 ladder_last_page = new_ladder_last_page
 ladder_hub_page = new_ladder_hub_page

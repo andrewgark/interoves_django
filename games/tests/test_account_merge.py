@@ -8,35 +8,36 @@ from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.models import SocialAccount, SocialApp, SocialLogin
 from django.contrib.auth.models import User
 from django.contrib.sessions.middleware import SessionMiddleware
-from django.db import IntegrityError
 from django.contrib.sites.models import Site
+from django.db import IntegrityError
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.club.merge.account import (
-    AccountMergeError,
+from games.identity.allauth import SocialAccountAdapter
+from games.identity.merge.account import (
     PENDING_ACCOUNT_MERGE_SESSION_KEY,
+    AccountMergeError,
     build_account_merge_preview,
     merge_accounts,
 )
 from games.models import (
     AccountMerge,
-    AnonAccountClaim,
     AlphabettyPersonalDictWord,
+    AnonAccountClaim,
     Attempt,
     BugReport,
-    CheckerType,
     ChainTaskState,
+    CheckerType,
     Game,
-    HTMLPage,
     Hint,
     HintAttempt,
+    HTMLPage,
     Like,
+    NextGameVoteEvent,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
-    NextGameVoteEvent,
     Profile,
     ProfileTeamMembership,
     Project,
@@ -45,7 +46,6 @@ from games.models import (
     Team,
     TicketRequest,
 )
-from games.users.allauth import SocialAccountAdapter
 
 
 class AccountMergeTests(TestCase):
@@ -591,7 +591,7 @@ class AccountMergeTests(TestCase):
         session.save()
 
         with patch(
-            'games.club.merge.queue.enqueue_account_merge',
+            'games.identity.merge.account_queue.enqueue_account_merge',
             side_effect=IntegrityError('duplicate'),
         ):
             response = client.post(reverse('ui_account_merge_confirm'), {

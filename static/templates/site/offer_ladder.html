@@ -1,0 +1,549 @@
+{% extends "site/base.html" %}
+{% load static %}
+{% block title %}Создать свою Лесенку{% endblock %}
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'css/support.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+  <script src="{% static 'js/offer_draft_autosave.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endblock %}
+{% block content %}
+{% csrf_token %}
+{{ offers_json|json_script:"offers-bootstrap" }}
+<h1 class="new-heading new-heading--page">Создать свою Лесенку</h1>
+
+{% if not profile_ready %}
+<section class="pal-card new-card">
+  <p class="pal-lead">Чтобы предлагать Лесенки, укажите имя, фамилию и привяжите Telegram.</p>
+  {% if profile_error %}<p class="new-field-error">{{ profile_error }}</p>{% endif %}
+  <form method="post" class="new-form">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="save_profile">
+    <div class="new-two">
+      <div>
+        <label for="offer-first-name">Имя</label>
+        <input id="offer-first-name" type="text" name="first_name" value="{{ profile.first_name }}" required>
+      </div>
+      <div>
+        <label for="offer-last-name">Фамилия</label>
+        <input id="offer-last-name" type="text" name="last_name" value="{{ profile.last_name }}" required>
+      </div>
+    </div>
+    {% include "site/offer_telegram_link.html" %}
+    <button type="submit" class="new-btn">Сохранить и продолжить</button>
+  </form>
+</section>
+{% else %}
+<p class="new-login-hint new-stack-gap">
+  Создайте свои Лесенки. Можно их редактировать, решать, делиться с друзьями и предлагать сделать одной из ежедневных.
+</p>
+<div class="new-stack-gap new-stack-gap--after-button">
+  <button type="button" class="new-btn" id="offer-create-btn">Добавить Лесенку</button>
+</div>
+<section class="pal-card new-card new-stack-gap" id="offer-list" aria-label="Ваши Лесенки"></section>
+
+<div id="offer-edit-modal" class="new-rules-modal" role="dialog" aria-labelledby="offer-edit-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-offer-close></div>
+  <div class="new-rules-modal__box pal-card support-ladder-modal">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-offer-close>×</button>
+    <h2 id="offer-edit-title" class="support-page-title support-page-title--modal">Лесенка</h2>
+    <p class="support-hint">
+      Используйте <code>____</code> как предыдущее слово, <code>...</code> как следующее слово
+    </p>
+    <p class="support-hint" id="offer-edit-sub"></p>
+    <label class="support-ladders-field">
+      <span>Текст перед Лесенкой</span>
+      <textarea id="offer-edit-intro" rows="2"></textarea>
+    </label>
+    <label class="support-ladders-field">
+      <span>Автор (как подписать)</span>
+      <input type="text" id="offer-edit-author" autocomplete="off">
+    </label>
+    <label class="support-ladders-field">
+      <span>Комментарий для Андрея</span>
+      <textarea id="offer-edit-comment" rows="2"></textarea>
+    </label>
+    <label class="support-ladders-field support-ladders-field--check">
+      <input type="checkbox" id="offer-edit-mixed-script">
+      <span>И кириллица, и латиница разрешена</span>
+    </label>
+    <div class="support-ladder-words-head">
+      <span>Слова и подсказки</span>
+      <button type="button" class="new-btn new-btn--mini new-btn--ghost" id="offer-add-word">+ слово</button>
+    </div>
+    <div id="offer-edit-words" class="support-ladder-words"></div>
+    <p class="support-hint support-ladder-edit-error" id="offer-edit-error" hidden></p>
+    <div class="support-autosave" id="offer-autosave-status" role="status" aria-live="polite">
+      <span class="support-autosave__icon" aria-hidden="true"><i class="ph ph-cloud-check"></i></span>
+      <span class="support-autosave__copy">
+        <strong id="offer-autosave-title">Автосохранение включено</strong>
+        <span id="offer-autosave-detail">Можно спокойно закрыть окно — изменения не пропадут.</span>
+      </span>
+    </div>
+    <div class="support-action-row support-action-row--mt">
+      <button type="button" class="new-btn" id="offer-edit-save">Сохранить</button>
+      <button type="button" class="new-btn new-btn--ghost" id="offer-edit-send">Предложить опубликовать</button>
+      <a href="#" target="_blank" rel="noopener" class="new-btn new-btn--mini new-btn--ghost" id="offer-edit-preview">Решать Лесенку</a>
+      <button type="button" class="new-btn new-btn--ghost" data-offer-close>Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var bootstrap = JSON.parse(document.getElementById('offers-bootstrap').textContent || '[]');
+  var offers = bootstrap.slice();
+  var listEl = document.getElementById('offer-list');
+  var modal = document.getElementById('offer-edit-modal');
+  var editId = null;
+  var busy = false;
+  var autosave = null;
+  var endpoints = {
+    create: "{% url 'new_create_ladder_create' %}",
+    detailTpl: "{% url 'new_create_ladder_detail' 0 %}".replace('/0/', '/{id}/'),
+    sendTpl: "{% url 'new_create_ladder_send' 0 %}".replace('/0/', '/{id}/')
+  };
+
+  function csrf() {
+    var el = document.querySelector('input[name=csrfmiddlewaretoken]');
+    return el ? el.value : '';
+  }
+  function postJson(url, body) {
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+      body: JSON.stringify(body || {}),
+      credentials: 'same-origin'
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || !data.ok) throw new Error((data && data.error) || ('HTTP ' + r.status));
+        return data;
+      });
+    });
+  }
+  function escapeHtml(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function offerTitle(o) {
+    var words = o.words || [];
+    if (words.length >= 2) {
+      return words[0] + '→' + words[words.length - 1];
+    }
+    if (words.length === 1) return words[0];
+    return 'Лесенка';
+  }
+  function upsert(offer) {
+    var i = offers.findIndex(function (o) { return o.id === offer.id; });
+    if (i >= 0) offers[i] = offer; else offers.unshift(offer);
+    renderList();
+  }
+  function renderList() {
+    listEl.innerHTML = '';
+    if (!offers.length) {
+      listEl.innerHTML = '<p class="support-empty">Пока нет предложений. Нажмите «Добавить Лесенку».</p>';
+      return;
+    }
+    offers.forEach(function (o) {
+      var item = document.createElement('div');
+      item.className = 'support-ladder-item';
+      var num = o.production_number != null ? ('№' + o.production_number) : ('#' + o.id);
+      var date = o.production_publish_date || (o.sent_at || o.created_at || '').slice(0, 10) || '—';
+      item.innerHTML =
+        '<div class="support-ladder-item__num">' + escapeHtml(num) + '</div>' +
+        '<div class="support-ladder-item__body">' +
+          '<div class="support-ladder-item__title">' + escapeHtml(offerTitle(o)) +
+            ' <span class="support-flag">' + escapeHtml(o.status_label) + '</span></div>' +
+          '<div class="support-ladder-item__meta">' + escapeHtml(date) +
+            (o.admin_note ? ' · <em>' + escapeHtml(o.admin_note) + '</em>' : '') +
+            ' · ' + o.word_count + ' сл.</div>' +
+          '<div class="support-ladder-item__preview">' + escapeHtml(o.words_preview || '') + '</div>' +
+        '</div>' +
+        '<div class="support-ladder-item__actions">' +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini" data-edit="' + o.id + '">Править</button>' : '') +
+          (o.can_edit ? '<button type="button" class="new-btn new-btn--mini new-btn--ghost" data-send="' + o.id + '">Предложить опубликовать</button>' : '') +
+          '<a class="new-btn new-btn--mini new-btn--ghost" href="' + escapeHtml(o.play_url) + '" target="_blank" rel="noopener">Решать Лесенку</a>' +
+        '</div>';
+      listEl.appendChild(item);
+    });
+  }
+
+  function openModal() {
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeModal() {
+    if (autosave) autosave.close();
+    modal.classList.remove('is-open');
+    modal.hidden = true;
+    document.body.style.overflow = '';
+    editId = null;
+  }
+  modal.querySelectorAll('[data-offer-close]').forEach(function (el) {
+    el.addEventListener('click', closeModal);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+  });
+
+  function normalizeWordState(words, hints, emojis) {
+    var nextWords = words && words.length ? words.slice() : ['', ''];
+    if (nextWords.length < 2) nextWords.push('');
+    var nextHints = hints ? hints.slice() : [];
+    var nextEmojis = emojis ? emojis.slice() : [];
+    while (nextHints.length < Math.max(0, nextWords.length - 1)) nextHints.push('');
+    if (nextHints.length > Math.max(0, nextWords.length - 1)) {
+      nextHints = nextHints.slice(0, Math.max(0, nextWords.length - 1));
+    }
+    while (nextEmojis.length < nextWords.length) nextEmojis.push('');
+    if (nextEmojis.length > nextWords.length) nextEmojis = nextEmojis.slice(0, nextWords.length);
+    return { words: nextWords, hints: nextHints, emojis: nextEmojis };
+  }
+
+  function wordRowsFromState(state) {
+    var normalized = normalizeWordState(state.words, state.hints, state.emojis);
+    return normalized.words.map(function (word, index) {
+      return {
+        word: word,
+        hint: index < normalized.words.length - 1 ? (normalized.hints[index] || '') : '',
+        emoji: normalized.emojis[index] || ''
+      };
+    });
+  }
+
+  function stateFromWordRows(rows) {
+    var words = rows.map(function (row) { return row.word || ''; });
+    var emojis = rows.map(function (row) { return row.emoji || ''; });
+    var hints = [];
+    rows.forEach(function (row, index) {
+      if (index < rows.length - 1) hints.push(row.hint || '');
+    });
+    return normalizeWordState(words, hints, emojis);
+  }
+
+  function insertWordAt(state, index) {
+    var rows = wordRowsFromState(state);
+    var at = Math.max(0, Math.min(index, rows.length));
+    rows.splice(at, 0, { word: '', hint: '' });
+    return stateFromWordRows(rows);
+  }
+
+  function removeWordAt(state, index) {
+    var rows = wordRowsFromState(state);
+    if (rows.length <= 2 || index < 0 || index >= rows.length) return normalizeWordState(state.words, state.hints, state.emojis);
+    rows.splice(index, 1);
+    return stateFromWordRows(rows);
+  }
+
+  function moveWordRow(state, from, to) {
+    var rows = wordRowsFromState(state);
+    if (from === to || from < 0 || to < 0 || from >= rows.length || to >= rows.length) {
+      return stateFromWordRows(rows);
+    }
+    var moved = rows.splice(from, 1)[0];
+    rows.splice(to, 0, moved);
+    return stateFromWordRows(rows);
+  }
+
+  function renderWordRows(words, hints, emojis) {
+    var box = document.getElementById('offer-edit-words');
+    box.innerHTML = '';
+    var state = normalizeWordState(words, hints, emojis);
+    words = state.words;
+    hints = state.hints;
+    emojis = state.emojis;
+    var dragIndex = null;
+    function clearDnD() {
+      box.querySelectorAll('.is-dragging, .is-drop-before, .is-drop-after').forEach(function (el) {
+        el.classList.remove('is-dragging', 'is-drop-before', 'is-drop-after');
+      });
+      dragIndex = null;
+    }
+    function renderInsert(index, label) {
+      var insert = document.createElement('div');
+      insert.className = 'support-ladder-word-insert';
+      insert.innerHTML =
+        '<button type="button" class="support-ladder-word-insert__btn" data-insert-index="' + index + '">' +
+        escapeHtml(label) + '</button>';
+      box.appendChild(insert);
+    }
+    renderInsert(0, '+ Слово сюда');
+    words.forEach(function (w, i) {
+      var row = document.createElement('div');
+      row.className = 'support-ladder-word-row support-ladder-word-row--draggable';
+      row.draggable = true;
+      row.dataset.wordIndex = String(i);
+      var hintHtml = (i < words.length - 1)
+        ? '<input type="text" class="ladder-hint" placeholder="подсказка → след. слово" value="' + escapeHtml(hints[i] || '') + '">'
+        : '<span class="support-hint">последнее слово</span>';
+      row.innerHTML =
+        '<button type="button" class="support-ladder-word-row__handle" data-tooltip="Перетащить" aria-label="Перетащить">⠿</button>' +
+        '<span class="support-cell-mono">' + (i + 1) + '</span>' +
+        '<input type="text" class="ladder-word" placeholder="СЛОВО" value="' + escapeHtml(w) + '" autocomplete="off">' +
+        '<input type="text" class="ladder-emoji" placeholder="эмодзи" value="' + escapeHtml(emojis[i] || '') + '" maxlength="16" autocomplete="off" aria-label="Эмодзи строки ' + (i + 1) + '">' +
+        hintHtml +
+        '<button type="button" class="new-btn new-btn--mini new-btn--ghost new-btn--icon ladder-rm-word" data-tooltip="Удалить" aria-label="Удалить слово" ' +
+          (words.length <= 2 ? 'disabled' : '') + '>×</button>';
+      box.appendChild(row);
+      renderInsert(i + 1, i === words.length - 1 ? '+ Слово в конец' : '+ Слово между строками');
+    });
+    box.ondragstart = function (e) {
+      var row = e.target.closest('.support-ladder-word-row');
+      if (!row) return;
+      dragIndex = parseInt(row.dataset.wordIndex || '', 10);
+      row.classList.add('is-dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', String(dragIndex)); } catch (err) {}
+    };
+    box.ondragend = clearDnD;
+    box.ondragover = function (e) {
+      var row = e.target.closest('.support-ladder-word-row');
+      if (!row || dragIndex == null) return;
+      e.preventDefault();
+      box.querySelectorAll('.is-drop-before, .is-drop-after').forEach(function (el) {
+        el.classList.remove('is-drop-before', 'is-drop-after');
+      });
+      var rect = row.getBoundingClientRect();
+      if ((e.clientY - rect.top) < rect.height / 2) row.classList.add('is-drop-before');
+      else row.classList.add('is-drop-after');
+    };
+    box.ondrop = function (e) {
+      var row = e.target.closest('.support-ladder-word-row');
+      if (!row || dragIndex == null) return;
+      e.preventDefault();
+      var targetIndex = parseInt(row.dataset.wordIndex || '', 10);
+      if (isNaN(targetIndex)) return;
+      var rect = row.getBoundingClientRect();
+      var before = (e.clientY - rect.top) < rect.height / 2;
+      var to = before ? targetIndex : targetIndex + 1;
+      var from = dragIndex;
+      if (from < to) to -= 1;
+      var moved = moveWordRow(readWordRows(), from, to);
+      renderWordRows(moved.words, moved.hints, moved.emojis);
+      if (autosave) autosave.changed();
+    };
+  }
+  function readWordRows() {
+    var rows = document.querySelectorAll('#offer-edit-words .support-ladder-word-row');
+    var words = [], hints = [], emojis = [];
+    rows.forEach(function (row, i) {
+      words.push((row.querySelector('.ladder-word').value || '').trim());
+      emojis.push((row.querySelector('.ladder-emoji').value || '').trim());
+      if (i < rows.length - 1) {
+        var h = row.querySelector('.ladder-hint');
+        hints.push(h ? (h.value || '').trim() : '');
+      }
+    });
+    return normalizeWordState(words, hints, emojis);
+  }
+
+  function readEditorPayload() {
+    var cur = readWordRows();
+    return {
+      words: cur.words,
+      hints: cur.hints,
+      emojis: cur.emojis,
+      intro: document.getElementById('offer-edit-intro').value,
+      author: document.getElementById('offer-edit-author').value,
+      comment: document.getElementById('offer-edit-comment').value,
+      mixed_script: document.getElementById('offer-edit-mixed-script').checked
+    };
+  }
+
+  function restoreEditorPayload(payload) {
+    document.getElementById('offer-edit-intro').value = payload.intro || '';
+    document.getElementById('offer-edit-author').value = payload.author || '';
+    document.getElementById('offer-edit-comment').value = payload.comment || '';
+    document.getElementById('offer-edit-mixed-script').checked = !!payload.mixed_script;
+    renderWordRows(payload.words || [], payload.hints || [], payload.emojis || []);
+  }
+
+  function autosaveTime(date) {
+    if (!date || typeof date.toLocaleTimeString !== 'function') return '';
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function showAutosaveStatus(state, detail) {
+    var box = document.getElementById('offer-autosave-status');
+    var title = document.getElementById('offer-autosave-title');
+    var sub = document.getElementById('offer-autosave-detail');
+    var icon = box.querySelector('i');
+    detail = detail || {};
+    box.dataset.state = state;
+    var states = {
+      idle: ['Автосохранение включено', 'Можно спокойно закрыть окно — изменения не пропадут.', 'ph-cloud-check'],
+      pending: ['Изменения сохранены на устройстве', 'Скоро синхронизируем с сервером…', 'ph-cloud-arrow-up'],
+      saving: ['Сохраняем…', 'Отправляем черновик на сервер.', 'ph-circle-notch'],
+      saved: ['Все изменения сохранены', detail.savedAt ? ('Сохранено в ' + autosaveTime(detail.savedAt)) : 'Черновик синхронизирован с сервером.', 'ph-cloud-check'],
+      restored: ['Черновик восстановлен', 'Продолжайте с места, где остановились.', 'ph-arrow-counter-clockwise'],
+      local: ['Черновик сохранён на устройстве', detail.message || 'С сервером пока не получилось — данные не пропадут.', 'ph-device-mobile'],
+      error: ['Не удалось сохранить черновик', 'Не закрывайте страницу и проверьте соединение.', 'ph-warning-circle']
+    };
+    var value = states[state] || states.idle;
+    title.textContent = value[0];
+    sub.textContent = value[1];
+    icon.className = 'ph ' + value[2];
+  }
+
+  autosave = window.OfferDraftAutosave.create({
+    storagePrefix: 'interoves_offer_draft_v1:ladder:{{ user.pk }}',
+    getPayload: readEditorPayload,
+    restorePayload: restoreEditorPayload,
+    canSync: function (payload) {
+      return payload.words.length >= 2 && payload.words.every(function (word) {
+        return !!String(word || '').trim();
+      });
+    },
+    syncBlockedMessage: function () {
+      return 'Заполните все добавленные слова — пока черновик сохранён только на этом устройстве.';
+    },
+    save: function (id, payload) {
+      return postJson(endpoints.detailTpl.replace('{id}', String(id)), payload);
+    },
+    onSaved: function (data) {
+      if (data && data.offer) upsert(data.offer);
+    },
+    onStatus: showAutosaveStatus
+  });
+
+  modal.addEventListener('input', function (e) {
+    if (e.target.matches('input, textarea')) autosave.changed();
+  });
+  modal.addEventListener('change', function (e) {
+    if (e.target.matches('input, textarea')) autosave.changed();
+  });
+
+  document.getElementById('offer-add-word').addEventListener('click', function () {
+    var curState = readWordRows();
+    var cur = insertWordAt(curState, curState.words.length);
+      renderWordRows(cur.words, cur.hints, cur.emojis);
+    autosave.changed();
+  });
+  document.getElementById('offer-edit-words').addEventListener('click', function (e) {
+    var insertBtn = e.target.closest('[data-insert-index]');
+    if (insertBtn) {
+      var curInsert = insertWordAt(readWordRows(), parseInt(insertBtn.getAttribute('data-insert-index'), 10));
+      renderWordRows(curInsert.words, curInsert.hints, curInsert.emojis);
+      autosave.changed();
+      return;
+    }
+    var btn = e.target.closest('.ladder-rm-word');
+    if (!btn || btn.disabled) return;
+    var row = btn.closest('.support-ladder-word-row');
+    var all = Array.prototype.slice.call(document.querySelectorAll('#offer-edit-words .support-ladder-word-row'));
+    var idx = all.indexOf(row);
+    var cur = removeWordAt(readWordRows(), idx);
+    renderWordRows(cur.words, cur.hints, cur.emojis);
+    autosave.changed();
+  });
+
+  function openEdit(offer) {
+    editId = offer.id;
+    document.getElementById('offer-edit-error').hidden = true;
+    var subParts = [];
+    if (offer.status_label && offer.status_label !== 'Черновик') {
+      subParts.push(offer.status_label);
+    }
+    if (offer.admin_note) subParts.push(offer.admin_note);
+    var subEl = document.getElementById('offer-edit-sub');
+    subEl.textContent = subParts.join(' · ');
+    subEl.hidden = !subParts.length;
+    document.getElementById('offer-edit-intro').value = offer.intro || '';
+    document.getElementById('offer-edit-author').value = offer.author || '';
+    document.getElementById('offer-edit-comment').value = offer.comment || '';
+    document.getElementById('offer-edit-mixed-script').checked = !!offer.mixed_script;
+    renderWordRows(offer.words || [], offer.hints || [], offer.emojis || []);
+    document.getElementById('offer-edit-preview').href = offer.play_url || '#';
+    var canEdit = !!offer.can_edit;
+    ['offer-edit-intro', 'offer-edit-author', 'offer-edit-comment', 'offer-edit-mixed-script', 'offer-add-word', 'offer-edit-save', 'offer-edit-send']
+      .forEach(function (id) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        if (el.tagName === 'BUTTON') el.disabled = !canEdit;
+        else el.disabled = !canEdit;
+      });
+    document.getElementById('offer-autosave-status').hidden = !canEdit;
+    if (canEdit) autosave.open(offer.id, readEditorPayload());
+    openModal();
+  }
+
+  function sendOfferById(id) {
+    if (!id || busy) return;
+    if (!window.confirm('Предложить опубликовать Лесенку? После этого редактировать нельзя.')) return;
+    busy = true;
+    postJson(endpoints.sendTpl.replace('{id}', String(id)), {})
+      .then(function (data) {
+        autosave.discard(id);
+        upsert(data.offer);
+        if (editId === id) closeModal();
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  }
+
+  listEl.addEventListener('click', function (e) {
+    var editBtn = e.target.closest('[data-edit]');
+    if (editBtn) {
+      var editOfferId = parseInt(editBtn.getAttribute('data-edit'), 10);
+      var offer = offers.find(function (o) { return o.id === editOfferId; });
+      if (offer) openEdit(offer);
+      return;
+    }
+    var sendBtn = e.target.closest('[data-send]');
+    if (sendBtn) {
+      sendOfferById(parseInt(sendBtn.getAttribute('data-send'), 10));
+    }
+  });
+
+  document.getElementById('offer-create-btn').addEventListener('click', function () {
+    if (busy) return;
+    busy = true;
+    postJson(endpoints.create, {})
+      .then(function (data) {
+        upsert(data.offer);
+        openEdit(data.offer);
+      })
+      .catch(function (e) { alert(e.message || String(e)); })
+      .finally(function () { busy = false; });
+  });
+
+  document.getElementById('offer-edit-save').addEventListener('click', function () {
+    if (!editId || busy) return;
+    var err = document.getElementById('offer-edit-error');
+    busy = true;
+    autosave.flush().then(function () {
+      err.hidden = true;
+      closeModal();
+    }).catch(function (e) {
+      err.hidden = false;
+      err.textContent = e.message || String(e);
+    }).finally(function () { busy = false; });
+  });
+
+  document.getElementById('offer-edit-send').addEventListener('click', function () {
+    if (!editId || busy) return;
+    if (!window.confirm('Предложить опубликовать Лесенку? После этого редактировать нельзя.')) return;
+    var sendingId = editId;
+    busy = true;
+    autosave.flush().then(function () {
+      return postJson(endpoints.sendTpl.replace('{id}', String(sendingId)), {});
+    }).then(function (data) {
+      autosave.discard(sendingId);
+      upsert(data.offer);
+      closeModal();
+    }).catch(function (e) {
+      var err = document.getElementById('offer-edit-error');
+      err.hidden = false;
+      err.textContent = e.message || String(e);
+    }).finally(function () { busy = false; });
+  });
+
+  renderList();
+})();
+</script>
+{% endif %}
+
+<p class="new-tg-back new-tg-back--footer">
+  <a href="{% url 'new_ladder_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> К Лесенкам</a>
+</p>
+{% endblock %}

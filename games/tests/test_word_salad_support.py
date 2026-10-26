@@ -1,16 +1,12 @@
-from unittest.mock import patch
 from datetime import datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
 
-from games.daily.page.section import WORD_SALAD_GAME_ID
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
-from games.ops.support.games.sections import get_sections_dashboard
-from games.ops.support.games.salad import (
+from games.console.games.salad import (
     WordSaladSupportError,
     create_word_salad,
     delete_word_salad,
@@ -21,6 +17,10 @@ from games.ops.support.games.salad import (
     set_publish_start,
     update_word_salad,
 )
+from games.console.games.sections import get_sections_dashboard
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
+from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 
 
 def _setup_db():
@@ -254,7 +254,7 @@ class WordSaladSupportTests(TestCase):
 
     def test_create_endpoint_returns_json_error(self):
         self.client.force_login(self.support_user)
-        with patch('games.ops.support.http.views.create_word_salad', side_effect=WordSaladSupportError('boom')):
+        with patch('games.console.http.views.create_word_salad', side_effect=WordSaladSupportError('boom')):
             response = self.client.post(reverse('support:word_salad_create'))
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response['Content-Type'].split(';')[0], 'application/json')
@@ -312,7 +312,7 @@ class WordSaladSupportTests(TestCase):
         ]
 
         with patch(
-            'games.ops.support.http.schedule.GameTaskGroup.objects.bulk_update',
+            'games.console.http.schedule.GameTaskGroup.objects.bulk_update',
             wraps=GameTaskGroup.objects.bulk_update,
         ) as bulk_update:
             renumber_links([links[0], links[2], links[1]])

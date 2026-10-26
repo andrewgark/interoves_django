@@ -4,21 +4,21 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import AnonymousUser
 from django.db import connection
+from django.template.loader import render_to_string
 from django.test import Client, RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
-from django.template.loader import render_to_string
 from django.utils import timezone
 
+from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 from games.ops.analytics.identity import attach_anon_cookie, stamp_anon_identity
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Attempt
-from games.site.ui.game.progress import (
+from games.site.pages.game.progress import (
     _game_page_progress_context,
     _game_task_group_links,
     _initial_task_group_progress,
     _task_group_progress_payload,
     _task_group_rows_skeleton,
 )
-from games.site.ui.hub.cards import _build_hub_section_cards
+from games.site.pages.hub.cards import _build_hub_section_cards
 
 
 def _ensure_min_fixtures():
@@ -204,15 +204,15 @@ class GameTaskGroupProgressTests(TestCase):
             'play_url': '/hub_ssr_progress/1/',
         }
         with (
-            patch('games.site.ui.hub.cards.HUB_DAILY_SECTION_IDS', (game.id,)),
-            patch('games.site.ui.hub.cards.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
-            patch('games.site.ui.hub.cards.ONBOARDING_GAME_IDS', (game.id,)),
-            patch.dict('games.site.ui.hub.cards.ONBOARDING_GAME_META', {game.id: {'badge': 'Test'}}),
-            patch('games.site.ui.hub.cards.get_training_section_hub_context', return_value=card_context),
-            patch('games.site.ui.hub.cards._get_play_mode', return_value=('personal', None)),
-            patch('games.site.ui.hub.cards.effective_play_mode', return_value='personal'),
-            patch('games.site.ui.hub.cards._game_page_progress_context', return_value={'load_task_group_progress': True}),
-            patch('games.site.ui.hub.cards._resolve_game_page_actor', return_value=(None, None, actor_key)),
+            patch('games.site.pages.hub.cards.HUB_DAILY_SECTION_IDS', (game.id,)),
+            patch('games.site.pages.hub.cards.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
+            patch('games.site.pages.hub.cards.ONBOARDING_GAME_IDS', (game.id,)),
+            patch.dict('games.site.pages.hub.cards.ONBOARDING_GAME_META', {game.id: {'badge': 'Test'}}),
+            patch('games.site.pages.hub.cards.get_training_section_hub_context', return_value=card_context),
+            patch('games.site.pages.hub.cards._get_play_mode', return_value=('personal', None)),
+            patch('games.site.pages.hub.cards.effective_play_mode', return_value='personal'),
+            patch('games.site.pages.hub.cards._game_page_progress_context', return_value={'load_task_group_progress': True}),
+            patch('games.site.pages.hub.cards._resolve_game_page_actor', return_value=(None, None, actor_key)),
             patch('games.daily.timing.streak.daily_streaks_for_actor', return_value={}),
         ):
             result = _build_hub_section_cards(request, team=None)
@@ -221,7 +221,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertTrue(rendered_card['is_solved'])
         self.assertTrue(rendered_card['progress_embedded'])
         html = render_to_string(
-            'new/partials/hub_section_card.html',
+            'site/partials/hub_section_card.html',
             {'card': rendered_card, 'highlight_daily_cta': True},
         )
         self.assertIn('data-hub-solved-mark', html)
@@ -236,13 +236,13 @@ class GameTaskGroupProgressTests(TestCase):
         card = {'id': game.id, 'game': game, 'title': 'Цензурки'}
 
         with (
-            patch('games.site.ui.hub.cards.HUB_DAILY_SECTION_IDS', (game.id,)),
-            patch('games.site.ui.hub.cards.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
-            patch('games.site.ui.hub.cards.ONBOARDING_GAME_IDS', ()),
-            patch('games.site.ui.hub.cards.get_scheduled_section_hub_card', return_value=card),
-            patch('games.site.ui.hub.cards._get_play_mode', return_value=('personal', None)),
-            patch('games.site.ui.hub.cards.effective_play_mode', return_value='personal'),
-            patch('games.site.ui.hub.cards._game_page_progress_context', return_value={}),
+            patch('games.site.pages.hub.cards.HUB_DAILY_SECTION_IDS', (game.id,)),
+            patch('games.site.pages.hub.cards.HUB_FROM_DESYATOCHKI_SECTION_IDS', ()),
+            patch('games.site.pages.hub.cards.ONBOARDING_GAME_IDS', ()),
+            patch('games.site.pages.hub.cards.get_scheduled_section_hub_card', return_value=card),
+            patch('games.site.pages.hub.cards._get_play_mode', return_value=('personal', None)),
+            patch('games.site.pages.hub.cards.effective_play_mode', return_value='personal'),
+            patch('games.site.pages.hub.cards._game_page_progress_context', return_value={}),
             patch('games.daily.timing.streak.daily_streaks_for_actor', return_value={}),
         ):
             result = _build_hub_section_cards(request, team=None)
@@ -471,8 +471,8 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertEqual(row['elapsed_label'], '3м 46с')
 
     def test_salad_progress_api_returns_squares_and_elapsed(self):
-        from games.daily.page.section import WORD_SALAD_GAME_ID
         from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
+        from games.daily.page.section import WORD_SALAD_GAME_ID
 
         game = Game.objects.filter(id=WORD_SALAD_GAME_ID, project_id='sections').first()
         self.assertIsNotNone(game)
@@ -631,8 +631,8 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertTrue(all(row['is_fully_solved'] for row in rows.values()))
 
     def test_initial_salad_page_embeds_actor_progress_without_json_fetch(self):
-        from games.daily.page.section import WORD_SALAD_GAME_ID
         from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
+        from games.daily.page.section import WORD_SALAD_GAME_ID
 
         _ensure_login_modal_deps()
         game = Game.objects.get(id=WORD_SALAD_GAME_ID, project_id='sections')
@@ -695,7 +695,7 @@ class GameTaskGroupProgressTests(TestCase):
         stamp_anon_identity(request, 'fallback-actor')
 
         with patch(
-            'games.site.ui.game.progress._task_group_progress_payload',
+            'games.site.pages.game.progress._task_group_progress_payload',
             side_effect=RuntimeError('projection failed'),
         ), self.assertLogs('games.views.new_ui', level='ERROR'):
             hydrated_rows, progress_context = _initial_task_group_progress(

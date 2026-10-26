@@ -67,23 +67,23 @@ from games.sections.hub import (
 from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.site.http.middleware.request_timing import timing_phase
+from games.site.pages import NEW_UI_SECTIONS_PROJECT
+from games.site.pages.game.progress import (
+    _archive_nav_target,
+    _mark_locked_archive_rows,
+    _neighbors_by_pk,
+    _task_group_page_nav_context,
+)
 from games.site.session.gameplay_context import (
     context_error_response,
     issue_gameplay_context,
     validate_gameplay_context,
 )
 from games.site.session.replay import StaleReplayError, _official_exists, active_replay, replay_for_request
-from games.site.ui import NEW_UI_SECTIONS_PROJECT
-from games.site.ui.game.progress import (
-    _archive_nav_target,
-    _mark_locked_archive_rows,
-    _neighbors_by_pk,
-    _task_group_page_nav_context,
-)
 from games.site.views.daily.hub import can_access_daily_game
 from games.site.views.daily.timing import daily_timing_page_context
-from games.tasks.likes_meta import likes_meta_by_task_id
-from games.tasks.titles import task_display_name, task_group_page_title
+from games.task_group.likes_meta import likes_meta_by_task_id
+from games.task_group.titles import task_display_name, task_group_page_title
 
 
 def _share_host(request) -> str:
@@ -176,7 +176,7 @@ def _alphabetty_meta_context(request, *, game, task, user, anon_key, placement=N
 
 def _alphabetty_meta_bar_html(request, *, game, task, user, anon_key, placement=None) -> str:
     return render_to_string(
-        'new/task-content/task-meta-bar.html',
+        'site/task-content/task-meta-bar.html',
         _alphabetty_meta_context(
             request,
             game=game,
@@ -287,7 +287,7 @@ def alphabetty_hub_page(request):
 
     from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties([link for _, link in link_rows])
-    from games.tasks.likes_meta import like_totals_by_task_group_id
+    from games.task_group.likes_meta import like_totals_by_task_group_id
     like_totals = like_totals_by_task_group_id(link.task_group_id for _, link in link_rows)
     rows = []
     for n, link in link_rows:
@@ -309,7 +309,7 @@ def alphabetty_hub_page(request):
         })
     for row in rows:
         row['is_fully_solved'] = row['is_solved']
-    from games.site.ui.hub.cards import _add_daily_completion_statuses
+    from games.site.pages.hub.cards import _add_daily_completion_statuses
     _add_daily_completion_statuses(request, game, rows, link_rows)
     _mark_locked_archive_rows(request, game, rows)
     archive_context = refresh_daily_archive_context(
@@ -324,11 +324,11 @@ def alphabetty_hub_page(request):
         locked_keys={row['number'] for row in rows if row.get('is_archive_locked')},
     )
     hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
-    return render(request, 'new/alphabetty_hub.html', {
+    return render(request, 'site/alphabetty_hub.html', {
         'game': game,
         'rows': rows,
         'page_title': 'Алфавитка',
-        'random_button_template': 'new/partials/alphabetty_random_button.html',
+        'random_button_template': 'site/partials/alphabetty_random_button.html',
         'daily_hub_play_url': hub['alphabetty_play_url'],
         'daily_hub_cta_label': hub['alphabetty_cta_label'],
         'daily_hub_is_today': hub['alphabetty_is_today'],
@@ -336,7 +336,7 @@ def alphabetty_hub_page(request):
         'daily_hub_coming_soon_text': 'Новая Алфавитка — каждый день в полночь по Москве.',
         'rules_title': 'Алфавитка',
         'rules_storage_key': 'section_rules_seen_alphabetty',
-        'rules_body_template': 'new/_alphabetty_rules_body.html',
+        'rules_body_template': 'site/_alphabetty_rules_body.html',
         'empty_text': 'Алфавитки скоро появятся.',
         'create_link': create_game_link_context(ALPHABETTY_GAME_ID),
         'show_sections_nav': True,
@@ -517,7 +517,7 @@ def alphabetty_play_page(request, number):
         fallback_label='Алфавитка',
         fallback_pager_label='Алфавитками',
     )
-    return render(request, 'new/alphabetty_play.html', {
+    return render(request, 'site/alphabetty_play.html', {
         'game': game,
         'offer_share_hash': (
             offer.share_hash if offer is not None

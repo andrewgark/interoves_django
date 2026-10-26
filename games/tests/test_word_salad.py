@@ -49,11 +49,11 @@ from games.puzzles.salad.rules import (
     validate_task_data,
 )
 from games.site.admin import TaskAdmin, WordSaladTaskForm
-from games.site.ui.play.page import new_task_group_page
+from games.site.pages.play.page import new_task_group_page
 from games.site.views.game.attempt import check_attempt
 from games.site.views.game.hint import process_send_hint_attempt
 from games.site.views.game.render import render_new_ui_task_card_html
-from games.tasks.task_group_context import build_task_group_task_context_dicts
+from games.task_group.task_group_context import build_task_group_task_context_dicts
 
 
 def _setup_db():
@@ -429,7 +429,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(info.get_result_points(), 0.5)
         self.assertEqual(info.get_result_attempt().pk, solve.pk)
         self.assertEqual(info.get_hint_numbers(), ['1.1'])
-        from games.site.ui.results.compute import _new_results_compute
+        from games.site.pages.results.compute import _new_results_compute
         results = _new_results_compute(self.game, mode='general')
         cell = results['team_to_cells'][self.team][0]
         self.assertEqual(cell['result_points'], 0.5)
@@ -804,7 +804,7 @@ class WordSaladTests(TestCase):
         )
         request.user = AnonymousUser()
         request.session = {'play_mode_sections': 'personal'}
-        with patch('games.site.ui.play.page.render', side_effect=lambda _request, _template, context: context):
+        with patch('games.site.pages.play.page.render', side_effect=lambda _request, _template, context: context):
             context = new_task_group_page(request, self.game.pk, '1')
         self.assertIn(self.task.pk, context['word_salad_data'])
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['grid_rows']), 4)
@@ -936,7 +936,7 @@ class WordSaladTests(TestCase):
             self.task.save(update_fields=['checker_data'])
 
     def test_section_games_use_task_type_name_in_pager(self):
-        from games.site.ui.game.progress import _task_group_page_nav_context
+        from games.site.pages.game.progress import _task_group_page_nav_context
 
         for game_id, label in (
             ('replacements', 'Замены'),
@@ -958,7 +958,7 @@ class WordSaladTests(TestCase):
         old_id = self.game.id
         self.game.id = 'salad'
         try:
-            from games.site.ui.game.progress import _task_group_page_nav_context
+            from games.site.pages.game.progress import _task_group_page_nav_context
             context = _task_group_page_nav_context(self.game)
         finally:
             self.game.id = old_id

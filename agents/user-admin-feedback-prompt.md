@@ -27,12 +27,12 @@
 | Что | Где |
 |-----|-----|
 | Модель | `games.models.BugReport`: `task`, `game`, `team`, `user`, `anon_key`, `text`, `page_url`, `time`, `status` (`Pending` / `Reviewed` / `Dismissed`), `admin_notes` |
-| Отправка с сайта | `games.site.ui.play.reactions.new_bug_report` (`POST /bug-report/<task_id>/`; фасад `games.views.new_ui`), модалка в `static/templates/new/task_group.html` |
+| Отправка с сайта | `games.site.pages.play.reactions.new_bug_report` (`POST /bug-report/<task_id>/`; фасад `games.views.new_ui`), модалка в `static/templates/site/task_group.html` |
 | Telegram админу | `post_save` → `notify_new_bug_report` (`games.ops.telegram.signals`, `games.ops.telegram.bot.notify`): текст + inline-кнопки Reviewed / Dismiss |
 | Колбэки TG | `games.ops.telegram.bot.callbacks._handle_bug` |
-| Support | очередь `/support/pending/` (`games.ops.support.people.pending`; фасад `games.support.services.pending`), действия `bug_reviewed` / `bug_dismissed` (`games.ops.support.http.actions`; фасад `games.support.actions`) |
+| Support | очередь `/support/pending/` (`games.console.people.pending`; фасад `games.support.services.pending`), действия `bug_reviewed` / `bug_dismissed` (`games.console.http.actions`; фасад `games.support.actions`) |
 | Django admin | `BugReport` + proxy `PendingBugReport` |
-| Гость → аккаунт | `anon_key`; перенос в `games.club.merge.anon.migrate_anon_attributions` и `games.club.merge.account` |
+| Гость → аккаунт | `anon_key`; перенос в `games.identity.merge.anon_steps.migrate_anon_attributions` и `games.identity.merge.account` |
 
 Важно: в **командном** режиме `new_bug_report` пишет `team`, а `user=None`. Из‑за этого «мои репорты» по `user=` пустые для командной игры. При сохранении, если пользователь залогинен, **всегда писать `user`**, `team` оставлять как сейчас. Старые строки без user — решить явно (см. итерацию 1).
 
@@ -48,8 +48,8 @@ Support: `/support/ladders/`, `/support/alphabetty/` (accept / revision с `admi
 
 ### Профиль и навигация
 
-- `/profile/` — `games.site.ui.profile.pages.new_profile` (фасад `games.views.new_ui`), шаблон `static/templates/new/profile.html`: имя, фото, Telegram-хэндл, таймзона, соц. аккаунты. Ссылок на репорты/офферы нет.
-- В шапке (`new/base.html`) Профиль — иконка + пункт меню. **Не** добавлять в основной nav пять новых пунктов.
+- `/profile/` — `games.site.pages.profile.pages.new_profile` (фасад `games.views.new_ui`), шаблон `static/templates/site/profile.html`: имя, фото, Telegram-хэндл, таймзона, соц. аккаунты. Ссылок на репорты/офферы нет.
+- В шапке (`site/base.html`) Профиль — иконка + пункт меню. **Не** добавлять в основной nav пять новых пунктов.
 - Рекомендуемое место ссылок: **блок на странице Профиля** после формы/аккаунтов (секция вроде «Мои материалы и обращения»). Опционально — короткая ссылка из дровера рядом с «Профиль», не в quick-nav.
 
 ### Telegram: админ vs пользователь
@@ -104,7 +104,7 @@ Support: `/support/ladders/`, `/support/alphabetty/` (accept / revision с `admi
 
 ## Стек и ограничения
 
-- New UI: `static/templates/new/`, стили `static/css/new.css`, модалки только `new-rules-modal` (`agents/AGENTS.md`).
+- New UI: `static/templates/site/`, стили `static/css/new.css`, модалки только `new-rules-modal` (`agents/AGENTS.md`).
 - Не React, не новые UI-библиотеки.
 - Python/тесты: `../venv/interoves_django/bin/python` (см. `agents/AGENTS.md`).
 - Не ломать: отправку репортов с задания, TG admin notify, support pending, admin actions, offer send/accept/revision, anon migrate, account merge.

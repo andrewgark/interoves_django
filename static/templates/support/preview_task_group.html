@@ -1,4 +1,4 @@
-{% extends "new/base.html" %}
+{% extends "site/base.html" %}
 {% load static filters %}
 
 {% block title %}{{ page_title }}{% endblock %}
@@ -44,7 +44,7 @@
   {% if task_group.view == 'proportions' and task.task_type == 'proportions' %}
   {% else %}
   {% with user=actor_user team=actor_team anon_key=actor_anon_key game=game mode=mode has_profile_user=has_profile_user %}
-  {% include "new/partials/task_card.html" %}
+  {% include "site/partials/task_card.html" %}
   {% endwith %}
   {% endif %}
 {% endfor %}

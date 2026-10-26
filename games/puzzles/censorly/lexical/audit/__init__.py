@@ -1,1 +1,1 @@
-"""Offline audits of lexical families, semantics, and inflection."""
+"""Compatibility alias. Implementation lives in games.puzzles.censorly.offline.audit."""

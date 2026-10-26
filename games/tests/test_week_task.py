@@ -9,30 +9,22 @@ from zoneinfo import ZoneInfo
 from django.contrib.auth.models import User
 from django.test import Client, TestCase
 
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task, TaskGroup
-from games.ops.support.people.banned import banned_unit_keys, list_banned_units
-from games.ops.support.games.week import (
+from games.console.games.week import (
     WeekTaskSupportError,
     create_week_task,
+    defer_week_task,
     delete_week_task,
     ensure_future_buffer,
     forbid_week_task,
     generate_more,
-    get_week_task_detail,
     get_pool_catalog,
+    get_week_task_detail,
     list_week_task_rows,
     reorder_week_tasks,
-    defer_week_task,
     set_publish_start,
     update_week_task,
 )
-from games.sections.week_task_pool import (
-    enumerate_units_for_gtg,
-    materialize_unit,
-    pick_random_units,
-    resolve_unit,
-    scheduled_exclude_keys,
-)
+from games.console.people.banned import banned_unit_keys, list_banned_units
 from games.daily.catalog.week_task import (
     WEEK_TASK_GAME_ID,
     WEEK_TASK_PUBLISH_START_TAG,
@@ -40,6 +32,14 @@ from games.daily.catalog.week_task import (
     get_week_task_hub_context,
     is_week_task_number_published,
     week_task_publish_at,
+)
+from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task, TaskGroup
+from games.sections.week_task_pool import (
+    enumerate_units_for_gtg,
+    materialize_unit,
+    pick_random_units,
+    resolve_unit,
+    scheduled_exclude_keys,
 )
 
 MOSCOW = ZoneInfo('Europe/Moscow')
@@ -340,7 +340,7 @@ class WeekTaskSupportTests(TestCase):
         defer_week_task(deferred.link_id)
 
         with patch(
-            'games.ops.support.games.week.is_week_task_number_published',
+            'games.console.games.week.is_week_task_number_published',
             return_value=True,
         ):
             detail = get_week_task_detail(deferred.link_id)

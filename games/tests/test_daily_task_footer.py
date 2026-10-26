@@ -1,11 +1,10 @@
 from datetime import timedelta
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.sites.models import Site
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase, TestCase
 from django.utils import timezone
-
-from allauth.socialaccount.models import SocialApp
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 
@@ -13,7 +12,7 @@ from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Ta
 class DailyTaskFooterPartialTests(SimpleTestCase):
     def test_project_task_group_context_does_not_require_daily_fallbacks(self):
         html = render_to_string(
-            'new/partials/daily_task_footer.html',
+            'site/partials/daily_task_footer.html',
             {
                 'task_group_results_url': '/glowbyte/games/example/1/results/',
                 'task_group_results_allowed': True,
@@ -30,7 +29,7 @@ class DailyTaskFooterPartialTests(SimpleTestCase):
 
     def test_daily_context_does_not_require_task_group_fallbacks(self):
         html = render_to_string(
-            'new/partials/daily_task_footer.html',
+            'site/partials/daily_task_footer.html',
             {
                 'daily_results_url': '/ladder/1/results/',
                 'daily_results_allowed': True,

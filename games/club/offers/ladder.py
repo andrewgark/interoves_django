@@ -12,25 +12,12 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
-from games.daily.catalog.ladder import LADDER_GAME_ID, ladder_publish_at
 from games.club.offers.profiles import (
     normalize_telegram_handle,
     profile_display_name,
     profile_ready_for_offers,
 )
-from games.models import (
-    Attempt,
-    ChainTaskState,
-    CheckerType,
-    GameTaskGroup,
-    HintAttempt,
-    LadderOffer,
-    RaddleUiState,
-    Task,
-    TaskGroup,
-)
-from games.puzzles.raddle.engine import ensure_raddle_assist_hints
-from games.ops.support.games.ladders import (
+from games.console.games.ladder import (
     AUTHOR_TAG,
     LadderSupportError,
     _normalize_intro,
@@ -41,6 +28,18 @@ from games.ops.support.games.ladders import (
     list_ladder_rows,
     validate_ladder_content,
 )
+from games.daily.catalog.ladder import LADDER_GAME_ID, ladder_publish_at
+from games.models import (
+    Attempt,
+    ChainTaskState,
+    CheckerType,
+    HintAttempt,
+    LadderOffer,
+    RaddleUiState,
+    Task,
+    TaskGroup,
+)
+from games.puzzles.raddle.engine import ensure_raddle_assist_hints
 
 # Зарезервированные сегменты /ladder/<seg>/ — не генерировать как share_hash.
 _RESERVED_LADDER_SEGMENTS = frozenset({

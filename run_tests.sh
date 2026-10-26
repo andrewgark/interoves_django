@@ -8,7 +8,7 @@ bash ./scripts/lint_python.sh
 PYTHON="../venv/interoves_django/bin/python3"
 # Inline <script> in task_group.html is not covered by any Django test.
 if command -v node >/dev/null 2>&1; then
-  "$PYTHON" scripts/check_inline_js_syntax.py static/templates/new/task_group.html
+  "$PYTHON" scripts/check_inline_js_syntax.py static/templates/site/task_group.html
 fi
 TEST_SETTINGS="${DJANGO_TEST_SETTINGS:-interoves_django.test_settings}"
 exec "$PYTHON" manage.py test --settings="$TEST_SETTINGS" --keepdb "$@"

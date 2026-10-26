@@ -3,9 +3,9 @@ from datetime import timedelta
 from django.test import TestCase
 from django.utils import timezone
 
+from games.console.http.queues import dashboard_context
 from games.models import QueueWorkerHeartbeat
 from games.ops.workers.heartbeat import finish_record, start
-from games.ops.support.http.queues import dashboard_context
 
 
 class QueueHeartbeatTests(TestCase):

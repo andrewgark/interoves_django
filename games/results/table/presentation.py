@@ -31,7 +31,7 @@ def render_results_rows_partial(
     me_personal=None, me_anon_participant=None,
     show_solve_duration=False, show_alphabetty_detail=False,
 ):
-    return render(request, 'new/partials/results_rows.html', {
+    return render(request, 'site/partials/results_rows.html', {
         'mode': mode,
         'section_results': False,
         'results_variant': results_variant,

@@ -20,8 +20,20 @@ from games.models import (
     Team,
     TicketRequest,
 )
+from games.ops.telegram.bot.callbacks import handle_callback_query
 from games.ops.telegram.bot.commands import handle_admin_command, registration_milestone_reached
-from games.ops.telegram.channels.digest import build_daily_digest, collect_daily_digest_stats
+from games.ops.telegram.bot.notify import (
+    format_alphabetty_dict_suggestion_message,
+    format_bug_report_message,
+    format_payment_message,
+    notify_admin_site_error,
+    notify_admin_word_salad_submission_error,
+    notify_admin_zero_duration_completion,
+    notify_new_bug_report,
+    send_admin_message,
+    send_announce_message,
+    send_announce_photo,
+)
 from games.ops.telegram.channels.announcements import (
     format_game_day_before_announcement,
     format_game_end_announcement,
@@ -29,22 +41,10 @@ from games.ops.telegram.channels.announcements import (
     format_game_end_soon_announcement,
     format_game_start_announcement,
 )
-from games.ops.telegram.bot.callbacks import handle_callback_query
-from games.ops.telegram.transport.config import is_admin_chat
+from games.ops.telegram.channels.digest import build_daily_digest, collect_daily_digest_stats
 from games.ops.telegram.models import TelegramGameAnnouncement
-from games.ops.telegram.bot.notify import (
-    format_alphabetty_dict_suggestion_message,
-    format_bug_report_message,
-    format_payment_message,
-    notify_new_bug_report,
-    notify_admin_word_salad_submission_error,
-    notify_admin_site_error,
-    notify_admin_zero_duration_completion,
-    send_admin_message,
-    send_announce_message,
-    send_announce_photo,
-)
 from games.ops.telegram.transport.api import _safe_error_text
+from games.ops.telegram.transport.config import is_admin_chat
 
 
 def _ensure_reference_rows():
@@ -187,7 +187,7 @@ class TelegramNotifyTests(TestCase):
         send_message_mock.assert_called()
         self.assertIn('Fixed', send_message_mock.call_args.args[1])
 
-    @patch('games.puzzles.censorly.lexical.tools.review_pair.record_review_case')
+    @patch('games.puzzles.censorly.offline.tools.review_pair.record_review_case')
     @patch('games.ops.telegram.bot.callbacks.answer_callback_query')
     @patch('games.ops.telegram.bot.callbacks.edit_message_reply_markup')
     def test_censorly_confirm_creates_diagnosed_review_case(

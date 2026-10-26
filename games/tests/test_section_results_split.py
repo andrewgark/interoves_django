@@ -2,13 +2,12 @@ from datetime import date
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.sites.models import Site
 from django.core.cache import cache
 from django.test import RequestFactory, TestCase
 from django.urls import resolve, reverse
-
-from allauth.socialaccount.models import SocialApp
 
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import LADDER_GAME_ID
@@ -23,9 +22,9 @@ from games.models import (
     TaskGroup,
 )
 from games.results.snapshots.snapshot import freeze_game_results, results_attempts_scope_game
-from games.site.ui.play.page import new_task_group_page
-from games.site.ui.results.compute import _results_table_headers_context
-from games.site.ui.results.pages import new_section_results_page, new_section_task_results_page
+from games.site.pages.play.page import new_task_group_page
+from games.site.pages.results.compute import _results_table_headers_context
+from games.site.pages.results.pages import new_section_results_page, new_section_task_results_page
 
 
 def _ensure_min_fixtures():
@@ -84,7 +83,7 @@ class SectionResultsSplitTests(TestCase):
         request = self.factory.get('/section/sec_res/results/')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.site.ui.results.pages.render') as render_mock:
+        with patch('games.site.pages.results.pages.render') as render_mock:
             new_section_results_page(request, 'sec_res')
         context = render_mock.call_args[0][2]
         self.assertEqual(context['game'].pk, game.pk)
@@ -110,7 +109,7 @@ class SectionResultsSplitTests(TestCase):
         request = self.factory.get('/alphabetty/8/results/')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.site.ui.results.pages.render') as render_mock:
+        with patch('games.site.pages.results.pages.render') as render_mock:
             new_section_task_results_page(request, **match.kwargs)
         self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')
 
@@ -137,12 +136,12 @@ class SectionResultsSplitTests(TestCase):
         self.assertIs(results_attempts_scope_game(section, 'tournament'), section)
 
     def test_ladder_aggregate_page_uses_bounded_results_template(self):
-        ladder = Game.objects.get(pk=LADDER_GAME_ID)
+        _ladder = Game.objects.get(pk=LADDER_GAME_ID)
         request = self.factory.get('/ladder/results/')
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.models.Attempt.manager.get_bulk_game_actor_rows') as bulk_mock:
-            with patch('games.site.ui.results.pages.render') as render_mock:
+            with patch('games.site.pages.results.pages.render') as render_mock:
                 new_section_results_page(request, LADDER_GAME_ID)
                 bulk_mock.assert_not_called()
                 ctx = render_mock.call_args[0][2]
@@ -152,7 +151,7 @@ class SectionResultsSplitTests(TestCase):
                 self.assertNotIn('progressive_results', ctx)
                 self.assertTrue(ctx['is_ladder_results'])
                 self.assertTrue(ctx['section_results'])
-                self.assertEqual(render_mock.call_args[0][1], 'new/aggregate_results.html')
+                self.assertEqual(render_mock.call_args[0][1], 'site/aggregate_results.html')
 
     def test_ladder_month_navigation_drops_legacy_window_params(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
@@ -182,7 +181,7 @@ class SectionResultsSplitTests(TestCase):
             'games.results.standings.aggregate_leaderboard.build_aggregate_page',
             return_value=aggregate_data,
         ):
-            with patch('games.site.ui.results.pages.render') as render_mock:
+            with patch('games.site.pages.results.pages.render') as render_mock:
                 new_section_results_page(request, ladder.id)
 
         context = render_mock.call_args[0][2]
@@ -200,7 +199,7 @@ class SectionResultsSplitTests(TestCase):
         with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_ladder_partial')
             GameTaskGroup.objects.create(game=ladder, task_group=tg, number='9001', name='L9001')
-            task = Task.objects.create(
+            _task = Task.objects.create(
                 task_group=tg,
                 number='1',
                 task_type='equals_with_possible_spaces',
@@ -212,10 +211,10 @@ class SectionResultsSplitTests(TestCase):
         request = self.factory.get('/ladder/results/?limit=10')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.site.ui.results.pages.render') as render_mock:
+        with patch('games.site.pages.results.pages.render') as render_mock:
             new_section_results_page(request, LADDER_GAME_ID)
             ctx = render_mock.call_args[0][2]
-            self.assertEqual(render_mock.call_args[0][1], 'new/aggregate_results.html')
+            self.assertEqual(render_mock.call_args[0][1], 'site/aggregate_results.html')
             self.assertLessEqual(len(ctx['aggregate_columns']), 10)
             self.assertTrue(ctx['is_ladder_results'])
 
@@ -224,7 +223,7 @@ class SectionResultsSplitTests(TestCase):
         with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_ladder_cache')
             GameTaskGroup.objects.create(game=ladder, task_group=tg, number='9002', name='L9002')
-            task = Task.objects.create(
+            _task = Task.objects.create(
                 task_group=tg,
                 number='1',
                 task_type='equals_with_possible_spaces',
@@ -233,14 +232,14 @@ class SectionResultsSplitTests(TestCase):
                 text='y',
             )
 
-        with patch('games.site.ui.results.pages.render') as render_mock:
+        with patch('games.site.pages.results.pages.render') as render_mock:
             for page in (1, 2):
                 request = self.factory.get('/ladder/results/?page={}'.format(page))
                 request.user = AnonymousUser()
                 request.session = {}
                 new_section_results_page(request, LADDER_GAME_ID)
             self.assertEqual(render_mock.call_count, 2)
-            self.assertEqual(render_mock.call_args[0][1], 'new/aggregate_results.html')
+            self.assertEqual(render_mock.call_args[0][1], 'site/aggregate_results.html')
 
     def test_headers_context_without_snapshot(self):
         game = self._create_section_game('sec_res3')
@@ -308,7 +307,7 @@ class SectionResultsSplitTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.results.snapshots.snapshot.snapshot_to_results_context') as full_snap:
-            with patch('games.site.ui.results.pages.render') as render_mock:
+            with patch('games.site.pages.results.pages.render') as render_mock:
                 new_section_results_page(request, LADDER_GAME_ID)
                 full_snap.assert_not_called()
                 ctx = render_mock.call_args[0][2]

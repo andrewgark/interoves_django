@@ -10,15 +10,20 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
-from games.puzzles.alphabetty.core import normalize_word
-from games.daily.catalog.alphabetty import (
-    ALPHABETTY_GAME_ID,
-    alphabetty_publish_at,
-)
 from games.club.offers.profiles import (
     normalize_telegram_handle,
     profile_display_name,
     profile_ready_for_offers,
+)
+from games.console.games.alphabetty import (
+    AlphabettySupportError,
+    attach_existing_task_group,
+    get_alphabetty_game,
+    scheduled_words,
+)
+from games.daily.catalog.alphabetty import (
+    ALPHABETTY_GAME_ID,
+    alphabetty_publish_at,
 )
 from games.models import (
     AlphabettyOffer,
@@ -29,12 +34,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.ops.support.games.alphabetty import (
-    AlphabettySupportError,
-    attach_existing_task_group,
-    get_alphabetty_game,
-    scheduled_words,
-)
+from games.puzzles.alphabetty.core import normalize_word
 
 _RESERVED_ALPHABETTY_SEGMENTS = frozenset({
     'today', 'last', 'progress', 'suggest', 'guess', 'state', 'prefix', 'hint',

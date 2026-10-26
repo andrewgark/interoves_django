@@ -1,0 +1,59 @@
+{# Shared list of task groups for /new/ game pages. #}
+{% load filters %}
+
+{% if task_group_rows %}
+  {% if heading is not False %}
+  <h2 class="new-heading new-stack-gap--lg">{{ heading|default:"Задания" }}</h2>
+  {% endif %}
+  {% for row in task_group_rows %}
+    <div id="{{ game.id }}-{{ row.number }}" class="new-task daily-archive__card {{ row.row_class|default:'' }}{% if row.is_today %} new-task--today{% endif %}" data-task-group-number="{{ row.number }}" data-fully-solved="{% if row.is_fully_solved %}1{% else %}0{% endif %}">
+      <a class="new-task__body{% if row.is_archive_locked %} is-archive-locked{% endif %}" href="{% if row.is_archive_locked %}/subscription/{% else %}{{ row.play_url }}{% endif %}"{% if row.is_archive_locked %} data-tooltip="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽."{% endif %}>
+        {% if row.title %}
+          <strong>{% autoescape off %}{{ row.title }}{% endautoescape %}</strong>
+        {% elif row.name %}
+          <strong>{{ row.name }}</strong>
+        {% else %}
+          <strong>{% autoescape off %}{{ row.task_group.name }}{% endautoescape %}</strong>
+        {% endif %}
+        {% if row.publish_date %}
+          <small class="new-task__date">{{ row.publish_date|date:"j E Y" }}</small>
+        {% endif %}
+        {% if row.raddle_start_word and row.raddle_end_word %}
+          <small class="new-task__meta new-task__endpoints">{{ row.raddle_start_word }} → {{ row.raddle_end_word }}</small>
+        {% endif %}
+        {% if row.salad_meta %}
+          <small class="new-task__meta new-task__endpoints">{{ row.salad_meta }}</small>
+        {% endif %}
+        {% if row.result_squares or row.elapsed_label %}
+          <small class="new-task__meta{% if row.result_squares %} new-task__squares{% endif %}" data-progress-meta>{% if row.result_squares %}{{ row.result_squares }}{% endif %}{% if row.result_squares and row.elapsed_label %}  {% endif %}{% if row.elapsed_label %}⏱️ {{ row.elapsed_label }}{% endif %}</small>
+        {% elif row.progress_text %}
+          <small class="new-task__meta">{{ row.progress_text }}</small>
+        {% elif row.progress_meta %}
+          <small class="new-task__meta">{{ row.progress_meta }}</small>
+        {% elif load_task_group_progress %}
+          <small class="new-task__meta new-task__meta--loading" data-progress-meta aria-hidden="true"></small>
+        {% endif %}
+      </a>
+      <span class="new-task__actions">
+        {% if row.is_archive_locked %}<span class="club-lock-badge" data-tooltip="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽." aria-label="Задание доступно по клубной подписке"><i class="ph ph-lock-key" aria-hidden="true"></i></span>{% endif %}
+        <span class="new-task__action" data-task-action>
+          {% if row.is_fully_solved or row.is_solved %}
+            {% include "site/partials/daily_solve_flame.html" with status=row.daily_completion_status %}
+            <span class="new-pill new-pill--ok" data-tooltip="Решено">ок</span>
+          {% endif %}
+        </span>
+        {% include "site/partials/like_totals_badge.html" with like_totals=row.like_totals %}
+        {% if row.difficulty %}
+          {% include "site/partials/difficulty_badge.html" with difficulty=row.difficulty %}
+        {% endif %}
+        {% if row.results_url and game|access_see_results:team %}
+          <a class="new-task__results" href="{% if row.is_archive_locked %}/subscription/{% else %}{{ row.results_url }}{% endif %}"{% if row.is_archive_locked %} data-tooltip="Для доступа к архиву оплатите клубную подписку. Первый месяц — 420 ₽."{% endif %}>Результаты{% if row.is_archive_locked %} <i class="ph ph-lock-key" aria-hidden="true"></i>{% endif %}</a>
+        {% endif %}
+      </span>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="new-empty">
+    <p class="new-empty__text">{{ empty_text|default:"Здесь пока нет групп заданий." }}</p>
+  </div>
+{% endif %}

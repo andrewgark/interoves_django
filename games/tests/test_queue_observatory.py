@@ -5,10 +5,11 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 from games.models import (
     Game,
-    Profile,
     HTMLPage,
+    Profile,
     Task,
     TaskGroup,
     Team,
@@ -16,7 +17,6 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 
 
 class QueueObservatoryTests(TestCase):

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import json
 import gzip
+import json
 import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from games.puzzles.censorly.lexical.tools.candidates.proper_candidates import (
+from games.puzzles.censorly.offline.tools.candidates.proper_candidates import (
     classify_eponym_candidate,
     extract_candidates,
     load_jsonl,

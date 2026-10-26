@@ -22,8 +22,8 @@ from games.models import (
     TaskGroup,
 )
 from games.puzzles.raddle import RaddlePuzzle
-from games.tasks.actor_state import chain_state_for_actor
-from games.tasks.result_details import raddle_ui_state_for_actor
+from games.task_group.actor_state import chain_state_for_actor
+from games.task_group.result_details import raddle_ui_state_for_actor
 
 MINI_LADDER = {
     'lengths': [3, 3, 3, 3],

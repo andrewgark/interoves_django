@@ -12,16 +12,37 @@ from uuid import uuid4
 from django.contrib.auth.models import User
 from django.test import Client, SimpleTestCase, TestCase
 
-from games.puzzles.censorly.ids import CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
-from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
-from games.puzzles.censorly.play import apply_guess, apply_hint, get_play_state, hub_progress_for_actor, puzzle_from_task, reset_progress
+from games.models import (
+    Attempt,
+    BugReport,
+    ChainTaskState,
+    CheckerType,
+    DailySolveTiming,
+    Game,
+    GameTaskGroup,
+    PlayerCompletedGame,
+    Profile,
+    Project,
+    RandomCensorlyGame,
+    Task,
+    TaskGroup,
+)
+from games.ops.analytics.events import game_instance_id_for_task_group
 from games.puzzles.censorly.article.redact import build_public_view, lemmas_matching_guess
+from games.puzzles.censorly.ids import CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
+from games.puzzles.censorly.play import (
+    apply_guess,
+    apply_hint,
+    get_play_state,
+    hub_progress_for_actor,
+    puzzle_from_task,
+    reset_progress,
+)
+from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
 from games.puzzles.censorly.text.stopwords import is_stop_word
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
-from games.ops.analytics.events import game_instance_id_for_task_group
-from games.models import Attempt, BugReport, ChainTaskState, CheckerType, DailySolveTiming, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, RandomCensorlyGame, Task, TaskGroup
-from games.sections.placement_share import allocate_share_hash
 from games.results.share import format_elapsed
+from games.sections.placement_share import allocate_share_hash
 
 _CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
 
@@ -653,6 +674,7 @@ class CensorlyAccessTests(TestCase):
 
     def test_solved_archive_row_stays_open_when_club_archive_is_enabled(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         link = GameTaskGroup.objects.get(task_group=self.task.task_group)
@@ -908,8 +930,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertIn('x₁20 = 120', cleaned)
 
     def test_root_article_html_extract_preserves_real_list_items(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         raw_html = _load_censorly_testdata('root_functions_extract.html')
         marked = _html_extract_to_text(raw_html)
@@ -935,8 +957,8 @@ class CensorlyWikiHelperTests(TestCase):
         )
 
     def test_wikipedia_bullet_lists_keep_each_item_on_its_own_line(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         # Snapshot-shaped extract from «Корень»: TextExtracts emits each wiki
         # bullet as a line, but prose line wraps should still collapse.
@@ -1045,8 +1067,8 @@ class CensorlyWikiHelperTests(TestCase):
         )
 
     def test_ramanujan_wikipedia_extract_keeps_the_display_formula_on_one_line(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import _trim_extract, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         # Snapshot from ru.wikipedia.org, page 366175, revision 151975208.
         # TextExtracts includes a vertical MathML fallback and canonical TeX.
@@ -1074,8 +1096,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(formula_tokens[0]['kind'], 'punct')
 
     def test_display_matrix_keeps_its_brackets_and_is_one_token(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = r'{\displaystyle \begin{pmatrix} a & b \\ c & d \end{pmatrix}}'
         cleaned = clean_wiki_extract(raw, mark_formulas=True)
@@ -1087,8 +1109,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(tokens[0]['surface'], expected)
 
     def test_piecewise_formula_with_strict_inequality_is_one_token(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = r'{\displaystyle \begin{cases}0&x<0,\\1&x>0.\end{cases}}'
         cleaned = clean_wiki_extract(raw, mark_formulas=True)
@@ -1145,8 +1167,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(clean_wiki_extract(raw), 'lim₍x → 0₎ f(x); =^{!}')
 
     def test_overbrace_and_underbrace_keep_their_direction_and_annotations(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = (
             r'{\displaystyle \overbrace{a+b}^{n}; '
@@ -1161,8 +1183,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(tokens[0]['surface'], expected)
 
     def test_stackrel_and_modular_notation_render_readably(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         formulas = (
             (r'{\displaystyle x \stackrel{def}{=} y}', 'x =ᵈᵉᶠ y'),
@@ -1178,8 +1200,8 @@ class CensorlyWikiHelperTests(TestCase):
                 self.assertEqual(tokens[0]['surface'], expected)
 
     def test_mathbb_number_sets_keep_double_struck_identity(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = r'{\displaystyle x\in\mathbb{R}; \mathbb{N}; \mathbb{Z}; \mathbb{Q}; \mathbb{C}}'
         expected = 'x ∈ ℝ; ℕ; ℤ; ℚ; ℂ'
@@ -1232,8 +1254,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(clean_wiki_extract(raw), '𝔸𝔹ℂ𝕩𝕪𝕫𝟘𝟙𝟚')
 
     def test_absolute_value_and_norm_delimiters_render_as_bars(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = r'{\displaystyle \lvert x\rvert; \lVert y\rVert}'
         expected = '|x|; ‖y‖'
@@ -1245,8 +1267,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(tokens[0]['surface'], expected)
 
     def test_floor_and_ceiling_delimiters_render_without_inner_spaces(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = r'{\displaystyle \lceil x \rceil; \lfloor y \rfloor}'
         expected = '⌈x⌉; ⌊y⌋'
@@ -1265,8 +1287,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(clean_wiki_extract(raw), 'a b; c d')
 
     def test_set_relation_formulas_are_marked_as_single_tokens(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         formulas = (
             (r'{\displaystyle x \in A}', 'x ∈ A'),
@@ -1283,8 +1305,8 @@ class CensorlyWikiHelperTests(TestCase):
                 self.assertEqual(tokens[0]['surface'], expected)
 
     def test_binomial_coefficient_is_rendered_as_combination_notation(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = r'{\displaystyle \binom{n}{k}}'
         cleaned = clean_wiki_extract(raw, mark_formulas=True)
@@ -1295,8 +1317,8 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertEqual(tokens[0]['surface'], 'C(n, k)')
 
     def test_substack_rows_remain_grouped_in_sum_index(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = r'{\displaystyle \sum_{\substack{i=1\\i\ne j}} a_{ij}}'
         cleaned = clean_wiki_extract(raw, mark_formulas=True)
@@ -1355,8 +1377,8 @@ class CensorlyRandomGameTests(TestCase):
     def test_invalid_fetched_article_does_not_abort_pool_scan(self):
         from unittest.mock import patch
 
-        from games.puzzles.censorly.random_game import get_or_create_random_game
         from games.puzzles.censorly.article.wiki import WikiArticle, WikiFetchError
+        from games.puzzles.censorly.random_game import get_or_create_random_game
 
         expected = object()
         articles = [
@@ -1433,7 +1455,7 @@ class CensorlyRandomGameTests(TestCase):
 
     def test_clean_wiki_extract_renders_math_displaystyle_dumps(self):
         """TextExtracts MathML glyph lines collapse to readable tokenizable TeX."""
-        from games.puzzles.censorly.article.wiki import clean_wiki_extract, _trim_extract
+        from games.puzzles.censorly.article.wiki import _trim_extract, clean_wiki_extract
 
         # Shape mirrors ruwiki «Магнетизм» / TextExtracts math dumps.
         dirty = (
@@ -1528,8 +1550,8 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('A simple relation is x = y.', cleaned)
 
     def test_latex_fraction_integral_and_relation_are_readable_tokens(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         raw = (
             r'{\displaystyle P={\frac {24\times 10^{15}\times 3600}'
@@ -1574,8 +1596,8 @@ class CensorlyRandomGameTests(TestCase):
         self.assertEqual(clean_wiki_extract(raw), 'x = 1; y = 2; z = 3')
 
     def test_operatorname_separates_function_name_from_its_argument(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         raw = (
             r'{\displaystyle \operatorname{rank}A + '
@@ -1611,8 +1633,8 @@ class CensorlyRandomGameTests(TestCase):
                 self.assertEqual(clean_wiki_extract(raw), expected)
 
     def test_negated_and_proportional_relations_render_as_single_tokens(self):
-        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
         formulas = (
             (r'{\displaystyle A\not\subseteq B}', 'A ⊈ B'),
@@ -1629,8 +1651,8 @@ class CensorlyRandomGameTests(TestCase):
                 self.assertEqual(tokens[0]['surface'], expected)
 
     def test_latex_primitive_fractions_spacing_and_hat_are_readable(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         raw = (
             r'{\displaystyle {1 \over r^{2}} + {a+b \over c}; '
@@ -1671,8 +1693,8 @@ class CensorlyRandomGameTests(TestCase):
         self.assertNotIn('\\displaystyle', schrodinger_clean)
 
     def test_latex_brackets_arrows_and_relations_render_as_open_math_tokens(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         raw = (
             r'{\displaystyle \langle x\rangle '
@@ -1704,8 +1726,8 @@ class CensorlyRandomGameTests(TestCase):
         self.assertNotIn('Longleftrightarrow', pythagoras)
 
     def test_latex_accents_and_unavailable_subscripts_stay_compact_and_tokenizable(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         raw = (
             r'{\displaystyle \Phi_{E,S} + \dot{q_i} + \overline{N} + \ddot{x}'
@@ -1738,8 +1760,8 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('r⃗', schrodinger)
 
     def test_latex_function_names_are_separated_from_variables_and_arguments(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         raw = r'{\displaystyle p_i\log p_i + \sin x + \cos{\frac{a}{R}}}'
         cleaned = clean_wiki_extract(raw)
@@ -1760,8 +1782,8 @@ class CensorlyRandomGameTests(TestCase):
         self.assertIn('cos (c)/(R)', pythagoras)
 
     def test_latex_chemistry_and_text_wrappers_render_without_command_leaks(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         raw = (
             r'{\displaystyle {\ce {H2O\ -\ e^{-}->H^{+}{}+{\dot {O}}H}}}; '
@@ -2060,7 +2082,8 @@ class CensorlySupportViewTests(TestCase):
     def test_generate_random_does_not_shadow_service(self):
         """Regression: view must call service, not recurse into itself."""
         from unittest.mock import patch
-        from games.ops.support.games.censorly import CensorlyRandomRow
+
+        from games.console.games.censorly import CensorlyRandomRow
 
         fake = CensorlyRandomRow(
             id=1,
@@ -2073,7 +2096,7 @@ class CensorlySupportViewTests(TestCase):
             payload_bytes=100,
         )
         with patch(
-            'games.ops.support.http.views.censorly_create_random',
+            'games.console.http.views.censorly_create_random',
             return_value=fake,
         ) as mocked:
             resp = self.client.post(
@@ -2123,7 +2146,7 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_defer_and_restore_schedule_slot(self):
-        from games.ops.support.games.censorly import defer_censorly, restore_censorly
+        from games.console.games.censorly import defer_censorly, restore_censorly
 
         game, task, _hash, _puzzle = _make_puzzle_task(title='Слот')
         link = GameTaskGroup.objects.get(game=game, task_group=task.task_group)
@@ -2163,7 +2186,7 @@ class CensorlySupportViewTests(TestCase):
         self.assertFalse(response.json()['rows'][0]['is_deferred'])
 
     def test_deferred_queue_has_independent_order_and_restore_appends(self):
-        from games.ops.support.games.censorly import defer_censorly, restore_censorly
+        from games.console.games.censorly import defer_censorly, restore_censorly
 
         game = Game.objects.get(pk=CENSORLY_GAME_ID)
         links = []
@@ -2179,7 +2202,7 @@ class CensorlySupportViewTests(TestCase):
             links.append(link)
 
         with patch(
-            'games.ops.support.games.censorly.is_censorly_number_published',
+            'games.console.games.censorly.is_censorly_number_published',
             return_value=False,
         ):
             defer_censorly(links[1].pk)
@@ -2200,7 +2223,7 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(links[2].deferred_number, '1')
 
     def test_defer_rejects_already_deferred_slot(self):
-        from games.ops.support.games.censorly import (
+        from games.console.games.censorly import (
             CensorlySupportError,
             defer_censorly,
         )
@@ -2212,7 +2235,7 @@ class CensorlySupportViewTests(TestCase):
         link.save(update_fields=['number'])
 
         with patch(
-            'games.ops.support.games.censorly.is_censorly_number_published',
+            'games.console.games.censorly.is_censorly_number_published',
             return_value=False,
         ):
             defer_censorly(link.pk)
@@ -2220,8 +2243,8 @@ class CensorlySupportViewTests(TestCase):
                 defer_censorly(link.pk)
 
     def test_refetch_replaces_article_text_and_keeps_attempts(self):
-        from games.puzzles.censorly.article.wiki import WikiArticle
         from games.models import RandomCensorlyGame
+        from games.puzzles.censorly.article.wiki import WikiArticle
 
         game, task, share_hash, puzzle = _make_puzzle_task(
             title='Кот',
@@ -2259,7 +2282,7 @@ class CensorlySupportViewTests(TestCase):
             truncated=True,
             revid=123,
         )
-        with patch('games.ops.support.games.censorly.fetch_article', return_value=article):
+        with patch('games.console.games.censorly.fetch_article', return_value=article):
             resp = self.client.post(
                 '/support/censorly/refetch-text/',
                 data=json.dumps({'share_hash': share_hash}),
@@ -2298,6 +2321,7 @@ class CensorlyUxDailyTests(TestCase):
             body='Кот сидит на окне. Собака лает. Птица летит.',
         )
         from datetime import timedelta
+
         from django.utils import timezone
         start = (timezone.now() + timedelta(days=30)).date()
         tags = dict(self.game.tags or {})
@@ -2346,6 +2370,7 @@ class CensorlyUxDailyTests(TestCase):
 
     def test_timer_client_report_is_logged_and_alerted_once(self):
         from unittest.mock import patch
+
         from django.core.cache import cache
 
         cache.clear()
@@ -2401,6 +2426,7 @@ class CensorlyUxDailyTests(TestCase):
 
     def test_timing_rejects_non_uuid_session_id(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         tags = dict(self.game.tags or {})
@@ -2424,6 +2450,7 @@ class CensorlyUxDailyTests(TestCase):
 
     def test_daily_play_page_renders_pause_overlay_around_censorly_board(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         tags = dict(self.game.tags or {})
@@ -2452,6 +2479,7 @@ class CensorlyUxDailyTests(TestCase):
 
     def test_guess_is_accepted_when_timer_failed_but_rejected_while_manually_paused(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         tags = dict(self.game.tags or {})
@@ -2566,6 +2594,7 @@ class CensorlyUxDailyTests(TestCase):
     def test_paused_timer_rejects_new_hints_but_answers_open_words(self):
         # Same order as guesses: moves that change nothing do not need the timer.
         from datetime import timedelta
+
         from django.utils import timezone
 
         tags = dict(self.game.tags or {})
@@ -2627,6 +2656,7 @@ class CensorlyUxDailyTests(TestCase):
 
     def test_stale_timer_lease_does_not_block_guesses(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         tags = dict(self.game.tags or {})
@@ -2665,6 +2695,7 @@ class CensorlyUxDailyTests(TestCase):
 
     def test_guess_revives_a_stale_lease_and_share_shows_the_frozen_time(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         tags = dict(self.game.tags or {})
@@ -2768,6 +2799,7 @@ class CensorlyUxDailyTests(TestCase):
 
     def test_replay_page_token_allows_guess_after_starting_over(self):
         from datetime import timedelta
+
         from django.utils import timezone
 
         tags = dict(self.game.tags or {})
@@ -2810,7 +2842,7 @@ class CensorlyUxDailyTests(TestCase):
     def test_active_replay_control_is_visible_without_official_completion(self):
         from django.template.loader import render_to_string
 
-        html = render_to_string('new/partials/replay_controls.html', {
+        html = render_to_string('site/partials/replay_controls.html', {
             'replay_active': True,
             'official_completed': False,
             'custom_reset_enabled': False,
@@ -3083,8 +3115,8 @@ class CensorlyUxDailyTests(TestCase):
         self.assertTrue(heading_view.get('in_heading'))
 
     def test_short_lemma_endings_are_shown(self):
-        from games.puzzles.censorly.text.normalize import split_stem_ending
         from games.puzzles.censorly.article.redact import build_public_view
+        from games.puzzles.censorly.text.normalize import split_stem_ending
         from games.puzzles.censorly.text.tokenize import build_puzzle_payload
         # Grammatical tails, not the leftover after the lemma.
         # кошек and бежал have a zero ending; кошками keeps the full -ами.
@@ -3167,8 +3199,8 @@ class CensorlyPoolExtractTests(SimpleTestCase):
     """Frozen ruwiki extracts from the article pool. No live fetch."""
 
     def test_pool_extracts_stay_readable_after_clean(self):
-        from games.puzzles.censorly.text.tokenize import tokenize_text
         from games.puzzles.censorly.article.wiki import _trim_extract
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         pool = _CENSORLY_TESTDATA / 'pool'
         files = sorted(pool.glob('*.txt'))
@@ -3189,8 +3221,8 @@ class CensorlyPoolExtractTests(SimpleTestCase):
     def test_paris_lead_endings_are_inflectional(self):
         """Paris lead: столиц[а], крупнейш[ий], город[∅], франци[и]."""
         from games.puzzles.censorly.article.redact import build_public_view
-        from games.puzzles.censorly.text.tokenize import build_puzzle_payload
         from games.puzzles.censorly.article.wiki import _trim_extract
+        from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
         raw = (_CENSORLY_TESTDATA / 'pool' / 'paris.txt').read_text(encoding='utf-8')
         cleaned, _truncated = _trim_extract(raw)
@@ -3232,8 +3264,8 @@ class CensorlyPoolExtractTests(SimpleTestCase):
 
 class CensorlyHeadingLevelTests(SimpleTestCase):
     def test_formula_cleanup_preserves_heading_after_formula(self):
-        from games.puzzles.censorly.text.tokenize import HEADING_START
         from games.puzzles.censorly.article.wiki import _trim_extract
+        from games.puzzles.censorly.text.tokenize import HEADING_START
 
         body, truncated = _trim_extract(
             'Формула {\\displaystyle x = 1}.\n\n'
@@ -3263,8 +3295,8 @@ class CensorlyHeadingLevelTests(SimpleTestCase):
         self.assertNotIn('===', resolved['body_text'])
 
     def test_stacked_wiki_headings_keep_level(self):
-        from games.puzzles.censorly.text.tokenize import HEADING_END, HEADING_START
         from games.puzzles.censorly.article.wiki import _headings_to_marked
+        from games.puzzles.censorly.text.tokenize import HEADING_END, HEADING_START
 
         marked = _headings_to_marked(
             'Абзац.\n\n== Раздел ==\n=== Подраздел ===\n==== Подподраздел ====\nДальше.\n'
@@ -3322,8 +3354,8 @@ class CensorlyShareExcerptTests(SimpleTestCase):
         self.assertGreater(sum(1 for run in lead if run.get('kind') == 'mask'), 4)
 
     def test_excerpt_keeps_later_paragraphs_masked(self):
-        from games.puzzles.censorly.text.tokenize import HEADING_END, HEADING_START
         from games.puzzles.censorly.article.redact import unsolved_share_runs
+        from games.puzzles.censorly.text.tokenize import HEADING_END, HEADING_START
 
         payload = build_puzzle_payload(
             wiki_title='Кот',

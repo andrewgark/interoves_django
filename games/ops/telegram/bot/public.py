@@ -12,8 +12,8 @@ from zoneinfo import ZoneInfo
 from django.utils import formats, timezone
 
 from games.models import Game
-from games.ops.telegram.transport.api import send_message, send_photo
 from games.ops.telegram.links import game_tournament_results_url
+from games.ops.telegram.transport.api import send_message, send_photo
 
 logger = logging.getLogger('application')
 
@@ -168,7 +168,7 @@ def read_game_announce_image(game: Game) -> tuple[bytes, str] | None:
 
 
 def first_place_teams(game: Game) -> list:
-    from games.site.ui.results.compute import _load_game_results_data
+    from games.site.pages.results.compute import _load_game_results_data
 
     data = _load_game_results_data(game, 'tournament')
     team_to_place = data.get('team_to_place') or {}

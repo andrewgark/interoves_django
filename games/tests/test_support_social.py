@@ -1,15 +1,15 @@
 from io import BytesIO
+from unittest.mock import patch
 
 from django.contrib.auth.models import Group, User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
-from unittest.mock import patch
 
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 from games.models import HTMLPage, Profile, Project
 from games.ops.social.models import SocialQueuePost
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 
 
 def _png_upload(name='paste.png', size=(32, 40)):
@@ -66,9 +66,9 @@ class SupportSocialQueueTests(TestCase):
         self.assertEqual(post.instagram_status, SocialQueuePost.STATUS_PENDING)
 
     def test_create_draft_does_not_publish(self):
-        with patch('games.ops.support.feed.social.publish_twitter') as tw:
-            with patch('games.ops.support.feed.social.publish_telegram') as tg:
-                with patch('games.ops.support.feed.social.publish_instagram') as ig:
+        with patch('games.console.feed.social.publish_twitter') as tw:
+            with patch('games.console.feed.social.publish_telegram') as tg:
+                with patch('games.console.feed.social.publish_instagram') as ig:
                     response = self.client.post(
                         reverse('support:social_create'),
                         {
@@ -134,7 +134,7 @@ class SupportSocialQueueTests(TestCase):
         self.assertEqual(post.threads_external_id, 'thread-123')
         publish_mock.assert_called_once()
 
-    @patch('games.ops.support.feed.social.publish_twitter')
+    @patch('games.console.feed.social.publish_twitter')
     def test_publish_endpoint_calls_network(self, tw_mock):
         post = SocialQueuePost.objects.create(caption='x', source=SocialQueuePost.SOURCE_MANUAL)
         post.image.save('a.png', _png_upload(), save=True)
@@ -171,7 +171,7 @@ class SupportSocialQueueTests(TestCase):
         TELEGRAM_API_ID=1, TELEGRAM_API_HASH='h', TELEGRAM_USER_SESSION='s',
         TELEGRAM_CHANNEL_CHAT_ID='@chan',
     )
-    @patch('games.ops.support.feed.social.fetch_scheduled_message_sync')
+    @patch('games.console.feed.social.fetch_scheduled_message_sync')
     def test_sync_telegram_pulls_caption(self, fetch_mock):
         post = SocialQueuePost.objects.create(
             caption='старый текст',
@@ -211,7 +211,7 @@ class SupportSocialQueueTests(TestCase):
         TELEGRAM_API_ID=1, TELEGRAM_API_HASH='h', TELEGRAM_USER_SESSION='s',
         TELEGRAM_CHANNEL_CHAT_ID='@chan',
     )
-    @patch('games.ops.support.feed.social.fetch_scheduled_message_sync')
+    @patch('games.console.feed.social.fetch_scheduled_message_sync')
     def test_sync_telegram_not_found_returns_error(self, fetch_mock):
         post = SocialQueuePost.objects.create(
             caption='gone',
@@ -227,21 +227,22 @@ class SupportSocialQueueTests(TestCase):
         self.assertFalse(response.json()['ok'])
 
     def test_list_orders_planned_first_then_created(self):
-        from datetime import datetime, timezone as dt_timezone
+        from datetime import datetime
+        from datetime import timezone as dt_timezone
 
-        from games.ops.support.feed.social import list_posts
+        from games.console.feed.social import list_posts
 
         def _aware(y, mo, d, h=0):
             return datetime(y, mo, d, h, tzinfo=dt_timezone.utc)
 
-        draft_old = SocialQueuePost.objects.create(caption='draft old')
-        draft_new = SocialQueuePost.objects.create(caption='draft new')
-        planned_soon = SocialQueuePost.objects.create(
+        _draft_old = SocialQueuePost.objects.create(caption='draft old')
+        _draft_new = SocialQueuePost.objects.create(caption='draft new')
+        _planned_soon = SocialQueuePost.objects.create(
             caption='planned soon',
             twitter_status=SocialQueuePost.STATUS_QUEUED,
             twitter_queued_for=_aware(2026, 8, 1, 10),
         )
-        planned_later = SocialQueuePost.objects.create(
+        _planned_later = SocialQueuePost.objects.create(
             caption='planned later',
             telegram_status=SocialQueuePost.STATUS_SCHEDULED,
             telegram_scheduled_for=_aware(2026, 9, 1, 10),

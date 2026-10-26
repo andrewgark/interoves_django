@@ -1,1 +1,1 @@
-"""Candidate miners for proper names, near misses, Wikidata, and articles."""
+"""Compatibility alias. Implementation lives in games.puzzles.censorly.offline.tools.candidates."""

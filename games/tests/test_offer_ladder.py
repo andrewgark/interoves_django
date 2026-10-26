@@ -6,8 +6,6 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
-from games.ops.analytics.events import game_instance_id_for_task_group
-from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
 from games.club.offers.ladder import (
     accept_offer,
     create_offer,
@@ -15,6 +13,8 @@ from games.club.offers.ladder import (
     send_offer,
     update_offer_content,
 )
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
+from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -31,7 +31,7 @@ from games.models import (
     Task,
     Team,
 )
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.analytics.events import game_instance_id_for_task_group
 
 
 def _ensure_reference_rows():
@@ -212,7 +212,7 @@ class LadderOfferFlowTests(TestCase):
         self.assertIsNotNone(offer.accepted_link_id)
         self.assertEqual(offer.accepted_link.task_group_id, offer.task_group_id)
         self.assertEqual(Task.objects.filter(task_group=offer.task_group).count(), 1)
-        from games.ops.support.games.ladders import get_ladder_detail, list_ladder_rows
+        from games.console.games.ladder import get_ladder_detail, list_ladder_rows
         from games.ops.telegram.links import task_play_url
         row = next(item for item in list_ladder_rows() if item.link_id == offer.accepted_link_id)
         self.assertEqual(row.site_url, offer.play_url())
@@ -481,7 +481,7 @@ class LadderOfferFlowTests(TestCase):
         self.assertTrue(Attempt.manager.filter(task=task, user=self.other).exists())
 
     def test_delete_accepted_slot_keeps_offer_task(self):
-        from games.ops.support.games.ladders import delete_ladder
+        from games.console.games.ladder import delete_ladder
 
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ДОМ', 'СОМ'], hints=['д→с'], author='A')

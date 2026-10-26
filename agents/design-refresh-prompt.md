@@ -33,8 +33,8 @@
 
 | Слой | Стили | Шаблоны | Статус для этой работы |
 |------|--------|---------|------------------------|
-| **New UI** (целевой) | `static/css/new.css` | `static/templates/new/` (+ support частично на `.new-btn`) | **Основная зона изменений** |
-| Legacy | Bootstrap + `static/css/style.css` (`.btn-custom`, `.btn-*`) | `static/templates/` вне `new/` | **Не переписывать**, только зафиксировать в аудите |
+| **New UI** (целевой) | `static/css/new.css` | `static/templates/site/` (+ support частично на `.new-btn`) | **Основная зона изменений** |
+| Legacy | Bootstrap + `static/css/style.css` (`.btn-custom`, `.btn-*`) | `static/templates/` вне `site/` | **Не переписывать**, только зафиксировать в аудите |
 | Support | `static/css/support.css` (переиспользует `.new-btn`) | `static/templates/support/` | Учитывать совместимость с `.new-btn` |
 | Microsites / admin | отдельные CSS | eurovision booklet, Django admin | **Вне скоупа** |
 
@@ -52,7 +52,7 @@
 
 Глобальные токены и оболочка:
 - `static/css/new.css` — `:root`, `html.new-ui-dark`, `body.new-ui`, `.new-wrap`, `.new-nav`, палитра `--bg/--surface/--text/--muted/--accent/--border/--danger/...`;
-- `static/templates/new/base.html` — подключение `new.css`, theme switch, оболочка.
+- `static/templates/site/base.html` — подключение `new.css`, theme switch, оболочка.
 
 Компоненты new UI (искать классы, не React-компоненты):
 - кнопки: `.new-btn`, `.new-btn--ghost`, `.new-btn--yellow`, `.new-btn--danger`, `.new-btn--mini`, CTA хаба `.new-hub-section__cta--*`;
@@ -92,7 +92,7 @@
 
 ### Итерация 1 (минимум) — система кнопок new UI
 
-Переработай **только** систему кнопок new UI (классы в `new.css` + правки шаблонов `new/` и при необходимости `support/`).
+Переработай **только** систему кнопок new UI (классы в `new.css` + правки шаблонов `site/` и при необходимости `support/`).
 
 Нужна единая система вариантов (маппинг на существующие классы предпочтителен, ломать имена массово не надо — можно ввести семантические модификаторы и постепенно свести aliases):
 

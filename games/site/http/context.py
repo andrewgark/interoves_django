@@ -2,6 +2,9 @@
 
 from datetime import timedelta
 
+from django.conf import settings
+from django.utils import timezone
+
 from games.ops.analytics.events import (
     consume_pending_goals,
     pending_next_game_vote_payment_goals,
@@ -9,8 +12,6 @@ from games.ops.analytics.events import (
     pending_subscription_goals,
     pending_ticket_purchase_goals,
 )
-from django.conf import settings
-from django.utils import timezone
 
 
 def unverified_telegram_prompt(request):
@@ -179,7 +180,7 @@ def feedback_nav(request):
     if not user or not getattr(user, 'is_authenticated', False):
         return {'has_unread_feedback': False}
     try:
-        from games.site.ui.profile.feedback import user_has_unread_feedback
+        from games.site.pages.profile.feedback import user_has_unread_feedback
 
         return {'has_unread_feedback': user_has_unread_feedback(user)}
     except Exception:

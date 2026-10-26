@@ -1,1 +1,1 @@
-"""Ticket payments and donations."""
+"""Compatibility alias. Implementation lives in games.site.pages.pay."""

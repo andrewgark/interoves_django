@@ -3,14 +3,13 @@ from __future__ import annotations
 
 import re
 
-from django.http import JsonResponse
 from django.db.models import Q
+from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 
-from games.daily.page.section import current_number_for
 from games.club.billing.tribute.config import club_archive_gating_enabled
-from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID, current_number_for
 
 CLUB_ARCHIVE_GAME_IDS = frozenset({
     'ladder',
@@ -262,7 +261,7 @@ def user_can_access_task_archive(user, game, task, *, now=None, offer_share=None
 def club_archive_locked_response(request, game, number, *, json_mode=False):
     if json_mode:
         return JsonResponse({'status': 'error', 'reason': 'club_required'}, status=403)
-    from games.site.ui import NEW_UI_PROJECT, _project_urls_context
+    from games.site.pages import NEW_UI_PROJECT, _project_urls_context
 
     return render(
         request,

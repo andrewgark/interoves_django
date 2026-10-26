@@ -4,7 +4,7 @@ import os
 from django.contrib.auth.models import User
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
-
+from games.console.games.salad import create_word_salad
 from games.models import (
     Game,
     HTMLPage,
@@ -14,7 +14,6 @@ from games.models import (
     WordSaladRecheckOutbox,
 )
 from games.ops.cron.runtime import runtime_role
-from games.ops.support.games.salad import create_word_salad
 
 
 class Command(BaseCommand):

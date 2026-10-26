@@ -2,16 +2,15 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from allauth.socialaccount.models import SocialApp
-
-from games.models import Game, HTMLPage, Profile, Project, Team, TicketRequest
 from games.club.billing.routes import CRYPTO, INTERNATIONAL_CARD, RUSSIAN_CARD, amount_for, route_for, unit_price_for
+from games.models import Game, HTMLPage, Profile, Project, Team, TicketRequest
 
 
 def _ensure_login_modal_deps():
@@ -177,8 +176,8 @@ class TicketPaymentCreationTests(TestCase):
         self.client = Client()
         self.assertTrue(self.client.login(username='pay_create', password='secret'))
 
-    @patch('games.site.ui.pay.pages.configure_yookassa_from_env')
-    @patch('games.site.ui.pay.pages.Payment.create')
+    @patch('games.site.pages.pay.pages.configure_yookassa_from_env')
+    @patch('games.site.pages.pay.pages.Payment.create')
     def test_yookassa_uses_server_price_and_stores_route(self, create_mock, _configure_mock):
         create_mock.return_value = {
             'id': 'pay-route-1',
@@ -501,4 +500,4 @@ class DonatePageTests(TestCase):
     def test_donate_is_not_captured_as_project_hub(self):
         resp = self.client.get('/donate/')
         self.assertEqual(resp.status_code, 200)
-        self.assertTemplateUsed(resp, 'new/donate.html')
+        self.assertTemplateUsed(resp, 'site/donate.html')

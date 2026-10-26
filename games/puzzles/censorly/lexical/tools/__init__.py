@@ -1,1 +1,1 @@
-"""Offline tools for researching Censorly lexical data."""
+"""Compatibility alias. Implementation lives in games.puzzles.censorly.offline.tools."""

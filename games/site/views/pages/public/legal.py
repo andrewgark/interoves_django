@@ -3,7 +3,6 @@ from django.shortcuts import render
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
-
 LEGAL_CONTEXT = {
     'ru_seller': {
         'name': 'Андрей Александрович Гаркавый',
@@ -31,15 +30,15 @@ LEGAL_CONTEXT = {
 @require_GET
 def legal_page(request, document):
     templates = {
-        'sellers': ('new/legal/sellers.html', 'Продавцы и реквизиты'),
-        'terms': ('new/legal/terms_index.html', 'Условия покупки'),
-        'terms_russia': ('new/legal/terms_russia.html', 'Условия покупки — российские карты'),
-        'terms_armenia': ('new/legal/terms_armenia.html', 'Условия покупки — международные карты'),
-        'terms_crypto': ('new/legal/terms_crypto.html', 'Условия покупки — криптовалюта'),
-        'terms_tribute': ('new/legal/terms_tribute.html', 'Условия покупки — Tribute'),
-        'refunds': ('new/legal/refunds.html', 'Оплата, отмена и возврат'),
-        'privacy': ('new/legal/privacy.html', 'Политика конфиденциальности'),
-        'contacts': ('new/legal/contacts.html', 'Контакты'),
+        'sellers': ('site/legal/sellers.html', 'Продавцы и реквизиты'),
+        'terms': ('site/legal/terms_index.html', 'Условия покупки'),
+        'terms_russia': ('site/legal/terms_russia.html', 'Условия покупки — российские карты'),
+        'terms_armenia': ('site/legal/terms_armenia.html', 'Условия покупки — международные карты'),
+        'terms_crypto': ('site/legal/terms_crypto.html', 'Условия покупки — криптовалюта'),
+        'terms_tribute': ('site/legal/terms_tribute.html', 'Условия покупки — Tribute'),
+        'refunds': ('site/legal/refunds.html', 'Оплата, отмена и возврат'),
+        'privacy': ('site/legal/privacy.html', 'Политика конфиденциальности'),
+        'contacts': ('site/legal/contacts.html', 'Контакты'),
     }
     template_name, page_title = templates[document]
     from games.club.billing.tribute.config import merchant

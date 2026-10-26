@@ -115,7 +115,7 @@ Preview передаёт только значения для отображен
    ```bash
    ../venv/interoves_django/bin/python manage.py test games.tests.test_subscription_approval_preview games.tests.test_club_yookassa games.tests.test_club_subscription --noinput
    INTEROVES_APPROVAL_PREVIEW_BROWSER_TESTS=1 ../venv/interoves_django/bin/python manage.py test games.tests.test_subscription_approval_preview --noinput
-   ../venv/interoves_django/bin/python scripts/check_inline_js_syntax.py static/templates/new/subscription.html
+   ../venv/interoves_django/bin/python scripts/check_inline_js_syntax.py static/templates/site/subscription.html
    bash scripts/lint_new_ui_responsive.sh
    git diff --check
    ```

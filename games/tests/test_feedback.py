@@ -7,7 +7,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from games.site.ui.profile.feedback import add_admin_reply, add_user_reply
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 from games.models import (
     AlphabettyOffer,
     BugReport,
@@ -24,7 +24,7 @@ from games.models import (
     Team,
     WordSaladOffer,
 )
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
+from games.site.pages.profile.feedback import add_admin_reply, add_user_reply
 
 
 def _ensure_reference_rows():

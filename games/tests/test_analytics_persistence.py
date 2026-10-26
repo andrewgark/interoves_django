@@ -6,17 +6,7 @@ from django.db import IntegrityError, connection
 from django.test import TestCase
 from django.utils import timezone
 
-from games.ops.analytics.events import register_started_game
-from games.ops.analytics.persistence import (
-    AnalyticsRowInvariantError,
-    _mysql_duplicate_matches,
-    analytics_unique_spec,
-    create_or_reread_analytics_row,
-    merge_started_analytics_rows,
-    read_exact_analytics_row,
-    reassign_or_merge_analytics_row,
-)
-from games.club.merge.anon import (
+from games.identity.merge.anon_steps import (
     migrate_anon_analytics_state,
     migrate_anon_completed_games,
     migrate_anon_started_games,
@@ -31,6 +21,16 @@ from games.models import (
     Project,
     Task,
     TaskGroup,
+)
+from games.ops.analytics.events import register_started_game
+from games.ops.analytics.persistence import (
+    AnalyticsRowInvariantError,
+    _mysql_duplicate_matches,
+    analytics_unique_spec,
+    create_or_reread_analytics_row,
+    merge_started_analytics_rows,
+    read_exact_analytics_row,
+    reassign_or_merge_analytics_row,
 )
 
 

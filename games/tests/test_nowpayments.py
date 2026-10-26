@@ -1,18 +1,17 @@
 import json
 from unittest.mock import patch
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from allauth.socialaccount.models import SocialApp
-
-from games.models import Donation, HTMLPage, Profile, Project, Team, TicketRequest
 from games.club.billing.crypto import compute_ipn_signature, verify_ipn_signature
 from games.club.billing.donations import donation_order_id
 from games.club.billing.tickets import STUCK_TICKET_REQUEST_MINUTES, stuck_pending_ticket_count
+from games.models import Donation, HTMLPage, Profile, Project, Team, TicketRequest
 
 
 def _ensure_reference_rows():
@@ -199,7 +198,7 @@ class NowPaymentsCreatePaymentTests(TestCase):
         self.client = Client()
         self.assertTrue(self.client.login(username='np_pay_user', password='secret'))
 
-    @patch('games.site.ui.pay.pages.nowpayments_create_invoice')
+    @patch('games.site.pages.pay.pages.nowpayments_create_invoice')
     def test_create_crypto_payment_returns_embed(self, create_mock):
         create_mock.return_value = {
             'id': '6064785541',
@@ -233,7 +232,7 @@ class NowPaymentsCreatePaymentTests(TestCase):
         self.assertEqual(kwargs['order_id'], str(ticket.id))
 
     @patch(
-        'games.site.ui.pay.pages.nowpayments_create_invoice',
+        'games.site.pages.pay.pages.nowpayments_create_invoice',
         side_effect=RuntimeError('Missing NOWPayments API key: ...'),
     )
     def test_create_crypto_payment_missing_credentials(self, _create_mock):
@@ -398,7 +397,7 @@ class CryptoDonationCreateTests(TestCase):
     def setUp(self):
         self.client = Client()
 
-    @patch('games.site.ui.pay.pages.nowpayments_create_invoice')
+    @patch('games.site.pages.pay.pages.nowpayments_create_invoice')
     def test_anon_create_donation(self, create_mock):
         create_mock.return_value = {
             'id': 'don-inv-1',
@@ -431,7 +430,7 @@ class CryptoDonationCreateTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['reason'], 'amount')
 
-    @patch('games.site.ui.pay.pages.nowpayments_create_invoice')
+    @patch('games.site.pages.pay.pages.nowpayments_create_invoice')
     def test_authed_create_links_user(self, create_mock):
         create_mock.return_value = {'id': 'don-inv-2', 'invoice_url': 'https://x'}
         user = User.objects.create_user('donor', 'd@example.com', 'secret')

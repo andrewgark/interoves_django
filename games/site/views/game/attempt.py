@@ -2,9 +2,13 @@ import json
 
 from django.db import transaction
 from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+
+from games.daily.completion import daily_completion_effects_for_game
+from games.daily.completion.completion_coordinator import complete_logical_game
+from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
+from games.models import CHAIN_TASK_TYPES, Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task
 from games.ops.analytics.events import (
     PlayerCompletedGame,
     analytics_game_kind,
@@ -13,38 +17,42 @@ from games.ops.analytics.events import (
     publish_completion_analytics,
     register_started_game,
 )
+from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
+from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.core.check_runtime import CheckerFactory
-from games.site.http.exceptions import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
-from games.site.forms import AttemptForm
-from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, CHAIN_TASK_TYPES
-from games.site.session.replay import StaleReplayError, replay_for_request
-from games.daily.completion.completion_coordinator import complete_logical_game
-from games.daily.completion import daily_completion_effects_for_game
-from games.site.http.middleware.request_timing import timing_phase
-from games.site.http.auth_observability import log_gameplay_attempt_created
-from games.identity import ActorRefusal, resolve_gameplay_actor
-from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
+from games.puzzles.core.primitives import MoveRefusal, MoveResponse
+from games.puzzles.core.quota import revision_quota_message
+from games.puzzles.raddle import RaddlePuzzle
+from games.puzzles.raddle.concurrency import (
+    lock_or_create_raddle_state,
+    run_raddle_atomic_with_deadlock_retry,
+)
+from games.puzzles.replacements.grid import GridPuzzle
 from games.puzzles.replacements.grid_puzzle import grid_checker_id
+from games.puzzles.salad import SaladSync
 from games.realtime.track_compat import track_actor_task_change
+from games.site.forms import AttemptForm
+from games.site.http.auth_observability import log_gameplay_attempt_created
+from games.site.http.exceptions import (
+    DuplicateAttemptException,
+    InvalidFormException,
+    NoGameAccessException,
+    TooManyAttemptsException,
+)
+from games.site.http.middleware.request_timing import timing_phase
+from games.site.http.request_util import (
+    get_public_task_or_404,
+    is_browser_form_submission,
+    redirect_after_browser_submission,
+)
+from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
+from games.site.session.play_mode import effective_play_mode
+from games.site.session.replay import StaleReplayError, replay_for_request
 from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
 from games.site.views.game.render import update_task_html
-from games.identity import has_profile
-from games.site.session.play_mode import effective_play_mode
-from games.site.http.request_util import get_public_task_or_404, is_browser_form_submission, redirect_after_browser_submission
-from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
-from games.puzzles.alphabetty import AlphabettyPuzzle
-from games.puzzles.core.primitives import MoveRefusal, MoveResponse
-from games.puzzles.core.quota import revision_quota_message
-from games.puzzles.raddle import RaddlePuzzle
-from games.puzzles.replacements.grid import GridPuzzle
-from games.puzzles.salad import SaladSync
-from games.puzzles.raddle.concurrency import (
-    lock_or_create_raddle_state,
-    run_raddle_atomic_with_deadlock_retry,
-)
 
 
 def _raddle_stale_submit_response(request, task, team, user, anon_key, game, current_mode, word_index, replay_slot=None):
@@ -309,7 +317,7 @@ def check_attempt(
 
     # if some task had tag on this task, recheck it too
     if task.task_type == 'with_tag':
-        from games.puzzles.core.short.with_tag import WithTagPuzzle
+        from games.puzzles.markers.with_tag import WithTagPuzzle
         pair = WithTagPuzzle.dependent_actor(task)
         if pair is None:
             return True
@@ -515,7 +523,7 @@ def process_send_attempt(request, task_id):
             )
 
     if attempt_persisted and task.task_type == 'autohint':
-        from games.puzzles.core.short.autohint import AutohintPuzzle
+        from games.puzzles.markers.autohint import AutohintPuzzle
         if AutohintPuzzle.opens_on_wrong(attempt):
             with timing_phase(request, 'autohint'):
                 hint = get_first_new_hint_actor(

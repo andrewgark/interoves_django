@@ -11,11 +11,11 @@ from unittest import skipUnless
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
-from django.db import connection, close_old_connections
+from django.db import close_old_connections, connection
 from django.test import TransactionTestCase
 
+from games.console.games.salad import create_word_salad
 from games.models import WordSaladRecheckItem, WordSaladRecheckJob
-from games.ops.support.games.salad import create_word_salad
 from games.ops.workers.jobs.outbox import _claim_one
 from games.ops.workers.jobs.salad import enqueue_word_salad_recheck, process_word_salad_recheck_item
 
@@ -112,7 +112,7 @@ class WordSaladMySQLConcurrencyTests(TransactionTestCase):
     def test_two_dispatchers_claim_one_outbox_row(self):
         actors = {(None, self.user.pk, None, None)}
         with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
-            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+            _job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         barrier = Barrier(2)
         connection_ids = set()
 

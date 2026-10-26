@@ -5,12 +5,15 @@ from __future__ import annotations
 from django.contrib.auth.models import User
 from django.test import SimpleTestCase, TestCase, override_settings
 
+from games.puzzles.censorly.lexical.match import matching_lemmas
 from games.puzzles.censorly.lexical.match.core import fold
 from games.puzzles.censorly.lexical.semantics import (
-    explain, initially_open, opens, readings_of,
+    explain,
+    initially_open,
+    opens,
+    readings_of,
 )
-from games.puzzles.censorly.lexical.match import matching_lemmas
-from games.puzzles.censorly.lexical.tools.review.explain_pair import explain_pair
+from games.puzzles.censorly.offline.tools.review.explain_pair import explain_pair
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload, tokenize_text
 
 
@@ -780,8 +783,6 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('несчастный', 'несчастье'))
 
     def test_electron_and_electronics_are_distinct_clusters(self):
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
-
         self.assertTrue(_has_sense_structure('электрон', 'sense:electron_particle'))
         self.assertTrue(_has_sense_structure('электронный', 'sense:electronics'))
         self.assertTrue(_has_sense_structure('электроника', 'sense:electronics'))
@@ -791,7 +792,9 @@ class SemanticsTests(SimpleTestCase):
 
     def test_sense_is_subclass_of_root_not_a_standalone_identity(self):
         from games.puzzles.censorly.lexical.match.rootbank import (
-            root_components, sense_components, structures_of,
+            root_components,
+            sense_components,
+            structures_of,
         )
 
         application = structures_of('применение')
@@ -813,7 +816,9 @@ class SemanticsTests(SimpleTestCase):
 
     def test_semantic_structures_always_have_a_root_component(self):
         from games.puzzles.censorly.lexical.match.rootbank import (
-            families_of, structures_of, tikhonov_roots_of,
+            families_of,
+            structures_of,
+            tikhonov_roots_of,
         )
         from games.puzzles.censorly.lexical.splits import CLUSTERS
 
@@ -883,8 +888,6 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('заодно', '1'))
 
     def test_one_family_is_split_into_small_modern_senses(self):
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
-
         for lemma, sense in (
             ('один', 'sense:one'), ('одинарный', 'sense:one'),
             ('однажды', 'sense:once'), ('одиножды', 'sense:once'),
@@ -898,8 +901,6 @@ class SemanticsTests(SimpleTestCase):
                 self.assertFalse(opens('один', related))
 
     def test_predmet_is_not_the_sweep_root(self):
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
-
         self.assertTrue(_has_sense_structure('предмет', 'sense:object_item'))
         self.assertTrue(_has_sense_structure('метнуть', 'sense:sweep'))
         self.assertFalse(opens('предмет', 'метнул'))
@@ -908,8 +909,6 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('метать', 'метнуть'))
 
     def test_sweep_family_has_clear_lexicalized_splits(self):
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
-
         clusters = {
             'сметана': 'sense:dairy',
             'заметка': 'sense:note',
@@ -923,8 +922,6 @@ class SemanticsTests(SimpleTestCase):
                 self.assertFalse(opens('метнул', word))
 
     def test_sweep_family_remaining_lexicalized_clusters_are_separate(self):
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
-
         clusters = {
             'заметка': 'sense:note',
             'приметка': 'sense:note',
@@ -988,7 +985,7 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('был', 'была'))
 
     def test_nem_pronoun_requires_preposition_in_article_context(self):
-        from games.puzzles.censorly.lexical.match import _GuessPack, _build_article_analysis, _relation
+        from games.puzzles.censorly.lexical.match import _build_article_analysis, _GuessPack, _relation
         from games.puzzles.censorly.text.tokenize import tokenize_text
 
         for phrase in ('нем', 'нем.'):
@@ -1123,8 +1120,8 @@ class SemanticsTests(SimpleTestCase):
                 self.assertNotIn('кто', matching_lemmas(payload['body_tokens'], 'кома'))
 
     def test_article_candidate_tools_use_current_article_index_api(self):
-        from games.puzzles.censorly.lexical.tools.candidates.article_candidates import find_open_pairs
-        from games.puzzles.censorly.lexical.tools.candidates.near_miss_candidates import find_near_misses
+        from games.puzzles.censorly.offline.tools.candidates.article_candidates import find_open_pairs
+        from games.puzzles.censorly.offline.tools.candidates.near_miss_candidates import find_near_misses
         from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
         payload = build_puzzle_payload(
@@ -1142,13 +1139,13 @@ class SemanticsTests(SimpleTestCase):
         self.assertIsInstance(near_misses, list)
 
     def test_article_candidate_index_keeps_same_surface_readings_distinct(self):
-        from games.puzzles.censorly.lexical.match.core import fold
         from games.puzzles.censorly.lexical.match import _ArticleIndex, _GuessPack, _relation
+        from games.puzzles.censorly.lexical.match.core import fold
         from games.puzzles.censorly.lexical.russian.reading_overrides import (
             NEM_GERMAN_CONTEXT,
             NEM_PRONOUN_CONTEXT,
         )
-        from games.puzzles.censorly.lexical.tools.candidates.article_candidates import _article_surfaces
+        from games.puzzles.censorly.offline.tools.candidates.article_candidates import _article_surfaces
         from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
         payload = build_puzzle_payload(wiki_title='Контекст', body_text='Нем. О нем.')
@@ -1175,9 +1172,9 @@ class SemanticsTests(SimpleTestCase):
         from games.puzzles.censorly.lexical.match import matching_lemmas
         from games.puzzles.censorly.lexical.russian.reading_overrides import (
             CITY_ABBR_CONTEXT,
+            N_ERA_CONTEXT,
             NEM_GERMAN_CONTEXT,
             NEM_PRONOUN_CONTEXT,
-            N_ERA_CONTEXT,
             PAGE_ABBR_CONTEXT,
             PO_SOFTWARE_CONTEXT,
             STREET_ABBR_CONTEXT,
@@ -1251,7 +1248,9 @@ class SemanticsTests(SimpleTestCase):
 
     def test_n_in_n_era_context_uses_our_lemma_only_there(self):
         from games.puzzles.censorly.lexical.match import (
-            _GuessPack, _build_article_analysis, _relation,
+            _build_article_analysis,
+            _GuessPack,
+            _relation,
         )
         from games.puzzles.censorly.text.tokenize import tokenize_text
 
@@ -1529,8 +1528,8 @@ class SemanticsTests(SimpleTestCase):
         self.assertFalse(opens('I', 'II'))
 
     def test_split_subfamilies_are_disjoint(self):
-        from games.puzzles.censorly.lexical.splits import CLUSTERS
         from games.puzzles.censorly.lexical.match.rootbank import structures_of
+        from games.puzzles.censorly.lexical.splits import CLUSTERS
         by_name = {}
         seen = {}
         for name, lemmas in CLUSTERS:
@@ -1645,7 +1644,11 @@ class SemanticsTests(SimpleTestCase):
 
     def test_compounds_keep_full_structures_only(self):
         from games.puzzles.censorly.lexical.match.rootbank import (
-            _ATOMIC_LEXICALIZED, _SENSE, assignment_of, provenance, structures_of,
+            _ATOMIC_LEXICALIZED,
+            _SENSE,
+            assignment_of,
+            provenance,
+            structures_of,
         )
 
         self.assertIn(fold('красивенький'), _ATOMIC_LEXICALIZED)
@@ -1691,7 +1694,10 @@ class SemanticsTests(SimpleTestCase):
         from games.puzzles.censorly.lexical.match.core import fold
         from games.puzzles.censorly.lexical.match.rootbank import _KUZ_GROUPS, _KUZ_LEMMAS, _SENSE
         from games.puzzles.censorly.lexical.russian.compiler import (
-            _families, _lines, _norm, _strip_note,
+            _families,
+            _lines,
+            _norm,
+            _strip_note,
         )
 
         families = _families(_KUZ_GROUPS)
@@ -1745,6 +1751,7 @@ class LexicalGameplayTests(TestCase):
 
     def _revealed(self, game, task, user):
         import json
+
         from games.models import ChainTaskState
         row = ChainTaskState.objects.get(
             task=task, game=game, game_mode='general',
@@ -1820,6 +1827,7 @@ class LexicalGameplayTests(TestCase):
 
     def test_flag_off_does_not_open_root_neighbours(self):
         from django.test import override_settings
+
         from games.puzzles.censorly.play import apply_guess
         game, task, _hash, puzzle = self._task()
         user = User.objects.create_user('cz_lex_off', password='x')
@@ -1843,8 +1851,9 @@ class LexicalGameplayTests(TestCase):
 
     def test_flag_on_updates_state_and_masks(self):
         from django.test import override_settings
-        from games.puzzles.censorly.text.normalize import lemma_of
+
         from games.puzzles.censorly.play import apply_guess, get_play_state
+        from games.puzzles.censorly.text.normalize import lemma_of
         game, task, _hash, puzzle = self._task()
         user = User.objects.create_user('cz_lex_on', password='x')
         with override_settings(CENSORLY_LEXICAL_RESOLVER=True):
@@ -1902,8 +1911,9 @@ class LexicalGameplayTests(TestCase):
 
     def test_flag_on_rejects_words_that_are_rendered_open(self):
         from django.test import override_settings
-        from games.puzzles.censorly.play import apply_guess
+
         from games.models import ChainTaskState
+        from games.puzzles.censorly.play import apply_guess
 
         game, task, _hash, _puzzle = self._task()
         user = User.objects.create_user('cz_lex_initially_open', password='x')
@@ -1917,6 +1927,7 @@ class LexicalGameplayTests(TestCase):
 
     def test_mir_does_not_reveal_sea(self):
         from django.test import override_settings
+
         from games.puzzles.censorly.play import apply_guess
         from games.tests.test_censorly import _make_puzzle_task
 
@@ -1938,7 +1949,6 @@ class LexicalGameplayTests(TestCase):
 class ReviewedHomonymClusterTests(SimpleTestCase):
     def test_troy_article_candidates_keep_names_and_separate_other_senses(self):
         from games.puzzles.censorly.lexical.semantics import explain
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
         from games.puzzles.censorly.text.tokenize import all_tokens, build_puzzle_payload
 
         payload = build_puzzle_payload(
@@ -1973,7 +1983,6 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
 
     def test_silver_article_root_collisions_are_split_or_context_filtered(self):
         from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
         from games.puzzles.censorly.text.tokenize import all_tokens, build_puzzle_payload
 
         payload = build_puzzle_payload(
@@ -2191,7 +2200,6 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
 
     def test_summer_is_separate_from_years(self):
         from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
 
         self.assertTrue(_has_sense_structure('лето', 'sense:review_summer'))
         self.assertTrue(_has_sense_structure('год', 'sense:review_year'))
@@ -2635,8 +2643,6 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertTrue(opens('остаток', 'остаточный'))
 
     def test_reviewed_root_alternants_and_semantic_boundaries(self):
-        from games.puzzles.censorly.lexical.match.rootbank import structures_of
-
         for left, right in (
             ('идти', 'ходить'),
             ('найти', 'находить'),

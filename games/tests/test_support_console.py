@@ -1,9 +1,12 @@
+from datetime import timedelta
+
 from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 from django.utils import timezone
-from datetime import timedelta
 
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
+from games.console.people.search import parse_search_query, search
 from games.models import (
     Attempt,
     BugReport,
@@ -17,8 +20,6 @@ from games.models import (
     Team,
     TicketRequest,
 )
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
-from games.ops.support.people.search import parse_search_query, search
 
 
 def _ensure_reference_rows():

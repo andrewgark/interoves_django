@@ -4,21 +4,13 @@ from pathlib import Path
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.test import Client, SimpleTestCase, TestCase, override_settings
-from django.urls import reverse
 
-from allauth.socialaccount.models import SocialApp
-
-from games.models import (
-    HTMLPage,
-    NextGameVoteAdjustment,
-    NextGameVoteEvent,
-    Project,
-    StatisticsEvent,
-)
-from games.club.vote import (
+from games.club.billing.tribute.util import compute_webhook_signature
+from games.club.next_game import (
     CANDIDATE_CRYPTIC,
     CANDIDATE_LOGIC,
     CANDIDATE_REDACTLE,
@@ -30,8 +22,13 @@ from games.club.vote import (
     process_donation_event,
     scoreboard,
 )
-from games.club.billing.tribute.util import compute_webhook_signature
-
+from games.models import (
+    HTMLPage,
+    NextGameVoteAdjustment,
+    NextGameVoteEvent,
+    Project,
+    StatisticsEvent,
+)
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
@@ -335,7 +332,7 @@ class NextGameVotePageTests(TestCase):
         self.http = Client()
 
     def test_page_is_public(self):
-        with patch('games.club.vote.timezone.now', return_value=LIVE_MOMENT):
+        with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
             response = self.http.get('/vote/next-game/')
         self.assertEqual(response.status_code, 200)
         body = response.content.decode()
@@ -367,14 +364,14 @@ class NextGameVotePageTests(TestCase):
         self.assertLess(body.index('Текущий счёт'), body.index('Как это работает'))
 
     def test_upcoming_disables_cta(self):
-        with patch('games.club.vote.timezone.now', return_value=BEFORE_START):
+        with patch('games.club.next_game.timezone.now', return_value=BEFORE_START):
             body = self.http.get('/vote/next-game/').content.decode()
         self.assertIn('Голосование начнётся 7 сентября', body)
         self.assertIn('disabled', body)
         self.assertNotIn('data-vote-cta', body)
 
     def test_live_shows_countdown_and_ctas(self):
-        with patch('games.club.vote.timezone.now', return_value=LIVE_MOMENT):
+        with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
             body = self.http.get('/vote/next-game/').content.decode()
         self.assertIn('data-vote-countdown', body)
         self.assertIn('data-vote-cta="redactle"', body)
@@ -384,7 +381,7 @@ class NextGameVotePageTests(TestCase):
 
     def test_closed_hides_cta_and_shows_winner(self):
         process_donation_event(_envelope(_payload('303', 5000, 'eur'), donation_id=91))
-        with patch('games.club.vote.timezone.now', return_value=AFTER_END):
+        with patch('games.club.next_game.timezone.now', return_value=AFTER_END):
             body = self.http.get('/vote/next-game/').content.decode()
         self.assertIn('Голосование завершено', body)
         self.assertIn('Победитель — Логические пазлы', body)
@@ -393,12 +390,12 @@ class NextGameVotePageTests(TestCase):
         self.assertIn('€50', body)
 
     def test_zero_state_copy(self):
-        with patch('games.club.vote.timezone.now', return_value=LIVE_MOMENT):
+        with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
             body = self.http.get('/vote/next-game/').content.decode()
         self.assertIn('Пока ничья. Можно стать первым голосом', body)
 
     def test_tribute_return_goal_only_with_explicit_query(self):
-        with patch('games.club.vote.timezone.now', return_value=LIVE_MOMENT):
+        with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
             response = self.http.get('/vote/next-game/?from=tribute&candidate=redactle')
         body = response.content.decode()
         self.assertIn('next_game_vote_tribute_return', body)
@@ -406,7 +403,7 @@ class NextGameVotePageTests(TestCase):
 
     def test_manual_freeze_hides_cta_before_deadline(self):
         freeze_manually(now=LIVE_MOMENT)
-        with patch('games.club.vote.timezone.now', return_value=LIVE_MOMENT):
+        with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
             body = self.http.get('/vote/next-game/').content.decode()
         self.assertIn('Голосование завершено', body)
         self.assertNotIn('data-vote-cta', body)
@@ -422,7 +419,7 @@ class NextGameVoteLayoutTests(SimpleTestCase):
         self.assertIn('min-width: 0', css)
 
     def test_cards_are_equal_in_template(self):
-        html = (Path(__file__).resolve().parents[2] / 'static' / 'templates' / 'new' / 'next_game_vote.html').read_text()
+        html = (Path(__file__).resolve().parents[2] / 'static' / 'templates' / 'site' / 'next_game_vote.html').read_text()
         self.assertIn('{% for candidate in candidates %}', html)
         self.assertIn('vote-card vote-card--{{ candidate.slug }}', html)
         self.assertNotIn('рекоменд', html.lower())
@@ -478,7 +475,7 @@ class NextGameVoteConfiguredCtaTests(TestCase):
         _ensure_page_deps()
 
     def test_live_ctas_use_regular_donation_links(self):
-        with patch('games.club.vote.timezone.now', return_value=LIVE_MOMENT):
+        with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
             body = Client().get('/vote/next-game/').content.decode()
         self.assertIn('https://t.me/tribute/app?startapp=dQ6d', body)
         self.assertIn('https://t.me/tribute/app?startapp=dQ6e', body)

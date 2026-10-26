@@ -1,7 +1,7 @@
 from django.core.cache import cache
 from django.test import SimpleTestCase
 
-from games.ops.support.observatory.transport import (
+from games.console.observatory.transport import (
     SNAPSHOT_CACHE_KEY,
     transport_snapshot,
 )

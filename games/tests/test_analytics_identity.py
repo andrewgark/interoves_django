@@ -10,20 +10,9 @@ from django.test import Client, RequestFactory, TestCase, TransactionTestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.ops.analytics.identity import (
-    ANON_COOKIE_NAME,
-    ANON_SIG_COOKIE_NAME,
-    attach_anon_cookie,
-    attach_unsigned_anon_cookie,
-    gameplay_anon_key,
-    is_valid_anon_key,
-    signature_is_valid,
-    stamp_anon_identity,
-)
-from games.club.merge.anonymous import claim_next_merge_job, process_merge_job
+from games.identity.merge.anon_queue import claim_next_merge_job, process_merge_job
 from games.models import (
     AnonAccountClaim,
-    Attempt,
     CheckerType,
     Game,
     GameTaskGroup,
@@ -34,6 +23,16 @@ from games.models import (
     Project,
     Task,
     TaskGroup,
+)
+from games.ops.analytics.identity import (
+    ANON_COOKIE_NAME,
+    ANON_SIG_COOKIE_NAME,
+    attach_anon_cookie,
+    attach_unsigned_anon_cookie,
+    gameplay_anon_key,
+    is_valid_anon_key,
+    signature_is_valid,
+    stamp_anon_identity,
 )
 
 

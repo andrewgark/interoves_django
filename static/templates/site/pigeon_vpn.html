@@ -1,0 +1,70 @@
+{% extends "site/base.html" %}
+{% block title %}VPN от наших друзей{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">
+  VPN от наших друзей —
+  <a class="new-vpn-brand" href="https://pigeon-vpn.ru" target="_blank" rel="noopener noreferrer">
+    <strong>Pigeon VPN</strong>
+  </a>
+  <i class="ph ph-bird" aria-hidden="true"></i>
+</h1>
+
+<section class="new-vpn-page">
+  <div class="pal-card new-vpn-card">
+    <h2 class="new-vpn-card__title">
+      <i class="ph ph-key" aria-hidden="true"></i> Бесплатная подписка на время Десяточек
+    </h2>
+    <p class="new-vpn-card__text">
+      Это ссылка-подписка: VPN-клиент сам загрузит по ней список серверов и будет автоматически его обновлять.
+      Работает бесплатно в период проведения Десяточек.
+    </p>
+
+    <div class="new-vpn-copy-row">
+      <code class="new-vpn-code">https://pigeon-vpn.ru/sub/cGlnZW9uLXZwbi5ydSwxNzkxMzUxMDg12oXJ4bHcSa</code>
+      <button
+        class="new-btn new-vpn-copy-btn"
+        data-copy-text="https://pigeon-vpn.ru/sub/cGlnZW9uLXZwbi5ydSwxNzkxMzUxMDg12oXJ4bHcSa"
+        data-tooltip="Скопировать ссылку-подписку"
+      >Скопировать</button>
+    </div>
+
+    <h3 class="new-vpn-card__subtitle">Как подключить:</h3>
+    <ol class="new-vpn-steps">
+      <li>Скачайте любое VPN-приложение с поддержкой подписок, например
+        <a class="new-link-dotted" href="https://happ.su/main/ru" target="_blank" rel="noopener noreferrer"><strong class="new-vpn-strong">Happ</strong></a>:
+        <br>
+        iOS: <a class="new-link-dotted" href="https://apps.apple.com/ru/app/happ-proxy-utility-plus/id6746188973" target="_blank" rel="noopener noreferrer">App Store</a>
+        &nbsp;·&nbsp;
+        Android: <a class="new-link-dotted" href="https://play.google.com/store/apps/details?id=com.happproxy" target="_blank" rel="noopener noreferrer">Google Play</a>
+        &nbsp;·&nbsp;
+        Windows / Mac / Linux: <a class="new-link-dotted" href="https://happ.su/main/ru" target="_blank" rel="noopener noreferrer">happ.su</a>
+      </li>
+      <li>Скопируйте ссылку выше.</li>
+      <li>В приложении добавьте новый профиль (Profile / Subscription) по ссылке выше.</li>
+      <li>Клиент загрузит список серверов — выберите любой и включите VPN.</li>
+    </ol>
+  </div>
+
+  <div class="pal-card new-vpn-card">
+    <h2 class="new-vpn-card__title">
+      <i class="ph ph-paper-plane-tilt" aria-hidden="true"></i> Бесплатный прокси для Телеграма
+    </h2>
+    <p class="new-vpn-card__text">
+      Если нужен только Телеграм — получите бесплатный MTProxy прямо на сайте Pigeon VPN.
+    </p>
+    <a class="new-btn new-fwd new-btn--ghost" href="https://pigeon-vpn.ru" target="_blank" rel="noopener noreferrer">Получить бесплатный прокси для Телеграма <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+  </div>
+
+  <div class="pal-card new-vpn-card">
+    <h2 class="new-vpn-card__title">
+      <i class="ph ph-lock" aria-hidden="true"></i> Постоянный VPN
+    </h2>
+    <p class="new-vpn-card__text">
+      Нужен надёжный VPN без ограничений по времени? Pigeon VPN предлагает доступные тарифы.
+    </p>
+    <a class="new-btn new-fwd" href="https://pigeon-vpn.ru" target="_blank" rel="noopener noreferrer">
+      Купить постоянный VPN на pigeon-vpn.ru <i class="ph ph-arrow-right" aria-hidden="true"></i>
+    </a>
+  </div>
+</section>
+{% endblock %}

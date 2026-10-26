@@ -1,18 +1,32 @@
-from django.contrib.auth.models import User
-from django.test import TestCase
-from django.utils import timezone
 from datetime import timedelta
 from io import StringIO
-from django.core.management import call_command
 
-from games.results.standings.leaderboard import (
-    apply_release_policy, canonical_leaderboard_durations, eligible_public_actors,
-    individual_sports_key, results_exclusion_notice, sports_rank,
-    viewer_results_exclusion_reasons,
-)
+from django.contrib.auth.models import User
+from django.core.management import call_command
+from django.test import TestCase
+from django.utils import timezone
+
 from games.models import (
-    DailySolveTiming, Game, GameTaskGroup, HiddenAnonKey, PersonalResultsParticipant,
-    Profile, Project, ReplaySlot, Task, TaskGroup, Team,
+    DailySolveTiming,
+    Game,
+    GameTaskGroup,
+    HiddenAnonKey,
+    PersonalResultsParticipant,
+    Profile,
+    Project,
+    ReplaySlot,
+    Task,
+    TaskGroup,
+    Team,
+)
+from games.results.standings.leaderboard import (
+    apply_release_policy,
+    canonical_leaderboard_durations,
+    eligible_public_actors,
+    individual_sports_key,
+    results_exclusion_notice,
+    sports_rank,
+    viewer_results_exclusion_reasons,
 )
 
 
@@ -311,7 +325,7 @@ class LeaderboardSharedTests(TestCase):
 
     def test_author_backfill_dry_run_apply_idempotency_and_ambiguity(self):
         self.group.authors.clear()
-        task = self.group.tasks.create(number='1', tags={'author': 'author Player; coauthor Player'})
+        _task = self.group.tasks.create(number='1', tags={'author': 'author Player; coauthor Player'})
         out = StringIO()
         call_command('backfill_task_authors', stdout=out)
         self.assertIn('status=unique', out.getvalue())
@@ -333,10 +347,11 @@ class LeaderboardSharedTests(TestCase):
 
     def test_salad_breakdown_uses_saved_word_state_and_preserves_aggregate_score(self):
         from types import SimpleNamespace
-        from games.site.ui.results.pages import _word_salad_release_breakdown
-        from games.puzzles.salad.rules import serialize_task_data
 
-        task = Task.objects.create(
+        from games.puzzles.salad.rules import serialize_task_data
+        from games.site.pages.results.pages import _word_salad_release_breakdown
+
+        _task = Task.objects.create(
             task_group=self.group, number='salad', task_type='word_salad',
             checker_data=serialize_task_data('A B C D\nH G F E\nI J K L\nP O N M', 'BCDA\nABCD'),
         )

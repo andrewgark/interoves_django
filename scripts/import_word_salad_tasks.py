@@ -35,17 +35,17 @@ if _REPO_ROOT not in sys.path:
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "interoves_django.settings")
 django.setup()
 
-from games.models import CheckerType, GameTaskGroup, Task, TaskGroup  # noqa: E402
-from games.ops.support.games.salad import (  # noqa: E402
+from games.console.games.salad import (  # noqa: E402
     WORD_SALAD_SECTION_TITLE,
     ensure_word_salad_game,
 )
-from games.daily.page.section import WORD_SALAD_GAME_ID  # noqa: E402
-from games.puzzles.salad.rules import validate_puzzle  # noqa: E402
 from games.daily.catalog.word_salad import (  # noqa: E402
     WORD_SALAD_DEFAULT_PUBLISH_START,
     WORD_SALAD_PUBLISH_START_TAG,
 )
+from games.daily.page.section import WORD_SALAD_GAME_ID  # noqa: E402
+from games.models import CheckerType, GameTaskGroup, Task, TaskGroup  # noqa: E402
+from games.puzzles.salad.rules import validate_puzzle  # noqa: E402
 from games.puzzles.salad.sheet import parse_word_salad_csv  # noqa: E402
 
 SHEET_CSV_URL = (

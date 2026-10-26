@@ -4,15 +4,11 @@ from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import AnonymousUser
 from django.http import Http404
-from django.test import RequestFactory, TestCase
 from django.template.loader import render_to_string
+from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
 from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
-from games.results.ladder import (
-    build_ladder_word_results_context,
-    ladder_word_results_headers_context,
-)
 from games.models import (
     Attempt,
     CheckerType,
@@ -25,7 +21,11 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.site.ui.results.pages import new_ladder_word_results_page
+from games.results.ladder import (
+    build_ladder_word_results_context,
+    ladder_word_results_headers_context,
+)
+from games.site.pages.results.pages import new_ladder_word_results_page
 
 MINI_LADDER = {
     'lengths': [3, 3, 3, 3],
@@ -145,7 +145,7 @@ class LadderWordResultsTests(TestCase):
     def test_current_ladder_word_row_shows_points_not_column_answer(self):
         participant = PersonalResultsParticipant(anon_key='lw-current')
         current_participant = PersonalResultsParticipant(anon_key='lw-current')
-        html = render_to_string('new/partials/results_rows.html', {
+        html = render_to_string('site/partials/results_rows.html', {
             'teams_sorted': [participant],
             'team_to_place': {participant: 1},
             'team_to_score': {participant: 1},
@@ -168,7 +168,7 @@ class LadderWordResultsTests(TestCase):
     def test_personal_mode_does_not_highlight_users_team_row(self):
         team = Team.objects.create(name='lw-results-team', visible_name='Team')
         participant = PersonalResultsParticipant(anon_key='lw-current')
-        html = render_to_string('new/partials/results_rows.html', {
+        html = render_to_string('site/partials/results_rows.html', {
             'teams_sorted': [team, participant],
             'team_to_place': {team: 1, participant: 2},
             'team_to_score': {team: 2, participant: 1},
@@ -186,7 +186,7 @@ class LadderWordResultsTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
-            with patch('games.site.ui.results.pages.render') as render_mock:
+            with patch('games.site.pages.results.pages.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
                 ctx = render_mock.call_args[0][2]
                 self.assertTrue(ctx['is_ladder_word_results'])
@@ -211,9 +211,9 @@ class LadderWordResultsTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
-            with patch('games.site.ui.results.pages.render') as render_mock:
+            with patch('games.site.pages.results.pages.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
-                self.assertEqual(render_mock.call_args[0][1], 'new/partials/results_rows.html')
+                self.assertEqual(render_mock.call_args[0][1], 'site/partials/results_rows.html')
                 ctx = render_mock.call_args[0][2]
                 self.assertEqual(len(ctx['teams_sorted']), 1)
                 self.assertTrue(ctx['is_ladder_word_results'])
@@ -236,6 +236,6 @@ class LadderWordResultsTests(TestCase):
         request.user = staff
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
-            with patch('games.site.ui.results.pages.render') as render_mock:
+            with patch('games.site.pages.results.pages.render') as render_mock:
                 new_ladder_word_results_page(request, '9100')
         self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')

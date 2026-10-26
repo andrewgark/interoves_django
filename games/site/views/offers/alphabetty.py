@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
+from games.club.link import offer_profile_error
 from games.club.offers.alphabetty import (
     AlphabettyOfferError,
     create_offer,
@@ -17,10 +18,9 @@ from games.club.offers.alphabetty import (
     serialize_offer,
     update_offer_content,
 )
-from games.models import AlphabettyOffer
 from games.club.offers.profiles import update_offer_profile_names
-from games.club.link import offer_profile_error
 from games.identity import has_profile
+from games.models import AlphabettyOffer
 from games.site.http.request_util import parse_json_object_body
 
 
@@ -59,7 +59,7 @@ def offer_alphabetty_page(request):
             profile, request.POST.get('first_name'), request.POST.get('last_name'),
         )
         if not ready_after:
-            return render(request, 'new/create_alphabetty.html', _profile_context(
+            return render(request, 'site/create_alphabetty.html', _profile_context(
                 profile,
                 ready=False,
                 missing=missing_after,
@@ -69,7 +69,7 @@ def offer_alphabetty_page(request):
         return redirect('new_create_alphabetty')
 
     offers = list_user_offers(request.user) if ready else []
-    return render(request, 'new/create_alphabetty.html', _profile_context(
+    return render(request, 'site/create_alphabetty.html', _profile_context(
         profile, ready=ready, missing=missing, offers=offers,
     ))
 

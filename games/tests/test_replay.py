@@ -1,16 +1,14 @@
 from unittest.mock import patch
 
-from django.contrib.auth.models import AnonymousUser
-from django.contrib.auth.models import User
+from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.test import RequestFactory, TestCase
 
-from games.ops.analytics.events import game_instance_id_for_task_group, is_task_group_complete
-from games.ops.analytics.identity import stamp_anon_identity
+from games.identity.merge.account import _merge_replay_slots
 from games.models import (
     Attempt,
-    CheckerType,
     ChainTaskState,
+    CheckerType,
     DailySolveTiming,
     Game,
     GameTaskGroup,
@@ -22,13 +20,13 @@ from games.models import (
     ReplaySlot,
     Task,
     TaskGroup,
-    Team,
 )
-from games.site.session.replay import StaleReplayError, replay_for_request, start_or_reset_replay
-from games.club.merge.account import _merge_replay_slots
-from games.site.views.game.attempt import process_send_attempt
-from games.site.ui.play.replay import new_replay_exit
+from games.ops.analytics.events import game_instance_id_for_task_group, is_task_group_complete
+from games.ops.analytics.identity import stamp_anon_identity
 from games.results.sql import get_sql_aggregated_game_actor_rows
+from games.site.pages.play.replay import new_replay_exit
+from games.site.session.replay import StaleReplayError, replay_for_request, start_or_reset_replay
+from games.site.views.game.attempt import process_send_attempt
 
 
 class ReplaySlotTests(TestCase):
@@ -99,8 +97,8 @@ class ReplaySlotTests(TestCase):
             request=request, game=self.game, task_group=self.group, user=self.user,
         )
         request.user = self.user
-        with patch('games.site.ui.play.replay._get_play_mode', return_value=('personal', 'personal')), \
-             patch('games.site.ui.play.replay.has_profile', return_value=True):
+        with patch('games.site.pages.play.replay._get_play_mode', return_value=('personal', 'personal')), \
+             patch('games.site.pages.play.replay.has_profile', return_value=True):
             response = new_replay_exit(request, self.game.id, '1')
         self.assertEqual(response.status_code, 302)
         self.assertIsNone(

@@ -5,13 +5,13 @@ from django.contrib.sites.models import Site
 from django.test import Client, RequestFactory, TestCase
 from django.urls import reverse
 
-from games.club.merge.account import (
+from games.identity.allauth import SocialAccountAdapter
+from games.identity.merge.account import (
     PENDING_ACCOUNT_MERGE_SESSION_KEY,
     social_provider_label,
 )
 from games.models import HTMLPage, Profile, Project
 from games.site.http.signals import _avatar_url_from_extra
-from games.users.allauth import SocialAccountAdapter
 
 
 def _ensure_login_modal_deps():

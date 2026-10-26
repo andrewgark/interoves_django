@@ -6,18 +6,17 @@ from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from yookassa import Payment
 
-from games.site.http.exceptions import InvalidFormException
-from games.site.forms import TicketRequestForm
-from games.models import TicketRequest
 from games.club.billing.crypto import verify_ipn_signature
 from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
 from games.club.billing.tribute.util import verify_webhook_signature as verify_tribute_webhook_signature
-from games.identity import has_team
-from games.site.http.request_util import redirect_to_referer
 from games.club.billing.yookassa.util import configure_yookassa_from_env
-
-from yookassa import Payment
+from games.identity import has_team
+from games.models import TicketRequest
+from games.site.forms import TicketRequestForm
+from games.site.http.exceptions import InvalidFormException
+from games.site.http.request_util import redirect_to_referer
 
 logger = logging.getLogger('games.views.ticket')
 
@@ -509,14 +508,14 @@ def tribute_webhook(request):
         return HttpResponse(status=400)
 
     if event_name in ('new_digital_product', 'digital_product_refunded'):
+        from games.club.billing.gifts.payments import (
+            process_tribute_gift_purchase,
+            process_tribute_gift_refund,
+        )
         from games.club.billing.tribute.service import (
             TributePayloadError,
             process_new_purchase,
             process_refund,
-        )
-        from games.club.billing.gifts.payments import (
-            process_tribute_gift_purchase,
-            process_tribute_gift_refund,
         )
 
         try:
@@ -557,7 +556,7 @@ def tribute_webhook(request):
             return HttpResponse(status=400)
         return HttpResponse(status=200)
 
-    from games.club.vote import DONATION_EVENTS, VotePayloadError, maybe_process_tribute_donation
+    from games.club.next_game import DONATION_EVENTS, VotePayloadError, maybe_process_tribute_donation
 
     if event_name in DONATION_EVENTS:
         try:

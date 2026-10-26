@@ -1,13 +1,11 @@
 import logging
 
+from allauth.account.signals import user_signed_up
 from django.db import transaction
 from django.db.models.signals import post_delete, post_save, pre_delete, pre_save
 from django.dispatch import receiver
 from django.utils import timezone
-from allauth.account.signals import user_signed_up
 
-from games.ops.analytics.events import queue_pending_goal, signup_goal_payload
-from games.ops.analytics.persistence import create_or_reread_analytics_row
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -19,7 +17,9 @@ from games.models import (
     SocialAccount,
     Task,
 )
-from games.ops.workers.jobs.recheck import recheck_queue_from_next, recheck_full
+from games.ops.analytics.events import queue_pending_goal, signup_goal_payload
+from games.ops.analytics.persistence import create_or_reread_analytics_row
+from games.ops.workers.jobs.recheck import recheck_full, recheck_queue_from_next
 
 
 def _invalidate_monthly_release_index(game_id):
@@ -297,8 +297,8 @@ def daily_difficulty_publish_schedule_saved(sender, instance, created, **kwargs)
     """Refresh schedule-dependent projections and difficulty deadlines."""
     if created:
         return
-    from games.daily.page.section import schedule_for
     from games.daily.difficulty.core import SUPPORTED_GAME_IDS, sync_daily_difficulty_schedule
+    from games.daily.page.section import schedule_for
 
     schedule = schedule_for(instance.pk)
     old = getattr(instance, '_game_old_snapshot', None)
@@ -317,6 +317,7 @@ def daily_difficulty_publish_schedule_saved(sender, instance, created, **kwargs)
     # existing projection reconciler rebuilds them.
     if instance.project_id == 'sections':
         from django.db.models import F
+
         from games.models import DailyResultProjectionState
 
         DailyResultProjectionState.objects.filter(game=instance).update(
@@ -341,7 +342,7 @@ def sync_telegram_identity(sender, **kw):
     extra = account.extra_data or {}
     updates = []
     was_verified = bool(profile.telegram_verified)
-    from games.club.telegram_oidc import telegram_user_id_from_claims
+    from games.identity.telegram_oidc import telegram_user_id_from_claims
 
     telegram_user_id = telegram_user_id_from_claims(extra)
     oidc_sub = str(account.uid or '').strip() or None
@@ -425,8 +426,8 @@ def _auto_claim_signup_anon_history(request, user):
     if request is None or user is None:
         return
     try:
+        from games.identity.merge.anon_steps import claim_and_migrate_anon_history
         from games.ops.analytics.identity import browser_anon_key, rotate_anonymous_identity
-        from games.club.merge.anon import claim_and_migrate_anon_history
         from games.site.http.auth_observability import log_auth_event, request_session_fingerprint
         from games.site.session.gameplay_context import anonymous_actor_fingerprint
 

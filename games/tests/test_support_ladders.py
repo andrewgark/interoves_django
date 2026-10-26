@@ -6,10 +6,10 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from games.console.games import ladder as ladder_svc
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
 from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
-from games.ops.support.games import ladders as ladder_svc
 
 
 def _ensure_reference_rows():

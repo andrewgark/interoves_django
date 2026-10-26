@@ -8,29 +8,6 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from games.models import (
-    Attempt,
-    ChainTaskState,
-    CheckerType,
-    Game,
-    GameTaskGroup,
-    HTMLPage,
-    Profile,
-    Project,
-    Task,
-    TaskGroup,
-    Team,
-    WordSaladOffer,
-)
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
-from games.ops.support.games.salad import ensure_word_salad_game, set_publish_start
-from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
-    parse_task_data,
-    parse_task_payload,
-    validate_puzzle,
-)
-from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
 from games.club.offers.salad import (
     accept_offer,
     convert_accepted_idea,
@@ -40,7 +17,26 @@ from games.club.offers.salad import (
     serialize_offer,
     update_offer_content,
 )
-
+from games.console.games.salad import ensure_word_salad_game
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
+from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
+from games.models import (
+    Attempt,
+    ChainTaskState,
+    CheckerType,
+    GameTaskGroup,
+    HTMLPage,
+    Profile,
+    Project,
+    Task,
+    Team,
+    WordSaladOffer,
+)
+from games.puzzles.salad.rules import (
+    WORD_SALAD_GAME_ID,
+    parse_task_payload,
+    validate_puzzle,
+)
 
 VALID_GRID = 'B C D E\nI H G F\nJ K L M\nQ P O N'
 VALID_WORDS = 'BCDEFGHIJKLMNOPQ'
@@ -277,7 +273,7 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertTrue(allowed.json()['word_salad_correct'], allowed.json())
 
     def test_schedule_created_salad_has_hash_page_and_staff_number(self):
-        from games.ops.support.games.salad import create_word_salad
+        from games.console.games.salad import create_word_salad
 
         detail = create_word_salad()
         link = GameTaskGroup.objects.get(pk=detail['link_id'])
@@ -420,7 +416,7 @@ class WordSaladOfferFlowTests(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.tags.get('author'), 'Анна Автор')
         self.assertEqual(offer.author, 'Анна Автор')
-        from games.ops.support.games.salad import get_word_salad_detail, list_word_salad_rows
+        from games.console.games.salad import get_word_salad_detail, list_word_salad_rows
         row = next(item for item in list_word_salad_rows() if item.link_id == offer.accepted_link_id)
         self.assertEqual(row.site_url, offer.play_url())
         self.assertEqual(get_word_salad_detail(offer.accepted_link_id)['site_url'], offer.play_url())
@@ -579,7 +575,7 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(game_hinted.id, WORD_SALAD_GAME_ID)
 
     def test_merge_preview_counts_salad_offers(self):
-        from games.club.merge.account import build_account_merge_preview
+        from games.identity.merge.account import build_account_merge_preview
 
         create_offer(self.user, kind=WordSaladOffer.KIND_IDEA)
         preview = build_account_merge_preview(self.other, self.user)

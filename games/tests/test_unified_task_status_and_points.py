@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 from django.test import TestCase
 
-from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team, Attempt
-from games.site.ui.game.progress import _compute_solved_task_ids
-from games.site.ui.results.compute import _new_results_compute
+from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team
+from games.site.pages.game.progress import _compute_solved_task_ids
+from games.site.pages.results.compute import _new_results_compute
 
 
 def _ensure_min_fixtures():

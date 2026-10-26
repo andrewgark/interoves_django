@@ -1,0 +1,400 @@
+{% extends "site/base.html" %}
+{% load socialaccount %}
+{% block title %}Профиль{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Профиль</h1>
+<section class="new-profile-card" aria-labelledby="profile-display-name">
+  <div class="new-profile-card__hero">
+    <div class="new-profile-card__avatar" aria-hidden="true">
+      <span>{{ profile_initials }}</span>
+      {% if profile_avatar_url %}<img src="{{ profile_avatar_url }}" alt="" data-profile-avatar-image>{% endif %}
+    </div>
+    <div class="new-profile-card__identity">
+      <p class="new-profile-card__eyebrow">Личный профиль</p>
+      <h2 id="profile-display-name" class="new-profile-card__name">{{ profile_display_name }}</h2>
+      <span class="new-profile-card__id">ID {{ request.user.pk }}</span>
+    </div>
+    {% if profile_has_complete_name %}
+      <form method="get" action="{{ request.path }}" class="new-profile-card__edit-trigger" data-profile-edit-trigger{% if profile_edit_open %} hidden{% endif %}>
+        <input type="hidden" name="edit" value="1">
+        {% if profile_next_path %}<input type="hidden" name="next" value="{{ profile_next_path }}">{% endif %}
+        <button type="submit" class="new-btn new-btn--ghost new-btn--mini" aria-controls="profile-edit" aria-expanded="false"><i class="ph ph-pencil-simple" aria-hidden="true"></i> Изменить</button>
+      </form>
+    {% endif %}
+  </div>
+  <dl class="new-profile-card__details">
+    <div class="new-profile-card__detail">
+      <dt>Telegram</dt>
+      <dd>{{ profile_telegram_label }}</dd>
+    </div>
+    <div class="new-profile-card__detail">
+      <dt>Часовой пояс</dt>
+      <dd>{{ profile_timezone_label }}</dd>
+    </div>
+  </dl>
+    <div id="profile-edit" class="new-profile-card__editor" data-profile-editor{% if not profile_edit_open %} hidden{% endif %}>
+      <div class="new-profile-card__editor-heading">
+        <h3>Изменить профиль</h3>
+        {% if profile_has_complete_name %}<a class="new-account-action" data-profile-edit-cancel href="{{ request.path }}{% if profile_next_path %}?next={{ profile_next_path|urlencode }}{% endif %}">Отмена</a>{% endif %}
+      </div>
+      <form method="post" class="new-form">
+        {% csrf_token %}
+        {% if profile_next_path %}<input type="hidden" name="next" value="{{ profile_next_path }}">{% endif %}
+        <div class="new-two">
+          <div>
+            <label for="{{ form.first_name.id_for_label }}">Имя</label>
+            {{ form.first_name }}
+            {% if form.first_name.errors %}<span class="new-field-error">{{ form.first_name.errors }}</span>{% endif %}
+          </div>
+          <div>
+            <label for="{{ form.last_name.id_for_label }}">Фамилия</label>
+            {{ form.last_name }}
+            {% if form.last_name.errors %}<span class="new-field-error">{{ form.last_name.errors }}</span>{% endif %}
+          </div>
+        </div>
+        <label for="{{ form.timezone.id_for_label }}">Часовой пояс</label>
+        {{ form.timezone }}
+        <datalist id="tz-list">
+          {% for tz, label in tz_options %}<option value="{{ label }}"></option>{% endfor %}
+        </datalist>
+        {% if form.timezone.errors %}<span class="new-field-error">{{ form.timezone.errors }}</span>{% endif %}
+        <p class="new-login-hint new-profile-hint">Используется для времени в меню и дат игр. <span id="tz-offset-hint"></span></p>
+        <label for="{{ form.avatar_url.id_for_label }}">Ссылка на фото</label>
+        {{ form.avatar_url }}
+        {% if form.avatar_url.errors %}<span class="new-field-error">{{ form.avatar_url.errors }}</span>{% endif %}
+        <p class="new-login-hint new-profile-avatar-hint">Фото из Google, Яндекса или VK обычно появляется автоматически.</p>
+        <button type="submit" class="new-btn new-profile-card__save">Сохранить</button>
+      </form>
+    </div>
+</section>
+
+<h2 class="new-heading">Аккаунты</h2>
+<div class="new-card">
+  {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
+  <p class="new-login-hint new-profile-accounts-lead">Для входа в этот раздел: Google с почтой <strong>@glowbyteconsulting.com</strong> или Яндекс с почтой <strong>@glowbyte.ru</strong>.</p>
+  <div class="new-account-list">
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--google"><i class="ph ph-google-logo" aria-hidden="true"></i></div>
+      <div class="new-account-main">
+        <strong>Google</strong>
+      {% if 'google' in connected_providers %}
+        <span class="new-account-meta">{{ connected_account_labels.google }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.google }}" data-provider-label="Google">Отключить</button>
+        {% endif %}
+      {% else %}
+        <a class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path auth_params='hd=glowbyteconsulting.com' %}">Подключить</a>
+      {% endif %}
+      </div>
+    </div>
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--yandex" aria-hidden="true">Я</div>
+      <div class="new-account-main">
+        <strong>Яндекс</strong>
+      {% if 'yandex' in connected_providers %}
+        <span class="new-account-meta">{{ connected_account_labels.yandex }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.yandex }}" data-provider-label="Яндекс">Отключить</button>
+        {% endif %}
+      {% else %}
+        <a class="new-account-action" href="{% provider_login_url 'yandex' process='connect' next=request.get_full_path %}">Подключить</a>
+      {% endif %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="new-account-list">
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--google"><i class="ph ph-google-logo" aria-hidden="true"></i></div>
+      <div class="new-account-main">
+        <strong>Google</strong>
+      {% if 'google' in connected_providers %}
+        <span class="new-account-meta">{{ connected_account_labels.google }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.google }}" data-provider-label="Google">Отключить</button>
+        {% endif %}
+      {% else %}
+        <a class="new-account-action" href="{% provider_login_url 'google' process='connect' next=request.get_full_path %}">Подключить</a>
+      {% endif %}
+      </div>
+    </div>
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--yandex" aria-hidden="true">Я</div>
+      <div class="new-account-main">
+        <strong>Яндекс</strong>
+      {% if 'yandex' in connected_providers %}
+        <span class="new-account-meta">{{ connected_account_labels.yandex }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.yandex }}" data-provider-label="Яндекс">Отключить</button>
+        {% endif %}
+      {% else %}
+        <a class="new-account-action" href="{% provider_login_url 'yandex' process='connect' next=request.get_full_path %}">Подключить</a>
+      {% endif %}
+      </div>
+    </div>
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--vk" aria-hidden="true">VK</div>
+      <div class="new-account-main">
+        <strong>VK</strong>
+      {% if 'vk' in connected_providers %}
+        <span class="new-account-meta">{{ connected_account_labels.vk }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.vk }}" data-provider-label="VK">Отключить</button>
+        {% endif %}
+      {% else %}
+        <a class="new-account-action" href="{% provider_login_url 'vk' process='connect' next=request.get_full_path %}">Подключить</a>
+      {% endif %}
+      </div>
+    </div>
+    <div class="new-account-row">
+      <div class="new-account-icon new-account-icon--telegram"><i class="ph ph-telegram-logo" aria-hidden="true"></i></div>
+      <div class="new-account-main">
+        <strong>Telegram</strong>
+      {% if 'telegram' in connected_providers %}
+        <span class="new-account-meta">{{ connected_account_labels.telegram }}</span>
+        <span class="new-account-status new-account-status--ok"><i class="ph ph-check-circle" aria-hidden="true"></i>Подключён</span>
+        {% if can_disconnect_social_account %}
+          <button type="button" class="new-account-action new-account-action--danger" data-social-disconnect data-account-id="{{ connected_account_ids.telegram }}" data-provider-label="Telegram">Отключить</button>
+        {% endif %}
+      {% else %}
+        <a class="new-account-action" href="{% url 'telegram_login' %}?process=connect&amp;next={{ request.get_full_path|urlencode }}">Подключить</a>
+      {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+  <button type="button" class="new-btn new-btn--text" data-review-guest-progress aria-controls="guest-progress-preview" aria-expanded="false">Посмотреть, что можно перенести с этого устройства</button>
+  <div id="guest-progress-preview" class="new-guest-progress-preview" data-guest-progress-preview hidden aria-live="polite">
+    <p data-guest-progress-summary></p>
+    <ul data-guest-progress-counts hidden></ul>
+    <p data-guest-progress-example hidden></p>
+    <button type="button" class="new-btn new-btn--mini" data-guest-progress-transfer hidden>Перенести в профиль</button>
+  </div>
+</div>
+
+{% if has_bug_reports or has_ladder_offers or has_alphabetty_offers or has_word_salad_offers %}
+<nav class="new-cabinet" aria-label="Мои материалы">
+  {# Новый тип пользовательских заданий добавляет пункт «Мои …» → /create_<kind>/, когда появится тот же offer-flow. #}
+  <ul class="new-cabinet-links">
+    {% if has_bug_reports %}
+    <li>
+      <a href="{% if ui_project_base %}{{ ui_project_reports_url }}{% else %}{% url 'new_profile_reports' %}{% endif %}">Мои обращения</a>
+    </li>
+    {% endif %}
+    {% if has_ladder_offers %}
+    <li>
+      <a href="{% url 'new_create_ladder' %}">Мои Лесенки</a>
+    </li>
+    {% endif %}
+    {% if has_alphabetty_offers %}
+    <li>
+      <a href="{% url 'new_create_alphabetty' %}">Мои Алфавитки</a>
+    </li>
+    {% endif %}
+    {% if has_word_salad_offers %}
+    <li>
+      <a href="{% url 'new_create_salad' %}">Мои Салатики</a>
+    </li>
+    {% endif %}
+  </ul>
+</nav>
+{% endif %}
+
+{% if can_disconnect_social_account %}
+<div id="new-social-disconnect-modal" class="new-rules-modal" role="dialog" aria-labelledby="new-social-disconnect-title" aria-modal="true" hidden>
+  <div class="new-rules-overlay" data-social-disconnect-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-social-disconnect-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="new-social-disconnect-title" class="pal-title">Отключить способ входа?</h2>
+    <p class="pal-lead">Вход через <strong data-social-disconnect-provider></strong> перестанет работать. Другой подключённый способ входа останется доступен.</p>
+    <form method="post" action="{% url 'ui_social_account_disconnect' %}" class="new-rules-modal__actions new-rules-modal__actions--flush">
+      {% csrf_token %}
+      <input type="hidden" name="account_id" value="" data-social-disconnect-account>
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="new-btn" data-social-disconnect-confirm>Отключить</button>
+      <button type="button" class="new-btn new-btn--ghost" data-social-disconnect-close>Отмена</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+(function () {
+  var editTrigger = document.querySelector('[data-profile-edit-trigger]');
+  var editor = document.querySelector('[data-profile-editor]');
+  if (editTrigger && editor && editor.hidden) {
+    var editButton = editTrigger.querySelector('button');
+    var cancelEdit = editor.querySelector('[data-profile-edit-cancel]');
+    editTrigger.addEventListener('submit', function (event) {
+      event.preventDefault();
+      editTrigger.hidden = true;
+      editor.hidden = false;
+      editButton.setAttribute('aria-expanded', 'true');
+      var firstField = editor.querySelector('[name="first_name"]');
+      if (firstField) firstField.focus();
+    });
+    if (cancelEdit) cancelEdit.addEventListener('click', function (event) {
+      event.preventDefault();
+      var form = editor.querySelector('form');
+      if (form) form.reset();
+      var timezoneField = editor.querySelector('[name="timezone"]');
+      if (timezoneField) timezoneField.dispatchEvent(new Event('input'));
+      editor.hidden = true;
+      editTrigger.hidden = false;
+      editButton.setAttribute('aria-expanded', 'false');
+      editButton.focus();
+    });
+  }
+
+  var disconnectModal = document.getElementById('new-social-disconnect-modal');
+  if (disconnectModal) {
+    var disconnectAccount = disconnectModal.querySelector('[data-social-disconnect-account]');
+    var disconnectProvider = disconnectModal.querySelector('[data-social-disconnect-provider]');
+    var disconnectConfirm = disconnectModal.querySelector('[data-social-disconnect-confirm]');
+    function closeDisconnect() {
+      disconnectModal.setAttribute('hidden', '');
+      disconnectModal.classList.remove('is-open');
+      document.body.style.overflow = '';
+    }
+    document.querySelectorAll('[data-social-disconnect]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        disconnectAccount.value = button.getAttribute('data-account-id') || '';
+        disconnectProvider.textContent = button.getAttribute('data-provider-label') || 'этот аккаунт';
+        disconnectModal.removeAttribute('hidden');
+        disconnectModal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+        if (disconnectConfirm) disconnectConfirm.focus();
+      });
+    });
+    disconnectModal.querySelectorAll('[data-social-disconnect-close]').forEach(function (button) {
+      button.addEventListener('click', closeDisconnect);
+    });
+    disconnectModal.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closeDisconnect();
+    });
+  }
+
+  var guestBtn = document.querySelector('[data-review-guest-progress]');
+  if (guestBtn) {
+    var guestPreview = document.querySelector('[data-guest-progress-preview]');
+    var guestSummary = guestPreview.querySelector('[data-guest-progress-summary]');
+    var guestCounts = guestPreview.querySelector('[data-guest-progress-counts]');
+    var guestExample = guestPreview.querySelector('[data-guest-progress-example]');
+    var guestTransfer = guestPreview.querySelector('[data-guest-progress-transfer]');
+    var guestAnonKey = '';
+    function getGuestAnonKey() {
+      try {
+        var match = document.cookie.match(/(?:^|;\s*)interoves_anon=([^;]+)/);
+        if (match) return decodeURIComponent(match[1]);
+        return localStorage.getItem('interoves_anon_key') || '';
+      } catch (e) { return ''; }
+    }
+    function showGuestMessage(message) {
+      guestSummary.textContent = message;
+      guestCounts.hidden = true;
+      guestExample.hidden = true;
+      guestTransfer.hidden = true;
+    }
+    guestBtn.addEventListener('click', function () {
+      guestPreview.hidden = false;
+      guestBtn.setAttribute('aria-expanded', 'true');
+      guestAnonKey = getGuestAnonKey();
+      if (!guestAnonKey) {
+        showGuestMessage('На этом устройстве не найдена игра без входа. Если вы играли на другом устройстве или в другом браузере, откройте профиль там.');
+        return;
+      }
+      showGuestMessage('Проверяем игру без входа…');
+      guestBtn.disabled = true;
+      fetch("{% url 'new_anon_migrate_count' %}?anon_key=" + encodeURIComponent(guestAnonKey), {
+        credentials: 'same-origin',
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      }).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          if (!response.ok) throw new Error(data.status || 'request_failed');
+          return data;
+        });
+      }).then(function (data) {
+        if (!data.show_prompt) {
+          showGuestMessage('На этом устройстве нет игры без входа, которую можно перенести в этот профиль.');
+          return;
+        }
+        var counts = data.counts || {};
+        var items = [
+          ['попыток', data.attempts],
+          ['подсказок', counts.transferable_hints],
+          ['завершённых игр', counts.completed_games],
+          ['реакций', counts.likes],
+        ];
+        var listedCount = items.reduce(function (sum, item) { return sum + Number(item[1] || 0); }, 0);
+        var otherCount = Math.max(0, Number(data.total_items || 0) - listedCount);
+        if (otherCount) items.push(['других записей', otherCount]);
+        guestSummary.textContent = 'Можно перенести записей: ' + Number(data.total_items || 0).toLocaleString('ru-RU') + '.';
+        guestCounts.replaceChildren();
+        items.forEach(function (item) {
+          if (!item[1]) return;
+          var row = document.createElement('li');
+          row.textContent = item[0] + ': ' + Number(item[1]).toLocaleString('ru-RU');
+          guestCounts.appendChild(row);
+        });
+        guestCounts.hidden = !guestCounts.children.length;
+        guestExample.replaceChildren();
+        if (data.example_url) {
+          guestExample.appendChild(document.createTextNode('Например, задание из раздела '));
+          var link = document.createElement('a');
+          link.href = data.example_url;
+          link.textContent = data.example_label || 'игры';
+          guestExample.appendChild(link);
+          guestExample.appendChild(document.createTextNode('.'));
+          guestExample.hidden = false;
+        } else {
+          guestExample.hidden = true;
+        }
+        guestTransfer.hidden = false;
+      }).catch(function (error) {
+        if (error.message === 'claimed_elsewhere') {
+          showGuestMessage('Эта игра без входа уже привязана к другому профилю.');
+        } else if (error.message === 'hidden_anon') {
+          showGuestMessage('Эту игру без входа нельзя перенести.');
+        } else {
+          showGuestMessage('Не удалось проверить игру без входа. Попробуйте ещё раз.');
+        }
+      }).finally(function () { guestBtn.disabled = false; });
+    });
+    guestTransfer.addEventListener('click', function () {
+      var userId = document.body.getAttribute('data-user-id') || '';
+      try { localStorage.removeItem('interoves_anon_migrate_separate:' + userId + ':' + guestAnonKey); } catch (e) {}
+      try { localStorage.removeItem('interoves_anon_migrate_later:' + userId + ':' + guestAnonKey); } catch (e) {}
+      try { sessionStorage.removeItem('interoves_anon_migrate_later:' + userId + ':' + guestAnonKey); } catch (e) {}
+      window.location.reload();
+    });
+  }
+
+  var avatarImage = document.querySelector('[data-profile-avatar-image]');
+  if (avatarImage) {
+    avatarImage.addEventListener('error', function () { avatarImage.remove(); });
+    if (avatarImage.complete && !avatarImage.naturalWidth) avatarImage.remove();
+  }
+
+})();
+</script>
+<script>
+(function () {
+  var input = document.getElementById('{{ form.timezone.id_for_label|escapejs }}');
+  var hint = document.getElementById('tz-offset-hint');
+  if (!input || !hint) return;
+  function update() {
+    var v = (input.value || '').trim();
+    var m = v.match(/\(UTC[+-]\d{2}:\d{2}\)/);
+    hint.textContent = m ? (' Сейчас: ' + m[0]) : '';
+  }
+  input.addEventListener('input', update);
+  update();
+})();
+</script>
+<p class="new-tg-back new-tg-back--footer"><a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
+{% endblock %}

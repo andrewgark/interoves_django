@@ -7,6 +7,16 @@ from django.contrib.auth.models import AnonymousUser
 from django.core.exceptions import ValidationError
 from django.test import Client, RequestFactory, TestCase
 
+from games.models import (
+    Attempt,
+    CheckerType,
+    Game,
+    GameTaskGroup,
+    HTMLPage,
+    Project,
+    Task,
+    TaskGroup,
+)
 from games.ops.analytics.identity import attach_anon_cookie
 from games.puzzles.core.check_runtime import GridShadingChecker, GridWallChecker
 from games.puzzles.replacements.grid_puzzle import (
@@ -19,19 +29,8 @@ from games.puzzles.replacements.grid_puzzle import (
     public_grid_puzzle_context,
     validate_grid_checker_data,
 )
-from games.models import (
-    Attempt,
-    CheckerType,
-    Game,
-    GameTaskGroup,
-    HTMLPage,
-    Project,
-    Task,
-    TaskGroup,
-)
-from games.site.ui.play.context import _task_ui_descriptor
+from games.site.pages.play.context import _task_ui_descriptor
 from games.site.views.game.render import render_new_ui_task_card_html
-
 
 PUZZLE = {
     'version': 1,
@@ -388,7 +387,7 @@ class GridPuzzleIntegrationTests(TestCase):
 
     def test_descriptor_selects_grid_template_and_invalid_data_error(self):
         ui = _task_ui_descriptor(self.task, gp={'rows': 3})
-        self.assertEqual(ui['body_template'], 'new/task-content/task-grid-puzzle.html')
+        self.assertEqual(ui['body_template'], 'site/task-content/task-grid-puzzle.html')
         self.assertTrue(ui['show_answer'])
         invalid = _task_ui_descriptor(self.task)
         self.assertIsNone(invalid['body_template'])

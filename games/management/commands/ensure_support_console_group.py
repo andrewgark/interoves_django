@@ -1,7 +1,6 @@
 from django.contrib.auth.models import Group, User
 from django.core.management.base import BaseCommand
-
-from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
+from games.console.http.constants import SUPPORT_CONSOLE_GROUP
 
 
 class Command(BaseCommand):

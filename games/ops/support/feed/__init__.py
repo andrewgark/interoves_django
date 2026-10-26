@@ -1,1 +1,1 @@
-"""Support feed, previews, and chain tools."""
+"""Compatibility alias. Implementation lives in games.console.feed."""

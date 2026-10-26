@@ -1,26 +1,27 @@
 from django import forms
 from django.contrib import admin, messages
-from django.forms import Textarea, ModelForm
 from django.db import models
+from django.forms import ModelForm, Textarea
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
+
 from games.models import (
     AlphabettyDictSuggestion,
-    CorporateGameOrder,
-    CensorlyReviewCase,
-    OrderGameClient,
-    OrderGameReview,
     BugReport,
     BugReportMessage,
-    PendingAlphabettyDictSuggestion,
-    PendingBugReport,
+    CensorlyReviewCase,
+    CorporateGameOrder,
     NextGameVoteAdjustment,
     NextGameVoteCampaignState,
     NextGameVoteEvent,
     NextGameVoteGoalMapping,
+    OrderGameClient,
+    OrderGameReview,
+    PendingAlphabettyDictSuggestion,
+    PendingBugReport,
 )
 from games.ops.social.models import SocialQueuePost
 
@@ -45,7 +46,7 @@ class NextGameVoteAdjustmentForm(ModelForm):
         fields = ('candidate', 'comment')
 
     def save(self, commit=True):
-        from games.club.vote import eur_major_to_cents
+        from games.club.next_game import eur_major_to_cents
 
         obj = super().save(commit=False)
         obj.amount_eur_cents = eur_major_to_cents(self.cleaned_data['amount_eur'])
@@ -65,7 +66,7 @@ class NextGameVoteScaleForm(forms.Form):
     )
 
     def cleaned_totals_eur_cents(self):
-        from games.club.vote import CANDIDATE_CRYPTIC, CANDIDATE_LOGIC, CANDIDATE_REDACTLE, eur_major_to_cents
+        from games.club.next_game import CANDIDATE_CRYPTIC, CANDIDATE_LOGIC, CANDIDATE_REDACTLE, eur_major_to_cents
 
         return {
             CANDIDATE_REDACTLE: eur_major_to_cents(self.cleaned_data['redactle']),
@@ -114,13 +115,13 @@ class NextGameVoteEventAdmin(admin.ModelAdmin):
                 obj.excluded_at = timezone.now()
                 obj.excluded_by = request.user
         super().save_model(request, obj, form, change)
-        from games.club.vote import campaign_state, refresh_snapshot
+        from games.club.next_game import campaign_state, refresh_snapshot
 
         if campaign_state().frozen_at is not None:
             refresh_snapshot()
 
     def exclude_from_scoreboard(self, request, queryset):
-        from games.club.vote import exclude_event
+        from games.club.next_game import exclude_event
 
         count = 0
         for event in queryset:
@@ -132,7 +133,7 @@ class NextGameVoteEventAdmin(admin.ModelAdmin):
     exclude_from_scoreboard.short_description = 'Исключить из официального результата'
 
     def remap_unmapped(self, request, queryset):
-        from games.club.vote import remap_unmapped_events
+        from games.club.next_game import remap_unmapped_events
 
         updated = remap_unmapped_events()
         self.message_user(request, 'Перепривязано событий: {}'.format(updated))
@@ -156,7 +157,7 @@ class NextGameVoteAdjustmentAdmin(admin.ModelAdmin):
         return False
 
     def amount_eur_display(self, obj):
-        from games.club.vote import format_eur_cents
+        from games.club.next_game import format_eur_cents
 
         return format_eur_cents(obj.amount_eur_cents)
     amount_eur_display.short_description = 'Сумма'
@@ -172,7 +173,7 @@ class NextGameVoteAdjustmentAdmin(admin.ModelAdmin):
         if not obj.created_by_id:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
-        from games.club.vote import campaign_state, refresh_snapshot
+        from games.club.next_game import campaign_state, refresh_snapshot
 
         if campaign_state().frozen_at is not None:
             refresh_snapshot()
@@ -202,7 +203,7 @@ class NextGameVoteCampaignStateAdmin(admin.ModelAdmin):
         return False
 
     def changelist_view(self, request, extra_context=None):
-        from games.club.vote import CAMPAIGN_STATE_PK, campaign_state
+        from games.club.next_game import CAMPAIGN_STATE_PK, campaign_state
 
         campaign_state()
         return HttpResponseRedirect(
@@ -210,7 +211,7 @@ class NextGameVoteCampaignStateAdmin(admin.ModelAdmin):
         )
 
     def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
-        from games.club.vote import (
+        from games.club.next_game import (
             CAMPAIGN_STATE_PK,
             CANDIDATE_SLUGS,
             VotePayloadError,
@@ -388,6 +389,7 @@ class AlphabettyDictSuggestionAdminBase(admin.ModelAdmin):
 
     def save_model(self, request, obj, form, change):
         from django.utils import timezone
+
         from games.puzzles.alphabetty.dicts import invalidate_dict_caches
 
         if change and 'status' in form.changed_data:
@@ -470,7 +472,6 @@ class BugReportAdminBase(admin.ModelAdmin):
         formset.save_m2m()
 
     def context_links(self, obj):
-        from django.utils.html import format_html, format_html_join
         from games.ops.telegram.links import (
             game_admin_url,
             game_site_url,

@@ -12,7 +12,6 @@ from urllib.parse import quote
 
 from django.db import transaction
 
-
 LADDER_TUTORIAL_VERSION = 'v9'
 LADDER_TUTORIAL_LABEL = 'ladder_tutorial'
 LADDER_TUTORIAL_SEGMENT = 'tutorial'
@@ -28,7 +27,7 @@ _HINTS = (
 
 
 def _checker_payload():
-    from games.ops.support.games.ladders import build_checker_payload
+    from games.console.games.ladder import build_checker_payload
 
     return build_checker_payload(list(_WORDS), list(_HINTS))
 

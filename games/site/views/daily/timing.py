@@ -6,13 +6,12 @@ import json
 from datetime import timedelta
 from uuid import UUID
 
+from django.db import OperationalError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
-from django.db import OperationalError
-from games.site.http.middleware.db_transient_response import mysql_error_code
 
 from games.daily.page.section import (
     is_daily_team_timing_game,
@@ -30,11 +29,12 @@ from games.daily.timing import (
     snapshot,
 )
 from games.daily.timing.reports import CLIENT_REPORT_ACTION, handle_client_report
-from games.realtime.db import is_mysql_retryable_lock_error
+from games.identity import has_profile, has_team
 from games.models import Attempt, Game, GameTaskGroup
 from games.ops.analytics.identity import gameplay_anon_key
+from games.realtime.db import is_mysql_retryable_lock_error
+from games.site.http.middleware.db_transient_response import mysql_error_code
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
-from games.identity import has_profile, has_team
 from games.site.session.play_mode import effective_play_mode
 
 
@@ -97,7 +97,7 @@ def _resolve_actor(request, game):
             if game.id == 'censorly':
                 return None, request.user, None
             return None, None, None
-        from games.site.ui import _get_play_mode
+        from games.site.pages import _get_play_mode
         play_mode, _ = _get_play_mode(request, game.project_id)
         play_mode = effective_play_mode(play_mode, game, user=request.user)
         # Ordinary game pages (including Desyatka) also solve as a team.
@@ -188,8 +188,8 @@ def _load_daily_target(
 def _random_game_timing_link(game, share_hash):
     """Resolve only permanent random games; proposals and daily shares stay out."""
     from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
-    from games.puzzles.censorly.ids import CENSORLY_GAME_ID
     from games.models import RandomAlphabettyGame, RandomCensorlyGame
+    from games.puzzles.censorly.ids import CENSORLY_GAME_ID
     from games.sections.placement_share import placement_by_share_hash
 
     if game.id not in (ALPHABETTY_GAME_ID, CENSORLY_GAME_ID):
@@ -237,7 +237,7 @@ def daily_timing_page_context(
     url = ''
     gameplay_context_token = ''
     if enabled:
-        from games.tasks.navigation import play_url_for_task_group
+        from games.task_group.navigation import play_url_for_task_group
         url = timing_url or '{}timing/'.format(play_url_for_task_group(game, placement.number))
         from games.site.session.gameplay_context import issue_gameplay_context
         gameplay_context_token = issue_gameplay_context(
@@ -351,7 +351,7 @@ def _daily_solve_timing_impl(
     payload = _payload(request)
     if payload.get('_payload_error'):
         return _json_error(payload['_payload_error'], 400)
-    from games.site.session.replay import replay_for_request, StaleReplayError, _official_exists
+    from games.site.session.replay import StaleReplayError, _official_exists, replay_for_request
     try:
         replay_slot = replay_for_request(
             request=request, game=game, task_group=task_group,

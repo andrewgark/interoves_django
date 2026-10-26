@@ -1,0 +1,218 @@
+{% extends "site/base.html" %}
+{% load filters static %}
+{% block title %}Оплата{% endblock %}
+
+{% block content %}
+<p class="new-tg-back"><a href="{% if user.is_authenticated %}{{ ui_team_url_hub|default:'/team/' }}{% else %}{{ ui_project_home_url|default:'/' }}{% endif %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {% if user.is_authenticated %}Команда{% else %}Игры{% endif %}</a></p>
+
+<div class="new-pay-checkout">
+  <header class="new-pay-checkout__header">
+    <p class="new-pay-checkout__eyebrow">Электронный билет</p>
+    <h1 class="new-heading new-heading--page">Билет для команды</h1>
+    <p class="new-pay-checkout__lead">Участие одной команды в турнирной интеллектуальной игре «Десяточка». Билет не привязан к конкретной дате: его можно сохранить для одной из будущих игр.</p>
+  </header>
+
+  <div class="new-card new-pay-order-card">
+    <div class="new-pay-order">
+      <div>
+        <div class="new-pay-order__name">Командный билет</div>
+        {% if team %}
+          {% if payment_team_options|length > 1 %}
+            <label class="new-pay-order__meta" for="new-pay-team">Команда:</label>
+            <select id="new-pay-team" name="team_id" form="new-pay-ticket-form" class="new-input new-pay-team-select">
+              {% for option in payment_team_options %}
+                <option value="{{ option.team.pk }}"
+                        {% if option.team.pk == team.pk %}selected{% endif %}
+                        data-ticket-price="{{ option.ticket_price }}"
+                        data-ticket-price-amd="{{ option.ticket_price_amd }}"
+                        data-tribute-kind="{{ option.tribute_kind }}"
+                        data-tribute-amount="{{ option.tribute_amount }}"
+                        data-tribute-currency="{{ option.tribute_currency }}">{{ option.team.visible_name|default:option.team.name }}</option>
+              {% endfor %}
+            </select>
+          {% else %}
+            <div class="new-pay-order__meta">Команда: <strong>{{ team.visible_name|default:team.name }}</strong></div>
+          {% endif %}
+          <div class="new-pay-order__meta">Билетов у команды сейчас: <strong id="new-pay-team-tickets">{{ team_tickets }}</strong></div>
+        {% elif user.is_authenticated %}
+          <div class="new-pay-order__meta">Для покупки нужно создать команду или вступить в существующую.</div>
+        {% endif %}
+      </div>
+      <div class="new-pay-quantity">
+        <div class="new-pay-quantity__heading">
+          <label for="new-pay-qty">Сколько билетов?</label>
+          <span>до 20</span>
+        </div>
+        <div class="new-pay-stepper" role="group" aria-label="Количество билетов">
+          <button type="button" class="new-pay-stepper__button" data-pay-qty-minus aria-label="Уменьшить количество билетов" aria-controls="new-pay-qty">
+            <i class="ph ph-minus" aria-hidden="true"></i>
+          </button>
+          <input id="new-pay-qty" class="new-pay-stepper__input" type="number" name="tickets" value="1" min="1" max="20" step="1" inputmode="numeric" aria-describedby="new-pay-qty-hint">
+          <button type="button" class="new-pay-stepper__button new-pay-stepper__button--plus" data-pay-qty-plus aria-label="Увеличить количество билетов" aria-controls="new-pay-qty">
+            <i class="ph ph-plus" aria-hidden="true"></i>
+          </button>
+        </div>
+        <span id="new-pay-qty-hint" class="new-pay-quantity__hint">Один билет — одна игра для команды</span>
+      </div>
+    </div>
+
+    <div class="new-pay-discount-note">
+      <span class="new-pay-discount-note__icon" aria-hidden="true"><i class="ph ph-student"></i></span>
+      <div>
+        <div class="new-pay-discount-note__heading">
+          <strong>Льготная цена для школьных и студенческих команд</strong>
+          <span class="new-pay-discount-note__badge">−75%</span>
+        </div>
+        <p><b>500 ₽</b> или <b>6 €</b> за билет вместо 2 000 ₽ или 24 €.</p>
+        <a class="new-pay-discount-note__link" href="https://t.me/andrewgark" target="_blank" rel="noopener noreferrer">Попросить льготу в Telegram <i class="ph ph-arrow-up-right" aria-hidden="true"></i></a>
+      </div>
+    </div>
+  </div>
+
+  {% if team and not telegram_linked %}
+  <form id="new-pay-telegram-link-form" method="post" action="{% url 'new_telegram_link_start' %}">
+    {% csrf_token %}
+  </form>
+  {% endif %}
+
+  <form id="new-pay-ticket-form"
+        class="new-card new-pay-payment-card"
+        method="post"
+        action="{% url 'new_create_ticket_payment' %}"
+        data-crypto-action="{% url 'new_create_crypto_ticket_payment' %}"
+        data-tribute-action="{% url 'new_create_tribute_ticket_payment' %}"
+        data-tribute-enabled="{% if tribute_enabled %}1{% else %}0{% endif %}"
+        data-telegram-linked="{% if telegram_linked %}1{% else %}0{% endif %}"
+        data-tribute-seller="{{ tribute_seller }}"
+        data-tribute-seller-url="{{ tribute_seller_url }}"
+        data-can-pay="{% if team %}1{% else %}0{% endif %}">
+    {% csrf_token %}
+    <input type="hidden" name="tickets" value="1" data-pay-tickets>
+    {% if team and payment_team_options|length == 1 %}<input type="hidden" name="team_id" value="{{ team.pk }}">{% endif %}
+
+    <fieldset class="new-pay-method-selector">
+      <legend class="new-pay-section-title">Способ оплаты</legend>
+      <div class="new-pay-method-grid">
+        <label class="new-pay-method new-pay-method--primary is-selected" data-pay-method-card>
+          <input type="radio" name="payment_method" value="russian_card" checked
+                 data-unit-price="{{ ticket_price }}" data-currency="RUB">
+          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
+          <span class="new-pay-method__body">
+            <strong>Российская карта</strong>
+            <span>Для карт российских банков</span>
+            <b data-route-price>{{ ticket_price_display }} ₽ <small>за билет</small></b>
+          </span>
+        </label>
+        <label class="new-pay-method{% if not tribute_enabled %} new-pay-method--unavailable{% endif %}" data-pay-method-card>
+          <input type="radio" name="payment_method" value="tribute_card"
+                 {% if not tribute_enabled %}disabled{% endif %}
+                 data-unit-price="{% if tribute_product %}{{ tribute_product.amount_major }}{% else %}0{% endif %}"
+                 data-currency="{% if tribute_product %}{{ tribute_product.currency }}{% else %}EUR{% endif %}"
+                 data-terms-url="/terms/tribute/" data-provider="tribute_digital">
+          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
+          <span class="new-pay-method__body">
+            <strong>Международная карта через Tribute</strong>
+            <span>Visa / Mastercard иностранных банков</span>
+            {% if tribute_product %}
+              <b data-route-price>{{ tribute_product.amount_display }} {{ tribute_product.currency|currency_symbol }} <small>1 покупка = 1 билет</small></b>
+            {% else %}
+              <b data-route-price>Пока недоступно</b>
+            {% endif %}
+            {% if telegram_linked %}
+              <span>Telegram подтвержден{% if telegram_username %}: @{{ telegram_username }}{% endif %}</span>
+            {% else %}
+              <span>Сначала
+                {% if team %}
+                  <button type="submit" class="new-pay-telegram-link" form="new-pay-telegram-link-form">привяжите Telegram</button>
+                {% else %}
+                  <span>привяжите Telegram</span>
+                {% endif %}
+              </span>
+            {% endif %}
+          </span>
+        </label>
+        <label class="new-pay-method new-pay-method--crypto" data-pay-method-card>
+          <input type="radio" name="payment_method" value="crypto"
+                 data-unit-price="{{ ticket_price }}" data-currency="RUB"
+                 data-terms-url="/terms/crypto/" data-provider="nowpayments"
+                 data-merchant="ru_self_employed">
+          <span class="new-pay-method__icon" aria-hidden="true"><i class="ph ph-currency-btc"></i></span>
+          <span class="new-pay-method__body">
+            <strong>Криптовалюта</strong>
+            <span>Оплата криптовалютой через NOWPayments</span>
+            <b data-route-price>{{ ticket_price_display }} ₽ <small>за билет</small></b>
+          </span>
+        </label>
+      </div>
+    </fieldset>
+
+    <div class="new-pay-summary" aria-live="polite">
+      <div>
+        <span class="new-pay-summary__label">Итого <small id="new-pay-total-breakdown">1 билет × {{ ticket_price_display }} ₽</small></span>
+        <strong id="new-pay-total">{{ ticket_price_display }} ₽</strong>
+      </div>
+      <p id="new-pay-conversion-note" hidden>Списание производится в ֏. Если счет карты открыт в другой валюте, конвертацию выполняет банк, выпустивший карту.</p>
+    </div>
+
+    <label class="new-pay-consent">
+      <input id="new-pay-consent" type="checkbox" required>
+      <span>Я принимаю <a id="new-pay-terms-link" href="/terms/russia/" target="_blank">условия покупки</a> и <a href="/refunds/" target="_blank">возврата</a> и ознакомился с <a href="/privacy/" target="_blank">политикой конфиденциальности</a>.</span>
+    </label>
+
+    <div class="new-pay-seller">
+      <span id="new-pay-seller-text">Продавец: Андрей Гаркавый, плательщик НПД, РФ</span>
+      <a id="new-pay-seller-link" href="/sellers/#russia">Реквизиты</a>
+    </div>
+
+    <p id="new-pay-security" class="new-pay-security">Оплата российской картой проходит в защищенном виджете ЮKassa. Inter Oves не получает и не хранит полные реквизиты банковской карты.</p>
+
+    <p id="new-pay-tribute-note" class="new-pay-security" hidden><strong class="new-pay-tribute-note__important">На странице Tribute выберите Telegram, не email</strong></p>
+
+    {% if team %}
+      <button type="submit" id="new-pay-submit" class="new-btn new-pay-submit" disabled>Оплатить {{ ticket_price_display }} ₽</button>
+    {% elif user.is_authenticated %}
+      <a id="new-pay-setup-team" class="new-btn new-pay-submit" href="{{ ui_team_url_create|default:'/team/create/' }}">Создать команду для оплаты</a>
+      <p class="new-pay-auth-note"><a href="{{ ui_team_url_join|default:'/team/join/' }}">Или вступить в существующую команду</a></p>
+    {% else %}
+      <button type="button" id="new-pay-login" class="new-btn new-pay-submit" data-login-open>Войти и продолжить</button>
+    {% endif %}
+
+    <div id="new-pay-status" class="new-payment-status" hidden aria-live="polite"></div>
+    <div id="new-pay-message" class="new-login-hint new-pay-message" aria-live="polite"></div>
+    {% if team %}
+    <div id="new-pay-widget-host" class="new-pay-widget-host" hidden>
+      <div id="new-yookassa-widget"></div>
+      <div id="new-nowpayments-widget"></div>
+    </div>
+    {% endif %}
+  </form>
+
+  <p class="new-pay-refund-summary">Передумали до начала игры — вернем полную стоимость. При отмене игры возврат также полный, а при переносе можно сохранить билет или вернуть деньги. <a href="/refunds/">Подробнее о возврате</a>.</p>
+
+  {% if team and recent_ticket_requests %}
+  <div class="new-card new-pay-history">
+    <h2 class="new-pay-section-title">Последние заказы</h2>
+    <div class="new-pay-history__list">
+      {% for tr in recent_ticket_requests %}
+        <div class="new-pay-history__row">
+          <span>{{ tr.time|date:"d.m.Y H:i" }}</span>
+          <span>{{ tr.tickets }} шт.</span>
+          <span>{{ tr.money }} {{ tr.currency|currency_symbol }}</span>
+          <strong>{{ tr.status|payment_status_label }}</strong>
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{% if team %}
+<script src="{% static 'js/payment_status_poll.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="https://yookassa.ru/checkout-widget/v1/checkout-widget.js"></script>
+{% endif %}
+<script src="{% static 'js/pay_checkout.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endblock %}
+
+{% block footer %}
+  {% include "site/partials/legal_footer.html" %}
+{% endblock %}
