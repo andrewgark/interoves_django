@@ -61,39 +61,48 @@ def _ensure_reference_rows():
     CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
 
 
+def _install_track_game_fixture(target, *, suffix):
+    """Attach game/task/team/user for track tests (suffix must be unique per test)."""
+    _ensure_reference_rows()
+    target.game, _ = Game.objects.get_or_create(
+        pk='test_game_track',
+        defaults={
+            'name': 'Track test',
+            'author': 'test',
+            'author_extra': '',
+            'is_ready': True,
+        },
+    )
+    target.task_group = TaskGroup.objects.create(label='tg-{}'.format(suffix))
+    GameTaskGroup.objects.create(
+        game=target.game, task_group=target.task_group, number=1, name='tg',
+    )
+    with patch('games.realtime.track_compat.track_task_change'):
+        target.task = Task.objects.create(
+            task_group=target.task_group,
+            number='1',
+            task_type='default',
+        )
+    target.team = Team.objects.create(
+        name='team_track_{}'.format(suffix),
+        visible_name='Track tests',
+    )
+    username = 'track_ws_{}'.format(suffix)
+    target.user = User.objects.create_user(username, '{}@example.com'.format(username), 'pw')
+    Profile.objects.create(
+        user=target.user,
+        first_name='T',
+        last_name='U',
+        team_on=target.team,
+    )
+
+
 class TrackGameFixtureMixin:
     """Shared game / task / team / user for track tests (avoid subclass duplication)."""
 
     @classmethod
     def setUpTestData(cls):
-        _ensure_reference_rows()
-        cls.game, _ = Game.objects.get_or_create(
-            pk='test_game_track',
-            defaults={
-                'name': 'Track test',
-                'author': 'test',
-                'author_extra': '',
-                'is_ready': True,
-            },
-        )
-        cls.task_group = TaskGroup.objects.create(label='tg')
-        GameTaskGroup.objects.create(
-            game=cls.game, task_group=cls.task_group, number=1, name='tg',
-        )
-        with patch('games.realtime.track_compat.track_task_change'):
-            cls.task = Task.objects.create(
-                task_group=cls.task_group,
-                number='1',
-                task_type='default',
-            )
-        cls.team = Team.objects.create(name='team_track_tests', visible_name='Track tests')
-        cls.user = User.objects.create_user('track_ws_user', 'track_ws_user@example.com', 'pw')
-        Profile.objects.create(
-            user=cls.user,
-            first_name='T',
-            last_name='U',
-            team_on=cls.team,
-        )
+        _install_track_game_fixture(cls, suffix=cls.__name__)
 
 
 def _msgpack_redis_roundtrip(message):
@@ -584,13 +593,58 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
     CHANNEL_LAYERS={'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'}},
     TRACK_WS_IDLE_TIMEOUT=0,
 )
-class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
+class TrackPersonalScopeTests(TrackGameFixtureMixin, TestCase):
+    def test_personal_task_events_use_game_scoped_group_and_revision(self):
+        """Two game tabs for one account must not share a task revision stream."""
+        second_game = Game.objects.create(
+            pk='test_game_track_personal_scope',
+            name='Personal scope',
+            author='test',
+            author_extra='',
+            is_ready=True,
+        )
+        GameTaskGroup.objects.create(
+            game=second_game, task_group=self.task_group, number=1, name='tg',
+        )
+        layer = MagicMock()
+        layer.group_send = AsyncMock(return_value=None)
+        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer), patch(
+            'games.realtime.broadcast.settings.DEFER_CHANNEL_BROADCAST', False,
+        ):
+            with self.captureOnCommitCallbacks(execute=True):
+                track_task_change(
+                    self.task,
+                    user=self.user,
+                    update_html={'personal': 1},
+                )
+
+        self.assertEqual(layer.group_send.call_count, 2)
+        groups = {call.args[0] for call in layer.group_send.call_args_list}
+        self.assertEqual(groups, {
+            CHANNEL_GROUPS['user_game'](self.user.id, self.game.id),
+            CHANNEL_GROUPS['user_game'](self.user.id, second_game.id),
+        })
+        namespaces = {
+            call.args[1]['seq_namespace']
+            for call in layer.group_send.call_args_list
+        }
+        self.assertEqual(namespaces, {
+            'user:{}:game:{}'.format(self.user.id, self.game.id),
+            'user:{}:game:{}'.format(self.user.id, second_game.id),
+        })
+
+
+class TrackWebsocketIntegrationTests(TransactionTestCase):
     """
     Full ASGI stack: session cookie auth, consumer groups, channel layer delivery.
 
     TrackGame is an AsyncJsonWebsocketConsumer so group_add runs on the same event
     loop as WebsocketCommunicator + InMemoryChannelLayer in tests.
+    TransactionTestCase avoids SQLite "closed database" after async websocket tests.
     """
+
+    def setUp(self):
+        _install_track_game_fixture(self, suffix=self._testMethodName)
 
     def _session_headers(self, user=None):
         client = Client()
@@ -950,45 +1004,6 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
 
         async_to_sync(cannot_connect)(f'/games/{closed_game.id}/track/')
         async_to_sync(cannot_connect)('/games/missing_track_game/track/')
-
-    def test_personal_task_events_use_game_scoped_group_and_revision(self):
-        """Two game tabs for one account must not share a task revision stream."""
-        second_game = Game.objects.create(
-            pk='test_game_track_personal_scope',
-            name='Personal scope',
-            author='test',
-            author_extra='',
-            is_ready=True,
-        )
-        GameTaskGroup.objects.create(
-            game=second_game, task_group=self.task_group, number=1, name='tg',
-        )
-        layer = MagicMock()
-        layer.group_send = AsyncMock(return_value=None)
-        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer), patch(
-            'games.realtime.broadcast.settings.DEFER_CHANNEL_BROADCAST', False,
-        ):
-            with self.captureOnCommitCallbacks(execute=True):
-                track_task_change(
-                    self.task,
-                    user=self.user,
-                    update_html={'personal': 1},
-                )
-
-        self.assertEqual(layer.group_send.call_count, 2)
-        groups = {call.args[0] for call in layer.group_send.call_args_list}
-        self.assertEqual(groups, {
-            CHANNEL_GROUPS['user_game'](self.user.id, self.game.id),
-            CHANNEL_GROUPS['user_game'](self.user.id, second_game.id),
-        })
-        namespaces = {
-            call.args[1]['seq_namespace']
-            for call in layer.group_send.call_args_list
-        }
-        self.assertEqual(namespaces, {
-            'user:{}:game:{}'.format(self.user.id, self.game.id),
-            'user:{}:game:{}'.format(self.user.id, second_game.id),
-        })
 
     def test_user_track_websocket_receives_user_group(self):
         from interoves_django.asgi import application
