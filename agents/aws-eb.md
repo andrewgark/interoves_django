@@ -209,6 +209,13 @@ Blue (`interoves-env`) остаётся rollback target. Перед откато
 - Предпочтительная проверка БД из production web: `./scripts/eb_run.sh manage.py check --database default`.
 - SSM-туннель: `./scripts/with_rds.sh`; по умолчанию он использует Green и `localhost:13306`.
 - Секрет БД берётся через Secrets Manager; не печатать password/ARN.
+- Green-инстансы не запускают `migrate` (`RUN_PRODUCTION_MIGRATIONS=false`).
+  Миграции релиза применяет `scripts/deploy_green.sh` через
+  `manage.py apply_release_migrations` (код релиза, RDS-туннель) до
+  `update-environment`. Автоматически проходят только расширяющие операции
+  (новые модели, nullable/default поля, индексы на новых таблицах, AlterField без
+  SQL); RemoveField/Rename/RunPython/RunSQL и т.п. останавливают деплой —
+  их выкатывать отдельным релизом или вручную (`--allow-unsafe`).
 - Deferred index DDL выполняется синхронной management-командой
   `run_deploy_background_work` после успешного EB update. Исторический
   `ChainTaskState` backfill запускается только явно через

@@ -88,6 +88,29 @@ if [[ "$DO_DEPLOY" == "0" ]]; then
     exit 0
 fi
 
+if [[ -n "${PREBUILT_RELEASE_ARTIFACT:-}" ]]; then
+    release_source="$workdir/release-source"
+    mkdir -p "$release_source"
+    unzip -q "$bundle" -d "$release_source"
+fi
+
+# Green never runs migrate on its instances, and the preflight above can only
+# see migrations of the code already serving. Plan the release's own
+# migrations through an RDS tunnel and refuse ones that would break old code.
+release_migrations() {
+    local secret_file="$ROOT/secrets/django_secret_key.txt"
+    if [[ -z "${DJANGO_SECRET_KEY:-}" && ! -f "$release_source/secrets/django_secret_key.txt" && -f "$secret_file" ]]; then
+        DJANGO_SECRET_KEY="$(<"$secret_file")"
+        export DJANGO_SECRET_KEY
+    fi
+    PYTHON="${PYTHON:-$ROOT/../venv/interoves_django/bin/python}" \
+        "$ROOT/scripts/with_rds.sh" --raw bash -c \
+        'cd "$1" && shift && exec "$PYTHON" manage.py apply_release_migrations "$@"' \
+        release-migrations "$release_source" "$@"
+}
+echo "Checking the release's own migrations against production"
+release_migrations
+
 source "$ROOT/scripts/interoves_aws_bootstrap.sh"
 interoves_aws_bootstrap "$ROOT"
 account_id=$("$ROOT/scripts/aws_with_role.sh" aws sts get-caller-identity --query Account --output text)
@@ -100,11 +123,6 @@ key="interoves/green/${label}.zip"
 
 # Publish assets under an immutable release prefix before switching any web
 # instance. Old instances and cached HTML keep using their own prefix.
-if [[ -n "${PREBUILT_RELEASE_ARTIFACT:-}" ]]; then
-    release_source="$workdir/release-source"
-    mkdir -p "$release_source"
-    unzip -q "$bundle" -d "$release_source"
-fi
 release_static_id="$(cd "$release_source" && bash scripts/static_source_fingerprint.sh)"
 bundle_static_id="$(unzip -p "$bundle" interoves_django/static_release_id.txt 2>/dev/null || true)"
 if [[ "$bundle_static_id" != "$release_static_id" ]]; then
@@ -119,6 +137,10 @@ else
     STATIC_RELEASE_ID="$release_static_id" DEPLOY_SOURCE_DIR="$release_source" \
         "$ROOT/scripts/publish_static.sh"
 fi
+
+# Expanding migrations go in before any instance runs code that needs them.
+echo "Applying release migrations before switching code"
+release_migrations --apply
 
 # A failed enable/update/wait/smoke must not strand the refresh gate. Arm
 # cleanup before enabling so even a partially failed enable is followed by a
