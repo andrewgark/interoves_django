@@ -2,10 +2,10 @@
 
 from django.test import SimpleTestCase
 
-from games.censorly.lexical.russian.reading_overrides import LANGUAGE_LABEL_CONTEXTS
-from games.censorly.lexical.match import _GuessPack, _Pack, _relation, matching_lemmas
-from games.censorly.lexical.semantics import explain, opens
-from games.censorly.tokenize import tokenize_text
+from games.puzzles.censorly.lexical.russian.reading_overrides import LANGUAGE_LABEL_CONTEXTS
+from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation, matching_lemmas
+from games.puzzles.censorly.lexical.semantics import explain, opens
+from games.puzzles.censorly.text.tokenize import tokenize_text
 
 
 APPROVED_ABBREVIATION_PAIRS = (

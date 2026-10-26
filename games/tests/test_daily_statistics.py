@@ -26,7 +26,7 @@ from games.daily.timing.statistics import (
     _release_build_lock,
     _versioned_cache_key,
 )
-from games.censorly.normalize import lemma_of
+from games.puzzles.censorly.text.normalize import lemma_of
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -590,7 +590,7 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['last_words'], [{'word': lemma_of('окна'), 'players': 1}])
 
     def test_censorly_actor_without_chain_state_uses_latest_attempt_state(self):
-        from games.censorly.play import dump_state
+        from games.puzzles.censorly.play import dump_state
 
         game, tg, task = self._censorly_task('censorly no chain state')
         self._censorly_solve(game, tg, task, self.users[0], [

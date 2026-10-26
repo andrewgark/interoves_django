@@ -70,7 +70,7 @@ class TelegramDailyReviewTests(TestCase):
             checker_data='',
             answer='',
         )
-        censorly_puzzle = patch('games.censorly.play.puzzle_from_task', return_value={
+        censorly_puzzle = patch('games.puzzles.censorly.play.puzzle_from_task', return_value={
             'wiki_title': 'Москва',
             'body_text': 'Москва — столица России.',
             'title_tokens': [],

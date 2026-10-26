@@ -4,13 +4,13 @@ import json
 from pathlib import Path
 from unittest import TestCase
 
-from games.censorly import roots
-from games.censorly.lexical import rootbank
-from games.censorly.lexical.core import WORD_CACHE_SIZE
-from games.censorly.lexical import semantics
-from games.censorly.lexical.russian import context, morphology
-from games.censorly.redact import build_public_view
-from games.censorly.tokenize import build_puzzle_payload
+from games.puzzles.censorly.text import roots
+from games.puzzles.censorly.lexical.match import rootbank
+from games.puzzles.censorly.lexical.match.core import WORD_CACHE_SIZE
+from games.puzzles.censorly.lexical import semantics
+from games.puzzles.censorly.lexical.russian import context, morphology
+from games.puzzles.censorly.article.redact import build_public_view
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 from games.site.views.daily.censorly import _article_json
 
 _ARTICLE = Path(__file__).with_name('censorly_testdata') / 'articles' / 'saturn.txt'

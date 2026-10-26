@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from games.check import ReplacementsLinesChecker
+from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
 from games.util import clean_text
 import json
 

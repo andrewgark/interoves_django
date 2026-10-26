@@ -6,7 +6,7 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from games.censorly.lexical.tools.wikidata_candidates import (
+from games.puzzles.censorly.lexical.tools.candidates.wikidata_candidates import (
     _lexeme_rows,
     _p1549_rows,
     build_candidates,

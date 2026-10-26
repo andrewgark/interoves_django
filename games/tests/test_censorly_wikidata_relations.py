@@ -2,7 +2,7 @@
 
 from django.test import SimpleTestCase
 
-from games.censorly.lexical.semantics import explain, opens
+from games.puzzles.censorly.lexical.semantics import explain, opens
 
 
 WIKIDATA_GEOGRAPHIC_PAIRS = (
@@ -44,7 +44,7 @@ WIKIDATA_GEOGRAPHIC_PAIRS = (
 
 class WikidataGeographicRelationTests(SimpleTestCase):
     def test_all_approved_pairs_are_explicit_and_bidirectional(self):
-        from games.censorly.lexical.proper_names import PAIR_RELATIONS
+        from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
 
         relations = set(PAIR_RELATIONS)
         self.assertEqual(len(WIKIDATA_GEOGRAPHIC_PAIRS), 33)
@@ -57,7 +57,7 @@ class WikidataGeographicRelationTests(SimpleTestCase):
                 self.assertTrue(opens(right, left))
 
     def test_rejected_pilot_pairs_are_not_added(self):
-        from games.censorly.lexical.proper_names import PAIR_RELATIONS
+        from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
 
         relations = set(PAIR_RELATIONS)
         rejected = (
@@ -86,7 +86,7 @@ class WikidataGeographicRelationTests(SimpleTestCase):
                 self.assertEqual(explain(right, left), 'proper')
 
     def test_plural_only_and_hyphenated_surfaces_are_not_rewritten(self):
-        from games.censorly.lexical.proper_names import PAIR_RELATIONS
+        from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
 
         relations = set(PAIR_RELATIONS)
         self.assertIn(('кишинёв', 'кишинёвцы'), relations)
@@ -106,8 +106,8 @@ class WikidataGeographicRelationTests(SimpleTestCase):
                         self.assertTrue(opens(right, left))
 
     def test_germany_and_german_words_share_root_and_sense(self):
-        from games.censorly.lexical.proper_names import PAIR_RELATIONS
-        from games.censorly.lexical.rootbank import structures_of
+        from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
+        from games.puzzles.censorly.lexical.match.rootbank import structures_of
 
         family = (('fam:нем', 'sense:german'),)
         for lemma in (
@@ -143,8 +143,8 @@ class WikidataGeographicRelationTests(SimpleTestCase):
             self.assertNotIn(pair, PAIR_RELATIONS)
 
     def test_russia_and_russian_words_share_root_and_sense(self):
-        from games.censorly.lexical.proper_names import PAIR_RELATIONS
-        from games.censorly.lexical.rootbank import structures_of
+        from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
+        from games.puzzles.censorly.lexical.match.rootbank import structures_of
 
         family = (('fam:рус²', 'sense:russian'),)
         for lemma in (
@@ -181,7 +181,7 @@ class WikidataGeographicRelationTests(SimpleTestCase):
             self.assertNotIn(pair, PAIR_RELATIONS)
 
     def test_new_derivatives_do_not_intersect_clusters(self):
-        from games.censorly.lexical.proper_names import CLUSTERS
+        from games.puzzles.censorly.lexical.match.proper_names import CLUSTERS
 
         clustered = {word for _name, words in CLUSTERS for word in words}
         for _source, derivative in WIKIDATA_GEOGRAPHIC_PAIRS:

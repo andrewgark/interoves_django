@@ -15,8 +15,8 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from games.censorly.endings import grammatical_split
-from games.censorly.normalize import normalize_surface, split_stem_ending
+from games.puzzles.censorly.text.endings import grammatical_split
+from games.puzzles.censorly.text.normalize import normalize_surface, split_stem_ending
 
 _CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
 
@@ -671,7 +671,7 @@ class WikipediaLeadEndingTests(SimpleTestCase):
     """First two paragraphs of four live ruwiki articles, frozen offline."""
 
     def test_lead_tokens_keep_reviewed_endings(self):
-        from games.censorly.tokenize import tokenize_text
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         lead_dir = _CENSORLY_TESTDATA / 'leads'
         files = sorted(lead_dir.glob('*.txt'))
@@ -700,7 +700,7 @@ class WikipediaArticleEndingTests(SimpleTestCase):
     """Playable extract of the same four articles, through the 28k cap."""
 
     def test_article_tokens_keep_reviewed_endings(self):
-        from games.censorly.tokenize import tokenize_text
+        from games.puzzles.censorly.text.tokenize import tokenize_text
 
         article_dir = _CENSORLY_TESTDATA / 'articles'
         files = sorted(article_dir.glob('*.txt'))

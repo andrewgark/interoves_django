@@ -11,8 +11,8 @@ from unittest import SkipTest, skipUnless
 
 from django.test import SimpleTestCase
 
-from games.censorly.redact import build_public_view
-from games.censorly.tokenize import (
+from games.puzzles.censorly.article.redact import build_public_view
+from games.puzzles.censorly.text.tokenize import (
     HEADING_END, HEADING_LEVEL_SEP, HEADING_START, build_puzzle_payload, title_content_lemmas,
 )
 from games.site.views.daily.censorly import _compact_play_response

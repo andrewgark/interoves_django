@@ -10,8 +10,8 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from games.censorly.roots import opens_with
-from games.censorly.tokenize import build_puzzle_payload
+from games.puzzles.censorly.text.roots import opens_with
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
 _GOLD_PATH = Path(__file__).resolve().parent / 'censorly_testdata' / 'articles' / 'bee.roots.json'
 _ARTICLE_PATH = Path(__file__).resolve().parent / 'censorly_testdata' / 'articles' / 'bee.txt'
@@ -187,7 +187,7 @@ class CognateRelationTests(SimpleTestCase):
 
 class HalfCompoundTests(SimpleTestCase):
     def _relation(self, guess, target):
-        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
 
         return _relation(_GuessPack(guess), _Pack(target))
 
@@ -230,7 +230,7 @@ class HalfCompoundTests(SimpleTestCase):
 
 class ReportedSenseSplitTests(SimpleTestCase):
     def _relation(self, guess, target):
-        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
 
         return _relation(_GuessPack(guess), _Pack(target))
 

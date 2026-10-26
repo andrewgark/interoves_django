@@ -187,7 +187,7 @@ class TelegramNotifyTests(TestCase):
         send_message_mock.assert_called()
         self.assertIn('Fixed', send_message_mock.call_args.args[1])
 
-    @patch('games.censorly.lexical.tools.review_pair.record_review_case')
+    @patch('games.puzzles.censorly.lexical.tools.review_pair.record_review_case')
     @patch('games.telegram.callbacks.answer_callback_query')
     @patch('games.telegram.callbacks.edit_message_reply_markup')
     def test_censorly_confirm_creates_diagnosed_review_case(

@@ -2,7 +2,7 @@ import json
 
 from django.test import SimpleTestCase, TestCase
 
-from games.check import RaddleChecker
+from games.puzzles.raddle.submission import RaddleChecker
 from games.models import Attempt, CHAIN_TASK_TYPES, Task
 from games.raddle import (
     assist_penalty_for_tier,

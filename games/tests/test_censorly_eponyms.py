@@ -2,7 +2,7 @@
 
 from django.test import SimpleTestCase
 
-from games.censorly.lexical.semantics import explain, opens
+from games.puzzles.censorly.lexical.semantics import explain, opens
 
 
 EPONYMS = (

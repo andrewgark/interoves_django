@@ -8,8 +8,8 @@ from unittest import SkipTest, skipUnless
 
 from django.test import SimpleTestCase
 
-from games.censorly.redact import build_public_view
-from games.censorly.tokenize import build_puzzle_payload
+from games.puzzles.censorly.article.redact import build_public_view
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
 
 ROOT = Path(__file__).resolve().parents[2]

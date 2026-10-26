@@ -13,12 +13,12 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from games.censorly.roots import opens_with
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.dispatcher import backend_name
-from games.censorly.lexical.generic_backend import CAPABILITIES as GENERIC_CAPS
-from games.censorly.lexical.relations.graph import edge_count, neighbors
-from games.censorly.lexical.resolver import (
+from games.puzzles.censorly.text.roots import opens_with
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.match.dispatcher import backend_name
+from games.puzzles.censorly.lexical.match.generic_backend import CAPABILITIES as GENERIC_CAPS
+from games.puzzles.censorly.lexical.graph.graph import edge_count, neighbors
+from games.puzzles.censorly.lexical.match.resolver import (
     describe_token,
     open_prepared,
     open_targets,
@@ -26,15 +26,15 @@ from games.censorly.lexical.resolver import (
     related,
     relation_kind,
 )
-from games.censorly.lexical.russian import CAPABILITIES as RUSSIAN_CAPS
-from games.censorly.lexical.russian.decisions import REJECT
-from games.censorly.lexical.russian.context import inflection_matches, occurrence_of
-from games.censorly.lexical.russian.morphology import cognate_lemmas
-from games.censorly.lexical.match import matching_lemmas
-from games.censorly.lexical.rootbank import structures_of
-from games.censorly.normalize import lemma_of, normalize_surface
-from games.censorly.redact import lemmas_matching_guess
-from games.censorly.tokenize import build_puzzle_payload, tokenize_text
+from games.puzzles.censorly.lexical.russian import CAPABILITIES as RUSSIAN_CAPS
+from games.puzzles.censorly.lexical.russian.decisions import REJECT
+from games.puzzles.censorly.lexical.russian.context import inflection_matches, occurrence_of
+from games.puzzles.censorly.lexical.russian.morphology import cognate_lemmas
+from games.puzzles.censorly.lexical.match import matching_lemmas
+from games.puzzles.censorly.lexical.match.rootbank import structures_of
+from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
+from games.puzzles.censorly.article.redact import lemmas_matching_guess
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload, tokenize_text
 
 
 def _has_sense(lemma, sense):
@@ -84,8 +84,8 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             self.assertTrue(left_roots.isdisjoint(right_roots), f'{left} / {right}')
 
     def test_two_family_senses_are_assigned_to_distinct_clusters(self):
-        from games.censorly.lexical.semantic_splits import CLUSTERS
-        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.splits import CLUSTERS
+        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
 
         clusters = {lemma: name for name, lemmas in CLUSTERS for lemma in lemmas}
         family_review = (
@@ -114,7 +114,7 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertTrue(_relation(_GuessPack('двойник'), _Pack('двойниковый')))
 
     def test_binding_and_contact_senses_are_separate(self):
-        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
 
         self.assertTrue(_has_sense('привязать', 'sense:binding'))
         self.assertTrue(_has_sense('связываться', 'sense:contact'))
@@ -134,7 +134,7 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertFalse(opens_with('часто', 'части'))
 
     def test_arabic_digits_open_their_cardinal_words_in_gameplay(self):
-        from games.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
 
         for digit, cardinal in (
             ('0', 'ноль'), ('1', 'один'), ('2', 'два'), ('3', 'три'),
@@ -674,7 +674,7 @@ class GraphQaTests(SimpleTestCase):
         self.assertGreaterEqual(len(proofs), 10)
 
     def test_compile_is_deterministic(self):
-        from games.censorly.lexical.russian.compiler import compile_graph
+        from games.puzzles.censorly.lexical.russian.compiler import compile_graph
         lemmas = Path('/tmp/ruroots/lemmas_to_roots.tsv')
         groups = Path('/tmp/ruroots/root_groups.txt')
         tikhonov = Path('/tmp/rumorphs/RuMorphs-Lemmas.txt')
