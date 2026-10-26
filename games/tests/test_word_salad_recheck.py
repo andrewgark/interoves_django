@@ -256,6 +256,7 @@ class WordSaladRecheckQueueTests(TestCase):
         payload['words'] = list(payload.get('words') or []) + ['ABCD']
         self.task.checker_data = json.dumps(payload, ensure_ascii=False)
         self.task.save(update_fields=['checker_data'])
+        # Post-commit notify uses lazy import in ops.workers.jobs.salad._schedule_actor_notification.
         with patch('games.realtime.track_compat.track_actor_task_change'):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
             item = WordSaladRecheckItem.objects.get(job=job)

@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 
 from games.club.access.game import game_has_ended, game_is_going_now
+from games.identity.profile import has_profile, has_team
 
 
 def parse_json_object_body(request):
@@ -59,17 +60,6 @@ def redirect_after_browser_submission(request):
     ):
         return redirect(referer)
     return redirect('/')
-
-
-def has_profile(user):
-    return user and getattr(user, 'profile', None)
-
-
-def has_team(user):
-    if not has_profile(user):
-        return False
-    user.profile.repair_primary_team()
-    return user.profile.team_on_id is not None
 
 
 # Личный режим отключаем только в турнирных играх проекта «Десяточки».
