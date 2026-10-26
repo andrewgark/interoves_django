@@ -6,7 +6,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 django_asgi_app = get_asgi_application()
 
 from games.realtime.admission import DatabaseAdmissionASGIMiddleware
-from games.runtime import RUNTIME_ROLE_WEB, runtime_role
+from games.ops.cron.runtime import RUNTIME_ROLE_WEB, runtime_role
 
 
 def _http_application_with_admission(app):

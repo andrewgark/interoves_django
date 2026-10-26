@@ -1,6 +1,6 @@
 """Shared checks for private Elastic Beanstalk worker HTTP delivery."""
 
-from games.runtime import runtime_role
+from games.ops.cron.runtime import runtime_role
 
 
 def sqsd_message_id(request):

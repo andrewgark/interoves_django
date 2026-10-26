@@ -2,7 +2,7 @@ import socket
 
 from django.core.management.base import BaseCommand, CommandError
 
-from games.runtime import heavy_processing_allowed
+from games.ops.cron.runtime import heavy_processing_allowed
 from games.ops.workers.jobs.salad import process_word_salad_rechecks
 
 

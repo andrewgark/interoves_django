@@ -13,7 +13,7 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
-from games.runtime import runtime_role
+from games.ops.cron.runtime import runtime_role
 from games.ops.support.games.salad import create_word_salad
 
 

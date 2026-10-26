@@ -959,7 +959,7 @@ def censorly_word_report(request, task_id):
         'diagnostic': diagnostic,
     }
     try:
-        from games.runtime import deployment_environment
+        from games.ops.cron.runtime import deployment_environment
         metadata['environment'] = deployment_environment()
     except Exception:
         metadata['environment'] = 'unknown'

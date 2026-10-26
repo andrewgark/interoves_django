@@ -47,7 +47,7 @@ from games.realtime.projection import (
     run_named_daily_statistics_refresh,
     run_named_projection_refresh,
 )
-from games.runtime import RUNTIME_ROLE_BACKGROUND, runtime_role
+from games.ops.cron.runtime import RUNTIME_ROLE_BACKGROUND, runtime_role
 from games.club.billing.gifts.payments import reconcile_yookassa_gift_payments
 from games.club.billing.gifts.offers import expire_subscription_gifts
 from games.ops.workers.http import is_sqsd_delivery, sqsd_message_id

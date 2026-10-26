@@ -27,7 +27,7 @@ from games.site.http.auth_observability import (
     log_post_request,
     session_fingerprint,
 )
-from games.runtime import deployment_environment
+from games.ops.cron.runtime import deployment_environment
 from games.middleware.request_timing import timing_phase
 
 

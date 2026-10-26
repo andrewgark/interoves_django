@@ -30,7 +30,7 @@ from games.ops.workers.messages import (
 )
 from games.ops.social.instagram.refresh import run_instagram_token_refresh
 from games.ops.social.publish import run_social_publish_live
-from games.runtime import RUNTIME_ROLE_INTEGRATION, runtime_role
+from games.ops.cron.runtime import RUNTIME_ROLE_INTEGRATION, runtime_role
 from games.ops.telegram.bot.shadow import (
     run_admin_alert_live,
     run_admin_report_live,

@@ -16,7 +16,7 @@ from django.db import transaction
 from django.dispatch import receiver
 from django.utils import timezone
 
-from games.runtime import deployment_environment
+from games.ops.cron.runtime import deployment_environment
 
 
 logger = logging.getLogger('interoves.auth')

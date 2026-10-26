@@ -22,7 +22,7 @@ from games.models import (
     WordSaladRecheckOutbox,
 )
 from games.ops.workers.jobs.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
-from games.runtime import runtime_role
+from games.ops.cron.runtime import runtime_role
 
 logger = logging.getLogger('application')
 RETRY_BASE = 30
