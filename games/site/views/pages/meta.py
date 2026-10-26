@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from django.conf import settings
 from django.core.cache import caches
@@ -6,6 +7,13 @@ from django.http import JsonResponse
 
 
 DEPLOY_REFRESH_GATE_KEY = 'site:deploy-refresh-gate'
+
+_META_DATA_DIR = Path(__file__).resolve().parents[2] / 'data'
+
+
+def _load_meta_json(name: str):
+    with (_META_DATA_DIR / name).open(encoding='utf-8') as fh:
+        return json.load(fh)
 
 
 def countries_task_100(request):
@@ -23,7 +31,7 @@ def countries_task_100(request):
             return JsonResponse({'error': "Symbol number {} should be ',', not {}".format(i + 1, letter)})
         if (i % 3 != 2) and (letter == ','):
             return JsonResponse({'error': "Symbol number {} should not be ','".format(i + 1)})
-    country_to_neighbors = json.load(open('games/data/borders.json'))
+    country_to_neighbors = _load_meta_json('borders.json')
     countries = []
     for i in range(0, len(key), 3):
         country_code = key[i:i+2]
@@ -36,7 +44,7 @@ def countries_task_100(request):
             return JsonResponse({'error': '{} should be a neighbor of {}'.format(country, first_country)})
     if len(country_to_neighbors[first_country]) != (len(countries) - 1): 
         return JsonResponse({'error': 'You need to include every neighbor of {}. At least one neighbor is missing.'.format(first_country)})
-    landlocked_countries = set(json.load(open('games/data/landlocked_countries.json')))
+    landlocked_countries = set(_load_meta_json('landlocked_countries.json'))
     for country in countries:
         if country not in landlocked_countries:
             return JsonResponse({'error': 'Country {} should not have access to the ocean'.format(country)})
@@ -60,8 +68,8 @@ def capitals_task_100(request):
     if len(key) == 0:
         return JsonResponse({'error': 'There should be at least one symbol'})
     try:
-        capitals = set(json.load(open('games/data/capitals.json')))
-    except:
+        capitals = set(_load_meta_json('capitals.json'))
+    except OSError:
         return JsonResponse({'error': 'cant read json file, please write @andrewgark about this error'})
     found_capitals = []
     for capital in capitals:
