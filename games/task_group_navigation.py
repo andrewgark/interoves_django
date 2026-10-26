@@ -1,19 +1,6 @@
-"""Compatibility facade for task-group navigation helpers."""
+"""Compatibility alias. Implementation lives in games.tasks.navigation."""
+import sys
 
-from games.tasks.navigation import (
-    neighbors_by_pk,
-    play_url_for_task_group,
-    replay_exit_url_for_task_group,
-    replay_url_for_task_group,
-    results_url_for_task_group,
-    task_group_page_nav_context,
-)
+from games.tasks import navigation as _implementation
 
-__all__ = [
-    'neighbors_by_pk',
-    'play_url_for_task_group',
-    'replay_exit_url_for_task_group',
-    'replay_url_for_task_group',
-    'results_url_for_task_group',
-    'task_group_page_nav_context',
-]
+sys.modules[__name__] = _implementation

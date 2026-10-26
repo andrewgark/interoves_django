@@ -1,5 +1,6 @@
-"""Compatibility facade for task progress helpers."""
+"""Compatibility alias. Implementation lives in games.tasks.progress."""
+import sys
 
-from games.tasks.progress import compute_task_progress, merge_task_group_progress_rows
+from games.tasks import progress as _implementation
 
-__all__ = ['compute_task_progress', 'merge_task_group_progress_rows']
+sys.modules[__name__] = _implementation

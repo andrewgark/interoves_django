@@ -1,15 +1,6 @@
-"""Compatibility facade for task actor-state helpers."""
+"""Compatibility alias. Implementation lives in games.tasks.actor_state."""
+import sys
 
-from games.tasks.actor_state import (
-    actor_identity_kwargs,
-    chain_state_for_actor,
-    chain_state_for_result_actor,
-    latest_attempt_state_for_result_actor,
-)
+from games.tasks import actor_state as _implementation
 
-__all__ = [
-    'actor_identity_kwargs',
-    'chain_state_for_actor',
-    'chain_state_for_result_actor',
-    'latest_attempt_state_for_result_actor',
-]
+sys.modules[__name__] = _implementation

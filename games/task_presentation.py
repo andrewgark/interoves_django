@@ -1,5 +1,6 @@
-"""Compatibility facade for task-card presentation helpers."""
+"""Compatibility alias. Implementation lives in games.tasks.presentation."""
+import sys
 
-from games.tasks.presentation import task_ui_descriptor, wall_ui_context
+from games.tasks import presentation as _implementation
 
-__all__ = ['task_ui_descriptor', 'wall_ui_context']
+sys.modules[__name__] = _implementation

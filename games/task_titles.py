@@ -1,15 +1,6 @@
-"""Compatibility facade for task title helpers."""
+"""Compatibility alias. Implementation lives in games.tasks.titles."""
+import sys
 
-from games.tasks.titles import (
-    NUMBERED_EDITION_GAME_IDS,
-    raddle_share_title,
-    task_display_name,
-    task_group_page_title,
-)
+from games.tasks import titles as _implementation
 
-__all__ = [
-    'NUMBERED_EDITION_GAME_IDS',
-    'raddle_share_title',
-    'task_display_name',
-    'task_group_page_title',
-]
+sys.modules[__name__] = _implementation
