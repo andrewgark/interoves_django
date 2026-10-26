@@ -719,7 +719,7 @@ def _record_lexical_decision(*, user, game, task, guess, payload, report=None) -
                 **report,
             )
     except Exception:
-        logging.getLogger(__name__).exception('censorly lexical decision log failed')
+        logging.getLogger('games.censorly.play').exception('censorly lexical decision log failed')
 
 
 @dataclass(frozen=True)

@@ -210,9 +210,14 @@ class DatabaseAdmissionASGIMiddleware:
         self._source_commit = os.environ.get('DB_ADMISSION_SOURCE_COMMIT') or source_commit
 
     @staticmethod
+    def _repository_root() -> Path:
+        """Checkout root. This module lives in games/realtime, two directories down."""
+        return Path(__file__).resolve().parents[2]
+
+    @staticmethod
     def _read_deployment_identity() -> tuple[str, str]:
         """Read a bounded, local identity once at startup; never query metadata over the network."""
-        root = Path(__file__).resolve().parents[1]
+        root = DatabaseAdmissionASGIMiddleware._repository_root()
         try:
             version = (root / 'interoves_django/deploy_version.txt').read_text(encoding='utf-8').strip()[:64]
         except OSError:

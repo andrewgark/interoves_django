@@ -1,8 +1,10 @@
 import os
+from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
 from games.asgi_admission import DatabaseAdmissionASGIMiddleware
+from games.realtime import admission
 from interoves_django.asgi import _http_application_with_admission
 
 
@@ -33,3 +35,12 @@ class AsgiAdmissionConfigTests(TestCase):
         self.assertEqual(stats['configured_cap'], 2)
         self.assertEqual(stats['configured_max_waiters'], 3)
         self.assertEqual(stats['configured_wait_timeout_ms'], 250)
+
+    def test_deployment_identity_reads_the_checkout_root(self):
+        root = DatabaseAdmissionASGIMiddleware._repository_root()
+        self.assertEqual(root, Path(admission.__file__).resolve().parents[2])
+        self.assertTrue((root / 'manage.py').is_file())
+        self.assertEqual(
+            root / 'games' / 'realtime' / 'admission.py',
+            Path(admission.__file__).resolve(),
+        )
