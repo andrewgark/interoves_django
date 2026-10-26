@@ -344,7 +344,26 @@
     return appendWordWithPunctuation(container, tokens, next, lenForced);
   }
 
+  function isWordHyphen(tokens, index) {
+    var tok = tokens[index];
+    return !!tok && tok.kind === 'punct' && /^[-‐‑–—]$/.test(tok.text || '') &&
+      isWordDisplayToken(tokens[index - 1]) && isWordDisplayToken(tokens[index + 1]);
+  }
+
+  // A compound like «северо-западная» is one tight run; as a single nowrap
+  // group its masks can be wider than a phone screen. Allow a break after
+  // the hyphen, as in plain text, by grouping each part separately.
   function appendTightRun(container, tokens, start, end, lenForced) {
+    for (var cut = start + 1; cut < end - 1; cut += 1) {
+      if (isWordHyphen(tokens, cut)) {
+        appendTightRunPart(container, tokens, start, cut + 1, lenForced);
+        start = cut + 1;
+      }
+    }
+    appendTightRunPart(container, tokens, start, end, lenForced);
+  }
+
+  function appendTightRunPart(container, tokens, start, end, lenForced) {
     var run = tokens.slice(start, end);
     var target = container;
     if (run.length > 1) {
