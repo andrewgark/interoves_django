@@ -1,5 +1,6 @@
-"""Compatibility facade for replacements task state helpers."""
+"""Compatibility alias. Implementation lives in games.puzzles.replacements.lines.state."""
+import sys
 
-from games.tasks.replacements_state import current_state, line_done_list
+from games.puzzles.replacements.lines import state as _implementation
 
-__all__ = ['current_state', 'line_done_list']
+sys.modules[__name__] = _implementation

@@ -19,9 +19,9 @@ from pathlib import Path
 import pymorphy3
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_OLD = ROOT / "games/word_salad_nouns.txt"
-DEFAULT_OUT = ROOT / "games/salad_valid_words.txt.gz"
-DEFAULT_REPORT = ROOT / "games/salad_valid_words.tsv"
+DEFAULT_OLD = ROOT / "games/puzzles/salad/word_salad_nouns.txt"
+DEFAULT_OUT = ROOT / "games/puzzles/salad/salad_valid_words.txt.gz"
+DEFAULT_REPORT = ROOT / "games/puzzles/salad/salad_valid_words.tsv"
 DEFAULT_NUTRIMATIC = ROOT.parent / "nutrimatic-ru/scripts/output/russian_words.txt"
 DEFAULT_WIKTIONARY = ROOT.parent / "experiments/dictionaries/ru_wiktionary.txt"
 
