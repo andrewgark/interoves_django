@@ -26,7 +26,7 @@ class DeployReleaseControlTests(SimpleTestCase):
 
     def test_static_release_is_immutable_and_fingerprint_is_release_scoped(self):
         settings = (ROOT / 'interoves_django/settings.py').read_text()
-        storage = (ROOT / 'games/storage_backends.py').read_text()
+        storage = (ROOT / 'games/ops/health/storage.py').read_text()
         publisher = (ROOT / 'scripts/publish_static.sh').read_text()
         self.assertIn("STATIC_LOCATION = f'static/releases/{STATIC_RELEASE_ID}'", settings)
         self.assertIn('location = settings.STATIC_LOCATION', storage)

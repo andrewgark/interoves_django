@@ -15,7 +15,7 @@ MANIFEST_NAME = "release-manifest.json"
 PROFILE_FILE = "interoves_django/release_profile.txt"
 STATIC_RELEASE_ID_FILE = "interoves_django/static_release_id.txt"
 REQUIRED_FILES = {
-    "games/asgi_admission.py",
+    "games/realtime/admission.py",
     "games/management/commands/audit_chain_task_state_completeness.py",
     "games/site/http/middleware/db_transient_response.py",
     "games/daily/timing.py",
@@ -27,7 +27,7 @@ REQUIRED_FILES = {
     "Procfile",
 }
 OBSERVE_ONLY_REQUIRED_FILES = {
-    "games/asgi_admission.py",
+    "games/realtime/admission.py",
     "interoves_django/asgi.py",
     STATIC_RELEASE_ID_FILE,
     "Procfile",

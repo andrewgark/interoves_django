@@ -45,7 +45,7 @@ REQUIRED_GREEN_APP_FILES = {
     "games/management/commands/backfill_chain_task_states.py",
 }
 OBSERVE_ONLY_GREEN_APP_FILES = {
-    "games/asgi_admission.py",
+    "games/realtime/admission.py",
     "interoves_django/asgi.py",
     "Procfile",
 }

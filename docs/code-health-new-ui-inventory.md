@@ -1,8 +1,8 @@
-# Инвентаризация `games/views/new_ui.py`
+# Инвентаризация main UI (`games/site/ui/`)
 
-Файл содержит 6514 строк и около 170 функций. Это не одна большая
-ответственность, а несколько подсистем, связанных общими импортами и
-контекстом запроса.
+Код main UI живёт в пакете **`games/site/ui/`** (hub, play, results, profile, team, pay, …). URL handlers и neutral aliases — [`games/site/views/pages/ui.py`](../games/site/views/pages/ui.py). Legacy logger name: `games.views.new_ui`.
+
+Ранее монолит `games/views/new_ui.py` декомпозирован; ниже — ориентиры по областям ответственности.
 
 ## Наблюдаемые группы
 

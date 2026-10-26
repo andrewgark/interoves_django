@@ -12,7 +12,7 @@
 
 ## Folder config
 
-Folders are defined in `games/views/new_ui.py` as `NEW_UI_FOLDERS`:
+Folders are defined in `games/site/ui/` (see hub helpers; constants such as `NEW_UI_FOLDERS` in `games/site/ui/__init__.py`) as `NEW_UI_FOLDERS`:
 
 - `slug`, `title`, `description`
 - `type` — `games` | `palindromes`

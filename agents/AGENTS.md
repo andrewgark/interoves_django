@@ -210,7 +210,7 @@ If the resolved version is empty, the client check is skipped.
 
 **Facade retirement (2026-10):** удалены ~120 корневых `games/*.py` aliases и каталоги `games/views`, `games/support`, `games/telegram`, `games/social`, `games/instagram`, `games/twitter`, `games/threads`, `games/background`, `games/tutorials`, `games/google`, `games/matcher` — prod/tests уже на canonical paths. **Не удаляй** entry points ниже и puzzle bootstrap (`games.wall`, `games.word_salad`, …). Имена **loggers** (`games.views.new_ui`, `games.daily_timing`, …) намеренно legacy; `assertLogs` и prod-логи на них завязаны.
 
-**Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.storage_backends`, `games.provider` (allauth autodiscover), `games.templatetags.filters`, `games.wall` / `word_salad` / `raddle` / `grid_puzzle` / `replacements_lines`, пакеты **`games.censorly`** (`__init__` + `models`), **`games.alphabetty`** (`models` + `core` для migration `0150`), **`salad` / `ladder`** (model load only). Ladder tutorial: **`games.daily.ladder.tutorial`**. Django settings: HTTP **`games.site.http.*`**, inlineedit **`games.site.http.adaptors`**. Yandex Direct — только **`games.ops.social.ads.*`** (каталог `games/ads_direct` удалён).
+**Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.storage_backends` (migration `0232` only), `games.provider` (allauth autodiscover), `games.templatetags.filters`, `games.offer_bootstrap`, `games.wall` / `word_salad` / `raddle` / `grid_puzzle` / `replacements_lines`, пакеты **`games.censorly`** (`__init__` + `models`), **`games.alphabetty`** (`models` + `core` для migration `0150`), **`salad` / `ladder`** (model load only). Ladder tutorial: **`games.daily.ladder.tutorial`**. Django settings: HTTP **`games.site.http.*`**, inlineedit **`games.site.http.adaptors`**. Yandex Direct — только **`games.ops.social.ads.*`**.
 
 | Concern | Canonical import | Notes |
 |--------|------------------|-------|
@@ -221,7 +221,7 @@ If the resolved version is empty, the client check is skipped.
 | ASGI DB admission middleware | `games.realtime.admission` | — |
 | HTTP middleware (timing, anon identity, DB transient) | `games.site.http.middleware.*` | `settings.MIDDLEWARE` |
 | Yandex Direct ads CLI | `games.ops.social.ads.*` | — |
-| Main UI symbol bundle | `games.site.views.pages.ui_exports` | logger `games.views.new_ui` |
+| Main UI URL handlers | `games.site.views.pages.ui` (imports `games.site.ui.*`) | `ui_exports` re-exports for tests; logger `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | — |
 | Censorly IDs / flags | `games.puzzles.censorly.ids` | `games.censorly` package re-export |
 | Censorly implementation | `games.puzzles.censorly.*` | — |
@@ -233,8 +233,8 @@ If the resolved version is empty, the client check is skipped.
 | Account / ticket / subscription | `games.site.views.account.*` | — |
 | Daily play (alphabetty, censorly) | `games.site.views.daily.*` | — |
 | Recheck / chain replay jobs | `games.ops.workers.jobs.recheck` | — |
-| Word salad async recheck queue | `games.ops.workers.jobs.salad` | `games.word_salad_recheck` |
-| Recheck outbox transport | `games.ops.workers.jobs.outbox` | `games.word_salad_outbox` |
+| Word salad async recheck queue | `games.ops.workers.jobs.salad` | — |
+| Recheck outbox transport | `games.ops.workers.jobs.outbox` | — |
 | Auth/session gameplay diagnostics | `games.site.http.auth_observability` | `games.apps` ready hook |
 | Account / anonymous merge | `games.club.merge.{account,anon,anonymous,queue,events}` | — |
 | Task group navigation | `games.tasks.navigation` | — |
@@ -242,7 +242,7 @@ If the resolved version is empty, the client check is skipped.
 | Results leaderboard semantics | `games.results.standings.leaderboard` | — |
 | Daily difficulty cache | `games.daily.difficulty.{core,refresh,health}` | — |
 | Admin/support attempt ops | `games.ops.workers.jobs.actions` | — |
-| Attempt text normalize helpers | `games.results.util` | `games.util` |
+| Attempt text normalize helpers | `games.results.util` | — |
 | Section URLs / hub / share hashes | `games.sections.{paths,hub,navigation,placement_share,week_task_pool,project_navigation}` | — |
 | Daily result projection | `games.daily.projection` (+ `projection.cron`) | — |
 | Targeted completion reconcile | `games.daily.completion.targeted_completion_reconciliation` | — |
@@ -285,7 +285,7 @@ If the resolved version is empty, the client check is skipped.
 | Daily statistics API | `games.daily.timing.statistics` | — |
 | Telegram offer linking | `games.club.link` | — |
 | Allauth custom providers (`provider_classes`) | `games.club.provider` | `games.provider` (allauth autodiscover) |
-| Telegram bot/channels/images/transport | `games.ops.telegram.*`, `games.ops.cron.telegram` | `games.telegram.*` (facades; settings may still reference legacy app path) |
+| Telegram bot/channels/images/transport | `games.ops.telegram.*`, `games.ops.cron.telegram` | — |
 | Support console / observatory | `games.ops.support.{http,feed,games,people,observatory,google}` | — |
 | Product analytics persistence | `games.ops.analytics.persistence` | — |
 | Social queue / Instagram API | `games.ops.social.{models,publish,views,instagram.*}` | — |
@@ -300,14 +300,14 @@ If the resolved version is empty, the client check is skipped.
 | Subscription gifts | `games.club.billing.gifts.{offers,payments}` | — |
 | Donations / crypto / YooKassa util | `games.club.billing.{donations,crypto,yookassa.util}` | `donation_service`, `nowpayments_util`, `yookassa_util` |
 | Tribute checkout (prod entry) | `games.club.billing.tribute.service` | — |
-| Tribute config / webhook HMAC | `games.club.billing.tribute.{config,util}` | `games.tribute_config`, `tribute_util` |
+| Tribute config / webhook HMAC | `games.club.billing.tribute.{config,util}` | — |
 | Results share formatting | `games.results.share` | — |
 | SQL results aggregate | `games.results.sql` | — |
 | JSON body / public task / browser-form HTTP helpers | `games.site.http.request_util` | — |
 | Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `games.wall`, `word_salad`, `replacements_*` |
 | Ladder onboarding tutorial | `games.daily.ladder.tutorial.{ladder,views}` | `games.ladder` — только models bootstrap |
-| Alphabetty engine | `games.puzzles.alphabetty.*` | `games.alphabetty.*` |
-| Alphabetty/Censorly offer models in `models/__init__` | `games.alphabetty.models` / `games.censorly.models` (+ `games.alphabetty.core` for migration `0150`) |
+| Alphabetty engine | `games.puzzles.alphabetty.*` | `games.alphabetty.core` (migration `0150` only) |
+| Alphabetty/Censorly offer models in `models/__init__` | `games.alphabetty.models` / `games.censorly.models` (+ `games.alphabetty.core` for migration `0150`); loader [`games/offer_bootstrap.py`](games/offer_bootstrap.py) |
 На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Константа `WORD_SALAD_GAME_ID` живёт в `games.daily.page.section` (не тянет puzzles); `games.puzzles.salad.rules` только re-export для legacy. `models.catalog.Wall` — `games.wall`.
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД. **Новый код** — только canonical import; не добавляй новые root shims (entry points — см. выше). В prod и тестах не импортируй удалённые `games.*` aliases; для `@patch` предпочитай модуль, где имя **привязано** (не legacy `games.views.*`):

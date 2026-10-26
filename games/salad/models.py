@@ -1,13 +1,9 @@
 """Compatibility alias. Implementation lives in games.puzzles.salad.models."""
-import importlib.util
-import sys
-from pathlib import Path
 
-# Load the implementation before importing games.puzzles. That package import
-# needs games.models, which is still initializing this facade.
-_path = Path(__file__).resolve().parents[1] / 'puzzles' / 'salad' / 'models.py'
-_spec = importlib.util.spec_from_file_location('games.puzzles.salad.models', _path)
-_implementation = importlib.util.module_from_spec(_spec)
-sys.modules['games.puzzles.salad.models'] = _implementation
-sys.modules[__name__] = _implementation
-_spec.loader.exec_module(_implementation)
+from games.offer_bootstrap import install_puzzles_models_facade
+
+install_puzzles_models_facade(
+    facade_module=__name__,
+    impl_module='games.puzzles.salad.models',
+    impl_relpath='puzzles/salad/models.py',
+)

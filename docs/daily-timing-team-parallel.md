@@ -17,7 +17,7 @@
 Связанные места текущей реализации:
 
 - UI-блокировка: `static/js/daily_solve_timer.js`, `render()`;
-- общий командный actor: `games/views/daily_timing_views.py`, `_resolve_actor()`;
+- общий командный actor: `games/site/views/daily/timing.py`, `_resolve_actor()`;
 - единственный владелец интервала: `games/daily/timing.py`, `snapshot()` и
   `_takeover_or_continue()`;
 - модель: `DailySolveTiming.active_session_id`.

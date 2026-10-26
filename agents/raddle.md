@@ -1,6 +1,6 @@
 # Raddle (Лесенка) — контракт API и чеклисты
 
-Код: `games/raddle.py`, `games/views/attempt_views.py`, `static/templates/new/task_group.html`, шаблон `task-content/task-raddle.html`.
+Код: bootstrap `games/raddle.py` → `games/puzzles/raddle/engine.py`; HTTP — `games/site/views/game/{attempt,raddle}.py`; UI — `static/templates/new/task_group.html`, `task-content/task-raddle.html`.
 
 Матрица сценариев в коде: [`games/puzzles/raddle/contract.py`](../games/puzzles/raddle/contract.py) (источник правды для тестов).
 

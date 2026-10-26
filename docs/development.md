@@ -30,9 +30,9 @@
 
 ## Где искать код
 
-- `games/models.py` — модели и локальные инварианты данных.
-- `games/views/` и `games/*_urls.py` — HTTP-слой и маршрутизация.
-- `games/telegram/`, `games/social/`, `games/instagram/` — интеграционные адаптеры.
+- `games/models/` — модели и локальные инварианты данных.
+- `games/site/` (views, ui, urls, http) — HTTP-слой и main UI.
+- `games/ops/telegram/`, `games/ops/social/` — интеграционные адаптеры.
 - `games/management/commands/` — административные и разовые команды.
 - `scripts/` — deploy, cron, smoke-тесты и операционные инструменты.
 - `static/templates/`, `static/css/`, `static/js/` — пользовательский UI.

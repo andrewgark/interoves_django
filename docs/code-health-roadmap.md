@@ -7,9 +7,8 @@
 
 - примерно 700 Python-файлов;
 - примерно 470 HTML-шаблонов;
-- крупные точки концентрации логики: `games/site/ui/*` (legacy import
-  `games.views.new_ui`), `games/models.py`, `games/site/admin`,
-  `games/ops/workers/jobs/recheck.py` (фасад `games/recheck.py`);
+- крупные точки концентрации логики: `games/site/ui/*`, `games/models/`,
+  `games/site/admin`, `games/ops/workers/jobs/recheck.py`;
 - одновременно существуют новый и legacy UI;
 - текущий тестовый вход — `run_tests.sh`, который уже включает responsive
   lint и проверку inline JavaScript;
@@ -43,7 +42,7 @@
 
 Статус games refactor (2026): prod/tests на **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`**, **`games.identity`**, **`games.ops.*`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**. **Oct 2026:** ~120 корневых alias-файлов и каталоги `games/views`, `games/support`, `games/telegram`, … **удалены**; остались Django entry shims (`admin`, `storage_backends`, puzzle bootstrap `wall`/`word_salad`, …) — **`agents/AGENTS.md`**. Settings: middleware/context/inlineedit/storage → **`games.site.http.*`** / **`games.ops.health.storage`**; migration shim **`games.storage_backends`**, allauth **`games.provider`**. Logger names (`games.views.new_ui`, …) не менять.
 
-Начать с main UI (`games/site/ui`, фасад `games.views.new_ui`), не меняя URL-контракты:
+Main UI уже в `games/site/ui` + `games/site/views/pages/ui.py`; дальше — точечная декомпозиция без смены URL-контрактов:
 
 1. составить карту функций и их вызывающих маршрутов;
 2. сгруппировать код по устойчивым областям ответственности;
@@ -110,7 +109,7 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 - `static/templates/new/partials/task_card.html` — generic `daily_board`
   contract для game-specific board templates при сохранении legacy `rd/ws`;
 - daily board adapters также декларативно задают body template и wrapper policy;
-- `new_ui.py`, Alphabetty play и partial renderer используют общий lifecycle
+- `games/site/ui/*`, Alphabetty play и partial renderer используют общий lifecycle
   context/URL builder;
 - reset и statistics endpoints используют registry вместо отдельных списков игр;
 - старые module paths остаются compatibility facades.
@@ -140,7 +139,7 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 ## Первые задачи backlog
 
 1. Добавить минимальный статический baseline для изменяемых Python-файлов.
-2. Построить карту маршрутов и функций `games/views/new_ui.py`.
+2. Поддерживать карту маршрутов и handlers в `games/site/views/pages/ui.py` и `games/site/urls/ui.py`.
 3. Выбрать одну группу повторяющейся подготовки контекста и покрыть её
    контрактом.
 4. Перенести эту группу в тематический модуль без изменения поведения.

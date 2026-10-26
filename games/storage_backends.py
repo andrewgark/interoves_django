@@ -1,4 +1,4 @@
-"""Compatibility alias. Implementation lives in games.ops.health.storage."""
+"""Historical migration import path (``0232``). Runtime: ``games.ops.health.storage``."""
 import sys
 
 from games.ops.health import storage as _implementation

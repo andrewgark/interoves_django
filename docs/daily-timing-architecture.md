@@ -13,10 +13,10 @@
 Основные места реализации:
 
 - [games/daily/timing.py](../games/daily/timing.py) — модель состояний, применение событий, расчёт и восстановление;
-- [games/views/daily_timing_views.py](../games/views/daily_timing_views.py) — HTTP API и разрешение numbered/hash target;
+- [games/site/views/daily/timing.py](../games/site/views/daily/timing.py) — HTTP API и разрешение numbered/hash target;
 - [static/js/daily_solve_timer.js](../static/js/daily_solve_timer.js) — отображение, запуск, heartbeat, пауза и остановка в браузере;
-- [games/completion_coordinator.py](../games/completion_coordinator.py) — атомарное завершение игры и заморозка таймера;
-- [games/daily/statistics.py](../games/daily/statistics.py) — чтение завершённых значений для статистики.
+- [games/daily/completion/completion_coordinator.py](../games/daily/completion/completion_coordinator.py) — атомарное завершение игры и заморозка таймера;
+- [games/daily/timing/statistics.py](../games/daily/timing/statistics.py) — чтение завершённых значений для статистики.
 
 ## Идентичность и хранение
 

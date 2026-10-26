@@ -1,52 +1,64 @@
 """Main UI views (neutral naming, without ``new``)."""
 
-from games.site.views.pages.ui_exports import (
-    daily_statistics,
-    get_section_games,
-    new_account_merge_confirm,
-    new_account_merge_status,
-    new_account_merge_retry,
-    new_anon_migrate_count,
-    new_anon_merge_job_status,
-    new_bug_report,
-    new_club_archive_offer_action,
-    new_create_crypto_donation,
-    new_create_crypto_ticket_payment,
-    new_create_ticket_payment,
-    new_create_tribute_ticket_payment,
-    new_dismiss_unverified_telegram_handle,
-    new_donate_page,
-    new_donation_status,
+from games.site.ui.hub.cards import get_section_games
+from games.site.ui.hub.pages import (
     new_folder,
-    new_game_task_group_progress,
-    new_game_task_results_page,
-    new_get_answer,
-    new_get_raddle_word_answer,
-    new_get_replacements_line_answer,
     new_hub,
     new_ladder_hub_page,
     new_ladder_last_page,
     new_ladder_today_page,
-    new_ladder_word_results_page,
-    new_like_dislike,
+    new_section_last_page,
+    new_start,
+    project_folder_games,
+    project_hub,
+)
+from games.site.ui.game.progress import (
+    new_game_task_group_progress,
+    project_game_task_group_progress,
+)
+from games.site.ui.game.pages import (
     new_main_game_page,
+    new_section_game_page,
+    project_main_game_page,
+    project_results_page,
+    project_task_group_page,
+    project_tournament_results_page,
+)
+from games.site.ui.results.pages import (
+    new_game_task_results_page,
+    new_ladder_word_results_page,
+    new_results_page,
+    new_section_results_page,
+    new_section_task_results_page,
+    new_tournament_results_page,
+)
+from games.site.ui.play.page import daily_statistics, new_task_group_page
+from games.site.ui.play.replay import new_replay_exit, new_replay_start
+from games.site.ui.play.live import new_task_group_live_state
+from games.site.ui.play.answers import (
+    new_get_answer,
+    new_get_raddle_word_answer,
+    new_get_replacements_line_answer,
+)
+from games.site.ui.play.reactions import new_bug_report, new_like_dislike
+from games.site.ui.profile.anon import (
+    new_anon_merge_job_status,
+    new_anon_migrate_count,
+    new_club_archive_offer_action,
     new_migrate_anon_attempts,
-    new_pay_page,
+    new_set_play_mode,
+)
+from games.site.ui.profile.pages import (
+    new_account_merge_confirm,
+    new_account_merge_retry,
+    new_account_merge_status,
+    new_dismiss_unverified_telegram_handle,
     new_profile,
     new_profile_report_detail,
     new_profile_reports,
-    new_replay_exit,
-    new_replay_start,
-    new_results_page,
-    new_section_game_page,
-    new_section_last_page,
-    new_section_results_page,
-    new_section_task_results_page,
-    new_set_play_mode,
     new_social_account_disconnect,
-    new_start,
-    new_task_group_live_state,
-    new_task_group_page,
+)
+from games.site.ui.team.pages import (
     new_team,
     new_team_create,
     new_team_info,
@@ -60,16 +72,17 @@ from games.site.views.pages.ui_exports import (
     new_team_rename,
     new_team_request_join,
     new_team_set_primary,
+)
+from games.site.ui.pay.pages import (
+    new_create_crypto_donation,
+    new_create_crypto_ticket_payment,
+    new_create_ticket_payment,
+    new_create_tribute_ticket_payment,
+    new_donate_page,
+    new_donation_status,
+    new_pay_page,
     new_telegram_link_start,
     new_ticket_payment_status,
-    new_tournament_results_page,
-    project_folder_games,
-    project_game_task_group_progress,
-    project_hub,
-    project_main_game_page,
-    project_results_page,
-    project_task_group_page,
-    project_tournament_results_page,
 )
 
 # Neutral aliases for handlers.
