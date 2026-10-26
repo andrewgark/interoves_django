@@ -6,7 +6,7 @@ from django.contrib.auth.models import Group, User
 from django.test import TestCase
 from django.urls import reverse
 
-from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 from games.ops.support.games.sections import get_sections_dashboard

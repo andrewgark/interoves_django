@@ -22,7 +22,8 @@ from games.daily.catalog.word_salad import (
     word_salad_publish_start,
 )
 from games.puzzles.salad.sheet import parse_word_salad_csv
-from games.puzzles.salad.rules import WORD_SALAD_GAME_ID, validate_puzzle
+from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.puzzles.salad.rules import validate_puzzle
 from games.tests.test_page_heading import assert_rules_beside_title
 
 

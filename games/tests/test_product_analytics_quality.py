@@ -21,7 +21,7 @@ from games.models import (
     TaskGroup,
     WordSaladOffer,
 )
-from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID
 
 
 class ProductAnalyticsInstrumentationVersionTests(TestCase):

@@ -59,7 +59,7 @@ from games.models import (
     Team,
 )
 from games.results.share import elapsed_seconds_from_attempts as share_elapsed
-from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID
 
 
 def _dt(seconds=0):
