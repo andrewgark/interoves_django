@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.difficulty import SUPPORTED_GAME_IDS, backfill_daily_difficulty_rows
+from games.daily.difficulty.core import SUPPORTED_GAME_IDS, backfill_daily_difficulty_rows
 
 
 class Command(BaseCommand):

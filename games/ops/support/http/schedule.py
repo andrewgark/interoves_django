@@ -19,7 +19,7 @@ class ScheduleLinkError(Exception):
 
 
 def _sync_difficulty_schedule_after_commit(game_id, placement_ids):
-    from games.difficulty import SUPPORTED_GAME_IDS, ensure_daily_difficulty_row
+    from games.daily.difficulty.core import SUPPORTED_GAME_IDS, ensure_daily_difficulty_row
 
     if game_id not in SUPPORTED_GAME_IDS:
         return

@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from games.puzzles.core.norm_matcher import NormMatcher
 from games.models import Attempt, Task
-from games.util import clean_text
+from games.results.util import clean_text
 
 
 class CheckResult:

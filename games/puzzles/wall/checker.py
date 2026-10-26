@@ -4,7 +4,7 @@ import copy
 import json
 
 from games.puzzles.core.check_runtime import BaseChecker, CheckResult
-from games.util import clean_text, status_key
+from games.results.util import clean_text, status_key
 
 
 class WallChecker(BaseChecker):

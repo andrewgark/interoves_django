@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from games.difficulty import DUE_REFRESH_LIMIT, SUPPORTED_GAME_IDS
-from games.difficulty_refresh import (
+from games.daily.difficulty.core import DUE_REFRESH_LIMIT, SUPPORTED_GAME_IDS
+from games.daily.difficulty.refresh import (
     DIFFICULTY_REFRESH_LOCK,
     DIFFICULTY_REFRESH_LOCK_TTL_SECONDS,
     refresh_due_daily_difficulties,

@@ -2,7 +2,7 @@ import json
 
 from django.core.management.base import BaseCommand, CommandError
 
-from games.difficulty import (
+from games.daily.difficulty.core import (
     SUPPORTED_GAME_IDS,
     recalculate_all_daily_difficulties,
 )

@@ -146,7 +146,7 @@ def _alphabetty_meta_context(request, *, game, task, user, anon_key, placement=N
     hints_n = _alphabetty_hints_taken(game=game, task=task, user=user, anon_key=anon_key)
     difficulty = None
     if placement is not None:
-        from games.difficulty import get_game_difficulty
+        from games.daily.difficulty.core import get_game_difficulty
         difficulty = get_game_difficulty(placement)
     return {
         'game': game,
@@ -296,7 +296,7 @@ def alphabetty_hub_page(request):
         anon_key=anon_key,
     )
 
-    from games.difficulty import get_cached_game_difficulties
+    from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties([link for _, link in link_rows])
     rows = []
     for n, link in link_rows:

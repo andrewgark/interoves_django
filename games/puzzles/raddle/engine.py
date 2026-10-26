@@ -23,7 +23,7 @@ import json
 import random
 import re
 
-from games.util import clean_text
+from games.results.util import clean_text
 
 _LENGTH_PARTS_HYPHEN = re.compile(r'^(\d+)\s*-\s*(\d+)$')
 _LENGTH_PARTS_SPACE = re.compile(r'^(\d+)\s+(\d+)$')

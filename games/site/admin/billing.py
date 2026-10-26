@@ -1,7 +1,7 @@
 from django.contrib import admin, messages
 from django.forms import Textarea
 from django.db import models
-from games.ops_actions import (
+from games.ops.workers.jobs.actions import (
     accept_ticket,
     reject_ticket,
 )

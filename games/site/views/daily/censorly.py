@@ -224,7 +224,7 @@ def _meta_context(request, *, game, task, user, anon_key, placement=None):
     hints_n = _hints_taken(game=game, task=task, user=user, anon_key=anon_key)
     difficulty = None
     if placement is not None:
-        from games.difficulty import get_game_difficulty
+        from games.daily.difficulty.core import get_game_difficulty
         difficulty = get_game_difficulty(placement)
     return {
         'game': game,
@@ -523,7 +523,7 @@ def censorly_hub_page(request):
         })
     from games.site.ui.game.progress import _mark_locked_archive_rows
     _mark_locked_archive_rows(request, game, rows)
-    from games.difficulty import get_cached_game_difficulties
+    from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties(schedule_links)
     for row in rows:
         row['difficulty'] = difficulties.get(row.pop('placement_id'))

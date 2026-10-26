@@ -4,7 +4,7 @@ import re
 from django.template.loader import render_to_string
 from django.templatetags.static import static
 
-from games.util import clean_text
+from games.results.util import clean_text
 
 
 TOKEN_RE = re.compile(r'\{\{\s*html_form:([A-Za-z0-9_.:-]+)\s*\}\}')

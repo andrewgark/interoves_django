@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from django.db.models import Q
 
 from games.models import Attempt, HintAttempt, Task
-from games.util import better_status
+from games.results.util import better_status
 
 
 EPS = 1e-9

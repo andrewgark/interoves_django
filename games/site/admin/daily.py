@@ -22,7 +22,7 @@ from games.models import (
 
 @admin.action(description='Пересчитать выбранные оценки сложности')
 def recalculate_selected_difficulties(modeladmin, request, queryset):
-    from games.difficulty import calculate_game_difficulty
+    from games.daily.difficulty.core import calculate_game_difficulty
 
     updated = 0
     for snapshot in queryset.select_related('placement', 'placement__game', 'placement__task_group'):
@@ -86,8 +86,8 @@ class DailyGameDifficultyAdmin(admin.ModelAdmin):
         return super().changelist_view(request, extra_context=extra_context)
 
     def queue_view(self, request):
-        from games.difficulty import SUPPORTED_GAME_IDS, _supported_placements
-        from games.difficulty_refresh import (
+        from games.daily.difficulty.core import SUPPORTED_GAME_IDS, _supported_placements
+        from games.daily.difficulty.refresh import (
             due_daily_difficulty_queryset,
             repair_daily_difficulty_queue,
             run_daily_difficulty_refresh,

@@ -9,7 +9,7 @@ from games.replacements_lines import (
     replacements_solved_slots_from_state,
     replacements_state_payload,
 )
-from games.util import clean_text
+from games.results.util import clean_text
 
 
 class ReplacementsLinesChecker(BaseChecker):

@@ -12,7 +12,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from games.daily_section import MOSCOW
-from games.difficulty import (
+from games.daily.difficulty.core import (
     _censored_median,
     _public_context,
     blend_difficulty_ratios,
@@ -35,7 +35,7 @@ from games.difficulty import (
     refresh_interval_for_age,
     retry_delay_for_fail_count,
 )
-from games.difficulty_refresh import (
+from games.daily.difficulty.refresh import (
     ClaimedDifficultyRefresh,
     claim_due_daily_difficulties,
     repair_daily_difficulty_queue,
@@ -533,7 +533,7 @@ class DifficultyObservationTests(TestCase):
 
     def test_page_reads_do_not_calculate_missing_snapshots(self):
         DailyGameDifficulty.objects.filter(placement=self.placement).delete()
-        with patch('games.difficulty.calculate_game_difficulty') as calc:
+        with patch('games.daily.difficulty.core.calculate_game_difficulty') as calc:
             self.assertEqual(get_cached_game_difficulties([self.placement]), {})
             self.assertIsNone(get_game_difficulty(self.placement))
         calc.assert_not_called()
@@ -602,7 +602,7 @@ class DifficultyObservationTests(TestCase):
             'metrics': {},
         }
         with patch(
-            'games.difficulty_refresh.calculate_game_difficulty', return_value=visible,
+            'games.daily.difficulty.refresh.calculate_game_difficulty', return_value=visible,
         ) as calc:
             results = refresh_due_daily_difficulties(
                 now=now,
@@ -726,7 +726,7 @@ class CensorlyDifficultyObservationTests(TestCase):
         self.assertEqual(metrics['median_time'], 20)
 
     def test_random_censorly_placements_do_not_enter_daily_difficulty(self):
-        from games.difficulty import _supported_placements
+        from games.daily.difficulty.core import _supported_placements
 
         self.assertIsNone(ensure_daily_difficulty_row(self.random_placement))
         self.assertNotIn(
@@ -800,7 +800,7 @@ class DifficultyHistoricalNormTests(TestCase):
         history = self._placement(ladder, 9911)
         _write_snapshot(history, n=30, payload={'metrics': {'median_time': 42}})
         refresh_historical_norm('ladder')
-        with patch('games.difficulty._norm_values_from_snapshots') as scan:
+        with patch('games.daily.difficulty.core._norm_values_from_snapshots') as scan:
             norm = historical_norm(current, _metrics(median_time=10))
         scan.assert_not_called()
         self.assertEqual(norm['median_time'], 42)
@@ -883,7 +883,7 @@ class DifficultySchedulerTests(TestCase):
         self.assertTrue(is_difficulty_refresh_due(placement, snapshot, now=now))
 
         visible = _rating_result(placement)
-        with patch('games.difficulty_refresh.calculate_game_difficulty', return_value=visible):
+        with patch('games.daily.difficulty.refresh.calculate_game_difficulty', return_value=visible):
             results = refresh_due_daily_difficulties(now=now, limit=10, game_ids=('ladder',))
         self.assertEqual(len(results), 1)
         snapshot = DailyGameDifficulty.objects.get(placement=placement)
@@ -914,7 +914,7 @@ class DifficultySchedulerTests(TestCase):
             )
 
         with patch(
-            'games.difficulty_refresh.calculate_game_difficulty',
+            'games.daily.difficulty.refresh.calculate_game_difficulty',
             side_effect=lambda placement, **kwargs: _rating_result(placement),
         ):
             results = run_minute_difficulty_refresh(now=now)
@@ -934,7 +934,7 @@ class DifficultySchedulerTests(TestCase):
         )
 
         with patch(
-            'games.difficulty.published_at_for_placement',
+            'games.daily.difficulty.core.published_at_for_placement',
             return_value=new_publish_at,
         ):
             ensure_daily_difficulty_row(placement, now=now)
@@ -955,7 +955,7 @@ class DifficultySchedulerTests(TestCase):
         )
 
         with patch(
-            'games.difficulty.published_at_for_placement',
+            'games.daily.difficulty.core.published_at_for_placement',
             return_value=now - timedelta(hours=2),
         ):
             ensure_daily_difficulty_row(placement, now=now)
@@ -977,7 +977,7 @@ class DifficultySchedulerTests(TestCase):
         with patch(
             'games.daily_section.current_number_for', return_value=8816,
         ), patch(
-            'games.difficulty.published_at_for_placement', return_value=published_at,
+            'games.daily.difficulty.core.published_at_for_placement', return_value=published_at,
         ):
             created = ensure_recent_difficulty_rows(now=now, game_ids=('ladder',))
 
@@ -1050,7 +1050,7 @@ class DifficultySchedulerTests(TestCase):
             'unrelated': 'value',
         }
 
-        with patch('games.difficulty.sync_daily_difficulty_schedule') as sync:
+        with patch('games.daily.difficulty.core.sync_daily_difficulty_schedule') as sync:
             game.save(update_fields=['tags'])
 
         sync.assert_not_called()
@@ -1058,7 +1058,7 @@ class DifficultySchedulerTests(TestCase):
     def test_worker_writes_queue_heartbeat(self):
         now = timezone.now()
         with patch(
-            'games.difficulty_refresh.refresh_due_daily_difficulties',
+            'games.daily.difficulty.refresh.refresh_due_daily_difficulties',
             return_value=[{'game_id': 'ladder', 'number': '54'}],
         ):
             results = run_daily_difficulty_refresh(now=now, limit=7, worker='test')
@@ -1082,7 +1082,7 @@ class DifficultySchedulerTests(TestCase):
         )
 
         with patch(
-            'games.difficulty.published_at_for_placement',
+            'games.daily.difficulty.core.published_at_for_placement',
             return_value=published_at,
         ):
             report = repair_daily_difficulty_queue(now=now)
@@ -1109,7 +1109,7 @@ class DifficultySchedulerTests(TestCase):
         placement = self._placement(8802)
         snapshot = self._due_snapshot(placement, now=now)
         visible = _rating_result(placement)
-        with patch('games.difficulty_refresh.calculate_game_difficulty', return_value=visible):
+        with patch('games.daily.difficulty.refresh.calculate_game_difficulty', return_value=visible):
             refresh_due_daily_difficulties(now=now, limit=10, game_ids=('ladder',))
 
         mark_game_difficulty_changed(placement_id=placement.pk)
@@ -1120,7 +1120,7 @@ class DifficultySchedulerTests(TestCase):
 
         later = snapshot.refresh_not_before
         self.assertTrue(is_difficulty_refresh_due(placement, snapshot, now=later))
-        with patch('games.difficulty_refresh.calculate_game_difficulty', return_value=visible) as calc:
+        with patch('games.daily.difficulty.refresh.calculate_game_difficulty', return_value=visible) as calc:
             results = refresh_due_daily_difficulties(now=later, limit=10, game_ids=('ladder',))
         calc.assert_called()
         self.assertEqual(results[0]['placement_id'], placement.pk)
@@ -1251,8 +1251,8 @@ class DifficultySchedulerTests(TestCase):
         placement = self._placement(8808)
         self._due_snapshot(placement, now=now, revision=4)
         claimed = claim_due_daily_difficulties(now=now, limit=1, game_ids=('ladder',))[0]
-        with patch('games.difficulty_refresh.logger'), patch(
-            'games.difficulty_refresh.calculate_game_difficulty',
+        with patch('games.daily.difficulty.refresh.logger'), patch(
+            'games.daily.difficulty.refresh.calculate_game_difficulty',
             side_effect=RuntimeError('boom'),
         ):
             self.assertIsNone(refresh_claimed_difficulty(claimed, now=now))
@@ -1268,7 +1268,7 @@ class DifficultySchedulerTests(TestCase):
         later = snapshot.refresh_not_before
         claimed_again = claim_due_daily_difficulties(now=later, limit=1, game_ids=('ladder',))[0]
         visible = _rating_result(placement)
-        with patch('games.difficulty_refresh.calculate_game_difficulty', return_value=visible):
+        with patch('games.daily.difficulty.refresh.calculate_game_difficulty', return_value=visible):
             self.assertIsNotNone(refresh_claimed_difficulty(claimed_again, now=later))
         snapshot = DailyGameDifficulty.objects.get(placement=placement)
         self.assertEqual(snapshot.refresh_fail_count, 0)
@@ -1302,7 +1302,7 @@ class DifficultySchedulerTests(TestCase):
             refresh_not_before=now - timedelta(days=8),
             published_at=now - timedelta(days=40),
         )
-        with patch('games.difficulty_refresh.calculate_game_difficulty') as calc:
+        with patch('games.daily.difficulty.refresh.calculate_game_difficulty') as calc:
             results = refresh_due_daily_difficulties(now=now, limit=10, game_ids=('ladder',))
         calc.assert_not_called()
         self.assertEqual(results, [])
@@ -1312,7 +1312,7 @@ class DifficultySchedulerTests(TestCase):
         self.assertTrue(snapshot.dirty)
         self.assertTrue(is_difficulty_refresh_due(placement=old, snapshot=snapshot, now=now))
         visible = _rating_result(old)
-        with patch('games.difficulty_refresh.calculate_game_difficulty', return_value=visible) as calc:
+        with patch('games.daily.difficulty.refresh.calculate_game_difficulty', return_value=visible) as calc:
             results = refresh_due_daily_difficulties(now=now, limit=10, game_ids=('ladder',))
         calc.assert_called()
         self.assertEqual(results[0]['placement_id'], old.pk)
@@ -1320,7 +1320,7 @@ class DifficultySchedulerTests(TestCase):
     def test_page_open_does_not_calculate(self):
         placement = self._placement(8811)
         DailyGameDifficulty.objects.filter(placement=placement).delete()
-        with patch('games.difficulty.calculate_game_difficulty') as calc:
+        with patch('games.daily.difficulty.core.calculate_game_difficulty') as calc:
             self.assertIsNone(get_game_difficulty(placement))
             self.assertEqual(get_cached_game_difficulties([placement]), {})
         calc.assert_not_called()

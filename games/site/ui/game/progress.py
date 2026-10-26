@@ -166,7 +166,7 @@ def _task_group_results_nav_context(game, placement):
 def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
     """Task group list for game hub pages; actor progress is loaded separately."""
     task_groups = list(task_groups)
-    from games.difficulty import get_cached_game_difficulties
+    from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties(task_groups)
     return [
         {

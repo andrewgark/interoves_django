@@ -299,7 +299,7 @@ def render_new_ui_task_card_html(
     )
     difficulty = None
     if is_daily_single_task and slot is not None:
-        from games.difficulty import get_cached_game_difficulties
+        from games.daily.difficulty.core import get_cached_game_difficulties
         difficulty = get_cached_game_difficulties([slot]).get(slot.pk)
     from games.results.share import share_host_from_request
     return render(request, 'new/partials/task_card.html', {

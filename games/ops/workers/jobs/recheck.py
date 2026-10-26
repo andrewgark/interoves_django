@@ -302,7 +302,7 @@ def recheck_chain_task(
                 replayed_attempts,
                 ['status', 'possible_status', 'points', 'state', 'comment', 'skip'],
             )
-            from games.difficulty import mark_game_difficulty_changed
+            from games.daily.difficulty.core import mark_game_difficulty_changed
             transaction.on_commit(
                 lambda task_id=task.pk, game_id=game.pk, task_group_id=task.task_group_id:
                 mark_game_difficulty_changed(

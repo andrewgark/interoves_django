@@ -580,7 +580,7 @@ def new_task_group_page(
 
     difficulty = None
     if draft_offer is None and isinstance(placement, GameTaskGroup):
-        from games.difficulty import get_game_difficulty
+        from games.daily.difficulty.core import get_game_difficulty
         difficulty = get_game_difficulty(placement)
 
     from games.site.views.daily.timing import daily_timing_page_context

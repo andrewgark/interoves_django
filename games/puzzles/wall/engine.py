@@ -2,7 +2,7 @@ from collections import Counter
 import json
 from django.template import Context
 from django.template.loader import get_template
-from games.util import clean_text
+from games.results.util import clean_text
 
 class WallTile:
     def __init__(self, id, text):

@@ -2,7 +2,7 @@ from django.contrib import admin, messages
 from django.forms import Textarea, ModelForm, ModelMultipleChoiceField
 from django.db import models
 from django.utils.html import format_html, format_html_join
-from games.ops_actions import (
+from games.ops.workers.jobs.actions import (
     confirm_attempt_prestatus,
     run_recheck,
 )

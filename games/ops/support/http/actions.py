@@ -5,7 +5,7 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 from games.models import Attempt, BugReport, TicketRequest
-from games.ops_actions import (
+from games.ops.workers.jobs.actions import (
     accept_ticket,
     confirm_attempt_prestatus,
     reject_ticket,

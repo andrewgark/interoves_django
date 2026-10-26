@@ -373,7 +373,7 @@ def _ladder_task_group_rows(
     item_label='Лесенка',
 ):
     task_groups = list(task_groups)
-    from games.difficulty import get_cached_game_difficulties
+    from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties(task_groups)
     endpoints_by_task_group = {}
     if game.id == LADDER_GAME_ID:

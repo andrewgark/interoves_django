@@ -3,7 +3,7 @@ import json
 
 from django.core.validators import RegexValidator
 from django.db import models, transaction
-from games.util import better_status
+from games.results.util import better_status
 
 class AttemptsInfo:
     def __init__(self, best_attempt, attempts, hint_attempts, letter_hint_penalty=None):

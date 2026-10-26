@@ -11,8 +11,8 @@ from django.db.models import Q
 from django.utils import timezone
 
 from games.cron_lock import distributed_cron_lock
-from games.difficulty import SUPPORTED_GAME_IDS, _supported_placements
-from games.difficulty_refresh import (
+from games.daily.difficulty.core import SUPPORTED_GAME_IDS, _supported_placements
+from games.daily.difficulty.refresh import (
     DIFFICULTY_REFRESH_LOCK,
     DIFFICULTY_REFRESH_LOCK_TTL_SECONDS,
     due_daily_difficulty_queryset,

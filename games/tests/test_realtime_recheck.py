@@ -15,7 +15,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.ops_actions import confirm_attempt_prestatus, set_attempt_ok
+from games.ops.workers.jobs.actions import confirm_attempt_prestatus, set_attempt_ok
 from games.ops.workers.jobs.recheck import recheck
 
 
@@ -66,13 +66,13 @@ class RealtimeAttemptReviewTests(TestCase):
 
     def test_set_ok_publishes_actor_task_change(self):
         attempt = self.make_attempt()
-        with patch('games.ops_actions.track_attempt_change') as notify:
+        with patch('games.ops.workers.jobs.actions.track_attempt_change') as notify:
             set_attempt_ok(attempt)
         notify.assert_called_once_with(attempt, reason='attempt.set_ok')
 
     def test_confirm_prestatus_publishes_actor_task_change(self):
         attempt = self.make_attempt(possible_status='Wrong')
-        with patch('games.ops_actions.track_attempt_change') as notify:
+        with patch('games.ops.workers.jobs.actions.track_attempt_change') as notify:
             confirm_attempt_prestatus(attempt)
         notify.assert_called_once_with(attempt, reason='attempt.prestatus_confirmed')
 

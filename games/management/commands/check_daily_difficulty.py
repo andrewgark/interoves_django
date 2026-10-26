@@ -2,7 +2,7 @@
 
 from django.core.management.base import BaseCommand
 
-from games.difficulty_health import run_daily_difficulty_health_check
+from games.daily.difficulty.health import run_daily_difficulty_health_check
 
 
 class Command(BaseCommand):

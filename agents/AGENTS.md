@@ -225,6 +225,9 @@ If the resolved version is empty, the client check is skipped.
 | Word salad async recheck queue | `games.ops.workers.jobs.salad` | `games.word_salad_recheck` |
 | HTML-forms puzzle rendering | `games.puzzles.replacements.forms` | `games.html_forms` |
 | Results leaderboard semantics | `games.results.standings.leaderboard` | `games.leaderboard` |
+| Daily difficulty cache | `games.daily.difficulty.{core,refresh,health}` | `games.difficulty`, `difficulty_refresh`, `difficulty_health` |
+| Admin/support attempt ops | `games.ops.workers.jobs.actions` | `games.ops_actions` |
+| Attempt text normalize helpers | `games.results.util` | `games.util` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

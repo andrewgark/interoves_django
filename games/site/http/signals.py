@@ -298,7 +298,7 @@ def daily_difficulty_publish_schedule_saved(sender, instance, created, **kwargs)
     if created:
         return
     from games.daily_section import schedule_for
-    from games.difficulty import SUPPORTED_GAME_IDS, sync_daily_difficulty_schedule
+    from games.daily.difficulty.core import SUPPORTED_GAME_IDS, sync_daily_difficulty_schedule
 
     schedule = schedule_for(instance.pk)
     old = getattr(instance, '_game_old_snapshot', None)
@@ -470,7 +470,7 @@ def _mark_daily_difficulty_changed(*, task_id=None, game_id=None, task_group_id=
 
 
 def _mark_daily_difficulty_changed_after_commit(*, task_id=None, game_id=None, task_group_id=None):
-    from games.difficulty import mark_game_difficulty_changed
+    from games.daily.difficulty.core import mark_game_difficulty_changed
     mark_game_difficulty_changed(
         task_id=task_id,
         game_id=game_id,
@@ -512,7 +512,7 @@ def daily_difficulty_task_saved(sender, instance, created, **kwargs):
     task_group_id = instance.task_group_id
 
     def mark_content_changed():
-        from games.difficulty import mark_game_difficulty_content_changed
+        from games.daily.difficulty.core import mark_game_difficulty_content_changed
         mark_game_difficulty_content_changed(task_group_id=task_group_id)
 
     transaction.on_commit(mark_content_changed)
@@ -520,6 +520,6 @@ def daily_difficulty_task_saved(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=GameTaskGroup, dispatch_uid='daily-difficulty-placement-ensure')
 def daily_difficulty_placement_saved(sender, instance, **kwargs):
-    from games.difficulty import SUPPORTED_GAME_IDS, ensure_daily_difficulty_row
+    from games.daily.difficulty.core import SUPPORTED_GAME_IDS, ensure_daily_difficulty_row
     if instance.game_id in SUPPORTED_GAME_IDS:
         ensure_daily_difficulty_row(instance)

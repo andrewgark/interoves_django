@@ -7,7 +7,7 @@ from games.alphabetty.random_game import (
     RandomAlphabettyDictionaryExhausted,
     get_or_create_random_game,
 )
-from games.difficulty import ensure_daily_difficulty_row, get_game_difficulty
+from games.daily.difficulty.core import ensure_daily_difficulty_row, get_game_difficulty
 from games.models import (
     CheckerType,
     DailySolveTiming,

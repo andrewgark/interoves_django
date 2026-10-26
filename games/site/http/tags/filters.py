@@ -5,7 +5,7 @@ from allauth.socialaccount.models import SocialApp
 from django.utils import timezone
 from games.access import game_is_going_now
 from games.models import GameTaskGroup, Like, Attempt, Team, Task, Registration
-from games.util import clean_text, better_status
+from games.results.util import clean_text, better_status
 
 
 @register.simple_tag(takes_context=True)
