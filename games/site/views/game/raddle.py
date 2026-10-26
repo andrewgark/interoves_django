@@ -18,7 +18,7 @@ from games.daily.completion import daily_completion_effects_for_game
 from games.site.http.exceptions import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, RaddleUiState, Task
 from games.site.http.auth_observability import log_gameplay_attempt_created
-from games.identity.actor import ActorRefusal, resolve_gameplay_actor
+from games.identity import ActorRefusal, resolve_gameplay_actor
 from games.puzzles.raddle import RaddlePuzzle
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.site.session.replay import replay_for_request, StaleReplayError, _official_exists

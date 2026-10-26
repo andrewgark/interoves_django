@@ -12,7 +12,7 @@ from games.site.http.exceptions import (
 )
 from games.ops.analytics.events import register_started_game
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
-from games.identity.actor import ActorRefusal, resolve_gameplay_actor
+from games.identity import ActorRefusal, resolve_gameplay_actor
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
 from games.site.session.replay import StaleReplayError, replay_for_request
 from games.realtime.track_compat import track_actor_task_change

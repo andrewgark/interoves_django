@@ -223,6 +223,8 @@ If the resolved version is empty, the client check is skipped.
 | Censorly implementation | `games.puzzles.censorly.*` | `games.censorly.*` (module facades) |
 | Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | `games.grid_puzzle` |
 | SQS worker handlers | `games.site.views.workers.{background,identity,integrations,word_salad}` | `games.views.*_worker` |
+| Worker registry / ECS config / Lambda SQS | `games.ops.workers.{contract,config,lambda_entry}` | `games.worker_{contract,config,lambda}` |
+| Gameplay write actor (team/user/anon) | `games.identity` (`games.identity.actor`) | — |
 | Account / ticket / subscription | `games.site.views.account.*` | `games.views.ticket`, `subscription`, … |
 | Daily play (alphabetty, censorly) | `games.site.views.daily.*` | `games.views.alphabetty_views`, `censorly_views` |
 | Recheck / chain replay jobs | `games.ops.workers.jobs.recheck` | `games.recheck` |
