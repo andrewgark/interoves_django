@@ -39,6 +39,10 @@ LANGUAGE_LABEL_CONTEXTS = {
 # «умер», etc.).
 REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     ('ум', 'умереть', 'VERB'),
+    # «воскресеньем» is instrumental of воскресенье (Sunday). Reject the
+    # homographic instrumental analysis of воскресение, which falsely links
+    # the weekday to resurrection vocabulary.
+    ('воскресеньем', 'воскресение', 'NOUN'),
     # «домой» is the adverb «домой», not a form of «домыть».  The latter
     # pymorphy reading lets washing forms leak the root «мы» into an article
     # token that should belong to the «дом» family.

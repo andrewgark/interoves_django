@@ -5888,6 +5888,16 @@ CLUSTERS = tuple(
 # distinct modern meanings.  Ambiguous lemmas stay in their default bucket;
 # MULTI_READINGS below adds their other sense-specific memberships.
 _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # воскресенье is the day of the week; воскресение / воскрешение are
+    # resurrection.  The dictionary's historical крес family merges them.
+    ('sense:review_sunday', (
+        'воскресенье', 'воскресный', 'невоскресный', 'воскресник',
+    )),
+    ('sense:review_resurrection', (
+        'воскресать', 'воскреситель', 'воскресительница',
+        'воскресить', 'воскреснуть', 'воскресение', 'воскрешать',
+        'воскрешаться', 'воскрешение',
+    )),
     # The жал-/жалован- spelling covers several synchronically unrelated
     # families: salary, pity, complaint, and stinging.  Keep the split at
     # family level so an inflected form inherits the same decision.

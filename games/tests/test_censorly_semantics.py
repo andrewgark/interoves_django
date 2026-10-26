@@ -2389,6 +2389,11 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
             self.assertFalse(opens(left, right), f'{left} / {right}')
             self.assertFalse(opens(right, left), f'{right} / {left}')
 
+    def test_sunday_and_resurrection_senses_stay_apart(self):
+        self.assertFalse(opens('воскресенье', 'воскрешение'))
+        self.assertFalse(opens('воскресеньем', 'воскрешение'))
+        self.assertTrue(opens('воскресить', 'воскрешение'))
+
     def test_followup_semantic_split_batch_stays_apart(self):
         pairs = (
             ('страдание', 'страсть'),
