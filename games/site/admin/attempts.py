@@ -16,7 +16,7 @@ from games.models import (
     PendingAttempt,
     Task,
 )
-from games.recheck import (
+from games.ops.workers.jobs.recheck import (
     recheck_full,
     recheck_queue_from_this,
     recheck_queue_from_next,

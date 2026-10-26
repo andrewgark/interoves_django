@@ -97,7 +97,7 @@ def _resolve_actor(key):
 def _rebuild_actor_task(task, *, game, team, user, anon_key):
     if task.task_type not in ('wall', 'replacements_lines', 'html_forms', 'raddle', 'alphabetty', 'word_salad'):
         return
-    from games.recheck import recheck_chain_task, recheck_word_salad_actor
+    from games.ops.workers.jobs.recheck import recheck_chain_task, recheck_word_salad_actor
 
     kwargs = {
         'task': task,

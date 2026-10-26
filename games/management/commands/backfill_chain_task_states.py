@@ -13,7 +13,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 
 from games.models import Attempt, GameTaskGroup
-from games.recheck import recheck_chain_task
+from games.ops.workers.jobs.recheck import recheck_chain_task
 
 
 class Command(BaseCommand):

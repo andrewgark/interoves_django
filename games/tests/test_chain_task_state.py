@@ -19,7 +19,7 @@ from games.models import (
     PlayerCompletedGame, Project, Task, TaskGroup, Team, CHAIN_TASK_TYPES,
 )
 from games.exception import DuplicateAttemptException, TooManyAttemptsException
-from games.recheck import recheck_chain_task
+from games.ops.workers.jobs.recheck import recheck_chain_task
 from games.site.views.game.attempt import check_attempt
 from games.wall import Wall
 

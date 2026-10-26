@@ -160,7 +160,7 @@ def add_attempts_to_checker(
                 from games.word_salad_recheck import serialize_enqueue_results
                 bulk_result['queue_receipt'] = serialize_enqueue_results(receipts)
             if recheck_selected_non_chain:
-                from games.recheck import recheck
+                from games.ops.workers.jobs.recheck import recheck
                 for attempt in attempts:
                     if attempt.task.task_type not in CHAIN_TASK_TYPES:
                         recheck(None, attempt.pk)

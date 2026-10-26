@@ -7,7 +7,7 @@ from django.db import connection
 from django.test import TestCase
 
 from games.management.commands.audit_chain_task_state_completeness import AUDIT_SQL
-from games.recheck import recheck_chain_task
+from games.ops.workers.jobs.recheck import recheck_chain_task
 from games.tests.test_chain_task_state import (
     _ChainFixture,
     _make_attempt,

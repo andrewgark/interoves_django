@@ -51,7 +51,7 @@ class DailyProgressResetTests(TestCase):
         Attempt.manager.filter(pk=attempt.pk).update(time=when)
         return attempt
 
-    @patch('games.recheck.recheck_chain_task')
+    @patch('games.ops.workers.jobs.recheck.recheck_chain_task')
     def test_deletes_only_prepublication_attempts_and_rebuilds_chain(self, recheck):
         old = self._attempt(datetime(2026, 9, 21, 23, 59, tzinfo=MOSCOW))
         fresh = self._attempt(datetime(2026, 9, 22, 0, 1, tzinfo=MOSCOW))
@@ -186,7 +186,7 @@ class DailyProgressResetTests(TestCase):
         self.assertTrue(result[0]['reset'])
         rebuild.assert_called_once_with(self.game, self.task_group)
 
-    @patch('games.recheck.recheck_chain_task', side_effect=RuntimeError('recheck failed'))
+    @patch('games.ops.workers.jobs.recheck.recheck_chain_task', side_effect=RuntimeError('recheck failed'))
     def test_recheck_failure_rolls_back_cleanup(self, recheck):
         old = self._attempt(datetime(2026, 9, 21, 23, 59, tzinfo=MOSCOW))
         fresh = self._attempt(datetime(2026, 9, 22, 0, 1, tzinfo=MOSCOW))

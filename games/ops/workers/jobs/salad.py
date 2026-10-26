@@ -21,7 +21,7 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
-from games.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
+from games.ops.workers.jobs.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
 from games.runtime import runtime_role
 
 logger = logging.getLogger('application')
@@ -663,8 +663,8 @@ def _process_claimed_item(job, item, item_token):
                 )
                 credited = int(result.get('credited') or 0)
             elif actor is not None:
-                from games.recheck import recheck_chain_task
-                from games.recheck import _checker_extension_actor_is_complete
+                from games.ops.workers.jobs.recheck import recheck_chain_task
+                from games.ops.workers.jobs.recheck import _checker_extension_actor_is_complete
                 skipped_complete = _checker_extension_actor_is_complete(
                     task,
                     job.game,

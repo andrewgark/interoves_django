@@ -22,7 +22,7 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
-from games.recheck import recheck_chain_task
+from games.ops.workers.jobs.recheck import recheck_chain_task
 
 
 class Command(BaseCommand):

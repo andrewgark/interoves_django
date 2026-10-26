@@ -19,7 +19,7 @@ from games.models import (
     SocialAccount,
     Task,
 )
-from games.recheck import recheck_queue_from_next, recheck_full
+from games.ops.workers.jobs.recheck import recheck_queue_from_next, recheck_full
 
 
 def _invalidate_monthly_release_index(game_id):

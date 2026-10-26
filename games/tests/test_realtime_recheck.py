@@ -16,7 +16,7 @@ from games.models import (
     Team,
 )
 from games.ops_actions import confirm_attempt_prestatus, set_attempt_ok
-from games.recheck import recheck
+from games.ops.workers.jobs.recheck import recheck
 
 
 class RealtimeAttemptReviewTests(TestCase):
@@ -78,7 +78,7 @@ class RealtimeAttemptReviewTests(TestCase):
 
     def test_recheck_publishes_actor_task_change(self):
         attempt = self.make_attempt()
-        with patch('games.recheck.track_attempt_change') as notify:
+        with patch('games.ops.workers.jobs.recheck.track_attempt_change') as notify:
             rechecked = recheck(None, attempt.pk)
         self.assertEqual(rechecked.pk, attempt.pk)
         notify.assert_called_once_with(rechecked, reason='attempt.rechecked')

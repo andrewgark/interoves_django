@@ -11,7 +11,7 @@ from games.puzzles.core.check_runtime import CheckerFactory
 from games.models import (
     Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, ReplaySlot, Task, Team,
 )
-from games.recheck import recheck_chain_task
+from games.ops.workers.jobs.recheck import recheck_chain_task
 
 
 def _actor_filter(team_id, user_id, anon_key):

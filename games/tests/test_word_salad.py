@@ -33,7 +33,7 @@ from games.site.views.game.hint import process_send_hint_attempt
 from games.site.ui.play.context import build_task_group_task_context_dicts
 from games.site.ui.play.page import new_task_group_page
 from games.site.views.game.render import render_new_ui_task_card_html
-from games.recheck import recheck_word_salad_task
+from games.ops.workers.jobs.recheck import recheck_word_salad_task
 from games.word_salad import (
     OVERFLOW_HINT_SQUARE,
     archive_card_meta,

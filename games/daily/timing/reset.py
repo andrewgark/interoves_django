@@ -81,7 +81,7 @@ def _actor_objects(keys):
 
 
 def _rebuild_chain(task, game, team, user, anon_key, replay_slot):
-    from games.recheck import recheck_chain_task, recheck_word_salad_actor
+    from games.ops.workers.jobs.recheck import recheck_chain_task, recheck_word_salad_actor
 
     kwargs = dict(task=task, game=game, team=team, user=user, anon_key=anon_key,
                   replay_slot=replay_slot, notify=False)

@@ -675,7 +675,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
     if not isinstance(raw_words, list):
         return {'status': 'invalid_form'}
 
-    from games.recheck import sync_word_salad_finds
+    from games.ops.workers.jobs.recheck import sync_word_salad_finds
     from games.word_salad import build_ui_context, parse_task_payload
 
     stats = sync_word_salad_finds(

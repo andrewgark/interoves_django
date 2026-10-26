@@ -24,7 +24,7 @@ if __name__ == '__main__':
     django.setup()
 
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task  # noqa: E402
-from games.recheck import recheck_chain_task  # noqa: E402
+from games.ops.workers.jobs.recheck import recheck_chain_task  # noqa: E402
 
 
 def _actor_label(team, user, anon_key):

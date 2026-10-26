@@ -16,7 +16,7 @@ from games.models import (
     Task,
     TicketRequest,
 )
-from games.recheck import recheck_team_task_all_chronological
+from games.ops.workers.jobs.recheck import recheck_team_task_all_chronological
 from games.telegram.config import (
     admin_is_muted,
     announce_chat_ids,

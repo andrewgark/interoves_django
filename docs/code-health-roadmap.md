@@ -8,7 +8,8 @@
 - примерно 700 Python-файлов;
 - примерно 470 HTML-шаблонов;
 - крупные точки концентрации логики: `games/site/ui/*` (legacy import
-  `games.views.new_ui`), `games/models.py`, `games/site/admin`, `games/recheck.py`;
+  `games.views.new_ui`), `games/models.py`, `games/site/admin`,
+  `games/ops/workers/jobs/recheck.py` (фасад `games/recheck.py`);
 - одновременно существуют новый и legacy UI;
 - текущий тестовый вход — `run_tests.sh`, который уже включает responsive
   lint и проверку inline JavaScript;

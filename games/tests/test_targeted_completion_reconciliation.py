@@ -17,7 +17,7 @@ from games.models import (
     TaskGroup,
     WordSaladRecheckJob,
 )
-from games.recheck import recheck_word_salad_actor
+from games.ops.workers.jobs.recheck import recheck_word_salad_actor
 from games.word_salad_offer import reset_all_salad_progress, reset_salad_progress
 
 

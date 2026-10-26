@@ -12,7 +12,7 @@ from games.attempt_admin_bulk import (
     recheck_chain_attempts,
 )
 from games.replay_planner import _actor_groups
-from games.recheck import (
+from games.ops.workers.jobs.recheck import (
     _checker_extension_actor_is_complete,
     recheck_chain_task,
 )

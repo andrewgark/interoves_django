@@ -4,7 +4,7 @@ from unittest.mock import patch
 from django.test import TestCase
 
 from games.models import ChainTaskState, WordSaladRecheckItem, WordSaladRecheckJob, WordSaladRecheckOutbox
-from games.recheck import recheck_team_task_all_chronological
+from games.ops.workers.jobs.recheck import recheck_team_task_all_chronological
 from games.tests.test_chain_task_state import (
     _ChainFixture,
     _make_attempt,
@@ -23,7 +23,7 @@ class ChainRecheckQueueTests(_ChainFixture, TestCase):
         row.state = json.dumps({'solved_lines': [], 'total': 0})
         row.save(update_fields=['state'])
 
-        with patch('games.recheck.recheck_chain_task') as inline:
+        with patch('games.ops.workers.jobs.recheck.recheck_chain_task') as inline:
             job = recheck_team_task_all_chronological(None, attempt.id)
         inline.assert_not_called()
 

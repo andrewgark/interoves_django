@@ -221,6 +221,7 @@ If the resolved version is empty, the client check is skipped.
 | SQS worker handlers | `games.site.views.workers.{background,identity,integrations,word_salad}` | `games.views.*_worker` |
 | Account / ticket / subscription | `games.site.views.account.*` | `games.views.ticket`, `subscription`, … |
 | Daily play (alphabetty, censorly) | `games.site.views.daily.*` | `games.views.alphabetty_views`, `censorly_views` |
+| Recheck / chain replay jobs | `games.ops.workers.jobs.recheck` | `games.recheck` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 
