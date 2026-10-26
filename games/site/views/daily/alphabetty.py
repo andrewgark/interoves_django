@@ -30,7 +30,6 @@ from games.daily.page.archive import (
 )
 from games.daily.page.context import build_daily_lifecycle_context
 from games.daily.page.section import MOSCOW
-from games.daily.registry import get_daily_game
 from games.daily.timing.transitions import next_daily_content_transition_for_game
 from games.identity import has_profile
 from games.models import (
@@ -499,7 +498,6 @@ def alphabetty_play_page(request, number):
         anon_key=anon_key,
         placement=link if offer is None else None,
     )
-    daily_definition = get_daily_game(ALPHABETTY_GAME_ID)
     if offer is None and link is not None:
         page_title = task_group_page_title(game, link)
         bug_report_task_label = task_display_name(game, task, placement=link)

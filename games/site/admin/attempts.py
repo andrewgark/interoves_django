@@ -144,7 +144,7 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
 
     from games.models import WordSaladRecheckJob
 
-    chain_ids = _bulk_chain_recheck_ids(queryset)
+    _bulk_chain_recheck_ids(queryset)
 
     queued = 0
     non_chain_actor_keys = {}

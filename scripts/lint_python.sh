@@ -15,7 +15,13 @@ if [[ $# -gt 0 ]]; then
   exec "$RUFF" check "$@"
 fi
 
-mapfile -t CHANGED < <(git diff --name-only origin/master -- '*.py' 2>/dev/null | grep -v '^games/migrations/' || true)
+mapfile -t CHANGED < <(
+  {
+    git diff --name-only origin/master -- '*.py' 2>/dev/null || true
+    git diff --name-only HEAD -- '*.py' 2>/dev/null || true
+    git ls-files --others --exclude-standard '*.py' 2>/dev/null || true
+  } | sort -u | grep -v '^games/migrations/' || true
+)
 if [[ ${#CHANGED[@]} -eq 0 ]]; then
   echo "lint_python: no changed Python files vs origin/master; nothing to check"
   exit 0

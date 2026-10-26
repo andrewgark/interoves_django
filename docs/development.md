@@ -24,9 +24,33 @@
 
 `run_tests.sh` — обязательная точка входа для локальных Django-тестов: он
 запускает responsive/tooltip lint, [`scripts/lint_python.sh`](../scripts/lint_python.sh)
-(ruff по изменённым `*.py` vs `origin/master`), использует persistent SQLite test DB
+(ruff по изменённым и незакоммиченным `*.py`), использует persistent SQLite test DB
 и `--keepdb`, поэтому не пересоздаёт тестовую схему из сотен миграций при каждом запуске. Для параллельного запуска
 задай отдельный `INTEROVES_TEST_DB_PATH`.
+
+### Если `--keepdb` ведёт себя странно
+
+Persistent SQLite (`interoves_django.test_settings`) ускоряет прогоны, но **старая
+файловая БД** может расходиться с миграциями и фикстурами: массовые `DoesNotExist`,
+`IntegrityError`, «closed database» в websocket-тестах. Симптом — сотни ошибок на
+полном `./run_tests.sh`, тогда как узкий прогон на новом файле проходит.
+
+Пересоздать test DB:
+
+```bash
+./scripts/reset_test_db.sh
+./run_tests.sh
+```
+
+Или явно другой файл:
+
+```bash
+INTEROVES_TEST_DB_PATH=/tmp/interoves_test.sqlite3 ./scripts/reset_test_db.sh
+INTEROVES_TEST_DB_PATH=/tmp/interoves_test.sqlite3 ./run_tests.sh
+```
+
+Путь по умолчанию: `$TMPDIR/interoves-django-test.sqlite3` (см. `INTEROVES_TEST_DB_PATH`
+в [`interoves_django/test_settings.py`](../interoves_django/test_settings.py)).
 
 Специализированные проверки из `agents/AGENTS.md` обязательны, если изменение
 затрагивает соответствующую область: responsive UI, realtime, Raddle, deploy

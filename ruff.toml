@@ -9,3 +9,5 @@ ignore = ["E501"]
 
 [lint.per-file-ignores]
 "games/migrations/*.py" = ["E501", "I"]
+# URL facade: imports exist for ``ui.<name>`` re-exports, not local use.
+"games/site/views/pages/ui.py" = ["F401", "I001"]
