@@ -38,7 +38,7 @@ python3 -m venv ../venv/interoves_django
 | `docs/` | Архитектура и runbook’и |
 | `agents/` | Конventions для разработки и агентов ([`agents/AGENTS.md`](agents/AGENTS.md)) |
 | `microsites/`, `nutrimatic_bundle/` | Отдельные микросайты |
-| `infra/`, `iam/` | Шаблоны AWS / Elastic Beanstalk |
+| `infra/` | AWS (EB, ECS, IAM policy templates) |
 | `artifacts/` | Сохранённые аудиты и одноразовые планы |
 | `secrets/` | Локальные ключи и `.env` |
 

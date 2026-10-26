@@ -31,7 +31,7 @@
 ## Где искать код
 
 - `games/models/` — модели и локальные инварианты данных.
-- `games/site/` (views, ui, urls, http) — HTTP-слой и main UI.
+- `games/site/` (views, ui, urls, http) — HTTP-слой и main UI; `games/site/data/` — JSON для legacy meta100 endpoints (`meta.py`).
 - `games/ops/telegram/`, `games/ops/social/` — интеграционные адаптеры.
 - `games/management/commands/` — административные и разовые команды.
 - `scripts/` — deploy, cron, smoke-тесты и операционные инструменты.
@@ -41,7 +41,7 @@
 - `agents/` — доп. контекст для AI/агентов (deploy, UI, raddle и т.д.).
 - `artifacts/` — сохранённые аудиты, CSV/JSON-отчёты и одноразовые планы
   ([`artifacts/README.md`](../artifacts/README.md)).
-- `infra/`, `iam/` — политики и шаблоны AWS/EB (не runtime-секреты).
+- `infra/` — шаблоны AWS/EB/ECS и IAM policy JSON ([`infra/iam/`](infra/iam/)).
 - `artifacts/ads/` — состояние Yandex Direct CLI (`games.ops.social.ads`).
 
 Новые каталоги `services/`, `selectors/`, `policies/` или `integrations/` не

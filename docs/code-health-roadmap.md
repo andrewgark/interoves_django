@@ -51,7 +51,7 @@ Main UI уже в `games/site/ui` + `games/site/views/pages/ui.py`; дальше
 5. сохранить фасад совместимости, если он снижает риск импорта;
 6. только после нескольких переносов удалить доказанную копипасту.
 
-**Oct 26 follow-up:** убран barrel `games.site.views.pages.legacy` — `games.site.urls.{root,ui,old}` импортируют handlers напрямую; ladder tutorial в `games.daily.ladder.tutorial`; HTTP helpers в `games.site.http.request_util`.
+**Oct 26 follow-up:** убран barrel `games.site.views.pages.legacy` — `games.site.urls.{root,ui,old}` импортируют handlers напрямую; ladder tutorial в `games.daily.ladder.tutorial`; HTTP helpers в `games.site.http.request_util`; lazy `games.puzzles` и прямые offer-модели; `games/site/data/` (meta100 JSON); IAM templates в `infra/iam/`.
 
 Не пытаться заранее придумать идеальную конечную структуру.
 

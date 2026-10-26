@@ -1,45 +1,33 @@
 # Инвентаризация main UI (`games/site/ui/`)
 
-Код main UI живёт в пакете **`games/site/ui/`** (hub, play, results, profile, team, pay, …). URL handlers и neutral aliases — [`games/site/views/pages/ui.py`](../games/site/views/pages/ui.py). Legacy logger name: `games.views.new_ui`.
+Код main UI живёт в пакете **`games/site/ui/`**. URL handlers — [`games/site/views/pages/ui.py`](../games/site/views/pages/ui.py). Legacy logger name: `games.views.new_ui`.
 
-Ранее монолит `games/views/new_ui.py` декомпозирован; ниже — ориентиры по областям ответственности.
+## Модули по области
 
-## Наблюдаемые группы
+| Пакет / модуль | Ответственность |
+|----------------|-----------------|
+| [`hub/`](../games/site/ui/hub/) | Hub, карточки игр, folder/main game entry |
+| [`game/`](../games/site/ui/game/) | Страницы игры, progress, access |
+| [`play/`](../games/site/ui/play/) | Task group, answers, live, replay, reactions, context |
+| [`results/`](../games/site/ui/results/) | Results pages, compute |
+| [`profile/`](../games/site/ui/profile/) | Profile, anon migration, feedback, form |
+| [`team/`](../games/site/ui/team/) | Team UI |
+| [`pay/`](../games/site/ui/pay/) | Tickets, payments, Telegram linking |
 
-| Область | Примерный диапазон | Ответственность |
-|---|---:|---|
-| Общие helpers и progress context | 188–1269 | actor, task-group progress, navigation, section context |
-| Hub и страницы игр | 1271–2163 | hubs, folders, main game pages, project pages |
-| Results | 2164–3454 | results data, filters, pagination, result pages |
-| Gameplay и task UI | 3455–4948 | task context, answer actions, live state, replay |
-| Anonymous/account | 4949–5530 | anonymous migration, profile, account merge, social account |
-| Team и payments | 5531–6514 | team UI, tickets, Telegram linking, payment flows |
+Общие re-export и logger — [`games/site/ui/__init__.py`](../games/site/ui/__init__.py).
 
-Диапазоны являются ориентиром для чтения, а не инструкцией механически
-перенести строки с теми же границами.
+## Следующий безопасный срез (roadmap §3)
 
-## Первый безопасный срез
-
-Начинать следует не с общего `utils.py`, а с одного узкого, хорошо
-проверяемого среза:
-
-1. выбрать группу общих helpers/progress context;
-2. найти все вызовы и URL, которые используют выбранные функции;
-3. добавить тесты на текущий контракт;
-4. перенести только функции без изменения поведения;
-5. оставить импортный фасад в `new_ui.py`, если это уменьшает риск;
-6. после проверки отдельно удалить доказанное дублирование.
-
-На первом шаге не смешивать с results, payments, migrations, URL-renaming или
-форматированием всего файла.
+1. Выбрать один подпакет (например `play/context.py` или `hub/pages.py`).
+2. Зафиксировать URL names и тесты, которые вызывают его handlers.
+3. Перенести только helpers без смены поведения; не менять URL names.
+4. Не смешивать с payments, merge, migrations или mass-format.
 
 ## Риски
 
 - helpers используют общий доменный контекст и большое количество моделей;
 - часть функций одновременно готовит данные для HTML и JSON;
-- URL и шаблоны могут импортировать view напрямую;
 - account merge и payment flows являются production-sensitive;
-- перенос функций может менять порядок импортов и побочные эффекты startup.
+- перенос может менять порядок импортов и побочные эффекты startup.
 
-Поэтому первым критерием успеха является сохранение поведения и более ясная
-граница ответственности, а не уменьшение размера файла любой ценой.
+Критерий успеха — сохранение поведения и более ясная граница ответственности.
