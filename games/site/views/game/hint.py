@@ -104,7 +104,7 @@ def process_send_hint_attempt(request, task_id):
     unpublished = unpublished_scheduled_task_response(request, game, task)
     if unpublished is not None:
         return unpublished
-    from games.club_access import user_can_access_task_archive
+    from games.club.access.archive import user_can_access_task_archive
     if not user_can_access_task_archive(
         request.user, game, task, offer_share=request.POST.get('offer_share'),
     ):

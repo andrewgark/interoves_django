@@ -8,7 +8,7 @@ from django.db.models import Q
 from django.shortcuts import render
 from django.utils import timezone
 
-from games.daily_section import current_number_for
+from games.daily.page.section import current_number_for
 from games.tribute_config import club_archive_gating_enabled
 from games.word_salad import WORD_SALAD_GAME_ID
 

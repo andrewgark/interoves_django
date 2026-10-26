@@ -14,7 +14,7 @@ from django.utils import timezone
 
 
 
-from games.daily_section import (
+from games.daily.page.section import (
     is_scheduled_game,
     publish_at_for,
     scheduled_number_is_public,
@@ -27,7 +27,7 @@ from games.daily.registry import get_daily_game
 from games.daily.page.context import (
     build_daily_lifecycle_context,
 )
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
 from games.week_task_weekly import WEEK_TASK_GAME_ID
@@ -207,7 +207,7 @@ def new_task_group_page(
     if project_redirect is not None:
         return project_redirect
     if game.project_id != NEW_UI_SECTIONS_PROJECT:
-        from games.club_access import reject_if_club_archive_blocked
+        from games.club.access.archive import reject_if_club_archive_blocked
         locked = reject_if_club_archive_blocked(request, game, number=task_group_number)
         if locked is not None:
             return locked
@@ -310,7 +310,7 @@ def new_task_group_page(
             ladder_offer is None and salad_offer is None and share_placement is None
             and ladder_tutorial_task is None
         ):
-            from games.club_access import reject_if_club_archive_blocked
+            from games.club.access.archive import reject_if_club_archive_blocked
 
             locked = reject_if_club_archive_blocked(
                 request, game, number=task_group_number,

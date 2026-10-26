@@ -50,9 +50,9 @@ from games.censorly_daily import (
     visible_censorly_links,
 )
 from games.completion_coordinator import complete_logical_game
-from games.club_access import has_club_access
+from games.club.access.archive import has_club_access
 from games.daily.page.context import build_daily_lifecycle_context, daily_statistics_url
-from games.daily_archive import (
+from games.daily.page.archive import (
     links_for_archive_month,
     prepare_daily_archive,
     refresh_daily_archive_context,
@@ -428,7 +428,7 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
 
     if resolve_accessible_daily_placement(game, n, user=request.user) is None:
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not published'}, status=404)
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
 
     locked = reject_if_club_archive_blocked(request, game, number=n, json_mode=json_mode)
     if locked is not None:

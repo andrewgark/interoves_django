@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from allauth.socialaccount.models import SocialApp
 
-from games.club_access import has_club_access
+from games.club.access.archive import has_club_access
 from games.club_yookassa import (
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,

@@ -27,7 +27,7 @@ class MainPageView(View):
             if game.has_access('see_game_preview', team=team):
                 games_list.append(game)
         games_list = sorted(games_list, key=lambda game: (game.start_time, game.name), reverse=True)
-        from games.club_access import user_can_access_desyatka
+        from games.club.access.archive import user_can_access_desyatka
         for game in games_list:
             game.is_archive_locked = not user_can_access_desyatka(request.user, game)
         return games_list

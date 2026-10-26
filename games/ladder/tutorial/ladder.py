@@ -128,7 +128,7 @@ def with_ladder_tutorial_link(rules_html, tutorial_url):
 
 def is_new_ladder_player(*, user=None, anon_key=None):
     """No Ladder started yet: the player is offered the tutorial."""
-    from games.ladder_daily import LADDER_GAME_ID
+    from games.daily.catalog.ladder import LADDER_GAME_ID
     from games.models import PlayerCompletedGame, PlayerStartedGame
 
     if user is not None:

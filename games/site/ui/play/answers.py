@@ -86,7 +86,7 @@ def new_get_answer(request, task_id):
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
             raise Http404()
 
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
 
     locked = reject_if_club_archive_blocked(request, game, task=task, json_mode=True)
     if locked is not None:
@@ -142,7 +142,7 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, task=task, json_mode=True)
     if locked is not None:
         return locked
@@ -207,7 +207,7 @@ def new_get_raddle_word_answer(request, task_id, word_index):
     from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, task=task, json_mode=True)
     if locked is not None:
         return locked

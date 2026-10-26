@@ -297,7 +297,7 @@ def daily_difficulty_publish_schedule_saved(sender, instance, created, **kwargs)
     """Refresh schedule-dependent projections and difficulty deadlines."""
     if created:
         return
-    from games.daily_section import schedule_for
+    from games.daily.page.section import schedule_for
     from games.daily.difficulty.core import SUPPORTED_GAME_IDS, sync_daily_difficulty_schedule
 
     schedule = schedule_for(instance.pk)

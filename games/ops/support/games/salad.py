@@ -35,7 +35,7 @@ from games.word_salad_daily import (
     word_salad_publish_at,
     word_salad_publish_start,
 )
-from games.daily_section import MOSCOW
+from games.daily.page.section import MOSCOW
 from games.support.services.schedule_links import defer_future_slot, restore_deferred_slot
 
 WORD_SALAD_SECTION_TITLE = 'Салатик'

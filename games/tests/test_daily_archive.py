@@ -4,7 +4,7 @@ from types import SimpleNamespace
 from django.test import SimpleTestCase
 from django.http import QueryDict
 
-from games.daily_archive import (
+from games.daily.page.archive import (
     build_daily_archive_context,
     build_daily_archive_items,
     archive_query_string,

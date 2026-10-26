@@ -21,7 +21,7 @@ from games.analytics import (
     queue_pending_goal,
     yandex_goal_payload,
 )
-from games.club_access import get_club_subscription, has_club_access
+from games.club.access.archive import get_club_subscription, has_club_access
 from games.club_yookassa import (
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,

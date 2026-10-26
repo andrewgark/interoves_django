@@ -17,7 +17,7 @@ from typing import Any, Optional
 from django.db import transaction
 from django.utils import timezone
 
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
     LADDER_PUBLISH_START_TAG,
     MOSCOW,
@@ -249,7 +249,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
 
 
 def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
-    from games.ladder_daily import LADDER_GAME_ID
+    from games.daily.catalog.ladder import LADDER_GAME_ID
     from games.sections.placement_share import site_urls_by_task_group
 
     return site_urls_by_task_group(LADDER_GAME_ID, task_group_ids)

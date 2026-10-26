@@ -29,7 +29,7 @@ def build_user_context(user, *, feed_kwargs):
         title = '{} {}'.format(profile.first_name, profile.last_name).strip()
     else:
         title = user.username
-    from games.club_access import get_club_subscription, has_club_access
+    from games.club.access.archive import get_club_subscription, has_club_access
 
     subscription = get_club_subscription(user)
     return {
@@ -123,7 +123,7 @@ def _user_flags(user, profile):
         flags.append('team_on:{}'.format(profile.team_on_id))
     if profile and profile.telegram_verified and profile.telegram_user_id:
         flags.append('telegram:{}'.format(profile.telegram_user_id))
-    from games.club_access import get_club_subscription, has_club_access
+    from games.club.access.archive import get_club_subscription, has_club_access
 
     if has_club_access(user):
         flags.append('club:yes')

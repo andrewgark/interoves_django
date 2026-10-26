@@ -10,7 +10,7 @@ from django.core.files.base import ContentFile
 from django.test import TestCase, override_settings
 from PIL import Image
 
-from games.ladder_daily import LADDER_PUBLISH_START_TAG
+from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 from games.models import Game, GameTaskGroup, Project, Task, TaskGroup
 from games.social.models import SocialQueuePost
 from games.telegram.ladder_channel import (

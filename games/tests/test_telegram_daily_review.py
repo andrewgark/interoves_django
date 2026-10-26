@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 
 from games.alphabetty_daily import ALPHABETTY_PUBLISH_START_TAG
 from games.daily.catalog.censorly import CENSORLY_PUBLISH_START_TAG
-from games.ladder_daily import LADDER_PUBLISH_START_TAG
+from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 from games.models import Game, GameTaskGroup, Project, Task, TaskGroup
 from games.telegram.daily_review import build_daily_review, process_daily_review_tick
 from games.telegram.models import TelegramDailyReview

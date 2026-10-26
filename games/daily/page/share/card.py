@@ -809,7 +809,7 @@ def publish_date_for(game, number) -> Optional[date]:
     if game is None or number is None:
         return None
     try:
-        from games.daily_section import publish_at_for
+        from games.daily.page.section import publish_at_for
         pub_at = publish_at_for(game, number)
     except Exception:
         return None

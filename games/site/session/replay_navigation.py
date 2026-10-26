@@ -58,7 +58,7 @@ def replay_game_and_placement(game_id, task_group_number, project_id=None, *, us
     else:
         game = get_object_or_404(Game, id=game_id)
     from games.daily.page.placement import resolve_accessible_daily_placement
-    from games.daily_section import is_scheduled_game
+    from games.daily.page.section import is_scheduled_game
     from games.sections.placement_share import is_share_hash_segment
 
     if is_scheduled_game(game.id) or is_share_hash_segment(str(task_group_number)):

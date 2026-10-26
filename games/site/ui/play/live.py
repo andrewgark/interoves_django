@@ -12,7 +12,7 @@ from django.utils import timezone
 
 
 
-from games.daily_section import (
+from games.daily.page.section import (
     scheduled_number_is_public,
 )
 from games.models import (
@@ -128,7 +128,7 @@ def new_task_group_live_state(request, game_id, project_id=None):
         raise Http404()
 
     if not request.user.is_staff:
-        from games.club_access import reject_if_club_archive_blocked
+        from games.club.access.archive import reject_if_club_archive_blocked
         from games.site.views.game.context import unpublished_scheduled_task_response
 
         for placement in placements:

@@ -2,7 +2,7 @@
 
 from games.models import GameTaskGroup
 from games.sections.placement_share import is_share_hash_segment, placement_by_share_hash
-from games.daily_section import is_scheduled_game, scheduled_number_is_public
+from games.daily.page.section import is_scheduled_game, scheduled_number_is_public
 
 
 def resolve_daily_placement(game, number):

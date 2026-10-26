@@ -5,7 +5,7 @@ from django.template.loader import render_to_string
 from django.test import SimpleTestCase
 from django.utils import timezone
 
-from games.ladder_daily import LADDER_PUBLISH_START_TAG
+from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 from games.sections.hub import (
     HUB_FROM_DESYATOCHKI_SECTION_IDS,
     create_game_link_context,

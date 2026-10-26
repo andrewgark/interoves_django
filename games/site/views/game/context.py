@@ -3,7 +3,7 @@
 import logging
 import uuid
 
-from games.daily_section import is_scheduled_game, scheduled_number_is_public
+from games.daily.page.section import is_scheduled_game, scheduled_number_is_public
 from games.models import GameTaskGroup
 
 

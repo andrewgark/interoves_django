@@ -5,7 +5,7 @@ from django.test import SimpleTestCase, TestCase
 from django.template.loader import render_to_string
 from django.utils import timezone
 
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_PUBLISH_START_TAG,
     current_ladder_number,
     get_ladder_hub_context,
@@ -149,7 +149,7 @@ class FilterPublishedLadderLinksTests(TestCase):
         from zoneinfo import ZoneInfo
 
         from games import ladder_daily
-        from games.ladder_daily import filter_published_ladder_links
+        from games.daily.catalog.ladder import filter_published_ladder_links
         from games.models import GameTaskGroup
 
         game = Game.objects.get(id='ladder', project_id='sections')

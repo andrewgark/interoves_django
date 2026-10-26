@@ -29,7 +29,7 @@ def results_attempts_scope_game(game, mode):
     scope there to cut bulk volume on the hot /section/ladder/results/ path.
     """
     if mode == 'general' and getattr(game, 'project_id', None) == 'sections':
-        from games.ladder_daily import LADDER_GAME_ID
+        from games.daily.catalog.ladder import LADDER_GAME_ID
 
         if game.id == LADDER_GAME_ID:
             return game

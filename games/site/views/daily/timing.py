@@ -14,7 +14,7 @@ from django.views.decorators.http import require_http_methods
 from django.db import OperationalError
 from games.middleware.db_transient_response import mysql_error_code
 
-from games.daily_section import (
+from games.daily.page.section import (
     is_daily_team_timing_game,
     is_scheduled_game,
     scheduled_number_is_public,
@@ -148,7 +148,7 @@ def _load_daily_target(
     if is_numbered:
         if is_scheduled_game(game.id) and not scheduled_number_is_public(game, raw_number) and not request.user.is_staff:
             return None, None, None, None, None, _json_error('not_published', 404)
-        from games.club_access import user_can_access_scheduled_number
+        from games.club.access.archive import user_can_access_scheduled_number
 
         if not user_can_access_scheduled_number(request.user, game, raw_number):
             return None, None, None, None, None, _json_error('club_required', 403)

@@ -6,7 +6,7 @@ from django.contrib.auth.models import Group, User
 from django.test import Client, TestCase
 from django.urls import reverse
 
-from games.ladder_daily import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
+from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
 from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task
 from games.support.constants import SUPPORT_CONSOLE_GROUP
 from games.support.services import ladders as ladder_svc

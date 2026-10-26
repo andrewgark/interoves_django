@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from allauth.socialaccount.models import SocialApp
 
-from games.club_access import (
+from games.club.access.archive import (
     has_club_access,
     is_within_free_archive_window,
     scheduled_number_requires_club,
@@ -607,7 +607,7 @@ class ClubArchiveAccessTests(TestCase):
         game.tags = {'ladder_publish_start': '2026-07-08T00:00:00+03:00'}
         game.save()
         cls.game = game
-        from games.daily_section import current_number_for
+        from games.daily.page.section import current_number_for
 
         cls.today = current_number_for(game) or 60
         cls.recent_free = max(1, int(cls.today) - 3)
@@ -745,7 +745,7 @@ class ClubArchiveAccessTests(TestCase):
         )
         Registration.objects.create(game=game, team=team)
 
-        with patch('games.club_access._latest_desyatka_numbers', return_value={2, 3, 4, 5, 6, 7, 8}):
+        with patch('games.club.access.archive._latest_desyatka_numbers', return_value={2, 3, 4, 5, 6, 7, 8}):
             self.assertFalse(has_club_access(self.user))
             self.assertTrue(user_can_access_desyatka(self.user, game))
 
@@ -762,7 +762,7 @@ class ClubArchiveAccessTests(TestCase):
         )
         GameAuthor.objects.create(game=game, profile=self.user.profile)
 
-        with patch('games.club_access._latest_desyatka_numbers', return_value={3, 4, 5, 6, 7, 8, 9}):
+        with patch('games.club.access.archive._latest_desyatka_numbers', return_value={3, 4, 5, 6, 7, 8, 9}):
             self.assertTrue(user_can_access_desyatka(self.user, game))
             self.assertTrue(user_can_access_task_archive(self.user, game, task))
 
@@ -774,7 +774,7 @@ class ClubArchiveAccessTests(TestCase):
         )
         GameAuthor.objects.create(game=game, team=team)
 
-        with patch('games.club_access._latest_desyatka_numbers', return_value={4, 5, 6, 7, 8, 9, 10}):
+        with patch('games.club.access.archive._latest_desyatka_numbers', return_value={4, 5, 6, 7, 8, 9, 10}):
             self.assertTrue(user_can_access_desyatka(self.user, game))
 
     def test_club_subscriber_can_play_archived_desyatka_as_team(self):
@@ -794,7 +794,7 @@ class ClubArchiveAccessTests(TestCase):
             paid_until=timezone.now() + timedelta(days=5),
         )
 
-        with patch('games.club_access._latest_desyatka_numbers', return_value={10, 11, 12, 13, 14, 15, 16}):
+        with patch('games.club.access.archive._latest_desyatka_numbers', return_value={10, 11, 12, 13, 14, 15, 16}):
             self.assertTrue(user_can_access_desyatka(self.user, game))
             self.assertTrue(game.has_access('play', team=team))
             self.assertTrue(game.has_access('play_with_team', team=team))

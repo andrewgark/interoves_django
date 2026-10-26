@@ -9,15 +9,15 @@ from django.db.models import Q
 
 
 
-from games.daily_section import (
+from games.daily.page.section import (
     is_scheduled_game,
     scheduled_number_is_public,
 )
-from games.daily_archive import (
+from games.daily.page.archive import (
     MONTH_NAMES,
 )
 from games.daily.projection.results import get_daily_results_adapter
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
 from games.ladder_word_results import (
@@ -446,7 +446,7 @@ def new_section_task_results_page(request, game_id, number):
     if placement is None:
         raise Http404()
     number = placement.number
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, number=number)
     if locked is not None:
         return locked
@@ -482,7 +482,7 @@ def new_game_task_results_page(request, game_id, number, project_id=None):
         ).select_related('task_group').first()
         if placement is None:
             raise Http404()
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, number=placement.number)
     if locked is not None:
         return locked
@@ -565,7 +565,7 @@ def new_ladder_word_results_page(request, task_group_number):
         )
         if not placement:
             raise Http404()
-        from games.club_access import reject_if_club_archive_blocked
+        from games.club.access.archive import reject_if_club_archive_blocked
         locked = reject_if_club_archive_blocked(request, game, number=placement.number)
         if locked is not None:
             return locked
@@ -603,7 +603,7 @@ def new_ladder_word_results_page(request, task_group_number):
             data, me_personal or me_anon_participant or team, game=game,
         )
         from games.results.standings.leaderboard import apply_release_policy
-        from games.daily_section import publish_at_for
+        from games.daily.page.section import publish_at_for
         return apply_release_policy(
             data, game=game, task_group=placement.task_group,
             published_at=(

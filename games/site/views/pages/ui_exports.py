@@ -20,4 +20,4 @@ from games.site.ui.profile.form import *
 from games.site.ui.profile.pages import *
 from games.site.ui.team.pages import *
 from games.site.ui.pay.pages import *
-from games.ladder_daily import LADDER_GAME_ID, is_ladder_number_published
+from games.daily.catalog.ladder import LADDER_GAME_ID, is_ladder_number_published

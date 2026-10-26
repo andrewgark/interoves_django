@@ -13,7 +13,7 @@ from games.analytics_identity import (
     browser_anon_key,
     is_valid_anon_key,
 )
-from games.daily_section import (
+from games.daily.page.section import (
     filter_published_links,
     is_scheduled_game,
     publish_at_for,
@@ -21,11 +21,11 @@ from games.daily_section import (
     visible_links,
     MOSCOW,
 )
-from games.daily_archive import (
+from games.daily.page.archive import (
     build_daily_archive_items,
     refresh_daily_archive_context,
 )
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
 from games.sections.hub import (

@@ -32,7 +32,7 @@ def task_group_page_title(game, placement, *, include_date=False) -> str:
     if str(game.pk) in NUMBERED_EDITION_GAME_IDS:
         title = '{} №{}'.format(game_title, placement.number)
         if include_date:
-            from games.daily_section import MOSCOW, publish_at_for
+            from games.daily.page.section import MOSCOW, publish_at_for
             published_at = publish_at_for(game, placement.number)
             if published_at is not None:
                 published_date = published_at.astimezone(MOSCOW).date()

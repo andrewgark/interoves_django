@@ -251,7 +251,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertEqual(card['new_label'], 'NEW')
 
     def test_ladder_progress_api_returns_result_squares(self):
-        from games.ladder_daily import LADDER_PUBLISH_START_TAG
+        from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 
         game = Game.objects.filter(id='ladder', project_id='sections').first()
         self.assertIsNotNone(game)
@@ -304,7 +304,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertEqual(row['elapsed_label'], '—')
 
     def test_ladder_progress_assisted_half_credit_still_solved(self):
-        from games.ladder_daily import LADDER_PUBLISH_START_TAG
+        from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 
         game = Game.objects.filter(id='ladder', project_id='sections').first()
         self.assertIsNotNone(game)
@@ -353,7 +353,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertEqual(row['elapsed_label'], '—')
 
     def test_ladder_progress_partial_shows_white_squares(self):
-        from games.ladder_daily import LADDER_PUBLISH_START_TAG
+        from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 
         game = Game.objects.filter(id='ladder', project_id='sections').first()
         self.assertIsNotNone(game)
@@ -405,7 +405,7 @@ class GameTaskGroupProgressTests(TestCase):
         self.assertIsNone(row['elapsed_label'])
 
     def test_ladder_progress_api_returns_elapsed_from_attempts(self):
-        from games.ladder_daily import LADDER_PUBLISH_START_TAG
+        from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 
         game = Game.objects.filter(id='ladder', project_id='sections').first()
         self.assertIsNotNone(game)

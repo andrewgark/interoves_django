@@ -13,14 +13,14 @@ from django.utils import timezone
 
 
 from games.access import game_has_started
-from games.daily_section import (
+from games.daily.page.section import (
     is_scheduled_game,
     publish_at_for,
     visible_links,
     MOSCOW,
 )
 from games.daily.page.placement import is_random_daily_placement
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
 from games.tasks.progress import compute_task_progress, merge_task_group_progress_rows
@@ -189,7 +189,7 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
 
 
 def _mark_locked_archive_rows(request, game, rows):
-    from games.club_access import (
+    from games.club.access.archive import (
         desyatka_requires_club,
         scheduled_number_requires_club,
         user_can_access_scheduled_number,
@@ -205,7 +205,7 @@ def _mark_locked_archive_rows(request, game, rows):
 
 def _archive_nav_target(request, game, placement, href):
     """Return a navigation target with the same paywall semantics as a card."""
-    from games.club_access import user_can_access_scheduled_number
+    from games.club.access.archive import user_can_access_scheduled_number
     if not placement:
         return None, False
     locked = not user_can_access_scheduled_number(request.user, game, placement.number)

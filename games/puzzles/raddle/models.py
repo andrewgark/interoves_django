@@ -178,7 +178,7 @@ class LadderOffer(models.Model):
             except (TypeError, ValueError, AttributeError):
                 number = None
             if number is not None:
-                from games.ladder_daily import is_ladder_number_published
+                from games.daily.catalog.ladder import is_ladder_number_published
                 from games.models import Game
                 game = Game.objects.filter(pk='ladder').first()
                 if game is not None and is_ladder_number_published(game, number):

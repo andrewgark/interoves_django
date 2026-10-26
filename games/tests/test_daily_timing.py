@@ -14,7 +14,7 @@ from django.utils import timezone
 
 from games.analytics_identity import attach_anon_cookie
 from games import daily_timing as daily_timing_mod
-from games.daily_section import is_daily_team_timing_game, is_daily_timing_game
+from games.daily.page.section import is_daily_team_timing_game, is_daily_timing_game
 from games.management.commands.repair_daily_attempt_timing import (
     TIMING_RECOVERY_GRACE_SECONDS,
     events_for_attempt,
@@ -1655,7 +1655,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(response.status_code, 404)
         self.assertFalse(DailySolveTiming.objects.filter(game=self.game, task_group=self.tg).exists())
 
-    @patch('games.club_access.user_can_access_scheduled_number', return_value=False)
+    @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=False)
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_inaccessible_release_cannot_start_timing(self, _pub, _access):
         response = self._post({
@@ -1688,7 +1688,7 @@ class DailyTimingApiTests(TestCase):
             DailySolveTiming.objects.filter(user=user, game=self.game, task_group=self.link.task_group).exists()
         )
 
-    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
     def test_ordinary_game_timer_uses_the_page_team_actor(self, _club):
         from games.gameplay_context import issue_gameplay_context
 
@@ -1738,7 +1738,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(denied.status_code, 403)
         self.assertEqual(denied.json()['error'], 'team_access_required')
 
-    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_team_api_uses_server_resolved_shared_actor(self, _access, _pub, _club):
@@ -1790,7 +1790,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(finish.status_code, 200, finish.content)
         self.assertTrue(finish.json()['completed'])
 
-    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_team_http_sessions_pause_locally_and_count_union_once(self, _access, _pub, _club):
@@ -1834,7 +1834,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(completed.json()['frozen_ms'], 30_000)
         self.assertEqual(completed.json()['accumulated_ms'], 30_000)
 
-    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_personal_http_sessions_run_in_parallel_and_count_union_once(self, _access, _pub, _game_access):
@@ -1867,7 +1867,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(completed.status_code, 200)
         self.assertEqual(completed.json()['frozen_ms'], 20_000)
 
-    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_http_clients_cannot_send_server_side_activity(self, _access, _pub, _game_access):
@@ -1881,7 +1881,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.json()['error'], 'bad_action')
 
-    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
+    @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_anonymous_http_sessions_run_in_parallel_and_count_union_once(self, _access, _pub, _game_access):

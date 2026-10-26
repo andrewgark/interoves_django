@@ -11,7 +11,7 @@ from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.daily_section import MOSCOW
+from games.daily.page.section import MOSCOW
 from games.daily.difficulty.core import (
     _censored_median,
     _public_context,
@@ -975,7 +975,7 @@ class DifficultySchedulerTests(TestCase):
         )
 
         with patch(
-            'games.daily_section.current_number_for', return_value=8816,
+            'games.daily.page.section.current_number_for', return_value=8816,
         ), patch(
             'games.daily.difficulty.core.published_at_for_placement', return_value=published_at,
         ):

@@ -14,14 +14,14 @@ from django.utils import timezone
 
 
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
-from games.daily_section import (
+from games.daily.page.section import (
     current_number_for,
     is_scheduled_game,
     publish_at_for,
     scheduled_number_is_public,
     MOSCOW,
 )
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
 from games.sections.hub import (
@@ -92,7 +92,7 @@ def project_main_game_page(request, project_id, game_id):
     project = get_object_or_404(Project, id=project_id)
     base = _project_base(project.id)
     game = get_object_or_404(Game, id=game_id, project=project)
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game)
     if locked is not None:
         return locked
@@ -576,7 +576,7 @@ def new_main_game_page(request, game_id):
         return project_redirect
     if game.project_id != NEW_UI_PROJECT:
         raise Http404()
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game)
     if locked is not None:
         return locked

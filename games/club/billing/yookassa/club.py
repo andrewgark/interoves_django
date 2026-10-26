@@ -1,7 +1,7 @@
 """YooKassa billing for Inter Oves Club (RUB monthly).
 
 Does not touch TicketRequest / team-ticket payments. Entitlement remains
-ClubSubscription.paid_until via games.club_access.has_club_access.
+ClubSubscription.paid_until via games.club.access.archive.has_club_access.
 """
 from __future__ import annotations
 

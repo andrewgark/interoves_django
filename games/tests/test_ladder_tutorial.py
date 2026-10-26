@@ -11,7 +11,7 @@ from games.models import (
     Profile,
     TaskGroup,
 )
-from games.ladder_daily import LADDER_GAME_ID
+from games.daily.catalog.ladder import LADDER_GAME_ID
 from games.ladder_offer import create_offer, update_offer_content
 from games.tests.test_offer_ladder import (
     _ensure_reference_rows,

@@ -9,7 +9,7 @@ from django.db import IntegrityError
 from django.utils import timezone
 from django.utils.html import strip_tags
 
-from games.daily_section import (
+from games.daily.page.section import (
     ALPHABETTY_SCHEDULE,
     LADDER_SCHEDULE,
     MOSCOW,

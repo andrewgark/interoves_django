@@ -970,7 +970,7 @@ def _supported_placements(*, game_ids=None):
 
 
 def published_at_for_placement(placement, *, now=None):
-    from games.daily_section import publish_at_for
+    from games.daily.page.section import publish_at_for
     return publish_at_for(placement.game, placement.number)
 
 
@@ -1089,7 +1089,7 @@ def sync_daily_difficulty_schedule(game, *, now=None):
 
 def ensure_recent_difficulty_rows(*, now=None, game_ids=None):
     """Create missing rows for recently published (and a few upcoming) editions."""
-    from games.daily_section import current_number_for
+    from games.daily.page.section import current_number_for
     from games.models import Game
 
     now = now or timezone.now()

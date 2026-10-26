@@ -502,7 +502,7 @@ class GameTaskGroup(models.Model):
             return None
 
         # Нет (нужной) привязки в расписании — черновик LadderOffer / WordSaladOffer?
-        from games.ladder_daily import LADDER_GAME_ID
+        from games.daily.catalog.ladder import LADDER_GAME_ID
         from games.word_salad import WORD_SALAD_GAME_ID
         from games.models import Game, LadderOffer, WordSaladOffer
         from games.tutorials.ladder import is_ladder_tutorial_task_group

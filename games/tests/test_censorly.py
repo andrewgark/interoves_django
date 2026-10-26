@@ -674,8 +674,8 @@ class CensorlyAccessTests(TestCase):
         )
         self.client.force_login(self.plain)
 
-        with patch('games.club_access.scheduled_number_requires_club', return_value=True), \
-             patch('games.club_access.user_can_access_scheduled_number', return_value=False):
+        with patch('games.club.access.archive.scheduled_number_requires_club', return_value=True), \
+             patch('games.club.access.archive.user_can_access_scheduled_number', return_value=False):
             response = self.client.get('/censorly/')
 
         self.assertEqual(response.status_code, 200)

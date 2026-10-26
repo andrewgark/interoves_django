@@ -1,4 +1,4 @@
-from games.ladder_daily import LADDER_GAME_ID
+from games.daily.catalog.ladder import LADDER_GAME_ID
 from games.ladder.tutorial.ladder import (
     LADDER_TUTORIAL_SEGMENT,
     ensure_ladder_tutorial_task,

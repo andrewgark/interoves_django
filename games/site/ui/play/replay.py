@@ -55,7 +55,7 @@ def new_replay_start(request, game_id, task_group_number, project_id=None):
     game, placement = _replay_game_and_placement(
         game_id, task_group_number, project_id, user=request.user,
     )
-    from games.club_access import reject_if_club_archive_blocked
+    from games.club.access.archive import reject_if_club_archive_blocked
     locked = reject_if_club_archive_blocked(request, game, number=placement.number)
     if locked is not None:
         return locked

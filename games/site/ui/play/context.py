@@ -11,7 +11,7 @@ from games.gameplay_context import issue_gameplay_context
 from games.daily.page.board import (
     get_daily_board_adapter,
 )
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
 from games.puzzles.replacements.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context

@@ -12,7 +12,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
-from games.ladder_daily import LADDER_GAME_ID, ladder_publish_at
+from games.daily.catalog.ladder import LADDER_GAME_ID, ladder_publish_at
 from games.offer_profiles import (
     normalize_telegram_handle,
     profile_display_name,
@@ -568,7 +568,7 @@ def offer_is_production_published(offer: LadderOffer, *, now=None) -> bool:
         number = int(offer.accepted_link.number)
     except (TypeError, ValueError, AttributeError):
         return False
-    from games.ladder_daily import is_ladder_number_published
+    from games.daily.catalog.ladder import is_ladder_number_published
     return is_ladder_number_published(get_ladder_game(), number, now)
 
 

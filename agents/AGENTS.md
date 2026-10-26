@@ -232,6 +232,10 @@ If the resolved version is empty, the client check is skipped.
 | Daily result projection | `games.daily.projection` (+ `projection.cron`) | `games.daily_result_projection*` |
 | Targeted completion reconcile | `games.daily.completion.targeted_completion_reconciliation` | `games.targeted_completion_reconciliation` |
 | Chain replay planning | `games.site.session.replay_planner` | `games.replay_planner` |
+| Daily schedule / section page | `games.daily.page.section` | `games.daily_section` |
+| Daily archive UI helpers | `games.daily.page.archive` | `games.daily_archive` |
+| Ladder daily catalog | `games.daily.catalog.ladder` | `games.ladder_daily` |
+| Club archive / subscription gate | `games.club.access.archive` | `games.club_access` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

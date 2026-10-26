@@ -29,7 +29,7 @@ if _REPO_ROOT not in sys.path:
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "interoves_django.settings")
 django.setup()
 
-from games.ladder_daily import LADDER_GAME_ID  # noqa: E402
+from games.daily.catalog.ladder import LADDER_GAME_ID  # noqa: E402
 from games.models import Game, GameTaskGroup, Hint, Task  # noqa: E402
 from games.raddle import validate_raddle_checker_data  # noqa: E402
 

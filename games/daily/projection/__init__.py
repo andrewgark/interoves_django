@@ -563,7 +563,7 @@ def load_projection_fallback_durations(game, task_group):
 
 def _prepublication(game, link, actor, first_at):
     """Use canonical daily start; fall back only to first canonical completion."""
-    from games.daily_section import publish_at_for
+    from games.daily.page.section import publish_at_for
 
     publication = publish_at_for(game, link.number)
     if publication is None:
@@ -639,7 +639,7 @@ def refresh_daily_result_projection(game, task_group, *, results=None):
     task_entries = _build_task_projection_entries(
         game, task_group, canonical_task_rows,
     )
-    from games.daily_section import publish_at_for
+    from games.daily.page.section import publish_at_for
 
     publication = publish_at_for(game, link.number)
     timing_starts = _timing_starts_for_release(game, task_group)

@@ -14,7 +14,7 @@ from games.analytics_identity import (
     gameplay_anon_key,
 )
 from games.alphabetty_daily import ALPHABETTY_GAME_ID
-from games.ladder_daily import (
+from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
 from games.models import (

@@ -39,7 +39,7 @@ def club_archive_ui(request):
     """Feature-flagged archive upsell UI and subscriber community link."""
     user = getattr(request, 'user', None)
     if not getattr(settings, 'CLUB_ARCHIVE_GATING_ENABLED', False):
-        from games.club_access import has_club_access
+        from games.club.access.archive import has_club_access
         random_access = bool(
             user
             and user.is_authenticated
@@ -50,7 +50,7 @@ def club_archive_ui(request):
             'club_archive_gating_enabled': False,
             'random_alphabetty_has_access': random_access,
         }
-    from games.club_access import has_club_access
+    from games.club.access.archive import has_club_access
     from games.telegram.config import club_invite_url
     if not user or not user.is_authenticated:
         return {

@@ -2,7 +2,7 @@
 
 from django.db.models import Prefetch, Q
 
-from games.daily_section import is_scheduled_game, visible_links
+from games.daily.page.section import is_scheduled_game, visible_links
 from games.models import Task
 
 

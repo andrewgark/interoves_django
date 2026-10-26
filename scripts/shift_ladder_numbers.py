@@ -36,7 +36,7 @@ django.setup()
 
 from django.db import transaction  # noqa: E402
 
-from games.ladder_daily import LADDER_GAME_ID  # noqa: E402
+from games.daily.catalog.ladder import LADDER_GAME_ID  # noqa: E402
 from games.models import Game, GameTaskGroup, Task  # noqa: E402
 
 _TITLE_RE = re.compile(r"^Лесенка\s*#\s*(\d+)\s*$", re.IGNORECASE)

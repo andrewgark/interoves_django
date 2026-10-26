@@ -762,8 +762,8 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
 
-    @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
-    @patch('games.club_access.reject_if_club_archive_blocked', return_value=None)
+    @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
+    @patch('games.club.access.archive.reject_if_club_archive_blocked', return_value=None)
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.site.ui.play.page.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)

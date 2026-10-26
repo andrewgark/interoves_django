@@ -404,7 +404,7 @@ def get_source_desyatka_context(task_group, *, team=None):
 
 def get_scheduled_section_hub_card(game, *, published_numbers, now=None):
     """Карточка ежедневного/еженедельного раздела на главной."""
-    from games.daily_section import schedule_for
+    from games.daily.page.section import schedule_for
 
     game_id = game.id
     meta = SECTION_HUB_META[game_id]

@@ -227,7 +227,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
     published_at = None
     if mode == 'general' and task_group_number is not None:
         if scoped_group:
-            from games.daily_section import publish_at_for
+            from games.daily.page.section import publish_at_for
             published_at = publish_at_for(game, scoped_group.number)
             for actor in team_to_score:
                 relevant = [
