@@ -214,6 +214,8 @@ If the resolved version is empty, the client check is skipped.
 | HTTP / main UI handlers | `games.site.views.*`, `games.site.ui.*` | `games.views.*` (facades) |
 | Live track / WebSocket helpers | `games.realtime.track_compat` | `games.views.track` |
 | MySQL lock retry helpers | `games.realtime.db` | `games.db_retry` |
+| ASGI DB admission middleware | `games.realtime.admission` | `games.asgi_admission` |
+| Yandex Direct ads CLI | `games.ops.social.ads.*` | `games.ads_direct.*` |
 | Main UI symbol bundle | `games.site.views.pages.ui_exports` | `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | `games.matcher.norm_matcher` |
 | Censorly IDs / flags | `games.puzzles.censorly.ids` | `games.censorly` (re-export без `games.puzzles` при import) |

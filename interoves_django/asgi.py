@@ -5,7 +5,7 @@ from django.core.asgi import get_asgi_application
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 django_asgi_app = get_asgi_application()
 
-from games.asgi_admission import DatabaseAdmissionASGIMiddleware
+from games.realtime.admission import DatabaseAdmissionASGIMiddleware
 from games.runtime import RUNTIME_ROLE_WEB, runtime_role
 
 

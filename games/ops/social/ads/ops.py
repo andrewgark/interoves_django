@@ -7,10 +7,10 @@ import time
 from datetime import date, timedelta
 from typing import Any
 
-from games.ads_direct import fields
-from games.ads_direct.audit import append_audit
-from games.ads_direct.client import AdsClient, DirectApiError, default_client
-from games.ads_direct.config import (
+from games.ops.social.ads.schema import fields
+from games.ops.social.ads.audit import append_audit
+from games.ops.social.ads.client import AdsClient, DirectApiError, default_client
+from games.ops.social.ads.config import (
     ConfigError,
     ad_add_item,
     adgroup_add_item,
@@ -21,7 +21,7 @@ from games.ads_direct.config import (
     mobile_off_bidmodifier,
     tablet_off_bidmodifier,
 )
-from games.ads_direct.constants import (
+from games.ops.social.ads.schema.constants import (
     AD_GROUP_NAME,
     AD_TITLE,
     CAMPAIGN_NAME,
@@ -38,8 +38,8 @@ from games.ads_direct.constants import (
     PRODUCT_GOALS,
     REGION_RUSSIA,
 )
-from games.ads_direct.money import micros_to_rubles, parse_report_money
-from games.ads_direct.state import append_decision, load_state, save_state
+from games.ops.social.ads.money import micros_to_rubles, parse_report_money
+from games.ops.social.ads.state import append_decision, load_state, save_state
 
 
 def client_info(client: AdsClient | None = None) -> dict:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from games.ads_direct.constants import (
+from games.ops.social.ads.schema.constants import (
     AD_DISPLAY_PATH,
     AD_TEXT,
     AD_TITLE,
@@ -24,7 +24,7 @@ from games.ads_direct.constants import (
     SAFE_KEYWORD_STEMS,
     TIMEZONE,
 )
-from games.ads_direct.money import rubles_to_micros
+from games.ops.social.ads.money import rubles_to_micros
 
 
 class ConfigError(ValueError):

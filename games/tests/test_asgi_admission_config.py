@@ -3,7 +3,7 @@ from pathlib import Path
 from unittest import TestCase
 from unittest.mock import patch
 
-from games.asgi_admission import DatabaseAdmissionASGIMiddleware
+from games.realtime.admission import DatabaseAdmissionASGIMiddleware
 from games.realtime import admission
 from interoves_django.asgi import _http_application_with_admission
 

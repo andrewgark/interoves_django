@@ -9,7 +9,7 @@ from typing import Any
 
 from django.conf import settings
 
-from games.ads_direct.client import redact
+from games.ops.social.ads.client import redact
 
 AUDIT_RELATIVE = Path("ads") / "audit.jsonl"
 

@@ -3,7 +3,7 @@ import json
 
 from django.test import SimpleTestCase
 
-from games.asgi_admission import DatabaseAdmissionASGIMiddleware
+from games.realtime.admission import DatabaseAdmissionASGIMiddleware
 
 
 async def _invoke(app, path='/admission-test/'):

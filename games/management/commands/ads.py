@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
 
-from games.ads_direct.client import DirectApiError, default_client
-from games.ads_direct.config import ConfigError
-from games.ads_direct import ops
-from games.ads_direct.state import load_state, state_path
+from games.ops.social.ads.client import DirectApiError, default_client
+from games.ops.social.ads.config import ConfigError
+from games.ops.social.ads import ops
+from games.ops.social.ads.state import load_state, state_path
 
 
 class Command(BaseCommand):

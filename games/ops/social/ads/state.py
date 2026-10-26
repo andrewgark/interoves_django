@@ -9,7 +9,7 @@ from typing import Any
 
 from django.conf import settings
 
-from games.ads_direct.constants import (
+from games.ops.social.ads.schema.constants import (
     BASELINE,
     MAX_EXPERIMENT_SPEND_RUB,
     METRIKA_COUNTER_ID,

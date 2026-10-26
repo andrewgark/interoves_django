@@ -17,7 +17,7 @@ from django.test import SimpleTestCase, override_settings
 from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 
-from games.asgi_admission import DatabaseAdmissionASGIMiddleware
+from games.realtime.admission import DatabaseAdmissionASGIMiddleware
 
 
 _active_db_sections = 0
