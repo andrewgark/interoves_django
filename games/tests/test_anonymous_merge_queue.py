@@ -298,7 +298,7 @@ class AnonymousMergeQueueTests(TestCase):
         )
 
         with patch(
-            'games.club.merge.anonymous.publish_anonymous_merge_event',
+            'games.club.merge.events.publish_anonymous_merge_event',
             return_value=True,
         ) as publish:
             self.assertEqual(publish_unmarked_due_merge_jobs(limit=1), 1)
@@ -334,7 +334,7 @@ class AnonymousMergeQueueTests(TestCase):
         Attempt.manager.create(anon_key='finder-due', task=self.tasks[0], game=self.game, text='x', status='Wrong')
         due = self._enqueue('finder-due')
         with patch(
-            'games.club.merge.anonymous.publish_anonymous_merge_event',
+            'games.club.merge.events.publish_anonymous_merge_event',
             return_value=True,
         ) as publish:
             published = publish_unmarked_due_merge_jobs(limit=5)

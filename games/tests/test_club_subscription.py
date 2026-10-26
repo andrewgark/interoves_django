@@ -646,10 +646,16 @@ class ClubArchiveAccessTests(TestCase):
         response = self.client.get(self.recent_free_url)
         self.assertEqual(response.status_code, 200)
 
-    def test_replacements_free_window_follows_visible_numeric_order(self):
-        replacements = Game.objects.create(
-            id='replacements', name='Replacements', author='test', project_id='sections',
+    def _replacements_game(self):
+        game, _ = Game.objects.get_or_create(
+            id='replacements',
+            defaults={'name': 'Replacements', 'author': 'test', 'project_id': 'sections'},
         )
+        GameTaskGroup.objects.filter(game=game).delete()
+        return game
+
+    def test_replacements_free_window_follows_visible_numeric_order(self):
+        replacements = self._replacements_game()
         for number in (170, 169, 168, 167, 166, 165, 164, 157):
             task_group = TaskGroup.objects.create(label='replacements-{}'.format(number))
             GameTaskGroup.objects.create(
@@ -673,9 +679,7 @@ class ClubArchiveAccessTests(TestCase):
         self.assertFalse(is_within_free_archive_window(replacements, 999))
 
     def test_dotted_replacements_number_is_not_a_paywall_bypass(self):
-        replacements = Game.objects.create(
-            id='replacements', name='Replacements', author='test', project_id='sections',
-        )
+        replacements = self._replacements_game()
         dotted_task = None
         for number in (170, 169, 168, 167, 166, 165, 164, '133.2'):
             task_group = TaskGroup.objects.create(label='replacements-dotted-{}'.format(number))

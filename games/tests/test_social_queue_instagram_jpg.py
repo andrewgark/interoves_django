@@ -63,7 +63,9 @@ class SocialQueueInstagramJpgTests(TestCase):
     @patch('games.ops.telegram.channels.salad.resolve_salad_by_number')
     def test_missing_salad_file_is_rebuilt(self, resolve, render):
         render.return_value = _png_bytes()
-        resolve.return_value = SimpleNamespace(task=object(), number=36)
+        resolve.return_value = SimpleNamespace(
+            task=object(), number=36, play_url='https://interoves.ru/salad/36/',
+        )
         post = SocialQueuePost.objects.create(
             caption='salad',
             source=SocialQueuePost.SOURCE_WORD_SALAD,
