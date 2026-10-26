@@ -1,6 +1,6 @@
 """Main UI views (neutral naming, without ``new``)."""
 
-from games.views.new_ui import (
+from games.site.views.pages.ui_exports import (
     daily_statistics,
     get_section_games,
     new_account_merge_confirm,

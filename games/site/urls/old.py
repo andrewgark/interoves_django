@@ -1,9 +1,9 @@
 from django.urls import path, re_path as url
 
-from games.views.meta_http import capitals_task_100, countries_task_100
 from games.site.views.account.registration import register_to_game
-from games.views.ticket import check_order, request_ticket
-from games.views.views import (
+from games.site.views.account.ticket import check_order, request_ticket
+from games.site.views.pages.meta import capitals_task_100, countries_task_100
+from games.site.views.pages.legacy import (
     MainPageView,
     confirm_user_joining_team,
     create_team,

@@ -4,7 +4,7 @@ from django.urls import path, re_path
 from django.views.generic import RedirectView
 
 from games.sections.urls import section_root_urlpatterns
-from games.views import ui
+from games.site.views.pages import ui
 
 urlpatterns = [
     path('daily-statistics/<str:game_id>/<str:number>/', ui.daily_statistics, name='new_daily_statistics'),
