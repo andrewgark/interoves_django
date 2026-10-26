@@ -6,9 +6,6 @@ from games.matcher.norm_matcher import NormMatcher
 from games.util import status_key, clean_text
 from games.models import Task, Attempt
 from games.replacements_lines import split_slot_answer_alternatives
-from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
-from games.alphabetty.core import guess_status, is_valid_guess, normalize_word
-from games.alphabetty.play import dump_state, load_state
 from games.grid_puzzle import GridShadingChecker, GridWallChecker
 from games.puzzles.core.check_runtime import (
     BaseChecker,
@@ -307,31 +304,6 @@ class HangmanLettersChecker(BaseChecker):
         return CheckResult(result_status, result_status, points)
 
 
-class AntiwordleChecker(BaseChecker):
-    @clean
-    @delete_punctuation
-    def __init__(self, data, last_attempt_state=None):
-        self.dictionary = read_wordle_dict()
-        self.colors = data.split('\n')
-        self.word_number = len(self.colors)
-
-    @clean
-    @delete_punctuation
-    def check(self, text, attempt):
-        words = [x.strip() for x in text.split()]
-        answer = text.split()[-1].strip()
-
-        status, data = convert_words_wordle(words, self.dictionary, self.word_number)
-        if status == 'error':
-            return CheckResult('Wrong', 'Wrong', 0, comment=data)
-        words = data
-        for i, word in enumerate(words):
-            colors = color_tiles(word, answer)
-            if colors != self.colors[i]: 
-                return CheckResult('Wrong', 'Wrong', 0, comment='Цвета не совпадают в строке {}'.format(i + 1))
-        return CheckResult('Ok', 'Ok', 1)
-
-
 class SolutionsTagNumber:
     def __init__(self, data, last_attempt_state=None):
         self.data = json.loads(data)
@@ -368,37 +340,8 @@ class SolutionsTagNumber:
         )
 
 
-class AlphabettyChecker(BaseChecker):
-    """Чекер Алфавитки (основной путь — dedicated guess API; это запасной send_attempt)."""
-
-    def __init__(self, data, last_attempt_state=None):
-        self.secret = normalize_word((data or '').strip().splitlines()[0] if data else '')
-        self.last_state = load_state(last_attempt_state)
-
-    def check(self, text, attempt):
-        word = normalize_word(text)
-        state = dict(self.last_state)
-        state.setdefault('guesses', [])
-        if state.get('won'):
-            # Не начислять повторные Ok/очки после победы (как dedicated guess API).
-            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Уже угадано')
-        if not is_valid_guess(
-            word,
-            user=getattr(attempt, 'user', None),
-            anon_key=getattr(attempt, 'anon_key', None),
-            task=getattr(attempt, 'task', None),
-        ):
-            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Слова нет в словаре')
-        if word in state['guesses']:
-            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Уже вводили')
-        status = guess_status(word, self.secret)
-        state['guesses'] = list(state['guesses']) + [word]
-        if status == 'correct':
-            state['won'] = True
-            return CheckResult('Ok', 'Ok', 1, dump_state(state))
-        return CheckResult('Partial', 'Partial', 0, dump_state(state), comment=status)
-
-
+from games.puzzles.alphabetty.play import AlphabettyChecker
+from games.puzzles.alphabetty.wordle import AntiwordleChecker
 from games.puzzles.replacements.html_forms import HtmlFormsChecker
 from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
 from games.puzzles.raddle.submission import RaddleChecker

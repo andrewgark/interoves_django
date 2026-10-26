@@ -20,6 +20,7 @@ from games.alphabetty.core import (
 )
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 from games.puzzles.core.base import Puzzle
+from games.puzzles.core.check_runtime import BaseChecker, CheckResult
 from games.results.share import format_elapsed, format_share_link, share_path
 
 # Базовые очки за угаданное слово; каждая буквенная подсказка −1.
@@ -822,6 +823,36 @@ def letter_hint_penalty(info):
         anon_key=sample.anon_key,
         team=sample.team,
     )
+
+
+class AlphabettyChecker(BaseChecker):
+    """Чекер Алфавитки (основной путь — dedicated guess API; это запасной send_attempt)."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self.secret = normalize_word((data or '').strip().splitlines()[0] if data else '')
+        self.last_state = load_state(last_attempt_state)
+
+    def check(self, text, attempt):
+        word = normalize_word(text)
+        state = dict(self.last_state)
+        state.setdefault('guesses', [])
+        if state.get('won'):
+            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Уже угадано')
+        if not is_valid_guess(
+            word,
+            user=getattr(attempt, 'user', None),
+            anon_key=getattr(attempt, 'anon_key', None),
+            task=getattr(attempt, 'task', None),
+        ):
+            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Слова нет в словаре')
+        if word in state['guesses']:
+            return CheckResult('Wrong', 'Wrong', 0, dump_state(state), comment='Уже вводили')
+        status = guess_status(word, self.secret)
+        state['guesses'] = list(state['guesses']) + [word]
+        if status == 'correct':
+            state['won'] = True
+            return CheckResult('Ok', 'Ok', 1, dump_state(state))
+        return CheckResult('Partial', 'Partial', 0, dump_state(state), comment=status)
 
 
 class AlphabettyPuzzle(Puzzle):

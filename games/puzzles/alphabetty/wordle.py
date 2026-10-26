@@ -3,6 +3,13 @@
 from collections import Counter
 from pathlib import Path
 
+from games.puzzles.core.check_runtime import (
+    BaseChecker,
+    CheckResult,
+    clean,
+    delete_punctuation,
+)
+
 WORDLE_DICT_PATH = Path(__file__).resolve().parent / 'dictionaries' / 'wordle_dict.txt'
 
 
@@ -44,3 +51,28 @@ def color_tiles(word, answer):
             else:
                 res[i] = 'n'
     return ''.join(res)
+
+
+class AntiwordleChecker(BaseChecker):
+    @clean
+    @delete_punctuation
+    def __init__(self, data, last_attempt_state=None):
+        self.dictionary = read_wordle_dict()
+        self.colors = data.split('\n')
+        self.word_number = len(self.colors)
+
+    @clean
+    @delete_punctuation
+    def check(self, text, attempt):
+        words = [x.strip() for x in text.split()]
+        answer = text.split()[-1].strip()
+
+        status, data = convert_words_wordle(words, self.dictionary, self.word_number)
+        if status == 'error':
+            return CheckResult('Wrong', 'Wrong', 0, comment=data)
+        words = data
+        for i, word in enumerate(words):
+            colors = color_tiles(word, answer)
+            if colors != self.colors[i]:
+                return CheckResult('Wrong', 'Wrong', 0, comment='Цвета не совпадают в строке {}'.format(i + 1))
+        return CheckResult('Ok', 'Ok', 1)
