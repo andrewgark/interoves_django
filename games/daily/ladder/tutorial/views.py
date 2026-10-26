@@ -1,5 +1,5 @@
 from games.daily.catalog.ladder import LADDER_GAME_ID
-from games.ladder.tutorial.ladder import (
+from games.daily.ladder.tutorial.ladder import (
     LADDER_TUTORIAL_SEGMENT,
     ensure_ladder_tutorial_task,
     ladder_tutorial_return,

@@ -159,7 +159,7 @@ from games.site.views.offers.censorly import (  # noqa: E402
     offer_censorly_suggest,
 )
 from games.site.views.daily.timing import daily_solve_timing  # noqa: E402
-from games.ladder.tutorial.views import ladder_tutorial  # noqa: E402
+from games.daily.ladder.tutorial.views import ladder_tutorial  # noqa: E402
 
 game_task_group_progress = new_game_task_group_progress
 project_game_task_group_progress = project_game_task_group_progress

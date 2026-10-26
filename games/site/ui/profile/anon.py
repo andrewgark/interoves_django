@@ -30,10 +30,8 @@ from games.models import (
     GameTaskGroup,
     HintAttempt,
 )
-from games.site.views.pages.util import (
-    has_profile,
-    personal_play_mode_locked,
-)
+from games.identity import has_profile
+from games.site.session.play_mode import personal_play_mode_locked
 
 
 from games.site.ui import (
@@ -280,7 +278,6 @@ def new_anon_merge_job_status(request, job_id=None):
         if job is None:
             return JsonResponse({'status': 'not_retryable'}, status=409)
     return JsonResponse({'status': 'ok', 'job': serialize_merge_job(job)})
-
 
 
 __all__ = [

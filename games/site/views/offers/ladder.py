@@ -21,7 +21,8 @@ from games.club.offers.ladder import (
 from games.models import LadderOffer
 from games.club.offers.profiles import update_offer_profile_names
 from games.club.link import offer_profile_error
-from games.site.views.pages.util import has_profile, json_boolean_field, parse_json_object_body
+from games.identity import has_profile
+from games.site.http.request_util import json_boolean_field, parse_json_object_body
 
 
 def _offer_for_user(request, offer_id):

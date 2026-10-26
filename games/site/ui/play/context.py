@@ -3,9 +3,6 @@ import json
 import logging
 
 
-
-
-
 from games.site.session.gameplay_context import issue_gameplay_context
 
 from games.daily.page.board import (
@@ -375,7 +372,6 @@ def build_task_group_task_context_dicts(game, task_group, tasks, team, user, ano
             for context_key, data in board_data_by_context.items()
         },
     }
-
 
 
 __all__ = [

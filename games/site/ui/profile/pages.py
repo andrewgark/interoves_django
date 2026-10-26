@@ -22,9 +22,7 @@ from games.models import (
     BugReport,
     Profile,
 )
-from games.site.views.pages.util import (
-    has_profile,
-)
+from games.identity import has_profile
 
 
 from games.site.ui import (
@@ -411,7 +409,6 @@ def new_social_account_disconnect(request):
     ):
         return redirect(next_url)
     return _profile_redirect(request)
-
 
 
 __all__ = [

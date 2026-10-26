@@ -10,19 +10,18 @@ still be registered here (without duplicating URL *names* from games.site.urls.o
 from django.urls import re_path as url
 
 from games.site.views.account.registration import register_to_game
-from games.site.ui import legacy_results_redirect, legacy_tournament_results_redirect
-from games.site.views.pages.legacy import (
+from games.site.views.account.team import (
     confirm_user_joining_team,
-    game_page,
-    get_answer,
     kick_out_user,
-    like_dislike,
     reject_user_joining_team,
-    send_attempt,
-    send_hint_attempt,
-    send_raddle_assist,
-    send_raddle_ui,
 )
+from games.site.ui import legacy_results_redirect, legacy_tournament_results_redirect
+from games.site.views.game.answer import get_answer
+from games.site.views.game.attempt import send_attempt
+from games.site.views.game.hint import send_hint_attempt
+from games.site.views.game.page import game_page
+from games.site.views.game.raddle import send_raddle_assist, send_raddle_ui
+from games.site.views.pages.other import like_dislike
 
 urlpatterns = [
     url(r"^send_attempt/(?P<task_id>\d+)/$", send_attempt),

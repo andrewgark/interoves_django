@@ -2,10 +2,6 @@
 import logging
 
 
-
-
-
-
 from games.tasks.replacements_state import line_done_list as replacements_line_done_list
 
 
@@ -26,7 +22,6 @@ def _replacements_lines_line_done_list(
         mode=mode,
         replay_slot=replay_slot,
     )
-
 
 
 __all__ = [

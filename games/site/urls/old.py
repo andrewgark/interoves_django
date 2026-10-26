@@ -3,25 +3,22 @@ from django.urls import path, re_path as url
 from games.site.views.account.registration import register_to_game
 from games.site.views.account.ticket import check_order, request_ticket
 from games.site.views.pages.meta import capitals_task_100, countries_task_100
-from games.site.views.pages.legacy import (
-    MainPageView,
+from games.site.views.account.team import (
     confirm_user_joining_team,
     create_team,
-    easter_egg_2021,
-    game_page,
-    get_answer,
-    get_tournament_results,
     join_team,
     kick_out_user,
-    like_dislike,
     quit_from_team,
     reject_user_joining_team,
-    results_page,
-    return_intentional_503,
-    send_attempt,
-    send_hint_attempt,
-    total_results_page,
 )
+from games.site.views.game.answer import get_answer
+from games.site.views.game.attempt import send_attempt
+from games.site.views.game.hint import send_hint_attempt
+from games.site.views.game.page import game_page, get_tournament_results
+from games.site.views.pages.other import easter_egg_2021, like_dislike, return_intentional_503
+from games.site.views.pages.public.main import MainPageView
+from games.site.views.results.pages import results_page
+from games.site.views.results.total import total_results_page
 
 urlpatterns = [
     path("", MainPageView.as_view(project_name="main")),

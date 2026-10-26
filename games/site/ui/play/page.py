@@ -13,7 +13,6 @@ from games.daily.timing.transitions import (
 from django.utils import timezone
 
 
-
 from games.daily.page.section import (
     WORD_SALAD_GAME_ID,
     is_scheduled_game,
@@ -52,13 +51,9 @@ from games.models import (
 )
 from games.site.session.replay import active_replay
 from games.results.share import share_host_from_request
-from games.site.views.pages.util import (
-    effective_play_mode,
-    has_profile,
-    has_team,
-    personal_play_mode_locked,
-)
-from games.ladder.tutorial.ladder import (
+from games.identity import has_profile, has_team
+from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
+from games.daily.ladder.tutorial.ladder import (
     LADDER_TUTORIAL_TITLE,
     is_new_ladder_player,
     ladder_tutorial_payload,
@@ -726,7 +721,6 @@ def new_task_group_page(
             ),
         ),
     })
-
 
 
 __all__ = [

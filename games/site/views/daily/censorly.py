@@ -88,7 +88,8 @@ from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.site.views.pages.util import get_public_task_or_404, has_profile
+from games.identity import has_profile
+from games.site.http.request_util import get_public_task_or_404
 from games.puzzles.censorly.lexical.match.core import fold
 from games.ops.telegram.links import task_play_url
 

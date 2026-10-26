@@ -1,7 +1,7 @@
 # Censorly Wikipedia extract fixtures
 
 Frozen slices of Russian Wikipedia TextExtracts for offline regression tests of
-`games.censorly.wiki.clean_wiki_extract` / `_trim_extract`.
+`games.puzzles.censorly.wiki.clean_wiki_extract` / `_trim_extract`.
 
 Do not fetch live Wikipedia in CI for these cases — update files deliberately
 when the cleaner’s contract changes.

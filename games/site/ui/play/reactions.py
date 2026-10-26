@@ -9,7 +9,6 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
 
-
 from games.ops.analytics.identity import (
     gameplay_anon_key,
 )
@@ -26,11 +25,9 @@ from games.models import (
 )
 from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.site.views.game.context import game_from_request_for_task
-from games.site.views.pages.util import (
-    effective_play_mode,
-    get_public_task_or_404,
-    has_profile,
-)
+from games.identity import has_profile
+from games.site.session.play_mode import effective_play_mode
+from games.site.http.request_util import get_public_task_or_404
 
 
 from games.site.ui import _get_play_mode
@@ -193,7 +190,6 @@ def _game_from_next_path(path):
     if not game_id:
         return None
     return Game.objects.filter(pk=game_id).first()
-
 
 
 __all__ = [

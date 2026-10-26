@@ -28,10 +28,7 @@ from games.models import (
     Team,
     TicketRequest,
 )
-from games.site.views.pages.util import (
-    has_profile,
-    has_team,
-)
+from games.identity import has_profile, has_team
 from games.club.billing.crypto import create_invoice as nowpayments_create_invoice
 from games.club.billing.crypto import embed_url_for_invoice
 from games.club.billing.crypto import nowpayments_ipn_callback_url
@@ -732,7 +729,6 @@ def new_donation_status(request, public_token):
         payload['pay_amount'] = donation.pay_amount
         payload['pay_currency'] = donation.pay_currency
     return JsonResponse(payload)
-
 
 
 __all__ = [

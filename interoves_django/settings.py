@@ -397,22 +397,22 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
-    'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
+    'games.site.http.middleware.auth_session_observability.RequestCorrelationMiddleware',
+    'games.site.http.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
     # Keep request timing outermost so slow_request covers session/auth
     # middleware and response-side session persistence, not only the view.
-    'games.middleware.request_timing.RequestTimingMiddleware',
+    'games.site.http.middleware.request_timing.RequestTimingMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
 
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'games.middleware.auth_session_observability.AuthSessionDiagnosticMiddleware',
+    'games.site.http.middleware.auth_session_observability.AuthSessionDiagnosticMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'games.middleware.auth_session_observability.AuthenticatedRequestAuditMiddleware',
-    'games.middleware.anonymous_identity.AnonymousIdentityMiddleware',
+    'games.site.http.middleware.auth_session_observability.AuthenticatedRequestAuditMiddleware',
+    'games.site.http.middleware.anonymous_identity.AnonymousIdentityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 
@@ -436,12 +436,12 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'games.context_processors.ui_section_games',
-                'games.context_processors.site_deploy_version',
-                'games.context_processors.analytics_bootstrap',
-                'games.context_processors.feedback_nav',
-                'games.context_processors.club_archive_ui',
-                'games.context_processors.unverified_telegram_prompt',
+                'games.site.http.context.ui_section_games',
+                'games.site.http.context.site_deploy_version',
+                'games.site.http.context.analytics_bootstrap',
+                'games.site.http.context.feedback_nav',
+                'games.site.http.context.club_archive_ui',
+                'games.site.http.context.unverified_telegram_prompt',
             ],
         },
     },
@@ -476,7 +476,7 @@ try:
 except ValueError:
     TRACK_WS_OPEN_LOG_EVERY = 50
 
-# games.site.http.middleware.request_timing (settings use games.middleware.request_timing facade) — warn when send_attempt / alphabetty guess exceed this (ms).
+# games.site.http.middleware.request_timing — warn when send_attempt / alphabetty guess exceed this (ms).
 REQUEST_TIMING_SLOW_MS = _env_float('REQUEST_TIMING_SLOW_MS', 2000)
 
 # Sample a small fraction of task-level projection reads against the canonical
@@ -753,12 +753,12 @@ if USE_S3:
         STATIC_URL = f"https://interoves.com/{STATIC_LOCATION}/"
     else:
         STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/"
-    STORAGES['staticfiles']['BACKEND'] = 'games.storage_backends.StaticStorage'
+    STORAGES['staticfiles']['BACKEND'] = 'games.ops.health.storage.StaticStorage'
     # s3 public media settings
     PUBLIC_MEDIA_LOCATION = 'media'
     # Media files are stored in S3 but served via /media/... through Nginx reverse-proxy.
     MEDIA_URL = '/media/'
-    STORAGES['default']['BACKEND'] = 'games.storage_backends.ProxyMediaStorage'
+    STORAGES['default']['BACKEND'] = 'games.ops.health.storage.ProxyMediaStorage'
 else:
     STATIC_URL = '/static/'
     STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -1131,7 +1131,7 @@ LOGGING = {
 
 # Inline Editor
 INLINEEDIT_ADAPTORS = {
-    "person-adaptor": "games.adaptors.PersonAdaptor",
+    "person-adaptor": "games.site.http.adaptors.PersonAdaptor",
 }
 
 # SQL-Explorer

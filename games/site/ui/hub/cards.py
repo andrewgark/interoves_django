@@ -8,7 +8,6 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 
-
 from games.ops.analytics.identity import (
     browser_anon_key,
     is_valid_anon_key,
@@ -52,10 +51,8 @@ from games.puzzles.raddle.engine import (
     parse_raddle_data,
 )
 from games.puzzles.salad.rules import archive_card_meta as word_salad_archive_card_meta
-from games.site.views.pages.util import (
-    effective_play_mode,
-    has_profile,
-)
+from games.identity import has_profile
+from games.site.session.play_mode import effective_play_mode
 
 
 from games.site.ui import (
@@ -445,7 +442,6 @@ def _folder_by_slug(slug):
         if f['slug'] == slug:
             return f
     return None
-
 
 
 __all__ = [

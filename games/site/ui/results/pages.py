@@ -8,7 +8,6 @@ from django.shortcuts import get_object_or_404, render
 from django.db.models import Q
 
 
-
 from games.daily.page.section import (
     is_scheduled_game,
     scheduled_number_is_public,
@@ -43,11 +42,8 @@ from games.models import (
     Task,
 )
 from games.models import GameResultsSnapshot
-from games.site.views.pages.util import (
-    effective_play_mode,
-    has_profile,
-    personal_play_mode_locked,
-)
+from games.identity import has_profile
+from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
 from games.results.snapshots.snapshot import (
     snapshot_to_results_context,
 )
@@ -663,7 +659,6 @@ def new_ladder_word_results_page(request, task_group_number):
         **_project_urls_context(NEW_UI_PROJECT),
         **_task_group_results_nav_context(game, placement),
     })
-
 
 
 __all__ = [

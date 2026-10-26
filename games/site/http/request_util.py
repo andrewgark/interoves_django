@@ -1,11 +1,8 @@
 import json
 
-from django.http import HttpResponseRedirect, HttpResponse
+from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.utils.http import url_has_allowed_host_and_scheme
-
-from games.identity.profile import has_profile, has_team
-from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
 
 
 def parse_json_object_body(request):
@@ -45,8 +42,6 @@ def is_browser_form_submission(request):
     """True for a native HTML form POST, not an AJAX/fetch request."""
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return False
-    # Callers without an Accept header are kept API-compatible; real browser
-    # form submissions advertise HTML and can safely be redirected.
     return 'text/html' in request.headers.get('Accept', '').lower()
 
 

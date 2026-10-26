@@ -44,13 +44,9 @@ from games.site.views.game.context import (
 )
 from games.site.views.game.hint import _get_play_mode, create_hint_attempt
 from games.site.views.game.render import update_task_html
-from games.site.views.pages.util import (
-    effective_play_mode,
-    get_public_task_or_404,
-    has_profile,
-    is_browser_form_submission,
-    redirect_after_browser_submission,
-)
+from games.identity import has_profile
+from games.site.session.play_mode import effective_play_mode
+from games.site.http.request_util import get_public_task_or_404, is_browser_form_submission, redirect_after_browser_submission
 
 
 def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None, replay_slot=None):

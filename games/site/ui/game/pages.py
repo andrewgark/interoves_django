@@ -12,7 +12,6 @@ from games.daily.timing.transitions import (
 from django.utils import timezone
 
 
-
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.page.section import (
     current_number_for,
@@ -40,16 +39,12 @@ from games.models import (
 from games.site.session.replay import active_replay
 from games.models import GameResultsSnapshot
 from games.results.share import share_host_from_request
-from games.site.views.pages.util import (
-    effective_play_mode,
-    has_profile,
-    has_team,
-    personal_play_mode_locked,
-)
+from games.identity import has_profile, has_team
+from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
 from games.results.snapshots.snapshot import (
     snapshot_to_results_context,
 )
-from games.ladder.tutorial.ladder import (
+from games.daily.ladder.tutorial.ladder import (
     with_ladder_tutorial_link,
     ladder_tutorial_url,
 )
@@ -649,7 +644,6 @@ def new_main_game_page(request, game_id):
         **task_group_progress_context,
         **_age_gate_context(game, back_url='/games/'),
     })
-
 
 
 __all__ = [

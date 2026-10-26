@@ -169,8 +169,8 @@ class TransientDatabaseResponseTests(TestCase):
     @override_settings(
         ROOT_URLCONF=__name__,
         MIDDLEWARE=[
-            'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
-            'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
+            'games.site.http.middleware.auth_session_observability.RequestCorrelationMiddleware',
+            'games.site.http.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
         ],
     )
     def test_1040_after_view_started_and_mutated_is_not_retryable(self):
@@ -183,8 +183,8 @@ class TransientDatabaseResponseTests(TestCase):
         ROOT_URLCONF=__name__,
         SESSION_ENGINE='django.contrib.sessions.backends.db',
         MIDDLEWARE=[
-            'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
-            'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
+            'games.site.http.middleware.auth_session_observability.RequestCorrelationMiddleware',
+            'games.site.http.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
             'django.contrib.sessions.middleware.SessionMiddleware',
         ],
     )
@@ -223,8 +223,8 @@ class TransientDatabaseResponseTests(TestCase):
     @override_settings(
         ROOT_URLCONF=__name__,
         MIDDLEWARE=[
-            'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
-            'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
+            'games.site.http.middleware.auth_session_observability.RequestCorrelationMiddleware',
+            'games.site.http.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
             'games.tests.test_db_transient_response._AsgiPreViewFailureMiddleware',
         ],
         ALLOWED_HOSTS=['testserver'], DEBUG=False, DEBUG_PROPAGATE_EXCEPTIONS=False,
@@ -243,8 +243,8 @@ class TransientDatabaseResponseTests(TestCase):
     @override_settings(
         ROOT_URLCONF=__name__,
         MIDDLEWARE=[
-            'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
-            'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
+            'games.site.http.middleware.auth_session_observability.RequestCorrelationMiddleware',
+            'games.site.http.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
         ],
         ALLOWED_HOSTS=['testserver'], DEBUG=False, DEBUG_PROPAGATE_EXCEPTIONS=False,
     )
@@ -267,8 +267,8 @@ class TransientDatabaseResponseTests(TestCase):
         ROOT_URLCONF=__name__,
         SESSION_ENGINE='django.contrib.sessions.backends.db',
         MIDDLEWARE=[
-            'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
-            'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
+            'games.site.http.middleware.auth_session_observability.RequestCorrelationMiddleware',
+            'games.site.http.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
             'django.contrib.sessions.middleware.SessionMiddleware',
             'games.tests.test_db_transient_response.SessionLoadFailureMiddleware',
         ],
@@ -285,8 +285,8 @@ class TransientDatabaseResponseTests(TestCase):
     @override_settings(
         ROOT_URLCONF=__name__,
         MIDDLEWARE=[
-            'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
-            'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
+            'games.site.http.middleware.auth_session_observability.RequestCorrelationMiddleware',
+            'games.site.http.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
         ],
     )
     def test_actual_django_timing_view_connection_failure_becomes_503(self):
@@ -297,8 +297,8 @@ class TransientDatabaseResponseTests(TestCase):
     @override_settings(
         ROOT_URLCONF=__name__,
         MIDDLEWARE=[
-            'games.middleware.auth_session_observability.RequestCorrelationMiddleware',
-            'games.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
+            'games.site.http.middleware.auth_session_observability.RequestCorrelationMiddleware',
+            'games.site.http.middleware.db_transient_response.TransientDatabaseResponseMiddleware',
         ],
     )
     def test_actual_timing_unknown_commit_is_503_but_other_write_remains_500(self):

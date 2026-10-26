@@ -4,7 +4,8 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 from games.models import Registration, Game, Team
-from games.site.views.pages.util import has_team, redirect_to_referer
+from games.identity import has_team
+from games.site.http.request_util import redirect_to_referer
 
 
 @user_passes_test(has_team)

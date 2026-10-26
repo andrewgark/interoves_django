@@ -49,7 +49,7 @@ from games.club.billing.tribute.config import (
     configured_club_gift,
 )
 from games.site.ui import NEW_UI_PROJECT, _project_urls_context
-from games.site.views.pages.util import has_profile
+from games.identity import has_profile
 
 logger = logging.getLogger('games.views.subscription')
 

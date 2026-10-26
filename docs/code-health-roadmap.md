@@ -41,7 +41,7 @@
 
 ### 3. Первый домен для декомпозиции
 
-Статус games refactor (2026): prod/tests на **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`**, **`games.identity`**, **`games.ops.*`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**. **Oct 2026:** ~120 корневых alias-файлов и каталоги `games/views`, `games/support`, `games/telegram`, … **удалены**; остались Django entry shims (`admin`, `middleware`, `storage_backends`, puzzle bootstrap `wall`/`word_salad`, …) — **`agents/AGENTS.md`**. Settings по-прежнему строки **`games.middleware.*`**, **`games.context_processors`**, **`games.storage_backends`**, **`games.adaptors`**. Logger names (`games.views.new_ui`, …) не менять.
+Статус games refactor (2026): prod/tests на **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`**, **`games.identity`**, **`games.ops.*`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**. **Oct 2026:** ~120 корневых alias-файлов и каталоги `games/views`, `games/support`, `games/telegram`, … **удалены**; остались Django entry shims (`admin`, `storage_backends`, puzzle bootstrap `wall`/`word_salad`, …) — **`agents/AGENTS.md`**. Settings: middleware/context/inlineedit/storage → **`games.site.http.*`** / **`games.ops.health.storage`**; migration shim **`games.storage_backends`**, allauth **`games.provider`**. Logger names (`games.views.new_ui`, …) не менять.
 
 Начать с main UI (`games/site/ui`, фасад `games.views.new_ui`), не меняя URL-контракты:
 
@@ -51,6 +51,8 @@
 4. перенести одну группу функций без изменения логики;
 5. сохранить фасад совместимости, если он снижает риск импорта;
 6. только после нескольких переносов удалить доказанную копипасту.
+
+**Oct 26 follow-up:** убран barrel `games.site.views.pages.legacy` — `games.site.urls.{root,ui,old}` импортируют handlers напрямую; ladder tutorial в `games.daily.ladder.tutorial`; HTTP helpers в `games.site.http.request_util`.
 
 Не пытаться заранее придумать идеальную конечную структуру.
 

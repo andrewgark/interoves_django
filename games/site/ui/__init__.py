@@ -6,9 +6,6 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
 
 
-
-
-
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,

@@ -9,9 +9,6 @@ from django.core.exceptions import ValidationError
 from django.shortcuts import redirect
 
 
-
-
-
 from games.models import (
     Profile,
 )
@@ -80,7 +77,6 @@ def _profile_unavailable_redirect(request):
     if scoped:
         return redirect('project_hub', project_id=scoped)
     return redirect('new_hub')
-
 
 
 __all__ = [

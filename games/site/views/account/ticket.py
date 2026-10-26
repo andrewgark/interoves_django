@@ -13,7 +13,8 @@ from games.models import TicketRequest
 from games.club.billing.crypto import verify_ipn_signature
 from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
 from games.club.billing.tribute.util import verify_webhook_signature as verify_tribute_webhook_signature
-from games.site.views.pages.util import has_team, redirect_to_referer
+from games.identity import has_team
+from games.site.http.request_util import redirect_to_referer
 from games.club.billing.yookassa.util import configure_yookassa_from_env
 
 from yookassa import Payment

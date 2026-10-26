@@ -34,7 +34,8 @@ from games.realtime.db import is_mysql_retryable_lock_error
 from games.models import Attempt, Game, GameTaskGroup
 from games.ops.analytics.identity import gameplay_anon_key
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
-from games.site.views.pages.util import effective_play_mode, has_profile, has_team
+from games.identity import has_profile, has_team
+from games.site.session.play_mode import effective_play_mode
 
 
 def _json_error(code, http_status=400):

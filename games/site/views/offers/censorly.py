@@ -15,7 +15,8 @@ from games.puzzles.censorly.article.wiki import WikiFetchError, suggest_article_
 from games.club.offers.censorly import create_offer, list_user_offers, serialize_offer
 from games.club.offers.profiles import profile_ready_for_offers, update_offer_profile_names
 from games.club.link import offer_profile_error
-from games.site.views.pages.util import has_profile, parse_json_object_body
+from games.identity import has_profile
+from games.site.http.request_util import parse_json_object_body
 
 SUGGEST_LIMIT = 60
 SUGGEST_WINDOW_SECONDS = 60

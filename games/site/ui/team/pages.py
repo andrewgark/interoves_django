@@ -17,7 +17,6 @@ from django.db import transaction
 from django.utils import timezone
 
 
-
 from games.models import (
     ProfileTeamMembership,
     Project,
@@ -26,9 +25,7 @@ from games.models import (
     TicketRequest,
 )
 from games.models import TICKET_REQUESTS_PAGE_SIZE
-from games.site.views.pages.util import (
-    has_profile,
-)
+from games.identity import has_profile
 
 
 from games.site.ui import (

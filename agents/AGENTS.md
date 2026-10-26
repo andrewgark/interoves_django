@@ -210,7 +210,7 @@ If the resolved version is empty, the client check is skipped.
 
 **Facade retirement (2026-10):** удалены ~120 корневых `games/*.py` aliases и каталоги `games/views`, `games/support`, `games/telegram`, `games/social`, `games/instagram`, `games/twitter`, `games/threads`, `games/background`, `games/tutorials`, `games/google`, `games/matcher` — prod/tests уже на canonical paths. **Не удаляй** entry points ниже и puzzle bootstrap (`games.wall`, `games.word_salad`, …). Имена **loggers** (`games.views.new_ui`, `games.daily_timing`, …) намеренно legacy; `assertLogs` и prod-логи на них завязаны.
 
-**Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.forms`, `games.signals`, `games.auth_observability`, `games.context_processors`, `games.storage_backends`, `games.adaptors`, `games.provider`, `games.telegram_oidc`, `games.middleware.*`, `games.templatetags.filters`, `games.wall` / `word_salad` / `raddle` / `grid_puzzle` / `replacements_lines`, `games.results_sql_aggregate`, пакеты **`games.censorly` / `alphabetty` / `salad` / `ladder`** (model load).
+**Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.storage_backends`, `games.provider` (allauth autodiscover), `games.templatetags.filters`, `games.wall` / `word_salad` / `raddle` / `grid_puzzle` / `replacements_lines`, пакеты **`games.censorly`** (`__init__` + `models`), **`games.alphabetty`** (`models` + `core` для migration `0150`), **`salad` / `ladder`** (model load only). Ladder tutorial: **`games.daily.ladder.tutorial`**. Django settings: HTTP **`games.site.http.*`**, inlineedit **`games.site.http.adaptors`**. Yandex Direct — только **`games.ops.social.ads.*`** (каталог `games/ads_direct` удалён).
 
 | Concern | Canonical import | Notes |
 |--------|------------------|-------|
@@ -219,23 +219,23 @@ If the resolved version is empty, the client check is skipped.
 | Live track / WebSocket helpers | `games.realtime.track_compat` | logger `games.views.track` |
 | MySQL lock retry helpers | `games.realtime.db` | — |
 | ASGI DB admission middleware | `games.realtime.admission` | — |
-| HTTP middleware (timing, anon identity, DB transient) | `games.site.http.middleware.*` | settings: `games.middleware.*` |
+| HTTP middleware (timing, anon identity, DB transient) | `games.site.http.middleware.*` | `settings.MIDDLEWARE` |
 | Yandex Direct ads CLI | `games.ops.social.ads.*` | — |
 | Main UI symbol bundle | `games.site.views.pages.ui_exports` | logger `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | — |
 | Censorly IDs / flags | `games.puzzles.censorly.ids` | `games.censorly` package re-export |
-| Censorly implementation | `games.puzzles.censorly.*` | `games.censorly.*` module shims where needed |
+| Censorly implementation | `games.puzzles.censorly.*` | — |
 | Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | bootstrap: `games.grid_puzzle` |
 | SQS worker handlers | `games.site.views.workers.{background,identity,integrations,word_salad}` | — |
 | Worker registry / ECS config / Lambda SQS | `games.ops.workers.{contract,config,lambda_entry}` | — |
 | Gameplay write actor (team/user/anon) | `games.identity` (`games.identity.actor`) | — |
-| Profile/team presence on User | `games.identity.profile` or `games.identity` | `games.site.views.pages.util` (re-export) |
+| Profile/team presence on User | `games.identity.profile` or `games.identity` | site views / UI import `games.identity` |
 | Account / ticket / subscription | `games.site.views.account.*` | — |
 | Daily play (alphabetty, censorly) | `games.site.views.daily.*` | — |
 | Recheck / chain replay jobs | `games.ops.workers.jobs.recheck` | — |
 | Word salad async recheck queue | `games.ops.workers.jobs.salad` | `games.word_salad_recheck` |
 | Recheck outbox transport | `games.ops.workers.jobs.outbox` | `games.word_salad_outbox` |
-| Auth/session gameplay diagnostics | `games.site.http.auth_observability` | `games.auth_observability` |
+| Auth/session gameplay diagnostics | `games.site.http.auth_observability` | `games.apps` ready hook |
 | Account / anonymous merge | `games.club.merge.{account,anon,anonymous,queue,events}` | — |
 | Task group navigation | `games.tasks.navigation` | — |
 | HTML-forms puzzle rendering | `games.puzzles.replacements.forms` | — |
@@ -251,8 +251,8 @@ If the resolved version is empty, the client check is skipped.
 | Next-game vote campaign | `games.club.vote` | — |
 | Actor task scoring / progress SQL | `games.daily.completion.scoring` | — |
 | Raddle response contract matrix | `games.puzzles.raddle.contract` | — |
-| Telegram OIDC auth | `games.club.telegram_oidc` | `games.telegram_oidc` |
-| Template context processors | `games.site.http.context` | `games.context_processors` (settings keep legacy strings) |
+| Telegram OIDC auth | `games.club.telegram_oidc` | `games.urls`, tests |
+| Template context processors | `games.site.http.context` | `settings.TEMPLATES` |
 | Daily schedule / section page | `games.daily.page.section` | — |
 | Daily archive UI helpers | `games.daily.page.archive` | — |
 | Ladder daily catalog | `games.daily.catalog.ladder` | — |
@@ -260,7 +260,7 @@ If the resolved version is empty, the client check is skipped.
 | Daily catalog (censorly / alphabetty / salad) | `games.daily.catalog.{censorly,alphabetty,word_salad}` | — |
 | Player offers (ladder / alphabetty / censorly / salad) | `games.club.offers.*` | — |
 | Replay session | `games.site.session.replay` (+ `replay_navigation`) | — |
-| Gameplay context / play mode | `games.site.session.{gameplay_context,play_mode}` (`effective_play_mode`, `get_play_mode`, …) | `games.gameplay_context`, `play_mode`; `games.site.views.pages.util` re-exports play-mode helpers |
+| Gameplay context / play mode | `games.site.session.{gameplay_context,play_mode}` (`effective_play_mode`, `get_play_mode`, …) | import `games.site.session.play_mode` in views |
 | Offer profile names | `games.club.offers.profiles` | — |
 | Results snapshot builders | `games.results.snapshots.snapshot` | — |
 | Logical game completion | `games.daily.completion.completion_coordinator` | — |
@@ -268,7 +268,7 @@ If the resolved version is empty, the client check is skipped.
 | Daily share card PNG/payload | `games.daily.page.share.{card,render}` | — |
 | Projection / stats refresh events | `games.realtime.projection` | — |
 | EB worker poll/config/contract | `games.ops.workers.{http,config,contract,polling,lambda_entry,heartbeat,messages}` | — |
-| Site HTTP forms | `games.site.forms` | `games.forms` |
+| Site HTTP forms | `games.site.forms` | — |
 | Django admin registrations | `games.site.admin` | `games.admin` (autodiscover entry) |
 | Template filter helpers | `games.site.http.tags.filters` | `games.templatetags.filters` (Django tag library path) |
 | Distributed cron locks | `games.ops.cron.lock` | — |
@@ -296,17 +296,18 @@ If the resolved version is empty, the client check is skipped.
 | Ticket billing service | `games.club.billing.tickets` | — |
 | Pay page ticket routes | `games.club.billing.routes` | — |
 | Club YooKassa / access service | `games.club.billing.yookassa.{club,client}`, `games.club.access.service` | — |
-| Social queue / static S3 backends | `games.ops.health.storage` | `games.storage_backends` (settings/migrations keep legacy path) |
+| Social queue / static S3 backends | `games.ops.health.storage` | `games.storage_backends` shim for migrations only; `settings.STORAGES` → canonical |
 | Subscription gifts | `games.club.billing.gifts.{offers,payments}` | — |
 | Donations / crypto / YooKassa util | `games.club.billing.{donations,crypto,yookassa.util}` | `donation_service`, `nowpayments_util`, `yookassa_util` |
 | Tribute checkout (prod entry) | `games.club.billing.tribute.service` | — |
 | Tribute config / webhook HMAC | `games.club.billing.tribute.{config,util}` | `games.tribute_config`, `tribute_util` |
 | Results share formatting | `games.results.share` | — |
-| SQL results aggregate | `games.results.sql` | `games.results_sql_aggregate` |
+| SQL results aggregate | `games.results.sql` | — |
+| JSON body / public task / browser-form HTTP helpers | `games.site.http.request_util` | — |
 | Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `games.wall`, `word_salad`, `replacements_*` |
-| Ladder onboarding tutorial | `games.ladder.tutorial.{ladder,views}` | — |
+| Ladder onboarding tutorial | `games.daily.ladder.tutorial.{ladder,views}` | `games.ladder` — только models bootstrap |
 | Alphabetty engine | `games.puzzles.alphabetty.*` | `games.alphabetty.*` |
-| Alphabetty/Censorly offer models in `models/__init__` | keep `games.alphabetty.models` / `games.censorly.models` facades (avoid `games.puzzles` at Django model load) |
+| Alphabetty/Censorly offer models in `models/__init__` | `games.alphabetty.models` / `games.censorly.models` (+ `games.alphabetty.core` for migration `0150`) |
 На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Константа `WORD_SALAD_GAME_ID` живёт в `games.daily.page.section` (не тянет puzzles); `games.puzzles.salad.rules` только re-export для legacy. `models.catalog.Wall` — `games.wall`.
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД. **Новый код** — только canonical import; не добавляй новые root shims (entry points — см. выше). В prod и тестах не импортируй удалённые `games.*` aliases; для `@patch` предпочитай модуль, где имя **привязано** (не legacy `games.views.*`):
@@ -319,7 +320,7 @@ If the resolved version is empty, the client check is skipped.
 | `Task.save` / `Hint.save` admin broadcast | `games.realtime.track_compat.track_task_change` (lazy import inside model `save`) |
 | Salad queue post-commit notify | `games.realtime.track_compat.track_actor_task_change` (lazy import in `ops.workers.jobs.salad._schedule_actor_notification`) |
 
-URLConf may still import handler bundles from `games.site.views.pages.legacy`; worker/domain code — `games.site.views.game.*` directly.
+URLConf imports view callables from `games.site.views.{account,game,pages,results}.*` directly; worker code — same game modules.
 
 ## Raddle (Лесенка)
 

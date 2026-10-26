@@ -28,7 +28,7 @@ from games.ops.analytics.events import (
 from games.daily.timing import complete_daily_timing_in_transaction
 from games.realtime.db import is_mysql_retryable_lock_error, log_lock_retry
 from games.models import ChainTaskState, PlayerCompletedGame
-from games.ladder.tutorial.ladder import is_ladder_tutorial_task_group
+from games.daily.ladder.tutorial.ladder import is_ladder_tutorial_task_group
 from games.site.session.replay import StaleReplayError
 
 

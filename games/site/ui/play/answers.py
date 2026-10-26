@@ -12,7 +12,6 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
 
-
 from games.puzzles.replacements.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.models import (
     Attempt,
@@ -25,11 +24,9 @@ from games.puzzles.raddle.engine import (
     raddle_word_solved_list,
 )
 from games.site.views.game.context import game_from_request_for_task
-from games.site.views.pages.util import (
-    effective_play_mode,
-    get_public_task_or_404,
-    has_profile,
-)
+from games.identity import has_profile
+from games.site.session.play_mode import effective_play_mode
+from games.site.http.request_util import get_public_task_or_404
 
 
 from games.site.ui import (
@@ -263,7 +260,6 @@ def new_get_raddle_word_answer(request, task_id, word_index):
     if not text.strip():
         return JsonResponse({'html': '<div class="new-login-hint">Нет ответа.</div>'})
     return JsonResponse({'html': _answer_popup_html(text, task.answer_comment)})
-
 
 
 __all__ = [

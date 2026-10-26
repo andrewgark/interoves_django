@@ -4,7 +4,8 @@ from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.site.views.pages.util import get_public_task_or_404, has_profile, has_team
+from games.identity import has_profile, has_team
+from games.site.http.request_util import get_public_task_or_404
 
 
 def task_ok_by_team(task, team, mode):

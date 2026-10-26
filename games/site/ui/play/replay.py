@@ -5,19 +5,13 @@ from django.shortcuts import redirect
 from django.views.decorators.http import require_POST
 
 
-
-
-
 from games.site.session.replay_navigation import (
     redirect_after_replay_action,
     replay_actor_for_request,
     replay_game_and_placement,
 )
 from games.site.session.replay import clear_replay_session, start_or_reset_replay
-from games.site.views.pages.util import (
-    has_profile,
-    has_team,
-)
+from games.identity import has_profile, has_team
 
 
 from games.site.ui import (
@@ -80,7 +74,6 @@ def new_replay_exit(request, game_id, task_group_number, project_id=None):
     team, user, anon_key = _replay_actor_for_request(request, game)
     clear_replay_session(request, game, placement.task_group)
     return redirect(_redirect_after_replay_action(game, task_group_number, project_id))
-
 
 
 __all__ = [

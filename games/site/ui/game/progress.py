@@ -11,7 +11,6 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 
-
 from games.club.access.game import game_has_started
 from games.daily.page.section import (
     WORD_SALAD_GAME_ID,
@@ -44,10 +43,8 @@ from games.puzzles.raddle.engine import (
     raddle_hub_result_for_actor,
 )
 from games.puzzles.salad.rules import salad_hub_result_for_actor
-from games.site.views.pages.util import (
-    effective_play_mode,
-    has_profile,
-)
+from games.identity import has_profile
+from games.site.session.play_mode import effective_play_mode
 
 
 from games.site.ui import (

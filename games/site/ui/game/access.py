@@ -5,21 +5,10 @@ from django.http import Http404
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, render
 
-
-
-
-
 from games.club.access.game import game_has_started
-from games.models import (
-    Project,
-)
+from games.identity import has_profile, has_team
+from games.models import Project
 from games.site.views.pages.public.main import MainPageView
-from games.site.views.pages.util import (
-    has_profile,
-    has_team,
-)
-
-
 from games.site.ui import (
     NEW_UI_PROJECT,
     NEW_UI_SECTIONS_PROJECT,
@@ -142,7 +131,6 @@ def _new_folder_games(request):
         'show_sections_nav': True,
         **_project_urls_context(project.id),
     })
-
 
 
 __all__ = [

@@ -2,7 +2,7 @@ from django.shortcuts import render, get_object_or_404
 
 from games.daily.page.context import daily_statistics_url
 from games.site.ui.play.context import build_task_group_task_context_dicts
-from games.site.views.pages.util import has_profile
+from games.identity import has_profile
 from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
 from games.ops.analytics.identity import gameplay_anon_key
 from games.site.session.gameplay_context import issue_gameplay_context
@@ -21,7 +21,7 @@ def _task_card_public_identity(game, task_group, slot):
 
     if game.id == 'ladder':
         from games.models import LadderOffer
-        from games.ladder.tutorial.ladder import (
+        from games.daily.ladder.tutorial.ladder import (
             LADDER_TUTORIAL_SEGMENT, LADDER_TUTORIAL_TITLE, is_ladder_tutorial_task_group,
         )
 

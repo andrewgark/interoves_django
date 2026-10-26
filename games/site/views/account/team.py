@@ -5,7 +5,8 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 from games.site.forms import CreateTeamForm, JoinTeamForm
 from games.models import ProfileTeamMembership, Team
-from games.site.views.pages.util import redirect_to_referer, has_profile, has_team
+from games.identity import has_profile, has_team
+from games.site.http.request_util import redirect_to_referer
 
 
 def _team_from_request(request, fallback_team):

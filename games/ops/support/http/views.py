@@ -168,7 +168,7 @@ from games.ops.support.feed.social import (
     sync_from_telegram as social_sync_from_telegram,
     update_post as social_update_post,
 )
-from games.site.views.pages.util import json_boolean_field, parse_json_object_body
+from games.site.http.request_util import json_boolean_field, parse_json_object_body
 
 logger = logging.getLogger('games.support.views')
 

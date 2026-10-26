@@ -11,7 +11,6 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
 
-
 from games.daily.page.section import (
     scheduled_number_is_public,
 )
@@ -22,12 +21,8 @@ from games.models import (
     Task,
 )
 from games.site.session.replay import active_replay
-from games.site.views.pages.util import (
-    effective_play_mode,
-    has_profile,
-    has_team,
-    personal_play_mode_locked,
-)
+from games.identity import has_profile, has_team
+from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
 
 
 from games.site.ui import (
@@ -180,7 +175,6 @@ def new_task_group_live_state(request, game_id, project_id=None):
         'versions': versions,
         'reload_required': len(fragments) != len(tasks),
     })
-
 
 
 __all__ = [

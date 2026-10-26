@@ -13,7 +13,7 @@ from games.site.session.gameplay_context import issue_gameplay_context
 from games.puzzles.replacements.forms import render_html_forms_task
 from games.site.views.account.team import get_team_to_play_page
 from games.site.views.game.render import get_all_text_with_forms_to_html, get_task_to_attempts_info
-from games.site.views.pages.util import has_profile, has_team
+from games.identity import has_profile, has_team
 from games.site.views.results.pages import results_page
 
 

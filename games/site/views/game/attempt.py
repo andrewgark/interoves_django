@@ -31,13 +31,9 @@ from games.site.views.game.context import (
     unpublished_scheduled_task_response,
 )
 from games.site.views.game.render import update_task_html
-from games.site.views.pages.util import (
-    effective_play_mode,
-    get_public_task_or_404,
-    has_profile,
-    is_browser_form_submission,
-    redirect_after_browser_submission,
-)
+from games.identity import has_profile
+from games.site.session.play_mode import effective_play_mode
+from games.site.http.request_util import get_public_task_or_404, is_browser_form_submission, redirect_after_browser_submission
 from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
 from games.puzzles.alphabetty import AlphabettyPuzzle
 from games.puzzles.core.primitives import MoveRefusal, MoveResponse

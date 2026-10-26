@@ -84,7 +84,7 @@ from games.site.session.gameplay_context import (
     issue_gameplay_context,
     validate_gameplay_context,
 )
-from games.site.views.pages.util import has_profile
+from games.identity import has_profile
 from games.site.session.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 
 

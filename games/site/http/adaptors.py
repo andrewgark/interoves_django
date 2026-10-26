@@ -5,7 +5,7 @@ from django import forms
 import inlineedit
 
 # Import BasicAdaptor without loading inlineedit.adaptors.__init__, which resolves
-# games.adaptors from settings while this module is still initializing.
+# games.site.http.adaptors from settings while this module is still initializing.
 _basic_path = Path(inlineedit.__file__).resolve().parent / 'adaptors' / 'basic.py'
 _basic_spec = importlib.util.spec_from_file_location('inlineedit.adaptors.basic', _basic_path)
 _basic_module = importlib.util.module_from_spec(_basic_spec)

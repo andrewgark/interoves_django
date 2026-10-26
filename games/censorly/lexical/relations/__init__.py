@@ -1,1 +1,0 @@
-"""Approved relation storage. Edges are pairwise; they are not transitive."""

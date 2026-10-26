@@ -7,7 +7,6 @@ from django.core.cache import cache
 from django.utils import timezone
 
 
-
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.results.table.context import (
     attach_results_club_badges,
@@ -371,7 +370,6 @@ def _render_results_rows_partial(request, data, *, mode, results_variant='standa
         show_solve_duration=show_solve_duration,
         show_alphabetty_detail=show_alphabetty_detail,
     )
-
 
 
 __all__ = [

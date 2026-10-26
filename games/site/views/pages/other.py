@@ -4,12 +4,8 @@ from django.shortcuts import render, get_object_or_404
 from django.views.decorators.http import require_POST
 from games.models import Like
 from games.site.views.game.context import game_from_request_for_task
-from games.site.views.pages.util import (
-    get_public_task_or_404,
-    has_team,
-    is_browser_form_submission,
-    redirect_after_browser_submission,
-)
+from games.identity import has_team
+from games.site.http.request_util import get_public_task_or_404, is_browser_form_submission, redirect_after_browser_submission
 
 
 @user_passes_test(has_team)

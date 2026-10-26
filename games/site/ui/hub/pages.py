@@ -10,8 +10,6 @@ from games.daily.timing.transitions import (
 )
 
 
-
-
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
@@ -27,9 +25,7 @@ from games.models import (
 )
 from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.site.views.pages.public.main import MainPageView
-from games.site.views.pages.util import (
-    has_profile,
-)
+from games.identity import has_profile
 
 
 from games.site.ui import (
@@ -301,7 +297,6 @@ def new_section_last_page(request, game_id):
 def new_ladder_hub_page(request):
     """Архив лесенок: /ladder/ (канонический URL вместо /games/ladder/ и /section/ladder/)."""
     return _render_section_game_page(request, LADDER_GAME_ID)
-
 
 
 __all__ = [

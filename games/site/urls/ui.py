@@ -4,7 +4,7 @@ from django.views.generic import RedirectView
 from games.sections.urls import section_root_urlpatterns
 from games.site.views.account.registration import register_to_game
 from games.site.views.pages import ui
-from games.site.views.pages.legacy import (
+from games.site.views.account.team import (
     confirm_user_joining_team,
     kick_out_user,
     reject_user_joining_team,
