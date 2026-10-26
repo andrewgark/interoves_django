@@ -11,7 +11,7 @@ from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.club_yookassa import add_calendar_months
+from games.club.billing.yookassa.club import add_calendar_months
 from games.models import ClubEntitlement, ClubSubscription, Profile, SubscriptionGift
 
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'

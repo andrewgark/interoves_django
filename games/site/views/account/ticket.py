@@ -180,7 +180,7 @@ def yookassa_webhook(request):
         process_yookassa_gift_event(event, payment_data)
         return HttpResponse(status=200)
     if str(metadata.get('purpose') or '') == 'club_subscription':
-        from games.club_yookassa import process_yookassa_club_payment_event
+        from games.club.billing.yookassa.club import process_yookassa_club_payment_event
 
         process_yookassa_club_payment_event(event, payment_data)
         return HttpResponse(status=200)
@@ -540,7 +540,7 @@ def tribute_webhook(request):
             return HttpResponse(status=400)
         return HttpResponse(status=200)
 
-    from games.club_service import SUBSCRIPTION_EVENTS, ClubPayloadError, process_subscription_event
+    from games.club.access.service import SUBSCRIPTION_EVENTS, ClubPayloadError, process_subscription_event
 
     if event_name in SUBSCRIPTION_EVENTS:
         if not isinstance(payload, dict):

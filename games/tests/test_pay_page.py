@@ -11,7 +11,7 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
 from games.models import Game, HTMLPage, Profile, Project, Team, TicketRequest
-from games.payment_routes import CRYPTO, INTERNATIONAL_CARD, RUSSIAN_CARD, amount_for, route_for, unit_price_for
+from games.club.billing.routes import CRYPTO, INTERNATIONAL_CARD, RUSSIAN_CARD, amount_for, route_for, unit_price_for
 
 
 def _ensure_login_modal_deps():

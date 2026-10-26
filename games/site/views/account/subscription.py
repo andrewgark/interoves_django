@@ -22,7 +22,7 @@ from games.ops.analytics.events import (
     yandex_goal_payload,
 )
 from games.club.access.archive import get_club_subscription, has_club_access
-from games.club_yookassa import (
+from games.club.billing.yookassa.club import (
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,
     add_calendar_months,

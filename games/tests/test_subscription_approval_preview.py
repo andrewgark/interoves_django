@@ -15,7 +15,7 @@ from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from games.club_yookassa import renew_due_subscriptions
+from games.club.billing.yookassa.club import renew_due_subscriptions
 from games.models import ClubSubscription, ClubYooKassaPayment, SavedPaymentMethod
 from games.tests.test_club_yookassa import _ensure_reference_rows
 
@@ -73,8 +73,8 @@ class SubscriptionApprovalPreviewTests(TestCase):
 
     def test_preview_creates_no_billing_rows_and_uses_no_provider(self):
         self.client.force_login(self.staff)
-        with patch('games.club_yookassa.Payment.create') as create, \
-                patch('games.club_yookassa.Payment.find_one') as find, \
+        with patch('games.club.billing.yookassa.club.Payment.create') as create, \
+                patch('games.club.billing.yookassa.club.Payment.find_one') as find, \
                 patch('games.site.views.account.subscription.queue_pending_goal') as analytics:
             self.client.get(self.preview_url)
             self.client.get(self.preview_url)
@@ -110,7 +110,7 @@ class SubscriptionApprovalPreviewTests(TestCase):
         before = self.billing_snapshot()
         with patch('games.site.views.account.subscription.SavedPaymentMethod.objects.filter',
                    side_effect=AssertionError('Preview must not load payment methods')), \
-                patch('games.club_yookassa.Payment.create') as create:
+                patch('games.club.billing.yookassa.club.Payment.create') as create:
             response = self.client.get(self.preview_url)
             self.assertEqual(renew_due_subscriptions()['created'], 0)
         create.assert_not_called()
@@ -142,8 +142,8 @@ class SubscriptionApprovalPreviewTests(TestCase):
         self.make_existing_method()
         self.client.force_login(self.staff)
         before = self.billing_snapshot()
-        with patch('games.club_yookassa.Payment.create') as create, \
-                patch('games.club_yookassa.Payment.find_one') as find, \
+        with patch('games.club.billing.yookassa.club.Payment.create') as create, \
+                patch('games.club.billing.yookassa.club.Payment.find_one') as find, \
                 patch('games.site.views.account.subscription.detach_yookassa_payment_method') as detach:
             html = self.client.get(self.preview_url).content
             requests = []

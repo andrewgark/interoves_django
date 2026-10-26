@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.club_yookassa import renew_due_subscriptions, yookassa_recurring_enabled
+from games.club.billing.yookassa.club import renew_due_subscriptions, yookassa_recurring_enabled
 
 
 class Command(BaseCommand):

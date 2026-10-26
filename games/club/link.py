@@ -177,7 +177,7 @@ def consume_link_token(raw_token: str, *, telegram_user_id, telegram_username=''
         token.used_at = now
         token.save(update_fields=['used_at'])
 
-    from games.club_service import apply_pending_club_events_for_telegram
+    from games.club.access.service import apply_pending_club_events_for_telegram
 
     apply_pending_club_events_for_telegram(numeric_id)
 

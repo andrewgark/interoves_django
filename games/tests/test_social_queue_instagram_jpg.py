@@ -10,7 +10,7 @@ from django.urls import reverse
 from PIL import Image
 
 from games.social.models import SocialQueuePost
-from games.storage_backends import ProxyMediaStorage, social_queue_storage
+from games.ops.health.storage import ProxyMediaStorage, social_queue_storage
 
 
 def _png_bytes(size=(32, 40)):

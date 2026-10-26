@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from django.db import models
 
-from games.storage_backends import social_queue_storage
+from games.ops.health.storage import social_queue_storage
 
 
 class SocialQueuePost(models.Model):

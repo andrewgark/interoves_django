@@ -19,7 +19,7 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError, connection, transaction
 from django.db.models import F
 from django.utils import timezone
-from games.club_yookassa_client import ClubPayment as Payment
+from games.club.billing.yookassa.client import ClubPayment as Payment
 
 from games.models import ClubSubscription, ClubYooKassaPayment, SavedPaymentMethod
 from games.yookassa_util import configure_yookassa_from_env
@@ -357,7 +357,7 @@ def cancel_yookassa_subscription(user) -> StartPaymentResult:
         subscription.cancelled_at = timezone.now()
         subscription.next_charge_at = None
         subscription.status = ClubSubscription.STATUS_CANCELLED
-        from games.club_service import _queue_goal
+        from games.club.access.service import _queue_goal
 
         _queue_goal(subscription, 'cancelled', subscription.cancelled_at)
         subscription.save(update_fields=[
@@ -523,7 +523,7 @@ def _apply_succeeded_payment(
             if subscription.payment_method_save_failed:
                 logger.warning('subscription_payment_method_not_saved payment_pk=%s', local.pk)
 
-    from games.club_service import _queue_goal
+    from games.club.access.service import _queue_goal
 
     _queue_goal(
         subscription,

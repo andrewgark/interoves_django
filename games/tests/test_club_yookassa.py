@@ -12,7 +12,7 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
 from games.club.access.archive import has_club_access
-from games.club_yookassa import (
+from games.club.billing.yookassa.club import (
     AMOUNT_INTRO_KOPECKS,
     AMOUNT_MONTHLY_KOPECKS,
     _submit_renewal,
@@ -134,8 +134,8 @@ class ClubYooKassaFlowTests(TestCase):
 
         return P(data)
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_initial_monthly_succeeds_and_saves_method(self, create_mock, _cfg):
         create_mock.return_value = self._mock_create()
         result = start_monthly_subscription(
@@ -163,8 +163,8 @@ class ClubYooKassaFlowTests(TestCase):
         # calendar month
         self.assertGreater(sub.paid_until, timezone.now() + timedelta(days=27))
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_initial_canceled_does_not_activate_or_consume_intro(self, create_mock, _cfg):
         create_mock.return_value = self._mock_create()
         start_monthly_subscription(self.user, return_url='https://x/return')
@@ -178,8 +178,8 @@ class ClubYooKassaFlowTests(TestCase):
         self.assertIsNone(sub.intro_offer_used_at)
         self.assertEqual(initial_monthly_amount_kopecks(sub), AMOUNT_INTRO_KOPECKS)
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_resubscribe_after_intro_is_900(self, create_mock, _cfg):
         create_mock.return_value = self._mock_create(payment_id='yk-a')
         start_monthly_subscription(self.user, return_url='https://x/return')
@@ -198,8 +198,8 @@ class ClubYooKassaFlowTests(TestCase):
         payload = create_mock.call_args[0][0]
         self.assertEqual(payload['amount']['value'], '600.00')
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_cancel_keeps_access_until_paid_through(self, create_mock, _cfg):
         create_mock.return_value = self._mock_create()
         start_monthly_subscription(self.user, return_url='https://x/return')
@@ -215,8 +215,8 @@ class ClubYooKassaFlowTests(TestCase):
         self.assertTrue(sub.auto_renew)
         self.assertEqual(sub.effective_status(), ClubSubscription.STATUS_ACTIVE)
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_duplicate_webhook_is_idempotent(self, create_mock, _cfg):
         create_mock.return_value = self._mock_create()
         start_monthly_subscription(self.user, return_url='https://x/return')
@@ -229,8 +229,8 @@ class ClubYooKassaFlowTests(TestCase):
         self.assertEqual(sub.paid_until, paid_until)
         self.assertEqual(ClubYooKassaPayment.objects.filter(status='succeeded').count(), 1)
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_renewal_extends_calendar_month(self, create_mock, _cfg):
         create_mock.return_value = self._mock_create()
         start_monthly_subscription(self.user, return_url='https://x/return')
@@ -271,8 +271,8 @@ class ClubYooKassaFlowTests(TestCase):
         stats2 = renew_due_subscriptions(limit=10)
         self.assertEqual(stats2['created'], 0)
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_double_click_reuses_pending_payment(self, create_mock, _cfg):
         create_mock.return_value = self._mock_create()
         first = start_monthly_subscription(self.user, return_url='https://x/return')
@@ -299,8 +299,8 @@ class ClubYooKassaFlowTests(TestCase):
             self.assertEqual(response.status_code, 401)
 
     @patch('games.telegram.notify.notify_admin_club_subscription_attempt_failed')
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create', side_effect=RuntimeError('provider down'))
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create', side_effect=RuntimeError('provider down'))
     def test_failed_monthly_start_notifies_admin(self, _create, _cfg, notify_mock):
         self.client.force_login(self.user)
         response = self.client.post(reverse('new_subscription_yookassa_monthly'))
@@ -310,7 +310,7 @@ class ClubYooKassaFlowTests(TestCase):
         self.assertEqual(notify_mock.call_args.kwargs['reason'], 'yookassa')
 
     @override_settings(YOOKASSA_RECURRING_ENABLED=False)
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_recurring_flag_blocks_charges(self, create_mock):
         ClubSubscription.objects.create(
             user=self.user,
@@ -385,9 +385,9 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertTrue(self.method.is_active)
         self.assertTrue(self.sub.auto_renew)
 
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_renewal_after_detach_including_stale_scheduler_selection_is_blocked(self, create):
-        from games.club_yookassa import _renew_one
+        from games.club.billing.yookassa.club import _renew_one
         detach_yookassa_payment_method(self.user)
         self.assertEqual(renew_due_subscriptions()['created'], 0)
         self.assertFalse(_renew_one(self.sub.pk, now=timezone.now()))
@@ -437,8 +437,8 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertContains(response, 'Автопродление отключено')
         self.assertNotContains(response, 'Возобновить автопродление')
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create')
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create')
     def test_resubscribe_requires_new_initial_success_and_does_not_restore_intro(self, create, _cfg):
         detach_yookassa_payment_method(self.user)
         self.sub.refresh_from_db()
@@ -571,8 +571,8 @@ class ClubYooKassaDetachTests(TestCase):
                 process_yookassa_club_payment_event('payment.succeeded', data)
                 self.assertFalse(SavedPaymentMethod.objects.filter(is_active=True).exists())
 
-    @patch('games.club_yookassa.configure_yookassa_from_env')
-    @patch('games.club_yookassa.Payment.create', side_effect=TimeoutError('secret-old-token'))
+    @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
+    @patch('games.club.billing.yookassa.club.Payment.create', side_effect=TimeoutError('secret-old-token'))
     def test_ambiguous_submission_is_retained_disclosed_and_never_retried(self, create, _cfg):
         with self.assertLogs('games.club_yookassa') as logs:
             renew_due_subscriptions()
@@ -588,7 +588,7 @@ class ClubYooKassaDetachTests(TestCase):
         renew_due_subscriptions()
         self.assertEqual(create.call_count, 1)
 
-    @patch('games.club_yookassa._create_yookassa_payment')
+    @patch('games.club.billing.yookassa.club._create_yookassa_payment')
     def test_pending_provider_response_cannot_be_submitted_again(self, create):
         create.return_value = {'id': 'pending-provider-payment', 'status': 'pending'}
         self.assertEqual(renew_due_subscriptions()['created'], 1)
@@ -596,7 +596,7 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertFalse(_submit_renewal(local.pk))
         create.assert_called_once()
 
-    @patch('games.club_yookassa._create_yookassa_payment', side_effect=SystemExit)
+    @patch('games.club.billing.yookassa.club._create_yookassa_payment', side_effect=SystemExit)
     def test_crash_during_submission_leaves_durable_claim_and_cannot_replay(self, create):
         with self.assertRaises(SystemExit):
             renew_due_subscriptions()
@@ -634,9 +634,9 @@ class ClubYooKassaWebhookTicketIsolationTests(TestCase):
 
 
 class ClubYooKassaHttpTests(SimpleTestCase):
-    @patch('games.club_yookassa_client.requests.Session')
+    @patch('games.club.billing.yookassa.client.requests.Session')
     def test_http_wait_is_bounded_and_session_is_closed(self, session_factory):
-        from games.club_yookassa_client import ClubApiClient
+        from games.club.billing.yookassa.client import ClubApiClient
         with patch('yookassa.Configuration.account_id', 'test-shop'), \
                 patch('yookassa.Configuration.secret_key', 'test-secret'):
             client = ClubApiClient()

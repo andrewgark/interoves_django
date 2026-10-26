@@ -35,7 +35,7 @@ from games.site.views.pages.util import (
 from games.nowpayments_util import create_invoice as nowpayments_create_invoice
 from games.nowpayments_util import embed_url_for_invoice
 from games.nowpayments_util import nowpayments_ipn_callback_url
-from games.payment_routes import (
+from games.club.billing.routes import (
     CRYPTO,
     INTERNATIONAL_CARD,
     RUSSIAN_CARD,

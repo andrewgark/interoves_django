@@ -10,7 +10,7 @@ from games.club.merge.account import (
     social_provider_label,
 )
 from games.models import HTMLPage, Profile, Project
-from games.signals import _avatar_url_from_extra
+from games.site.http.signals import _avatar_url_from_extra
 from games.users.allauth import SocialAccountAdapter
 
 
