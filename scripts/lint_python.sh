@@ -22,6 +22,13 @@ mapfile -t CHANGED < <(
     git ls-files --others --exclude-standard '*.py' 2>/dev/null || true
   } | sort -u | grep -v '^games/migrations/' || true
 )
+EXISTING=()
+for path in "${CHANGED[@]}"; do
+  if [[ -f "$path" ]]; then
+    EXISTING+=("$path")
+  fi
+done
+CHANGED=("${EXISTING[@]}")
 if [[ ${#CHANGED[@]} -eq 0 ]]; then
   echo "lint_python: no changed Python files vs origin/master; nothing to check"
   exit 0

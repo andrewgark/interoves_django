@@ -1,5 +1,4 @@
 from datetime import timedelta
-from io import BytesIO
 from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -215,6 +214,19 @@ class PublicDesResultsHelpersTests(TestCase):
             )
             Attempt.manager.filter(pk=attempt.pk).update(time=attempt_time)
 
+    def test_frozen_snapshot_loads_without_request(self):
+        from games.site.pages.results import compute as results_compute
+
+        snap = type('Snap', (), {'payload': {'rows': []}})()
+        with patch.object(results_compute.GameResultsSnapshot.objects, 'filter') as filt, \
+                patch.object(
+                    results_compute, 'snapshot_to_results_context',
+                    return_value={'team_to_place': {}},
+                ) as to_ctx:
+            filt.return_value.first.return_value = snap
+            data = results_compute._load_game_results_data(self.game, 'tournament')
+        self.assertEqual(data, {'team_to_place': {}})
+        to_ctx.assert_called_once_with(self.game, snap.payload)
 
     def test_first_place_can_be_tie(self):
         winners = first_place_teams(self.game)

@@ -94,9 +94,9 @@ def run_announcement_shadow(*, now):
 
 def run_admin_report_shadow(*, now):
     """Use ``now`` as the schedule time, not the worker clock."""
+    from games.ops.telegram.bot.notify import telegram_admin_configured
     from games.ops.telegram.bot.reports import report_periods
     from games.ops.telegram.models import TelegramAdminReport
-    from games.ops.telegram.bot.notify import telegram_admin_configured
 
     scheduled = timezone.localtime(now)
     if scheduled.hour != 0 or not (25 <= scheduled.minute <= 29):

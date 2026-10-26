@@ -172,8 +172,6 @@ def task_group_live_state(request, game_id, project_id=None):
 
 
 __all__ = [
-    'new_task_group_live_state',
+    'task_group_live_state',
 ]
 
-# Names kept for existing imports and patches.
-new_task_group_live_state = task_group_live_state

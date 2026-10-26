@@ -407,23 +407,14 @@ def social_account_disconnect(request):
 
 
 __all__ = [
-    'new_profile_reports',
-    'new_profile_report_detail',
+    'profile_reports',
+    'profile_report_detail',
     '_safe_profile_next',
-    'new_dismiss_unverified_telegram_handle',
-    'new_profile',
-    'new_account_merge_confirm',
-    'new_account_merge_status',
-    'new_account_merge_retry',
-    'new_social_account_disconnect',
+    'dismiss_unverified_telegram_handle',
+    'profile',
+    'account_merge_confirm',
+    'account_merge_status',
+    'account_merge_retry',
+    'social_account_disconnect',
 ]
 
-# Names kept for existing imports and patches.
-new_account_merge_confirm = account_merge_confirm
-new_account_merge_retry = account_merge_retry
-new_account_merge_status = account_merge_status
-new_dismiss_unverified_telegram_handle = dismiss_unverified_telegram_handle
-new_profile = profile
-new_profile_report_detail = profile_report_detail
-new_profile_reports = profile_reports
-new_social_account_disconnect = social_account_disconnect

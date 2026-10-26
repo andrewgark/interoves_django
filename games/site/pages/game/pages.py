@@ -644,11 +644,8 @@ __all__ = [
     'project_results_page',
     'project_tournament_results_page',
     'project_task_group_page',
-    'new_section_game_page',
+    'section_game_page',
     '_render_section_game_page',
-    'new_main_game_page',
+    'main_game_page',
 ]
 
-# Names kept for existing imports and patches.
-new_main_game_page = main_game_page
-new_section_game_page = section_game_page

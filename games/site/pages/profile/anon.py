@@ -286,19 +286,13 @@ def anon_merge_job_status(request, job_id=None):
 
 
 __all__ = [
-    'new_set_play_mode',
+    'set_play_mode',
     '_valid_anon_key',
     '_anon_key_matches_browser',
     '_anon_task_group_link',
-    'new_anon_migrate_count',
-    'new_club_archive_offer_action',
-    'new_migrate_anon_attempts',
-    'new_anon_merge_job_status',
+    'anon_migrate_count',
+    'club_archive_offer_action',
+    'migrate_anon_attempts',
+    'anon_merge_job_status',
 ]
 
-# Names kept for existing imports and patches.
-new_anon_merge_job_status = anon_merge_job_status
-new_anon_migrate_count = anon_migrate_count
-new_club_archive_offer_action = club_archive_offer_action
-new_migrate_anon_attempts = migrate_anon_attempts
-new_set_play_mode = set_play_mode

@@ -473,33 +473,19 @@ __all__ = [
     '_team_ticket_requests_page',
     '_team_ticket_requests_ajax_response',
     '_new_team_ui_context',
-    'new_team',
-    'new_team_join_page',
-    'new_team_invite',
-    'new_team_invite_accept',
-    'new_team_invite_create',
-    'new_team_name_check',
-    'new_team_info',
-    'new_team_create',
-    'new_team_request_join',
+    'team',
+    'team_join_page',
+    'team_invite',
+    'team_invite_accept',
+    'team_invite_create',
+    'team_name_check',
+    'team_info',
+    'team_create',
+    'team_request_join',
     '_team_join_password_matches',
-    'new_team_join_by_password',
-    'new_team_set_primary',
-    'new_team_password',
-    'new_team_rename',
+    'team_join_by_password',
+    'team_set_primary',
+    'team_password',
+    'team_rename',
 ]
 
-# Names kept for existing imports and patches.
-new_team = team
-new_team_create = team_create
-new_team_info = team_info
-new_team_invite = team_invite
-new_team_invite_accept = team_invite_accept
-new_team_invite_create = team_invite_create
-new_team_join_by_password = team_join_by_password
-new_team_join_page = team_join_page
-new_team_name_check = team_name_check
-new_team_password = team_password
-new_team_rename = team_rename
-new_team_request_join = team_request_join
-new_team_set_primary = team_set_primary

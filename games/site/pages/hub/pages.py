@@ -233,22 +233,14 @@ def ladder_hub_page(request):
 
 
 __all__ = [
-    'new_hub',
-    'new_start',
-    'new_folder',
+    'hub',
+    'start',
+    'folder',
     'project_hub',
     'project_folder_games',
-    'new_ladder_today_page',
-    'new_ladder_last_page',
-    'new_section_last_page',
-    'new_ladder_hub_page',
+    'ladder_today_page',
+    'ladder_last_page',
+    'section_last_page',
+    'ladder_hub_page',
 ]
 
-# Names kept for existing imports and patches.
-new_folder = folder
-new_hub = hub
-new_ladder_hub_page = ladder_hub_page
-new_ladder_last_page = ladder_last_page
-new_ladder_today_page = ladder_today_page
-new_section_last_page = section_last_page
-new_start = start

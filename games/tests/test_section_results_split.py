@@ -22,9 +22,9 @@ from games.models import (
     TaskGroup,
 )
 from games.results.snapshots.snapshot import freeze_game_results, results_attempts_scope_game
-from games.site.pages.play.page import new_task_group_page
+from games.site.pages.play.page import task_group_page
 from games.site.pages.results.compute import _results_table_headers_context
-from games.site.pages.results.pages import new_section_results_page, new_section_task_results_page
+from games.site.pages.results.pages import section_results_page, section_task_results_page
 
 
 def _ensure_min_fixtures():
@@ -84,7 +84,7 @@ class SectionResultsSplitTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.site.pages.results.pages.render') as render_mock:
-            new_section_results_page(request, 'sec_res')
+            section_results_page(request, 'sec_res')
         context = render_mock.call_args[0][2]
         self.assertEqual(context['game'].pk, game.pk)
         self.assertFalse(context['is_ladder_results'])
@@ -92,7 +92,7 @@ class SectionResultsSplitTests(TestCase):
 
     def test_alphabetty_results_url_resolves_to_shared_results_page(self):
         match = resolve('/alphabetty/results/')
-        self.assertIs(match.func, new_section_results_page)
+        self.assertIs(match.func, section_results_page)
         self.assertEqual(match.kwargs.get('game_id'), ALPHABETTY_GAME_ID)
         self.assertEqual(
             reverse('ui_alphabetty_results'), '/alphabetty/results/'
@@ -103,22 +103,22 @@ class SectionResultsSplitTests(TestCase):
 
     def test_alphabetty_task_results_route_passes_number_to_view(self):
         match = resolve('/alphabetty/8/results/')
-        self.assertIs(match.func, new_section_task_results_page)
+        self.assertIs(match.func, section_task_results_page)
         self.assertEqual(match.kwargs, {'game_id': ALPHABETTY_GAME_ID, 'number': '8'})
 
         request = self.factory.get('/alphabetty/8/results/')
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.site.pages.results.pages.render') as render_mock:
-            new_section_task_results_page(request, **match.kwargs)
+            section_task_results_page(request, **match.kwargs)
         self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')
 
     def test_ladder_results_url_resolves_to_section_results_not_task_group(self):
         match = resolve('/ladder/results/')
-        self.assertIs(match.func, new_section_results_page)
+        self.assertIs(match.func, section_results_page)
         self.assertEqual(match.kwargs.get('game_id'), 'ladder')
         self.assertNotIn('task_group_number', match.kwargs)
-        self.assertIsNot(match.func, new_task_group_page)
+        self.assertIsNot(match.func, task_group_page)
         self.assertEqual(reverse('ui_section_results', kwargs={'game_id': 'ladder'}), '/ladder/results/')
         self.assertEqual(reverse('new_section_results', kwargs={'game_id': 'ladder'}), '/ladder/results/')
 
@@ -142,7 +142,7 @@ class SectionResultsSplitTests(TestCase):
         request.session = {}
         with patch('games.models.Attempt.manager.get_bulk_game_actor_rows') as bulk_mock:
             with patch('games.site.pages.results.pages.render') as render_mock:
-                new_section_results_page(request, LADDER_GAME_ID)
+                section_results_page(request, LADDER_GAME_ID)
                 bulk_mock.assert_not_called()
                 ctx = render_mock.call_args[0][2]
                 self.assertEqual(ctx['aggregate_rows'], [])
@@ -182,7 +182,7 @@ class SectionResultsSplitTests(TestCase):
             return_value=aggregate_data,
         ):
             with patch('games.site.pages.results.pages.render') as render_mock:
-                new_section_results_page(request, ladder.id)
+                section_results_page(request, ladder.id)
 
         context = render_mock.call_args[0][2]
         self.assertEqual(
@@ -212,7 +212,7 @@ class SectionResultsSplitTests(TestCase):
         request.user = AnonymousUser()
         request.session = {}
         with patch('games.site.pages.results.pages.render') as render_mock:
-            new_section_results_page(request, LADDER_GAME_ID)
+            section_results_page(request, LADDER_GAME_ID)
             ctx = render_mock.call_args[0][2]
             self.assertEqual(render_mock.call_args[0][1], 'site/aggregate_results.html')
             self.assertLessEqual(len(ctx['aggregate_columns']), 10)
@@ -237,7 +237,7 @@ class SectionResultsSplitTests(TestCase):
                 request = self.factory.get('/ladder/results/?page={}'.format(page))
                 request.user = AnonymousUser()
                 request.session = {}
-                new_section_results_page(request, LADDER_GAME_ID)
+                section_results_page(request, LADDER_GAME_ID)
             self.assertEqual(render_mock.call_count, 2)
             self.assertEqual(render_mock.call_args[0][1], 'site/aggregate_results.html')
 
@@ -282,7 +282,7 @@ class SectionResultsSplitTests(TestCase):
         request = self.factory.get('/section/sec_short_header/results/')
         request.user = AnonymousUser()
         request.session = {}
-        response = new_section_results_page(request, game.id)
+        response = section_results_page(request, game.id)
 
         self.assertRegex(
             response.content.decode(),
@@ -308,7 +308,7 @@ class SectionResultsSplitTests(TestCase):
         request.session = {}
         with patch('games.results.snapshots.snapshot.snapshot_to_results_context') as full_snap:
             with patch('games.site.pages.results.pages.render') as render_mock:
-                new_section_results_page(request, LADDER_GAME_ID)
+                section_results_page(request, LADDER_GAME_ID)
                 full_snap.assert_not_called()
                 ctx = render_mock.call_args[0][2]
                 self.assertEqual(ctx['aggregate_rows'], [])

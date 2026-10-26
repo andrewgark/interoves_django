@@ -77,10 +77,7 @@ __all__ = [
     '_replay_actor_for_request',
     '_replay_game_and_placement',
     '_redirect_after_replay_action',
-    'new_replay_start',
-    'new_replay_exit',
+    'replay_start',
+    'replay_exit',
 ]
 
-# Names kept for existing imports and patches.
-new_replay_exit = replay_exit
-new_replay_start = replay_start

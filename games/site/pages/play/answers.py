@@ -258,12 +258,8 @@ def get_raddle_word_answer(request, task_id, word_index):
 
 __all__ = [
     '_answer_popup_html',
-    'new_get_answer',
-    'new_get_replacements_line_answer',
-    'new_get_raddle_word_answer',
+    'get_answer',
+    'get_replacements_line_answer',
+    'get_raddle_word_answer',
 ]
 
-# Names kept for existing imports and patches.
-new_get_answer = get_answer
-new_get_raddle_word_answer = get_raddle_word_answer
-new_get_replacements_line_answer = get_replacements_line_answer

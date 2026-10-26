@@ -22,7 +22,7 @@ class DailyResetRequestPathTests(unittest.TestCase):
         self.assertNotIn('reset_current_daily_release_progress', source)
 
     def test_new_task_group_page_has_no_destructive_reset(self):
-        source = inspect.getsource(new_ui.new_task_group_page)
+        source = inspect.getsource(new_ui.task_group_page)
         self.assertNotIn('reset_current_daily_release_progress', source)
 
 

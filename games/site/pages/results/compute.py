@@ -60,8 +60,13 @@ def _results_rows_empty_context():
 
 
 def _load_game_results_data(game, mode):
+    """Frozen table for callers that have no request, such as Telegram.
+
+    The web results pages apply ``?actors=`` themselves. Here a snapshot is
+    the table whenever one exists.
+    """
     snap = GameResultsSnapshot.objects.filter(game=game, mode=mode).first()
-    if snap and snap.payload and request.GET.get('actors') is None:  # noqa: F821
+    if snap and snap.payload:
         return snapshot_to_results_context(game, snap.payload)
     # Live path: short-TTL cached snapshot-shaped payload (shared across progressive pages).
     return snapshot_to_results_context(game, get_live_results_payload(game, mode))

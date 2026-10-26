@@ -25,7 +25,7 @@ from games.results.ladder import (
     build_ladder_word_results_context,
     ladder_word_results_headers_context,
 )
-from games.site.pages.results.pages import new_ladder_word_results_page
+from games.site.pages.results.pages import ladder_word_results_page
 
 MINI_LADDER = {
     'lengths': [3, 3, 3, 3],
@@ -187,7 +187,7 @@ class LadderWordResultsTests(TestCase):
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
             with patch('games.site.pages.results.pages.render') as render_mock:
-                new_ladder_word_results_page(request, '9100')
+                ladder_word_results_page(request, '9100')
                 ctx = render_mock.call_args[0][2]
                 self.assertTrue(ctx['is_ladder_word_results'])
                 self.assertTrue(ctx['progressive_results'])
@@ -212,7 +212,7 @@ class LadderWordResultsTests(TestCase):
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
             with patch('games.site.pages.results.pages.render') as render_mock:
-                new_ladder_word_results_page(request, '9100')
+                ladder_word_results_page(request, '9100')
                 self.assertEqual(render_mock.call_args[0][1], 'site/partials/results_rows.html')
                 ctx = render_mock.call_args[0][2]
                 self.assertEqual(len(ctx['teams_sorted']), 1)
@@ -224,7 +224,7 @@ class LadderWordResultsTests(TestCase):
             request.user = AnonymousUser()
             request.session = {}
             with self.assertRaises(Http404):
-                new_ladder_word_results_page(request, '9100')
+                ladder_word_results_page(request, '9100')
 
     def test_staff_can_open_unpublished_ladder_results(self):
         staff = get_user_model().objects.create_user(
@@ -237,5 +237,5 @@ class LadderWordResultsTests(TestCase):
         request.session = {}
         with patch('games.daily.page.placement.resolve_accessible_daily_placement', return_value=self.placement):
             with patch('games.site.pages.results.pages.render') as render_mock:
-                new_ladder_word_results_page(request, '9100')
+                ladder_word_results_page(request, '9100')
         self.assertEqual(render_mock.call_args[0][1], 'ui/results.html')

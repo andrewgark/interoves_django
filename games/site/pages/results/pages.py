@@ -658,9 +658,9 @@ def ladder_word_results_page(request, task_group_number):
 
 
 __all__ = [
-    'new_results_page',
-    'new_tournament_results_page',
-    'new_section_results_page',
+    'results_page',
+    'tournament_results_page',
+    'section_results_page',
     '_render_task_group_results_page',
     '_SaladResultHeader',
     '_SaladResultWord',
@@ -669,16 +669,9 @@ __all__ = [
     '_latest_actor_task_state',
     '_set_current_result_header_answers',
     '_word_salad_release_breakdown',
-    'new_section_task_results_page',
-    'new_game_task_results_page',
+    'section_task_results_page',
+    'game_task_results_page',
     '_ladder_raddle_task_for_placement',
-    'new_ladder_word_results_page',
+    'ladder_word_results_page',
 ]
 
-# Names kept for existing imports and patches.
-new_game_task_results_page = game_task_results_page
-new_ladder_word_results_page = ladder_word_results_page
-new_results_page = results_page
-new_section_results_page = section_results_page
-new_section_task_results_page = section_task_results_page
-new_tournament_results_page = tournament_results_page

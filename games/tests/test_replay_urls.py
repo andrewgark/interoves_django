@@ -1,18 +1,18 @@
 from django.test import SimpleTestCase
 from django.urls import resolve
 
-from games.site.pages.play.replay import new_replay_exit, new_replay_start
+from games.site.pages.play.replay import replay_exit, replay_start
 
 
 class ReplayUrlTests(SimpleTestCase):
     def assert_replay_view(self, path, expected):
         match = resolve(path)
-        self.assertIs(match.func, new_replay_start)
+        self.assertIs(match.func, replay_start)
         self.assertEqual(match.kwargs, expected)
 
     def assert_replay_exit_view(self, path, expected):
         match = resolve(path)
-        self.assertIs(match.func, new_replay_exit)
+        self.assertIs(match.func, replay_exit)
         self.assertEqual(match.kwargs, expected)
 
     def test_alphabetty_replay_url_resolves_to_post_view(self):

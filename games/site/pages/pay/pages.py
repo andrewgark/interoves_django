@@ -731,25 +731,15 @@ def donation_status(request, public_token):
 
 
 __all__ = [
-    'new_pay_page',
+    'pay_page',
     '_selected_payment_team',
-    'new_telegram_link_start',
-    'new_create_ticket_payment',
-    'new_create_crypto_ticket_payment',
-    'new_create_tribute_ticket_payment',
-    'new_ticket_payment_status',
-    'new_donate_page',
-    'new_create_crypto_donation',
-    'new_donation_status',
+    'telegram_link_start',
+    'create_ticket_payment',
+    'create_crypto_ticket_payment',
+    'create_tribute_ticket_payment',
+    'ticket_payment_status',
+    'donate_page',
+    'create_crypto_donation',
+    'donation_status',
 ]
 
-# Names kept for existing imports and patches.
-new_create_crypto_donation = create_crypto_donation
-new_create_crypto_ticket_payment = create_crypto_ticket_payment
-new_create_ticket_payment = create_ticket_payment
-new_create_tribute_ticket_payment = create_tribute_ticket_payment
-new_donate_page = donate_page
-new_donation_status = donation_status
-new_pay_page = pay_page
-new_telegram_link_start = telegram_link_start
-new_ticket_payment_status = ticket_payment_status

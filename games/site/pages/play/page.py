@@ -720,8 +720,6 @@ def task_group_page(
 
 __all__ = [
     'daily_statistics',
-    'new_task_group_page',
+    'task_group_page',
 ]
 
-# Names kept for existing imports and patches.
-new_task_group_page = task_group_page

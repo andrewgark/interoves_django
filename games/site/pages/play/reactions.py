@@ -220,13 +220,9 @@ def _game_from_next_path(path):
 
 
 __all__ = [
-    'new_like_dislike',
-    'new_raddle_clue_like',
-    'new_bug_report',
+    'like_dislike',
+    'raddle_clue_like',
+    'bug_report',
     '_game_from_next_path',
 ]
 
-# Names kept for existing imports and patches.
-new_bug_report = bug_report
-new_like_dislike = like_dislike
-new_raddle_clue_like = raddle_clue_like

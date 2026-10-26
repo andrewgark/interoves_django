@@ -450,9 +450,7 @@ __all__ = [
     '_merge_task_group_progress_rows',
     '_initial_task_group_progress',
     '_game_task_group_progress_response',
-    'new_game_task_group_progress',
+    'game_task_group_progress',
     'project_game_task_group_progress',
 ]
 
-# Names kept for existing imports and patches.
-new_game_task_group_progress = game_task_group_progress

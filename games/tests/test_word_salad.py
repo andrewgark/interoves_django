@@ -49,7 +49,7 @@ from games.puzzles.salad.rules import (
     validate_task_data,
 )
 from games.site.admin import TaskAdmin, WordSaladTaskForm
-from games.site.pages.play.page import new_task_group_page
+from games.site.pages.play.page import task_group_page
 from games.site.views.game.attempt import check_attempt
 from games.site.views.game.hint import process_send_hint_attempt
 from games.site.views.game.render import render_new_ui_task_card_html
@@ -805,7 +805,7 @@ class WordSaladTests(TestCase):
         request.user = AnonymousUser()
         request.session = {'play_mode_sections': 'personal'}
         with patch('games.site.pages.play.page.render', side_effect=lambda _request, _template, context: context):
-            context = new_task_group_page(request, self.game.pk, '1')
+            context = task_group_page(request, self.game.pk, '1')
         self.assertIn(self.task.pk, context['word_salad_data'])
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['grid_rows']), 4)
         self.assertEqual(len(context['word_salad_data'][self.task.pk]['words']), 1)
