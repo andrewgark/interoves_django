@@ -245,7 +245,8 @@ def live_page_actor(user, session, game):
 def live_page_actor_for_mode(user, session, game, requested_mode=None):
     """Resolve the actor and mode represented by one page/socket."""
     from games.site.ui import _get_play_mode
-    from games.site.views.pages.util import effective_play_mode, has_profile, has_team
+    from games.identity.profile import has_profile, has_team
+    from games.site.views.pages.util import effective_play_mode
 
     class _SessionRequest:
         pass

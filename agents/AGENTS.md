@@ -225,7 +225,7 @@ If the resolved version is empty, the client check is skipped.
 | SQS worker handlers | `games.site.views.workers.{background,identity,integrations,word_salad}` | `games.views.*_worker` |
 | Worker registry / ECS config / Lambda SQS | `games.ops.workers.{contract,config,lambda_entry}` | `games.worker_{contract,config,lambda}` |
 | Gameplay write actor (team/user/anon) | `games.identity` (`games.identity.actor`) | — |
-| Profile/team presence on User | `games.identity.profile` (`has_profile`, `has_team`) | `games.site.views.pages.util` (re-export) |
+| Profile/team presence on User | `games.identity.profile` or `games.identity` | `games.site.views.pages.util` (re-export) |
 | Account / ticket / subscription | `games.site.views.account.*` | `games.views.ticket`, `subscription`, … |
 | Daily play (alphabetty, censorly) | `games.site.views.daily.*` | `games.views.alphabetty_views`, `censorly_views` |
 | Recheck / chain replay jobs | `games.ops.workers.jobs.recheck` | `games.recheck` |
