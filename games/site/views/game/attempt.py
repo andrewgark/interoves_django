@@ -18,12 +18,12 @@ from games.exception import DuplicateAttemptException, TooManyAttemptsException,
 from games.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, CHAIN_TASK_TYPES
 from games.site.session.replay import StaleReplayError, replay_for_request
-from games.completion_coordinator import complete_logical_game
+from games.daily.completion.completion_coordinator import complete_logical_game
 from games.daily.completion import daily_completion_effects_for_game
 from games.middleware.request_timing import timing_phase
 from games.auth_observability import log_gameplay_attempt_created
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
-from games.gameplay_context import context_error_response, validate_gameplay_context
+from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.puzzles.replacements.grid_puzzle import grid_checker_id
 from games.realtime.track_compat import track_actor_task_change
 from games.site.views.game.context import (

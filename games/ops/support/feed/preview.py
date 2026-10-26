@@ -8,7 +8,7 @@ from django.utils import timezone
 
 from games.models import Attempt, Game, GameTaskGroup, Team
 from games.daily.page.section import publish_at_for, uses_daily_play_layout, visible_links
-from games.task_titles import task_group_page_title
+from games.tasks.titles import task_group_page_title
 from games.daily.catalog.ladder import LADDER_GAME_ID, is_ladder_number_published
 from games.site.ui import (
     NEW_UI_PROJECT,

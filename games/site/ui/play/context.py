@@ -6,7 +6,7 @@ import logging
 
 
 
-from games.gameplay_context import issue_gameplay_context
+from games.site.session.gameplay_context import issue_gameplay_context
 
 from games.daily.page.board import (
     get_daily_board_adapter,

@@ -20,7 +20,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.results_snapshot import freeze_game_results
+from games.results.snapshots.snapshot import freeze_game_results
 
 
 admin.site.register([CheckerType, HTMLPage, Image, Audio, Project])

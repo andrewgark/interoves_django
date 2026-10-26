@@ -3,7 +3,7 @@ import time
 from django.core.management.base import BaseCommand, CommandError
 
 from games.models import Game, GameResultsSnapshot
-from games.results_snapshot import freeze_game_results
+from games.results.snapshots.snapshot import freeze_game_results
 
 
 class Command(BaseCommand):

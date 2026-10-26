@@ -1690,7 +1690,7 @@ class DailyTimingApiTests(TestCase):
 
     @patch('games.club.access.archive.user_can_access_scheduled_number', return_value=True)
     def test_ordinary_game_timer_uses_the_page_team_actor(self, _club):
-        from games.gameplay_context import issue_gameplay_context
+        from games.site.session.gameplay_context import issue_gameplay_context
 
         Project.objects.get_or_create(pk='main')
         game = Game.objects.create(

@@ -26,7 +26,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.results_snapshot import build_results_snapshot_payload
+from games.results.snapshots.snapshot import build_results_snapshot_payload
 from games.results.sql import (
     get_sql_aggregated_game_actor_rows as canonical_sql_aggregate,
     tasks_need_orm_results_aggregate as canonical_orm_fallback_check,
@@ -264,7 +264,7 @@ class ResultsSqlAggregateTests(TestCase):
             wraps=get_sql_aggregated_game_actor_rows,
         ) as sql_mock:
             with patch(
-                'games.results_snapshot.Attempt.manager.get_bulk_game_actor_rows',
+                'games.results.snapshots.snapshot.Attempt.manager.get_bulk_game_actor_rows',
                 wraps=Attempt.manager.get_bulk_game_actor_rows,
             ) as bulk_mock:
                 payload = build_results_snapshot_payload(self.game, mode='general')

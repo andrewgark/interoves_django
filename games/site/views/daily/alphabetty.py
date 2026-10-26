@@ -31,8 +31,8 @@ from games.analytics import (
     publish_completion_analytics,
     register_started_game,
 )
-from games.completion_coordinator import complete_logical_game
-from games.daily_transitions import next_daily_content_transition_for_game
+from games.daily.completion.completion_coordinator import complete_logical_game
+from games.daily.timing.transitions import next_daily_content_transition_for_game
 from games.daily.page.archive import (
     links_for_archive_month,
     prepare_daily_archive,
@@ -68,7 +68,7 @@ from games.sections.hub import (
     section_format_credit_context,
 )
 from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
-from games.task_titles import task_display_name, task_group_page_title
+from games.tasks.titles import task_display_name, task_group_page_title
 from games.site.views.daily.timing import daily_timing_page_context
 from games.site.ui import NEW_UI_SECTIONS_PROJECT
 from games.site.ui.game.progress import (
@@ -79,7 +79,7 @@ from games.site.ui.game.progress import (
 )
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import record_gameplay_attempt_created
-from games.gameplay_context import (
+from games.site.session.gameplay_context import (
     context_error_response,
     issue_gameplay_context,
     validate_gameplay_context,

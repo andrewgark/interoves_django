@@ -213,7 +213,7 @@ class GameTaskGroupProgressTests(TestCase):
             patch('games.site.ui.hub.cards.effective_play_mode', return_value='personal'),
             patch('games.site.ui.hub.cards._game_page_progress_context', return_value={'load_task_group_progress': True}),
             patch('games.site.ui.hub.cards._resolve_game_page_actor', return_value=(None, None, actor_key)),
-            patch('games.daily_streak.daily_streaks_for_actor', return_value={}),
+            patch('games.daily.timing.streak.daily_streaks_for_actor', return_value={}),
         ):
             result = _build_hub_section_cards(request, team=None)
 
@@ -243,7 +243,7 @@ class GameTaskGroupProgressTests(TestCase):
             patch('games.site.ui.hub.cards._get_play_mode', return_value=('personal', None)),
             patch('games.site.ui.hub.cards.effective_play_mode', return_value='personal'),
             patch('games.site.ui.hub.cards._game_page_progress_context', return_value={}),
-            patch('games.daily_streak.daily_streaks_for_actor', return_value={}),
+            patch('games.daily.timing.streak.daily_streaks_for_actor', return_value={}),
         ):
             result = _build_hub_section_cards(request, team=None)
 

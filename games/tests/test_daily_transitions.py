@@ -3,7 +3,7 @@ from types import SimpleNamespace
 from unittest import TestCase
 from zoneinfo import ZoneInfo
 
-from games.daily_transitions import next_daily_content_transition
+from games.daily.timing.transitions import next_daily_content_transition
 
 
 UTC = ZoneInfo('UTC')

@@ -17,7 +17,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.results_snapshot import build_results_snapshot_payload
+from games.results.snapshots.snapshot import build_results_snapshot_payload
 
 
 def _ensure_fixtures():
@@ -165,11 +165,11 @@ class ResultsSnapshotBulkTests(TestCase):
 
     def test_general_uses_bulk_once_not_per_task(self):
         with patch(
-            'games.results_snapshot.Attempt.manager.get_bulk_game_actor_rows',
+            'games.results.snapshots.snapshot.Attempt.manager.get_bulk_game_actor_rows',
             wraps=Attempt.manager.get_bulk_game_actor_rows,
         ) as bulk_mock:
             with patch(
-                'games.results_snapshot.Attempt.manager.get_general_results_task_actor_rows',
+                'games.results.snapshots.snapshot.Attempt.manager.get_general_results_task_actor_rows',
                 wraps=Attempt.manager.get_general_results_task_actor_rows,
             ) as per_task_mock:
                 payload = build_results_snapshot_payload(self.game, mode='general')
@@ -185,7 +185,7 @@ class ResultsSnapshotBulkTests(TestCase):
 
         bulk_payload = build_results_snapshot_payload(self.game, mode='general')
         with patch(
-            'games.results_snapshot.Attempt.manager.get_bulk_game_actor_rows',
+            'games.results.snapshots.snapshot.Attempt.manager.get_bulk_game_actor_rows',
             side_effect=lambda task_ids, mode='general', game=None: _bulk_via_per_task(
                 Attempt.manager, task_ids, mode=mode, game=game,
             ),
@@ -231,7 +231,7 @@ class ResultsSnapshotBulkTests(TestCase):
             self.task2.id: [],
         }
         with patch(
-            'games.results_snapshot.Attempt.manager.get_bulk_game_actor_rows',
+            'games.results.snapshots.snapshot.Attempt.manager.get_bulk_game_actor_rows',
             return_value=fake_bulk,
         ):
             payload = build_results_snapshot_payload(self.game, mode='tournament')
@@ -242,11 +242,11 @@ class ResultsSnapshotBulkTests(TestCase):
 
     def test_tournament_uses_bulk_once(self):
         with patch(
-            'games.results_snapshot.Attempt.manager.get_bulk_game_actor_rows',
+            'games.results.snapshots.snapshot.Attempt.manager.get_bulk_game_actor_rows',
             wraps=Attempt.manager.get_bulk_game_actor_rows,
         ) as bulk_mock:
             with patch(
-                'games.results_snapshot.Attempt.manager.get_task_attempts_infos',
+                'games.results.snapshots.snapshot.Attempt.manager.get_task_attempts_infos',
                 wraps=Attempt.manager.get_task_attempts_infos,
             ) as infos_mock:
                 build_results_snapshot_payload(self.game, mode='tournament')

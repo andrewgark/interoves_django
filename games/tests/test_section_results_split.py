@@ -22,7 +22,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.results_snapshot import freeze_game_results, results_attempts_scope_game
+from games.results.snapshots.snapshot import freeze_game_results, results_attempts_scope_game
 from games.site.ui.play.page import new_task_group_page
 from games.site.ui.results.compute import _results_table_headers_context
 from games.site.ui.results.pages import new_section_results_page, new_section_task_results_page
@@ -304,7 +304,7 @@ class SectionResultsSplitTests(TestCase):
         request = self.factory.get('/ladder/results/')
         request.user = AnonymousUser()
         request.session = {}
-        with patch('games.results_snapshot.snapshot_to_results_context') as full_snap:
+        with patch('games.results.snapshots.snapshot.snapshot_to_results_context') as full_snap:
             with patch('games.site.ui.results.pages.render') as render_mock:
                 new_section_results_page(request, LADDER_GAME_ID)
                 full_snap.assert_not_called()

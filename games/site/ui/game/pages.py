@@ -5,7 +5,7 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.safestring import mark_safe
 
-from games.daily_transitions import (
+from games.daily.timing.transitions import (
     next_daily_content_transition_for_game,
 )
 
@@ -46,7 +46,7 @@ from games.site.views.pages.util import (
     has_team,
     personal_play_mode_locked,
 )
-from games.results_snapshot import (
+from games.results.snapshots.snapshot import (
     snapshot_to_results_context,
 )
 from games.tutorials.ladder import (

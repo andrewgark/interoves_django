@@ -239,6 +239,12 @@ If the resolved version is empty, the client check is skipped.
 | Daily catalog (censorly / alphabetty / salad) | `games.daily.catalog.{censorly,alphabetty,word_salad}` | `games.*_daily` (except ladder → `catalog.ladder`) |
 | Player offers (ladder / alphabetty / censorly / salad) | `games.club.offers.*` | `games.*_offer` |
 | Replay session | `games.site.session.replay` (+ `replay_navigation`) | `games.replay`, `replay_navigation` |
+| Gameplay context / play mode | `games.site.session.{gameplay_context,play_mode}` | `games.gameplay_context`, `play_mode` |
+| Offer profile names | `games.club.offers.profiles` | `games.offer_profiles` |
+| Results snapshot builders | `games.results.snapshots.snapshot` | `games.results_snapshot` |
+| Logical game completion | `games.daily.completion.completion_coordinator` | `games.completion_coordinator` |
+| Daily UI transitions / streak | `games.daily.timing.{transitions,streak}` | `games.daily_transitions`, `daily_streak` |
+| Task display titles | `games.tasks.titles` | `games.task_titles` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

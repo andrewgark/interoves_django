@@ -14,7 +14,7 @@ from games.analytics import (
     is_task_group_complete,
     register_completed_game,
 )
-from games.completion_coordinator import complete_logical_game
+from games.daily.completion.completion_coordinator import complete_logical_game
 from games.daily_timing import ACTION_START, STATUS_COMPLETED, apply_timing_event
 from games.models import (
     Attempt,
@@ -257,7 +257,7 @@ class CompletionInvariantTests(TestCase):
 
         with self.assertRaises(RuntimeError):
             with patch(
-                'games.completion_coordinator._ensure_completed_record',
+                'games.daily.completion.completion_coordinator._ensure_completed_record',
                 side_effect=RuntimeError('completion failure'),
             ):
                 complete_logical_game(

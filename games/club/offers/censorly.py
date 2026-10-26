@@ -9,7 +9,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 
 from games.models import CensorlyOffer, RandomCensorlyGame
-from games.offer_profiles import profile_ready_for_offers
+from games.club.offers.profiles import profile_ready_for_offers
 
 
 @dataclass(frozen=True)

@@ -33,7 +33,7 @@ from games.daily.timing.reports import CLIENT_REPORT_ACTION, handle_client_repor
 from games.db_retry import is_mysql_retryable_lock_error
 from games.models import Attempt, Game, GameTaskGroup
 from games.analytics_identity import gameplay_anon_key
-from games.gameplay_context import context_error_response, validate_gameplay_context
+from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.site.views.pages.util import effective_play_mode, has_profile, has_team
 
 
@@ -238,7 +238,7 @@ def daily_timing_page_context(
     if enabled:
         from games.tasks.navigation import play_url_for_task_group
         url = timing_url or '{}timing/'.format(play_url_for_task_group(game, placement.number))
-        from games.gameplay_context import issue_gameplay_context
+        from games.site.session.gameplay_context import issue_gameplay_context
         gameplay_context_token = issue_gameplay_context(
             task_group=placement.task_group,
             game=game,

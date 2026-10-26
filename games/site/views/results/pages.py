@@ -6,7 +6,7 @@ from django.views import defaults
 from games.models import Game, Team, GameResultsSnapshot
 from games.sections.project_navigation import non_root_project_game_path
 from games.site.views.pages.util import has_profile, has_team
-from games.results_snapshot import snapshot_to_results_context
+from games.results.snapshots.snapshot import snapshot_to_results_context
 
 
 def results_page(request, game_id, mode='general'):

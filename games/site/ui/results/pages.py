@@ -49,7 +49,7 @@ from games.site.views.pages.util import (
     has_profile,
     personal_play_mode_locked,
 )
-from games.results_snapshot import (
+from games.results.snapshots.snapshot import (
     snapshot_to_results_context,
 )
 

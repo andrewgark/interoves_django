@@ -9,7 +9,7 @@ from django.db import close_old_connections, connection
 from django.test import TransactionTestCase
 
 from games.analytics import register_completed_game, register_started_game
-from games.completion_coordinator import complete_logical_game
+from games.daily.completion.completion_coordinator import complete_logical_game
 from games.analytics_persistence import (
     ANALYTICS_UNIQUE_SPECS,
     create_or_reread_analytics_row,
@@ -309,7 +309,7 @@ class ProductAnalyticsMySQLConcurrencyTests(TransactionTestCase):
             state='{}',
         )
         with patch(
-            'games.completion_coordinator.is_task_group_complete',
+            'games.daily.completion.completion_coordinator.is_task_group_complete',
             return_value=True,
         ):
             results = self._parallel(

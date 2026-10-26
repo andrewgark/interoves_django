@@ -170,7 +170,7 @@ def _build_hub_section_cards(request, *, team):
                     logger.exception('Hub task-group progress failed; using JSON fallback game=%s', game.id)
             by_id[game_id] = card
 
-    from games.daily_streak import daily_streaks_for_actor
+    from games.daily.timing.streak import daily_streaks_for_actor
     streak_kwargs = {'games': [card['game'] for card in by_id.values() if card.get('game')]}
     if request.user.is_authenticated:
         streak_kwargs['user'] = request.user

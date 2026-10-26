@@ -12,7 +12,7 @@ from games.models import (
 )
 from games.site.ui.results.compute import _attach_results_club_badges, _new_results_compute
 from games.results.table.context import result_cell_class
-from games.results_snapshot import build_results_snapshot_payload, snapshot_to_results_context
+from games.results.snapshots.snapshot import build_results_snapshot_payload, snapshot_to_results_context
 
 
 def _ensure_checker_and_project():

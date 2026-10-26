@@ -11,7 +11,7 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 
-from games.offer_profiles import (
+from games.club.offers.profiles import (
     normalize_telegram_handle,
     profile_display_name,
     profile_ready_for_offers,

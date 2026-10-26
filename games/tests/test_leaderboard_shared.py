@@ -52,7 +52,7 @@ class LeaderboardSharedTests(TestCase):
         self.assertEqual(sports_rank(ordered, {a: (-10, 1), b: (-10, 1), c: (-9, 0)}), {a: 1, b: 1, c: 3})
 
     def test_snapshot_places_use_score_only_while_tournament_order_uses_finish_time(self):
-        from games.results_snapshot import snapshot_to_results_context
+        from games.results.snapshots.snapshot import snapshot_to_results_context
         early = Team.objects.create(name='snapshot-early')
         late = Team.objects.create(name='snapshot-late')
         rows = [

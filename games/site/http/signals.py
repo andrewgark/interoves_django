@@ -428,7 +428,7 @@ def _auto_claim_signup_anon_history(request, user):
         from games.analytics_identity import browser_anon_key, rotate_anonymous_identity
         from games.anon_migrate import claim_and_migrate_anon_history
         from games.auth_observability import log_auth_event, request_session_fingerprint
-        from games.gameplay_context import anonymous_actor_fingerprint
+        from games.site.session.gameplay_context import anonymous_actor_fingerprint
 
         anon_key = browser_anon_key(request)
         if not anon_key:

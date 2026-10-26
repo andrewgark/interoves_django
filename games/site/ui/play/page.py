@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.cache import never_cache
 
-from games.daily_transitions import (
+from games.daily.timing.transitions import (
     next_daily_content_transition_for_game,
 )
 

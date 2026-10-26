@@ -34,7 +34,7 @@ from games.models import (
     Team,
 )
 from games.models import GameResultsSnapshot
-from games.results_snapshot import (
+from games.results.snapshots.snapshot import (
     get_live_results_payload,
     results_attempts_scope_game,
     snapshot_to_results_context,

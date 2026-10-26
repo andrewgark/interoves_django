@@ -49,7 +49,7 @@ from games.daily.catalog.censorly import (
     is_censorly_number_published,
     visible_censorly_links,
 )
-from games.completion_coordinator import complete_logical_game
+from games.daily.completion.completion_coordinator import complete_logical_game
 from games.club.access.archive import has_club_access
 from games.daily.page.context import build_daily_lifecycle_context, daily_statistics_url
 from games.daily.page.archive import (
@@ -59,8 +59,8 @@ from games.daily.page.archive import (
 )
 from games.daily.timing import GameplayTimingSession, TimingSessionNotActive
 from games.daily.registry import get_daily_game
-from games.daily_transitions import next_daily_content_transition_for_game
-from games.gameplay_context import (
+from games.daily.timing.transitions import next_daily_content_transition_for_game
+from games.site.session.gameplay_context import (
     context_error_response,
     issue_gameplay_context,
     validate_gameplay_context,
@@ -75,7 +75,7 @@ from games.sections.hub import (
 from games.site.session.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.support.access import user_has_support_access
-from games.task_titles import task_display_name, task_group_page_title
+from games.tasks.titles import task_display_name, task_group_page_title
 from games.site.views.daily.timing import daily_timing_page_context
 from games.site.views.daily.hub import can_access_daily_game
 from games.site.ui import NEW_UI_SECTIONS_PROJECT

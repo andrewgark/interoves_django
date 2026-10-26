@@ -5,7 +5,7 @@ from games.site.ui.play.context import build_task_group_task_context_dicts
 from games.site.views.pages.util import has_profile
 from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
 from games.analytics_identity import gameplay_anon_key
-from games.gameplay_context import issue_gameplay_context
+from games.site.session.gameplay_context import issue_gameplay_context
 from games.puzzles.replacements.forms import render_html_forms_task
 
 

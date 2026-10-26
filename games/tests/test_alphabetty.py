@@ -66,7 +66,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.results_snapshot import build_results_snapshot_payload
+from games.results.snapshots.snapshot import build_results_snapshot_payload
 from games.support.services.alphabetty import (
     AlphabettySupportError,
     delete_alphabetty,

@@ -15,7 +15,7 @@ from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
     alphabetty_publish_at,
 )
-from games.offer_profiles import (
+from games.club.offers.profiles import (
     normalize_telegram_handle,
     profile_display_name,
     profile_ready_for_offers,

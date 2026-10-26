@@ -13,14 +13,14 @@ from games.analytics import (
     publish_completion_analytics,
     register_started_game,
 )
-from games.completion_coordinator import complete_logical_game
+from games.daily.completion.completion_coordinator import complete_logical_game
 from games.daily.completion import daily_completion_effects_for_game
 from games.exception import DuplicateAttemptException, NoGameAccessException
 from games.models import Attempt, ChainTaskState, RaddleUiState, Task
 from games.auth_observability import log_gameplay_attempt_created
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.puzzles.raddle import RaddlePuzzle
-from games.gameplay_context import context_error_response, validate_gameplay_context
+from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.site.session.replay import replay_for_request, StaleReplayError, _official_exists
 from games.raddle import (
     apply_assist_tier,

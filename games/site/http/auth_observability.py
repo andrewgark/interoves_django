@@ -382,7 +382,7 @@ def log_gameplay_attempt_created(request, *, attempt, actor_kind=None) -> None:
     """Emit a minimal request-to-row link without logging attempt content."""
     anon_fingerprint = None
     if actor_kind == 'anon':
-        from games.gameplay_context import anonymous_actor_fingerprint
+        from games.site.session.gameplay_context import anonymous_actor_fingerprint
         anon_fingerprint = anonymous_actor_fingerprint(getattr(attempt, 'anon_key', None))
     log_auth_event(
         'gameplay_attempt_created',

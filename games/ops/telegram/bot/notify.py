@@ -36,7 +36,7 @@ from games.telegram.game_urls import (
     task_group_admin_url,
     task_play_url,
 )
-from games.task_titles import task_display_name
+from games.tasks.titles import task_display_name
 from games.runtime import deployment_environment
 
 logger = logging.getLogger('application')

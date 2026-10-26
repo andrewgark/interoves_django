@@ -10,7 +10,7 @@ from django.utils import timezone
 from games.analytics_identity import stamp_anon_identity
 from games.exception import DuplicateAttemptException
 from games.analytics_persistence import AnalyticsRowInvariantError
-from games.gameplay_context import issue_gameplay_context
+from games.site.session.gameplay_context import issue_gameplay_context
 from games.models import (
     Attempt,
     CheckerType,

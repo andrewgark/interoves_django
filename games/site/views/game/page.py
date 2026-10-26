@@ -9,7 +9,7 @@ from games.access import game_has_started
 from games.exception import NoGameAccessException
 from games.models import Game, Team, Attempt, ImageManager, AudioManager
 from games.sections.project_navigation import non_root_project_game_path
-from games.gameplay_context import issue_gameplay_context
+from games.site.session.gameplay_context import issue_gameplay_context
 from games.puzzles.replacements.forms import render_html_forms_task
 from games.site.views.account.team import get_team_to_play_page
 from games.site.views.game.render import get_all_text_with_forms_to_html, get_task_to_attempts_info

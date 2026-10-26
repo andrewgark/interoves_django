@@ -19,7 +19,7 @@ from games.sections.project_navigation import (
     project_team_page_urls,
     project_urls_context,
 )
-from games.play_mode import (
+from games.site.session.play_mode import (
     default_play_mode,
     get_play_mode,
     session_play_mode_key,

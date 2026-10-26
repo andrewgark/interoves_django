@@ -230,7 +230,7 @@ def _fresh_tournament_results_png(game: Game, cache: dict) -> bytes | None:
         return b'shadow'
     key = str(game.pk)
     if key not in cache:
-        from games.results_snapshot import invalidate_live_results_cache
+        from games.results.snapshots.snapshot import invalidate_live_results_cache
 
         invalidate_live_results_cache(game, mode='tournament')
         cache[key] = _tournament_results_png(game)
