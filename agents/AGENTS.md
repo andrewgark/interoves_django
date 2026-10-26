@@ -213,6 +213,7 @@ If the resolved version is empty, the client check is skipped.
 | Checkers + `CheckerFactory` | `games.puzzles.core.check_runtime` | `games.check` (`sys.modules` → `check_runtime`) |
 | HTTP / main UI handlers | `games.site.views.*`, `games.site.ui.*` | `games.views.*` (facades) |
 | Live track / WebSocket helpers | `games.realtime.track_compat` | `games.views.track` |
+| MySQL lock retry helpers | `games.realtime.db` | `games.db_retry` |
 | Main UI symbol bundle | `games.site.views.pages.ui_exports` | `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | `games.matcher.norm_matcher` |
 | Censorly IDs / flags | `games.puzzles.censorly.ids` | `games.censorly` (re-export без `games.puzzles` при import) |

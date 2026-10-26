@@ -30,7 +30,7 @@ from games.daily.timing import (
     snapshot,
 )
 from games.daily.timing.reports import CLIENT_REPORT_ACTION, handle_client_report
-from games.db_retry import is_mysql_retryable_lock_error
+from games.realtime.db import is_mysql_retryable_lock_error
 from games.models import Attempt, Game, GameTaskGroup
 from games.ops.analytics.identity import gameplay_anon_key
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context

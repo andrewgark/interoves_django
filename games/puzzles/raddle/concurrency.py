@@ -4,7 +4,7 @@ import logging
 
 from django.db import IntegrityError, OperationalError, transaction
 
-from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
+from games.realtime.db import is_mysql_retryable_lock_error, log_lock_retry
 
 MYSQL_DEADLOCK_ERRNO = 1213
 RADDLE_DEADLOCK_ATTEMPTS = 3

@@ -17,7 +17,7 @@ from uuid import UUID, uuid4
 from django.db import IntegrityError, OperationalError, transaction
 from django.utils import timezone
 
-from games.db_retry import is_mysql_retryable_lock_error, log_lock_retry
+from games.realtime.db import is_mysql_retryable_lock_error, log_lock_retry
 from games.middleware.request_timing import timing_phase
 from games.models import DailySolveTiming, DailySolveTimingSession, DailyTimingEvent
 from games.results.share import elapsed_seconds_from_attempts, format_elapsed
