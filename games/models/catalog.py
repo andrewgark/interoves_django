@@ -505,7 +505,7 @@ class GameTaskGroup(models.Model):
         from games.daily.catalog.ladder import LADDER_GAME_ID
         from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
         from games.models import Game, LadderOffer, WordSaladOffer
-        from games.tutorials.ladder import is_ladder_tutorial_task_group
+        from games.ladder.tutorial.ladder import is_ladder_tutorial_task_group
 
         is_ladder_draft = (
             is_ladder_tutorial_task_group(task.task_group)

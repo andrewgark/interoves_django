@@ -289,6 +289,7 @@ If the resolved version is empty, the client check is skipped.
 | Results share formatting | `games.results.share` | `games.share_result` |
 | SQL results aggregate | `games.results.sql` | `games.results_sql_aggregate` |
 | Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `games.wall`, `word_salad`, `replacements_*` |
+| Ladder onboarding tutorial | `games.ladder.tutorial.{ladder,views}` | `games.tutorials.*` |
 | Alphabetty engine | `games.puzzles.alphabetty.*` | `games.alphabetty.*` |
 | Alphabetty/Censorly offer models in `models/__init__` | keep `games.alphabetty.models` / `games.censorly.models` facades (avoid `games.puzzles` at Django model load) |
 

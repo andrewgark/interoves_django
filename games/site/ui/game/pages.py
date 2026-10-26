@@ -49,7 +49,7 @@ from games.site.views.pages.util import (
 from games.results.snapshots.snapshot import (
     snapshot_to_results_context,
 )
-from games.tutorials.ladder import (
+from games.ladder.tutorial.ladder import (
     with_ladder_tutorial_link,
     ladder_tutorial_url,
 )

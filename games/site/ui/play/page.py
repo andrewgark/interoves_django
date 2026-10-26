@@ -60,7 +60,7 @@ from games.site.views.pages.util import (
     has_team,
     personal_play_mode_locked,
 )
-from games.tutorials.ladder import (
+from games.ladder.tutorial.ladder import (
     LADDER_TUTORIAL_TITLE,
     is_new_ladder_player,
     ladder_tutorial_payload,

@@ -18,7 +18,7 @@ from games.tests.test_offer_ladder import (
     _ensure_social_apps,
     _make_ladder_game,
 )
-from games.tutorials.ladder import (
+from games.ladder.tutorial.ladder import (
     LADDER_TUTORIAL_LABEL,
     ensure_ladder_tutorial_task,
     is_ladder_tutorial_task_group,

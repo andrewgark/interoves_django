@@ -21,7 +21,7 @@ def _task_card_public_identity(game, task_group, slot):
 
     if game.id == 'ladder':
         from games.models import LadderOffer
-        from games.tutorials.ladder import (
+        from games.ladder.tutorial.ladder import (
             LADDER_TUTORIAL_SEGMENT, LADDER_TUTORIAL_TITLE, is_ladder_tutorial_task_group,
         )
 
