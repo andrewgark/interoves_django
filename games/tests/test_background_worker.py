@@ -49,13 +49,13 @@ class BackgroundWorkerTests(SimpleTestCase):
             )
 
     def test_web_role_is_disabled(self):
-        with patch('games.site.views.workers.background.run_daily_difficulty_refresh') as refresh:
+        with patch('games.ops.workers.handlers.background.run_daily_difficulty_refresh') as refresh:
             response = self._post(_body(), role='web')
         self.assertEqual(response.status_code, 503)
         refresh.assert_not_called()
 
     def test_word_salad_worker_role_is_disabled(self):
-        with patch('games.site.views.workers.background.run_daily_difficulty_refresh') as refresh:
+        with patch('games.ops.workers.handlers.background.run_daily_difficulty_refresh') as refresh:
             response = self._post(_body(), role='worker')
         self.assertEqual(response.status_code, 503)
         refresh.assert_not_called()
@@ -72,7 +72,7 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_stale_message_is_acked_without_refresh(self):
         scheduled = timezone.now() - timedelta(minutes=3)
         body = _body(scheduled_for=scheduled.isoformat())
-        with patch('games.site.views.workers.background.run_daily_difficulty_refresh') as refresh:
+        with patch('games.ops.workers.handlers.background.run_daily_difficulty_refresh') as refresh:
             response = self._post(body)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'skipped_stale')
@@ -81,9 +81,9 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_held_lock_is_acked_without_refresh(self):
         scheduled = timezone.now().isoformat()
         with _lock(False) as lock, patch(
-            'games.site.views.workers.background.distributed_cron_lock',
+            'games.ops.workers.handlers.background.distributed_cron_lock',
             lock,
-        ), patch('games.site.views.workers.background.run_daily_difficulty_refresh') as refresh:
+        ), patch('games.ops.workers.handlers.background.run_daily_difficulty_refresh') as refresh:
             response = self._post(_body(scheduled_for=scheduled))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'skipped_locked')
@@ -93,16 +93,16 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_sqsd_delivery_runs_one_refresh(self):
         scheduled = timezone.now().isoformat()
         with _lock(True) as lock, patch(
-            'games.site.views.workers.background.distributed_cron_lock',
+            'games.ops.workers.handlers.background.distributed_cron_lock',
             lock,
         ), patch(
-            'games.site.views.workers.background.run_daily_difficulty_refresh',
+            'games.ops.workers.handlers.background.run_daily_difficulty_refresh',
             return_value=[{'game_id': 'ladder'}],
         ) as refresh, patch(
-            'games.site.views.workers.background.expire_subscription_gifts',
+            'games.ops.workers.handlers.background.expire_subscription_gifts',
             return_value=0,
         ), patch(
-            'games.site.views.workers.background.reconcile_yookassa_gift_payments',
+            'games.ops.workers.handlers.background.reconcile_yookassa_gift_payments',
             return_value=0,
         ):
             response = self._post(_body(scheduled_for=scheduled))
@@ -118,10 +118,10 @@ class BackgroundWorkerTests(SimpleTestCase):
             with self.subTest(message_type=message_type):
                 scheduled = timezone.now().isoformat()
                 with _lock(True) as lock, patch(
-                    'games.site.views.workers.background.distributed_cron_lock',
+                    'games.ops.workers.handlers.background.distributed_cron_lock',
                     lock,
                 ), patch(
-                    'games.site.views.workers.background.run_minute_difficulty_refresh',
+                    'games.ops.workers.handlers.background.run_minute_difficulty_refresh',
                     return_value=[{'game_id': 'salad'}, {'game_id': 'censorly'}],
                 ) as refresh:
                     response = self._post(_body(type=message_type, scheduled_for=scheduled))
@@ -133,10 +133,10 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_refresh_exception_is_retried(self):
         scheduled = timezone.now().isoformat()
         with _lock(True) as lock, patch(
-            'games.site.views.workers.background.distributed_cron_lock',
+            'games.ops.workers.handlers.background.distributed_cron_lock',
             lock,
         ), patch(
-            'games.site.views.workers.background.run_daily_difficulty_refresh',
+            'games.ops.workers.handlers.background.run_daily_difficulty_refresh',
             side_effect=RuntimeError('db down'),
         ):
             response = self._post(_body(scheduled_for=scheduled))
@@ -150,9 +150,9 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_health_check_runs_existing_checker(self):
         scheduled = timezone.now().isoformat()
         with patch(
-            'games.site.views.workers.background.run_daily_difficulty_health_check',
+            'games.ops.workers.handlers.background.run_daily_difficulty_health_check',
             return_value={'status': 'healthy'},
-        ) as check, patch('games.site.views.workers.background.run_daily_difficulty_refresh') as refresh:
+        ) as check, patch('games.ops.workers.handlers.background.run_daily_difficulty_refresh') as refresh:
             response = self._post(_body(
                 type='difficulty.health_check',
                 scheduled_for=scheduled,
@@ -166,7 +166,7 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_health_check_lock_skip_is_acked(self):
         scheduled = timezone.now().isoformat()
         with patch(
-            'games.site.views.workers.background.run_daily_difficulty_health_check',
+            'games.ops.workers.handlers.background.run_daily_difficulty_health_check',
             return_value={'status': 'skipped_locked'},
         ):
             response = self._post(_body(type='difficulty.health_check', scheduled_for=scheduled))
@@ -176,7 +176,7 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_health_check_recent_skip_is_acked(self):
         scheduled = timezone.now().isoformat()
         with patch(
-            'games.site.views.workers.background.run_daily_difficulty_health_check',
+            'games.ops.workers.handlers.background.run_daily_difficulty_health_check',
             return_value={'status': 'skipped_recent'},
         ):
             response = self._post(_body(type='difficulty.health_check', scheduled_for=scheduled))
@@ -186,7 +186,7 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_unhealthy_health_check_is_acked(self):
         scheduled = timezone.now().isoformat()
         with patch(
-            'games.site.views.workers.background.run_daily_difficulty_health_check',
+            'games.ops.workers.handlers.background.run_daily_difficulty_health_check',
             return_value={'status': 'unhealthy', 'detail': 'due'},
         ):
             response = self._post(_body(type='difficulty.health_check', scheduled_for=scheduled))
@@ -206,15 +206,15 @@ class BackgroundWorkerTests(SimpleTestCase):
             'invalid': [{'game_id': 'ladder', 'release': '1', 'task_group_id': 9, 'status': 'missing_state'}],
         }
         with patch(
-            'games.site.views.workers.background.reconcile_projection_releases',
+            'games.ops.workers.handlers.background.reconcile_projection_releases',
             return_value=summary,
         ) as reconcile, patch(
             'games.results.snapshots.aggregate_snapshots.reconcile_monthly_snapshots',
             return_value={'rebuilt': 0},
         ) as reconcile_snapshots, patch(
-            'games.site.views.workers.background.start_queue_heartbeat',
+            'games.ops.workers.handlers.background.start_queue_heartbeat',
             return_value=0.0,
-        ), patch('games.site.views.workers.background.finish_queue_heartbeat'):
+        ), patch('games.ops.workers.handlers.background.finish_queue_heartbeat'):
             response = self._post(_body(
                 type='projection.reconcile',
                 scheduled_for=scheduled,
@@ -231,12 +231,12 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_projection_lock_skip_is_acked(self):
         scheduled = timezone.now().isoformat()
         with patch(
-            'games.site.views.workers.background.reconcile_projection_releases',
+            'games.ops.workers.handlers.background.reconcile_projection_releases',
             return_value={'skipped_locked': True, 'lines': []},
         ), patch(
-            'games.site.views.workers.background.start_queue_heartbeat',
+            'games.ops.workers.handlers.background.start_queue_heartbeat',
             return_value=0.0,
-        ), patch('games.site.views.workers.background.finish_queue_heartbeat'):
+        ), patch('games.ops.workers.handlers.background.finish_queue_heartbeat'):
             response = self._post(_body(type='projection.reconcile', scheduled_for=scheduled))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'skipped_locked')
@@ -244,7 +244,7 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_health_check_exception_is_retried(self):
         scheduled = timezone.now().isoformat()
         with patch(
-            'games.site.views.workers.background.run_daily_difficulty_health_check',
+            'games.ops.workers.handlers.background.run_daily_difficulty_health_check',
             side_effect=RuntimeError('db down'),
         ):
             response = self._post(_body(type='difficulty.health_check', scheduled_for=scheduled))
@@ -254,7 +254,7 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_projection_refresh_ignores_stale_window(self):
         scheduled = timezone.now() - timedelta(minutes=4)
         with patch(
-            'games.site.views.workers.background.run_named_projection_refresh',
+            'games.ops.workers.handlers.background.run_named_projection_refresh',
             return_value='missing',
         ) as refresh:
             response = self._post(_body(
@@ -270,7 +270,7 @@ class BackgroundWorkerTests(SimpleTestCase):
 
     def test_incomplete_projection_refresh_is_retried(self):
         with patch(
-            'games.site.views.workers.background.run_named_projection_refresh',
+            'games.ops.workers.handlers.background.run_named_projection_refresh',
             return_value='retry',
         ):
             response = self._post(_body(
@@ -283,7 +283,7 @@ class BackgroundWorkerTests(SimpleTestCase):
     def test_daily_statistics_refresh_is_not_stale_skipped(self):
         scheduled = timezone.now() - timedelta(minutes=4)
         with patch(
-            'games.site.views.workers.background.run_named_daily_statistics_refresh',
+            'games.ops.workers.handlers.background.run_named_daily_statistics_refresh',
             return_value='ok',
         ) as refresh:
             response = self._post(_body(

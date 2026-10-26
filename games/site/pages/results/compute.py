@@ -274,13 +274,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
     if mode == 'tournament':
         # Keep the current tournament window and actor policy; use the actual
         # last counted submission timestamp as its sports tie-break.
-        tournament_rows = [row[2] for row in sorted(teams_sorted, key=lambda row: (row[0], row[1], str(row[2]))) if row[2] in team_to_score]
-        # `team_to_max_best_time` is the canonical last counted scoring time.
-        _sports_keys = {
-            actor: (-team_to_score[actor], team_to_max_best_time[actor].timestamp() if team_to_max_best_time.get(actor) else float('inf'))
-            for actor in tournament_rows
-        }
-        teams_sorted = tournament_rows
+        teams_sorted = [row[2] for row in sorted(teams_sorted, key=lambda row: (row[0], row[1], str(row[2]))) if row[2] in team_to_score]
     else:
         attempt_counts = {}
         if variant in (ALPHABETTY_GAME_ID, 'censorly'):
@@ -302,7 +296,6 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
                 alphabetty_sort=sort_mode,
             )
         teams_sorted = sorted(team_to_score, key=lambda actor: (*sport_key(actor), str(actor)))
-        _sports_keys = {actor: sport_key(actor) for actor in teams_sorted}
     team_to_place = score_rank(teams_sorted, team_to_score)
 
     # Prepare per-cell metadata for templates in the results presentation layer.

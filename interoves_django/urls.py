@@ -21,6 +21,10 @@ from django.urls import include, path, re_path
 from django.views.generic import RedirectView, TemplateView
 from games.ops.social.views import social_queue_instagram_jpg
 from games.ops.telegram.transport.urls import urlpatterns as telegram_urlpatterns
+from games.ops.workers.handlers.background import background_worker
+from games.ops.workers.handlers.identity import identity_worker
+from games.ops.workers.handlers.integrations import integrations_worker
+from games.ops.workers.handlers.word_salad import recheck_worker, word_salad_worker
 from games.site.views.account.ticket import nowpayments_ipn, tribute_webhook, yookassa_webhook
 from games.site.views.pages import ui as ui_views
 from games.site.views.pages.meta import deploy_version
@@ -31,10 +35,6 @@ from games.site.views.pages.public.health import ready as health_ready
 from games.site.views.pages.public.legal import legal_page
 from games.site.views.pages.public.order import order_game_landing
 from games.site.views.pages.public.vote import next_game_vote_page
-from games.site.views.workers.background import background_worker
-from games.site.views.workers.identity import identity_worker
-from games.site.views.workers.integrations import integrations_worker
-from games.site.views.workers.word_salad import recheck_worker, word_salad_worker
 from microsites import views as microsites_views
 
 nutrimatic_patterns = [

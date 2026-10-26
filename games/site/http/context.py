@@ -162,10 +162,6 @@ def ui_section_games(request):
     }
 
 
-# Backward-compatible processor name.
-new_ui_section_games = ui_section_games
-
-
 def feedback_nav(request):
     """Unread admin replies for the profile icon badge (not realtime)."""
     match = getattr(request, 'resolver_match', None)

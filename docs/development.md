@@ -64,7 +64,7 @@ INTEROVES_TEST_DB_PATH=/tmp/interoves_test.sqlite3 ./run_tests.sh
 - Имена игр: лесенка — каталог `ladder`, движок `games/puzzles/raddle/`, тип задания `raddle`; салатик — движок `games/puzzles/salad/`, каталог и тип `word_salad`. Алфавитки и Цензорли: `alphabetty`, `censorly`. Офлайн-инструменты Цензорли — `games/puzzles/censorly/offline/`.
 - `games/identity/` — кто играет (`actor`, `profile`), склейка аккаунтов (`merge/`), allauth-адаптер и Telegram OIDC.
 - `games/console/` — консоль поддержки (`/support/`). Лесенка внутри консоли — `games.console.games.ladder`.
-- `games/task_group/` — контекст карточки задания (навигация, заголовки, состояние). Очереди воркеров остаются в `games/ops/workers/`.
+- `games/task_group/` — контекст карточки задания (навигация, заголовки, состояние). Очереди воркеров — `games/ops/workers/`. Их HTTP-обработчики — `games/ops/workers/handlers/` (шим `games.site.views.workers`).
 - Тело ежедневного тайминга — `games/daily/timing/session.py`, тело проекций — `games/daily/projection/materialize.py`. Импорт по-прежнему `games.daily.timing` и `games.daily.projection`: пакет реэкспортирует реализацию.
 - `games/management/commands/` — административные и разовые команды.
 - `scripts/` — deploy, cron, smoke-тесты и операционные инструменты.

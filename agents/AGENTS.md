@@ -229,7 +229,7 @@ If the resolved version is empty, the client check is skipped.
 | Censorly IDs / flags | `games.puzzles.censorly.ids` | — |
 | Censorly implementation | `games.puzzles.censorly.*` | offline tools/audits: `games.puzzles.censorly.offline.{tools,audit}` |
 | Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | — |
-| SQS worker handlers | `games.site.views.workers.{background,identity,integrations,word_salad}` | — |
+| SQS worker handlers | `games.ops.workers.handlers.{background,identity,integrations,word_salad}` | shim `games.site.views.workers` |
 | Worker registry / ECS config / Lambda SQS | `games.ops.workers.{contract,config,lambda_entry}` | — |
 | Gameplay write actor (team/user/anon) | `games.identity` (`games.identity.actor`) | — |
 | Profile/team presence on User | `games.identity.profile` or `games.identity` | site views / UI import `games.identity` |
