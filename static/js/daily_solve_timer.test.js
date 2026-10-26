@@ -1527,6 +1527,185 @@ asyncTest(async function testStartFailureIsReportedOnceWithDiagnostics() {
   }
 });
 
+asyncTest(async function testHangingStartUsesAllAttemptsWithFreshEvents() {
+  var oldSetTimeout = global.setTimeout;
+  var oldNow = Date.now;
+  var now = 1000000;
+  var retries = [];
+  var reports = [];
+  var startIds = [];
+  Date.now = function () { return now; };
+  global.setTimeout = function (callback, delay) {
+    if (delay < timer.HEARTBEAT_MS) retries.push(callback);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      startIds.push(body.event_id);
+      // Each request hangs until REQUEST_TIMEOUT_MS aborts it (iOS Safari
+      // on a dead connection).
+      now += 10000;
+      return Promise.reject(new TypeError('Load failed'));
+    });
+    ctrl.startIfAllowed();
+    await flush();
+    while (retries.length) {
+      retries.shift()();
+      await flush();
+    }
+    assert.strictEqual(startIds.length, 6);
+    assert.ok(new Set(startIds).size > 1);
+    assert.strictEqual(reports.length, 1);
+    assert.strictEqual(reports[0].reason, 'start_failed');
+    assert.strictEqual(reports[0].details.start_attempts, 6);
+    assert.strictEqual(reports[0].details.last_network, true);
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
+function queueTimer(fetchImpl, doc) {
+  return timer.create({
+    url: '/censorly/7/timing/',
+    document: doc || { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return ''; },
+    getCsrf: function () { return 'csrf'; },
+    storage: memoryStorage(),
+    fetch: fetchImpl,
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    bootstrap: { status: 'running', is_authoritative: true, exists: true },
+  });
+}
+
+function eventBodyOf(init) {
+  return init.body.charAt(0) === '{'
+    ? JSON.parse(init.body)
+    : Object.fromEntries(new URLSearchParams(init.body));
+}
+
+asyncTest(async function testEventTooOldToSendIsFailedNotSpunOn() {
+  var oldSetTimeout = global.setTimeout;
+  var oldNow = Date.now;
+  var now = 1000000;
+  var nowCalls = 0;
+  var sent = [];
+  // The bug was a synchronous endless loop; a throwing clock ends it.
+  Date.now = function () {
+    nowCalls += 1;
+    if (nowCalls > 10000) throw new Error('spin');
+    return now;
+  };
+  global.setTimeout = function (callback) { Promise.resolve().then(callback); return 1; };
+  try {
+    var pauses = 0;
+    var ctrl = queueTimer(function (url, init) {
+      var body = eventBodyOf(init);
+      sent.push(body.action);
+      if (body.action === 'pause' && (pauses += 1) === 1) {
+        return Promise.resolve().then(function () {
+          now += 15000;
+          throw new TypeError('Load failed');
+        });
+      }
+      now += 9000;
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({ ok: true, exists: true, status: 'manually_paused', manually_paused: true });
+      } });
+    });
+    ctrl.pauseManual();
+    // Queued behind a pause that needs 24 s to get through.
+    var resumed = ctrl.resumeManual();
+    await resumed;
+    assert.ok(nowCalls < 10000);
+    assert.deepStrictEqual(sent, ['pause', 'pause']);
+    // The deliberate pause stays until a resume gets through.
+    assert.strictEqual(ctrl.state().manually_paused, true);
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
+asyncTest(async function testRejectedEventDoesNotBlockQueueWhileOnLineIsStuck() {
+  var oldNavigator = Object.getOwnPropertyDescriptor(global, 'navigator');
+  var oldSetTimeout = global.setTimeout;
+  Object.defineProperty(global, 'navigator', { configurable: true, value: { onLine: false } });
+  global.setTimeout = function () { return 1; };
+  var sent = [];
+  try {
+    var ctrl = queueTimer(function (url, init) {
+      var body = eventBodyOf(init);
+      sent.push(body.action);
+      if (body.action === 'pause') {
+        return Promise.resolve({ status: 403, json: function () {
+          return Promise.resolve({ ok: false, error: 'club_required' });
+        } });
+      }
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({ ok: true, exists: true, status: 'running', is_authoritative: true });
+      } });
+    });
+    var paused = await ctrl.pauseManual();
+    assert.strictEqual(paused.error, 'club_required');
+    await ctrl.resumeManual();
+    assert.deepStrictEqual(sent, ['pause', 'resume']);
+    assert.strictEqual(ctrl.state().status, 'running');
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = oldSetTimeout;
+    if (oldNavigator) Object.defineProperty(global, 'navigator', oldNavigator);
+    else delete global.navigator;
+  }
+});
+
+asyncTest(async function testStartFailingWhileHiddenIsRetriedOnVisible() {
+  var oldSetTimeout = global.setTimeout;
+  var reports = [];
+  var starts = 0;
+  global.setTimeout = function () { return 1; };
+  var doc = { visibilityState: 'visible', addEventListener: function () {} };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      starts += 1;
+      if (starts === 1) {
+        // The player switches away while the start is in flight.
+        doc.visibilityState = 'hidden';
+        return Promise.reject(new TypeError('Load failed'));
+      }
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({ ok: true, exists: true, status: 'running', is_authoritative: true });
+      } });
+    }, { document: doc });
+    ctrl.startIfAllowed();
+    await flush();
+    assert.strictEqual(reports.length, 0);
+    doc.visibilityState = 'visible';
+    ctrl.onVisible();
+    await flush();
+    assert.strictEqual(starts, 2);
+    assert.strictEqual(ctrl.state().status, 'running');
+    assert.strictEqual(reports.length, 0);
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
 asyncTest(async function testAcceptedButStoppedStartIsReported() {
   var reports = [];
   var ctrl = reportingTimer(function (url, init) {

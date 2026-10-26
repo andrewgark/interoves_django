@@ -611,12 +611,16 @@
               root.setTimeout(resolve, retryDelayMs(result.retryAfterMs, item.attempts - 1, random));
             });
           }
+          // An item can reach the head already too old to send, e.g. queued
+          // behind a slow pause, or resumed by "online" after its deadline.
+          // Without a result the outer loop would pick it again forever
+          // without awaiting and freeze the page.
+          if (!result && eventQueue[0] === item) result = { data: { ok: false, error: 'delivery_timeout' } };
           if (result) {
-            if (root.navigator && root.navigator.onLine === false && item.attempts < item.maxAttempts) {
-              item.stalled = true;
-              eventQueueRunning = false;
-              return;
-            }
+            // No stall here: only a send that is still worth retrying waits
+            // for "online" (above), and that one carries an expiry timer.
+            // A rejected or expired event stalled here blocked the queue for
+            // good while navigator.onLine was stuck at false.
             failQueuedEvents(result.data);
             return;
           }
@@ -709,7 +713,11 @@
       startRetryTimer = null;
       awaitingServer = true;
       startAttempts += 1;
-      if (!startEvent) {
+      // Retries reuse one event so a start that did reach the server is
+      // deduplicated. Once it is too old to deliver, send a fresh one: on a
+      // hanging connection two 10 s timeouts used up the age limit, and the
+      // start failed after two of its six attempts.
+      if (!startEvent || Date.now() - startEventCreatedAt >= EVENT_MAX_AGE_MS) {
         startEvent = makeEvent('start', { claimed_ms: unconfirmedMs() });
         startEventCreatedAt = Date.now();
       }
@@ -742,6 +750,13 @@
         if (!completed && !manuallyPaused) status = 'auto_paused';
         advanceStateRevision();
         syncTicker();
+        // The tab got hidden while the start was in flight: nothing to run
+        // now, and onVisible() retries. Marking it failed here showed the
+        // error and alerted admins about a plain tab switch.
+        if (!destroyed && visibilityOf(doc) !== 'visible') {
+          render();
+          return;
+        }
         // A transient network/5xx/CSRF failure used to leave the clock frozen
         // at 0s forever. Retry a few times while the page is visible; a
         // gameplay-context error is deliberate and must be handled by reload.
@@ -750,7 +765,6 @@
           && visibilityOf(doc) === 'visible'
           && !(data && data.reload_required)
           && startAttempts < 6
-          && Date.now() - startEventCreatedAt < EVENT_MAX_AGE_MS
           && root.setTimeout
         ) {
           var delay = retryDelayMs(
