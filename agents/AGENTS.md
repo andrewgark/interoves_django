@@ -263,6 +263,7 @@ If the resolved version is empty, the client check is skipped.
 | Site HTTP forms | `games.site.forms` | `games.forms` |
 | Django admin registrations | `games.site.admin` | `games.admin` (autodiscover entry) |
 | Distributed cron locks | `games.ops.cron.lock` | `games.cron_lock` |
+| EB runtime role / heavy-processing gate | `games.ops.cron.runtime` | `games.runtime` |
 | Profile feedback reports | `games.site.ui.profile.feedback` | `games.feedback` |
 | Product metrics CLI | `games.ops.analytics.metrics` | `games.product_metrics` |
 | Media storage health check | `games.ops.health.checks` | `games.health_checks` |
