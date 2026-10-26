@@ -1,4 +1,4 @@
-"""Compatibility entry: CheckerFactory and symbols tests import from ``games.check``."""
+"""Compatibility alias: CheckerFactory and checker types for tests/scripts."""
 
 from games.grid_puzzle import GridShadingChecker, GridWallChecker
 from games.puzzles.core.check_runtime import CheckerFactory

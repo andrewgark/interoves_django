@@ -7,7 +7,7 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
-from games.check import CheckerFactory
+from games.puzzles.core.check_runtime import CheckerFactory
 from games.models import (
     Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, ReplaySlot, Task, Team,
 )

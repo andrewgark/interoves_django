@@ -200,7 +200,7 @@ def recheck_chain_task(
       are blocked until recheck completes.
     - Each Attempt.state is updated in the DB as the audit trail.
     """
-    from games.check import CheckerFactory
+    from games.puzzles.core.check_runtime import CheckerFactory
     from games.analytics import reconcile_completed_game_after_recheck
 
     if game is None:
@@ -413,7 +413,7 @@ def _expand_salad_active_for_path(last_state, text):
 
 
 def _check_word_salad_attempt(checker_type, checker_data, last_state, attempt, *, expand_active=False):
-    from games.check import CheckerFactory
+    from games.puzzles.core.check_runtime import CheckerFactory
     from games.word_salad import (
         EXTRA_FOUND_COMMENT,
         RARE_FOUND_COMMENT,

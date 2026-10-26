@@ -13,7 +13,7 @@ from games.analytics import (
     publish_completion_analytics,
     register_started_game,
 )
-from games.check import CheckerFactory
+from games.puzzles.core.check_runtime import CheckerFactory
 from games.exception import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
 from games.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, CHAIN_TASK_TYPES

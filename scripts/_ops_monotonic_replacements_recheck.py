@@ -14,7 +14,7 @@ from decimal import Decimal
 
 from django.db import transaction
 
-from games.check import CheckerFactory
+from games.puzzles.core.check_runtime import CheckerFactory
 from games.models import Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, Task
 
 
