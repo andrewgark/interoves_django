@@ -100,6 +100,3 @@ class TelegramCallbackView(OAuth2CallbackView):
 
 telegram_login = TelegramLoginView.adapter_view(TelegramOIDCAdapter)
 telegram_callback = TelegramCallbackView.adapter_view(TelegramOIDCAdapter)
-
-
-provider_classes = [TelegramProvider]
