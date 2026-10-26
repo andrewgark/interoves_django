@@ -1,49 +1,6 @@
-from storages.backends.s3boto3 import S3Boto3Storage
-from django.conf import settings
+"""Compatibility alias. Implementation lives in games.ops.health.storage."""
+import sys
 
+from games.ops.health import storage as _implementation
 
-class StaticStorage(S3Boto3Storage):
-    location = settings.STATIC_LOCATION
-    default_acl = 'public-read'
-
-    def url(self, name, parameters=None, expire=None, http_method=None):
-        """
-        Public links must follow STATIC_URL (e.g. https://interoves.com/static/…),
-        not AWS_S3_CUSTOM_DOMAIN — nginx proxies /static/ to the bucket.
-        """
-        name = (name or "").lstrip("/")
-        base = (settings.STATIC_URL or "/static/").rstrip("/")
-        return f"{base}/{name}"
-
-
-class PublicMediaStorage(S3Boto3Storage):
-    location = 'media'
-    default_acl = 'public-read'
-    file_overwrite = False
-
-
-class ProxyMediaStorage(PublicMediaStorage):
-    """
-    Store media in S3, but serve it via the app domain (/media/...) where Nginx
-    reverse-proxies to S3. This keeps URLs stable and first-party.
-    """
-
-    def url(self, name, parameters=None, expire=None, http_method=None):
-        name = (name or "").lstrip("/")
-        return f"/media/{name}"
-
-
-def social_queue_storage():
-    """Store social-queue images in the public bucket.
-
-    The integrations worker keeps ``USE_S3`` false (it must not collectstatic),
-    but Instagram and Threads fetch these files by public URL from the web tier.
-    A local file on the worker is invisible there and the URL 500s.
-    """
-    from django.conf import settings
-    from django.core.files.storage import default_storage
-
-    bucket = (getattr(settings, 'SOCIAL_QUEUE_S3_BUCKET', '') or '').strip()
-    if not bucket:
-        return default_storage
-    return ProxyMediaStorage(bucket_name=bucket)
+sys.modules[__name__] = _implementation
