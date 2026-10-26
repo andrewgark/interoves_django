@@ -11,6 +11,7 @@ from games.daily.page.board import (
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
+import games.puzzles.core.check_runtime  # noqa: F401 — before grid_puzzle (checker registry tail imports)
 from games.puzzles.replacements.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.tasks.titles import raddle_share_title, task_display_name
 from games.tasks.presentation import task_ui_descriptor, wall_ui_context

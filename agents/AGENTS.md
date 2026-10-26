@@ -210,7 +210,7 @@ If the resolved version is empty, the client check is skipped.
 
 **Facade retirement (2026-10):** удалены ~120 корневых `games/*.py` aliases и каталоги `games/views`, `games/support`, `games/telegram`, `games/social`, `games/instagram`, `games/twitter`, `games/threads`, `games/background`, `games/tutorials`, `games/google`, `games/matcher` — prod/tests уже на canonical paths. **Не удаляй** entry points ниже. Имена **loggers** (`games.views.new_ui`, `games.daily_timing`, …) намеренно legacy; `assertLogs` и prod-логи на них завязаны.
 
-**Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.storage_backends` (migration `0232` only), `games.provider` (allauth autodiscover), `games.templatetags.filters`, [`games/offer_bootstrap.py`](games/offer_bootstrap.py) (offer ORM без импорта `games.puzzles.__init__`), **`games.alphabetty.core`** (migration `0150` only). Пустые пакеты **`games.{alphabetty,censorly,salad,ladder}`** — только namespace для `sys.modules` facades из bootstrap. Ladder tutorial: **`games.daily.ladder.tutorial`**. Django settings: HTTP **`games.site.http.*`**, inlineedit **`games.site.http.adaptors`**. Yandex Direct — только **`games.ops.social.ads.*`**.
+**Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.provider` (allauth autodiscover), `games.templatetags.filters`, `games.site.http.adaptors` (inlineedit). Ladder tutorial: **`games.daily.ladder.tutorial`**. Django settings: HTTP **`games.site.http.*`**. Yandex Direct — только **`games.ops.social.ads.*`**.
 
 | Concern | Canonical import | Notes |
 |--------|------------------|-------|
@@ -221,7 +221,7 @@ If the resolved version is empty, the client check is skipped.
 | ASGI DB admission middleware | `games.realtime.admission` | — |
 | HTTP middleware (timing, anon identity, DB transient) | `games.site.http.middleware.*` | `settings.MIDDLEWARE` |
 | Yandex Direct ads CLI | `games.ops.social.ads.*` | — |
-| Main UI URL handlers | `games.site.views.pages.ui` (imports `games.site.ui.*`) | `ui_exports` re-exports for tests; logger `games.views.new_ui` |
+| Main UI URL handlers | `games.site.views.pages.ui` (imports `games.site.ui.*`) | logger `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | — |
 | Censorly IDs / flags | `games.puzzles.censorly.ids` | — |
 | Censorly implementation | `games.puzzles.censorly.*` | — |
@@ -296,7 +296,7 @@ If the resolved version is empty, the client check is skipped.
 | Ticket billing service | `games.club.billing.tickets` | — |
 | Pay page ticket routes | `games.club.billing.routes` | — |
 | Club YooKassa / access service | `games.club.billing.yookassa.{club,client}`, `games.club.access.service` | — |
-| Social queue / static S3 backends | `games.ops.health.storage` | `games.storage_backends` shim for migrations only; `settings.STORAGES` → canonical |
+| Social queue / static S3 backends | `games.ops.health.storage` | `settings.STORAGES` → canonical |
 | Subscription gifts | `games.club.billing.gifts.{offers,payments}` | — |
 | Donations / crypto / YooKassa util | `games.club.billing.{donations,crypto,yookassa.util}` | `donation_service`, `nowpayments_util`, `yookassa_util` |
 | Tribute checkout (prod entry) | `games.club.billing.tribute.service` | — |
@@ -306,9 +306,9 @@ If the resolved version is empty, the client check is skipped.
 | JSON body / public task / browser-form HTTP helpers | `games.site.http.request_util` | — |
 | Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `Task.get_wall()` lazy-imports `wall.engine` |
 | Ladder onboarding tutorial | `games.daily.ladder.tutorial.{ladder,views}` | — |
-| Alphabetty engine | `games.puzzles.alphabetty.*` | `games.alphabetty.core` (migration `0150` only) |
-| Offer ORM (alphabetty / censorly / salad / ladder) | `games.puzzles.{alphabetty,censorly,salad,raddle}.models` | registered as `games.*.models` via [`offer_bootstrap`](games/offer_bootstrap.py) |
-На старте Django (до готовности `games.models`) не импортируй `games.puzzles` package `__init__` на уровне модулей моделей — используй lazy import в методах (см. `Task.get_wall()` → `games.puzzles.wall.engine`). `WORD_SALAD_GAME_ID` — `games.daily.page.section`.
+| Alphabetty engine | `games.puzzles.alphabetty.*` | — |
+| Offer ORM (alphabetty / censorly / salad / ladder) | `games.puzzles.{alphabetty,censorly,salad,raddle}.models` | re-exported from `games.models` |
+Offer ORM — только `games.puzzles.*.models` (re-export в `games.models`). Корневой `games.puzzles` — lazy registry (`get_puzzle`); не добавляй eager import play/engine в `models/__init__`. `Task.get_wall()` и аналоги — lazy import в методах. `WORD_SALAD_GAME_ID` — `games.daily.page.section`.
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД. **Новый код** — только canonical import; не добавляй новые root shims (entry points — см. выше). В prod и тестах не импортируй удалённые `games.*` aliases; для `@patch` предпочитай модуль, где имя **привязано** (не legacy `games.views.*`):
 

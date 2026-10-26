@@ -62,7 +62,7 @@ def seed_buffer(apps, schema_editor):
     if GameTaskGroup.objects.filter(game_id='alphabetty').exists():
         return
     try:
-        from games.alphabetty.core import pick_answer_words
+        from games.puzzles.alphabetty.core import pick_answer_words
     except Exception:
         return
     words = pick_answer_words(30)
