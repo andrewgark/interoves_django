@@ -2,7 +2,7 @@
 
 Код: `games/raddle.py`, `games/views/attempt_views.py`, `static/templates/new/task_group.html`, шаблон `task-content/task-raddle.html`.
 
-Матрица сценариев в коде: [`games/raddle_response_contract.py`](../games/raddle_response_contract.py) (источник правды для тестов).
+Матрица сценариев в коде: [`games/puzzles/raddle/contract.py`](../games/puzzles/raddle/contract.py) (источник правды для тестов).
 
 ## Клиентская архитектура
 

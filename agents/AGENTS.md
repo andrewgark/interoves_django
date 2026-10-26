@@ -206,7 +206,7 @@ If the resolved version is empty, the client check is skipped.
 
 ## Raddle (Лесенка)
 
-Auto-submit, контракт `/send_attempt/` и smoke перед деплоем: **[agents/raddle.md](raddle.md)**. Матрица сценариев в `games/raddle_response_contract.py`; тесты: `games.tests.test_raddle_send_attempt`, `games.tests.test_raddle_response_contract`.
+Auto-submit, контракт `/send_attempt/` и smoke перед деплоем: **[agents/raddle.md](raddle.md)**. Матрица сценариев в `games/puzzles/raddle/contract.py`; тесты: `games.tests.test_raddle_send_attempt`, `games.tests.test_raddle_response_contract`.
 
 ## Realtime / team synchronization
 
