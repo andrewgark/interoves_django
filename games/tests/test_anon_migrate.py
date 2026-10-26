@@ -56,7 +56,7 @@ class AnonMigrateTests(TestCase):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
         CheckerType.objects.get_or_create(pk='equals')
         CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.game = Game.objects.create(
                 id='anon_migrate_test',
                 name='Anon migrate',
@@ -89,7 +89,7 @@ class AnonMigrateTests(TestCase):
         self.client = Client()
         self.assertTrue(self.client.login(username='migrate_user', password='secret'))
         attach_anon_cookie(self.client, self.anon_key)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(
                 anon_key=self.anon_key,
                 task=self.task,
@@ -507,7 +507,7 @@ class AnonMigrateTests(TestCase):
         attempt([0, 1, 2, 3], offset=0, user=self.user)
         attempt([7, 6, 5, 4], offset=1, user=self.user)
         guest = attempt([0, 1, 2, 3], offset=100, anon_key=self.anon_key)
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             from games.recheck import recheck_word_salad_actor
             recheck_word_salad_actor(task, user=self.user, game=self.game, notify=False)
             recheck_word_salad_actor(task, anon_key=self.anon_key, game=self.game, notify=False)
@@ -515,7 +515,7 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(json.loads(guest.state)['solved_indices'], [0])
 
         Attempt.manager.filter(pk=guest.pk).update(user=self.user, anon_key=None)
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             moved = migrate_anon_chain_task_states(self.user, self.anon_key)
         self.assertTrue(moved)
 
@@ -587,7 +587,7 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(response.json()['example_label'], 'G1')
 
     def test_migrate_count_finds_example_after_unlinked_task(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             group = TaskGroup.objects.create(label='unlinked migration history')
             task = Task.objects.create(task_group=group, number='1', checker_id='equals')
             attempt = Attempt.manager.create(
@@ -633,7 +633,7 @@ class AnonMigrateTests(TestCase):
 
     def test_show_prompt_with_enough_unsolved_attempts(self):
         # Ещё 8 анонимных посылок (в setUp уже есть 2) → всего 10.
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             for _ in range(8):
                 Attempt.manager.create(
                     anon_key=self.anon_key,
@@ -650,7 +650,7 @@ class AnonMigrateTests(TestCase):
 
     def test_solved_task_is_not_counted(self):
         # Пользователь уже сдал это задание на OK в личном режиме.
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(
                 user=self.user,
                 task=self.task,

@@ -43,7 +43,7 @@ class LadderBoardQueryTests(TestCase):
         ):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
         now = timezone.now()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.game = Game.objects.create(
                 id='raddle_board_query',
                 name='Board query',

@@ -83,7 +83,7 @@ class WordSaladTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         _setup_db()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.game = Game.objects.create(
                 id='word_salad_test',
                 name='Word Salad test',
@@ -363,7 +363,7 @@ class WordSaladTests(TestCase):
     def test_hint_endpoint_accepts_consecutive_letters(self):
         anon_key = 'word-salad-hints-test'
         for hint_number in (1, 2):
-            with patch('games.views.attempt_views.track_actor_task_change'):
+            with patch('games.site.views.game.attempt.track_actor_task_change'):
                 response = self._post(
                     '/send_hint_attempt/{}/'.format(self.task.pk),
                     {
@@ -462,8 +462,8 @@ class WordSaladTests(TestCase):
             '/send_hint_attempt/{}/'.format(self.task.id),
             {'action': 'hint', 'word_index': 0, 'anon_key': 'anon-test'},
         )
-        with patch('games.views.hint_views.get_public_task_or_404', return_value=self.task), patch(
-            'games.views.attempt_views.process_send_attempt',
+        with patch('games.site.views.game.hint.get_public_task_or_404', return_value=self.task), patch(
+            'games.site.views.game.attempt.process_send_attempt',
             return_value={'status': 'ok', 'task_id': self.task.id},
         ) as delegated:
             response = process_send_hint_attempt(request, self.task.id)
@@ -497,7 +497,7 @@ class WordSaladTests(TestCase):
 
     def test_correct_only_saves_dictionary_extra(self):
         with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
-            with patch('games.views.attempt_views.track_actor_task_change'):
+            with patch('games.site.views.game.attempt.track_actor_task_change'):
                 response = self._post(
                     '/send_attempt/{}/'.format(self.task.pk),
                     {
@@ -596,7 +596,7 @@ class WordSaladTests(TestCase):
 
     def test_sync_finds_uses_last_play_time(self):
         anon_key = 'word-salad-sync-stamp'
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             solved = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -654,7 +654,7 @@ class WordSaladTests(TestCase):
         self.assertTrue(payload['daily_timing']['completed'])
 
     def test_correct_only_saves_matching_word_salad_path(self):
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -696,7 +696,7 @@ class WordSaladTests(TestCase):
 
     def test_saving_task_keeps_word_salad_chain_state_when_grid_is_unchanged(self):
         anon_key = 'word-salad-task-edit-reset'
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             first = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -729,7 +729,7 @@ class WordSaladTests(TestCase):
     def test_supported_salad_completion_returns_start_then_complete_once(self):
         anon_key = 'word-salad-onboarding-flow'
         with patch.dict('games.analytics.GAME_KIND_BY_ID', {self.game.id: 'salad'}), patch(
-            'games.views.attempt_views.track_actor_task_change'
+            'games.site.views.game.attempt.track_actor_task_change'
         ):
             first = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
@@ -770,7 +770,7 @@ class WordSaladTests(TestCase):
         self.game.save(update_fields=['start_time', 'end_time'])
         self.assertEqual(self.game.get_current_mode(), 'tournament')
         try:
-            with patch('games.views.attempt_views.track_actor_task_change'):
+            with patch('games.site.views.game.attempt.track_actor_task_change'):
                 solve = self._post(
                     '/send_attempt/{}/'.format(self.task.pk),
                     {
@@ -839,7 +839,7 @@ class WordSaladTests(TestCase):
             'ABCD',
         )
         self.task.save(update_fields=['checker_data'])
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -908,7 +908,7 @@ class WordSaladTests(TestCase):
         )
         self.task.save(update_fields=['checker_data'])
         try:
-            with patch('games.views.attempt_views.track_actor_task_change'):
+            with patch('games.site.views.game.attempt.track_actor_task_change'):
                 response = self._post(
                     '/send_attempt/{}/'.format(self.task.pk),
                     {
@@ -989,7 +989,7 @@ class WordSaladTests(TestCase):
 
     def test_recheck_credits_new_words_at_last_ok_time(self):
         anon_key = 'word-salad-recheck-complete'
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -1021,7 +1021,7 @@ class WordSaladTests(TestCase):
         self.task.checker_data = json.dumps(payload, ensure_ascii=False)
         self.task.save(update_fields=['checker_data'])
 
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
         self.assertEqual(stats['actors'], 1)
         self.assertEqual(stats['credited'], 1)
@@ -1051,7 +1051,7 @@ class WordSaladTests(TestCase):
         )
         self.assertEqual(sorted(json.loads(chain.state)['solved_indices']), [0, 1])
 
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             again = recheck_word_salad_task(self.task, game=self.game, notify=False)
         self.assertEqual(again['credited'], 0)
         self.assertEqual(
@@ -1089,7 +1089,7 @@ class WordSaladTests(TestCase):
             points=0,
         )
 
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
 
         self.assertEqual(stats['actors'], 2)
@@ -1113,7 +1113,7 @@ class WordSaladTests(TestCase):
 
     def test_answer_list_edit_keeps_chain_state_until_recheck(self):
         anon_key = 'word-salad-answer-list-edit'
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -1134,7 +1134,7 @@ class WordSaladTests(TestCase):
         payload = json.loads(self.task.checker_data)
         payload['words'] = ['ABCDEFGHIJKLMNOP', 'ABCD']
         self.task.checker_data = json.dumps(payload, ensure_ascii=False)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.task.save(update_fields=['checker_data'])
 
         # Saving only the answer set must not make the player appear to have
@@ -1142,7 +1142,7 @@ class WordSaladTests(TestCase):
         before.refresh_from_db()
         self.assertEqual(json.loads(before.state)['solved_indices'], [0])
 
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             recheck_word_salad_task(self.task, game=self.game, notify=False)
         after = ChainTaskState.objects.get(
             task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
@@ -1151,7 +1151,7 @@ class WordSaladTests(TestCase):
 
     def test_grid_edit_resets_word_salad_chain_state(self):
         anon_key = 'word-salad-grid-edit'
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -1167,7 +1167,7 @@ class WordSaladTests(TestCase):
         payload = json.loads(self.task.checker_data)
         payload['grid'][0], payload['grid'][1] = payload['grid'][1], payload['grid'][0]
         self.task.checker_data = json.dumps(payload, ensure_ascii=False)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.task.save(update_fields=['checker_data'])
         state = ChainTaskState.objects.get(
             task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
@@ -1175,7 +1175,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(json.loads(state.state)['solved_indices'], [])
 
     def test_reset_all_progress_rotates_task_revision_for_browser_caches(self):
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -1200,7 +1200,7 @@ class WordSaladTests(TestCase):
 
     def test_recheck_does_not_complete_unfinished_actor(self):
         anon_key = 'word-salad-recheck-hint'
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             hint = self._post(
                 '/send_hint_attempt/{}/'.format(self.task.pk),
                 {
@@ -1216,7 +1216,7 @@ class WordSaladTests(TestCase):
         self.task.checker_data = json.dumps(payload, ensure_ascii=False)
         self.task.save(update_fields=['checker_data'])
 
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
         self.assertEqual(stats['credited'], 0)
         attempts = list(Attempt.manager.filter(task=self.task, anon_key=anon_key))
@@ -1228,7 +1228,7 @@ class WordSaladTests(TestCase):
     def test_recheck_promotes_extra_to_rare(self):
         anon_key = 'word-salad-recheck-extra-to-rare'
         with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
-            with patch('games.views.attempt_views.track_actor_task_change'):
+            with patch('games.site.views.game.attempt.track_actor_task_change'):
                 response = self._post(
                     '/send_attempt/{}/'.format(self.task.pk),
                     {
@@ -1246,7 +1246,7 @@ class WordSaladTests(TestCase):
             'ABC',
         )
         self.task.save(update_fields=['checker_data'])
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             recheck_word_salad_task(self.task, game=self.game, notify=False)
         attempt = Attempt.manager.get(task=self.task, anon_key=anon_key)
         self.assertEqual(attempt.status, 'Partial')
@@ -1274,7 +1274,7 @@ class WordSaladTests(TestCase):
             'ABCD',
         )
         self.task.save(update_fields=['checker_data'])
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -1292,7 +1292,7 @@ class WordSaladTests(TestCase):
         )
         self.task.save(update_fields=['checker_data'])
         with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABCD'})):
-            with patch('games.views.track.track_actor_task_change'):
+            with patch('games.realtime.track_compat.track_actor_task_change'):
                 recheck_word_salad_task(self.task, game=self.game, notify=False)
         attempt = Attempt.manager.get(task=self.task, anon_key=anon_key)
         self.assertEqual(attempt.status, 'Partial')

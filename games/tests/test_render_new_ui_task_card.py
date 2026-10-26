@@ -47,7 +47,7 @@ class RenderNewUiTaskCardTests(TestCase):
     def setUpTestData(cls):
         _setup_db()
         CheckerType.objects.get_or_create(pk='word_salad')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.game = Game.objects.create(
                 id='render_wall_img_game',
                 name='render wall img',
@@ -269,7 +269,7 @@ class RenderNewUiTaskCardTests(TestCase):
             self.assertEqual(html.count('new-taskcard__text'), 1, task_type)
 
     def test_default_task_hints_start_collapsed_with_stable_ids(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             task = Task.objects.create(
                 task_group=self.tg,
                 number='9',

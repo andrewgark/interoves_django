@@ -49,7 +49,7 @@ class RaddleUiSyncTests(TestCase):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
 
         now = timezone.now()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.game = Game.objects.create(
                 id='raddle_ui_sync',
                 name='Raddle UI sync',
@@ -128,7 +128,7 @@ class RaddleUiSyncTests(TestCase):
         def capture_track(task, **kwargs):
             published.append(kwargs)
 
-        with patch('games.views.raddle_views.track_actor_task_change', side_effect=capture_track):
+        with patch('games.site.views.game.raddle.track_actor_task_change', side_effect=capture_track):
             response = first.post(
                 f'/send_raddle_ui/{self.task.pk}/',
                 {
@@ -174,7 +174,7 @@ class RaddleUiSyncTests(TestCase):
 
     def test_empty_draft_clears_key(self):
         first = self._client('raddle_ui_one')
-        with patch('games.views.raddle_views.track_actor_task_change'):
+        with patch('games.site.views.game.raddle.track_actor_task_change'):
             first.post(
                 f'/send_raddle_ui/{self.task.pk}/',
                 {
@@ -197,7 +197,7 @@ class RaddleUiSyncTests(TestCase):
 
     def test_stale_revision_cannot_overwrite_newer_ui_state(self):
         client = self._client('raddle_ui_one')
-        with patch('games.views.raddle_views.track_actor_task_change'):
+        with patch('games.site.views.game.raddle.track_actor_task_change'):
             newer = client.post(
                 f'/send_raddle_ui/{self.task.pk}/',
                 {
@@ -222,7 +222,7 @@ class RaddleUiSyncTests(TestCase):
 
     def test_equal_revision_from_second_tab_cannot_overwrite_first_tab(self):
         client = self._client('raddle_ui_one')
-        with patch('games.views.raddle_views.track_actor_task_change'):
+        with patch('games.site.views.game.raddle.track_actor_task_change'):
             client.post(
                 f'/send_raddle_ui/{self.task.pk}/',
                 {
@@ -251,7 +251,7 @@ class RaddleUiSyncTests(TestCase):
             ChainTaskState.objects,
             'select_for_update',
             side_effect=AssertionError('UI endpoint must not lock ChainTaskState'),
-        ), patch('games.views.raddle_views.track_actor_task_change'):
+        ), patch('games.site.views.game.raddle.track_actor_task_change'):
             response = client.post(
                 f'/send_raddle_ui/{self.task.pk}/',
                 {
@@ -279,7 +279,7 @@ class RaddleUiSyncTests(TestCase):
             }),
         )
         client = self._client('raddle_ui_one')
-        with patch('games.views.raddle_views.track_actor_task_change'):
+        with patch('games.site.views.game.raddle.track_actor_task_change'):
             response = client.post(
                 f'/send_raddle_ui/{self.task.pk}/',
                 {
@@ -298,7 +298,7 @@ class RaddleUiSyncTests(TestCase):
         first = self._client('raddle_ui_one')
         second = self._client('raddle_ui_two')
         headers = {'HTTP_X_INTEROVES_PLAY_MODE': 'personal'}
-        with patch('games.views.raddle_views.track_actor_task_change'):
+        with patch('games.site.views.game.raddle.track_actor_task_change'):
             first.post(
                 f'/send_raddle_ui/{self.task.pk}/',
                 {'game_id': self.game.pk, 'drafts': json.dumps({'2': 'ONE'})},

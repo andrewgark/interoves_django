@@ -121,8 +121,8 @@ class ReplaySlotTests(TestCase):
         request = RequestFactory().post('/send/', {'text': 'ok'})
         request.user = AnonymousUser()
         stamp_anon_identity(request, anon_key)
-        with patch('games.views.attempt_views.game_from_request_for_task', return_value=self.game), \
-             patch('games.views.attempt_views._get_play_mode', return_value='personal'):
+        with patch('games.site.views.game.attempt.game_from_request_for_task', return_value=self.game), \
+             patch('games.site.views.game.attempt._get_play_mode', return_value='personal'):
             result = process_send_attempt(request, self.task.pk)
         self.assertEqual(result['error'], 'replay_required')
         self.assertFalse(Attempt.manager.filter(anon_key=anon_key).exists())

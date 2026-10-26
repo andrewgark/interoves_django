@@ -101,7 +101,7 @@ class ResultsSnapshotBulkTests(TestCase):
         )
         cls.tg = TaskGroup.objects.create(label='tg_snap_bulk')
         GameTaskGroup.objects.create(game=cls.game, task_group=cls.tg, number=1, name='tg')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task1 = Task.objects.create(
                 task_group=cls.tg,
                 number='1',
@@ -122,7 +122,7 @@ class ResultsSnapshotBulkTests(TestCase):
         cls.team = Team.objects.create(name='snap_bulk_team', visible_name='Team A')
         cls.user = User.objects.create_user(username='snap_bulk_user', password='x')
         now = timezone.now()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(
                 text='a',
                 status='Ok',

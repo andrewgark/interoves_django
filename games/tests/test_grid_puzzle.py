@@ -252,7 +252,7 @@ class GridPuzzleIntegrationTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         _setup_db()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.game = Game.objects.create(
                 id='grid_puzzle_test',
                 name='Grid Puzzle test',
@@ -408,7 +408,7 @@ class GridPuzzleIntegrationTests(TestCase):
 
     def test_tournament_attempt_limit_uses_existing_contract(self):
         self.task.max_attempts = 1
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.task.save(update_fields=['max_attempts'])
         with patch.object(Game, 'get_current_mode', return_value='tournament'), patch.object(
             Attempt.manager, 'filter_attempts_with_mode', side_effect=lambda attempts, *args, **kwargs: attempts,
@@ -420,7 +420,7 @@ class GridPuzzleIntegrationTests(TestCase):
 
     def test_disabled_tools_are_hidden_and_walls_are_rejected_server_side(self):
         config = dict(PUZZLE, can_set_walls=False, can_set_path=False)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             task = Task.objects.create(
                 task_group=self.tg,
                 number='3',

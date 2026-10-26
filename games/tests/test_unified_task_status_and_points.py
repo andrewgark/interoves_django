@@ -36,7 +36,7 @@ class UnifiedStatusAndPointsTests(TestCase):
         game = Game.objects.create(id='u1', name='g', author='a', author_extra='')
         team = Team.objects.create(name='u1_team', visible_name='T')
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg')
             GameTaskGroup.objects.create(game=game, task_group=tg, number=1, name='tg')
             # 3 lines, multiplier=2 => effective max = 6
@@ -52,7 +52,7 @@ class UnifiedStatusAndPointsTests(TestCase):
 
         # Create multiple submissions with points 0,2,4,6, but NEVER status Ok.
         # This simulates a historical inconsistency; solved detection must still work.
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(task=task, team=team, game=game, text='x0', status='Wrong', points=0)
             Attempt.manager.create(task=task, team=team, game=game, text='x1', status='Partial', points=2)
             Attempt.manager.create(task=task, team=team, game=game, text='x2', status='Partial', points=4)
@@ -78,7 +78,7 @@ class UnifiedStatusAndPointsTests(TestCase):
         g2 = Game.objects.create(id='u3_g2', name='g2', author='a', author_extra='', project_id='sections')
         team = Team.objects.create(name='u3_team', visible_name='T')
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg3')
             GameTaskGroup.objects.create(game=g1, task_group=tg, number=1, name='tg')
             GameTaskGroup.objects.create(game=g2, task_group=tg, number=1, name='tg')
@@ -92,7 +92,7 @@ class UnifiedStatusAndPointsTests(TestCase):
             )
 
         # Solved in g1 only
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(task=task, team=team, game=g1, text='x', status='Ok', points=2)
 
         # Should be considered solved on g2 section page too
@@ -115,7 +115,7 @@ class UnifiedStatusAndPointsTests(TestCase):
         g2 = Game.objects.create(id='u4_g2', name='g2', author='a', author_extra='', project_id='sections')
         team = Team.objects.create(name='u4_team', visible_name='T')
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg4')
             GameTaskGroup.objects.create(game=g1, task_group=tg, number=1, name='tg')
             GameTaskGroup.objects.create(game=g2, task_group=tg, number=1, name='tg')
@@ -131,7 +131,7 @@ class UnifiedStatusAndPointsTests(TestCase):
                 answer='ok',
             )
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(task=task, team=team, game=g1, text='ok', status='Ok', points=2)
 
         data = _new_results_compute(g2, mode='general')

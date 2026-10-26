@@ -53,7 +53,7 @@ def build_scoring_fixture(prefix, n_actors):
     game = Game.objects.create(id=prefix + '_game', name='g', author='a', author_extra='', is_ready=True)
     task_group = TaskGroup.objects.create(label=prefix + '_tg')
     GameTaskGroup.objects.create(game=game, task_group=task_group, number=1, name='tg')
-    with patch('games.views.track.track_task_change'):
+    with patch('games.realtime.track_compat.track_task_change'):
         alphabetty = Task.objects.create(
             task_group=task_group, number='1', task_type='alphabetty', points=10, checker_data='abc', text='a',
         )
@@ -69,7 +69,7 @@ def build_scoring_fixture(prefix, n_actors):
         hint_unrequested = Hint.objects.create(task=raddle, number='3', points_penalty=1, desc='manual')
 
     actors = []
-    with patch('games.views.track.track_task_change'):
+    with patch('games.realtime.track_compat.track_task_change'):
         for i in range(n_actors):
             kind = ACTOR_KINDS[i % 3]
             if kind == 'team':
@@ -265,7 +265,7 @@ class BulkGameActorRowsCharacterizationTests(TestCase):
         other_game = Game.objects.create(id='bulkgame_other', name='g2', author='a', author_extra='', is_ready=True)
         GameTaskGroup.objects.create(game=other_game, task_group=fx['task_group'], number=1, name='tg')
         actor = {'anon_key': 'bulkgame-other-anon'}
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(text='abc', status='Ok', points=10, task=fx['alphabetty'], game=other_game, **actor)
         # A state in the scoped game for the same actor must not be used.  It
         # gets the lower pk so "game ignored, lowest pk wins" would pick it.
@@ -287,7 +287,7 @@ class BulkGameActorRowsCharacterizationTests(TestCase):
         fx = build_scoring_fixture('bulkreplay', 1)
         user = User.objects.create_user(username='bulkreplay_player', password='x')
         slot = ReplaySlot.objects.create(user=user, game=fx['game'], task_group=fx['task_group'])
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(
                 text='abc', status='Ok', points=10, task=fx['alphabetty'], game=fx['game'],
                 user=user, replay_slot=slot,
@@ -318,7 +318,7 @@ class BulkGameActorRowsCharacterizationTests(TestCase):
         game.save()
         team = Team.objects.create(name='bulktour_team', visible_name='T')
         late = {'anon_key': 'bulktour-late'}
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(text='abc', status='Ok', points=10, task=fx['alphabetty'], game=game, team=team)
             late_attempt = Attempt.manager.create(
                 text='abc', status='Ok', points=10, task=fx['alphabetty'], game=game, **late,
@@ -347,7 +347,7 @@ class BulkGameActorRowsCharacterizationTests(TestCase):
         fx = build_scoring_fixture('bulkmixed', 0)
         team = Team.objects.create(name='bulkmixed_team', visible_name='T')
         user = User.objects.create_user(username='bulkmixed_user', password='x')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             attempt = Attempt.manager.create(
                 text='abc', status='Ok', points=10, task=fx['alphabetty'], game=fx['game'], team=team, user=user,
             )

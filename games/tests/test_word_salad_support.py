@@ -58,7 +58,7 @@ class WordSaladSupportTests(TestCase):
         self.assertFalse(Game.objects.filter(pk=WORD_SALAD_GAME_ID).exists())
 
     def test_create_update_delete_word_salad(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
             self.assertEqual(detail['words_count'], 1)
             updated = update_word_salad(
@@ -101,7 +101,7 @@ class WordSaladSupportTests(TestCase):
             get_word_salad_detail(detail['link_id'])
 
     def test_update_rejects_invalid_puzzles_without_changing_task(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
         task = Task.objects.get(pk=detail['task_id'])
         original_checker_data = task.checker_data
@@ -146,7 +146,7 @@ class WordSaladSupportTests(TestCase):
                 self.assertEqual(task.text, '')
 
     def test_repeating_same_puzzle_does_not_enqueue_another_recheck(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
             update_word_salad(
                 detail['link_id'],
@@ -169,7 +169,7 @@ class WordSaladSupportTests(TestCase):
         self.assertEqual(WordSaladRecheckJob.objects.count(), 1)
 
     def test_reorder_keeps_ids_and_updates_default_titles(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             first = create_word_salad()
             second = create_word_salad()
             third = create_word_salad()
@@ -189,7 +189,7 @@ class WordSaladSupportTests(TestCase):
         self.assertEqual([row.name for row in rows], ['Салатик #1', 'Салатик #2', 'Салатик #3'])
 
     def test_reorder_parks_deferred_slots_that_hold_active_numbers(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             first = create_word_salad()
             second = create_word_salad()
             parked = create_word_salad()
@@ -219,7 +219,7 @@ class WordSaladSupportTests(TestCase):
         self.assertNotIn(parked_link.number, {'1', '2', '3'})
 
     def test_insert_and_delete_keep_numbers_contiguous(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             first = create_word_salad()
             second = create_word_salad()
             inserted = create_word_salad(at_number=2)
@@ -235,7 +235,7 @@ class WordSaladSupportTests(TestCase):
 
     def test_preview_task_group_renders_word_salad_grid(self):
         self.client.force_login(self.support_user)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
         response = self.client.get(detail['preview_url'])
         self.assertEqual(response.status_code, 200)
@@ -247,7 +247,7 @@ class WordSaladSupportTests(TestCase):
 
     def test_create_word_salad_auto_creates_checker_type(self):
         CheckerType.objects.filter(pk='word_salad').delete()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
         self.assertTrue(CheckerType.objects.filter(pk='word_salad').exists())
         self.assertEqual(detail['words_count'], 1)
@@ -262,7 +262,7 @@ class WordSaladSupportTests(TestCase):
 
     def test_invalid_save_endpoint_returns_400(self):
         self.client.force_login(self.support_user)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
         response = self.client.post(
             reverse('support:word_salad_save', kwargs={'link_id': detail['link_id']}),
@@ -278,7 +278,7 @@ class WordSaladSupportTests(TestCase):
 
     def test_reorder_endpoint(self):
         self.client.force_login(self.support_user)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             first = create_word_salad()
             second = create_word_salad()
         response = self.client.post(
@@ -335,7 +335,7 @@ class WordSaladSupportTests(TestCase):
         set_publish_start('2026-08-23')
         before = datetime(2026, 8, 22, 12, tzinfo=ZoneInfo('Europe/Moscow'))
         published = datetime(2026, 8, 23, 12, tzinfo=ZoneInfo('Europe/Moscow'))
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             first = create_word_salad(now=before)
             second = create_word_salad(now=before)
             third = create_word_salad(now=before)
@@ -361,7 +361,7 @@ class WordSaladSupportTests(TestCase):
 
     def test_publish_start_endpoint_returns_updated_schedule(self):
         self.client.force_login(self.support_user)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             create_word_salad()
         response = self.client.post(
             reverse('support:word_salad_publish_start'),
@@ -374,7 +374,7 @@ class WordSaladSupportTests(TestCase):
 
     def test_dashboard_uses_schedule_cards_and_modal(self):
         self.client.force_login(self.support_user)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             create_word_salad()
         response = self.client.get(reverse('support:word_salad'))
         self.assertEqual(response.status_code, 200)
@@ -393,9 +393,9 @@ class WordSaladSupportTests(TestCase):
 
     def test_recheck_endpoint_rebuilds_empty_salad(self):
         self.client.force_login(self.support_user)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             response = self.client.post(
                 reverse('support:word_salad_recheck', kwargs={'link_id': detail['link_id']}),
             )

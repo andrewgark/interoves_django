@@ -327,7 +327,7 @@ class DifficultyObservationTests(TestCase):
             number='9991',
             name='Difficulty ladder #1',
         )
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task = Task.objects.create(
                 task_group=cls.group,
                 number='1',
@@ -486,7 +486,7 @@ class DifficultyObservationTests(TestCase):
             refresh_not_before=now + timedelta(hours=2),
         )
 
-        with patch('games.views.track.track_task_change'), self.captureOnCommitCallbacks(execute=True):
+        with patch('games.realtime.track_compat.track_task_change'), self.captureOnCommitCallbacks(execute=True):
             self.task.save()
 
         snapshot.refresh_from_db()
@@ -686,7 +686,7 @@ class CensorlyDifficultyObservationTests(TestCase):
 
     @classmethod
     def _task(cls, group, suffix):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             return Task.objects.create(
                 task_group=group,
                 number='1',
@@ -847,7 +847,7 @@ class DifficultySchedulerTests(TestCase):
             number=str(number),
             name='Sched {}'.format(number),
         )
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Task.objects.create(
                 task_group=group,
                 number='1',

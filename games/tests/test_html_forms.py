@@ -26,7 +26,7 @@ class HtmlFormsTaskTests(TestCase):
         _setup_db()
         cls.game = Game.objects.create(id='html_forms_test', name='html forms', author='test', author_extra='')
         cls.team = Team.objects.create(name='html_forms_team', visible_name='T')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.group = TaskGroup.objects.create(label='html forms group', points=1)
             GameTaskGroup.objects.create(game=cls.game, task_group=cls.group, number='1', name='html forms')
             cls.task = Task.objects.create(

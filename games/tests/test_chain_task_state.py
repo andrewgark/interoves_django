@@ -78,7 +78,7 @@ def _make_game(suffix=''):
 
 
 def _make_wall_task(game, suffix=''):
-    with patch('games.views.track.track_task_change'):
+    with patch('games.realtime.track_compat.track_task_change'):
         tg = TaskGroup.objects.create(label='tg_wall' + suffix, points=1)
         GameTaskGroup.objects.create(
             game=game, task_group=tg, number=1, name='tg_wall' + suffix,
@@ -96,7 +96,7 @@ def _make_wall_task(game, suffix=''):
 
 
 def _make_replacements_task(game, suffix=''):
-    with patch('games.views.track.track_task_change'):
+    with patch('games.realtime.track_compat.track_task_change'):
         tg = TaskGroup.objects.create(label='tg_repl' + suffix, points=1)
         GameTaskGroup.objects.create(
             game=game, task_group=tg, number=2, name='tg_repl' + suffix,
@@ -213,7 +213,7 @@ class ReplacementsChainTests(_ChainFixture, TestCase):
 
     def test_replacements_accumulates_slots_atomically(self):
         """A wrong value cannot erase a slot solved by an earlier submission."""
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_repl_slots')
             GameTaskGroup.objects.create(
                 game=self.game, task_group=tg, number=3, name='tg_repl_slots',
@@ -307,7 +307,7 @@ class ReplacementsChainTests(_ChainFixture, TestCase):
         self.repl_task.checker_data = json.dumps({
             'lines': [['corrected_answer'], ['answer2']],
         })
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.repl_task.save(update_fields=['checker_data'])
         self.assertNotEqual(self.repl_task.attempt_revision, old_revision)
 
@@ -321,7 +321,7 @@ class ReplacementsChainTests(_ChainFixture, TestCase):
 
     def test_attempt_limit_starts_again_after_task_update(self):
         self.repl_task.max_attempts = 1
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.repl_task.save(update_fields=['max_attempts'])
 
         payload = _repl_text(0, ['corrected_answer'])
@@ -331,7 +331,7 @@ class ReplacementsChainTests(_ChainFixture, TestCase):
             self.repl_task.checker_data = json.dumps({
                 'lines': [['corrected_answer'], ['answer2']],
             })
-            with patch('games.views.track.track_task_change'):
+            with patch('games.realtime.track_compat.track_task_change'):
                 self.repl_task.save(update_fields=['checker_data'])
 
             corrected = _make_attempt(self.repl_task, self.team, payload)
@@ -342,7 +342,7 @@ class ReplacementsChainTests(_ChainFixture, TestCase):
 
     def test_server_generated_correct_attempt_can_bypass_attempt_limit(self):
         self.repl_task.max_attempts = 1
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.repl_task.save(update_fields=['max_attempts'])
 
         with patch.object(Game, 'get_current_mode', return_value='tournament'), \
@@ -649,7 +649,7 @@ class RecheckChainTaskTests(_ChainFixture, TestCase):
 
         # Simulate correcting checker: 'wrong' is now the right answer for line 0
         corrected_checker = json.dumps({'lines': [['wrong'], ['answer2']]})
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.repl_task.checker_data = corrected_checker
             self.repl_task.save()
 
@@ -731,7 +731,7 @@ class ConcurrentSubmissionTests(TransactionTestCase):
         self.game = _make_game(suffix='_race')
         self.team = Team.objects.create(name='chain_race_team', visible_name='R')
         self.repl_task = _make_replacements_task(self.game, suffix='_race')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             ordinary_group = TaskGroup.objects.create(label='tg_ordinary_race', points=1)
             GameTaskGroup.objects.create(
                 game=self.game, task_group=ordinary_group, number=3, name='ordinary race',
@@ -886,7 +886,7 @@ class EdgeCaseTests(_ChainFixture, TestCase):
 
     def test_non_chain_task_does_not_create_chain_state(self):
         """default task type must not touch ChainTaskState."""
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_default', points=1)
             GameTaskGroup.objects.create(
                 game=self.game, task_group=tg, number=99, name='tg_default',

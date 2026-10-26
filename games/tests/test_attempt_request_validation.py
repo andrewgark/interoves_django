@@ -40,7 +40,7 @@ class AttemptRequestValidationTests(TestCase):
         ):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
         CheckerType.objects.get_or_create(pk='equals_with_possible_spaces')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.game = Game.objects.create(
                 id='attempt_validation',
                 name='attempt validation',
@@ -80,9 +80,9 @@ class AttemptRequestValidationTests(TestCase):
 
     def _process(self, task, data):
         with patch(
-            'games.views.attempt_views.game_from_request_for_task',
+            'games.site.views.game.attempt.game_from_request_for_task',
             return_value=self.game,
-        ), patch('games.views.attempt_views._get_play_mode', return_value='personal'):
+        ), patch('games.site.views.game.attempt._get_play_mode', return_value='personal'):
             return process_send_attempt(self._request(data), task.pk)
 
     def test_malformed_wall_json_returns_invalid_form(self):
@@ -139,7 +139,7 @@ class AttemptRequestValidationTests(TestCase):
             text='answer',
         )
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.assertTrue(check_attempt(attempt, timing_request=request))
 
         attempt.refresh_from_db()
@@ -166,9 +166,9 @@ class AttemptRequestValidationTests(TestCase):
     def test_hint_request_without_number_returns_json_status(self):
         request = self._request({'game_id': self.game.pk})
         with patch(
-            'games.views.hint_views.game_from_request_for_task',
+            'games.site.views.game.hint.game_from_request_for_task',
             return_value=self.game,
-        ), patch('games.views.hint_views._get_play_mode', return_value='personal'):
+        ), patch('games.site.views.game.hint._get_play_mode', return_value='personal'):
             response = send_hint_attempt(request, self.default.pk)
         self.assertEqual(json.loads(response.content)['status'], 'invalid_form')
 
@@ -180,7 +180,7 @@ class AttemptRequestValidationTests(TestCase):
     def test_hint_creation_is_single_save_and_duplicate_safe(self):
         user = get_user_model().objects.create_user('hint_author', password='pw')
         profile = Profile.objects.create(user=user)
-        with patch('games.views.track.track_task_change') as track:
+        with patch('games.realtime.track_compat.track_task_change') as track:
             hint_attempt, mode = create_hint_attempt(
                 self.hint, anon_key='hint-anon', game=self.game,
                 requested_by_profile=profile,
@@ -197,17 +197,17 @@ class AttemptRequestValidationTests(TestCase):
 
     def test_personal_hint_returns_new_ui_html_with_taken_hint(self):
         self.hint.text = 'secret-hint-text'
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.hint.save(update_fields=['text'])
         request = self._request({
             'game_id': self.game.pk,
             'hint_number': '1',
         })
         with patch(
-            'games.views.hint_views.game_from_request_for_task',
+            'games.site.views.game.hint.game_from_request_for_task',
             return_value=self.game,
-        ), patch('games.views.hint_views._get_play_mode', return_value='personal'), patch(
-            'games.views.hint_views.track_actor_task_change',
+        ), patch('games.site.views.game.hint._get_play_mode', return_value='personal'), patch(
+            'games.site.views.game.hint.track_actor_task_change',
         ):
             response = send_hint_attempt(request, self.default.pk)
         data = json.loads(response.content)

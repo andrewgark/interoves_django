@@ -80,7 +80,7 @@ class TrackGameFixtureMixin:
         GameTaskGroup.objects.create(
             game=cls.game, task_group=cls.task_group, number=1, name='tg',
         )
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task = Task.objects.create(
                 task_group=cls.task_group,
                 number='1',
@@ -249,7 +249,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
     """Синхронная отправка в Channels, чтобы captureOnCommitCallbacks видел group_send сразу."""
 
     def test_attempt_save_does_not_broadcast_as_admin(self):
-        with patch('games.views.track.track_task_change') as track:
+        with patch('games.realtime.track_compat.track_task_change') as track:
             Attempt.manager.create(
                 task=self.task,
                 game=self.game,
@@ -267,13 +267,13 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
             observed_text.append(Task.objects.get(pk=task.pk).text)
 
         self.task.text = 'Corrected task text'
-        with patch('games.views.track.track_task_change', side_effect=observe_saved_task):
+        with patch('games.realtime.track_compat.track_task_change', side_effect=observe_saved_task):
             self.task.save(update_fields=['text'])
 
         self.assertEqual(observed_text, ['Corrected task text'])
 
     def test_hint_save_notifies_after_updated_row_is_persisted(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             hint = Hint.objects.create(task=self.task, number='1', text='Old hint')
         observed_text = []
 
@@ -281,7 +281,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
             observed_text.append(Hint.objects.get(pk=hint.pk).text)
 
         hint.text = 'Corrected hint text'
-        with patch('games.views.track.track_task_change', side_effect=observe_saved_hint):
+        with patch('games.realtime.track_compat.track_task_change', side_effect=observe_saved_hint):
             hint.save(update_fields=['text'])
 
         self.assertEqual(observed_text, ['Corrected hint text'])

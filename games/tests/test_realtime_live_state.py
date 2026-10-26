@@ -43,7 +43,7 @@ class RealtimeLiveStateTests(TestCase):
         )
         cls.group = TaskGroup.objects.create(label='Realtime live state')
         GameTaskGroup.objects.create(game=cls.game, task_group=cls.group, number=1)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task = Task.objects.create(
                 task_group=cls.group,
                 number='1',
@@ -78,7 +78,7 @@ class RealtimeLiveStateTests(TestCase):
         first = self.logged_in_client('live_state_one')
         second = self.logged_in_client('live_state_two')
 
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             submit = first.post(
                 f'/send_attempt/{self.task.pk}/',
                 {'game_id': self.game.pk, 'text': 'RIGHT'},
@@ -113,7 +113,7 @@ class RealtimeLiveStateTests(TestCase):
         )
         other_group = TaskGroup.objects.create(label='Other live state')
         GameTaskGroup.objects.create(game=other_game, task_group=other_group, number=1)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             other_task = Task.objects.create(
                 task_group=other_group,
                 number='1',

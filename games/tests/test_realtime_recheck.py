@@ -42,7 +42,7 @@ class RealtimeAttemptReviewTests(TestCase):
         )
         cls.group = TaskGroup.objects.create(label='Realtime review')
         GameTaskGroup.objects.create(game=cls.game, task_group=cls.group, number=1)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task = Task.objects.create(
                 task_group=cls.group,
                 number='1',

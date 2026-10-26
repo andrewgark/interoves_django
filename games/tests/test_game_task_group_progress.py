@@ -69,7 +69,7 @@ class GameTaskGroupProgressTests(TestCase):
 
     def test_section_hub_builds_skeleton_and_progress_url(self):
         game = self._create_section_game('sec_prog')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg')
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='One')
             Task.objects.create(
@@ -99,7 +99,7 @@ class GameTaskGroupProgressTests(TestCase):
     def test_progress_api_reports_actor_progress(self):
         game = self._create_section_game('sec_prog2')
         anon_key = 'test-anon-progress-key'
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg2')
             GameTaskGroup.objects.create(game=game, task_group=tg, number='2', name='Two')
             task = Task.objects.create(
@@ -131,7 +131,7 @@ class GameTaskGroupProgressTests(TestCase):
     def test_progress_api_marks_group_yellow_when_it_has_points(self):
         game = self._create_section_game('sec_scored_progress')
         anon_key = 'test-anon-scored-progress'
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='scored-progress')
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='One')
             task = Task.objects.create(
@@ -160,7 +160,7 @@ class GameTaskGroupProgressTests(TestCase):
 
     def test_progress_api_without_prior_history_returns_empty_progress(self):
         game = self._create_section_game('sec_prog3')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg3')
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='One')
 
@@ -173,7 +173,7 @@ class GameTaskGroupProgressTests(TestCase):
     def test_hub_card_embeds_cta_solved_state_in_initial_context(self):
         game = self._create_section_game('hub_ssr_progress')
         actor_key = 'hub-ssr-progress-actor'
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='hub-ssr-progress')
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='One')
             task = Task.objects.create(
@@ -264,7 +264,7 @@ class GameTaskGroupProgressTests(TestCase):
             'hints': ['A ____', '____ C'],
             'words': ['CAT', 'DOG', 'BAT'],
         }, ensure_ascii=False)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='ladder_tg_squares')
             GameTaskGroup.objects.filter(game=game).delete()
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='L1')
@@ -317,7 +317,7 @@ class GameTaskGroupProgressTests(TestCase):
             'hints': ['A ____', '____ C'],
             'words': ['CAT', 'DOG', 'BAT'],
         }, ensure_ascii=False)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='ladder_tg_yellow')
             GameTaskGroup.objects.filter(game=game).delete()
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='L1')
@@ -367,7 +367,7 @@ class GameTaskGroupProgressTests(TestCase):
             'hints': ['a', 'b', 'c', 'd'],
             'words': ['AAA', 'BBB', 'CCC', 'DDD', 'EEE'],
         }, ensure_ascii=False)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='ladder_tg_partial')
             GameTaskGroup.objects.filter(game=game).delete()
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='L1')
@@ -418,7 +418,7 @@ class GameTaskGroupProgressTests(TestCase):
             'hints': ['A ____', '____ C'],
             'words': ['CAT', 'DOG', 'BAT'],
         }, ensure_ascii=False)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='ladder_tg_elapsed')
             GameTaskGroup.objects.filter(game=game).delete()
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='L1')
@@ -484,7 +484,7 @@ class GameTaskGroupProgressTests(TestCase):
             'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
             'words': ['PONM', 'ABCD'],
         }, ensure_ascii=False)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='salad_tg_archive')
             GameTaskGroup.objects.filter(game=game).delete()
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='S1')
@@ -540,7 +540,7 @@ class GameTaskGroupProgressTests(TestCase):
         actor_key = 'bulk-actor-a'
         other_key = 'bulk-actor-b'
         tasks = []
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             for number in range(1, 7):
                 tg = TaskGroup.objects.create(label='bulk-actor-{}'.format(number))
                 task = Task.objects.create(
@@ -589,7 +589,7 @@ class GameTaskGroupProgressTests(TestCase):
             'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
             'words': ['ABCD'],
         })
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             GameTaskGroup.objects.filter(game=game).delete()
             for number in range(1, 7):
                 tg = TaskGroup.objects.create(label='bulk-salad-{}'.format(number))
@@ -643,7 +643,7 @@ class GameTaskGroupProgressTests(TestCase):
             'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
             'words': ['ABCD', 'PONM'],
         })
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             GameTaskGroup.objects.filter(game=game).delete()
             tg = TaskGroup.objects.create(label='ssr-salad')
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='S1')
@@ -684,7 +684,7 @@ class GameTaskGroupProgressTests(TestCase):
 
     def test_initial_progress_keeps_json_fallback_when_server_projection_fails(self):
         game = self._create_section_game('progress_fallback')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='progress-fallback')
             GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='One')
         task_groups = list(_game_task_group_links(game))

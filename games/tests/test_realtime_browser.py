@@ -144,7 +144,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         GameTaskGroup.objects.create(
             game=self.daily_game, task_group=self.daily_group, number='99001', name='Daily timing',
         )
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.ordinary_task = Task.objects.create(
                 task_group=ordinary_group,
                 number='1',

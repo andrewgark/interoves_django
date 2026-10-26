@@ -54,7 +54,7 @@ class TelegramNotifyTests(TransactionTestCase):
             number='1',
             name='Section',
         )
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             self.task = Task.objects.create(
                 task_group=self.task_group,
                 number='1',

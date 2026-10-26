@@ -101,7 +101,7 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
         unrelated.possible_status = 'Wrong'
         unrelated.save()
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             with self.captureOnCommitCallbacks(execute=True):
                 add_to_checker([accepted.pk])
 
@@ -139,7 +139,7 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
         second.status = 'Pending'
         second.save()
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             with self.captureOnCommitCallbacks(execute=True):
                 add_to_checker([first.pk, second.pk])
 
@@ -167,7 +167,7 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
         unrelated.possible_status = 'Wrong'
         unrelated.save()
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             with self.captureOnCommitCallbacks(execute=True):
                 add_to_checker([accepted.pk])
 
@@ -206,7 +206,7 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
         rejected.possible_status = 'Wrong'
         rejected.save()
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             with self.captureOnCommitCallbacks(execute=True):
                 add_to_checker([accepted.pk])
 
@@ -255,7 +255,7 @@ class AttemptAdminBulkTests(_ChainFixture, TestCase):
         second.status = 'Pending'
         second.save()
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             with self.captureOnCommitCallbacks(execute=True):
                 recheck_chain_attempts([first.pk, second.pk])
 

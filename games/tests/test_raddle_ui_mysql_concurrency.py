@@ -145,9 +145,9 @@ class RaddleUiMySQLConcurrencyTests(TransactionTestCase):
         errors = []
         ids = []
         results = []
-        with patch('games.views.raddle_views.track_actor_task_change'), \
-             patch('games.views.raddle_views.validate_gameplay_context', side_effect=self._allow_gameplay_context), \
-             patch('games.views.attempt_views.validate_gameplay_context', side_effect=self._allow_gameplay_context):
+        with patch('games.site.views.game.raddle.track_actor_task_change'), \
+             patch('games.site.views.game.raddle.validate_gameplay_context', side_effect=self._allow_gameplay_context), \
+             patch('games.site.views.game.attempt.validate_gameplay_context', side_effect=self._allow_gameplay_context):
             self._run_workers([
                 lambda: results.append(self._post_ui(barrier=barrier, errors=errors, ids=ids)),
                 lambda: results.append(self._post_answer(barrier=barrier, errors=errors, ids=ids)),
@@ -174,9 +174,9 @@ class RaddleUiMySQLConcurrencyTests(TransactionTestCase):
         errors = []
         ids = []
         results = []
-        with patch('games.views.raddle_views.track_actor_task_change'), \
-             patch('games.views.raddle_views.validate_gameplay_context', side_effect=self._allow_gameplay_context), \
-             patch('games.views.attempt_views.validate_gameplay_context', side_effect=self._allow_gameplay_context):
+        with patch('games.site.views.game.raddle.track_actor_task_change'), \
+             patch('games.site.views.game.raddle.validate_gameplay_context', side_effect=self._allow_gameplay_context), \
+             patch('games.site.views.game.attempt.validate_gameplay_context', side_effect=self._allow_gameplay_context):
             self._run_workers([
                 lambda: results.append(self._post_ui('1', 'ONE', barrier, errors, ids)),
                 lambda: results.append(self._post_ui('2', 'TWO', barrier, errors, ids)),

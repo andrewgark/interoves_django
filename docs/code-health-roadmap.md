@@ -40,6 +40,8 @@
 
 ### 3. Первый домен для декомпозиции
 
+Статус games refactor (2026): prod и новые тесты импортируют **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.track_compat`**; корневые **`games.check`**, **`games.views.*`**, **`games.grid_puzzle`**, **`games.censorly/*`** (кроме package `__init__` с ids) — compatibility facades. Censorly implementation — **`games/puzzles/censorly/`**; checker factory — **`games/puzzles/core/check_runtime.py`**. Карта: **`agents/AGENTS.md`** (Games app layout).
+
 Начать с main UI (`games/site/ui`, фасад `games.views.new_ui`), не меняя URL-контракты:
 
 1. составить карту функций и их вызывающих маршрутов;

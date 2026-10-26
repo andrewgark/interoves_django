@@ -78,7 +78,7 @@ class AccountMergeTests(TestCase):
             is_ready=True,
         )
         cls.task_group = TaskGroup.objects.create(label='account_merge_group')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task = Task.objects.create(
                 task_group=cls.task_group,
                 number='1',
@@ -225,7 +225,7 @@ class AccountMergeTests(TestCase):
         connect.assert_not_called()
 
     def test_merge_moves_data_and_preserves_target_profile(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             attempt = Attempt.manager.create(
                 user=self.source, task=self.task, game=self.game, text='x', status='Wrong',
             )

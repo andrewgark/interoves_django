@@ -194,7 +194,7 @@ class SectionResultsSplitTests(TestCase):
 
     def test_ladder_aggregate_page_has_bounded_release_headers(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_ladder_partial')
             GameTaskGroup.objects.create(game=ladder, task_group=tg, number='9001', name='L9001')
             task = Task.objects.create(
@@ -218,7 +218,7 @@ class SectionResultsSplitTests(TestCase):
 
     def test_ladder_aggregate_pagination_renders_normal_page(self):
         ladder = Game.objects.get(pk=LADDER_GAME_ID)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_ladder_cache')
             GameTaskGroup.objects.create(game=ladder, task_group=tg, number='9002', name='L9002')
             task = Task.objects.create(
@@ -241,7 +241,7 @@ class SectionResultsSplitTests(TestCase):
 
     def test_headers_context_without_snapshot(self):
         game = self._create_section_game('sec_res3')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg3')
             GameTaskGroup.objects.create(game=game, task_group=tg, number='2', name='Two')
             Task.objects.create(
@@ -260,7 +260,7 @@ class SectionResultsSplitTests(TestCase):
 
     def test_standard_results_header_shows_only_task_group_number(self):
         game = self._create_section_game('sec_short_header')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             tg = TaskGroup.objects.create(label='tg_short_header')
             GameTaskGroup.objects.create(
                 game=game,

@@ -58,7 +58,7 @@ class LadderWordResultsTests(TestCase):
         cls.ladder.is_ready = True
         cls.ladder.save(update_fields=['tags', 'is_ready'])
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.tg = TaskGroup.objects.create(label='ladder_word_res_tg')
             cls.placement = GameTaskGroup.objects.create(
                 game=cls.ladder, task_group=cls.tg, number='9100', name='Лесенка #9100',

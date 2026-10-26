@@ -219,7 +219,7 @@ If the resolved version is empty, the client check is skipped.
 | Censorly implementation | `games.puzzles.censorly.*` | `games.censorly.*` (module facades) |
 | Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | `games.grid_puzzle` |
 
-Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`). В prod и новых тестах импортируй canonical path; `@patch('games.views…')` в старых тестах ок, пока фасад алиасит тот же модуль.
+Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 
 ## Raddle (Лесенка)
 

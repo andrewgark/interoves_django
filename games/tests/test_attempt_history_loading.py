@@ -13,7 +13,7 @@ class AttemptHistoryLoadingTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         checker, _ = CheckerType.objects.get_or_create(pk='censorly')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             group = TaskGroup.objects.create(label='history-loading', points=1)
             cls.task = Task.objects.create(
                 task_group=group, number='1', checker=checker,

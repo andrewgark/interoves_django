@@ -44,7 +44,7 @@ class WordSaladRecheckQueueTests(TestCase):
             'Правила тренировочного режима',
         ):
             HTMLPage.objects.get_or_create(name=name, defaults={'html': ''})
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
         from games.models import Game, Task
         self.task = Task.objects.get(pk=detail['task_id'])
@@ -256,7 +256,7 @@ class WordSaladRecheckQueueTests(TestCase):
         payload['words'] = list(payload.get('words') or []) + ['ABCD']
         self.task.checker_data = json.dumps(payload, ensure_ascii=False)
         self.task.save(update_fields=['checker_data'])
-        with patch('games.views.track.track_actor_task_change'):
+        with patch('games.realtime.track_compat.track_actor_task_change'):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
             item = WordSaladRecheckItem.objects.get(job=job)
             before = {

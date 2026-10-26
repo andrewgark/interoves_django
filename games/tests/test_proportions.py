@@ -84,7 +84,7 @@ class ProportionsCheckerUsesAnswerTest(TestCase):
         )
         cls.tg = TaskGroup.objects.create(label='tg')
         GameTaskGroup.objects.create(game=cls.game, task_group=cls.tg, number=1, name='tg')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task = Task.objects.create(
                 task_group=cls.tg,
                 number='1',
@@ -102,7 +102,7 @@ class ProportionsCheckerUsesAnswerTest(TestCase):
             time=timezone.now(),
             game=self.game,
         )
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             check_attempt(attempt)
         attempt.refresh_from_db()
         self.assertEqual(attempt.status, 'Ok')

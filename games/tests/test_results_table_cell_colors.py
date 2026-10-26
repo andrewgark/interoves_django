@@ -38,7 +38,7 @@ class ResultsTableCellColorsTest(TestCase):
         )
         cls.tg = TaskGroup.objects.create(label='tg')
         GameTaskGroup.objects.create(game=cls.game, task_group=cls.tg, number=1, name='tg')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task1 = Task.objects.create(
                 task_group=cls.tg,
                 number='1',
@@ -62,7 +62,7 @@ class ResultsTableCellColorsTest(TestCase):
         cls.team_zero = Team.objects.create(name='team_zero', visible_name='Zero')
 
         now = timezone.now()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             # Max points -> green
             Attempt.manager.create(
                 text='x',

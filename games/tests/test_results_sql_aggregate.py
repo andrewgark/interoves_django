@@ -127,7 +127,7 @@ class ResultsSqlAggregateTests(TestCase):
         )
         cls.tg = TaskGroup.objects.create(label='tg_sql_agg')
         GameTaskGroup.objects.create(game=cls.game, task_group=cls.tg, number=1, name='tg')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task1 = Task.objects.create(
                 task_group=cls.tg,
                 number='1',
@@ -162,7 +162,7 @@ class ResultsSqlAggregateTests(TestCase):
         cls.team = Team.objects.create(name='sql_agg_team', visible_name='Team A')
         cls.user = User.objects.create_user(username='sql_agg_user', password='x')
         now = timezone.now()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             Attempt.manager.create(
                 text='a', status='Ok', points=10, time=now,
                 task=cls.task1, team=cls.team, game=cls.game,

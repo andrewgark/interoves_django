@@ -55,7 +55,7 @@ class RaddleSendAttemptTests(TestCase):
     def setUpTestData(cls):
         _ensure_fixtures()
         now = timezone.now()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.game = Game.objects.create(
                 id='raddle_send_test',
                 name='Raddle send',
@@ -268,7 +268,7 @@ class RaddleSendAttemptTests(TestCase):
 
     def test_premature_correct_word_can_be_resent_when_playable(self):
         """Верное слово, сданное до playable (Wrong), не блокирует повтор — баг КАНАВА."""
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             long_task = Task.objects.create(
                 task_group=self.tg,
                 number='2',
@@ -320,7 +320,7 @@ class RaddleSendAttemptTests(TestCase):
 
     def test_stale_not_playable_syncs_without_saving(self):
         """Устаревшая форма на середине: sync HTML, Attempt не пишется."""
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             long_task = Task.objects.create(
                 task_group=self.tg,
                 number='3',
@@ -388,7 +388,7 @@ class RaddleDuplicateHelpersTests(TestCase):
         from games.raddle import raddle_blocks_as_duplicate, serialize_raddle_attempt_text
 
         _ensure_fixtures()
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             game = Game.objects.create(
                 id='raddle_dup_helper',
                 name='dup',

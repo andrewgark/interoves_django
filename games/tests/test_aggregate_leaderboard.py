@@ -31,7 +31,7 @@ class AggregateLeaderboardTests(TestCase):
         )
         self.factory = RequestFactory()
         self.links = []
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             for number, maximum in ((1, 5), (2, 15)):
                 group = TaskGroup.objects.create(label='aggregate-{}'.format(number))
                 link = GameTaskGroup.objects.create(
@@ -66,7 +66,7 @@ class AggregateLeaderboardTests(TestCase):
         )
 
     def test_release_windows_limits_cursor_and_stable_anchor(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             for n in range(3, 33):
                 group = TaskGroup.objects.create(label='aggregate-{}'.format(n))
                 GameTaskGroup.objects.create(game=self.game, task_group=group, number=str(n), name=str(n))
@@ -89,7 +89,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(older['aggregate_newer_anchor'], default['aggregate_window_anchor'])
         newer = build_aggregate_page(self._request('?anchor={}&limit=10'.format(older['aggregate_newer_anchor'])), self.game)
         self.assertEqual(newer['aggregate_columns'][0].link.number, '32')
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             group = TaskGroup.objects.create(label='newest-after-anchor')
             GameTaskGroup.objects.create(game=self.game, task_group=group, number='33', name='33')
             Task.objects.create(task_group=group, number='1', task_type='default', points=1, checker_data='x', text='x')
@@ -281,7 +281,7 @@ class AggregateLeaderboardTests(TestCase):
         self.assertEqual(len(second_queries), 12)
 
     def test_release_selection_query_count_is_bounded_for_10_and_30(self):
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             for n in range(3, 33):
                 group = TaskGroup.objects.create(label='query-aggregate-{}'.format(n))
                 GameTaskGroup.objects.create(game=self.game, task_group=group, number=str(n), name=str(n))
@@ -297,7 +297,7 @@ class AggregateLeaderboardTests(TestCase):
     def test_unknown_max_keeps_release_visible_without_inventing_denominator(self):
         from unittest.mock import patch
 
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             group = TaskGroup.objects.create(label='unknown-max')
             GameTaskGroup.objects.create(game=self.game, task_group=group, number='3', name='3')
             unknown_task = Task.objects.create(task_group=group, number='1', task_type='default', points=1, checker_data='x', text='x')

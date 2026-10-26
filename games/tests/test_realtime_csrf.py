@@ -65,7 +65,7 @@ class RealtimeTeammateCsrfTests(TestCase):
         )
         cls.group = TaskGroup.objects.create(label='Realtime csrf replacements')
         GameTaskGroup.objects.create(game=cls.game, task_group=cls.group, number=1)
-        with patch('games.views.track.track_task_change'):
+        with patch('games.realtime.track_compat.track_task_change'):
             cls.task = Task.objects.create(
                 task_group=cls.group,
                 number='1',
@@ -109,7 +109,7 @@ class RealtimeTeammateCsrfTests(TestCase):
         second_token = second.cookies['csrftoken'].value
         self.assertNotEqual(first_token, second_token)
 
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             submit = self.post_line(first, 0, 'FOO', first_token)
         self.assertEqual(submit.status_code, 200)
         payload = submit.json()
@@ -122,7 +122,7 @@ class RealtimeTeammateCsrfTests(TestCase):
         poisoned = self.post_line(second, 1, 'BAR', planted)
         self.assertEqual(poisoned.status_code, 403)
 
-        with patch('games.views.attempt_views.track_actor_task_change'):
+        with patch('games.site.views.game.attempt.track_actor_task_change'):
             own_token = self.post_line(second, 1, 'BAR', second_token)
         self.assertEqual(own_token.status_code, 200)
         self.assertEqual(own_token.json()['status'], 'ok')
