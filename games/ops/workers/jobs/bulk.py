@@ -183,7 +183,7 @@ def accept_pending_attempts(attempt_ids, *, return_receipt=False):
 
 def reject_pending_attempts(attempt_ids):
     """Reject pending answers without changing checker data or chain state."""
-    from games.views.track import track_attempt_change
+    from games.realtime.track_compat import track_attempt_change
 
     with transaction.atomic():
         attempts = _load_attempts(attempt_ids, pending_only=True, lock=True)

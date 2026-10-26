@@ -4,7 +4,7 @@ from django.urls import path, re_path
 from django.views.generic import RedirectView
 
 from games.sections.paths import STANDARD_ROOT_SECTION_GAME_IDS
-from games.views import ui
+from games.site.views.pages import ui
 
 _SECTION_GAME_ID_RE = '|'.join(STANDARD_ROOT_SECTION_GAME_IDS)
 _RESULTS_GAME_ID_RE = 'ladder|alphabetty|' + _SECTION_GAME_ID_RE

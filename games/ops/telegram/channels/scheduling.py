@@ -308,7 +308,7 @@ def _teams_with_all_tasks_ok(game: Game) -> list[tuple[Team, int, object]]:
 
     from games.models import Attempt, HintAttempt, Team
     from games.puzzles.raddle import RaddlePuzzle
-    from games.views.new_ui import _load_results_placements_and_tasks
+    from games.site.ui.results.compute import _load_results_placements_and_tasks
 
     _placements, _tg_map, _tasks_flat, task_ids, _headers = _load_results_placements_and_tasks(game)
     if not task_ids:
@@ -435,7 +435,7 @@ def _last_task_first_taken_for_full_score(game: Game):
     """Return the task that most recently got its first full-score tournament result."""
     from decimal import Decimal, InvalidOperation
 
-    from games.views.new_ui import _load_results_placements_and_tasks
+    from games.site.ui.results.compute import _load_results_placements_and_tasks
 
     placements, task_group_to_tasks, tasks, task_ids, _headers = (
         _load_results_placements_and_tasks(game)
@@ -541,7 +541,7 @@ def _process_results(game: Game, now, stats: dict, results_png_cache: dict) -> N
     if _game_has_pending_attempts(game):
         return
 
-    from games.views.new_ui import _load_game_results_data
+    from games.site.ui.results.compute import _load_game_results_data
 
     data = _load_game_results_data(game, 'tournament')
     podium = build_podium(

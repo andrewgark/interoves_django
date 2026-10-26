@@ -11,7 +11,7 @@ def publish_actor_state_change(*, task, game, user, replay_slot=None, reason):
     """
     if user is None or replay_slot is not None:
         return
-    from games.views.track import track_actor_task_change
+    from games.realtime.track_compat import track_actor_task_change
 
     # Custom daily pages fetch their game-specific state; rendering and sending
     # the ordinary task-card HTML would be wasted work and a larger WS payload.

@@ -47,7 +47,7 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 from django.urls import re_path
 from django.core.asgi import get_asgi_application
-from games.views.track import TrackGame, UserTrackConsumer
+from games.realtime.track_compat import TrackGame, UserTrackConsumer
 from interoves_django.asgi_event_loop_monitor import EventLoopLagMonitorMiddleware
 
 

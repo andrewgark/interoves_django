@@ -542,7 +542,7 @@ def _record_item_failure(job, item, token, exc):
 
 def _schedule_actor_notification(task, actor, game, *, reason='task.word_salad_rechecked'):
     """Publish realtime state only after replay and queue state commit."""
-    from games.views.track import track_actor_task_change
+    from games.realtime.track_compat import track_actor_task_change
 
     def notify():
         try:

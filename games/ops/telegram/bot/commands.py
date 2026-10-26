@@ -465,7 +465,7 @@ def _cmd_broadcast(args) -> str:
     if not message:
         return 'Пустой текст.'
 
-    from games.views.track import _broadcast_game_track_event_commit
+    from games.realtime.track_compat import _broadcast_game_track_event_commit
 
     _broadcast_game_track_event_commit(
         game.id,

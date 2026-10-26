@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from games.analytics_identity import gameplay_anon_key
 from games.exception import NoGameAccessException
-from games.views.util import has_profile, has_team
+from games.site.views.pages.util import has_profile, has_team
 
 
 @dataclass(frozen=True)

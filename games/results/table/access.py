@@ -3,7 +3,7 @@
 from games.analytics_identity import gameplay_anon_key
 from games.play_mode import get_play_mode
 from games.results.table.context import results_me_participants as build_me_participants
-from games.views.util import effective_play_mode, has_profile
+from games.site.views.pages.util import effective_play_mode, has_profile
 
 
 def anon_key_from_request(request):

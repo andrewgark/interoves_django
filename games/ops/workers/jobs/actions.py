@@ -3,7 +3,7 @@ from django.db import transaction
 
 from games.models import Attempt, Hint, HintAttempt, TicketRequest
 from games.recheck import recheck
-from games.views.track import track_attempt_change
+from games.realtime.track_compat import track_attempt_change
 from games.ticket_service import (
     accept_ticket_request as accept_ticket_request_record,
     reject_ticket_request as reject_ticket_request_record,

@@ -12,7 +12,7 @@ def ladder_tutorial(request):
     ``?next=/ladder/<n>/`` is the Ladder the player left for the tutorial;
     the tutorial leads back there.
     """
-    from games.views.new_ui import new_task_group_page
+    from games.site.ui.play.page import new_task_group_page
 
     return new_task_group_page(
         request, LADDER_GAME_ID, LADDER_TUTORIAL_SEGMENT,

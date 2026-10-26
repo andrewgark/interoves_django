@@ -262,7 +262,7 @@ def user_can_access_task_archive(user, game, task, *, now=None, offer_share=None
 def club_archive_locked_response(request, game, number, *, json_mode=False):
     if json_mode:
         return JsonResponse({'status': 'error', 'reason': 'club_required'}, status=403)
-    from games.views.new_ui import NEW_UI_PROJECT, _project_urls_context
+    from games.site.ui import NEW_UI_PROJECT, _project_urls_context
 
     return render(
         request,

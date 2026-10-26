@@ -34,7 +34,7 @@ from games.replacements_lines import (  # noqa: E402
     parse_replacements_lines_text,
     task_replacements_canonical_answer_row,
 )
-from games.views.attempt_views import process_send_attempt  # noqa: E402
+from games.site.views.game.attempt import process_send_attempt  # noqa: E402
 
 BASE_URL = 'https://interoves.com'
 

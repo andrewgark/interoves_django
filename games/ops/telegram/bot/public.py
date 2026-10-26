@@ -168,7 +168,7 @@ def read_game_announce_image(game: Game) -> tuple[bytes, str] | None:
 
 
 def first_place_teams(game: Game) -> list:
-    from games.views.new_ui import _load_game_results_data
+    from games.site.ui.results.compute import _load_game_results_data
 
     data = _load_game_results_data(game, 'tournament')
     team_to_place = data.get('team_to_place') or {}

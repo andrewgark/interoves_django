@@ -9,18 +9,16 @@ from django.utils import timezone
 from games.models import Attempt, Game, GameTaskGroup, Team
 from games.daily_section import publish_at_for, uses_daily_play_layout, visible_links
 from games.task_titles import task_group_page_title
-from games.views.new_ui import (
-    LADDER_GAME_ID,
+from games.ladder_daily import LADDER_GAME_ID, is_ladder_number_published
+from games.site.ui import (
     NEW_UI_PROJECT,
     NEW_UI_SECTIONS_PROJECT,
     PALINDROMES_GAME_ID,
     SECTION_RULES_GAME_IDS,
-    build_task_group_task_context_dicts,
-    is_ladder_number_published,
-    _game_task_group_links,
-    _neighbors_by_pk,
     _section_tutorial_html_for_game,
 )
+from games.site.ui.game.progress import _game_task_group_links, _neighbors_by_pk
+from games.site.ui.play.context import build_task_group_task_context_dicts
 
 
 @dataclass(frozen=True)
@@ -151,7 +149,7 @@ def preview_task_group_url(game_id: str, task_group_number: str, spec: ActorSpec
 
 
 def build_preview_game_context(game: Game, spec: ActorSpec):
-    from games.views.new_ui import _game_task_group_links
+    from games.site.ui.game.progress import _game_task_group_links
 
     placements = list(_game_task_group_links(game))
     if game.id == LADDER_GAME_ID:
@@ -176,7 +174,7 @@ def build_preview_game_context(game: Game, spec: ActorSpec):
 
 def build_preview_task_group_context(game_id: str, task_group_number: str, spec: ActorSpec):
     from games.models import AudioManager, ImageManager
-    from games.views.new_ui import _task_group_page_nav_context
+    from games.site.ui.game.progress import _task_group_page_nav_context
 
     game = Game.objects.filter(pk=game_id).select_related('section_default_rules').first()
     if game is None:
