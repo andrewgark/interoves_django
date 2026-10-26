@@ -19,16 +19,16 @@ import django
 
 django.setup()
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.prelaunch import iter_fixtures
-from games.censorly.lexical.resolver import prepare_target
-from games.censorly.lexical.russian.context import (
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.audit.prelaunch import iter_fixtures
+from games.puzzles.censorly.lexical.match.resolver import prepare_target
+from games.puzzles.censorly.lexical.russian.context import (
     analyze_phrase,
     guess_inflection_ids,
     ungated_readings,
 )
-from games.censorly.lexical.russian.morphology import lexeme_ids
-from games.censorly.tokenize import tokenize_text
+from games.puzzles.censorly.lexical.russian.morphology import lexeme_ids
+from games.puzzles.censorly.text.tokenize import tokenize_text
 from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
@@ -320,7 +320,7 @@ def write_rows(path: Path, rows: list[list[str]]) -> None:
 
 
 def bee_check(occurrences) -> tuple[bool, str]:
-    from games.censorly.lexical.russian.context import inflection_matches
+    from games.puzzles.censorly.lexical.russian.context import inflection_matches
 
     hits = [
         item for item in occurrences
@@ -333,7 +333,7 @@ def bee_check(occurrences) -> tuple[bool, str]:
     item = hits[0]
     opened_protein = 'белок' in item['lemmas'] and not item['conservative']
     # Re-check through the public matcher using the stored identity.
-    from games.censorly.lexical.russian.context import TargetOccurrence
+    from games.puzzles.censorly.lexical.russian.context import TargetOccurrence
     occurrence = TargetOccurrence(
         item['surface'], item['lexemes'], item['ambiguous'], item['conservative'], item['signals'],
     )

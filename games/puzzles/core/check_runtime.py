@@ -414,7 +414,7 @@ class SolutionsTagNumber:
 
 class CheckerFactory:
     def __init__(self):
-        from games.grid_puzzle import GridShadingChecker, GridWallChecker
+        from games.puzzles.replacements.grid_puzzle import GridShadingChecker, GridWallChecker
         from games.puzzles.alphabetty.play import AlphabettyChecker
         from games.puzzles.alphabetty.wordle import AntiwordleChecker
         from games.puzzles.replacements.html_forms import HtmlFormsChecker
@@ -451,6 +451,6 @@ class CheckerFactory:
         return self.checker_type_to_checker[checker_type.id](data, last_attempt_state)
 
 
-from games.grid_puzzle import GridShadingChecker, GridWallChecker  # noqa: E402
+from games.puzzles.replacements.grid_puzzle import GridShadingChecker, GridWallChecker  # noqa: E402
 from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker  # noqa: E402
 from games.puzzles.raddle.submission import RaddleChecker  # noqa: E402

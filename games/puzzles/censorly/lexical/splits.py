@@ -10,8 +10,8 @@ from __future__ import annotations
 from collections import defaultdict
 from pathlib import Path
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.russian.compiler import (
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.russian.compiler import (
     _families,
     _lines,
     _norm,
@@ -7763,7 +7763,7 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
 # a dictionary family root (Россия with fam:рус², German with fam:нем) are
 # left alone, and an explicit per-lemma assignment always wins.
 def _proper_cluster_roots() -> dict[str, tuple[tuple[str, ...], ...]]:
-    from games.censorly.lexical.proper_names import CLUSTERS as PROPER_CLUSTERS
+    from games.puzzles.censorly.lexical.match.proper_names import CLUSTERS as PROPER_CLUSTERS
 
     assigned = {}
     for name, lemmas in PROPER_CLUSTERS:

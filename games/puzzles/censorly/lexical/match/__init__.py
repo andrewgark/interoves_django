@@ -12,9 +12,9 @@ from concurrent.futures import Future
 from functools import lru_cache
 from threading import Lock, RLock
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.rootbank import families_of, structures_of
-from games.censorly.lexical.russian.reading_overrides import (
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.match.rootbank import families_of, structures_of
+from games.puzzles.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
     LANGUAGE_LABEL_CONTEXTS,
     NEM_GERMAN_CONTEXT,
@@ -30,7 +30,7 @@ from games.censorly.lexical.russian.reading_overrides import (
     target_lemma_override,
     target_readings,
 )
-from games.censorly.lexical.semantics import (
+from games.puzzles.censorly.lexical.semantics import (
     _alias,
     _ALIASES,
     _grammar,
@@ -44,7 +44,7 @@ from games.censorly.lexical.semantics import (
     preferred_readings_of,
     readings_of,
 )
-from games.censorly.lexical.semantic_splits import SENSE_COMPATIBLE
+from games.puzzles.censorly.lexical.splits import SENSE_COMPATIBLE
 
 _REJECT_CAP = 200
 _DIGIT_CARDINAL_LEMMAS = {
@@ -327,7 +327,7 @@ def _relation(guess: _Pack, target: _Pack) -> str:
         return ''
     # Import lazily: semantics imports the root bank, whose proper-name
     # installation can otherwise create an import-time cycle through match.
-    from games.censorly.lexical.semantics import (
+    from games.puzzles.censorly.lexical.semantics import (
         _PRONOUN_ADJECTIVE_LEMMAS,
         _proper_pair_from_readings,
     )
@@ -524,7 +524,7 @@ class _ArticleIndex:
     ) -> list[int]:
         """Return IDs that can open, plus optional near-miss candidates."""
         postings = [self.fold.get(guess.fold, ())]
-        from games.censorly.lexical.semantics import (
+        from games.puzzles.censorly.lexical.semantics import (
             _INITIAL_NUMBER_LEMMAS,
             _PRONOUN_ADJECTIVE_LEMMAS,
         )
@@ -728,7 +728,7 @@ def analyze_guess(
     tokens, guess: str, *, cache_key=None, include_report: bool = True,
 ) -> tuple[set[str], dict]:
     """Resolve hits and the lexical review report from one candidate pass."""
-    from games.censorly.flags import open_pronouns_enabled
+    from games.puzzles.censorly.text.flags import open_pronouns_enabled
     include_pronouns = open_pronouns_enabled()
     if cache_key is None:
         analysis = _build_article_analysis(

@@ -16,7 +16,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 import django
 django.setup()
 
-from games.censorly.lexical.tools.explain_pair import explain_pair
+from games.puzzles.censorly.lexical.tools.review.explain_pair import explain_pair
 
 
 FIELDS = (

@@ -11,9 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from functools import lru_cache
 
-from games.censorly.lexical.core import WORD_CACHE_SIZE, fold
-from games.censorly.lexical.russian.reading_overrides import is_rejected
-from games.censorly.tokenize import tokenize_text
+from games.puzzles.censorly.lexical.match.core import WORD_CACHE_SIZE, fold
+from games.puzzles.censorly.lexical.russian.reading_overrides import is_rejected
+from games.puzzles.censorly.text.tokenize import tokenize_text
 
 _PROPER = frozenset({'Name', 'Surn', 'Patr', 'Geox', 'Orgn', 'Trad'})
 _CASES = ('nomn', 'gent', 'datv', 'accs', 'ablt', 'loct', 'voct')

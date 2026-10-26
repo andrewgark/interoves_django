@@ -17,13 +17,13 @@ import django
 
 django.setup()
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.prelaunch import content_surfaces, iter_fixtures
-from games.censorly.lexical.relations.graph import neighbors
-from games.censorly.lexical.resolver import open_prepared, prepare_target, relation_kind
-from games.censorly.lexical.rootbank import load_seconds, structures_of
-from games.censorly.lexical.semantics import explain, initially_open, readings_of
-from games.censorly.tokenize import tokenize_text
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.audit.prelaunch import content_surfaces, iter_fixtures
+from games.puzzles.censorly.lexical.graph.graph import neighbors
+from games.puzzles.censorly.lexical.match.resolver import open_prepared, prepare_target, relation_kind
+from games.puzzles.censorly.lexical.match.rootbank import load_seconds, structures_of
+from games.puzzles.censorly.lexical.semantics import explain, initially_open, readings_of
+from games.puzzles.censorly.text.tokenize import tokenize_text
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
 PROBES = (
@@ -184,7 +184,7 @@ def _new_index(surfaces: list[str]):
         for item in readings_of(surface):
             by_lexeme[(item.para_id, item.lemma)].add(surface)
             by_lemma[item.lemma].add(surface)
-        from games.censorly.lexical.semantics import _roots
+        from games.puzzles.censorly.lexical.semantics import _roots
         for structure in _roots(readings_of(surface), surface):
             by_root[structure].add(surface)
     return {
@@ -196,7 +196,7 @@ def _new_index(surfaces: list[str]):
 
 
 def _old_index(prepared: dict, service: set[str]):
-    from games.censorly.lexical.resolver import _cognate_closure
+    from games.puzzles.censorly.lexical.match.resolver import _cognate_closure
 
     by_exact = defaultdict(set)
     by_para = defaultdict(set)
@@ -226,7 +226,7 @@ def _old_index(prepared: dict, service: set[str]):
 
 
 def _lookup_old(guess: str, index) -> set[str]:
-    from games.censorly.lexical.russian.context import guess_inflection_ids
+    from games.puzzles.censorly.lexical.russian.context import guess_inflection_ids
 
     found = set(index['exact'].get(fold(guess), ()))
     ids = guess_inflection_ids(guess)
@@ -252,7 +252,7 @@ def _lookup_old(guess: str, index) -> set[str]:
 
 
 def _lookup(guess: str, index) -> set[str]:
-    from games.censorly.lexical.semantics import _roots, readings_of as reads
+    from games.puzzles.censorly.lexical.semantics import _roots, readings_of as reads
     found = set(index['fold'].get(fold(guess), ()))
     parsed = reads(guess)
     for item in parsed:
@@ -264,7 +264,7 @@ def _lookup(guess: str, index) -> set[str]:
 
 def _compound_leaks() -> list[str]:
     """A one-root structure must not be stored as a reading of a compound."""
-    from games.censorly.lexical.rootbank import _bank
+    from games.puzzles.censorly.lexical.match.rootbank import _bank
 
     bank, _seconds = _bank()
     leaks = []

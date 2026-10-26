@@ -1,14 +1,26 @@
 """Цензурки: Redactle-style daily Wikipedia guessing game."""
 
-CENSORLY_GAME_ID = 'censorly'
-CENSORLY_TASK_TYPE = 'censorly'
-CENSORLY_CHECKER_ID = 'censorly'
-CENSORLY_TAGS_KEY = 'censorly'
+import importlib.util
+from pathlib import Path
 
-# Show known morphological endings/postfixes in gray inside masked words (***ого).
-# Flip to False to hide endings again without other code changes.
-CENSORLY_SHOW_MASK_ENDINGS = True
+_path = Path(__file__).resolve().parent.parent / 'puzzles' / 'censorly' / 'ids.py'
+_spec = importlib.util.spec_from_file_location('games.puzzles.censorly.ids', _path)
+_ids = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+_spec.loader.exec_module(_ids)
 
-# Bump when tokenization, lemmas, stop words, or endings change.
-# Stored puzzles keep their article text and rebuild the split when this differs.
-CENSORLY_SPLITTER_VERSION = 40
+CENSORLY_GAME_ID = _ids.CENSORLY_GAME_ID
+CENSORLY_TASK_TYPE = _ids.CENSORLY_TASK_TYPE
+CENSORLY_CHECKER_ID = _ids.CENSORLY_CHECKER_ID
+CENSORLY_TAGS_KEY = _ids.CENSORLY_TAGS_KEY
+CENSORLY_SHOW_MASK_ENDINGS = _ids.CENSORLY_SHOW_MASK_ENDINGS
+CENSORLY_SPLITTER_VERSION = _ids.CENSORLY_SPLITTER_VERSION
+
+__all__ = [
+    'CENSORLY_CHECKER_ID',
+    'CENSORLY_GAME_ID',
+    'CENSORLY_SHOW_MASK_ENDINGS',
+    'CENSORLY_SPLITTER_VERSION',
+    'CENSORLY_TAGS_KEY',
+    'CENSORLY_TASK_TYPE',
+]

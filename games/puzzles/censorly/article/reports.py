@@ -82,8 +82,8 @@ def complete_report(report_id: int) -> bool:
 def pair_diagnostic(other_word: str, target_surface: str) -> dict:
     """Lexical explanation of why ``other_word`` did or did not open the target."""
     try:
-        from games.censorly.lexical import rootbank
-        from games.censorly.lexical.tools.explain_pair import explain_pair
+        from games.puzzles.censorly.lexical.match import rootbank
+        from games.puzzles.censorly.lexical.tools.review.explain_pair import explain_pair
 
         try:
             explained = explain_pair(other_word, target_surface)

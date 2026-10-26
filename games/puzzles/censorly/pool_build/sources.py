@@ -10,8 +10,8 @@ from urllib.parse import unquote
 
 import requests
 
-from games.censorly.article_pool import load_article_pool
-from games.censorly.pool_build import (
+from games.puzzles.censorly.article.pool import load_article_pool
+from games.puzzles.censorly.pool_build import (
     PAGEVIEWS_TOP,
     USER_AGENT,
     VITAL_1000_PAGE,

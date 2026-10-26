@@ -21,30 +21,30 @@ import django
 
 django.setup()
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.prelaunch import (
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.audit.prelaunch import (
     OOV_GUESSES,
     UNICODE_GUESSES,
     content_surfaces,
     iter_fixtures,
     walk_dictionary,
 )
-from games.censorly.lexical.rootbank import _SENSE, _game_id, structures_of
-from games.censorly.lexical.russian.compiler import (
+from games.puzzles.censorly.lexical.match.rootbank import _SENSE, _game_id, structures_of
+from games.puzzles.censorly.lexical.russian.compiler import (
     _families,
     _lines,
     _norm,
     _plain,
     _strip_note,
 )
-from games.censorly.lexical.russian.decisions import REJECT
-from games.censorly.lexical.semantics import (
+from games.puzzles.censorly.lexical.russian.decisions import REJECT
+from games.puzzles.censorly.lexical.semantics import (
     _ALIAS_GROUPS,
     _GRAMMAR_GROUPS,
     initially_open,
     readings_of,
 )
-from games.censorly.tokenize import tokenize_text
+from games.puzzles.censorly.text.tokenize import tokenize_text
 from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
@@ -2623,7 +2623,7 @@ def build_inventory():
 
 
 def _all_structures():
-    from games.censorly.lexical.rootbank import _bank
+    from games.puzzles.censorly.lexical.match.rootbank import _bank
     bank, _seconds = _bank()
     return bank
 
@@ -2830,14 +2830,14 @@ def build_target_index(corpus):
             by_fold[fold(surface)].append(idx)
             for item in reads:
                 by_lexeme[(item.para_id, item.lemma)].append(idx)
-            from games.censorly.lexical.semantics import _roots
+            from games.puzzles.censorly.lexical.semantics import _roots
             for struct in _roots(reads, surface):
                 by_root[struct].append(idx)
     return {'lexeme': by_lexeme, 'root': by_root, 'fold': by_fold}, occs
 
 
 def lookup(guess, index, occs):
-    from games.censorly.lexical.semantics import _roots
+    from games.puzzles.censorly.lexical.semantics import _roots
     hits = set(index['fold'].get(fold(guess), ()))
     reasons = set()
     if hits:
@@ -2876,7 +2876,7 @@ def attach_fanout(families, fuzz):
 
 def service_audit(corpus):
     """Count every word token, including stops that content_surfaces drops."""
-    from games.censorly.tokenize import tokenize_text
+    from games.puzzles.censorly.text.tokenize import tokenize_text
     contested = Counter()
     opened_anyway = Counter()
     opened = 0
@@ -2917,7 +2917,7 @@ def service_audit(corpus):
 
 
 def compound_audit():
-    from games.censorly.lexical.rootbank import _bank
+    from games.puzzles.censorly.lexical.match.rootbank import _bank
     bank, _seconds = _bank()
     leaks = []
     for lemma, structs in bank.items():
@@ -2944,7 +2944,7 @@ def nucleus_split_candidates(families, *, min_lemmas: int = 40, min_nuclei: int 
     Prefer several long content stems that each cover a minority of lemmas
     still on the parent game root. Generic verb morphology is ignored.
     """
-    from games.censorly.lexical.rootbank import structures_of
+    from games.puzzles.censorly.lexical.match.rootbank import structures_of
 
     rows = []
     for family, bucket in families.items():

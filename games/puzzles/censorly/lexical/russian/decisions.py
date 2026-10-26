@@ -6,7 +6,7 @@ is a root family: each item is one unordered pair.
 
 from __future__ import annotations
 
-from games.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.match.core import fold
 
 
 def _pairs(*items: tuple[str, str]) -> frozenset[frozenset[str]]:

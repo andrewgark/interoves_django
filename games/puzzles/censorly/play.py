@@ -17,13 +17,13 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from games.middleware.request_timing import timing_phase
-from games.censorly import (
+from games.puzzles.censorly.ids import (
     CENSORLY_SHOW_MASK_ENDINGS,
     CENSORLY_SPLITTER_VERSION,
     CENSORLY_TAGS_KEY,
 )
-from games.censorly.normalize import is_guessable_word, lemma_of, normalize_surface
-from games.censorly.redact import (
+from games.puzzles.censorly.text.normalize import is_guessable_word, lemma_of, normalize_surface
+from games.puzzles.censorly.article.redact import (
     build_public_view,
     lemmas_matching_guess,
     newly_revealed_ids,
@@ -31,8 +31,8 @@ from games.censorly.redact import (
     token_by_id,
     token_ids_for_guess,
 )
-from games.censorly.stopwords import is_stop_word
-from games.censorly.tokenize import all_tokens, resolve_puzzle_payload, title_content_lemmas
+from games.puzzles.censorly.text.stopwords import is_stop_word
+from games.puzzles.censorly.text.tokenize import all_tokens, resolve_puzzle_payload, title_content_lemmas
 from games.models import Attempt, ChainTaskState, Game, Task
 from games.puzzles.core.base import Puzzle
 from games.results.share import format_elapsed, format_share_link, share_path
@@ -110,11 +110,11 @@ def _is_initially_open_word(surface: str) -> bool:
     """Whether *surface* is visible before a player makes a guess."""
     if is_stop_word(surface):
         return True
-    from games.censorly.flags import lexical_resolver_enabled
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
     if not lexical_resolver_enabled():
         return False
-    from games.censorly.flags import open_pronouns_enabled
-    from games.censorly.lexical.semantics import initially_open
+    from games.puzzles.censorly.text.flags import open_pronouns_enabled
+    from games.puzzles.censorly.lexical.semantics import initially_open
     return initially_open(surface, include_pronouns=open_pronouns_enabled())
 
 
@@ -466,7 +466,7 @@ def attach_solve_meta(
     )
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
-    from games.censorly.redact import unsolved_share_runs
+    from games.puzzles.censorly.article.redact import unsolved_share_runs
     from games.daily_share_card import build_censorly_share_payload, publish_date_for
     from games.models import GameTaskGroup
 
@@ -699,12 +699,12 @@ def _lock_state(*, game, task, actor):
 
 def _record_lexical_decision(*, user, game, task, guess, payload, report=None) -> None:
     """Store which targets a guess opened and which near-misses it rejected."""
-    from games.censorly.flags import lexical_resolver_enabled
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
     if not lexical_resolver_enabled():
         return
     try:
-        from games.censorly.lexical.match import decision
-        from games.censorly.tokenize import all_tokens
+        from games.puzzles.censorly.lexical.match import decision
+        from games.puzzles.censorly.text.tokenize import all_tokens
         from games.models import StatisticsEvent
         if report is None:
             report = decision(all_tokens(payload), guess)
@@ -719,7 +719,7 @@ def _record_lexical_decision(*, user, game, task, guess, payload, report=None) -
                 **report,
             )
     except Exception:
-        logging.getLogger('games.censorly.play').exception('censorly lexical decision log failed')
+        logging.getLogger('games.puzzles.censorly.play').exception('censorly lexical decision log failed')
 
 
 @dataclass(frozen=True)
@@ -907,10 +907,10 @@ def apply_guess(
 
     move.check_timing()
     with timing_phase(timing_request, 'lexical_analysis'):
-        from games.censorly.flags import lexical_resolver_enabled
+        from games.puzzles.censorly.text.flags import lexical_resolver_enabled
         lexical_report = None
         if lexical_resolver_enabled():
-            from games.censorly.lexical.match import analyze_guess
+            from games.puzzles.censorly.lexical.match import analyze_guess
             cache_key = _lexical_cache_key(task)
             tokens = chain(
                 payload.get('title_tokens') or (),

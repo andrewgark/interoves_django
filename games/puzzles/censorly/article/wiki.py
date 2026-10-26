@@ -847,7 +847,7 @@ def _replace_tex_groups(text: str, *, mark_formulas: bool = False) -> str:
                 or r'\begin{cases}' in formula
             )
             if mark_formulas and is_display_math and has_operator:
-                from games.censorly.tokenize import FORMULA_END, FORMULA_START
+                from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START
 
                 out.append(f'{FORMULA_START}{rendered}{FORMULA_END}')
             else:
@@ -1211,7 +1211,7 @@ def clean_wiki_extract(extract: str, *, mark_formulas: bool = False) -> str:
 
 def _headings_to_marked(extract: str) -> str:
     """Wrap == Heading == as marked spans for larger play UI (tokenize in_heading)."""
-    from games.censorly.tokenize import HEADING_END, HEADING_LEVEL_SEP, HEADING_START
+    from games.puzzles.censorly.text.tokenize import HEADING_END, HEADING_LEVEL_SEP, HEADING_START
 
     def repl(match: re.Match[str]) -> str:
         name = (match.group(2) or '').strip()

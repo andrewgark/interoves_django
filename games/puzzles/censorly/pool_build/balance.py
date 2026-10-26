@@ -6,7 +6,7 @@ import random
 from collections import Counter
 from typing import Any
 
-from games.censorly.pool_build import THEME_BUCKET_CAPS, THEME_TO_BUCKET
+from games.puzzles.censorly.pool_build import THEME_BUCKET_CAPS, THEME_TO_BUCKET
 
 
 def primary_theme(row: dict[str, Any]) -> str | None:

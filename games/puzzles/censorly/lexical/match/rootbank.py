@@ -24,8 +24,8 @@ from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.russian.compiler import (
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.russian.compiler import (
     _families,
     _lines,
     _norm,
@@ -952,11 +952,11 @@ _sense((
 # Family-level modern splits. A lemma is listed in one cluster only.
 # Lemmas that stay out of every cluster remain on the dictionary family
 # and are unresolved, not silently treated as safe.
-from games.censorly.lexical.semantic_splits import (
+from games.puzzles.censorly.lexical.splits import (
     SEMANTIC_ROOT_ASSIGNMENTS,
     install as _install_splits,
 )
-from games.censorly.lexical.proper_names import install as _install_proper_names
+from games.puzzles.censorly.lexical.match.proper_names import install as _install_proper_names
 
 _install_splits(_sense, _set_readings)
 _install_proper_names(_sense, _set_readings)

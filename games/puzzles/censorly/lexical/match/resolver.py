@@ -8,16 +8,16 @@ Gameplay still opens by lemma equality; this module is not wired in.
 
 from __future__ import annotations
 
-from games.censorly.lexical.core import fold, script_of, stress_signature
-from games.censorly.lexical.dispatcher import RUSSIAN, backend_name
-from games.censorly.lexical.generic_backend import node_for
-from games.censorly.lexical.relations.graph import neighbors, proof_between
-from games.censorly.lexical.russian.context import (
+from games.puzzles.censorly.lexical.match.core import fold, script_of, stress_signature
+from games.puzzles.censorly.lexical.match.dispatcher import RUSSIAN, backend_name
+from games.puzzles.censorly.lexical.match.generic_backend import node_for
+from games.puzzles.censorly.lexical.graph.graph import neighbors, proof_between
+from games.puzzles.censorly.lexical.russian.context import (
     bare_target,
     covers_every_identity,
     guess_inflection_ids,
 )
-from games.censorly.lexical.russian.morphology import cognate_lemmas, lexeme_ids
+from games.puzzles.censorly.lexical.russian.morphology import cognate_lemmas, lexeme_ids
 
 
 def relation_kind(guess: str, target: str, *, article_language: str = 'ru') -> str:

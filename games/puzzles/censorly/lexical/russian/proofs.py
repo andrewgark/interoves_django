@@ -6,7 +6,7 @@ evidence inside a proof. A pair that fails the structural test is not emitted.
 
 from __future__ import annotations
 
-from games.censorly.lexical.russian.morphology import aspect_of, pos_of, readings
+from games.puzzles.censorly.lexical.russian.morphology import aspect_of, pos_of, readings
 
 # Allomorphs are evidence for a verbal or diminutive proof, not a licence
 # to join every word that carries them.

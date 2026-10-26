@@ -17,11 +17,11 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 import django
 django.setup()
 
-from games.censorly.lexical.core import fold
-from games.censorly.flags import open_pronouns_enabled
-from games.censorly.lexical.match import _ArticleIndex, _GuessPack, _relation
-from games.censorly.lexical.rootbank import structures_of, tikhonov_roots_of
-from games.censorly.tokenize import all_tokens, build_puzzle_payload
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.text.flags import open_pronouns_enabled
+from games.puzzles.censorly.lexical.match import _ArticleIndex, _GuessPack, _relation
+from games.puzzles.censorly.lexical.match.rootbank import structures_of, tikhonov_roots_of
+from games.puzzles.censorly.text.tokenize import all_tokens, build_puzzle_payload
 
 
 FIELDS = (
@@ -44,18 +44,18 @@ def _article_payload(args):
             body_text=args.text_file.read_text(encoding='utf-8'),
         )
     if args.payload_file:
-        from games.censorly.tokenize import resolve_puzzle_payload
+        from games.puzzles.censorly.text.tokenize import resolve_puzzle_payload
         return resolve_puzzle_payload(json.loads(args.payload_file.read_text(encoding='utf-8')))
     if args.task_number:
-        from games.censorly import CENSORLY_GAME_ID, CENSORLY_TAGS_KEY
-        from games.censorly.play import get_task_for_number
+        from games.puzzles.censorly.ids import CENSORLY_GAME_ID, CENSORLY_TAGS_KEY
+        from games.puzzles.censorly.play import get_task_for_number
         from games.models import Game
         _link, task = get_task_for_number(Game.objects.get(pk=CENSORLY_GAME_ID), args.task_number)
         payload = (task.tags or {}).get(CENSORLY_TAGS_KEY)
         if not isinstance(payload, dict):
             raise ValueError(f'Censorly task {args.task_number!r} has no saved puzzle payload')
         return payload
-    from games.censorly.wiki import fetch_article
+    from games.puzzles.censorly.article.wiki import fetch_article
     article = fetch_article(args.article_title)
     return build_puzzle_payload(
         wiki_title=article.title,

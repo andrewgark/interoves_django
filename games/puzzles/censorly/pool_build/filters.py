@@ -10,7 +10,7 @@ from typing import Any
 
 import requests
 
-from games.censorly.pool_build import (
+from games.puzzles.censorly.pool_build import (
     ARTICLE_POOL_DENY_PATH,
     BATCH_SIZE,
     MIN_LANGLINKS,
@@ -18,7 +18,7 @@ from games.censorly.pool_build import (
     USER_AGENT,
     WIKI_API,
 )
-from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
 
 WIKIDATA_API = 'https://www.wikidata.org/w/api.php'
 

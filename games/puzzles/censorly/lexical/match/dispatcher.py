@@ -7,8 +7,8 @@ stays generic: ``Apis`` is not treated as English.
 
 from __future__ import annotations
 
-from games.censorly.lexical.core import fold, script_of
-from games.censorly.lexical.generic_backend import NAME as GENERIC
+from games.puzzles.censorly.lexical.match.core import fold, script_of
+from games.puzzles.censorly.lexical.match.generic_backend import NAME as GENERIC
 
 RUSSIAN = 'russian'
 # Letters that mark Ukrainian, Belarusian or Serbian rather than Russian.
@@ -21,7 +21,7 @@ def backend_name(token: str, *, article_language: str = '') -> str:
     folded = fold(token)
     if any(char in _NON_RUSSIAN_CYRILLIC for char in folded):
         return GENERIC
-    from games.censorly.lexical.russian.morphology import readings
+    from games.puzzles.censorly.lexical.russian.morphology import readings
     if not any(item.pos for item in readings(token)):
         return GENERIC
     return RUSSIAN

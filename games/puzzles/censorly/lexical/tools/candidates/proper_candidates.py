@@ -28,8 +28,8 @@ try:  # Optional speed-up for multi-million-line offline dumps.
 except ImportError:  # pragma: no cover - standard-library fallback
     _json = json
 
-from games.censorly.article_pool import load_article_pool
-from games.censorly.lexical.core import fold
+from games.puzzles.censorly.article.pool import load_article_pool
+from games.puzzles.censorly.lexical.match.core import fold
 
 _WIKI_LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
 _ONE_TOKEN_RE = re.compile(r"^[\w\-‑]+$", re.UNICODE)
@@ -228,7 +228,7 @@ def normalize_lemma(value: str) -> tuple[str, tuple[str, ...]]:
     if not folded:
         return '', ('empty',)
     try:
-        from games.censorly.lexical.russian.morphology import readings
+        from games.puzzles.censorly.lexical.russian.morphology import readings
 
         found = readings(value)
     except (ImportError, RuntimeError, ValueError):
@@ -249,7 +249,7 @@ _MATCHER_TIMEOUT = 'matcher_timeout'
 
 
 def _explain_worker(pair: tuple[str, str]) -> str:
-    from games.censorly.lexical.semantics import explain
+    from games.puzzles.censorly.lexical.semantics import explain
     return explain(pair[0], pair[1]) or ''
 
 
@@ -526,7 +526,7 @@ def extract_candidates(
                 by_word.setdefault(fold(word), entry)
     keys = _pool_keys(pool_titles)
     if explain_func is None:
-        from games.censorly.lexical.semantics import explain as explain_func
+        from games.puzzles.censorly.lexical.semantics import explain as explain_func
     explain_func = _bounded_explainer(explain_func)
     output: dict[tuple[str, str, str], Candidate] = {}
 
@@ -875,7 +875,7 @@ def run_staged_experiment(
         if value not in normalizer_cache:
             normalizer_cache[value] = raw_normalizer(value)
         return normalizer_cache[value]
-    from games.censorly.lexical.semantics import explain as live_explain
+    from games.puzzles.censorly.lexical.semantics import explain as live_explain
     explain_cache = _bounded_explainer(live_explain)
     pool_keys = _pool_keys(pool_titles)
     query = '''SELECT source_raw, derivative_raw, relation_type,

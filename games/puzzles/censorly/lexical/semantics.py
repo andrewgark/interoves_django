@@ -14,12 +14,12 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from games.censorly.lexical.core import WORD_CACHE_SIZE, fold
-from games.censorly.lexical.dispatcher import RUSSIAN, backend_name
-from games.censorly.lexical.proper_names import PAIR_RELATIONS
-from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
-from games.censorly.lexical.semantic_splits import SENSE_COMPATIBLE
-from games.censorly.lexical.russian.reading_overrides import is_rejected
+from games.puzzles.censorly.lexical.match.core import WORD_CACHE_SIZE, fold
+from games.puzzles.censorly.lexical.match.dispatcher import RUSSIAN, backend_name
+from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
+from games.puzzles.censorly.lexical.match.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
+from games.puzzles.censorly.lexical.splits import SENSE_COMPATIBLE
+from games.puzzles.censorly.lexical.russian.reading_overrides import is_rejected
 
 # Function words open before a player has guessed anything. Interjections
 # (INTJ) are lexical content in an article, not structural service words:
@@ -473,7 +473,7 @@ def _russian(surface: str, article_language: str) -> bool:
         return True
     # The dispatcher drops weak readings. Gameplay keeps every dictionary hit
     # that still has a part of speech, except non-Russian scripts.
-    from games.censorly.lexical.core import script_of
+    from games.puzzles.censorly.lexical.match.core import script_of
     if script_of(surface) != 'Cyrl' or article_language not in ('', 'ru'):
         return False
     if any(item.pos for item in readings_of(surface)):

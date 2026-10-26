@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from games.censorly.normalize import normalize_surface
+from games.puzzles.censorly.text.normalize import normalize_surface
 
 # Предлоги, союзы, частицы. Нормализованы ё→е.
 # Местоимения не входят в этот статический список: NPRO и местоимения-

@@ -215,6 +215,9 @@ If the resolved version is empty, the client check is skipped.
 | Live track / WebSocket helpers | `games.realtime.track_compat` | `games.views.track` |
 | Main UI symbol bundle | `games.site.views.pages.ui_exports` | `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | `games.matcher.norm_matcher` |
+| Censorly IDs / flags | `games.puzzles.censorly.ids` | `games.censorly` (re-export без `games.puzzles` при import) |
+| Censorly implementation | `games.puzzles.censorly.*` | `games.censorly.*` (module facades) |
+| Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | `games.grid_puzzle` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`). В prod и новых тестах импортируй canonical path; `@patch('games.views…')` в старых тестах ок, пока фасад алиасит тот же модуль.
 

@@ -12,13 +12,13 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 import django
 django.setup()
 
-from games.censorly.lexical import rootbank
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.match import _GuessPack, _Pack, _relation
-from games.censorly.lexical.prelaunch import iter_fixtures
-from games.censorly.lexical.rootbank import structures_of
-from games.censorly.lexical.semantics import REVIEWED_DERIVED_ROOTS, opens
-from games.censorly.tokenize import tokenize_text
+from games.puzzles.censorly.lexical.match import rootbank
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+from games.puzzles.censorly.lexical.audit.prelaunch import iter_fixtures
+from games.puzzles.censorly.lexical.match.rootbank import structures_of
+from games.puzzles.censorly.lexical.semantics import REVIEWED_DERIVED_ROOTS, opens
+from games.puzzles.censorly.text.tokenize import tokenize_text
 from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 OPAQUE = 'tikh:сенат'

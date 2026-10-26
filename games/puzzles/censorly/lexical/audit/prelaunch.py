@@ -19,21 +19,21 @@ import django
 
 django.setup()
 
-from games.censorly.lexical.core import fold, script_of
-from games.censorly.lexical.dispatcher import RUSSIAN, backend_name
-from games.censorly.lexical.relations.graph import edge_count, neighbors, proof_between
-from games.censorly.lexical.resolver import open_prepared, prepare_target, relation_kind
-from games.censorly.lexical.russian.compiler import _families, _lines, _plain, _strip_note
-from games.censorly.lexical.russian.decisions import ACCEPT, REJECT
-from games.censorly.lexical.russian.morphology import (
+from games.puzzles.censorly.lexical.match.core import fold, script_of
+from games.puzzles.censorly.lexical.match.dispatcher import RUSSIAN, backend_name
+from games.puzzles.censorly.lexical.graph.graph import edge_count, neighbors, proof_between
+from games.puzzles.censorly.lexical.match.resolver import open_prepared, prepare_target, relation_kind
+from games.puzzles.censorly.lexical.russian.compiler import _families, _lines, _plain, _strip_note
+from games.puzzles.censorly.lexical.russian.decisions import ACCEPT, REJECT
+from games.puzzles.censorly.lexical.russian.morphology import (
     _proper_shares_lemma,
     cognate_lemmas,
     lexeme_ids,
     pos_of,
     readings,
 )
-from games.censorly.tokenize import build_puzzle_payload
-from games.censorly.wiki import _trim_extract
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload
+from games.puzzles.censorly.article.wiki import _trim_extract
 from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 ROOT = Path(__file__).resolve().parents[4] / 'tests' / 'censorly_testdata'
@@ -242,7 +242,7 @@ NEGATIVES = (
 
 
 def _load_dictionary_nodes() -> set[str]:
-    from games.censorly.lexical.russian.compiler import _norm
+    from games.puzzles.censorly.lexical.russian.compiler import _norm
 
     families = _families(KUZ_GROUPS)
     grouped: dict[str, set[tuple[str, str]]] = defaultdict(set)

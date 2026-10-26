@@ -60,7 +60,7 @@ def split_stem_ending(surface: str) -> tuple[str, str]:
     reflexive postfix when the form has one. A zero ending and any tail the
     hint filter rejects come back as ``(normalized_word, '')``.
     """
-    from games.censorly.endings import grammatical_split
+    from games.puzzles.censorly.text.endings import grammatical_split
 
     plain = normalize_surface(surface)
     if not plain or '-' in plain or any(ch.isdigit() for ch in plain):

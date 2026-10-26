@@ -18,16 +18,16 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 import django
 django.setup()
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.match import _GuessPack, _Pack, _relation
-from games.censorly.lexical.prelaunch import iter_fixtures
-from games.censorly.lexical.rootbank import (
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+from games.puzzles.censorly.lexical.audit.prelaunch import iter_fixtures
+from games.puzzles.censorly.lexical.match.rootbank import (
     _KUZ_GROUPS, _KUZ_LEMMAS, _TIKHONOV, _families, _game_id,
     _SENSE, _lines, _norm, _plain, _strip_note, assignment_of, families_of,
     structures_of, REVIEWED_OPAQUE_ROOTS, REVIEWED_DERIVED_ROOTS,
 )
-from games.censorly.lexical.russian.compiler import _families as compiler_families
-from games.censorly.tokenize import tokenize_text
+from games.puzzles.censorly.lexical.russian.compiler import _families as compiler_families
+from games.puzzles.censorly.text.tokenize import tokenize_text
 
 SUFFIXES = (
     ('-овый', 'adjective:-овый'),
@@ -214,7 +214,7 @@ def _family_row(root, members, root_ids, bank, corpus_lemmas, suppressed, pack_c
 
 def mine(args):
     started = time.perf_counter()
-    bank, _ = __import__('games.censorly.lexical.rootbank', fromlist=['_bank'])._bank()
+    bank, _ = __import__('games.puzzles.censorly.lexical.match.rootbank', fromlist=['_bank'])._bank()
     review_rows, reviewed_pairs, suppressed, suppressed_lemmas, applied_lemmas = _review_knowledge(args.review_file)
     corpus_tokens, corpus_counts, corpus_lemmas, corpus_surfaces = _corpus_evidence()
     by_root, by_lemma = _tikhonov()

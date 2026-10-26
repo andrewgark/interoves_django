@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from games.grid_puzzle import (
+from games.puzzles.replacements.grid_puzzle import (
     GridPuzzleDataError,
     grid_checker_id,
     parse_grid_puzzle_attempt,

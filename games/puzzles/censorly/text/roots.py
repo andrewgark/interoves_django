@@ -29,7 +29,7 @@ from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
-from games.censorly.normalize import normalize_surface
+from games.puzzles.censorly.text.normalize import normalize_surface
 
 _INDEX_PATH = Path(__file__).resolve().parent / 'data' / 'cognate_roots.tsv.gz'
 # Same-morph pairs are refused in a nest bigger than this. Whitelisted

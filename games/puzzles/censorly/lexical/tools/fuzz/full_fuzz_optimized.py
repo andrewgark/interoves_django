@@ -21,8 +21,8 @@ import django
 
 django.setup()
 
-from games.censorly.lexical import family_audit as audit
-from games.censorly.lexical.semantics import readings_of
+from games.puzzles.censorly.lexical.audit import family as audit
+from games.puzzles.censorly.lexical.semantics import readings_of
 
 
 def _rss_mb() -> float:

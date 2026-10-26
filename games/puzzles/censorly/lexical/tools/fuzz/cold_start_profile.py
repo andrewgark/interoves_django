@@ -30,15 +30,15 @@ django.setup()
 t, r = mark('T1 Django/setup', t)
 
 t = time.perf_counter()
-rootbank = importlib.import_module('games.censorly.lexical.rootbank')
+rootbank = importlib.import_module('games.puzzles.censorly.lexical.match.rootbank')
 t, r = mark('T2 rootbank import', t, r)
 
 t = time.perf_counter()
-semantics = importlib.import_module('games.censorly.lexical.semantics')
+semantics = importlib.import_module('games.puzzles.censorly.lexical.semantics')
 t, r = mark('T2b semantics import', t, r)
 
 t = time.perf_counter()
-match = importlib.import_module('games.censorly.lexical.match')
+match = importlib.import_module('games.puzzles.censorly.lexical.match')
 t, r = mark('T2c match import', t, r)
 
 t = time.perf_counter()
@@ -64,11 +64,11 @@ for lemma in sorted(set(opaque + ivolg + ['иволговый'])):
 t, r = mark('T6 lexeme form generation', t, r, f'forms={len(forms)}')
 
 t = time.perf_counter()
-from games.censorly.lexical.prelaunch import iter_fixtures
+from games.puzzles.censorly.lexical.audit.prelaunch import iter_fixtures
 t, r = mark('T7 fixture discovery', t, r)
 
 t = time.perf_counter()
-from games.censorly.tokenize import tokenize_text
+from games.puzzles.censorly.text.tokenize import tokenize_text
 fixture_count = 0
 token_count = 0
 for _rel, _kind, body in iter_fixtures():

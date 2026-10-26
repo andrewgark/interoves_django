@@ -6,7 +6,7 @@ the same normalized token.
 
 from __future__ import annotations
 
-from games.censorly.lexical.core import EXACT_MATCH, LexicalNode, fold, script_of
+from games.puzzles.censorly.lexical.match.core import EXACT_MATCH, LexicalNode, fold, script_of
 
 CAPABILITIES = frozenset({EXACT_MATCH})
 NAME = 'generic'

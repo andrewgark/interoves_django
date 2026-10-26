@@ -5,9 +5,9 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Any, Iterable
 
-from games.censorly import CENSORLY_SHOW_MASK_ENDINGS
-from games.censorly.normalize import is_hintable_ending, strip_combining_marks
-from games.censorly.tokenize import all_tokens, title_content_lemmas
+from games.puzzles.censorly.ids import CENSORLY_SHOW_MASK_ENDINGS
+from games.puzzles.censorly.text.normalize import is_hintable_ending, strip_combining_marks
+from games.puzzles.censorly.text.tokenize import all_tokens, title_content_lemmas
 
 
 def _token_public(
@@ -47,8 +47,8 @@ def _token_public(
         return out
 
     if lexical:
-        from games.censorly.flags import open_pronouns_enabled
-        from games.censorly.lexical.semantics import initially_open
+        from games.puzzles.censorly.text.flags import open_pronouns_enabled
+        from games.puzzles.censorly.lexical.semantics import initially_open
         token_open = tok.get('initially_open')
         is_open = (
             bool(token_open) if token_open is not None else
@@ -111,7 +111,7 @@ def build_public_view(
     won: bool = False,
     show_endings: bool | None = None,
 ) -> dict[str, Any]:
-    from games.censorly.flags import lexical_resolver_enabled
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
     revealed = {str(x) for x in (revealed_lemmas or []) if x}
     hinted = {str(x) for x in (hinted_lemmas or []) if x}
     title_lemmas = title_content_lemmas(payload)
@@ -151,9 +151,9 @@ def lemmas_matching_guess(
 ) -> set[str]:
     """Return lemmas in the puzzle that match the guess (lemma or surface)."""
     tokens = all_tokens(payload) if tokens is None else tokens
-    from games.censorly.flags import lexical_resolver_enabled
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
     if lexical_resolver_enabled():
-        from games.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.lexical.match import matching_lemmas
         return matching_lemmas(
             tokens, guess_norm or guess_lemma, cache_key=cache_key,
         )
@@ -176,7 +176,7 @@ def lemmas_matching_guess(
 
 def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
     """Lemmas that guessing any title word would reveal in this puzzle."""
-    from games.censorly.flags import lexical_resolver_enabled, open_pronouns_enabled
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled, open_pronouns_enabled
 
     title_rows = tuple(
         (str(token.get('surface') or ''), str(token.get('lemma') or ''))

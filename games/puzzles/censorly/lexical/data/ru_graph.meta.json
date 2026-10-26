@@ -1,7 +1,7 @@
 {
   "proof_engine": "ru-proofs-2",
   "graph_sha256": "c136b85c8d558c4be3eb122a38005f2a74de6aeeec0ce6721682fefefcc1c9ac",
-  "build_command": "DJANGO_SETTINGS_MODULE=interoves_django.settings ../venv/interoves_django/bin/python -m games.censorly.lexical.russian.compiler",
+  "build_command": "DJANGO_SETTINGS_MODULE=interoves_django.settings ../venv/interoves_django/bin/python -m games.puzzles.censorly.lexical.russian.compiler",
   "sources": [
     {
       "role": "kuznetsova_lemmas",

@@ -10,10 +10,15 @@ import random
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.censorly import CENSORLY_CHECKER_ID, CENSORLY_GAME_ID, CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
-from games.censorly.play import CENSORLY_BASE_POINTS
-from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
-from games.censorly.wiki import (
+from games.puzzles.censorly.ids import (
+    CENSORLY_CHECKER_ID,
+    CENSORLY_GAME_ID,
+    CENSORLY_TAGS_KEY,
+    CENSORLY_TASK_TYPE,
+)
+from games.puzzles.censorly.play import CENSORLY_BASE_POINTS
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
+from games.puzzles.censorly.article.wiki import (
     CensorlyArticleRejected,
     WikiArticle,
     WikiFetchError,
@@ -174,7 +179,7 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
     """Pick a random unused pool title, fetch wiki, create game."""
     game = _get_game()
     used = _used_pool_titles()
-    from games.censorly.pool_admin import active_pool_titles, pool_rows
+    from games.puzzles.censorly.article.admin import active_pool_titles, pool_rows
     tagged = pool_rows()
     pool = active_pool_titles(tagged)
     if not pool:
@@ -230,7 +235,7 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
         try:
             article = fetch_article(title, timeout=8)
         except CensorlyArticleRejected as exc:
-            from games.censorly.pool_admin import mark_unplayable
+            from games.puzzles.censorly.article.admin import mark_unplayable
 
             mark_unplayable(title, tagged.get(title))
             logger.warning(
@@ -260,7 +265,7 @@ def get_or_create_random_game(*, max_attempts: int = 12, filters: dict | None = 
         try:
             return _create_from_article(article, game=game, pool_title=title)
         except CensorlyArticleRejected as exc:
-            from games.censorly.pool_admin import mark_unplayable
+            from games.puzzles.censorly.article.admin import mark_unplayable
 
             mark_unplayable(title, tagged.get(title))
             logger.warning(

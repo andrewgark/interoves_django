@@ -13,20 +13,20 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.match import _GuessPack, _Pack, _relation
-from games.censorly.lexical.match import _root_sense_compatible
-from games.censorly.lexical.rootbank import (
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+from games.puzzles.censorly.lexical.match import _root_sense_compatible
+from games.puzzles.censorly.lexical.match.rootbank import (
     _KUZ_LEMMAS, assignment_of, families_of, root_components,
     sense_components, structures_of,
     tikhonov_roots_of,
 )
-from games.censorly.lexical.semantics import (
+from games.puzzles.censorly.lexical.semantics import (
     _ALIAS_GROUPS, _GRAMMAR_GROUPS, _alias, _grammar,
     _proper_pair, _roots, explain, initially_open, readings_of,
 )
-from games.censorly.lexical.rootbank import REVIEWED_DERIVED_ROOTS, REVIEWED_OPAQUE_ROOTS
-from games.censorly.flags import open_pronouns_enabled
+from games.puzzles.censorly.lexical.match.rootbank import REVIEWED_DERIVED_ROOTS, REVIEWED_OPAQUE_ROOTS
+from games.puzzles.censorly.text.flags import open_pronouns_enabled
 
 
 def _tikhonov_roots(lemma):

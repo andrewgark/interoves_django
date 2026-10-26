@@ -13,8 +13,8 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 import django
 django.setup()
 
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.tools.explain_pair import explain_pair
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.tools.review.explain_pair import explain_pair
 from games.models import CensorlyReviewCase
 
 DATA = Path(__file__).resolve().parents[1] / 'data'

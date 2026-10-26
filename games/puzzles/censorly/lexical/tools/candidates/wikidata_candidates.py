@@ -18,9 +18,9 @@ from typing import Any, Iterable, Mapping
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from games.censorly.article_pool import load_article_pool
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.tools.proper_candidates import is_one_token, normalize_lemma
+from games.puzzles.censorly.article.pool import load_article_pool
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.tools.candidates.proper_candidates import is_one_token, normalize_lemma
 
 ENDPOINT = "https://query.wikidata.org/sparql"
 RU_LANGUAGE_QID = "Q7737"
@@ -265,7 +265,7 @@ def build_candidates(raw_path: Path) -> list[dict[str, Any]]:
 
 
 def review_candidates(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    from games.censorly.lexical.semantics import explain
+    from games.puzzles.censorly.lexical.semantics import explain
 
     for row in candidates:
         left = row["normalized_source"] or row["source_name"]

@@ -7,7 +7,7 @@ when that spelling is not a valid form in Russian.
 
 from __future__ import annotations
 
-from games.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.match.core import fold
 
 NEM_PRONOUN_CONTEXT = '__censorly_nem_pronoun__'
 NEM_NONPRONOUN_CONTEXT = '__censorly_nem_nonpronoun__'

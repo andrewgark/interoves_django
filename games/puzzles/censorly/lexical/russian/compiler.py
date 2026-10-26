@@ -13,9 +13,9 @@ import unicodedata
 from collections import defaultdict
 from pathlib import Path
 
-from games.censorly.lexical.core import fold, stress_signature
-from games.censorly.lexical.russian.decisions import ACCEPT, REJECT
-from games.censorly.lexical.russian.proofs import PROOF_ENGINE, Lexicon, proof_tag, prove
+from games.puzzles.censorly.lexical.match.core import fold, stress_signature
+from games.puzzles.censorly.lexical.russian.decisions import ACCEPT, REJECT
+from games.puzzles.censorly.lexical.russian.proofs import PROOF_ENGINE, Lexicon, proof_tag, prove
 
 _SUPERSCRIPTS = str.maketrans('', '', '¹²³⁴⁵⁶⁷⁸⁹⁰')
 DEFAULT_PATH = Path(__file__).resolve().parents[1] / 'data' / 'ru_graph.tsv.gz'
@@ -131,7 +131,7 @@ def _write_meta(dest: Path, **sources: Path) -> None:
         'build_command': (
             'DJANGO_SETTINGS_MODULE=interoves_django.settings '
             '../venv/interoves_django/bin/python '
-            '-m games.censorly.lexical.russian.compiler'
+            '-m games.puzzles.censorly.lexical.russian.compiler'
         ),
         'sources': [
             {

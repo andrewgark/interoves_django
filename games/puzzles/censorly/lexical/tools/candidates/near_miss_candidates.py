@@ -16,11 +16,11 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 import django
 django.setup()
 
-from games.censorly.flags import open_pronouns_enabled
-from games.censorly.lexical.core import fold
-from games.censorly.lexical.match import _ArticleIndex, _GuessPack, _Pack, _relation
-from games.censorly.lexical.rootbank import structures_of, tikhonov_roots_of
-from games.censorly.tokenize import all_tokens, resolve_puzzle_payload
+from games.puzzles.censorly.text.flags import open_pronouns_enabled
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.match import _ArticleIndex, _GuessPack, _Pack, _relation
+from games.puzzles.censorly.lexical.match.rootbank import structures_of, tikhonov_roots_of
+from games.puzzles.censorly.text.tokenize import all_tokens, resolve_puzzle_payload
 
 
 FIELDS = (

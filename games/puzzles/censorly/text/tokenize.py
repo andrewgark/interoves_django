@@ -7,15 +7,15 @@ import unicodedata
 from itertools import groupby
 from typing import Any
 
-from games.censorly import CENSORLY_SPLITTER_VERSION
-from games.censorly.normalize import (
+from games.puzzles.censorly.ids import CENSORLY_SPLITTER_VERSION
+from games.puzzles.censorly.text.normalize import (
     WORD_CHARS,
     lemma_of,
     normalize_surface,
     split_stem_ending,
     strip_combining_marks,
 )
-from games.censorly.lexical.russian.reading_overrides import (
+from games.puzzles.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
     LANGUAGE_LABEL_CONTEXTS,
     NEM_GERMAN_CONTEXT,
@@ -28,7 +28,7 @@ from games.censorly.lexical.russian.reading_overrides import (
     TELE_PREFIX_CONTEXT,
     YEAR_ABBR_CONTEXT,
 )
-from games.censorly.stopwords import is_stop_word
+from games.puzzles.censorly.text.stopwords import is_stop_word
 
 # Private-use markers wrap wiki section titles after fetch (see wiki._headings_to_marked).
 # Level is carried as "{level}\x1f{name}" so "==" / "===" stay distinct. No separator
@@ -704,7 +704,7 @@ def _strip_token_surface(tok: dict[str, Any]) -> dict[str, Any]:
     # Drop noisy endings stored before the allowlist filter.
     ending = (out.get('ending') or '').strip()
     if ending:
-        from games.censorly.normalize import is_hintable_ending
+        from games.puzzles.censorly.text.normalize import is_hintable_ending
         stem = ''
         try:
             stem_len = int(out.get('stem_length') or 0)
@@ -848,7 +848,7 @@ def resolve_puzzle_payload(payload: dict[str, Any]) -> dict[str, Any]:
         if not version_ok:
             # Older stored extracts may contain raw == heading == text because
             # whitespace cleanup joined the following paragraph to the heading.
-            from games.censorly.wiki import _headings_to_marked
+            from games.puzzles.censorly.article.wiki import _headings_to_marked
 
             body = _headings_to_marked(body)
         source = payload

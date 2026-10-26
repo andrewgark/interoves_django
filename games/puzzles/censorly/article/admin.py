@@ -89,7 +89,7 @@ def _category_path(category_id, category_parents):
 
 def active_pool_titles(rows=None):
     """Pool titles with database additions and support-side exclusions applied."""
-    from games.censorly.article_pool import load_article_pool
+    from games.puzzles.censorly.article.pool import load_article_pool
 
     rows = rows if rows is not None else pool_rows()
     titles = list(load_article_pool())
