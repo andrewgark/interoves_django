@@ -6,17 +6,6 @@ from games.matcher.norm_matcher import NormMatcher
 from games.util import status_key, clean_text
 from games.models import Task, Attempt
 from games.replacements_lines import split_slot_answer_alternatives
-from games.raddle import (
-    clue_index_for_playable_word,
-    dump_raddle_state,
-    load_raddle_state,
-    parse_raddle_data,
-    playable_word_indices,
-    resolve_assist_tiers,
-    word_length_matches,
-    word_matches,
-    word_solve_credit,
-)
 from games.wordle import convert_words_wordle, read_wordle_dict, color_tiles
 from games.alphabetty.core import guess_status, is_valid_guess, normalize_word
 from games.alphabetty.play import dump_state, load_state
@@ -31,14 +20,6 @@ from games.puzzles.core.check_runtime import (
     delete_punctuation_metagram,
     delete_spaces,
 )
-from games.html_forms import (
-    html_forms_answer_matches,
-    html_forms_solved_keys_from_state,
-    html_forms_state_payload,
-    parse_html_forms_data,
-)
-
-
 class EqualsChecker(SimpleBoolChecker):
     @clean
     def __init__(self, data, last_attempt_state=None):
@@ -351,183 +332,6 @@ class AntiwordleChecker(BaseChecker):
         return CheckResult('Ok', 'Ok', 1)
 
 
-class HtmlFormsChecker(BaseChecker):
-    """Checks one embedded form: attempt.text = JSON {"form_key": str, "text": str}."""
-
-    def __init__(self, data, last_attempt_state=None):
-        self.forms = parse_html_forms_data(data)
-        self.forms_by_key = {form['key']: form for form in self.forms}
-        self.solved_keys = html_forms_solved_keys_from_state(last_attempt_state)
-
-    def check(self, text, attempt):
-        if not self.forms:
-            return CheckResult('Wrong', 'Pending', 0, comment='Нет данных для проверки')
-        try:
-            payload = json.loads(text)
-        except (TypeError, ValueError):
-            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
-        if not isinstance(payload, dict):
-            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
-        form_key = str(payload.get('form_key') or '').strip()
-        user_answer = str(payload.get('text') or '').strip()
-        form = self.forms_by_key.get(form_key)
-        if form is None:
-            return CheckResult('Wrong', 'Pending', 0, comment='Неверная форма ответа')
-        if not user_answer:
-            preserved = html_forms_state_payload(self.solved_keys, self.forms)
-            status = 'Ok' if preserved['total'] >= preserved['n_forms'] else ('Partial' if preserved['total'] else 'Wrong')
-            return CheckResult(
-                status,
-                status if status == 'Ok' else 'Pending',
-                preserved['total'],
-                state=json.dumps(preserved, ensure_ascii=False),
-                comment='Пустой ответ',
-            )
-        added = False
-        wrong_unsolved = False
-        if form_key not in self.solved_keys:
-            if html_forms_answer_matches(user_answer, form['answers']):
-                self.solved_keys.add(form_key)
-                added = True
-            else:
-                wrong_unsolved = True
-        new_state = html_forms_state_payload(self.solved_keys, self.forms)
-        complete = new_state['total'] >= new_state['n_forms']
-        if complete:
-            status = 'Ok'
-            tournament_status = 'Ok'
-        elif wrong_unsolved:
-            status = 'Wrong'
-            tournament_status = 'Pending'
-        elif added or new_state['total']:
-            status = 'Partial'
-            tournament_status = 'Partial'
-        else:
-            status = 'Wrong'
-            tournament_status = 'Pending' if wrong_unsolved else 'Wrong'
-        return CheckResult(
-            status,
-            tournament_status,
-            new_state['total'],
-            state=json.dumps(new_state, ensure_ascii=False),
-        )
-
-
-class RaddleChecker(BaseChecker):
-    """Проверяет одно слово лестницы: attempt.text = JSON {"word_index": int, "word": str}."""
-
-    def __init__(self, data, last_attempt_state=None):
-        self._raw_checker_data = data or ''
-        self.last_state = None
-        if last_attempt_state:
-            try:
-                self.last_state = json.loads(last_attempt_state)
-            except (ValueError, TypeError):
-                self.last_state = None
-
-    def _parsed(self, attempt):
-        task = getattr(attempt, 'task', None) if attempt else None
-        if not task:
-            return None
-        return parse_raddle_data(task)
-
-    def check(self, text, attempt):
-        parsed = self._parsed(attempt)
-        if not parsed:
-            return CheckResult('Wrong', 'Pending', 0, comment='Нет данных для проверки')
-        n = parsed['n_words']
-        state = load_raddle_state(
-            json.dumps(self.last_state) if self.last_state else None,
-            n,
-        )
-        try:
-            payload = json.loads(text)
-            word_index = int(payload.get('word_index', -1))
-            user_word = str(payload.get('word', '') or '').strip()
-        except (ValueError, TypeError):
-            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
-        if not user_word:
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Пустой ответ',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        if word_index < 0 or word_index >= n:
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Неверный индекс слова',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        if word_index in set(state.get('solved_indices') or []):
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Это слово уже решено',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        playable = playable_word_indices(state, n)
-        if word_index not in playable:
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Сейчас можно сдавать только крайние нерешённые слова',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        mask = parsed['masks'][word_index]
-        if not word_length_matches(user_word, mask):
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Длина слова не совпадает с маской',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        accept = parsed['word_accept'][word_index]
-        is_correct = word_matches(user_word, accept)
-        solved = set(state.get('solved_indices') or [])
-        used_hints = set(state.get('used_hints') or [])
-        try:
-            total = Decimal(str(state.get('total', 0) or 0))
-        except (ArithmeticError, ValueError, TypeError):
-            total = Decimal('0')
-        assist_tiers = resolve_assist_tiers(state)
-        assist_cfg = (parsed.get('assist') or {}) if parsed else {}
-        if is_correct:
-            # Закрываем подсказки к обоим известным соседям: сверху prev→слово (hints[i-1]),
-            # снизу слово→next (hints[i]). У последнего слова известны оба — уходят обе.
-            solved_before = set(solved)
-            solved.add(word_index)
-            n_hints = len(parsed['hints'])
-            if (word_index - 1) in solved_before and 0 <= word_index - 1 < n_hints:
-                used_hints.add(word_index - 1)
-            if (word_index + 1) in solved_before and 0 <= word_index < n_hints:
-                used_hints.add(word_index)
-            if word_index not in (0, n - 1):
-                tier = assist_tiers.get(word_index, 0)
-                total += word_solve_credit(tier, assist_cfg)
-        middle_total = max(0, n - 2)
-        solved_middle = len(solved) - (2 if n >= 2 else len(solved))
-        if middle_total and solved_middle >= middle_total:
-            status = 'Ok'
-            tournament_status = 'Ok'
-        else:
-            status = 'Partial' if solved_middle > 0 else 'Wrong'
-            # Ok только когда лестница закрыта; иначе не маскируем Partial/Wrong.
-            tournament_status = status if is_correct else 'Pending'
-        # JSON: float, so client/state round-trips stay simple; CheckResult.points stays Decimal.
-        new_state = dump_raddle_state(
-            {
-                'solved_indices': sorted(solved),
-                'used_hints': sorted(used_hints),
-                'assist_tier': state.get('assist_tier') or {},
-                'total': float(total),
-                'drafts': state.get('drafts') or {},
-                'clue_marks': state.get('clue_marks') or {},
-            },
-            n,
-        )
-        return CheckResult(
-            status, tournament_status, total,
-            state=json.dumps(new_state, ensure_ascii=False),
-        )
-
-
 class WordSaladChecker(BaseChecker):
     """Проверяет JSON-путь по сетке и хранит найденные слова в chain state."""
 
@@ -752,7 +556,9 @@ class AlphabettyChecker(BaseChecker):
         return CheckResult('Partial', 'Partial', 0, dump_state(state), comment=status)
 
 
+from games.puzzles.replacements.html_forms import HtmlFormsChecker
 from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
+from games.puzzles.raddle.submission import RaddleChecker
 from games.puzzles.wall.checker import WallChecker
 
 

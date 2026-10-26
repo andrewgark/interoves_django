@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from decimal import Decimal
 
+from games.puzzles.core.check_runtime import BaseChecker, CheckResult
 from games.puzzles.core.primitives import DuplicateVerdict
 from games.puzzles.core.quota import json_field_quota
 from games.raddle import (
+    dump_raddle_state,
     load_raddle_state,
     merge_raddle_ui_payload,
     parse_raddle_data,
@@ -15,7 +18,9 @@ from games.raddle import (
     raddle_blocks_as_duplicate,
     resolve_assist_tiers,
     serialize_raddle_attempt_text,
+    word_length_matches,
     word_matches,
+    word_solve_credit,
 )
 
 
@@ -219,3 +224,114 @@ def write_move_result(result, task, attempt, word_index, word):
 def include_task_html(result):
     """Wrong ladder words update on the client. A correct or stale word needs HTML."""
     return bool(result.get('raddle_correct') or result.get('raddle_needs_sync'))
+
+
+class RaddleChecker(BaseChecker):
+    """Проверяет одно слово лестницы: attempt.text = JSON {"word_index": int, "word": str}."""
+
+    def __init__(self, data, last_attempt_state=None):
+        self._raw_checker_data = data or ''
+        self.last_state = None
+        if last_attempt_state:
+            try:
+                self.last_state = json.loads(last_attempt_state)
+            except (ValueError, TypeError):
+                self.last_state = None
+
+    def _parsed(self, attempt):
+        task = getattr(attempt, 'task', None) if attempt else None
+        if not task:
+            return None
+        return parse_raddle_data(task)
+
+    def check(self, text, attempt):
+        parsed = self._parsed(attempt)
+        if not parsed:
+            return CheckResult('Wrong', 'Pending', 0, comment='Нет данных для проверки')
+        n = parsed['n_words']
+        state = load_raddle_state(
+            json.dumps(self.last_state) if self.last_state else None,
+            n,
+        )
+        try:
+            payload = json.loads(text)
+            word_index = int(payload.get('word_index', -1))
+            user_word = str(payload.get('word', '') or '').strip()
+        except (ValueError, TypeError):
+            return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
+        if not user_word:
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Пустой ответ',
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
+            )
+        if word_index < 0 or word_index >= n:
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Неверный индекс слова',
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
+            )
+        if word_index in set(state.get('solved_indices') or []):
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Это слово уже решено',
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
+            )
+        playable = playable_word_indices(state, n)
+        if word_index not in playable:
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Сейчас можно сдавать только крайние нерешённые слова',
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
+            )
+        mask = parsed['masks'][word_index]
+        if not word_length_matches(user_word, mask):
+            return CheckResult(
+                'Wrong', 'Pending', 0,
+                comment='Длина слова не совпадает с маской',
+                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
+            )
+        accept = parsed['word_accept'][word_index]
+        is_correct = word_matches(user_word, accept)
+        solved = set(state.get('solved_indices') or [])
+        used_hints = set(state.get('used_hints') or [])
+        try:
+            total = Decimal(str(state.get('total', 0) or 0))
+        except (ArithmeticError, ValueError, TypeError):
+            total = Decimal('0')
+        assist_tiers = resolve_assist_tiers(state)
+        assist_cfg = (parsed.get('assist') or {}) if parsed else {}
+        if is_correct:
+            solved_before = set(solved)
+            solved.add(word_index)
+            n_hints = len(parsed['hints'])
+            if (word_index - 1) in solved_before and 0 <= word_index - 1 < n_hints:
+                used_hints.add(word_index - 1)
+            if (word_index + 1) in solved_before and 0 <= word_index < n_hints:
+                used_hints.add(word_index)
+            if word_index not in (0, n - 1):
+                tier = assist_tiers.get(word_index, 0)
+                total += word_solve_credit(tier, assist_cfg)
+        middle_total = max(0, n - 2)
+        solved_middle = len(solved) - (2 if n >= 2 else len(solved))
+        if middle_total and solved_middle >= middle_total:
+            status = 'Ok'
+            tournament_status = 'Ok'
+        else:
+            status = 'Partial' if solved_middle > 0 else 'Wrong'
+            tournament_status = status if is_correct else 'Pending'
+        new_state = dump_raddle_state(
+            {
+                'solved_indices': sorted(solved),
+                'used_hints': sorted(used_hints),
+                'assist_tier': state.get('assist_tier') or {},
+                'total': float(total),
+                'drafts': state.get('drafts') or {},
+                'clue_marks': state.get('clue_marks') or {},
+            },
+            n,
+        )
+        return CheckResult(
+            status, tournament_status, total,
+            state=json.dumps(new_state, ensure_ascii=False),
+        )
