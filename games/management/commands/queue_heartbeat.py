@@ -2,7 +2,7 @@ import socket
 
 from django.core.management.base import BaseCommand
 
-from games.queue_heartbeat import finish_record, start
+from games.ops.workers.heartbeat import finish_record, start
 
 
 class Command(BaseCommand):

@@ -622,7 +622,7 @@ def process_social_queue_tick(now: datetime | None = None) -> dict[str, Any]:
 
 def run_social_publish_live(*, now):
     """Publish due social posts. Does not take the announcement lock."""
-    from games.cron_lock import distributed_cron_lock
+    from games.ops.cron.lock import distributed_cron_lock
 
     with distributed_cron_lock('social_queue_publish', ttl_seconds=300) as acquired:
         if not acquired:

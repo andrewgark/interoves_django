@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from games.models import QueueWorkerHeartbeat
-from games.queue_heartbeat import finish_record, start
+from games.ops.workers.heartbeat import finish_record, start
 from games.support.queues import dashboard_context
 
 

@@ -24,8 +24,8 @@ from games.background.messages import (
     InvalidBackgroundMessage,
     parse_background_message,
 )
-from games.queue_heartbeat import finish as finish_queue_heartbeat
-from games.queue_heartbeat import start as start_queue_heartbeat
+from games.ops.workers.heartbeat import finish as finish_queue_heartbeat
+from games.ops.workers.heartbeat import start as start_queue_heartbeat
 from games.runtime import RUNTIME_ROLE_IDENTITY, runtime_role
 from games.ops.workers.http import is_sqsd_delivery, sqsd_message_id
 

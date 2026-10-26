@@ -20,7 +20,7 @@ class _FakeRedis:
 
 class DistributedCronLockTests(SimpleTestCase):
     def test_acquired_lease_uses_ttl_and_compare_delete(self):
-        from games.cron_lock import distributed_cron_lock
+        from games.ops.cron.lock import distributed_cron_lock
 
         redis = _FakeRedis()
         with patch('games.cron_lock._redis_client_and_key', return_value=(redis, 'k')):
@@ -33,7 +33,7 @@ class DistributedCronLockTests(SimpleTestCase):
         self.assertEqual(redis.eval_calls[0][1], 1)
 
     def test_held_lease_skips_and_does_not_release(self):
-        from games.cron_lock import distributed_cron_lock
+        from games.ops.cron.lock import distributed_cron_lock
 
         redis = _FakeRedis(result=False)
         with patch('games.cron_lock._redis_client_and_key', return_value=(redis, 'k')):
@@ -43,7 +43,7 @@ class DistributedCronLockTests(SimpleTestCase):
         self.assertEqual(redis.eval_calls, [])
 
     def test_exception_releases_owned_lease(self):
-        from games.cron_lock import distributed_cron_lock
+        from games.ops.cron.lock import distributed_cron_lock
 
         redis = _FakeRedis()
         with patch('games.cron_lock._redis_client_and_key', return_value=(redis, 'k')):
@@ -54,7 +54,7 @@ class DistributedCronLockTests(SimpleTestCase):
         self.assertEqual(len(redis.eval_calls), 1)
 
     def test_non_mysql_without_redis_keeps_local_test_behaviour(self):
-        from games.cron_lock import distributed_cron_lock
+        from games.ops.cron.lock import distributed_cron_lock
 
         with (
             patch('games.cron_lock._redis_client_and_key', return_value=(None, None)),

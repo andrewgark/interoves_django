@@ -7,7 +7,7 @@ from games.daily.difficulty.refresh import (
     refresh_due_daily_difficulties,
     run_daily_difficulty_refresh,
 )
-from games.cron_lock import distributed_cron_lock
+from games.ops.cron.lock import distributed_cron_lock
 from games.club.billing.gifts.offers import expire_subscription_gifts
 from games.club.billing.gifts.payments import reconcile_yookassa_gift_payments
 

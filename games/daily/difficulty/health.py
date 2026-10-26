@@ -10,7 +10,7 @@ from datetime import timedelta
 from django.db.models import Q
 from django.utils import timezone
 
-from games.cron_lock import distributed_cron_lock
+from games.ops.cron.lock import distributed_cron_lock
 from games.daily.difficulty.core import SUPPORTED_GAME_IDS, _supported_placements
 from games.daily.difficulty.refresh import (
     DIFFICULTY_REFRESH_LOCK,

@@ -3,7 +3,7 @@
 import time
 from contextlib import contextmanager
 
-from games.cron_lock import distributed_cron_lock
+from games.ops.cron.lock import distributed_cron_lock
 from games.daily.projection import (
     _canonical_group_results,
     projection_state_is_valid,

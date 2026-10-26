@@ -33,7 +33,7 @@ def run_admin_report_live(*, now):
 
     Returns None when the cron lock is already held.
     """
-    from games.cron_lock import distributed_cron_lock
+    from games.ops.cron.lock import distributed_cron_lock
     from games.telegram.admin_reports import process_admin_report_tick
 
     with distributed_cron_lock('telegram_admin_report', ttl_seconds=180) as acquired:

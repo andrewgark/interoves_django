@@ -32,9 +32,9 @@ from games.daily.projection.cron import (
     PROJECTION_REPAIR_LIMIT,
     reconcile_projection_releases,
 )
-from games.queue_heartbeat import finish as finish_queue_heartbeat
-from games.queue_heartbeat import start as start_queue_heartbeat
-from games.cron_lock import distributed_cron_lock
+from games.ops.workers.heartbeat import finish as finish_queue_heartbeat
+from games.ops.workers.heartbeat import start as start_queue_heartbeat
+from games.ops.cron.lock import distributed_cron_lock
 from games.daily.difficulty.core import DUE_REFRESH_LIMIT
 from games.daily.difficulty.health import run_daily_difficulty_health_check
 from games.daily.difficulty.refresh import (
