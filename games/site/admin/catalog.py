@@ -5,7 +5,7 @@ from django.db import models
 from django.shortcuts import get_object_or_404
 from django.urls import path
 from django.utils.html import format_html
-from games.google.actions import create_google_doc
+from games.ops.support.google.actions import create_google_doc
 from games.models import (
     Audio,
     CheckerType,

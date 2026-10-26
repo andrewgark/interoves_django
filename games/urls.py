@@ -1,3 +1,5 @@
+"""Telegram OIDC routes for allauth (loaded as ``games.urls``, mounted under ``/accounts/``)."""
+
 from django.urls import path
 
 from .telegram_oidc import telegram_callback, telegram_login
