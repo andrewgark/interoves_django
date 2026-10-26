@@ -91,7 +91,7 @@ ladder_last_page = new_ladder_last_page
 ladder_hub_page = new_ladder_hub_page
 section_last_page = new_section_last_page
 
-from games.views.alphabetty_views import (  # noqa: E402
+from games.site.views.daily.alphabetty import (  # noqa: E402
     alphabetty_guess,
     alphabetty_hint,
     alphabetty_hub_page,
@@ -103,7 +103,7 @@ from games.views.alphabetty_views import (  # noqa: E402
     alphabetty_suggest,
     alphabetty_today_page,
 )
-from games.views.censorly_views import (  # noqa: E402
+from games.site.views.daily.censorly import (  # noqa: E402
     censorly_guess,
     censorly_hint,
     censorly_hub_page,
@@ -131,21 +131,21 @@ def censorly_state_random(request, share_hash):
 def censorly_hint_random(request, share_hash):
     return censorly_hint(request, share_hash=share_hash)
 
-from games.views.offer_alphabetty import (  # noqa: E402
+from games.site.views.offers.alphabetty import (  # noqa: E402
     offer_alphabetty_create as alphabetty_create_submit,
     offer_alphabetty_detail,
     offer_alphabetty_page as alphabetty_create_page,
     offer_alphabetty_reopen,
     offer_alphabetty_send,
 )
-from games.views.offer_ladder import (  # noqa: E402
+from games.site.views.offers.ladder import (  # noqa: E402
     offer_ladder_create,
     offer_ladder_detail,
     offer_ladder_page,
     offer_ladder_reset,
     offer_ladder_send,
 )
-from games.views.offer_salad import (  # noqa: E402
+from games.site.views.offers.salad import (  # noqa: E402
     offer_salad_create,
     offer_salad_convert,
     offer_salad_detail,
@@ -153,12 +153,12 @@ from games.views.offer_salad import (  # noqa: E402
     offer_salad_reset,
     offer_salad_send,
 )
-from games.views.offer_censorly import (  # noqa: E402
+from games.site.views.offers.censorly import (  # noqa: E402
     offer_censorly_create,
     offer_censorly_page,
     offer_censorly_suggest,
 )
-from games.views.daily_timing_views import daily_solve_timing  # noqa: E402
+from games.site.views.daily.timing import daily_solve_timing  # noqa: E402
 from games.tutorials.views import ladder_tutorial  # noqa: E402
 
 game_task_group_progress = new_game_task_group_progress
@@ -188,7 +188,7 @@ create_tribute_ticket_payment = new_create_tribute_ticket_payment
 telegram_link_start = new_telegram_link_start
 ticket_payment_status = new_ticket_payment_status
 
-from games.views.subscription import (  # noqa: E402
+from games.site.views.account.subscription import (  # noqa: E402
     subscription_checkout,
     subscription_page,
     subscription_payment_method_detach,

@@ -48,8 +48,8 @@ from games.tribute_config import (
     merchant_public_copy,
     configured_club_gift,
 )
-from games.views.new_ui import NEW_UI_PROJECT, _project_urls_context
-from games.views.util import has_profile
+from games.site.ui import NEW_UI_PROJECT, _project_urls_context
+from games.site.views.pages.util import has_profile
 
 logger = logging.getLogger('games.views.subscription')
 

@@ -14,7 +14,7 @@ from games.replay_navigation import (
     replay_game_and_placement,
 )
 from games.replay import clear_replay_session, start_or_reset_replay
-from games.views.util import (
+from games.site.views.pages.util import (
     has_profile,
     has_team,
 )

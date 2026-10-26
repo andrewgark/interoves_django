@@ -15,7 +15,7 @@ from games.censorly.wiki import WikiFetchError, suggest_article_titles
 from games.censorly_offer import create_offer, list_user_offers, serialize_offer
 from games.offer_profiles import profile_ready_for_offers, update_offer_profile_names
 from games.telegram_linking import offer_profile_error
-from games.views.util import has_profile, parse_json_object_body
+from games.site.views.pages.util import has_profile, parse_json_object_body
 
 SUGGEST_LIMIT = 60
 SUGGEST_WINDOW_SECONDS = 60

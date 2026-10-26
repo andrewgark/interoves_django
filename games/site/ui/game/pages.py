@@ -40,7 +40,7 @@ from games.models import (
 from games.replay import active_replay
 from games.models import GameResultsSnapshot
 from games.results.share import share_host_from_request
-from games.views.util import (
+from games.site.views.pages.util import (
     effective_play_mode,
     has_profile,
     has_team,

@@ -54,7 +54,7 @@ from games.word_salad import (
     WORD_SALAD_GAME_ID,
     archive_card_meta as word_salad_archive_card_meta,
 )
-from games.views.util import (
+from games.site.views.pages.util import (
     effective_play_mode,
     has_profile,
 )

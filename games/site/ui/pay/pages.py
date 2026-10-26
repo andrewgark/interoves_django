@@ -28,7 +28,7 @@ from games.models import (
     Team,
     TicketRequest,
 )
-from games.views.util import (
+from games.site.views.pages.util import (
     has_profile,
     has_team,
 )

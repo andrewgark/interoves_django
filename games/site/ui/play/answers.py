@@ -24,8 +24,8 @@ from games.raddle import (
     parse_raddle_data,
     raddle_word_solved_list,
 )
-from games.views.game_context import game_from_request_for_task
-from games.views.util import (
+from games.site.views.game.context import game_from_request_for_task
+from games.site.views.pages.util import (
     effective_play_mode,
     get_public_task_or_404,
     has_profile,
@@ -59,7 +59,7 @@ def new_get_answer(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
-    from games.views.game_context import unpublished_scheduled_task_response
+    from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
 
@@ -139,7 +139,7 @@ def new_get_replacements_line_answer(request, task_id, line_index):
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
-    from games.views.game_context import unpublished_scheduled_task_response
+    from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
     from games.club_access import reject_if_club_archive_blocked
@@ -204,7 +204,7 @@ def new_get_raddle_word_answer(request, task_id, word_index):
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
-    from games.views.game_context import unpublished_scheduled_task_response
+    from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
     from games.club_access import reject_if_club_archive_blocked

@@ -27,8 +27,8 @@ from games.models import (
 from games.word_salad import (
     WORD_SALAD_GAME_ID,
 )
-from games.views.game_context import game_from_request_for_task
-from games.views.util import (
+from games.site.views.game.context import game_from_request_for_task
+from games.site.views.pages.util import (
     effective_play_mode,
     get_public_task_or_404,
     has_profile,
@@ -71,7 +71,7 @@ def new_like_dislike(request, task_id):
             game = Game.objects.filter(id=game_hint).first()
         if game is None:
             raise Http404()
-    from games.views.game_context import unpublished_scheduled_task_response
+    from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
 
@@ -132,7 +132,7 @@ def new_bug_report(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         raise Http404()
-    from games.views.game_context import unpublished_scheduled_task_response
+    from games.site.views.game.context import unpublished_scheduled_task_response
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
 

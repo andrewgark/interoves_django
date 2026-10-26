@@ -22,7 +22,7 @@ from games.models import (
     BugReport,
     Profile,
 )
-from games.views.util import (
+from games.site.views.pages.util import (
     has_profile,
 )
 

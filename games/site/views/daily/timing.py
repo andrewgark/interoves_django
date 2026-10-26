@@ -34,7 +34,7 @@ from games.db_retry import is_mysql_retryable_lock_error
 from games.models import Attempt, Game, GameTaskGroup
 from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import context_error_response, validate_gameplay_context
-from games.views.util import effective_play_mode, has_profile, has_team
+from games.site.views.pages.util import effective_play_mode, has_profile, has_team
 
 
 def _json_error(code, http_status=400):
@@ -96,7 +96,7 @@ def _resolve_actor(request, game):
             if game.id == 'censorly':
                 return None, request.user, None
             return None, None, None
-        from games.views.new_ui import _get_play_mode
+        from games.site.ui import _get_play_mode
         play_mode, _ = _get_play_mode(request, game.project_id)
         play_mode = effective_play_mode(play_mode, game, user=request.user)
         # Ordinary game pages (including Desyatka) also solve as a team.
@@ -162,7 +162,7 @@ def _load_daily_target(
     if link is None:
         return None, None, None, None, None, _json_error('missing', 404)
     if not is_numbered and game.id == 'censorly':
-        from games.views.censorly_views import _preview_denied
+        from games.site.views.daily.censorly import _preview_denied
 
         denied = _preview_denied(request, game)
         if denied is not None:

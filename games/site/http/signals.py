@@ -279,7 +279,7 @@ def game_notify_registered_play_access(sender, instance, created, **kwargs):
     old = getattr(instance, '_game_old_snapshot', None)
     if old is None:
         return
-    from games.views.track import (
+    from games.realtime.track_compat import (
         notify_registered_users_game_lifecycle_changed,
         notify_registered_users_play_access_changed,
     )

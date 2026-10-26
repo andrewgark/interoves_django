@@ -38,7 +38,7 @@ from games.daily_archive import (
     prepare_daily_archive,
     refresh_daily_archive_context,
 )
-from games.views.daily_hub import can_access_daily_game
+from games.site.views.daily.hub import can_access_daily_game
 from games.daily.registry import get_daily_game
 from games.daily.page.context import build_daily_lifecycle_context
 from games.daily_section import MOSCOW
@@ -69,12 +69,12 @@ from games.section_hub import (
 )
 from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.task_titles import task_display_name, task_group_page_title
-from games.views.daily_timing_views import daily_timing_page_context
-from games.views.new_ui import (
-    NEW_UI_SECTIONS_PROJECT,
+from games.site.views.daily.timing import daily_timing_page_context
+from games.site.ui import NEW_UI_SECTIONS_PROJECT
+from games.site.ui.game.progress import (
     _archive_nav_target,
-    _neighbors_by_pk,
     _mark_locked_archive_rows,
+    _neighbors_by_pk,
     _task_group_page_nav_context,
 )
 from games.analytics_identity import gameplay_anon_key
@@ -84,7 +84,7 @@ from games.gameplay_context import (
     issue_gameplay_context,
     validate_gameplay_context,
 )
-from games.views.util import has_profile
+from games.site.views.pages.util import has_profile
 from games.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 
 
@@ -317,7 +317,7 @@ def alphabetty_hub_page(request):
         })
     for row in rows:
         row['is_fully_solved'] = row['is_solved']
-    from games.views.new_ui import _add_daily_completion_statuses
+    from games.site.ui.hub.cards import _add_daily_completion_statuses
     _add_daily_completion_statuses(request, game, rows, link_rows)
     _mark_locked_archive_rows(request, game, rows)
     archive_context = refresh_daily_archive_context(

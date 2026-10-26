@@ -7,7 +7,7 @@ from django.core.paginator import Paginator
 # from django_telegram_login.widgets.generator import create_redirect_login_widget
 from games.forms import CreateTeamForm, JoinTeamForm, TicketRequestForm
 from games.models import Game, Project
-from games.views.util import has_profile, has_team
+from games.site.views.pages.util import has_profile, has_team
 # from interoves_django.settings import TELEGRAM_BOT_NAME
 
 

@@ -9,7 +9,7 @@ still be registered here (without duplicating URL *names* from games.site.urls.o
 
 from django.urls import re_path as url
 
-from games.views.registration import register_to_game
+from games.site.views.account.registration import register_to_game
 from games.views.new_ui import legacy_results_redirect, legacy_tournament_results_redirect
 from games.views.views import (
     confirm_user_joining_team,

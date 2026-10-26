@@ -20,7 +20,7 @@ from games.alphabetty_offer import (
 from games.models import AlphabettyOffer
 from games.offer_profiles import update_offer_profile_names
 from games.telegram_linking import offer_profile_error
-from games.views.util import has_profile, parse_json_object_body
+from games.site.views.pages.util import has_profile, parse_json_object_body
 
 
 def _offer_for_user(request, offer_id):

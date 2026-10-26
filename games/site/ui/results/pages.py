@@ -44,7 +44,7 @@ from games.models import (
     Task,
 )
 from games.models import GameResultsSnapshot
-from games.views.util import (
+from games.site.views.pages.util import (
     effective_play_mode,
     has_profile,
     personal_play_mode_locked,

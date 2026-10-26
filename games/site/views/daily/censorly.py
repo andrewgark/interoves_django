@@ -76,19 +76,19 @@ from games.replay import active_replay, replay_for_request, StaleReplayError, _o
 from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.support.access import user_has_support_access
 from games.task_titles import task_display_name, task_group_page_title
-from games.views.daily_timing_views import daily_timing_page_context
-from games.views.daily_hub import can_access_daily_game
-from games.views.new_ui import (
-    NEW_UI_SECTIONS_PROJECT,
+from games.site.views.daily.timing import daily_timing_page_context
+from games.site.views.daily.hub import can_access_daily_game
+from games.site.ui import NEW_UI_SECTIONS_PROJECT
+from games.site.ui.game.progress import (
     _archive_nav_target,
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
-from games.views.game_context import (
+from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.views.util import get_public_task_or_404, has_profile
+from games.site.views.pages.util import get_public_task_or_404, has_profile
 from games.censorly.lexical.core import fold
 from games.telegram.game_urls import task_play_url
 
@@ -521,13 +521,13 @@ def censorly_hub_page(request):
             'row_class': progress.get(number, {}).get('row_class', ''),
             'progress_meta': progress.get(number, {}).get('progress_meta', ''),
         })
-    from games.views.new_ui import _mark_locked_archive_rows
+    from games.site.ui.game.progress import _mark_locked_archive_rows
     _mark_locked_archive_rows(request, game, rows)
     from games.difficulty import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties(schedule_links)
     for row in rows:
         row['difficulty'] = difficulties.get(row.pop('placement_id'))
-    from games.views.new_ui import _add_daily_completion_statuses
+    from games.site.ui.hub.cards import _add_daily_completion_statuses
     _add_daily_completion_statuses(request, game, rows, schedule_links)
     archive_context = refresh_daily_archive_context(
         request, items=archive_items, game_label='Цензурка',

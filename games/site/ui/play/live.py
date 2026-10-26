@@ -22,7 +22,7 @@ from games.models import (
     Task,
 )
 from games.replay import active_replay
-from games.views.util import (
+from games.site.views.pages.util import (
     effective_play_mode,
     has_profile,
     has_team,
@@ -129,7 +129,7 @@ def new_task_group_live_state(request, game_id, project_id=None):
 
     if not request.user.is_staff:
         from games.club_access import reject_if_club_archive_blocked
-        from games.views.game_context import unpublished_scheduled_task_response
+        from games.site.views.game.context import unpublished_scheduled_task_response
 
         for placement in placements:
             if placement.is_deferred:
@@ -147,8 +147,8 @@ def new_task_group_live_state(request, game_id, project_id=None):
             if locked is not None:
                 return locked
 
-    from games.views.render_task import render_new_ui_task_card_html
-    from games.views.track import current_track_versions
+    from games.site.views.game.render import render_new_ui_task_card_html
+    from games.realtime.track_compat import current_track_versions
 
     # Sample revisions before rendering. A mutation racing with this request may
     # then produce a newer queued socket event, but an older projection can never

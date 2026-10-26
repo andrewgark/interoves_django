@@ -1,6 +1,6 @@
 """Shared access policy for public daily game hubs and play previews."""
 
-from games.views.util import has_profile
+from games.site.views.pages.util import has_profile
 
 
 def can_access_daily_game(request, game) -> bool:

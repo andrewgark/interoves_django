@@ -1,10 +1,8 @@
 from django.shortcuts import render, get_object_or_404
 
 from games.daily.page.context import daily_statistics_url
-from games.views.new_ui import (
-    build_task_group_task_context_dicts,
-)
-from games.views.util import has_profile
+from games.site.ui.play.context import build_task_group_task_context_dicts
+from games.site.views.pages.util import has_profile
 from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
 from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import issue_gameplay_context

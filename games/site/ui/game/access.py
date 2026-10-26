@@ -13,8 +13,8 @@ from games.access import game_has_started
 from games.models import (
     Project,
 )
-from games.views.main_page import MainPageView
-from games.views.util import (
+from games.site.views.pages.public.main import MainPageView
+from games.site.views.pages.util import (
     has_profile,
     has_team,
 )

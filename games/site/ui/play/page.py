@@ -54,7 +54,7 @@ from games.word_salad import (
     WORD_SALAD_GAME_ID,
 )
 from games.results.share import share_host_from_request
-from games.views.util import (
+from games.site.views.pages.util import (
     effective_play_mode,
     has_profile,
     has_team,
@@ -583,7 +583,7 @@ def new_task_group_page(
         from games.difficulty import get_game_difficulty
         difficulty = get_game_difficulty(placement)
 
-    from games.views.daily_timing_views import daily_timing_page_context
+    from games.site.views.daily.timing import daily_timing_page_context
 
     return render(request, 'ui/task_group.html', {
         'game': game,

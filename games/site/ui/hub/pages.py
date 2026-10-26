@@ -28,8 +28,8 @@ from games.models import (
 from games.word_salad import (
     WORD_SALAD_GAME_ID,
 )
-from games.views.main_page import MainPageView
-from games.views.util import (
+from games.site.views.pages.public.main import MainPageView
+from games.site.views.pages.util import (
     has_profile,
 )
 

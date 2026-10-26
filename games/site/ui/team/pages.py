@@ -26,7 +26,7 @@ from games.models import (
     TicketRequest,
 )
 from games.models import TICKET_REQUESTS_PAGE_SIZE
-from games.views.util import (
+from games.site.views.pages.util import (
     has_profile,
 )
 

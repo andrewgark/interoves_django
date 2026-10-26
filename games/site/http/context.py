@@ -129,7 +129,7 @@ def ui_section_games(request):
         return {}
     from games.section_hub import daily_nav_items
     from games.section_paths import is_root_section_game
-    from games.views.ui import get_section_games
+    from games.site.views.pages.ui import get_section_games
     tz = 'Europe/Moscow'
     try:
         profile = getattr(request.user, 'profile', None)

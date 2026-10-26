@@ -30,7 +30,7 @@ from games.models import (
     GameTaskGroup,
     HintAttempt,
 )
-from games.views.util import (
+from games.site.views.pages.util import (
     has_profile,
     personal_play_mode_locked,
 )
