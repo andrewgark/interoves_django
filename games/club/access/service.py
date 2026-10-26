@@ -26,7 +26,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
 from games.models import ClubEntitlement, ClubSubscription, ClubSubscriptionEvent, Profile
-from games.tribute_config import club_products_by_id
+from games.club.billing.tribute.config import club_products_by_id
 
 logger = logging.getLogger('games.club_service')
 

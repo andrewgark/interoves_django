@@ -70,7 +70,7 @@ def route_for(key):
         raise ValueError('Unknown ticket payment route: {}'.format(key)) from exc
     if key == TRIBUTE_CARD:
         from dataclasses import replace
-        from games.tribute_config import configured_product, merchant, tribute_checkout_enabled
+        from games.club.billing.tribute.config import configured_product, merchant, tribute_checkout_enabled
 
         product = configured_product('regular')
         route = replace(
@@ -85,7 +85,7 @@ def route_for(key):
 def unit_price_for(team, route_key):
     """Return the independent unit price for a route without converting currencies."""
     if route_key == TRIBUTE_CARD:
-        from games.tribute_config import configured_product
+        from games.club.billing.tribute.config import configured_product
 
         kind = 'discount' if team is not None and int(getattr(team, 'ticket_price', 2000)) == 500 else 'regular'
         product = configured_product(kind)

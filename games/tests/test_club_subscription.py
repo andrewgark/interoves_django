@@ -36,8 +36,8 @@ from games.models import (
 )
 from games.club.link import consume_link_token, create_link_token, user_has_telegram_link
 from games.telegram.notify import notify_admin_club_subscription
-from games.tribute_config import club_checkout_enabled, club_product_configuration
-from games.tribute_util import compute_webhook_signature
+from games.club.billing.tribute.config import club_checkout_enabled, club_product_configuration
+from games.club.billing.tribute.util import compute_webhook_signature
 
 
 CLUB_SETTINGS = {

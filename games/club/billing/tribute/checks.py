@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.core.checks import Error, Warning, register
 
-from games.tribute_config import (
+from games.club.billing.tribute.config import (
     club_configuration_errors,
     club_gift_configuration_errors,
     club_product_configuration,

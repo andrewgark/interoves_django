@@ -40,7 +40,7 @@ from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMe
 from games.club.billing.gifts.offers import claim_gift, decrypt_gift_code, gift_duration_label, purchaser_gifts
 from games.club.billing.gifts.payments import start_tribute_gift, start_yookassa_gift, yookassa_gift_amount
 from games.club.link import user_has_telegram_link
-from games.tribute_config import (
+from games.club.billing.tribute.config import (
     club_archive_gating_enabled,
     club_checkout_enabled,
     club_management_url,

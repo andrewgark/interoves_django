@@ -77,7 +77,7 @@ def new_pay_page(request):
     recent_requests = TicketRequest.recent_for_team(team) if team else []
     ticket_price_int = ticket_unit_price_for(team, RUSSIAN_CARD)
     ticket_price_amd = ticket_unit_price_for(team, INTERNATIONAL_CARD)
-    from games.tribute_config import (
+    from games.club.billing.tribute.config import (
         configured_product,
         merchant_public_copy,
         tribute_checkout_enabled,

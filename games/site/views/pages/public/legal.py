@@ -42,7 +42,7 @@ def legal_page(request, document):
         'contacts': ('new/legal/contacts.html', 'Контакты'),
     }
     template_name, page_title = templates[document]
-    from games.tribute_config import merchant
+    from games.club.billing.tribute.config import merchant
 
     return render(request, template_name, {
         **LEGAL_CONTEXT,

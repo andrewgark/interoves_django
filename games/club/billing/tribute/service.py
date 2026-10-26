@@ -20,7 +20,7 @@ from games.models import (
     TributePurchase,
 )
 from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
-from games.tribute_config import (
+from games.club.billing.tribute.config import (
     TributeProduct,
     configured_product,
     merchant,

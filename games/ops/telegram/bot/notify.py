@@ -367,7 +367,7 @@ def notify_admin_club_subscription(
             title = '🔴 <b>Отмена клубной подписки</b>'
         else:
             title = '🔄 <b>Продление клубной подписки</b>'
-        from games.tribute_config import ClubTributeProduct
+        from games.club.billing.tribute.config import ClubTributeProduct
 
         lines = [
             title,

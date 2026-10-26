@@ -30,7 +30,7 @@ from games.next_game_vote import (
     process_donation_event,
     scoreboard,
 )
-from games.tribute_util import compute_webhook_signature
+from games.club.billing.tribute.util import compute_webhook_signature
 
 
 MOSCOW = ZoneInfo('Europe/Moscow')
@@ -455,7 +455,7 @@ class NextGameVoteDefaultDonationUrlTests(SimpleTestCase):
     def test_telegram_mini_app_donation_urls(self):
         from django.conf import settings
 
-        from games.tribute_config import next_game_vote_configuration_errors
+        from games.club.billing.tribute.config import next_game_vote_configuration_errors
 
         self.assertEqual(
             settings.TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL,

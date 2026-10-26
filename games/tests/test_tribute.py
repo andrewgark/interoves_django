@@ -23,7 +23,7 @@ from games.models import (
 )
 from games.club.link import TelegramLinkError, consume_link_token, create_link_token
 from games.club.billing.tribute.service import manually_issue_purchase
-from games.tribute_util import compute_webhook_signature, verify_webhook_signature
+from games.club.billing.tribute.util import compute_webhook_signature, verify_webhook_signature
 
 
 TRIBUTE_SETTINGS = {

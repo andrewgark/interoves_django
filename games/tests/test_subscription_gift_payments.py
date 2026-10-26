@@ -19,8 +19,8 @@ from games.club.billing.gifts.payments import (
     reconcile_yookassa_gift_payments,
     start_yookassa_gift,
 )
-from games.tribute_util import compute_webhook_signature
-from games.tribute_config import club_gift_configuration_errors
+from games.club.billing.tribute.util import compute_webhook_signature
+from games.club.billing.tribute.config import club_gift_configuration_errors
 
 
 GIFT_SETTINGS = {

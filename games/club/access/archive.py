@@ -9,7 +9,7 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from games.daily.page.section import current_number_for
-from games.tribute_config import club_archive_gating_enabled
+from games.club.billing.tribute.config import club_archive_gating_enabled
 from games.daily.page.section import WORD_SALAD_GAME_ID
 
 CLUB_ARCHIVE_GAME_IDS = frozenset({

@@ -264,6 +264,7 @@ If the resolved version is empty, the client check is skipped.
 | Subscription gifts | `games.club.billing.gifts.{offers,payments}` | `games.subscription_gifts`, `subscription_gift_payments` |
 | Donations / crypto / YooKassa util | `games.club.billing.{donations,crypto,yookassa.util}` | `donation_service`, `nowpayments_util`, `yookassa_util` |
 | Tribute checkout (prod entry) | `games.club.billing.tribute.service` | `games.tribute_service` |
+| Tribute config / webhook HMAC | `games.club.billing.tribute.{config,util}` | `games.tribute_config`, `tribute_util` |
 | Results share formatting | `games.results.share` | `games.share_result` |
 | SQL results aggregate | `games.results.sql` | `games.results_sql_aggregate` |
 | Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `games.wall`, `word_salad`, `replacements_*` |
