@@ -1,0 +1,11 @@
+# Baseline for gradual cleanup (see docs/code-health-roadmap.md §2).
+target-version = "py312"
+line-length = 120
+src = ["games", "interoves_django", "microsites", "scripts"]
+
+[lint]
+select = ["E", "F", "I"]
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+"games/migrations/*.py" = ["E501", "I"]

@@ -1,15 +1,14 @@
 """Navigation and viewer resolution for replay endpoints."""
 
-from django.shortcuts import get_object_or_404
 from django.http import Http404
+from django.shortcuts import get_object_or_404
 
-from games.ops.analytics.identity import gameplay_anon_key
+from games.identity import has_profile, has_team
 from games.models import Game, GameTaskGroup, Project
-from games.site.session.play_mode import get_play_mode
+from games.ops.analytics.identity import gameplay_anon_key
 from games.sections.project_navigation import project_base
+from games.site.session.play_mode import effective_play_mode, get_play_mode
 from games.tasks.navigation import play_url_for_task_group
-from games.identity.profile import has_profile, has_team
-from games.site.session.play_mode import effective_play_mode
 
 
 def replay_actor_for_request(

@@ -4,6 +4,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 bash ./scripts/lint_new_ui_responsive.sh
 bash ./scripts/lint_new_ui_tooltips.sh
+bash ./scripts/lint_python.sh
 PYTHON="../venv/interoves_django/bin/python3"
 # Inline <script> in task_group.html is not covered by any Django test.
 if command -v node >/dev/null 2>&1; then

@@ -38,7 +38,7 @@ the same queues.
   `club_subscription_state`, `club_renewal_failed`, and
   `censorly_word_report` (the worker computes the Censorly pair diagnostic,
   stores it on the report and then notifies; see `games/puzzles/censorly/article/reports.py`);
-- `games/models.py` — durable merge state in `AccountMergeJob`,
+- `games.models` — durable merge state in `AccountMergeJob`,
   `AnonymousMergeJob`, and `AnonymousMergeReconcileItem`.
 
 ECS worker deployment is plan-only unless `--apply` is passed. An apply must

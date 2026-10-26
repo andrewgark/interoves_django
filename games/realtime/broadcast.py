@@ -9,7 +9,6 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from games.site.http.auth_observability import log_realtime_sync
 from games.models import Attempt, GameTaskGroup
 from games.realtime.counter import envelope_track_message, msgpack_safe_keys, next_track_seq
 from games.realtime.groups import (
@@ -20,6 +19,7 @@ from games.realtime.groups import (
     user_track_namespace,
 )
 from games.results.share import DEFAULT_SHARE_HOST
+from games.site.http.auth_observability import log_realtime_sync
 from games.site.views.game.render import update_task_html
 
 logger = logging.getLogger('games.views.track')
@@ -244,9 +244,9 @@ def live_page_actor(user, session, game):
 
 def live_page_actor_for_mode(user, session, game, requested_mode=None):
     """Resolve the actor and mode represented by one page/socket."""
-    from games.site.ui import _get_play_mode
-    from games.identity.profile import has_profile, has_team
+    from games.identity import has_profile, has_team
     from games.site.session.play_mode import effective_play_mode
+    from games.site.ui import _get_play_mode
 
     class _SessionRequest:
         pass

@@ -3,15 +3,12 @@ from datetime import timedelta
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from django.contrib.auth.models import AnonymousUser, User
 from django.contrib.admin import site
+from django.contrib.auth.models import AnonymousUser, User
 from django.test import RequestFactory, SimpleTestCase, TestCase
 from django.utils import timezone
 
-from games.ops.analytics.identity import attach_anon_cookie
-
-from games.puzzles.core.check_runtime import CheckerFactory
-from games.site.admin import TaskAdmin, WordSaladTaskForm
+from games.club.offers.salad import reset_all_salad_progress
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -22,23 +19,24 @@ from games.models import (
     HTMLPage,
     PlayerCompletedGame,
     PlayerStartedGame,
-    ReplaySlot,
     Project,
+    ReplaySlot,
     Task,
     TaskGroup,
     Team,
 )
-from games.site.views.game.attempt import check_attempt
-from games.site.views.game.hint import process_send_hint_attempt
-from games.site.ui.play.context import build_task_group_task_context_dicts
-from games.site.ui.play.page import new_task_group_page
-from games.site.views.game.render import render_new_ui_task_card_html
+from games.ops.analytics.identity import attach_anon_cookie
 from games.ops.workers.jobs.recheck import recheck_word_salad_task
+from games.puzzles.core.check_runtime import CheckerFactory
 from games.puzzles.salad.rules import (
+    EXTRA_FOUND_COMMENT,
     OVERFLOW_HINT_SQUARE,
-    archive_card_meta,
+    RARE_FOUND_COMMENT,
+    RARE_FOUND_TOOLTIP,
     add_longest_missing_words,
+    archive_card_meta,
     build_ui_context,
+    extra_found_word,
     hint_numbers_from_attempts,
     length_label,
     mask_for_word,
@@ -48,13 +46,14 @@ from games.puzzles.salad.rules import (
     score_for_state,
     serialize_task_data,
     theme_from_text,
-    extra_found_word,
-    EXTRA_FOUND_COMMENT,
-    RARE_FOUND_COMMENT,
-    RARE_FOUND_TOOLTIP,
     validate_task_data,
 )
-from games.club.offers.salad import reset_all_salad_progress
+from games.site.admin import TaskAdmin, WordSaladTaskForm
+from games.site.ui.play.page import new_task_group_page
+from games.site.views.game.attempt import check_attempt
+from games.site.views.game.hint import process_send_hint_attempt
+from games.site.views.game.render import render_new_ui_task_card_html
+from games.tasks.task_group_context import build_task_group_task_context_dicts
 
 
 def _setup_db():

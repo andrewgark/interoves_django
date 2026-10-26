@@ -10,7 +10,10 @@
 ```bash
 ../venv/interoves_django/bin/python manage.py check
 ./run_tests.sh
+./scripts/lint_python.sh          # ruff on *.py changed vs origin/master
 ```
+
+Конфиг Ruff: [`ruff.toml`](../ruff.toml) (см. [`docs/code-health-roadmap.md`](code-health-roadmap.md) §2).
 
 Для узкого изменения предпочтительнее сначала запускать тесты соответствующего
 домена, например:
@@ -20,8 +23,9 @@
 ```
 
 `run_tests.sh` — обязательная точка входа для локальных Django-тестов: он
-использует persistent SQLite test DB и `--keepdb`, поэтому не пересоздаёт
-тестовую схему из сотен миграций при каждом запуске. Для параллельного запуска
+запускает responsive/tooltip lint, [`scripts/lint_python.sh`](../scripts/lint_python.sh)
+(ruff по изменённым `*.py` vs `origin/master`), использует persistent SQLite test DB
+и `--keepdb`, поэтому не пересоздаёт тестовую схему из сотен миграций при каждом запуске. Для параллельного запуска
 задай отдельный `INTEROVES_TEST_DB_PATH`.
 
 Специализированные проверки из `agents/AGENTS.md` обязательны, если изменение

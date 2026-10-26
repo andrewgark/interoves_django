@@ -3,53 +3,48 @@ import logging
 
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.utils.safestring import mark_safe
 
-from games.daily.timing.transitions import (
-    next_daily_content_transition_for_game,
-)
-
-from django.utils import timezone
-
-
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
+from games.daily.catalog.ladder import (
+    LADDER_GAME_ID,
+)
+from games.daily.ladder.tutorial.ladder import (
+    ladder_tutorial_url,
+    with_ladder_tutorial_link,
+)
 from games.daily.page.section import (
+    MOSCOW,
     current_number_for,
     is_scheduled_game,
     publish_at_for,
     scheduled_number_is_public,
-    MOSCOW,
 )
-from games.daily.catalog.ladder import (
-    LADDER_GAME_ID,
+from games.daily.timing.transitions import (
+    next_daily_content_transition_for_game,
 )
-from games.sections.hub import (
-    SECTION_HUB_META,
-    create_game_link_context,
-)
+from games.identity import has_profile, has_team
 from games.models import (
     Attempt,
     AudioManager,
     Game,
+    GameResultsSnapshot,
     GameTaskGroup,
     ImageManager,
     PlayerCompletedGame,
     Project,
 )
-from games.site.session.replay import active_replay
-from games.models import GameResultsSnapshot
 from games.results.share import share_host_from_request
-from games.identity import has_profile, has_team
-from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
 from games.results.snapshots.snapshot import (
     snapshot_to_results_context,
 )
-from games.daily.ladder.tutorial.ladder import (
-    with_ladder_tutorial_link,
-    ladder_tutorial_url,
+from games.sections.hub import (
+    SECTION_HUB_META,
+    create_game_link_context,
 )
-
-
+from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
+from games.site.session.replay import active_replay
 from games.site.ui import (
     NEW_UI_PROJECT,
     NEW_UI_SECTIONS_PROJECT,
@@ -258,7 +253,7 @@ def project_tournament_results_page(request, project_id, game_id):
 
 
 def project_task_group_page(request, project_id, game_id, task_group_number):
-    from games.site.ui.play.context import build_task_group_task_context_dicts
+    from games.tasks.task_group_context import build_task_group_task_context_dicts
     project_id = (project_id or '').strip()
     project = get_object_or_404(Project, id=project_id)
     base = _project_base(project.id)

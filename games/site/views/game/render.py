@@ -1,12 +1,12 @@
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import get_object_or_404, render
 
 from games.daily.page.context import daily_statistics_url
-from games.site.ui.play.context import build_task_group_task_context_dicts
 from games.identity import has_profile
-from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
+from games.models import Attempt, AudioManager, GameTaskGroup, ImageManager
 from games.ops.analytics.identity import gameplay_anon_key
-from games.site.session.gameplay_context import issue_gameplay_context
 from games.puzzles.replacements.forms import render_html_forms_task
+from games.site.session.gameplay_context import issue_gameplay_context
+from games.tasks.task_group_context import build_task_group_task_context_dicts
 
 
 def _task_card_public_identity(game, task_group, slot):
@@ -20,10 +20,12 @@ def _task_card_public_identity(game, task_group, slot):
         return slot.number, slot.name
 
     if game.id == 'ladder':
-        from games.models import LadderOffer
         from games.daily.ladder.tutorial.ladder import (
-            LADDER_TUTORIAL_SEGMENT, LADDER_TUTORIAL_TITLE, is_ladder_tutorial_task_group,
+            LADDER_TUTORIAL_SEGMENT,
+            LADDER_TUTORIAL_TITLE,
+            is_ladder_tutorial_task_group,
         )
+        from games.models import LadderOffer
 
         if is_ladder_tutorial_task_group(task_group):
             return LADDER_TUTORIAL_SEGMENT, LADDER_TUTORIAL_TITLE
@@ -41,7 +43,7 @@ def _task_card_public_identity(game, task_group, slot):
 
         offer = AlphabettyOffer.objects.filter(task_group_id=task_group.pk).first()
         if offer is not None:
-            return offer.share_hash, 'Алфавитка #{}'.format(offer.share_hash)
+            return offer.share_hash, f'Алфавитка #{offer.share_hash}'
 
     return 0, ''
 

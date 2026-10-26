@@ -32,6 +32,8 @@
 
 ### 2. Безопасный статический baseline
 
+Статус: **начато** — [`ruff.toml`](../ruff.toml) (E/F/I; pyupgrade — отдельно), [`scripts/lint_python.sh`](../scripts/lint_python.sh) (changed files vs `origin/master`, в [`run_tests.sh`](../run_tests.sh)).
+
 - выбрать один Python-инструмент для импортов, очевидных ошибок и базового
   style-check;
 - сначала только измерить существующие нарушения;

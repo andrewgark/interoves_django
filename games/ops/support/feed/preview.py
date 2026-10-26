@@ -6,19 +6,18 @@ from django.http import Http404
 from django.urls import reverse
 from django.utils import timezone
 
-from games.models import Attempt, Game, GameTaskGroup, Team
-from games.daily.page.section import publish_at_for, uses_daily_play_layout, visible_links
-from games.tasks.titles import task_group_page_title
 from games.daily.catalog.ladder import LADDER_GAME_ID, is_ladder_number_published
+from games.daily.page.section import publish_at_for, uses_daily_play_layout, visible_links
+from games.models import Attempt, Game, GameTaskGroup, Team
 from games.site.ui import (
-    NEW_UI_PROJECT,
     NEW_UI_SECTIONS_PROJECT,
     PALINDROMES_GAME_ID,
     SECTION_RULES_GAME_IDS,
     _section_tutorial_html_for_game,
 )
 from games.site.ui.game.progress import _game_task_group_links, _neighbors_by_pk
-from games.site.ui.play.context import build_task_group_task_context_dicts
+from games.tasks.task_group_context import build_task_group_task_context_dicts
+from games.tasks.titles import task_group_page_title
 
 
 @dataclass(frozen=True)

@@ -1,7 +1,7 @@
 """Session-backed play mode selection and tournament play-mode policy."""
 
 from games.club.access.game import game_has_ended, game_is_going_now
-from games.identity.profile import has_profile, has_team
+from games.identity import has_profile, has_team
 
 # Личный режим отключаем только в турнирных играх проекта «Десяточки».
 # У Game.is_tournament по умолчанию True — если ориентироваться только на него,

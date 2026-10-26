@@ -1,36 +1,50 @@
 """Main UI: hub, games folder, profile, team."""
 import logging
 
-from django.http import Http404
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
-from games.daily.timing.transitions import (
-    next_daily_content_transition_for_game,
+from games.daily.catalog.ladder import (
+    LADDER_GAME_ID,
 )
-
-from django.utils import timezone
-
-
+from games.daily.catalog.week_task import WEEK_TASK_GAME_ID
+from games.daily.ladder.tutorial.ladder import (
+    LADDER_TUTORIAL_TITLE,
+    is_new_ladder_player,
+    ladder_tutorial_payload,
+    ladder_tutorial_url,
+    reset_ladder_tutorial_progress,
+    with_ladder_tutorial_link,
+)
+from games.daily.page.context import (
+    build_daily_lifecycle_context,
+)
 from games.daily.page.section import (
+    MOSCOW,
     WORD_SALAD_GAME_ID,
     is_scheduled_game,
     publish_at_for,
     scheduled_number_is_public,
     uses_daily_play_layout,
     visible_links,
-    MOSCOW,
 )
 from games.daily.page.share.authorship import is_author_auto_completion_active
 from games.daily.registry import get_daily_game
-from games.daily.page.context import (
-    build_daily_lifecycle_context,
+from games.daily.timing.transitions import (
+    next_daily_content_transition_for_game,
 )
-from games.daily.catalog.ladder import (
-    LADDER_GAME_ID,
+from games.identity import has_profile, has_team
+from games.models import (
+    Attempt,
+    AudioManager,
+    Game,
+    GameTaskGroup,
+    ImageManager,
+    PlayerCompletedGame,
 )
-from games.daily.catalog.week_task import WEEK_TASK_GAME_ID
+from games.results.share import share_host_from_request
 from games.sections.hub import (
     SECTION_HUB_META,
     get_source_desyatka_context,
@@ -40,29 +54,8 @@ from games.sections.hub import (
 )
 from games.sections.placement_share import may_open_unpublished_number
 from games.sections.week_task_pool import source_play_path_from_tags, source_summary_from_tags
-from games.tasks.titles import task_group_page_title
-from games.models import (
-    Attempt,
-    AudioManager,
-    Game,
-    GameTaskGroup,
-    ImageManager,
-    PlayerCompletedGame,
-)
-from games.site.session.replay import active_replay
-from games.results.share import share_host_from_request
-from games.identity import has_profile, has_team
 from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
-from games.daily.ladder.tutorial.ladder import (
-    LADDER_TUTORIAL_TITLE,
-    is_new_ladder_player,
-    ladder_tutorial_payload,
-    with_ladder_tutorial_link,
-    ladder_tutorial_url,
-    reset_ladder_tutorial_progress,
-)
-
-
+from games.site.session.replay import active_replay
 from games.site.ui import (
     NEW_UI_PROJECT,
     NEW_UI_SECTIONS_PROJECT,
@@ -88,8 +81,9 @@ from games.site.ui.game.progress import (
     _task_group_results_url,
 )
 from games.site.ui.hub.cards import _sections_hub_url
-from games.site.ui.play.context import build_task_group_task_context_dicts
 from games.site.ui.results.compute import _public_exclusion_notice
+from games.tasks.task_group_context import build_task_group_task_context_dicts
+from games.tasks.titles import task_group_page_title
 
 logger = logging.getLogger('games.views.new_ui')
 
@@ -100,11 +94,11 @@ def daily_statistics(request, game_id, number):
     if definition is None or not definition.capabilities.statistics:
         raise Http404()
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
-    from games.sections.placement_share import is_share_hash_segment
     from games.daily.page.placement import (
         is_random_daily_placement,
         resolve_accessible_daily_placement,
     )
+    from games.sections.placement_share import is_share_hash_segment
 
     segment_is_share_hash = is_share_hash_segment(str(number))
     placement = resolve_accessible_daily_placement(game, number, user=request.user)
@@ -253,10 +247,10 @@ def new_task_group_page(
             preview_team = request.user.profile.team_on
         if not game.has_access('see_game_preview', team=preview_team):
             raise Http404()
+        from games.daily.page.placement import resolve_accessible_daily_placement
         from games.sections.placement_share import (
             is_share_hash_segment,
         )
-        from games.daily.page.placement import resolve_accessible_daily_placement
         share_placement = None
         segment = str(task_group_number)
         if ladder_tutorial_task is not None:
@@ -275,6 +269,8 @@ def new_task_group_page(
         elif game_id == WORD_SALAD_GAME_ID and is_share_hash_segment(segment):
             from games.club.offers.salad import (
                 can_access_offer_hash as can_access_salad_offer_hash,
+            )
+            from games.club.offers.salad import (
                 get_offer_by_share_hash as get_salad_offer_by_share_hash,
             )
             salad_offer = get_salad_offer_by_share_hash(segment)

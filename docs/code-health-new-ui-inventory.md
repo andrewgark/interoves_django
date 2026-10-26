@@ -18,7 +18,7 @@
 
 ## Следующий безопасный срез (roadmap §3)
 
-1. Выбрать один подпакет (например `play/context.py` или `hub/pages.py`).
+1. Следующий крупный срез — [`hub/cards.py`](../games/site/ui/hub/cards.py). **Oct 26:** task-group → [`games/tasks/task_group_context.py`](../games/tasks/task_group_context.py); hub — [`links.py`](../games/site/ui/hub/links.py), [`actor.py`](../games/site/ui/hub/actor.py).
 2. Зафиксировать URL names и тесты, которые вызывают его handlers.
 3. Перенести только helpers без смены поведения; не менять URL names.
 4. Не смешивать с payments, merge, migrations или mass-format.

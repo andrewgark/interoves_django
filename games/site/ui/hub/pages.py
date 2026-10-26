@@ -1,45 +1,21 @@
 """Main UI: hub, games folder, profile, team."""
 import logging
 
-from django.http import Http404
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from games.daily.timing.transitions import (
-    next_daily_content_transition_for_games,
-)
-
-
-from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
-from games.daily.catalog.ladder import (
-    LADDER_GAME_ID,
-    get_ladder_hub_context,
-)
 from games.club.vote import PHASE_CLOSED, campaign_phase
-from games.sections.hub import (
-    get_desyatochki_hub_context,
-)
-from games.models import (
-    Game,
-    Project,
-)
+from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
+from games.daily.catalog.ladder import LADDER_GAME_ID, get_ladder_hub_context
 from games.daily.page.section import WORD_SALAD_GAME_ID
-from games.site.views.pages.public.main import MainPageView
-from games.identity import has_profile
-
-
-from games.site.ui import (
-    NEW_UI_PROJECT,
-    NEW_UI_SECTIONS_PROJECT,
-    _project_base,
-    _project_urls_context,
-)
-from games.site.ui.game.access import (
-    _games_list_card_context,
-    _new_folder_games,
-)
+from games.daily.timing.transitions import next_daily_content_transition_for_games
+from games.models import Game, Project
+from games.sections.hub import get_desyatochki_hub_context
+from games.site.ui import NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT, _project_base, _project_urls_context
+from games.site.ui.game.access import _games_list_card_context, _new_folder_games
 from games.site.ui.game.pages import _render_section_game_page
 from games.site.ui.game.progress import _play_url_for_task_group
+from games.site.ui.hub.actor import team_for_user
 from games.site.ui.hub.cards import (
     _build_hub_section_cards,
     _folder_by_slug,
@@ -51,23 +27,28 @@ from games.site.ui.hub.cards import (
     _onboarding_starter_salad_url,
     get_section_games,
 )
+from games.site.ui.hub.links import (
+    MAIN_COMMUNITY_LINKS,
+    MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
+    MAIN_INTERESTING_LINKS,
+    project_desyatochki_rules_chat_url,
+    project_hub_community_links,
+)
+from games.site.views.pages.public.main import MainPageView
 
 logger = logging.getLogger('games.views.new_ui')
+
 
 def new_hub(request):
     project = Project.objects.filter(id=NEW_UI_PROJECT).first()
     section_games = get_section_games(request)
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
-    hub_groups = _build_hub_section_cards(request, team=team)
+    hub_groups = _build_hub_section_cards(request, team=team_for_user(request.user))
     live_next_transition_at = next_daily_content_transition_for_games(
         card.get('game') for card in hub_groups['daily_hub_cards']
     )
     view = MainPageView()
     view.project_name = NEW_UI_PROJECT
     desyatochki_games = view.get_games_list(request)
-    # Карточку десяточек показываем только если есть хотя бы одна видимая игра.
     desyatochki_card = get_desyatochki_hub_context(desyatochki_games) if desyatochki_games else None
     return render(request, 'ui/hub.html', {
         'project': project,
@@ -75,43 +56,17 @@ def new_hub(request):
         **hub_groups,
         'desyatochki_card': desyatochki_card,
         'show_first_visit_onboarding': _is_first_time_player(request),
-        'onboarding_salad_url': _onboarding_starter_salad_url(
-            hub_groups['daily_hub_cards']
-        ),
+        'onboarding_salad_url': _onboarding_starter_salad_url(hub_groups['daily_hub_cards']),
         **_games_list_card_context(request),
         'page_title': 'Interoves',
         'show_sections_nav': True,
         'live_next_transition_at': live_next_transition_at,
-        # Кнопка «Купить билеты» — только на главной (не в /glowbyte/ и др.).
         'show_desyatochki_pay_cta': True,
-        # Баннер «Для компаний» — только на главной странице.
         'show_order_banner': True,
-        # Чат участников в блоке десяточек — только на главной.
-        'desyatochki_participants_chat_url': 'https://t.me/+rhsbkEuU4-ExOWEy',
-        'desyatochki_rules_participants_chat_url': 'https://t.me/+rhsbkEuU4-ExOWEy',
-        'community_links': [
-            {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
-            {'kind': 'twitter', 'title': 'X (Twitter)', 'href': 'https://x.com/interoves'},
-            {'kind': 'instagram', 'title': 'Instagram', 'href': 'https://www.instagram.com/interoveslocumpraesta/'},
-            {'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/+rhsbkEuU4-ExOWEy'},
-            {'kind': 'telegram', 'title': 'Чат решающих PuzzleHunts', 'href': 'https://t.me/+GPR22w8MdLEyNzIy'},
-            {'kind': 'telegram', 'title': 'Разработчик: Андрей', 'href': 'https://t.me/andrewgark'},
-        ],
-        'interesting_links': [
-            {
-                'kind': 'nutrimatic',
-                'title': 'Nutrimatic',
-                'note': 'поиск слов по маске',
-                'href': '/nutrimatic-ru/',
-            },
-            {
-                'kind': 'eurovision',
-                'title': 'Буклеты к Евровидению',
-                'note': 'красивые',
-                'href': '/eurovision_booklet/',
-            },
-            {'kind': 'vpn', 'title': 'VPN от наших друзей', 'href': '/vpn/'},
-        ],
+        'desyatochki_participants_chat_url': MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
+        'desyatochki_rules_participants_chat_url': MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
+        'community_links': MAIN_COMMUNITY_LINKS,
+        'interesting_links': MAIN_INTERESTING_LINKS,
         'show_donate_cta': True,
         'show_next_game_vote_cta': campaign_phase() != PHASE_CLOSED,
         **_project_urls_context(NEW_UI_PROJECT),
@@ -121,17 +76,14 @@ def new_hub(request):
 def new_start(request):
     """Focused landing page for first-time and advertising traffic."""
     project = Project.objects.filter(id=NEW_UI_PROJECT).first()
-    team = request.user.profile.team_on if has_profile(request.user) else None
-    hub_groups = _build_hub_section_cards(request, team=team)
+    hub_groups = _build_hub_section_cards(request, team=team_for_user(request.user))
     onboarding_cards = _onboarding_game_cards(hub_groups['daily_hub_cards'])
     salad_card = next(
         (card for card in onboarding_cards if card['id'] == WORD_SALAD_GAME_ID),
         None,
     )
     if salad_card:
-        salad_card['play_url'] = _onboarding_starter_salad_url(
-            hub_groups['daily_hub_cards']
-        )
+        salad_card['play_url'] = _onboarding_starter_salad_url(hub_groups['daily_hub_cards'])
 
     return render(request, 'new/start.html', {
         'project': project,
@@ -156,16 +108,13 @@ def new_folder(request, slug):
 
 
 def project_hub(request, project_id):
-    """
-    Entry point for project-scoped UI, e.g. /glowbyte/
-    """
+    """Entry point for project-scoped UI, e.g. /glowbyte/"""
     project_id = (project_id or '').strip()
     project = get_object_or_404(Project, id=project_id)
     base = _project_base(project.id)
     view = MainPageView()
     view.project_name = project.id
     project_games = view.get_games_list(request)
-    # Карточку десяточек показываем только если есть хотя бы одна видимая игра.
     desyatochki_card = get_desyatochki_hub_context(project_games, base=base) if project_games else None
     return render(request, 'ui/hub.html', {
         'project': project,
@@ -174,27 +123,16 @@ def project_hub(request, project_id):
         'page_title': project.id,
         'show_sections_nav': False,
         **_games_list_card_context(request),
-        'community_links': (
-            [{'kind': 'telegram', 'title': 'Чат участников', 'href': 'https://t.me/joinchat/RUpU9KKhgLI4NDQy'}]
-            if project.id == 'glowbyte'
-            else []
-        ),
-        'desyatochki_rules_participants_chat_url': (
-            'https://t.me/joinchat/RUpU9KKhgLI4NDQy'
-            if project.id == 'glowbyte'
-            else 'https://t.me/+rhsbkEuU4-ExOWEy'
-        ),
+        'community_links': project_hub_community_links(project.id),
+        'desyatochki_rules_participants_chat_url': project_desyatochki_rules_chat_url(project.id),
         **_project_urls_context(project.id),
     })
 
 
 def project_folder_games(request, project_id):
-    """
-    Games list inside a project scope, e.g. /glowbyte/games/ (same UI as /games/).
-    """
+    """Games list inside a project scope, e.g. /glowbyte/games/ (same UI as /games/)."""
     project_id = (project_id or '').strip()
     project = get_object_or_404(Project, id=project_id)
-    base = _project_base(project.id)
 
     view = MainPageView()
     view.project_name = project.id
@@ -204,6 +142,7 @@ def project_folder_games(request, project_id):
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         from django.core.paginator import Paginator
+
         page = int(request.GET.get('page', 1))
         paginator = Paginator(all_games, view.games_per_page)
         games_page = paginator.get_page(page)
@@ -228,7 +167,6 @@ def project_folder_games(request, project_id):
         'games_per_page': view.games_per_page,
         'page_title': 'Десяточки',
         **card_ctx,
-        # In other projects we do not show main "sections" in the top nav.
         'section_games': [],
         'show_sections_nav': False,
         **_project_urls_context(project.id),
@@ -240,9 +178,7 @@ def new_ladder_today_page(request):
     ladder_game = _get_ladder_game()
     if not ladder_game:
         raise Http404()
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
+    team = team_for_user(request.user)
     if not ladder_game.has_access('see_game_preview', team=team):
         raise Http404()
     ctx = get_ladder_hub_context(
@@ -260,9 +196,7 @@ def new_ladder_last_page(request):
     ladder_game = _get_ladder_game()
     if not ladder_game:
         raise Http404()
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
+    team = team_for_user(request.user)
     if not ladder_game.has_access('see_game_preview', team=team):
         raise Http404()
     play_url = _ladder_latest_play_url(ladder_game)
@@ -281,13 +215,12 @@ def new_section_last_page(request, game_id):
     game = Game.objects.filter(project=project, id=game_id).first()
     if not game:
         raise Http404()
-    team = None
-    if has_profile(request.user):
-        team = request.user.profile.team_on
+    team = team_for_user(request.user)
     if not game.has_access('see_game_preview', team=team):
         raise Http404()
     from games.sections.hub import _newest_task_group_links
     from games.sections.paths import section_hub_path, section_play_path
+
     links = list(_newest_task_group_links(game))
     if not links:
         return redirect(section_hub_path(game.id))
