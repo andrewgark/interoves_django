@@ -1,0 +1,423 @@
+"""PNG teaser of today's raddle ladder for Telegram — prefers a real site screenshot."""
+
+from __future__ import annotations
+
+import glob
+import io
+import logging
+import os
+from functools import lru_cache
+
+from django.conf import settings
+from PIL import Image, ImageDraw, ImageFont
+
+from games.raddle import (
+    build_raddle_ui_context,
+    default_raddle_state,
+    length_mask_display,
+    parse_raddle_data,
+)
+from games.telegram.game_urls import site_base_url
+
+logger = logging.getLogger('application')
+
+# Geometric square works in DejaVu; emoji ◼️ often falls back to tofu.
+_MASK_CHAR = '■'
+
+_FONT_DIRS = (
+    '/usr/share/fonts/truetype/dejavu',
+    '/usr/share/fonts/dejavu',
+    '/usr/share/fonts/TTF',
+    '/usr/share/fonts/truetype',
+)
+
+# EB installs Chromium for the runtime user; cron often runs as root.  The web
+# tier uses ``webapp``, while the dedicated integrations worker uses ``app``.
+_EB_PLAYWRIGHT_BROWSERS_PATHS = (
+    '/home/webapp/.cache/ms-playwright',
+    '/home/app/.cache/ms-playwright',
+)
+
+# Public page that redirects to the latest published ladder.
+LADDER_LAST_PATH = '/ladder/last/'
+_EMOJI_FONT_URL = 'https://interoves.local/telegram-shot/NotoColorEmoji.ttf'
+
+_EMOJI_FONT_CANDIDATES = (
+    os.path.expanduser('~/.fonts/NotoColorEmoji.ttf'),
+    '/home/webapp/.fonts/NotoColorEmoji.ttf',
+    '/usr/share/fonts/google-noto-emoji/NotoColorEmoji.ttf',
+    '/usr/share/fonts/noto/NotoColorEmoji.ttf',
+    '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
+    '/usr/share/fonts/truetype/noto-color-emoji/NotoColorEmoji.ttf',
+)
+
+
+def _playwright_cache_has_chromium(directory: str | None) -> bool:
+    """Return whether a Playwright cache contains an executable Chromium."""
+    if not directory or not os.path.isdir(directory):
+        return False
+    executable_suffixes = (
+        'chrome-linux/chrome',
+        'chrome-linux64/chrome',
+        'chrome-headless-shell-linux64/chrome-headless-shell',
+    )
+    browser_dirs = (
+        glob.glob(os.path.join(directory, 'chromium-*'))
+        + glob.glob(os.path.join(directory, 'chromium_headless_shell-*'))
+    )
+    for browser_dir in browser_dirs:
+        for suffix in executable_suffixes:
+            executable = os.path.join(browser_dir, suffix)
+            if os.path.isfile(executable) and os.access(executable, os.X_OK):
+                return True
+    return False
+
+
+def _ensure_playwright_browsers_path() -> None:
+    """
+    Point Playwright at the EB webapp browser cache when cron/root has none.
+
+    Without this, root cron looks in /root/.cache/ms-playwright, launch fails,
+    and we fall back to a Pillow schematic (wrong look + missing Cyrillic).
+    """
+    if os.environ.get('PLAYWRIGHT_BROWSERS_PATH'):
+        return
+    for browsers_path in _EB_PLAYWRIGHT_BROWSERS_PATHS:
+        if _playwright_cache_has_chromium(browsers_path):
+            os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browsers_path
+            return
+
+_SCREENSHOT_HIDE_CSS = '''
+  .new-nav,
+  .new-footer,
+  footer,
+  .new-login-modal,
+  .new-rules-modal,
+  .new-18plus-modal,
+  [data-login-open],
+  .new-task-group-nav,
+  .new-page-actions,
+  .new-tg-back,
+  .new-tg-pager,
+  .new-tg-results-link,
+  .new-raddle-task__credit,
+  .new-word-salad__selection,
+  .new-taskcard__bug-btn {
+    display: none !important;
+  }
+  body, .new-wrap {
+    margin: 0 !important;
+    padding: 0.75rem !important;
+    background: var(--surface, #fff) !important;
+  }
+  html, body {
+    overflow: visible !important;
+    color-scheme: light !important;
+  }
+  @font-face {
+    font-family: "NotoColorEmojiShot";
+    src: url("''' + _EMOJI_FONT_URL + '''") format("truetype");
+    font-display: block;
+  }
+  /* Keep real ◼️ glyphs at site sizes — only force a working emoji font. */
+  .new-raddle-line__mask,
+  input.new-raddle-input::placeholder {
+    font-family: "NotoColorEmojiShot", "Noto Color Emoji", "Apple Color Emoji",
+      "Segoe UI Emoji", ui-monospace, monospace !important;
+  }
+'''
+
+
+def _find_emoji_font() -> str | None:
+    for path in _EMOJI_FONT_CANDIDATES:
+        if path and os.path.isfile(path):
+            return path
+    return None
+
+
+def _install_emoji_font_route(page, font_path: str) -> None:
+    def _fulfill(route):
+        route.fulfill(path=font_path, content_type='font/ttf')
+
+    page.route('**/telegram-shot/NotoColorEmoji.ttf', _fulfill)
+
+
+def _wait_for_emoji_font(page) -> None:
+    page.evaluate(
+        """async () => {
+          try {
+            await document.fonts.load('24px NotoColorEmojiShot');
+            await document.fonts.ready;
+          } catch (e) {}
+        }"""
+    )
+    page.wait_for_timeout(250)
+
+@lru_cache(maxsize=8)
+def _load_font(size: int, *, bold: bool = False) -> ImageFont.ImageFont:
+    names = []
+    if bold:
+        names.append('DejaVuSans-Bold.ttf')
+    names.append('DejaVuSans.ttf')
+    for directory in _FONT_DIRS:
+        for name in names:
+            path = os.path.join(directory, name)
+            if os.path.isfile(path):
+                try:
+                    return ImageFont.truetype(path, size=size)
+                except OSError:
+                    continue
+    return ImageFont.load_default()
+
+
+def _mask_text(mask, word: str) -> str:
+    raw = length_mask_display(mask, word).strip()
+    return raw.replace('◼️', _MASK_CHAR)
+
+
+def _wrap(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> list[str]:
+    words = (text or '').split()
+    if not words:
+        return ['']
+    lines: list[str] = []
+    current = words[0]
+    for word in words[1:]:
+        trial = '{} {}'.format(current, word)
+        if draw.textlength(trial, font=font) <= max_width:
+            current = trial
+        else:
+            lines.append(current)
+            current = word
+    lines.append(current)
+    return lines
+
+
+def ladder_last_screenshot_url() -> str:
+    return '{}/ladder/last/'.format(site_base_url().rstrip('/'))
+
+
+def screenshot_page_element_png(
+    url: str,
+    selectors: tuple[str, ...],
+    *,
+    viewport_width: int = 1100,
+    extra_css: str = '',
+    wait_for_selector: str | None = None,
+    require_selector: str | None = None,
+    capture_text_script: str = '',
+    capture_text_out: list[str] | None = None,
+) -> bytes:
+    """
+    Headless Chromium screenshot of a live page crop (same look as the site).
+    Tries selectors in order, then full page. Adds a 20px white frame.
+    """
+    from playwright.sync_api import sync_playwright
+
+    _ensure_playwright_browsers_path()
+    emoji_font = _find_emoji_font()
+    if not emoji_font:
+        logger.warning('NotoColorEmoji.ttf not found; emoji masks may be missing in screenshot')
+
+    with sync_playwright() as p:
+        # Cron must fail fast if Chromium itself or the target page becomes
+        # unreachable.  Without an explicit launch timeout, a wedged browser
+        # leaves SocialQueuePost in ``publishing`` and holds the minute-cron
+        # flock indefinitely.
+        browser = p.chromium.launch(headless=True, timeout=30000)
+        try:
+            page = browser.new_page(
+                viewport={'width': viewport_width, 'height': 1600},
+                device_scale_factor=2,
+                color_scheme='light',
+            )
+            page.set_default_timeout(10000)
+            if emoji_font:
+                _install_emoji_font_route(page, emoji_font)
+            # The game pages may keep analytics, font, or other background
+            # requests open for the lifetime of the document.  Waiting for
+            # ``networkidle`` therefore makes a screenshot depend on those
+            # unrelated requests and can time out even when the game is ready.
+            # DOMContentLoaded is sufficient here: the selector-specific
+            # visibility wait below is the readiness check for the screenshot.
+            page.goto(url, wait_until='domcontentloaded', timeout=30000)
+            confirm = page.locator('[data-age-gate-confirm]')
+            if confirm.count() and confirm.first.is_visible():
+                confirm.first.click()
+                page.wait_for_timeout(200)
+            page.add_style_tag(content=_SCREENSHOT_HIDE_CSS + extra_css)
+            if emoji_font:
+                _wait_for_emoji_font(page)
+            page.wait_for_timeout(150)
+
+            if wait_for_selector:
+                page.locator(wait_for_selector).first.wait_for(state='visible', timeout=10000)
+            if require_selector and page.locator(require_selector).count() == 0:
+                raise RuntimeError(
+                    'Required screenshot selector not found: {}'.format(require_selector)
+                )
+            if capture_text_script and capture_text_out is not None:
+                capture_text_out.append(page.evaluate(capture_text_script))
+
+            raw = None
+            for selector in selectors:
+                loc = page.locator(selector).first
+                if loc.count() == 0:
+                    continue
+                try:
+                    loc.wait_for(state='visible', timeout=10000)
+                    raw = loc.screenshot(type='png', timeout=10000)
+                    break
+                except Exception:
+                    continue
+            if raw is None:
+                raw = page.screenshot(type='png', full_page=True, timeout=10000)
+            return _add_white_frame(raw, pad_px=20)
+        finally:
+            browser.close()
+
+
+def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 1100) -> bytes:
+    """
+    Headless Chromium screenshot of the live ladder page (same look as the site).
+    Targets `.new-raddle-task`; falls back to `.new-raddle-layout` / main content.
+    Adds a 20px white frame around the crop.
+    """
+    target = url or ladder_last_screenshot_url()
+    return screenshot_page_element_png(
+        target,
+        ('.new-raddle-task', '.new-raddle-layout', 'main.new-wrap', 'main'),
+        viewport_width=viewport_width,
+    )
+
+
+def _add_white_frame(png_bytes: bytes, *, pad_px: int = 20) -> bytes:
+    """Pad PNG with a solid white border on all sides."""
+    img = Image.open(io.BytesIO(png_bytes)).convert('RGB')
+    framed = Image.new('RGB', (img.width + pad_px * 2, img.height + pad_px * 2), '#FFFFFF')
+    framed.paste(img, (pad_px, pad_px))
+    out = io.BytesIO()
+    framed.save(out, format='PNG', optimize=True)
+    return out.getvalue()
+
+
+def render_ladder_teaser_png_pillow(task, *, ladder_number: int | str | None = None) -> bytes:
+    """Fallback schematic drawing when Playwright/Chromium is unavailable."""
+    parsed = parse_raddle_data(task)
+    ui = build_raddle_ui_context(parsed, default_raddle_state(parsed['n_words']))
+
+    font_title = _load_font(28, bold=True)
+    font_sub = _load_font(18, bold=True)
+    font_word = _load_font(20, bold=True)
+    font_mask = _load_font(16)
+    font_clue = _load_font(15)
+    font_meta = _load_font(14)
+
+    pad = 28
+    col_gap = 36
+    left_w = 320
+    right_w = 360
+    width = pad * 2 + left_w + col_gap + right_w
+    row_h = 28
+
+    measure = Image.new('RGB', (10, 10), 'white')
+    draw_m = ImageDraw.Draw(measure)
+
+    title = 'Лесенка №{}'.format(ladder_number) if ladder_number is not None else 'Лесенка'
+    subtitle = 'От {} до {}'.format(ui['title_from'], ui['title_to'])
+    author = (getattr(task, 'tags', None) or {}).get('author') or ''
+
+    clue_block_h = 22
+    for hint in ui['unused_hints']:
+        wrapped = _wrap(draw_m, str(hint['display']), font_clue, right_w - 24)
+        clue_block_h += len(wrapped) * 20 + 6
+
+    header_h = 36 + 28 + (22 if author else 0) + 30
+    ladder_h = 22 + len(ui['rows']) * row_h
+    height = max(420, pad * 2 + 6 + header_h + max(ladder_h, clue_block_h))
+
+    img = Image.new('RGB', (width, height), '#F7F4EF')
+    draw = ImageDraw.Draw(img)
+    draw.rectangle((0, 0, width, 6), fill='#2F6F4E')
+
+    y = pad + 4
+    draw.text((pad, y), title, font=font_title, fill='#1A1A1A')
+    y += 36
+    draw.text((pad, y), subtitle, font=font_sub, fill='#2F6F4E')
+    y += 28
+    if author:
+        draw.text((pad, y), 'Автор: {}'.format(author), font=font_meta, fill='#666666')
+        y += 22
+
+    left_x = pad
+    right_x = pad + left_w + col_gap
+    top_cols = y + 8
+
+    ly = top_cols
+    draw.text((left_x, ly), 'Лестница', font=font_meta, fill='#888888')
+    ly += 22
+    for row in ui['rows']:
+        if row['is_solved']:
+            text = row['word']
+            font = font_word
+            fill = '#1A1A1A'
+        else:
+            text = _mask_text(parsed['masks'][row['index']], parsed['words'][row['index']])
+            font = font_mask
+            fill = '#555555'
+        label = '({})'.format(row['length_label'])
+        draw.text((left_x, ly), text, font=font, fill=fill)
+        tw = draw.textlength(text, font=font)
+        draw.text((left_x + tw + 8, ly + 2), label, font=font_meta, fill='#999999')
+        ly += row_h
+
+    cy = top_cols
+    draw.text((right_x, cy), 'Подсказки, не по порядку', font=font_meta, fill='#888888')
+    cy += 22
+    for hint in ui['unused_hints']:
+        lines = _wrap(draw, str(hint['display']), font_clue, right_w - 24)
+        for i, line in enumerate(lines):
+            prefix = '• ' if i == 0 else '  '
+            draw.text((right_x, cy), prefix + line, font=font_clue, fill='#333333')
+            cy += 20
+            if cy > height - pad:
+                break
+        cy += 6
+        if cy > height - pad:
+            break
+
+    buf = io.BytesIO()
+    img.save(buf, format='PNG', optimize=True)
+    return buf.getvalue()
+
+
+def render_ladder_teaser_png(
+    task,
+    *,
+    ladder_number: int | str | None = None,
+    url: str | None = None,
+    fallback_to_pillow: bool = False,
+) -> bytes:
+    """
+    Prefer a real screenshot of SITE_BASE_URL/ladder/last/;
+    only use the Pillow schematic when explicitly requested.
+    """
+    prefer_screenshot = getattr(settings, 'TELEGRAM_LADDER_SCREENSHOT', True)
+    if prefer_screenshot:
+        try:
+            png = screenshot_ladder_last_png(url=url)
+            if png and png.startswith(b'\x89PNG'):
+                return png
+        except Exception:
+            if not fallback_to_pillow:
+                logger.exception(
+                    'Ladder screenshot failed (%s); refusing Pillow fallback',
+                    ladder_last_screenshot_url(),
+                )
+                raise
+            logger.exception(
+                'Ladder screenshot failed (%s); falling back to Pillow',
+                ladder_last_screenshot_url(),
+            )
+    if not fallback_to_pillow:
+        raise RuntimeError('Real ladder screenshot is required for this render')
+    return render_ladder_teaser_png_pillow(task, ladder_number=ladder_number)

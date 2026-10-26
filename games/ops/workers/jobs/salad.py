@@ -1,0 +1,769 @@
+"""Durable actor-by-actor queue for Word Salad rechecks."""
+
+from __future__ import annotations
+
+import json
+import logging
+import os
+import socket
+import time
+import uuid
+from dataclasses import dataclass
+from datetime import timedelta
+
+from django.db import transaction
+from django.db.models import F, Q
+from django.conf import settings
+from django.utils import timezone
+
+from games.models import (
+    WordSaladRecheckItem,
+    WordSaladRecheckJob,
+    WordSaladRecheckOutbox,
+)
+from games.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
+from games.runtime import runtime_role
+
+logger = logging.getLogger('application')
+RETRY_BASE = 30
+MAX_ITEM_ATTEMPTS = 5
+DICTIONARY_SCAN_ACTOR_KEY = '__dictionary_scan__'
+
+
+@dataclass(frozen=True)
+class EnqueueResult:
+    """Receipt metadata for one durable enqueue operation."""
+
+    job: WordSaladRecheckJob
+    created: bool
+    coalesced: bool
+    new_item_ids: tuple[int, ...] = ()
+    existing_item_ids: tuple[int, ...] = ()
+    superseded_job_ids: tuple[int, ...] = ()
+    superseded_item_ids: tuple[int, ...] = ()
+
+
+def _return_enqueue_result(result, *, return_receipt):
+    return result if return_receipt else result.job
+
+
+def serialize_enqueue_result(result):
+    """Return a stable JSON-friendly receipt without exposing claim tokens."""
+    job = result.job
+    return {
+        'jobs': [{
+            'id': job.pk,
+            'url': '/support/queues/api/jobs/{}/'.format(job.pk),
+            'observatory_url': '/support/queues/recheck/{}/'.format(job.pk),
+            'created': result.created,
+            'coalesced': result.coalesced,
+            'status': job.status,
+            'task_id': job.task_id,
+            'game_id': job.game_id,
+            'total_items': WordSaladRecheckItem.objects.filter(job=job).count(),
+            'new_items': len(result.new_item_ids),
+            'existing_items': len(result.existing_item_ids),
+        }],
+        'new_jobs': 1 if result.created else 0,
+        'existing_jobs': 1 if result.coalesced else 0,
+        'new_items': len(result.new_item_ids),
+        'existing_items': len(result.existing_item_ids),
+        'superseded_jobs': list(result.superseded_job_ids),
+        'superseded_items': len(result.superseded_item_ids),
+    }
+
+
+def serialize_enqueue_results(results):
+    """Combine receipts from one bulk operation without duplicate jobs."""
+    results = list(results)
+    jobs = []
+    seen_jobs = set()
+    new_jobs = existing_jobs = new_items = existing_items = superseded_items = 0
+    superseded_job_ids = []
+    for result in results:
+        payload = serialize_enqueue_result(result)
+        for job in payload['jobs']:
+            if job['id'] not in seen_jobs:
+                jobs.append(job)
+                seen_jobs.add(job['id'])
+        new_jobs += payload['new_jobs']
+        existing_jobs += payload['existing_jobs']
+        new_items += payload['new_items']
+        existing_items += payload['existing_items']
+        superseded_items += payload['superseded_items']
+        for job_id in payload['superseded_jobs']:
+            if job_id not in superseded_job_ids:
+                superseded_job_ids.append(job_id)
+    return {
+        'jobs': jobs,
+        'new_jobs': new_jobs,
+        'existing_jobs': existing_jobs,
+        'new_items': new_items,
+        'existing_items': existing_items,
+        'superseded_jobs': superseded_job_ids,
+        'superseded_items': superseded_items,
+    }
+
+
+def _validation_failpoint(name):
+    """Terminate only an explicitly isolated validation worker process."""
+    if (
+        runtime_role() == 'worker'
+        and os.environ.get('INTEROVES_VALIDATION_MODE', '').strip() == '1'
+        and os.environ.get('INTEROVES_VALIDATION_FAILPOINT', '').strip() == name
+    ):
+        logger.warning('validation failpoint terminating worker name=%s', name)
+        os._exit(86)
+
+
+def _job_lease():
+    return timedelta(seconds=getattr(
+        settings, 'RECHECK_JOB_LEASE_SECONDS', settings.WORD_SALAD_JOB_LEASE_SECONDS,
+    ))
+
+
+def _item_lease():
+    return timedelta(seconds=getattr(
+        settings, 'RECHECK_ITEM_LEASE_SECONDS', settings.WORD_SALAD_ITEM_LEASE_SECONDS,
+    ))
+
+
+def _actor_key(actor):
+    return json.dumps(list(actor), ensure_ascii=False, separators=(',', ':'))
+
+
+def _merge_pending_resolution(existing, incoming):
+    """Union retry metadata when queued actor replays are coalesced."""
+    merged = dict(existing or {})
+    incoming = incoming or {}
+    if not incoming:
+        return merged
+    merged['version'] = max(merged.get('version', 1), incoming.get('version', 1))
+    if 'replay_mode' in incoming:
+        modes = {merged.get('replay_mode', 'full_recheck'), incoming['replay_mode']}
+        merged['replay_mode'] = 'full_recheck' if 'full_recheck' in modes else incoming['replay_mode']
+    for field in ('attempt_ids', 'actor_keys', 'scopes'):
+        values = list(merged.get(field) or [])
+        seen = {json.dumps(value, ensure_ascii=False, sort_keys=True) for value in values}
+        for value in incoming.get(field) or []:
+            marker = json.dumps(value, ensure_ascii=False, sort_keys=True)
+            if marker not in seen:
+                values.append(value)
+                seen.add(marker)
+        merged[field] = values
+    return merged
+
+
+def serialize_job(job):
+    pending_resolution = job.pending_resolution or {}
+    return {
+        'id': job.pk, 'task_id': job.task_id, 'game_id': job.game_id,
+        'status': job.status, 'total_actors': job.total_actors,
+        'completed_actors': job.completed_actors,
+        'credited_attempts': job.credited_attempts,
+        'attempt_count': job.attempt_count, 'progress': job.progress,
+        'last_error': job.last_error,
+        'pending_resolution_version': pending_resolution.get('version', 1),
+        'replay_mode': pending_resolution.get('replay_mode', 'full_recheck'),
+        'pending_attempt_count': len(pending_resolution.get('attempt_ids') or []),
+        'pending_scope_count': len(pending_resolution.get('scopes') or []),
+        'created_at': job.created_at.isoformat() if job.created_at else None,
+        'updated_at': job.updated_at.isoformat() if job.updated_at else None,
+        'started_at': job.started_at.isoformat() if job.started_at else None,
+        'completed_at': job.completed_at.isoformat() if job.completed_at else None,
+    }
+
+
+@transaction.atomic
+def enqueue_word_salad_recheck(
+    *, task, game, pending_resolution=None, return_receipt=False,
+    include_dictionary_scan=False,
+):
+    """Snapshot actors and fence older jobs for this task/game."""
+    task = type(task).objects.select_for_update().get(pk=task.pk)
+    actors = sorted(
+        _word_salad_actor_keys(task, game),
+        key=lambda item: (item[0] or '', item[1] or 0, item[2] or '', item[3] or 0),
+    )
+    active = WordSaladRecheckJob.objects.select_for_update().filter(
+        task=task, game=game,
+        status__in=(WordSaladRecheckJob.STATUS_PENDING, WordSaladRecheckJob.STATUS_RUNNING),
+    )
+    now = timezone.now()
+    active_job_ids = list(active.values_list('id', flat=True))
+    superseded_item_ids = []
+    if active_job_ids:
+        pending_items = WordSaladRecheckItem.objects.filter(
+            job_id__in=active_job_ids,
+            status=WordSaladRecheckItem.STATUS_PENDING,
+        )
+        pending_item_ids = list(pending_items.values_list('id', flat=True))
+        superseded_item_ids = pending_item_ids
+        pending_items.update(
+            status=WordSaladRecheckItem.STATUS_SUPERSEDED,
+            claim_token=None,
+            claimed_until=None,
+            updated_at=now,
+        )
+        WordSaladRecheckOutbox.objects.filter(
+            item_id__in=pending_item_ids,
+            status=WordSaladRecheckOutbox.STATUS_PENDING,
+        ).update(
+            status=WordSaladRecheckOutbox.STATUS_CANCELLED,
+            claim_token=None,
+            claimed_until=None,
+            updated_at=now,
+        )
+    active.update(status=WordSaladRecheckJob.STATUS_SUPERSEDED,
+                  claim_token=None, claimed_until=None, updated_at=now)
+    job = WordSaladRecheckJob.objects.create(
+        task=task, game=game, task_revision=task.attempt_revision,
+        pending_resolution=pending_resolution or {},
+        status=WordSaladRecheckJob.STATUS_PENDING,
+        total_actors=len(actors),
+        next_attempt_at=now,
+    )
+    items = []
+    if include_dictionary_scan:
+        items.append(WordSaladRecheckItem(
+            job=job, actor_key=DICTIONARY_SCAN_ACTOR_KEY, next_attempt_at=now,
+        ))
+    items.extend([
+        WordSaladRecheckItem(
+            job=job, actor_key=_actor_key(actor), team_id=actor[0], user_id=actor[1],
+            anon_key=actor[2], replay_slot_id=actor[3], next_attempt_at=now,
+        ) for actor in actors
+    ])
+    WordSaladRecheckItem.objects.bulk_create(items)
+    WordSaladRecheckOutbox.objects.bulk_create([
+        WordSaladRecheckOutbox(item=item, task_revision=job.task_revision)
+        for item in WordSaladRecheckItem.objects.filter(job=job).only('id')
+    ])
+    result = EnqueueResult(
+        job=job,
+        created=True,
+        coalesced=False,
+        new_item_ids=tuple(item.pk for item in WordSaladRecheckItem.objects.filter(job=job).only('pk')),
+        superseded_job_ids=tuple(active_job_ids),
+        superseded_item_ids=tuple(superseded_item_ids),
+    )
+    return _return_enqueue_result(result, return_receipt=return_receipt)
+
+
+def _close_jobs_without_open_items(job_ids, now):
+    for job_id in job_ids:
+        still_open = WordSaladRecheckItem.objects.filter(
+            job_id=job_id,
+            status__in=(
+                WordSaladRecheckItem.STATUS_PENDING,
+                WordSaladRecheckItem.STATUS_RUNNING,
+            ),
+        ).exists()
+        if still_open:
+            continue
+        WordSaladRecheckJob.objects.filter(
+            pk=job_id,
+            status__in=(
+                WordSaladRecheckJob.STATUS_PENDING,
+                WordSaladRecheckJob.STATUS_RUNNING,
+            ),
+        ).update(
+            status=WordSaladRecheckJob.STATUS_SUPERSEDED,
+            claim_token=None,
+            claimed_until=None,
+            updated_at=now,
+        )
+
+
+@transaction.atomic
+def enqueue_actor_rechecks(
+    *, task, game, actors, pending_resolution=None, coalesce=True, return_receipt=False,
+):
+    """Queue a chronological replay for specific actors. Other actors stay queued."""
+    if game is None:
+        raise ValueError('enqueue_actor_rechecks: pass game=')
+    task = type(task).objects.select_for_update().get(pk=task.pk)
+    normalized = []
+    seen = set()
+    for actor in actors:
+        key = (actor[0], actor[1], actor[2] or None, actor[3])
+        if key in seen:
+            continue
+        seen.add(key)
+        normalized.append(key)
+    now = timezone.now()
+    actor_keys = [_actor_key(actor) for actor in normalized]
+
+    queued_job = WordSaladRecheckJob.objects.select_for_update().filter(
+        task=task,
+        game=game,
+        task_revision=task.attempt_revision,
+        status=WordSaladRecheckJob.STATUS_PENDING,
+    ).order_by('-created_at', '-id').first() if coalesce else None
+    if queued_job is not None:
+        other_open_actor_keys = set(
+            WordSaladRecheckItem.objects.select_for_update().filter(
+                job__task=task,
+                job__game=game,
+                actor_key__in=actor_keys,
+                status__in=(
+                    WordSaladRecheckItem.STATUS_PENDING,
+                    WordSaladRecheckItem.STATUS_RUNNING,
+                ),
+            ).exclude(job=queued_job).values_list('actor_key', flat=True)
+        )
+        existing_items = {
+            item.actor_key: item.status
+            for item in WordSaladRecheckItem.objects.select_for_update().filter(job=queued_job)
+        }
+        # An actor that is already running or terminal cannot be appended:
+        # running work must be fenced, while the job has a unique actor key.
+        if not other_open_actor_keys and not any(
+            existing_items.get(key) in (
+                WordSaladRecheckItem.STATUS_RUNNING,
+                WordSaladRecheckItem.STATUS_COMPLETED,
+                WordSaladRecheckItem.STATUS_SUPERSEDED,
+            )
+            for key in actor_keys
+        ):
+            new_actors = [
+                actor for actor, key in zip(normalized, actor_keys)
+                if existing_items.get(key) != WordSaladRecheckItem.STATUS_PENDING
+            ]
+            new_items = [
+                WordSaladRecheckItem(
+                    job=queued_job,
+                    actor_key=_actor_key(actor),
+                    team_id=actor[0],
+                    user_id=actor[1],
+                    anon_key=actor[2],
+                    replay_slot_id=actor[3],
+                    next_attempt_at=now,
+                )
+                for actor in new_actors
+            ]
+            WordSaladRecheckItem.objects.bulk_create(new_items)
+            WordSaladRecheckOutbox.objects.bulk_create([
+                WordSaladRecheckOutbox(item=item, task_revision=queued_job.task_revision)
+                for item in new_items
+            ])
+            queued_job.total_actors += len(new_items)
+            queued_job.pending_resolution = _merge_pending_resolution(
+                queued_job.pending_resolution, pending_resolution,
+            )
+            queued_job.save(update_fields=['total_actors', 'pending_resolution', 'updated_at'])
+            result = EnqueueResult(
+                job=queued_job,
+                created=False,
+                coalesced=True,
+                new_item_ids=tuple(item.pk for item in new_items),
+                existing_item_ids=tuple(
+                    item.pk for item in WordSaladRecheckItem.objects.filter(
+                        job=queued_job, actor_key__in=actor_keys,
+                        status=WordSaladRecheckItem.STATUS_PENDING,
+                    ).exclude(pk__in=[item.pk for item in new_items])
+                ),
+            )
+            return _return_enqueue_result(result, return_receipt=return_receipt)
+
+    open_items = WordSaladRecheckItem.objects.select_for_update().filter(
+        job__task=task,
+        job__game=game,
+        actor_key__in=actor_keys,
+        status__in=(
+            WordSaladRecheckItem.STATUS_PENDING,
+            WordSaladRecheckItem.STATUS_RUNNING,
+        ),
+    )
+    superseded_item_ids = tuple(open_items.values_list('id', flat=True))
+    touched_jobs = set(open_items.values_list('job_id', flat=True))
+    open_item_ids = list(open_items.values_list('id', flat=True))
+    WordSaladRecheckOutbox.objects.filter(
+        item_id__in=open_item_ids,
+        status=WordSaladRecheckOutbox.STATUS_PENDING,
+    ).update(
+        status=WordSaladRecheckOutbox.STATUS_CANCELLED,
+        claim_token=None,
+        claimed_until=None,
+        updated_at=now,
+    )
+    open_items.update(
+        status=WordSaladRecheckItem.STATUS_SUPERSEDED,
+        claim_token=None,
+        claimed_until=None,
+        updated_at=now,
+    )
+    _close_jobs_without_open_items(touched_jobs, now)
+    job = WordSaladRecheckJob.objects.create(
+        task=task,
+        game=game,
+        task_revision=task.attempt_revision,
+        pending_resolution=pending_resolution or {},
+        status=WordSaladRecheckJob.STATUS_PENDING,
+        total_actors=len(normalized),
+        next_attempt_at=now,
+    )
+    WordSaladRecheckItem.objects.bulk_create([
+        WordSaladRecheckItem(
+            job=job,
+            actor_key=_actor_key(actor),
+            team_id=actor[0],
+            user_id=actor[1],
+            anon_key=actor[2],
+            replay_slot_id=actor[3],
+            next_attempt_at=now,
+        )
+        for actor in normalized
+    ])
+    WordSaladRecheckOutbox.objects.bulk_create([
+        WordSaladRecheckOutbox(item=item, task_revision=job.task_revision)
+        for item in WordSaladRecheckItem.objects.filter(job=job).only('id')
+    ])
+    result = EnqueueResult(
+        job=job,
+        created=True,
+        coalesced=False,
+        new_item_ids=tuple(item.pk for item in WordSaladRecheckItem.objects.filter(job=job).only('pk')),
+        superseded_job_ids=tuple(touched_jobs),
+        superseded_item_ids=superseded_item_ids,
+    )
+    return _return_enqueue_result(result, return_receipt=return_receipt)
+
+
+@transaction.atomic
+def retry_word_salad_recheck(job_id):
+    job = WordSaladRecheckJob.objects.select_for_update().get(pk=job_id)
+    if job.status != WordSaladRecheckJob.STATUS_FAILED:
+        return job
+    if job.task.attempt_revision != job.task_revision:
+        return job
+    now = timezone.now()
+    job.items.filter(status=WordSaladRecheckItem.STATUS_FAILED).update(
+        status=WordSaladRecheckItem.STATUS_PENDING,
+        attempt_count=0,
+        last_error='',
+        claim_token=None,
+        claimed_until=None,
+        next_attempt_at=now,
+        completed_at=None,
+        updated_at=now,
+    )
+    job.status = WordSaladRecheckJob.STATUS_PENDING
+    job.last_error = ''
+    job.claim_token = None
+    job.claimed_until = None
+    job.next_attempt_at = now
+    job.completed_at = None
+    job.save(update_fields=['status', 'last_error', 'claim_token', 'claimed_until', 'next_attempt_at', 'completed_at', 'updated_at'])
+    return job
+
+
+def _claim_next(now=None, worker='cron'):
+    now = now or timezone.now()
+    with transaction.atomic():
+        jobs = WordSaladRecheckJob.objects.filter(
+            Q(status=WordSaladRecheckJob.STATUS_PENDING)
+            | Q(status=WordSaladRecheckJob.STATUS_RUNNING, claimed_until__lte=now),
+            Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
+        ).order_by('created_at')
+        job = jobs.select_for_update().first()
+        if job is None:
+            return None, None, None
+        token = uuid.uuid4()
+        job.status = WordSaladRecheckJob.STATUS_RUNNING
+        job.claim_token = token
+        job.claimed_until = now + _job_lease()
+        job.attempt_count += 1
+        job.started_at = job.started_at or now
+        job.next_attempt_at = None
+        job.save(update_fields=['status', 'claim_token', 'claimed_until', 'attempt_count', 'started_at', 'next_attempt_at', 'updated_at'])
+        item = WordSaladRecheckItem.objects.filter(
+            Q(status=WordSaladRecheckItem.STATUS_PENDING)
+            | Q(status=WordSaladRecheckItem.STATUS_RUNNING, claimed_until__lte=now),
+            Q(next_attempt_at__isnull=True) | Q(next_attempt_at__lte=now),
+            job=job,
+        ).order_by('id').select_for_update().first()
+        if item is None:
+            remaining = WordSaladRecheckItem.objects.filter(job=job).exclude(
+                status__in=(
+                    WordSaladRecheckItem.STATUS_COMPLETED,
+                    WordSaladRecheckItem.STATUS_SUPERSEDED,
+                ),
+            ).order_by('next_attempt_at').first()
+            failed = WordSaladRecheckItem.objects.filter(
+                job=job, status=WordSaladRecheckItem.STATUS_FAILED,
+            ).exists()
+            job.status = (
+                WordSaladRecheckJob.STATUS_FAILED if failed
+                else WordSaladRecheckJob.STATUS_COMPLETED if remaining is None
+                else WordSaladRecheckJob.STATUS_PENDING
+            )
+            job.completed_at = now if job.status in (
+                WordSaladRecheckJob.STATUS_FAILED, WordSaladRecheckJob.STATUS_COMPLETED,
+            ) else None
+            job.next_attempt_at = None if job.status != WordSaladRecheckJob.STATUS_PENDING else remaining.next_attempt_at
+            job.claim_token = None
+            job.claimed_until = None
+            job.save(update_fields=['status', 'completed_at', 'next_attempt_at', 'claim_token', 'claimed_until', 'updated_at'])
+            return job, None, None
+        item_token = uuid.uuid4()
+        item.status = WordSaladRecheckItem.STATUS_RUNNING
+        item.claim_token = item_token
+        item.claimed_until = now + _item_lease()
+        item.attempt_count += 1
+        item.started_at = item.started_at or now
+        item.next_attempt_at = None
+        item.save(update_fields=['status', 'claim_token', 'claimed_until', 'attempt_count', 'started_at', 'next_attempt_at', 'updated_at'])
+    logger.info('word salad recheck claimed job=%s item=%s worker=%s host=%s', job.pk, item.pk, worker, socket.gethostname())
+    return job, item, item_token
+
+
+def _record_item_failure(job, item, token, exc):
+    now = timezone.now()
+    message = '{}: {}'.format(exc.__class__.__name__, exc)[:2000]
+    with transaction.atomic():
+        exhausted = item.attempt_count >= MAX_ITEM_ATTEMPTS
+        retry_at = None if exhausted else now + timedelta(
+            seconds=RETRY_BASE * (2 ** max(0, item.attempt_count - 1)),
+        )
+        WordSaladRecheckItem.objects.filter(pk=item.pk, claim_token=token).update(
+            status=WordSaladRecheckItem.STATUS_FAILED if exhausted else WordSaladRecheckItem.STATUS_PENDING,
+            last_error=message,
+            next_attempt_at=retry_at,
+            claimed_until=None, claim_token=None, updated_at=now,
+        )
+        WordSaladRecheckJob.objects.filter(pk=job.pk, claim_token=job.claim_token).update(
+            status=WordSaladRecheckJob.STATUS_FAILED if exhausted else WordSaladRecheckJob.STATUS_PENDING,
+            last_error=message,
+            next_attempt_at=retry_at,
+            claimed_until=None, claim_token=None, updated_at=now,
+        )
+
+
+def _schedule_actor_notification(task, actor, game, *, reason='task.word_salad_rechecked'):
+    """Publish realtime state only after replay and queue state commit."""
+    from games.views.track import track_actor_task_change
+
+    def notify():
+        try:
+            track_actor_task_change(
+                task,
+                team=actor.get('team'),
+                user=actor.get('user'),
+                anon_key=actor.get('anon_key'),
+                game=game,
+                reason=reason,
+            )
+        except Exception:
+            # Realtime delivery is derived state; it must never turn a
+            # committed replay into a queue retry.
+            logger.exception('word salad recheck notification failed task=%s', task.pk)
+
+    transaction.on_commit(
+        notify
+    )
+
+
+def _claim_specific_item(*, job_id, item_id, worker='worker', now=None):
+    """Claim the item named by a transport message, preserving DB fencing."""
+    now = now or timezone.now()
+    with transaction.atomic():
+        item = WordSaladRecheckItem.objects.select_for_update().select_related('job', 'job__task', 'job__game').get(
+            pk=item_id, job_id=job_id,
+        )
+        if item.status == WordSaladRecheckItem.STATUS_COMPLETED:
+            return 'completed', item.job, item, None
+        if item.status == WordSaladRecheckItem.STATUS_SUPERSEDED:
+            return 'superseded', item.job, item, None
+        if item.status == WordSaladRecheckItem.STATUS_FAILED:
+            return 'failed', item.job, item, None
+        if item.status == WordSaladRecheckItem.STATUS_RUNNING and item.claimed_until and item.claimed_until > now:
+            return 'lease_conflict', item.job, item, None
+
+        job = item.job
+        if job.status == WordSaladRecheckJob.STATUS_RUNNING and job.claimed_until and job.claimed_until > now:
+            return 'lease_conflict', job, item, None
+        if job.status == WordSaladRecheckJob.STATUS_SUPERSEDED or job.task.attempt_revision != job.task_revision:
+            item.status = WordSaladRecheckItem.STATUS_SUPERSEDED
+            item.claim_token = None
+            item.claimed_until = None
+            item.updated_at = now
+            item.save(update_fields=['status', 'claim_token', 'claimed_until', 'updated_at'])
+            return 'superseded', job, item, None
+        if job.status not in (WordSaladRecheckJob.STATUS_PENDING, WordSaladRecheckJob.STATUS_RUNNING):
+            return 'not_due', job, item, None
+
+        job_token = uuid.uuid4()
+        item_token = uuid.uuid4()
+        job.status = WordSaladRecheckJob.STATUS_RUNNING
+        job.claim_token = job_token
+        job.claimed_until = now + _job_lease()
+        job.attempt_count += 1
+        job.started_at = job.started_at or now
+        job.next_attempt_at = None
+        job.save(update_fields=['status', 'claim_token', 'claimed_until', 'attempt_count', 'started_at', 'next_attempt_at', 'updated_at'])
+        item.status = WordSaladRecheckItem.STATUS_RUNNING
+        item.claim_token = item_token
+        item.claimed_until = now + _item_lease()
+        item.attempt_count += 1
+        item.started_at = item.started_at or now
+        item.next_attempt_at = None
+        item.save(update_fields=['status', 'claim_token', 'claimed_until', 'attempt_count', 'started_at', 'next_attempt_at', 'updated_at'])
+    logger.info('word salad recheck claimed job=%s item=%s worker=%s host=%s', job.pk, item.pk, worker, socket.gethostname())
+    return 'claimed', job, item, item_token
+
+
+def _process_claimed_item(job, item, item_token):
+    started = time.perf_counter()
+    logger.info(
+        'word_salad_task_started job_id=%s item_id=%s task_revision=%s',
+        job.pk, item.pk, job.task_revision,
+    )
+    try:
+        task = job.task
+        is_dictionary_scan = item.actor_key == DICTIONARY_SCAN_ACTOR_KEY
+        actor = None if is_dictionary_scan else _resolve_word_salad_actor(
+            item.team_id, item.user_id, item.anon_key, item.replay_slot_id,
+        )
+        credited = 0
+        with transaction.atomic():
+            if job.status == WordSaladRecheckJob.STATUS_SUPERSEDED or task.attempt_revision != job.task_revision:
+                WordSaladRecheckItem.objects.filter(
+                    pk=item.pk, status=WordSaladRecheckItem.STATUS_RUNNING, claim_token=item_token,
+                ).update(
+                    status=WordSaladRecheckItem.STATUS_SUPERSEDED,
+                    claimed_until=None,
+                    claim_token=None,
+                    updated_at=timezone.now(),
+                )
+                WordSaladRecheckJob.objects.filter(
+                    pk=job.pk, status=WordSaladRecheckJob.STATUS_RUNNING, claim_token=job.claim_token,
+                ).update(claim_token=None, claimed_until=None, updated_at=timezone.now())
+                return 'superseded'
+            reason = 'task.word_salad_rechecked'
+            skipped_complete = False
+            if is_dictionary_scan:
+                from games.daily_statistics import invalidate_daily_statistics
+                from games.word_salad import add_longest_missing_words
+
+                checker_data = add_longest_missing_words(task.checker_data)
+                updated = type(task).objects.filter(
+                    pk=task.pk, attempt_revision=job.task_revision,
+                ).update(checker_data=checker_data)
+                if not updated:
+                    return 'superseded'
+                invalidate_daily_statistics(job.game.id, task.task_group_id)
+                skipped_complete = True
+                reason = 'task.word_salad_dictionary_scanned'
+            elif actor is not None and task.task_type == 'word_salad':
+                result = recheck_word_salad_actor(
+                    task, game=job.game, notify=False,
+                    pending_resolution=job.pending_resolution,
+                    **actor,
+                )
+                credited = int(result.get('credited') or 0)
+            elif actor is not None:
+                from games.recheck import recheck_chain_task
+                from games.recheck import _checker_extension_actor_is_complete
+                skipped_complete = _checker_extension_actor_is_complete(
+                    task,
+                    job.game,
+                    team=actor.get('team'),
+                    user=actor.get('user'),
+                    anon_key=actor.get('anon_key'),
+                    replay_slot=actor.get('replay_slot'),
+                    pending_resolution=job.pending_resolution,
+                )
+                if not skipped_complete:
+                    recheck_chain_task(
+                        task,
+                        team=actor.get('team'),
+                        user=actor.get('user'),
+                        anon_key=actor.get('anon_key'),
+                        game=job.game,
+                        replay_slot=actor.get('replay_slot'),
+                        notify=False,
+                        pending_resolution=job.pending_resolution,
+                    )
+                credited = 0
+                reason = (
+                    'task.chain_recheck_skipped_complete'
+                    if skipped_complete else 'task.chain_rechecked'
+                )
+            else:
+                credited = 0
+            _validation_failpoint('crash_before_commit')
+            now = timezone.now()
+            updated = WordSaladRecheckItem.objects.filter(
+                pk=item.pk, status=WordSaladRecheckItem.STATUS_RUNNING, claim_token=item_token,
+            ).update(status=WordSaladRecheckItem.STATUS_COMPLETED, credited_attempts=credited,
+                     last_error='',
+                     completed_at=now, claimed_until=None, claim_token=None, updated_at=now)
+            if not updated:
+                return 'lease_lost'
+            job_update = {
+                'credited_attempts': F('credited_attempts') + credited,
+                'last_error': '',
+                'status': WordSaladRecheckJob.STATUS_PENDING,
+                'next_attempt_at': now,
+                'claimed_until': None,
+                'claim_token': None,
+                'updated_at': now,
+            }
+            if not is_dictionary_scan:
+                job_update['completed_actors'] = F('completed_actors') + 1
+            WordSaladRecheckJob.objects.filter(
+                pk=job.pk, status=WordSaladRecheckJob.STATUS_RUNNING, claim_token=job.claim_token,
+            ).update(**job_update)
+            if not WordSaladRecheckItem.objects.filter(job_id=job.pk).exclude(
+                status__in=(WordSaladRecheckItem.STATUS_COMPLETED, WordSaladRecheckItem.STATUS_SUPERSEDED),
+            ).exists():
+                WordSaladRecheckJob.objects.filter(pk=job.pk, status=WordSaladRecheckJob.STATUS_PENDING).update(
+                    status=WordSaladRecheckJob.STATUS_COMPLETED, completed_at=now,
+                    claim_token=None, claimed_until=None, updated_at=now,
+                )
+            if actor is not None and not skipped_complete:
+                _schedule_actor_notification(task, actor, job.game, reason=reason)
+        logger.info(
+            'word_salad_task_completed job_id=%s item_id=%s task_revision=%s duration_ms=%.1f credited=%s',
+            job.pk, item.pk, job.task_revision, (time.perf_counter() - started) * 1000, credited,
+        )
+        return 'completed'
+    except Exception as exc:
+        logger.exception(
+            'word_salad_task_failed job_id=%s item_id=%s task_revision=%s duration_ms=%.1f',
+            job.pk, item.pk, job.task_revision, (time.perf_counter() - started) * 1000,
+        )
+        _record_item_failure(job, item, item_token, exc)
+        return 'failed'
+
+
+def process_word_salad_recheck_item(*, job_id, item_id, worker='worker'):
+    """Process exactly one authoritative DB item; transport-agnostic."""
+    state, job, item, item_token = _claim_specific_item(job_id=job_id, item_id=item_id, worker=worker)
+    if state != 'claimed':
+        logger.info(
+            'word_salad_task_%s job_id=%s item_id=%s',
+            'duplicate' if state == 'completed' else 'stale' if state == 'superseded' else 'lease_conflict' if state == 'lease_conflict' else 'skipped',
+            job_id, item_id,
+        )
+        return state
+    result = _process_claimed_item(job, item, item_token)
+    if result == 'completed':
+        _validation_failpoint('crash_after_commit')
+    return result
+
+
+def process_word_salad_rechecks(*, limit=1, worker='cron'):
+    processed = 0
+    for _ in range(max(0, int(limit))):
+        job, item, _item_token = _claim_next(worker=worker)
+        if job is None:
+            break
+        if item is None:
+            processed += 1
+            continue
+        result = _process_claimed_item(job, item, _item_token)
+        if result in ('completed', 'superseded', 'failed'):
+            processed += 1
+    return processed

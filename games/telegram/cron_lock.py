@@ -1,14 +1,6 @@
-"""Compatibility wrapper for the cross-instance Telegram cron lease."""
+"""Compatibility alias. Implementation lives in games.ops.cron.telegram."""
+import sys
 
-from contextlib import contextmanager
+from games.ops.cron import telegram as _implementation
 
-from games.cron_lock import distributed_cron_lock
-
-
-TELEGRAM_CRON_LOCK_NAME = 'telegram_game_announcements'
-
-
-@contextmanager
-def telegram_cron_lock():
-    with distributed_cron_lock(TELEGRAM_CRON_LOCK_NAME, ttl_seconds=300) as acquired:
-        yield acquired
+sys.modules[__name__] = _implementation

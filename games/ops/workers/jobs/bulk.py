@@ -1,0 +1,216 @@
+"""Bulk-safe commands used by the Attempt and PendingAttempt admin pages."""
+
+import json
+from collections import defaultdict
+
+from django.db import transaction
+
+from games.models import Attempt, CHAIN_TASK_TYPES, Task
+from games.replay_planner import actor_key, queue_chain_replays_for_tasks
+
+
+def _load_attempts(attempt_ids, *, pending_only=False, lock=False):
+    ids = {int(value) for value in attempt_ids}
+    queryset = Attempt.manager.filter(pk__in=ids)
+    if pending_only:
+        queryset = queryset.filter(status='Pending')
+    if lock:
+        queryset = queryset.select_for_update()
+    return list(queryset.select_related('task', 'game').order_by('task_id', 'time', 'pk'))
+
+
+def _wall_additions(task, attempts):
+    payload = json.loads(task.checker_data or '{}')
+    for attempt in attempts:
+        submitted = json.loads(attempt.text)
+        words = sorted(x.lower() for x in submitted['words'])
+        for category in payload['answers']:
+            if sorted(x.lower() for x in category['words']) != words:
+                continue
+            explanation = submitted['explanation']
+            if explanation not in category['checker'].split('\n'):
+                category['checker'] = '{}\n{}'.format(category['checker'], explanation)
+            break
+    return json.dumps(payload)
+
+
+def _apply_checker_additions(task, attempts):
+    if task.task_type == 'wall':
+        task.checker_data = _wall_additions(task, attempts)
+        return
+    if task.task_type == 'html_forms':
+        from games.html_forms import html_forms_answer_matches
+
+        try:
+            payload = json.loads(task.checker_data or '{}')
+        except (TypeError, ValueError):
+            payload = {}
+        if isinstance(payload, list):
+            payload = {'forms': payload}
+        if not isinstance(payload, dict) or not isinstance(payload.get('forms'), list):
+            raise ValueError('Invalid html_forms checker_data')
+        forms_by_key = {
+            str(form.get('key') or ''): form
+            for form in payload['forms']
+            if isinstance(form, dict) and form.get('key')
+        }
+        for attempt in attempts:
+            try:
+                submitted = json.loads(attempt.text)
+            except (TypeError, ValueError):
+                continue
+            if not isinstance(submitted, dict):
+                continue
+            form = forms_by_key.get(str(submitted.get('form_key') or ''))
+            answer = str(submitted.get('text') or '').strip()
+            if form is None or not answer:
+                continue
+            accepted = form.get('answers')
+            if accepted is None:
+                accepted = form.get('answer')
+            if isinstance(accepted, str):
+                accepted = accepted.splitlines()
+            if not isinstance(accepted, list):
+                accepted = []
+            accepted = [str(value).strip() for value in accepted if str(value).strip()]
+            if not html_forms_answer_matches(answer, accepted):
+                accepted.append(answer)
+            form['answers'] = accepted
+            form.pop('answer', None)
+        task.checker_data = json.dumps(payload, ensure_ascii=False)
+        return
+    current = task.checker_data or ''
+    task.checker_data = current + ''.join('\n{}'.format(a.text) for a in attempts)
+
+
+def _pending_resolution(attempts):
+    result = defaultdict(lambda: {
+        'version': 1, 'replay_mode': 'checker_extension',
+        'attempt_ids': [], 'actor_keys': [], 'scopes': [],
+    })
+    for attempt in attempts:
+        entry = result[str(attempt.task_id)]
+        entry['attempt_ids'].append(attempt.pk)
+        entry['actor_keys'].append(list(actor_key(attempt)))
+        try:
+            payload = json.loads(attempt.text)
+        except (TypeError, ValueError):
+            continue
+        if attempt.task.task_type == 'wall':
+            words = tuple(sorted(str(x).strip().lower() for x in payload.get('words', [])))
+            if words:
+                entry['scopes'].append({'type': 'wall_words', 'value': list(words)})
+        elif attempt.task.task_type == 'replacements_lines':
+            try:
+                entry['scopes'].append({'type': 'replacement_line', 'value': int(payload['line_index'])})
+            except (KeyError, TypeError, ValueError):
+                pass
+    return dict(result)
+
+
+def _queue_after_commit(task_ids, selected_keys=None):
+    transaction.on_commit(
+        lambda ids=tuple(task_ids), keys=selected_keys: queue_chain_replays_for_tasks(
+            ids, selected_keys=keys,
+        )
+    )
+
+
+def add_attempts_to_checker(
+    attempt_ids, *, pending_only=False, recheck_selected_non_chain=False, return_receipt=False,
+):
+    """Merge selected answers atomically and queue affected chain replays."""
+    attempts = _load_attempts(attempt_ids, pending_only=pending_only)
+    by_task = defaultdict(list)
+    for attempt in attempts:
+        if attempt.task_id:
+            by_task[attempt.task_id].append(attempt)
+
+    with transaction.atomic():
+        task_ids = []
+        pending_resolution = _pending_resolution(attempts) if pending_only else {}
+        for task_id, task_attempts in by_task.items():
+            task = Task.objects.select_for_update().get(pk=task_id)
+            _apply_checker_additions(task, task_attempts)
+            task.save(
+                skip_semantics_reconciliation=(task.task_type in CHAIN_TASK_TYPES),
+            )
+            task_ids.append(task_id)
+        receipts = []
+        bulk_result = {
+            'accepted_count': len(attempts),
+            'queue_receipt': {
+                'jobs': [],
+                'new_jobs': 0,
+                'existing_jobs': 0,
+                'new_items': 0,
+                'existing_items': 0,
+                'superseded_jobs': [],
+                'superseded_items': 0,
+            },
+        }
+
+        def after_commit():
+            receipts.extend(queue_chain_replays_for_tasks(
+                task_ids,
+                pending_resolution=pending_resolution,
+                return_receipt=return_receipt,
+            ) or ())
+            if return_receipt:
+                from games.word_salad_recheck import serialize_enqueue_results
+                bulk_result['queue_receipt'] = serialize_enqueue_results(receipts)
+            if recheck_selected_non_chain:
+                from games.recheck import recheck
+                for attempt in attempts:
+                    if attempt.task.task_type not in CHAIN_TASK_TYPES:
+                        recheck(None, attempt.pk)
+
+        transaction.on_commit(after_commit)
+    if return_receipt:
+        return bulk_result
+    return len(attempts)
+
+
+def accept_pending_attempts(attempt_ids, *, return_receipt=False):
+    """Accept pending answers, extend the checker, and queue chronological replay."""
+    return add_attempts_to_checker(
+        attempt_ids,
+        pending_only=True,
+        recheck_selected_non_chain=True,
+        return_receipt=return_receipt,
+    )
+
+
+def reject_pending_attempts(attempt_ids):
+    """Reject pending answers without changing checker data or chain state."""
+    from games.views.track import track_attempt_change
+
+    with transaction.atomic():
+        attempts = _load_attempts(attempt_ids, pending_only=True, lock=True)
+        changed = 0
+        for attempt in attempts:
+            if not attempt.possible_status:
+                continue
+            attempt.status = attempt.possible_status
+            attempt.save(update_fields=['status'])
+            track_attempt_change(attempt, reason='attempt.prestatus_confirmed')
+            changed += 1
+    return changed
+
+
+def recheck_chain_attempts(attempt_ids, *, full_task=False):
+    """Queue deduplicated chronological replays for selected chain actors."""
+    attempts = _load_attempts(attempt_ids)
+    task_ids = {a.task_id for a in attempts if a.task_id}
+    selected_keys = None if full_task else {
+        (a.task_id, a.game_id, actor_key(a))
+        for a in attempts
+        if a.task_id and a.game_id and a.task.task_type in CHAIN_TASK_TYPES
+    }
+    with transaction.atomic():
+        _queue_after_commit(tuple(task_ids), selected_keys)
+    return len(selected_keys or ())
+
+
+# Backward-compatible name for callers of the first bulk implementation.
+add_to_checker = accept_pending_attempts

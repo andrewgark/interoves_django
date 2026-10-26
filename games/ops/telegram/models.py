@@ -1,0 +1,82 @@
+from django.db import models
+
+
+class TelegramGameAnnouncement(models.Model):
+    KIND_DAY_BEFORE = 'day_before'
+    KIND_HOUR_BEFORE = 'hour_before'
+    KIND_START = 'start'
+    KIND_END_SOON_15 = 'end_soon_15'
+    KIND_END_SOON_30 = 'end_soon_30'  # legacy; no longer sent
+    KIND_END = 'end'
+    KIND_NO_COFFINS = 'no_coffins'
+    KIND_RESULTS = 'results'
+    KIND_ADMIN_START_SOON = 'admin_start_soon'
+    KIND_CHOICES = (
+        (KIND_DAY_BEFORE, 'Day before start'),
+        (KIND_HOUR_BEFORE, 'Hour before start'),
+        (KIND_START, 'Game start'),
+        (KIND_END_SOON_15, '15 minutes before end'),
+        (KIND_END_SOON_30, '30 minutes before end (legacy)'),
+        (KIND_END, 'Game end'),
+        (KIND_NO_COFFINS, 'Every task has a full-score result'),
+        (KIND_RESULTS, 'Tournament results after end'),
+        (KIND_ADMIN_START_SOON, 'Admin reminder ~1h before start'),
+    )
+
+    game = models.ForeignKey('games.Game', related_name='telegram_announcements', on_delete=models.CASCADE)
+    # Fixed kinds above, plus dynamic ``all_solved:<team_id>``.
+    kind = models.CharField(max_length=64)
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['game', 'kind'], name='unique_telegram_game_announcement'),
+        ]
+
+    @staticmethod
+    def all_solved_kind(team_id) -> str:
+        return 'all_solved:{}'.format(team_id)
+
+    def __str__(self):
+        return '{} [{}]'.format(self.game_id, self.kind)
+
+
+class TelegramDailyReview(models.Model):
+    """One admin review notification per Moscow publication date."""
+
+    review_date = models.DateField(unique=True)
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-review_date']
+        verbose_name = 'Telegram-проверка ежедневных заданий'
+        verbose_name_plural = 'Telegram-проверки ежедневных заданий'
+
+    def __str__(self):
+        return 'Daily review {}'.format(self.review_date.isoformat())
+
+
+class TelegramAdminReport(models.Model):
+    """One successfully sent statistics report for a local calendar period."""
+
+    REPORT_DAILY = 'daily'
+    REPORT_WEEKLY = 'weekly'
+    REPORT_CHOICES = ((REPORT_DAILY, 'Daily'), (REPORT_WEEKLY, 'Weekly'))
+
+    id = models.BigAutoField(primary_key=True)
+    report_type = models.CharField(max_length=16, choices=REPORT_CHOICES)
+    period_start = models.DateTimeField()
+    period_end = models.DateTimeField()
+    sent_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['report_type', 'period_start', 'period_end'],
+                name='uniq_telegram_admin_report_period',
+            ),
+        ]
+        ordering = ['-period_start']
+
+    def __str__(self):
+        return '{} {} — {}'.format(self.report_type, self.period_start, self.period_end)

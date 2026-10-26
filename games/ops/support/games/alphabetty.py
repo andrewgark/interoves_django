@@ -1,0 +1,621 @@
+"""Support console: расписание Алфавитки (порядок, даты, слова, генерация)."""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import asdict, dataclass
+from datetime import datetime
+from typing import Any, Optional
+
+from django.db import transaction
+from django.utils import timezone
+
+from games.alphabetty.core import normalize_word, pick_answer_words
+from games.alphabetty.play import ALPHABETTY_BASE_POINTS
+from games.alphabetty_daily import (
+    ALPHABETTY_BUFFER_DAYS,
+    ALPHABETTY_GAME_ID,
+    ALPHABETTY_PUBLISH_START_TAG,
+    MOSCOW,
+    alphabetty_publish_at,
+    alphabetty_publish_start,
+    current_alphabetty_number,
+    is_alphabetty_number_published,
+)
+from games.models import CheckerType, Game, GameTaskGroup, Task, TaskGroup
+from games.support.services.banned import (
+    add_banned_word,
+    banned_word_set,
+    list_banned_words,
+    remove_banned_word,
+)
+from games.support.services.schedule_links import (
+    assert_future_only_order,
+    build_schedule_page_context,
+    delete_future_slot,
+    effective_schedule_number,
+    renumber_links,
+    shift_links,
+    defer_future_slot,
+    restore_deferred_slot,
+    save_publish_start_date,
+)
+
+logger = logging.getLogger('games.support.services.alphabetty')
+
+
+class AlphabettySupportError(Exception):
+    """Ошибка операции с Алфавитками."""
+
+
+@dataclass(frozen=True)
+class AlphabettyRow:
+    link_id: int
+    task_group_id: int
+    task_id: Optional[int]
+    number: int
+    name: str
+    publish_date: Optional[str]
+    is_published: bool
+    is_today: bool
+    word: str
+    play_url: str
+    site_url: str = ''
+    is_deferred: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def get_alphabetty_game() -> Game:
+    try:
+        return Game.objects.get(pk=ALPHABETTY_GAME_ID)
+    except Game.DoesNotExist as exc:
+        raise AlphabettySupportError('Игра alphabetty не найдена') from exc
+
+
+def _task_for_link(link: GameTaskGroup) -> Optional[Task]:
+    return Task.objects.filter(task_group_id=link.task_group_id, number='1').first()
+
+
+def _word_from_task(task: Optional[Task]) -> str:
+    if task is None:
+        return ''
+    return normalize_word((task.answer or '').strip().splitlines()[0] if task.answer else '')
+
+
+def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
+    tg = link.task_group
+    link.name = f'Алфавитка #{new_num}'
+    if (tg.label or '').startswith('alphabetty:') or not (tg.label or '').strip():
+        tg.label = f'alphabetty:{new_num}'
+        tg.save(update_fields=['label'])
+
+
+def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
+    def sync_links(links: list[GameTaskGroup], new_numbers: list[int]) -> None:
+        task_groups = []
+        for link, new_num in zip(links, new_numbers):
+            tg = link.task_group
+            link.name = f'Алфавитка #{new_num}'
+            if (tg.label or '').startswith('alphabetty:') or not (tg.label or '').strip():
+                tg.label = f'alphabetty:{new_num}'
+                task_groups.append(tg)
+        if task_groups:
+            TaskGroup.objects.bulk_update(task_groups, ['label'])
+
+    renumber_links(ordered_links, sync_links=sync_links)
+
+
+def _tasks_for_links(links: list[GameTaskGroup]) -> dict[int, Task]:
+    task_group_ids = {link.task_group_id for link in links}
+    if not task_group_ids:
+        return {}
+    return {
+        task.task_group_id: task
+        for task in Task.objects.filter(task_group_id__in=task_group_ids, number='1')
+    }
+
+
+def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
+    from games.alphabetty_daily import ALPHABETTY_GAME_ID
+    from games.placement_share import site_urls_by_task_group
+
+    return site_urls_by_task_group(ALPHABETTY_GAME_ID, task_group_ids)
+
+
+def list_alphabetty_rows(*, now: datetime | None = None) -> list[AlphabettyRow]:
+    game = get_alphabetty_game()
+    now = now or timezone.now()
+    today = now.astimezone(MOSCOW).date()
+    links = GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game).select_related('task_group'),
+        reverse=False, include_deferred=True,
+    )
+    tasks_by_group = _tasks_for_links(links)
+    site_urls = _site_urls_by_task_group(link.task_group_id for link in links)
+    rows: list[AlphabettyRow] = []
+    for link in links:
+        number = effective_schedule_number(link)
+        if number is None:
+            continue
+        task = tasks_by_group.get(link.task_group_id)
+        word = _word_from_task(task)
+        pub = alphabetty_publish_at(game, number)
+        pub_date = pub.date().isoformat() if pub else None
+        is_pub = False if link.is_deferred else is_alphabetty_number_published(game, number, now)
+        is_today = bool(not link.is_deferred and pub and pub.date() == today)
+        rows.append(AlphabettyRow(
+            link_id=link.pk,
+            task_group_id=link.task_group_id,
+            task_id=task.pk if task else None,
+            number=number,
+            name=link.name or f'Алфавитка #{number}',
+            publish_date=pub_date,
+            is_published=is_pub,
+            is_today=is_today,
+            word=word,
+            play_url=f'/{ALPHABETTY_GAME_ID}/{number}/',
+            site_url=site_urls.get(link.task_group_id, ''),
+            is_deferred=link.is_deferred,
+        ))
+    return rows
+
+
+def get_alphabetty_detail(link_id: int) -> dict[str, Any]:
+    game = get_alphabetty_game()
+    link = (
+        GameTaskGroup.objects.filter(game=game, pk=link_id)
+        .select_related('task_group')
+        .first()
+    )
+    if link is None:
+        raise AlphabettySupportError('Алфавитка не найдена')
+    task = _task_for_link(link)
+    number = effective_schedule_number(link) or 0
+    pub = alphabetty_publish_at(game, number)
+    return {
+        'link_id': link.pk,
+        'task_group_id': link.task_group_id,
+        'task_id': task.pk if task else None,
+        'number': number,
+        'name': link.name,
+        'publish_date': pub.date().isoformat() if pub else None,
+        'word': _word_from_task(task),
+        'play_url': f'/{ALPHABETTY_GAME_ID}/{number}/',
+        'site_url': _site_urls_by_task_group([link.task_group_id]).get(link.task_group_id, ''),
+    }
+
+
+def get_publish_start_iso() -> Optional[str]:
+    start = alphabetty_publish_start(get_alphabetty_game())
+    if start is None:
+        return None
+    return start.date().isoformat()
+
+
+@transaction.atomic
+def set_publish_start(date_iso: str) -> str:
+    return save_publish_start_date(
+        get_alphabetty_game(), ALPHABETTY_PUBLISH_START_TAG, date_iso,
+        error_cls=AlphabettySupportError,
+    )
+
+
+def last_published_number(*, now: datetime | None = None) -> int:
+    published = [r.number for r in list_alphabetty_rows(now=now) if r.is_published]
+    return max(published) if published else 0
+
+
+def scheduled_words(*, now: datetime | None = None) -> set[str]:
+    game = get_alphabetty_game()
+    return {r.word for r in list_alphabetty_rows(now=now) if r.word} | banned_word_set(game)
+
+
+def _assert_future_only_order(
+    ordered_link_ids: list[int],
+    *,
+    now: datetime | None = None,
+) -> None:
+    assert_future_only_order(
+        ordered_link_ids,
+        list_alphabetty_rows(now=now),
+        error_cls=AlphabettySupportError,
+        published_msg='Нельзя менять порядок уже вышедших алфавиток (№1–{number}). '
+        'Переставляйте только будущие.',
+    )
+
+
+@transaction.atomic
+def reorder_alphabetty(
+    ordered_link_ids: list[int],
+    *,
+    now: datetime | None = None,
+) -> list[AlphabettyRow]:
+    game = get_alphabetty_game()
+    if not ordered_link_ids:
+        raise AlphabettySupportError('Пустой порядок')
+    if len(set(ordered_link_ids)) != len(ordered_link_ids):
+        raise AlphabettySupportError('Дубликаты id в порядке')
+
+    existing = list(
+        GameTaskGroup.objects.select_for_update()
+        .filter(game=game)
+        .select_related('task_group')
+    )
+    active = [link for link in existing if not link.is_deferred]
+    by_id = {link.pk: link for link in active}
+    if set(ordered_link_ids) != set(by_id):
+        raise AlphabettySupportError(
+            'Список id не совпадает с текущими Алфавитками '
+            '(обновите страницу и повторите)'
+        )
+    _assert_future_only_order(ordered_link_ids, now=now)
+    ordered = [by_id[pk] for pk in ordered_link_ids]
+    _renumber_links(ordered)
+    return list_alphabetty_rows(now=now)
+
+
+def _create_slot(*, number: int, word: str) -> GameTaskGroup:
+    word_n = normalize_word(word)
+    if not word_n:
+        raise AlphabettySupportError('Пустое слово')
+    checker = CheckerType.objects.get(id='alphabetty')
+    game = get_alphabetty_game()
+    task_group = TaskGroup.objects.create(
+        label=f'alphabetty:{number}',
+        checker=checker,
+        points=ALPHABETTY_BASE_POINTS,
+        max_attempts=None,
+    )
+    Task.objects.create(
+        task_group=task_group,
+        number='1',
+        task_type='alphabetty',
+        checker=checker,
+        checker_data=word_n,
+        answer=word_n,
+        text='',
+        tags={},
+        points=ALPHABETTY_BASE_POINTS,
+        max_attempts=None,
+        is_removed=False,
+    )
+    return GameTaskGroup.objects.create(
+        game=game,
+        task_group=task_group,
+        number=str(number),
+        name=f'Алфавитка #{number}',
+    )
+
+
+def attach_existing_task_group(
+    task_group: TaskGroup,
+    *,
+    at_number: int,
+    now: datetime | None = None,
+) -> GameTaskGroup:
+    """Вставить уже существующий TaskGroup в расписание alphabetty."""
+    game = get_alphabetty_game()
+    if GameTaskGroup.objects.filter(game=game, task_group=task_group).exists():
+        raise AlphabettySupportError('Этот набор заданий уже в расписании алфавиток')
+    if at_number < 1:
+        at_number = 1
+    locked_until = last_published_number(now=now)
+    if at_number <= locked_until:
+        raise AlphabettySupportError(
+            'Нельзя вставлять среди уже вышедших '
+            '(доступно с №{})'.format(locked_until + 1)
+        )
+    links = GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game).select_related('task_group'),
+        reverse=False,
+    )
+    max_num = 0
+    for link in links:
+        number = effective_schedule_number(link)
+        if number is not None:
+            max_num = max(max_num, number)
+    if at_number > max_num + 1:
+        at_number = max_num + 1
+
+    to_shift = []
+    for link in links:
+        try:
+            n = int(link.number)
+        except (TypeError, ValueError):
+            continue
+        if n >= at_number:
+            to_shift.append((n, link))
+    to_shift.sort(key=lambda x: x[0], reverse=True)
+    if to_shift:
+        planned = [(old, old + 1, link) for old, link in to_shift]
+        shift_links(
+            [link for _old, _new, link in planned],
+            [new for _old, new, _link in planned],
+            sync_link=_sync_link_titles,
+        )
+
+    if (task_group.label or '').startswith('alphabetty:') or not (task_group.label or '').strip():
+        task_group.label = f'alphabetty:{at_number}'
+        task_group.save(update_fields=['label'])
+    elif (task_group.label or '').startswith('alphabetty_offer:'):
+        task_group.label = f'alphabetty:{at_number}'
+        task_group.save(update_fields=['label'])
+    link = GameTaskGroup.objects.create(
+        game=game,
+        task_group=task_group,
+        number=str(at_number),
+        name=f'Алфавитка #{at_number}',
+    )
+    _sync_link_titles(link, at_number)
+    link.save(update_fields=['name'])
+    return link
+
+
+@transaction.atomic
+def create_alphabetty(
+    *,
+    at_number: int,
+    word: str | None = None,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    if at_number < 1:
+        raise AlphabettySupportError('Номер должен быть >= 1')
+    locked_until = last_published_number(now=now)
+    if at_number <= locked_until:
+        raise AlphabettySupportError(
+            'Нельзя вставлять среди уже вышедших '
+            '(доступно с №{})'.format(locked_until + 1)
+        )
+    game = get_alphabetty_game()
+    links = GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game).select_related('task_group'),
+        reverse=False,
+    )
+    max_num = 0
+    for link in links:
+        number = effective_schedule_number(link)
+        if number is not None:
+            max_num = max(max_num, number)
+    if at_number > max_num + 1:
+        at_number = max_num + 1
+
+    to_shift = []
+    for link in links:
+        try:
+            n = int(link.number)
+        except (TypeError, ValueError):
+            continue
+        if n >= at_number:
+            to_shift.append((n, link))
+    to_shift.sort(key=lambda x: x[0], reverse=True)
+    if to_shift:
+        planned = [(old, old + 1, link) for old, link in to_shift]
+        shift_links(
+            [link for _old, _new, link in planned],
+            [new for _old, new, _link in planned],
+            sync_link=_sync_link_titles,
+        )
+
+    if word is None:
+        picked = pick_answer_words(1, exclude=scheduled_words(now=now))
+        if not picked:
+            raise AlphabettySupportError('Не осталось слов в пуле загадок')
+        word = picked[0]
+    else:
+        word_n = normalize_word(word)
+        if word_n in scheduled_words(now=now):
+            raise AlphabettySupportError(f'Слово уже занято другим днём: {word_n}')
+    link = _create_slot(number=at_number, word=word)
+    return get_alphabetty_detail(link.pk)
+
+
+@transaction.atomic
+def update_alphabetty(link_id: int, *, word: str, now: datetime | None = None) -> dict[str, Any]:
+    game = get_alphabetty_game()
+    link = (
+        GameTaskGroup.objects.filter(game=game, pk=link_id)
+        .select_related('task_group')
+        .first()
+    )
+    if link is None:
+        raise AlphabettySupportError('Алфавитка не найдена')
+    try:
+        number = int(link.number)
+    except (TypeError, ValueError):
+        number = 0
+    if number and is_alphabetty_number_published(game, number, now):
+        raise AlphabettySupportError(
+            f'Нельзя менять слово уже вышедшей Алфавитки №{number}'
+        )
+    word_n = normalize_word(word)
+    if not word_n:
+        raise AlphabettySupportError('Пустое слово')
+    taken = scheduled_words(now=now) - {_word_from_task(_task_for_link(link))}
+    if word_n in taken:
+        raise AlphabettySupportError(f'Слово уже занято другим днём: {word_n}')
+    checker = CheckerType.objects.get(id='alphabetty')
+    Task.objects.update_or_create(
+        task_group=link.task_group,
+        number='1',
+        defaults={
+            'task_type': 'alphabetty',
+            'checker': checker,
+            'checker_data': word_n,
+            'answer': word_n,
+            'text': '',
+            'tags': {},
+            'points': ALPHABETTY_BASE_POINTS,
+            'max_attempts': None,
+            'is_removed': False,
+        },
+    )
+    if number:
+        _sync_link_titles(link, number)
+        link.save(update_fields=['name'])
+    return get_alphabetty_detail(link.pk)
+
+
+@transaction.atomic
+def generate_more(n: int, *, now: datetime | None = None) -> dict[str, Any]:
+    """Дописать в конец N новых дней с уникальными словами."""
+    if n < 1:
+        raise AlphabettySupportError('N должно быть >= 1')
+    if n > 365:
+        raise AlphabettySupportError('N слишком большое (макс. 365)')
+    game = get_alphabetty_game()
+    links = GameTaskGroup.sorted_links(
+        GameTaskGroup.objects.filter(game=game),
+        reverse=False,
+    )
+    max_num = 0
+    for link in links:
+        try:
+            max_num = max(max_num, int(link.number))
+        except (TypeError, ValueError):
+            pass
+    exclude = scheduled_words(now=now)
+    words = pick_answer_words(n, exclude=exclude)
+    if len(words) < n:
+        raise AlphabettySupportError(
+            'В пуле осталось только {} слов (нужно {})'.format(len(words), n)
+        )
+    created = []
+    for i, word in enumerate(words):
+        link = _create_slot(number=max_num + 1 + i, word=word)
+        created.append(get_alphabetty_detail(link.pk))
+    return {
+        'created_count': len(created),
+        'created': created,
+        'rows': [r.to_dict() for r in list_alphabetty_rows(now=now)],
+    }
+
+
+@transaction.atomic
+def ensure_future_buffer(
+    target: int = ALPHABETTY_BUFFER_DAYS,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Если будущих слотов меньше target — досэмплить до target."""
+    now = now or timezone.now()
+    rows = list_alphabetty_rows(now=now)
+    future = [r for r in rows if not r.is_published]
+    if len(future) >= target:
+        return {'added': 0, 'future': len(future), 'target': target}
+    initial_future = len(future)
+    created_total = 0
+    try:
+        while len(future) < target:
+            need = target - len(future)
+            result = generate_more(need, now=now)
+            created_total += result['created_count']
+            rows = list_alphabetty_rows(now=now)
+            future = [r for r in rows if not r.is_published]
+            if result['created_count'] == 0:
+                break
+    except AlphabettySupportError as exc:
+        logger.warning('alphabetty ensure_future_buffer: %s', exc)
+        return {
+            'added': max(0, len(future) - initial_future),
+            'created': created_total,
+            'future': len(future),
+            'target': target,
+            'error': str(exc),
+        }
+    except Exception as exc:
+        # Гонка multi-instance на unique (game, number).
+        logger.warning('alphabetty ensure_future_buffer race: %s', exc)
+        return {
+            'added': max(0, len(future) - initial_future),
+            'created': created_total,
+            'future': len(future),
+            'target': target,
+            'error': str(exc),
+        }
+    added_future = max(0, len(future) - initial_future)
+    logger.info(
+        'alphabetty ensure_future_buffer: added %s future slots (%s created, target %s)',
+        added_future,
+        created_total,
+        target,
+    )
+    return {'added': added_future, 'created': created_total, 'future': len(future), 'target': target}
+
+
+@transaction.atomic
+def delete_alphabetty(link_id: int, *, now: datetime | None = None) -> list[AlphabettyRow]:
+    """Удалить будущую Алфавитку (слово может снова попасть в генерацию)."""
+    game = get_alphabetty_game()
+    return delete_future_slot(
+        game=game,
+        link_id=link_id,
+        is_number_published=is_alphabetty_number_published,
+        renumber_links=_renumber_links,
+        list_rows=list_alphabetty_rows,
+        error_cls=AlphabettySupportError,
+        not_found_msg='Алфавитка не найдена',
+        published_msg='Нельзя удалять уже вышедшую Алфавитку №{number}',
+        now=now,
+    )
+
+
+def defer_alphabetty(link_id: int, *, now=None):
+    return defer_future_slot(game=get_alphabetty_game(), link_id=link_id,
+        is_number_published=is_alphabetty_number_published, renumber_links=_renumber_links,
+        list_rows=list_alphabetty_rows, error_cls=AlphabettySupportError,
+        not_found_msg='Алфавитка не найдена', published_msg='Нельзя откладывать уже вышедшую Алфавитку №{number}', now=now)
+
+
+def restore_alphabetty(link_id: int, *, now=None):
+    return restore_deferred_slot(game=get_alphabetty_game(), link_id=link_id,
+        renumber_links=_renumber_links, list_rows=list_alphabetty_rows,
+        error_cls=AlphabettySupportError, not_found_msg='Отложенная Алфавитка не найдена', now=now)
+
+
+@transaction.atomic
+def forbid_alphabetty(link_id: int, *, now: datetime | None = None) -> dict[str, Any]:
+    """Удалить будущую Алфавитку и запретить её слово для генерации."""
+    game = get_alphabetty_game()
+    link = (
+        GameTaskGroup.objects.filter(game=game, pk=link_id)
+        .select_related('task_group')
+        .first()
+    )
+    if link is None:
+        raise AlphabettySupportError('Алфавитка не найдена')
+    word = _word_from_task(_task_for_link(link))
+    rows = delete_alphabetty(link_id, now=now)
+    banned = add_banned_word(game, word) if word else list_banned_words(game)
+    return {
+        'rows': [r.to_dict() for r in rows],
+        'banned': banned,
+    }
+
+
+def unban_alphabetty_word(word: str) -> list[dict[str, Any]]:
+    game = get_alphabetty_game()
+    return remove_banned_word(game, word)
+
+
+def alphabetty_dashboard_context(*, now: datetime | None = None) -> dict[str, Any]:
+    now = now or timezone.now()
+    rows = list_alphabetty_rows(now=now)
+    game = get_alphabetty_game()
+    today_number = current_alphabetty_number(game, now)
+    return {
+        **build_schedule_page_context(
+            rows,
+            title='Алфавитки',
+            prefix='ab',
+            list_label='Список алфавиток',
+            publish_start=get_publish_start_iso(),
+            today_number=today_number,
+        ),
+        'rows': rows,
+        'alphabetty_json': [r.to_dict() for r in rows],
+        'banned_json': list_banned_words(game),
+        'alphabetty_count': len(rows),
+        'buffer_days': ALPHABETTY_BUFFER_DAYS,
+    }

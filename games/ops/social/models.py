@@ -1,0 +1,203 @@
+from __future__ import annotations
+
+from django.db import models
+
+from games.storage_backends import social_queue_storage
+
+
+class SocialQueuePost(models.Model):
+    """Image + caption draft with independent publish status per network."""
+
+    SOURCE_MANUAL = 'manual'
+    SOURCE_LADDER = 'ladder'
+    SOURCE_GAME = 'game'
+    SOURCE_WORD_SALAD = 'word_salad'
+    SOURCE_CENSORLY = 'censorly'
+    SOURCE_CHOICES = (
+        (SOURCE_MANUAL, 'Manual'),
+        (SOURCE_LADDER, 'Ladder'),
+        (SOURCE_GAME, 'Game'),
+        (SOURCE_WORD_SALAD, 'Word salad'),
+        (SOURCE_CENSORLY, 'Censorly'),
+    )
+
+    STATUS_PENDING = 'pending'
+    STATUS_QUEUED = 'queued'
+    STATUS_PUBLISHING = 'publishing'
+    STATUS_SCHEDULED = 'scheduled'
+    STATUS_SENT = 'sent'
+    STATUS_FAILED = 'failed'
+    STATUS_SKIPPED = 'skipped'
+
+    TELEGRAM_STATUS_CHOICES = (
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_QUEUED, 'Queued (internal schedule)'),
+        (STATUS_PUBLISHING, 'Publishing'),
+        (STATUS_SCHEDULED, 'Scheduled in Telegram'),
+        (STATUS_SENT, 'Sent'),
+        (STATUS_FAILED, 'Failed'),
+        (STATUS_SKIPPED, 'Skipped'),
+    )
+    NETWORK_STATUS_CHOICES = (
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_QUEUED, 'Queued (internal schedule)'),
+        (STATUS_PUBLISHING, 'Publishing'),
+        (STATUS_SENT, 'Sent'),
+        (STATUS_FAILED, 'Failed'),
+        (STATUS_SKIPPED, 'Skipped'),
+    )
+
+    caption = models.TextField(blank=True, default='')
+    image = models.ImageField(
+        upload_to='social_queue/',
+        storage=social_queue_storage,
+        blank=True,
+        null=True,
+    )
+    social_image = models.ImageField(
+        upload_to='social_queue/',
+        storage=social_queue_storage,
+        blank=True,
+        null=True,
+        help_text='Optional compact image for X, Instagram and Threads; Telegram uses image.',
+    )
+    source = models.CharField(max_length=16, choices=SOURCE_CHOICES, default=SOURCE_MANUAL)
+    task = models.ForeignKey(
+        'Task', related_name='social_queue_posts', blank=True, null=True,
+        on_delete=models.SET_NULL,
+    )
+    ladder_date = models.DateField(
+        null=True,
+        blank=True,
+        help_text='MSK calendar date for daily teasers (unique together with source)',
+    )
+    ladder_number = models.PositiveIntegerField(null=True, blank=True)
+    play_url = models.CharField(max_length=500, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    telegram_status = models.CharField(
+        max_length=16, choices=TELEGRAM_STATUS_CHOICES, default=STATUS_PENDING,
+    )
+    telegram_external_id = models.CharField(max_length=64, blank=True, default='')
+    telegram_error = models.TextField(blank=True, default='')
+    telegram_at = models.DateTimeField(null=True, blank=True)
+    telegram_scheduled_for = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When the post sits in Telegram native deferred messages',
+    )
+    telegram_queued_for = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Internal schedule: minute cron publishes to the channel at this time',
+    )
+    telegram_claimed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Lease timestamp for an in-progress Telegram delivery',
+    )
+    telegram_claim_token = models.CharField(max_length=32, blank=True, default='')
+    telegram_attempts = models.PositiveSmallIntegerField(default=0)
+
+    twitter_status = models.CharField(
+        max_length=16, choices=NETWORK_STATUS_CHOICES, default=STATUS_PENDING,
+    )
+    twitter_external_id = models.CharField(max_length=64, blank=True, default='')
+    twitter_error = models.TextField(blank=True, default='')
+    twitter_at = models.DateTimeField(null=True, blank=True)
+    twitter_queued_for = models.DateTimeField(null=True, blank=True)
+    twitter_attempts = models.PositiveSmallIntegerField(default=0)
+
+    instagram_status = models.CharField(
+        max_length=16, choices=NETWORK_STATUS_CHOICES, default=STATUS_PENDING,
+    )
+    instagram_external_id = models.CharField(max_length=64, blank=True, default='')
+    instagram_error = models.TextField(blank=True, default='')
+    instagram_at = models.DateTimeField(null=True, blank=True)
+    instagram_queued_for = models.DateTimeField(null=True, blank=True)
+    instagram_attempts = models.PositiveSmallIntegerField(default=0)
+
+    threads_status = models.CharField(
+        max_length=16, choices=NETWORK_STATUS_CHOICES, default=STATUS_PENDING,
+    )
+    threads_external_id = models.CharField(max_length=64, blank=True, default='')
+    threads_error = models.TextField(blank=True, default='')
+    threads_at = models.DateTimeField(null=True, blank=True)
+    threads_queued_for = models.DateTimeField(null=True, blank=True)
+    threads_attempts = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ('-created_at',)
+        constraints = [
+            models.UniqueConstraint(
+                fields=('source', 'ladder_date'),
+                name='games_socialqueuepost_source_ladder_date_uniq',
+            ),
+        ]
+
+    def __str__(self):
+        if self.source == self.SOURCE_LADDER and self.ladder_number:
+            return 'ladder {} [tg={} x={} ig={} th={}]'.format(
+                self.ladder_number,
+                self.telegram_status,
+                self.twitter_status,
+                self.instagram_status,
+                self.threads_status,
+            )
+        if self.source == self.SOURCE_WORD_SALAD and self.ladder_number:
+            return 'salad {} [tg={} x={} ig={} th={}]'.format(
+                self.ladder_number,
+                self.telegram_status,
+                self.twitter_status,
+                self.instagram_status,
+                self.threads_status,
+            )
+        if self.source == self.SOURCE_CENSORLY and self.ladder_number:
+            return 'censorly {} [tg={} x={} ig={} th={}]'.format(
+                self.ladder_number,
+                self.telegram_status,
+                self.twitter_status,
+                self.instagram_status,
+                self.threads_status,
+            )
+        return 'social {} [tg={} x={} ig={} th={}]'.format(
+            self.pk,
+            self.telegram_status,
+            self.twitter_status,
+            self.instagram_status,
+            self.threads_status,
+        )
+
+    def image_bytes(self) -> bytes:
+        if not self.image:
+            return b''
+        self.image.open('rb')
+        try:
+            return self.image.read()
+        finally:
+            self.image.close()
+
+    def set_image_bytes(self, data: bytes, filename: str = 'image.png') -> None:
+        from django.core.files.base import ContentFile
+
+        self.image.save(filename, ContentFile(data), save=False)
+
+    def social_image_bytes(self) -> bytes:
+        field = self.social_image or self.image
+        if not field:
+            return b''
+        field.open('rb')
+        try:
+            return field.read()
+        finally:
+            field.close()
+
+    def set_social_image_bytes(self, data: bytes, filename: str = 'social-image.png') -> None:
+        from django.core.files.base import ContentFile
+
+        self.social_image.save(filename, ContentFile(data), save=False)
+
+    @property
+    def telegram_ok(self) -> bool:
+        return self.telegram_status in (self.STATUS_SCHEDULED, self.STATUS_SENT)
