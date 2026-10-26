@@ -51,6 +51,7 @@ from games.models import (
     Game,
     GameTaskGroup,
     HTMLPage,
+    PlayerCompletedGame,
     Profile,
     Project,
     ReplaySlot,
@@ -58,6 +59,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
+from games.ops.analytics.events import game_instance_id_for_task_group
 from games.ops.analytics.identity import attach_anon_cookie
 from games.results.share import elapsed_seconds_from_attempts as share_elapsed
 from games.site.views.daily.timing import daily_timing_page_context
@@ -1554,6 +1556,46 @@ class DailyTimingApiTests(TestCase):
             DailySolveTiming.objects.get(game=self.game, task_group=self.tg, anon_key=self.anon).status,
             DailySolveTiming.STATUS_RUNNING,
         )
+
+    def _finished_officially(self, result):
+        PlayerCompletedGame.objects.create(
+            anon_key=self.anon, game=self.game, task_group=self.tg,
+            game_kind='ladder',
+            game_instance_id=game_instance_id_for_task_group(self.game, self.tg),
+            result=result,
+        )
+
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
+    def test_start_after_official_finish_tells_client_to_reload(self, _pub):
+        # Any official completion row blocks official play, not only "solved".
+        self._finished_officially(PlayerCompletedGame.RESULT_COMPLETED)
+        resp = self._post({
+            'action': ACTION_START,
+            'session_id': str(uuid4()),
+            'event_id': 'e-finished',
+            'seq': 1,
+        })
+        self.assertEqual(resp.status_code, 409)
+        self.assertEqual(resp.json()['error'], 'replay_required')
+        self.assertTrue(resp.json()['reload_required'])
+
+    @patch('games.site.pages.play.page.scheduled_number_is_public', return_value=True)
+    def test_page_treats_a_non_solved_official_finish_as_finished(self, _pub):
+        # The page used to require result=solved and opened an official play
+        # (with a timer) that the timing and gameplay endpoints then rejected.
+        self._finished_officially(PlayerCompletedGame.RESULT_FAILED)
+        from django.http import HttpResponse
+        with patch(
+            'games.daily.page.placement.resolve_accessible_daily_placement',
+            return_value=self.link,
+        ), patch(
+            'games.site.pages.play.page.render', return_value=HttpResponse(),
+        ) as render_mock:
+            response = self.client.get('/ladder/91002/', HTTP_X_INTEROVES_ANON=self.anon)
+        self.assertEqual(response.status_code, 200)
+        ctx = render_mock.call_args[0][2]
+        self.assertTrue(ctx['official_completed'])
+        self.assertFalse(ctx['daily_timing_enabled'])
 
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_timing_get_advertises_stable_event_capability(self, _pub):

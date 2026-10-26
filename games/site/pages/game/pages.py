@@ -32,7 +32,6 @@ from games.models import (
     GameResultsSnapshot,
     GameTaskGroup,
     ImageManager,
-    PlayerCompletedGame,
     Project,
 )
 from games.results.share import share_host_from_request
@@ -73,7 +72,7 @@ from games.site.pages.game.progress import (
     _task_group_rows_skeleton,
 )
 from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
-from games.site.session.replay import active_replay
+from games.site.session.replay import _official_exists, active_replay
 
 logger = logging.getLogger('games.views.new_ui')
 
@@ -330,13 +329,12 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         user=user,
         anon_key=anon_key,
     )
-    actor_filter = {'team': team, 'user': user, 'anon_key': anon_key}
-    official_completed = PlayerCompletedGame.objects.filter(
-        game=game,
-        task_group=task_group,
-        result=PlayerCompletedGame.RESULT_SOLVED,
-        **actor_filter,
-    ).exists()
+    # Same rule as the gameplay endpoints, which reject an official move
+    # with replay_required: a page that disagreed opened an official play
+    # (and timer) that every request then refused.
+    official_completed = _official_exists(
+        game=game, task_group=task_group, team=team, user=user, anon_key=anon_key,
+    )
     prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     ctx_dicts = build_task_group_task_context_dicts(

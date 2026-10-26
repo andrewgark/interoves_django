@@ -479,17 +479,10 @@ def alphabetty_play_page(request, number):
         team = user.profile.team_on
     official_completed = False
     if offer is None:
-        actor_filter = (
-            {'user': user, 'team__isnull': True, 'anon_key__isnull': True}
-            if user is not None
-            else {'anon_key': anon_key, 'team__isnull': True, 'user__isnull': True}
+        # Same rule as the gameplay endpoints (replay_required).
+        official_completed = _official_exists(
+            game=game, task_group=task.task_group, user=user, anon_key=anon_key,
         )
-        official_completed = PlayerCompletedGame.objects.filter(
-            game=game,
-            task_group=task.task_group,
-            result=PlayerCompletedGame.RESULT_SOLVED,
-            **actor_filter,
-        ).exists()
     meta_ctx = _alphabetty_meta_context(
         request,
         game=game,

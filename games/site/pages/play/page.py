@@ -81,7 +81,7 @@ from games.site.pages.game.progress import (
 from games.site.pages.hub.cards import _sections_hub_url
 from games.site.pages.results.compute import _public_exclusion_notice
 from games.site.session.play_mode import effective_play_mode, personal_play_mode_locked
-from games.site.session.replay import active_replay
+from games.site.session.replay import _official_exists, active_replay
 from games.task_group.task_group_context import build_task_group_task_context_dicts
 from games.task_group.titles import task_group_page_title
 
@@ -404,13 +404,12 @@ def task_group_page(
             user=user,
             anon_key=anon_key,
         )
-    actor_filter = {'team': team, 'user': user, 'anon_key': anon_key}
-    official_completed = PlayerCompletedGame.objects.filter(
-        game=game,
-        task_group=task_group,
-        result=PlayerCompletedGame.RESULT_SOLVED,
-        **actor_filter,
-    ).exists()
+    # Same rule as the gameplay endpoints, which reject an official move
+    # with replay_required: a page that disagreed opened an official play
+    # (and timer) that every request then refused.
+    official_completed = _official_exists(
+        game=game, task_group=task_group, team=team, user=user, anon_key=anon_key,
+    )
     tasks = sorted(task_group.tasks.visible(), key=lambda t: t.key_sort())
     section_rules_type = game.id if game.id in SECTION_RULES_GAME_IDS else None
     section_tutorial_html = _section_tutorial_html_for_game(game)

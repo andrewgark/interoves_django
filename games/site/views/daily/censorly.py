@@ -671,17 +671,12 @@ def _render_play(request, *, game, task, load_meta):
     team = None
     if user is not None and has_profile(user):
         team = user.profile.team_on
-    actor_filter = (
-        {'user': user, 'team__isnull': True, 'anon_key__isnull': True}
-        if user is not None
-        else {'anon_key': anon_key, 'team__isnull': True, 'user__isnull': True}
+    # Same rule as the gameplay endpoints, which reject an official move
+    # with replay_required: a page that disagreed opened an official play
+    # (and timer) that every request then refused.
+    official_completed = _official_exists(
+        game=game, task_group=task.task_group, user=user, anon_key=anon_key,
     )
-    official_completed = PlayerCompletedGame.objects.filter(
-        game=game,
-        task_group=task.task_group,
-        result=PlayerCompletedGame.RESULT_SOLVED,
-        **actor_filter,
-    ).exists() if anon_key or user else False
 
     meta_ctx = _meta_context(
         request,

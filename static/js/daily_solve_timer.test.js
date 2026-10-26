@@ -1706,6 +1706,64 @@ asyncTest(async function testStartFailingWhileHiddenIsRetriedOnVisible() {
   }
 });
 
+asyncTest(async function testReloadRequiredReloadsOnceThenStopsAndAsksForReload() {
+  var oldSetTimeout = global.setTimeout;
+  var timers = [];
+  var reports = [];
+  var starts = 0;
+  var reloads = 0;
+  global.setTimeout = function (callback) { timers.push(callback); return timers.length; };
+  // sessionStorage survives the reload, so both page loads share it.
+  var storage = memoryStorage();
+  function finishedGameFetch(url, init) {
+    var body = bodyOf(init);
+    if (body.action === 'client_report') {
+      reports.push(body);
+      return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+    }
+    starts += 1;
+    // The page was rendered as an official play of an already finished game.
+    return Promise.resolve({ status: 409, json: function () {
+      return Promise.resolve({ ok: false, error: 'replay_required', reload_required: true });
+    } });
+  }
+  function load(extra) {
+    var options = { storage: storage, reload: function () { reloads += 1; } };
+    Object.keys(extra || {}).forEach(function (key) { options[key] = extra[key]; });
+    return reportingTimer(finishedGameFetch, options);
+  }
+  try {
+    // E.g. a tab restored from the HTTP cache with pre-finish HTML.
+    var stale = load();
+    stale.startIfAllowed();
+    await flush();
+    assert.strictEqual(reloads, 1);
+    stale.destroy();
+
+    // The reloaded page still disagrees with the server: no reload loop.
+    var errorEl = { hidden: true, textContent: '' };
+    var popover = { hidden: true };
+    var ctrl = load({ errorEl: errorEl, popover: popover });
+    ctrl.startIfAllowed();
+    await flush();
+    for (var i = 0; i < 5 && timers.length; i++) {
+      timers.splice(0).forEach(function (callback) { callback(); });
+      ctrl.onVisible();
+      ctrl.noteActivity();
+      await flush();
+    }
+    assert.strictEqual(reloads, 1);
+    assert.strictEqual(starts, 2);
+    assert.strictEqual(reports.length, 0);
+    assert.strictEqual(errorEl.hidden, false);
+    assert.ok(errorEl.textContent.indexOf('Обновите') >= 0);
+    assert.strictEqual(popover.hidden, false);
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
 asyncTest(async function testAcceptedButStoppedStartIsReported() {
   var reports = [];
   var ctrl = reportingTimer(function (url, init) {

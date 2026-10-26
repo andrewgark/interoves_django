@@ -38,10 +38,14 @@ from games.site.session.gameplay_context import context_error_response, validate
 from games.site.session.play_mode import effective_play_mode
 
 
-def _json_error(code, http_status=400):
+def _json_error(code, http_status=400, *, reload_required=False):
     body = empty_snapshot()
     body['ok'] = False
     body['error'] = code
+    if reload_required:
+        # Like the gameplay endpoints: this page can never start a timer, so
+        # the client must stop retrying instead of polling every few seconds.
+        body['reload_required'] = True
     return JsonResponse(body, status=http_status)
 
 
@@ -358,11 +362,11 @@ def _daily_solve_timing_impl(
             team=team, user=user, anon_key=anon_key,
         )
     except StaleReplayError:
-        return _json_error('stale_replay', 409)
+        return _json_error('stale_replay', 409, reload_required=True)
     if replay_slot is None and _official_exists(
         game=game, task_group=task_group, team=team, user=user, anon_key=anon_key,
     ):
-        return _json_error('replay_required', 409)
+        return _json_error('replay_required', 409, reload_required=True)
     raw_action = payload.get('action') or ACTION_START
     if not isinstance(raw_action, str):
         return _json_error('bad_action', 400)

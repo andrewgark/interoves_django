@@ -31,6 +31,9 @@
   var RETRY_AFTER_MAX_MS = 10000;
   var RETRY_AFTER_FLOOR_MAX_MS = 8000;
   var WINDOW_SESSION_PREFIX = 'interoves-daily-timing:';
+  // A page that still gets reload_required right after reloading really
+  // disagrees with the server; do not reload it again within this window.
+  var RELOAD_GUARD_MS = 60000;
 
   function formatElapsed(ms) {
     var seconds = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
@@ -132,6 +135,9 @@
     var bootstrap = options.bootstrap || {};
     var solved = !!options.solved;
     var heartbeatMs = options.heartbeatMs || HEARTBEAT_MS;
+    var reloadPage = options.reload || function () {
+      if (root.location && root.location.reload) root.location.reload();
+    };
     var idleMs = options.idleMs || IDLE_MS;
 
     var rootEl = options.root;
@@ -223,6 +229,9 @@
     var eventQueue = [];
     var eventQueueRunning = false;
     var deliveryFailed = false;
+    // The server said this page can never run a timer (e.g. the game was
+    // already finished: replay_required). Only a reload helps; stop sending.
+    var reloadRequired = false;
     var raf = null;
     var destroyed = false;
     var awaitingServer = false;
@@ -276,8 +285,10 @@
       }
       if (tooltipValue) tooltipValue.textContent = formatClock(ms);
       if (errorEl) {
-        errorEl.hidden = !(startFailed || deliveryFailed);
-        errorEl.textContent = startFailed
+        errorEl.hidden = !(startFailed || deliveryFailed || reloadRequired);
+        errorEl.textContent = reloadRequired
+          ? 'Страница устарела. Обновите её, чтобы продолжить.'
+          : startFailed
           ? 'Не удалось запустить таймер. Время решения пока не записывается.'
           : (deliveryFailed
             ? 'Не удалось подтвердить сохранение времени. Проверьте соединение и обновите состояние таймера.'
@@ -502,13 +513,32 @@
     // A broken timer must never lock the board: the player keeps solving and
     // the timer quietly tries to start a fresh interval again later.
     function scheduleRecovery() {
-      if (destroyed || recoveryTimer || !root.setTimeout) return;
+      if (destroyed || reloadRequired || recoveryTimer || !root.setTimeout) return;
       recoveryTimer = root.setTimeout(function () {
         recoveryTimer = null;
         if (destroyed || completed || manuallyPaused || resumeRequired) return;
         if (authoritative && status === 'running') return;
         retryAfterConnectivity();
       }, heartbeatMs);
+    }
+
+    // E.g. a tab restored from the HTTP cache with HTML from before the game
+    // was finished: a fresh page shows the finished game and its replay
+    // button. Reload once; if that does not help, the message stays.
+    function onReloadRequired() {
+      if (reloadRequired) return;
+      reloadRequired = true;
+      if (destroyed || visibilityOf(doc) !== 'visible') return;
+      var guardKey = 'timing-reload:' + url;
+      var now = Date.now();
+      try {
+        var last = parseInt((storage && storage.getItem(guardKey)) || '0', 10) || 0;
+        if (!storage || (last && now - last < RELOAD_GUARD_MS)) return;
+        storage.setItem(guardKey, String(now));
+      } catch (e) {
+        return;
+      }
+      reloadPage();
     }
 
     function indicateDeliveryFailure() {
@@ -541,6 +571,7 @@
           while (item.attempts < item.maxAttempts && Date.now() - item.createdAt < EVENT_MAX_AGE_MS) {
             item.attempts += 1;
             result = await requestEventOnce(item.body, item.keepalive);
+            if (result.data && result.data.reload_required) onReloadRequired();
             if (!(result.data && result.data.ok)) {
               lastFailure = {
                 action: item.body.action,
@@ -706,7 +737,7 @@
       }
       if (
         destroyed || completed || manuallyPaused || resumeRequired || awaitingServer
-        || startFailed || idlePaused
+        || startFailed || idlePaused || reloadRequired
       ) return;
       if (visibilityOf(doc) !== 'visible') return;
       if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
@@ -782,6 +813,8 @@
           if (popover) popover.hidden = false;
           scheduleRecovery();
           reportProblem('start_failed');
+        } else if (reloadRequired && popover) {
+          popover.hidden = false;
         }
         render();
       });
@@ -871,7 +904,7 @@
     // should not stay on a dead timer. Retry, and report it once so we learn
     // about the cause.
     function healStoppedClock() {
-      if (destroyed || completed || manuallyPaused || resumeRequired) return;
+      if (destroyed || completed || manuallyPaused || resumeRequired || reloadRequired) return;
       if (authoritative && status === 'running') {
         stoppedSince = null;
         return;
@@ -963,7 +996,7 @@
       if (!reportProblems || destroyed || watchdogTimer || !root.setTimeout) return;
       watchdogTimer = root.setTimeout(function () {
         watchdogTimer = null;
-        if (destroyed || completed || everRunning || Object.keys(reportsSent).length) return;
+        if (destroyed || completed || everRunning || reloadRequired || Object.keys(reportsSent).length) return;
         if (manuallyPaused || resumeRequired || idlePaused || visibleSince == null) {
           scheduleWatchdog();
           return;
