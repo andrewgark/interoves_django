@@ -273,6 +273,8 @@ If the resolved version is empty, the client check is skipped.
 | Media storage health check | `games.ops.health.checks` | `games.health_checks` |
 | Daily UI transitions / streak | `games.daily.timing.{transitions,streak}` | `games.daily_transitions`, `daily_streak` |
 | Task display titles | `games.tasks.titles` | `games.task_titles` |
+| Chain task state lookup (board/daily kwargs) | `games.tasks.actor_state.chain_state_for_actor` | `games.actor_state` |
+| Chain state for results-table actors | `games.tasks.result_details.chain_state_for_actor` (signature `game, task, actor`) | `games.task_result_details` — do not shadow with `actor_state` import |
 | Game access / schedule gates | `games.club.access.game` | `games.access` |
 | Attempt/view exceptions | `games.site.http.exceptions` | `games.exception` |
 | Daily statistics API | `games.daily.timing.statistics` | `games.daily_statistics` |
