@@ -4870,8 +4870,6 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_comparative_more'
         if lemma.startswith(('большев', 'обольшев')):
             return 'sense:review_bolshevism'
-        if lemma == 'большинство':
-            return 'sense:review_majority'
         if lemma in {'большак', 'большуха', 'набольший'}:
             return 'sense:review_family_elder'
         return 'sense:review_size'
@@ -5042,8 +5040,6 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_schedule_or_decoration'
         if lemma.startswith(('запис', 'отпис', 'выпис')):
             return 'sense:review_record'
-        if lemma.startswith(('писател', 'писар', 'писец', 'писак', 'писун', 'писач')):
-            return 'sense:review_writer'
         if lemma.startswith(('письм', 'письмен', 'писч')):
             return 'sense:review_written_text'
         return 'sense:review_writing'
@@ -6343,6 +6339,42 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_similar', (
         'сходный', 'сходственный', 'сходство', 'сходствовать', 'схожесть', 'схожий',
     )),
+    # This 213-lemma historical family mixes movement with transitions,
+    # entrances, routes, work, and figurative meanings. Keep those nouns and
+    # adjectives in smaller modern-sense clusters; the verbs below retain
+    # multiple readings where the ordinary movement sense is still live.
+    ('sense:review_day_off', ('выходной',)),
+    ('sense:review_transition', (
+        'переход', 'переходность', 'переходный', 'переходчивый', 'переходящий',
+    )),
+    ('sense:review_entry_exit', (
+        'вход', 'входящий', 'вхождение', 'вхожий', 'выход', 'выходящий',
+        'выхождение',
+    )),
+    ('sense:review_origin_person', ('выходец',)),
+    ('sense:review_passage', (
+        'проход', 'проходка', 'проходной', 'проходческий', 'проходчик',
+        'проходчица', 'проходимость', 'проходимый', 'проходящий', 'прохождение',
+    )),
+    ('sense:review_villain', ('проходимец',)),
+    ('sense:review_approach', ('подход', 'подходец', 'подходный', 'подходчик')),
+    ('sense:review_suitability', ('подходящий',)),
+    ('sense:review_circumvention', (
+        'обход', 'обходный', 'обходчик', 'обхождение',
+    )),
+    ('sense:review_departure', (
+        'отход', 'отходиться', 'отходная', 'отходник', 'отходничество',
+        'уход', 'уходбище', 'уходиться',
+    )),
+    ('sense:review_arrival', (
+        'приходить', 'приходный', 'приходский', 'приходящий', 'привходить',
+        'привходящий',
+    )),
+    ('sense:review_expedition', ('поход', 'походный')),
+    ('sense:review_convergence', ('сход', 'сходень', 'сходни', 'схождение')),
+    ('sense:review_church', ('прихожанин', 'прихожанка', 'прихожая')),
+    ('sense:review_marketability', ('ходкий', 'ходкость')),
+    ('sense:review_stilts', ('ходули', 'ходульность', 'ходульный')),
     ('sense:adventure', ('похождение',)),
     ('sense:review_gathering', ('сходбище', 'сходка')),
     ('sense:review_rise', (
@@ -6928,9 +6960,8 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('знать', ('sense:cognize', 'sense:nobility')),
     ('писать', ('sense:review_writing', 'sense:urinate')),
     ('писаться', ('sense:review_writing', 'sense:urinate')),
-    # The writer and the written message retain their ordinary dedicated
-    # readings, while also participating in the broader writing family.
-    ('писатель', ('sense:review_writer', 'sense:review_writing')),
+    # The written message retains its dedicated reading, while also
+    # participating in the broader writing family.
     ('письмо', ('sense:review_written_text', 'sense:review_writing')),
     ('глава', ('sense:review_leadership', 'sense:review_titles_headings')),
     ('звание', ('sense:review_calling', 'sense:review_title')),
@@ -7030,6 +7061,23 @@ MULTI_READINGS = MULTI_READINGS + (
     ('пересадка', ('sense:seat_plant', 'sense:transfer_trip')),
     ('посадка', ('sense:seat_plant', 'sense:landing')),
     ('насаждение', ('sense:seedling', 'sense:impose')),
+    # Preserve both ordinary movement and the newly separated figurative
+    # senses within the хаж|ход|хож|хожд family.
+    ('входить', ('sense:review_walking', 'sense:review_entry_exit')),
+    ('выходить', ('sense:review_walking', 'sense:review_entry_exit')),
+    ('переходить', ('sense:review_walking', 'sense:review_transition')),
+    ('проходить', ('sense:review_walking', 'sense:review_passage')),
+    ('обходить', ('sense:review_walking', 'sense:review_circumvention')),
+    ('обходиться', ('sense:review_walking', 'sense:review_circumvention')),
+    ('подходить', (
+        'sense:review_walking', 'sense:review_approach', 'sense:review_suitability',
+    )),
+    ('уходить', ('sense:review_walking', 'sense:review_departure')),
+    ('отходить', ('sense:review_walking', 'sense:review_departure')),
+    ('приходить', ('sense:review_walking', 'sense:review_arrival')),
+    ('сходить', ('sense:review_walking', 'sense:review_convergence')),
+    ('сходиться', ('sense:review_walking', 'sense:review_convergence')),
+    ('приход', ('sense:review_income_expense', 'sense:review_arrival')),
 )
 
 # Explicitly reviewed lexical families requested from Censorly daily-article

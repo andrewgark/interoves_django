@@ -2268,6 +2268,19 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
                 f'{left} / {right} should remain connected within its sense cluster',
             )
 
+    def test_day_off_and_transition_senses_stay_apart(self):
+        self.assertTrue(_has_sense_structure('выходной', 'sense:review_day_off'))
+        self.assertTrue(_has_sense_structure('переход', 'sense:review_transition'))
+        self.assertFalse(opens('переход', 'выходных'))
+        self.assertFalse(opens('переход', 'выходной'))
+        # The broader family still links ordinary movement forms.
+        self.assertTrue(opens('ходить', 'переходить'))
+        self.assertTrue(opens('выходить', 'входить'))
+
+    def test_given_and_transfer_senses_stay_apart(self):
+        self.assertFalse(opens('данный', 'передачи'))
+        self.assertTrue(opens('передать', 'передача'))
+
     def test_evgeniy_does_not_open_zhenu(self):
         self.assertFalse(opens('евгений', 'жену'))
         self.assertFalse(opens('жену', 'евгений'))
@@ -2818,6 +2831,9 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
             ('кадет', 'кадетский'),
             ('написал', 'письме'),
             ('писать', 'писатель'),
+            ('писать', 'писательница'),
+            ('писарь', 'писательница'),
+            ('большой', 'большинстве'),
         )
         for left, right in linked:
             with self.subTest(left=left, right=right):
