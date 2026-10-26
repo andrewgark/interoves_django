@@ -496,7 +496,7 @@ class WordSaladTests(TestCase):
         )
 
     def test_correct_only_saves_dictionary_extra(self):
-        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+        with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABC'})):
             with patch('games.site.views.game.attempt.track_actor_task_change'):
                 response = self._post(
                     '/send_attempt/{}/'.format(self.task.pk),
@@ -535,7 +535,7 @@ class WordSaladTests(TestCase):
         self.assertEqual(ui['rare_words'], [])
 
     def test_sync_finds_persists_localstorage_extra(self):
-        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+        with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABC'})):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -554,7 +554,7 @@ class WordSaladTests(TestCase):
             Attempt.manager.filter(task=self.task, anon_key='word-salad-sync-extra').count(),
             1,
         )
-        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+        with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABC'})):
             again = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -577,7 +577,7 @@ class WordSaladTests(TestCase):
             'ABC',
         )
         self.task.save(update_fields=['checker_data'])
-        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+        with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABC'})):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -611,7 +611,7 @@ class WordSaladTests(TestCase):
         original = Attempt.manager.get(task=self.task, anon_key=anon_key)
         last_play = timezone.now() - timedelta(hours=3)
         Attempt.manager.filter(pk=original.pk).update(time=last_play)
-        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+        with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABC'})):
             response = self._post(
                 '/send_attempt/{}/'.format(self.task.pk),
                 {
@@ -1227,7 +1227,7 @@ class WordSaladTests(TestCase):
 
     def test_recheck_promotes_extra_to_rare(self):
         anon_key = 'word-salad-recheck-extra-to-rare'
-        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABC'})):
+        with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABC'})):
             with patch('games.site.views.game.attempt.track_actor_task_change'):
                 response = self._post(
                     '/send_attempt/{}/'.format(self.task.pk),
@@ -1291,7 +1291,7 @@ class WordSaladTests(TestCase):
             _puzzle()['words'],
         )
         self.task.save(update_fields=['checker_data'])
-        with patch('games.word_salad.load_extra_noun_set', return_value=frozenset({'ABCD'})):
+        with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABCD'})):
             with patch('games.realtime.track_compat.track_actor_task_change'):
                 recheck_word_salad_task(self.task, game=self.game, notify=False)
         attempt = Attempt.manager.get(task=self.task, anon_key=anon_key)
