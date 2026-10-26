@@ -216,7 +216,7 @@ def _new_results_compute_uncached(game, mode, task_group_number=None, alphabetty
         # Sort by a comparable primitive to avoid tz-awareness issues.
         max_best_time_ts = max_best_time.timestamp() if hasattr(max_best_time, "timestamp") else float("inf")
         teams_sorted.append((-score, max_best_time_ts, participant))
-    from games.leaderboard import (
+    from games.results.standings.leaderboard import (
         actor_key, canonical_leaderboard_durations, eligible_public_actors,
         individual_sports_key, score_rank,
     )

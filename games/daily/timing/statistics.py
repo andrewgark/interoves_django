@@ -321,7 +321,7 @@ def _completed_actors(game, task_group, published_at=None):
         game=game, task_group=task_group,
         result=PlayerCompletedGame.RESULT_SOLVED,
     ).select_related('team').only('team_id', 'user_id', 'anon_key', 'team'))
-    from games.leaderboard import actor_key, eligible_public_actors
+    from games.results.standings.leaderboard import actor_key, eligible_public_actors
 
     actor_pairs = [
         (_actor_key(row), actor)

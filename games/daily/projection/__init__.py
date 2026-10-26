@@ -16,7 +16,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import F, Max, Min
 from django.utils import timezone
 
-from games.leaderboard import actor_key
+from games.results.standings.leaderboard import actor_key
 from games.daily.registry import get_daily_game
 from games.results.share import elapsed_seconds_between
 from games.models import (

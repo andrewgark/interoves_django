@@ -23,7 +23,7 @@ from django.utils import timezone
 from games.support.access import support_console_required
 from games.support.queues import dashboard_context as queues_dashboard_context
 from games.models import WordSaladRecheckJob
-from games.word_salad_recheck import retry_word_salad_recheck, serialize_job
+from games.ops.workers.jobs.salad import retry_word_salad_recheck, serialize_job
 from games.support.services.actor import (
     build_anon_context,
     build_game_context,

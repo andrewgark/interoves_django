@@ -409,7 +409,7 @@ class TaskAdmin(admin.ModelAdmin):
             from games.word_salad import task_data_signature
             current_signature = task_data_signature(obj.checker_data, obj.answer)
             if previous_signature != current_signature:
-                from games.word_salad_recheck import enqueue_word_salad_recheck
+                from games.ops.workers.jobs.salad import enqueue_word_salad_recheck
                 for link in obj.task_group.game_links.filter(game_id='salad').select_related('game'):
                     enqueue_word_salad_recheck(
                         task=obj, game=link.game, include_dictionary_scan=True,

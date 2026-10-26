@@ -25,7 +25,7 @@ from games.word_salad_outbox import (
     dispatch_word_salad_recheck_outbox,
     reconcile_word_salad_recheck_outbox,
 )
-from games.word_salad_recheck import (
+from games.ops.workers.jobs.salad import (
     enqueue_word_salad_recheck,
     enqueue_actor_rechecks,
     process_word_salad_recheck_item,
@@ -52,7 +52,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_enqueue_snapshots_actors_and_supersedes_previous_job(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             first = enqueue_word_salad_recheck(task=self.task, game=self.game)
             second = enqueue_word_salad_recheck(task=self.task, game=self.game)
 
@@ -65,7 +65,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_superseding_job_cancels_unsent_previous_outbox(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             first = enqueue_word_salad_recheck(task=self.task, game=self.game)
             first_item = WordSaladRecheckItem.objects.get(job=first)
             second = enqueue_word_salad_recheck(task=self.task, game=self.game)
@@ -80,11 +80,11 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_targeted_supersede_cancels_unsent_previous_outbox(self):
         actor = (None, self.user.pk, None, None)
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value={actor}):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value={actor}):
             first = enqueue_word_salad_recheck(task=self.task, game=self.game)
         first.status = WordSaladRecheckJob.STATUS_RUNNING
         first.save(update_fields=['status', 'updated_at'])
-        from games.word_salad_recheck import enqueue_actor_rechecks
+        from games.ops.workers.jobs.salad import enqueue_actor_rechecks
         second = enqueue_actor_rechecks(task=self.task, game=self.game, actors=[actor])
 
         first_item = WordSaladRecheckItem.objects.get(job=first)
@@ -142,7 +142,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_full_recheck_receipt_lists_superseded_work(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             first = enqueue_word_salad_recheck(
                 task=self.task, game=self.game, return_receipt=True,
             )
@@ -155,14 +155,14 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_worker_completes_one_item_and_notifies_actor(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(
                 task=self.task,
                 game=self.game,
                 pending_resolution={'version': 1, 'attempt_ids': [123], 'scopes': []},
             )
         with patch(
-            'games.word_salad_recheck.recheck_word_salad_actor',
+            'games.ops.workers.jobs.salad.recheck_word_salad_actor',
             return_value={'credited': 2},
         ) as recheck:
             self.assertEqual(process_word_salad_rechecks(limit=1, worker='test'), 1)
@@ -194,7 +194,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_successful_retry_clears_stale_errors(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         item = WordSaladRecheckItem.objects.get(job=job)
         job.last_error = 'old transient error'
@@ -202,7 +202,7 @@ class WordSaladRecheckQueueTests(TestCase):
         item.last_error = 'old transient error'
         item.save(update_fields=['last_error'])
         with patch(
-            'games.word_salad_recheck.recheck_word_salad_actor',
+            'games.ops.workers.jobs.salad.recheck_word_salad_actor',
             return_value={'credited': 0},
         ):
             self.assertEqual(process_word_salad_rechecks(limit=1, worker='test'), 1)
@@ -213,7 +213,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_job_serialization_exposes_pending_resolution_scope(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(
                 task=self.task,
                 game=self.game,
@@ -231,10 +231,10 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_duplicate_item_delivery_is_a_noop(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         item = WordSaladRecheckItem.objects.get(job=job)
-        with patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 2}) as recheck:
+        with patch('games.ops.workers.jobs.salad.recheck_word_salad_actor', return_value={'credited': 2}) as recheck:
             self.assertEqual(process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk), 'completed')
             self.assertEqual(process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk), 'completed')
         recheck.assert_called_once()
@@ -298,7 +298,7 @@ class WordSaladRecheckQueueTests(TestCase):
             (None, self.user.pk, None, None),
             (None, None, 'anonymous-actor', None),
         }
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         self.assertEqual(WordSaladRecheckOutbox.objects.filter(item__job=job).count(), 2)
         self.assertEqual(
@@ -308,7 +308,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_transport_actor_id_is_actor_key_not_item_primary_key(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         outbox = WordSaladRecheckOutbox.objects.get(item__job=job)
         item = outbox.item
@@ -318,7 +318,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_outbox_dispatch_is_safe_to_repeat(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         transport = FakeWordSaladTransport()
         self.assertEqual(dispatch_word_salad_recheck_outbox(limit=1, transport=transport)['sent'], 1)
@@ -332,7 +332,7 @@ class WordSaladRecheckQueueTests(TestCase):
             (None, None, 'anonymous-actor-{}'.format(index), None)
             for index in range(11)
         )
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         transport = FakeWordSaladTransport()
         batch_sizes = []
@@ -358,7 +358,7 @@ class WordSaladRecheckQueueTests(TestCase):
             (None, self.user.pk, None, None),
             (None, None, 'anonymous-partial', None),
         }
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         rows = list(WordSaladRecheckOutbox.objects.filter(item__job=job).order_by('id'))
 
@@ -377,7 +377,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_outbox_duplicate_send_after_send_before_mark_is_tolerated(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
 
         class SendThenCrashTransport(FakeWordSaladTransport):
@@ -400,7 +400,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_reconciliation_is_read_only_by_default_and_repairs_missing_row(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         item = WordSaladRecheckItem.objects.get(job=job)
         WordSaladRecheckOutbox.objects.filter(item=item).delete()
@@ -415,7 +415,7 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_reconciliation_reopens_stale_sending_row(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         outbox = WordSaladRecheckOutbox.objects.get(item__job=job)
         outbox.status = WordSaladRecheckOutbox.STATUS_SENDING
@@ -429,10 +429,10 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_replay_failure_keeps_item_retryable(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         item = WordSaladRecheckItem.objects.get(job=job)
-        with patch('games.word_salad_recheck.recheck_word_salad_actor', side_effect=RuntimeError('transient')):
+        with patch('games.ops.workers.jobs.salad.recheck_word_salad_actor', side_effect=RuntimeError('transient')):
             self.assertEqual(process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk), 'failed')
         item.refresh_from_db()
         self.assertEqual(item.status, WordSaladRecheckItem.STATUS_PENDING)
@@ -440,12 +440,12 @@ class WordSaladRecheckQueueTests(TestCase):
 
     def test_stale_revision_is_superseded_without_replay(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         self.task.attempt_revision = uuid.uuid4()
         self.task.save(update_fields=['attempt_revision'])
         item = WordSaladRecheckItem.objects.get(job=job)
-        with patch('games.word_salad_recheck.recheck_word_salad_actor') as recheck:
+        with patch('games.ops.workers.jobs.salad.recheck_word_salad_actor') as recheck:
             self.assertEqual(process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk), 'superseded')
         recheck.assert_not_called()
         item.refresh_from_db()
@@ -456,11 +456,11 @@ class WordSaladRecheckQueueTests(TestCase):
             (None, self.user.pk, None, None),
             (None, None, 'anonymous-actor', None),
         }
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         items = list(WordSaladRecheckItem.objects.filter(job=job).order_by('id'))
-        with patch('games.word_salad_recheck.recheck_word_salad_actor'):
-            from games.word_salad_recheck import _claim_specific_item
+        with patch('games.ops.workers.jobs.salad.recheck_word_salad_actor'):
+            from games.ops.workers.jobs.salad import _claim_specific_item
             self.assertEqual(_claim_specific_item(job_id=job.pk, item_id=items[0].pk)[0], 'claimed')
             self.assertEqual(
                 process_word_salad_recheck_item(job_id=job.pk, item_id=items[1].pk),
@@ -475,11 +475,11 @@ class WordSaladRecheckQueueTests(TestCase):
     )
     def test_worker_leases_are_runtime_configurable(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         item = WordSaladRecheckItem.objects.get(job=job)
         now = timezone.now()
-        from games.word_salad_recheck import _claim_specific_item
+        from games.ops.workers.jobs.salad import _claim_specific_item
         self.assertEqual(
             _claim_specific_item(job_id=job.pk, item_id=item.pk, now=now)[0],
             'claimed',
@@ -490,12 +490,12 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertAlmostEqual((item.claimed_until - now).total_seconds(), 90, delta=2)
 
     def test_validation_failpoints_are_gated_to_worker_validation_mode(self):
-        from games.word_salad_recheck import _validation_failpoint
+        from games.ops.workers.jobs.salad import _validation_failpoint
         with patch.dict('os.environ', {
             'INTEROVES_RUNTIME_ROLE': 'web',
             'INTEROVES_VALIDATION_MODE': '1',
             'INTEROVES_VALIDATION_FAILPOINT': 'crash_after_commit',
-        }, clear=False), patch('games.word_salad_recheck.os._exit') as exit_process:
+        }, clear=False), patch('games.ops.workers.jobs.salad.os._exit') as exit_process:
             _validation_failpoint('crash_after_commit')
             exit_process.assert_not_called()
 
@@ -503,14 +503,14 @@ class WordSaladRecheckQueueTests(TestCase):
             'INTEROVES_RUNTIME_ROLE': 'worker',
             'INTEROVES_VALIDATION_MODE': '1',
             'INTEROVES_VALIDATION_FAILPOINT': 'crash_after_commit',
-        }, clear=False), patch('games.word_salad_recheck.os._exit') as exit_process:
+        }, clear=False), patch('games.ops.workers.jobs.salad.os._exit') as exit_process:
             _validation_failpoint('crash_after_commit')
             exit_process.assert_called_once_with(86)
 
     @override_settings(ROOT_URLCONF='interoves_django.urls')
     def test_worker_endpoint_requires_hmac_and_accepts_completed_delivery(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         item = WordSaladRecheckItem.objects.get(job=job)
         payload = {
@@ -526,7 +526,7 @@ class WordSaladRecheckQueueTests(TestCase):
         timestamp = '2000000000'
         signature = hmac.new(b'test-secret', timestamp.encode() + b'.' + body, hashlib.sha256).hexdigest()
         with patch.dict('os.environ', {'WORD_SALAD_WORKER_HMAC_SECRET': 'test-secret'}), \
-             patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 0}):
+             patch('games.ops.workers.jobs.salad.recheck_word_salad_actor', return_value={'credited': 0}):
             with patch('games.site.views.workers.word_salad.time.time', return_value=2000000000):
                 response = Client().post(
                     '/internal/worker/word-salad-recheck/', body,
@@ -539,7 +539,7 @@ class WordSaladRecheckQueueTests(TestCase):
     @override_settings(ROOT_URLCONF='interoves_django.urls')
     def test_worker_endpoint_accepts_native_private_sqsd_delivery_on_worker_role(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         item = WordSaladRecheckItem.objects.get(job=job)
         payload = {
@@ -551,7 +551,7 @@ class WordSaladRecheckQueueTests(TestCase):
             'task_revision': str(job.task_revision),
         }
         with patch.dict('os.environ', {'INTEROVES_RUNTIME_ROLE': 'worker'}, clear=False), \
-             patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 0}):
+             patch('games.ops.workers.jobs.salad.recheck_word_salad_actor', return_value={'credited': 0}):
             response = Client().post(
                 '/internal/worker/recheck/',
                 json.dumps(payload).encode(),
@@ -566,9 +566,9 @@ class WordSaladRecheckQueueTests(TestCase):
             (None, self.user.pk, None, None),
             (None, None, 'anonymous-actor', None),
         }
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
-        with patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 0}):
+        with patch('games.ops.workers.jobs.salad.recheck_word_salad_actor', return_value={'credited': 0}):
             self.assertEqual(process_word_salad_rechecks(limit=1, worker='test'), 1)
             job.refresh_from_db()
             self.assertEqual(job.status, WordSaladRecheckJob.STATUS_PENDING)

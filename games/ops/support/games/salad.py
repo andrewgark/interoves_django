@@ -530,7 +530,7 @@ def update_word_salad(
     recheck_job = None
     queue_receipt = None
     if previous_signature != task_data_signature(checker_data):
-        from games.word_salad_recheck import (
+        from games.ops.workers.jobs.salad import (
             enqueue_word_salad_recheck,
             serialize_enqueue_result,
         )
@@ -548,7 +548,7 @@ def update_word_salad(
         link.save(update_fields=['name'])
     detail = get_word_salad_detail(link.pk)
     if recheck_job is not None:
-        from games.word_salad_recheck import serialize_job
+        from games.ops.workers.jobs.salad import serialize_job
         detail['recheck_job'] = serialize_job(recheck_job)
         detail['queue_receipt'] = queue_receipt
     return detail
@@ -565,7 +565,7 @@ def recheck_word_salad(link_id: int) -> dict[str, Any]:
     task = _task_for_link(link)
     if task is None:
         raise WordSaladSupportError('Задание не найдено')
-    from games.word_salad_recheck import (
+    from games.ops.workers.jobs.salad import (
         enqueue_word_salad_recheck,
         serialize_enqueue_result,
         serialize_job,

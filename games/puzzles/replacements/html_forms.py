@@ -9,7 +9,7 @@ from games.puzzles.core.check_runtime import BaseChecker, CheckResult
 from games.puzzles.core.primitives import MoveRefusal, TextMove, same_text_verdict
 from games.puzzles.core.progress import _text_tuple
 from games.puzzles.core.quota import revision_quota_message
-from games.html_forms import (
+from games.puzzles.replacements.forms import (
     html_forms_answer_matches,
     html_forms_solved_keys_from_state,
     html_forms_state_payload,
@@ -48,14 +48,14 @@ def progress_signature(state):
 def clean_checker_data(task):
     """Reject an html-forms payload that has no answered forms."""
     from django.core.exceptions import ValidationError
-    from games.html_forms import parse_html_forms_data
+    from games.puzzles.replacements.forms import parse_html_forms_data
     if not parse_html_forms_data(task.checker_data):
         raise ValidationError({'checker_data': 'Нужен JSON со списком forms и ответами.'})
 
 
 def is_complete(task, state_raw):
     """True when every form key is solved."""
-    from games.html_forms import html_forms_is_complete
+    from games.puzzles.replacements.forms import html_forms_is_complete
     return html_forms_is_complete(task, state_raw)
 
 
@@ -66,7 +66,7 @@ def attempt_answer(attempt):
         key = str(payload.get('form_key') or '')
     except (ValueError, TypeError):
         return attempt.task.answer or ''
-    from games.html_forms import parse_html_forms_data
+    from games.puzzles.replacements.forms import parse_html_forms_data
     for form in parse_html_forms_data(attempt.task.checker_data):
         if form['key'] == key:
             return form['answer']
@@ -76,7 +76,7 @@ def attempt_answer(attempt):
 def pretty_text(attempt):
     """List label for one html form, without exposing the private key."""
     from django.utils.html import format_html
-    from games.html_forms import parse_html_forms_data
+    from games.puzzles.replacements.forms import parse_html_forms_data
     try:
         payload = json.loads(attempt.text)
         if not isinstance(payload, dict):
@@ -100,7 +100,7 @@ def state_summary(state):
 
 def results_max_points(task, m):
     """Green-cell maximum: form count times the task multiplier."""
-    from games.html_forms import parse_html_forms_data
+    from games.puzzles.replacements.forms import parse_html_forms_data
     n = len(parse_html_forms_data(task.checker_data))
     if n > 0:
         return m * n

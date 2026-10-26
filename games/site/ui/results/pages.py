@@ -602,7 +602,7 @@ def new_ladder_word_results_page(request, task_group_number):
         data = _set_current_result_header_answers(
             data, me_personal or me_anon_participant or team, game=game,
         )
-        from games.leaderboard import apply_release_policy
+        from games.results.standings.leaderboard import apply_release_policy
         from games.daily_section import publish_at_for
         return apply_release_policy(
             data, game=game, task_group=placement.task_group,

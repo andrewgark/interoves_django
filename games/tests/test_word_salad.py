@@ -138,7 +138,7 @@ class WordSaladTests(TestCase):
             _puzzle()['grid'], ['ABCDEFGHIJKLMNOP', 'ABCD'], ['ABCD'],
         )
         request = RequestFactory().post('/admin/games/task/{}/change/'.format(self.task.pk))
-        with patch('games.word_salad_recheck.enqueue_word_salad_recheck') as enqueue:
+        with patch('games.ops.workers.jobs.salad.enqueue_word_salad_recheck') as enqueue:
             TaskAdmin(Task, site).save_model(request, self.task, SimpleNamespace(), change=True)
 
         enqueue.assert_called_once_with(

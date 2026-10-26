@@ -132,7 +132,7 @@ def recheck_team_task_all_chronological(_, attempt_id):
     anon_key = this_attempt.anon_key
 
     if task.task_type in CHAIN_TASK_TYPES:
-        from games.word_salad_recheck import enqueue_actor_rechecks
+        from games.ops.workers.jobs.salad import enqueue_actor_rechecks
         if this_attempt.game_id is None:
             raise ValueError('chronological chain recheck needs the attempt game')
         return enqueue_actor_rechecks(

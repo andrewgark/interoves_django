@@ -12,7 +12,7 @@ from games.tests.test_chain_task_state import (
     _wall_text,
 )
 from games.site.views.game.attempt import check_attempt
-from games.word_salad_recheck import process_word_salad_recheck_item
+from games.ops.workers.jobs.salad import process_word_salad_recheck_item
 
 
 class ChainRecheckQueueTests(_ChainFixture, TestCase):
@@ -33,7 +33,7 @@ class ChainRecheckQueueTests(_ChainFixture, TestCase):
         self.assertEqual(item.team_id, self.team.pk)
         self.assertTrue(WordSaladRecheckOutbox.objects.filter(item=item).exists())
 
-        with patch('games.word_salad_recheck.recheck_word_salad_actor') as salad:
+        with patch('games.ops.workers.jobs.salad.recheck_word_salad_actor') as salad:
             state = process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk, worker='test')
         salad.assert_not_called()
         self.assertEqual(state, 'completed')

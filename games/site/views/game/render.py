@@ -6,7 +6,7 @@ from games.site.views.pages.util import has_profile
 from games.models import Attempt, GameTaskGroup, ImageManager, AudioManager
 from games.analytics_identity import gameplay_anon_key
 from games.gameplay_context import issue_gameplay_context
-from games.html_forms import render_html_forms_task
+from games.puzzles.replacements.forms import render_html_forms_task
 
 
 def _task_card_public_identity(game, task_group, slot):

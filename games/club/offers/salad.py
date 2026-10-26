@@ -420,7 +420,7 @@ def send_offer(offer: WordSaladOffer) -> WordSaladOffer:
         task.checker_data = serialize_task_data(grid, words, offer.rare_words_text)
         task.answer = ''
         task.save(update_fields=['text', 'checker_data', 'answer'])
-        from games.word_salad_recheck import enqueue_word_salad_recheck
+        from games.ops.workers.jobs.salad import enqueue_word_salad_recheck
         link = (
             task.task_group.game_links.filter(game_id=WORD_SALAD_GAME_ID).first()
             if task.task_group is not None else None

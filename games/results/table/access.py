@@ -31,7 +31,7 @@ def results_actor_for_request(request, game, *, sections_project_id='sections'):
 
 
 def public_exclusion_notice(request, game, task_group, *, surface, sections_project_id='sections'):
-    from games.leaderboard import results_exclusion_notice, viewer_results_exclusion_reasons
+    from games.results.standings.leaderboard import results_exclusion_notice, viewer_results_exclusion_reasons
 
     user = request.user if getattr(request.user, 'is_authenticated', False) else None
     reasons = viewer_results_exclusion_reasons(

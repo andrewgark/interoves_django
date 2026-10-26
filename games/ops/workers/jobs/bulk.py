@@ -39,7 +39,7 @@ def _apply_checker_additions(task, attempts):
         task.checker_data = _wall_additions(task, attempts)
         return
     if task.task_type == 'html_forms':
-        from games.html_forms import html_forms_answer_matches
+        from games.puzzles.replacements.forms import html_forms_answer_matches
 
         try:
             payload = json.loads(task.checker_data or '{}')
@@ -157,7 +157,7 @@ def add_attempts_to_checker(
                 return_receipt=return_receipt,
             ) or ())
             if return_receipt:
-                from games.word_salad_recheck import serialize_enqueue_results
+                from games.ops.workers.jobs.salad import serialize_enqueue_results
                 bulk_result['queue_receipt'] = serialize_enqueue_results(receipts)
             if recheck_selected_non_chain:
                 from games.ops.workers.jobs.recheck import recheck

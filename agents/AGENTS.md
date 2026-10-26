@@ -222,6 +222,9 @@ If the resolved version is empty, the client check is skipped.
 | Account / ticket / subscription | `games.site.views.account.*` | `games.views.ticket`, `subscription`, … |
 | Daily play (alphabetty, censorly) | `games.site.views.daily.*` | `games.views.alphabetty_views`, `censorly_views` |
 | Recheck / chain replay jobs | `games.ops.workers.jobs.recheck` | `games.recheck` |
+| Word salad async recheck queue | `games.ops.workers.jobs.salad` | `games.word_salad_recheck` |
+| HTML-forms puzzle rendering | `games.puzzles.replacements.forms` | `games.html_forms` |
+| Results leaderboard semantics | `games.results.standings.leaderboard` | `games.leaderboard` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

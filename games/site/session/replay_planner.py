@@ -45,7 +45,7 @@ def queue_chain_replays_for_tasks(
     task_ids, *, selected_keys=None, pending_resolution=None, return_receipt=False,
 ):
     """Create one durable replay job per task/game, with unique actors."""
-    from games.word_salad_recheck import enqueue_actor_rechecks
+    from games.ops.workers.jobs.salad import enqueue_actor_rechecks
 
     task_ids = tuple(sorted({int(task_id) for task_id in task_ids if task_id}))
     receipts = []

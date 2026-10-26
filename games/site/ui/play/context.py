@@ -35,7 +35,7 @@ from games.word_salad import (
     WORD_SALAD_GAME_ID,
 )
 from games.proportions import build_proportions_chips_for_tasks
-from games.html_forms import render_html_forms_task
+from games.puzzles.replacements.forms import render_html_forms_task
 
 
 from games.site.ui.results.pages import _raddle_ui_state_for_actor

@@ -304,7 +304,7 @@ class PendingAttemptsAdmin(admin.ModelAdmin):
 def recheck_chain_task_action(modeladmin, request, queryset):
     from django.contrib import messages
 
-    from games.word_salad_recheck import enqueue_actor_rechecks
+    from games.ops.workers.jobs.salad import enqueue_actor_rechecks
 
     queued = 0
     for state_row in queryset.select_related('task', 'team', 'user', 'game'):

@@ -5,7 +5,7 @@ from datetime import timedelta
 from io import StringIO
 from django.core.management import call_command
 
-from games.leaderboard import (
+from games.results.standings.leaderboard import (
     apply_release_policy, canonical_leaderboard_durations, eligible_public_actors,
     individual_sports_key, results_exclusion_notice, sports_rank,
     viewer_results_exclusion_reasons,

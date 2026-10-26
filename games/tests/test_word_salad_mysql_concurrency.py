@@ -17,7 +17,7 @@ from django.test import TransactionTestCase
 from games.models import WordSaladRecheckItem, WordSaladRecheckJob
 from games.support.services.word_salad import create_word_salad
 from games.word_salad_outbox import _claim_one
-from games.word_salad_recheck import enqueue_word_salad_recheck, process_word_salad_recheck_item
+from games.ops.workers.jobs.salad import enqueue_word_salad_recheck, process_word_salad_recheck_item
 
 
 @skipUnless(connection.vendor == 'mysql', 'requires an independent MySQL backend')
@@ -60,14 +60,14 @@ class WordSaladMySQLConcurrencyTests(TransactionTestCase):
             finally:
                 close_old_connections()
 
-        with patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 0}) as replay:
+        with patch('games.ops.workers.jobs.salad.recheck_word_salad_actor', return_value={'credited': 0}) as replay:
             with ThreadPoolExecutor(max_workers=len(item_ids)) as pool:
                 results = list(pool.map(deliver, item_ids))
         return results, connection_ids, replay
 
     def test_same_item_has_one_replay_across_independent_mysql_connections(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         item = WordSaladRecheckItem.objects.get(job=job)
 
@@ -84,7 +84,7 @@ class WordSaladMySQLConcurrencyTests(TransactionTestCase):
             (None, self.user.pk, None, None),
             (None, None, 'mysql-concurrency-anon', None),
         }
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         items = list(WordSaladRecheckItem.objects.filter(job=job).order_by('id'))
 
@@ -111,7 +111,7 @@ class WordSaladMySQLConcurrencyTests(TransactionTestCase):
 
     def test_two_dispatchers_claim_one_outbox_row(self):
         actors = {(None, self.user.pk, None, None)}
-        with patch('games.word_salad_recheck._word_salad_actor_keys', return_value=actors):
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
             job = enqueue_word_salad_recheck(task=self.task, game=self.game)
         barrier = Barrier(2)
         connection_ids = set()
