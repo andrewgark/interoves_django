@@ -19,7 +19,7 @@ class GamesConfig(AppConfig):
         import games.social.models  # noqa: F401
         import games.telegram.signals
         import games.feedback  # noqa: F401
-        import games.matcher.norm_matcher
+        import games.puzzles.core.norm_matcher
         from health_check.plugins import plugin_dir
         from games.health_checks import MediaStorageHealthCheck
         plugin_dir.register(MediaStorageHealthCheck)

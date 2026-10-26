@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 import unicodedata
 
-from games.matcher.norm_matcher import get_norm_form
+from games.puzzles.core.norm_matcher import get_norm_form
 
 _WORD_RE = re.compile(r'[A-Za-zА-Яа-яЁё0-9]+', re.UNICODE)
 _CYRILLIC_WORD_RE = re.compile(r'^[а-я]+$', re.UNICODE)

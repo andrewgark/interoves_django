@@ -525,7 +525,7 @@ def _content_lemmas(surface: str) -> frozenset[str]:
     улей/улья stay one lexeme. Two live readings (прибыль and прибыть)
     are both kept, and the caller then refuses root expansion.
     """
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     if not surface or not _cyrillic(surface) or '-' in surface:
         return frozenset({surface}) if surface else frozenset()
@@ -548,7 +548,7 @@ def _content_lemmas(surface: str) -> frozenset[str]:
 
 @lru_cache(maxsize=8192)
 def _pos(lemma: str) -> str:
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     best = None
     for parse in MORPH_ANALYZER.parse(lemma):

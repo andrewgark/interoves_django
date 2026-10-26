@@ -88,7 +88,7 @@ def aspect_of(lemma: str) -> str:
 
 @lru_cache(maxsize=WORD_CACHE_SIZE)
 def _readings(folded: str) -> tuple[DictionaryReading, ...]:
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     parsed = []
     for parse in MORPH_ANALYZER.parse(folded):
@@ -140,7 +140,7 @@ def _readings(folded: str) -> tuple[DictionaryReading, ...]:
 
 def _proper_shares_lemma(folded: str) -> bool:
     """True when a name and a common noun of the same lemma are both plausible."""
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     common: dict[str, float] = {}
     named: dict[str, float] = {}

@@ -45,7 +45,7 @@ from games.censorly.lexical.semantics import (
     readings_of,
 )
 from games.censorly.tokenize import tokenize_text
-from games.matcher.norm_matcher import MORPH_ANALYZER
+from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
 _KUZ_LEMMAS = Path(os.environ.get('CENSORLY_KUZ_LEMMAS', '/tmp/ruroots/lemmas_to_roots.tsv'))

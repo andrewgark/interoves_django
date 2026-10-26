@@ -47,7 +47,7 @@ bank, load_seconds = rootbank._bank()
 t, r = mark('T3 rootbank initialization/load', t, before, f'bank_lemmas={len(bank)} reported_load_seconds={load_seconds:.3f}')
 
 t = time.perf_counter()
-from games.matcher.norm_matcher import MORPH_ANALYZER
+from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 t, r = mark('T4 pymorphy analyzer ready', t, r, f'analyzer={type(MORPH_ANALYZER).__name__}')
 
 t = time.perf_counter()

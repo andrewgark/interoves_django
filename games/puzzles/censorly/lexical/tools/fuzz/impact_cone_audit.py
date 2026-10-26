@@ -19,7 +19,7 @@ from games.censorly.lexical.prelaunch import iter_fixtures
 from games.censorly.lexical.rootbank import structures_of
 from games.censorly.lexical.semantics import REVIEWED_DERIVED_ROOTS, opens
 from games.censorly.tokenize import tokenize_text
-from games.matcher.norm_matcher import MORPH_ANALYZER
+from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 OPAQUE = 'tikh:сенат'
 DERIVED = 'fam:иволг'

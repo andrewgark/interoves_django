@@ -378,7 +378,7 @@ def readings_of(surface: str) -> tuple:
     folded = fold(surface)
     if not folded:
         return ()
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     parsed = []
     seen = set()
@@ -590,7 +590,7 @@ def _reviewed_derived_lemma(surface: str) -> str:
     """Allow only explicitly reviewed lemmas through predicted inflections."""
     if not surface:
         return ''
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     for parse in MORPH_ANALYZER.parse(fold(surface)):
         lemma = fold(parse.normal_form)

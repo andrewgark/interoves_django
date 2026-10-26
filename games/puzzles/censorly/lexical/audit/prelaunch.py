@@ -34,7 +34,7 @@ from games.censorly.lexical.russian.morphology import (
 )
 from games.censorly.tokenize import build_puzzle_payload
 from games.censorly.wiki import _trim_extract
-from games.matcher.norm_matcher import MORPH_ANALYZER
+from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 ROOT = Path(__file__).resolve().parents[4] / 'tests' / 'censorly_testdata'
 DATA = Path(__file__).resolve().parents[1] / 'data'

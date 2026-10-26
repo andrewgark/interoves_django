@@ -532,7 +532,7 @@ def _proper_pool(found: list[MorphReading]) -> list[MorphReading]:
 
 @lru_cache(maxsize=WORD_CACHE_SIZE)
 def _ungated(folded: str) -> tuple[MorphReading, ...]:
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     parsed = []
     for parse in MORPH_ANALYZER.parse(folded):

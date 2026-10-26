@@ -4,7 +4,7 @@ import json
 import re
 from decimal import Decimal
 
-from games.matcher.norm_matcher import NormMatcher
+from games.puzzles.core.norm_matcher import NormMatcher
 from games.models import Attempt, Task
 from games.util import clean_text
 

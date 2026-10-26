@@ -33,7 +33,7 @@ Policies that more than one school tradition could draw differently:
 
 from __future__ import annotations
 
-from games.matcher.norm_matcher import MORPH_ANALYZER
+from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 _MIN_STEM = 2
 

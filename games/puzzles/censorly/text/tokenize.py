@@ -376,7 +376,7 @@ def _is_existential_est(tokens: list[dict[str, Any]], index: int) -> bool:
         return False
     right = tokens[following]
 
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     def parses(token):
         surface = normalize_surface(token.get('surface') or '')
@@ -479,7 +479,7 @@ def _is_coma_context(tokens: list[dict[str, Any]], index: int) -> bool:
         # «В знакомую кому-то / кому угодно историю»: a dative complement.
         return False
 
-    from games.matcher.norm_matcher import MORPH_ANALYZER
+    from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
     cursor = index
     while cursor > 0:

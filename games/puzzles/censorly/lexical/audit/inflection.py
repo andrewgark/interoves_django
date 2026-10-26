@@ -29,7 +29,7 @@ from games.censorly.lexical.russian.context import (
 )
 from games.censorly.lexical.russian.morphology import lexeme_ids
 from games.censorly.tokenize import tokenize_text
-from games.matcher.norm_matcher import MORPH_ANALYZER
+from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
 DATA = Path(__file__).resolve().parents[1] / 'data'
 

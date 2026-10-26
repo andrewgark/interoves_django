@@ -7,8 +7,8 @@
 
 - примерно 700 Python-файлов;
 - примерно 470 HTML-шаблонов;
-- крупные точки концентрации логики: `games/views/new_ui.py`,
-  `games/models.py`, `games/admin.py`, `games/recheck.py`;
+- крупные точки концентрации логики: `games/site/ui/*` (legacy import
+  `games.views.new_ui`), `games/models.py`, `games/site/admin`, `games/recheck.py`;
 - одновременно существуют новый и legacy UI;
 - текущий тестовый вход — `run_tests.sh`, который уже включает responsive
   lint и проверку inline JavaScript;
@@ -40,7 +40,7 @@
 
 ### 3. Первый домен для декомпозиции
 
-Начать с `games/views/new_ui.py`, не меняя URL-контракты:
+Начать с main UI (`games/site/ui`, фасад `games.views.new_ui`), не меняя URL-контракты:
 
 1. составить карту функций и их вызывающих маршрутов;
 2. сгруппировать код по устойчивым областям ответственности;
