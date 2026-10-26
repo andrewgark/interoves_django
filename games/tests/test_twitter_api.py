@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from games.twitter.api import html_caption_to_plain
+from games.ops.social.twitter.api import html_caption_to_plain
 
 
 class TwitterCaptionTests(SimpleTestCase):

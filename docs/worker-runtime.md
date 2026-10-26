@@ -10,7 +10,7 @@ The registry lives in `games/ops/workers/contract.py`.  It defines the worker na
 runtime role, queue, endpoint, accepted message types, supported deployment
 modes, and required worker-specific environment names.  `games/ops/workers/config.py`
 normalizes the mode and validates configuration without ever printing values.
-(Legacy imports `games.worker_contract`, `games.worker_config`, and `games.worker_lambda` remain as facades; use `games.ops.workers.{contract,config,lambda_entry}`.)
+(Use `games.ops.workers.{contract,config,lambda_entry}`; root `games.worker_*` shims were removed.)
 
 ## Current runtime state
 

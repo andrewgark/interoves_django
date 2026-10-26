@@ -41,7 +41,7 @@
 
 ### 3. Первый домен для декомпозиции
 
-Статус games refactor (2026): prod и новые тесты импортируют **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`** (ASGI admission, track), **`games.identity`**, **`games.ops.{cron,workers,telegram,social}`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**; почти все корневые **`games/*.py`** — **`sys.modules` facades** (исключения: **`games/__init__.py`**, **`apps.py`**, **`urls.py`**). Legacy settings strings: **`games.middleware.*`**, **`games.context_processors`**, **`games.storage_backends`**, **`games.adaptors`**. Censorly implementation — **`games/puzzles/censorly/`**; checker factory — **`games/puzzles/core/check_runtime.py`**. Карта импортов: **`agents/AGENTS.md`** (Games app layout). Два API chain state: **`games.tasks.actor_state.chain_state_for_actor(task, game, …)`** для daily/board; **`games.tasks.result_details.chain_state_for_actor(game, task, actor)`** для results-row actors.
+Статус games refactor (2026): prod/tests на **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`**, **`games.identity`**, **`games.ops.*`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**. **Oct 2026:** ~120 корневых alias-файлов и каталоги `games/views`, `games/support`, `games/telegram`, … **удалены**; остались Django entry shims (`admin`, `middleware`, `storage_backends`, puzzle bootstrap `wall`/`word_salad`, …) — **`agents/AGENTS.md`**. Settings по-прежнему строки **`games.middleware.*`**, **`games.context_processors`**, **`games.storage_backends`**, **`games.adaptors`**. Logger names (`games.views.new_ui`, …) не менять.
 
 Начать с main UI (`games/site/ui`, фасад `games.views.new_ui`), не меняя URL-контракты:
 
