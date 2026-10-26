@@ -5,6 +5,7 @@ from django.test import SimpleTestCase, TestCase
 from django.template.loader import render_to_string
 from django.utils import timezone
 
+import games.daily.catalog.ladder as ladder_daily
 from games.daily.catalog.ladder import (
     LADDER_PUBLISH_START_TAG,
     current_ladder_number,
@@ -148,7 +149,6 @@ class FilterPublishedLadderLinksTests(TestCase):
         from unittest.mock import patch
         from zoneinfo import ZoneInfo
 
-        from games import ladder_daily
         from games.daily.catalog.ladder import filter_published_ladder_links
         from games.models import GameTaskGroup
 
@@ -249,7 +249,6 @@ class LadderSectionPageTests(TestCase):
         from unittest.mock import patch
         from zoneinfo import ZoneInfo
 
-        from games import ladder_daily
         from games.models import GameTaskGroup
 
         game = Game.objects.get(id='ladder', project_id='sections')
@@ -271,7 +270,6 @@ class LadderSectionPageTests(TestCase):
         from unittest.mock import patch
         from zoneinfo import ZoneInfo
 
-        from games import ladder_daily
         from games.models import GameTaskGroup
 
         game = Game.objects.get(id='ladder', project_id='sections')
@@ -346,7 +344,6 @@ class LadderResultsVisibilityTests(TestCase):
         before = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         with self.settings(TIME_ZONE='Europe/Moscow'):
             from unittest.mock import patch
-            from games import ladder_daily
             with patch.object(ladder_daily.timezone, 'now', return_value=before):
                 headers = _results_table_headers_context(game)['task_groups']
         self.assertEqual([h.number for h in headers], ['1'])
