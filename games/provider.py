@@ -1,6 +1,6 @@
-"""Custom allauth providers shipped by the games application."""
+"""Compatibility alias. Implementation lives in games.club.provider."""
+import sys
 
-from games.club.telegram_oidc import TelegramProvider
+from games.club import provider as _implementation
 
-
-provider_classes = [TelegramProvider]
+sys.modules[__name__] = _implementation

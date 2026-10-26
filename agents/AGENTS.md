@@ -273,6 +273,7 @@ If the resolved version is empty, the client check is skipped.
 | Attempt/view exceptions | `games.site.http.exceptions` | `games.exception` |
 | Daily statistics API | `games.daily.timing.statistics` | `games.daily_statistics` |
 | Telegram offer linking | `games.club.link` | `games.telegram_linking` |
+| Allauth custom providers (`provider_classes`) | `games.club.provider` | `games.provider` (allauth autodiscover) |
 | Telegram bot/channels/images/transport | `games.ops.telegram.*`, `games.ops.cron.telegram` | `games.telegram.*` (facades; settings may still reference legacy app path) |
 | Support console / observatory | `games.ops.support.{http,feed,games,people,observatory,google}` | `games.support.*` |
 | Product analytics persistence | `games.ops.analytics.persistence` | `games.analytics_persistence` |
