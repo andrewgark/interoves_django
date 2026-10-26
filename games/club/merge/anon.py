@@ -3,14 +3,6 @@ import json
 
 from django.db import transaction
 
-from games.puzzles.alphabetty.core import normalize_word
-from games.ops.analytics.persistence import (
-    AnalyticsRowInvariantError,
-    merge_analytics_state_rows,
-    merge_completed_analytics_rows,
-    merge_started_analytics_rows,
-    reassign_or_merge_analytics_row,
-)
 from games.models import (
     AlphabettyDictSuggestion,
     AlphabettyPersonalDictWord,
@@ -18,17 +10,26 @@ from games.models import (
     Attempt,
     BugReport,
     ChainTaskState,
+    DailySolveTiming,
     HiddenAnonKey,
     HintAttempt,
     Like,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
+    RaddleClueLike,
     RaddleUiState,
-    DailySolveTiming,
     ReplaySlot,
     StatisticsEvent,
 )
+from games.ops.analytics.persistence import (
+    AnalyticsRowInvariantError,
+    merge_analytics_state_rows,
+    merge_completed_analytics_rows,
+    merge_started_analytics_rows,
+    reassign_or_merge_analytics_row,
+)
+from games.puzzles.alphabetty.core import normalize_word
 from games.site.session.replay import replay_actor_key
 
 ANON_MIGRATION_BATCH_SIZE = 200
@@ -98,7 +99,8 @@ def claim_and_migrate_anon_history(user, anon_key):
     moved_completions = migrate_anon_completed_games(user, anon_key)
     moved_analytics_state = migrate_anon_analytics_state(user, anon_key)
     moved_personal_dict = migrate_anon_personal_dict_words(user, anon_key)
-    moved_likes = migrate_anon_likes(user, anon_key)
+    from games.puzzles.raddle.clue_likes import migrate_anon_clue_likes
+    moved_likes = migrate_anon_likes(user, anon_key) + migrate_anon_clue_likes(user, anon_key)
     moved_attributions = migrate_anon_attributions(user, anon_key)
     moved_bug_reports = moved_attributions['bug_reports']
     moved_dict_suggestions = moved_attributions['dict_suggestions']
@@ -225,8 +227,14 @@ def migrate_anon_history_step(
         moved = migrate_anon_personal_dict_words(user, anon_key, batch_size=batch_size)
         return {'status': 'ok', 'moved_personal_dict': moved, 'complete': moved < batch_size}
     if step == 'likes':
+        from games.puzzles.raddle.clue_likes import migrate_anon_clue_likes
         moved = migrate_anon_likes(user, anon_key, batch_size=batch_size)
-        return {'status': 'ok', 'moved_likes': moved, 'complete': moved < batch_size}
+        moved_clues = migrate_anon_clue_likes(user, anon_key, batch_size=batch_size)
+        return {
+            'status': 'ok',
+            'moved_likes': moved + moved_clues,
+            'complete': moved < batch_size and moved_clues < batch_size,
+        }
     if step == 'attributions':
         moved = migrate_anon_attributions(user, anon_key, batch_size=batch_size)
         return {
@@ -240,9 +248,9 @@ def migrate_anon_history_step(
         if pair_index >= len(pairs):
             return {'status': 'ok', 'reconciled': 0, 'pair_index': pair_index}
         game_id, task_group_id = pairs[pair_index]
+        from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
         from games.daily.projection import schedule_full_projection_refresh
         from games.models import Game, TaskGroup
-        from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
         game = Game.objects.filter(pk=game_id, project_id='sections').first()
         task_group = TaskGroup.objects.filter(pk=task_group_id).first()
         if game is not None and task_group is not None:
@@ -355,6 +363,9 @@ def anon_migration_counts(anon_key):
             anon_key=anon_key, user__isnull=True, team__isnull=True,
         ).count(),
         'likes': Like.manager.filter(
+            anon_key=anon_key, user__isnull=True, team__isnull=True,
+        ).count(),
+        'raddle_clue_likes': RaddleClueLike.objects.filter(
             anon_key=anon_key, user__isnull=True, team__isnull=True,
         ).count(),
         'personal_dict': AlphabettyPersonalDictWord.objects.filter(
@@ -822,8 +833,9 @@ def heal_orphaned_chain_states_from_migrate_events():
     Для всех прошлых anon_attempts_migrated: догнать ChainTaskState,
     оставшиеся на anon_key. Возвращает (events, rows_moved).
     """
-    from games.models import StatisticsEvent
     from django.contrib.auth import get_user_model
+
+    from games.models import StatisticsEvent
 
     User = get_user_model()
     events = 0
@@ -847,8 +859,9 @@ def heal_orphaned_chain_states_from_migrate_events():
 
 def heal_orphaned_likes_from_migrate_events():
     """Догоняет реакции для уже состоявшихся anon→user восстановлений."""
-    from games.models import StatisticsEvent
     from django.contrib.auth import get_user_model
+
+    from games.models import StatisticsEvent
 
     User = get_user_model()
     events = 0

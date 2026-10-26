@@ -3925,6 +3925,10 @@
     return el ? el.value : '';
   }
   function postLike(taskId, likesDelta, dislikesDelta) {
+    var url = "{% url 'new_like_dislike' 0 %}".replace('/0/', '/' + taskId + '/');
+    return postReaction(url, likesDelta, dislikesDelta);
+  }
+  function postReaction(url, likesDelta, dislikesDelta) {
     var body = new URLSearchParams();
     body.set('likes', String(likesDelta));
     body.set('dislikes', String(dislikesDelta));
@@ -3933,7 +3937,6 @@
     if (document.body.getAttribute('data-offer-share-hash')) {
       body.set('offer_share', document.body.getAttribute('data-offer-share-hash'));
     }
-    var url = "{% url 'new_like_dislike' 0 %}".replace('/0/', '/' + taskId + '/');
     return fetch(url, {
       method: 'POST',
       headers: {
@@ -4029,6 +4032,58 @@
       submitLike(dtid, 0, disliked ? -1 : 1);
     }
   }, true);
+
+  // Лайки подсказок лесенки: та же семантика, что у лайков задания, но на одну подсказку.
+  var clueLikesInFlight = Object.create(null);
+  function clueReactionButtons(taskId, hintIndex) {
+    return document.querySelectorAll(
+      '[data-clue-like-btn][data-task-id=\"' + taskId + '\"][data-hint-index=\"' + hintIndex + '\"], ' +
+      '[data-clue-dislike-btn][data-task-id=\"' + taskId + '\"][data-hint-index=\"' + hintIndex + '\"]'
+    );
+  }
+  function applyClueLikeUI(taskId, hintIndex, data) {
+    clueReactionButtons(taskId, hintIndex).forEach(function (btn) {
+      var isLike = btn.hasAttribute('data-clue-like-btn');
+      var active = !!(isLike ? data.liked : data.disliked);
+      var n = isLike ? data.likes : data.dislikes;
+      btn.setAttribute(isLike ? 'data-liked' : 'data-disliked', active ? '1' : '0');
+      btn.classList.toggle('is-active', active);
+      var count = btn.querySelector(isLike ? '[data-clue-like-count]' : '[data-clue-dislike-count]');
+      if (count) count.textContent = n ? String(n) : '';
+    });
+  }
+  function submitClueLike(btn, likesDelta, dislikesDelta) {
+    var taskId = btn.getAttribute('data-task-id');
+    var hintIndex = btn.getAttribute('data-hint-index');
+    var key = taskId + ':' + hintIndex;
+    if (clueLikesInFlight[key]) return;
+    clueLikesInFlight[key] = true;
+    clueReactionButtons(taskId, hintIndex).forEach(function (b) { b.disabled = true; });
+    var url = "{% url 'new_raddle_clue_like' 0 0 %}".replace('/0/clue/0/', '/' + taskId + '/clue/' + hintIndex + '/');
+    postReaction(url, likesDelta, dislikesDelta).then(function (data) {
+      applyClueLikeUI(taskId, hintIndex, data);
+    }).catch(function () {
+      btn.classList.add('is-failed');
+      btn.setAttribute('data-tooltip', 'Не удалось сохранить');
+      setTimeout(function () {
+        btn.classList.remove('is-failed');
+        btn.setAttribute('data-tooltip', btn.hasAttribute('data-clue-like-btn') ? 'Хорошая подсказка' : 'Плохая подсказка');
+      }, 2000);
+    }).then(function () {
+      delete clueLikesInFlight[key];
+      clueReactionButtons(taskId, hintIndex).forEach(function (b) { b.disabled = false; });
+    });
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('[data-clue-like-btn], [data-clue-dislike-btn]') : null;
+    if (!btn) return;
+    e.preventDefault();
+    if (btn.hasAttribute('data-clue-like-btn')) {
+      submitClueLike(btn, btn.getAttribute('data-liked') === '1' ? -1 : 1, 0);
+    } else {
+      submitClueLike(btn, 0, btn.getAttribute('data-disliked') === '1' ? -1 : 1);
+    }
+  });
 
   // Hide solved toggle (persisted across pages).
   // На Лесенках кнопки нет (is_daily_single_task) — режим скрытия сюда не применяем,

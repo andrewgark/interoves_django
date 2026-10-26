@@ -16,29 +16,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from games.ops.analytics.events import (
-    PlayerCompletedGame,
-    is_task_completion_state,
-    is_task_group_complete,
-    publish_completion_analytics,
-    register_started_game,
-)
-from games.ops.analytics.identity import gameplay_anon_key
-from games.site.http.auth_observability import record_gameplay_attempt_created
-from games.puzzles.censorly.play import (
-    CENSORLY_HINT_PENALTY,
-    _actor_filters,
-    attach_solve_meta,
-    get_play_state,
-    get_task_for_number,
-    hint_count,
-    hub_progress_for_actor,
-    load_state,
-    ru_hint_word,
-)
-from games.puzzles.censorly import CensorlyMoveRefusal, CensorlyPuzzle
-from games.puzzles.censorly.article.admin import taxonomy as censorly_taxonomy
-from games.puzzles.censorly.article import reports as censorly_word_reports
+from games.club.access.archive import has_club_access
 from games.daily.catalog.censorly import (
     CENSORLY_GAME_ID,
     MOSCOW,
@@ -50,49 +28,71 @@ from games.daily.catalog.censorly import (
     visible_censorly_links,
 )
 from games.daily.completion.completion_coordinator import complete_logical_game
-from games.club.access.archive import has_club_access
-from games.daily.page.context import build_daily_lifecycle_context, daily_statistics_url
 from games.daily.page.archive import (
     links_for_archive_month,
     prepare_daily_archive,
     refresh_daily_archive_context,
 )
-from games.daily.timing import GameplayTimingSession, TimingSessionNotActive
+from games.daily.page.context import build_daily_lifecycle_context, daily_statistics_url
 from games.daily.registry import get_daily_game
+from games.daily.timing import GameplayTimingSession, TimingSessionNotActive
 from games.daily.timing.transitions import next_daily_content_transition_for_game
-from games.site.session.gameplay_context import (
-    context_error_response,
-    issue_gameplay_context,
-    validate_gameplay_context,
+from games.identity import has_profile
+from games.models import Attempt, BugReport, ChainTaskState, Game, GameTaskGroup, RandomCensorlyGame, Task
+from games.ops.analytics.events import (
+    PlayerCompletedGame,
+    is_task_completion_state,
+    is_task_group_complete,
+    publish_completion_analytics,
+    register_started_game,
 )
-from games.site.http.middleware.request_timing import timing_phase
-from games.models import Attempt, BugReport, ChainTaskState, Game, GameTaskGroup, Like, RandomCensorlyGame, Task
+from games.ops.analytics.identity import gameplay_anon_key
+from games.ops.support.http.access import user_has_support_access
+from games.ops.telegram.links import task_play_url
+from games.puzzles.censorly import CensorlyMoveRefusal, CensorlyPuzzle
+from games.puzzles.censorly.article import reports as censorly_word_reports
+from games.puzzles.censorly.article.admin import taxonomy as censorly_taxonomy
+from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.play import (
+    CENSORLY_HINT_PENALTY,
+    _actor_filters,
+    attach_solve_meta,
+    get_play_state,
+    get_task_for_number,
+    hint_count,
+    hub_progress_for_actor,
+    load_state,
+    ru_hint_word,
+)
 from games.sections.hub import (
     create_game_link_context,
     onboarding_followup_context,
     section_format_credit_context,
 )
-from games.site.session.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
-from games.ops.support.http.access import user_has_support_access
-from games.tasks.titles import task_display_name, task_group_page_title
-from games.site.views.daily.timing import daily_timing_page_context
-from games.site.views.daily.hub import can_access_daily_game
+from games.site.http.auth_observability import record_gameplay_attempt_created
+from games.site.http.middleware.request_timing import timing_phase
+from games.site.http.request_util import get_public_task_or_404
+from games.site.session.gameplay_context import (
+    context_error_response,
+    issue_gameplay_context,
+    validate_gameplay_context,
+)
+from games.site.session.replay import StaleReplayError, _official_exists, active_replay, replay_for_request
 from games.site.ui import NEW_UI_SECTIONS_PROJECT
 from games.site.ui.game.progress import (
     _archive_nav_target,
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
+from games.site.views.daily.hub import can_access_daily_game
+from games.site.views.daily.timing import daily_timing_page_context
 from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.identity import has_profile
-from games.site.http.request_util import get_public_task_or_404
-from games.puzzles.censorly.lexical.match.core import fold
-from games.ops.telegram.links import task_play_url
-
+from games.tasks.likes_meta import likes_meta_by_task_id
+from games.tasks.titles import task_display_name, task_group_page_title
 
 CENSORLY_WORD_REPORT_LIMIT = 20
 CENSORLY_WORD_REPORT_WINDOW_SECONDS = 10 * 60
@@ -245,18 +245,9 @@ def _meta_context(request, *, game, task, user, anon_key, placement=None):
         'difficulty': difficulty,
         'has_profile_user': has_profile(request.user),
         'user': request.user,
-        'likes_meta_by_task_id': {
-            task.id: {
-                'likes': Like.manager.get_total_likes(task),
-                'dislikes': Like.manager.get_total_dislikes(task),
-                'liked': Like.manager.actor_has_like(
-                    task, team=None, user=user, anon_key=anon_key,
-                ),
-                'disliked': Like.manager.actor_has_dislike(
-                    task, team=None, user=user, anon_key=anon_key,
-                ),
-            },
-        },
+        'likes_meta_by_task_id': likes_meta_by_task_id(
+            [task], team=None, user=user, anon_key=anon_key,
+        ),
         'alphabetty_hints': hints_n,
         'alphabetty_hints_label': (
             f'{hints_n} {ru_hint_word(hints_n)}' if hints_n > 0 else ''
@@ -575,8 +566,8 @@ def censorly_random_game(request):
     if _get_game() is None:
         raise Http404()
     from games.puzzles.censorly.random_game import (
-        CensorlyPoolFetchFailed,
         CensorlyPoolExhausted,
+        CensorlyPoolFetchFailed,
         EmptyCensorlyPool,
         NoMatchingCensorlyArticles,
         get_or_create_random_game,

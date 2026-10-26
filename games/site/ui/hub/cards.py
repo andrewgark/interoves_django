@@ -2,41 +2,26 @@
 import logging
 
 from django.conf import settings
-
-
 from django.db.models import Count, Q
 from django.utils import timezone
 
-
-from games.ops.analytics.identity import (
-    browser_anon_key,
-    is_valid_anon_key,
+from games.daily.catalog.ladder import (
+    LADDER_GAME_ID,
+)
+from games.daily.page.archive import (
+    build_daily_archive_items,
+    refresh_daily_archive_context,
 )
 from games.daily.page.section import (
+    MOSCOW,
     WORD_SALAD_GAME_ID,
     filter_published_links,
     is_scheduled_game,
     publish_at_for,
     scheduled_number_is_public,
     visible_links,
-    MOSCOW,
 )
-from games.daily.page.archive import (
-    build_daily_archive_items,
-    refresh_daily_archive_context,
-)
-from games.daily.catalog.ladder import (
-    LADDER_GAME_ID,
-)
-from games.sections.hub import (
-    HUB_DAILY_SECTION_IDS,
-    HUB_FROM_DESYATOCHKI_SECTION_IDS,
-    ONBOARDING_GAME_IDS,
-    ONBOARDING_GAME_META,
-    SECTION_HUB_META,
-    get_scheduled_section_hub_card,
-    get_training_section_hub_context,
-)
+from games.identity import has_profile
 from games.models import (
     Attempt,
     Game,
@@ -47,14 +32,24 @@ from games.models import (
     Project,
     Task,
 )
+from games.ops.analytics.identity import (
+    browser_anon_key,
+    is_valid_anon_key,
+)
 from games.puzzles.raddle.engine import (
     parse_raddle_data,
 )
 from games.puzzles.salad.rules import archive_card_meta as word_salad_archive_card_meta
-from games.identity import has_profile
+from games.sections.hub import (
+    HUB_DAILY_SECTION_IDS,
+    HUB_FROM_DESYATOCHKI_SECTION_IDS,
+    ONBOARDING_GAME_IDS,
+    ONBOARDING_GAME_META,
+    SECTION_HUB_META,
+    get_scheduled_section_hub_card,
+    get_training_section_hub_context,
+)
 from games.site.session.play_mode import effective_play_mode
-
-
 from games.site.ui import (
     NEW_UI_SECTIONS_PROJECT,
     _anon_key_from_request,
@@ -370,6 +365,8 @@ def _ladder_task_group_rows(
     task_groups = list(task_groups)
     from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties(task_groups)
+    from games.tasks.likes_meta import like_totals_by_task_group_id
+    like_totals = like_totals_by_task_group_id(p.task_group_id for p in task_groups)
     endpoints_by_task_group = {}
     if game.id == LADDER_GAME_ID:
         task_group_ids = [p.task_group_id for p in task_groups]
@@ -433,6 +430,7 @@ def _ladder_task_group_rows(
             'raddle_end_word': endpoints[1] if endpoints else None,
             'salad_meta': salad_meta_by_task_group.get(p.task_group_id),
             'difficulty': difficulties.get(p.pk),
+            'like_totals': like_totals.get(p.task_group_id),
         })
     return rows
 

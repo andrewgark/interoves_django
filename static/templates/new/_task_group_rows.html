@@ -42,6 +42,7 @@
             <span class="new-pill new-pill--ok" data-tooltip="Решено">ок</span>
           {% endif %}
         </span>
+        {% include "new/partials/like_totals_badge.html" with like_totals=row.like_totals %}
         {% if row.difficulty %}
           {% include "new/partials/difficulty_badge.html" with difficulty=row.difficulty %}
         {% endif %}

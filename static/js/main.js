@@ -370,6 +370,9 @@ function clickLikeDislike(btnType, likes, dislikes, event) {
       $(self.element).find('.dislikes').text(data.dislikes);
       // unlock the buttons
       self.readOnly(false);
+    },
+    error: function () {
+      self.readOnly(false);
     }
   });
 }

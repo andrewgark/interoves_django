@@ -7,6 +7,12 @@ from games.daily.page.state import latest_daily_state
 from games.puzzles.core.base import Puzzle
 from games.puzzles.core.progress import _int_tuple
 from games.puzzles.raddle.board import load_ladder_board
+from games.puzzles.raddle.engine import (
+    build_raddle_ui_context,
+    is_raddle_in_game_assist_hint,
+    load_raddle_state,
+    parse_raddle_data,
+)
 from games.puzzles.raddle.submission import (
     accept_ui_draft,
     assist_block,
@@ -18,12 +24,6 @@ from games.puzzles.raddle.submission import (
     posted_word_index,
     stale_payload,
     write_move_result,
-)
-from games.puzzles.raddle.engine import (
-    build_raddle_ui_context,
-    is_raddle_in_game_assist_hint,
-    load_raddle_state,
-    parse_raddle_data,
 )
 
 
@@ -227,7 +227,7 @@ def prepare_raddle_board_data(
             'replay_slot': replay_slot,
         },
     )
-    return build_raddle_board_data(
+    data = build_raddle_board_data(
         game=game,
         task=task,
         placement=placement,
@@ -241,6 +241,9 @@ def prepare_raddle_board_data(
         user=user,
         anon_key=anon_key,
     )
+    from games.puzzles.raddle.clue_likes import attach_clue_reactions
+    attach_clue_reactions(data.get('ui') or {}, task, team=team, user=user, anon_key=anon_key)
+    return data
 
 
 def player_hints(hints):

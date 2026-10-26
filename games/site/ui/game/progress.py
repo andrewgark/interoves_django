@@ -1,37 +1,25 @@
 """Main UI: hub, games folder, profile, team."""
 import logging
 
-from django.http import Http404
-from django.http import JsonResponse
+from django.db.models import Count, Q
+from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.urls import reverse
-
-
-from django.db.models import Count, Q
 from django.utils import timezone
 
-
 from games.club.access.game import game_has_started
+from games.daily.catalog.ladder import (
+    LADDER_GAME_ID,
+)
+from games.daily.page.placement import is_random_daily_placement
 from games.daily.page.section import (
+    MOSCOW,
     WORD_SALAD_GAME_ID,
     is_scheduled_game,
     publish_at_for,
     visible_links,
-    MOSCOW,
 )
-from games.daily.page.placement import is_random_daily_placement
-from games.daily.catalog.ladder import (
-    LADDER_GAME_ID,
-)
-from games.tasks.progress import compute_task_progress, merge_task_group_progress_rows
-from games.tasks.navigation import (
-    neighbors_by_pk,
-    play_url_for_task_group,
-    replay_exit_url_for_task_group,
-    replay_url_for_task_group,
-    results_url_for_task_group,
-    task_group_page_nav_context,
-)
+from games.identity import has_profile
 from games.models import (
     Attempt,
     Game,
@@ -43,10 +31,7 @@ from games.puzzles.raddle.engine import (
     raddle_hub_result_for_actor,
 )
 from games.puzzles.salad.rules import salad_hub_result_for_actor
-from games.identity import has_profile
 from games.site.session.play_mode import effective_play_mode
-
-
 from games.site.ui import (
     NEW_UI_PROJECT,
     NEW_UI_SECTIONS_PROJECT,
@@ -55,6 +40,15 @@ from games.site.ui import (
     _root_project_game_redirect,
     _ru_iz_punkt_word,
 )
+from games.tasks.navigation import (
+    neighbors_by_pk,
+    play_url_for_task_group,
+    replay_exit_url_for_task_group,
+    replay_url_for_task_group,
+    results_url_for_task_group,
+    task_group_page_nav_context,
+)
+from games.tasks.progress import compute_task_progress, merge_task_group_progress_rows
 
 logger = logging.getLogger('games.views.new_ui')
 
@@ -163,6 +157,8 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
     task_groups = list(task_groups)
     from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties(task_groups)
+    from games.tasks.likes_meta import like_totals_by_task_group_id
+    like_totals = like_totals_by_task_group_id(p.task_group_id for p in task_groups)
     return [
         {
             'task_group': p.task_group,
@@ -177,6 +173,7 @@ def _task_group_rows_skeleton(task_groups, game, *, project_base=''):
             'title': '{} · {}'.format(p.number, p.name),
             'progress_text': None,
             'difficulty': difficulties.get(p.pk),
+            'like_totals': like_totals.get(p.task_group_id),
             'is_archive_locked': False,
         }
         for p in task_groups

@@ -1,11 +1,16 @@
 from django.contrib.auth.decorators import user_passes_test
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import render
 from django.views.decorators.http import require_POST
-from games.models import Like
-from games.site.views.game.context import game_from_request_for_task
+
 from games.identity import has_team
-from games.site.http.request_util import get_public_task_or_404, is_browser_form_submission, redirect_after_browser_submission
+from games.models import Like
+from games.site.http.request_util import (
+    get_public_task_or_404,
+    is_browser_form_submission,
+    redirect_after_browser_submission,
+)
+from games.site.views.game.context import game_from_request_for_task
 
 
 @user_passes_test(has_team)
@@ -25,16 +30,10 @@ def like_dislike(request, task_id):
     if not game.has_access('send_attempt', team=team):
         return JsonResponse({'error': 'no access'}, status=403)
 
-    likes = int(request.POST.get('likes', 0))
-    dislikes = int(request.POST.get('dislikes', 0))
-    if likes == 1:
-        reaction = 1
-    elif dislikes == 1:
-        reaction = -1
-    elif likes == -1 or dislikes == -1:
-        reaction = 0
-    else:
-        reaction = None
+    from games.site.ui.play.reactions import _posted_reaction
+    reaction = _posted_reaction(request)
+    if isinstance(reaction, JsonResponse):
+        return reaction
     if reaction is not None:
         Like.manager.set_actor_reaction(task, reaction, team=team)
 

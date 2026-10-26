@@ -1,6 +1,13 @@
 """Main UI views (neutral naming, without ``new``)."""
 
-from games.site.ui.hub.cards import get_section_games
+from games.site.ui.game.pages import (
+    new_main_game_page,
+    new_section_game_page,
+)
+from games.site.ui.game.progress import (
+    new_game_task_group_progress,
+    project_game_task_group_progress,
+)
 from games.site.ui.hub.pages import (
     new_folder,
     new_hub,
@@ -9,40 +16,27 @@ from games.site.ui.hub.pages import (
     new_ladder_today_page,
     new_section_last_page,
     new_start,
-    project_folder_games,
-    project_hub,
 )
-from games.site.ui.game.progress import (
-    new_game_task_group_progress,
-    project_game_task_group_progress,
+from games.site.ui.pay.pages import (
+    new_create_crypto_donation,
+    new_create_crypto_ticket_payment,
+    new_create_ticket_payment,
+    new_create_tribute_ticket_payment,
+    new_donate_page,
+    new_donation_status,
+    new_pay_page,
+    new_telegram_link_start,
+    new_ticket_payment_status,
 )
-from games.site.ui.game.pages import (
-    new_main_game_page,
-    new_section_game_page,
-    project_main_game_page,
-    project_results_page,
-    project_task_group_page,
-    project_tournament_results_page,
-)
-from games.site.ui.results.pages import (
-    new_game_task_results_page,
-    new_ladder_word_results_page,
-    new_results_page,
-    new_section_results_page,
-    new_section_task_results_page,
-    new_tournament_results_page,
-)
-from games.site.ui.play.page import daily_statistics, new_task_group_page
-from games.site.ui.play.replay import new_replay_exit, new_replay_start
-from games.site.ui.play.live import new_task_group_live_state
 from games.site.ui.play.answers import (
     new_get_answer,
     new_get_raddle_word_answer,
     new_get_replacements_line_answer,
 )
-from games.site.ui.play.reactions import new_bug_report, new_like_dislike
+from games.site.ui.play.live import new_task_group_live_state
+from games.site.ui.play.page import new_task_group_page
+from games.site.ui.play.reactions import new_bug_report, new_like_dislike, new_raddle_clue_like
 from games.site.ui.profile.anon import (
-    new_anon_merge_job_status,
     new_anon_migrate_count,
     new_club_archive_offer_action,
     new_migrate_anon_attempts,
@@ -58,6 +52,14 @@ from games.site.ui.profile.pages import (
     new_profile_reports,
     new_social_account_disconnect,
 )
+from games.site.ui.results.pages import (
+    new_game_task_results_page,
+    new_ladder_word_results_page,
+    new_results_page,
+    new_section_results_page,
+    new_section_task_results_page,
+    new_tournament_results_page,
+)
 from games.site.ui.team.pages import (
     new_team,
     new_team_create,
@@ -72,17 +74,6 @@ from games.site.ui.team.pages import (
     new_team_rename,
     new_team_request_join,
     new_team_set_primary,
-)
-from games.site.ui.pay.pages import (
-    new_create_crypto_donation,
-    new_create_crypto_ticket_payment,
-    new_create_ticket_payment,
-    new_create_tribute_ticket_payment,
-    new_donate_page,
-    new_donation_status,
-    new_pay_page,
-    new_telegram_link_start,
-    new_ticket_payment_status,
 )
 
 # Neutral aliases for handlers.
@@ -104,28 +95,11 @@ ladder_last_page = new_ladder_last_page
 ladder_hub_page = new_ladder_hub_page
 section_last_page = new_section_last_page
 
-from games.site.views.daily.alphabetty import (  # noqa: E402
-    alphabetty_guess,
-    alphabetty_hint,
-    alphabetty_hub_page,
-    alphabetty_random_game,
-    alphabetty_last_page,
-    alphabetty_play_page,
-    alphabetty_prefix,
-    alphabetty_state,
-    alphabetty_suggest,
-    alphabetty_today_page,
-)
 from games.site.views.daily.censorly import (  # noqa: E402
     censorly_guess,
     censorly_hint,
-    censorly_hub_page,
-    censorly_last_page,
     censorly_play_page,
-    censorly_random_game,
     censorly_state,
-    censorly_today_page,
-    censorly_word_report,
 )
 
 
@@ -144,35 +118,6 @@ def censorly_state_random(request, share_hash):
 def censorly_hint_random(request, share_hash):
     return censorly_hint(request, share_hash=share_hash)
 
-from games.site.views.offers.alphabetty import (  # noqa: E402
-    offer_alphabetty_create as alphabetty_create_submit,
-    offer_alphabetty_detail,
-    offer_alphabetty_page as alphabetty_create_page,
-    offer_alphabetty_reopen,
-    offer_alphabetty_send,
-)
-from games.site.views.offers.ladder import (  # noqa: E402
-    offer_ladder_create,
-    offer_ladder_detail,
-    offer_ladder_page,
-    offer_ladder_reset,
-    offer_ladder_send,
-)
-from games.site.views.offers.salad import (  # noqa: E402
-    offer_salad_create,
-    offer_salad_convert,
-    offer_salad_detail,
-    offer_salad_page,
-    offer_salad_reset,
-    offer_salad_send,
-)
-from games.site.views.offers.censorly import (  # noqa: E402
-    offer_censorly_create,
-    offer_censorly_page,
-    offer_censorly_suggest,
-)
-from games.site.views.daily.timing import daily_solve_timing  # noqa: E402
-from games.daily.ladder.tutorial.views import ladder_tutorial  # noqa: E402
 
 game_task_group_progress = new_game_task_group_progress
 project_game_task_group_progress = project_game_task_group_progress
@@ -180,6 +125,7 @@ get_answer = new_get_answer
 get_replacements_line_answer = new_get_replacements_line_answer
 get_raddle_word_answer = new_get_raddle_word_answer
 like_dislike = new_like_dislike
+raddle_clue_like = new_raddle_clue_like
 bug_report = new_bug_report
 set_play_mode = new_set_play_mode
 migrate_anon_attempts = new_migrate_anon_attempts
@@ -201,18 +147,6 @@ create_tribute_ticket_payment = new_create_tribute_ticket_payment
 telegram_link_start = new_telegram_link_start
 ticket_payment_status = new_ticket_payment_status
 
-from games.site.views.account.subscription import (  # noqa: E402
-    subscription_checkout,
-    subscription_page,
-    subscription_payment_method_detach,
-    subscription_yookassa_cancel,
-    subscription_yookassa_monthly_start,
-    subscription_yookassa_resume,
-    subscription_claim_gift,
-    subscription_reveal_gift_code,
-    subscription_gift_tribute_start,
-    subscription_gift_yookassa_start,
-)
 donate_page = new_donate_page
 create_crypto_donation = new_create_crypto_donation
 donation_status = new_donation_status

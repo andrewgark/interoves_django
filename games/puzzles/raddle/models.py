@@ -190,3 +190,42 @@ class LadderOffer(models.Model):
 
     def results_url(self):
         return '/ladder/{}/results/'.format(self.share_hash)
+
+
+class RaddleClueLike(models.Model):
+    """Like or dislike of one ladder clue (``checker_data['hints'][hint_index]``).
+
+    ``clue_text`` keeps the clue as it was when rated: the index alone stops
+    meaning anything once the author edits the ladder.
+    """
+
+    team = models.ForeignKey(
+        'games.Team', related_name='raddle_clue_likes',
+        blank=True, null=True, on_delete=models.SET_NULL,
+    )
+    user = models.ForeignKey(
+        'auth.User', related_name='raddle_clue_likes',
+        blank=True, null=True, on_delete=models.SET_NULL,
+    )
+    anon_key = models.CharField(max_length=64, blank=True, null=True, db_index=True)
+    task = models.ForeignKey('games.Task', related_name='raddle_clue_likes', on_delete=models.CASCADE)
+    hint_index = models.PositiveSmallIntegerField()
+    clue_text = models.TextField(blank=True, default='')
+    value = models.SmallIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = 'games'
+        verbose_name = 'лайк подсказки лесенки'
+        verbose_name_plural = 'лайки подсказок лесенок'
+        constraints = [
+            models.UniqueConstraint(fields=('task', 'hint_index', 'team'), name='uniq_raddle_clue_like_team'),
+            models.UniqueConstraint(fields=('task', 'hint_index', 'user'), name='uniq_raddle_clue_like_user'),
+            models.UniqueConstraint(fields=('task', 'hint_index', 'anon_key'), name='uniq_raddle_clue_like_anon'),
+        ]
+
+    def __str__(self):
+        actor = self.team or self.user or self.anon_key
+        return '{} to clue {} of task {} by {}'.format(
+            'Like' if self.value == 1 else 'Dislike', self.hint_index, self.task_id, actor,
+        )

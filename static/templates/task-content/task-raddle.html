@@ -156,6 +156,12 @@
         {% for hint in rd.ui.used_hints %}
         <li class="new-raddle-clue new-raddle-clue--used" data-hint-index="{{ hint.index }}">
           <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
+          {% if hint.reaction %}{% with r=hint.reaction %}
+          <span class="new-like-dislike new-like-dislike--clue" aria-label="Оценить подсказку">
+            <button type="button" class="new-likebtn new-likebtn--dislike new-likebtn--clue{% if r.disliked %} is-active{% endif %}" data-clue-dislike-btn data-task-id="{{ task.id }}" data-hint-index="{{ hint.index }}" data-disliked="{% if r.disliked %}1{% else %}0{% endif %}" data-tooltip="Плохая подсказка" aria-label="Плохая подсказка" tabindex="-1"><i class="ph ph-thumbs-down" aria-hidden="true"></i><span class="new-likebtn__count" data-clue-dislike-count>{% if r.dislikes %}{{ r.dislikes }}{% endif %}</span></button>
+            <button type="button" class="new-likebtn new-likebtn--like new-likebtn--clue{% if r.liked %} is-active{% endif %}" data-clue-like-btn data-task-id="{{ task.id }}" data-hint-index="{{ hint.index }}" data-liked="{% if r.liked %}1{% else %}0{% endif %}" data-tooltip="Хорошая подсказка" aria-label="Хорошая подсказка" tabindex="-1"><i class="ph ph-thumbs-up" aria-hidden="true"></i><span class="new-likebtn__count" data-clue-like-count>{% if r.likes %}{{ r.likes }}{% endif %}</span></button>
+          </span>
+          {% endwith %}{% endif %}
         </li>
         {% endfor %}
       </ul>

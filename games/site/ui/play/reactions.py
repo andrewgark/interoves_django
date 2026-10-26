@@ -1,21 +1,16 @@
 """Main UI: hub, games folder, profile, team."""
 import logging
 
-from django.http import Http404
-from django.http import JsonResponse
+from django.http import Http404, JsonResponse
+from django.utils import timezone
 from django.views.decorators.http import require_http_methods
 
-
-from django.utils import timezone
-
-
-from games.ops.analytics.identity import (
-    gameplay_anon_key,
-)
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
+from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.identity import has_profile
 from games.models import (
     Attempt,
     BugReport,
@@ -23,19 +18,18 @@ from games.models import (
     Like,
     Task,
 )
-from games.daily.page.section import WORD_SALAD_GAME_ID
-from games.site.views.game.context import game_from_request_for_task
-from games.identity import has_profile
-from games.site.session.play_mode import effective_play_mode
+from games.ops.analytics.identity import (
+    gameplay_anon_key,
+)
 from games.site.http.request_util import get_public_task_or_404
-
-
+from games.site.session.play_mode import effective_play_mode
 from games.site.ui import _get_play_mode
+from games.site.views.game.context import game_from_request_for_task
 
 logger = logging.getLogger('games.views.new_ui')
 
-@require_http_methods(['POST'])
-def new_like_dislike(request, task_id):
+def _reaction_task_and_actor(request, task_id):
+    """Task and actor (team, user, anon_key) for a like; Http404 when not allowed."""
     game_hint = (
         (request.POST.get('game_id') or request.GET.get('game_id') or '').strip()
         or (request.headers.get('X-Interoves-Game') or '').strip()
@@ -90,34 +84,66 @@ def new_like_dislike(request, task_id):
                 raise Http404()
         if not game.has_access('read_googledoc', team=None, attempt=Attempt(time=timezone.now())):
             raise Http404()
+    return task, team, user, anon_key
 
+
+def _posted_reaction(request):
+    """-1/0/1 to store, None for no change, or JsonResponse on bad input."""
     try:
         likes = int(request.POST.get('likes', 0) or 0)
         dislikes = int(request.POST.get('dislikes', 0) or 0)
     except (TypeError, ValueError):
         return JsonResponse({'error': 'Некорректная реакция.'}, status=400)
-    if likes not in (-1, 0, 1) or dislikes not in (-1, 0, 1) or (likes and dislikes):
+    # (-1, 1) / (1, -1) — переключение: старый jQuery-плагин шлёт снятие и новую реакцию разом.
+    if likes not in (-1, 0, 1) or dislikes not in (-1, 0, 1) or (likes == 1 and dislikes == 1):
         return JsonResponse({'error': 'Некорректная реакция.'}, status=400)
     if likes == 1:
-        reaction = 1
-    elif dislikes == 1:
-        reaction = -1
-    elif likes == -1 or dislikes == -1:
-        reaction = 0
-    else:
-        reaction = None
+        return 1
+    if dislikes == 1:
+        return -1
+    if likes == -1 or dislikes == -1:
+        return 0
+    return None
+
+
+@require_http_methods(['POST'])
+def new_like_dislike(request, task_id):
+    task, team, user, anon_key = _reaction_task_and_actor(request, task_id)
+    reaction = _posted_reaction(request)
+    if isinstance(reaction, JsonResponse):
+        return reaction
     if reaction is not None:
         Like.manager.set_actor_reaction(
             task, reaction, team=team, user=user, anon_key=anon_key,
         )
 
-    return JsonResponse({
-        # показываем сумму КОМАНДНЫХ + ЛИЧНЫХ лайков/дизлайков
-        'likes': Like.manager.get_total_likes(task),
-        'dislikes': Like.manager.get_total_dislikes(task),
-        # а состояние — текущего режима
-        'liked': Like.manager.actor_has_like(task, team=team, user=user, anon_key=anon_key),
-        'disliked': Like.manager.actor_has_dislike(task, team=team, user=user, anon_key=anon_key),
+    # Суммы — командные + личные лайки; liked/disliked — текущего режима.
+    from games.tasks.likes_meta import likes_meta_by_task_id
+    return JsonResponse(
+        likes_meta_by_task_id([task], team=team, user=user, anon_key=anon_key)[task.id]
+    )
+
+
+@require_http_methods(['POST'])
+def new_raddle_clue_like(request, task_id, hint_index):
+    from games.puzzles.raddle.clue_likes import clue_reactions_meta, set_clue_reaction
+    from games.puzzles.raddle.engine import parse_raddle_data
+
+    task, team, user, anon_key = _reaction_task_and_actor(request, task_id)
+    parsed = parse_raddle_data(task)
+    if not parsed or not 0 <= hint_index < len(parsed['hints']):
+        raise Http404()
+    reaction = _posted_reaction(request)
+    if isinstance(reaction, JsonResponse):
+        return reaction
+    if reaction is not None:
+        set_clue_reaction(
+            task, hint_index, reaction, str(parsed['hints'][hint_index]),
+            team=team, user=user, anon_key=anon_key,
+        )
+    meta = clue_reactions_meta(task, team=team, user=user, anon_key=anon_key)
+    return JsonResponse(meta.get(hint_index) or {
+        'likes': 0, 'dislikes': 0, 'liked': False, 'disliked': False,
     })
 
 
@@ -156,8 +182,8 @@ def new_bug_report(request, task_id):
     if len(text) > 5000:
         return JsonResponse({'ok': False, 'error': 'Слишком длинное сообщение.'}, status=400)
 
-    from games.site.ui.profile.feedback import profile_reports_path
     from games.ops.telegram.links import task_play_url
+    from games.site.ui.profile.feedback import profile_reports_path
 
     report = BugReport.objects.create(
         task=task,
@@ -181,6 +207,7 @@ def _game_from_next_path(path):
     if not path:
         return None
     from urllib.parse import urlparse
+
     from django.urls import Resolver404, resolve
     try:
         match = resolve(urlparse(path).path)
@@ -194,6 +221,7 @@ def _game_from_next_path(path):
 
 __all__ = [
     'new_like_dislike',
+    'new_raddle_clue_like',
     'new_bug_report',
     '_game_from_next_path',
 ]

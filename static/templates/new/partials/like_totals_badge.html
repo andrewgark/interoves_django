@@ -1,0 +1,6 @@
+{% if like_totals %}
+<span class="new-like-totals" role="img" aria-label="Лайков: {{ like_totals.likes }}, дизлайков: {{ like_totals.dislikes }}" data-tooltip="Лайки и дизлайки">
+  <span class="new-like-totals__item"><i class="ph ph-thumbs-up" aria-hidden="true"></i>{{ like_totals.likes }}</span>
+  <span class="new-like-totals__item"><i class="ph ph-thumbs-down" aria-hidden="true"></i>{{ like_totals.dislikes }}</span>
+</span>
+{% endif %}

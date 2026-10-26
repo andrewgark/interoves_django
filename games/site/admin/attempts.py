@@ -1,25 +1,27 @@
 from django.contrib import admin, messages
-from django.forms import Textarea, ModelForm, ModelMultipleChoiceField
 from django.db import models
+from django.forms import ModelForm, ModelMultipleChoiceField, Textarea
 from django.utils.html import format_html, format_html_join
-from games.ops.workers.jobs.actions import (
-    confirm_attempt_prestatus,
-    run_recheck,
-)
+
 from games.models import (
-    Attempt,
     CHAIN_TASK_TYPES,
+    Attempt,
     ChainTaskState,
     Hint,
     HintAttempt,
     Like,
     PendingAttempt,
+    RaddleClueLike,
     Task,
+)
+from games.ops.workers.jobs.actions import (
+    confirm_attempt_prestatus,
+    run_recheck,
 )
 from games.ops.workers.jobs.recheck import (
     recheck_full,
-    recheck_queue_from_this,
     recheck_queue_from_next,
+    recheck_queue_from_this,
     recheck_team_task_all_chronological,
 )
 
@@ -72,6 +74,17 @@ class LikeAdmin(admin.ModelAdmin):
         return super().get_queryset(request).select_related('team', 'user', 'task', 'task__task_group')
 
 
+@admin.register(RaddleClueLike)
+class RaddleClueLikeAdmin(admin.ModelAdmin):
+    list_display = ['id', 'value', 'task', 'hint_index', 'clue_text', 'team', 'user', 'anon_key', 'created_at']
+    list_filter = ['value']
+    search_fields = ['id', 'anon_key', 'clue_text', 'team__name', 'user__username']
+    raw_id_fields = ['team', 'user', 'task']
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('team', 'user', 'task', 'task__task_group')
+
+
 def _bulk_chain_recheck_ids(queryset, *, full_task=False):
     chain_ids = list(
         queryset.filter(task__task_type__in=CHAIN_TASK_TYPES)
@@ -103,7 +116,7 @@ def recheck_attempt(modeladmin, request, queryset):
 
 
 def recheck_full_attempt(modeladmin, request, queryset):
-    chain_ids = _bulk_chain_recheck_ids(queryset, full_task=True)
+    _bulk_chain_recheck_ids(queryset, full_task=True)
     non_chain_task_ids = set(
         queryset.exclude(task__task_type__in=CHAIN_TASK_TYPES)
         .values_list('task_id', flat=True)
@@ -159,8 +172,9 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
 
 
 def add_to_checker(modeladmin, request, queryset):
-    from games.ops.workers.jobs.bulk import add_attempts_to_checker
     from django.contrib import messages
+
+    from games.ops.workers.jobs.bulk import add_attempts_to_checker
     result = add_attempts_to_checker(
         queryset.values_list('id', flat=True), return_receipt=True,
     )
@@ -176,8 +190,9 @@ def add_to_checker(modeladmin, request, queryset):
 
 
 def add_to_checker_and_recheck(modeladmin, request, queryset):
-    from games.ops.workers.jobs.bulk import add_attempts_to_checker
     from django.contrib import messages
+
+    from games.ops.workers.jobs.bulk import add_attempts_to_checker
     result = add_attempts_to_checker(
         queryset.values_list('id', flat=True),
         recheck_selected_non_chain=True,

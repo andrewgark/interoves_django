@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 
-from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
@@ -12,37 +11,8 @@ from django.template.loader import render_to_string
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
-from games.puzzles.alphabetty.core import build_prefix_level, normalize_word
+from games.club.access.archive import has_club_access
 from games.club.offers.alphabetty import can_access_offer_hash, get_offer_by_share_hash
-from games.puzzles.alphabetty.play import (
-    ALPHABETTY_HINT_PENALTY,
-    get_play_state,
-    get_task_for_number,
-    hint_count,
-    hub_progress_for_actor,
-    load_state,
-    ru_hint_word,
-)
-from games.puzzles.alphabetty import AlphabettyPuzzle
-from games.ops.analytics.events import (
-    PlayerCompletedGame,
-    is_task_completion_state,
-    is_task_group_complete,
-    publish_completion_analytics,
-    register_started_game,
-)
-from games.daily.completion.completion_coordinator import complete_logical_game
-from games.daily.timing.transitions import next_daily_content_transition_for_game
-from games.daily.page.archive import (
-    links_for_archive_month,
-    prepare_daily_archive,
-    refresh_daily_archive_context,
-)
-from games.site.views.daily.hub import can_access_daily_game
-from games.daily.registry import get_daily_game
-from games.daily.page.context import build_daily_lifecycle_context
-from games.daily.page.section import MOSCOW
-from games.puzzles.alphabetty.suggestions import suggest_word
 from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
     alphabetty_publish_at,
@@ -52,24 +22,58 @@ from games.daily.catalog.alphabetty import (
     is_alphabetty_number_published,
     visible_alphabetty_links,
 )
+from games.daily.completion.completion_coordinator import complete_logical_game
+from games.daily.page.archive import (
+    links_for_archive_month,
+    prepare_daily_archive,
+    refresh_daily_archive_context,
+)
+from games.daily.page.context import build_daily_lifecycle_context
+from games.daily.page.section import MOSCOW
+from games.daily.registry import get_daily_game
+from games.daily.timing.transitions import next_daily_content_transition_for_game
+from games.identity import has_profile
 from games.models import (
     Attempt,
     ChainTaskState,
     Game,
     GameTaskGroup,
-    Like,
     Task,
 )
-from games.club.access.archive import has_club_access
-from games.site.http.middleware.request_timing import timing_phase
+from games.ops.analytics.events import (
+    PlayerCompletedGame,
+    is_task_completion_state,
+    is_task_group_complete,
+    publish_completion_analytics,
+    register_started_game,
+)
+from games.ops.analytics.identity import gameplay_anon_key
+from games.puzzles.alphabetty import AlphabettyPuzzle
+from games.puzzles.alphabetty.core import build_prefix_level, normalize_word
+from games.puzzles.alphabetty.play import (
+    ALPHABETTY_HINT_PENALTY,
+    get_play_state,
+    get_task_for_number,
+    hint_count,
+    hub_progress_for_actor,
+    load_state,
+    ru_hint_word,
+)
+from games.puzzles.alphabetty.suggestions import suggest_word
 from games.sections.hub import (
     create_game_link_context,
     onboarding_followup_context,
     section_format_credit_context,
 )
 from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
-from games.tasks.titles import task_display_name, task_group_page_title
-from games.site.views.daily.timing import daily_timing_page_context
+from games.site.http.auth_observability import record_gameplay_attempt_created
+from games.site.http.middleware.request_timing import timing_phase
+from games.site.session.gameplay_context import (
+    context_error_response,
+    issue_gameplay_context,
+    validate_gameplay_context,
+)
+from games.site.session.replay import StaleReplayError, _official_exists, active_replay, replay_for_request
 from games.site.ui import NEW_UI_SECTIONS_PROJECT
 from games.site.ui.game.progress import (
     _archive_nav_target,
@@ -77,15 +81,10 @@ from games.site.ui.game.progress import (
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
-from games.ops.analytics.identity import gameplay_anon_key
-from games.site.http.auth_observability import record_gameplay_attempt_created
-from games.site.session.gameplay_context import (
-    context_error_response,
-    issue_gameplay_context,
-    validate_gameplay_context,
-)
-from games.identity import has_profile
-from games.site.session.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
+from games.site.views.daily.hub import can_access_daily_game
+from games.site.views.daily.timing import daily_timing_page_context
+from games.tasks.likes_meta import likes_meta_by_task_id
+from games.tasks.titles import task_display_name, task_group_page_title
 
 
 def _share_host(request) -> str:
@@ -166,18 +165,9 @@ def _alphabetty_meta_context(request, *, game, task, user, anon_key, placement=N
         'difficulty': difficulty,
         'has_profile_user': has_profile(request.user),
         'user': request.user,
-        'likes_meta_by_task_id': {
-            task.id: {
-                'likes': Like.manager.get_total_likes(task),
-                'dislikes': Like.manager.get_total_dislikes(task),
-                'liked': Like.manager.actor_has_like(
-                    task, team=None, user=user, anon_key=anon_key,
-                ),
-                'disliked': Like.manager.actor_has_dislike(
-                    task, team=None, user=user, anon_key=anon_key,
-                ),
-            },
-        },
+        'likes_meta_by_task_id': likes_meta_by_task_id(
+            [task], team=None, user=user, anon_key=anon_key,
+        ),
         'alphabetty_hints': hints_n,
         'alphabetty_hints_label': (
             f'{hints_n} {ru_hint_word(hints_n)}' if hints_n > 0 else ''
@@ -298,6 +288,8 @@ def alphabetty_hub_page(request):
 
     from games.daily.difficulty.core import get_cached_game_difficulties
     difficulties = get_cached_game_difficulties([link for _, link in link_rows])
+    from games.tasks.likes_meta import like_totals_by_task_group_id
+    like_totals = like_totals_by_task_group_id(link.task_group_id for _, link in link_rows)
     rows = []
     for n, link in link_rows:
         prog = progress.get(n) or {}
@@ -314,6 +306,7 @@ def alphabetty_hub_page(request):
             'row_class': row_class,
             'progress_meta': prog.get('progress_meta') or '',
             'difficulty': difficulties.get(link.pk),
+            'like_totals': like_totals.get(link.task_group_id),
         })
     for row in rows:
         row['is_fully_solved'] = row['is_solved']

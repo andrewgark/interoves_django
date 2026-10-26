@@ -12,38 +12,38 @@ from django.db import transaction
 from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 
+from games.models import (
+    AccountMerge,
+    AlphabettyDictSuggestion,
+    AlphabettyOffer,
+    AlphabettyPersonalDictWord,
+    AnonAccountClaim,
+    Attempt,
+    BugReport,
+    BugReportMessage,
+    ChainTaskState,
+    DailySolveTiming,
+    Donation,
+    HintAttempt,
+    LadderOffer,
+    Like,
+    NextGameVoteEvent,
+    PlayerAnalyticsState,
+    PlayerCompletedGame,
+    PlayerStartedGame,
+    Profile,
+    ProfileTeamMembership,
+    ReplaySlot,
+    StatisticsEvent,
+    TicketRequest,
+    WordSaladOffer,
+)
 from games.ops.analytics.persistence import (
     AnalyticsRowInvariantError,
     merge_analytics_state_rows,
     merge_completed_analytics_rows,
     merge_started_analytics_rows,
     reassign_or_merge_analytics_row,
-)
-from games.models import (
-    AccountMerge,
-    AnonAccountClaim,
-    AlphabettyDictSuggestion,
-    AlphabettyOffer,
-    AlphabettyPersonalDictWord,
-    Attempt,
-    BugReport,
-    BugReportMessage,
-    ChainTaskState,
-    Donation,
-    HintAttempt,
-    LadderOffer,
-    WordSaladOffer,
-    Like,
-    NextGameVoteEvent,
-    PlayerAnalyticsState,
-    PlayerCompletedGame,
-    PlayerStartedGame,
-    DailySolveTiming,
-    ReplaySlot,
-    Profile,
-    ProfileTeamMembership,
-    StatisticsEvent,
-    TicketRequest,
 )
 from games.site.session.replay import replay_actor_key
 
@@ -757,6 +757,8 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
     summary['replay_slots'] = _merge_replay_slots(target, source)
     summary['chain_states'] = _merge_chain_states(target, source)
     summary['likes'] = _merge_likes(target, source)
+    from games.puzzles.raddle.clue_likes import merge_user_clue_likes
+    summary['raddle_clue_likes'] = merge_user_clue_likes(target, source)
     summary['personal_dict_words'] = _merge_personal_words(target, source)
     # Claim and account-merge paths both lock claim rows before analytics rows.
     # This avoids the claim->analytics / analytics->claim deadlock cycle.
