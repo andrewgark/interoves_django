@@ -15,7 +15,7 @@ class TelegramCronLockTests(SimpleTestCase):
             calls.append((name, ttl_seconds))
             yield True
 
-        from games.telegram import cron_lock
+        from games.ops.cron import telegram as cron_lock
 
         with patch.object(cron_lock, 'distributed_cron_lock', fake_lock):
             with cron_lock.telegram_cron_lock() as acquired:

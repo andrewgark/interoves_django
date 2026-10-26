@@ -20,17 +20,17 @@ from games.social.publish import (
     queue_network,
     update_claimed_telegram_post,
 )
-from games.telegram.api import send_message, send_photo
-from games.telegram.config import (
+from games.ops.telegram.transport.api import send_message, send_photo
+from games.ops.telegram.transport.config import (
     admin_chat_id,
     telegram_admin_configured,
     telegram_channel_configured,
 )
 from games.sections.paths import section_play_path
-from games.telegram.game_urls import admin_url
-from games.telegram.mtproto import telegram_user_configured
-from games.telegram.word_salad_image import render_word_salad_teaser_png, word_salad_last_screenshot_url
-from games.telegram.render_errors import (
+from games.ops.telegram.links import admin_url
+from games.ops.telegram.transport.mtproto import telegram_user_configured
+from games.ops.telegram.images.salad import render_word_salad_teaser_png, word_salad_last_screenshot_url
+from games.ops.telegram.images.errors import (
     admin_post_failure_message,
     admin_render_failure_message,
     describe_post_failure,

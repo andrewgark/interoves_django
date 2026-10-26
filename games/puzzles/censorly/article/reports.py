@@ -38,7 +38,7 @@ def request_completion(report_id: int) -> None:
 
 
 def _publish_or_notify(report_id: int) -> None:
-    from games.telegram.admin_alert_events import publish_admin_alert
+    from games.ops.telegram.bot.alerts import publish_admin_alert
 
     published = publish_admin_alert(
         alert=ADMIN_ALERT,
@@ -116,6 +116,6 @@ def _store_diagnostic(report, diagnostic: dict) -> None:
 
 
 def _notify(report) -> bool:
-    from games.telegram.notify import notify_new_bug_report
+    from games.ops.telegram.bot.notify import notify_new_bug_report
 
     return bool(notify_new_bug_report(report))

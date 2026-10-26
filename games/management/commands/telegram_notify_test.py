@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.notify import send_admin_message, send_announce_message, telegram_notify_configured
+from games.ops.telegram.bot.notify import send_admin_message, send_announce_message, telegram_notify_configured
 
 
 class Command(BaseCommand):

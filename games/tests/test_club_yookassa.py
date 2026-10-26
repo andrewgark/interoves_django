@@ -298,7 +298,7 @@ class ClubYooKassaFlowTests(TestCase):
             response = self.client.post(reverse(name))
             self.assertEqual(response.status_code, 401)
 
-    @patch('games.telegram.notify.notify_admin_club_subscription_attempt_failed')
+    @patch('games.ops.telegram.bot.notify.notify_admin_club_subscription_attempt_failed')
     @patch('games.club.billing.yookassa.club.configure_yookassa_from_env')
     @patch('games.club.billing.yookassa.club.Payment.create', side_effect=RuntimeError('provider down'))
     def test_failed_monthly_start_notifies_admin(self, _create, _cfg, notify_mock):
@@ -491,7 +491,7 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertIsNone(self.sub.next_charge_at)
         self.assertFalse(SavedPaymentMethod.objects.exclude(provider_payment_method_id=None).exists())
 
-    @patch('games.telegram.notify.notify_admin_club_renewal_failed')
+    @patch('games.ops.telegram.bot.notify.notify_admin_club_renewal_failed')
     def test_canceled_recurring_payment_notifies_admin(self, notify_mock):
         local = self._pending()
         with self.captureOnCommitCallbacks(execute=True):

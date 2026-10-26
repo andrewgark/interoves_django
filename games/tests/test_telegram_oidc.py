@@ -86,10 +86,10 @@ class TelegramOIDCTests(TestCase):
         self.assertEqual(profile.telegram_handle, 'realname')
         self.assertTrue(profile.telegram_verified)
 
-    @patch('games.telegram_oidc.jwtkit.verify_and_decode')
+    @patch('games.club.telegram_oidc.jwtkit.verify_and_decode')
     def test_id_token_is_verified_against_telegram_jwks(self, verify):
         verify.return_value = {'sub': '42', 'given_name': 'Tg'}
-        adapter = object.__new__(__import__('games.telegram_oidc', fromlist=['TelegramOIDCAdapter']).TelegramOIDCAdapter)
+        adapter = object.__new__(__import__('games.club.telegram_oidc', fromlist=['TelegramOIDCAdapter']).TelegramOIDCAdapter)
         provider = object.__new__(TelegramProvider)
         provider.app = type('App', (), {'client_id': 'client-id'})()
         adapter.get_provider = lambda: provider

@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.mtproto import telegram_user_configured
-from games.telegram.word_salad_channel import (
+from games.ops.telegram.transport.mtproto import telegram_user_configured
+from games.ops.telegram.channels.salad import (
     process_salad_channel_tick,
     publish_salad_channel_post,
     schedule_salad_channel_post,

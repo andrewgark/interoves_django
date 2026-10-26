@@ -162,7 +162,7 @@ def new_bug_report(request, task_id):
         return JsonResponse({'ok': False, 'error': 'Слишком длинное сообщение.'}, status=400)
 
     from games.site.ui.profile.feedback import profile_reports_path
-    from games.telegram.game_urls import task_play_url
+    from games.ops.telegram.links import task_play_url
 
     report = BugReport.objects.create(
         task=task,

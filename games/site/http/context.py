@@ -51,7 +51,7 @@ def club_archive_ui(request):
             'random_alphabetty_has_access': random_access,
         }
     from games.club.access.archive import has_club_access
-    from games.telegram.config import club_invite_url
+    from games.ops.telegram.transport.config import club_invite_url
     if not user or not user.is_authenticated:
         return {
             'club_archive_gating_enabled': True,

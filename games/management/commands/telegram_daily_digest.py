@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.digest import build_daily_digest
-from games.telegram.notify import send_admin_message, telegram_admin_configured
+from games.ops.telegram.channels.digest import build_daily_digest
+from games.ops.telegram.bot.notify import send_admin_message, telegram_admin_configured
 from games.club.billing.tickets import build_stuck_tickets_alert
 
 

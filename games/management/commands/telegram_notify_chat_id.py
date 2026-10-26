@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.notify import fetch_recent_telegram_chat_ids
+from games.ops.telegram.bot.notify import fetch_recent_telegram_chat_ids
 
 
 class Command(BaseCommand):

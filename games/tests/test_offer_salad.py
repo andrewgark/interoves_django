@@ -213,7 +213,7 @@ class WordSaladOfferFlowTests(TestCase):
         )
         self.assertTrue(retry.json()['word_salad_correct'], retry.json())
 
-    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    @patch('games.ops.telegram.bot.notify.send_admin_message', return_value=True)
     def test_accepted_future_salad_accepts_attempts_from_share_link(self, _send_admin_message):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
         update_offer_content(
@@ -425,7 +425,7 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertEqual(row.site_url, offer.play_url())
         self.assertEqual(get_word_salad_detail(offer.accepted_link_id)['site_url'], offer.play_url())
         self.assertNotEqual(row.site_url, row.preview_url)
-        from games.telegram.game_urls import task_play_url
+        from games.ops.telegram.links import task_play_url
         self.assertIn(offer.share_hash, task_play_url(self.game, task))
 
     def test_full_send_rejects_placeholder_and_removable_letter(self):

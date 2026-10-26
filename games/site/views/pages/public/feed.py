@@ -24,8 +24,8 @@ def ladder_teaser_jpg(request, number):
     from the ladder task. 404 for unpublished/unknown numbers.
     """
     from games.social.models import SocialQueuePost
-    from games.telegram.ladder_channel import resolve_ladder_by_number
-    from games.telegram.ladder_image import render_ladder_teaser_png
+    from games.ops.telegram.channels.ladder import resolve_ladder_by_number
+    from games.ops.telegram.images.ladder import render_ladder_teaser_png
 
     number = int(number)
     post = (

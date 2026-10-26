@@ -9,12 +9,12 @@ from django.core.management.base import BaseCommand
 from games.instagram.api import publish_configured
 from games.social.models import SocialQueuePost
 from games.social.publish import publish_instagram
-from games.telegram.ladder_channel import (
+from games.ops.telegram.channels.ladder import (
     build_caption,
     resolve_ladder_by_number,
     resolve_today_ladder,
 )
-from games.telegram.ladder_image import render_ladder_teaser_png
+from games.ops.telegram.images.ladder import render_ladder_teaser_png
 
 
 class Command(BaseCommand):

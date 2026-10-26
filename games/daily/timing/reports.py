@@ -124,7 +124,7 @@ def handle_client_report(request, payload: dict) -> tuple[bool, str]:
     )
     if _alert_allowed(actor_key, path, reason):
         try:
-            from games.telegram.admin_alert_events import publish_admin_alert
+            from games.ops.telegram.bot.alerts import publish_admin_alert
 
             publish_admin_alert(
                 alert='daily_timer_client_report',

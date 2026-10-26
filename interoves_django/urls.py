@@ -35,7 +35,7 @@ from games.site.views.workers.identity import identity_worker
 from games.site.views.workers.integrations import integrations_worker
 from games.site.views.workers.word_salad import recheck_worker, word_salad_worker
 from games.social.views import social_queue_instagram_jpg
-from games.telegram.urls import urlpatterns as telegram_urlpatterns
+from games.ops.telegram.transport.urls import urlpatterns as telegram_urlpatterns
 
 nutrimatic_patterns = [
     path("", microsites_views.nutrimatic_search, name="nutrimatic_home"),

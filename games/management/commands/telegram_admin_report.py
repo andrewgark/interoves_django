@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.admin_reports import process_admin_report_tick
+from games.ops.telegram.bot.reports import process_admin_report_tick
 from games.ops.cron.lock import distributed_cron_lock
 
 

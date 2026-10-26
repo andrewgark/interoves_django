@@ -369,7 +369,7 @@ def _auth_json_guard(request):
 def _notify_subscription_start_failure(request, *, provider: str, reason: str, message: str, currency: str = ''):
     if not request.user.is_authenticated:
         return
-    from games.telegram.notify import notify_admin_club_subscription_attempt_failed
+    from games.ops.telegram.bot.notify import notify_admin_club_subscription_attempt_failed
 
     notify_admin_club_subscription_attempt_failed(
         request.user,

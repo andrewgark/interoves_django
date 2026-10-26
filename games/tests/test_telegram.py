@@ -20,19 +20,19 @@ from games.models import (
     Team,
     TicketRequest,
 )
-from games.telegram.admin_commands import handle_admin_command, registration_milestone_reached
-from games.telegram.digest import build_daily_digest, collect_daily_digest_stats
-from games.telegram.announcements import (
+from games.ops.telegram.bot.commands import handle_admin_command, registration_milestone_reached
+from games.ops.telegram.channels.digest import build_daily_digest, collect_daily_digest_stats
+from games.ops.telegram.channels.announcements import (
     format_game_day_before_announcement,
     format_game_end_announcement,
     format_game_end_soon_15_announcement,
     format_game_end_soon_announcement,
     format_game_start_announcement,
 )
-from games.telegram.callbacks import handle_callback_query
-from games.telegram.config import is_admin_chat
-from games.telegram.models import TelegramGameAnnouncement
-from games.telegram.notify import (
+from games.ops.telegram.bot.callbacks import handle_callback_query
+from games.ops.telegram.transport.config import is_admin_chat
+from games.ops.telegram.models import TelegramGameAnnouncement
+from games.ops.telegram.bot.notify import (
     format_alphabetty_dict_suggestion_message,
     format_bug_report_message,
     format_payment_message,
@@ -44,7 +44,7 @@ from games.telegram.notify import (
     send_announce_message,
     send_announce_photo,
 )
-from games.telegram.api import _safe_error_text
+from games.ops.telegram.transport.api import _safe_error_text
 
 
 def _ensure_reference_rows():
@@ -91,18 +91,18 @@ class TelegramNotifyTests(TestCase):
         self.team = Team.objects.create(name='tg_team', visible_name='TG Team')
 
     @override_settings(TELEGRAM_ANNOUNCE_CHAT_IDS=['chat-1', 'chat-2'])
-    @patch('games.telegram.notify.send_message', side_effect=[True, False])
+    @patch('games.ops.telegram.bot.notify.send_message', side_effect=[True, False])
     def test_announce_message_requires_success_in_every_chat(self, send_mock):
         self.assertFalse(send_announce_message('hello'))
         self.assertEqual(send_mock.call_count, 2)
 
     @override_settings(TELEGRAM_ANNOUNCE_CHAT_IDS=['chat-1', 'chat-2'])
-    @patch('games.telegram.notify.send_photo', side_effect=[{'message_id': 1}, None])
+    @patch('games.ops.telegram.bot.notify.send_photo', side_effect=[{'message_id': 1}, None])
     def test_announce_photo_requires_success_in_every_chat(self, send_mock):
         self.assertFalse(send_announce_photo(b'png'))
         self.assertEqual(send_mock.call_count, 2)
 
-    @patch('games.telegram.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message')
     def test_notify_bug_report_with_keyboard(self, send_message_mock):
         send_message_mock.return_value = True
         from games.models import GameTaskGroup
@@ -128,7 +128,7 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('/games/{}/1/#new-task-{}'.format(self.game.id, self.task.pk), text)
         self.assertIn('/admin/games/task/{}/change/'.format(self.task.pk), text)
 
-    @patch('games.telegram.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message')
     def test_notify_censorly_word_report_with_review_keyboard(self, send_message_mock):
         send_message_mock.return_value = True
         report = BugReport.objects.create(
@@ -163,9 +163,9 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('censorly:reject:{}'.format(report.pk), keyboard)
         self.assertIn('censorly:review:{}'.format(report.pk), keyboard)
 
-    @patch('games.telegram.notify.send_message')
-    @patch('games.telegram.callbacks.answer_callback_query')
-    @patch('games.telegram.callbacks.edit_message_reply_markup')
+    @patch('games.ops.telegram.bot.notify.send_message')
+    @patch('games.ops.telegram.bot.callbacks.answer_callback_query')
+    @patch('games.ops.telegram.bot.callbacks.edit_message_reply_markup')
     def test_bug_fixed_callback(self, edit_markup_mock, answer_mock, send_message_mock):
         send_message_mock.return_value = True
         report = BugReport.objects.create(
@@ -188,8 +188,8 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('Fixed', send_message_mock.call_args.args[1])
 
     @patch('games.puzzles.censorly.lexical.tools.review_pair.record_review_case')
-    @patch('games.telegram.callbacks.answer_callback_query')
-    @patch('games.telegram.callbacks.edit_message_reply_markup')
+    @patch('games.ops.telegram.bot.callbacks.answer_callback_query')
+    @patch('games.ops.telegram.bot.callbacks.edit_message_reply_markup')
     def test_censorly_confirm_creates_diagnosed_review_case(
         self, edit_markup_mock, answer_mock, record_mock,
     ):
@@ -233,7 +233,7 @@ class TelegramNotifyTests(TestCase):
         answer_mock.assert_called()
         edit_markup_mock.assert_called_once()
 
-    @patch('games.telegram.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message')
     def test_dict_suggestion_notify_on_create(self, send_message_mock):
         send_message_mock.return_value = True
         with self.captureOnCommitCallbacks(execute=True):
@@ -259,7 +259,7 @@ class TelegramNotifyTests(TestCase):
         msg = format_alphabetty_dict_suggestion_message(suggestion)
         self.assertIn('pendingalphabettydictsuggestion', msg)
 
-    @patch('games.telegram.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message')
     def test_alphabetty_dict_suggestion_notify_on_create(self, send_message_mock):
         send_message_mock.return_value = True
         with self.captureOnCommitCallbacks(execute=True):
@@ -276,9 +276,9 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('abdict:answer:{}'.format(suggestion.pk), str(keyboard))
         self.assertIn('abdict:reject:{}'.format(suggestion.pk), str(keyboard))
 
-    @patch('games.telegram.notify.send_message')
-    @patch('games.telegram.callbacks.answer_callback_query')
-    @patch('games.telegram.callbacks.edit_message_reply_markup')
+    @patch('games.ops.telegram.bot.notify.send_message')
+    @patch('games.ops.telegram.bot.callbacks.answer_callback_query')
+    @patch('games.ops.telegram.bot.callbacks.edit_message_reply_markup')
     def test_dict_suggestion_approve_callback(
         self, edit_markup_mock, answer_mock, send_message_mock,
     ):
@@ -298,9 +298,9 @@ class TelegramNotifyTests(TestCase):
         answer_mock.assert_called()
         edit_markup_mock.assert_called_once()
 
-    @patch('games.telegram.notify.send_message')
-    @patch('games.telegram.callbacks.answer_callback_query')
-    @patch('games.telegram.callbacks.edit_message_reply_markup')
+    @patch('games.ops.telegram.bot.notify.send_message')
+    @patch('games.ops.telegram.bot.callbacks.answer_callback_query')
+    @patch('games.ops.telegram.bot.callbacks.edit_message_reply_markup')
     def test_dict_suggestion_answer_callback(
         self, edit_markup_mock, answer_mock, send_message_mock,
     ):
@@ -350,7 +350,7 @@ class TelegramNotifyTests(TestCase):
 
     def test_format_bug_report_message_sections_game_uses_root_games_url(self):
         from games.models import GameTaskGroup
-        from games.telegram.game_urls import game_play_path, task_play_url
+        from games.ops.telegram.links import game_play_path, task_play_url
 
         Project.objects.get_or_create(pk='sections', defaults={})
         Project.objects.get_or_create(pk='glowbyte', defaults={})
@@ -392,15 +392,15 @@ class TelegramNotifyTests(TestCase):
         )
         self.assertNotIn('/sections/', text)
 
-    @patch('games.telegram.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message')
     def test_send_admin_message_respects_mute(self, send_message_mock):
-        from games.telegram.config import set_admin_mute
+        from games.ops.telegram.transport.config import set_admin_mute
 
         set_admin_mute(30)
         self.assertFalse(send_admin_message('muted'))
         send_message_mock.assert_not_called()
 
-    @patch('games.telegram.notify.publish_admin_alert', return_value=True)
+    @patch('games.ops.telegram.bot.notify.publish_admin_alert', return_value=True)
     def test_zero_duration_completion_is_queued_with_dedupe_key(self, publish_mock):
         self.assertTrue(notify_admin_zero_duration_completion(
             game=self.game,
@@ -415,9 +415,9 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('tg_test_game:{}'.format(self.task_group.pk), kwargs['dedupe_key'])
         self.assertIn('временем 0:00', kwargs['payload']['text'])
 
-    @patch('games.telegram.notify.publish_admin_alert', return_value=True)
-    @patch('games.telegram.notify.timezone.localtime')
-    @patch('games.telegram.notify.timezone.now')
+    @patch('games.ops.telegram.bot.notify.publish_admin_alert', return_value=True)
+    @patch('games.ops.telegram.bot.notify.timezone.localtime')
+    @patch('games.ops.telegram.bot.notify.timezone.now')
     def test_site_error_notification_includes_local_time(
         self, now_mock, localtime_mock, publish_mock,
     ):
@@ -431,7 +431,7 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('Время: <b>23.09.2026 12:34:56</b>', text)
 
     @override_settings(SITE_DEPLOY_VERSION='salad-alert-test')
-    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    @patch('games.ops.telegram.bot.notify.send_admin_message', return_value=True)
     def test_custom_salad_submission_error_is_alerted_and_deduplicated(self, send_message_mock):
         self.assertTrue(notify_admin_word_salad_submission_error(
             game_id='salad', incident_id='abc123',
@@ -445,10 +445,10 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('Incident: <code>abc123</code>', text)
         self.assertIn('application log', text)
 
-    @patch('games.telegram.admin_alert_events.boto3.client')
+    @patch('games.ops.telegram.bot.alerts.boto3.client')
     def test_custom_salad_submission_error_is_published_to_integrations_queue(self, client_mock):
         with patch.dict('os.environ', {'INTEGRATIONS_SQS_QUEUE_URL': 'https://sqs.example/alerts'}):
-            from games.telegram.admin_alert_events import publish_word_salad_submission_error
+            from games.ops.telegram.bot.alerts import publish_word_salad_submission_error
 
             self.assertTrue(publish_word_salad_submission_error(
                 game_id='salad', incident_id='abc123',
@@ -459,7 +459,7 @@ class TelegramNotifyTests(TestCase):
         self.assertIn('abc123', payload['MessageBody'])
 
     @override_settings(INSTANCE_ID='green-test-instance', SITE_DEPLOY_VERSION='deploy-test')
-    @patch('games.telegram.notify.publish_admin_alert', return_value=True)
+    @patch('games.ops.telegram.bot.notify.publish_admin_alert', return_value=True)
     def test_site_error_notification_includes_safe_diagnostic_context(self, publish_mock):
         request = RequestFactory().post('/send_attempt/226/', data={'text': 'secret-answer'})
         request.interoves_request_id = 'telegram-diagnostic-id'
@@ -539,10 +539,10 @@ class TelegramNotifyTests(TestCase):
         self.assertTrue(is_admin_chat('12345'))
         self.assertFalse(is_admin_chat('-100999'))
 
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_process_game_announcements_start(self, _admin_mock, announce_mock):
-        from games.telegram.scheduling import process_game_announcements
+        from games.ops.telegram.channels.scheduling import process_game_announcements
 
         now = timezone.now()
         self.game.start_time = now - timezone.timedelta(minutes=1)
@@ -577,7 +577,7 @@ class TelegramWebhookTests(TestCase):
         response = self.client.post('/telegram/webhook/wrong/', data='{}', content_type='application/json')
         self.assertEqual(response.status_code, 403)
 
-    @patch('games.telegram.webhook.send_message')
+    @patch('games.ops.telegram.transport.webhook.send_message')
     def test_admin_help_command(self, send_message_mock):
         response = self.client.post(
             '/telegram/webhook/secret/',
@@ -593,7 +593,7 @@ class TelegramWebhookTests(TestCase):
         send_message_mock.assert_called_once()
         self.assertIn('Admin mode', send_message_mock.call_args.args[1])
 
-    @patch('games.telegram.webhook.send_message')
+    @patch('games.ops.telegram.transport.webhook.send_message')
     def test_group_chat_rejects_commands(self, send_message_mock):
         response = self.client.post(
             '/telegram/webhook/secret/',

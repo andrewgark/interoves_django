@@ -37,7 +37,7 @@ def _ensure_test_fixtures():
 )
 class TelegramNotifyTests(TransactionTestCase):
     def setUp(self):
-        from games.telegram.config import clear_admin_mute
+        from games.ops.telegram.transport.config import clear_admin_mute
 
         clear_admin_mute()
         _ensure_test_fixtures()
@@ -63,7 +63,7 @@ class TelegramNotifyTests(TransactionTestCase):
             )
         self.team = Team.objects.create(name='Team A', visible_name='Team A')
 
-    @patch('games.telegram.api.requests.post')
+    @patch('games.ops.telegram.transport.api.requests.post')
     def test_bug_report_triggers_telegram(self, mock_post):
         mock_post.return_value.json.return_value = {'ok': True}
         mock_post.return_value.raise_for_status = lambda: None
@@ -89,7 +89,7 @@ class TelegramNotifyTests(TransactionTestCase):
         self.assertIn('/admin/games/game/{}/change/'.format(self.game.id), payload['text'])
         self.assertIn('1. Section (1)', payload['text'])
 
-    @patch('games.telegram.api.requests.post')
+    @patch('games.ops.telegram.transport.api.requests.post')
     def test_ticket_request_triggers_telegram(self, mock_post):
         mock_post.return_value.json.return_value = {'ok': True}
         mock_post.return_value.raise_for_status = lambda: None
@@ -107,7 +107,7 @@ class TelegramNotifyTests(TransactionTestCase):
         self.assertIn('Team A', payload['text'])
         self.assertIn(str(ticket_request.pk), payload['text'])
 
-    @patch('games.telegram.api.requests.post')
+    @patch('games.ops.telegram.transport.api.requests.post')
     def test_corporate_order_triggers_telegram(self, mock_post):
         mock_post.return_value.json.return_value = {'ok': True}
         mock_post.return_value.raise_for_status = lambda: None
@@ -128,7 +128,7 @@ class TelegramNotifyTests(TransactionTestCase):
         self.assertIn(str(order.pk), payload['text'])
 
     @override_settings(TELEGRAM_BOT_TOKEN='')
-    @patch('games.telegram.api.requests.post')
+    @patch('games.ops.telegram.transport.api.requests.post')
     def test_skips_when_not_configured(self, mock_post):
         BugReport.objects.create(
             task=self.task,
@@ -138,7 +138,7 @@ class TelegramNotifyTests(TransactionTestCase):
         )
         mock_post.assert_not_called()
 
-    @patch('games.telegram.api.requests.post')
+    @patch('games.ops.telegram.transport.api.requests.post')
     def test_reviewed_bug_report_does_not_notify(self, mock_post):
         user = User.objects.create_user(username='reporter', password='x')
         BugReport.objects.create(

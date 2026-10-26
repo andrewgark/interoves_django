@@ -6,13 +6,13 @@ from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 
 from games.models import Game, GameTaskGroup, PlayerCompletedGame, PlayerStartedGame, TaskGroup
-from games.telegram.admin_reports import (
+from games.ops.telegram.bot.reports import (
     build_admin_report,
     collect_report_stats,
     format_comparison,
     process_admin_report_tick,
 )
-from games.telegram.models import TelegramAdminReport
+from games.ops.telegram.models import TelegramAdminReport
 
 
 MOSCOW = ZoneInfo('Europe/Moscow')
@@ -61,7 +61,7 @@ class TelegramAdminReportTests(TestCase):
         text, kind, period = build_admin_report(now=monday)
         self.assertEqual(kind, TelegramAdminReport.REPORT_WEEKLY)
         self.assertIn('пред. неделя:', text)
-        with patch('games.telegram.admin_reports.send_admin_message', return_value=True) as send:
+        with patch('games.ops.telegram.bot.reports.send_admin_message', return_value=True) as send:
             self.assertEqual(process_admin_report_tick(now=monday), {'sent': 1, 'skipped': 0})
             self.assertEqual(process_admin_report_tick(now=monday.replace(minute=26)), {'sent': 0, 'skipped': 1})
         self.assertEqual(send.call_count, 1)

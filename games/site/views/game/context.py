@@ -121,7 +121,7 @@ def unpublished_scheduled_task_response(request, game, task):
         )
         if game.id == 'salad':
             try:
-                from games.telegram.admin_alert_events import publish_word_salad_submission_error
+                from games.ops.telegram.bot.alerts import publish_word_salad_submission_error
 
                 publish_word_salad_submission_error(
                     game_id=game.id,

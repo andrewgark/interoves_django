@@ -9,8 +9,8 @@ from games.daily.catalog.alphabetty import ALPHABETTY_PUBLISH_START_TAG
 from games.daily.catalog.censorly import CENSORLY_PUBLISH_START_TAG
 from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 from games.models import Game, GameTaskGroup, Project, Task, TaskGroup
-from games.telegram.daily_review import build_daily_review, process_daily_review_tick
-from games.telegram.models import TelegramDailyReview
+from games.ops.telegram.channels.review import build_daily_review, process_daily_review_tick
+from games.ops.telegram.models import TelegramDailyReview
 from games.tests.test_raddle import PARIS_LADDER
 from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
 from games.daily.catalog.week_task import WEEK_TASK_PUBLISH_START_TAG
@@ -141,7 +141,7 @@ class TelegramDailyReviewTests(TestCase):
         ])
         self.assertEqual(buttons[0]['url'], 'https://interoves.com/support/ladders/')
 
-    @patch('games.telegram.daily_review.send_admin_message', return_value=True)
+    @patch('games.ops.telegram.channels.review.send_admin_message', return_value=True)
     def test_tick_sends_once_for_tomorrow(self, send_mock):
         first = process_daily_review_tick(now=self.now)
         second = process_daily_review_tick(now=self.now.replace(minute=1))
@@ -154,7 +154,7 @@ class TelegramDailyReviewTests(TestCase):
         self.assertIn('Задания на завтра', sent_text)
         self.assertIn('reply_markup', send_mock.call_args.kwargs)
 
-    @patch('games.telegram.daily_review.send_admin_message', return_value=False)
+    @patch('games.ops.telegram.channels.review.send_admin_message', return_value=False)
     def test_failed_send_releases_marker_for_next_minute_retry(self, send_mock):
         first = process_daily_review_tick(now=self.now)
         second = process_daily_review_tick(now=self.now.replace(minute=1))
@@ -196,7 +196,7 @@ class TelegramDailyReviewTests(TestCase):
             'https://interoves.com/support/week-tasks/',
         )
 
-    @patch('games.telegram.daily_review.send_admin_message')
+    @patch('games.ops.telegram.channels.review.send_admin_message')
     def test_tick_ignores_time_outside_window(self, send_mock):
         result = process_daily_review_tick(now=self.now.replace(hour=21, minute=59))
 

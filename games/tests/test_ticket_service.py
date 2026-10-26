@@ -5,7 +5,7 @@ from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
 from games.models import HTMLPage, Project, Team, TicketRequest
-from games.telegram.callbacks import _handle_ticket
+from games.ops.telegram.bot.callbacks import _handle_ticket
 from games.club.billing.tickets import (
     STUCK_TICKET_REQUEST_MINUTES,
     accept_ticket_request,
@@ -165,9 +165,9 @@ class TicketTelegramCallbackTests(TestCase):
         _ensure_reference_rows()
         cls.team = Team.objects.create(name='tg_ticket_team', visible_name='TG Ticket Team', tickets=0)
 
-    @patch('games.telegram.callbacks.edit_message_reply_markup')
-    @patch('games.telegram.callbacks.send_admin_message')
-    @patch('games.telegram.callbacks.answer_callback_query')
+    @patch('games.ops.telegram.bot.callbacks.edit_message_reply_markup')
+    @patch('games.ops.telegram.bot.callbacks.send_admin_message')
+    @patch('games.ops.telegram.bot.callbacks.answer_callback_query')
     def test_telegram_accept_credits_tickets(self, answer_mock, _admin_mock, _edit_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -222,7 +222,7 @@ class YooKassaWebhookTests(TestCase):
         )
 
     @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
-    @patch('games.telegram.notify.notify_payment_event')
+    @patch('games.ops.telegram.bot.notify.notify_payment_event')
     @patch('games.site.views.account.ticket.Payment.find_one')
     @patch('games.site.views.account.ticket.configure_yookassa_from_env')
     def test_webhook_succeeded_credits_tickets(self, _cfg_mock, find_one_mock, notify_mock, _on_commit_mock):
@@ -265,7 +265,7 @@ class YooKassaWebhookTests(TestCase):
         self.assertEqual(self.team.tickets, 2)
 
     @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
-    @patch('games.telegram.notify.notify_payment_event')
+    @patch('games.ops.telegram.bot.notify.notify_payment_event')
     @patch('games.site.views.account.ticket.Payment.find_one')
     @patch('games.site.views.account.ticket.configure_yookassa_from_env')
     def test_webhook_canceled_rejects_pending(self, _cfg_mock, find_one_mock, notify_mock, _on_commit_mock):

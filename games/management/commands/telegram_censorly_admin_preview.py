@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.censorly_channel import preview_censorly_to_admin
+from games.ops.telegram.channels.censorly import preview_censorly_to_admin
 
 
 class Command(BaseCommand):

@@ -340,7 +340,7 @@ class DailySharePreviewCommandTests(SimpleTestCase):
             self.assertNotIn('/', filename)
             return {'message_id': len(sent)}
 
-        from games.telegram.daily_share_preview import preview_daily_share_cards
+        from games.ops.telegram.images.share import preview_daily_share_cards
 
         ok, message = preview_daily_share_cards(
             include_social=False,
@@ -360,7 +360,7 @@ class DailySharePreviewCommandTests(SimpleTestCase):
         def fake_send(png, *, filename, caption):
             raise RuntimeError('https://api.telegram.org/bottest-token-secret/sendPhoto boom')
 
-        from games.telegram.daily_share_preview import preview_daily_share_cards
+        from games.ops.telegram.images.share import preview_daily_share_cards
 
         ok, message = preview_daily_share_cards(
             include_social=False,
@@ -374,7 +374,7 @@ class DailySharePreviewCommandTests(SimpleTestCase):
         self.assertIn('[redacted]', message)
 
     def test_missing_admin_config(self):
-        from games.telegram.daily_share_preview import preview_daily_share_cards
+        from games.ops.telegram.images.share import preview_daily_share_cards
 
         with override_settings(TELEGRAM_BOT_TOKEN='', TELEGRAM_ADMIN_CHAT_ID=''):
             ok, message = preview_daily_share_cards()

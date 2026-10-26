@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import Client, SimpleTestCase, override_settings
 from django.utils import timezone
 
-from games.telegram.shadow import telegram_shadow, telegram_shadow_active
+from games.ops.telegram.bot.shadow import telegram_shadow, telegram_shadow_active
 
 
 def _body(**overrides):

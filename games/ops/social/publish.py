@@ -18,9 +18,9 @@ from django.utils import timezone
 
 from games.instagram.api import publish_configured, publish_image_url
 from games.social.models import SocialQueuePost
-from games.telegram.config import channel_chat_id, telegram_channel_configured
+from games.ops.telegram.transport.config import channel_chat_id, telegram_channel_configured
 from games.threads.api import publish_image_url as publish_threads_image_url, threads_configured
-from games.telegram.mtproto import (
+from games.ops.telegram.transport.mtproto import (
     delete_channel_messages_sync,
     schedule_channel_photo_sync,
     telegram_user_configured,
@@ -301,7 +301,7 @@ def _restore_game_announce_image(post: SocialQueuePost) -> bool:
     if not game_id:
         return False
     from games.models import Game
-    from games.telegram.announce_image import render_game_announce_png
+    from games.ops.telegram.images.announce import render_game_announce_png
 
     game = Game.objects.filter(pk=game_id).first()
     if game is None:

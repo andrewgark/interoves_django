@@ -471,7 +471,7 @@ class BugReportAdminBase(admin.ModelAdmin):
 
     def context_links(self, obj):
         from django.utils.html import format_html, format_html_join
-        from games.telegram.game_urls import (
+        from games.ops.telegram.links import (
             game_admin_url,
             game_site_url,
             task_admin_url,

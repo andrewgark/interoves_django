@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.cron_lock import telegram_cron_lock
-from games.telegram.scheduling import process_game_announcements
+from games.ops.cron.telegram import telegram_cron_lock
+from games.ops.telegram.channels.scheduling import process_game_announcements
 
 
 class Command(BaseCommand):

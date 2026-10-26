@@ -344,14 +344,14 @@ class AuthenticatedRequestAuditMiddleware:
             _log_http_500_exception(request, exc)
             if getattr(request, 'method', '') == 'POST':
                 log_post_request(request, error=True)
-            from games.telegram.notify import notify_admin_site_error
+            from games.ops.telegram.bot.notify import notify_admin_site_error
 
             notify_admin_site_error(request, exception=exc)
             raise
         transient_db_error = getattr(request, '_interoves_mysql_error_code', None)
         if getattr(response, 'status_code', 0) >= 500 and transient_db_error is None:
             _log_http_500_response(request, response.status_code)
-            from games.telegram.notify import notify_admin_site_error
+            from games.ops.telegram.bot.notify import notify_admin_site_error
 
             notify_admin_site_error(request, status_code=response.status_code)
         with timing_phase(request, 'auth_audit_response'):

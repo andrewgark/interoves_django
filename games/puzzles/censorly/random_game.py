@@ -307,7 +307,7 @@ def _report_wikipedia_request_failure(title: str, exc: Exception) -> None:
         exc_info=(type(exc), exc, exc.__traceback__),
     )
     try:
-        from games.telegram.admin_alert_events import publish_admin_alert
+        from games.ops.telegram.bot.alerts import publish_admin_alert
 
         escaped_title = html.escape(title[:255], quote=False)
         escaped_detail = html.escape(detail[:3000], quote=False)

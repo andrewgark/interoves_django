@@ -9,7 +9,7 @@ from PIL import Image
 
 from games.models import CheckerType, Game, GameTaskGroup, Project, Task, TaskGroup
 from games.social.models import SocialQueuePost
-from games.telegram.word_salad_channel import (
+from games.ops.telegram.channels.salad import (
     build_caption,
     process_salad_channel_tick,
     publish_at_for_date,
@@ -98,7 +98,7 @@ class SaladChannelScheduleTests(TestCase):
         self.assertNotIn('Тема: Тема:', caption)
         self.assertNotIn('Автор:', caption)
         self.assertIn('/salad/1/', caption)
-        from games.telegram.word_salad_image import render_word_salad_teaser_png_pillow
+        from games.ops.telegram.images.salad import render_word_salad_teaser_png_pillow
         png = render_word_salad_teaser_png_pillow(self.task, salad_number=1)
         self.assertTrue(png.startswith(b'\x89PNG'))
 
@@ -112,22 +112,22 @@ class SaladChannelScheduleTests(TestCase):
         self.assertLess(caption.index('Тема:'), caption.index('Автор:'))
 
     def test_screenshot_url_is_public_salad_last(self):
-        from games.telegram.word_salad_image import word_salad_last_screenshot_url
+        from games.ops.telegram.images.salad import word_salad_last_screenshot_url
         self.assertEqual(
             word_salad_last_screenshot_url(),
             'https://interoves.com/salad/last/',
         )
 
     def test_screenshot_css_hides_salad_chrome(self):
-        from games.telegram.ladder_image import _SCREENSHOT_HIDE_CSS
+        from games.ops.telegram.images.ladder import _SCREENSHOT_HIDE_CSS
         self.assertIn('.new-word-salad__selection', _SCREENSHOT_HIDE_CSS)
         self.assertIn('.new-taskcard__bug-btn', _SCREENSHOT_HIDE_CSS)
 
     @override_settings(TELEGRAM_LADDER_SCREENSHOT=True)
-    @patch('games.telegram.word_salad_image.screenshot_word_salad_last_png')
-    @patch('games.telegram.word_salad_image.render_word_salad_teaser_png_pillow')
+    @patch('games.ops.telegram.images.salad.screenshot_word_salad_last_png')
+    @patch('games.ops.telegram.images.salad.render_word_salad_teaser_png_pillow')
     def test_render_uses_live_screenshot_not_pillow(self, pillow_mock, shot_mock):
-        from games.telegram.word_salad_image import render_word_salad_teaser_png
+        from games.ops.telegram.images.salad import render_word_salad_teaser_png
         shot_mock.return_value = _tiny_png_bytes(180, 220)
         png = render_word_salad_teaser_png(self.task, salad_number=1)
         self.assertEqual(png, shot_mock.return_value)
@@ -147,9 +147,9 @@ class SaladChannelScheduleTests(TestCase):
         )
         self.assertEqual(salad_post.ladder_date, self.now.date())
 
-    @patch('games.telegram.word_salad_channel.send_photo')
+    @patch('games.ops.telegram.channels.salad.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png')
+    @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_schedule_uses_mtproto_schedule_date(self, render_mock, mtproto_mock, admin_photo_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
@@ -184,9 +184,9 @@ class SaladChannelScheduleTests(TestCase):
         self.assertEqual(again.pk, post.pk)
         mtproto_mock.assert_not_called()
 
-    @patch('games.telegram.word_salad_channel.send_photo')
+    @patch('games.ops.telegram.channels.salad.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png')
+    @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_tick_only_in_0015_window(self, render_mock, mtproto_mock, _admin_photo_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 7, 'scheduled': True}
@@ -199,9 +199,9 @@ class SaladChannelScheduleTests(TestCase):
         self.assertEqual(stats['scheduled'], 1)
         mtproto_mock.assert_called_once()
 
-    @patch('games.telegram.word_salad_channel.send_photo')
+    @patch('games.ops.telegram.channels.salad.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png')
+    @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_parallel_schedule_interleaving_sends_once(
         self, render_mock, mtproto_mock, admin_photo_mock,
     ):
@@ -234,7 +234,7 @@ class SaladChannelScheduleTests(TestCase):
         admin_photo_mock.assert_called_once()
 
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png')
+    @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_schedule_refuses_after_1430(self, render_mock, mtproto_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
         late = datetime(2026, 8, 23, 15, 0, tzinfo=MOSCOW)
@@ -244,8 +244,8 @@ class SaladChannelScheduleTests(TestCase):
         self.assertIn('refusing to post immediately', post.telegram_error)
         mtproto_mock.assert_not_called()
 
-    @patch('games.telegram.word_salad_channel.send_message')
-    @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png', side_effect=RuntimeError('shot failed'))
+    @patch('games.ops.telegram.channels.salad.send_message')
+    @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png', side_effect=RuntimeError('shot failed'))
     def test_schedule_notifies_admin_when_real_screenshot_unavailable(self, _render_mock, admin_message_mock):
         post = schedule_salad_channel_post(now=self.now, force=True, notify_admin=False)
         self.assertIsNotNone(post)
@@ -256,9 +256,9 @@ class SaladChannelScheduleTests(TestCase):
         admin_message_mock.assert_called_once()
         self.assertIn('Ошибка создания Telegram-поста', admin_message_mock.call_args.args[1])
 
-    @patch('games.telegram.word_salad_channel.send_message')
+    @patch('games.ops.telegram.channels.salad.send_message')
     @patch.object(SocialQueuePost, 'set_image_bytes', side_effect=PermissionError('S3 denied'))
-    @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png', return_value=_tiny_png_bytes())
+    @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png', return_value=_tiny_png_bytes())
     def test_schedule_marks_storage_failure_and_notifies_admin(
         self, _render_mock, _set_image_mock, admin_message_mock,
     ):
@@ -273,9 +273,9 @@ class SaladChannelScheduleTests(TestCase):
     @patch('games.social.publish.twitter_configured', return_value=True)
     @patch('games.social.publish.publish_image_url')
     @patch('games.social.publish.publish_configured', return_value=True)
-    @patch('games.telegram.word_salad_channel.send_photo')
+    @patch('games.ops.telegram.channels.salad.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.word_salad_channel.render_word_salad_teaser_png')
+    @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_queue_then_tick_publishes_x_ig(
         self,
         render_mock,

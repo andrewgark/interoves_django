@@ -17,7 +17,7 @@ from games.social.publish import (
     publish_twitter,
     queue_failed_network_retries,
 )
-from games.telegram.announcements import (
+from games.ops.telegram.channels.announcements import (
     ANNOUNCEMENT_FORMATTERS,
     build_podium,
     format_all_solved_announcement,
@@ -25,14 +25,14 @@ from games.telegram.announcements import (
     format_game_results_announcement,
     format_no_coffins_announcement,
 )
-from games.telegram.config import (
+from games.ops.telegram.transport.config import (
     game_telegram_announce_chat_ids,
     game_telegram_announce_enabled,
     game_telegram_social_as_chat,
 )
-from games.telegram.game_urls import game_site_url
-from games.telegram.models import TelegramGameAnnouncement
-from games.telegram.notify import (
+from games.ops.telegram.links import game_site_url
+from games.ops.telegram.models import TelegramGameAnnouncement
+from games.ops.telegram.bot.notify import (
     send_admin_message,
     send_announce_message,
     send_announce_photo,
@@ -55,7 +55,7 @@ def _should_consider_game(game: Game, now) -> bool:
 
 def _try_mark(game: Game, kind: str) -> bool:
     """Claim the announcement slot. Returns True if this caller should send."""
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         return not TelegramGameAnnouncement.objects.filter(game=game, kind=kind).exists()
@@ -66,7 +66,7 @@ def _try_mark(game: Game, kind: str) -> bool:
 
 def _unmark(game: Game, kind: str) -> None:
     """Release a failed delivery so the next cron tick can retry it."""
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         return
@@ -79,7 +79,7 @@ def _mark_and_send_text(game: Game, kind: str) -> bool:
         return False
     if not _try_mark(game, kind):
         return False
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         logger.info('telegram shadow would send text game=%s kind=%s', game.id, kind)
@@ -93,7 +93,7 @@ def _mark_and_send_text(game: Game, kind: str) -> bool:
 def _mark_and_send_photo(game: Game, kind: str, caption: str, photo_bytes: bytes | None) -> bool:
     if not _try_mark(game, kind):
         return False
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         logger.info('telegram shadow would send photo game=%s kind=%s', game.id, kind)
@@ -158,8 +158,8 @@ def _mark_and_publish_social(
     """
     if not photo_bytes:
         return False
-    from games.telegram.config import telegram_channel_configured
-    from games.telegram.mtproto import telegram_user_configured
+    from games.ops.telegram.transport.config import telegram_channel_configured
+    from games.ops.telegram.transport.mtproto import telegram_user_configured
 
     # Screenshot can succeed while the worker has no channel session. Do not
     # claim the slot or fan out to other networks until Telegram can send.
@@ -172,7 +172,7 @@ def _mark_and_publish_social(
         return False
     if not _try_mark(game, kind):
         return False
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         logger.info('telegram shadow would publish social game=%s kind=%s', game.id, kind)
@@ -195,12 +195,12 @@ def _mark_and_publish_social(
 
 
 def _tournament_results_png(game: Game) -> bytes | None:
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         return b'shadow'
     try:
-        from games.telegram.results_image import render_tournament_results_png
+        from games.ops.telegram.images.results import render_tournament_results_png
 
         return render_tournament_results_png(game)
     except Exception:
@@ -209,12 +209,12 @@ def _tournament_results_png(game: Game) -> bytes | None:
 
 
 def _tournament_results_social_png(game: Game) -> bytes | None:
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         return b'shadow'
     try:
-        from games.telegram.results_image import render_tournament_results_social_png
+        from games.ops.telegram.images.results import render_tournament_results_social_png
 
         return render_tournament_results_social_png(game)
     except Exception:
@@ -224,7 +224,7 @@ def _tournament_results_social_png(game: Game) -> bytes | None:
 
 def _fresh_tournament_results_png(game: Game, cache: dict) -> bytes | None:
     """Render at most once per game/tick, after invalidating the live table cache."""
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         return b'shadow'
@@ -238,12 +238,12 @@ def _fresh_tournament_results_png(game: Game, cache: dict) -> bytes | None:
 
 
 def _game_announce_png(game: Game) -> bytes | None:
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         return b'shadow'
     try:
-        from games.telegram.announce_image import render_game_announce_png
+        from games.ops.telegram.images.announce import render_game_announce_png
 
         return render_game_announce_png(game)
     except Exception:
@@ -262,7 +262,7 @@ def _process_day_before(game: Game, now, stats: dict) -> None:
     caption = format_game_day_before_announcement(game)
     if game_telegram_social_as_chat(game):
         if _try_mark(game, TelegramGameAnnouncement.KIND_DAY_BEFORE):
-            from games.telegram.shadow import telegram_shadow_active
+            from games.ops.telegram.bot.shadow import telegram_shadow_active
 
             if telegram_shadow_active():
                 logger.info('telegram shadow would send day_before as chat game=%s', game.id)
@@ -551,7 +551,7 @@ def _process_results(game: Game, now, stats: dict, results_png_cache: dict) -> N
     caption = format_game_results_announcement(game, podium)
     if game_telegram_social_as_chat(game):
         if _try_mark(game, TelegramGameAnnouncement.KIND_RESULTS):
-            from games.telegram.shadow import telegram_shadow_active
+            from games.ops.telegram.bot.shadow import telegram_shadow_active
 
             if telegram_shadow_active():
                 logger.info('telegram shadow would send results as chat game=%s', game.id)
@@ -641,7 +641,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
             # django.core.cache: default LocMem is per-process, and EB cron starts
             # a fresh manage.py on every instance every minute.
             if _try_mark(game, TelegramGameAnnouncement.KIND_ADMIN_START_SOON):
-                from games.telegram.shadow import telegram_shadow_active
+                from games.ops.telegram.bot.shadow import telegram_shadow_active
 
                 if telegram_shadow_active():
                     logger.info(
@@ -653,7 +653,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
                 else:
                     _unmark(game, TelegramGameAnnouncement.KIND_ADMIN_START_SOON)
 
-    from games.telegram.shadow import telegram_shadow_active
+    from games.ops.telegram.bot.shadow import telegram_shadow_active
 
     if telegram_shadow_active():
         # Channel posts, buffers, and the social queue stay on the live cron
@@ -668,7 +668,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
         return stats
 
     try:
-        from games.telegram.ladder_channel import process_ladder_channel_tick
+        from games.ops.telegram.channels.ladder import process_ladder_channel_tick
 
         ladder_stats = process_ladder_channel_tick(now=now)
         stats['ladder_scheduled'] = ladder_stats.get('scheduled', 0)
@@ -677,7 +677,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
         stats['ladder_scheduled'] = 0
 
     try:
-        from games.telegram.word_salad_channel import process_salad_channel_tick
+        from games.ops.telegram.channels.salad import process_salad_channel_tick
 
         salad_stats = process_salad_channel_tick(now=now)
         stats['salad_scheduled'] = salad_stats.get('scheduled', 0)
@@ -686,7 +686,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
         stats['salad_scheduled'] = 0
 
     try:
-        from games.telegram.censorly_channel import process_censorly_channel_tick
+        from games.ops.telegram.channels.censorly import process_censorly_channel_tick
 
         censorly_stats = process_censorly_channel_tick(now=now)
         stats['censorly_scheduled'] = censorly_stats.get('scheduled', 0)
@@ -695,7 +695,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
         stats['censorly_scheduled'] = 0
 
     try:
-        from games.telegram.daily_review import process_daily_review_tick
+        from games.ops.telegram.channels.review import process_daily_review_tick
 
         review_stats = process_daily_review_tick(now=now)
         stats['daily_review_sent'] = review_stats.get('sent', 0)
@@ -750,12 +750,12 @@ def _should_admin_start_soon(game: Game, now) -> bool:
 
 
 def notify_admin_game_lifecycle(game, event: str) -> bool:
-    from games.telegram.notify import format_admin_game_lifecycle_message
+    from games.ops.telegram.bot.notify import format_admin_game_lifecycle_message
 
     return send_admin_message(format_admin_game_lifecycle_message(game, event))
 
 
 def notify_admin_registration_milestone(game, count: int) -> None:
-    from games.telegram.notify import format_admin_registration_milestone_message
+    from games.ops.telegram.bot.notify import format_admin_registration_milestone_message
 
     send_admin_message(format_admin_registration_milestone_message(game, count))

@@ -148,7 +148,7 @@ def _notify_thread_message(sender, instance, created, **kwargs):
         return
 
     def after_commit():
-        from games.telegram.notify import notify_bug_report_thread_message
+        from games.ops.telegram.bot.notify import notify_bug_report_thread_message
 
         notify_bug_report_thread_message(instance)
 

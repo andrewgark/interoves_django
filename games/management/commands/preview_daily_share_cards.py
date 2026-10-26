@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand, CommandError
 
-from games.telegram.daily_share_preview import preview_daily_share_cards
+from games.ops.telegram.images.share import preview_daily_share_cards
 
 
 class Command(BaseCommand):

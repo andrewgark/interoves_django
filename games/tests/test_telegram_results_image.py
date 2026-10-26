@@ -6,7 +6,7 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 from PIL import Image
 
-from games.telegram.results_image import (
+from games.ops.telegram.images.results import (
     _CHROMIUM_MAX_CSS_SIDE,
     _COMPACT_RESULTS_CSS,
     _SCREENSHOT_HIDE_CSS,
@@ -145,7 +145,7 @@ class TournamentResultsScreenshotTests(SimpleTestCase):
             {'width': _CHROMIUM_MAX_CSS_SIDE, 'height': _CHROMIUM_MAX_CSS_SIDE},
         )
 
-    @patch('games.telegram.results_image._TELEGRAM_MAX_DIMENSION_SUM', 1000)
+    @patch('games.ops.telegram.images.results._TELEGRAM_MAX_DIMENSION_SUM', 1000)
     def test_telegram_photo_is_scaled_to_dimension_sum(self):
         source = io.BytesIO()
         Image.new('RGB', (800, 400), 'white').save(source, format='PNG')
@@ -189,7 +189,7 @@ class TournamentResultsScreenshotTests(SimpleTestCase):
         except ImportError as exc:
             raise SkipTest('Playwright Python package is not installed') from exc
 
-        from games.telegram.ladder_image import _ensure_playwright_browsers_path
+        from games.ops.telegram.images.ladder import _ensure_playwright_browsers_path
 
         _ensure_playwright_browsers_path()
         playwright = None

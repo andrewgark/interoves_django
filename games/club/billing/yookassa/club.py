@@ -368,7 +368,7 @@ def cancel_yookassa_subscription(user) -> StartPaymentResult:
             'subscription_auto_renew_disabled user_id=%s subscription_id=%s reason=cancel',
             user.pk, subscription.pk,
         ))
-        from games.telegram.notify import notify_admin_club_subscription
+        from games.ops.telegram.bot.notify import notify_admin_club_subscription
 
         transaction.on_commit(
             lambda sid=subscription.pk: notify_admin_club_subscription(
@@ -540,7 +540,7 @@ def _apply_succeeded_payment(
         club_subscription=subscription,
         yookassa_payment=local,
     )
-    from games.telegram.notify import (
+    from games.ops.telegram.bot.notify import (
         notify_admin_club_subscription,
         notify_club_subscription_user,
     )
@@ -589,7 +589,7 @@ def _apply_canceled_payment(
     else:
         subscription.save(update_fields=['last_webhook_at', 'last_webhook_event', 'updated_at'])
     if local.kind == ClubYooKassaPayment.KIND_RECURRING_MONTHLY and not was_canceled:
-        from games.telegram.notify import notify_admin_club_renewal_failed
+        from games.ops.telegram.bot.notify import notify_admin_club_renewal_failed
 
         transaction.on_commit(
             lambda sid=subscription.pk, pid=local.pk, reason=local.cancellation_reason:
@@ -678,7 +678,7 @@ def renew_due_subscriptions(*, limit: int = 50) -> dict:
         except Exception:
             stats['errors'] += 1
             logger.error('subscription_renewal_error subscription_id=%s', sub_id)
-            from games.telegram.notify import notify_admin_club_renewal_failed
+            from games.ops.telegram.bot.notify import notify_admin_club_renewal_failed
 
             notify_admin_club_renewal_failed(
                 sub_id, reason='Неожиданная ошибка фоновой задачи автопродления.',
@@ -796,7 +796,7 @@ def _submit_renewal(payment_pk):
             # never retry with a new key, and disclose it on detachment.
             local.failure_code = 'submission_unknown'
             local.save(update_fields=['failure_code', 'updated_at'])
-            from games.telegram.notify import notify_admin_club_renewal_failed
+            from games.ops.telegram.bot.notify import notify_admin_club_renewal_failed
 
             transaction.on_commit(
                 lambda sid=subscription_id, pid=local.pk: notify_admin_club_renewal_failed(

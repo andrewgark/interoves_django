@@ -5,7 +5,7 @@ from typing import List, Optional
 from django.urls import reverse
 from django.utils import timezone
 
-from games.telegram.digest import collect_daily_digest_stats
+from games.ops.telegram.channels.digest import collect_daily_digest_stats
 
 
 @dataclass(frozen=True)

@@ -346,7 +346,7 @@ def send_offer(offer: LadderOffer) -> LadderOffer:
 
     def _notify():
         try:
-            from games.telegram.notify import notify_new_ladder_offer
+            from games.ops.telegram.bot.notify import notify_new_ladder_offer
             notify_new_ladder_offer(offer_id)
         except Exception:
             # Не валим отправку из‑за TG.

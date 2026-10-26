@@ -11,8 +11,8 @@ from games.models import (
     Registration,
     TicketRequest,
 )
-from games.telegram.admin_commands import registration_milestone_reached
-from games.telegram.notify import (
+from games.ops.telegram.bot.commands import registration_milestone_reached
+from games.ops.telegram.bot.notify import (
     notify_new_alphabetty_dict_suggestion,
     notify_new_bug_report,
     notify_new_corporate_order,
@@ -20,7 +20,7 @@ from games.telegram.notify import (
     notify_new_ticket_request,
     notify_payment_event,
 )
-from games.telegram.scheduling import notify_admin_game_lifecycle, notify_admin_registration_milestone
+from games.ops.telegram.channels.scheduling import notify_admin_game_lifecycle, notify_admin_registration_milestone
 
 
 @receiver(post_save, sender=BugReport)

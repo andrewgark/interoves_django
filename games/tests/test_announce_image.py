@@ -1,6 +1,6 @@
 from django.test import SimpleTestCase
 
-from games.telegram.announce_image import announce_screenshot_url
+from games.ops.telegram.images.announce import announce_screenshot_url
 
 
 class AnnounceScreenshotUrlTests(SimpleTestCase):

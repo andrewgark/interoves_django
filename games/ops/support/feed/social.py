@@ -16,8 +16,8 @@ from games.social.publish import (
     publish_threads,
     queue_network as publish_queue_network,
 )
-from games.telegram.config import channel_chat_id, telegram_channel_configured
-from games.telegram.mtproto import (
+from games.ops.telegram.transport.config import channel_chat_id, telegram_channel_configured
+from games.ops.telegram.transport.mtproto import (
     edit_scheduled_photo_sync,
     fetch_scheduled_message_sync,
     telegram_user_configured,
@@ -277,7 +277,7 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
         raise SocialSupportError('У поста нет привязанного задания для рендера картинки')
     try:
         if post.source == SocialQueuePost.SOURCE_WORD_SALAD:
-            from games.telegram.word_salad_image import render_word_salad_teaser_png
+            from games.ops.telegram.images.salad import render_word_salad_teaser_png
 
             image = render_word_salad_teaser_png(
                 post.task,
@@ -287,7 +287,7 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
             )
             filename = 'salad-{}.png'.format(post.ladder_number or post.pk)
         elif post.source == SocialQueuePost.SOURCE_LADDER:
-            from games.telegram.ladder_image import render_ladder_teaser_png
+            from games.ops.telegram.images.ladder import render_ladder_teaser_png
 
             image = render_ladder_teaser_png(
                 post.task,

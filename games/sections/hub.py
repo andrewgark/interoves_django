@@ -355,7 +355,7 @@ def get_source_desyatka_context(task_group, *, team=None):
     Возвращает dict с url / label / answers_url или None.
     """
     from games.models import Attempt, GameTaskGroup
-    from games.telegram.game_urls import game_answers_url, game_play_path
+    from games.ops.telegram.links import game_answers_url, game_play_path
 
     if task_group is None:
         return None

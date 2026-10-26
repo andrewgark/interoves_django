@@ -90,7 +90,7 @@ from games.site.views.game.context import (
 )
 from games.site.views.pages.util import get_public_task_or_404, has_profile
 from games.puzzles.censorly.lexical.match.core import fold
-from games.telegram.game_urls import task_play_url
+from games.ops.telegram.links import task_play_url
 
 
 CENSORLY_WORD_REPORT_LIMIT = 20

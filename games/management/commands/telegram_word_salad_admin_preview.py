@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.word_salad_channel import preview_salad_to_admin
+from games.ops.telegram.channels.salad import preview_salad_to_admin
 
 
 class Command(BaseCommand):

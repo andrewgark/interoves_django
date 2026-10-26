@@ -17,7 +17,7 @@ from games.puzzles.raddle.engine import (
     length_mask_display,
     parse_raddle_data,
 )
-from games.telegram.game_urls import site_base_url
+from games.ops.telegram.links import site_base_url
 
 logger = logging.getLogger('application')
 

@@ -12,8 +12,8 @@ from zoneinfo import ZoneInfo
 from django.utils import formats, timezone
 
 from games.models import Game
-from games.telegram.api import send_message, send_photo
-from games.telegram.game_urls import game_tournament_results_url
+from games.ops.telegram.transport.api import send_message, send_photo
+from games.ops.telegram.links import game_tournament_results_url
 
 logger = logging.getLogger('application')
 
@@ -246,7 +246,7 @@ def _reply_des_results(chat_id) -> None:
 
     png = None
     try:
-        from games.telegram.results_image import render_tournament_results_png
+        from games.ops.telegram.images.results import render_tournament_results_png
 
         png = render_tournament_results_png(game)
     except Exception:

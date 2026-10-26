@@ -8,8 +8,8 @@ from games.alphabetty.suggestions import (
     reject_suggestions,
 )
 from games.models import AlphabettyDictSuggestion, BugReport, TicketRequest
-from games.telegram.api import answer_callback_query, edit_message_reply_markup
-from games.telegram.notify import send_admin_message
+from games.ops.telegram.transport.api import answer_callback_query, edit_message_reply_markup
+from games.ops.telegram.bot.notify import send_admin_message
 from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
 
 

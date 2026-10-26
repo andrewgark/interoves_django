@@ -6,8 +6,8 @@ import logging
 
 from django.conf import settings
 
-from games.telegram.game_urls import admin_url, game_play_path, game_site_url
-from games.telegram.ladder_image import _add_white_frame
+from games.ops.telegram.links import admin_url, game_play_path, game_site_url
+from games.ops.telegram.images.ladder import _add_white_frame
 
 logger = logging.getLogger('application')
 
@@ -116,7 +116,7 @@ def screenshot_game_announce_png(game, *, url: str | None = None, viewport_width
     """
     from playwright.sync_api import sync_playwright
 
-    from games.telegram.ladder_image import _ensure_playwright_browsers_path
+    from games.ops.telegram.images.ladder import _ensure_playwright_browsers_path
 
     _ensure_playwright_browsers_path()
     target = url or announce_screenshot_url(game)

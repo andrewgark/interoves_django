@@ -59,8 +59,8 @@ class SocialQueueInstagramJpgTests(TestCase):
         self.assertEqual(response['Content-Type'], 'image/jpeg')
         self.assertTrue(response.content.startswith(b'\xff\xd8'))
 
-    @patch('games.telegram.word_salad_image.render_word_salad_teaser_png')
-    @patch('games.telegram.word_salad_channel.resolve_salad_by_number')
+    @patch('games.ops.telegram.images.salad.render_word_salad_teaser_png')
+    @patch('games.ops.telegram.channels.salad.resolve_salad_by_number')
     def test_missing_salad_file_is_rebuilt(self, resolve, render):
         render.return_value = _png_bytes()
         resolve.return_value = SimpleNamespace(task=object(), number=36)

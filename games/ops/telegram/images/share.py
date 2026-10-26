@@ -14,8 +14,8 @@ from games.daily.page.share.card import (
     synthetic_preview_payloads,
 )
 from games.daily.page.share.render import assert_share_card_png, render_share_card_png
-from games.telegram.api import send_message, send_photo
-from games.telegram.config import admin_chat_id, telegram_admin_configured
+from games.ops.telegram.transport.api import send_message, send_photo
+from games.ops.telegram.transport.config import admin_chat_id, telegram_admin_configured
 
 logger = logging.getLogger('application')
 
@@ -61,8 +61,8 @@ def send_social_teasers(send_fn: Callable | None = None) -> list[str]:
     notes = []
     sender = send_fn or _send_png
     try:
-        from games.telegram.ladder_channel import resolve_today_ladder
-        from games.telegram.ladder_image import render_ladder_teaser_png
+        from games.ops.telegram.channels.ladder import resolve_today_ladder
+        from games.ops.telegram.images.ladder import render_ladder_teaser_png
 
         ladder = resolve_today_ladder()
         if ladder is not None:
@@ -87,8 +87,8 @@ def send_social_teasers(send_fn: Callable | None = None) -> list[str]:
         logger.exception('Ladder social teaser preview failed')
         notes.append('ladder teaser failed')
     try:
-        from games.telegram.word_salad_channel import resolve_today_salad
-        from games.telegram.word_salad_image import render_word_salad_teaser_png
+        from games.ops.telegram.channels.salad import resolve_today_salad
+        from games.ops.telegram.images.salad import render_word_salad_teaser_png
 
         salad = resolve_today_salad()
         if salad is not None:

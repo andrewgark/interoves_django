@@ -5,8 +5,8 @@ from __future__ import annotations
 from django.conf import settings
 
 from games.sections.paths import section_play_path
-from games.telegram.game_urls import site_base_url
-from games.telegram.ladder_image import screenshot_page_element_png
+from games.ops.telegram.links import site_base_url
+from games.ops.telegram.images.ladder import screenshot_page_element_png
 
 _MASKED_TITLE_SCRIPT = r'''() => {
   const title = document.querySelector('#censorly-title');

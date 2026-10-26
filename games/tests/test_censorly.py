@@ -441,8 +441,8 @@ class CensorlyAccessTests(TestCase):
             token for token in state['body_tokens']
             if token.get('revealed') and token.get('lemma') == 'столица'
         )
-        with patch('games.telegram.admin_alert_events.publish_admin_alert', return_value=True) as publish, \
-                patch('games.telegram.signals.notify_new_bug_report') as notify, \
+        with patch('games.ops.telegram.bot.alerts.publish_admin_alert', return_value=True) as publish, \
+                patch('games.ops.telegram.signals.notify_new_bug_report') as notify, \
                 self.captureOnCommitCallbacks(execute=True):
             response = self.client.post(
                 f'/censorly/word-report/{self.task.id}/',
@@ -2362,7 +2362,7 @@ class CensorlyUxDailyTests(TestCase):
             },
         }
         with patch(
-            'games.telegram.admin_alert_events.publish_admin_alert',
+            'games.ops.telegram.bot.alerts.publish_admin_alert',
             return_value=True,
         ) as publish, self.assertLogs('interoves.auth', level='INFO') as logs:
             # Accepted before any target/access checks: a refused target is

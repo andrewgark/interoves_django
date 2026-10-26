@@ -9,7 +9,7 @@ from games.models import (
     Attempt, Game, GameTaskGroup, Hint, HintAttempt, HTMLPage, Project, Task, TaskGroup, Team,
 )
 from games.social.models import SocialQueuePost
-from games.telegram.announcements import (
+from games.ops.telegram.channels.announcements import (
     build_podium,
     format_all_solved_announcement,
     format_game_day_before_announcement,
@@ -18,8 +18,8 @@ from games.telegram.announcements import (
     format_hints_taken_line,
     format_no_coffins_announcement,
 )
-from games.telegram.models import TelegramGameAnnouncement
-from games.telegram.scheduling import process_game_announcements
+from games.ops.telegram.models import TelegramGameAnnouncement
+from games.ops.telegram.channels.scheduling import process_game_announcements
 
 _FAKE_PNG = b'\x89PNG\r\n\x1a\nxxxx'
 
@@ -66,12 +66,12 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.game.end_time = self.now + end_delta
         self.game.save(update_fields=['start_time', 'end_time'])
 
-    @patch('games.telegram.scheduling.publish_instagram')
-    @patch('games.telegram.scheduling.publish_twitter')
-    @patch('games.telegram.scheduling.publish_telegram')
-    @patch('games.telegram.scheduling._game_announce_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.publish_instagram')
+    @patch('games.ops.telegram.channels.scheduling.publish_twitter')
+    @patch('games.ops.telegram.channels.scheduling.publish_telegram')
+    @patch('games.ops.telegram.channels.scheduling._game_announce_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_day_before(self, _admin, announce_mock, _png, tg_pub, tw_pub, ig_pub):
         self._set_window(start_delta=timedelta(hours=20), end_delta=timedelta(hours=23))
         stats = process_game_announcements(now=self.now)
@@ -88,12 +88,12 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.assertTrue(post.image)
         self.assertIn('/games/life_game/', post.play_url)
 
-    @patch('games.telegram.scheduling.publish_instagram')
-    @patch('games.telegram.scheduling.publish_twitter')
-    @patch('games.telegram.scheduling.publish_telegram')
-    @patch('games.telegram.scheduling._game_announce_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.publish_instagram')
+    @patch('games.ops.telegram.channels.scheduling.publish_twitter')
+    @patch('games.ops.telegram.channels.scheduling.publish_telegram')
+    @patch('games.ops.telegram.channels.scheduling._game_announce_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_hour_before(self, _admin, announce_mock, _png, _tg, _tw, _ig):
         self._set_window(start_delta=timedelta(minutes=40), end_delta=timedelta(hours=3))
         stats = process_game_announcements(now=self.now)
@@ -108,8 +108,8 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.assertTrue(any('Через час' in t for t in hour_texts))
         self.assertFalse(any('уже завтра' in t for t in hour_texts))
 
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_start_uses_start_time_not_visible(self, _admin, announce_mock):
         # Real start already passed; visible still in the future — must still announce start.
         self.game.start_time = self.now - timedelta(minutes=1)
@@ -122,8 +122,8 @@ class ChatLifecycleAnnouncementTests(TestCase):
         text = announce_mock.call_args.args[0]
         self.assertIn('Начали!', text)
 
-    @patch('games.telegram.scheduling.send_announce_message', return_value=True)
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message', return_value=True)
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_start_redrive_does_not_send_again(self, _admin, announce_mock):
         self._set_window(start_delta=timedelta(minutes=-5), end_delta=timedelta(hours=2))
         first = process_game_announcements(now=self.now)
@@ -140,8 +140,8 @@ class ChatLifecycleAnnouncementTests(TestCase):
             1,
         )
 
-    @patch('games.telegram.scheduling.send_announce_message', return_value=False)
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message', return_value=False)
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_failed_start_delivery_is_released_for_retry(self, _admin, announce_mock):
         self._set_window(start_delta=timedelta(minutes=-5), end_delta=timedelta(hours=2))
 
@@ -157,9 +157,9 @@ class ChatLifecycleAnnouncementTests(TestCase):
         stats2 = process_game_announcements(now=self.now + timedelta(minutes=1))
         self.assertEqual(stats2['start'], 1)
 
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_end_soon_15_and_end_respect_extended_end(self, _admin, announce_mock, _photo):
         self._set_window(start_delta=timedelta(hours=-2), end_delta=timedelta(minutes=10))
         stats = process_game_announcements(now=self.now)
@@ -181,8 +181,8 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.assertTrue(any('завершилась' in t for t in end_texts))
         self.assertTrue(any('answers' in t for t in end_texts))
 
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_day_hour_not_after_start(self, _admin, announce_mock):
         self._set_window(start_delta=timedelta(minutes=-5), end_delta=timedelta(hours=2))
         stats = process_game_announcements(now=self.now)
@@ -190,12 +190,12 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.assertEqual(stats['hour_before'], 0)
         self.assertEqual(stats['start'], 1)
 
-    @patch('games.telegram.scheduling.publish_instagram')
-    @patch('games.telegram.scheduling.publish_twitter')
-    @patch('games.telegram.scheduling.publish_telegram')
-    @patch('games.telegram.scheduling._game_announce_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.publish_instagram')
+    @patch('games.ops.telegram.channels.scheduling.publish_twitter')
+    @patch('games.ops.telegram.channels.scheduling.publish_telegram')
+    @patch('games.ops.telegram.channels.scheduling._game_announce_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_admin_start_soon_once_in_window(self, admin_mock, _announce, _png, _tg, _tw, _ig):
         # Admin window: visible_start −65 … −55 minutes (default visible = start).
         self._set_window(start_delta=timedelta(minutes=60), end_delta=timedelta(hours=3))
@@ -215,9 +215,9 @@ class ChatLifecycleAnnouncementTests(TestCase):
         self.assertEqual(stats2['admin_start_soon'], 0)
         self.assertEqual(admin_mock.call_count, 1)
 
-    @patch('games.telegram.scheduling._game_announce_png', return_value=None)
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling._game_announce_png', return_value=None)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_day_before_waits_for_screenshot(self, _admin, announce_mock, _png):
         self._set_window(start_delta=timedelta(hours=20), end_delta=timedelta(hours=23))
         stats = process_game_announcements(now=self.now)
@@ -230,12 +230,12 @@ class ChatLifecycleAnnouncementTests(TestCase):
         )
         self.assertFalse(SocialQueuePost.objects.filter(source=SocialQueuePost.SOURCE_GAME).exists())
 
-    @patch('games.telegram.scheduling.publish_instagram')
-    @patch('games.telegram.scheduling.publish_twitter')
-    @patch('games.telegram.scheduling.publish_telegram')
-    @patch('games.telegram.scheduling._game_announce_png')
-    @patch('games.telegram.scheduling.send_announce_message', return_value=True)
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.publish_instagram')
+    @patch('games.ops.telegram.channels.scheduling.publish_twitter')
+    @patch('games.ops.telegram.channels.scheduling.publish_telegram')
+    @patch('games.ops.telegram.channels.scheduling._game_announce_png')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message', return_value=True)
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_project_game_can_send_social_phase_as_chat_to_custom_chat(
         self, _admin, announce_mock, png_mock, tg_pub, tw_pub, ig_pub,
     ):
@@ -311,10 +311,10 @@ class ChatAllSolvedAndResultsTests(TestCase):
         Attempt.manager.filter(pk=attempt.pk).update(time=when)
         return attempt
 
-    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_all_solved_once_per_team(self, _admin, _msg, photo_mock, _png):
         photo_mock.return_value = True
         when = self.now - timedelta(minutes=30)
@@ -338,10 +338,10 @@ class ChatAllSolvedAndResultsTests(TestCase):
         self.assertEqual(stats2['all_solved'], 0)
         photo_mock.assert_not_called()
 
-    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_photo', return_value=True)
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo', return_value=True)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_simultaneous_all_solved_announcements_follow_completion_time(
         self, _admin, _msg, photo_mock, _png,
     ):
@@ -364,10 +364,10 @@ class ChatAllSolvedAndResultsTests(TestCase):
         self.assertIn('Alpha but late', solved_captions[1])
         self.assertEqual(_png.call_count, 1)
 
-    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_all_solved_includes_hint_stats(self, _admin, _msg, photo_mock, _png):
         photo_mock.return_value = True
         when = self.now - timedelta(minutes=30)
@@ -386,10 +386,10 @@ class ChatAllSolvedAndResultsTests(TestCase):
         self.assertIn('взяла 2 подсказки', caption)
         self.assertIn('потеряла на этом 3 балла', caption)
 
-    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_no_coffins_announces_last_first_full_score_once(
         self, _admin, _msg, photo_mock, _png,
     ):
@@ -419,10 +419,10 @@ class ChatAllSolvedAndResultsTests(TestCase):
         self.assertEqual(stats2['no_coffins'], 0)
         photo_mock.assert_not_called()
 
-    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_no_coffins_requires_full_points_not_only_ok(
         self, _admin, _msg, photo_mock, _png,
     ):
@@ -443,10 +443,10 @@ class ChatAllSolvedAndResultsTests(TestCase):
             ).exists()
         )
 
-    @patch('games.telegram.scheduling._tournament_results_png', return_value=None)
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png', return_value=None)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_no_coffins_waits_for_screenshot(self, _admin, _msg, photo_mock, _png):
         other_team = Team.objects.create(name='other', visible_name='Other Team')
         self._ok_attempt(self.task1, self.team, self.now - timedelta(minutes=20))
@@ -470,13 +470,13 @@ class ChatAllSolvedAndResultsTests(TestCase):
         self.assertIn('A&amp;B', text)
         self.assertIn('<b>15:34</b> по МСК', text)
 
-    @patch('games.telegram.scheduling.publish_instagram')
-    @patch('games.telegram.scheduling.publish_twitter')
-    @patch('games.telegram.scheduling.publish_telegram')
-    @patch('games.telegram.scheduling._tournament_results_png', return_value=_FAKE_PNG)
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.publish_instagram')
+    @patch('games.ops.telegram.channels.scheduling.publish_twitter')
+    @patch('games.ops.telegram.channels.scheduling.publish_telegram')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png', return_value=_FAKE_PNG)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_results_waits_for_pending_then_sends(
         self, _admin, msg_mock, photo_mock, _png, tg_pub, tw_pub, ig_pub,
     ):
@@ -520,13 +520,13 @@ class ChatAllSolvedAndResultsTests(TestCase):
         self.assertIn('tournament-results', post.caption)
         self.assertTrue(post.image)
 
-    @patch('games.telegram.scheduling.publish_instagram')
-    @patch('games.telegram.scheduling.publish_twitter')
-    @patch('games.telegram.scheduling.publish_telegram')
-    @patch('games.telegram.scheduling._tournament_results_png')
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message', return_value=True)
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling.publish_instagram')
+    @patch('games.ops.telegram.channels.scheduling.publish_twitter')
+    @patch('games.ops.telegram.channels.scheduling.publish_telegram')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message', return_value=True)
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_results_can_be_chat_only_for_project_game(
         self, _admin, msg_mock, photo_mock, png_mock, tg_pub, tw_pub, ig_pub,
     ):
@@ -566,10 +566,10 @@ class ChatAllSolvedAndResultsTests(TestCase):
         ig_pub.assert_not_called()
         self.assertFalse(SocialQueuePost.objects.filter(source=SocialQueuePost.SOURCE_GAME).exists())
 
-    @patch('games.telegram.scheduling._tournament_results_png', return_value=None)
-    @patch('games.telegram.scheduling.send_announce_photo')
-    @patch('games.telegram.scheduling.send_announce_message')
-    @patch('games.telegram.scheduling.send_admin_message')
+    @patch('games.ops.telegram.channels.scheduling._tournament_results_png', return_value=None)
+    @patch('games.ops.telegram.channels.scheduling.send_announce_photo')
+    @patch('games.ops.telegram.channels.scheduling.send_announce_message')
+    @patch('games.ops.telegram.channels.scheduling.send_admin_message')
     def test_results_waits_for_screenshot(self, _admin, msg_mock, photo_mock, _png):
         self.game.start_time = self.now - timedelta(hours=3)
         self.game.end_time = self.now - timedelta(minutes=5)

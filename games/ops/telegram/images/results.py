@@ -7,8 +7,8 @@ import logging
 
 from django.conf import settings
 
-from games.telegram.game_urls import game_tournament_results_url
-from games.telegram.ladder_image import _add_white_frame
+from games.ops.telegram.links import game_tournament_results_url
+from games.ops.telegram.images.ladder import _add_white_frame
 
 logger = logging.getLogger('application')
 
@@ -287,7 +287,7 @@ def screenshot_tournament_results_png(
     """
     from playwright.sync_api import sync_playwright
 
-    from games.telegram.ladder_image import _ensure_playwright_browsers_path
+    from games.ops.telegram.images.ladder import _ensure_playwright_browsers_path
 
     _ensure_playwright_browsers_path()
     target = url or game_tournament_results_url(game)

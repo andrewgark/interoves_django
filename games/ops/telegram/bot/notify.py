@@ -18,9 +18,9 @@ from games.models import (
     TicketRequest,
     WordSaladOffer,
 )
-from games.telegram.api import send_message, send_photo
-from games.telegram.admin_alert_events import publish_admin_alert
-from games.telegram.config import (
+from games.ops.telegram.transport.api import send_message, send_photo
+from games.ops.telegram.bot.alerts import publish_admin_alert
+from games.ops.telegram.transport.config import (
     admin_chat_id,
     admin_is_muted,
     announce_chat_ids,
@@ -28,7 +28,7 @@ from games.telegram.config import (
     telegram_admin_configured,
     telegram_bot_configured,
 )
-from games.telegram.game_urls import (
+from games.ops.telegram.links import (
     admin_url,
     game_admin_url,
     game_site_url,
@@ -172,7 +172,7 @@ def notify_admin_club_subscription_attempt_failed(
             lines.append('Валюта: {}'.format(_escape(currency.upper())))
         if message:
             lines.append('Сообщение: {}'.format(_escape(message)))
-        from games.telegram.admin_alert_events import publish_admin_alert
+        from games.ops.telegram.bot.alerts import publish_admin_alert
 
         return publish_admin_alert(
             alert='club_subscription_attempt_failed',
@@ -615,7 +615,7 @@ def _alphabetty_offer_reporter(offer: AlphabettyOffer) -> str:
 
 
 def format_alphabetty_offer_message(offer: AlphabettyOffer) -> str:
-    from games.telegram.game_urls import site_base_url
+    from games.ops.telegram.links import site_base_url
 
     support_link = _admin_link('/support/alphabetty/')
     play_path = '/alphabetty/{}/'.format(offer.share_hash) if offer.share_hash else ''
@@ -669,7 +669,7 @@ def _ladder_offer_reporter(offer: LadderOffer) -> str:
 
 
 def format_ladder_offer_message(offer: LadderOffer) -> str:
-    from games.telegram.game_urls import site_base_url
+    from games.ops.telegram.links import site_base_url
 
     support_link = _admin_link('/support/ladders/')
     play_path = '/ladder/{}/'.format(offer.share_hash) if offer.share_hash else ''
@@ -722,7 +722,7 @@ def _word_salad_offer_reporter(offer: WordSaladOffer) -> str:
 
 
 def format_word_salad_offer_message(offer: WordSaladOffer) -> str:
-    from games.telegram.game_urls import site_base_url
+    from games.ops.telegram.links import site_base_url
 
     support_link = _admin_link('/support/salad/')
     play_path = offer.play_url() if getattr(offer, 'kind', None) == WordSaladOffer.KIND_FULL else ''
@@ -1118,7 +1118,7 @@ def notify_donation_event(donation: Donation, event: str) -> bool:
 
 def fetch_recent_telegram_chat_ids() -> list[dict]:
     import requests
-    from games.telegram.api import _safe_error_text
+    from games.ops.telegram.transport.api import _safe_error_text
 
     if not settings.TELEGRAM_BOT_TOKEN:
         raise ValueError('TELEGRAM_BOT_TOKEN is not configured')

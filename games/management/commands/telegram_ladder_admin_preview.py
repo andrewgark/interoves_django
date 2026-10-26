@@ -1,6 +1,6 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.ladder_channel import preview_ladder_to_admin
+from games.ops.telegram.channels.ladder import preview_ladder_to_admin
 
 
 class Command(BaseCommand):

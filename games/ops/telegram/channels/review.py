@@ -18,9 +18,9 @@ from games.daily.page.section import (
 )
 from games.daily.page.section import CENSORLY_SCHEDULE
 from games.models import Game, GameTaskGroup, Task
-from games.telegram.game_urls import admin_url, task_admin_url
-from games.telegram.models import TelegramDailyReview
-from games.telegram.notify import send_admin_message
+from games.ops.telegram.links import admin_url, task_admin_url
+from games.ops.telegram.models import TelegramDailyReview
+from games.ops.telegram.bot.notify import send_admin_message
 
 REVIEW_HOUR = 22
 DAILY_SCHEDULES = (

@@ -31,7 +31,7 @@ from games.background.messages import (
 from games.instagram.refresh import run_instagram_token_refresh
 from games.social.publish import run_social_publish_live
 from games.runtime import RUNTIME_ROLE_INTEGRATION, runtime_role
-from games.telegram.shadow import (
+from games.ops.telegram.bot.shadow import (
     run_admin_alert_live,
     run_admin_report_live,
     run_announcement_live,

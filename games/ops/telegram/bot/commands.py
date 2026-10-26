@@ -17,14 +17,14 @@ from games.models import (
     TicketRequest,
 )
 from games.ops.workers.jobs.recheck import recheck_team_task_all_chronological
-from games.telegram.config import (
+from games.ops.telegram.transport.config import (
     admin_is_muted,
     announce_chat_ids,
     clear_admin_mute,
     set_admin_mute,
 )
-from games.telegram.game_urls import admin_url, game_site_url
-from games.telegram.notify import REGISTRATION_MILESTONES, _escape, _join_lines, send_admin_message
+from games.ops.telegram.links import admin_url, game_site_url
+from games.ops.telegram.bot.notify import REGISTRATION_MILESTONES, _escape, _join_lines, send_admin_message
 from games.club.billing.tickets import build_stuck_tickets_alert, stuck_pending_ticket_count, stuck_pending_ticket_requests
 
 
@@ -111,7 +111,7 @@ def _cmd_gift(args, *, telegram_user_id=None) -> str:
     from django.contrib.auth import get_user_model
     from games.models import Profile
     from games.club.billing.gifts.offers import create_gift, gift_duration_label
-    from games.telegram.api import send_message
+    from games.ops.telegram.transport.api import send_message
 
     if len(args) == 1:
         recipient = ''
@@ -199,7 +199,7 @@ def _get_game(game_id: str) -> Game | None:
 
 def _cmd_status(_args) -> str:
     from django.conf import settings
-    from games.telegram.api import get_webhook_info
+    from games.ops.telegram.transport.api import get_webhook_info
 
     from games.models import AlphabettyDictSuggestion
 
@@ -535,8 +535,8 @@ def _cmd_db(_args) -> str:
 
 def _cmd_infra(_args) -> str:
     from django.conf import settings
-    from games.telegram.api import get_webhook_info
-    from games.telegram.config import admin_chat_id
+    from games.ops.telegram.transport.api import get_webhook_info
+    from games.ops.telegram.transport.config import admin_chat_id
 
     webhook = get_webhook_info() or {}
     announce = announce_chat_ids()
@@ -552,13 +552,13 @@ def _cmd_infra(_args) -> str:
 
 
 def _cmd_digest(_args) -> str:
-    from games.telegram.digest import build_daily_digest
+    from games.ops.telegram.channels.digest import build_daily_digest
 
     return build_daily_digest()
 
 
 def _cmd_ladder(_args) -> str:
-    from games.telegram.ladder_channel import preview_ladder_to_admin
+    from games.ops.telegram.channels.ladder import preview_ladder_to_admin
 
     ok, message = preview_ladder_to_admin()
     if ok:
@@ -567,7 +567,7 @@ def _cmd_ladder(_args) -> str:
 
 
 def _cmd_salad(_args) -> str:
-    from games.telegram.word_salad_channel import preview_salad_to_admin
+    from games.ops.telegram.channels.salad import preview_salad_to_admin
 
     ok, message = preview_salad_to_admin()
     if ok:

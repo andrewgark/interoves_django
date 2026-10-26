@@ -1,11 +1,11 @@
 from django.core.management.base import BaseCommand
 
-from games.telegram.censorly_channel import (
+from games.ops.telegram.channels.censorly import (
     process_censorly_channel_tick,
     publish_censorly_channel_post,
     schedule_censorly_channel_post,
 )
-from games.telegram.mtproto import telegram_user_configured
+from games.ops.telegram.transport.mtproto import telegram_user_configured
 
 
 class Command(BaseCommand):

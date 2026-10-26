@@ -7,7 +7,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from games.models import Attempt, Game, HTMLPage, Project, Task, TaskGroup, Team
-from games.telegram.public_commands import (
+from games.ops.telegram.bot.public import (
     NO_GAME_REPLY,
     first_place_teams,
     format_des_card_caption,
@@ -242,7 +242,7 @@ class PublicDesWebhookTests(TestCase):
         _ensure_reference_rows()
         self.now = timezone.now()
 
-    @patch('games.telegram.public_commands.send_message')
+    @patch('games.ops.telegram.bot.public.send_message')
     def test_des_no_game(self, send_message_mock):
         response = self.client.post(
             '/telegram/webhook/secret/',
@@ -257,8 +257,8 @@ class PublicDesWebhookTests(TestCase):
         self.assertEqual(response.status_code, 200)
         send_message_mock.assert_called_once_with(777, NO_GAME_REPLY)
 
-    @patch('games.telegram.public_commands.send_photo')
-    @patch('games.telegram.public_commands.send_message')
+    @patch('games.ops.telegram.bot.public.send_photo')
+    @patch('games.ops.telegram.bot.public.send_message')
     def test_des_with_image(self, send_message_mock, send_photo_mock):
         send_photo_mock.return_value = {'message_id': 1}
         game = _make_game(
@@ -291,7 +291,7 @@ class PublicDesWebhookTests(TestCase):
         self.assertIn('Автор: Автор Y', caption)
         send_message_mock.assert_not_called()
 
-    @patch('games.telegram.webhook.send_message')
+    @patch('games.ops.telegram.transport.webhook.send_message')
     def test_admin_command_still_rejected_in_group(self, send_message_mock):
         response = self.client.post(
             '/telegram/webhook/secret/',
@@ -307,9 +307,9 @@ class PublicDesWebhookTests(TestCase):
         send_message_mock.assert_called_once()
         self.assertIn('admin-чате', send_message_mock.call_args.args[1])
 
-    @patch('games.telegram.results_image.render_tournament_results_png')
-    @patch('games.telegram.public_commands.send_photo')
-    @patch('games.telegram.public_commands.send_message')
+    @patch('games.ops.telegram.images.results.render_tournament_results_png')
+    @patch('games.ops.telegram.bot.public.send_photo')
+    @patch('games.ops.telegram.bot.public.send_message')
     def test_des_results_sends_photo(self, send_message_mock, send_photo_mock, render_mock):
         send_photo_mock.return_value = {'message_id': 2}
         render_mock.return_value = b'\x89PNG\r\n\x1a\n' + b'\x00' * 16
@@ -337,7 +337,7 @@ class PublicDesWebhookTests(TestCase):
         self.assertIn('tournament-results', caption)
         send_message_mock.assert_not_called()
 
-    @patch('games.telegram.public_commands.send_message')
+    @patch('games.ops.telegram.bot.public.send_message')
     def test_des_results_before_start(self, send_message_mock):
         _make_game(
             'des_soon',

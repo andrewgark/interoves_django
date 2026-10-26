@@ -213,7 +213,7 @@ class LadderOfferFlowTests(TestCase):
         self.assertEqual(offer.accepted_link.task_group_id, offer.task_group_id)
         self.assertEqual(Task.objects.filter(task_group=offer.task_group).count(), 1)
         from games.support.services.ladders import get_ladder_detail, list_ladder_rows
-        from games.telegram.game_urls import task_play_url
+        from games.ops.telegram.links import task_play_url
         row = next(item for item in list_ladder_rows() if item.link_id == offer.accepted_link_id)
         self.assertEqual(row.site_url, offer.play_url())
         self.assertEqual(get_ladder_detail(offer.accepted_link_id)['site_url'], offer.play_url())
@@ -708,7 +708,7 @@ class LadderOfferFlowTests(TestCase):
             author='Анна',
             comment='Проверьте пожалуйста',
         )
-        with patch('games.telegram.notify.notify_new_ladder_offer') as mock_notify:
+        with patch('games.ops.telegram.bot.notify.notify_new_ladder_offer') as mock_notify:
             with self.captureOnCommitCallbacks(execute=True):
                 send_offer(offer)
             mock_notify.assert_called_once_with(offer.pk)

@@ -97,7 +97,7 @@ def _run_locked():
 
     if problems:
         detail = '; '.join(problems)
-        from games.telegram.notify import send_admin_message
+        from games.ops.telegram.bot.notify import send_admin_message
         send_admin_message(
             '⚠️ Не работает подсчёт сложности ежедневных заданий.\n'
             'Автовосстановление не устранило проблему.\n'

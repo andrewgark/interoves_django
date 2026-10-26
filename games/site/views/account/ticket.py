@@ -226,7 +226,7 @@ def yookassa_webhook(request):
                 notify_event = event
 
     if notify_event:
-        from games.telegram.notify import notify_payment_event
+        from games.ops.telegram.bot.notify import notify_payment_event
 
         ticket_request = TicketRequest.objects.filter(id=ticket_request_id).first()
         if ticket_request is not None:
@@ -300,7 +300,7 @@ def _nowpayments_handle_donation_ipn(event_json, *, payment_status, order_id, np
             )
 
     if notify_event:
-        from games.telegram.notify import notify_donation_event
+        from games.ops.telegram.bot.notify import notify_donation_event
 
         donation = Donation.objects.filter(id=donation_id).first()
         if donation is not None:
@@ -360,7 +360,7 @@ def _nowpayments_handle_ticket_ipn(event_json, *, payment_status, order_id, np_i
             )
 
     if notify_event:
-        from games.telegram.notify import notify_payment_event
+        from games.ops.telegram.bot.notify import notify_payment_event
 
         ticket_request = TicketRequest.objects.filter(id=order_id).first()
         if ticket_request is not None:
@@ -524,7 +524,7 @@ def tribute_webhook(request):
                     return HttpResponse(status=200)
                 result = process_new_purchase(payload)
                 if result.ticket_issued and result.purchase.ticket_request_id:
-                    from games.telegram.notify import notify_payment_event
+                    from games.ops.telegram.bot.notify import notify_payment_event
 
                     ticket = TicketRequest.objects.filter(pk=result.purchase.ticket_request_id).first()
                     if ticket is not None:
@@ -613,7 +613,7 @@ def tribute_webhook(request):
                 notify_event = 'payment.canceled'
 
     if notify_event and ticket_request_id is not None:
-        from games.telegram.notify import notify_payment_event
+        from games.ops.telegram.bot.notify import notify_payment_event
 
         ticket_request = TicketRequest.objects.filter(id=ticket_request_id).first()
         if ticket_request is not None:

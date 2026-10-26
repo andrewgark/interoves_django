@@ -384,7 +384,7 @@ class FeedbackNotifyTests(TestCase):
         TELEGRAM_ADMIN_CHAT_ID='12345',
         SITE_BASE_URL='https://interoves.com',
     )
-    @patch('games.telegram.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message')
     def test_user_reply_pings_admin_not_as_new_report(self, send_mock):
         send_mock.return_value = True
         send_mock.reset_mock()
@@ -402,7 +402,7 @@ class FeedbackNotifyTests(TestCase):
         TELEGRAM_ADMIN_CHAT_ID='12345',
         SITE_BASE_URL='https://interoves.com',
     )
-    @patch('games.telegram.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message')
     def test_admin_reply_dms_user_with_telegram_id(self, send_mock):
         send_mock.return_value = True
         send_mock.reset_mock()
@@ -420,7 +420,7 @@ class FeedbackNotifyTests(TestCase):
         TELEGRAM_ADMIN_CHAT_ID='12345',
         SITE_BASE_URL='https://interoves.com',
     )
-    @patch('games.telegram.notify.send_message')
+    @patch('games.ops.telegram.bot.notify.send_message')
     def test_admin_reply_skips_dm_without_telegram_id(self, send_mock):
         self.user.profile.telegram_user_id = None
         self.user.profile.save(update_fields=['telegram_user_id'])

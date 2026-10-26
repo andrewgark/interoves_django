@@ -196,7 +196,7 @@ class CompletionInvariantTests(TestCase):
         group, tasks = self._group(game, [('0', 'raddle')])
         self._set_state(tasks[0], game)
 
-        with patch('games.telegram.notify.notify_admin_zero_duration_completion') as notify:
+        with patch('games.ops.telegram.bot.notify.notify_admin_zero_duration_completion') as notify:
             completion = complete_logical_game(
                 actor={'user': self.user}, game=game, task_group=group,
                 task=tasks[0], source='test-no-timing-row',

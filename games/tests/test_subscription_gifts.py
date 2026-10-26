@@ -9,7 +9,7 @@ from games.club.access.archive import has_club_access
 from games.models import ClubEntitlement, ClubSubscription, Profile, SubscriptionGift
 from games.club.billing.gifts.offers import create_paid_gift
 from games.club.billing.gifts.offers import claim_gift, create_gift, gift_duration_label, revoke_gift_access
-from games.telegram.admin_commands import handle_admin_command
+from games.ops.telegram.bot.commands import handle_admin_command
 
 
 class SubscriptionGiftTests(TestCase):
@@ -146,7 +146,7 @@ class SubscriptionGiftTests(TestCase):
         with self.assertRaisesMessage(ValueError, 'уже использован'):
             claim_gift(code=created.code, user=self.user)
 
-    @patch('games.telegram.api.send_message', return_value=True)
+    @patch('games.ops.telegram.transport.api.send_message', return_value=True)
     def test_admin_gift_command_creates_and_sends_gift(self, send_message):
         reply = handle_admin_command('/gift @gift_recipient 3')
 

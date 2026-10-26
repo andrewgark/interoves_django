@@ -4,11 +4,11 @@ import logging
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from games.telegram.admin_commands import handle_admin_command
-from games.telegram.api import send_message
-from games.telegram.callbacks import handle_callback_query
-from games.telegram.config import is_admin_chat
-from games.telegram.public_commands import handle_public_command, parse_public_command
+from games.ops.telegram.bot.commands import handle_admin_command
+from games.ops.telegram.transport.api import send_message
+from games.ops.telegram.bot.callbacks import handle_callback_query
+from games.ops.telegram.transport.config import is_admin_chat
+from games.ops.telegram.bot.public import handle_public_command, parse_public_command
 
 logger = logging.getLogger('application')
 
@@ -91,7 +91,7 @@ def _dispatch_update(update: dict) -> None:
         callback = update['callback_query']
         chat_id = ((callback.get('message') or {}).get('chat') or {}).get('id')
         if not is_admin_chat(chat_id):
-            from games.telegram.api import answer_callback_query
+            from games.ops.telegram.transport.api import answer_callback_query
 
             answer_callback_query(callback.get('id'), 'Admin only', show_alert=True)
             return

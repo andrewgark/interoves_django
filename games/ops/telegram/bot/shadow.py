@@ -34,7 +34,7 @@ def run_admin_report_live(*, now):
     Returns None when the cron lock is already held.
     """
     from games.ops.cron.lock import distributed_cron_lock
-    from games.telegram.admin_reports import process_admin_report_tick
+    from games.ops.telegram.bot.reports import process_admin_report_tick
 
     with distributed_cron_lock('telegram_admin_report', ttl_seconds=180) as acquired:
         if not acquired:
@@ -45,7 +45,7 @@ def run_admin_report_live(*, now):
 def run_admin_alert_live(*, alert: str, payload: dict, dedupe_key: str = ''):
     """Send one already-validated alert from the integrations worker."""
     if alert == 'word_salad_submission':
-        from games.telegram.notify import notify_admin_word_salad_submission_error
+        from games.ops.telegram.bot.notify import notify_admin_word_salad_submission_error
 
         return notify_admin_word_salad_submission_error(
             game_id=str(payload.get('game_id') or 'salad'),
@@ -53,18 +53,18 @@ def run_admin_alert_live(*, alert: str, payload: dict, dedupe_key: str = ''):
             deduplicate=True,
         )
     if alert == 'site_error':
-        from games.telegram.notify import notify_admin_alert_message
+        from games.ops.telegram.bot.notify import notify_admin_alert_message
 
         return notify_admin_alert_message(str(payload.get('text') or ''), dedupe_key=dedupe_key)
     if alert == 'club_subscription_attempt_failed':
-        from games.telegram.notify import notify_admin_alert_message
+        from games.ops.telegram.bot.notify import notify_admin_alert_message
 
         return notify_admin_alert_message(str(payload.get('text') or ''), dedupe_key=dedupe_key)
     if alert in (
         'club_renewal_failed', 'club_subscription_state', 'zero_duration_completion',
         'censorly_wikipedia_failure', 'daily_timer_client_report',
     ):
-        from games.telegram.notify import notify_admin_alert_message
+        from games.ops.telegram.bot.notify import notify_admin_alert_message
 
         return notify_admin_alert_message(str(payload.get('text') or ''), dedupe_key=dedupe_key)
     if alert == 'censorly_word_report':
@@ -76,8 +76,8 @@ def run_admin_alert_live(*, alert: str, payload: dict, dedupe_key: str = ''):
 
 def run_announcement_live(*, now):
     """Send announcements. Returns None when the cron lock is already held."""
-    from games.telegram.cron_lock import telegram_cron_lock
-    from games.telegram.scheduling import process_game_announcements
+    from games.ops.cron.telegram import telegram_cron_lock
+    from games.ops.telegram.channels.scheduling import process_game_announcements
 
     with telegram_cron_lock() as acquired:
         if not acquired:
@@ -86,7 +86,7 @@ def run_announcement_live(*, now):
 
 
 def run_announcement_shadow(*, now):
-    from games.telegram.scheduling import process_game_announcements
+    from games.ops.telegram.channels.scheduling import process_game_announcements
 
     with telegram_shadow():
         return process_game_announcements(now=now)
@@ -94,9 +94,9 @@ def run_announcement_shadow(*, now):
 
 def run_admin_report_shadow(*, now):
     """Use ``now`` as the schedule time, not the worker clock."""
-    from games.telegram.admin_reports import report_periods
-    from games.telegram.models import TelegramAdminReport
-    from games.telegram.notify import telegram_admin_configured
+    from games.ops.telegram.bot.reports import report_periods
+    from games.ops.telegram.models import TelegramAdminReport
+    from games.ops.telegram.bot.notify import telegram_admin_configured
 
     scheduled = timezone.localtime(now)
     if scheduled.hour != 0 or not (25 <= scheduled.minute <= 29):

@@ -376,7 +376,7 @@ def process_subscription_event(event_name: str, payload: dict, *, envelope_creat
             ClubSubscriptionEvent.RESULT_APPLIED,
             ClubSubscriptionEvent.RESULT_ANOMALY,
         ):
-            from games.telegram.notify import (
+            from games.ops.telegram.bot.notify import (
                 notify_admin_club_subscription,
                 notify_club_subscription_user,
             )

@@ -35,7 +35,7 @@ from games.models import (
     TributePurchase,
 )
 from games.club.link import consume_link_token, create_link_token, user_has_telegram_link
-from games.telegram.notify import notify_admin_club_subscription
+from games.ops.telegram.bot.notify import notify_admin_club_subscription
 from games.club.billing.tribute.config import club_checkout_enabled, club_product_configuration
 from games.club.billing.tribute.util import compute_webhook_signature
 
@@ -217,7 +217,7 @@ class ClubSubscriptionPageTests(TestCase):
         self.assertIn('value="eur"', body)
         self.assertNotIn('Следующее списание', body)
 
-    @patch('games.telegram.notify.notify_admin_club_subscription_attempt_failed')
+    @patch('games.ops.telegram.bot.notify.notify_admin_club_subscription_attempt_failed')
     def test_checkout_requires_csrf_and_telegram(self, notify_mock):
         self.client.force_login(self.unlinked)
         response = self.client.post(reverse('new_subscription_checkout'), {'currency': 'rub'})
@@ -225,7 +225,7 @@ class ClubSubscriptionPageTests(TestCase):
         self.assertEqual(response.json()['reason'], 'telegram_unlinked')
         notify_mock.assert_called_once()
 
-    @patch('games.telegram.notify.notify_admin_club_subscription_attempt_failed')
+    @patch('games.ops.telegram.bot.notify.notify_admin_club_subscription_attempt_failed')
     def test_failed_tribute_checkout_notifies_admin(self, notify_mock):
         self.client.force_login(self.user)
         response = self.client.post(reverse('new_subscription_checkout'), {'currency': 'rub'})
@@ -300,7 +300,7 @@ class ClubWebhookAndMappingTests(TestCase):
         self.assertEqual(sub.telegram_user_id, 777001)
         self.assertTrue(user_has_telegram_link(self.user))
 
-    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    @patch('games.ops.telegram.bot.notify.send_admin_message', return_value=True)
     def test_admin_notification_formats_eur_amount_in_major_units(self, send_admin):
         subscription = ClubSubscription.objects.create(
             user=self.user,
@@ -315,7 +315,7 @@ class ClubWebhookAndMappingTests(TestCase):
         self.assertIn('Сумма: 3.89 EUR', message)
         self.assertNotIn('Сумма: 389 EUR', message)
 
-    @patch('games.telegram.notify.send_admin_message', return_value=True)
+    @patch('games.ops.telegram.bot.notify.send_admin_message', return_value=True)
     def test_admin_notification_labels_recurring_payment_as_renewal(self, send_admin):
         subscription = ClubSubscription.objects.create(
             user=self.user,

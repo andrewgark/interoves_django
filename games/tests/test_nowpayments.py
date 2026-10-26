@@ -74,7 +74,7 @@ class NowPaymentsIpnTests(TestCase):
 
     @override_settings()
     @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
-    @patch('games.telegram.notify.notify_payment_event')
+    @patch('games.ops.telegram.bot.notify.notify_payment_event')
     @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_credits_tickets(self, _verify_mock, notify_mock, _on_commit_mock):
         ticket = TicketRequest.objects.create(
@@ -123,7 +123,7 @@ class NowPaymentsIpnTests(TestCase):
         self.assertEqual(self.team.tickets, 2)
 
     @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
-    @patch('games.telegram.notify.notify_payment_event')
+    @patch('games.ops.telegram.bot.notify.notify_payment_event')
     @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_failed_rejects_pending(self, _verify_mock, notify_mock, _on_commit_mock):
         ticket = TicketRequest.objects.create(
@@ -284,7 +284,7 @@ class NowPaymentsDonationIpnTests(TestCase):
         )
 
     @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
-    @patch('games.telegram.notify.notify_donation_event')
+    @patch('games.ops.telegram.bot.notify.notify_donation_event')
     @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_confirms_donation_and_stores_pay_fields(self, _verify, notify_mock, _on_commit):
         donation = Donation.objects.create(amount_rub=500, status='Pending')
@@ -307,7 +307,7 @@ class NowPaymentsDonationIpnTests(TestCase):
         notify_mock.assert_called_once()
 
     @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
-    @patch('games.telegram.notify.notify_donation_event')
+    @patch('games.ops.telegram.bot.notify.notify_donation_event')
     @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_without_order_id_resolves_via_invoice_id(self, _verify, notify_mock, _on_commit):
         donation = Donation.objects.create(

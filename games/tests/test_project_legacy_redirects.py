@@ -196,7 +196,7 @@ class ProjectLegacyRedirectTests(TestCase):
         self.assertNotContains(response, 'href="/games/glowbyte_des_12/results/"')
 
     def test_telegram_result_urls_use_project_scope(self):
-        from games.telegram.game_urls import game_standings_url, game_tournament_results_url
+        from games.ops.telegram.links import game_standings_url, game_tournament_results_url
 
         game = Game.objects.get(pk='glowbyte_des_12')
 

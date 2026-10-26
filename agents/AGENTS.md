@@ -268,6 +268,7 @@ If the resolved version is empty, the client check is skipped.
 | Attempt/view exceptions | `games.site.http.exceptions` | `games.exception` |
 | Daily statistics API | `games.daily.timing.statistics` | `games.daily_statistics` |
 | Telegram offer linking | `games.club.link` | `games.telegram_linking` |
+| Telegram bot/channels/images/transport | `games.ops.telegram.*`, `games.ops.cron.telegram` | `games.telegram.*` (facades; settings may still reference legacy app path) |
 | Raddle engine helpers | `games.puzzles.raddle.engine` | `games.raddle` |
 | Raddle DB locks | `games.puzzles.raddle.concurrency` | `games.raddle_concurrency` |
 | Admin bulk recheck actions | `games.ops.workers.jobs.bulk` | `games.attempt_admin_bulk` |

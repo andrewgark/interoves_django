@@ -86,9 +86,9 @@ class TelegramLinkingTests(TestCase):
         self.assertEqual(self.user.profile.telegram_handle, 'new_name')
         self.assertIsNotNone(token.used_at)
 
-    @patch('games.telegram.webhook.send_message')
+    @patch('games.ops.telegram.transport.webhook.send_message')
     def test_existing_bot_start_command_consumes_link(self, send_mock):
-        from games.telegram.webhook import _dispatch_update
+        from games.ops.telegram.transport.webhook import _dispatch_update
 
         _token, raw = create_link_token(self.user)
         _dispatch_update({

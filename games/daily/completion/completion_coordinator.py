@@ -287,7 +287,7 @@ def complete_logical_game(
                 timing_data = result_data.get('timing') or {}
                 frozen_ms = timing_data.get('frozen_ms')
                 if timing_data.get('exists') and frozen_ms is not None and int(frozen_ms) == 0:
-                    from games.telegram.notify import notify_admin_zero_duration_completion
+                    from games.ops.telegram.bot.notify import notify_admin_zero_duration_completion
 
                     notify_admin_zero_duration_completion(
                         game=game,

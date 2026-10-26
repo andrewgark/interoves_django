@@ -10,14 +10,14 @@ from zoneinfo import ZoneInfo
 
 from django.utils import timezone
 
-from games.telegram.game_urls import (
+from games.ops.telegram.links import (
     game_answers_url,
     game_conditions_copy_url,
     game_conditions_url,
     game_site_url,
     game_tournament_results_url,
 )
-from games.telegram.models import TelegramGameAnnouncement
+from games.ops.telegram.models import TelegramGameAnnouncement
 
 CONGRATS_EMOJI_POOL = (
     '🎉', '🎊', '🥳', '👏', '🙌', '✨', '🌟', '⭐', '💫', '🔥',

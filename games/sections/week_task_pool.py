@@ -335,7 +335,7 @@ def source_play_path_from_tags(tags: Any) -> Optional[str]:
     if link is None:
         return f'/games/{game_id}/'
 
-    from games.telegram.game_urls import task_group_play_path
+    from games.ops.telegram.links import task_group_play_path
 
     game = Game.objects.filter(pk=game_id).only('id', 'project_id', 'tags').first()
     if game is None:

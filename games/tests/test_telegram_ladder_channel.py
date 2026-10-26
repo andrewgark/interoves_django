@@ -13,7 +13,7 @@ from PIL import Image
 from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 from games.models import Game, GameTaskGroup, Project, Task, TaskGroup
 from games.social.models import SocialQueuePost
-from games.telegram.ladder_channel import (
+from games.ops.telegram.channels.ladder import (
     build_caption,
     process_ladder_channel_tick,
     publish_at_for_date,
@@ -85,13 +85,13 @@ class LadderChannelScheduleTests(TestCase):
         self.assertIn('Лесенка №1', caption)
         self.assertIn('ПАРИЖ', caption)
         self.assertIn('ДАКАР', caption)
-        from games.telegram.ladder_image import render_ladder_teaser_png_pillow
+        from games.ops.telegram.images.ladder import render_ladder_teaser_png_pillow
         png = render_ladder_teaser_png_pillow(self.task, ladder_number=1)
         self.assertTrue(png.startswith(b'\x89PNG'))
 
-    @patch('games.telegram.ladder_channel.send_photo')
+    @patch('games.ops.telegram.channels.ladder.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_schedule_uses_mtproto_schedule_date(self, render_mock, mtproto_mock, admin_photo_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
@@ -128,9 +128,9 @@ class LadderChannelScheduleTests(TestCase):
         self.assertEqual(again.twitter_status, SocialQueuePost.STATUS_QUEUED)
         self.assertEqual(again.instagram_status, SocialQueuePost.STATUS_QUEUED)
 
-    @patch('games.telegram.ladder_channel.send_photo')
+    @patch('games.ops.telegram.channels.ladder.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_tick_only_in_0015_window(self, render_mock, mtproto_mock, _admin_photo_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 7, 'scheduled': True}
@@ -143,9 +143,9 @@ class LadderChannelScheduleTests(TestCase):
         self.assertEqual(stats['scheduled'], 1)
         mtproto_mock.assert_called_once()
 
-    @patch('games.telegram.ladder_channel.send_photo')
+    @patch('games.ops.telegram.channels.ladder.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_parallel_schedule_interleaving_sends_once(
         self, render_mock, mtproto_mock, admin_photo_mock,
     ):
@@ -177,10 +177,10 @@ class LadderChannelScheduleTests(TestCase):
         mtproto_mock.assert_called_once()
         admin_photo_mock.assert_called_once()
 
-    @patch('games.telegram.ladder_channel.send_photo')
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    @patch('games.ops.telegram.channels.ladder.send_photo')
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_preview_ladder_to_admin(self, render_mock, send_photo_mock):
-        from games.telegram.ladder_channel import preview_ladder_to_admin
+        from games.ops.telegram.channels.ladder import preview_ladder_to_admin
 
         render_mock.return_value = _tiny_png_bytes(120, 160)
         send_photo_mock.return_value = {'message_id': 99}
@@ -192,16 +192,16 @@ class LadderChannelScheduleTests(TestCase):
         self.assertTrue(send_photo_mock.call_args.args[1].startswith(b'\x89PNG'))
         self.assertIn('Лесенка №1', kwargs['caption'])
 
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png', side_effect=RuntimeError('shot failed'))
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png', side_effect=RuntimeError('shot failed'))
     def test_preview_ladder_to_admin_fails_without_real_screenshot(self, _render_mock):
-        from games.telegram.ladder_channel import preview_ladder_to_admin
+        from games.ops.telegram.channels.ladder import preview_ladder_to_admin
 
         ok, message = preview_ladder_to_admin(now=self.now)
         self.assertFalse(ok)
         self.assertIn('Ошибка рендера', message)
 
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_schedule_refuses_after_1630(self, render_mock, mtproto_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
         late = datetime(2026, 7, 8, 19, 0, tzinfo=ZoneInfo('Europe/Moscow'))
@@ -211,8 +211,8 @@ class LadderChannelScheduleTests(TestCase):
         self.assertIn('refusing to post immediately', post.telegram_error)
         mtproto_mock.assert_not_called()
 
-    @patch('games.telegram.ladder_channel.send_message')
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png', side_effect=RuntimeError('shot failed'))
+    @patch('games.ops.telegram.channels.ladder.send_message')
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png', side_effect=RuntimeError('shot failed'))
     def test_schedule_notifies_admin_when_real_screenshot_unavailable(self, _render_mock, admin_message_mock):
         post = schedule_ladder_channel_post(now=self.now, force=True, notify_admin=False)
         self.assertIsNotNone(post)
@@ -223,9 +223,9 @@ class LadderChannelScheduleTests(TestCase):
         admin_message_mock.assert_called_once()
         self.assertIn('Ошибка создания Telegram-поста', admin_message_mock.call_args.args[1])
 
-    @patch('games.telegram.ladder_channel.send_message')
+    @patch('games.ops.telegram.channels.ladder.send_message')
     @patch.object(SocialQueuePost, 'set_image_bytes', side_effect=PermissionError('S3 denied'))
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png', return_value=_tiny_png_bytes())
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png', return_value=_tiny_png_bytes())
     def test_schedule_marks_storage_failure_and_notifies_admin(
         self, _render_mock, _set_image_mock, admin_message_mock,
     ):
@@ -240,9 +240,9 @@ class LadderChannelScheduleTests(TestCase):
     @patch('games.social.publish.twitter_configured', return_value=True)
     @patch('games.social.publish.publish_image_url')
     @patch('games.social.publish.publish_configured', return_value=True)
-    @patch('games.telegram.ladder_channel.send_photo')
+    @patch('games.ops.telegram.channels.ladder.send_photo')
     @patch('games.social.publish.schedule_channel_photo_sync')
-    @patch('games.telegram.ladder_channel.render_ladder_teaser_png')
+    @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_queue_then_tick_publishes_x_ig(
         self,
         render_mock,
@@ -632,7 +632,7 @@ class TelegramClaimTests(TestCase):
 
 class EnsurePlaywrightBrowsersPathTests(TestCase):
     def test_detects_headless_shell_cache(self):
-        from games.telegram import ladder_image as li
+        from games.ops.telegram.images import ladder as li
 
         with TemporaryDirectory() as directory:
             executable = os.path.join(
@@ -648,7 +648,7 @@ class EnsurePlaywrightBrowsersPathTests(TestCase):
             self.assertTrue(li._playwright_cache_has_chromium(directory))
 
     def test_sets_eb_webapp_cache_when_env_missing(self):
-        from games.telegram import ladder_image as li
+        from games.ops.telegram.images import ladder as li
 
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
@@ -660,7 +660,7 @@ class EnsurePlaywrightBrowsersPathTests(TestCase):
             )
 
     def test_uses_integrations_worker_cache_when_webapp_cache_is_missing(self):
-        from games.telegram import ladder_image as li
+        from games.ops.telegram.images import ladder as li
 
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop('PLAYWRIGHT_BROWSERS_PATH', None)
@@ -676,7 +676,7 @@ class EnsurePlaywrightBrowsersPathTests(TestCase):
             )
 
     def test_does_not_override_existing_env(self):
-        from games.telegram import ladder_image as li
+        from games.ops.telegram.images import ladder as li
 
         with patch.dict(os.environ, {'PLAYWRIGHT_BROWSERS_PATH': '/custom/browsers'}):
             with patch.object(li, '_playwright_cache_has_chromium', return_value=True):

@@ -2,8 +2,8 @@ from django.conf import settings
 from django.core.management.base import CommandError
 from django.core.management.base import BaseCommand
 
-from games.telegram.api import delete_webhook, set_webhook
-from games.telegram.game_urls import admin_url
+from games.ops.telegram.transport.api import delete_webhook, set_webhook
+from games.ops.telegram.links import admin_url
 
 
 class Command(BaseCommand):

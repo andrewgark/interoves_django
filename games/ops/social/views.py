@@ -29,8 +29,8 @@ def _restore_missing_word_salad_image(post: SocialQueuePost) -> bool:
     """
     if post.source != SocialQueuePost.SOURCE_WORD_SALAD or not post.ladder_number:
         return False
-    from games.telegram.word_salad_channel import resolve_salad_by_number
-    from games.telegram.word_salad_image import render_word_salad_teaser_png
+    from games.ops.telegram.channels.salad import resolve_salad_by_number
+    from games.ops.telegram.images.salad import render_word_salad_teaser_png
 
     salad = resolve_salad_by_number(post.ladder_number)
     if salad is None:
@@ -56,9 +56,9 @@ def _restore_missing_censorly_image(post: SocialQueuePost) -> bool:
     """Rebuild a Censorly teaser when integrations saved it only locally."""
     if post.source != SocialQueuePost.SOURCE_CENSORLY or not post.ladder_number:
         return False
-    from games.telegram.censorly_image import render_censorly_teaser_png
+    from games.ops.telegram.images.censorly import render_censorly_teaser_png
     from games.sections.paths import section_play_path
-    from games.telegram.game_urls import admin_url
+    from games.ops.telegram.links import admin_url
 
     url = admin_url(section_play_path('censorly', post.ladder_number))
     try:

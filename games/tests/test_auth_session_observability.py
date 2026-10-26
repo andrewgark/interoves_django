@@ -429,7 +429,7 @@ class AuthSessionObservabilityTests(TestCase):
         self.assertEqual(payload['user_agent']['device_family'], 'Android phone')
         self.assertNotIn('must-not-be-logged', json.dumps(payload))
 
-    @patch('games.telegram.notify.notify_admin_site_error')
+    @patch('games.ops.telegram.bot.notify.notify_admin_site_error')
     def test_anonymous_post_is_logged_and_view_exception_is_re_raised(self, notify_mock):
         request = self.factory.post('/send_raddle_ui/6820/', HTTP_USER_AGENT='test-client/1.0')
         request.interoves_request_id = 'anonymous-post-id'
@@ -449,7 +449,7 @@ class AuthSessionObservabilityTests(TestCase):
         self.assertEqual(payload['status'], 500)
         notify_mock.assert_called_once_with(request, exception=mock_exception)
 
-    @patch('games.telegram.notify.notify_admin_site_error')
+    @patch('games.ops.telegram.bot.notify.notify_admin_site_error')
     def test_uncaught_500_log_contains_forensic_context_and_db_details(self, notify_mock):
         request = self.factory.get(
             '/telegram/webhook/pathsecret/?token=must-not-be-logged',
@@ -478,7 +478,7 @@ class AuthSessionObservabilityTests(TestCase):
         self.assertNotIn('must-not-be-logged', output)
         notify_mock.assert_called_once_with(request, exception=mock_exception)
 
-    @patch('games.telegram.notify.notify_admin_site_error')
+    @patch('games.ops.telegram.bot.notify.notify_admin_site_error')
     def test_server_error_response_notifies_admin(self, notify_mock):
         request = self.factory.get('/broken/', HTTP_HOST='interoves.com')
         request.interoves_request_id = 'site-error-id'

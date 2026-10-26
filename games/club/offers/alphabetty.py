@@ -254,7 +254,7 @@ def send_offer(offer: AlphabettyOffer) -> AlphabettyOffer:
 
     def _notify():
         try:
-            from games.telegram.notify import notify_new_alphabetty_offer
+            from games.ops.telegram.bot.notify import notify_new_alphabetty_offer
             notify_new_alphabetty_offer(offer_id)
         except Exception:
             import logging

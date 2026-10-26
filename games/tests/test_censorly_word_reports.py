@@ -5,7 +5,7 @@ from django.test import TestCase
 from games.puzzles.censorly.article import reports as word_reports
 from games.puzzles.censorly.lexical.match import rootbank
 from games.models import BugReport
-from games.telegram.shadow import run_admin_alert_live
+from games.ops.telegram.bot.shadow import run_admin_alert_live
 from games.tests.test_censorly import _make_puzzle_task
 
 _DIAGNOSTIC = {'runtime': 'OPEN', 'classification': 'OPEN', 'recommendation': 'no fix required'}
@@ -30,8 +30,8 @@ def _report(**metadata):
 
 class WordReportCreationTests(TestCase):
     def test_pending_report_is_queued_not_notified_from_web(self):
-        with patch('games.telegram.signals.notify_new_bug_report') as notify, \
-                patch('games.telegram.admin_alert_events.publish_admin_alert',
+        with patch('games.ops.telegram.signals.notify_new_bug_report') as notify, \
+                patch('games.ops.telegram.bot.alerts.publish_admin_alert',
                       return_value=True) as publish, \
                 patch.object(word_reports, 'pair_diagnostic') as diagnostic, \
                 self.captureOnCommitCallbacks(execute=True):
@@ -48,15 +48,15 @@ class WordReportCreationTests(TestCase):
 
     def test_report_without_pair_is_notified_immediately(self):
         self.assertIsNone(word_reports.initial_diagnostic(''))
-        with patch('games.telegram.signals.notify_new_bug_report') as notify, \
+        with patch('games.ops.telegram.signals.notify_new_bug_report') as notify, \
                 self.captureOnCommitCallbacks(execute=True):
             _report(other_word='', diagnostic=None)
 
         notify.assert_called_once()
 
     def test_unpublishable_report_is_notified_without_diagnostic(self):
-        with patch('games.telegram.admin_alert_events.publish_admin_alert', return_value=False), \
-                patch('games.telegram.notify.notify_new_bug_report', return_value=True) as notify, \
+        with patch('games.ops.telegram.bot.alerts.publish_admin_alert', return_value=False), \
+                patch('games.ops.telegram.bot.notify.notify_new_bug_report', return_value=True) as notify, \
                 patch.object(word_reports, 'pair_diagnostic') as diagnostic, \
                 self.captureOnCommitCallbacks(execute=True):
             report = _report(diagnostic=word_reports.initial_diagnostic('столичный'))
@@ -72,7 +72,7 @@ class WordReportCompletionTests(TestCase):
     def test_worker_stores_diagnostic_then_notifies(self):
         report = _report(diagnostic={'status': 'pending'})
         with patch.object(word_reports, 'pair_diagnostic', return_value=_DIAGNOSTIC) as diagnostic, \
-                patch('games.telegram.notify.notify_new_bug_report', return_value=True) as notify:
+                patch('games.ops.telegram.bot.notify.notify_new_bug_report', return_value=True) as notify:
             self.assertTrue(run_admin_alert_live(
                 alert=word_reports.ADMIN_ALERT, payload={'report_id': report.pk},
             ))
@@ -87,7 +87,7 @@ class WordReportCompletionTests(TestCase):
     def test_failed_delivery_is_retried_without_recomputing(self):
         report = _report(diagnostic={'status': 'pending'})
         with patch.object(word_reports, 'pair_diagnostic', return_value=_DIAGNOSTIC) as diagnostic, \
-                patch('games.telegram.notify.notify_new_bug_report',
+                patch('games.ops.telegram.bot.notify.notify_new_bug_report',
                       side_effect=[False, True]) as notify:
             self.assertFalse(word_reports.complete_report(report.pk))
             self.assertTrue(word_reports.complete_report(report.pk))
@@ -96,7 +96,7 @@ class WordReportCompletionTests(TestCase):
         self.assertEqual(notify.call_count, 2)
 
     def test_missing_report_is_acknowledged(self):
-        with patch('games.telegram.notify.notify_new_bug_report') as notify:
+        with patch('games.ops.telegram.bot.notify.notify_new_bug_report') as notify:
             self.assertTrue(word_reports.complete_report(10 ** 9))
         notify.assert_not_called()
 
