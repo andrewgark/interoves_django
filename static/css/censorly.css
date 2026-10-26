@@ -83,7 +83,10 @@ html.new-ui-dark .censorly__dock {
     display: inline;
     max-width: none;
     font-size: 0.9em;
-    overflow-wrap: normal;
+    /* Last resort for a word longer than the whole line (long title words
+       at heading size): split the mask instead of widening the page. */
+    white-space: normal;
+    overflow-wrap: anywhere;
     word-break: normal;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
@@ -494,6 +497,10 @@ html.new-ui-dark .censorly__dock {
 .censorly.censorly--show-lengths .censorly-tok--glyphs:not([data-len-forced="0"]) .censorly-tok__blocks::after,
 .censorly-tok--glyphs[data-len-forced="1"] .censorly-tok__blocks::after {
   content: attr(data-len);
+}
+.censorly-tok__tail {
+  position: relative;
+  white-space: nowrap;
 }
 .censorly-tok--glyphs .censorly-tok__ending {
   position: absolute;

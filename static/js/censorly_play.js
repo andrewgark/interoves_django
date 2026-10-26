@@ -215,8 +215,15 @@
     }
     var blocks = el('span', 'censorly-tok__blocks');
     blocks.dataset.len = String(totalLen);
-    blocks.textContent = '\u2588'.repeat(ch);
-    if (ending) blocks.appendChild(el('span', 'censorly-tok__ending', ending));
+    // The ending overlays the last glyphs. Anchor it to those glyphs so it
+    // stays at the word's end when a long mask wraps onto several lines.
+    var tailLen = ending ? Math.min(Array.from(ending).length, ch) : 0;
+    blocks.textContent = '\u2588'.repeat(ch - tailLen);
+    if (ending) {
+      var tail = el('span', 'censorly-tok__tail', '\u2588'.repeat(tailLen));
+      tail.appendChild(el('span', 'censorly-tok__ending', ending));
+      blocks.appendChild(tail);
+    }
     mask.appendChild(blocks);
     return mask;
   }
@@ -992,8 +999,10 @@
       var offset = Math.max(
         0,
         window.innerHeight - viewport.height - viewport.offsetTop
-      );
-      root.style.setProperty('--censorly-keyboard-offset', offset + 'px');
+      ) + 'px';
+      // Fires on every visual-viewport scroll; skip no-op style writes.
+      if (root.style.getPropertyValue('--censorly-keyboard-offset') === offset) return;
+      root.style.setProperty('--censorly-keyboard-offset', offset);
     };
     update();
     if (window.visualViewport) {
