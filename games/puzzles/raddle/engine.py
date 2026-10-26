@@ -1209,7 +1209,7 @@ def raddle_result_squares(parsed, state, *, hint_attempts=None, allow_partial=Fa
 
 
 def _elapsed_label_for_ui(attempts):
-    from games.daily_timing import elapsed_label_for_complete_attempts
+    from games.daily.timing import elapsed_label_for_complete_attempts
     return elapsed_label_for_complete_attempts(attempts)
 
 
@@ -1259,7 +1259,7 @@ def raddle_hub_result_for_actor(
         return '', None
     elapsed = None
     if '⬜' not in squares:
-        from games.daily_timing import elapsed_label_for_complete_attempts
+        from games.daily.timing import elapsed_label_for_complete_attempts
         elapsed = elapsed_label_for_complete_attempts(
             ai.attempts,
             game=game,

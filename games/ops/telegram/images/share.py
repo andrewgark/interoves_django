@@ -7,13 +7,13 @@ from typing import Callable
 
 from django.conf import settings
 
-from games.daily_share_card import (
+from games.daily.page.share.card import (
     CARD_HEIGHT,
     CARD_WIDTH,
     RENDERER_VERSION,
     synthetic_preview_payloads,
 )
-from games.daily_share_card_render import assert_share_card_png, render_share_card_png
+from games.daily.page.share.render import assert_share_card_png, render_share_card_png
 from games.telegram.api import send_message, send_photo
 from games.telegram.config import admin_chat_id, telegram_admin_configured
 
@@ -130,7 +130,7 @@ def preview_daily_share_cards(
     intro = intro_fn or (lambda text: send_message(admin_chat_id(), text))
 
     if render_fn is None:
-        from games.daily_share_card_render import _prepare_playwright_env
+        from games.daily.page.share.render import _prepare_playwright_env
         _prepare_playwright_env()
 
     try:

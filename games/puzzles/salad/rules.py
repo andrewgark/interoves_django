@@ -224,7 +224,7 @@ def result_squares_for_state(words, state):
 
 
 def _elapsed_label_for_ui(attempts):
-    from games.daily_timing import elapsed_label_for_complete_attempts
+    from games.daily.timing import elapsed_label_for_complete_attempts
     return elapsed_label_for_complete_attempts(attempts)
 
 
@@ -268,7 +268,7 @@ def salad_hub_result_for_actor(
     squares = result_squares_for_state(words, state)
     if not squares:
         return '', None
-    from games.daily_timing import elapsed_label_for_complete_attempts
+    from games.daily.timing import elapsed_label_for_complete_attempts
     return squares, elapsed_label_for_complete_attempts(
         ai.attempts,
         game=game,

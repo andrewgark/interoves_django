@@ -36,7 +36,7 @@ from games.telegram.shadow import (
     run_admin_report_live,
     run_announcement_live,
 )
-from games.worker_http import is_sqsd_delivery, sqsd_message_id
+from games.ops.workers.http import is_sqsd_delivery, sqsd_message_id
 
 logger = logging.getLogger('application')
 

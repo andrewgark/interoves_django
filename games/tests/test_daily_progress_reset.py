@@ -6,7 +6,7 @@ from django.contrib.auth.models import User
 from django.db import OperationalError
 from django.test import TestCase
 
-from games.daily_progress_reset import reset_current_daily_release_progress
+from games.daily.timing.reset import reset_current_daily_release_progress
 from games.models import (
     Attempt, ChainTaskState, DailySolveTiming, Game, GameTaskGroup,
     PlayerCompletedGame, Project, ReplaySlot, Task, TaskGroup,
@@ -207,7 +207,7 @@ class DailyProgressResetTests(TestCase):
         self.assertTrue(ChainTaskState.objects.filter(pk__isnull=False, last_attempt=old).exists())
         recheck.assert_called_once()
 
-    @patch('games.daily_progress_reset.reset_daily_release_progress')
+    @patch('games.daily.timing.reset.reset_daily_release_progress')
     def test_retries_deadlock_and_continues(self, reset):
         reset.side_effect = [
             OperationalError(1213, 'Deadlock found when trying to get lock'),
@@ -219,7 +219,7 @@ class DailyProgressResetTests(TestCase):
         self.assertEqual(result, [])
         self.assertEqual(reset.call_count, 2)
 
-    @patch('games.daily_progress_reset.reset_daily_release_progress')
+    @patch('games.daily.timing.reset.reset_daily_release_progress')
     def test_skips_reset_after_repeated_deadlocks(self, reset):
         reset.side_effect = OperationalError(1213, 'Deadlock found when trying to get lock')
 

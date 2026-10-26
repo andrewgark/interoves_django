@@ -20,8 +20,8 @@ from django.test import TransactionTestCase
 from django.utils import timezone
 
 from games.daily.completion.completion_coordinator import complete_logical_game
-from games.daily_progress_reset import reset_current_daily_release_progress
-from games.daily_timing import ACTION_HEARTBEAT, apply_timing_event
+from games.daily.timing.reset import reset_current_daily_release_progress
+from games.daily.timing import ACTION_HEARTBEAT, apply_timing_event
 from games.models import (
     Attempt,
     ChainTaskState,

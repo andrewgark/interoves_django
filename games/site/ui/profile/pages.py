@@ -47,7 +47,7 @@ logger = logging.getLogger('games.views.new_ui')
 def new_profile_reports(request, project_id=None):
     if not has_profile(request.user):
         return _profile_unavailable_redirect(request)
-    from games.feedback import preview_text, reports_for_user, unread_report_ids_for_user
+    from games.site.ui.profile.feedback import preview_text, reports_for_user, unread_report_ids_for_user
 
     reports = list(reports_for_user(request.user))
     unread_ids = unread_report_ids_for_user(request.user)
@@ -75,7 +75,7 @@ def new_profile_reports(request, project_id=None):
 def new_profile_report_detail(request, report_id, project_id=None):
     if not has_profile(request.user):
         return _profile_unavailable_redirect(request)
-    from games.feedback import add_user_reply, mark_report_read
+    from games.site.ui.profile.feedback import add_user_reply, mark_report_read
 
     report = get_object_or_404(
         BugReport.objects.select_related('task', 'task__task_group', 'game', 'game__project', 'user'),
@@ -214,7 +214,7 @@ def new_profile(request, project_id=None):
     tz_options = [(tz, _utc_offset_label(tz)) for tz in pytz.common_timezones]
 
     scoped = _scoped_project_id(request)
-    from games.feedback import profile_cabinet_flags
+    from games.site.ui.profile.feedback import profile_cabinet_flags
     ctx = {
         'form': form,
         'profile_display_name': (

@@ -7,7 +7,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from games.feedback import add_admin_reply, add_user_reply
+from games.site.ui.profile.feedback import add_admin_reply, add_user_reply
 from games.models import (
     AlphabettyOffer,
     BugReport,

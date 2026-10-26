@@ -17,7 +17,7 @@ from games.models import (
     Project,
     TaskGroup,
 )
-from games.product_metrics import (
+from games.ops.analytics.metrics import (
     MOSCOW,
     TRUSTED_IDENTITY_CUTOVER,
     build_product_metrics_report,

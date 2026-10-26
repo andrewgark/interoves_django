@@ -8,7 +8,7 @@ from django.test import SimpleTestCase
 from health_check.exceptions import ServiceUnavailable
 from storages.backends.s3 import S3Storage
 
-from games.health_checks import MediaStorageHealthCheck
+from games.ops.health.checks import MediaStorageHealthCheck
 
 
 class MediaStorageHealthCheckTests(SimpleTestCase):

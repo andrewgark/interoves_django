@@ -179,7 +179,7 @@ def feedback_nav(request):
     if not user or not getattr(user, 'is_authenticated', False):
         return {'has_unread_feedback': False}
     try:
-        from games.feedback import user_has_unread_feedback
+        from games.site.ui.profile.feedback import user_has_unread_feedback
 
         return {'has_unread_feedback': user_has_unread_feedback(user)}
     except Exception:

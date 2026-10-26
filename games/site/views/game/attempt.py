@@ -271,7 +271,7 @@ def check_attempt(
             if advancer is not None:
                 advanced = advancer(attempt, last_attempt_state)
             if advanced:
-                from games.daily_timing import active_time_ms_for_attempt
+                from games.daily.timing import active_time_ms_for_attempt
                 attempt.active_time_ms = active_time_ms_for_attempt(
                     game=game,
                     task_group=task.task_group,

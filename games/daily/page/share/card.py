@@ -819,7 +819,7 @@ def publish_date_for(game, number) -> Optional[date]:
 
 
 def elapsed_seconds_for(*, game, task, user=None, anon_key=None, attempts=None) -> int | None:
-    from games.daily_timing import canonical_elapsed_seconds
+    from games.daily.timing import canonical_elapsed_seconds
     from games.results.share import elapsed_seconds_from_attempts
 
     seconds = canonical_elapsed_seconds(

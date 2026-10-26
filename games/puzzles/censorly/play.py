@@ -412,7 +412,7 @@ def build_share_lines(
 
 
 def elapsed_seconds_for_actor(*, game: Game, task: Task, actor: dict) -> int:
-    from games.daily_timing import canonical_elapsed_seconds
+    from games.daily.timing import canonical_elapsed_seconds
 
     attempts = list(
         Attempt.manager.filter(task=task, game=game, **actor).exclude(time__isnull=True)
@@ -467,7 +467,7 @@ def attach_solve_meta(
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
     from games.puzzles.censorly.article.redact import unsolved_share_runs
-    from games.daily_share_card import build_censorly_share_payload, publish_date_for
+    from games.daily.page.share.card import build_censorly_share_payload, publish_date_for
     from games.models import GameTaskGroup
 
     placement = None
@@ -793,7 +793,7 @@ class _Move:
         )
         attempt.time = timezone.now()
         if won:
-            from games.daily_timing import active_time_ms_for_attempt
+            from games.daily.timing import active_time_ms_for_attempt
             attempt.active_time_ms = active_time_ms_for_attempt(
                 game=self.game, task_group=self.task.task_group,
                 user=self.actor.get('user'), anon_key=self.actor.get('anon_key'),

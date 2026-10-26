@@ -4,7 +4,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
 
-from games.worker_config import infer_worker_name, load_worker_config
+from games.ops.workers.config import infer_worker_name, load_worker_config
 
 
 class WorkerConfigTests(SimpleTestCase):

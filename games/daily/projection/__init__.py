@@ -730,7 +730,7 @@ def schedule_actor_projection(
     )
     if revision is None:
         return
-    from games.projection_events import events_enabled, publish_projection_refresh
+    from games.realtime.projection import events_enabled, publish_projection_refresh
 
     if events_enabled():
         transaction.on_commit(
@@ -754,7 +754,7 @@ def schedule_full_projection_refresh(game, task_group):
     revision = mark_projection_dirty(game, task_group, full=True)
     if revision is None:
         return None
-    from games.projection_events import events_enabled, publish_projection_refresh
+    from games.realtime.projection import events_enabled, publish_projection_refresh
 
     if events_enabled():
         transaction.on_commit(

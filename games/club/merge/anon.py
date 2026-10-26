@@ -728,7 +728,7 @@ def migrate_anon_daily_timings(user, anon_key, *, batch_size=None):
     """Move or merge daily active-time rows from an anonymous actor onto a user."""
     if not user or not anon_key:
         return 0
-    from games.daily_timing import merge_timing_rows, migrate_timing_events
+    from games.daily.timing import merge_timing_rows, migrate_timing_events
 
     migrate_timing_events(target_user=user, source_anon_key=anon_key, batch_size=batch_size)
 

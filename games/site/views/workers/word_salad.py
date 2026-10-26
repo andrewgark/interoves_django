@@ -14,7 +14,7 @@ from django.views.decorators.http import require_POST
 from games.models import WordSaladRecheckItem
 from games.runtime import RUNTIME_ROLE_WORKER, runtime_role
 from games.ops.workers.jobs.salad import process_word_salad_recheck_item
-from games.worker_http import is_sqsd_delivery
+from games.ops.workers.http import is_sqsd_delivery
 
 logger = logging.getLogger('application')
 MAX_SIGNATURE_AGE = 300

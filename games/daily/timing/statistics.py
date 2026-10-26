@@ -195,7 +195,7 @@ def _advance_daily_statistics_revision(game_id, task_group_id):
             game_id, task_group_id, exc_info=True,
         )
     try:
-        from games.projection_events import publish_daily_statistics_refresh
+        from games.realtime.projection import publish_daily_statistics_refresh
 
         publish_daily_statistics_refresh(
             game_id, task_group_id, revision=revision,

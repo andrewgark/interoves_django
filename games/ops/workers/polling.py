@@ -15,7 +15,7 @@ import threading
 from django.db import close_old_connections
 from django.test import RequestFactory
 
-from games.worker_contract import WORKER_REGISTRY, WorkerSpec
+from games.ops.workers.contract import WORKER_REGISTRY, WorkerSpec
 
 logger = logging.getLogger('application')
 

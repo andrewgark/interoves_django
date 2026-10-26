@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from games.worker_lambda import handle_sqs_event
+from games.ops.workers.lambda_entry import handle_sqs_event
 
 
 class WorkerLambdaTests(SimpleTestCase):
@@ -13,13 +13,13 @@ class WorkerLambdaTests(SimpleTestCase):
         ]}
 
     def test_successful_records_are_acknowledged(self):
-        with patch('games.worker_lambda._deliver', return_value=200):
+        with patch('games.ops.workers.lambda_entry._deliver', return_value=200):
             result = handle_sqs_event(self._event('one'), worker_name='background')
         self.assertEqual(result['batchItemFailures'], [])
         self.assertEqual(result['results'][0]['action'], 'ack')
 
     def test_transient_record_is_returned_for_partial_retry(self):
-        with patch('games.worker_lambda._deliver', side_effect=[200, 500, 409]):
+        with patch('games.ops.workers.lambda_entry._deliver', side_effect=[200, 500, 409]):
             result = handle_sqs_event(self._event('one', 'two', 'three'), worker_name='background')
         self.assertEqual(
             result['batchItemFailures'],
@@ -27,7 +27,7 @@ class WorkerLambdaTests(SimpleTestCase):
         )
 
     def test_poison_record_is_not_retried(self):
-        with patch('games.worker_lambda._deliver', return_value=400):
+        with patch('games.ops.workers.lambda_entry._deliver', return_value=400):
             result = handle_sqs_event(self._event('poison'), worker_name='background')
         self.assertEqual(result['batchItemFailures'], [])
         self.assertEqual(result['results'][0]['action'], 'drop')

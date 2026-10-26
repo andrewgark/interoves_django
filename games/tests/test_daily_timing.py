@@ -19,7 +19,7 @@ from games.management.commands.repair_daily_attempt_timing import (
     TIMING_RECOVERY_GRACE_SECONDS,
     events_for_attempt,
 )
-from games.daily_timing import (
+from games.daily.timing import (
     ACTION_AUTO_PAUSE,
     ACTION_COMPLETE,
     ACTION_HEARTBEAT,

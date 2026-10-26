@@ -27,7 +27,7 @@ from games.background.messages import (
 from games.queue_heartbeat import finish as finish_queue_heartbeat
 from games.queue_heartbeat import start as start_queue_heartbeat
 from games.runtime import RUNTIME_ROLE_IDENTITY, runtime_role
-from games.worker_http import is_sqsd_delivery, sqsd_message_id
+from games.ops.workers.http import is_sqsd_delivery, sqsd_message_id
 
 logger = logging.getLogger('application')
 

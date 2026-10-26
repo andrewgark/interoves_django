@@ -154,7 +154,7 @@ def ru_attempt_word(n: int) -> str:
 
 def elapsed_seconds_for_actor(*, game: Game, task: Task, actor: dict) -> int:
     """Active solving time for daily alphabetty; first-to-last otherwise."""
-    from games.daily_timing import canonical_elapsed_seconds
+    from games.daily.timing import canonical_elapsed_seconds
 
     attempts = list(
         Attempt.manager.filter(task=task, game=game, **actor).exclude(time__isnull=True)
@@ -230,7 +230,7 @@ def attach_solve_meta(
         return payload
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
-    from games.daily_share_card import build_alphabetty_share_payload, publish_date_for
+    from games.daily.page.share.card import build_alphabetty_share_payload, publish_date_for
     placement = None
     if getattr(task, 'task_group_id', None):
         placement = (
@@ -289,7 +289,7 @@ def hub_progress_for_actor(
         for r in timing_rows
         if r['t0'] is not None and r['t1'] is not None
     }
-    from games.daily_timing import canonical_elapsed_seconds, timing_rows_for_task_groups
+    from games.daily.timing import canonical_elapsed_seconds, timing_rows_for_task_groups
     daily_rows = timing_rows_for_task_groups(
         game=game,
         task_group_ids=[t.task_group_id for _, t in numbers_and_tasks if getattr(t, 'task_group_id', None)],
@@ -619,7 +619,7 @@ def _commit_guess(
     )
     attempt.time = timezone.now()
     if status == 'correct':
-        from games.daily_timing import active_time_ms_for_attempt
+        from games.daily.timing import active_time_ms_for_attempt
         attempt.active_time_ms = active_time_ms_for_attempt(
             game=game, task_group=task.task_group,
             user=actor.get('user'), anon_key=actor.get('anon_key'),

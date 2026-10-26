@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from games.worker_contract import WORKER_REGISTRY, WorkerSpec
+from games.ops.workers.contract import WORKER_REGISTRY, WorkerSpec
 
 
 MODE_ALIASES = {

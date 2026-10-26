@@ -247,6 +247,13 @@ If the resolved version is empty, the client check is skipped.
 | Offer profile names | `games.club.offers.profiles` | `games.offer_profiles` |
 | Results snapshot builders | `games.results.snapshots.snapshot` | `games.results_snapshot` |
 | Logical game completion | `games.daily.completion.completion_coordinator` | `games.completion_coordinator` |
+| Daily timing core | `games.daily.timing` (+ `timing.reset`) | `games.daily_timing`, `daily_progress_reset` |
+| Daily share card PNG/payload | `games.daily.page.share.{card,render}` | `games.daily_share_card`, `daily_share_card_render` |
+| Projection / stats refresh events | `games.realtime.projection` | `games.projection_events` |
+| EB worker poll/config/contract | `games.ops.workers.{http,config,contract,polling,lambda_entry}` | `games.worker_*` |
+| Profile feedback reports | `games.site.ui.profile.feedback` | `games.feedback` |
+| Product metrics CLI | `games.ops.analytics.metrics` | `games.product_metrics` |
+| Media storage health check | `games.ops.health.checks` | `games.health_checks` |
 | Daily UI transitions / streak | `games.daily.timing.{transitions,streak}` | `games.daily_transitions`, `daily_streak` |
 | Task display titles | `games.tasks.titles` | `games.task_titles` |
 | Game access / schedule gates | `games.club.access.game` | `games.access` |

@@ -21,5 +21,5 @@ class GamesConfig(AppConfig):
         import games.feedback  # noqa: F401
         import games.puzzles.core.norm_matcher
         from health_check.plugins import plugin_dir
-        from games.health_checks import MediaStorageHealthCheck
+        from games.ops.health.checks import MediaStorageHealthCheck
         plugin_dir.register(MediaStorageHealthCheck)

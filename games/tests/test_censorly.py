@@ -3364,7 +3364,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
         )
         actor = {'user': object(), 'replay_slot': None}
         with patch('games.puzzles.censorly.play.elapsed_seconds_for_actor', return_value=90), \
-             patch('games.daily_share_card.publish_date_for', return_value=date(2026, 10, 1)):
+             patch('games.daily.page.share.card.publish_date_for', return_value=date(2026, 10, 1)):
             attach_solve_meta(
                 view,
                 game=SimpleNamespace(),

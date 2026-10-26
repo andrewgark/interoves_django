@@ -4,7 +4,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from games.product_metrics import (
+from games.ops.analytics.metrics import (
     TRUSTED_IDENTITY_CUTOVER,
     TRUSTED_IDENTITY_CUTOVER_SHA,
     build_product_metrics_report,

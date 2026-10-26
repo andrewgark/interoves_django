@@ -78,9 +78,9 @@ class DailyStatisticsTests(TestCase):
         'PROJECTION_REFRESH_EVENTS': '1',
         'PROJECTION_REFRESH_SQS_QUEUE_URL': 'https://example/interoves-background',
     })
-    @patch('games.projection_events.boto3.client')
+    @patch('games.realtime.projection.boto3.client')
     def test_completion_coalesces_a_background_statistics_refresh(self, client):
-        from games.projection_events import _cache, _daily_statistics_mark_key
+        from games.realtime.projection import _cache, _daily_statistics_mark_key
 
         tg = TaskGroup.objects.create(label='statistics refresh event')
         _cache().delete(_daily_statistics_mark_key(self.game.id, tg.id))
@@ -100,7 +100,7 @@ class DailyStatisticsTests(TestCase):
 
     def test_worker_refresh_warms_the_current_statistics_generation(self):
         from games.daily.timing.statistics import _cache_revision_key, _versioned_cache_key
-        from games.projection_events import (
+        from games.realtime.projection import (
             _cache, _daily_statistics_mark_key,
             run_named_daily_statistics_refresh,
         )

@@ -182,7 +182,7 @@ def refresh_due_daily_difficulties(
     now = now or timezone.now()
     game_ids = tuple(game_ids) if game_ids else None
     if reset_progress:
-        from games.daily_progress_reset import reset_current_daily_release_progress
+        from games.daily.timing.reset import reset_current_daily_release_progress
 
         # Legacy combined tick: perform the once-per-release progress reset
         # before calculating fresh daily statistics.

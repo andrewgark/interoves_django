@@ -8,8 +8,8 @@ Lambda's partial-batch response contract; poison messages are acknowledged.
 
 from __future__ import annotations
 
-from games.worker_contract import WORKER_REGISTRY
-from games.worker_polling import _deliver
+from games.ops.workers.contract import WORKER_REGISTRY
+from games.ops.workers.polling import _deliver
 
 
 def handle_sqs_event(event, context=None, *, worker_name=None):

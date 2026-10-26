@@ -7,7 +7,7 @@ from django.core.management.base import CommandError
 from django.test import SimpleTestCase, override_settings
 from PIL import Image
 
-from games.daily_share_card import (
+from games.daily.page.share.card import (
     CARD_HEIGHT,
     CARD_WIDTH,
     HEADLINE_SOLVED_IN,
@@ -284,7 +284,7 @@ class DailyShareCardPayloadTests(SimpleTestCase):
     def test_brand_is_the_task_link(self):
         from types import SimpleNamespace
 
-        from games.daily_share_card import card_brand, ladder_result_path
+        from games.daily.page.share.card import card_brand, ladder_result_path
 
         ladder = _paris_payload()
         self.assertEqual(ladder['brand'], 'interoves.com/ladder/46')

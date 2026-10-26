@@ -9,8 +9,8 @@ from zoneinfo import ZoneInfo
 from django.db import close_old_connections, connection
 from django.test import TransactionTestCase
 
-from games.daily_progress_reset import reset_current_daily_release_progress
-from games.daily_timing import ACTION_HEARTBEAT, apply_timing_event
+from games.daily.timing.reset import reset_current_daily_release_progress
+from games.daily.timing import ACTION_HEARTBEAT, apply_timing_event
 from games.models import (
     Attempt, CheckerType, DailySolveTiming, Game, GameTaskGroup, HTMLPage,
     Project, Task, TaskGroup,

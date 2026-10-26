@@ -128,7 +128,7 @@ def _perform_bug_action(bug_id: int, action: str, *, reply_text: str = '', admin
             raise BugReport.DoesNotExist
         if not reply_text:
             raise PermissionDenied('Введите текст ответа.')
-        from games.feedback import add_admin_reply
+        from games.site.ui.profile.feedback import add_admin_reply
 
         add_admin_reply(bug, admin_user, reply_text)
         return
@@ -137,7 +137,7 @@ def _perform_bug_action(bug_id: int, action: str, *, reply_text: str = '', admin
     if bug is None:
         raise BugReport.DoesNotExist
     if reply_text:
-        from games.feedback import add_admin_reply
+        from games.site.ui.profile.feedback import add_admin_reply
 
         add_admin_reply(bug, admin_user, reply_text)
     if action == 'bug_reviewed':

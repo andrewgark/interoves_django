@@ -2,8 +2,8 @@
 
 from django.core.management.base import BaseCommand, CommandError
 
-from games.worker_config import load_worker_config
-from games.worker_contract import WORKER_REGISTRY
+from games.ops.workers.config import load_worker_config
+from games.ops.workers.contract import WORKER_REGISTRY
 
 
 class Command(BaseCommand):

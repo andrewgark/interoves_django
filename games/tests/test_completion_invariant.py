@@ -15,7 +15,7 @@ from games.ops.analytics.events import (
     register_completed_game,
 )
 from games.daily.completion.completion_coordinator import complete_logical_game
-from games.daily_timing import ACTION_START, STATUS_COMPLETED, apply_timing_event
+from games.daily.timing import ACTION_START, STATUS_COMPLETED, apply_timing_event
 from games.models import (
     Attempt,
     ChainTaskState,

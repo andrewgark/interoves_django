@@ -252,7 +252,7 @@ def _task_group_progress_payload(game, task_groups, *, team=None, user=None, ano
             mode=mode,
             game=None if include_other_games else game,
         )
-        from games.daily_timing import timing_rows_for_task_groups
+        from games.daily.timing import timing_rows_for_task_groups
         timing_by_tg = timing_rows_for_task_groups(
             game=game,
             task_group_ids=tg_ids,

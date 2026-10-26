@@ -19,7 +19,7 @@ from games.daily.page.section import (
     is_scheduled_game,
     scheduled_number_is_public,
 )
-from games.daily_timing import (
+from games.daily.timing import (
     ACTION_RESUME,
     ACTION_START,
     CLIENT_ACTIONS,

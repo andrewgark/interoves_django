@@ -767,7 +767,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
         # Daily-game timings are stored in DailySolveTiming; the legacy result
         # aggregator's Attempt-like objects do not always carry active_time_ms.
         from games.daily.page.section import is_scheduled_game
-        from games.daily_timing import canonical_elapsed_seconds, timing_row_preference
+        from games.daily.timing import canonical_elapsed_seconds, timing_row_preference
         from games.models import DailySolveTiming
         if is_scheduled_game(game.id):
             timing_rows = DailySolveTiming.objects.filter(

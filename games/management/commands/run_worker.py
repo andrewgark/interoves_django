@@ -6,9 +6,9 @@ import signal
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
 
-from games.worker_config import load_worker_config
-from games.worker_contract import WORKER_REGISTRY
-from games.worker_polling import poll_once, queue_url_for
+from games.ops.workers.config import load_worker_config
+from games.ops.workers.contract import WORKER_REGISTRY
+from games.ops.workers.polling import poll_once, queue_url_for
 
 
 class Command(BaseCommand):

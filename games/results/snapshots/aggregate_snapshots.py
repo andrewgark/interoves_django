@@ -228,7 +228,7 @@ def request_snapshots_for_release(game_id, group_id):
 
 def _queue_release_repairs(game, group_ids, states, incomplete):
     from games.daily.projection import projection_state_is_valid, scorer_adapter_version
-    from games.projection_events import events_enabled, publish_projection_refresh
+    from games.realtime.projection import events_enabled, publish_projection_refresh
 
     pending = []
     for group_id in group_ids:

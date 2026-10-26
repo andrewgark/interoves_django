@@ -154,7 +154,7 @@ def dispatch_actor_projection_outbox(*, limit=10, now=None):
     now = now or timezone.now()
     rows = _claim_many(limit=limit, now=now)
     sent = failed = 0
-    from games.projection_events import events_enabled, publish_projection_refresh
+    from games.realtime.projection import events_enabled, publish_projection_refresh
 
     for row in rows:
         try:

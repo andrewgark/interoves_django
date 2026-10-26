@@ -988,7 +988,7 @@ def notify_new_bug_report(report: BugReport) -> bool:
 
 
 def bug_report_thread_url(report: BugReport) -> str:
-    from games.feedback import profile_reports_path
+    from games.site.ui.profile.feedback import profile_reports_path
 
     return _admin_link(profile_reports_path(report_id=report.pk))
 

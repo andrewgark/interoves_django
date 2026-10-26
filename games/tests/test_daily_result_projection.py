@@ -477,7 +477,7 @@ class DailyResultProjectionTests(TestCase):
         ).exists())
 
     @patch.dict(os.environ, {'PROJECTION_REFRESH_EVENTS': '1'})
-    @patch('games.projection_events.publish_projection_refresh', side_effect=[False, True])
+    @patch('games.realtime.projection.publish_projection_refresh', side_effect=[False, True])
     def test_projection_outbox_retries_publish_without_advancing_revision_twice(self, publish):
         from games.daily.projection.outbox import dispatch_actor_projection_outbox
 
@@ -562,9 +562,9 @@ class DailyResultProjectionTests(TestCase):
         'PROJECTION_REFRESH_EVENTS': '1',
         'PROJECTION_REFRESH_SQS_QUEUE_URL': 'https://example/interoves-background',
     })
-    @patch('games.projection_events.boto3.client')
+    @patch('games.realtime.projection.boto3.client')
     def test_actor_event_publishes_the_release_and_worker_refreshes_it(self, client):
-        from games.projection_events import run_named_projection_refresh
+        from games.realtime.projection import run_named_projection_refresh
 
         send = client.return_value.send_message
         task = Task.objects.create(
@@ -599,9 +599,9 @@ class DailyResultProjectionTests(TestCase):
         self.assertFalse(DailyResultProjectionDirtyActor.objects.exists())
 
     @patch.dict(os.environ, {'PROJECTION_REFRESH_EVENTS': '1'}, clear=False)
-    @patch('games.projection_events.boto3.client')
+    @patch('games.realtime.projection.boto3.client')
     def test_missing_projection_queue_does_not_stick_refresh_marker(self, client):
-        from games.projection_events import (
+        from games.realtime.projection import (
             _cache, _mark_key, clear_projection_refresh_mark,
             publish_projection_refresh,
         )
