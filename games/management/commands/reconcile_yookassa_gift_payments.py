@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
 from games.cron_lock import distributed_cron_lock
-from games.subscription_gift_payments import reconcile_yookassa_gift_payments
+from games.club.billing.gifts.payments import reconcile_yookassa_gift_payments
 
 
 class Command(BaseCommand):

@@ -470,7 +470,7 @@ class ClubWebhookAndMappingTests(TestCase):
 
     def test_one_time_digital_product_webhook_still_works(self):
         from games.models import Team, TributePaymentIntent, TicketRequest
-        from games.tribute_service import create_or_reuse_intent
+        from games.club.billing.tribute.service import create_or_reuse_intent
 
         team = Team.objects.create(name='club_ticket_team', project_id='main', tickets=0, ticket_price=2000)
         self.user.profile.add_team_membership(team, make_primary=True)

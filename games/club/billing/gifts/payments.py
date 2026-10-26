@@ -13,12 +13,12 @@ from django.utils.dateparse import parse_datetime
 from django.conf import settings
 
 from games.models import Profile, TributePurchase, SubscriptionGift, SubscriptionGiftPayment
-from games.subscription_gifts import create_paid_gift
+from games.club.billing.gifts.offers import create_paid_gift
 from games.club.link import user_has_telegram_link
 from games.tribute_config import club_gift_products_by_id, configured_club_gift
 from games.club.billing.yookassa.client import ClubPayment as Payment
 from games.club.billing.yookassa.club import club_yookassa_enabled
-from games.yookassa_util import configure_yookassa_from_env
+from games.club.billing.yookassa.util import configure_yookassa_from_env
 
 logger = logging.getLogger('games.subscription_gift_payments')
 
@@ -200,7 +200,7 @@ def process_yookassa_gift_event(
             return True
         payment.status = SubscriptionGiftPayment.STATUS_CANCELED
         payment.save(update_fields=['status', 'provider_payment_id', 'updated_at'])
-        from games.subscription_gifts import revoke_gift_access
+        from games.club.billing.gifts.offers import revoke_gift_access
         revoke_gift_access(payment.gift)
         return True
     # Provider webhooks are not guaranteed to arrive in order. A late success
@@ -273,7 +273,7 @@ def _find_tribute_pending_payment(data: dict, product):
 @transaction.atomic
 def process_tribute_gift_purchase(payload: dict) -> bool:
     """Apply a signed Tribute digital-product purchase, idempotently."""
-    from games.tribute_service import normalize_purchase_payload
+    from games.club.billing.tribute.service import normalize_purchase_payload
 
     data = normalize_purchase_payload(payload)
     product = club_gift_products_by_id().get(data['product_id'])
@@ -296,7 +296,7 @@ def process_tribute_gift_purchase(payload: dict) -> bool:
                 payment.raw_event_excerpt or {}, refund_before_purchase=True,
             )
             payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
-            from games.subscription_gifts import revoke_gift_access
+            from games.club.billing.gifts.offers import revoke_gift_access
             revoke_gift_access(payment.gift)
         logger.warning('subscription_gift_tribute_purchase_already_refunded purchase_id=%s', data['purchase_id'])
         return True
@@ -410,7 +410,7 @@ def process_tribute_gift_refund(payload: dict) -> bool:
     payment.status = SubscriptionGiftPayment.STATUS_CANCELED
     payment.raw_event_excerpt = dict(payment.raw_event_excerpt or {}, refund_reason=payload.get('refund_reason', ''))
     payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
-    from games.subscription_gifts import revoke_gift_access
+    from games.club.billing.gifts.offers import revoke_gift_access
     revoke_gift_access(payment.gift)
     return True
 
@@ -451,7 +451,7 @@ def process_yookassa_gift_refund(payment_data: dict) -> bool:
         'payment_id': payment_id, 'event': 'refund.succeeded', 'refund_amount': refund_amount,
     }
     payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
-    from games.subscription_gifts import revoke_gift_access
+    from games.club.billing.gifts.offers import revoke_gift_access
     revoke_gift_access(payment.gift)
     return True
 
@@ -477,7 +477,7 @@ def manually_resolve_subscription_gift_payment(payment_id: int, *, succeeded: bo
         payment.status = SubscriptionGiftPayment.STATUS_CANCELED
         payment.raw_event_excerpt = dict(payment.raw_event_excerpt or {}, manual_resolution='canceled')
         payment.save(update_fields=['status', 'raw_event_excerpt', 'updated_at'])
-        from games.subscription_gifts import revoke_gift_access
+        from games.club.billing.gifts.offers import revoke_gift_access
         revoke_gift_access(payment.gift)
     return True
 

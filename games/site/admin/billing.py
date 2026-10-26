@@ -40,7 +40,7 @@ class TicketRequestAdmin(admin.ModelAdmin):
 
 @admin.action(description='Issue one ticket for selected reviewed Tribute purchases')
 def issue_tribute_purchase(modeladmin, request, queryset):
-    from games.tribute_service import TributeCheckoutError, manually_issue_purchase
+    from games.club.billing.tribute.service import TributeCheckoutError, manually_issue_purchase
 
     issued = 0
     for purchase in queryset:
@@ -175,7 +175,7 @@ class SubscriptionGiftAdmin(admin.ModelAdmin):
 
 @admin.action(description='Подтвердить выбранные gift-платежи вручную')
 def confirm_subscription_gift_payments(modeladmin, request, queryset):
-    from games.subscription_gift_payments import manually_resolve_subscription_gift_payment
+    from games.club.billing.gifts.payments import manually_resolve_subscription_gift_payment
 
     resolved = sum(
         manually_resolve_subscription_gift_payment(payment.pk, succeeded=True)
@@ -186,7 +186,7 @@ def confirm_subscription_gift_payments(modeladmin, request, queryset):
 
 @admin.action(description='Отменить выбранные gift-платежи вручную')
 def cancel_subscription_gift_payments(modeladmin, request, queryset):
-    from games.subscription_gift_payments import manually_resolve_subscription_gift_payment
+    from games.club.billing.gifts.payments import manually_resolve_subscription_gift_payment
 
     resolved = sum(
         manually_resolve_subscription_gift_payment(payment.pk, succeeded=False)
@@ -242,7 +242,7 @@ class DonationAdmin(admin.ModelAdmin):
     raw_id_fields = ('user',)
 
     def changelist_view(self, request, extra_context=None):
-        from games.donation_service import reject_stale_pending_donations
+        from games.club.billing.donations import reject_stale_pending_donations
 
         reject_stale_pending_donations()
         return super().changelist_view(request, extra_context=extra_context)

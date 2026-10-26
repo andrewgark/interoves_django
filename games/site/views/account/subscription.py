@@ -37,8 +37,8 @@ from games.club.billing.yookassa.club import (
     yookassa_recurring_enabled,
 )
 from games.models import ClubSubscription, ClubSubscriptionEvent, SavedPaymentMethod, SubscriptionGift
-from games.subscription_gifts import claim_gift, decrypt_gift_code, gift_duration_label, purchaser_gifts
-from games.subscription_gift_payments import start_tribute_gift, start_yookassa_gift, yookassa_gift_amount
+from games.club.billing.gifts.offers import claim_gift, decrypt_gift_code, gift_duration_label, purchaser_gifts
+from games.club.billing.gifts.payments import start_tribute_gift, start_yookassa_gift, yookassa_gift_amount
 from games.club.link import user_has_telegram_link
 from games.tribute_config import (
     club_archive_gating_enabled,

@@ -8,8 +8,8 @@ from games.daily.difficulty.refresh import (
     run_daily_difficulty_refresh,
 )
 from games.cron_lock import distributed_cron_lock
-from games.subscription_gifts import expire_subscription_gifts
-from games.subscription_gift_payments import reconcile_yookassa_gift_payments
+from games.club.billing.gifts.offers import expire_subscription_gifts
+from games.club.billing.gifts.payments import reconcile_yookassa_gift_payments
 
 
 class Command(BaseCommand):

@@ -32,9 +32,9 @@ from games.site.views.pages.util import (
     has_profile,
     has_team,
 )
-from games.nowpayments_util import create_invoice as nowpayments_create_invoice
-from games.nowpayments_util import embed_url_for_invoice
-from games.nowpayments_util import nowpayments_ipn_callback_url
+from games.club.billing.crypto import create_invoice as nowpayments_create_invoice
+from games.club.billing.crypto import embed_url_for_invoice
+from games.club.billing.crypto import nowpayments_ipn_callback_url
 from games.club.billing.routes import (
     CRYPTO,
     INTERNATIONAL_CARD,
@@ -43,7 +43,7 @@ from games.club.billing.routes import (
     route_for as ticket_route_for,
     unit_price_for as ticket_unit_price_for,
 )
-from games.yookassa_util import configure_yookassa_from_env
+from games.club.billing.yookassa.util import configure_yookassa_from_env
 
 from yookassa import Payment
 
@@ -82,7 +82,7 @@ def new_pay_page(request):
         merchant_public_copy,
         tribute_checkout_enabled,
     )
-    from games.tribute_service import team_is_discount_eligible
+    from games.club.billing.tribute.service import team_is_discount_eligible
 
     regular_product = configured_product('regular')
     discount_product = configured_product('discount')
@@ -502,7 +502,7 @@ def new_create_tribute_ticket_payment(request):
             status=403,
         )
 
-    from games.tribute_service import TributeCheckoutError, create_or_reuse_intent
+    from games.club.billing.tribute.service import TributeCheckoutError, create_or_reuse_intent
 
     try:
         intent, product, reused = create_or_reuse_intent(user=request.user, team=team)
@@ -587,7 +587,7 @@ def new_ticket_payment_status(request, ticket_request_id):
 
 
 def new_donate_page(request):
-    from games.donation_service import recent_donations_for_request, reject_stale_pending_donations
+    from games.club.billing.donations import recent_donations_for_request, reject_stale_pending_donations
 
     reject_stale_pending_donations()
     return render(request, 'new/donate.html', {
@@ -598,7 +598,7 @@ def new_donate_page(request):
 @require_http_methods(['POST'])
 def new_create_crypto_donation(request):
     """Create Donation + NOWPayments invoice; public (login optional)."""
-    from games.donation_service import MIN_DONATION_RUB, donation_order_id, remember_donation_in_session
+    from games.club.billing.donations import MIN_DONATION_RUB, donation_order_id, remember_donation_in_session
 
     raw = (request.POST.get('amount_rub') or request.POST.get('amount') or '').strip().replace(',', '.')
     try:

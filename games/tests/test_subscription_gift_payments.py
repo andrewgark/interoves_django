@@ -9,8 +9,8 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
 from games.models import Profile, SubscriptionGift, SubscriptionGiftPayment, TributePurchase
-from games.subscription_gifts import claim_gift, decrypt_gift_code
-from games.subscription_gift_payments import (
+from games.club.billing.gifts.offers import claim_gift, decrypt_gift_code
+from games.club.billing.gifts.payments import (
     process_tribute_gift_purchase,
     process_tribute_gift_refund,
     process_yookassa_gift_event,
@@ -181,7 +181,7 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(claimed.status, SubscriptionGift.STATUS_CLAIMED)
         self.assertEqual(entitlement.ends_at.month, (entitlement.starts_at.month + 3 - 1) % 12 + 1)
 
-    @patch('games.subscription_gift_payments.Payment.create')
+    @patch('games.club.billing.gifts.payments.Payment.create')
     def test_yookassa_checkout_does_not_require_telegram_and_reuses_pending_payment(self, create):
         create.return_value = {
             'id': 'yk-gift-payment-1',
@@ -200,7 +200,7 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(create.call_count, 1)
         self.assertEqual(SubscriptionGiftPayment.objects.count(), 1)
 
-    @patch('games.subscription_gift_payments.Payment.create')
+    @patch('games.club.billing.gifts.payments.Payment.create')
     def test_yookassa_checkout_accepts_sdk_payment_response(self, create):
         from yookassa.domain.response import PaymentResponse
 
@@ -373,7 +373,7 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(reveal.status_code, 200)
         self.assertEqual(reveal.json()['code'], decrypt_gift_code(payment.gift))
 
-    @patch('games.subscription_gift_payments.Payment.create')
+    @patch('games.club.billing.gifts.payments.Payment.create')
     def test_yookassa_success_cannot_resurrect_canceled_gift(self, create):
         create.return_value = {
             'id': 'yk-gift-late-success',
@@ -395,7 +395,7 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
         self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
 
-    @patch('games.subscription_gift_payments.Payment.create')
+    @patch('games.club.billing.gifts.payments.Payment.create')
     def test_yookassa_canceled_cannot_revoke_succeeded_gift(self, create):
         create.return_value = {
             'id': 'yk-gift-late-cancel',
@@ -417,8 +417,8 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_SUCCEEDED)
         self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_PAID)
 
-    @patch('games.subscription_gift_payments.Payment.find_one')
-    @patch('games.subscription_gift_payments.Payment.create')
+    @patch('games.club.billing.gifts.payments.Payment.find_one')
+    @patch('games.club.billing.gifts.payments.Payment.create')
     def test_yookassa_reconciliation_confirms_manual_review_payment(self, create, find_one):
         create.return_value = {
             'id': 'yk-gift-reconcile',
@@ -443,8 +443,8 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_SUCCEEDED)
         self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_PAID)
 
-    @patch('games.subscription_gift_payments.Payment.find_one')
-    @patch('games.subscription_gift_payments.Payment.create')
+    @patch('games.club.billing.gifts.payments.Payment.find_one')
+    @patch('games.club.billing.gifts.payments.Payment.create')
     def test_yookassa_reconciliation_cancels_manual_review_payment(self, create, find_one):
         create.return_value = {
             'id': 'yk-gift-reconcile-canceled',
@@ -469,7 +469,7 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(payment.status, SubscriptionGiftPayment.STATUS_CANCELED)
         self.assertEqual(payment.gift.status, SubscriptionGift.STATUS_REVOKED)
 
-    @patch('games.subscription_gift_payments.Payment.create')
+    @patch('games.club.billing.gifts.payments.Payment.create')
     def test_yookassa_manual_review_prevents_duplicate_checkout(self, create):
         create.return_value = {
             'id': 'yk-gift-ambiguous',
@@ -488,7 +488,7 @@ class SubscriptionGiftPaymentTests(TestCase):
         self.assertEqual(second.http_status, 409)
         self.assertEqual(create.call_count, 1)
 
-    @patch('games.subscription_gift_payments.Payment.create')
+    @patch('games.club.billing.gifts.payments.Payment.create')
     def test_yookassa_partial_refund_goes_to_manual_review(self, create):
         create.return_value = {
             'id': 'yk-gift-refund',

@@ -10,11 +10,11 @@ from django.views.decorators.csrf import csrf_exempt
 from games.site.http.exceptions import InvalidFormException
 from games.forms import TicketRequestForm
 from games.models import TicketRequest
-from games.nowpayments_util import verify_ipn_signature
+from games.club.billing.crypto import verify_ipn_signature
 from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
 from games.tribute_util import verify_webhook_signature as verify_tribute_webhook_signature
 from games.site.views.pages.util import has_team, redirect_to_referer
-from games.yookassa_util import configure_yookassa_from_env
+from games.club.billing.yookassa.util import configure_yookassa_from_env
 
 from yookassa import Payment
 
@@ -136,7 +136,7 @@ def yookassa_webhook(request):
             return HttpResponse(status=503)
         metadata = payment_data.get('metadata') or {}
         if str(metadata.get('purpose') or '') == 'club_gift':
-            from games.subscription_gift_payments import process_yookassa_gift_refund
+            from games.club.billing.gifts.payments import process_yookassa_gift_refund
             if not process_yookassa_gift_refund({
                 'payment_id': payment_id,
                 'amount': payment_obj.get('amount'),
@@ -175,7 +175,7 @@ def yookassa_webhook(request):
 
     metadata = payment_data.get('metadata') or {}
     if str(metadata.get('purpose') or '') == 'club_gift':
-        from games.subscription_gift_payments import process_yookassa_gift_event
+        from games.club.billing.gifts.payments import process_yookassa_gift_event
 
         process_yookassa_gift_event(event, payment_data)
         return HttpResponse(status=200)
@@ -236,7 +236,7 @@ def yookassa_webhook(request):
 
 
 def _nowpayments_handle_donation_ipn(event_json, *, payment_status, order_id, np_id, payment_id):
-    from games.donation_service import (
+    from games.club.billing.donations import (
         confirm_donation,
         extract_pay_fields,
         parse_donation_order_id,
@@ -374,7 +374,7 @@ def _resolve_order_id_from_invoice(invoice_id) -> str | None:
     if invoice_id is None or invoice_id == '':
         return None
     key = str(invoice_id)
-    from games.donation_service import donation_order_id
+    from games.club.billing.donations import donation_order_id
     from games.models import Donation
 
     donation = Donation.objects.filter(nowpayments_id=key).only('id').first()
@@ -435,7 +435,7 @@ def nowpayments_ipn(request):
             )
             return HttpResponse(status=200)
 
-    from games.donation_service import DONATION_ORDER_PREFIX
+    from games.club.billing.donations import DONATION_ORDER_PREFIX
 
     if str(order_id).startswith(DONATION_ORDER_PREFIX):
         return _nowpayments_handle_donation_ipn(
@@ -508,12 +508,12 @@ def tribute_webhook(request):
         return HttpResponse(status=400)
 
     if event_name in ('new_digital_product', 'digital_product_refunded'):
-        from games.tribute_service import (
+        from games.club.billing.tribute.service import (
             TributePayloadError,
             process_new_purchase,
             process_refund,
         )
-        from games.subscription_gift_payments import (
+        from games.club.billing.gifts.payments import (
             process_tribute_gift_purchase,
             process_tribute_gift_refund,
         )

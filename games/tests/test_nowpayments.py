@@ -10,8 +10,8 @@ from django.utils import timezone
 from allauth.socialaccount.models import SocialApp
 
 from games.models import Donation, HTMLPage, Profile, Project, Team, TicketRequest
-from games.nowpayments_util import compute_ipn_signature, verify_ipn_signature
-from games.donation_service import donation_order_id
+from games.club.billing.crypto import compute_ipn_signature, verify_ipn_signature
+from games.club.billing.donations import donation_order_id
 from games.club.billing.tickets import STUCK_TICKET_REQUEST_MINUTES, stuck_pending_ticket_count
 
 

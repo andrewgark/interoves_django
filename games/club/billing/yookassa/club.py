@@ -22,7 +22,7 @@ from django.utils import timezone
 from games.club.billing.yookassa.client import ClubPayment as Payment
 
 from games.models import ClubSubscription, ClubYooKassaPayment, SavedPaymentMethod
-from games.yookassa_util import configure_yookassa_from_env
+from games.club.billing.yookassa.util import configure_yookassa_from_env
 
 logger = logging.getLogger('games.club_yookassa')
 

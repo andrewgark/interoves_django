@@ -1,7 +1,7 @@
 """Unit tests for donation_service helpers."""
 from django.test import TestCase
 
-from games.donation_service import (
+from games.club.billing.donations import (
     confirm_donation,
     extract_pay_fields,
     parse_donation_order_id,
@@ -57,7 +57,7 @@ class DonationServiceTests(TestCase):
         from django.contrib.sessions.backends.db import SessionStore
         from django.test import RequestFactory
 
-        from games.donation_service import recent_donations_for_request, remember_donation_in_session
+        from games.club.billing.donations import recent_donations_for_request, remember_donation_in_session
 
         d1 = Donation.objects.create(amount_rub=10, status='Pending')
         d2 = Donation.objects.create(amount_rub=20, status='Confirmed')
@@ -75,7 +75,7 @@ class DonationServiceTests(TestCase):
 
         from django.utils import timezone
 
-        from games.donation_service import reject_stale_pending_donations
+        from games.club.billing.donations import reject_stale_pending_donations
 
         fresh = Donation.objects.create(amount_rub=100, status='Pending')
         stale = Donation.objects.create(amount_rub=200, status='Pending')

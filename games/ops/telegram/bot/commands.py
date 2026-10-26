@@ -110,7 +110,7 @@ def _cmd_help(_args) -> str:
 def _cmd_gift(args, *, telegram_user_id=None) -> str:
     from django.contrib.auth import get_user_model
     from games.models import Profile
-    from games.subscription_gifts import create_gift, gift_duration_label
+    from games.club.billing.gifts.offers import create_gift, gift_duration_label
     from games.telegram.api import send_message
 
     if len(args) == 1:
