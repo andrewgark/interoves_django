@@ -920,7 +920,7 @@ class Hint(models.Model):
         return self.number_key(self.number)
 
     def save(self, *args, **kwargs):
-        from games.views.track import track_task_change
+        from games.realtime.track_compat import track_task_change
         super(Hint, self).save(*args, **kwargs)
         if self.task_id and self.task.task_group_id:
             from games.daily_result_projection import mark_projection_dirty

@@ -21,21 +21,21 @@ from django.shortcuts import redirect
 from django.views.generic import RedirectView, TemplateView
 
 from microsites import views as microsites_views
-from games.views.meta_http import deploy_version
-from games.views.health import live as health_live, ready as health_ready
-from games.views.background_worker import background_worker
-from games.views.identity_worker import identity_worker
-from games.views.integrations_worker import integrations_worker
-from games.views.word_salad_worker import recheck_worker, word_salad_worker
-from games.views.analytics_views import analytics_goal_ack
-from games.views.ticket import nowpayments_ipn, tribute_webhook, yookassa_webhook
-from games.views.order_game_landing import order_game_landing
-from games.views.next_game_vote import next_game_vote_page
-from games.views.instagram_feed import instagram_feed, ladder_teaser_jpg
+from games.site.views.account.ticket import nowpayments_ipn, tribute_webhook, yookassa_webhook
+from games.site.views.pages import ui as ui_views
+from games.site.views.pages.meta import deploy_version
+from games.site.views.pages.public.analytics import analytics_goal_ack
+from games.site.views.pages.public.feed import instagram_feed, ladder_teaser_jpg
+from games.site.views.pages.public.health import live as health_live, ready as health_ready
+from games.site.views.pages.public.legal import legal_page
+from games.site.views.pages.public.order import order_game_landing
+from games.site.views.pages.public.vote import next_game_vote_page
+from games.site.views.workers.background import background_worker
+from games.site.views.workers.identity import identity_worker
+from games.site.views.workers.integrations import integrations_worker
+from games.site.views.workers.word_salad import recheck_worker, word_salad_worker
 from games.social.views import social_queue_instagram_jpg
 from games.telegram.urls import urlpatterns as telegram_urlpatterns
-from games.views import ui as ui_views
-from games.views.legal import legal_page
 
 nutrimatic_patterns = [
     path("", microsites_views.nutrimatic_search, name="nutrimatic_home"),

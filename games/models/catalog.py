@@ -607,7 +607,7 @@ class Task(models.Model):
 
     def save(self, *args, **kwargs):
         skip_semantics_reconciliation = kwargs.pop('skip_semantics_reconciliation', False)
-        from games.views.track import track_task_change
+        from games.realtime.track_compat import track_task_change
         from games.puzzles import get_puzzle
         puzzle = get_puzzle(self.task_type)
         assign_rows = getattr(puzzle, 'assign_answer_rows', None) if puzzle is not None else None
