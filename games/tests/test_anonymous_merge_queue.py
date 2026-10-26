@@ -88,6 +88,30 @@ class AnonymousMergeQueueTests(TestCase):
         job.refresh_from_db()
         return job
 
+    @patch('games.ops.telegram.bot.notify.publish_admin_alert', return_value=True)
+    @patch('games.identity.merge.anon_queue.migrate_anon_history_step', side_effect=RuntimeError('boom'))
+    def test_admin_is_alerted_only_when_job_exhausts_retries(self, _step, publish):
+        key = self._key('alert')
+        Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='x', status='Wrong')
+        job = self._enqueue(key)
+        AnonymousMergeJob.objects.filter(pk=job.pk).update(stage=AnonymousMergeJob.STAGE_MOVING)
+
+        with self.captureOnCommitCallbacks(execute=True):
+            job = self._drain(job)
+        self.assertEqual(job.status, AnonymousMergeJob.STATUS_PENDING)
+        publish.assert_not_called()
+
+        AnonymousMergeJob.objects.filter(pk=job.pk).update(attempt_count=7, next_attempt_at=None)
+        with self.captureOnCommitCallbacks(execute=True):
+            job = self._drain(job)
+        self.assertEqual(job.status, AnonymousMergeJob.STATUS_FAILED)
+        publish.assert_called_once()
+        kwargs = publish.call_args.kwargs
+        self.assertEqual(kwargs['alert'], 'merge_job_failed')
+        self.assertIn(str(job.pk), kwargs['dedupe_key'])
+        self.assertIn('merge_queue_user', kwargs['payload']['text'])
+        self.assertIn('boom', kwargs['payload']['text'])
+
     def test_http_claim_is_fast_and_returns_persistent_job(self):
         key = self._key('http')
         Attempt.manager.create(anon_key=key, task=self.tasks[0], game=self.game, text='ok', status='Ok')

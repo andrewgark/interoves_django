@@ -160,6 +160,9 @@ Resources:
               Value: !If [IsIdentity, !Ref QueueUrl, '']
             - Name: ANONYMOUS_MERGE_EVENTS
               Value: !If [IsIdentity, '1', '']
+            # Failed merges alert the admin through the integrations queue.
+            - Name: INTEGRATIONS_SQS_QUEUE_URL
+              Value: !If [IsIdentity, !Sub 'https://sqs.${AWS::Region}.amazonaws.com/${AWS::AccountId}/interoves-integrations', '']
             - Name: INTEROVES_CLOUDWATCH_METRICS
               Value: !If [IsRecheck, '1', '']
             - Name: INTEROVES_CONFIG_SECRET_ID

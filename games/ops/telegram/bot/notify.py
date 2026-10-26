@@ -186,6 +186,45 @@ def notify_admin_club_subscription_attempt_failed(
         return False
 
 
+MERGE_KIND_LABELS = {
+    'anonymous': 'перенос игры без входа в профиль',
+    'account': 'объединение аккаунтов',
+}
+
+
+def notify_admin_merge_job_failed(*, kind: str, job_id, user_id, error: str = '', step: str = '') -> bool:
+    """Queue an admin alert once a merge job has exhausted its retries."""
+    try:
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.select_related('profile').filter(pk=user_id).first()
+        profile = getattr(user, 'profile', None) if user is not None else None
+        username = getattr(profile, 'telegram_username', '') or '' if profile else ''
+        user_label = user.get_username() if user is not None else '—'
+        lines = [
+            '⚠️ <b>Не удалась задача: {}</b>'.format(_escape(MERGE_KIND_LABELS.get(kind, kind))),
+            '',
+            'Пользователь: <b>{}</b> (id {})'.format(_escape(user_label), _escape(user_id)),
+        ]
+        if username:
+            lines.append('Telegram: @{}'.format(_escape(username)))
+        lines.append('Задача: <code>{}</code>'.format(_escape(job_id)))
+        if step:
+            lines.append('Шаг: {}'.format(_escape(step)))
+        if error:
+            lines.append('Ошибка: <code>{}</code>'.format(_escape(error[:1000])))
+        if user is not None:
+            lines.append(admin_url('/admin/auth/user/{}/change/'.format(user.pk)))
+        return publish_admin_alert(
+            alert='merge_job_failed',
+            dedupe_key='telegram.admin_alert:merge_job_failed:{}:{}'.format(kind, job_id),
+            payload={'text': _join_lines(lines)},
+        )
+    except Exception:
+        logger.exception('Failed to notify admin about failed %s merge job=%s', kind, job_id)
+        return False
+
+
 def notify_admin_club_renewal_failed(
     subscription_id: int, *, payment_id: int | None = None, reason: str = '',
     delivery: str = 'direct',

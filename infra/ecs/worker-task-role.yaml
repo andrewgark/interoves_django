@@ -116,6 +116,11 @@ Resources:
             Action:
               - sqs:SendMessage
             Resource: !Ref QueueArn
+          - Sid: PublishIdentityAdminAlerts
+            Effect: Allow
+            Action:
+              - sqs:SendMessage
+            Resource: !Sub arn:aws:sqs:${AWS::Region}:${AWS::AccountId}:interoves-integrations
 
   ValidationQueuePolicy:
     Type: AWS::IAM::Policy

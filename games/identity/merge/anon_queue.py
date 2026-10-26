@@ -285,7 +285,14 @@ def _record_job_failure(job, token, exc, *, duration_ms=None):
         'claim_token': None,
         'claimed_until': None,
     }
-    AnonymousMergeJob.objects.filter(pk=job.pk, claim_token=token).update(**updates)
+    updated = AnonymousMergeJob.objects.filter(pk=job.pk, claim_token=token).update(**updates)
+    if exhausted and updated:
+        from games.ops.telegram.bot.notify import notify_admin_merge_job_failed
+
+        step = job.move_step or job.stage
+        transaction.on_commit(lambda: notify_admin_merge_job_failed(
+            kind='anonymous', job_id=job.pk, user_id=job.user_id, error=message, step=step,
+        ))
     logger.exception(
         'profile merge failed merge_kind=anonymous job_id=%s exhausted=%s '
         'error_type=%s duration_ms=%s',

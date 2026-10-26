@@ -306,6 +306,12 @@ def _mark_failed(job_id, error, claim_token):
     )
     if updated:
         _clear_event(job_id)
+        from games.ops.telegram.bot.notify import notify_admin_merge_job_failed
+
+        user_id = AccountMergeJob.objects.filter(pk=job_id).values_list('target_user_id_snapshot', flat=True).first()
+        transaction.on_commit(lambda: notify_admin_merge_job_failed(
+            kind='account', job_id=job_id, user_id=user_id, error=str(error),
+        ))
     return bool(updated)
 
 

@@ -92,6 +92,24 @@ class AccountMergeQueueTests(TestCase):
         self.assertEqual(job.status, AccountMergeJob.STATUS_RUNNING)
         self.assertEqual(str(job.claim_token), '22222222-2222-2222-2222-222222222222')
 
+    @patch('games.ops.telegram.bot.notify.publish_admin_alert', return_value=True)
+    def test_final_failure_alerts_admin(self, publish):
+        job = AccountMergeJob.objects.create(
+            target_user=self.target,
+            source_user=self.source,
+            target_user_id_snapshot=self.target.pk,
+            source_user_id_snapshot=self.source.pk,
+            provider='telegram',
+            provider_uid='telegram-source',
+        )
+        claimed, _ = _claim_job(job.pk, worker='test')
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertTrue(_mark_failed(job.pk, 'merge exploded', claimed.claim_token))
+        publish.assert_called_once()
+        text = publish.call_args.kwargs['payload']['text']
+        self.assertIn('queue-target', text)
+        self.assertIn('merge exploded', text)
+
     def test_status_page_renders_for_owner(self):
         job = AccountMergeJob.objects.create(
             target_user=self.target,
