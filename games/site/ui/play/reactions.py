@@ -24,9 +24,7 @@ from games.models import (
     Like,
     Task,
 )
-from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
-)
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.site.views.game.context import game_from_request_for_task
 from games.site.views.pages.util import (
     effective_play_mode,

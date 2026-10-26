@@ -36,9 +36,7 @@ from games.models import (
     HTMLPage,
     Project,
 )
-from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
-)
+from games.daily.page.section import WORD_SALAD_GAME_ID
 
 
 logger = logging.getLogger('games.views.new_ui')

@@ -15,6 +15,7 @@ from django.utils import timezone
 
 
 from games.daily.page.section import (
+    WORD_SALAD_GAME_ID,
     is_scheduled_game,
     publish_at_for,
     scheduled_number_is_public,
@@ -50,9 +51,6 @@ from games.models import (
     PlayerCompletedGame,
 )
 from games.site.session.replay import active_replay
-from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
-)
 from games.results.share import share_host_from_request
 from games.site.views.pages.util import (
     effective_play_mode,

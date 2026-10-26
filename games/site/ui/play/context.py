@@ -28,9 +28,7 @@ from games.puzzles.replacements.lines import (
     parse_replacements_lines_text,
     replacements_solved_slots_from_state,
 )
-from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
-)
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.puzzles.replacements.proportions import build_proportions_chips_for_tasks
 from games.puzzles.replacements.forms import render_html_forms_task
 

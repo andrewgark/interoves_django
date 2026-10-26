@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from games.club.access.game import game_has_started
 from games.daily.page.section import (
+    WORD_SALAD_GAME_ID,
     is_scheduled_game,
     publish_at_for,
     visible_links,
@@ -42,10 +43,7 @@ from games.models import (
 from games.puzzles.raddle.engine import (
     raddle_hub_result_for_actor,
 )
-from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
-    salad_hub_result_for_actor,
-)
+from games.puzzles.salad.rules import salad_hub_result_for_actor
 from games.site.views.pages.util import (
     effective_play_mode,
     has_profile,

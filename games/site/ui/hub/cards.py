@@ -14,6 +14,7 @@ from games.ops.analytics.identity import (
     is_valid_anon_key,
 )
 from games.daily.page.section import (
+    WORD_SALAD_GAME_ID,
     filter_published_links,
     is_scheduled_game,
     publish_at_for,
@@ -50,10 +51,7 @@ from games.models import (
 from games.puzzles.raddle.engine import (
     parse_raddle_data,
 )
-from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
-    archive_card_meta as word_salad_archive_card_meta,
-)
+from games.puzzles.salad.rules import archive_card_meta as word_salad_archive_card_meta
 from games.site.views.pages.util import (
     effective_play_mode,
     has_profile,

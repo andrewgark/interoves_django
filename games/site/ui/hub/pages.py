@@ -25,9 +25,7 @@ from games.models import (
     Game,
     Project,
 )
-from games.puzzles.salad.rules import (
-    WORD_SALAD_GAME_ID,
-)
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.site.views.pages.public.main import MainPageView
 from games.site.views.pages.util import (
     has_profile,
