@@ -92,7 +92,7 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         # strong ownership proof. Reuse that profile when the first OIDC login
         # arrives, instead of creating a second user without an email.
         if sociallogin.account.provider == 'telegram':
-            from games.telegram_oidc import telegram_user_id_from_claims
+            from games.club.telegram_oidc import telegram_user_id_from_claims
 
             telegram_user_id = telegram_user_id_from_claims(
                 sociallogin.account.extra_data,

@@ -5,7 +5,7 @@ from games.models import Task
 
 def compute_task_progress(game, task_groups, team=None, user=None, anon_key=None,
                           mode='general', *, include_other_games=False):
-    from games.scoring import Actor, bulk_actor_task_progress
+    from games.daily.completion.scoring import Actor, bulk_actor_task_progress
     tg_ids = [tg.id for tg in task_groups]
     tasks = list(Task.objects.filter(task_group_id__in=tg_ids).visible())
     solved_task_ids = set()

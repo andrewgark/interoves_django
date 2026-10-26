@@ -30,7 +30,7 @@ from games.daily.page.context import (
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
-from games.week_task_weekly import WEEK_TASK_GAME_ID
+from games.daily.catalog.week_task import WEEK_TASK_GAME_ID
 from games.sections.hub import (
     SECTION_HUB_META,
     get_source_desyatka_context,

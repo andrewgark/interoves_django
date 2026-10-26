@@ -237,6 +237,12 @@ If the resolved version is empty, the client check is skipped.
 | Daily result projection | `games.daily.projection` (+ `projection.cron`) | `games.daily_result_projection*` |
 | Targeted completion reconcile | `games.daily.completion.targeted_completion_reconciliation` | `games.targeted_completion_reconciliation` |
 | Chain replay planning | `games.site.session.replay_planner` | `games.replay_planner` |
+| Weekly task catalog | `games.daily.catalog.week_task` | `games.week_task_weekly` |
+| Next-game vote campaign | `games.club.vote` | `games.next_game_vote` |
+| Actor task scoring / progress SQL | `games.daily.completion.scoring` | `games.scoring` |
+| Raddle response contract matrix | `games.puzzles.raddle.contract` | `games.raddle_response_contract` |
+| Telegram OIDC auth | `games.club.telegram_oidc` | `games.telegram_oidc` |
+| Template context processors | `games.site.http.context` | `games.context_processors` (settings keep legacy strings) |
 | Daily schedule / section page | `games.daily.page.section` | `games.daily_section` |
 | Daily archive UI helpers | `games.daily.page.archive` | `games.daily_archive` |
 | Ladder daily catalog | `games.daily.catalog.ladder` | `games.ladder_daily` |

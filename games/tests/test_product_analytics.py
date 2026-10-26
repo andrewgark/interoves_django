@@ -17,7 +17,7 @@ from games.ops.analytics.events import (
     register_completed_game,
     register_started_game,
 )
-from games.context_processors import analytics_bootstrap
+from games.site.http.context import analytics_bootstrap
 from games.models import (
     CheckerType,
     Attempt,

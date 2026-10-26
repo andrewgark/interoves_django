@@ -8,7 +8,7 @@ from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.models import SocialAccount
 
 from games.models import Profile
-from games.telegram_oidc import TelegramCallbackView, TelegramProvider, telegram_callback
+from games.club.telegram_oidc import TelegramCallbackView, TelegramProvider, telegram_callback
 
 
 class TelegramOIDCTests(TestCase):

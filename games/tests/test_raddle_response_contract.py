@@ -5,7 +5,7 @@ from pathlib import Path
 from django.conf import settings
 from django.test import SimpleTestCase
 
-from games.raddle_response_contract import (
+from games.puzzles.raddle.contract import (
     RADDLE_PR_CHECKLIST,
     RADDLE_RESPONSE_SCENARIOS,
     RADDLE_UI_PRINCIPLE,

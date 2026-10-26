@@ -341,7 +341,7 @@ def sync_telegram_identity(sender, **kw):
     extra = account.extra_data or {}
     updates = []
     was_verified = bool(profile.telegram_verified)
-    from games.telegram_oidc import telegram_user_id_from_claims
+    from games.club.telegram_oidc import telegram_user_id_from_claims
 
     telegram_user_id = telegram_user_id_from_claims(extra)
     oidc_sub = str(account.uid or '').strip() or None

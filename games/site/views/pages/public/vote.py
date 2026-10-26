@@ -8,7 +8,7 @@ from games.ops.analytics.events import (
     YANDEX_GOAL_NEXT_GAME_VOTE_VIEW,
     queue_pending_goal,
 )
-from games.next_game_vote import (
+from games.club.vote import (
     CANDIDATE_SLUGS,
     scoreboard,
 )

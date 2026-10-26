@@ -37,7 +37,7 @@ from games.sections.week_task_pool import (
     source_play_path_from_tags,
     source_summary_from_tags,
 )
-from games.week_task_weekly import (
+from games.daily.catalog.week_task import (
     WEEK_TASK_BUFFER_WEEKS,
     WEEK_TASK_GAME_ID,
     WEEK_TASK_PUBLISH_START_TAG,

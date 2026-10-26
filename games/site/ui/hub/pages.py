@@ -17,7 +17,7 @@ from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
     get_ladder_hub_context,
 )
-from games.next_game_vote import PHASE_CLOSED, campaign_phase
+from games.club.vote import PHASE_CLOSED, campaign_phase
 from games.sections.hub import (
     get_desyatochki_hub_context,
 )

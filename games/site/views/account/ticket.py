@@ -556,7 +556,7 @@ def tribute_webhook(request):
             return HttpResponse(status=400)
         return HttpResponse(status=200)
 
-    from games.next_game_vote import DONATION_EVENTS, VotePayloadError, maybe_process_tribute_donation
+    from games.club.vote import DONATION_EVENTS, VotePayloadError, maybe_process_tribute_donation
 
     if event_name in DONATION_EVENTS:
         try:

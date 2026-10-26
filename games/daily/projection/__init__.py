@@ -522,7 +522,7 @@ def load_actor_task_result_points(game, tasks, actor):
         result[task_id] = (float(points or 0), True, status or None)
 
     if _task_projection_compare_enabled():
-        from games.scoring import bulk_actor_task_result_points
+        from games.daily.completion.scoring import bulk_actor_task_result_points
 
         canonical = bulk_actor_task_result_points(
             task_ids=task_ids,

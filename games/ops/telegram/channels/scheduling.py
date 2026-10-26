@@ -726,7 +726,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
                 from games.support.services.week_tasks import (
                     ensure_future_buffer as week_task_ensure_future_buffer,
                 )
-                from games.week_task_weekly import WEEK_TASK_GAME_ID
+                from games.daily.catalog.week_task import WEEK_TASK_GAME_ID
 
                 wt_game = Game.objects.filter(pk=WEEK_TASK_GAME_ID).first()
                 if wt_game and _try_mark(wt_game, f'week_task_buffer:{day_key}'):

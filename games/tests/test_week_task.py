@@ -33,7 +33,7 @@ from games.sections.week_task_pool import (
     resolve_unit,
     scheduled_exclude_keys,
 )
-from games.week_task_weekly import (
+from games.daily.catalog.week_task import (
     WEEK_TASK_GAME_ID,
     WEEK_TASK_PUBLISH_START_TAG,
     current_week_task_number,

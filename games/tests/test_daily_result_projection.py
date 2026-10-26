@@ -33,7 +33,7 @@ from games.models import (
     ChainTaskState, Hint, HintAttempt, Profile, ReplaySlot, Task, TaskGroup, HiddenAnonKey,
     DailyResultProjectionRefreshOutbox, CheckerType, Team,
 )
-from games.scoring import Actor, _bulk_actor_task_result_points_sql, bulk_actor_task_progress
+from games.daily.completion.scoring import Actor, _bulk_actor_task_result_points_sql, bulk_actor_task_progress
 from games.puzzles.salad.rules import dump_state, score_for_state
 
 
@@ -227,7 +227,7 @@ class DailyResultProjectionTests(TestCase):
         )
         refresh_daily_result_projection(self.game, self.group)
 
-        with patch('games.scoring._bulk_actor_task_result_points_sql') as canonical:
+        with patch('games.daily.completion.scoring._bulk_actor_task_result_points_sql') as canonical:
             solved, points = bulk_actor_task_progress(
                 tasks=[task], actor=Actor(anon_key='progress-projection-actor'),
                 game=self.game, include_other_games=True,
@@ -252,7 +252,7 @@ class DailyResultProjectionTests(TestCase):
         ).update(is_valid=False)
 
         with patch(
-            'games.scoring._bulk_actor_task_result_points_sql',
+            'games.daily.completion.scoring._bulk_actor_task_result_points_sql',
             wraps=_bulk_actor_task_result_points_sql,
         ) as canonical:
             solved, points = bulk_actor_task_progress(
