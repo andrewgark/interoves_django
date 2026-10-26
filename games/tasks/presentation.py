@@ -76,7 +76,7 @@ def task_ui_descriptor(
 def wall_ui_context(task, attempts_info, mode):
     if task.task_type != 'wall':
         return None
-    from games.templatetags.filters import attempts_with_status
+    from games.site.http.tags.filters import attempts_with_status
     wall = task.get_wall()
     attempts = list(attempts_info.attempts if attempts_info else [])
     counters = wall.get_n_max_attempts_dict(attempts)

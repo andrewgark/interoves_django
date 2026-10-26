@@ -7,7 +7,7 @@ from django.test import SimpleTestCase
 from games.puzzles import get_puzzle, parse_posted_text
 from games.puzzles.core.primitives import MoveRefusal, TextMove
 from games.puzzles.wall import WallPuzzle
-from games.templatetags.filters import get_diff_points, get_show_status
+from games.site.http.tags.filters import get_diff_points, get_show_status
 
 
 def _post(**values):

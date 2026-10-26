@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from games.templatetags.filters import attempts_with_status
+from games.site.http.tags.filters import attempts_with_status
 
 
 def _attempt(status, *, task_type='default', points=0, time=0, text='', state=''):

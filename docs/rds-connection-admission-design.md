@@ -36,7 +36,7 @@ limits concurrent Django request contexts and therefore the number of
 request-owned sync DB contexts. It also covers DB-backed sessions and
 synchronous middleware.
 
-The local prototype is `games.asgi_admission.DatabaseAdmissionASGIMiddleware`,
+The local prototype is `games.realtime.admission.DatabaseAdmissionASGIMiddleware`,
 installed around Django's HTTP ASGI app before the `ProtocolTypeRouter` sends
 requests to Django. `DB_ADMISSION_MAX_ACTIVE`, `DB_ADMISSION_MAX_WAITERS`, and
 `DB_ADMISSION_WAIT_TIMEOUT_SECONDS` configure the per-process active cap,

@@ -144,7 +144,7 @@ breakpoints и границы legacy Bootstrap. Новый UI не должен 
 4. Перенести эту группу в тематический модуль без изменения поведения.
 5. Повторить цикл для следующей группы только после проверки первого результата.
 6. Создать canonical-карту worker-очередей и синхронизировать её с
-   `games/worker_contract.py`, ECS templates и AWS runtime; отдельно описать
+   `games/ops/workers/contract.py`, ECS templates и AWS runtime; отдельно описать
    identity queue `interoves-identity` и её DLQ.
 
 Успех измеряется не количеством удалённых строк, а тем, что новые изменения

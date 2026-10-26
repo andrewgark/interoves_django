@@ -459,7 +459,7 @@ DEFER_CHANNEL_BROADCAST = os.environ.get('DEFER_CHANNEL_BROADCAST', '1').strip()
     'no',
 )
 
-# Track WebSocket lifecycle (games.views.track). Idle close + bounded Redis group_discard
+# Track WebSocket lifecycle (games.realtime.track_compat; legacy games.views.track). Idle close + bounded Redis group_discard
 # so a stuck channel layer cannot block Daphne application close (prod 504 / "took too long").
 def _env_float(name, default):
     try:
@@ -476,7 +476,7 @@ try:
 except ValueError:
     TRACK_WS_OPEN_LOG_EVERY = 50
 
-# games.middleware.request_timing — warn when send_attempt / alphabetty guess exceed this (ms).
+# games.site.http.middleware.request_timing (settings use games.middleware.request_timing facade) — warn when send_attempt / alphabetty guess exceed this (ms).
 REQUEST_TIMING_SLOW_MS = _env_float('REQUEST_TIMING_SLOW_MS', 2000)
 
 # Sample a small fraction of task-level projection reads against the canonical

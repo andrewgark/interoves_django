@@ -6,10 +6,11 @@ Beanstalk `sqsd`, an ECS SQS poller, Lambda SQS event source mapping, or a
 supervised process on Green.  The production queue/runtime map is maintained
 in `docs/worker-queues.md`; check it before operating a worker.
 
-The registry lives in `games/worker_contract.py`.  It defines the worker name,
+The registry lives in `games/ops/workers/contract.py`.  It defines the worker name,
 runtime role, queue, endpoint, accepted message types, supported deployment
-modes, and required worker-specific environment names.  `games/worker_config.py`
+modes, and required worker-specific environment names.  `games/ops/workers/config.py`
 normalizes the mode and validates configuration without ever printing values.
+(Legacy imports `games.worker_contract` and `games.worker_config` remain as facades.)
 
 ## Current runtime state
 
@@ -46,7 +47,7 @@ exact SQS and Secrets Manager resources for that worker. Visibility timeout,
 graceful shutdown and CloudWatch logs are part of the service configuration.
 
 Lambda has the same compatibility boundary through
-`games.worker_lambda.handle_sqs_event`.  It returns partial batch failures for
+`games.ops.workers.lambda_entry.handle_sqs_event`.  It returns partial batch failures for
 5xx and 409 responses, while treating ordinary 4xx responses as poison
 messages.  Only `background` is enabled for Lambda in the registry for now;
 the other workers need duration/memory and browser compatibility measurements.

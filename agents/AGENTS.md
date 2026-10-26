@@ -263,6 +263,7 @@ If the resolved version is empty, the client check is skipped.
 | EB worker poll/config/contract | `games.ops.workers.{http,config,contract,polling,lambda_entry,heartbeat,messages}` | `games.worker_*`, `queue_heartbeat`, `background.messages` |
 | Site HTTP forms | `games.site.forms` | `games.forms` |
 | Django admin registrations | `games.site.admin` | `games.admin` (autodiscover entry) |
+| Template filter helpers | `games.site.http.tags.filters` | `games.templatetags.filters` (Django tag library path) |
 | Distributed cron locks | `games.ops.cron.lock` | `games.cron_lock` |
 | EB runtime role / heavy-processing gate | `games.ops.cron.runtime` | `games.runtime` |
 | Profile feedback reports | `games.site.ui.profile.feedback` | `games.feedback` |

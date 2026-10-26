@@ -27,17 +27,17 @@ the same queues.
 
 ## Where the contract lives
 
-- `games/worker_contract.py` — worker names, queue names, endpoints and message types;
+- `games/ops/workers/contract.py` — worker names, queue names, endpoints and message types;
 - `scripts/deploy_ecs_worker.sh` — resolves `interoves-<worker>` and passes its URL;
 - `infra/ecs/worker-service.yaml` — injects `QueueUrl` as `WORKER_QUEUE_URL` and,
   for identity, `ANONYMOUS_MERGE_SQS_QUEUE_URL`;
-- `games/anonymous_merge_events.py` — publishes identity merge events;
-- `games/telegram/admin_alert_events.py` — publishes safe web-originated
-  Telegram admin alerts to the integrations queue. Alert subtypes include
+- `games/club/merge/events.py` — publishes identity merge events (facade `games.anonymous_merge_events`);
+- `games/ops/telegram/bot/alerts.py` — publishes safe web-originated
+  Telegram admin alerts to the integrations queue (facade `games.telegram.admin_alert_events`). Alert subtypes include
   `word_salad_submission`, `site_error`, `club_subscription_attempt_failed`,
   `club_subscription_state`, `club_renewal_failed`, and
   `censorly_word_report` (the worker computes the Censorly pair diagnostic,
-  stores it on the report and then notifies; see `games/censorly/word_reports.py`);
+  stores it on the report and then notifies; see `games/puzzles/censorly/article/reports.py`);
 - `games/models.py` — durable merge state in `AccountMergeJob`,
   `AnonymousMergeJob`, and `AnonymousMergeReconcileItem`.
 
