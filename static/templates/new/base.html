@@ -603,8 +603,20 @@
       modal.classList.remove('is-open');
       document.body.style.overflow = '';
     }
+    // The resumed-job modal is keyed by job: the guest key it came from has
+    // already been rotated, so the per-guest-key postpone cannot reach it.
+    function jobLaterKey(jobId) {
+      return 'interoves_anon_migrate_later:' + userId + ':job:' + jobId;
+    }
+    function jobPostponed(jobId) {
+      try { return Date.now() < (Number(localStorage.getItem(jobLaterKey(jobId))) || 0); } catch (e) { return false; }
+    }
     function postpone() {
-      try { localStorage.setItem(laterKey(anonKey), String(Date.now() + postponeMs)); } catch (e) {}
+      var until = String(Date.now() + postponeMs);
+      try { localStorage.setItem(laterKey(anonKey), until); } catch (e) {}
+      if (activeJobId) {
+        try { localStorage.setItem(jobLaterKey(activeJobId), until); } catch (e) {}
+      }
       close();
     }
     function keepSeparate() {
@@ -770,12 +782,16 @@
       if (!jobId) return;
       var request = jobId === 'pending' ? fetchCurrentMergeJob() : fetchMergeJob(jobId);
       request.then(function (job) {
-        if (!job) {
+        if (!job || job.status === 'completed') {
+          // Already transferred (e.g. finished while the user was on another
+          // page): nothing to show.
           clearMergeJobId();
+          if (job) rotateAnonKey();
           return;
         }
         saveMergeJobId(job.id);
         activeJobId = job.id;
+        if (jobPostponed(job.id)) return;
         modal.removeAttribute('hidden');
         modal.classList.add('is-open');
         document.body.style.overflow = 'hidden';

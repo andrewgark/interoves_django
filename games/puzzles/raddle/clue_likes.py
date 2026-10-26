@@ -78,6 +78,7 @@ def attach_clue_reactions(ui, task, *, team=None, user=None, anon_key=None):
         hint['reaction'] = meta.get(hint['index'], _EMPTY_META)
 
 
+@transaction.atomic
 def migrate_anon_clue_likes(user, anon_key, *, batch_size=None):
     """Move guest clue reactions onto ``user``; a reaction the user already has wins.
 
@@ -107,6 +108,7 @@ def migrate_anon_clue_likes(user, anon_key, *, batch_size=None):
     return len(anon_rows)
 
 
+@transaction.atomic
 def merge_user_clue_likes(target, source):
     """Account merge: move ``source`` clue reactions onto ``target`` unless it has its own."""
     rows = list(RaddleClueLike.objects.select_for_update().filter(user=source).order_by('id'))

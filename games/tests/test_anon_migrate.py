@@ -545,6 +545,20 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(data['example_url'], expected_url)
         self.assertEqual(data['example_label'], 'G1')
 
+    def test_migrate_count_does_not_prompt_for_key_with_merge_job(self):
+        AnonAccountClaim.objects.create(anon_key=self.anon_key, user=self.user)
+        job = AnonymousMergeJob.objects.create(anon_key=self.anon_key, user=self.user)
+        url = reverse('new_anon_migrate_count')
+        for status, expected in (
+            (AnonymousMergeJob.STATUS_PENDING, 'merge_in_progress'),
+            (AnonymousMergeJob.STATUS_FAILED, 'merge_in_progress'),
+            (AnonymousMergeJob.STATUS_COMPLETED, 'already_merged'),
+        ):
+            AnonymousMergeJob.objects.filter(pk=job.pk).update(status=status)
+            data = self.client.get(url, {'anon_key': self.anon_key}).json()
+            self.assertEqual(data['status'], expected)
+            self.assertFalse(data['show_prompt'])
+
     def test_migrate_count_does_not_load_puzzle_or_attempt_payloads(self):
         Task.objects.filter(pk=self.task.pk).update(tags={'large_puzzle': 'x' * 1000})
         Attempt.manager.bulk_create([

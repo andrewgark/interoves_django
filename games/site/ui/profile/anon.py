@@ -122,6 +122,18 @@ def new_anon_migrate_count(request):
     claim = AnonAccountClaim.objects.filter(anon_key=anon_key).first()
     if claim is not None and claim.user_id != request.user.pk:
         return JsonResponse({'status': 'claimed_elsewhere', 'show_prompt': False}, status=409)
+    # A key that already has a merge job is either transferred or being
+    # transferred; the base template resumes unfinished jobs on its own.
+    from games.models import AnonymousMergeJob
+    job_status = (
+        AnonymousMergeJob.objects.filter(anon_key=anon_key, user=request.user)
+        .values_list('status', flat=True).first()
+    )
+    if job_status is not None:
+        return JsonResponse({
+            'status': 'already_merged' if job_status == AnonymousMergeJob.STATUS_COMPLETED else 'merge_in_progress',
+            'show_prompt': False,
+        })
 
     # Задания, уже сданные на OK на авторизованном профиле (личный режим),
     # не учитываем — их посылки восстанавливать незачем.
