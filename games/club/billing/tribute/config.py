@@ -1,0 +1,439 @@
+"""Validated configuration for Tribute Digital Product browser payments."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from decimal import Decimal
+from urllib.parse import urlparse
+
+from django.conf import settings
+
+
+SUPPORTED_CURRENCIES = frozenset({'EUR', 'RUB'})
+CLUB_SUPPORTED_CURRENCIES = frozenset({'RUB', 'EUR'})
+SUPPORTED_MERCHANTS = frozenset({'ru_self_employed', 'am_ie'})
+CLUB_URL_HOSTS = frozenset({'web.tribute.tg', 'tribute.tg', 't.me'})
+TRIBUTE_MANAGEMENT_BOT_URL = 'https://t.me/tribute'
+CLUB_PRODUCT_KINDS = ('RUB', 'EUR')
+# INTERNAL: existing legacy Tribute rows use legacy_unspecified, so seller review
+# is required before this route can be enabled. Never expose this marker in UI.
+TRIBUTE_LEGAL_REVIEW = 'existing_tribute_merchant_is_not_proven_by_repository_configuration'
+
+
+@dataclass(frozen=True)
+class ClubGiftProduct:
+    months: int
+    product_id: int
+    web_url: str
+    amount: int
+    currency: str = 'EUR'
+
+    @property
+    def amount_display(self) -> str:
+        value = Decimal(self.amount) / Decimal('100')
+        return '{:,.2f}'.format(value).replace(',', ' ')
+
+
+@dataclass(frozen=True)
+class TributeProduct:
+    kind: str
+    product_id: int
+    web_url: str
+    amount: int
+    currency: str
+
+    @property
+    def amount_major(self) -> Decimal:
+        return Decimal(self.amount) / Decimal('100')
+
+    @property
+    def amount_display(self) -> str:
+        value = self.amount_major
+        if value == value.to_integral():
+            return '{:,.0f}'.format(value).replace(',', ' ')
+        return '{:,.2f}'.format(value).replace(',', ' ')
+
+
+def _read_product(kind: str) -> tuple[TributeProduct | None, list[str]]:
+    prefix = 'TRIBUTE_{}_PRODUCT_'.format(kind.upper())
+    raw_id = str(getattr(settings, prefix + 'ID', '') or '').strip()
+    web_url = str(getattr(settings, prefix + 'WEB_URL', '') or '').strip()
+    raw_amount = str(getattr(settings, prefix + 'AMOUNT', '') or '').strip()
+    currency = str(getattr(settings, prefix + 'CURRENCY', '') or '').strip().upper()
+    errors = []
+
+    try:
+        product_id = int(raw_id)
+        if product_id <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        errors.append('{}ID must be a positive integer'.format(prefix))
+        product_id = 0
+
+    try:
+        amount = int(raw_amount)
+        if amount <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        errors.append('{}AMOUNT must be a positive integer in cents/kopecks'.format(prefix))
+        amount = 0
+
+    if currency not in SUPPORTED_CURRENCIES:
+        errors.append('{}CURRENCY must be EUR or RUB'.format(prefix))
+
+    parsed = urlparse(web_url)
+    if (
+        parsed.scheme != 'https'
+        or parsed.hostname != 'web.tribute.tg'
+        or not parsed.path.startswith('/p/')
+        or parsed.path == '/p/'
+        or parsed.query
+        or parsed.fragment
+    ):
+        errors.append('{}WEB_URL must be an https://web.tribute.tg/p/... URL'.format(prefix))
+
+    if errors:
+        return None, errors
+    return TributeProduct(kind, product_id, web_url, amount, currency), []
+
+
+def product_configuration() -> tuple[dict[str, TributeProduct], list[str]]:
+    products = {}
+    errors = []
+    for kind in ('regular', 'discount'):
+        product, product_errors = _read_product(kind)
+        errors.extend(product_errors)
+        if product is not None:
+            products[kind] = product
+    if len(products) == 2 and products['regular'].product_id == products['discount'].product_id:
+        errors.append('Tribute regular and discount product IDs must be different')
+        products = {}
+    return products, errors
+
+
+def products_by_id() -> dict[int, TributeProduct]:
+    products, _errors = product_configuration()
+    return {product.product_id: product for product in products.values()}
+
+
+def configuration_errors() -> list[str]:
+    _products, errors = product_configuration()
+    if not str(getattr(settings, 'TRIBUTE_API_KEY', '') or '').strip():
+        errors.append('TRIBUTE_API_KEY is required')
+    merchant = str(getattr(settings, 'TRIBUTE_MERCHANT', '') or '').strip()
+    if merchant not in SUPPORTED_MERCHANTS:
+        errors.append('TRIBUTE_MERCHANT must be ru_self_employed or am_ie after legal review')
+    if not getattr(settings, 'TRIBUTE_LEGAL_REVIEW_APPROVED', False):
+        errors.append('TRIBUTE_LEGAL_REVIEW_APPROVED must be enabled after seller review')
+    if not str(getattr(settings, 'TELEGRAM_BOT_USERNAME', '') or '').strip():
+        errors.append('TELEGRAM_BOT_USERNAME is required for account linking')
+    if not str(getattr(settings, 'TELEGRAM_BOT_TOKEN', '') or '').strip():
+        errors.append('TELEGRAM_BOT_TOKEN is required for account linking')
+    return errors
+
+
+def tribute_checkout_enabled() -> bool:
+    return bool(getattr(settings, 'TRIBUTE_ENABLED', False)) and not configuration_errors()
+
+
+def configured_product(kind: str) -> TributeProduct | None:
+    products, _errors = product_configuration()
+    return products.get(kind)
+
+
+def merchant() -> str:
+    value = str(getattr(settings, 'TRIBUTE_MERCHANT', '') or '').strip()
+    return value if value in SUPPORTED_MERCHANTS else 'legacy_unspecified'
+
+
+def merchant_public_copy() -> tuple[str, str]:
+    if merchant() == 'ru_self_employed':
+        return 'Продавец: Андрей Гаркавый, плательщик НПД, РФ', '/sellers/#russia'
+    if merchant() == 'am_ie':
+        return 'Продавец: Andrei Garkavyi IE, Republic of Armenia', '/sellers/#armenia'
+    return 'Оплата через Tribute', '/sellers/'
+
+
+def configured_club_gift(months: int) -> ClubGiftProduct | None:
+    """Return a validated one-off EUR gift product for a supported duration."""
+    try:
+        months = int(months)
+    except (TypeError, ValueError):
+        return None
+    if months not in (1, 3):
+        return None
+    prefix = 'TRIBUTE_CLUB_GIFT_EUR_{}_'.format(months)
+    try:
+        product_id = int(getattr(settings, prefix + 'ID', '') or '')
+        amount = int(getattr(settings, prefix + 'AMOUNT', '') or '')
+    except (TypeError, ValueError):
+        return None
+    url = str(getattr(settings, prefix + 'URL', '') or '').strip()
+    parsed = urlparse(url)
+    if (
+        product_id <= 0 or amount <= 0 or
+        parsed.scheme != 'https' or parsed.hostname != 'web.tribute.tg' or
+        not parsed.path.startswith('/p/') or parsed.path == '/p/' or
+        parsed.query or parsed.fragment
+    ):
+        return None
+    return ClubGiftProduct(months, product_id, url, amount)
+
+
+def club_gift_products_by_id() -> dict[int, ClubGiftProduct]:
+    products = [configured_club_gift(months) for months in (1, 3)]
+    return {product.product_id: product for product in products if product is not None}
+
+
+def club_gift_configuration_errors() -> list[str]:
+    errors = []
+    product_ids = []
+    for months in (1, 3):
+        prefix = 'TRIBUTE_CLUB_GIFT_EUR_{}_'.format(months)
+        raw_values = {
+            suffix: str(getattr(settings, prefix + suffix, '') or '').strip()
+            for suffix in ('ID', 'URL', 'AMOUNT')
+        }
+        if not any(raw_values.values()):
+            errors.append('{} must be configured'.format(prefix.rstrip('_')))
+            continue
+        if configured_club_gift(months) is None:
+            errors.append('{} has an invalid ID, URL, or amount'.format(prefix.rstrip('_')))
+        else:
+            product_ids.append(int(raw_values['ID']))
+    if len(product_ids) == 2 and len(set(product_ids)) != 2:
+        errors.append('Tribute club gift product IDs must be different')
+    regular_product_ids = set(products_by_id())
+    overlap = regular_product_ids.intersection(product_ids)
+    if overlap:
+        errors.append(
+            'Tribute club gift product IDs overlap regular product IDs: {}'.format(
+                ', '.join(str(product_id) for product_id in sorted(overlap)),
+            ),
+        )
+
+    for months in (1, 3):
+        setting_name = 'CLUB_GIFT_YOOKASSA_{}_AMOUNT_KOPECKS'.format(months)
+        raw_amount = str(getattr(settings, setting_name, '') or '').strip()
+        if raw_amount:
+            try:
+                if int(raw_amount) <= 0:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errors.append('{} must be a positive integer'.format(setting_name))
+    return errors
+
+
+@dataclass(frozen=True)
+class ClubTributeProduct:
+    kind: str
+    subscription_id: int
+    web_url: str
+    amount: int
+    currency: str
+    accepted_amounts: frozenset[int] = frozenset()
+    first_amount: int | None = None
+
+    def __post_init__(self):
+        if not self.accepted_amounts:
+            object.__setattr__(self, 'accepted_amounts', frozenset({self.amount}))
+
+    @property
+    def amount_major(self) -> Decimal:
+        return Decimal(self.amount) / Decimal('100')
+
+    @property
+    def amount_display(self) -> str:
+        return self.format_amount(self.amount)
+
+    @staticmethod
+    def format_amount(amount: int) -> str:
+        value = Decimal(amount) / Decimal('100')
+        if value == value.to_integral():
+            return '{:,.0f}'.format(value).replace(',', ' ')
+        return '{:,.2f}'.format(value).replace(',', ' ')
+
+    @property
+    def first_amount_display(self) -> str:
+        return self.format_amount(self.first_amount) if self.first_amount else ''
+
+    @property
+    def price_label(self) -> str:
+        if self.currency == 'RUB':
+            return '{} ₽ в месяц'.format(self.amount_display)
+        if self.currency == 'EUR':
+            return '€{} в месяц'.format(self.amount_display)
+        return '{} {} в месяц'.format(self.amount_display, self.currency)
+
+    def accepts_amount(self, amount: int | None) -> bool:
+        try:
+            value = int(amount)
+        except (TypeError, ValueError):
+            return False
+        return value in self.accepted_amounts
+
+
+def _club_kind_touched(kind: str) -> bool:
+    prefix = 'TRIBUTE_CLUB_SUBSCRIPTION_{}_'.format(kind.upper())
+    # Amount/currency have non-empty defaults for backwards compatibility;
+    # they must not implicitly enable a currency whose subscription is absent.
+    return any(
+        str(getattr(settings, prefix + suffix, '') or '').strip()
+        for suffix in ('ID', 'URL')
+    )
+
+
+def _parse_positive_int(raw: str, *, field: str, errors: list[str]) -> int:
+    try:
+        value = int(str(raw or '').strip())
+        if value <= 0:
+            raise ValueError
+        return value
+    except (TypeError, ValueError):
+        errors.append('{} must be a positive integer in cents/kopecks'.format(field))
+        return 0
+
+
+def _read_club_product(kind: str) -> tuple[ClubTributeProduct | None, list[str]]:
+    prefix = 'TRIBUTE_CLUB_SUBSCRIPTION_{}_'.format(kind.upper())
+    raw_id = str(getattr(settings, prefix + 'ID', '') or '').strip()
+    web_url = str(getattr(settings, prefix + 'URL', '') or '').strip()
+    raw_amount = str(getattr(settings, prefix + 'AMOUNT', '') or '').strip()
+    currency = str(getattr(settings, prefix + 'CURRENCY', '') or '').strip().upper()
+    raw_first = str(getattr(settings, prefix + 'FIRST_AMOUNT', '') or '').strip()
+    errors = []
+
+    try:
+        subscription_id = int(raw_id)
+        if subscription_id <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        errors.append('{}ID must be a positive integer'.format(prefix))
+        subscription_id = 0
+
+    amount = _parse_positive_int(raw_amount, field=prefix + 'AMOUNT', errors=errors)
+    accepted = {amount} if amount else set()
+    first_amount = None
+    if raw_first:
+        first = _parse_positive_int(raw_first, field=prefix + 'FIRST_AMOUNT', errors=errors)
+        if first:
+            first_amount = first
+            accepted.add(first)
+    if currency not in CLUB_SUPPORTED_CURRENCIES:
+        errors.append('{}CURRENCY must be RUB or EUR'.format(prefix))
+
+    parsed = urlparse(web_url)
+    host = (parsed.hostname or '').lower()
+    if parsed.scheme != 'https' or host not in CLUB_URL_HOSTS or parsed.path in ('', '/'):
+        errors.append(
+            '{}URL must be an https Tribute subscription link '
+            '(web.tribute.tg, tribute.tg, or t.me)'.format(prefix)
+        )
+
+    if errors:
+        return None, errors
+    return ClubTributeProduct(
+        kind.lower(),
+        subscription_id,
+        web_url,
+        amount,
+        currency,
+        frozenset(accepted),
+        first_amount,
+    ), []
+
+
+def club_product_configuration() -> tuple[dict[str, ClubTributeProduct], list[str]]:
+    products = {}
+    errors = []
+    for kind in CLUB_PRODUCT_KINDS:
+        if not _club_kind_touched(kind):
+            continue
+        product, product_errors = _read_club_product(kind)
+        errors.extend(product_errors)
+        if product is not None:
+            products[kind.lower()] = product
+    ids = [product.subscription_id for product in products.values()]
+    if len(ids) >= 2 and len(set(ids)) < len(ids):
+        errors.append('Tribute club subscription IDs must be different across currencies')
+        products = {}
+    return products, errors
+
+
+def club_products_by_id() -> dict[int, ClubTributeProduct]:
+    products, _errors = club_product_configuration()
+    return {product.subscription_id: product for product in products.values()}
+
+
+def configured_club_product(kind: str) -> ClubTributeProduct | None:
+    products, _errors = club_product_configuration()
+    return products.get(str(kind or '').strip().lower())
+
+
+def club_configuration_errors() -> list[str]:
+    products, errors = club_product_configuration()
+    if not products and not errors:
+        errors.append('Configure at least one Tribute club subscription (EUR and/or RUB)')
+    if not str(getattr(settings, 'TRIBUTE_API_KEY', '') or '').strip():
+        errors.append('TRIBUTE_API_KEY is required')
+    if not str(getattr(settings, 'TELEGRAM_BOT_USERNAME', '') or '').strip():
+        errors.append('TELEGRAM_BOT_USERNAME is required for account linking')
+    if not str(getattr(settings, 'TELEGRAM_BOT_TOKEN', '') or '').strip():
+        errors.append('TELEGRAM_BOT_TOKEN is required for account linking')
+    return errors
+
+
+def club_checkout_enabled() -> bool:
+    return bool(getattr(settings, 'CLUB_PAYMENTS_ENABLED', False)) and not club_configuration_errors()
+
+
+def club_archive_gating_enabled() -> bool:
+    return bool(getattr(settings, 'CLUB_ARCHIVE_GATING_ENABLED', False))
+
+
+def club_management_url() -> str:
+    configured = str(getattr(settings, 'TRIBUTE_CLUB_MANAGEMENT_URL', '') or '').strip()
+    if configured:
+        parsed = urlparse(configured)
+        if parsed.scheme == 'https' and (parsed.hostname or '').lower() in CLUB_URL_HOSTS:
+            return configured
+    return TRIBUTE_MANAGEMENT_BOT_URL
+
+
+VOTE_GOAL_URL_HOSTS = CLUB_URL_HOSTS
+_VOTE_URL_SETTINGS = (
+    'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_URL',
+    'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_URL',
+    'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_URL',
+)
+_VOTE_ID_SETTINGS = (
+    'TRIBUTE_NEXT_GAME_VOTE_REDACTLE_DONATION_REQUEST_ID',
+    'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID',
+    'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID',
+)
+
+
+def next_game_vote_configuration_errors() -> list[str]:
+    errors = []
+    urls = []
+    for name in _VOTE_URL_SETTINGS:
+        raw = str(getattr(settings, name, '') or '').strip()
+        if not raw:
+            continue
+        parsed = urlparse(raw)
+        host = (parsed.hostname or '').lower()
+        if parsed.scheme != 'https' or host not in VOTE_GOAL_URL_HOSTS or parsed.path in ('', '/'):
+            errors.append(
+                '{} must be an https Tribute donation link (web.tribute.tg, tribute.tg, or t.me)'.format(name)
+            )
+        else:
+            urls.append(raw)
+    if len(urls) == 3 and len(set(urls)) < 3:
+        errors.append('Next-game vote Tribute donation URLs must be distinct')
+    ids = [
+        str(getattr(settings, name, '') or '').strip()
+        for name in _VOTE_ID_SETTINGS
+        if str(getattr(settings, name, '') or '').strip()
+    ]
+    if len(ids) == 3 and len(set(ids)) < 3:
+        errors.append('Next-game vote donation_request_id values must be distinct')
+    return errors

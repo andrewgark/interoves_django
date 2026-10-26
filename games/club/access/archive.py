@@ -1,0 +1,300 @@
+"""Canonical Club entitlement and daily-archive access."""
+from __future__ import annotations
+
+import re
+
+from django.http import JsonResponse
+from django.db.models import Q
+from django.shortcuts import render
+from django.utils import timezone
+
+from games.daily_section import current_number_for
+from games.tribute_config import club_archive_gating_enabled
+from games.word_salad import WORD_SALAD_GAME_ID
+
+CLUB_ARCHIVE_GAME_IDS = frozenset({
+    'ladder',
+    'alphabetty',
+    WORD_SALAD_GAME_ID,
+    'week_task',
+    'replacements',
+    'walls',
+    'palindromes',
+})
+# Without a club subscription, the newest this many published numbers stay free.
+FREE_ARCHIVE_COUNT = 7
+DESYATOCHKA_ID_RE = re.compile(r'^des(\d+)$')
+
+
+def get_club_subscription(user):
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return None
+    from games.models import ClubSubscription
+
+    return ClubSubscription.objects.filter(user=user).first()
+
+
+def has_club_access(user, *, now=None) -> bool:
+    """True when the authenticated user has paid Club access at `now`."""
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return False
+    now = now or timezone.now()
+    subscription = get_club_subscription(user)
+    if subscription is not None and subscription.grants_access(now):
+        return True
+    from games.models import ClubEntitlement
+
+    return ClubEntitlement.objects.filter(
+        user=user, revoked_at__isnull=True, starts_at__lte=now,
+        kind__in=(ClubEntitlement.KIND_GIFT, ClubEntitlement.KIND_MANUAL),
+    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gt=now)).exists()
+
+
+def is_club_archive_game(game_id) -> bool:
+    return str(game_id or '') in CLUB_ARCHIVE_GAME_IDS
+
+
+def is_desyatka_game(game) -> bool:
+    return (
+        getattr(game, 'project_id', None) == 'main'
+        and DESYATOCHKA_ID_RE.fullmatch(str(getattr(game, 'id', '') or '')) is not None
+    )
+
+
+def desyatka_number(game) -> int | None:
+    if not is_desyatka_game(game):
+        return None
+    return int(DESYATOCHKA_ID_RE.fullmatch(str(game.id)).group(1))
+
+
+def _latest_desyatka_numbers() -> set[int]:
+    from games.models import Game
+
+    numbers = []
+    for game_id in Game.objects.filter(
+        project_id='main', id__startswith='des',
+    ).values_list('id', flat=True):
+        match = DESYATOCHKA_ID_RE.fullmatch(str(game_id))
+        if match:
+            numbers.append(int(match.group(1)))
+    return set(sorted(numbers, reverse=True)[:FREE_ARCHIVE_COUNT])
+
+
+def desyatka_requires_club(game) -> bool:
+    if not club_archive_gating_enabled() or not is_desyatka_game(game):
+        return False
+    number = desyatka_number(game)
+    return number is not None and number not in _latest_desyatka_numbers()
+
+
+def _is_desyatka_author(user, game) -> bool:
+    if not getattr(user, 'is_authenticated', False) or not is_desyatka_game(game):
+        return False
+    from games.models import GameAuthor
+
+    return GameAuthor.objects.filter(
+        game=game,
+    ).filter(
+        Q(profile__user=user)
+        | Q(team__member_links__profile__user=user)
+    ).exists()
+
+
+def user_can_access_desyatka(user, game, *, now=None) -> bool:
+    if not desyatka_requires_club(game):
+        return True
+    if getattr(user, 'is_staff', False):
+        return True
+    if _is_desyatka_author(user, game):
+        return True
+    # A team's registration is a ticket for this particular Desyatka. Keep
+    # it valid after a user's Club subscription expires: the entitlement
+    # belongs to the team, not to an individual member's subscription.
+    if getattr(user, 'is_authenticated', False):
+        from games.models import ProfileTeamMembership
+        if ProfileTeamMembership.objects.filter(
+            profile__user=user,
+            team__registrations__game=game,
+        ).exists():
+            return True
+    return has_club_access(user, now=now)
+
+
+def is_current_scheduled_number(game, number, *, now=None) -> bool:
+    current = current_number_for(game, now)
+    if current is None:
+        return True
+    try:
+        return int(number) == int(current)
+    except (TypeError, ValueError):
+        return False
+
+
+def _numeric_number(number) -> int | None:
+    try:
+        value = int(number)
+    except (TypeError, ValueError):
+        return None
+    if value <= 0:
+        return None
+    return value
+
+
+def _is_valid_archive_number(number) -> bool:
+    """Accept the integer and dotted-integer formats used by game links."""
+    if _numeric_number(number) is not None:
+        return True
+    from games.models import GameTaskGroup
+    return GameTaskGroup.try_number_key(number) is not None
+
+
+def _latest_visible_archive_numbers(game) -> set[str]:
+    """Return the latest archive numbers in the order shown on the hub.
+
+    Some section games have deferred/technical placements with a newer
+    database identity than the entries visible in the public archive.  The
+    free window must follow the numeric order of the public list, not those
+    implementation rows.
+    """
+    from games.models import GameTaskGroup
+
+    numbers = []
+    for raw in GameTaskGroup.objects.filter(
+        game=game, is_deferred=False,
+    ).values_list('number', flat=True):
+        try:
+            key = GameTaskGroup.number_key(raw)
+        except (TypeError, ValueError):
+            continue
+        numbers.append((key, str(raw)))
+    numbers.sort(reverse=True)
+    return {raw for _key, raw in numbers[:FREE_ARCHIVE_COUNT]}
+
+
+def is_within_free_archive_window(game, number, *, now=None) -> bool:
+    """True for the latest FREE_ARCHIVE_COUNT published numbers in a section."""
+    current = current_number_for(game, now)
+    if current is None and is_club_archive_game(getattr(game, 'id', None)):
+        latest_numbers = _latest_visible_archive_numbers(game)
+        return str(number) in latest_numbers
+    if current is None:
+        return True
+    n = _numeric_number(number)
+    if n is None:
+        return False
+    oldest_free = int(current) - FREE_ARCHIVE_COUNT + 1
+    return oldest_free <= n <= int(current)
+
+
+def scheduled_number_requires_club(game, number, *, now=None) -> bool:
+    """True for official archive items older than the free rolling window."""
+    if not club_archive_gating_enabled():
+        return False
+    if not is_club_archive_game(getattr(game, 'id', None)):
+        return False
+    if not _is_valid_archive_number(number):
+        return False
+    return not is_within_free_archive_window(game, number, now=now)
+
+
+def user_can_access_scheduled_number(user, game, number, *, now=None) -> bool:
+    if desyatka_requires_club(game):
+        return user_can_access_desyatka(user, game, now=now)
+    if not scheduled_number_requires_club(game, number, now=now):
+        return True
+    if getattr(user, 'is_staff', False):
+        return True
+    if has_club_access(user, now=now):
+        return True
+    # A solved archive item remains available to its solver after the free
+    # rolling window expires. This is intentionally checked only when gating
+    # is enabled, so the old behaviour remains byte-for-byte unchanged while
+    # the feature flag is off.
+    if getattr(user, 'is_authenticated', False):
+        from games.models import GameTaskGroup, PlayerCompletedGame
+        placement = GameTaskGroup.objects.filter(game=game, number=number).only('task_group_id').first()
+        if placement and PlayerCompletedGame.objects.filter(
+            user=user, game=game, task_group_id=placement.task_group_id,
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        ).exists():
+            return True
+    return False
+
+
+def club_archive_number_for_task(game, task):
+    if game is None or task is None or not is_club_archive_game(getattr(game, 'id', None)):
+        return None
+    from games.models import GameTaskGroup
+
+    link = (
+        GameTaskGroup.objects.filter(game=game, task_group_id=task.task_group_id)
+        .only('number')
+        .first()
+    )
+    if link is None or not _is_valid_archive_number(link.number):
+        return None
+    return str(link.number)
+
+
+def user_can_access_task_archive(user, game, task, *, now=None, offer_share=None) -> bool:
+    if desyatka_requires_club(game):
+        return user_can_access_desyatka(user, game, now=now)
+    # A public custom offer keeps its share URL even after it is assigned an
+    # old daily number. The token must belong to this exact task group.
+    if offer_share and game is not None and task is not None:
+        getter = None
+        if game.id == 'ladder':
+            from games.ladder_offer import get_offer_by_share_hash
+            getter = get_offer_by_share_hash
+        elif game.id == WORD_SALAD_GAME_ID:
+            from games.word_salad_offer import get_offer_by_share_hash
+            getter = get_offer_by_share_hash
+        if getter is not None:
+            offer = getter(offer_share)
+            if offer is not None and offer.task_group_id == task.task_group_id:
+                return True
+    number = club_archive_number_for_task(game, task)
+    if number is None:
+        return True
+    return user_can_access_scheduled_number(user, game, number, now=now)
+
+
+def club_archive_locked_response(request, game, number, *, json_mode=False):
+    if json_mode:
+        return JsonResponse({'status': 'error', 'reason': 'club_required'}, status=403)
+    from games.views.new_ui import NEW_UI_PROJECT, _project_urls_context
+
+    return render(
+        request,
+        'ui/club_archive_locked.html',
+        {
+            'game': game,
+            'number': number,
+            'page_title': 'Архив',
+            'robots_noindex': True,
+            **_project_urls_context(NEW_UI_PROJECT),
+        },
+        status=403,
+    )
+
+
+def reject_if_club_archive_blocked(request, game, *, number=None, task=None, json_mode=False):
+    """Return an HTTP response when Club is required, otherwise None."""
+    resolved = number
+    if desyatka_requires_club(game):
+        if user_can_access_desyatka(request.user, game):
+            return None
+        return club_archive_locked_response(
+            request, game, desyatka_number(game), json_mode=json_mode,
+        )
+    if resolved is None and task is not None:
+        resolved = club_archive_number_for_task(game, task)
+    if resolved is None:
+        return None
+    if task is not None:
+        allowed = user_can_access_task_archive(request.user, game, task)
+    else:
+        allowed = user_can_access_scheduled_number(request.user, game, resolved)
+    if allowed:
+        return None
+    return club_archive_locked_response(request, game, resolved, json_mode=json_mode)
