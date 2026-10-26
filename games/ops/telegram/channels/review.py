@@ -165,7 +165,7 @@ def _format_censorly(number: int, link: GameTaskGroup) -> tuple[list[str], bool]
     task = _task_for_link(link, 'censorly')
     if task is None:
         return ['⚠️ Нет статьи в выпуске.'], False
-    from games.censorly.play import puzzle_from_task
+    from games.puzzles.censorly.play import puzzle_from_task
 
     payload = puzzle_from_task(task)
     title = _plain_text((payload or {}).get('wiki_title'))

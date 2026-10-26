@@ -14,7 +14,7 @@ from games.daily.page.board import (
 from games.ladder_daily import (
     LADDER_GAME_ID,
 )
-from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
+from games.puzzles.replacements.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.tasks.titles import raddle_share_title, task_display_name
 from games.tasks.result_details import (
     chain_state_for_actor,

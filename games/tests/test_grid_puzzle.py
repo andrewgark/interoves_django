@@ -8,8 +8,8 @@ from django.core.exceptions import ValidationError
 from django.test import Client, RequestFactory, TestCase
 
 from games.analytics_identity import attach_anon_cookie
-from games.check import GridShadingChecker, GridWallChecker
-from games.grid_puzzle import (
+from games.puzzles.core.check_runtime import GridShadingChecker, GridWallChecker
+from games.puzzles.replacements.grid_puzzle import (
     GridPuzzleDataError,
     canonicalize_shading,
     canonicalize_walls,

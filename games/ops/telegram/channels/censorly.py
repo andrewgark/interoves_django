@@ -88,7 +88,7 @@ def _trim_teaser_title(text: str, *, max_chars: int = 120) -> str:
 
 def teaser_title_for_task(task: Task) -> str:
     """Mask the words in the article title while preserving its punctuation."""
-    from games.censorly.play import puzzle_from_task
+    from games.puzzles.censorly.play import puzzle_from_task
 
     payload = puzzle_from_task(task)
     if not payload:

@@ -98,7 +98,7 @@ def _handle_censorly(action: str, report_id: int, callback_id, chat_id, message_
         target = metadata.get('target_surface') or ''
         if expected and other and target and not metadata.get('review_case_created'):
             try:
-                from games.censorly.lexical.tools.review_pair import record_review_case
+                from games.puzzles.censorly.lexical.tools.review_pair import record_review_case
 
                 _row, _created, _diagnostic, review_case = record_review_case(
                     other,

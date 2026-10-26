@@ -9,11 +9,11 @@ from pathlib import Path
 
 from django.core.management.base import BaseCommand, CommandError
 
-from games.censorly.article_pool import load_article_pool
-from games.censorly.pool_build import ARTICLE_POOL_PATH, DEFAULT_CACHE_DIR
-from games.censorly.pool_build.balance import balance_pool, bucket_for, primary_theme
-from games.censorly.pool_build.filters import enrich_candidates
-from games.censorly.pool_build.sources import run_harvest
+from games.puzzles.censorly.article.pool import load_article_pool
+from games.puzzles.censorly.pool_build import ARTICLE_POOL_PATH, DEFAULT_CACHE_DIR
+from games.puzzles.censorly.pool_build.balance import balance_pool, bucket_for, primary_theme
+from games.puzzles.censorly.pool_build.filters import enrich_candidates
+from games.puzzles.censorly.pool_build.sources import run_harvest
 
 
 class Command(BaseCommand):

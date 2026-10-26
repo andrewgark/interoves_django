@@ -20,7 +20,7 @@ from urllib.parse import urlparse
 
 from django.core.management.base import BaseCommand
 
-from games.censorly.pool_build import ARTICLE_POOL_ALLOW_PATH, ARTICLE_POOL_DENY_PATH
+from games.puzzles.censorly.pool_build import ARTICLE_POOL_ALLOW_PATH, ARTICLE_POOL_DENY_PATH
 
 VAR = Path('var/censorly_pool')
 REPORT = VAR / 'obscure_drop_report.json'
@@ -167,7 +167,7 @@ def _apply_to_pool(decisions: dict[str, str]) -> dict:
         DRAFT.write_text(text, encoding='utf-8')
     exported = _export_review_lists(decisions, remaining)
     try:
-        from games.censorly.article_pool import load_article_pool
+        from games.puzzles.censorly.article.pool import load_article_pool
 
         load_article_pool.cache_clear()
     except Exception:

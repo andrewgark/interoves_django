@@ -27,7 +27,7 @@ from games.telegram.scheduling import notify_admin_game_lifecycle, notify_admin_
 def telegram_notify_bug_report(sender, instance, created, **kwargs):
     if not created or instance.status != 'Pending':
         return
-    from games.censorly.word_reports import diagnostic_is_pending
+    from games.puzzles.censorly.article.reports import diagnostic_is_pending
     if diagnostic_is_pending(instance):
         # Notified by the integrations worker once the diagnostic is stored.
         return

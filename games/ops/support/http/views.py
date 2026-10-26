@@ -10,11 +10,15 @@ from django.views.decorators.http import require_GET, require_POST
 
 from games.models import Game, Team
 from games.models import Attempt, ChainTaskState, CensorlyCategory, CensorlyObjectType, CensorlyPoolEntry, GameTaskGroup, Task
-from games.censorly.pool_admin import DIFFICULTIES as CENSORLY_POOL_DIFFICULTIES, pool_rows, taxonomy as censorly_pool_taxonomy, save_pool_entry
-from games.censorly import CENSORLY_TAGS_KEY
-from games.censorly.tokenize import build_puzzle_payload
-from games.censorly.tokenize import title_content_lemmas
-from games.censorly.wiki import WikiFetchError, fetch_article
+from games.puzzles.censorly.article.admin import (
+    DIFFICULTIES as CENSORLY_POOL_DIFFICULTIES,
+    pool_rows,
+    taxonomy as censorly_pool_taxonomy,
+    save_pool_entry,
+)
+from games.puzzles.censorly.ids import CENSORLY_TAGS_KEY
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
+from games.puzzles.censorly.article.wiki import WikiFetchError, fetch_article
 from django.utils import timezone
 from games.support.access import support_console_required
 from games.support.queues import dashboard_context as queues_dashboard_context

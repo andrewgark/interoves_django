@@ -771,12 +771,12 @@ def _alphabet(task, game, actors):
 
 def _censorly(task, game, actors):
     """Popular guessed lemmas + last lemma before win (excluding title answers)."""
-    from games.censorly.normalize import lemma_of, normalize_surface
-    from games.censorly.play import hint_count as censorly_hint_count
-    from games.censorly.play import load_state as load_censorly_state
-    from games.censorly.play import puzzle_from_task
-    from games.censorly.redact import title_opening_lemmas
-    from games.censorly.tokenize import title_content_lemmas
+    from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
+    from games.puzzles.censorly.play import hint_count as censorly_hint_count
+    from games.puzzles.censorly.play import load_state as load_censorly_state
+    from games.puzzles.censorly.play import puzzle_from_task
+    from games.puzzles.censorly.article.redact import title_opening_lemmas
+    from games.puzzles.censorly.text.tokenize import title_content_lemmas
 
     # Wrong guesses count toward a Цензурка solve too; hints are filtered
     # from attempt_counts below using their #hint: marker.

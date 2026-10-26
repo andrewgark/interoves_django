@@ -346,7 +346,7 @@ class WordSaladTaskForm(ModelForm):
                 raise forms.ValidationError(str(exc))
             cleaned['answer'] = ''
         elif task_type == 'grid-puzzle':
-            from games.grid_puzzle import (
+            from games.puzzles.replacements.grid_puzzle import (
                 GridPuzzleDataError,
                 parse_grid_puzzle_data,
                 validate_grid_checker_data,

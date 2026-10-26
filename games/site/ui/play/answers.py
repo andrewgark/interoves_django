@@ -13,7 +13,7 @@ from django.utils import timezone
 
 
 
-from games.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
+from games.puzzles.replacements.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.models import (
     Attempt,
 )

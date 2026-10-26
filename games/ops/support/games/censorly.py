@@ -11,15 +11,15 @@ import uuid
 from django.db import transaction
 from django.utils import timezone
 
-from games.censorly import (
+from games.puzzles.censorly.ids import (
     CENSORLY_CHECKER_ID,
     CENSORLY_GAME_ID,
     CENSORLY_SPLITTER_VERSION,
     CENSORLY_TAGS_KEY,
     CENSORLY_TASK_TYPE,
 )
-from games.censorly.play import CENSORLY_BASE_POINTS, puzzle_from_task, reset_progress
-from games.censorly.random_game import (
+from games.puzzles.censorly.play import CENSORLY_BASE_POINTS, puzzle_from_task, reset_progress
+from games.puzzles.censorly.random_game import (
     CensorlyPoolExhausted,
     EmptyCensorlyPool,
     create_from_title,
@@ -27,8 +27,8 @@ from games.censorly.random_game import (
     puzzle_json_size,
     used_censorly_titles,
 )
-from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
-from games.censorly.wiki import WikiArticle, WikiFetchError, fetch_article
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
+from games.puzzles.censorly.article.wiki import WikiArticle, WikiFetchError, fetch_article
 from games.censorly_daily import (
     CENSORLY_BUFFER_DAYS,
     CENSORLY_PUBLISH_START_TAG,
@@ -411,7 +411,7 @@ def _create_numbered_slot(*, number: int, article: WikiArticle, pool_title: str 
 
 
 def _pick_pool_article(used: set[str]) -> tuple[WikiArticle, str]:
-    from games.censorly.pool_admin import active_pool_titles
+    from games.puzzles.censorly.article.admin import active_pool_titles
     import random
 
     pool = [title for title in active_pool_titles() if title not in used]

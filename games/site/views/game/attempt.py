@@ -24,7 +24,7 @@ from games.middleware.request_timing import timing_phase
 from games.auth_observability import log_gameplay_attempt_created
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.gameplay_context import context_error_response, validate_gameplay_context
-from games.grid_puzzle import grid_checker_id
+from games.puzzles.replacements.grid_puzzle import grid_checker_id
 from games.realtime.track_compat import track_actor_task_change
 from games.site.views.game.context import (
     game_from_request_for_task,

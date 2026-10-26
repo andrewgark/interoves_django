@@ -187,7 +187,7 @@ def _load_daily_target(
 def _random_game_timing_link(game, share_hash):
     """Resolve only permanent random games; proposals and daily shares stay out."""
     from games.alphabetty_daily import ALPHABETTY_GAME_ID
-    from games.censorly import CENSORLY_GAME_ID
+    from games.puzzles.censorly.ids import CENSORLY_GAME_ID
     from games.models import RandomAlphabettyGame, RandomCensorlyGame
     from games.placement_share import placement_by_share_hash
 

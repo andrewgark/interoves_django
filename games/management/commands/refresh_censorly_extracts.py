@@ -6,10 +6,10 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from games.censorly import CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
-from games.censorly.play import CENSORLY_BASE_POINTS
-from games.censorly.tokenize import build_puzzle_payload, title_content_lemmas
-from games.censorly.wiki import WikiFetchError, fetch_article
+from games.puzzles.censorly.ids import CENSORLY_TAGS_KEY, CENSORLY_TASK_TYPE
+from games.puzzles.censorly.play import CENSORLY_BASE_POINTS
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
+from games.puzzles.censorly.article.wiki import WikiFetchError, fetch_article
 from games.models import RandomCensorlyGame, Task
 
 

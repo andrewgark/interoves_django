@@ -25,7 +25,7 @@ from games.analytics import (
 )
 from games.analytics_identity import gameplay_anon_key
 from games.auth_observability import record_gameplay_attempt_created
-from games.censorly.play import (
+from games.puzzles.censorly.play import (
     CENSORLY_HINT_PENALTY,
     _actor_filters,
     attach_solve_meta,
@@ -37,8 +37,8 @@ from games.censorly.play import (
     ru_hint_word,
 )
 from games.puzzles.censorly import CensorlyMoveRefusal, CensorlyPuzzle
-from games.censorly.pool_admin import taxonomy as censorly_taxonomy
-from games.censorly import word_reports as censorly_word_reports
+from games.puzzles.censorly.article.admin import taxonomy as censorly_taxonomy
+from games.puzzles.censorly.article import reports as censorly_word_reports
 from games.censorly_daily import (
     CENSORLY_GAME_ID,
     MOSCOW,
@@ -89,7 +89,7 @@ from games.site.views.game.context import (
     unpublished_scheduled_task_response,
 )
 from games.site.views.pages.util import get_public_task_or_404, has_profile
-from games.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.match.core import fold
 from games.telegram.game_urls import task_play_url
 
 
@@ -573,7 +573,7 @@ def censorly_random_game(request):
         return redirect('/subscription/')
     if _get_game() is None:
         raise Http404()
-    from games.censorly.random_game import (
+    from games.puzzles.censorly.random_game import (
         CensorlyPoolFetchFailed,
         CensorlyPoolExhausted,
         EmptyCensorlyPool,
