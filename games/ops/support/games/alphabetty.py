@@ -12,7 +12,7 @@ from django.utils import timezone
 
 from games.alphabetty.core import normalize_word, pick_answer_words
 from games.alphabetty.play import ALPHABETTY_BASE_POINTS
-from games.alphabetty_daily import (
+from games.daily.catalog.alphabetty import (
     ALPHABETTY_BUFFER_DAYS,
     ALPHABETTY_GAME_ID,
     ALPHABETTY_PUBLISH_START_TAG,
@@ -118,7 +118,7 @@ def _tasks_for_links(links: list[GameTaskGroup]) -> dict[int, Task]:
 
 
 def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
-    from games.alphabetty_daily import ALPHABETTY_GAME_ID
+    from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
     from games.sections.placement_share import site_urls_by_task_group
 
     return site_urls_by_task_group(ALPHABETTY_GAME_ID, task_group_ids)

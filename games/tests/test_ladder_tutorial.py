@@ -12,7 +12,7 @@ from games.models import (
     TaskGroup,
 )
 from games.daily.catalog.ladder import LADDER_GAME_ID
-from games.ladder_offer import create_offer, update_offer_content
+from games.club.offers.ladder import create_offer, update_offer_content
 from games.tests.test_offer_ladder import (
     _ensure_reference_rows,
     _ensure_social_apps,

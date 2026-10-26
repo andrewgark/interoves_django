@@ -10,7 +10,7 @@ from django.urls import resolve, reverse
 
 from allauth.socialaccount.models import SocialApp
 
-from games.alphabetty_daily import ALPHABETTY_GAME_ID
+from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import LADDER_GAME_ID
 from games.models import (
     CheckerType,

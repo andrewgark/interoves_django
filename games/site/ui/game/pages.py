@@ -13,7 +13,7 @@ from django.utils import timezone
 
 
 
-from games.alphabetty_daily import ALPHABETTY_GAME_ID
+from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.page.section import (
     current_number_for,
     is_scheduled_game,
@@ -37,7 +37,7 @@ from games.models import (
     PlayerCompletedGame,
     Project,
 )
-from games.replay import active_replay
+from games.site.session.replay import active_replay
 from games.models import GameResultsSnapshot
 from games.results.share import share_host_from_request
 from games.site.views.pages.util import (

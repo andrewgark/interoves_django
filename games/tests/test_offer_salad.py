@@ -30,8 +30,8 @@ from games.word_salad import (
     parse_task_payload,
     validate_puzzle,
 )
-from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
-from games.word_salad_offer import (
+from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
+from games.club.offers.salad import (
     accept_offer,
     convert_accepted_idea,
     create_offer,

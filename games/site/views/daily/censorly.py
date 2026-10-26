@@ -39,7 +39,7 @@ from games.puzzles.censorly.play import (
 from games.puzzles.censorly import CensorlyMoveRefusal, CensorlyPuzzle
 from games.puzzles.censorly.article.admin import taxonomy as censorly_taxonomy
 from games.puzzles.censorly.article import reports as censorly_word_reports
-from games.censorly_daily import (
+from games.daily.catalog.censorly import (
     CENSORLY_GAME_ID,
     MOSCOW,
     censorly_publish_at,
@@ -72,7 +72,7 @@ from games.sections.hub import (
     onboarding_followup_context,
     section_format_credit_context,
 )
-from games.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
+from games.site.session.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.support.access import user_has_support_access
 from games.task_titles import task_display_name, task_group_page_title

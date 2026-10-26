@@ -8,7 +8,7 @@ from django.urls import reverse
 
 from games.analytics import game_instance_id_for_task_group
 from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
-from games.ladder_offer import (
+from games.club.offers.ladder import (
     accept_offer,
     create_offer,
     request_revision,
@@ -546,7 +546,7 @@ class LadderOfferFlowTests(TestCase):
         self.assertEqual(allowed.json()['status'], 'ok')
 
     def test_reset_all_progress_clears_every_actor(self):
-        from games.ladder_offer import reset_all_raddle_progress
+        from games.club.offers.ladder import reset_all_raddle_progress
 
         offer = create_offer(self.user)
         update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='A')

@@ -83,7 +83,7 @@ class AlphabettyOffer(models.Model):
             except (TypeError, ValueError, AttributeError):
                 number = None
             if number is not None:
-                from games.alphabetty_daily import is_alphabetty_number_published
+                from games.daily.catalog.alphabetty import is_alphabetty_number_published
                 from games.models import Game
                 game = Game.objects.filter(pk='alphabetty').first()
                 if game is not None and is_alphabetty_number_published(game, number):

@@ -28,7 +28,7 @@ from games.word_salad import (
     task_data_signature,
     validate_puzzle,
 )
-from games.word_salad_daily import (
+from games.daily.catalog.word_salad import (
     WORD_SALAD_DEFAULT_PUBLISH_START,
     WORD_SALAD_PUBLISH_START_TAG,
     is_word_salad_number_published,

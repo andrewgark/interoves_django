@@ -14,7 +14,7 @@ from games.analytics import register_started_game
 from games.gameplay_context import context_error_response, validate_gameplay_context
 from games.identity.actor import ActorRefusal, resolve_gameplay_actor
 from games.models import GameTaskGroup, Hint, HintAttempt, Task, Attempt
-from games.replay import StaleReplayError, replay_for_request
+from games.site.session.replay import StaleReplayError, replay_for_request
 from games.realtime.track_compat import track_actor_task_change
 from games.site.views.game.context import (
     game_from_request_for_task,
@@ -135,7 +135,7 @@ def process_send_hint_attempt(request, task_id):
     except StaleReplayError:
         return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
     if replay_slot is None:
-        from games.replay import _official_exists
+        from games.site.session.replay import _official_exists
         if _official_exists(game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key):
             return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
 

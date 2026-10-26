@@ -17,7 +17,7 @@ from games.puzzles.core.check_runtime import CheckerFactory
 from games.exception import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
 from games.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, CHAIN_TASK_TYPES
-from games.replay import StaleReplayError, replay_for_request
+from games.site.session.replay import StaleReplayError, replay_for_request
 from games.completion_coordinator import complete_logical_game
 from games.daily.completion import daily_completion_effects_for_game
 from games.middleware.request_timing import timing_phase
@@ -471,7 +471,7 @@ def process_send_attempt(request, task_id):
     attempt.replay_slot = replay_slot
 
     if replay_slot is None:
-        from games.replay import _official_exists
+        from games.site.session.replay import _official_exists
         if _official_exists(
             game=game,
             task_group=task.task_group,

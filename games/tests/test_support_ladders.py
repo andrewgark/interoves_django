@@ -331,7 +331,7 @@ class LadderSupportViewTests(TestCase):
         self.assertContains(response, 'ladders-bootstrap')
 
     def test_accepted_offer_telegram_stays_on_schedule(self):
-        from games.ladder_offer import accept_offer, create_offer, send_offer, update_offer_content
+        from games.club.offers.ladder import accept_offer, create_offer, send_offer, update_offer_content
 
         author = User.objects.create_user('arina', password='x')
         Profile.objects.create(
@@ -358,7 +358,7 @@ class LadderSupportViewTests(TestCase):
         self.assertContains(response, 'Telegram: @')
 
     def test_sent_offer_contains_author_telegram(self):
-        from games.ladder_offer import create_offer, send_offer, update_offer_content
+        from games.club.offers.ladder import create_offer, send_offer, update_offer_content
 
         author = User.objects.create_user('sent_arina', password='x')
         Profile.objects.create(

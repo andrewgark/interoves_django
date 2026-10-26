@@ -714,7 +714,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
             day_key = msk_now.date().isoformat()
             try:
                 from games.support.services.alphabetty import ensure_future_buffer
-                from games.alphabetty_daily import ALPHABETTY_GAME_ID
+                from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 
                 ab_game = Game.objects.filter(pk=ALPHABETTY_GAME_ID).first()
                 if ab_game and _try_mark(ab_game, f'alphabetty_buffer:{day_key}'):

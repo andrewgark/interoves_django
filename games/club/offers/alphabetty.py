@@ -11,7 +11,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from games.alphabetty.core import normalize_word
-from games.alphabetty_daily import (
+from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
     alphabetty_publish_at,
 )
@@ -360,7 +360,7 @@ def offer_is_production_published(offer: AlphabettyOffer, *, now=None) -> bool:
         number = int(offer.accepted_link.number)
     except (TypeError, ValueError, AttributeError):
         return False
-    from games.alphabetty_daily import is_alphabetty_number_published
+    from games.daily.catalog.alphabetty import is_alphabetty_number_published
     return is_alphabetty_number_published(get_alphabetty_game(), number, now)
 
 

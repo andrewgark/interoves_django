@@ -17,7 +17,7 @@ from games.telegram.word_salad_channel import (
     schedule_salad_channel_post,
 )
 from games.word_salad import WORD_SALAD_GAME_ID
-from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
+from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 

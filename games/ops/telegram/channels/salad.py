@@ -37,7 +37,7 @@ from games.telegram.render_errors import (
     describe_render_failure,
 )
 from games.word_salad import WORD_SALAD_GAME_ID, theme_from_text
-from games.word_salad_daily import (
+from games.daily.catalog.word_salad import (
     MOSCOW,
     current_word_salad_number,
     is_word_salad_number_published,

@@ -54,7 +54,7 @@ from games.word_salad import (
     RARE_FOUND_TOOLTIP,
     validate_task_data,
 )
-from games.word_salad_offer import reset_all_salad_progress
+from games.club.offers.salad import reset_all_salad_progress
 
 
 def _setup_db():

@@ -29,7 +29,7 @@ from games.puzzles.censorly.random_game import (
 )
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
 from games.puzzles.censorly.article.wiki import WikiArticle, WikiFetchError, fetch_article
-from games.censorly_daily import (
+from games.daily.catalog.censorly import (
     CENSORLY_BUFFER_DAYS,
     CENSORLY_PUBLISH_START_TAG,
     MOSCOW,

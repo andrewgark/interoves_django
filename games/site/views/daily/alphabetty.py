@@ -13,7 +13,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from games.alphabetty.core import build_prefix_level, normalize_word
-from games.alphabetty_offer import can_access_offer_hash, get_offer_by_share_hash
+from games.club.offers.alphabetty import can_access_offer_hash, get_offer_by_share_hash
 from games.alphabetty.play import (
     ALPHABETTY_HINT_PENALTY,
     get_play_state,
@@ -43,7 +43,7 @@ from games.daily.registry import get_daily_game
 from games.daily.page.context import build_daily_lifecycle_context
 from games.daily.page.section import MOSCOW
 from games.alphabetty.suggestions import suggest_word
-from games.alphabetty_daily import (
+from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
     alphabetty_publish_at,
     current_alphabetty_number,
@@ -85,7 +85,7 @@ from games.gameplay_context import (
     validate_gameplay_context,
 )
 from games.site.views.pages.util import has_profile
-from games.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
+from games.site.session.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 
 
 def _share_host(request) -> str:

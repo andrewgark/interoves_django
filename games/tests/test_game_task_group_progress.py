@@ -472,7 +472,7 @@ class GameTaskGroupProgressTests(TestCase):
 
     def test_salad_progress_api_returns_squares_and_elapsed(self):
         from games.word_salad import WORD_SALAD_GAME_ID
-        from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
+        from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
 
         game = Game.objects.filter(id=WORD_SALAD_GAME_ID, project_id='sections').first()
         self.assertIsNotNone(game)
@@ -632,7 +632,7 @@ class GameTaskGroupProgressTests(TestCase):
 
     def test_initial_salad_page_embeds_actor_progress_without_json_fetch(self):
         from games.word_salad import WORD_SALAD_GAME_ID
-        from games.word_salad_daily import WORD_SALAD_PUBLISH_START_TAG
+        from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
 
         _ensure_login_modal_deps()
         game = Game.objects.get(id=WORD_SALAD_GAME_ID, project_id='sections')

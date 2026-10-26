@@ -72,7 +72,7 @@ def ensure_ladder_tutorial_task():
 
 def reset_ladder_tutorial_progress(task, *, team=None, user=None, anon_key=None):
     """Every visit starts the tutorial from a clean board."""
-    from games.ladder_offer import reset_raddle_progress
+    from games.club.offers.ladder import reset_raddle_progress
 
     if team is None and user is None and not anon_key:
         return 0

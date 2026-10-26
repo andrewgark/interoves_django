@@ -9,7 +9,7 @@ from django.urls import reverse
 
 
 
-from games.alphabetty_daily import ALPHABETTY_GAME_ID
+from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )

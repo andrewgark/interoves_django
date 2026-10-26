@@ -186,7 +186,7 @@ def _load_daily_target(
 
 def _random_game_timing_link(game, share_hash):
     """Resolve only permanent random games; proposals and daily shares stay out."""
-    from games.alphabetty_daily import ALPHABETTY_GAME_ID
+    from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
     from games.puzzles.censorly.ids import CENSORLY_GAME_ID
     from games.models import RandomAlphabettyGame, RandomCensorlyGame
     from games.sections.placement_share import placement_by_share_hash
@@ -325,7 +325,7 @@ def _daily_solve_timing_impl(
 
     if request.method == 'GET':
         session_id = request.GET.get('session_id') or ''
-        from games.replay import active_replay
+        from games.site.session.replay import active_replay
         replay_slot = active_replay(
             request=request, game=game, task_group=task_group,
             team=team, user=user, anon_key=anon_key,
@@ -350,7 +350,7 @@ def _daily_solve_timing_impl(
     payload = _payload(request)
     if payload.get('_payload_error'):
         return _json_error(payload['_payload_error'], 400)
-    from games.replay import replay_for_request, StaleReplayError, _official_exists
+    from games.site.session.replay import replay_for_request, StaleReplayError, _official_exists
     try:
         replay_slot = replay_for_request(
             request=request, game=game, task_group=task_group,

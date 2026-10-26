@@ -45,7 +45,7 @@ from games.models import (
     StatisticsEvent,
     TicketRequest,
 )
-from games.replay import replay_actor_key
+from games.site.session.replay import replay_actor_key
 
 logger = logging.getLogger('application')
 

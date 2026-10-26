@@ -21,7 +21,7 @@ from games.models import (
     GameTaskGroup,
     Task,
 )
-from games.replay import active_replay
+from games.site.session.replay import active_replay
 from games.site.views.pages.util import (
     effective_play_mode,
     has_profile,

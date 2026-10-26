@@ -35,7 +35,7 @@ from games.word_salad import (
     serialize_task_data,
     validate_puzzle,
 )
-from games.word_salad_daily import word_salad_publish_at
+from games.daily.catalog.word_salad import word_salad_publish_at
 from games.support.services.word_salad import (
     WordSaladSupportError,
     attach_existing_task_group,

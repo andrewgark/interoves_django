@@ -236,6 +236,9 @@ If the resolved version is empty, the client check is skipped.
 | Daily archive UI helpers | `games.daily.page.archive` | `games.daily_archive` |
 | Ladder daily catalog | `games.daily.catalog.ladder` | `games.ladder_daily` |
 | Club archive / subscription gate | `games.club.access.archive` | `games.club_access` |
+| Daily catalog (censorly / alphabetty / salad) | `games.daily.catalog.{censorly,alphabetty,word_salad}` | `games.*_daily` (except ladder → `catalog.ladder`) |
+| Player offers (ladder / alphabetty / censorly / salad) | `games.club.offers.*` | `games.*_offer` |
+| Replay session | `games.site.session.replay` (+ `replay_navigation`) | `games.replay`, `replay_navigation` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

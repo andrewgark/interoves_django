@@ -40,7 +40,7 @@ from games.alphabetty.suggestions import (
     reject_suggestions,
     suggest_word,
 )
-from games.alphabetty_offer import (
+from games.club.offers.alphabetty import (
     accept_offer as accept_alphabetty_offer,
     reset_all_alphabetty_progress,
 )
@@ -50,7 +50,7 @@ from games.models import (
     Attempt,
     ChainTaskState,
 )
-from games.alphabetty_daily import (
+from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
     ALPHABETTY_PUBLISH_START_TAG,
 )
@@ -293,7 +293,7 @@ class AlphabettySupportTests(TestCase):
             )
 
         now = datetime(2026, 8, 9, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
-        with patch('games.alphabetty_daily.timezone.now', return_value=now):
+        with patch('games.daily.catalog.alphabetty.timezone.now', return_value=now):
             payload = build_results_snapshot_payload(self.game, mode='general')
 
         self.assertEqual([group['number'] for group in payload['task_groups']], ['1'])
@@ -326,7 +326,7 @@ class AlphabettySupportTests(TestCase):
             update_alphabetty(rows[1].link_id, word=rows[0].word)
 
     def test_missing_publish_start_keeps_closed(self):
-        from games.alphabetty_daily import is_alphabetty_number_published
+        from games.daily.catalog.alphabetty import is_alphabetty_number_published
         generate_more(2)
         self.game.tags = {}
         self.game.save(update_fields=['tags'])
@@ -656,7 +656,7 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_hub_page_has_create_link(self):
         _ensure_login_modal_deps()
-        from games.alphabetty_daily import alphabetty_publish_at
+        from games.daily.catalog.alphabetty import alphabetty_publish_at
         with patch(
             'games.site.views.daily.alphabetty.alphabetty_publish_at',
             wraps=alphabetty_publish_at,

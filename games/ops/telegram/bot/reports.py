@@ -8,7 +8,7 @@ from django.db.models import Count, Q
 from django.utils import timezone
 
 from games.models import PlayerCompletedGame, PlayerStartedGame
-from games.censorly_daily import CENSORLY_GAME_ID
+from games.daily.catalog.censorly import CENSORLY_GAME_ID
 from games.telegram.models import TelegramAdminReport
 from games.telegram.notify import _join_lines, send_admin_message, telegram_admin_configured
 

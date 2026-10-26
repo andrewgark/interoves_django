@@ -49,7 +49,7 @@ from games.models import (
     ImageManager,
     PlayerCompletedGame,
 )
-from games.replay import active_replay
+from games.site.session.replay import active_replay
 from games.word_salad import (
     WORD_SALAD_GAME_ID,
 )
@@ -269,7 +269,7 @@ def new_task_group_page(
         if ladder_tutorial_task is not None:
             pass
         elif game_id == LADDER_GAME_ID and is_share_hash_segment(segment):
-            from games.ladder_offer import can_access_offer_hash, get_offer_by_share_hash
+            from games.club.offers.ladder import can_access_offer_hash, get_offer_by_share_hash
             ladder_offer = get_offer_by_share_hash(segment)
             if ladder_offer is None:
                 share_placement = resolve_accessible_daily_placement(
@@ -280,7 +280,7 @@ def new_task_group_page(
             elif not can_access_offer_hash(ladder_offer, request.user):
                 raise Http404()
         elif game_id == WORD_SALAD_GAME_ID and is_share_hash_segment(segment):
-            from games.word_salad_offer import (
+            from games.club.offers.salad import (
                 can_access_offer_hash as can_access_salad_offer_hash,
                 get_offer_by_share_hash as get_salad_offer_by_share_hash,
             )

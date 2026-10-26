@@ -18,7 +18,7 @@ from games.models import (
     WordSaladRecheckJob,
 )
 from games.ops.workers.jobs.recheck import recheck_word_salad_actor
-from games.word_salad_offer import reset_all_salad_progress, reset_salad_progress
+from games.club.offers.salad import reset_all_salad_progress, reset_salad_progress
 
 
 class TargetedCompletionReconciliationTests(TestCase):

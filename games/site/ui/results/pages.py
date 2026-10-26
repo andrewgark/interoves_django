@@ -526,7 +526,7 @@ def new_ladder_word_results_page(request, task_group_number):
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
 
-    from games.ladder_offer import get_offer_by_share_hash, is_share_hash_segment
+    from games.club.offers.ladder import get_offer_by_share_hash, is_share_hash_segment
     from types import SimpleNamespace
     from games.daily.page.placement import resolve_accessible_daily_placement
 
@@ -540,7 +540,7 @@ def new_ladder_word_results_page(request, task_group_number):
             if placement is None:
                 raise Http404()
         else:
-            from games.ladder_offer import can_access_offer_hash
+            from games.club.offers.ladder import can_access_offer_hash
             if not can_access_offer_hash(ladder_offer, request.user):
                 raise Http404()
             if ladder_offer.accepted_link_id:

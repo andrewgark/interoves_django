@@ -11,7 +11,7 @@ from datetime import date, datetime, time, timedelta
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.censorly_daily import (
+from games.daily.catalog.censorly import (
     CENSORLY_GAME_ID,
     MOSCOW,
     current_censorly_number,

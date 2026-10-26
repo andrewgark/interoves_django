@@ -35,9 +35,9 @@ def _offer_share_matches_task(request, task):
     from games.sections.placement_share import share_matches_task
     if share_matches_task(task, token):
         return True
-    from games.ladder_offer import get_offer_by_share_hash as ladder_offer_by_share_hash
-    from games.word_salad_offer import get_offer_by_share_hash as salad_offer_by_share_hash
-    from games.alphabetty_offer import get_offer_by_share_hash as alphabetty_offer_by_share_hash
+    from games.club.offers.ladder import get_offer_by_share_hash as ladder_offer_by_share_hash
+    from games.club.offers.salad import get_offer_by_share_hash as salad_offer_by_share_hash
+    from games.club.offers.alphabetty import get_offer_by_share_hash as alphabetty_offer_by_share_hash
     for getter in (
         salad_offer_by_share_hash,
         ladder_offer_by_share_hash,

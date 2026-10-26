@@ -8,7 +8,7 @@ from django.utils import timezone
 
 
 
-from games.alphabetty_daily import ALPHABETTY_GAME_ID
+from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.results.table.context import (
     attach_results_club_badges,
     club_subscriber_user_ids,

@@ -115,7 +115,7 @@ class WordSaladOffer(models.Model):
             except (TypeError, ValueError, AttributeError):
                 number = None
             if number is not None:
-                from games.word_salad_daily import is_word_salad_number_published
+                from games.daily.catalog.word_salad import is_word_salad_number_published
                 from games.models import Game
                 game = Game.objects.filter(pk='salad').first()
                 if game is not None and is_word_salad_number_published(game, number):

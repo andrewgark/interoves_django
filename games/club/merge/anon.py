@@ -29,7 +29,7 @@ from games.models import (
     ReplaySlot,
     StatisticsEvent,
 )
-from games.replay import replay_actor_key
+from games.site.session.replay import replay_actor_key
 
 ANON_MIGRATION_BATCH_SIZE = 200
 

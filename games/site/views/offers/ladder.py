@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
-from games.ladder_offer import (
+from games.club.offers.ladder import (
     LadderOfferError,
     create_offer,
     list_user_offers,

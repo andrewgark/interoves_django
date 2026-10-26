@@ -12,7 +12,7 @@ from games.daily_transitions import (
 
 
 
-from games.alphabetty_daily import ALPHABETTY_GAME_ID
+from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
     get_ladder_hub_context,

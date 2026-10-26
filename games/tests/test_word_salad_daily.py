@@ -12,7 +12,7 @@ from games.sections.hub import (
     get_word_salad_section_hub_card,
 )
 from games.sections.paths import section_hub_path, section_last_path
-from games.word_salad_daily import (
+from games.daily.catalog.word_salad import (
     WORD_SALAD_DEFAULT_PUBLISH_START,
     WORD_SALAD_PUBLISH_START_TAG,
     get_word_salad_hub_context,

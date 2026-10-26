@@ -244,10 +244,10 @@ def user_can_access_task_archive(user, game, task, *, now=None, offer_share=None
     if offer_share and game is not None and task is not None:
         getter = None
         if game.id == 'ladder':
-            from games.ladder_offer import get_offer_by_share_hash
+            from games.club.offers.ladder import get_offer_by_share_hash
             getter = get_offer_by_share_hash
         elif game.id == WORD_SALAD_GAME_ID:
-            from games.word_salad_offer import get_offer_by_share_hash
+            from games.club.offers.salad import get_offer_by_share_hash
             getter = get_offer_by_share_hash
         if getter is not None:
             offer = getter(offer_share)

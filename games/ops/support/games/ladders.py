@@ -627,7 +627,7 @@ def update_ladder(
     ):
         # Preview progress is index-based and becomes invalid after a resize.
         # Import locally to keep ladder_offer -> support.ladders imports acyclic.
-        from games.ladder_offer import reset_all_raddle_progress
+        from games.club.offers.ladder import reset_all_raddle_progress
         reset_all_raddle_progress(task=task, game_id=LADDER_GAME_ID)
     return get_ladder_detail(link.pk)
 

@@ -8,12 +8,12 @@ from django.views.decorators.http import require_POST
 
 
 
-from games.replay_navigation import (
+from games.site.session.replay_navigation import (
     redirect_after_replay_action,
     replay_actor_for_request,
     replay_game_and_placement,
 )
-from games.replay import clear_replay_session, start_or_reset_replay
+from games.site.session.replay import clear_replay_session, start_or_reset_replay
 from games.site.views.pages.util import (
     has_profile,
     has_team,

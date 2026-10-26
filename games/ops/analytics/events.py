@@ -11,7 +11,7 @@ from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
 
-from games.alphabetty_daily import ALPHABETTY_GAME_ID
+from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import LADDER_GAME_ID
 from games.word_salad import WORD_SALAD_GAME_ID
 from games.tutorials.ladder import is_ladder_tutorial_task_group

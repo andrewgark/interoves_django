@@ -107,7 +107,7 @@ from games.support.services.word_salad import (
     defer_word_salad,
     restore_word_salad,
 )
-from games.ladder_offer import (
+from games.club.offers.ladder import (
     LadderOfferError,
     accept_offer,
     dashboard_offers_context,
@@ -119,7 +119,7 @@ from games.ladder_offer import (
     serialize_offer,
     update_offer_content,
 )
-from games.alphabetty_offer import (
+from games.club.offers.alphabetty import (
     AlphabettyOfferError,
     accept_offer as accept_alphabetty_offer,
     dashboard_offers_context as alphabetty_dashboard_offers_context,
@@ -131,7 +131,7 @@ from games.alphabetty_offer import (
     serialize_offer as serialize_alphabetty_offer,
     update_offer_content as update_alphabetty_offer_content,
 )
-from games.word_salad_offer import (
+from games.club.offers.salad import (
     WordSaladOfferError,
     accept_offer as accept_word_salad_offer,
     dashboard_offers_context as word_salad_dashboard_offers_context,
@@ -1647,7 +1647,7 @@ def censorly_schedule_delete(request, link_id):
     link = GameTaskGroup.objects.select_for_update().filter(pk=link_id, game_id='censorly').select_related('game').first()
     if link is None:
         return JsonResponse({'ok': False, 'error': 'Слот не найден'}, status=404)
-    from games.censorly_daily import is_censorly_number_published
+    from games.daily.catalog.censorly import is_censorly_number_published
     from games.support.services.censorly import _renumber_censorly_links, list_schedule_rows
     try:
         number = int(link.number)
@@ -1671,7 +1671,7 @@ def censorly_schedule_edit(request, link_id):
     link = GameTaskGroup.objects.filter(pk=link_id, game_id='censorly').select_related('game').first()
     if link is None:
         return JsonResponse({'ok': False, 'error': 'Слот не найден'}, status=404)
-    from games.censorly_daily import is_censorly_number_published
+    from games.daily.catalog.censorly import is_censorly_number_published
     from games.support.services.censorly import list_schedule_rows
     try:
         article = fetch_article(str(body.get('title') or '').strip())
