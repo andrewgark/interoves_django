@@ -9249,48 +9249,98 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
 .new-raddle-clues__list--used .new-raddle-clue {
   display: block;
 }
-/* Лайки подсказки: крошечная пара справа, как compact-bar у задания. */
-.new-raddle-clues__list--used .new-raddle-clue:has(.new-like-dislike--clue) {
+/* Оценка подсказки: одна сегментированная «таблетка» [👎 n | 👍 n] —
+   язык лайков задания (рамка, акцент/danger у активной), но компактнее. */
+.new-raddle-clues__list--used .new-raddle-clue:has(.new-clue-rating) {
   display: flex;
-  align-items: baseline;
+  align-items: flex-start;
+  gap: 0.5rem;
 }
-.new-like-dislike--clue {
+.new-clue-rating {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: stretch;
+  /* По центру первой строки текста подсказки, а не всего абзаца. */
+  margin-top: 0.06rem;
   margin-left: auto;
-  gap: 0.1rem;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 999px;
+  background: var(--surface);
+  overflow: hidden;
+  line-height: 1;
 }
-.new-likebtn.new-likebtn--clue {
+.new-clue-rating__btn {
+  appearance: none;
   position: relative;
-  min-width: 0;
-  min-height: 0;
-  padding: 0.02rem 0.22rem;
-  gap: 0.12rem;
-  border-color: transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.18rem;
+  margin: 0;
+  padding: 0.16rem 0.38rem;
+  border: 0;
   background: transparent;
-  font-size: 0.72rem;
-  line-height: 1.2;
-  opacity: 0.55;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: color 0.14s ease, background-color 0.14s ease;
 }
-/* Зона нажатия больше, чем видимая кнопка. */
-.new-likebtn.new-likebtn--clue::before {
+.new-clue-rating__btn + .new-clue-rating__btn {
+  border-left: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+}
+.new-clue-rating__btn .ph {
+  font-size: 0.78rem;
+}
+/* Ноль — тише, чтобы ненулевые оценки читались сразу. */
+.new-clue-rating__count {
+  min-width: 0.5em;
+  text-align: center;
+}
+.new-clue-rating__btn:not(.is-active) .new-clue-rating__count[data-zero] {
+  opacity: 0.6;
+}
+/* Зона нажатия больше видимой кнопки. */
+.new-clue-rating__btn::before {
   content: '';
   position: absolute;
-  inset: -0.3rem -0.1rem;
+  inset: -0.35rem 0;
 }
-.new-raddle-clue:hover .new-likebtn--clue,
-.new-likebtn.new-likebtn--clue:focus-visible,
-.new-likebtn.new-likebtn--clue.is-active {
-  opacity: 1;
+.new-clue-rating__btn--like:hover {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
-.new-likebtn--clue .new-likebtn__count {
-  font-size: 0.68rem;
-}
-.new-likebtn.new-likebtn--clue.is-failed {
+.new-clue-rating__btn--dislike:hover {
   color: var(--danger);
-  opacity: 1;
+  background: color-mix(in srgb, var(--danger) 7%, transparent);
 }
-.new-likebtn--clue .new-likebtn__count:empty {
-  display: none;
+.new-clue-rating__btn--like.is-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+}
+.new-clue-rating__btn--dislike.is-active {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+.new-clue-rating__btn:disabled {
+  cursor: wait;
+}
+.new-clue-rating__btn:focus {
+  outline: none;
+}
+.new-clue-rating__btn:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--focus-ring);
+}
+.new-clue-rating__btn.is-failed {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+@media (max-width: 480px) {
+  .new-clue-rating__btn {
+    padding: 0.16rem 0.3rem;
+    gap: 0.14rem;
+  }
 }
 .new-raddle-clue--revealed {
   background: color-mix(in srgb, var(--raddle-after) 14%, var(--surface));

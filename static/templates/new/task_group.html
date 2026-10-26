@@ -4049,7 +4049,12 @@
       btn.setAttribute(isLike ? 'data-liked' : 'data-disliked', active ? '1' : '0');
       btn.classList.toggle('is-active', active);
       var count = btn.querySelector(isLike ? '[data-clue-like-count]' : '[data-clue-dislike-count]');
-      if (count) count.textContent = n ? String(n) : '';
+      if (count) {
+        count.textContent = String(n || 0);
+        if (n) count.removeAttribute('data-zero');
+        else count.setAttribute('data-zero', '');
+      }
+      btn.setAttribute('aria-label', (isLike ? 'Хорошая подсказка, лайков: ' : 'Плохая подсказка, дизлайков: ') + (n || 0));
     });
   }
   function submitClueLike(btn, likesDelta, dislikesDelta) {
