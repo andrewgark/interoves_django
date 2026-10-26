@@ -16,9 +16,6 @@ from games.daily.catalog.ladder import (
 )
 from games.puzzles.replacements.grid_puzzle import GridPuzzleDataError, public_grid_puzzle_context
 from games.tasks.titles import raddle_share_title, task_display_name
-from games.tasks.result_details import (
-    chain_state_for_actor,
-)
 from games.tasks.presentation import task_ui_descriptor, wall_ui_context
 from games.tasks.replacements_state import current_state as replacements_current_state
 from games.tasks.actor_state import chain_state_for_actor

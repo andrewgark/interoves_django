@@ -36,7 +36,6 @@ from games.tasks.result_details import (
     set_current_result_header_answers,
     word_salad_release_breakdown,
 )
-from games.tasks.actor_state import chain_state_for_actor
 from games.models import (
     Game,
     GameTaskGroup,

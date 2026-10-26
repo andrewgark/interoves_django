@@ -41,7 +41,7 @@
 
 ### 3. Первый домен для декомпозиции
 
-Статус games refactor (2026): prod и новые тесты импортируют **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.track_compat`**; корневые **`games.check`**, **`games.views.*`**, **`games.grid_puzzle`**, **`games.censorly/*`** (кроме package `__init__` с ids) — compatibility facades. Censorly implementation — **`games/puzzles/censorly/`**; checker factory — **`games/puzzles/core/check_runtime.py`**. Карта: **`agents/AGENTS.md`** (Games app layout).
+Статус games refactor (2026): prod и новые тесты импортируют **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`** (ASGI admission, track), **`games.identity`**, **`games.ops.{cron,workers,telegram,social}`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**; почти все корневые **`games/*.py`** — **`sys.modules` facades** (исключения: **`games/__init__.py`**, **`apps.py`**, **`urls.py`**). Legacy settings strings: **`games.middleware.*`**, **`games.context_processors`**, **`games.storage_backends`**, **`games.adaptors`**. Censorly implementation — **`games/puzzles/censorly/`**; checker factory — **`games/puzzles/core/check_runtime.py`**. Карта импортов: **`agents/AGENTS.md`** (Games app layout). Два API chain state: **`games.tasks.actor_state.chain_state_for_actor(task, game, …)`** для daily/board; **`games.tasks.result_details.chain_state_for_actor(game, task, actor)`** для results-row actors.
 
 Начать с main UI (`games/site/ui`, фасад `games.views.new_ui`), не меняя URL-контракты:
 
