@@ -1512,7 +1512,7 @@ class DailyTimingApiTests(TestCase):
         session.save()
         return client
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_anonymous_start_and_pause(self, _pub):
         sid = uuid4()
         event = {
@@ -1554,14 +1554,14 @@ class DailyTimingApiTests(TestCase):
             DailySolveTiming.STATUS_RUNNING,
         )
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_timing_get_advertises_stable_event_capability(self, _pub):
         response = self.client.get('/ladder/91002/timing/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['timing_event_capability'], 'stable-event-v1')
 
     @patch(
-        'games.views.daily_timing_views.get_object_or_404',
+        'games.site.views.daily.timing.get_object_or_404',
         side_effect=OperationalError(1040, 'Too many connections'),
     )
     def test_mysql_1040_during_timing_get_target_lookup_returns_retryable_503(self, _lookup):
@@ -1571,9 +1571,9 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(response['Cache-Control'], 'no-store')
         self.assertFalse(response.json()['ok'])
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch(
-        'games.views.daily_timing_views.apply_timing_event',
+        'games.site.views.daily.timing.apply_timing_event',
         side_effect=OperationalError(1205, 'Lock wait timeout exceeded'),
     )
     def test_lock_contention_returns_retryable_unavailable_instead_of_500(self, _apply, _pub):
@@ -1588,7 +1588,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(response['Retry-After'], '2')
         self.assertFalse(response.json()['ok'])
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_payload_and_header_cannot_spoof_anonymous_or_registered_actor(self, _pub):
         forged = 'attacker-chosen-anon'
         response = self.client.post(
@@ -1612,7 +1612,7 @@ class DailyTimingApiTests(TestCase):
             user_id=999999, game=self.game, task_group=self.tg,
         ).exists())
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_replay_id_in_payload_cannot_select_replay_timing_namespace(self, _pub):
         slot = ReplaySlot.objects.create(
             game=self.game, task_group=self.tg, anon_key=self.anon,
@@ -1631,7 +1631,7 @@ class DailyTimingApiTests(TestCase):
         row = DailySolveTiming.objects.get(game=self.game, task_group=self.tg)
         self.assertIsNone(row.replay_slot_id)
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_timing_mutation_keeps_gameplay_csrf_protection(self, _pub):
         strict_client = Client(enforce_csrf_checks=True)
         attach_anon_cookie(strict_client, 'csrf-timing-test')
@@ -1646,7 +1646,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(DailySolveTiming.objects.filter(game=self.game, task_group=self.tg).exists())
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=False)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=False)
     def test_unpublished_release_cannot_start_timing(self, _pub):
         response = self._post({
             'action': ACTION_START, 'session_id': str(uuid4()),
@@ -1656,7 +1656,7 @@ class DailyTimingApiTests(TestCase):
         self.assertFalse(DailySolveTiming.objects.filter(game=self.game, task_group=self.tg).exists())
 
     @patch('games.club_access.user_can_access_scheduled_number', return_value=False)
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_inaccessible_release_cannot_start_timing(self, _pub, _access):
         response = self._post({
             'action': ACTION_START, 'session_id': str(uuid4()),
@@ -1665,7 +1665,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertFalse(DailySolveTiming.objects.filter(game=self.game, task_group=self.tg).exists())
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_authenticated_start(self, _pub):
         user = User.objects.create_user('timing_api_user', 'api@example.com', 'secret')
         Profile.objects.create(user=user, first_name='A', last_name='P')
@@ -1739,7 +1739,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(denied.json()['error'], 'team_access_required')
 
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_team_api_uses_server_resolved_shared_actor(self, _access, _pub, _club):
         team = Team.objects.create(name='timing-api-team', project_id='sections')
@@ -1791,7 +1791,7 @@ class DailyTimingApiTests(TestCase):
         self.assertTrue(finish.json()['completed'])
 
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_team_http_sessions_pause_locally_and_count_union_once(self, _access, _pub, _club):
         team = Team.objects.create(name='timing-http-union-team', project_id='sections')
@@ -1835,7 +1835,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(completed.json()['accumulated_ms'], 30_000)
 
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_personal_http_sessions_run_in_parallel_and_count_union_once(self, _access, _pub, _game_access):
         user = User.objects.create_user('timing_http_personal', 'http-personal@example.com', 'secret')
@@ -1868,7 +1868,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(completed.json()['frozen_ms'], 20_000)
 
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_http_clients_cannot_send_server_side_activity(self, _access, _pub, _game_access):
         user = User.objects.create_user('timing_http_activity', 'http-activity@example.com', 'secret')
@@ -1882,7 +1882,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(response.json()['error'], 'bad_action')
 
     @patch('games.club_access.user_can_access_scheduled_number', return_value=True)
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     @patch('games.models.Game.has_access', return_value=True)
     def test_anonymous_http_sessions_run_in_parallel_and_count_union_once(self, _access, _pub, _game_access):
         session_a, session_b = str(uuid4()), str(uuid4())
@@ -1915,7 +1915,7 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(completed.json()['frozen_ms'], 15_000)
 
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_unknown_action_is_not_ok(self, _pub):
         resp = self._post({
             'action': 'explode',
@@ -1928,7 +1928,7 @@ class DailyTimingApiTests(TestCase):
         self.assertFalse(data['ok'])
         self.assertEqual(data['error'], 'bad_action')
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_malformed_numeric_timing_payload_is_400_not_500(self, _pub):
         for key in ('seq', 'claimed_ms'):
             resp = self._post({
@@ -1940,7 +1940,7 @@ class DailyTimingApiTests(TestCase):
             self.assertEqual(resp.status_code, 400)
             self.assertEqual(resp.json()['error'], 'bad_{}'.format(key))
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_malformed_timing_request_is_400_not_empty_start(self, _pub):
         invalid_json = self.client.post(
             '/ladder/91002/timing/', data='{', content_type='application/json',
@@ -1980,11 +1980,11 @@ class DailyTimingApiTests(TestCase):
             ).exists()
         )
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_heartbeat_without_row_is_missing_not_500(self, _pub):
         self._assert_missing_without_row(ACTION_HEARTBEAT)
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_pause_without_row_is_missing_not_500(self, _pub):
         session_id = str(uuid4())
         paused = self._post({
@@ -2010,11 +2010,11 @@ class DailyTimingApiTests(TestCase):
         ).sessions.get(session_id=session_id)
         self.assertEqual(session.last_seq, 2)
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_complete_without_row_is_missing_not_500(self, _pub):
         self._assert_missing_without_row(ACTION_COMPLETE)
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_resume_without_row_creates(self, _pub):
         resp = self._post({
             'action': ACTION_RESUME,
@@ -2028,7 +2028,7 @@ class DailyTimingApiTests(TestCase):
         self.assertTrue(data['exists'])
         self.assertEqual(data['status'], 'running')
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_start_heartbeat_pause_resume_complete_flow(self, _pub):
         sid = str(uuid4())
         start = self._post({
@@ -2077,7 +2077,7 @@ class DailyTimingApiTests(TestCase):
         self.assertTrue(data['completed'])
         self.assertEqual(data['status'], 'completed')
 
-    @patch('games.views.daily_timing_views.scheduled_number_is_public', return_value=True)
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_get_with_session_id_is_authoritative(self, _pub):
         sid = str(uuid4())
         start = self._post({

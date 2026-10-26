@@ -204,6 +204,19 @@ If the resolved version is empty, the client check is skipped.
 
 Скрипт также вызывается из `run_tests.sh` перед Django-тестами.
 
+## Games app layout (refactor)
+
+Новый код в **`games/`** клади в предметные пакеты; корень приложения держи тонким.
+
+| Concern | Canonical import | Legacy shim |
+|--------|------------------|-------------|
+| Checkers + `CheckerFactory` | `games.puzzles.core.check_runtime` | `games.check` (`sys.modules` → `check_runtime`) |
+| HTTP / main UI handlers | `games.site.views.*`, `games.site.ui.*` | `games.views.*` (facades) |
+| Live track / WebSocket helpers | `games.realtime.track_compat` | `games.views.track` |
+| Main UI symbol bundle | `games.site.views.pages.ui_exports` | `games.views.new_ui` |
+
+Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`). В prod и новых тестах импортируй canonical path; `@patch('games.views…')` в старых тестах ок, пока фасад алиасит тот же модуль.
+
 ## Raddle (Лесенка)
 
 Auto-submit, контракт `/send_attempt/` и smoke перед деплоем: **[agents/raddle.md](raddle.md)**. Матрица сценариев в `games/puzzles/raddle/contract.py`; тесты: `games.tests.test_raddle_send_attempt`, `games.tests.test_raddle_response_contract`.

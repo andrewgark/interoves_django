@@ -1,6 +1,6 @@
-"""Compatibility alias: CheckerFactory and checker types for tests/scripts."""
+"""Compatibility alias. Checker registry lives in games.puzzles.core.check_runtime."""
+import sys
 
-from games.grid_puzzle import GridShadingChecker, GridWallChecker
-from games.puzzles.core.check_runtime import CheckerFactory
-from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
-from games.puzzles.raddle.submission import RaddleChecker
+from games.puzzles.core import check_runtime as _implementation
+
+sys.modules[__name__] = _implementation

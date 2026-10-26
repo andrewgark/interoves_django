@@ -449,3 +449,8 @@ class CheckerFactory:
 
     def create_checker(self, checker_type, data, last_attempt_state=None):
         return self.checker_type_to_checker[checker_type.id](data, last_attempt_state)
+
+
+from games.grid_puzzle import GridShadingChecker, GridWallChecker  # noqa: E402
+from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker  # noqa: E402
+from games.puzzles.raddle.submission import RaddleChecker  # noqa: E402
