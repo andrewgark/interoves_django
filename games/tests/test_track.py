@@ -150,7 +150,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 
     def test_async_sequence_allocation_is_atomic_and_does_not_block_loop(self):
         from django.core.cache.backends.redis import RedisCache
-        from games.views import track
+        from games.realtime import counter as track
 
         class FakeRedis:
             def __init__(self):
@@ -203,7 +203,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 
     def test_async_sequence_propagates_redis_timeout(self):
         from django.core.cache.backends.redis import RedisCache
-        from games.views import track
+        from games.realtime import counter as track
 
         class TimeoutRedis:
             async def incr(self, key):
@@ -221,7 +221,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 
 
     def test_async_redis_pool_has_a_per_process_connection_cap(self):
-        from games.views import track
+        from games.realtime import counter as track
 
         async def run():
             loop = asyncio.get_running_loop()
@@ -337,7 +337,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.assertEqual(event['extra'], 'x')
 
     def test_build_event_task_change_personal_render_keeps_actor_context(self):
-        with patch('games.views.track.update_task_html', return_value={'extra': 'x'}) as render:
+        with patch('games.realtime.broadcast.update_task_html', return_value={'extra': 'x'}) as render:
             event = build_event_task_change(
                 self.task,
                 user=self.user,
@@ -387,7 +387,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
     def test_track_task_change_sends_to_team_group_after_commit(self):
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)
-        with patch('games.views.track.get_channel_layer', return_value=layer):
+        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer):
             with self.captureOnCommitCallbacks(execute=True):
                 track_task_change(
                     self.task,
@@ -418,7 +418,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
     def test_track_task_change_sends_to_game_group_for_admin(self):
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)
-        with patch('games.views.track.get_channel_layer', return_value=layer):
+        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer):
             with self.captureOnCommitCallbacks(execute=True):
                 track_task_change(self.task, update_html={'admin': 1})
         layer.group_send.assert_called_once()
@@ -435,7 +435,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
     def test_track_task_change_sends_personal_html_only_to_user_group(self):
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)
-        with patch('games.views.track.get_channel_layer', return_value=layer):
+        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer):
             with self.captureOnCommitCallbacks(execute=True):
                 track_task_change(
                     self.task,
@@ -465,7 +465,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
     def test_notify_user_after_commit_targets_user_group(self):
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)
-        with patch('games.views.track.get_channel_layer', return_value=layer):
+        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer):
             with self.captureOnCommitCallbacks(execute=True):
                 notify_user_after_commit(
                     self.user.id,
@@ -490,7 +490,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
             text='pending',
             status='Pending',
         )
-        with patch('games.views.track.track_task_change') as notify:
+        with patch('games.realtime.broadcast.track_task_change') as notify:
             track_attempt_change(attempt, reason='attempt.reviewed')
         notify.assert_called_once_with(
             self.task,
@@ -513,7 +513,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         self.game.end_time = timezone.now() + timedelta(hours=1)
         self.game.save()
         Registration.objects.create(game=self.game, team=self.team)
-        with patch('games.views.track.notify_user_after_commit') as m:
+        with patch('games.realtime.broadcast.notify_user_after_commit') as m:
             self.game.is_ready = True
             self.game.save()
         self.assertEqual(m.call_count, 1)
@@ -531,8 +531,8 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         new.start_time = timezone.now() - timedelta(minutes=1)
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)
-        with patch('games.views.track.get_channel_layer', return_value=layer):
-            with patch('games.views.track.notify_user_after_commit') as nu:
+        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer):
+            with patch('games.realtime.broadcast.notify_user_after_commit') as nu:
                 with self.captureOnCommitCallbacks(execute=True):
                     notify_registered_users_game_lifecycle_changed(old, new)
         layer.group_send.assert_called_once()
@@ -554,8 +554,8 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         new.end_time = timezone.now() - timedelta(minutes=1)
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)
-        with patch('games.views.track.get_channel_layer', return_value=layer):
-            with patch('games.views.track.notify_user_after_commit') as nu:
+        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer):
+            with patch('games.realtime.broadcast.notify_user_after_commit') as nu:
                 with self.captureOnCommitCallbacks(execute=True):
                     notify_registered_users_game_lifecycle_changed(old, new)
         layer.group_send.assert_called_once()
@@ -575,7 +575,7 @@ class TrackChannelTests(TrackGameFixtureMixin, TestCase):
         old = Game.objects.get(pk=self.game.id)
         new = Game.objects.get(pk=self.game.id)
         new.is_ready = True
-        with patch('games.views.track.notify_user_after_commit') as m:
+        with patch('games.realtime.broadcast.notify_user_after_commit') as m:
             notify_registered_users_play_access_changed(old, new)
         self.assertEqual(m.call_count, 1)
 
@@ -965,8 +965,8 @@ class TrackWebsocketIntegrationTests(TrackGameFixtureMixin, TestCase):
         )
         layer = MagicMock()
         layer.group_send = AsyncMock(return_value=None)
-        with patch('games.views.track.get_channel_layer', return_value=layer), patch(
-            'games.views.track.settings.DEFER_CHANNEL_BROADCAST', False,
+        with patch('games.realtime.broadcast.get_channel_layer', return_value=layer), patch(
+            'games.realtime.broadcast.settings.DEFER_CHANNEL_BROADCAST', False,
         ):
             with self.captureOnCommitCallbacks(execute=True):
                 track_task_change(
@@ -1145,7 +1145,7 @@ class TrackWebsocketSecurityRegressionTests(TrackGameFixtureMixin, TransactionTe
 
     def test_game_track_reconnect_detects_revision_counter_reset(self):
         from interoves_django.asgi import application
-        from games.views import track
+        from games.realtime import counter as track
 
         headers = self._session_headers()
         namespace = team_track_namespace(self.game.id, self.team.pk)
