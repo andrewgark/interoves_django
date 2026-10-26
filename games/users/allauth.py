@@ -4,8 +4,10 @@ from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
-from games.models import Profile
+from django.contrib.auth.models import AnonymousUser
 from django.shortcuts import redirect
+
+from games.models import Profile
 
 from games.club.merge.account import stash_pending_account_merge
 
@@ -65,10 +67,11 @@ class SocialAccountAdapter(DefaultSocialAccountAdapter):
         # A successful connect callback proves ownership of the provider
         # identity. If it belongs to another Interoves user, pause allauth's
         # unsupported connect flow and ask for an explicit account merge.
+        user = getattr(request, 'user', None) or AnonymousUser()
         existing_foreign_account = (
-            request.user.is_authenticated
+            user.is_authenticated
             and sociallogin.is_existing
-            and sociallogin.user.pk != request.user.pk
+            and sociallogin.user.pk != user.pk
         )
         if existing_foreign_account and (
             process == 'connect'

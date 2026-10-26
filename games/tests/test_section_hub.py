@@ -20,7 +20,7 @@ class DailyNavigationOrderTests(SimpleTestCase):
     def test_matches_homepage_daily_card_order(self):
         self.assertEqual(
             [item['id'] for item in daily_nav_items()],
-            ['ladder', 'salad', 'alphabetty'],
+            ['ladder', 'salad', 'censorly', 'alphabetty'],
         )
 
 
@@ -86,8 +86,8 @@ class LadderSectionHubCardTests(SimpleTestCase):
         now = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         card = get_ladder_section_hub_card(game, published_numbers={'1'}, now=now)
         self.assertTrue(card['is_today'])
-        self.assertEqual(card['cta_label'], 'Сегодняшняя лесенка')
-        self.assertEqual(card['soon_text'], 'Новая лесенка — каждый день в полночь по Москве.')
+        self.assertEqual(card['cta_label'], 'Сегодняшняя Лесенка')
+        self.assertEqual(card['soon_text'], 'Новая Лесенка — каждый день в полночь по Москве.')
         self.assertFalse(card['wide'])
 
     def test_latest_label(self):
@@ -95,7 +95,7 @@ class LadderSectionHubCardTests(SimpleTestCase):
         now = datetime(2026, 7, 9, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         card = get_ladder_section_hub_card(game, published_numbers={'1'}, now=now)
         self.assertFalse(card['is_today'])
-        self.assertEqual(card['cta_label'], 'Последняя лесенка')
+        self.assertEqual(card['cta_label'], 'Последняя Лесенка')
 
 
 class HubSectionCardTemplateTests(SimpleTestCase):

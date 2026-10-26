@@ -306,7 +306,7 @@ class DeployReleaseControlTests(SimpleTestCase):
         self.assertEqual(len(config['metrics']['metrics_collected']['procstat']), 3)
         journal = config['logs']['logs_collected']['journald']['collect_list']
         self.assertIn('web.service', journal[0]['units'])
-        self.assertEqual(journal[0]['retention_in_days'], 14)
+        self.assertEqual(journal[0]['retention_in_days'], 3)
         self.assertEqual(journal[1]['matches'], [{'_TRANSPORT': 'kernel'}])
 
     def test_green_cloudwatch_agent_uses_file_input_for_journal_streams(self):

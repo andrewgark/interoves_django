@@ -474,7 +474,7 @@ class SupportBrowseTests(TestCase):
     def test_sections_dashboard(self):
         response = self.client.get(reverse('support:sections'))
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Лесенка')
+        self.assertContains(response, 'Лесенки')
 
     def test_project_game_page_links_to_project_site_url(self):
         response = self.client.get(reverse('support:game', kwargs={'game_id': 'browse_glowbyte'}))

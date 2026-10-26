@@ -174,7 +174,7 @@ class WordSaladSectionTests(TestCase):
         self.assertEqual(meta['ph_icon'], 'bowl-food')
         self.assertEqual(meta['format_credit_url'], 'https://wordsalad.online')
         self.assertEqual(meta['format_credit_name'], 'wordsalad.online')
-        self.assertEqual(meta['format_credit_text'], 'салатиков')
+        self.assertEqual(meta['format_credit_text'], 'Салатиков')
         self.assertFalse(SECTION_HUB_META['ladder'].get('wide'))
         self.assertTrue(SECTION_HUB_META['replacements'].get('wide'))
         self.assertFalse(bool(meta.get('wide')))
@@ -201,7 +201,7 @@ class WordSaladSectionTests(TestCase):
         )
         self.assertEqual(card['title'], 'Салатики')
         self.assertEqual(card['ph_icon'], 'bowl-food')
-        self.assertEqual(card['cta_label'], 'Сегодняшний салатик')
+        self.assertEqual(card['cta_label'], 'Сегодняшний Салатик')
         self.assertTrue(card['is_today'])
         self.assertEqual(card['play_url'], '/salad/last/')
 
@@ -240,7 +240,7 @@ class WordSaladSectionTests(TestCase):
         html = resp.content.decode('utf-8')
         self.assertIn('https://wordsalad.online', html)
         self.assertIn('wordsalad.online', html)
-        self.assertIn('мы благодарны им за идею салатиков', html)
+        self.assertIn('мы благодарны им за идею Салатиков', html)
 
     def test_play_page_includes_section_rules_modal(self):
         CheckerType.objects.get_or_create(pk='word_salad')
