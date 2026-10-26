@@ -18,11 +18,21 @@ from games.ops.social.ads.schema.constants import (
     RESERVE_BUDGET_RUB,
 )
 
-STATE_RELATIVE = Path("ads") / "state.json"
+ADS_ARTIFACTS_DIR = Path("artifacts") / "ads"
+STATE_RELATIVE = ADS_ARTIFACTS_DIR / "state.json"
+AUDIT_RELATIVE = ADS_ARTIFACTS_DIR / "audit.jsonl"
+
+
+def ads_artifacts_path() -> Path:
+    return Path(settings.BASE_DIR) / ADS_ARTIFACTS_DIR
 
 
 def state_path() -> Path:
     return Path(settings.BASE_DIR) / STATE_RELATIVE
+
+
+def state_relative_display() -> str:
+    return STATE_RELATIVE.as_posix()
 
 
 def default_state() -> dict[str, Any]:

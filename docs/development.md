@@ -38,6 +38,11 @@
 - `static/templates/`, `static/css/`, `static/js/` — пользовательский UI.
 - `microsites/` и `nutrimatic_bundle/` — отдельные сайты и их bundles.
 - `docs/` — архитектурные решения и контракты.
+- `agents/` — доп. контекст для AI/агентов (deploy, UI, raddle и т.д.).
+- `artifacts/` — сохранённые аудиты, CSV/JSON-отчёты и одноразовые планы
+  ([`artifacts/README.md`](../artifacts/README.md)).
+- `infra/`, `iam/` — политики и шаблоны AWS/EB (не runtime-секреты).
+- `artifacts/ads/` — состояние Yandex Direct CLI (`games.ops.social.ads`).
 
 Новые каталоги `services/`, `selectors/`, `policies/` или `integrations/` не
 создаются заранее. Они появляются только при наличии нескольких связанных

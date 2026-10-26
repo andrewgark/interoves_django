@@ -7,7 +7,7 @@ from django.db.models import F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 from games.club.access.game import get_game_access
-from games.wall import Wall
+
 
 class Project(models.Model):
     id = models.CharField(primary_key=True, max_length=100)
@@ -810,6 +810,8 @@ class Task(models.Model):
             return number
 
     def get_wall(self):
+        from games.puzzles.wall.engine import Wall
+
         return Wall(self)
 
     def get_attempt_form(self, *args, **kwargs):

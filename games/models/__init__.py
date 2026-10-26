@@ -125,6 +125,10 @@ from games.models.content import (  # noqa: F401
     CorporateGameOrder,
 )
 
+from games.offer_bootstrap import install_all_offer_model_facades
+
+install_all_offer_model_facades()
+
 from games.alphabetty.models import AlphabettyOffer  # noqa: F401
 from games.censorly.models import CensorlyOffer  # noqa: F401
 from games.ladder.models import LadderOffer, RaddleUiState  # noqa: F401

@@ -39,7 +39,7 @@ from games.ops.social.ads.schema.constants import (
     REGION_RUSSIA,
 )
 from games.ops.social.ads.money import micros_to_rubles, parse_report_money
-from games.ops.social.ads.state import append_decision, load_state, save_state
+from games.ops.social.ads.state import append_decision, load_state, save_state, state_relative_display
 
 
 def client_info(client: AdsClient | None = None) -> dict:
@@ -955,7 +955,7 @@ def status(client: AdsClient | None = None) -> dict:
     start = state.get("campaign_creation_date") or today.isoformat()
     old_period = state["baseline"]["period"]
     out: dict[str, Any] = {
-        "state_file": "ads/state.json",
+        "state_file": state_relative_display(),
         "old_master_campaign_id": OLD_MASTER_CAMPAIGN_ID,
         "current_managed_campaign_id": cid,
         "allowed_test_budget_rub": state.get("max_experiment_spend_rub") or MAX_EXPERIMENT_SPEND_RUB,
@@ -1087,7 +1087,7 @@ def status(client: AdsClient | None = None) -> dict:
 def _managed_id() -> int:
     cid = load_state().get("current_managed_campaign_id")
     if not cid:
-        raise ConfigError("No current_managed_campaign_id in ads/state.json")
+        raise ConfigError(f"No current_managed_campaign_id in {state_relative_display()}")
     return int(cid)
 
 

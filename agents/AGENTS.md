@@ -208,9 +208,9 @@ If the resolved version is empty, the client check is skipped.
 
 Новый код в **`games/`** клади в предметные пакеты; корень приложения держи тонким.
 
-**Facade retirement (2026-10):** удалены ~120 корневых `games/*.py` aliases и каталоги `games/views`, `games/support`, `games/telegram`, `games/social`, `games/instagram`, `games/twitter`, `games/threads`, `games/background`, `games/tutorials`, `games/google`, `games/matcher` — prod/tests уже на canonical paths. **Не удаляй** entry points ниже и puzzle bootstrap (`games.wall`, `games.word_salad`, …). Имена **loggers** (`games.views.new_ui`, `games.daily_timing`, …) намеренно legacy; `assertLogs` и prod-логи на них завязаны.
+**Facade retirement (2026-10):** удалены ~120 корневых `games/*.py` aliases и каталоги `games/views`, `games/support`, `games/telegram`, `games/social`, `games/instagram`, `games/twitter`, `games/threads`, `games/background`, `games/tutorials`, `games/google`, `games/matcher` — prod/tests уже на canonical paths. **Не удаляй** entry points ниже. Имена **loggers** (`games.views.new_ui`, `games.daily_timing`, …) намеренно legacy; `assertLogs` и prod-логи на них завязаны.
 
-**Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.storage_backends` (migration `0232` only), `games.provider` (allauth autodiscover), `games.templatetags.filters`, `games.offer_bootstrap`, `games.wall` / `word_salad` / `raddle` / `grid_puzzle` / `replacements_lines`, пакеты **`games.censorly`** (`__init__` + `models`), **`games.alphabetty`** (`models` + `core` для migration `0150`), **`salad` / `ladder`** (model load only). Ladder tutorial: **`games.daily.ladder.tutorial`**. Django settings: HTTP **`games.site.http.*`**, inlineedit **`games.site.http.adaptors`**. Yandex Direct — только **`games.ops.social.ads.*`**.
+**Оставшиеся entry shims (Django / bootstrap):** `games.admin`, `games.storage_backends` (migration `0232` only), `games.provider` (allauth autodiscover), `games.templatetags.filters`, [`games/offer_bootstrap.py`](games/offer_bootstrap.py) (offer ORM без импорта `games.puzzles.__init__`), **`games.alphabetty.core`** (migration `0150` only). Пустые пакеты **`games.{alphabetty,censorly,salad,ladder}`** — только namespace для `sys.modules` facades из bootstrap. Ladder tutorial: **`games.daily.ladder.tutorial`**. Django settings: HTTP **`games.site.http.*`**, inlineedit **`games.site.http.adaptors`**. Yandex Direct — только **`games.ops.social.ads.*`**.
 
 | Concern | Canonical import | Notes |
 |--------|------------------|-------|
@@ -223,9 +223,9 @@ If the resolved version is empty, the client check is skipped.
 | Yandex Direct ads CLI | `games.ops.social.ads.*` | — |
 | Main UI URL handlers | `games.site.views.pages.ui` (imports `games.site.ui.*`) | `ui_exports` re-exports for tests; logger `games.views.new_ui` |
 | Norm matching / pymorphy | `games.puzzles.core.norm_matcher` | — |
-| Censorly IDs / flags | `games.puzzles.censorly.ids` | `games.censorly` package re-export |
+| Censorly IDs / flags | `games.puzzles.censorly.ids` | — |
 | Censorly implementation | `games.puzzles.censorly.*` | — |
-| Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | bootstrap: `games.grid_puzzle` |
+| Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | — |
 | SQS worker handlers | `games.site.views.workers.{background,identity,integrations,word_salad}` | — |
 | Worker registry / ECS config / Lambda SQS | `games.ops.workers.{contract,config,lambda_entry}` | — |
 | Gameplay write actor (team/user/anon) | `games.identity` (`games.identity.actor`) | — |
@@ -304,11 +304,11 @@ If the resolved version is empty, the client check is skipped.
 | Results share formatting | `games.results.share` | — |
 | SQL results aggregate | `games.results.sql` | — |
 | JSON body / public task / browser-form HTTP helpers | `games.site.http.request_util` | — |
-| Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `games.wall`, `word_salad`, `replacements_*` |
-| Ladder onboarding tutorial | `games.daily.ladder.tutorial.{ladder,views}` | `games.ladder` — только models bootstrap |
+| Puzzle engines (wall / salad / replacements) | `games.puzzles.{wall.engine,salad.rules,replacements.*}` | `Task.get_wall()` lazy-imports `wall.engine` |
+| Ladder onboarding tutorial | `games.daily.ladder.tutorial.{ladder,views}` | — |
 | Alphabetty engine | `games.puzzles.alphabetty.*` | `games.alphabetty.core` (migration `0150` only) |
-| Alphabetty/Censorly offer models in `models/__init__` | `games.alphabetty.models` / `games.censorly.models` (+ `games.alphabetty.core` for migration `0150`); loader [`games/offer_bootstrap.py`](games/offer_bootstrap.py) |
-На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Константа `WORD_SALAD_GAME_ID` живёт в `games.daily.page.section` (не тянет puzzles); `games.puzzles.salad.rules` только re-export для legacy. `models.catalog.Wall` — `games.wall`.
+| Offer ORM (alphabetty / censorly / salad / ladder) | `games.puzzles.{alphabetty,censorly,salad,raddle}.models` | registered as `games.*.models` via [`offer_bootstrap`](games/offer_bootstrap.py) |
+На старте Django (до готовности `games.models`) не импортируй `games.puzzles` package `__init__` на уровне модулей моделей — используй lazy import в методах (см. `Task.get_wall()` → `games.puzzles.wall.engine`). `WORD_SALAD_GAME_ID` — `games.daily.page.section`.
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД. **Новый код** — только canonical import; не добавляй новые root shims (entry points — см. выше). В prod и тестах не импортируй удалённые `games.*` aliases; для `@patch` предпочитай модуль, где имя **привязано** (не legacy `games.views.*`):
 

@@ -36,7 +36,7 @@ MSK = ZoneInfo("Europe/Moscow")
 UTC = dt_timezone.utc
 AUG_START = datetime(2026, 8, 1, tzinfo=MSK)
 AUG_END = datetime(2026, 9, 1, tzinfo=MSK)
-OUT_DIR = Path("reports/analytics/2026-08")
+OUT_DIR = Path("artifacts/analytics/2026-08")
 
 
 def utc_naive(value: datetime) -> datetime:

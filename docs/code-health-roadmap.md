@@ -40,7 +40,7 @@
 
 ### 3. Первый домен для декомпозиции
 
-Статус games refactor (2026): prod/tests на **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`**, **`games.identity`**, **`games.ops.*`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**. **Oct 2026:** ~120 корневых alias-файлов и каталоги `games/views`, `games/support`, `games/telegram`, … **удалены**; остались Django entry shims (`admin`, `storage_backends`, puzzle bootstrap `wall`/`word_salad`, …) — **`agents/AGENTS.md`**. Settings: middleware/context/inlineedit/storage → **`games.site.http.*`** / **`games.ops.health.storage`**; migration shim **`games.storage_backends`**, allauth **`games.provider`**. Logger names (`games.views.new_ui`, …) не менять.
+Статус games refactor (2026): prod/tests на **`games.site.*`**, **`games.puzzles.*`**, **`games.realtime.*`**, **`games.identity`**, **`games.ops.*`**, **`games.club.*`**, **`games.daily.*`**, **`games.tasks.*`**. **Oct 2026:** ~120 корневых alias-файлов и каталоги `games/views`, `games/support`, `games/telegram`, … **удалены**; остались Django entry shims (`admin`, `storage_backends`, `offer_bootstrap`, …) — **`agents/AGENTS.md`**. Settings: middleware/context/inlineedit/storage → **`games.site.http.*`** / **`games.ops.health.storage`**; migration shim **`games.storage_backends`**, allauth **`games.provider`**. Logger names (`games.views.new_ui`, …) не менять.
 
 Main UI уже в `games/site/ui` + `games/site/views/pages/ui.py`; дальше — точечная декомпозиция без смены URL-контрактов:
 

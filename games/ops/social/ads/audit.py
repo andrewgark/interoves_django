@@ -10,8 +10,7 @@ from typing import Any
 from django.conf import settings
 
 from games.ops.social.ads.client import redact
-
-AUDIT_RELATIVE = Path("ads") / "audit.jsonl"
+from games.ops.social.ads.state import AUDIT_RELATIVE
 
 
 def audit_path() -> Path:
