@@ -31,7 +31,7 @@ from games.models import (
     Task,
     Team,
 )
-from games.support.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 
 
 def _ensure_reference_rows():
@@ -212,7 +212,7 @@ class LadderOfferFlowTests(TestCase):
         self.assertIsNotNone(offer.accepted_link_id)
         self.assertEqual(offer.accepted_link.task_group_id, offer.task_group_id)
         self.assertEqual(Task.objects.filter(task_group=offer.task_group).count(), 1)
-        from games.support.services.ladders import get_ladder_detail, list_ladder_rows
+        from games.ops.support.games.ladders import get_ladder_detail, list_ladder_rows
         from games.ops.telegram.links import task_play_url
         row = next(item for item in list_ladder_rows() if item.link_id == offer.accepted_link_id)
         self.assertEqual(row.site_url, offer.play_url())
@@ -481,7 +481,7 @@ class LadderOfferFlowTests(TestCase):
         self.assertTrue(Attempt.manager.filter(task=task, user=self.other).exists())
 
     def test_delete_accepted_slot_keeps_offer_task(self):
-        from games.support.services.ladders import delete_ladder
+        from games.ops.support.games.ladders import delete_ladder
 
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ДОМ', 'СОМ'], hints=['д→с'], author='A')

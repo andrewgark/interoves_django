@@ -272,21 +272,21 @@ class InstagramRefreshTests(SimpleTestCase):
     def test_young_token_does_not_call_the_api(self):
         from types import SimpleNamespace
 
-        from games.instagram.refresh import run_instagram_token_refresh
+        from games.ops.social.instagram.refresh import run_instagram_token_refresh
 
         row = SimpleNamespace(refreshed_at=timezone.now() - timedelta(days=4))
         with patch(
-            'games.instagram.refresh.distributed_cron_lock',
+            'games.ops.social.instagram.refresh.distributed_cron_lock',
         ) as lock, patch(
-            'games.instagram.refresh.InstagramToken.get',
+            'games.ops.social.instagram.refresh.InstagramToken.get',
             return_value=row,
         ), patch(
-            'games.instagram.refresh.refresh_and_persist',
+            'games.ops.social.instagram.refresh.refresh_and_persist',
         ) as api, patch(
-            'games.instagram.refresh.start_queue_heartbeat',
+            'games.ops.social.instagram.refresh.start_queue_heartbeat',
             return_value=1,
         ), patch(
-            'games.instagram.refresh.finish_queue_heartbeat',
+            'games.ops.social.instagram.refresh.finish_queue_heartbeat',
         ):
             lock.return_value.__enter__.return_value = True
             result = run_instagram_token_refresh()

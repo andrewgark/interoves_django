@@ -18,7 +18,7 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
-from games.support.services.word_salad import create_word_salad
+from games.ops.support.games.salad import create_word_salad
 from games.ops.workers.jobs.outbox import (
     FakeWordSaladTransport,
     _payload,

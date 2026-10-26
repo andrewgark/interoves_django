@@ -2060,7 +2060,7 @@ class CensorlySupportViewTests(TestCase):
     def test_generate_random_does_not_shadow_service(self):
         """Regression: view must call service, not recurse into itself."""
         from unittest.mock import patch
-        from games.support.services.censorly import CensorlyRandomRow
+        from games.ops.support.games.censorly import CensorlyRandomRow
 
         fake = CensorlyRandomRow(
             id=1,
@@ -2073,7 +2073,7 @@ class CensorlySupportViewTests(TestCase):
             payload_bytes=100,
         )
         with patch(
-            'games.support.views.censorly_create_random',
+            'games.ops.support.http.views.censorly_create_random',
             return_value=fake,
         ) as mocked:
             resp = self.client.post(
@@ -2123,7 +2123,7 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_defer_and_restore_schedule_slot(self):
-        from games.support.services.censorly import defer_censorly, restore_censorly
+        from games.ops.support.games.censorly import defer_censorly, restore_censorly
 
         game, task, _hash, _puzzle = _make_puzzle_task(title='Слот')
         link = GameTaskGroup.objects.get(game=game, task_group=task.task_group)
@@ -2163,7 +2163,7 @@ class CensorlySupportViewTests(TestCase):
         self.assertFalse(response.json()['rows'][0]['is_deferred'])
 
     def test_deferred_queue_has_independent_order_and_restore_appends(self):
-        from games.support.services.censorly import defer_censorly, restore_censorly
+        from games.ops.support.games.censorly import defer_censorly, restore_censorly
 
         game = Game.objects.get(pk=CENSORLY_GAME_ID)
         links = []
@@ -2179,7 +2179,7 @@ class CensorlySupportViewTests(TestCase):
             links.append(link)
 
         with patch(
-            'games.support.services.censorly.is_censorly_number_published',
+            'games.ops.support.games.censorly.is_censorly_number_published',
             return_value=False,
         ):
             defer_censorly(links[1].pk)
@@ -2200,7 +2200,7 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(links[2].deferred_number, '1')
 
     def test_defer_rejects_already_deferred_slot(self):
-        from games.support.services.censorly import (
+        from games.ops.support.games.censorly import (
             CensorlySupportError,
             defer_censorly,
         )
@@ -2212,7 +2212,7 @@ class CensorlySupportViewTests(TestCase):
         link.save(update_fields=['number'])
 
         with patch(
-            'games.support.services.censorly.is_censorly_number_published',
+            'games.ops.support.games.censorly.is_censorly_number_published',
             return_value=False,
         ):
             defer_censorly(link.pk)
@@ -2259,7 +2259,7 @@ class CensorlySupportViewTests(TestCase):
             truncated=True,
             revid=123,
         )
-        with patch('games.support.services.censorly.fetch_article', return_value=article):
+        with patch('games.ops.support.games.censorly.fetch_article', return_value=article):
             resp = self.client.post(
                 '/support/censorly/refetch-text/',
                 data=json.dumps({'share_hash': share_hash}),

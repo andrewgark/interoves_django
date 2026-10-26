@@ -24,7 +24,7 @@ from games.models import (
     Team,
     WordSaladOffer,
 )
-from games.support.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 
 
 def _ensure_reference_rows():

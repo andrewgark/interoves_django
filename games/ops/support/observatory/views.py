@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_GET
 
-from games.support.access import support_console_required
+from games.ops.support.http.access import support_console_required
 
 from .selectors import job_detail_queryset, job_list_queryset, queue_summary
 from .serializers import serialize_job_detail, serialize_job_summary

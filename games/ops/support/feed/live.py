@@ -6,7 +6,7 @@ from django.utils import timezone
 
 from games.club.access.game import game_has_ended, game_has_started
 from games.models import Game
-from games.support.services.feed import get_activity_feed
+from games.ops.support.feed.feed import get_activity_feed
 
 
 def get_live_games(*, include_testing: bool = True) -> List[Game]:

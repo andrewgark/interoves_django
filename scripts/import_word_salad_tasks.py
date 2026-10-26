@@ -36,7 +36,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "interoves_django.settings")
 django.setup()
 
 from games.models import CheckerType, GameTaskGroup, Task, TaskGroup  # noqa: E402
-from games.support.services.word_salad import (  # noqa: E402
+from games.ops.support.games.salad import (  # noqa: E402
     WORD_SALAD_SECTION_TITLE,
     ensure_word_salad_game,
 )

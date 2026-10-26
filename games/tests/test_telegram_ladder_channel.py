@@ -12,7 +12,7 @@ from PIL import Image
 
 from games.daily.catalog.ladder import LADDER_PUBLISH_START_TAG
 from games.models import Game, GameTaskGroup, Project, Task, TaskGroup
-from games.social.models import SocialQueuePost
+from games.ops.social.models import SocialQueuePost
 from games.ops.telegram.channels.ladder import (
     build_caption,
     process_ladder_channel_tick,
@@ -90,7 +90,7 @@ class LadderChannelScheduleTests(TestCase):
         self.assertTrue(png.startswith(b'\x89PNG'))
 
     @patch('games.ops.telegram.channels.ladder.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_schedule_uses_mtproto_schedule_date(self, render_mock, mtproto_mock, admin_photo_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
@@ -129,7 +129,7 @@ class LadderChannelScheduleTests(TestCase):
         self.assertEqual(again.instagram_status, SocialQueuePost.STATUS_QUEUED)
 
     @patch('games.ops.telegram.channels.ladder.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_tick_only_in_0015_window(self, render_mock, mtproto_mock, _admin_photo_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
@@ -144,7 +144,7 @@ class LadderChannelScheduleTests(TestCase):
         mtproto_mock.assert_called_once()
 
     @patch('games.ops.telegram.channels.ladder.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_parallel_schedule_interleaving_sends_once(
         self, render_mock, mtproto_mock, admin_photo_mock,
@@ -200,7 +200,7 @@ class LadderChannelScheduleTests(TestCase):
         self.assertFalse(ok)
         self.assertIn('Ошибка рендера', message)
 
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_schedule_refuses_after_1630(self, render_mock, mtproto_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
@@ -236,12 +236,12 @@ class LadderChannelScheduleTests(TestCase):
         self.assertIn('PermissionError: S3 denied', post.telegram_error)
         admin_message_mock.assert_called_once()
 
-    @patch('games.social.publish.post_tweet_with_image')
-    @patch('games.social.publish.twitter_configured', return_value=True)
-    @patch('games.social.publish.publish_image_url')
-    @patch('games.social.publish.publish_configured', return_value=True)
+    @patch('games.ops.social.publish.post_tweet_with_image')
+    @patch('games.ops.social.publish.twitter_configured', return_value=True)
+    @patch('games.ops.social.publish.publish_image_url')
+    @patch('games.ops.social.publish.publish_configured', return_value=True)
     @patch('games.ops.telegram.channels.ladder.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.ladder.render_ladder_teaser_png')
     def test_queue_then_tick_publishes_x_ig(
         self,
@@ -253,7 +253,7 @@ class LadderChannelScheduleTests(TestCase):
         _tw_cfg,
         tweet_mock,
     ):
-        from games.social.publish import process_social_queue_tick
+        from games.ops.social.publish import process_social_queue_tick
 
         render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}
@@ -287,7 +287,7 @@ class LadderChannelScheduleTests(TestCase):
 
 class InstagramJpegRatioTests(TestCase):
     def test_keeps_portrait_45_without_padding(self):
-        from games.instagram.api import to_instagram_jpeg
+        from games.ops.social.instagram.api import to_instagram_jpeg
 
         # 1080x1350 = 0.8 = 4:5
         png = _tiny_png_bytes(108, 135)
@@ -297,7 +297,7 @@ class InstagramJpegRatioTests(TestCase):
         self.assertEqual(im.format, 'JPEG')
 
     def test_pads_when_too_tall(self):
-        from games.instagram.api import to_instagram_jpeg
+        from games.ops.social.instagram.api import to_instagram_jpeg
 
         # 100x200 = 0.5 < 0.8 → pad to square
         png = _tiny_png_bytes(100, 200)
@@ -323,10 +323,10 @@ class SocialPublishRetryTests(TestCase):
         )
         self.post.image.save('t.png', ContentFile(_tiny_png_bytes()), save=True)
 
-    @patch('games.social.publish.post_tweet_with_image')
-    @patch('games.social.publish.twitter_configured', return_value=True)
+    @patch('games.ops.social.publish.post_tweet_with_image')
+    @patch('games.ops.social.publish.twitter_configured', return_value=True)
     def test_twitter_idempotent_without_force(self, _cfg, tweet_mock):
-        from games.social.publish import publish_twitter
+        from games.ops.social.publish import publish_twitter
 
         tweet_mock.return_value = {'data': {'id': '111'}}
         publish_twitter(self.post, force=False)
@@ -341,10 +341,10 @@ class SocialPublishRetryTests(TestCase):
         self.post.refresh_from_db()
         self.assertEqual(self.post.twitter_external_id, '222')
 
-    @patch('games.social.publish.post_tweet_with_image')
-    @patch('games.social.publish.twitter_configured', return_value=True)
+    @patch('games.ops.social.publish.post_tweet_with_image')
+    @patch('games.ops.social.publish.twitter_configured', return_value=True)
     def test_twitter_prefers_compact_social_image(self, _cfg, tweet_mock):
-        from games.social.publish import publish_twitter
+        from games.ops.social.publish import publish_twitter
 
         compact = _tiny_png_bytes(25, 25, color=(200, 10, 10))
         self.post.social_image.save('compact.png', ContentFile(compact), save=True)
@@ -354,10 +354,10 @@ class SocialPublishRetryTests(TestCase):
 
         self.assertEqual(tweet_mock.call_args.kwargs['image_bytes'], compact)
 
-    @patch('games.social.publish.post_tweet_with_image', side_effect=RuntimeError('x down'))
-    @patch('games.social.publish.twitter_configured', return_value=True)
+    @patch('games.ops.social.publish.post_tweet_with_image', side_effect=RuntimeError('x down'))
+    @patch('games.ops.social.publish.twitter_configured', return_value=True)
     def test_twitter_failed_publish_counts_attempt(self, _cfg, _tweet_mock):
-        from games.social.publish import publish_twitter
+        from games.ops.social.publish import publish_twitter
 
         publish_twitter(self.post)
 
@@ -365,12 +365,12 @@ class SocialPublishRetryTests(TestCase):
         self.assertEqual(self.post.twitter_status, SocialQueuePost.STATUS_FAILED)
         self.assertEqual(self.post.twitter_attempts, 1)
 
-    @patch('games.social.publish.connection.close')
-    @patch('games.social.publish._publish_one_queued', return_value=True)
+    @patch('games.ops.social.publish.connection.close')
+    @patch('games.ops.social.publish._publish_one_queued', return_value=True)
     def test_thread_worker_only_wraps_publish_and_closes_connection(
         self, publish_mock, close_mock,
     ):
-        from games.social.publish import _publish_one_queued_worker
+        from games.ops.social.publish import _publish_one_queued_worker
 
         self.assertTrue(_publish_one_queued_worker('twitter', self.post.pk))
 
@@ -382,7 +382,7 @@ class SocialPublishRetryTests(TestCase):
         close_mock.assert_called_once_with()
 
     def test_failed_network_is_requeued_up_to_attempt_limit(self):
-        from games.social.publish import SOCIAL_QUEUE_MAX_ATTEMPTS, queue_failed_network_retries
+        from games.ops.social.publish import SOCIAL_QUEUE_MAX_ATTEMPTS, queue_failed_network_retries
 
         now = datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow'))
         self.post.twitter_status = SocialQueuePost.STATUS_FAILED
@@ -422,7 +422,7 @@ class SocialQueueClaimTests(TestCase):
         self.post.image.save('q.png', ContentFile(_tiny_png_bytes()), save=True)
 
     def test_claim_prevents_second_instance_from_publishing_same_network(self):
-        from games.social.publish import _claim_queued_post
+        from games.ops.social.publish import _claim_queued_post
 
         now = datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow'))
         self.assertTrue(_claim_queued_post('twitter', self.post.pk, now))
@@ -431,7 +431,7 @@ class SocialQueueClaimTests(TestCase):
         self.assertEqual(self.post.twitter_status, SocialQueuePost.STATUS_PUBLISHING)
 
     def test_stale_publishing_claim_can_be_retried(self):
-        from games.social.publish import QUEUE_CLAIM_TIMEOUT, _claim_queued_post
+        from games.ops.social.publish import QUEUE_CLAIM_TIMEOUT, _claim_queued_post
 
         now = datetime(2026, 7, 8, 16, 30, tzinfo=ZoneInfo('Europe/Moscow'))
         SocialQueuePost.objects.filter(pk=self.post.pk).update(
@@ -461,7 +461,7 @@ class TelegramClaimTests(TestCase):
         self.post.image.save('tg-claim.png', ContentFile(_tiny_png_bytes()), save=True)
 
     def test_old_post_age_does_not_make_fresh_claim_stale(self):
-        from games.social.publish import claim_telegram_post
+        from games.ops.social.publish import claim_telegram_post
 
         SocialQueuePost.objects.filter(pk=self.post.pk).update(
             created_at=self.now - timedelta(hours=12),
@@ -483,9 +483,9 @@ class TelegramClaimTests(TestCase):
             queued_only=True,
         ))
 
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     def test_two_claimers_only_send_once(self, telegram_mock):
-        from games.social.publish import claim_telegram_post, publish_telegram
+        from games.ops.social.publish import claim_telegram_post, publish_telegram
 
         telegram_mock.return_value = {'message_id': 501, 'scheduled': False}
         first_token = claim_telegram_post(self.post.pk, now=self.now)
@@ -504,7 +504,7 @@ class TelegramClaimTests(TestCase):
         telegram_mock.assert_called_once()
 
     def test_stale_claim_can_be_reclaimed(self):
-        from games.social.publish import QUEUE_CLAIM_TIMEOUT, claim_telegram_post
+        from games.ops.social.publish import QUEUE_CLAIM_TIMEOUT, claim_telegram_post
 
         token_a = claim_telegram_post(self.post.pk, now=self.now)
         token_b = claim_telegram_post(
@@ -516,9 +516,9 @@ class TelegramClaimTests(TestCase):
         self.assertTrue(token_b)
         self.assertNotEqual(token_a, token_b)
 
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     def test_queue_tick_discovers_and_reclaims_stale_publish(self, telegram_mock):
-        from games.social.publish import QUEUE_CLAIM_TIMEOUT, process_social_queue_tick
+        from games.ops.social.publish import QUEUE_CLAIM_TIMEOUT, process_social_queue_tick
 
         telegram_mock.return_value = {'message_id': 601, 'scheduled': False}
         SocialQueuePost.objects.filter(pk=self.post.pk).update(
@@ -537,7 +537,7 @@ class TelegramClaimTests(TestCase):
         telegram_mock.assert_called_once()
 
     def test_fresh_claim_cannot_be_reclaimed(self):
-        from games.social.publish import claim_telegram_post
+        from games.ops.social.publish import claim_telegram_post
 
         token_a = claim_telegram_post(self.post.pk, now=self.now)
         token_b = claim_telegram_post(
@@ -549,7 +549,7 @@ class TelegramClaimTests(TestCase):
         self.assertIsNone(token_b)
 
     def test_recent_failed_claim_waits_for_retry_backoff(self):
-        from games.social.publish import SOCIAL_QUEUE_RETRY_DELAY, claim_telegram_post
+        from games.ops.social.publish import SOCIAL_QUEUE_RETRY_DELAY, claim_telegram_post
 
         SocialQueuePost.objects.filter(pk=self.post.pk).update(
             telegram_status=SocialQueuePost.STATUS_FAILED,
@@ -566,7 +566,7 @@ class TelegramClaimTests(TestCase):
         ))
 
     def test_failed_render_attempts_stop_after_retry_limit(self):
-        from games.social.publish import (
+        from games.ops.social.publish import (
             SOCIAL_QUEUE_MAX_ATTEMPTS,
             claim_telegram_post,
             complete_telegram_publish,
@@ -594,7 +594,7 @@ class TelegramClaimTests(TestCase):
         ))
 
     def test_claim_token_fences_stale_completion(self):
-        from games.social.publish import (
+        from games.ops.social.publish import (
             QUEUE_CLAIM_TIMEOUT,
             claim_telegram_post,
             complete_telegram_publish,

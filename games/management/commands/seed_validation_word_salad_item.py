@@ -14,7 +14,7 @@ from games.models import (
     WordSaladRecheckOutbox,
 )
 from games.runtime import runtime_role
-from games.support.services.word_salad import create_word_salad
+from games.ops.support.games.salad import create_word_salad
 
 
 class Command(BaseCommand):

@@ -15,7 +15,7 @@ from django.db import connection, close_old_connections
 from django.test import TransactionTestCase
 
 from games.models import WordSaladRecheckItem, WordSaladRecheckJob
-from games.support.services.word_salad import create_word_salad
+from games.ops.support.games.salad import create_word_salad
 from games.ops.workers.jobs.outbox import _claim_one
 from games.ops.workers.jobs.salad import enqueue_word_salad_recheck, process_word_salad_recheck_item
 

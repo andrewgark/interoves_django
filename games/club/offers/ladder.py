@@ -30,7 +30,7 @@ from games.models import (
     TaskGroup,
 )
 from games.puzzles.raddle.engine import ensure_raddle_assist_hints
-from games.support.services.ladders import (
+from games.ops.support.games.ladders import (
     AUTHOR_TAG,
     LadderSupportError,
     _normalize_intro,

@@ -10,8 +10,8 @@ from django.conf import settings
 from django.utils import timezone
 
 from games.ops.cron.lock import distributed_cron_lock
-from games.instagram.api import refresh_and_persist
-from games.instagram.models import InstagramToken
+from games.ops.social.instagram.api import refresh_and_persist
+from games.ops.social.instagram.models import InstagramToken
 from games.ops.workers.heartbeat import finish as finish_queue_heartbeat
 from games.ops.workers.heartbeat import start as start_queue_heartbeat
 

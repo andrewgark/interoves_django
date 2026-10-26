@@ -20,19 +20,19 @@ from games.puzzles.censorly.ids import CENSORLY_TAGS_KEY
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
 from games.puzzles.censorly.article.wiki import WikiFetchError, fetch_article
 from django.utils import timezone
-from games.support.access import support_console_required
-from games.support.queues import dashboard_context as queues_dashboard_context
+from games.ops.support.http.access import support_console_required
+from games.ops.support.http.queues import dashboard_context as queues_dashboard_context
 from games.models import WordSaladRecheckJob
 from games.ops.workers.jobs.salad import retry_word_salad_recheck, serialize_job
-from games.support.services.actor import (
+from games.ops.support.people.actor import (
     build_anon_context,
     build_game_context,
     build_team_context,
     build_user_context,
 )
-from games.support.services.chain import build_chain_context, format_chain_state
-from games.support.services.games import get_all_games_by_project
-from games.support.services.alphabetty import (
+from games.ops.support.feed.chain import build_chain_context, format_chain_state
+from games.ops.support.games.catalog import get_all_games_by_project
+from games.ops.support.games.alphabetty import (
     AlphabettySupportError,
     alphabetty_dashboard_context,
     create_alphabetty,
@@ -47,7 +47,7 @@ from games.support.services.alphabetty import (
     defer_alphabetty,
     restore_alphabetty,
 )
-from games.support.services.censorly import (
+from games.ops.support.games.censorly import (
     CensorlySupportError,
     create_at_number as censorly_create_at_number,
     dashboard_context as censorly_dashboard_context,
@@ -65,7 +65,7 @@ from games.support.services.censorly import (
     restore_censorly,
     set_publish_start as censorly_set_publish_start_service,
 )
-from games.support.services.week_tasks import (
+from games.ops.support.games.week import (
     WeekTaskSupportError,
     create_week_task,
     delete_week_task,
@@ -81,7 +81,7 @@ from games.support.services.week_tasks import (
     restore_week_task,
     week_task_dashboard_context,
 )
-from games.support.services.ladders import (
+from games.ops.support.games.ladders import (
     LadderSupportError,
     create_ladder,
     dashboard_context as ladders_dashboard_context,
@@ -93,7 +93,7 @@ from games.support.services.ladders import (
     defer_ladder,
     restore_ladder,
 )
-from games.support.services.word_salad import (
+from games.ops.support.games.salad import (
     WordSaladSupportError,
     create_word_salad,
     dashboard_context as word_salad_dashboard_context,
@@ -144,19 +144,19 @@ from games.club.offers.salad import (
     update_offer_content as update_word_salad_offer_content,
 )
 from games.models import AlphabettyOffer, LadderOffer, Task, WordSaladOffer
-from games.support.services.live import get_live_feed
-from games.support.services.preview import (
+from games.ops.support.feed.live import get_live_feed
+from games.ops.support.feed.preview import (
     ActorSpec,
     build_preview_game_context,
     build_preview_task_group_context,
     parse_actor_spec,
 )
-from games.support.services.pending import get_pending_queue
-from games.support.services.search import search
-from games.support.services.sections import get_sections_dashboard
-from games.support.services.stats import collect_support_stats
-from games.support.services.stuck import get_stuck_teams
-from games.support.services.social import (
+from games.ops.support.people.pending import get_pending_queue
+from games.ops.support.people.search import search
+from games.ops.support.games.sections import get_sections_dashboard
+from games.ops.support.feed.stats import collect_support_stats
+from games.ops.support.feed.stuck import get_stuck_teams
+from games.ops.support.feed.social import (
     SocialSupportError,
     create_post_with_plan as social_create_post_with_plan,
     delete_post as social_delete_post,
@@ -1648,7 +1648,7 @@ def censorly_schedule_delete(request, link_id):
     if link is None:
         return JsonResponse({'ok': False, 'error': 'Слот не найден'}, status=404)
     from games.daily.catalog.censorly import is_censorly_number_published
-    from games.support.services.censorly import _renumber_censorly_links, list_schedule_rows
+    from games.ops.support.games.censorly import _renumber_censorly_links, list_schedule_rows
     try:
         number = int(link.number)
     except ValueError:
@@ -1672,7 +1672,7 @@ def censorly_schedule_edit(request, link_id):
     if link is None:
         return JsonResponse({'ok': False, 'error': 'Слот не найден'}, status=404)
     from games.daily.catalog.censorly import is_censorly_number_published
-    from games.support.services.censorly import list_schedule_rows
+    from games.ops.support.games.censorly import list_schedule_rows
     try:
         article = fetch_article(str(body.get('title') or '').strip())
     except WikiFetchError as exc:

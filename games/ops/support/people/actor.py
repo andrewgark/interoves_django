@@ -1,5 +1,5 @@
-from games.support.services.feed import get_activity_feed
-from games.support.services.games import games_for_actor
+from games.ops.support.feed.feed import get_activity_feed
+from games.ops.support.games.catalog import games_for_actor
 
 
 def _feed_context(feed_kwargs):

@@ -16,7 +16,7 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
-from games.support.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 
 
 class QueueObservatoryTests(TestCase):

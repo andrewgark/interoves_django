@@ -6,9 +6,9 @@ the 00:15 MSK cron); otherwise creates/updates a ladder queue row and publishes.
 
 from django.core.management.base import BaseCommand
 
-from games.instagram.api import publish_configured
-from games.social.models import SocialQueuePost
-from games.social.publish import publish_instagram
+from games.ops.social.instagram.api import publish_configured
+from games.ops.social.models import SocialQueuePost
+from games.ops.social.publish import publish_instagram
 from games.ops.telegram.channels.ladder import (
     build_caption,
     resolve_ladder_by_number,

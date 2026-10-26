@@ -8,7 +8,7 @@ from django.utils import timezone
 from games.models import (
     Attempt, Game, GameTaskGroup, Hint, HintAttempt, HTMLPage, Project, Task, TaskGroup, Team,
 )
-from games.social.models import SocialQueuePost
+from games.ops.social.models import SocialQueuePost
 from games.ops.telegram.channels.announcements import (
     build_podium,
     format_all_solved_announcement,

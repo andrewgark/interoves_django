@@ -8,9 +8,9 @@ from django.urls import reverse
 
 from games.puzzles.salad.rules import WORD_SALAD_GAME_ID
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
-from games.support.constants import SUPPORT_CONSOLE_GROUP
-from games.support.services.sections import get_sections_dashboard
-from games.support.services.word_salad import (
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.games.sections import get_sections_dashboard
+from games.ops.support.games.salad import (
     WordSaladSupportError,
     create_word_salad,
     delete_word_salad,
@@ -254,7 +254,7 @@ class WordSaladSupportTests(TestCase):
 
     def test_create_endpoint_returns_json_error(self):
         self.client.force_login(self.support_user)
-        with patch('games.support.views.create_word_salad', side_effect=WordSaladSupportError('boom')):
+        with patch('games.ops.support.http.views.create_word_salad', side_effect=WordSaladSupportError('boom')):
             response = self.client.post(reverse('support:word_salad_create'))
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response['Content-Type'].split(';')[0], 'application/json')
@@ -312,7 +312,7 @@ class WordSaladSupportTests(TestCase):
         ]
 
         with patch(
-            'games.support.services.schedule_links.GameTaskGroup.objects.bulk_update',
+            'games.ops.support.http.schedule.GameTaskGroup.objects.bulk_update',
             wraps=GameTaskGroup.objects.bulk_update,
         ) as bulk_update:
             renumber_links([links[0], links[2], links[1]])

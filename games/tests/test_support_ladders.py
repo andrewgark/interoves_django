@@ -8,8 +8,8 @@ from django.urls import reverse
 
 from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG
 from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task
-from games.support.constants import SUPPORT_CONSOLE_GROUP
-from games.support.services import ladders as ladder_svc
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.games import ladders as ladder_svc
 
 
 def _ensure_reference_rows():

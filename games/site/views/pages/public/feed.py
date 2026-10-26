@@ -9,7 +9,7 @@ from django.core.cache import cache
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 
-from games.instagram.api import to_instagram_jpeg
+from games.ops.social.instagram.api import to_instagram_jpeg
 
 
 def instagram_feed(request):
@@ -23,7 +23,7 @@ def ladder_teaser_jpg(request, number):
     Prefers the stored SocialQueuePost image for that ladder number; otherwise renders
     from the ladder task. 404 for unpublished/unknown numbers.
     """
-    from games.social.models import SocialQueuePost
+    from games.ops.social.models import SocialQueuePost
     from games.ops.telegram.channels.ladder import resolve_ladder_by_number
     from games.ops.telegram.images.ladder import render_ladder_teaser_png
 

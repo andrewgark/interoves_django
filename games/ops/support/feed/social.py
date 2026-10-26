@@ -8,8 +8,8 @@ from datetime import datetime
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from games.social.models import SocialQueuePost
-from games.social.publish import (
+from games.ops.social.models import SocialQueuePost
+from games.ops.social.publish import (
     publish_instagram,
     publish_telegram,
     publish_twitter,

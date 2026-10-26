@@ -74,7 +74,7 @@ from games.sections.hub import (
 )
 from games.site.session.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
 from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
-from games.support.access import user_has_support_access
+from games.ops.support.http.access import user_has_support_access
 from games.tasks.titles import task_display_name, task_group_page_title
 from games.site.views.daily.timing import daily_timing_page_context
 from games.site.views.daily.hub import can_access_daily_game

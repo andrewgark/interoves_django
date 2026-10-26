@@ -4,7 +4,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from games.models import Game, HTMLPage, Project
-from games.support.services.stats import collect_support_stats
+from games.ops.support.feed.stats import collect_support_stats
 
 
 class SupportStatsServiceTests(TestCase):
@@ -54,7 +54,7 @@ class SupportStatsServiceTests(TestCase):
             'stuck_tickets_now': 0,
         }
 
-    @patch('games.support.services.stats.collect_daily_digest_stats')
+    @patch('games.ops.support.feed.stats.collect_daily_digest_stats')
     def test_reuses_digest_top_rows_and_bulk_loads_game_labels(self, digest_mock):
         digest_mock.return_value = self._digest_stats()
 

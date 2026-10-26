@@ -38,7 +38,7 @@ from games.daily.catalog.censorly import (
     is_censorly_number_published,
 )
 from games.models import CensorlyOffer, CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
-from games.support.services.schedule_links import (
+from games.ops.support.http.schedule import (
     build_schedule_page_context,
     defer_future_slot,
     effective_schedule_number,
@@ -354,7 +354,7 @@ def reorder_censorly(ordered_link_ids: list[int], *, now=None) -> list[CensorlyS
     by_id = {link.pk: link for link in active}
     if set(ordered_link_ids) != set(by_id):
         raise CensorlySupportError('Список id не совпадает с текущими Цензурками (обновите страницу и повторите)')
-    from games.support.services.schedule_links import assert_future_only_order
+    from games.ops.support.http.schedule import assert_future_only_order
     assert_future_only_order(
         ordered_link_ids,
         list_schedule_rows(now=now),

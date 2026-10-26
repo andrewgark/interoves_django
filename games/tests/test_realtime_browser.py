@@ -26,7 +26,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.support.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 
 
 LONG_LADDER = {

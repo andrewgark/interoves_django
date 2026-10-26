@@ -12,8 +12,8 @@ from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from games.models import Game, GameTaskGroup, Task
-from games.social.models import SocialQueuePost
-from games.social.publish import (
+from games.ops.social.models import SocialQueuePost
+from games.ops.social.publish import (
     claim_telegram_post,
     complete_telegram_publish,
     publish_telegram,
@@ -431,7 +431,7 @@ def schedule_salad_channel_post(
 
     if existing.telegram_ok:
         if immediate:
-            from games.social.publish import publish_instagram, publish_threads, publish_twitter
+            from games.ops.social.publish import publish_instagram, publish_threads, publish_twitter
 
             publish_twitter(existing, force=force)
             publish_instagram(existing, force=force)

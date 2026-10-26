@@ -16,8 +16,8 @@ from django.db.models import F, Q
 from django.urls import reverse
 from django.utils import timezone
 
-from games.instagram.api import publish_configured, publish_image_url
-from games.social.models import SocialQueuePost
+from games.ops.social.instagram.api import publish_configured, publish_image_url
+from games.ops.social.models import SocialQueuePost
 from games.ops.telegram.transport.config import channel_chat_id, telegram_channel_configured
 from games.threads.api import publish_image_url as publish_threads_image_url, threads_configured
 from games.ops.telegram.transport.mtproto import (

@@ -11,12 +11,12 @@ from django.db import transaction
 from django.utils import timezone
 
 from games.models import Game, GameTaskGroup, TaskGroup
-from games.support.services.banned import (
+from games.ops.support.people.banned import (
     add_banned_unit,
     list_banned_units,
     remove_banned_unit,
 )
-from games.support.services.schedule_links import (
+from games.ops.support.http.schedule import (
     build_schedule_page_context,
     delete_future_slot,
     defer_future_slot,

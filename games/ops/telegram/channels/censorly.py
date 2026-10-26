@@ -19,8 +19,8 @@ from games.daily.catalog.censorly import (
 )
 from games.models import Game, GameTaskGroup, Task
 from games.sections.paths import section_play_path
-from games.social.models import SocialQueuePost
-from games.social.publish import (
+from games.ops.social.models import SocialQueuePost
+from games.ops.social.publish import (
     claim_telegram_post,
     complete_telegram_publish,
     publish_telegram,
@@ -395,7 +395,7 @@ def schedule_censorly_channel_post(
             logger.exception('Admin preview for Censorly channel post failed')
     if post.telegram_ok:
         if immediate:
-            from games.social.publish import publish_instagram, publish_threads, publish_twitter
+            from games.ops.social.publish import publish_instagram, publish_threads, publish_twitter
             publish_twitter(post, force=force)
             publish_instagram(post, force=force)
             publish_threads(post, force=force)

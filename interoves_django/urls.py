@@ -34,7 +34,7 @@ from games.site.views.workers.background import background_worker
 from games.site.views.workers.identity import identity_worker
 from games.site.views.workers.integrations import integrations_worker
 from games.site.views.workers.word_salad import recheck_worker, word_salad_worker
-from games.social.views import social_queue_instagram_jpg
+from games.ops.social.views import social_queue_instagram_jpg
 from games.ops.telegram.transport.urls import urlpatterns as telegram_urlpatterns
 
 nutrimatic_patterns = [
@@ -162,7 +162,7 @@ urlpatterns = [
 
     path('explorer/', include('explorer.urls')),
 
-    path('support/', include('games.support.urls')),
+    path('support/', include('games.ops.support.http.urls')),
 
     path("nutrimatic-ru/", include(nutrimatic_patterns)),
     path("eurovision_booklet/", include(eurovision_booklet_patterns)),

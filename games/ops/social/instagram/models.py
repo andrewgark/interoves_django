@@ -8,7 +8,7 @@ class InstagramToken(models.Model):
     *new* token string). On Elastic Beanstalk the token is seeded from the
     INSTAGRAM_ACCESS_TOKEN env var, but a cron can't rewrite env vars without a disruptive
     redeploy — so the refreshed token is persisted here and read DB-first at runtime
-    (env/settings is only the fallback / initial seed). See games.instagram.api.
+    (env/settings is only the fallback / initial seed). See games.ops.social.instagram.api.
     """
 
     singleton_id = models.PositiveSmallIntegerField(primary_key=True, default=1)

@@ -44,7 +44,7 @@ def group_games_by_project(games) -> List[ProjectGamesGroup]:
 
 def games_for_actor(*, team=None, user=None, anon_key=None) -> List[ProjectGamesGroup]:
     from games.models import Game
-    from games.support.services.feed import distinct_game_ids_for_actor
+    from games.ops.support.feed.feed import distinct_game_ids_for_actor
 
     game_ids = distinct_game_ids_for_actor(team=team, user=user, anon_key=anon_key)
     games = list(

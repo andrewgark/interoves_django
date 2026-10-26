@@ -104,7 +104,7 @@ class ProductAnalyticsMySQLConcurrencyTests(TransactionTestCase):
 
     @contextmanager
     def _synchronize_first_missing_reads(self, parties=2):
-        from games import analytics_persistence
+        from games.ops.analytics import persistence as analytics_persistence
 
         original = analytics_persistence.read_exact_analytics_row
         barrier = threading.Barrier(parties, timeout=10)

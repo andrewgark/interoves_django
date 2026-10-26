@@ -3,7 +3,7 @@ from functools import wraps
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 
-from games.support.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
 
 SUPPORT_LOGIN_URL = '/support/login/'
 

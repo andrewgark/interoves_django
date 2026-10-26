@@ -36,7 +36,7 @@ from games.puzzles.salad.rules import (
     validate_puzzle,
 )
 from games.daily.catalog.word_salad import word_salad_publish_at
-from games.support.services.word_salad import (
+from games.ops.support.games.salad import (
     WordSaladSupportError,
     attach_existing_task_group,
     ensure_word_salad_game,

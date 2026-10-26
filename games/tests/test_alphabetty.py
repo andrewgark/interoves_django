@@ -67,7 +67,7 @@ from games.models import (
     TaskGroup,
 )
 from games.results.snapshots.snapshot import build_results_snapshot_payload
-from games.support.services.alphabetty import (
+from games.ops.support.games.alphabetty import (
     AlphabettySupportError,
     delete_alphabetty,
     ensure_future_buffer,
@@ -79,7 +79,7 @@ from games.support.services.alphabetty import (
     set_publish_start,
     update_alphabetty,
 )
-from games.support.services.banned import banned_word_set, list_banned_words
+from games.ops.support.people.banned import banned_word_set, list_banned_words
 
 _FAKE_WORD = 'БЛЯМБУРГЕТОНИК'
 
@@ -891,7 +891,7 @@ class AlphabettyPlayApiTests(TestCase):
         offer = AlphabettyOffer.objects.get(pk=offer_id)
         accept_alphabetty_offer(offer)
         offer.refresh_from_db()
-        from games.support.services.alphabetty import get_alphabetty_detail, list_alphabetty_rows
+        from games.ops.support.games.alphabetty import get_alphabetty_detail, list_alphabetty_rows
         from games.ops.telegram.links import task_play_url
         row = next(item for item in list_alphabetty_rows() if item.link_id == offer.accepted_link_id)
         self.assertEqual(row.site_url, offer.play_url())
@@ -1007,7 +1007,7 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_unguessable_secret_allowed_in_support(self):
         from games.models import Task
-        from games.support.services.alphabetty import _create_slot
+        from games.ops.support.games.alphabetty import _create_slot
         link = _create_slot(number=99, word='QQNOTAWORD')
         self.assertEqual(link.number, '99')
         self.assertEqual(

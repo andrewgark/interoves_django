@@ -29,7 +29,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.support.services.alphabetty import (
+from games.ops.support.games.alphabetty import (
     AlphabettySupportError,
     attach_existing_task_group,
     get_alphabetty_game,

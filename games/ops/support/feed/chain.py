@@ -54,12 +54,12 @@ def is_chain_task(attempt: Attempt) -> bool:
 
 
 def _attempt_display(attempt: Attempt) -> str:
-    from games.support.services.feed import attempt_submission_text
+    from games.ops.support.feed.feed import attempt_submission_text
     return attempt_submission_text(attempt, max_len=500)
 
 
 def _attempt_answer(attempt: Attempt) -> str:
-    from games.support.services.feed import attempt_correct_answer
+    from games.ops.support.feed.feed import attempt_correct_answer
     return attempt_correct_answer(attempt, max_len=500)
 
 
@@ -113,14 +113,14 @@ def build_chain_context(attempt_id: int) -> Dict:
         for a in attempts
     ]
 
-    from games.support.services.feed import actor_label_for_attempt, actor_url_for_attempt
+    from games.ops.support.feed.feed import actor_label_for_attempt, actor_url_for_attempt
 
     actor_label = actor_label_for_attempt(attempt)
     actor_url = actor_url_for_attempt(attempt)
     preview_url = None
     if game and task and task.task_group:
         from games.models import GameTaskGroup
-        from games.support.services.preview import ActorSpec, preview_task_group_url
+        from games.ops.support.feed.preview import ActorSpec, preview_task_group_url
 
         link = GameTaskGroup.objects.filter(game=game, task_group=task.task_group).first()
         if link:

@@ -13,7 +13,7 @@ from games.models import (
     WordSaladRecheckItem,
     QueueWorkerHeartbeat,
 )
-from games.social.models import SocialQueuePost
+from games.ops.social.models import SocialQueuePost
 
 
 def _iso(value):

@@ -8,8 +8,8 @@ from django.core.cache import cache
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 
-from games.instagram.api import to_instagram_jpeg
-from games.social.models import SocialQueuePost
+from games.ops.social.instagram.api import to_instagram_jpeg
+from games.ops.social.models import SocialQueuePost
 
 logger = logging.getLogger('application')
 

@@ -9,8 +9,8 @@ from django.db import transaction
 from django.utils import timezone
 
 from games.models import Attempt, Game, Team
-from games.social.models import SocialQueuePost
-from games.social.publish import (
+from games.ops.social.models import SocialQueuePost
+from games.ops.social.publish import (
     publish_instagram,
     publish_threads,
     publish_telegram,
@@ -713,7 +713,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
         if msk_now.hour == 0 and msk_now.minute < 5:
             day_key = msk_now.date().isoformat()
             try:
-                from games.support.services.alphabetty import ensure_future_buffer
+                from games.ops.support.games.alphabetty import ensure_future_buffer
                 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 
                 ab_game = Game.objects.filter(pk=ALPHABETTY_GAME_ID).first()
@@ -723,7 +723,7 @@ def process_game_announcements(now=None) -> dict[str, int]:
             except Exception:
                 logger.exception('Alphabetty buffer ensure failed')
             try:
-                from games.support.services.week_tasks import (
+                from games.ops.support.games.week import (
                     ensure_future_buffer as week_task_ensure_future_buffer,
                 )
                 from games.daily.catalog.week_task import WEEK_TASK_GAME_ID

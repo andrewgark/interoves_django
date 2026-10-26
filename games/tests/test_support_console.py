@@ -17,8 +17,8 @@ from games.models import (
     Team,
     TicketRequest,
 )
-from games.support.constants import SUPPORT_CONSOLE_GROUP
-from games.support.services.search import parse_search_query, search
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.people.search import parse_search_query, search
 
 
 def _ensure_reference_rows():

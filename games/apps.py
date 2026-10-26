@@ -15,8 +15,8 @@ class GamesConfig(AppConfig):
         import games.daily.timing.signals  # noqa: F401 — public statistics eligibility cache
         import games.ops.analytics.identity  # noqa: F401 — logout rotation receiver
         import games.ops.telegram.models  # noqa: F401
-        import games.instagram.models  # noqa: F401
-        import games.social.models  # noqa: F401
+        import games.ops.social.instagram.models  # noqa: F401
+        import games.ops.social.models  # noqa: F401
         import games.ops.telegram.signals
         import games.site.ui.profile.feedback  # noqa: F401
         import games.puzzles.core.norm_matcher

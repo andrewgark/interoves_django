@@ -43,7 +43,7 @@ def current_access_token() -> str:
     the InstagramToken table/row exists, e.g. during migrate).
     """
     try:
-        from games.instagram.models import InstagramToken
+        from games.ops.social.instagram.models import InstagramToken
 
         row = InstagramToken.get()
         if row and row.access_token:
@@ -165,7 +165,7 @@ def refresh_and_persist() -> dict[str, Any]:
 
     from django.utils import timezone
 
-    from games.instagram.models import InstagramToken
+    from games.ops.social.instagram.models import InstagramToken
 
     payload = refresh_access_token()
     new_token = payload.get('access_token')

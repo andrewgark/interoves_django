@@ -22,7 +22,7 @@ from games.models import (
     NextGameVoteEvent,
     NextGameVoteGoalMapping,
 )
-from games.social.models import SocialQueuePost
+from games.ops.social.models import SocialQueuePost
 
 
 class EuroAmountField(forms.DecimalField):

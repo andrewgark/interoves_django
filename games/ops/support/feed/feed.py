@@ -100,7 +100,7 @@ def actor_kind_for_attempt(attempt) -> str:
 
 
 def actor_url_for_attempt(attempt) -> str:
-    from games.support.services.search import _anon_url, _team_url, _user_url
+    from games.ops.support.people.search import _anon_url, _team_url, _user_url
 
     if attempt.team_id:
         return _team_url(attempt.team_id)
@@ -138,7 +138,7 @@ def actor_kind_for_hint_attempt(ha) -> str:
 
 
 def actor_url_for_hint_attempt(ha) -> str:
-    from games.support.services.search import _anon_url, _team_url, _user_url
+    from games.ops.support.people.search import _anon_url, _team_url, _user_url
 
     if ha.team_id:
         return _team_url(ha.team_id)
@@ -153,7 +153,7 @@ def actor_url_for_hint_attempt(ha) -> str:
 def _game_url(game_id: Optional[str]) -> Optional[str]:
     if not game_id:
         return None
-    from games.support.services.search import _game_url as url_for_game
+    from games.ops.support.people.search import _game_url as url_for_game
     return url_for_game(game_id)
 
 

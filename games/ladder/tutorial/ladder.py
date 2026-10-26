@@ -28,7 +28,7 @@ _HINTS = (
 
 
 def _checker_payload():
-    from games.support.services.ladders import build_checker_payload
+    from games.ops.support.games.ladders import build_checker_payload
 
     return build_checker_payload(list(_WORDS), list(_HINTS))
 

@@ -22,8 +22,8 @@ from games.models import (
     Team,
     WordSaladOffer,
 )
-from games.support.constants import SUPPORT_CONSOLE_GROUP
-from games.support.services.word_salad import ensure_word_salad_game, set_publish_start
+from games.ops.support.http.constants import SUPPORT_CONSOLE_GROUP
+from games.ops.support.games.salad import ensure_word_salad_game, set_publish_start
 from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
     parse_task_data,
@@ -277,7 +277,7 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertTrue(allowed.json()['word_salad_correct'], allowed.json())
 
     def test_schedule_created_salad_has_hash_page_and_staff_number(self):
-        from games.support.services.word_salad import create_word_salad
+        from games.ops.support.games.salad import create_word_salad
 
         detail = create_word_salad()
         link = GameTaskGroup.objects.get(pk=detail['link_id'])
@@ -420,7 +420,7 @@ class WordSaladOfferFlowTests(TestCase):
         task.refresh_from_db()
         self.assertEqual(task.tags.get('author'), 'Анна Автор')
         self.assertEqual(offer.author, 'Анна Автор')
-        from games.support.services.word_salad import get_word_salad_detail, list_word_salad_rows
+        from games.ops.support.games.salad import get_word_salad_detail, list_word_salad_rows
         row = next(item for item in list_word_salad_rows() if item.link_id == offer.accepted_link_id)
         self.assertEqual(row.site_url, offer.play_url())
         self.assertEqual(get_word_salad_detail(offer.accepted_link_id)['site_url'], offer.play_url())

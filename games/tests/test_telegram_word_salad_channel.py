@@ -8,7 +8,7 @@ from django.test import TestCase, override_settings
 from PIL import Image
 
 from games.models import CheckerType, Game, GameTaskGroup, Project, Task, TaskGroup
-from games.social.models import SocialQueuePost
+from games.ops.social.models import SocialQueuePost
 from games.ops.telegram.channels.salad import (
     build_caption,
     process_salad_channel_tick,
@@ -148,7 +148,7 @@ class SaladChannelScheduleTests(TestCase):
         self.assertEqual(salad_post.ladder_date, self.now.date())
 
     @patch('games.ops.telegram.channels.salad.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_schedule_uses_mtproto_schedule_date(self, render_mock, mtproto_mock, admin_photo_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
@@ -185,7 +185,7 @@ class SaladChannelScheduleTests(TestCase):
         mtproto_mock.assert_not_called()
 
     @patch('games.ops.telegram.channels.salad.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_tick_only_in_0015_window(self, render_mock, mtproto_mock, _admin_photo_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
@@ -200,7 +200,7 @@ class SaladChannelScheduleTests(TestCase):
         mtproto_mock.assert_called_once()
 
     @patch('games.ops.telegram.channels.salad.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_parallel_schedule_interleaving_sends_once(
         self, render_mock, mtproto_mock, admin_photo_mock,
@@ -233,7 +233,7 @@ class SaladChannelScheduleTests(TestCase):
         mtproto_mock.assert_called_once()
         admin_photo_mock.assert_called_once()
 
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_schedule_refuses_after_1430(self, render_mock, mtproto_mock):
         render_mock.return_value = _tiny_png_bytes(120, 160)
@@ -269,12 +269,12 @@ class SaladChannelScheduleTests(TestCase):
         self.assertIn('PermissionError: S3 denied', post.telegram_error)
         admin_message_mock.assert_called_once()
 
-    @patch('games.social.publish.post_tweet_with_image')
-    @patch('games.social.publish.twitter_configured', return_value=True)
-    @patch('games.social.publish.publish_image_url')
-    @patch('games.social.publish.publish_configured', return_value=True)
+    @patch('games.ops.social.publish.post_tweet_with_image')
+    @patch('games.ops.social.publish.twitter_configured', return_value=True)
+    @patch('games.ops.social.publish.publish_image_url')
+    @patch('games.ops.social.publish.publish_configured', return_value=True)
     @patch('games.ops.telegram.channels.salad.send_photo')
-    @patch('games.social.publish.schedule_channel_photo_sync')
+    @patch('games.ops.social.publish.schedule_channel_photo_sync')
     @patch('games.ops.telegram.channels.salad.render_word_salad_teaser_png')
     def test_queue_then_tick_publishes_x_ig(
         self,
@@ -286,7 +286,7 @@ class SaladChannelScheduleTests(TestCase):
         _tw_cfg,
         tweet_mock,
     ):
-        from games.social.publish import process_social_queue_tick
+        from games.ops.social.publish import process_social_queue_tick
 
         render_mock.return_value = _tiny_png_bytes(120, 160)
         mtproto_mock.return_value = {'message_id': 42, 'scheduled': True}

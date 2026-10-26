@@ -2,9 +2,9 @@ from django.contrib.auth.views import LogoutView
 from django.urls import path
 from django.views.generic import RedirectView
 
-from games.support import actions
-from games.support import views
-from games.support.queue_observatory import views as queue_observatory_views
+from games.ops.support.http import actions
+from games.ops.support.http import views
+from games.ops.support.observatory import views as queue_observatory_views
 
 app_name = 'support'
 

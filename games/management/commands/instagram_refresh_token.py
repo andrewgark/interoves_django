@@ -3,7 +3,7 @@
 Instagram long-lived tokens expire after 60 days; refreshing (while still valid and >24h
 old) resets the clock ~60 days and yields a *new* token string. We persist the live token
 in the DB (InstagramToken) so a refresh doesn't require rewriting the EB env var / a
-redeploy — runtime reads the DB token first (see games.instagram.api.current_access_token).
+redeploy — runtime reads the DB token first (see games.ops.social.instagram.api.current_access_token).
 
 Behaviour:
 - First run with no DB row: seed it from INSTAGRAM_ACCESS_TOKEN (no API call).
@@ -14,7 +14,7 @@ Behaviour:
 
 from django.core.management.base import BaseCommand
 
-from games.instagram.refresh import run_instagram_token_refresh
+from games.ops.social.instagram.refresh import run_instagram_token_refresh
 
 
 class Command(BaseCommand):

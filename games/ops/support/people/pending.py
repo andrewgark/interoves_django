@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from django.urls import reverse
 
-from games.support.services.feed import (
+from games.ops.support.feed.feed import (
     actor_label_for_attempt,
     actor_url_for_attempt,
     attempt_correct_answer,

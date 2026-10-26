@@ -31,7 +31,7 @@ from games.puzzles.raddle.engine import (
     length_label_from_word,
     validate_raddle_checker_data,
 )
-from games.support.services.schedule_links import (
+from games.ops.support.http.schedule import (
     assert_future_only_order,
     build_schedule_page_context,
     delete_future_slot,

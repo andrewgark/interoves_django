@@ -9,7 +9,7 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
 
-from games.social.models import SocialQueuePost
+from games.ops.social.models import SocialQueuePost
 from games.ops.health.storage import ProxyMediaStorage, social_queue_storage
 
 

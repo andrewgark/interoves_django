@@ -23,13 +23,13 @@ from games.daily.catalog.alphabetty import (
     is_alphabetty_number_published,
 )
 from games.models import CheckerType, Game, GameTaskGroup, Task, TaskGroup
-from games.support.services.banned import (
+from games.ops.support.people.banned import (
     add_banned_word,
     banned_word_set,
     list_banned_words,
     remove_banned_word,
 )
-from games.support.services.schedule_links import (
+from games.ops.support.http.schedule import (
     assert_future_only_order,
     build_schedule_page_context,
     delete_future_slot,

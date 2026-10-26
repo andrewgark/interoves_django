@@ -4,7 +4,7 @@ from typing import List, Optional
 from django.urls import reverse
 
 from games.sections.hub import SECTION_HUB_META, SECTION_HUB_ORDER, _newest_task_group_links
-from games.support.services.word_salad import (
+from games.ops.support.games.salad import (
     WORD_SALAD_GAME_ID,
     WORD_SALAD_SECTION_ICON,
     WORD_SALAD_SECTION_TITLE,

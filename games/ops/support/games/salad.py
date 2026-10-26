@@ -10,8 +10,8 @@ from django.urls import reverse
 from django.utils import timezone
 
 from games.models import CheckerType, Game, GameTaskGroup, Project, Task, TaskGroup
-from games.support.services.preview import ActorSpec, preview_task_group_url
-from games.support.services.schedule_links import (
+from games.ops.support.feed.preview import ActorSpec, preview_task_group_url
+from games.ops.support.http.schedule import (
     assert_future_only_order,
     build_schedule_page_context,
     delete_future_slot,
@@ -36,7 +36,7 @@ from games.daily.catalog.word_salad import (
     word_salad_publish_start,
 )
 from games.daily.page.section import MOSCOW
-from games.support.services.schedule_links import defer_future_slot, restore_deferred_slot
+from games.ops.support.http.schedule import defer_future_slot, restore_deferred_slot
 
 WORD_SALAD_SECTION_TITLE = 'Салатик'
 WORD_SALAD_SECTION_ICON = '🥗'

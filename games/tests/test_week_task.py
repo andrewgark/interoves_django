@@ -10,8 +10,8 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Profile, Project, Task, TaskGroup
-from games.support.services.banned import banned_unit_keys, list_banned_units
-from games.support.services.week_tasks import (
+from games.ops.support.people.banned import banned_unit_keys, list_banned_units
+from games.ops.support.games.week import (
     WeekTaskSupportError,
     create_week_task,
     delete_week_task,
@@ -340,7 +340,7 @@ class WeekTaskSupportTests(TestCase):
         defer_week_task(deferred.link_id)
 
         with patch(
-            'games.support.services.week_tasks.is_week_task_number_published',
+            'games.ops.support.games.week.is_week_task_number_published',
             return_value=True,
         ):
             detail = get_week_task_detail(deferred.link_id)
