@@ -8,7 +8,8 @@ from games.models import Game, GameTaskGroup, Project
 from games.site.session.play_mode import get_play_mode
 from games.sections.project_navigation import project_base
 from games.tasks.navigation import play_url_for_task_group
-from games.site.views.pages.util import effective_play_mode, has_profile, has_team
+from games.identity.profile import has_profile, has_team
+from games.site.session.play_mode import effective_play_mode
 
 
 def replay_actor_for_request(

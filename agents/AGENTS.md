@@ -256,7 +256,7 @@ If the resolved version is empty, the client check is skipped.
 | Daily catalog (censorly / alphabetty / salad) | `games.daily.catalog.{censorly,alphabetty,word_salad}` | `games.*_daily` (except ladder → `catalog.ladder`) |
 | Player offers (ladder / alphabetty / censorly / salad) | `games.club.offers.*` | `games.*_offer` |
 | Replay session | `games.site.session.replay` (+ `replay_navigation`) | `games.replay`, `replay_navigation` |
-| Gameplay context / play mode | `games.site.session.{gameplay_context,play_mode}` | `games.gameplay_context`, `play_mode` |
+| Gameplay context / play mode | `games.site.session.{gameplay_context,play_mode}` (`effective_play_mode`, `get_play_mode`, …) | `games.gameplay_context`, `play_mode`; `games.site.views.pages.util` re-exports play-mode helpers |
 | Offer profile names | `games.club.offers.profiles` | `games.offer_profiles` |
 | Results snapshot builders | `games.results.snapshots.snapshot` | `games.results_snapshot` |
 | Logical game completion | `games.daily.completion.completion_coordinator` | `games.completion_coordinator` |
