@@ -23,7 +23,7 @@ from games.models import (
     LadderOffer,
     WordSaladOffer,
 )
-from games.views.render_task import (
+from games.site.views.game.render import (
     _task_card_public_identity,
     render_new_ui_task_card_html,
 )

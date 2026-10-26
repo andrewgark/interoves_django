@@ -160,7 +160,7 @@ class ProjectLegacyRedirectTests(TestCase):
         )
 
     def test_daily_timing_context_uses_project_url(self):
-        from games.views.daily_timing_views import daily_timing_page_context
+        from games.site.views.daily.timing import daily_timing_page_context
 
         game = Game.objects.get(pk='glowbyte_des_12')
         placement = game.task_group_links.select_related('task_group').get(number='1')

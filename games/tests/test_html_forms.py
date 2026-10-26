@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from games.models import Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team
-from games.views.attempt_views import check_attempt
+from games.site.views.game.attempt import check_attempt
 
 
 def _setup_db():

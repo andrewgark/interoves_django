@@ -11,7 +11,7 @@ from django.core.handlers.asgi import ASGIHandler
 from django.test import SimpleTestCase, override_settings
 from django.urls import path
 
-from games.views.daily_timing_views import daily_solve_timing
+from games.site.views.daily.timing import daily_solve_timing
 
 
 urlpatterns = [

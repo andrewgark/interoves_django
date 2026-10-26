@@ -16,7 +16,7 @@ from games.recheck import (
     _checker_extension_actor_is_complete,
     recheck_chain_task,
 )
-from games.views.attempt_views import check_attempt
+from games.site.views.game.attempt import check_attempt
 from games.models import ChainTaskState, Game, WordSaladRecheckItem, WordSaladRecheckJob
 from games.tests.test_chain_task_state import (
     _ChainFixture,

@@ -7,8 +7,9 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory, TestCase
 
 from games.models import Game, GameTaskGroup, Task, TaskGroup
-from games.views.game_context import unpublished_scheduled_task_response
-from games.views import daily_timing_views, new_ui
+from games.site.views.daily import timing as daily_timing_views
+from games.site.views.game.context import unpublished_scheduled_task_response
+from games.site.views.pages import ui_exports as new_ui
 
 
 class DailyResetRequestPathTests(unittest.TestCase):

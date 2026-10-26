@@ -40,7 +40,7 @@ async def publish_group_message(group, raw_message):
 
 
 def allocate_sequences(namespace, count):
-    from games.views.track import next_track_seq
+    from games.realtime.track_compat import next_track_seq
 
     values = [next_track_seq(namespace) for _ in range(count)]
     print(json.dumps(values), flush=True)

@@ -28,10 +28,10 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.views.attempt_views import check_attempt
-from games.views.hint_views import process_send_hint_attempt
+from games.site.views.game.attempt import check_attempt
+from games.site.views.game.hint import process_send_hint_attempt
 from games.views.new_ui import build_task_group_task_context_dicts, new_task_group_page
-from games.views.render_task import render_new_ui_task_card_html
+from games.site.views.game.render import render_new_ui_task_card_html
 from games.recheck import recheck_word_salad_task
 from games.word_salad import (
     OVERFLOW_HINT_SQUARE,

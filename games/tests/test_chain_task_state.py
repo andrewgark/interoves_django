@@ -20,7 +20,7 @@ from games.models import (
 )
 from games.exception import DuplicateAttemptException, TooManyAttemptsException
 from games.recheck import recheck_chain_task
-from games.views.attempt_views import check_attempt
+from games.site.views.game.attempt import check_attempt
 from games.wall import Wall
 
 

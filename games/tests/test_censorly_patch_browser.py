@@ -15,7 +15,7 @@ from games.censorly.redact import build_public_view
 from games.censorly.tokenize import (
     HEADING_END, HEADING_LEVEL_SEP, HEADING_START, build_puzzle_payload, title_content_lemmas,
 )
-from games.views.censorly_views import _compact_play_response
+from games.site.views.daily.censorly import _compact_play_response
 
 
 ROOT = Path(__file__).resolve().parents[2]

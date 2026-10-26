@@ -13,7 +13,7 @@ from games.tests.test_chain_task_state import (
     _make_attempt,
     _repl_text,
 )
-from games.views.attempt_views import check_attempt
+from games.site.views.game.attempt import check_attempt
 
 
 @skipUnless(connection.vendor == 'mysql', 'the audit SQL is MySQL-specific')

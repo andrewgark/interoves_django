@@ -1,6 +1,6 @@
-"""Main UI views — legacy import path via games.views.new_ui.legacy_exports."""
+"""Main UI views — legacy import path; implementation in site.views.pages.ui_exports."""
 
-from games.views.new_ui import legacy_exports as _implementation
+from games.site.views.pages import ui_exports as _implementation
 
 
 def __getattr__(name):

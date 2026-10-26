@@ -11,7 +11,7 @@ from games.censorly.lexical import semantics
 from games.censorly.lexical.russian import context, morphology
 from games.censorly.redact import build_public_view
 from games.censorly.tokenize import build_puzzle_payload
-from games.views.censorly_views import _article_json
+from games.site.views.daily.censorly import _article_json
 
 _ARTICLE = Path(__file__).with_name('censorly_testdata') / 'articles' / 'saturn.txt'
 

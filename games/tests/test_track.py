@@ -31,7 +31,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.views.track import (
+from games.realtime.track_compat import (
     CHANNEL_GROUPS,
     build_event_task_change,
     live_page_actor,

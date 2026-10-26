@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team
 from games.proportions import build_proportions_chips_for_tasks, parse_proportions_pair
-from games.views.attempt_views import check_attempt
+from games.site.views.game.attempt import check_attempt
 
 
 class _FakeTask:

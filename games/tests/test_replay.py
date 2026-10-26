@@ -26,7 +26,7 @@ from games.models import (
 )
 from games.replay import StaleReplayError, replay_for_request, start_or_reset_replay
 from games.account_merge import _merge_replay_slots
-from games.views.attempt_views import process_send_attempt
+from games.site.views.game.attempt import process_send_attempt
 from games.views.new_ui import new_replay_exit
 from games.results_sql_aggregate import get_sql_aggregated_game_actor_rows
 

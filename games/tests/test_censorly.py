@@ -173,7 +173,7 @@ class CensorlySymbolTokenTests(SimpleTestCase):
 
 class CensorlyEngineTests(TestCase):
     def test_guess_response_compacts_unchanged_article(self):
-        from games.views.censorly_views import _compact_play_response
+        from games.site.views.daily.censorly import _compact_play_response
 
         result = {
             'status': 'hit',

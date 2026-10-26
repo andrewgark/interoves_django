@@ -25,8 +25,8 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.views.attempt_views import check_attempt, process_send_attempt
-from games.views.hint_views import create_hint_attempt, send_hint_attempt
+from games.site.views.game.attempt import check_attempt, process_send_attempt
+from games.site.views.game.hint import create_hint_attempt, send_hint_attempt
 
 
 class AttemptRequestValidationTests(TestCase):

@@ -630,7 +630,7 @@ class DifficultyObservationTests(TestCase):
 
         request = RequestFactory().get('/')
         request.user = AnonymousUser()
-        from games.views.render_task import render_new_ui_task_card_html
+        from games.site.views.game.render import render_new_ui_task_card_html
         html = render_new_ui_task_card_html(
             request, self.task, None, 'general', anon_key='anon_test', game=self.game,
         )

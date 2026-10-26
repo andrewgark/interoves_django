@@ -42,7 +42,7 @@ from games.daily_timing import (
     recovered_timing_ms_from_events,
     reduce_team_timing_events,
 )
-from games.views.daily_timing_views import daily_timing_page_context
+from games.site.views.daily.timing import daily_timing_page_context
 from games.models import (
     CheckerType,
     DailySolveTiming,

@@ -11,7 +11,7 @@ from games.tests.test_chain_task_state import (
     _repl_text,
     _wall_text,
 )
-from games.views.attempt_views import check_attempt
+from games.site.views.game.attempt import check_attempt
 from games.word_salad_recheck import process_word_salad_recheck_item
 
 
