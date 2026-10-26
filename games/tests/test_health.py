@@ -22,7 +22,7 @@ class HealthEndpointTests(TestCase):
         from unittest.mock import patch
         from django.db import OperationalError
 
-        with patch('games.views.health.connection.cursor', side_effect=OperationalError('down')):
+        with patch('games.site.views.pages.public.health.connection.cursor', side_effect=OperationalError('down')):
             response = self.client.get('/health/ready/')
 
         self.assertEqual(response.status_code, 503)

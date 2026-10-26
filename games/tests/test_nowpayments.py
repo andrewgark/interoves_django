@@ -73,9 +73,9 @@ class NowPaymentsIpnTests(TestCase):
         )
 
     @override_settings()
-    @patch('games.views.ticket.transaction.on_commit', side_effect=lambda fn: fn())
+    @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
     @patch('games.telegram.notify.notify_payment_event')
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_credits_tickets(self, _verify_mock, notify_mock, _on_commit_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -99,7 +99,7 @@ class NowPaymentsIpnTests(TestCase):
         self.assertEqual(self.team.tickets, 2)
         notify_mock.assert_called_once()
 
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_is_idempotent(self, _verify_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -122,9 +122,9 @@ class NowPaymentsIpnTests(TestCase):
         self.team.refresh_from_db()
         self.assertEqual(self.team.tickets, 2)
 
-    @patch('games.views.ticket.transaction.on_commit', side_effect=lambda fn: fn())
+    @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
     @patch('games.telegram.notify.notify_payment_event')
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_failed_rejects_pending(self, _verify_mock, notify_mock, _on_commit_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -144,7 +144,7 @@ class NowPaymentsIpnTests(TestCase):
         self.assertEqual(self.team.tickets, 0)
         notify_mock.assert_called_once()
 
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_partially_paid_leaves_pending(self, _verify_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -161,7 +161,7 @@ class NowPaymentsIpnTests(TestCase):
         ticket.refresh_from_db()
         self.assertEqual(ticket.status, 'Pending')
 
-    @patch('games.views.ticket.verify_ipn_signature', return_value=False)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=False)
     def test_bad_signature_returns_400(self, _verify_mock):
         response = self._post_ipn(
             {'payment_status': 'finished', 'order_id': '1'},
@@ -169,7 +169,7 @@ class NowPaymentsIpnTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_unknown_order_returns_200(self, _verify_mock):
         with self.assertLogs('games.views.ticket', level='WARNING') as logs:
             response = self._post_ipn({
@@ -283,9 +283,9 @@ class NowPaymentsDonationIpnTests(TestCase):
             HTTP_X_NOWPAYMENTS_SIG='unused',
         )
 
-    @patch('games.views.ticket.transaction.on_commit', side_effect=lambda fn: fn())
+    @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
     @patch('games.telegram.notify.notify_donation_event')
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_confirms_donation_and_stores_pay_fields(self, _verify, notify_mock, _on_commit):
         donation = Donation.objects.create(amount_rub=500, status='Pending')
         response = self._post_ipn({
@@ -306,9 +306,9 @@ class NowPaymentsDonationIpnTests(TestCase):
         self.assertIsNotNone(donation.confirmed_at)
         notify_mock.assert_called_once()
 
-    @patch('games.views.ticket.transaction.on_commit', side_effect=lambda fn: fn())
+    @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
     @patch('games.telegram.notify.notify_donation_event')
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_without_order_id_resolves_via_invoice_id(self, _verify, notify_mock, _on_commit):
         donation = Donation.objects.create(
             amount_rub=1000,
@@ -330,7 +330,7 @@ class NowPaymentsDonationIpnTests(TestCase):
         self.assertEqual(donation.pay_currency, 'usdttrc20')
         notify_mock.assert_called_once()
 
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_without_order_id_or_invoice_is_ignored(self, _verify):
         donation = Donation.objects.create(amount_rub=100, status='Pending', nowpayments_id='inv-x')
         response = self._post_ipn({
@@ -341,7 +341,7 @@ class NowPaymentsDonationIpnTests(TestCase):
         donation.refresh_from_db()
         self.assertEqual(donation.status, 'Pending')
 
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_failed_rejects_donation(self, _verify):
         donation = Donation.objects.create(amount_rub=100, status='Pending')
         response = self._post_ipn({
@@ -353,7 +353,7 @@ class NowPaymentsDonationIpnTests(TestCase):
         donation.refresh_from_db()
         self.assertEqual(donation.status, 'Rejected')
 
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_donation_prefix_does_not_touch_ticket_with_same_numeric_id(self, _verify):
         team = Team.objects.create(name='np_donate_collision', visible_name='C', tickets=0)
         ticket = TicketRequest.objects.create(team=team, tickets=1, money=2000, status='Pending')
@@ -372,7 +372,7 @@ class NowPaymentsDonationIpnTests(TestCase):
         self.assertEqual(ticket.status, 'Pending')
         self.assertEqual(donation.status, 'Confirmed')
 
-    @patch('games.views.ticket.verify_ipn_signature', return_value=True)
+    @patch('games.site.views.account.ticket.verify_ipn_signature', return_value=True)
     def test_finished_with_wrong_price_does_not_confirm_donation(self, _verify):
         donation = Donation.objects.create(amount_rub=500, status='Pending')
         response = self._post_ipn({

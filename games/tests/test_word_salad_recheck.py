@@ -527,7 +527,7 @@ class WordSaladRecheckQueueTests(TestCase):
         signature = hmac.new(b'test-secret', timestamp.encode() + b'.' + body, hashlib.sha256).hexdigest()
         with patch.dict('os.environ', {'WORD_SALAD_WORKER_HMAC_SECRET': 'test-secret'}), \
              patch('games.word_salad_recheck.recheck_word_salad_actor', return_value={'credited': 0}):
-            with patch('games.views.word_salad_worker.time.time', return_value=2000000000):
+            with patch('games.site.views.workers.word_salad.time.time', return_value=2000000000):
                 response = Client().post(
                     '/internal/worker/word-salad-recheck/', body,
                     content_type='application/json',

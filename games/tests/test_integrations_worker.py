@@ -37,7 +37,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
             )
 
     def test_web_role_is_disabled(self):
-        with patch('games.views.integrations_worker.run_announcement_live') as shadow:
+        with patch('games.site.views.workers.integrations.run_announcement_live') as shadow:
             response = self._post(_body(), role='web')
         self.assertEqual(response.status_code, 503)
         shadow.assert_not_called()
@@ -56,7 +56,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_stale_announcement_is_acked(self):
         scheduled = timezone.now() - timedelta(minutes=4)
-        with patch('games.views.integrations_worker.run_announcement_live') as shadow:
+        with patch('games.site.views.workers.integrations.run_announcement_live') as shadow:
             response = self._post(_body(scheduled_for=scheduled.isoformat()))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()['status'], 'skipped_stale')
@@ -65,7 +65,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
     def test_announcement_shadow_uses_scheduled_for(self):
         scheduled = timezone.now() - timedelta(seconds=30)
         with patch(
-            'games.views.integrations_worker.run_announcement_live',
+            'games.site.views.workers.integrations.run_announcement_live',
             return_value={'start': 1},
         ) as shadow:
             response = self._post(_body(scheduled_for=scheduled.isoformat()))
@@ -78,10 +78,10 @@ class IntegrationsWorkerTests(SimpleTestCase):
     def test_admin_report_read_after_the_window_still_runs(self):
         scheduled = timezone.make_aware(datetime(2026, 9, 26, 0, 27))
         with patch(
-            'games.views.integrations_worker.run_admin_report_live',
+            'games.site.views.workers.integrations.run_admin_report_live',
             return_value={'sent': 1, 'skipped': 0},
         ) as shadow, patch(
-            'games.views.integrations_worker.timezone.now',
+            'games.site.views.workers.integrations.timezone.now',
             return_value=scheduled + timedelta(minutes=4),
         ):
             response = self._post(_body(
@@ -96,7 +96,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_admin_alert_is_dispatched(self):
         with patch(
-            'games.views.integrations_worker.run_admin_alert_live',
+            'games.site.views.workers.integrations.run_admin_alert_live',
             return_value=True,
         ) as alert:
             response = self._post(_body(
@@ -120,7 +120,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_site_error_admin_alert_is_dispatched(self):
         with patch(
-            'games.views.integrations_worker.run_admin_alert_live',
+            'games.site.views.workers.integrations.run_admin_alert_live',
             return_value=True,
         ) as alert:
             response = self._post(_body(
@@ -136,7 +136,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_failed_admin_alert_is_retried(self):
         with patch(
-            'games.views.integrations_worker.run_admin_alert_live',
+            'games.site.views.workers.integrations.run_admin_alert_live',
             return_value=False,
         ):
             response = self._post(_body(
@@ -148,7 +148,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
     def test_admin_alert_has_longer_stale_window(self):
         scheduled = timezone.now() - timedelta(minutes=10)
         with patch(
-            'games.views.integrations_worker.run_admin_alert_live',
+            'games.site.views.workers.integrations.run_admin_alert_live',
             return_value=True,
         ) as alert:
             response = self._post(_body(
@@ -161,7 +161,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_old_admin_report_is_stale(self):
         scheduled = timezone.now() - timedelta(minutes=21)
-        with patch('games.views.integrations_worker.run_admin_report_live') as shadow:
+        with patch('games.site.views.workers.integrations.run_admin_report_live') as shadow:
             response = self._post(_body(
                 type='telegram.admin_report',
                 scheduled_for=scheduled.isoformat(),
@@ -172,7 +172,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
     def test_held_admin_report_lock_is_acked(self):
         scheduled = timezone.now().isoformat()
         with patch(
-            'games.views.integrations_worker.run_admin_report_live',
+            'games.site.views.workers.integrations.run_admin_report_live',
             return_value=None,
         ):
             response = self._post(_body(
@@ -185,7 +185,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
     def test_held_announcement_lock_is_acked(self):
         scheduled = timezone.now().isoformat()
         with patch(
-            'games.views.integrations_worker.run_announcement_live',
+            'games.site.views.workers.integrations.run_announcement_live',
             return_value=None,
         ):
             response = self._post(_body(scheduled_for=scheduled))
@@ -194,7 +194,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_instagram_refresh_skips_a_young_token(self):
         with patch(
-            'games.views.integrations_worker.run_instagram_token_refresh',
+            'games.site.views.workers.integrations.run_instagram_token_refresh',
             return_value={'action': 'skipped', 'age_days': 4, 'max_age_days': 30},
         ) as refresh:
             response = self._post(_body(
@@ -209,7 +209,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_instagram_lock_is_acked(self):
         with patch(
-            'games.views.integrations_worker.run_instagram_token_refresh',
+            'games.site.views.workers.integrations.run_instagram_token_refresh',
             return_value=None,
         ):
             response = self._post(_body(type='instagram.token_refresh'))
@@ -218,7 +218,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_old_instagram_message_is_stale(self):
         scheduled = timezone.now() - timedelta(hours=13)
-        with patch('games.views.integrations_worker.run_instagram_token_refresh') as refresh:
+        with patch('games.site.views.workers.integrations.run_instagram_token_refresh') as refresh:
             response = self._post(_body(
                 type='instagram.token_refresh',
                 scheduled_for=scheduled.isoformat(),
@@ -229,7 +229,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
     def test_social_publish_uses_scheduled_for(self):
         scheduled = timezone.now() - timedelta(seconds=20)
         with patch(
-            'games.views.integrations_worker.run_social_publish_live',
+            'games.site.views.workers.integrations.run_social_publish_live',
             return_value={'telegram': 0, 'twitter': 0, 'instagram': 0, 'threads': 0, 'errors': 0},
         ) as publish:
             response = self._post(_body(
@@ -244,7 +244,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_social_publish_lock_is_acked(self):
         with patch(
-            'games.views.integrations_worker.run_social_publish_live',
+            'games.site.views.workers.integrations.run_social_publish_live',
             return_value=None,
         ):
             response = self._post(_body(type='social.publish'))
@@ -253,7 +253,7 @@ class IntegrationsWorkerTests(SimpleTestCase):
 
     def test_old_social_publish_is_stale(self):
         scheduled = timezone.now() - timedelta(minutes=4)
-        with patch('games.views.integrations_worker.run_social_publish_live') as publish:
+        with patch('games.site.views.workers.integrations.run_social_publish_live') as publish:
             response = self._post(_body(
                 type='social.publish',
                 scheduled_for=scheduled.isoformat(),

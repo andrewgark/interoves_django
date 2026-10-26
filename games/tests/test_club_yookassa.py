@@ -613,8 +613,8 @@ class ClubYooKassaWebhookTicketIsolationTests(TestCase):
 
     def test_ticket_metadata_still_required_path(self):
         client = Client()
-        with patch('games.views.ticket.configure_yookassa_from_env'), patch(
-            'games.views.ticket.Payment.find_one'
+        with patch('games.site.views.account.ticket.configure_yookassa_from_env'), patch(
+            'games.site.views.account.ticket.Payment.find_one'
         ) as find_mock:
             find_mock.return_value = {
                 'id': 'pay-ticket',

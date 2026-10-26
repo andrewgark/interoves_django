@@ -658,7 +658,7 @@ class AlphabettyPlayApiTests(TestCase):
         _ensure_login_modal_deps()
         from games.alphabetty_daily import alphabetty_publish_at
         with patch(
-            'games.views.alphabetty_views.alphabetty_publish_at',
+            'games.site.views.daily.alphabetty.alphabetty_publish_at',
             wraps=alphabetty_publish_at,
         ) as publish_at:
             response = self.client.get('/alphabetty/')

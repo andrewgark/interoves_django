@@ -32,7 +32,7 @@ class IdentityWorkerTests(SimpleTestCase):
             )
 
     def test_web_role_is_disabled(self):
-        with patch('games.views.identity_worker.run_named_merge_job') as run:
+        with patch('games.site.views.workers.identity.run_named_merge_job') as run:
             response = self._post(_body(), role='web')
         self.assertEqual(response.status_code, 503)
         run.assert_not_called()
@@ -52,7 +52,7 @@ class IdentityWorkerTests(SimpleTestCase):
 
     def test_named_job_is_acked(self):
         with patch(
-            'games.views.identity_worker.run_named_merge_job',
+            'games.site.views.workers.identity.run_named_merge_job',
             return_value={'status': 'missing'},
         ) as run:
             response = self._post(_body())
@@ -63,7 +63,7 @@ class IdentityWorkerTests(SimpleTestCase):
 
     def test_account_merge_job_is_acked(self):
         with patch(
-            'games.views.identity_worker.run_account_merge_job',
+            'games.site.views.workers.identity.run_account_merge_job',
             return_value={'status': 'completed', 'merge_id': 7},
         ) as run:
             response = self._post(_body(
@@ -79,18 +79,18 @@ class IdentityWorkerTests(SimpleTestCase):
 
     def test_reconcile_publishes_without_claiming(self):
         with patch(
-            'games.views.identity_worker.publish_unmarked_due_merge_jobs',
+            'games.site.views.workers.identity.publish_unmarked_due_merge_jobs',
             return_value=2,
         ) as publish_anon, patch(
-            'games.views.identity_worker.publish_unmarked_account_merge_jobs',
+            'games.site.views.workers.identity.publish_unmarked_account_merge_jobs',
             return_value=0,
         ) as publish_account, patch(
-            'games.views.identity_worker.run_named_merge_job',
+            'games.site.views.workers.identity.run_named_merge_job',
         ) as run, patch(
-            'games.views.identity_worker.start_queue_heartbeat',
+            'games.site.views.workers.identity.start_queue_heartbeat',
             return_value=1,
         ), patch(
-            'games.views.identity_worker.finish_queue_heartbeat',
+            'games.site.views.workers.identity.finish_queue_heartbeat',
         ) as finish:
             response = self._post(_body(
                 type='anonymous.merge_reconcile',

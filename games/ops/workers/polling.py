@@ -24,10 +24,10 @@ VISIBILITY_EXTENSION_SECONDS = 1800
 
 
 VIEW_BY_WORKER = {
-    'background': 'games.views.background_worker.background_worker',
-    'identity': 'games.views.identity_worker.identity_worker',
-    'integrations': 'games.views.integrations_worker.integrations_worker',
-    'recheck': 'games.views.word_salad_worker.recheck_worker',
+    'background': 'games.site.views.workers.background.background_worker',
+    'identity': 'games.site.views.workers.identity.identity_worker',
+    'integrations': 'games.site.views.workers.integrations.integrations_worker',
+    'recheck': 'games.site.views.workers.word_salad.recheck_worker',
 }
 
 

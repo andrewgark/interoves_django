@@ -75,7 +75,7 @@ class SubscriptionApprovalPreviewTests(TestCase):
         self.client.force_login(self.staff)
         with patch('games.club_yookassa.Payment.create') as create, \
                 patch('games.club_yookassa.Payment.find_one') as find, \
-                patch('games.views.subscription.queue_pending_goal') as analytics:
+                patch('games.site.views.account.subscription.queue_pending_goal') as analytics:
             self.client.get(self.preview_url)
             self.client.get(self.preview_url)
         self.assertFalse(SavedPaymentMethod.objects.exists())
@@ -108,7 +108,7 @@ class SubscriptionApprovalPreviewTests(TestCase):
         self.make_existing_method()
         self.client.force_login(self.staff)
         before = self.billing_snapshot()
-        with patch('games.views.subscription.SavedPaymentMethod.objects.filter',
+        with patch('games.site.views.account.subscription.SavedPaymentMethod.objects.filter',
                    side_effect=AssertionError('Preview must not load payment methods')), \
                 patch('games.club_yookassa.Payment.create') as create:
             response = self.client.get(self.preview_url)
@@ -144,7 +144,7 @@ class SubscriptionApprovalPreviewTests(TestCase):
         before = self.billing_snapshot()
         with patch('games.club_yookassa.Payment.create') as create, \
                 patch('games.club_yookassa.Payment.find_one') as find, \
-                patch('games.views.subscription.detach_yookassa_payment_method') as detach:
+                patch('games.site.views.account.subscription.detach_yookassa_payment_method') as detach:
             html = self.client.get(self.preview_url).content
             requests = []
 

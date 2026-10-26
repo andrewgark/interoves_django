@@ -106,14 +106,14 @@ class RandomAlphabettyTests(TestCase):
         self.assertEqual([p.share_hash for p in placements], [random_game.share_hash])
         self.assertEqual(list(groups), [random_game.share_hash])
 
-    @patch('games.views.alphabetty_views.has_club_access', return_value=False)
+    @patch('games.site.views.daily.alphabetty.has_club_access', return_value=False)
     def test_random_game_post_redirects_non_resident(self, _access):
         response = self.client.post('/alphabetty/random/')
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(response['Location'], '/subscription/')
 
-    @patch('games.views.alphabetty_views.has_club_access', return_value=True)
+    @patch('games.site.views.daily.alphabetty.has_club_access', return_value=True)
     @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
     def test_random_game_post_reuses_existing_word_game(self, _pool, _access):
         first = self.client.post('/alphabetty/random/')
@@ -124,7 +124,7 @@ class RandomAlphabettyTests(TestCase):
         self.assertEqual(first['Location'], second['Location'])
         self.assertEqual(RandomAlphabettyGame.objects.count(), 1)
 
-    @patch('games.views.alphabetty_views.has_club_access', return_value=True)
+    @patch('games.site.views.daily.alphabetty.has_club_access', return_value=True)
     @patch('games.alphabetty.random_game.get_answer_pool', return_value=())
     def test_empty_random_dictionary_shows_message(self, _pool, _access):
         response = self.client.post('/alphabetty/random/')
@@ -135,7 +135,7 @@ class RandomAlphabettyTests(TestCase):
             ['Словарь случайных алфавиток пока пуст. Попробуйте ещё раз позже.'],
         )
 
-    @patch('games.views.alphabetty_views.has_club_access', return_value=True)
+    @patch('games.site.views.daily.alphabetty.has_club_access', return_value=True)
     @patch('games.alphabetty.random_game.get_answer_pool', return_value=('СЛОВО',))
     def test_random_game_has_daily_statistics_endpoint(self, _pool, _access):
         user = self._create_user('random-stats')

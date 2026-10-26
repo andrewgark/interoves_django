@@ -2852,7 +2852,7 @@ class CensorlyUxDailyTests(TestCase):
     def test_random_game_post_redirects_non_subscriber(self):
         from unittest.mock import patch
 
-        with patch('games.views.censorly_views.has_club_access', return_value=False):
+        with patch('games.site.views.daily.censorly.has_club_access', return_value=False):
             response = self.client.post('/censorly/random/')
 
         self.assertEqual(response.status_code, 302)
@@ -2863,7 +2863,7 @@ class CensorlyUxDailyTests(TestCase):
         from unittest.mock import patch
 
         random_game = SimpleNamespace(share_hash='abcd1234abcd1234')
-        with patch('games.views.censorly_views.has_club_access', return_value=True), \
+        with patch('games.site.views.daily.censorly.has_club_access', return_value=True), \
              patch('games.puzzles.censorly.random_game.get_or_create_random_game', return_value=random_game):
             response = self.client.post('/censorly/random/')
 

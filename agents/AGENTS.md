@@ -218,6 +218,9 @@ If the resolved version is empty, the client check is skipped.
 | Censorly IDs / flags | `games.puzzles.censorly.ids` | `games.censorly` (re-export без `games.puzzles` при import) |
 | Censorly implementation | `games.puzzles.censorly.*` | `games.censorly.*` (module facades) |
 | Grid wall/shading puzzle | `games.puzzles.replacements.grid_puzzle` | `games.grid_puzzle` |
+| SQS worker handlers | `games.site.views.workers.{background,identity,integrations,word_salad}` | `games.views.*_worker` |
+| Account / ticket / subscription | `games.site.views.account.*` | `games.views.ticket`, `subscription`, … |
+| Daily play (alphabetty, censorly) | `games.site.views.daily.*` | `games.views.alphabetty_views`, `censorly_views` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

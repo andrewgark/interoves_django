@@ -221,10 +221,10 @@ class YooKassaWebhookTests(TestCase):
             content_type='application/json',
         )
 
-    @patch('games.views.ticket.transaction.on_commit', side_effect=lambda fn: fn())
+    @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
     @patch('games.telegram.notify.notify_payment_event')
-    @patch('games.views.ticket.Payment.find_one')
-    @patch('games.views.ticket.configure_yookassa_from_env')
+    @patch('games.site.views.account.ticket.Payment.find_one')
+    @patch('games.site.views.account.ticket.configure_yookassa_from_env')
     def test_webhook_succeeded_credits_tickets(self, _cfg_mock, find_one_mock, notify_mock, _on_commit_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -244,8 +244,8 @@ class YooKassaWebhookTests(TestCase):
         self.assertEqual(self.team.tickets, 2)
         notify_mock.assert_called_once()
 
-    @patch('games.views.ticket.Payment.find_one')
-    @patch('games.views.ticket.configure_yookassa_from_env')
+    @patch('games.site.views.account.ticket.Payment.find_one')
+    @patch('games.site.views.account.ticket.configure_yookassa_from_env')
     def test_webhook_succeeded_is_idempotent(self, _cfg_mock, find_one_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -264,10 +264,10 @@ class YooKassaWebhookTests(TestCase):
         self.team.refresh_from_db()
         self.assertEqual(self.team.tickets, 2)
 
-    @patch('games.views.ticket.transaction.on_commit', side_effect=lambda fn: fn())
+    @patch('games.site.views.account.ticket.transaction.on_commit', side_effect=lambda fn: fn())
     @patch('games.telegram.notify.notify_payment_event')
-    @patch('games.views.ticket.Payment.find_one')
-    @patch('games.views.ticket.configure_yookassa_from_env')
+    @patch('games.site.views.account.ticket.Payment.find_one')
+    @patch('games.site.views.account.ticket.configure_yookassa_from_env')
     def test_webhook_canceled_rejects_pending(self, _cfg_mock, find_one_mock, notify_mock, _on_commit_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -287,8 +287,8 @@ class YooKassaWebhookTests(TestCase):
         self.assertEqual(self.team.tickets, 0)
         notify_mock.assert_called_once()
 
-    @patch('games.views.ticket.Payment.find_one')
-    @patch('games.views.ticket.configure_yookassa_from_env')
+    @patch('games.site.views.account.ticket.Payment.find_one')
+    @patch('games.site.views.account.ticket.configure_yookassa_from_env')
     def test_webhook_without_metadata_logs_and_leaves_ticket_pending(self, _cfg_mock, find_one_mock):
         ticket = TicketRequest.objects.create(
             team=self.team,
@@ -308,8 +308,8 @@ class YooKassaWebhookTests(TestCase):
         self.assertEqual(ticket.status, 'Pending')
         self.assertTrue(any('missing metadata.ticket_request_id' in line for line in logs.output))
 
-    @patch('games.views.ticket.Payment.find_one')
-    @patch('games.views.ticket.configure_yookassa_from_env')
+    @patch('games.site.views.account.ticket.Payment.find_one')
+    @patch('games.site.views.account.ticket.configure_yookassa_from_env')
     def test_webhook_missing_ticket_request_logs_warning(self, _cfg_mock, find_one_mock):
         find_one_mock.return_value = self._fake_payment(self._payment_data(ticket_request_id=999999))
 
@@ -319,8 +319,8 @@ class YooKassaWebhookTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(any('ticket request not found' in line for line in logs.output))
 
-    @patch('games.views.ticket.Payment.find_one', side_effect=RuntimeError('api down'))
-    @patch('games.views.ticket.configure_yookassa_from_env')
+    @patch('games.site.views.account.ticket.Payment.find_one', side_effect=RuntimeError('api down'))
+    @patch('games.site.views.account.ticket.configure_yookassa_from_env')
     def test_webhook_payment_lookup_failure_logs_exception(self, _cfg_mock, _find_one_mock):
         with self.assertLogs('games.views.ticket', level='ERROR') as logs:
             response = self._post_webhook('payment.succeeded')

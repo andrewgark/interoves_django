@@ -197,7 +197,7 @@ class ProjectScopedRegisterTests(TestCase):
         self.team.tickets = 2
         self.team.save(update_fields=['tickets'])
 
-        with patch('games.views.registration.Registration.objects.create', side_effect=RuntimeError('save failed')):
+        with patch('games.site.views.account.registration.Registration.objects.create', side_effect=RuntimeError('save failed')):
             with self.assertRaisesMessage(RuntimeError, 'save failed'):
                 self.client.post('/register/%s/' % self.game.pk, {'next': '/'})
 
