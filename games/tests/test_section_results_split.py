@@ -178,7 +178,10 @@ class SectionResultsSplitTests(TestCase):
             'aggregate_next_month': date(2026, 10, 1),
             'aggregate_period': 'month', 'aggregate_limit': 10,
         }
-        with patch('games.aggregate_leaderboard.build_aggregate_page', return_value=aggregate_data):
+        with patch(
+            'games.results.standings.aggregate_leaderboard.build_aggregate_page',
+            return_value=aggregate_data,
+        ):
             with patch('games.site.ui.results.pages.render') as render_mock:
                 new_section_results_page(request, ladder.id)
 

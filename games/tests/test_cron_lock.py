@@ -23,7 +23,7 @@ class DistributedCronLockTests(SimpleTestCase):
         from games.ops.cron.lock import distributed_cron_lock
 
         redis = _FakeRedis()
-        with patch('games.cron_lock._redis_client_and_key', return_value=(redis, 'k')):
+        with patch('games.ops.cron.lock._redis_client_and_key', return_value=(redis, 'k')):
             with distributed_cron_lock('job', ttl_seconds=123) as acquired:
                 self.assertTrue(acquired)
 
@@ -36,7 +36,7 @@ class DistributedCronLockTests(SimpleTestCase):
         from games.ops.cron.lock import distributed_cron_lock
 
         redis = _FakeRedis(result=False)
-        with patch('games.cron_lock._redis_client_and_key', return_value=(redis, 'k')):
+        with patch('games.ops.cron.lock._redis_client_and_key', return_value=(redis, 'k')):
             with distributed_cron_lock('job', ttl_seconds=123) as acquired:
                 self.assertFalse(acquired)
 
@@ -46,7 +46,7 @@ class DistributedCronLockTests(SimpleTestCase):
         from games.ops.cron.lock import distributed_cron_lock
 
         redis = _FakeRedis()
-        with patch('games.cron_lock._redis_client_and_key', return_value=(redis, 'k')):
+        with patch('games.ops.cron.lock._redis_client_and_key', return_value=(redis, 'k')):
             with self.assertRaises(RuntimeError):
                 with distributed_cron_lock('job', ttl_seconds=123):
                     raise RuntimeError('boom')
@@ -57,8 +57,8 @@ class DistributedCronLockTests(SimpleTestCase):
         from games.ops.cron.lock import distributed_cron_lock
 
         with (
-            patch('games.cron_lock._redis_client_and_key', return_value=(None, None)),
-            patch('games.cron_lock.connection.vendor', 'sqlite'),
+            patch('games.ops.cron.lock._redis_client_and_key', return_value=(None, None)),
+            patch('games.ops.cron.lock.connection.vendor', 'sqlite'),
         ):
             with distributed_cron_lock('job', ttl_seconds=123) as acquired:
                 self.assertTrue(acquired)
