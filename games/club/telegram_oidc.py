@@ -100,3 +100,11 @@ class TelegramCallbackView(OAuth2CallbackView):
 
 telegram_login = TelegramLoginView.adapter_view(TelegramOIDCAdapter)
 telegram_callback = TelegramCallbackView.adapter_view(TelegramOIDCAdapter)
+
+# Mounted by allauth via ``games.urls`` under ``/accounts/``.
+from django.urls import path
+
+urlpatterns = [
+    path("telegram/login/", telegram_login, name="telegram_login"),
+    path("telegram/callback/", telegram_callback, name="telegram_callback"),
+]

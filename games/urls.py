@@ -1,11 +1,5 @@
-"""Telegram OIDC routes for allauth (loaded as ``games.urls``, mounted under ``/accounts/``)."""
+"""Allauth imports ``games.urls`` for the Telegram OIDC provider (mounted under ``/accounts/``)."""
 
-from django.urls import path
+from games.club.telegram_oidc import urlpatterns
 
-from .telegram_oidc import telegram_callback, telegram_login
-
-
-urlpatterns = [
-    path("telegram/login/", telegram_login, name="telegram_login"),
-    path("telegram/callback/", telegram_callback, name="telegram_callback"),
-]
+__all__ = ["urlpatterns"]
