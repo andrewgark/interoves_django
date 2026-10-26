@@ -923,7 +923,7 @@ class Hint(models.Model):
         from games.realtime.track_compat import track_task_change
         super(Hint, self).save(*args, **kwargs)
         if self.task_id and self.task.task_group_id:
-            from games.daily_result_projection import mark_projection_dirty
+            from games.daily.projection import mark_projection_dirty
             for link in GameTaskGroup.objects.filter(
                 task_group_id=self.task.task_group_id, game__project_id='sections',
             ).select_related('game', 'task_group'):

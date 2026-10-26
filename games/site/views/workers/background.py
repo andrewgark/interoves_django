@@ -27,7 +27,7 @@ from games.background.messages import (
     is_stale,
     parse_background_message,
 )
-from games.daily_result_projection_cron import (
+from games.daily.projection.cron import (
     PROJECTION_CRON_LOCK_NAME,
     PROJECTION_REPAIR_LIMIT,
     reconcile_projection_releases,

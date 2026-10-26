@@ -325,7 +325,7 @@ def recheck_chain_task(
                 anon_key=anon_key,
             )
             if getattr(game, 'project_id', None) == 'sections':
-                from games.daily_result_projection import mark_projection_dirty
+                from games.daily.projection import mark_projection_dirty
                 transaction.on_commit(
                     lambda game=game, task_group=task.task_group:
                     mark_projection_dirty(game, task_group, full=True),
@@ -786,7 +786,7 @@ def recheck_word_salad_actor(
                 anon_key=anon_key,
             )
             if getattr(game, 'project_id', None) == 'sections':
-                from games.daily_result_projection import mark_projection_dirty
+                from games.daily.projection import mark_projection_dirty
                 transaction.on_commit(
                     lambda game=game, task_group=task.task_group:
                     mark_projection_dirty(game, task_group, full=True),

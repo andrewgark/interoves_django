@@ -16,7 +16,7 @@ from django.utils import timezone
 from django.contrib.auth.models import AnonymousUser
 from django.contrib.auth.models import User
 
-from games.daily_result_projection import (
+from games.daily.projection import (
     _canonical_group_results,
     refresh_daily_result_projection,
     schedule_actor_projection,
@@ -103,7 +103,7 @@ class DailyResultProjectionTests(TestCase):
             task_group=self.group, number='1', points=10,
             checker_data='answer', text='Question',
         )
-        with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
+        with patch('games.daily.projection.mark_projection_dirty') as mark_dirty:
             task.tags = {'featured': True}
             task.save(update_fields=['tags'])
         mark_dirty.assert_not_called()
@@ -113,7 +113,7 @@ class DailyResultProjectionTests(TestCase):
             task_group=self.group, number='1', points=10,
             checker_data='answer', text='Question',
         )
-        with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
+        with patch('games.daily.projection.mark_projection_dirty') as mark_dirty:
             with self.captureOnCommitCallbacks(execute=True):
                 task.points = 11
                 task.save(update_fields=['points'])
@@ -130,7 +130,7 @@ class DailyResultProjectionTests(TestCase):
             task=task, game=self.game, anon_key='delete-after-commit',
             text='answer', status='Ok', points=10,
         )
-        with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
+        with patch('games.daily.projection.mark_projection_dirty') as mark_dirty:
             with self.captureOnCommitCallbacks(execute=True):
                 with transaction.atomic():
                     attempt.delete()
@@ -141,7 +141,7 @@ class DailyResultProjectionTests(TestCase):
         hint_attempt = HintAttempt.objects.create(
             hint=hint, anon_key='delete-hint-after-commit', is_real_request=True,
         )
-        with patch('games.daily_result_projection.mark_projection_dirty') as mark_dirty:
+        with patch('games.daily.projection.mark_projection_dirty') as mark_dirty:
             with self.captureOnCommitCallbacks(execute=True):
                 with transaction.atomic():
                     hint_attempt.delete()
@@ -349,7 +349,7 @@ class DailyResultProjectionTests(TestCase):
 
     def test_partial_refresh_failure_never_publishes_valid_state(self):
         with patch(
-            'games.daily_result_projection._canonical_group_results',
+            'games.daily.projection._canonical_group_results',
             side_effect=RuntimeError('canonical failure'),
         ):
             with self.assertRaises(RuntimeError):
@@ -728,7 +728,7 @@ class DailyResultProjectionTests(TestCase):
         refresh_daily_result_projection(self.game, self.group)
         user = User.objects.create_user('failed-claim', 'failed@example.com', 'secret')
         with patch(
-            'games.daily_result_projection.refresh_daily_result_projection',
+            'games.daily.projection.refresh_daily_result_projection',
             side_effect=RuntimeError('refresh failed'),
         ):
             with self.captureOnCommitCallbacks(execute=True):
@@ -757,7 +757,7 @@ class DailyResultProjectionTests(TestCase):
         self.assertTrue(DailyResultProjectionState.objects.get(
             game=self.game, task_group=self.group,
         ).is_valid)
-        from games.targeted_completion_reconciliation import completion_pairs_for_actor
+        from games.daily.completion.targeted_completion_reconciliation import completion_pairs_for_actor
         self.assertIn(
             (self.game.pk, self.group.pk),
             completion_pairs_for_actor(anon_key=anon_key),

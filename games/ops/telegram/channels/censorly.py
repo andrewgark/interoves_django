@@ -18,7 +18,7 @@ from games.censorly_daily import (
     is_censorly_number_published,
 )
 from games.models import Game, GameTaskGroup, Task
-from games.section_paths import section_play_path
+from games.sections.paths import section_play_path
 from games.social.models import SocialQueuePost
 from games.social.publish import (
     claim_telegram_post,

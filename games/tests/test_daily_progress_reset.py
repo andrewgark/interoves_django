@@ -174,7 +174,7 @@ class DailyProgressResetTests(TestCase):
         self.assertTrue(PlayerCompletedGame.objects.filter(pk=fresh.pk).exists())
         self.assertFalse(PlayerCompletedGame.objects.filter(pk=stale.pk).exists())
 
-    @patch('games.daily_result_projection.refresh_daily_result_projection')
+    @patch('games.daily.projection.refresh_daily_result_projection')
     def test_projection_rebuild_is_scheduled_after_cleanup_commit(self, rebuild):
         self._attempt(datetime(2026, 9, 21, 23, 59, tzinfo=MOSCOW))
 

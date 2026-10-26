@@ -6,7 +6,7 @@ from django.test import SimpleTestCase
 from django.utils import timezone
 
 from games.ladder_daily import LADDER_PUBLISH_START_TAG
-from games.section_hub import (
+from games.sections.hub import (
     HUB_FROM_DESYATOCHKI_SECTION_IDS,
     create_game_link_context,
     daily_nav_items,
@@ -47,7 +47,7 @@ class TrainingSectionHubContextTests(SimpleTestCase):
         def fake_newest(_game):
             return game.links
 
-        import games.section_hub as sh
+        import games.sections.hub as sh
         orig = sh._newest_task_group_links
         sh._newest_task_group_links = fake_newest
         try:
@@ -66,7 +66,7 @@ class TrainingSectionHubContextTests(SimpleTestCase):
         def fake_newest(_game):
             return game.links
 
-        import games.section_hub as sh
+        import games.sections.hub as sh
         orig = sh._newest_task_group_links
         sh._newest_task_group_links = fake_newest
         try:

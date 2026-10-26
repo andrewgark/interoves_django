@@ -41,7 +41,7 @@ def load_results_placements_and_tasks(game, task_group_number=None):
     if is_scheduled_game(game.id):
         # A scoped result page may target a permanent random-game hash. Such
         # a placement is intentionally outside the numeric daily schedule.
-        from games.placement_share import is_share_hash_segment
+        from games.sections.placement_share import is_share_hash_segment
 
         is_random_hash = False
         if task_group_number is not None and is_share_hash_segment(str(task_group_number)):

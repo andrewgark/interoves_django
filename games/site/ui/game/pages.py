@@ -24,7 +24,7 @@ from games.daily_section import (
 from games.ladder_daily import (
     LADDER_GAME_ID,
 )
-from games.section_hub import (
+from games.sections.hub import (
     SECTION_HUB_META,
     create_game_link_context,
 )
@@ -518,7 +518,7 @@ def _render_section_game_page(request, game_id):
     ):
         has_today = any(str(p.number) == str(today_number) for p in task_groups)
         if has_today or game_id == LADDER_GAME_ID:
-            from games.section_paths import section_last_path
+            from games.sections.paths import section_last_path
             section_today_play_url = section_last_path(game_id)
             section_today_cta_label = meta['cta_today']
 

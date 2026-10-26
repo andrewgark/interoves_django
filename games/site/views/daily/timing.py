@@ -131,7 +131,7 @@ def _load_daily_target(
         if random_link is None:
             return None, None, None, None, None, _json_error('missing', 404)
     elif random_link is None:
-        from games.placement_share import is_share_hash_segment
+        from games.sections.placement_share import is_share_hash_segment
 
         if is_share_hash_segment(raw_number):
             from games.daily.page.placement import resolve_accessible_daily_placement
@@ -189,7 +189,7 @@ def _random_game_timing_link(game, share_hash):
     from games.alphabetty_daily import ALPHABETTY_GAME_ID
     from games.puzzles.censorly.ids import CENSORLY_GAME_ID
     from games.models import RandomAlphabettyGame, RandomCensorlyGame
-    from games.placement_share import placement_by_share_hash
+    from games.sections.placement_share import placement_by_share_hash
 
     if game.id not in (ALPHABETTY_GAME_ID, CENSORLY_GAME_ID):
         return None

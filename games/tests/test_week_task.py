@@ -26,7 +26,7 @@ from games.support.services.week_tasks import (
     set_publish_start,
     update_week_task,
 )
-from games.week_task_pool import (
+from games.sections.week_task_pool import (
     enumerate_units_for_gtg,
     materialize_unit,
     pick_random_units,

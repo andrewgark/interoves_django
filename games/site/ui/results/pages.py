@@ -432,7 +432,7 @@ def _word_salad_release_breakdown(data, game, number):
 
 def new_section_task_results_page(request, game_id, number):
     """Results for one task group of a sections-project game."""
-    from games.section_paths import section_play_path
+    from games.sections.paths import section_play_path
 
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:

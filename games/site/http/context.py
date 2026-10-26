@@ -127,8 +127,8 @@ def ui_section_games(request):
         or is_results_path
     ):
         return {}
-    from games.section_hub import daily_nav_items
-    from games.section_paths import is_root_section_game
+    from games.sections.hub import daily_nav_items
+    from games.sections.paths import is_root_section_game
     from games.site.views.pages.ui import get_section_games
     tz = 'Europe/Moscow'
     try:

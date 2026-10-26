@@ -280,7 +280,7 @@ def _grid_preview(grid):
 
 
 def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
-    from games.placement_share import site_urls_by_task_group
+    from games.sections.placement_share import site_urls_by_task_group
     from games.word_salad import WORD_SALAD_GAME_ID
 
     return site_urls_by_task_group(WORD_SALAD_GAME_ID, task_group_ids)

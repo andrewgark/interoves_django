@@ -18,7 +18,7 @@ from games.ladder_daily import (
     get_ladder_hub_context,
 )
 from games.next_game_vote import PHASE_CLOSED, campaign_phase
-from games.section_hub import (
+from games.sections.hub import (
     get_desyatochki_hub_context,
 )
 from games.models import (
@@ -292,8 +292,8 @@ def new_section_last_page(request, game_id):
         team = request.user.profile.team_on
     if not game.has_access('see_game_preview', team=team):
         raise Http404()
-    from games.section_hub import _newest_task_group_links
-    from games.section_paths import section_hub_path, section_play_path
+    from games.sections.hub import _newest_task_group_links
+    from games.sections.paths import section_hub_path, section_play_path
     links = list(_newest_task_group_links(game))
     if not links:
         return redirect(section_hub_path(game.id))

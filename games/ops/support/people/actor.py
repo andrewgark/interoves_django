@@ -76,8 +76,8 @@ def build_game_context(game, *, feed_kwargs):
     from django.urls import reverse
 
     from games.models import Attempt, GameTaskGroup, HintAttempt, Task
-    from games.project_navigation import non_root_project_game_path
-    from games.section_paths import section_hub_path
+    from games.sections.project_navigation import non_root_project_game_path
+    from games.sections.paths import section_hub_path
 
     task_ids = list(
         Task.objects.filter(task_group__game_links__game_id=game.id).values_list('id', flat=True)

@@ -6,7 +6,7 @@ from collections import defaultdict
 from django.db import transaction
 
 from games.models import Attempt, CHAIN_TASK_TYPES, Task
-from games.replay_planner import actor_key, queue_chain_replays_for_tasks
+from games.site.session.replay_planner import actor_key, queue_chain_replays_for_tasks
 
 
 def _load_attempts(attempt_ids, *, pending_only=False, lock=False):

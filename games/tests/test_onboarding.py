@@ -18,7 +18,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
-from games.section_hub import onboarding_followup_context
+from games.sections.hub import onboarding_followup_context
 from games.site.ui.hub.cards import _onboarding_starter_salad_url
 from games.word_salad import WORD_SALAD_GAME_ID
 

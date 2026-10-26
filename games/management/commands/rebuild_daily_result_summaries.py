@@ -3,7 +3,7 @@ from django.core.management.base import BaseCommand, CommandError
 
 from decimal import Decimal
 
-from games.daily_result_projection import (
+from games.daily.projection import (
     _canonical_group_results,
     _task_projection_supported,
     compare_task_result_projection,

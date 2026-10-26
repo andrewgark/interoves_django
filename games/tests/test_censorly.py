@@ -20,7 +20,7 @@ from games.puzzles.censorly.text.stopwords import is_stop_word
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
 from games.analytics import game_instance_id_for_task_group
 from games.models import Attempt, BugReport, ChainTaskState, CheckerType, DailySolveTiming, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, RandomCensorlyGame, Task, TaskGroup
-from games.placement_share import allocate_share_hash
+from games.sections.placement_share import allocate_share_hash
 from games.results.share import format_elapsed
 
 _CENSORLY_TESTDATA = Path(__file__).resolve().parent / 'censorly_testdata'
@@ -233,7 +233,7 @@ class CensorlyEngineTests(TestCase):
         )
 
         with patch(
-            'games.targeted_completion_reconciliation.reconcile_task_group_actors',
+            'games.daily.completion.targeted_completion_reconciliation.reconcile_task_group_actors',
         ) as reconcile:
             deleted = reset_progress(game=game, task=task, anon_key='censorly-reset')
 

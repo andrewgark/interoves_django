@@ -13,7 +13,7 @@ from games.alphabetty_daily import ALPHABETTY_GAME_ID
 from games.ladder_daily import (
     LADDER_GAME_ID,
 )
-from games.project_navigation import (
+from games.sections.project_navigation import (
     main_team_page_urls,
     project_base,
     project_team_page_urls,
@@ -24,7 +24,7 @@ from games.play_mode import (
     get_play_mode,
     session_play_mode_key,
 )
-from games.section_navigation import section_ui_context
+from games.sections.navigation import section_ui_context
 from games.results.table.access import (
     anon_key_from_request,
 )

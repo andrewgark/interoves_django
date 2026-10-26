@@ -479,7 +479,7 @@ class AggregateLeaderboardTests(TestCase):
                 game=self.game, task_group=link.task_group, adapter_version=1,
                 coverage_complete=True, is_valid=True, full_refresh_required=False,
             )
-        with patch('games.daily_result_projection.scorer_adapter_version', return_value=2):
+        with patch('games.daily.projection.scorer_adapter_version', return_value=2):
             with patch('games.results_sql_aggregate.get_sql_aggregated_game_actor_rows', return_value={}):
                 with patch('games.aggregate_leaderboard._projection_rank_page', side_effect=AssertionError('stale projection read')):
                     result = build_aggregate_page(self._request(), self.game)

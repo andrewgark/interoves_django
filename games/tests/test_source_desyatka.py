@@ -8,7 +8,7 @@ from django.test import TestCase
 from django.utils import timezone
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, TaskGroup
-from games.section_hub import get_source_desyatka_context
+from games.sections.hub import get_source_desyatka_context
 
 
 def _ensure_base():

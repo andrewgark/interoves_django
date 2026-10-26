@@ -32,7 +32,7 @@ def _offer_share_matches_task(request, task):
         ).strip().lower()
     if not token or task is None or not task.task_group_id:
         return False
-    from games.placement_share import share_matches_task
+    from games.sections.placement_share import share_matches_task
     if share_matches_task(task, token):
         return True
     from games.ladder_offer import get_offer_by_share_hash as ladder_offer_by_share_hash

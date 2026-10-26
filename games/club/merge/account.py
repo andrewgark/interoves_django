@@ -742,7 +742,7 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
     ).exists():
         raise AccountMergeError('Подтверждённый аккаунт провайдера больше не найден.')
 
-    from games.targeted_completion_reconciliation import completion_pairs_for_actor
+    from games.daily.completion.targeted_completion_reconciliation import completion_pairs_for_actor
     affected_pairs = completion_pairs_for_actor(user=target) | completion_pairs_for_actor(user=source)
 
     summary = {}
@@ -773,8 +773,8 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
     summary['daily_timings'] = _merge_daily_timings(target, source)
     summary['completed_games'] = _merge_completed_games(target, source)
     summary['analytics_states'] = _merge_analytics(target, source)
-    from games.targeted_completion_reconciliation import reconcile_task_group_actors
-    from games.daily_result_projection import schedule_full_projection_refresh
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily.projection import schedule_full_projection_refresh
     from games.models import Game, TaskGroup
     for game_id, task_group_id in affected_pairs:
         game = Game.objects.filter(pk=game_id, project_id='sections').first()

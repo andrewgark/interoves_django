@@ -8,7 +8,7 @@ from django.utils import timezone
 from games.access import game_has_started
 from games.exception import NoGameAccessException
 from games.models import Game, Team, Attempt, ImageManager, AudioManager
-from games.project_navigation import non_root_project_game_path
+from games.sections.project_navigation import non_root_project_game_path
 from games.gameplay_context import issue_gameplay_context
 from games.puzzles.replacements.forms import render_html_forms_task
 from games.site.views.account.team import get_team_to_play_page

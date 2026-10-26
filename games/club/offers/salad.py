@@ -68,7 +68,7 @@ class WordSaladOfferError(Exception):
 
 
 def _new_share_hash() -> str:
-    from games.placement_share import allocate_share_hash
+    from games.sections.placement_share import allocate_share_hash
 
     try:
         return allocate_share_hash()
@@ -495,7 +495,7 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
         raise WordSaladOfferError(
             'Конфликт номера в расписании — обновите страницу и повторите'
         ) from exc
-    from games.placement_share import adopt_offer_share_hash
+    from games.sections.placement_share import adopt_offer_share_hash
     adopt_offer_share_hash(link, offer.share_hash)
     offer.accepted_link = link
     offer.status = WordSaladOffer.STATUS_ACCEPTED
@@ -600,7 +600,7 @@ def reset_salad_progress(
     n = attempt_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
-    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     actor_key = (team.pk if team is not None else None, user.pk if user is not None else None, anon_key)
     reconcile_task_group_actors(
         game_id=game_id,
@@ -646,7 +646,7 @@ def reset_all_salad_progress(
     n_chains = chain_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
-    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     reconcile_task_group_actors(
         game_id=game_id,
         task_group_id=task.task_group_id,

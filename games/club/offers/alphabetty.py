@@ -48,7 +48,7 @@ class AlphabettyOfferError(Exception):
 
 
 def _new_share_hash() -> str:
-    from games.placement_share import allocate_share_hash
+    from games.sections.placement_share import allocate_share_hash
 
     try:
         return allocate_share_hash()
@@ -305,7 +305,7 @@ def accept_offer(offer: AlphabettyOffer, *, at_number: int | None = None) -> Alp
         raise AlphabettyOfferError(
             'Конфликт номера в расписании — обновите страницу и повторите'
         ) from exc
-    from games.placement_share import adopt_offer_share_hash
+    from games.sections.placement_share import adopt_offer_share_hash
     adopt_offer_share_hash(link, offer.share_hash)
     offer.accepted_link = link
     offer.status = AlphabettyOffer.STATUS_ACCEPTED
@@ -400,14 +400,14 @@ def reset_all_alphabetty_progress(*, task: Task, game_id: str = ALPHABETTY_GAME_
     )
     n_attempts = attempt_qs.count()
     n_chains = chain_qs.count()
-    from games.daily_result_projection import mark_projection_dirty
+    from games.daily.projection import mark_projection_dirty
     transaction.on_commit(
         lambda game=game, task_group=task.task_group:
         mark_projection_dirty(game, task_group, full=True),
     )
     chain_qs.delete()
     attempt_qs.delete()
-    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     reconcile_task_group_actors(
         game_id=game_id,
         task_group_id=task.task_group_id,

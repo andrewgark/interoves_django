@@ -57,7 +57,7 @@ def completion_mapping_old_snapshot(sender, instance, **kwargs):
     instance._aggregate_month_index_old_game_id = old.game_id if old is not None else None
     instance._completion_mapping_actor_keys = set()
     if old is not None:
-        from games.targeted_completion_reconciliation import _actor_keys_for_group
+        from games.daily.completion.targeted_completion_reconciliation import _actor_keys_for_group
         instance._completion_mapping_actor_keys = _actor_keys_for_group(
             game_id=old.game_id,
             task_group_id=old.task_group_id,
@@ -67,7 +67,7 @@ def completion_mapping_old_snapshot(sender, instance, **kwargs):
 @receiver(post_save, sender=GameTaskGroup, dispatch_uid='completion-mapping-reconcile')
 def completion_mapping_reconcile(sender, instance, created, **kwargs):
     if getattr(instance.game, 'project_id', None) == 'sections':
-        from games.daily_result_projection import mark_projection_dirty
+        from games.daily.projection import mark_projection_dirty
         transaction.on_commit(
             lambda game=instance.game, task_group=instance.task_group:
             mark_projection_dirty(game, task_group, full=True),
@@ -78,7 +78,7 @@ def completion_mapping_reconcile(sender, instance, created, **kwargs):
         and old.task_group_id == instance.task_group_id
     ):
         return
-    from games.targeted_completion_reconciliation import schedule_mapping_reconciliation
+    from games.daily.completion.targeted_completion_reconciliation import schedule_mapping_reconciliation
     schedule_mapping_reconciliation(
         old=old,
         instance=instance,
@@ -88,7 +88,7 @@ def completion_mapping_reconcile(sender, instance, created, **kwargs):
 
 @receiver(pre_delete, sender=GameTaskGroup, dispatch_uid='completion-mapping-delete-snapshot')
 def completion_mapping_delete_snapshot(sender, instance, **kwargs):
-    from games.targeted_completion_reconciliation import _actor_keys_for_group
+    from games.daily.completion.targeted_completion_reconciliation import _actor_keys_for_group
     instance._completion_mapping_actor_keys = _actor_keys_for_group(
         game_id=instance.game_id,
         task_group_id=instance.task_group_id,
@@ -97,7 +97,7 @@ def completion_mapping_delete_snapshot(sender, instance, **kwargs):
 
 @receiver(post_delete, sender=GameTaskGroup, dispatch_uid='completion-mapping-delete-reconcile')
 def completion_mapping_delete_reconcile(sender, instance, **kwargs):
-    from games.targeted_completion_reconciliation import schedule_mapping_reconciliation
+    from games.daily.completion.targeted_completion_reconciliation import schedule_mapping_reconciliation
     schedule_mapping_reconciliation(
         old=instance,
         instance=None,
@@ -107,7 +107,7 @@ def completion_mapping_delete_reconcile(sender, instance, **kwargs):
 
 @receiver(pre_delete, sender=Task, dispatch_uid='completion-task-delete-snapshot')
 def completion_task_delete_snapshot(sender, instance, **kwargs):
-    from games.targeted_completion_reconciliation import _actor_keys_for_group
+    from games.daily.completion.targeted_completion_reconciliation import _actor_keys_for_group
     instance._completion_task_old_group_id = instance.task_group_id
     instance._completion_task_old_game_ids = set(
         GameTaskGroup.objects.filter(task_group_id=instance.task_group_id)
@@ -125,8 +125,8 @@ def completion_task_delete_snapshot(sender, instance, **kwargs):
 def completion_task_delete_reconcile(sender, instance, **kwargs):
     if not getattr(instance, '_completion_task_old_group_id', None):
         return
-    from games.targeted_completion_reconciliation import reconcile_task_group_actors
-    from games.daily_result_projection import mark_projection_dirty
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily.projection import mark_projection_dirty
     for game_id in getattr(instance, '_completion_task_old_game_ids', set()):
         game = Game.objects.filter(pk=game_id, project_id='sections').first()
         if game is not None:
@@ -150,7 +150,7 @@ def daily_result_projection_attempt_delete(sender, instance, **kwargs):
     ).first()
     if not task_group_id:
         return
-    from games.daily_result_projection import mark_projection_dirty
+    from games.daily.projection import mark_projection_dirty
     from games.models import TaskGroup
     task_group = TaskGroup.objects.filter(pk=task_group_id).first()
     game = Game.objects.filter(pk=instance.game_id, project_id='sections').first()
@@ -170,7 +170,7 @@ def daily_result_projection_hint_delete(sender, instance, **kwargs):
     ).values_list('task_group_id', flat=True).first()
     if not task_group_id:
         return
-    from games.daily_result_projection import mark_projection_dirty
+    from games.daily.projection import mark_projection_dirty
     from games.models import TaskGroup
     task_group = TaskGroup.objects.filter(pk=task_group_id).first()
     if task_group is None:

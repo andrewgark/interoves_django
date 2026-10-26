@@ -57,7 +57,7 @@ def _restore_missing_censorly_image(post: SocialQueuePost) -> bool:
     if post.source != SocialQueuePost.SOURCE_CENSORLY or not post.ladder_number:
         return False
     from games.telegram.censorly_image import render_censorly_teaser_png
-    from games.section_paths import section_play_path
+    from games.sections.paths import section_play_path
     from games.telegram.game_urls import admin_url
 
     url = admin_url(section_play_path('censorly', post.ladder_number))

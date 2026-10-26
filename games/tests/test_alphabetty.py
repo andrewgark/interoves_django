@@ -359,7 +359,7 @@ class AlphabettySupportTests(TestCase):
         )
 
         with patch(
-            'games.targeted_completion_reconciliation.reconcile_task_group_actors',
+            'games.daily.completion.targeted_completion_reconciliation.reconcile_task_group_actors',
         ) as reconcile:
             stats = reset_all_alphabetty_progress(task=task, game_id=self.game.pk)
 

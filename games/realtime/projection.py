@@ -254,7 +254,7 @@ def run_named_daily_statistics_refresh(*, game_id, task_group_id):
 
 def run_named_projection_refresh(*, game_id, task_group_id, mode):
     """Refresh one release. Returns ``missing`` or ``ok``."""
-    from games.daily_result_projection import (
+    from games.daily.projection import (
         _refresh_actor_by_ids,
         projection_state_is_valid,
         refresh_daily_result_projection,

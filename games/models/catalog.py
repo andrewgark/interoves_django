@@ -334,7 +334,7 @@ class GameTaskGroup(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.share_hash and self.game_id in ('ladder', 'salad', 'alphabetty', 'week_task'):
-            from games.placement_share import allocate_share_hash
+            from games.sections.placement_share import allocate_share_hash
             self.share_hash = allocate_share_hash()
             update_fields = kwargs.get('update_fields')
             if update_fields is not None:
@@ -627,7 +627,7 @@ class Task(models.Model):
                 'checker_data', 'answer', 'text', 'points', 'max_attempts',
             ).first()
             if previous_semantics:
-                from games.targeted_completion_reconciliation import _actor_keys_for_group
+                from games.daily.completion.targeted_completion_reconciliation import _actor_keys_for_group
                 old_group_id = previous_semantics['task_group_id']
                 if old_group_id:
                     old_game_ids = set(
@@ -662,7 +662,7 @@ class Task(models.Model):
             projection_groups = {self.task_group_id}
             if previous_semantics:
                 projection_groups.add(previous_semantics['task_group_id'])
-            from games.daily_result_projection import mark_projection_dirty
+            from games.daily.projection import mark_projection_dirty
             for group_id in projection_groups:
                 if not group_id:
                     continue
@@ -684,7 +684,7 @@ class Task(models.Model):
                 ) if previous_semantics[field] != getattr(self, field)
             }
             if changed_fields and not skip_semantics_reconciliation:
-                from games.targeted_completion_reconciliation import (
+                from games.daily.completion.targeted_completion_reconciliation import (
                     schedule_task_semantics_reconciliation,
                 )
                 new_game_ids = set(
@@ -703,7 +703,7 @@ class Task(models.Model):
                     rebuild_task_id=rebuild_task_id,
                 )
         elif not is_existing and self.task_group_id:
-            from games.targeted_completion_reconciliation import (
+            from games.daily.completion.targeted_completion_reconciliation import (
                 _actor_keys_for_group,
                 schedule_task_semantics_reconciliation,
             )

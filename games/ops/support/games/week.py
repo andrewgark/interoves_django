@@ -26,7 +26,7 @@ from games.support.services.schedule_links import (
     save_publish_start_date,
     shift_links,
 )
-from games.week_task_pool import (
+from games.sections.week_task_pool import (
     WEEK_TASK_SOURCE_TAG,
     materialize_unit,
     pick_random_units,

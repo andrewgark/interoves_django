@@ -1,7 +1,7 @@
 """Canonical resolution of a daily placement from its public URL segment."""
 
 from games.models import GameTaskGroup
-from games.placement_share import is_share_hash_segment, placement_by_share_hash
+from games.sections.placement_share import is_share_hash_segment, placement_by_share_hash
 from games.daily_section import is_scheduled_game, scheduled_number_is_public
 
 
@@ -33,7 +33,7 @@ def resolve_accessible_daily_placement(game, segment, *, user=None):
             return None
         return placement
     if is_scheduled_game(game.id) and not scheduled_number_is_public(game, value):
-        from games.placement_share import may_open_unpublished_number
+        from games.sections.placement_share import may_open_unpublished_number
 
         if not may_open_unpublished_number(user):
             return None

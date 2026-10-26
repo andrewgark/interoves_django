@@ -3,7 +3,7 @@ from typing import List, Optional
 
 from django.urls import reverse
 
-from games.section_hub import SECTION_HUB_META, SECTION_HUB_ORDER, _newest_task_group_links
+from games.sections.hub import SECTION_HUB_META, SECTION_HUB_ORDER, _newest_task_group_links
 from games.support.services.word_salad import (
     WORD_SALAD_GAME_ID,
     WORD_SALAD_SECTION_ICON,
@@ -33,7 +33,7 @@ def get_sections_dashboard() -> List[SectionRow]:
     from django.utils import timezone
 
     from games.models import Attempt, Game, HintAttempt, Task
-    from games.section_paths import section_hub_path
+    from games.sections.paths import section_hub_path
 
     since = timezone.now() - timedelta(hours=24)
     games = {

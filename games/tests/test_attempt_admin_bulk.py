@@ -11,7 +11,7 @@ from games.attempt_admin_bulk import (
     reject_pending_attempts,
     recheck_chain_attempts,
 )
-from games.replay_planner import _actor_groups
+from games.site.session.replay_planner import _actor_groups
 from games.ops.workers.jobs.recheck import (
     _checker_extension_actor_is_complete,
     recheck_chain_task,

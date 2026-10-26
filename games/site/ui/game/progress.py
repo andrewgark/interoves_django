@@ -336,7 +336,7 @@ def _game_page_progress_context(request, game, play_mode):
     )
     url = None
     if load:
-        from games.section_paths import is_root_section_game, section_progress_path
+        from games.sections.paths import is_root_section_game, section_progress_path
         # Sections and main games use site-root URLs; other projects are scoped.
         if game.project_id not in (NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT):
             url = reverse('project_game_progress', kwargs={

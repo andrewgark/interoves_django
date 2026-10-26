@@ -67,13 +67,13 @@ from games.gameplay_context import (
 )
 from games.middleware.request_timing import timing_phase
 from games.models import Attempt, BugReport, ChainTaskState, Game, GameTaskGroup, Like, RandomCensorlyGame, Task
-from games.section_hub import (
+from games.sections.hub import (
     create_game_link_context,
     onboarding_followup_context,
     section_format_credit_context,
 )
 from games.replay import active_replay, replay_for_request, StaleReplayError, _official_exists
-from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
+from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.support.access import user_has_support_access
 from games.task_titles import task_display_name, task_group_page_title
 from games.site.views.daily.timing import daily_timing_page_context

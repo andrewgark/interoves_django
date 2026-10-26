@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 import secrets
 
-from games.section_paths import section_play_path
+from games.sections.paths import section_play_path
 
 _SHARE_HASH_RE = re.compile(r'^[a-f0-9]{16,32}$')
 _SCHEDULED_GAME_IDS = frozenset({'ladder', 'salad', 'alphabetty', 'week_task'})

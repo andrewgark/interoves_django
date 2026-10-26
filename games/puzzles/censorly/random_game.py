@@ -27,7 +27,7 @@ from games.puzzles.censorly.article.wiki import (
     title_from_user_input,
 )
 from games.models import CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
-from games.placement_share import allocate_share_hash
+from games.sections.placement_share import allocate_share_hash
 
 logger = logging.getLogger('application')
 

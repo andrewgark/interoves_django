@@ -228,6 +228,10 @@ If the resolved version is empty, the client check is skipped.
 | Daily difficulty cache | `games.daily.difficulty.{core,refresh,health}` | `games.difficulty`, `difficulty_refresh`, `difficulty_health` |
 | Admin/support attempt ops | `games.ops.workers.jobs.actions` | `games.ops_actions` |
 | Attempt text normalize helpers | `games.results.util` | `games.util` |
+| Section URLs / hub / share hashes | `games.sections.{paths,hub,navigation,placement_share,week_task_pool,project_navigation}` | `games.section_*`, `placement_share`, … |
+| Daily result projection | `games.daily.projection` (+ `projection.cron`) | `games.daily_result_projection*` |
+| Targeted completion reconcile | `games.daily.completion.targeted_completion_reconciliation` | `games.targeted_completion_reconciliation` |
+| Chain replay planning | `games.site.session.replay_planner` | `games.replay_planner` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

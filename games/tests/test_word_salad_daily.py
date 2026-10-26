@@ -6,12 +6,12 @@ from django.test import SimpleTestCase, TestCase
 from django.urls import resolve
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
-from games.section_hub import (
+from games.sections.hub import (
     DAILY_NAV_SECTION_IDS,
     SECTION_HUB_META,
     get_word_salad_section_hub_card,
 )
-from games.section_paths import section_hub_path, section_last_path
+from games.sections.paths import section_hub_path, section_last_path
 from games.word_salad_daily import (
     WORD_SALAD_DEFAULT_PUBLISH_START,
     WORD_SALAD_PUBLISH_START_TAG,

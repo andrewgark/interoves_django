@@ -31,15 +31,15 @@ from games.ladder_daily import (
     LADDER_GAME_ID,
 )
 from games.week_task_weekly import WEEK_TASK_GAME_ID
-from games.section_hub import (
+from games.sections.hub import (
     SECTION_HUB_META,
     get_source_desyatka_context,
     onboarding_followup_context,
     section_format_credit_context,
     section_nav_title,
 )
-from games.placement_share import may_open_unpublished_number
-from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
+from games.sections.placement_share import may_open_unpublished_number
+from games.sections.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 from games.tasks.titles import task_group_page_title
 from games.models import (
     Attempt,
@@ -107,7 +107,7 @@ def daily_statistics(request, game_id, number):
     if definition is None or not definition.capabilities.statistics:
         raise Http404()
     game = get_object_or_404(Game, id=game_id, project_id=NEW_UI_SECTIONS_PROJECT)
-    from games.placement_share import is_share_hash_segment
+    from games.sections.placement_share import is_share_hash_segment
     from games.daily.page.placement import (
         is_random_daily_placement,
         resolve_accessible_daily_placement,
@@ -200,7 +200,7 @@ def new_task_group_page(
         Game.objects.select_related('section_default_rules'),
         id=game_id,
     )
-    from games.section_paths import section_play_path
+    from games.sections.paths import section_play_path
     project_redirect = _root_project_game_redirect(
         request, game, '{}/'.format(task_group_number),
     )
@@ -260,7 +260,7 @@ def new_task_group_page(
             preview_team = request.user.profile.team_on
         if not game.has_access('see_game_preview', team=preview_team):
             raise Http404()
-        from games.placement_share import (
+        from games.sections.placement_share import (
             is_share_hash_segment,
         )
         from games.daily.page.placement import resolve_accessible_daily_placement
@@ -449,7 +449,7 @@ def new_task_group_page(
     source_desyatka = None
     if game.id in ('replacements', 'walls', 'palindromes'):
         source_desyatka = get_source_desyatka_context(task_group, team=team)
-    from games.section_paths import ladder_word_results_path
+    from games.sections.paths import ladder_word_results_path
     is_daily_single_task = uses_daily_play_layout(game.id)
     daily_publish_date = None
     if draft_offer is None:

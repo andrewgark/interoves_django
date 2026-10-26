@@ -62,12 +62,12 @@ from games.models import (
 )
 from games.club_access import has_club_access
 from games.middleware.request_timing import timing_phase
-from games.section_hub import (
+from games.sections.hub import (
     create_game_link_context,
     onboarding_followup_context,
     section_format_credit_context,
 )
-from games.section_paths import section_hub_path, section_play_path, section_replay_path, section_results_path
+from games.sections.paths import section_hub_path, section_play_path, section_replay_path, section_results_path
 from games.task_titles import task_display_name, task_group_page_title
 from games.site.views.daily.timing import daily_timing_page_context
 from games.site.ui import NEW_UI_SECTIONS_PROJECT
@@ -431,7 +431,7 @@ def alphabetty_play_page(request, number):
         raise Http404()
     if game is None or task is None:
         raise Http404()
-    from games.placement_share import may_open_unpublished_number
+    from games.sections.placement_share import may_open_unpublished_number
 
     offer = load_meta.get('offer') if load_meta else None
     play_number = load_meta.get('play_number') if load_meta else number
@@ -631,7 +631,7 @@ def _load_visible_task(request, number, *, json_mode=True):
         return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
     from games.daily.page.placement import resolve_accessible_daily_placement
     from games.models import RandomAlphabettyGame
-    from games.placement_share import is_share_hash_segment
+    from games.sections.placement_share import is_share_hash_segment
 
     offer = get_offer_by_share_hash(str(number))
     if offer is None and is_share_hash_segment(str(number)):

@@ -54,7 +54,7 @@ class LadderOfferError(Exception):
 
 
 def _new_share_hash() -> str:
-    from games.placement_share import allocate_share_hash
+    from games.sections.placement_share import allocate_share_hash
 
     try:
         return allocate_share_hash()
@@ -388,7 +388,7 @@ def accept_offer(offer: LadderOffer, *, at_number: int | None = None) -> LadderO
         raise LadderOfferError(
             'Конфликт номера в расписании — обновите страницу и повторите'
         ) from exc
-    from games.placement_share import adopt_offer_share_hash
+    from games.sections.placement_share import adopt_offer_share_hash
     adopt_offer_share_hash(link, offer.share_hash)
     offer.accepted_link = link
     offer.status = LadderOffer.STATUS_ACCEPTED
@@ -484,7 +484,7 @@ def reset_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
-    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     reconcile_task_group_actors(
         game_id=game_id,
         task_group_id=task.task_group_id,
@@ -545,7 +545,7 @@ def reset_all_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
-    from games.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     reconcile_task_group_actors(
         game_id=game_id,
         task_group_id=task.task_group_id,

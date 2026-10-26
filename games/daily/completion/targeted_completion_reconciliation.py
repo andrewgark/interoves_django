@@ -211,7 +211,7 @@ def schedule_task_semantics_reconciliation(
             # Gameplay-semantic Task edits use the same durable actor replay
             # queue as PendingAttempt → YES.  Do not replay a whole actor in
             # the admin request and do not create one job per actor manually.
-            from games.replay_planner import queue_chain_replays_for_tasks
+            from games.site.session.replay_planner import queue_chain_replays_for_tasks
             queue_chain_replays_for_tasks([rebuild.pk])
             # A task-group move can still affect completion rows for the old
             # mapping; the normal reconciliation below handles that case.

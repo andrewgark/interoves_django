@@ -79,7 +79,7 @@ def claim_and_migrate_anon_history(user, anon_key):
         if claim.user_id != user.pk:
             return {'status': 'claimed_elsewhere', 'moved_any': False}
 
-    from games.targeted_completion_reconciliation import completion_pairs_for_actor
+    from games.daily.completion.targeted_completion_reconciliation import completion_pairs_for_actor
     affected_pairs = completion_pairs_for_actor(anon_key=anon_key)
 
     moved_ui_states = migrate_anon_raddle_ui_states(user, anon_key)
@@ -102,8 +102,8 @@ def claim_and_migrate_anon_history(user, anon_key):
     moved_attributions = migrate_anon_attributions(user, anon_key)
     moved_bug_reports = moved_attributions['bug_reports']
     moved_dict_suggestions = moved_attributions['dict_suggestions']
-    from games.targeted_completion_reconciliation import reconcile_task_group_actors
-    from games.daily_result_projection import schedule_full_projection_refresh
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
+    from games.daily.projection import schedule_full_projection_refresh
     from games.models import Game, TaskGroup
     for game_id, task_group_id in affected_pairs:
         game = Game.objects.filter(pk=game_id, project_id='sections').first()
@@ -240,9 +240,9 @@ def migrate_anon_history_step(
         if pair_index >= len(pairs):
             return {'status': 'ok', 'reconciled': 0, 'pair_index': pair_index}
         game_id, task_group_id = pairs[pair_index]
-        from games.daily_result_projection import schedule_full_projection_refresh
+        from games.daily.projection import schedule_full_projection_refresh
         from games.models import Game, TaskGroup
-        from games.targeted_completion_reconciliation import reconcile_task_group_actors
+        from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
         game = Game.objects.filter(pk=game_id, project_id='sections').first()
         task_group = TaskGroup.objects.filter(pk=task_group_id).first()
         if game is not None and task_group is not None:

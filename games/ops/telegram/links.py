@@ -21,7 +21,7 @@ def game_site_url(game) -> str:
 
 def game_play_path(game) -> str:
     """Relative play URL for a game hub page (project-scoped when needed)."""
-    from games.section_paths import is_root_section_game, section_hub_path
+    from games.sections.paths import is_root_section_game, section_hub_path
 
     if is_root_section_game(getattr(game, 'id', None)):
         return section_hub_path(game.id)
@@ -44,7 +44,7 @@ def _offer_share_path(task, game=None) -> str:
     if task is None or not getattr(task, 'task_group_id', None):
         return ''
     from games.models import AlphabettyOffer, GameTaskGroup, LadderOffer, WordSaladOffer
-    from games.section_paths import section_play_path
+    from games.sections.paths import section_play_path
 
     for model in (WordSaladOffer, LadderOffer, AlphabettyOffer):
         offer = (

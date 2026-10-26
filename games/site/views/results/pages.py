@@ -4,7 +4,7 @@ from django.db.models import Q
 from django.shortcuts import redirect, render, get_object_or_404
 from django.views import defaults
 from games.models import Game, Team, GameResultsSnapshot
-from games.project_navigation import non_root_project_game_path
+from games.sections.project_navigation import non_root_project_game_path
 from games.site.views.pages.util import has_profile, has_team
 from games.results_snapshot import snapshot_to_results_context
 

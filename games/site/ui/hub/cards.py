@@ -28,7 +28,7 @@ from games.daily_archive import (
 from games.ladder_daily import (
     LADDER_GAME_ID,
 )
-from games.section_hub import (
+from games.sections.hub import (
     HUB_DAILY_SECTION_IDS,
     HUB_FROM_DESYATOCHKI_SECTION_IDS,
     ONBOARDING_GAME_IDS,
@@ -203,7 +203,7 @@ def _build_hub_section_cards(request, *, team):
 
 def _onboarding_game_cards(daily_hub_cards):
     """One recommended game and two alternatives for the focused /start/ page."""
-    from games.section_paths import section_last_path
+    from games.sections.paths import section_last_path
 
     cards_by_id = {card['id']: card for card in daily_hub_cards}
     cards = []
@@ -230,7 +230,7 @@ def _onboarding_game_cards(daily_hub_cards):
 
 def _onboarding_starter_salad_url(daily_hub_cards):
     """Configured beginner Salad when public, otherwise the stable latest URL."""
-    from games.section_paths import section_last_path, section_play_path
+    from games.sections.paths import section_last_path, section_play_path
 
     fallback = section_last_path(WORD_SALAD_GAME_ID)
     starter_number = str(
@@ -297,7 +297,7 @@ def _get_ladder_game():
 
 def _sections_hub_url(game_id):
     """Canonical public URL for a sections-project game hub."""
-    from games.section_paths import section_hub_path
+    from games.sections.paths import section_hub_path
     return section_hub_path(game_id)
 
 

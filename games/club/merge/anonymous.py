@@ -29,7 +29,7 @@ from games.models import (
     HiddenAnonKey,
     StatisticsEvent,
 )
-from games.targeted_completion_reconciliation import completion_pairs_for_actor
+from games.daily.completion.targeted_completion_reconciliation import completion_pairs_for_actor
 
 logger = logging.getLogger('application')
 
@@ -402,9 +402,9 @@ def _reconcile_one(job, job_token):
         return False
     item, item_token = claimed
     try:
-        from games.daily_result_projection import mark_projection_dirty
+        from games.daily.projection import mark_projection_dirty
         from games.models import Game, TaskGroup
-        from games.targeted_completion_reconciliation import reconcile_task_group_actors
+        from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
 
         with transaction.atomic():
             current_job = AnonymousMergeJob.objects.select_for_update().get(pk=job.pk)

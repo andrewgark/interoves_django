@@ -2,7 +2,7 @@
 
 from django.core.management.base import BaseCommand
 
-from games.daily_result_projection_cron import reconcile_projection_releases
+from games.daily.projection.cron import reconcile_projection_releases
 
 
 class Command(BaseCommand):

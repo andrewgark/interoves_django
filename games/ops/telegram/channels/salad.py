@@ -26,7 +26,7 @@ from games.telegram.config import (
     telegram_admin_configured,
     telegram_channel_configured,
 )
-from games.section_paths import section_play_path
+from games.sections.paths import section_play_path
 from games.telegram.game_urls import admin_url
 from games.telegram.mtproto import telegram_user_configured
 from games.telegram.word_salad_image import render_word_salad_teaser_png, word_salad_last_screenshot_url

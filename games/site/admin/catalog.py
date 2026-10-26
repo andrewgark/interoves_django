@@ -66,7 +66,7 @@ class TaskGroupAdmin(admin.ModelAdmin):
 
     def week_task_source_link(self, obj):
         from django.utils.html import format_html
-        from games.week_task_pool import source_play_path_from_tags, source_summary_from_tags
+        from games.sections.week_task_pool import source_play_path_from_tags, source_summary_from_tags
 
         if obj is None:
             return '—'

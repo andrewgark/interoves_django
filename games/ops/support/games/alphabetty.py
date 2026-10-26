@@ -119,7 +119,7 @@ def _tasks_for_links(links: list[GameTaskGroup]) -> dict[int, Task]:
 
 def _site_urls_by_task_group(task_group_ids) -> dict[int, str]:
     from games.alphabetty_daily import ALPHABETTY_GAME_ID
-    from games.placement_share import site_urls_by_task_group
+    from games.sections.placement_share import site_urls_by_task_group
 
     return site_urls_by_task_group(ALPHABETTY_GAME_ID, task_group_ids)
 
