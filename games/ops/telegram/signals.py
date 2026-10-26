@@ -98,7 +98,7 @@ def telegram_notify_game_lifecycle(sender, instance, created, **kwargs):
     if old is None:
         return
 
-    from games.access import game_has_ended, game_has_started
+    from games.club.access.game import game_has_ended, game_has_started
 
     def after_commit():
         started_before = game_has_started(old)

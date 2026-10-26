@@ -47,7 +47,7 @@ from games.models import (
     Project,
     Task,
 )
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     parse_raddle_data,
 )
 from games.word_salad import (

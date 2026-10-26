@@ -26,7 +26,7 @@ from games.daily.catalog.ladder import (
     ladder_publish_start,
 )
 from games.models import CheckerType, Game, GameTaskGroup, Task, TaskGroup
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     ensure_raddle_assist_hints,
     length_label_from_word,
     validate_raddle_checker_data,

@@ -46,7 +46,7 @@ django.setup()
 
 from games.daily.catalog.ladder import LADDER_GAME_ID, LADDER_PUBLISH_START_TAG  # noqa: E402
 from games.models import CheckerType, Game, GameTaskGroup, Task, TaskGroup  # noqa: E402
-from games.raddle import ensure_raddle_assist_hints, validate_raddle_checker_data  # noqa: E402
+from games.puzzles.raddle.engine import ensure_raddle_assist_hints, validate_raddle_checker_data  # noqa: E402
 
 SHEET_CSV_URL = (
     "https://docs.google.com/spreadsheets/d/"
@@ -161,7 +161,7 @@ def _parse_rows(csv_text: str) -> dict[int, dict]:
 
 def _length_from_word(word: str):
     """Длина из структуры слова: пробел → «5 3», дефис → «5-9», иначе int."""
-    from games.raddle import length_label_from_word
+    from games.puzzles.raddle.engine import length_label_from_word
 
     label = length_label_from_word(word)
     if re.match(r"^\d+$", label):

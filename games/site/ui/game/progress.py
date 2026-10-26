@@ -12,7 +12,7 @@ from django.utils import timezone
 
 
 
-from games.access import game_has_started
+from games.club.access.game import game_has_started
 from games.daily.page.section import (
     is_scheduled_game,
     publish_at_for,
@@ -39,7 +39,7 @@ from games.models import (
     Project,
     Task,
 )
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     raddle_hub_result_for_actor,
 )
 from games.word_salad import (

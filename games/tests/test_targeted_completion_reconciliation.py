@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.core.cache import caches
 from django.test import TestCase
 
-from games.daily_statistics import build_daily_statistics
+from games.daily.timing.statistics import build_daily_statistics
 from games.models import (
     ChainTaskState,
     CheckerType,

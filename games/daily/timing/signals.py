@@ -25,7 +25,7 @@ def _daily_game_ids():
 
 
 def _invalidate_pairs(pairs):
-    from games.daily_statistics import invalidate_daily_statistics
+    from games.daily.timing.statistics import invalidate_daily_statistics
 
     for game_id, task_group_id in set(pairs):
         invalidate_daily_statistics(game_id, task_group_id)

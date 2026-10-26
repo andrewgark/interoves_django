@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
 
-from games.exception import (
+from games.site.http.exceptions import (
     DuplicateAttemptException,
     InvalidFormException,
     NotAllRequiredHintsTakenException,

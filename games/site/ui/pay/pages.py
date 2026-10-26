@@ -14,7 +14,7 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 
 
-from games.telegram_linking import user_has_telegram_link
+from games.club.link import user_has_telegram_link
 
 from games.analytics import (
     YANDEX_GOAL_TICKET_CHECKOUT,
@@ -141,7 +141,7 @@ def _selected_payment_team(request, *, require_explicit=False):
 @login_required
 @require_http_methods(['POST'])
 def new_telegram_link_start(request):
-    from games.telegram_linking import (
+    from games.club.link import (
         TelegramLinkError,
         create_link_token,
         sanitize_telegram_link_next,

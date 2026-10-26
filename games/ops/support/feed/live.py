@@ -4,7 +4,7 @@ from typing import List, Optional
 from django.db.models import Q
 from django.utils import timezone
 
-from games.access import game_has_ended, game_has_started
+from games.club.access.game import game_has_ended, game_has_started
 from games.models import Game
 from games.support.services.feed import get_activity_feed
 

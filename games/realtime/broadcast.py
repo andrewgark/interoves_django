@@ -133,7 +133,7 @@ def notify_registered_users_game_lifecycle_changed(old_game, new_game):
 
     Uses the same moment as admin UI: game_has_started / game_has_ended at now.
     """
-    from games.access import game_has_ended, game_has_started
+    from games.club.access.game import game_has_ended, game_has_started
     from games.models import Registration
 
     started_before = game_has_started(old_game)

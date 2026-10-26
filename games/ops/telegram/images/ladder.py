@@ -11,7 +11,7 @@ from functools import lru_cache
 from django.conf import settings
 from PIL import Image, ImageDraw, ImageFont
 
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     build_raddle_ui_context,
     default_raddle_state,
     length_mask_display,

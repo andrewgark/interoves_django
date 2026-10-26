@@ -24,7 +24,7 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.raddle_concurrency import (
+from games.puzzles.raddle.concurrency import (
     RADDLE_DEADLOCK_ATTEMPTS,
     run_raddle_atomic_with_deadlock_retry,
 )

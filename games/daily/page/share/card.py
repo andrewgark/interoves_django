@@ -343,7 +343,7 @@ def build_ladder_share_payload(
     intro: str | None = None,
     play_path: str | None = None,
 ) -> dict[str, Any]:
-    from games.raddle import resolve_assist_tiers
+    from games.puzzles.raddle.engine import resolve_assist_tiers
 
     words = list(parsed.get('words') or [])
     n = int(parsed.get('n_words') or len(words) or 0)
@@ -652,7 +652,7 @@ _SYNTHETIC_CENSORLY_LONG_LEAD = (
 
 def synthetic_preview_payloads() -> list[dict[str, Any]]:
     """Marked synthetic results for visual QA. No production user data."""
-    from games.raddle import default_raddle_state, parse_raddle_data
+    from games.puzzles.raddle.engine import default_raddle_state, parse_raddle_data
     from games.word_salad import default_state as salad_default_state
 
     parsed = parse_raddle_data(_FakeTask(_SYNTHETIC_LADDER))

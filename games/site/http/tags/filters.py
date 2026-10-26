@@ -3,7 +3,7 @@ import re
 from django.template.defaulttags import register
 from allauth.socialaccount.models import SocialApp
 from django.utils import timezone
-from games.access import game_is_going_now
+from games.club.access.game import game_is_going_now
 from games.models import GameTaskGroup, Like, Attempt, Team, Task, Registration
 from games.results.util import clean_text, better_status
 

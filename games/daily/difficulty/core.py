@@ -195,7 +195,7 @@ def _is_salad_hint(attempt):
 
 
 def _raddle_attempt_is_error(attempt, parsed):
-    from games.raddle import word_matches
+    from games.puzzles.raddle.engine import word_matches
 
     if not parsed:
         return True
@@ -388,7 +388,7 @@ def observe_actor_results(placement, *, now=None):
 
     parsed_raddles = {}
     if game_id == 'ladder':
-        from games.raddle import parse_raddle_data
+        from games.puzzles.raddle.engine import parse_raddle_data
         parsed_raddles = {task.pk: parse_raddle_data(task) for task in tasks}
 
     rows = []

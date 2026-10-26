@@ -78,7 +78,7 @@ def _bulk_chain_recheck_ids(queryset, *, full_task=False):
         .values_list('id', flat=True)
     )
     if chain_ids:
-        from games.attempt_admin_bulk import recheck_chain_attempts
+        from games.ops.workers.jobs.bulk import recheck_chain_attempts
         recheck_chain_attempts(chain_ids, full_task=full_task)
     return set(chain_ids)
 
@@ -159,7 +159,7 @@ def recheck_team_task_all_chronological_action(modeladmin, request, queryset):
 
 
 def add_to_checker(modeladmin, request, queryset):
-    from games.attempt_admin_bulk import add_attempts_to_checker
+    from games.ops.workers.jobs.bulk import add_attempts_to_checker
     from django.contrib import messages
     result = add_attempts_to_checker(
         queryset.values_list('id', flat=True), return_receipt=True,
@@ -176,7 +176,7 @@ def add_to_checker(modeladmin, request, queryset):
 
 
 def add_to_checker_and_recheck(modeladmin, request, queryset):
-    from games.attempt_admin_bulk import add_attempts_to_checker
+    from games.ops.workers.jobs.bulk import add_attempts_to_checker
     from django.contrib import messages
     result = add_attempts_to_checker(
         queryset.values_list('id', flat=True),
@@ -195,7 +195,7 @@ def add_to_checker_and_recheck(modeladmin, request, queryset):
 
 
 def accept_pending(modeladmin, request, queryset):
-    from games.attempt_admin_bulk import accept_pending_attempts
+    from games.ops.workers.jobs.bulk import accept_pending_attempts
     chain_count = queryset.filter(task__task_type__in=CHAIN_TASK_TYPES).count()
     result = accept_pending_attempts(
         queryset.values_list('id', flat=True), return_receipt=True,
@@ -220,7 +220,7 @@ def accept_pending(modeladmin, request, queryset):
 
 
 def reject_pending(modeladmin, request, queryset):
-    from games.attempt_admin_bulk import reject_pending_attempts
+    from games.ops.workers.jobs.bulk import reject_pending_attempts
     rejected = reject_pending_attempts(queryset.values_list('id', flat=True))
     modeladmin.message_user(request, 'Отклонено ответов: {}'.format(rejected), messages.SUCCESS)
 

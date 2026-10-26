@@ -18,7 +18,7 @@ from games.models import (
     Team,
     hidden_anon_keys,
 )
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     load_raddle_state,
     parse_raddle_data,
     resolve_assist_tiers,

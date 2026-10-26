@@ -162,7 +162,7 @@ def resolve_ladder_by_number(number: int, now: datetime | None = None) -> TodayL
 
 
 def build_caption(ladder: TodayLadder, *, parsed=None) -> str:
-    from games.raddle import parse_raddle_data
+    from games.puzzles.raddle.engine import parse_raddle_data
 
     data = parsed or parse_raddle_data(ladder.task)
     words = data.get('words') or []

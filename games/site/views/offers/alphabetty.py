@@ -19,7 +19,7 @@ from games.club.offers.alphabetty import (
 )
 from games.models import AlphabettyOffer
 from games.club.offers.profiles import update_offer_profile_names
-from games.telegram_linking import offer_profile_error
+from games.club.link import offer_profile_error
 from games.site.views.pages.util import has_profile, parse_json_object_body
 
 

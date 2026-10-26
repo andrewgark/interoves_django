@@ -23,7 +23,7 @@ from games.daily_share_card import (
     format_share_date,
     synthetic_preview_payloads,
 )
-from games.raddle import default_raddle_state, parse_raddle_data
+from games.puzzles.raddle.engine import default_raddle_state, parse_raddle_data
 from games.tests.test_raddle import PARIS_LADDER
 from games.word_salad import default_state as salad_default_state
 

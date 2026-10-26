@@ -7,7 +7,7 @@ from django.db import transaction
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from games.exception import InvalidFormException
+from games.site.http.exceptions import InvalidFormException
 from games.forms import TicketRequestForm
 from games.models import TicketRequest
 from games.nowpayments_util import verify_ipn_signature

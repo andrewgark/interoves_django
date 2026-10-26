@@ -6,7 +6,7 @@ from django.db import models, transaction
 from django.db.models import F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
-from games.access import get_game_access
+from games.club.access.game import get_game_access
 from games.wall import Wall
 
 class Project(models.Model):

@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, render
 
 
 
-from games.access import game_has_started
+from games.club.access.game import game_has_started
 from games.models import (
     Project,
 )

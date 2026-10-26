@@ -5,8 +5,8 @@ from django.http import HttpResponse
 from django.shortcuts import redirect, render, get_object_or_404
 from django.views import defaults
 from django.utils import timezone
-from games.access import game_has_started
-from games.exception import NoGameAccessException
+from games.club.access.game import game_has_started
+from games.site.http.exceptions import NoGameAccessException
 from games.models import Game, Team, Attempt, ImageManager, AudioManager
 from games.sections.project_navigation import non_root_project_game_path
 from games.site.session.gameplay_context import issue_gameplay_context

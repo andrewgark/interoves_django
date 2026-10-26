@@ -245,6 +245,13 @@ If the resolved version is empty, the client check is skipped.
 | Logical game completion | `games.daily.completion.completion_coordinator` | `games.completion_coordinator` |
 | Daily UI transitions / streak | `games.daily.timing.{transitions,streak}` | `games.daily_transitions`, `daily_streak` |
 | Task display titles | `games.tasks.titles` | `games.task_titles` |
+| Game access / schedule gates | `games.club.access.game` | `games.access` |
+| Attempt/view exceptions | `games.site.http.exceptions` | `games.exception` |
+| Daily statistics API | `games.daily.timing.statistics` | `games.daily_statistics` |
+| Telegram offer linking | `games.club.link` | `games.telegram_linking` |
+| Raddle engine helpers | `games.puzzles.raddle.engine` | `games.raddle` |
+| Raddle DB locks | `games.puzzles.raddle.concurrency` | `games.raddle_concurrency` |
+| Admin bulk recheck actions | `games.ops.workers.jobs.bulk` | `games.attempt_admin_bulk` |
 
 Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
 

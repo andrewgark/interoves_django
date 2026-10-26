@@ -34,7 +34,7 @@ from games.models import (
     Team,
     TributePurchase,
 )
-from games.telegram_linking import consume_link_token, create_link_token, user_has_telegram_link
+from games.club.link import consume_link_token, create_link_token, user_has_telegram_link
 from games.telegram.notify import notify_admin_club_subscription
 from games.tribute_config import club_checkout_enabled, club_product_configuration
 from games.tribute_util import compute_webhook_signature
@@ -585,7 +585,7 @@ class ClubWebhookAndMappingTests(TestCase):
         token, raw = create_link_token(late, next_path='/subscription/?telegram=linked')
         token.expires_at = timezone.now() - timedelta(seconds=1)
         token.save(update_fields=['expires_at'])
-        from games.telegram_linking import TelegramLinkError
+        from games.club.link import TelegramLinkError
         with self.assertRaises(TelegramLinkError) as raised:
             consume_link_token(raw, telegram_user_id=1)
         self.assertIn('/subscription/', raised.exception.message)

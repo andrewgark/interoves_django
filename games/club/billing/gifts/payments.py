@@ -14,7 +14,7 @@ from django.conf import settings
 
 from games.models import Profile, TributePurchase, SubscriptionGift, SubscriptionGiftPayment
 from games.subscription_gifts import create_paid_gift
-from games.telegram_linking import user_has_telegram_link
+from games.club.link import user_has_telegram_link
 from games.tribute_config import club_gift_products_by_id, configured_club_gift
 from games.club_yookassa_client import ClubPayment as Payment
 from games.club_yookassa import club_yookassa_enabled

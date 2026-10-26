@@ -9,7 +9,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 
 from games.models import WordSaladOffer
 from games.club.offers.profiles import update_offer_profile_names
-from games.telegram_linking import offer_profile_error
+from games.club.link import offer_profile_error
 from games.site.views.pages.util import has_profile, parse_json_object_body
 from games.club.offers.salad import (
     WordSaladOfferError,

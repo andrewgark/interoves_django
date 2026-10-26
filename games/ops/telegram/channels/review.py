@@ -93,7 +93,7 @@ def _resolve_edition(schedule, target_date: date):
 
 
 def _format_ladder(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
-    from games.raddle import parse_raddle_data
+    from games.puzzles.raddle.engine import parse_raddle_data
 
     task = _task_for_link(link, 'raddle')
     if task is None:

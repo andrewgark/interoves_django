@@ -8,7 +8,7 @@ from django.utils import timezone
 from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, Game, GameTaskGroup, Team
 from games.realtime.track_compat import track_actor_task_change, track_attempt_change
 from games.site.views.pages.legacy import check_attempt
-from games.raddle_concurrency import lock_or_create_raddle_state
+from games.puzzles.raddle.concurrency import lock_or_create_raddle_state
 
 
 def recheck(_, attempt_id, *, notify=True):

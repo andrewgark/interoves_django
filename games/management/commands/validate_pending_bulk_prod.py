@@ -16,7 +16,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from games.attempt_admin_bulk import accept_pending_attempts, reject_pending_attempts
+from games.ops.workers.jobs.bulk import accept_pending_attempts, reject_pending_attempts
 from games.models import (
     Attempt,
     ChainTaskState,

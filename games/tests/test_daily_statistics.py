@@ -12,7 +12,7 @@ from django.core.cache import cache, caches
 from django.test import TestCase
 from django.utils import timezone
 
-from games.daily_statistics import (
+from games.daily.timing.statistics import (
     build_attempt_histogram,
     build_daily_statistics,
     cache_key,

@@ -11,7 +11,7 @@ from games.ops.workers.jobs.actions import (
     reject_ticket,
     run_recheck,
 )
-from games.attempt_admin_bulk import accept_pending_attempts, reject_pending_attempts
+from games.ops.workers.jobs.bulk import accept_pending_attempts, reject_pending_attempts
 from games.ops.workers.jobs.recheck import recheck_chain_task
 from games.support.access import support_console_required
 from games.support.services.chain import is_chain_task

@@ -20,7 +20,7 @@ from games.models import (
 from games.replacements_lines import (
     task_replacements_canonical_answer_row,
 )
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     parse_raddle_data,
     raddle_word_solved_list,
 )

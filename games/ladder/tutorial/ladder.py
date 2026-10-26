@@ -41,7 +41,7 @@ def is_ladder_tutorial_task_group(task_group):
 def ensure_ladder_tutorial_task():
     """Return the tutorial Task, creating it or syncing its content with code."""
     from games.models import CheckerType, Task, TaskGroup
-    from games.raddle import ensure_raddle_assist_hints
+    from games.puzzles.raddle.engine import ensure_raddle_assist_hints
 
     checker = CheckerType.objects.get(id='raddle')
     task_group = (

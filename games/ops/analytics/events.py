@@ -416,7 +416,7 @@ def publish_completion_analytics(
             updated_at=activated_at,
         )
 
-    from games.daily_statistics import invalidate_daily_statistics
+    from games.daily.timing.statistics import invalidate_daily_statistics
     if game is not None and task_group is not None:
         invalidate_daily_statistics(game.id, task_group.id)
 
@@ -923,7 +923,7 @@ def reconcile_completed_game_after_recheck(
     else:
         changed = bool(completion_qs.delete()[0])
 
-    from games.daily_statistics import invalidate_daily_statistics
+    from games.daily.timing.statistics import invalidate_daily_statistics
     invalidate_daily_statistics(game.id, task_group.id)
     return changed
 
@@ -1211,7 +1211,7 @@ def register_completed_game(
 
     # The gameplay path has saved the Attempt/state before reaching this point,
     # so the completion check reads the canonical persisted representation.
-    from games.daily_statistics import invalidate_daily_statistics
+    from games.daily.timing.statistics import invalidate_daily_statistics
     with _analytics_timed_phase(_timing_phases, 'daily_statistics_invalidation_ms'):
         invalidate_daily_statistics(game.id, task.task_group_id)
 

@@ -19,7 +19,7 @@ from games.puzzles.raddle.submission import (
     stale_payload,
     write_move_result,
 )
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     build_raddle_ui_context,
     is_raddle_in_game_assist_hint,
     load_raddle_state,
@@ -257,7 +257,7 @@ def merge_state(task, source_json, target_json):
         return None
     if not isinstance(source, dict) or not isinstance(target, dict):
         return None
-    from games.raddle import (
+    from games.puzzles.raddle.engine import (
         dump_raddle_state,
         resolve_assist_tiers,
         word_solve_credit,

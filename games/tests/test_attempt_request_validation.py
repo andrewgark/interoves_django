@@ -8,7 +8,7 @@ from django.test import Client, RequestFactory, TestCase
 from django.utils import timezone
 
 from games.analytics_identity import stamp_anon_identity
-from games.exception import DuplicateAttemptException
+from games.site.http.exceptions import DuplicateAttemptException
 from games.analytics_persistence import AnalyticsRowInvariantError
 from games.site.session.gameplay_context import issue_gameplay_context
 from games.models import (

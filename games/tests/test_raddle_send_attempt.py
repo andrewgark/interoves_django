@@ -377,7 +377,7 @@ class RaddleSendAttemptTests(TestCase):
 
 class RaddleDuplicateHelpersTests(TestCase):
     def test_payloads_match_across_ensure_ascii(self):
-        from games.raddle import raddle_attempt_payloads_match, serialize_raddle_attempt_text
+        from games.puzzles.raddle.engine import raddle_attempt_payloads_match, serialize_raddle_attempt_text
 
         raw_cyr = serialize_raddle_attempt_text(11, 'КАНАВА')
         escaped = json.dumps({'word_index': 11, 'word': 'КАНАВА'})  # ensure_ascii=True
@@ -385,7 +385,7 @@ class RaddleDuplicateHelpersTests(TestCase):
         self.assertTrue(raddle_attempt_payloads_match(raw_cyr, escaped))
 
     def test_blocks_wrong_but_not_premature_correct(self):
-        from games.raddle import raddle_blocks_as_duplicate, serialize_raddle_attempt_text
+        from games.puzzles.raddle.engine import raddle_blocks_as_duplicate, serialize_raddle_attempt_text
 
         _ensure_fixtures()
         with patch('games.realtime.track_compat.track_task_change'):

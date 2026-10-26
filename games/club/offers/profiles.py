@@ -1,6 +1,6 @@
 """Shared profile formatting and readiness checks for player submissions."""
 
-from games.telegram_linking import offer_telegram_gaps
+from games.club.link import offer_telegram_gaps
 
 
 def normalize_telegram_handle(raw: str) -> str:

@@ -4,7 +4,7 @@ from django.test import SimpleTestCase, TestCase
 
 from games.puzzles.raddle.submission import RaddleChecker
 from games.models import Attempt, CHAIN_TASK_TYPES, Task
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     assist_penalty_for_tier,
     build_raddle_ui_context,
     clue_display_for_hint,
@@ -202,7 +202,7 @@ class RaddleUiStateTests(SimpleTestCase):
         self.assertEqual(st['clue_marks'], {'0': True})
 
     def test_merge_patches_per_key_and_prunes_solved_drafts(self):
-        from games.raddle import dump_raddle_state, merge_raddle_ui_state
+        from games.puzzles.raddle.engine import dump_raddle_state, merge_raddle_ui_state
 
         st = load_raddle_state(json.dumps({
             'solved_indices': [0, 4],
@@ -497,7 +497,7 @@ class RaddleCheckerTests(SimpleTestCase):
         self.assertEqual(r.status, 'Ok')
 
     def test_complete_ladder_letters_only(self):
-        from games.raddle import raddle_word_core
+        from games.puzzles.raddle.engine import raddle_word_core
 
         ch = self._checker()
         state = None
@@ -534,7 +534,7 @@ class RaddleCheckerTests(SimpleTestCase):
 
 class RaddleUiContextTests(SimpleTestCase):
     def test_repeated_clue_placeholders_follow_underscore_count(self):
-        from games.raddle import render_transition_clue
+        from games.puzzles.raddle.engine import render_transition_clue
 
         self.assertEqual(
             render_transition_clue('________', prev_word='СЛОВО', prev_known=True),
@@ -600,7 +600,7 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertTrue(ctx['unused_hints'][0]['display'].startswith('ФИНИШ'))
 
     def test_clue_prev_placeholder(self):
-        from games.raddle import render_transition_clue
+        from games.puzzles.raddle.engine import render_transition_clue
         # {prev} и ________ — один обычный placeholder и два повторных.
         self.assertEqual(
             render_raddle_clue('{prev} ________', 'BRICK', True),
@@ -695,14 +695,14 @@ class RaddleUiContextTests(SimpleTestCase):
         )
 
     def test_used_clue_next_highlighted_green(self):
-        from games.raddle import used_clue_display
+        from games.puzzles.raddle.engine import used_clue_display
         html = used_clue_display('____ рядом.', 0, ['КОНЬ', 'СЛОН'], html=True)
         self.assertIn('new-raddle-clue-next', str(html))
         self.assertIn('СЛОН', str(html))
         self.assertIn('КОНЬ', str(html))
 
     def test_inserted_word_stays_with_attached_characters(self):
-        from games.raddle import render_transition_clue
+        from games.puzzles.raddle.engine import render_transition_clue
 
         html = str(render_transition_clue(
             'Режиссёр «____а»',
@@ -719,7 +719,7 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertTrue(html.startswith('Режиссёр '))
 
     def test_only_inserted_token_becomes_nonwrapping(self):
-        from games.raddle import render_transition_clue
+        from games.puzzles.raddle.engine import render_transition_clue
 
         html = str(render_transition_clue(
             'До ____а можно дойти',
@@ -767,7 +767,7 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertTrue(ctx['rows'][2]['is_draftable'])
 
     def test_used_hint_display_shows_arrow_to_next(self):
-        from games.raddle import used_clue_display
+        from games.puzzles.raddle.engine import used_clue_display
         parsed = parse_raddle_data(_task())
         state = {'solved_indices': [0, 1, 12], 'used_hints': [0], 'total': 1}
         ctx = build_raddle_ui_context(parsed, state)
@@ -840,7 +840,7 @@ class RaddleUiContextTests(SimpleTestCase):
 
     def test_last_word_options_order_seeded_not_always_correct_first(self):
         """Верный блок не всегда первый: порядок от seed контента, стабилен."""
-        from games.raddle import build_last_word_clue_options, last_word_clue_options_seed
+        from games.puzzles.raddle.engine import build_last_word_clue_options, last_word_clue_options_seed
         parsed = parse_raddle_data(_task())
         options_a = build_last_word_clue_options(parsed, 6, revealed_clue_indices=set())
         options_b = build_last_word_clue_options(parsed, 6, revealed_clue_indices=set())
@@ -860,7 +860,7 @@ class RaddleUiContextTests(SimpleTestCase):
 
     def test_last_word_revealed_only_on_correct_option(self):
         """💡 не красит одно предложение в обоих блоках — revealed только у верного."""
-        from games.raddle import build_last_word_clue_options
+        from games.puzzles.raddle.engine import build_last_word_clue_options
         parsed = parse_raddle_data(_task())
         options = build_last_word_clue_options(
             parsed, 6, revealed_clue_indices={5},
@@ -877,7 +877,7 @@ class RaddleUiContextTests(SimpleTestCase):
 
     def test_last_word_bard_example(self):
         """Регрессия: варианты должны отличаться, Б не подставляется."""
-        from games.raddle import build_last_word_clue_options
+        from games.puzzles.raddle.engine import build_last_word_clue_options
         data = {
             'lengths': [5, 4, 6, 7],
             'hints': [
@@ -1082,7 +1082,7 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertEqual(tiers.get(3), 1)
 
     def test_result_squares_all_green_when_no_assist(self):
-        from games.raddle import raddle_result_squares
+        from games.puzzles.raddle.engine import raddle_result_squares
 
         parsed = parse_raddle_data(_task())
         state = {
@@ -1112,7 +1112,7 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertEqual(ctx['elapsed_label'], '3м 46с')
 
     def test_result_squares_mixed_tiers(self):
-        from games.raddle import raddle_result_squares
+        from games.puzzles.raddle.engine import raddle_result_squares
 
         parsed = parse_raddle_data(_task())
         state = {
@@ -1126,7 +1126,7 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertEqual(len(squares), 11)
 
     def test_result_squares_partial_uses_white(self):
-        from games.raddle import raddle_result_squares
+        from games.puzzles.raddle.engine import raddle_result_squares
 
         parsed = parse_raddle_data(_task())
         # endpoints + first two middle words
@@ -1143,7 +1143,7 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertEqual(len(squares), 11)
 
     def test_result_squares_partial_empty_without_middle_progress(self):
-        from games.raddle import raddle_result_squares
+        from games.puzzles.raddle.engine import raddle_result_squares
 
         parsed = parse_raddle_data(_task())
         state = {
@@ -1188,7 +1188,7 @@ class HintNumberSortTests(SimpleTestCase):
 class EnsureRaddleAssistHintsTests(TestCase):
     def test_creates_dotted_hint_numbers(self):
         from games.models import CheckerType, Hint, TaskGroup
-        from games.raddle import ensure_raddle_assist_hints
+        from games.puzzles.raddle.engine import ensure_raddle_assist_hints
 
         CheckerType.objects.get_or_create(pk='raddle')
         tg = TaskGroup.objects.create(label='tg-raddle-hints')

@@ -135,7 +135,7 @@ def daily_statistics(request, game_id, number):
         result=PlayerCompletedGame.RESULT_SOLVED, **actor,
     ).exists():
         return JsonResponse({'error': 'not_completed'}, status=403)
-    from games.daily_statistics import build_daily_statistics
+    from games.daily.timing.statistics import build_daily_statistics
     published_at = None
     if not segment_is_share_hash:
         from games.daily.page.section import publish_at_for

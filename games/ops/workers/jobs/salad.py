@@ -643,7 +643,7 @@ def _process_claimed_item(job, item, item_token):
             reason = 'task.word_salad_rechecked'
             skipped_complete = False
             if is_dictionary_scan:
-                from games.daily_statistics import invalidate_daily_statistics
+                from games.daily.timing.statistics import invalidate_daily_statistics
                 from games.word_salad import add_longest_missing_words
 
                 checker_data = add_longest_missing_words(task.checker_data)

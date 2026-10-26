@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.test import SimpleTestCase
 
-from games.exception import NoGameAccessException
+from games.site.http.exceptions import NoGameAccessException
 from games.identity.actor import Actor, ActorRefusal, resolve_gameplay_actor
 
 

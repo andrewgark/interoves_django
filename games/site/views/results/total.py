@@ -2,7 +2,7 @@ from collections import defaultdict
 import json
 from decimal import Decimal
 from django.shortcuts import render, get_object_or_404
-from games.access import game_has_ended
+from games.club.access.game import game_has_ended
 from games.models import Game, Project, Team
 
 

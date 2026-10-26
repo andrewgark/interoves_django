@@ -5,7 +5,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from games.attempt_admin_bulk import (
+from games.ops.workers.jobs.bulk import (
     add_to_checker,
     accept_pending_attempts,
     reject_pending_attempts,

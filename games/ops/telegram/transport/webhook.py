@@ -30,7 +30,7 @@ def _handle_account_link_start(message: dict, text: str) -> bool:
         send_message(chat_id, 'Привязать аккаунт можно только в личном чате с ботом.')
         return True
 
-    from games.telegram_linking import TelegramLinkError, consume_link_token
+    from games.club.link import TelegramLinkError, consume_link_token
 
     try:
         result = consume_link_token(

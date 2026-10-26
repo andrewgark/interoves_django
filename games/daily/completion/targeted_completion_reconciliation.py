@@ -187,7 +187,7 @@ def reconcile_task_group_actors(
         ):
             changed += 1
     if daily_statistics_changed:
-        from games.daily_statistics import invalidate_daily_statistics
+        from games.daily.timing.statistics import invalidate_daily_statistics
         invalidate_daily_statistics(game_id, task_group_id)
     return changed
 

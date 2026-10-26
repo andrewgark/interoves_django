@@ -14,7 +14,7 @@ from games.puzzles.censorly.random_game import create_from_title
 from games.puzzles.censorly.article.wiki import WikiFetchError, suggest_article_titles
 from games.club.offers.censorly import create_offer, list_user_offers, serialize_offer
 from games.club.offers.profiles import profile_ready_for_offers, update_offer_profile_names
-from games.telegram_linking import offer_profile_error
+from games.club.link import offer_profile_error
 from games.site.views.pages.util import has_profile, parse_json_object_body
 
 SUGGEST_LIMIT = 60

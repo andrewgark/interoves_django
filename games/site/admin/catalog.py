@@ -398,7 +398,7 @@ class TaskAdmin(admin.ModelAdmin):
                     previous['checker_data'], previous['answer'],
                 )
         if obj.task_type == 'raddle':
-            from games.raddle import validate_raddle_checker_data
+            from games.puzzles.raddle.engine import validate_raddle_checker_data
             errors = validate_raddle_checker_data(obj.checker_data, obj.answer)
             if errors:
                 for err in errors:

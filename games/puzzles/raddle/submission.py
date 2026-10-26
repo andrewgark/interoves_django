@@ -9,7 +9,7 @@ from decimal import Decimal
 from games.puzzles.core.check_runtime import BaseChecker, CheckResult
 from games.puzzles.core.primitives import DuplicateVerdict
 from games.puzzles.core.quota import json_field_quota
-from games.raddle import (
+from games.puzzles.raddle.engine import (
     dump_raddle_state,
     load_raddle_state,
     merge_raddle_ui_payload,

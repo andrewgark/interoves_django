@@ -21,7 +21,7 @@ from games.models import (
     TributePaymentIntent,
     TributePurchase,
 )
-from games.telegram_linking import TelegramLinkError, consume_link_token, create_link_token
+from games.club.link import TelegramLinkError, consume_link_token, create_link_token
 from games.tribute_service import manually_issue_purchase
 from games.tribute_util import compute_webhook_signature, verify_webhook_signature
 

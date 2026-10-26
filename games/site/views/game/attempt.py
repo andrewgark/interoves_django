@@ -14,7 +14,7 @@ from games.analytics import (
     register_started_game,
 )
 from games.puzzles.core.check_runtime import CheckerFactory
-from games.exception import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
+from games.site.http.exceptions import DuplicateAttemptException, TooManyAttemptsException, InvalidFormException, NoGameAccessException
 from games.forms import AttemptForm
 from games.models import Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task, CHAIN_TASK_TYPES
 from games.site.session.replay import StaleReplayError, replay_for_request
@@ -45,7 +45,7 @@ from games.puzzles.core.quota import revision_quota_message
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.replacements.grid import GridPuzzle
 from games.puzzles.salad import SaladSync
-from games.raddle_concurrency import (
+from games.puzzles.raddle.concurrency import (
     lock_or_create_raddle_state,
     run_raddle_atomic_with_deadlock_retry,
 )
