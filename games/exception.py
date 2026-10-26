@@ -1,29 +1,6 @@
-class UserHasNoProfileException(Exception):
-    pass
+"""Compatibility alias. Implementation lives in games.site.http.exceptions."""
+import sys
 
-class PlayGameWithoutTeamException(Exception):
-    pass
+from games.site.http import exceptions as _implementation
 
-class NoGameAccessException(Exception):
-    pass
-
-class InvalidFormException(Exception):
-    pass
-
-class TooManyAttemptsException(Exception):
-    pass
-
-class DuplicateAttemptException(Exception):
-    pass
-
-class NotAllRequiredHintsTakenException(Exception):
-    pass
-
-class NoAnswerAccessException(Exception):
-    pass
-
-class CantRegisterException(Exception):
-    pass
-
-class NoTicketsException(Exception):
-    pass
+sys.modules[__name__] = _implementation
