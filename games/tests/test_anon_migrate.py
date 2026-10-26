@@ -507,7 +507,7 @@ class AnonMigrateTests(TestCase):
         attempt([0, 1, 2, 3], offset=0, user=self.user)
         attempt([7, 6, 5, 4], offset=1, user=self.user)
         guest = attempt([0, 1, 2, 3], offset=100, anon_key=self.anon_key)
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             from games.ops.workers.jobs.recheck import recheck_word_salad_actor
             recheck_word_salad_actor(task, user=self.user, game=self.game, notify=False)
             recheck_word_salad_actor(task, anon_key=self.anon_key, game=self.game, notify=False)
@@ -515,7 +515,7 @@ class AnonMigrateTests(TestCase):
         self.assertEqual(json.loads(guest.state)['solved_indices'], [0])
 
         Attempt.manager.filter(pk=guest.pk).update(user=self.user, anon_key=None)
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             moved = migrate_anon_chain_task_states(self.user, self.anon_key)
         self.assertTrue(moved)
 

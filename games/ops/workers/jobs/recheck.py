@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, Game, GameTaskGroup, Team
 from games.realtime.track_compat import track_actor_task_change, track_attempt_change
-from games.site.views.pages.legacy import check_attempt
+from games.site.views.game.attempt import check_attempt
 from games.puzzles.raddle.concurrency import lock_or_create_raddle_state
 
 

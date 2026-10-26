@@ -1021,7 +1021,7 @@ class WordSaladTests(TestCase):
         self.task.checker_data = json.dumps(payload, ensure_ascii=False)
         self.task.save(update_fields=['checker_data'])
 
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
         self.assertEqual(stats['actors'], 1)
         self.assertEqual(stats['credited'], 1)
@@ -1051,7 +1051,7 @@ class WordSaladTests(TestCase):
         )
         self.assertEqual(sorted(json.loads(chain.state)['solved_indices']), [0, 1])
 
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             again = recheck_word_salad_task(self.task, game=self.game, notify=False)
         self.assertEqual(again['credited'], 0)
         self.assertEqual(
@@ -1089,7 +1089,7 @@ class WordSaladTests(TestCase):
             points=0,
         )
 
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
 
         self.assertEqual(stats['actors'], 2)
@@ -1142,7 +1142,7 @@ class WordSaladTests(TestCase):
         before.refresh_from_db()
         self.assertEqual(json.loads(before.state)['solved_indices'], [0])
 
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             recheck_word_salad_task(self.task, game=self.game, notify=False)
         after = ChainTaskState.objects.get(
             task=self.task, anon_key=anon_key, game=self.game, game_mode='general',
@@ -1216,7 +1216,7 @@ class WordSaladTests(TestCase):
         self.task.checker_data = json.dumps(payload, ensure_ascii=False)
         self.task.save(update_fields=['checker_data'])
 
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             stats = recheck_word_salad_task(self.task, game=self.game, notify=False)
         self.assertEqual(stats['credited'], 0)
         attempts = list(Attempt.manager.filter(task=self.task, anon_key=anon_key))
@@ -1246,7 +1246,7 @@ class WordSaladTests(TestCase):
             'ABC',
         )
         self.task.save(update_fields=['checker_data'])
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             recheck_word_salad_task(self.task, game=self.game, notify=False)
         attempt = Attempt.manager.get(task=self.task, anon_key=anon_key)
         self.assertEqual(attempt.status, 'Partial')
@@ -1292,7 +1292,7 @@ class WordSaladTests(TestCase):
         )
         self.task.save(update_fields=['checker_data'])
         with patch('games.puzzles.salad.rules.load_extra_noun_set', return_value=frozenset({'ABCD'})):
-            with patch('games.realtime.track_compat.track_actor_task_change'):
+            with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
                 recheck_word_salad_task(self.task, game=self.game, notify=False)
         attempt = Attempt.manager.get(task=self.task, anon_key=anon_key)
         self.assertEqual(attempt.status, 'Partial')

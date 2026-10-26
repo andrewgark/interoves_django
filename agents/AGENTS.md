@@ -305,7 +305,17 @@ If the resolved version is empty, the client check is skipped.
 
 На старте Django (до готовности `games.models`) не импортируй `games.puzzles.*` на уровне модуля: `games.wall` / `games.word_salad` грузят engine/rules через `importlib` без `games.puzzles.__init__`. Константа `WORD_SALAD_GAME_ID` живёт в `games.daily.page.section` (не тянет puzzles); `games.puzzles.salad.rules` только re-export для legacy. `models.catalog.Wall` — `games.wall`.
 
-Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя привязано (`games.realtime.track_compat`, `games.site.views.game.attempt`, …), а не legacy `games.views.*`.
+Правила: не менять URL names, checker type ids, `app_label`, схему БД; фасады — `import sys` + `sys.modules[__name__] = implementation` (кроме осознанных re-export, напр. `results_sql_aggregate`, `games.censorly` package `__init__` с ids). В prod и тестах импортируй canonical path; для `@patch` предпочитай модуль, где имя **привязано** (не legacy `games.views.*`):
+
+| Symbol | Patch target |
+|---|---|
+| `check_attempt` / send-attempt flow | `games.site.views.game.attempt.track_actor_task_change` |
+| Raddle assist/UI commits | `games.site.views.game.raddle.track_actor_task_change` |
+| Recheck / word-salad actor notify | `games.ops.workers.jobs.recheck.track_actor_task_change` |
+| `Task.save` / `Hint.save` admin broadcast | `games.realtime.track_compat.track_task_change` (lazy import inside model `save`) |
+| Salad queue post-commit notify | `games.realtime.track_compat.track_actor_task_change` (lazy import in `ops.workers.jobs.salad._schedule_actor_notification`) |
+
+URLConf may still import handler bundles from `games.site.views.pages.legacy`; worker/domain code — `games.site.views.game.*` directly.
 
 ## Raddle (Лесенка)
 

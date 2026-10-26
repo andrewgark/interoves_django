@@ -395,7 +395,7 @@ class WordSaladSupportTests(TestCase):
         self.client.force_login(self.support_user)
         with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
-        with patch('games.realtime.track_compat.track_actor_task_change'):
+        with patch('games.ops.workers.jobs.recheck.track_actor_task_change'):
             response = self.client.post(
                 reverse('support:word_salad_recheck', kwargs={'link_id': detail['link_id']}),
             )
