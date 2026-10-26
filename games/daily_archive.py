@@ -1,27 +1,6 @@
-"""Compatibility facade for daily archive helpers."""
+"""Compatibility alias. Implementation lives in games.daily.page.archive."""
+import sys
 
-from games.daily.page.archive import (
-    MONTH_NAMES,
-    MONTH_NAMES_GENITIVE,
-    archive_query_string,
-    build_daily_archive_context,
-    build_daily_archive_items,
-    links_for_archive_month,
-    month_key,
-    prepare_daily_archive,
-    parse_month,
-    refresh_daily_archive_context,
-)
+from games.daily.page import archive as _implementation
 
-__all__ = [
-    'MONTH_NAMES',
-    'MONTH_NAMES_GENITIVE',
-    'archive_query_string',
-    'build_daily_archive_context',
-    'build_daily_archive_items',
-    'links_for_archive_month',
-    'month_key',
-    'prepare_daily_archive',
-    'parse_month',
-    'refresh_daily_archive_context',
-]
+sys.modules[__name__] = _implementation

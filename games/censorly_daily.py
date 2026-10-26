@@ -1,4 +1,6 @@
-"""Compatibility shim — prefer games.daily.catalog.censorly."""
+"""Compatibility alias. Implementation lives in games.daily.catalog.censorly."""
+import sys
 
-from games.daily.catalog.censorly import *  # noqa: F401,F403
-from games.daily.catalog.censorly import CENSORLY_GAME_ID  # noqa: F401
+from games.daily.catalog import censorly as _implementation
+
+sys.modules[__name__] = _implementation

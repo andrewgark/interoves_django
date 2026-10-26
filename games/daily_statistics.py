@@ -1,25 +1,6 @@
-"""Compatibility facade for daily statistics helpers."""
+"""Compatibility alias. Implementation lives in games.daily.timing.statistics."""
+import sys
 
-from games.daily.timing.statistics import (
-    CACHE_TIMEOUT,
-    CACHE_VERSION,
-    POPULAR_LIMIT,
-    POPULAR_MIN_ENTRIES,
-    REVISION_TIMEOUT,
-    build_attempt_histogram,
-    build_daily_statistics,
-    cache_key,
-    invalidate_daily_statistics,
-)
+from games.daily.timing import statistics as _implementation
 
-__all__ = [
-    'CACHE_TIMEOUT',
-    'CACHE_VERSION',
-    'POPULAR_LIMIT',
-    'POPULAR_MIN_ENTRIES',
-    'REVISION_TIMEOUT',
-    'build_attempt_histogram',
-    'build_daily_statistics',
-    'cache_key',
-    'invalidate_daily_statistics',
-]
+sys.modules[__name__] = _implementation

@@ -1,15 +1,6 @@
-"""Compatibility facade for daily streak helpers."""
+"""Compatibility alias. Implementation lives in games.daily.timing.streak."""
+import sys
 
-from games.daily.timing.streak import (
-    daily_completion_statuses_for_actor,
-    daily_streaks_for_actor,
-    daily_streaks_for_user,
-    streak_from_completion_dates,
-)
+from games.daily.timing import streak as _implementation
 
-__all__ = [
-    'daily_completion_statuses_for_actor',
-    'daily_streaks_for_actor',
-    'daily_streaks_for_user',
-    'streak_from_completion_dates',
-]
+sys.modules[__name__] = _implementation

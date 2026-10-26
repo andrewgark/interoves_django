@@ -1,13 +1,6 @@
-"""Compatibility facade for daily content transition helpers."""
+"""Compatibility alias. Implementation lives in games.daily.timing.transitions."""
+import sys
 
-from games.daily.timing.transitions import (
-    next_daily_content_transition,
-    next_daily_content_transition_for_game,
-    next_daily_content_transition_for_games,
-)
+from games.daily.timing import transitions as _implementation
 
-__all__ = [
-    'next_daily_content_transition',
-    'next_daily_content_transition_for_game',
-    'next_daily_content_transition_for_games',
-]
+sys.modules[__name__] = _implementation

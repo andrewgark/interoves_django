@@ -1,47 +1,6 @@
-"""Compatibility facade for the daily schedule domain."""
+"""Compatibility alias. Implementation lives in games.daily.page.section."""
+import sys
 
-from games.daily.page.section import (
-    ALPHABETTY_SCHEDULE,
-    DAILY_TEAM_TIMING_GAME_IDS,
-    DAILY_TIMING_GAME_IDS,
-    LADDER_SCHEDULE,
-    MOSCOW,
-    WEEK_TASK_SCHEDULE,
-    WORD_SALAD_SCHEDULE,
-    DailySchedule,
-    current_number_for,
-    filter_published_links,
-    is_daily_team_timing_game,
-    is_daily_timing_game,
-    is_scheduled_game,
-    moscow_midnight,
-    parse_publish_start,
-    publish_at_for,
-    schedule_for,
-    scheduled_number_is_public,
-    uses_daily_play_layout,
-    visible_links,
-)
+from games.daily.page import section as _implementation
 
-__all__ = [
-    'ALPHABETTY_SCHEDULE',
-    'DAILY_TEAM_TIMING_GAME_IDS',
-    'DAILY_TIMING_GAME_IDS',
-    'LADDER_SCHEDULE',
-    'MOSCOW',
-    'WEEK_TASK_SCHEDULE',
-    'WORD_SALAD_SCHEDULE',
-    'DailySchedule',
-    'current_number_for',
-    'filter_published_links',
-    'is_daily_team_timing_game',
-    'is_daily_timing_game',
-    'is_scheduled_game',
-    'moscow_midnight',
-    'parse_publish_start',
-    'publish_at_for',
-    'schedule_for',
-    'scheduled_number_is_public',
-    'uses_daily_play_layout',
-    'visible_links',
-]
+sys.modules[__name__] = _implementation
