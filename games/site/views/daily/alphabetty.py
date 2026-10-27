@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.template.loader import render_to_string
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
@@ -547,7 +548,10 @@ def alphabetty_play_page(request, number):
         **section_format_credit_context(ALPHABETTY_GAME_ID),
         **daily_lifecycle_context,
         'show_sections_nav': True,
-        'back_url': '/create_alphabetty/' if is_own_offer else section_hub_path(ALPHABETTY_GAME_ID),
+        'back_url': (
+            reverse('ui_create_alphabetty') if is_own_offer
+            else section_hub_path(ALPHABETTY_GAME_ID)
+        ),
         'bootstrap': state,
         'guess_url': f'{play_path}guess/',
         'state_url': f'{play_path}state/',
@@ -579,8 +583,12 @@ def alphabetty_play_page(request, number):
         )[1],
         **(onboarding_followup_context(ALPHABETTY_GAME_ID) if offer is None else {}),
         **meta_ctx,
-        **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
-        **({'back_label': 'Мои Алфавитки'} if is_own_offer else {}),
+        **_task_group_page_nav_context(
+            game,
+            prev_tg=prev_tg,
+            next_tg=next_tg,
+            back_label='Мои Алфавитки' if is_own_offer else None,
+        ),
         **daily_timing_page_context(
             request,
             game,

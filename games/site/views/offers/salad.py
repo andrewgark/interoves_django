@@ -20,8 +20,10 @@ from games.club.offers.salad import (
     serialize_offer,
     update_offer_content,
 )
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.identity import has_profile
 from games.models import WordSaladOffer
+from games.sections.paths import section_hub_path
 from games.site.http.request_util import parse_json_object_body
 from games.site.views.offers.reset import offer_reset_actors
 
@@ -43,7 +45,7 @@ def _profile_context(profile, *, ready, missing, offers_json, profile_error=None
         'offers_json': offers_json,
         'show_sections_nav': True,
         'profile_error': profile_error,
-        'back_url': '/salad/',
+        'back_url': section_hub_path(WORD_SALAD_GAME_ID),
         'back_label': 'Все Салатики',
     }
 

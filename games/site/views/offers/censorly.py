@@ -13,9 +13,11 @@ from django.views.decorators.http import require_GET, require_http_methods, requ
 from games.club.link import offer_profile_error
 from games.club.offers.censorly import create_offer, list_user_offers, serialize_offer
 from games.club.offers.profiles import profile_ready_for_offers, update_offer_profile_names
+from games.daily.catalog.censorly import CENSORLY_GAME_ID
 from games.identity import has_profile
 from games.puzzles.censorly.article.wiki import WikiFetchError, suggest_article_titles
 from games.puzzles.censorly.random_game import create_from_title
+from games.sections.paths import section_hub_path
 from games.site.http.request_util import parse_json_object_body
 
 SUGGEST_LIMIT = 60
@@ -34,7 +36,7 @@ def _page_context(profile, *, ready, missing, offers, error=None):
         'offers_json': [offer.to_dict() for offer in offers],
         'profile_error': error,
         'show_sections_nav': True,
-        'back_url': '/censorly/',
+        'back_url': section_hub_path(CENSORLY_GAME_ID),
         'back_label': 'Все Цензурки',
     }
 

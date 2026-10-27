@@ -19,12 +19,14 @@ def neighbors_by_pk(links, placement):
 
 
 def task_group_page_nav_context(game, *, previous=None, following=None,
-                                sections_project_id='sections', main_project_id='main'):
-    # The back link names its destination: a section hub or the game page.
-    if game.project_id == sections_project_id:
-        back_label = section_all_label(game.id) or 'Все задания'
-    else:
-        back_label = 'К игре'
+                                sections_project_id='sections', main_project_id='main',
+                                back_label=None):
+    # An explicit label names a destination other than the hub or the game page.
+    if back_label is None:
+        if game.project_id == sections_project_id:
+            back_label = section_all_label(game.id) or 'Все задания'
+        else:
+            back_label = 'К игре'
     section_meta = SECTION_HUB_META.get(game.id) or {}
     if section_meta.get('pager_label'):
         pager_label = section_meta['pager_label']

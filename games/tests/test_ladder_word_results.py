@@ -194,6 +194,7 @@ class LadderWordResultsTests(TestCase):
                 self.assertEqual(ctx['teams_sorted'], [])
                 self.assertEqual(len(ctx['task_groups']), 2)
                 self.assertEqual(ctx['back_url'], '/ladder/9100/')
+                self.assertEqual(ctx['back_label'], 'К Лесенке')
 
     def test_partial_loads_rows(self):
         self._make_attempt(

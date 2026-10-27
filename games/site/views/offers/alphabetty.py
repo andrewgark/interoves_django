@@ -19,8 +19,10 @@ from games.club.offers.alphabetty import (
     update_offer_content,
 )
 from games.club.offers.profiles import update_offer_profile_names
+from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.identity import has_profile
 from games.models import AlphabettyOffer
+from games.sections.paths import section_hub_path
 from games.site.http.request_util import parse_json_object_body
 
 
@@ -41,7 +43,7 @@ def _profile_context(profile, *, ready, missing, offers, profile_error=None):
         'offers_json': [offer.to_dict() for offer in offers],
         'show_sections_nav': True,
         'profile_error': profile_error,
-        'back_url': '/alphabetty/',
+        'back_url': section_hub_path(ALPHABETTY_GAME_ID),
         'back_label': 'Все Алфавитки',
     }
 

@@ -117,7 +117,7 @@ def _task_group_replay_exit_url(game, number, *, project_base=''):
     return replay_exit_url_for_task_group(game, number, project_base=project_base)
 
 
-def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
+def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None, back_label=None):
     """Подписи верхнего «назад к списку» и нижнего пейджера кругов."""
     return task_group_page_nav_context(
         game,
@@ -125,10 +125,11 @@ def _task_group_page_nav_context(game, *, prev_tg=None, next_tg=None):
         following=next_tg,
         sections_project_id=NEW_UI_SECTIONS_PROJECT,
         main_project_id=NEW_UI_PROJECT,
+        back_label=back_label,
     )
 
 
-def _task_group_results_nav_context(game, placement):
+def _task_group_results_nav_context(game, placement, *, back_label=None):
     """Navigation between adjacent daily task result pages."""
     if (
         not isinstance(placement, GameTaskGroup)
@@ -148,7 +149,9 @@ def _task_group_results_nav_context(game, placement):
         'next_task_group_url': (
             _task_group_results_url(game, next_tg.number) if next_tg else None
         ),
-        **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
+        **_task_group_page_nav_context(
+            game, prev_tg=prev_tg, next_tg=next_tg, back_label=back_label,
+        ),
     }
 
 

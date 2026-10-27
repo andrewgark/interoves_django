@@ -329,6 +329,6 @@
 {% endif %}
 
 <p class="new-tg-back new-tg-back--footer">
-  <a href="{% url 'new_alphabetty_hub' %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Все Алфавитки</a>
+  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label }}</a>
 </p>
 {% endblock %}

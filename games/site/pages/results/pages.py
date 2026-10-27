@@ -4,6 +4,7 @@ import logging
 from django.db.models import Q
 from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
+from django.urls import reverse
 
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
@@ -34,11 +35,11 @@ from games.results.table.context import (
     results_actor_identity,
 )
 from games.sections.hub import section_all_label
+from games.sections.paths import section_play_path
 from games.site.pages import (
     NEW_UI_PROJECT,
     NEW_UI_SECTIONS_PROJECT,
     _get_play_mode,
-    _project_base,
     _project_urls_context,
     _root_project_game_redirect,
 )
@@ -108,7 +109,7 @@ def results_page(request, game_id):
         'team': team,
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
-        'back_url': '/games/{}/'.format(game.id),
+        'back_url': reverse('ui_main_game', kwargs={'game_id': game.id}),
         'back_label': 'К игре',
         **data,
         'play_mode': play_mode,
@@ -149,7 +150,7 @@ def tournament_results_page(request, game_id):
         'team': team,
         'me_personal': None,
         'me_anon_participant': None,
-        'back_url': '/games/{}/'.format(game.id),
+        'back_url': reverse('ui_main_game', kwargs={'game_id': game.id}),
         'back_label': 'К игре',
         **data,
         'play_mode': effective_play_mode(
@@ -386,7 +387,7 @@ def _render_task_group_results_page(request, game, number, back_url, placement=N
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(game.project_id),
-        **_task_group_results_nav_context(game, placement),
+        **_task_group_results_nav_context(game, placement, back_label='К заданию'),
     })
 
 
@@ -427,8 +428,6 @@ def _word_salad_release_breakdown(data, game, number):
 
 def section_task_results_page(request, game_id, number):
     """Results for one task group of a sections-project game."""
-    from games.sections.paths import section_play_path
-
     project = Project.objects.filter(id=NEW_UI_SECTIONS_PROJECT).first()
     if not project:
         raise Http404()
@@ -484,10 +483,9 @@ def game_task_results_page(request, game_id, number, project_id=None):
     team = _team_for_access(request)
     if not game.has_access('see_results', mode='general', team=team):
         raise Http404()
-    base = _project_base(game.project_id)
     return _render_task_group_results_page(
         request, game, placement.number,
-        '{}/games/{}/{}/'.format(base, game.id, number),
+        _play_url_for_task_group(game, number),
         placement=placement,
     )
 
@@ -585,7 +583,7 @@ def ladder_word_results_page(request, task_group_number):
 
     if ladder_offer is not None:
         ladder_title = placement.name or 'Лесенка'
-        back_url = '/ladder/{}/'.format(ladder_offer.share_hash)
+        back_url = section_play_path(LADDER_GAME_ID, ladder_offer.share_hash)
     else:
         ladder_title = task_group_page_title(game, placement)
         back_url = _play_url_for_task_group(game, placement.number)
@@ -659,7 +657,7 @@ def ladder_word_results_page(request, task_group_number):
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
         'show_sections_nav': True,
         **_project_urls_context(NEW_UI_PROJECT),
-        **_task_group_results_nav_context(game, placement),
+        **_task_group_results_nav_context(game, placement, back_label='К Лесенке'),
     })
 
 

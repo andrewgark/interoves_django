@@ -79,6 +79,10 @@ class TaskGroupNavigationTests(SimpleTestCase):
 
         self.assertEqual(task_group_page_nav_context(ladder)['back_label'], 'Все Лесенки')
         self.assertEqual(task_group_page_nav_context(unknown)['back_label'], 'Все задания')
+        self.assertEqual(
+            task_group_page_nav_context(ladder, back_label='К заданию')['back_label'],
+            'К заданию',
+        )
 
     def test_daily_registry_provides_fallback_label(self):
         game = SimpleNamespace(

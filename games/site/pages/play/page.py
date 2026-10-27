@@ -586,16 +586,16 @@ def task_group_page(
         _sections_hub_url(game.id)
         if game.project_id == NEW_UI_SECTIONS_PROJECT
         else (
-            '/games/{}/'.format(game.id)
+            reverse('ui_main_game', kwargs={'game_id': game.id})
             if game.project_id == NEW_UI_PROJECT
             else '/'
         )
     )
     if ladder_offer is not None and request.user.is_authenticated and ladder_offer.user_id == request.user.id:
-        back_url = '/create_ladder/'
+        back_url = reverse('ui_create_ladder')
         back_label = 'Мои Лесенки'
     elif salad_offer is not None and request.user.is_authenticated and salad_offer.user_id == request.user.id:
-        back_url = '/create_salad/'
+        back_url = reverse('ui_create_salad')
         back_label = 'Мои Салатики'
     elif game.project_id not in (NEW_UI_SECTIONS_PROJECT, NEW_UI_PROJECT):
         back_label = 'Все игры'
@@ -727,9 +727,9 @@ def task_group_page(
         'custom_reset_url': offer_reset_url,
         'anon_offer_login_hint': anon_offer_login_hint,
         'back_url': back_url,
-        **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
-        # After the nav context: offers and the tutorial lead elsewhere.
-        **({'back_label': back_label} if back_label else {}),
+        **_task_group_page_nav_context(
+            game, prev_tg=prev_tg, next_tg=next_tg, back_label=back_label,
+        ),
         'page_title': page_title,
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
