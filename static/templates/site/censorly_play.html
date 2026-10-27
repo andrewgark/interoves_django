@@ -301,6 +301,7 @@
       el.setAttribute('data-disliked', data.disliked ? '1' : '0');
       el.classList.toggle('is-active', !!data.disliked);
     });
+    if (window.InterovesVoteStack) window.InterovesVoteStack.refresh();
   }
   function submit(taskId, likes, dislikes) {
     if (requests[taskId]) return;

@@ -1,4 +1,5 @@
 {# Compact shared header for daily single-task games. #}
+{% load static %}
 {% now "Y" as current_year %}
 <div class="new-daily-game-header" data-daily-game-header>
   <div class="new-daily-game-header__topline">
@@ -38,3 +39,4 @@
   {% firstof tagline section_tagline game.theme as page_tagline %}
   {% if page_tagline %}<p class="new-daily-game-header__description">{{ page_tagline }}</p>{% endif %}
 </div>
+<script src="{% static "js/daily_game_header_fit.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>

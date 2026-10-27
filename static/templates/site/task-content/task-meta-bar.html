@@ -8,8 +8,8 @@
     {% if ai.is_solved %}
     <span class="new-pill new-pill--ok new-proportions-compact-badge--ok-strong" data-tooltip="Задание решено">ок</span>
     {% endif %}
-    <span class="new-proportions-compact-points-pill" {% if wall_max_title %}data-tooltip="{{ wall_max_title|escape }}"{% else %}data-tooltip="Начислено сейчас / базовый максимум"{% endif %}>
-      <span class="new-proportions-compact-stat__paren">(</span><span class="new-proportions-compact-stat__nums">{{ ai.get_result_points|minimize_digits }}</span> {{ ai.get_result_points|ru_points_word }}<span class="new-proportions-compact-stat__sep"> / </span><span class="new-proportions-compact-stat__nums">{{ base_max|minimize_digits }}</span> {{ base_max|ru_points_word }}<span class="new-proportions-compact-stat__paren">)</span>
+    <span class="new-proportions-compact-points-pill{% if ai.is_solved %} is-solved{% endif %}" {% if wall_max_title %}data-tooltip="{{ wall_max_title|escape }}"{% else %}data-tooltip="Начислено сейчас / базовый максимум"{% endif %}>
+      <span class="new-proportions-compact-stat__paren">(</span><span class="new-proportions-compact-stat__nums">{{ ai.get_result_points|minimize_digits }}</span><span class="new-proportions-compact-stat__word"> {{ ai.get_result_points|ru_points_word }}</span><span class="new-proportions-compact-stat__sep"> / </span><span class="new-proportions-compact-stat__nums">{{ base_max|minimize_digits }}</span><span class="new-proportions-compact-stat__word"> {{ base_max|ru_points_word }}</span><span class="new-proportions-compact-stat__paren">)</span>
     </span>
     {% if task_ui.show_attempts %}
     {% with n=ai.get_n_attempts %}
@@ -39,7 +39,7 @@
     {% with attempt_items=ai.attempts|attempts_with_status %}
     {% with last_item=attempt_items|last %}
     <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--{{ last_item.mark }}" popovertarget="prop-attempts-{{ task.id }}" data-tooltip="Открыть список отправленных ответов" aria-label="Список попыток: {{ n }}">
-      <span class="new-proportions-compact-stat__paren">(</span>{{ n }} {{ n|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }}{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
+      <span class="new-proportions-compact-stat__paren">(</span><i class="ph ph-paper-plane-tilt new-proportions-compact-stat__icon" aria-hidden="true"></i>{{ n }}<span class="new-proportions-compact-stat__word"> {{ n|ru_attempt_word }}</span>{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }}<span class="new-proportions-compact-stat__word"> {{ task.get_max_attempts|ru_attempt_word }}</span>{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
     </button>
     <div id="prop-attempts-{{ task.id }}" popover="auto" class="new-proportions-attempts-popover">
       <div class="new-proportions-attempts-popover__header">
@@ -60,7 +60,7 @@
     {% endwith %}
     {% else %}
     <span class="new-proportions-compact-stat new-proportions-compact-stat--plain" data-tooltip="Пока без попыток">
-      <span class="new-proportions-compact-stat__paren">(</span>{{ n }} {{ n|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }}{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
+      <span class="new-proportions-compact-stat__paren">(</span><i class="ph ph-paper-plane-tilt new-proportions-compact-stat__icon" aria-hidden="true"></i>{{ n }}<span class="new-proportions-compact-stat__word"> {{ n|ru_attempt_word }}</span>{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }}<span class="new-proportions-compact-stat__word"> {{ task.get_max_attempts|ru_attempt_word }}</span>{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
     </span>
     {% endif %}
     {% endwith %}
@@ -84,20 +84,12 @@
   {% if is_daily_single_task and difficulty %}
     {% include "site/partials/difficulty_badge.html" %}
   {% endif %}
+  {% if not is_daily_single_task %}
   {% with lm=likes_meta_by_task_id|get_item:task.id %}
     {% if lm %}
-    <div class="new-like-dislike new-like-dislike--compact-bar" aria-label="Лайки и дизлайки">
-      <button type="button" class="new-likebtn new-likebtn--dislike{% if lm.disliked %} is-active{% endif %}" data-dislike-btn data-task-id="{{ task.id }}" data-disliked="{% if lm.disliked %}1{% else %}0{% endif %}" data-tooltip="Дизлайк">
-        <span class="new-likebtn__icon"><i class="ph ph-thumbs-down" aria-hidden="true"></i></span>
-        <span class="new-likebtn__count" data-dislike-count="{{ task.id }}">{{ lm.dislikes }}</span>
-      </button>
-      <button type="button" class="new-likebtn new-likebtn--like{% if lm.liked %} is-active{% endif %}" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}" data-tooltip="Лайк">
-        <span class="new-likebtn__icon"><i class="ph ph-thumbs-up" aria-hidden="true"></i></span>
-        <span class="new-likebtn__count" data-like-count="{{ task.id }}">{{ lm.likes }}</span>
-      </button>
-      <span class="new-like-dislike__status" data-like-status="{{ task.id }}" role="status" aria-live="polite" hidden></span>
-    </div>
+    {% include "site/partials/task_vote.html" %}
     {% endif %}
   {% endwith %}
+  {% endif %}
   </span>
 </div>

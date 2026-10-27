@@ -1,6 +1,7 @@
+{% load filters %}
 {% if like_totals %}
-<span class="new-like-totals" role="img" aria-label="Лайков: {{ like_totals.likes }}, дизлайков: {{ like_totals.dislikes }}" data-tooltip="Лайки и дизлайки">
-  <span class="new-like-totals__item"><i class="ph ph-thumbs-up" aria-hidden="true"></i>{{ like_totals.likes }}</span>
-  <span class="new-like-totals__item"><i class="ph ph-thumbs-down" aria-hidden="true"></i>{{ like_totals.dislikes }}</span>
+<span class="new-vote new-vote--tiny" data-lead="{{ like_totals.likes|vote_lead:like_totals.dislikes }}" role="img" aria-label="Лайков: {{ like_totals.likes }}, дизлайков: {{ like_totals.dislikes }}" data-tooltip="Лайки и дизлайки">
+  <span class="new-vote__side new-vote__side--up">{% include "site/partials/vote_arrow.html" with dir="up" %}<span class="new-vote__count"{% if not like_totals.likes %} data-zero{% endif %}>{{ like_totals.likes }}</span></span>
+  <span class="new-vote__side new-vote__side--down">{% include "site/partials/vote_arrow.html" with dir="down" %}<span class="new-vote__count"{% if not like_totals.dislikes %} data-zero{% endif %}>{{ like_totals.dislikes }}</span></span>
 </span>
 {% endif %}

@@ -1,11 +1,13 @@
 import json
 import re
-from django.template.defaulttags import register
+
 from allauth.socialaccount.models import SocialApp
+from django.template.defaulttags import register
 from django.utils import timezone
+
 from games.club.access.game import game_is_going_now
-from games.models import GameTaskGroup, Like, Attempt, Team, Task, Registration
-from games.results.util import clean_text, better_status
+from games.models import Attempt, GameTaskGroup, Like, Registration, Task, Team
+from games.results.util import better_status
 
 
 @register.simple_tag(takes_context=True)
@@ -102,6 +104,17 @@ def minimize_digits(points):
     if not cleaned_points:
         cleaned_points = '0'
     return cleaned_points
+
+
+@register.filter
+def vote_lead(likes, dislikes):
+    """Кто ведёт в голосовалке ▲▼: up / down / tie / none (для data-lead)."""
+    likes, dislikes = int(likes or 0), int(dislikes or 0)
+    if likes > dislikes:
+        return 'up'
+    if dislikes > likes:
+        return 'down'
+    return 'tie' if likes else 'none'
 
 
 @register.filter
@@ -423,6 +436,7 @@ def attempts_with_status(attempts):
     Подсказка сама по себе множество не расширяет и остаётся неверной.
     """
     from decimal import Decimal
+
     from games.models import CHAIN_TASK_TYPES
 
     items = list(attempts or [])
@@ -542,7 +556,6 @@ def get_task_status(task_team__mode, attempts_info):
 @register.filter
 def get_text_with_forms_attempt_form(task):
     placeholder = 'Ответ ({})'.format(task.number)
-    width = None
     if task.field_text_width is not None and task.field_text_width < 15:
         placeholder = ''
     return task.get_attempt_form(placeholder=placeholder)

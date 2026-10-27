@@ -1,0 +1,11 @@
+{% load filters %}
+{# Голосовалка ▲▼ задания. Ожидает: task, lm (likes_meta задания). #}
+<div class="new-vote" data-vote data-lead="{{ lm.likes|vote_lead:lm.dislikes }}" role="group" aria-label="Лайки и дизлайки">
+  <button type="button" class="new-vote__side new-vote__side--up{% if lm.liked %} is-active{% endif %}" data-like-btn data-task-id="{{ task.id }}" data-liked="{% if lm.liked %}1{% else %}0{% endif %}" aria-pressed="{% if lm.liked %}true{% else %}false{% endif %}" data-tooltip="Лайк">
+    {% include "site/partials/vote_arrow.html" with dir="up" %}<span class="new-visually-hidden">Лайков:</span><span class="new-vote__count" data-like-count="{{ task.id }}"{% if not lm.likes %} data-zero{% endif %}>{{ lm.likes }}</span>
+  </button>
+  <button type="button" class="new-vote__side new-vote__side--down{% if lm.disliked %} is-active{% endif %}" data-dislike-btn data-task-id="{{ task.id }}" data-disliked="{% if lm.disliked %}1{% else %}0{% endif %}" aria-pressed="{% if lm.disliked %}true{% else %}false{% endif %}" data-tooltip="Дизлайк">
+    {% include "site/partials/vote_arrow.html" with dir="down" %}<span class="new-visually-hidden">Дизлайков:</span><span class="new-vote__count" data-dislike-count="{{ task.id }}"{% if not lm.dislikes %} data-zero{% endif %}>{{ lm.dislikes }}</span>
+  </button>
+  <span class="new-like-dislike__status" data-like-status="{{ task.id }}" role="status" aria-live="polite" hidden></span>
+</div>

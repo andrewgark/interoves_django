@@ -178,7 +178,9 @@ class DifficultyScoringTests(SimpleTestCase):
         self.assertEqual(
             html.count('class="ph ph-brain new-difficulty__brain--empty"'), 3,
         )
-        self.assertEqual(html.count('ph-brain'), 5)
+        # Five brains plus the one of the narrow-screen «🧠2» variant.
+        self.assertEqual(html.count('ph-brain'), 6)
+        self.assertIn('new-difficulty__compact-icon"></i>2</span>', html)
 
     def test_preliminary_brain_difficulty_keeps_state_without_extra_tooltip(self):
         context = _public_context({
@@ -201,7 +203,7 @@ class DifficultyScoringTests(SimpleTestCase):
         )
         self.assertNotIn('предварительно', html)
         self.assertNotIn('title=', html)
-        self.assertEqual(html.count('ph-brain'), 5)
+        self.assertEqual(html.count('ph-brain'), 6)
 
 
 def _actor_row(actor, **overrides):
@@ -640,7 +642,7 @@ class DifficultyObservationTests(TestCase):
             html,
         )
         self.assertEqual(html.count('class="ph-fill ph-brain"'), 4)
-        self.assertEqual(html.count('ph-brain'), 5)
+        self.assertEqual(html.count('ph-brain'), 6)
         aside_at = html.find('new-proportions-compact-bar__aside')
         difficulty_at = html.find('new-difficulty')
         likes_at = html.find('new-like-dislike--compact-bar')

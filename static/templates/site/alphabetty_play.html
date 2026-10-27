@@ -1005,6 +1005,7 @@
       btn.setAttribute('data-disliked', data.disliked ? '1' : '0');
       btn.classList.toggle('is-active', !!data.disliked);
     });
+    if (window.InterovesVoteStack) window.InterovesVoteStack.refresh();
   }
   function submitLike(taskId, likesDelta, dislikesDelta) {
     if (likeRequestsInFlight[taskId]) return;

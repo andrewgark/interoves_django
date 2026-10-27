@@ -630,6 +630,11 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertIn('new-daily-game-header', html)
         self.assertIn('new-rules-trigger--compact', html)
         self.assertIn('Угадайте слово по алфавиту', html)
+        # Votes sit under the board; the meta bar stays one compact line.
+        meta_bar = html[html.index('new-taskcard__meta-bar'):html.index('new-taskcard__body')]
+        self.assertNotIn('data-like-btn', meta_bar)
+        rate_at = html.index('new-daily-rate')
+        self.assertIn('data-like-btn', html[rate_at:])
 
     def test_daily_play_url_keeps_its_number_or_share_hash(self):
         _ensure_login_modal_deps()

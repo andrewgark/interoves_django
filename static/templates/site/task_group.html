@@ -4000,6 +4000,7 @@
       btn.setAttribute('data-disliked', data.disliked ? '1' : '0');
       btn.classList.toggle('is-active', !!data.disliked);
     });
+    if (window.InterovesVoteStack) window.InterovesVoteStack.refresh();
   }
   function submitLike(taskId, likesDelta, dislikesDelta) {
     if (likeRequestsInFlight[taskId]) return;
@@ -4056,6 +4057,7 @@
       }
       btn.setAttribute('aria-label', (isLike ? 'Хорошая подсказка, лайков: ' : 'Плохая подсказка, дизлайков: ') + (n || 0));
     });
+    if (window.InterovesVoteStack) window.InterovesVoteStack.refresh();
   }
   function submitClueLike(btn, likesDelta, dislikesDelta) {
     var taskId = btn.getAttribute('data-task-id');

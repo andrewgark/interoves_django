@@ -3856,8 +3856,37 @@ html.new-ui-dark .new-team-switcher-active-box {
     flex-wrap: nowrap;
   }
 
+  /* One square size for ?, tutorial, pager, timer and replay; stepped down
+     by daily_game_header_fit.js while the title is still truncated. */
+  .new-daily-game-header {
+    --daily-header-control: 2.25rem;
+    --daily-header-title: clamp(0.95rem, 4.4vw, 1.2rem);
+  }
+
+  .new-daily-game-header.is-fit-tight {
+    --daily-header-control: 2rem;
+    --daily-header-title: 0.95rem;
+  }
+
+  .new-daily-game-header.is-fit-tighter {
+    --daily-header-control: 1.75rem;
+    --daily-header-title: 0.85rem;
+  }
+
+  .new-daily-game-header.is-fit-tighter .new-daily-game-header__date {
+    font-size: 0.72rem;
+  }
+
+  .new-daily-game-header.is-fit-tighter .new-daily-game-header__nav-button {
+    width: calc(var(--daily-header-control) * 0.62);
+  }
+
+  .new-daily-game-header__title-wrap {
+    gap: 0.25rem;
+  }
+
   .new-daily-game-header__title-wrap .new-heading {
-    font-size: clamp(0.9rem, 4.2vw, 1.2rem);
+    font-size: var(--daily-header-title);
     line-height: 1.15;
     white-space: nowrap;
     overflow: hidden;
@@ -3869,9 +3898,15 @@ html.new-ui-dark .new-team-switcher-active-box {
     gap: 0.25rem;
   }
 
+  .new-daily-game-header .new-rules-trigger--compact {
+    width: var(--daily-header-control);
+    height: var(--daily-header-control);
+    font-size: 0.85rem;
+  }
+
   .new-daily-game-header .new-daily-game-header__nav-button {
-    width: 1.75rem;
-    min-height: 2.25rem;
+    width: calc(var(--daily-header-control) * 0.75);
+    min-height: calc(var(--daily-header-control) - 2px);
   }
 
   .new-daily-game-header .new-daily-game-header__date {
@@ -3884,7 +3919,16 @@ html.new-ui-dark .new-team-switcher-active-box {
   .new-daily-game-header__date-compact { display: inline; }
 
   .new-daily-game-header .new-daily-timer__toggle,
-  .new-daily-game-header .new-replay-control__button { min-width: 2.25rem; min-height: 2.25rem; }
+  .new-daily-game-header .new-replay-control__button {
+    min-width: var(--daily-header-control);
+    min-height: var(--daily-header-control);
+    height: var(--daily-header-control);
+    padding: 0;
+  }
+
+  .new-daily-game-header .new-daily-timer__toggle > span:empty { display: none; }
+  .new-daily-game-header .new-daily-timer__toggle > span:not(:empty) { padding-right: 0.45rem; }
+  .new-daily-game-header .new-daily-timer__toggle:has(> span:not(:empty)) { padding-left: 0.45rem; }
 
   .new-daily-game-header__description {
     font-size: 0.84rem;
@@ -3960,25 +4004,20 @@ html.new-ui-dark .new-team-switcher-active-box {
   opacity: 0.38;
 }
 
-.new-like-totals {
-  display: inline-flex;
-  flex: 0 0 auto;
+/* «🧠4» instead of five brains; shown only in the narrow task meta bar. */
+.new-difficulty__compact {
+  display: none;
   align-items: center;
-  gap: 0.45rem;
-  white-space: nowrap;
-  color: var(--muted);
-  font-size: 0.74rem;
-  line-height: 1;
+  gap: 0.1rem;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
-.new-like-totals__item {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.14rem;
-}
-
-.new-like-totals__item .ph {
-  font-size: 0.82rem;
+.new-difficulty__compact-icon {
+  color: var(--difficulty-icon);
+  font-size: 0.95rem;
 }
 
 .new-taskcard__meta-bar .new-difficulty__brains {
@@ -5799,71 +5838,147 @@ html.new-ui-dark .new-team-switcher-active-box {
   font-size: 0.95rem;
 }
 
-/* Likes/dislikes — similar to old UI, aligned right */
-.new-like-dislike {
-  display: inline-flex;
-  gap: 0.4rem;
-  align-items: center;
-  margin-left: auto;
+/* Голосовалка ▲▼: стопка «стрелка + число» вместо двух широких кнопок.
+   Цвет: ▲ accent, ▼ danger; лидер (data-lead) залит и жирный, второй бледный.
+   Толстый контур (.is-active) — мой голос, независимо от того, кто ведёт. */
+.new-vote {
+  --vote-icon: 0.78rem;
+  --vote-fs: 0.72rem;
   position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
-.new-likebtn {
+.new-vote--tiny {
+  --vote-icon: 0.66rem;
+  --vote-fs: 0.66rem;
+}
+
+.new-vote__side {
+  --vote-color: var(--accent);
+  --vote-fill: color-mix(in srgb, var(--accent) 30%, transparent);
   appearance: none;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  border-radius: var(--control-radius);
-  padding: 0.25rem 0.55rem;
-  cursor: pointer;
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  transition: border-color 0.14s ease, color 0.14s ease, background-color 0.14s ease;
+  gap: 0.18rem;
+  margin: 0;
+  padding: 0.03rem 0.16rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--vote-fs);
+  line-height: 1;
+  transition: color 0.14s ease, background-color 0.14s ease;
 }
 
-.new-likebtn:hover {
-  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
-  color: var(--accent);
+.new-vote__side--down {
+  --vote-color: var(--danger);
+  --vote-fill: color-mix(in srgb, var(--danger) 26%, transparent);
 }
 
-.new-likebtn:disabled {
+button.new-vote__side {
+  cursor: pointer;
+}
+
+/* Зона нажатия больше видимой: ▲ растёт вверх, ▼ вниз, чтобы не перекрываться. */
+button.new-vote__side::before {
+  content: '';
+  position: absolute;
+  inset: -0.45rem -0.35rem 0;
+}
+
+button.new-vote__side--down::before {
+  inset: 0 -0.35rem -0.45rem;
+}
+
+.new-vote__arrow {
+  width: var(--vote-icon);
+  height: var(--vote-icon);
+  flex: 0 0 auto;
+  fill: none;
+  stroke: var(--vote-color);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  opacity: 0.45;
+  transition: opacity 0.14s ease, fill 0.14s ease, stroke-width 0.14s ease;
+}
+
+.new-vote__count {
+  min-width: 1ch;
+  font-weight: 500;
+}
+
+.new-vote__count[data-zero] {
+  opacity: 0.6;
+}
+
+.new-vote[data-lead="tie"] .new-vote__arrow {
+  opacity: 0.85;
+}
+
+.new-vote[data-lead="up"] .new-vote__side--up,
+.new-vote[data-lead="down"] .new-vote__side--down {
+  color: var(--vote-color);
+}
+
+.new-vote[data-lead="up"] .new-vote__side--up .new-vote__arrow,
+.new-vote[data-lead="down"] .new-vote__side--down .new-vote__arrow {
+  opacity: 1;
+  fill: var(--vote-fill);
+}
+
+.new-vote[data-lead="up"] .new-vote__side--up .new-vote__count,
+.new-vote[data-lead="down"] .new-vote__side--down .new-vote__count {
+  font-weight: 750;
+}
+
+.new-vote__side.is-active {
+  color: var(--vote-color);
+}
+
+.new-vote__side.is-active .new-vote__arrow {
+  opacity: 1;
+  stroke-width: 2.8;
+}
+
+.new-vote__side.is-active .new-vote__count {
+  font-weight: 650;
+  opacity: 1;
+}
+
+@media (hover: hover) {
+  button.new-vote__side:hover {
+    background: color-mix(in srgb, var(--vote-color) 10%, transparent);
+  }
+
+  button.new-vote__side:hover .new-vote__arrow {
+    opacity: 1;
+  }
+}
+
+button.new-vote__side:disabled {
   cursor: wait;
-  opacity: 0.65;
+  opacity: 0.6;
 }
 
-.new-likebtn:focus {
+.new-vote__side:focus {
   outline: none;
 }
 
-.new-likebtn:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 3px var(--focus-ring);
+.new-vote__side:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
-.new-likebtn--dislike:hover {
-  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
-  color: var(--danger);
-}
-
-.new-likebtn.is-active {
-  border-color: color-mix(in srgb, var(--accent) 52%, var(--border));
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-}
-
-.new-likebtn--dislike.is-active {
-  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+.new-vote__side.is-failed {
   color: var(--danger);
   background: var(--danger-soft);
-}
-
-.new-likebtn__count {
-  font-weight: 700;
-  color: inherit;
 }
 
 .new-like-dislike__status {
@@ -7013,6 +7128,28 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
 .new-tg-results-link {
   margin: 1.25rem 0 0;
   text-align: center;
+}
+
+/* Votes of a daily single-task game: under the board, not in the meta bar. */
+.new-daily-rate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin: 1rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.new-daily-rate .new-vote {
+  --vote-icon: 1rem;
+  --vote-fs: 0.9rem;
+  flex-direction: row;
+  gap: 0.5rem;
+}
+
+.new-daily-rate .new-vote__side {
+  padding: 0.25rem 0.4rem;
 }
 
 .new-results-sentinel {
@@ -9281,103 +9418,18 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
 .new-raddle-clues__list--used .new-raddle-clue {
   display: block;
 }
-/* Оценка подсказки: одна сегментированная «таблетка» [👎 n | 👍 n] —
-   язык лайков задания (рамка, акцент/danger у активной), но компактнее. */
-.new-raddle-clues__list--used .new-raddle-clue:has(.new-clue-rating) {
+/* Оценка подсказки — голосовалка ▲▼ справа от текста. */
+.new-raddle-clues__list--used .new-raddle-clue:has(.new-vote) {
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
 }
-.new-clue-rating {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: stretch;
-  /* По центру первой строки текста подсказки, а не всего абзаца. */
-  margin-top: 0.06rem;
+.new-raddle-clue .new-vote {
   margin-left: auto;
-  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  border-radius: 999px;
-  background: var(--surface);
-  overflow: hidden;
-  line-height: 1;
-}
-.new-clue-rating__btn {
-  appearance: none;
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.18rem;
-  margin: 0;
-  padding: 0.16rem 0.38rem;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  font: inherit;
-  font-size: 0.68rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-  transition: color 0.14s ease, background-color 0.14s ease;
-}
-.new-clue-rating__btn + .new-clue-rating__btn {
-  border-left: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-}
-.new-clue-rating__btn .ph {
-  font-size: 0.78rem;
-}
-/* Ноль — тише, чтобы ненулевые оценки читались сразу. */
-.new-clue-rating__count {
-  min-width: 0.5em;
-  text-align: center;
-}
-.new-clue-rating__btn:not(.is-active) .new-clue-rating__count[data-zero] {
-  opacity: 0.6;
-}
-/* Зона нажатия больше видимой кнопки. */
-.new-clue-rating__btn::before {
-  content: '';
-  position: absolute;
-  inset: -0.35rem 0;
-}
-.new-clue-rating__btn--like:hover {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
-}
-.new-clue-rating__btn--dislike:hover {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 7%, transparent);
-}
-.new-clue-rating__btn--like.is-active {
-  color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 16%, var(--surface));
-}
-.new-clue-rating__btn--dislike.is-active {
-  color: var(--danger);
-  background: var(--danger-soft);
-}
-.new-clue-rating__btn:disabled {
-  cursor: wait;
-}
-.new-clue-rating__btn:focus {
-  outline: none;
-}
-.new-clue-rating__btn:focus-visible {
-  box-shadow: inset 0 0 0 2px var(--focus-ring);
-}
-.new-clue-rating__btn.is-failed {
-  color: var(--danger);
-  background: var(--danger-soft);
 }
 @media (max-width: 560px) {
-  .new-raddle-clues__list--used .new-raddle-clue:has(.new-clue-rating) {
+  .new-raddle-clues__list--used .new-raddle-clue:has(.new-vote) {
     gap: 0.35rem;
-  }
-  .new-clue-rating__btn {
-    padding: 0.14rem 0.24rem;
-    gap: 0.1rem;
-  }
-  .new-clue-rating__btn .ph {
-    font-size: 0.72rem;
   }
 }
 .new-raddle-clue--revealed {
@@ -10023,6 +10075,10 @@ button.new-proportions-pool-return-link:focus-visible {
   font-size: 0.78rem;
 }
 
+.new-proportions-compact-stat__icon {
+  display: none;
+}
+
 .new-proportions-attempts-popover {
   margin: 0 !important;
   padding: 0.5rem 0.6rem 0.55rem;
@@ -10162,26 +10218,6 @@ html.new-ui-dark .new-proportions-attempts-popover::backdrop {
   text-decoration-color: color-mix(in srgb, var(--muted) 55%, transparent);
 }
 
-.new-like-dislike--compact-bar {
-  margin-left: 0;
-  gap: 0.28rem;
-}
-
-.new-like-dislike--compact-bar .new-likebtn {
-  padding: 0.12rem 0.38rem;
-  font-size: 0.74rem;
-  gap: 0.22rem;
-  border-radius: var(--control-radius);
-}
-
-.new-like-dislike--compact-bar .new-likebtn__icon {
-  font-size: 0.8rem;
-}
-
-.new-like-dislike--compact-bar .new-likebtn__count {
-  font-size: 0.74rem;
-}
-
 .new-proportions-compact-bar__fill {
   flex: 1 1 auto;
   min-width: 0.25rem;
@@ -10192,6 +10228,51 @@ html.new-ui-dark .new-proportions-attempts-popover::backdrop {
   flex: 0 0 auto;
   align-items: center;
   gap: 0.45rem;
+}
+
+/* Узкий экран: статистика переносится внутри себя, а не целиком на новую
+   строку — номер, статистика и ▲▼ остаются в первой строке. */
+@media (max-width: 560px) {
+  .new-proportions-compact-stats {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .new-proportions-compact-bar__fill {
+    display: none;
+  }
+}
+
+/* Narrow meta bar fits one line: «0/12 ✈3 … 🧠4» — units and brackets
+   live in tooltips; a solved task tints the points pill instead of «ок». */
+@media (max-width: 560px) {
+  .new-taskcard__meta-bar .new-proportions-compact-stat__word,
+  .new-taskcard__meta-bar .new-proportions-compact-stat__paren,
+  .new-taskcard__meta-bar .new-proportions-compact-badge--ok-strong,
+  .new-taskcard__meta-bar .new-difficulty__brains {
+    display: none;
+  }
+
+  .new-taskcard__meta-bar .new-proportions-compact-points-pill {
+    gap: 0.1rem;
+    padding: 0.15rem 0.45rem;
+  }
+
+  .new-taskcard__meta-bar .new-proportions-compact-points-pill.is-solved {
+    color: var(--success);
+    border-color: var(--success-soft-border);
+    background: var(--success-soft-bg);
+  }
+
+  .new-taskcard__meta-bar .new-proportions-compact-stat__icon {
+    display: inline;
+    margin-right: 0.15rem;
+    vertical-align: -0.1em;
+  }
+
+  .new-taskcard__meta-bar .new-difficulty__compact {
+    display: inline-flex;
+  }
 }
 
 .new-proportions-compact-img {
@@ -11624,7 +11705,6 @@ button.new-word-salad__hint-btn:disabled {
     padding: 0.45rem;
   }
 
-  .new-likebtn,
   .new-raddle-retry-btn,
   .new-account-action,
   .new-replacements-fill-btn,
@@ -11632,6 +11712,34 @@ button.new-word-salad__hint-btn:disabled {
   .new-alphabetty__hint-btn,
   .new-word-salad__hint-btn {
     min-height: 2.75rem;
+  }
+
+  /* Тач: крупнее сами половины ▲▼ (~44×28 с ::before), а не длинный
+     ::before — иначе в списке подсказок ▼ одной строки ловит ▲ соседней. */
+  .new-vote {
+    --vote-icon: 0.88rem;
+    --vote-fs: 0.8rem;
+  }
+
+  .new-vote__side {
+    padding: 0.14rem 0.3rem;
+  }
+
+  button.new-vote__side::before {
+    inset: -0.3rem -0.3rem 0;
+  }
+
+  button.new-vote__side--down::before {
+    inset: 0 -0.3rem -0.3rem;
+  }
+
+  .new-vote--tiny {
+    --vote-icon: 0.66rem;
+    --vote-fs: 0.66rem;
+  }
+
+  .new-vote--tiny .new-vote__side {
+    padding: 0.03rem 0.16rem;
   }
 
   /* Колонка кружка узкая — место уходит тексту подсказки; зона нажатия

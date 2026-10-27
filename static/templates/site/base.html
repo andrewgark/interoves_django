@@ -435,6 +435,7 @@
   {% endif %}
   <form id="interoves-page-csrf" hidden>{% csrf_token %}</form>
   <script src="{% static "js/page_csrf.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+  <script src="{% static "js/vote_stack.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   {% if user.is_authenticated and unverified_telegram_handle %}
   <div id="new-telegram-claim-modal" class="new-rules-modal is-open" role="dialog" aria-labelledby="new-telegram-claim-title" aria-modal="true">
     <form id="telegram-claim-dismiss" method="post" action="{% url 'ui_telegram_handle_dismiss' %}">

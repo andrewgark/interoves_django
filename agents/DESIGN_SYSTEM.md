@@ -193,7 +193,8 @@ Spacing: у `.new-btn` нет дефолтного `margin-top`; у `.new-form >
 - Секции (Десяточки / Лесенка / …) — **только иконки** Phosphor; название в `title` + `aria-label` (`.new-nav__section-label` visually hidden). «Игры», «Профиль», «Команда» — текстом.
 - Theme switch / mode toggle / team subnav — один язык segmented/control (`--control-radius`, surface fill).
 - Иконки chrome — только Phosphor; FA в new UI не подключать.
-- Rules / eye / likes / raddle tip — `ph-question`, `ph-eye`, `ph-thumbs-*`, `ph-lightbulb`.
+- Rules / eye / raddle tip — `ph-question`, `ph-eye`, `ph-lightbulb`.
+- Лайки (задание, подсказки raddle, итоги в списке) — только голосовалка ▲▼ `.new-vote` (`site/partials/task_vote.html`, стрелки `vote_arrow.html`, inline SVG вместо Phosphor ради толщины контура): лидер по `data-lead` залит и жирный, мой голос (`.is-active`) — толстый контур; после смены чисел звать `InterovesVoteStack.refresh()`.
 - Back / forward — `.new-back` / `.new-fwd` + `ph-arrow-left` / `ph-arrow-right` (не unicode `←`/`→`).
 - Segmented — `.new-segmented` (+ aliases team/replacements).
 - Цвета иконок: `danger` = wrong/dislike; `warning` = lightbulb tip; `accent` = ok/like/hub (вкл. star); `muted` = idle chrome → accent на hover. Утилиты: `.new-ph--*`.
