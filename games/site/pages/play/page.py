@@ -3,6 +3,7 @@ import logging
 
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
 
@@ -501,9 +502,13 @@ def task_group_page(
         ):
             can_reset_offer = True
             if ladder_offer is not None:
-                offer_reset_url = '/create_ladder/{}/reset/'.format(ladder_offer.pk)
+                offer_reset_url = reverse(
+                    'ui_create_ladder_reset', kwargs={'offer_id': ladder_offer.pk},
+                )
             elif salad_offer is not None:
-                offer_reset_url = '/create_salad/{}/reset/'.format(salad_offer.pk)
+                offer_reset_url = reverse(
+                    'ui_create_salad_reset', kwargs={'offer_id': salad_offer.pk},
+                )
 
     custom_daily_task = draft_offer is not None
     public_task_segment = (
@@ -688,8 +693,6 @@ def task_group_page(
         ),
         'ladder_tutorial_entry_url': ladder_tutorial_entry_url,
         'ladder_tutorial_offer': ladder_tutorial_offer,
-        'can_reset_ladder_offer': can_reset_offer,
-        'ladder_offer_reset_url': offer_reset_url,
         'custom_reset_enabled': can_reset_offer,
         'custom_reset_url': offer_reset_url,
         'back_url': back_url,
