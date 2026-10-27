@@ -645,11 +645,10 @@ class DifficultyObservationTests(TestCase):
         self.assertEqual(html.count('ph-brain'), 6)
         aside_at = html.find('new-proportions-compact-bar__aside')
         difficulty_at = html.find('new-difficulty')
-        likes_at = html.find('new-like-dislike--compact-bar')
         self.assertNotEqual(aside_at, -1)
         self.assertLess(aside_at, difficulty_at)
-        if likes_at != -1:
-            self.assertLess(difficulty_at, likes_at)
+        # Daily single-task votes live in the footer under the board, not in the meta bar.
+        self.assertNotIn('data-vote', html)
 
 
 class CensorlyDifficultyObservationTests(TestCase):

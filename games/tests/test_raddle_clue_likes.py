@@ -1,10 +1,11 @@
 """Лайки подсказок лесенки и суммы лайков в списке групп заданий."""
 import json
 from datetime import timedelta
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.template.loader import render_to_string
-from django.test import Client, TestCase
+from django.test import Client, SimpleTestCase, TestCase
 from django.utils import timezone
 
 from games.models import (
@@ -116,6 +117,7 @@ class TaskGroupLikeTotalsTests(TestCase):
             'site/partials/like_totals_badge.html', {'like_totals': totals[tg.id]},
         )
         self.assertIn('Лайков: 2, дизлайков: 1', html)
+        self.assertIn('data-lead="up"', html)
         self.assertEqual(
             render_to_string('site/partials/like_totals_badge.html', {'like_totals': None}).strip(),
             '',
@@ -225,3 +227,25 @@ class PostedReactionTests(TestCase):
         self.assertEqual(self._reaction(1, 1).status_code, 400)
         self.assertEqual(self._reaction('x', 0).status_code, 400)
         self.assertEqual(self._reaction(2, 0).status_code, 400)
+
+
+class DailyTaskRateFooterTests(SimpleTestCase):
+    def _render(self, **context):
+        lm = {'likes': 1, 'dislikes': 4, 'liked': False, 'disliked': True}
+        base = {'is_daily_single_task': True, 'likes_meta_by_task_id': {7: lm}}
+        base.update(context)
+        return render_to_string('site/partials/daily_task_footer.html', base)
+
+    def test_votes_render_under_daily_board(self):
+        html = self._render(task=SimpleNamespace(id=7))
+        self.assertIn('Как вам задание?', html)
+        self.assertIn('data-lead="down"', html)
+        self.assertIn('data-dislike-btn data-task-id="7" data-disliked="1" aria-pressed="true"', html)
+
+    def test_task_list_context_uses_first_task(self):
+        html = self._render(tasks=[SimpleNamespace(id=7)])
+        self.assertIn('data-like-count="7"', html)
+
+    def test_no_votes_outside_daily_or_without_likes_meta(self):
+        self.assertNotIn('data-vote', self._render(task=SimpleNamespace(id=7), is_daily_single_task=False))
+        self.assertNotIn('data-vote', self._render(task=SimpleNamespace(id=8)))

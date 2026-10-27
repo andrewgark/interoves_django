@@ -218,7 +218,8 @@ class LadderSectionPageTests(TestCase):
             html,
         )
         self.assertEqual(html.count('class="ph-fill ph-brain"'), 4)
-        self.assertEqual(html.count('ph-brain'), 5)
+        # Five brains plus the one of the narrow-screen «🧠4» variant.
+        self.assertEqual(html.count('ph-brain'), 6)
 
     def test_hub_section_task_group_links_ladder_does_not_crash(self):
         from games.site.pages.hub.cards import _hub_section_task_group_links
