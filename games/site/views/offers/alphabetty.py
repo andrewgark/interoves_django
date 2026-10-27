@@ -42,7 +42,7 @@ def _profile_context(profile, *, ready, missing, offers, profile_error=None):
         'show_sections_nav': True,
         'profile_error': profile_error,
         'back_url': '/alphabetty/',
-        'back_label': 'К Алфавиткам',
+        'back_label': 'Все Алфавитки',
     }
 
 

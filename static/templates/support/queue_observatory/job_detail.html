@@ -6,7 +6,7 @@
     <h1 class="support-page-title">Queue job #{{ job.id }}</h1>
     <p class="support-hint">{{ job.explanation.label }} · {{ job.status }} · {{ job.replay_mode }}</p>
   </div>
-  <div class="support-links"><a href="{% url 'support:queues' %}#job-{{ job.id }}">← Observatory</a></div>
+  <div class="support-links"><a href="{% url 'support:queues' %}#job-{{ job.id }}"><i class="ph ph-arrow-left" aria-hidden="true"></i> Observatory</a></div>
 </div>
 
 <section class="pal-card new-card">

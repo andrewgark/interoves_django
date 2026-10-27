@@ -1,7 +1,7 @@
 {% extends "site/base.html" %}
 {% block title %}{{ page_title }}{% endblock %}
 {% block content %}
-<p class="new-tg-back"><a href="{{ back_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Игры</a></p>
+<p class="new-tg-back"><a href="{{ back_url|default:'/' }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Все игры</a></p>
 {% include "site/partials/page_heading.html" with heading=page_title show_rules=True %}
 {% if random_button_template %}{% include random_button_template %}{% endif %}
 

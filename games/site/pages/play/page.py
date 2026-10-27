@@ -552,9 +552,14 @@ def task_group_page(
     )
     if ladder_offer is not None and request.user.is_authenticated and ladder_offer.user_id == request.user.id:
         back_url = '/create_ladder/'
+        back_label = 'Мои Лесенки'
     elif salad_offer is not None and request.user.is_authenticated and salad_offer.user_id == request.user.id:
         back_url = '/create_salad/'
-    back_label = None
+        back_label = 'Мои Салатики'
+    elif game.project_id not in (NEW_UI_SECTIONS_PROJECT, NEW_UI_PROJECT):
+        back_label = 'Все игры'
+    else:
+        back_label = None
     if ladder_tutorial_return_to is not None:
         back_url = ladder_tutorial_return_to['url']
         back_label = 'Назад к Лесенке'
@@ -682,7 +687,7 @@ def task_group_page(
         'custom_reset_url': offer_reset_url,
         'back_url': back_url,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
-        # After the nav context: the tutorial labels its way back to the Ladder.
+        # After the nav context: offers and the tutorial lead elsewhere.
         **({'back_label': back_label} if back_label else {}),
         'page_title': page_title,
         'image_manager': ImageManager(),

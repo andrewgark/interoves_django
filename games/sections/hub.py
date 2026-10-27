@@ -226,6 +226,12 @@ def section_nav_title(section_id):
     return meta.get('nav_title') or meta.get('pager_label') or meta.get('title') or ''
 
 
+def section_all_label(section_id):
+    """«Все Лесенки» — подпись ссылки на хаб раздела, без стрелки."""
+    meta = SECTION_HUB_META.get(section_id) or {}
+    return (meta.get('all_link_label') or '').rstrip('→ ').strip()
+
+
 def section_format_credit_context(section_id):
     """Подпись «автор формата» для футера ежедневной игры."""
     meta = SECTION_HUB_META.get(section_id) or {}

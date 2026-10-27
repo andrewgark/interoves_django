@@ -35,7 +35,7 @@ def _page_context(profile, *, ready, missing, offers, error=None):
         'profile_error': error,
         'show_sections_nav': True,
         'back_url': '/censorly/',
-        'back_label': 'К Цензуркам',
+        'back_label': 'Все Цензурки',
     }
 
 

@@ -751,7 +751,6 @@ def _render_play(request, *, game, task, load_meta):
         ),
         'show_sections_nav': True,
         'back_url': section_hub_path(CENSORLY_GAME_ID),
-        'back_label': 'К списку',
         'bootstrap': {
             **state,
             'guess_url': f'{play_path}guess/',

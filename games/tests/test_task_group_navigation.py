@@ -69,6 +69,17 @@ class TaskGroupNavigationTests(SimpleTestCase):
         self.assertEqual(context['prev_task_group_number'], '1')
         self.assertEqual(context['next_task_group_name'], 'Three')
 
+    def test_section_back_label_names_the_section_hub(self):
+        ladder = SimpleNamespace(
+            id='ladder', project_id='sections', no_html_name='', outside_name='', name='',
+        )
+        unknown = SimpleNamespace(
+            id='unknown', project_id='sections', no_html_name='X', outside_name='', name='',
+        )
+
+        self.assertEqual(task_group_page_nav_context(ladder)['back_label'], 'Все Лесенки')
+        self.assertEqual(task_group_page_nav_context(unknown)['back_label'], 'Все задания')
+
     def test_daily_registry_provides_fallback_label(self):
         game = SimpleNamespace(
             id='salad',

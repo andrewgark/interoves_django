@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="new-ui new-ui--section">
-  <p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> Назад</a></p>
+  <p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"Назад" }}</a></p>
 
   <div class="new-section-header new-section-header--results">
     <div>

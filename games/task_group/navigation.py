@@ -2,7 +2,7 @@
 
 from django.utils.html import strip_tags
 
-from games.sections.hub import SECTION_HUB_META
+from games.sections.hub import SECTION_HUB_META, section_all_label
 
 
 def neighbors_by_pk(links, placement):
@@ -20,12 +20,11 @@ def neighbors_by_pk(links, placement):
 
 def task_group_page_nav_context(game, *, previous=None, following=None,
                                 sections_project_id='sections', main_project_id='main'):
+    # The back link names its destination: a section hub or the game page.
     if game.project_id == sections_project_id:
-        back_label = 'К списку'
-    elif game.project_id == main_project_id:
-        back_label = 'К игре'
+        back_label = section_all_label(game.id) or 'Все задания'
     else:
-        back_label = 'Назад'
+        back_label = 'К игре'
     section_meta = SECTION_HUB_META.get(game.id) or {}
     if section_meta.get('pager_label'):
         pager_label = section_meta['pager_label']

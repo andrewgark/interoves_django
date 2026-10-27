@@ -44,7 +44,7 @@ def _profile_context(profile, *, ready, missing, offers_json, profile_error=None
         'show_sections_nav': True,
         'profile_error': profile_error,
         'back_url': '/salad/',
-        'back_label': 'К Салатикам',
+        'back_label': 'Все Салатики',
     }
 
 

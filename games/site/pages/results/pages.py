@@ -33,6 +33,7 @@ from games.results.snapshots.snapshot import (
 from games.results.table.context import (
     results_actor_identity,
 )
+from games.sections.hub import section_all_label
 from games.site.pages import (
     NEW_UI_PROJECT,
     NEW_UI_SECTIONS_PROJECT,
@@ -108,6 +109,7 @@ def results_page(request, game_id):
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
         'back_url': '/games/{}/'.format(game.id),
+        'back_label': 'К игре',
         **data,
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
@@ -148,6 +150,7 @@ def tournament_results_page(request, game_id):
         'me_personal': None,
         'me_anon_participant': None,
         'back_url': '/games/{}/'.format(game.id),
+        'back_label': 'К игре',
         **data,
         'play_mode': effective_play_mode(
             _get_play_mode(request, game.project_id)[0], game, user=request.user,
@@ -306,6 +309,7 @@ def section_results_page(request, game_id):
         'previous_page_url': query_url(page=data['aggregate_page'].previous_page_number()) if data['aggregate_page'].has_previous() else None,
         'next_page_url': query_url(page=data['aggregate_page'].next_page_number()) if data['aggregate_page'].has_next() else None,
         'back_url': _sections_hub_url(game.id),
+        'back_label': section_all_label(game.id) or 'Все задания',
         'play_mode': play_mode,
         'play_mode_project_id': game.project_id,
         'lock_personal_play_mode': personal_play_mode_locked(game, user=request.user),
@@ -367,6 +371,7 @@ def _render_task_group_results_page(request, game, number, back_url, placement=N
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
         'back_url': back_url,
+        'back_label': 'К заданию',
         'show_solve_duration': True,
         'alphabetty_sort': alphabetty_sort,
         'show_alphabetty_detail': results_variant == 'alphabetty',
@@ -640,6 +645,7 @@ def ladder_word_results_page(request, task_group_number):
         'me_personal': me_personal,
         'me_anon_participant': me_anon_participant,
         'back_url': back_url,
+        'back_label': 'К Лесенке',
         'progressive_results': True,
         'progressive_page_size': progressive_page_size,
         **data,

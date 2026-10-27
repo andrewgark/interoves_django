@@ -510,6 +510,11 @@ def alphabetty_play_page(request, number):
         fallback_label='Алфавитка',
         fallback_pager_label='Алфавитками',
     )
+    # Share links are public; only the author goes back to their own list.
+    is_own_offer = (
+        offer is not None and request.user.is_authenticated
+        and offer.user_id == request.user.id
+    )
     return render(request, 'site/alphabetty_play.html', {
         'game': game,
         'offer_share_hash': (
@@ -542,8 +547,7 @@ def alphabetty_play_page(request, number):
         **section_format_credit_context(ALPHABETTY_GAME_ID),
         **daily_lifecycle_context,
         'show_sections_nav': True,
-        'back_url': '/create_alphabetty/' if offer is not None else section_hub_path(ALPHABETTY_GAME_ID),
-        'back_label': 'К списку',
+        'back_url': '/create_alphabetty/' if is_own_offer else section_hub_path(ALPHABETTY_GAME_ID),
         'bootstrap': state,
         'guess_url': f'{play_path}guess/',
         'state_url': f'{play_path}state/',
@@ -576,6 +580,7 @@ def alphabetty_play_page(request, number):
         **(onboarding_followup_context(ALPHABETTY_GAME_ID) if offer is None else {}),
         **meta_ctx,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
+        **({'back_label': 'Мои Алфавитки'} if is_own_offer else {}),
         **daily_timing_page_context(
             request,
             game,

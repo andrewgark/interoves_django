@@ -4,7 +4,7 @@
 {% csrf_token %}
 <h1 class="support-page-title">Пул Цензурок</h1>
 <p class="support-lead">Выберите категорию или подкатегорию. Статьи показаны по сложности; правки тегов и новые статьи сохраняются в базе.</p>
-<p><a class="new-btn new-btn--mini new-btn--ghost" href="{% url 'support:censorly' %}">← К расписанию</a></p>
+<p><a class="new-btn new-btn--mini new-btn--ghost" href="{% url 'support:censorly' %}"><i class="ph ph-arrow-left" aria-hidden="true"></i> К расписанию</a></p>
 {{ taxonomy|json_script:"censorly-pool-taxonomy" }}
 <div id="cz-pool" data-list-url="{% url 'support:censorly_pool_list' %}" data-save-url="{% url 'support:censorly_pool_save' %}" data-difficulty-save-url="{% url 'support:censorly_pool_difficulty_save' %}" data-taxonomy-save-url="{% url 'support:censorly_pool_taxonomy_save' %}">
   <section class="pal-card support-card support-ladders-toolbar"><div class="support-ladders-toolbar__row">

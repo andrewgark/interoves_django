@@ -3,7 +3,7 @@
 {% block title %}Оплата{% endblock %}
 
 {% block content %}
-<p class="new-tg-back"><a href="{% if user.is_authenticated %}{{ ui_team_url_hub|default:'/team/' }}{% else %}{{ ui_project_home_url|default:'/' }}{% endif %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {% if user.is_authenticated %}Команда{% else %}Игры{% endif %}</a></p>
+<p class="new-tg-back"><a href="{% if user.is_authenticated %}{{ ui_team_url_hub|default:'/team/' }}{% else %}{{ ui_project_home_url|default:'/' }}{% endif %}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {% if user.is_authenticated %}Команда{% else %}Все игры{% endif %}</a></p>
 
 <div class="new-pay-checkout">
   <header class="new-pay-checkout__header">

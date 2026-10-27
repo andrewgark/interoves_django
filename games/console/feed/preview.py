@@ -261,9 +261,9 @@ def build_preview_task_group_context(game_id: str, task_group_number: str, spec:
         'prev_task_group_url': prev_url,
         'next_task_group_url': next_url,
         'back_url': preview_game_url(game.id, spec),
-        'back_label': 'К списку TG',
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
+        'back_label': 'К превью игры',
         'page_title': page_title,
     }

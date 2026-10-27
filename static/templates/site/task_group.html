@@ -22,7 +22,7 @@
 {% endblock %}
 {% block content %}
 <p class="new-tg-back">
-  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"К списку" }}</a>
+  <a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"Все задания" }}</a>
 </p>
 {% if can_reset_ladder_offer and ladder_offer_reset_url and not custom_daily_task %}
 <p class="new-stack-gap">
