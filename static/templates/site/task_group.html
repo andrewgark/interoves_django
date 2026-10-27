@@ -1711,6 +1711,9 @@
   var raddleUiDraftTimers = Object.create(null);
   var raddleUiDraftPending = Object.create(null);
   var raddleUiRevisions = Object.create(null);
+  // The server refuses drafts for a finished official game (replay_required):
+  // stop autosaving that task instead of sending every keystroke for a 409.
+  var raddleUiRefused = Object.create(null);
 
   function raddleRowIsLocallyEditing(taskRoot, wordIdx) {
     if (!taskRoot || !hasRaddleInputIntent(taskRoot)) return false;
@@ -1721,7 +1724,7 @@
   }
 
   function postRaddleUi(taskId, draftsPatch, marksPatch) {
-    if (!taskId) return Promise.resolve(null);
+    if (!taskId || raddleUiRefused[taskId]) return Promise.resolve(null);
     if (!draftsPatch && !marksPatch) return Promise.resolve(null);
     var params = new URLSearchParams();
     params.set('game_id', '{{ game.id }}');
@@ -1747,6 +1750,12 @@
       credentials: 'same-origin',
     }).then(parseFetchJson).then(function (data) {
       if (data && data.context_mismatch) showGameplayContextMismatch(null);
+      else if (data && data.error === 'stale_replay') window.location.reload();
+      else if (data && data.error === 'replay_required') {
+        raddleUiRefused[taskId] = true;
+        clearTimeout(raddleUiDraftTimers[taskId]);
+        if (typeof window.revealReplayControl === 'function') window.revealReplayControl();
+      }
       var payload = data && data.raddle_ui && data.raddle_ui[String(taskId)];
       var serverRevision = payload && Number(payload.revision);
       if (Number.isFinite(serverRevision)) {
