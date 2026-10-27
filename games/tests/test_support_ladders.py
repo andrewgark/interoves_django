@@ -289,6 +289,25 @@ class LadderSupportServiceTests(TestCase):
         data2 = json.loads(Task.objects.get(pk=detail2['task_id']).checker_data)
         self.assertNotIn('mixed_script', data2)
 
+    def test_update_intro_is_important_flag(self):
+        created = ladder_svc.create_ladder(at_number=1, words=['АА', 'ББ'], hints=['x'])
+        self.assertFalse(created['intro_is_important'])
+        detail = ladder_svc.update_ladder(
+            created['link_id'],
+            words=['АА', 'ББ'],
+            hints=['x'],
+            intro='Все подсказки буквенные',
+            intro_is_important=True,
+        )
+        self.assertTrue(detail['intro_is_important'])
+        self.assertTrue(Task.objects.get(pk=detail['task_id']).text_is_important)
+        rows = ladder_svc.list_ladder_rows()
+        self.assertTrue(any(r.link_id == created['link_id'] and r.intro_is_important for r in rows))
+        detail2 = ladder_svc.update_ladder(
+            created['link_id'], words=['АА', 'ББ'], hints=['x'], intro='Тема',
+        )
+        self.assertFalse(detail2['intro_is_important'])
+
     def test_set_publish_start_shifts_dates(self):
         ladder_svc.create_ladder(at_number=1, words=['А', 'Б'], hints=['x'])
         ladder_svc.create_ladder(at_number=2, words=['В', 'Г'], hints=['y'])

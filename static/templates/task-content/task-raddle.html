@@ -6,7 +6,12 @@
   {% if rd.ui.mixed_script_notice %}
   <p class="new-raddle-task__mixed-script"><strong>{{ rd.ui.mixed_script_notice }}</strong></p>
   {% endif %}
-  {% if task.text %}
+  {% if task.text and task.text_is_important %}
+  <div class="new-raddle-task__intro new-raddle-task__intro--important" role="note">
+    <i class="ph-fill ph-warning new-raddle-task__intro-icon" aria-label="Внимание!" role="img"></i>
+    <div class="new-raddle-task__intro-text">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
+  </div>
+  {% elif task.text %}
   <div class="new-raddle-task__intro">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
   {% endif %}
   <div class="new-raddle-layout">

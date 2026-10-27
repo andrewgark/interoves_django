@@ -33,6 +33,10 @@
       <span>Текст перед Лесенкой</span>
       <textarea id="ladder-edit-intro" rows="2"></textarea>
     </label>
+    <label class="support-ladders-field support-ladders-field--check">
+      <input type="checkbox" id="ladder-edit-intro-important">
+      <span>Важное замечание (текст влияет на решение — показать в рамке со знаком «Внимание!»)</span>
+    </label>
     <label class="support-ladders-field">
       <span>Автор</span>
       <input type="text" id="ladder-edit-author" autocomplete="off">
@@ -263,6 +267,9 @@
             ' · ' + row.word_count + ' сл.' +
             (row.mixed_script
               ? ' · <span class="support-ladder-item__mixed" title="И кириллица, и латиница разрешена">кир+лат</span>'
+              : '') +
+            (row.intro_is_important
+              ? ' · <span class="support-ladder-item__mixed" title="Важное замечание в тексте перед Лесенкой">⚠ важно</span>'
               : '') +
           '</div>' +
           '<div class="support-ladder-item__preview">' + escapeHtml(row.words_preview || '') + '</div>' +
@@ -539,6 +546,7 @@
       document.getElementById('ladder-edit-intro').value = ladder.intro || '';
       document.getElementById('ladder-edit-author').value = ladder.author || '';
       document.getElementById('ladder-edit-mixed-script').checked = !!ladder.mixed_script;
+      document.getElementById('ladder-edit-intro-important').checked = !!ladder.intro_is_important;
       renderWordRows(ladder.words || [], ladder.hints || [], ladder.emojis || []);
       var prev = document.getElementById('ladder-edit-preview');
       prev.href = ladder.site_url || ladder.play_url || '#';
@@ -613,6 +621,7 @@
       hints: cur.hints,
       emojis: cur.emojis,
       intro: document.getElementById('ladder-edit-intro').value,
+      intro_is_important: document.getElementById('ladder-edit-intro-important').checked,
       author: document.getElementById('ladder-edit-author').value,
       mixed_script: document.getElementById('ladder-edit-mixed-script').checked
     })

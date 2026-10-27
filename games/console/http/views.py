@@ -1160,6 +1160,7 @@ def ladders_create(request):
         return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
     try:
         mixed_script = json_boolean_field(body, 'mixed_script')
+        intro_is_important = json_boolean_field(body, 'intro_is_important')
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     try:
@@ -1171,6 +1172,7 @@ def ladders_create(request):
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
             mixed_script=mixed_script,
+            intro_is_important=intro_is_important,
         )
         rows = ladders_dashboard_context()['ladders']
     except LadderSupportError as exc:
@@ -1197,6 +1199,7 @@ def ladders_update(request, link_id):
         return JsonResponse({'ok': False, 'error': 'emojis должен быть списком'}, status=400)
     try:
         mixed_script = json_boolean_field(body, 'mixed_script')
+        intro_is_important = json_boolean_field(body, 'intro_is_important')
     except ValueError as exc:
         return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
     try:
@@ -1208,6 +1211,7 @@ def ladders_update(request, link_id):
             intro=str(body.get('intro') or ''),
             author=str(body.get('author') or ''),
             mixed_script=mixed_script,
+            intro_is_important=intro_is_important,
         )
         rows = ladders_dashboard_context()['ladders']
     except (TypeError, ValueError):

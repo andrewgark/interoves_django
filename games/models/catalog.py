@@ -546,6 +546,11 @@ class Task(models.Model):
     number = models.CharField(max_length=100)
     image = models.ImageField(null=True, blank=True)
     text = models.TextField(null=True, blank=True)
+    text_is_important = models.BooleanField(
+        default=False,
+        verbose_name='Важное замечание',
+        help_text='Текст задания влияет на решение: Лесенка выделяет его рамкой со знаком «Внимание!».',
+    )
     checker_data = models.TextField(null=True, blank=True)
     answer = models.TextField(null=True, blank=True)
     answer_comment = models.TextField(null=True, blank=True)

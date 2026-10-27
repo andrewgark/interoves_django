@@ -8280,6 +8280,26 @@ html.is-age-gated .new-wrap {
 .new-raddle-task__intro {
   margin-bottom: 0.75rem;
 }
+.new-raddle-task__intro--important {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.65rem 0.85rem;
+  border: 3px solid var(--warning);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
+}
+.new-raddle-task__intro-icon {
+  flex: none;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--warning);
+}
+.new-raddle-task__intro-text {
+  min-width: 0;
+  overflow-wrap: break-word;
+  align-self: center;
+}
 .new-raddle-layout {
   display: grid;
   grid-template-columns: minmax(0, var(--raddle-ladder-max)) minmax(var(--raddle-clues-min), 1fr);

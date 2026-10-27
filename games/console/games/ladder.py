@@ -71,6 +71,7 @@ class LadderRow:
     intro: str
     play_url: str
     mixed_script: bool = False
+    intro_is_important: bool = False
     site_url: str = ''
     is_deferred: bool = False
 
@@ -209,6 +210,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
             'emojis': [],
             'author': '',
             'intro': '',
+            'intro_is_important': False,
             'mixed_script': False,
             'word_count': 0,
             'words_preview': '',
@@ -242,6 +244,7 @@ def _parse_task_payload(task: Optional[Task]) -> dict[str, Any]:
         'emojis': emojis,
         'author': author,
         'intro': intro,
+        'intro_is_important': bool(task.text_is_important),
         'mixed_script': mixed_script,
         'word_count': len(words),
         'words_preview': preview,
@@ -291,6 +294,7 @@ def list_ladder_rows(*, now: datetime | None = None) -> list[LadderRow]:
             intro=payload['intro'],
             play_url=f'/{LADDER_GAME_ID}/{number}/',
             mixed_script=bool(payload.get('mixed_script')),
+            intro_is_important=payload['intro_is_important'],
             site_url=site_urls.get(link.task_group_id, ''),
             is_deferred=link.is_deferred,
         ))
@@ -318,6 +322,7 @@ def get_ladder_detail(link_id: int) -> dict[str, Any]:
         'name': link.name,
         'publish_date': pub.date().isoformat() if pub else None,
         'intro': payload['intro'],
+        'intro_is_important': payload['intro_is_important'],
         'author': payload['author'],
         'words': payload['words'],
         'hints': payload['hints'],
@@ -460,6 +465,7 @@ def _create_task_group_and_task(
     intro: str,
     author: str,
     mixed_script: bool = False,
+    intro_is_important: bool = False,
 ) -> GameTaskGroup:
     errors = validate_ladder_content(words, hints, emojis=emojis, mixed_script=mixed_script)
     if errors:
@@ -484,6 +490,7 @@ def _create_task_group_and_task(
         checker_data=json.dumps(payload, ensure_ascii=False),
         answer='\n'.join(payload['words']),
         text=_normalize_intro(intro),
+        text_is_important=intro_is_important,
         tags=tags,
         points=1,
         max_attempts=None,
@@ -539,6 +546,7 @@ def create_ladder(
     intro: str = '',
     author: str = '',
     mixed_script: bool = False,
+    intro_is_important: bool = False,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     """Вставить Лесенку с публичным номером at_number; сдвинуть остальные вверх.
@@ -558,6 +566,7 @@ def create_ladder(
         intro=intro,
         author=author,
         mixed_script=mixed_script,
+        intro_is_important=intro_is_important,
     )
     return get_ladder_detail(link.pk)
 
@@ -572,6 +581,7 @@ def update_ladder(
     intro: str = '',
     author: str = '',
     mixed_script: bool = False,
+    intro_is_important: bool = False,
     now: datetime | None = None,
 ) -> dict[str, Any]:
     game = get_ladder_game()
@@ -605,6 +615,7 @@ def update_ladder(
             'checker_data': json.dumps(payload, ensure_ascii=False),
             'answer': '\n'.join(payload['words']),
             'text': _normalize_intro(intro),
+            'text_is_important': intro_is_important,
             'tags': tags,
             'points': 1,
             'max_attempts': None,

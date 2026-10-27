@@ -364,6 +364,33 @@ class RenderNewUiTaskCardTests(TestCase):
         self.assertIn('🪜 Лесенка 4.2', html)
         self.assertIn('🔗 interoves.com/games/desyatka/4/2', html)
 
+    def test_raddle_important_intro_is_boxed_with_warning_icon(self):
+        task = SimpleNamespace(
+            id=124,
+            tags={},
+            text='Все слова получаются добавлением букв',
+            text_is_important=True,
+            task_type='raddle',
+            get_player_hints=[],
+            number='1',
+        )
+        context = {
+            'request': RequestFactory().get('/'),
+            'task': task,
+            'rd': {'ui': {'rows': []}},
+            'game': SimpleNamespace(id='ladder', name='Лесенка', outside_name=''),
+        }
+        html = render_to_string('task-content/task-raddle.html', context)
+        self.assertIn('new-raddle-task__intro--important', html)
+        self.assertIn('ph-warning', html)
+        self.assertIn('Все слова получаются добавлением букв', html)
+
+        task.text_is_important = False
+        html = render_to_string('task-content/task-raddle.html', context)
+        self.assertIn('new-raddle-task__intro', html)
+        self.assertNotIn('new-raddle-task__intro--important', html)
+        self.assertNotIn('ph-warning', html)
+
     def test_word_salad_result_share_is_limited_to_salad_game(self):
         request = RequestFactory().get('/')
         ws = {
