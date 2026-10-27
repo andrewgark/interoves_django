@@ -62,6 +62,21 @@ def _is_word_salad_author(request, game, task):
     return task.task_group.authors.filter(user_id=request.user.pk).exists()
 
 
+def user_owns_offer_for_link(user, link) -> bool:
+    """Whether this player submitted the offer now parked on this schedule slot."""
+    if link is None or not getattr(link, 'pk', None):
+        return False
+    if not getattr(user, 'is_authenticated', False):
+        return False
+    from games.models import AlphabettyOffer, LadderOffer, WordSaladOffer
+
+    user_id = user.pk
+    return any(
+        model.objects.filter(accepted_link_id=link.pk, user_id=user_id).exists()
+        for model in (LadderOffer, WordSaladOffer, AlphabettyOffer)
+    )
+
+
 def unpublished_scheduled_task_response(request, game, task):
     """Reject authoritative writes to a scheduled release before publication.
 
@@ -79,6 +94,10 @@ def unpublished_scheduled_task_response(request, game, task):
         game=game, task_group_id=task.task_group_id,
     ).only('number', 'is_deferred', 'share_hash').first()
     if link is not None and link.is_deferred:
+        # A parked slot stays off the public schedule. Its author can still
+        # open the share link and keep testing the puzzle.
+        if user_owns_offer_for_link(request.user, link):
+            return None
         return {'status': 'not_published', 'error': 'not_published'}
     if link is not None and not scheduled_number_is_public(game, link.number):
         # Permanent random editions use an opaque hash as their GameTaskGroup

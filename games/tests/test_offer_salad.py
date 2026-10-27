@@ -250,10 +250,13 @@ class WordSaladOfferFlowTests(TestCase):
         html = client.get(offer.play_url()).content.decode('utf-8')
         self.assertIn('Полностью сбросить решение', html)
         self.assertNotIn('/replay/', html)
+        self.assertNotIn('сохранилось между окнами', html)
 
         anon_html = Client().get(offer.play_url()).content.decode('utf-8')
         self.assertIn('Полностью сбросить решение', anon_html)
         self.assertNotIn('/replay/', anon_html)
+        self.assertIn('Войдите, чтобы решение сохранилось между окнами.', anon_html)
+        self.assertIn('/accounts/login/?next=', anon_html)
 
     def test_anonymous_player_resets_own_draft_run(self):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)

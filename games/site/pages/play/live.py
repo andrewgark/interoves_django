@@ -118,11 +118,16 @@ def task_group_live_state(request, game_id, project_id=None):
 
     if not request.user.is_staff:
         from games.club.access.archive import reject_if_club_archive_blocked
-        from games.site.views.game.context import unpublished_scheduled_task_response
+        from games.site.views.game.context import (
+            unpublished_scheduled_task_response,
+            user_owns_offer_for_link,
+        )
 
         for placement in placements:
-            if placement.is_deferred:
+            if placement.is_deferred and not user_owns_offer_for_link(request.user, placement):
                 raise Http404()
+            if placement.is_deferred:
+                continue
             if not scheduled_number_is_public(game, placement.number):
                 task = next(
                     (item for item in tasks if item.task_group_id == placement.task_group_id),

@@ -27,6 +27,9 @@
 
 {% if is_daily_single_task %}
 {% include "site/partials/daily_game_header.html" %}
+{% if anon_offer_login_hint %}
+<p class="new-login-hint new-stack-gap">Войдите, чтобы решение сохранилось между окнами. <a class="new-link-dotted" href="/accounts/login/?next={{ request.get_full_path|urlencode }}">Войти</a></p>
+{% endif %}
 {% if author_auto_completed %}
 <div class="new-author-completion-note" role="status">
   <div class="new-author-completion-note__title"><i class="ph ph-check-circle" aria-hidden="true"></i> Вы автор этого задания</div>

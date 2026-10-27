@@ -383,7 +383,19 @@ def task_group_page(
             if fallback:
                 return redirect(_play_url_for_task_group(game, fallback.number))
             raise Http404()
-    if getattr(placement, 'is_deferred', False) and not may_open_unpublished_number(request.user):
+    # A parked slot is not a public daily. Staff preview it, and the player
+    # who submitted the offer can still open its share link.
+    owns_deferred_offer = (
+        request.user.is_authenticated
+        and draft_offer is not None
+        and getattr(draft_offer, 'accepted_link_id', None)
+        and draft_offer.user_id == request.user.id
+    )
+    if (
+        getattr(placement, 'is_deferred', False)
+        and not may_open_unpublished_number(request.user)
+        and not owns_deferred_offer
+    ):
         raise Http404()
     task_group = placement.task_group
     if ladder_tutorial_task is not None or (game.id == LADDER_GAME_ID and ladder_offer is not None) or (
@@ -521,7 +533,24 @@ def task_group_page(
         or (getattr(draft_offer, 'share_hash', '') or '').strip()
     )
 
-    if ladder_tutorial_task is not None:
+    placement_is_deferred = getattr(placement, 'is_deferred', False)
+    # The share link of an accepted, already published release is the same
+    # daily as its number. Time that solve. Drafts and parked slots stay untimed.
+    published_offer_release = (
+        draft_offer is not None
+        and bool(getattr(draft_offer, 'accepted_link_id', None))
+        and isinstance(placement, GameTaskGroup)
+        and not placement_is_deferred
+        and scheduled_number_is_public(game, placement.number)
+    )
+    anon_offer_login_hint = (
+        ladder_tutorial_task is None
+        and draft_offer is not None
+        and not getattr(draft_offer, 'accepted_link_id', None)
+        and not request.user.is_authenticated
+    )
+
+    if ladder_tutorial_task is not None or placement_is_deferred:
         ladder_results_url = None
     elif ladder_offer is not None:
         ladder_results_url = ladder_word_results_path(ladder_offer.share_hash)
@@ -650,6 +679,7 @@ def task_group_page(
         )[1],
         'task_group_results_url': (
             '' if ladder_tutorial_task is not None
+            or placement_is_deferred
             or (salad_offer is not None and not salad_offer.accepted_link_id)
             else _task_group_results_url(game, public_task_segment)
         ),
@@ -695,6 +725,7 @@ def task_group_page(
         'ladder_tutorial_offer': ladder_tutorial_offer,
         'custom_reset_enabled': can_reset_offer,
         'custom_reset_url': offer_reset_url,
+        'anon_offer_login_hint': anon_offer_login_hint,
         'back_url': back_url,
         **_task_group_page_nav_context(game, prev_tg=prev_tg, next_tg=next_tg),
         # After the nav context: offers and the tutorial lead elsewhere.
@@ -726,14 +757,19 @@ def task_group_page(
             user=user,
             anon_key=anon_key,
             play_mode=play_mode,
-            is_offer=draft_offer is not None,
+            is_offer=draft_offer is not None and not published_offer_release,
             replay_slot=replay_slot,
             # The author already has the official daily credit; do not start
             # a solving timer merely because they opened their own release.
             official_completed=official_completed or author_auto_completed,
             timing_url=(
-                '{}timing/'.format(section_play_path(game.id, share_placement.share_hash))
-                if share_placement is not None and draft_offer is None
+                '{}timing/'.format(section_play_path(
+                    game.id,
+                    draft_offer.share_hash if published_offer_release else share_placement.share_hash,
+                ))
+                if published_offer_release or (
+                    share_placement is not None and draft_offer is None
+                )
                 else None
             ),
         ),

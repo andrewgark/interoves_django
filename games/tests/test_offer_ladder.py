@@ -557,6 +557,64 @@ class LadderOfferFlowTests(TestCase):
         self.assertContains(during, exit_url)
         self.assertNotContains(during, 'Полностью сбросить решение')
 
+    def test_published_share_link_runs_the_daily_timer(self):
+        self.game.tags = {
+            **(self.game.tags or {}),
+            LADDER_PUBLISH_START_TAG: '2020-01-01T00:00:00+03:00',
+        }
+        self.game.save(update_fields=['tags'])
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
+        send_offer(offer)
+        accept_offer(offer, at_number=7)
+        offer.refresh_from_db()
+
+        page = Client().get(offer.play_url())
+        self.assertContains(page, '/ladder/{}/timing/'.format(offer.share_hash))
+        self.assertNotContains(page, 'сохранилось между окнами')
+
+        self.game.tags = {
+            **(self.game.tags or {}),
+            LADDER_PUBLISH_START_TAG: '2099-01-01T00:00:00+03:00',
+        }
+        self.game.save(update_fields=['tags'])
+        future = Client().get(offer.play_url())
+        self.assertNotContains(future, 'daily_solve_timer.js')
+
+    def test_author_can_open_and_play_a_parked_offer(self):
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
+        send_offer(offer)
+        accept_offer(offer, at_number=8)
+        offer.refresh_from_db()
+        link = offer.accepted_link
+        link.is_deferred = True
+        link.save(update_fields=['is_deferred'])
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+
+        author = Client()
+        author.force_login(self.user)
+        page = author.get(offer.play_url())
+        self.assertEqual(page.status_code, 200)
+        self.assertNotContains(page, 'daily_solve_timer.js')
+        self.assertNotContains(page, '/ladder/{}/results/'.format(offer.share_hash))
+
+        stranger = Client()
+        stranger.force_login(self.other)
+        self.assertEqual(stranger.get(offer.play_url()).status_code, 404)
+        self.assertEqual(Client().get(offer.play_url()).status_code, 404)
+
+        ui_url = '/send_raddle_ui/{}/'.format(task.pk)
+        payload = {'game_id': LADDER_GAME_ID, 'drafts': json.dumps({'1': 'БЕ'})}
+        self.assertEqual(
+            stranger.post(ui_url, dict(payload, offer_share=offer.share_hash)).json()['status'],
+            'not_published',
+        )
+        self.assertEqual(
+            author.post(ui_url, dict(payload, offer_share=offer.share_hash)).json()['status'],
+            'ok',
+        )
+
     def test_future_ladder_ui_drafts_require_custom_share_context(self):
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
