@@ -235,3 +235,13 @@ function payload(overrides) {
   assert.strictEqual(a, b);
   assert.notStrictEqual(a, c);
 })();
+
+(function testAchievementsArePillsUnderTheHeadline() {
+  var plain = card.buildShareCardSvg(payload());
+  var svg = card.buildShareCardSvg(payload({ achievements: ['⚡ Быстрее всех!', '🎯 Без лишних попыток!'] }));
+  assert.strictEqual(plain.indexOf('Быстрее всех'), -1);
+  var headline = svg.indexOf('Лесенка #46 решена за 4:32');
+  var pill = svg.indexOf('⚡ Быстрее всех!');
+  assert.ok(headline !== -1 && pill > headline);
+  assert.ok(svg.indexOf('🎯 Без лишних попыток!') > pill);
+})();

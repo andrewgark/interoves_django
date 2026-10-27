@@ -30,7 +30,7 @@ from games.puzzles.alphabetty.play import (
 from games.daily.registry import DAILY_GAME_REGISTRY
 
 
-CACHE_VERSION = 22
+CACHE_VERSION = 23
 CACHE_TIMEOUT = 10 * 60
 REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 CACHE_BUILD_LOCK_TIMEOUT = 30
@@ -44,6 +44,11 @@ POPULAR_LIMIT = 20
 POPULAR_MIN_ENTRIES = 5
 CENSORLY_POPULAR_MIN_ENTRIES = 1
 BOUND_WORDS_LIMIT = 10
+# Cached per-actor results for personal comparisons; never sent to clients.
+RANKING_KEY = '_ranking'
+# Fewer solvers make a percentile noise, and a low one only discourages.
+RANKING_MIN_SOLVED = 10
+RANKING_MIN_PERCENT = 25
 logger = logging.getLogger(__name__)
 
 
@@ -227,6 +232,75 @@ def _mean(values):
 
 def _pct(n, total):
     return round(100.0 * n / total, 1) if total else 0
+
+
+def _personal_comparison(value, median_value, others):
+    """Player's result against the median; lower is better."""
+    if value is None or median_value is None:
+        return None
+    out = {'value': value, 'median': median_value, 'better_percent': None, 'best': False}
+    # ``others`` is None when the player is outside the counted population
+    # (hidden, pre-publication): their result is not ranked against it.
+    if others and len(others) + 1 >= RANKING_MIN_SOLVED:
+        worse = sum(1 for other in others if other > value)
+        if worse == len(others):
+            out['best'] = True
+        else:
+            # Floored and over strictly worse results, so ties never inflate it.
+            percent = worse * 100 // len(others)
+            if percent >= RANKING_MIN_PERCENT:
+                out['better_percent'] = percent
+    return out
+
+
+def personal_statistics(payload, *, actor_key, personal_time_seconds):
+    """Public statistics payload with the requesting player's comparisons."""
+    ranking = payload.get(RANKING_KEY) or {}
+    summary = payload.get('summary') or {}
+    public = {key: value for key, value in payload.items() if key != RANKING_KEY}
+    times = ranking.get('times') or {}
+    comparison = {'time': _personal_comparison(
+        personal_time_seconds, summary.get('median_time_seconds'),
+        [seconds for key, seconds in times.items() if key != actor_key]
+        if actor_key in times else None,
+    )}
+    if 'median_attempts' in summary:
+        attempts = ranking.get('attempts') or {}
+        attempt_comparison = _personal_comparison(
+            attempts.get(actor_key), summary.get('median_attempts'),
+            [count for key, count in attempts.items() if key != actor_key],
+        )
+        if attempt_comparison is not None:
+            attempt_comparison['perfect'] = actor_key in (ranking.get('perfect') or ())
+            if payload.get('kind') == 'alphabet' and attempt_comparison['value'] == 1:
+                # The first guess carries no information, so a one-guess
+                # Алфавитка is luck or a peek: compare it, do not praise it.
+                attempt_comparison.update(best=False, better_percent=None)
+        comparison['attempts'] = attempt_comparison
+    public['comparison'] = comparison
+    public['achievements'] = _achievements(comparison)
+    return public
+
+
+# Shown with an icon in the statistics and as an emoji line in «Ваш результат»,
+# its copied text and the story card.
+ACHIEVEMENTS = {
+    'fastest': {'emoji': '⚡️', 'icon': 'lightning', 'text': 'Быстрее всех!'},
+    'fewest_attempts': {'emoji': '🏆', 'icon': 'trophy', 'text': 'Меньше всех попыток!'},
+    'perfect': {'emoji': '🎯', 'icon': 'target', 'text': 'Без лишних попыток!'},
+}
+
+
+def _achievements(comparison):
+    codes = []
+    if (comparison.get('time') or {}).get('best'):
+        codes.append('fastest')
+    attempts = comparison.get('attempts') or {}
+    if attempts.get('perfect'):
+        codes.append('perfect')
+    elif attempts.get('best'):
+        codes.append('fewest_attempts')
+    return [{'code': code, **ACHIEVEMENTS[code]} for code in codes]
 
 
 def build_attempt_histogram(values, tail_from=30):
@@ -443,9 +517,10 @@ class _LastGuessLemma(Func):
         return self.as_sql(compiler, connection, template=self._SQLITE, **extra_context)
 
 
-def _completed_times(game, task_group, actors):
+def _completed_time_map(game, task_group, actors):
+    """Actor key -> canonical solve seconds for completed players."""
     if not actors:
-        return []
+        return {}
     rows = DailySolveTiming.objects.filter(
         game=game, task_group=task_group, status=DailySolveTiming.STATUS_COMPLETED,
         replay_slot__isnull=True,
@@ -490,7 +565,7 @@ def _completed_times(game, task_group, actors):
             seconds = elapsed_seconds_from_attempts(attempts_by_actor.get(key, []))
             if seconds > 0:
                 values[key] = seconds
-    return list(values.values())
+    return values
 
 
 def _chain_states(task, game, actors):
@@ -628,9 +703,11 @@ def _salad(task, game, actors):
         for index in range(len(words))
     ]
     word_rows.sort(key=lambda item: (item['average_order'] is None, item['average_order'] if item['average_order'] is not None else 0))
+    solve_times = _completed_time_map(game, task.task_group, actors)
     return {
         'kind': 'salad', 'solved': total,
-        'summary': {'solved': total, 'median_time_seconds': _median(_completed_times(game, task.task_group, actors)), 'without_hints_percent': _pct(no_hints, total)},
+        'summary': {'solved': total, 'median_time_seconds': _median(list(solve_times.values())), 'without_hints_percent': _pct(no_hints, total)},
+        RANKING_KEY: {'times': solve_times},
         'words': word_rows,
         'popular_findings': popular_findings, 'rare': rare_rows, 'off_topic': extra_rows,
         'long_found': long_found, 'long_missing': long_missing, 'long_words': long_words[:20],
@@ -683,9 +760,11 @@ def _ladder(task, game, actors):
                 hint_counts[index] += 1
         if solved_order:
             last_word_counts[solved_order[-1]] += 1
+    solve_times = _completed_time_map(game, task.task_group, actors)
     return {
         'kind': 'ladder', 'solved': total,
-        'summary': {'solved': total, 'median_time_seconds': _median(_completed_times(game, task.task_group, actors)), 'without_hints_percent': _pct(no_hints, total)},
+        'summary': {'solved': total, 'median_time_seconds': _median(list(solve_times.values())), 'without_hints_percent': _pct(no_hints, total)},
+        RANKING_KEY: {'times': solve_times},
         'word_stats_available': all(times[index] for index in range(1, parsed['n_words'] - 1)),
         'words': [
             {
@@ -724,6 +803,7 @@ def _alphabet(task, game, actors):
     states = _latest_states(task, game, actors, attempts)
     answer = secret_from_task(task)
     attempt_counts = []
+    actor_attempts = {}
     guesses = defaultdict(set)
     above_bounds = defaultdict(set)
     below_bounds = defaultdict(set)
@@ -734,6 +814,7 @@ def _alphabet(task, game, actors):
             continue
         n = len(rows)
         attempt_counts.append(n)
+        actor_attempts[actor] = n
         for row in rows:
             guess = normalize_word(row.text)
             if guess and guess != answer and row.status != 'Ok':
@@ -753,16 +834,18 @@ def _alphabet(task, game, actors):
     popular_guesses = _popular_word_rows(guesses, limit=POPULAR_LIMIT)
     above_words = _popular_word_rows(above_bounds, limit=BOUND_WORDS_LIMIT)
     below_words = _popular_word_rows(below_bounds, limit=BOUND_WORDS_LIMIT)
+    solve_times = _completed_time_map(game, task.task_group, actors)
     return {
         'kind': 'alphabet',
         'solved': len(actors),
         'summary': {
             'solved': len(actors),
             'median_attempts': _median(attempt_counts),
-            'median_time_seconds': _median(_completed_times(game, task.task_group, actors)),
+            'median_time_seconds': _median(list(solve_times.values())),
             'without_hints_percent': _pct(no_hints, len(actors)),
         },
         'distribution': histogram,
+        RANKING_KEY: {'times': solve_times, 'attempts': actor_attempts},
         'guesses': popular_guesses,
         'above_words': above_words,
         'below_words': below_words,
@@ -774,6 +857,7 @@ def _censorly(task, game, actors):
     from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
     from games.puzzles.censorly.play import hint_count as censorly_hint_count
     from games.puzzles.censorly.play import load_state as load_censorly_state
+    from games.puzzles.censorly.play import minimal_title_attempts
     from games.puzzles.censorly.play import puzzle_from_task
     from games.puzzles.censorly.article.redact import title_opening_lemmas
     from games.puzzles.censorly.text.tokenize import title_content_lemmas
@@ -795,7 +879,15 @@ def _censorly(task, game, actors):
     payload = puzzle_from_task(task) or {}
     title_lemmas = title_content_lemmas(payload)
     title_opening = title_opening_lemmas(payload)
+    try:
+        minimum_attempts = minimal_title_attempts(payload, task=task)
+    except Exception:
+        # A matcher failure must not take the whole statistics block down.
+        logger.warning('censorly_minimal_attempts_failed task=%s', task.pk, exc_info=True)
+        minimum_attempts = None
     attempt_counts = []
+    actor_attempts = {}
+    perfect = set()
     lemma_players = defaultdict(set)
     last_before_win = defaultdict(set)
     no_hints = 0
@@ -812,9 +904,13 @@ def _censorly(task, game, actors):
             if row.text and not str(row.text).startswith('#hint:')
         ]
         attempt_counts.append(len(real_guesses))
+        actor_attempts[actor] = len(real_guesses)
         state = load_censorly_state(states.get(actor))
         if censorly_hint_count(state) == 0:
             no_hints += 1
+            # A guess from outside the article may beat the computed minimum.
+            if minimum_attempts and len(real_guesses) <= minimum_attempts:
+                perfect.add(actor)
         for row in real_guesses:
             lemma = lemma_from_row(row)
             if lemma and lemma not in title_lemmas:
@@ -842,16 +938,18 @@ def _censorly(task, game, actors):
         if len(players) >= 1
     ][:POPULAR_LIMIT]
     histogram = _build_censorly_attempt_histogram(attempt_counts)
+    solve_times = _completed_time_map(game, task.task_group, actors)
     return {
         'kind': 'censorly',
         'solved': len(actors),
         'summary': {
             'solved': len(actors),
             'median_attempts': _median(attempt_counts),
-            'median_time_seconds': _median(_completed_times(game, task.task_group, actors)),
+            'median_time_seconds': _median(list(solve_times.values())),
             'without_hints_percent': _pct(no_hints, len(actors)),
         },
         'distribution': histogram,
+        RANKING_KEY: {'times': solve_times, 'attempts': actor_attempts, 'perfect': perfect},
         'popular_words': popular,
         'last_words': last_words,
     }

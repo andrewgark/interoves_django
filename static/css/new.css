@@ -8568,6 +8568,10 @@ html.is-age-gated .new-wrap {
   font-size: 1.05rem;
   letter-spacing: 0.02em;
 }
+.new-raddle-result__achievement {
+  font-weight: 700;
+  color: var(--warning-hover);
+}
 .new-raddle-result__link {
   font-size: 0.85rem;
   color: var(--muted);
@@ -8602,6 +8606,19 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; margin-bottom: .8rem; }
 .new-daily-statistics__metric { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .18rem; min-width: 0; padding: .6rem .3rem .5rem; border: 1px solid color-mix(in srgb, var(--border) 72%, transparent); border-radius: .6rem; background: color-mix(in srgb, var(--surface) 70%, var(--accent) 5%); color: var(--muted); font-size: .76rem; line-height: 1.15; text-align: center; }
 .new-daily-statistics__metric strong { color: var(--text); font-size: 1.55rem; line-height: 1; }
+/* Player's result beside the median: the own value leads, the median trails. */
+.new-daily-statistics__metric--compare strong { display: inline-flex; align-items: baseline; justify-content: center; gap: .3rem; max-width: 100%; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.new-daily-statistics__versus { display: inline-flex; align-items: baseline; gap: .22rem; color: var(--muted); font-size: .95rem; font-weight: 600; }
+.new-daily-statistics__versus i { font-style: normal; font-weight: 700; }
+.new-daily-statistics__metric--compare.is-better .new-daily-statistics__versus i { color: var(--success); }
+.new-daily-statistics__metric--compare.is-better > span { color: var(--success); font-weight: 600; }
+.new-daily-statistics__metric--compare { cursor: help; }
+.new-daily-statistics__metric--compare > span.new-daily-statistics__achievement { display: inline-flex; align-items: center; gap: .2rem; color: var(--warning-hover); font-weight: 700; }
+.new-daily-statistics__achievement .ph-fill, .new-daily-statistics__metric--compare.is-perfect strong .ph-fill { color: var(--warning); }
+.new-daily-statistics__metric--compare.is-perfect strong .ph-fill { font-size: .9em; }
+.new-daily-statistics__metric--compare:has(> .new-daily-statistics__achievement) { border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); background: color-mix(in srgb, var(--warning) 10%, var(--surface)); }
+.new-daily-statistics__metric--compare.is-perfect { border-color: color-mix(in srgb, var(--warning) 55%, var(--border)); background: color-mix(in srgb, var(--warning) 14%, var(--surface)); box-shadow: 0 0 0 1px color-mix(in srgb, var(--warning) 22%, transparent), 0 .35rem 1.1rem color-mix(in srgb, var(--warning) 22%, transparent); }
+.new-daily-statistics__metric--compare.is-perfect > span { color: var(--warning-hover); font-weight: 700; }
 .new-daily-statistics__body { display: grid; grid-template-columns: minmax(240px, .9fr) minmax(220px, 1.1fr); gap: 1.35rem; align-items: start; }
 .new-daily-statistics__section { margin-top: .35rem; min-width: 0; }
 .new-daily-statistics__section h3 { margin: 0 0 .55rem; color: var(--muted); font-size: .82rem; font-weight: 700; letter-spacing: .02em; }
@@ -8658,9 +8675,13 @@ html.is-age-gated .new-wrap {
 .new-daily-statistics__finding-pill.is-missing { border-color: color-mix(in srgb, var(--muted) 28%, var(--border)); background: color-mix(in srgb, var(--muted) 12%, var(--surface)); color: var(--muted); }
 @media (min-width: 920px) {
   .new-daily-statistics { margin-top: 1.25rem; }
-  .new-daily-statistics__summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .new-daily-statistics__summary { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .new-daily-statistics__summary--alphabet,
-  .new-daily-statistics__summary--censorly { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .new-daily-statistics__summary--censorly { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 919px) {
+  /* Three tiles stay on one row; the comparison needs the widest column. */
+  .new-daily-statistics__summary:not(.new-daily-statistics__summary--alphabet):not(.new-daily-statistics__summary--censorly) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) minmax(0, 1fr); }
 }
 @media (max-width: 919px) {
   .new-daily-results-layout > .new-raddle-result { align-self: center; }
@@ -8670,6 +8691,8 @@ html.is-age-gated .new-wrap {
 @media (max-width: 420px) {
   .new-daily-statistics { padding: .8rem; }
   .new-daily-statistics__summary { gap: .45rem; }
+  .new-daily-statistics__metric strong { font-size: 1.35rem; }
+  .new-daily-statistics__versus { font-size: .85rem; }
   .new-daily-statistics__list li { gap: .4rem; }
   .new-daily-statistics__finding-pill,
   .new-daily-statistics__word-pill {

@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from games.daily.timing.statistics import (
     _RELEASE_CACHE_LOCK_SCRIPT,
+    RANKING_KEY,
     CACHE_BUILD_LOCK_TIMEOUT,
     CACHE_TIMEOUT,
     REVISION_TIMEOUT,
@@ -23,6 +24,7 @@ from games.daily.timing.statistics import (
     build_daily_statistics,
     cache_key,
     invalidate_daily_statistics,
+    personal_statistics,
 )
 from games.models import (
     Attempt,
@@ -635,6 +637,31 @@ class DailyStatisticsTests(TestCase):
         self.assertEqual(data['distribution'][1]['count'], 1)
         self.assertEqual(data['distribution'][-1]['label'], '151+')
 
+    def test_censorly_perfect_solve_needs_minimal_attempts_and_no_hints(self):
+        from games.puzzles.censorly.play import dump_state
+        from games.puzzles.censorly.text.tokenize import build_puzzle_payload
+
+        game, tg, task = self._censorly_task('censorly perfect solve')
+        task.checker_data = json.dumps(build_puzzle_payload(wiki_title='Тест', body_text='Текст статьи.'))
+        task.save(update_fields=['checker_data'])
+        won = dump_state({'guesses': [{'lemma': 'тест'}], 'won': True})
+        self._censorly_solve(game, tg, task, self.users[0], [('тест', 'Ok', won)])
+        self._censorly_solve(game, tg, task, self.users[1], [
+            ('кошка', 'Wrong', dump_state({'guesses': [{'lemma': 'кошка'}]})),
+            ('тест', 'Ok', won),
+        ])
+        self._censorly_solve(game, tg, task, self.users[2], [
+            ('#hint:тест', 'Partial', dump_state({'hints_taken': 1})),
+            ('тест', 'Ok', dump_state({'guesses': [{'lemma': 'тест'}], 'hints_taken': 1, 'won': True})),
+        ])
+
+        ranking = build_daily_statistics(game, tg)[RANKING_KEY]
+
+        self.assertEqual(ranking['attempts'], {
+            ('user', user.id): count for user, count in zip(self.users, (1, 2, 1))
+        })
+        self.assertEqual(ranking['perfect'], {('user', self.users[0].id)})
+
     def test_ladder_uses_success_order_and_active_intervals(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()
         if game is None:
@@ -778,3 +805,91 @@ class DailyStatisticsTests(TestCase):
             stats.json()['exclusion_notice'],
             'Вы не учтены в статистике, потому что вы автор этого задания.',
         )
+
+
+class PersonalStatisticsTests(TestCase):
+    me = ('user', 1)
+
+    def _payload(self, times, attempts=None, perfect=()):
+        summary = {'solved': len(times), 'median_time_seconds': 60.0}
+        ranking = {'times': times}
+        if attempts is not None:
+            summary['median_attempts'] = 5.0
+            ranking.update(attempts=attempts, perfect=set(perfect))
+        return {'kind': 'censorly', 'summary': summary, RANKING_KEY: ranking}
+
+    def _others(self, values):
+        return {('user', index + 2): value for index, value in enumerate(values)}
+
+    def test_percent_counts_strictly_worse_others_and_strips_ranking(self):
+        times = {self.me: 50, **self._others([40, 50, 60, 70, 80, 90, 100, 110, 120, 130])}
+
+        data = personal_statistics(self._payload(times), actor_key=self.me, personal_time_seconds=50)
+
+        self.assertNotIn(RANKING_KEY, data)
+        # 8 of 10 others are slower; the tie does not count.
+        self.assertEqual(data['comparison']['time'], {
+            'value': 50, 'median': 60.0, 'better_percent': 80, 'best': False,
+        })
+
+    def test_percent_hidden_below_threshold_or_with_few_solvers(self):
+        many = {self.me: 125, **self._others([40, 50, 60, 70, 80, 90, 100, 110, 120, 130])}
+        few = {self.me: 50, **self._others([60, 70, 80])}
+
+        slow = personal_statistics(self._payload(many), actor_key=self.me, personal_time_seconds=125)
+        early = personal_statistics(self._payload(few), actor_key=self.me, personal_time_seconds=50)
+
+        self.assertIsNone(slow['comparison']['time']['better_percent'])
+        self.assertIsNone(early['comparison']['time']['better_percent'])
+        self.assertFalse(early['comparison']['time']['best'])
+
+    def test_best_result_and_perfect_attempts(self):
+        times = {self.me: 30, **self._others(range(40, 130, 10))}
+        attempts = {self.me: 2, **self._others([3] * 9)}
+
+        data = personal_statistics(
+            self._payload(times, attempts, perfect=[self.me]),
+            actor_key=self.me, personal_time_seconds=30,
+        )
+
+        self.assertTrue(data['comparison']['time']['best'])
+        self.assertTrue(data['comparison']['attempts']['best'])
+        self.assertTrue(data['comparison']['attempts']['perfect'])
+        # Perfect wins over «fewest attempts»; both come with the share emoji.
+        self.assertEqual(
+            [(item['code'], item['emoji'], item['text']) for item in data['achievements']],
+            [('fastest', '⚡️', 'Быстрее всех!'), ('perfect', '🎯', 'Без лишних попыток!')],
+        )
+
+    def test_fewest_attempts_but_no_praise_for_a_one_guess_alphabet(self):
+        times = {self.me: 90, **self._others(range(40, 130, 10))}
+
+        fewest = personal_statistics(
+            self._payload(times, {self.me: 2, **self._others([3] * 9)}),
+            actor_key=self.me, personal_time_seconds=90,
+        )
+        one_guess = personal_statistics(
+            {**self._payload(times, {self.me: 1, **self._others([3] * 9)}), 'kind': 'alphabet'},
+            actor_key=self.me, personal_time_seconds=90,
+        )
+
+        self.assertEqual([item['code'] for item in fewest['achievements']], ['fewest_attempts'])
+        self.assertEqual(one_guess['achievements'], [])
+        self.assertEqual(one_guess['comparison']['attempts']['value'], 1)
+        self.assertFalse(one_guess['comparison']['attempts']['best'])
+
+    def test_player_outside_the_population_is_not_ranked(self):
+        times = self._others(range(40, 140, 10))
+
+        data = personal_statistics(self._payload(times), actor_key=self.me, personal_time_seconds=10)
+
+        self.assertEqual(data['comparison']['time']['value'], 10)
+        self.assertFalse(data['comparison']['time']['best'])
+        self.assertEqual(data['achievements'], [])
+
+    def test_missing_personal_result_has_no_comparison(self):
+        data = personal_statistics(
+            self._payload({}, attempts={}), actor_key=self.me, personal_time_seconds=None,
+        )
+
+        self.assertEqual(data['comparison'], {'time': None, 'attempts': None})

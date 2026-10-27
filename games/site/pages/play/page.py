@@ -156,16 +156,25 @@ def daily_statistics(request, game_id, number):
             replay_slot__isnull=True,
             **legacy_actor,
         ).only('time'))
+    personal_time_seconds = canonical_elapsed_seconds(
+        game=game,
+        task_group=placement.task_group,
+        user=request.user if request.user.is_authenticated else None,
+        anon_key=anon_key,
+        attempts=legacy_attempts,
+        timing_row=timing_row,
+    )
+    from games.daily.timing.statistics import personal_statistics
     payload = {
-        **payload,
-        'personal_time_seconds': canonical_elapsed_seconds(
-            game=game,
-            task_group=placement.task_group,
-            user=request.user if request.user.is_authenticated else None,
-            anon_key=anon_key,
-            attempts=legacy_attempts,
-            timing_row=timing_row,
+        **personal_statistics(
+            payload,
+            actor_key=(
+                ('user', request.user.id) if request.user.is_authenticated
+                else ('anon', str(anon_key))
+            ),
+            personal_time_seconds=personal_time_seconds,
         ),
+        'personal_time_seconds': personal_time_seconds,
     }
     notice = _public_exclusion_notice(
         request, game, placement.task_group, surface='statistics',

@@ -43,12 +43,37 @@
     return params;
   }
 
+  // «⚡ Быстрее всех!»-style lines the statistics attach after a solve. Game
+  // scripts re-render the result text, so they are merged in on every read.
+  function achievementLines(block) {
+    var raw = block && block.getAttribute('data-share-achievements');
+    if (!raw) return [];
+    try {
+      var list = JSON.parse(raw);
+      return Array.isArray(list) ? list.filter(function (line) { return typeof line === 'string' && line; }) : [];
+    } catch (err) {
+      return [];
+    }
+  }
+
+  function withAchievements(lines, achievements) {
+    var out = lines.slice();
+    var missing = achievements.filter(function (line) { return out.indexOf(line) === -1; });
+    if (!missing.length) return out;
+    var at = out.length && /^🔗/.test(out[out.length - 1]) ? out.length - 1 : out.length;
+    Array.prototype.splice.apply(out, [at, 0].concat(missing));
+    return out;
+  }
+
   function readPayload(block) {
     if (!block) return null;
     var raw = block.getAttribute('data-share-card');
     if (!raw) return null;
     try {
-      return JSON.parse(raw);
+      var payload = JSON.parse(raw);
+      var achievements = achievementLines(block);
+      if (payload && achievements.length) payload.achievements = achievements;
+      return payload;
     } catch (err) {
       return null;
     }
@@ -64,8 +89,46 @@
       var t = (nodes[i].textContent || '').replace(/\s+$/g, '').replace(/^\s+/, '');
       if (t) lines.push(t);
     }
-    if (lines.length) return lines.join('\n');
-    return ((el.innerText || el.textContent || '') + '').trim();
+    if (!lines.length) {
+      var text = ((el.innerText || el.textContent || '') + '').trim();
+      lines = text ? text.split('\n') : [];
+    }
+    return withAchievements(lines, achievementLines(block)).join('\n');
+  }
+
+  function renderAchievements(block) {
+    var el = block && block.querySelector('[data-raddle-share-text]');
+    if (!el || typeof document === 'undefined') return;
+    var link = el.querySelector('.new-raddle-result__link');
+    // A cleared or not yet rendered result gets no orphaned achievement lines.
+    var achievements = link ? achievementLines(block) : [];
+    var present = Array.prototype.map.call(
+      el.querySelectorAll('.new-raddle-result__achievement'),
+      function (node) { return node.textContent; }
+    );
+    if (present.join('\n') === achievements.join('\n')) return;
+    Array.prototype.forEach.call(el.querySelectorAll('.new-raddle-result__achievement'), function (node) {
+      node.parentNode.removeChild(node);
+    });
+    achievements.forEach(function (line) {
+      var div = document.createElement('div');
+      div.className = 'new-raddle-result__achievement';
+      div.textContent = line;
+      el.insertBefore(div, link);
+    });
+  }
+
+  function setAchievements(block, lines) {
+    if (!block) return;
+    if (lines && lines.length) block.setAttribute('data-share-achievements', JSON.stringify(lines));
+    else block.removeAttribute('data-share-achievements');
+    renderAchievements(block);
+    var el = block.querySelector('[data-raddle-share-text]');
+    var Observer = root.MutationObserver;
+    if (el && Observer && !el.__achievementObserver) {
+      el.__achievementObserver = new Observer(function () { renderAchievements(block); });
+      el.__achievementObserver.observe(el, { childList: true });
+    }
   }
 
   function setStatus(block, message) {
@@ -404,6 +467,7 @@
     shareNative: shareNative,
     shareTextFromBlock: shareTextFromBlock,
     readPayload: readPayload,
+    setAchievements: setAchievements,
     isAbortError: isAbortError,
     canShareFiles: canShareFiles,
     canWriteClipboardImage: canWriteClipboardImage,

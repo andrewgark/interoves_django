@@ -14,6 +14,52 @@
   function metric(label, value) {
     return '<div class="new-daily-statistics__metric"><strong>' + esc(value) + '</strong><span>' + esc(label) + '</span></div>';
   }
+  function attemptsNumber(value) {
+    return value == null ? '—' : String(value).replace('.', ',');
+  }
+  // One tile for the player's result against the median (lower is better).
+  function achievementLabel(achievement) {
+    return '<span class="new-daily-statistics__achievement"><i class="ph-fill ph-' + esc(achievement.icon) + '" aria-hidden="true"></i> ' + esc(achievement.text) + '</span>';
+  }
+  function comparisonMetric(item, kind, format, achievement) {
+    var isTime = kind === 'time';
+    var mine = isTime ? Math.round(Number(item.value)) : Number(item.value);
+    var median = isTime ? Math.round(Number(item.median)) : Number(item.median);
+    var tone = mine < median ? 'is-better' : mine > median ? 'is-worse' : 'is-equal';
+    var sign = mine < median ? '<' : mine > median ? '>' : '=';
+    var label;
+    if (achievement) label = achievement.text;
+    else if (item.better_percent != null) {
+      label = isTime ? 'Быстрее ' + item.better_percent + '% игроков' : 'Меньше попыток, чем у ' + item.better_percent + '%';
+    } else label = isTime ? 'Ваше время и медиана' : 'Ваши попытки и медиана';
+    var hint = (isTime ? 'Ваше время ' : 'Ваши попытки: ') + format(item.value) + ', медиана ' + format(item.median);
+    return '<div class="new-daily-statistics__metric new-daily-statistics__metric--compare ' + tone + '" data-tooltip="' + esc(hint) + '" tabindex="0" aria-label="' + esc(hint + '. ' + label) + '">' +
+      '<strong><span class="new-daily-statistics__mine">' + esc(format(item.value)) + '</span>' +
+      '<span class="new-daily-statistics__versus"><i aria-hidden="true">' + sign + '</i>' + esc(format(item.median)) + '</span></strong>' +
+      (achievement ? achievementLabel(achievement) : '<span>' + esc(label) + '</span>') + '</div>';
+  }
+  function perfectMetric(item, achievement) {
+    var label = achievement ? achievement.text : 'Без лишних попыток!';
+    var hint = 'Идеально! Меньше попыток не бывает';
+    return '<div class="new-daily-statistics__metric new-daily-statistics__metric--compare is-perfect" data-tooltip="' + esc(hint) + '" tabindex="0" aria-label="' + esc(attemptsNumber(item.value) + ' ' + attemptWord(item.value) + '. ' + label + ' ' + hint) + '">' +
+      '<strong><i class="ph-fill ph-target" aria-hidden="true"></i><span class="new-daily-statistics__mine">' + esc(attemptsNumber(item.value)) + '</span></strong>' +
+      '<span>' + esc(label) + '</span></div>';
+  }
+  function achievement(data, codes) {
+    return (data.achievements || []).filter(function (x) { return codes.indexOf(x.code) !== -1; })[0] || null;
+  }
+  function timeMetric(data, summary) {
+    var item = (data.comparison || {}).time;
+    if (item) return comparisonMetric(item, 'time', seconds, achievement(data, ['fastest']));
+    if (data.personal_time_seconds != null) return metric('Ваше время', seconds(data.personal_time_seconds));
+    return metric('Медиана времени', seconds(summary.median_time_seconds));
+  }
+  function attemptsMetric(data, summary) {
+    var item = (data.comparison || {}).attempts;
+    if (item && item.perfect) return perfectMetric(item, achievement(data, ['perfect']));
+    if (item) return comparisonMetric(item, 'attempts', attemptsNumber, achievement(data, ['fewest_attempts']));
+    return metric('Медиана попыток', attemptsNumber(summary.median_attempts));
+  }
   function section(title, content) {
     return content ? '<section class="new-daily-statistics__section"><h3>' + esc(title) + '</h3>' + content + '</section>' : '';
   }
@@ -228,10 +274,9 @@
     }
     html += '<div class="new-daily-statistics__summary new-daily-statistics__summary--' + esc(data.kind || '') + '">' +
       metric('Решили', summary.solved || data.solved || 0) +
-      metric('Ваше время', seconds(data.personal_time_seconds));
-    if (data.kind === 'alphabet' || data.kind === 'censorly') html += metric('Медиана попыток', summary.median_attempts == null ? '—' : String(summary.median_attempts).replace('.', ',')) + metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
-    else html += metric('Медиана времени', seconds(summary.median_time_seconds)) + metric('Без подсказок', percent(summary.without_hints_percent));
-    html += '</div>';
+      timeMetric(data, summary);
+    if (data.kind === 'alphabet' || data.kind === 'censorly') html += attemptsMetric(data, summary);
+    html += metric('Без подсказок', percent(summary.without_hints_percent)) + '</div>';
     if (data.kind === 'salad') {
       html += section('Сложность слов', '<p class="new-daily-statistics__hint">Сложность считается как среднее значение порядкового номера, под которым это слово было найдено.</p><ul class="new-daily-statistics__list new-daily-statistics__list--salad">' + saladWords(data.words) + '</ul>');
       if ((data.popular_findings || []).length) html += '<div class="new-daily-statistics__salad-findings">' + section('Популярные находки', '<ul class="new-daily-statistics__list new-daily-statistics__list--guesses">' + popularity(data.popular_findings) + '</ul>') + '</div>';
@@ -257,9 +302,21 @@
     }
     root.innerHTML = html;
     root.hidden = false;
+    shareAchievements(root, data);
     if (data.kind === 'alphabet' || data.kind === 'censorly') {
       window.requestAnimationFrame(function () { renderHistogram(root, data.distribution); });
     }
+  }
+  // The same phrases go into «Ваш результат», its copied text and the story card.
+  function resultBlock(root) {
+    var layout = root.closest('.new-daily-results-layout');
+    return (layout && layout.querySelector('[data-raddle-result]')) || document.querySelector('[data-raddle-result]');
+  }
+  function shareAchievements(root, data) {
+    var actions = window.DailyShareActions;
+    var block = resultBlock(root);
+    if (!actions || typeof actions.setAchievements !== 'function' || !block) return;
+    actions.setAchievements(block, (data.achievements || []).map(function (x) { return x.emoji + ' ' + x.text; }));
   }
   function boot(root) {
     if (root.__dailyStatisticsBooted) return;

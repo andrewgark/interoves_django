@@ -167,6 +167,11 @@ class RandomAlphabettyTests(TestCase):
         self.assertIn('no-store', statistics['Cache-Control'])
         self.assertEqual(statistics.json()['solved'], 1)
         self.assertEqual(statistics.json()['personal_time_seconds'], 277)
+        # Per-actor rankings stay server-side; only this player's comparison leaves.
+        self.assertNotIn('_ranking', statistics.json())
+        self.assertEqual(statistics.json()['comparison']['time'], {
+            'value': 277, 'median': 277.0, 'better_percent': None, 'best': False,
+        })
 
     def _create_user(self, username):
         from django.contrib.auth.models import User

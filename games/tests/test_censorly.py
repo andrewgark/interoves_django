@@ -3437,3 +3437,32 @@ class CensorlyShareExcerptTests(SimpleTestCase):
             )
         self.assertNotIn('share_card', view)
         self.assertNotIn('share_text', view)
+
+
+class CensorlyMinimalTitleAttemptsTests(SimpleTestCase):
+    def _minimum(self, title, body='Текст статьи.'):
+        from games.puzzles.censorly.play import minimal_title_attempts
+        from games.puzzles.censorly.text.tokenize import build_puzzle_payload
+
+        return minimal_title_attempts(build_puzzle_payload(wiki_title=title, body_text=body))
+
+    def test_one_guess_per_distinct_title_lemma(self):
+        self.assertEqual(self._minimum('Война и мир'), 2)
+        self.assertEqual(self._minimum('Санкт-Петербург'), 2)
+
+    def test_repeated_title_lemma_opens_with_one_guess(self):
+        self.assertEqual(self._minimum('Мир, мир, мир'), 1)
+
+    def test_one_root_words_share_a_guess_with_the_lexical_resolver(self):
+        from django.test import override_settings
+
+        self.assertEqual(self._minimum('Москва и москвичи'), 2)
+        with override_settings(CENSORLY_LEXICAL_RESOLVER=True):
+            self.assertEqual(self._minimum('Москва и москвичи'), 1)
+            self.assertEqual(self._minimum('Друзья и дружба'), 1)
+
+    def test_words_open_at_start_need_no_guess(self):
+        from django.test import override_settings
+
+        with override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True):
+            self.assertEqual(self._minimum('Мой друг Иван Лапшин'), 3)

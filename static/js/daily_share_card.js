@@ -23,6 +23,9 @@
     given: '#1F6F5E',
     givenFill: '#E4EFE8',
     empty: '#E7E1D8',
+    prize: '#C9A227',
+    prizeFill: '#FBF1D2',
+    prizeInk: '#7A5B0B',
   };
 
   var KIND_COLORS = {
@@ -208,6 +211,29 @@
     }
   }
 
+  // «⚡ Быстрее всех!»-style lines from the daily statistics, one pill each.
+  function achievementPills(payload, y, parts) {
+    var lines = (Array.isArray(payload.achievements) ? payload.achievements : [])
+      .filter(function (line) { return typeof line === 'string' && line; })
+      .slice(0, 2);
+    lines.forEach(function (line) {
+      var fontSize = 38;
+      var width = Math.min(WIDTH - 160, Math.round(Array.from(line).length * fontSize * 0.6 + 96));
+      var height = 76;
+      parts.push(roundedRect(
+        (WIDTH - width) / 2, y, width, height, height / 2, PALETTE.prizeFill,
+        'stroke="' + PALETTE.prize + '" stroke-width="3"'
+      ));
+      parts.push(
+        '<text x="' + (WIDTH / 2) + '" y="' + (y + height / 2 + fontSize * 0.36) +
+        '" text-anchor="middle" font-family="' + FONT + '" font-size="' + fontSize +
+        '" font-weight="700" fill="' + PALETTE.prizeInk + '">' + esc(line) + '</text>'
+      );
+      y += height + 18;
+    });
+    return lines.length ? y + 14 : y;
+  }
+
   function headerBlock(payload, accent) {
     var dateLines = wrapText(payload.date_label || '', 28);
     var headlineLines = wrapText(payload.headline || '', 32);
@@ -227,6 +253,7 @@
       prop: 'text-anchor="middle" font-family="' + FONT + '" font-size="54" font-weight="700" fill="' + accent + '"',
     }));
     y += headlineLines.length * 70 + 28;
+    y = achievementPills(payload, y, parts);
     var metadata = [];
     if (payload.theme) metadata.push('Тема: ' + payload.theme);
     if (payload.author) metadata.push('Автор: ' + payload.author);

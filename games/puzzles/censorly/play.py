@@ -907,24 +907,97 @@ def apply_guess(
 
     move.check_timing()
     with timing_phase(timing_request, 'lexical_analysis'):
-        from games.puzzles.censorly.text.flags import lexical_resolver_enabled
-        lexical_report = None
-        if lexical_resolver_enabled():
-            from games.puzzles.censorly.lexical.match import analyze_guess
-            cache_key = _lexical_cache_key(task)
-            tokens = chain(
-                payload.get('title_tokens') or (),
-                payload.get('body_tokens') or (),
-            )
-            matched, lexical_report = analyze_guess(
-                tokens, normalized, cache_key=cache_key,
-            )
-        else:
-            matched = lemmas_matching_guess(payload, guess_lemma, normalized)
+        matched, lexical_report = _guess_matches(
+            payload, normalized, guess_lemma, task=task,
+        )
     return _save_guess(
         move, normalized=normalized, guess_lemma=guess_lemma, matched=matched,
         lexical_report=lexical_report, user=user,
     )
+
+
+def _guess_matches(
+    payload: dict[str, Any], normalized: str, guess_lemma: str, *,
+    task: Task | None = None, include_report: bool = True,
+) -> tuple[set[str], dict | None]:
+    """Lemmas a guess opens, resolved exactly as a played guess is."""
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
+    if not lexical_resolver_enabled():
+        return lemmas_matching_guess(payload, guess_lemma, normalized), None
+    from games.puzzles.censorly.lexical.match import analyze_guess
+    tokens = chain(
+        payload.get('title_tokens') or (),
+        payload.get('body_tokens') or (),
+    )
+    return analyze_guess(
+        tokens, normalized, cache_key=_lexical_cache_key(task),
+        include_report=include_report,
+    )
+
+
+def _title_token_open_at_start(tok: dict[str, Any]) -> bool:
+    """Whether a title content token is rendered open before any guess."""
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
+    if not lexical_resolver_enabled():
+        return False
+    if tok.get('initially_open') is not None:
+        return bool(tok.get('initially_open'))
+    return _is_initially_open_word(str(tok.get('surface') or ''))
+
+
+MINIMAL_ATTEMPTS_MAX_LEMMAS = 12
+
+
+def minimal_title_attempts(payload: dict[str, Any], *, task: Task | None = None) -> int | None:
+    """Fewest guesses that open every hidden title lemma, or None if unknown.
+
+    One guess opens every lemma it matches (one-root words with the lexical
+    resolver, the same lemma repeated in the title), so this is an exact set
+    cover over the hidden title lemmas. Candidate guesses are the article's
+    own word forms that open a title lemma; each goes through the same matcher
+    as a played guess.
+    """
+    hidden = {
+        tok['lemma']
+        for tok in payload.get('title_tokens') or []
+        if tok.get('kind') == 'content' and tok.get('lemma')
+        and not _title_token_open_at_start(tok)
+    }
+    if not hidden or len(hidden) > MINIMAL_ATTEMPTS_MAX_LEMMAS:
+        return None
+    opening = title_opening_lemmas(payload)
+    candidates = set()
+    for tok in all_tokens(payload):
+        if tok.get('kind') != 'content' or tok.get('lemma') not in opening:
+            continue
+        for word in (tok.get('surface') or '', tok.get('lemma') or ''):
+            normalized = normalize_surface(word).strip(_GUESS_EDGE_PUNCTUATION)
+            if normalized and is_guessable_word(normalized):
+                candidates.add(normalized)
+    index = {lemma: 1 << bit for bit, lemma in enumerate(sorted(hidden))}
+    masks = set()
+    for word in sorted(candidates):
+        if _is_initially_open_word(word) and not _has_closed_exact_target(payload, word):
+            continue
+        matched, _report = _guess_matches(
+            payload, word, lemma_of(word), task=task, include_report=False,
+        )
+        mask = sum(index[lemma] for lemma in matched & hidden)
+        if mask:
+            masks.add(mask)
+    full = (1 << len(index)) - 1
+    # Breadth-first over covered sets: the first level that covers everything
+    # is the minimum.
+    level = {0}
+    seen = {0}
+    for attempts in range(1, len(index) + 1):
+        level = {covered | mask for covered in level for mask in masks} - seen
+        if full in level:
+            return attempts
+        if not level:
+            return None
+        seen |= level
+    return None
 
 
 def _duplicate_guess(move: _Move, state: dict, normalized: str) -> dict[str, Any] | None:

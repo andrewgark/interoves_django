@@ -263,6 +263,29 @@ run((function testUnhandledRejectionDoesNotEscape() {
   });
 })());
 
+run((function testAchievementsJoinCopiedTextAndCardPayload() {
+  var writes = [];
+  var root = {
+    navigator: { clipboard: { writeText: function (text) { writes.push(text); return Promise.resolve(); } } },
+    interovesAnalytics: { trackYandexGoalOnce: function () { return true; } },
+    DailyShareCard: {},
+  };
+  var actions = loadActions(root);
+  var block = blockFixture(['📰 Цензурка #5', '🔄 3 попытки', '⚡ Быстрее всех!', '🔗 interoves.com/censorly/5'], { game_kind: 'censorly' });
+  var getAttribute = block.getAttribute;
+  block.getAttribute = function (name) {
+    if (name === 'data-share-achievements') return JSON.stringify(['⚡ Быстрее всех!', '🎯 Без лишних попыток!']);
+    return getAttribute(name);
+  };
+  assert.deepStrictEqual(actions.readPayload(block).achievements, ['⚡ Быстрее всех!', '🎯 Без лишних попыток!']);
+  return actions.copyShareText(block, null).then(function () {
+    // Lines already on screen are not repeated; missing ones go above the link.
+    assert.strictEqual(writes[0], [
+      '📰 Цензурка #5', '🔄 3 попытки', '⚡ Быстрее всех!', '🎯 Без лишних попыток!', '🔗 interoves.com/censorly/5',
+    ].join('\n'));
+  });
+})());
+
 Promise.all(pending).catch(function (err) {
   console.error(err);
   process.exit(1);
