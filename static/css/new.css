@@ -7130,28 +7130,6 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   text-align: center;
 }
 
-/* Votes of a daily single-task game: under the board, not in the meta bar. */
-.new-daily-rate {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  margin: 1rem 0 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.new-daily-rate .new-vote {
-  --vote-icon: 1rem;
-  --vote-fs: 0.9rem;
-  flex-direction: row;
-  gap: 0.5rem;
-}
-
-.new-daily-rate .new-vote__side {
-  padding: 0.25rem 0.4rem;
-}
-
 .new-results-sentinel {
   height: 1px;
 }
@@ -10243,7 +10221,7 @@ html.new-ui-dark .new-proportions-attempts-popover::backdrop {
   }
 }
 
-/* Narrow meta bar fits one line: «0/12 ✈3 … 🧠4» — units and brackets
+/* Narrow meta bar fits one line: «0/12 ✈3 … 🧠4 ▲▼» — units and brackets
    live in tooltips; a solved task tints the points pill instead of «ок». */
 @media (max-width: 560px) {
   .new-taskcard__meta-bar .new-proportions-compact-stat__word,

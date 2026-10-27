@@ -84,12 +84,10 @@
   {% if is_daily_single_task and difficulty %}
     {% include "site/partials/difficulty_badge.html" %}
   {% endif %}
-  {% if not is_daily_single_task %}
   {% with lm=likes_meta_by_task_id|get_item:task.id %}
     {% if lm %}
     {% include "site/partials/task_vote.html" %}
     {% endif %}
   {% endwith %}
-  {% endif %}
   </span>
 </div>

@@ -647,8 +647,8 @@ class DifficultyObservationTests(TestCase):
         difficulty_at = html.find('new-difficulty')
         self.assertNotEqual(aside_at, -1)
         self.assertLess(aside_at, difficulty_at)
-        # Daily single-task votes live in the footer under the board, not in the meta bar.
-        self.assertNotIn('data-vote', html)
+        # Daily single-task votes stay in the meta bar, after the difficulty badge.
+        self.assertLess(difficulty_at, html.find('data-vote'))
 
 
 class CensorlyDifficultyObservationTests(TestCase):

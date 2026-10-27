@@ -1,8 +1,3 @@
-{# Votes of a daily single-task game sit here, not in the task meta bar. #}
-{% if is_daily_single_task %}
-{% if task %}{% include "site/partials/daily_task_rate.html" %}{% elif tasks %}{% include "site/partials/daily_task_rate.html" with task=tasks.0 %}{% endif %}
-{% endif %}
-
 {% firstof task_group_results_url daily_results_url as results_url %}
 {% firstof task_group_results_allowed daily_results_allowed as results_allowed %}
 {% firstof task_group_results_label daily_results_label "Таблица результатов" as results_label %}
