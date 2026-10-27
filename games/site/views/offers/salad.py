@@ -23,6 +23,7 @@ from games.club.offers.salad import (
 from games.identity import has_profile
 from games.models import WordSaladOffer
 from games.site.http.request_util import parse_json_object_body
+from games.site.views.offers.reset import offer_reset_actors
 
 
 def _offer_for_user(request, offer_id):
@@ -147,7 +148,6 @@ def offer_salad_convert(request, offer_id):
     return JsonResponse({'ok': True, 'offer': serialize_offer(draft).to_dict()})
 
 
-@login_required
 @require_POST
 def offer_salad_reset(request, offer_id):
     offer = (
@@ -157,25 +157,14 @@ def offer_salad_reset(request, offer_id):
     )
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
-    is_owner = offer.user_id == request.user.id
-    is_staff = bool(getattr(request.user, 'is_staff', False))
-    # Accepted offers have official stats and a replay button for players;
-    # an unaccepted draft has neither, so anyone may reset their own run.
-    if not is_owner and not is_staff and offer.accepted_link_id:
+    reset_actors = offer_reset_actors(request, offer)
+    if reset_actors is None:
         return JsonResponse({'ok': False, 'error': 'Нет доступа'}, status=403)
     if not offer.task_group_id:
         return JsonResponse({'ok': False, 'error': 'У идеи нет задания'}, status=400)
     task = offer.task_group.tasks.filter(number='1').first()
     if task is None:
         return JsonResponse({'ok': False, 'error': 'Задание не найдено'}, status=404)
-    # Reset both personal and shared solution scopes regardless of the current
-    # browser mode, otherwise changing modes can resurrect the old solution.
-    # Always the requester's own progress: staff opening someone's offer
-    # expect their own run to reset, not the author's.
-    reset_actors = [{'user': request.user}]
-    team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
-    if team is not None:
-        reset_actors.append({'team': team})
     try:
         n = sum(
             reset_salad_progress(task=task, **actor)

@@ -485,12 +485,12 @@ def task_group_page(
 
     can_reset_offer = False
     offer_reset_url = None
-    if draft_offer is not None and request.user.is_authenticated and ladder_tutorial_task is None:
+    if draft_offer is not None and ladder_tutorial_task is None:
         # An unaccepted draft has no schedule placement, so a replay slot
         # cannot exist there; every player resets their own solution instead.
-        if (
-            draft_offer.user_id == request.user.id or request.user.is_staff
-            or not draft_offer.accepted_link_id
+        if not draft_offer.accepted_link_id or (
+            request.user.is_authenticated
+            and (draft_offer.user_id == request.user.id or request.user.is_staff)
         ):
             can_reset_offer = True
             if ladder_offer is not None:

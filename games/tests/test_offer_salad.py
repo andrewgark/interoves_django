@@ -32,6 +32,7 @@ from games.models import (
     Team,
     WordSaladOffer,
 )
+from games.ops.analytics.identity import ANON_COOKIE_NAME
 from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
     parse_task_payload,
@@ -251,8 +252,40 @@ class WordSaladOfferFlowTests(TestCase):
         self.assertNotIn('/replay/', html)
 
         anon_html = Client().get(offer.play_url()).content.decode('utf-8')
-        self.assertNotIn('Полностью сбросить решение', anon_html)
+        self.assertIn('Полностью сбросить решение', anon_html)
         self.assertNotIn('/replay/', anon_html)
+
+    def test_anonymous_player_resets_own_draft_run(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer, theme='Тестовый салатик', grid_text=VALID_GRID,
+            words_text='BCDE\nFGHI\nJKLM\nNOPQ',
+        )
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        client = Client()
+        client.get(offer.play_url())
+        anon_key = client.cookies[ANON_COOKIE_NAME].value
+        self.assertTrue(anon_key)
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key=anon_key, text='{}', status='Ok', points=1,
+        )
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='someone-else', text='{}', status='Ok', points=1,
+        )
+        response = client.post(
+            reverse('ui_create_salad_reset', kwargs={'offer_id': offer.pk}),
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['deleted_attempts'], 1)
+        self.assertFalse(Attempt.manager.filter(task=task, anon_key=anon_key).exists())
+        self.assertTrue(Attempt.manager.filter(task=task, anon_key='someone-else').exists())
+
+        send_offer(offer)
+        accept_offer(offer)
+        response = client.post(
+            reverse('ui_create_salad_reset', kwargs={'offer_id': offer.pk}),
+        )
+        self.assertEqual(response.status_code, 403)
 
     @patch('games.ops.telegram.bot.notify.send_admin_message', return_value=True)
     def test_accepted_future_salad_accepts_attempts_from_share_link(self, _send_admin_message):
