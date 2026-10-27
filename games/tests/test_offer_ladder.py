@@ -521,6 +521,42 @@ class LadderOfferFlowTests(TestCase):
         numeric_results_resp = c.get('/ladder/100/results/')
         self.assertEqual(numeric_results_resp.status_code, 404)
 
+    def test_accepted_share_page_keeps_the_replay_session(self):
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')
+        send_offer(offer)
+        accept_offer(offer, at_number=101)
+        offer.refresh_from_db()
+        PlayerCompletedGame.objects.create(
+            user=self.other,
+            game=self.game,
+            task_group=offer.task_group,
+            game_kind='ladder',
+            game_instance_id=game_instance_id_for_task_group(self.game, offer.task_group),
+            result=PlayerCompletedGame.RESULT_SOLVED,
+        )
+        replay_url = '/ladder/{}/replay/'.format(offer.share_hash)
+        exit_url = replay_url + 'exit/'
+
+        author = Client()
+        author.force_login(self.user)
+        author_page = author.get(offer.play_url())
+        self.assertContains(author_page, 'Полностью сбросить решение')
+        self.assertNotContains(author_page, replay_url)
+
+        player = Client()
+        player.force_login(self.other)
+        before = player.get(offer.play_url())
+        self.assertContains(before, replay_url)
+        self.assertNotContains(before, exit_url)
+
+        started = player.post(replay_url)
+        self.assertEqual(started.status_code, 302)
+        self.assertEqual(started['Location'], offer.play_url())
+        during = player.get(offer.play_url())
+        self.assertContains(during, exit_url)
+        self.assertNotContains(during, 'Полностью сбросить решение')
+
     def test_future_ladder_ui_drafts_require_custom_share_context(self):
         offer = create_offer(self.user)
         update_offer_content(offer, words=['ЛЕС', 'БЕС'], hints=['л→б'], author='A')

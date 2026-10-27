@@ -395,7 +395,14 @@ def task_group_page(
     else:
         prev_tg, next_tg = GameTaskGroup.prev_next_for(game, placement)
     replay_slot = None
-    if draft_offer is None:
+    # An unaccepted draft has no schedule placement, so replay cannot bind.
+    # An accepted offer is that placement: the public URL is still the share
+    # hash, and dropping the session here hid the exit control while every
+    # move came back stale_replay.
+    draft_has_no_placement = (
+        draft_offer is not None and not draft_offer.accepted_link_id
+    )
+    if not draft_has_no_placement and isinstance(placement, GameTaskGroup):
         replay_slot = active_replay(
             request=request,
             game=game,
