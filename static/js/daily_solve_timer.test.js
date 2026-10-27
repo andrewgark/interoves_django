@@ -1527,6 +1527,106 @@ asyncTest(async function testStartFailureIsReportedOnceWithDiagnostics() {
   }
 });
 
+asyncTest(async function testStoppedReportKeepsFailedStartsAcrossRecovery() {
+  // A server holding the actor's rows answers nothing until our abort. The
+  // heal restarts reset start_attempts, so the report must count failures
+  // separately and tell a timeout from a failed request.
+  var oldSetTimeout = global.setTimeout;
+  var oldNow = Date.now;
+  var now = 5000000;
+  var starts = 0;
+  var reports = [];
+  Date.now = function () { return now; };
+  global.setTimeout = function () { return 1; };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      starts += 1;
+      var err = new Error('signal timed out');
+      err.name = 'TimeoutError';
+      return Promise.reject(err);
+    }, { bootstrap: { status: 'running', is_authoritative: true, exists: true } });
+    ctrl.applySnapshot({ status: 'auto_paused', is_authoritative: false, exists: true });
+    ctrl.noteActivity();
+    now += 11000;
+    ctrl.noteActivity();
+    await flush();
+    now += 11000;
+    ctrl.noteActivity();
+    await flush();
+    assert.strictEqual(starts, 2);
+    assert.deepStrictEqual(reports, []);
+
+    now += 40000;
+    ctrl.noteActivity();
+    await flush();
+    assert.strictEqual(reports.length, 1);
+    assert.strictEqual(reports[0].reason, 'stopped_while_active');
+    var details = reports[0].details;
+    assert.strictEqual(details.start_attempts, 1);
+    assert.strictEqual(details.start_failures, 2);
+    assert.strictEqual(details.last_error_name, 'TimeoutError');
+    assert.strictEqual(details.last_failure_age_s, 40);
+    assert.strictEqual(details.stopped_for_s, 62);
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
+asyncTest(async function testVisibilityDuringStartInFlightKeepsItsEvent() {
+  var oldSetTimeout = global.setTimeout;
+  var oldNow = Date.now;
+  var now = 7000000;
+  var retries = [];
+  var starts = [];
+  var hanging = null;
+  Date.now = function () { return now; };
+  global.setTimeout = function (callback, delay) {
+    if (delay < timer.HEARTBEAT_MS) retries.push(callback);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      starts.push(body.event_id);
+      if (starts.length === 1) return Promise.reject(new TypeError('Failed to fetch'));
+      return new Promise(function (resolve, reject) { hanging = reject; });
+    });
+    ctrl.startIfAllowed();
+    await flush();
+    assert.strictEqual(starts.length, 1);
+    retries.shift()();
+    await flush();
+    assert.strictEqual(starts.length, 2);
+
+    // E.g. a tab switch back while the retry is still waiting for the server.
+    ctrl.onVisible();
+    await flush();
+    retries.length = 0;
+    hanging(new TypeError('Failed to fetch'));
+    await flush();
+    assert.strictEqual(starts.length, 2, 'no extra start bypassing the backoff');
+    assert.strictEqual(retries.length, 1);
+    retries.shift()();
+    await flush();
+    assert.strictEqual(starts.length, 3);
+    assert.strictEqual(starts[2], starts[1], 'the retry reuses the in-flight event');
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
 asyncTest(async function testHangingStartUsesAllAttemptsWithFreshEvents() {
   var oldSetTimeout = global.setTimeout;
   var oldNow = Date.now;
@@ -1564,6 +1664,9 @@ asyncTest(async function testHangingStartUsesAllAttemptsWithFreshEvents() {
     assert.strictEqual(reports[0].reason, 'start_failed');
     assert.strictEqual(reports[0].details.start_attempts, 6);
     assert.strictEqual(reports[0].details.last_network, true);
+    assert.strictEqual(reports[0].details.last_error_name, 'TypeError');
+    assert.strictEqual(reports[0].details.last_failure_age_s, 0);
+    assert.strictEqual(reports[0].details.start_failures, 6);
     ctrl.destroy();
   } finally {
     Date.now = oldNow;

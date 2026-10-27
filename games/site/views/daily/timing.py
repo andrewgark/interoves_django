@@ -32,10 +32,14 @@ from games.daily.timing.reports import CLIENT_REPORT_ACTION, handle_client_repor
 from games.identity import has_profile, has_team
 from games.models import Attempt, Game, GameTaskGroup
 from games.ops.analytics.identity import gameplay_anon_key
-from games.realtime.db import is_mysql_retryable_lock_error
+from games.realtime.db import bounded_lock_wait, is_mysql_retryable_lock_error
 from games.site.http.middleware.db_transient_response import mysql_error_code
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.site.session.play_mode import effective_play_mode
+
+# Row-lock wait per attempt; apply_timing_event tries up to three times and
+# the browser aborts a timing request after 10 s.
+TIMING_LOCK_WAIT_SECONDS = 2
 
 
 def _json_error(code, http_status=400, *, reload_required=False):
@@ -415,22 +419,27 @@ def _daily_solve_timing_impl(
             return response
     request._interoves_timing_pre_mutation = False
     try:
-        result = apply_timing_event(
-            game=game,
-            task_group=task_group,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            action=action,
-            session_id=session_id,
-            event_id=event_id,
-            seq=seq,
-            claimed_ms=claimed_ms,
-            client_occurred_at=_client_event_time(payload),
-            create=True,
-            replay_slot=replay_slot,
-            timing_request=request,
-        )
+        # A long transaction holding this actor's rows (e.g. an account
+        # merge) kept timing requests waiting past the client's 10 s abort,
+        # so the timer never learned why its start failed. With all lock
+        # retries the wait stays under that abort and ends in a 503 below.
+        with bounded_lock_wait(TIMING_LOCK_WAIT_SECONDS):
+            result = apply_timing_event(
+                game=game,
+                task_group=task_group,
+                team=team,
+                user=user,
+                anon_key=anon_key,
+                action=action,
+                session_id=session_id,
+                event_id=event_id,
+                seq=seq,
+                claimed_ms=claimed_ms,
+                client_occurred_at=_client_event_time(payload),
+                create=True,
+                replay_slot=replay_slot,
+                timing_request=request,
+            )
     except TimingEventConflict:
         return _json_error('event_id_conflict', 409)
     except OperationalError as exc:

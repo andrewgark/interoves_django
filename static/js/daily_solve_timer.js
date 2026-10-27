@@ -222,6 +222,9 @@
     var stoppedSince = null;
     var lastHealAt = 0;
     var startAttempts = 0;
+    // Unlike startAttempts, automatic recovery does not reset this: it counts
+    // every failed start since the clock last started, for the report.
+    var startFailures = 0;
     var startFailed = false;
     var startEvent = null;
     var startEventCreatedAt = 0;
@@ -505,8 +508,16 @@
             retryable: responseStatus === 503,
           };
         });
-      }).catch(function () {
-        return { data: null, status: 0, retryable: true, networkError: true };
+      }).catch(function (err) {
+        // TimeoutError: our own abort, the server did not answer in time.
+        // TypeError: the request failed in the browser or on the way.
+        return {
+          data: null,
+          status: 0,
+          retryable: true,
+          networkError: true,
+          errorName: (err && err.name) || '',
+        };
       });
     }
 
@@ -578,6 +589,8 @@
                 status: result.status || 0,
                 error: (result.data && result.data.error) || '',
                 network: !!result.networkError,
+                errorName: result.errorName || '',
+                at: Date.now(),
               };
             }
             // navigator.onLine can be stuck at false while the network works
@@ -706,6 +719,10 @@
     }
 
     function retryAfterConnectivity() {
+      // A start in flight settles and retries on its own. Resetting here
+      // dropped its event, so the next send could not be deduplicated, and
+      // queued an immediate extra start that skipped the backoff.
+      if (awaitingServer) return;
       if (startFailed || deliveryFailed) {
         startFailed = false;
         startAttempts = 0;
@@ -758,6 +775,7 @@
         awaitingServer = false;
         if (data && data.ok) {
           startAttempts = 0;
+          startFailures = 0;
           startFailed = false;
           startEvent = null;
           startEventCreatedAt = 0;
@@ -774,6 +792,7 @@
           render();
           return;
         }
+        startFailures += 1;
         // Do not let an interval heartbeat overtake a start retry after an
         // unacknowledged start. The server snapshot on acknowledgement will
         // restore the authoritative running state.
@@ -967,6 +986,10 @@
         last_status: lastFailure ? lastFailure.status : null,
         last_error: lastFailure ? lastFailure.error : null,
         last_network: lastFailure ? lastFailure.network : null,
+        last_error_name: lastFailure ? lastFailure.errorName : null,
+        last_failure_age_s: lastFailure ? Math.round((Date.now() - lastFailure.at) / 1000) : null,
+        start_failures: startFailures,
+        stopped_for_s: stoppedSince == null ? null : Math.round((Date.now() - stoppedSince) / 1000),
         session_id: sessionId,
         capability: timingEventCapability,
         page_age_s: Math.round((Date.now() - createdAt) / 1000),
