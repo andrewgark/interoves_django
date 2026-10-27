@@ -486,7 +486,12 @@ def task_group_page(
     can_reset_offer = False
     offer_reset_url = None
     if draft_offer is not None and request.user.is_authenticated and ladder_tutorial_task is None:
-        if draft_offer.user_id == request.user.id or request.user.is_staff:
+        # An unaccepted draft has no schedule placement, so a replay slot
+        # cannot exist there; every player resets their own solution instead.
+        if (
+            draft_offer.user_id == request.user.id or request.user.is_staff
+            or not draft_offer.accepted_link_id
+        ):
             can_reset_offer = True
             if ladder_offer is not None:
                 offer_reset_url = '/create_ladder/{}/reset/'.format(ladder_offer.pk)
@@ -640,6 +645,8 @@ def task_group_page(
             None if ladder_tutorial_task is not None
             else _task_group_replay_exit_url(game, public_task_segment)
         ),
+        # Replay needs a schedule placement, which an unaccepted draft lacks.
+        'replay_unavailable': draft_offer is not None and not draft_offer.accepted_link_id,
         'task_group_results_allowed': game.has_access('see_results', mode='general', team=team),
         'tg_number': placement.number,
         'tg_name': placement.name,

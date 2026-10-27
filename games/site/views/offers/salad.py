@@ -159,7 +159,9 @@ def offer_salad_reset(request, offer_id):
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
     is_owner = offer.user_id == request.user.id
     is_staff = bool(getattr(request.user, 'is_staff', False))
-    if not is_owner and not is_staff:
+    # Accepted offers have official stats and a replay button for players;
+    # an unaccepted draft has neither, so anyone may reset their own run.
+    if not is_owner and not is_staff and offer.accepted_link_id:
         return JsonResponse({'ok': False, 'error': 'Нет доступа'}, status=403)
     if not offer.task_group_id:
         return JsonResponse({'ok': False, 'error': 'У идеи нет задания'}, status=400)
@@ -168,8 +170,10 @@ def offer_salad_reset(request, offer_id):
         return JsonResponse({'ok': False, 'error': 'Задание не найдено'}, status=404)
     # Reset both personal and shared solution scopes regardless of the current
     # browser mode, otherwise changing modes can resurrect the old solution.
-    reset_actors = [{'user': offer.user}]
-    team = getattr(getattr(offer.user, 'profile', None), 'team_on', None)
+    # Always the requester's own progress: staff opening someone's offer
+    # expect their own run to reset, not the author's.
+    reset_actors = [{'user': request.user}]
+    team = getattr(getattr(request.user, 'profile', None), 'team_on', None)
     if team is not None:
         reset_actors.append({'team': team})
     try:

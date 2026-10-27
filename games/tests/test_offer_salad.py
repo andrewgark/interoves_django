@@ -209,6 +209,51 @@ class WordSaladOfferFlowTests(TestCase):
         )
         self.assertTrue(retry.json()['word_salad_correct'], retry.json())
 
+    def test_reset_offer_clears_requester_progress_not_author(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer, theme='Тестовый салатик', grid_text=VALID_GRID,
+            words_text='BCDE\nFGHI\nJKLM\nNOPQ',
+        )
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        for player in (self.user, self.staff, self.other):
+            Attempt.manager.create(
+                task=task, game=self.game, user=player, text='{}', status='Ok', points=1,
+            )
+            ChainTaskState.objects.create(
+                task=task, game=self.game, user=player, game_mode='general', state='{}',
+            )
+
+        for player in (self.staff, self.other):
+            client = Client()
+            client.force_login(player)
+            response = client.post(
+                reverse('ui_create_salad_reset', kwargs={'offer_id': offer.pk}),
+            )
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(response.json()['deleted_attempts'], 1)
+            self.assertFalse(Attempt.manager.filter(task=task, user=player).exists())
+            self.assertFalse(ChainTaskState.objects.filter(task=task, user=player).exists())
+
+        self.assertTrue(Attempt.manager.filter(task=task, user=self.user).exists())
+        self.assertTrue(ChainTaskState.objects.filter(task=task, user=self.user).exists())
+
+    def test_draft_page_offers_reset_instead_of_missing_replay(self):
+        offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)
+        update_offer_content(
+            offer, theme='Тестовый салатик', grid_text=VALID_GRID,
+            words_text='BCDE\nFGHI\nJKLM\nNOPQ',
+        )
+        client = Client()
+        client.force_login(self.other)
+        html = client.get(offer.play_url()).content.decode('utf-8')
+        self.assertIn('Полностью сбросить решение', html)
+        self.assertNotIn('/replay/', html)
+
+        anon_html = Client().get(offer.play_url()).content.decode('utf-8')
+        self.assertNotIn('Полностью сбросить решение', anon_html)
+        self.assertNotIn('/replay/', anon_html)
+
     @patch('games.ops.telegram.bot.notify.send_admin_message', return_value=True)
     def test_accepted_future_salad_accepts_attempts_from_share_link(self, _send_admin_message):
         offer = create_offer(self.user, kind=WordSaladOffer.KIND_FULL)

@@ -1,7 +1,7 @@
-<div class="new-replay-controls{% if replay_controls_standalone %} new-replay-controls--standalone{% endif %}" data-replay-control{% if not official_completed and not custom_reset_enabled and not replay_active %} hidden{% endif %}>
+{% if custom_reset_enabled and custom_reset_url or not replay_unavailable %}<div class="new-replay-controls{% if replay_controls_standalone %} new-replay-controls--standalone{% endif %}" data-replay-control{% if not official_completed and not custom_reset_enabled and not replay_active %} hidden{% endif %}>
   {% if custom_reset_enabled and custom_reset_url %}<div class="new-replay-control">
     <button type="button" class="new-btn new-btn--ghost new-btn--mini" id="offer-reset-btn" data-reset-url="{{ custom_reset_url }}" data-reset-play-mode="{{ play_mode|default:'personal' }}">Полностью сбросить решение</button>
-  </div>{% else %}
+  </div>{% elif not replay_unavailable %}
   <form class="new-replay-control" method="post" action="{% if replay_url %}{{ replay_url }}{% else %}/games/{{ game.id }}/{{ tg_number }}/replay/{% endif %}" data-replay-submit>
     {% csrf_token %}
     <button type="submit" class="new-replay-control__button" aria-label="Сыграть заново. Для статистики при этом сохранится ваше первое решение.">
@@ -17,4 +17,4 @@
     <span class="new-tooltip new-tooltip--below new-replay-control__tooltip" role="tooltip">Вернуться к первому решению<br><span>(показывает результат первого решения; replay не учитывается в статистике)</span></span>
   </form>{% endif %}
   {% endif %}
-</div>
+</div>{% endif %}
