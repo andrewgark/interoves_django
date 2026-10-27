@@ -620,11 +620,18 @@ class CensorlyAccessTests(TestCase):
         self.assertEqual(response.status_code, 200, response.json())
         data = response.json()
         self.assertEqual(data['status'], 'hint')
+        self.assertNotIn('подсказк', data['meta_bar_html'])
         self.assertNotIn('title_tokens', data)
         self.assertNotIn('body_tokens', data)
         updated = {token['id'] for token in data['state_delta']['token_updates']}
         self.assertIn(target['id'], updated)
         self.assertEqual(updated, set(data['newly_revealed']))
+        page = self.client.get(f'/censorly/r/{self.share_hash}/')
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.context['task_ui']['hints_label'], '1 подсказка')
+        self.assertNotIn('alphabetty_hints_label', page.context['task_ui'])
+        self.assertEqual(page.context['hints_taken'], 1)
+        self.assertNotContains(page, '1 подсказка')
 
     def test_initially_open_word_api_does_not_record_attempt(self):
         self.client.force_login(self.staff)
@@ -719,6 +726,50 @@ class CensorlyAccessTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'censorly-1')
         self.assertContains(response, 'Случайная игра')
+
+    def test_today_follows_calendar_number_and_last_skips_share_hash(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from games.daily.catalog.censorly import CENSORLY_PUBLISH_START_TAG
+        from games.daily.page.section import MOSCOW
+
+        today = timezone.now().astimezone(MOSCOW).date()
+        # Current calendar number is 3. Editions 1 and 2 are already out; 3 is not created.
+        start = today - timedelta(days=2)
+        self.game.tags = {
+            CENSORLY_PUBLISH_START_TAG: f'{start.isoformat()}T00:00:00+03:00',
+        }
+        self.game.save(update_fields=['tags'])
+        checker = CheckerType.objects.get(id='censorly')
+        for number in ('1', '2'):
+            task_group = TaskGroup.objects.create(
+                label=f'censorly:sched-{number}', checker=checker, points=1,
+            )
+            GameTaskGroup.objects.create(
+                game=self.game, task_group=task_group, number=number, name=f'Цензурка #{number}',
+            )
+        self.client.force_login(self.plain)
+
+        today_response = self.client.get('/censorly/today/')
+        self.assertEqual(today_response.status_code, 302)
+        self.assertEqual(today_response['Location'], '/censorly/3/')
+
+        last_response = self.client.get('/censorly/last/')
+        self.assertEqual(last_response.status_code, 302)
+        self.assertEqual(last_response['Location'], '/censorly/2/')
+
+    def test_today_and_last_without_numbered_editions_go_to_hub(self):
+        self.client.force_login(self.plain)
+
+        today_response = self.client.get('/censorly/today/')
+        self.assertEqual(today_response.status_code, 302)
+        self.assertEqual(today_response['Location'], '/censorly/')
+
+        last_response = self.client.get('/censorly/last/')
+        self.assertEqual(last_response.status_code, 302)
+        self.assertEqual(last_response['Location'], '/censorly/')
 
 
 class CensorlyPuzzleStorageTests(TestCase):

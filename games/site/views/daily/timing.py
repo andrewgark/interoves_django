@@ -171,9 +171,9 @@ def _load_daily_target(
     if link is None:
         return None, None, None, None, None, _json_error('missing', 404)
     if not is_numbered and game.id == 'censorly':
-        from games.site.views.daily.censorly import _preview_denied
+        from games.site.views.daily.common import preview_denied
 
-        denied = _preview_denied(request, game)
+        denied = preview_denied(request, game)
         if denied is not None:
             return None, None, None, None, None, denied
     team, user, anon_key = _resolve_actor(request, game)

@@ -11,7 +11,6 @@ from django.contrib import messages
 from django.core.cache import caches
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
-from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
@@ -23,7 +22,6 @@ from games.daily.catalog.censorly import (
     MOSCOW,
     censorly_publish_at,
     current_censorly_number,
-    filter_published_censorly_links,
     get_censorly_hub_context,
     is_censorly_number_published,
     visible_censorly_links,
@@ -39,7 +37,7 @@ from games.daily.registry import get_daily_game
 from games.daily.timing import GameplayTimingSession, TimingSessionNotActive
 from games.daily.timing.transitions import next_daily_content_transition_for_game
 from games.identity import has_profile
-from games.models import Attempt, BugReport, ChainTaskState, Game, GameTaskGroup, RandomCensorlyGame, Task
+from games.models import Attempt, BugReport, Game, GameTaskGroup, RandomCensorlyGame, Task
 from games.ops.analytics.events import (
     PlayerCompletedGame,
     is_task_completion_state,
@@ -47,7 +45,6 @@ from games.ops.analytics.events import (
     publish_completion_analytics,
     register_started_game,
 )
-from games.ops.analytics.identity import gameplay_anon_key
 from games.ops.telegram.links import task_play_url
 from games.puzzles.censorly import CensorlyMoveRefusal, CensorlyPuzzle
 from games.puzzles.censorly.article import reports as censorly_word_reports
@@ -59,10 +56,7 @@ from games.puzzles.censorly.play import (
     attach_solve_meta,
     get_play_state,
     get_task_for_number,
-    hint_count,
     hub_progress_for_actor,
-    load_state,
-    ru_hint_word,
 )
 from games.sections.hub import (
     create_game_link_context,
@@ -73,7 +67,6 @@ from games.sections.paths import section_hub_path, section_play_path, section_re
 from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.site.http.middleware.request_timing import timing_phase
 from games.site.http.request_util import get_public_task_or_404
-from games.site.pages import NEW_UI_SECTIONS_PROJECT
 from games.site.pages.game.progress import (
     _archive_nav_target,
     _neighbors_by_pk,
@@ -85,13 +78,23 @@ from games.site.session.gameplay_context import (
     validate_gameplay_context,
 )
 from games.site.session.replay import StaleReplayError, _official_exists, active_replay, replay_for_request
+from games.site.views.daily.common import (
+    get_section_game,
+    last_redirect,
+    meta_context,
+    preview_denied,
+    published_numbers,
+    resolve_actor,
+    share_host,
+    today_redirect,
+    with_meta_bar,
+)
 from games.site.views.daily.hub import can_access_daily_game
 from games.site.views.daily.timing import daily_timing_page_context
 from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
-from games.task_group.likes_meta import likes_meta_by_task_id
 from games.task_group.titles import daily_edition_title, task_display_name
 
 CENSORLY_WORD_REPORT_LIMIT = 20
@@ -99,8 +102,12 @@ CENSORLY_WORD_REPORT_WINDOW_SECONDS = 10 * 60
 censorly_report_cache = caches['censorly_api']
 
 
-def _share_host(request) -> str:
-    return request.get_host() or 'interoves.com'
+def _get_game():
+    return get_section_game(CENSORLY_GAME_ID)
+
+
+def _published_numbers(game):
+    return published_numbers(game, digits_only=True)
 
 
 def _article_json(payload, *, status=200):
@@ -153,13 +160,6 @@ def _compact_play_response(result):
     return compact
 
 
-def _get_game():
-    return Game.objects.filter(
-        id=CENSORLY_GAME_ID,
-        project_id=NEW_UI_SECTIONS_PROJECT,
-    ).first()
-
-
 def _may_preview(user) -> bool:
     if not getattr(user, 'is_authenticated', False):
         return False
@@ -176,117 +176,6 @@ def _may_open_unpublished(user) -> bool:
 def _may_access_censorly(request, game) -> bool:
     """Use the same public preview permission as other daily games."""
     return can_access_daily_game(request, game)
-
-
-def _published_numbers(game):
-    links = GameTaskGroup.objects.filter(game=game)
-    return {
-        link.number
-        for link in filter_published_censorly_links(links, game)
-        if str(link.number).isdigit()
-    }
-
-
-def _resolve_actor(request, *, body=None):
-    if request.user.is_authenticated:
-        return request.user, None
-    anon_key = gameplay_anon_key(request)
-    if anon_key:
-        return None, str(anon_key)
-    return None, None
-
-
-def _hints_taken(*, game, task, user, anon_key) -> int:
-    qs = ChainTaskState.objects.filter(
-        task=task, game=game, game_mode='general', replay_slot__isnull=True,
-    )
-    if user is not None:
-        qs = qs.filter(user=user, team__isnull=True, anon_key__isnull=True)
-    elif anon_key:
-        qs = qs.filter(anon_key=str(anon_key), team__isnull=True, user__isnull=True)
-    else:
-        return 0
-    row = qs.first()
-    if row is None:
-        return 0
-    return hint_count(load_state(row.state))
-
-
-def _meta_context(request, *, game, task, user, anon_key, placement=None):
-    mode = game.get_current_mode(Attempt(time=timezone.now()))
-    ai = Attempt.manager.get_attempts_info(
-        team=None,
-        task=task,
-        mode=mode,
-        user=user,
-        anon_key=anon_key,
-        game=game,
-    )
-    hints_n = _hints_taken(game=game, task=task, user=user, anon_key=anon_key)
-    difficulty = None
-    if placement is not None:
-        from games.daily.difficulty.core import get_game_difficulty
-        difficulty = get_game_difficulty(placement)
-    return {
-        'game': game,
-        'task': task,
-        'ai': ai,
-        'mode': mode,
-        'base_max': task.get_points(),
-        'wall_max_title': '',
-        'task_ui': {
-            'show_attempts': False,
-            'show_answer': False,
-            'alphabetty_hints_label': (
-                f'{hints_n} {ru_hint_word(hints_n)}' if hints_n > 0 else ''
-            ),
-        },
-        'is_daily_single_task': True,
-        'difficulty': difficulty,
-        'has_profile_user': has_profile(request.user),
-        'user': request.user,
-        'likes_meta_by_task_id': likes_meta_by_task_id(
-            [task], team=None, user=user, anon_key=anon_key,
-        ),
-        'alphabetty_hints': hints_n,
-        'alphabetty_hints_label': (
-            f'{hints_n} {ru_hint_word(hints_n)}' if hints_n > 0 else ''
-        ),
-    }
-
-
-def _meta_bar_html(request, *, game, task, user, anon_key, placement=None) -> str:
-    return render_to_string(
-        'site/task-content/task-meta-bar.html',
-        _meta_context(
-            request,
-            game=game,
-            task=task,
-            user=user,
-            anon_key=anon_key,
-            placement=placement,
-        ),
-        request=request,
-    )
-
-
-def _with_meta_bar(payload, request, *, game, task, user, anon_key, placement=None):
-    out = dict(payload)
-    out['meta_bar_html'] = _meta_bar_html(
-        request,
-        game=game,
-        task=task,
-        user=user,
-        anon_key=anon_key,
-        placement=placement,
-    )
-    return out
-
-
-def _preview_denied(request, game):
-    if _may_access_censorly(request, game):
-        return None
-    return JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
 
 
 def _censorly_timing_enabled(game, load_meta, user, replay_slot):
@@ -367,7 +256,7 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
             return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
         if link is not None and link.is_deferred:
             return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
-        denied = _preview_denied(request, game)
+        denied = preview_denied(request, game)
         if denied is not None:
             return None, None, None, denied
         meta = {
@@ -380,7 +269,7 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
         }
         return game, task, meta, None
 
-    denied = _preview_denied(request, game)
+    denied = preview_denied(request, game)
     if denied is not None:
         return None, None, None, denied
     try:
@@ -401,7 +290,7 @@ def _load_visible_task(request, number, *, json_mode=True, random_hash=None):
             ).first()
             if task is None:
                 return None, None, None, JsonResponse({'status': 'error', 'error': 'not found'}, status=404)
-            denied = _preview_denied(request, game)
+            denied = preview_denied(request, game)
             if denied is not None:
                 return None, None, None, denied
             meta = {
@@ -485,7 +374,7 @@ def censorly_hub_page(request):
             number='1',
         )
     }
-    user, anon_key = _resolve_actor(request)
+    user, anon_key = resolve_actor(request)
     progress = hub_progress_for_actor(
         game=game,
         numbers_and_tasks=[
@@ -602,32 +491,11 @@ def censorly_random_game(request):
 
 
 def censorly_today_page(request):
-    game = _get_game()
-    if not game:
-        raise Http404()
-    if not _may_access_censorly(request, game):
-        raise Http404()
-    n = current_censorly_number(game)
-    if not n:
-        return redirect('ui_censorly_hub')
-    return redirect(section_play_path(CENSORLY_GAME_ID, n))
+    return today_redirect(request, CENSORLY_GAME_ID)
 
 
 def censorly_last_page(request):
-    game = _get_game()
-    if not game:
-        raise Http404()
-    if not _may_access_censorly(request, game):
-        raise Http404()
-    ints = []
-    for n in _published_numbers(game):
-        try:
-            ints.append(int(n))
-        except (TypeError, ValueError):
-            continue
-    if not ints:
-        return redirect('ui_censorly_hub')
-    return redirect(section_play_path(CENSORLY_GAME_ID, max(ints)))
+    return last_redirect(request, CENSORLY_GAME_ID, digits_only=True)
 
 
 def _render_play(request, *, game, task, load_meta):
@@ -638,7 +506,7 @@ def _render_play(request, *, game, task, load_meta):
     schedule_number = load_meta.get('schedule_number')
     n = None if is_random else schedule_number
 
-    user, anon_key = _resolve_actor(request)
+    user, anon_key = resolve_actor(request)
     replay_slot = active_replay(
         request=request, game=game, task_group=task.task_group,
         user=user, anon_key=anon_key,
@@ -649,7 +517,7 @@ def _render_play(request, *, game, task, load_meta):
         user=user,
         anon_key=anon_key,
         number=play_number,
-        share_host=_share_host(request),
+        share_host=share_host(request),
         play_path=play_path,
         replay_slot=replay_slot,
     )
@@ -678,7 +546,7 @@ def _render_play(request, *, game, task, load_meta):
         game=game, task_group=task.task_group, user=user, anon_key=anon_key,
     )
 
-    meta_ctx = _meta_context(
+    meta_ctx = meta_context(
         request,
         game=game,
         task=task,
@@ -840,7 +708,7 @@ def censorly_word_report(request, task_id):
         raise Http404()
     if unpublished_scheduled_task_response(request, game, task) is not None:
         raise Http404()
-    user, anon_key = _resolve_actor(request)
+    user, anon_key = resolve_actor(request)
     context_error = validate_gameplay_context(
         request, task=task, game=game, user=user, anon_key=anon_key,
     )
@@ -1004,7 +872,7 @@ class _MoveRequest:
             'user': user,
             'anon_key': self.anon_key,
             'number': number,
-            'share_host': _share_host(request),
+            'share_host': share_host(request),
             'play_path': play_path,
             'submitted_by_profile_id': request.user.pk if has_profile(request.user) else None,
             'attempt_created_callback': lambda attempt: record_gameplay_attempt_created(
@@ -1023,7 +891,7 @@ def _start_move(request, number, share_hash):
     if err is not None:
         return None, err
     body = _json_body(request)
-    user, anon_key = _resolve_actor(request, body=body)
+    user, anon_key = resolve_actor(request, body=body)
     context_error = validate_gameplay_context(
         request, task=task, game=game, user=user, anon_key=anon_key,
     )
@@ -1077,7 +945,7 @@ def _run_move(move: _MoveRequest, phase: str, apply_move):
         )
     if status in _META_BAR_STATUSES:
         with timing_phase(move.request, 'render_meta'):
-            result = _with_meta_bar(
+            result = with_meta_bar(
                 result, move.request, game=move.game, task=move.task,
                 user=move.user, anon_key=move.anon_key,
                 placement=_meta_placement(move.load_meta),
@@ -1138,7 +1006,7 @@ def _finish_completion(move: _MoveRequest, result):
                     attach_solve_meta(
                         result, game=game, task=task, number=number,
                         actor=_actor_filters(user=user, anon_key=anon_key, replay_slot=replay_slot),
-                        host=_share_host(request), play_path=play_path,
+                        host=share_host(request), play_path=play_path,
                     )
             analytics_events.extend(publish_completion_analytics(
                 record=completion['record'],
@@ -1163,7 +1031,7 @@ def censorly_state(request, number=None, share_hash=None):
     )
     if err is not None:
         return err
-    user, anon_key = _resolve_actor(request)
+    user, anon_key = resolve_actor(request)
     play_number, play_path = _play_location(load_meta, number)
     try:
         replay_slot = replay_for_request(
@@ -1178,11 +1046,11 @@ def censorly_state(request, number=None, share_hash=None):
         user=user,
         anon_key=anon_key,
         number=play_number,
-        share_host=_share_host(request),
+        share_host=share_host(request),
         play_path=play_path,
         replay_slot=replay_slot,
     )
-    payload = _with_meta_bar(
+    payload = with_meta_bar(
         {'status': 'ok', **state},
         request,
         game=game,

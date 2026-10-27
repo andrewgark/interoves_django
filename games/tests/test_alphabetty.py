@@ -528,6 +528,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertEqual(data['status'], 'ok')
         self.assertEqual(data['hint_prefix'], 'С')
         self.assertEqual(data['hints'], 1)
+        self.assertNotIn('подсказк', data['meta_bar_html'])
         self.assertEqual(data['next_hint_letter'], 2)
         self.assertEqual([event['goal'] for event in data['analytics_events']], ['game_start'])
         self.assertEqual(PlayerStartedGame.objects.filter(anon_key='hintanon').count(), 1)
@@ -977,6 +978,47 @@ class AlphabettyPlayApiTests(TestCase):
     def test_last_without_published_goes_to_hub(self):
         GameTaskGroup.objects.filter(game=self.game).delete()
         r = self.client.get('/alphabetty/last/')
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r['Location'], '/alphabetty/')
+
+    def test_play_page_keeps_hint_label_in_context(self):
+        _ensure_login_modal_deps()
+        self._anon('hintlabel')
+        taken = self.client.post(
+            '/alphabetty/1/hint/',
+            data=json.dumps({'anon_key': 'hintlabel'}),
+            content_type='application/json',
+            HTTP_X_INTEROVES_ANON='hintlabel',
+        )
+        self.assertEqual(taken.json()['hints'], 1)
+        page = self.client.get('/alphabetty/1/', HTTP_X_INTEROVES_ANON='hintlabel')
+        self.assertEqual(page.status_code, 200)
+        self.assertEqual(page.context['task_ui']['hints_label'], '1 подсказка')
+        self.assertNotIn('alphabetty_hints_label', page.context['task_ui'])
+        self.assertEqual(page.context['hints_taken'], 1)
+        self.assertNotContains(page, '1 подсказка')
+
+    def test_today_uses_latest_published_when_todays_slot_is_missing(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from games.daily.page.section import MOSCOW
+
+        today = timezone.now().astimezone(MOSCOW).date()
+        start = today - timedelta(days=1)
+        self.game.tags = {
+            ALPHABETTY_PUBLISH_START_TAG: f'{start.isoformat()}T00:00:00+03:00',
+        }
+        self.game.save(update_fields=['tags'])
+
+        r = self.client.get('/alphabetty/today/')
+        self.assertEqual(r.status_code, 302)
+        self.assertEqual(r['Location'], '/alphabetty/1/')
+
+    def test_today_without_published_goes_to_hub(self):
+        GameTaskGroup.objects.filter(game=self.game).delete()
+        r = self.client.get('/alphabetty/today/')
         self.assertEqual(r.status_code, 302)
         self.assertEqual(r['Location'], '/alphabetty/')
 
