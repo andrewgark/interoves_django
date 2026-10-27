@@ -14,12 +14,11 @@ from games.models import (
     Attempt,
     ChainTaskState,
     DailyResultProjection,
-    HintAttempt,
     Game,
     PlayerCompletedGame,
     Task,
-    Team,
     TaskGroup,
+    Team,
 )
 
 
@@ -120,19 +119,22 @@ def reconcile_task_group_actors(
     actor_keys=None,
     rebuild_task_id=None,
     delete_instance_id=None,
+    include_group_actors=True,
 ):
     """Reconcile only actors attached to one affected game/task-group.
 
     ``rebuild_task_id`` is used for checker/data changes where the current
     ChainTaskState must first be replayed.  ``delete_instance_id`` is used when
     a mapping is removed and the old canonical instance is no longer valid.
+    ``include_group_actors=False`` limits the pass to ``actor_keys`` for
+    identity changes that cannot affect anyone else's completion.
     """
     game = Game.objects.filter(pk=game_id).first()
     task_group = TaskGroup.objects.filter(pk=task_group_id).first()
     keys = set(actor_keys or ())
     if game is None:
         return 0
-    if task_group is not None:
+    if task_group is not None and include_group_actors:
         keys.update(_actor_keys_for_group(game_id=game_id, task_group_id=task_group_id))
     if not keys:
         return 0

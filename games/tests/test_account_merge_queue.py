@@ -72,6 +72,41 @@ class AccountMergeQueueTests(TestCase):
         self.assertEqual(job.status, AccountMergeJob.STATUS_COMPLETED)
         self.assertIsNotNone(job.account_merge_id)
 
+    @patch('games.identity.merge.account_queue.merge_accounts')
+    @patch('games.identity.merge.account_queue.reconcile_account_merge')
+    def test_retry_finishes_reconcile_of_committed_merge(self, reconcile, merge):
+        job = AccountMergeJob.objects.create(
+            target_user=self.target,
+            source_user=self.source,
+            target_user_id_snapshot=self.target.pk,
+            source_user_id_snapshot=self.source.pk,
+            provider='telegram',
+            provider_uid='telegram-source',
+        )
+        existing = AccountMerge.objects.create(
+            target_user=self.target,
+            source_user=self.source,
+            target_user_id_snapshot=self.target.pk,
+            source_user_id_snapshot=self.source.pk,
+            reconcile_pairs=[['ladder', 1]],
+        )
+        reconcile.side_effect = RuntimeError('db away')
+
+        with patch('games.identity.merge.account_queue.schedule_account_merge_event'):
+            failed = run_account_merge_job(job.pk, worker='test')
+
+        self.assertEqual(failed['status'], 'retry_scheduled')
+        job.refresh_from_db()
+        self.assertEqual(job.status, AccountMergeJob.STATUS_PENDING)
+
+        reconcile.side_effect = None
+        AccountMergeJob.objects.filter(pk=job.pk).update(next_attempt_at=None)
+        result = run_account_merge_job(job.pk, worker='test')
+
+        self.assertEqual(result, {'status': 'completed', 'merge_id': existing.pk})
+        reconcile.assert_called_with(existing)
+        merge.assert_not_called()
+
     def test_expired_worker_cannot_overwrite_new_claim(self):
         job = AccountMergeJob.objects.create(
             target_user=self.target,

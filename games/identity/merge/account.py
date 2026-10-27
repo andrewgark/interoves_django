@@ -743,7 +743,10 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
         raise AccountMergeError('Подтверждённый аккаунт провайдера больше не найден.')
 
     from games.daily.completion.targeted_completion_reconciliation import completion_pairs_for_actor
-    affected_pairs = completion_pairs_for_actor(user=target) | completion_pairs_for_actor(user=source)
+    # Only groups the source played change: the target's other rows stay as
+    # they are. Including the target's whole history made one merge run for
+    # 17 minutes while holding the target's rows and blocking their timer.
+    affected_pairs = completion_pairs_for_actor(user=source)
 
     summary = {}
     _merge_profiles(target, source, summary)
@@ -775,7 +778,9 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
     summary['daily_timings'] = _merge_daily_timings(target, source)
     summary['completed_games'] = _merge_completed_games(target, source)
     summary['analytics_states'] = _merge_analytics(target, source)
-    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
+    # Invalidating a projection is a cheap write that belongs with the move.
+    # The completion re-check is not: it runs per group after commit, see
+    # reconcile_account_merge().
     from games.daily.projection import schedule_full_projection_refresh
     from games.models import Game, TaskGroup
     for game_id, task_group_id in affected_pairs:
@@ -783,11 +788,6 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
         task_group = TaskGroup.objects.filter(pk=task_group_id).first()
         if game is not None and task_group is not None:
             schedule_full_projection_refresh(game, task_group)
-        reconcile_task_group_actors(
-            game_id=game_id,
-            task_group_id=task_group_id,
-            actor_keys={(None, target.pk, None)},
-        )
     # A source-profile deep link must not remain usable after deactivation.
     telegram_link_tokens = getattr(source, 'telegram_link_tokens', None)
     if telegram_link_tokens is not None:
@@ -843,6 +843,7 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
         provider=provider,
         provider_uid=str(provider_uid),
         summary=summary,
+        reconcile_pairs=[list(pair) for pair in sorted(affected_pairs)],
     )
 
     source.is_active = False
@@ -850,6 +851,41 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
     source.set_unusable_password()
     source.save(update_fields=['is_active', 'email', 'password'])
     return merge
+
+
+def reconcile_account_merge(merge):
+    """Re-check completions for a committed merge, one task group at a time.
+
+    Each group gets its own short transaction, so the player's rows are not
+    held for the whole pass. The remaining groups stay on the merge record:
+    a retried job continues where a failed pass stopped. Returns the number
+    of groups processed.
+    """
+    from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
+
+    # The source key cleans up any completion row left behind under the old
+    # identity; nobody else in the group is affected.
+    actor_keys = {
+        (None, merge.target_user_id_snapshot, None),
+        (None, merge.source_user_id_snapshot, None),
+    }
+    done = 0
+    while True:
+        with transaction.atomic():
+            locked = AccountMerge.objects.select_for_update().filter(pk=merge.pk).first()
+            pending = list((locked.reconcile_pairs or []) if locked is not None else [])
+            if not pending:
+                return done
+            game_id, task_group_id = pending[0]
+            reconcile_task_group_actors(
+                game_id=game_id,
+                task_group_id=task_group_id,
+                actor_keys=actor_keys,
+                include_group_actors=False,
+            )
+            locked.reconcile_pairs = pending[1:]
+            locked.save(update_fields=['reconcile_pairs'])
+        done += 1
 
 
 def merge_accounts(*, target_user, source_user, provider, provider_uid):
@@ -867,6 +903,8 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
             provider=provider,
             provider_uid=provider_uid,
         )
+        moved_ms = (time.perf_counter() - started) * 1000
+        reconciled = reconcile_account_merge(merge)
     except Exception as exc:
         logger.exception(
             'profile merge failed merge_kind=authenticated target_user_id=%s '
@@ -878,8 +916,9 @@ def merge_accounts(*, target_user, source_user, provider, provider_uid):
     logger.info(
         'profile merge completed merge_kind=authenticated merge_id=%s '
         'target_user_id=%s source_user_id=%s provider=%s duration_ms=%.1f '
-        'summary=%s',
+        'move_ms=%.1f reconciled_groups=%s summary=%s',
         merge.pk, target_user.pk, source_user.pk, provider,
-        (time.perf_counter() - started) * 1000, merge.summary or {},
+        (time.perf_counter() - started) * 1000, moved_ms, reconciled,
+        merge.summary or {},
     )
     return merge

@@ -427,7 +427,8 @@ def _reconcile_one(job, job_token):
             reconcile_task_group_actors(
                 game_id=item.game_id,
                 task_group_id=item.task_group_id,
-                actor_keys={(None, job.user_id, None)},
+                actor_keys={(None, job.user_id, None), (None, None, job.anon_key)},
+                include_group_actors=False,
             )
             updated = AnonymousMergeReconcileItem.objects.filter(
                 pk=item.pk, status=AnonymousMergeReconcileItem.STATUS_RUNNING, claim_token=item_token,

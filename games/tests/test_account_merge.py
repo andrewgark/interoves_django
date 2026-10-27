@@ -20,6 +20,7 @@ from games.identity.merge.account import (
     AccountMergeError,
     build_account_merge_preview,
     merge_accounts,
+    reconcile_account_merge,
 )
 from games.models import (
     AccountMerge,
@@ -383,6 +384,129 @@ class AccountMergeTests(TestCase):
         self.assertEqual(state.signup_method, 'email')
         self.assertEqual(state.activated_at, now - timedelta(days=8))
         self.assertTrue(state.activation_is_backfilled)
+
+    def test_merge_reconciles_only_source_groups_for_target(self):
+        # Reconciling the target's whole history, for every player of each
+        # group, kept a production merge in one transaction for 17 minutes.
+        target_only_group = TaskGroup.objects.create(label='account_merge_target_only')
+        with patch('games.realtime.track_compat.track_task_change'):
+            target_only_task = Task.objects.create(
+                task_group=target_only_group,
+                number='1',
+                checker=self.task.checker,
+                answer='ok',
+                points=1,
+            )
+            Attempt.manager.create(
+                user=self.target, task=target_only_task, game=self.game, text='x', status='Wrong',
+            )
+            Attempt.manager.create(
+                user=self.source, task=self.task, game=self.game, text='x', status='Wrong',
+            )
+
+        with patch(
+            'games.daily.completion.targeted_completion_reconciliation.reconcile_task_group_actors',
+        ) as reconcile:
+            merge_accounts(
+                target_user=self.target,
+                source_user=self.source,
+                provider='vk',
+                provider_uid='vk-source',
+            )
+
+        self.assertEqual(reconcile.call_count, 1)
+        kwargs = reconcile.call_args.kwargs
+        self.assertEqual(
+            (kwargs['game_id'], kwargs['task_group_id']),
+            (self.game.pk, self.task_group.pk),
+        )
+        self.assertEqual(
+            kwargs['actor_keys'],
+            {(None, self.target.pk, None), (None, self.source.pk, None)},
+        )
+        self.assertIs(kwargs['include_group_actors'], False)
+
+    def test_merge_commits_move_then_resumes_unfinished_reconcile(self):
+        # The move is one transaction; the completion re-check runs per group
+        # afterwards and keeps what is left on the merge record.
+        second_group = TaskGroup.objects.create(label='account_merge_second')
+        with patch('games.realtime.track_compat.track_task_change'):
+            second_task = Task.objects.create(
+                task_group=second_group,
+                number='1',
+                checker=self.task.checker,
+                answer='ok',
+                points=1,
+            )
+            for task in (self.task, second_task):
+                Attempt.manager.create(
+                    user=self.source, task=task, game=self.game, text='x', status='Wrong',
+                )
+        calls = []
+
+        def fail_second(**kwargs):
+            calls.append(kwargs['task_group_id'])
+            if len(calls) == 2:
+                raise RuntimeError('reconcile failed')
+            return 0
+
+        path = 'games.daily.completion.targeted_completion_reconciliation.reconcile_task_group_actors'
+        with patch(path, side_effect=fail_second):
+            with self.assertRaises(RuntimeError):
+                merge_accounts(
+                    target_user=self.target,
+                    source_user=self.source,
+                    provider='vk',
+                    provider_uid='vk-source',
+                )
+
+        merge = AccountMerge.objects.get(source_user_id_snapshot=self.source.pk)
+        self.source.refresh_from_db()
+        self.assertFalse(self.source.is_active)
+        self.assertEqual(Attempt.manager.filter(user=self.target).count(), 2)
+        self.assertEqual(merge.reconcile_pairs, [[self.game.pk, calls[1]]])
+
+        with patch(path, return_value=0) as reconcile:
+            self.assertEqual(reconcile_account_merge(merge), 1)
+            self.assertEqual(reconcile_account_merge(merge), 0)
+        self.assertEqual(reconcile.call_args.kwargs['task_group_id'], calls[1])
+        merge.refresh_from_db()
+        self.assertEqual(merge.reconcile_pairs, [])
+
+    def test_reconcile_without_group_actors_checks_only_named_actor(self):
+        from games.daily.completion.targeted_completion_reconciliation import (
+            reconcile_task_group_actors,
+        )
+
+        with patch('games.realtime.track_compat.track_task_change'):
+            for user in (self.target, self.source):
+                Attempt.manager.create(
+                    user=user, task=self.task, game=self.game, text='x', status='Wrong',
+                )
+        checked = []
+
+        def record(**kwargs):
+            checked.append(kwargs['user'].pk)
+            return False
+
+        with patch(
+            'games.ops.analytics.events.reconcile_completed_game_after_recheck',
+            side_effect=record,
+        ):
+            reconcile_task_group_actors(
+                game_id=self.game.pk,
+                task_group_id=self.task_group.pk,
+                actor_keys={(None, self.target.pk, None)},
+                include_group_actors=False,
+            )
+            self.assertEqual(checked, [self.target.pk])
+            checked.clear()
+            reconcile_task_group_actors(
+                game_id=self.game.pk,
+                task_group_id=self.task_group.pk,
+                actor_keys={(None, self.target.pk, None)},
+            )
+            self.assertCountEqual(checked, [self.target.pk, self.source.pk])
 
     def test_different_accounts_of_same_provider_block_merge(self):
         SocialAccount.objects.create(

@@ -16,7 +16,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
-from games.identity.merge.account import AccountMergeError, merge_accounts
+from games.identity.merge.account import AccountMergeError, merge_accounts, reconcile_account_merge
 from games.models import AccountMerge, AccountMergeJob
 
 logger = logging.getLogger('application')
@@ -348,6 +348,14 @@ def run_account_merge_job(job_id, *, worker='identity'):
         source_user_id_snapshot=job.source_user_id_snapshot,
     ).first()
     if existing is not None:
+        # A previous run committed the move and then failed or lost its
+        # worker during the per-group completion re-check: finish it.
+        try:
+            with _LeaseHeartbeat(job.pk, job.claim_token):
+                reconcile_account_merge(existing)
+        except Exception as exc:
+            logger.exception('account merge reconcile failed job=%s merge=%s', job.pk, existing.pk)
+            return {'status': _schedule_retry(job, exc)}
         marked = _mark_completed(job.pk, existing, job.claim_token)
         return {
             'status': 'completed' if marked else 'stale',

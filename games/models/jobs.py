@@ -2,6 +2,7 @@ import uuid
 
 from django.db import models
 
+
 class QueueWorkerHeartbeat(models.Model):
     """Latest durable heartbeat for a cron/queue worker."""
 
@@ -194,6 +195,10 @@ class AccountMerge(models.Model):
     provider = models.CharField(max_length=32, blank=True, default='')
     provider_uid = models.CharField(max_length=191, blank=True, default='')
     summary = models.JSONField(default=dict, blank=True)
+    # [game_id, task_group_id] pairs whose completions still need a re-check
+    # after the merge committed. Recorded with the move because afterwards
+    # the source owns nothing to recompute them from. Empty or null: done.
+    reconcile_pairs = models.JSONField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:

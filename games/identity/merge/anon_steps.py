@@ -115,7 +115,8 @@ def claim_and_migrate_anon_history(user, anon_key):
         reconcile_task_group_actors(
             game_id=game_id,
             task_group_id=task_group_id,
-            actor_keys={(None, user.pk, None)},
+            actor_keys={(None, user.pk, None), (None, None, anon_key)},
+            include_group_actors=False,
         )
     moved_any = bool(
         moved or moved_hints or moved_states or moved_starts or moved_timings or moved_completions
@@ -258,7 +259,8 @@ def migrate_anon_history_step(
         reconcile_task_group_actors(
             game_id=game_id,
             task_group_id=task_group_id,
-            actor_keys={(None, user.pk, None)},
+            actor_keys={(None, user.pk, None), (None, None, anon_key)},
+            include_group_actors=False,
         )
         return {'status': 'ok', 'reconciled': 1, 'pair_index': pair_index + 1}
     if step == 'finish':
