@@ -11,6 +11,7 @@ from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.daily.timing.transitions import next_daily_content_transition_for_games
 from games.models import Game, Project
 from games.sections.hub import get_desyatochki_hub_context
+from games.site.http.middleware.request_timing import timing_phase
 from games.site.pages import NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT, _project_base, _project_urls_context
 from games.site.pages.game.access import _games_list_card_context, _new_folder_games
 from games.site.pages.game.pages import _render_section_game_page
@@ -40,37 +41,49 @@ logger = logging.getLogger('games.views.new_ui')
 
 
 def hub(request):
-    project = Project.objects.filter(id=NEW_UI_PROJECT).first()
-    section_games = get_section_games(request)
-    hub_groups = _build_hub_section_cards(request, team=team_for_user(request.user))
-    live_next_transition_at = next_daily_content_transition_for_games(
-        card.get('game') for card in hub_groups['daily_hub_cards']
-    )
-    view = MainPageView()
-    view.project_name = NEW_UI_PROJECT
-    desyatochki_games = view.get_games_list(request)
-    desyatochki_card = get_desyatochki_hub_context(desyatochki_games) if desyatochki_games else None
-    return render(request, 'ui/hub.html', {
-        'project': project,
-        'section_games': section_games,
-        **hub_groups,
-        'desyatochki_card': desyatochki_card,
-        'show_first_visit_onboarding': _is_first_time_player(request),
-        'onboarding_salad_url': _onboarding_starter_salad_url(hub_groups['daily_hub_cards']),
-        **_games_list_card_context(request),
-        'page_title': 'Interoves',
-        'show_sections_nav': True,
-        'live_next_transition_at': live_next_transition_at,
-        'show_desyatochki_pay_cta': True,
-        'show_order_banner': True,
-        'desyatochki_participants_chat_url': MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
-        'desyatochki_rules_participants_chat_url': MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
-        'community_links': MAIN_COMMUNITY_LINKS,
-        'interesting_links': MAIN_INTERESTING_LINKS,
-        'show_donate_cta': True,
-        'show_next_game_vote_cta': campaign_phase() != PHASE_CLOSED,
-        **_project_urls_context(NEW_UI_PROJECT),
-    })
+    # Phases show up in slow_request logs: the hub is the most frequent slow
+    # page and its time was all "unaccounted".
+    with timing_phase(request, 'hub_section_games'):
+        project = Project.objects.filter(id=NEW_UI_PROJECT).first()
+        section_games = get_section_games(request)
+    with timing_phase(request, 'hub_daily_cards'):
+        hub_groups = _build_hub_section_cards(request, team=team_for_user(request.user))
+    with timing_phase(request, 'hub_next_transition'):
+        live_next_transition_at = next_daily_content_transition_for_games(
+            card.get('game') for card in hub_groups['daily_hub_cards']
+        )
+    with timing_phase(request, 'hub_desyatochki'):
+        view = MainPageView()
+        view.project_name = NEW_UI_PROJECT
+        desyatochki_games = view.get_games_list(request)
+        desyatochki_card = get_desyatochki_hub_context(desyatochki_games) if desyatochki_games else None
+    with timing_phase(request, 'hub_onboarding'):
+        show_first_visit_onboarding = _is_first_time_player(request)
+        onboarding_salad_url = _onboarding_starter_salad_url(hub_groups['daily_hub_cards'])
+    with timing_phase(request, 'hub_games_list'):
+        games_list_context = _games_list_card_context(request)
+    with timing_phase(request, 'hub_render'):
+        return render(request, 'ui/hub.html', {
+            'project': project,
+            'section_games': section_games,
+            **hub_groups,
+            'desyatochki_card': desyatochki_card,
+            'show_first_visit_onboarding': show_first_visit_onboarding,
+            'onboarding_salad_url': onboarding_salad_url,
+            **games_list_context,
+            'page_title': 'Interoves',
+            'show_sections_nav': True,
+            'live_next_transition_at': live_next_transition_at,
+            'show_desyatochki_pay_cta': True,
+            'show_order_banner': True,
+            'desyatochki_participants_chat_url': MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
+            'desyatochki_rules_participants_chat_url': MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
+            'community_links': MAIN_COMMUNITY_LINKS,
+            'interesting_links': MAIN_INTERESTING_LINKS,
+            'show_donate_cta': True,
+            'show_next_game_vote_cta': campaign_phase() != PHASE_CLOSED,
+            **_project_urls_context(NEW_UI_PROJECT),
+        })
 
 
 def start(request):

@@ -1,6 +1,9 @@
 """Tests for slow-request logging middleware."""
 
-from django.test import RequestFactory, TestCase
+from allauth.socialaccount.models import SocialApp
+from django.contrib.sites.models import Site
+from django.db import connection
+from django.test import Client, RequestFactory, TestCase, override_settings
 from django.urls import resolve
 
 from games.site.http.middleware.request_timing import RequestTimingMiddleware, _watch_path, timing_phase
@@ -84,6 +87,42 @@ class RequestTimingMiddlewareTests(TestCase):
         self.assertIn('endpoint=censorly/r/<str:share_hash>/state/', log)
         self.assertNotIn('abcd1234abcd1234', log)
         self.assertNotIn('secret-code', log)
+
+    def test_counts_sql_on_watched_paths_only(self):
+        def response(_request):
+            with connection.cursor() as cursor:
+                cursor.execute('SELECT 1')
+            return type('R', (), {'status_code': 200})()
+
+        middleware = RequestTimingMiddleware(response)
+        middleware.slow_ms = 0
+        with self.assertLogs('interoves.request_timing', level='WARNING') as cm:
+            middleware(self.factory.post('/send_attempt/1/'))
+            middleware(self.factory.get('/alphabetty/1/'))
+        watched, unwatched = cm.output
+        self.assertIn('sql_count=1 sql_ms=', watched)
+        self.assertIn('sql_count=- sql_ms=-', unwatched)
+
+    @override_settings(REQUEST_TIMING_SLOW_MS=0)
+    def test_hub_logs_its_phases(self):
+        self.assertTrue(_watch_path('/'))
+        site, _ = Site.objects.get_or_create(id=1, defaults={'domain': 'testserver', 'name': 'test'})
+        for provider in ('google', 'vk', 'yandex', 'telegram'):
+            app, _ = SocialApp.objects.get_or_create(
+                provider=provider,
+                defaults={'name': provider, 'client_id': 'test', 'secret': 'test'},
+            )
+            app.sites.add(site)
+        with self.assertLogs('interoves.request_timing', level='WARNING') as cm:
+            response = Client().get('/')
+        self.assertEqual(response.status_code, 200)
+        log = '\n'.join(cm.output)
+        for phase in (
+            'hub_section_games', 'hub_daily_cards', 'hub_next_transition',
+            'hub_desyatochki', 'hub_onboarding', 'hub_games_list', 'hub_render',
+        ):
+            self.assertIn(phase + ':', log)
+        self.assertRegex(log, r'sql_count=[1-9]')
 
     def test_logs_slow_exception(self):
         def response(_request):
