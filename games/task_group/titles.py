@@ -45,6 +45,13 @@ def task_group_page_title(game, placement, *, include_date=False) -> str:
     return '{} · {}'.format(game_title, placement.name)
 
 
+def daily_edition_title(game, placement, play_number) -> str:
+    """Title of one daily play page: the numbered edition, or a random/share-link play."""
+    if placement is not None:
+        return task_group_page_title(game, placement)
+    return '{} #{}'.format(game.outside_name or game.name or game.pk, play_number)
+
+
 def task_display_name(game, task, *, placement=None) -> str:
     if placement is None and getattr(task, 'task_group_id', None):
         from games.models import GameTaskGroup

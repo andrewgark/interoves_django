@@ -2,7 +2,12 @@ from types import SimpleNamespace
 
 from django.test import SimpleTestCase
 
-from games.task_group.titles import raddle_share_title, task_display_name, task_group_page_title
+from games.task_group.titles import (
+    daily_edition_title,
+    raddle_share_title,
+    task_display_name,
+    task_group_page_title,
+)
 
 
 class TaskTitlesTests(SimpleTestCase):
@@ -72,3 +77,10 @@ class TaskTitlesTests(SimpleTestCase):
         task = SimpleNamespace(pk=99, task_group_id=None, number='7')
 
         self.assertEqual(task_display_name(game, task), '#7')
+
+    def test_daily_edition_title_numbers_editions_and_random_plays(self):
+        game = SimpleNamespace(pk='censorly', outside_name='Цензурка', name='Цензурка')
+        placement = SimpleNamespace(number='15', name='Цензурка #15')
+
+        self.assertEqual(daily_edition_title(game, placement, '15'), 'Цензурка №15')
+        self.assertEqual(daily_edition_title(game, None, 'abc123'), 'Цензурка #abc123')

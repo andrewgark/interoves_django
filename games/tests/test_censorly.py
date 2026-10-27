@@ -2476,6 +2476,7 @@ class CensorlyUxDailyTests(TestCase):
             html.index('data-daily-solve-board'),
             html.index('id="censorly-root"'),
         )
+        self.assertRegex(html, r'new-heading--page">\s*[^<]*№1\s*<')
 
     def test_guess_is_accepted_when_timer_failed_but_rejected_while_manually_paused(self):
         from datetime import timedelta

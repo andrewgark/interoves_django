@@ -84,7 +84,7 @@ from games.site.session.replay import StaleReplayError, _official_exists, active
 from games.site.views.daily.hub import can_access_daily_game
 from games.site.views.daily.timing import daily_timing_page_context
 from games.task_group.likes_meta import likes_meta_by_task_id
-from games.task_group.titles import task_display_name, task_group_page_title
+from games.task_group.titles import daily_edition_title, task_display_name
 
 
 def _share_host(request) -> str:
@@ -492,12 +492,11 @@ def alphabetty_play_page(request, number):
         anon_key=anon_key,
         placement=link if offer is None else None,
     )
-    if offer is None and link is not None:
-        page_title = task_group_page_title(game, link)
-        bug_report_task_label = task_display_name(game, task, placement=link)
-    else:
-        page_title = f'Алфавитка #{play_number}'
-        bug_report_task_label = page_title
+    edition = link if offer is None else None
+    page_title = daily_edition_title(game, edition, play_number)
+    bug_report_task_label = (
+        task_display_name(game, task, placement=edition) if edition is not None else page_title
+    )
     daily_lifecycle_context = build_daily_lifecycle_context(
         ALPHABETTY_GAME_ID,
         is_daily_single_task=True,

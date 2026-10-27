@@ -92,7 +92,7 @@ from games.site.views.game.context import (
     unpublished_scheduled_task_response,
 )
 from games.task_group.likes_meta import likes_meta_by_task_id
-from games.task_group.titles import task_display_name, task_group_page_title
+from games.task_group.titles import daily_edition_title, task_display_name
 
 CENSORLY_WORD_REPORT_LIMIT = 20
 CENSORLY_WORD_REPORT_WINDOW_SECONDS = 10 * 60
@@ -686,13 +686,12 @@ def _render_play(request, *, game, task, load_meta):
         anon_key=anon_key,
         placement=link if not is_random else None,
     )
-    if link is not None and not is_random:
-        page_title = task_group_page_title(game, link)
-        bug_report_task_label = task_display_name(game, task, placement=link)
-    else:
-        # Never put wiki_title here before win — it spoils the tab title.
-        page_title = f'Цензурка · {play_number}'
-        bug_report_task_label = page_title
+    edition = link if not is_random else None
+    # Never put wiki_title here before win — it spoils the tab title.
+    page_title = daily_edition_title(game, edition, play_number)
+    bug_report_task_label = (
+        task_display_name(game, task, placement=edition) if edition is not None else page_title
+    )
 
     daily_lifecycle_context = build_daily_lifecycle_context(
         CENSORLY_GAME_ID,
@@ -724,6 +723,8 @@ def _render_play(request, *, game, task, load_meta):
         'page_title': page_title if not state.get('won') else (
             state.get('wiki_title') or page_title
         ),
+        # The tab title switches to the article after a win; the heading keeps the number.
+        'page_heading': page_title,
         'bug_report_task_label': bug_report_task_label,
         'daily_publish_date': daily_publish_date,
         'hide_daily_navigation': is_random,
