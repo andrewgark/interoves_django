@@ -13,8 +13,8 @@ from django.utils import timezone
 
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import LADDER_GAME_ID
-from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.daily.ladder.tutorial.ladder import is_ladder_tutorial_task_group
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -27,7 +27,6 @@ from games.ops.analytics.persistence import (
     AnalyticsRowInvariantError,
     create_or_reread_analytics_row,
 )
-
 
 logger = logging.getLogger('games.analytics')
 analytics_timing_logger = logging.getLogger('interoves.analytics_timing')
@@ -502,7 +501,6 @@ def pending_ticket_purchase_goals(user, limit=20):
 def _subscription_goal_payload(subscription, kind):
     if subscription is None:
         return None
-    from games.models import ClubSubscription
 
     params = {
         'provider': subscription.provider,
@@ -685,6 +683,21 @@ def register_started_game(
     ]
 
 
+def _acknowledge_rows(rows, field, *, eligible=None):
+    """Stamp ``field`` once; True when there is nothing left to acknowledge.
+
+    A record that no longer exists (e.g. folded into another identity by a
+    merge) counts as acknowledged: refusing it made browsers resend the same
+    token for two weeks. ``eligible`` narrows ``rows`` to records that may be
+    stamped yet; an existing but ineligible record is still refused.
+    """
+    target = rows if eligible is None else eligible
+    updated = target.filter(**{'{}__isnull'.format(field): True}).update(
+        **{field: timezone.now()}
+    )
+    return bool(updated or target.exists() or not rows.exists())
+
+
 def acknowledge_analytics_goal(token):
     try:
         payload = signing.loads(
@@ -699,41 +712,30 @@ def acknowledge_analytics_goal(token):
     kind = payload.get('kind')
     record_id = payload.get('id')
     if kind == YANDEX_GOAL_GAME_START:
-        updated = PlayerStartedGame.objects.filter(
-            pk=record_id,
-            metrika_acked_at__isnull=True,
-        ).update(metrika_acked_at=timezone.now())
-        return bool(updated or PlayerStartedGame.objects.filter(pk=record_id).exists())
+        return _acknowledge_rows(
+            PlayerStartedGame.objects.filter(pk=record_id), 'metrika_acked_at',
+        )
     if kind == YANDEX_GOAL_GAME_COMPLETE:
-        updated = PlayerCompletedGame.objects.filter(
-            pk=record_id,
-            metrika_acked_at__isnull=True,
-        ).update(metrika_acked_at=timezone.now())
-        return bool(updated or PlayerCompletedGame.objects.filter(pk=record_id).exists())
+        return _acknowledge_rows(
+            PlayerCompletedGame.objects.filter(pk=record_id), 'metrika_acked_at',
+        )
     if kind in (YANDEX_GOAL_SIGNUP, YANDEX_GOAL_ACTIVATED_PLAYER):
         field = (
             'signup_goal_acked_at'
             if kind == YANDEX_GOAL_SIGNUP
             else 'activation_goal_acked_at'
         )
-        state = PlayerAnalyticsState.objects.filter(pk=record_id)
-        updated = state.filter(**{'{}__isnull'.format(field): True}).update(
-            **{field: timezone.now()}
-        )
-        return bool(updated or state.exists())
+        return _acknowledge_rows(PlayerAnalyticsState.objects.filter(pk=record_id), field)
     if kind in (YANDEX_GOAL_TICKET_CHECKOUT, YANDEX_GOAL_TICKET_PURCHASE):
         from games.models import TicketRequest
 
         tickets = TicketRequest.objects.filter(pk=record_id)
         if kind == YANDEX_GOAL_TICKET_PURCHASE:
-            tickets = tickets.filter(status='Accepted')
-            field = 'purchase_goal_sent_at'
-        else:
-            field = 'checkout_goal_acked_at'
-        updated = tickets.filter(**{'{}__isnull'.format(field): True}).update(
-            **{field: timezone.now()}
-        )
-        return bool(updated or tickets.exists())
+            return _acknowledge_rows(
+                tickets, 'purchase_goal_sent_at',
+                eligible=tickets.filter(status='Accepted'),
+            )
+        return _acknowledge_rows(tickets, 'checkout_goal_acked_at')
     if kind in (
         YANDEX_GOAL_SUBSCRIPTION_PAYMENT,
         YANDEX_GOAL_SUBSCRIPTION_RENEWAL,
@@ -746,19 +748,13 @@ def acknowledge_analytics_goal(token):
             YANDEX_GOAL_SUBSCRIPTION_RENEWAL: 'renewal_goal_sent_at',
             YANDEX_GOAL_SUBSCRIPTION_CANCELLED: 'cancelled_goal_sent_at',
         }[kind]
-        rows = ClubSubscription.objects.filter(pk=record_id)
-        updated = rows.filter(**{'{}__isnull'.format(field): True}).update(
-            **{field: timezone.now()}
-        )
-        return bool(updated or rows.exists())
+        return _acknowledge_rows(ClubSubscription.objects.filter(pk=record_id), field)
     if kind == YANDEX_GOAL_NEXT_GAME_VOTE_PAYMENT:
         from games.models import NextGameVoteEvent
 
-        rows = NextGameVoteEvent.objects.filter(pk=record_id)
-        updated = rows.filter(analytics_goal_sent_at__isnull=True).update(
-            analytics_goal_sent_at=timezone.now(),
+        return _acknowledge_rows(
+            NextGameVoteEvent.objects.filter(pk=record_id), 'analytics_goal_sent_at',
         )
-        return bool(updated or rows.exists())
     return False
 
 

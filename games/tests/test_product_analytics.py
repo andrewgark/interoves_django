@@ -6,22 +6,16 @@ from unittest.mock import patch
 
 from allauth.account.signals import user_signed_up
 from django.contrib.auth.models import User
-from django.core.management import call_command
 from django.contrib.sessions.middleware import SessionMiddleware
+from django.core.management import call_command
 from django.test import RequestFactory, TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from games.ops.analytics.events import (
-    is_task_completion_state,
-    register_completed_game,
-    register_started_game,
-)
-from games.site.http.context import analytics_bootstrap
 from games.models import (
-    CheckerType,
     Attempt,
     ChainTaskState,
+    CheckerType,
     Game,
     HTMLPage,
     PlayerAnalyticsState,
@@ -34,6 +28,12 @@ from games.models import (
     Team,
     TicketRequest,
 )
+from games.ops.analytics.events import (
+    is_task_completion_state,
+    register_completed_game,
+    register_started_game,
+)
+from games.site.http.context import analytics_bootstrap
 
 
 class ProductAnalyticsTests(TestCase):
@@ -104,6 +104,20 @@ class ProductAnalyticsTests(TestCase):
         self.assertEqual(ack.status_code, 200)
         state.refresh_from_db()
         self.assertIsNotNone(state.activation_goal_acked_at)
+
+    def test_ack_for_vanished_record_is_accepted_but_forged_token_is_not(self):
+        # An identity merge can fold the acked row into another one; refusing
+        # the token made browsers resend it for two weeks.
+        game, task = self._make_supported_task('ladder', 'raddle', 1)
+        goals = register_completed_game(user=self.user, task=task, game=game)
+        token = goals[0]['ack']['token']
+        PlayerCompletedGame.objects.filter(user=self.user).delete()
+
+        gone = self.client.post(reverse('analytics_goal_ack'), {'token': token})
+        forged = self.client.post(reverse('analytics_goal_ack'), {'token': token + 'x'})
+
+        self.assertEqual(gone.status_code, 200)
+        self.assertEqual(forged.status_code, 400)
 
     def test_completion_repeats_until_metrika_ack_then_stops(self):
         game, task = self._make_supported_task('ladder', 'raddle', 1)
@@ -484,6 +498,27 @@ class ProductAnalyticsTests(TestCase):
 
         self.assertEqual(ack.status_code, 200)
         self.assertNotIn('analytics_events', self.client.get(status_url).json())
+
+    def test_ticket_purchase_ack_is_refused_until_ticket_is_accepted(self):
+        from games.ops.analytics.events import acknowledge_analytics_goal
+
+        ticket = TicketRequest.objects.create(
+            team=self.team,
+            money=2000,
+            tickets=1,
+            status='Accepted',
+            currency='RUB',
+            payment_provider='yookassa',
+            merchant='ru_self_employed',
+        )
+        self.client.force_login(self.user)
+        status_url = reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket.id})
+        token = self.client.get(status_url).json()['analytics_events'][0]['ack']['token']
+        TicketRequest.objects.filter(pk=ticket.pk).update(status='Pending')
+
+        self.assertFalse(acknowledge_analytics_goal(token))
+        ticket.refresh_from_db()
+        self.assertIsNone(ticket.purchase_goal_sent_at)
 
     def test_ticket_purchase_is_retried_on_every_page_until_signed_ack(self):
         ticket = TicketRequest.objects.create(

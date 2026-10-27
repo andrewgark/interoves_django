@@ -175,4 +175,91 @@ function memoryStorage() {
   assert.strictEqual(fetches[0][1].body, 'token=signed-token');
 })();
 
-console.log('yandex_metrika_helper.test.js: ok');
+function ackWindow(store, respond, clock) {
+  var fetches = [];
+  var win = {
+    interovesAnalyticsConfig: { yandexCounterId: 108320022 },
+    localStorage: store,
+    fetch: function (url, options) {
+      fetches.push(options.body);
+      return Promise.resolve(respond());
+    },
+  };
+  fakeTimers(win);
+  win.fetches = fetches;
+  return win;
+}
+
+function storeWithAck() {
+  var store = memoryStorage();
+  store.setItem('interoves_pending_yandex_goals_v2', JSON.stringify({
+    goals: {},
+    acks: { k: { url: '/analytics/goals/ack/', token: 't', createdAt: Date.now() } },
+  }));
+  return store;
+}
+
+function flushPromises() {
+  return new Promise(function (resolve) { setImmediate(resolve); });
+}
+
+async function testRejectedAckIsDroppedForGood() {
+  var store = storeWithAck();
+  var win = ackWindow(store, function () { return { ok: false, status: 400 }; });
+  var helper = loadHelperWithWindow(win);
+  helper.flushPendingGoals([]);
+  await flushPromises();
+  assert.strictEqual(win.fetches.length, 1);
+  helper.flushPendingGoals([]);
+  await flushPromises();
+  assert.strictEqual(win.fetches.length, 1, 'a refused token is not resent');
+  assert.deepStrictEqual(JSON.parse(store.getItem('interoves_pending_yandex_goals_v2')).acks, {});
+}
+
+async function testFailingAckBacksOffAcrossFlushesAndReloads() {
+  var oldNow = Date.now;
+  var now = oldNow();
+  Date.now = function () { return now; };
+  try {
+    var store = storeWithAck();
+    var unavailable = function () {
+      return { ok: false, status: 503, headers: { get: function () { return '30'; } } };
+    };
+    var win = ackWindow(store, unavailable);
+    var helper = loadHelperWithWindow(win);
+    helper.flushPendingGoals([]);
+    await flushPromises();
+    assert.strictEqual(win.fetches.length, 1);
+    // Gameplay responses and pageshow flush again right away: still waiting.
+    helper.flushPendingGoals([]);
+    await flushPromises();
+    assert.strictEqual(win.fetches.length, 1, 'no resend before Retry-After');
+
+    // A reload keeps the backoff.
+    win = ackWindow(store, unavailable);
+    helper = loadHelperWithWindow(win);
+    helper.flushPendingGoals([]);
+    await flushPromises();
+    assert.strictEqual(win.fetches.length, 0);
+
+    now += 31000;
+    win = ackWindow(store, function () { return { ok: true, status: 200 }; });
+    helper = loadHelperWithWindow(win);
+    helper.flushPendingGoals([]);
+    await flushPromises();
+    assert.strictEqual(win.fetches.length, 1);
+    assert.deepStrictEqual(JSON.parse(store.getItem('interoves_pending_yandex_goals_v2')).acks, {});
+  } finally {
+    Date.now = oldNow;
+  }
+}
+
+(async function runAsync() {
+  await testRejectedAckIsDroppedForGood();
+  await testFailingAckBacksOffAcrossFlushesAndReloads();
+  console.log('yandex_metrika_helper.test.js: ok');
+})().catch(function (err) {
+  console.error(err);
+  process.exit(1);
+});
+

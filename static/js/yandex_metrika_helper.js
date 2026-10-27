@@ -11,6 +11,12 @@
   var RETRY_DELAY_MS = 1000;
   var IN_FLIGHT_TIMEOUT_MS = 10000;
   var MAX_RETRY_ATTEMPTS = 20;
+  // Acks back off per token, across page loads: every load, pageshow and
+  // gameplay response flushes them, so a shared 1 s timer did not limit
+  // anything and one browser sent thousands of acks a day.
+  var ACK_BASE_DELAY_MS = 2000;
+  var ACK_MAX_DELAY_MS = 10 * 60 * 1000;
+  var ACK_MAX_ATTEMPTS = 12;
   var MAX_STORED_AGE_MS = 14 * 24 * 60 * 60 * 1000;
   var STORAGE_KEY = 'interoves_pending_yandex_goals_v2';
   var DEBUG_STORAGE_KEY = 'interoves_analytics_debug';
@@ -129,6 +135,8 @@
           url: String(item.url),
           token: String(item.token),
           createdAt: Number(item.createdAt),
+          attempts: Number(item.attempts) || 0,
+          nextAttemptAt: Number(item.nextAttemptAt) || 0,
         };
         // reachGoal already called its delivery callback; only the same-origin
         // acknowledgement remains, so do not send the Yandex goal again.
@@ -141,15 +149,42 @@
     return Object.keys(pendingGoals).length > 0 || Object.keys(pendingAcks).length > 0;
   }
 
-  function scheduleRetry() {
+  function scheduleRetry(delayMs) {
     if (retryTimer || retryAttempts >= MAX_RETRY_ATTEMPTS || !global || typeof global.setTimeout !== 'function') return;
     retryTimer = global.setTimeout(function () {
       retryTimer = null;
       retryAttempts += 1;
       flushQueuedGoals();
       flushPendingAcks();
-      if (hasPendingWork()) scheduleRetry();
-    }, RETRY_DELAY_MS);
+      if (hasPendingWork()) scheduleRetry(nextAckDelayMs());
+    }, delayMs || RETRY_DELAY_MS);
+  }
+
+  // Wait until the earliest ack is due, so the retry timer does not spend
+  // its attempts on acks that are still backing off.
+  function nextAckDelayMs() {
+    if (Object.keys(pendingGoals).length) return RETRY_DELAY_MS;
+    var now = nowMs();
+    var earliest = null;
+    Object.keys(pendingAcks).forEach(function (key) {
+      var due = Number(pendingAcks[key].nextAttemptAt) || 0;
+      if (earliest === null || due < earliest) earliest = due;
+    });
+    return earliest === null ? RETRY_DELAY_MS : Math.max(RETRY_DELAY_MS, earliest - now);
+  }
+
+  function retryAfterMs(response) {
+    var raw = response && response.headers && typeof response.headers.get === 'function'
+      ? response.headers.get('Retry-After')
+      : null;
+    var seconds = Number(raw);
+    return isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0;
+  }
+
+  // 408 and 429 are worth retrying; any other 4xx (a bad or expired token)
+  // will be refused again, so the ack is dropped instead of resent forever.
+  function isPermanentFailure(status) {
+    return status >= 400 && status < 500 && status !== 408 && status !== 429;
   }
 
   function rememberPendingGoal(key, goal, params, ack) {
@@ -171,16 +206,34 @@
       url: String(ack.url),
       token: String(ack.token),
       createdAt: nowMs(),
+      attempts: 0,
+      nextAttemptAt: 0,
     };
     persistQueues();
+  }
+
+  function backOffAck(key, minDelayMs) {
+    var ack = pendingAcks[key];
+    if (!ack) return;
+    delete ack.inFlight;
+    ack.attempts = (Number(ack.attempts) || 0) + 1;
+    if (ack.attempts >= ACK_MAX_ATTEMPTS) {
+      delete pendingAcks[key];
+    } else {
+      var delay = Math.min(ACK_MAX_DELAY_MS, ACK_BASE_DELAY_MS * Math.pow(2, ack.attempts - 1));
+      ack.nextAttemptAt = nowMs() + Math.max(delay, minDelayMs || 0);
+    }
+    persistQueues();
+    if (hasPendingWork()) scheduleRetry(nextAckDelayMs());
   }
 
   function flushPendingAcks() {
     if (!global || typeof global.fetch !== 'function') return [];
     var dispatched = [];
+    var now = nowMs();
     Object.keys(pendingAcks).forEach(function (key) {
       var ack = pendingAcks[key];
-      if (!ack || ack.inFlight) return;
+      if (!ack || ack.inFlight || (Number(ack.nextAttemptAt) || 0) > now) return;
       ack.inFlight = true;
       dispatched.push(key);
       global.fetch(ack.url, {
@@ -190,13 +243,15 @@
         credentials: 'same-origin',
         keepalive: true,
       }).then(function (response) {
-        if (!response || !response.ok) throw new Error('analytics ack failed');
-        delete pendingAcks[key];
-        persistQueues();
-      }).catch(function () {
-        if (pendingAcks[key]) delete pendingAcks[key].inFlight;
-        persistQueues();
-        scheduleRetry();
+        var status = response ? Number(response.status) || 0 : 0;
+        if (response && (response.ok || isPermanentFailure(status))) {
+          delete pendingAcks[key];
+          persistQueues();
+          return;
+        }
+        backOffAck(key, retryAfterMs(response));
+      }, function () {
+        backOffAck(key, 0);
       });
     });
     return dispatched;
