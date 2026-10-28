@@ -557,10 +557,12 @@ def tribute_webhook(request):
         return HttpResponse(status=200)
 
     from games.club.next_game import DONATION_EVENTS, VotePayloadError, maybe_process_tribute_donation
+    from games.club.next_game_autumn import maybe_process_autumn_donation
 
     if event_name in DONATION_EVENTS:
         try:
-            maybe_process_tribute_donation(event_json)
+            if maybe_process_autumn_donation(event_json) is None:
+                maybe_process_tribute_donation(event_json)
         except VotePayloadError as exc:
             logger.warning('tribute_webhook malformed event=%s error=%s', event_name, exc)
             return HttpResponse(status=400)

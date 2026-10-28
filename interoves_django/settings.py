@@ -1030,6 +1030,21 @@ TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID = (
 NEXT_GAME_VOTE_RUB_PER_EUR = (os.environ.get('NEXT_GAME_VOTE_RUB_PER_EUR') or '').strip()
 NEXT_GAME_VOTE_USD_PER_EUR = (os.environ.get('NEXT_GAME_VOTE_USD_PER_EUR') or '').strip()
 
+# October–November 2026 next-game vote. Regular one-time donations; donation_request_id
+# is learned from the first new_donation webhooks into NextGameAutumnGoalMapping.
+TRIBUTE_NEXT_GAME_AUTUMN_POWDERS_URL = (
+    os.environ.get('TRIBUTE_NEXT_GAME_AUTUMN_POWDERS_URL')
+    or 'https://t.me/tribute/app?startapp=dT4m'
+).strip()
+TRIBUTE_NEXT_GAME_AUTUMN_CRYPTIC_URL = (
+    os.environ.get('TRIBUTE_NEXT_GAME_AUTUMN_CRYPTIC_URL')
+    or 'https://t.me/tribute/app?startapp=dT4n'
+).strip()
+TRIBUTE_NEXT_GAME_AUTUMN_LOGIC_URL = (
+    os.environ.get('TRIBUTE_NEXT_GAME_AUTUMN_LOGIC_URL')
+    or 'https://t.me/tribute/app?startapp=dT4o'
+).strip()
+
 # X / Twitter (@interoves) — OAuth 1.0a user tokens for ladder channel cron tweets.
 TWITTER_API_KEY = load_secret('twitter_api_key.txt', env_var='TWITTER_API_KEY', default='')
 TWITTER_API_SECRET = load_secret('twitter_api_secret.txt', env_var='TWITTER_API_SECRET', default='')

@@ -14,6 +14,8 @@ from games.models import (
     BugReportMessage,
     CensorlyReviewCase,
     CorporateGameOrder,
+    NextGameAutumnGoalMapping,
+    NextGameAutumnVoteEvent,
     NextGameVoteAdjustment,
     NextGameVoteCampaignState,
     NextGameVoteEvent,
@@ -79,6 +81,40 @@ class NextGameVoteScaleForm(forms.Form):
 class NextGameVoteGoalMappingAdmin(admin.ModelAdmin):
     list_display = ('candidate', 'donation_request_id', 'web_url', 'updated_at')
     search_fields = ('donation_request_id', 'web_url', 'note')
+
+
+@admin.register(NextGameAutumnGoalMapping)
+class NextGameAutumnGoalMappingAdmin(admin.ModelAdmin):
+    list_display = ('candidate', 'donation_request_id', 'web_url', 'updated_at')
+    search_fields = ('donation_request_id', 'web_url')
+
+
+@admin.register(NextGameAutumnVoteEvent)
+class NextGameAutumnVoteEventAdmin(admin.ModelAdmin):
+    list_display = (
+        'received_at', 'event_name', 'candidate', 'result',
+        'normalized_amount_eur_cents', 'original_currency', 'original_amount_minor',
+        'include_in_scoreboard', 'excluded', 'donation_request_id',
+    )
+    list_filter = ('event_name', 'result', 'candidate', 'excluded', 'include_in_scoreboard')
+    search_fields = ('idempotency_key', 'donation_request_id', 'tribute_donation_id')
+    readonly_fields = (
+        'idempotency_key', 'event_name', 'donation_request_id', 'tribute_donation_id',
+        'candidate', 'original_amount_minor', 'original_currency', 'fx_rate_to_eur',
+        'normalized_amount_eur_cents', 'donation_created_at', 'period',
+        'telegram_user_id', 'result', 'raw_payload', 'received_at', 'include_in_scoreboard',
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def save_model(self, request, obj, form, change):
+        if obj.excluded:
+            obj.include_in_scoreboard = False
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(NextGameVoteEvent)

@@ -4,7 +4,7 @@ import logging
 from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
-from games.club.next_game import PHASE_CLOSED, campaign_phase
+from games.club.next_game_autumn import PHASE_CLOSED, campaign_phase
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import LADDER_GAME_ID, get_ladder_hub_context
 from games.daily.page.section import WORD_SALAD_GAME_ID

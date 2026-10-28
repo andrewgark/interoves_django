@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 
 from django.conf import settings
 
-
 SUPPORTED_CURRENCIES = frozenset({'EUR', 'RUB'})
 CLUB_SUPPORTED_CURRENCIES = frozenset({'RUB', 'EUR'})
 SUPPORTED_MERCHANTS = frozenset({'ru_self_employed', 'am_ie'})
@@ -410,6 +409,11 @@ _VOTE_ID_SETTINGS = (
     'TRIBUTE_NEXT_GAME_VOTE_CRYPTIC_DONATION_REQUEST_ID',
     'TRIBUTE_NEXT_GAME_VOTE_LOGIC_PUZZLES_DONATION_REQUEST_ID',
 )
+_AUTUMN_URL_SETTINGS = (
+    'TRIBUTE_NEXT_GAME_AUTUMN_POWDERS_URL',
+    'TRIBUTE_NEXT_GAME_AUTUMN_CRYPTIC_URL',
+    'TRIBUTE_NEXT_GAME_AUTUMN_LOGIC_URL',
+)
 
 
 def next_game_vote_configuration_errors() -> list[str]:
@@ -436,4 +440,19 @@ def next_game_vote_configuration_errors() -> list[str]:
     ]
     if len(ids) == 3 and len(set(ids)) < 3:
         errors.append('Next-game vote donation_request_id values must be distinct')
+    autumn_urls = []
+    for name in _AUTUMN_URL_SETTINGS:
+        raw = str(getattr(settings, name, '') or '').strip()
+        if not raw:
+            continue
+        parsed = urlparse(raw)
+        host = (parsed.hostname or '').lower()
+        if parsed.scheme != 'https' or host not in VOTE_GOAL_URL_HOSTS or parsed.path in ('', '/'):
+            errors.append(
+                '{} must be an https Tribute donation link (web.tribute.tg, tribute.tg, or t.me)'.format(name)
+            )
+        else:
+            autumn_urls.append(raw)
+    if len(autumn_urls) == 3 and len(set(autumn_urls)) < 3:
+        errors.append('October–November vote Tribute donation URLs must be distinct')
     return errors

@@ -31,6 +31,7 @@ from games.models import (
 )
 
 MOSCOW = ZoneInfo('Europe/Moscow')
+VOTE_PATH = '/vote/next-game/2026/september/'
 
 VOTE_SETTINGS = {
     'TRIBUTE_API_KEY': 'test-tribute-key',
@@ -331,9 +332,18 @@ class NextGameVotePageTests(TestCase):
     def setUp(self):
         self.http = Client()
 
+    def test_legacy_path_redirects_with_query(self):
+        response = self.http.get('/vote/next-game/?from=tribute&candidate=redactle')
+        self.assertRedirects(
+            response,
+            VOTE_PATH + '?from=tribute&candidate=redactle',
+            status_code=301,
+            fetch_redirect_response=False,
+        )
+
     def test_page_is_public(self):
         with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
-            response = self.http.get('/vote/next-game/')
+            response = self.http.get(VOTE_PATH)
         self.assertEqual(response.status_code, 200)
         body = response.content.decode()
         self.assertIn('Выберите следующую игру', body)
@@ -365,14 +375,14 @@ class NextGameVotePageTests(TestCase):
 
     def test_upcoming_disables_cta(self):
         with patch('games.club.next_game.timezone.now', return_value=BEFORE_START):
-            body = self.http.get('/vote/next-game/').content.decode()
+            body = self.http.get(VOTE_PATH).content.decode()
         self.assertIn('Голосование начнётся 7 сентября', body)
         self.assertIn('disabled', body)
         self.assertNotIn('data-vote-cta', body)
 
     def test_live_shows_countdown_and_ctas(self):
         with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
-            body = self.http.get('/vote/next-game/').content.decode()
+            body = self.http.get(VOTE_PATH).content.decode()
         self.assertIn('data-vote-countdown', body)
         self.assertIn('data-vote-cta="redactle"', body)
         self.assertIn('https://web.tribute.tg/d/redactle-vote', body)
@@ -382,7 +392,7 @@ class NextGameVotePageTests(TestCase):
     def test_closed_hides_cta_and_shows_winner(self):
         process_donation_event(_envelope(_payload('303', 5000, 'eur'), donation_id=91))
         with patch('games.club.next_game.timezone.now', return_value=AFTER_END):
-            body = self.http.get('/vote/next-game/').content.decode()
+            body = self.http.get(VOTE_PATH).content.decode()
         self.assertIn('Голосование завершено', body)
         self.assertIn('Победитель — Логические пазлы', body)
         self.assertIn('Эту игру запускаем в октябре', body)
@@ -391,12 +401,12 @@ class NextGameVotePageTests(TestCase):
 
     def test_zero_state_copy(self):
         with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
-            body = self.http.get('/vote/next-game/').content.decode()
+            body = self.http.get(VOTE_PATH).content.decode()
         self.assertIn('Пока ничья. Можно стать первым голосом', body)
 
     def test_tribute_return_goal_only_with_explicit_query(self):
         with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
-            response = self.http.get('/vote/next-game/?from=tribute&candidate=redactle')
+            response = self.http.get(VOTE_PATH + '?from=tribute&candidate=redactle')
         body = response.content.decode()
         self.assertIn('next_game_vote_tribute_return', body)
         self.assertIn('redactle', body)
@@ -404,7 +414,7 @@ class NextGameVotePageTests(TestCase):
     def test_manual_freeze_hides_cta_before_deadline(self):
         freeze_manually(now=LIVE_MOMENT)
         with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
-            body = self.http.get('/vote/next-game/').content.decode()
+            body = self.http.get(VOTE_PATH).content.decode()
         self.assertIn('Голосование завершено', body)
         self.assertNotIn('data-vote-cta', body)
 
@@ -476,7 +486,7 @@ class NextGameVoteConfiguredCtaTests(TestCase):
 
     def test_live_ctas_use_regular_donation_links(self):
         with patch('games.club.next_game.timezone.now', return_value=LIVE_MOMENT):
-            body = Client().get('/vote/next-game/').content.decode()
+            body = Client().get(VOTE_PATH).content.decode()
         self.assertIn('https://t.me/tribute/app?startapp=dQ6d', body)
         self.assertIn('https://t.me/tribute/app?startapp=dQ6e', body)
         self.assertIn('https://t.me/tribute/app?startapp=dQ6f', body)

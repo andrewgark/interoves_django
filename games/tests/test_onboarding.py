@@ -1,3 +1,7 @@
+from datetime import datetime
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
+
 from allauth.socialaccount.models import SocialApp
 from django.contrib.auth import get_user_model
 from django.contrib.sites.models import Site
@@ -199,15 +203,17 @@ class OnboardingPageTests(TestCase):
         self.assertIn('data-onboarding-social-dismiss', body)
 
     def test_home_prioritizes_daily_games_and_explains_the_choices(self):
-        body = self.client.get('/').content.decode()
+        moment = datetime(2026, 10, 28, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
+        with patch('games.club.next_game.timezone.now', return_value=moment):
+            body = self.client.get('/').content.decode()
 
         self.assertNotIn('Не знаете, с чего начать?', body)
         self.assertIn('id="hub-team-heading"', body)
         self.assertIn('>Командные игры</h2>', body)
         self.assertLess(body.index('id="hub-daily-heading"'), body.index('id="hub-team-heading"'))
         self.assertLess(body.index('id="hub-team-heading"'), body.index('id="desyatochki-heading"'))
-        # Голосование за следующую игру закрылось 27 сентября 2026.
-        self.assertNotIn('Выбираем донатами, какую игру добавить следующей', body)
+        self.assertIn('Выбираем донатами, какую игру добавить следующей', body)
+        self.assertIn('/vote/next-game/2026/october-november/', body)
         self.assertLess(body.index('hub-section-ladder'), body.index('hub-section-salad'))
         self.assertLess(body.index('hub-section-salad'), body.index('hub-section-censorly'))
         self.assertLess(body.index('hub-section-censorly'), body.index('hub-section-alphabetty'))

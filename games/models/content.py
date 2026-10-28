@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class NextGameVoteGoalMapping(models.Model):
     """donation_request_id → candidate for the September 2026 next-game vote."""
 
@@ -155,6 +156,77 @@ class NextGameVoteCampaignState(models.Model):
         if self.frozen_at:
             return 'Next-game vote frozen at {}'.format(self.frozen_at)
         return 'Next-game vote open'
+
+
+class NextGameAutumnGoalMapping(models.Model):
+    """donation_request_id → candidate for the October–November 2026 vote."""
+
+    CANDIDATE_POWDERS = 'powders'
+    CANDIDATE_CRYPTIC = 'cryptic'
+    CANDIDATE_LOGIC = 'logic'
+    CANDIDATE_CHOICES = (
+        (CANDIDATE_POWDERS, 'Порошки'),
+        (CANDIDATE_CRYPTIC, 'Криптики'),
+        (CANDIDATE_LOGIC, 'Логички'),
+    )
+
+    candidate = models.CharField(max_length=32, unique=True, choices=CANDIDATE_CHOICES)
+    donation_request_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    web_url = models.URLField(max_length=500, blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'голос осени: цель Tribute'
+        verbose_name_plural = 'голос осени: цели Tribute'
+        ordering = ['candidate']
+
+    def __str__(self):
+        return '{} → {}'.format(self.get_candidate_display(), self.donation_request_id or '—')
+
+
+class NextGameAutumnVoteEvent(models.Model):
+    """One Tribute donation webhook for the October–November 2026 vote."""
+
+    CANDIDATE_CHOICES = NextGameAutumnGoalMapping.CANDIDATE_CHOICES
+    RESULT_COUNTED = 'counted'
+    RESULT_OUTSIDE_PERIOD = 'outside_period'
+    RESULT_IGNORED_EVENT = 'ignored_event'
+    RESULT_UNKNOWN_CURRENCY = 'unknown_currency'
+    RESULT_MALFORMED = 'malformed'
+    RESULT_CHOICES = (
+        (RESULT_COUNTED, 'Учтён'),
+        (RESULT_OUTSIDE_PERIOD, 'Вне периода'),
+        (RESULT_IGNORED_EVENT, 'Игнорирован'),
+        (RESULT_UNKNOWN_CURRENCY, 'Неизвестная валюта'),
+        (RESULT_MALFORMED, 'Некорректный payload'),
+    )
+
+    idempotency_key = models.CharField(max_length=255, unique=True, db_index=True)
+    event_name = models.CharField(max_length=64, db_index=True)
+    donation_request_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    tribute_donation_id = models.CharField(max_length=64, blank=True, default='', db_index=True)
+    candidate = models.CharField(max_length=32, blank=True, default='', choices=CANDIDATE_CHOICES, db_index=True)
+    original_amount_minor = models.BigIntegerField(blank=True, null=True)
+    original_currency = models.CharField(max_length=3, blank=True, default='')
+    fx_rate_to_eur = models.DecimalField(max_digits=20, decimal_places=10, blank=True, null=True)
+    normalized_amount_eur_cents = models.BigIntegerField(default=0)
+    donation_created_at = models.DateTimeField(blank=True, null=True, db_index=True)
+    period = models.CharField(max_length=32, blank=True, default='')
+    telegram_user_id = models.BigIntegerField(blank=True, null=True)
+    result = models.CharField(max_length=32, choices=RESULT_CHOICES, db_index=True)
+    include_in_scoreboard = models.BooleanField(default=False, db_index=True)
+    excluded = models.BooleanField(default=False, db_index=True)
+    excluded_reason = models.TextField(blank=True, default='')
+    raw_payload = models.JSONField(default=dict, blank=True)
+    received_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = 'голос осени: Tribute webhook'
+        verbose_name_plural = 'голос осени: Tribute webhooks'
+        ordering = ['-received_at']
+
+    def __str__(self):
+        return 'Autumn vote webhook {} ({})'.format(self.event_name, self.result)
 
 
 class CensorlyReviewCase(models.Model):

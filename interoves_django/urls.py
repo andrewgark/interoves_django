@@ -34,7 +34,7 @@ from games.site.views.pages.public.health import live as health_live
 from games.site.views.pages.public.health import ready as health_ready
 from games.site.views.pages.public.legal import legal_page
 from games.site.views.pages.public.order import order_game_landing
-from games.site.views.pages.public.vote import next_game_vote_page
+from games.site.views.pages.public.vote import next_game_autumn_vote_page, next_game_vote_page
 from microsites import views as microsites_views
 
 nutrimatic_patterns = [
@@ -128,7 +128,12 @@ urlpatterns = [
     path('about/', TemplateView.as_view(template_name='site/about.html'), name='about'),
     path('vpn/', TemplateView.as_view(template_name="site/pigeon_vpn.html"), name='pigeon_vpn'),
     path('donate/', ui_views.donate_page, name='donate'),
-    path('vote/next-game/', next_game_vote_page, name='next_game_vote'),
+    path('vote/next-game/2026/october-november/', next_game_autumn_vote_page, name='next_game_vote_autumn'),
+    path('vote/next-game/2026/september/', next_game_vote_page, name='next_game_vote'),
+    path(
+        'vote/next-game/',
+        RedirectView.as_view(pattern_name='next_game_vote', permanent=True, query_string=True),
+    ),
     path('donate/create-crypto-payment/', ui_views.create_crypto_donation, name='donate_create_crypto'),
     path('donate/status/<str:public_token>/', ui_views.donation_status, name='donate_status'),
     path('instagram/', instagram_feed, name='instagram_feed'),

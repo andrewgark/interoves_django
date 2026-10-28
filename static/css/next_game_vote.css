@@ -247,19 +247,33 @@
 }
 
 .vote-bar {
-  display: block;
+  display: flex;
   height: 0.45rem;
   border-radius: 999px;
   background: var(--tile);
   overflow: hidden;
 }
 
-.vote-bar__fill {
+.vote-bar__fill,
+.vote-bar__carry {
   display: block;
+  flex: 0 0 auto;
   height: 100%;
   width: 0;
-  border-radius: inherit;
+}
+
+.vote-bar__fill {
   background: var(--accent);
+}
+
+.vote-bar__carry {
+  background: repeating-linear-gradient(
+    -45deg,
+    #5c4d96,
+    #5c4d96 3px,
+    #d9d0f2 3px,
+    #d9d0f2 6px
+  );
 }
 
 .vote-card--redactle .vote-bar__fill {
@@ -363,4 +377,251 @@ a.new-btn.vote-card__origin {
 
 html.new-ui-dark .vote-mask {
   opacity: 0.85;
+}
+
+.vote-card--powders {
+  box-shadow: inset 3px 0 0 #c4897b;
+}
+
+.vote-card--powders .vote-bar__fill {
+  background: #c4897b;
+}
+
+.vote-card__carry {
+  margin: 0.15rem 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.vote-legend {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.vote-legend__swatch {
+  flex: 0 0 auto;
+  width: 1.4rem;
+  height: 0.7rem;
+  margin-top: 0.2rem;
+  border-radius: 999px;
+  background: repeating-linear-gradient(
+    -45deg,
+    #5c4d96,
+    #5c4d96 3px,
+    #d9d0f2 3px,
+    #d9d0f2 6px
+  );
+}
+
+.vote-poem,
+.vote-clue {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  overflow-wrap: break-word;
+}
+
+.vote-clue__len,
+.vote-play__source {
+  color: var(--muted);
+}
+
+.vote-play__source {
+  margin: 0.35rem 0 0.55rem;
+  font-size: 0.82rem;
+}
+
+.vote-play {
+  min-width: 0;
+}
+
+.vote-answer {
+  display: block;
+  min-width: 0;
+  margin: 0 0 0.45rem;
+}
+
+.vote-answer__label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.vote-answer input {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--btn-height-mini);
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: var(--control-radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
+.vote-play__submit,
+.vote-play__next {
+  width: 100%;
+  justify-content: center;
+  white-space: normal;
+}
+
+.vote-play__msg,
+.vote-play__done {
+  margin: 0.45rem 0 0;
+  font-weight: 700;
+}
+
+.vote-play__msg.is-ok,
+.vote-play__done {
+  color: var(--accent);
+}
+
+.vote-play__msg.is-bad {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.vote-boxes {
+  display: flex;
+  gap: 0.28rem;
+  min-width: 0;
+  margin: 0 0 0.45rem;
+}
+
+.vote-boxes span {
+  flex: 1 1 0;
+  min-width: 0;
+  aspect-ratio: 1;
+  max-width: 1.8rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.vote-logic__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.vote-logic__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.vote-rules-btn {
+  flex: 0 0 auto;
+  width: 1.8rem;
+  height: 1.8rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.vote-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1.7rem));
+  gap: 2px;
+  width: max-content;
+  max-width: 100%;
+  margin: 0.45rem 0;
+}
+
+.vote-cell {
+  box-sizing: border-box;
+  width: 1.7rem;
+  max-width: 100%;
+  aspect-ratio: 1;
+  border: 1px solid #c8c2b4;
+  background: #fbfaf6;
+  color: #1a1a1a;
+  padding: 0;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.vote-cell--clue {
+  cursor: default;
+}
+
+.vote-cell--number {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+}
+
+.vote-cell--black {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+}
+
+.vote-cell--white {
+  background: #fff;
+  color: #1a1a1a;
+  border: 2px solid #1a1a1a;
+}
+
+.vote-cell[data-vote-state="sea"] {
+  background: #24598a;
+  border-color: #24598a;
+}
+
+.vote-cell[data-vote-state="island"] {
+  background: #f3e2b8;
+  border-color: #c8b48a;
+}
+
+.vote-cell[data-vote-state="wall"] {
+  background: #2c2c2c;
+  border-color: #2c2c2c;
+}
+
+.vote-cell[data-vote-state="cave"] {
+  background: #f4efe4;
+  border-color: #c8c2b4;
+}
+
+.vote-cell[data-vote-state="loop"] {
+  background: #2f6f4e;
+  border-color: #2f6f4e;
+}
+
+.vote-logic__controls {
+  margin: 0 0 0.45rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.vote-rules-body p {
+  margin: 0 0 0.7rem;
+  line-height: 1.5;
+}
+
+.vote-rules-body p:last-child {
+  margin-bottom: 0;
 }

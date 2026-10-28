@@ -1,0 +1,321 @@
+{% extends "site/base.html" %}
+{% load static %}
+
+{% block title %}Какую игру сделать следующей?{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <meta name="description" content="Порошки, криптики или логички? Поддержите любимый вариант донатом до 11 ноября — победителя сделаем в ноябре–декабре.">
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:site_name" content="Inter Oves">
+  <meta property="og:title" content="Какую игру сделать следующей? — Inter Oves">
+  <meta property="og:description" content="Порошки, криптики или логички? Поддержите любимый вариант донатом до 11 ноября — победителя сделаем в ноябре–декабре.">
+  <meta property="og:url" content="{{ canonical_url }}">
+  <meta property="og:image" content="{{ og_image_url }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Какую игру сделать следующей? — Inter Oves">
+  <meta name="twitter:description" content="Порошки, криптики или логички? Поддержите любимый вариант донатом до 11 ноября — победителя сделаем в ноябре–декабре.">
+  <meta name="twitter:image" content="{{ og_image_url }}">
+  <link rel="stylesheet" href="{% static 'css/next_game_vote.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+
+{% block content %}
+<article
+  class="vote-page"
+  data-vote-page
+  data-vote-phase="{{ board.phase }}"
+  data-vote-deadline="{{ board.deadline_iso }}"
+  data-vote-click-goal="{{ click_goal }}"
+>
+  <p class="new-tg-back">
+    <a href="{{ ui_project_home_url|default:'/' }}" class="new-tg-back__link new-back">
+      <i class="ph ph-arrow-left" aria-hidden="true"></i> Все игры
+    </a>
+  </p>
+
+  <header class="vote-hero">
+    <p class="vote-hero__kicker">Следующая ежедневная игра</p>
+    <h1 class="new-heading new-heading--page vote-hero__title">Выберите следующую игру</h1>
+    <p class="vote-hero__lead">
+      Голосуйте донатом. Игра, которая соберёт больше всего поддержки до конца 11 ноября, станет следующей ежедневной игрой Inter Oves. Сделаем её в ноябре–декабре.
+    </p>
+
+    {% if board.phase == 'live' %}
+      <p class="vote-countdown" data-vote-countdown>
+        До конца голосования: <strong data-vote-countdown-value>считаем…</strong>
+      </p>
+    {% elif board.phase == 'upcoming' %}
+      <p class="vote-status">Голосование начнётся 28 октября</p>
+    {% else %}
+      <div class="vote-status vote-status--done">
+        <p>Голосование завершено</p>
+        {% if board.winner %}
+          <p class="vote-status__winner">Победитель — {{ board.winner.name }}</p>
+          <p>Спасибо! Эту игру делаем в ноябре–декабре.</p>
+        {% elif board.is_tie %}
+          <p class="vote-status__winner">Первое место поделено</p>
+          <p>Решение по запуску примем вручную.</p>
+        {% else %}
+          <p>Официальных голосов не было.</p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </header>
+
+  <section class="vote-grid" aria-label="Кандидаты">
+    {% for candidate in candidates %}
+      <article
+        class="vote-card vote-card--{{ candidate.slug }}{% if candidate.is_leader %} is-leader{% endif %}{% if candidate.is_tied_leader %} is-tied{% endif %}"
+        data-vote-candidate="{{ candidate.slug }}"
+      >
+        <div class="vote-card__head">
+          <h2 class="vote-card__name">{{ candidate.name }}</h2>
+          {% if candidate.is_leader and board.phase == 'live' %}
+            <span class="new-pill vote-card__badge">Сейчас лидирует</span>
+          {% elif candidate.is_tied_leader and board.phase == 'live' %}
+            <span class="new-pill vote-card__badge">Делят первое место</span>
+          {% elif candidate.is_leader and board.phase == 'closed' %}
+            <span class="new-pill vote-card__badge vote-card__badge--winner">Победитель</span>
+          {% elif candidate.is_tied_leader and board.phase == 'closed' %}
+            <span class="new-pill vote-card__badge">Делят первое место</span>
+          {% endif %}
+        </div>
+        <p class="vote-card__tag">{{ candidate.tag }}</p>
+
+        {% if candidate.slug == 'powders' %}
+          <p class="vote-card__body">Три строки, и в них спрятано одно слово. Его подсказывает смысл, созвучие или шутка. Ниже — настоящие порошки, их можно решить прямо здесь.</p>
+          <div class="vote-play" data-vote-play="powders">
+            <div class="vote-step" data-vote-step data-vote-key="powders-1">
+              <p class="vote-poem">е три сказал сурово карпов<br>играя ферзевый гамбит<br>каспаров заглянул в тетрадку</p>
+              <p class="vote-play__source"><a href="https://t.me/igraporoshki/304" target="_blank" rel="noopener noreferrer">Источник</a></p>
+              <form data-vote-form>
+                <label class="vote-answer">
+                  <span class="vote-answer__label">Ответ</span>
+                  <input name="answer" placeholder="Два слога" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
+                </label>
+                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
+                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
+              </form>
+            </div>
+            <div class="vote-step" data-vote-step data-vote-key="powders-2" hidden>
+              <p class="vote-poem">я на коне кричал геннадий<br>ко мне простёрты сотни рук<br>слезай уже сказал устало</p>
+              <p class="vote-play__source"><a href="https://t.me/igraporoshki/53" target="_blank" rel="noopener noreferrer">Источник</a></p>
+              <form data-vote-form>
+                <label class="vote-answer">
+                  <span class="vote-answer__label">Ответ</span>
+                  <input name="answer" placeholder="Ответ" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
+                </label>
+                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
+                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
+              </form>
+            </div>
+            <div class="vote-step" data-vote-step data-vote-key="powders-3" hidden>
+              <p class="vote-poem">что у больного едет крыша<br>врач догадался по лицу<br>и обхватил руками череп</p>
+              <p class="vote-play__source"><a href="https://t.me/igraporoshki/240" target="_blank" rel="noopener noreferrer">Источник</a></p>
+              <form data-vote-form>
+                <label class="vote-answer">
+                  <span class="vote-answer__label">Ответ</span>
+                  <input name="answer" placeholder="Ответ" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
+                </label>
+                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
+                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
+              </form>
+            </div>
+            <p class="vote-play__done" data-vote-done hidden>Это пока всё — донатьте, чтобы этот кандидат победил :-)</p>
+          </div>
+        {% elif candidate.slug == 'cryptic' %}
+          <p class="vote-card__body">Подсказка устроена как в cryptic crossword: в ней и значение ответа, и способ собрать его из букв. Число в скобках — длина слова. Клетки заполняются, как в Лесенке.</p>
+          <div class="vote-play" data-vote-play="cryptic">
+            <div class="vote-step" data-vote-step data-vote-key="cryptic-1" data-vote-len="6">
+              <p class="vote-clue">Спор внутри центра Сколково <span class="vote-clue__len">(6)</span></p>
+              <form data-vote-form>
+                <div class="vote-boxes" data-vote-boxes aria-hidden="true"></div>
+                <label class="vote-answer">
+                  <span class="vote-answer__label">Ответ, 6 букв</span>
+                  <input name="answer" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 6 букв">
+                </label>
+                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
+                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
+              </form>
+            </div>
+            <div class="vote-step" data-vote-step data-vote-key="cryptic-2" data-vote-len="7" hidden>
+              <p class="vote-clue">Служба в храме не белом в сторону запада <span class="vote-clue__len">(7)</span></p>
+              <form data-vote-form>
+                <div class="vote-boxes" data-vote-boxes aria-hidden="true"></div>
+                <label class="vote-answer">
+                  <span class="vote-answer__label">Ответ, 7 букв</span>
+                  <input name="answer" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 7 букв">
+                </label>
+                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
+                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
+              </form>
+            </div>
+            <div class="vote-step" data-vote-step data-vote-key="cryptic-3" data-vote-len="6" hidden>
+              <p class="vote-clue">Первое начало термодинамики объясняет, как слишком интенсивный нагрев может вызвать смерть <span class="vote-clue__len">(6)</span></p>
+              <form data-vote-form>
+                <div class="vote-boxes" data-vote-boxes aria-hidden="true"></div>
+                <label class="vote-answer">
+                  <span class="vote-answer__label">Ответ, 6 букв</span>
+                  <input name="answer" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 6 букв">
+                </label>
+                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
+                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
+              </form>
+            </div>
+            <p class="vote-play__done" data-vote-done hidden>Это пока всё — донатьте, чтобы этот кандидат победил :-)</p>
+          </div>
+        {% else %}
+          <p class="vote-card__body">Три разных пазла на поле 5×5. Правила открываются вопросиком рядом с полем. Ответ отмечается прямо на сетке.</p>
+          <div class="vote-play" data-vote-play="logic">
+            {% for example in logic_examples %}
+              <div class="vote-step" data-vote-step data-vote-key="{{ example.key }}" data-vote-logic="{{ example.rules }}"{% if not forloop.first %} hidden{% endif %}>
+                <div class="vote-logic__head">
+                  <h3 class="vote-logic__title">{{ example.title }}</h3>
+                  <button type="button" class="vote-rules-btn" data-vote-rules="{{ example.rules }}" aria-label="Правила {{ example.title }}">
+                    <i class="ph ph-question" aria-hidden="true"></i>
+                  </button>
+                </div>
+                <div class="vote-board" data-vote-board role="group" aria-label="{{ example.title }}">
+                  {% for cell in example.cells %}
+                    {% if cell.role == 'clue' %}
+                      <span class="vote-cell vote-cell--clue vote-cell--{{ cell.tone }}" data-vote-index="{{ cell.index }}">{{ cell.text }}</span>
+                    {% else %}
+                      <button type="button" class="vote-cell" data-vote-index="{{ cell.index }}" data-vote-state="" aria-label="Клетка {{ cell.index|add:1 }}"></button>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+                <p class="vote-logic__controls">{{ example.controls }}</p>
+                <button type="button" class="new-btn new-btn--ghost vote-play__submit" data-vote-check>Проверить</button>
+                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
+              </div>
+            {% endfor %}
+            <p class="vote-play__done" data-vote-done hidden>Это пока всё — донатьте, чтобы этот кандидат победил :-)</p>
+          </div>
+        {% endif %}
+
+        <div class="vote-card__score">
+          <p class="vote-card__amount">{{ candidate.eur_display }}</p>
+          {% if candidate.carry_cents %}
+            <p class="vote-card__carry">Старт {{ candidate.carry_display }} — половина сентябрьского сбора</p>
+          {% endif %}
+          {% if board.is_zero %}
+            <p class="vote-card__share">Пока ничья. Можно стать первым голосом</p>
+          {% elif candidate.percent is not None %}
+            <p class="vote-card__share">{{ candidate.percent }}% всей поддержки</p>
+          {% endif %}
+          <div class="vote-bar" aria-hidden="true">
+            <span class="vote-bar__carry" style="width: {{ candidate.carry_bar_percent }}%"></span>
+            <span class="vote-bar__fill" style="width: {{ candidate.fresh_bar_percent }}%"></span>
+          </div>
+        </div>
+
+        {% if board.phase == 'live' and candidate.web_url %}
+          <a
+            class="new-btn new-btn--yellow vote-card__cta"
+            href="{{ candidate.web_url }}"
+            target="_blank"
+            rel="noopener noreferrer"
+            data-vote-cta="{{ candidate.slug }}"
+          >{{ candidate.cta }}</a>
+        {% elif board.phase == 'live' %}
+          <button type="button" class="new-btn new-btn--yellow vote-card__cta" disabled>{{ candidate.cta }}</button>
+          <p class="vote-card__hint">Ссылка Tribute появится после настройки доната.</p>
+        {% elif board.phase == 'upcoming' %}
+          <button type="button" class="new-btn new-btn--yellow vote-card__cta" disabled>{{ candidate.cta }}</button>
+        {% endif %}
+        {% if candidate.slug == 'powders' %}
+          <a class="new-btn new-btn--ghost vote-card__origin" href="https://t.me/igraporoshki" target="_blank" rel="noopener noreferrer">Канал с порошками</a>
+        {% elif candidate.slug == 'cryptic' %}
+          <a class="new-btn new-btn--ghost vote-card__origin" href="https://minutecryptic.com" target="_blank" rel="noopener noreferrer">Порешать на английском</a>
+        {% else %}
+          <a class="new-btn new-btn--ghost vote-card__origin" href="https://gmpuzzles.com/blog" target="_blank" rel="noopener noreferrer">Подборка логических пазлов</a>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </section>
+
+  <section class="vote-standings pal-card" aria-labelledby="vote-standings-title">
+    <h2 id="vote-standings-title" class="vote-standings__title">Текущий счёт</h2>
+    {% if board.is_zero %}
+      <p class="vote-standings__zero">Пока ничья. Можно стать первым голосом</p>
+    {% endif %}
+    {% if board.has_carryover %}
+      <p class="vote-legend"><span class="vote-legend__swatch" aria-hidden="true"></span> Полосатый кусок шкалы — старт с сентября, половина прошлого сбора.</p>
+    {% endif %}
+    <ul class="vote-standings__list">
+      {% for candidate in candidates %}
+        <li>
+          <span class="vote-standings__name">{{ candidate.name }}</span>
+          <span class="vote-standings__amount">{{ candidate.eur_display }}</span>
+          <span class="vote-standings__pct">{% if candidate.percent is not None %}{{ candidate.percent }}%{% else %}—{% endif %}</span>
+          <span class="vote-bar vote-bar--row" aria-hidden="true">
+            <span class="vote-bar__carry" style="width: {{ candidate.carry_bar_percent }}%"></span>
+            <span class="vote-bar__fill" style="width: {{ candidate.fresh_bar_percent }}%"></span>
+          </span>
+        </li>
+      {% endfor %}
+    </ul>
+    <p class="vote-standings__total"><strong>Всего поддержано: {{ board.total_eur_display }}</strong></p>
+    <p class="vote-standings__until">Голосование заканчивается 11 ноября</p>
+  </section>
+
+  <section class="vote-how" aria-labelledby="vote-how-title">
+    <h2 id="vote-how-title" class="vote-how__title">Как это работает</h2>
+    <p>
+      Выберите игру и поддержите её любой суммой через Tribute. Счёт ведём в евро. 11 ноября вариант с наибольшей суммой побеждает, и мы берём его в работу в ноябре–декабре.
+    </p>
+    <p>
+      <a href="{% url 'next_game_vote' %}">В сентябре</a> уже выбирали между Redactle, криптиком и логическими пазлами.
+      {% if board.september_winner_name %}
+        Победитель того сбора — {{ board.september_winner_name }}. Эту игру делаем отдельно, её сумма в новый счёт не входит.
+      {% elif board.september_is_tie %}
+        Первое место тогда поделили, поэтому переносится только поддержка тех, кто остался строго позади.
+      {% endif %}
+      У кандидатов, которые в прошлый раз не победили и снова в списке, на шкале уже стоит половина их сентябрьской поддержки. Этот старт отмечен полосатым цветом и не смешивается с новыми донатами.
+    </p>
+    <p>
+      Донат можно отправить российской картой, иностранной картой или с криптокошелька — Tribute принимает все три способа.
+    </p>
+    <p class="vote-how__note">
+      Это донат, а не предзаказ. Поддержка определяет, какую из трёх игр мы поставим первой в разработку; она не является покупкой конкретного продукта или обещанием индивидуальной услуги.
+    </p>
+  </section>
+</article>
+
+<div id="vote-rules-modal" class="new-rules-modal" role="dialog" aria-modal="true" aria-labelledby="vote-rules-title" hidden>
+  <div class="new-rules-overlay" data-vote-rules-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-vote-rules-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <h2 id="vote-rules-title" class="pal-title"></h2>
+    <div class="vote-rules-body" data-vote-rules-body></div>
+  </div>
+</div>
+<div id="vote-rules-castle" hidden>
+  <p>Нарисуйте одну замкнутую петлю по клеткам. Она не пересекает себя и не ветвится: у каждой клетки петли ровно два соседа по стороне.</p>
+  <p>Клетки с числами в петлю не входят. Белая клетка лежит внутри петли, чёрная — снаружи.</p>
+  <p>Стрелка влево или вправо считает суммарную длину горизонтальных кусков петли в этой строке по сторону стрелки. Стрелка вверх или вниз считает вертикальные куски в этом столбце. Клетка, через которую петля проходит только поперёк, в эту длину не входит.</p>
+</div>
+<div id="vote-rules-nurikabe" hidden>
+  <p>Часть клеток — море, часть — острова.</p>
+  <p>Число задаёт размер своего острова. В каждом острове ровно одно число. Острова не касаются друг друга сторонами, по диагонали можно.</p>
+  <p>Всё море связано по сторонам, и в нём нет квадрата 2×2.</p>
+</div>
+<div id="vote-rules-cave" hidden>
+  <p>Закрасьте стены так, чтобы оставшиеся клетки образовали одну пещеру, связанную по сторонам.</p>
+  <p>Каждая стена должна доходить до края поля через другие стены: стены, запертой внутри пещеры, быть не может. Клетка с числом всегда входит в пещеру.</p>
+  <p>Число показывает, сколько клеток пещеры видно из этой клетки по вертикали и горизонтали, включая её саму. Стена закрывает обзор.</p>
+</div>
+
+<script src="{% static 'js/next_game_autumn_vote.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
+{% endblock %}
