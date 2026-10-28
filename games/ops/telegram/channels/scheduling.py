@@ -667,32 +667,20 @@ def process_game_announcements(now=None) -> dict[str, int]:
         stats['social_queue'] = {'shadow': 1}
         return stats
 
-    try:
-        from games.ops.telegram.channels.ladder import process_ladder_channel_tick
+    from games.ops.telegram.channels.daily_post import CHANNEL_TICK_ORDER, load_channel_post
 
-        ladder_stats = process_ladder_channel_tick(now=now)
-        stats['ladder_scheduled'] = ladder_stats.get('scheduled', 0)
-    except Exception:
-        logger.exception('Ladder channel tick failed')
-        stats['ladder_scheduled'] = 0
-
-    try:
-        from games.ops.telegram.channels.salad import process_salad_channel_tick
-
-        salad_stats = process_salad_channel_tick(now=now)
-        stats['salad_scheduled'] = salad_stats.get('scheduled', 0)
-    except Exception:
-        logger.exception('Salad channel tick failed')
-        stats['salad_scheduled'] = 0
-
-    try:
-        from games.ops.telegram.channels.censorly import process_censorly_channel_tick
-
-        censorly_stats = process_censorly_channel_tick(now=now)
-        stats['censorly_scheduled'] = censorly_stats.get('scheduled', 0)
-    except Exception:
-        logger.exception('Censorly channel tick failed')
-        stats['censorly_scheduled'] = 0
+    for key in CHANNEL_TICK_ORDER:
+        spec = None
+        try:
+            spec = load_channel_post(key)
+            tick_stats = spec.process_tick(now=now)
+            stats[spec.stats_key] = tick_stats.get('scheduled', 0)
+        except Exception:
+            if spec is None:
+                logger.exception('Daily channel post %s failed to load', key)
+            else:
+                logger.exception(spec.tick_failure_message)
+                stats[spec.stats_key] = 0
 
     try:
         from games.ops.telegram.channels.review import process_daily_review_tick

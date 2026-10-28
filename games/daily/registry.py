@@ -45,6 +45,7 @@ class DailyGameDefinition:
     difficulty_solo_refresh: bool = False
     leaderboard_metric: str = 'time'
     heavy_payload: bool = False
+    channel_post_key: str | None = None
     capabilities: DailyGameCapabilities = DailyGameCapabilities()
     results_adapter_key: str | None = None
     projection_adapter_key: str | None = None
@@ -123,6 +124,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         completion_adapter_key='standard',
         recheck_adapter_key='chain',
         difficulty_adapter_key='ladder',
+        channel_post_key='ladder',
     ),
     DailyGameDefinition(
         game_id=ALPHABETTY_SCHEDULE.game_id,
@@ -163,6 +165,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         difficulty_solo_refresh=True,
         leaderboard_metric='attempts',
         heavy_payload=True,
+        channel_post_key='censorly',
     ),
     DailyGameDefinition(
         game_id=WORD_SALAD_SCHEDULE.game_id,
@@ -180,6 +183,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         completion_adapter_key='standard',
         recheck_adapter_key='word_salad',
         difficulty_adapter_key='salad',
+        channel_post_key='salad',
     ),
 ))
 

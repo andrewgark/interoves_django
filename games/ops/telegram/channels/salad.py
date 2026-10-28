@@ -3,48 +3,32 @@
 from __future__ import annotations
 
 import html
-import logging
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 from typing import Any
 
-from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.models import Game, GameTaskGroup, Task
-from games.ops.social.models import SocialQueuePost
-from games.ops.social.publish import (
-    claim_telegram_post,
-    complete_telegram_publish,
-    publish_telegram,
-    queue_network,
-    update_claimed_telegram_post,
-)
-from games.ops.telegram.transport.api import send_message, send_photo
-from games.ops.telegram.transport.config import (
-    admin_chat_id,
-    telegram_admin_configured,
-    telegram_channel_configured,
-)
-from games.sections.paths import section_play_path
-from games.ops.telegram.links import admin_url
-from games.ops.telegram.transport.mtproto import telegram_user_configured
-from games.ops.telegram.images.salad import render_word_salad_teaser_png, word_salad_last_screenshot_url
-from games.ops.telegram.images.errors import (
-    admin_post_failure_message,
-    admin_render_failure_message,
-    describe_post_failure,
-    describe_render_failure,
-)
-from games.daily.page.section import WORD_SALAD_GAME_ID
-from games.puzzles.salad.rules import theme_from_text
 from games.daily.catalog.word_salad import (
-    MOSCOW,
     current_word_salad_number,
     is_word_salad_number_published,
 )
-
-logger = logging.getLogger('application')
+from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.models import Game, GameTaskGroup, Task
+from games.ops.social.models import SocialQueuePost
+from games.ops.telegram.channels.daily_post import (
+    ChannelPostSpec,
+    channel_ready,
+    preview_channel_post,
+    publish_clock,
+    register_channel_post,
+    schedule_channel_post,
+)
+from games.ops.telegram.images.salad import render_word_salad_teaser_png, word_salad_last_screenshot_url
+from games.ops.telegram.links import admin_url
+from games.ops.telegram.transport.api import send_message, send_photo
+from games.puzzles.salad.rules import theme_from_text
+from games.sections.paths import section_play_path
 
 PREPARE_HOUR = 0
 PREPARE_MINUTE = 15
@@ -64,13 +48,14 @@ class TodaySalad:
 
 
 def moscow_now(now: datetime | None = None) -> datetime:
-    now = now or timezone.now()
-    return now.astimezone(MOSCOW)
+    from games.ops.telegram.channels.daily_post import moscow_now as _moscow_now
+
+    return _moscow_now(now)
 
 
 def publish_at_for_date(salad_date: date) -> datetime:
     """14:30 MSK on the salad's calendar day (two hours before the ladder teaser)."""
-    return datetime.combine(salad_date, time(PUBLISH_HOUR, PUBLISH_MINUTE), tzinfo=MOSCOW)
+    return publish_clock(salad_date, PUBLISH_HOUR, PUBLISH_MINUTE)
 
 
 def _escape(text) -> str:
@@ -152,102 +137,75 @@ def build_caption(salad: TodaySalad) -> str:
 
 
 def salad_channel_ready() -> bool:
-    return telegram_user_configured() and telegram_channel_configured()
+    return channel_ready()
 
 
-def _mark_salad_post_failed(post, claim_token: str, *, stage: str, exc: BaseException):
-    error = describe_post_failure('Салатик №{}'.format(post.ladder_number), stage, exc)
-    complete_telegram_publish(
-        post.pk,
-        claim_token,
-        status=SocialQueuePost.STATUS_FAILED,
-        error=error,
+def _render(edition: TodaySalad) -> bytes:
+    return render_word_salad_teaser_png(
+        edition.task,
+        salad_number=edition.number,
+        url=edition.play_url,
+        fallback_to_pillow=False,
     )
-    if telegram_admin_configured():
-        try:
-            send_message(admin_chat_id(), admin_post_failure_message(error))
-        except Exception:
-            logger.exception('Failed to notify admin about salad post failure')
-    post.refresh_from_db()
-    return post
+
+
+def _send_photo(*args, **kwargs):
+    return send_photo(*args, **kwargs)
+
+
+def _send_message(*args, **kwargs):
+    return send_message(*args, **kwargs)
+
+
+SALAD_CHANNEL_POST = ChannelPostSpec(
+    key='salad',
+    source=SocialQueuePost.SOURCE_WORD_SALAD,
+    stats_key='salad_scheduled',
+    prepare_hour=PREPARE_HOUR,
+    prepare_minute=PREPARE_MINUTE,
+    window_minutes=WINDOW_MINUTES,
+    sync_task=True,
+    warn_when_late=True,
+    resolve_today=resolve_today_salad,
+    edition_date=lambda edition: edition.salad_date,
+    build_caption=build_caption,
+    render=_render,
+    render_failure_url=lambda _edition: word_salad_last_screenshot_url(),
+    publish_at=publish_at_for_date,
+    send_photo=_send_photo,
+    send_message=_send_message,
+    skip_unconfigured_message=(
+        'Salad channel schedule skipped: need TELEGRAM_CHANNEL_CHAT_ID + user MTProto session'
+    ),
+    skip_unpublished_message='Salad channel schedule skipped: no published salad for today',
+    skip_unpublished_level='warning',
+    failure_label='Салатик №{}',
+    render_failure_kind='salad №{}',
+    late_error=(
+        '14:30 MSK already passed for {}; refusing to post immediately. '
+        'Use --now only if you really want to post now.'
+    ),
+    scheduled_when='в отложенные на 14:30 МСК',
+    admin_channel_preview='Канал @interoves: салатик №{} — {}\n\n{}',
+    image_filename='salad-{}.png',
+    render_failed_log='Salad channel render failed for №%s',
+    prepare_failed_log='Salad channel post preparation failed for №%s',
+    notify_render_failure_log='Failed to notify admin about salad render failure',
+    notify_late_log='Failed to notify admin about late salad post',
+    notify_post_failure_log='Failed to notify admin about salad post failure',
+    notify_telegram_failure_log='Failed to notify admin about salad Telegram failure',
+    admin_preview_failed_log='Admin preview for salad channel post failed',
+    tick_failure_message='Salad channel tick failed',
+    missing_today_message='Нет опубликованного салатика на сегодня',
+    preview_success='Салатик №{number} → admin chat (message_id={message_id})',
+    preview_render_failed_log='Salad admin preview render failed',
+)
+register_channel_post(SALAD_CHANNEL_POST)
 
 
 def preview_salad_to_admin(*, now: datetime | None = None) -> tuple[bool, str]:
     """Render today's salad teaser and send it to the admin bot chat only."""
-    if not telegram_admin_configured():
-        return False, 'TELEGRAM_ADMIN_CHAT_ID / bot token not configured'
-
-    salad = resolve_today_salad(now)
-    if salad is None:
-        return False, 'Нет опубликованного салатика на сегодня'
-
-    try:
-        image_png = render_word_salad_teaser_png(
-            salad.task,
-            salad_number=salad.number,
-            url=salad.play_url,
-            fallback_to_pillow=False,
-        )
-        caption = build_caption(salad)
-    except Exception as exc:
-        logger.exception('Salad admin preview render failed')
-        return False, 'Ошибка рендера: {}'.format(exc)
-
-    result = send_photo(
-        admin_chat_id(),
-        image_png,
-        caption=caption,
-        filename='salad-{}.png'.format(salad.number),
-    )
-    if result is None:
-        return False, 'Не удалось отправить фото в admin-чат'
-    return True, 'Салатик №{} → admin chat (message_id={})'.format(
-        salad.number, result.get('message_id'),
-    )
-
-
-def _queue_x_ig_for_salad(
-    post: SocialQueuePost,
-    run_at: datetime,
-    *,
-    force: bool = False,
-) -> None:
-    """Put X/IG on the internal schedule for run_at (usually 14:30 MSK)."""
-    post.refresh_from_db()
-    if force or post.twitter_status not in (
-        SocialQueuePost.STATUS_SENT,
-        SocialQueuePost.STATUS_SKIPPED,
-    ):
-        if force or post.twitter_status != SocialQueuePost.STATUS_QUEUED or not post.twitter_queued_for:
-            queue_network(post, 'twitter', run_at)
-            post.refresh_from_db()
-    if force or post.instagram_status not in (
-        SocialQueuePost.STATUS_SENT,
-        SocialQueuePost.STATUS_SKIPPED,
-    ):
-        if (
-            force
-            or post.instagram_status != SocialQueuePost.STATUS_QUEUED
-            or not post.instagram_queued_for
-        ):
-            queue_network(post, 'instagram', run_at)
-    if force or post.threads_status not in (
-        SocialQueuePost.STATUS_SENT, SocialQueuePost.STATUS_SKIPPED,
-    ):
-        if force or post.threads_status != SocialQueuePost.STATUS_QUEUED or not post.threads_queued_for:
-            queue_network(post, 'threads', run_at)
-
-
-def _maybe_finish_other_networks(post: SocialQueuePost, *, force: bool = False) -> None:
-    if not post.telegram_ok:
-        return
-    run_at = post.telegram_scheduled_for or (
-        publish_at_for_date(post.ladder_date) if post.ladder_date else None
-    )
-    if run_at is None:
-        return
-    post.refresh_from_db()
-    _queue_x_ig_for_salad(post, run_at, force=force)
+    return preview_channel_post(SALAD_CHANNEL_POST, now=now)
 
 
 def schedule_salad_channel_post(
@@ -261,187 +219,13 @@ def schedule_salad_channel_post(
     At ~00:15 MSK: render today's salad into a SocialQueuePost, put Telegram into
     native deferred for 14:30 MSK, and queue X/IG internally for the same time.
     """
-    if not salad_channel_ready():
-        logger.debug(
-            'Salad channel schedule skipped: need TELEGRAM_CHANNEL_CHAT_ID + user MTProto session'
-        )
-        return None
-
-    salad = resolve_today_salad(now)
-    if salad is None:
-        logger.warning('Salad channel schedule skipped: no published salad for today')
-        return None
-
-    existing = SocialQueuePost.objects.filter(
-        source=SocialQueuePost.SOURCE_WORD_SALAD,
-        ladder_date=salad.salad_date,
-    ).first()
-    if existing is None:
-        try:
-            with transaction.atomic():
-                existing = SocialQueuePost.objects.create(
-                    source=SocialQueuePost.SOURCE_WORD_SALAD,
-                    ladder_date=salad.salad_date,
-                    ladder_number=salad.number,
-                    task=salad.task,
-                    play_url=salad.play_url,
-                    caption='',
-                    telegram_status=SocialQueuePost.STATUS_PENDING,
-                )
-        except IntegrityError:
-            existing = SocialQueuePost.objects.filter(
-                source=SocialQueuePost.SOURCE_WORD_SALAD,
-                ladder_date=salad.salad_date,
-            ).first()
-
-    if existing is None:
-        return None
-
-    if existing.task_id != salad.task.pk:
-        existing.task = salad.task
-        existing.save(update_fields=['task', 'updated_at'])
-    if existing.telegram_ok and not force:
-        _maybe_finish_other_networks(existing, force=False)
-        return existing
-
-    claim_token = claim_telegram_post(existing.pk, force=force)
-    if claim_token is None:
-        existing.refresh_from_db()
-        if existing.telegram_ok and not force:
-            _maybe_finish_other_networks(existing, force=False)
-        return existing
-
-    try:
-        image_png = render_word_salad_teaser_png(
-            salad.task,
-            salad_number=salad.number,
-            url=salad.play_url,
-            fallback_to_pillow=False,
-        )
-        caption = build_caption(salad)
-    except Exception as exc:
-        logger.exception('Salad channel render failed for №%s', salad.number)
-        error = describe_render_failure(
-            'salad №{}'.format(salad.number),
-            word_salad_last_screenshot_url(),
-            exc,
-        )
-        complete_telegram_publish(
-            existing.pk,
-            claim_token,
-            status=SocialQueuePost.STATUS_FAILED,
-            error=error,
-            count_attempt=True,
-        )
-        if telegram_admin_configured():
-            try:
-                send_message(admin_chat_id(), admin_render_failure_message(error))
-            except Exception:
-                logger.exception('Failed to notify admin about salad render failure')
-        existing.refresh_from_db()
-        return existing
-
-    existing.ladder_number = salad.number
-    existing.play_url = salad.play_url
-    existing.caption = caption
-    try:
-        existing.set_image_bytes(image_png, filename='salad-{}.png'.format(salad.number))
-        if not update_claimed_telegram_post(
-            existing.pk,
-            claim_token,
-            ladder_number=salad.number,
-            play_url=salad.play_url,
-            caption=caption,
-            image=existing.image.name,
-        ):
-            existing.refresh_from_db()
-            return existing
-        existing.refresh_from_db()
-
-        schedule_at = None if immediate else publish_at_for_date(salad.salad_date)
-        msk = moscow_now(now)
-        if schedule_at is not None and schedule_at <= msk + timedelta(seconds=10):
-            error = (
-                '14:30 MSK already passed for {}; refusing to post immediately. '
-                'Use --now only if you really want to post now.'.format(salad.salad_date)
-            )
-            logger.warning(error)
-            complete_telegram_publish(
-                existing.pk,
-                claim_token,
-                status=SocialQueuePost.STATUS_FAILED,
-                error=error,
-                scheduled_for=schedule_at,
-            )
-            if telegram_admin_configured():
-                try:
-                    send_message(admin_chat_id(), admin_post_failure_message(error))
-                except Exception:
-                    logger.exception('Failed to notify admin about late salad post')
-            existing.refresh_from_db()
-            return existing
-
-        publish_telegram(
-            existing,
-            immediate=immediate,
-            schedule_at=schedule_at,
-            force=force,
-            claim_token=claim_token,
-        )
-    except Exception as exc:
-        logger.exception('Salad channel post preparation failed for №%s', salad.number)
-        return _mark_salad_post_failed(existing, claim_token, stage='prepare_or_publish', exc=exc)
-
-    completed_by_caller = bool(
-        getattr(existing, '_telegram_completion_applied', False)
+    return schedule_channel_post(
+        SALAD_CHANNEL_POST,
+        now=now,
+        force=force,
+        immediate=immediate,
+        notify_admin=notify_admin,
     )
-    existing.refresh_from_db()
-
-    if existing.telegram_status == SocialQueuePost.STATUS_FAILED:
-        error = existing.telegram_error or 'Telegram publish failed without details'
-        if telegram_admin_configured():
-            try:
-                send_message(admin_chat_id(), admin_post_failure_message(error))
-            except Exception:
-                logger.exception('Failed to notify admin about salad Telegram failure')
-        return existing
-
-    if (
-        completed_by_caller
-        and notify_admin
-        and telegram_admin_configured()
-        and existing.telegram_ok
-    ):
-        when = (
-            'сразу'
-            if existing.telegram_status == SocialQueuePost.STATUS_SENT
-            else 'в отложенные на 14:30 МСК'
-        )
-        preview = 'Канал @interoves: салатик №{} — {}\n\n{}'.format(
-            existing.ladder_number, when, caption,
-        )
-        try:
-            send_photo(
-                admin_chat_id(),
-                existing.image_bytes(),
-                caption=preview,
-                filename='salad-{}.png'.format(existing.ladder_number),
-            )
-        except Exception:
-            logger.exception('Admin preview for salad channel post failed')
-
-    if existing.telegram_ok:
-        if immediate:
-            from games.ops.social.publish import publish_instagram, publish_threads, publish_twitter
-
-            publish_twitter(existing, force=force)
-            publish_instagram(existing, force=force)
-            publish_threads(existing, force=force)
-        else:
-            run_at = schedule_at or publish_at_for_date(salad.salad_date)
-            _queue_x_ig_for_salad(existing, run_at, force=force)
-        existing.refresh_from_db()
-    return existing
 
 
 def prepare_salad_channel_post(**kwargs):
@@ -453,33 +237,9 @@ def publish_salad_channel_post(*, force: bool = False, **kwargs):
     return schedule_salad_channel_post(force=force, immediate=True, **kwargs)
 
 
-def _in_window(msk: datetime, hour: int, minute: int) -> bool:
-    start = msk.replace(hour=hour, minute=minute, second=0, microsecond=0)
-    end = start + timedelta(minutes=WINDOW_MINUTES)
-    return start <= msk < end
-
-
 def process_salad_channel_tick(now: datetime | None = None) -> dict[str, Any]:
     """
     Minute cron: at 00:15 MSK schedule today's salad for 14:30 MSK via MTProto.
     Telegram itself publishes at schedule_date — no 14:30 job needed for TG.
     """
-    msk = moscow_now(now)
-    stats = {'scheduled': 0, 'skipped': 1}
-
-    if not _in_window(msk, PREPARE_HOUR, PREPARE_MINUTE):
-        return stats
-
-    before = SocialQueuePost.objects.filter(
-        source=SocialQueuePost.SOURCE_WORD_SALAD,
-        ladder_date=msk.date(),
-        telegram_status__in=(
-            SocialQueuePost.STATUS_SCHEDULED,
-            SocialQueuePost.STATUS_SENT,
-        ),
-    ).exists()
-    post = schedule_salad_channel_post(now=now, force=False, notify_admin=True)
-    if post and post.telegram_ok and not before:
-        stats['scheduled'] = 1
-        stats['skipped'] = 0
-    return stats
+    return SALAD_CHANNEL_POST.process_tick(now=now)
