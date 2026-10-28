@@ -40,6 +40,7 @@ class DailyGameDefinition:
     short_title: str
     pager_label: str
     schedule: DailySchedule
+    title_en: str = ''
     capabilities: DailyGameCapabilities = DailyGameCapabilities()
     results_adapter_key: str | None = None
     projection_adapter_key: str | None = None
@@ -106,6 +107,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         game_id=LADDER_SCHEDULE.game_id,
         task_type='raddle',
         title='Лесенка',
+        title_en='Ladder',
         short_title='Лесенка',
         pager_label='лесенками',
         schedule=LADDER_SCHEDULE,
@@ -121,6 +123,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         game_id=ALPHABETTY_SCHEDULE.game_id,
         task_type='alphabetty',
         title='Алфавитка',
+        title_en='Alphabetty',
         short_title='Алфавитка',
         pager_label='алфавитками',
         schedule=ALPHABETTY_SCHEDULE,
@@ -135,6 +138,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         game_id=CENSORLY_SCHEDULE.game_id,
         task_type='censorly',
         title='Цензурка',
+        title_en='Censorly',
         short_title='Цензурка',
         pager_label='цензурками',
         schedule=CENSORLY_SCHEDULE,
@@ -153,6 +157,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         game_id=WORD_SALAD_SCHEDULE.game_id,
         task_type='word_salad',
         title='Салатик',
+        title_en='Salad',
         short_title='Салатик',
         pager_label='салатиками',
         schedule=WORD_SALAD_SCHEDULE,

@@ -21,11 +21,11 @@ from games.daily.catalog.week_task import (
     WEEK_TASK_GAME_ID,
     filter_published_week_task_links,
 )
-from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.daily.catalog.word_salad import (
     filter_published_word_salad_links,
 )
-from games.sections.paths import section_hub_path, section_last_path, section_play_path
+from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.sections.paths import section_hub_path, section_last_path
 
 _DES_GAME_ID_RE = re.compile(r'^des(\d+)$')
 
@@ -93,8 +93,6 @@ SECTION_HUB_META = {
         'all_link_label': 'Все Лесенки →',
         'soon_text': 'Новая Лесенка — каждый день в полночь по Москве.',
         'wide': False,
-        'nav_title': 'Лесенка',
-        'archive_item_label': 'Лесенка',
         'format_credit_url': 'https://raddle.quest',
         'format_credit_name': 'raddle.quest',
         'format_credit_text': 'лесенок',
@@ -105,14 +103,12 @@ SECTION_HUB_META = {
         'icon': '🥗',
         'ph_icon': 'bowl-food',
         'title': 'Салатики',
-        'nav_title': 'Салатик',
         'pager_label': 'Салатик',
         'description': 'Сетка 4×4: найдите все слова на одну тему, проводя дорожки по соседним буквам',
         'cta_today': 'Сегодняшний Салатик',
         'cta_latest': 'Последний Салатик',
         'all_link_label': 'Все Салатики →',
         'soon_text': 'Новый Салатик — каждый день в полночь по Москве.',
-        'archive_item_label': 'Салатик',
         'format_credit_url': 'https://wordsalad.online',
         'format_credit_name': 'wordsalad.online',
         'format_credit_text': 'Салатиков',
@@ -123,7 +119,6 @@ SECTION_HUB_META = {
         'icon': '🔤',
         'ph_icon': 'text-aa',
         'title': 'Алфавитки',
-        'nav_title': 'Алфавитка',
         'description': 'Угадайте существительное, выясняя, раньше или позже оно по алфавиту, чем ваши догадки',
         'cta_today': 'Сегодняшняя Алфавитка',
         'cta_latest': 'Последняя Алфавитка',
@@ -139,7 +134,6 @@ SECTION_HUB_META = {
         'icon': '📰',
         'ph_icon': 'newspaper',
         'title': 'Цензурки',
-        'nav_title': 'Цензурка',
         'description': 'Угадайте статью русской Википедии слово за словом',
         'cta_today': 'Сегодняшняя Цензурка',
         'cta_latest': 'Последняя Цензурка',
@@ -221,7 +215,12 @@ def section_ph_icon(section_id):
 
 
 def section_nav_title(section_id):
-    """Singular nav/pager title for a section id."""
+    """Единственное число для навигации. У ежедневной игры его даёт реестр."""
+    from games.daily.registry import get_daily_game
+
+    definition = get_daily_game(section_id)
+    if definition is not None and definition.short_title:
+        return definition.short_title
     meta = SECTION_HUB_META.get(section_id) or {}
     return meta.get('nav_title') or meta.get('pager_label') or meta.get('title') or ''
 

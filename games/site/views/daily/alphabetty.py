@@ -106,9 +106,7 @@ def alphabetty_hub_page(request):
         request,
         game,
         progress_for_actor=hub_progress_for_actor,
-        page_title='Алфавитка',
         random_button_template='site/partials/alphabetty_random_button.html',
-        coming_soon_text='Новая Алфавитка — каждый день в полночь по Москве.',
         rules_body_template='site/_alphabetty_rules_body.html',
         empty_text='Алфавитки скоро появятся.',
     ))
@@ -256,8 +254,6 @@ def alphabetty_play_page(request, number):
             or (link is not None and is_alphabetty_number_published(game, link.number))
         ),
         allow_unpublished=may_open_unpublished_number(request.user),
-        fallback_label='Алфавитка',
-        fallback_pager_label='Алфавитками',
     )
     # Share links are public; only the author goes back to their own list.
     is_own_offer = (

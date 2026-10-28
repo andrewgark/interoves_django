@@ -9,13 +9,14 @@ content words as masks.
 
 from __future__ import annotations
 
-import json
 import html
+import json
 from datetime import date, datetime
 from typing import Any, Iterable, Optional
 
-from games.results.share import format_elapsed_compact
 from django.utils.html import strip_tags
+
+from games.results.share import format_elapsed_compact
 
 RENDERER_VERSION = '7'
 CARD_WIDTH = 1080
@@ -39,13 +40,6 @@ _MONTHS_EN = (
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December',
 )
-
-_GAME_TITLES = {
-    KIND_LADDER: {'ru': 'Лесенка', 'en': 'Ladder'},
-    KIND_SALAD: {'ru': 'Салатик', 'en': 'Salad'},
-    KIND_ALPHABETTY: {'ru': 'Алфавитка', 'en': 'Alphabetty'},
-    KIND_CENSORLY: {'ru': 'Цензурка', 'en': 'Censorly'},
-}
 
 _SOLVED_VERB = {
     KIND_LADDER: {'ru': 'решена за', 'en': 'solved in'},
@@ -79,8 +73,16 @@ def _task_author(task) -> str:
 
 
 def game_title(kind: str, locale: str) -> str:
+    """Русское и английское имя выпуска из реестра ежедневных игр."""
+    from games.daily.registry import get_daily_game
+
     loc = normalize_locale(locale)
-    return _GAME_TITLES.get(kind, {}).get(loc) or _GAME_TITLES.get(kind, {}).get('ru') or kind
+    definition = get_daily_game(kind)
+    if definition is None:
+        return kind
+    if loc == 'en' and definition.title_en:
+        return definition.title_en
+    return definition.title
 
 
 def format_share_date(value: date | datetime | str | None, locale: str) -> str:
@@ -197,14 +199,6 @@ def build_stats_line(parts: Iterable[str | None]) -> str:
     return ' · '.join(part for part in parts if part)
 
 
-_KIND_SLUG = {
-    KIND_LADDER: 'ladder',
-    KIND_SALAD: 'salad',
-    KIND_ALPHABETTY: 'alphabetty',
-    KIND_CENSORLY: 'censorly',
-}
-
-
 def ladder_result_path(game, number, task=None) -> str:
     """Public path matching the raddle «Ваш результат» link."""
     display = str(number or '').strip()
@@ -234,7 +228,7 @@ def card_brand(
     if play_path:
         path = share_path(play_path)
     else:
-        slug = _KIND_SLUG.get(kind, kind)
+        slug = kind
         path = '{}/{}'.format(slug, number) if number else slug
     if not path:
         return host_text
@@ -303,13 +297,7 @@ def _base_payload(
 
 
 def _filename(kind: str, number: str, locale: str) -> str:
-    slug = {
-        KIND_LADDER: 'ladder',
-        KIND_SALAD: 'salad',
-        KIND_ALPHABETTY: 'alphabetty',
-        KIND_CENSORLY: 'censorly',
-    }.get(kind, kind)
-    parts = ['interoves', slug]
+    parts = ['interoves', kind]
     if number:
         parts.append(str(number))
     if locale and locale != 'ru':

@@ -656,7 +656,12 @@ class CensorlyAccessTests(TestCase):
         self.client.force_login(self.plain)
         self.assertEqual(self.client.get('/censorly/').status_code, 200)
         self.client.force_login(self.staff)
-        self.assertEqual(self.client.get('/censorly/').status_code, 200)
+        response = self.client.get('/censorly/')
+        self.assertEqual(response.status_code, 200)
+        self.assertRegex(
+            response.content.decode(),
+            r'new-heading--page">\s*Цензурка\s*</h1>',
+        )
 
     def test_hub_renders_calendar_and_actor_progress(self):
         link = GameTaskGroup.objects.get(task_group=self.task.task_group)

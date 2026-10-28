@@ -21,6 +21,7 @@ from games.daily.page.section import (
     scheduled_number_is_public,
     visible_links,
 )
+from games.daily.registry import get_daily_game
 from games.identity import has_profile
 from games.models import (
     Attempt,
@@ -299,6 +300,11 @@ def _daily_archive_context(request, game, links, *, completed_numbers=(), status
                            locked_keys=()):
     """Adapt section placements to the neutral reusable archive component."""
     meta = SECTION_HUB_META.get(game.id) or {}
+    definition = get_daily_game(game.id)
+    game_label = (
+        definition.title if definition is not None
+        else meta.get('archive_item_label') or meta.get('title') or game.name
+    )
     items = build_daily_archive_items(
         links,
         game_id=game.id,
@@ -308,7 +314,7 @@ def _daily_archive_context(request, game, links, *, completed_numbers=(), status
     )
     return refresh_daily_archive_context(
         request, items=items, game_id=game.id,
-        game_label=meta.get('archive_item_label') or meta.get('title') or game.name,
+        game_label=game_label,
         completed_keys={str(number) for number in completed_numbers},
         status_by_key=status_by_key,
         locked_keys=locked_keys,

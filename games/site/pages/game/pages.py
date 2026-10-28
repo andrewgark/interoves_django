@@ -16,11 +16,13 @@ from games.daily.ladder.tutorial.ladder import (
 )
 from games.daily.page.section import (
     MOSCOW,
+    WORD_SALAD_GAME_ID,
     current_number_for,
     is_scheduled_game,
     publish_at_for,
     scheduled_number_is_public,
 )
+from games.daily.registry import get_daily_game
 from games.daily.timing.transitions import (
     next_daily_content_transition_for_game,
 )
@@ -443,6 +445,12 @@ def _render_section_game_page(request, game_id):
     play_mode, play_mode_key = _get_play_mode(request, game.project_id)
     play_mode = effective_play_mode(play_mode, game, user=request.user)
     meta = SECTION_HUB_META.get(game_id) or {}
+    definition = get_daily_game(game_id)
+    numbered_label = (
+        definition.title
+        if definition is not None and game_id in (LADDER_GAME_ID, WORD_SALAD_GAME_ID)
+        else ''
+    )
     today_number = current_number_for(game)
     task_groups = list(_hub_section_task_group_links(game))
     archive_context = _daily_archive_context(request, game, task_groups)
@@ -455,13 +463,13 @@ def _render_section_game_page(request, game_id):
                 and publish_at_for(game, link.number).astimezone(MOSCOW).date().month == selected_month
             )
         ]
-    if meta.get('archive_item_label'):
+    if numbered_label:
         task_group_rows = _ladder_task_group_rows(
             task_groups,
             game,
             today_number=today_number,
             today_prefix=meta.get('archive_today_prefix', 'Сегодня'),
-            item_label=meta['archive_item_label'],
+            item_label=numbered_label,
         )
         task_groups_heading = False
         task_groups_empty_text = meta.get(

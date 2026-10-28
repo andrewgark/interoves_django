@@ -17,7 +17,7 @@ from games.daily.registry import get_daily_game
 from games.identity import has_profile
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 from games.ops.analytics.identity import gameplay_anon_key
-from games.sections.hub import create_game_link_context
+from games.sections.hub import SECTION_HUB_META, create_game_link_context
 from games.sections.paths import section_hub_path, section_play_path, section_results_path
 from games.site.pages import NEW_UI_SECTIONS_PROJECT
 from games.site.views.daily.hub import can_access_daily_game
@@ -306,9 +306,7 @@ def daily_hub_context(
     game,
     *,
     progress_for_actor,
-    page_title,
     random_button_template,
-    coming_soon_text,
     rules_body_template,
     empty_text,
     digits_only=False,
@@ -316,8 +314,8 @@ def daily_hub_context(
     """Строки архива, календарь и общая шапка хаба.
 
     Прогресс и серия считаются по всем вышедшим выпускам. В списке
-    остаётся выбранный месяц. Подписи выпуска и правила берутся из
-    реестра; тексты, которые ещё живут у страницы, передаёт игра.
+    остаётся выбранный месяц. Заголовок, подпись выпуска и правила
+    берутся из реестра. Текст «скоро» — из карточки раздела.
     """
     from games.daily.difficulty.core import get_cached_game_difficulties
     from games.daily.page.archive import (
@@ -417,13 +415,13 @@ def daily_hub_context(
     return {
         'game': game,
         'rows': rows,
-        'page_title': page_title,
+        'page_title': definition.title,
         'random_button_template': random_button_template,
         'daily_hub_play_url': hub['{}_play_url'.format(game.id)],
         'daily_hub_cta_label': hub['{}_cta_label'.format(game.id)],
         'daily_hub_is_today': hub['{}_is_today'.format(game.id)],
         'daily_hub_status': hub['{}_status'.format(game.id)],
-        'daily_hub_coming_soon_text': coming_soon_text,
+        'daily_hub_coming_soon_text': (SECTION_HUB_META.get(game.id) or {}).get('soon_text') or '',
         'rules_title': definition.title,
         'rules_storage_key': 'section_rules_seen_{}'.format(game.id),
         'rules_body_template': rules_body_template,
