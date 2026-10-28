@@ -14,9 +14,9 @@ from django.utils import timezone
 
 from games.daily.timing.statistics import (
     _RELEASE_CACHE_LOCK_SCRIPT,
-    RANKING_KEY,
     CACHE_BUILD_LOCK_TIMEOUT,
     CACHE_TIMEOUT,
+    RANKING_KEY,
     REVISION_TIMEOUT,
     _release_build_lock,
     _versioned_cache_key,
@@ -24,6 +24,7 @@ from games.daily.timing.statistics import (
     build_daily_statistics,
     cache_key,
     invalidate_daily_statistics,
+    personal_attempt_count,
     personal_statistics,
 )
 from games.models import (
@@ -41,7 +42,6 @@ from games.models import (
     TaskGroup,
     Team,
 )
-from games.puzzles.censorly.text.normalize import lemma_of
 
 
 class DailyStatisticsTests(TestCase):
@@ -346,6 +346,31 @@ class DailyStatisticsTests(TestCase):
             result=PlayerCompletedGame.RESULT_SOLVED,
         )
 
+    def test_personal_attempts_use_official_game_specific_guesses(self):
+        for task_type, expected in (('alphabetty', 2), ('censorly', 3)):
+            with self.subTest(task_type=task_type):
+                tg, task = self._task(task_type)
+                actor_key = ('anon', 'statistics-personal')
+                for text, status, skip in (
+                    ('мимо', 'Wrong', False), ('почти', 'Partial', False),
+                    ('ответ', 'Ok', False), ('пропуск', 'Partial', True),
+                ):
+                    Attempt.manager.create(
+                        anon_key=actor_key[1], game=self.game, task=task,
+                        text=text, status=status, skip=skip,
+                    )
+                if task_type == 'censorly':
+                    Attempt.manager.create(
+                        anon_key=actor_key[1], game=self.game, task=task,
+                        text='#hint:ответ', status='Partial',
+                    )
+                self.assertEqual(personal_attempt_count(
+                    self.game, tg, actor_key=actor_key,
+                ), expected)
+                self.assertIsNone(personal_attempt_count(
+                    self.game, tg, actor_key=('user', self.users[0].id),
+                ))
+
     def test_alphabet_distribution_and_unique_popular_guesses(self):
         tg, task = self._task('alphabetty')
         for user, guesses in zip(self.users, (['А', 'Б', 'СЛОВО'], ['А', 'СЛОВО'], ['В', 'Г', 'Д', 'СЛОВО'])):
@@ -535,7 +560,7 @@ class DailyStatisticsTests(TestCase):
         if game is None:
             game = Game.objects.create(id='censorly', name='Цензурка', project=self.project)
         tg = TaskGroup.objects.create(label=label)
-        GameTaskGroup.objects.create(game=game, task_group=tg, number='1', name='censorly')
+        GameTaskGroup.objects.create(game=game, task_group=tg, number=str(tg.pk), name='censorly')
         checker, _ = CheckerType.objects.get_or_create(pk='censorly')
         task = Task.objects.create(
             task_group=tg, number='1', task_type='censorly', checker=checker,
@@ -560,7 +585,7 @@ class DailyStatisticsTests(TestCase):
         game, tg, task = self._censorly_task('censorly state lemmas')
         history = [{'lemma': 'кошка'}]
         self._censorly_solve(game, tg, task, self.users[0], [
-            # The resolver lemma wins over the typed surface.
+            # The resolver lemma groups guesses, but is not a display label.
             ('кошек', 'Wrong', json.dumps({'guesses': history})),
             # Unreadable states fall back to the typed word.
             ('собаки', 'Wrong', '{not json'),
@@ -586,9 +611,48 @@ class DailyStatisticsTests(TestCase):
         self.assertTrue(loaded)
         self.assertTrue(all('state' in row.get_deferred_fields() for row in loaded))
         words = {row['word'] for row in data['popular_words']}
-        self.assertTrue({'кошка', 'река'} <= words)
-        self.assertNotIn('кошек', words)
-        self.assertEqual(data['last_words'], [{'word': lemma_of('окна'), 'players': 1}])
+        self.assertEqual(words, {'кошек', 'собаки', 'столы', 'окна', 'реки'})
+        self.assertEqual(data['last_words'], [{'word': 'окна', 'players': 1}])
+
+    def test_censorly_statistics_display_only_submitted_forms(self):
+        cases = [
+            ('кошка', ['КОШЕК', 'кошек', 'Кошка'], 'кошка'),
+            ('кошка', ['КОШЕК', 'кошек', 'кошки'], 'кошек'),
+            ('__censorly_лат_language__', ['ЛАТ', 'лат', 'латинский'], 'лат'),
+            ('он', ['ИМ', 'им', 'ему'], 'им'),
+            ('ошибка', ['столы', 'СТОЛЫ', 'стола'], 'столы'),
+            ('елка', ['Ёлки', 'ёлки', 'ёлка'], 'ёлки'),
+            ('кошка', ['кошки', 'кошек', 'кошками'], 'кошек'),
+        ]
+        for lemma, forms, expected in cases:
+            with self.subTest(lemma=lemma, forms=forms):
+                game, tg, task = self._censorly_task('submitted forms')
+                for user, form in zip(self.users, forms):
+                    self._censorly_solve(game, tg, task, user, [
+                        (form, 'Partial', json.dumps({'guesses': [{'lemma': lemma}]})),
+                        ('Тест', 'Ok', json.dumps({'guesses': [{'lemma': 'тест'}], 'won': True})),
+                    ])
+                data = build_daily_statistics(game, tg)
+                self.assertEqual(data['last_words'], [{'word': expected, 'players': 3}])
+                self.assertCountEqual(data['popular_words'], [
+                    {'word': expected, 'players': 3}, {'word': 'тест', 'players': 3},
+                ])
+
+    def test_censorly_last_word_uses_form_frequencies_from_all_guesses(self):
+        game, tg, task = self._censorly_task('shared form frequencies')
+        self._censorly_solve(game, tg, task, self.users[0], [
+            (form, 'Partial', json.dumps({'guesses': [{'lemma': 'кошка'}]}))
+            for form in ('кошек', 'КОШЕК', 'кошки')
+        ] + [
+            ('Тест', 'Ok', json.dumps({'guesses': [{'lemma': 'тест'}], 'won': True})),
+        ])
+
+        data = build_daily_statistics(game, tg)
+
+        self.assertEqual(data['last_words'], [{'word': 'кошек', 'players': 1}])
+        self.assertCountEqual(data['popular_words'], [
+            {'word': 'кошек', 'players': 1}, {'word': 'тест', 'players': 1},
+        ])
 
     def test_censorly_actor_without_chain_state_uses_latest_attempt_state(self):
         from games.puzzles.censorly.play import dump_state
@@ -805,6 +869,17 @@ class DailyStatisticsTests(TestCase):
             stats.json()['exclusion_notice'],
             'Вы не учтены в статистике, потому что вы автор этого задания.',
         )
+        # The author's attempts are absent from the public population, but
+        # still compare against its median, just like personal time.
+        with patch('games.daily.timing.statistics.build_daily_statistics', return_value={
+            'kind': 'alphabet', 'summary': {'median_attempts': 12},
+            RANKING_KEY: {'attempts': {('user', self.users[1].id): 12}},
+        }):
+            stats = self.client.get('/daily-statistics/alphabetty/{}/'.format(tg.pk))
+        self.assertEqual(stats.json()['comparison']['attempts'], {
+            'value': 1, 'median': 12, 'better_percent': None,
+            'best': False, 'perfect': False,
+        })
 
 
 class PersonalStatisticsTests(TestCase):
@@ -893,3 +968,19 @@ class PersonalStatisticsTests(TestCase):
         )
 
         self.assertEqual(data['comparison'], {'time': None, 'attempts': None})
+
+    def test_excluded_attempts_compare_without_ranking_or_achievements(self):
+        for kind in ('alphabet', 'censorly'):
+            with self.subTest(kind=kind):
+                payload = self._payload({}, attempts=self._others([8] * 10))
+                payload['kind'] = kind
+                data = personal_statistics(
+                    payload, actor_key=self.me, personal_time_seconds=None,
+                    personal_attempts=2,
+                )
+                self.assertEqual(data['comparison']['attempts'], {
+                    'value': 2, 'median': 5.0, 'better_percent': None,
+                    'best': False, 'perfect': False,
+                })
+                self.assertEqual(data['achievements'], [])
+                self.assertNotIn(self.me, payload[RANKING_KEY]['attempts'])

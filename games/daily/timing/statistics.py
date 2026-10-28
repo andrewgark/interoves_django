@@ -13,24 +13,29 @@ from django.core.cache import caches
 from django.db import connection, transaction
 from django.db.models import Func, Min, Q, TextField
 
+from games.daily.registry import DAILY_GAME_REGISTRY
 from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerCompletedGame, Task
-from games.puzzles.raddle.engine import load_raddle_state, parse_raddle_data, resolve_assist_tiers
-from games.puzzles.salad.rules import (
-    load_state as load_salad_state,
-    longest_dictionary_words,
-    parse_task_payload,
-)
 from games.puzzles.alphabetty.core import normalize_word
 from games.puzzles.alphabetty.play import (
     hint_count as alphabetty_hint_count,
+)
+from games.puzzles.alphabetty.play import (
     load_state as load_alphabetty_state,
+)
+from games.puzzles.alphabetty.play import (
     secret_from_task,
     split_ladder,
 )
-from games.daily.registry import DAILY_GAME_REGISTRY
+from games.puzzles.raddle.engine import load_raddle_state, parse_raddle_data, resolve_assist_tiers
+from games.puzzles.salad.rules import (
+    load_state as load_salad_state,
+)
+from games.puzzles.salad.rules import (
+    longest_dictionary_words,
+    parse_task_payload,
+)
 
-
-CACHE_VERSION = 23
+CACHE_VERSION = 24
 CACHE_TIMEOUT = 10 * 60
 REVISION_TIMEOUT = CACHE_TIMEOUT * 2
 CACHE_BUILD_LOCK_TIMEOUT = 30
@@ -239,9 +244,10 @@ def _personal_comparison(value, median_value, others):
     if value is None or median_value is None:
         return None
     out = {'value': value, 'median': median_value, 'better_percent': None, 'best': False}
-    # ``others`` is None when the player is outside the counted population
-    # (hidden, pre-publication): their result is not ranked against it.
-    if others and len(others) + 1 >= RANKING_MIN_SOLVED:
+    # ``others`` contains only participants in the public statistics cohort.
+    # The requesting player may be excluded from that cohort and still be
+    # compared against it; hidden participants never enter these maps.
+    if others and len(others) >= RANKING_MIN_SOLVED:
         worse = sum(1 for other in others if other > value)
         if worse == len(others):
             out['best'] = True
@@ -253,7 +259,23 @@ def _personal_comparison(value, median_value, others):
     return out
 
 
-def personal_statistics(payload, *, actor_key, personal_time_seconds):
+def personal_attempt_count(game, task_group, *, actor_key):
+    """Count official guesses even for players excluded from public results."""
+    task = Task.objects.filter(
+        task_group=task_group, task_type__in=('alphabetty', 'censorly'),
+    ).order_by('id').first()
+    if task is None:
+        return None
+    statuses = ('Ok', 'Partial', 'Wrong') if task.task_type == 'censorly' else ('Ok', 'Partial')
+    rows = _attempt_rows(task, game, [actor_key], statuses)
+    if not rows.filter(status='Ok').exists():
+        return None
+    if task.task_type == 'censorly':
+        rows = rows.exclude(text__isnull=True).exclude(text='').exclude(text__startswith='#hint:')
+    return rows.count()
+
+
+def personal_statistics(payload, *, actor_key, personal_time_seconds, personal_attempts=None):
     """Public statistics payload with the requesting player's comparisons."""
     ranking = payload.get(RANKING_KEY) or {}
     summary = payload.get('summary') or {}
@@ -261,13 +283,12 @@ def personal_statistics(payload, *, actor_key, personal_time_seconds):
     times = ranking.get('times') or {}
     comparison = {'time': _personal_comparison(
         personal_time_seconds, summary.get('median_time_seconds'),
-        [seconds for key, seconds in times.items() if key != actor_key]
-        if actor_key in times else None,
+        [seconds for key, seconds in times.items() if key != actor_key],
     )}
     if 'median_attempts' in summary:
         attempts = ranking.get('attempts') or {}
         attempt_comparison = _personal_comparison(
-            attempts.get(actor_key), summary.get('median_attempts'),
+            attempts.get(actor_key, personal_attempts), summary.get('median_attempts'),
             [count for key, count in attempts.items() if key != actor_key],
         )
         if attempt_comparison is not None:
@@ -853,13 +874,12 @@ def _alphabet(task, game, actors):
 
 
 def _censorly(task, game, actors):
-    """Popular guessed lemmas + last lemma before win (excluding title answers)."""
-    from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
+    """Group by lemma, displaying only submitted forms (excluding title answers)."""
+    from games.puzzles.censorly.article.redact import title_opening_lemmas
     from games.puzzles.censorly.play import hint_count as censorly_hint_count
     from games.puzzles.censorly.play import load_state as load_censorly_state
-    from games.puzzles.censorly.play import minimal_title_attempts
-    from games.puzzles.censorly.play import puzzle_from_task
-    from games.puzzles.censorly.article.redact import title_opening_lemmas
+    from games.puzzles.censorly.play import minimal_title_attempts, puzzle_from_task
+    from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
     from games.puzzles.censorly.text.tokenize import title_content_lemmas
 
     # Wrong guesses count toward a Цензурка solve too; hints are filtered
@@ -890,6 +910,8 @@ def _censorly(task, game, actors):
     perfect = set()
     lemma_players = defaultdict(set)
     last_before_win = defaultdict(set)
+    lemma_forms = defaultdict(Counter)
+    submitted_forms = set()
     no_hints = 0
 
     def lemma_from_row(row):
@@ -913,6 +935,10 @@ def _censorly(task, game, actors):
                 perfect.add(actor)
         for row in real_guesses:
             lemma = lemma_from_row(row)
+            form = str(row.text).lower()
+            submitted_forms.add(form)
+            if lemma:
+                lemma_forms[lemma][form] += 1
             if lemma and lemma not in title_lemmas:
                 lemma_players[lemma].add(actor)
         last_eligible_lemma = ''
@@ -926,17 +952,27 @@ def _censorly(task, game, actors):
         if last_eligible_lemma:
             last_before_win[last_eligible_lemma].add(actor)
 
-    popular = [
-        {'word': word, 'players': len(players)}
-        for word, players in sorted(lemma_players.items(), key=lambda item: (-len(item[1]), item[0]))
-        if len(players) >= CENSORLY_POPULAR_MIN_ENTRIES
-    ][:POPULAR_LIMIT]
+    def display_words(players_by_lemma, minimum_players):
+        players_by_word = defaultdict(set)
+        for lemma, players in players_by_lemma.items():
+            # Both lists use the same submitted spellings and frequencies.
+            # Never expose internal matcher identities or unsubmitted lemmas.
+            word = lemma.lower()
+            if word not in submitted_forms:
+                forms = lemma_forms[lemma]
+                word = min(forms, key=lambda form: (-forms[form], form))
+            players_by_word[word].update(players)
+        return [
+            {'word': word, 'players': len(players)}
+            for word, players in sorted(
+                players_by_word.items(), key=lambda item: (-len(item[1]), item[0]),
+            )
+            if len(players) >= minimum_players
+        ][:POPULAR_LIMIT]
+
+    popular = display_words(lemma_players, CENSORLY_POPULAR_MIN_ENTRIES)
     # Last-before-win can be sparse; show from 1 player.
-    last_words = [
-        {'word': word, 'players': len(players)}
-        for word, players in sorted(last_before_win.items(), key=lambda item: (-len(item[1]), item[0]))
-        if len(players) >= 1
-    ][:POPULAR_LIMIT]
+    last_words = display_words(last_before_win, 1)
     histogram = _build_censorly_attempt_histogram(attempt_counts)
     solve_times = _completed_time_map(game, task.task_group, actors)
     return {

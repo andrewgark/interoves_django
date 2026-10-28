@@ -164,15 +164,25 @@ def daily_statistics(request, game_id, number):
         attempts=legacy_attempts,
         timing_row=timing_row,
     )
-    from games.daily.timing.statistics import personal_statistics
+    from games.daily.timing.statistics import RANKING_KEY, personal_attempt_count, personal_statistics
+    actor_key = (
+        ('user', request.user.id) if request.user.is_authenticated
+        else ('anon', str(anon_key))
+    )
+    personal_attempts = None
+    if (
+        'median_attempts' in (payload.get('summary') or {})
+        and actor_key not in ((payload.get(RANKING_KEY) or {}).get('attempts') or {})
+    ):
+        personal_attempts = personal_attempt_count(
+            game, placement.task_group, actor_key=actor_key,
+        )
     payload = {
         **personal_statistics(
             payload,
-            actor_key=(
-                ('user', request.user.id) if request.user.is_authenticated
-                else ('anon', str(anon_key))
-            ),
+            actor_key=actor_key,
             personal_time_seconds=personal_time_seconds,
+            personal_attempts=personal_attempts,
         ),
         'personal_time_seconds': personal_time_seconds,
     }
