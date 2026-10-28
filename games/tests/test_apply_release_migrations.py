@@ -5,7 +5,7 @@ from django.core.management import call_command
 from django.db import migrations, models
 from django.test import SimpleTestCase, TestCase
 
-from games.management.commands.apply_release_migrations import classify_operation
+from games.management.commands.apply_release_migrations import _operation_sql, classify_operation
 
 ROOT = Path(__file__).resolve().parents[2]
 SQL = ['ALTER TABLE x']
@@ -51,6 +51,13 @@ class ClassifyReleaseMigrationTests(SimpleTestCase):
             self.classify(migrations.AddField('task', 'u', models.CharField(max_length=5, null=True, unique=True))),
             'unique column on an existing table',
         )
+
+    def test_planning_never_executes_run_python(self):
+        def forwards(apps, schema_editor):
+            raise AssertionError('RunPython must not run while planning')
+
+        operation = migrations.RunPython(forwards)
+        self.assertEqual(_operation_sql(operation, 'games', None, None), [])
 
     def test_green_deploy_applies_release_migrations_before_switching_code(self):
         script = (ROOT / 'scripts/deploy_green.sh').read_text()

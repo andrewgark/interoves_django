@@ -34,6 +34,10 @@ _NEW_TABLE_ONLY_OPERATIONS = (
 
 
 def _operation_sql(operation, app_label, from_state, to_state):
+    # collect_sql only captures schema-editor DDL: ORM queries in RunPython
+    # would hit the real database. Manual operations are unsafe regardless.
+    if isinstance(operation, _MANUAL_OPERATIONS):
+        return []
     with connection.schema_editor(collect_sql=True, atomic=False) as editor:
         operation.database_forwards(app_label, editor, from_state, to_state)
     return [sql for sql in editor.collected_sql if sql.strip()]
