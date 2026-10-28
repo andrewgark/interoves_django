@@ -10,7 +10,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from django.contrib.auth.models import User
-from django.test import Client, SimpleTestCase, TestCase
+from django.test import Client, SimpleTestCase, TestCase, override_settings
 
 from games.models import (
     Attempt,
@@ -4044,3 +4044,59 @@ class CensorlyMinimalTitleAttemptsTests(SimpleTestCase):
 
         with override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True):
             self.assertEqual(self._minimum('Мой друг Иван Лапшин'), 3)
+
+
+@override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
+class CensorlyOpenTitleWinFixTests(TestCase):
+    def _run(self, *args):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        out = StringIO()
+        call_command('fix_censorly_open_title_wins', *args, stdout=out)
+        return out.getvalue()
+
+    def test_stuck_game_is_marked_solved(self):
+        from games.models import Attempt, ChainTaskState, PlayerCompletedGame
+        from games.puzzles.censorly.play import dump_state, load_state
+
+        game, task, _hash, puzzle = _make_puzzle_task(title='Я и кот', body='Я жду кота.')
+        cat = next(
+            tok['lemma'] for tok in puzzle['title_tokens'] if tok.get('surface') == 'кот'
+        )
+        user = User.objects.create_user('cz_stuck', password='x')
+        stuck = {
+            'guesses': [{'word': 'кот', 'lemma': cat, 'hits': 2}],
+            'revealed_lemmas': [cat], 'won': False,
+        }
+        winning = Attempt.manager.create(
+            task=task, game=game, user=user, text='кот', status='Partial', points=0,
+            state=dump_state(stuck),
+        )
+        later_state = dict(stuck, guesses=stuck['guesses'] + [{'word': 'ждать', 'lemma': 'ждать', 'hits': 1}])
+        later = Attempt.manager.create(
+            task=task, game=game, user=user, text='ждать', status='Partial', points=0,
+            state=dump_state(later_state),
+        )
+        ChainTaskState.objects.create(
+            task=task, game=game, game_mode='general', user=user,
+            state=dump_state(later_state), last_attempt=later,
+        )
+
+        self.assertIn('Would fix 1 game(s)', self._run())
+        winning.refresh_from_db()
+        self.assertEqual(winning.status, 'Partial')
+
+        self.assertIn('Fixed 1 game(s)', self._run('--apply'))
+        winning.refresh_from_db()
+        self.assertEqual(winning.status, 'Ok')
+        self.assertGreater(winning.points, 0)
+        row = ChainTaskState.objects.get(task=task, user=user)
+        state = load_state(row.state)
+        self.assertTrue(state['won'])
+        self.assertEqual(len(state['guesses']), 1)
+        self.assertEqual(row.last_attempt_id, winning.pk)
+        self.assertTrue(PlayerCompletedGame.objects.filter(user=user, task_group=task.task_group).exists())
+
+        self.assertIn('Would fix 0 game(s)', self._run())
