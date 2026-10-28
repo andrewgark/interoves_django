@@ -12,6 +12,33 @@
   var GRID_SIZE = 4;
   var GRID_CELL_COUNT = GRID_SIZE * GRID_SIZE;
 
+  // Only the inner 60% confirms a dragged letter. Crossing an edge or corner
+  // leaves the last letter selected, so a diagonal can pass beside other tiles.
+  // Intersect the whole motion segment to retain letters between sparse events.
+  function dragCoreEntry(from, to, rect) {
+    var insetX = rect.width * 0.2;
+    var insetY = rect.height * 0.2;
+    var enter = 0;
+    var leave = 1;
+    var axes = [
+      [from.x, to.x - from.x, rect.left + insetX, rect.right - insetX],
+      [from.y, to.y - from.y, rect.top + insetY, rect.bottom - insetY]
+    ];
+    for (var i = 0; i < axes.length; i += 1) {
+      var axis = axes[i];
+      if (!axis[1]) {
+        if (axis[0] < axis[2] || axis[0] > axis[3]) return null;
+      } else {
+        var a = (axis[2] - axis[0]) / axis[1];
+        var b = (axis[3] - axis[0]) / axis[1];
+        enter = Math.max(enter, Math.min(a, b));
+        leave = Math.min(leave, Math.max(a, b));
+        if (enter > leave) return null;
+      }
+    }
+    return enter;
+  }
+
   // Completion responses for every daily format use this shared projection.
   // Keep the control hidden in the initial HTML, then reveal it immediately
   // when the authoritative completion response arrives.
@@ -498,6 +525,8 @@
       root.setAttribute('data-word-salad-bound', '1');
 
       var currentPath = [];
+      var dragPoint = null;
+      var dragPointerId = null;
       var attemptedPaths = {};
       var busy = false;
       var lastRejectedPathKey = '';
@@ -1442,18 +1471,36 @@
         var index = cellIndex(cell);
         if (index >= 0) cellByIndex[index] = cell;
         cell.addEventListener('pointerdown', function (event) {
+          if (event.isPrimary === false || event.button > 0) return;
           if (!cell.classList.contains('is-active')) return;
           event.preventDefault();
           lastSaladRoot = root;
           activeDragRoot = root;
+          dragPoint = { x: event.clientX, y: event.clientY };
+          dragPointerId = event.pointerId;
           var started = startWordSaladPress(currentPath, cellIndex(cell), isActiveIndex);
           applyPath(started.path, started.clearOnRelease);
         }, { passive: false });
-        cell.addEventListener('pointerenter', function () {
-          if (activeDragRoot === root) appendCell(cell);
-        });
       });
 
+      root.__moveWordSaladPointer = function (event) {
+        if (!dragPoint || event.pointerId !== dragPointerId) return;
+        var point = { x: event.clientX, y: event.clientY };
+        var hits = [];
+        cells.forEach(function (cell) {
+          if (!cell.classList.contains('is-active')) return;
+          var entry = dragCoreEntry(dragPoint, point, cell.getBoundingClientRect());
+          if (entry !== null) hits.push({ cell: cell, entry: entry });
+        });
+        dragPoint = point;
+        hits.sort(function (a, b) { return a.entry - b.entry; });
+        hits.forEach(function (hit) {
+          if (activeDragRoot === root && root.isConnected) appendCell(hit.cell);
+        });
+      };
+      root.__ownsWordSaladPointer = function (event) {
+        return event.pointerId === dragPointerId;
+      };
       root.__appendWordSaladCell = appendCell;
       root.__finishWordSaladPath = finishPress;
       root.__cancelWordSaladPress = function () { clearSingleOnRelease = false; };
@@ -1509,23 +1556,11 @@
     });
   }
 
-  function cellFromPoint(x, y) {
-    var el = global.document && global.document.elementFromPoint(x, y);
-    if (!el || !el.closest) return null;
-    var cell = el.closest('[data-word-salad-cell]');
-    if (!cell || !cell.classList.contains('is-active')) return null;
-    return cell;
-  }
-
   function bindDocumentListeners(doc) {
     doc.addEventListener('pointermove', function (event) {
       if (!activeDragRoot) return;
       if (event.cancelable) event.preventDefault();
-      var cell = cellFromPoint(event.clientX, event.clientY);
-      if (!cell || !activeDragRoot.contains(cell)) return;
-      if (typeof activeDragRoot.__appendWordSaladCell === 'function') {
-        activeDragRoot.__appendWordSaladCell(cell);
-      }
+      activeDragRoot.__moveWordSaladPointer(event);
     }, { capture: true, passive: false });
 
     doc.addEventListener('touchmove', function (event) {
@@ -1533,15 +1568,18 @@
       if (event.cancelable) event.preventDefault();
     }, { capture: true, passive: false });
 
-    doc.addEventListener('pointerup', function () {
+    doc.addEventListener('pointerup', function (event) {
       var root = activeDragRoot;
+      if (root && !root.__ownsWordSaladPointer(event)) return;
+      if (root) root.__moveWordSaladPointer(event);
       activeDragRoot = null;
       if (root && root.isConnected && typeof root.__finishWordSaladPath === 'function') {
         root.__finishWordSaladPath();
       }
     }, true);
 
-    doc.addEventListener('pointercancel', function () {
+    doc.addEventListener('pointercancel', function (event) {
+      if (activeDragRoot && !activeDragRoot.__ownsWordSaladPointer(event)) return;
       if (activeDragRoot && typeof activeDragRoot.__cancelWordSaladPress === 'function') {
         activeDragRoot.__cancelWordSaladPress();
       }
@@ -1572,6 +1610,7 @@
   }
 
   global.WordSaladPath = {
+    dragCoreEntry: dragCoreEntry,
     cellsAreAdjacent: cellsAreAdjacent,
     neighborPairs: neighborPairs,
     nextPath: nextWordSaladPath,

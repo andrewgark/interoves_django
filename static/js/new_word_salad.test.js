@@ -4,6 +4,45 @@ var assert = require('assert');
 require('./new_word_salad.js');
 var Path = global.WordSaladPath;
 
+// Replay physical trajectories, including motion across tile edges and sparse
+// events spanning several letters. Tiles keep their original visual dimensions.
+function trace(points, start) {
+  var path = [start];
+  for (var p = 1; p < points.length; p += 1) {
+    var hits = [];
+    for (var index = 0; index < 16; index += 1) {
+      var left = index % 4 * 105;
+      var top = Math.floor(index / 4) * 105;
+      var entry = Path.dragCoreEntry(points[p - 1], points[p], {
+        left: left, top: top, right: left + 100, bottom: top + 100,
+        width: 100, height: 100
+      });
+      if (entry !== null) hits.push({ index: index, entry: entry });
+    }
+    hits.sort(function (a, b) { return a.entry - b.entry; });
+    hits.forEach(function (hit) { path = Path.nextPath(path, hit.index); });
+  }
+  return path;
+}
+
+assert.deepStrictEqual(trace([{ x: 50, y: 50 }, { x: 365, y: 365 }], 0), [0, 5, 10, 15]);
+assert.deepStrictEqual(trace([{ x: 365, y: 365 }, { x: 50, y: 50 }], 15), [15, 10, 5, 0]);
+assert.deepStrictEqual(trace([{ x: 365, y: 50 }, { x: 50, y: 365 }], 3), [3, 6, 9, 12]);
+assert.deepStrictEqual(trace([{ x: 50, y: 365 }, { x: 365, y: 50 }], 12), [12, 9, 6, 3]);
+assert.deepStrictEqual(trace([
+  { x: 50, y: 50 }, { x: 115, y: 85 }, { x: 155, y: 155 }
+], 0), [0, 5], 'briefly brushing the left edge of tile 1 must not add it');
+assert.deepStrictEqual(trace([
+  { x: 50, y: 50 }, { x: 85, y: 115 }, { x: 155, y: 155 }
+], 0), [0, 5], 'briefly brushing the top edge of tile 4 must not add it');
+assert.deepStrictEqual(trace([
+  { x: 50, y: 50 }, { x: 155, y: 50 }, { x: 155, y: 155 }
+], 0), [0, 1, 5], 'deliberate right-angle turns remain possible');
+assert.deepStrictEqual(trace([
+  { x: 50, y: 50 }, { x: 260, y: 260 }, { x: 155, y: 155 }
+], 0), [0, 5], 'backtracking still removes the last letter');
+assert.deepStrictEqual(trace([{ x: 50, y: 50 }, { x: 365, y: 50 }], 0), [0, 1, 2, 3]);
+
 function drag(indices) {
   return indices.reduce(function (path, index) {
     return Path.nextPath(path, index);
