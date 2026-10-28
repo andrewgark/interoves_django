@@ -1114,6 +1114,83 @@ class CensorlyWikiHelperTests(TestCase):
         # TeX subscripts consume one unbraced atom: x_120 means x₁ followed by 20.
         self.assertIn('x₁20 = 120', cleaned)
 
+    def test_html_extract_keeps_poems_quote_boxes_columns_and_indented_text(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import QUOTE_END, QUOTE_START
+
+        raw = (
+            '<div class="mw-parser-output">'
+            '<p>Сонет Шлегеля:\n</p>\n<div class="poem">\n'
+            '<p>Вяжу одною цепью два катрена:<br />\nДве пары строк.<br />\n'
+            '<i>Шлегель</i>\n</p>\n</div>\n'
+            '<div role="complementary" class="ts-Врезка floatright">'
+            '<div class="ts-Врезка-содержание"><p>Кошка принесла канарейку.\n</p>'
+            '<div class="ts-Врезка-подпись">Альфред Брем</div></div></div>\n'
+            '<p>Простые числа начинаются так:\n</p>\n'
+            '<div style="margin-left:1.6em">2, 3, 5, 7, 11,…</div>\n'
+            '<div class="columns" style="column-width: 30em;">'
+            '<ul><li>Apium crispum</li>\n<li>Apium petroselinum</li></ul></div>\n'
+            '<div class="columns reflist"><ol class="references"><li>Сноска</li></ol></div>\n'
+            '<p>Дзен:</p><blockquote><ul><li>Красивое лучше.</li>\n<li>Явное лучше.</li></ul>'
+            '<div class="ts-oq"><div class="ts-oq-header">Оригинальный текст (англ.)</div>'
+            '<div class="ts-oq-content">Beautiful is better.</div></div></blockquote>'
+            '</div>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw))
+        self.assertIn(
+            QUOTE_START + 'Вяжу одною цепью два катрена: Две пары строк. Шлегель'
+            + QUOTE_END,
+            cleaned,
+        )
+        self.assertIn(
+            QUOTE_START + 'Кошка принесла канарейку.\n\nАльфред Брем' + QUOTE_END, cleaned,
+        )
+        self.assertIn('начинаются так:\n\n2, 3, 5, 7, 11,…\n\n', cleaned)
+        self.assertIn('• Apium crispum • Apium petroselinum', cleaned)
+        self.assertNotIn('Сноска', cleaned)
+        self.assertIn(QUOTE_START + '• Красивое лучше. • Явное лучше.' + QUOTE_END, cleaned)
+        self.assertNotIn('Beautiful', cleaned)
+        self.assertNotIn('Оригинальный', cleaned)
+
+    def test_html_extract_keeps_definition_terms_on_their_own_line(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        raw = (
+            '<div class="mw-parser-output">'
+            '<div class="mw-heading mw-heading2"><h2 id="x">Получение</h2></div>\n'
+            '<dl><dt>Биосинтез</dt></dl>\n<p>Идёт в три стадии.</p>\n'
+            '<p>Вкус продуктов.</p>\n<dl><dt>Суши</dt>\n<dd>Готовятся из риса.</dd>\n'
+            '<dt>Сашими</dt>\n<dd>Ломтики рыбы.</dd></dl>\n'
+            '<dl><dt>По изотопам:</dt></dl>\n<ul><li>лёгкая вода;</li>\n<li>тяжёлая вода.</li></ul>'
+            '<ul><li>Калифорния: BAL Investment, Inc.; Banc of America, Inc.; другие</li></ul>'
+            '</div>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw))
+        self.assertIn('== Получение ==\n\nБиосинтез\n\nИдёт в три стадии.', cleaned)
+        self.assertIn(
+            'Вкус продуктов.\n\nСуши — Готовятся из риса.\n\nСашими — Ломтики рыбы.', cleaned,
+        )
+        self.assertIn('По изотопам: • лёгкая вода; • тяжёлая вода.', cleaned)
+        # A semicolon after an abbreviation is prose, not a formula leftover.
+        self.assertIn('Inc.; Banc of America, Inc.; другие', cleaned)
+
+    def test_html_extract_writes_sup_and_sub_as_unicode_scripts(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text
+
+        raw = (
+            '<p>Масса 4,6×10<sup>18</sup> кг, H<sub>2</sub>O, 10<sup>−3</sup>, '
+            'ион O<span style="display:inline-block;font-size:80%">−<br />3</span>, '
+            'x<span style="display: inline-block">а<br />б</span>, '
+            'XIX<sup>й</sup>, a<sub>max</sub><sup class="reference"><a>[1]</a></sup>.</p>'
+        )
+
+        self.assertEqual(
+            _html_extract_to_text(raw),
+            'Масса 4,6×10¹⁸ кг, H₂O, 10⁻³, ион O₃⁻, xа б, XIXй, aₘₐₓ.',
+        )
+
     def test_root_article_html_extract_preserves_real_list_items(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import tokenize_text
@@ -1625,6 +1702,20 @@ class CensorlyRandomGameTests(TestCase):
         trimmed2, truncated2 = _trim_extract(long_body)
         self.assertTrue(truncated2)
         self.assertFalse(trimmed2.rstrip().endswith('Климат'))
+
+    def test_trim_drops_sections_left_empty_by_skipped_tables(self):
+        from games.puzzles.censorly.article.wiki import _strip_empty_sections
+
+        text = (
+            'Лид.\n\n== Состав ==\n\n=== Основной ===\n\n=== В аренде ===\n\n'
+            '== Форма ==\n\n=== Домашняя ===\n\nКрасная.\n\n'
+            '== История ==\n\nТекст.\n\n== Награды =='
+        )
+        self.assertEqual(
+            _strip_empty_sections(text),
+            'Лид.\n\n== Форма ==\n\n=== Домашняя ===\n\nКрасная.\n\n== История ==\n\nТекст.',
+        )
+        self.assertEqual(_strip_empty_sections('== Только заголовок =='), '== Только заголовок ==')
 
     def test_trim_keeps_literary_review_section(self):
         from games.puzzles.censorly.article.wiki import _trim_extract

@@ -64,20 +64,28 @@ class _WikiExtractHTMLParser(HTMLParser):
     The input is ``action=parse`` HTML. TextExtracts used to drop every
     ``div``, table and figure on Wikipedia's side, which also dropped the
     ``{{Цитата}}`` blocks; the same filtering is done here, except that
-    quotations are kept and wrapped in QUOTE_START / QUOTE_END.
+    quotations, poems and quote boxes are kept and wrapped in QUOTE_START /
+    QUOTE_END.
     """
 
     _SKIP_TAGS = {
         'script', 'style', 'noscript', 'svg', 'table', 'figure', 'figcaption',
-        'input', 'img',
+        'input', 'img', 'audio', 'video', 'rt', 'rp',
     }
     _SKIP_CLASSES = {
         'reference', 'mw-editsection', 'noprint', 'references', 'gallery',
-        'error', 'nomobile', 'noexcerpt', 'sortkey',
+        'error', 'nomobile', 'noexcerpt', 'sortkey', 'reflist', 'refbegin',
+        # Foreign-language original under a translated quotation.
+        'ts-oq',
     }
-    # Divs that carry article text: the parser wrapper, section headings and
-    # the ruwiki quotation template around its <blockquote>.
-    _KEEP_DIV_CLASSES = {'mw-parser-output', 'mw-heading', 'ts-Цитата'}
+    # Divs that carry article text: the parser wrapper, section headings, the
+    # ruwiki quotation template around its <blockquote> and multi-column lists.
+    # A div without a class is an indent template ({{отступ}}) around a
+    # sentence's continuation, e.g. a list of numbers after «начинается так:».
+    _KEEP_DIV_CLASSES = {'mw-parser-output', 'mw-heading', 'ts-Цитата', 'columns', 'div-col'}
+    _BLOCK_DIV_CLASSES = {'columns', 'div-col'}
+    # <poem> and {{Врезка}} (a side box with a quotation and its author).
+    _QUOTE_DIV_CLASSES = {'poem', 'ts-Врезка'}
     _VOID_TAGS = {
         'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
         'link', 'meta', 'param', 'source', 'track', 'wbr',
@@ -91,6 +99,12 @@ class _WikiExtractHTMLParser(HTMLParser):
         self.heading_level: int | None = None
         self.definition_term_active = False
         self.quote_depth = 0
+        # One entry per open kept div: whether it opened a quotation.
+        self.div_quotes: list[bool] = []
+        # Open <sup>/<sub>/<span>: (tag, first part index, <br> part index).
+        # A span is tracked only as the {{Su}} stack of a superscript over a
+        # subscript (an inline-block with a <br>), as in an ion O₃⁻.
+        self.scripts: list[tuple[str, int, int | None] | None] = []
         # Source newlines after a quoted <br> or at the start of a quote are
         # layout only; the line break itself is already in parts.
         self.strip_leading_space = False
@@ -129,7 +143,8 @@ class _WikiExtractHTMLParser(HTMLParser):
         skipped_div = (
             tag == 'div'
             and not self.quote_depth
-            and not classes & self._KEEP_DIV_CLASSES
+            and not classes & (self._KEEP_DIV_CLASSES | self._QUOTE_DIV_CLASSES)
+            and classes
         )
         if tag in self._SKIP_TAGS or classes & self._SKIP_CLASSES or skipped_div:
             if tag not in self._VOID_TAGS:
@@ -141,7 +156,17 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.parts.append(attrs.get('alttext') or '')
             self.skip_depth = 1
             return
-        if tag == 'blockquote':
+        opens_quote = tag == 'blockquote' or (
+            tag == 'div' and bool(classes & self._QUOTE_DIV_CLASSES)
+        )
+        if tag == 'div':
+            self.div_quotes.append(opens_quote)
+        elif tag in {'sup', 'sub'}:
+            self.scripts.append((tag, len(self.parts), None))
+        elif tag == 'span':
+            stacked = 'inline-block' in (attrs.get('style') or '').replace(' ', '')
+            self.scripts.append(('span', len(self.parts), None) if stacked else None)
+        if opens_quote:
             if not self.quote_depth:
                 self._ensure_newlines(2)
                 self.parts.append(QUOTE_START)
@@ -151,7 +176,9 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.heading_level = int(tag[1])
             self._ensure_newlines(2)
             self.parts.append('=' * self.heading_level + ' ')
-        elif tag == 'p' or (self.quote_depth and tag == 'div'):
+        elif tag == 'p' or (tag == 'div' and (
+            self.quote_depth or not classes or classes & self._BLOCK_DIV_CLASSES
+        )):
             # Inside a quotation a div is a poem or the attribution line.
             self._ensure_newlines(2)
         elif tag in {'ul', 'ol'}:
@@ -162,7 +189,8 @@ class _WikiExtractHTMLParser(HTMLParser):
         elif tag == 'dl':
             self._ensure_newlines(1)
         elif tag == 'dt':
-            self._ensure_newlines(1)
+            # A term opens a group: a paragraph of its own with its descriptions.
+            self._ensure_newlines(2)
             self.parts.append('; ')
             self.definition_term_active = True
         elif tag == 'dd':
@@ -170,7 +198,10 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.parts.append(': ' if self.definition_term_active else '')
             self.definition_term_active = False
         elif tag == 'br':
-            if self.quote_depth:
+            if self.scripts and self.scripts[-1] and self.scripts[-1][0] == 'span':
+                name, start, _ = self.scripts[-1]
+                self.scripts[-1] = (name, start, len(self.parts))
+            elif self.quote_depth:
                 # Verse lines stay lines; prose cleanup joins plain newlines.
                 self._rstrip_parts()
                 self.parts.append('\u2028')
@@ -191,7 +222,14 @@ class _WikiExtractHTMLParser(HTMLParser):
         if self.skip_depth:
             self.skip_depth -= 1
             return
-        if tag == 'blockquote' and self.quote_depth:
+        if tag in {'sup', 'sub', 'span'} and self.scripts:
+            script = self.scripts.pop()
+            if script:
+                self._close_script(*script)
+        closes_quote = tag == 'blockquote'
+        if tag == 'div' and self.div_quotes:
+            closes_quote = self.div_quotes.pop()
+        if closes_quote and self.quote_depth:
             self.quote_depth -= 1
             if not self.quote_depth:
                 self._rstrip_parts()
@@ -204,7 +242,7 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.parts.append(' ' + '=' * self.heading_level)
             self.heading_level = None
             self._ensure_newlines(2)
-        elif tag == 'p' or (self.quote_depth and tag == 'div'):
+        elif tag in {'p', 'div'}:
             self._ensure_newlines(2)
         elif tag == 'li':
             self._ensure_newlines(1)
@@ -213,6 +251,31 @@ class _WikiExtractHTMLParser(HTMLParser):
             self._ensure_newlines(1)
         elif tag in {'dt', 'dd'}:
             self._ensure_newlines(1)
+
+    def _close_script(self, tag: str, start: int, split: int | None) -> None:
+        def script(parts: list[str], table: dict[int, str]) -> str:
+            text = ''.join(parts).strip().replace('−', '-')
+            translated = text.translate(table)
+            if not text or any(char == source for char, source in zip(translated, text)):
+                return ''
+            return translated
+
+        if tag == 'span':
+            if split is None:
+                return
+            # {{Su}}: superscript above subscript; written subscript first.
+            sup = script(self.parts[start:split], _SUPERSCRIPTS)
+            sub = script(self.parts[split:], _SUBSCRIPTS)
+            if sup and sub:
+                self.parts[start:] = [sub + sup]
+            else:
+                self.parts.insert(split, ' ')
+            return
+        # 10<sup>18</sup>, H<sub>2</sub>O; anything else (a footnote mark,
+        # a Cyrillic word) keeps its plain text.
+        rendered = script(self.parts[start:], _SUPERSCRIPTS if tag == 'sup' else _SUBSCRIPTS)
+        if rendered:
+            self.parts[start:] = [rendered]
 
     def handle_data(self, data: str) -> None:
         if self.skip_depth:
@@ -233,9 +296,9 @@ def _html_extract_to_text(extract: str) -> str:
     parser.feed(extract or '')
     parser.close()
     text = parser.text()
-    # HTML source formatting often inserts whitespace between sibling <li>s;
-    # the list items themselves should be separated by a single line break.
-    return re.sub(r'(?m)([*#]+ [^\n]+)\n{2,}(?=[*#]+ )', r'\1\n', text)
+    # HTML source formatting often inserts whitespace between sibling <li>s
+    # and <dt>/<dd>s; the items themselves are separated by one line break.
+    return re.sub(rf'(?m)^({QUOTE_START}?[*#;:]+ [^\n]+)\n{{2,}}(?=[*#:]+ )', r'\1\n', text)
 
 
 # Citation footnotes [1] / [12] — not crystallographic Miller indices [100]/[010].
@@ -359,20 +422,38 @@ def _strip_tail_sections(extract: str) -> str:
     return extract[:earliest].rstrip()
 
 
-def _strip_orphan_heading(extract: str) -> str:
-    """Remove a trailing == Section == with no body after it."""
+def _strip_empty_sections(extract: str) -> str:
+    """Remove == Section == headings with no text of their own.
+
+    A section is empty when nothing but whitespace separates its heading from
+    the next heading of the same or a higher level (or the end): it held only
+    a table, gallery or the like, or it was left last by truncation.
+    """
     text = (extract or '').rstrip()
-    match = list(_SECTION_HEADING_RE.finditer(text))
-    if not match:
+    removed: list[tuple[int, int]] = []
+    # Walking backwards, a removed subsection leaves its parent looking at the
+    # same following heading.
+    next_start, next_level = len(text), 0
+    for match in reversed(list(_SECTION_HEADING_RE.finditer(text))):
+        level = len(match.group(1))
+        if next_level <= level and not text[match.end():next_start].strip():
+            removed.append((match.start(), next_start))
+        else:
+            next_level = level
+        next_start = match.start()
+    if not removed:
         return text
-    last = match[-1]
-    after = text[last.end():].strip()
-    if after:
+    kept = []
+    position = len(text)
+    for start, end in removed:
+        kept.append(text[end:position])
+        position = start
+    kept.append(text[:position])
+    result = ''.join(reversed(kept)).rstrip()
+    # Keep if the whole article is somehow just headings (shouldn't happen).
+    if not _SECTION_HEADING_RE.sub('', result).strip():
         return text
-    # Keep if the whole article is somehow just a heading (shouldn't happen).
-    if last.start() < MIN_BODY_CHARS // 2:
-        return text
-    return text[: last.start()].rstrip()
+    return result
 
 
 _TEX_MATH_START_RE = re.compile(r'\{\\(?:displaystyle|textstyle)\b')
@@ -1114,15 +1195,15 @@ def _collapse_extract_whitespace(text: str) -> str:
     text = text.replace('\u2061', '')  # function-application (MathML)
     text = re.sub(r'[ \t]+\n', '\n', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
-    # Punctuation that followed a removed display formula.
-    text = re.sub(r'\n{2,}[ \t]*([,.;:!?…])', r'\1', text)
+    # Punctuation that followed a removed display formula; a "; " or ": " line
+    # is a definition list term or description.
+    text = re.sub(r'\n{2,}[ \t]*([,.!?…]|[;:](?![ \t]))', r'\1', text)
     # Mid-sentence leftovers: "скорость\n\nсоответствует" / "скорость\n соответствует".
     text = re.sub(r'([^\n])\n{2,}[ \t]*([^\W\d_])', collapse_prose_linebreak, text)
     text = re.sub(r'([^\n])\n[ \t]*([^\W\d_])', collapse_prose_linebreak, text)
     # A run of formula-terminating semicolons, not a single prose semicolon.
     text = re.sub(r';{2,}', '', text)
     text = re.sub(r';\s*([.,])', r'\1', text)
-    text = re.sub(r'([.!?…]);', r'\1', text)
     text = re.sub(r'[ \t]{2,}', ' ', text)
     text = re.sub(r'\(\s+', '(', text)
     text = re.sub(r'\s+\)', ')', text)
@@ -1191,7 +1272,8 @@ def _format_wiki_lists(text: str) -> str:
     last_list_item = False
 
     for line in lines:
-        match = re.match(r'^([ \t]*)([*#]+)[ \t]*(.*)$', line)
+        # A list can open a quotation.
+        match = re.match(rf'^({QUOTE_START}?[ \t]*)([*#]+)[ \t]*(.*)$', line)
         if match:
             indent, markers, item = match.groups()
             # Keep damaged/deeply nested source from producing huge indentation.
@@ -1304,7 +1386,7 @@ def _trim_extract(extract: str, *, mark_formulas: bool = False) -> tuple[str, bo
     """Return (text, truncated). Prefer cutting before a section heading."""
     text = clean_wiki_extract(extract or '', mark_formulas=mark_formulas)
     text = _strip_tail_sections(text)
-    text = _strip_orphan_heading(text)
+    text = _strip_empty_sections(text)
     if len(text) <= MAX_BODY_CHARS:
         return _headings_to_marked(text), False
 
@@ -1325,7 +1407,7 @@ def _trim_extract(extract: str, *, mark_formulas: bool = False) -> tuple[str, bo
                 break
         else:
             trimmed = trimmed.rstrip()
-    trimmed = _strip_orphan_heading(trimmed)
+    trimmed = _strip_empty_sections(trimmed)
     return _headings_to_marked(trimmed), True
 
 
