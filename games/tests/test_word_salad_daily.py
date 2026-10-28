@@ -307,7 +307,7 @@ class WordSaladSectionTests(TestCase):
                 'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
                 'words': ['КОСТРОМА', 'САМАРА', 'РОСТОВ', 'МОСКВА', 'ТОМСК', 'ПСКОВ'],
             }, ensure_ascii=False),
-            text='Города России',
+            theme='Города России',
             points=1,
         )
         link = GameTaskGroup.objects.create(

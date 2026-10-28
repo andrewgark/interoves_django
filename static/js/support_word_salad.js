@@ -38,7 +38,7 @@
   var modalElement = document.getElementById('word-salad-edit-modal');
   var modal = support.mountModal(modalElement, {
     closeSelector: '[data-word-salad-close]',
-    initialFocus: '#word-salad-edit-intro',
+    initialFocus: '#word-salad-edit-theme',
     onClose: function () { editLinkId = null; }
   });
   var offerModalElement = document.getElementById('word-salad-offer-modal');
@@ -335,6 +335,9 @@
             support.escapeHtml(row.grid_preview || '—') + '</span> · id ' + row.link_id +
             ' · ' + row.words_count + ' сл.' +
             (row.author ? ' · ' + support.escapeHtml(row.author) : '') +
+            (row.intro_is_important
+              ? ' · <span class="support-ladder-item__mixed" data-tooltip="Важное замечание в тексте под темой">⚠ важно</span>'
+              : '') +
             (row.publish_date ? ' · ' + support.escapeHtml(row.publish_date) : '') + '</div>' +
           '<div class="support-ladder-item__preview">' + support.escapeHtml(row.words_preview || '—') + '</div>' +
         '</div>' +
@@ -356,7 +359,9 @@
     editLinkId = item.link_id;
     document.getElementById('word-salad-edit-sub').textContent =
       '№' + item.number + ' · id ' + item.link_id + ' · ' + item.words_count + ' сл.';
+    document.getElementById('word-salad-edit-theme').value = item.theme || '';
     document.getElementById('word-salad-edit-intro').value = item.intro || '';
+    document.getElementById('word-salad-edit-intro-important').checked = !!item.intro_is_important;
     document.getElementById('word-salad-edit-author').value = item.author || '';
     var wordsField = document.getElementById('word-salad-edit-words');
     var rareWordsField = document.getElementById('word-salad-edit-rare-words');
@@ -551,7 +556,9 @@
     clearError();
     setBusy(true);
     support.postJson(endpoint(endpoints.save, editLinkId), {
+      theme: document.getElementById('word-salad-edit-theme').value,
       intro: document.getElementById('word-salad-edit-intro').value,
+      intro_is_important: document.getElementById('word-salad-edit-intro-important').checked,
       author: document.getElementById('word-salad-edit-author').value,
       grid_text: scheduleGrid ? scheduleGrid.getGridText() : '',
       words_text: document.getElementById('word-salad-edit-words').value,

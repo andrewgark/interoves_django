@@ -145,7 +145,7 @@ def _ensure_full_task(offer: WordSaladOffer) -> Task:
 
 
 def _apply_theme(task: Task, theme: str) -> None:
-    task.text = (theme or '').strip()
+    task.theme = (theme or '').strip()[:500]
 
 
 def _placeholder_checker_data() -> str:
@@ -165,11 +165,11 @@ def _try_apply_draft_puzzle(
         # Не оставляем предыдущий валидный пазл: иначе hash/send смотрят в устаревший checker_data.
         task.checker_data = _placeholder_checker_data()
         task.answer = ''
-        task.save(update_fields=['text', 'checker_data', 'answer'])
+        task.save(update_fields=['theme', 'checker_data', 'answer'])
         return
     task.checker_data = checker_data
     task.answer = ''
-    task.save(update_fields=['text', 'checker_data', 'answer'])
+    task.save(update_fields=['theme', 'checker_data', 'answer'])
 
 
 @dataclass
@@ -416,10 +416,10 @@ def send_offer(offer: WordSaladOffer) -> WordSaladOffer:
         if not (offer.theme or '').strip():
             raise WordSaladOfferError('Укажите тему')
         task = _ensure_full_task(offer)
-        task.text = offer.theme
+        task.theme = (offer.theme or '').strip()[:500]
         task.checker_data = serialize_task_data(grid, words, offer.rare_words_text)
         task.answer = ''
-        task.save(update_fields=['text', 'checker_data', 'answer'])
+        task.save(update_fields=['theme', 'checker_data', 'answer'])
         from games.ops.workers.jobs.salad import enqueue_word_salad_recheck
         link = (
             task.task_group.game_links.filter(game_id=WORD_SALAD_GAME_ID).first()

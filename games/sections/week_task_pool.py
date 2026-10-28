@@ -228,6 +228,8 @@ def _copy_task(old: Task, new_tg: TaskGroup) -> Task:
         number=old.number,
         image=old.image,
         text=old.text,
+        text_is_important=old.text_is_important,
+        theme=old.theme,
         checker_data=old.checker_data,
         answer=old.answer,
         answer_comment=old.answer_comment,

@@ -563,10 +563,10 @@ def distribute_text_to_team_tag(task, team, game=None):
 
 
 @register.filter
-def word_salad_theme(text):
+def word_salad_theme(theme):
     """Theme for the salad widget: strip a stored «Тема:» so the label is not doubled."""
     from games.puzzles.salad.rules import theme_from_text
-    return theme_from_text(text)
+    return theme_from_text(theme)
 
 
 @register.filter

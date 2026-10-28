@@ -404,7 +404,7 @@ def _ladder_task_group_rows(
                 task_type='word_salad',
             )
             .visible()
-            .only('id', 'task_group_id', 'checker_data', 'text')
+            .only('id', 'task_group_id', 'checker_data', 'theme')
             .order_by('task_group_id', 'id')
         )
         for task in salad_tasks:

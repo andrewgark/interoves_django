@@ -8,12 +8,11 @@ import logging
 from django.conf import settings
 from PIL import Image, ImageDraw
 
-from games.sections.paths import section_last_path
-from games.ops.telegram.links import site_base_url
 from games.ops.telegram.images.ladder import (
     _load_font,
     screenshot_page_element_png,
 )
+from games.ops.telegram.links import site_base_url
 from games.puzzles.salad.rules import (
     WORD_SALAD_GAME_ID,
     build_ui_context,
@@ -22,6 +21,7 @@ from games.puzzles.salad.rules import (
     parse_task_data,
     theme_from_text,
 )
+from games.sections.paths import section_last_path
 
 logger = logging.getLogger('application')
 
@@ -50,7 +50,7 @@ def render_word_salad_teaser_png_pillow(task, *, salad_number: int | str | None 
     """Fallback schematic: 4×4 grid + masked word list."""
     grid, words = parse_task_data(task.checker_data, task.answer)
     ui = build_ui_context(grid, words, default_state())
-    theme = theme_from_text(getattr(task, 'text', None))
+    theme = theme_from_text(getattr(task, 'theme', None))
     author = str((getattr(task, 'tags', None) or {}).get('author') or '').strip()
 
     font_title = _load_font(28, bold=True)

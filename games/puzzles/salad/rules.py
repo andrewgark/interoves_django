@@ -1,13 +1,13 @@
 """Rules, validation, and shared state helpers for Word Salad."""
 
-import json
 import gzip
+import json
 import re
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
-from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.daily.page.section import WORD_SALAD_GAME_ID  # noqa: F401  (re-exported)
 
 _EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'salad_valid_words.txt.gz'
 _LEGACY_EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'word_salad_nouns.txt'
@@ -555,7 +555,7 @@ def archive_card_meta(task):
         n_words = len(words)
     except Exception:
         n_words = 0
-    theme = theme_from_text(getattr(task, 'text', None))
+    theme = theme_from_text(getattr(task, 'theme', None))
     words_label = ru_count_label(n_words, 'слово', 'слова', 'слов') if n_words else ''
     if theme and words_label:
         return '{} · {}'.format(theme, words_label)

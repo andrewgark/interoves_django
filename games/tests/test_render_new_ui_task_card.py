@@ -94,7 +94,7 @@ class RenderNewUiTaskCardTests(TestCase):
                     'grid': ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M'],
                     'words': ['ABCDEFGHIJKLMNOP'],
                 }, ensure_ascii=False),
-                text='Тема: алфавит',
+                theme='Тема: алфавит',
             )
         Image.objects.get_or_create(
             id='wall_img_1',
@@ -478,6 +478,28 @@ class RenderNewUiTaskCardTests(TestCase):
         theme_pos = html.index('Тема:')
         author_pos = html.index('Автор: Анна Автор')
         self.assertLess(theme_pos, author_pos)
+
+    def test_render_word_salad_important_intro_is_boxed_under_theme(self):
+        self.word_salad_task.text = 'Слова только в единственном числе'
+        self.word_salad_task.text_is_important = True
+        self.word_salad_task.save(update_fields=['text', 'text_is_important'])
+        request = RequestFactory().get('/')
+        request.user = AnonymousUser()
+        html = render_new_ui_task_card_html(
+            request, self.word_salad_task, None, 'general', anon_key='anon_test', game=self.game,
+        )
+        self.assertIn('new-word-salad__task-intro', html)
+        self.assertIn('new-raddle-task__intro--important', html)
+        self.assertIn('ph-warning', html)
+        self.assertLess(html.index('Тема:'), html.index('Слова только в единственном числе'))
+
+        self.word_salad_task.text_is_important = False
+        self.word_salad_task.save(update_fields=['text_is_important'])
+        html = render_new_ui_task_card_html(
+            request, self.word_salad_task, None, 'general', anon_key='anon_test', game=self.game,
+        )
+        self.assertIn('Слова только в единственном числе', html)
+        self.assertNotIn('new-raddle-task__intro--important', html)
 
     def test_render_word_salad_hides_legacy_telegram_author_suffix(self):
         self.word_salad_task.tags = {'author': 'Анна Автор (@salad_author)'}

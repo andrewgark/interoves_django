@@ -57,25 +57,83 @@ class WordSaladSupportTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertFalse(Game.objects.filter(pk=WORD_SALAD_GAME_ID).exists())
 
+    def test_update_theme_and_important_intro_are_separate(self):
+        grid = 'A B C D\nH G F E\nI J K L\nP O N M'
+        with patch('games.realtime.track_compat.track_task_change'):
+            detail = create_word_salad()
+            self.assertEqual(detail['theme'], '')
+            self.assertEqual(detail['intro'], '')
+            self.assertFalse(detail['intro_is_important'])
+            updated = update_word_salad(
+                detail['link_id'],
+                theme='реки',
+                grid_text=grid,
+                words_text='ABCDEFGHIJKLMNOP',
+                intro='Слова в единственном числе',
+                intro_is_important=True,
+            )
+            self.assertEqual(updated['theme'], 'реки')
+            self.assertEqual(updated['intro'], 'Слова в единственном числе')
+            self.assertTrue(updated['intro_is_important'])
+            row = list_word_salad_rows()[0]
+            self.assertEqual(row.theme, 'реки')
+            self.assertTrue(row.intro_is_important)
+            task = Task.objects.get(pk=updated['task_id'])
+            self.assertEqual(task.theme, 'реки')
+            self.assertEqual(task.text, 'Слова в единственном числе')
+            self.assertTrue(task.text_is_important)
+
+            # intro omitted (older client) leaves the text untouched.
+            untouched = update_word_salad(
+                detail['link_id'], theme='реки', grid_text=grid, words_text='ABCDEFGHIJKLMNOP',
+            )
+            self.assertEqual(untouched['intro'], 'Слова в единственном числе')
+            self.assertTrue(untouched['intro_is_important'])
+
+            # The flag is meaningless without text.
+            cleared = update_word_salad(
+                detail['link_id'], theme='реки', grid_text=grid, words_text='ABCDEFGHIJKLMNOP',
+                intro='', intro_is_important=True,
+            )
+            self.assertEqual(cleared['intro'], '')
+            self.assertFalse(cleared['intro_is_important'])
+
+    def test_save_endpoint_rejects_non_boolean_important_flag(self):
+        self.client.force_login(self.support_user)
+        with patch('games.realtime.track_compat.track_task_change'):
+            detail = create_word_salad()
+        response = self.client.post(
+            reverse('support:word_salad_save', kwargs={'link_id': detail['link_id']}),
+            data={
+                'theme': 'реки',
+                'intro': 'x',
+                'intro_is_important': 'false',
+                'grid_text': 'A B C D\nH G F E\nI J K L\nP O N M',
+                'words_text': 'ABCDEFGHIJKLMNOP',
+            },
+            content_type='application/json',
+        )
+        self.assertEqual(response.status_code, 400)
+
     def test_create_update_delete_word_salad(self):
         with patch('games.realtime.track_compat.track_task_change'):
             detail = create_word_salad()
             self.assertEqual(detail['words_count'], 1)
             updated = update_word_salad(
                 detail['link_id'],
-                intro='Тема: реки',
+                theme='Тема: реки',
                 grid_text='A B C D\nH G F E\nI J K L\nP O N M',
                 words_text='ABCDEFGHIJKLMNOP',
                 rare_words_text='ABCD',
             )
-            self.assertEqual(updated['intro'], 'Тема: реки')
+            self.assertEqual(updated['theme'], 'Тема: реки')
             self.assertEqual(updated['rare_words_text'], 'ABCD')
             self.assertEqual(list_word_salad_rows()[0].theme, 'Тема: реки')
             self.assertEqual(updated['name'], 'Салатик #1')
             self.assertEqual(updated['author'], '')
             named = update_word_salad(
                 detail['link_id'],
-                intro='Тема: реки',
+                theme='Тема: реки',
                 grid_text='A B C D\nH G F E\nI J K L\nP O N M',
                 words_text='ABCDEFGHIJKLMNOP',
                 rare_words_text='ABCD',
@@ -86,7 +144,7 @@ class WordSaladSupportTests(TestCase):
             self.assertEqual(task.tags.get('author'), 'Тест Автор')
             cleared = update_word_salad(
                 detail['link_id'],
-                intro='Тема: реки',
+                theme='Тема: реки',
                 grid_text='A B C D\nH G F E\nI J K L\nP O N M',
                 words_text='ABCDEFGHIJKLMNOP',
                 rare_words_text='ABCD',
@@ -137,7 +195,7 @@ class WordSaladSupportTests(TestCase):
                 with self.assertRaisesRegex(WordSaladSupportError, expected_error):
                     update_word_salad(
                         detail['link_id'],
-                        intro='invalid',
+                        theme='invalid',
                         grid_text=grid_text,
                         words_text=words_text,
                     )
@@ -150,7 +208,7 @@ class WordSaladSupportTests(TestCase):
             detail = create_word_salad()
             update_word_salad(
                 detail['link_id'],
-                intro='Тема: реки',
+                theme='Тема: реки',
                 grid_text='A B C D\nH G F E\nI J K L\nP O N M',
                 words_text='ABCDEFGHIJKLMNOP',
                 rare_words_text='ABCD',
@@ -161,7 +219,7 @@ class WordSaladSupportTests(TestCase):
         self.assertEqual(WordSaladRecheckJob.objects.count(), 1)
         update_word_salad(
             detail['link_id'],
-            intro='Тема: реки',
+            theme='Тема: реки',
             grid_text='A B C D\nH G F E\nI J K L\nP O N M',
             words_text='ABCDEFGHIJKLMNOP',
             rare_words_text='ABCD',
@@ -267,7 +325,7 @@ class WordSaladSupportTests(TestCase):
         response = self.client.post(
             reverse('support:word_salad_save', kwargs={'link_id': detail['link_id']}),
             data={
-                'intro': '',
+                'theme': '',
                 'grid_text': 'A B C D',
                 'words_text': 'ABCD',
             },
@@ -384,7 +442,9 @@ class WordSaladSupportTests(TestCase):
         self.assertContains(response, 'word-salad-publish-start')
         self.assertContains(response, 'new-rules-modal')
         self.assertNotContains(response, 'word-salad-edit-name')
+        self.assertContains(response, 'word-salad-edit-theme')
         self.assertContains(response, 'word-salad-edit-intro')
+        self.assertContains(response, 'word-salad-edit-intro-important')
         self.assertContains(response, 'word-salad-edit-recheck')
         self.assertContains(response, 'data-recheck-url')
         self.assertContains(response, 'data-tab="sent"')

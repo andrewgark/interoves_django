@@ -1,5 +1,5 @@
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from io import BytesIO
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -7,6 +7,8 @@ from zoneinfo import ZoneInfo
 from django.test import TestCase, override_settings
 from PIL import Image
 
+from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.models import CheckerType, Game, GameTaskGroup, Project, Task, TaskGroup
 from games.ops.social.models import SocialQueuePost
 from games.ops.telegram.channels.salad import (
@@ -16,8 +18,6 @@ from games.ops.telegram.channels.salad import (
     resolve_today_salad,
     schedule_salad_channel_post,
 )
-from games.daily.page.section import WORD_SALAD_GAME_ID
-from games.daily.catalog.word_salad import WORD_SALAD_PUBLISH_START_TAG
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
@@ -69,7 +69,7 @@ class SaladChannelScheduleTests(TestCase):
             task_type='word_salad',
             checker=CheckerType.objects.get(pk='word_salad'),
             checker_data=json.dumps(SALAD_DATA, ensure_ascii=False),
-            text='Города России',
+            theme='Города России',
         )
         GameTaskGroup.objects.filter(game=self.game).delete()
         GameTaskGroup.objects.create(

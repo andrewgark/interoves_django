@@ -120,7 +120,7 @@ def resolve_salad_by_number(number: int, now: datetime | None = None) -> TodaySa
 
 
 def build_caption(salad: TodaySalad) -> str:
-    theme = theme_from_text(salad.task.text)
+    theme = theme_from_text(salad.task.theme)
     author = str((salad.task.tags or {}).get('author') or '').strip()
     lines = [
         '🥗 <b>Салатик №{}</b>'.format(_escape(salad.number)),

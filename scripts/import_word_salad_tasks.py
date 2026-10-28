@@ -160,7 +160,7 @@ def run(
                 "checker": checker,
                 "checker_data": checker_data,
                 "answer": "",
-                "text": theme,
+                "theme": theme[:500],
                 "tags": {},
                 "points": 1,
                 "max_attempts": None,

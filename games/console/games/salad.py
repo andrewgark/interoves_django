@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from typing import Any, Optional
@@ -45,7 +44,6 @@ _OLD_SECTION_TITLES = frozenset({'Словесный Салат', 'Словес�
 _DEFAULT_GRID = ['A', 'B', 'C', 'D', 'H', 'G', 'F', 'E', 'I', 'J', 'K', 'L', 'P', 'O', 'N', 'M']
 _DEFAULT_WORDS = ['ABCDEFGHIJKLMNOP']
 _PREVIEW_SPEC = ActorSpec(kind='anon', anon_key='support-preview', play_mode='personal')
-_TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d+$', re.IGNORECASE)
 AUTHOR_TAG = 'author'
 
 
@@ -85,6 +83,7 @@ class WordSaladRow:
     preview_url: str
     site_url: str = ''
     is_deferred: bool = False
+    intro_is_important: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -206,24 +205,11 @@ def _sync_link_titles(link: GameTaskGroup, new_num: int) -> None:
         if (task_group.label or '').strip() != desired_label:
             task_group.label = desired_label
             task_group.save(update_fields=['label'])
-    task = _task_for_link(link)
-    if task and task.text and _TITLE_RE.match(task.text.strip()):
-        task.text = ''
-        task.save(update_fields=['text'])
 
 
 def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
-    tasks_by_group = {
-        task.task_group_id: task
-        for task in Task.objects.filter(
-            task_group_id__in={link.task_group_id for link in ordered_links},
-            number='1',
-        )
-    }
-
     def sync_links(links: list[GameTaskGroup], new_numbers: list[int]) -> None:
         task_groups = []
-        legacy_tasks = []
         for link, new_num in zip(links, new_numbers):
             title = _salad_title(new_num)
             link.name = title
@@ -232,15 +218,8 @@ def _renumber_links(ordered_links: list[GameTaskGroup]) -> None:
             if (task_group.label or '').strip() != desired_label:
                 task_group.label = desired_label
                 task_groups.append(task_group)
-            task = tasks_by_group.get(link.task_group_id)
-            if task and task.text and _TITLE_RE.match(task.text.strip()):
-                task.text = ''
-                legacy_tasks.append(task)
         if task_groups:
             TaskGroup.objects.bulk_update(task_groups, ['label'])
-        # This legacy cleanup is rare; retain Task.save() side effects for it.
-        for task in legacy_tasks:
-            task.save(update_fields=['text'])
 
     renumber_links(ordered_links, sync_links=sync_links)
 
@@ -313,7 +292,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
             task_id=task.pk if task else None,
             number=number,
             name=link.name or _salad_title(number),
-            theme=(task.text or '').strip() if task is not None else '',
+            theme=(task.theme or '').strip() if task is not None else '',
             publish_date=published_at.date().isoformat() if published_at else None,
             is_published=(
                 (not link.is_deferred and is_word_salad_number_published(game, number, now))
@@ -325,6 +304,7 @@ def list_word_salad_rows(*, now: datetime | None = None) -> list[WordSaladRow]:
             words_count=len(words),
             author=author,
             is_deferred=link.is_deferred,
+            intro_is_important=bool(task is not None and task.text and task.text_is_important),
             preview_url=preview_task_group_url(
                 WORD_SALAD_GAME_ID,
                 number,
@@ -377,7 +357,9 @@ def get_word_salad_detail(link_id: int) -> dict[str, Any]:
         'task_id': task.pk,
         'number': effective_schedule_number(link) or 0,
         'name': link.name,
+        'theme': task.theme or '',
         'intro': task.text or '',
+        'intro_is_important': bool(task.text_is_important),
         'grid_text': format_grid_text(grid),
         'words_text': format_words_text(words),
         'rare_words_text': format_words_text(rare_words),
@@ -494,11 +476,13 @@ def attach_existing_task_group(
 def update_word_salad(
     link_id: int,
     *,
-    intro: str,
+    theme: str,
     grid_text: str,
     words_text: str,
     rare_words_text: str = '',
     author: str | None = None,
+    intro: str | None = None,
+    intro_is_important: bool = False,
 ) -> dict[str, Any]:
     link = (
         GameTaskGroup.objects.filter(game=get_word_salad_game(), pk=link_id)
@@ -512,13 +496,17 @@ def update_word_salad(
         raise WordSaladSupportError('Задание не найдено')
     checker_data = _validated_checker_data(grid_text, words_text, rare_words_text)
     previous_signature = task_data_signature(task.checker_data, task.answer)
-    task.text = intro or ''
+    task.theme = (theme or '').strip()[:500]
     task.checker_data = checker_data
     task.answer = ''
     # The expensive actor reconciliation is represented by the durable
     # WordSaladRecheckJob below; do not also run the generic on-commit rebuild
     # inline in the support request.
-    update_fields = ['text', 'checker_data', 'answer']
+    update_fields = ['theme', 'checker_data', 'answer']
+    if intro is not None:
+        task.text = intro.strip()
+        task.text_is_important = bool(task.text and intro_is_important)
+        update_fields += ['text', 'text_is_important']
     if author is not None:
         _apply_author_tag(task, author)
         update_fields.append('tags')

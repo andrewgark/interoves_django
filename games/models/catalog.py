@@ -1,11 +1,12 @@
-import uuid
 import re
+import uuid
 
 from django.core.validators import RegexValidator
 from django.db import models, transaction
 from django.db.models import F
 from django.db.models.functions import Coalesce
 from django.utils import timezone
+
 from games.club.access.game import get_game_access
 
 
@@ -503,9 +504,9 @@ class GameTaskGroup(models.Model):
 
         # Нет (нужной) привязки в расписании — черновик LadderOffer / WordSaladOffer?
         from games.daily.catalog.ladder import LADDER_GAME_ID
+        from games.daily.ladder.tutorial.ladder import is_ladder_tutorial_task_group
         from games.daily.page.section import WORD_SALAD_GAME_ID
         from games.models import Game, LadderOffer, WordSaladOffer
-        from games.daily.ladder.tutorial.ladder import is_ladder_tutorial_task_group
 
         is_ladder_draft = (
             is_ladder_tutorial_task_group(task.task_group)
@@ -549,8 +550,10 @@ class Task(models.Model):
     text_is_important = models.BooleanField(
         default=False,
         verbose_name='Важное замечание',
-        help_text='Текст задания влияет на решение: Лесенка выделяет его рамкой со знаком «Внимание!».',
+        help_text='Текст задания влияет на решение: Лесенка и Салатик выделяют его рамкой со знаком «Внимание!».',
     )
+    # Салатик shows this after «Тема:»; the task text is a separate description.
+    theme = models.CharField(max_length=500, blank=True, default='', verbose_name='Тема')
     checker_data = models.TextField(null=True, blank=True)
     answer = models.TextField(null=True, blank=True)
     answer_comment = models.TextField(null=True, blank=True)
@@ -612,8 +615,8 @@ class Task(models.Model):
 
     def save(self, *args, **kwargs):
         skip_semantics_reconciliation = kwargs.pop('skip_semantics_reconciliation', False)
-        from games.realtime.track_compat import track_task_change
         from games.puzzles import get_puzzle
+        from games.realtime.track_compat import track_task_change
         puzzle = get_puzzle(self.task_type)
         assign_rows = getattr(puzzle, 'assign_answer_rows', None) if puzzle is not None else None
         if assign_rows is not None:
@@ -811,7 +814,7 @@ class Task(models.Model):
         number = re.sub(r"\*", "", self.number)
         try:
             return tuple([int(x) for x in number.split('.')])
-        except:
+        except Exception:
             return number
 
     def get_wall(self):
@@ -860,4 +863,4 @@ class Audio(models.Model):
     audio = models.FileField()
     title = models.TextField(null=True, blank=True)
 
-from games.models.content import RandomAlphabettyGame, RandomCensorlyGame  # noqa: E402
+from games.models.content import RandomAlphabettyGame, RandomCensorlyGame  # noqa: E402, F401

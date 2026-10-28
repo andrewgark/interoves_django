@@ -11,16 +11,16 @@ from django.utils.html import strip_tags
 
 from games.daily.page.section import (
     ALPHABETTY_SCHEDULE,
+    CENSORLY_SCHEDULE,
     LADDER_SCHEDULE,
     MOSCOW,
     WEEK_TASK_SCHEDULE,
     WORD_SALAD_SCHEDULE,
 )
-from games.daily.page.section import CENSORLY_SCHEDULE
 from games.models import Game, GameTaskGroup, Task
+from games.ops.telegram.bot.notify import send_admin_message
 from games.ops.telegram.links import admin_url, task_admin_url
 from games.ops.telegram.models import TelegramDailyReview
-from games.ops.telegram.bot.notify import send_admin_message
 
 REVIEW_HOUR = 22
 DAILY_SCHEDULES = (
@@ -149,7 +149,7 @@ def _format_salad(number: int, link: GameTaskGroup) -> tuple[list[str], bool]:
         return ['⚠️ Не удалось разобрать сетку и ответы салатика.'], False
 
     lines = ['🥗 <b>Салатик №{}</b>'.format(number)]
-    theme = theme_from_text(task.text)
+    theme = theme_from_text(task.theme)
     if theme:
         lines.append('Тема: {}'.format(_escape(theme)))
     lines.extend([

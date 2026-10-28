@@ -366,7 +366,7 @@ class WordSaladTaskForm(ModelForm):
 class TaskAdmin(admin.ModelAdmin):
     list_display = ['id', '__str__', 'task_group', 'number', 'is_removed']
     list_filter = ['is_removed']
-    search_fields = ['id', 'number', 'text', 'task_group__label']
+    search_fields = ['id', 'number', 'text', 'theme', 'task_group__label']
     inlines = [
         HintInline
     ]

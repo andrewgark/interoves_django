@@ -893,7 +893,7 @@ def attach_salad_share_card(
         date_value=publish_date_for(game, number),
         elapsed_seconds=elapsed,
         locale=locale,
-        theme=theme_from_text(getattr(task, 'text', None)),
+        theme=theme_from_text(getattr(task, 'theme', None)),
         author=_task_author(task),
         grid=grid,
     )

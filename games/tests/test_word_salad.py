@@ -103,7 +103,7 @@ class WordSaladTests(TestCase):
                 points=2,
                 max_attempts=None,
                 checker_data=json.dumps(_puzzle(), ensure_ascii=False),
-                text='Тема: алфавитная дорожка',
+                theme='Тема: алфавитная дорожка',
             )
         cls.team = Team.objects.create(name='word_salad_team', visible_name='W')
 
@@ -169,7 +169,7 @@ class WordSaladTests(TestCase):
 
     def test_archive_card_meta_combines_theme_and_word_count(self):
         task = SimpleNamespace(
-            text='Тема: Города России',
+            theme='Тема: Города России',
             checker_data=json.dumps({
                 'grid': _puzzle()['grid'],
                 'words': ['КОСТРОМА', 'САМАРА'],
@@ -177,7 +177,7 @@ class WordSaladTests(TestCase):
         )
         self.assertEqual(archive_card_meta(task), 'Города России · 2 слова')
         title_only = SimpleNamespace(
-            text='Салатик #3',
+            theme='Салатик #3',
             checker_data=json.dumps({
                 'grid': _puzzle()['grid'],
                 'words': ['ABCD'],
@@ -718,8 +718,8 @@ class WordSaladTests(TestCase):
         # A theme-only edit creates a new task revision, but the grid and the
         # historical attempts are unchanged, so the accumulated projection
         # remains authoritative.
-        self.task.text = 'Изменённая тема'
-        self.task.save(update_fields=['text'])
+        self.task.theme = 'Изменённая тема'
+        self.task.save(update_fields=['theme'])
         chain.refresh_from_db()
         self.assertEqual(json.loads(chain.state)['solved_indices'], [0])
         self.assertEqual(json.loads(chain.state)['active'], [])
@@ -1336,3 +1336,28 @@ class AttemptPrettyTextTests(SimpleTestCase):
     def test_unknown_task_type_returns_raw_text(self):
         attempt = self._attempt('not_a_real_type', 'hello')
         self.assertEqual(attempt.get_pretty_text(), 'hello')
+
+
+class WordSaladThemeMigrationTests(TestCase):
+    def test_moves_word_salad_text_to_theme_and_back(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        CheckerType.objects.get_or_create(pk='word_salad')
+        salad = Task.objects.create(number='1', task_type='word_salad', text='Тема:  Города   России')
+        legacy_title = Task.objects.create(number='1', task_type='word_salad', text='Салатик #3')
+        ladder = Task.objects.create(number='1', task_type='raddle', text='Текст лесенки')
+
+        migration = import_module('games.migrations.0294_task_theme')
+        migration.move_word_salad_theme(apps, None)
+        salad.refresh_from_db()
+        legacy_title.refresh_from_db()
+        ladder.refresh_from_db()
+        self.assertEqual((salad.theme, salad.text), ('Города России', ''))
+        self.assertEqual((legacy_title.theme, legacy_title.text), ('', ''))
+        self.assertEqual((ladder.theme, ladder.text), ('', 'Текст лесенки'))
+
+        migration.restore_word_salad_theme(apps, None)
+        salad.refresh_from_db()
+        self.assertEqual(salad.text, 'Города России')

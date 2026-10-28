@@ -11059,6 +11059,17 @@ tr.new-proportions-matrix__meta-row.is-solved-hidden {
   text-align: center;
 }
 
+.new-word-salad__task-intro {
+  margin-bottom: 0;
+  overflow-wrap: break-word;
+  text-align: center;
+}
+
+.new-word-salad__task-intro.new-raddle-task__intro--important {
+  justify-content: center;
+  text-align: left;
+}
+
 .new-word-salad__play {
   display: grid;
   grid-template-columns: minmax(0, var(--ws-grid-max)) minmax(var(--ws-words-min), 1fr);

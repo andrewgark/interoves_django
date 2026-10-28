@@ -1,0 +1,8 @@
+{% if task.text and task.text_is_important %}
+<div class="new-raddle-task__intro new-raddle-task__intro--important {{ extra_class }}" role="note">
+  <i class="ph-fill ph-warning new-raddle-task__intro-icon" aria-label="Внимание!" role="img"></i>
+  <div class="new-raddle-task__intro-text">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
+</div>
+{% elif task.text %}
+<div class="new-raddle-task__intro {{ extra_class }}">{% autoescape off %}{{ task.text }}{% endautoescape %}</div>
+{% endif %}

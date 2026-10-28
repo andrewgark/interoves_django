@@ -139,7 +139,7 @@ def word_salad_release_breakdown(data, game, number):
     task = tasks[0]
     from games.puzzles.salad.rules import load_state, parse_task_payload, words_in_display_order
     try:
-        _grid, words, _rare = parse_task_payload(task.checker_data, task.answer or task.text or '')
+        _grid, words, _rare = parse_task_payload(task.checker_data, task.answer or '')
     except Exception:
         words = []
     data['task_groups'] = [SaladResultHeader(number)]

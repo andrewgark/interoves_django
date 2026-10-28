@@ -554,19 +554,26 @@ def word_salad_save(request, link_id):
     body = _word_salad_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)
-    intro = str(body.get('intro') or '').strip()
+    theme = str(body.get('theme') or '').strip()
+    intro = str(body.get('intro') or '') if 'intro' in body else None
     grid_text = body.get('grid_text') or ''
     words_text = body.get('words_text') or ''
     rare_words_text = body.get('rare_words_text') or ''
     author = str(body.get('author') or '')
     try:
+        intro_is_important = json_boolean_field(body, 'intro_is_important')
+    except ValueError as exc:
+        return JsonResponse({'ok': False, 'error': str(exc)}, status=400)
+    try:
         detail = update_word_salad(
             link_id,
-            intro=intro,
+            theme=theme,
             grid_text=grid_text,
             words_text=words_text,
             rare_words_text=rare_words_text,
             author=author,
+            intro=intro,
+            intro_is_important=intro_is_important,
         )
     except WordSaladSupportError as exc:
         return _word_salad_error_response(exc)
