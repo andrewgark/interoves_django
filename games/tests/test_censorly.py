@@ -358,6 +358,21 @@ class CensorlyEngineTests(TestCase):
         self.assertEqual(hyphen['status'], 'invalid')
         self.assertIn('дефис', hyphen['error'])
 
+    def test_typed_index_and_letterlike_symbols_guess_their_letters(self):
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START
+
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='Кот',
+            body=f'Кот считает:\n{FORMULA_START}aₖ + ℙ{FORMULA_END}\n\nКонец.',
+        )
+        user = User.objects.create_user('cz_scripts', password='x')
+        for typed, letter in (('ₖ', 'ₖ'), ('ℙ', 'ℙ')):
+            with self.subTest(typed=typed):
+                hit = apply_guess(game=game, task=task, word=typed, user=user)
+                self.assertEqual(hit['status'], 'hit')
+                opened = {tok['text'] for tok in hit['body_tokens'] if tok.get('guessed')}
+                self.assertIn(letter, opened)
+
     def test_ibn_stays_masked_until_guessed(self):
         from django.test import override_settings
 
@@ -1964,6 +1979,29 @@ class CensorlyRandomGameTests(TestCase):
         trimmed2, truncated2 = _trim_extract(long_body)
         self.assertTrue(truncated2)
         self.assertFalse(trimmed2.rstrip().endswith('Климат'))
+
+    def test_trim_inside_a_formula_or_after_a_block_title_leaves_no_debris(self):
+        from games.puzzles.censorly.article.wiki import MAX_BODY_CHARS, _trim_extract
+        from games.puzzles.censorly.text.tokenize import (
+            DETAILS_END,
+            DETAILS_START,
+            DETAILS_SUMMARY_END,
+            FORMULA_END,
+            FORMULA_START,
+            tokenize_text,
+        )
+
+        prefix = 'Абзац. ' * ((MAX_BODY_CHARS - 12) // 7)
+        tail = ' Хвост. ' * 400
+        formula, _ = _trim_extract(prefix + FORMULA_START + 'x = 1 + 2. y = 3' + FORMULA_END + tail)
+        self.assertTrue(formula.endswith(FORMULA_START + 'x = 1 + 2.'), formula[-20:])
+        self.assertFalse(any(
+            '\ufdd0' <= char <= '\ufdef' for tok in tokenize_text(formula) for char in tok['surface']
+        ))
+        details, _ = _trim_extract(
+            prefix + DETAILS_START + 'Список' + DETAILS_SUMMARY_END + '\n\nОдин. Два.' + DETAILS_END + tail,
+        )
+        self.assertNotIn(DETAILS_START, details)
 
     def test_trim_drops_sections_left_empty_by_skipped_tables(self):
         from games.puzzles.censorly.article.wiki import _strip_empty_sections

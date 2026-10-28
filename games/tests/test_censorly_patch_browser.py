@@ -281,6 +281,9 @@ class CensorlyPatchBrowserTests(SimpleTestCase):
             self.assertEqual(shape['code'].count('\n'), 2)
             # A block's margins replace the paragraph gaps around it.
             self.assertEqual(shape['paragraphs'], 0)
+            # A word in the block's title acts on the word, not on the block.
+            page.click('details summary .censorly-tok--mask')
+            self.assertFalse(page.evaluate('() => document.querySelector("details").open'))
 
             full_state, newly = article.open('кот')
             responses['/guess'] = _compact_play_response(

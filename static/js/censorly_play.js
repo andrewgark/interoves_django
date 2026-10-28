@@ -1728,6 +1728,9 @@
     root.addEventListener('click', function (ev) {
       var mask = ev.target.closest('.censorly-tok--mask');
       if (mask && root.contains(mask)) {
+        // A word in a collapsed block's title acts on the word only; the
+        // block opens from the rest of its title, like a revealed word.
+        if (mask.closest('summary')) ev.preventDefault();
         if (root.classList.contains('censorly--hint-pick')) {
           if (mask.dataset.titleLemma === '1') {
             setFeedback(root, 'Нельзя открывать слова, связанные со словами из названия', 'error', true);

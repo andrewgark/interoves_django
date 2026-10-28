@@ -32,7 +32,12 @@ from games.puzzles.censorly.article.redact import (
     token_ids_for_guess,
 )
 from games.puzzles.censorly.text.stopwords import is_stop_word
-from games.puzzles.censorly.text.tokenize import all_tokens, resolve_puzzle_payload, title_content_lemmas
+from games.puzzles.censorly.text.tokenize import (
+    all_tokens,
+    plain_script_letters,
+    resolve_puzzle_payload,
+    title_content_lemmas,
+)
 from games.models import Attempt, ChainTaskState, Game, Task
 from games.puzzles.core.base import Puzzle
 from games.results.share import format_elapsed, format_share_link, share_path
@@ -871,7 +876,7 @@ def apply_guess(
         return error
     payload = move.payload
 
-    normalized = normalize_surface(word).strip(_GUESS_EDGE_PUNCTUATION)
+    normalized = normalize_surface(plain_script_letters(word)).strip(_GUESS_EDGE_PUNCTUATION)
     if not normalized or not is_guessable_word(normalized):
         return move.view(
             move.read_state(), 'invalid',

@@ -1651,6 +1651,12 @@ def _trim_extract(extract: str, *, mark_formulas: bool = False) -> tuple[str, bo
                 break
         else:
             trimmed = trimmed.rstrip()
+    # A collapsed block cut off right after its title would open on nothing.
+    trimmed = re.sub(
+        re.escape(DETAILS_START) + r'[^' + re.escape(DETAILS_END) + r']*?'
+        + re.escape(DETAILS_SUMMARY_END) + r'\s*$',
+        '', trimmed,
+    ).rstrip()
     trimmed = _strip_empty_sections(trimmed)
     return _headings_to_marked(trimmed), True
 

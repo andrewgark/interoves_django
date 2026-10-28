@@ -104,17 +104,22 @@ _QUOTE_SPLIT_RE = re.compile(
 _BLOCK_MARKER_RE = re.compile(
     '([' + ''.join(BLOCK_MARKERS) + '])(?:([0-9a-z,]*)' + BLOCK_ATTR_SEP + ')?',
 )
+# A formula cut off by trimming runs to the end of its text.
 _FORMULA_SPLIT_RE = re.compile(
-    re.escape(FORMULA_START) + r'(.*?)' + re.escape(FORMULA_END),
+    re.escape(FORMULA_START) + r'(.*?)(?:' + re.escape(FORMULA_END) + r'|$)',
     re.DOTALL,
 )
 
 
 def _strip_invisible(text: str) -> str:
-    """Drop format characters that split a word (soft hyphen, ZWSP, BOM)."""
+    """Drop format characters that split a word (soft hyphen, ZWSP, BOM).
+
+    A marker left without its pair (a stray end, or a start cut off by
+    trimming) is dropped too rather than shown as a glyph.
+    """
     return ''.join(
         ch for ch in (text or '')
-        if unicodedata.category(ch) != 'Cf'
+        if unicodedata.category(ch) != 'Cf' and not '\ufdd0' <= ch <= '\ufdef'
     )
 
 
@@ -253,6 +258,11 @@ def _script_letter(char: str) -> tuple[str, str] | None:
     if 'SUPERSCRIPT' in name or name.startswith('MODIFIER LETTER'):
         return 'sup', plain
     return 'letter', plain
+
+
+def plain_script_letters(text: str) -> str:
+    """A typed guess «ℙ» or «xₖ» reads as the letters it stands for: «P», «xk»."""
+    return ''.join((_script_letter(char) or ('', char))[1] for char in text or '')
 
 
 def _split_script_letters(raw: str):
