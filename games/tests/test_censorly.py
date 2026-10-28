@@ -1191,6 +1191,122 @@ class CensorlyWikiHelperTests(TestCase):
             'Калий горит.\n\nПроизведение плотности на скорость соответствует плотности тока.',
         )
 
+    def test_clean_extract_tidies_dots_detached_commas_and_rare_tex(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        self.assertEqual(
+            clean_wiki_extract(
+                'В 1924 г.. Во, года.. Да!.. Нет... До −25..−30 °C. '
+                r'{\displaystyle {\ce {H2O\ +\ C\ \rightleftarrows \ CO}}}, '
+                r'{\displaystyle R\leqslant 4S}, {\displaystyle \prod _{k=1 \atop p_{k}}}, '
+                r'{\displaystyle c({\hat {p_{x}}}-i{\hat {p_{y}}})}'
+            ),
+            'В 1924 г. Во, года. Да!.. Нет... До −25..−30 °C. H₂O + C ⇌ CO, R ≤ 4S, '
+            '∏ ₍k = 1, pₖ₎, c(p̂ₓ − ip̂₍y₎)',
+        )
+        # A footnote on its own source line leaves the comma detached.
+        self.assertEqual(
+            clean_wiki_extract(_html_extract_to_text(
+                '<p>«синдром кошек»\n<sup class="reference">[86]</sup>, согласно которому.</p>'
+            )),
+            '«синдром кошек», согласно которому.',
+        )
+
+    def test_html_extract_keeps_bare_tables_around_text_and_drops_drawn_trees(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import QUOTE_END, QUOTE_START
+
+        tree_row = '<tr>' + '<td>&#160;</td>' * 6 + '<td>род Петрушка</td></tr>'
+        raw = (
+            '<div class="mw-parser-output"><p>Лист писал:</p>\n'
+            '<table><tbody><tr><td><div class="ts-Цитата"><blockquote><p>Какой позор!</p>'
+            '</blockquote></div></td></tr></tbody></table>\n'
+            f'<table cellspacing="0">{tree_row}</table>\n'
+            '<table role="presentation"><tr><td>8 Кислород O</td></tr></table>\n'
+            '<div class="plainlist"><ul><li>Ряд один.</li><li>Ряд два.</li></ul></div>'
+            '</div>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw))
+        self.assertIn('Лист писал:\n\n' + QUOTE_START + 'Какой позор!' + QUOTE_END, cleaned)
+        self.assertNotIn('Петрушка', cleaned)
+        self.assertNotIn('Кислород', cleaned)
+        self.assertIn('• Ряд один. • Ряд два.', cleaned)
+
+    def test_html_extract_drops_side_boxes_that_are_not_quotations(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import QUOTE_END, QUOTE_START
+
+        def box(content):
+            return (
+                '<div role="complementary" class="ts-Врезка floatright">'
+                f'<div class="ts-Врезка-содержание">{content}</div></div>'
+            )
+
+        raw = (
+            '<div class="mw-parser-output">'
+            + box('<p>Вещественные константы</p><ul><li>ln 2</li><li>ζ(3)</li><li>√2</li>'
+                  '<li>ψ</li><li>φ</li><li>√3</li><li>τ</li><li>α</li><li>eπ</li></ul>')
+            + box('<div>3,1415926535 8979323846 2643383279 5028841971</div>'
+                  '<div class="ts-Врезка-подпись">Первые знаки</div>')
+            + '<p>Пи — константа.</p>'
+            + box('<p>Кошка принесла канарейку.</p><div class="ts-Врезка-подпись">Брем</div>')
+            + r'<p><math alttext="{\displaystyle {\boldsymbol {\pi }}}"></math> — буква.</p>'
+            + '</div>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw))
+        self.assertTrue(cleaned.startswith('Пи — константа.'), cleaned)
+        self.assertIn(QUOTE_START + 'Кошка принесла канарейку.\n\nБрем' + QUOTE_END, cleaned)
+        self.assertIn('π — буква.', cleaned)
+        self.assertNotIn('boldsymbol', cleaned)
+
+    def test_display_formula_words_and_numbers_are_hidden_like_text(self):
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START
+
+        text = f'Тождество:\n{FORMULA_START}sin²(x) + cos²(x) = 1, π ≈ 3,14{FORMULA_END}\n\nДалее.'
+        payload = build_puzzle_payload(wiki_title='Тест', body_text=text)
+        view = build_public_view(payload, revealed_lemmas=set(), won=False)
+        hidden = {
+            source['surface'] for source, public in zip(payload['body_tokens'], view['body_tokens'])
+            if not public.get('revealed')
+        }
+        self.assertTrue({'sin', 'cos', 'x', 'π', '14'} <= hidden, hidden)
+        self.assertFalse({'+', '=', '≈'} & hidden)
+
+    def test_index_and_letterlike_letters_are_hidden_and_open_by_their_letter(self):
+        from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
+
+        text = f'Формула:\n{FORMULA_START}iℏ · (∂ L)/(∂ xₖ) − ∑ ₖ ₌ ₀³ = aₘₐₓ, ℙ{FORMULA_END}\n\nКонец.'
+        payload = build_puzzle_payload(wiki_title='Тест', body_text=text)
+        letters = {
+            tok['display']: (tok['surface'], tok.get('script'))
+            for tok in payload['body_tokens'] if tok.get('display')
+        }
+        self.assertEqual(letters, {
+            'ℏ': ('h', None), 'ₖ': ('k', 'sub'), 'ₘₐₓ': ('max', 'sub'), 'ℙ': ('P', None),
+        })
+
+        def shown(view):
+            return ''.join(
+                tok['text'] if tok.get('revealed') else '█' * tok['length']
+                for tok in view['body_tokens']
+            )
+
+        hidden = shown(build_public_view(payload, revealed_lemmas=set(), won=False))
+        self.assertIn('(∂ █)/(∂ ██) − ∑ █ ₌ ₀³ = ████, █', hidden)
+        opened = build_public_view(payload, revealed_lemmas={'k', 'p'}, won=False)
+        self.assertIn('(∂ █)/(∂ █ₖ) − ∑ ₖ ₌ ₀³ = ████, ℙ', shown(opened))
+        self.assertEqual(
+            {tok.get('script') for tok in opened['body_tokens'] if tok.get('script')}, {'sub'},
+        )
+        weierstrass, info = (
+            next(tok for tok in tokenize_text(char) if not tok['surface'].isspace())
+            for char in ('℘', 'ℹ')
+        )
+        self.assertEqual((weierstrass['surface'], weierstrass['display']), ('p', '℘'))
+        self.assertNotEqual(info['kind'], 'content')
+
     def test_html_extract_keeps_data_tables_as_grids(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import (
@@ -1215,7 +1331,7 @@ class CensorlyWikiHelperTests(TestCase):
             '<p>После таблицы.</p>\n'
             '<table class="infobox"><tr><td>Инфобокс</td></tr></table>'
             '<table class="wikitable ts-Климат_местности"><tr><td>Климат</td></tr></table>'
-            '<table><tr><td>Вёрстка</td></tr></table>'
+            '<table><tr><td>Вёрстка</td><td>двух колонок</td></tr></table>'
             '<table class="ts-col-begin"><tr><td><p>Левая колонка.</p></td>'
             '<td><p>Правая колонка.</p></td></tr></table>'
             f'<table class="wikitable sortable">{rows}</table>'
@@ -1508,14 +1624,12 @@ class CensorlyWikiHelperTests(TestCase):
         marked, _truncated = _trim_extract(raw, mark_formulas=True)
         formula = expected_formula
         self.assertIn(f'{FORMULA_START}{formula}{FORMULA_END}', marked)
-        formula_tokens = [
-            token for token in tokenize_text(marked)
-            if token['surface'] == formula
-        ]
-        self.assertEqual(len(formula_tokens), 1)
-        self.assertEqual(formula_tokens[0]['kind'], 'punct')
+        # The formula is tokenized like text: its numbers are words to guess.
+        tokens = tokenize_text(marked)
+        self.assertIn(formula, ''.join(token.get('display') or token['surface'] for token in tokens))
+        self.assertIn('π', [token['surface'] for token in tokens if token['kind'] == 'content'])
 
-    def test_display_matrix_keeps_its_brackets_and_is_one_token(self):
+    def test_display_matrix_keeps_its_brackets(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
@@ -1525,10 +1639,9 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], expected)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
-    def test_piecewise_formula_with_strict_inequality_is_one_token(self):
+    def test_piecewise_formula_with_strict_inequality_renders_readably(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
@@ -1538,8 +1651,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], expected)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_strict_comparison_spacing_does_not_change_arrow_rendering(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -1599,8 +1711,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], expected)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_stackrel_and_modular_notation_render_readably(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -1616,8 +1727,7 @@ class CensorlyWikiHelperTests(TestCase):
                 cleaned = clean_wiki_extract(raw, mark_formulas=True)
                 self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
                 tokens = tokenize_text(cleaned)
-                self.assertEqual(len(tokens), 1)
-                self.assertEqual(tokens[0]['surface'], expected)
+                self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_mathbb_number_sets_keep_double_struck_identity(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -1629,8 +1739,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], expected)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_mathbb_preserves_other_latin_letters_and_digits(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -1683,8 +1792,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], expected)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_floor_and_ceiling_delimiters_render_without_inner_spaces(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -1696,8 +1804,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], expected)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_array_column_specification_is_not_rendered_as_formula_text(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -1706,7 +1813,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(clean_wiki_extract(raw), 'a b; c d')
 
-    def test_set_relation_formulas_are_marked_as_single_tokens(self):
+    def test_set_relation_formulas_are_marked_and_spaced(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
@@ -1721,8 +1828,7 @@ class CensorlyWikiHelperTests(TestCase):
                 cleaned = clean_wiki_extract(raw, mark_formulas=True)
                 self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
                 tokens = tokenize_text(cleaned)
-                self.assertEqual(len(tokens), 1)
-                self.assertEqual(tokens[0]['surface'], expected)
+                self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_binomial_coefficient_is_rendered_as_combination_notation(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -1733,8 +1839,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}C(n, k){FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], 'C(n, k)')
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), 'C(n, k)')
 
     def test_substack_rows_remain_grouped_in_sum_index(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -1746,8 +1851,7 @@ class CensorlyWikiHelperTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], expected)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_clean_wiki_extract_removes_unindented_chemistry_math_dump(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -2042,8 +2146,7 @@ class CensorlyRandomGameTests(TestCase):
 
         self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
         tokens = tokenize_text(cleaned)
-        self.assertEqual(len(tokens), 1)
-        self.assertEqual(tokens[0]['surface'], expected)
+        self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_aligned_array_and_cases_drop_trailing_row_separators(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -2066,7 +2169,7 @@ class CensorlyRandomGameTests(TestCase):
             with self.subTest(expected=expected):
                 self.assertEqual(clean_wiki_extract(raw), expected)
 
-    def test_negated_and_proportional_relations_render_as_single_tokens(self):
+    def test_negated_and_proportional_relations_render_as_symbols(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import FORMULA_END, FORMULA_START, tokenize_text
 
@@ -2081,8 +2184,7 @@ class CensorlyRandomGameTests(TestCase):
                 cleaned = clean_wiki_extract(raw, mark_formulas=True)
                 self.assertEqual(cleaned, f'{FORMULA_START}{expected}{FORMULA_END}')
                 tokens = tokenize_text(cleaned)
-                self.assertEqual(len(tokens), 1)
-                self.assertEqual(tokens[0]['surface'], expected)
+                self.assertEqual(''.join(token.get('display') or token['surface'] for token in tokens), expected)
 
     def test_latex_primitive_fractions_spacing_and_hat_are_readable(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
@@ -2174,7 +2276,10 @@ class CensorlyRandomGameTests(TestCase):
         service = {token['surface']: token['kind'] for token in tokenize_text(cleaned)}
         for symbol in ('₍', '₎', '˙', '¯', '¨'):
             self.assertEqual(service[symbol], 'stop')
-        self.assertEqual(service['qᵢ'], 'content')
+        # An index letter is a hidden word of its own, guessed as «i».
+        self.assertEqual(service['q'], 'content')
+        index = next(token for token in tokenize_text(cleaned) if token.get('display') == 'ᵢ')
+        self.assertEqual((index['surface'], index['kind'], index['script']), ('i', 'content', 'sub'))
         self.assertEqual(service['r⃗'], 'content')
         vector_token = next(token for token in tokenize_text(cleaned) if token['surface'] == 'r⃗')
         self.assertEqual(vector_token['length'], 1)
@@ -2206,7 +2311,8 @@ class CensorlyRandomGameTests(TestCase):
             token['surface'] for token in tokenize_text(cleaned)
             if token['kind'] == 'content'
         ]
-        self.assertIn('pᵢ', words)
+        self.assertIn('p', words)
+        self.assertIn('i', words)
         self.assertIn('log', words)
         self.assertIn('sin', words)
 

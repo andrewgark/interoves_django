@@ -88,9 +88,12 @@ class _WikiExtractHTMLParser(HTMLParser):
         'script', 'style', 'noscript', 'svg', 'figure', 'figcaption',
         'input', 'img', 'audio', 'video', 'rt', 'rp',
     }
-    # Tables with data become grids. A column layout table ({{Колонки}}) is
-    # transparent: its cells are ordinary blocks. Infoboxes, navboxes, the
-    # climate template and unclassed layout tables stay out.
+    # Tables with data become grids. A column layout table ({{Колонки}}) and
+    # a bare table framing a quotation, formula or list are transparent: their
+    # cells are ordinary blocks. Infoboxes, navboxes, the climate template and
+    # template layouts (role="presentation": family trees, element boxes) stay
+    # out. A bare table with more than _BARE_TABLE_MAX_CELLS cells in a row is
+    # a drawn tree or unmarked data and is dropped when it closes.
     _DATA_TABLE_CLASSES = {'wikitable', 'standard', 'simple', 'sortable'}
     _LAYOUT_TABLE_CLASSES = {'ts-col-begin'}
     _SKIP_TABLE_CLASSES = {'infobox', 'navbox-inner', 'ts-Климат_местности', 'metadata'}
@@ -98,6 +101,7 @@ class _WikiExtractHTMLParser(HTMLParser):
     # characters and push the prose after it past MAX_BODY_CHARS. Rows after
     # this much table text are left out; the first rows show what it holds.
     _TABLE_MAX_CHARS = 2500
+    _BARE_TABLE_MAX_CELLS = 1
     # Openers after which a block boundary adds no line break of its own.
     _BLOCK_OPENERS = (
         QUOTE_START, '\u2028', TABLE_START, TABLE_CAPTION, TABLE_ROW, TABLE_CELL,
@@ -115,10 +119,15 @@ class _WikiExtractHTMLParser(HTMLParser):
     # sentence's continuation, e.g. a list of numbers after «начинается так:».
     _KEEP_DIV_CLASSES = {
         'mw-parser-output', 'mw-heading', 'ts-Цитата', 'columns', 'div-col', 'mw-highlight',
+        'plainlist', 'ts-col-float',
     }
-    _BLOCK_DIV_CLASSES = {'columns', 'div-col'}
+    _BLOCK_DIV_CLASSES = {'columns', 'div-col', 'plainlist', 'ts-col-float'}
     # <poem> and {{Врезка}} (a side box with a quotation and its author).
     _QUOTE_DIV_CLASSES = {'poem', 'ts-Врезка'}
+    # {{Врезка}} also frames navigation lists and digit dumps (1000 digits of
+    # π): a box where under half of the text is Cyrillic is not a quotation.
+    _BOX_DIV_CLASS = 'ts-Врезка'
+    _BOX_MIN_CYRILLIC = 0.5
     # {{Скрытый блок}}: a title and the collapsed content.
     _DETAILS_DIV_CLASS = 'ts-Скрытый_блок'
     _SUMMARY_DIV_CLASS = 'ts-Скрытый_блок-title'
@@ -136,11 +145,16 @@ class _WikiExtractHTMLParser(HTMLParser):
         self.heading_level: int | None = None
         self.definition_term_active = False
         self.quote_depth = 0
-        # One entry per open kept div: the block it opened ('quote',
+        # One entry per open kept div: the block it opened ('quote', 'box',
         # 'details', 'summary') or ''.
         self.div_roles: list[str] = []
-        # One entry per open kept table: 'data' or 'layout'.
+        # First part index of each open {{Врезка}}.
+        self.box_starts: list[int] = []
+        # One entry per open kept table: 'data', 'layout' or 'bare'.
         self.tables: list[str] = []
+        # For each open bare table: [first part index, cells in the current
+        # row, most cells in a row so far].
+        self.bare_tables: list[list[int]] = []
         self.table_chars = 0
         # Inside an open {{Скрытый блок}} whose title has not ended yet.
         self.summary_pending = False
@@ -210,7 +224,8 @@ class _WikiExtractHTMLParser(HTMLParser):
         skipped_table = tag == 'table' and (
             'data' in self.tables
             or bool(classes & self._SKIP_TABLE_CLASSES)
-            or not classes & (self._DATA_TABLE_CLASSES | self._LAYOUT_TABLE_CLASSES)
+            or (not classes and attrs.get('role') == 'presentation')
+            or bool(classes) and not classes & (self._DATA_TABLE_CLASSES | self._LAYOUT_TABLE_CLASSES)
         )
         skipped_row = (
             tag == 'tr' and 'data' in self.tables and self.table_chars > self._TABLE_MAX_CHARS
@@ -233,6 +248,9 @@ class _WikiExtractHTMLParser(HTMLParser):
         )
         if tag == 'div':
             role = 'quote' if opens_quote else ''
+            if opens_quote and self._BOX_DIV_CLASS in classes:
+                role = 'box'
+                self.box_starts.append(len(self.parts))
             if opens_details:
                 role = 'details'
                 self._ensure_newlines(2)
@@ -248,9 +266,11 @@ class _WikiExtractHTMLParser(HTMLParser):
             if role in {'details', 'summary'}:
                 return
         elif tag == 'table':
-            kind = 'data' if classes & self._DATA_TABLE_CLASSES else 'layout'
+            kind = 'data' if classes & self._DATA_TABLE_CLASSES else 'layout' if classes else 'bare'
             self._ensure_newlines(2)
             self.tables.append(kind)
+            if kind == 'bare':
+                self.bare_tables.append([len(self.parts), 0, 0])
             if kind == 'data':
                 self.parts.append(TABLE_START)
                 self.table_chars = 0
@@ -270,9 +290,14 @@ class _WikiExtractHTMLParser(HTMLParser):
                 self.parts.append(marker + attr)
             self.strip_leading_space = True
             return
-        elif tag in {'td', 'th'} and self.tables:
-            # A cell of a column layout table.
-            self._ensure_newlines(2)
+        elif tag in {'tr', 'td', 'th'} and self.tables:
+            # A row or cell of a layout or bare table.
+            if self.tables[-1] == 'bare':
+                counts = self.bare_tables[-1]
+                counts[1] = 0 if tag == 'tr' else counts[1] + 1
+                counts[2] = max(counts[2], counts[1])
+            if tag != 'tr':
+                self._ensure_newlines(2)
             return
         elif tag == 'pre' and not self.in_code:
             self._ensure_newlines(2)
@@ -355,7 +380,7 @@ class _WikiExtractHTMLParser(HTMLParser):
         closes_quote = tag == 'blockquote'
         if tag == 'div' and self.div_roles:
             role = self.div_roles.pop()
-            closes_quote = role == 'quote'
+            closes_quote = role in {'quote', 'box'}
             if role == 'summary':
                 self._end_summary()
                 return
@@ -366,9 +391,14 @@ class _WikiExtractHTMLParser(HTMLParser):
                 self._ensure_newlines(2)
                 return
         if tag == 'table' and self.tables:
-            if self.tables.pop() == 'data':
+            kind = self.tables.pop()
+            if kind == 'data':
                 self._rstrip_parts()
                 self.parts.append(TABLE_END)
+            elif kind == 'bare':
+                start, _, widest = self.bare_tables.pop()
+                if widest > self._BARE_TABLE_MAX_CELLS:
+                    del self.parts[start:]
             self._ensure_newlines(2)
             return
         if 'data' in self.tables and tag in {'caption', 'td', 'th'}:
@@ -389,6 +419,8 @@ class _WikiExtractHTMLParser(HTMLParser):
                 else:
                     self.parts.append(QUOTE_END)
                 self._ensure_newlines(2)
+            if tag == 'div' and role == 'box':
+                self._drop_box_without_prose(self.box_starts.pop())
         elif tag in {'h2', 'h3', 'h4', 'h5', 'h6'} and self.heading_level:
             self.parts.append(' ' + '=' * self.heading_level)
             self.heading_level = None
@@ -402,6 +434,14 @@ class _WikiExtractHTMLParser(HTMLParser):
             self._ensure_newlines(1)
         elif tag in {'dt', 'dd'}:
             self._ensure_newlines(1)
+
+    def _drop_box_without_prose(self, start: int) -> None:
+        text = ''.join(self.parts[start:])
+        visible = [char for char in text if not char.isspace() and not '\ufdd0' <= char <= '\ufdef']
+        cyrillic = sum('а' <= char.lower() <= 'я' or char in 'ёЁ' for char in visible)
+        if visible and cyrillic < len(visible) * self._BOX_MIN_CYRILLIC:
+            del self.parts[start:]
+            self._ensure_newlines(2)
 
     def _end_summary(self) -> None:
         if not self.summary_pending:
@@ -666,7 +706,10 @@ _TEX_SYMBOLS = {
     'lvert': '|', 'rvert': '|', 'vert': '|',
     'lVert': '‖', 'rVert': '‖', 'Vert': '‖',
     'lceil': '⌈', 'rceil': '⌉', 'lfloor': '⌊', 'rfloor': '⌋',
-    'll': '≪',
+    'll': '≪', 'leqslant': '≤', 'geqslant': '≥', 'atop': ', ',
+    # Chemical equilibrium in every spelling; ⇌ is a known open symbol.
+    'rightleftarrows': ' ⇌ ', 'leftrightarrows': ' ⇌ ',
+    'rightleftharpoons': ' ⇌ ', 'leftrightharpoons': ' ⇌ ',
     'ldots': '…', 'cdots': '…', 'dots': '…', 'over': ' / ',
     'int': '∫', 'iint': '∬', 'iiint': '∭', 'oint': '∮',
     'sum': '∑', 'prod': '∏', 'sqrt': '√',
@@ -685,6 +728,7 @@ _TEX_FORMAT_COMMANDS = frozenset({
 _TEX_GROUP_COMMANDS = frozenset({
     'operatorname', 'operatorname*', 'mathrm', 'mathbf', 'mathit',
     'mathsf', 'mathtt', 'mathcal', 'mathbb', 'mathfrak', 'text', 'mbox', 'rm',
+    'boldsymbol', 'bm', 'pmb',
 })
 _TEX_FUNCTION_COMMANDS = frozenset({
     'arg', 'cos', 'cosh', 'cot', 'coth', 'csc', 'deg', 'det', 'dim',
@@ -920,11 +964,13 @@ class _TexTextParser:
                 return f'{brace}({arg[0]})', arg[1]
             if name in ('dot', 'ddot') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f"{arg[0]}{'˙' if name == 'dot' else '¨'}", arg[1]
-            if name == 'hat' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
-                accented = unicodedata.normalize('NFC', arg[0] + '\u0302')
-                # Keep a combining circumflex when Unicode has no precomposed
-                # character (common for operator letters such as X and P).
-                return accented, arg[1]
+            hat_base = arg[0].strip()
+            if name == 'hat' and hat_base[:1].isalpha():
+                # The circumflex goes on the letter, before its index: p̂ₓ,
+                # p̂₍y₎. Keep a combining circumflex when Unicode has no
+                # precomposed character (common for operator letters X and P).
+                accented = unicodedata.normalize('NFC', hat_base[0] + '\u0302')
+                return accented + hat_base[1:], arg[1]
             if name in ('overline', 'bar') and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
                 return f'{arg[0]}¯', arg[1]
             if name == 'vec' and _SINGLE_SCRIPT_ATOM_RE.fullmatch(arg[0]):
@@ -1383,9 +1429,13 @@ def _collapse_extract_whitespace(text: str) -> str:
     text = text.replace('\u2061', '')  # function-application (MathML)
     text = re.sub(r'[ \t]+\n', '\n', text)
     text = re.sub(r'\n{3,}', '\n\n', text)
-    # Punctuation that followed a removed display formula; a "; " or ": " line
-    # is a definition list term or description.
-    text = re.sub(r'\n{2,}[ \t]*([,.!?…]|[;:](?![ \t]))', r'\1', text)
+    # Punctuation that followed a removed display formula or a footnote on
+    # its own source line; a "; " or ": " line is a definition list term or
+    # description.
+    text = re.sub(r'\n+[ \t]*([,.!?…]|[;:](?![ \t]))', r'\1', text)
+    # "в 1924 г.." and "года.." (a footnote between the dots): one full stop.
+    # "!..", "?..", an ellipsis and a range "−25..−30" stay.
+    text = re.sub(r'(?<![.!?…])\.\.(?![.\d+−-])', '.', text)
     # Mid-sentence leftovers: "скорость\n\nсоответствует" / "скорость\n соответствует".
     text = re.sub(r'([^\n])\n{2,}[ \t]*([^\W\d_])', collapse_prose_linebreak, text)
     text = re.sub(r'([^\n])\n[ \t]*([^\W\d_])', collapse_prose_linebreak, text)

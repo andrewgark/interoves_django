@@ -407,6 +407,15 @@ html.new-ui-dark .censorly__dock {
   background: color-mix(in srgb, var(--text, #222) 5%, transparent);
 }
 
+/* A hidden index letter in a formula: small, below or above the line. */
+.censorly-tok--mask.censorly-tok--sub,
+.censorly-tok--mask.censorly-tok--sup {
+  font-size: 0.65em;
+}
+
+.censorly-tok--mask.censorly-tok--sub { vertical-align: sub; }
+.censorly-tok--mask.censorly-tok--sup { vertical-align: super; }
+
 /*
   Mask. Default is █ glyphs (.censorly-tok--glyphs).
   Class censorly--bars on #censorly-root restores the rectangle stems.

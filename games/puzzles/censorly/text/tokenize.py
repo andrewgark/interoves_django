@@ -36,7 +36,8 @@ from games.puzzles.censorly.text.stopwords import is_stop_word
 HEADING_START = '\ufdd0'
 HEADING_END = '\ufdd1'
 HEADING_LEVEL_SEP = '\x1f'
-# A display formula is one visible punct token, not a row of letter masks.
+# A display formula: its own line, tokenized like any text, so its letters,
+# names (sin, π) and numbers are guessed and its operators stay visible.
 FORMULA_START = '\ufdd2'
 FORMULA_END = '\ufdd3'
 # A block quotation from the article (see wiki._WikiExtractHTMLParser). Its
@@ -180,18 +181,6 @@ def _block_token(marker: str, attrs: str, tid: int) -> dict[str, Any]:
     return tok
 
 
-def _formula_token(surface: str, tid: int, *, in_title: bool, in_heading: bool) -> dict[str, Any]:
-    return {
-        'id': tid,
-        'surface': surface,
-        'kind': 'punct',
-        'lemma': '',
-        'length': 0,
-        'in_title': bool(in_title),
-        'in_heading': bool(in_heading),
-    }
-
-
 def _tokenize_chunk(
     text: str,
     *,
@@ -199,7 +188,7 @@ def _tokenize_chunk(
     start_id: int,
     in_heading: bool = False,
 ) -> list[dict[str, Any]]:
-    """Words, spaces, punctuation, and whole formulas as one visible token."""
+    """Words, spaces and punctuation; a formula's own spacing is normalized."""
     tokens: list[dict[str, Any]] = []
     tid = start_id
     pos = 0
@@ -215,10 +204,11 @@ def _tokenize_chunk(
             tid += len(chunk)
         surface = re.sub(r'\s+', ' ', match.group(1) or '').strip()
         if surface:
-            tokens.append(_formula_token(
-                surface, tid, in_title=in_title, in_heading=in_heading,
-            ))
-            tid += 1
+            chunk = _tokenize_plain(
+                surface, in_title=in_title, start_id=tid, in_heading=in_heading,
+            )
+            tokens.extend(chunk)
+            tid += len(chunk)
         pos = match.end()
     if pos < len(text or ''):
         tokens.extend(_tokenize_plain(
@@ -237,17 +227,53 @@ def _tokenize_chunk(
     return tokens
 
 
+# A letter written as an index (ₖ, ⁿ, ᵢ) or in a letterlike form (ℙ, ℏ, 𝕒)
+# is a word of its own, hidden and guessed by the plain letter it stands for.
+# NFKC gives that letter for all of them except ℏ (ħ) and ℘, which has no
+# letter form; ℹ is the information sign, not a letter.
+_SCRIPT_LETTER_OVERRIDES = {'ℏ': 'h', '℘': 'p'}
+_NOT_SCRIPT_LETTERS = frozenset('ℹ')
+
+
+def _script_letter(char: str) -> tuple[str, str] | None:
+    """('sub' | 'sup' | 'letter', plain letter) for such a character."""
+    if char in _SCRIPT_LETTER_OVERRIDES:
+        return 'letter', _SCRIPT_LETTER_OVERRIDES[char]
+    if char in _NOT_SCRIPT_LETTERS:
+        return None
+    name = unicodedata.name(char, '')
+    letterlike = '\u2100' <= char <= '\u214f' or '\U0001d400' <= char <= '\U0001d7ff'
+    if not letterlike and not ('SCRIPT' in name or name.startswith('MODIFIER LETTER')):
+        return None
+    plain = unicodedata.normalize('NFKC', char)
+    if plain == char or len(plain) != 1 or not plain.isalpha():
+        return None
+    if 'SUBSCRIPT' in name:
+        return 'sub', plain
+    if 'SUPERSCRIPT' in name or name.startswith('MODIFIER LETTER'):
+        return 'sup', plain
+    return 'letter', plain
+
+
+def _split_script_letters(raw: str):
+    if not any(_script_letter(char) for char in raw):
+        yield raw
+        return
+    for _key, chars in groupby(raw, key=lambda char: (_script_letter(char) or ('',))[0]):
+        yield ''.join(chars)
+
+
 def _plain_token_surfaces(text: str):
     """Keep punctuation outside masked symbol runs (e.g. «♕),»)."""
     for match in _TOKEN_RE.finditer(text):
         raw = match.group(0)
         if raw.isspace() or _WORD_CORE_RE.fullmatch(raw):
-            yield raw
+            yield from _split_script_letters(raw)
         else:
             for _is_symbol, chars in groupby(
                 raw, key=lambda char: unicodedata.category(char).startswith('S'),
             ):
-                yield ''.join(chars)
+                yield from _split_script_letters(''.join(chars))
 
 
 def _is_open_symbol_run(raw: str) -> bool:
@@ -272,6 +298,24 @@ def _tokenize_plain(
     cleaned = unicodedata.normalize('NFC', _strip_invisible(text))
     for raw in _plain_token_surfaces(cleaned):
         if not raw:
+            continue
+        scripts = [_script_letter(char) for char in raw]
+        if all(scripts):
+            plain = ''.join(letter for _kind, letter in scripts)
+            tok = {
+                'id': tid,
+                'surface': plain,
+                'display': raw,
+                'kind': 'content',
+                'lemma': lemma_of(plain),
+                'length': len(raw),
+                'in_title': bool(in_title),
+                'in_heading': bool(in_heading),
+            }
+            if scripts[0][0] != 'letter':
+                tok['script'] = scripts[0][0]
+            tokens.append(tok)
+            tid += 1
             continue
         # Drop combining accents from play surfaces (guessing / display).
         surface = raw if raw.isspace() or raw.endswith('⃗') else strip_combining_marks(raw)
@@ -919,7 +963,7 @@ def reconstruct_body_text(tokens: list[dict[str, Any]]) -> str:
             if index < total and tokens[index].get('kind') == 'heading_break':
                 index += 1
             continue
-        parts.append(tok.get('surface') or '')
+        parts.append(tok.get('display') or tok.get('surface') or '')
         index += 1
     if in_quote:
         parts.append(QUOTE_END)

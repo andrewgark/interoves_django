@@ -42,6 +42,9 @@ def _token_public(
             out['heading_level'] = level
     if tok.get('in_quote'):
         out['in_quote'] = True
+    if tok.get('script'):
+        # A hidden index: its mask is drawn as small as the index itself.
+        out['script'] = tok['script']
     if kind == 'block':
         # Table, collapsed block or code edge: the client needs its shape only.
         out['block'] = tok.get('block') or ''
@@ -71,7 +74,7 @@ def _token_public(
                 out['title_lemma'] = True
             elif lemma and lemma in title_related_lemmas:
                 out['title_related'] = True
-            out['text'] = strip_combining_marks(tok.get('surface') or '')
+            out['text'] = strip_combining_marks(tok.get('display') or tok.get('surface') or '')
             out['revealed'] = True
             return out
 
@@ -91,7 +94,7 @@ def _token_public(
         out['hinted'] = True
     if is_open:
         out['lemma'] = lemma
-        out['text'] = strip_combining_marks(tok.get('surface') or '')
+        out['text'] = strip_combining_marks(tok.get('display') or tok.get('surface') or '')
         if last_lemma and lemma == last_lemma:
             out['just_revealed'] = True
     elif show_endings:

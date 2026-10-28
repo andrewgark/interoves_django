@@ -157,6 +157,8 @@
     // Mask. Default is redactle block glyphs (██████). Class censorly--bars
     // on #censorly-root keeps the older sized rectangle.
     var mask = el('span', 'censorly-tok censorly-tok--mask' + headingClass(tok));
+    // A hidden index (ₖ, ⁿ) is drawn as small and as low or high as the index.
+    if (tok.script === 'sub' || tok.script === 'sup') mask.classList.add('censorly-tok--' + tok.script);
     mask.dataset.id = String(tok.id);
     if (tok.lemma) mask.dataset.lemma = tok.lemma;
     var ending = tok.ending || '';
