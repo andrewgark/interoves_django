@@ -113,7 +113,7 @@ class NextGameAutumnPageTests(TestCase):
         self.assertIn('до конца 11 ноября', body)
         self.assertIn('ноябре–декабре', body)
         self.assertIn('/vote/next-game/2026/september/', body)
-        self.assertIn('половина их сентябрьской поддержки', body)
+        self.assertIn('сохранена половина накопившихся донатов', body)
         self.assertIn('vote-bar__carry', body)
         self.assertIn('Старт €20', body)
         self.assertIn('Победитель того сбора — Логические пазлы', body)
