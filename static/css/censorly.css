@@ -83,13 +83,20 @@ html.new-ui-dark .censorly__dock {
     display: inline;
     max-width: none;
     font-size: 0.9em;
-    /* Last resort for a word longer than the whole line (long title words
-       at heading size): split the mask instead of widening the page. */
-    white-space: normal;
-    overflow-wrap: anywhere;
+    white-space: nowrap;
+    overflow-wrap: normal;
     word-break: normal;
     box-decoration-break: clone;
     -webkit-box-decoration-break: clone;
+  }
+
+  /* Last resort for a word longer than the whole line (long title words
+     at heading size): split the mask instead of widening the page. Only the
+     glyphs before the tail wrap, so the last glyph keeps the punctuation
+     that follows it on its line. */
+  .censorly-tok--glyphs .censorly-tok__wrap {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   /* Keep the article visible above the sticky input dock on phones. */

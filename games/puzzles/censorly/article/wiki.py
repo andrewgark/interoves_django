@@ -942,6 +942,11 @@ def _is_unconfirmed_mathml_dump(lines: list[str]) -> bool:
     return has_operator and has_digit
 
 
+# ``* item`` / ``# item`` / ``: item`` from the HTML converter. A lone glyph such
+# as ``*`` in a MathML dump has no text after the marker.
+_LIST_ITEM_LINE_RE = re.compile(r'^[*#;:]+[ \t]+\S')
+
+
 def _strip_indented_math_lines(text: str) -> str:
     """Drop MathML fallback blocks immediately before their canonical TeX source.
 
@@ -969,9 +974,9 @@ def _strip_indented_math_lines(text: str) -> str:
         while cursor >= 0 and scanned_chars <= 12000:
             candidate = lines[cursor]
             stripped = candidate.strip()
-            # A table row is structured content, not the glyph-by-glyph
-            # fallback for the formula that follows it.
-            if stripped.startswith('|'):
+            # A table row or list item is structured content, not the
+            # glyph-by-glyph fallback for the formula that follows it.
+            if stripped.startswith('|') or _LIST_ITEM_LINE_RE.match(stripped):
                 break
             math_chars = '+−-=<>[]{}.,;:/\\_^*|·⋅×↑↓↕⇑⇓⇕→←…π∞√'
             if stripped and (
@@ -1001,7 +1006,7 @@ def _strip_indented_math_lines(text: str) -> str:
     kept: list[str] = []
     pending: list[str] = []
     for line in text.splitlines(keepends=True):
-        if line.lstrip().startswith('|'):
+        if line.lstrip().startswith('|') or _LIST_ITEM_LINE_RE.match(line.lstrip()):
             kept.extend(pending)
             pending.clear()
             kept.append(line)

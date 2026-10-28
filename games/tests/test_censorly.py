@@ -1104,6 +1104,13 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertNotIn('fallback', marked)
 
         cleaned = clean_wiki_extract(marked, mark_formulas=True)
+        # Short formula items are list structure, not a MathML glyph dump.
+        self.assertEqual(cleaned.count('• '), 120)
+        self.assertIn('• 1 Элемент 1 ', cleaned)
+        short_items = clean_wiki_extract(
+            'Пример:\n* a = 1\n* b = 2\n* c = 3\n* d {\\displaystyle d = 4}', mark_formulas=True,
+        )
+        self.assertIn('• a = 1 • b = 2 • c = 3 • d ', short_items)
         # TeX subscripts consume one unbraced atom: x_120 means x₁ followed by 20.
         self.assertIn('x₁20 = 120', cleaned)
 

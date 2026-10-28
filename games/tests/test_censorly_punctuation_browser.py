@@ -11,7 +11,6 @@ from django.test import SimpleTestCase
 from games.puzzles.censorly.article.redact import build_public_view
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -47,16 +46,24 @@ class CensorlyPunctuationBrowserTests(SimpleTestCase):
                             page.locator('#censorly-body').evaluate(
                                 '(body, value) => { body.style.width = value + "px"; }', width,
                             )
-                            lines = page.locator('#censorly-body').evaluate('''body =>
-                                Array.from(body.querySelectorAll('.censorly-tok')).map(node => {
+                            gaps = page.locator('#censorly-body').evaluate('''body => {
+                                // Line top of a token's first and last fragment.
+                                const edges = node => {
                                     const range = document.createRange();
                                     range.selectNodeContents(node);
-                                    return Math.round(range.getBoundingClientRect().top);
-                                })
-                            ''')
+                                    const rects = Array.from(range.getClientRects())
+                                        .filter(rect => rect.width > 0);
+                                    return [rects[0].top, rects[rects.length - 1].top];
+                                };
+                                const toks = Array.from(body.querySelectorAll('.censorly-tok'));
+                                return toks.slice(1).map((node, index) =>
+                                    Math.round(Math.abs(edges(node)[0] - edges(toks[index])[1])));
+                            }''')
                             with self.subTest(case=case, won=won, viewport=viewport, width=width):
                                 # Text and block masks have slightly different baselines;
                                 # a real line break is roughly one full line-height (20+ px).
-                                self.assertLess(max(lines) - min(lines), 10)
+                                # A mask wider than the line may still wrap inside itself
+                                # on narrow layouts; it must not split from its neighbours.
+                                self.assertLess(max(gaps), 10)
             finally:
                 browser.close()

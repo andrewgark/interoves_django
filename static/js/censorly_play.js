@@ -217,11 +217,14 @@
     blocks.dataset.len = String(totalLen);
     // The ending overlays the last glyphs. Anchor it to those glyphs so it
     // stays at the word's end when a long mask wraps onto several lines.
-    var tailLen = ending ? Math.min(Array.from(ending).length, ch) : 0;
-    blocks.textContent = '\u2588'.repeat(ch - tailLen);
-    if (ending) {
+    // Without an ending the unbreakable tail is still the last glyph, so a
+    // forced wrap splits the mask and never strands the punctuation after it.
+    var tailLen = Math.min(ending ? Array.from(ending).length : 1, ch);
+    // Only the glyphs before the tail may wrap (see censorly.css).
+    if (ch > tailLen) blocks.appendChild(el('span', 'censorly-tok__wrap', '\u2588'.repeat(ch - tailLen)));
+    if (tailLen) {
       var tail = el('span', 'censorly-tok__tail', '\u2588'.repeat(tailLen));
-      tail.appendChild(el('span', 'censorly-tok__ending', ending));
+      if (ending) tail.appendChild(el('span', 'censorly-tok__ending', ending));
       blocks.appendChild(tail);
     }
     mask.appendChild(blocks);
