@@ -13,7 +13,11 @@ from games.site.pages import (
     _age_gate_context,
     _project_urls_context,
 )
-from games.site.pages.game.visible_games import GAMES_PER_PAGE, project_games_list
+from games.site.pages.game.visible_games import (
+    GAMES_PER_PAGE,
+    mark_archive_locks,
+    project_games_list,
+)
 
 logger = logging.getLogger('games.views.new_ui')
 
@@ -103,6 +107,7 @@ def _new_folder_games(request):
         page = int(request.GET.get('page', 1))
         paginator = Paginator(all_games, GAMES_PER_PAGE)
         games_page = paginator.get_page(page)
+        mark_archive_locks(request, games_page.object_list)
         games_html = render(request, 'ui/games_list_items.html', {
             'games': games_page,
             'game_list_offset': (page - 1) * GAMES_PER_PAGE,
@@ -119,7 +124,7 @@ def _new_folder_games(request):
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     return render(request, 'ui/folder_games.html', {
         'project': project,
-        'games': all_games[:GAMES_PER_PAGE],
+        'games': mark_archive_locks(request, all_games[:GAMES_PER_PAGE]),
         'total_games': len(all_games),
         'games_per_page': GAMES_PER_PAGE,
         'page_title': 'Десяточки',

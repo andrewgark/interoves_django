@@ -16,7 +16,11 @@ from games.site.pages import NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT, _project_b
 from games.site.pages.game.access import _games_list_card_context, _new_folder_games
 from games.site.pages.game.pages import _render_section_game_page
 from games.site.pages.game.progress import _play_url_for_task_group
-from games.site.pages.game.visible_games import GAMES_PER_PAGE, project_games_list
+from games.site.pages.game.visible_games import (
+    GAMES_PER_PAGE,
+    mark_archive_locks,
+    project_games_list,
+)
 from games.site.pages.hub.actor import team_for_user
 from games.site.pages.hub.cards import (
     _build_hub_section_cards,
@@ -152,6 +156,7 @@ def project_folder_games(request, project_id):
         page = int(request.GET.get('page', 1))
         paginator = Paginator(all_games, GAMES_PER_PAGE)
         games_page = paginator.get_page(page)
+        mark_archive_locks(request, games_page.object_list)
         games_html = render(request, 'ui/games_list_items.html', {
             'games': games_page,
             'game_list_offset': (page - 1) * GAMES_PER_PAGE,
@@ -168,7 +173,7 @@ def project_folder_games(request, project_id):
 
     return render(request, 'ui/folder_games.html', {
         'project': project,
-        'games': all_games[:GAMES_PER_PAGE],
+        'games': mark_archive_locks(request, all_games[:GAMES_PER_PAGE]),
         'total_games': len(all_games),
         'games_per_page': GAMES_PER_PAGE,
         'page_title': 'Десяточки',
