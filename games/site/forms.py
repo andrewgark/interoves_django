@@ -1,42 +1,8 @@
-from django.core.validators import validate_email
-from django.forms import Form, ModelForm, ChoiceField, TextInput, HiddenInput, BooleanField, RadioSelect
 from django import forms
-from games.models import Attempt, CorporateGameOrder, Team, TicketRequest
+from django.core.validators import validate_email
+from django.forms import ModelForm, RadioSelect, TextInput
 
-
-class CreateTeamForm(ModelForm):    
-    def __init__(self, project, *args, **kwargs):
-        super(ModelForm, self).__init__(*args, **kwargs)
-        self.fields['name'].widget = TextInput(attrs={'placeholder': 'Придумайте название вашей команды'})
-        self.fields['name'].widget.attrs['size'] = 45
-
-        self.fields['referer'].widget.attrs['style'] = 'width: 356px'
-        self.fields['referer'].choices = [('', 'Выберите команду, которая вас пригласила')]
-        for team in sorted(Team.objects.filter(project=project), key=lambda t: t.visible_name):
-            if not team.is_hidden:
-                self.fields['referer'].choices.append((team.name, team.visible_name))
-        
-        self.fields['project'].widget = HiddenInput()
-        self.fields['project'].initial = project
-
-    class Meta:
-        model = Team
-        fields = ['name', 'project', 'referer']
-
-
-class JoinTeamForm(Form):
-    def __init__(self, project, *args, **kwargs):
-        super(JoinTeamForm, self).__init__(*args, **kwargs)
-        self.fields['name'].choices = [('', 'Выберите команду')]
-        for team in sorted(Team.objects.filter(project=project), key=lambda t: t.visible_name):
-            if not team.is_hidden:
-                self.fields['name'].choices.append((team.name, team.visible_name))
-
-    name = ChoiceField(
-        choices=(),
-        initial='Выберите команду',
-        required=True
-    )
+from games.models import Attempt, CorporateGameOrder
 
 
 class AttemptForm(ModelForm):
@@ -61,12 +27,6 @@ class AttemptForm(ModelForm):
     class Meta:
         model = Attempt
         fields = ['text']
-
-
-class TicketRequestForm(ModelForm):
-    class Meta:
-        model = TicketRequest
-        fields = ['money', 'tickets', 'yookassa_id']
 
 
 class CorporateGameOrderForm(ModelForm):

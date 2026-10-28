@@ -1,0 +1,9 @@
+{% extends "site/base.html" %}
+{% load static %}
+{# Пасхалка для десяточки 54. #}
+{% block title %}Пасхалка{% endblock %}
+{% block content %}
+<div class="new-easter-egg">
+  <img src="{% static 'img/easter_egg_rebus.png' %}" alt="Ребус" style="display: block; width: 600px; max-width: 100%; height: auto; margin: 0 auto;">
+</div>
+{% endblock %}

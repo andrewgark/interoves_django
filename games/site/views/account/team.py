@@ -1,11 +1,11 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
-from games.site.forms import CreateTeamForm, JoinTeamForm
-from games.models import ProfileTeamMembership, Team
+
 from games.identity import has_profile, has_team
+from games.models import ProfileTeamMembership, Team
 from games.site.http.request_util import redirect_to_referer
 
 
@@ -14,29 +14,6 @@ def _team_from_request(request, fallback_team):
     if tid:
         return Team.objects.filter(pk=tid).first()
     return fallback_team
-
-
-@user_passes_test(has_profile)
-def create_team(request):
-    user = request.user
-    form = CreateTeamForm(project=request.POST.get('project'), data=request.POST)
-    if form.is_valid():
-        team = form.save()
-        user.profile.add_team_membership(team, make_primary=True)
-        user.profile.team_requested = None
-        user.profile.save(update_fields=['team_requested'])
-    return redirect_to_referer(request)
-
-
-@user_passes_test(has_profile)
-def join_team(request):
-    user = request.user
-    form = JoinTeamForm(project=request.POST.get('project'), data=request.POST)
-    if form.is_valid() and form.cleaned_data['name'] and not user.profile.team_requested:
-        team = get_object_or_404(Team, name=form.cleaned_data['name'])
-        user.profile.team_requested = team
-        user.profile.save(update_fields=['team_requested'])
-    return redirect_to_referer(request)
 
 
 @user_passes_test(has_profile)
@@ -110,12 +87,3 @@ def reject_user_joining_team(request, user_id, project_id=None):
 def kick_out_user(request, user_id, project_id=None):
     return process_user_request(request, user_id, 'kick_out')
 
-
-def get_team_to_play_page(request, game):
-    from games.site.forms import CreateTeamForm, JoinTeamForm
-    return render(request, 'get_team_to_play.html', {
-        'game': game,
-        'create_team_form': CreateTeamForm(game.project),
-        'join_team_form': JoinTeamForm(game.project),
-        'project': game.project
-    })

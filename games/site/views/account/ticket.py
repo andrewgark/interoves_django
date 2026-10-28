@@ -2,7 +2,6 @@ import json
 import logging
 from decimal import Decimal, InvalidOperation
 
-from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
@@ -12,11 +11,7 @@ from games.club.billing.crypto import verify_ipn_signature
 from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
 from games.club.billing.tribute.util import verify_webhook_signature as verify_tribute_webhook_signature
 from games.club.billing.yookassa.util import configure_yookassa_from_env
-from games.identity import has_team
 from games.models import TicketRequest
-from games.site.forms import TicketRequestForm
-from games.site.http.exceptions import InvalidFormException
-from games.site.http.request_util import redirect_to_referer
 
 logger = logging.getLogger('games.views.ticket')
 
@@ -71,24 +66,6 @@ def _resolve_ticket_request_for_tribute(payload: dict):
         .filter(id=ticket_id)
         .first()
     )
-
-
-@user_passes_test(has_team)
-def request_ticket(request):
-    """
-    Legacy endpoint used by old UI.
-
-    It only creates a TicketRequest in DB (Pending). Actual payment confirmation must happen
-    via YooKassa webhook flow; polling is intentionally removed.
-    """
-    team = request.user.profile.team_on
-    form = TicketRequestForm(request.POST)
-    if not form.is_valid():
-        raise InvalidFormException('Введите число билетов от 1 до 20')
-    ticket_request = form.save(commit=True)
-    ticket_request.team = team
-    ticket_request.save()
-    return redirect_to_referer(request)
 
 
 def check_order(request):

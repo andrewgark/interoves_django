@@ -9,7 +9,8 @@
 - примерно 470 HTML-шаблонов;
 - крупные точки концентрации логики: `games/site/ui/*`, `games/models/`,
   `games/site/admin`, `games/ops/workers/jobs/recheck.py`;
-- одновременно существуют новый и legacy UI;
+- одновременно существовали новый и legacy UI (legacy удалён 2026-10-28,
+  `/old/…` редиректит в новый UI);
 - текущий тестовый вход — `run_tests.sh`, который уже включает responsive
   lint и проверку inline JavaScript;
 - рабочее дерево при создании этого плана было изменено в

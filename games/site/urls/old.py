@@ -1,55 +1,35 @@
-from django.urls import path, re_path as url
+"""Retired old interface: /old/… links redirect to the new UI or answer 410."""
 
-from games.site.views.account.registration import register_to_game
-from games.site.views.account.ticket import check_order, request_ticket
-from games.site.views.pages.meta import capitals_task_100, countries_task_100
-from games.site.views.account.team import (
-    confirm_user_joining_team,
-    create_team,
-    join_team,
-    kick_out_user,
-    quit_from_team,
-    reject_user_joining_team,
-)
-from games.site.views.game.answer import get_answer
-from games.site.views.game.attempt import send_attempt
-from games.site.views.game.hint import send_hint_attempt
-from games.site.views.game.page import game_page, get_tournament_results
-from games.site.views.pages.other import easter_egg_2021, like_dislike, return_intentional_503
-from games.site.views.pages.public.main import MainPageView
-from games.site.views.results.pages import results_page
-from games.site.views.results.total import total_results_page
+from django.urls import path
+from django.urls import re_path as url
+
+from games.site.views.account.ticket import check_order
+from games.site.views.pages import legacy
+
+_OLD_PROJECT_HOMES = ('main', 'glowbyte', 'tinkoff', 'lksh', 'tennet', 'tinkoffgeneration', 'umind')
 
 urlpatterns = [
-    path("", MainPageView.as_view(project_name="main")),
-    path("main/", MainPageView.as_view(project_name="main")),
-    path("glowbyte/", MainPageView.as_view(project_name="glowbyte")),
-    path("tinkoff/", MainPageView.as_view(project_name="tinkoff")),
-    path("lksh/", MainPageView.as_view(project_name="lksh")),
-    path("tennet/", MainPageView.as_view(project_name="tennet")),
-    path("tinkoffgeneration/", MainPageView.as_view(project_name="tinkoffgeneration")),
-    path("umind/", MainPageView.as_view(project_name="umind")),
-    path("create_team/", create_team, name="create_team"),
-    path("join_team/", join_team, name="join_team"),
-    path("quit_from_team/", quit_from_team, name="quit_from_team"),
-    url(r"^confirm_user_joining_team/(?P<user_id>\d+)/$", confirm_user_joining_team),
-    url(r"^reject_user_joining_team/(?P<user_id>\d+)/$", reject_user_joining_team),
-    url(r"^kick_out_user/(?P<user_id>\d+)/$", kick_out_user),
-    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/$", game_page),
-    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)$", game_page),
-    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)/(?P<task>[0-9.a-zA-Zа-яА-Я]+)$", game_page),
-    url(r"^send_attempt/(?P<task_id>\d+)/$", send_attempt),
-    url(r"^send_hint_attempt/(?P<task_id>\d+)/$", send_hint_attempt),
-    url(r"^get_answer/(?P<task_id>\d+)/$", get_answer),
-    url(r"^like_dislike/(?P<task_id>\d+)/", like_dislike),
-    url(r"^register/(?P<game_id>[a-zA-Z0-9_]+)/$", register_to_game),
-    url(r"^request_ticket/", request_ticket, name="request_ticket"),
+    path("", legacy.project_home),
+    *[path(f"{project_id}/", legacy.project_home, {"project_id": project_id}) for project_id in _OLD_PROJECT_HOMES],
+    path("create_team/", legacy.to_path("/team/")),
+    path("join_team/", legacy.to_path("/team/")),
+    path("quit_from_team/", legacy.to_path("/team/")),
+    path("request_ticket/", legacy.to_path("/pay/")),
+    url(r"^confirm_user_joining_team/(?P<user_id>\d+)/$", legacy.to_path("/confirm_user_joining_team/{user_id}/")),
+    url(r"^reject_user_joining_team/(?P<user_id>\d+)/$", legacy.to_path("/reject_user_joining_team/{user_id}/")),
+    url(r"^kick_out_user/(?P<user_id>\d+)/$", legacy.to_path("/kick_out_user/{user_id}/")),
+    url(r"^register/(?P<game_id>[a-zA-Z0-9_]+)/$", legacy.to_path("/register/{game_id}/")),
+    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/$", legacy.game),
+    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)$", legacy.game),
+    url(r"^games/(?P<game_id>[a-zA-Z0-9_]+)/(?P<task_group>[0-9]+)/(?P<task>[0-9.a-zA-Zа-яА-Я]+)$", legacy.game),
+    url(r"^results/(?P<game_id>[a-zA-Z0-9_]+)/$", legacy.results),
+    url(r"^tournament_results/(?P<game_id>[a-zA-Z0-9_]+)/$", legacy.tournament_results),
+    url(r"^cw_hint/?$", legacy.to_path("/cw_hint")),
+    url(r"^easter_egg_2021/?$", legacy.to_path("/easter_egg_2021/")),
+    url(r"^meta100-1/?$", legacy.to_path("/meta100-1")),
+    url(r"^meta100-2/?$", legacy.to_path("/meta100-2")),
+    # Retired payment webhook: answers 410 and never processes the payload.
     url(r"^check-order/", check_order, name="check_order"),
-    url(r"^results/(?P<game_id>[a-zA-Z0-9_]+)/$", results_page),
-    url(r"^tournament_results/(?P<game_id>[a-zA-Z0-9_]+)/$", get_tournament_results),
-    url(r"^total_results/(?P<project_id>[a-zA-Z0-9_]+)/$", total_results_page),
-    url("cw_hint", return_intentional_503),
-    url("easter_egg_2021", easter_egg_2021),
-    url("meta100-1", capitals_task_100),
-    url("meta100-2", countries_task_100),
+    # Old AJAX endpoints, total results and anything else.
+    url(r"", legacy.gone),
 ]

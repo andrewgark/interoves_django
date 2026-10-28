@@ -13,7 +13,7 @@ from games.site.pages import (
     _age_gate_context,
     _project_urls_context,
 )
-from games.site.views.pages.public.main import MainPageView
+from games.site.pages.game.visible_games import GAMES_PER_PAGE, project_games_list
 
 logger = logging.getLogger('games.views.new_ui')
 
@@ -94,21 +94,18 @@ def _maybe_registration_or_announce_response(
 
 
 def _new_folder_games(request):
-    view = MainPageView()
-    view.project_name = NEW_UI_PROJECT
-    view.games_per_page = 20
-    all_games = view.get_games_list(request)
+    all_games = project_games_list(request, NEW_UI_PROJECT)
     card_ctx = _games_list_card_context(request)
 
     # AJAX pagination (append cards on window scroll near bottom)
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         from django.core.paginator import Paginator
         page = int(request.GET.get('page', 1))
-        paginator = Paginator(all_games, view.games_per_page)
+        paginator = Paginator(all_games, GAMES_PER_PAGE)
         games_page = paginator.get_page(page)
         games_html = render(request, 'ui/games_list_items.html', {
             'games': games_page,
-            'game_list_offset': (page - 1) * view.games_per_page,
+            'game_list_offset': (page - 1) * GAMES_PER_PAGE,
             **card_ctx,
         }).content.decode('utf-8')
         return JsonResponse({
@@ -122,9 +119,9 @@ def _new_folder_games(request):
     project = get_object_or_404(Project, id=NEW_UI_PROJECT)
     return render(request, 'ui/folder_games.html', {
         'project': project,
-        'games': all_games[:view.games_per_page],
+        'games': all_games[:GAMES_PER_PAGE],
         'total_games': len(all_games),
-        'games_per_page': view.games_per_page,
+        'games_per_page': GAMES_PER_PAGE,
         'page_title': 'Десяточки',
         **card_ctx,
         'show_sections_nav': True,

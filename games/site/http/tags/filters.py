@@ -1,13 +1,10 @@
 import json
 import re
 
-from allauth.socialaccount.models import SocialApp
 from django.template.defaulttags import register
-from django.utils import timezone
 
 from games.club.access.game import game_is_going_now
-from games.models import Attempt, GameTaskGroup, Like, Registration, Task, Team
-from games.results.util import better_status
+from games.models import GameTaskGroup, Registration
 
 
 @register.simple_tag(takes_context=True)
@@ -34,18 +31,6 @@ def same_results_actor(actor, current_actor):
 def public_author(value):
     """Hide legacy Telegram suffixes from author labels shown on game pages."""
     return re.sub(r'\s*\(@[A-Za-z0-9_]{1,64}\)\s*$', '', str(value or '')).strip()
-
-
-@register.filter
-def social_app_configured(provider_id):
-    """True if django-allauth has a SocialApplication for this provider (avoids DoesNotExist in templates)."""
-    return SocialApp.objects.filter(provider=provider_id).exists()
-
-
-@register.simple_tag
-def current_year():
-    """Returns the current year as an integer."""
-    return timezone.now().year
 
 
 @register.filter(name='one_more')
@@ -242,31 +227,6 @@ def get_new_attempt_number(n):
     if not n:
         return 1
     return int(n) + 1
-
-
-@register.filter
-def get_parity(n):
-    if n % 2 == 0:
-        return 'even'
-    return 'odd'
-
-
-@register.filter
-def get_lower_status(status):
-    if not status:
-        return 'no'
-    return status.lower()
-
-
-@register.filter
-def get_ru_status(status):
-    status_to_ru = {
-        'Wrong': 'неверно',
-        'Partial': 'частичное решение',
-        'Pending': 'проверяется ведущим',
-        'Ok': 'верно',
-    }
-    return status_to_ru.get(status, '')
 
 
 @register.filter
@@ -515,64 +475,9 @@ def get_wall_tile_stop_guessing_class(wall_attempts_info, mode):
 
 
 @register.filter
-def get_likes(task):
-    return Like.manager.get_likes(task)
-
-
-@register.filter
-def get_dislikes(task):
-    return Like.manager.get_dislikes(task)
-
-
-@register.filter
-def team_has_like(task, team):
-    return Like.manager.team_has_like(task, team)
-
-
-@register.filter
-def team_has_dislike(task, team):
-    return Like.manager.team_has_dislike(task, team)
-
-
-@register.filter
-def get_task_status(task_team__mode, attempts_info):
-    task_team, mode = task_team__mode
-    task, team = task_team
-    if attempts_info is not None and attempts_info.best_attempt is not None:
-        return attempts_info.best_attempt.status
-    if task.task_type == 'text_with_forms':
-        worst_status = 'Ok'
-        for other_task in task.task_group.tasks.visible():
-            attempts_info = Attempt.manager.get_attempts_info(team, other_task, mode)
-            status = ''
-            if attempts_info and attempts_info.best_attempt:
-                status = attempts_info.best_attempt.status
-            if other_task != task and better_status(worst_status, status):
-                worst_status = status
-        return worst_status
-    return ''
-
-
-@register.filter
-def get_text_with_forms_attempt_form(task):
-    placeholder = 'Ответ ({})'.format(task.number)
-    if task.field_text_width is not None and task.field_text_width < 15:
-        placeholder = ''
-    return task.get_attempt_form(placeholder=placeholder)
-
-
-@register.filter
 def hint_was_taken(attempts_info, hint):
     for hint_attempt in attempts_info.hint_attempts:
         if hint_attempt.hint == hint:
-            return True
-    return False
-
-
-@register.filter
-def hint_was_really_taken(attempts_info, hint):
-    for hint_attempt in attempts_info.hint_attempts:
-        if hint_attempt.hint == hint and hint_attempt.is_real_request:
             return True
     return False
 
@@ -591,34 +496,6 @@ def all_not_taken_required_hints(attempts_info, hint):
     return 'подсказок {}'.format(
         ', '.join([str(x.number) for x in sorted(res, key=lambda h: h.key_sort())])
     )
-
-@register.filter
-def took_at_least_one_hint(attempts_info):
-    if not attempts_info:
-        return False
-    for hint_attempt in attempts_info.hint_attempts:
-        if hint_attempt.is_real_request:
-            return True
-    return False
-
-
-@register.filter
-def get_hint_numbers(attempts_info):
-    if callable(getattr(attempts_info, 'get_hint_numbers', None)):
-        return ', '.join(str(number) for number in attempts_info.get_hint_numbers())
-    hint_attempts = [ha for ha in attempts_info.hint_attempts if ha.is_real_request]
-    return ', '.join([
-        str(ha.hint.number)
-        for ha in sorted(hint_attempts, key=lambda ha: ha.hint.key_sort())
-    ])
-
-
-@register.filter
-def make_hint_desc_in_brackets(hint_desc):
-    if not hint_desc:
-        return ''
-    return '({}) '.format(hint_desc)
-
 
 @register.filter
 def wall_tile_has_image(tile_text):
@@ -663,43 +540,6 @@ def _game_image_url(game):
     return game.image.url if game.image else ''
 
 
-@register.filter
-def get_future_games_js_list(games):
-    if not games:
-        return '[]'
-    now = timezone.now()
-    games_list = [
-        '{{"id": "{id}", "title": "{title}", "startTime": new Date("{start_time}"), "endTime": new Date("{end_time}"), "imgSrc": "{img_src}"}}'.format(
-            id=game.id,
-            title=game.name,
-            img_src=_game_image_url(game),
-            start_time=game.start_time.isoformat(),
-            end_time=game.end_time.isoformat()
-        )
-        for game in games
-        if game.start_time > now
-    ]
-    games_joined = ', '.join(games_list)
-    return '[{}]'.format(games_joined)
-
-
-@register.filter
-def get_ongoing_game_js(game):
-    if not game:
-        return 'null'
-    return '{{"id": "{id}", "title": "{title}", "startTime": new Date("{start_time}"), "endTime": new Date("{end_time}"), "imgSrc": "{img_src}"}}'.format(
-        id=game.id,
-        title=game.name,
-        img_src=_game_image_url(game),
-        start_time=game.start_time.isoformat(),
-        end_time=game.end_time.isoformat()
-    )
-
-@register.filter
-def sorted_ticket_requests(team):
-    return sorted(team.ticket_requests.all(), key=lambda x: x.time)
-
-
 @register.simple_tag
 def distribute_text_to_team_tag(task, team, game=None):
     data = json.loads(task.text)
@@ -723,40 +563,11 @@ def distribute_text_to_team_tag(task, team, game=None):
 
 
 @register.filter
-def team_tagged(task):
-    team_name = task.tags.get('team')
-    if team_name is None:
-        return None
-    return Team.objects.get(name=team_name)
-
-
-@register.filter
-def task_should_be_hidden(task_team__mode, task_to_attempts_info):
-    task_team, mode = task_team__mode
-    task, team = task_team
-    if "should_be_hidden_if_not_solved" not in task.tags:
-        return False
-    if team is None:
-        return True
-    ref_task_ids = task.tags["should_be_hidden_if_not_solved"]
-    by_id = {t.id: t for t in Task.objects.visible().filter(id__in=ref_task_ids)}
-    ref_tasks = [by_id[i] for i in ref_task_ids if i in by_id]
-    if not ref_tasks:
-        return False
-    statuses = [get_task_status(((ref_task, team), mode), task_to_attempts_info[ref_task.id]) for ref_task in ref_tasks]
-    return statuses != ["Ok"] * len(ref_tasks)
-
-
-@register.filter
 def word_salad_theme(text):
     """Theme for the salad widget: strip a stored «Тема:» so the label is not doubled."""
     from games.puzzles.salad.rules import theme_from_text
     return theme_from_text(text)
 
-
-@register.filter
-def replace_edit_copy(url):
-    return url.replace("edit", "copy")
 
 @register.filter
 def get_available_referents(game, team):

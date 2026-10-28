@@ -7,31 +7,19 @@
     <input type="hidden" class="n-words-in-category" name="variable" value={{ task.get_wall.n_words }}>
     <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
     {% for tile in task.get_wall|get_guessed_tiles:attempts_info %}
-      {% if wall_new_ui %}
-        <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
-          {% include "task-content/wall-tile.html" %}
-        </div>
-      {% else %}
-        <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
-          {% include "task-content/wall-tile.html" %}
-        </div>
-      {% endif %}
+      <div class="wall-tile wall-tile-guessed wall-tile-guessed-{{ tile.category_id }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+        {% include "task-content/wall-tile.html" %}
+      </div>
     {% endfor %}
     {% with wall_tile_stop_guessing=task.get_wall|one_more:attempts_info|get_wall_tile_stop_guessing_class:mode %}
     {% for tile in task.get_wall|get_not_guessed_tiles:attempts_info %}
-      {% if wall_new_ui %}
-        <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
-          {% include "task-content/wall-tile.html" %}
-        </div>
-      {% else %}
-        <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
-          {% include "task-content/wall-tile.html" %}
-        </div>
-      {% endif %}
+      <div class="wall-tile wall-tile-not-guessed  {{ wall_tile_stop_guessing }}" id="task-{{ task.id }}-tile-{{ tile.id }}">
+        {% include "task-content/wall-tile.html" %}
+      </div>
     {% endfor %}
     {% endwith %}
   </div>
-  {% if wall_new_ui %}<div class="new-attempt-msg" data-wall-message aria-live="polite"></div>{% endif %}
+  <div class="new-attempt-msg" data-wall-message aria-live="polite"></div>
   <div class="wall-explanations">
     {% for exptile in task.get_wall|one_more:attempts_info|get_exptiles:mode %}
     {% if exptile.type != 'nothing_is_guessed' and exptile.type != 'first_nothing_is_guessed' %}
@@ -39,7 +27,7 @@
     {% if exptile.type == 'explanation_is_guessed' %}
         <p>OK</p>
         {% elif exptile.type == 'words_are_guessed' %}
-        <form class="attempt-form wall-attempt-form{% if wall_new_ui %} new-wall-explanation-form{% endif %}" action="/send_attempt/{{ task.id }}/" method="post">
+        <form class="attempt-form wall-attempt-form new-wall-explanation-form" action="/send_attempt/{{ task.id }}/" method="post">
             {% csrf_token %}
             <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
             <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
@@ -54,10 +42,10 @@
               <div class="field-wrapper wall-field-wrapper new-wall-explanation__field">
                 {{ task.get_attempt_form.text }}
               </div>
-              <input type="submit" value="Отправить" class="{% if wall_new_ui %}new-btn new-btn--mini{% else %}btn btn-custom-sm btn-sm btn-custom page-scroll{% endif %}">
+              <input type="submit" value="Отправить" class="new-btn new-btn--mini">
             </div>
         </form>
-        {% if wall_new_ui and task_ui.wall %}
+        {% if task_ui.wall %}
         {% with explanation_items=task_ui.wall.explanation_attempts|get_item:exptile.id %}
         <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--plain" popovertarget="prop-wall-explanations-{{ task.id }}-{{ exptile.id }}">попытки ({{ explanation_items|length|default:0 }} / {{ exptile.explanation_max_attempts }})</button>
         <div id="prop-wall-explanations-{{ task.id }}-{{ exptile.id }}" popover="auto" class="new-proportions-attempts-popover">
@@ -81,29 +69,3 @@
   </div>
   </div>
 
-  {% if not wall_new_ui %}
-  {% if mode == 'general' or attempts_info.best_attempt.status == 'Ok' %}
-  <form class="attempt-form">
-    {% csrf_token %}
-    <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
-    <input type="hidden" class="attempt-task-id" name="variable" value="{{ task.id }}">
-    <input type="button" value="Посмотреть ответ" class="btn btn-custom-lg btn-lg btn-custom page-scroll show-answer">
-  </form>
-  {% endif %}
-
-  <div class="max-points">
-    (Один угаданный набор слов стоит: {{ task.get_wall.points_words|minimize_digits }})<br>
-    (Одно угаданное объяснение стоит: {{ task.get_wall.points_explanation|minimize_digits }})<br>
-    (Бонус за полное угадывание: {{ task.get_wall.points_bonus|minimize_digits }})<br>
-    (Максимум баллов: {{ task.get_wall.max_points|minimize_digits }})
-    {% include "task-content/likes.html" %}
-</div>
-
-{% if task.get_hints %}
-  {% include "task-content/hints.html" %}
-{% endif %}
-
-{% if attempts_info %}
-  {% include "task-content/attempts.html" %}
-{% endif %}
-  {% endif %}

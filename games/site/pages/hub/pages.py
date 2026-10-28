@@ -16,6 +16,7 @@ from games.site.pages import NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT, _project_b
 from games.site.pages.game.access import _games_list_card_context, _new_folder_games
 from games.site.pages.game.pages import _render_section_game_page
 from games.site.pages.game.progress import _play_url_for_task_group
+from games.site.pages.game.visible_games import GAMES_PER_PAGE, project_games_list
 from games.site.pages.hub.actor import team_for_user
 from games.site.pages.hub.cards import (
     _build_hub_section_cards,
@@ -35,7 +36,6 @@ from games.site.pages.hub.links import (
     project_desyatochki_rules_chat_url,
     project_hub_community_links,
 )
-from games.site.views.pages.public.main import MainPageView
 
 logger = logging.getLogger('games.views.new_ui')
 
@@ -53,9 +53,7 @@ def hub(request):
             card.get('game') for card in hub_groups['daily_hub_cards']
         )
     with timing_phase(request, 'hub_desyatochki'):
-        view = MainPageView()
-        view.project_name = NEW_UI_PROJECT
-        desyatochki_games = view.get_games_list(request)
+        desyatochki_games = project_games_list(request, NEW_UI_PROJECT)
         desyatochki_card = get_desyatochki_hub_context(desyatochki_games) if desyatochki_games else None
     with timing_phase(request, 'hub_onboarding'):
         show_first_visit_onboarding = _is_first_time_player(request)
@@ -125,9 +123,7 @@ def project_hub(request, project_id):
     project_id = (project_id or '').strip()
     project = get_object_or_404(Project, id=project_id)
     base = _project_base(project.id)
-    view = MainPageView()
-    view.project_name = project.id
-    project_games = view.get_games_list(request)
+    project_games = project_games_list(request, project.id)
     desyatochki_card = get_desyatochki_hub_context(project_games, base=base) if project_games else None
     return render(request, 'ui/hub.html', {
         'project': project,
@@ -147,21 +143,18 @@ def project_folder_games(request, project_id):
     project_id = (project_id or '').strip()
     project = get_object_or_404(Project, id=project_id)
 
-    view = MainPageView()
-    view.project_name = project.id
-    view.games_per_page = 20
-    all_games = view.get_games_list(request)
+    all_games = project_games_list(request, project.id)
     card_ctx = _games_list_card_context(request)
 
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         from django.core.paginator import Paginator
 
         page = int(request.GET.get('page', 1))
-        paginator = Paginator(all_games, view.games_per_page)
+        paginator = Paginator(all_games, GAMES_PER_PAGE)
         games_page = paginator.get_page(page)
         games_html = render(request, 'ui/games_list_items.html', {
             'games': games_page,
-            'game_list_offset': (page - 1) * view.games_per_page,
+            'game_list_offset': (page - 1) * GAMES_PER_PAGE,
             **card_ctx,
             **_project_urls_context(project.id),
         }).content.decode('utf-8')
@@ -175,9 +168,9 @@ def project_folder_games(request, project_id):
 
     return render(request, 'ui/folder_games.html', {
         'project': project,
-        'games': all_games[:view.games_per_page],
+        'games': all_games[:GAMES_PER_PAGE],
         'total_games': len(all_games),
-        'games_per_page': view.games_per_page,
+        'games_per_page': GAMES_PER_PAGE,
         'page_title': 'Десяточки',
         **card_ctx,
         'section_games': [],

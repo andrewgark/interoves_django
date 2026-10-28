@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.template.loader import render_to_string
-from django.test import Client, TestCase
+from django.test import TestCase
 from django.utils import timezone
 
 from games.models import (
@@ -201,20 +201,3 @@ class ResultsTableCellColorsTest(TestCase):
         self.assertEqual(ctx['team_to_cells'][self.team_partial][t2_idx]['cls'], '')
         self.assertEqual(ctx['team_to_cells'][self.team_zero][t2_idx]['cls'], '')
 
-    def test_old_results_page_context_cell_classes(self):
-        client = Client()
-        resp = client.get(f'/old/results/{self.game.id}/')
-        self.assertEqual(resp.status_code, 200)
-
-        t2_idx = 1
-        team_to_cells = resp.context['team_to_cells']
-
-        self.assertEqual(team_to_cells[self.team_max][0]['cls'], 'cell-ok')
-        self.assertEqual(team_to_cells[self.team_pending][0]['cls'], 'cell-pending')
-        self.assertEqual(team_to_cells[self.team_partial][0]['cls'], 'cell-partial')
-        self.assertEqual(team_to_cells[self.team_zero][0]['cls'], 'cell-wrong')
-
-        self.assertEqual(team_to_cells[self.team_max][t2_idx]['cls'], '')
-        self.assertEqual(team_to_cells[self.team_pending][t2_idx]['cls'], '')
-        self.assertEqual(team_to_cells[self.team_partial][t2_idx]['cls'], '')
-        self.assertEqual(team_to_cells[self.team_zero][t2_idx]['cls'], '')

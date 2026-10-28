@@ -69,17 +69,9 @@
   function applyTaskUpdates(msg) {
     if (msg.update_task_html_new && typeof global.applyNewUiTaskHtml === 'function') {
       global.applyNewUiTaskHtml(msg.update_task_html_new);
-    } else if (msg.update_task_html && typeof global.updateTasks === 'function') {
-      global.updateTasks(msg.update_task_html);
     }
     if (msg.raddle_ui && typeof global.applyRaddleUiState === 'function') {
       global.applyRaddleUiState(msg.raddle_ui, {fromRemote: true});
-    }
-    if (msg.update_task_group_title_html && typeof global.updateTaskGroupTitle === 'function') {
-      global.updateTaskGroupTitle(msg.update_task_group_title_html);
-    }
-    if (msg.update_game_title_html && typeof global.updateGameTitle === 'function') {
-      global.updateGameTitle(msg.update_game_title_html);
     }
   }
 
