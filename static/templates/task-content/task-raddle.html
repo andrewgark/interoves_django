@@ -159,7 +159,7 @@
       <h4 class="new-raddle-clues__subtitle">Использованные</h4>
       <ul class="new-raddle-clues__list new-raddle-clues__list--used">
         {% for hint in rd.ui.used_hints %}
-        <li class="new-raddle-clue new-raddle-clue--used" data-hint-index="{{ hint.index }}">
+        <li class="new-raddle-clue new-raddle-clue--used{% if hint.reaction %} new-raddle-clue--voted{% endif %}" data-hint-index="{{ hint.index }}">
           <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
           {% if hint.reaction %}{% with r=hint.reaction %}
           <span class="new-vote" data-vote data-lead="{{ r.likes|vote_lead:r.dislikes }}" role="group" aria-label="Оценка подсказки">

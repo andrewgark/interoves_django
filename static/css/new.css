@@ -5941,8 +5941,6 @@ button.new-vote__side--down::before {
 
 .new-vote__side.is-active {
   color: var(--vote-color);
-  background: color-mix(in srgb, var(--vote-color) 8%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vote-color) 70%, transparent);
 }
 
 /* .new-vote впереди — чтобы перебить бледную заливку лидера (data-lead). */
@@ -5979,8 +5977,12 @@ button.new-vote__side:disabled {
   box-shadow: 0 0 0 2px var(--focus-ring);
 }
 
-.new-vote__side.is-active:focus-visible {
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vote-color) 70%, transparent), 0 0 0 2px var(--focus-ring);
+/* Рамка «моего голоса» — outline с отступом: не меняет размер кнопки и не
+   прилипает к стрелке/числу (своего вертикального padding почти нет).
+   После :focus { outline: none }, иначе после клика рамка пропадает. */
+.new-vote__side.is-active {
+  outline: 1px solid color-mix(in srgb, var(--vote-color) 75%, transparent);
+  outline-offset: 0.08rem;
 }
 
 .new-vote__side.is-failed {
@@ -9427,7 +9429,7 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
   display: block;
 }
 /* Оценка подсказки — голосовалка ▲▼ справа от текста. */
-.new-raddle-clues__list--used .new-raddle-clue:has(.new-vote) {
+.new-raddle-clues__list--used .new-raddle-clue--voted {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -9436,7 +9438,7 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
   margin-left: auto;
 }
 @media (max-width: 560px) {
-  .new-raddle-clues__list--used .new-raddle-clue:has(.new-vote) {
+  .new-raddle-clues__list--used .new-raddle-clue--voted {
     gap: 0.35rem;
   }
 }
