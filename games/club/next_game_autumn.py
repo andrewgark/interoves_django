@@ -7,6 +7,7 @@ separately from money given in this round.
 """
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -80,60 +81,56 @@ SETTINGS_BY_CANDIDATE = {
     CANDIDATE_LOGICS: 'TRIBUTE_NEXT_GAME_AUTUMN_LOGIC_URL',
 }
 
-def _play():
-    return {'role': 'play', 'text': '', 'tone': ''}
+def _grid(kind, size, clues):
+    """Board spec for the JS: clues are (index, text, tone) on a size×size grid."""
+    return json.dumps({
+        'kind': kind,
+        'size': size,
+        'clues': [{'i': i, 't': text, 'tone': tone} for i, text, tone in clues],
+    }, ensure_ascii=False)
 
 
-def _clue(text, tone):
-    return {'role': 'clue', 'text': text, 'tone': tone}
-
-
-def _cells(rows):
-    cells = []
-    for row in rows:
-        for cell in row:
-            cells.append(dict(cell, index=len(cells)))
-    return cells
-
-
+# Pilot minis; each one was checked by brute force to have a single solution.
+# Answers live in static/js/next_game_autumn_vote.js.
 LOGIC_EXAMPLES = (
     {
         'key': 'logic-castle',
         'title': 'Castle Wall',
         'rules': 'castle',
-        'controls': 'Клик по пустой клетке ставит её на петлю или снимает. Клетки с числами в петлю не входят. Когда петля готова — «Проверить».',
-        'cells': _cells([
-            [_play(), _play(), _play(), _clue('3↓', 'black'), _play()],
-            [_play(), _play(), _play(), _play(), _clue('3←', 'black')],
-            [_clue('0→', 'black'), _play(), _clue('0↑', 'white'), _play(), _clue('0←', 'black')],
-            [_play(), _play(), _play(), _play(), _play()],
-            [_play(), _clue('3↑', 'black'), _play(), _play(), _play()],
+        'controls': 'Ведите пальцем или мышью от центра клетки к соседней — появится отрезок петли. Проведите по отрезку ещё раз, чтобы стереть.',
+        'grid': _grid('loop', 6, [
+            (7, '3→', 'black'),
+            (12, '', 'black'),
+            (15, '1←', 'white'),
+            (25, '1→', 'white'),
+            (28, '1↑', 'white'),
         ]),
     },
     {
         'key': 'logic-nurikabe',
         'title': 'Nurikabe',
         'rules': 'nurikabe',
-        'controls': 'Клик переключает клетку: море, остров, снова пусто. Клетки с числами уже часть острова. Затем «Проверить».',
-        'cells': _cells([
-            [_play(), _play(), _clue('1', 'number'), _play(), _play()],
-            [_play(), _play(), _play(), _play(), _play()],
-            [_clue('3', 'number'), _play(), _clue('1', 'number'), _play(), _clue('3', 'number')],
-            [_play(), _play(), _play(), _play(), _play()],
-            [_play(), _play(), _clue('1', 'number'), _play(), _play()],
+        'controls': 'Левая кнопка мыши закрашивает клетку (море), правая ставит точку (остров), повторное нажатие снимает. На телефоне нажатие переключает: закрашено → точка → пусто. Можно вести по нескольким клеткам.',
+        'grid': _grid('shade', 5, [
+            (0, '4', 'number'),
+            (3, '1', 'number'),
+            (7, '3', 'number'),
+            (23, '2', 'number'),
         ]),
     },
     {
         'key': 'logic-cave',
         'title': 'Cave',
         'rules': 'cave',
-        'controls': 'Клик переключает клетку: стена, пещера, снова пусто. Клетки с числами остаются в пещере. Затем «Проверить».',
-        'cells': _cells([
-            [_clue('4', 'number'), _play(), _play(), _play(), _play()],
-            [_play(), _play(), _clue('5', 'number'), _play(), _play()],
-            [_clue('4', 'number'), _clue('5', 'number'), _clue('7', 'number'), _play(), _play()],
-            [_play(), _clue('5', 'number'), _play(), _play(), _play()],
-            [_play(), _play(), _play(), _play(), _clue('3', 'number')],
+        'controls': 'Левая кнопка мыши закрашивает клетку (стена), правая ставит точку (пещера), повторное нажатие снимает. На телефоне нажатие переключает: закрашено → точка → пусто. Можно вести по нескольким клеткам.',
+        'grid': _grid('shade', 5, [
+            (0, '4', 'number'),
+            (7, '5', 'number'),
+            (10, '4', 'number'),
+            (11, '5', 'number'),
+            (12, '7', 'number'),
+            (16, '5', 'number'),
+            (24, '3', 'number'),
         ]),
     },
 )
@@ -143,19 +140,19 @@ CANDIDATE_META = {
     CANDIDATE_POWDERS: {
         'slug': CANDIDATE_POWDERS,
         'name': 'Порошки',
-        'tag': 'Стишок, в котором спрятано одно слово',
+        'tag': 'Закончите стишок-порошок двумя слогами, рифмующимися со второй строкой',
         'cta': 'Поддержать Порошки',
     },
     CANDIDATE_CRYPTICS: {
         'slug': CANDIDATE_CRYPTICS,
         'name': 'Криптики',
-        'tag': 'Подсказка, из которой собирается слово',
+        'tag': 'Одна хитрая словесная загадка в день',
         'cta': 'Поддержать Криптики',
     },
     CANDIDATE_LOGICS: {
         'slug': CANDIDATE_LOGICS,
         'name': 'Логички',
-        'tag': 'Сеточная головоломка со своими правилами',
+        'tag': 'Новая сеточная головоломка каждый день',
         'cta': 'Поддержать Логички',
     },
 }

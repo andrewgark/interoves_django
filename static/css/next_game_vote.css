@@ -50,7 +50,6 @@
 
 .vote-how {
   margin: 1.5rem 0 0;
-  max-width: 42rem;
 }
 
 .vote-how__title {
@@ -432,34 +431,43 @@ html.new-ui-dark .vote-mask {
 }
 
 .vote-play__source {
-  margin: 0.35rem 0 0.55rem;
+  margin: 0.35rem 0 0;
   font-size: 0.82rem;
 }
 
+/* Playable sample, framed so it reads apart from the description. */
 .vote-play {
   min-width: 0;
+  margin: 0 0 0.75rem;
+  padding: 0.7rem 0.75rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: color-mix(in srgb, var(--text) 3%, var(--surface));
 }
 
-.vote-answer {
-  display: block;
-  min-width: 0;
+.vote-play__label {
   margin: 0 0 0.45rem;
-}
-
-.vote-answer__label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 
-.vote-answer input {
+.vote-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  margin: 0.55rem 0 0;
+}
+
+.vote-inline__input,
+.vote-mask-field__input {
   box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
   min-width: 0;
   min-height: var(--btn-height-mini);
-  padding: 0.4rem 0.6rem;
+  padding: 0.3rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: var(--control-radius);
   background: var(--surface);
@@ -467,7 +475,85 @@ html.new-ui-dark .vote-mask {
   font: inherit;
 }
 
-.vote-play__submit,
+.vote-inline__input {
+  flex: 1 1 0;
+  width: 0;
+  max-width: 11rem;
+}
+
+.vote-inline__input:focus,
+.vote-mask-field__input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+
+.vote-inline__msg {
+  flex: 0 0 auto;
+  margin: 0;
+  white-space: nowrap;
+}
+
+/* Порошок: the answer is the 4th line, so the field keeps the poem's line height. */
+.vote-inline--line {
+  margin: 0.15rem 0 0;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.vote-inline--line .vote-inline__input {
+  flex: 0 0 6.6rem;
+  width: 6.6rem;
+  height: 1.45em;
+  min-height: 0;
+  padding: 0 0.35rem;
+  line-height: inherit;
+}
+
+/* Word-length mask like the Лесенка inputs: one ◼ per letter until typing. */
+.vote-mask-field {
+  position: relative;
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.vote-mask-field__input {
+  width: calc(var(--len, 5) * (1ch + 0.2em) + 1rem + 2px);
+  max-width: 100%;
+  font-family: var(--new-font-mono);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.vote-mask-field__input::placeholder {
+  color: transparent;
+}
+
+.vote-mask-field__mask {
+  position: absolute;
+  inset: 0 calc(0.5rem + 1px);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  color: var(--muted);
+  font-family: var(--new-font-mono);
+  line-height: 1;
+  pointer-events: none;
+}
+
+.vote-mask-field__mask span {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+
+.vote-mask-field__input:not(:placeholder-shown) + .vote-mask-field__mask {
+  display: none;
+}
+
 .vote-play__next {
   width: 100%;
   justify-content: center;
@@ -488,27 +574,6 @@ html.new-ui-dark .vote-mask {
 .vote-play__msg.is-bad {
   color: var(--muted);
   font-weight: 650;
-}
-
-.vote-boxes {
-  display: flex;
-  gap: 0.28rem;
-  min-width: 0;
-  margin: 0 0 0.45rem;
-}
-
-.vote-boxes span {
-  flex: 1 1 0;
-  min-width: 0;
-  aspect-ratio: 1;
-  max-width: 1.8rem;
-  border: 1px solid var(--border);
-  border-radius: 3px;
-  background: var(--surface);
-  display: grid;
-  place-items: center;
-  font-weight: 700;
-  text-transform: uppercase;
 }
 
 .vote-logic__head {
@@ -537,77 +602,82 @@ html.new-ui-dark .vote-mask {
   cursor: pointer;
 }
 
+/* Penpa-style paper board: thin grid, heavy frame, grey shading, green loop. */
 .vote-board {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1.7rem));
-  gap: 2px;
-  width: max-content;
-  max-width: 100%;
+  width: 100%;
+  max-width: 15rem;
   margin: 0.45rem 0;
 }
 
-.vote-cell {
-  box-sizing: border-box;
-  width: 1.7rem;
-  max-width: 100%;
-  aspect-ratio: 1;
-  border: 1px solid #c8c2b4;
-  background: #fbfaf6;
-  color: #1a1a1a;
-  padding: 0;
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 700;
-  display: grid;
-  place-items: center;
+.vote-board__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
   cursor: pointer;
 }
 
-.vote-cell--clue {
-  cursor: default;
+.vote-board__cell--empty {
+  fill: #fff;
 }
 
-.vote-cell--number {
-  background: #1a1a1a;
-  color: #fff;
-  border-color: #1a1a1a;
+.vote-board__cell--shade {
+  fill: #4a4a4a;
 }
 
-.vote-cell--black {
-  background: #1a1a1a;
-  color: #fff;
-  border-color: #1a1a1a;
+.vote-board__cell--number,
+.vote-board__cell--white {
+  fill: #fff;
 }
 
-.vote-cell--white {
-  background: #fff;
-  color: #1a1a1a;
-  border: 2px solid #1a1a1a;
+.vote-board__cell--black {
+  fill: #1a1a1a;
 }
 
-.vote-cell[data-vote-state="sea"] {
-  background: #24598a;
-  border-color: #24598a;
+.vote-board__white {
+  fill: none;
+  stroke: #1a1a1a;
+  stroke-width: 3;
 }
 
-.vote-cell[data-vote-state="island"] {
-  background: #f3e2b8;
-  border-color: #c8b48a;
+.vote-board__grid line {
+  stroke: #a9a9a9;
+  stroke-width: 1;
 }
 
-.vote-cell[data-vote-state="wall"] {
-  background: #2c2c2c;
-  border-color: #2c2c2c;
+.vote-board__frame {
+  fill: none;
+  stroke: #1a1a1a;
+  stroke-width: 3;
 }
 
-.vote-cell[data-vote-state="cave"] {
-  background: #f4efe4;
-  border-color: #c8c2b4;
+.vote-board__clue {
+  font: 700 17px var(--new-font-mono, sans-serif);
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: #1a1a1a;
+  pointer-events: none;
 }
 
-.vote-cell[data-vote-state="loop"] {
-  background: #2f6f4e;
-  border-color: #2f6f4e;
+.vote-board__clue--black {
+  fill: #fff;
+  font-size: 14px;
+}
+
+.vote-board__clue--white {
+  font-size: 14px;
+}
+
+.vote-board__dot {
+  fill: #6d6d6d;
+}
+
+.vote-board__loop line {
+  stroke: #2e9b55;
+  stroke-width: 7;
+  stroke-linecap: round;
 }
 
 .vote-logic__controls {

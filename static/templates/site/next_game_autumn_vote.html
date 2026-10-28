@@ -87,96 +87,117 @@
         <p class="vote-card__tag">{{ candidate.tag }}</p>
 
         {% if candidate.slug == 'powders' %}
-          <p class="vote-card__body">Три строки, и в них спрятано одно слово. Его подсказывает смысл, созвучие или шутка. Ниже — настоящие порошки, их можно решить прямо здесь.</p>
+          <p class="vote-card__body">
+            Возможно, вы знаете стихотворные жанры пирожков и порошков. Порошок — короткий стишок на русском без знаков препинания и заглавных букв: четыре строки по 9, 8, 9 и 2 слога. Первая и третья строки не рифмуются, вторая и четвёртая — рифмуются, а последняя строка служит панчлайном.
+          </p>
+          <p class="vote-card__body">
+            Порошков в сети очень много. Нам особенно нравится паблик <a href="https://t.me/igraporoshki" target="_blank" rel="noopener noreferrer">«Играем в порошки»</a>, где их выкладывают.
+          </p>
+          <p class="vote-card__body">
+            Каждый день — новый порошок без последней строки: сочинённый специально для игры, найденный в интернете или присланный автором. Нужно угадать, чем он заканчивается.
+          </p>
           <div class="vote-play" data-vote-play="powders">
+            <p class="vote-play__label">Пример</p>
             <div class="vote-step" data-vote-step data-vote-key="powders-1">
               <p class="vote-poem">е три сказал сурово карпов<br>играя ферзевый гамбит<br>каспаров заглянул в тетрадку</p>
-              <p class="vote-play__source"><a href="https://t.me/igraporoshki/304" target="_blank" rel="noopener noreferrer">Источник</a></p>
               <form data-vote-form>
-                <label class="vote-answer">
-                  <span class="vote-answer__label">Ответ</span>
-                  <input name="answer" placeholder="Два слога" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
-                </label>
-                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
-                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <div class="vote-inline vote-inline--line">
+                  <input class="vote-inline__input" name="answer" placeholder="два слога" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="Последняя строка, два слога">
+                  <span class="vote-play__msg vote-inline__msg" data-vote-msg aria-live="polite" hidden></span>
+                </div>
+                <p class="vote-play__source">(<a href="https://t.me/igraporoshki/304" target="_blank" rel="noopener noreferrer">источник</a>)</p>
                 <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
               </form>
             </div>
             <div class="vote-step" data-vote-step data-vote-key="powders-2" hidden>
               <p class="vote-poem">я на коне кричал геннадий<br>ко мне простёрты сотни рук<br>слезай уже сказал устало</p>
-              <p class="vote-play__source"><a href="https://t.me/igraporoshki/53" target="_blank" rel="noopener noreferrer">Источник</a></p>
               <form data-vote-form>
-                <label class="vote-answer">
-                  <span class="vote-answer__label">Ответ</span>
-                  <input name="answer" placeholder="Ответ" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
-                </label>
-                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
-                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <div class="vote-inline vote-inline--line">
+                  <input class="vote-inline__input" name="answer" placeholder="два слога" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="Последняя строка, два слога">
+                  <span class="vote-play__msg vote-inline__msg" data-vote-msg aria-live="polite" hidden></span>
+                </div>
+                <p class="vote-play__source">(<a href="https://t.me/igraporoshki/53" target="_blank" rel="noopener noreferrer">источник</a>)</p>
                 <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
               </form>
             </div>
             <div class="vote-step" data-vote-step data-vote-key="powders-3" hidden>
               <p class="vote-poem">что у больного едет крыша<br>врач догадался по лицу<br>и обхватил руками череп</p>
-              <p class="vote-play__source"><a href="https://t.me/igraporoshki/240" target="_blank" rel="noopener noreferrer">Источник</a></p>
               <form data-vote-form>
-                <label class="vote-answer">
-                  <span class="vote-answer__label">Ответ</span>
-                  <input name="answer" placeholder="Ответ" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
-                </label>
-                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
-                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <div class="vote-inline vote-inline--line">
+                  <input class="vote-inline__input" name="answer" placeholder="два слога" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" aria-label="Последняя строка, два слога">
+                  <span class="vote-play__msg vote-inline__msg" data-vote-msg aria-live="polite" hidden></span>
+                </div>
+                <p class="vote-play__source">(<a href="https://t.me/igraporoshki/240" target="_blank" rel="noopener noreferrer">источник</a>)</p>
                 <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
               </form>
             </div>
             <p class="vote-play__done" data-vote-done hidden>Это пока всё — донатьте, чтобы этот кандидат победил :-)</p>
           </div>
         {% elif candidate.slug == 'cryptic' %}
-          <p class="vote-card__body">Подсказка устроена как в cryptic crossword: в ней и значение ответа, и способ собрать его из букв. Число в скобках — длина слова. Клетки заполняются, как в Лесенке.</p>
+          <p class="vote-card__body">
+            Криптик — это загадка по принципам английского cryptic crossword. Вам дана длина слова и необычная подсказка, которая одновременно содержит определение ответа и зашифрованный способ его получить: например, анаграмму, скрытое слово, удаление или перестановку букв, игру со значениями слов и другие конструкции.
+          </p>
+          <p class="vote-card__body">
+            В английском языке cryptic crossword — отдельная большая традиция, а на русском такие загадки встречаются гораздо реже, но мы делали их, например, в <a href="https://interoves.com/games/des92/1/">Десяточке 92</a>.
+          </p>
+          <p class="vote-card__body">
+            Каждый день — один новый авторский криптик. Загадки пишу я или присылают другие авторы.
+          </p>
           <div class="vote-play" data-vote-play="cryptic">
-            <div class="vote-step" data-vote-step data-vote-key="cryptic-1" data-vote-len="6">
+            <p class="vote-play__label">Пример</p>
+            <div class="vote-step" data-vote-step data-vote-key="cryptic-1">
               <p class="vote-clue">Спор внутри центра Сколково <span class="vote-clue__len">(6)</span></p>
               <form data-vote-form>
-                <div class="vote-boxes" data-vote-boxes aria-hidden="true"></div>
-                <label class="vote-answer">
-                  <span class="vote-answer__label">Ответ, 6 букв</span>
-                  <input name="answer" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 6 букв">
-                </label>
-                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
-                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <div class="vote-inline">
+                  <span class="vote-mask-field" style="--len: 6">
+                    <input class="vote-mask-field__input" name="answer" maxlength="6" placeholder="◼◼◼◼◼◼" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 6 букв">
+                    <span class="vote-mask-field__mask" aria-hidden="true"><span>◼</span><span>◼</span><span>◼</span><span>◼</span><span>◼</span><span>◼</span></span>
+                  </span>
+                  <span class="vote-play__msg vote-inline__msg" data-vote-msg aria-live="polite" hidden></span>
+                </div>
                 <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
               </form>
             </div>
-            <div class="vote-step" data-vote-step data-vote-key="cryptic-2" data-vote-len="7" hidden>
+            <div class="vote-step" data-vote-step data-vote-key="cryptic-2" hidden>
               <p class="vote-clue">Служба в храме не белом в сторону запада <span class="vote-clue__len">(7)</span></p>
               <form data-vote-form>
-                <div class="vote-boxes" data-vote-boxes aria-hidden="true"></div>
-                <label class="vote-answer">
-                  <span class="vote-answer__label">Ответ, 7 букв</span>
-                  <input name="answer" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 7 букв">
-                </label>
-                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
-                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <div class="vote-inline">
+                  <span class="vote-mask-field" style="--len: 7">
+                    <input class="vote-mask-field__input" name="answer" maxlength="7" placeholder="◼◼◼◼◼◼◼" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 7 букв">
+                    <span class="vote-mask-field__mask" aria-hidden="true"><span>◼</span><span>◼</span><span>◼</span><span>◼</span><span>◼</span><span>◼</span><span>◼</span></span>
+                  </span>
+                  <span class="vote-play__msg vote-inline__msg" data-vote-msg aria-live="polite" hidden></span>
+                </div>
                 <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
               </form>
             </div>
-            <div class="vote-step" data-vote-step data-vote-key="cryptic-3" data-vote-len="6" hidden>
+            <div class="vote-step" data-vote-step data-vote-key="cryptic-3" hidden>
               <p class="vote-clue">Первое начало термодинамики объясняет, как слишком интенсивный нагрев может вызвать смерть <span class="vote-clue__len">(6)</span></p>
               <form data-vote-form>
-                <div class="vote-boxes" data-vote-boxes aria-hidden="true"></div>
-                <label class="vote-answer">
-                  <span class="vote-answer__label">Ответ, 6 букв</span>
-                  <input name="answer" maxlength="32" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 6 букв">
-                </label>
-                <button type="submit" class="new-btn new-btn--ghost vote-play__submit">Сдать ответ</button>
-                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <div class="vote-inline">
+                  <span class="vote-mask-field" style="--len: 6">
+                    <input class="vote-mask-field__input" name="answer" maxlength="6" placeholder="◼◼◼◼◼◼" autocomplete="off" autocapitalize="characters" spellcheck="false" enterkeyhint="done" aria-label="Ответ, 6 букв">
+                    <span class="vote-mask-field__mask" aria-hidden="true"><span>◼</span><span>◼</span><span>◼</span><span>◼</span><span>◼</span><span>◼</span></span>
+                  </span>
+                  <span class="vote-play__msg vote-inline__msg" data-vote-msg aria-live="polite" hidden></span>
+                </div>
                 <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
               </form>
             </div>
             <p class="vote-play__done" data-vote-done hidden>Это пока всё — донатьте, чтобы этот кандидат победил :-)</p>
           </div>
         {% else %}
-          <p class="vote-card__body">Три разных пазла на поле 5×5. Правила открываются вопросиком рядом с полем. Ответ отмечается прямо на сетке.</p>
+          <p class="vote-card__body">
+            Ежедневные логические головоломки на сетке. В разные дни могут встречаться разные типы пазлов и разные правила: Akari, Yajilin, LITS, Nurikabe, Castle Wall, Skyscrapers и другие.
+          </p>
+          <p class="vote-card__body">
+            В них нужно логически определить расположение закрашенных клеток, стен, чисел, источников света или других элементов — в зависимости от правил конкретного типа.
+          </p>
+          <p class="vote-card__body">
+            Каждый день — новый пазл. Задачи могут составляться мной, генерироваться программно или быть присланы другими авторами.
+          </p>
           <div class="vote-play" data-vote-play="logic">
+            <p class="vote-play__label">Пример</p>
             {% for example in logic_examples %}
               <div class="vote-step" data-vote-step data-vote-key="{{ example.key }}" data-vote-logic="{{ example.rules }}"{% if not forloop.first %} hidden{% endif %}>
                 <div class="vote-logic__head">
@@ -185,18 +206,9 @@
                     <i class="ph ph-question" aria-hidden="true"></i>
                   </button>
                 </div>
-                <div class="vote-board" data-vote-board role="group" aria-label="{{ example.title }}">
-                  {% for cell in example.cells %}
-                    {% if cell.role == 'clue' %}
-                      <span class="vote-cell vote-cell--clue vote-cell--{{ cell.tone }}" data-vote-index="{{ cell.index }}">{{ cell.text }}</span>
-                    {% else %}
-                      <button type="button" class="vote-cell" data-vote-index="{{ cell.index }}" data-vote-state="" aria-label="Клетка {{ cell.index|add:1 }}"></button>
-                    {% endif %}
-                  {% endfor %}
-                </div>
+                <div class="vote-board" data-vote-board data-vote-grid="{{ example.grid }}" role="group" aria-label="{{ example.title }}"></div>
                 <p class="vote-logic__controls">{{ example.controls }}</p>
-                <button type="button" class="new-btn new-btn--ghost vote-play__submit" data-vote-check>Проверить</button>
-                <p class="vote-play__msg" data-vote-msg hidden></p>
+                <p class="vote-play__msg" data-vote-msg aria-live="polite" hidden></p>
                 <button type="button" class="new-btn new-btn--ghost vote-play__next" data-vote-next hidden>Решить ещё одну</button>
               </div>
             {% endfor %}
@@ -302,14 +314,14 @@
   </div>
 </div>
 <div id="vote-rules-castle" hidden>
-  <p>Нарисуйте одну замкнутую петлю по клеткам. Она не пересекает себя и не ветвится: у каждой клетки петли ровно два соседа по стороне.</p>
-  <p>Клетки с числами в петлю не входят. Белая клетка лежит внутри петли, чёрная — снаружи.</p>
-  <p>Стрелка влево или вправо считает суммарную длину горизонтальных кусков петли в этой строке по сторону стрелки. Стрелка вверх или вниз считает вертикальные куски в этом столбце. Клетка, через которую петля проходит только поперёк, в эту длину не входит.</p>
+  <p>Нарисуйте одну замкнутую петлю. Она идёт через центры клеток по горизонтали и вертикали, не пересекает себя и проходит через каждую клетку не больше одного раза.</p>
+  <p>Цветные клетки в петлю не входят. Белые клетки лежат внутри петли, чёрные — снаружи.</p>
+  <p>Число со стрелкой — сколько отрезков петли лежит на луче от этой клетки в сторону стрелки. Считаются только отрезки вдоль луча: для стрелки влево или вправо — горизонтальные, для стрелки вверх или вниз — вертикальные.</p>
 </div>
 <div id="vote-rules-nurikabe" hidden>
-  <p>Часть клеток — море, часть — острова.</p>
-  <p>Число задаёт размер своего острова. В каждом острове ровно одно число. Острова не касаются друг друга сторонами, по диагонали можно.</p>
-  <p>Всё море связано по сторонам, и в нём нет квадрата 2×2.</p>
+  <p>Закрасьте часть клеток — это море. Незакрашенные клетки образуют острова.</p>
+  <p>В каждом острове ровно одно число, и оно равно размеру острова. Острова не касаются друг друга сторонами, по диагонали можно.</p>
+  <p>Всё море связано по сторонам, и в нём нет закрашенного квадрата 2×2.</p>
 </div>
 <div id="vote-rules-cave" hidden>
   <p>Закрасьте стены так, чтобы оставшиеся клетки образовали одну пещеру, связанную по сторонам.</p>
