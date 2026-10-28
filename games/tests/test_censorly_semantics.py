@@ -1947,6 +1947,22 @@ class LexicalGameplayTests(TestCase):
 
 
 class ReviewedHomonymClusterTests(SimpleTestCase):
+    def test_killing_aspect_pair_opens_in_both_directions(self):
+        for guess, target in (
+            ('убил', 'убивает'),
+            ('убить', 'убивать'),
+            ('убитый', 'убивать'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertEqual(explain(guess, target), 'root')
+                self.assertEqual(explain(target, guess), 'root')
+                tokens = tokenize_text(target)
+                self.assertIn('убивать', matching_lemmas(tokens, guess))
+
+        for word in ('бить', 'бой'):
+            self.assertFalse(opens(word, 'убивает'))
+            self.assertFalse(opens('убивает', word))
+
     def test_troy_article_candidates_keep_names_and_separate_other_senses(self):
         from games.puzzles.censorly.lexical.semantics import explain
         from games.puzzles.censorly.text.tokenize import all_tokens, build_puzzle_payload

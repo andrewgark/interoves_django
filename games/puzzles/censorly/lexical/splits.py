@@ -4615,7 +4615,7 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_be_located', ('находиться',)),
     ('sense:review_similar', ('похожий',)),
     ('sense:review_fight', ('бой',)),
-    ('sense:review_killed', ('убить', 'убитый')),
+    ('sense:review_killed', ('убивать', 'убить', 'убитый')),
     ('sense:review_deed', ('дело', 'деловой')),
     ('sense:review_monday', ('понедельник',)),
     ('sense:review_assembly', ('собрание',)),
