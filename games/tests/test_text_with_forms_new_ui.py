@@ -5,7 +5,7 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import RequestFactory, TestCase
 
 from games.models import Attempt, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
-from games.site.views.game.render import render_new_ui_task_card_html
+from games.site.views.game.render import render_new_ui_task_card_html, update_task_html
 from games.task_group.task_group_context import build_task_group_task_context_dicts
 from games.task_group.text_with_forms_task_data import title_with_blanks_html
 
@@ -89,6 +89,24 @@ class TextWithFormsNewUiTests(TestCase):
             self.game, self.tg, tasks, None, None, ANON, 'general', placement=self.placement,
         )
         self.assertEqual(ctx['tg_heading_html'].count('<span class="new-title-blank">______</span>'), 2)
+
+    def test_attempt_update_refreshes_heading_with_earlier_solves(self):
+        # A group without a text card: the heading still needs every task's attempts.
+        checker = self.t1.checker
+        with patch('games.realtime.track_compat.track_task_change'):
+            tg = TaskGroup.objects.create(label='twf_title_tg', points=1, tags={'text_with_forms_in_name': True})
+            GameTaskGroup.objects.create(game=self.game, task_group=tg, number=2, name='______ и ______')
+            first = Task.objects.create(task_group=tg, number='1', checker=checker, points=1, text='', answer='ам')
+            second = Task.objects.create(task_group=tg, number='2', checker=checker, points=1, text='', answer='ба')
+        self._solve(first)
+        self._solve(second)
+        request = RequestFactory().post('/')
+        request.user = AnonymousUser()
+        fragments = update_task_html(request, second, None, 'general', anon_key=ANON, game=self.game)
+        heading = fragments['update_task_html_new']['tg-heading']
+        self.assertIn('id="new-task-tg-heading"', heading)
+        self.assertIn('new-title-blank--solved">ам<', heading)
+        self.assertIn('new-title-blank--solved">ба<', heading)
 
     def test_title_blank_i_maps_to_task_i(self):
         self._solve(self.t1)

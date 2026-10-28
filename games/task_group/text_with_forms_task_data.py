@@ -11,11 +11,14 @@ title, filled with the answers once solved (blank *i* → *i*-th task).
 closed until all referenced tasks are solved.
 """
 
+from django.utils.html import escape
+
 from games.models import Task
 
 BLANK = '______'
 LEFT_ANSWERS = 'LEFT_ANSWERS'
 HIDDEN_TAG = 'should_be_hidden_if_not_solved'
+NAME_TAG = 'text_with_forms_in_name'
 
 
 def group_tasks(task_group):
@@ -44,7 +47,8 @@ def support_tasks(tasks):
 
     hidden_ref_ids = []
     for t in tasks:
-        if t.task_type == 'text_with_forms':
+        # A text card fills its blanks, a title with blanks its heading, from the group's tasks.
+        if t.task_type == 'text_with_forms' or NAME_TAG in (t.task_group.tags or {}):
             for other in group_tasks(t.task_group):
                 add(other)
         hidden_ref_ids.extend(_hidden_ref_ids(t))
@@ -113,8 +117,6 @@ def hidden_until_solved_by_task_id(tasks, attempts_info_by_task_id) -> dict:
 
 def title_with_blanks_html(title, tasks, attempts_info_by_task_id):
     """Title HTML with solved blanks filled in; unsolved ones stay ``______``."""
-    from django.utils.html import escape
-
     parts = []
     for seg in _blank_segments(title, tasks, attempts_info_by_task_id, first_task_index=0):
         if 'html' in seg:
@@ -130,7 +132,7 @@ def title_with_blanks_html(title, tasks, attempts_info_by_task_id):
 
 def task_group_heading_html(placement, attempts_info_by_task_id):
     """Task-group heading with filled blanks, or None when the name has no forms."""
-    if placement is None or 'text_with_forms_in_name' not in (placement.task_group.tags or {}):
+    if placement is None or NAME_TAG not in (placement.task_group.tags or {}):
         return None
     return title_with_blanks_html(
         placement.name, group_tasks(placement.task_group), attempts_info_by_task_id,

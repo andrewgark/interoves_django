@@ -117,6 +117,10 @@ def render_new_ui_task_card_html(
     }).content.decode('UTF-8')
 
 
+# applyNewUiTaskHtml replaces #new-task-<key>; task_group.html gives the heading this id.
+TG_HEADING_FRAGMENT_KEY = 'tg-heading'
+
+
 def update_task_html(request, task, team, current_mode, user=None, anon_key=None, game=None, replay_slot=None):
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
@@ -156,6 +160,12 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
         )
         if frag:
             new_fragments[str(t.id)] = frag
+    # Task-group name with ______ blanks fills in as its tasks get solved.
+    heading_html = context_dicts.get('tg_heading_html')
+    if heading_html and new_fragments:
+        new_fragments[TG_HEADING_FRAGMENT_KEY] = '<strong id="new-task-{}">{}</strong>'.format(
+            TG_HEADING_FRAGMENT_KEY, heading_html,
+        )
     if new_fragments:
         return {'update_task_html_new': new_fragments}
     return {}
