@@ -5876,6 +5876,7 @@ html.new-ui-dark .new-team-switcher-active-box {
 .new-vote {
   --vote-icon: 0.78rem;
   --vote-fs: 0.72rem;
+  --vote-gap: 0.16rem;
   position: relative;
   flex: 0 0 auto;
   display: inline-flex;
@@ -5883,11 +5884,13 @@ html.new-ui-dark .new-team-switcher-active-box {
   justify-content: center;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  gap: var(--vote-gap);
 }
 
 .new-vote--tiny {
   --vote-icon: 0.66rem;
   --vote-fs: 0.66rem;
+  --vote-gap: 0.08rem;
 }
 
 .new-vote__side {
@@ -5899,7 +5902,7 @@ html.new-ui-dark .new-team-switcher-active-box {
   align-items: center;
   gap: 0.18rem;
   margin: 0;
-  padding: 0.03rem 0.16rem;
+  padding: 0.08rem 0.22rem;
   border: 0;
   border-radius: 4px;
   background: transparent;
@@ -6010,7 +6013,7 @@ button.new-vote__side:disabled {
 }
 
 /* Рамка «моего голоса» — outline с отступом: не меняет размер кнопки и не
-   прилипает к стрелке/числу (своего вертикального padding почти нет).
+   прилипает к стрелке/числу. Между кнопками есть зазор для рамок.
    После :focus { outline: none }, иначе после клика рамка пропадает. */
 .new-vote__side.is-active {
   outline: 1px solid color-mix(in srgb, var(--vote-color) 75%, transparent);
@@ -11834,18 +11837,22 @@ button.new-word-salad__hint-btn:disabled {
   .new-vote {
     --vote-icon: 0.88rem;
     --vote-fs: 0.8rem;
+    --vote-gap: 0.24rem;
   }
 
   .new-vote__side {
-    padding: 0.14rem 0.3rem;
+    min-width: 2.75rem;
+    min-height: 2.25rem;
+    justify-content: center;
+    padding: 0.3rem 0.4rem;
   }
 
   button.new-vote__side::before {
-    inset: -0.3rem -0.3rem 0;
+    inset: 0;
   }
 
   button.new-vote__side--down::before {
-    inset: 0 -0.3rem -0.3rem;
+    inset: 0;
   }
 
   .new-vote--tiny {
@@ -11854,6 +11861,9 @@ button.new-word-salad__hint-btn:disabled {
   }
 
   .new-vote--tiny .new-vote__side {
+    min-width: 0;
+    min-height: 0;
+    justify-content: initial;
     padding: 0.03rem 0.16rem;
   }
 
