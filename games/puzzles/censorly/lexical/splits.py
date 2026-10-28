@@ -7094,6 +7094,34 @@ MULTI_READINGS = MULTI_READINGS + (
 # analysis. These families are missing or unresolved in the dictionaries;
 # keep each pair together without adding a productive suffix rule.
 _LATE_REVIEW_SPLITS = (
+    # Reviewed карт, оруд/оруж and мер families: spelling alone must not
+    # connect pictures to cards, construction to tools, or intent to measure.
+    ('sense:review_card', ('карта', 'картишка', 'карточка', 'карточный')),
+    ('sense:review_card_play', (
+        'картеж', 'картежник', 'картежница', 'картежничать', 'картежный',
+    )),
+    ('sense:review_picture', ('картина', 'картинка', 'картинность', 'картинный')),
+    ('sense:review_instrument', ('орудие', 'орудийный', 'орудовать', 'поорудийно')),
+    ('sense:review_equipment', (
+        'дооборудовать', 'дооборудоваться', 'оборудование', 'оборудовать',
+        'оборудоваться', 'переоборудование', 'переоборудовать', 'переоборудоваться',
+    )),
+    ('sense:review_construction', ('соорудить', 'сооружать', 'сооружаться', 'сооружение')),
+    ('sense:intent', (
+        'вознамериваться', 'вознамериться', 'преднамеренность', 'преднамеренный',
+    )),
+    # Намерить is measuring a quantity; намереваться expresses intention.
+    ('sense:measure', ('намеривать', 'намерить', 'намерять', 'намеряться')),
+    ('sense:example', ('например', 'беспримерность', 'беспримерный')),
+    ('sense:review_fitting', (
+        'примеривать', 'примериваться', 'примерить', 'примериться', 'примерка',
+        'примерочный', 'примерщик', 'примерять', 'примеряться',
+    )),
+    ('sense:review_moderation', (
+        'поумерить', 'умеренность', 'умеренный', 'умеривать', 'умерить',
+        'умерять', 'умеряться',
+    )),
+    ('sense:review_unhurried', ('размеренность', 'размеренный')),
     # «В основном» names the main part, not the act of founding.
     ('sense:review_primary', ('основной', 'основный')),
     ('sense:weave_warp', ('засновать',)),

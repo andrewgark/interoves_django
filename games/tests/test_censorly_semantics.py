@@ -1947,6 +1947,50 @@ class LexicalGameplayTests(TestCase):
 
 
 class ReviewedHomonymClusterTests(SimpleTestCase):
+    def test_card_construction_and_measure_sense_boundaries(self):
+        for guess, target in (
+            ('картина', 'карты'),
+            ('орудие', 'сооружений'),
+            ('мера', 'непреднамеренно'),
+            ('карточка', 'картинка'),
+            ('карта', 'картежник'),
+            ('оборудование', 'орудие'),
+            ('оборудование', 'сооружение'),
+            ('намерение', 'намерить'),
+            ('пример', 'примерка'),
+            ('мера', 'например'),
+            ('мера', 'умеренность'),
+            ('размер', 'размеренность'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(opens(guess, target))
+                self.assertFalse(opens(target, guess))
+                self.assertFalse(matching_lemmas(tokenize_text(target), guess))
+
+        for left, right in (
+            ('карта', 'карточный'),
+            ('картина', 'картинка'),
+            ('картежник', 'картежный'),
+            ('орудие', 'орудийный'),
+            ('оборудование', 'переоборудовать'),
+            ('сооружений', 'соорудить'),
+            ('намерение', 'преднамеренный'),
+            ('преднамеренный', 'непреднамеренно'),
+            ('мера', 'намерить'),
+            ('мера', 'измерение'),
+            ('пример', 'беспримерный'),
+            ('примерка', 'примерять'),
+            ('умеренность', 'умерить'),
+            ('размеренность', 'размеренный'),
+        ):
+            with self.subTest(left=left, right=right):
+                self.assertTrue(opens(left, right))
+                self.assertTrue(opens(right, left))
+
+        # Service words are initially open and bypass ordinary matching.
+        self.assertTrue(initially_open('например'))
+        self.assertTrue(_has_sense_structure('например', 'sense:example'))
+
     def test_killing_aspect_pair_opens_in_both_directions(self):
         for guess, target in (
             ('убил', 'убивает'),
