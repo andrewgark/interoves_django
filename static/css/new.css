@@ -5840,7 +5840,7 @@ html.new-ui-dark .new-team-switcher-active-box {
 
 /* Голосовалка ▲▼: стопка «стрелка + число» вместо двух широких кнопок.
    Цвет: ▲ accent, ▼ danger; лидер (data-lead) залит и жирный, второй бледный.
-   Толстый контур (.is-active) — мой голос, независимо от того, кто ведёт. */
+   Мой голос (.is-active) — стрелка залита целиком + рамка, независимо от лидера. */
 .new-vote {
   --vote-icon: 0.78rem;
   --vote-fs: 0.72rem;
@@ -5941,11 +5941,14 @@ button.new-vote__side--down::before {
 
 .new-vote__side.is-active {
   color: var(--vote-color);
+  background: color-mix(in srgb, var(--vote-color) 8%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vote-color) 70%, transparent);
 }
 
-.new-vote__side.is-active .new-vote__arrow {
+/* .new-vote впереди — чтобы перебить бледную заливку лидера (data-lead). */
+.new-vote .new-vote__side.is-active .new-vote__arrow {
   opacity: 1;
-  stroke-width: 2.8;
+  fill: var(--vote-color);
 }
 
 .new-vote__side.is-active .new-vote__count {
@@ -5974,6 +5977,10 @@ button.new-vote__side:disabled {
 
 .new-vote__side:focus-visible {
   box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.new-vote__side.is-active:focus-visible {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--vote-color) 70%, transparent), 0 0 0 2px var(--focus-ring);
 }
 
 .new-vote__side.is-failed {
@@ -9422,7 +9429,7 @@ body.is-daily-solve-paused .new-raddle-sticky-pin {
 /* Оценка подсказки — голосовалка ▲▼ справа от текста. */
 .new-raddle-clues__list--used .new-raddle-clue:has(.new-vote) {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
 }
 .new-raddle-clue .new-vote {
