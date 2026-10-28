@@ -4,8 +4,8 @@ import hashlib
 import json
 import logging
 import uuid
-from datetime import timedelta
 from dataclasses import replace
+from datetime import timedelta
 from types import SimpleNamespace
 
 from django.db import transaction
@@ -13,10 +13,18 @@ from django.db.models import Case, F, Q, Value, When
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
+from games.daily.registry import daily_game_counts_attempts
 from games.models import (
-    DailyAggregateSnapshot, DailyAggregateSnapshotRow, DailyAggregateSnapshotVersion,
-    DailyResultProjection, DailyResultProjectionRefreshOutbox, DailyResultProjectionState,
-    Profile, ProfileTeamMembership, Task, TaskGroup,
+    DailyAggregateSnapshot,
+    DailyAggregateSnapshotRow,
+    DailyAggregateSnapshotVersion,
+    DailyResultProjection,
+    DailyResultProjectionRefreshOutbox,
+    DailyResultProjectionState,
+    Profile,
+    ProfileTeamMembership,
+    Task,
+    TaskGroup,
 )
 
 logger = logging.getLogger('application')
@@ -96,7 +104,7 @@ def _policy_signature(group_ids):
 
 
 def _incomplete_attempt_groups(game, group_ids):
-    if game.pk not in ('alphabetty', 'censorly'):
+    if not daily_game_counts_attempts(game.pk):
         return set()
     return set(DailyResultProjection.objects.filter(
         game=game, task_group_id__in=group_ids, attempts_count=0,
@@ -262,7 +270,9 @@ def _claim(snapshot_id):
 
 def _publish(snapshot):
     from games.results.standings.aggregate_leaderboard import (
-        _monthly_columns, _projection_page_cells, _projection_rank_page,
+        _monthly_columns,
+        _projection_page_cells,
+        _projection_rank_page,
     )
 
     game = snapshot.game

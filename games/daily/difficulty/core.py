@@ -17,6 +17,7 @@ import json
 import math
 import statistics
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import timedelta
 
 from django.db import transaction
@@ -37,12 +38,50 @@ from games.models import (
 )
 
 
-SUPPORTED_GAME_IDS = ('ladder', 'alphabetty', 'salad', 'censorly')
+@dataclass(frozen=True)
+class _DifficultyObservation:
+    """How one daily game turns attempts into a difficulty row."""
+
+    help: str
+    errors: str = ''
+    defer_attempt_blob: bool = False
+    median_attempts: bool = False
+
+
+# Adapter keys match DailyGameDefinition.difficulty_adapter_key.
+# The order is the historical placement sort and minute-refresh batch order.
+_DIFFICULTY_ORDER = ('ladder', 'alphabetty', 'salad', 'censorly')
+_DIFFICULTY_OBSERVATIONS = {
+    'ladder': _DifficultyObservation(help='hint_rows', errors='raddle'),
+    'alphabetty': _DifficultyObservation(help='chain_hints', errors='non_ok'),
+    'salad': _DifficultyObservation(help='salad_payload'),
+    'censorly': _DifficultyObservation(
+        help='hint_prefix',
+        errors='wrong_guess',
+        defer_attempt_blob=True,
+        median_attempts=True,
+    ),
+}
+
+
+def _difficulty_definitions():
+    from games.daily.registry import DAILY_GAME_REGISTRY
+    return {
+        definition.game_id: definition
+        for definition in DAILY_GAME_REGISTRY.all()
+        if definition.difficulty_adapter_key in _DIFFICULTY_OBSERVATIONS
+    }
+
+
+_DIFFICULTY_DEFINITIONS = _difficulty_definitions()
+SUPPORTED_GAME_IDS = tuple(
+    game_id for game_id in _DIFFICULTY_ORDER if game_id in _DIFFICULTY_DEFINITIONS
+) + tuple(
+    game_id for game_id in _DIFFICULTY_DEFINITIONS if game_id not in _DIFFICULTY_ORDER
+)
 TASK_TYPE_BY_GAME_ID = {
-    'ladder': 'raddle',
-    'alphabetty': 'alphabetty',
-    'salad': 'word_salad',
-    'censorly': 'censorly',
+    game_id: _DIFFICULTY_DEFINITIONS[game_id].task_type
+    for game_id in SUPPORTED_GAME_IDS
 }
 
 # All calibration constants live here intentionally.
@@ -161,29 +200,27 @@ def _safe_state(raw):
     return state if isinstance(state, dict) else {}
 
 
-def _is_random_alphabetty_placement(placement) -> bool:
-    """Random alphabetty games are permanent, not scheduled daily editions."""
-    return bool(
-        placement is not None
-        and placement.game_id == 'alphabetty'
-        and RandomAlphabettyGame.objects.filter(
-            task_group_id=placement.task_group_id,
-        ).exists()
-    )
+_RANDOM_GAME_MODELS = {
+    'alphabetty': RandomAlphabettyGame,
+    'censorly': RandomCensorlyGame,
+}
 
 
-def _is_random_censorly_placement(placement) -> bool:
-    return bool(
-        placement is not None
-        and placement.game_id == 'censorly'
-        and RandomCensorlyGame.objects.filter(
-            task_group_id=placement.task_group_id,
-        ).exists()
-    )
+def _observation(game_id):
+    definition = _DIFFICULTY_DEFINITIONS.get(game_id)
+    if definition is None:
+        return None
+    return _DIFFICULTY_OBSERVATIONS.get(definition.difficulty_adapter_key)
 
 
 def _is_random_daily_placement(placement) -> bool:
-    return _is_random_alphabetty_placement(placement) or _is_random_censorly_placement(placement)
+    """Random Alphabetty and Censorly games are permanent, not daily editions."""
+    if placement is None:
+        return False
+    model = _RANDOM_GAME_MODELS.get(placement.game_id)
+    if model is None:
+        return False
+    return model.objects.filter(task_group_id=placement.task_group_id).exists()
 
 
 def _is_salad_hint(attempt):
@@ -313,8 +350,9 @@ def observe_actor_results(placement, *, now=None):
     """
     now = now or timezone.now()
     game_id = placement.game_id
+    profile = _observation(game_id)
     tasks = _supported_tasks(placement)
-    if game_id not in SUPPORTED_GAME_IDS or not tasks:
+    if profile is None or not tasks:
         return None
 
     task_ids = [task.pk for task in tasks]
@@ -327,7 +365,7 @@ def observe_actor_results(placement, *, now=None):
         .select_related('team')
         .order_by('time', 'pk')
     )
-    if game_id == 'censorly':
+    if profile.defer_attempt_blob:
         # Censorly attempts store a growing puzzle-state JSON blob. Loading it
         # for every historical guess can exhaust the 1 GiB worker even though
         # difficulty only needs the guess text, status, timestamp, and actor.
@@ -341,7 +379,7 @@ def observe_actor_results(placement, *, now=None):
         attempts_by_actor[actor] = _attempts_of_played_revision(actor_attempts)
 
     help_actors = set()
-    if game_id == 'ladder':
+    if profile.help == 'hint_rows':
         hint_attempts = (
             HintAttempt.objects.filter(
                 hint__task_id__in=task_ids,
@@ -354,11 +392,11 @@ def observe_actor_results(placement, *, now=None):
             actor = _actor_bucket(hint_attempt)
             if actor is not None and not _actor_is_hidden(hint_attempt, hidden_anons):
                 help_actors.add(actor)
-    elif game_id == 'salad':
+    elif profile.help == 'salad_payload':
         for actor, actor_attempts in attempts_by_actor.items():
             if any(_is_salad_hint(attempt) for attempt in actor_attempts):
                 help_actors.add(actor)
-    elif game_id == 'alphabetty':
+    elif profile.help == 'chain_hints':
         states = (
             ChainTaskState.objects.filter(
                 task_id__in=task_ids,
@@ -381,13 +419,13 @@ def observe_actor_results(placement, *, now=None):
         for actor, actor_attempts in attempts_by_actor.items():
             if any(int(_safe_state(a.state).get('hints_taken') or 0) > 0 for a in actor_attempts):
                 help_actors.add(actor)
-    elif game_id == 'censorly':
+    elif profile.help == 'hint_prefix':
         for actor, actor_attempts in attempts_by_actor.items():
             if any(str(attempt.text or '').startswith('#hint:') for attempt in actor_attempts):
                 help_actors.add(actor)
 
     parsed_raddles = {}
-    if game_id == 'ladder':
+    if profile.errors == 'raddle':
         from games.puzzles.raddle.engine import parse_raddle_data
         parsed_raddles = {task.pk: parse_raddle_data(task) for task in tasks}
 
@@ -401,14 +439,14 @@ def observe_actor_results(placement, *, now=None):
         observed = actor_attempts[:completed_index + 1] if completed else actor_attempts
         word_attempts = None
         errors = None
-        if game_id == 'ladder':
+        if profile.errors == 'raddle':
             errors = sum(
                 _raddle_attempt_is_error(attempt, parsed_raddles.get(attempt.task_id))
                 for attempt in observed
             )
-        elif game_id == 'alphabetty':
+        elif profile.errors == 'non_ok':
             errors = sum(attempt.status != 'Ok' for attempt in observed)
-        elif game_id == 'censorly':
+        elif profile.errors == 'wrong_guess':
             guesses = [attempt for attempt in observed if not str(attempt.text or '').startswith('#hint:')]
             word_attempts = len(guesses)
             errors = sum(attempt.status == 'Wrong' for attempt in guesses)
@@ -447,7 +485,8 @@ def aggregate_actor_results(game_id, rows):
     than they are so far" and abandoned players as never solving, so a hard
     edition is visible before most of its players reach the finish line.
     """
-    error_available = rows is not None and game_id in ('ladder', 'alphabetty', 'censorly')
+    profile = _observation(game_id)
+    error_available = rows is not None and profile is not None and bool(profile.errors)
     rows = rows or []
     n = len(rows)
     time_observations = [
@@ -466,7 +505,7 @@ def aggregate_actor_results(game_id, rows):
         'median_time_censored': bool(time_observations) and not reached,
         'median_attempts': (
             _median([row['attempts'] for row in rows if row['attempts'] is not None])
-            if game_id == 'censorly' else None
+            if profile is not None and profile.median_attempts else None
         ),
         'median_errors': (
             _median([row['errors'] for row in rows if row['errors'] is not None])

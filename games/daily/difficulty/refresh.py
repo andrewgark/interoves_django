@@ -19,6 +19,7 @@ from django.db.models import F, Q
 from django.utils import timezone
 
 from games.daily.difficulty.core import (
+    _DIFFICULTY_DEFINITIONS,
     DUE_REFRESH_LIMIT,
     REFRESH_CLAIM_LEASE,
     SUPPORTED_GAME_IDS,
@@ -38,13 +39,27 @@ logger = logging.getLogger('application')
 DIFFICULTY_REFRESH_LOCK = 'daily_difficulty_refresh'
 DIFFICULTY_REFRESH_LOCK_TTL_SECONDS = 600
 
-# One minute tick covers every daily game. Censorly observations can hold
-# thousands of attempts, so at most one censorly edition is calculated per
-# tick to keep the background worker below its 1 GiB memory limit.
-MINUTE_REFRESH_BATCHES = (
-    (tuple(game_id for game_id in SUPPORTED_GAME_IDS if game_id != 'censorly'), DUE_REFRESH_LIMIT),
-    (('censorly',), 1),
-)
+# One minute tick covers every daily game. A game marked solo in the registry
+# is calculated one edition at a time: Censorly observations can hold thousands
+# of attempts, and a larger batch exhausts the worker's 1 GiB memory limit.
+def _minute_refresh_batches():
+    shared = []
+    solo = []
+    for game_id in SUPPORTED_GAME_IDS:
+        definition = _DIFFICULTY_DEFINITIONS.get(game_id)
+        if definition is not None and definition.difficulty_solo_refresh:
+            solo.append(game_id)
+        else:
+            shared.append(game_id)
+    batches = []
+    if shared:
+        batches.append((tuple(shared), DUE_REFRESH_LIMIT))
+    for game_id in solo:
+        batches.append(((game_id,), 1))
+    return tuple(batches)
+
+
+MINUTE_REFRESH_BATCHES = _minute_refresh_batches()
 
 
 @dataclass(frozen=True)

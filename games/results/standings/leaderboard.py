@@ -1,9 +1,10 @@
 """Shared public leaderboard eligibility and sporting-place semantics."""
 
 from django.db.models import Q
-from games.results.share import format_elapsed_compact
 
+from games.daily.registry import daily_game_counts_attempts
 from games.models import DailySolveTiming, HiddenAnonKey, Profile, TaskGroup, Team
+from games.results.share import format_elapsed_compact
 
 
 def actor_key(actor):
@@ -129,7 +130,6 @@ def eligible_release_actor_keys(release_actors, *, game, published_at_by_release
     release_actors = {release_id: set(actors) for release_id, actors in release_actors.items()}
     all_actors = set().union(*release_actors.values()) if release_actors else set()
     globally_eligible = set(eligible_public_actors(all_actors))
-    eligible_by_key = {actor_key(actor): actor for actor in globally_eligible}
     release_ids = list(release_actors)
     authors_by_release = defaultdict(set)
     if release_ids:
@@ -355,7 +355,7 @@ def individual_sports_key(*, score, duration, game_id='', attempts=0, alphabetty
     """Official individual ranking tuple; duration is seconds or NULL."""
     score_key = -score
     duration_key = (duration is None, duration if duration is not None else 0)
-    if str(game_id) in ('alphabetty', 'censorly'):
+    if daily_game_counts_attempts(game_id):
         if alphabetty_sort == 'time':
             return (score_key, *duration_key, attempts)
         return (score_key, attempts, *duration_key)

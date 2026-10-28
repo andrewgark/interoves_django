@@ -1,33 +1,33 @@
 """Bounded release-window builder for public section aggregate standings."""
 
+import logging
+import time
+import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date
-import logging
-import time
 from types import SimpleNamespace
-import uuid
 
 from django.core.cache import caches
 from django.core.paginator import Paginator
 from django.db import connection, transaction
-from django.db.models import Prefetch, IntegerField
+from django.db.models import IntegerField, Prefetch
 from django.db.models.functions import Cast
 from django.utils.dateparse import parse_datetime
-from games.results.standings.leaderboard import eligible_release_actor_keys, score_rank
-from games.results.table.context import result_cell_class
+
+from games.daily.page.archive import parse_month
+from games.daily.page.section import MOSCOW, current_number_for, publish_at_for
+from games.daily.registry import daily_game_counts_attempts, daily_game_has_heavy_payload, daily_leaderboard_sort
 from games.models import (
     DailySolveTiming,
     GameTaskGroup,
     PersonalResultsParticipant,
     Profile,
     Task,
-    TaskGroup,
 )
+from games.results.standings.leaderboard import eligible_release_actor_keys, score_rank
+from games.results.table.context import result_cell_class
 from games.sections.paths import section_play_path
-from games.daily.page.archive import parse_month
-from games.daily.page.section import current_number_for, publish_at_for, MOSCOW
-
 
 logger = logging.getLogger(__name__)
 WINDOW_CHOICES = (10, 20, 30)
@@ -127,7 +127,7 @@ def _numbered_links(game):
 
 def _with_result_tasks(qs, game_id):
     task_queryset = Task.objects.visible().exclude(task_type='text_with_forms')
-    if game_id == 'censorly':
+    if daily_game_has_heavy_payload(game_id):
         task_queryset = task_queryset.defer('tags')
     return qs.prefetch_related(Prefetch(
         'task_group__tasks',
@@ -640,7 +640,7 @@ def _alphabetty_projection_attempts_complete(game, group_ids):
     real attempt for a projected actor, so those rows must use the canonical
     fallback until the background rebuild has populated the field.
     """
-    if getattr(game, 'id', None) not in ('alphabetty', 'censorly') or not group_ids:
+    if not daily_game_counts_attempts(getattr(game, 'id', None)) or not group_ids:
         return True
     from games.models import DailyResultProjection
 
@@ -655,12 +655,12 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
     The existing score aggregators remain authoritative. Their input is limited
     to the selected release set, and no attempt/subtask cells reach the template.
     """
+    from games.daily.page.section import publish_at_for
+    from games.results.snapshots.snapshot import results_attempts_scope_game
     from games.results.sql import (
         get_sql_aggregated_game_actor_rows,
         tasks_need_orm_results_aggregate,
     )
-    from games.daily.page.section import publish_at_for
-    from games.results.snapshots.snapshot import results_attempts_scope_game
 
     if month_context is not None:
         columns, selected_month, previous_month, next_month, _published_at = month_context
@@ -839,9 +839,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
 
     # Aggregate standings use the same sporting tuple as a single release:
     # points first, then total active solving time.
-    aggregate_sort = request.GET.get('sort') if game.id in ('alphabetty', 'censorly') else 'time'
-    if aggregate_sort not in ('attempts', 'time'):
-        aggregate_sort = 'attempts'
+    aggregate_sort = daily_leaderboard_sort(game.id, request.GET.get('sort'))
 
     def rank_key(key):
         duration = total_durations.get(key)
@@ -867,7 +865,6 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
             if not label and getattr(actor, '_user', None) is not None:
                 label = (actor._user.get_full_name() or actor._user.get_username()).strip()
             actor._display_name_override = label
-    keys = {key: rank_key(key)[:-1] for key in ordered_keys}
     ranks = score_rank(ordered_keys, totals)
     paginator = Paginator(ordered_keys, PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get('page', 1))
@@ -906,7 +903,7 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
         'teams_sorted': [row['actor'] for row in rows],
         'aggregate_actor_types': actor_types,
         'aggregate_sort': aggregate_sort,
-        'aggregate_show_attempts': game.id in ('alphabetty', 'censorly'),
+        'aggregate_show_attempts': daily_game_counts_attempts(game.id),
         'aggregate_period': 'month' if month_context is not None else 'window',
     }
     if month_context is not None:
@@ -984,9 +981,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     except (TypeError, ValueError):
         requested_page = 1
     actor_types = aggregate_actor_filter_types(request)
-    aggregate_sort = request.GET.get('sort') if game.id in ('alphabetty', 'censorly') else 'time'
-    if aggregate_sort not in ('attempts', 'time'):
-        aggregate_sort = 'attempts'
+    aggregate_sort = daily_leaderboard_sort(game.id, request.GET.get('sort'))
     if saved_monthly:
         from games.results.snapshots.aggregate_snapshot_read import read_snapshot_page
         if snapshot_version is None:
@@ -1083,7 +1078,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         'teams_sorted': [row['actor'] for row in rows],
         'aggregate_actor_types': actor_types,
         'aggregate_sort': aggregate_sort,
-        'aggregate_show_attempts': game.id in ('alphabetty', 'censorly'),
+        'aggregate_show_attempts': daily_game_counts_attempts(game.id),
     }
     if month_context is not None:
         _, selected_month, previous_month, next_month, _ = month_context
@@ -1097,12 +1092,10 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
 
 def build_aggregate_page(request, game):
     """Scheduled months read immutable publications; legacy windows retain their contract."""
-    import logging
-    from games.models import DailyResultProjectionState
-    from games.daily.projection import projection_state_is_valid
     from games.daily.page.section import is_scheduled_game, publish_at_for
+    from games.daily.projection import projection_state_is_valid
+    from games.models import DailyResultProjectionState
 
-    logger = logging.getLogger(__name__)
     # All daily and weekly tasks are published on a calendar schedule, so their
     # aggregate table is navigated by publication month rather than by an
     # arbitrary release window.  Keep the check schedule-based so newly added
@@ -1141,7 +1134,6 @@ def build_aggregate_page(request, game):
         link.task_group_id for link in window
         if not projection_state_is_valid(states.get(link.task_group_id), game)
     ]
-    covered = len(set(group_ids)) - len(set(stale_groups))
     attempts_incomplete = not _alphabetty_projection_attempts_complete(game, group_ids)
     if stale_groups or attempts_incomplete:
         return _build_legacy_aggregate_page_observed(

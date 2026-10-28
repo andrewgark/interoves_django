@@ -41,6 +41,10 @@ class DailyGameDefinition:
     pager_label: str
     schedule: DailySchedule
     title_en: str = ''
+    difficulty_adapter_key: str | None = None
+    difficulty_solo_refresh: bool = False
+    leaderboard_metric: str = 'time'
+    heavy_payload: bool = False
     capabilities: DailyGameCapabilities = DailyGameCapabilities()
     results_adapter_key: str | None = None
     projection_adapter_key: str | None = None
@@ -118,6 +122,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         projection_adapter_key='attempts_info',
         completion_adapter_key='standard',
         recheck_adapter_key='chain',
+        difficulty_adapter_key='ladder',
     ),
     DailyGameDefinition(
         game_id=ALPHABETTY_SCHEDULE.game_id,
@@ -133,6 +138,8 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         projection_adapter_key='attempts_info',
         completion_adapter_key='standard',
         recheck_adapter_key='chain',
+        difficulty_adapter_key='alphabetty',
+        leaderboard_metric='attempts',
     ),
     DailyGameDefinition(
         game_id=CENSORLY_SCHEDULE.game_id,
@@ -152,6 +159,10 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         projection_adapter_key='attempts_info',
         completion_adapter_key='standard',
         recheck_adapter_key='chain',
+        difficulty_adapter_key='censorly',
+        difficulty_solo_refresh=True,
+        leaderboard_metric='attempts',
+        heavy_payload=True,
     ),
     DailyGameDefinition(
         game_id=WORD_SALAD_SCHEDULE.game_id,
@@ -168,6 +179,7 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
         projection_adapter_key='salad_state',
         completion_adapter_key='standard',
         recheck_adapter_key='word_salad',
+        difficulty_adapter_key='salad',
     ),
 ))
 
@@ -175,3 +187,26 @@ DAILY_GAME_REGISTRY = DailyGameRegistry((
 def get_daily_game(game_id: str | None) -> DailyGameDefinition | None:
     """Return the registered definition without changing existing callers."""
     return DAILY_GAME_REGISTRY.get(game_id)
+
+
+def daily_leaderboard_sort(game_id, requested) -> str:
+    """Sort key for a daily aggregate table.
+
+    Games that rank by attempts accept ``attempts`` or ``time``. Every other
+    game stays on time, which is what the request asked for only when the
+    game offers that choice.
+    """
+    definition = get_daily_game(game_id)
+    if definition is None or definition.leaderboard_metric != 'attempts':
+        return 'time'
+    return requested if requested in ('attempts', 'time') else 'attempts'
+
+
+def daily_game_counts_attempts(game_id) -> bool:
+    definition = get_daily_game(game_id)
+    return bool(definition and definition.leaderboard_metric == 'attempts')
+
+
+def daily_game_has_heavy_payload(game_id) -> bool:
+    definition = get_daily_game(game_id)
+    return bool(definition and definition.heavy_payload)

@@ -3,6 +3,7 @@
 from django.db.models import Prefetch, Q
 
 from games.daily.page.section import is_scheduled_game, visible_links
+from games.daily.registry import daily_game_has_heavy_payload
 from games.models import Task
 
 
@@ -26,7 +27,7 @@ def load_results_placements_and_tasks(game, task_group_number=None):
         # their potentially large payloads to render one release's results.
         links_query = links_query.filter(number=str(task_group_number))
     task_queryset = Task.objects.visible().filter(~Q(task_type='text_with_forms'))
-    if game.id == 'censorly':
+    if daily_game_has_heavy_payload(game.id):
         # Censorly stores its full article and puzzle payload in Task.tags.
         # Results only need the compact scoring fields, so avoid transferring
         # and decoding that large JSON blob on every cold results request.

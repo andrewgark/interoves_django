@@ -1,8 +1,8 @@
 """Canonical resolution of a daily placement from its public URL segment."""
 
+from games.daily.page.section import is_scheduled_game, scheduled_number_is_public
 from games.models import GameTaskGroup
 from games.sections.placement_share import is_share_hash_segment, placement_by_share_hash
-from games.daily.page.section import is_scheduled_game, scheduled_number_is_public
 
 
 def resolve_daily_placement(game, number):
@@ -44,32 +44,16 @@ def resolve_accessible_daily_placement(game, segment, *, user=None):
     ).first()
 
 
-def is_random_alphabetty_placement(placement):
-    """Whether a placement is a permanent random Alphabetty game."""
-    from games.models import RandomAlphabettyGame
-
-    return bool(
-        placement is not None
-        and placement.game_id == 'alphabetty'
-        and RandomAlphabettyGame.objects.filter(
-            task_group_id=placement.task_group_id,
-        ).exists()
-    )
-
-
-def is_random_censorly_placement(placement):
-    """Whether a placement is a permanent random Цензурка game."""
-    from games.models import RandomCensorlyGame
-
-    return bool(
-        placement is not None
-        and placement.game_id == 'censorly'
-        and RandomCensorlyGame.objects.filter(
-            task_group_id=placement.task_group_id,
-        ).exists()
-    )
-
-
 def is_random_daily_placement(placement):
     """Share-hash random editions that may expose daily statistics."""
-    return is_random_alphabetty_placement(placement) or is_random_censorly_placement(placement)
+    if placement is None:
+        return False
+    from games.models import RandomAlphabettyGame, RandomCensorlyGame
+
+    model = {
+        'alphabetty': RandomAlphabettyGame,
+        'censorly': RandomCensorlyGame,
+    }.get(placement.game_id)
+    if model is None:
+        return False
+    return model.objects.filter(task_group_id=placement.task_group_id).exists()
