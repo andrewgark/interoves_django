@@ -8,25 +8,25 @@ from itertools import groupby
 from typing import Any
 
 from games.puzzles.censorly.ids import CENSORLY_SPLITTER_VERSION
+from games.puzzles.censorly.lexical.russian.reading_overrides import (
+    CITY_ABBR_CONTEXT,
+    LANGUAGE_LABEL_CONTEXTS,
+    N_ERA_CONTEXT,
+    NEM_GERMAN_CONTEXT,
+    NEM_NONPRONOUN_CONTEXT,
+    NEM_PRONOUN_CONTEXT,
+    PAGE_ABBR_CONTEXT,
+    PO_SOFTWARE_CONTEXT,
+    STREET_ABBR_CONTEXT,
+    TELE_PREFIX_CONTEXT,
+    YEAR_ABBR_CONTEXT,
+)
 from games.puzzles.censorly.text.normalize import (
     WORD_CHARS,
     lemma_of,
     normalize_surface,
     split_stem_ending,
     strip_combining_marks,
-)
-from games.puzzles.censorly.lexical.russian.reading_overrides import (
-    CITY_ABBR_CONTEXT,
-    LANGUAGE_LABEL_CONTEXTS,
-    NEM_GERMAN_CONTEXT,
-    NEM_NONPRONOUN_CONTEXT,
-    NEM_PRONOUN_CONTEXT,
-    N_ERA_CONTEXT,
-    PAGE_ABBR_CONTEXT,
-    PO_SOFTWARE_CONTEXT,
-    STREET_ABBR_CONTEXT,
-    TELE_PREFIX_CONTEXT,
-    YEAR_ABBR_CONTEXT,
 )
 from games.puzzles.censorly.text.stopwords import is_stop_word
 
@@ -39,6 +39,10 @@ HEADING_LEVEL_SEP = '\x1f'
 # A display formula is one visible punct token, not a row of letter masks.
 FORMULA_START = '\ufdd2'
 FORMULA_END = '\ufdd3'
+# A block quotation from the article (see wiki._WikiExtractHTMLParser). Its
+# tokens carry in_quote; an unclosed quote runs to the end of the text.
+QUOTE_START = '\ufdd4'
+QUOTE_END = '\ufdd5'
 
 _MATH_SERVICE_SYMBOLS = '°∫∬∭∮≤≥≠≈≡∈∉∑∏∂∇×·±∓→←↔⇌⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
 _MATH_SERVICE_SYMBOL_SET = frozenset(_MATH_SERVICE_SYMBOLS)
@@ -60,6 +64,10 @@ _WORD_CORE_RE = re.compile(
 
 _HEADING_SPLIT_RE = re.compile(
     re.escape(HEADING_START) + r'(.*?)' + re.escape(HEADING_END),
+    re.DOTALL,
+)
+_QUOTE_SPLIT_RE = re.compile(
+    re.escape(QUOTE_START) + r'(.*?)(?:' + re.escape(QUOTE_END) + r'|$)',
     re.DOTALL,
 )
 _FORMULA_SPLIT_RE = re.compile(
@@ -279,6 +287,27 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
     """Split plaintext into tokens; wiki headings → word tokens with in_heading."""
     raw = unicodedata.normalize('NFC', text or '')
     tokens: list[dict[str, Any]] = []
+    pos = 0
+    for match in _QUOTE_SPLIT_RE.finditer(raw):
+        tokens.extend(_tokenize_sections(
+            raw[pos:match.start()].replace(QUOTE_END, ''),
+            in_title=in_title, start_id=start_id + len(tokens),
+        ))
+        quoted = _tokenize_sections(
+            match.group(1) or '', in_title=in_title, start_id=start_id + len(tokens),
+        )
+        for tok in quoted:
+            tok['in_quote'] = True
+        tokens.extend(quoted)
+        pos = match.end()
+    tokens.extend(_tokenize_sections(
+        raw[pos:].replace(QUOTE_END, ''), in_title=in_title, start_id=start_id + len(tokens),
+    ))
+    return _annotate_contextual_readings(tokens)
+
+
+def _tokenize_sections(raw: str, *, in_title: bool, start_id: int) -> list[dict[str, Any]]:
+    tokens: list[dict[str, Any]] = []
     tid = start_id
     pos = 0
     for match in _HEADING_SPLIT_RE.finditer(raw):
@@ -301,11 +330,8 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
             tid += 1
         pos = match.end()
     if pos < len(raw):
-        chunk = _tokenize_chunk(raw[pos:], in_title=in_title, start_id=tid)
-        tokens.extend(chunk)
-    elif pos == 0 and not tokens:
-        tokens = _tokenize_chunk(raw, in_title=in_title, start_id=start_id)
-    return _annotate_contextual_readings(tokens)
+        tokens.extend(_tokenize_chunk(raw[pos:], in_title=in_title, start_id=tid))
+    return tokens
 
 
 _PREPOSITION_SURFACES = frozenset({
@@ -787,14 +813,18 @@ def _join_surfaces(tokens: list[dict[str, Any]]) -> str:
 def reconstruct_body_text(tokens: list[dict[str, Any]]) -> str:
     """Rebuild cleaned article text from stored tokens.
 
-    Heading breaks become the same marked headings ``tokenize_text`` reads.
-    Used when an older puzzle saved tokens and not ``body_text``.
+    Heading breaks and in_quote runs become the same markers ``tokenize_text``
+    reads. Used when an older puzzle saved tokens and not ``body_text``.
     """
     parts: list[str] = []
     index = 0
     total = len(tokens)
+    in_quote = False
     while index < total:
         tok = tokens[index]
+        if bool(tok.get('in_quote')) != in_quote:
+            in_quote = not in_quote
+            parts.append(QUOTE_START if in_quote else QUOTE_END)
         if tok.get('kind') == 'heading_break':
             index += 1
             chunk: list[dict[str, Any]] = []
@@ -818,6 +848,8 @@ def reconstruct_body_text(tokens: list[dict[str, Any]]) -> str:
             continue
         parts.append(tok.get('surface') or '')
         index += 1
+    if in_quote:
+        parts.append(QUOTE_END)
     return ''.join(parts)
 
 

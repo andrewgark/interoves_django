@@ -316,6 +316,19 @@ html.new-ui-dark .censorly__dock {
 .censorly-heading--6 { font-size: 0.95em; margin: 0.7em 0 0.79em; }
 
 /*
+  Quotation ({{Цитата}}, <blockquote>). Its vertical margin stands in for the
+  paragraph gaps on both sides. No italics: slanted masks read as damaged.
+*/
+.censorly-quote {
+  display: block;
+  margin: 0.75em 0;
+  padding: 0.45em 0.9em 0.45em 1em;
+  border-left: 3px solid color-mix(in srgb, var(--accent, #b08900) 55%, var(--border, #ccc));
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--text, #222) 4%, transparent);
+}
+
+/*
   Mask. Default is █ glyphs (.censorly-tok--glyphs).
   Class censorly--bars on #censorly-root restores the rectangle stems.
 */

@@ -13,10 +13,15 @@ from django.test import SimpleTestCase
 
 from games.puzzles.censorly.article.redact import build_public_view
 from games.puzzles.censorly.text.tokenize import (
-    HEADING_END, HEADING_LEVEL_SEP, HEADING_START, build_puzzle_payload, title_content_lemmas,
+    HEADING_END,
+    HEADING_LEVEL_SEP,
+    HEADING_START,
+    QUOTE_END,
+    QUOTE_START,
+    build_puzzle_payload,
+    title_content_lemmas,
 )
 from games.site.views.daily.censorly import _compact_play_response
-
 
 ROOT = Path(__file__).resolve().parents[2]
 ORIGIN = 'http://censorly.test'
@@ -24,7 +29,9 @@ ORIGIN = 'http://censorly.test'
 BODY = (
     'Кот сидит у окна, «зверь» глядит на улицу — (тихо) и долго.\n\n'
     + HEADING_START + '2' + HEADING_LEVEL_SEP + 'Зверь и люди' + HEADING_END
-    + '\nКот-воркот любит людей, улицу и окна.'
+    + '\nКот-воркот любит людей, улицу и окна.\n\n'
+    # Every quoted word also occurs outside, so each guess patches top-level runs too.
+    + QUOTE_START + 'Зверь любит окна,\u2028а люди — улицу.' + QUOTE_END
 )
 
 PAGE = '''<!doctype html><html><head><meta charset="utf-8"></head><body>

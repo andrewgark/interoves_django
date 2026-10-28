@@ -267,6 +267,10 @@
     return !!(tok && (tok.kind === 'heading_break' || tok.kind === 'heading'));
   }
 
+  function isInQuote(tok) {
+    return !!(tok && tok.in_quote);
+  }
+
   function headingLevel(tok) {
     var n = parseInt(tok && tok.heading_level, 10);
     if (n >= 2 && n <= 6) return n;
@@ -401,7 +405,8 @@
     while (
       end < tokens.length &&
       tokens[end].kind !== 'space' &&
-      !isHeadingEdge(tokens[end])
+      !isHeadingEdge(tokens[end]) &&
+      isInQuote(tokens[end]) === isInQuote(tokens[start])
     ) end += 1;
     return end;
   }
@@ -472,17 +477,28 @@
     }
     var started = false;
     var prevWasPara = false;
+    // Quotation tokens go into their own block; everything else into container.
+    var target = container;
     var i = 0;
     while (i < list.length) {
       var tok = list[i];
+      if (isInQuote(tok) !== (target !== container)) {
+        if (isInQuote(tok)) {
+          target = el('blockquote', 'censorly-quote');
+          container.appendChild(target);
+        } else {
+          target = container;
+        }
+        prevWasPara = false;
+      }
       if (isCompactArticleBreak(tok)) {
         var compactBreakText = tok.text || '';
         var compactBreakIndex = compactBreakText.indexOf('\u2028');
         var compactPrefix = compactBreakText.slice(0, compactBreakIndex);
         var compactIndent = compactBreakText.slice(compactBreakIndex + 1);
-        if (compactPrefix) container.appendChild(document.createTextNode(compactPrefix));
-        container.appendChild(el('span', 'censorly-tok censorly-tok--compact-break'));
-        if (compactIndent) container.appendChild(document.createTextNode(compactIndent));
+        if (compactPrefix) target.appendChild(document.createTextNode(compactPrefix));
+        target.appendChild(el('span', 'censorly-tok censorly-tok--compact-break'));
+        if (compactIndent) target.appendChild(document.createTextNode(compactIndent));
         i += 1;
         continue;
       }
@@ -490,19 +506,21 @@
         var prev = list[i - 1];
         // A newline after a heading would stack on its margin. One before a
         // heading stays: that is the paragraph gap, and the heading margin adds.
-        if (!started || isHeadingEdge(prev) || prevWasPara) {
+        // A quotation's own margins replace the gaps on both of its sides.
+        var quoteEdge = !isInQuote(tok) && (isInQuote(prev) || isInQuote(list[i + 1]));
+        if (!started || isHeadingEdge(prev) || prevWasPara || quoteEdge) {
           i += 1;
           continue;
         }
         prevWasPara = true;
-        container.appendChild(el('span', 'censorly-tok censorly-tok--para'));
+        target.appendChild(el('span', 'censorly-tok censorly-tok--para'));
         i += 1;
         continue;
       }
       if (tok.kind === 'heading_break' || tok.kind === 'heading') {
         var heading = renderHeadingAt(list, i, lenForced);
         if (heading.block) {
-          container.appendChild(heading.block);
+          target.appendChild(heading.block);
           addUnit('heading', i, heading.next, [heading.block]);
           started = true;
           prevWasPara = false;
@@ -513,14 +531,14 @@
       prevWasPara = false;
       if (tok.kind !== 'space') started = true;
       if (tok.kind === 'space') {
-        appendToken(container, tok, lenForced);
+        appendToken(target, tok, lenForced);
         i += 1;
         continue;
       }
       var runEnd = tightRunEnd(list, i);
-      var last = container.lastChild;
-      appendTightRun(container, list, i, runEnd, lenForced);
-      addUnit('run', i, runEnd, nodesAfter(container, last));
+      var last = target.lastChild;
+      appendTightRun(target, list, i, runEnd, lenForced);
+      addUnit('run', i, runEnd, nodesAfter(target, last));
       i = runEnd;
     }
     container._censorlyRender = { units: units, unitById: unitById, length: list.length };

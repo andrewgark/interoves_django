@@ -929,7 +929,7 @@ class CensorlyPuzzleStorageTests(TestCase):
 
 
 class CensorlyWikiHelperTests(TestCase):
-    def test_fetch_article_requests_html_extract_and_converts_its_lists(self):
+    def test_fetch_article_requests_parsed_html_and_converts_its_lists(self):
         from games.puzzles.censorly.article.wiki import fetch_article
 
         class Response:
@@ -938,19 +938,17 @@ class CensorlyWikiHelperTests(TestCase):
 
             def json(self):
                 return {
-                    'query': {
-                        'pages': {
-                            '42': {
-                                'pageid': 42,
-                                'lastrevid': 123,
-                                'title': 'Пример',
-                                'extract': (
-                                    '<p>' + ('Достаточно длинный вводный абзац. ' * 20)
-                                    + '</p><ul><li>Первый пункт.</li>'
-                                    '<li>Второй пункт.</li></ul>'
-                                ),
-                            },
-                        },
+                    'parse': {
+                        'pageid': 42,
+                        'revid': 123,
+                        'title': 'Пример',
+                        'properties': {},
+                        'text': (
+                            '<div class="mw-content-ltr mw-parser-output" lang="ru">'
+                            '<p>' + ('Достаточно длинный вводный абзац. ' * 20)
+                            + '</p><ul><li>Первый пункт.</li>'
+                            '<li>Второй пункт.</li></ul></div>'
+                        ),
                     },
                 }
 
@@ -964,10 +962,105 @@ class CensorlyWikiHelperTests(TestCase):
         session = Session()
         article = fetch_article('Пример', session=session)
 
-        self.assertNotIn('explaintext', session.params)
-        self.assertEqual(session.params['exsectionformat'], 'wiki')
+        self.assertEqual(session.params['action'], 'parse')
+        self.assertEqual(session.params['page'], 'Пример')
         self.assertIn('• Первый пункт.\u2028• Второй пункт.', article.extract)
+        self.assertEqual(article.pageid, 42)
         self.assertEqual(article.revid, 123)
+
+    def test_fetch_article_rejects_missing_and_disambiguation_pages(self):
+        from games.puzzles.censorly.article.wiki import CensorlyArticleRejected, fetch_article
+
+        class Session:
+            def __init__(self, data):
+                self.data = data
+
+            def get(self, _url, *, params, headers, timeout):
+                data = self.data
+
+                class Response:
+                    def raise_for_status(self):
+                        return None
+
+                    def json(self):
+                        return data
+
+                return Response()
+
+        missing = {'error': {'code': 'missingtitle', 'info': "The page you specified doesn't exist."}}
+        with self.assertRaisesMessage(CensorlyArticleRejected, 'Статья не найдена'):
+            fetch_article('Нет такой', session=Session(missing))
+        disambiguation = {'parse': {
+            'pageid': 7, 'revid': 1, 'title': 'Мир', 'properties': {'disambiguation': ''},
+            'text': '<p>' + 'Слово. ' * 100 + '</p>',
+        }}
+        with self.assertRaisesMessage(CensorlyArticleRejected, 'неоднозначности'):
+            fetch_article('Мир', session=Session(disambiguation))
+
+    def test_parsed_html_keeps_quotations_and_drops_what_extracts_dropped(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import QUOTE_END, QUOTE_START
+
+        raw = (
+            '<div class="mw-content-ltr mw-parser-output" lang="ru">'
+            '<table class="infobox"><tr><td>Страна<br />Италия</td></tr></table>'
+            '<div class="hatnote">Не путать с чем-то.</div>'
+            '<p>Вот что написал поэт Марциал об этом сражении:\n</p>\n'
+            '<link rel="mw-deduplicated-inline-style" href="mw-data:TemplateStyles:r1" />'
+            '<div class="ts-Цитата"><blockquote><div class="poem">\n'
+            '<p>«Прискус и Верус продолжали бой,<br />\n'
+            'Но долгое время силы были равны.<sup class="reference"><a>[3]</a></sup>»\n</p>\n'
+            '</div></blockquote></div>\n'
+            '<figure><img alt="Колизей" /><figcaption>Модель Рима</figcaption></figure>'
+            '<p>Долгое время Колизей был местом зрелищ.</p>'
+            '<blockquote><p>Первый абзац цитаты.</p><p>Второй абзац цитаты.</p>'
+            '<div class="ts-Конец_цитаты-source">— <cite>Светоний</cite></div></blockquote>'
+            '<div class="mw-heading mw-heading2"><h2 id="x">История</h2></div>'
+            '<p>Текст раздела.</p></div>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw))
+        self.assertNotIn('Италия', cleaned)
+        self.assertNotIn('Не путать', cleaned)
+        self.assertNotIn('Модель Рима', cleaned)
+        self.assertNotIn('[3]', cleaned)
+        self.assertIn(
+            'сражении:\n\n' + QUOTE_START
+            + '«Прискус и Верус продолжали бой,\u2028Но долгое время силы были равны.»'
+            + QUOTE_END + '\n\nДолгое время',
+            cleaned,
+        )
+        self.assertIn(
+            QUOTE_START + 'Первый абзац цитаты.\n\nВторой абзац цитаты.\n\n— Светоний'
+            + QUOTE_END + '\n\n== История ==',
+            cleaned,
+        )
+
+    def test_quotation_tokens_carry_in_quote_to_the_client(self):
+        from games.puzzles.censorly.text.tokenize import (
+            QUOTE_END,
+            QUOTE_START,
+            reconstruct_body_text,
+            tokenize_text,
+        )
+
+        text = f'Марциал написал:\n\n{QUOTE_START}Прискус и Верус бились{QUOTE_END}\n\nКонец.'
+        tokens = tokenize_text(text)
+        quoted = ''.join(tok['surface'] for tok in tokens if tok.get('in_quote'))
+        self.assertEqual(quoted, 'Прискус и Верус бились')
+        self.assertNotIn('in_quote', next(tok for tok in tokens if tok['surface'] == 'Конец'))
+        self.assertEqual(reconstruct_body_text(tokens), text)
+        # A quote cut off by trimming runs to the end; a stray end is dropped.
+        self.assertTrue(tokenize_text(f'А {QUOTE_START}Б')[-1].get('in_quote'))
+        self.assertEqual(
+            [tok['surface'] for tok in tokenize_text(f'А{QUOTE_END} Б')], ['А', ' ', 'Б'],
+        )
+
+        payload = build_puzzle_payload(wiki_title='Колизей', body_text=text)
+        view = build_public_view(payload, revealed_lemmas=set(), won=False)
+        public_quote = [tok for tok in view['body_tokens'] if tok.get('in_quote')]
+        self.assertEqual(len(public_quote), len([tok for tok in tokens if tok.get('in_quote')]))
+        self.assertTrue(any(not tok['revealed'] for tok in public_quote))
 
     def test_html_extract_keeps_math_lists_tables_and_drops_reference_marks(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
@@ -986,33 +1079,31 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertNotIn('[7]', marked)
         self.assertIn('{\\displaystyle x = 1}', marked)
         self.assertIn('# Первый\n# Второй', marked)
-        self.assertIn('| Имя | Значение', marked)
-        self.assertIn('| А | 1', marked)
+        # TextExtracts never delivered tables; parsed HTML drops them the same way.
+        self.assertNotIn('Значение', marked)
         cleaned = clean_wiki_extract(marked, mark_formulas=True)
         self.assertIn('1. Первый\u20282. Второй', cleaned)
-        self.assertIn('Имя | Значение', cleaned)
-        self.assertIn('А | 1', cleaned)
-        self.assertIn('Имя | Значение\u2028А | 1', cleaned)
 
-    def test_html_extract_keeps_large_table_rows_and_mathml_alttext(self):
+    def test_html_extract_keeps_large_lists_and_mathml_alttext(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
 
         rows = ''.join(
-            f'<tr><td><b>{index}</b></td><td>Элемент {index}</td>'
-            f'<td><math alttext="{{\\displaystyle x_{index} = {index}}}">'
+            f'<li><b>{index}</b> Элемент {index} '
+            f'<span class="mwe-math-element"><span style="display: none;">'
+            f'<math alttext="{{\\displaystyle x_{index} = {index}}}">'
             '<semantics><mi>x</mi><annotation>ignored</annotation></semantics>'
-            '</math></td></tr>'
+            '</math></span><img class="mwe-math-fallback-image-inline" alt="fallback" /></span></li>'
             for index in range(1, 121)
         )
-        raw = '<table><tr><th>№</th><th>Название</th><th>Формула</th></tr>' + rows + '</table>'
+        raw = '<ul>' + rows + '</ul>'
 
         marked = _html_extract_to_text(raw)
-        self.assertEqual(sum(line.startswith('| ') for line in marked.splitlines()), 121)
-        self.assertIn('| 120 | Элемент 120 | {\\displaystyle x_120 = 120}', marked)
+        self.assertEqual(sum(line.startswith('* ') for line in marked.splitlines()), 120)
+        self.assertIn('* 120 Элемент 120 {\\displaystyle x_120 = 120}', marked)
         self.assertNotIn('ignored', marked)
+        self.assertNotIn('fallback', marked)
 
         cleaned = clean_wiki_extract(marked, mark_formulas=True)
-        self.assertIn('Элемент 1 |', cleaned)
         # TeX subscripts consume one unbraced atom: x_120 means x₁ followed by 20.
         self.assertIn('x₁20 = 120', cleaned)
 

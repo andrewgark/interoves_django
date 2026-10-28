@@ -1,4 +1,4 @@
-"""Fetch Russian Wikipedia plaintext articles."""
+"""Fetch Russian Wikipedia articles as Censorly plaintext."""
 
 from __future__ import annotations
 
@@ -12,6 +12,8 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import requests
 from django.core.cache import caches
+
+from games.puzzles.censorly.text.tokenize import QUOTE_END, QUOTE_START
 
 WIKI_API = 'https://ru.wikipedia.org/w/api.php'
 USER_AGENT = 'InterovesCensorly/1.0 (https://interoves.com; game puzzle generator)'
@@ -57,9 +59,25 @@ class WikipediaRequestFailed(WikiFetchError):
 
 
 class _WikiExtractHTMLParser(HTMLParser):
-    """Convert TextExtracts HTML to plaintext while retaining block structure."""
+    """Convert parsed article HTML to plaintext while retaining block structure.
 
-    _SKIP_CLASSES = {'reference', 'mw-editsection', 'noprint'}
+    The input is ``action=parse`` HTML. TextExtracts used to drop every
+    ``div``, table and figure on Wikipedia's side, which also dropped the
+    ``{{Цитата}}`` blocks; the same filtering is done here, except that
+    quotations are kept and wrapped in QUOTE_START / QUOTE_END.
+    """
+
+    _SKIP_TAGS = {
+        'script', 'style', 'noscript', 'svg', 'table', 'figure', 'figcaption',
+        'input', 'img',
+    }
+    _SKIP_CLASSES = {
+        'reference', 'mw-editsection', 'noprint', 'references', 'gallery',
+        'error', 'nomobile', 'noexcerpt', 'sortkey',
+    }
+    # Divs that carry article text: the parser wrapper, section headings and
+    # the ruwiki quotation template around its <blockquote>.
+    _KEEP_DIV_CLASSES = {'mw-parser-output', 'mw-heading', 'ts-Цитата'}
     _VOID_TAGS = {
         'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
         'link', 'meta', 'param', 'source', 'track', 'wbr',
@@ -71,8 +89,11 @@ class _WikiExtractHTMLParser(HTMLParser):
         self.list_markers: list[str] = []
         self.skip_depth = 0
         self.heading_level: int | None = None
-        self.table_row_cells = 0
         self.definition_term_active = False
+        self.quote_depth = 0
+        # Source newlines after a quoted <br> or at the start of a quote are
+        # layout only; the line break itself is already in parts.
+        self.strip_leading_space = False
 
     def _ensure_newlines(self, count: int) -> None:
         # HTML extracts can contain hundreds of list items and long tables.
@@ -80,12 +101,23 @@ class _WikiExtractHTMLParser(HTMLParser):
         # quadratic in the size of the article.
         trailing = 0
         for part in reversed(self.parts):
+            if part.endswith((QUOTE_START, '\u2028')):
+                # The quote edge and a poem line break already separate blocks.
+                return
             suffix = part[len(part.rstrip('\n')):]
             trailing += len(suffix)
             if len(suffix) != len(part):
                 break
         if trailing < count:
             self.parts.append('\n' * (count - trailing))
+
+    def _rstrip_parts(self) -> None:
+        while self.parts:
+            stripped = self.parts[-1].rstrip()
+            if stripped:
+                self.parts[-1] = stripped
+                return
+            self.parts.pop()
 
     def handle_starttag(self, tag: str, attrs) -> None:
         attrs = dict(attrs)
@@ -94,8 +126,14 @@ class _WikiExtractHTMLParser(HTMLParser):
             if tag not in self._VOID_TAGS:
                 self.skip_depth += 1
             return
-        if tag in {'script', 'style', 'noscript', 'svg'} or classes & self._SKIP_CLASSES:
-            self.skip_depth = 1
+        skipped_div = (
+            tag == 'div'
+            and not self.quote_depth
+            and not classes & self._KEEP_DIV_CLASSES
+        )
+        if tag in self._SKIP_TAGS or classes & self._SKIP_CLASSES or skipped_div:
+            if tag not in self._VOID_TAGS:
+                self.skip_depth = 1
             return
         if tag == 'math':
             # MathML includes canonical TeX in alttext; preserve the same form
@@ -103,11 +141,18 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.parts.append(attrs.get('alttext') or '')
             self.skip_depth = 1
             return
-        if tag in {'h2', 'h3', 'h4', 'h5', 'h6'}:
+        if tag == 'blockquote':
+            if not self.quote_depth:
+                self._ensure_newlines(2)
+                self.parts.append(QUOTE_START)
+                self.strip_leading_space = True
+            self.quote_depth += 1
+        elif tag in {'h2', 'h3', 'h4', 'h5', 'h6'}:
             self.heading_level = int(tag[1])
             self._ensure_newlines(2)
             self.parts.append('=' * self.heading_level + ' ')
-        elif tag == 'p':
+        elif tag == 'p' or (self.quote_depth and tag == 'div'):
+            # Inside a quotation a div is a poem or the attribution line.
             self._ensure_newlines(2)
         elif tag in {'ul', 'ol'}:
             self.list_markers.append('*' if tag == 'ul' else '#')
@@ -125,41 +170,59 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.parts.append(': ' if self.definition_term_active else '')
             self.definition_term_active = False
         elif tag == 'br':
-            self.parts.append('\n')
-        elif tag in {'td', 'th'}:
-            if self.table_row_cells:
-                self.parts.append(' | ')
-            self.table_row_cells += 1
-        elif tag == 'tr':
-            self._ensure_newlines(1)
-            self.parts.append('| ')
-            self.table_row_cells = 0
-        elif tag == 'img' and attrs.get('alt'):
-            self.parts.append(attrs['alt'])
-        elif tag == 'figcaption':
-            self._ensure_newlines(1)
+            if self.quote_depth:
+                # Verse lines stay lines; prose cleanup joins plain newlines.
+                self._rstrip_parts()
+                self.parts.append('\u2028')
+                self.strip_leading_space = True
+            else:
+                self.parts.append('\n')
+
+    def handle_startendtag(self, tag: str, attrs) -> None:
+        # Parser HTML writes <br /> and <link />; a void tag has no end to
+        # count against skip_depth.
+        self.handle_starttag(tag, attrs)
+        if tag not in self._VOID_TAGS:
+            self.handle_endtag(tag)
 
     def handle_endtag(self, tag: str) -> None:
+        if tag in self._VOID_TAGS:
+            return
         if self.skip_depth:
             self.skip_depth -= 1
             return
-        if tag in {'h2', 'h3', 'h4', 'h5', 'h6'} and self.heading_level:
+        if tag == 'blockquote' and self.quote_depth:
+            self.quote_depth -= 1
+            if not self.quote_depth:
+                self._rstrip_parts()
+                if self.parts and self.parts[-1].endswith(QUOTE_START):
+                    self.parts[-1] = self.parts[-1][:-len(QUOTE_START)]
+                else:
+                    self.parts.append(QUOTE_END)
+                self._ensure_newlines(2)
+        elif tag in {'h2', 'h3', 'h4', 'h5', 'h6'} and self.heading_level:
             self.parts.append(' ' + '=' * self.heading_level)
             self.heading_level = None
             self._ensure_newlines(2)
-        elif tag == 'p':
+        elif tag == 'p' or (self.quote_depth and tag == 'div'):
             self._ensure_newlines(2)
         elif tag == 'li':
             self._ensure_newlines(1)
         elif tag in {'ul', 'ol'} and self.list_markers:
             self.list_markers.pop()
             self._ensure_newlines(1)
-        elif tag in {'tr', 'dt', 'dd', 'figcaption'}:
+        elif tag in {'dt', 'dd'}:
             self._ensure_newlines(1)
 
     def handle_data(self, data: str) -> None:
-        if not self.skip_depth:
-            self.parts.append(data)
+        if self.skip_depth:
+            return
+        if self.strip_leading_space:
+            data = data.lstrip()
+            if not data:
+                return
+            self.strip_leading_space = False
+        self.parts.append(data)
 
     def text(self) -> str:
         return ''.join(self.parts).strip()
@@ -1018,6 +1081,12 @@ def _collapse_extract_whitespace(text: str) -> str:
         previous_line = preceding_lines[-1]
         if _SECTION_HEADING_RE.fullmatch(previous_line.strip()):
             return match.group(0)
+        # A quotation is its own block, and its stanzas stay apart inside it.
+        if previous_line.endswith(QUOTE_END) or (
+            match.string.rfind(QUOTE_START, 0, match.start())
+            > match.string.rfind(QUOTE_END, 0, match.start())
+        ):
+            return match.group(0)
         next_line = match.group(2)
         previous_is_wrapped_list_text = (
             len(preceding_lines) >= 2
@@ -1261,20 +1330,20 @@ def fetch_article(
     session: Optional[requests.Session] = None,
     timeout: int = 30,
 ) -> WikiArticle:
-    """Load plaintext extract for a Russian Wikipedia title."""
+    """Load the article text for a Russian Wikipedia title."""
     title = title_from_user_input(title)
     sess = session or requests.Session()
     params = {
-        'action': 'query',
+        # Full parser HTML, not prop=extracts: TextExtracts removes every div
+        # on Wikipedia's side, and with them the {{Цитата}} quotations.
+        'action': 'parse',
         'format': 'json',
-        'prop': 'extracts|info|pageprops',
-        'ppprop': 'disambiguation',
-        # HTML retains list/table structure that the plaintext extract erases.
-        # Convert its block tags to the plaintext markers below before cleanup.
-        'exsectionformat': 'wiki',
+        'formatversion': 2,
+        'prop': 'text|revid|properties',
+        'disableeditsection': 1,
+        'disablelimitreport': 1,
         'redirects': 1,
-        'titles': title,
-        'inprop': 'displaytitle',
+        'page': title,
     }
     try:
         resp = sess.get(
@@ -1290,20 +1359,26 @@ def fetch_article(
     except ValueError as exc:
         raise WikipediaRequestFailed('Некорректный ответ Wikipedia API') from exc
 
-    pages = (data.get('query') or {}).get('pages') or {}
-    if not pages:
-        raise WikipediaRequestFailed('Wikipedia API вернул ответ без списка страниц')
-    page = next(iter(pages.values()))
+    if not isinstance(data, dict):
+        raise WikipediaRequestFailed('Некорректный ответ Wikipedia API')
+    error = data.get('error')
+    if isinstance(error, dict):
+        if error.get('code') in {'missingtitle', 'invalidtitle'}:
+            raise CensorlyArticleRejected('Статья не найдена')
+        raise WikipediaRequestFailed(f'Wikipedia API вернул ошибку: {error.get("code") or error}')
+    page = data.get('parse')
+    if not isinstance(page, dict):
+        raise WikipediaRequestFailed('Wikipedia API вернул ответ без статьи')
     try:
         pageid = int(page.get('pageid') or 0)
-    except (AttributeError, TypeError, ValueError) as exc:
+    except (TypeError, ValueError) as exc:
         raise WikipediaRequestFailed('Некорректный идентификатор страницы в ответе Wikipedia API') from exc
-    if page.get('missing') is not None or pageid < 0:
+    if pageid <= 0:
         raise CensorlyArticleRejected('Статья не найдена')
-    extract = _html_extract_to_text(page.get('extract') or '')
+    extract = _html_extract_to_text(page.get('text') or '')
     resolved_title = (page.get('title') or title).strip()
-    pageprops = page.get('pageprops') or {}
-    if 'disambiguation' in pageprops:
+    properties = page.get('properties') or {}
+    if 'disambiguation' in properties:
         raise CensorlyArticleRejected('Это страница неоднозначности')
     if _looks_like_disambiguation(extract):
         raise CensorlyArticleRejected('Похоже на страницу неоднозначности')
@@ -1312,14 +1387,14 @@ def fetch_article(
     extract, truncated = _trim_extract(extract, mark_formulas=True)
     if len(extract) < MIN_BODY_CHARS:
         raise CensorlyArticleRejected('Статья слишком короткая после очистки')
-    revid_raw = page.get('lastrevid')
+    revid_raw = page.get('revid')
     try:
         revid = int(revid_raw) if revid_raw else None
     except (TypeError, ValueError):
         revid = None
     return WikiArticle(
         title=resolved_title,
-        pageid=int(page['pageid']),
+        pageid=pageid,
         extract=extract,
         truncated=truncated,
         revid=revid,

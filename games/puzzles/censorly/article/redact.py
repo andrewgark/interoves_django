@@ -40,6 +40,8 @@ def _token_public(
             level = 0
         if 2 <= level <= 6:
             out['heading_level'] = level
+    if tok.get('in_quote'):
+        out['in_quote'] = True
     # Always-open structural tokens (legacy `heading` = whole section title blob).
     if kind in ('space', 'punct', 'stop', 'heading', 'heading_break'):
         out['text'] = tok.get('surface') or ''
@@ -47,8 +49,8 @@ def _token_public(
         return out
 
     if lexical:
-        from games.puzzles.censorly.text.flags import open_pronouns_enabled
         from games.puzzles.censorly.lexical.semantics import initially_open
+        from games.puzzles.censorly.text.flags import open_pronouns_enabled
         token_open = tok.get('initially_open')
         is_open = (
             bool(token_open) if token_open is not None else
