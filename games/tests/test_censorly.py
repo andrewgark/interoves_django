@@ -1176,6 +1176,150 @@ class CensorlyWikiHelperTests(TestCase):
         # A semicolon after an abbreviation is prose, not a formula leftover.
         self.assertIn('Inc.; Banc of America, Inc.; другие', cleaned)
 
+    def test_html_extract_keeps_data_tables_as_grids(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import (
+            BLOCK_ATTR_SEP,
+            TABLE_CAPTION,
+            TABLE_CELL,
+            TABLE_END,
+            TABLE_HEADER_CELL,
+            TABLE_ROW,
+            TABLE_START,
+        )
+
+        rows = ''.join(f'<tr><td>Строка {index}</td><td>{"x" * 100}</td></tr>' for index in range(60))
+        raw = (
+            '<div class="mw-parser-output"><p>Рекордсмены:</p>\n'
+            '<table class="wikitable"><caption>Игры\n</caption><tbody><tr>\n<th>#\n</th>\n'
+            '<th colspan="2">Футболист\n</th></tr>\n'
+            '<tr><td>1</td><td>Бюлент Коркмаз<sup class="reference">[3]</sup></td>'
+            '<td><p>1987</p><p>2005</p></td></tr>\n'
+            '<tr><td><ul><li>а</li><li>б</li></ul></td><td rowspan="2">x<table class="wikitable">'
+            '<tr><td>Вложенная</td></tr></table></td></tr></tbody></table>\n'
+            '<p>После таблицы.</p>\n'
+            '<table class="infobox"><tr><td>Инфобокс</td></tr></table>'
+            '<table class="wikitable ts-Климат_местности"><tr><td>Климат</td></tr></table>'
+            '<table><tr><td>Вёрстка</td></tr></table>'
+            '<table class="ts-col-begin"><tr><td><p>Левая колонка.</p></td>'
+            '<td><p>Правая колонка.</p></td></tr></table>'
+            f'<table class="wikitable sortable">{rows}</table>'
+            '</div>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw))
+        self.assertIn(
+            'Рекордсмены:\n\n' + TABLE_START + TABLE_CAPTION + 'Игры'
+            + TABLE_ROW + TABLE_HEADER_CELL + '#' + TABLE_HEADER_CELL + '2,1' + BLOCK_ATTR_SEP + 'Футболист'
+            + TABLE_ROW + TABLE_CELL + '1' + TABLE_CELL + 'Бюлент Коркмаз'
+            + TABLE_CELL + '1987 2005'
+            + TABLE_ROW + TABLE_CELL + '• а • б' + TABLE_CELL + '1,2' + BLOCK_ATTR_SEP + 'x'
+            + TABLE_END + '\n\nПосле таблицы.',
+            cleaned,
+        )
+        for dropped in ('Вложенная', 'Инфобокс', 'Климат', 'Вёрстка', '[3]'):
+            self.assertNotIn(dropped, cleaned)
+        # A column layout table is transparent: its cells are plain text.
+        self.assertIn('Левая колонка.', cleaned)
+        self.assertIn('Правая колонка.', cleaned)
+        # A long table keeps its first rows only.
+        self.assertIn('Строка 0', cleaned)
+        self.assertNotIn('Строка 59', cleaned)
+        self.assertEqual(cleaned.count(TABLE_START), cleaned.count(TABLE_END))
+
+    def test_html_extract_keeps_collapsed_blocks_and_code_listings(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import (
+            BLOCK_ATTR_SEP,
+            CODE_END,
+            CODE_START,
+            DETAILS_END,
+            DETAILS_START,
+            DETAILS_SUMMARY_END,
+        )
+
+        raw = (
+            '<div class="mw-parser-output"><p>Народы:</p>'
+            '<div class="mw-collapsible mw-collapsed ts-Скрытый&#95;блок">'
+            '<div class="ts-Скрытый&#95;блок-title">Список<sup class="reference">[55]</sup>'
+            '<div class="mw-collapsible-toggle-placeholder"></div></div>'
+            '<div class="mw-collapsible-content">\n<p>Россия: Алтай.</p>\n'
+            '<ul><li>один</li>\n<li>два</li></ul>\n</div></div>\n'
+            '<div class="mw-collapsible ts-Скрытый&#95;блок"><div class="ts-Скрытый&#95;блок-title">'
+            'Открытый</div><div class="mw-collapsible-content"><p>Текст.</p></div></div>\n'
+            '<p>Пример:</p>\n'
+            '<div class="mw-highlight mw-highlight-lang-python" dir="ltr"><pre><span></span>'
+            '<span class="k">def</span> f(x):\n'
+            '    print(x[1])  # (см. {выше})\n</pre></div>\n'
+            '<p>Конец.</p></div>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw))
+        self.assertIn(
+            'Народы:\n\n' + DETAILS_START + 'Список' + DETAILS_SUMMARY_END
+            + '\n\nРоссия: Алтай.\n\n• один • два' + DETAILS_END + '\n\n'
+            + DETAILS_START + 'open' + BLOCK_ATTR_SEP + 'Открытый' + DETAILS_SUMMARY_END
+            + '\n\nТекст.' + DETAILS_END,
+            cleaned,
+        )
+        # The listing keeps its brackets, parentheses and indentation.
+        self.assertIn(
+            'Пример:\n\n' + CODE_START + 'def f(x):     print(x[1])  # (см. {выше})'
+            + CODE_END + '\n\nКонец.',
+            cleaned,
+        )
+
+    def test_block_markers_become_block_tokens_for_the_client(self):
+        from games.puzzles.censorly.text.tokenize import (
+            BLOCK_ATTR_SEP,
+            CODE_END,
+            CODE_START,
+            DETAILS_END,
+            DETAILS_START,
+            DETAILS_SUMMARY_END,
+            QUOTE_END,
+            QUOTE_START,
+            TABLE_CELL,
+            TABLE_END,
+            TABLE_ROW,
+            TABLE_START,
+            reconstruct_body_text,
+            tokenize_text,
+        )
+
+        text = (
+            'Текст.\n\n' + TABLE_START + TABLE_ROW + TABLE_CELL + '2,3' + BLOCK_ATTR_SEP + 'Хакан'
+            + TABLE_END + '\n\n' + DETAILS_START + 'open' + BLOCK_ATTR_SEP + 'Список'
+            + DETAILS_SUMMARY_END + '\n\nРоссия.' + DETAILS_END + '\n\n'
+            + QUOTE_START + CODE_START + 'print(x)' + CODE_END + QUOTE_END
+        )
+        tokens = tokenize_text(text)
+        blocks = [tok for tok in tokens if tok['kind'] == 'block']
+        self.assertEqual(
+            [tok['block'] for tok in blocks],
+            ['table_start', 'row', 'cell', 'table_end', 'details_start', 'summary_end',
+             'details_end', 'code_start', 'code_end'],
+        )
+        self.assertEqual((blocks[2]['colspan'], blocks[2]['rowspan']), (2, 3))
+        self.assertTrue(blocks[4]['open'])
+        self.assertTrue(blocks[-1]['in_quote'])
+        self.assertEqual(reconstruct_body_text(tokens), text)
+        self.assertIn('print', [tok['surface'] for tok in tokens if tok['kind'] == 'content'])
+
+        payload = build_puzzle_payload(wiki_title='Тест', body_text=text)
+        view = build_public_view(payload, revealed_lemmas=set(), won=False)
+        public = [tok for tok in view['body_tokens'] if tok['kind'] == 'block']
+        self.assertEqual(
+            public[2],
+            {'id': public[2]['id'], 'kind': 'block', 'block': 'cell', 'colspan': 2, 'rowspan': 3,
+             'text': '', 'revealed': True},
+        )
+        # Markers never reach the client as text.
+        self.assertFalse(any(
+            '﷐' <= char <= '﷯'
+            for tok in view['body_tokens'] for char in str(tok.get('text') or '')
+        ))
+
     def test_html_extract_writes_sup_and_sub_as_unicode_scripts(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text
 

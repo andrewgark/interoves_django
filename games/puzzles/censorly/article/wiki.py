@@ -13,7 +13,22 @@ from urllib.parse import parse_qs, unquote, urlparse
 import requests
 from django.core.cache import caches
 
-from games.puzzles.censorly.text.tokenize import QUOTE_END, QUOTE_START
+from games.puzzles.censorly.text.tokenize import (
+    BLOCK_ATTR_SEP,
+    CODE_END,
+    CODE_START,
+    DETAILS_END,
+    DETAILS_START,
+    DETAILS_SUMMARY_END,
+    QUOTE_END,
+    QUOTE_START,
+    TABLE_CAPTION,
+    TABLE_CELL,
+    TABLE_END,
+    TABLE_HEADER_CELL,
+    TABLE_ROW,
+    TABLE_START,
+)
 
 WIKI_API = 'https://ru.wikipedia.org/w/api.php'
 USER_AGENT = 'InterovesCensorly/1.0 (https://interoves.com; game puzzle generator)'
@@ -65,13 +80,29 @@ class _WikiExtractHTMLParser(HTMLParser):
     ``div``, table and figure on Wikipedia's side, which also dropped the
     ``{{Цитата}}`` blocks; the same filtering is done here, except that
     quotations, poems and quote boxes are kept and wrapped in QUOTE_START /
-    QUOTE_END.
+    QUOTE_END. Data tables, collapsed blocks and code listings are kept too,
+    between the block markers of the tokenizer.
     """
 
     _SKIP_TAGS = {
-        'script', 'style', 'noscript', 'svg', 'table', 'figure', 'figcaption',
+        'script', 'style', 'noscript', 'svg', 'figure', 'figcaption',
         'input', 'img', 'audio', 'video', 'rt', 'rp',
     }
+    # Tables with data become grids. A column layout table ({{Колонки}}) is
+    # transparent: its cells are ordinary blocks. Infoboxes, navboxes, the
+    # climate template and unclassed layout tables stay out.
+    _DATA_TABLE_CLASSES = {'wikitable', 'standard', 'simple', 'sortable'}
+    _LAYOUT_TABLE_CLASSES = {'ts-col-begin'}
+    _SKIP_TABLE_CLASSES = {'infobox', 'navbox-inner', 'ts-Климат_местности', 'metadata'}
+    # A list of episodes or a census can run to tens of thousands of
+    # characters and push the prose after it past MAX_BODY_CHARS. Rows after
+    # this much table text are left out; the first rows show what it holds.
+    _TABLE_MAX_CHARS = 2500
+    # Openers after which a block boundary adds no line break of its own.
+    _BLOCK_OPENERS = (
+        QUOTE_START, '\u2028', TABLE_START, TABLE_CAPTION, TABLE_ROW, TABLE_CELL,
+        TABLE_HEADER_CELL, DETAILS_START, CODE_START, BLOCK_ATTR_SEP,
+    )
     _SKIP_CLASSES = {
         'reference', 'mw-editsection', 'noprint', 'references', 'gallery',
         'error', 'nomobile', 'noexcerpt', 'sortkey', 'reflist', 'refbegin',
@@ -82,10 +113,16 @@ class _WikiExtractHTMLParser(HTMLParser):
     # ruwiki quotation template around its <blockquote> and multi-column lists.
     # A div without a class is an indent template ({{отступ}}) around a
     # sentence's continuation, e.g. a list of numbers after «начинается так:».
-    _KEEP_DIV_CLASSES = {'mw-parser-output', 'mw-heading', 'ts-Цитата', 'columns', 'div-col'}
+    _KEEP_DIV_CLASSES = {
+        'mw-parser-output', 'mw-heading', 'ts-Цитата', 'columns', 'div-col', 'mw-highlight',
+    }
     _BLOCK_DIV_CLASSES = {'columns', 'div-col'}
     # <poem> and {{Врезка}} (a side box with a quotation and its author).
     _QUOTE_DIV_CLASSES = {'poem', 'ts-Врезка'}
+    # {{Скрытый блок}}: a title and the collapsed content.
+    _DETAILS_DIV_CLASS = 'ts-Скрытый_блок'
+    _SUMMARY_DIV_CLASS = 'ts-Скрытый_блок-title'
+    _DETAILS_CONTENT_DIV_CLASS = 'mw-collapsible-content'
     _VOID_TAGS = {
         'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
         'link', 'meta', 'param', 'source', 'track', 'wbr',
@@ -99,8 +136,15 @@ class _WikiExtractHTMLParser(HTMLParser):
         self.heading_level: int | None = None
         self.definition_term_active = False
         self.quote_depth = 0
-        # One entry per open kept div: whether it opened a quotation.
-        self.div_quotes: list[bool] = []
+        # One entry per open kept div: the block it opened ('quote',
+        # 'details', 'summary') or ''.
+        self.div_roles: list[str] = []
+        # One entry per open kept table: 'data' or 'layout'.
+        self.tables: list[str] = []
+        self.table_chars = 0
+        # Inside an open {{Скрытый блок}} whose title has not ended yet.
+        self.summary_pending = False
+        self.in_code = False
         # Open <sup>/<sub>/<span>: (tag, first part index, <br> part index).
         # A span is tracked only as the {{Su}} stack of a superscript over a
         # subscript (an inline-block with a <br>), as in an ion O₃⁻.
@@ -113,10 +157,16 @@ class _WikiExtractHTMLParser(HTMLParser):
         # HTML extracts can contain hundreds of list items and long tables.
         # Joining all accumulated text at every block boundary made conversion
         # quadratic in the size of the article.
+        if 'data' in self.tables:
+            # A table row is one line: blocks inside a cell are line breaks.
+            self._rstrip_parts()
+            if self.parts and not self.parts[-1].endswith(self._BLOCK_OPENERS):
+                self.parts.append('\u2028')
+            return
         trailing = 0
         for part in reversed(self.parts):
-            if part.endswith((QUOTE_START, '\u2028')):
-                # The quote edge and a poem line break already separate blocks.
+            if part.endswith(self._BLOCK_OPENERS):
+                # A block edge and a poem line break already separate blocks.
                 return
             suffix = part[len(part.rstrip('\n')):]
             trailing += len(suffix)
@@ -140,13 +190,35 @@ class _WikiExtractHTMLParser(HTMLParser):
             if tag not in self._VOID_TAGS:
                 self.skip_depth += 1
             return
+        # A collapsed block inside a table cell stays a plain div: the
+        # table row is one line and the block's content is paragraphs.
+        opens_details = (
+            tag == 'div' and self._DETAILS_DIV_CLASS in classes
+            and not self.in_code and 'data' not in self.tables
+        )
+        details_div = opens_details or bool(
+            'details' in self.div_roles
+            and classes & {self._SUMMARY_DIV_CLASS, self._DETAILS_CONTENT_DIV_CLASS}
+        )
         skipped_div = (
             tag == 'div'
             and not self.quote_depth
             and not classes & (self._KEEP_DIV_CLASSES | self._QUOTE_DIV_CLASSES)
+            and not details_div
             and classes
         )
-        if tag in self._SKIP_TAGS or classes & self._SKIP_CLASSES or skipped_div:
+        skipped_table = tag == 'table' and (
+            'data' in self.tables
+            or bool(classes & self._SKIP_TABLE_CLASSES)
+            or not classes & (self._DATA_TABLE_CLASSES | self._LAYOUT_TABLE_CLASSES)
+        )
+        skipped_row = (
+            tag == 'tr' and 'data' in self.tables and self.table_chars > self._TABLE_MAX_CHARS
+        )
+        if (
+            tag in self._SKIP_TAGS or classes & self._SKIP_CLASSES
+            or skipped_div or skipped_table or skipped_row
+        ):
             if tag not in self._VOID_TAGS:
                 self.skip_depth = 1
             return
@@ -160,7 +232,54 @@ class _WikiExtractHTMLParser(HTMLParser):
             tag == 'div' and bool(classes & self._QUOTE_DIV_CLASSES)
         )
         if tag == 'div':
-            self.div_quotes.append(opens_quote)
+            role = 'quote' if opens_quote else ''
+            if opens_details:
+                role = 'details'
+                self._ensure_newlines(2)
+                opened = '' if 'mw-collapsed' in classes else 'open' + BLOCK_ATTR_SEP
+                self.parts.append(DETAILS_START + opened)
+                self.summary_pending = True
+                self.strip_leading_space = True
+            elif self.summary_pending and self._SUMMARY_DIV_CLASS in classes:
+                role = 'summary'
+            elif self.summary_pending and self._DETAILS_CONTENT_DIV_CLASS in classes:
+                self._end_summary()
+            self.div_roles.append(role)
+            if role in {'details', 'summary'}:
+                return
+        elif tag == 'table':
+            kind = 'data' if classes & self._DATA_TABLE_CLASSES else 'layout'
+            self._ensure_newlines(2)
+            self.tables.append(kind)
+            if kind == 'data':
+                self.parts.append(TABLE_START)
+                self.table_chars = 0
+            return
+        elif 'data' in self.tables and tag in {'caption', 'tr', 'td', 'th'}:
+            if tag == 'caption':
+                self.parts.append(TABLE_CAPTION)
+            elif tag == 'tr':
+                self._rstrip_parts()
+                self.parts.append(TABLE_ROW)
+            else:
+                spans = [attrs.get('colspan') or '1', attrs.get('rowspan') or '1']
+                spans = [span.strip() if span.strip().isdigit() else '1' for span in spans]
+                marker = TABLE_HEADER_CELL if tag == 'th' else TABLE_CELL
+                self._rstrip_parts()
+                attr = ','.join(spans) + BLOCK_ATTR_SEP if spans != ['1', '1'] else ''
+                self.parts.append(marker + attr)
+            self.strip_leading_space = True
+            return
+        elif tag in {'td', 'th'} and self.tables:
+            # A cell of a column layout table.
+            self._ensure_newlines(2)
+            return
+        elif tag == 'pre' and not self.in_code:
+            self._ensure_newlines(2)
+            self.parts.append(CODE_START)
+            self.in_code = True
+            self.strip_leading_space = False
+            return
         elif tag in {'sup', 'sub'}:
             self.scripts.append((tag, len(self.parts), None))
         elif tag == 'span':
@@ -185,7 +304,10 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.list_markers.append('*' if tag == 'ul' else '#')
         elif tag == 'li':
             self._ensure_newlines(1)
-            self.parts.append(''.join(self.list_markers) + ' ')
+            if 'data' in self.tables:
+                self.parts.append('• ')
+            else:
+                self.parts.append(''.join(self.list_markers) + ' ')
         elif tag == 'dl':
             self._ensure_newlines(1)
         elif tag == 'dt':
@@ -201,6 +323,10 @@ class _WikiExtractHTMLParser(HTMLParser):
             if self.scripts and self.scripts[-1] and self.scripts[-1][0] == 'span':
                 name, start, _ = self.scripts[-1]
                 self.scripts[-1] = (name, start, len(self.parts))
+            elif self.in_code:
+                self.parts.append('\u2028')
+            elif 'data' in self.tables:
+                self._ensure_newlines(1)
             elif self.quote_depth:
                 # Verse lines stay lines; prose cleanup joins plain newlines.
                 self._rstrip_parts()
@@ -227,8 +353,33 @@ class _WikiExtractHTMLParser(HTMLParser):
             if script:
                 self._close_script(*script)
         closes_quote = tag == 'blockquote'
-        if tag == 'div' and self.div_quotes:
-            closes_quote = self.div_quotes.pop()
+        if tag == 'div' and self.div_roles:
+            role = self.div_roles.pop()
+            closes_quote = role == 'quote'
+            if role == 'summary':
+                self._end_summary()
+                return
+            if role == 'details':
+                self._end_summary()
+                self._rstrip_parts()
+                self.parts.append(DETAILS_END)
+                self._ensure_newlines(2)
+                return
+        if tag == 'table' and self.tables:
+            if self.tables.pop() == 'data':
+                self._rstrip_parts()
+                self.parts.append(TABLE_END)
+            self._ensure_newlines(2)
+            return
+        if 'data' in self.tables and tag in {'caption', 'td', 'th'}:
+            self._rstrip_parts()
+            return
+        if tag == 'pre' and self.in_code:
+            self._rstrip_parts()
+            self.parts.append(CODE_END)
+            self.in_code = False
+            self._ensure_newlines(2)
+            return
         if closes_quote and self.quote_depth:
             self.quote_depth -= 1
             if not self.quote_depth:
@@ -251,6 +402,15 @@ class _WikiExtractHTMLParser(HTMLParser):
             self._ensure_newlines(1)
         elif tag in {'dt', 'dd'}:
             self._ensure_newlines(1)
+
+    def _end_summary(self) -> None:
+        if not self.summary_pending:
+            return
+        self.summary_pending = False
+        self._rstrip_parts()
+        # Content starts on a line of its own, so a list in it is still a list.
+        self.parts.append(DETAILS_SUMMARY_END + '\n\n')
+        self.strip_leading_space = True
 
     def _close_script(self, tag: str, start: int, split: int | None) -> None:
         def script(parts: list[str], table: dict[int, str]) -> str:
@@ -280,6 +440,17 @@ class _WikiExtractHTMLParser(HTMLParser):
     def handle_data(self, data: str) -> None:
         if self.skip_depth:
             return
+        if self.in_code:
+            # Line breaks and indentation are the listing's own text.
+            if self.parts and self.parts[-1].endswith(CODE_START):
+                data = data.lstrip('\r\n')
+            self.parts.append(
+                data.replace('\r', '').replace('\t', '    ').replace('\n', '\u2028'),
+            )
+            return
+        if 'data' in self.tables:
+            data = data.replace('\n', ' ')
+            self.table_chars += len(data.strip())
         if self.strip_leading_space:
             data = data.lstrip()
             if not data:
@@ -1147,6 +1318,12 @@ def _strip_indented_math_lines(text: str) -> str:
     return ''.join(kept)
 
 
+_BLOCK_CLOSERS = (QUOTE_END, TABLE_END, DETAILS_SUMMARY_END, DETAILS_END, CODE_END)
+_CODE_BLOCK_RE = re.compile(
+    re.escape(CODE_START) + r'.*?(?:' + re.escape(CODE_END) + r'|$)', re.DOTALL,
+)
+
+
 def _collapse_extract_whitespace(text: str) -> str:
     """Normalize blanks after math/image cleanup so prose reads as paragraphs."""
     if not text:
@@ -1168,7 +1345,8 @@ def _collapse_extract_whitespace(text: str) -> str:
         if _SECTION_HEADING_RE.fullmatch(previous_line.strip()):
             return match.group(0)
         # A quotation is its own block, and its stanzas stay apart inside it.
-        if previous_line.endswith(QUOTE_END) or (
+        # So are a table, a collapsed block (and its title) and a listing.
+        if previous_line.endswith(_BLOCK_CLOSERS) or (
             match.string.rfind(QUOTE_START, 0, match.start())
             > match.string.rfind(QUOTE_END, 0, match.start())
         ):
@@ -1358,11 +1536,17 @@ def _format_wiki_lists(text: str) -> str:
 def clean_wiki_extract(extract: str, *, mark_formulas: bool = False) -> str:
     """Convert TextExtracts math dumps to readable, tokenizable raw text."""
     text = extract or ''
+    # A code listing is shown as is: its brackets, parentheses and indentation
+    # are not footnotes or blanks to tidy.
+    listings = _CODE_BLOCK_RE.findall(text)
+    text = _CODE_BLOCK_RE.sub(CODE_START + CODE_END, text)
     text = _strip_indented_math_lines(text)
     text = _replace_tex_groups(text, mark_formulas=mark_formulas)
     text = _strip_bracket_notes(text)
     text = _collapse_extract_whitespace(text)
-    return _format_wiki_lists(text).strip('\n')
+    text = _format_wiki_lists(text).strip('\n')
+    restored = iter(listings)
+    return re.sub(re.escape(CODE_START + CODE_END), lambda _match: next(restored, ''), text)
 
 
 def _headings_to_marked(extract: str) -> str:

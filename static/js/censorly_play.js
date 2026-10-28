@@ -274,6 +274,10 @@
     return !!(tok && tok.in_quote);
   }
 
+  function isBlock(tok) {
+    return !!(tok && tok.kind === 'block');
+  }
+
   function headingLevel(tok) {
     var n = parseInt(tok && tok.heading_level, 10);
     if (n >= 2 && n <= 6) return n;
@@ -409,6 +413,7 @@
       end < tokens.length &&
       tokens[end].kind !== 'space' &&
       !isHeadingEdge(tokens[end]) &&
+      !isBlock(tokens[end]) &&
       isInQuote(tokens[end]) === isInQuote(tokens[start])
     ) end += 1;
     return end;
@@ -480,19 +485,102 @@
     }
     var started = false;
     var prevWasPara = false;
-    // Quotation tokens go into their own block; everything else into container.
-    var target = container;
+    // Quotations, tables, collapsed blocks and listings nest: the innermost
+    // open one receives the tokens. Blocks left open by truncation just end.
+    var stack = [{ kind: 'root', node: container }];
+    var quoted = false;
+    function openBlock(kind, node, parent) {
+      (parent || stack[stack.length - 1].node).appendChild(node);
+      stack.push({ kind: kind, node: node });
+    }
+    function blockIndex(kind) {
+      for (var s = stack.length - 1; s > 0; s -= 1) {
+        if (stack[s].kind === kind) return s;
+      }
+      return -1;
+    }
+    // Close the blocks opened inside the nearest `kind`; with `inclusive`,
+    // that block too.
+    function closeInside(kind, inclusive) {
+      var index = blockIndex(kind);
+      if (index > 0) stack.length = inclusive ? index : index + 1;
+      return index > 0 ? stack[index] || null : null;
+    }
+    function openCell(tok, tagName, className) {
+      var table = closeInside('table', false);
+      if (!table) return;
+      if (!table.row) {
+        table.row = el('tr');
+        table.node.appendChild(table.row);
+      }
+      var cell = el(tagName, className);
+      if (tok.colspan) cell.colSpan = tok.colspan;
+      if (tok.rowspan) cell.rowSpan = tok.rowspan;
+      openBlock('cell', cell, table.row);
+    }
+    function renderBlock(tok) {
+      var block = tok.block;
+      if (block === 'table_start') {
+        var wrap = el('div', 'censorly-table-wrap');
+        stack[stack.length - 1].node.appendChild(wrap);
+        openBlock('table', el('table', 'censorly-table'), wrap);
+      } else if (block === 'caption') {
+        var captionTable = closeInside('table', false);
+        if (captionTable) openBlock('cell', el('caption', 'censorly-table__caption'), captionTable.node);
+      } else if (block === 'row') {
+        var rowTable = closeInside('table', false);
+        if (rowTable) {
+          rowTable.row = el('tr');
+          rowTable.node.appendChild(rowTable.row);
+        }
+      } else if (block === 'cell' || block === 'header_cell') {
+        var header = block === 'header_cell';
+        openCell(tok, header ? 'th' : 'td', 'censorly-table__cell' + (header ? ' censorly-table__cell--header' : ''));
+      } else if (block === 'table_end') {
+        closeInside('table', true);
+      } else if (block === 'details_start') {
+        var details = el('details', 'censorly-details');
+        if (tok.open) details.open = true;
+        openBlock('details', details);
+        openBlock('summary', el('summary', 'censorly-details__summary'));
+      } else if (block === 'summary_end') {
+        var owner = closeInside('details', false);
+        if (owner) {
+          var summary = owner.node.querySelector('summary');
+          if (summary && !summary.textContent.trim()) summary.textContent = 'Подробнее';
+          openBlock('details-body', el('div', 'censorly-details__body'));
+        }
+      } else if (block === 'details_end') {
+        closeInside('details', true);
+      } else if (block === 'code_start') {
+        openBlock('code', el('pre', 'censorly-code'));
+      } else if (block === 'code_end') {
+        closeInside('code', true);
+      }
+    }
     var i = 0;
     while (i < list.length) {
       var tok = list[i];
-      if (isInQuote(tok) !== (target !== container)) {
-        if (isInQuote(tok)) {
-          target = el('blockquote', 'censorly-quote');
-          container.appendChild(target);
-        } else {
-          target = container;
-        }
+      if (isInQuote(tok) !== quoted) {
+        quoted = isInQuote(tok);
+        if (quoted) openBlock('quote', el('blockquote', 'censorly-quote'));
+        else closeInside('quote', true);
         prevWasPara = false;
+      }
+      if (isBlock(tok)) {
+        renderBlock(tok);
+        // A block's own margins replace paragraph gaps at its edges.
+        started = false;
+        prevWasPara = false;
+        i += 1;
+        continue;
+      }
+      var target = stack[stack.length - 1].node;
+      if (stack[stack.length - 1].kind === 'code' && tok.kind === 'space') {
+        // A listing keeps its line breaks and indentation as text.
+        target.appendChild(document.createTextNode(String(tok.text || '').replace(/[\u2028\n]/g, '\n')));
+        i += 1;
+        continue;
       }
       if (isCompactArticleBreak(tok)) {
         var compactBreakText = tok.text || '';
@@ -509,9 +597,10 @@
         var prev = list[i - 1];
         // A newline after a heading would stack on its margin. One before a
         // heading stays: that is the paragraph gap, and the heading margin adds.
-        // A quotation's own margins replace the gaps on both of its sides.
+        // A quotation's or block's own margins replace the gaps on both of its
+        // sides.
         var quoteEdge = !isInQuote(tok) && (isInQuote(prev) || isInQuote(list[i + 1]));
-        if (!started || isHeadingEdge(prev) || prevWasPara || quoteEdge) {
+        if (!started || isHeadingEdge(prev) || prevWasPara || quoteEdge || isBlock(list[i + 1])) {
           i += 1;
           continue;
         }
@@ -892,8 +981,17 @@
     return (top + Math.max(top + 1, bottom)) / 2;
   }
 
+  function inClosedDetails(node) {
+    var details = node && node.closest && node.closest('details');
+    return !!(details && !details.open);
+  }
+
   function scrollToNode(root, node) {
     if (!node) return;
+    // A word inside collapsed blocks is shown by opening them.
+    for (var details = node.closest('details'); details; details = details.parentElement && details.parentElement.closest('details')) {
+      details.open = true;
+    }
     // On mobile the dock spans the game width and sticks over the bottom of
     // the article. Center within the unobscured area, not the whole viewport.
     var bounds = mobileDockBounds(root);
@@ -937,6 +1035,9 @@
       return root.querySelector('.censorly-tok[data-id="' + String(id) + '"]');
     }).filter(Boolean);
     if (!nodes.length) return;
+    // Prefer occurrences in view over opening a collapsed block for one.
+    var shown = nodes.filter(function (candidate) { return !inClosedDetails(candidate); });
+    if (shown.length) nodes = shown;
     var node = nodes[0];
     if (mode === 'nearest') node = nearestScrollNode(root, nodes);
     if (mode === 'next') {

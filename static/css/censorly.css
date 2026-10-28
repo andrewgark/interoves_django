@@ -336,6 +336,78 @@ html.new-ui-dark .censorly__dock {
 }
 
 /*
+  Article table. A table wider than the column scrolls on its own, so the page
+  never does. Like a quotation, its margin replaces the paragraph gaps.
+*/
+.censorly-table-wrap {
+  display: block;
+  max-width: 100%;
+  margin: 0.75em 0;
+  overflow-x: auto;
+}
+
+.censorly-table {
+  border-collapse: collapse;
+  font-size: 0.92em;
+  line-height: 1.45;
+}
+
+.censorly-table__caption {
+  padding: 0 0 0.35em;
+  text-align: left;
+  color: var(--muted);
+}
+
+.censorly-table__cell {
+  padding: 0.3em 0.55em;
+  border: 1px solid color-mix(in srgb, var(--border, #ccc) 85%, transparent);
+  text-align: left;
+  vertical-align: top;
+}
+
+.censorly-table__cell--header {
+  font-weight: 400;
+  background: color-mix(in srgb, var(--text, #222) 5%, transparent);
+}
+
+/* {{Скрытый блок}}: collapsed as on Wikipedia; its words count as usual. */
+.censorly-details {
+  display: block;
+  margin: 0.75em 0;
+  border: 1px solid color-mix(in srgb, var(--border, #ccc) 85%, transparent);
+  border-radius: 6px;
+}
+
+.censorly-details__summary {
+  padding: 0.4em 0.8em;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--text, #222) 4%, transparent);
+}
+
+.censorly-details[open] > .censorly-details__summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--border, #ccc) 85%, transparent);
+}
+
+.censorly-details__body {
+  padding: 0.5em 0.8em;
+}
+
+/* Code listing: its own line breaks and indentation, scrolled sideways. */
+.censorly-code {
+  display: block;
+  margin: 0.75em 0;
+  padding: 0.6em 0.8em;
+  overflow-x: auto;
+  white-space: pre;
+  font: inherit;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.92em;
+  line-height: 1.5;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text, #222) 5%, transparent);
+}
+
+/*
   Mask. Default is █ glyphs (.censorly-tok--glyphs).
   Class censorly--bars on #censorly-root restores the rectangle stems.
 */

@@ -42,6 +42,15 @@ def _token_public(
             out['heading_level'] = level
     if tok.get('in_quote'):
         out['in_quote'] = True
+    if kind == 'block':
+        # Table, collapsed block or code edge: the client needs its shape only.
+        out['block'] = tok.get('block') or ''
+        for key in ('colspan', 'rowspan', 'open'):
+            if tok.get(key):
+                out[key] = tok[key]
+        out['text'] = ''
+        out['revealed'] = True
+        return out
     # Always-open structural tokens (legacy `heading` = whole section title blob).
     if kind in ('space', 'punct', 'stop', 'heading', 'heading_break'):
         out['text'] = tok.get('surface') or ''
@@ -320,7 +329,7 @@ def share_mask_runs(
         if not isinstance(tok, dict):
             continue
         kind = tok.get('kind') or ''
-        if kind in ('heading_break', 'heading'):
+        if kind in ('heading_break', 'heading', 'block'):
             push_break()
             continue
         text = str(tok.get('text') or '')

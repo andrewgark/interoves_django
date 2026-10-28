@@ -13,11 +13,22 @@ from django.test import SimpleTestCase
 
 from games.puzzles.censorly.article.redact import build_public_view
 from games.puzzles.censorly.text.tokenize import (
+    BLOCK_ATTR_SEP,
+    CODE_END,
+    CODE_START,
+    DETAILS_END,
+    DETAILS_START,
+    DETAILS_SUMMARY_END,
     HEADING_END,
     HEADING_LEVEL_SEP,
     HEADING_START,
     QUOTE_END,
     QUOTE_START,
+    TABLE_CELL,
+    TABLE_END,
+    TABLE_HEADER_CELL,
+    TABLE_ROW,
+    TABLE_START,
     build_puzzle_payload,
     title_content_lemmas,
 )
@@ -32,6 +43,17 @@ BODY = (
     + '\nКот-воркот любит людей, улицу и окна.\n\n'
     # Every quoted word also occurs outside, so each guess patches top-level runs too.
     + QUOTE_START + 'Зверь любит окна,\u2028а люди — улицу.' + QUOTE_END
+)
+
+# A table, a collapsed block and a listing. «Сундук» occurs only inside the
+# collapsed block; every other word also occurs in plain text.
+BLOCKS_BODY = (
+    'Кот любит окна, улицу и людей.\n\n'
+    + TABLE_START + TABLE_ROW + TABLE_HEADER_CELL + 'Кот' + TABLE_HEADER_CELL + 'Окна'
+    + TABLE_ROW + TABLE_CELL + '2,1' + BLOCK_ATTR_SEP + 'Люди и улицу' + TABLE_END
+    + '\n\n' + DETAILS_START + 'Окна кота' + DETAILS_SUMMARY_END + '\n\nКот и сундук.' + DETAILS_END
+    + '\n\n' + CODE_START + 'кот = окна\u2028if кот:\u2028    людей()' + CODE_END
+    + '\n\nЛюди любят кота.'
 )
 
 PAGE = '''<!doctype html><html><head><meta charset="utf-8"></head><body>
@@ -82,8 +104,8 @@ def _page(state, state_url=False):
 class _Article:
     """Public states of one puzzle as the player opens its non-title words."""
 
-    def __init__(self):
-        self.payload = build_puzzle_payload(wiki_title='Кот', body_text=BODY)
+    def __init__(self, body=BODY):
+        self.payload = build_puzzle_payload(wiki_title='Кот', body_text=body)
         title_lemmas = title_content_lemmas(self.payload)
         self.lemmas = []
         for tok in self.payload['body_tokens']:
@@ -226,3 +248,56 @@ class CensorlyPatchBrowserTests(SimpleTestCase):
             page.goto(ORIGIN + '/play')
             page.wait_for_function('() => document.querySelectorAll("#censorly-guess-list tr").length === 2')
             self._assert_matches_full_render(page, reference, pages, synced_state)
+
+    def test_blocks_render_and_patch_like_a_full_render(self):
+        article = _Article(BLOCKS_BODY)
+        pages = {'/play': _page(article.state)}
+        responses = {}
+        with self._browser(pages, responses) as (page, reference):
+            page.goto(ORIGIN + '/play')
+            shape = page.evaluate('''() => {
+                const table = document.querySelector('#censorly-body .censorly-table-wrap > table');
+                const details = document.querySelector('#censorly-body > details.censorly-details');
+                const code = document.querySelector('#censorly-body > pre.censorly-code');
+                return {
+                    rows: table.querySelectorAll('tr').length,
+                    headers: table.querySelectorAll('th').length,
+                    colspan: table.querySelector('td').colSpan,
+                    open: details.open,
+                    summaryWords: details.querySelectorAll('summary .censorly-tok').length,
+                    bodyWords: details.querySelectorAll('.censorly-details__body .censorly-tok').length,
+                    code: code.textContent,
+                    paragraphs: document.querySelectorAll('#censorly-body > .censorly-tok--para').length,
+                };
+            }''')
+            self.assertEqual(shape['rows'], 2)
+            self.assertEqual(shape['headers'], 2)
+            self.assertEqual(shape['colspan'], 2)
+            self.assertFalse(shape['open'])
+            self.assertGreater(shape['summaryWords'], 0)
+            self.assertGreater(shape['bodyWords'], 0)
+            # Masks stand in for the words; line breaks and indentation stay.
+            self.assertIn('\n    ', shape['code'])
+            self.assertEqual(shape['code'].count('\n'), 2)
+            # A block's margins replace the paragraph gaps around it.
+            self.assertEqual(shape['paragraphs'], 0)
+
+            full_state, newly = article.open('кот')
+            responses['/guess'] = _compact_play_response(
+                dict(full_state, status='hit', hits=len(newly), newly_revealed=newly),
+            )
+            page.evaluate(MARK_NODES)
+            page.fill('#censorly-word', 'кот')
+            page.press('#censorly-word', 'Enter')
+            page.wait_for_function('() => document.querySelectorAll("#censorly-guess-list tr").length === 1')
+            self._assert_matches_full_render(page, reference, pages, full_state)
+            self.assertFalse(page.evaluate('() => document.querySelector("details").open'))
+
+            # A word found only inside a collapsed block opens it.
+            full_state, newly = article.open('сундук')
+            responses['/guess'] = _compact_play_response(
+                dict(full_state, status='hit', hits=len(newly), newly_revealed=newly),
+            )
+            page.fill('#censorly-word', 'сундук')
+            page.press('#censorly-word', 'Enter')
+            page.wait_for_function('() => document.querySelector("details").open')

@@ -43,6 +43,36 @@ FORMULA_END = '\ufdd3'
 # tokens carry in_quote; an unclosed quote runs to the end of the text.
 QUOTE_START = '\ufdd4'
 QUOTE_END = '\ufdd5'
+# Article blocks: a table with its caption, rows and cells, a collapsed block
+# (its title runs up to DETAILS_SUMMARY_END) and a code listing. Each marker
+# becomes a `block` token whose surface is the marker itself, so the text can
+# be rebuilt from tokens. A marker may carry attributes up to BLOCK_ATTR_SEP:
+# "colspan,rowspan" on a cell, "open" on a block shown expanded.
+TABLE_START = '\ufdd6'
+TABLE_END = '\ufdd7'
+TABLE_CAPTION = '\ufdd8'
+TABLE_ROW = '\ufdd9'
+TABLE_CELL = '\ufdda'
+TABLE_HEADER_CELL = '\ufddb'
+DETAILS_START = '\ufddc'
+DETAILS_SUMMARY_END = '\ufddd'
+DETAILS_END = '\ufdde'
+CODE_START = '\ufddf'
+CODE_END = '\ufde0'
+BLOCK_ATTR_SEP = '\ufde1'
+BLOCK_MARKERS = {
+    TABLE_START: 'table_start',
+    TABLE_END: 'table_end',
+    TABLE_CAPTION: 'caption',
+    TABLE_ROW: 'row',
+    TABLE_CELL: 'cell',
+    TABLE_HEADER_CELL: 'header_cell',
+    DETAILS_START: 'details_start',
+    DETAILS_SUMMARY_END: 'summary_end',
+    DETAILS_END: 'details_end',
+    CODE_START: 'code_start',
+    CODE_END: 'code_end',
+}
 
 _MATH_SERVICE_SYMBOLS = '°∫∬∭∮≤≥≠≈≡∈∉∑∏∂∇×·±∓→←↔⇌⟶⟵⟷⇒⇐⇔⟹⟸⟺↦⟨⟩₍₎∪∩∧∨√∞△⊥∥⊗∼⊆∣∠′˙¨¯ᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ'
 _MATH_SERVICE_SYMBOL_SET = frozenset(_MATH_SERVICE_SYMBOLS)
@@ -69,6 +99,9 @@ _HEADING_SPLIT_RE = re.compile(
 _QUOTE_SPLIT_RE = re.compile(
     re.escape(QUOTE_START) + r'(.*?)(?:' + re.escape(QUOTE_END) + r'|$)',
     re.DOTALL,
+)
+_BLOCK_MARKER_RE = re.compile(
+    '([' + ''.join(BLOCK_MARKERS) + '])(?:([0-9a-z,]*)' + BLOCK_ATTR_SEP + ')?',
 )
 _FORMULA_SPLIT_RE = re.compile(
     re.escape(FORMULA_START) + r'(.*?)' + re.escape(FORMULA_END),
@@ -124,6 +157,27 @@ def _heading_break(tid: int) -> dict[str, Any]:
         'in_title': False,
         'in_heading': False,
     }
+
+
+def _block_token(marker: str, attrs: str, tid: int) -> dict[str, Any]:
+    tok: dict[str, Any] = {
+        'id': tid,
+        'surface': marker + (attrs + BLOCK_ATTR_SEP if attrs else ''),
+        'kind': 'block',
+        'block': BLOCK_MARKERS[marker],
+        'lemma': '',
+        'length': 0,
+        'in_title': False,
+        'in_heading': False,
+    }
+    if attrs == 'open':
+        tok['open'] = True
+    elif attrs:
+        colspan, _, rowspan = attrs.partition(',')
+        for key, value in (('colspan', colspan), ('rowspan', rowspan)):
+            if value.isdigit() and 1 < int(value) <= 100:
+                tok[key] = int(value)
+    return tok
 
 
 def _formula_token(surface: str, tid: int, *, in_title: bool, in_heading: bool) -> dict[str, Any]:
@@ -289,21 +343,40 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
     tokens: list[dict[str, Any]] = []
     pos = 0
     for match in _QUOTE_SPLIT_RE.finditer(raw):
-        tokens.extend(_tokenize_sections(
+        tokens.extend(_tokenize_blocks(
             raw[pos:match.start()].replace(QUOTE_END, ''),
             in_title=in_title, start_id=start_id + len(tokens),
         ))
-        quoted = _tokenize_sections(
+        quoted = _tokenize_blocks(
             match.group(1) or '', in_title=in_title, start_id=start_id + len(tokens),
         )
         for tok in quoted:
             tok['in_quote'] = True
         tokens.extend(quoted)
         pos = match.end()
-    tokens.extend(_tokenize_sections(
+    tokens.extend(_tokenize_blocks(
         raw[pos:].replace(QUOTE_END, ''), in_title=in_title, start_id=start_id + len(tokens),
     ))
     return _annotate_contextual_readings(tokens)
+
+
+def _tokenize_blocks(raw: str, *, in_title: bool, start_id: int) -> list[dict[str, Any]]:
+    """Tokenize text between block markers; each marker is one block token.
+
+    The client draws the blocks and closes any left open by truncation.
+    """
+    tokens: list[dict[str, Any]] = []
+    pos = 0
+    for match in _BLOCK_MARKER_RE.finditer(raw):
+        tokens.extend(_tokenize_sections(
+            raw[pos:match.start()], in_title=in_title, start_id=start_id + len(tokens),
+        ))
+        tokens.append(_block_token(match.group(1), match.group(2) or '', start_id + len(tokens)))
+        pos = match.end()
+    tokens.extend(_tokenize_sections(
+        raw[pos:], in_title=in_title, start_id=start_id + len(tokens),
+    ))
+    return tokens
 
 
 def _tokenize_sections(raw: str, *, in_title: bool, start_id: int) -> list[dict[str, Any]]:
