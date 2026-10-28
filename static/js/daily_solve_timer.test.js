@@ -854,7 +854,8 @@ asyncTest(async function testStartFailureIsVisibleAfterRetriesAndClearsAfterReco
     assert.strictEqual(popover.hidden, false);
     assert.strictEqual(recoveryTimers.length, 1);
     var firstStart = starts[0];
-    assert.strictEqual(starts.length, 6);
+    // Instant failures keep retrying for START_RETRY_WINDOW_MS, up to the cap.
+    assert.strictEqual(starts.length, 12);
     starts.forEach(function (event) {
       assert.strictEqual(event.event_id, firstStart.event_id);
       assert.strictEqual(event.seq, firstStart.seq);
@@ -1485,15 +1486,21 @@ function reportingTimer(fetchImpl, extra) {
 }
 
 function bodyOf(init) {
-  return init && init.body && init.body.charAt(0) === '{' ? JSON.parse(init.body) : {};
+  if (!init || !init.body) return {};
+  if (init.body.charAt(0) === '{') return JSON.parse(init.body);
+  // Keepalive start retries are form-encoded.
+  var out = {};
+  new URLSearchParams(init.body).forEach(function (value, key) { out[key] = value; });
+  return out;
 }
 
 asyncTest(async function testStartFailureIsReportedOnceWithDiagnostics() {
   var oldSetTimeout = global.setTimeout;
   var retries = [];
+  var recoveries = [];
   var reports = [];
   global.setTimeout = function (callback, delay) {
-    if (delay < timer.HEARTBEAT_MS) retries.push(callback);
+    (delay < timer.HEARTBEAT_MS ? retries : recoveries).push(callback);
     return 1;
   };
   try {
@@ -1513,12 +1520,21 @@ asyncTest(async function testStartFailureIsReportedOnceWithDiagnostics() {
       retries.shift()();
       await flush();
     }
+    // The recovery round may still heal a short outage: no alert yet.
+    assert.strictEqual(reports.length, 0);
+    recoveries.shift()();
+    await flush();
+    while (retries.length) {
+      retries.shift()();
+      await flush();
+    }
     assert.strictEqual(reports.length, 1);
     var report = reports[0].body;
     assert.strictEqual(report.reason, 'start_failed');
     assert.strictEqual(report.details.last_status, 403);
     assert.strictEqual(report.details.last_error, 'club_required');
-    assert.strictEqual(report.details.start_attempts, 6);
+    assert.strictEqual(report.details.start_attempts, 12);
+    assert.strictEqual(report.details.failed_start_rounds, 2);
     assert.strictEqual(reports[0].init.keepalive, true);
     assert.strictEqual(reports[0].init.headers['X-CSRFToken'], 'csrf');
     ctrl.destroy();
@@ -1632,11 +1648,12 @@ asyncTest(async function testHangingStartUsesAllAttemptsWithFreshEvents() {
   var oldNow = Date.now;
   var now = 1000000;
   var retries = [];
+  var recoveries = [];
   var reports = [];
   var startIds = [];
   Date.now = function () { return now; };
   global.setTimeout = function (callback, delay) {
-    if (delay < timer.HEARTBEAT_MS) retries.push(callback);
+    (delay < timer.HEARTBEAT_MS ? retries : recoveries).push(callback);
     return 1;
   };
   try {
@@ -1658,18 +1675,65 @@ asyncTest(async function testHangingStartUsesAllAttemptsWithFreshEvents() {
       retries.shift()();
       await flush();
     }
+    // Six hanging attempts already outlast the retry window.
     assert.strictEqual(startIds.length, 6);
     assert.ok(new Set(startIds).size > 1);
+    assert.strictEqual(reports.length, 0);
+    recoveries.shift()();
+    await flush();
+    while (retries.length) {
+      retries.shift()();
+      await flush();
+    }
+    assert.strictEqual(startIds.length, 12);
     assert.strictEqual(reports.length, 1);
     assert.strictEqual(reports[0].reason, 'start_failed');
     assert.strictEqual(reports[0].details.start_attempts, 6);
     assert.strictEqual(reports[0].details.last_network, true);
     assert.strictEqual(reports[0].details.last_error_name, 'TypeError');
     assert.strictEqual(reports[0].details.last_failure_age_s, 0);
-    assert.strictEqual(reports[0].details.start_failures, 6);
+    assert.strictEqual(reports[0].details.start_failures, 12);
     ctrl.destroy();
   } finally {
     Date.now = oldNow;
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
+asyncTest(async function testStartRetriesAlternateKeepaliveAfterNetworkErrors() {
+  var oldSetTimeout = global.setTimeout;
+  var retries = [];
+  var sends = [];
+  global.setTimeout = function (callback, delay) {
+    if (delay < timer.HEARTBEAT_MS) retries.push(callback);
+    return 1;
+  };
+  try {
+    // Safari on macOS rejected plain start fetches at once, while the
+    // keepalive report to the same URL went through.
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      sends.push({ keepalive: init.keepalive, body: body });
+      if (!init.keepalive) return Promise.reject(new TypeError('Load failed'));
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({ ok: true, status: 'running', is_authoritative: true, exists: true });
+      } });
+    });
+    ctrl.startIfAllowed();
+    await flush();
+    while (retries.length) {
+      retries.shift()();
+      await flush();
+    }
+    assert.deepStrictEqual(sends.map(function (s) { return s.keepalive; }), [false, true]);
+    assert.strictEqual(sends[1].body.event_id, sends[0].body.event_id);
+    assert.strictEqual(sends[1].body.action, 'start');
+    assert.strictEqual(ctrl.state().status, 'running');
+    ctrl.destroy();
+  } finally {
     global.setTimeout = oldSetTimeout;
   }
 });

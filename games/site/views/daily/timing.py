@@ -33,6 +33,7 @@ from games.identity import has_profile, has_team
 from games.models import Attempt, Game, GameTaskGroup
 from games.ops.analytics.identity import gameplay_anon_key
 from games.realtime.db import bounded_lock_wait, is_mysql_retryable_lock_error
+from games.site.http.auth_observability import log_auth_event
 from games.site.http.middleware.db_transient_response import mysql_error_code
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.site.session.play_mode import effective_play_mode
@@ -395,8 +396,9 @@ def _daily_solve_timing_impl(
     # Only clients on the stable-event protocol may be told to retry an
     # unknown commit outcome. Legacy clients generated a fresh event ID on
     # each start retry, so treating their retry as idempotent is unsafe.
+    # Keepalive requests are form-encoded, so the protocol arrives as '1'.
     request._interoves_timing_event_idempotent = (
-        payload.get('event_protocol') == 1
+        str(payload.get('event_protocol')) == '1'
         and payload.get('event_capability') == 'stable-event-v1'
     )
     seq, seq_error = _timing_int(payload, 'seq', default=0)
@@ -462,4 +464,11 @@ def _daily_solve_timing_impl(
         result['error'] = 'missing'
         return JsonResponse(result, status=404)
     result['ok'] = True
+    if action == ACTION_START and 'json' not in (request.content_type or '').lower():
+        # The timer falls back to keepalive starts after network errors; this
+        # shows whether that gets starts through which plain fetch could not.
+        log_auth_event(
+            'daily_timer_keepalive_start', request,
+            timing_status=result.get('status'),
+        )
     return JsonResponse(result)

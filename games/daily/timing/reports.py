@@ -33,8 +33,9 @@ DETAIL_KEYS = (
     'start_failed', 'delivery_failed', 'awaiting_server', 'resume_required',
     'manually_paused', 'idle_paused', 'queue_length', 'queue_stalled',
     'last_action', 'last_status', 'last_error', 'last_network',
-    'last_error_name', 'last_failure_age_s', 'start_failures', 'stopped_for_s',
-    'session_id', 'capability', 'page_age_s', 'response_status',
+    'last_error_name', 'last_failure_age_s', 'start_failures',
+    'failed_start_rounds', 'stopped_for_s', 'session_id', 'capability',
+    'page_age_s', 'response_status',
 )
 DETAIL_VALUE_MAX = 120
 PER_ACTOR_WINDOW_S = 6 * 60 * 60

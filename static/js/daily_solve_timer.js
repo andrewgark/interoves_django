@@ -29,6 +29,11 @@
   // hold the whole queue; give up early so a retry can use a fresh one.
   var REQUEST_TIMEOUT_MS = 10000;
   var RETRY_AFTER_MAX_MS = 10000;
+  // A start the browser rejects at once (Safari on macOS, status 0) used up
+  // all six attempts in under 8 s. Keep retrying for this long, within a cap.
+  var START_RETRY_WINDOW_MS = 30000;
+  var START_MIN_ATTEMPTS = 6;
+  var START_MAX_ATTEMPTS = 12;
   var RETRY_AFTER_FLOOR_MAX_MS = 8000;
   var WINDOW_SESSION_PREFIX = 'interoves-daily-timing:';
   // A page that still gets reload_required right after reloading really
@@ -226,6 +231,11 @@
     // every failed start since the clock last started, for the report.
     var startFailures = 0;
     var startFailed = false;
+    // Start rounds (a full retry budget each) that failed since the clock
+    // last started. Recovery runs a second round; only that one is reported.
+    var failedStartRounds = 0;
+    var startRoundStartedAt = 0;
+    var startNetworkFailed = false;
     var startEvent = null;
     var startEventCreatedAt = 0;
     var timingEventCapability = bootstrap.timing_event_capability === 'stable-event-v1';
@@ -760,6 +770,7 @@
       if (startRetryTimer && root.clearTimeout) root.clearTimeout(startRetryTimer);
       startRetryTimer = null;
       awaitingServer = true;
+      if (!startAttempts) startRoundStartedAt = Date.now();
       startAttempts += 1;
       // Retries reuse one event so a start that did reach the server is
       // deduplicated. Once it is too old to deliver, send a fresh one: on a
@@ -769,13 +780,19 @@
         startEvent = makeEvent('start', { claimed_ms: unconfirmedMs() });
         startEventCreatedAt = Date.now();
       }
-      // The outer start policy owns its six-attempt budget. Retrying in both
+      // After a network error every other retry goes out as a keepalive
+      // request: when Safari kept rejecting the start, the keepalive report
+      // to the same URL still got through.
+      var viaKeepalive = startNetworkFailed && startAttempts % 2 === 0;
+      // The outer start policy owns its attempt budget. Retrying in both
       // layers would multiply attempts and could create a retry burst.
-      sendEvent(startEvent, false, 0, false).then(function (data) {
+      sendEvent(startEvent, viaKeepalive, 0, false).then(function (data) {
         awaitingServer = false;
         if (data && data.ok) {
           startAttempts = 0;
           startFailures = 0;
+          failedStartRounds = 0;
+          startNetworkFailed = false;
           startFailed = false;
           startEvent = null;
           startEventCreatedAt = 0;
@@ -793,6 +810,7 @@
           return;
         }
         startFailures += 1;
+        startNetworkFailed = !!(lastFailure && lastFailure.action === 'start' && lastFailure.network);
         // Do not let an interval heartbeat overtake a start retry after an
         // unacknowledged start. The server snapshot on acknowledgement will
         // restore the authoritative running state.
@@ -814,7 +832,11 @@
           !destroyed
           && visibilityOf(doc) === 'visible'
           && !(data && data.reload_required)
-          && startAttempts < 6
+          && startAttempts < START_MAX_ATTEMPTS
+          && (
+            startAttempts < START_MIN_ATTEMPTS
+            || Date.now() - startRoundStartedAt < START_RETRY_WINDOW_MS
+          )
           && root.setTimeout
         ) {
           var delay = retryDelayMs(
@@ -829,9 +851,12 @@
           }, delay);
         } else if (!destroyed && !(data && data.reload_required)) {
           startFailed = true;
+          failedStartRounds += 1;
           if (popover) popover.hidden = false;
           scheduleRecovery();
-          reportProblem('start_failed');
+          // A short outage heals on the recovery round; alert only when that
+          // one fails too.
+          if (failedStartRounds >= 2) reportProblem('start_failed');
         } else if (reloadRequired && popover) {
           popover.hidden = false;
         }
@@ -989,6 +1014,7 @@
         last_error_name: lastFailure ? lastFailure.errorName : null,
         last_failure_age_s: lastFailure ? Math.round((Date.now() - lastFailure.at) / 1000) : null,
         start_failures: startFailures,
+        failed_start_rounds: failedStartRounds,
         stopped_for_s: stoppedSince == null ? null : Math.round((Date.now() - stoppedSince) / 1000),
         session_id: sessionId,
         capability: timingEventCapability,
@@ -1020,7 +1046,8 @@
       watchdogTimer = root.setTimeout(function () {
         watchdogTimer = null;
         if (destroyed || completed || everRunning || reloadRequired || Object.keys(reportsSent).length) return;
-        if (manuallyPaused || resumeRequired || idlePaused || visibleSince == null) {
+        // Failing starts report for themselves once recovery fails as well.
+        if (manuallyPaused || resumeRequired || idlePaused || visibleSince == null || startFailures) {
           scheduleWatchdog();
           return;
         }

@@ -1631,6 +1631,45 @@ class DailyTimingApiTests(TestCase):
         self.assertEqual(response['Retry-After'], '2')
         self.assertFalse(response.json()['ok'])
 
+    @patch('games.site.views.daily.timing.log_auth_event')
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
+    def test_form_encoded_keepalive_start_keeps_stable_protocol_and_is_logged(self, _pub, log_event):
+        captured = {}
+        from games.site.views.daily import timing as timing_view
+        real_apply = timing_view.apply_timing_event
+
+        def spy(**kwargs):
+            captured['idempotent'] = kwargs['timing_request']._interoves_timing_event_idempotent
+            return real_apply(**kwargs)
+
+        with patch.object(timing_view, 'apply_timing_event', side_effect=spy):
+            response = self.client.post(
+                '/ladder/91002/timing/',
+                data={
+                    'action': ACTION_START, 'session_id': str(uuid4()),
+                    'event_id': 'keepalive-start', 'seq': '1', 'claimed_ms': '0',
+                    'event_protocol': '1', 'event_capability': 'stable-event-v1',
+                    'anon_key': '',
+                },
+                HTTP_X_INTEROVES_ANON=self.anon,
+            )
+        self.assertEqual(response.status_code, 200, response.content)
+        self.assertEqual(response.json()['status'], 'running')
+        self.assertTrue(captured['idempotent'])
+        log_event.assert_called_once()
+        self.assertEqual(log_event.call_args.args[0], 'daily_timer_keepalive_start')
+        self.assertEqual(log_event.call_args.kwargs['timing_status'], 'running')
+
+    @patch('games.site.views.daily.timing.log_auth_event')
+    @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
+    def test_json_start_is_not_logged_as_keepalive(self, _pub, log_event):
+        response = self._post({
+            'action': ACTION_START, 'session_id': str(uuid4()),
+            'event_id': 'json-start', 'seq': 1,
+        })
+        self.assertEqual(response.status_code, 200, response.content)
+        log_event.assert_not_called()
+
     @patch('games.site.views.daily.timing.scheduled_number_is_public', return_value=True)
     def test_payload_and_header_cannot_spoof_anonymous_or_registered_actor(self, _pub):
         forged = 'attacker-chosen-anon'
