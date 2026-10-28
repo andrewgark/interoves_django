@@ -13,6 +13,18 @@ from games.task_group.replacements_lines_task_data import (
 from games.task_group.task_group_actor_context import bulk_attempts_and_gameplay_tokens
 from games.task_group.task_group_placement import resolve_task_group_placement
 from games.task_group.task_group_ui import task_ui_by_task_id_for_group as collect_task_ui_by_task_id
+from games.task_group.text_with_forms_task_data import (
+    hidden_until_solved_by_task_id as collect_hidden_until_solved,
+)
+from games.task_group.text_with_forms_task_data import (
+    support_tasks as collect_support_tasks,
+)
+from games.task_group.text_with_forms_task_data import (
+    task_group_heading_html,
+)
+from games.task_group.text_with_forms_task_data import (
+    text_with_forms_data_by_task_id as collect_text_with_forms_data,
+)
 from games.task_group.wall_max_points import wall_max_points_meta_by_task_id as collect_wall_max_points_meta
 
 
@@ -32,9 +44,11 @@ def build_task_group_task_context_dicts(
     Shared context for task_group.html and new/partials/task_card.html
     (attempts, walls, replacements_lines, likes, proportions pool).
     """
+    # text_with_forms cards embed other tasks' answer fields; hidden cards
+    # depend on other tasks being solved — load those tasks' attempts too.
     attempts_info_by_task_id, gameplay_context_tokens = bulk_attempts_and_gameplay_tokens(
         game,
-        tasks,
+        list(tasks) + collect_support_tasks(tasks),
         team=team,
         user=user,
         anon_key=anon_key,
@@ -76,6 +90,8 @@ def build_task_group_task_context_dicts(
         raddle_ui_state_for_actor=_raddle_ui_state_for_actor,
     )
     board_data_by_context = daily['board_data_by_context']
+    text_with_forms_data = collect_text_with_forms_data(tasks, attempts_info_by_task_id)
+    hidden_until_solved = collect_hidden_until_solved(tasks, attempts_info_by_task_id)
     proportions_chips = collect_proportions_chips(task_group, tasks, attempts_info_by_task_id)
     task_ui_by_task_id = collect_task_ui_by_task_id(
         game,
@@ -100,6 +116,9 @@ def build_task_group_task_context_dicts(
         'likes_meta_by_task_id': likes_meta_by_task_id,
         'replacements_lines_data': replacements_lines_data,
         'html_forms_data': html_forms_data,
+        'text_with_forms_data': text_with_forms_data,
+        'hidden_until_solved': hidden_until_solved,
+        'tg_heading_html': task_group_heading_html(placement, attempts_info_by_task_id),
         'grid_puzzle_data': grid_puzzle_data,
         'proportions_chips': proportions_chips,
         'task_ui_by_task_id': task_ui_by_task_id,

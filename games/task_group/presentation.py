@@ -13,6 +13,7 @@ def task_ui_descriptor(
         'wall': 'task-content/task-wall.html',
         'replacements_lines': 'task-content/task-replacements-lines.html',
         'html_forms': 'site/task-content/task-html-forms.html',
+        'text_with_forms': 'site/task-content/task-text-with-forms.html',
         'raddle': 'task-content/task-raddle.html',
         'word_salad': 'task-content/task-word-salad.html',
         'grid-puzzle': 'site/task-content/task-grid-puzzle.html',
@@ -48,8 +49,8 @@ def task_ui_descriptor(
         base_max = task.get_results_max_points()
     else:
         base_max = task.get_points()
-    attempts_hidden = {'replacements_lines', 'alphabetty', 'word_salad'}
-    answer_hidden = {'replacements_lines', 'html_forms', 'raddle', 'alphabetty', 'word_salad'}
+    attempts_hidden = {'replacements_lines', 'alphabetty', 'word_salad', 'text_with_forms'}
+    answer_hidden = {'replacements_lines', 'html_forms', 'raddle', 'alphabetty', 'word_salad', 'text_with_forms'}
     body_wrapper = task.task_type in {'wall', 'replacements_lines', 'raddle', 'word_salad'}
     if body_wrapper_override is not None:
         body_wrapper = body_wrapper_override
@@ -68,6 +69,8 @@ def task_ui_descriptor(
         'max_points_title': wall_meta.get('title', '') if wall_meta else '',
         'show_attempts': show_attempts,
         'show_answer': show_answer,
+        # text_with_forms is not scored itself: its blanks are other tasks.
+        'hide_points': task.task_type == 'text_with_forms',
         'unsupported': body_template is None,
         'unsupported_label': 'Не получилось показать это задание. Обновите страницу или напишите о проблеме.',
     }

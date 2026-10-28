@@ -1,0 +1,10 @@
+{% load filters %}
+{# Текст с пропусками ______: каждый пропуск — поле ответа на следующее задание группы. #}
+{% if task.image %}
+  <div class="new-taskcard__img">
+    <img src="{{ task.image.url }}" alt="" width="{{ task.get_image_width }}">
+  </div>
+{% endif %}
+{% with twf=text_with_forms_data|get_item:task.id %}
+<div class="new-taskcard__text new-twf">{% for seg in twf.segments %}{% if seg.task %}{% if seg.solved %}<strong class="new-twf__answer">{% autoescape off %}{{ seg.task.answer }}{% endautoescape %}</strong>{% else %}<form class="new-attempt-form new-twf__form" action="/send_attempt/{{ seg.task.id }}/" method="post" data-task-id="{{ seg.task.id }}">{% csrf_token %}<input type="hidden" name="game_id" value="{{ game.id }}">{% if offer_share_hash %}<input type="hidden" name="offer_share" value="{{ offer_share_hash }}">{% endif %}<input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:seg.task.id }}"><input type="hidden" name="anon_key" class="new-anon-key-field" value=""><input type="hidden" name="form_key" value="twf-{{ task.id }}"><input type="text" name="text" placeholder="Ответ ({{ seg.task.number }})" aria-label="Ответ на задание {{ seg.task.number }}" autocomplete="off" required><button type="submit" class="new-twf__submit" aria-label="Проверить ответ на задание {{ seg.task.number }}" data-tooltip="Проверить"><i class="ph ph-check" aria-hidden="true"></i></button><span class="new-attempt-msg new-twf__msg" aria-live="polite"></span></form>{% endif %}{% else %}{% autoescape off %}{{ seg.html }}{% endautoescape %}{% endif %}{% endfor %}</div>
+{% endwith %}
