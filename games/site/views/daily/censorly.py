@@ -7,7 +7,6 @@ import time
 from dataclasses import dataclass
 
 from django.conf import settings
-from django.contrib import messages
 from django.core.cache import caches
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
@@ -363,33 +362,46 @@ def censorly_random_game(request):
         NoMatchingCensorlyArticles,
         get_or_create_random_game,
     )
+    from games.site.views.daily.common import random_game_redirect
 
-    try:
+    def create():
         with timing_phase(request, 'create_random_censorly'):
             try:
                 filters = json.loads(request.POST.get('filters') or '{}')
             except (TypeError, ValueError):
                 filters = {}
-            random_game = get_or_create_random_game(filters=filters if isinstance(filters, dict) else {})
-    except EmptyCensorlyPool:
-        messages.warning(
-            request,
-            'Пул случайных Цензурок пока пуст. Попробуйте ещё раз позже.',
-        )
-        return redirect('ui_censorly_hub')
-    except NoMatchingCensorlyArticles:
-        messages.info(request, 'По выбранным тегам статей нет. Попробуйте изменить фильтры.')
-        return redirect('ui_censorly_hub')
-    except CensorlyPoolFetchFailed:
-        messages.warning(request, 'Не удалось загрузить статью из пула. Попробуйте ещё раз позже.')
-        return redirect('ui_censorly_hub')
-    except CensorlyPoolExhausted:
-        messages.info(
-            request,
-            'Вы уже решили все статьи, подходящие под выбранные теги.',
-        )
-        return redirect('ui_censorly_hub')
-    return redirect(f'/censorly/r/{random_game.share_hash}/')
+            if not isinstance(filters, dict):
+                filters = {}
+            return get_or_create_random_game(filters=filters)
+
+    return random_game_redirect(
+        request,
+        game_id=CENSORLY_GAME_ID,
+        create=create,
+        failures=(
+            (
+                EmptyCensorlyPool,
+                'warning',
+                'Пул случайных Цензурок пока пуст. Попробуйте ещё раз позже.',
+            ),
+            (
+                NoMatchingCensorlyArticles,
+                'info',
+                'По выбранным тегам статей нет. Попробуйте изменить фильтры.',
+            ),
+            (
+                CensorlyPoolFetchFailed,
+                'warning',
+                'Не удалось загрузить статью из пула. Попробуйте ещё раз позже.',
+            ),
+            (
+                CensorlyPoolExhausted,
+                'info',
+                'Вы уже решили все статьи, подходящие под выбранные теги.',
+            ),
+        ),
+        play_url=lambda random_game: '/censorly/r/{}/'.format(random_game.share_hash),
+    )
 
 
 def censorly_today_page(request):

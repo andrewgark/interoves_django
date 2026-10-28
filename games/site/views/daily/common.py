@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect
 from django.template.loader import render_to_string
@@ -238,6 +239,24 @@ def last_redirect(request, game_id, *, digits_only=False):
     if not ints:
         return redirect(section_hub_path(game_id))
     return redirect(section_play_path(game_id, max(ints)))
+
+
+def random_game_redirect(request, *, game_id, create, failures, play_url):
+    """Создать случайную игру и увести на неё либо обратно на хаб.
+
+    Доступ в клуб и отсутствие игры проверяет страница. ``failures`` —
+    пары (исключение, уровень messages, текст) в том порядке, в каком
+    их надо показывать.
+    """
+    try:
+        random_game = create()
+    except tuple(exc_type for exc_type, _level, _text in failures) as exc:
+        for exc_type, level, text in failures:
+            if isinstance(exc, exc_type):
+                getattr(messages, level)(request, text)
+                return redirect(section_hub_path(game_id))
+        raise
+    return redirect(play_url(random_game))
 
 
 _ARCHIVE_ROW_CLASSES = ('new-task--partial', 'new-task--solved')

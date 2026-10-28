@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 
-from django.contrib import messages
 from django.http import Http404, JsonResponse
 from django.shortcuts import redirect, render
 from django.urls import reverse
@@ -127,28 +126,34 @@ def alphabetty_random_game(request):
         RandomAlphabettyDictionaryExhausted,
         get_or_create_random_game,
     )
+    from games.site.views.daily.common import random_game_redirect
 
-    try:
-        random_game = get_or_create_random_game(game=_get_game())
-    except EmptyRandomAlphabettyDictionary:
-        messages.warning(
-            request,
-            'Словарь случайных алфавиток пока пуст. Попробуйте ещё раз позже.',
-        )
-        return redirect('new_alphabetty_hub')
-    except RandomAlphabettyDictionaryExhausted:
-        messages.info(
-            request,
-            'Все слова из словаря уже стали случайными Алфавитками.',
-        )
-        return redirect('new_alphabetty_hub')
-    except LookupError:
-        messages.error(
-            request,
-            'Не удалось создать случайную Алфавитку. Попробуйте ещё раз.',
-        )
-        return redirect('new_alphabetty_hub')
-    return redirect(section_play_path(ALPHABETTY_GAME_ID, random_game.share_hash))
+    game = _get_game()
+    return random_game_redirect(
+        request,
+        game_id=ALPHABETTY_GAME_ID,
+        create=lambda: get_or_create_random_game(game=game),
+        failures=(
+            (
+                EmptyRandomAlphabettyDictionary,
+                'warning',
+                'Словарь случайных алфавиток пока пуст. Попробуйте ещё раз позже.',
+            ),
+            (
+                RandomAlphabettyDictionaryExhausted,
+                'info',
+                'Все слова из словаря уже стали случайными Алфавитками.',
+            ),
+            (
+                LookupError,
+                'error',
+                'Не удалось создать случайную Алфавитку. Попробуйте ещё раз.',
+            ),
+        ),
+        play_url=lambda random_game: section_play_path(
+            ALPHABETTY_GAME_ID, random_game.share_hash,
+        ),
+    )
 
 
 def alphabetty_today_page(request):
