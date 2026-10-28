@@ -161,7 +161,13 @@ def _load_daily_target(
         from games.club.access.archive import user_can_access_scheduled_number
 
         if not user_can_access_scheduled_number(request.user, game, raw_number):
-            return None, None, None, None, None, _json_error('club_required', 403)
+            # Access can expire while an already-open game page is sitting in
+            # a tab (for example when the free archive window rolls forward).
+            # Tell the timer client to reload instead of retrying this
+            # permanent refusal as though it were a transient start failure.
+            return None, None, None, None, None, _json_error(
+                'club_required', 403, reload_required=True,
+            )
         link = GameTaskGroup.objects.filter(
             game=game, number=raw_number, is_deferred=False,
         ).select_related('task_group').first()
