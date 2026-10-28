@@ -658,10 +658,10 @@ class AlphabettyPlayApiTests(TestCase):
 
     def test_hub_page_has_create_link(self):
         _ensure_login_modal_deps()
-        from games.daily.catalog.alphabetty import alphabetty_publish_at
+        from games.site.views.daily.common import _edition_publish_at
         with patch(
-            'games.site.views.daily.alphabetty.alphabetty_publish_at',
-            wraps=alphabetty_publish_at,
+            'games.site.views.daily.common._edition_publish_at',
+            wraps=_edition_publish_at,
         ) as publish_at:
             response = self.client.get('/alphabetty/')
 
@@ -669,6 +669,7 @@ class AlphabettyPlayApiTests(TestCase):
         self.assertContains(response, 'Создать свою Алфавитку')
         self.assertContains(response, 'href="/create_alphabetty/"')
         self.assertEqual(publish_at.call_count, 1)
+        self.assertIn('live_next_transition_at', response.context)
 
     def test_hub_shows_attempts_and_elapsed_when_solved(self):
         _ensure_login_modal_deps()

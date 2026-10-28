@@ -679,6 +679,37 @@ class CensorlyAccessTests(TestCase):
         self.assertContains(response, '🔄 1 попытка')
         self.assertContains(response, 'data-fully-solved="1"')
 
+    def test_hub_shows_like_totals_and_next_transition(self):
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from games.models import Like
+
+        link = GameTaskGroup.objects.get(task_group=self.task.task_group)
+        RandomCensorlyGame.objects.filter(task_group=self.task.task_group).delete()
+        link.number = '1'
+        link.save(update_fields=['number'])
+        today = timezone.localdate()
+        self.game.tags = {
+            'censorly_publish_start': f'{(today - timedelta(days=1)).isoformat()}T00:00:00+03:00',
+        }
+        self.game.save(update_fields=['tags'])
+        future_group = TaskGroup.objects.create(label='censorly_future_slot')
+        GameTaskGroup.objects.create(
+            game=self.game,
+            task_group=future_group,
+            number='3',
+            name='Цензурка #3',
+        )
+        Like.manager.create(task=self.task, user=self.plain, value=1)
+
+        self.client.force_login(self.plain)
+        response = self.client.get('/censorly/')
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'aria-label="Лайков: 1, дизлайков: 0"')
+        self.assertContains(response, 'data-live-next-transition-at=')
+
     def test_solved_archive_row_stays_open_when_club_archive_is_enabled(self):
         from datetime import timedelta
 

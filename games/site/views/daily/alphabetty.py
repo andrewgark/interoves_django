@@ -16,20 +16,11 @@ from games.club.offers.alphabetty import can_access_offer_hash, get_offer_by_sha
 from games.daily.catalog.alphabetty import (
     ALPHABETTY_GAME_ID,
     alphabetty_publish_at,
-    current_alphabetty_number,
-    filter_published_alphabetty_links,
-    get_alphabetty_hub_context,
     is_alphabetty_number_published,
     visible_alphabetty_links,
 )
 from games.daily.completion.completion_coordinator import complete_logical_game
-from games.daily.page.archive import (
-    links_for_archive_month,
-    prepare_daily_archive,
-    refresh_daily_archive_context,
-)
 from games.daily.page.context import build_daily_lifecycle_context
-from games.daily.page.section import MOSCOW
 from games.daily.timing.transitions import next_daily_content_transition_for_game
 from games.identity import has_profile
 from games.models import (
@@ -54,7 +45,6 @@ from games.puzzles.alphabetty.play import (
 )
 from games.puzzles.alphabetty.suggestions import suggest_word
 from games.sections.hub import (
-    create_game_link_context,
     onboarding_followup_context,
     section_format_credit_context,
 )
@@ -63,7 +53,6 @@ from games.site.http.auth_observability import record_gameplay_attempt_created
 from games.site.http.middleware.request_timing import timing_phase
 from games.site.pages.game.progress import (
     _archive_nav_target,
-    _mark_locked_archive_rows,
     _neighbors_by_pk,
     _task_group_page_nav_context,
 )
@@ -110,128 +99,20 @@ def alphabetty_hub_page(request):
     game = _get_game()
     if not game:
         raise Http404()
-    team = request.user.profile.team_on if has_profile(request.user) else None
     if not can_access_daily_game(request, game):
         raise Http404()
+    from games.site.views.daily.common import daily_hub_context
 
-    links = GameTaskGroup.sorted_links(
-        filter_published_alphabetty_links(
-            GameTaskGroup.objects.filter(game=game).select_related('task_group'),
-            game,
-        ),
-        reverse=True,
-    )
-    today_number = current_alphabetty_number(game)
-    link_rows = []
-    for link in links:
-        try:
-            n = int(link.number)
-        except (TypeError, ValueError):
-            continue
-        link_rows.append((n, link))
-
-    publish_at_by_number = {
-        number: alphabetty_publish_at(game, number)
-        for number, _link in link_rows
-    }
-    archive_items, archive_context = prepare_daily_archive(
+    return render(request, 'site/alphabetty_hub.html', daily_hub_context(
         request,
-        link_rows,
-        game_id=ALPHABETTY_GAME_ID,
-        publish_at_for_number=publish_at_by_number.get,
-        href_for_number=lambda number: section_play_path(ALPHABETTY_GAME_ID, number),
-        timezone_name=MOSCOW,
-        number_for_link=lambda pair: pair[0],
-        game_label='Алфавитка',
-        calendar_id='daily-archive-alphabetty',
-    )
-    if archive_context.get('daily_archive'):
-        link_rows = links_for_archive_month(
-            link_rows, archive_context['daily_archive_selected'],
-            publish_at_for_number=publish_at_by_number.get,
-            number_for_link=lambda pair: pair[0], timezone_name=MOSCOW,
-        )
-
-    tasks_by_tg = {
-        t.task_group_id: t
-        for t in Task.objects.filter(
-            task_group_id__in=[link.task_group_id for _, link in link_rows],
-            number='1',
-        )
-    }
-    user, anon_key = resolve_actor(request)
-    progress = hub_progress_for_actor(
-        game=game,
-        numbers_and_tasks=[
-            (n, tasks_by_tg[link.task_group_id])
-            for n, link in link_rows
-            if link.task_group_id in tasks_by_tg
-        ],
-        user=user,
-        anon_key=anon_key,
-    )
-
-    from games.daily.difficulty.core import get_cached_game_difficulties
-    difficulties = get_cached_game_difficulties([link for _, link in link_rows])
-    from games.task_group.likes_meta import like_totals_by_task_group_id
-    like_totals = like_totals_by_task_group_id(link.task_group_id for _, link in link_rows)
-    rows = []
-    for n, link in link_rows:
-        prog = progress.get(n) or {}
-        published_at = publish_at_by_number.get(n)
-        row_class = prog.get('row_class') or ''
-        rows.append({
-            'number': n,
-            'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
-            'name': f'Алфавитка №{n}',
-            'play_url': section_play_path(ALPHABETTY_GAME_ID, n),
-            'results_url': '{}results/'.format(section_play_path(ALPHABETTY_GAME_ID, n)),
-            'is_today': today_number is not None and n == today_number,
-            'is_solved': bool(prog.get('is_solved')),
-            'row_class': row_class,
-            'progress_meta': prog.get('progress_meta') or '',
-            'difficulty': difficulties.get(link.pk),
-            'like_totals': like_totals.get(link.task_group_id),
-        })
-    for row in rows:
-        row['is_fully_solved'] = row['is_solved']
-    from games.site.pages.hub.cards import _add_daily_completion_statuses
-    _add_daily_completion_statuses(request, game, rows, link_rows)
-    _mark_locked_archive_rows(request, game, rows)
-    archive_context = refresh_daily_archive_context(
-        request, items=archive_items, game_label='Алфавитка',
-        game_id=ALPHABETTY_GAME_ID,
-        completed_keys={str(row['number']) for row in rows if row['is_solved']},
-        status_by_key={
-            str(row['number']): ('solved' if row['is_solved'] else 'partial')
-            for row in rows
-            if row['row_class'] in ('new-task--partial', 'new-task--solved')
-        },
-        locked_keys={row['number'] for row in rows if row.get('is_archive_locked')},
-    )
-    hub = get_alphabetty_hub_context(game, published_numbers=_published_numbers(game))
-    return render(request, 'site/alphabetty_hub.html', {
-        'game': game,
-        'rows': rows,
-        'page_title': 'Алфавитка',
-        'random_button_template': 'site/partials/alphabetty_random_button.html',
-        'daily_hub_play_url': hub['alphabetty_play_url'],
-        'daily_hub_cta_label': hub['alphabetty_cta_label'],
-        'daily_hub_is_today': hub['alphabetty_is_today'],
-        'daily_hub_status': hub['alphabetty_status'],
-        'daily_hub_coming_soon_text': 'Новая Алфавитка — каждый день в полночь по Москве.',
-        'rules_title': 'Алфавитка',
-        'rules_storage_key': 'section_rules_seen_alphabetty',
-        'rules_body_template': 'site/_alphabetty_rules_body.html',
-        'empty_text': 'Алфавитки скоро появятся.',
-        'create_link': create_game_link_context(ALPHABETTY_GAME_ID),
-        'show_sections_nav': True,
-        'back_url': '/',
-        'section_results_url': section_results_path(ALPHABETTY_GAME_ID),
-        'can_see_results': game.has_access('see_results', team=team),
-        **archive_context,
-        'live_next_transition_at': next_daily_content_transition_for_game(game),
-    })
+        game,
+        progress_for_actor=hub_progress_for_actor,
+        page_title='Алфавитка',
+        random_button_template='site/partials/alphabetty_random_button.html',
+        coming_soon_text='Новая Алфавитка — каждый день в полночь по Москве.',
+        rules_body_template='site/_alphabetty_rules_body.html',
+        empty_text='Алфавитки скоро появятся.',
+    ))
 
 
 @require_POST

@@ -19,19 +19,11 @@ from games.club.access.archive import has_club_access
 from games.console.http.access import user_has_support_access
 from games.daily.catalog.censorly import (
     CENSORLY_GAME_ID,
-    MOSCOW,
     censorly_publish_at,
-    current_censorly_number,
-    get_censorly_hub_context,
     is_censorly_number_published,
     visible_censorly_links,
 )
 from games.daily.completion.completion_coordinator import complete_logical_game
-from games.daily.page.archive import (
-    links_for_archive_month,
-    prepare_daily_archive,
-    refresh_daily_archive_context,
-)
 from games.daily.page.context import build_daily_lifecycle_context, daily_statistics_url
 from games.daily.registry import get_daily_game
 from games.daily.timing import GameplayTimingSession, TimingSessionNotActive
@@ -59,7 +51,6 @@ from games.puzzles.censorly.play import (
     hub_progress_for_actor,
 )
 from games.sections.hub import (
-    create_game_link_context,
     onboarding_followup_context,
     section_format_credit_context,
 )
@@ -336,115 +327,26 @@ def censorly_hub_page(request):
         raise Http404()
     if not _may_access_censorly(request, game):
         raise Http404()
-    team = request.user.profile.team_on if has_profile(request.user) else None
-    hub = get_censorly_hub_context(game, published_numbers=_published_numbers(game))
-    # The public archive shows released numbered slots only. Staff and support
-    # can still open unreleased numbers through their direct URLs; random games
-    # use a separate path below and are unaffected.
-    schedule_links = []
-    for link in GameTaskGroup.objects.filter(game=game).select_related('task_group'):
-        if link.is_deferred:
-            continue
-        if not str(link.number).isdigit():
-            continue
-        if is_censorly_number_published(game, int(link.number)):
-            schedule_links.append(link)
-    schedule_links.sort(key=lambda link: int(link.number), reverse=True)
-    archive_items, archive_context = prepare_daily_archive(
+    from games.site.views.daily.common import daily_hub_context
+
+    context = daily_hub_context(
         request,
-        schedule_links,
-        game_id=CENSORLY_GAME_ID,
-        publish_at_for_number=lambda number: censorly_publish_at(game, number),
-        href_for_number=lambda number: section_play_path(CENSORLY_GAME_ID, number),
-        timezone_name=MOSCOW,
-        number_for_link=lambda link: int(link.number),
-        game_label='Цензурка',
-        calendar_id='daily-archive-censorly',
-    )
-    selected = archive_context.get('daily_archive_selected')
-    visible_schedule_links = links_for_archive_month(
-        schedule_links, selected,
-        publish_at_for_number=lambda number: censorly_publish_at(game, number),
-        number_for_link=lambda link: int(link.number), timezone_name=MOSCOW,
-    )
-    tasks_by_group = {
-        task.task_group_id: task
-        for task in Task.objects.filter(
-            task_group_id__in=[link.task_group_id for link in schedule_links],
-            number='1',
-        )
-    }
-    user, anon_key = resolve_actor(request)
-    progress = hub_progress_for_actor(
-        game=game,
-        numbers_and_tasks=[
-            (int(link.number), tasks_by_group[link.task_group_id])
-            for link in schedule_links
-            if link.task_group_id in tasks_by_group
-        ],
-        user=user,
-        anon_key=anon_key,
-    )
-    rows = []
-    for link in visible_schedule_links:
-        number = int(link.number)
-        published_at = censorly_publish_at(game, number)
-        rows.append({
-            'number': number,
-            'placement_id': link.pk,
-            'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
-            'name': f'Цензурка №{number}',
-            'play_url': section_play_path(CENSORLY_GAME_ID, number),
-            'results_url': f'{section_play_path(CENSORLY_GAME_ID, number)}results/',
-            'is_today': number == current_censorly_number(game),
-            'is_solved': bool(progress.get(number, {}).get('is_solved')),
-            'is_fully_solved': bool(progress.get(number, {}).get('is_solved')),
-            'row_class': progress.get(number, {}).get('row_class', ''),
-            'progress_meta': progress.get(number, {}).get('progress_meta', ''),
-        })
-    from games.site.pages.game.progress import _mark_locked_archive_rows
-    _mark_locked_archive_rows(request, game, rows)
-    from games.daily.difficulty.core import get_cached_game_difficulties
-    difficulties = get_cached_game_difficulties(schedule_links)
-    for row in rows:
-        row['difficulty'] = difficulties.get(row.pop('placement_id'))
-    from games.site.pages.hub.cards import _add_daily_completion_statuses
-    _add_daily_completion_statuses(request, game, rows, schedule_links)
-    archive_context = refresh_daily_archive_context(
-        request, items=archive_items, game_label='Цензурка',
-        game_id=CENSORLY_GAME_ID,
-        completed_keys={str(row['number']) for row in rows if row['is_solved']},
-        status_by_key={
-            str(row['number']): row['row_class'].replace('new-task--', '')
-            for row in rows if row['row_class']
-        },
-        locked_keys={row['number'] for row in rows if row.get('is_archive_locked')},
+        game,
+        progress_for_actor=hub_progress_for_actor,
+        digits_only=True,
+        page_title='Цензурки',
+        random_button_template='site/partials/censorly_random_button.html',
+        coming_soon_text='Новая Цензурка — каждый день в полночь по Москве.',
+        rules_body_template='site/_censorly_rules_body.html',
+        empty_text='Цензурки скоро появятся.',
     )
     random_access = has_club_access(request.user)
-    return render(request, 'site/censorly_hub.html', {
-        'page_title': 'Цензурки',
-        'random_button_template': 'site/partials/censorly_random_button.html',
-        'daily_hub_play_url': hub['censorly_play_url'],
-        'daily_hub_cta_label': hub['censorly_cta_label'],
-        'daily_hub_is_today': hub['censorly_is_today'],
-        'daily_hub_status': hub['censorly_status'],
-        'daily_hub_coming_soon_text': 'Новая Цензурка — каждый день в полночь по Москве.',
-        'rules_title': 'Цензурка',
-        'rules_storage_key': 'section_rules_seen_censorly',
-        'rules_body_template': 'site/_censorly_rules_body.html',
-        'empty_text': 'Цензурки скоро появятся.',
-        'create_link': create_game_link_context(CENSORLY_GAME_ID),
-        'game': game,
-        'rows': rows,
-        'random_censorly_has_access': random_access,
-        'censorly_taxonomy': censorly_taxonomy() if random_access else {},
-        'support_url': '/support/censorly/',
-        'show_sections_nav': True,
-        'back_url': '/',
-        'section_results_url': section_results_path(CENSORLY_GAME_ID),
-        'can_see_results': game.has_access('see_results', team=team),
-        **archive_context,
-    })
+    context.update(
+        random_censorly_has_access=random_access,
+        censorly_taxonomy=censorly_taxonomy() if random_access else {},
+        support_url='/support/censorly/',
+    )
+    return render(request, 'site/censorly_hub.html', context)
 
 
 @require_POST

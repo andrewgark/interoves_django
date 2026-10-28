@@ -14,9 +14,10 @@ from django.utils import timezone
 
 from games.daily.registry import get_daily_game
 from games.identity import has_profile
-from games.models import Attempt, ChainTaskState, Game, GameTaskGroup
+from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 from games.ops.analytics.identity import gameplay_anon_key
-from games.sections.paths import section_hub_path, section_play_path
+from games.sections.hub import create_game_link_context
+from games.sections.paths import section_hub_path, section_play_path, section_results_path
 from games.site.pages import NEW_UI_SECTIONS_PROJECT
 from games.site.views.daily.hub import can_access_daily_game
 from games.task_group.likes_meta import likes_meta_by_task_id
@@ -237,3 +238,182 @@ def last_redirect(request, game_id, *, digits_only=False):
     if not ints:
         return redirect(section_hub_path(game_id))
     return redirect(section_play_path(game_id, max(ints)))
+
+
+_ARCHIVE_ROW_CLASSES = ('new-task--partial', 'new-task--solved')
+
+
+def _edition_publish_at(definition, game, number):
+    return definition.schedule.publish_at(game, number)
+
+
+def _numbered_editions(game, *, digits_only):
+    """Вышедшие номера по убыванию. Случайные игры в список не входят."""
+    definition = get_daily_game(game.id)
+    if definition is None:
+        return None, []
+    published = definition.schedule.filter_published(
+        GameTaskGroup.objects.filter(game=game).select_related('task_group'),
+        game,
+    )
+    numbered = []
+    for link in GameTaskGroup.sorted_links(published, reverse=True):
+        raw = str(link.number)
+        if digits_only and not raw.isdigit():
+            continue
+        try:
+            number = int(raw)
+        except (TypeError, ValueError):
+            continue
+        numbered.append((number, link))
+    return definition, numbered
+
+
+def _archive_status_by_key(rows):
+    """Календарь красит только partial и solved.
+
+    Тот же белый список, что у хаба разделов. Срезание любого
+    ``new-task--*`` превратило бы класс ``today`` в день календаря.
+    """
+    return {
+        str(row['number']): ('solved' if row['is_solved'] else 'partial')
+        for row in rows
+        if row.get('row_class') in _ARCHIVE_ROW_CLASSES
+    }
+
+
+def daily_hub_context(
+    request,
+    game,
+    *,
+    progress_for_actor,
+    page_title,
+    random_button_template,
+    coming_soon_text,
+    rules_body_template,
+    empty_text,
+    digits_only=False,
+):
+    """Строки архива, календарь и общая шапка хаба.
+
+    Прогресс и серия считаются по всем вышедшим выпускам. В списке
+    остаётся выбранный месяц. Подписи выпуска и правила берутся из
+    реестра; тексты, которые ещё живут у страницы, передаёт игра.
+    """
+    from games.daily.difficulty.core import get_cached_game_difficulties
+    from games.daily.page.archive import (
+        links_for_archive_month,
+        prepare_daily_archive,
+        refresh_daily_archive_context,
+    )
+    from games.daily.page.section import MOSCOW
+    from games.daily.timing.transitions import next_daily_content_transition_for_game
+    from games.site.pages.game.progress import _mark_locked_archive_rows
+    from games.site.pages.hub.cards import _add_daily_completion_statuses
+    from games.task_group.likes_meta import like_totals_by_task_group_id
+
+    definition, numbered = _numbered_editions(game, digits_only=digits_only)
+    if definition is None:
+        raise Http404()
+    publish_at_by_number = {
+        number: _edition_publish_at(definition, game, number)
+        for number, _link in numbered
+    }
+    archive_items, archive_context = prepare_daily_archive(
+        request,
+        numbered,
+        game_id=game.id,
+        publish_at_for_number=publish_at_by_number.get,
+        href_for_number=lambda number: section_play_path(game.id, number),
+        timezone_name=MOSCOW,
+        number_for_link=lambda pair: pair[0],
+        game_label=definition.title,
+        calendar_id='daily-archive-{}'.format(game.id),
+    )
+    visible = links_for_archive_month(
+        numbered,
+        archive_context.get('daily_archive_selected'),
+        publish_at_for_number=publish_at_by_number.get,
+        number_for_link=lambda pair: pair[0],
+        timezone_name=MOSCOW,
+    )
+    tasks_by_group = {
+        task.task_group_id: task
+        for task in Task.objects.filter(
+            task_group_id__in=[link.task_group_id for _number, link in numbered],
+            number='1',
+        )
+    }
+    user, anon_key = resolve_actor(request)
+    progress = progress_for_actor(
+        game=game,
+        numbers_and_tasks=[
+            (number, tasks_by_group[link.task_group_id])
+            for number, link in numbered
+            if link.task_group_id in tasks_by_group
+        ],
+        user=user,
+        anon_key=anon_key,
+    )
+    today_number = definition.schedule.current_number(game)
+    difficulties = get_cached_game_difficulties([link for _number, link in visible])
+    like_totals = like_totals_by_task_group_id(
+        link.task_group_id for _number, link in visible
+    )
+    rows = []
+    for number, link in visible:
+        prog = progress.get(number) or {}
+        published_at = publish_at_by_number.get(number)
+        solved = bool(prog.get('is_solved'))
+        rows.append({
+            'number': number,
+            'publish_date': published_at.astimezone(MOSCOW).date() if published_at else None,
+            'name': f'{definition.title} №{number}',
+            'play_url': section_play_path(game.id, number),
+            'results_url': '{}results/'.format(section_play_path(game.id, number)),
+            'is_today': today_number is not None and number == today_number,
+            'is_solved': solved,
+            'is_fully_solved': solved,
+            'row_class': prog.get('row_class') or '',
+            'progress_meta': prog.get('progress_meta') or '',
+            'difficulty': difficulties.get(link.pk),
+            'like_totals': like_totals.get(link.task_group_id),
+        })
+    _add_daily_completion_statuses(request, game, rows, numbered)
+    _mark_locked_archive_rows(request, game, rows)
+    archive_context = refresh_daily_archive_context(
+        request,
+        items=archive_items,
+        game_label=definition.title,
+        game_id=game.id,
+        completed_keys={str(row['number']) for row in rows if row['is_solved']},
+        status_by_key=_archive_status_by_key(rows),
+        locked_keys={row['number'] for row in rows if row.get('is_archive_locked')},
+    )
+    hub = definition.schedule.hub_context(
+        game,
+        published_numbers=published_numbers(game, digits_only=digits_only),
+    )
+    team = request.user.profile.team_on if has_profile(request.user) else None
+    return {
+        'game': game,
+        'rows': rows,
+        'page_title': page_title,
+        'random_button_template': random_button_template,
+        'daily_hub_play_url': hub['{}_play_url'.format(game.id)],
+        'daily_hub_cta_label': hub['{}_cta_label'.format(game.id)],
+        'daily_hub_is_today': hub['{}_is_today'.format(game.id)],
+        'daily_hub_status': hub['{}_status'.format(game.id)],
+        'daily_hub_coming_soon_text': coming_soon_text,
+        'rules_title': definition.title,
+        'rules_storage_key': 'section_rules_seen_{}'.format(game.id),
+        'rules_body_template': rules_body_template,
+        'empty_text': empty_text,
+        'create_link': create_game_link_context(game.id),
+        'show_sections_nav': True,
+        'back_url': '/',
+        'section_results_url': section_results_path(game.id),
+        'can_see_results': game.has_access('see_results', team=team),
+        'live_next_transition_at': next_daily_content_transition_for_game(game),
+        **archive_context,
+    }
