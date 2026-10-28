@@ -2726,6 +2726,38 @@ span.new-btn[aria-disabled="true"] {
   font-weight: 600;
 }
 
+/* Audio buttons stored in old task texts (Bootstrap .btn + Font Awesome
+   .fa-play): look like the wall's ghost mini buttons; base.html plays them. */
+.audio-player-link > button.btn:not(.new-btn) {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.15rem 0;
+  min-height: var(--btn-height-mini);
+  padding: 0 var(--btn-pad-x-mini);
+  border: 1px solid var(--border);
+  border-radius: var(--btn-radius);
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--btn-font-mini);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.audio-player-link > button.btn:not(.new-btn):hover {
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.audio-player-link .fa-play::before {
+  content: "\e3d0"; /* ph-play */
+  font-family: "Phosphor";
+  font-style: normal;
+  line-height: 1;
+}
+
 .new-btn--icon {
   width: var(--btn-height);
   min-width: var(--btn-height);
