@@ -1356,21 +1356,40 @@ class SemanticsTests(SimpleTestCase):
         CENSORLY_LEXICAL_RESOLVER=True,
         CENSORLY_OPEN_PRONOUNS=True,
     )
-    def test_initially_open_title_word_keeps_strong_lock_metadata(self):
+    def test_initially_open_title_word_has_no_lock(self):
         from games.puzzles.censorly.article.redact import build_public_view
 
-        payload = build_puzzle_payload(wiki_title='Он', body_text='Он ждёт.')
-        body_word = next(
-            tok for tok in payload['body_tokens']
-            if tok.get('kind') == 'content' and tok.get('lemma')
-        )
+        payload = build_puzzle_payload(wiki_title='Он и кот', body_text='Он ждёт кота.')
         view = build_public_view(payload, revealed_lemmas=(), won=False)
-        opened = next(
-            tok for tok in view['body_tokens'] if tok.get('id') == body_word['id']
+        pronouns = [
+            tok for tok in view['title_tokens'] + view['body_tokens']
+            if tok.get('text') == 'Он'
+        ]
+
+        self.assertEqual(len(pronouns), 2)
+        for tok in pronouns:
+            self.assertTrue(tok.get('revealed'))
+            self.assertFalse(tok.get('title_lemma'))
+            self.assertFalse(tok.get('title_related'))
+
+    @override_settings(
+        CENSORLY_LEXICAL_RESOLVER=True,
+        CENSORLY_OPEN_PRONOUNS=True,
+    )
+    def test_initially_open_title_words_do_not_block_the_win(self):
+        from games.puzzles.censorly.article.redact import build_public_view
+        from games.puzzles.censorly.play import _title_won
+        from games.puzzles.censorly.text.tokenize import title_content_lemmas
+
+        payload = build_puzzle_payload(wiki_title='Я и кот', body_text='Я жду кота.')
+        cat = next(
+            tok['lemma'] for tok in payload['title_tokens']
+            if tok.get('kind') == 'content' and tok.get('surface') == 'кот'
         )
 
-        self.assertTrue(opened.get('revealed'))
-        self.assertTrue(opened.get('title_lemma'))
+        self.assertEqual(title_content_lemmas(payload), {cat})
+        self.assertTrue(_title_won(payload, {cat}))
+        self.assertTrue(build_public_view(payload, revealed_lemmas=[cat])['title_complete'])
 
     def test_required_closures(self):
         pairs = list(zip(FALSE_CASES[0::2], FALSE_CASES[1::2]))

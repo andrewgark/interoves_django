@@ -827,10 +827,30 @@ def all_tokens(payload: dict[str, Any]) -> list[dict[str, Any]]:
     return list(payload.get('title_tokens') or []) + list(payload.get('body_tokens') or [])
 
 
+def content_token_open_at_start(tok: dict[str, Any]) -> bool:
+    """Whether a content token is rendered open before any guess."""
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
+    if not lexical_resolver_enabled():
+        return False
+    if tok.get('initially_open') is not None:
+        return bool(tok.get('initially_open'))
+    from games.puzzles.censorly.lexical.semantics import initially_open
+    from games.puzzles.censorly.text.flags import open_pronouns_enabled
+    return initially_open(str(tok.get('surface') or ''), include_pronouns=open_pronouns_enabled())
+
+
 def title_content_lemmas(payload: dict[str, Any]) -> set[str]:
+    """Hidden title lemmas: opening all of them solves the puzzle.
+
+    Title words that are open from the start (pronouns, numerals) can never be
+    guessed, so they neither block the win nor protect related words.
+    """
     out: set[str] = set()
     for tok in payload.get('title_tokens') or []:
-        if tok.get('kind') == 'content' and tok.get('lemma'):
+        if (
+            tok.get('kind') == 'content' and tok.get('lemma')
+            and not content_token_open_at_start(tok)
+        ):
             out.add(tok['lemma'])
     return out
 

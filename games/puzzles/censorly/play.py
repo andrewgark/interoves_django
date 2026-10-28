@@ -16,13 +16,7 @@ from zoneinfo import ZoneInfo
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.site.http.middleware.request_timing import timing_phase
-from games.puzzles.censorly.ids import (
-    CENSORLY_SHOW_MASK_ENDINGS,
-    CENSORLY_SPLITTER_VERSION,
-    CENSORLY_TAGS_KEY,
-)
-from games.puzzles.censorly.text.normalize import is_guessable_word, lemma_of, normalize_surface
+from games.models import Attempt, ChainTaskState, Game, Task
 from games.puzzles.censorly.article.redact import (
     build_public_view,
     lemmas_matching_guess,
@@ -31,6 +25,12 @@ from games.puzzles.censorly.article.redact import (
     token_by_id,
     token_ids_for_guess,
 )
+from games.puzzles.censorly.ids import (
+    CENSORLY_SHOW_MASK_ENDINGS,
+    CENSORLY_SPLITTER_VERSION,
+    CENSORLY_TAGS_KEY,
+)
+from games.puzzles.censorly.text.normalize import is_guessable_word, lemma_of, normalize_surface
 from games.puzzles.censorly.text.stopwords import is_stop_word
 from games.puzzles.censorly.text.tokenize import (
     all_tokens,
@@ -38,9 +38,9 @@ from games.puzzles.censorly.text.tokenize import (
     resolve_puzzle_payload,
     title_content_lemmas,
 )
-from games.models import Attempt, ChainTaskState, Game, Task
 from games.puzzles.core.base import Puzzle
 from games.results.share import format_elapsed, format_share_link, share_path
+from games.site.http.middleware.request_timing import timing_phase
 
 CENSORLY_BASE_POINTS = 20
 CENSORLY_HINT_PENALTY = 1
@@ -118,8 +118,8 @@ def _is_initially_open_word(surface: str) -> bool:
     from games.puzzles.censorly.text.flags import lexical_resolver_enabled
     if not lexical_resolver_enabled():
         return False
-    from games.puzzles.censorly.text.flags import open_pronouns_enabled
     from games.puzzles.censorly.lexical.semantics import initially_open
+    from games.puzzles.censorly.text.flags import open_pronouns_enabled
     return initially_open(surface, include_pronouns=open_pronouns_enabled())
 
 
@@ -471,9 +471,9 @@ def attach_solve_meta(
     )
     payload['share_lines'] = lines
     payload['share_text'] = '\n'.join(lines)
-    from games.puzzles.censorly.article.redact import unsolved_share_runs
     from games.daily.page.share.card import build_censorly_share_payload, publish_date_for
     from games.models import GameTaskGroup
+    from games.puzzles.censorly.article.redact import unsolved_share_runs
 
     placement = None
     if getattr(task, 'task_group_id', None):
@@ -708,9 +708,9 @@ def _record_lexical_decision(*, user, game, task, guess, payload, report=None) -
     if not lexical_resolver_enabled():
         return
     try:
+        from games.models import StatisticsEvent
         from games.puzzles.censorly.lexical.match import decision
         from games.puzzles.censorly.text.tokenize import all_tokens
-        from games.models import StatisticsEvent
         if report is None:
             report = decision(all_tokens(payload), guess)
         actor = user if getattr(user, 'is_authenticated', False) else None
@@ -940,16 +940,6 @@ def _guess_matches(
     )
 
 
-def _title_token_open_at_start(tok: dict[str, Any]) -> bool:
-    """Whether a title content token is rendered open before any guess."""
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
-    if not lexical_resolver_enabled():
-        return False
-    if tok.get('initially_open') is not None:
-        return bool(tok.get('initially_open'))
-    return _is_initially_open_word(str(tok.get('surface') or ''))
-
-
 MINIMAL_ATTEMPTS_MAX_LEMMAS = 12
 
 
@@ -962,12 +952,7 @@ def minimal_title_attempts(payload: dict[str, Any], *, task: Task | None = None)
     own word forms that open a title lemma; each goes through the same matcher
     as a played guess.
     """
-    hidden = {
-        tok['lemma']
-        for tok in payload.get('title_tokens') or []
-        if tok.get('kind') == 'content' and tok.get('lemma')
-        and not _title_token_open_at_start(tok)
-    }
+    hidden = title_content_lemmas(payload)
     if not hidden or len(hidden) > MINIMAL_ATTEMPTS_MAX_LEMMAS:
         return None
     opening = title_opening_lemmas(payload)

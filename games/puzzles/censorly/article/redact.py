@@ -7,7 +7,11 @@ from typing import Any, Iterable
 
 from games.puzzles.censorly.ids import CENSORLY_SHOW_MASK_ENDINGS
 from games.puzzles.censorly.text.normalize import is_hintable_ending, strip_combining_marks
-from games.puzzles.censorly.text.tokenize import all_tokens, title_content_lemmas
+from games.puzzles.censorly.text.tokenize import (
+    all_tokens,
+    content_token_open_at_start,
+    title_content_lemmas,
+)
 
 
 def _token_public(
@@ -195,7 +199,7 @@ def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
     title_rows = tuple(
         (str(token.get('surface') or ''), str(token.get('lemma') or ''))
         for token in (payload.get('title_tokens') or [])
-        if token.get('kind') == 'content'
+        if token.get('kind') == 'content' and not content_token_open_at_start(token)
     )
     body_rows = tuple(sorted({
         (str(token.get('lemma') or ''), str(token.get('surface') or ''))
