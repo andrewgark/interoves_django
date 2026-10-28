@@ -12,6 +12,16 @@
   var GRID_SIZE = 4;
   var GRID_CELL_COUNT = GRID_SIZE * GRID_SIZE;
 
+  function pointerSamples(event) {
+    var samples = [];
+    if (typeof event.getCoalescedEvents === 'function') {
+      try { samples = Array.prototype.slice.call(event.getCoalescedEvents()); } catch (error) {}
+    }
+    var last = samples[samples.length - 1];
+    if (!last || last.clientX !== event.clientX || last.clientY !== event.clientY) samples.push(event);
+    return samples;
+  }
+
   // Only the inner 60% confirms a dragged letter. Crossing an edge or corner
   // leaves the last letter selected, so a diagonal can pass beside other tiles.
   // Intersect the whole motion segment to retain letters between sparse events.
@@ -741,6 +751,7 @@
       }
 
       function clearSelection() {
+        stopDrag();
         cancelIdleFind();
         currentPath = [];
         attemptedPaths = {};
@@ -1478,12 +1489,26 @@
           activeDragRoot = root;
           dragPoint = { x: event.clientX, y: event.clientY };
           dragPointerId = event.pointerId;
+          // Keep receiving mouse releases even after leaving the grid/window.
+          if (root.setPointerCapture) {
+            try { root.setPointerCapture(event.pointerId); } catch (error) {}
+          }
           var started = startWordSaladPress(currentPath, cellIndex(cell), isActiveIndex);
           applyPath(started.path, started.clearOnRelease);
         }, { passive: false });
       });
 
-      root.__moveWordSaladPointer = function (event) {
+      function stopDrag() {
+        var pointerId = dragPointerId;
+        dragPoint = null;
+        dragPointerId = null;
+        if (activeDragRoot === root) activeDragRoot = null;
+        if (pointerId !== null && root.hasPointerCapture && root.hasPointerCapture(pointerId)) {
+          try { root.releasePointerCapture(pointerId); } catch (error) {}
+        }
+      }
+
+      function movePointerSample(event) {
         if (!dragPoint || event.pointerId !== dragPointerId) return;
         var point = { x: event.clientX, y: event.clientY };
         var hits = [];
@@ -1497,13 +1522,26 @@
         hits.forEach(function (hit) {
           if (activeDragRoot === root && root.isConnected) appendCell(hit.cell);
         });
+      }
+      root.__moveWordSaladPointer = function (event) {
+        if (event.pointerId !== dragPointerId) return;
+        pointerSamples(event).forEach(function (sample) {
+          if (activeDragRoot === root && root.isConnected) movePointerSample(sample);
+        });
       };
       root.__ownsWordSaladPointer = function (event) {
         return event.pointerId === dragPointerId;
       };
       root.__appendWordSaladCell = appendCell;
-      root.__finishWordSaladPath = finishPress;
-      root.__cancelWordSaladPress = function () { clearSingleOnRelease = false; };
+      root.__finishWordSaladPath = function () {
+        stopDrag();
+        finishPress();
+      };
+      root.__cancelWordSaladPress = function () {
+        stopDrag();
+        clearSingleOnRelease = false;
+        cancelIdleFind();
+      };
       root.__clearWordSaladSelection = function () {
         var hadSelection = currentPath.length > 0 || !!clearSingleOnRelease;
         if (activeDragRoot === root) {
@@ -1559,6 +1597,11 @@
   function bindDocumentListeners(doc) {
     doc.addEventListener('pointermove', function (event) {
       if (!activeDragRoot) return;
+      if (!activeDragRoot.__ownsWordSaladPointer(event)) return;
+      if (event.pointerType === 'mouse' && !(event.buttons & 1)) {
+        activeDragRoot.__cancelWordSaladPress();
+        return;
+      }
       if (event.cancelable) event.preventDefault();
       activeDragRoot.__moveWordSaladPointer(event);
     }, { capture: true, passive: false });
@@ -1578,13 +1621,22 @@
       }
     }, true);
 
-    doc.addEventListener('pointercancel', function (event) {
+    function cancelPointer(event) {
       if (activeDragRoot && !activeDragRoot.__ownsWordSaladPointer(event)) return;
       if (activeDragRoot && typeof activeDragRoot.__cancelWordSaladPress === 'function') {
         activeDragRoot.__cancelWordSaladPress();
       }
       activeDragRoot = null;
-    }, true);
+    }
+    doc.addEventListener('pointercancel', cancelPointer, true);
+    doc.addEventListener('lostpointercapture', cancelPointer, true);
+    function cancelActiveDrag() {
+      if (activeDragRoot) activeDragRoot.__cancelWordSaladPress();
+    }
+    if (doc.defaultView) doc.defaultView.addEventListener('blur', cancelActiveDrag);
+    doc.addEventListener('visibilitychange', function () {
+      if (doc.hidden) cancelActiveDrag();
+    });
 
     doc.addEventListener('click', function (event) {
       var button = event.target && event.target.closest
@@ -1610,6 +1662,7 @@
   }
 
   global.WordSaladPath = {
+    pointerSamples: pointerSamples,
     dragCoreEntry: dragCoreEntry,
     cellsAreAdjacent: cellsAreAdjacent,
     neighborPairs: neighborPairs,

@@ -4,6 +4,31 @@ var assert = require('assert');
 require('./new_word_salad.js');
 var Path = global.WordSaladPath;
 
+(function testCoalescedTurnKeepsCornerLetter() {
+  var event = {
+    clientX: 155, clientY: 155,
+    getCoalescedEvents: function () {
+      return [{ clientX: 155, clientY: 50 }, { clientX: 155, clientY: 155 }];
+    }
+  };
+  var points = [{ x: 50, y: 50 }].concat(Path.pointerSamples(event).map(function (sample) {
+    return { x: sample.clientX, y: sample.clientY };
+  }));
+  assert.deepStrictEqual(trace(points, 0), [0, 1, 5], 'batched right-angle turn must not become a diagonal');
+  assert.strictEqual(Path.pointerSamples(event).length, 2, 'do not repeat the final point');
+  event.clientY = 260;
+  assert.strictEqual(Path.pointerSamples(event)[2], event, 'include the endpoint after intermediate samples');
+})();
+
+(function testPointerSampleFallbacks() {
+  var event = { clientX: 50, clientY: 50 };
+  assert.deepStrictEqual(Path.pointerSamples(event), [event]);
+  event.getCoalescedEvents = function () { return []; };
+  assert.deepStrictEqual(Path.pointerSamples(event), [event]);
+  event.getCoalescedEvents = function () { throw new Error('unavailable'); };
+  assert.deepStrictEqual(Path.pointerSamples(event), [event]);
+})();
+
 // Replay physical trajectories, including motion across tile edges and sparse
 // events spanning several letters. Tiles keep their original visual dimensions.
 function trace(points, start) {
