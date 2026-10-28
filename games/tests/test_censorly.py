@@ -1176,6 +1176,21 @@ class CensorlyWikiHelperTests(TestCase):
         # A semicolon after an abbreviation is prose, not a formula leftover.
         self.assertIn('Inc.; Banc of America, Inc.; другие', cleaned)
 
+    def test_html_extract_keeps_paragraphs_and_joins_sentence_halves(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        raw = (
+            '<p>Первый абзац.</p>\n<p>Второй абзац.</p>\n<p>Цитата: «так».</p>\n'
+            '<p>Реакция идёт так:</p>\n<p>Калий горит.</p>\n'
+            '<p>Произведение плотности на скорость</p>\n<p>соответствует плотности тока.</p>'
+        )
+
+        self.assertEqual(
+            clean_wiki_extract(_html_extract_to_text(raw)),
+            'Первый абзац.\n\nВторой абзац.\n\nЦитата: «так».\n\nРеакция идёт так:\n\n'
+            'Калий горит.\n\nПроизведение плотности на скорость соответствует плотности тока.',
+        )
+
     def test_html_extract_keeps_data_tables_as_grids(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import (
@@ -1219,9 +1234,8 @@ class CensorlyWikiHelperTests(TestCase):
         )
         for dropped in ('Вложенная', 'Инфобокс', 'Климат', 'Вёрстка', '[3]'):
             self.assertNotIn(dropped, cleaned)
-        # A column layout table is transparent: its cells are plain text.
-        self.assertIn('Левая колонка.', cleaned)
-        self.assertIn('Правая колонка.', cleaned)
+        # A column layout table is transparent: its cells are paragraphs.
+        self.assertIn('После таблицы.\n\nЛевая колонка.\n\nПравая колонка.', cleaned)
         # A long table keeps its first rows only.
         self.assertIn('Строка 0', cleaned)
         self.assertNotIn('Строка 59', cleaned)

@@ -1318,6 +1318,8 @@ def _strip_indented_math_lines(text: str) -> str:
     return ''.join(kept)
 
 
+_SENTENCE_ENDS = ('.', '!', '?', '…', ':')
+_CLOSING_MARKS = '»"”)]'
 _BLOCK_CLOSERS = (QUOTE_END, TABLE_END, DETAILS_SUMMARY_END, DETAILS_END, CODE_END)
 _CODE_BLOCK_RE = re.compile(
     re.escape(CODE_START) + r'.*?(?:' + re.escape(CODE_END) + r'|$)', re.DOTALL,
@@ -1343,6 +1345,14 @@ def _collapse_extract_whitespace(text: str) -> str:
         preceding_lines = (match.string[:match.start()] + match.group(1)).split('\n')
         previous_line = preceding_lines[-1]
         if _SECTION_HEADING_RE.fullmatch(previous_line.strip()):
+            return match.group(0)
+        # A finished sentence before a capitalized one is a paragraph break,
+        # not the two halves of a sentence around a removed formula.
+        if (
+            '\n\n' in match.group(0)
+            and previous_line.rstrip().rstrip(_CLOSING_MARKS).endswith(_SENTENCE_ENDS)
+            and match.group(2).isupper()
+        ):
             return match.group(0)
         # A quotation is its own block, and its stanzas stay apart inside it.
         # So are a table, a collapsed block (and its title) and a listing.
