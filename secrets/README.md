@@ -155,9 +155,15 @@ Club recurring subscriptions (hidden `/subscription/` page):
 
 - `CLUB_YOOKASSA_ENABLED=true` enables RUB checkout on `/subscription/`
 - `YOOKASSA_RECURRING_ENABLED=true` enables automatic monthly renewals (keep **false** in production until YooKassa enables autopayments for the shop)
-- Renewals: `manage.py renew_club_yookassa_subscriptions` (wire to EB minute/hour cron when enabling)
+- Renewals: the existing one-minute `difficulty.minute.refresh` background schedule also scans due YooKassa renewals. The scan has its own distributed lock and is safe to receive duplicate queue deliveries; do not add a separate schedule.
 - Existing `YOOKASSA_SHOP_ID` / `YOOKASSA_SECRET_KEY` are reused; ticket payments unchanged
 - Webhook: same `/yookassa/webhook/`; club payments use `metadata.purpose=club_subscription`
+
+**Tribute Club subscriptions:** Tribute owns recurring billing. Its `renewed_subscription`
+webhook extends `ClubSubscription.paid_until`; `cancelled_subscription` disables
+renewal. Tribute retries failed webhook deliveries. The site cannot initiate or
+retry a Tribute charge; users without an active payment method must renew through
+Tribute.
 
 Do not add public nav links to `/subscription/` until the launch is explicit.
 

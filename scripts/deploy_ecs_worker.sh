@@ -130,6 +130,38 @@ for name in shared:
 print(json.dumps(base, separators=(",", ":")))
 ')"
 fi
+# Club renewals execute in the background ECS worker, while YooKassa billing
+# options are authoritative on Green. Copy only the two non-secret settings
+# needed by this handler; the secret key is already supplied through the
+# background worker's Secrets Manager map.
+if [[ "$WORKER" == background ]]; then
+    club_billing_env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings \
+        --application-name interoves --environment-name interoves-web-green-lb \
+        --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment` && (OptionName==`YOOKASSA_RECURRING_ENABLED` || OptionName==`YOOKASSA_SHOP_ID`)].{name:OptionName,value:Value}' \
+        --output json)"
+    env_json="$(printf '%s\0%s\0' "$env_json" "$club_billing_env_json" | "$PYTHON" -c '
+import json, sys
+base, billing = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
+names = {"YOOKASSA_RECURRING_ENABLED", "YOOKASSA_SHOP_ID"}
+values = {item["name"]: item for item in base}
+for item in billing:
+    if item["name"] in names:
+        values[item["name"]] = item
+print(json.dumps(list(values.values()), separators=(",", ":")))
+')"
+    club_billing_secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings \
+        --application-name interoves --environment-name interoves-web-green-lb \
+        --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets` && OptionName==`YOOKASSA_SECRET_KEY`].OptionName' \
+        --output json)"
+    secret_names_json="$(printf '%s\0%s\0' "$secret_names_json" "$club_billing_secret_names_json" | "$PYTHON" -c '
+import json, sys
+base, billing = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
+for name in billing:
+    if name not in base:
+        base.append(name)
+print(json.dumps(base, separators=(",", ":")))
+')"
+fi
 all_secrets_json="$(aws_cmd secretsmanager list-secrets --query "SecretList[?starts_with(Name, 'interoves/production/')].{name:Name,arn:ARN}" --output json)"
 config_json="$(printf '%s\0%s\0%s\0' "$env_json" "$secret_names_json" "$all_secrets_json" | "$PYTHON" -c '
 import json, sys

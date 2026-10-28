@@ -17,6 +17,7 @@ from django.views.decorators.http import require_POST
 
 from games.club.billing.gifts.offers import expire_subscription_gifts
 from games.club.billing.gifts.payments import reconcile_yookassa_gift_payments
+from games.club.billing.yookassa.club import renew_due_subscriptions
 from games.daily.difficulty.core import DUE_REFRESH_LIMIT
 from games.daily.difficulty.health import run_daily_difficulty_health_check
 from games.daily.difficulty.refresh import (
@@ -116,7 +117,8 @@ def background_worker(request):
             message['type'], message['run_id'], message_id,
             len(results), (time.perf_counter() - started) * 1000,
         )
-        return JsonResponse({'status': 'ok', 'refreshed': len(results)}, status=200)
+        renewal = _run_club_subscription_renewal(message_id)
+        return JsonResponse({'status': 'ok', 'refreshed': len(results), 'club_renewals': renewal}, status=200)
 
     started = time.perf_counter()
     try:
@@ -159,6 +161,34 @@ def background_worker(request):
     if reconciled_gifts:
         response['reconciled_gifts'] = reconciled_gifts
     return JsonResponse(response, status=200)
+
+
+def _run_club_subscription_renewal(message_id):
+    """Submit due YooKassa renewals from the existing minute background tick."""
+    from games.club.billing.yookassa.club import yookassa_recurring_enabled
+
+    if not yookassa_recurring_enabled():
+        return {'status': 'disabled'}
+
+    started = time.perf_counter()
+    try:
+        with distributed_cron_lock('club_yookassa_subscription_renewal', ttl_seconds=240) as acquired:
+            if not acquired:
+                return {'status': 'locked'}
+            stats = renew_due_subscriptions(limit=50)
+    except Exception:
+        logger.exception(
+            'background worker failed job=club_yookassa_subscription_renewal message_id=%s',
+            message_id,
+        )
+        return {'status': 'failed'}
+
+    logger.info(
+        'background worker ok job=club_yookassa_subscription_renewal message_id=%s due=%s created=%s skipped=%s errors=%s duration_ms=%.1f',
+        message_id, stats['due'], stats['created'],
+        stats['skipped'], stats['errors'], (time.perf_counter() - started) * 1000,
+    )
+    return {'status': 'ok', **stats}
 
 
 def _projection_reconcile(message, message_id):

@@ -76,6 +76,11 @@ cycle. ECS can therefore replace a task without immediately starting another
 receive loop; the SQS visibility timeout remains the protection for an
 in-flight message.
 
+The background ECS deploy also imports `YOOKASSA_RECURRING_ENABLED` and
+`YOOKASSA_SHOP_ID` from the Green web environment. `YOOKASSA_SECRET_KEY` stays a
+Secrets Manager reference. The minute difficulty tick invokes the recurring
+renewal scan when enabled, so no separate schedule is needed.
+
 Build worker images with an immutable Git-SHA tag and deploy the resulting
 digest URI. The deploy script records the same SHA in the task definition tag
 and in `INTEROVES_IMAGE_COMMIT`, so the running task can be matched to source:

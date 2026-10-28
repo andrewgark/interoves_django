@@ -13,6 +13,12 @@ this file and the live AWS resources before changing production.
 | integrations | ECS service `interoves-integrations-ecs` (Fargate On-Demand) | `interoves-integrations` | `interoves-integrations-dlq` | `/interoves/workers/integrations` | `telegram.announcements`, `telegram.admin_report`, `telegram.admin_alert`, `instagram.token_refresh`, `social.publish` |
 | recheck | ECS service `interoves-recheck-ecs` (Fargate Spot) | `interoves-recheck` | `interoves-recheck-dlq` | `/interoves/workers/recheck` | `word_salad.recheck` |
 
+The existing one-minute `difficulty.minute.refresh` schedule also runs the due
+YooKassa Club renewal scan in the background handler. That scan is gated by
+`YOOKASSA_RECURRING_ENABLED` and has a separate Redis lease; it does not need a
+second EventBridge schedule. Tribute renewals are provider-managed and reach the
+site through `renewed_subscription` webhooks.
+
 The identity queue URL in production is:
 
 ```text
