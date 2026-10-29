@@ -62,6 +62,7 @@ INTEROVES_TEST_DB_PATH=/tmp/interoves_test.sqlite3 ./run_tests.sh
 - `games/puzzles/markers/` — типы заданий без обычной проверки ответа (метка, автоподсказка, раздача по командам).
 - `games/site/` — HTTP. Экраны текущего интерфейса в `games/site/pages/`, прочие обработчики в `games/site/views/`, плюс `urls` и `http`. `games/site/data/` — JSON для legacy meta100 endpoints (`meta.py`).
 - Имена игр: лесенка — каталог `ladder`, движок `games/puzzles/raddle/`, тип задания `raddle`; салатик — движок `games/puzzles/salad/`, каталог и тип `word_salad`. Алфавитки и Цензорли: `alphabetty`, `censorly`. Офлайн-инструменты Цензорли — `games/puzzles/censorly/offline/`.
+- `games/gameplay/` — ход игрока без HTTP: проверка и запись попытки (`attempts.check_attempt`), идемпотентность по `client_event_id` (`client_events`). Общий для `send_attempt` и будущей офлайн-синхронизации ([`offline-play-plan.md`](offline-play-plan.md)).
 - `games/identity/` — кто играет (`actor`, `profile`), склейка аккаунтов (`merge/`), allauth-адаптер и Telegram OIDC.
 - `games/console/` — консоль поддержки (`/support/`). Лесенка внутри консоли — `games.console.games.ladder`.
 - `games/task_group/` — контекст карточки задания (навигация, заголовки, состояние). Очереди воркеров — `games/ops/workers/`. Их HTTP-обработчики — `games/ops/workers/handlers/` (шим `games.site.views.workers`).

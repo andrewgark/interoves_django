@@ -7,10 +7,11 @@ from unittest.mock import patch
 from django.test import Client, TestCase
 from django.utils import timezone
 
+from games.gameplay import attempts as gameplay_attempts
+from games.gameplay import client_events
 from games.models import Attempt, CheckerType, ClientEventReceipt, Game, GameTaskGroup, Task, TaskGroup
 from games.ops.analytics.identity import attach_anon_cookie
 from games.site.http.exceptions import ReplayedClientEventException
-from games.site.session import client_events
 from games.site.views.game import attempt as attempt_view
 from games.tests.test_raddle_send_attempt import MINI_LADDER, _ensure_fixtures
 
@@ -178,7 +179,7 @@ class CheckAttemptReceiptTests(_ClientEventFixture):
             task=self.ladder, game=self.game, anon_key=self.anon_key,
             text=json.dumps({'word_index': 2, 'word': 'QQQ'}),
         )
-        with patch.object(attempt_view, 'receipt_attempt', side_effect=stale_then_real):
+        with patch.object(gameplay_attempts, 'receipt_attempt', side_effect=stale_then_real):
             with self.assertRaises(ReplayedClientEventException) as ctx:
                 attempt_view.check_attempt(attempt, client_event_id=event_id)
         self.assertEqual(ctx.exception.attempt_id, stored.pk)
