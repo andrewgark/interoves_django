@@ -1,0 +1,7 @@
+{% load filters static %}
+      <section class="new-raddle-clues__section new-raddle-clues__section--used">
+      <h4 class="new-raddle-clues__subtitle">Использованные</h4>
+      <ul class="new-raddle-clues__list new-raddle-clues__list--used">
+        {% for hint in used_hints %}{% include "task-content/raddle/clue_used.html" %}{% endfor %}
+      </ul>
+      </section>

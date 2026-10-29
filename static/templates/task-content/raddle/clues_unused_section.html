@@ -1,0 +1,7 @@
+{% load filters static %}
+      <section class="new-raddle-clues__section new-raddle-clues__section--unused">
+      <h4 class="new-raddle-clues__subtitle">Подсказки, не по порядку</h4>
+      <ul class="new-raddle-clues__list new-raddle-clues__list--unused" data-raddle-unused-clues>
+        {% for hint in unused_hints %}{% include "task-content/raddle/clue_unused.html" %}{% endfor %}
+      </ul>
+      </section>

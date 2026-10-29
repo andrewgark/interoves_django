@@ -23,21 +23,9 @@
       </table>
     </div>
     <aside class="new-raddle-clues">
-      {% if rd.ui.last_word_clue_options %}{% include "task-content/raddle/last_word.html" %}{% elif rd.ui.unused_hints %}
-      <section class="new-raddle-clues__section new-raddle-clues__section--unused">
-      <h4 class="new-raddle-clues__subtitle">Подсказки, не по порядку</h4>
-      <ul class="new-raddle-clues__list new-raddle-clues__list--unused" data-raddle-unused-clues>
-        {% for hint in rd.ui.unused_hints %}{% include "task-content/raddle/clue_unused.html" %}{% endfor %}
-      </ul>
-      </section>
+      {% if rd.ui.last_word_clue_options %}{% include "task-content/raddle/last_word.html" %}{% elif rd.ui.unused_hints %}{% include "task-content/raddle/clues_unused_section.html" with unused_hints=rd.ui.unused_hints %}
       {% endif %}
-      {% if rd.ui.used_hints %}
-      <section class="new-raddle-clues__section new-raddle-clues__section--used">
-      <h4 class="new-raddle-clues__subtitle">Использованные</h4>
-      <ul class="new-raddle-clues__list new-raddle-clues__list--used">
-        {% for hint in rd.ui.used_hints %}{% include "task-content/raddle/clue_used.html" %}{% endfor %}
-      </ul>
-      </section>
+      {% if rd.ui.used_hints %}{% include "task-content/raddle/clues_used_section.html" with used_hints=rd.ui.used_hints %}
       {% endif %}
     </aside>
   </div>
