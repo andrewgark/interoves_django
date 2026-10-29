@@ -27,3 +27,13 @@ class CantRegisterException(Exception):
 
 class NoTicketsException(Exception):
     pass
+
+class ReplayedClientEventException(DuplicateAttemptException):
+    """The client event id already produced ``attempt_id`` for this actor."""
+
+    def __init__(self, attempt_id):
+        super().__init__('client event was already processed')
+        self.attempt_id = attempt_id
+
+class ClientEventConflictException(Exception):
+    """The client event id belongs to another actor or task."""

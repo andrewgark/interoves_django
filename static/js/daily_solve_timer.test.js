@@ -1,6 +1,7 @@
 'use strict';
 
 var assert = require('assert');
+require('./client_event_id.js');
 var timer = require('./daily_solve_timer.js');
 
 // Async tests stub globals such as setTimeout and navigator, so they must run

@@ -9,6 +9,7 @@ from games.models.attempts import (  # noqa: F401
     AttemptManager,
     AttemptsInfo,
     ChainTaskState,
+    ClientEventReceipt,
     Hint,
     HintAttempt,
     Like,

@@ -85,33 +85,13 @@
     return !!state.is_authoritative && state.status === 'running';
   }
 
-  var UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
+  // static/js/client_event_id.js is loaded before this file.
   function isUuid(value) {
-    return typeof value === 'string' && UUID_RE.test(value);
+    return root.InterovesClientEventId.isUuid(value);
   }
 
   function uuid() {
-    try {
-      if (root.crypto && root.crypto.randomUUID) return root.crypto.randomUUID();
-    } catch (e) {}
-    // crypto.randomUUID is missing on older Safari/Chrome. The server parses
-    // session IDs as UUIDs and silently ignores anything else, so the
-    // fallback must still be a well-formed v4 UUID.
-    var bytes = new Array(16);
-    try {
-      if (root.crypto && root.crypto.getRandomValues) {
-        bytes = Array.prototype.slice.call(root.crypto.getRandomValues(new Uint8Array(16)));
-      }
-    } catch (e2) {}
-    for (var i = 0; i < 16; i++) {
-      if (typeof bytes[i] !== 'number') bytes[i] = Math.floor(Math.random() * 256);
-    }
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    var hex = bytes.map(function (b) { return (b + 0x100).toString(16).slice(1); }).join('');
-    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16)
-      + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+    return root.InterovesClientEventId.create();
   }
 
   function nowMs(clock) {

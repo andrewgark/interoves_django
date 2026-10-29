@@ -251,6 +251,7 @@
 
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% if daily_timing_enabled %}
+<script src="{% static 'js/client_event_id.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endif %}
 {% if daily_statistics_url %}

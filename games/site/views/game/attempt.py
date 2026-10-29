@@ -1,6 +1,6 @@
 import json
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -8,7 +8,15 @@ from django.views.decorators.http import require_POST
 from games.daily.completion import daily_completion_effects_for_game
 from games.daily.completion.completion_coordinator import complete_logical_game
 from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
-from games.models import CHAIN_TASK_TYPES, Attempt, ChainTaskState, CheckerType, GameTaskGroup, Task
+from games.models import (
+    CHAIN_TASK_TYPES,
+    Attempt,
+    ChainTaskState,
+    CheckerType,
+    ClientEventReceipt,
+    GameTaskGroup,
+    Task,
+)
 from games.ops.analytics.events import (
     PlayerCompletedGame,
     analytics_game_kind,
@@ -34,9 +42,11 @@ from games.realtime.track_compat import track_actor_task_change
 from games.site.forms import AttemptForm
 from games.site.http.auth_observability import log_gameplay_attempt_created
 from games.site.http.exceptions import (
+    ClientEventConflictException,
     DuplicateAttemptException,
     InvalidFormException,
     NoGameAccessException,
+    ReplayedClientEventException,
     TooManyAttemptsException,
 )
 from games.site.http.middleware.request_timing import timing_phase
@@ -45,6 +55,7 @@ from games.site.http.request_util import (
     is_browser_form_submission,
     redirect_after_browser_submission,
 )
+from games.site.session.client_events import parse_client_event_id, receipt_attempt
 from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
 from games.site.session.play_mode import effective_play_mode
 from games.site.session.replay import StaleReplayError, replay_for_request
@@ -91,8 +102,14 @@ def check_attempt(
     persist_wrong=True,
     timing_request=None,
     bypass_attempt_limit=False,
+    client_event_id=None,
 ):
     """Check and optionally persist an attempt.
+
+    ``client_event_id`` makes a resubmitted move idempotent: when the id
+    already produced an attempt for this actor, ``ReplayedClientEventException``
+    carries that attempt instead of a second check. A persisted attempt stores
+    its receipt in the same transaction.
 
     ``bypass_attempt_limit`` is reserved for server-generated successful
     attempts (currently Raddle's answer assist).  It does not bypass duplicate
@@ -174,6 +191,11 @@ def check_attempt(
                 # phase for timing compatibility with existing observability.
                 chain_state_row = ChainTaskState.objects.select_for_update().get(pk=chain_state_row.pk)
             last_attempt_state = chain_state_row.state
+
+        if client_event_id is not None:
+            replayed = receipt_attempt(client_event_id, attempt)
+            if replayed is not None:
+                raise ReplayedClientEventException(replayed.pk)
 
         for mode in modes:
             attempts = Attempt.manager.get_attempts_before(
@@ -293,6 +315,8 @@ def check_attempt(
             return False
 
         attempt.save()
+        if client_event_id is not None:
+            ClientEventReceipt.objects.create(client_event_id=client_event_id, attempt=attempt)
 
         if chain_state_row is not None:
             chain_state_row.state = attempt.state
@@ -303,14 +327,22 @@ def check_attempt(
     # Chain submissions can deadlock with the collaborative UI state writer.
     # Retry the complete transaction so MySQL has rolled back every lock held
     # by the failed attempt before we evaluate the answer again.
-    if is_chain_task:
-        persisted = run_raddle_atomic_with_deadlock_retry(
-            _run, label='check_attempt',
-        )
-    else:
-        # The Task row is the stable lock row for ordinary submissions too.
-        with transaction.atomic():
-            persisted = _run()
+    try:
+        if is_chain_task:
+            persisted = run_raddle_atomic_with_deadlock_retry(
+                _run, label='check_attempt',
+            )
+        else:
+            # The Task row is the stable lock row for ordinary submissions too.
+            with transaction.atomic():
+                persisted = _run()
+    except IntegrityError:
+        # A concurrent request with the same client event id committed first;
+        # the unique receipt rolled this one back.
+        replayed = receipt_attempt(client_event_id, attempt) if client_event_id is not None else None
+        if replayed is None:
+            raise
+        raise ReplayedClientEventException(replayed.pk) from None
 
     if not persisted:
         return False
@@ -474,6 +506,18 @@ def process_send_attempt(request, task_id):
     attempt.game = game
     attempt.replay_slot = replay_slot
 
+    # A resent move answers with the attempt it already produced, before any
+    # check that the first delivery itself may have changed (e.g. a ladder
+    # word that is no longer playable because it was just solved).
+    client_event_id = parse_client_event_id(request.POST)
+    if client_event_id is not None:
+        replayed = receipt_attempt(client_event_id, attempt)
+        if replayed is not None:
+            return _replayed_move_response(
+                request, task, game, replayed,
+                team=team, user=user, anon_key=anon_key, word_index=word_index, word=word,
+            )
+
     if replay_slot is None:
         from games.site.session.replay import _official_exists
         if _official_exists(
@@ -508,11 +552,18 @@ def process_send_attempt(request, task_id):
     keeper = getattr(post_puzzle, 'persist_wrong', None) if post_puzzle is not None else None
     persist_wrong = keeper(request.POST, action) if keeper is not None else True
     with timing_phase(request, 'check_attempt'):
-        attempt_persisted = check_attempt(
-            attempt,
-            persist_wrong=persist_wrong,
-            timing_request=request,
-        )
+        try:
+            attempt_persisted = check_attempt(
+                attempt,
+                persist_wrong=persist_wrong,
+                timing_request=request,
+                client_event_id=client_event_id,
+            )
+        except ReplayedClientEventException as exc:
+            return _replayed_move_response(
+                request, task, game, Attempt.manager.get(pk=exc.attempt_id),
+                team=team, user=user, anon_key=anon_key, word_index=word_index, word=word,
+            )
     if attempt_persisted:
         request.interoves_attempt_id = attempt.pk
         with timing_phase(request, 'attempt_created_log'):
@@ -621,6 +672,35 @@ def process_send_attempt(request, task_id):
         result['daily_timing'] = daily_timing
     if replay_available:
         result['replay_available'] = True
+    if analytics_events:
+        result['analytics_events'] = analytics_events
+    return _move_response(
+        request, result, task=task, game=game, attempt=attempt,
+        attempt_persisted=bool(attempt_persisted),
+        team=team, user=user, anon_key=anon_key, current_mode=current_mode,
+        replay_slot=replay_slot, word_index=word_index, word=word,
+    )
+
+
+def _replayed_move_response(request, task, game, attempt, *, team, user, anon_key, word_index, word):
+    """Answer a resent move with the attempt its first delivery produced."""
+    result = {
+        'status': 'ok',
+        'task_id': task.id,
+        'client_event_replayed': True,
+    }
+    return _move_response(
+        request, result, task=task, game=game, attempt=attempt, attempt_persisted=True,
+        team=team, user=user, anon_key=anon_key, current_mode=game.get_current_mode(attempt),
+        replay_slot=attempt.replay_slot, word_index=word_index, word=word,
+    )
+
+
+def _move_response(
+    request, result, *, task, game, attempt, attempt_persisted,
+    team, user, anon_key, current_mode, replay_slot, word_index, word,
+):
+    """Add the verdict, puzzle fields and task HTML to a processed move."""
     # The transport status above only says that the submission was processed.
     # Give the new UI the persisted verdict as well, so ordinary tasks can show
     # explicit feedback without trying to infer it from freshly rendered HTML.
@@ -629,12 +709,10 @@ def process_send_attempt(request, task_id):
     if attempt_persisted and getattr(puzzle, 'report_attempt_status', True):
         result['attempt_status'] = attempt.status
         result['attempt_id'] = attempt.id
-    if analytics_events:
-        result['analytics_events'] = analytics_events
     response = MoveResponse(
         result=result,
         attempt=attempt,
-        attempt_persisted=bool(attempt_persisted),
+        attempt_persisted=attempt_persisted,
         user=user,
         anon_key=anon_key,
         word_index=word_index,
@@ -829,6 +907,8 @@ def send_attempt(request, task_id):
         response.update(_raddle_duplicate_response(request, task_id))
     except TooManyAttemptsException:
         response = {'status': 'attempt_limit_exceeded'}
+    except ClientEventConflictException:
+        response = {'status': 'client_event_conflict'}
     except InvalidFormException:
         response = {'status': 'invalid_form'}
     except NoGameAccessException:

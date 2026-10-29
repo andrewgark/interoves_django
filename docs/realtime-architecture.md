@@ -42,7 +42,7 @@ The same mechanism covers site changes that become relevant while a page is open
   ladder, alphabetty, or week task reaches its Moscow publication boundary.
 - Simultaneous identical submissions produce one authoritative attempt and both pages converge.
 - After a teammate solves one replacements line, the other member can submit another line without F5 or «Ошибка сети».
-- An in-flight raddle submit still converges after the teammate's live HTML replace; a client abort is not auto-retried on top of the chain lock.
+- An in-flight raddle submit still converges after the teammate's live HTML replace; a client abort is retried only with the same `client_event_id`, so the server answers the resend with the move it already recorded.
 - Raddle middle-row drafts and unused-clue strikethrough converge on the teammate page without replacing the ladder HTML.
 - Changing a team's visible name does not interrupt its existing game subscriptions.
 - DB locking prevents the main duplicate/chain-state races during simultaneous submissions.

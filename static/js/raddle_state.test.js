@@ -130,10 +130,22 @@ function testWordIndexIsZeroBasedFromTheRequest() {
 }
 
 // ── Retry / timeout ───────────────────────────────────────────────────────
-function testAbortIsNeverRetried() {
+function testAbortIsNotRetriedWithoutClientEventId() {
   var verdict = S.classifyRequestFailure({ name: 'AbortError' }, 1, 3);
   assert.strictEqual(verdict.retry, false);
   assert.strictEqual(verdict.reason, 'abort');
+}
+
+function testIdempotentAbortRetriesUpToMaxAttempts() {
+  var idempotent = { idempotent: true };
+  var first = S.classifyRequestFailure({ name: 'AbortError' }, 1, 3, idempotent);
+  assert.strictEqual(first.retry, true);
+  assert.strictEqual(first.reason, 'abort_idempotent');
+  assert.strictEqual(first.messageKey, null);
+  var last = S.classifyRequestFailure({ name: 'AbortError' }, 3, 3, idempotent);
+  assert.strictEqual(last.retry, false);
+  assert.strictEqual(last.reason, 'abort');
+  assert.strictEqual(last.messageKey, 'network');
 }
 
 function testOfflineRetriesUpToThreeAttempts() {
@@ -564,7 +576,8 @@ testPartialProgressStatusIsNotCorrect();
 testWrongKeepsTheSubmitLock();
 testBadAndUnknownResponses();
 testWordIndexIsZeroBasedFromTheRequest();
-testAbortIsNeverRetried();
+testAbortIsNotRetriedWithoutClientEventId();
+testIdempotentAbortRetriesUpToMaxAttempts();
 testOfflineRetriesUpToThreeAttempts();
 testHtml403IsNotRetriedAndNotMaskedAsNetwork();
 testInFlightDeduplication();

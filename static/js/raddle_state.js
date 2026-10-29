@@ -197,14 +197,18 @@
   }
 
   /**
-   * Abort/timeout is never retried: the server may already have recorded the
-   * move and a retry fights the teammate's select_for_update. An HTML 403 is
-   * not a network problem and must not be reported as one.
+   * Abort/timeout is retried only for an idempotent request (one that carries
+   * a client_event_id): the server may already have recorded the move, and
+   * only then does it answer the resend with that move instead of checking it
+   * again. An HTML 403 is not a network problem and must not be reported as one.
    */
-  function classifyRequestFailure(err, attempt, maxAttempts) {
+  function classifyRequestFailure(err, attempt, maxAttempts, options) {
     var at = finite(attempt, 1);
     var max = finite(maxAttempts, 1);
     if (isAbortError(err)) {
+      if (options && options.idempotent && at < max) {
+        return { retry: true, reason: 'abort_idempotent', messageKey: null };
+      }
       return { retry: false, reason: 'abort', messageKey: 'network' };
     }
     if (err && err.httpStatus === 403) {

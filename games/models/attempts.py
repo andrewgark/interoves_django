@@ -768,6 +768,26 @@ class PendingAttempt(Attempt):
         proxy=True
 
 
+class ClientEventReceipt(models.Model):
+    """The attempt a client-generated event id already produced.
+
+    A browser that lost the response (timeout, abort, offline queue) resends
+    the same ``client_event_id``; the server answers with the stored attempt
+    instead of checking the move again. The receipt is written in the same
+    transaction as the attempt. It does not store the actor: a replay is
+    accepted only while ``attempt`` still belongs to the requesting actor,
+    which keeps it correct after anonymous progress is merged into an account.
+    """
+
+    id = models.BigAutoField(primary_key=True)
+    client_event_id = models.UUIDField(unique=True)
+    attempt = models.ForeignKey('Attempt', related_name='client_event_receipts', on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    def __str__(self):
+        return '{} -> attempt {}'.format(self.client_event_id, self.attempt_id)
+
+
 class LikeManager(models.Manager):
     def _actor_filter(self, team=None, user=None, anon_key=None):
         if team is not None:

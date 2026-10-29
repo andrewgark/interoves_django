@@ -296,6 +296,7 @@
 <script src="{% static 'js/raddle_masked_input.js' %}"></script>
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/raddle_keyboard_dismiss.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/client_event_id.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/raddle_state.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/raddle_tab_nav.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/new_bug_report.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
@@ -2055,6 +2056,9 @@
     setRaddleInputBusy(input, true);
     var row = input ? input.closest('.new-raddle-row') : null;
     setRaddleRowChecking(row, true);
+    // Все автоповторы этой отправки несут один id: на повтор сервер отвечает
+    // уже записанным ходом, поэтому повторять после abort/таймаута безопасно.
+    var clientEventId = window.InterovesClientEventId.create();
 
     // На протяжении всех автопопыток вход остаётся busy, а спиннер крутится,
     // чтобы не улетело два параллельных запроса и не мигал крестик.
@@ -2079,10 +2083,12 @@
       }
       var requestForm = currentForm;
       var requestInput = live.input || input;
+      var body = formPostBody(requestForm);
+      body.set('client_event_id', clientEventId);
       var pending = fetchWithTimeout(formSubmitUrl(requestForm), {
         method: 'POST',
         headers: anonFetchHeaders(),
-        body: formPostBody(requestForm),
+        body: body,
         credentials: 'same-origin',
       }, RADDLE_FETCH_TIMEOUT_MS);
       // Блокировка того же значения ставится только теперь, когда fetch реально
@@ -2110,7 +2116,7 @@
             finish();
             return;
           }
-          var failure = RaddleCtl.classifyRequestFailure(err, attempt, RADDLE_MAX_ATTEMPTS);
+          var failure = RaddleCtl.classifyRequestFailure(err, attempt, RADDLE_MAX_ATTEMPTS, { idempotent: true });
           if (failure.retry) {
             setTimeout(function () { attemptOnce(attempt + 1); }, RADDLE_RETRY_DELAY_MS);
             return;

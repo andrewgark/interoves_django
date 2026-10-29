@@ -13,7 +13,7 @@ DOM-free, тестируется в node. `task_group.html` только чит�
 | Что | Где | Зачем |
 |-----|-----|-------|
 | Матрица ответов сервера | `classifyAttemptResponse(data)` | один исполнитель для авто-режима и турнирной кнопки/Enter |
-| Политика ретраев | `classifyRequestFailure(err, attempt, max)` | abort ≠ offline ≠ HTML 403 |
+| Политика ретраев | `classifyRequestFailure(err, attempt, max, {idempotent})` | abort ≠ offline ≠ HTML 403 |
 | In-flight + «то же значение» | `createRequestRegistry()` | живёт в памяти, а не на DOM → переживает `applyNewUiTaskHtml` |
 | Сессия ввода | `createInputSession()` | `owner: real\|pin`, `keyboardState`, `anchor`, dismiss-окно |
 | Что чему разрешено | `SOURCE_EFFECTS` / `mayApplyEffect(source, effect)` | passive viewport/scroll не могут `focus()` и `scrollTo()` |
@@ -69,7 +69,7 @@ DOM-free, тестируется в node. `task_group.html` только чит�
 ### Клиент (авто-режим, не турнир)
 
 - Блокировка двойной отправки **того же** значения — `raddleRequests.markSubmitted()`; ставится только после того, как fetch реально ушёл; сбрасывается при ошибке сети, при `length !== maxlength` (`onChange`), при sync и по явному Enter / «Повторить».
-- Клиентский abort/timeout **не** авто-ретраится (сервер мог уже записать ход; повтор бьёт в `select_for_update` напарника). TypeError (offline) — до 3 попыток. HTML 403 не ретраится и **не** маскируется под «Ошибку сети» (отдельный текст «Сессия устарела»).
+- Каждая отправка несёт `client_event_id` (UUID, `static/js/client_event_id.js`), один на все её автоповторы. Сервер пишет `ClientEventReceipt` в той же транзакции, что и Attempt, и на повтор с тем же id отвечает **исходным** вердиктом (`client_event_replayed: true`) до проверки «не playable» и дубликата. Поэтому abort/timeout авто-ретраится (до 3 попыток), как и TypeError (offline). Id чужого актора/задания → `status: client_event_conflict`, без записи. HTML 403 не ретраится и **не** маскируется под «Ошибку сети» (отдельный текст «Сессия устарела»).
 - In-flight ключ `taskId:wordIndex` живёт в `raddleRequests` (память, не DOM) и переживает `applyNewUiTaskHtml`: чужой live-update не запускает второй POST того же слова.
 - Если строка уже `new-raddle-row--solved` после live-HTML, «Ошибку сети» не показываем.
 - `paste` — fallback через `setTimeout(0)` только если busy / уже отправлено.
@@ -230,7 +230,7 @@ node static/js/raddle_masked_input.test.js
 - [ ] Есть ли вызов `applyNewUiTaskHtml` без `raddle_correct` / `raddle_needs_sync` / `raddle_duplicate_solved`?
 - [ ] Новый `focus()` / `scrollTo()` объявлен через `withRaddleSource` с честным источником (не из passive viewport-хендлера)?
 - [ ] Сбрасывается ли submit-lock при `catch` и когда `postRaddleAutoForm` вернул `false`?
-- [ ] Abort/timeout не ставится в очередь ретраев? In-flight того же слова переживает замену HTML?
+- [ ] Автоповтор после abort/timeout идёт с тем же `client_event_id`, а новая отправка (Enter, «Повторить») — с новым? In-flight того же слова переживает замену HTML?
 - [ ] Черновик середины / зачёркивание подсказки уходят через `send_raddle_ui` без `applyNewUiTaskHtml`?
 - [ ] Может ли один жест (paste + input) отправить два одинаковых запроса?
 - [ ] При `duplicate` без `raddle_duplicate_solved` фокус остаётся на текущей строке?
