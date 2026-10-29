@@ -300,6 +300,9 @@
 <script src="{% static 'js/raddle_state.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/offline_normalize.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/offline_verify.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_raddle_rules.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_raddle_pack.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_outbox.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/raddle_tab_nav.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/new_bug_report.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
@@ -1364,6 +1367,8 @@
     }
     if (form && form.dataset) form.dataset.submitting = '1';
     var taskId = form.getAttribute('data-task-id');
+    // The offline pack fixes assist tiers; the next card load fetches a fresh one.
+    delete raddleOfflinePacks[taskId];
     var msg = document.querySelector('[data-msg-for="raddle-form-' + taskId + '-' + wordIdx + '"]');
     if (msg && tier !== '1') {
       msg.style.display = 'block';
@@ -2125,6 +2130,10 @@
             return;
           }
           finish();
+          if (offlineMove && failure.reason !== 'forbidden') {
+            commitRaddleOfflineMove(offlineMove, form, input, row, wordIdx);
+            return;
+          }
           // Слово не ушло — снимаем блокировку, чтобы «Повторить» и Enter работали.
           raddleRequests.clearSubmitted(flightKey);
           var errForm = liveRaddleForm(form) || form;
@@ -2137,8 +2146,17 @@
     // сервер: перерисовывать лесенку и переносить фокус может только он.
     var clientVerdict = null;
     var postedWord = formPostBody(liveRaddleForm(form) || form).get('word');
+    var offlineMove = null;
     raddleClientVerdict(form, wordIdx, postedWord).then(function (verdict) {
       clientVerdict = verdict;
+      offlineMove = prepareRaddleOfflineMove(form, wordIdx, postedWord, verdict, clientEventId);
+      // Without the network, or while earlier offline moves still wait in the
+      // queue (order matters), the move goes to the queue and plays locally.
+      if (offlineMove && raddleMustQueue(offlineMove.taskId)) {
+        finish();
+        commitRaddleOfflineMove(offlineMove, form, input, row, wordIdx);
+        return;
+      }
       if (verdict === 'Wrong') {
         var live = raddleLiveElements(liveRaddleForm(form) || form, input, row);
         setRaddleRowChecking(live.row, false);
@@ -2148,6 +2166,221 @@
     });
     return true;
   }
+
+  // ── Лесенка без сети (docs/offline-play-plan.md, фаза 2) ─────────────────
+  // The page keeps the pack of every reachable card state; a move made without
+  // the network is queued (InterovesOutbox) and played on the assembled card.
+  // The queue is sent in order once the network is back, then the server card
+  // replaces the local one: the server stays authoritative.
+  var raddleOfflinePacks = Object.create(null);
+  var raddleOfflinePackLoading = Object.create(null);
+  var raddleOutbox = window.InterovesOutbox
+    ? window.InterovesOutbox.createOutbox({ storage: raddleSafeLocalStorage() || undefined })
+    : null;
+  var raddleOutboxFlushing = false;
+
+  function raddleSafeLocalStorage() {
+    try {
+      var storage = window.localStorage;
+      storage.setItem('interoves:storage-probe', '1');
+      storage.removeItem('interoves:storage-probe');
+      return storage;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function raddleTaskRootById(taskId) {
+    return document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+  }
+
+  function raddlePackRequestBody(taskId) {
+    var body = new FormData();
+    body.set('game_id', '{{ game.id }}');
+    body.set('anon_key', anonKey || '');
+    var context = gameplayContextForTask(taskId);
+    if (context) body.set('gameplay_context', context);
+    if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampFormData(body);
+    return body;
+  }
+
+  function fetchRaddleOfflinePack(taskId, url) {
+    return fetch(url, {
+      method: 'POST',
+      headers: anonFetchHeaders(),
+      body: raddlePackRequestBody(taskId),
+      credentials: 'same-origin',
+    }).then(function (r) { return r.ok ? r.json() : null; });
+  }
+
+  function loadRaddleOfflinePack(taskRoot) {
+    var url = taskRoot.getAttribute('data-offline-pack-url');
+    var taskId = taskRoot.getAttribute('data-task-id');
+    if (!url || !taskId || !raddleOutbox || navigator.onLine === false) return;
+    var known = raddleOfflinePacks[taskId];
+    if ((known && known.revision === taskRoot.getAttribute('data-raddle-storage-revision'))
+        || raddleOfflinePackLoading[taskId]) return;
+    raddleOfflinePackLoading[taskId] = true;
+    fetchRaddleOfflinePack(taskId, url)
+      .then(function (data) {
+        if (data && data.status === 'ok' && data.pack) raddleOfflinePacks[taskId] = data.pack;
+      })
+      .catch(function () {})
+      .then(function () { delete raddleOfflinePackLoading[taskId]; });
+  }
+
+  // Current ladder state as the card shows it.
+  function raddleStateFromDom(taskRoot) {
+    var solved = Object.create(null);
+    taskRoot.querySelectorAll('.new-raddle-table .new-raddle-row--solved[data-word-index]').forEach(function (row) {
+      if (!row.classList.contains('new-raddle-sticky-pin__row')) solved[row.getAttribute('data-word-index')] = true;
+    });
+    var used = [];
+    taskRoot.querySelectorAll('.new-raddle-clues__list--used .new-raddle-clue[data-hint-index]').forEach(function (li) {
+      used.push(Number(li.getAttribute('data-hint-index')));
+    });
+    var byNumber = function (a, b) { return a - b; };
+    return {
+      solved_indices: Object.keys(solved).map(Number).sort(byNumber),
+      used_hints: used.sort(byNumber),
+    };
+  }
+
+  function raddleMustQueue(taskId) {
+    return navigator.onLine === false || (!!raddleOutbox && raddleOutbox.size(taskId) > 0);
+  }
+
+  // The queue entry and the response the server would give, or null when the
+  // move cannot be played without the server.
+  function prepareRaddleOfflineMove(form, wordIdx, word, verdict, clientEventId) {
+    var taskId = form && form.getAttribute('data-task-id');
+    var pack = taskId ? raddleOfflinePacks[taskId] : null;
+    var taskRoot = taskId ? raddleTaskRootById(taskId) : null;
+    if (!pack || !taskRoot || !raddleOutbox || !verdict || !window.OfflineRaddleRules) return null;
+    if (pack.revision !== taskRoot.getAttribute('data-raddle-storage-revision')) return null;
+    var index = Number(wordIdx);
+    var data = { status: 'ok', task_id: Number(taskId), raddle_correct: false, raddle_word_index: index };
+    if (verdict === 'Ok') {
+      var state = raddleStateFromDom(taskRoot);
+      if (window.OfflineRaddleRules.refuseWord(state, pack.rules, index, word) !== null) return null;
+      var next = window.OfflineRaddleRules.advance(state, pack.rules, index);
+      var html = window.OfflineRaddlePack.assembleCard(pack, next);
+      if (!html) return null;
+      data.raddle_correct = true;
+      data.update_task_html_new = {};
+      data.update_task_html_new[taskId] = html;
+    }
+    var body = formPostBody(liveRaddleForm(form) || form);
+    body.set('client_event_id', clientEventId);
+    body.set('client_verdict', verdict);
+    return {
+      taskId: taskId,
+      data: data,
+      entry: {
+        id: clientEventId,
+        scope: taskId,
+        url: formSubmitUrl(form),
+        fields: window.InterovesOutbox.formFields(body),
+        at: Date.now(),
+      },
+    };
+  }
+
+  function commitRaddleOfflineMove(move, form, input, row, wordIdx) {
+    if (!raddleOutbox.add(move.entry)) {
+      showRaddleRequestError(liveRaddleForm(form) || form, input, { messageKey: 'network' });
+      return;
+    }
+    var live = raddleLiveElements(liveRaddleForm(form) || form, input, row);
+    applyRaddleAttemptResponse(liveRaddleForm(form) || form, live.input, live.row, move.data, wordIdx);
+    syncRaddleOfflineNote(raddleTaskRootById(move.taskId));
+  }
+
+  function syncRaddleOfflineNote(taskRoot) {
+    if (!taskRoot) return;
+    var waiting = raddleOutbox ? raddleOutbox.size(taskRoot.getAttribute('data-task-id')) : 0;
+    var note = taskRoot.querySelector('.new-raddle-offline-note');
+    if (!waiting) {
+      if (note) note.parentNode.removeChild(note);
+      return;
+    }
+    if (!note) {
+      note = document.createElement('p');
+      note.className = 'new-raddle-task__mixed-script new-raddle-offline-note';
+      note.setAttribute('role', 'status');
+      var layout = taskRoot.querySelector('.new-raddle-layout');
+      if (layout) layout.parentNode.insertBefore(note, layout);
+    }
+    note.textContent = 'Нет связи с сервером. Ходы сохранены на этом устройстве '
+      + 'и отправятся сами, когда связь появится (ждут: ' + waiting + ').';
+  }
+
+  function sendQueuedRaddleMove(entry) {
+    var body = new FormData();
+    entry.fields.forEach(function (pair) { body.append(pair[0], pair[1]); });
+    // The token from the queue may be older than this page's.
+    if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampFormData(body);
+    return fetchWithTimeout(entry.url, {
+      method: 'POST',
+      headers: anonFetchHeaders(),
+      body: body,
+      credentials: 'same-origin',
+    }, RADDLE_FETCH_TIMEOUT_MS).then(function (r) {
+      // 409: the move belongs to another account or a stale game context.
+      if (r.status === 409) return 'drop';
+      if (!r.ok) return 'retry';
+      return r.json().then(function (data) {
+        flushAnalyticsEvents(data);
+        return 'sent';
+      }, function () { return 'retry'; });
+    }, function () { return 'retry'; });
+  }
+
+  // After the queue is sent, the server's card replaces the local one.
+  function refreshRaddleCardFromServer(taskId) {
+    var taskRoot = raddleTaskRootById(taskId);
+    var url = taskRoot ? taskRoot.getAttribute('data-offline-pack-url') : null;
+    if (!url) {
+      window.location.reload();
+      return Promise.resolve();
+    }
+    return fetchRaddleOfflinePack(taskId, url).then(function (data) {
+      if (!data || data.status !== 'ok' || !data.pack) {
+        window.location.reload();
+        return;
+      }
+      raddleOfflinePacks[taskId] = data.pack;
+      var map = {};
+      map[taskId] = data.pack.card_html;
+      applyNewUiTaskHtml(map);
+    });
+  }
+
+  function flushRaddleOutbox() {
+    if (!raddleOutbox || raddleOutboxFlushing || navigator.onLine === false) return;
+    var scopes = [];
+    raddleOutbox.entries().forEach(function (entry) {
+      if (scopes.indexOf(String(entry.scope)) === -1) scopes.push(String(entry.scope));
+    });
+    if (!scopes.length) return;
+    raddleOutboxFlushing = true;
+    var chain = Promise.resolve();
+    scopes.forEach(function (taskId) {
+      chain = chain.then(function () {
+        return window.InterovesOutbox.flush(raddleOutbox, taskId, sendQueuedRaddleMove);
+      }).then(function (result) {
+        syncRaddleOfflineNote(raddleTaskRootById(taskId));
+        if (!result.left && (result.sent || result.dropped)) return refreshRaddleCardFromServer(taskId);
+        return null;
+      }).catch(function () {});
+    });
+    chain.then(function () {
+      raddleOutboxFlushing = false;
+    });
+  }
+
+  window.addEventListener('online', flushRaddleOutbox);
+  window.setInterval(flushRaddleOutbox, 20000);
 
   // Мгновенный вердикт (docs/offline-play-plan.md, фаза 1): слово проверяется
   // по data-offline-spec задания. 'Ok' / 'Wrong', или null, если проверки на
@@ -3677,6 +3910,10 @@
     scope.querySelectorAll('.new-raddle-task').forEach(function (taskRoot) {
       restoreRaddleDrafts(taskRoot);
       restoreRaddleClueMarks(taskRoot);
+      syncRaddleOfflineNote(taskRoot);
+      if (!taskRoot.hasAttribute('data-offline-assembled')) {
+        window.setTimeout(function () { loadRaddleOfflinePack(taskRoot); }, 1500);
+      }
       // data-default-focus — первая playable ступенька сверху. Если пользователь
       // уже работает ниже, перерисовка (live-update напарника, raddle_stale_ui)
       // не имеет права утащить выделенную пару на верх Лесенки: держимся за
@@ -3695,6 +3932,7 @@
   window.initRaddleUi = initRaddleUi;
   window.setRaddleFocus = setRaddleFocus;
   withRaddleSource('init', function () { initRaddleUi(document); });
+  window.setTimeout(flushRaddleOutbox, 1000);
 
   var raddleStickyResizeTimer = null;
   // Passive viewport/scroll handlers may only reposition and show/hide the fixed

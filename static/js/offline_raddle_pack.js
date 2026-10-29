@@ -113,7 +113,87 @@
     };
   }
 
+  function insertItems(sectionHtml, items) {
+    var at = sectionHtml.lastIndexOf('</ul>');
+    return sectionHtml.slice(0, at) + items.join('') + sectionHtml.slice(at);
+  }
+
+  function fragment(doc, html) {
+    var t = doc.createElement('template');
+    t.innerHTML = String(html).trim();
+    return t.content;
+  }
+
+  function piece(pieces, key) {
+    if (!pieces || !Object.prototype.hasOwnProperty.call(pieces, key)) throw new Error('no piece for ' + key);
+    return pieces[key];
+  }
+
+  /**
+   * HTML of the whole task card (#new-task-<id>) in state, assembled from the
+   * pack's pieces on top of the card the pack was built from. Null when the
+   * pack lacks a piece: the page then waits for the server instead.
+   */
+  function assembleCard(pack, state, doc) {
+    doc = doc || global.document;
+    var n = pack.n_words;
+    var keys = slotKeys(state, n, pack.tiers || {});
+    try {
+      var card = fragment(doc, pack.card_html).firstElementChild;
+      var root = card && card.querySelector('.new-raddle-task');
+      if (!root) return null;
+
+      var rows = [];
+      for (var i = 0; i < n; i++) rows.push(piece(pack.rows[i], keys.rows[i]));
+      root.querySelector('.new-raddle-table tbody').innerHTML = rows.join('');
+
+      var sections = [];
+      if (keys.last_word !== null) {
+        sections.push(piece(pack.last_word, String(keys.last_word)));
+      } else {
+        var unused = pack.unused_order
+          .filter(function (h) { return keys.clues[h] !== 'used'; })
+          .map(function (h) { return piece(pack.clues[h], keys.clues[h]); });
+        if (unused.length) sections.push(insertItems(pack.sections.unused, unused));
+      }
+      var used = [];
+      keys.clues.forEach(function (key, h) {
+        if (key === 'used') used.push(piece(pack.clues[h], key));
+      });
+      if (used.length) sections.push(insertItems(pack.sections.used, used));
+      root.querySelector('aside.new-raddle-clues').innerHTML = sections.join('');
+
+      var oldResult = root.querySelector('[data-raddle-result]');
+      if (oldResult) oldResult.parentNode.removeChild(oldResult);
+      if (keys.complete && pack.result) {
+        var layout = root.querySelector('.new-daily-results-layout');
+        var result = fragment(doc, pack.result);
+        if (layout) {
+          layout.insertBefore(result, layout.firstChild);
+        } else {
+          var ladderLayout = root.querySelector('.new-raddle-layout');
+          ladderLayout.parentNode.insertBefore(result, ladderLayout.nextSibling);
+        }
+      }
+
+      var focus = null;
+      keys.rows.forEach(function (key, idx) {
+        if (key.split('|')[1] === '1') focus = idx;
+      });
+      var focusRow = focus === null ? null
+        : root.querySelector('.new-raddle-row[data-word-index="' + focus + '"]');
+      root.setAttribute('data-default-focus', focus === null ? '' : String(focus));
+      root.setAttribute('data-default-ref-word', focusRow ? (focusRow.getAttribute('data-ref-word') || '') : '');
+      root.setAttribute('data-offline-assembled', '1');
+      card.setAttribute('data-solved', keys.complete ? '1' : '0');
+      return card.outerHTML;
+    } catch (e) {
+      return null;
+    }
+  }
+
   global.OfflineRaddlePack = {
     slotKeys: slotKeys,
+    assembleCard: assembleCard,
   };
 })(typeof window !== 'undefined' ? window : globalThis);
