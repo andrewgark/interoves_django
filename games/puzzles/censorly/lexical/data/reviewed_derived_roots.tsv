@@ -165,3 +165,13 @@ lemma	root_structure	note
 гранатомет	root:гранатомет	Reviewed lexicalized grenade-launcher family; avoids separately authorizing гранат and мет components.
 гранатометчик	root:гранатомет	Reviewed lexicalized grenade-launcher family; avoids separately authorizing гранат and мет components.
 гранатометание	root:гранатомет	Reviewed lexicalized grenade-launcher family; avoids separately authorizing гранат and мет components.
+баскетбол	root:баскетбол	Reviewed sport family: баскетбол, баскетболист, and баскетболистка.
+баскетболист	root:баскетбол	Reviewed sport family: баскетбол, баскетболист, and баскетболистка.
+баскетболистка	root:баскетбол	Reviewed sport family: баскетбол, баскетболист, and баскетболистка.
+волейбол	root:волейбол	Reviewed sport family: волейбол, волейболист, and волейболистка.
+волейболист	root:волейбол	Reviewed sport family: волейбол, волейболист, and волейболистка.
+волейболистка	root:волейбол	Reviewed sport family: волейбол, волейболист, and волейболистка.
+библиотека	root:библиотек	Reviewed institution/occupation family: библиотека and библиотекарь.
+библиотекарь	root:библиотек	Reviewed institution/occupation family: библиотека and библиотекарь.
+авангард	root:авангард	Reviewed art-movement family: авангард and авангардист.
+авангардист	root:авангард	Reviewed art-movement family: авангард and авангардист.
