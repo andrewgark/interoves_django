@@ -134,8 +134,9 @@
         <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}{% if hint.is_struck %} new-raddle-clue--struck{% endif %}"
             data-hint-index="{{ hint.index }}"
             data-blank-template="{{ hint.blank_template|escape }}"
-            data-prev-word="{{ hint.prev_word|escape }}"
-            data-next-word="{{ hint.next_word|escape }}"
+            {% comment %}A tournament page must not carry unsolved answers in its markup.{% endcomment %}
+            data-prev-word="{% if hint.prev_solved or not rd.ui.is_tournament %}{{ hint.prev_word|escape }}{% endif %}"
+            data-next-word="{% if hint.next_solved or not rd.ui.is_tournament %}{{ hint.next_word|escape }}{% endif %}"
             data-prev-solved="{% if hint.prev_solved %}1{% else %}0{% endif %}"
             data-next-solved="{% if hint.next_solved %}1{% else %}0{% endif %}"
             data-has-next-slot="{% if hint.has_next_slot %}1{% else %}0{% endif %}"
