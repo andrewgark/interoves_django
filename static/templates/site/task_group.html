@@ -2194,6 +2194,101 @@
     return document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
   }
 
+  // The pack and the latest server card survive a reload without the network.
+  var RADDLE_OFFLINE_STORE_PREFIX = 'interoves:raddle-offline:';
+  var RADDLE_OFFLINE_STORE_LIMIT = 5;
+  var raddleOfflineStore = raddleSafeLocalStorage();
+
+  function loadRaddleOffline(taskId) {
+    if (!raddleOfflineStore) return null;
+    try {
+      return JSON.parse(raddleOfflineStore.getItem(RADDLE_OFFLINE_STORE_PREFIX + taskId) || 'null');
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveRaddleOffline(taskId, patch) {
+    if (!raddleOfflineStore) return;
+    try {
+      var stored = loadRaddleOffline(taskId) || {};
+      Object.keys(patch).forEach(function (key) { stored[key] = patch[key]; });
+      stored.at = Date.now();
+      raddleOfflineStore.setItem(RADDLE_OFFLINE_STORE_PREFIX + taskId, JSON.stringify(stored));
+      var keys = [];
+      for (var i = 0; i < raddleOfflineStore.length; i++) {
+        var key = raddleOfflineStore.key(i);
+        if (key && key.indexOf(RADDLE_OFFLINE_STORE_PREFIX) === 0) keys.push(key);
+      }
+      if (keys.length > RADDLE_OFFLINE_STORE_LIMIT) {
+        keys.map(function (key) {
+          var at = 0;
+          try { at = JSON.parse(raddleOfflineStore.getItem(key)).at || 0; } catch (e) {}
+          return { key: key, at: at };
+        }).sort(function (a, b) { return a.at - b.at; })
+          .slice(0, keys.length - RADDLE_OFFLINE_STORE_LIMIT)
+          .forEach(function (old) { raddleOfflineStore.removeItem(old.key); });
+      }
+    } catch (e) {}
+  }
+
+  // Keep this page and its static files for opening without the network
+  // (static/js/offline_sw.js serves them only when the network fails).
+  function rememberRaddlePageForOffline() {
+    if (!('serviceWorker' in navigator) || !window.isSecureContext || !window.caches) return;
+    var page = location.href.split('#')[0];
+    navigator.serviceWorker.register('/offline-sw.js', { scope: '/' }).then(function () {
+      return caches.open('interoves-offline-pages-v1');
+    }).then(function (cache) {
+      return cache.match(page).then(function (kept) { return kept || cache.add(page); });
+    }).then(function () {
+      return caches.open('interoves-offline-static-{{ site_deploy_version|default:"0"|escapejs }}');
+    }).then(function (cache) {
+      var assets = performance.getEntriesByType('resource').map(function (entry) {
+        return entry.name;
+      }).filter(function (url) {
+        return url.indexOf(location.origin + '/static/') === 0;
+      });
+      return Promise.all(assets.map(function (url) {
+        return cache.match(url).then(function (hit) { return hit || cache.add(url); }).catch(function () {});
+      }));
+    }).catch(function () {});
+  }
+
+  // A page opened without the network shows the card it had when it was
+  // cached: rebuild the progress from the latest server card and the queue.
+  function restoreRaddleOfflineProgress(taskRoot) {
+    var taskId = taskRoot.getAttribute('data-task-id');
+    var stored = loadRaddleOffline(taskId);
+    if (!stored || !stored.pack || !raddleOutbox) return;
+    if (stored.pack.revision !== taskRoot.getAttribute('data-raddle-storage-revision')) return;
+    var pack = stored.pack;
+    raddleOfflinePacks[taskId] = pack;
+    if (navigator.onLine !== false) return;
+    var state = raddleStateFromDom(taskRoot);
+    if (stored.card) {
+      var holder = document.createElement('template');
+      holder.innerHTML = stored.card;
+      var storedRoot = holder.content.querySelector('.new-raddle-task');
+      var storedState = storedRoot ? raddleStateFromDom(storedRoot) : null;
+      if (storedState && storedState.solved_indices.length > state.solved_indices.length) state = storedState;
+    }
+    raddleOutbox.entries(taskId).forEach(function (entry) {
+      var fields = {};
+      entry.fields.forEach(function (pair) { fields[pair[0]] = pair[1]; });
+      var index = Number(fields.word_index);
+      if (fields.client_verdict !== 'Ok') return;
+      if (window.OfflineRaddleRules.refuseWord(state, pack.rules, index, fields.word) !== null) return;
+      state = window.OfflineRaddleRules.advance(state, pack.rules, index);
+    });
+    if (state.solved_indices.length <= raddleStateFromDom(taskRoot).solved_indices.length) return;
+    var html = window.OfflineRaddlePack.assembleCard(pack, state);
+    if (!html) return;
+    var map = {};
+    map[taskId] = html;
+    applyNewUiTaskHtml(map);
+  }
+
   function raddlePackRequestBody(taskId) {
     var body = new FormData();
     body.set('game_id', '{{ game.id }}');
@@ -2223,7 +2318,11 @@
     raddleOfflinePackLoading[taskId] = true;
     fetchRaddleOfflinePack(taskId, url)
       .then(function (data) {
-        if (data && data.status === 'ok' && data.pack) raddleOfflinePacks[taskId] = data.pack;
+        if (data && data.status === 'ok' && data.pack) {
+          raddleOfflinePacks[taskId] = data.pack;
+          saveRaddleOffline(taskId, { pack: data.pack });
+          rememberRaddlePageForOffline();
+        }
       })
       .catch(function () {})
       .then(function () { delete raddleOfflinePackLoading[taskId]; });
@@ -2350,6 +2449,7 @@
         return;
       }
       raddleOfflinePacks[taskId] = data.pack;
+      saveRaddleOffline(taskId, { pack: data.pack, card: data.pack.card_html });
       var map = {};
       map[taskId] = data.pack.card_html;
       applyNewUiTaskHtml(map);
@@ -3932,6 +4032,9 @@
   window.initRaddleUi = initRaddleUi;
   window.setRaddleFocus = setRaddleFocus;
   withRaddleSource('init', function () { initRaddleUi(document); });
+  document.querySelectorAll('.new-raddle-task[data-offline-pack-url]').forEach(function (taskRoot) {
+    withRaddleSource('init', function () { restoreRaddleOfflineProgress(taskRoot); });
+  });
   window.setTimeout(flushRaddleOutbox, 1000);
 
   var raddleStickyResizeTimer = null;
@@ -4596,6 +4699,12 @@
       ? window.InterovesTaskHints.captureOpen(Object.keys(map))
       : {};
     Object.keys(map).forEach(function (tid) {
+      // The latest server card of an offline-capable ladder, for a reload
+      // without the network (restoreRaddleOfflineProgress).
+      var cardHtml = String(map[tid] || '');
+      if (cardHtml.indexOf('data-offline-pack-url') !== -1 && cardHtml.indexOf('data-offline-assembled') === -1) {
+        saveRaddleOffline(tid, { card: cardHtml });
+      }
       // If the player already edited the rejected answer, preserve that draft
       // rather than restoring the originally submitted value after a WS update.
       captureEditedOrdinaryAnswer(tid);
