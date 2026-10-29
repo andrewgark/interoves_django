@@ -61,6 +61,31 @@ def render_new_ui_task_card_html(
     HTML for one new-UI task card (#new-task-{id}). Used in JSON + WebSocket to avoid full page reload.
     Returns None when this page is not the new UI or when the task is rendered only inside proportions sheet.
     """
+    context = new_ui_task_card_context(
+        request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
+        replay_slot=replay_slot, placement=placement, context_dicts=context_dicts,
+    )
+    if context is None:
+        return None
+    return render(request, TASK_CARD_TEMPLATE, context).content.decode('UTF-8')
+
+
+TASK_CARD_TEMPLATE = 'site/partials/task_card.html'
+
+
+def new_ui_task_card_context(
+    request,
+    task,
+    team,
+    current_mode,
+    user=None,
+    anon_key=None,
+    game=None,
+    replay_slot=None,
+    placement=None,
+    context_dicts=None,
+):
+    """Template context of one new-UI task card, or None when it has no card."""
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
     if game is None:
@@ -96,7 +121,7 @@ def render_new_ui_task_card_html(
         from games.daily.difficulty.core import get_cached_game_difficulties
         difficulty = get_cached_game_difficulties([slot]).get(slot.pk)
     from games.results.share import share_host_from_request
-    return render(request, 'site/partials/task_card.html', {
+    return {
         'game': game,
         'task_group': task_group,
         'tg_number': tg_number,
@@ -114,7 +139,7 @@ def render_new_ui_task_card_html(
         'image_manager': ImageManager(),
         'audio_manager': AudioManager(),
         **ctx_dicts,
-    }).content.decode('UTF-8')
+    }
 
 
 # applyNewUiTaskHtml replaces #new-task-<key>; task_group.html gives the heading this id.

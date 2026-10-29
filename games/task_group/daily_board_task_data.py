@@ -21,6 +21,13 @@ def _word_salad_offer_share_hash(game, task_group) -> str:
     return offer.share_hash if offer is not None else ''
 
 
+def board_share_title(game, placement, task):
+    """Share-card title of a ladder outside the daily ladder game, else None."""
+    if str(getattr(game, 'id', '')) == LADDER_GAME_ID or placement is None:
+        return None
+    return raddle_share_title(game, placement.number, task.number)
+
+
 def daily_board_task_data(
     tasks,
     attempts_info_by_task_id,
@@ -58,13 +65,9 @@ def daily_board_task_data(
         if adapter is None:
             continue
         ai = attempts_info_by_task_id.get(t.id)
-        share_title = None
-        if (
-            adapter.context_key == 'raddle'
-            and str(getattr(game, 'id', '')) != LADDER_GAME_ID
-            and placement is not None
-        ):
-            share_title = raddle_share_title(game, placement.number, t.number)
+        share_title = (
+            board_share_title(game, placement, t) if adapter.context_key == 'raddle' else None
+        )
         data = adapter.prepare(
             game=game,
             task=t,

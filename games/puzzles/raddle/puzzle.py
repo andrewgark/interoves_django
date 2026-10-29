@@ -1,6 +1,7 @@
 """Лесенка: board payload and the rules of one submitted word."""
 
 import json
+from dataclasses import dataclass
 
 from games.daily.page.share import get_daily_share_adapter
 from games.daily.page.state import latest_daily_state
@@ -175,23 +176,53 @@ def build_raddle_board_data(
     }
 
 
-def prepare_raddle_board_data(
-    *,
-    game,
-    task,
-    placement,
-    attempts_info,
-    team,
-    user,
-    anon_key,
-    mode,
-    replay_slot,
-    resolve_chain_state,
-    raddle_ui_state_for_actor,
-    share_title,
-    **ignored,
+@dataclass
+class RaddleBoardSource:
+    """Everything a ladder board is drawn from, loaded once.
+
+    ``build(state)`` draws the board of any state of this ladder for the same
+    actor: the page draws the current state, the offline pack the reachable
+    ones.
+    """
+
+    game: object
+    task: object
+    placement: object
+    parsed: dict
+    state: dict
+    board: object
+    mode: str
+    share_title: object
+    team: object
+    user: object
+    anon_key: object
+
+    def build(self, state=None):
+        data = build_raddle_board_data(
+            game=self.game,
+            task=self.task,
+            placement=self.placement,
+            parsed=self.parsed,
+            state=dict(self.state if state is None else state),
+            attempts=self.board.attempts,
+            hint_attempts=self.board.hint_attempts,
+            mode=self.mode,
+            ui_state=self.board.ui_state,
+            share_title=self.share_title,
+            user=self.user,
+            anon_key=self.anon_key,
+        )
+        from games.puzzles.raddle.clue_likes import attach_clue_reactions
+        attach_clue_reactions(
+            data.get('ui') or {}, self.task, team=self.team, user=self.user, anon_key=self.anon_key,
+        )
+        return data
+
+
+def raddle_board_source(
+    *, game, task, placement, attempts_info, team, user, anon_key, mode, replay_slot, share_title,
 ):
-    """Parse, resolve, and build one Raddle board payload."""
+    """Load the ladder, its actor's current state and attempts; None if unparsable."""
     parsed = parse_raddle_data(task)
     if not parsed:
         return None
@@ -227,22 +258,36 @@ def prepare_raddle_board_data(
             'replay_slot': replay_slot,
         },
     )
-    data = build_raddle_board_data(
-        game=game,
-        task=task,
-        placement=placement,
-        parsed=parsed,
-        state=state,
-        attempts=board.attempts,
-        hint_attempts=board.hint_attempts,
-        mode=mode,
-        ui_state=board.ui_state,
-        share_title=share_title,
-        user=user,
-        anon_key=anon_key,
+    return RaddleBoardSource(
+        game=game, task=task, placement=placement, parsed=parsed, state=state, board=board,
+        mode=mode, share_title=share_title, team=team, user=user, anon_key=anon_key,
     )
-    from games.puzzles.raddle.clue_likes import attach_clue_reactions
-    attach_clue_reactions(data.get('ui') or {}, task, team=team, user=user, anon_key=anon_key)
+
+
+def prepare_raddle_board_data(
+    *,
+    game,
+    task,
+    placement,
+    attempts_info,
+    team,
+    user,
+    anon_key,
+    mode,
+    replay_slot,
+    resolve_chain_state,
+    raddle_ui_state_for_actor,
+    share_title,
+    **ignored,
+):
+    """Parse, resolve, and build one Raddle board payload."""
+    source = raddle_board_source(
+        game=game, task=task, placement=placement, attempts_info=attempts_info, team=team,
+        user=user, anon_key=anon_key, mode=mode, replay_slot=replay_slot, share_title=share_title,
+    )
+    if source is None:
+        return None
+    data = source.build()
     from games.gameplay.client_checks import page_client_check
     offline = page_client_check(
         task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key,

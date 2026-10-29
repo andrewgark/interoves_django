@@ -28,7 +28,7 @@ ALERT_THROTTLE_SECONDS = 60 * 60
 
 
 def page_client_check(*, task, game, mode, team=None, user=None, anon_key=None):
-    """``{'spec_json': ...}`` for a page that may check ``task`` itself, else None."""
+    """``{'spec_json', 'offline_attempts'}`` for a page that may check ``task`` itself, else None."""
     if not settings.OFFLINE_PLAY_ENABLED:
         return None
     capabilities = resolve_capabilities(
@@ -45,7 +45,10 @@ def page_client_check(*, task, game, mode, team=None, user=None, anon_key=None):
         return None
     if spec is None:
         return None
-    return {'spec_json': json.dumps(spec, ensure_ascii=False, separators=(',', ':'))}
+    return {
+        'spec_json': json.dumps(spec, ensure_ascii=False, separators=(',', ':')),
+        'offline_attempts': capabilities.offline_attempts,
+    }
 
 
 def server_verdict(task, move):

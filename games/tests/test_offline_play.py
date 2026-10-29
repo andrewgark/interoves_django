@@ -123,3 +123,40 @@ class LadderClientCheckTests(_ClientEventFixture):
         self.assertTrue(response['raddle_correct'])
         self.assertIsNone(self._page_spec(response))
         self.assertEqual(notify.call_args.kwargs['kind'], 'pack_build_failed')
+
+
+@override_settings(OFFLINE_PLAY_ENABLED=True)
+class LadderOfflinePackEndpointTests(_ClientEventFixture):
+    def setUp(self):
+        super().setUp()
+        cache.clear()
+
+    def _pack(self):
+        return self.client.post(
+            '/raddle_offline_pack/{}/'.format(self.ladder.id),
+            {'game_id': self.game.id, 'anon_key': self.anon_key},
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        ).json()
+
+    def test_pack_needs_offline_attempts(self):
+        OfflinePlayRule.objects.create(game=self.game, instant_verdict=True)
+        self.assertEqual(self._pack(), {'status': 'disabled'})
+
+    def test_pack_holds_pieces_for_every_reachable_state(self):
+        OfflinePlayRule.objects.create(game=self.game, instant_verdict=True, offline_attempts=True)
+        self._post_word(1, 'BBB', uuid.uuid4())
+        data = self._pack()
+        self.assertEqual(data['status'], 'ok')
+        pack = data['pack']
+        self.assertEqual(pack['state']['solved_indices'], [0, 1, 3])
+        self.assertEqual(pack['rules']['n_words'], 4)
+        self.assertEqual(pack['spec']['kind'], 'raddle')
+        self.assertIn('new-task-{}'.format(self.ladder.id), pack['card_html'])
+        self.assertIn('data-offline-pack-url', pack['card_html'])
+        # Only word 2 is left: its row is playable now and solved later.
+        self.assertEqual(
+            sorted(key.split('|')[0] for key in pack['rows'][2]), ['playable', 'solved'],
+        )
+        self.assertIn('2', pack['last_word'])
+        self.assertIn('new-raddle-result', pack['result'])
+        self.assertIn('data-raddle-unused-clues', pack['sections']['unused'])
