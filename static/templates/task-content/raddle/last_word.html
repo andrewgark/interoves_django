@@ -1,0 +1,20 @@
+{% load filters static %}
+      <section class="new-raddle-clues__section new-raddle-clues__section--unused new-raddle-clues__section--last-word">
+      <h4 class="new-raddle-clues__subtitle">Два варианта расстановки</h4>
+      {% for option in rd.ui.last_word_clue_options %}
+      {% if not forloop.first %}
+      <p class="new-raddle-clues__or" role="separator">или</p>
+      {% endif %}
+      <ul class="new-raddle-clues__list new-raddle-clues__list--option" data-raddle-clue-option="{{ option.id }}"{% if option.is_correct %} data-raddle-correct-option{% endif %}>
+        {% for hint in option.hints %}
+        <li class="new-raddle-clue{% if hint.is_revealed %} new-raddle-clue--revealed{% endif %}{% if hint.is_struck %} new-raddle-clue--struck{% endif %}"
+            data-hint-index="{{ hint.index }}"
+            data-clue-pair="{{ hint.pair }}">
+          <button type="button" class="new-raddle-clue__mark" aria-pressed="{% if hint.is_struck %}true{% else %}false{% endif %}" aria-label="Отметить подсказку" data-tooltip="Отметить" tabindex="-1"></button>
+          <span class="new-raddle-clue__text">{% autoescape off %}{{ hint.display_html }}{% endautoescape %}</span>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endfor %}
+      </section>
+      

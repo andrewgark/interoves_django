@@ -1,0 +1,85 @@
+{% load filters static %}
+          <tr class="new-raddle-row {% if row.is_given %}new-raddle-row--given {% endif %}{% if row.is_solved %}new-raddle-row--solved{% elif row.attempts_exhausted %}new-raddle-row--exhausted{% elif row.is_playable %}new-raddle-row--playable{% elif row.is_draftable %}new-raddle-row--draft{% else %}new-raddle-row--locked{% endif %}{% if row.is_default_focus %} new-raddle-row--focus{% endif %}{% if row.last_word_role %} new-raddle-row--as-{{ row.last_word_role }}{% elif row.is_default_focus and row.focus_pair_role %} new-raddle-row--as-{{ row.focus_pair_role }}{% endif %}{% if row.is_default_ref and row.ref_pair_role and not row.last_word_role %} new-raddle-row--as-{{ row.ref_pair_role }}{% endif %}" data-word-index="{{ row.index }}" data-task-id="{{ task.id }}"{% if row.is_playable %} data-ref-word="{{ row.ref_word }}" data-ref-word-index="{{ row.ref_word_index|default_if_none:'' }}" data-ref-role="{{ row.ref_role|default:'' }}" data-focus-pair-role="{{ row.focus_pair_role|default:'' }}" data-ref-pair-role="{{ row.ref_pair_role|default:'' }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}"{% if row.dual_neighbors %} data-dual-neighbors="1" data-prev-neighbor="{{ row.prev_neighbor_word|escape }}" data-next-neighbor="{{ row.next_neighbor_word|escape }}"{% endif %}{% endif %}{% if row.last_word_role %} data-last-word-role="{{ row.last_word_role }}"{% endif %}>
+            <td class="new-raddle-block__word {% if row.is_solved %}new-raddle-block__word--solved{% endif %}">
+              <div class="new-raddle-word-cell" style="--raddle-len: {{ row.input_format_len }}">
+                {% if row.is_solved %}
+                  <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><span class="new-raddle-line__solved-text"><strong>{{ row.word }}</strong></span></span>
+                {% elif row.revealed_answer %}
+                  <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" value="{{ row.revealed_answer }}" placeholder="{{ row.mask_placeholder }}"{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}><span class="new-raddle-mask" aria-hidden="true">{% for token in row.mask_tokens %}<span class="{% if token == '◼' %}new-raddle-mask__slot{% else %}new-raddle-mask__literal{% endif %}">{{ token }}</span>{% endfor %}</span></span>
+                {% elif row.is_playable %}
+                  <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><input type="text" name="word" class="new-raddle-input new-replacements-input" form="raddle-form-{{ task.id }}-{{ row.index }}" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }}" placeholder="{{ row.mask_placeholder }}" data-raddle-focus-input{% if not rd.ui.is_tournament %} data-raddle-auto="1"{% endif %}{% if row.draft_letters %} data-raddle-server-draft="{{ row.draft_letters|escape }}"{% endif %}><span class="new-raddle-mask" aria-hidden="true">{% for token in row.mask_tokens %}<span class="{% if token == '◼' %}new-raddle-mask__slot{% else %}new-raddle-mask__literal{% endif %}">{{ token }}</span>{% endfor %}</span></span>
+                {% elif row.is_draftable %}
+                  <span class="new-raddle-line" style="--raddle-format-len: {{ row.input_format_len }}"><input type="text" name="word" class="new-raddle-input new-replacements-input" autocomplete="off" size="{{ row.input_size }}" data-raddle-format="{{ row.input_format }}"{% if row.input_script and row.input_script != 'cyrillic' %} data-raddle-script="{{ row.input_script }}"{% if row.input_script == 'latin' %} lang="en"{% endif %}{% endif %} aria-label="Слово {{ row.index|add:1 }} (черновик)" placeholder="{{ row.mask_placeholder }}" data-raddle-draft="1" data-word-index="{{ row.index }}"{% if row.draft_letters %} data-raddle-server-draft="{{ row.draft_letters|escape }}"{% endif %}><span class="new-raddle-mask" aria-hidden="true">{% for token in row.mask_tokens %}<span class="{% if token == '◼' %}new-raddle-mask__slot{% else %}new-raddle-mask__literal{% endif %}">{{ token }}</span>{% endfor %}</span></span>
+                {% elif row.attempts_exhausted %}
+                  <span class="new-raddle-line"><span class="new-raddle-line__mask">{{ row.mask_html }}</span></span>
+                  <span class="new-login-hint new-raddle-line__no-guesses">Попытки закончились.</span>
+                {% else %}
+                  <span class="new-raddle-line"><span class="new-raddle-line__mask">{{ row.mask_html }}</span></span>
+                {% endif %}
+                <span class="new-raddle-line__len">({{ row.length_label }}{% if row.show_cyrillic_flag %}, <span class="new-raddle-script-flag" data-tooltip="{{ row.word_category_label }}" aria-label="{{ row.word_category_label }}"><img src="{% static 'img/icons/flag-ru.svg' %}" alt="" aria-hidden="true" width="20" height="10"></span>{% endif %}{% if row.show_latin_flag %}, <span class="new-raddle-script-flag" data-tooltip="{{ row.word_category_label }}" aria-label="{{ row.word_category_label }}"><img src="{% static 'img/icons/flag-gb.svg' %}" alt="" aria-hidden="true" width="20" height="10"></span>{% endif %}{% if row.show_digits_flag %}, <span class="new-raddle-script-flag new-raddle-digits-flag" data-tooltip="{{ row.word_category_label }}" aria-label="{{ row.word_category_label }}">123</span>{% endif %}{% if row.emoji %}, <span class="new-raddle-emoji" aria-label="эмодзи">{{ row.emoji }}</span>{% endif %})</span>
+              </div>
+              {% if row.is_playable %}
+              <div class="new-attempt-msg new-raddle-word-msg" aria-live="polite" data-msg-for="raddle-form-{{ task.id }}-{{ row.index }}"></div>
+              {% endif %}
+            </td>
+            <td class="new-raddle-block__check">
+              {% if row.is_solved and not row.is_given %}
+              <div class="new-raddle-actions">
+                {% if row.assist_tier >= 2 %}
+                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier2" data-tooltip="Открыто ответом ({{ row.assist_credit|minimize_digits }} {{ row.assist_credit|ru_points_word }})"><i class="ph ph-check" aria-hidden="true"></i></span>
+                {% elif row.assist_tier == 1 %}
+                <span class="new-replacements-check-btn new-replacements-check-btn--done new-raddle-check--tier1" data-tooltip="Решено с подсказкой ({{ row.assist_credit|minimize_digits }} {{ row.assist_credit|ru_points_word }})"><i class="ph ph-check" aria-hidden="true"></i></span>
+                {% else %}
+                <span class="new-replacements-check-btn new-replacements-check-btn--done" data-tooltip="Верно (полный балл)"><i class="ph ph-check" aria-hidden="true"></i></span>
+                {% endif %}
+              </div>
+              {% elif row.is_playable %}
+              <div class="new-raddle-actions">
+                <form class="new-raddle-line-form new-attempt-form{% if not rd.ui.is_tournament %} new-raddle-auto-form{% endif %}" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" id="raddle-form-{{ task.id }}-{{ row.index }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
+                  <input type="hidden" name="game_id" value="{{ game.id }}">
+                  <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                  <input type="hidden" name="word_index" value="{{ row.index }}">
+                  {% if rd.ui.is_tournament %}
+                  <button type="submit" class="new-replacements-check-btn" data-tooltip="Проверить" aria-label="Проверить слово {{ row.index|add:1 }}" tabindex="-1"><i class="ph ph-check" aria-hidden="true"></i></button>
+                  {% endif %}
+                </form>
+                {% if not rd.ui.is_tournament %}
+                <span class="new-raddle-checking-mark" aria-hidden="true" data-tooltip="Проверяем…"></span>
+                <span class="new-raddle-wrong-mark" aria-hidden="true" data-tooltip="Неверно"><i class="ph ph-x"></i></span>
+                {% endif %}
+                {% if row.can_clue_assist %}
+                <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
+                  <input type="hidden" name="game_id" value="{{ game.id }}">
+                  <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                  <input type="hidden" name="word_index" value="{{ row.index }}">
+                  <input type="hidden" name="tier" value="1">
+                  <input type="hidden" name="__ui_hint_penalty" value="{{ row.assist_next_penalty|minimize_digits }}">
+                  <input type="hidden" name="__ui_hint_points_word" value="{{ row.assist_next_penalty|ru_points_word }}">
+                  <button type="submit" class="new-raddle-assist-btn" data-tooltip="Показать подсказку к этому слову" aria-label="Показать подсказку" tabindex="-1"><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
+                </form>
+                {% elif row.can_answer_assist %}
+                <form class="new-raddle-assist-form" action="/send_raddle_assist/{{ task.id }}/" method="post" data-task-id="{{ task.id }}" data-word-index="{{ row.index }}" data-clue-hint-index="{{ row.clue_hint_index|default_if_none:'' }}">
+                  {% csrf_token %}
+                  <input type="hidden" name="gameplay_context" value="{{ gameplay_context_tokens|get_item:task.id }}">
+                  <input type="hidden" name="game_id" value="{{ game.id }}">
+                  <input type="hidden" name="anon_key" class="new-anon-key-field" value="">
+                  <input type="hidden" name="word_index" value="{{ row.index }}">
+                  <input type="hidden" name="tier" value="2">
+                  <input type="hidden" name="__ui_hint_penalty" value="{{ row.assist_next_penalty|minimize_digits }}">
+                  <input type="hidden" name="__ui_hint_points_word" value="{{ row.assist_next_penalty|ru_points_word }}">
+                  <button type="submit" class="new-raddle-assist-btn new-raddle-assist-btn--answer" data-tooltip="Показать слово" aria-label="Показать слово" tabindex="-1"><i class="ph ph-lightbulb" aria-hidden="true"></i><i class="ph ph-lightbulb" aria-hidden="true"></i></button>
+                </form>
+                {% endif %}
+              </div>
+              {% elif row.is_draftable %}
+              <div class="new-raddle-actions">
+                <span class="new-raddle-draft-mark" hidden role="img" data-tooltip="Нельзя проверить, верно или нет, пока слово не крайнее из неизвестных" aria-label="Нельзя проверить, верно или нет, пока слово не крайнее из неизвестных"><i class="ph ph-hourglass" aria-hidden="true"></i></span>
+              </div>
+              {% endif %}
+            </td>
+          </tr>
+        
