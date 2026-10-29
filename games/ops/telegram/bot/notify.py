@@ -225,6 +225,35 @@ def notify_admin_merge_job_failed(*, kind: str, job_id, user_id, error: str = ''
         return False
 
 
+OFFLINE_PLAY_ALERT_TITLES = {
+    'verdict_divergence': 'Клиент и сервер разошлись в проверке ответа',
+    'pack_build_failed': 'Не собралась клиентская проверка задания',
+}
+
+
+def notify_admin_offline_play(*, kind: str, task, game, lines) -> bool:
+    """Queue an offline-play alert (docs/offline-play-plan.md); no answers in the text."""
+    try:
+        text = _join_lines([
+            '⚠️ <b>{}</b>'.format(_escape(OFFLINE_PLAY_ALERT_TITLES.get(kind, kind))),
+            '',
+            'Игра: <code>{}</code>, задание {} (<code>{}</code>)'.format(
+                _escape(getattr(game, 'id', '—')), _escape(task.id), _escape(task.task_type),
+            ),
+            *lines,
+            task_admin_url(task),
+            'Повторы по этому заданию подавлены на час.',
+        ])
+        return publish_admin_alert(
+            alert='offline_play',
+            dedupe_key='telegram.admin_alert:offline_play:{}:{}'.format(kind, task.id),
+            payload={'text': text},
+        )
+    except Exception:
+        logger.exception('Failed to notify admin about offline play %s task=%s', kind, task.id)
+        return False
+
+
 def notify_admin_club_renewal_failed(
     subscription_id: int, *, payment_id: int | None = None, reason: str = '',
     delivery: str = 'direct',

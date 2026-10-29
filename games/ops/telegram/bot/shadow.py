@@ -63,6 +63,7 @@ def run_admin_alert_live(*, alert: str, payload: dict, dedupe_key: str = ''):
     if alert in (
         'club_renewal_failed', 'club_subscription_state', 'zero_duration_completion',
         'censorly_wikipedia_failure', 'daily_timer_client_report', 'merge_job_failed',
+        'offline_play',
     ):
         from games.ops.telegram.bot.notify import notify_admin_alert_message
 

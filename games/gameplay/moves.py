@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from django.utils import timezone
 
 from games.gameplay.attempts import check_attempt
+from games.gameplay.client_checks import audit_client_verdict
 from games.gameplay.client_events import receipt_attempt
 from games.gameplay.effects import MoveEffects, apply_move_effects
 from games.gameplay.hints import create_hint_attempt, get_first_new_hint_actor
@@ -57,7 +58,8 @@ class MoveInput:
 
     ``word_index``/``word`` are set for one-word moves (the ladder);
     ``starts_game`` marks a move that starts the game even if nothing is
-    persisted; ``persist_wrong`` False keeps a wrong probe out of the attempts.
+    persisted; ``persist_wrong`` False keeps a wrong probe out of the attempts;
+    ``client_verdict`` is what the page's own check showed (Ok/Partial/Wrong).
     """
 
     text: str
@@ -66,6 +68,7 @@ class MoveInput:
     starts_game: bool = False
     persist_wrong: bool = True
     client_event_id: uuid.UUID | None = None
+    client_verdict: str | None = None
 
 
 @dataclass
@@ -149,6 +152,8 @@ def submit_move(ctx, move, *, submitter_profile=None, observer=None):
                 attempt=attempt,
                 actor_kind=observer.interoves_gameplay_actor_kind,
             )
+
+    audit_client_verdict(ctx, move)
 
     if persisted and task.task_type == 'autohint':
         _open_autohint(ctx, attempt, submitter_profile=submitter_profile, observer=observer)

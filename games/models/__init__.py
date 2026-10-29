@@ -108,6 +108,7 @@ from games.models.jobs import (  # noqa: F401
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
+from games.models.offline import OfflinePlayRule  # noqa: F401
 from games.models.people import (  # noqa: F401
     HiddenAnonKey,
     PersonalResultsParticipant,
@@ -238,4 +239,5 @@ __all__ = [
     'RaddleClueLike',
     'RaddleUiState',
     'WordSaladOffer',
+    'OfflinePlayRule',
 ]

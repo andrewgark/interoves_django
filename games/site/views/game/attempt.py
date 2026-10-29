@@ -6,6 +6,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from games.gameplay.attempts import check_attempt  # noqa: F401  (re-exported to older importers)
+from games.gameplay.client_checks import CLIENT_VERDICTS
 from games.gameplay.client_events import parse_client_event_id
 from games.gameplay.effects import apply_move_effects
 from games.gameplay.moves import REPLAY_REQUIRED, MoveContext, MoveInput, submit_move
@@ -125,16 +126,23 @@ def read_move(task, post):
     ``InvalidFormException`` for an invalid ordinary answer.
     """
     client_event_id = parse_client_event_id(post)
+    client_verdict = post.get('client_verdict')
+    if client_verdict not in CLIENT_VERDICTS:
+        client_verdict = None
     if task.task_type in ('default', 'with_tag', 'distribute_to_teams', 'autohint', 'proportions'):
         form = AttemptForm(post)
         if not form.is_valid():
             raise InvalidFormException('attempt form {} is not valid'.format(form))
-        return MoveInput(text=form.save(commit=False).text, client_event_id=client_event_id)
+        return MoveInput(
+            text=form.save(commit=False).text,
+            client_event_id=client_event_id,
+            client_verdict=client_verdict,
+        )
     if task.task_type in POSTED_TEXT_TASK_TYPES:
         move = parse_posted_text(task.task_type, post)
         if isinstance(move, MoveRefusal):
             return move
-        return MoveInput(text=move.text, client_event_id=client_event_id)
+        return MoveInput(text=move.text, client_event_id=client_event_id, client_verdict=client_verdict)
 
     puzzle = get_puzzle(task.task_type)
     reader = getattr(puzzle, 'read_post', None) if puzzle is not None else None
@@ -159,6 +167,7 @@ def read_move(task, post):
         starts_game=bool(getattr(move, 'starts_game', False)),
         persist_wrong=keeper(post, getattr(move, 'action', None)) if keeper is not None else True,
         client_event_id=client_event_id,
+        client_verdict=client_verdict,
     )
 
 

@@ -389,6 +389,29 @@ sync отклоняет офлайн-события, кроме обычных �
 
 Критерий: неделя на 100% ежедневной Лесенки без расхождений.
 
+**Сделано (код, без выкатки):**
+- `OfflinePlayRule` (`games/models/offline.py`, миграция `0296`, админка
+  «Offline play rules»), `games.gameplay.policy.resolve_capabilities`,
+  `OFFLINE_PLAY_ENABLED` (по умолчанию выключен — правила ни на что не влияют).
+- `games.gameplay.client_checks.page_client_check`: при `instant_verdict`
+  доска Лесенки получает `data-offline-spec` на `.new-raddle-task`
+  (перерисовывается вместе с карточкой); сломанный checker_data не ломает
+  страницу — лог `offline_pack_build_failed` + алерт.
+- Клиент (`postRaddleAutoForm`): слово проверяется `OfflineVerify` до
+  отправки; неверное краснеет сразу, верное по-прежнему ждёт сервер (только
+  он перерисовывает лесенку). В POST уходит `client_verdict`.
+- Сервер (`submit_move` → `audit_client_verdict`): сверяет с
+  `word_matches`/чекером; расхождение — лог `offline_verdict_divergence`
+  (без текста ответа) и Telegram-алерт `offline_play`, не чаще раза в час на
+  задание.
+- Отложено в фазу 2: ввод следующего слова, пока летит запрос (нужна
+  очередь ходов; сейчас поле занято до ответа сервера, как и раньше).
+
+**Как включить:** `OFFLINE_PLAY_ENABLED=true` в окружении → в админке
+правило `game=ladder, task_type=raddle, mode=general, instant_verdict,
+rollout_percent=5` → смотреть логи `offline_verdict_divergence` → поднимать
+процент.
+
 ### Фаза 2 — офлайн-Лесенка (личный ежедневный режим)
 
 - `offline_outbox.js`, `offline_sync.js`, `/play/sync`, Web Locks/BroadcastChannel.

@@ -243,6 +243,12 @@ def prepare_raddle_board_data(
     )
     from games.puzzles.raddle.clue_likes import attach_clue_reactions
     attach_clue_reactions(data.get('ui') or {}, task, team=team, user=user, anon_key=anon_key)
+    from games.gameplay.client_checks import page_client_check
+    offline = page_client_check(
+        task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key,
+    )
+    if offline is not None:
+        data['offline'] = offline
     return data
 
 

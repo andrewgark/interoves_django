@@ -298,6 +298,8 @@
 <script src="{% static 'js/raddle_keyboard_dismiss.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/client_event_id.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/raddle_state.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_normalize.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_verify.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/raddle_tab_nav.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/new_bug_report.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
@@ -1497,8 +1499,8 @@
   }
 
   // Клиентский таймаут одной попытки отправки ответа в Лесенке (мс).
-  // Abort не ретраим: сервер мог уже сохранить ход (lock напарника), а повтор
-  // только усугубляет очередь. TypeError (offline) — до RADDLE_MAX_ATTEMPTS.
+  // Повторы (abort/timeout и TypeError offline) — до RADDLE_MAX_ATTEMPTS: все они
+  // несут один client_event_id, и сервер отвечает на повтор уже записанным ходом.
   var RADDLE_FETCH_TIMEOUT_MS = 15000;
   var RADDLE_MAX_ATTEMPTS = 3;
   var RADDLE_RETRY_DELAY_MS = 400;
@@ -2085,6 +2087,7 @@
       var requestInput = live.input || input;
       var body = formPostBody(requestForm);
       body.set('client_event_id', clientEventId);
+      if (clientVerdict) body.set('client_verdict', clientVerdict);
       var pending = fetchWithTimeout(formSubmitUrl(requestForm), {
         method: 'POST',
         headers: anonFetchHeaders(),
@@ -2130,8 +2133,39 @@
         });
     }
 
-    attemptOnce(1);
+    // Неверное по мнению страницы слово краснеет сразу; верное по-прежнему ждёт
+    // сервер: перерисовывать лесенку и переносить фокус может только он.
+    var clientVerdict = null;
+    var postedWord = formPostBody(liveRaddleForm(form) || form).get('word');
+    raddleClientVerdict(form, wordIdx, postedWord).then(function (verdict) {
+      clientVerdict = verdict;
+      if (verdict === 'Wrong') {
+        var live = raddleLiveElements(liveRaddleForm(form) || form, input, row);
+        setRaddleRowChecking(live.row, false);
+        markRaddleWrong(live.row, live.input);
+      }
+      attemptOnce(1);
+    });
     return true;
+  }
+
+  // Мгновенный вердикт (docs/offline-play-plan.md, фаза 1): слово проверяется
+  // по data-offline-spec задания. 'Ok' / 'Wrong', или null, если проверки на
+  // странице нет (правило выключено, не https, старая версия spec).
+  function raddleClientVerdict(form, wordIdx, word) {
+    if (!form || !window.OfflineVerify) return Promise.resolve(null);
+    var root = document.querySelector(
+      '.new-raddle-task[data-task-id="' + form.getAttribute('data-task-id') + '"]'
+    );
+    var raw = root ? root.getAttribute('data-offline-spec') : null;
+    if (!raw) return Promise.resolve(null);
+    try {
+      return window.OfflineVerify.verifyWord(JSON.parse(raw), Number(wordIdx), word)
+        .then(function (accepted) { return accepted ? 'Ok' : 'Wrong'; })
+        .catch(function () { return null; });
+    } catch (e) {
+      return Promise.resolve(null);
+    }
   }
 
   // Сетевая ошибка/таймаут: сообщение с явной кнопкой «Повторить» (то же слово

@@ -245,6 +245,12 @@ GAMEPLAY_CONTEXT_REQUIRE_TOKEN = (
     os.environ.get('GAMEPLAY_CONTEXT_REQUIRE_TOKEN', '').strip().lower()
     in ('1', 'true', 'yes', 'on')
 )
+# Kill switch for client-side and offline play (docs/offline-play-plan.md).
+# Off by default: OfflinePlayRule rows have no effect until this is on.
+OFFLINE_PLAY_ENABLED = (
+    os.environ.get('OFFLINE_PLAY_ENABLED', '').strip().lower()
+    in ('1', 'true', 'yes', 'on')
+)
 # Simplified Censorly resolver. Off unless CENSORLY_LEXICAL_RESOLVER=1.
 # Green sets that variable; other environments stay on the legacy matcher.
 CENSORLY_LEXICAL_RESOLVER = (
