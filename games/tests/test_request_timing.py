@@ -16,6 +16,13 @@ class RequestTimingMiddlewareTests(TestCase):
             lambda request: type('R', (), {'status_code': 200})(),
         )
 
+    def test_logger_does_not_repeat_through_root(self):
+        # Daphne gives the root logger its own stderr handler.
+        from django.conf import settings
+        loggers = settings.LOGGING['loggers']
+        for name in ('interoves.request_timing', 'application', 'daphne'):
+            self.assertIs(loggers[name].get('propagate'), False, name)
+
     def test_logs_slow_send_attempt(self):
         request = self.factory.post('/send_attempt/1/')
         self.middleware.slow_ms = 0

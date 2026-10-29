@@ -1102,6 +1102,9 @@ CORS_ORIGIN_WHITELIST = [
 
 # Logging
 
+# Daphne's CLI calls logging.basicConfig(), so the root logger already prints
+# to stderr. Loggers with their own handler must not propagate, or every line
+# reaches CloudWatch twice.
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -1116,10 +1119,12 @@ LOGGING = {
         'application': {
             'handlers': ['stderr'],
             'level': 'INFO',
+            'propagate': False,
         },
         'daphne': {
             'handlers': ['stderr'],
             'level': 'INFO',
+            'propagate': False,
         },
         'games': {
             'handlers': ['stderr'],
@@ -1129,6 +1134,7 @@ LOGGING = {
         'interoves.request_timing': {
             'handlers': ['stderr'],
             'level': 'WARNING',
+            'propagate': False,
         },
         'interoves.analytics_timing': {
             'handlers': ['stderr'],
