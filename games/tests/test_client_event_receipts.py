@@ -9,10 +9,10 @@ from django.utils import timezone
 
 from games.gameplay import attempts as gameplay_attempts
 from games.gameplay import client_events
+from games.gameplay import moves as gameplay_moves
 from games.models import Attempt, CheckerType, ClientEventReceipt, Game, GameTaskGroup, Task, TaskGroup
 from games.ops.analytics.identity import attach_anon_cookie
 from games.site.http.exceptions import ReplayedClientEventException
-from games.site.views.game import attempt as attempt_view
 from games.tests.test_raddle_send_attempt import MINI_LADDER, _ensure_fixtures
 
 
@@ -140,7 +140,7 @@ class ClientEventReplayTests(_ClientEventFixture):
         self.assertFalse(ClientEventReceipt.objects.exists())
 
     def test_wrong_move_that_is_not_persisted_writes_no_receipt(self):
-        with patch.object(attempt_view, 'check_attempt', return_value=False):
+        with patch.object(gameplay_moves, 'check_attempt', return_value=False):
             self._post_word(1, 'ZZZ', uuid.uuid4())
         self.assertFalse(ClientEventReceipt.objects.exists())
 
@@ -162,7 +162,7 @@ class CheckAttemptReceiptTests(_ClientEventFixture):
         event_id = uuid.uuid4()
         stored = self._stored_attempt(event_id)
         with self.assertRaises(ReplayedClientEventException) as ctx:
-            attempt_view.check_attempt(self._new_attempt(), client_event_id=event_id)
+            gameplay_attempts.check_attempt(self._new_attempt(), client_event_id=event_id)
         self.assertEqual(ctx.exception.attempt_id, stored.pk)
 
     def test_concurrent_resend_is_resolved_by_the_unique_receipt(self):
@@ -181,6 +181,6 @@ class CheckAttemptReceiptTests(_ClientEventFixture):
         )
         with patch.object(gameplay_attempts, 'receipt_attempt', side_effect=stale_then_real):
             with self.assertRaises(ReplayedClientEventException) as ctx:
-                attempt_view.check_attempt(attempt, client_event_id=event_id)
+                gameplay_attempts.check_attempt(attempt, client_event_id=event_id)
         self.assertEqual(ctx.exception.attempt_id, stored.pk)
         self.assertEqual(Attempt.manager.filter(task=self.ladder).count(), 1)

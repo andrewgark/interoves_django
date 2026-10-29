@@ -332,7 +332,17 @@ sync отклоняет офлайн-события, кроме обычных �
   `games.gameplay.effects.apply_move_effects(MoveContext, started=,
   may_complete=, source=)`; на нём `send_attempt`, синхронизация находок
   Салатика и обе подсказки Лесенки. Свои копии хвоста ещё есть во views
-  Цензорли и Алфавитки (`games/site/views/daily/`) — перевести отдельно. То же для подсказок (`process_send_hint_attempt`) и `ui_state`.
+  Цензорли и Алфавитки (`games/site/views/daily/`) — перевести отдельно.
+  **Сделано (шаг 3):** `games.gameplay.moves.submit_move(MoveContext,
+  MoveInput, submitter_profile=, observer=)` → `MoveOutcome` (`checked` /
+  `replayed` / `stale_word` / `replay_required`) — всё, что делал
+  `process_send_attempt` после определения актора; работает и без HTTP
+  (`observer=None`). Разбор POST — `read_move(task, post)` во view (он
+  опирается на `AttemptForm`); синхронизация будет звать его же с payload
+  события. Подсказки актора — `games/gameplay/hints.py`.
+  Осталось (шаг 4): общий `resolve_move_context` для попытки, подсказки и
+  ассиста Лесенки — сейчас `_get_play_mode` и определение актора
+  повторены в трёх view. То же для подсказок (`process_send_hint_attempt`) и `ui_state`.
 - **R4. Идемпотентность онлайн-отправок.** `OfflineEventReceipt` +
   необязательный `client_event_id` в `send_attempt` Лесенки. В
   `raddle_state.js` `classifyRequestFailure` разрешает повтор после abort, если
