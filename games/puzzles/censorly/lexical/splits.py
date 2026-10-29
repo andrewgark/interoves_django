@@ -3052,9 +3052,9 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:eat', (
         'взъедаться', 'взъесться', 'въедание', 'въедаться', 'въедливость', 'въедливый',
         'въедчивость', 'въедчивый', 'въесться', 'выедать', 'выедаться', 'выесть', 'выесться',
-        'доедать', 'доедаться', 'доесть', 'еда',
-        # «есть» remains the food-sense root here; article context selects
-        # the separate «быть» root for existential/copular occurrences.
+        'доедать', 'доедаться', 'доесть',
+        # «есть» belongs to the eating action. The noun «еда» has its own
+        # food sense above; article context can separately select «быть».
         'едать', 'едок', 'едоцкий', 'едун', 'есть', 'заедание', 'заедать',
         'заедаться', 'заедки', 'заесть', 'заесться', 'заядлый', 'изъедание', 'изъедать', 'изъесть',
         'надоеда', 'надоедала', 'надоедание', 'надоедать', 'надоедливость', 'надоедливый',
@@ -5907,6 +5907,8 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
         'жалоба', 'жаловаться', 'жалобный', 'жалобщик', 'жалобщица',
     )),
     ('sense:sting', ('жалить', 'жалящий', 'ужалить', 'ужаливать', 'ужаленный')),
+    # The noun «еда» is food; it is not the action «есть» = consume.
+    ('sense:food', ('еда',)),
     # The broad тереб/треб bucket contains both demanding and consuming /
     # using.  Keep explicit subfamilies instead of relying on the spelling.
     ('sense:demand', (

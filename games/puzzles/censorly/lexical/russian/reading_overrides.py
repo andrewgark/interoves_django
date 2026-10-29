@@ -198,6 +198,11 @@ def target_lemma_override(surface: str, article_lemma: str) -> tuple[str, ...]:
 
 def guess_lemma_override(surface: str) -> tuple[str, ...]:
     """Return narrow citation lemmas for context-free guess analysis."""
+    # The unaccented surface «лет» is the genitive plural of «год» in normal
+    # gameplay.  Its surface spelling also collides with the flight root «лёт»;
+    # do not let that fallback make «лет» reveal взлёт/пролёт words.
+    if fold(surface) == 'лет':
+        return ('год',)
     if surface and surface[0].isupper() and fold(surface) in TROY_PROPER_FORMS:
         return (TROY_PROPER_ROOT_LEMMA,)
     return ()

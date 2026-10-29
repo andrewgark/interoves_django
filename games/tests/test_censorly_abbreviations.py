@@ -166,6 +166,10 @@ class CensorlyLanguageLabelRootTests(SimpleTestCase):
                 self.assertFalse(_relation(_GuessPack(guess), _Pack(target)))
                 self.assertFalse(opens(guess, target))
 
+    def test_nem_guess_opens_the_german_family_despite_initial_pronoun_visibility(self):
+        self.assertEqual(_relation(_GuessPack('нем'), _Pack('германия')), 'root')
+        self.assertIn(_relation(_GuessPack('нем'), _Pack('немецкий')), {'root', 'alias'})
+
     def test_article_labels_open_but_nem_contexts_stay_split(self):
         tokens = tokenize_text(
             'Париж (фр. Paris), Москва (рус. Москва), Берлин (нем. Berlin). '

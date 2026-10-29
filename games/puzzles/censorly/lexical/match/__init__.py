@@ -347,6 +347,15 @@ def _relation(guess: _Pack, target: _Pack) -> str:
             )
         ):
             return 'root'
+        # «нем» is initially visible as a pronoun, but in label position it
+        # also means «немецкий». Keep its reviewed German root usable as a
+        # guess so the abbreviation can reveal Германия/немецкий.
+        if (
+            guess.fold == 'нем'
+            and 'немецкий' in label_lemmas(guess.surface)
+            and guess.roots & target.roots
+        ):
+            return 'root'
         if (
             _grammar(guess.reads, target.reads)
             and any(

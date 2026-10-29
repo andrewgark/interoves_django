@@ -569,6 +569,14 @@ FALSE_CASES = (
 
 
 class SemanticsTests(SimpleTestCase):
+    def test_year_form_let_does_not_use_the_flight_root_fallback(self):
+        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        self.assertFalse(_relation(_GuessPack('лет'), _Pack('взлетом')))
+        self.assertFalse(_relation(_GuessPack('лет'), _Pack('пролете')))
+        self.assertEqual(_relation(_GuessPack('лет'), _Pack('год')), 'lexeme')
+        self.assertEqual(_relation(_GuessPack('лететь'), _Pack('взлететь')), 'root')
+
     def test_belykh_uses_adjective_reading(self):
         readings = {(item.lemma, item.pos) for item in readings_of('белых')}
         self.assertIn(('белый', 'ADJF'), readings)
@@ -1097,7 +1105,8 @@ class SemanticsTests(SimpleTestCase):
                 tokens = tokenize_text(phrase)
                 target = next(t for t in tokens if t.get('surface') == 'есть')
                 self.assertEqual(target['lemma'], 'есть')
-                self.assertIn('есть', matching_lemmas(tokens, 'еда'))
+                self.assertNotIn('есть', matching_lemmas(tokens, 'еда'))
+                self.assertIn('есть', matching_lemmas(tokens, 'поесть'))
 
     @override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
     def test_komu_pronoun_is_not_reclassified_across_other_words_or_boundaries(self):
