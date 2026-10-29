@@ -144,6 +144,10 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
 # normal pymorphy reading. Tokenization records these identities per occurrence;
 # the matcher uses these citation lemmas without treating them as global aliases.
 TARGET_LEMMA_OVERRIDES: dict[tuple[str, str], tuple[str, ...]] = {
+    # The article parser selects барабан for «барабанов», while context-free
+    # guess analysis drops that inflected surface. Rebuild it from the chosen
+    # lemma so article-local matching can use the reviewed барабан family.
+    ('барабанов', 'барабан'): ('барабан',),
     # In «в каждой команде есть вратарь», the token is «быть», not «есть» = eat.
     ('есть', 'быть'): ('быть',),
     # «н. э.» = «нашей эры»: «н.» carries the possessive adjective «наш».

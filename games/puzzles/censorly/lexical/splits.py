@@ -7156,7 +7156,7 @@ _LATE_REVIEW_SPLITS = (
     ('sense:review_occurrence', ('происходить', 'происходящий')),
     ('sense:review_partiality', ('пристрастие', 'пристрастный')),
     ('sense:ambassador', ('посол', 'посольский', 'посольство')),
-    ('sense:drum', ('барабан', 'барабанщик')),
+    ('sense:drum', ('барабан', 'барабанный', 'барабанщик')),
     ('sense:gladiator', ('гладиатор', 'гладиаторский')),
     ('sense:contraband', ('контрабанда', 'контрабандист')),
     ('sense:revolution', ('революция', 'революционер')),
@@ -7466,6 +7466,10 @@ SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
     'двойница': (('tikh:дв',),),
     'программа': (('root:программ',),),
     'программный': (('root:программ',),),
+    # The dictionary splits these familiar lexicalized compounds into broad
+    # components. Keep only each reviewed family on its own complete root.
+    'автомобиль': (('root:автомобиль',),),
+    'автомобильный': (('root:автомобиль',),),
     'кадет': (('root:кадет',),),
     'кадетский': (('root:кадет',),),
     'кадетство': (('root:кадет',),),
