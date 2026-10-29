@@ -340,9 +340,12 @@ sync отклоняет офлайн-события, кроме обычных �
   (`observer=None`). Разбор POST — `read_move(task, post)` во view (он
   опирается на `AttemptForm`); синхронизация будет звать его же с payload
   события. Подсказки актора — `games/gameplay/hints.py`.
-  Осталось (шаг 4): общий `resolve_move_context` для попытки, подсказки и
-  ассиста Лесенки — сейчас `_get_play_mode` и определение актора
-  повторены в трёх view. То же для подсказок (`process_send_hint_attempt`) и `ui_state`.
+  **Сделано (шаг 4):** `games.site.views.game.context.resolve_move_context`
+  (игра, публикация, архив, режим, актор, `gameplay_context`, replay slot)
+  → `MoveContext` для попытки, подсказки, ассиста и UI-состояния Лесенки;
+  строгая проверка «нужна переигровка» — `official_game_completed(ctx)`.
+  Синхронизация будет строить `MoveContext` из подписанного pack-токена,
+  а не из заголовков. То же для подсказок (`process_send_hint_attempt`) и `ui_state`.
 - **R4. Идемпотентность онлайн-отправок.** `OfflineEventReceipt` +
   необязательный `client_event_id` в `send_attempt` Лесенки. В
   `raddle_state.js` `classifyRequestFailure` разрешает повтор после abort, если

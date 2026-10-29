@@ -176,15 +176,19 @@ def _replayed(ctx, attempt):
     )
 
 
-def _needs_replay(ctx, text):
-    """After the official completion only an earlier answer may be sent again."""
+REPLAY_REQUIRED = {'status': 'error', 'error': 'replay_required', 'reload_required': True}
+
+
+def official_game_completed(ctx):
+    """The actor already completed the official game; new moves need a replay."""
     from games.site.session.replay import _official_exists
 
-    if not _official_exists(
-        game=ctx.game,
-        task_group=ctx.task.task_group,
-        **ctx.actor,
-    ):
+    return _official_exists(game=ctx.game, task_group=ctx.task.task_group, **ctx.actor)
+
+
+def _needs_replay(ctx, text):
+    """After the official completion only an earlier answer may be sent again."""
+    if not official_game_completed(ctx):
         return False
     return not Attempt.manager.filter(
         task=ctx.task,

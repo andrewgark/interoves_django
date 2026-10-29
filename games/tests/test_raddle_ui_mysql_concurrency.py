@@ -5,11 +5,10 @@ from threading import Barrier, Thread
 from unittest import skipUnless
 from unittest.mock import patch
 
+from django.contrib.auth.models import User
 from django.db import close_old_connections, connection
 from django.test import Client, TransactionTestCase
 from django.utils import timezone
-
-from django.contrib.auth.models import User
 
 from games.models import (
     Attempt,
@@ -146,8 +145,8 @@ class RaddleUiMySQLConcurrencyTests(TransactionTestCase):
         ids = []
         results = []
         with patch('games.site.views.game.raddle.track_actor_task_change'), \
-             patch('games.site.views.game.raddle.validate_gameplay_context', side_effect=self._allow_gameplay_context), \
-             patch('games.site.views.game.attempt.validate_gameplay_context', side_effect=self._allow_gameplay_context):
+             patch('games.site.views.game.context.validate_gameplay_context', side_effect=self._allow_gameplay_context), \
+             patch('games.site.views.game.context.validate_gameplay_context', side_effect=self._allow_gameplay_context):
             self._run_workers([
                 lambda: results.append(self._post_ui(barrier=barrier, errors=errors, ids=ids)),
                 lambda: results.append(self._post_answer(barrier=barrier, errors=errors, ids=ids)),
@@ -175,8 +174,8 @@ class RaddleUiMySQLConcurrencyTests(TransactionTestCase):
         ids = []
         results = []
         with patch('games.site.views.game.raddle.track_actor_task_change'), \
-             patch('games.site.views.game.raddle.validate_gameplay_context', side_effect=self._allow_gameplay_context), \
-             patch('games.site.views.game.attempt.validate_gameplay_context', side_effect=self._allow_gameplay_context):
+             patch('games.site.views.game.context.validate_gameplay_context', side_effect=self._allow_gameplay_context), \
+             patch('games.site.views.game.context.validate_gameplay_context', side_effect=self._allow_gameplay_context):
             self._run_workers([
                 lambda: results.append(self._post_ui('1', 'ONE', barrier, errors, ids)),
                 lambda: results.append(self._post_ui('2', 'TWO', barrier, errors, ids)),

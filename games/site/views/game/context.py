@@ -1,10 +1,16 @@
-"""Разрешение Game для задания (в т.ч. общие наборы в нескольких играх)."""
+"""Разрешение Game для задания (в т.ч. общие наборы в нескольких играх) и контекста хода."""
 
 import logging
 import uuid
 
 from games.daily.page.section import is_scheduled_game, scheduled_number_is_public
+from games.gameplay.moves import MoveContext
+from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
 from games.models import GameTaskGroup
+from games.site.http.exceptions import NoGameAccessException
+from games.site.session.gameplay_context import validate_gameplay_context
+from games.site.session.play_mode import effective_play_mode
+from games.site.session.replay import StaleReplayError, replay_for_request
 
 logger = logging.getLogger('games.views.game_context')
 
@@ -149,3 +155,73 @@ def unpublished_scheduled_task_response(request, game, task):
                 logger.exception('custom scheduled task submission admin notification failed')
         return {'status': 'not_published', 'error': 'not_published'}
     return None
+
+
+def gameplay_play_mode(request, game):
+    """Team or personal mode of a gameplay POST.
+
+    The mode is stored in the session for navigation, but a session is shared
+    by all tabs. Keep a page's in-flight submissions on the mode with which
+    that page was rendered; the signed gameplay context is still validated
+    and independently binds the request to the current actor.
+    """
+    mode = request.headers.get('X-Interoves-Play-Mode')
+    if mode not in ('team', 'personal'):
+        mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
+    if mode not in ('team', 'personal'):
+        mode = 'personal' if game.project_id == 'sections' else 'team'
+    return effective_play_mode(mode, game, user=request.user)
+
+
+def resolve_move_context(request, task):
+    """Who plays ``task`` in which game and replay, from a gameplay POST.
+
+    Returns a ``MoveContext``, or the JSON refusal: ambiguous or unpublished
+    game, refused actor, gameplay-context mismatch, stale replay. Raises
+    ``NoGameAccessException`` for an archived game without access.
+    ``ctx.mode`` stays unset: it depends on the time of the move.
+    """
+    game = game_from_request_for_task(request, task)
+    if game is None:
+        return {'status': 'ambiguous_game'}
+    unpublished = unpublished_scheduled_task_response(request, game, task)
+    if unpublished is not None:
+        return unpublished
+    from games.club.access.archive import user_can_access_task_archive
+
+    if not user_can_access_task_archive(
+        request.user, game, task, offer_share=request.POST.get('offer_share'),
+    ):
+        raise NoGameAccessException('Club subscription required for archived game')
+    resolved = resolve_gameplay_actor(request, game, gameplay_play_mode(request, game))
+    if isinstance(resolved, ActorRefusal):
+        return {'status': resolved.status}
+    context_error = validate_gameplay_context(
+        request, task=task, game=game,
+        team=resolved.team, user=resolved.user, anon_key=resolved.anon_key,
+    )
+    if context_error:
+        return context_error
+    try:
+        replay_slot = replay_for_request(
+            request=request, game=game, task_group=task.task_group,
+            team=resolved.team, user=resolved.user, anon_key=resolved.anon_key,
+        )
+    except StaleReplayError:
+        return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
+    return MoveContext(
+        task=task,
+        game=game,
+        team=resolved.team,
+        user=resolved.user,
+        anon_key=resolved.anon_key,
+        replay_slot=replay_slot,
+        analytics_user=request.user if request.user.is_authenticated else None,
+        run_id=getattr(request, 'interoves_replay_run_id', None),
+    )
+
+
+def submitter_profile(request):
+    """The authenticated member who sent the request, for attribution."""
+    user = request.user
+    return user.profile if user.is_authenticated and has_profile(user) else None

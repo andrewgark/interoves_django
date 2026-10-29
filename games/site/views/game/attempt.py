@@ -1,3 +1,4 @@
+import dataclasses
 import json
 
 from django.http import JsonResponse
@@ -7,8 +8,8 @@ from django.views.decorators.http import require_POST
 from games.gameplay.attempts import check_attempt  # noqa: F401  (re-exported to older importers)
 from games.gameplay.client_events import parse_client_event_id
 from games.gameplay.effects import apply_move_effects
-from games.gameplay.moves import MoveContext, MoveInput, submit_move
-from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
+from games.gameplay.moves import REPLAY_REQUIRED, MoveContext, MoveInput, submit_move
+from games.identity import ActorRefusal, resolve_gameplay_actor
 from games.models import Attempt
 from games.ops.analytics.events import (
     is_task_completion_state,
@@ -34,12 +35,12 @@ from games.site.http.request_util import (
     is_browser_form_submission,
     redirect_after_browser_submission,
 )
-from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
-from games.site.session.play_mode import effective_play_mode
-from games.site.session.replay import StaleReplayError, replay_for_request
+from games.site.session.gameplay_context import context_error_response
 from games.site.views.game.context import (
     game_from_request_for_task,
-    unpublished_scheduled_task_response,
+    gameplay_play_mode,
+    resolve_move_context,
+    submitter_profile,
 )
 from games.site.views.game.render import update_task_html
 
@@ -81,84 +82,21 @@ def get_first_new_hint(task, team):
     return None
 
 
-def _get_play_mode(request, game):
-    # The mode is stored in the session for navigation, but a session is shared
-    # by all tabs.  Keep a page's in-flight submissions on the mode with which
-    # that page was rendered; the signed gameplay context is still validated
-    # below and independently binds the request to the current actor.
-    mode = request.headers.get('X-Interoves-Play-Mode')
-    if mode not in ('team', 'personal'):
-        mode = request.session.get('play_mode_{}'.format(game.project_id or 'main'))
-    if mode not in ('team', 'personal'):
-        mode = 'personal' if game.project_id == 'sections' else 'team'
-    return effective_play_mode(mode, game, user=request.user)
-
-
 def process_send_attempt(request, task_id):
     task = get_public_task_or_404(task_id)
 
-    game = game_from_request_for_task(request, task)
-    if game is None:
-        return {'status': 'ambiguous_game'}
-    unpublished = unpublished_scheduled_task_response(request, game, task)
-    if unpublished is not None:
-        return unpublished
-    play_mode = _get_play_mode(request, game)
-    resolved = resolve_gameplay_actor(request, game, play_mode)
-    if isinstance(resolved, ActorRefusal):
-        return {'status': resolved.status}
-    team = resolved.team
-    user = resolved.user
-    anon_key = resolved.anon_key
-
-    from games.club.access.archive import user_can_access_task_archive
-
-    if not user_can_access_task_archive(
-        request.user, game, task, offer_share=request.POST.get('offer_share'),
-    ):
-        raise NoGameAccessException('Club subscription required for archived game')
-
-    context_error = validate_gameplay_context(
-        request, task=task, game=game, team=team, user=user, anon_key=anon_key,
-    )
-    if context_error:
-        return context_error
-
-    try:
-        replay_slot = replay_for_request(
-            request=request,
-            game=game,
-            task_group=task.task_group,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-        )
-    except StaleReplayError:
-        return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
+    ctx = resolve_move_context(request, task)
+    if not isinstance(ctx, MoveContext):
+        return ctx
     move = read_move(task, request.POST)
     if isinstance(move, MoveRefusal):
         return {'status': move.status}
     if isinstance(move, SaladSync):
-        return _process_word_salad_sync_finds(
-            request, task, team, user, anon_key, game, replay_slot=replay_slot,
-        )
+        return _process_word_salad_sync_finds(request, ctx)
 
-    ctx = MoveContext(
-        task=task, game=game, team=team, user=user, anon_key=anon_key,
-        replay_slot=replay_slot,
-        analytics_user=request.user if request.user.is_authenticated else None,
-        run_id=getattr(request, 'interoves_replay_run_id', None),
-    )
-    outcome = submit_move(
-        ctx, move,
-        submitter_profile=(
-            request.user.profile
-            if request.user.is_authenticated and has_profile(request.user) else None
-        ),
-        observer=request,
-    )
+    outcome = submit_move(ctx, move, submitter_profile=submitter_profile(request), observer=request)
     if outcome.kind == 'replay_required':
-        return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
+        return dict(REPLAY_REQUIRED)
     if outcome.kind == 'stale_word':
         return _raddle_stale_submit_response(request, outcome)
     if outcome.kind == 'replayed':
@@ -286,7 +224,10 @@ def _move_response(request, result, outcome, move):
     return result
 
 
-def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, replay_slot=None):
+def _process_word_salad_sync_finds(request, ctx):
+    task, game, team, user, anon_key, replay_slot = (
+        ctx.task, ctx.game, ctx.team, ctx.user, ctx.anon_key, ctx.replay_slot,
+    )
     try:
         raw_words = json.loads(request.POST.get('words') or '[]')
     except (TypeError, ValueError, json.JSONDecodeError):
@@ -313,12 +254,7 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
     credited = stats['credited']
     credited_any = bool(credited['extra'] or credited['rare'] or credited['answer'])
     current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
-    ctx = MoveContext(
-        task=task, game=game, team=team, user=user, anon_key=anon_key,
-        replay_slot=replay_slot, mode=current_mode,
-        analytics_user=request.user if request.user.is_authenticated else None,
-        run_id=getattr(request, 'interoves_replay_run_id', None),
-    )
+    ctx = dataclasses.replace(ctx, mode=current_mode)
     effects = apply_move_effects(
         ctx,
         started=credited_any,
@@ -365,9 +301,8 @@ def _raddle_duplicate_response(request, task_id):
     game = game_from_request_for_task(request, task)
     if game is None:
         return {'raddle_word_index': word_index}
-    play_mode = _get_play_mode(request, game)
     resolved = resolve_gameplay_actor(
-        request, game, play_mode, check_access=False,
+        request, game, gameplay_play_mode(request, game), check_access=False,
     )
     if isinstance(resolved, ActorRefusal):
         return {'raddle_word_index': word_index}

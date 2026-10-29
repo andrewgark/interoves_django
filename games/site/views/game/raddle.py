@@ -6,8 +6,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from games.gameplay.effects import apply_move_effects
-from games.gameplay.moves import MoveContext
-from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
+from games.gameplay.moves import REPLAY_REQUIRED, MoveContext, official_game_completed
 from games.models import Attempt, ChainTaskState, RaddleUiState
 from games.ops.analytics.events import is_task_completion_state
 from games.puzzles.raddle import RaddlePuzzle
@@ -34,14 +33,9 @@ from games.site.http.request_util import (
     is_browser_form_submission,
     redirect_after_browser_submission,
 )
-from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
-from games.site.session.play_mode import effective_play_mode
-from games.site.session.replay import StaleReplayError, _official_exists, replay_for_request
-from games.site.views.game.context import (
-    game_from_request_for_task,
-    unpublished_scheduled_task_response,
-)
-from games.site.views.game.hint import _get_play_mode, create_hint_attempt
+from games.site.session.gameplay_context import context_error_response
+from games.site.views.game.context import resolve_move_context, submitter_profile
+from games.site.views.game.hint import create_hint_attempt
 from games.site.views.game.render import update_task_html
 
 
@@ -57,15 +51,6 @@ def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_
         if a.state:
             return load_raddle_state(a.state, n_words)
     return load_raddle_state(None, n_words)
-
-
-def _actor_from_request(request, game):
-    play_mode = _get_play_mode(request, game)
-    play_mode = effective_play_mode(play_mode, game, user=request.user)
-    resolved = resolve_gameplay_actor(request, game, play_mode)
-    if isinstance(resolved, ActorRefusal):
-        return None, None, None, resolved.status
-    return resolved.team, resolved.user, resolved.anon_key, None
 
 
 def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, word_index, current_mode, replay_slot=None):
@@ -105,10 +90,7 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
                 create_hint_attempt(
                     hint, team=team, user=user, anon_key=anon_key, game=game,
                     replay_slot=replay_slot,
-                    requested_by_profile=(
-                        request.user.profile
-                        if request.user.is_authenticated and has_profile(request.user) else None
-                    ),
+                    requested_by_profile=submitter_profile(request),
                 )
             except DuplicateAttemptException:
                 pass
@@ -197,38 +179,12 @@ def process_send_raddle_assist(request, task_id):
     task = get_public_task_or_404(task_id)
     if task.task_type != 'raddle':
         return {'status': 'invalid'}
-    game = game_from_request_for_task(request, task)
-    if game is None:
-        return {'status': 'ambiguous_game'}
-    unpublished = unpublished_scheduled_task_response(request, game, task)
-    if unpublished is not None:
-        return unpublished
-    from games.club.access.archive import user_can_access_task_archive
-    if not user_can_access_task_archive(
-        request.user, game, task, offer_share=request.POST.get('offer_share'),
-    ):
-        raise NoGameAccessException('Club subscription required for archived game')
-
-    team, user, anon_key, err = _actor_from_request(request, game)
-    if err:
-        return {'status': err}
-
-    context_error = validate_gameplay_context(
-        request, task=task, game=game, team=team, user=user, anon_key=anon_key,
-    )
-    if context_error:
-        return context_error
-    try:
-        replay_slot = replay_for_request(
-            request=request, game=game, task_group=task.task_group,
-            team=team, user=user, anon_key=anon_key,
-        )
-    except StaleReplayError:
-        return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
-    if replay_slot is None and _official_exists(
-        game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key,
-    ):
-        return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
+    ctx = resolve_move_context(request, task)
+    if not isinstance(ctx, MoveContext):
+        return ctx
+    if ctx.replay_slot is None and official_game_completed(ctx):
+        return dict(REPLAY_REQUIRED)
+    team, user, anon_key, game, replay_slot = ctx.team, ctx.user, ctx.anon_key, ctx.game, ctx.replay_slot
 
     try:
         word_index = int(request.POST.get('word_index', -1))
@@ -283,10 +239,7 @@ def process_send_raddle_assist(request, task_id):
                 create_hint_attempt(
                     hint, team=team, user=user, anon_key=anon_key, game=game,
                     replay_slot=replay_slot,
-                    requested_by_profile=(
-                        request.user.profile
-                        if request.user.is_authenticated and has_profile(request.user) else None
-                    ),
+                    requested_by_profile=submitter_profile(request),
                 )
             except DuplicateAttemptException:
                 return {'status': 'duplicate'}
@@ -374,38 +327,12 @@ def process_send_raddle_ui(request, task_id):
     task = get_public_task_or_404(task_id)
     if task.task_type != 'raddle':
         return {'status': 'invalid'}
-    game = game_from_request_for_task(request, task)
-    if game is None:
-        return {'status': 'ambiguous_game'}
-    unpublished = unpublished_scheduled_task_response(request, game, task)
-    if unpublished is not None:
-        return unpublished
-    from games.club.access.archive import user_can_access_task_archive
-    if not user_can_access_task_archive(
-        request.user, game, task, offer_share=request.POST.get('offer_share'),
-    ):
-        raise NoGameAccessException('Club subscription required for archived game')
-
-    team, user, anon_key, err = _actor_from_request(request, game)
-    if err:
-        return {'status': err}
-
-    context_error = validate_gameplay_context(
-        request, task=task, game=game, team=team, user=user, anon_key=anon_key,
-    )
-    if context_error:
-        return context_error
-    try:
-        replay_slot = replay_for_request(
-            request=request, game=game, task_group=task.task_group,
-            team=team, user=user, anon_key=anon_key,
-        )
-    except StaleReplayError:
-        return {'status': 'error', 'error': 'stale_replay', 'reload_required': True}
-    if replay_slot is None and _official_exists(
-        game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key,
-    ):
-        return {'status': 'error', 'error': 'replay_required', 'reload_required': True}
+    ctx = resolve_move_context(request, task)
+    if not isinstance(ctx, MoveContext):
+        return ctx
+    if ctx.replay_slot is None and official_game_completed(ctx):
+        return dict(REPLAY_REQUIRED)
+    team, user, anon_key, game, replay_slot = ctx.team, ctx.user, ctx.anon_key, ctx.game, ctx.replay_slot
     replay_run_id = replay_slot.run_id if replay_slot is not None else None
 
     drafts_patch = _parse_raddle_ui_patch(request.POST.get('drafts'))
@@ -481,10 +408,7 @@ def process_send_raddle_ui(request, task_id):
         if not stale:
             ui_row.drafts = state['drafts']
             ui_row.clue_marks = state['clue_marks']
-            ui_row.updated_by_profile = (
-                request.user.profile
-                if request.user.is_authenticated and has_profile(request.user) else None
-            )
+            ui_row.updated_by_profile = submitter_profile(request)
             ui_row.revision = accepted.revision
             ui_row.save(update_fields=[
                 'drafts', 'clue_marks', 'updated_by_profile', 'revision', 'updated_at',

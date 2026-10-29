@@ -7,24 +7,24 @@ from django.contrib.auth.models import AnonymousUser
 from django.test import Client, RequestFactory, TestCase
 from django.utils import timezone
 
-from games.ops.analytics.identity import stamp_anon_identity
-from games.site.http.exceptions import DuplicateAttemptException
-from games.ops.analytics.persistence import AnalyticsRowInvariantError
-from games.site.session.gameplay_context import issue_gameplay_context
 from games.models import (
     Attempt,
     CheckerType,
     Game,
     GameTaskGroup,
-    HTMLPage,
     Hint,
     HintAttempt,
-    Project,
+    HTMLPage,
     Profile,
-    Team,
+    Project,
     Task,
     TaskGroup,
+    Team,
 )
+from games.ops.analytics.identity import stamp_anon_identity
+from games.ops.analytics.persistence import AnalyticsRowInvariantError
+from games.site.http.exceptions import DuplicateAttemptException
+from games.site.session.gameplay_context import issue_gameplay_context
 from games.site.views.game.attempt import check_attempt, process_send_attempt
 from games.site.views.game.hint import create_hint_attempt, send_hint_attempt
 
@@ -80,9 +80,9 @@ class AttemptRequestValidationTests(TestCase):
 
     def _process(self, task, data):
         with patch(
-            'games.site.views.game.attempt.game_from_request_for_task',
+            'games.site.views.game.context.game_from_request_for_task',
             return_value=self.game,
-        ), patch('games.site.views.game.attempt._get_play_mode', return_value='personal'):
+        ), patch('games.site.views.game.context.gameplay_play_mode', return_value='personal'):
             return process_send_attempt(self._request(data), task.pk)
 
     def test_malformed_wall_json_returns_invalid_form(self):
@@ -166,9 +166,9 @@ class AttemptRequestValidationTests(TestCase):
     def test_hint_request_without_number_returns_json_status(self):
         request = self._request({'game_id': self.game.pk})
         with patch(
-            'games.site.views.game.hint.game_from_request_for_task',
+            'games.site.views.game.context.game_from_request_for_task',
             return_value=self.game,
-        ), patch('games.site.views.game.hint._get_play_mode', return_value='personal'):
+        ), patch('games.site.views.game.context.gameplay_play_mode', return_value='personal'):
             response = send_hint_attempt(request, self.default.pk)
         self.assertEqual(json.loads(response.content)['status'], 'invalid_form')
 
@@ -204,9 +204,9 @@ class AttemptRequestValidationTests(TestCase):
             'hint_number': '1',
         })
         with patch(
-            'games.site.views.game.hint.game_from_request_for_task',
+            'games.site.views.game.context.game_from_request_for_task',
             return_value=self.game,
-        ), patch('games.site.views.game.hint._get_play_mode', return_value='personal'), patch(
+        ), patch('games.site.views.game.context.gameplay_play_mode', return_value='personal'), patch(
             'games.site.views.game.hint.track_actor_task_change',
         ):
             response = send_hint_attempt(request, self.default.pk)

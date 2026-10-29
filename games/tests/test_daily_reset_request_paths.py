@@ -49,7 +49,17 @@ class DailyReleaseWriteGuardTests(TestCase):
         )
 
     def test_authoritative_entrypoints_use_the_publication_guard(self):
-        attempt_source = inspect.getsource(__import__('games.site.views.game.attempt', fromlist=['process_send_attempt']).process_send_attempt)
-        raddle_source = inspect.getsource(__import__('games.site.views.game.raddle', fromlist=['process_send_raddle_assist']).process_send_raddle_assist)
-        self.assertIn('unpublished_scheduled_task_response', attempt_source)
-        self.assertIn('unpublished_scheduled_task_response', raddle_source)
+        from games.site.views.game import attempt, context, hint, raddle
+
+        self.assertIn(
+            'unpublished_scheduled_task_response',
+            inspect.getsource(context.resolve_move_context),
+        )
+        for entrypoint in (
+            attempt.process_send_attempt,
+            hint.process_send_hint_attempt,
+            raddle.process_send_raddle_assist,
+            raddle.process_send_raddle_ui,
+        ):
+            with self.subTest(entrypoint=entrypoint.__qualname__):
+                self.assertIn('resolve_move_context', inspect.getsource(entrypoint))
