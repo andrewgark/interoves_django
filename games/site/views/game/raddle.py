@@ -5,18 +5,11 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from games.daily.completion import daily_completion_effects_for_game
-from games.daily.completion.completion_coordinator import complete_logical_game
+from games.gameplay.effects import apply_move_effects
+from games.gameplay.moves import MoveContext
 from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
 from games.models import Attempt, ChainTaskState, RaddleUiState
-from games.ops.analytics.events import (
-    PlayerCompletedGame,
-    analytics_game_kind,
-    is_task_completion_state,
-    is_task_group_complete,
-    publish_completion_analytics,
-    register_started_game,
-)
+from games.ops.analytics.events import is_task_completion_state
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.raddle.concurrency import (
     lock_or_create_raddle_state,
@@ -160,63 +153,26 @@ def _reveal_raddle_answer(request, task, game, team, user, anon_key, parsed, wor
     }
     if attempt_persisted and attempt.pk:
         result['attempt_id'] = attempt.pk
-    analytics_events = [] if replay_slot is not None else register_started_game(
-        team=team,
-        user=user,
-        anon_key=anon_key,
+    ctx = MoveContext(
+        task=task, game=game, team=team, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, mode=current_mode,
         analytics_user=request.user if request.user.is_authenticated else None,
-        task=task,
-        game=game,
+        run_id=getattr(request, 'interoves_replay_run_id', None),
     )
-    if (
-        analytics_game_kind(game)
-        and is_task_completion_state(task, attempt.state)
-        and is_task_group_complete(
-            task_group=task.task_group,
-            game=game,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            mode=current_mode,
-            replay_slot=replay_slot,
-        )
-    ):
-        completion = complete_logical_game(
-            actor={'team': team, 'user': user, 'anon_key': anon_key},
-            game=game,
-            task_group=task.task_group,
-            task=task,
-            replay_slot=replay_slot,
-            run_id=getattr(request, 'interoves_replay_run_id', None),
-            analytics_user=request.user if request.user.is_authenticated else None,
-            result=PlayerCompletedGame.RESULT_SOLVED,
-            mode=current_mode,
-            source='raddle_assist',
-        )
-        if completion is not None:
-            replay_available = replay_slot is None
-            effects = daily_completion_effects_for_game(
-                game.id,
-                completion,
-                replay_slot=replay_slot,
-                publish_analytics=publish_completion_analytics,
-                analytics_kwargs={
-                    'record': completion['record'],
-                    'created': completion['created'],
-                    'user': user,
-                    'anon_key': anon_key,
-                    'analytics_user': request.user if request.user.is_authenticated else None,
-                    'game': game,
-                    'task_group': task.task_group,
-                },
-            )
-            if effects['timing']:
-                result['daily_timing'] = effects['timing']
-            if replay_available:
-                result['replay_available'] = True
-            analytics_events.extend(effects['analytics_events'])
-    if analytics_events:
-        result['analytics_events'] = analytics_events
+    # The revealed word counts as a move even when its attempt already existed.
+    effects = apply_move_effects(
+        ctx,
+        started=True,
+        may_complete=is_task_completion_state(task, attempt.state),
+        source='raddle_assist',
+        observer=request,
+    )
+    if effects.daily_timing:
+        result['daily_timing'] = effects.daily_timing
+    if effects.replay_available:
+        result['replay_available'] = True
+    if effects.analytics_events:
+        result['analytics_events'] = effects.analytics_events
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
         replay_slot=replay_slot,
@@ -340,16 +296,17 @@ def process_send_raddle_assist(request, task_id):
         chain_row.save(update_fields=['state', 'updated_at'])
 
     result = {'status': 'ok', 'task_id': task.id}
-    analytics_events = [] if replay_slot is not None else register_started_game(
-        team=team,
-        user=user,
-        anon_key=anon_key,
+    ctx = MoveContext(
+        task=task, game=game, team=team, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, mode=current_mode,
         analytics_user=request.user if request.user.is_authenticated else None,
-        task=task,
-        game=game,
     )
-    if analytics_events:
-        result['analytics_events'] = analytics_events
+    # A clue cannot solve the ladder; it only starts the game.
+    effects = apply_move_effects(
+        ctx, started=True, may_complete=False, source='raddle_assist', observer=request,
+    )
+    if effects.analytics_events:
+        result['analytics_events'] = effects.analytics_events
     update_html = update_task_html(
         request, task, team, current_mode, user=user, anon_key=anon_key, game=game,
         replay_slot=replay_slot,

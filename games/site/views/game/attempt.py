@@ -4,19 +4,14 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from games.daily.completion import daily_completion_effects_for_game
-from games.daily.completion.completion_coordinator import complete_logical_game
 from games.gameplay.attempts import check_attempt  # also re-exported to older importers
 from games.gameplay.client_events import parse_client_event_id, receipt_attempt
+from games.gameplay.effects import apply_move_effects
+from games.gameplay.moves import MoveContext
 from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
 from games.models import CHAIN_TASK_TYPES, Attempt
 from games.ops.analytics.events import (
-    PlayerCompletedGame,
-    analytics_game_kind,
     is_task_completion_state,
-    is_task_group_complete,
-    publish_completion_analytics,
-    register_started_game,
 )
 from games.puzzles import POSTED_TEXT_TASK_TYPES, get_puzzle, parse_posted_text
 from games.puzzles.alphabetty import AlphabettyPuzzle
@@ -300,89 +295,35 @@ def process_send_attempt(request, task_id):
                         ),
                     )
 
-    analytics_events = []
-    daily_timing = None
-    replay_available = False
-    if (attempt_persisted or is_game_start_interaction) and replay_slot is None:
-        with timing_phase(request, 'analytics_started'):
-            analytics_events.extend(register_started_game(
-                team=team,
-                user=user,
-                anon_key=anon_key,
-                analytics_user=request.user if request.user.is_authenticated else None,
-                task=task,
-                game=game,
-            ))
-    completion_ready = False
-    if attempt_persisted and analytics_game_kind(game) and (
-        attempt.status == 'Ok'
-        or task.task_type in CHAIN_TASK_TYPES
-        or is_task_completion_state(task, attempt.state)
-    ):
-        with timing_phase(request, 'completion_check'):
-            completion_ready = is_task_group_complete(
-                task_group=task.task_group,
-                game=game,
-                team=team,
-                user=user,
-                anon_key=anon_key,
-                mode=current_mode,
-                replay_slot=replay_slot,
-            )
-    if completion_ready:
-        completion = complete_logical_game(
-            actor={'team': team, 'user': user, 'anon_key': anon_key},
-            game=game,
-            task_group=task.task_group,
-            task=task,
-            replay_slot=replay_slot,
-            run_id=getattr(request, 'interoves_replay_run_id', None),
-            analytics_user=request.user if request.user.is_authenticated else None,
-            result=PlayerCompletedGame.RESULT_SOLVED,
-            mode=current_mode,
-            source='send_attempt',
-        )
-        if completion is not None:
-            replay_available = replay_slot is None
-            if replay_available:
-                with timing_phase(request, 'analytics_completed'):
-                    effects = daily_completion_effects_for_game(
-                        game.id,
-                        completion,
-                        replay_slot=replay_slot,
-                        publish_analytics=publish_completion_analytics,
-                        analytics_kwargs={
-                            'record': completion['record'],
-                            'created': completion['created'],
-                            'user': user,
-                            'anon_key': anon_key,
-                            'analytics_user': request.user if request.user.is_authenticated else None,
-                            'game': game,
-                            'task_group': task.task_group,
-                        },
-                    )
-                daily_timing = effects['timing']
-            else:
-                effects = daily_completion_effects_for_game(
-                    game.id,
-                    completion,
-                    replay_slot=replay_slot,
-                    publish_analytics=publish_completion_analytics,
-                    analytics_kwargs={},
-                )
-            analytics_events.extend(effects['analytics_events'])
+    ctx = MoveContext(
+        task=task, game=game, team=team, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, mode=current_mode,
+        analytics_user=request.user if request.user.is_authenticated else None,
+        run_id=getattr(request, 'interoves_replay_run_id', None),
+    )
+    effects = apply_move_effects(
+        ctx,
+        started=bool(attempt_persisted or is_game_start_interaction),
+        may_complete=bool(attempt_persisted) and (
+            attempt.status == 'Ok'
+            or task.task_type in CHAIN_TASK_TYPES
+            or is_task_completion_state(task, attempt.state)
+        ),
+        source='send_attempt',
+        observer=request,
+    )
 
     with timing_phase(request, 'response_payload'):
         result = {
             'status': 'ok',
             'task_id': task.id,
         }
-    if daily_timing:
-        result['daily_timing'] = daily_timing
-    if replay_available:
+    if effects.daily_timing:
+        result['daily_timing'] = effects.daily_timing
+    if effects.replay_available:
         result['replay_available'] = True
-    if analytics_events:
-        result['analytics_events'] = analytics_events
+    if effects.analytics_events:
+        result['analytics_events'] = effects.analytics_events
     return _move_response(
         request, result, task=task, game=game, attempt=attempt,
         attempt_persisted=bool(attempt_persisted),
@@ -485,68 +426,24 @@ def _process_word_salad_sync_finds(request, task, team, user, anon_key, game, re
     credited = stats['credited']
     credited_any = bool(credited['extra'] or credited['rare'] or credited['answer'])
     current_mode = game.get_current_mode(Attempt(time=timezone.now(), game=game, task=task))
-    analytics_events = []
-    daily_timing = None
-    replay_available = False
-    if credited_any and replay_slot is None:
-        analytics_events.extend(register_started_game(
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            analytics_user=request.user if request.user.is_authenticated else None,
-            task=task,
-            game=game,
-        ))
-    if (
-        credited['answer']
-        and analytics_game_kind(game)
-        and is_task_completion_state(task, stats['state'])
-        and is_task_group_complete(
-            task_group=task.task_group,
-            game=game,
-            team=team,
-            user=user,
-            anon_key=anon_key,
-            mode=current_mode,
-            replay_slot=replay_slot,
-        )
-    ):
-        completion = complete_logical_game(
-            actor={'team': team, 'user': user, 'anon_key': anon_key},
-            game=game,
-            task_group=task.task_group,
-            task=task,
-            replay_slot=replay_slot,
-            run_id=getattr(request, 'interoves_replay_run_id', None),
-            analytics_user=request.user if request.user.is_authenticated else None,
-            result=PlayerCompletedGame.RESULT_SOLVED,
-            mode=current_mode,
-            source='word_salad',
-        )
-        if completion is not None:
-            replay_available = replay_slot is None
-            effects = daily_completion_effects_for_game(
-                game.id,
-                completion,
-                replay_slot=replay_slot,
-                publish_analytics=publish_completion_analytics,
-                analytics_kwargs={
-                    'record': completion['record'],
-                    'created': completion['created'],
-                    'user': user,
-                    'anon_key': anon_key,
-                    'analytics_user': request.user if request.user.is_authenticated else None,
-                    'game': game,
-                    'task_group': task.task_group,
-                },
-            )
-            daily_timing = effects['timing']
-            analytics_events.extend(effects['analytics_events'])
-    if daily_timing:
-        result['daily_timing'] = daily_timing
-    if analytics_events:
-        result['analytics_events'] = analytics_events
-    if replay_available:
+    ctx = MoveContext(
+        task=task, game=game, team=team, user=user, anon_key=anon_key,
+        replay_slot=replay_slot, mode=current_mode,
+        analytics_user=request.user if request.user.is_authenticated else None,
+        run_id=getattr(request, 'interoves_replay_run_id', None),
+    )
+    effects = apply_move_effects(
+        ctx,
+        started=credited_any,
+        may_complete=bool(credited['answer']) and is_task_completion_state(task, stats['state']),
+        source='word_salad',
+        observer=request,
+    )
+    if effects.daily_timing:
+        result['daily_timing'] = effects.daily_timing
+    if effects.analytics_events:
+        result['analytics_events'] = effects.analytics_events
+    if effects.replay_available:
         result['replay_available'] = True
     if credited_any:
         update_html = update_task_html(

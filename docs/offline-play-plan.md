@@ -326,7 +326,13 @@ sync отклоняет офлайн-события, кроме обычных �
   task_id)` (разбор, актор, режим, `check_attempt`, сборка ответа) выделить в
   сервис `submit_move(actor_ctx, task, game, move, *, client_event=None)`;
   view — тонкая обёртка над ним. Это нужно `/play/sync`, чтобы не копировать
-  view. То же для подсказок (`process_send_hint_attempt`) и `ui_state`.
+  view.
+  **Сделано (шаги 1–2):** `check_attempt` и квитанции живут в
+  `games/gameplay/`. Хвост «игра начата → завершена → эффекты дня» —
+  `games.gameplay.effects.apply_move_effects(MoveContext, started=,
+  may_complete=, source=)`; на нём `send_attempt`, синхронизация находок
+  Салатика и обе подсказки Лесенки. Свои копии хвоста ещё есть во views
+  Цензорли и Алфавитки (`games/site/views/daily/`) — перевести отдельно. То же для подсказок (`process_send_hint_attempt`) и `ui_state`.
 - **R4. Идемпотентность онлайн-отправок.** `OfflineEventReceipt` +
   необязательный `client_event_id` в `send_attempt` Лесенки. В
   `raddle_state.js` `classifyRequestFailure` разрешает повтор после abort, если
