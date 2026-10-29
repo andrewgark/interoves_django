@@ -3,12 +3,8 @@
 from collections import Counter
 from pathlib import Path
 
-from games.puzzles.core.check_runtime import (
-    BaseChecker,
-    CheckResult,
-    clean,
-    delete_punctuation,
-)
+from games.puzzles.core.check_runtime import BaseChecker, CheckResult
+from games.puzzles.core.normalize_ops import CLEAN, normalized
 
 WORDLE_DICT_PATH = Path(__file__).resolve().parent / 'dictionaries' / 'wordle_dict.txt'
 
@@ -54,15 +50,13 @@ def color_tiles(word, answer):
 
 
 class AntiwordleChecker(BaseChecker):
-    @clean
-    @delete_punctuation
+    @normalized(*CLEAN, 'drop_punct')
     def __init__(self, data, last_attempt_state=None):
         self.dictionary = read_wordle_dict()
         self.colors = data.split('\n')
         self.word_number = len(self.colors)
 
-    @clean
-    @delete_punctuation
+    @normalized(*CLEAN, 'drop_punct')
     def check(self, text, attempt):
         words = [x.strip() for x in text.split()]
         answer = text.split()[-1].strip()

@@ -1,3 +1,6 @@
+from games.puzzles.core.normalize_ops import CLEAN, CLEAN_KEEP_YO, normalize
+
+
 def status_key(status):
     status_to_key = {
         'Ok': 3,
@@ -14,7 +17,4 @@ def better_status(first_status, second_status):
 
 
 def clean_text(text, replace_ё=True):
-    result = text.lower().strip()
-    if replace_ё:
-        result = result.replace("ё", "е")
-    return result
+    return normalize(text, CLEAN if replace_ё else CLEAN_KEEP_YO)

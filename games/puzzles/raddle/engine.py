@@ -23,13 +23,12 @@ import json
 import random
 import re
 
-from games.results.util import clean_text
+from games.puzzles.core.normalize_ops import RADDLE_WORD, normalize
 
 _LENGTH_PARTS_HYPHEN = re.compile(r'^(\d+)\s*-\s*(\d+)$')
 _LENGTH_PARTS_SPACE = re.compile(r'^(\d+)\s+(\d+)$')
 _RADDLE_ASSIST_CLUE_DESC = re.compile(r'^raddle_clue:(\d+)$', re.I)
 _RADDLE_ASSIST_ANSWER_DESC = re.compile(r'^raddle_answer:(\d+)$', re.I)
-_RADDLE_LETTER_RE = re.compile(r'[^0-9a-zа-яё]', re.I)
 _RADDLE_IS_LETTER_RE = re.compile(r'^[0-9a-zа-яё]$', re.I)
 _RADDLE_HAS_LATIN_RE = re.compile(r'[a-z]', re.I)
 _RADDLE_HAS_CYRILLIC_RE = re.compile(r'[а-яё]', re.I)
@@ -48,7 +47,7 @@ RADDLE_INPUT_FORMAT_SLOT = '#'
 
 def raddle_word_core(word):
     """Буквы и цифры без пробелов, дефисов и прочей пунктуации (для сравнения и длины)."""
-    return clean_text(_RADDLE_LETTER_RE.sub('', str(word or '')))
+    return normalize(str(word or ''), RADDLE_WORD)
 
 
 def raddle_word_is_latin(word):

@@ -1,0 +1,2417 @@
+{
+ "_comment": "Expected outputs come from games/puzzles/core/normalize_ops.py. Both the Python and the JS implementation must reproduce them.",
+ "cases": [
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": " ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "x",
+   "out": "x"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "  Ёжик в Тумане  ",
+   "out": "ежик в тумане"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ЁЛКА-палка!",
+   "out": "елка-палка!"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "a\n.\n b ",
+   "out": "a\n.\n b"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "line1\r\nline2 ",
+   "out": "line1\r\nline2"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": " Москва ",
+   "out": "москва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "　полный пробел ",
+   "out": "полный пробел"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "﻿BOM",
+   "out": "﻿bom"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "\u001cразделитель\u001f",
+   "out": "разделитель"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "next",
+   "out": "next"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "tab\there",
+   "out": "tab\there"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "Нью-Йорк — город",
+   "out": "нью-йорк — город"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "a—b–c",
+   "out": "a—b–c"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "«Кавычки» и 'одинарные'",
+   "out": "«кавычки» и 'одинарные'"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ДЖАЗ BAND 42",
+   "out": "джаз band 42"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "Ответ: 3,14!",
+   "out": "ответ: 3,14!"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "(скобки) {фигурные} [квадратные]",
+   "out": "(скобки) {фигурные} [квадратные]"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "é комбинирующий",
+   "out": "é комбинирующий"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ΣΑΣ",
+   "out": "σας"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "İstanbul",
+   "out": "i̇stanbul"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "K Kelvin",
+   "out": "k kelvin"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ſ long s",
+   "out": "ſ long s"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ß ẞ",
+   "out": "ß ß"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ﬁ лигатура",
+   "out": "ﬁ лигатура"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "Ⅻ",
+   "out": "ⅻ"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "один\n\nдва",
+   "out": "один\n\nдва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "  .  ",
+   "out": "."
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "-",
+   "out": "-"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "a - b",
+   "out": "a - b"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "snake_case~tilde`",
+   "out": "snake_case~tilde`"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "много    пробелов   тут",
+   "out": "много    пробелов   тут"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ЙОД й",
+   "out": "йод й"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "пол-литра",
+   "out": "пол-литра"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "№5 #хэш",
+   "out": "№5 #хэш"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": " ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "x",
+   "out": "x"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "  Ёжик в Тумане  ",
+   "out": "ёжик в тумане"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "ЁЛКА-палка!",
+   "out": "ёлка-палка!"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "a\n.\n b ",
+   "out": "a\n.\n b"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "line1\r\nline2 ",
+   "out": "line1\r\nline2"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": " Москва ",
+   "out": "москва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "　полный пробел ",
+   "out": "полный пробел"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "﻿BOM",
+   "out": "﻿bom"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "\u001cразделитель\u001f",
+   "out": "разделитель"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "next",
+   "out": "next"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "tab\there",
+   "out": "tab\there"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "Нью-Йорк — город",
+   "out": "нью-йорк — город"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "a—b–c",
+   "out": "a—b–c"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "«Кавычки» и 'одинарные'",
+   "out": "«кавычки» и 'одинарные'"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "ДЖАЗ BAND 42",
+   "out": "джаз band 42"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "Ответ: 3,14!",
+   "out": "ответ: 3,14!"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "(скобки) {фигурные} [квадратные]",
+   "out": "(скобки) {фигурные} [квадратные]"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "é комбинирующий",
+   "out": "é комбинирующий"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "ΣΑΣ",
+   "out": "σας"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "İstanbul",
+   "out": "i̇stanbul"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "K Kelvin",
+   "out": "k kelvin"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "ſ long s",
+   "out": "ſ long s"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "ß ẞ",
+   "out": "ß ß"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "ﬁ лигатура",
+   "out": "ﬁ лигатура"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "Ⅻ",
+   "out": "ⅻ"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "один\n\nдва",
+   "out": "один\n\nдва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "  .  ",
+   "out": "."
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "-",
+   "out": "-"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "a - b",
+   "out": "a - b"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "snake_case~tilde`",
+   "out": "snake_case~tilde`"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "много    пробелов   тут",
+   "out": "много    пробелов   тут"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "ЙОД й",
+   "out": "йод й"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "пол-литра",
+   "out": "пол-литра"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip"
+   ],
+   "in": "№5 #хэш",
+   "out": "№5 #хэш"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": " ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "x",
+   "out": "x"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "  Ёжик в Тумане  ",
+   "out": "ежик в тумане"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "ЁЛКА-палка!",
+   "out": "елкапалка"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "a\n.\n b ",
+   "out": "a\n.\nb"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "line1\r\nline2 ",
+   "out": "line1\nline2"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": " Москва ",
+   "out": "москва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "　полный пробел ",
+   "out": "полный пробел"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "﻿BOM",
+   "out": "﻿bom"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "\u001cразделитель\u001f",
+   "out": "разделитель"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "next",
+   "out": "next"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "tab\there",
+   "out": "tab\there"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "Нью-Йорк — город",
+   "out": "ньюйорк город"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "a—b–c",
+   "out": "abc"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "«Кавычки» и 'одинарные'",
+   "out": "«кавычки» и 'одинарные'"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "ДЖАЗ BAND 42",
+   "out": "джаз band 42"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "Ответ: 3,14!",
+   "out": "ответ 314"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "(скобки) {фигурные} [квадратные]",
+   "out": "скобки фигурные [квадратные]"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "é комбинирующий",
+   "out": "é комбинирующий"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "ΣΑΣ",
+   "out": "σας"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "İstanbul",
+   "out": "i̇stanbul"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "K Kelvin",
+   "out": "k kelvin"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "ſ long s",
+   "out": "ſ long s"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "ß ẞ",
+   "out": "ß ß"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "ﬁ лигатура",
+   "out": "ﬁ лигатура"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "Ⅻ",
+   "out": "ⅻ"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "один\n\nдва",
+   "out": "один\n\nдва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "  .  ",
+   "out": "."
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "-",
+   "out": "-"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "a - b",
+   "out": "a b"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "snake_case~tilde`",
+   "out": "snakecasetilde"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "много    пробелов   тут",
+   "out": "много пробелов тут"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "ЙОД й",
+   "out": "йод й"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "пол-литра",
+   "out": "поллитра"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct"
+   ],
+   "in": "№5 #хэш",
+   "out": "№5 хэш"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": " ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "x",
+   "out": "x"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "  Ёжик в Тумане  ",
+   "out": "ежиквтумане"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "ЁЛКА-палка!",
+   "out": "елкапалка"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "a\n.\n b ",
+   "out": "a\n.\nb"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "line1\r\nline2 ",
+   "out": "line1\nline2"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": " Москва ",
+   "out": "москва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "　полный пробел ",
+   "out": "полныйпробел"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "﻿BOM",
+   "out": "﻿bom"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "\u001cразделитель\u001f",
+   "out": "разделитель"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "next",
+   "out": "next"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "tab\there",
+   "out": "tabhere"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "Нью-Йорк — город",
+   "out": "ньюйоркгород"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "a—b–c",
+   "out": "abc"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "«Кавычки» и 'одинарные'",
+   "out": "«кавычки»и'одинарные'"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "ДЖАЗ BAND 42",
+   "out": "джазband42"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "Ответ: 3,14!",
+   "out": "ответ314"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "(скобки) {фигурные} [квадратные]",
+   "out": "скобкифигурные[квадратные]"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "é комбинирующий",
+   "out": "éкомбинирующий"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "ΣΑΣ",
+   "out": "σας"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "İstanbul",
+   "out": "i̇stanbul"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "K Kelvin",
+   "out": "kkelvin"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "ſ long s",
+   "out": "ſlongs"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "ß ẞ",
+   "out": "ßß"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "ﬁ лигатура",
+   "out": "ﬁлигатура"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "Ⅻ",
+   "out": "ⅻ"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "один\n\nдва",
+   "out": "один\n\nдва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "  .  ",
+   "out": "."
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "-",
+   "out": "-"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "a - b",
+   "out": "ab"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "snake_case~tilde`",
+   "out": "snakecasetilde"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "много    пробелов   тут",
+   "out": "многопробеловтут"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "ЙОД й",
+   "out": "йодй"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "пол-литра",
+   "out": "поллитра"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_inner_spaces",
+    "drop_punct"
+   ],
+   "in": "№5 #хэш",
+   "out": "№5хэш"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": " ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "x",
+   "out": "x"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "  Ёжик в Тумане  ",
+   "out": "ежик в тумане"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "ЁЛКА-палка!",
+   "out": "елка палка "
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "a\n.\n b ",
+   "out": "a\n \n b"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "line1\r\nline2 ",
+   "out": "line1\r\nline2"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": " Москва ",
+   "out": "москва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "　полный пробел ",
+   "out": "полный пробел"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "﻿BOM",
+   "out": "﻿bom"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "\u001cразделитель\u001f",
+   "out": "разделитель"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "next",
+   "out": "next"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "tab\there",
+   "out": "tab\there"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "Нью-Йорк — город",
+   "out": "нью йорк город"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "a—b–c",
+   "out": "a b–c"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "«Кавычки» и 'одинарные'",
+   "out": "«кавычки» и 'одинарные'"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "ДЖАЗ BAND 42",
+   "out": "джаз band 42"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "Ответ: 3,14!",
+   "out": "ответ 3 14 "
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "(скобки) {фигурные} [квадратные]",
+   "out": " скобки фигурные [квадратные]"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "é комбинирующий",
+   "out": "é комбинирующий"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "ΣΑΣ",
+   "out": "σας"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "İstanbul",
+   "out": "i̇stanbul"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "K Kelvin",
+   "out": "k kelvin"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "ſ long s",
+   "out": "ſ long s"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "ß ẞ",
+   "out": "ß ß"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "ﬁ лигатура",
+   "out": "ﬁ лигатура"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "Ⅻ",
+   "out": "ⅻ"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "один\n\nдва",
+   "out": "один\n\nдва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "  .  ",
+   "out": " "
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "-",
+   "out": " "
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "a - b",
+   "out": "a b"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "snake_case~tilde`",
+   "out": "snake case tilde "
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "много    пробелов   тут",
+   "out": "много пробелов тут"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "ЙОД й",
+   "out": "йод й"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "пол-литра",
+   "out": "пол литра"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "yo_to_e",
+    "drop_punct_metagram"
+   ],
+   "in": "№5 #хэш",
+   "out": "№5 хэш"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": " ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "x",
+   "out": "x"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "  Ёжик в Тумане  ",
+   "out": "ёжик в тумане"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "ЁЛКА-палка!",
+   "out": "ёлкапалка"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "a\n.\n b ",
+   "out": "a\n.\nb"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "line1\r\nline2 ",
+   "out": "line1\nline2"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": " Москва ",
+   "out": "москва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "　полный пробел ",
+   "out": "полный пробел"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "﻿BOM",
+   "out": "﻿bom"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "\u001cразделитель\u001f",
+   "out": "разделитель"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "next",
+   "out": "next"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "tab\there",
+   "out": "tab\there"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "Нью-Йорк — город",
+   "out": "ньюйорк город"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "a—b–c",
+   "out": "abc"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "«Кавычки» и 'одинарные'",
+   "out": "«кавычки» и 'одинарные'"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "ДЖАЗ BAND 42",
+   "out": "джаз band 42"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "Ответ: 3,14!",
+   "out": "ответ 314"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "(скобки) {фигурные} [квадратные]",
+   "out": "скобки фигурные [квадратные]"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "é комбинирующий",
+   "out": "é комбинирующий"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "ΣΑΣ",
+   "out": "σας"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "İstanbul",
+   "out": "i̇stanbul"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "K Kelvin",
+   "out": "k kelvin"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "ſ long s",
+   "out": "ſ long s"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "ß ẞ",
+   "out": "ß ß"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "ﬁ лигатура",
+   "out": "ﬁ лигатура"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "Ⅻ",
+   "out": "ⅻ"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "один\n\nдва",
+   "out": "один\n\nдва"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "  .  ",
+   "out": "."
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "-",
+   "out": "-"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "a - b",
+   "out": "a b"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "snake_case~tilde`",
+   "out": "snakecasetilde"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "много    пробелов   тут",
+   "out": "много пробелов тут"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "ЙОД й",
+   "out": "йод й"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "пол-литра",
+   "out": "поллитра"
+  },
+  {
+   "ops": [
+    "lower",
+    "strip",
+    "drop_punct"
+   ],
+   "in": "№5 #хэш",
+   "out": "№5 хэш"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "",
+   "out": ""
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": " ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "x",
+   "out": "x"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "  Ёжик в Тумане  ",
+   "out": "ежиквтумане"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ЁЛКА-палка!",
+   "out": "елкапалка"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "a\n.\n b ",
+   "out": "ab"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "line1\r\nline2 ",
+   "out": "line1line2"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": " Москва ",
+   "out": "москва"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "　полный пробел ",
+   "out": "полныйпробел"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "﻿BOM",
+   "out": "bom"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "\u001cразделитель\u001f",
+   "out": "разделитель"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "next",
+   "out": "next"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "tab\there",
+   "out": "tabhere"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "Нью-Йорк — город",
+   "out": "ньюйоркгород"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "a—b–c",
+   "out": "abc"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "«Кавычки» и 'одинарные'",
+   "out": "кавычкииодинарные"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ДЖАЗ BAND 42",
+   "out": "джазband42"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "Ответ: 3,14!",
+   "out": "ответ314"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "(скобки) {фигурные} [квадратные]",
+   "out": "скобкифигурныеквадратные"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "é комбинирующий",
+   "out": "eкомбинирующий"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ΣΑΣ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "İstanbul",
+   "out": "i̇stanbul"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "K Kelvin",
+   "out": "kkelvin"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ſ long s",
+   "out": "ſlongs"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ß ẞ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ﬁ лигатура",
+   "out": "лигатура"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "Ⅻ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "один\n\nдва",
+   "out": "одиндва"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "  .  ",
+   "out": ""
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "-",
+   "out": ""
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "a - b",
+   "out": "ab"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "snake_case~tilde`",
+   "out": "snakecasetilde"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "много    пробелов   тут",
+   "out": "многопробеловтут"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "ЙОД й",
+   "out": "йодй"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "пол-литра",
+   "out": "поллитра"
+  },
+  {
+   "ops": [
+    "keep_word_chars",
+    "lower",
+    "strip",
+    "yo_to_e"
+   ],
+   "in": "№5 #хэш",
+   "out": "5хэш"
+  }
+ ]
+}

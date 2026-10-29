@@ -4,9 +4,9 @@ import json
 import re
 from decimal import Decimal
 
-from games.puzzles.core.norm_matcher import NormMatcher
 from games.models import Attempt, Task
-from games.results.util import clean_text
+from games.puzzles.core.norm_matcher import NormMatcher
+from games.puzzles.core.normalize_ops import CLEAN, CLEAN_KEEP_YO, normalized
 
 
 class CheckResult:
@@ -16,53 +16,6 @@ class CheckResult:
         self.points = points
         self.state = state
         self.comment = comment
-
-
-def clean(func):
-    def func_wrapper(self, text, *args, **kw):
-        return func(self, clean_text(text), *args, **kw)
-
-    return func_wrapper
-
-
-def clean_but_ё_stays(func):
-    def func_wrapper(self, text, *args, **kw):
-        return func(self, clean_text(text, replace_ё=False), *args, **kw)
-
-    return func_wrapper
-
-
-def delete_spaces(func):
-    def func_wrapper(self, text, *args, **kw):
-        return func(self, re.sub(r"[^\S\r\n]+", "", text), *args, **kw)
-
-    return func_wrapper
-
-
-def delete_punctuation(func):
-    def func_wrapper(self, text, *args, **kw):
-        result = []
-        for line in text.split('\n'):
-            line = line.strip()
-            if len(line) != 1:
-                new_line = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—–]+", "", line)
-                new_line = re.sub(r" +", " ", new_line)
-                result.append(new_line)
-            else:
-                result.append(line)
-        new_text = '\n'.join(result)
-        return func(self, new_text, *args, **kw)
-
-    return func_wrapper
-
-
-def delete_punctuation_metagram(func):
-    def func_wrapper(self, text, *args, **kw):
-        new_text = re.sub(r"[.,\/#!?$%\^&\*;:{}=\"\-_`~()—]+", " ", text)
-        new_text = re.sub(r" +", " ", new_text)
-        return func(self, new_text, *args, **kw)
-
-    return func_wrapper
 
 
 class BaseChecker:
@@ -85,39 +38,33 @@ class SimpleBoolChecker(BaseChecker):
 
 
 class EqualsChecker(SimpleBoolChecker):
-    @clean
+    @normalized(*CLEAN)
     def __init__(self, data, last_attempt_state=None):
         self.data = data
 
-    @clean
+    @normalized(*CLEAN)
     def bool_check(self, text):
         return text == self.data
 
 
 class NormMatcherChecker(SimpleBoolChecker):
-    @clean
-    @delete_punctuation
+    @normalized(*CLEAN, 'drop_punct')
     def __init__(self, data, last_attempt_state=None):
         self.matcher = NormMatcher(data)
 
-    @clean
-    @delete_punctuation
+    @normalized(*CLEAN, 'drop_punct')
     def bool_check(self, text):
         return self.matcher.match(text)
 
 
 class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):
-    @clean
-    @delete_spaces
-    @delete_punctuation
+    @normalized(*CLEAN, 'drop_inner_spaces', 'drop_punct')
     def __init__(self, data, last_attempt_state=None):
         self.data = []
         for line in data.split('\n'):
             self.data.append(line.strip())
 
-    @clean
-    @delete_spaces
-    @delete_punctuation
+    @normalized(*CLEAN, 'drop_inner_spaces', 'drop_punct')
     def bool_check(self, text):
         for line in self.data:
             if text == line:
@@ -163,8 +110,7 @@ class RegexpChecker(SimpleBoolChecker):
     def __init__(self, data, last_attempt_state=None):
         self.regexp = re.compile(data.strip())
 
-    @clean
-    @delete_punctuation
+    @normalized(*CLEAN, 'drop_punct')
     def bool_check(self, text):
         if self.regexp.findall(text):
             return True
@@ -180,8 +126,7 @@ class NumberWithErrorChecker(SimpleBoolChecker):
     def __init__(self, data, last_attempt_state=None):
         self.number, self.error = [int(s.strip()) for s in data.split('\n')]
 
-    @clean
-    @delete_punctuation
+    @normalized(*CLEAN, 'drop_punct')
     def bool_check(self, text):
         try:
             answer = int(text)
@@ -191,7 +136,7 @@ class NumberWithErrorChecker(SimpleBoolChecker):
 
 
 class SeveralAnswersChecker(BaseChecker):
-    @clean
+    @normalized(*CLEAN)
     def __init__(self, data, last_attempt_state=None):
         self.answers = {}
         for line in data.split('\n'):
@@ -200,7 +145,7 @@ class SeveralAnswersChecker(BaseChecker):
             answer = ' '.join(line_split[1:])
             self.answers[answer] = points
 
-    @clean
+    @normalized(*CLEAN)
     def check(self, text, attempt):
         if text not in self.answers:
             return CheckResult('Wrong', 'Pending', 0)
@@ -211,8 +156,7 @@ class SeveralAnswersChecker(BaseChecker):
 
 
 class MetagramChecker(BaseChecker):
-    @clean
-    @delete_punctuation_metagram
+    @normalized(*CLEAN, 'drop_punct_metagram')
     def __init__(self, data, last_attempt_state=None):
         self.answer_variants = []
         self.n = None
@@ -229,8 +173,7 @@ class MetagramChecker(BaseChecker):
                 else:
                     self.n = len(answers)
 
-    @clean
-    @delete_punctuation_metagram
+    @normalized(*CLEAN, 'drop_punct_metagram')
     def check(self, text, attempt):
         words = []
         for word in text.strip().split():
@@ -255,8 +198,7 @@ class MetagramChecker(BaseChecker):
 
 
 class LongStringChecker(BaseChecker):
-    @clean
-    @delete_punctuation_metagram
+    @normalized(*CLEAN, 'drop_punct_metagram')
     def __init__(self, data, last_attempt_state=None):
         self.answer_variants = []
         self.n = None
@@ -273,8 +215,7 @@ class LongStringChecker(BaseChecker):
                 else:
                     self.n = len(answers)
 
-    @clean
-    @delete_punctuation_metagram
+    @normalized(*CLEAN, 'drop_punct_metagram')
     def check(self, text, attempt):
         words = []
         for word in text.strip().split():
@@ -307,8 +248,7 @@ class LongStringChecker(BaseChecker):
 
 
 class HangmanLettersChecker(BaseChecker):
-    @clean_but_ё_stays
-    @delete_punctuation
+    @normalized(*CLEAN_KEEP_YO, 'drop_punct')
     def __init__(self, data, last_attempt_state=None):
         self.n_words = None
         self.len_words = None
@@ -331,8 +271,7 @@ class HangmanLettersChecker(BaseChecker):
 
         self.ALPHABET = set(list('абвгдеёжзийклмнопрстуфхцчшщъыьэюя'))
 
-    @clean_but_ё_stays
-    @delete_punctuation
+    @normalized(*CLEAN_KEEP_YO, 'drop_punct')
     def check(self, text, attempt):
         words = text.split()
         if len(words) not in self.n_words_to_points:
@@ -414,12 +353,11 @@ class SolutionsTagNumber:
 
 class CheckerFactory:
     def __init__(self):
-        from games.puzzles.replacements.grid_puzzle import GridShadingChecker, GridWallChecker
+        # GridShadingChecker, GridWallChecker, ReplacementsLinesChecker and
+        # RaddleChecker are module globals imported at the bottom of the file.
         from games.puzzles.alphabetty.play import AlphabettyChecker
         from games.puzzles.alphabetty.wordle import AntiwordleChecker
         from games.puzzles.replacements.html_forms import HtmlFormsChecker
-        from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
-        from games.puzzles.raddle.submission import RaddleChecker
         from games.puzzles.salad.submission import WordSaladChecker
         from games.puzzles.wall.checker import WallChecker
 
@@ -451,6 +389,8 @@ class CheckerFactory:
         return self.checker_type_to_checker[checker_type.id](data, last_attempt_state)
 
 
+# Imported last because these modules import BaseChecker from here; also
+# re-exported for callers that import the checkers from this module.
+from games.puzzles.raddle.submission import RaddleChecker  # noqa: E402
 from games.puzzles.replacements.grid_puzzle import GridShadingChecker, GridWallChecker  # noqa: E402
 from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker  # noqa: E402
-from games.puzzles.raddle.submission import RaddleChecker  # noqa: E402
