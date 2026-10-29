@@ -175,3 +175,19 @@ lemma	root_structure	note
 библиотекарь	root:библиотек	Reviewed institution/occupation family: библиотека and библиотекарь.
 авангард	root:авангард	Reviewed art-movement family: авангард and авангардист.
 авангардист	root:авангард	Reviewed art-movement family: авангард and авангардист.
+диабет	root:диабет	Reviewed diabetes family; links диабет, диабетик, and диабетология.
+диабетик	root:диабет	Reviewed diabetes family; links диабет, диабетик, and диабетология.
+диабетология	root:диабет	Reviewed diabetes family; links диабет, диабетик, and диабетология.
+гельминт	root:гельминт	Reviewed helminth family; links гельминт and its terminology and derivatives.
+гельминтоз	root:гельминт	Reviewed helminth family; links гельминт and its terminology and derivatives.
+гельминтолог	root:гельминт	Reviewed helminth family; links гельминт and its terminology and derivatives.
+гельминтологический	root:гельминт	Reviewed helminth family; links гельминт and its terminology and derivatives.
+гельминтология	root:гельминт	Reviewed helminth family; links гельминт and its terminology and derivatives.
+дегельминтизация	root:гельминт	Reviewed helminth family; links гельминт and its terminology and derivatives.
+санскрит	root:санскрит	Reviewed Sanskrit family; links санскрит and its terminology and adjective.
+санскритолог	root:санскрит	Reviewed Sanskrit family; links санскрит and its terminology and adjective.
+санскритология	root:санскрит	Reviewed Sanskrit family; links санскрит and its terminology and adjective.
+санскритский	root:санскрит	Reviewed Sanskrit family; links санскрит and its terminology and adjective.
+примат	root:примат	Reviewed primate family; links примат, приматология, and приматологический.
+приматология	root:примат	Reviewed primate family; links примат, приматология, and приматологический.
+приматологический	root:примат	Reviewed primate family; links примат, приматология, and приматологический.
