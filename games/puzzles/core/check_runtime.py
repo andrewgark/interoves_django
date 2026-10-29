@@ -5,6 +5,7 @@ import re
 from decimal import Decimal
 
 from games.models import Attempt, Task
+from games.puzzles.core.client_spec import any_answer_spec, hash_set_spec, spec_salt
 from games.puzzles.core.norm_matcher import NormMatcher
 from games.puzzles.core.normalize_ops import CLEAN, CLEAN_KEEP_YO, normalized
 
@@ -24,6 +25,13 @@ class BaseChecker:
 
     def check(self, text, attempt):
         pass
+
+    def client_spec(self, task):
+        """The check as data the browser can run (games.puzzles.core.client_spec).
+
+        None means the answer is checked only on the server.
+        """
+        return None
 
 
 class SimpleBoolChecker(BaseChecker):
@@ -45,6 +53,9 @@ class EqualsChecker(SimpleBoolChecker):
     @normalized(*CLEAN)
     def bool_check(self, text):
         return text == self.data
+
+    def client_spec(self, task):
+        return hash_set_spec(spec_salt(task), self.bool_check.normalize_ops, {self.data: 'Ok'})
 
 
 class NormMatcherChecker(SimpleBoolChecker):
@@ -70,6 +81,11 @@ class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):
             if text == line:
                 return True
         return False
+
+    def client_spec(self, task):
+        return hash_set_spec(
+            spec_salt(task), self.bool_check.normalize_ops, dict.fromkeys(self.data, 'Ok'),
+        )
 
 
 class WhiteGrayBlackListChecker(SimpleBoolChecker):
@@ -121,6 +137,9 @@ class AnyAnswerChecker(SimpleBoolChecker):
     def bool_check(self, text):
         return True
 
+    def client_spec(self, task):
+        return any_answer_spec()
+
 
 class NumberWithErrorChecker(SimpleBoolChecker):
     def __init__(self, data, last_attempt_state=None):
@@ -153,6 +172,13 @@ class SeveralAnswersChecker(BaseChecker):
         if points == 100:
             return CheckResult('Ok', 'Ok', 1)
         return CheckResult('Partial', 'Partial', Decimal(points) / Decimal(100))
+
+    def client_spec(self, task):
+        return hash_set_spec(
+            spec_salt(task),
+            self.check.normalize_ops,
+            {answer: 'Ok' if points == 100 else 'Partial' for answer, points in self.answers.items()},
+        )
 
 
 class MetagramChecker(BaseChecker):

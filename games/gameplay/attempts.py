@@ -30,6 +30,28 @@ from games.site.http.exceptions import (
 from games.site.http.middleware.request_timing import timing_phase
 
 
+def checker_for_task(task, last_attempt_state=None):
+    """The checker that judges answers to ``task``."""
+    puzzle = get_puzzle(task.task_type)
+    checker_type = task.get_checker()
+    if puzzle is not None and puzzle.checker_id:
+        checker_type = CheckerType.objects.get(id=puzzle.checker_id)
+    if task.task_type == 'grid-puzzle':
+        checker_type = CheckerType.objects.get(id=grid_checker_id(task))
+    checker_data = task.checker_data or ''
+    # equals / equals_with_possible_spaces читают эталон из checker_data; для «Пропорций»
+    # и обычных заданий ответ часто задают только в answer — тогда дублируем его сюда.
+    if checker_type.id in ('equals', 'equals_with_possible_spaces'):
+        if not checker_data.strip() and (task.answer or '').strip():
+            checker_data = task.answer
+    return CheckerFactory().create_checker(checker_type, checker_data, last_attempt_state)
+
+
+def client_spec_for_task(task):
+    """The browser-side check of ``task``, or None when only the server can check it."""
+    return checker_for_task(task).client_spec(task)
+
+
 def check_attempt(
     attempt,
     *,
@@ -190,19 +212,7 @@ def check_attempt(
                     exc.attempt_id = other_attempt.id
                     raise exc
 
-        checker_type = task.get_checker()
-        if puzzle is not None and puzzle.checker_id:
-            checker_type = CheckerType.objects.get(id=puzzle.checker_id)
-        if task.task_type == 'grid-puzzle':
-            checker_id = grid_checker_id(task)
-            checker_type = CheckerType.objects.get(id=checker_id)
-        checker_data = task.checker_data or ''
-        # equals / equals_with_possible_spaces читают эталон из checker_data; для «Пропорций»
-        # и обычных заданий ответ часто задают только в answer — тогда дублируем его сюда.
-        if checker_type.id in ('equals', 'equals_with_possible_spaces'):
-            if not checker_data.strip() and (task.answer or '').strip():
-                checker_data = task.answer
-        checker = CheckerFactory().create_checker(checker_type, checker_data, last_attempt_state)
+        checker = checker_for_task(task, last_attempt_state)
         check_result = checker.check(attempt.text, attempt)
         attempt.status, attempt.points, attempt.state, attempt.comment = check_result.status, check_result.points, check_result.state, check_result.comment
         # Recompute the hidden checker result on every check; do not retain a

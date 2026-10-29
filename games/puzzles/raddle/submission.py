@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from decimal import Decimal
 
 from games.puzzles.core.check_runtime import BaseChecker, CheckResult
+from games.puzzles.core.client_spec import raddle_spec, spec_salt
+from games.puzzles.core.normalize_ops import RADDLE_WORD, normalize
 from games.puzzles.core.primitives import DuplicateVerdict
 from games.puzzles.core.quota import json_field_quota
 from games.puzzles.raddle.engine import (
@@ -236,6 +238,16 @@ class RaddleChecker(BaseChecker):
                 self.last_state = json.loads(last_attempt_state)
             except (ValueError, TypeError):
                 self.last_state = None
+
+    def client_spec(self, task):
+        parsed = parse_raddle_data(task)
+        if not parsed:
+            return None
+        return raddle_spec(
+            spec_salt(task),
+            RADDLE_WORD,
+            [[normalize(spelling, RADDLE_WORD) for spelling in accept] for accept in parsed['word_accept']],
+        )
 
     def _parsed(self, attempt):
         task = getattr(attempt, 'task', None) if attempt else None
