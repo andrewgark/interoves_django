@@ -18,10 +18,9 @@ from games.puzzles.raddle.engine import (
     raddle_blocks_as_duplicate,
     resolve_assist_tiers,
     serialize_raddle_attempt_text,
-    word_length_matches,
     word_matches,
-    word_solve_credit,
 )
+from games.puzzles.raddle.transition import advance, progress_status, refuse_word, score_word
 
 
 @dataclass(frozen=True)
@@ -259,78 +258,23 @@ class RaddleChecker(BaseChecker):
             user_word = str(payload.get('word', '') or '').strip()
         except (ValueError, TypeError):
             return CheckResult('Wrong', 'Pending', 0, comment='Неверный формат ответа')
-        if not user_word:
+        refusal = refuse_word(state, parsed, word_index, user_word)
+        if refusal is not None:
             return CheckResult(
                 'Wrong', 'Pending', 0,
-                comment='Пустой ответ',
+                comment=refusal,
                 state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
             )
-        if word_index < 0 or word_index >= n:
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Неверный индекс слова',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        if word_index in set(state.get('solved_indices') or []):
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Это слово уже решено',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        playable = playable_word_indices(state, n)
-        if word_index not in playable:
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Сейчас можно сдавать только крайние нерешённые слова',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        mask = parsed['masks'][word_index]
-        if not word_length_matches(user_word, mask):
-            return CheckResult(
-                'Wrong', 'Pending', 0,
-                comment='Длина слова не совпадает с маской',
-                state=json.dumps(dump_raddle_state(state, n), ensure_ascii=False),
-            )
-        accept = parsed['word_accept'][word_index]
-        is_correct = word_matches(user_word, accept)
-        solved = set(state.get('solved_indices') or [])
-        used_hints = set(state.get('used_hints') or [])
+        is_correct = word_matches(user_word, parsed['word_accept'][word_index])
         try:
             total = Decimal(str(state.get('total', 0) or 0))
         except (ArithmeticError, ValueError, TypeError):
             total = Decimal('0')
-        assist_tiers = resolve_assist_tiers(state)
-        assist_cfg = (parsed.get('assist') or {}) if parsed else {}
         if is_correct:
-            solved_before = set(solved)
-            solved.add(word_index)
-            n_hints = len(parsed['hints'])
-            if (word_index - 1) in solved_before and 0 <= word_index - 1 < n_hints:
-                used_hints.add(word_index - 1)
-            if (word_index + 1) in solved_before and 0 <= word_index < n_hints:
-                used_hints.add(word_index)
-            if word_index not in (0, n - 1):
-                tier = assist_tiers.get(word_index, 0)
-                total += word_solve_credit(tier, assist_cfg)
-        middle_total = max(0, n - 2)
-        solved_middle = len(solved) - (2 if n >= 2 else len(solved))
-        if middle_total and solved_middle >= middle_total:
-            status = 'Ok'
-            tournament_status = 'Ok'
-        else:
-            status = 'Partial' if solved_middle > 0 else 'Wrong'
-            tournament_status = status if is_correct else 'Pending'
-        new_state = dump_raddle_state(
-            {
-                'solved_indices': sorted(solved),
-                'used_hints': sorted(used_hints),
-                'assist_tier': state.get('assist_tier') or {},
-                'total': float(total),
-                'drafts': state.get('drafts') or {},
-                'clue_marks': state.get('clue_marks') or {},
-            },
-            n,
-        )
+            total += score_word(state, parsed, word_index)
+            state = advance(state, parsed, word_index)
+        status, tournament_status = progress_status(state, n, word_correct=is_correct)
+        new_state = dump_raddle_state({**state, 'total': float(total)}, n)
         return CheckResult(
             status, tournament_status, total,
             state=json.dumps(new_state, ensure_ascii=False),
