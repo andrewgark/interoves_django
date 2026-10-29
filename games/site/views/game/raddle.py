@@ -5,6 +5,10 @@ from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from games.daily.completion import daily_completion_effects_for_game
+from games.daily.completion.completion_coordinator import complete_logical_game
+from games.identity import ActorRefusal, has_profile, resolve_gameplay_actor
+from games.models import Attempt, ChainTaskState, RaddleUiState
 from games.ops.analytics.events import (
     PlayerCompletedGame,
     analytics_game_kind,
@@ -13,15 +17,11 @@ from games.ops.analytics.events import (
     publish_completion_analytics,
     register_started_game,
 )
-from games.daily.completion.completion_coordinator import complete_logical_game
-from games.daily.completion import daily_completion_effects_for_game
-from games.site.http.exceptions import DuplicateAttemptException, NoGameAccessException
-from games.models import Attempt, ChainTaskState, RaddleUiState, Task
-from games.site.http.auth_observability import log_gameplay_attempt_created
-from games.identity import ActorRefusal, resolve_gameplay_actor
 from games.puzzles.raddle import RaddlePuzzle
-from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
-from games.site.session.replay import replay_for_request, StaleReplayError, _official_exists
+from games.puzzles.raddle.concurrency import (
+    lock_or_create_raddle_state,
+    run_raddle_atomic_with_deadlock_retry,
+)
 from games.puzzles.raddle.engine import (
     apply_assist_tier,
     dump_raddle_state,
@@ -32,21 +32,24 @@ from games.puzzles.raddle.engine import (
     raddle_ui_payload,
     serialize_raddle_attempt_text,
 )
-from games.puzzles.raddle.concurrency import (
-    lock_or_create_raddle_state,
-    run_raddle_atomic_with_deadlock_retry,
-)
-from games.site.http.middleware.request_timing import timing_phase
 from games.realtime.track_compat import track_actor_task_change
+from games.site.http.auth_observability import log_gameplay_attempt_created
+from games.site.http.exceptions import DuplicateAttemptException, NoGameAccessException
+from games.site.http.middleware.request_timing import timing_phase
+from games.site.http.request_util import (
+    get_public_task_or_404,
+    is_browser_form_submission,
+    redirect_after_browser_submission,
+)
+from games.site.session.gameplay_context import context_error_response, validate_gameplay_context
+from games.site.session.play_mode import effective_play_mode
+from games.site.session.replay import StaleReplayError, _official_exists, replay_for_request
 from games.site.views.game.context import (
     game_from_request_for_task,
     unpublished_scheduled_task_response,
 )
 from games.site.views.game.hint import _get_play_mode, create_hint_attempt
 from games.site.views.game.render import update_task_html
-from games.identity import has_profile
-from games.site.session.play_mode import effective_play_mode
-from games.site.http.request_util import get_public_task_or_404, is_browser_form_submission, redirect_after_browser_submission
 
 
 def _chain_state_with_attempt_fallback(row, n_words, team=None, user=None, anon_key=None, task=None, game=None, replay_slot=None):
