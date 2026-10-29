@@ -18,6 +18,24 @@ from games.puzzles.raddle.engine import (
 )
 
 
+def rules_config(parsed):
+    """The ladder shape these rules need, for the browser twin.
+
+    ``lengths`` is the required letter count of each word (None when the
+    mask is unknown). static/js/offline_raddle_rules.js mirrors the rules on
+    this config; contracts/raddle_rules.json pins both.
+    """
+    lengths = []
+    for mask in parsed['masks']:
+        if mask['type'] == 'fixed':
+            lengths.append(mask['length'])
+        elif mask['type'] == 'parts':
+            lengths.append(sum(mask['parts']))
+        else:
+            lengths.append(None)
+    return {'n_words': parsed['n_words'], 'n_hints': len(parsed['hints']), 'lengths': lengths}
+
+
 def refuse_word(state, parsed, word_index, word):
     """Why the word is not checked at all, or None when it may be checked."""
     n = parsed['n_words']
