@@ -27,7 +27,7 @@ from games.site.views.game.render import TASK_CARD_TEMPLATE, new_ui_task_card_co
 from games.task_group.daily_board_task_data import board_share_title
 
 
-def ladder_offline_pack(request, ctx, mode):
+def ladder_offline_pack(request, ctx, mode, *, offline_timing=False):
     """The offline pack of ``ctx``'s ladder for its actor."""
     task, game = ctx.task, ctx.game
     placement = GameTaskGroup.objects.filter(game=game, task_group=task.task_group).first()
@@ -64,6 +64,8 @@ def ladder_offline_pack(request, ctx, mode):
         'rules': rules_config(source.parsed),
         'spec': client_spec_for_task(task),
         'card_html': render_to_string(TASK_CARD_TEMPLATE, card, request),
+        # The page lets the daily timer claim the offline stretch.
+        'offline_timing': offline_timing,
     }
 
 
@@ -81,7 +83,7 @@ def process_raddle_offline_pack(request, task_id):
     )
     if mode == 'tournament' or not capabilities.offline_attempts:
         return {'status': 'disabled'}
-    pack = ladder_offline_pack(request, ctx, mode)
+    pack = ladder_offline_pack(request, ctx, mode, offline_timing=capabilities.offline_timing)
     if pack is None:
         return {'status': 'invalid'}
     return {'status': 'ok', 'pack': pack}

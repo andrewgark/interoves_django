@@ -29,6 +29,8 @@ from games.daily.timing import (
     snapshot,
 )
 from games.daily.timing.reports import CLIENT_REPORT_ACTION, handle_client_report
+from games.daily.timing.session import OFFLINE_CREDIT_MAX_MS
+from games.gameplay.policy import resolve_capabilities
 from games.identity import has_profile, has_team
 from games.models import Attempt, Game, GameTaskGroup
 from games.ops.analytics.identity import gameplay_anon_key
@@ -68,6 +70,25 @@ def _client_event_time(payload):
     if value < now - timedelta(days=1) or value > now + timedelta(days=1):
         return None
     return value
+
+
+def _offline_credit_cap(payload, *, action, game, task_group, team, user, anon_key):
+    """The credit cap of a start/resume that follows offline play, else None.
+
+    The page marks such a start with ``offline``; the larger cap applies only
+    when the actor may time offline play (docs/offline-play-plan.md). The
+    server gap since the last confirmed heartbeat still bounds the credit.
+    """
+    if action not in (ACTION_START, ACTION_RESUME) or str(payload.get('offline')).lower() not in ('1', 'true'):
+        return None
+    task = task_group.tasks.only('task_type').first()
+    capabilities = resolve_capabilities(
+        game=game,
+        task_type=task.task_type if task is not None else '',
+        mode=game.get_current_mode(Attempt(time=timezone.now())),
+        team=team, user=user, anon_key=anon_key,
+    )
+    return OFFLINE_CREDIT_MAX_MS if capabilities.offline_timing else None
 
 
 def _timing_int(payload, key, *, default=None):
@@ -425,6 +446,9 @@ def _daily_solve_timing_impl(
         response = context_error_response(context_error)
         if response is not None:
             return response
+    credit_cap_ms = _offline_credit_cap(
+        payload, action=action, game=game, task_group=task_group, team=team, user=user, anon_key=anon_key,
+    )
     request._interoves_timing_pre_mutation = False
     try:
         # A long transaction holding this actor's rows (e.g. an account
@@ -447,6 +471,7 @@ def _daily_solve_timing_impl(
                 create=True,
                 replay_slot=replay_slot,
                 timing_request=request,
+                credit_cap_ms=credit_cap_ms,
             )
     except TimingEventConflict:
         return _json_error('event_id_conflict', 409)

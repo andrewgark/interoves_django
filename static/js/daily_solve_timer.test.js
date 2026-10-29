@@ -1319,6 +1319,7 @@ function lostLeaseHarness() {
       fetch: function (url, init) {
         var body = JSON.parse(init.body);
         h.sent.push(body);
+        if (h.offline) return Promise.reject(new TypeError('Failed to fetch'));
         // The server let the lease expire: heartbeats did not get through.
         var running = body.action === 'start';
         return Promise.resolve({ status: 200, json: function () {
@@ -1363,6 +1364,45 @@ asyncTest(async function testRestartAfterLostLeaseClaimsUnconfirmedVisibleTime()
   } finally {
     h.restore();
   }
+});
+
+async function lostNetworkThenRestart(allowOffline) {
+  var h = lostLeaseHarness();
+  try {
+    var ctrl = h.create({ visibilityState: 'visible', addEventListener: function () {} });
+    ctrl.allowOfflineCredit(allowOffline);
+    h.offline = true;
+    h.advance(40000);
+    h.tick();
+    await flush();
+    assert.strictEqual(ctrl.offlineClaimPending(), true);
+    h.offline = false;
+    for (var i = 0; i < 6 && !h.sent.some(function (b) { return b.action === 'start'; }); i++) {
+      h.advance(5000);
+      var due = h.timers;
+      h.timers = [];
+      due.forEach(function (item) { item.callback(); });
+      h.tick();
+      await flush();
+    }
+    var start = h.sent.filter(function (b) { return b.action === 'start'; }).pop();
+    // The authoritative start settled the claim for the offline stretch.
+    assert.strictEqual(ctrl.offlineClaimPending(), false);
+    ctrl.destroy();
+    return start;
+  } finally {
+    h.restore();
+  }
+}
+
+asyncTest(async function testStartAfterNetworkLossIsMarkedOfflineOnlyWhenAllowed() {
+  var allowed = await lostNetworkThenRestart(true);
+  assert.ok(allowed, 'a start followed the network loss');
+  assert.strictEqual(allowed.offline, true);
+  assert.ok(allowed.claimed_ms > 40000, allowed.claimed_ms);
+  var plain = await lostNetworkThenRestart(false);
+  assert.ok(plain, 'a start followed the network loss');
+  assert.strictEqual(plain.offline, undefined);
 });
 
 asyncTest(async function testHiddenTimeIsNeverClaimed() {

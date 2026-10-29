@@ -2178,6 +2178,11 @@
     ? window.InterovesOutbox.createOutbox({ storage: raddleSafeLocalStorage() || undefined })
     : null;
   var raddleOutboxFlushing = false;
+  // An 'online' event during a flush must not wait for the next interval.
+  var raddleOutboxFlushAgain = false;
+  // A move the server could not take yet (5xx, timeout) is retried sooner
+  // than the interval: 2, 4, 8, 16 s.
+  var raddleOutboxRetryMs = 2000;
 
   function raddleSafeLocalStorage() {
     try {
@@ -2192,6 +2197,36 @@
 
   function raddleTaskRootById(taskId) {
     return document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]');
+  }
+
+  function raddleDailyTimer() {
+    var api = window.interovesDailySolveTimer;
+    return api && api.current ? api.current : null;
+  }
+
+  // The daily timer may claim the offline stretch when the pack allows it.
+  function allowRaddleOfflineTiming(pack) {
+    var timer = raddleDailyTimer();
+    if (timer && typeof timer.allowOfflineCredit === 'function') timer.allowOfflineCredit(!!pack.offline_timing);
+  }
+
+  // The timer's claim for the offline stretch must reach the server before a
+  // queued move completes the game: completion freezes the time. The timer
+  // learns that its lease went stale only after the network is back, so wait
+  // until it is confirmed again (a few seconds at most).
+  function waitForRaddleTimerClaim() {
+    var timer = raddleDailyTimer();
+    if (!timer || typeof timer.offlineClaimPending !== 'function') return Promise.resolve();
+    var deadline = Date.now() + 10000;
+    return new Promise(function (resolve) {
+      (function check() {
+        if (!timer.offlineClaimPending() || Date.now() >= deadline) {
+          resolve();
+          return;
+        }
+        window.setTimeout(check, 250);
+      })();
+    });
   }
 
   // The pack and the latest server card survive a reload without the network.
@@ -2264,6 +2299,7 @@
     if (stored.pack.revision !== taskRoot.getAttribute('data-raddle-storage-revision')) return;
     var pack = stored.pack;
     raddleOfflinePacks[taskId] = pack;
+    window.setTimeout(function () { allowRaddleOfflineTiming(pack); }, 0);
     if (navigator.onLine !== false) return;
     var state = raddleStateFromDom(taskRoot);
     if (stored.card) {
@@ -2321,6 +2357,7 @@
         if (data && data.status === 'ok' && data.pack) {
           raddleOfflinePacks[taskId] = data.pack;
           saveRaddleOffline(taskId, { pack: data.pack });
+          allowRaddleOfflineTiming(data.pack);
           rememberRaddlePageForOffline();
         }
       })
@@ -2457,18 +2494,24 @@
   }
 
   function flushRaddleOutbox() {
-    if (!raddleOutbox || raddleOutboxFlushing || navigator.onLine === false) return;
+    if (raddleOutboxFlushing) {
+      raddleOutboxFlushAgain = true;
+      return;
+    }
+    if (!raddleOutbox || navigator.onLine === false) return;
     var scopes = [];
     raddleOutbox.entries().forEach(function (entry) {
       if (scopes.indexOf(String(entry.scope)) === -1) scopes.push(String(entry.scope));
     });
     if (!scopes.length) return;
     raddleOutboxFlushing = true;
-    var chain = Promise.resolve();
+    var left = 0;
+    var chain = waitForRaddleTimerClaim();
     scopes.forEach(function (taskId) {
       chain = chain.then(function () {
         return window.InterovesOutbox.flush(raddleOutbox, taskId, sendQueuedRaddleMove);
       }).then(function (result) {
+        left += result.left;
         syncRaddleOfflineNote(raddleTaskRootById(taskId));
         if (!result.left && (result.sent || result.dropped)) return refreshRaddleCardFromServer(taskId);
         return null;
@@ -2476,6 +2519,15 @@
     });
     chain.then(function () {
       raddleOutboxFlushing = false;
+      if (raddleOutboxFlushAgain) {
+        raddleOutboxFlushAgain = false;
+        flushRaddleOutbox();
+      } else if (left && navigator.onLine !== false) {
+        window.setTimeout(flushRaddleOutbox, raddleOutboxRetryMs);
+        raddleOutboxRetryMs = Math.min(raddleOutboxRetryMs * 2, 16000);
+      } else if (!left) {
+        raddleOutboxRetryMs = 2000;
+      }
     });
   }
 

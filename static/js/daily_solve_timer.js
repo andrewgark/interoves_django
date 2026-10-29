@@ -236,6 +236,12 @@
     // the lease's heartbeats got lost. Sent as claimed_ms when the tab
     // restarts, so the server can credit it within its own bounds.
     var unconfirmedSince = null;
+    // Offline play (docs/offline-play-plan.md): once a request failed on the
+    // network, the next start/resume is marked offline so the server may
+    // credit the whole stretch (still bounded by its own clock). The page
+    // enables this only when the player may play offline.
+    var offlineCredit = false;
+    var lostNetwork = false;
 
     function advanceStateRevision() {
       stateRevision += 1;
@@ -379,6 +385,7 @@
         runningSince = nowMs(clock);
         everRunning = true;
         unconfirmedSince = null;
+        lostNetwork = false;
       }
       if (completed || manuallyPaused) unconfirmedSince = null;
       render();
@@ -423,7 +430,7 @@
       var claimed = Object.prototype.hasOwnProperty.call(extra, 'claimed_ms')
         ? Math.max(0, Math.floor(Number(extra.claimed_ms) || 0))
         : currentClaimedMs();
-      return {
+      var event = {
         action: action,
         session_id: sessionId,
         event_id: extra.event_id || uuid(),
@@ -435,6 +442,8 @@
         client_occurred_at: new Date().toISOString(),
         anon_key: getAnonKey() || '',
       };
+      if (offlineCredit && lostNetwork && (action === 'start' || action === 'resume')) event.offline = true;
+      return event;
     }
 
     function requestEventOnce(body, keepalive) {
@@ -501,6 +510,7 @@
       }).catch(function (err) {
         // TimeoutError: our own abort, the server did not answer in time.
         // TypeError: the request failed in the browser or on the way.
+        lostNetwork = true;
         return {
           data: null,
           status: 0,
@@ -1228,6 +1238,10 @@
       onVisible: onVisible,
       noteActivity: noteActivity,
       unconfirmedMs: unconfirmedMs,
+      allowOfflineCredit: function (allowed) { offlineCredit = !!allowed; },
+      // A request failed on the network and the server has not confirmed the
+      // clock since: a claim for that stretch may still be on its way.
+      offlineClaimPending: function () { return lostNetwork && !completed && !manuallyPaused; },
       boot: boot,
       destroy: function () {
         destroyed = true;

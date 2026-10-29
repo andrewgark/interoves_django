@@ -791,6 +791,11 @@ class DailyTimingEvent(models.Model):
     # Optional client ordering hint for future replay.  Server-side timing
     # remains authoritative and continues to use ``occurred_at``.
     client_occurred_at = models.DateTimeField(blank=True, null=True)
+    # The most a stale lease's claimed_ms may credit for this event. Null is
+    # the ordinary lost-heartbeat cap; a start after offline play carries a
+    # larger one (games.daily.timing.session.OFFLINE_CREDIT_MAX_MS), so a
+    # replay of the ledger credits exactly what the live path did.
+    credit_cap_ms = models.BigIntegerField(blank=True, null=True)
     occurred_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -48,6 +48,9 @@ MAX_ACCUMULATED_MS = 12 * 60 * 60 * 1000  # 12h hard cap for one daily solve
 # confirmed. The claim is bounded by the server-side gap since the lease's last
 # confirmation and by the client's own idle limit.
 CLIENT_CREDIT_MAX_MS = 10 * 60 * 1000
+# A start that follows offline play (docs/offline-play-plan.md) may claim the
+# whole offline stretch. The server gap and the game total still bound it.
+OFFLINE_CREDIT_MAX_MS = 6 * 60 * 60 * 1000
 MYSQL_DEADLOCK_ERRNO = 1213
 TIMING_DEADLOCK_ATTEMPTS = 3
 
@@ -81,15 +84,20 @@ MUTATING_ACTIONS = CLIENT_ACTIONS | {ACTION_ACTIVITY}
 REOPENING_ACTIONS = (ACTION_START, ACTION_RESUME, ACTION_ACTIVITY)
 
 
-def client_credit_ms(claimed_ms, *, stale_since, now) -> int:
-    """Credit for visible time a stale lease never got confirmed."""
+def client_credit_ms(claimed_ms, *, stale_since, now, cap_ms=None) -> int:
+    """Credit for visible time a stale lease never got confirmed.
+
+    ``cap_ms`` is the event's own credit cap (``DailyTimingEvent.credit_cap_ms``);
+    None is the ordinary lost-heartbeat cap.
+    """
     if stale_since is None or now is None:
         return 0
     try:
         claimed = int(claimed_ms or 0)
     except (TypeError, ValueError):
         return 0
-    return max(0, min(claimed, _ms_between(stale_since, now), CLIENT_CREDIT_MAX_MS))
+    cap = CLIENT_CREDIT_MAX_MS if cap_ms is None else int(cap_ms)
+    return max(0, min(claimed, _ms_between(stale_since, now), cap))
 
 
 def _has_prior_statistical_activity(*, game, task_group, actor, replay_slot=None):
@@ -478,6 +486,7 @@ def reduce_team_timing_events(events, *, now=None) -> dict:
                 )
                 credit = 0 if overlapped else client_credit_ms(
                     _event_value(event, 'claimed_ms'), stale_since=stale_since, now=at,
+                    cap_ms=_event_value(event, 'credit_cap_ms'),
                 )
                 if credit:
                     accumulated_ms = min(MAX_ACCUMULATED_MS, accumulated_ms + credit)
@@ -818,6 +827,7 @@ def _is_mysql_lock_retryable(exc: BaseException) -> bool:
 def record_timing_event(
     *, game, task_group, action, session_id, event_id, seq, claimed_ms=None,
     team=None, user=None, anon_key=None, replay_slot=None, client_occurred_at=None,
+    credit_cap_ms=None,
 ):
     """Persist one immutable event before mutating the compatibility snapshot.
 
@@ -837,7 +847,7 @@ def record_timing_event(
         game=game, task_group=task_group, action=action, session_id=session_id,
         event_id=event_id, seq=seq, claimed_ms=claimed_ms, team=team, user=user,
         anon_key=anon_key, replay_slot=replay_slot,
-        client_occurred_at=client_occurred_at,
+        client_occurred_at=client_occurred_at, credit_cap_ms=credit_cap_ms,
     )
     if not values:
         return
@@ -866,6 +876,7 @@ def record_timing_event(
 def _timing_event_ledger_values(
     *, game, task_group, action, session_id, event_id, seq, claimed_ms=None,
     team=None, user=None, anon_key=None, replay_slot=None, client_occurred_at=None,
+    credit_cap_ms=None,
 ):
     if not event_id or not session_id or action not in MUTATING_ACTIONS:
         return None
@@ -892,6 +903,7 @@ def _timing_event_ledger_values(
             else None
         ),
         'client_occurred_at': client_occurred_at,
+        'credit_cap_ms': int(credit_cap_ms) if credit_cap_ms is not None else None,
     }
 
 
@@ -911,7 +923,7 @@ def _assert_timing_event_matches(existing, values):
     for field in (
         'game_id', 'task_group_id', 'team_id', 'user_id', 'anon_key',
         'replay_slot_id', 'actor_key', 'session_id', 'event_id', 'action',
-        'seq', 'claimed_ms', 'client_occurred_at',
+        'seq', 'claimed_ms', 'client_occurred_at', 'credit_cap_ms',
     ):
         foreign_key_field = field in {
             'game_id', 'task_group_id', 'team_id', 'user_id', 'replay_slot_id',
@@ -956,6 +968,7 @@ def apply_timing_event(
     create: bool = True,
     replay_slot=None,
     timing_request=None,
+    credit_cap_ms=None,
 ) -> dict:
     last_exc = None
     action_label = (action or '').strip()
@@ -977,6 +990,7 @@ def apply_timing_event(
                 replay_slot=replay_slot,
                 client_occurred_at=client_occurred_at,
                 timing_request=timing_request,
+                credit_cap_ms=credit_cap_ms,
             )
             return result
         except OperationalError as exc:
@@ -1055,6 +1069,7 @@ def _apply_timing_event_once(
     replay_slot=None,
     client_occurred_at=None,
     timing_request=None,
+    credit_cap_ms=None,
 ) -> dict:
     now = now or timezone.now()
     action = (action or '').strip()
@@ -1146,6 +1161,7 @@ def _apply_timing_event_once(
         anon_key=anon_key, replay_slot=replay_slot, action=action,
         session_id=session_id, event_id=event_id, seq=seq,
         claimed_ms=claimed_ms, client_occurred_at=client_occurred_at,
+        credit_cap_ms=credit_cap_ms,
     )
     existing_event = _existing_timing_event(ledger_values)
     if existing_event is not None:
@@ -1170,6 +1186,7 @@ def _apply_timing_event_once(
         seq=seq,
         now=now,
         claimed_ms=_parse_claimed_ms(claimed_ms),
+        credit_cap_ms=credit_cap_ms,
     )
     # Keep the immutable ledger and compatibility snapshot in the same
     # transaction. Failed commands (missing rows) return above and are not
@@ -1187,6 +1204,7 @@ def _apply_timing_event_once(
         seq=seq,
         claimed_ms=claimed_ms,
         client_occurred_at=client_occurred_at,
+        credit_cap_ms=credit_cap_ms,
     )
     if created_timing_row and replay_slot is None and getattr(game, 'project_id', None) == 'sections':
         from games.daily.projection.outbox import enqueue_actor_projection_refresh
@@ -1584,7 +1602,7 @@ def _team_expire_sessions(
     return active
 
 
-def _apply_to_team_row(row, *, action, session_id, event_id, seq, now, claimed_ms=None):
+def _apply_to_team_row(row, *, action, session_id, event_id, seq, now, claimed_ms=None, credit_cap_ms=None):
     if row.status == STATUS_COMPLETED:
         return
     sid = _as_uuid(session_id)
@@ -1703,7 +1721,9 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now, claimed_m
             return
         else:
             if session.close_reason == 'stale':
-                _credit_unconfirmed_time(row, session, claimed_ms=claimed_ms, now=now)
+                _credit_unconfirmed_time(
+                    row, session, claimed_ms=claimed_ms, now=now, credit_cap_ms=credit_cap_ms,
+                )
             if int(row.active_sessions_count or 0) == 0:
                 row.team_interval_started_at = now
             row.active_sessions_count = int(row.active_sessions_count or 0) + 1
@@ -1724,7 +1744,7 @@ def _apply_to_team_row(row, *, action, session_id, event_id, seq, now, claimed_m
         ])
 
 
-def _credit_unconfirmed_time(row, session, *, claimed_ms, now):
+def _credit_unconfirmed_time(row, session, *, claimed_ms, now, credit_cap_ms=None):
     """Add a stale tab's claimed visible time that no other lease covered."""
     stale_since = session.last_heartbeat_at
     if stale_since is None:
@@ -1734,13 +1754,14 @@ def _credit_unconfirmed_time(row, session, *, claimed_ms, now):
     ).exists()
     if overlapped:
         return
-    credit = client_credit_ms(claimed_ms, stale_since=stale_since, now=now)
+    credit = client_credit_ms(claimed_ms, stale_since=stale_since, now=now, cap_ms=credit_cap_ms)
     if not credit:
         return
     row.accumulated_ms = min(MAX_ACCUMULATED_MS, int(row.accumulated_ms or 0) + credit)
     row.client_credited_ms = int(row.client_credited_ms or 0) + credit
     logger.info(
-        'daily_timing_client_credit timing_id=%s game=%s task_group=%s credit_ms=%s claimed_ms=%s',
+        '%s timing_id=%s game=%s task_group=%s credit_ms=%s claimed_ms=%s',
+        'daily_timing_client_credit' if credit_cap_ms is None else 'daily_timing_offline_credit',
         row.pk, row.game_id, row.task_group_id, credit, claimed_ms,
     )
 
