@@ -4,20 +4,24 @@ from __future__ import annotations
 
 import glob
 import io
+import json
 import logging
 import os
+import time
+from collections import deque
 from functools import lru_cache
+from urllib.parse import urlsplit, urlunsplit
 
 from django.conf import settings
 from PIL import Image, ImageDraw, ImageFont
 
+from games.ops.telegram.links import site_base_url
 from games.puzzles.raddle.engine import (
     build_raddle_ui_context,
     default_raddle_state,
     length_mask_display,
     parse_raddle_data,
 )
-from games.ops.telegram.links import site_base_url
 
 logger = logging.getLogger('application')
 
@@ -196,6 +200,89 @@ def ladder_last_screenshot_url() -> str:
     return '{}/ladder/last/'.format(site_base_url().rstrip('/'))
 
 
+def _diagnostic_url(url: str) -> str:
+    """Identify resources without logging credentials, query tokens or fragments."""
+    parts = urlsplit(url)
+    if parts.scheme not in ('http', 'https'):
+        return parts.scheme + ':'
+    return urlunsplit((parts.scheme, parts.netloc.rsplit('@', 1)[-1], parts.path, '', ''))
+
+
+def _goto_screenshot_page(page, url: str, *, attempt: int):
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    pending = {}
+    failures = deque(maxlen=20)
+
+    def requested(request):
+        pending[request] = {
+            'url': _diagnostic_url(request.url),
+            'type': request.resource_type,
+            'started': time.monotonic(),
+        }
+
+    def responded(response):
+        info = pending.get(response.request)
+        if info is not None:
+            info['status'] = response.status
+            if response.status >= 400:
+                failures.append({k: v for k, v in info.items() if k != 'started'})
+
+    def finished(request):
+        pending.pop(request, None)
+
+    def failed(request):
+        info = pending.pop(request, None)
+        if info is not None:
+            failures.append({
+                **{k: v for k, v in info.items() if k != 'started'},
+                'failure': request.failure,
+            })
+
+    listeners = {
+        'request': requested, 'response': responded,
+        'requestfinished': finished, 'requestfailed': failed,
+    }
+    for event, callback in listeners.items():
+        page.on(event, callback)
+    try:
+        return page.goto(url, wait_until='domcontentloaded', timeout=30000)
+    except PlaywrightTimeoutError:
+        now = time.monotonic()
+        resources = [
+            {**{k: v for k, v in info.items() if k != 'started'},
+             'elapsed_ms': round((now - info['started']) * 1000)}
+            for info in list(pending.values())[:20]
+        ]
+        logger.warning('screenshot_navigation_timeout %s', json.dumps({
+            'url': _diagnostic_url(url), 'attempt': attempt,
+            'pending_count': len(pending), 'pending': resources,
+            'recent_failures': list(failures),
+        }, ensure_ascii=False))
+        raise
+    finally:
+        for event, callback in listeners.items():
+            page.remove_listener(event, callback)
+
+
+def _navigate_screenshot_page(page, url: str) -> None:
+    from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+    # Retry transient document/resource stalls once. Keep DOMContentLoaded:
+    # capturing an incompletely initialized game can expose the wrong board.
+    for attempt in range(2):
+        try:
+            response = _goto_screenshot_page(page, url, attempt=attempt + 1)
+        except PlaywrightTimeoutError:
+            if attempt:
+                raise
+            logger.warning('Screenshot navigation timed out; retrying %s', _diagnostic_url(url))
+            continue
+        if response is not None and not response.ok:
+            raise RuntimeError('Screenshot page returned HTTP {}'.format(response.status))
+        return
+
+
 def screenshot_page_element_png(
     url: str,
     selectors: tuple[str, ...],
@@ -239,7 +326,7 @@ def screenshot_page_element_png(
             # unrelated requests and can time out even when the game is ready.
             # DOMContentLoaded is sufficient here: the selector-specific
             # visibility wait below is the readiness check for the screenshot.
-            page.goto(url, wait_until='domcontentloaded', timeout=30000)
+            _navigate_screenshot_page(page, url)
             confirm = page.locator('[data-age-gate-confirm]')
             if confirm.count() and confirm.first.is_visible():
                 confirm.first.click()
@@ -287,6 +374,8 @@ def screenshot_ladder_last_png(*, url: str | None = None, viewport_width: int = 
         target,
         ('.new-raddle-task', '.new-raddle-layout', 'main.new-wrap', 'main'),
         viewport_width=viewport_width,
+        wait_for_selector='.new-raddle-task',
+        require_selector='.new-raddle-task',
     )
 
 

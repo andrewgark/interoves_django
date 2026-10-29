@@ -111,6 +111,27 @@ class SaladChannelScheduleTests(TestCase):
         self.assertIn('Автор: Анна Автор', caption)
         self.assertLess(caption.index('Тема:'), caption.index('Автор:'))
 
+    def test_caption_uses_theme_field_instead_of_task_text(self):
+        salad = resolve_today_salad(self.now)
+        salad.task.theme = 'Тема: Реки & озёра'
+        salad.task.text = 'Важное описание задания'
+
+        caption = build_caption(salad)
+
+        self.assertIn('Тема: Реки &amp; озёра', caption)
+        self.assertNotIn('Важное описание задания', caption)
+        self.assertNotIn('Тема: Тема:', caption)
+
+    def test_caption_without_theme_does_not_fall_back_to_task_text(self):
+        salad = resolve_today_salad(self.now)
+        salad.task.theme = ''
+        salad.task.text = 'Важное описание задания'
+
+        caption = build_caption(salad)
+
+        self.assertNotIn('Тема:', caption)
+        self.assertNotIn('Важное описание задания', caption)
+
     def test_screenshot_url_is_public_salad_last(self):
         from games.ops.telegram.images.salad import word_salad_last_screenshot_url
         self.assertEqual(
