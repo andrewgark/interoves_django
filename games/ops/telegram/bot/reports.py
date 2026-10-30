@@ -1,16 +1,16 @@
 """Calendar-based Telegram activity reports for the site administrator."""
 
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 
 from django.contrib.auth.models import User
 from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 
-from games.models import PlayerCompletedGame, PlayerStartedGame
 from games.daily.catalog.censorly import CENSORLY_GAME_ID
-from games.ops.telegram.models import TelegramAdminReport
+from games.models import PlayerCompletedGame, PlayerStartedGame
 from games.ops.telegram.bot.notify import _join_lines, send_admin_message, telegram_admin_configured
+from games.ops.telegram.models import TelegramAdminReport
 
 GAME_LABELS = {
     'raddle': '🪜 «Лесенки»',
