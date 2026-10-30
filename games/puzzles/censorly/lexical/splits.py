@@ -4694,7 +4694,8 @@ _REVIEW_FAMILIES = frozenset({
     'свес|свет|свеч|свещ', 'дер|дерг|держ|дир|дор|дорог³|др',
     'па¹|пад|паж|пас¹|пащ', 'хаж|ход|хож|хожд',
     'би(j)|бо(j)¹|бь', 'де(j)|де', 'бер|бир|бор¹|бр¹', 'пут²',
-    'глад²|глод|голод', 'гна|гни|гно(j)', 'жа²|жин|жн',
+    'глад²|глод|голод', 'гна|гни|гно(j)',
+    'жа¹|жим|жм|жом', 'жа²|жин|жн',
     'жир²|жор|жр¹', 'клик|клиц|клич', 'креп', 'твор²',
     'черт¹|черч', 'хит|хич|хищ', 'вид|вист', 'вел²|вл|вол¹',
     'кров²|кры', 'печат', 'круг|круж¹', 'дуб', 'зем', 'стекл|стекол',
@@ -4777,6 +4778,12 @@ def _review_family_clusters() -> tuple[tuple[str, tuple[str, ...]], ...]:
 
 
 def _classify_review_lemma(family: str, lemma: str) -> str:
+    if family == 'жа¹|жим|жм|жом':
+        # The historical family includes both pressure/compression and
+        # miserly «жмот / прижимистый» words. Keep the latter apart.
+        if lemma.startswith(('жмот', 'прижимист', 'ужимист')):
+            return 'sense:review_miser'
+        return 'sense:review_press'
     if family == 'шир¹':
         # Обширный is "vast / extensive", not physical width.
         if lemma.startswith('обшир'):
@@ -7435,6 +7442,9 @@ CLUSTERS = tuple(
 # have no Kuznetsova/Tikhonov root at all.  These are deliberately per-lemma
 # assignments: a sense name is never used as an implicit root fallback.
 SEMANTIC_ROOT_ASSIGNMENTS: dict[str, tuple[tuple[str, ...], ...]] = {
+    # «Нажать» in the sense of pressing belongs to жа¹; its separate
+    # dictionary reading «о жатве» is a false historical-family collision.
+    'нажать': (('fam:жа¹|жим|жм|жом',),),
     'фамилия': (('root:family_name',),),
     'фамильный': (('root:family_name',),),
     'долгоживущий': (('root:long_lived',),),
