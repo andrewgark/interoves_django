@@ -16,6 +16,7 @@ import logging
 from django.conf import settings
 from django.core.cache import cache
 
+from games.gameplay import offline_telemetry
 from games.gameplay.attempts import checker_for_task, client_spec_for_task
 from games.gameplay.policy import resolve_capabilities
 from games.puzzles.raddle.engine import parse_raddle_data, word_matches
@@ -41,6 +42,7 @@ def page_client_check(*, task, game, mode, team=None, user=None, anon_key=None):
     except Exception:
         # Broken checker data must not break the page; the server still checks.
         logger.exception('event=offline_pack_build_failed task_id=%s task_type=%s', task.id, task.task_type)
+        offline_telemetry.count('pack_build_failed')
         _alert('pack_build_failed', task, game, ['Не удалось собрать проверку для клиента.'])
         return None
     if spec is None:
@@ -72,6 +74,7 @@ def audit_client_verdict(ctx, move):
         expected = server_verdict(ctx.task, move)
         if expected is None or expected == move.client_verdict:
             return
+        offline_telemetry.count('verdict_divergence')
         logger.warning(
             'event=offline_verdict_divergence task_id=%s task_type=%s game_id=%s '
             'word_index=%s client=%s server=%s',

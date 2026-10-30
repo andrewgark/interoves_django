@@ -1764,6 +1764,9 @@ def _credit_unconfirmed_time(row, session, *, claimed_ms, now, credit_cap_ms=Non
         'daily_timing_client_credit' if credit_cap_ms is None else 'daily_timing_offline_credit',
         row.pk, row.game_id, row.task_group_id, credit, claimed_ms,
     )
+    if credit_cap_ms is not None:
+        from games.gameplay.offline_telemetry import count
+        count('offline_credit')
 
 
 def _apply_to_row(row: DailySolveTiming, *, action, session_id, event_id, seq, claimed_ms, now):

@@ -20,7 +20,7 @@ from games.site.views.account.team import (
 from games.site.views.game.attempt import send_attempt
 from games.site.views.game.hint import send_hint_attempt
 from games.site.views.game.raddle import send_raddle_assist, send_raddle_ui
-from games.site.views.game.raddle_offline import raddle_offline_pack
+from games.site.views.game.raddle_offline import offline_telemetry, raddle_offline_pack
 from games.site.views.pages import legacy
 from games.site.views.pages.meta import capitals_task_100, countries_task_100
 from games.site.views.pages.offline_sw import offline_service_worker
@@ -33,6 +33,7 @@ urlpatterns = [
     url(r"^send_raddle_ui/(?P<task_id>\d+)/$", send_raddle_ui),
     url(r"^raddle_offline_pack/(?P<task_id>\d+)/$", raddle_offline_pack),
     url(r"^offline-sw\.js$", offline_service_worker),
+    url(r"^offline_telemetry/$", offline_telemetry),
     url(r"^register/(?P<game_id>[a-zA-Z0-9_]+)/$", register_to_game),
     url(r"^results/(?P<game_id>[a-zA-Z0-9_]+)/$", legacy_results_redirect),
     url(r"^tournament_results/(?P<game_id>[a-zA-Z0-9_]+)/$", legacy_tournament_results_redirect),

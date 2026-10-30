@@ -2264,7 +2264,73 @@
           .slice(0, keys.length - RADDLE_OFFLINE_STORE_LIMIT)
           .forEach(function (old) { raddleOfflineStore.removeItem(old.key); });
       }
-    } catch (e) {}
+    } catch (e) {
+      reportRaddleOffline('storage_failed', { error: 'pack' }, true);
+    }
+  }
+
+  // What went wrong with offline play, for games/gameplay/offline_telemetry.py.
+  // Reports wait in localStorage while offline and leave in small batches.
+  var RADDLE_TELEMETRY_KEY = 'interoves:offline-telemetry:v1';
+  var raddleTelemetryMemory = [];
+  var raddleTelemetryTimer = null;
+  var raddleTelemetryOnce = Object.create(null);
+
+  function readRaddleTelemetry() {
+    if (!raddleOfflineStore) return raddleTelemetryMemory;
+    try {
+      return JSON.parse(raddleOfflineStore.getItem(RADDLE_TELEMETRY_KEY) || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function writeRaddleTelemetry(list) {
+    if (!raddleOfflineStore) {
+      raddleTelemetryMemory = list;
+      return;
+    }
+    try {
+      if (list.length) raddleOfflineStore.setItem(RADDLE_TELEMETRY_KEY, JSON.stringify(list));
+      else raddleOfflineStore.removeItem(RADDLE_TELEMETRY_KEY);
+    } catch (e) {
+      raddleTelemetryMemory = list;
+    }
+  }
+
+  // once: report a kind at most once per page load.
+  function reportRaddleOffline(kind, detail, once) {
+    if (once) {
+      if (raddleTelemetryOnce[kind]) return;
+      raddleTelemetryOnce[kind] = true;
+    }
+    var list = readRaddleTelemetry();
+    list.push({ kind: kind, detail: detail || {} });
+    writeRaddleTelemetry(list.slice(-30));
+    scheduleRaddleTelemetry();
+  }
+
+  function scheduleRaddleTelemetry() {
+    if (raddleTelemetryTimer) return;
+    raddleTelemetryTimer = window.setTimeout(sendRaddleTelemetry, 3000);
+  }
+
+  function sendRaddleTelemetry() {
+    raddleTelemetryTimer = null;
+    var list = readRaddleTelemetry();
+    if (!list.length || navigator.onLine === false) return;
+    var batch = list.slice(0, 20);
+    fetch('/offline_telemetry/', {
+      method: 'POST',
+      headers: anonFetchHeaders({ 'Content-Type': 'application/json' }),
+      body: JSON.stringify({ events: batch }),
+      credentials: 'same-origin',
+      keepalive: true,
+    }).then(function (r) {
+      if (!r.ok) return;
+      writeRaddleTelemetry(readRaddleTelemetry().slice(batch.length));
+      if (readRaddleTelemetry().length) scheduleRaddleTelemetry();
+    }).catch(function () {});
   }
 
   // Keep this page and its static files for opening without the network
@@ -2272,7 +2338,9 @@
   function rememberRaddlePageForOffline() {
     if (!('serviceWorker' in navigator) || !window.isSecureContext || !window.caches) return;
     var page = location.href.split('#')[0];
+    var stage = 'register';
     navigator.serviceWorker.register('/offline-sw.js', { scope: '/' }).then(function () {
+      stage = 'cache';
       return caches.open('interoves-offline-pages-v1');
     }).then(function (cache) {
       return cache.match(page).then(function (kept) { return kept || cache.add(page); });
@@ -2287,7 +2355,9 @@
       return Promise.all(assets.map(function (url) {
         return cache.match(url).then(function (hit) { return hit || cache.add(url); }).catch(function () {});
       }));
-    }).catch(function () {});
+    }).catch(function (err) {
+      reportRaddleOffline('sw_failed', { status: stage, error: String((err && err.name) || err) }, true);
+    });
   }
 
   // A page opened without the network shows the card it had when it was
@@ -2319,7 +2389,10 @@
     });
     if (state.solved_indices.length <= raddleStateFromDom(taskRoot).solved_indices.length) return;
     var html = window.OfflineRaddlePack.assembleCard(pack, state);
-    if (!html) return;
+    if (!html) {
+      reportRaddleOffline('restore_failed', { task_id: taskId });
+      return;
+    }
     var map = {};
     map[taskId] = html;
     applyNewUiTaskHtml(map);
@@ -2354,6 +2427,9 @@
     raddleOfflinePackLoading[taskId] = true;
     fetchRaddleOfflinePack(taskId, url)
       .then(function (data) {
+        if (!data || (data.status !== 'ok' && data.status !== 'disabled')) {
+          reportRaddleOffline('pack_failed', { task_id: taskId, status: (data && data.status) || 'http' }, true);
+        }
         if (data && data.status === 'ok' && data.pack) {
           raddleOfflinePacks[taskId] = data.pack;
           saveRaddleOffline(taskId, { pack: data.pack });
@@ -2401,7 +2477,10 @@
       if (window.OfflineRaddleRules.refuseWord(state, pack.rules, index, word) !== null) return null;
       var next = window.OfflineRaddleRules.advance(state, pack.rules, index);
       var html = window.OfflineRaddlePack.assembleCard(pack, next);
-      if (!html) return null;
+      if (!html) {
+        reportRaddleOffline('assemble_failed', { task_id: taskId, word_index: index });
+        return null;
+      }
       data.raddle_correct = true;
       data.update_task_html_new = {};
       data.update_task_html_new[taskId] = html;
@@ -2424,6 +2503,7 @@
 
   function commitRaddleOfflineMove(move, form, input, row, wordIdx) {
     if (!raddleOutbox.add(move.entry)) {
+      reportRaddleOffline('storage_failed', { error: 'outbox' }, true);
       showRaddleRequestError(liveRaddleForm(form) || form, input, { messageKey: 'network' });
       return;
     }
@@ -2463,7 +2543,10 @@
       credentials: 'same-origin',
     }, RADDLE_FETCH_TIMEOUT_MS).then(function (r) {
       // 409: the move belongs to another account or a stale game context.
-      if (r.status === 409) return 'drop';
+      if (r.status === 409) {
+        reportRaddleOffline('queue_dropped', { task_id: entry.scope, status: 409 });
+        return 'drop';
+      }
       if (!r.ok) return 'retry';
       return r.json().then(function (data) {
         flushAnalyticsEvents(data);
@@ -2504,6 +2587,13 @@
       if (scopes.indexOf(String(entry.scope)) === -1) scopes.push(String(entry.scope));
     });
     if (!scopes.length) return;
+    var oldest = Math.min.apply(null, raddleOutbox.entries().map(function (entry) { return entry.at || Date.now(); }));
+    if (Date.now() - oldest > 24 * 3600 * 1000) {
+      reportRaddleOffline('queue_stale', {
+        age_h: Math.round((Date.now() - oldest) / 3600000),
+        count: raddleOutbox.size(),
+      }, true);
+    }
     raddleOutboxFlushing = true;
     var left = 0;
     var chain = waitForRaddleTimerClaim();
@@ -2512,6 +2602,7 @@
         return window.InterovesOutbox.flush(raddleOutbox, taskId, sendQueuedRaddleMove);
       }).then(function (result) {
         left += result.left;
+        if (result.sent) reportRaddleOffline('queue_synced', { task_id: taskId, count: result.sent });
         syncRaddleOfflineNote(raddleTaskRootById(taskId));
         if (!result.left && (result.sent || result.dropped)) return refreshRaddleCardFromServer(taskId);
         return null;
@@ -2532,6 +2623,8 @@
   }
 
   window.addEventListener('online', flushRaddleOutbox);
+  window.addEventListener('online', scheduleRaddleTelemetry);
+  window.setTimeout(scheduleRaddleTelemetry, 5000);
   window.setInterval(flushRaddleOutbox, 20000);
 
   // Мгновенный вердикт (docs/offline-play-plan.md, фаза 1): слово проверяется

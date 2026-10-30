@@ -138,6 +138,10 @@ def build_admin_report(*, now=None):
     lines.append('<b>Итого</b>')
     lines.append('Начали: {} · {}'.format(_number(current_stats['started']), comparison_line('started')))
     lines.append('Завершили: {} · {}'.format(_number(current_stats['completed']), comparison_line('completed')))
+    from games.gameplay.offline_telemetry import report_lines
+    offline = report_lines(*current)
+    if offline:
+        lines.extend([''] + offline)
     comparison_legend = 'вчера / неделя' if kind == TelegramAdminReport.REPORT_DAILY else 'пред. неделя'
     lines.extend(['', 'Сравнения: {} · 🟢 рост · 🔴 снижение · ⚪️ без изменений'.format(comparison_legend)])
     return _join_lines(lines), kind, current

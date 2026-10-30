@@ -6,6 +6,8 @@ is now, the word rules and the answer check. The page fetches it in the
 background and assembles the card itself while the network is gone.
 """
 
+import json
+
 from django.http import JsonResponse
 from django.template.loader import render_to_string
 from django.utils import timezone
@@ -13,6 +15,7 @@ from django.views.decorators.http import require_POST
 
 from games.gameplay.attempts import client_spec_for_task
 from games.gameplay.moves import MoveContext
+from games.gameplay.offline_telemetry import record_client_events
 from games.gameplay.policy import resolve_capabilities
 from games.models import Attempt, GameTaskGroup
 from games.puzzles.raddle.engine import resolve_assist_tiers
@@ -99,3 +102,16 @@ def raddle_offline_pack(request, task_id):
     if context_response is not None:
         return context_response
     return JsonResponse(response)
+
+
+@require_POST
+def offline_telemetry(request):
+    """What went wrong with offline play in the browser (games.gameplay.offline_telemetry)."""
+    if len(request.body) > 16 * 1024:
+        return JsonResponse({'ok': False, 'error': 'too_large'}, status=413)
+    try:
+        payload = json.loads(request.body or b'{}')
+    except (ValueError, TypeError):
+        return JsonResponse({'ok': False, 'error': 'bad_json'}, status=400)
+    events = payload.get('events') if isinstance(payload, dict) else None
+    return JsonResponse({'ok': True, 'accepted': record_client_events(request, events)})
