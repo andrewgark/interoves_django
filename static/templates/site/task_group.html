@@ -2393,7 +2393,9 @@
     if (state.solved_indices.length <= raddleStateFromDom(taskRoot).solved_indices.length) return;
     var html = window.OfflineRaddlePack.assembleCard(pack, state);
     if (!html) {
-      reportRaddleOffline('restore_failed', { task_id: taskId });
+      reportRaddleOffline('restore_failed', {
+        task_id: taskId, error: window.OfflineRaddlePack.lastFailure(), status: raddleOfflineStateSummary(pack, state),
+      });
       return;
     }
     var map = {};
@@ -2444,6 +2446,14 @@
       .then(function () { delete raddleOfflinePackLoading[taskId]; });
   }
 
+  // Word and clue indices only, for failure reports: page state, pack base, tiers.
+  function raddleOfflineStateSummary(pack, state) {
+    var base = pack.state || {};
+    return 's=' + state.solved_indices.join(',') + ' u=' + state.used_hints.join(',')
+      + ' base=' + (base.solved_indices || []).join(',') + '/' + (base.used_hints || []).join(',')
+      + ' t=' + JSON.stringify(pack.tiers || {});
+  }
+
   // Current ladder state as the card shows it.
   function raddleStateFromDom(taskRoot) {
     var solved = Object.create(null);
@@ -2477,7 +2487,10 @@
       var next = window.OfflineRaddleRules.advance(state, pack.rules, index);
       var html = window.OfflineRaddlePack.assembleCard(pack, next);
       if (!html) {
-        reportRaddleOffline('assemble_failed', { task_id: taskId, word_index: index });
+        reportRaddleOffline('assemble_failed', {
+          task_id: taskId, word_index: index,
+          error: window.OfflineRaddlePack.lastFailure(), status: raddleOfflineStateSummary(pack, state),
+        });
         return null;
       }
       data.raddle_correct = true;

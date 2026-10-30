@@ -44,7 +44,7 @@ SERVER_KINDS = {
     'offline_credit': 'Засчитано время офлайн-игры',
 }
 DETAIL_KEYS = ('task_id', 'status', 'count', 'age_h', 'word_index', 'error')
-DETAIL_VALUE_MAX = 120
+DETAIL_VALUE_MAX = 200
 MAX_EVENTS_PER_REPORT = 20
 MAX_COUNT_PER_EVENT = 1000
 COUNTER_TTL_S = 9 * 24 * 60 * 60  # longer than the weekly report

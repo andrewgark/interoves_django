@@ -124,10 +124,13 @@
     return t.content;
   }
 
-  function piece(pieces, key) {
-    if (!pieces || !Object.prototype.hasOwnProperty.call(pieces, key)) throw new Error('no piece for ' + key);
+  function piece(pieces, key, slot) {
+    if (!pieces || !Object.prototype.hasOwnProperty.call(pieces, key)) throw new Error('no ' + slot + ' ' + key);
     return pieces[key];
   }
+
+  // Why the last assembleCard returned null (slot keys hold no answers).
+  var lastFailure = null;
 
   /**
    * HTML of the whole task card (#new-task-<id>) in state, assembled from the
@@ -138,27 +141,28 @@
     doc = doc || global.document;
     var n = pack.n_words;
     var keys = slotKeys(state, n, pack.tiers || {});
+    lastFailure = null;
     try {
       var card = fragment(doc, pack.card_html).firstElementChild;
       var root = card && card.querySelector('.new-raddle-task');
-      if (!root) return null;
+      if (!root) throw new Error('no card root');
 
       var rows = [];
-      for (var i = 0; i < n; i++) rows.push(piece(pack.rows[i], keys.rows[i]));
+      for (var i = 0; i < n; i++) rows.push(piece(pack.rows[i], keys.rows[i], 'row ' + i));
       root.querySelector('.new-raddle-table tbody').innerHTML = rows.join('');
 
       var sections = [];
       if (keys.last_word !== null) {
-        sections.push(piece(pack.last_word, String(keys.last_word)));
+        sections.push(piece(pack.last_word, String(keys.last_word), 'last word'));
       } else {
         var unused = pack.unused_order
           .filter(function (h) { return keys.clues[h] !== 'used'; })
-          .map(function (h) { return piece(pack.clues[h], keys.clues[h]); });
+          .map(function (h) { return piece(pack.clues[h], keys.clues[h], 'clue ' + h); });
         if (unused.length) sections.push(insertItems(pack.sections.unused, unused));
       }
       var used = [];
       keys.clues.forEach(function (key, h) {
-        if (key === 'used') used.push(piece(pack.clues[h], key));
+        if (key === 'used') used.push(piece(pack.clues[h], key, 'clue ' + h));
       });
       if (used.length) sections.push(insertItems(pack.sections.used, used));
       root.querySelector('aside.new-raddle-clues').innerHTML = sections.join('');
@@ -188,6 +192,7 @@
       card.setAttribute('data-solved', keys.complete ? '1' : '0');
       return card.outerHTML;
     } catch (e) {
+      lastFailure = String((e && e.message) || e);
       return null;
     }
   }
@@ -195,5 +200,6 @@
   global.OfflineRaddlePack = {
     slotKeys: slotKeys,
     assembleCard: assembleCard,
+    lastFailure: function () { return lastFailure; },
   };
 })(typeof window !== 'undefined' ? window : globalThis);
