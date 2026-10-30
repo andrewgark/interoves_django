@@ -39,6 +39,7 @@ from games.puzzles.salad.rules import (
     extra_found_word,
     hint_numbers_from_attempts,
     length_label,
+    load_state,
     mask_for_word,
     result_square_for_hint_count,
     result_squares_for_state,
@@ -48,6 +49,7 @@ from games.puzzles.salad.rules import (
     theme_from_text,
     validate_task_data,
 )
+from games.puzzles.salad.submission import WordSaladChecker
 from games.site.admin import TaskAdmin, WordSaladTaskForm
 from games.site.pages.play.page import task_group_page
 from games.site.views.game.attempt import check_attempt
@@ -1308,6 +1310,49 @@ class WordSaladTests(TestCase):
         )
         self.assertEqual(ui['rare_words'], [])
         self.assertEqual(ui['extra_words'], ['ABCD'])
+
+
+class WordSaladManyWordsTests(SimpleTestCase):
+    """Word indices are not grid cells: a salad may have more than 16 words."""
+
+    DATA = json.dumps({
+        'grid': list('IGTEQAIOOBOZBOSA'),
+        'words': [
+            'GQ', 'GT', 'AZ', 'ZI', 'IE', 'EOO', 'QOOO', 'AZO', 'IQBA',
+            'IAG', 'OOT', 'IOOSOO', 'BOOBS', 'AT', 'AIB', 'AOA', 'EIA',
+        ],
+    })
+
+    def test_seventeenth_word_stays_solved_and_hinted(self):
+        state = json.dumps({
+            'solved_indices': list(range(16)),
+            'hint_counts': {'16': 3},
+            'active': [3, 5, 6],
+        })
+        result = WordSaladChecker(self.DATA, state).check(
+            json.dumps({'action': 'solve', 'path': [3, 6, 5]}), None,
+        )
+        self.assertEqual(result.status, 'Ok')
+        saved = load_state(result.state)
+        self.assertEqual(saved['solved_indices'], list(range(17)))
+        self.assertEqual(saved['hint_counts'], {16: 3})
+        self.assertEqual(saved['hints'], [16])
+
+
+class WordSaladDigitsTests(SimpleTestCase):
+    def test_digits_count_as_word_characters(self):
+        self.assertEqual(mask_for_word('Ту-154', reveal_count=3), 'ТУ-1⬜⬜')
+        self.assertEqual(length_label('Ту-154'), '(2-3)')
+
+    def test_word_with_digits_is_solved_by_path(self):
+        grid = '1 2 3 4\n8 7 6 5\n9 0 А Б\nЕ Д Г В'
+        checker_data = serialize_task_data(grid, '1234567890АБВГДЕ')
+        self.assertEqual(json.loads(checker_data)['grid'][:10], list('1234876590'))
+        path = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12]
+        result = WordSaladChecker(checker_data).check(
+            json.dumps({'action': 'solve', 'path': path}), None,
+        )
+        self.assertEqual(result.status, 'Ok')
 
 
 class AttemptPrettyTextTests(SimpleTestCase):

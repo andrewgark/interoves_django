@@ -6,7 +6,7 @@ import csv
 import io
 import re
 
-LETTER_RE = re.compile(r'[А-ЯЁA-Z]', re.IGNORECASE)
+LETTER_RE = re.compile(r'[А-ЯЁA-Z0-9]', re.IGNORECASE)
 
 
 def _cell_letter(raw: str) -> str:

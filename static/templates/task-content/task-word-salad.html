@@ -80,7 +80,7 @@
                   {% for ch in word.mask_chars %}
                     {% if ch == '⬜' %}
                       <span class="new-word-salad__glyph is-blank" aria-hidden="true">⬜</span>
-                    {% elif ch.isalpha %}
+                    {% elif ch.isalnum %}
                       <span class="new-word-salad__glyph">{{ ch }}</span>
                     {% else %}
                       <span class="new-word-salad__separator">{{ ch }}</span>
@@ -99,7 +99,7 @@
                   {% for ch in word.mask_chars %}
                     {% if ch == '⬜' %}
                       <span class="new-word-salad__glyph is-blank" aria-hidden="true">⬜</span>
-                    {% elif ch.isalpha %}
+                    {% elif ch.isalnum %}
                       <span class="new-word-salad__glyph">{{ ch }}</span>
                     {% else %}
                       <span class="new-word-salad__separator">{{ ch }}</span>

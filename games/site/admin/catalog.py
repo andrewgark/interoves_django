@@ -268,7 +268,7 @@ class WordSaladTaskForm(ModelForm):
         required=False,
         label='Word Salad grid',
         widget=Textarea(attrs={'rows': 4, 'cols': 20}),
-        help_text='4 строки по 4 буквы или 16 букв подряд. Ё приравнивается к Е.',
+        help_text='4 строки по 4 буквы или 16 букв подряд; цифры тоже можно. Ё приравнивается к Е.',
     )
     word_salad_words_text = forms.CharField(
         required=False,

@@ -1,7 +1,7 @@
 (function (global) {
   'use strict';
 
-  var LETTER_RE = /[А-ЯЁA-Z]/g;
+  var LETTER_RE = /[А-ЯЁA-Z0-9]/g;
   var CELL_COUNT = 16;
 
   function normalizeLetter(value) {
@@ -10,7 +10,7 @@
   }
 
   function normalizeWord(value) {
-    return String(value || '').toUpperCase().replace(/Ё/g, 'Е').replace(/[^А-ЯA-Z]/g, '');
+    return String(value || '').toUpperCase().replace(/Ё/g, 'Е').replace(/[^А-ЯA-Z0-9]/g, '');
   }
 
   function parseGrid(value) {
@@ -145,7 +145,7 @@
     }
     var normalized = words.map(normalizeWord);
     if (normalized.some(function (word) { return !word; })) {
-      errors.push('Каждая строка слов должна содержать буквы.');
+      errors.push('Каждая строка слов должна содержать буквы или цифры.');
       return { ok: false, errors: errors, missingWords: missingWords, removableCells: removableCells };
     }
     if (new Set(normalized).size !== normalized.length) {
@@ -173,7 +173,7 @@
     var rares = parseWords(rareWordsValue);
     var rareNormalized = rares.map(normalizeWord);
     if (rareNormalized.some(function (word) { return !word; })) {
-      errors.push('Каждая строка редких слов должна содержать буквы.');
+      errors.push('Каждая строка редких слов должна содержать буквы или цифры.');
     } else if (new Set(rareNormalized).size !== rareNormalized.length) {
       errors.push('Редкие слова не должны повторяться.');
     } else {

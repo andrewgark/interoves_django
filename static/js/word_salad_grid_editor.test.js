@@ -45,6 +45,18 @@ assert.ok(editorControls.every(function (button) { return button.disabled; }));
 editorApi.destroy();
 
 assert.strictEqual(Editor.normalizeWord('ёлка'), 'ЕЛКА');
+assert.strictEqual(Editor.normalizeWord('Ту-154'), 'ТУ154');
+var digitsValid = Editor.validateLive(
+  '1 2 3 4\n8 7 6 5\n9 0 А Б\nГ В Д Е',
+  '1234567890АБВГДЕ'
+);
+assert.strictEqual(digitsValid.ok, false);
+assert.deepStrictEqual(digitsValid.missingWords, ['1234567890АБВГДЕ']);
+var digitsGrid = Editor.validateLive(
+  '1 2 3 4\n8 7 6 5\n9 0 А Б\nЕ Д Г В',
+  '1234567890АБВГДЕ'
+);
+assert.strictEqual(digitsGrid.ok, true, digitsGrid.errors.join('; '));
 assert.deepStrictEqual(
   Editor.parseGrid('B C D E\nI H G F\nJ K L M\nQ P O N'),
   ['B', 'C', 'D', 'E', 'I', 'H', 'G', 'F', 'J', 'K', 'L', 'M', 'Q', 'P', 'O', 'N']

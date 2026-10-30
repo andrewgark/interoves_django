@@ -12,7 +12,7 @@ from games.daily.page.section import WORD_SALAD_GAME_ID  # noqa: F401  (re-expor
 _EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'salad_valid_words.txt.gz'
 _LEGACY_EXTRA_NOUNS_PATH = Path(__file__).resolve().parent / 'word_salad_nouns.txt'
 
-WORD_RE = re.compile(r"[А-ЯЁA-Z]", re.IGNORECASE)
+WORD_RE = re.compile(r"[А-ЯЁA-Z0-9]", re.IGNORECASE)
 _TITLE_RE = re.compile(r'^(?:Словесный\s+)?Салат(?:ик)?\s*#\s*\d+$', re.IGNORECASE)
 WORD_POINTS = Decimal('1')
 HINT_PENALTY = Decimal('0.5')
@@ -33,7 +33,7 @@ _HINT_KEYCAPS = ('1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣
 
 
 def normalize_word(value):
-    """Keep only letters and normalize Ё → Е for comparisons."""
+    """Keep only letters and digits and normalize Ё → Е for comparisons."""
     return ''.join(WORD_RE.findall((value or '').upper())).replace('Ё', 'Е')
 
 
@@ -43,10 +43,10 @@ def parse_grid(value):
         for raw_cell in value:
             letters = WORD_RE.findall(str(raw_cell or '').upper())
             if len(letters) != 1:
-                raise ValueError('Каждая клетка сетки должна содержать ровно одну букву.')
+                raise ValueError('Каждая клетка сетки должна содержать ровно одну букву или цифру.')
             cells.append(letters[0])
     else:
-        cells = re.findall(r'[А-ЯЁA-Z]', (value or '').upper())
+        cells = WORD_RE.findall((value or '').upper())
     if len(cells) != 16:
         raise ValueError('Сетка должна содержать ровно 16 букв (4×4).')
     return [str(c).replace('Ё', 'Е').upper() for c in cells]
@@ -63,7 +63,7 @@ def parse_word_list(value, *, allow_empty=False, duplicate_error='Загадан
         raise ValueError('Добавьте хотя бы одно слово.')
     normalized = [normalize_word(word) for word in words]
     if any(not word for word in normalized):
-        raise ValueError('Каждая строка слов должна содержать буквы.')
+        raise ValueError('Каждая строка слов должна содержать буквы или цифры.')
     if len(set(normalized)) != len(normalized):
         raise ValueError(duplicate_error)
     return words
@@ -93,14 +93,14 @@ def default_state():
     }
 
 
-def _normalized_index_list(values, *, limit):
+def _normalized_index_list(values, *, limit=None):
     result = []
     for value in values or []:
         try:
             index = int(value)
         except (TypeError, ValueError):
             continue
-        if 0 <= index < limit:
+        if index >= 0 and (limit is None or index < limit):
             result.append(index)
     return sorted(set(result))
 
@@ -143,7 +143,7 @@ def load_state(raw):
             return state
     if not isinstance(data, dict):
         return state
-    state['solved_indices'] = _normalized_index_list(data.get('solved_indices') or data.get('solved'), limit=16)
+    state['solved_indices'] = _normalized_index_list(data.get('solved_indices') or data.get('solved'))
     hint_counts = {}
     raw_counts = data.get('hint_counts')
     if isinstance(raw_counts, dict):
@@ -155,7 +155,7 @@ def load_state(raw):
                 continue
             if index >= 0 and count > 0:
                 hint_counts[index] = count
-    for index in _normalized_index_list(data.get('hints'), limit=16):
+    for index in _normalized_index_list(data.get('hints')):
         hint_counts[index] = max(1, hint_counts.get(index, 0))
     state['hint_counts'] = hint_counts
     state['hints'] = sorted(hint_counts)
@@ -433,7 +433,7 @@ def mask_for_word(word, reveal_count=0, reveal_first=False):
     letter_index = 0
     result = []
     for ch in word.upper():
-        if ch.isalpha():
+        if WORD_RE.match(ch):
             letter = next(letters)
             if letter_index < reveal_count:
                 result.append(letter)

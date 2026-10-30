@@ -294,7 +294,7 @@
     return String(value || '')
       .toUpperCase()
       .replace(/Ё/g, 'Е')
-      .replace(/[^А-ЯA-Z]/g, '');
+      .replace(/[^А-ЯA-Z0-9]/g, '');
   }
 
   function offerShareFromPath(pathname) {
@@ -362,7 +362,7 @@
     Array.prototype.forEach.call(text, function (ch) {
       var span = document.createElement('span');
       var blank = ch === '⬜';
-      var isLetter = /[А-ЯЁA-Z]/i.test(ch);
+      var isLetter = /[А-ЯЁA-Z0-9]/i.test(ch);
       span.className = blank || isLetter
         ? 'new-word-salad__glyph' + (blank ? ' is-blank' : '')
         : 'new-word-salad__separator';
@@ -466,7 +466,7 @@
     var letterIndex = 0;
     var normalizedIndex = 0;
     return Array.prototype.map.call(String(answer || '').toUpperCase(), function (character) {
-      if (!/[А-ЯЁA-Z]/.test(character)) return character;
+      if (!/[А-ЯЁA-Z0-9]/.test(character)) return character;
       var letter = normalized.charAt(normalizedIndex++);
       return letterIndex++ < revealCount ? letter : '⬜';
     }).join('');
