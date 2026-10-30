@@ -2131,7 +2131,7 @@
           }
           finish();
           if (offlineMove && failure.reason !== 'forbidden') {
-            commitRaddleOfflineMove(offlineMove, form, input, row, wordIdx);
+            commitRaddleOfflineMove(offlineMove, form, input, row, wordIdx, { offline: true });
             return;
           }
           // Слово не ушло — снимаем блокировку, чтобы «Повторить» и Enter работали.
@@ -2150,11 +2150,14 @@
     raddleClientVerdict(form, wordIdx, postedWord).then(function (verdict) {
       clientVerdict = verdict;
       offlineMove = prepareRaddleOfflineMove(form, wordIdx, postedWord, verdict, clientEventId);
-      // Without the network, or while earlier offline moves still wait in the
-      // queue (order matters), the move goes to the queue and plays locally.
-      if (offlineMove && raddleMustQueue(offlineMove.taskId)) {
+      // With the pack the move plays at once on the assembled card and reaches
+      // the server through the queue, in order, without blocking the input.
+      // The server card replaces the local one when it disagrees (see
+      // finishRaddleOutboxScope).
+      if (offlineMove) {
         finish();
-        commitRaddleOfflineMove(offlineMove, form, input, row, wordIdx);
+        if (submitValue != null) raddleRequests.markSubmitted(flightKey, submitValue);
+        commitRaddleOfflineMove(offlineMove, form, input, row, wordIdx, { offline: navigator.onLine === false });
         return;
       }
       if (verdict === 'Wrong') {
@@ -2458,10 +2461,6 @@
     };
   }
 
-  function raddleMustQueue(taskId) {
-    return navigator.onLine === false || (!!raddleOutbox && raddleOutbox.size(taskId) > 0);
-  }
-
   // The queue entry and the response the server would give, or null when the
   // move cannot be played without the server.
   function prepareRaddleOfflineMove(form, wordIdx, word, verdict, clientEventId) {
@@ -2501,7 +2500,9 @@
     };
   }
 
-  function commitRaddleOfflineMove(move, form, input, row, wordIdx) {
+  // opts.offline: the move was made without the network (for telemetry).
+  function commitRaddleOfflineMove(move, form, input, row, wordIdx, opts) {
+    move.entry.offline = !!(opts && opts.offline);
     if (!raddleOutbox.add(move.entry)) {
       reportRaddleOffline('storage_failed', { error: 'outbox' }, true);
       showRaddleRequestError(liveRaddleForm(form) || form, input, { messageKey: 'network' });
@@ -2510,13 +2511,20 @@
     var live = raddleLiveElements(liveRaddleForm(form) || form, input, row);
     applyRaddleAttemptResponse(liveRaddleForm(form) || form, live.input, live.row, move.data, wordIdx);
     syncRaddleOfflineNote(raddleTaskRootById(move.taskId));
+    window.setTimeout(flushRaddleOutbox, 0);
   }
+
+  // Moves normally leave the queue within a second; the note appears only
+  // without the network or when a move has waited longer than that.
+  var RADDLE_QUEUE_STUCK_MS = 10000;
 
   function syncRaddleOfflineNote(taskRoot) {
     if (!taskRoot) return;
-    var waiting = raddleOutbox ? raddleOutbox.size(taskRoot.getAttribute('data-task-id')) : 0;
+    var entries = raddleOutbox ? raddleOutbox.entries(taskRoot.getAttribute('data-task-id')) : [];
+    var waiting = entries.length;
+    var stuck = entries.some(function (entry) { return Date.now() - (entry.at || 0) > RADDLE_QUEUE_STUCK_MS; });
     var note = taskRoot.querySelector('.new-raddle-offline-note');
-    if (!waiting) {
+    if (!waiting || (navigator.onLine !== false && !stuck)) {
       if (note) note.parentNode.removeChild(note);
       return;
     }
@@ -2550,9 +2558,58 @@
       if (!r.ok) return 'retry';
       return r.json().then(function (data) {
         flushAnalyticsEvents(data);
+        noteRaddleQueuedResponse(entry, data);
         return 'sent';
       }, function () { return 'retry'; });
     }, function () { return 'retry'; });
+  }
+
+  // Per task, what the server answered to the queued moves of this flush.
+  var raddleFlushOutcome = Object.create(null);
+
+  function noteRaddleQueuedResponse(entry, data) {
+    var outcome = raddleFlushOutcome[entry.scope] || (raddleFlushOutcome[entry.scope] = {
+      diverged: false, html: null, complete: false, offline: 0,
+    });
+    if (entry.offline) outcome.offline += 1;
+    var html = data && data.update_task_html_new ? data.update_task_html_new[entry.scope] : null;
+    if (html) {
+      outcome.html = html;
+      outcome.complete = html.indexOf('data-raddle-result') !== -1;
+      // Kept at once: a reload without the network rebuilds from this card
+      // plus the moves still queued (restoreRaddleOfflineProgress).
+      saveRaddleOffline(entry.scope, { card: html });
+    }
+    var verdict = null;
+    entry.fields.forEach(function (pair) { if (pair[0] === 'client_verdict') verdict = pair[1]; });
+    var status = data && data.status;
+    var serverOk = !!(data && (data.raddle_correct === true
+      || (status === 'duplicate' && data.raddle_duplicate_solved === true)));
+    if ((status !== 'ok' && status !== 'duplicate') || (data && data.raddle_needs_sync)
+        || (verdict && (verdict === 'Ok') !== serverOk)) {
+      outcome.diverged = true;
+    }
+  }
+
+  // The queue of taskId is empty: settle the card with the server's view.
+  function finishRaddleOutboxScope(taskId) {
+    var outcome = raddleFlushOutcome[taskId];
+    delete raddleFlushOutcome[taskId];
+    if (!outcome) return null;
+    if (outcome.offline) reportRaddleOffline('queue_synced', { task_id: taskId, count: outcome.offline });
+    // The server disagreed with what the page played: its state wins.
+    if (outcome.diverged) return refreshRaddleCardFromServer(taskId);
+    if (!outcome.html) return null;
+    var taskRoot = raddleTaskRootById(taskId);
+    // The local card matches the server; take the server's only when it adds
+    // what the pack cannot know (the result with its time), or when the page
+    // still shows a server card older than the queued moves.
+    if (outcome.complete || !taskRoot || !taskRoot.hasAttribute('data-offline-assembled')) {
+      var map = {};
+      map[taskId] = outcome.html;
+      applyNewUiTaskHtml(map);
+    }
+    return null;
   }
 
   // After the queue is sent, the server's card replaces the local one.
@@ -2602,9 +2659,8 @@
         return window.InterovesOutbox.flush(raddleOutbox, taskId, sendQueuedRaddleMove);
       }).then(function (result) {
         left += result.left;
-        if (result.sent) reportRaddleOffline('queue_synced', { task_id: taskId, count: result.sent });
         syncRaddleOfflineNote(raddleTaskRootById(taskId));
-        if (!result.left && (result.sent || result.dropped)) return refreshRaddleCardFromServer(taskId);
+        if (!result.left && raddleOutbox.size(taskId) === 0) return finishRaddleOutboxScope(taskId);
         return null;
       }).catch(function () {});
     });
@@ -2623,6 +2679,11 @@
   }
 
   window.addEventListener('online', flushRaddleOutbox);
+  function syncAllRaddleOfflineNotes() {
+    document.querySelectorAll('.new-raddle-task').forEach(syncRaddleOfflineNote);
+  }
+  window.addEventListener('offline', syncAllRaddleOfflineNotes);
+  window.setInterval(syncAllRaddleOfflineNotes, 5000);
   window.addEventListener('online', scheduleRaddleTelemetry);
   window.setTimeout(scheduleRaddleTelemetry, 5000);
   window.setInterval(flushRaddleOutbox, 20000);
