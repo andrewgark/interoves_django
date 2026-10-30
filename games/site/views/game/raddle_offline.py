@@ -20,7 +20,7 @@ from games.gameplay.policy import resolve_capabilities
 from games.models import Attempt, GameTaskGroup
 from games.puzzles.raddle.engine import resolve_assist_tiers
 from games.puzzles.raddle.offline_pack import build_pack
-from games.puzzles.raddle.puzzle import raddle_board_source
+from games.puzzles.raddle.puzzle import offline_run, raddle_board_source
 from games.puzzles.raddle.transition import rules_config
 from games.site.http.exceptions import NoGameAccessException
 from games.site.http.request_util import get_public_task_or_404
@@ -63,6 +63,7 @@ def ladder_offline_pack(request, ctx, mode, *, offline_timing=False):
         **pieces,
         'task_id': task.id,
         'revision': str(task.attempt_revision),
+        'run': offline_run(ctx.replay_slot),
         'state': {key: source.state.get(key) or [] for key in ('solved_indices', 'used_hints')},
         'rules': rules_config(source.parsed),
         'spec': client_spec_for_task(task),

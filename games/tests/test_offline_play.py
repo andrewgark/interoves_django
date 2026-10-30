@@ -3,6 +3,7 @@ import html
 import json
 import re
 import uuid
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from django.core.cache import caches
@@ -11,6 +12,7 @@ from django.test import override_settings
 from games.gameplay.policy import NO_CAPABILITIES, resolve_capabilities
 from games.models import OfflinePlayRule, Team
 from games.puzzles.core.client_spec import verify_word
+from games.puzzles.raddle.puzzle import offline_run
 from games.tests.test_client_event_receipts import _ClientEventFixture
 
 SPEC_ATTR = re.compile(r'data-offline-spec="([^"]*)"')
@@ -172,3 +174,13 @@ class LadderOfflinePackEndpointTests(_ClientEventFixture):
         self.assertIn('2', pack['last_word'])
         self.assertIn('new-raddle-result', pack['result'])
         self.assertIn('data-raddle-unused-clues', pack['sections']['unused'])
+
+    def test_pack_and_card_name_their_run(self):
+        # The official game and its replays share the task revision; the page
+        # keeps a pack only for the run it was built for.
+        OfflinePlayRule.objects.create(game=self.game, instant_verdict=True, offline_attempts=True)
+        pack = self._pack()['pack']
+        self.assertEqual(pack['run'], 'official')
+        self.assertIn('data-offline-run="official"', pack['card_html'])
+        run_id = uuid.uuid4()
+        self.assertEqual(offline_run(SimpleNamespace(run_id=run_id)), str(run_id))

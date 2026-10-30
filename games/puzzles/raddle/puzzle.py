@@ -293,8 +293,17 @@ def prepare_raddle_board_data(
         task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key,
     )
     if offline is not None:
-        data['offline'] = offline
+        data['offline'] = {**offline, 'run': offline_run(replay_slot)}
     return data
+
+
+def offline_run(replay_slot):
+    """Which run an offline pack belongs to: the official game or one replay.
+
+    The official game and every replay share the task revision, but a pack
+    built for one run lacks the pieces of another.
+    """
+    return str(replay_slot.run_id) if replay_slot is not None else 'official'
 
 
 def player_hints(hints):

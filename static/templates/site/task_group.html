@@ -2369,7 +2369,7 @@
     var taskId = taskRoot.getAttribute('data-task-id');
     var stored = loadRaddleOffline(taskId);
     if (!stored || !stored.pack || !raddleOutbox) return;
-    if (stored.pack.revision !== taskRoot.getAttribute('data-raddle-storage-revision')) return;
+    if (!raddlePackFits(stored.pack, taskRoot)) return;
     var pack = stored.pack;
     raddleOfflinePacks[taskId] = pack;
     window.setTimeout(function () { allowRaddleOfflineTiming(pack); }, 0);
@@ -2422,13 +2422,20 @@
     }).then(function (r) { return r.ok ? r.json() : null; });
   }
 
+  // A pack belongs to one run: the official game and every replay share the
+  // task revision, but a pack built for another run lacks this run's pieces.
+  function raddlePackFits(pack, taskRoot) {
+    return !!pack
+      && pack.revision === taskRoot.getAttribute('data-raddle-storage-revision')
+      && pack.run === taskRoot.getAttribute('data-offline-run');
+  }
+
   function loadRaddleOfflinePack(taskRoot) {
     var url = taskRoot.getAttribute('data-offline-pack-url');
     var taskId = taskRoot.getAttribute('data-task-id');
     if (!url || !taskId || !raddleOutbox || navigator.onLine === false) return;
     var known = raddleOfflinePacks[taskId];
-    if ((known && known.revision === taskRoot.getAttribute('data-raddle-storage-revision'))
-        || raddleOfflinePackLoading[taskId]) return;
+    if ((known && raddlePackFits(known, taskRoot)) || raddleOfflinePackLoading[taskId]) return;
     raddleOfflinePackLoading[taskId] = true;
     fetchRaddleOfflinePack(taskId, url)
       .then(function (data) {
@@ -2478,7 +2485,7 @@
     var pack = taskId ? raddleOfflinePacks[taskId] : null;
     var taskRoot = taskId ? raddleTaskRootById(taskId) : null;
     if (!pack || !taskRoot || !raddleOutbox || !verdict || !window.OfflineRaddleRules) return null;
-    if (pack.revision !== taskRoot.getAttribute('data-raddle-storage-revision')) return null;
+    if (!raddlePackFits(pack, taskRoot)) return null;
     var index = Number(wordIdx);
     var data = { status: 'ok', task_id: Number(taskId), raddle_correct: false, raddle_word_index: index };
     if (verdict === 'Ok') {
