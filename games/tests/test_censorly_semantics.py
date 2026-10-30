@@ -845,6 +845,8 @@ class SemanticsTests(SimpleTestCase):
 
         expected = {
             'архитектура': 'root:architecture',
+            # A reviewed lexicalized compound: one whole root, not авто+мобиль.
+            'автомобиль': 'root:автомобиль',
             'вспомнить': 'fam:мин¹|мн|мя²',
             'гладиатор': 'root:gladiator',
             'горестный': 'fam:гар|гор²',
@@ -874,9 +876,7 @@ class SemanticsTests(SimpleTestCase):
 
         # Multi-component or ambiguous Tikhonov analyses remain unresolved;
         # the audit must not turn a component resemblance into a root.
-        for lemma in ('автомобиль', 'духовенство'):
-            with self.subTest(lemma=lemma):
-                self.assertEqual(structures_of(lemma), ())
+        self.assertEqual(structures_of('духовенство'), ())
 
     def test_numeric_forms_share_numeral_roots(self):
         from games.puzzles.censorly.lexical.match.rootbank import structures_of

@@ -244,10 +244,10 @@ def _personal_comparison(value, median_value, others):
     if value is None or median_value is None:
         return None
     out = {'value': value, 'median': median_value, 'better_percent': None, 'best': False}
-    # ``others`` contains only participants in the public statistics cohort.
-    # The requesting player may be excluded from that cohort and still be
-    # compared against it; hidden participants never enter these maps.
-    if others and len(others) >= RANKING_MIN_SOLVED:
+    # ``others`` is None when the player is outside the public cohort (hidden,
+    # author, pre-publication): their result still compares with the median,
+    # but is not ranked against the cohort.
+    if others and len(others) + 1 >= RANKING_MIN_SOLVED:
         worse = sum(1 for other in others if other > value)
         if worse == len(others):
             out['best'] = True
@@ -283,13 +283,15 @@ def personal_statistics(payload, *, actor_key, personal_time_seconds, personal_a
     times = ranking.get('times') or {}
     comparison = {'time': _personal_comparison(
         personal_time_seconds, summary.get('median_time_seconds'),
-        [seconds for key, seconds in times.items() if key != actor_key],
+        [seconds for key, seconds in times.items() if key != actor_key]
+        if actor_key in times else None,
     )}
     if 'median_attempts' in summary:
         attempts = ranking.get('attempts') or {}
         attempt_comparison = _personal_comparison(
             attempts.get(actor_key, personal_attempts), summary.get('median_attempts'),
-            [count for key, count in attempts.items() if key != actor_key],
+            [count for key, count in attempts.items() if key != actor_key]
+            if actor_key in attempts else None,
         )
         if attempt_comparison is not None:
             attempt_comparison['perfect'] = actor_key in (ranking.get('perfect') or ())

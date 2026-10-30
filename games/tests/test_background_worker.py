@@ -126,7 +126,10 @@ class BackgroundWorkerTests(SimpleTestCase):
                 ) as refresh:
                     response = self._post(_body(type=message_type, scheduled_for=scheduled))
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.json(), {'status': 'ok', 'refreshed': 2})
+                # YooKassa renewals ride on the same tick; recurring is off in tests.
+                self.assertEqual(response.json(), {
+                    'status': 'ok', 'refreshed': 2, 'club_renewals': {'status': 'disabled'},
+                })
                 refresh.assert_called_once_with(worker='background:minute:message-1')
                 self.assertEqual(lock.calls, [('daily_difficulty_refresh', 600)])
 
