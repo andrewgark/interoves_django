@@ -144,6 +144,9 @@ class _WikiExtractHTMLParser(HTMLParser):
         self.skip_depth = 0
         self.heading_level: int | None = None
         self.definition_term_active = False
+        # First part index of each open <li>/<dt>/<dd>, after its marker's
+        # line break: an item left with only its marker is dropped on close.
+        self.item_starts: list[int] = []
         self.quote_depth = 0
         # One entry per open kept div: the block it opened ('quote', 'box',
         # 'details', 'summary') or ''.
@@ -329,6 +332,7 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.list_markers.append('*' if tag == 'ul' else '#')
         elif tag == 'li':
             self._ensure_newlines(1)
+            self.item_starts.append(len(self.parts))
             if 'data' in self.tables:
                 self.parts.append('• ')
             else:
@@ -338,10 +342,12 @@ class _WikiExtractHTMLParser(HTMLParser):
         elif tag == 'dt':
             # A term opens a group: a paragraph of its own with its descriptions.
             self._ensure_newlines(2)
+            self.item_starts.append(len(self.parts))
             self.parts.append('; ')
             self.definition_term_active = True
         elif tag == 'dd':
             self._ensure_newlines(1)
+            self.item_starts.append(len(self.parts))
             self.parts.append(': ' if self.definition_term_active else '')
             self.definition_term_active = False
         elif tag == 'br':
@@ -427,13 +433,23 @@ class _WikiExtractHTMLParser(HTMLParser):
             self._ensure_newlines(2)
         elif tag in {'p', 'div'}:
             self._ensure_newlines(2)
-        elif tag == 'li':
+        elif tag in {'li', 'dt', 'dd'}:
+            self._drop_empty_item()
             self._ensure_newlines(1)
         elif tag in {'ul', 'ol'} and self.list_markers:
             self.list_markers.pop()
             self._ensure_newlines(1)
-        elif tag in {'dt', 'dd'}:
-            self._ensure_newlines(1)
+
+    def _drop_empty_item(self) -> None:
+        # ru.wikipedia renders a stray `*` line as <li class="mw-empty-elt">
+        # and a bare `;` as an empty <dt>; left in, they show as lone markers.
+        if not self.item_starts:
+            return
+        start = self.item_starts.pop()
+        if start > len(self.parts):
+            return
+        if not ''.join(self.parts[start:]).strip(' \n*#;:•'):
+            del self.parts[start:]
 
     def _drop_box_without_prose(self, start: int) -> None:
         text = ''.join(self.parts[start:])

@@ -1507,6 +1507,28 @@ class CensorlyWikiHelperTests(TestCase):
             5,
         )
 
+    def test_html_extract_drops_empty_list_items_and_terms(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        # «Компьютерная мышь»: stray `*` lines and a bare `;` render as
+        # <li class="mw-empty-elt"> and an empty <dt>.
+        html = (
+            '<dl><dt>Достоинства</dt></dl>'
+            '<ul><li>Низкая цена;</li>\n<li>Высокая точность.</li>\n'
+            '<li class="mw-empty-elt"></li>\n<li class="mw-empty-elt"></li></ul>\n'
+            '<dl><dt></dt>\n<dt>Недостатки</dt></dl>'
+            '<ul><li>Нужна ровная поверхность.</li></ul>'
+        )
+
+        self.assertEqual(
+            clean_wiki_extract(_html_extract_to_text(html)),
+            'Достоинства\u2028'
+            '• Низкая цена;\u2028'
+            '• Высокая точность.\n\n'
+            'Недостатки\u2028'
+            '• Нужна ровная поверхность.',
+        )
+
     def test_wikipedia_bullet_lists_keep_each_item_on_its_own_line(self):
         from games.puzzles.censorly.article.wiki import clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import tokenize_text
