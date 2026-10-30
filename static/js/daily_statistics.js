@@ -322,15 +322,27 @@
     if (root.__dailyStatisticsBooted) return;
     root.__dailyStatisticsBooted = true;
     var requested = false;
+    var staleRetries = 3;
+    function load() {
+      fetch(root.getAttribute('data-statistics-url'), {credentials: 'same-origin', headers: {'X-Requested-With': 'XMLHttpRequest'}})
+        .then(function (response) { if (!response.ok) throw new Error('statistics unavailable'); return response.json(); })
+        .then(function (data) {
+          render(root, data);
+          // A just-finished player may get the previous cached generation;
+          // ask again so the cohort figures and achievements include them.
+          if (data._stale && staleRetries > 0 && root.isConnected) {
+            staleRetries -= 1;
+            window.setTimeout(load, 2500);
+          }
+        })
+        .catch(function () { requested = false; });
+    }
     function tryLoad() {
       if (!root.isConnected) return;
       var result = document.querySelector('[data-raddle-result]:not([hidden])');
       if (!result || requested) return;
       requested = true;
-      fetch(root.getAttribute('data-statistics-url'), {credentials: 'same-origin', headers: {'X-Requested-With': 'XMLHttpRequest'}})
-        .then(function (response) { if (!response.ok) throw new Error('statistics unavailable'); return response.json(); })
-        .then(function (data) { render(root, data); })
-        .catch(function () { requested = false; });
+      load();
     }
     tryLoad();
     var timer = window.setInterval(tryLoad, 300);

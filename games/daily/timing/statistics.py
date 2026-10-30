@@ -275,26 +275,73 @@ def personal_attempt_count(game, task_group, *, actor_key):
     return rows.count()
 
 
-def personal_statistics(payload, *, actor_key, personal_time_seconds, personal_attempts=None):
-    """Public statistics payload with the requesting player's comparisons."""
+def personal_in_cohort(game, task_group, *, actor_key, published_at=None):
+    """Whether the player counts in the public statistics cohort right now."""
+    return actor_key in _completed_actors(
+        game, task_group, published_at=published_at, only_keys=[actor_key],
+    )
+
+
+def personal_censorly_perfect(game, task_group, *, actor_key, attempts):
+    """Same «perfect» rule as ``_censorly`` for a cohort player missing from its ranking.
+
+    A just-finished player is absent while the previous cached generation is
+    still served, so their perfect solve is checked on its own.
+    """
+    from games.puzzles.censorly.play import hint_count, load_state, minimal_title_attempts, puzzle_from_task
+
+    if not attempts:
+        return False
+    task = Task.objects.filter(
+        task_group=task_group, task_type='censorly',
+    ).order_by('id').first()
+    if task is None:
+        return False
+    actors = [actor_key]
+    state = _chain_states(task, game, actors).get(actor_key)
+    if state is None:
+        state = _latest_attempt_states(task, game, actors, ('Ok', 'Partial', 'Wrong')).get(actor_key)
+    if hint_count(load_state(state)) != 0:
+        return False
+    try:
+        minimum_attempts = minimal_title_attempts(puzzle_from_task(task) or {}, task=task)
+    except Exception:
+        logger.warning('censorly_minimal_attempts_failed task=%s', task.pk, exc_info=True)
+        return False
+    return bool(minimum_attempts) and attempts <= minimum_attempts
+
+
+def personal_statistics(payload, *, actor_key, personal_time_seconds, personal_attempts=None,
+                        personal_perfect=False, in_cohort=None):
+    """Public statistics payload with the requesting player's comparisons.
+
+    ``in_cohort`` tells a just-finished player, missing from a stale cached
+    ranking but still ranked, from one outside the public cohort. When it is
+    None, presence in the ranking decides.
+    """
     ranking = payload.get(RANKING_KEY) or {}
     summary = payload.get('summary') or {}
     public = {key: value for key, value in payload.items() if key != RANKING_KEY}
     times = ranking.get('times') or {}
+
+    def ranked_against(values):
+        ranked = actor_key in values if in_cohort is None else in_cohort
+        return [value for key, value in values.items() if key != actor_key] if ranked else None
+
     comparison = {'time': _personal_comparison(
-        personal_time_seconds, summary.get('median_time_seconds'),
-        [seconds for key, seconds in times.items() if key != actor_key]
-        if actor_key in times else None,
+        personal_time_seconds, summary.get('median_time_seconds'), ranked_against(times),
     )}
     if 'median_attempts' in summary:
         attempts = ranking.get('attempts') or {}
         attempt_comparison = _personal_comparison(
             attempts.get(actor_key, personal_attempts), summary.get('median_attempts'),
-            [count for key, count in attempts.items() if key != actor_key]
-            if actor_key in attempts else None,
+            ranked_against(attempts),
         )
         if attempt_comparison is not None:
-            attempt_comparison['perfect'] = actor_key in (ranking.get('perfect') or ())
+            if actor_key in attempts:
+                attempt_comparison['perfect'] = actor_key in (ranking.get('perfect') or ())
+            else:
+                attempt_comparison['perfect'] = bool(in_cohort and personal_perfect)
             if payload.get('kind') == 'alphabet' and attempt_comparison['value'] == 1:
                 # The first guess carries no information, so a one-guess
                 # Алфавитка is luck or a peek: compare it, do not praise it.
@@ -413,11 +460,14 @@ def _results_actor(row):
     return None
 
 
-def _completed_actors(game, task_group, published_at=None):
-    rows = list(PlayerCompletedGame.objects.filter(
+def _completed_actors(game, task_group, published_at=None, only_keys=None):
+    rows = PlayerCompletedGame.objects.filter(
         game=game, task_group=task_group,
         result=PlayerCompletedGame.RESULT_SOLVED,
-    ).select_related('team').only('team_id', 'user_id', 'anon_key', 'team'))
+    )
+    if only_keys is not None:
+        rows = rows.filter(_actor_q(only_keys))
+    rows = list(rows.select_related('team').only('team_id', 'user_id', 'anon_key', 'team'))
     from games.results.standings.leaderboard import actor_key, eligible_public_actors
 
     actor_pairs = [

@@ -25,6 +25,8 @@ from games.daily.timing.statistics import (
     cache_key,
     invalidate_daily_statistics,
     personal_attempt_count,
+    personal_censorly_perfect,
+    personal_in_cohort,
     personal_statistics,
 )
 from games.models import (
@@ -726,6 +728,15 @@ class DailyStatisticsTests(TestCase):
         })
         self.assertEqual(ranking['perfect'], {('user', self.users[0].id)})
 
+        # The same rule for a player the cached ranking does not include yet.
+        self.assertEqual([
+            personal_censorly_perfect(game, tg, actor_key=('user', user.id), attempts=count)
+            for user, count in zip(self.users, (1, 2, 1))
+        ], [True, False, False])
+        self.assertTrue(personal_in_cohort(game, tg, actor_key=('user', self.users[0].id)))
+        Profile.objects.create(user=self.users[0], first_name='Hidden', last_name='Player', is_hidden=True)
+        self.assertFalse(personal_in_cohort(game, tg, actor_key=('user', self.users[0].id)))
+
     def test_ladder_uses_success_order_and_active_intervals(self):
         game = Game.objects.filter(id='ladder', project=self.project).first()
         if game is None:
@@ -935,6 +946,47 @@ class PersonalStatisticsTests(TestCase):
             [(item['code'], item['emoji'], item['text']) for item in data['achievements']],
             [('fastest', '⚡️', 'Быстрее всех!'), ('perfect', '🎯', 'Без лишних попыток!')],
         )
+
+    def test_cohort_player_missing_from_a_stale_ranking_is_still_ranked(self):
+        times = self._others(range(40, 130, 10))
+        payload = self._payload(times, self._others([3] * 9))
+
+        perfect = personal_statistics(
+            payload, actor_key=self.me, personal_time_seconds=85,
+            personal_attempts=1, personal_perfect=True, in_cohort=True,
+        )
+        fastest = personal_statistics(
+            payload, actor_key=self.me, personal_time_seconds=20,
+            personal_attempts=2, in_cohort=True,
+        )
+
+        self.assertTrue(perfect['comparison']['attempts']['perfect'])
+        self.assertEqual(perfect['comparison']['time']['better_percent'], 44)
+        self.assertEqual([item['code'] for item in perfect['achievements']], ['perfect'])
+        self.assertEqual([item['code'] for item in fastest['achievements']], ['fastest', 'fewest_attempts'])
+
+    def test_player_outside_the_cohort_gets_no_achievements_even_if_perfect(self):
+        times = self._others(range(40, 130, 10))
+
+        data = personal_statistics(
+            self._payload(times, self._others([3] * 9)), actor_key=self.me,
+            personal_time_seconds=20, personal_attempts=1, personal_perfect=True, in_cohort=False,
+        )
+
+        self.assertFalse(data['comparison']['time']['best'])
+        self.assertFalse(data['comparison']['attempts']['perfect'])
+        self.assertEqual(data['achievements'], [])
+
+    def test_the_ranking_decides_once_it_includes_the_player(self):
+        times = {self.me: 85, **self._others(range(40, 130, 10))}
+        attempts = {self.me: 1, **self._others([3] * 9)}
+
+        data = personal_statistics(
+            self._payload(times, attempts, perfect=[self.me]), actor_key=self.me,
+            personal_time_seconds=85, in_cohort=True,
+        )
+
+        self.assertTrue(data['comparison']['attempts']['perfect'])
 
     def test_fewest_attempts_but_no_praise_for_a_one_guess_alphabet(self):
         times = {self.me: 90, **self._others(range(40, 130, 10))}

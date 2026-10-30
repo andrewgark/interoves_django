@@ -164,28 +164,57 @@ def daily_statistics(request, game_id, number):
         attempts=legacy_attempts,
         timing_row=timing_row,
     )
-    from games.daily.timing.statistics import RANKING_KEY, personal_attempt_count, personal_statistics
+    from games.daily.timing.statistics import (
+        RANKING_KEY,
+        personal_attempt_count,
+        personal_censorly_perfect,
+        personal_in_cohort,
+        personal_statistics,
+    )
     actor_key = (
         ('user', request.user.id) if request.user.is_authenticated
         else ('anon', str(anon_key))
     )
+    ranking = payload.get(RANKING_KEY) or {}
+    with_attempts = 'median_attempts' in (payload.get('summary') or {})
+    ranked_maps = [ranking.get('times') or {}]
+    if with_attempts:
+        ranked_maps.append(ranking.get('attempts') or {})
+    in_cohort = None
+    if any(actor_key not in values for values in ranked_maps):
+        # Either outside the public cohort or newer than a cached generation.
+        in_cohort = personal_in_cohort(
+            game, placement.task_group, actor_key=actor_key, published_at=published_at,
+        )
     personal_attempts = None
-    if (
-        'median_attempts' in (payload.get('summary') or {})
-        and actor_key not in ((payload.get(RANKING_KEY) or {}).get('attempts') or {})
-    ):
+    personal_perfect = False
+    if with_attempts and actor_key not in (ranking.get('attempts') or {}):
         personal_attempts = personal_attempt_count(
             game, placement.task_group, actor_key=actor_key,
         )
+        if in_cohort and payload.get('kind') == 'censorly':
+            personal_perfect = personal_censorly_perfect(
+                game, placement.task_group, actor_key=actor_key, attempts=personal_attempts,
+            )
     payload = {
         **personal_statistics(
             payload,
             actor_key=actor_key,
             personal_time_seconds=personal_time_seconds,
             personal_attempts=personal_attempts,
+            personal_perfect=personal_perfect,
+            in_cohort=in_cohort,
         ),
         'personal_time_seconds': personal_time_seconds,
     }
+    # A counted player missing from the cohort figures: let the client ask again.
+    # The time map may lack an old solve without timing, so it alone decides
+    # only when there is no attempts map and the player has a time.
+    if in_cohort and (
+        actor_key not in ranked_maps[-1] if with_attempts
+        else personal_time_seconds is not None and actor_key not in ranked_maps[0]
+    ):
+        payload['_stale'] = True
     notice = _public_exclusion_notice(
         request, game, placement.task_group, surface='statistics',
     )
