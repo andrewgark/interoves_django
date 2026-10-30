@@ -9,12 +9,16 @@ switch, and team play stays online.
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import caches
 
 from games.models.offline import RULES_CACHE_KEY, OfflinePlayRule
+
+cache = caches['offline_play']
+logger = logging.getLogger('games.offline')
 
 RULES_CACHE_SECONDS = 300
 
@@ -30,8 +34,17 @@ class OfflineCapabilities:
 NO_CAPABILITIES = OfflineCapabilities()
 
 
+def _cached_rules():
+    try:
+        return cache.get(RULES_CACHE_KEY)
+    except Exception:
+        # The cache is an optimization; a Redis outage must not break pages.
+        logger.exception('event=offline_play_rules_cache_failed')
+        return None
+
+
 def _rules():
-    rules = cache.get(RULES_CACHE_KEY)
+    rules = _cached_rules()
     if rules is None:
         rules = [
             {
@@ -48,7 +61,10 @@ def _rules():
             }
             for rule in OfflinePlayRule.objects.filter(enabled=True)
         ]
-        cache.set(RULES_CACHE_KEY, rules, RULES_CACHE_SECONDS)
+        try:
+            cache.set(RULES_CACHE_KEY, rules, RULES_CACHE_SECONDS)
+        except Exception:
+            logger.exception('event=offline_play_rules_cache_failed')
     return rules
 
 

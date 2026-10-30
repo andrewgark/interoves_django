@@ -1,7 +1,12 @@
 """Which parts of client-side and offline play are enabled, and where."""
 
-from django.core.cache import cache
+import logging
+
+from django.core.cache import caches
 from django.db import models
+
+cache = caches['offline_play']
+logger = logging.getLogger('games.offline')
 
 # games.gameplay.policy caches the enabled rules under this key.
 RULES_CACHE_KEY = 'offline_play_rules:v1'
@@ -56,13 +61,21 @@ class OfflinePlayRule(models.Model):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
-        cache.delete(RULES_CACHE_KEY)
+        _forget_cached_rules()
 
     def delete(self, *args, **kwargs):
         result = super().delete(*args, **kwargs)
-        cache.delete(RULES_CACHE_KEY)
+        _forget_cached_rules()
         return result
 
     def __str__(self):
         scope = ' / '.join(part for part in (self.game_id or '', self.task_type, self.mode) if part)
         return '{} ({})'.format(scope or 'все игры', 'вкл' if self.enabled else 'выкл')
+
+
+def _forget_cached_rules():
+    try:
+        cache.delete(RULES_CACHE_KEY)
+    except Exception:
+        # Pages pick the change up when the cached rules expire (5 minutes).
+        logger.exception('event=offline_play_rules_cache_failed')

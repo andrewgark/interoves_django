@@ -16,11 +16,13 @@ import json
 import logging
 from datetime import timedelta
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.utils import timezone
 
 from games.ops.analytics.identity import gameplay_anon_key
 from games.site.http.auth_observability import log_auth_event
+
+cache = caches['offline_play']
 
 logger = logging.getLogger('games.offline')
 

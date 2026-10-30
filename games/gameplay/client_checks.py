@@ -14,12 +14,14 @@ import json
 import logging
 
 from django.conf import settings
-from django.core.cache import cache
+from django.core.cache import caches
 
 from games.gameplay import offline_telemetry
 from games.gameplay.attempts import checker_for_task, client_spec_for_task
 from games.gameplay.policy import resolve_capabilities
 from games.puzzles.raddle.engine import parse_raddle_data, word_matches
+
+cache = caches['offline_play']
 
 logger = logging.getLogger('games.offline')
 
@@ -90,7 +92,12 @@ def audit_client_verdict(ctx, move):
 
 
 def _alert(kind, task, game, lines):
-    if not cache.add('offline_play:alert:{}:{}'.format(kind, task.id), 1, ALERT_THROTTLE_SECONDS):
+    try:
+        if not cache.add('offline_play:alert:{}:{}'.format(kind, task.id), 1, ALERT_THROTTLE_SECONDS):
+            return
+    except Exception:
+        # Without the throttle an outage could flood the admin chat; skip.
+        logger.exception('event=offline_play_alert_throttle_failed kind=%s task_id=%s', kind, task.id)
         return
     from games.ops.telegram.bot.notify import notify_admin_offline_play
 

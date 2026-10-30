@@ -634,6 +634,15 @@ if 'REDIS_HOST' in os.environ:
 else:
     CACHES['daily_statistics'] = CACHES['default'].copy()
 
+# Offline play rules, telemetry counters and alert throttles: rule changes and
+# counters must reach every web process and the report worker, so they use the
+# shared Redis backend when configured (the default cache is per-process LocMem).
+if 'REDIS_HOST' in os.environ:
+    CACHES['offline_play'] = CACHES['track_revisions'].copy()
+    CACHES['offline_play']['KEY_PREFIX'] = 'interoves-offline-play'
+else:
+    CACHES['offline_play'] = CACHES['default'].copy()
+
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 

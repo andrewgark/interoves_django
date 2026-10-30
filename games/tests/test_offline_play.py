@@ -5,7 +5,7 @@ import re
 import uuid
 from unittest.mock import patch
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.test import override_settings
 
 from games.gameplay.policy import NO_CAPABILITIES, resolve_capabilities
@@ -20,7 +20,7 @@ SPEC_ATTR = re.compile(r'data-offline-spec="([^"]*)"')
 class OfflinePlayPolicyTests(_ClientEventFixture):
     def setUp(self):
         super().setUp()
-        cache.clear()
+        caches['offline_play'].clear()
 
     def caps(self, **actor):
         actor = actor or {'anon_key': self.anon_key}
@@ -75,12 +75,24 @@ class OfflinePlayPolicyTests(_ClientEventFixture):
         rule.save()
         self.assertFalse(self.caps().instant_verdict)
 
+    def test_rules_still_apply_when_the_cache_is_down(self):
+        OfflinePlayRule.objects.create(instant_verdict=True)
+        cache = caches['offline_play']
+        with patch.object(cache, 'get', side_effect=ConnectionError) as get, \
+                patch.object(cache, 'set', side_effect=ConnectionError), \
+                patch.object(cache, 'delete', side_effect=ConnectionError) as delete:
+            self.assertTrue(self.caps().instant_verdict)
+            OfflinePlayRule.objects.create(task_type='raddle', instant_verdict=False)
+            self.assertFalse(self.caps().instant_verdict)
+        self.assertEqual(get.call_count, 2)
+        self.assertEqual(delete.call_count, 1)
+
 
 @override_settings(OFFLINE_PLAY_ENABLED=True)
 class LadderClientCheckTests(_ClientEventFixture):
     def setUp(self):
         super().setUp()
-        cache.clear()
+        caches['offline_play'].clear()
 
     def _page_spec(self, response):
         match = SPEC_ATTR.search(response['update_task_html_new'][str(self.ladder.id)])
@@ -129,7 +141,7 @@ class LadderClientCheckTests(_ClientEventFixture):
 class LadderOfflinePackEndpointTests(_ClientEventFixture):
     def setUp(self):
         super().setUp()
-        cache.clear()
+        caches['offline_play'].clear()
 
     def _pack(self):
         return self.client.post(

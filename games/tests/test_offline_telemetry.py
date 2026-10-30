@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
 from unittest.mock import patch
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.test import RequestFactory, SimpleTestCase, TestCase
 
 from games.gameplay import offline_telemetry as telemetry
@@ -22,7 +22,7 @@ def anon_request():
 @patch('games.gameplay.offline_telemetry.log_auth_event')
 class RecordClientEventsTests(SimpleTestCase):
     def setUp(self):
-        cache.clear()
+        caches['offline_play'].clear()
 
     def test_known_kinds_are_counted_and_unknown_dropped(self, log, _anon):
         accepted = telemetry.record_client_events(anon_request(), [
@@ -63,7 +63,7 @@ class RecordClientEventsTests(SimpleTestCase):
 
 class CountersTests(SimpleTestCase):
     def setUp(self):
-        cache.clear()
+        caches['offline_play'].clear()
 
     def test_totals_sum_whole_hours_in_the_period(self):
         telemetry.count('verdict_divergence', now=HOUR)
@@ -86,7 +86,7 @@ class CountersTests(SimpleTestCase):
 
 class TelemetryEndpointTests(TestCase):
     def setUp(self):
-        cache.clear()
+        caches['offline_play'].clear()
 
     def _post(self, body):
         return self.client.post('/offline_telemetry/', data=body, content_type='application/json')
@@ -104,7 +104,7 @@ class TelemetryEndpointTests(TestCase):
 
 class AdminReportSectionTests(TestCase):
     def setUp(self):
-        cache.clear()
+        caches['offline_play'].clear()
 
     def test_daily_report_has_the_offline_section_when_something_happened(self):
         from games.ops.telegram.bot.reports import build_admin_report, report_periods
