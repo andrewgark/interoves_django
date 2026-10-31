@@ -296,6 +296,8 @@ def prepare_raddle_board_data(
     if source is None:
         return None
     data = source.build()
+    # The offline pack draws its boards from the same loaded ladder.
+    data['board_source'] = source
     from games.gameplay.client_checks import page_client_check
     offline = page_client_check(
         task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key,

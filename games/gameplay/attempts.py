@@ -33,11 +33,14 @@ from games.site.http.middleware.request_timing import timing_phase
 def checker_for_task(task, last_attempt_state=None):
     """The checker that judges answers to ``task``."""
     puzzle = get_puzzle(task.task_type)
-    checker_type = task.get_checker()
-    if puzzle is not None and puzzle.checker_id:
-        checker_type = CheckerType.objects.get(id=puzzle.checker_id)
+    # A CheckerType is nothing but its id: a checker the puzzle names itself
+    # needs no row (this runs on every move and page check).
     if task.task_type == 'grid-puzzle':
-        checker_type = CheckerType.objects.get(id=grid_checker_id(task))
+        checker_type = CheckerType(id=grid_checker_id(task))
+    elif puzzle is not None and puzzle.checker_id:
+        checker_type = CheckerType(id=puzzle.checker_id)
+    else:
+        checker_type = task.get_checker()
     checker_data = task.checker_data or ''
     # equals / equals_with_possible_spaces читают эталон из checker_data; для «Пропорций»
     # и обычных заданий ответ часто задают только в answer — тогда дублируем его сюда.

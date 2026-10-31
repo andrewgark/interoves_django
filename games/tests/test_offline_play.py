@@ -10,7 +10,7 @@ from django.core.cache import caches
 from django.test import override_settings
 
 from games.gameplay.policy import NO_CAPABILITIES, resolve_capabilities
-from games.models import OfflinePlayRule, Team
+from games.models import OfflinePlayRule, Task, Team
 from games.puzzles.core.client_spec import verify_word
 from games.puzzles.raddle.puzzle import offline_run
 from games.tests.test_client_event_receipts import _ClientEventFixture
@@ -183,6 +183,22 @@ class LadderOfflinePackEndpointTests(_ClientEventFixture):
         with patch.object(clue_likes, 'clue_reactions_meta', wraps=clue_likes.clue_reactions_meta) as meta:
             self.assertEqual(self._pack()['status'], 'ok')
         self.assertEqual(meta.call_count, 1)
+
+    def test_pack_loads_the_ladder_once(self):
+        # The pack reuses the board its card loaded.
+        from games.puzzles.raddle import puzzle
+
+        OfflinePlayRule.objects.create(game=self.game, instant_verdict=True, offline_attempts=True)
+        with patch.object(puzzle, 'load_ladder_board', wraps=puzzle.load_ladder_board) as load:
+            self.assertEqual(self._pack()['status'], 'ok')
+        self.assertEqual(load.call_count, 1)
+
+    def test_ladder_checker_needs_no_query(self):
+        from games.gameplay.attempts import checker_for_task
+
+        task = Task.objects.get(pk=self.ladder.pk)
+        with self.assertNumQueries(0):
+            checker_for_task(task)
 
     def test_pack_and_card_name_their_run(self):
         # The official game and its replays share the task revision; the page

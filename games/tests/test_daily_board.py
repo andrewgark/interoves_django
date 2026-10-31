@@ -8,6 +8,7 @@ from games.daily.page.board import (
     build_word_salad_board_data,
     get_daily_board_adapter,
 )
+from games.puzzles.raddle.puzzle import RaddleBoardSource
 
 
 class DailyBoardBuilderTests(TestCase):
@@ -169,7 +170,7 @@ class DailyBoardBuilderTests(TestCase):
             resolve_chain_state=lambda *args, **kwargs: None,
         )
 
-        self.assertEqual(result, {'prepared': 'salad'})
+        self.assertEqual(result, {'prepared': 'salad', 'instant_verdict': False})
         parse_task.assert_called_once_with('payload', 'answer')
         load_board.assert_called_once()
         resolve_state.assert_called_once()
@@ -206,6 +207,8 @@ class DailyBoardBuilderTests(TestCase):
             share_title=None,
         )
 
+        # The offline pack draws its boards from the ladder this one loaded.
+        self.assertIsInstance(result.pop('board_source'), RaddleBoardSource)
         self.assertEqual(result, {'prepared': 'raddle'})
         parse_task.assert_called_once_with(task)
         load_board.assert_called_once()

@@ -831,14 +831,22 @@ class Task(models.Model):
         return list(self.hints.all())
 
     def get_player_hints(self):
-        """Подсказки для панели игрока. Пазл может скрыть свои служебные строки."""
+        """Подсказки для панели игрока. Пазл может скрыть свои служебные строки.
+
+        Templates of one card ask several times (the panel, the meta bar), so
+        the list is kept on this instance for the rest of the request.
+        """
+        cached = self.__dict__.get('_player_hints')
+        if cached is not None:
+            return list(cached)
         hints = self.get_hints()
         from games.puzzles import get_puzzle
         puzzle = get_puzzle(self.task_type)
         visible = getattr(puzzle, 'player_hints', None) if puzzle is not None else None
         if visible is not None:
-            return visible(hints)
-        return hints
+            hints = visible(hints)
+        self._player_hints = list(hints)
+        return list(hints)
 
 
 class ImageManager(models.Manager):

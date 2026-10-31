@@ -34,17 +34,22 @@ def ladder_offline_pack(request, ctx, mode, *, offline_timing=False):
     """The offline pack of ``ctx``'s ladder for its actor."""
     task, game = ctx.task, ctx.game
     placement = GameTaskGroup.objects.filter(game=game, task_group=task.task_group).first()
-    source = raddle_board_source(
-        game=game, task=task, placement=placement, attempts_info=None,
-        team=ctx.team, user=ctx.user, anon_key=ctx.anon_key, mode=mode,
-        replay_slot=ctx.replay_slot, share_title=board_share_title(game, placement, task),
-    )
-    if source is None:
-        return None
+    if placement is not None:
+        placement.task_group = task.task_group
     card = new_ui_task_card_context(
         request, task, ctx.team, mode, user=ctx.user, anon_key=ctx.anon_key, game=game,
         replay_slot=ctx.replay_slot, placement=placement,
     )
+    # The card has loaded this ladder for the actor already.
+    source = ((card or {}).get('raddle_data') or {}).get(task.id, {}).get('board_source')
+    if source is None:
+        source = raddle_board_source(
+            game=game, task=task, placement=placement, attempts_info=None,
+            team=ctx.team, user=ctx.user, anon_key=ctx.anon_key, mode=mode,
+            replay_slot=ctx.replay_slot, share_title=board_share_title(game, placement, task),
+        )
+    if source is None:
+        return None
 
     def make_ui(state):
         ui = source.build(state)['ui']
