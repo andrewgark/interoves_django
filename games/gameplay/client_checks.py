@@ -133,6 +133,21 @@ def audit_duplicate_verdict(task_id, post):
         logger.exception('event=offline_verdict_audit_failed task_id=%s', task_id)
 
 
+def audit_page_win(task, game, client_verdict, won):
+    """A page that showed a win (Алфавитка's final word) the server did not record diverged."""
+    if client_verdict != 'Ok' or won:
+        return
+    try:
+        offline_telemetry.count('verdict_divergence')
+        logger.warning(
+            'event=offline_verdict_divergence task_id=%s task_type=%s game_id=%s client=Ok server=Wrong',
+            task.id, task.task_type, game.id,
+        )
+        _alert('verdict_divergence', task, game, ['Клиент: <b>победа</b>, сервер: <b>не угадано</b>.'])
+    except Exception:
+        logger.exception('event=offline_verdict_audit_failed task_id=%s', task.id)
+
+
 def _alert(kind, task, game, lines):
     try:
         if not cache.add('offline_play:alert:{}:{}'.format(kind, task.id), 1, ALERT_THROTTLE_SECONDS):

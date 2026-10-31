@@ -150,6 +150,8 @@
 <script src="{% static 'js/mobile_input_intent.js' %}"></script>
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/alphabetty_guess_response.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_normalize.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script src="{% static 'js/offline_verify.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% if daily_timing_enabled %}
 <script src="{% static 'js/client_event_id.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 <script src="{% static 'js/daily_solve_timer.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
@@ -210,6 +212,10 @@
   var expanded = {};
   var prefixOpen = false;
   var busy = false;
+  // Мгновенный вердикт (docs/offline-play-plan.md): the secret's hash, when an
+  // OfflinePlayRule allows it. Only the winning word is recognized here; every
+  // other guess, and the win itself, is still decided by the server.
+  var instantSpec = state.instant_spec || null;
   var stateGen = 0;
   var actorSyncInFlight = false;
   var actorSyncPending = false;
@@ -758,6 +764,7 @@
       if (data[k] !== undefined) state[k] = data[k];
     });
     if (data.max_word_length) maxLen = data.max_word_length;
+    if (data.instant_spec !== undefined) instantSpec = data.instant_spec || null;
     if (data.meta_bar_html) replaceMetaBar(data.meta_bar_html);
     prefixCache = {};
     expanded = {};
@@ -1083,12 +1090,36 @@
         showMsg(data.won ? 'Верно!' : '');
       });
     }
+    var instantWin = false;
+    var secretBeforeWin = state.secret;
+    // The page recognized the secret: show the win now, the server confirms it.
+    function showInstantWin() {
+      instantWin = true;
+      state.won = true;
+      state.secret = word;
+      input.value = '';
+      showMsg('Верно!', 'ok');
+      preservePageScroll(renderBoard);
+    }
+    function undoInstantWin() {
+      if (!instantWin) return;
+      instantWin = false;
+      state.won = false;
+      state.secret = secretBeforeWin;
+      input.value = word;
+      preservePageScroll(renderBoard);
+    }
+    var pageVerdict = instantSpec && window.OfflineVerify
+      ? window.OfflineVerify.verify(instantSpec, word).catch(function () { return null; })
+      : Promise.resolve(null);
     function postGuess() {
+      var payload = { word: word, anon_key: anonKey };
+      if (instantWin) payload.client_verdict = 'Ok';
       return fetch(guessUrl, {
         method: 'POST',
         headers: headers,
         credentials: 'same-origin',
-        body: JSON.stringify({ word: word, anon_key: anonKey })
+        body: JSON.stringify(payload)
       }).then(function (r) {
         return r.text().then(function (text) {
           if (window.AlphabettyGuessResponse.isHtmlBody(text)) {
@@ -1112,7 +1143,11 @@
         });
       });
     }
-    postGuess()
+    pageVerdict
+      .then(function (verdict) {
+        if (verdict === 'Ok') showInstantWin();
+        return postGuess();
+      })
       .catch(function (error) {
         // A proxy or load balancer can answer the first POST with an HTML
         // error page. One retry still lands on the duplicate-recovery path
@@ -1122,6 +1157,11 @@
       })
       .then(function (data) {
         flushAnalyticsEvents(data);
+        // The server has the last word: a board it did not win goes back.
+        if (instantWin && !data.won) {
+          instantWin = false;
+          applyState(data);
+        }
         if (data.status === 'invalid') {
           showMsg(data.error || 'Слова нет в словаре', 'error', { suggestWord: word });
           focusInput();
@@ -1160,6 +1200,7 @@
         // error page instead of the JSON response. Reconcile from the server
         // before showing a false network error to the player.
         return recoverGuessFromState().catch(function () {
+          undoInstantWin();
           showMsg((e && e.message) || 'Сеть недоступна', 'error');
         });
       })

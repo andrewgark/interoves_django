@@ -21,6 +21,8 @@ from games.puzzles.alphabetty.core import (
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 from games.puzzles.core.base import Puzzle
 from games.puzzles.core.check_runtime import BaseChecker, CheckResult
+from games.puzzles.core.client_spec import hash_set_spec, spec_salt
+from games.puzzles.core.normalize_ops import CLEAN, normalize
 from games.results.share import format_elapsed, format_share_link, share_path
 
 # Базовые очки за угаданное слово; каждая буквенная подсказка −1.
@@ -375,6 +377,19 @@ def dump_state(state: dict[str, Any]) -> str:
 
 def secret_from_task(task: Task) -> str:
     return normalize_word((task.answer or '').strip().splitlines()[0] if task.answer else '')
+
+
+def winning_word_spec(task: Task) -> dict | None:
+    """Client spec that recognizes only the secret, so a page can show the win at once.
+
+    Every other guess still needs the server: the dictionary is far too big
+    for the page, and earlier/later would give the secret away. CLEAN is
+    normalize_word up to letter case.
+    """
+    secret = secret_from_task(task)
+    if not secret:
+        return None
+    return hash_set_spec(spec_salt(task), CLEAN, {normalize(secret, CLEAN): 'Ok'})
 
 
 def split_ladder(guesses: list[str], secret: str) -> tuple[list[str], list[str]]:

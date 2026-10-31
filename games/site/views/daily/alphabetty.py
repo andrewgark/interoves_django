@@ -21,6 +21,7 @@ from games.daily.catalog.alphabetty import (
 from games.daily.completion.completion_coordinator import complete_logical_game
 from games.daily.page.context import build_daily_lifecycle_context
 from games.daily.timing.transitions import next_daily_content_transition_for_game
+from games.gameplay.client_checks import audit_page_win, instant_verdict_allowed
 from games.identity import has_profile
 from games.models import (
     Attempt,
@@ -41,6 +42,7 @@ from games.puzzles.alphabetty.play import (
     get_play_state,
     get_task_for_number,
     hub_progress_for_actor,
+    winning_word_spec,
 )
 from games.puzzles.alphabetty.suggestions import suggest_word
 from games.sections.hub import (
@@ -92,6 +94,16 @@ def _resolve_round_task_group(game, *, number=None, task_group_id=None):
     if number is not None:
         return qs.filter(number=str(number)).select_related('task_group').first()
     return None
+
+
+def _winning_word_spec(game, task, user, anon_key):
+    """The secret's hash for a page that may show the win before the server confirms it."""
+    mode = game.get_current_mode(Attempt(time=timezone.now()))
+    if mode == 'tournament' or not instant_verdict_allowed(
+        task=task, game=game, mode=mode, user=user, anon_key=anon_key,
+    ):
+        return None
+    return winning_word_spec(task)
 
 
 def alphabetty_hub_page(request):
@@ -209,6 +221,7 @@ def alphabetty_play_page(request, number):
         play_path=play_path,
         replay_slot=replay_slot,
     )
+    state['instant_spec'] = _winning_word_spec(game, task, user, anon_key)
     pub_at = alphabetty_publish_at(game, n) if offer is None and n is not None else None
     daily_publish_date = pub_at.date() if pub_at is not None else None
     # Соседи только среди уже вышедших алфавиток (как у лесенок).
@@ -465,7 +478,7 @@ def alphabetty_state(request, number):
         replay_slot=replay_slot,
     )
     payload = with_meta_bar(
-        {'status': 'ok', **state},
+        {'status': 'ok', **state, 'instant_spec': _winning_word_spec(game, task, user, anon_key)},
         request,
         game=game,
         task=task,
@@ -526,6 +539,9 @@ def alphabetty_guess(request, number):
             ),
             replay_slot=replay_slot,
         )
+    if isinstance(body, dict):
+        audit_page_win(task, game, body.get('client_verdict'), bool(result.get('won')))
+    result['instant_spec'] = _winning_word_spec(game, task, user, anon_key)
     analytics_events = []
     if replay_slot is None and result.get('status') in ('earlier', 'later', 'correct'):
         analytics_events.extend(register_started_game(
