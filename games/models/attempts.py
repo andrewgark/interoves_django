@@ -241,8 +241,14 @@ class AttemptManager(models.Manager):
         mode="general",
         game=None,
         replay_slot=None,
+        tasks=(),
     ):
-        """Load one actor's AttemptsInfo for many tasks in two queries."""
+        """Load one actor's AttemptsInfo for many tasks in two queries.
+
+        ``tasks`` are Task objects the caller already has: their attempts get
+        them as ``attempt.task``, so a card that reads it per attempt does not
+        load the task once for every attempt.
+        """
         task_ids = [int(task_id) for task_id in (task_ids or []) if task_id is not None]
         if not task_ids:
             return {}
@@ -266,6 +272,11 @@ class AttemptManager(models.Manager):
         if game is not None:
             attempts_qs = attempts_qs.filter(game=game)
         attempts = list(attempts_qs)
+        known_tasks = {task.pk: task for task in tasks}
+        for attempt in attempts:
+            task = known_tasks.get(attempt.task_id)
+            if task is not None:
+                attempt.task = task
         attempts = list(self.filter_attempts_with_mode(attempts, mode, hint_game=game))
 
         hint_related = ['hint']
@@ -712,16 +723,28 @@ class Attempt(models.Model):
         with transaction.atomic():
             super().save(*args, **kwargs)
             if self.task_id and self.game_id and self.replay_slot_id is None:
-                group_id = Task.objects.filter(
-                    pk=self.task_id,
-                ).values_list('task_group_id', flat=True).first()
-                game = Game.objects.filter(
-                    pk=self.game_id, project_id='sections',
-                ).first()
+                # A move arrives with its task, group and game loaded already.
+                task = self.task if Attempt.task.is_cached(self) else None
+                if task is not None:
+                    group_id = task.task_group_id
+                else:
+                    group_id = Task.objects.filter(
+                        pk=self.task_id,
+                    ).values_list('task_group_id', flat=True).first()
+                if Attempt.game.is_cached(self):
+                    game = self.game if self.game.project_id == 'sections' else None
+                else:
+                    game = Game.objects.filter(
+                        pk=self.game_id, project_id='sections',
+                    ).first()
                 if group_id and game is not None:
                     from games.daily.projection.outbox import enqueue_actor_projection_refresh
+                    if task is not None and Task.task_group.is_cached(task):
+                        task_group = task.task_group
+                    else:
+                        task_group = TaskGroup.objects.get(pk=group_id)
                     enqueue_actor_projection_refresh(
-                        game, TaskGroup.objects.get(pk=group_id),
+                        game, task_group,
                         team_id=self.team_id,
                         user_id=self.user_id,
                         anon_key=self.anon_key,

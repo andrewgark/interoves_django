@@ -482,6 +482,21 @@ class GameTaskGroup(models.Model):
         return prev_link, next_link
 
     @staticmethod
+    def placement_for(game, task_group):
+        """The link of ``task_group`` in ``game`` (or None), kept on ``task_group``.
+
+        One move asks for it in several places (the results outbox, analytics,
+        the card); they share the task group object, so the row is read once
+        per request.
+        """
+        if game is None or task_group is None:
+            return None
+        known = task_group.__dict__.setdefault('_placements', {})
+        if game.pk not in known:
+            known[game.pk] = GameTaskGroup.objects.filter(game=game, task_group=task_group).first()
+        return known[game.pk]
+
+    @staticmethod
     def resolve_game_for_task(task, game_id=None):
         """
         Игра в контексте задания: явный game_id, иначе единственная привязанная игра.

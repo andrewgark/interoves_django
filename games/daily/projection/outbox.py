@@ -46,7 +46,7 @@ def enqueue_actor_projection_refresh(
         actor_key = str(anon_key)
     else:
         return None
-    if not GameTaskGroup.objects.filter(game=game, task_group=task_group).exists():
+    if GameTaskGroup.placement_for(game, task_group) is None:
         return None
     return DailyResultProjectionRefreshOutbox.objects.create(
         game=game,

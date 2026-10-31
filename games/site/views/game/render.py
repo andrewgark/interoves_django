@@ -152,8 +152,9 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
     if game is None:
         return {}
 
-    update_extra_tasks = list(task.task_group.tasks.visible().filter(task_type='text_with_forms'))
-    for extra_task in task.task_group.tasks.visible():
+    group_tasks = list(task.task_group.tasks.visible())
+    update_extra_tasks = [extra_task for extra_task in group_tasks if extra_task.task_type == 'text_with_forms']
+    for extra_task in group_tasks:
         if "should_be_hidden_if_not_solved" in extra_task.tags:
             update_extra_tasks.append(extra_task)
 
@@ -163,9 +164,9 @@ def update_task_html(request, task, team, current_mode, user=None, anon_key=None
     # text_with_forms и скрытые до решения задания группы зависят от ответа на
     # это задание — перерисовываем их вместе с ним.
     # Ключи — строки: Redis/msgpack (channels_redis) с strict_map_key не принимает int keys.
-    placement = GameTaskGroup.objects.filter(
-        game=game, task_group=task.task_group,
-    ).first()
+    placement = GameTaskGroup.placement_for(game, task.task_group)
+    if placement is not None:
+        placement.task_group = task.task_group
     context_dicts = build_task_group_task_context_dicts(
         game,
         task.task_group,

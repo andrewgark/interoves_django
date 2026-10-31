@@ -311,13 +311,7 @@ def is_task_group_complete(*, task_group, game, team=None, user=None, anon_key=N
 
 
 def resolve_task_group_link(game, task_group):
-    if game is None or task_group is None:
-        return None
-    return (
-        GameTaskGroup.objects.filter(game=game, task_group=task_group)
-        .only('id', 'number')
-        .first()
-    )
+    return GameTaskGroup.placement_for(game, task_group)
 
 
 def public_game_id_for_task_group(game, task_group):

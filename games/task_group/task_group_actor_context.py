@@ -23,6 +23,7 @@ def bulk_attempts_and_gameplay_tokens(
         mode=mode,
         game=game,
         replay_slot=replay_slot,
+        tasks=tasks,
     )
     gameplay_context_tokens = {
         t.id: issue_gameplay_context(

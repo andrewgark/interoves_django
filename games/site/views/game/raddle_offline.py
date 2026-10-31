@@ -33,7 +33,7 @@ from games.task_group.daily_board_task_data import board_share_title
 def ladder_offline_pack(request, ctx, mode, *, offline_timing=False):
     """The offline pack of ``ctx``'s ladder for its actor."""
     task, game = ctx.task, ctx.game
-    placement = GameTaskGroup.objects.filter(game=game, task_group=task.task_group).first()
+    placement = GameTaskGroup.placement_for(game, task.task_group)
     if placement is not None:
         placement.task_group = task.task_group
     card = new_ui_task_card_context(
