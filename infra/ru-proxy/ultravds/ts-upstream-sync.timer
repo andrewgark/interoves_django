@@ -1,0 +1,22 @@
+# /etc/systemd/system/ts-upstream-sync.timer (with ts-upstream-sync.service)
+#
+# [Unit]
+# Description=Sync ru.interoves.com upstreams from the tailnet
+# [Service]
+# Type=oneshot
+# Environment=TAG=tag:interoves-ru-gw
+# ExecStart=/usr/local/sbin/ts-upstream-sync.sh
+#
+# Enable: systemctl daemon-reload && systemctl enable --now ts-upstream-sync.timer
+
+[Unit]
+Description=Sync ru.interoves.com upstreams from the tailnet every 30 s
+
+[Timer]
+OnBootSec=20s
+OnUnitActiveSec=30s
+AccuracySec=5s
+Unit=ts-upstream-sync.service
+
+[Install]
+WantedBy=timers.target

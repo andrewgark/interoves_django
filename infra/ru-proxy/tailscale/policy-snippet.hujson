@@ -1,0 +1,17 @@
+// Merge into the tailnet policy file (admin console -> Access controls).
+// NOT APPLIED AUTOMATICALLY. Review existing rules first: a tailnet with the
+// default "allow all" policy keeps working until that rule is narrowed.
+{
+  "tagOwners": {
+    // AWS gateway nodes; minted by the OAuth client used in user-data.
+    "tag:interoves-ru-gw": ["autogroup:admin"],
+    // The UltraVDS proxy (re-authenticate it with this tag, or keep it a
+    // user device and use its user/IP as "src" below).
+    "tag:ultravds": ["autogroup:admin"],
+  },
+  "grants": [
+    // UltraVDS may reach the gateways' HTTP proxy, nothing else.
+    {"src": ["tag:ultravds"], "dst": ["tag:interoves-ru-gw"], "ip": ["tcp:80"]},
+  ],
+  // Gateways initiate nothing on the tailnet; no grant has them as "src".
+}

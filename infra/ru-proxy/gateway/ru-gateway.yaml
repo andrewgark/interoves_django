@@ -1,0 +1,299 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Interoves ru.interoves.com Tailscale gateway (Option A). A self-healing
+  Auto Scaling group of 1 (or 2 for HA) small instances outside Elastic
+  Beanstalk. Each joins the tailnet as an ephemeral tag:interoves-ru-gw node
+  and reverse-proxies to the existing public Green ALB over HTTPS, so EB
+  instance replacement never touches the Russian route.
+  NOT DEPLOYED. Creating this stack creates billable resources.
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Default: vpc-35fb595e
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Public subnets (MapPublicIpOnLaunch=true). The VPC has no NAT.
+    Default: subnet-29483d42,subnet-df8b26a2
+  GatewayCount:
+    Type: Number
+    Default: 1
+    AllowedValues: [1, 2]
+    Description: 2 = one gateway per AZ; UltraVDS balances over both.
+  InstanceType:
+    Type: String
+    Default: t4g.nano
+  AmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-arm64
+  OriginHost:
+    Type: String
+    Description: Stable upstream. The Green ALB DNS name, not an instance.
+    Default: awseb--AWSEB-9kClukce8vto-580055975.eu-central-1.elb.amazonaws.com
+  OriginTlsName:
+    Type: String
+    Description: Name on the ALB HTTPS listener certificate (ACM).
+    Default: origin.interoves.com
+  TailscaleAuthParameter:
+    Type: String
+    Description: >-
+      SSM SecureString holding a Tailscale OAuth client secret (tskey-client-…,
+      scope auth_keys, tag:interoves-ru-gw). Created by hand, never in git.
+    Default: /interoves/ru-gateway/tailscale-oauth-client-secret
+  TailscaleTag:
+    Type: String
+    Default: tag:interoves-ru-gw
+  EipAllocationId:
+    Type: String
+    Default: ""
+    Description: >-
+      Optional. Associate this EIP on boot so the ALB security group can allow
+      one stable /32 on 443 (only valid with GatewayCount=1).
+
+Conditions:
+  HasEip: !Not [!Equals [!Ref EipAllocationId, ""]]
+
+Resources:
+  GatewaySecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Interoves ru gateway - no inbound; Tailscale is outbound-initiated
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - {Key: Name, Value: interoves-ru-gateway}
+
+  GatewayRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: {Service: ec2.amazonaws.com}
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Shell access through SSM Session Manager; no SSH port, no key pair.
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: interoves-ru-gateway
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: ReadTailscaleSecret
+                Effect: Allow
+                Action: ssm:GetParameter
+                Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter${TailscaleAuthParameter}
+              - Sid: ReportOwnHealth
+                Effect: Allow
+                Action: autoscaling:SetInstanceHealth
+                Resource: "*"
+                Condition:
+                  StringEquals:
+                    autoscaling:ResourceTag/interoves:role: ru-gateway
+              - !If
+                - HasEip
+                - Sid: ClaimGatewayEip
+                  Effect: Allow
+                  Action: ec2:AssociateAddress
+                  Resource: "*"
+                - !Ref AWS::NoValue
+
+  GatewayInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref GatewayRole]
+
+  GatewayLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        ImageId: !Ref AmiId
+        InstanceType: !Ref InstanceType
+        IamInstanceProfile: {Arn: !GetAtt GatewayInstanceProfile.Arn}
+        SecurityGroupIds: [!Ref GatewaySecurityGroup]
+        MetadataOptions:
+          HttpTokens: required
+          HttpPutResponseHopLimit: 1
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs: {VolumeSize: 8, VolumeType: gp3, Encrypted: true, DeleteOnTermination: true}
+        TagSpecifications:
+          - ResourceType: instance
+            Tags:
+              - {Key: Name, Value: interoves-ru-gateway}
+              - {Key: "interoves:role", Value: ru-gateway}
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash
+            # Interoves ru gateway bootstrap. Bash variables are written as
+            # $NAME (no braces) so CloudFormation !Sub leaves them alone.
+            set -euo pipefail
+            exec > >(tee -a /var/log/interoves-ru-gateway-bootstrap.log) 2>&1
+
+            ORIGIN_HOST='${OriginHost}'
+            ORIGIN_TLS_NAME='${OriginTlsName}'
+            TS_AUTH_PARAMETER='${TailscaleAuthParameter}'
+            TS_TAG='${TailscaleTag}'
+            EIP_ALLOCATION_ID='${EipAllocationId}'
+            REGION='${AWS::Region}'
+
+            TOKEN=$(curl -fsS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 300' http://169.254.169.254/latest/api/token)
+            INSTANCE_ID=$(curl -fsS -H "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+
+            if [ -n "$EIP_ALLOCATION_ID" ]; then
+              aws ec2 associate-address --region "$REGION" --allocation-id "$EIP_ALLOCATION_ID" \
+                --instance-id "$INSTANCE_ID" --allow-reassociation >/dev/null
+            fi
+
+            dnf install -y nginx jq dnf-plugins-core
+            dnf config-manager --add-repo https://pkgs.tailscale.com/stable/amazon-linux/2023/tailscale.repo
+            dnf install -y tailscale
+            systemctl enable --now tailscaled
+
+            # The secret goes to tailscale through a 0600 file on tmpfs; it is
+            # never echoed, passed on argv or written to the bootstrap log.
+            umask 077
+            KEY_FILE=$(mktemp -p /run)
+            aws ssm get-parameter --region "$REGION" --with-decryption \
+              --name "$TS_AUTH_PARAMETER" --query Parameter.Value --output text \
+              | tr -d '\n' > "$KEY_FILE"
+            printf '%s' '?ephemeral=true&preauthorized=true' >> "$KEY_FILE"
+            tailscale up --auth-key="file:$KEY_FILE" --advertise-tags="$TS_TAG" \
+              --hostname="interoves-ru-gw-$INSTANCE_ID" --accept-dns=false --ssh=false
+            rm -f "$KEY_FILE"
+            umask 022
+
+            cat > /etc/nginx/conf.d/interoves-ru-gateway.conf <<NGINX
+            map \$http_upgrade \$gw_connection_upgrade { default upgrade; '' ''; }
+            server {
+                listen 80 default_server;
+                server_name _;
+                client_max_body_size 25M;
+                # Only tailnet peers and the local health check. The security
+                # group has no inbound rules at all.
+                allow 100.64.0.0/10;
+                allow 127.0.0.1;
+                deny all;
+                if (\$host !~* "^(ru\.)?interoves\.com$") { return 421; }
+
+                # Re-resolve the ALB: its IP addresses change over time.
+                resolver 169.254.169.253 valid=30s ipv6=off;
+                set \$origin "https://$ORIGIN_HOST";
+
+                location = /gateway-health {
+                    access_log off;
+                    return 200 "ok";
+                }
+                location / {
+                    proxy_pass \$origin;
+                    proxy_http_version 1.1;
+                    proxy_ssl_server_name on;
+                    proxy_ssl_name $ORIGIN_TLS_NAME;
+                    proxy_ssl_verify on;
+                    proxy_ssl_verify_depth 3;
+                    proxy_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
+                    proxy_set_header Host \$host;
+                    # Set by UltraVDS from the real client; the ALB appends us.
+                    proxy_set_header X-Forwarded-For \$http_x_forwarded_for;
+                    proxy_set_header Upgrade \$http_upgrade;
+                    proxy_set_header Connection \$gw_connection_upgrade;
+                    proxy_read_timeout 3600s;
+                    proxy_send_timeout 3600s;
+                }
+            }
+            NGINX
+            systemctl enable --now nginx
+
+            cat > /usr/local/sbin/interoves-ru-gw-health <<'HEALTH'
+            #!/bin/bash
+            # Replace this instance only for faults that are its own (Tailscale
+            # or local Nginx down for 3 checks). An origin outage is logged,
+            # never "fixed" by cycling the gateway.
+            set -uo pipefail
+            STATE=/run/interoves-ru-gw-failures
+            fails=$(cat "$STATE" 2>/dev/null || echo 0)
+            backend=$(tailscale status --json 2>/dev/null | jq -r '.BackendState // "unknown"')
+            local_ok=$(curl -fsS -o /dev/null -w '%{http_code}' --max-time 3 http://127.0.0.1/gateway-health -H 'Host: ru.interoves.com' || true)
+            if [ "$backend" = "Running" ] && [ "$local_ok" = "200" ]; then
+              echo 0 > "$STATE"
+            else
+              fails=$((fails + 1)); echo "$fails" > "$STATE"
+              logger -t interoves-ru-gw "self check failed ($fails): tailscale=$backend nginx=$local_ok"
+              if [ "$fails" -ge 3 ]; then
+                T=$(curl -fsS -X PUT -H 'X-aws-ec2-metadata-token-ttl-seconds: 60' http://169.254.169.254/latest/api/token)
+                ID=$(curl -fsS -H "X-aws-ec2-metadata-token: $T" http://169.254.169.254/latest/meta-data/instance-id)
+                aws autoscaling set-instance-health --instance-id "$ID" --health-status Unhealthy
+              fi
+            fi
+            origin=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 -H 'Host: ru.interoves.com' http://127.0.0.1/health/live/)
+            [ "$origin" = "200" ] || logger -t interoves-ru-gw "origin health via ALB returned $origin"
+            HEALTH
+            chmod 0755 /usr/local/sbin/interoves-ru-gw-health
+            echo "AWS_DEFAULT_REGION=$REGION" > /etc/default/interoves-ru-gw
+
+            cat > /etc/systemd/system/interoves-ru-gw-health.service <<'UNIT'
+            [Unit]
+            Description=Interoves ru gateway self check
+            [Service]
+            Type=oneshot
+            EnvironmentFile=/etc/default/interoves-ru-gw
+            ExecStart=/usr/local/sbin/interoves-ru-gw-health
+            UNIT
+            cat > /etc/systemd/system/interoves-ru-gw-health.timer <<'UNIT'
+            [Unit]
+            Description=Interoves ru gateway self check every 30 s
+            [Timer]
+            OnBootSec=60s
+            OnUnitActiveSec=30s
+            [Install]
+            WantedBy=timers.target
+            UNIT
+            systemctl daemon-reload
+            systemctl enable --now interoves-ru-gw-health.timer
+
+            # Graceful termination removes the ephemeral node at once instead
+            # of leaving an offline peer until Tailscale expires it.
+            cat > /etc/systemd/system/interoves-ru-gw-logout.service <<'UNIT'
+            [Unit]
+            Description=Log the ephemeral gateway out of the tailnet on shutdown
+            After=tailscaled.service
+            Requires=tailscaled.service
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            ExecStart=/bin/true
+            ExecStop=/usr/bin/tailscale logout
+            [Install]
+            WantedBy=multi-user.target
+            UNIT
+            systemctl enable --now interoves-ru-gw-logout.service
+
+  GatewayGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      MinSize: !Ref GatewayCount
+      MaxSize: !Ref GatewayCount
+      DesiredCapacity: !Ref GatewayCount
+      VPCZoneIdentifier: !Ref SubnetIds
+      HealthCheckType: EC2
+      HealthCheckGracePeriod: 300
+      LaunchTemplate:
+        LaunchTemplateId: !Ref GatewayLaunchTemplate
+        Version: !GetAtt GatewayLaunchTemplate.LatestVersionNumber
+      Tags:
+        - {Key: "interoves:role", Value: ru-gateway, PropagateAtLaunch: true}
+    UpdatePolicy:
+      # Replace one gateway at a time; with GatewayCount=2 the other keeps serving.
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 0
+        MaxBatchSize: 1
+        PauseTime: PT5M
+
+Outputs:
+  GatewaySecurityGroupId:
+    Value: !Ref GatewaySecurityGroup
+  GatewayGroupName:
+    Value: !Ref GatewayGroup
