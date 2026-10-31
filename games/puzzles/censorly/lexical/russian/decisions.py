@@ -72,6 +72,9 @@ REJECT = _pairs(
     ('полный', 'половина'),
     ('полный', 'полноценный'),
     ('пара', 'испарять'),
+    # «паровой» belongs to steam; «пары» in the mouse article is the plural
+    # of «пара» (a pair). Shared historical root must not cross the homonyms.
+    ('пара', 'паровой'),
     ('соты', 'сотня'),
     ('сота', 'сотня'),
     ('белый', 'белок'),
