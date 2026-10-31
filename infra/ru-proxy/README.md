@@ -198,8 +198,13 @@ UltraVDS как `backup`.
 - ALB → Green: `/health/live/` (как сейчас).
 - Шлюз: `/gateway-health` (локально), таймер `interoves-ru-gw-health`
   (Tailscale + Nginx → `SetInstanceHealth`; origin → лог).
-- UltraVDS: пассивные `max_fails=2 fail_timeout=10s`,
-  `proxy_next_upstream error timeout http_502 http_503 http_504`.
+- UltraVDS: пассивные `max_fails=1 fail_timeout=30s`, `proxy_connect_timeout 5s`,
+  `proxy_next_upstream error timeout http_502 http_503 http_504`. Запасной
+  upstream — `backup max_fails=0`, его туннель sync-таймер держит тёплым
+  (`tailscale ping`): иначе первое рукопожатие через DERP к простаивающему
+  узлу дольше таймаута, и nginx отвечает 502 «no live upstreams».
+- Учение 2026-10-31 (terminate шлюза при `GatewayCount=1`): 0 ошибок за
+  4 мин, два запроса по ~5 с, новый шлюз в upstream через ~100 с.
 - Внешний мониторинг (рекомендуется): проверка
   `https://ru.interoves.com/health/live/` **из РФ** раз в минуту
   (UltraVDS cron → Telegram admin chat или внешний сервис).

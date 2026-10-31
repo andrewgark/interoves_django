@@ -20,6 +20,13 @@ peers="$(tailscale status --json | jq -r --arg tag "$TAG" '
     [.Peer[]? | select(.Online == true) | select((.Tags // []) | index($tag))
      | (.TailscaleIPs[]? | select(test("^100\\.")))] | sort | unique | .[]')"
 
+# Idle tailnet peers need a fresh WireGuard handshake over DERP, which can
+# outlast proxy_connect_timeout. Ping every upstream each run so a failover
+# lands on a warm path.
+for ip in $peers $FALLBACK; do
+    tailscale ping -c 1 --timeout 5s "$ip" >/dev/null 2>&1 || true
+done
+
 if [[ -z "$peers" ]]; then
     logger -t ts-upstream-sync "no online peers tagged ${TAG}; keeping ${TARGET}"
     exit 0
@@ -28,10 +35,13 @@ fi
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 for ip in $peers; do
-    echo "server ${ip}:${PORT} max_fails=2 fail_timeout=10s;" >>"$tmp"
+    # A vanished tailnet peer times out instead of refusing; keep it marked
+    # down for 30 s so only one request per window pays the connect timeout.
+    echo "server ${ip}:${PORT} max_fails=1 fail_timeout=30s;" >>"$tmp"
 done
 if [[ -n "$FALLBACK" ]] && ! grep -q "^server ${FALLBACK}:" "$tmp"; then
-    echo "server ${FALLBACK}:${PORT} backup;" >>"$tmp"
+    # Never mark the last resort down: "no live upstreams" is a 502 for all.
+    echo "server ${FALLBACK}:${PORT} backup max_fails=0;" >>"$tmp"
 fi
 
 if [[ -f "$TARGET" ]] && cmp -s "$tmp" "$TARGET"; then
