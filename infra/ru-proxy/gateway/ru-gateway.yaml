@@ -148,6 +148,16 @@ Resources:
                 --instance-id "$INSTANCE_ID" --allow-reassociation >/dev/null
             fi
 
+            # t4g.nano has 512 MB; dnf metadata loading alone gets OOM-killed
+            # without swap.
+            if ! swapon --show | grep -q /swapfile; then
+              fallocate -l 1G /swapfile
+              chmod 600 /swapfile
+              mkswap /swapfile
+              swapon /swapfile
+              echo '/swapfile swap swap defaults 0 0' >> /etc/fstab
+            fi
+
             dnf install -y nginx jq dnf-plugins-core
             dnf config-manager --add-repo https://pkgs.tailscale.com/stable/amazon-linux/2023/tailscale.repo
             dnf install -y tailscale
