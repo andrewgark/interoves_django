@@ -195,6 +195,23 @@ html.new-ui-dark .censorly__dock {
   font-size: 0.95rem;
 }
 
+/* Yellow like the ladder's hint button (.new-raddle-assist-btn) so it stands out. */
+.new-btn.censorly__hint-btn {
+  border-color: color-mix(in srgb, var(--warning) 40%, var(--border));
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  color: var(--warning);
+}
+.new-btn.censorly__hint-btn:hover,
+.censorly--hint-pick .new-btn.censorly__hint-btn {
+  border-color: color-mix(in srgb, var(--warning) 65%, var(--border));
+  background: color-mix(in srgb, var(--warning) 18%, var(--surface));
+  color: var(--warning-hover);
+}
+.new-btn.censorly__hint-btn:focus-visible {
+  outline: 2px solid var(--warning);
+  outline-offset: 2px;
+}
+
 .censorly__hint-mode {
   color: var(--accent, #b08900);
   font-weight: 600;
