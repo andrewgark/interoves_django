@@ -93,6 +93,17 @@ The following are not canonical backend product-event rows:
 | `social_follow_prompt_view` | onboarding follow-up shows the one-time social subscribe card |
 | `social_follow_click` | a social link in that card is clicked (`platform` is telegram, instagram, or twitter) |
 | `social_follow_prompt_dismiss` | the social subscribe card is dismissed |
+| `site_version_prompt_shown` | the hint suggesting the other site version (interoves.com / ru.interoves.com) is shown; at most once per browser session |
+| `site_version_prompt_dismissed` | that hint is dismissed (`method`: `stay`, `close`, or `escape`) |
+| `site_version_switch_clicked` | a link to the other site version is clicked (`source`: `prompt` or `menu`) |
+
+All three `site_version_*` goals carry `from` and `to` (`intl`, `ru`; `from` is
+`other` on non-production hosts). They are sent from the host the visitor is
+leaving, so a switch waits up to 400 ms for the `reachGoal` callback before
+navigating; a goal still undelivered then may be lost, because the other
+host's `localStorage` never retries this host's queue. The prompt is chosen
+by IP country (`games/site/http/visitor_country.py`); the goals do not carry
+the country.
 
 The onboarding context lives in browser `localStorage` for 24 hours. Delivery
 can be missing or duplicated relative to backend actors, so these goals describe

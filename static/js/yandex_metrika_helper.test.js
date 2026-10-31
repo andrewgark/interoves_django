@@ -254,6 +254,26 @@ async function testFailingAckBacksOffAcrossFlushesAndReloads() {
   }
 }
 
+(function testDeliveredGoalIsAnnounced() {
+  var callbacks = [];
+  var announced = [];
+  var fakeWindow = {
+    interovesAnalyticsConfig: { yandexCounterId: 108320022 },
+    ym: function () { callbacks.push(arguments[4]); },
+    CustomEvent: function (type, init) { this.type = type; this.detail = init.detail; },
+    dispatchEvent: function (event) { announced.push(event); },
+  };
+  fakeTimers(fakeWindow);
+  var helper = loadHelperWithWindow(fakeWindow);
+  helper.markYandexReady();
+  helper.trackYandexGoalOnce('switch-1', 'site_version_switch_clicked', { to: 'ru' });
+  assert.strictEqual(announced.length, 0);
+  callbacks[0]();
+  assert.strictEqual(announced.length, 1);
+  assert.strictEqual(announced[0].type, 'interoves:analytics-goal-delivered');
+  assert.deepStrictEqual(announced[0].detail, { key: 'switch-1', goal: 'site_version_switch_clicked' });
+})();
+
 (async function runAsync() {
   await testRejectedAckIsDroppedForGood();
   await testFailingAckBacksOffAcrossFlushesAndReloads();

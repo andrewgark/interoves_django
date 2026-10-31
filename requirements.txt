@@ -98,6 +98,7 @@ libclang==18.1.1
 lockfile==0.12.2
 Markdown>=3.5.2
 markdown-it-py==3.0.0
+maxminddb==2.8.2
 MarkupSafe==2.1.5
 mdurl==0.1.2
 msgpack==1.1.0

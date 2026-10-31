@@ -23,9 +23,12 @@ existing alarm names in place. It uses the already-configured
   accept its newer journald input, so it collects these files using its
   supported file input. Daphne stdout/stderr remains in the existing EB
   `web.stdout.log` stream; it is not copied into another log group.
-- Per-instance and Auto Scaling group metrics every 60 seconds: CPU, used and
-  available memory, swap used percentage, root filesystem used percentage and
-  free bytes, and Daphne process count. EC2 detailed monitoring is not enabled.
+- Auto Scaling group metrics every 60 seconds, only the three the alarms use:
+  total CPU, used memory percentage and root filesystem free bytes. Per-instance,
+  per-core, swap and Daphne process count series were dropped in 2026-11 to cut
+  custom-metric cost (each series is $0.30/month and instances churn); use
+  `AWS/EC2` or SSM on the instance for per-host detail. EC2 detailed monitoring
+  is not enabled.
 - Nginx request method/path, status, total and upstream timing, target address,
   Nginx request ID, Django `X-Request-ID`, hostname, and ALB
   `X-Amzn-Trace-Id`. Query strings and response bodies are excluded.

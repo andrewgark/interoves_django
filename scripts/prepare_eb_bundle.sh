@@ -160,9 +160,15 @@ if [[ "$ENV_NAME" == "interoves-web-green-lb" ]]; then
     install -D -m 0755 \
         "$ROOT/.platform/hooks/postdeploy/07_web_memory_guard.sh" \
         "$stage/.platform/hooks/postdeploy/07_web_memory_guard.sh"
+    install -D -m 0755 \
+        "$ROOT/.platform/hooks/postdeploy/12_sync_geoip_db.sh" \
+        "$stage/.platform/hooks/postdeploy/12_sync_geoip_db.sh"
     install -D -m 0644 \
         "$ROOT/.platform/nginx/conf.d/interoves_timing_logformat.conf" \
         "$stage/.platform/nginx/conf.d/interoves_timing_logformat.conf"
+    install -D -m 0644 \
+        "$ROOT/.platform/nginx/conf.d/elasticbeanstalk/00_timing_access_log.conf" \
+        "$stage/.platform/nginx/conf.d/elasticbeanstalk/00_timing_access_log.conf"
 fi
 
 if [[ "$ENV_NAME" == "interoves-web-green" ]]; then

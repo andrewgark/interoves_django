@@ -53,16 +53,12 @@ fi
 
 case "$DEPLOY_PROFILE" in
     quiet) [[ "$WORKER" == background ]] && PROFILE_MODE=lambda || PROFILE_MODE=ecs-fargate-spot ;;
-    normal) [[ "$WORKER" == integrations ]] && PROFILE_MODE=ecs-fargate || PROFILE_MODE=ecs-fargate-spot ;;
+    normal) PROFILE_MODE=ecs-fargate-spot ;;
     game-day) PROFILE_MODE=ecs-fargate ;;
     *) echo "Unsupported profile: $DEPLOY_PROFILE" >&2; exit 2 ;;
 esac
 MODE="${MODE:-$PROFILE_MODE}"
 case "$MODE" in ecs-fargate|ecs-fargate-spot) ;; *) echo "This script deploys ECS modes only: $MODE" >&2; exit 2 ;; esac
-if [[ "$WORKER" == integrations && "$MODE" == ecs-fargate-spot ]]; then
-    echo "Integrations worker is On-Demand only until external side effects are verified." >&2
-    exit 2
-fi
 
 PYTHON="$ROOT/../venv/interoves_django/bin/python"
 [[ -x "$PYTHON" ]] || { echo "Missing project venv: $PYTHON" >&2; exit 2; }
@@ -162,28 +158,29 @@ for name in billing:
 print(json.dumps(base, separators=(",", ":")))
 ')"
 fi
-all_secrets_json="$(aws_cmd secretsmanager list-secrets --query "SecretList[?starts_with(Name, 'interoves/production/')].{name:Name,arn:ARN}" --output json)"
-config_json="$(printf '%s\0%s\0%s\0' "$env_json" "$secret_names_json" "$all_secrets_json" | "$PYTHON" -c '
+# Secret values live in SSM Parameter Store SecureStrings
+# (/interoves/production/<NAME>); ECS injects the fixed list in
+# infra/ecs/worker-service.yaml. Fail early if a name the EB worker config
+# expects has no parameter.
+all_params_json="$(aws_cmd ssm describe-parameters --parameter-filters Key=Path,Option=OneLevel,Values=/interoves/production --query 'Parameters[].Name' --output json)"
+config_json="$(printf '%s\0%s\0%s\0' "$env_json" "$secret_names_json" "$all_params_json" | "$PYTHON" -c '
 import json, sys
-env, names, secrets = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:3]]
+env, names, params = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:3]]
 values = {item["name"]: item.get("value", "") for item in env}
-arns = {item["name"]: item["arn"] for item in secrets}
-secret_map = {}
+available = set(params)
 for name in names:
-    arn = arns.get("interoves/production/" + name)
-    if not arn:
-        raise SystemExit("Missing Secrets Manager reference: " + name)
-    secret_map[name] = arn
-print(json.dumps({"values": values, "secret_map": secret_map}, separators=(",", ":")))
+    if "/interoves/production/" + name not in available:
+        raise SystemExit("Missing SSM parameter: /interoves/production/" + name)
+print(json.dumps({"values": values}, separators=(",", ":")))
 ')"
 value() { printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(json.load(sys.stdin)["values"].get(sys.argv[1], ""))' "$1"; }
-secret_map="$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(json.dumps(json.load(sys.stdin)["secret_map"], separators=(",", ":")))')"
-secret_arns="$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(",".join(json.load(sys.stdin)["secret_map"].values()))')"
+secret_map='{}'
+secret_arns=""
 RDS_SECRET_ARN="$(value RDS_SECRET_ARN)"
 [[ -n "$RDS_SECRET_ARN" && "$RDS_SECRET_ARN" != None ]] || { echo "RDS_SECRET_ARN missing in $ENVIRONMENT" >&2; exit 1; }
 SOCIAL_QUEUE_S3_BUCKET="$(value SOCIAL_QUEUE_S3_BUCKET)"
 SOCIAL_QUEUE_S3_BUCKET="${SOCIAL_QUEUE_S3_BUCKET:-interoves-django-static}"
-secret_arns="$secret_arns,$RDS_SECRET_ARN"
+secret_arns="$RDS_SECRET_ARN"
 
 QUEUE_NAME="interoves-${WORKER}"
 QUEUE_URL="$(aws_cmd sqs get-queue-url --queue-name "$QUEUE_NAME" --query QueueUrl --output text)"

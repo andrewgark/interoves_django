@@ -1,0 +1,18 @@
+{# Suggests the other hostname (games/site/http/site_version.py); shown by static/js/site_version.js. #}
+{% if site_version.suggest %}
+<aside class="new-site-version-hint pal-card" aria-labelledby="new-site-version-hint-title" data-site-version-hint="{{ site_version.suggest }}" data-site-version-current="{{ site_version.current }}" hidden>
+  <button type="button" class="new-rules-modal__close new-site-version-hint__close" aria-label="Закрыть" data-site-version-stay><i class="ph ph-x" aria-hidden="true"></i></button>
+  {% if site_version.suggest == 'ru' %}
+  <p id="new-site-version-hint-title" class="new-site-version-hint__title">Вы в России? Есть альтернативная версия сайта</p>
+  <p class="new-site-version-hint__text">Interoves может не открываться в России без VPN. Попробуйте российскую версию — она обычно доступна без VPN, но иногда работает медленнее.</p>
+  {% else %}
+  <p id="new-site-version-hint-title" class="new-site-version-hint__title">Доступна международная версия</p>
+  <p class="new-site-version-hint__text">Международная версия Interoves обычно работает быстрее. В России она может быть недоступна без VPN.</p>
+  {% endif %}
+  {% if user.is_authenticated %}<p class="new-site-version-hint__note">Вход на версиях раздельный: возможно, придётся войти ещё раз.</p>{% endif %}
+  <div class="new-site-version-hint__actions">
+    <a class="new-btn" href="{{ site_version.suggest_url }}" data-site-version-choice="{{ site_version.suggest }}">{% if site_version.suggest == 'ru' %}Российская версия{% else %}Международная версия{% endif %}</a>
+    <button type="button" class="new-btn new-btn--ghost" data-site-version-stay>Остаться здесь</button>
+  </div>
+</aside>
+{% endif %}

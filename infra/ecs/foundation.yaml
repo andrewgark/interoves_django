@@ -36,6 +36,16 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy
+      Policies:
+        - PolicyName: ReadInterovesProductionParameters
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Worker secrets are SecureStrings under the aws/ssm key; ECS
+              # resolves the task definition `Secrets` with this role.
+              - Effect: Allow
+                Action: ssm:GetParameters
+                Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/*'
       Tags:
         - Key: Service
           Value: interoves-workers

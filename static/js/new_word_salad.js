@@ -1524,7 +1524,13 @@
         }) || null;
       }
 
-      // An answer word: solve it here and now, the server confirms it later.
+      // A found word holds its finished path for a moment (is-found) before
+      // the board changes: solved right at the last letter, the path vanished
+      // before it was even drawn there.
+      var SALAD_FOUND_HOLD_MS = 450;
+      var foundHold = false;
+
+      // An answer word: solve it here, the server confirms it later.
       function solveInstantly(wordRow, path, word) {
         var body = new FormData(form);
         if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
@@ -1542,8 +1548,30 @@
           fields: global.InterovesOutbox.formFields(body),
           at: Date.now()
         });
+        setSaladSyncing(root, true);
 
         var keepSelection = hasWordContinuation(word, unsolvedAnswerWords());
+        cancelIdleFind();
+        // A word that goes on into a longer answer keeps the press alive.
+        if (!keepSelection) activeDragRoot = null;
+        foundHold = true;
+        root.classList.add('is-found');
+        renderSelection();
+        global.setTimeout(function () {
+          foundHold = false;
+          root.classList.remove('is-found');
+          showInstantSolve(wordRow, path, word, keepSelection);
+          // Sent after the hold, so the server's card cannot replace the
+          // board in the middle of it; the queue already keeps the path.
+          flushSaladOutbox();
+          if (keepSelection) {
+            maybeCheck();
+            scheduleIdleFind();
+          }
+        }, SALAD_FOUND_HOLD_MS);
+      }
+
+      function showInstantSolve(wordRow, path, word, keepSelection) {
         var written = selectedWord(path);
         wordRow.classList.add('is-solved');
         wordRow.classList.remove('is-hinted');
@@ -1553,17 +1581,13 @@
         syncSolvedState();
         syncPreviewPoints();
         renderExtraWords();
-        cancelIdleFind();
         markLatestFound('answer', word, true);
         if (!keepSelection) {
-          activeDragRoot = null;
           clearSelection();
         } else {
           renderSelection();
         }
         showAnswerToast(root, written, 'correct');
-        setSaladSyncing(root, true);
-        flushSaladOutbox();
       }
 
       var SALAD_MAX_ATTEMPTS = 3;
@@ -1672,7 +1696,7 @@
 
       function maybeCheck(opts) {
         opts = opts || {};
-        if (!currentPath.length) return;
+        if (!currentPath.length || foundHold) return;
         var length = currentPath.length;
         var selected = normalizeWord(selectedWord());
         var matchesAnswerLength = unsolvedLengths().indexOf(length) >= 0;
@@ -1707,7 +1731,7 @@
         var index = cellIndex(cell);
         if (index >= 0) cellByIndex[index] = cell;
         cell.addEventListener('pointerdown', function (event) {
-          if (event.isPrimary === false || event.button > 0) return;
+          if (event.isPrimary === false || event.button > 0 || foundHold) return;
           if (!cell.classList.contains('is-active')) return;
           event.preventDefault();
           lastSaladRoot = root;

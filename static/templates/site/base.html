@@ -262,6 +262,7 @@
               <i class="ph ph-monitor" aria-hidden="true"></i>
             </button>
           </div>
+          {% include "site/partials/site_version_menu.html" with variant="nav" %}
           {% if play_mode and user.is_authenticated %}
             {% if lock_personal_play_mode %}
               <span class="new-mode-toggle new-mode-toggle--locked" data-tooltip="В турнирной игре доступен только командный режим."><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
@@ -308,6 +309,7 @@
             <i class="ph ph-monitor" aria-hidden="true"></i>
           </button>
         </div>
+        {% include "site/partials/site_version_menu.html" with variant="drawer" %}
         {% if play_mode and user.is_authenticated %}
           {% if lock_personal_play_mode %}
             <span class="new-nav__drawer-link new-mode-toggle new-mode-toggle--locked"><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
@@ -1092,6 +1094,7 @@
   })();
   </script>
   {% block footer %}{% include "site/partials/site_footer.html" %}{% endblock %}
+  {% include "site/partials/site_version_hint.html" %}
   <script>
   (function () {
     var KEY = (window.interovesColorTheme && window.interovesColorTheme.KEY) || 'interoves_color_theme';
@@ -1374,5 +1377,6 @@
   <script src="{% static 'js/daily_archive.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   <script src="{% static 'js/grid_puzzle.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   <script src="{% static 'js/new_tooltips.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+  <script src="{% static 'js/site_version.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 </body>
 </html>

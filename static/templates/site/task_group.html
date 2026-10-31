@@ -5072,6 +5072,29 @@
     return Object.keys(have).some(function (idx) { return !incoming[idx]; });
   }
 
+  // Reveal only the words added by this card update, one after another. This
+  // restores the ladder's chain-solve feedback when an offline pack assembles
+  // several newly solved rows in a single response.
+  function staggerNewlySolvedRaddleRows(current, html) {
+    if (!current || !html || typeof document === 'undefined') return html;
+    var currentTask = current.querySelector('.new-raddle-task');
+    var holder = document.createElement('div');
+    holder.innerHTML = html;
+    var incomingTask = holder.querySelector('.new-raddle-task');
+    if (!currentTask || !incomingTask) return html;
+    var before = raddleSolvedIndices(currentTask);
+    var added = [];
+    incomingTask.querySelectorAll('.new-raddle-table .new-raddle-row--solved[data-word-index]').forEach(function (row) {
+      var index = row.getAttribute('data-word-index');
+      if (!row.classList.contains('new-raddle-sticky-pin__row') && !before[index]) added.push(row);
+    });
+    added.forEach(function (row, index) {
+      row.classList.add('is-chain-reveal');
+      row.style.setProperty('--raddle-chain-delay', Math.min(index * 180, 1080) + 'ms');
+    });
+    return holder.firstElementChild ? holder.firstElementChild.outerHTML : html;
+  }
+
   function applyNewUiTaskHtml(map) {
     if (!map) return 0;
     var handledCount = 0;
@@ -5112,6 +5135,7 @@
         if (!el || !html) return;
         handledCount += 1;
         if (incomingRaddleIsOlder(el, html) || incomingSaladDropsSolved(el, html)) return;
+        html = staggerNewlySolvedRaddleRows(el, html);
         el.outerHTML = html;
         var fresh = document.getElementById('new-task-' + tid);
         if (fresh) {

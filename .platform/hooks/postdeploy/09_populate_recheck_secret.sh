@@ -10,9 +10,9 @@ fi
 
 SECRET_DIR=/var/app/current/secrets
 mkdir -p "$SECRET_DIR"
-/usr/bin/aws secretsmanager get-secret-value \
-  --secret-id arn:aws:secretsmanager:eu-central-1:916000456640:secret:interoves/production/DJANGO_SECRET_KEY-uZpyh5 \
-  --query SecretString --output text --region eu-central-1 \
+/usr/bin/aws ssm get-parameter --with-decryption \
+  --name /interoves/production/DJANGO_SECRET_KEY \
+  --query Parameter.Value --output text --region eu-central-1 \
   >"$SECRET_DIR/django_secret_key.txt"
 chown webapp:webapp "$SECRET_DIR/django_secret_key.txt"
 chmod 0600 "$SECRET_DIR/django_secret_key.txt"

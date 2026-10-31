@@ -15,9 +15,9 @@ Sizing and quiet/normal/game-day mode defaults are recorded in
 production switch. The deploy command must validate that the selected mode is
 allowed for the worker before applying it.
 
-Current production services are `interoves-identity-ecs` (Fargate),
-`interoves-background-ecs` (Fargate Spot), `interoves-integrations-ecs`
-(Fargate), and `interoves-recheck-ecs` (Fargate Spot). Each is currently
+Current production services are `interoves-identity-ecs`,
+`interoves-background-ecs`, `interoves-integrations-ecs` and
+`interoves-recheck-ecs`, all on Fargate Spot since 2026-11. Each is currently
 `1/1`; queue and DLQ names are maintained in `docs/worker-queues.md`. The
 legacy EB worker environments are not consumers.
 
@@ -67,9 +67,11 @@ For the first non-browser pilot, build `Dockerfile.worker` and use it only for
 credentials, databases, media, and caches through `.dockerignore`. The image
 still receives all runtime values through the task environment/config loader.
 
-For `ecs-fargate-spot`, the workload must tolerate interruption. Start with
-`background` or `recheck`; keep `integrations` on On-Demand until its retry and
-external API side effects have been verified.
+For `ecs-fargate-spot`, the workload must tolerate interruption. The task
+definition sets `StopTimeout: 120`, matching the two-minute Spot notice, so the
+polling loop finishes the in-flight message after SIGTERM. Integration jobs
+are additionally guarded by per-run locks and stale-message checks; use the
+`game-day` profile (On-Demand) when an interruption must not delay a post.
 
 The polling command handles SIGTERM/SIGINT and stops after the current receive
 cycle. ECS can therefore replace a task without immediately starting another
@@ -93,12 +95,18 @@ IMAGE_URI="$(./scripts/build_worker_image.sh 0c6e9b5 | tail -1)"
 
 Do not use a floating `latest` tag for production workers.
 
-The task definition passes only references and non-secret runtime metadata as
-environment variables. The application loads the actual values through the
-task role using either `INTEROVES_CONFIG_SECRET_ID` (one JSON bundle) or
-`INTEROVES_CONFIG_SECRET_MAP` (the current per-variable Secrets Manager
-layout). For the first pilot, use the map and grant `GetSecretValue` only for
-the exact referenced ARNs.
+Secret values are SSM Parameter Store SecureStrings
+`/interoves/production/<NAME>` (free, default `aws/ssm` key). The task
+definition lists them under the container `Secrets`, so ECS resolves them with
+the execution role (`ReadInterovesProductionParameters` in `foundation.yaml`)
+and the process receives ordinary environment variables. The recheck worker
+gets only the three it needs. Green EB reads the same parameters through
+`aws:elasticbeanstalk:application:environmentsecrets`. The deploy script still
+takes the variable names from the EB worker environments and fails if a
+parameter is missing, so the EB worker environments (0 instances) remain the
+configuration source and must not be deleted. Only the RDS-managed `rds!...`
+secret stays in Secrets Manager. `INTEROVES_CONFIG_SECRET_ID` /
+`INTEROVES_CONFIG_SECRET_MAP` remain supported by the loader but are unused.
 
 The ECS polling adapter uses the same private native-sqsd compatibility path as
 the current recheck worker, so `RECHECK_WORKER_HMAC_SECRET` is not required for

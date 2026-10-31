@@ -1,9 +1,12 @@
 # Deployment defaults only. This file contains no account ids, subnet ids,
 # image digests, queue URLs, or secret values.
 workers:
+  # Sizes were cut in 2026-11 from two weeks of ECS metrics: memory peaked at
+  # ~20% (identity, recheck), ~40% (background) and ~58% (integrations,
+  # Chromium) of 1 GiB; average CPU stayed below 4%.
   background:
     runtime_role: background-worker
-    cpu: '512'
+    cpu: '256'
     memory: '1024'
     visibility_timeout: 90
     allowed_modes:
@@ -13,15 +16,15 @@ workers:
   identity:
     runtime_role: identity-worker
     cpu: '256'
-    memory: '1024'
+    memory: '512'
     visibility_timeout: 180
     allowed_modes:
       - ecs-fargate
       - ecs-fargate-spot
   recheck:
     runtime_role: worker
-    cpu: '512'
-    memory: '1024'
+    cpu: '256'
+    memory: '512'
     visibility_timeout: 180
     allowed_modes:
       - ecs-fargate
@@ -33,18 +36,19 @@ workers:
     visibility_timeout: 200
     allowed_modes:
       - ecs-fargate
+      - ecs-fargate-spot
 
 profiles:
   quiet:
     background: lambda
     identity: ecs-fargate-spot
     recheck: ecs-fargate-spot
-    integrations: ecs-fargate
+    integrations: ecs-fargate-spot
   normal:
     background: ecs-fargate-spot
     identity: ecs-fargate-spot
     recheck: ecs-fargate-spot
-    integrations: ecs-fargate
+    integrations: ecs-fargate-spot
   game-day:
     background: ecs-fargate
     identity: ecs-fargate

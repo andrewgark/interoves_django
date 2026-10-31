@@ -302,6 +302,7 @@
       debugLog('delivered', payload.goal, payload.params, key);
       persistQueues();
       flushPendingAcks();
+      notifyGoalDelivered(key, payload.goal);
     }
     function releaseForRetry() {
       if (finished) return;
@@ -351,6 +352,17 @@
     if (sentKeys[dedupeKey]) return false;
     rememberPendingGoal(dedupeKey, goal, params, ack);
     return dispatchPendingGoal(dedupeKey);
+  }
+
+  // Lets a page hold a cross-site navigation until its goal is delivered:
+  // a goal still queued in this origin's localStorage may never be retried.
+  function notifyGoalDelivered(key, goal) {
+    if (!global || typeof global.dispatchEvent !== 'function' || typeof global.CustomEvent !== 'function') return;
+    try {
+      global.dispatchEvent(new global.CustomEvent('interoves:analytics-goal-delivered', {
+        detail: { key: key, goal: goal }
+      }));
+    } catch (e) {}
   }
 
   function notifyGoalConsumers(goals) {

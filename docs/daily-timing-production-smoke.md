@@ -8,8 +8,9 @@
 - `Team.is_hidden = true`;
 - `Team.is_tester = true`;
 - аккаунт имеет бессрочный manual Club entitlement только для smoke-доступа;
-- credentials хранятся в AWS Secrets Manager под именем
-  `interoves/production/daily-timing-smoke`.
+- credentials хранятся в SSM Parameter Store (SecureString) под именем
+  `/interoves/ops/daily-timing-smoke` (до 2026-11 — Secrets Manager
+  `interoves/production/daily-timing-smoke`).
 
 Эти объекты нельзя использовать для обычной игры, публичных результатов или
 ручных пользовательских сценариев. Smoke должен работать только с ними и с

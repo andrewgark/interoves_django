@@ -9,7 +9,6 @@ import sys
 import zipfile
 from pathlib import Path
 
-
 CONFIG_DIRS = (".platform", ".ebextensions")
 GREEN_ENV = "interoves-web-green-lb"
 OLD_BACKGROUND_HOOK = ".platform/hooks/postdeploy/02_background_migrations.sh"
@@ -18,8 +17,10 @@ ALLOWED_GREEN_CHANGES = {
     ".platform/hooks/postdeploy/06_install_playwright_chromium.sh",
     ".platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh",
     ".platform/hooks/postdeploy/07_web_memory_guard.sh",
+    ".platform/hooks/postdeploy/12_sync_geoip_db.sh",
     ".platform/nginx/conf.d/interoves_timing_logformat.conf",
     ".ebextensions/playwright.config",
+    ".platform/nginx/conf.d/elasticbeanstalk/00_timing_access_log.conf",
 }
 REQUIRED_GREEN_HOOKS = {
     ".platform/hooks/postdeploy/00_cleanup_cron_backups.sh",
@@ -29,6 +30,7 @@ REQUIRED_GREEN_HOOKS = {
     ".platform/hooks/postdeploy/05_configure_cloudwatch_agent.sh",
     ".platform/hooks/postdeploy/06_install_playwright_chromium.sh",
     ".platform/hooks/postdeploy/07_web_memory_guard.sh",
+    ".platform/hooks/postdeploy/12_sync_geoip_db.sh",
     ".platform/nginx/conf.d/interoves_timing_logformat.conf",
 }
 PROTECTED_GREEN_CONFIG = {

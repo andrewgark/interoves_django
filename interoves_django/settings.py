@@ -150,6 +150,16 @@ NUTRIMATIC_INDEX_S3_REGION = (
 # On EB, keep the cache outside /var/app/current so deploys do not re-download ~350MB.
 NUTRIMATIC_INDEX_CACHE_DIR = (os.environ.get("NUTRIMATIC_INDEX_CACHE_DIR") or "").strip()
 
+# DB-IP "IP to Country Lite" (CC BY 4.0, monthly), used only to suggest
+# interoves.com or ru.interoves.com (games/site/http/visitor_country.py).
+# `manage.py sync_geoip_db` downloads it; without the file every visitor's
+# country is "unknown" and no suggestion is shown. On EB it lives outside
+# /var/app/current so deploys keep it (.platform/hooks/postdeploy).
+GEOIP_COUNTRY_DB = (
+    os.environ.get("GEOIP_COUNTRY_DB")
+    or ("/var/app/geoip/dbip-country-lite.mmdb" if IS_PROD else os.path.join(BASE_DIR, "var", "geoip", "dbip-country-lite.mmdb"))
+).strip()
+
 # Eurovision 2026 booklet: optional sync of PDFs + dist/html from a git source (local clone
 # takes precedence over GitHub). Cached copies + manifest: BASE_DIR/var/eurovision_booklet/2026/
 #
@@ -462,6 +472,7 @@ TEMPLATES = [
                 'games.site.http.context.feedback_nav',
                 'games.site.http.context.club_archive_ui',
                 'games.site.http.context.unverified_telegram_prompt',
+                'games.site.http.site_version.site_version',
             ],
         },
     },

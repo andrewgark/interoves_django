@@ -1,0 +1,43 @@
+{# «Версия сайта»: interoves.com / ru.interoves.com. variant = "nav" (desktop popover) or "drawer" (mobile menu). #}
+<details class="new-site-version new-site-version--{{ variant }}" data-site-version-menu>
+  {% if variant == 'drawer' %}
+  <summary class="new-nav__drawer-link new-site-version__summary">
+    <i class="ph ph-globe-hemisphere-east" aria-hidden="true"></i> Версия сайта
+    <span class="new-site-version__summary-host">{% if site_version.current == 'ru' %}ru.interoves.com{% elif site_version.current == 'intl' %}interoves.com{% endif %}</span>
+  </summary>
+  {% else %}
+  <summary class="new-site-version__summary new-site-version__summary--icon" aria-label="Версия сайта" data-tooltip="Версия сайта">
+    <i class="ph ph-globe-hemisphere-east" aria-hidden="true"></i>
+  </summary>
+  {% endif %}
+  <div class="new-site-version__panel">
+    {% if variant != 'drawer' %}<p class="new-site-version__title">Версия сайта</p>{% endif %}
+    <ul class="new-site-version__options">
+      {% for option in site_version.options %}
+      <li>
+        {% if option.current %}
+        <div class="new-site-version__option is-current" aria-current="true">
+        {% else %}
+        <a class="new-site-version__option" href="{{ option.url }}" data-site-version-choice="{{ option.key }}">
+        {% endif %}
+          <span class="new-site-version__name">
+            {% if option.key == 'ru' %}Для России{% else %}Международная{% endif %}
+            {% if option.current %}<span class="new-site-version__badge"><i class="ph ph-check" aria-hidden="true"></i> сейчас</span>{% endif %}
+          </span>
+          <span class="new-site-version__host">{{ option.host }}</span>
+          <span class="new-site-version__desc">{% if option.key == 'ru' %}Обычно доступна без VPN, но иногда работает медленнее.{% else %}Обычно быстрее, но может не работать в России без VPN.{% endif %}</span>
+        {% if option.current %}</div>{% else %}</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% if user.is_authenticated %}
+    <p class="new-site-version__note">Вход на версиях раздельный: на другой, возможно, придётся войти ещё раз.</p>
+    {% endif %}
+    <details class="new-site-version__about">
+      <summary><i class="ph ph-info" aria-hidden="true"></i> В чём разница?</summary>
+      <p>Это один и тот же сайт: те же игры, аккаунты и результаты. Отличается только путь до сервера. interoves.com идёт через Cloudflare, ru.interoves.com — через сервер в России, поэтому он обычно открывается без VPN, хотя бывает медленнее.</p>
+      <p>Подсказку о другой версии мы показываем по стране, определённой по IP-адресу (<a class="new-link-dotted" href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a>). Сами мы никуда не перенаправляем.</p>
+    </details>
+    <button type="button" class="new-btn new-btn--text new-site-version__reset" data-site-version-reset{% if not site_version.has_decision %} hidden{% endif %}>Сбросить запомненный выбор</button>
+  </div>
+</details>

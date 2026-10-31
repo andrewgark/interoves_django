@@ -25,6 +25,9 @@ canonical backend event counts.
 | `social_follow_prompt_view` | Показана карточка подписки после первой завершённой onboarding-игры |
 | `social_follow_click` | Клик по ссылке в карточке подписки (`platform`) |
 | `social_follow_prompt_dismiss` | Карточка подписки закрыта |
+| `site_version_prompt_shown` | Показана подсказка о другой версии сайта (interoves.com / ru.interoves.com) |
+| `site_version_prompt_dismissed` | Подсказка закрыта (`method`) |
+| `site_version_switch_clicked` | Клик по ссылке на другую версию сайта (`source`) |
 
 Onboarding parameters:
 
@@ -33,6 +36,9 @@ Onboarding parameters:
 - `onboarding_second_game_start`: `first_game`, `game`;
 - `social_follow_prompt_view` / `social_follow_prompt_dismiss`: `game`;
 - `social_follow_click`: `platform=telegram|instagram|twitter`.
+- `site_version_*`: `from=intl|ru|other`, `to=intl|ru`;
+  `site_version_prompt_dismissed`: `method=stay|close|escape`;
+  `site_version_switch_clicked`: `source=prompt|menu`.
 
 The onboarding context lives in browser `localStorage` for 24 hours. Existing
 backend `game_start` / `game_complete` payloads remain the source of truth for
