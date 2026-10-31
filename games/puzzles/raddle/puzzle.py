@@ -1,7 +1,7 @@
 """Лесенка: board payload and the rules of one submitted word."""
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from games.daily.page.share import get_daily_share_adapter
 from games.daily.page.state import latest_daily_state
@@ -196,6 +196,9 @@ class RaddleBoardSource:
     team: object
     user: object
     anon_key: object
+    # Clue reactions of this actor, loaded on the first board that shows a
+    # used clue: the offline pack draws dozens of boards of one ladder.
+    _reactions: dict | None = field(default=None, init=False, repr=False)
 
     def build(self, state=None):
         data = build_raddle_board_data(
@@ -212,9 +215,14 @@ class RaddleBoardSource:
             user=self.user,
             anon_key=self.anon_key,
         )
-        from games.puzzles.raddle.clue_likes import attach_clue_reactions
+        from games.puzzles.raddle.clue_likes import attach_clue_reactions, clue_reactions_meta
+        ui = data.get('ui') or {}
+        if ui.get('used_hints') and self._reactions is None:
+            self._reactions = clue_reactions_meta(
+                self.task, team=self.team, user=self.user, anon_key=self.anon_key,
+            )
         attach_clue_reactions(
-            data.get('ui') or {}, self.task, team=self.team, user=self.user, anon_key=self.anon_key,
+            ui, self.task, team=self.team, user=self.user, anon_key=self.anon_key, meta=self._reactions,
         )
         return data
 

@@ -175,6 +175,15 @@ class LadderOfflinePackEndpointTests(_ClientEventFixture):
         self.assertIn('new-raddle-result', pack['result'])
         self.assertIn('data-raddle-unused-clues', pack['sections']['unused'])
 
+    def test_pack_loads_clue_reactions_once(self):
+        # Every reachable board shows used clues; their reactions are one load.
+        from games.puzzles.raddle import clue_likes
+
+        OfflinePlayRule.objects.create(game=self.game, instant_verdict=True, offline_attempts=True)
+        with patch.object(clue_likes, 'clue_reactions_meta', wraps=clue_likes.clue_reactions_meta) as meta:
+            self.assertEqual(self._pack()['status'], 'ok')
+        self.assertEqual(meta.call_count, 1)
+
     def test_pack_and_card_name_their_run(self):
         # The official game and its replays share the task revision; the page
         # keeps a pack only for the run it was built for.

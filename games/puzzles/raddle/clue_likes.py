@@ -68,12 +68,17 @@ def clue_reactions_meta(task, *, team=None, user=None, anon_key=None):
 _EMPTY_META = {'likes': 0, 'dislikes': 0, 'liked': False, 'disliked': False}
 
 
-def attach_clue_reactions(ui, task, *, team=None, user=None, anon_key=None):
-    """Put ``reaction`` on each used clue: only a solved transition can be judged."""
+def attach_clue_reactions(ui, task, *, team=None, user=None, anon_key=None, meta=None):
+    """Put ``reaction`` on each used clue: only a solved transition can be judged.
+
+    ``meta`` is ``clue_reactions_meta`` already loaded for this actor, for a
+    caller that draws several boards of one ladder.
+    """
     used = ui.get('used_hints') or []
     if not used:
         return
-    meta = clue_reactions_meta(task, team=team, user=user, anon_key=anon_key)
+    if meta is None:
+        meta = clue_reactions_meta(task, team=team, user=user, anon_key=anon_key)
     for hint in used:
         hint['reaction'] = meta.get(hint['index'], _EMPTY_META)
 
