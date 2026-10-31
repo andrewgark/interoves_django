@@ -242,6 +242,17 @@ class OrdinaryTaskClientCheckTests(_ClientEventFixture):
         OfflinePlayRule.objects.create(task_type='default', instant_verdict=True)
         self.assertIsNone(self._form_spec(self._answer('ответ')))
 
+    def test_offline_answers_follow_the_rule(self):
+        def form_allows_offline(response):
+            card = response['update_task_html_new'][str(self.plain.id)]
+            return 'data-offline-attempts="1"' in card
+
+        rule = OfflinePlayRule.objects.create(task_type='default', instant_verdict=True)
+        self.assertFalse(form_allows_offline(self._answer('нет')))
+        rule.offline_attempts = True
+        rule.save()
+        self.assertTrue(form_allows_offline(self._answer('тоже нет')))
+
     @patch('games.ops.telegram.bot.notify.notify_admin_offline_play')
     def test_divergent_verdict_of_an_ordinary_answer_is_reported(self, notify):
         OfflinePlayRule.objects.create(task_type='default', instant_verdict=True)

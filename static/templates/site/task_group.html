@@ -617,6 +617,7 @@
 
   function postForm(form) {
     if (form && form.dataset && form.dataset.submitting === '1') return;
+    if (form && form.getAttribute('data-offline-answered') === '1') return;
     var submitBtnEarly = form && form.querySelector('button[type=submit]');
     if (submitBtnEarly) { try { submitBtnEarly.blur(); } catch (e) {} }
     if (form && form.getAttribute('data-proportions-form') === '1') {
@@ -656,11 +657,22 @@
       msg.style.display = 'block';
     }
     if (msg) msg.textContent = 'Проверяем…';
+    // An answer the page checked itself, for the queue if the network is gone.
+    var ordinarySent = null;
     ordinaryClientVerdict(isOrdinaryAttemptForm ? form : null, submittedAttemptText)
       .then(function (verdict) {
         if (verdict) showOrdinaryClientVerdict(msg, verdict);
         var body = formPostBody(form);
-        if (verdict) body.set('client_verdict', verdict);
+        if (verdict) {
+          body.set('client_verdict', verdict);
+          if (window.InterovesClientEventId) body.set('client_event_id', window.InterovesClientEventId.create());
+          ordinarySent = { body: body, verdict: verdict };
+          if (navigator.onLine === false && queueOrdinaryAnswer(form, body, verdict)) {
+            var queued = new Error('queued');
+            queued.ordinaryQueued = true;
+            throw queued;
+          }
+        }
         return fetch(formSubmitUrl(form), {
           method: 'POST',
           headers: anonFetchHeaders(),
@@ -810,6 +822,13 @@
       .catch(function (err) {
         if (form && form.dataset) form.dataset.submitting = '0';
         if (submitBtn) submitBtn.disabled = false;
+        if (err && err.ordinaryQueued) return;
+        // No network: the checked answer waits in the queue (a resend after a
+        // lost response is answered by its client_event_id, not counted twice).
+        if (ordinarySent && !(err && err.httpStatus)
+            && queueOrdinaryAnswer(form, ordinarySent.body, ordinarySent.verdict)) {
+          return;
+        }
         if (isRaddleLineForm(form) && raddleWordAlreadySolved(form, form.getAttribute('data-word-index'))) {
           return;
         }
@@ -3249,6 +3268,115 @@
     msg.textContent = display.text;
     if (display.css) msg.classList.add(display.css);
   }
+  // Офлайн-ответы обычных заданий: with offline attempts on the form, an
+  // answer given without the network is kept here and sent when it is back.
+  var ORDINARY_OUTBOX_KEY = 'interoves:ordinary-outbox:v1';
+  var ordinaryOutbox = window.InterovesOutbox
+    ? window.InterovesOutbox.createOutbox({ key: ORDINARY_OUTBOX_KEY, storage: raddleSafeLocalStorage() || undefined })
+    : null;
+  var ordinaryOutboxFlushing = false;
+  var ORDINARY_QUEUED_TEXT = {
+    Ok: 'Верно! Ответ засчитается, когда появится связь.',
+    Partial: 'Частично верно. Ответ засчитается, когда появится связь.',
+    Wrong: 'Неверно. Ответ сохранён и отправится, когда появится связь.',
+  };
+
+  function queueOrdinaryAnswer(form, body, verdict) {
+    if (!ordinaryOutbox || !form || form.getAttribute('data-offline-attempts') !== '1') return false;
+    var id = body.get('client_event_id');
+    if (!id) return false;
+    var added = ordinaryOutbox.add({
+      id: id,
+      scope: form.getAttribute('data-task-id'),
+      url: formSubmitUrl(form),
+      fields: window.InterovesOutbox.formFields(body),
+      at: Date.now(),
+      verdict: verdict,
+    });
+    if (!added) {
+      reportRaddleOffline('storage_failed', { task_id: form.getAttribute('data-task-id') }, true);
+      return false;
+    }
+    showQueuedOrdinaryAnswer(form, verdict, body.get('text'));
+    return true;
+  }
+
+  function showQueuedOrdinaryAnswer(form, verdict, text) {
+    var msg = form.querySelector('.new-attempt-msg');
+    var field = form.querySelector('input[name="text"]:not([type="hidden"]), textarea[name="text"]');
+    if (verdict === 'Ok' || verdict === 'Partial') {
+      form.setAttribute('data-offline-answered', '1');
+      if (field) {
+        field.value = text || field.value;
+        field.readOnly = true;
+      }
+      var button = form.querySelector('button[type=submit]');
+      if (button) button.disabled = true;
+    }
+    if (!msg) return;
+    msg.classList.remove('new-attempt-msg--wrong', 'new-attempt-msg--partial', 'new-attempt-msg--pending');
+    msg.textContent = ORDINARY_QUEUED_TEXT[verdict] || '';
+    if (verdict === 'Wrong') msg.classList.add('new-attempt-msg--wrong');
+    if (verdict === 'Partial') msg.classList.add('new-attempt-msg--partial');
+  }
+
+  // A page opened again (from the offline copy too) shows its queued answers.
+  function restoreQueuedOrdinaryAnswers() {
+    if (!ordinaryOutbox) return;
+    ordinaryOutbox.entries().forEach(function (entry) {
+      var form = document.querySelector('form.new-attempt-form[data-task-id="' + entry.scope + '"][data-offline-spec]');
+      if (!form || form.getAttribute('data-offline-answered') === '1') return;
+      var text = '';
+      entry.fields.forEach(function (pair) { if (pair[0] === 'text') text = pair[1]; });
+      showQueuedOrdinaryAnswer(form, entry.verdict, text);
+    });
+  }
+
+  function sendQueuedOrdinaryAnswer(entry) {
+    var body = new FormData();
+    entry.fields.forEach(function (pair) { body.append(pair[0], pair[1]); });
+    if (window.InterovesPageCsrf) window.InterovesPageCsrf.stampFormData(body);
+    return fetchWithTimeout(entry.url, {
+      method: 'POST',
+      headers: anonFetchHeaders(),
+      body: body,
+      credentials: 'same-origin',
+    }, RADDLE_FETCH_TIMEOUT_MS).then(function (r) {
+      if (r.status >= 500 || r.status === 429) return 'retry';
+      if (!r.ok) {
+        // 409: another account or a stale game context; it will never be taken.
+        reportRaddleOffline('queue_dropped', { task_id: entry.scope, status: r.status });
+        return 'drop';
+      }
+      return r.json().then(function (data) {
+        flushAnalyticsEvents(data);
+        if (data && data.update_task_html_new) applyNewUiTaskHtml(data.update_task_html_new);
+        return 'sent';
+      }, function () { return 'retry'; });
+    }, function () { return 'retry'; });
+  }
+
+  function flushOrdinaryOutbox() {
+    if (!ordinaryOutbox || ordinaryOutboxFlushing || navigator.onLine === false || !ordinaryOutbox.size()) return;
+    ordinaryOutboxFlushing = true;
+    window.InterovesOutbox.flush(ordinaryOutbox, null, sendQueuedOrdinaryAnswer).then(function (result) {
+      ordinaryOutboxFlushing = false;
+      if (result.sent) reportRaddleOffline('queue_synced', { count: result.sent });
+      if (result.left) window.setTimeout(flushOrdinaryOutbox, 5000);
+    });
+  }
+
+  window.addEventListener('online', flushOrdinaryOutbox);
+  window.setInterval(flushOrdinaryOutbox, 20000);
+  window.setTimeout(function () {
+    restoreQueuedOrdinaryAnswers();
+    flushOrdinaryOutbox();
+    // Keep a page with offline answers for opening without the network.
+    if (navigator.onLine !== false && document.querySelector('form.new-attempt-form[data-offline-attempts="1"]')) {
+      rememberRaddlePageForOffline();
+    }
+  }, 1000);
+
   function shouldShowOrdinaryAttemptFeedback(status) {
     return !!ordinaryAttemptFeedback[status];
   }

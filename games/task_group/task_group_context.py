@@ -110,10 +110,12 @@ def build_task_group_task_context_dicts(
         daily_board_wrapper_by_task_id=daily['daily_board_wrapper_by_task_id'],
         daily_board_adapter_by_task_id=daily['daily_board_adapter_by_task_id'],
     )
+    client_checks = collect_client_checks(
+        game, tasks, attempts_info_by_task_id, team=team, user=user, anon_key=anon_key, mode=mode,
+    )
     return {
-        'client_specs_by_task_id': collect_client_specs(
-            game, tasks, attempts_info_by_task_id, team=team, user=user, anon_key=anon_key, mode=mode,
-        ),
+        'client_specs_by_task_id': {task_id: check['spec_json'] for task_id, check in client_checks.items()},
+        'offline_answer_task_ids': {task_id for task_id, check in client_checks.items() if check['offline_attempts']},
         'attempts_info_by_task_id': attempts_info_by_task_id,
         'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
         'likes_meta_by_task_id': likes_meta_by_task_id,
@@ -138,11 +140,12 @@ def build_task_group_task_context_dicts(
 ORDINARY_ANSWER_TASK_TYPES = ('default',)
 
 
-def collect_client_specs(game, tasks, attempts_info_by_task_id, *, team, user, anon_key, mode):
-    """Client spec JSON of each unsolved ordinary task the page may check itself.
+def collect_client_checks(game, tasks, attempts_info_by_task_id, *, team, user, anon_key, mode):
+    """``page_client_check`` of each unsolved ordinary task the page may check itself.
 
-    docs/offline-play-plan.md, phase 3: the answer form carries it and shows
-    the verdict before the server's answer arrives.
+    docs/offline-play-plan.md, phase 3: the answer form carries the spec and
+    shows the verdict before the server's answer arrives; with offline
+    attempts it also keeps answers given without the network.
     """
     from games.gameplay.client_checks import page_client_check
 
@@ -155,5 +158,5 @@ def collect_client_specs(game, tasks, attempts_info_by_task_id, *, team, user, a
             continue
         check = page_client_check(task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key)
         if check is not None:
-            specs[task.id] = check['spec_json']
+            specs[task.id] = check
     return specs

@@ -90,6 +90,11 @@
 `general` оставляет турниры онлайн. Смотреть `offline_verdict_divergence` с
 `task_type=default` — ожидается 0.
 
+✔ «offline attempts» в том же правиле добавляет ответы без сети (очередь,
+копия страницы в Service Worker). Смотреть `queue_synced`, `queue_dropped`,
+`storage_failed` в отчёте. Офлайн-времени здесь нет: сервер отмечает решение
+по приходу ответа, так что ожидание связи входит во время решения.
+
 Запросы для CloudWatch Logs Insights:
 
 ```

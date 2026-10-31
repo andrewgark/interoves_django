@@ -19,7 +19,7 @@
     <div class="new-taskcard__answer-comment new-login-hint">{% autoescape off %}{{ task.answer_comment }}{% endautoescape %}</div>
   {% endif %}
 {% else %}
-  <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}"{% with spec=client_specs_by_task_id|get_item:task.id %}{% if spec %} data-offline-spec="{{ spec }}"{% endif %}{% endwith %}>
+  <form class="new-attempt-form" action="/send_attempt/{{ task.id }}/" method="post" data-task-id="{{ task.id }}"{% with spec=client_specs_by_task_id|get_item:task.id %}{% if spec %} data-offline-spec="{{ spec }}"{% if task.id in offline_answer_task_ids %} data-offline-attempts="1"{% endif %}{% endif %}{% endwith %}>
     {% csrf_token %}
     <input type="hidden" name="game_id" value="{{ game.id }}">
     {% if offer_share_hash %}<input type="hidden" name="offer_share" value="{{ offer_share_hash }}">{% endif %}
