@@ -208,7 +208,7 @@ Resources:
           # Secret values come from free SSM Parameter Store SecureStrings
           # (/interoves/production/<NAME>), injected by ECS through the
           # execution role. They replaced per-variable Secrets Manager secrets
-          # ($0.40/month each) in 2026-11. The recheck worker needs only three.
+          # ($0.40/month each) in 2026-11. The recheck worker needs only five.
           Secrets: !If
             - IsRecheck
             - - Name: ANALYTICS_ANON_SIGNING_KEY
@@ -217,6 +217,10 @@ Resources:
                 ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/AUTH_LOG_FINGERPRINT_KEY'
               - Name: DJANGO_SECRET_KEY
                 ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/DJANGO_SECRET_KEY'
+              - Name: TELEGRAM_BOT_TOKEN
+                ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/TELEGRAM_BOT_TOKEN'
+              - Name: TRIBUTE_API_KEY
+                ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/TRIBUTE_API_KEY'
             - - Name: ANALYTICS_ANON_SIGNING_KEY
                 ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/ANALYTICS_ANON_SIGNING_KEY'
               - Name: AUTH_LOG_FINGERPRINT_KEY
