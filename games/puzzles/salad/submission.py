@@ -122,6 +122,19 @@ def write_move_result(result, task, attempt, *, attempt_persisted, user, anon_ke
     return result
 
 
+def client_verdict_of(attempt, persisted):
+    """What an instant-verdict page should have shown for a solve path.
+
+    'Ok' when the path solved a new answer word; a rare or off-theme find, a
+    word already solved and a dropped wrong probe are all 'Wrong'.
+    """
+    if not persisted or attempt.status not in ('Ok', 'Partial'):
+        return 'Wrong'
+    if (attempt.comment or '') in (RARE_FOUND_COMMENT, EXTRA_FOUND_COMMENT):
+        return 'Wrong'
+    return 'Ok'
+
+
 def include_task_html(result):
     """A wrong salad path stays on the client. A credited word needs fresh HTML."""
     return bool(result.get('word_salad_correct'))

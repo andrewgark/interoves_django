@@ -146,6 +146,53 @@
     });
   }
 
+  // A no-reuse path of adjacent active cells spelling word (rules.find_paths).
+  function canTrace(grid, word, active) {
+    var target = normalizeWord(word);
+    if (!target) return false;
+    function visit(index, position, used) {
+      if (!active[index] || used[index] || grid[index] !== target.charAt(position)) return false;
+      if (position === target.length - 1) return true;
+      used[index] = true;
+      for (var next = 0; next < 16; next += 1) {
+        if (next !== index && cellsAreAdjacent(index, next) && visit(next, position + 1, used)) {
+          used[index] = false;
+          return true;
+        }
+      }
+      used[index] = false;
+      return false;
+    }
+    for (var start = 0; start < 16; start += 1) {
+      if (visit(start, 0, {})) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Active cells left after a word is solved, as the server prunes them
+   * (salad.submission.WordSaladChecker with rules.removable_cells): while some
+   * cell can go and every remaining word is still traceable, drop the first
+   * such cell by index. contracts/word_salad_prune.json pins this.
+   */
+  function pruneActiveCells(grid, remainingWords, activeIndices) {
+    var active = {};
+    activeIndices.forEach(function (index) { active[index] = true; });
+    while (true) {
+      var removable = null;
+      var order = Object.keys(active).map(Number).sort(function (a, b) { return a - b; });
+      for (var i = 0; i < order.length && removable === null; i += 1) {
+        var candidate = order[i];
+        delete active[candidate];
+        if (remainingWords.every(function (word) { return canTrace(grid, word, active); })) removable = candidate;
+        active[candidate] = true;
+      }
+      if (removable === null) break;
+      delete active[removable];
+    }
+    return Object.keys(active).map(Number).sort(function (a, b) { return a - b; });
+  }
+
   function hasWordContinuation(word, words) {
     var prefix = normalizeWord(word);
     if (!prefix) return false;
@@ -521,6 +568,131 @@
     }
   }
 
+  // ── Мгновенный вердикт (docs/offline-play-plan.md) ──────────────────────
+  // With data-instant-verdict an answer word is solved on the page at once and
+  // its path goes to the server in the background, in order, through this
+  // queue: it lives in localStorage and every entry keeps its client_event_id,
+  // so a resend after a lost response cannot count a word twice. The server's
+  // card replaces the page's once the queue is empty. If the server disagrees,
+  // the page reloads and shows the server's board.
+  var SALAD_OUTBOX_KEY = 'interoves:salad-outbox:v1';
+  var saladOutbox = null;
+  var saladFlushing = false;
+  var saladFlushAgain = false;
+  var saladRetryMs = 1000;
+  var saladRetryTimer = 0;
+  var saladServerCards = {};
+  var saladDiverged = {};
+
+  function saladQueue() {
+    if (saladOutbox || !global.InterovesOutbox) return saladOutbox;
+    var storage;
+    try {
+      storage = global.localStorage;
+      storage.getItem(SALAD_OUTBOX_KEY);
+    } catch (error) {
+      storage = undefined;
+    }
+    saladOutbox = global.InterovesOutbox.createOutbox({ key: SALAD_OUTBOX_KEY, storage: storage });
+    return saladOutbox;
+  }
+
+  // 'sent' / 'retry' / 'drop' for InterovesOutbox.flush.
+  function sendQueuedSaladPath(entry) {
+    var taskId = String(entry.scope);
+    var body = new FormData();
+    entry.fields.forEach(function (pair) { body.append(pair[0], pair[1]); });
+    if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
+    return fetch(entry.url, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-Interoves-Play-Mode': entry.mode || ''
+      },
+      body: body,
+      credentials: 'same-origin'
+    }).then(function (response) {
+      if (response.status >= 500 || response.status === 429) return 'retry';
+      return response.json().catch(function () { return null; }).then(function (data) {
+        if (!data) return response.ok ? 'retry' : divergedSaladPath(taskId);
+        flushAnalyticsEvents(data);
+        if (data.replay_available && typeof global.revealReplayControl === 'function') {
+          global.revealReplayControl();
+        }
+        if (data.status === 'ok' && data.word_salad_correct) {
+          if (data.update_task_html_new) saladServerCards[taskId] = data.update_task_html_new;
+          return 'sent';
+        }
+        return divergedSaladPath(taskId);
+      });
+    });
+  }
+
+  function divergedSaladPath(taskId) {
+    saladDiverged[taskId] = true;
+    return 'drop';
+  }
+
+  function scheduleSaladFlush(delay) {
+    if (saladRetryTimer) global.clearTimeout(saladRetryTimer);
+    saladRetryTimer = global.setTimeout(function () {
+      saladRetryTimer = 0;
+      flushSaladOutbox();
+    }, delay);
+  }
+
+  function flushSaladOutbox() {
+    var outbox = saladQueue();
+    if (!outbox || !outbox.size()) return;
+    if (saladFlushing) {
+      saladFlushAgain = true;
+      return;
+    }
+    if (global.navigator && global.navigator.onLine === false) {
+      scheduleSaladFlush(saladRetryMs);
+      return;
+    }
+    var scopes = [];
+    outbox.entries().forEach(function (entry) {
+      if (scopes.indexOf(String(entry.scope)) < 0) scopes.push(String(entry.scope));
+    });
+    saladFlushing = true;
+    global.InterovesOutbox.flush(outbox, null, sendQueuedSaladPath).then(function (result) {
+      saladFlushing = false;
+      if (saladFlushAgain) {
+        saladFlushAgain = false;
+        flushSaladOutbox();
+      } else if (result.left) {
+        scheduleSaladFlush(saladRetryMs);
+        saladRetryMs = Math.min(saladRetryMs * 2, 16000);
+        return;
+      }
+      saladRetryMs = 1000;
+      scopes.forEach(finishSaladScope);
+    });
+  }
+
+  // The queue of a task is empty: show the server's board.
+  function finishSaladScope(taskId) {
+    if (saladQueue().size(taskId)) return;
+    if (saladDiverged[taskId]) {
+      delete saladDiverged[taskId];
+      global.location.reload();
+      return;
+    }
+    var card = saladServerCards[taskId];
+    if (!card) return;
+    var root = global.document.querySelector('[data-word-salad-root][data-task-id="' + taskId + '"]');
+    if (root && activeDragRoot === root) {
+      // Do not swap the board under a finger; try again after the press.
+      global.setTimeout(function () { finishSaladScope(taskId); }, 300);
+      return;
+    }
+    delete saladServerCards[taskId];
+    if (root && typeof root.__keepWordSaladSelection === 'function') root.__keepWordSaladSelection();
+    if (typeof global.applyNewUiTaskHtml === 'function') global.applyNewUiTaskHtml(card);
+  }
+
   function initWordSalad(scope) {
     var container = scope && scope.querySelectorAll ? scope : document;
     var roots = [];
@@ -582,6 +754,8 @@
       if (!isFinite(hintPenalty) || hintPenalty < 0) hintPenalty = 0;
       var isPreview = !!root.closest('.support-preview-readonly');
       var storageKey = isPreview ? previewStorageKey(root) : '';
+      var instantVerdict = !isPreview && !!form && root.getAttribute('data-instant-verdict') === '1' &&
+        !!saladQueue() && !!global.InterovesClientEventId;
 
       function restoreOrientation() {
         if (!orientationKey) return;
@@ -1232,7 +1406,7 @@
       }
 
       function syncPreviewPoints() {
-        if (!isPreview) return;
+        if (!isPreview && !instantVerdict) return;
         var state = collectPreviewState();
         var hintTotal = Object.keys(state.hint_counts).reduce(function (total, index) {
           return total + (parseInt(state.hint_counts[index], 10) || 0);
@@ -1277,52 +1451,29 @@
         syncPreviewPoints();
       }
 
-      function pathExists(word, activeIndices) {
-        var target = normalizeWord(word);
-        var active = {};
-        activeIndices.forEach(function (index) { active[index] = true; });
-
-        function visit(index, position, used) {
+      // Prune the grid on the page the way the server will after a solve.
+      function pruneGridLocally() {
+        var grid = [];
+        for (var index = 0; index < 16; index += 1) {
           var cell = cellByIndex[index];
-          if (!cell || !active[index] || used[index]) return false;
-          if ((cell.getAttribute('data-letter') || '') !== target.charAt(position)) return false;
-          if (position === target.length - 1) return true;
-          var nextUsed = Object.assign({}, used);
-          nextUsed[index] = true;
-          for (var next = 0; next < 16; next += 1) {
-            if (cellsAreAdjacent(index, next) && next !== index && visit(next, position + 1, nextUsed)) return true;
-          }
-          return false;
+          grid.push(cell ? normalizeWord(cell.getAttribute('data-letter') || '') : '');
         }
-
-        if (!target) return false;
-        return activeIndices.some(function (index) { return visit(index, 0, {}); });
-      }
-
-      function prunePreviewGrid() {
-        while (true) {
-          var active = cells.filter(function (cell) { return cell.classList.contains('is-active'); }).map(cellIndex);
-          var remaining = wordRows('.new-word-salad__word:not(.is-solved)').map(function (wordRow) {
-            return wordRow.getAttribute('data-preview-normalized') || '';
-          });
-          var removable = active.find(function (candidate) {
-            var candidateActive = active.filter(function (index) { return index !== candidate; });
-            return remaining.every(function (word) { return pathExists(word, candidateActive); });
-          });
-          if (removable === undefined) return;
-          setCellActive(cellByIndex[removable], false);
-        }
+        var active = cells.filter(function (cell) { return cell.classList.contains('is-active'); }).map(cellIndex);
+        var keep = pruneActiveCells(grid, unsolvedAnswerWords(), active);
+        active.forEach(function (index) {
+          if (keep.indexOf(index) < 0) setCellActive(cellByIndex[index], false);
+        });
       }
 
       function markPreviewSolved(wordRow) {
         var solvedWord = wordRow.getAttribute('data-preview-answer') || selectedWord();
         wordRow.classList.add('is-solved');
         renderPreviewHint(wordRow, parseInt(wordRow.getAttribute('data-hint-count'), 10) || 0);
-        prunePreviewGrid();
+        pruneGridLocally();
         savePreviewState();
         syncSolvedState();
         syncPreviewPoints();
-        if (applyAnswerFilterToExtras()) renderExtraWords();
+        renderExtraWords();
         markLatestFound('answer', solvedWord, true);
         activeDragRoot = null;
         clearSelection();
@@ -1346,6 +1497,53 @@
           return;
         }
         if (opts.fromIdle) finishWrong(pathKey);
+      }
+
+      function unsolvedAnswerRow(word) {
+        return wordRows('.new-word-salad__word:not(.is-solved)').find(function (wordRow) {
+          return normalizeWord(wordRow.getAttribute('data-word-normalized') || '') === word;
+        }) || null;
+      }
+
+      // An answer word: solve it here and now, the server confirms it later.
+      function solveInstantly(wordRow, path, word) {
+        var body = new FormData(form);
+        if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
+        stampOfferShare(body, form);
+        body.set('path', JSON.stringify(path));
+        body.set('correct_only', '1');
+        var eventId = global.InterovesClientEventId.create();
+        body.set('client_event_id', eventId);
+        body.set('client_verdict', 'Ok');
+        saladQueue().add({
+          id: eventId,
+          scope: root.getAttribute('data-task-id') || '',
+          url: formSubmitUrl(form),
+          mode: global.InterovesPlayMode || '',
+          fields: global.InterovesOutbox.formFields(body),
+          at: Date.now()
+        });
+
+        var keepSelection = hasWordContinuation(word, unsolvedAnswerWords());
+        var written = selectedWord(path);
+        wordRow.classList.add('is-solved');
+        wordRow.classList.remove('is-hinted');
+        var mask = ensureSolvedPill(wordRow);
+        if (mask) renderMaskEl(mask, written);
+        pruneGridLocally();
+        syncSolvedState();
+        syncPreviewPoints();
+        renderExtraWords();
+        cancelIdleFind();
+        markLatestFound('answer', word, true);
+        if (!keepSelection) {
+          activeDragRoot = null;
+          clearSelection();
+        } else {
+          renderSelection();
+        }
+        showAnswerToast(root, written, 'correct');
+        flushSaladOutbox();
       }
 
       var SALAD_MAX_ATTEMPTS = 3;
@@ -1468,6 +1666,13 @@
         }
         var pathKey = currentPath.join(',');
         if (attemptedPaths[pathKey]) return;
+        var instantRow = instantVerdict && matchesAnswerLength && !isRareCandidate
+          ? unsolvedAnswerRow(selected) : null;
+        if (instantRow) {
+          attemptedPaths[pathKey] = true;
+          solveInstantly(instantRow, currentPath.slice(), selected);
+          return;
+        }
         if (busy) return;
         attemptedPaths[pathKey] = true;
         var path = currentPath.slice();
@@ -1536,6 +1741,15 @@
       root.__finishWordSaladPath = function () {
         stopDrag();
         finishPress();
+      };
+      // Before the server's card replaces this one: keep the path being built.
+      root.__keepWordSaladSelection = function () {
+        if (!currentPath.length) return;
+        pendingSelection = {
+          taskId: String(root.getAttribute('data-task-id') || ''),
+          path: currentPath.slice(),
+          word: selectedWord()
+        };
       };
       root.__cancelWordSaladPress = function () {
         stopDrag();
@@ -1682,6 +1896,7 @@
     transformOrientation: transformOrientation,
     isValidOrientation: isValidOrientation,
     hasWordContinuation: hasWordContinuation,
+    pruneActiveCells: pruneActiveCells,
     offerShareFromPath: offerShareFromPath,
     stampOfferShare: stampOfferShare,
     feedbackForResult: feedbackForResult,
@@ -1693,5 +1908,8 @@
   if (global.document) {
     bindDocumentListeners(global.document);
     initWordSalad(global.document);
+    // Paths left by an earlier page (closed before the server answered).
+    global.setTimeout(flushSaladOutbox, 500);
+    global.addEventListener('online', flushSaladOutbox);
   }
 })(typeof window !== 'undefined' ? window : globalThis);

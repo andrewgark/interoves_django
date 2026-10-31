@@ -11,6 +11,7 @@ from games.puzzles.salad.board import load_salad_board
 from games.puzzles.salad.submission import (
     attempt_limit_message,
     blocks_duplicate,
+    client_verdict_of,
     include_task_html,
     parse_move,
     write_move_result,
@@ -118,7 +119,7 @@ def prepare_word_salad_board_data(
             'replay_slot': replay_slot,
         },
     )
-    return build_word_salad_board_data(
+    ui = build_word_salad_board_data(
         game=game,
         task=task,
         placement=placement,
@@ -130,6 +131,11 @@ def prepare_word_salad_board_data(
         user=user,
         anon_key=anon_key,
     )
+    from games.gameplay.client_checks import instant_verdict_allowed
+    ui['instant_verdict'] = instant_verdict_allowed(
+        task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key,
+    )
+    return ui
 
 
 def progress_signature(state):
@@ -386,6 +392,7 @@ class WordSaladPuzzle(Puzzle):
     hint_numbers = staticmethod(hint_numbers)
     merge_state = staticmethod(merge_state)
     include_task_html = staticmethod(include_task_html)
+    client_verdict_of = staticmethod(client_verdict_of)
     progress_signature = staticmethod(progress_signature)
     clean_checker_data = staticmethod(clean_checker_data)
     scale_points = staticmethod(scale_points)

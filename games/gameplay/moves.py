@@ -153,7 +153,7 @@ def submit_move(ctx, move, *, submitter_profile=None, observer=None):
                 actor_kind=observer.interoves_gameplay_actor_kind,
             )
 
-    audit_client_verdict(ctx, move)
+    audit_client_verdict(ctx, move, attempt, bool(persisted))
 
     if persisted and task.task_type == 'autohint':
         _open_autohint(ctx, attempt, submitter_profile=submitter_profile, observer=observer)

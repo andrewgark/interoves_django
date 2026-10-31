@@ -6,7 +6,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from games.gameplay.attempts import check_attempt  # noqa: F401  (re-exported to older importers)
-from games.gameplay.client_checks import CLIENT_VERDICTS
+from games.gameplay.client_checks import CLIENT_VERDICTS, audit_duplicate_verdict
 from games.gameplay.client_events import parse_client_event_id
 from games.gameplay.effects import apply_move_effects
 from games.gameplay.moves import REPLAY_REQUIRED, MoveContext, MoveInput, submit_move
@@ -335,6 +335,7 @@ def send_attempt(request, task_id):
     try:
         response = process_send_attempt(request, task_id)
     except DuplicateAttemptException as exc:
+        audit_duplicate_verdict(task_id, request.POST)
         response = {
             'status': 'duplicate',
             'task_id': task_id,

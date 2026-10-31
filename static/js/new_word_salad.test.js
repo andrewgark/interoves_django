@@ -384,4 +384,17 @@ assert.strictEqual(Path.offerShareFromPath('/alphabetty/41ffddf256ae6df6/'), '41
   assert.strictEqual(stamped, 'server-token-1234');
 })();
 
+// ── Shared contract with the server's grid pruning (WordSaladChecker) ─────
+(function testPruneMatchesServer() {
+  var contract = require(require('path').join(__dirname, '..', '..', 'contracts', 'word_salad_prune.json'));
+  assert.ok(contract.cases.length > 20);
+  contract.cases.forEach(function (c) {
+    var remaining = c.words.filter(function (word, index) { return c.solved_indices.indexOf(index) < 0; });
+    assert.deepStrictEqual(
+      Path.pruneActiveCells(c.grid, remaining, c.active_before), c.active_after,
+      JSON.stringify({ solved: c.solved_indices, before: c.active_before })
+    );
+  });
+})();
+
 console.log('new_word_salad.test.js: ok');

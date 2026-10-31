@@ -19,6 +19,7 @@ from django.core.cache import caches
 from games.gameplay import offline_telemetry
 from games.gameplay.attempts import checker_for_task, client_spec_for_task
 from games.gameplay.policy import resolve_capabilities
+from games.puzzles import get_puzzle
 from games.puzzles.raddle.engine import parse_raddle_data, word_matches
 
 cache = caches['offline_play']
@@ -28,6 +29,15 @@ logger = logging.getLogger('games.offline')
 CLIENT_VERDICTS = ('Ok', 'Partial', 'Wrong')
 # One admin alert per task and kind within this window.
 ALERT_THROTTLE_SECONDS = 60 * 60
+
+
+def instant_verdict_allowed(*, task, game, mode, team=None, user=None, anon_key=None):
+    """Whether the page may show ``task``'s verdict before the server confirms it."""
+    if not settings.OFFLINE_PLAY_ENABLED:
+        return False
+    return resolve_capabilities(
+        game=game, task_type=task.task_type, mode=mode, team=team, user=user, anon_key=anon_key,
+    ).instant_verdict
 
 
 def page_client_check(*, task, game, mode, team=None, user=None, anon_key=None):
@@ -55,8 +65,16 @@ def page_client_check(*, task, game, mode, team=None, user=None, anon_key=None):
     }
 
 
-def server_verdict(task, move):
-    """What the client spec should have said about ``move``, or None if unknown."""
+def server_verdict(task, move, attempt=None, persisted=False):
+    """What the client should have said about ``move``, or None if unknown.
+
+    A puzzle whose verdict depends on the board (Салатик: a path is an answer
+    only while that word is unsolved) says it from the checked ``attempt``.
+    """
+    puzzle = get_puzzle(task.task_type)
+    verdict_of = getattr(puzzle, 'client_verdict_of', None) if puzzle is not None else None
+    if verdict_of is not None:
+        return verdict_of(attempt, persisted) if attempt is not None else None
     if task.task_type == 'raddle':
         parsed = parse_raddle_data(task)
         if not parsed or move.word_index is None or not 0 <= move.word_index < parsed['n_words']:
@@ -68,12 +86,12 @@ def server_verdict(task, move):
     return checker.check(move.text, None).status
 
 
-def audit_client_verdict(ctx, move):
+def audit_client_verdict(ctx, move, attempt=None, persisted=False):
     """Log and report a browser verdict that differs from the server's."""
     if move.client_verdict is None:
         return
     try:
-        expected = server_verdict(ctx.task, move)
+        expected = server_verdict(ctx.task, move, attempt, persisted)
         if expected is None or expected == move.client_verdict:
             return
         offline_telemetry.count('verdict_divergence')
@@ -89,6 +107,30 @@ def audit_client_verdict(ctx, move):
     except Exception:
         # Auditing is telemetry; the move itself is already checked and saved.
         logger.exception('event=offline_verdict_audit_failed task_id=%s', ctx.task.id)
+
+
+def audit_duplicate_verdict(task_id, post):
+    """A page that called a repeat of an earlier move a new correct answer diverged.
+
+    A resent move with its client_event_id is answered before the duplicate
+    check, so a duplicate with the browser's 'Ok' is not a retry.
+    """
+    if post.get('client_verdict') != 'Ok':
+        return
+    try:
+        offline_telemetry.count('verdict_divergence')
+        logger.warning(
+            'event=offline_verdict_divergence task_id=%s game_id=%s client=Ok server=Duplicate',
+            task_id, post.get('game_id', ''),
+        )
+        from games.models import Game, Task
+
+        task = Task.objects.filter(pk=task_id).first()
+        game = Game.objects.filter(pk=post.get('game_id', '')).first()
+        if task is not None and game is not None:
+            _alert('verdict_divergence', task, game, ['Клиент: <b>Ok</b>, сервер: <b>повтор</b>.'])
+    except Exception:
+        logger.exception('event=offline_verdict_audit_failed task_id=%s', task_id)
 
 
 def _alert(kind, task, game, lines):
