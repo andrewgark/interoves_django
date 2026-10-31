@@ -299,6 +299,9 @@ ALLOWED_HOSTS = [
     '172.31.43.189',
     'interoves.com',
     'www.interoves.com',
+    # Alternative entry for visitors in Russia: UltraVDS Nginx -> Tailscale ->
+    # this origin. Same app, database and accounts as interoves.com.
+    'ru.interoves.com',
     '127.0.0.1',
     'localhost',
     'fat-owl-8.loca.lt',
@@ -316,9 +319,13 @@ if _extra_hosts:
         if _h and _h not in ALLOWED_HOSTS:
             ALLOWED_HOSTS.append(_h)
 
+# The origin sees plain HTTP (TLS ends at Cloudflare or at the UltraVDS
+# proxy), so Django's same-origin check compares against http://<host> and
+# every public HTTPS origin must be listed here explicitly.
 CSRF_TRUSTED_ORIGINS = [
     'https://interoves.com',
     'https://www.interoves.com',
+    'https://ru.interoves.com',
 ]
 
 def get_ec2_instance_ip():
@@ -757,14 +764,16 @@ if USE_S3:
     # instances. Old HTML can keep loading its own release's files during and
     # after a rolling deployment.
     STATIC_LOCATION = f'static/releases/{STATIC_RELEASE_ID}'
-    # Templates use STATIC_URL; uploads still go to S3 (StaticStorage). Prod serves
-    # the same objects under interoves.com/static/… (proxy/CDN). Optional override for
-    # non-prod S3 envs: DJANGO_STATIC_URL=https://host/static
+    # Templates use STATIC_URL; uploads still go to S3 (StaticStorage). Prod
+    # Nginx proxies /static/… to the bucket on every hostname, so the URL stays
+    # root-relative: pages on ru.interoves.com must not load assets from
+    # interoves.com. Optional override for non-prod S3 envs:
+    # DJANGO_STATIC_URL=https://host/static
     _django_static_url = (os.environ.get("DJANGO_STATIC_URL") or "").strip().rstrip("/")
     if _django_static_url:
         STATIC_URL = f"{_django_static_url}/releases/{STATIC_RELEASE_ID}/"
     elif IS_PROD:
-        STATIC_URL = f"https://interoves.com/{STATIC_LOCATION}/"
+        STATIC_URL = f"/{STATIC_LOCATION}/"
     else:
         STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/"
     STORAGES['staticfiles']['BACKEND'] = 'games.ops.health.storage.StaticStorage'

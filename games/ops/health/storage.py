@@ -1,5 +1,5 @@
-from storages.backends.s3boto3 import S3Boto3Storage
 from django.conf import settings
+from storages.backends.s3boto3 import S3Boto3Storage
 
 
 class StaticStorage(S3Boto3Storage):
@@ -8,8 +8,9 @@ class StaticStorage(S3Boto3Storage):
 
     def url(self, name, parameters=None, expire=None, http_method=None):
         """
-        Public links must follow STATIC_URL (e.g. https://interoves.com/static/…),
-        not AWS_S3_CUSTOM_DOMAIN — nginx proxies /static/ to the bucket.
+        Public links must follow STATIC_URL (root-relative /static/… in prod),
+        not AWS_S3_CUSTOM_DOMAIN — nginx proxies /static/ to the bucket on every
+        hostname (interoves.com and ru.interoves.com).
         """
         name = (name or "").lstrip("/")
         base = (settings.STATIC_URL or "/static/").rstrip("/")

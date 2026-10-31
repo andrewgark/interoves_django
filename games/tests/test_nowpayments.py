@@ -222,7 +222,8 @@ class NowPaymentsCreatePaymentTests(TestCase):
         self.assertEqual(ticket.merchant, 'ru_self_employed')
         self.assertEqual(ticket.nowpayments_id, '6064785541')
         self.assertEqual(data['ticket_request_id'], ticket.id)
-        self.assertIn('/pay/ticket-status/', data['status_url'])
+        # Root-relative: polled by fetch() on interoves.com and ru.interoves.com.
+        self.assertTrue(data['status_url'].startswith('/pay/ticket-status/'), data['status_url'])
         self.assertEqual(data['analytics_events'][0]['goal'], 'ticket_checkout')
         self.assertIn('ack', data['analytics_events'][0])
         create_mock.assert_called_once()
@@ -411,7 +412,7 @@ class CryptoDonationCreateTests(TestCase):
         data = response.json()
         self.assertEqual(data['status'], 'ok')
         self.assertIn('public_token', data)
-        self.assertIn('/donate/status/', data['status_url'])
+        self.assertTrue(data['status_url'].startswith('/donate/status/'), data['status_url'])
         donation = Donation.objects.get(public_token=data['public_token'])
         self.assertEqual(donation.amount_rub, 250)
         self.assertEqual(donation.status, 'Pending')

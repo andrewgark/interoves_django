@@ -307,9 +307,10 @@ def create_ticket_payment(request):
                 ack=analytics_ack_payload(YANDEX_GOAL_TICKET_CHECKOUT, ticket_request.id),
             ),
         ],
-        'status_url': request.build_absolute_uri(
-            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id})
-        ),
+        # Polled by fetch() from the page: keep it on the page's own host
+        # (interoves.com or ru.interoves.com). The origin sees HTTP, so an
+        # absolute URL would be http:// and blocked as mixed content.
+        'status_url': reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id}),
     })
 
 
@@ -459,9 +460,7 @@ def create_crypto_ticket_payment(request):
                 ack=analytics_ack_payload(YANDEX_GOAL_TICKET_CHECKOUT, ticket_request.id),
             ),
         ],
-        'status_url': request.build_absolute_uri(
-            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id})
-        ),
+        'status_url': reverse('new_ticket_payment_status', kwargs={'ticket_request_id': ticket_request.id}),
     })
 
 
@@ -520,9 +519,7 @@ def create_tribute_ticket_payment(request):
         'intent_id': intent.pk,
         'ticket_request_id': intent.ticket_request_id,
         'reused': reused,
-        'status_url': request.build_absolute_uri(
-            reverse('new_ticket_payment_status', kwargs={'ticket_request_id': intent.ticket_request_id})
-        ),
+        'status_url': reverse('new_ticket_payment_status', kwargs={'ticket_request_id': intent.ticket_request_id}),
         'analytics_events': [
             yandex_goal_payload(
                 YANDEX_GOAL_TICKET_CHECKOUT,
@@ -706,9 +703,7 @@ def create_crypto_donation(request):
         'donation_status': donation.status,
         'created_at': donation.created_at.strftime('%d.%m %H:%M') if donation.created_at else '',
         'public_token': donation.public_token,
-        'status_url': request.build_absolute_uri(
-            reverse('donate_status', kwargs={'public_token': donation.public_token})
-        ),
+        'status_url': reverse('donate_status', kwargs={'public_token': donation.public_token}),
     })
 
 
