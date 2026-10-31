@@ -33,7 +33,7 @@ Tailscale и правки UltraVDS. Вторая инстанция в ASG ту�
 | Instance SG | `:80` только от ALB SG; `interoves-green-web-sg` без правил |
 | ALB idle timeout | 60 s (track WebSocket шлёт sync каждые 25 s — хватает) |
 | ALB XFF | `append`, Host не переписывается |
-| Elastic IP | 3 шт. **не привязаны** (`3.127.41.124`, `3.78.22.206` «interoves-web-origin», `63.182.147.248`) |
+| Elastic IP | свободных нет: `3.127.41.124` и `63.182.147.248` привязаны к ENI Green ALB, `3.78.22.206` (`AWSEBEIP`) принадлежит стеку Blue `interoves-env` |
 | `11_associate_green_origin_eip.sh` | срабатывает только для env `interoves-web-green` (старое single-instance), на `-lb` ничего не делает |
 
 Выводы:
@@ -45,8 +45,9 @@ Tailscale и правки UltraVDS. Вторая инстанция в ASG ту�
 - `:443` ALB уже открыт для всего интернета. Значит HTTPS-путь
   «шлюз → ALB» заработает без изменения SG. (Отдельно: это открытый обход
   Cloudflare к origin; закрывать или нет — отдельное решение.)
-- Три свободных EIP оплачиваются уже сейчас (~$3.65/мес каждый). Один можно
-  отдать шлюзу, тогда его публичный IPv4 не добавляет расходов.
+- Свободных EIP нет (все три заняты ALB и Blue). Шлюзу хватает обычного
+  публичного IPv4 подсети (~$3.65/мес); EIP нужен, только если `:443` ALB
+  закроют до /32-правил.
 
 ## Чего не хватает (проверить вручную)
 
@@ -59,7 +60,6 @@ Tailscale и правки UltraVDS. Вторая инстанция в ASG ту�
 4. Работает ли с UltraVDS прямое HTTPS к ALB (правило `77.81.5.159/32` на
    `:443` кто-то уже добавил) и почему от него ушли к Tailscale — см. вариант D.
 5. Какой трафик идёт через ru-вход (ГБ/мес) — для оценки data transfer.
-6. Свободны ли три EIP (никакие DNS/whitelist на них не ссылаются).
 
 ## Варианты
 
@@ -142,7 +142,7 @@ Calculator).
 
 | | A: шлюз → ALB | B: Tailscale на EB | C: subnet router + internal ALB | D: напрямую в ALB |
 |---|---|---|---|---|
-| Доп. AWS $/мес | ≈ $4–5 (t4g.nano ≈ $3.5, gp3 8 GB ≈ $0.8; IPv4 $3.65 или $0 с уже оплачиваемым EIP); HA ×2 ≈ $9 | ≈ $0 | ≈ $28–35 (шлюз + internal ALB + LCU) | $0 |
+| Доп. AWS $/мес | ≈ $8 (t4g.nano ≈ $3.5, gp3 8 GB ≈ $0.8, публичный IPv4 $3.65); HA ×2 ≈ $16 | ≈ $0 | ≈ $28–35 (шлюз + internal ALB + LCU) | $0 |
 | Замена EC2 EB | не влияет (ALB) | upstream обновится за ≤30 s, но запросы на снимаемую инстанцию падают | не влияет | не влияет |
 | Отказ одного узла | 1 шлюз: ~3–6 мин (ASG); 2 шлюза: секунды | секунды | как A | — (ALB multi-AZ) |
 | Сложность внедрения | средняя (1 стек CFN + UltraVDS) | высокая (EB hooks, IAM, deploy.sh) | высокая | минимальная |
@@ -158,9 +158,9 @@ Data transfer во всех Tailscale-вариантах: выход в инте
 
 ## Рекомендация
 
-**A, начать с `GatewayCount=1`** и одним из уже оплачиваемых EIP.
+**A, начать с `GatewayCount=1`**, без EIP.
 Шлюз переживает любые операции EB, upstream у UltraVDS вычисляется
-автоматически. Для HA позже поставить `GatewayCount=2`, это +$4–5/мес и
+автоматически. Для HA позже поставить `GatewayCount=2`, это ≈ +$8/мес и
 никаких других изменений. Если D окажется рабочим, держать его в upstream
 UltraVDS как `backup`.
 
@@ -178,7 +178,9 @@ UltraVDS как `backup`.
 3. AWS: `aws ssm put-parameter --type SecureString --name /interoves/ru-gateway/tailscale-oauth-client-secret --value file:///dev/stdin`
    (значение не в shell history и не в git).
 4. AWS: создать стек `interoves-ru-gateway` из `gateway/ru-gateway.yaml`
-   (`--capabilities CAPABILITY_IAM`, при желании `EipAllocationId`).
+   (`--capabilities CAPABILITY_IAM`). Роль `ai-bot` этого не может
+   (нет `cloudformation:CreateStack`, `iam:CreateRole`/`PassRole`,
+   `autoscaling:CreateAutoScalingGroup`) — стек создаёт администратор.
 5. Проверить шлюз из UltraVDS:
    `curl -sS -H 'Host: ru.interoves.com' http://<gw-tailscale-ip>/health/live/` → `ok`;
    WebSocket: `websocat`/браузер на `wss://ru.interoves.com/ws/track/` после шага 6.
