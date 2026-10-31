@@ -193,6 +193,23 @@ UltraVDS как `backup`.
 8. После недели стабильной работы убрать `FALLBACK`, затем (отдельно)
    удалить ручной Tailscale с EC2 Green.
 
+## Производительность UltraVDS
+
+Без Cloudflare сжатие, HTTP/2 и кэш нужно включать на UltraVDS самим
+(`ultravds/nginx/interoves-perf.conf`, `interoves-proxy.conf`,
+`ru.interoves.com.conf`):
+
+- `gzip_types` для CSS/JS/JSON/SVG (Ubuntu по умолчанию сжимает только HTML);
+- `http2 on`;
+- `proxy_cache` на диске UltraVDS для `/static/` и `/media/`; неизменяемые
+  `/static/releases/<id>/` кэшируются на 30 дней, а браузеру отдаются с
+  `max-age=31536000, immutable`. Заголовок `X-Cache-Status` показывает HIT/MISS.
+
+Замер 2026-10-31 (клиент в Ереване, 31 файл статики главной): было 882 КБ и
+HTTP/1.1, по 200–370 мс на файл; стало 335 КБ, все файлы параллельно за
+0.29 с (interoves.com через Cloudflare — 0.43 с), из кэша ~40 мс на файл.
+HTML главной по-прежнему ≈ 0.4 с генерации в Django плюс ~0.1–0.2 с цепочки.
+
 ## Health checks
 
 - ALB → Green: `/health/live/` (как сейчас).
