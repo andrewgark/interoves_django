@@ -5,8 +5,8 @@ import re
 from decimal import Decimal
 
 from games.models import Attempt, Task
-from games.puzzles.core.client_spec import any_answer_spec, hash_set_spec, spec_salt
-from games.puzzles.core.norm_matcher import NormMatcher
+from games.puzzles.core.client_spec import any_answer_spec, hash_set_spec, norm_words_spec, spec_salt
+from games.puzzles.core.norm_matcher import NormMatcher, accepted_forms
 from games.puzzles.core.normalize_ops import CLEAN, CLEAN_KEEP_YO, normalized
 
 
@@ -66,6 +66,14 @@ class NormMatcherChecker(SimpleBoolChecker):
     @normalized(*CLEAN, 'drop_punct')
     def bool_check(self, text):
         return self.matcher.match(text)
+
+    def client_spec(self, task):
+        ops = tuple(self.bool_check.normalize_ops)
+        variants = [
+            [accepted_forms(word, ops) for word in words]
+            for words in self.matcher.variant_words if words
+        ]
+        return norm_words_spec(spec_salt(task), ops, variants) if variants else None
 
 
 class EqualsWithPossibleSpacesChecker(SimpleBoolChecker):

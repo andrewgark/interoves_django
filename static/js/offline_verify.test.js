@@ -31,6 +31,15 @@ async function run() {
     );
   }
 
+  // norm_matcher: Ok where the server lemmatizes to the answer, else unknown.
+  var normWords = contract.norm_words;
+  assert.ok(normWords.cases.some(function (c) { return c.status === 'Ok'; }));
+  assert.ok(normWords.cases.some(function (c) { return c.status === null; }));
+  for (var n = 0; n < normWords.cases.length; n++) {
+    var nc = normWords.cases[n];
+    assert.strictEqual(await V.verify(normWords.spec, nc.text), nc.status, 'norm_words ' + JSON.stringify(nc.text));
+  }
+
   // ── Specs from a newer server are refused instead of misread ─────────────
   assert.throws(function () { V.verify({ v: 2, kind: 'any' }, 'x'); }, /version/);
   await assert.rejects(V.verify({ v: 1, kind: 'raddle' }, 'x'), /not an answer spec/);

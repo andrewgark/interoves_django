@@ -663,8 +663,10 @@
       .then(function (verdict) {
         if (verdict) showOrdinaryClientVerdict(msg, verdict);
         var body = formPostBody(form);
-        if (verdict) {
-          body.set('client_verdict', verdict);
+        if (verdict) body.set('client_verdict', verdict);
+        // A norm_matcher spec knows only right answers: without a verdict the
+        // answer still waits in the queue, for the server to judge.
+        if (isOrdinaryAttemptForm && form.hasAttribute('data-offline-spec') && submittedAttemptText.trim()) {
           if (window.InterovesClientEventId) body.set('client_event_id', window.InterovesClientEventId.create());
           ordinarySent = { body: body, verdict: verdict };
           if (navigator.onLine === false && queueOrdinaryAnswer(form, body, verdict)) {
@@ -3279,6 +3281,7 @@
     Ok: 'Верно! Ответ засчитается, когда появится связь.',
     Partial: 'Частично верно. Ответ засчитается, когда появится связь.',
     Wrong: 'Неверно. Ответ сохранён и отправится, когда появится связь.',
+    unknown: 'Ответ сохранён и проверится, когда появится связь.',
   };
 
   function queueOrdinaryAnswer(form, body, verdict) {
@@ -3315,7 +3318,7 @@
     }
     if (!msg) return;
     msg.classList.remove('new-attempt-msg--wrong', 'new-attempt-msg--partial', 'new-attempt-msg--pending');
-    msg.textContent = ORDINARY_QUEUED_TEXT[verdict] || '';
+    msg.textContent = ORDINARY_QUEUED_TEXT[verdict] || ORDINARY_QUEUED_TEXT.unknown;
     if (verdict === 'Wrong') msg.classList.add('new-attempt-msg--wrong');
     if (verdict === 'Partial') msg.classList.add('new-attempt-msg--partial');
   }

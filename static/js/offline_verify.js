@@ -34,10 +34,27 @@
     }
   }
 
-  /** Status of an answer under a hash_set or any spec: Ok, Partial or Wrong. */
+  /** Ok when every word is an accepted form of its variant word, else null (unknown). */
+  function verifyNormWords(spec, text) {
+    var words = global.OfflineNormalize.normalize(text, spec.ops).split(/\s+/).filter(Boolean);
+    return Promise.all(words.map(function (word) { return answerHash(spec.salt, word); })).then(function (digests) {
+      var matched = spec.variants.some(function (variant) {
+        return variant.length === digests.length && digests.every(function (digest, i) {
+          return variant[i].indexOf(digest) !== -1;
+        });
+      });
+      return matched ? 'Ok' : null;
+    });
+  }
+
+  /**
+   * Status of an answer: Ok, Partial or Wrong under a hash_set or any spec;
+   * Ok or null (only the server knows) under a norm_words spec.
+   */
   function verify(spec, text) {
     checkVersion(spec);
     if (spec.kind === 'any') return Promise.resolve('Ok');
+    if (spec.kind === 'norm_words') return verifyNormWords(spec, text);
     if (spec.kind !== 'hash_set') {
       return Promise.reject(new Error('not an answer spec: ' + spec.kind));
     }
