@@ -2359,7 +2359,9 @@
         return cache.match(url).then(function (hit) { return hit || cache.add(url); }).catch(function () {});
       }));
     }).catch(function (err) {
-      reportRaddleOffline('sw_failed', { status: stage, error: String((err && err.name) || err) }, true);
+      // The message tells a refused response from a blocked storage.
+      var error = err && err.name ? err.name + (err.message ? ': ' + err.message : '') : String(err);
+      reportRaddleOffline('sw_failed', { status: stage, error: error }, true);
     });
   }
 

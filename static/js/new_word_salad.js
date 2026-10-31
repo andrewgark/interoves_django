@@ -672,17 +672,36 @@
     });
   }
 
+  function saladRootFor(taskId) {
+    return global.document.querySelector('[data-word-salad-root][data-task-id="' + taskId + '"]');
+  }
+
+  // While the server has not seen a word the page solved, its cards miss
+  // that word and applyNewUiTaskHtml drops them, a hint's card too; so a
+  // hint waits until the queue is through.
+  function setSaladSyncing(root, syncing) {
+    if (!root) return;
+    root.classList.toggle('is-syncing', !!syncing);
+    root.querySelectorAll('.new-word-salad__hint-btn').forEach(function (button) {
+      button.disabled = !!syncing;
+    });
+  }
+
   // The queue of a task is empty: show the server's board.
   function finishSaladScope(taskId) {
     if (saladQueue().size(taskId)) return;
+    var root = saladRootFor(taskId);
     if (saladDiverged[taskId]) {
       delete saladDiverged[taskId];
-      global.location.reload();
+      // A path left by another page or account: only its own board reloads.
+      if (root) global.location.reload();
       return;
     }
     var card = saladServerCards[taskId];
-    if (!card) return;
-    var root = global.document.querySelector('[data-word-salad-root][data-task-id="' + taskId + '"]');
+    if (!card) {
+      setSaladSyncing(root, false);
+      return;
+    }
     if (root && activeDragRoot === root) {
       // Do not swap the board under a finger; try again after the press.
       global.setTimeout(function () { finishSaladScope(taskId); }, 300);
@@ -1543,6 +1562,7 @@
           renderSelection();
         }
         showAnswerToast(root, written, 'correct');
+        setSaladSyncing(root, true);
         flushSaladOutbox();
       }
 
@@ -1786,6 +1806,7 @@
         extraWords = readExtraPills();
       }
       if (isPreview) restorePreviewState();
+      if (instantVerdict && saladQueue().size(root.getAttribute('data-task-id') || '')) setSaladSyncing(root, true);
       restoreOrientation();
       renderOrientation();
       restoreExtraWords();
