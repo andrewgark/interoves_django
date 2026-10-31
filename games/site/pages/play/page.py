@@ -677,6 +677,7 @@ def task_group_page(
         'task_group': task_group,
         'tasks': tasks,
         'attempts_info_by_task_id': ctx_dicts['attempts_info_by_task_id'],
+        'client_specs_by_task_id': ctx_dicts['client_specs_by_task_id'],
         'replacements_lines_data': ctx_dicts['replacements_lines_data'],
         'html_forms_data': ctx_dicts['html_forms_data'],
         'word_salad_data': ctx_dicts['word_salad_data'],

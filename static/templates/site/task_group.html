@@ -656,12 +656,18 @@
       msg.style.display = 'block';
     }
     if (msg) msg.textContent = 'Проверяем…';
-    fetch(formSubmitUrl(form), {
-      method: 'POST',
-      headers: anonFetchHeaders(),
-      body: formPostBody(form),
-      credentials: 'same-origin',
-    })
+    ordinaryClientVerdict(isOrdinaryAttemptForm ? form : null, submittedAttemptText)
+      .then(function (verdict) {
+        if (verdict) showOrdinaryClientVerdict(msg, verdict);
+        var body = formPostBody(form);
+        if (verdict) body.set('client_verdict', verdict);
+        return fetch(formSubmitUrl(form), {
+          method: 'POST',
+          headers: anonFetchHeaders(),
+          body: body,
+          credentials: 'same-origin',
+        });
+      })
       .then(parseFetchJson)
       .then(function (data) {
         if (form && form.dataset) form.dataset.submitting = '0';
@@ -3224,6 +3230,25 @@
     Partial: { text: 'Частично верно.', css: 'new-attempt-msg--partial' },
     Pending: { text: 'Отправлено на проверку.', css: 'new-attempt-msg--pending' },
   };
+  // Мгновенный вердикт обычного задания (docs/offline-play-plan.md, фаза 3):
+  // the answer form carries the task's client spec when a rule allows it.
+  // Resolves to 'Ok' / 'Partial' / 'Wrong', or null without a usable spec.
+  function ordinaryClientVerdict(form, text) {
+    var raw = form && form.getAttribute('data-offline-spec');
+    if (!raw || !window.OfflineVerify || !String(text || '').trim()) return Promise.resolve(null);
+    var spec;
+    try { spec = JSON.parse(raw); } catch (e) { return Promise.resolve(null); }
+    return window.OfflineVerify.verify(spec, text).catch(function () { return null; });
+  }
+  // The server's answer still follows and replaces the card or this message.
+  function showOrdinaryClientVerdict(msg, verdict) {
+    if (!msg) return;
+    var display = verdict === 'Ok' ? { text: 'Верно!', css: '' } : ordinaryAttemptFeedback[verdict];
+    if (!display) return;
+    msg.classList.remove('new-attempt-msg--wrong', 'new-attempt-msg--partial', 'new-attempt-msg--pending');
+    msg.textContent = display.text;
+    if (display.css) msg.classList.add(display.css);
+  }
   function shouldShowOrdinaryAttemptFeedback(status) {
     return !!ordinaryAttemptFeedback[status];
   }

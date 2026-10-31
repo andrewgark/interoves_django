@@ -11,7 +11,7 @@ from django.test import override_settings
 
 from games.gameplay.policy import NO_CAPABILITIES, resolve_capabilities
 from games.models import OfflinePlayRule, Task, Team
-from games.puzzles.core.client_spec import verify_word
+from games.puzzles.core.client_spec import verify, verify_word
 from games.puzzles.raddle.puzzle import offline_run
 from games.tests.test_client_event_receipts import _ClientEventFixture
 
@@ -209,3 +209,44 @@ class LadderOfflinePackEndpointTests(_ClientEventFixture):
         self.assertIn('data-offline-run="official"', pack['card_html'])
         run_id = uuid.uuid4()
         self.assertEqual(offline_run(SimpleNamespace(run_id=run_id)), str(run_id))
+
+
+@override_settings(OFFLINE_PLAY_ENABLED=True)
+class OrdinaryTaskClientCheckTests(_ClientEventFixture):
+    # The fixture's plain task: an equals checker with the answer «ответ».
+
+    def setUp(self):
+        super().setUp()
+        caches['offline_play'].clear()
+
+    def _answer(self, text, verdict=None):
+        data = {'text': text}
+        if verdict:
+            data['client_verdict'] = verdict
+        return self._post(self.plain, data)
+
+    def _form_spec(self, response):
+        card = response.get('update_task_html_new', {}).get(str(self.plain.id), '')
+        match = SPEC_ATTR.search(card)
+        return json.loads(html.unescape(match.group(1))) if match else None
+
+    def test_answer_form_gets_a_spec_that_checks_the_answer(self):
+        OfflinePlayRule.objects.create(task_type='default', instant_verdict=True)
+        spec = self._form_spec(self._answer('нет'))
+        self.assertEqual(verify(spec, ' Ответ '), 'Ok')
+        self.assertEqual(verify(spec, 'не ответ'), 'Wrong')
+        self.assertNotIn('ответ', json.dumps(spec, ensure_ascii=False))
+
+    def test_no_spec_without_a_rule_or_once_solved(self):
+        self.assertIsNone(self._form_spec(self._answer('нет')))
+        OfflinePlayRule.objects.create(task_type='default', instant_verdict=True)
+        self.assertIsNone(self._form_spec(self._answer('ответ')))
+
+    @patch('games.ops.telegram.bot.notify.notify_admin_offline_play')
+    def test_divergent_verdict_of_an_ordinary_answer_is_reported(self, notify):
+        OfflinePlayRule.objects.create(task_type='default', instant_verdict=True)
+        self._answer('нет', verdict='Wrong')
+        notify.assert_not_called()
+        with self.assertLogs('games.offline', 'WARNING'):
+            self._answer('тоже нет', verdict='Ok')
+        self.assertEqual(notify.call_args.kwargs['kind'], 'verdict_divergence')

@@ -111,6 +111,9 @@ def build_task_group_task_context_dicts(
         daily_board_adapter_by_task_id=daily['daily_board_adapter_by_task_id'],
     )
     return {
+        'client_specs_by_task_id': collect_client_specs(
+            game, tasks, attempts_info_by_task_id, team=team, user=user, anon_key=anon_key, mode=mode,
+        ),
         'attempts_info_by_task_id': attempts_info_by_task_id,
         'wall_max_points_meta_by_task_id': wall_max_points_meta_by_task_id,
         'likes_meta_by_task_id': likes_meta_by_task_id,
@@ -129,3 +132,28 @@ def build_task_group_task_context_dicts(
             for context_key, data in board_data_by_context.items()
         },
     }
+
+
+# Task types answered through the ordinary text form (task-default.html).
+ORDINARY_ANSWER_TASK_TYPES = ('default',)
+
+
+def collect_client_specs(game, tasks, attempts_info_by_task_id, *, team, user, anon_key, mode):
+    """Client spec JSON of each unsolved ordinary task the page may check itself.
+
+    docs/offline-play-plan.md, phase 3: the answer form carries it and shows
+    the verdict before the server's answer arrives.
+    """
+    from games.gameplay.client_checks import page_client_check
+
+    specs = {}
+    for task in tasks:
+        if task.task_type not in ORDINARY_ANSWER_TASK_TYPES:
+            continue
+        info = attempts_info_by_task_id.get(task.id)
+        if info is not None and info.is_solved():
+            continue
+        check = page_client_check(task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key)
+        if check is not None:
+            specs[task.id] = check['spec_json']
+    return specs
