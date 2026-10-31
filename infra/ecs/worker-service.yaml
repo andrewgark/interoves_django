@@ -207,8 +207,8 @@ Resources:
               Value: !Ref TributeClubSubscriptionEurUrl
           # Secret values come from free SSM Parameter Store SecureStrings
           # (/interoves/production/<NAME>), injected by ECS through the
-          # execution role. They replaced per-variable Secrets Manager secrets
-          # ($0.40/month each) in 2026-11. The recheck worker needs only five.
+          # execution role. Legacy Secrets Manager copies remain until Blue's
+          # rollback settings are migrated. The recheck worker needs five.
           Secrets: !If
             - IsRecheck
             - - Name: ANALYTICS_ANON_SIGNING_KEY
