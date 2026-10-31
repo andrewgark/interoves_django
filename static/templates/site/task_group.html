@@ -1930,7 +1930,26 @@
   // Каскад после продвижения: только обычный режим (data-raddle-auto есть
   // лишь вне турнира) и только пока сессия ввода пользователя ещё открыта —
   // клавиатуру могли закрыть, пока запрос был в полёте.
+  // A chain played on the page (offline pack) resolves in milliseconds and
+  // turned every word green at once; through the server each step waited for
+  // its answer. Locally each next step waits a beat, so the words still go
+  // green one after another.
+  var RADDLE_CASCADE_STEP_MS = 320;
+
   function maybeCascadeRaddlePlayable(taskRoot) {
+    if (!taskRoot) return;
+    var taskId = taskRoot.getAttribute('data-task-id');
+    var pack = taskId ? raddleOfflinePacks[taskId] : null;
+    if (!pack || !raddlePackFits(pack, taskRoot)) {
+      cascadeRaddlePlayableNow(taskRoot);
+      return;
+    }
+    window.setTimeout(function () {
+      cascadeRaddlePlayableNow(document.querySelector('.new-raddle-task[data-task-id="' + taskId + '"]'));
+    }, RADDLE_CASCADE_STEP_MS);
+  }
+
+  function cascadeRaddlePlayableNow(taskRoot) {
     if (!taskRoot) return;
     var focusRow = taskRoot.querySelector(
       '.new-raddle-ladder .new-raddle-row--focus.new-raddle-row--playable'
