@@ -44,7 +44,7 @@ Resources:
               # Worker secrets are SecureStrings under the aws/ssm key; ECS
               # resolves the task definition `Secrets` with this role.
               - Effect: Allow
-                Action: ssm:GetParameters
+                Action: [ssm:GetParameter, ssm:GetParameters]
                 Resource: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/*'
       Tags:
         - Key: Service

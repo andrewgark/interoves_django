@@ -3,9 +3,10 @@
 This is the production web configuration for `interoves-web-green-lb`. The
 current environment is Amazon Linux 2023 / Python 3.12, uses `systemd` and
 `web.service` (Daphne), has two `t3.small` instances at present, and publishes
-EC2 CPU metrics at the default five-minute interval. Green already streams
-`web.stdout.log`, Nginx access/error logs, and EB engine/hooks logs to CloudWatch
-Logs with 3-day retention and `DeleteOnTerminate: false`.
+EC2 CPU metrics at the default five-minute interval. Green streams
+`web.stdout.log`, Nginx error logs, and EB engine/hooks logs to CloudWatch Logs
+with 3-day retention and `DeleteOnTerminate: false`. Nginx access logging is
+disabled; ALB metrics provide request counts and target status.
 
 Before this configuration is applied, the Green postdeploy hook skips the web
 role, no `InterOves/Web` custom metrics are present, and no systemd/kernel log
@@ -29,9 +30,8 @@ existing alarm names in place. It uses the already-configured
   custom-metric cost (each series is $0.30/month and instances churn); use
   `AWS/EC2` or SSM on the instance for per-host detail. EC2 detailed monitoring
   is not enabled.
-- Nginx request method/path, status, total and upstream timing, target address,
-  Nginx request ID, Django `X-Request-ID`, hostname, and ALB
-  `X-Amzn-Trace-Id`. Query strings and response bodies are excluded.
+- Nginx error logs. Nginx access lines, request paths, and per-request timing
+  are not written to CloudWatch Logs.
 - Slow Django requests on every route, with safe path, method, status, elapsed
   time, request ID, hostname and process ID. Existing named phase timing stays
   limited to its current watched endpoints. Request bodies and query strings
