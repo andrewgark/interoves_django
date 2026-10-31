@@ -18,6 +18,7 @@ from django.contrib import admin
 from django.contrib.auth.views import LogoutView
 from django.shortcuts import redirect
 from django.urls import include, path, re_path
+from django.utils.http import urlencode
 from django.views.generic import RedirectView, TemplateView
 from games.ops.social.views import social_queue_instagram_jpg
 from games.ops.telegram.transport.urls import urlpatterns as telegram_urlpatterns
@@ -108,7 +109,7 @@ eurovision_booklet_patterns = [
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('accounts/login/', lambda request: redirect('/?login=1' + ('&next=' + request.GET.get('next') if request.GET.get('next') else ''))),
+    path('accounts/login/', lambda request: redirect('/?' + urlencode({'login': 1, **({'next': request.GET['next']} if request.GET.get('next') else {})}))),
     path('accounts/', include('allauth.urls')),
     path('logout/', LogoutView.as_view(), name='logout'),
 

@@ -2,10 +2,12 @@ import logging
 
 from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.models import EmailAddress
+from allauth.core import context
 from allauth.core.exceptions import ImmediateHttpResponse
 from allauth.socialaccount.adapter import DefaultSocialAccountAdapter
 from django.contrib.auth.models import AnonymousUser
 from django.shortcuts import redirect
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from games.identity.merge.account import stash_pending_account_merge
 from games.models import Profile
@@ -46,7 +48,12 @@ def _sociallogin_email(sociallogin) -> str:
 
 
 class AccountAdapter(DefaultAccountAdapter):
-    pass
+    def is_safe_url(self, url):
+        # allauth's default also accepts every ALLOWED_HOSTS entry, so a login
+        # started on ru.interoves.com could end on interoves.com (another
+        # session) or on an EB hostname. Stay on the host the flow began on.
+        request = context.request
+        return url_has_allowed_host_and_scheme(url, allowed_hosts={request.get_host()})
 
 
 class SocialAccountAdapter(DefaultSocialAccountAdapter):

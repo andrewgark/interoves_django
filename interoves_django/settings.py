@@ -328,6 +328,13 @@ CSRF_TRUSTED_ORIGINS = [
     'https://ru.interoves.com',
 ]
 
+# Hostnames whose OAuth callback URLs are registered with Google, Yandex, VK
+# and Telegram: https://<host>/accounts/<provider>/login/callback/ (Telegram:
+# /accounts/telegram/callback/). OAuthHostMiddleware moves OAuth starts on any
+# other allowed host (EB names, instance IPs) to SITE_BASE_URL. Empty outside
+# production, where localhost callbacks are registered per developer.
+OAUTH_CALLBACK_HOSTS = ('interoves.com', 'ru.interoves.com') if IS_PROD else ()
+
 def get_ec2_instance_ip():
     """
     Private IP of this EC2 instance (IMDS). ALB target health checks often send
@@ -418,6 +425,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
 
     'django.middleware.security.SecurityMiddleware',
+    'games.site.http.middleware.oauth_host.OAuthHostMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'games.site.http.middleware.auth_session_observability.AuthSessionDiagnosticMiddleware',
     'django.middleware.common.CommonMiddleware',

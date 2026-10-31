@@ -2,6 +2,7 @@ import json
 import re
 
 from django.template.defaulttags import register
+from django.utils.http import url_has_allowed_host_and_scheme
 
 from games.club.access.game import game_is_going_now
 from games.models import GameTaskGroup, Registration
@@ -14,7 +15,9 @@ def auth_next(context):
     if request is None:
         return '/'
     candidate = (request.GET.get('next') or '').strip()
-    if candidate.startswith('/') and not candidate.startswith('//'):
+    # Django's check also rejects '/\host' and similar, which browsers treat
+    # as another host.
+    if candidate.startswith('/') and url_has_allowed_host_and_scheme(candidate, allowed_hosts=None):
         return candidate
     return request.get_full_path()
 
