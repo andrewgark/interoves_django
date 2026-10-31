@@ -485,6 +485,20 @@ class NutrimaticAsyncTests(SimpleTestCase):
             response = await self.call_view()
         self.assertEqual(response.status_code, 504)
         self.assertEqual(views._NUTRIMATIC_ACTIVE, 0)
+        self.assertTrue(response.interoves_expected_error)
+        self.assertIn("text/html", response["Content-Type"])
+        self.assertIn("comp".encode(), response.content)
+
+    async def test_real_cgi_stops_offering_harder_search_at_ceiling(self):
+        self.cgi = Path(__file__).resolve().parent.parent / "nutrimatic_bundle/cgi_scripts/cgi-search.py"
+        self.find_expr.write_text("#!/usr/bin/env python3\nprint('# 4000000')\n")
+        self.find_expr.chmod(0o755)
+        with self.mock_paths():
+            harder = await self.call_view("q=%3Cabc%3E&comp=2000000")
+            ceiling = await self.call_view("q=%3Cabc%3E&comp=8000000")
+        self.assertIn(b"comp=4000000", harder.content)
+        self.assertNotIn(b"harder", ceiling.content)
+        self.assertIn(b"maximum effort", ceiling.content)
 
     async def test_large_stderr_is_drained_while_stdout_is_read(self):
         self.write_cgi("import sys; sys.stderr.write('x' * 200000); print('Content-type: text/html\\n\\nOK')")

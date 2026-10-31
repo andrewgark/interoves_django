@@ -21,7 +21,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.sessions.models import Session
 from django.core import signing
 from django.db import OperationalError, transaction
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
@@ -428,6 +428,21 @@ class AuthSessionObservabilityTests(TestCase):
         self.assertEqual(payload['peer_ip'], '10.0.0.8')
         self.assertEqual(payload['user_agent']['device_family'], 'Android phone')
         self.assertNotIn('must-not-be-logged', json.dumps(payload))
+
+    @patch('games.ops.telegram.bot.notify.notify_admin_site_error')
+    def test_expected_5xx_response_is_logged_without_admin_alert(self, notify_mock):
+        def timed_out_view(_request):
+            response = HttpResponse('timed out', status=504)
+            response.interoves_expected_error = True
+            return response
+
+        request = self.factory.get('/nutrimatic-ru/?q=slow')
+        response = AuthenticatedRequestAuditMiddleware(timed_out_view)(request)
+        self.assertEqual(response.status_code, 504)
+        notify_mock.assert_not_called()
+
+        AuthenticatedRequestAuditMiddleware(lambda req: HttpResponse(status=504))(request)
+        notify_mock.assert_called_once_with(request, status_code=504)
 
     @patch('games.ops.telegram.bot.notify.notify_admin_site_error')
     def test_anonymous_post_is_logged_and_view_exception_is_re_raised(self, notify_mock):

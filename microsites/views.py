@@ -49,7 +49,7 @@ _NUTRIMATIC_ACTIVE = 0
 _NUTRIMATIC_QUEUED = 0
 _NUTRIMATIC_QUEUE_LIMIT = 1
 _NUTRIMATIC_QUEUE_WAIT_SECONDS = 1.0
-_NUTRIMATIC_DEADLINE_SECONDS = 45.0
+_NUTRIMATIC_DEADLINE_SECONDS = 20.0
 _NUTRIMATIC_KILL_GRACE_SECONDS = 1.0
 _NUTRIMATIC_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
 
@@ -339,7 +339,7 @@ async def nutrimatic_search(request):
                 proc.pid, proc.pid, proc.returncode,
                 asyncio.get_running_loop().time() - started,
             )
-            return HttpResponse("Search timed out", status=504, content_type="text/plain; charset=utf-8")
+            return _nutrimatic_timeout_response()
         except ValueError:
             await _finish_nutrimatic_cleanup(proc, stdout_task, stderr_task, wait_task)
             logger.warning("nutrimatic output_limit pid=%d", proc.pid)
@@ -385,6 +385,26 @@ async def nutrimatic_search(request):
     favicon_url = f'{settings.STATIC_URL.rstrip("/")}/img/favicon/favicon.ico'
     body = body.replace(b'href="/favicon.ico"', f'href="{favicon_url}"'.encode())
     return HttpResponse(body, content_type="text/html; charset=utf-8")
+
+
+def _nutrimatic_timeout_response():
+    response = HttpResponse(
+        "<!doctype html><html lang=\"ru\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<title>Nutrimatic — поиск слишком долгий</title></head><body>"
+        "<main><h1>Nutrimatic</h1>"
+        "<p role=\"status\"><strong>Поиск не уложился в отведённое время.</strong></p>"
+        "<p>Запрос оказался слишком тяжёлым. Попробуйте сузить шаблон "
+        "(например, укоротить анаграмму или зафиксировать часть букв) "
+        "или уменьшить параметр <code>comp</code>.</p>"
+        "<p><a href=\"/nutrimatic-ru/\">На главную</a></p>"
+        "</main></body></html>",
+        status=504,
+        content_type="text/html; charset=utf-8",
+    )
+    # A query exhausting its budget is a designed outcome, not a site failure.
+    response.interoves_expected_error = True
+    return response
 
 
 async def _finish_nutrimatic_cleanup(proc, *tasks):

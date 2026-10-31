@@ -351,9 +351,12 @@ class AuthenticatedRequestAuditMiddleware:
         transient_db_error = getattr(request, '_interoves_mysql_error_code', None)
         if getattr(response, 'status_code', 0) >= 500 and transient_db_error is None:
             _log_http_500_response(request, response.status_code)
-            from games.ops.telegram.bot.notify import notify_admin_site_error
+            # Views mark designed 5xx outcomes (e.g. a search hitting its own
+            # deadline) so they stay in logs without paging the admin chat.
+            if not getattr(response, 'interoves_expected_error', False):
+                from games.ops.telegram.bot.notify import notify_admin_site_error
 
-            notify_admin_site_error(request, status_code=response.status_code)
+                notify_admin_site_error(request, status_code=response.status_code)
         with timing_phase(request, 'auth_audit_response'):
             if getattr(request, 'method', '') == 'POST':
                 user = getattr(request, 'user', None)

@@ -22,6 +22,10 @@ import urllib
 # print the "computation limit exceeded" message
 MAX_COMPUTATION = 1000000
 
+# "Try harder" doubles the budget; past this ceiling a search monopolizes a
+# core of the shared web instance, so the link is no longer offered.
+MAX_COMPUTATION_CEILING = 4 * MAX_COMPUTATION
+
 # Number of results to print per page
 PER_PAGE = 100
 
@@ -103,6 +107,11 @@ RESULT_ERROR = "<p><b><font color=red>%(text)s</font></b></p>"
 RESULT_TIMEOUT = """
 <p><b>Computation limit reached.</b>
 <a href='?q=%(query)s&comp=%(next_max)d'>Try %(even)s harder &raquo;</a></p>
+"""
+
+RESULT_CEILING = """
+<p><b>Computation limit reached.</b>
+This is the maximum effort for one search; try a more specific pattern.</p>
 """
 
 RESULT_DONE = "<p><b>No more results found.</b></p>"
@@ -197,11 +206,15 @@ if 'q' not in fs:  # No query, emit the home page
 query = fs.getvalue("q", "").strip()
 start = int(fs.getvalue("start", 0))
 num = int(fs.getvalue("num", PER_PAGE))
-max_computation = int(fs.getvalue("comp", MAX_COMPUTATION))
+max_computation = min(int(fs.getvalue("comp", MAX_COMPUTATION)), MAX_COMPUTATION_CEILING)
+
+# Searches share the web instance with the main site: yield CPU to it.
+# Inherited by find-expr together with the limits below.
+os.nice(19)
 
 # Shell out to the find-exec binary to get results
 soft, hard = resource.getrlimit(resource.RLIMIT_CPU)
-if soft == -1 or soft > 30: soft = 30
+if soft == -1 or soft > 15: soft = 15
 resource.setrlimit(resource.RLIMIT_CPU, (soft, hard))
 
 soft, hard = resource.getrlimit(resource.RLIMIT_AS)
@@ -268,6 +281,9 @@ while 1:
 
   score, text = line.strip().split(" ", 1)
   if score == "#" and int(text) >= max_computation:
+    if max_computation >= MAX_COMPUTATION_CEILING:
+      print(RESULT_CEILING)
+      break
     print(RESULT_TIMEOUT % {
         "query": urllib.parse.quote(query),
         "even": "even" if max_computation > MAX_COMPUTATION else "",
