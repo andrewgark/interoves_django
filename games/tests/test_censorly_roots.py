@@ -191,20 +191,30 @@ class HalfCompoundTests(SimpleTestCase):
 
         return _relation(_GuessPack(guess), _Pack(target))
 
-    def test_half_compound_opens_from_its_base_and_from_half(self):
+    def test_half_compound_opens_from_its_base(self):
         for guess, target in (
             ('остров', 'полуострова'),
             ('полуостров', 'остров'),
             ('остров', 'полуостровной'),
+            ('полуостров', 'полуостровной'),
             ('час', 'полчаса'),
             ('круг', 'полукруг'),
             ('шар', 'полушарие'),
-            ('половина', 'полуостров'),
-            ('пополам', 'полчаса'),
-            ('полукруг', 'полчаса'),
         ):
             with self.subTest(guess=guess, target=target):
                 self.assertEqual(self._relation(guess, target), 'root')
+
+    def test_half_does_not_open_half_compounds(self):
+        for guess, target in (
+            ('половина', 'полуостров'),
+            ('половине', 'полуострова'),
+            ('полуостров', 'половина'),
+            ('пополам', 'полчаса'),
+            ('половина', 'полушарие'),
+            ('полукруг', 'полчаса'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(self._relation(guess, target))
 
     def test_other_pol_roots_stay_out_of_the_half_cluster(self):
         for guess, target in (

@@ -52,8 +52,6 @@ _NEGATION_PAIRS = Path(os.environ.get(
 _HALF_COMPOUNDS = Path(os.environ.get(
     'CENSORLY_HALF_COMPOUNDS', Path(__file__).resolve().parents[1] / 'data' / 'half_compounds.tsv'
 ))
-# The reading «половина», «пополам» and «наполовину» share in rootbank.
-HALF_STRUCTURE = ('fam:пол⁵', 'sense:half')
 
 # Historical families whose join would glue unrelated modern words.
 # ``чит`` and ``чт`` stay one reading root. ``чет`` does not join them.
@@ -670,11 +668,12 @@ def _build_bank(*, record: bool):
         }
         audit['negation_lemmas'] += 1
     # Dictionaries leave полуостров, полчаса, полукруг unresolved: «пол» has
-    # several root families. Each reviewed compound reads as half and,
-    # separately, as its base word, so остров and половина both open it.
+    # several root families. Each reviewed compound reads as its base word
+    # only: «час» opens «полчаса», but «половина» does not, since «пол» is a
+    # secondary component and would open hundreds of unrelated compounds.
     for compound, base in HALF_COMPOUNDS.items():
         base_structures = built.get(base, ()) if base else ()
-        built[compound] = tuple(sorted({HALF_STRUCTURE, *base_structures}))
+        built[compound] = tuple(sorted(base_structures))
         provenance[compound] = {
             'source': 'HALF_COMPOUND',
             'detail': base,
