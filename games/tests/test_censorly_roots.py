@@ -204,6 +204,42 @@ class HalfCompoundTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertEqual(self._relation(guess, target), 'root')
 
+    def test_every_half_compound_has_a_root(self):
+        from games.puzzles.censorly.lexical.match.rootbank import HALF_COMPOUNDS, structures_of
+
+        rootless = [compound for compound in HALF_COMPOUNDS if not structures_of(compound)]
+        self.assertEqual(rootless, [])
+
+    def test_reviewed_bases_open_their_families(self):
+        for guess, target in (
+            ('маска', 'полумаска'),
+            ('маска', 'маскировка'),
+            ('мягкий', 'мягкость'),
+            ('метр', 'полметра'),
+            ('литр', 'поллитровка'),
+            ('тонна', 'полутонный'),
+            ('тон', 'полутон'),
+            ('штоф', 'полштофа'),
+            ('кеды', 'полукеды'),
+            ('финал', 'полуфинальный'),
+            ('пролетарий', 'пролетариат'),
+            ('легковес', 'полулегковес'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertEqual(self._relation(guess, target), 'root')
+
+    def test_reviewed_bases_keep_homonyms_apart(self):
+        for guess, target in (
+            ('масса', 'массаж'),
+            ('такт', 'тактика'),
+            ('тон', 'тонкий'),
+            ('тон', 'тонна'),
+            ('метр', 'метрдотель'),
+            ('метр', 'термометр'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(self._relation(guess, target))
+
     def test_half_does_not_open_half_compounds(self):
         for guess, target in (
             ('половина', 'полуостров'),
