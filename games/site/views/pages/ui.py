@@ -48,6 +48,7 @@ from games.site.pages.profile.anon import (
     migrate_anon_attempts,
     set_play_mode,
 )
+from games.site.pages.profile.notices import ui_notice_seen
 from games.site.pages.profile.pages import (
     account_merge_confirm,
     account_merge_retry,

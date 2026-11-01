@@ -118,6 +118,7 @@ from games.models.people import (  # noqa: F401
     Team,
     TeamInvite,
     TelegramLinkToken,
+    UiNoticeSeen,
     User,
     anon_key_is_hidden,
     hidden_anon_keys,

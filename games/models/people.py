@@ -2,8 +2,8 @@ import hashlib
 import secrets
 
 from django.contrib.auth.models import User
-from django.db import models, transaction
-from django.utils import timezone
+from django.db import models
+
 
 class Team(models.Model):
     name = models.CharField(max_length=100, primary_key=True)
@@ -336,6 +336,25 @@ class TelegramLinkToken(models.Model):
 
     def __str__(self):
         return 'Telegram link token #{} for user {}'.format(self.pk, self.user_id)
+
+
+class UiNoticeSeen(models.Model):
+    """A one-off UI notice (popup, callout) this user has already seen or turned off.
+
+    Keys live in ``games.identity.ui_notices.KNOWN_KEYS``.
+    """
+
+    user = models.ForeignKey('auth.User', related_name='ui_notices_seen', on_delete=models.CASCADE)
+    key = models.CharField(max_length=64)
+    seen_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=('user', 'key'), name='games_uinoticeseen_uniq_user_key'),
+        ]
+
+    def __str__(self):
+        return '{} @ user {}'.format(self.key, self.user_id)
 
 
 class Registration(models.Model):

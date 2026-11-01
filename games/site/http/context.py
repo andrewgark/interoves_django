@@ -30,6 +30,14 @@ def unverified_telegram_prompt(request):
     return {'unverified_telegram_handle': handle}
 
 
+def ui_notices(request):
+    """Notice keys the signed-in player has seen; queried only if a template asks."""
+    from django.utils.functional import SimpleLazyObject
+
+    from games.identity.ui_notices import seen_keys
+    return {'ui_notices_seen': SimpleLazyObject(lambda: seen_keys(getattr(request, 'user', None)))}
+
+
 def site_deploy_version(_request):
     """Expose SITE_DEPLOY_VERSION for deploy_version_check.js (HTML vs live API)."""
     v = getattr(settings, "SITE_DEPLOY_VERSION", "") or ""

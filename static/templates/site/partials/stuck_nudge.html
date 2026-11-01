@@ -1,0 +1,75 @@
+{% load static %}{# "Не получается решить?" pointer to the hint button; see static/js/stuck_nudge.js. Pass stuck_nudge_game. #}
+<div id="stuck-nudge-config" hidden
+     data-url="{% url 'ui_notice_seen' %}"
+     data-user-id="{% if request.user.is_authenticated %}{{ request.user.pk }}{% endif %}"
+     data-seen="{{ ui_notices_seen|join:' ' }}"></div>
+<script src="{% static 'js/stuck_nudge.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+<script>
+(function () {
+  'use strict';
+  function count(selector) { return document.querySelectorAll(selector).length; }
+  var presets = {
+    ladder: {
+      scope: '.new-raddle-task',
+      hintSelector: '.new-raddle-assist-btn',
+      target: function () {
+        return document.querySelector('.new-raddle-row--focus .new-raddle-assist-btn') ||
+          document.querySelector('.new-raddle-row--playable .new-raddle-assist-btn');
+      },
+      progress: function () { return count('.new-raddle-task .new-raddle-row--solved'); },
+      done: function () { return !document.querySelector('.new-raddle-task .new-raddle-row--playable'); },
+      hinted: function () { return !!document.querySelector('.new-raddle-task .new-raddle-check--tier1, .new-raddle-task .new-raddle-assist-btn--answer'); },
+      text: 'Лампочка у слова откроет к нему подсказку.',
+      glowAfter: {ms: 60000, misses: 2},
+      calloutAfter: {ms: 120000, misses: 4},
+    },
+    salad: {
+      scope: '[data-word-salad-root]',
+      hintSelector: '.new-word-salad__hint-btn',
+      target: function () {
+        return document.querySelector('[data-word-salad-root] .new-word-salad__word:not(.is-solved) .new-word-salad__hint-btn:not(:disabled)');
+      },
+      progress: function () { return count('[data-word-salad-root] .new-word-salad__word.is-solved'); },
+      done: function () {
+        var root = document.querySelector('[data-word-salad-root]');
+        return !root || root.getAttribute('data-word-salad-complete') === '1';
+      },
+      hinted: function () { return !!document.querySelector('[data-word-salad-root] .new-word-salad__word.is-hinted'); },
+      text: 'Кнопка у слова в списке откроет его следующую букву.',
+      // Words are found by dragging over the grid, so there are no guesses to count.
+      countMisses: false,
+      glowAfter: {ms: 90000},
+      calloutAfter: {ms: 180000},
+    },
+    alphabetty: {
+      scope: '#ab-form',
+      hintSelector: '#ab-hint',
+      target: function () { return document.getElementById('ab-hint'); },
+      // Every guess narrows the range but none solves it before the win, so
+      // guesses count as misses and the thresholds are set higher.
+      progress: function () { return 0; },
+      done: function () { var win = document.getElementById('ab-win'); return !!win && !win.hidden; },
+      hinted: function () { return false; },
+      text: 'Лампочка в поле ввода подскажет следующую букву слова.',
+      glowAfter: {ms: 120000, misses: 12},
+      calloutAfter: {ms: 240000, misses: 20},
+    },
+    censorly: {
+      scope: '#censorly-form',
+      hintSelector: '#censorly-hint-btn',
+      target: function () { return document.getElementById('censorly-hint-btn'); },
+      progress: function () { return count('#censorly-body .censorly-tok--revealed'); },
+      done: function () { var btn = document.getElementById('censorly-hint-btn'); return !btn || btn.disabled; },
+      hinted: function () { return !!document.querySelector('#censorly-body .censorly-tok--hinted'); },
+      text: 'Подсказка откроет любое закрытое слово на ваш выбор.',
+      glowAfter: {ms: 120000, misses: 6},
+      calloutAfter: {ms: 240000, misses: 10},
+    },
+  };
+  var game = '{{ stuck_nudge_game|escapejs }}';
+  var preset = presets[game];
+  if (!preset || !window.InterovesStuckNudge) return;
+  preset.game = game;
+  window.InterovesStuckNudge.create(preset);
+})();
+</script>

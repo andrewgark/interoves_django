@@ -59,6 +59,7 @@ urlpatterns = [
     path('migrate-anon-attempts/', ui.migrate_anon_attempts, name='ui_migrate_anon_attempts'),
     path('anon-migrate-count/', ui.anon_migrate_count, name='ui_anon_migrate_count'),
     path('club-archive-offer-action/', ui.club_archive_offer_action, name='ui_club_archive_offer_action'),
+    path('ui-notices/seen/', ui.ui_notice_seen, name='ui_notice_seen'),
     path('anon-merge-jobs/current/', ui.anon_merge_job_status, name='ui_anon_merge_job_current'),
     path('anon-merge-jobs/<uuid:job_id>/', ui.anon_merge_job_status, name='ui_anon_merge_job_status'),
     path('answer/<int:task_id>/', ui.get_answer, name='ui_get_answer'),

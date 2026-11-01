@@ -12884,3 +12884,98 @@ button.new-word-salad__hint-btn:disabled {
     animation: none;
   }
 }
+
+/* Stuck nudge (static/js/stuck_nudge.js): a hint button glow, then a
+   non-modal callout pointing at it. Yellow like the hint buttons. */
+.new-stuck-glow {
+  animation: new-stuck-glow 1.2s ease-out 3;
+}
+@keyframes new-stuck-glow {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warning) 55%, transparent); }
+  100% { box-shadow: 0 0 0 10px color-mix(in srgb, var(--warning) 0%, transparent); }
+}
+.new-stuck-callout {
+  position: fixed;
+  z-index: 95; /* under .new-rules-modal (100) */
+  width: max-content;
+  max-width: min(18rem, calc(100vw - 24px));
+  padding: 0.75rem 0.9rem 0.6rem;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, var(--border));
+  border-radius: var(--card-radius);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  overflow-wrap: break-word;
+  animation: new-stuck-callout-in 0.18s ease-out;
+}
+@keyframes new-stuck-callout-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.new-stuck-callout__title {
+  margin: 0 0 0.2rem;
+  color: var(--text);
+  font-weight: 700;
+}
+.new-stuck-callout__text {
+  margin: 0;
+  color: var(--text);
+}
+.new-stuck-callout__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  margin-top: 0.55rem;
+}
+.new-stuck-callout__off {
+  margin-right: auto;
+  padding-left: 0;
+  padding-right: 0;
+}
+.new-stuck-callout__arrow {
+  position: absolute;
+  left: var(--stuck-arrow-x, 50%);
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--warning) 55%, var(--border));
+  transform: translateX(-50%) rotate(45deg);
+}
+.new-stuck-callout[data-side="above"] .new-stuck-callout__arrow {
+  bottom: -6px;
+  border-top: 0;
+  border-left: 0;
+}
+.new-stuck-callout[data-side="below"] .new-stuck-callout__arrow {
+  top: -6px;
+  border-bottom: 0;
+  border-right: 0;
+}
+/* The hint button is off screen: dock to the bottom (or top) edge instead. */
+.new-stuck-callout--docked {
+  left: 50% !important;
+  top: auto !important;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  animation: none;
+}
+.new-stuck-callout--docked.new-stuck-callout--docked-top {
+  top: 12px !important;
+  bottom: auto;
+}
+.new-stuck-callout--docked .new-stuck-callout__arrow {
+  display: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .new-stuck-glow {
+    animation: none;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--warning) 45%, transparent);
+  }
+  .new-stuck-callout {
+    animation: none;
+  }
+}
