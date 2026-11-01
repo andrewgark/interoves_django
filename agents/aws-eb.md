@@ -27,11 +27,17 @@ interoves-env` для определения прода не подходят.
 
 | Окружение | Роль | Прод? | Примечание |
 |---|---|---:|---|
-| `interoves-web-green-lb` | web, `INTEROVES_RUNTIME_ROLE=web` | да | ALB в 1a/1b, 2× `t3.small` (ASG 2/2), On-Demand, health `/health/live/` |
+| `interoves-web-green-lb` | web, `INTEROVES_RUNTIME_ROLE=web` | да | ALB в 1a/1b, ASG 2/2: 1 On-Demand `t3.small` + 1 Spot (`t3.small`/`t3a.small`), Capacity Rebalancing, health `/health/live/` |
 | `interoves-env` | Blue web | нет | только rollback DNS; Blue не деплоить и не «чинить» без явного запроса |
 | `interoves-background-worker` | background-worker | нет | difficulty, проекции результатов, фоновые тики |
 | `interoves-identity-worker` | legacy EB identity-worker | нет | неактуальный consumer; identity merge сейчас обслуживает ECS `interoves-identity-ecs` |
 | `interoves-integrations-worker` | integration-worker | нет | Telegram/Instagram/social тики и карточки игр |
+
+Legacy-окружения `interoves-dev`, `interoves-prod`, `interoves-django-env` и
+`interoves-word-salad-worker` удалены 2026-11-01. Имя
+`interoves-dev.eu-central-1.elasticbeanstalk.com` — это CNAME Blue
+(`interoves-env`), а не отдельное окружение. Продовая RDS входит в
+CloudFormation-стек Blue: перед удалением Blue её нужно вывести из стека.
 
 Кроны Blue (`difficulty`, `telegram`, `word salad`) должны оставаться
 выключенными: Blue, Green и workers делят одну RDS, поэтому Blue может
