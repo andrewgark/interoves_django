@@ -11,6 +11,7 @@ from games.puzzles.censorly.ids import CENSORLY_SPLITTER_VERSION
 from games.puzzles.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
     LANGUAGE_LABEL_CONTEXTS,
+    LI_NAME_CONTEXT,
     N_ERA_CONTEXT,
     NEM_GERMAN_CONTEXT,
     NEM_NONPRONOUN_CONTEXT,
@@ -92,6 +93,15 @@ _TOKEN_RE = re.compile(
 _WORD_CORE_RE = re.compile(
     rf'^[{WORD_CHARS}]+⃗?$',
 )
+
+# Case-sensitive spellings that are closed words although their lowercase
+# form is a stop word. «ПО» is the software acronym («По» opening a sentence
+# stays the preposition). «Ли» is the Korean/Chinese name: the particle «ли»
+# is enclitic and never opens a clause, so it is never capitalized.
+_CLOSED_STOP_HOMOGRAPHS = {
+    'ПО': PO_SOFTWARE_CONTEXT,
+    'Ли': LI_NAME_CONTEXT,
+}
 
 _HEADING_SPLIT_RE = re.compile(
     re.escape(HEADING_START) + r'(.*?)' + re.escape(HEADING_END),
@@ -338,17 +348,17 @@ def _tokenize_plain(
             ending = ''
             stem_length = 0
         elif _WORD_CORE_RE.fullmatch(raw) or _WORD_CORE_RE.fullmatch(surface):
-            software_acronym = surface == 'ПО'
-            kind = 'content' if software_acronym else _kind_for_word(surface)
+            homograph_context = _CLOSED_STOP_HOMOGRAPHS.get(surface)
+            kind = 'content' if homograph_context else _kind_for_word(surface)
             plain = strip_combining_marks(surface)
             lemma = (
-                PO_SOFTWARE_CONTEXT if software_acronym else
+                homograph_context if homograph_context else
                 lemma_of(plain) if kind == 'content' else normalize_surface(plain)
             )
             length = letter_length(surface)
             ending = ''
             stem_length = length
-            if kind == 'content' and not software_acronym:
+            if kind == 'content' and not homograph_context:
                 _stem, ending = split_stem_ending(surface)
                 stem_length = letter_length(_stem) if ending else length
         elif (
@@ -383,8 +393,8 @@ def _tokenize_plain(
         if kind == 'content' and ending:
             tok['ending'] = ending
             tok['stem_length'] = stem_length
-        if kind == 'content' and surface == 'ПО':
-            tok['context_reading'] = PO_SOFTWARE_CONTEXT
+        if kind == 'content' and surface in _CLOSED_STOP_HOMOGRAPHS:
+            tok['context_reading'] = _CLOSED_STOP_HOMOGRAPHS[surface]
             tok['initially_open'] = False
         tokens.append(tok)
         tid += 1
@@ -741,11 +751,10 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             tok['context_reading'] = TELE_PREFIX_CONTEXT
             continue
 
-        # The two-letter abbreviation is case-sensitive; sentence-initial
-        # «По» remains the ordinary preposition.
-        if surface == 'ПО':
-            tok['lemma'] = PO_SOFTWARE_CONTEXT
-            tok['context_reading'] = PO_SOFTWARE_CONTEXT
+        # Case-sensitive: sentence-initial «По» remains the preposition.
+        if surface in _CLOSED_STOP_HOMOGRAPHS:
+            tok['lemma'] = _CLOSED_STOP_HOMOGRAPHS[surface]
+            tok['context_reading'] = _CLOSED_STOP_HOMOGRAPHS[surface]
             tok['initially_open'] = False
             continue
 

@@ -455,6 +455,25 @@ class CensorlyEngineTests(TestCase):
         self.assertGreaterEqual(result['hits'], 1)
         self.assertEqual(result['attempts'], 1)
 
+    def test_capitalized_li_is_a_closed_name_not_the_particle(self):
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='Ли Чжэ Мён',
+            body='Ли Чжэ Мён стал президентом. Знает ли он об этом?',
+        )
+        tokens = puzzle['title_tokens'] + puzzle['body_tokens']
+        name = [t for t in tokens if t['surface'] == 'Ли']
+        particle = [t for t in tokens if t['surface'] == 'ли']
+        self.assertEqual({t['kind'] for t in name}, {'content'})
+        self.assertFalse(any(t.get('initially_open', True) for t in name))
+        self.assertEqual({t['kind'] for t in particle}, {'stop'})
+
+        user = User.objects.create_user('cz_li_name', password='x')
+        result = apply_guess(game=game, task=task, word='Ли', user=user)
+
+        self.assertIn(result['status'], {'hit', 'won'})
+        self.assertGreaterEqual(result['hits'], 2)
+        self.assertEqual(result['attempts'], 1)
+
 
 class CensorlyAccessTests(TestCase):
     def setUp(self):

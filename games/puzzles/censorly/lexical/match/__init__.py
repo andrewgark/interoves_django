@@ -17,6 +17,7 @@ from games.puzzles.censorly.lexical.match.rootbank import families_of, structure
 from games.puzzles.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
     LANGUAGE_LABEL_CONTEXTS,
+    LI_NAME_CONTEXT,
     NEM_GERMAN_CONTEXT,
     NEM_NONPRONOUN_CONTEXT,
     NEM_PRONOUN_CONTEXT,
@@ -452,7 +453,7 @@ class _ArticleIndex:
         )
         closed_contexts = {
             CITY_ABBR_CONTEXT, NEM_GERMAN_CONTEXT, NEM_NONPRONOUN_CONTEXT,
-            N_ERA_CONTEXT,
+            LI_NAME_CONTEXT, N_ERA_CONTEXT,
             PAGE_ABBR_CONTEXT, PO_SOFTWARE_CONTEXT, STREET_ABBR_CONTEXT,
             YEAR_ABBR_CONTEXT, *LANGUAGE_LABEL_CONTEXTS.values(),
         }

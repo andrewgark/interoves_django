@@ -13,6 +13,7 @@ NEM_PRONOUN_CONTEXT = '__censorly_nem_pronoun__'
 NEM_NONPRONOUN_CONTEXT = '__censorly_nem_nonpronoun__'
 N_ERA_CONTEXT = '__censorly_n_era__'
 PO_SOFTWARE_CONTEXT = '__censorly_po_software__'
+LI_NAME_CONTEXT = '__censorly_li_name__'
 NEM_GERMAN_CONTEXT = '__censorly_nem_german__'
 YEAR_ABBR_CONTEXT = '__censorly_year_abbr__'
 CITY_ABBR_CONTEXT = '__censorly_city_abbr__'
@@ -155,6 +156,7 @@ TARGET_LEMMA_OVERRIDES: dict[tuple[str, str], tuple[str, ...]] = {
     # These token identities encode parser decisions. The software acronym
     # intentionally has no lexical expansion: only the exact spelling opens it.
     ('по', PO_SOFTWARE_CONTEXT): (PO_SOFTWARE_CONTEXT,),
+    ('ли', LI_NAME_CONTEXT): (LI_NAME_CONTEXT,),
     ('нем', NEM_GERMAN_CONTEXT): ('немец',),
     ('нем', NEM_PRONOUN_CONTEXT): ('он', 'оно'),
     ('г', YEAR_ABBR_CONTEXT): ('год',),
