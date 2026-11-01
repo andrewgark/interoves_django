@@ -619,7 +619,9 @@
         if (data.replay_available && typeof global.revealReplayControl === 'function') {
           global.revealReplayControl();
         }
-        if (data.status === 'ok' && data.word_salad_correct) {
+        // A rare find leaves the board as it is: the server only confirms it.
+        if (entry.kind === 'rare' ? (data.status === 'ok' && data.word_salad_rare)
+          : (data.status === 'ok' && data.word_salad_correct)) {
           if (data.update_task_html_new) saladServerCards[taskId] = data.update_task_html_new;
           return 'sent';
         }
@@ -1524,6 +1526,39 @@
         }) || null;
       }
 
+      function unfoundRares(except) {
+        return configuredRares.filter(function (word) {
+          return word !== except && rareWords.indexOf(word) < 0;
+        });
+      }
+
+      // A rare word: found here, the server confirms it later. The path stays
+      // selected, as after a rare find from the server.
+      function findRareInstantly(path, word) {
+        var body = new FormData(form);
+        if (global.InterovesPageCsrf) global.InterovesPageCsrf.stampFormData(body);
+        stampOfferShare(body, form);
+        body.set('path', JSON.stringify(path));
+        body.set('correct_only', '1');
+        var eventId = global.InterovesClientEventId.create();
+        body.set('client_event_id', eventId);
+        body.set('client_verdict', 'Partial');
+        saladQueue().add({
+          id: eventId,
+          kind: 'rare',
+          scope: root.getAttribute('data-task-id') || '',
+          url: formSubmitUrl(form),
+          mode: global.InterovesPlayMode || '',
+          fields: global.InterovesOutbox.formFields(body),
+          at: Date.now()
+        });
+        cancelIdleFind();
+        addRareWord(word);
+        showAnswerToast(root, word, 'rare');
+        renderSelection();
+        flushSaladOutbox();
+      }
+
       // A found word holds its finished path for a moment (is-found) before
       // the board changes: solved right at the last letter, the path vanished
       // before it was even drawn there.
@@ -1701,8 +1736,15 @@
         var selected = normalizeWord(selectedWord());
         var matchesAnswerLength = unsolvedLengths().indexOf(length) >= 0;
         var isRareCandidate = isConfiguredRare(selected) && rareWords.indexOf(selected) < 0;
+        // The page knows the rare words too: one that cannot go on into a
+        // longer answer or rare word is found at once, the others after the
+        // usual pause, without waiting for the server either way.
+        var rareNow = instantVerdict && isRareCandidate && (opts.fromIdle ||
+          !hasWordContinuation(selected, unsolvedAnswerWords().concat(unfoundRares(selected))));
         if (matchesAnswerLength && !isRareCandidate) {
           // Required answers still submit as soon as the path length matches.
+        } else if (rareNow) {
+          // A rare word, checked on the page.
         } else if (opts.fromIdle && (isRareCandidate || length >= EXTRA_MIN_LENGTH)) {
           // Rares and extras wait for a short pause on the same path.
         } else {
@@ -1710,6 +1752,11 @@
         }
         var pathKey = currentPath.join(',');
         if (attemptedPaths[pathKey]) return;
+        if (rareNow) {
+          attemptedPaths[pathKey] = true;
+          findRareInstantly(currentPath.slice(), selected);
+          return;
+        }
         var instantRow = instantVerdict && matchesAnswerLength && !isRareCandidate
           ? unsolvedAnswerRow(selected) : null;
         if (instantRow) {

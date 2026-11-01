@@ -125,12 +125,15 @@ def write_move_result(result, task, attempt, *, attempt_persisted, user, anon_ke
 def client_verdict_of(attempt, persisted):
     """What an instant-verdict page should have shown for a solve path.
 
-    'Ok' when the path solved a new answer word; a rare or off-theme find, a
-    word already solved and a dropped wrong probe are all 'Wrong'.
+    'Ok' when the path solved a new answer word, 'Partial' when it found a
+    new rare word; an off-theme find, a word already found and a dropped wrong
+    probe are all 'Wrong'.
     """
     if not persisted or attempt.status not in ('Ok', 'Partial'):
         return 'Wrong'
-    if (attempt.comment or '') in (RARE_FOUND_COMMENT, EXTRA_FOUND_COMMENT):
+    if (attempt.comment or '') == RARE_FOUND_COMMENT:
+        return 'Partial'
+    if (attempt.comment or '') == EXTRA_FOUND_COMMENT:
         return 'Wrong'
     return 'Ok'
 

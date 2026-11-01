@@ -26,6 +26,8 @@ from games.tests.test_client_event_receipts import _ClientEventFixture
 from games.tests.test_word_salad_daily import SAMPLE_CSV
 
 PRUNE_CONTRACT = Path(settings.BASE_DIR) / 'contracts' / 'word_salad_prune.json'
+# Traced along the top row of the sample grid (В А Р А), not an answer.
+RARE_WORD = 'ВАРА'
 
 
 def _solve_in_order(grid, words, order):
@@ -82,14 +84,14 @@ class PruneContractTests(SimpleTestCase):
 
 
 class ClientVerdictOfTests(SimpleTestCase):
-    def test_only_a_new_answer_word_is_ok(self):
+    def test_answer_words_are_ok_and_rare_finds_partial(self):
         def attempt(status, comment=''):
             return SimpleNamespace(status=status, comment=comment)
 
         self.assertEqual(client_verdict_of(attempt('Partial'), True), 'Ok')
         self.assertEqual(client_verdict_of(attempt('Ok'), True), 'Ok')
         self.assertEqual(client_verdict_of(attempt('Wrong'), False), 'Wrong')
-        self.assertEqual(client_verdict_of(attempt('Partial', RARE_FOUND_COMMENT), True), 'Wrong')
+        self.assertEqual(client_verdict_of(attempt('Partial', RARE_FOUND_COMMENT), True), 'Partial')
         self.assertEqual(client_verdict_of(attempt('Partial', EXTRA_FOUND_COMMENT), True), 'Wrong')
         self.assertEqual(client_verdict_of(attempt('Wrong', 'Слово уже открыто'), True), 'Wrong')
 
@@ -105,7 +107,7 @@ class InstantSaladPageTests(_ClientEventFixture):
         checker, _ = CheckerType.objects.get_or_create(pk='word_salad')
         cls.salad = Task.objects.create(
             task_group=cls.tg, number='3', task_type='word_salad', checker=checker, points=1,
-            checker_data=serialize_task_data(cls.grid, cls.words), answer='',
+            checker_data=serialize_task_data(cls.grid, cls.words, [RARE_WORD]), answer='',
         )
 
     def setUp(self):
@@ -166,3 +168,15 @@ class InstantSaladPageTests(_ClientEventFixture):
             response = self._post_path(self.words[0])
         self.assertEqual(response['status'], 'duplicate')
         self.assertIn('server=Duplicate', ' '.join(logs.output))
+
+    @patch('games.ops.telegram.bot.notify.notify_admin_offline_play')
+    def test_rare_find_shown_at_once_is_confirmed_quietly(self, notify):
+        response = self._post_path(RARE_WORD, verdict='Partial')
+        self.assertEqual(response['word_salad_rare'], RARE_WORD)
+        self.assertFalse(response['word_salad_correct'])
+        notify.assert_not_called()
+
+    def test_page_calling_a_rare_find_an_answer_is_reported(self):
+        with self.assertLogs('games.offline', 'WARNING') as logs:
+            self._post_path(RARE_WORD, verdict='Ok')
+        self.assertIn('client=Ok server=Partial', ' '.join(logs.output))
