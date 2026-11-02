@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from django.core.management.base import BaseCommand, CommandError
-
+from games.ops.social.ads import campaigns, ops
+from games.ops.social.ads.audit import append_audit
 from games.ops.social.ads.client import DirectApiError, default_client
 from games.ops.social.ads.config import ConfigError
-from games.ops.social.ads import ops
-from games.ops.social.ads.state import load_state, state_path
+from games.ops.social.ads.state import load_state, save_state, state_path
 
 
 class Command(BaseCommand):
@@ -26,6 +26,7 @@ class Command(BaseCommand):
         parser.add_argument("--wait", type=int, default=45, help="Seconds to wait when checking old-campaign spend")
         parser.add_argument("--ids", help="Comma-separated object IDs")
         parser.add_argument("--reason", default="")
+        parser.add_argument("--spec", help="Campaign spec slug (games/ops/social/ads/campaigns.py)")
 
     def handle(self, *args, **options):
         sub = options["subcommand"]
@@ -85,14 +86,39 @@ class Command(BaseCommand):
             if not date_from or not date_to:
                 raise ConfigError("Need --date-from and --date-to")
             return ops.campaign_report(client, int(target), date_from=date_from, date_to=date_to)
+        if sub.startswith("campaign."):
+            return self._campaign(client, sub, options)
         if sub == "state":
             return {"path": str(state_path()), "state": load_state()}
         raise CommandError(
             "Unknown subcommand. Use: status, preflight, launch, client, dictionaries, "
             "campaigns.get, adgroups.get, ads.get, keywords.get, bidmodifiers.get, "
             "campaigns.suspend, campaigns.resume, keywords.suspend, keywords.resume, "
-            "metrika-goals, reports, state"
+            "metrika-goals, reports, state, campaign.plan|create|verify|launch --spec SLUG"
         )
+
+    def _campaign(self, client, sub, options):
+        if not options.get("spec"):
+            raise ConfigError(f"Need --spec; known: {sorted(campaigns.CAMPAIGNS)}")
+        spec = campaigns.get_spec(options["spec"])
+        action = sub.split(".", 1)[1]
+        if action == "plan":
+            return campaigns.plan(spec)
+        if action == "create":
+            return campaigns.create(client, spec, audit=append_audit, state_store=_StateStore())
+        if action == "verify":
+            record = (load_state().get("campaigns") or {}).get(spec.slug) or {}
+            if not record.get("campaign_id"):
+                raise ConfigError(f"{spec.slug} has not been created")
+            return campaigns.verify(client, spec, record["campaign_id"])
+        if action == "launch":
+            return campaigns.launch(client, spec, audit=append_audit, state_store=_StateStore())
+        raise CommandError("Use campaign.plan, campaign.create, campaign.verify or campaign.launch")
+
+
+class _StateStore:
+    load = staticmethod(load_state)
+    save = staticmethod(save_state)
 
 
 def _ids(options):
