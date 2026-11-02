@@ -311,7 +311,6 @@
       var ms = displayedMs();
       if (displayEl) displayEl.textContent = formatElapsed(ms);
       if (toggleBtn) {
-        var paused = manuallyPaused || resumeRequired;
         toggleBtn.setAttribute('aria-expanded', (popover && !popover.hidden) ? 'true' : 'false');
       }
       if (tooltipValue) tooltipValue.textContent = formatClock(ms);
@@ -379,8 +378,8 @@
         overlayText.textContent = manuallyPaused
           ? 'Время остановлено. Нажмите «Продолжить» или Esc, чтобы вернуться к заданию.'
           : (resumeRequired
-            ? 'Вкладка долго не подтверждала активность. Время остановлено; нажмите «Продолжить», чтобы снова начать его учитывать.'
-            : 'Это задание открыто в другом окне. Нажмите «Продолжить», чтобы вести время здесь.');
+            ? 'Вкладка долго не подтверждала активность. Время остановлено; нажмите «Продолжить» или Esc, чтобы снова начать его учитывать.'
+            : 'Это задание открыто в другом окне. Нажмите «Продолжить» или Esc, чтобы вести время здесь.');
       }
     }
 
@@ -1203,12 +1202,35 @@
       });
     }
 
-    if (pauseBtn && pauseBtn.addEventListener) pauseBtn.addEventListener('click', function () {
-      if (manuallyPaused || resumeRequired) resumeManual();
-      else pauseManual();
+    // Where focus goes back when play resumes: the answer field the player
+    // was typing in, else the pause button (the overlay's button disappears).
+    var focusBeforePause = null;
+    function focusQuietly(el) {
+      if (el && el.isConnected !== false && el.focus) {
+        try { el.focus({ preventScroll: true }); } catch (e) {}
+      }
+    }
+    function pauseFromControl() {
+      var active = doc && doc.activeElement;
+      focusBeforePause = active && active !== doc.body && active !== resumeBtn ? active : null;
+      pauseManual();
       render();
+    }
+    function resumeFromControl() {
+      var target = focusBeforePause || pauseBtn;
+      focusBeforePause = null;
+      resumeManual();
+      render();
+      // Leave focus alone if the player already moved it somewhere else.
+      var active = doc && doc.activeElement;
+      if (!active || active === doc.body || active === resumeBtn || active === pauseBtn) focusQuietly(target);
+    }
+
+    if (pauseBtn && pauseBtn.addEventListener) pauseBtn.addEventListener('click', function () {
+      if (manuallyPaused || resumeRequired) resumeFromControl();
+      else pauseFromControl();
     });
-    if (resumeBtn && resumeBtn.addEventListener) resumeBtn.addEventListener('click', resumeManual);
+    if (resumeBtn && resumeBtn.addEventListener) resumeBtn.addEventListener('click', resumeFromControl);
     // The clock button only shows the time; pausing has its own button.
     if (toggleBtn && toggleBtn.addEventListener) toggleBtn.addEventListener('click', function () {
       if (popover) {
@@ -1216,10 +1238,17 @@
         toggleBtn.setAttribute('aria-expanded', popover.hidden ? 'false' : 'true');
       }
     });
+    // Esc pauses now, so a click anywhere else is what closes the popover.
+    if (doc && doc.addEventListener) doc.addEventListener('click', function (event) {
+      if (!popover || popover.hidden) return;
+      var target = event && event.target;
+      if (rootEl && rootEl.contains && target && rootEl.contains(target)) return;
+      popover.hidden = true;
+      if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+    });
     // Decide ownership in the capture phase: a modal's own Esc handler closes
     // it before the bubbling handler runs, which would then see no modal.
     var escapeOwnedBy = null;
-    var focusBeforePause = null;
     if (doc && doc.addEventListener) doc.addEventListener('keydown', function (event) {
       if (isPauseHotkey(event)) escapeOwnedBy = escapeHasOtherOwner(doc) ? event : null;
     }, true);
@@ -1229,23 +1258,12 @@
       if (rootEl && rootEl.classList && rootEl.classList.contains('new-daily-timer--quiet')) return;
       event.preventDefault();
       if (manuallyPaused || resumeRequired) {
-        var restore = focusBeforePause;
-        focusBeforePause = null;
-        resumeManual();
-        render();
-        // Back to the answer field the player was typing in.
-        if (restore && restore.isConnected !== false && restore.focus) {
-          try { restore.focus({ preventScroll: true }); } catch (e) {}
-        }
+        resumeFromControl();
         return;
       }
-      focusBeforePause = doc.activeElement && doc.activeElement !== doc.body ? doc.activeElement : null;
-      pauseManual();
-      render();
+      pauseFromControl();
       // Enter/Space on the focused button resume as well.
-      if (resumeBtn && resumeBtn.focus) {
-        try { resumeBtn.focus({ preventScroll: true }); } catch (e2) {}
-      }
+      focusQuietly(resumeBtn);
     });
 
     applySnapshot(bootstrap, { replace: true });

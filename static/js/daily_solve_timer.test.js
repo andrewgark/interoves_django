@@ -194,9 +194,12 @@ function hotkeyDoc() {
     body: { classList: { toggle: function () {} } },
     activeElement: null,
     owners: [],
+    clicks: [],
     addEventListener: function (name, fn, capture) {
       if (name === 'keydown') listeners.push({ fn: fn, capture: !!capture });
+      if (name === 'click') doc.clicks.push(fn);
     },
+    click: function (target) { doc.clicks.forEach(function (fn) { fn({ target: target }); }); },
     querySelectorAll: function () { return doc.owners; },
     press: function (overrides) {
       var event = { key: 'Escape', defaultPrevented: false };
@@ -213,8 +216,13 @@ function hotkeyDoc() {
   return doc;
 }
 
-function hotkeyTimer(doc, rootEl) {
-  var resumeBtn = { focused: 0, focus: function () { resumeBtn.focused += 1; } };
+function focusable(doc) {
+  var el = { focused: 0, focus: function () { el.focused += 1; doc.activeElement = el; } };
+  return el;
+}
+
+function hotkeyTimer(doc, rootEl, extra) {
+  var resumeBtn = focusable(doc);
   var ctrl = timer.create({
     url: '/ladder/1/timing/',
     document: doc,
@@ -230,6 +238,8 @@ function hotkeyTimer(doc, rootEl) {
     offline: true,
     root: rootEl,
     resumeBtn: resumeBtn,
+    pauseBtn: extra && extra.pauseBtn,
+    popover: extra && extra.popover,
     bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 1000, exists: true },
   });
   ctrl.resumeBtn = resumeBtn;
@@ -238,7 +248,7 @@ function hotkeyTimer(doc, rootEl) {
 
 (function testEscapeTogglesPauseAndRestoresFocus() {
   var doc = hotkeyDoc();
-  var input = { focused: 0, focus: function () { input.focused += 1; } };
+  var input = focusable(doc);
   doc.activeElement = input;
   var ctrl = hotkeyTimer(doc);
   assert.strictEqual(doc.press().defaultPrevented, true);
@@ -252,6 +262,40 @@ function hotkeyTimer(doc, rootEl) {
   doc.press({ key: 'Enter' });
   doc.press({ defaultPrevented: true });
   assert.strictEqual(ctrl.state().manually_paused, false);
+  ctrl.destroy();
+})();
+
+(function testEscapeAfterMousePauseReturnsFocusToPauseButton() {
+  var doc = hotkeyDoc();
+  var pauseBtn = focusable(doc);
+  pauseBtn.hidden = false;
+  pauseBtn.setAttribute = function () {};
+  pauseBtn.addEventListener = function (name, fn) { pauseBtn.onclick = fn; };
+  var ctrl = hotkeyTimer(doc, null, { pauseBtn: pauseBtn });
+  doc.activeElement = doc.body; // Safari does not focus a clicked button
+  pauseBtn.onclick();
+  assert.strictEqual(ctrl.state().manually_paused, true);
+  doc.press();
+  assert.strictEqual(ctrl.state().manually_paused, false);
+  assert.strictEqual(doc.activeElement, pauseBtn, 'focus is not dropped on <body>');
+  ctrl.destroy();
+})();
+
+(function testClickOutsideClosesTimePopover() {
+  var doc = hotkeyDoc();
+  var inside = {};
+  var rootEl = {
+    hidden: false,
+    classList: { toggle: function () {}, contains: function () { return false; } },
+    setAttribute: function () {},
+    contains: function (el) { return el === inside; },
+  };
+  var popover = { hidden: false };
+  var ctrl = hotkeyTimer(doc, rootEl, { popover: popover });
+  doc.click(inside);
+  assert.strictEqual(popover.hidden, false);
+  doc.click({});
+  assert.strictEqual(popover.hidden, true);
   ctrl.destroy();
 })();
 

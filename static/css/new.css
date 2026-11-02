@@ -3893,6 +3893,11 @@ html.new-ui-dark .new-team-switcher-active-box {
   transform: translateY(0);
 }
 
+/* A tap leaves :hover stuck on touch screens, and Esc means nothing there. */
+@media (hover: none) {
+  .new-daily-timer__tooltip { display: none; }
+}
+
 .new-daily-timer__toggle:focus-visible,
 .new-daily-game-header__nav-button:focus-visible {
   outline: 2px solid var(--accent);
