@@ -182,7 +182,9 @@ class GameGroupTests(SimpleTestCase):
         self.assertEqual(games, {'censorly', 'ladder', 'salad', 'alphabetty'})
         for group in self.spec.game_groups:
             self.assertTrue(self.spec.group_landing(group).startswith('https://ru.interoves.com/'))
-            self.assertTrue(campaigns.image_path(group.image).is_file())
+            self.assertEqual(len(group.ads), 3)
+            for name in group.images:
+                self.assertTrue(campaigns.image_path(name).is_file(), name)
         intl = campaigns.get_spec('io-intl-nov26')
         self.assertEqual(intl.group_landing(intl.game_groups[0]), 'https://interoves.com/censorly/first/')
 
@@ -201,17 +203,20 @@ class GameGroupTests(SimpleTestCase):
         campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
         result = campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
         self.assertEqual(sorted(result['added']), ['alphabetty', 'censorly', 'ladder', 'salad'])
-        self.assertEqual(len(uploads), 4)
+        self.assertEqual(len(uploads), 12)
         self.assertNotIn(('ads', 'moderate'), direct.writes())
         censorly_ads = [a for a in direct.added['ads'] if a['TextAd'].get('Href', '').endswith('/censorly/first/')]
-        self.assertEqual(len(censorly_ads), 2)
-        self.assertEqual(censorly_ads[0]['TextAd']['AdImageHash'], 'hash-interoves-censorly')
+        self.assertEqual(len(censorly_ads), 3)
+        self.assertEqual(
+            [a['TextAd']['AdImageHash'] for a in censorly_ads],
+            ['hash-interoves-censorly-b-1x1', 'hash-interoves-censorly-a-1x1', 'hash-interoves-censorly-b-16x9'],
+        )
         self.assertTrue(campaigns.verify(direct, self.spec, result['campaign_id'])['ok'])
 
         # Running again adds nothing and uploads nothing.
         again = campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
         self.assertEqual(again['added'], [])
-        self.assertEqual(len(uploads), 4)
+        self.assertEqual(len(uploads), 12)
 
     def test_add_groups_sends_new_ads_of_a_launched_campaign_to_moderation(self):
         direct = FakeDirect()
@@ -223,7 +228,7 @@ class GameGroupTests(SimpleTestCase):
         self.store.state['campaigns'][self.spec.slug]['launched'] = True
         campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
         moderated = [p for s, m, p in direct.calls if (s, m) == ('ads', 'moderate')]
-        self.assertEqual(sum(len(p['SelectionCriteria']['Ids']) for p in moderated), 8)
+        self.assertEqual(sum(len(p['SelectionCriteria']['Ids']) for p in moderated), 12)
 
     def test_ad_text_rejects_characters_direct_does_not_accept(self):
         with self.assertRaises(ConfigError):
@@ -266,3 +271,29 @@ class GameGroupTests(SimpleTestCase):
         result = campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
         self.assertEqual(result['updated_ads'], [ladder_ad])
         self.assertIn(('campaigns', 'update'), direct.writes())
+
+
+    def test_sync_adds_a_missing_ad_and_replaces_images(self):
+        direct = FakeDirect()
+        original = direct.call
+        direct.call = lambda s, m, p=None: (
+            {'AddResults': [{'AdImageHash': 'hash-' + p['AdImages'][0]['Name']}]}
+            if (s, m) == ('adimages', 'add') else original(s, m, p)
+        )
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        record = self.store.state['campaigns'][self.spec.slug]
+        record['launched'] = True
+        salad = record['game_groups']['salad']
+        dropped = salad['ad_ids'].pop()  # as if the group had been made with two ads
+        direct.added['ads'] = [a for a in direct.added['ads'] if a['Id'] != dropped]
+        first = salad['ad_ids'][0]
+        for ad in direct.added['ads']:
+            if ad['Id'] == first:
+                ad['TextAd']['AdImageHash'] = 'old-hash'
+        result = campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
+        self.assertEqual(result['updated_ads'], [first])
+        self.assertEqual(len(result['added_ads']), 1)
+        self.assertEqual(len(self.store.state['campaigns'][self.spec.slug]['game_groups']['salad']['ad_ids']), 3)
+        moderated = [p for s, m, p in direct.calls if (s, m) == ('ads', 'moderate')]
+        self.assertEqual(moderated[-1]['SelectionCriteria']['Ids'], result['added_ads'])

@@ -44,13 +44,14 @@ IMAGES_DIR = Path(__file__).resolve().parents[4] / 'artifacts' / 'ads' / 'images
 
 
 def image_path(name: str) -> Path:
-    return IMAGES_DIR / f'{name}-1080.jpg'
+    return IMAGES_DIR / f'{name}.jpg'
 
 
 @dataclass(frozen=True)
 class AdCopy:
     title: str  # unified campaigns keep no second title (Direct drops Title2)
     text: str
+    image: str = ''  # artifacts/ads/images/<image>.jpg (scripts/ads_game_screenshots.py)
 
     def validate(self) -> None:
         for label, value, limit in (
@@ -79,8 +80,13 @@ class GameGroup:
     title: str
     path: str  # landing on the campaign host: /<game>/first/ picks a free ~3★ puzzle
     keywords: tuple[str, ...]
+    # One ad per creative: band 1:1, close-up 1:1, band 16:9. Direct shows
+    # the better one more and the wide one opens 16:9 network placements.
     ads: tuple[AdCopy, ...]
-    image: str  # artifacts/ads/images/<image>-1080.jpg
+
+    @property
+    def images(self) -> list[str]:
+        return [ad.image for ad in self.ads]
 
     def validate(self) -> None:
         if self.path != f'/{self.game}/first/':
@@ -89,8 +95,8 @@ class GameGroup:
             raise ConfigError(f'{self.game}: needs 1..{MAX_ADS_PER_GROUP} ads')
         for ad in self.ads:
             ad.validate()
-        if not image_path(self.image).is_file():
-            raise ConfigError(f'{self.game}: missing image {image_path(self.image)}')
+            if not ad.image or not image_path(ad.image).is_file():
+                raise ConfigError(f'{self.game}: missing image {ad.image!r}')
 
 
 @dataclass(frozen=True)
@@ -238,13 +244,19 @@ GAME_GROUPS = (
             AdCopy(
                 title='Угадайте статью Википедии по скрытым словам',
                 text='Все слова статьи скрыты. Называйте слова, и они проявляются. Угадаете тему?',
+                image='censorly-b-1x1',
             ),
             AdCopy(
                 title='Википедия, в которой спрятаны все слова',
                 text='Открывайте текст слово за словом и угадайте, о чём статья. Бесплатно, в браузере.',
+                image='censorly-a-1x1',
+            ),
+            AdCopy(
+                title='Цензурка: угадайте статью Википедии слово за словом',
+                text='Называйте слова, и они проявятся в скрытом тексте. Новая статья каждый день.',
+                image='censorly-b-16x9',
             ),
         ),
-        image='censorly',
     ),
     GameGroup(
         game='ladder',
@@ -263,15 +275,21 @@ GAME_GROUPS = (
             AdCopy(
                 title='Лесенка: восстановите цепочку связанных слов',
                 text='Каждое слово связано с соседним. По перемешанным подсказкам соберите цепочку.',
+                image='ladder-b-1x1',
             ),
             AdCopy(
                 # Never name a concrete puzzle: /last/ changes daily and old
                 # puzzles leave the free window after a week.
                 title='Соберите цепочку слов по подсказкам',
                 text='Восстановите цепочку слов по подсказкам. Новая Лесенка каждый день, бесплатно.',
+                image='ladder-a-1x1',
+            ),
+            AdCopy(
+                title='Лесенка: словесная цепочка с подсказками',
+                text='Каждое слово связано с соседним. Восстановите цепочку целиком. Бесплатно.',
+                image='ladder-b-16x9',
             ),
         ),
-        image='ladder',
     ),
     GameGroup(
         game='salad',
@@ -290,13 +308,19 @@ GAME_GROUPS = (
             AdCopy(
                 title='Салатик: найдите слова на тему в сетке 4 на 4',
                 text='Соединяйте соседние буквы и ищите слова на общую тему. Правила понятны за минуту.',
+                image='salad-b-1x1',
             ),
             AdCopy(
                 title='Словесная головоломка на 10 минут',
                 text='Сетка 4 на 4, тема дня и спрятанные слова. Ежедневная игра Inter Oves, бесплатно.',
+                image='salad-a-1x1',
+            ),
+            AdCopy(
+                title='Салатик: слова на тему дня в сетке из 16 букв',
+                text='Проводите дорожки по соседним буквам и найдите все слова на тему. Бесплатно.',
+                image='salad-b-16x9',
             ),
         ),
-        image='salad',
     ),
     GameGroup(
         game='alphabetty',
@@ -314,13 +338,19 @@ GAME_GROUPS = (
             AdCopy(
                 title='Алфавитка: угадайте слово дня по алфавиту',
                 text='Называйте слова и узнавайте, загаданное раньше или позже по алфавиту.',
+                image='alphabetty-b-1x1',
             ),
             AdCopy(
                 title='Угадайте загаданное слово, сужая алфавит',
                 text='Каждая догадка сужает диапазон по алфавиту. Новое слово каждый день, бесплатно.',
+                image='alphabetty-a-1x1',
+            ),
+            AdCopy(
+                title='Алфавитка: найдите слово дня за несколько догадок',
+                text='Узнавайте, раньше или позже по алфавиту загаданное слово. Новое слово ежедневно.',
+                image='alphabetty-b-16x9',
             ),
         ),
-        image='alphabetty',
     ),
 )
 
@@ -484,9 +514,9 @@ def plan(spec: CampaignSpec) -> dict:
             group.game: {
                 'name': spec.group_name(group),
                 'landing': spec.group_landing(group),
-                'image': str(image_path(group.image).relative_to(IMAGES_DIR.parents[2])),
+                'images': group.images,
                 'keywords': list(group.keywords),
-                'ads.add': game_ad_payloads(spec, group, 0, '<image hash>'),
+                'ads.add': game_ad_payloads(spec, group, 0, {name: '<hash>' for name in group.images}),
             }
             for group in spec.game_groups
         },
@@ -666,7 +696,7 @@ def upload_images(ads, names, *, audit, state_store) -> dict[str, str]:
     return {name: hashes[name] for name in names}
 
 
-def game_ad_payloads(spec: CampaignSpec, group: GameGroup, adgroup_id: int, image_hash: str) -> list[dict]:
+def game_ad_payloads(spec: CampaignSpec, group: GameGroup, adgroup_id: int, hashes: dict) -> list[dict]:
     return [
         {
             'AdGroupId': adgroup_id,
@@ -676,7 +706,7 @@ def game_ad_payloads(spec: CampaignSpec, group: GameGroup, adgroup_id: int, imag
                 'Href': spec.group_landing(group),
                 'Mobile': 'NO',
                 'DisplayUrlPath': group.game,
-                'AdImageHash': image_hash,
+                'AdImageHash': hashes[ad.image],
             },
         }
         for ad in group.ads
@@ -693,7 +723,7 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
     if not record or not record.get('campaign_id'):
         raise ConfigError(f'{spec.slug} has not been created')
     campaign_id = record['campaign_id']
-    hashes = upload_images(ads, [g.image for g in spec.game_groups], audit=audit, state_store=state_store)
+    hashes = upload_images(ads, [i for g in spec.game_groups for i in g.images], audit=audit, state_store=state_store)
     state = state_store.load()
     record = state['campaigns'][spec.slug]
     groups = record.setdefault('game_groups', {})
@@ -709,7 +739,7 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         }]}))
         try:
             ad_ids = extract_add_ids(ads.call('ads', 'add', {
-                'Ads': game_ad_payloads(spec, group, adgroup_id, hashes[group.image]),
+                'Ads': game_ad_payloads(spec, group, adgroup_id, hashes),
             }))
             keyword_ids = extract_add_ids(ads.call('keywords', 'add', {
                 'Keywords': [{'Keyword': phrase, 'AdGroupId': adgroup_id} for phrase in group.keywords],
@@ -738,7 +768,7 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
 
 
 def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
-    """Bring a live campaign's strategy and game-ad texts back to the spec."""
+    """Bring a live campaign's strategy and game ads (texts, links, images) to the spec."""
     from games.ops.social.ads import ops
 
     record = (state_store.load().get('campaigns') or {}).get(spec.slug)
@@ -757,21 +787,41 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
           new_value={'spend_limit_rub': spec.spend_limit_rub, 'cpa_rub': spec.cpa_rub},
           reason='sync strategy to spec', api_status='updated')
 
+    hashes = upload_images(ads, [i for g in spec.game_groups for i in g.images], audit=audit, state_store=state_store)
+    state = state_store.load()
+    record = state['campaigns'][spec.slug]
     live = {ad['Id']: ad for ad in ops.ads_get(ads, campaign_ids=[campaign_id])}
-    updates = []
+    updates, added = [], []
     for group in spec.game_groups:
-        ids = ((record.get('game_groups') or {}).get(group.game) or {}).get('ad_ids') or []
-        for ad_id, copy in zip(ids, group.ads):
+        group_record = (record.get('game_groups') or {}).get(group.game)
+        if not group_record:
+            continue  # campaign.add-groups creates missing groups
+        ids = group_record.get('ad_ids') or []
+        payloads = game_ad_payloads(spec, group, group_record['adgroup_id'], hashes)
+        for ad_id, payload in zip(ids, payloads):
             text_ad = (live.get(ad_id) or {}).get('TextAd') or {}
-            wanted = {'Title': copy.title, 'Text': copy.text, 'Href': spec.group_landing(group)}
+            wanted = {k: payload['TextAd'][k] for k in ('Title', 'Text', 'Href', 'AdImageHash')}
             if any(text_ad.get(k) != v for k, v in wanted.items()):
                 updates.append({'Id': ad_id, 'TextAd': wanted})
+        missing = payloads[len(ids):]
+        if missing:
+            new_ids = extract_add_ids(ads.call('ads', 'add', {'Ads': missing}))
+            group_record['ad_ids'] = ids + new_ids
+            state_store.save(state)
+            added.extend(new_ids)
+            audit(action='create', object_type='ads', object_id=new_ids,
+                  new_value={'spec': spec.slug, 'game': group.game}, reason='sync: ads added to spec',
+                  api_status='created')
     if updates:
         result = ads.call('ads', 'update', {'Ads': updates})
         for row in result.get('UpdateResults') or []:
             if row.get('Errors'):
                 raise ConfigError(f'Ads.update: {row["Errors"]}')
         audit(action='update', object_type='ads', object_id=[u['Id'] for u in updates],
-              reason='sync game-ad texts to spec', api_status='updated')
+              reason='sync game ads to spec', api_status='updated')
+    if added and record.get('launched'):
+        ads.call('ads', 'moderate', {'SelectionCriteria': {'Ids': added}})
+        audit(action='moderate', object_type='ads', object_id=added,
+              reason='sync: new ads of a launched campaign', api_status='submitted')
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'updated_ads': [u['Id'] for u in updates],
-            'verify': verify(ads, spec, campaign_id)}
+            'added_ads': added, 'verify': verify(ads, spec, campaign_id)}
