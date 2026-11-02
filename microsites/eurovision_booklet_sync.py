@@ -21,7 +21,8 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
@@ -883,5 +884,8 @@ def html_url_for(
     return reverse("eurovision_booklet_html", kwargs={"slug": slug})
 
 
+# Commit of andrewgark/eurovision2026booklet to serve the Asia edition from.
+# Bump it to publish a new version; the var/ cache is keyed by it.
+ASIA_BOOKLET_REF = "a45e1338b820a96df3cb4d223a7c8167da0e93b6"
 ASIA_BOOKLET_PDF_FILENAMES = ("eurovision_asia_2026_final_en.pdf", "eurovision_asia_2026_final_ru.pdf")
 ASIA_BOOKLET_HTML_SLUGS = ("eurovision_asia_2026_final_en", "eurovision_asia_2026_final_ru")

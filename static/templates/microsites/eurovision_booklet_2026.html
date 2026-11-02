@@ -234,8 +234,7 @@
     hidden
   >
     <div class="booklet-load-overlay__spin" aria-hidden="true"></div>
-    <p id="booklet-load-title" class="booklet-load-overlay__title">Загрузка, подождите…</p>
-    <p class="booklet-load-overlay__sub">Loading, please wait…</p>
+    <p id="booklet-load-title" class="booklet-load-overlay__title">Loading, please wait…</p>
     <p id="booklet-load-error" class="booklet-load-overlay__err" hidden></p>
     <button type="button" id="booklet-load-close" class="booklet-load-overlay__close" hidden>Close</button>
   </div>
@@ -360,6 +359,13 @@
         ev.preventDefault();
         var url = a.href;
         var action = a.getAttribute('data-booklet-action') || 'open';
+        // Open the tab inside the click handler: after the async fetch the user
+        // gesture is gone and browsers block window.open.
+        var tab = null;
+        if (action === 'open') {
+          tab = window.open('', '_blank');
+          if (tab) tab.opener = null;
+        }
         showLoading();
         fetch(url, { credentials: 'same-origin', cache: 'no-store' })
           .then(function (r) {
@@ -382,14 +388,16 @@
               hide();
               return;
             }
-            var w = window.open(url, '_blank', 'noopener,noreferrer');
             hide();
-            if (!w) {
+            if (tab) {
+              tab.location.replace(url);
+            } else {
               showError('Pop-up blocked. Allow pop-ups for this site, or try again.');
             }
           })
           .catch(function () {
-            showError('Не удалось загрузить. / Failed to load. Please try again.');
+            if (tab) tab.close();
+            showError('Failed to load. Please try again.');
           });
       });
     });

@@ -1,13 +1,14 @@
-import json
 import asyncio
 import html
+import json
 import logging
 import mimetypes
 import os
 import re
 import signal
 import sys
-from datetime import datetime, timezone as dt_timezone
+from datetime import datetime
+from datetime import timezone as dt_timezone
 from io import BytesIO
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -16,7 +17,7 @@ from urllib.request import Request, urlopen
 
 from django.conf import settings
 from django.contrib.staticfiles import finders
-from django.http import Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect, FileResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseNotAllowed, HttpResponseRedirect
 from django.shortcuts import render
 from django.utils.http import http_date
 from django.views.decorators.http import require_GET
@@ -24,6 +25,7 @@ from django.views.decorators.http import require_GET
 from microsites.eurovision_booklet_sync import (
     ASIA_BOOKLET_HTML_SLUGS,
     ASIA_BOOKLET_PDF_FILENAMES,
+    ASIA_BOOKLET_REF,
     BOOKLET_HTML_SLUGS,
     BOOKLET_MINISITE_SECTIONS,
     BOOKLET_PDF_FILENAMES,
@@ -569,7 +571,20 @@ def eurovision_booklet_index(request):
 
 @require_GET
 def eurovision_booklet_asia_2026(request):
-    sections = [{"id":"final", "title":"Grand Final", "pdf_ru_url":f"/eurovision_booklet/2026asia/pdf/{ASIA_BOOKLET_PDF_FILENAMES[1]}", "pdf_en_url":f"/eurovision_booklet/2026asia/pdf/{ASIA_BOOKLET_PDF_FILENAMES[0]}", "html_ru_url":f"/eurovision_booklet/2026asia/eurovision-asia-2026/html/{ASIA_BOOKLET_HTML_SLUGS[1]}/", "html_en_url":f"/eurovision_booklet/2026asia/eurovision-asia-2026/html/{ASIA_BOOKLET_HTML_SLUGS[0]}/"}]
+    # ?v= busts browser copies of the previous version (PDFs are served "immutable").
+    v = f"?v={ASIA_BOOKLET_REF[:12]}"
+    pdf_base = "/eurovision_booklet/2026asia/pdf"
+    html_base = "/eurovision_booklet/2026asia/eurovision-asia-2026/html"
+    sections = [
+        {
+            "id": "final",
+            "title": "Grand Final",
+            "pdf_ru_url": f"{pdf_base}/{ASIA_BOOKLET_PDF_FILENAMES[1]}{v}",
+            "pdf_en_url": f"{pdf_base}/{ASIA_BOOKLET_PDF_FILENAMES[0]}{v}",
+            "html_ru_url": f"{html_base}/{ASIA_BOOKLET_HTML_SLUGS[1]}/{v}",
+            "html_en_url": f"{html_base}/{ASIA_BOOKLET_HTML_SLUGS[0]}/{v}",
+        }
+    ]
     return render(request, "microsites/eurovision_booklet_2026.html", {
         "booklet_sections": sections,
         "booklet_title": "Eurovision Asia 2026 — Booklet",
@@ -581,48 +596,64 @@ def eurovision_booklet_asia_2026(request):
             or "https://github.com/andrewgark/eurovision2026booklet"
         ).strip(),
         "booklet_last_updated": {
-            "iso": "2026-10-22T18:35:00+00:00",
-            "display": "22 October 2026, 21:35 MSK",
+            "iso": "2026-11-02T10:06:52+00:00",
+            "display": "2 November 2026, 13:06 MSK",
         },
     })
 
 
 @require_GET
 def eurovision_booklet_asia_pdf(request, filename: str):
-    if filename not in ASIA_BOOKLET_PDF_FILENAMES: raise Http404()
+    if filename not in ASIA_BOOKLET_PDF_FILENAMES:
+        raise Http404()
     return _serve_asia_booklet_file(filename, "pdf")
 
 
 @require_GET
 def eurovision_booklet_asia_html_bundle(request, slug: str, relpath: str = "index.html"):
-    if slug not in ASIA_BOOKLET_HTML_SLUGS: raise Http404()
-    rel=(relpath or "").strip().strip("/") or "index.html"
-    if ".." in Path(rel).parts: raise Http404()
+    if slug not in ASIA_BOOKLET_HTML_SLUGS:
+        raise Http404()
+    rel = (relpath or "").strip().strip("/") or "index.html"
+    if ".." in Path(rel).parts:
+        raise Http404()
     return _serve_asia_booklet_file(f"html/{slug}/{rel}", "html")
 
 
 @require_GET
 def eurovision_booklet_asia_assets(request, relpath: str):
-    rel=relpath.strip().strip("/")
-    if not rel or ".." in Path(rel).parts: raise Http404()
+    rel = relpath.strip().strip("/")
+    if not rel or ".." in Path(rel).parts:
+        raise Http404()
     return _serve_asia_booklet_file(f"assets/{rel}", "asset")
 
 
 def _serve_asia_booklet_file(relpath: str, kind: str):
-    root=Path(settings.BASE_DIR)/"var"/"eurovision_booklet"/"2026asia"
-    cached=_safe_booklet_bundle_file(root, relpath)
+    ref = ASIA_BOOKLET_REF
+    # Keyed by ref so bumping ASIA_BOOKLET_REF never serves files cached for the old one.
+    root = Path(settings.BASE_DIR) / "var" / "eurovision_booklet" / "2026asia" / ref[:12]
+    cached = _safe_booklet_bundle_file(root, relpath)
     if cached is not None:
-        if kind=="pdf": return FileResponse(cached.open("rb"), content_type="application/pdf")
+        if kind == "pdf":
+            return FileResponse(cached.open("rb"), content_type="application/pdf")
         return _file_response_booklet_asset(cached)
-    repo_path=("dist/eurovision-asia-2026/"+relpath if kind in ("pdf","html") else "editions/eurovision-asia-2026/"+relpath)
-    fetched=_fetch_github_raw_booklet(settings, repo_path)
-    if fetched is None: raise Http404()
-    body,ctype=fetched
-    dest=root/relpath
-    try: dest.parent.mkdir(parents=True,exist_ok=True); dest.write_bytes(body)
-    except OSError: logger.info("Eurovision Asia booklet: cache write failed",exc_info=True)
-    if kind=="pdf": return HttpResponse(body,content_type="application/pdf",headers={"Cache-Control":booklet_cache_control(settings)})
-    return _http_response_booklet_bytes(body,ctype)
+    prefix = "dist" if kind in ("pdf", "html") else "editions"
+    fetched = _fetch_github_raw_booklet(settings, f"{prefix}/eurovision-asia-2026/{relpath}", ref=ref)
+    if fetched is None:
+        raise Http404()
+    body, ctype = fetched
+    dest = root / relpath
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(body)
+    except OSError:
+        logger.info("Eurovision Asia booklet: cache write failed", exc_info=True)
+    if kind == "pdf":
+        return HttpResponse(
+            body,
+            content_type="application/pdf",
+            headers={"Cache-Control": booklet_cache_control(settings)},
+        )
+    return _http_response_booklet_bytes(body, ctype)
 
 
 @require_GET
@@ -681,8 +712,7 @@ def _booklet_html_loading_snippet() -> bytes:
         f"""
 <div id="booklet-loading" {_BOOKLET_HTML_LOADING_MARKER} hidden style="display:flex;position:fixed;inset:0;z-index:99999;align-items:center;justify-content:center;flex-direction:column;gap:1rem;background:rgba(15,17,20,.92);color:#e8eaed;font:600 1rem/1.4 system-ui,sans-serif">
   <div style="width:2rem;height:2rem;border:3px solid rgba(255,255,255,.2);border-top-color:#c9a227;border-radius:50%;animation:booklet-spin .7s linear infinite"></div>
-  <p style="margin:0">Загрузка, подождите…</p>
-  <p style="margin:0;font-weight:400;font-size:.85rem;color:#9aa0a6">Loading, please wait…</p>
+  <p style="margin:0">Loading, please wait…</p>
 </div>
 <style>@keyframes booklet-spin{{to{{transform:rotate(360deg)}}}}</style>
 <script>
@@ -797,7 +827,7 @@ def _booklet_dist_prefix(settings) -> str:
     )
 
 
-def _booklet_github_raw_url(settings, repo_relpath: str) -> str | None:
+def _booklet_github_raw_url(settings, repo_relpath: str, ref: str | None = None) -> str | None:
     """https://raw.githubusercontent.com/owner/repo/<ref>/path — only when repo is configured.
 
     Uses EUROVISION_BOOKLET_PINNED_REF when set so fallbacks do not float with main.
@@ -808,7 +838,7 @@ def _booklet_github_raw_url(settings, repo_relpath: str) -> str | None:
     owner, _, repo = gh.partition("/")
     if not owner or not repo:
         return None
-    ref = booklet_pinned_ref(settings) or (
+    ref = ref or booklet_pinned_ref(settings) or (
         getattr(settings, "EUROVISION_BOOKLET_GIT_BRANCH", None) or "main"
     ).strip()
     rel = repo_relpath.strip().strip("/")
@@ -819,10 +849,10 @@ def _booklet_github_raw_url(settings, repo_relpath: str) -> str | None:
 
 
 def _fetch_github_raw_booklet(
-    settings, repo_relpath: str
+    settings, repo_relpath: str, ref: str | None = None
 ) -> tuple[bytes, str] | None:
     """GET repo file from raw.githubusercontent.com (same-origin proxy for HTML/CSS)."""
-    url = _booklet_github_raw_url(settings, repo_relpath)
+    url = _booklet_github_raw_url(settings, repo_relpath, ref=ref)
     if not url:
         return None
     timeout = float(getattr(settings, "EUROVISION_BOOKLET_HTTP_TIMEOUT", 60.0))
