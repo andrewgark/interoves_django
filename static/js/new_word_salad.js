@@ -251,6 +251,16 @@
 
   var EXTRA_MIN_LENGTH = 3;
   var EXTRA_COMMIT_DELAY_MS = 1000;
+  // A board rendered longer ago than this may be a copy Safari reopened from
+  // its cache (or a tab another device has moved on from): its answers go to
+  // the server, whose card then makes the board fresh again.
+  var INSTANT_BOARD_MAX_AGE_MS = 30 * 60 * 1000;
+
+  function boardIsFresh(root, now) {
+    var renderedAt = Number(root.getAttribute('data-rendered-at'));
+    if (!isFinite(renderedAt) || renderedAt <= 0) return false;
+    return (now === undefined ? Date.now() : now) - renderedAt <= INSTANT_BOARD_MAX_AGE_MS;
+  }
 
   function shouldCommitExtraWord(pathKey, currentPathKey, isDragging, isConnected) {
     return !!pathKey && pathKey === currentPathKey && isConnected !== false;
@@ -1526,6 +1536,42 @@
         }) || null;
       }
 
+      // A page loaded while its solves are still queued gets a server board
+      // without them. Show them again, in queue order, so the player does not
+      // trace a word the server is about to receive (a second send would be
+      // a duplicate). Only this page's actor and mode: another one's paths
+      // belong to another board.
+      function restoreQueuedSolves() {
+        if (!instantVerdict) return;
+        var taskId = root.getAttribute('data-task-id') || '';
+        var url = formSubmitUrl(form);
+        var mode = global.InterovesPlayMode || '';
+        var restored = false;
+        saladQueue().entries(taskId).forEach(function (entry) {
+          if (entry.url !== url || (entry.mode || '') !== mode) return;
+          var path = null;
+          (entry.fields || []).forEach(function (pair) {
+            if (pair[0] !== 'path') return;
+            try { path = JSON.parse(pair[1]); } catch (error) { path = null; }
+          });
+          if (!Array.isArray(path) || !path.length || !path.every(isActiveIndex)) return;
+          var word = normalizeWord(selectedWord(path));
+          if (!word) return;
+          if (entry.kind === 'rare') {
+            if (isConfiguredRare(word)) addRareWord(word);
+            return;
+          }
+          var wordRow = unsolvedAnswerRow(word);
+          if (!wordRow) return;
+          markInstantSolved(wordRow, path);
+          restored = true;
+        });
+        if (!restored) return;
+        syncSolvedState();
+        syncPreviewPoints();
+        renderExtraWords();
+      }
+
       function unfoundRares(except) {
         return configuredRares.filter(function (word) {
           return word !== except && rareWords.indexOf(word) < 0;
@@ -1606,13 +1652,18 @@
         }, SALAD_FOUND_HOLD_MS);
       }
 
-      function showInstantSolve(wordRow, path, word, keepSelection) {
+      function markInstantSolved(wordRow, path) {
         var written = selectedWord(path);
         wordRow.classList.add('is-solved');
         wordRow.classList.remove('is-hinted');
         var mask = ensureSolvedPill(wordRow);
         if (mask) renderMaskEl(mask, written);
         pruneGridLocally();
+        return written;
+      }
+
+      function showInstantSolve(wordRow, path, word, keepSelection) {
+        var written = markInstantSolved(wordRow, path);
         syncSolvedState();
         syncPreviewPoints();
         renderExtraWords();
@@ -1739,7 +1790,8 @@
         // The page knows the rare words too: one that cannot go on into a
         // longer answer or rare word is found at once, the others after the
         // usual pause, without waiting for the server either way.
-        var rareNow = instantVerdict && isRareCandidate && (opts.fromIdle ||
+        var instantNow = instantVerdict && boardIsFresh(root);
+        var rareNow = instantNow && isRareCandidate && (opts.fromIdle ||
           !hasWordContinuation(selected, unsolvedAnswerWords().concat(unfoundRares(selected))));
         if (matchesAnswerLength && !isRareCandidate) {
           // Required answers still submit as soon as the path length matches.
@@ -1757,7 +1809,7 @@
           findRareInstantly(currentPath.slice(), selected);
           return;
         }
-        var instantRow = instantVerdict && matchesAnswerLength && !isRareCandidate
+        var instantRow = instantNow && matchesAnswerLength && !isRareCandidate
           ? unsolvedAnswerRow(selected) : null;
         if (instantRow) {
           attemptedPaths[pathKey] = true;
@@ -1881,6 +1933,7 @@
       restoreOrientation();
       renderOrientation();
       restoreExtraWords();
+      restoreQueuedSolves();
       restorePendingSelection();
       syncStoredFinds();
       restoreLatestFound();
@@ -1992,6 +2045,8 @@
     offerShareFromPath: offerShareFromPath,
     stampOfferShare: stampOfferShare,
     feedbackForResult: feedbackForResult,
+    boardIsFresh: boardIsFresh,
+    INSTANT_BOARD_MAX_AGE_MS: INSTANT_BOARD_MAX_AGE_MS,
     flushAnalyticsEvents: flushAnalyticsEvents,
     EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH,
     EXTRA_COMMIT_DELAY_MS: EXTRA_COMMIT_DELAY_MS

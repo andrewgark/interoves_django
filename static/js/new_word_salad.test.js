@@ -397,4 +397,20 @@ assert.strictEqual(Path.offerShareFromPath('/alphabetty/41ffddf256ae6df6/'), '41
   });
 })();
 
+(function testInstantVerdictNeedsAFreshBoard() {
+  function rootRenderedAt(value) {
+    return { getAttribute: function (name) { return name === 'data-rendered-at' ? value : null; } };
+  }
+  var renderedAt = 1800000000000;
+  var root = rootRenderedAt(String(renderedAt));
+  assert.strictEqual(Path.boardIsFresh(root, renderedAt + 60 * 1000), true);
+  assert.strictEqual(Path.boardIsFresh(root, renderedAt + Path.INSTANT_BOARD_MAX_AGE_MS), true);
+  assert.strictEqual(
+    Path.boardIsFresh(root, renderedAt + 16 * 60 * 60 * 1000), false,
+    'a day-old copy reopened from the cache checks its answers on the server'
+  );
+  assert.strictEqual(Path.boardIsFresh(rootRenderedAt(null), renderedAt), false, 'no stamp: server checks');
+  assert.strictEqual(Path.boardIsFresh(rootRenderedAt('junk'), renderedAt), false);
+})();
+
 console.log('new_word_salad.test.js: ok');

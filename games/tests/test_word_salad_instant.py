@@ -133,6 +133,14 @@ class InstantSaladPageTests(_ClientEventFixture):
         OfflinePlayRule.objects.create(task_type='word_salad', instant_verdict=True)
         self.assertIn('data-instant-verdict="1"', self._card(self.words[1]))
 
+    def test_instant_card_carries_its_render_time(self):
+        # The page checks answers itself only on a fresh board; a copy Safari
+        # reopened from its cache a day later must not call a found word new.
+        OfflinePlayRule.objects.create(task_type='word_salad', instant_verdict=True)
+        with patch('games.puzzles.salad.puzzle.time.time', return_value=1_800_000_000.5):
+            card = self._card(self.words[0])
+        self.assertIn('data-rendered-at="1800000000500"', card)
+
     @override_settings(OFFLINE_PLAY_ENABLED=False)
     def test_kill_switch_hides_instant_verdict(self):
         OfflinePlayRule.objects.create(task_type='word_salad', instant_verdict=True)

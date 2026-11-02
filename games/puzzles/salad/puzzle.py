@@ -1,6 +1,7 @@
 """Салатик: board payload and the fields of one submitted path or hint."""
 
 import json
+import time
 from types import SimpleNamespace
 
 from games.daily.page.share import get_daily_share_adapter
@@ -135,6 +136,9 @@ def prepare_word_salad_board_data(
     ui['instant_verdict'] = instant_verdict_allowed(
         task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key,
     )
+    # A page shows its own verdict only while its board is fresh: Safari can
+    # reopen a day-old copy from its cache without asking the server.
+    ui['rendered_at_ms'] = int(time.time() * 1000)
     return ui
 
 
