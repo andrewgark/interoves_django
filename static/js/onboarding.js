@@ -58,10 +58,12 @@
   }
 
   function initStartPage() {
+    var page = global.document.querySelector('[data-start-variant]');
+    var variant = page ? page.getAttribute('data-start-variant') : '';
     trackOnce(
       'onboarding-view:' + String(nowMs()) + ':' + String(Math.random()).slice(2),
       'onboarding_view',
-      { source: 'start' }
+      variant ? { source: 'start', variant: variant } : { source: 'start' }
     );
     global.document.querySelectorAll('[data-onboarding-game]').forEach(function (link) {
       link.addEventListener('click', function () {

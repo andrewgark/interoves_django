@@ -193,8 +193,8 @@ def _build_hub_section_cards(request, *, team):
 
 
 def _onboarding_game_cards(daily_hub_cards):
-    """One recommended game and two alternatives for the focused /start/ page."""
-    from games.sections.paths import section_last_path
+    """Cards for the focused /start/ page: one is recommended, the rest are alternatives."""
+    from games.sections.paths import section_first_path
 
     cards_by_id = {card['id']: card for card in daily_hub_cards}
     cards = []
@@ -212,9 +212,12 @@ def _onboarding_game_cards(daily_hub_cards):
             'description': meta['description'],
             'duration': meta['duration'],
             'cta_label': meta['cta_label'],
-            # The stable /last/ route resolves the current published number at
-            # request time and never hardcodes it in this landing page.
-            'play_url': section_last_path(game_id),
+            'start_title': meta['start_title'],
+            'start_description': meta['start_description'],
+            'start_duration': meta['start_duration'],
+            # /first/ picks a free puzzle of suitable difficulty at request
+            # time (games.daily.entry); today's one may be a 5★ puzzle.
+            'play_url': section_first_path(game_id),
         })
     return cards
 

@@ -429,6 +429,9 @@ def merge_analytics_state_rows(target, source):
         if target.activation_goal_acked_at is not None:
             target.activation_goal_acked_at = None
             updated.append('activation_goal_acked_at')
+    if _source_has_earlier_timestamp(target, source, 'start_viewed_at'):
+        # Keep the variant the person saw first: that is the arm they were in.
+        updated.extend(_copy_fields(target, source, ('start_variant', 'start_viewed_at')))
     if updated:
         target.save(update_fields=sorted(set(updated)) + ['updated_at'])
     source.delete()

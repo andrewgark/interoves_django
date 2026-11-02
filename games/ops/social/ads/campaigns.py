@@ -77,14 +77,14 @@ class GameGroup:
 
     game: str
     title: str
-    path: str  # landing path on the campaign host, the game's latest puzzle
+    path: str  # landing on the campaign host: /<game>/first/ picks a free ~3★ puzzle
     keywords: tuple[str, ...]
     ads: tuple[AdCopy, ...]
     image: str  # artifacts/ads/images/<image>-1080.jpg
 
     def validate(self) -> None:
-        if not self.path.startswith('/') or not self.path.endswith('/last/'):
-            raise ConfigError(f'{self.game}: landing path must be /<game>/last/')
+        if self.path != f'/{self.game}/first/':
+            raise ConfigError(f'{self.game}: landing must be /{self.game}/first/ (games.daily.entry)')
         if not 1 <= len(self.ads) <= MAX_ADS_PER_GROUP:
             raise ConfigError(f'{self.game}: needs 1..{MAX_ADS_PER_GROUP} ads')
         for ad in self.ads:
@@ -224,7 +224,7 @@ GAME_GROUPS = (
     GameGroup(
         game='censorly',
         title='Цензурка',
-        path='/censorly/last/',
+        path='/censorly/first/',
         keywords=(
             'угадай статью википедии',
             'игра по википедии',
@@ -249,7 +249,7 @@ GAME_GROUPS = (
     GameGroup(
         game='ladder',
         title='Лесенка',
-        path='/ladder/last/',
+        path='/ladder/first/',
         keywords=(
             'цепочка слов',
             'игра цепочка слов',
@@ -276,7 +276,7 @@ GAME_GROUPS = (
     GameGroup(
         game='salad',
         title='Салатик',
-        path='/salad/last/',
+        path='/salad/first/',
         keywords=(
             'найди слова в сетке',
             'игра найди слова',
@@ -301,7 +301,7 @@ GAME_GROUPS = (
     GameGroup(
         game='alphabetty',
         title='Алфавитка',
-        path='/alphabetty/last/',
+        path='/alphabetty/first/',
         keywords=(
             'угадай слово',
             'игра угадай слово',
@@ -763,7 +763,7 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         ids = ((record.get('game_groups') or {}).get(group.game) or {}).get('ad_ids') or []
         for ad_id, copy in zip(ids, group.ads):
             text_ad = (live.get(ad_id) or {}).get('TextAd') or {}
-            wanted = {'Title': copy.title, 'Text': copy.text}
+            wanted = {'Title': copy.title, 'Text': copy.text, 'Href': spec.group_landing(group)}
             if any(text_ad.get(k) != v for k, v in wanted.items()):
                 updates.append({'Id': ad_id, 'TextAd': wanted})
     if updates:

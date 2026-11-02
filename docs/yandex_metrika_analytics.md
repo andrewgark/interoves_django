@@ -38,6 +38,8 @@ canonical backend event counts.
 
 Onboarding parameters:
 
+- `onboarding_view`: `source=start`, `variant=salad|ladder|alphabetty` — the game the /start/ A/B test recommended first (`games/ops/analytics/start_experiment.py`; stored per actor in `PlayerAnalyticsState.start_variant`);
+
 - `onboarding_game_select`: `game=salad|alphabetty|ladder|censorly`, `recommended=true|false`;
 - `onboarding_first_game_complete`: `game`, `recommended`;
 - `onboarding_second_game_start`: `first_game`, `game`;

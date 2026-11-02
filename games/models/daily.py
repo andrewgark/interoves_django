@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 from django.db import models
 from django.utils import timezone
 
+
 class DailyResultProjection(models.Model):
     """Derived canonical score for one actor on one scheduled section release.
 
@@ -908,6 +909,10 @@ class PlayerAnalyticsState(models.Model):
     activated_at = models.DateTimeField(blank=True, null=True)
     activation_is_backfilled = models.BooleanField(default=False)
     activation_goal_acked_at = models.DateTimeField(blank=True, null=True)
+    # /start/ A/B test: which game the page recommended first, and when the
+    # actor first saw it (games.ops.analytics.start_experiment).
+    start_variant = models.CharField(max_length=16, blank=True, default='')
+    start_viewed_at = models.DateTimeField(blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

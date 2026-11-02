@@ -184,7 +184,7 @@ class GameGroupTests(SimpleTestCase):
             self.assertTrue(self.spec.group_landing(group).startswith('https://ru.interoves.com/'))
             self.assertTrue(campaigns.image_path(group.image).is_file())
         intl = campaigns.get_spec('io-intl-nov26')
-        self.assertEqual(intl.group_landing(intl.game_groups[0]), 'https://interoves.com/censorly/last/')
+        self.assertEqual(intl.group_landing(intl.game_groups[0]), 'https://interoves.com/censorly/first/')
 
     def test_add_groups_uploads_images_once_and_moderates_only_launched_campaigns(self):
         direct = FakeDirect()
@@ -203,7 +203,7 @@ class GameGroupTests(SimpleTestCase):
         self.assertEqual(sorted(result['added']), ['alphabetty', 'censorly', 'ladder', 'salad'])
         self.assertEqual(len(uploads), 4)
         self.assertNotIn(('ads', 'moderate'), direct.writes())
-        censorly_ads = [a for a in direct.added['ads'] if a['TextAd'].get('Href', '').endswith('/censorly/last/')]
+        censorly_ads = [a for a in direct.added['ads'] if a['TextAd'].get('Href', '').endswith('/censorly/first/')]
         self.assertEqual(len(censorly_ads), 2)
         self.assertEqual(censorly_ads[0]['TextAd']['AdImageHash'], 'hash-interoves-censorly')
         self.assertTrue(campaigns.verify(direct, self.spec, result['campaign_id'])['ok'])
@@ -237,7 +237,7 @@ class GameGroupTests(SimpleTestCase):
         def call(service, method, params=None):
             if (service, method) == ('adimages', 'add'):
                 return {'AddResults': [{'AdImageHash': 'h'}]}
-            if (service, method) == ('ads', 'add') and params['Ads'][0]['TextAd']['Href'].endswith('/ladder/last/'):
+            if (service, method) == ('ads', 'add') and params['Ads'][0]['TextAd']['Href'].endswith('/ladder/first/'):
                 return {'AddResults': [{'Errors': [{'Code': 5002}]}]}
             return original(service, method, params)
 

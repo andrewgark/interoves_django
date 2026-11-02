@@ -18,7 +18,7 @@ from games.identity import has_profile
 from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 from games.ops.analytics.identity import gameplay_anon_key
 from games.sections.hub import SECTION_HUB_META, create_game_link_context
-from games.sections.paths import section_hub_path, section_play_path, section_results_path
+from games.sections.paths import section_hub_path, section_last_path, section_play_path, section_results_path
 from games.site.http.request_util import redirect_keeping_query
 from games.site.pages import NEW_UI_SECTIONS_PROJECT
 from games.site.views.daily.hub import can_access_daily_game
@@ -240,6 +240,20 @@ def last_redirect(request, game_id, *, digits_only=False):
     if not ints:
         return redirect_keeping_query(request, section_hub_path(game_id))
     return redirect_keeping_query(request, section_play_path(game_id, max(ints)))
+
+
+def newcomer_redirect(request, game_id):
+    """/<game>/first/: the free puzzle best suited to a first game (see games.daily.entry)."""
+    from games.daily.entry import NEWCOMER_GAME_IDS, newcomer_placement
+
+    if game_id not in NEWCOMER_GAME_IDS:
+        raise Http404()
+    game, _definition = _require_daily_page(request, game_id)
+    user, anon_key = resolve_actor(request)
+    link = newcomer_placement(game, user=user, anon_key=anon_key)
+    if link is None:
+        return redirect_keeping_query(request, section_last_path(game_id))
+    return redirect_keeping_query(request, section_play_path(game_id, link.number))
 
 
 def random_game_redirect(request, *, game_id, create, failures, play_url):

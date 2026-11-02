@@ -69,6 +69,7 @@ urlpatterns = [
     path('like-dislike/<int:task_id>/clue/<int:hint_index>/', ui.raddle_clue_like, name='ui_raddle_clue_like'),
     path('bug-report/<int:task_id>/', ui.bug_report, name='ui_bug_report'),
     # Root-level section games: /ladder/, /alphabetty/ (short canonical URLs).
+    re_path(r'^(?P<game_id>ladder|salad|alphabetty|censorly)/first/$', ui.newcomer_redirect, name='ui_daily_first'),
     path('ladder/today/', ui.ladder_today_page, name='ui_ladder_today'),
     path('ladder/last/', ui.ladder_last_page, name='ui_ladder_last'),
     path('ladder/tutorial/', ui.ladder_tutorial, name='ui_ladder_tutorial'),

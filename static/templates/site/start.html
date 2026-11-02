@@ -5,44 +5,44 @@
 
 {% block extrahead %}
   {{ block.super }}
-  <meta name="description" content="Начните знакомство с Inter Oves с Салатика — ежедневной интеллектуальной игры с понятными правилами.">
+  <meta name="description" content="Начните знакомство с Inter Oves: ежедневные головоломки со словами — Салатик, Лесенка, Алфавитка и Цензурка.">
   <link rel="canonical" href="https://interoves.com/start/">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="ru_RU">
   <meta property="og:site_name" content="Inter Oves">
   <meta property="og:title" content="С чего начать · Inter Oves">
-  <meta property="og:description" content="Новая интеллектуальная игра каждый день и архив предыдущих. Начните с Салатика.">
+  <meta property="og:description" content="Новые головоломки каждый день и архив предыдущих. Выберите, с чего начать.">
   <meta property="og:url" content="https://interoves.com/start/">
 {% endblock %}
 
 {% block content %}
-<div class="new-start-page">
+<div class="new-start-page" data-start-variant="{{ start_variant }}">
   <header class="new-start-hero">
     <p class="new-start-hero__kicker">Первое знакомство</p>
     <h1 class="new-heading new-heading--page">Впервые в Inter Oves?</h1>
   </header>
 
-  {% if onboarding_salad_card %}
+  {% if onboarding_primary_card %}
   <section class="new-start-primary" aria-labelledby="start-primary-heading">
     <div class="new-start-primary__head">
-      <i class="ph ph-{{ onboarding_salad_card.ph_icon }} new-start-primary__icon" aria-hidden="true"></i>
+      <i class="ph ph-{{ onboarding_primary_card.ph_icon }} new-start-primary__icon" aria-hidden="true"></i>
       <div>
         <p class="new-pill new-start-primary__badge">Рекомендуем для первой игры</p>
-        <h2 id="start-primary-heading" class="new-start-primary__title">Начните с Салатика</h2>
+        <h2 id="start-primary-heading" class="new-start-primary__title">{{ onboarding_primary_card.start_title }}</h2>
       </div>
     </div>
-    <p class="new-start-primary__desc">Найдите слова в сетке 4×4. Правила понятны за минуту.</p>
-    <p class="new-start-primary__duration"><i class="ph ph-clock" aria-hidden="true"></i>5–10 минут</p>
+    <p class="new-start-primary__desc">{{ onboarding_primary_card.start_description }}</p>
+    {% if onboarding_primary_card.start_duration %}<p class="new-start-primary__duration"><i class="ph ph-clock" aria-hidden="true"></i>{{ onboarding_primary_card.start_duration }}</p>{% endif %}
     <a class="new-btn new-start-primary__cta"
-       href="{{ onboarding_salad_card.play_url }}"
-       data-onboarding-game="salad"
+       href="{{ onboarding_primary_card.play_url }}"
+       data-onboarding-game="{{ onboarding_primary_card.analytics_game }}"
        data-onboarding-recommended="1">Начать первую игру</a>
   </section>
   {% endif %}
 
   {% if onboarding_alternative_cards %}
   <section class="new-start-alternatives" aria-labelledby="start-alternatives-heading">
-    <h2 id="start-alternatives-heading" class="new-start-alternatives__title">Не хотите Салатик? Выберите другой формат</h2>
+    <h2 id="start-alternatives-heading" class="new-start-alternatives__title">Или выберите другой формат</h2>
     <div class="new-start-alternatives__grid">
       {% for card in onboarding_alternative_cards %}
       <article class="new-start-alternative">

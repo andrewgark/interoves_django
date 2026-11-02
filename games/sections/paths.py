@@ -47,6 +47,11 @@ def section_last_path(game_id: str) -> str:
     return '/games/{}/last/'.format(game_id)
 
 
+def section_first_path(game_id: str) -> str:
+    """Newcomer entry: redirects to the free puzzle best suited to a first game."""
+    return '/{}/first/'.format(game_id)
+
+
 def section_progress_path(game_id: str) -> str:
     if is_root_section_game(game_id):
         return '/{}/progress/'.format(game_id)

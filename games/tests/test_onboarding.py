@@ -105,25 +105,36 @@ class OnboardingPageTests(TestCase):
         self.assertIn('<title>С чего начать · Interoves</title>', body)
         self.assertIn('name="description" content="Начните знакомство', body)
         self.assertIn('<link rel="canonical" href="https://interoves.com/start/">', body)
-        self.assertIn('href="/salad/last/"', body)
-        self.assertIn('href="/alphabetty/last/"', body)
-        self.assertIn('href="/ladder/last/"', body)
-        self.assertIn('href="/censorly/last/"', body)
+        for game in ('salad', 'alphabetty', 'ladder', 'censorly'):
+            self.assertIn(f'href="/{game}/first/"', body)
         self.assertIn('Для любителей Википедии', body)
         self.assertIn('Начать первую игру', body)
         self.assertEqual(body.count('new-start-primary__cta'), 1)
-        self.assertIn('Самая простая', body)
-        self.assertIn('Посложнее', body)
+        self.assertEqual(body.count('data-onboarding-recommended="1"'), 1)
+        self.assertEqual(body.count('data-onboarding-recommended="0"'), 3)
         self.assertNotIn('Хотите посложнее?', body)
         self.assertIn('Посмотреть все игры →', body)
 
-        salad = body.index('data-onboarding-game="salad"')
-        alphabet = body.index('data-onboarding-game="alphabetty"')
-        ladder = body.index('data-onboarding-game="ladder"')
-        censorly = body.index('data-onboarding-game="censorly"')
-        self.assertLess(salad, alphabet)
-        self.assertLess(alphabet, ladder)
-        self.assertLess(ladder, censorly)
+    def test_start_recommends_the_visitors_ab_variant_first_and_keeps_it(self):
+        from games.models import PlayerAnalyticsState
+        from games.ops.analytics.start_experiment import START_VARIANTS
+
+        seen = set()
+        for index in range(12):
+            client = Client()
+            body = client.get('/start/').content.decode()
+            variant = body.split('data-start-variant="', 1)[1].split('"', 1)[0]
+            self.assertIn(variant, START_VARIANTS)
+            primary = body.split('new-start-primary__cta', 1)[1]
+            self.assertIn(f'data-onboarding-game="{variant}"', primary.split('</a>', 1)[0])
+            # The same visitor keeps the same arm.
+            again = client.get('/start/').content.decode()
+            self.assertIn(f'data-start-variant="{variant}"', again)
+            seen.add(variant)
+        self.assertGreater(len(seen), 1)
+        self.assertEqual(
+            PlayerAnalyticsState.objects.exclude(start_variant='').count(), 12,
+        )
 
     def test_start_has_focused_header_without_old_value_proposition(self):
         response = self.client.get('/start/')
@@ -147,11 +158,6 @@ class OnboardingPageTests(TestCase):
                 '/salad/1/',
             )
 
-    @override_settings(ONBOARDING_STARTER_SALAD_ID='999999')
-    def test_unpublished_starter_salad_falls_back_to_last(self):
-        body = self.client.get('/start/').content.decode()
-        self.assertIn('href="/salad/last/"', body)
-
     def test_start_uses_existing_analytics_helper_and_game_parameter(self):
         body = self.client.get('/start/').content.decode()
 
@@ -159,7 +165,7 @@ class OnboardingPageTests(TestCase):
         self.assertIn('data-onboarding-recommended="1"', body)
         self.assertIn('data-onboarding-recommended="0"', body)
         self.assertIn('data-onboarding-game="alphabetty"', body)
-        self.assertNotIn("ym(", body[body.index('<div class="new-start-page">'):])
+        self.assertNotIn("ym(", body[body.index('<div class="new-start-page"'):])
 
     def test_all_latest_routes_resolve_without_a_hardcoded_number(self):
         for path in ('/salad/last/', '/alphabetty/last/', '/ladder/last/'):

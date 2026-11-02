@@ -7,7 +7,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from games.club.next_game_autumn import PHASE_CLOSED, campaign_phase
 from games.daily.catalog.alphabetty import ALPHABETTY_GAME_ID
 from games.daily.catalog.ladder import LADDER_GAME_ID, get_ladder_hub_context
-from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.daily.timing.transitions import next_daily_content_transition_for_games
 from games.models import Game, Project
 from games.sections.hub import get_desyatochki_hub_context
@@ -90,23 +89,27 @@ def hub(request):
 
 
 def start(request):
-    """Focused landing page for first-time and advertising traffic."""
+    """Focused landing page for first-time and advertising traffic.
+
+    Which game is recommended first is an A/B test
+    (games.ops.analytics.start_experiment); the others stay as alternatives.
+    """
+    from games.ops.analytics.identity import gameplay_anon_key
+    from games.ops.analytics.start_experiment import start_variant
+
     project = Project.objects.filter(id=NEW_UI_PROJECT).first()
     hub_groups = _build_hub_section_cards(request, team=team_for_user(request.user))
     onboarding_cards = _onboarding_game_cards(hub_groups['daily_hub_cards'])
-    salad_card = next(
-        (card for card in onboarding_cards if card['id'] == WORD_SALAD_GAME_ID),
-        None,
-    )
-    if salad_card:
-        salad_card['play_url'] = _onboarding_starter_salad_url(hub_groups['daily_hub_cards'])
+    variant = start_variant(user=request.user, anon_key=gameplay_anon_key(request))
+    primary = next((card for card in onboarding_cards if card['id'] == variant), None)
+    if primary is None and onboarding_cards:
+        primary = onboarding_cards[0]
 
     return render(request, 'site/start.html', {
         'project': project,
-        'onboarding_salad_card': salad_card,
-        'onboarding_alternative_cards': [
-            card for card in onboarding_cards if card['id'] != WORD_SALAD_GAME_ID
-        ],
+        'onboarding_primary_card': primary,
+        'onboarding_alternative_cards': [card for card in onboarding_cards if card is not primary],
+        'start_variant': primary['analytics_game'] if primary else '',
         'page_title': 'С чего начать',
         'show_sections_nav': False,
         'focused_header': True,

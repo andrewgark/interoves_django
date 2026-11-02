@@ -168,3 +168,5 @@ from games.site.views.account.subscription import (  # noqa: E402
     subscription_gift_tribute_start,
     subscription_gift_yookassa_start,
 )
+
+from games.site.views.daily.common import newcomer_redirect  # noqa: E402
