@@ -377,8 +377,13 @@ class _AggregatePage:
 
 
 def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggregate_sort='time',
-                          monthly_summary_month=None, snapshot_build=False, page_size=PAGE_SIZE):
-    """Aggregate, rank and page persisted score rows without hydrating all actors."""
+                          monthly_summary_month=None, snapshot_build=False, page_size=PAGE_SIZE,
+                          scope=None):
+    """Aggregate, rank and page persisted score rows without hydrating all actors.
+
+    ``scope`` (``games.community.results_scope.ResultsScope``) filters rows
+    after ranking, so places stay global.
+    """
     from django.db import connection
 
     if actor_types is None:
@@ -547,6 +552,11 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                  else "total_time_ms IS NULL, total_time_ms, attempts_count")
     page_order = ('actor_type, actor_key' if snapshot_build else
                   'window_score DESC, {}, actor_type, actor_key'.format(tie_order))
+    scope_sql, scope_params = '1 = 1', []
+    if scope is not None:
+        from games.community.results_scope import sql_filter
+
+        scope_sql, scope_params = sql_filter(scope)
     with connection.cursor() as cursor:
         cursor.execute(
             f'''WITH {canonical_timing_cte}{timing_actor_cte}
@@ -565,6 +575,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                                ORDER BY {page_order}
                            ) AS page_row
                     FROM ranked
+                    WHERE {scope_sql}
                 ) SELECT actor_type, actor_key, team_id, user_id, anon_key,
                          window_score, attempts_count, played_count, total_time_ms, used_fallback_time, place,
                          total_count, page_row
@@ -576,7 +587,7 @@ def _projection_rank_page(game, group_ids, page_number, actor_types=None, aggreg
                  ORDER BY {page_order}
                  LIMIT %s''',
             [
-                game.pk, *group_ids, *actor_totals_params,
+                game.pk, *group_ids, *actor_totals_params, *scope_params,
                 page_number, page_size, page_size, page_number, page_size, page_size, page_size,
                 page_number, page_size, page_size, page_number, page_size, page_size, page_size,
                 page_size,
@@ -866,6 +877,12 @@ def _build_legacy_aggregate_page(request, game, *, window_context=None, month_co
                 label = (actor._user.get_full_name() or actor._user.get_username()).strip()
             actor._display_name_override = label
     ranks = score_rank(ordered_keys, totals)
+    from games.community.results_scope import resolve as resolve_results_scope
+
+    scope = resolve_results_scope(request)
+    if scope is not None:
+        # Ranked above over everybody: filtered rows keep their global place.
+        ordered_keys = [key for key in ordered_keys if (key[0], str(key[1])) in scope.identities]
     paginator = Paginator(ordered_keys, PAGE_SIZE)
     page_obj = paginator.get_page(request.GET.get('page', 1))
 
@@ -982,13 +999,16 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
         requested_page = 1
     actor_types = aggregate_actor_filter_types(request)
     aggregate_sort = daily_leaderboard_sort(game.id, request.GET.get('sort'))
+    from games.community.results_scope import resolve as resolve_results_scope
+
+    scope = resolve_results_scope(request)
     if saved_monthly:
         from games.results.snapshots.aggregate_snapshot_read import read_snapshot_page
         if snapshot_version is None:
             page_values, total_count, current_page, cells, snapshot_view = [], 0, 1, {}, ''
         else:
             page_values, total_count, current_page, cells, snapshot_view = read_snapshot_page(
-                snapshot_version, requested_page, actor_types, aggregate_sort,
+                snapshot_version, requested_page, actor_types, aggregate_sort, scope=scope,
             )
             if request.GET.get('partial') == '1' and request.GET.get('snapshot_view') != snapshot_view:
                 from games.results.snapshots.aggregate_snapshots import SnapshotVersionExpired
@@ -997,7 +1017,7 @@ def _build_projection_aggregate_page(request, game, columns, *, aggregate_period
     else:
         page_values, total_count, current_page = _projection_rank_page(
             game, group_ids, requested_page, actor_types, aggregate_sort,
-            monthly_summary_month=monthly_summary_month,
+            monthly_summary_month=monthly_summary_month, scope=scope,
         )
         cells = _projection_page_cells(game, group_ids, page_values)
     page_obj = _AggregatePage(page_values, current_page, total_count, PAGE_SIZE)

@@ -43,6 +43,9 @@
       </span>
     </div>
     {% endif %}
+    {% if aggregate_scope_options %}
+    {% include "site/partials/results_scope_chips.html" with options=aggregate_scope_options %}
+    {% endif %}
     <div class="results-filter-group">
       <span class="results-filter-label">Показывать</span>
       <span class="results-filter-options">
@@ -86,7 +89,7 @@
       </tr></thead>
       <tbody>
         {% include "site/partials/aggregate_results_rows.html" %}
-        {% if not aggregate_rows %}<tr><td colspan="{% if aggregate_show_attempts %}{{ aggregate_columns|length|add:5 }}{% else %}{{ aggregate_columns|length|add:4 }}{% endif %}">{% if aggregate_snapshot_preparing %}Таблица готовится.{% elif aggregate_snapshot_missing %}Часть результатов ещё готовится.{% else %}Пока нет результатов.{% endif %}</td></tr>{% endif %}
+        {% if not aggregate_rows %}<tr><td colspan="{% if aggregate_show_attempts %}{{ aggregate_columns|length|add:5 }}{% else %}{{ aggregate_columns|length|add:4 }}{% endif %}">{% if aggregate_snapshot_preparing %}Таблица готовится.{% elif aggregate_scope_active %}Здесь пока никого. <a href="{% url 'new_friends' %}">Позовите друзей</a> или переключитесь на «Все».{% elif aggregate_snapshot_missing %}Часть результатов ещё готовится.{% else %}Пока нет результатов.{% endif %}</td></tr>{% endif %}
       </tbody>
     </table>
 

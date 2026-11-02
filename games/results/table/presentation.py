@@ -7,7 +7,13 @@ from games.results.table.context import attach_results_club_badges, attach_resul
 
 
 def paginate_results_rows(request, data, per_page=50):
+    from games.community import results_scope
+
     rows = list(data.get('teams_sorted') or [])
+    scope = results_scope.resolve(request)
+    if scope is not None:
+        # Places come from team_to_place, computed over every row: they stay global.
+        rows = [actor for actor in rows if scope.contains(actor)]
     paginator = Paginator(rows, per_page)
     page_obj = paginator.get_page(request.GET.get('page') or 1)
     out = dict(data)
@@ -24,6 +30,10 @@ def paginate_results_rows(request, data, per_page=50):
     out['page_size'] = per_page
     out['page_total_rows'] = paginator.count
     out['progressive_results'] = True
+    out['results_scope_options'] = results_scope.scope_options(
+        request, lambda value: results_scope.query_url(request, scope=value),
+    )
+    out['results_scope_active'] = scope is not None
     return out
 
 

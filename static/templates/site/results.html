@@ -41,6 +41,9 @@
 
     {% if mode != 'tournament' or show_alphabetty_detail %}
       <nav class="results-filter-panel" aria-label="Фильтры результатов">
+        {% if mode != 'tournament' and results_scope_options %}
+          {% include "site/partials/results_scope_chips.html" with options=results_scope_options %}
+        {% endif %}
         {% if mode != 'tournament' %}
           <div class="results-filter-group">
             <span class="results-filter-label">Показывать</span>
@@ -140,7 +143,9 @@
           </thead>
           <tbody id="results-tbody">
             {% include "site/partials/results_rows.html" %}
-            {% if not teams_sorted and not progressive_results %}
+            {% if not teams_sorted and results_scope_active %}
+              <tr><td colspan="{{ results_column_count|default:1 }}">Здесь пока никого. <a href="{% url 'new_friends' %}">Позовите друзей</a> или переключитесь на «Все».</td></tr>
+            {% elif not teams_sorted and not progressive_results %}
               <tr><td colspan="{{ results_column_count|default:1 }}">Пока нет результатов.</td></tr>
             {% endif %}
           </tbody>

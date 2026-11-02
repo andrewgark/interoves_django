@@ -1,0 +1,17 @@
+{% comment %}«Кого показывать» chips. Context: options (games.community.results_scope.scope_options).{% endcomment %}
+<div class="results-filter-group">
+  <span class="results-filter-label">Кого</span>
+  <span class="results-filter-options">
+    {% for item in options %}<a class="results-filter-chip{% if item.active %} is-active{% endif %}" href="{{ item.url }}" aria-current="{% if item.active %}true{% else %}false{% endif %}" data-results-scope="{{ item.value }}"><i class="ph {{ item.icon }}" aria-hidden="true"></i><span>{{ item.label }}</span></a>{% endfor %}
+  </span>
+</div>
+<script>
+(function () {
+  document.querySelectorAll('[data-results-scope]').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      var value = chip.getAttribute('data-results-scope') || 'all';
+      document.cookie = 'results_scope=' + encodeURIComponent(value) + '; path=/; max-age=31536000; samesite=lax';
+    });
+  });
+})();
+</script>

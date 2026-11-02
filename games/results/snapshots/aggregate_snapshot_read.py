@@ -2,22 +2,29 @@
 
 import hashlib
 import json
+
 from django.db import connection
 
 from games.models import DailyAggregateSnapshotRow
 
 
-def _snapshot_view_token(version, actor_types, total, hidden_identities):
+def _snapshot_view_token(version, actor_types, total, hidden_identities, scope_key=''):
     view = json.dumps(
-        [str(version.pk), sorted(actor_types), total, hidden_identities],
+        [str(version.pk), sorted(actor_types), total, hidden_identities, scope_key],
         ensure_ascii=False, separators=(',', ':'),
     )
     return hashlib.sha256(view.encode('utf-8')).hexdigest()
 
 
-def read_snapshot_page(version, page_number, actor_types, aggregate_sort, *, page_size=50):
+def read_snapshot_page(version, page_number, actor_types, aggregate_sort, *, page_size=50, scope=None):
+    """One page of the published table; ``scope`` filters rows after ranking.
+
+    Places are always ranked over every eligible row, so a friends-only view
+    shows each friend's global place.
+    """
+    scope_key = scope.key if scope is not None else ''
     if not actor_types:
-        return [], 0, 1, {}, _snapshot_view_token(version, actor_types, 0, [])
+        return [], 0, 1, {}, _snapshot_view_token(version, actor_types, 0, [], scope_key)
     q = connection.ops.quote_name
     table = q(DailyAggregateSnapshotRow._meta.db_table)
     team, profile, hidden = q('games_team'), q('games_profile'), q('games_hiddenanonkey')
@@ -37,8 +44,17 @@ def read_snapshot_page(version, page_number, actor_types, aggregate_sort, *, pag
     order = ('attempts_count, total_time_ms IS NULL, total_time_ms'
              if aggregate_sort == 'attempts'
              else 'total_time_ms IS NULL, total_time_ms, attempts_count')
+    scope_sql, scope_params, scope_row_sql = '1 = 1', [], '1 = 1'
+    if scope is not None:
+        from games.community.results_scope import sql_filter
+
+        scope_sql, scope_params = sql_filter(scope)
+        scope_row_sql, _ = sql_filter(scope, 's.actor_type', 's.actor_key')
     with connection.cursor() as cursor:
-        cursor.execute(f'SELECT COUNT(*) FROM {table} s WHERE {eligible}', params)
+        cursor.execute(
+            f'SELECT COUNT(*) FROM {table} s WHERE {eligible} AND {scope_row_sql}',
+            [*params, *scope_params],
+        )
         total = cursor.fetchone()[0]
         # Visibility changes immediately, so a page fetched later must not be
         # appended if actors disappeared and shifted the offsets. Hash only
@@ -62,9 +78,9 @@ def read_snapshot_page(version, page_number, actor_types, aggregate_sort, *, pag
                    s.total_time_ms, s.used_fallback_time, s.cells,
                    RANK() OVER (ORDER BY s.score DESC) AS place
               FROM {table} s WHERE {eligible}
-        ) SELECT * FROM ranked
+        ) SELECT * FROM ranked WHERE {scope_sql}
           ORDER BY window_score DESC, {order}, actor_type, actor_key LIMIT %s OFFSET %s''',
-                       [*params, page_size, (page - 1) * page_size])
+                       [*params, *scope_params, page_size, (page - 1) * page_size])
         names = [col[0] for col in cursor.description]
         rows = [dict(zip(names, row)) for row in cursor.fetchall()]
     cells = {}
@@ -73,5 +89,5 @@ def read_snapshot_page(version, page_number, actor_types, aggregate_sort, *, pag
         if isinstance(data, str):
             data = json.loads(data)
         cells[(row['actor_type'], row['actor_key'])] = {int(key): value for key, value in data.items()}
-    view_token = _snapshot_view_token(version, actor_types, total, hidden_identities)
+    view_token = _snapshot_view_token(version, actor_types, total, hidden_identities, scope_key)
     return rows, total, page, cells, view_token

@@ -6,6 +6,7 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
+from games.community import results_scope
 from games.community.visibility import player_urls_for_users
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
@@ -305,6 +306,10 @@ def section_results_page(request, game_id):
         'aggregate_previous_month_url': month_url(data['aggregate_previous_month']) if data.get('aggregate_previous_month') else None,
         'aggregate_next_month_url': month_url(data['aggregate_next_month']) if data.get('aggregate_next_month') else None,
         'aggregate_actor_filter_urls': actor_filter_urls,
+        'aggregate_scope_options': results_scope.scope_options(
+            request, lambda value: query_url(scope=value, page=None),
+        ),
+        'aggregate_scope_active': results_scope.resolve(request) is not None,
         'aggregate_column_labels': aggregate_column_labels,
         'aggregate_show_attempts': data.get('aggregate_show_attempts', False),
         'aggregate_sort_urls': {
