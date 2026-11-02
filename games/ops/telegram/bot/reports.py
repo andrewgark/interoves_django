@@ -7,6 +7,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count, Q
 from django.utils import timezone
 
+from games.club.metrics import PROVIDER_TRIBUTE, PROVIDER_YOOKASSA, club_period_stats, club_snapshot
 from games.daily.catalog.censorly import CENSORLY_GAME_ID
 from games.models import PlayerCompletedGame, PlayerStartedGame
 from games.ops.telegram.bot.notify import _join_lines, send_admin_message, telegram_admin_configured
@@ -107,6 +108,42 @@ def format_comparison(value, baseline):
     return '{} {}{}'.format('🟢📈' if delta > 0 else '🔴📉', '+' + _number(delta) if delta > 0 else '−' + _number(abs(delta)), suffix)
 
 
+def club_report_lines(current, comparisons, kind):
+    snapshot = club_snapshot(current[1])
+    previous_snapshot = club_snapshot(comparisons[0][1])
+    period = club_period_stats(*current)
+    previous_period = club_period_stats(*comparisons[0])
+    comparison_name = 'вчера' if kind == TelegramAdminReport.REPORT_DAILY else 'пред. неделя'
+
+    lines = ['<b>👑 Клуб</b>']
+    lines.append('Активных подписок: {} · {}: {}'.format(
+        _number(snapshot.total), comparison_name, format_comparison(snapshot.total, previous_snapshot.total),
+    ))
+    lines.append('💳 Оплачено: {} (ЮKassa {} · Tribute {}) · {}: {}'.format(
+        _number(snapshot.paid), _number(snapshot.paid_yookassa), _number(snapshot.paid_tribute),
+        comparison_name, format_comparison(snapshot.paid, previous_snapshot.paid),
+    ))
+    gift_parts = ['выданы {}'.format(_number(snapshot.gift_admin))]
+    if snapshot.gift_purchased:
+        gift_parts.append('куплены {}'.format(_number(snapshot.gift_purchased)))
+    lines.append('🎁 Подарки: {} ({}) · ручные: {}'.format(
+        _number(snapshot.gifts), ' · '.join(gift_parts), _number(snapshot.manual),
+    ))
+    if snapshot.paid_auto_renew_off:
+        lines.append('Автопродление выключено у {} оплативших, из них истекают за 7 дней: {}'.format(
+            _number(snapshot.paid_auto_renew_off), _number(snapshot.paid_ending_soon),
+        ))
+    lines.append('Новые оплаты: {} (ЮKassa {} · Tribute {}) · {}: {}'.format(
+        _number(period.first_payments_total),
+        _number(period.first_payments[PROVIDER_YOOKASSA]), _number(period.first_payments[PROVIDER_TRIBUTE]),
+        comparison_name, format_comparison(period.first_payments_total, previous_period.first_payments_total),
+    ))
+    lines.append('Продления: {} · отключили автопродление: {} · активировано подарков: {}'.format(
+        _number(period.renewals_total), _number(period.auto_renew_cancellations), _number(period.gifts_claimed),
+    ))
+    return lines
+
+
 def build_admin_report(*, now=None):
     kind, current, comparisons = report_periods(now)
     current_stats = collect_report_stats(*current)
@@ -138,6 +175,8 @@ def build_admin_report(*, now=None):
     lines.append('<b>Итого</b>')
     lines.append('Начали: {} · {}'.format(_number(current_stats['started']), comparison_line('started')))
     lines.append('Завершили: {} · {}'.format(_number(current_stats['completed']), comparison_line('completed')))
+    lines.append('')
+    lines.extend(club_report_lines(current, comparisons, kind))
     from games.gameplay.offline_telemetry import report_lines
     offline = report_lines(*current)
     if offline:
