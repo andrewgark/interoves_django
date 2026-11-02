@@ -104,7 +104,7 @@
     "never_create_second_paid_campaign_without_permission": true
   },
   "pending_launch": null,
-  "updated_at": "2026-11-02T12:58:24.404660+00:00",
+  "updated_at": "2026-11-02T14:45:41.137093+00:00",
   "direct_min_period_budget_note": "Direct rejected CustomPeriodBudget 500 RUB over 10 days: minimum for that period is 550 RUB. Kept SpendLimit=500 and used 2026-09-08..2026-09-09, AutoContinue=NO. Did not use the 900 reserve.",
   "campaigns": {
     "io-ru-nov26": {
@@ -146,7 +146,8 @@
           "adgroup_id": 5819133061,
           "ad_ids": [
             1925889200893635807,
-            1925889200893635808
+            1925889200893635808,
+            1925896317655472142
           ],
           "keyword_ids": [
             58394892738,
@@ -162,7 +163,8 @@
           "adgroup_id": 5819133063,
           "ad_ids": [
             1925889204117097381,
-            1925889204117097382
+            1925889204117097382,
+            1925896319801961597
           ],
           "keyword_ids": [
             58394893018,
@@ -178,7 +180,8 @@
           "adgroup_id": 5819136283,
           "ad_ids": [
             1925889394168618536,
-            1925889394168618537
+            1925889394168618537,
+            1925896320875354152
           ],
           "keyword_ids": [
             58395189053,
@@ -194,7 +197,8 @@
           "adgroup_id": 5819136289,
           "ad_ids": [
             1925889398463166598,
-            1925889398463166599
+            1925889398463166599,
+            1925896321949100826
           ],
           "keyword_ids": [
             58395191809,
@@ -246,7 +250,8 @@
           "adgroup_id": 5819135310,
           "ad_ids": [
             1925889232033501310,
-            1925889232033501311
+            1925889232033501311,
+            1925896339129099630
           ],
           "keyword_ids": [
             58394938597,
@@ -262,7 +267,8 @@
           "adgroup_id": 5819135333,
           "ad_ids": [
             1925889236327522418,
-            1925889236327522419
+            1925889236327522419,
+            1925896340202785311
           ],
           "keyword_ids": [
             58394948775,
@@ -278,7 +284,8 @@
           "adgroup_id": 5819136667,
           "ad_ids": [
             1925889425306566906,
-            1925889425306566907
+            1925889425306566907,
+            1925896341276447143
           ],
           "keyword_ids": [
             58395203947,
@@ -294,7 +301,8 @@
           "adgroup_id": 5819136672,
           "ad_ids": [
             1925889429601213207,
-            1925889429601213208
+            1925889429601213208,
+            1925896341279171949
           ],
           "keyword_ids": [
             58395206894,
@@ -312,6 +320,18 @@
     "censorly": "_VKsqyPJJS64eMEUBW30eg",
     "ladder": "zZLwuXIEVjalJxvWWnww0A",
     "salad": "PEehxNZQgqJKM8RRDhxa_g",
-    "alphabetty": "GPR4kA4hamG9ANIqQfAaKQ"
+    "alphabetty": "GPR4kA4hamG9ANIqQfAaKQ",
+    "censorly-b-1x1": "HgzUYVWhApMYXgUmxHJI4Q",
+    "censorly-a-1x1": "WjBOfyVOGKhC4jzn7Tkp5A",
+    "censorly-b-16x9": "27CP7hnOwI61MjK_yhhr7w",
+    "ladder-b-1x1": "46LWduZzBSZYZ7FdKt_yfw",
+    "ladder-a-1x1": "p3DmGRZY-xlyamQqb--uhg",
+    "ladder-b-16x9": "Tl0I7dLv0ZTGljwaAX_yvQ",
+    "salad-b-1x1": "DvelmWRIolAyK0ldGFbgww",
+    "salad-a-1x1": "mhObVrdIb4ctEE6U0WBVxA",
+    "salad-b-16x9": "7WNBny7Ya83uKHkfWq1R5Q",
+    "alphabetty-b-1x1": "lZfGaH-OtD1yslyStoc99g",
+    "alphabetty-a-1x1": "vgXADMzkUz6uUE9C5fYG8A",
+    "alphabetty-b-16x9": "XLcaSwYGe48LKWVfM8vI0g"
   }
 }
