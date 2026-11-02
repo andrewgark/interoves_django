@@ -65,7 +65,8 @@ global.window = {
     removeItem: function (key) { delete values[key]; }
   },
   document: {
-    querySelectorAll: function () { return [startLink]; }
+    querySelectorAll: function () { return [startLink]; },
+    querySelector: function () { return fakeLink({ 'data-start-variant': 'ladder' }); }
   },
   interovesAnalytics: {
     trackYandexGoalOnce: function (key, goal, params) {
@@ -95,6 +96,7 @@ assert.deepStrictEqual(
   tracked.slice(0, 2).map(function (item) { return item.goal; }),
   ['onboarding_view', 'onboarding_game_select']
 );
+assert.deepStrictEqual(tracked[0].params, { source: 'start', variant: 'ladder' });
 assert.deepStrictEqual(tracked[1].params, { game: 'salad', recommended: true });
 
 const nextLink = fakeLink({ 'data-onboarding-next-game': 'alphabetty' });

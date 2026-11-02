@@ -58,7 +58,9 @@
   }
 
   function initStartPage() {
-    var page = global.document.querySelector('[data-start-variant]');
+    var doc = global.document;
+    var page = doc && typeof doc.querySelector === 'function'
+      ? doc.querySelector('[data-start-variant]') : null;
     var variant = page ? page.getAttribute('data-start-variant') : '';
     trackOnce(
       'onboarding-view:' + String(nowMs()) + ':' + String(Math.random()).slice(2),
