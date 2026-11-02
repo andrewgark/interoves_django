@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from games.ops.social.ads.money import rubles_to_micros
 from games.ops.social.ads.schema.constants import (
     AD_DISPLAY_PATH,
     AD_TEXT,
@@ -18,13 +19,12 @@ from games.ops.social.ads.schema.constants import (
     GOAL_GAME_START,
     LANDING_URL,
     MAX_EXPERIMENT_SPEND_RUB,
-    MIN_CUSTOM_PERIOD_BUDGET_RUB,
     METRIKA_COUNTER_ID,
+    MIN_CUSTOM_PERIOD_BUDGET_RUB,
     REGION_RUSSIA,
     SAFE_KEYWORD_STEMS,
     TIMEZONE,
 )
-from games.ops.social.ads.money import rubles_to_micros
 
 
 class ConfigError(ValueError):

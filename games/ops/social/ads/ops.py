@@ -7,7 +7,6 @@ import time
 from datetime import date, timedelta
 from typing import Any
 
-from games.ops.social.ads.schema import fields
 from games.ops.social.ads.audit import append_audit
 from games.ops.social.ads.client import AdsClient, DirectApiError, default_client
 from games.ops.social.ads.config import (
@@ -21,6 +20,8 @@ from games.ops.social.ads.config import (
     mobile_off_bidmodifier,
     tablet_off_bidmodifier,
 )
+from games.ops.social.ads.money import micros_to_rubles, parse_report_money
+from games.ops.social.ads.schema import fields
 from games.ops.social.ads.schema.constants import (
     AD_GROUP_NAME,
     AD_TITLE,
@@ -38,7 +39,6 @@ from games.ops.social.ads.schema.constants import (
     PRODUCT_GOALS,
     REGION_RUSSIA,
 )
-from games.ops.social.ads.money import micros_to_rubles, parse_report_money
 from games.ops.social.ads.state import append_decision, load_state, save_state, state_relative_display
 
 
@@ -138,14 +138,15 @@ def keywords_get(client: AdsClient, *, campaign_ids: list[int] | None = None, id
         "SelectionCriteria": criteria,
         "FieldNames": fields.KEYWORD_FIELDS,
     }
-    try:
-        result = client.call(
-            "keywords",
-            "get",
-            {**params, "AutotargetingSettingsFieldNames": fields.KEYWORD_AUTOTARGETING_FIELDS},
-        )
-    except DirectApiError:
-        result = client.call("keywords", "get", params)
+    result = client.call(
+        "keywords",
+        "get",
+        {
+            **params,
+            "AutotargetingSettingsCategoriesFieldNames": fields.KEYWORD_AUTOTARGETING_CATEGORY_FIELDS,
+            "AutotargetingSettingsBrandOptionsFieldNames": fields.KEYWORD_AUTOTARGETING_BRAND_FIELDS,
+        },
+    )
     return result.get("Keywords") or []
 
 
@@ -953,7 +954,6 @@ def status(client: AdsClient | None = None) -> dict:
     cid = state.get("current_managed_campaign_id")
     today = date.today()
     start = state.get("campaign_creation_date") or today.isoformat()
-    old_period = state["baseline"]["period"]
     out: dict[str, Any] = {
         "state_file": state_relative_display(),
         "old_master_campaign_id": OLD_MASTER_CAMPAIGN_ID,

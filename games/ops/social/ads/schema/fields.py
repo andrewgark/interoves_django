@@ -78,10 +78,8 @@ KEYWORD_FIELDS = [
     "StrategyPriority",
 ]
 
-KEYWORD_AUTOTARGETING_FIELDS = [
-    "Categories",
-    "BrandOptions",
-]
+KEYWORD_AUTOTARGETING_CATEGORY_FIELDS = ["Exact", "Narrow", "Alternative", "Accessory", "Broader"]
+KEYWORD_AUTOTARGETING_BRAND_FIELDS = ["WithoutBrands", "WithAdvertiserBrand", "WithCompetitorsBrand"]
 
 BIDMODIFIER_FIELDS = ["Id", "CampaignId", "AdGroupId", "Level", "Type"]
 BIDMODIFIER_MOBILE_FIELDS = ["BidModifier", "OperatingSystemType"]

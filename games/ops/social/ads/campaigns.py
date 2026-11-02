@@ -34,6 +34,7 @@ TITLE_MAX = 56
 TITLE2_MAX = 30
 TEXT_MAX = 81
 WORD_MAX = 23
+MAX_ADS_PER_GROUP = 3
 
 
 @dataclass(frozen=True)
@@ -92,8 +93,8 @@ class CampaignSpec:
             raise ConfigError(f'{self.slug}: CPA must be positive and below the spend limit')
         if not self.landing_url.startswith('https://') or '/start/' not in self.landing_url:
             raise ConfigError(f'{self.slug}: landing must be an https /start/ URL')
-        if not self.ads:
-            raise ConfigError(f'{self.slug}: needs at least one ad')
+        if not 1 <= len(self.ads) <= MAX_ADS_PER_GROUP:
+            raise ConfigError(f'{self.slug}: needs 1..{MAX_ADS_PER_GROUP} ads (Direct limit per group)')
         for ad in self.ads:
             ad.validate()
         assert_minus_phrases_safe(list(self.negative_keywords))
@@ -194,7 +195,9 @@ CAMPAIGNS = {
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
             keywords=SHARED_KEYWORDS,
-            ads=SHARED_ADS + (
+            # Direct allows three text ads per unified group: the third shared
+            # ad gives way to one written for players abroad.
+            ads=SHARED_ADS[:2] + (
                 AdCopy(
                     title='Головоломки на русском языке',
                     title2='Где бы вы ни были',
@@ -258,10 +261,8 @@ def campaign_payload(spec: CampaignSpec) -> dict:
                         'SearchOrganizationList': 'NO',
                     },
                 },
-                'Network': {
-                    'BiddingStrategyType': 'PAY_FOR_CONVERSION',
-                    'PayForConversion': _strategy(spec),
-                },
+                # A unified campaign has one strategy; the network follows search.
+                'Network': {'BiddingStrategyType': 'NETWORK_DEFAULT'},
             },
             'Settings': [
                 {'Option': 'ADD_METRICA_TAG', 'Value': 'YES'},
@@ -271,7 +272,7 @@ def campaign_payload(spec: CampaignSpec) -> dict:
             ],
             'CounterIds': {'Items': [METRIKA_COUNTER_ID]},
             'TrackingParams': spec.tracking_params,
-            'AttributionModel': 'LYDC',
+            'AttributionModel': 'AUTO',
         },
     }
 
@@ -351,6 +352,7 @@ def create(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
     adgroup_id = extract_add_id(ads.call('adgroups', 'add', {'AdGroups': [adgroup_payload(spec, campaign_id)]}))
     ad_ids = extract_add_ids(ads.call('ads', 'add', {'Ads': ad_payloads(spec, adgroup_id)}))
     keyword_ids = extract_add_ids(ads.call('keywords', 'add', {'Keywords': keyword_payloads(spec, adgroup_id)}))
+    autotargeting_ids = narrow_autotargeting(ads, campaign_id, audit=audit)
     bidmodifier_ids = extract_add_ids(
         ads.call('bidmodifiers', 'add', {'BidModifiers': bidmodifier_payloads(spec, campaign_id)})
     )
@@ -358,6 +360,7 @@ def create(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         'adgroup_ids': [adgroup_id],
         'ad_ids': ad_ids,
         'keyword_ids': keyword_ids,
+        'autotargeting_ids': autotargeting_ids,
         'bidmodifier_ids': bidmodifier_ids,
     })
     state_store.save(state)
@@ -365,6 +368,37 @@ def create(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
           new_value={k: v for k, v in record.items() if k.endswith('_ids')},
           reason='spec create', api_status='created')
     return {'spec': spec.slug, **record}
+
+
+# Autotargeting cannot be stopped in a unified campaign ("Автотаргетинг не
+# может быть остановлен"). Only target and narrower queries stay on: on the
+# August Master campaign the wide categories brought IQ-test, quiz and
+# crossword traffic.
+AUTOTARGETING_SETTINGS = {
+    'Categories': {'Exact': 'YES', 'Narrow': 'YES', 'Alternative': 'NO', 'Accessory': 'NO', 'Broader': 'NO'},
+    'BrandOptions': {'WithoutBrands': 'YES', 'WithAdvertiserBrand': 'YES', 'WithCompetitorsBrand': 'NO'},
+}
+
+
+def _autotargeting(keywords):
+    return [k for k in keywords if (k.get('Keyword') or '').startswith('---autotargeting')]
+
+
+def narrow_autotargeting(ads, campaign_id: int, *, audit) -> list[int]:
+    from games.ops.social.ads import ops
+
+    ids = [k['Id'] for k in _autotargeting(ops.keywords_get(ads, campaign_ids=[campaign_id]))]
+    if ids:
+        result = ads.call('keywords', 'update', {
+            'Keywords': [{'Id': item_id, 'AutotargetingSettings': AUTOTARGETING_SETTINGS} for item_id in ids],
+        })
+        for row in result.get('UpdateResults') or []:
+            if row.get('Errors'):
+                raise ConfigError(f'Autotargeting update failed: {row["Errors"]}')
+        audit(action='update', object_type='keywords', object_id=ids,
+              new_value=AUTOTARGETING_SETTINGS, reason='autotargeting: exact and narrow only',
+              api_status='updated')
+    return ids
 
 
 def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
@@ -377,7 +411,10 @@ def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
         return {'ok': False, 'failures': ['campaign not found']}
     unified = camp.get('UnifiedCampaign') or {}
     bidding = unified.get('BiddingStrategy') or {}
-    for placement in ('Search', 'Network'):
+    network_type = (bidding.get('Network') or {}).get('BiddingStrategyType')
+    if network_type != 'NETWORK_DEFAULT':
+        failures.append(f'Network strategy is {network_type}, expected NETWORK_DEFAULT')
+    for placement in ('Search',):
         strategy = bidding.get(placement) or {}
         if strategy.get('BiddingStrategyType') != 'PAY_FOR_CONVERSION':
             failures.append(f'{placement} strategy is {strategy.get("BiddingStrategyType")}')
@@ -406,9 +443,12 @@ def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
         href = (ad.get('TextAd') or {}).get('Href') or ''
         if href != spec.landing_url:
             failures.append(f'Ad {ad.get("Id")} href {href!r} != {spec.landing_url!r}')
-    for keyword in ops.keywords_get(ads, campaign_ids=[campaign_id]):
-        if (keyword.get('Keyword') or '').startswith('---autotargeting') and keyword.get('State') == 'ON':
-            failures.append(f'autotargeting {keyword.get("Id")} is ON')
+    for keyword in _autotargeting(ops.keywords_get(ads, campaign_ids=[campaign_id])):
+        live = keyword.get('AutotargetingSettings') or {}
+        for group, wanted in AUTOTARGETING_SETTINGS.items():
+            for option, value in wanted.items():
+                if value == 'NO' and (live.get(group) or {}).get(option) != 'NO':
+                    failures.append(f'autotargeting {keyword.get("Id")} {group}.{option} is not NO')
 
     modifiers = ops.bidmodifiers_get(ads, campaign_ids=[campaign_id])
     tablet_off = any((m.get('TabletAdjustment') or {}).get('BidModifier') == 0 for m in modifiers)

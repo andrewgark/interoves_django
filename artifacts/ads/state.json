@@ -104,6 +104,76 @@
     "never_create_second_paid_campaign_without_permission": true
   },
   "pending_launch": null,
-  "updated_at": "2026-09-08T16:14:30.577021+00:00",
-  "direct_min_period_budget_note": "Direct rejected CustomPeriodBudget 500 RUB over 10 days: minimum for that period is 550 RUB. Kept SpendLimit=500 and used 2026-09-08..2026-09-09, AutoContinue=NO. Did not use the 900 reserve."
+  "updated_at": "2026-11-02T12:36:52.817117+00:00",
+  "direct_min_period_budget_note": "Direct rejected CustomPeriodBudget 500 RUB over 10 days: minimum for that period is 550 RUB. Kept SpendLimit=500 and used 2026-09-08..2026-09-09, AutoContinue=NO. Did not use the 900 reserve.",
+  "campaigns": {
+    "io-ru-nov26": {
+      "campaign_id": 715711552,
+      "created_on": "2026-11-02",
+      "launched": false,
+      "adgroup_ids": [
+        5819122207
+      ],
+      "ad_ids": [
+        1925887682624574135,
+        1925887682624574136,
+        1925887682624574137
+      ],
+      "keyword_ids": [
+        58394267169,
+        58394267170,
+        58394267171,
+        58394267172,
+        58394267173,
+        58394267174,
+        58394267175,
+        58394267176,
+        58394267177,
+        58394267178,
+        58394267179,
+        58394267180
+      ],
+      "bidmodifier_ids": [
+        102131357869,
+        272131357868
+      ],
+      "autotargeting_ids": [
+        205819122207
+      ]
+    },
+    "io-intl-nov26": {
+      "campaign_id": 715711784,
+      "created_on": "2026-11-02",
+      "launched": false,
+      "adgroup_ids": [
+        5819125497
+      ],
+      "ad_ids": [
+        1925888014408786469,
+        1925888014408786470,
+        1925888014408786471
+      ],
+      "keyword_ids": [
+        58394500779,
+        58394500780,
+        58394500781,
+        58394500782,
+        58394500783,
+        58394500784,
+        58394500785,
+        58394500786,
+        58394500787,
+        58394500788,
+        58394500789,
+        58394500790
+      ],
+      "autotargeting_ids": [
+        205819125497
+      ],
+      "bidmodifier_ids": [
+        102131358532,
+        272131358531
+      ]
+    }
+  }
 }

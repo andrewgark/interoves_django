@@ -92,8 +92,10 @@ class CampaignSpecTests(SimpleTestCase):
     def test_payload_pays_per_completed_game_with_a_hard_period_cap(self):
         spec = campaigns.get_spec('io-ru-nov26')
         payload = campaigns.campaign_payload(spec)
-        for placement in ('Search', 'Network'):
-            strategy = payload['UnifiedCampaign']['BiddingStrategy'][placement]
+        bidding = payload['UnifiedCampaign']['BiddingStrategy']
+        self.assertEqual(bidding['Network'], {'BiddingStrategyType': 'NETWORK_DEFAULT'})
+        for placement in ('Search',):
+            strategy = bidding[placement]
             self.assertEqual(strategy['BiddingStrategyType'], 'PAY_FOR_CONVERSION')
             pfc = strategy['PayForConversion']
             self.assertEqual(pfc['GoalId'], GOAL_GAME_COMPLETE)
@@ -140,7 +142,7 @@ class CampaignLifecycleTests(SimpleTestCase):
 
     def test_launch_refuses_a_campaign_that_drifted_from_the_spec(self):
         def raise_budget(row):
-            budget = row['UnifiedCampaign']['BiddingStrategy']['Network']['PayForConversion']['CustomPeriodBudget']
+            budget = row['UnifiedCampaign']['BiddingStrategy']['Search']['PayForConversion']['CustomPeriodBudget']
             budget['SpendLimit'] *= 2
 
         direct = FakeDirect(mutate_campaign=raise_budget)
@@ -149,3 +151,18 @@ class CampaignLifecycleTests(SimpleTestCase):
             campaigns.launch(direct, self.spec, audit=self.audit, state_store=self.store)
         self.assertIn('SpendLimit', str(error.exception))
         self.assertNotIn(('campaigns', 'resume'), direct.writes())
+
+    def test_autotargeting_is_narrowed_and_verified(self):
+        direct = FakeDirect()
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        campaign_id = self.store.state['campaigns'][self.spec.slug]['campaign_id']
+        wide = {'Categories': {'Exact': 'YES', 'Narrow': 'YES', 'Alternative': 'YES', 'Accessory': 'YES',
+                               'Broader': 'YES'},
+                'BrandOptions': {'WithoutBrands': 'YES', 'WithAdvertiserBrand': 'YES', 'WithCompetitorsBrand': 'YES'}}
+        direct.added['keywords'].append({'Id': 9, 'Keyword': '---autotargeting', 'AutotargetingSettings': wide})
+        self.assertIn('Alternative', str(campaigns.verify(direct, self.spec, campaign_id)['failures']))
+        self.assertEqual(campaigns.narrow_autotargeting(direct, campaign_id, audit=self.audit), [9])
+        update = [p for s, m, p in direct.calls if (s, m) == ('keywords', 'update')][-1]
+        self.assertEqual(update['Keywords'][0]['AutotargetingSettings'], campaigns.AUTOTARGETING_SETTINGS)
+        direct.added['keywords'][-1]['AutotargetingSettings'] = campaigns.AUTOTARGETING_SETTINGS
+        self.assertTrue(campaigns.verify(direct, self.spec, campaign_id)['ok'])

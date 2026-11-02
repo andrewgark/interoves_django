@@ -10,7 +10,6 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from django.conf import settings
-
 from interoves_django.settings import load_secret
 
 DIRECT_JSON = "https://api.direct.yandex.com/json"
