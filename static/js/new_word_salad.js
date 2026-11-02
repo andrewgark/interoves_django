@@ -337,8 +337,10 @@
     );
   }
 
-  function shouldHandleWordSaladEscape(event, doc) {
-    if (!event || (event.key !== 'Escape' && event.key !== 'Esc')) return false;
+  // Backspace (or Delete) drops the path being built. Esc belongs to the
+  // solve timer: it pauses the clock on every daily game.
+  function shouldHandleWordSaladClearKey(event, doc) {
+    if (!event || (event.key !== 'Backspace' && event.key !== 'Delete')) return false;
     if (event.defaultPrevented) return false;
     if (event.altKey || event.ctrlKey || event.metaKey) return false;
     if (isTypingTarget(event.target)) return false;
@@ -2008,7 +2010,7 @@
     }, true);
 
     doc.addEventListener('keydown', function (event) {
-      if (!shouldHandleWordSaladEscape(event, doc)) return;
+      if (!shouldHandleWordSaladClearKey(event, doc)) return;
       var root = (activeDragRoot && activeDragRoot.isConnected) ? activeDragRoot : null;
       if (!root && lastSaladRoot && lastSaladRoot.isConnected) root = lastSaladRoot;
       if (!root) {
@@ -2030,7 +2032,7 @@
     startPress: startWordSaladPress,
     movePress: moveWordSaladPress,
     endPress: endWordSaladPress,
-    shouldHandleEscape: shouldHandleWordSaladEscape,
+    shouldHandleClearKey: shouldHandleWordSaladClearKey,
     rememberExtra: rememberExtraWord,
     mergeFoundWords: mergeFoundWords,
     extrasForDisplay: extrasForDisplay,

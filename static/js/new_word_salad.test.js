@@ -232,9 +232,9 @@ function press(path, index) {
   assert.deepStrictEqual(Path.endPress(moved.path, moved.clearOnRelease), [0]);
 })();
 
-function escapeEvent(overrides) {
+function clearKeyEvent(overrides) {
   var event = {
-    key: 'Escape',
+    key: 'Backspace',
     defaultPrevented: false,
     altKey: false,
     ctrlKey: false,
@@ -245,20 +245,22 @@ function escapeEvent(overrides) {
   return event;
 }
 
-(function testEscapeClearsWhenIdle() {
-  assert.strictEqual(Path.shouldHandleEscape(escapeEvent()), true);
+(function testBackspaceClearsWhenIdle() {
+  assert.strictEqual(Path.shouldHandleClearKey(clearKeyEvent()), true);
+  assert.strictEqual(Path.shouldHandleClearKey(clearKeyEvent({ key: 'Delete' })), true);
+  assert.strictEqual(Path.shouldHandleClearKey(clearKeyEvent({ key: 'Escape' })), false, 'Esc pauses the timer');
 })();
 
-(function testEscapeIgnoredInFieldsAndModals() {
-  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ key: 'Enter' })), false);
-  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ defaultPrevented: true })), false);
-  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ ctrlKey: true })), false);
-  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ target: { tagName: 'INPUT', isContentEditable: false } })), false);
-  assert.strictEqual(Path.shouldHandleEscape(escapeEvent({ target: { tagName: 'TEXTAREA', isContentEditable: false } })), false);
+(function testClearKeyIgnoredInFieldsAndModals() {
+  assert.strictEqual(Path.shouldHandleClearKey(clearKeyEvent({ key: 'Enter' })), false);
+  assert.strictEqual(Path.shouldHandleClearKey(clearKeyEvent({ defaultPrevented: true })), false);
+  assert.strictEqual(Path.shouldHandleClearKey(clearKeyEvent({ ctrlKey: true })), false);
+  assert.strictEqual(Path.shouldHandleClearKey(clearKeyEvent({ target: { tagName: 'INPUT', isContentEditable: false } })), false);
+  assert.strictEqual(Path.shouldHandleClearKey(clearKeyEvent({ target: { tagName: 'TEXTAREA', isContentEditable: false } })), false);
   assert.strictEqual(
-    Path.shouldHandleEscape(escapeEvent(), { querySelector: function () { return {}; } }),
+    Path.shouldHandleClearKey(clearKeyEvent(), { querySelector: function () { return {}; } }),
     false,
-    'an open modal must keep Escape'
+    'an open modal must keep the key'
   );
 })();
 

@@ -187,6 +187,155 @@ function fakeClock(start) {
   ctrl.destroy();
 })();
 
+function hotkeyDoc() {
+  var listeners = [];
+  var doc = {
+    visibilityState: 'visible',
+    body: { classList: { toggle: function () {} } },
+    activeElement: null,
+    owners: [],
+    addEventListener: function (name, fn, capture) {
+      if (name === 'keydown') listeners.push({ fn: fn, capture: !!capture });
+    },
+    querySelectorAll: function () { return doc.owners; },
+    press: function (overrides) {
+      var event = { key: 'Escape', defaultPrevented: false };
+      Object.keys(overrides || {}).forEach(function (k) { event[k] = overrides[k]; });
+      event.preventDefault = function () { event.defaultPrevented = true; };
+      listeners.filter(function (l) { return l.capture; }).forEach(function (l) { l.fn(event); });
+      // A modal's own handler runs between capture and bubble and closes it.
+      if (doc.onTarget) doc.onTarget(event);
+      listeners.filter(function (l) { return !l.capture; }).forEach(function (l) { l.fn(event); });
+      return event;
+    },
+  };
+  doc.activeElement = doc.body;
+  return doc;
+}
+
+function hotkeyTimer(doc, rootEl) {
+  var resumeBtn = { focused: 0, focus: function () { resumeBtn.focused += 1; } };
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: doc,
+    getAnonKey: function () { return 'anon'; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    root: rootEl,
+    resumeBtn: resumeBtn,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 1000, exists: true },
+  });
+  ctrl.resumeBtn = resumeBtn;
+  return ctrl;
+}
+
+(function testEscapeTogglesPauseAndRestoresFocus() {
+  var doc = hotkeyDoc();
+  var input = { focused: 0, focus: function () { input.focused += 1; } };
+  doc.activeElement = input;
+  var ctrl = hotkeyTimer(doc);
+  assert.strictEqual(doc.press().defaultPrevented, true);
+  assert.strictEqual(ctrl.state().manually_paused, true);
+  assert.strictEqual(ctrl.resumeBtn.focused, 1, 'Enter/Space then resume too');
+  doc.press();
+  assert.strictEqual(ctrl.state().manually_paused, false);
+  assert.strictEqual(input.focused, 1, 'back to the answer field');
+  doc.press({ repeat: true });
+  doc.press({ shiftKey: true });
+  doc.press({ key: 'Enter' });
+  doc.press({ defaultPrevented: true });
+  assert.strictEqual(ctrl.state().manually_paused, false);
+  ctrl.destroy();
+})();
+
+(function testEscapeClosingAModalDoesNotPause() {
+  var doc = hotkeyDoc();
+  var modal = { getClientRects: function () { return [1]; } };
+  doc.owners = [modal];
+  doc.onTarget = function () { doc.owners = []; };
+  var ctrl = hotkeyTimer(doc);
+  doc.press();
+  assert.strictEqual(ctrl.state().manually_paused, false);
+  doc.owners = [{ getClientRects: function () { return []; } }];
+  doc.onTarget = null;
+  doc.press();
+  assert.strictEqual(ctrl.state().manually_paused, true, 'a hidden modal does not own Esc');
+  ctrl.destroy();
+})();
+
+(function testEscapeIgnoredInTournamentQuietMode() {
+  var doc = hotkeyDoc();
+  var rootEl = {
+    hidden: false,
+    classList: { toggle: function () {}, contains: function (c) { return c === 'new-daily-timer--quiet'; } },
+  };
+  var ctrl = hotkeyTimer(doc, rootEl);
+  doc.press();
+  assert.strictEqual(ctrl.state().manually_paused, false);
+  ctrl.destroy();
+})();
+
+(function testPauseButtonTogglesAndStaysForResume() {
+  var listeners = {};
+  function el() {
+    var attrs = {};
+    return {
+      hidden: false,
+      className: '',
+      textContent: '',
+      setAttribute: function (k, v) { attrs[k] = v; },
+      getAttribute: function (k) { return attrs[k]; },
+      addEventListener: function (name, fn) { listeners[name] = fn; },
+    };
+  }
+  var pauseBtn = el();
+  var pauseIcon = el();
+  var pauseTip = el();
+  var toggleLabel = el();
+  var popover = { hidden: false };
+  var ctrl = timer.create({
+    url: '/ladder/1/timing/',
+    document: { visibilityState: 'visible', addEventListener: function () {} },
+    getAnonKey: function () { return 'anon'; },
+    getCsrf: function () { return ''; },
+    clock: fakeClock(0),
+    storage: memoryStorage(),
+    localStorage: memoryStorage(),
+    fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } }); },
+    listenDocument: false,
+    enableHeartbeat: false,
+    enableBroadcast: false,
+    offline: true,
+    pauseBtn: pauseBtn,
+    pauseIcon: pauseIcon,
+    pauseTip: pauseTip,
+    toggleLabel: toggleLabel,
+    popover: popover,
+    bootstrap: { status: 'running', is_authoritative: true, accumulated_ms: 1000, exists: true },
+  });
+  assert.strictEqual(pauseIcon.className, 'ph ph-pause');
+  assert.strictEqual(pauseBtn.getAttribute('aria-label'), 'Пауза (Esc)');
+  listeners.click();
+  assert.strictEqual(ctrl.state().manually_paused, true);
+  assert.strictEqual(popover.hidden, true, 'pausing closes the time popover');
+  assert.strictEqual(pauseBtn.hidden, false, 'the same button resumes');
+  assert.strictEqual(pauseIcon.className, 'ph ph-play');
+  assert.strictEqual(pauseTip.textContent, 'Продолжить · Esc');
+  assert.strictEqual(toggleLabel.textContent, 'Продолжить');
+  listeners.click();
+  assert.strictEqual(ctrl.state().manually_paused, false);
+  assert.strictEqual(pauseIcon.className, 'ph ph-pause');
+  assert.strictEqual(toggleLabel.textContent, '');
+  ctrl.destroy();
+})();
+
 (function testCompletedHidesTimerAndPause() {
   var rootEl = { hidden: false, classList: { toggle: function () {} } };
   var pauseBtn = { hidden: false };

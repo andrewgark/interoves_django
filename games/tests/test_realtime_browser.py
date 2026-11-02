@@ -787,8 +787,6 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.assertIsNotNone(timing)
         self.assertEqual(timing['running'], 2)
 
-        first.locator('[data-daily-timer-toggle]').click()
-        expect(first.locator('[data-daily-timer-popover]')).to_be_visible()
         first.locator('[data-daily-timer-pause]').click()
 
         expect(first.locator('[data-daily-pause-overlay]')).to_be_visible(timeout=5_000)

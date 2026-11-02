@@ -3829,6 +3829,25 @@ html.new-ui-dark .new-team-switcher-active-box {
   background: color-mix(in srgb, var(--accent) 8%, var(--surface));
 }
 
+/* Clock + pause read as one segmented control: [⏱|⏸]. */
+.new-daily-timer:has(> .new-daily-timer__pause:not([hidden])) > .new-daily-timer__clock {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+.new-daily-timer__pause {
+  margin-left: -1px;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+.new-daily-timer__pause[hidden] {
+  display: none;
+}
+.new-daily-timer__toggle:hover,
+.new-daily-timer__toggle:focus-visible {
+  position: relative;
+  z-index: 1;
+}
+
 .new-tooltip {
   position: absolute;
   z-index: 6;
@@ -3881,7 +3900,7 @@ html.new-ui-dark .new-team-switcher-active-box {
   box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
-.new-daily-timer.is-paused .new-daily-timer__toggle {
+.new-daily-timer.is-paused .new-daily-timer__pause {
   color: var(--accent);
   font-weight: 650;
 }
@@ -3920,19 +3939,15 @@ html.new-ui-dark .new-team-switcher-active-box {
 }
 
 .new-daily-timer__popover .new-daily-timer__time {
-  margin-bottom: 0.6rem;
   font-size: 1.15rem;
 }
 
 .new-daily-timer__error {
-  margin: 0 0 0.65rem;
+  margin: 0.6rem 0 0;
   color: var(--danger, #b42318);
   font-size: 0.8rem;
 }
 
-.new-daily-timer__popover .new-btn {
-  width: 100%;
-}
 
 /* Compact first row shared by daily ladder, salad and alphabetty pages. */
 .new-daily-game-header {
@@ -4179,9 +4194,9 @@ html.new-ui-dark .new-team-switcher-active-box {
     padding: 0;
   }
 
-  .new-daily-game-header .new-daily-timer__toggle > span:empty { display: none; }
-  .new-daily-game-header .new-daily-timer__toggle > span:not(:empty) { padding-right: 0.45rem; }
-  .new-daily-game-header .new-daily-timer__toggle:has(> span:not(:empty)) { padding-left: 0.45rem; }
+  /* No room for the «Продолжить» label next to the clock: the accent ▶ and
+     the overlay's own button say it. */
+  .new-daily-game-header .new-daily-timer__toggle > span { display: none; }
 
   .new-daily-game-header__description {
     font-size: 0.84rem;

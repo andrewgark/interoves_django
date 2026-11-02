@@ -2,17 +2,20 @@
 {% if daily_timing_enabled %}
 {{ daily_timing|json_script:"daily-timing-bootstrap" }}
 <div class="new-daily-timer{% if hide_task_group_timer_ui %} new-daily-timer--quiet{% endif %}" data-daily-timer data-timing-url="{{ daily_timing_url }}" data-gameplay-context="{{ daily_timing_context_token }}" hidden>
-  <button type="button" class="new-daily-timer__toggle" data-daily-timer-toggle aria-expanded="false" aria-label="Показать время решения">
-    <i class="ph ph-clock" aria-hidden="true"></i><span data-daily-timer-toggle-label aria-hidden="true"></span>
+  <button type="button" class="new-daily-timer__toggle new-daily-timer__clock" data-daily-timer-toggle aria-expanded="false" aria-label="Показать время решения">
+    <i class="ph ph-clock" aria-hidden="true"></i>
   </button>
   <span class="new-tooltip new-tooltip--below new-daily-timer__tooltip" data-daily-timer-tooltip role="tooltip">
     Время решения: <span data-daily-timer-tooltip-value>0с</span>
   </span>
+  <button type="button" class="new-daily-timer__toggle new-daily-timer__pause" data-daily-timer-pause aria-keyshortcuts="Escape" aria-label="Пауза (Esc)">
+    <i class="ph ph-pause" data-daily-timer-pause-icon aria-hidden="true"></i><span data-daily-timer-toggle-label aria-hidden="true"></span>
+  </button>
+  <span class="new-tooltip new-tooltip--below new-daily-timer__tooltip" data-daily-timer-pause-tip role="tooltip">Пауза · Esc</span>
   <div class="new-daily-timer__popover" data-daily-timer-popover hidden>
     <div class="new-daily-timer__popover-title">Время решения</div>
     <div class="new-daily-timer__time" data-daily-timer-display>0с</div>
     <p class="new-daily-timer__error" data-daily-timer-error role="status" hidden></p>
-    <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-daily-timer-pause>Пауза</button>
   </div>
 </div>
 {% endif %}

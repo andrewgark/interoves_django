@@ -78,6 +78,37 @@
     return Math.min(RETRY_AFTER_MAX_MS, floor + (spread ? Math.max(1, Math.round(spread * random)) : 0));
   }
 
+  // Esc pauses and resumes the clock: a player who gets interrupted should not
+  // have to aim for the chip and then the button in its popover.
+  function isPauseHotkey(event) {
+    if (!event || (event.key !== 'Escape' && event.key !== 'Esc')) return false;
+    if (event.defaultPrevented || event.repeat || event.isComposing) return false;
+    return !(event.altKey || event.ctrlKey || event.metaKey || event.shiftKey);
+  }
+
+  // Elements whose own Esc handler closes them. While one is showing, Esc
+  // belongs to it, not to the timer. The alphabetty prefix panel also uses
+  // .is-open but is a persistent toggle, not something Esc dismisses.
+  var ESCAPE_OWNER_SELECTOR = [
+    'dialog[open]',
+    '[aria-modal="true"]:not([hidden])',
+    '.is-open:not(.new-alphabetty__prefix-side):not(.new-alphabetty__prefix-toggle):not(.new-alphabetty__hint-btn)',
+    '.new-site-version--nav[open]',
+    '[data-site-version-hint]:not([hidden])',
+    '.new-stuck-callout',
+    '#ab-hint-toast:not([hidden])',
+  ].join(',');
+
+  function escapeHasOtherOwner(doc) {
+    if (!doc || !doc.querySelectorAll) return false;
+    var nodes = doc.querySelectorAll(ESCAPE_OWNER_SELECTOR);
+    for (var i = 0; i < nodes.length; i += 1) {
+      var node = nodes[i];
+      if (!node.getClientRects || node.getClientRects().length) return true;
+    }
+    return false;
+  }
+
   function shouldRunLocally(state, visibility) {
     if (!state || state.completed || state.manually_paused) return false;
     if (state.status === 'manually_paused' || state.status === 'completed') return false;
@@ -128,6 +159,8 @@
     var rootEl = options.root;
     var displayEl = options.displayEl;
     var pauseBtn = options.pauseBtn;
+    var pauseIcon = options.pauseIcon;
+    var pauseTip = options.pauseTip;
     var toggleBtn = options.toggleBtn;
     var toggleLabel = options.toggleLabel;
     var tooltipValue = options.tooltipValue;
@@ -279,8 +312,7 @@
       if (displayEl) displayEl.textContent = formatElapsed(ms);
       if (toggleBtn) {
         var paused = manuallyPaused || resumeRequired;
-        toggleBtn.setAttribute('aria-expanded', (!paused && popover && !popover.hidden) ? 'true' : 'false');
-        toggleBtn.setAttribute('aria-label', paused ? 'Продолжить задание' : 'Показать время решения');
+        toggleBtn.setAttribute('aria-expanded', (popover && !popover.hidden) ? 'true' : 'false');
       }
       if (tooltipValue) tooltipValue.textContent = formatClock(ms);
       if (errorEl) {
@@ -293,14 +325,20 @@
             ? 'Не удалось подтвердить сохранение времени. Проверьте соединение и обновите состояние таймера.'
             : '');
       }
-      if (toggleLabel) toggleLabel.textContent = (manuallyPaused || resumeRequired) ? 'Продолжить' : '';
-      if (popover && (manuallyPaused || resumeRequired)) popover.hidden = true;
+      // The pause button turns into a labelled resume button while stopped.
+      var stopped = manuallyPaused || resumeRequired;
+      if (toggleLabel) toggleLabel.textContent = stopped ? 'Продолжить' : '';
+      if (pauseBtn && pauseBtn.setAttribute) {
+        pauseBtn.setAttribute('aria-label', stopped ? 'Продолжить (Esc)' : 'Пауза (Esc)');
+      }
+      if (pauseIcon) pauseIcon.className = stopped ? 'ph ph-play' : 'ph ph-pause';
+      if (pauseTip) pauseTip.textContent = stopped ? 'Продолжить · Esc' : 'Пауза · Esc';
       if (rootEl) {
         rootEl.hidden = completed;
         rootEl.classList.toggle('is-paused', manuallyPaused || (!authoritative && !completed && status !== 'running'));
         rootEl.classList.toggle('is-completed', completed);
       }
-      if (pauseBtn) pauseBtn.hidden = completed || resumeRequired;
+      if (pauseBtn) pauseBtn.hidden = completed;
       var showOverlay = !completed && (manuallyPaused || resumeRequired);
       if (rootEl && rootEl.setAttribute) {
         rootEl.setAttribute('data-timing-session-id', sessionId);
@@ -339,7 +377,7 @@
       }
       if (overlayText) {
         overlayText.textContent = manuallyPaused
-          ? 'Время остановлено. Нажмите «Продолжить», чтобы вернуться к заданию.'
+          ? 'Время остановлено. Нажмите «Продолжить» или Esc, чтобы вернуться к заданию.'
           : (resumeRequired
             ? 'Вкладка долго не подтверждала активность. Время остановлено; нажмите «Продолжить», чтобы снова начать его учитывать.'
             : 'Это задание открыто в другом окне. Нажмите «Продолжить», чтобы вести время здесь.');
@@ -1077,6 +1115,7 @@
       manuallyPaused = true;
       authoritative = false;
       status = 'manually_paused';
+      if (popover) popover.hidden = true;
       advanceStateRevision();
       syncTicker();
       return post('pause', { claimed_ms: claimed }, false);
@@ -1164,22 +1203,48 @@
       });
     }
 
-    if (pauseBtn && pauseBtn.addEventListener) pauseBtn.addEventListener('click', pauseManual);
+    if (pauseBtn && pauseBtn.addEventListener) pauseBtn.addEventListener('click', function () {
+      if (manuallyPaused || resumeRequired) resumeManual();
+      else pauseManual();
+      render();
+    });
     if (resumeBtn && resumeBtn.addEventListener) resumeBtn.addEventListener('click', resumeManual);
+    // The clock button only shows the time; pausing has its own button.
     if (toggleBtn && toggleBtn.addEventListener) toggleBtn.addEventListener('click', function () {
-      if (manuallyPaused || resumeRequired) {
-        resumeManual();
-        return;
-      }
       if (popover) {
         popover.hidden = !popover.hidden;
         toggleBtn.setAttribute('aria-expanded', popover.hidden ? 'false' : 'true');
       }
     });
+    // Decide ownership in the capture phase: a modal's own Esc handler closes
+    // it before the bubbling handler runs, which would then see no modal.
+    var escapeOwnedBy = null;
+    var focusBeforePause = null;
     if (doc && doc.addEventListener) doc.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && popover && !popover.hidden) {
-        popover.hidden = true;
-        if (toggleBtn) toggleBtn.setAttribute('aria-expanded', 'false');
+      if (isPauseHotkey(event)) escapeOwnedBy = escapeHasOtherOwner(doc) ? event : null;
+    }, true);
+    if (doc && doc.addEventListener) doc.addEventListener('keydown', function (event) {
+      if (!isPauseHotkey(event) || escapeOwnedBy === event || destroyed || completed) return;
+      // Tournament mode hides the timer, and its pause with it.
+      if (rootEl && rootEl.classList && rootEl.classList.contains('new-daily-timer--quiet')) return;
+      event.preventDefault();
+      if (manuallyPaused || resumeRequired) {
+        var restore = focusBeforePause;
+        focusBeforePause = null;
+        resumeManual();
+        render();
+        // Back to the answer field the player was typing in.
+        if (restore && restore.isConnected !== false && restore.focus) {
+          try { restore.focus({ preventScroll: true }); } catch (e) {}
+        }
+        return;
+      }
+      focusBeforePause = doc.activeElement && doc.activeElement !== doc.body ? doc.activeElement : null;
+      pauseManual();
+      render();
+      // Enter/Space on the focused button resume as well.
+      if (resumeBtn && resumeBtn.focus) {
+        try { resumeBtn.focus({ preventScroll: true }); } catch (e2) {}
       }
     });
 
@@ -1301,6 +1366,8 @@
       root: timerRoot,
       displayEl: doc.querySelector('[data-daily-timer-display]'),
       pauseBtn: doc.querySelector('[data-daily-timer-pause]'),
+      pauseIcon: doc.querySelector('[data-daily-timer-pause-icon]'),
+      pauseTip: doc.querySelector('[data-daily-timer-pause-tip]'),
       toggleBtn: doc.querySelector('[data-daily-timer-toggle]'),
       toggleLabel: doc.querySelector('[data-daily-timer-toggle-label]'),
       tooltipValue: doc.querySelector('[data-daily-timer-tooltip-value]'),
