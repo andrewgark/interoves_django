@@ -5014,7 +5014,16 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
         # and several unrelated modern derivatives; keep those game senses apart.
         if lemma.startswith(('природ',)):
             return 'sense:review_nature'
-        if lemma.startswith(('родн', 'породн', 'родств', 'срод', 'сород')) or lemma == 'родич':
+        # «породный» belongs to the breed; only «породнить(ся)» is kinship.
+        if lemma == 'порода' or (
+            lemma.startswith(('беспород', 'породист', 'породн'))
+            and lemma not in {'породнить', 'породниться'}
+        ):
+            return 'sense:review_breed'
+        if (
+            lemma.startswith(('родн', 'породн', 'родств', 'срод', 'сород'))
+            or lemma in {'родич', 'родимый', 'родименький'}
+        ):
             return 'sense:review_relative'
         if lemma.startswith(('урод', 'изурод')):
             return 'sense:review_ugly'
@@ -5036,12 +5045,19 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
             return 'sense:review_mole'
         if lemma.startswith(('дород',)):
             return 'sense:review_body_build'
-        if lemma.startswith(('беспород', 'породист')):
-            return 'sense:review_breed'
-        if lemma.startswith(('возрод',)):
+        if lemma.startswith(('возрод', 'возрожд')):
             return 'sense:review_revival'
-        if lemma.startswith(('вырод', 'перерод')):
+        if lemma.startswith(('вырод', 'вырожд', 'перерод', 'перерожд')):
             return 'sense:review_degeneration'
+        # «зародыш», «зарождение»: an origin or germ, not a childbirth.
+        if lemma.startswith(('зарод', 'зарожд')):
+            return 'sense:review_germ'
+        # «породить», «порождение»: to engender, apart from «порода».
+        if lemma.startswith(('породить', 'порожд')):
+            return 'sense:review_engender'
+        # «род» as lineage or kind: «родовитый», «безродный», «родовой».
+        if lemma in {'род', 'родовитость', 'родовитый', 'безродный', 'родовой'}:
+            return 'sense:review_lineage'
         return 'sense:review_birth_origin'
     if family == 'пис|пиш':
         if lemma.startswith(('опис', 'неопис')):

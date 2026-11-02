@@ -83,6 +83,23 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             self.assertTrue(right_roots, f'no roots for {right}')
             self.assertTrue(left_roots.isdisjoint(right_roots), f'{left} / {right}')
 
+    def test_rod_family_keeps_breed_revival_and_birth_apart(self):
+        from games.puzzles.censorly.lexical.match import _Pack, _relation
+
+        for left, right in (
+            ('порода', 'породистый'), ('порода', 'породный'),
+            ('возрождение', 'возродить'), ('вырождение', 'выродок'),
+            ('зародыш', 'зарождение'), ('породить', 'порождение'),
+            ('род', 'родовитый'), ('родить', 'рождение'),
+        ):
+            self.assertTrue(_relation(_Pack(left), _Pack(right)), f'{left}/{right}')
+        for left, right in (
+            ('порода', 'возрождения'), ('порода', 'рождение'),
+            ('порода', 'породить'), ('возрождение', 'рождение'),
+            ('зародыш', 'роды'),
+        ):
+            self.assertFalse(_relation(_Pack(left), _Pack(right)), f'{left}/{right}')
+
     def test_two_family_senses_are_assigned_to_distinct_clusters(self):
         from games.puzzles.censorly.lexical.splits import CLUSTERS
         from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
