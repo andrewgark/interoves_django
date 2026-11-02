@@ -482,11 +482,15 @@ class LexicalResolverTests(SimpleTestCase):
             {'kind': 'content', 'surface': 'император', 'lemma': 'император'},
             {'kind': 'content', 'surface': 'Наполеон', 'lemma': 'наполеон'},
             {'kind': 'content', 'surface': 'Наполеоновский', 'lemma': 'наполеоновский'},
+            {'kind': 'content', 'surface': 'кораллы', 'lemma': 'коралл'},
+            {'kind': 'content', 'surface': 'коралловый', 'lemma': 'коралловый'},
         ]
         self.assertIn('император', matching_lemmas(tokens, 'империя'))
         self.assertIn('империя', matching_lemmas(tokens, 'император'))
         self.assertIn('наполеоновский', matching_lemmas(tokens, 'Наполеон'))
         self.assertIn('наполеон', matching_lemmas(tokens, 'Наполеоновский'))
+        self.assertIn('коралловый', matching_lemmas(tokens, 'коралл'))
+        self.assertIn('коралл', matching_lemmas(tokens, 'коралловых'))
 
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
