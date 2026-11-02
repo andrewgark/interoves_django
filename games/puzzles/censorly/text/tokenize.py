@@ -20,6 +20,7 @@ from games.puzzles.censorly.lexical.russian.reading_overrides import (
     PO_SOFTWARE_CONTEXT,
     STREET_ABBR_CONTEXT,
     TELE_PREFIX_CONTEXT,
+    TOM_VOLUME_CONTEXT,
     YEAR_ABBR_CONTEXT,
 )
 from games.puzzles.censorly.text.normalize import (
@@ -498,7 +499,15 @@ def _previous_nonspace(tokens: list[dict[str, Any]], index: int) -> int:
     return index
 
 
-def _is_preposition_governing_pronoun(tokens: list[dict[str, Any]], index: int) -> bool:
+# «в одном и том же», «при всём том»: words that may stand between a
+# preposition and the demonstrative «том».
+_DEMONSTRATIVE_MODIFIERS = _PRONOUN_MODIFIERS | {'и', 'всем'}
+
+
+def _is_preposition_governing_pronoun(
+    tokens: list[dict[str, Any]], index: int,
+    modifiers: frozenset[str] = _PRONOUN_MODIFIERS,
+) -> bool:
     """Recognize a preposition before «нем» with optional «сам»/«один» forms."""
     cursor = _previous_nonspace(tokens, index)
     while cursor >= 0:
@@ -508,7 +517,7 @@ def _is_preposition_governing_pronoun(tokens: list[dict[str, Any]], index: int) 
         surface = normalize_surface(token.get('surface') or '')
         if surface in _PREPOSITION_SURFACES:
             return True
-        if surface not in _PRONOUN_MODIFIERS:
+        if surface not in modifiers:
             return False
         cursor = _previous_nonspace(tokens, cursor)
     return False
@@ -726,6 +735,17 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
                 tok['lemma'] = NEM_NONPRONOUN_CONTEXT
                 tok['context_reading'] = NEM_NONPRONOUN_CONTEXT
                 tok['initially_open'] = False
+            continue
+
+        # «том» is the prepositional «тот» only after a preposition
+        # («в том числе», «о том, что»). Elsewhere — «первый том», «Том 2»,
+        # «том вышел» — it is the noun and must stay closed.
+        if word == 'том' and not _is_preposition_governing_pronoun(
+            tokens, index, _DEMONSTRATIVE_MODIFIERS,
+        ):
+            tok['lemma'] = TOM_VOLUME_CONTEXT
+            tok['context_reading'] = TOM_VOLUME_CONTEXT
+            tok['initially_open'] = False
             continue
 
         # «кит.», «тур.», «лат.» are language labels only before a gloss;

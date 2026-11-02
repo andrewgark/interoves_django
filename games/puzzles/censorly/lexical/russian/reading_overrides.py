@@ -11,6 +11,7 @@ from games.puzzles.censorly.lexical.match.core import fold
 
 NEM_PRONOUN_CONTEXT = '__censorly_nem_pronoun__'
 NEM_NONPRONOUN_CONTEXT = '__censorly_nem_nonpronoun__'
+TOM_VOLUME_CONTEXT = '__censorly_tom_volume__'
 N_ERA_CONTEXT = '__censorly_n_era__'
 PO_SOFTWARE_CONTEXT = '__censorly_po_software__'
 LI_NAME_CONTEXT = '__censorly_li_name__'
@@ -94,6 +95,10 @@ TARGET_LEMMA_READINGS: dict[tuple[str, str], frozenset[str]] = {
     # standalone «нем.» is classified separately as the German abbreviation.
     ('нем', NEM_PRONOUN_CONTEXT): frozenset({'он', 'оно'}),
     ('нем', NEM_NONPRONOUN_CONTEXT): frozenset({'нем', 'немой'}),
+    # «том» is the pronoun «тот» only in a prepositional phrase («в том»,
+    # «о том», «в одном и том же»); elsewhere it is the noun (a volume).
+    ('том', TOM_VOLUME_CONTEXT): frozenset({'том'}),
+    ('том', 'тот'): frozenset({'тот'}),
     # In this spelling, «лет» is overwhelmingly the genitive plural of «год».
     # Retain the rare noun «лёт» only where the article lemmatizer selects it.
     ('лет', 'год'): frozenset({'год'}),

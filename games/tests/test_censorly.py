@@ -474,6 +474,30 @@ class CensorlyEngineTests(TestCase):
         self.assertGreaterEqual(result['hits'], 2)
         self.assertEqual(result['attempts'], 1)
 
+    @override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
+    def test_tom_is_a_closed_noun_outside_a_prepositional_phrase(self):
+        game, task, _hash, puzzle = _make_puzzle_task(
+            title='Собрание сочинений',
+            body=(
+                'Первый том вышел в 1890 году. В том же году, '
+                'в одном и том же издательстве, вышел и второй том.'
+            ),
+        )
+        tokens = puzzle['title_tokens'] + puzzle['body_tokens']
+        tom = [t for t in tokens if t['surface'].lower() == 'том']
+        self.assertEqual(
+            [t.get('initially_open', True) for t in tom],
+            [False, True, True, False],
+        )
+
+        user = User.objects.create_user('cz_tom_volume', password='x')
+        volume_ids = {t['id'] for t in tom if t.get('initially_open') is False}
+        pronoun = apply_guess(game=game, task=task, word='тот', user=user)
+        self.assertEqual(pronoun['status'], 'initially_open')
+        result = apply_guess(game=game, task=task, word='тома', user=user)
+        self.assertIn(result['status'], {'hit', 'won'})
+        self.assertEqual(set(result['guesses'][-1]['token_ids']), volume_ids)
+
 
 class CensorlyAccessTests(TestCase):
     def setUp(self):

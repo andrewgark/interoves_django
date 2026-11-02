@@ -25,6 +25,7 @@ from games.puzzles.censorly.lexical.russian.reading_overrides import (
     PAGE_ABBR_CONTEXT,
     PO_SOFTWARE_CONTEXT,
     STREET_ABBR_CONTEXT,
+    TOM_VOLUME_CONTEXT,
     YEAR_ABBR_CONTEXT,
     guess_lemma_override,
     proper_name_root_lemma,
@@ -455,6 +456,7 @@ class _ArticleIndex:
             CITY_ABBR_CONTEXT, NEM_GERMAN_CONTEXT, NEM_NONPRONOUN_CONTEXT,
             LI_NAME_CONTEXT, N_ERA_CONTEXT,
             PAGE_ABBR_CONTEXT, PO_SOFTWARE_CONTEXT, STREET_ABBR_CONTEXT,
+            TOM_VOLUME_CONTEXT,
             YEAR_ABBR_CONTEXT, *LANGUAGE_LABEL_CONTEXTS.values(),
         }
         for pack, lemma in zip(self.packs, self.lemmas):
