@@ -10355,48 +10355,128 @@ html.new-ui-dark .new-proportions-attempts-popover::backdrop {
   gap: 0.45rem;
 }
 
-/* Узкий экран: статистика переносится внутри себя, а не целиком на новую
-   строку — номер, статистика и ▲▼ остаются в первой строке. */
-@media (max-width: 560px) {
-  .new-proportions-compact-stats {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-
-  .new-proportions-compact-bar__fill {
-    display: none;
-  }
+/* Мета-полоса задания всегда в одну строку. task_meta_fit.js выбирает самый
+   подробный уровень data-fit, при котором строка не переносится:
+   full → compact (единицы и скобки уходят в тултипы, «↻3», подсказки / ответ
+   иконками как в лесенке, 5 мозгов) → tight (сложность «🧠4») → tiny (плотнее). */
+.new-taskcard__meta-bar .new-proportions-compact-points-pill,
+.new-taskcard__meta-bar .new-proportions-compact-stat:not(.new-raddle-attempt-stats),
+.new-taskcard__meta-bar .new-proportions-compact-textbtn {
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
-/* Narrow meta bar fits one line: «0/12 ✈3 … 🧠4 ▲▼» — units and brackets
-   live in tooltips; a solved task tints the points pill instead of «ок». */
-@media (max-width: 560px) {
-  .new-taskcard__meta-bar .new-proportions-compact-stat__word,
-  .new-taskcard__meta-bar .new-proportions-compact-stat__paren,
-  .new-taskcard__meta-bar .new-proportions-compact-badge--ok-strong,
-  .new-taskcard__meta-bar .new-difficulty__brains {
-    display: none;
+.new-proportions-compact-textbtn__icon {
+  display: none;
+}
+
+.new-taskcard__meta-bar:is([data-fit="compact"], [data-fit="tight"], [data-fit="tiny"]) :is(
+  .new-proportions-compact-stat__word,
+  .new-proportions-compact-stat__paren,
+  .new-proportions-compact-badge--ok-strong) {
+  display: none;
+}
+
+.new-taskcard__meta-bar:is([data-fit="compact"], [data-fit="tight"], [data-fit="tiny"]) .new-proportions-compact-points-pill {
+  gap: 0.1rem;
+  padding: 0.15rem 0.45rem;
+}
+
+.new-taskcard__meta-bar:is([data-fit="compact"], [data-fit="tight"], [data-fit="tiny"]) .new-proportions-compact-points-pill.is-solved {
+  color: var(--success);
+  border-color: var(--success-soft-border);
+  background: var(--success-soft-bg);
+}
+
+.new-taskcard__meta-bar:is([data-fit="compact"], [data-fit="tight"], [data-fit="tiny"]) .new-proportions-compact-stat__icon {
+  display: inline;
+  margin-right: 0.15rem;
+  vertical-align: -0.1em;
+}
+
+.new-taskcard__meta-bar:is([data-fit="tight"], [data-fit="tiny"]) .new-difficulty__brains {
+  display: none;
+}
+
+.new-taskcard__meta-bar:is([data-fit="tight"], [data-fit="tiny"]) .new-difficulty__compact {
+  display: inline-flex;
+}
+
+.new-taskcard__meta-bar:is([data-fit="compact"], [data-fit="tight"], [data-fit="tiny"]) .new-proportions-compact-textbtn__label {
+  display: none;
+}
+
+.new-taskcard__meta-bar:is([data-fit="compact"], [data-fit="tight"], [data-fit="tiny"]) .new-proportions-compact-textbtn__icon {
+  display: inline;
+  font-size: 1.05rem;
+  vertical-align: -0.15em;
+}
+
+.new-taskcard__meta-bar:is([data-fit="compact"], [data-fit="tight"], [data-fit="tiny"]) .new-proportions-compact-textbtn {
+  text-decoration: none;
+}
+
+.new-taskcard__meta-bar[data-fit="tiny"] .new-proportions-compact-textbtn {
+  padding-inline: 0.15rem;
+}
+
+.new-taskcard__meta-bar[data-fit="tiny"],
+.new-taskcard__meta-bar[data-fit="tiny"] .new-proportions-compact-bar__aside,
+.new-taskcard__meta-bar[data-fit="tiny"] .new-proportions-compact-stats {
+  column-gap: 0.25rem;
+}
+
+/* Баллы без рамки пилюли: «12/12» жирным, решено — зелёным. */
+.new-taskcard__meta-bar[data-fit="tiny"] .new-proportions-compact-points-pill {
+  padding: 0;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+}
+
+.new-taskcard__meta-bar[data-fit="tiny"] .new-proportions-compact-points-pill.is-solved {
+  border-color: transparent;
+  background: none;
+}
+
+.new-taskcard__meta-bar[data-fit="tiny"] .new-vote__side {
+  min-width: 0;
+  padding-inline: 0.2rem;
+}
+
+/* Не влезло даже так (длинная статистика стены / лесенки): статистика
+   переносится внутри себя — номер и ▲▼ остаются в первой строке. */
+.new-taskcard__meta-bar[data-fit="tiny"] .new-proportions-compact-stats {
+  flex: 1 1 0;
+  min-width: min-content;
+}
+
+.new-taskcard__meta-bar[data-fit="tiny"] .new-proportions-compact-bar__fill {
+  display: none;
+}
+
+/* ▲▼ в мета-полосе — в строку, а не стопкой: стопка с тач-размерами
+   удваивала высоту полосы. Зона нажатия растёт только по вертикали. */
+.new-taskcard__meta-bar .new-vote {
+  flex-direction: row;
+  align-items: center;
+}
+
+.new-taskcard__meta-bar button.new-vote__side::before,
+.new-taskcard__meta-bar button.new-vote__side--down::before {
+  inset: -0.35rem 0;
+}
+
+@media (pointer: coarse) {
+  .new-taskcard__meta-bar .new-vote__side {
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.3rem 0.25rem;
   }
 
-  .new-taskcard__meta-bar .new-proportions-compact-points-pill {
-    gap: 0.1rem;
-    padding: 0.15rem 0.45rem;
-  }
-
-  .new-taskcard__meta-bar .new-proportions-compact-points-pill.is-solved {
-    color: var(--success);
-    border-color: var(--success-soft-border);
-    background: var(--success-soft-bg);
-  }
-
-  .new-taskcard__meta-bar .new-proportions-compact-stat__icon {
-    display: inline;
-    margin-right: 0.15rem;
-    vertical-align: -0.1em;
-  }
-
-  .new-taskcard__meta-bar .new-difficulty__compact {
-    display: inline-flex;
+  /* Жук на таче 44px: не даём ▼ уехать под его зону нажатия. */
+  .new-taskcard__meta-bar.new-proportions-compact-bar {
+    padding-right: 1.9rem;
   }
 }
 
@@ -11861,7 +11941,11 @@ button.new-word-salad__hint-btn:disabled {
     min-width: 2.75rem;
   }
 
+  /* В самом углу карточки: 44px зоны почти целиком в её padding и меньше
+     отъедают у мета-полосы. */
   .new-taskcard__bug-btn {
+    top: 0;
+    right: 0;
     min-width: 2.75rem;
     min-height: 2.75rem;
     padding: 0.45rem;

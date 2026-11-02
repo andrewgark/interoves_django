@@ -41,7 +41,7 @@
     {% with attempt_items=ai.attempts|attempts_with_status %}
     {% with last_item=attempt_items|last %}
     <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--{{ last_item.mark }}" popovertarget="prop-attempts-{{ task.id }}" data-tooltip="Открыть список отправленных ответов" aria-label="Список попыток: {{ n }}">
-      <span class="new-proportions-compact-stat__paren">(</span><i class="ph ph-paper-plane-tilt new-proportions-compact-stat__icon" aria-hidden="true"></i>{{ n }}<span class="new-proportions-compact-stat__word"> {{ n|ru_attempt_word }}</span>{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }}<span class="new-proportions-compact-stat__word"> {{ task.get_max_attempts|ru_attempt_word }}</span>{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
+      <span class="new-proportions-compact-stat__paren">(</span><i class="ph ph-repeat new-proportions-compact-stat__icon" aria-hidden="true"></i>{{ n }}<span class="new-proportions-compact-stat__word"> {{ n|ru_attempt_word }}</span>{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }}<span class="new-proportions-compact-stat__word"> {{ task.get_max_attempts|ru_attempt_word }}</span>{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
     </button>
     <div id="prop-attempts-{{ task.id }}" popover="auto" class="new-proportions-attempts-popover">
       <div class="new-proportions-attempts-popover__header">
@@ -62,7 +62,7 @@
     {% endwith %}
     {% else %}
     <span class="new-proportions-compact-stat new-proportions-compact-stat--plain" data-tooltip="Пока без попыток">
-      <span class="new-proportions-compact-stat__paren">(</span><i class="ph ph-paper-plane-tilt new-proportions-compact-stat__icon" aria-hidden="true"></i>{{ n }}<span class="new-proportions-compact-stat__word"> {{ n|ru_attempt_word }}</span>{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }}<span class="new-proportions-compact-stat__word"> {{ task.get_max_attempts|ru_attempt_word }}</span>{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
+      <span class="new-proportions-compact-stat__paren">(</span><i class="ph ph-repeat new-proportions-compact-stat__icon" aria-hidden="true"></i>{{ n }}<span class="new-proportions-compact-stat__word"> {{ n|ru_attempt_word }}</span>{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }}<span class="new-proportions-compact-stat__word"> {{ task.get_max_attempts|ru_attempt_word }}</span>{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
     </span>
     {% endif %}
     {% endwith %}
@@ -75,11 +75,11 @@
   </div>
   <span class="new-proportions-compact-bar__fill" aria-hidden="true"></span>
   {% if task.get_player_hints %}
-  <button type="button" class="new-proportions-compact-textbtn" data-hints-toggle data-task-id="{{ task.id }}" data-tooltip="Подсказки">подсказки</button>
+  <button type="button" class="new-proportions-compact-textbtn" data-hints-toggle data-task-id="{{ task.id }}" data-tooltip="Подсказки" aria-label="Подсказки"><i class="ph ph-lightbulb new-proportions-compact-textbtn__icon" aria-hidden="true"></i><span class="new-proportions-compact-textbtn__label">подсказки</span></button>
   {% endif %}
   {% if task_ui.show_answer %}
   {% if mode != 'tournament' or ai.is_solved %}
-  <button type="button" class="new-proportions-compact-textbtn" data-answer-open data-task-id="{{ task.id }}" data-tooltip="Показать ответ">ответ</button>
+  <button type="button" class="new-proportions-compact-textbtn" data-answer-open data-task-id="{{ task.id }}" data-tooltip="Показать ответ" aria-label="Показать ответ"><i class="ph ph-eye new-proportions-compact-textbtn__icon" aria-hidden="true"></i><span class="new-proportions-compact-textbtn__label">ответ</span></button>
   {% endif %}
   {% endif %}
   <span class="new-proportions-compact-bar__aside">

@@ -195,6 +195,8 @@ Spacing: у `.new-btn` нет дефолтного `margin-top`; у `.new-form >
 - Иконки chrome — только Phosphor; FA в new UI не подключать.
 - Rules / eye / raddle tip — `ph-question`, `ph-eye`, `ph-lightbulb`.
 - Лайки (задание, подсказки raddle, итоги в списке) — только голосовалка ▲▼ `.new-vote` (`site/partials/task_vote.html`, стрелки `vote_arrow.html`, inline SVG вместо Phosphor ради толщины контура): лидер по `data-lead` залит и жирный, мой голос (`.is-active`) — толстый контур; после смены чисел звать `InterovesVoteStack.refresh()`.
+- Число попыток (отправленных ответов) — везде `ph-repeat` (↻): мета-полоса задания, колонка попыток в таблицах результатов Алфавиток и сводных итогах. Другие иконки для попыток не вводить (`ph-target` в статистике дейли — это «идеально», не счётчик).
+- Мета-полоса задания (`site/task-content/task-meta-bar.html`) — всегда одна строка: `task_meta_fit.js` ставит `data-fit` = `full` → `compact` (единицы и скобки в тултипы, «↻3», подсказки / ответ — `ph-lightbulb` / `ph-eye`, 5 мозгов) → `tight` (сложность «🧠4») → `tiny` (плотнее, баллы без рамки). ▲▼ в полосе — в строку, не стопкой.
 - Back / forward — `.new-back` / `.new-fwd` + `ph-arrow-left` / `ph-arrow-right` (не unicode `←`/`→`).
 - Segmented — `.new-segmented` (+ aliases team/replacements).
 - Цвета иконок: `danger` = wrong/dislike; `warning` = lightbulb tip; `accent` = ok/like/hub (вкл. star); `muted` = idle chrome → accent на hover. Утилиты: `.new-ph--*`.

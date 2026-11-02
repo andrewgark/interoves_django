@@ -41,7 +41,15 @@
 
   function setButtonLabel(btn, open) {
     if (!btn) return;
-    btn.textContent = open ? 'скрыть подсказки' : 'подсказки';
+    var text = open ? 'скрыть подсказки' : 'подсказки';
+    // Meta bar button: icon + label span (label hidden on the tightest fit).
+    var label = btn.querySelector && btn.querySelector('.new-proportions-compact-textbtn__label');
+    if (label) {
+      label.textContent = text;
+      if (btn.setAttribute) btn.setAttribute('aria-label', open ? 'Скрыть подсказки' : 'Подсказки');
+    } else {
+      btn.textContent = text;
+    }
   }
 
   function isOpen(taskId) {
