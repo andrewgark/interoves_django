@@ -70,7 +70,7 @@ class CampaignSpecTests(SimpleTestCase):
         for slug in campaigns.CAMPAIGNS:
             campaigns.get_spec(slug)
         campaigns.assert_total_cap()
-        self.assertEqual(sum(s.spend_limit_rub for s in campaigns.CAMPAIGNS.values()), 3000)
+        self.assertEqual(sum(s.spend_limit_rub for s in campaigns.CAMPAIGNS.values()), 5000)
 
     def test_hosts_follow_the_region(self):
         ru = campaigns.get_spec('io-ru-nov26')
@@ -82,7 +82,7 @@ class CampaignSpecTests(SimpleTestCase):
 
     def test_ad_copy_limits_are_enforced(self):
         with self.assertRaises(ConfigError):
-            campaigns.AdCopy(title='x' * 57, title2='ok', text='ok').validate()
+            campaigns.AdCopy(title='x' * 57, text='ok').validate()
         spec = campaigns.get_spec('io-ru-nov26')
         with self.assertRaises(ConfigError):
             replace(spec, cpa_rub=spec.spend_limit_rub).validate()
@@ -100,7 +100,7 @@ class CampaignSpecTests(SimpleTestCase):
             pfc = strategy['PayForConversion']
             self.assertEqual(pfc['GoalId'], GOAL_GAME_COMPLETE)
             self.assertEqual(micros_to_rubles(pfc['Cpa']), 70)
-            self.assertEqual(micros_to_rubles(pfc['CustomPeriodBudget']['SpendLimit']), 2000)
+            self.assertEqual(micros_to_rubles(pfc['CustomPeriodBudget']['SpendLimit']), 3000)
             self.assertEqual(pfc['CustomPeriodBudget']['AutoContinue'], 'NO')
             self.assertNotIn('WeeklySpendLimit', pfc)
         self.assertEqual(payload['UnifiedCampaign']['CounterIds']['Items'], [METRIKA_COUNTER_ID])
@@ -227,8 +227,8 @@ class GameGroupTests(SimpleTestCase):
 
     def test_ad_text_rejects_characters_direct_does_not_accept(self):
         with self.assertRaises(ConfigError):
-            campaigns.AdCopy(title='Сетка 4×4', title2='ok', text='ok').validate()
-        campaigns.AdCopy(title='Цензурка — игра дня', title2='«Слово»!', text='4 на 4, 100%.').validate()
+            campaigns.AdCopy(title='Сетка 4×4', text='ok').validate()
+        campaigns.AdCopy(title='Цензурка — игра дня, «Слово»!', text='4 на 4, 100%.').validate()
 
     def test_failed_group_is_rolled_back_and_autotargeting_still_narrowed(self):
         direct = FakeDirect()
@@ -249,3 +249,20 @@ class GameGroupTests(SimpleTestCase):
         self.assertEqual(len(deletes), 1)
         self.assertIn('censorly', self.store.state['campaigns'][self.spec.slug]['game_groups'])
         self.assertNotIn('ladder', self.store.state['campaigns'][self.spec.slug]['game_groups'])
+
+
+    def test_sync_updates_strategy_and_only_changed_game_ads(self):
+        direct = FakeDirect()
+        original = direct.call
+        direct.call = lambda s, m, p=None: (
+            {'AddResults': [{'AdImageHash': 'h'}]} if (s, m) == ('adimages', 'add') else original(s, m, p)
+        )
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        ladder_ad = self.store.state['campaigns'][self.spec.slug]['game_groups']['ladder']['ad_ids'][1]
+        for ad in direct.added['ads']:
+            if ad['Id'] == ladder_ad:
+                ad['TextAd']['Title'] = 'old title'
+        result = campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
+        self.assertEqual(result['updated_ads'], [ladder_ad])
+        self.assertIn(('campaigns', 'update'), direct.writes())

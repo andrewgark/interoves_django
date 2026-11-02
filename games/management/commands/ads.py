@@ -94,7 +94,7 @@ class Command(BaseCommand):
             "Unknown subcommand. Use: status, preflight, launch, client, dictionaries, "
             "campaigns.get, adgroups.get, ads.get, keywords.get, bidmodifiers.get, "
             "campaigns.suspend, campaigns.resume, keywords.suspend, keywords.resume, "
-            "metrika-goals, reports, state, campaign.plan|create|add-groups|verify|launch --spec SLUG"
+            "metrika-goals, reports, state, campaign.plan|create|add-groups|sync|verify|launch --spec SLUG"
         )
 
     def _campaign(self, client, sub, options):
@@ -111,11 +111,13 @@ class Command(BaseCommand):
             if not record.get("campaign_id"):
                 raise ConfigError(f"{spec.slug} has not been created")
             return campaigns.verify(client, spec, record["campaign_id"])
+        if action == "sync":
+            return campaigns.sync(client, spec, audit=append_audit, state_store=_StateStore())
         if action == "add-groups":
             return campaigns.add_game_groups(client, spec, audit=append_audit, state_store=_StateStore())
         if action == "launch":
             return campaigns.launch(client, spec, audit=append_audit, state_store=_StateStore())
-        raise CommandError("Use campaign.plan, campaign.create, campaign.add-groups, campaign.verify or campaign.launch")
+        raise CommandError("Use campaign.plan, campaign.create, campaign.add-groups, campaign.sync, campaign.verify or campaign.launch")
 
 
 class _StateStore:

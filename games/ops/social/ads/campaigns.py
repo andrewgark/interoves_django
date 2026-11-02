@@ -31,10 +31,9 @@ from games.ops.social.ads.schema.constants import (
 )
 
 # Owner-approved Direct spend for November 2026 (Telegram posts are separate).
-NOVEMBER_DIRECT_CAP_RUB = 3000
+NOVEMBER_DIRECT_CAP_RUB = 5000
 
 TITLE_MAX = 56
-TITLE2_MAX = 30
 TEXT_MAX = 81
 WORD_MAX = 23
 MAX_ADS_PER_GROUP = 3
@@ -50,14 +49,12 @@ def image_path(name: str) -> Path:
 
 @dataclass(frozen=True)
 class AdCopy:
-    title: str
-    title2: str
+    title: str  # unified campaigns keep no second title (Direct drops Title2)
     text: str
 
     def validate(self) -> None:
         for label, value, limit in (
             ('title', self.title, TITLE_MAX),
-            ('title2', self.title2, TITLE2_MAX),
             ('text', self.text, TEXT_MAX),
         ):
             if not value or len(value) > limit:
@@ -177,17 +174,14 @@ SHARED_KEYWORDS = (
 SHARED_ADS = (
     AdCopy(
         title='Головоломки, где можно гуглить',
-        title2='Ежедневные игры Inter Oves',
         text='Лесенки, Салатики, Алфавитки и Цензурки. Новые задания каждый день, бесплатно.',
     ),
     AdCopy(
         title='Не квиз. Здесь нужно думать',
-        title2='Игры Inter Oves онлайн',
         text='Логика, слова и ресёрч вместо угадывания фактов. Новые задания каждый день.',
     ),
     AdCopy(
         title='Лесенки слов и другие головоломки',
-        title2='Новые задания каждый день',
         text='Авторские словесные головоломки от клуба Inter Oves. Играйте прямо в браузере.',
     ),
 )
@@ -243,12 +237,10 @@ GAME_GROUPS = (
         ads=(
             AdCopy(
                 title='Угадайте статью Википедии по скрытым словам',
-                title2='Цензурка — игра дня',
                 text='Все слова статьи скрыты. Называйте слова, и они проявляются. Угадаете тему?',
             ),
             AdCopy(
                 title='Википедия, в которой спрятаны все слова',
-                title2='Новая статья каждый день',
                 text='Открывайте текст слово за словом и угадайте, о чём статья. Бесплатно, в браузере.',
             ),
         ),
@@ -270,12 +262,12 @@ GAME_GROUPS = (
         ads=(
             AdCopy(
                 title='Лесенка: восстановите цепочку связанных слов',
-                title2='Новая Лесенка каждый день',
                 text='Каждое слово связано с соседним. По перемешанным подсказкам соберите цепочку.',
             ),
             AdCopy(
-                title='От «джаваскрипта» до «кода» по цепочке слов',
-                title2='Словесная головоломка дня',
+                # Never name a concrete puzzle: /last/ changes daily and old
+                # puzzles leave the free window after a week.
+                title='Соберите цепочку слов по подсказкам',
                 text='Восстановите цепочку слов по подсказкам. Новая Лесенка каждый день, бесплатно.',
             ),
         ),
@@ -297,12 +289,10 @@ GAME_GROUPS = (
         ads=(
             AdCopy(
                 title='Салатик: найдите слова на тему в сетке 4 на 4',
-                title2='Новый Салатик каждый день',
                 text='Соединяйте соседние буквы и ищите слова на общую тему. Правила понятны за минуту.',
             ),
             AdCopy(
                 title='Словесная головоломка на 10 минут',
-                title2='Найдите все слова на тему',
                 text='Сетка 4 на 4, тема дня и спрятанные слова. Ежедневная игра Inter Oves, бесплатно.',
             ),
         ),
@@ -323,12 +313,10 @@ GAME_GROUPS = (
         ads=(
             AdCopy(
                 title='Алфавитка: угадайте слово дня по алфавиту',
-                title2='Самая простая игра дня',
                 text='Называйте слова и узнавайте, загаданное раньше или позже по алфавиту.',
             ),
             AdCopy(
                 title='Угадайте загаданное слово, сужая алфавит',
-                title2='Ежедневная Алфавитка',
                 text='Каждая догадка сужает диапазон по алфавиту. Новое слово каждый день, бесплатно.',
             ),
         ),
@@ -344,7 +332,7 @@ CAMPAIGNS = {
             name='Inter Oves — Россия → ru.interoves.com — ноябрь 2026',
             landing_url='https://ru.interoves.com/start/',
             region_ids=(REGION_RUSSIA,),
-            spend_limit_rub=2000,
+            spend_limit_rub=3000,
             cpa_rub=70,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
@@ -358,7 +346,7 @@ CAMPAIGNS = {
             name='Inter Oves — заграница → interoves.com — ноябрь 2026',
             landing_url='https://interoves.com/start/',
             region_ids=INTERNATIONAL_REGIONS,
-            spend_limit_rub=1000,
+            spend_limit_rub=2000,
             cpa_rub=80,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
@@ -368,7 +356,6 @@ CAMPAIGNS = {
             ads=SHARED_ADS[:2] + (
                 AdCopy(
                     title='Головоломки на русском языке',
-                    title2='Где бы вы ни были',
                     text='Ежедневные словесные игры и задачи на логику от клуба Inter Oves. Бесплатно.',
                 ),
             ),
@@ -461,7 +448,6 @@ def ad_payloads(spec: CampaignSpec, adgroup_id: int) -> list[dict]:
             'AdGroupId': adgroup_id,
             'TextAd': {
                 'Title': ad.title,
-                'Title2': ad.title2,
                 'Text': ad.text,
                 'Href': spec.landing_url,
                 'Mobile': 'NO',
@@ -686,7 +672,6 @@ def game_ad_payloads(spec: CampaignSpec, group: GameGroup, adgroup_id: int, imag
             'AdGroupId': adgroup_id,
             'TextAd': {
                 'Title': ad.title,
-                'Title2': ad.title2,
                 'Text': ad.text,
                 'Href': spec.group_landing(group),
                 'Mobile': 'NO',
@@ -750,3 +735,43 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
                   reason='per-game ads of a launched campaign', api_status='submitted')
     narrow_autotargeting(ads, campaign_id, audit=audit)
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'added': added, 'game_groups': groups}
+
+
+def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
+    """Bring a live campaign's strategy and game-ad texts back to the spec."""
+    from games.ops.social.ads import ops
+
+    record = (state_store.load().get('campaigns') or {}).get(spec.slug)
+    if not record or not record.get('campaign_id'):
+        raise ConfigError(f'{spec.slug} has not been created')
+    campaign_id = record['campaign_id']
+    payload = campaign_payload(spec)
+    result = ads.call('campaigns', 'update', {'Campaigns': [{
+        'Id': campaign_id,
+        'UnifiedCampaign': {'BiddingStrategy': payload['UnifiedCampaign']['BiddingStrategy']},
+    }]})
+    for row in result.get('UpdateResults') or []:
+        if row.get('Errors'):
+            raise ConfigError(f'Campaigns.update: {row["Errors"]}')
+    audit(action='update', object_type='campaign', object_id=campaign_id,
+          new_value={'spend_limit_rub': spec.spend_limit_rub, 'cpa_rub': spec.cpa_rub},
+          reason='sync strategy to spec', api_status='updated')
+
+    live = {ad['Id']: ad for ad in ops.ads_get(ads, campaign_ids=[campaign_id])}
+    updates = []
+    for group in spec.game_groups:
+        ids = ((record.get('game_groups') or {}).get(group.game) or {}).get('ad_ids') or []
+        for ad_id, copy in zip(ids, group.ads):
+            text_ad = (live.get(ad_id) or {}).get('TextAd') or {}
+            wanted = {'Title': copy.title, 'Text': copy.text}
+            if any(text_ad.get(k) != v for k, v in wanted.items()):
+                updates.append({'Id': ad_id, 'TextAd': wanted})
+    if updates:
+        result = ads.call('ads', 'update', {'Ads': updates})
+        for row in result.get('UpdateResults') or []:
+            if row.get('Errors'):
+                raise ConfigError(f'Ads.update: {row["Errors"]}')
+        audit(action='update', object_type='ads', object_id=[u['Id'] for u in updates],
+              reason='sync game-ad texts to spec', api_status='updated')
+    return {'spec': spec.slug, 'campaign_id': campaign_id, 'updated_ads': [u['Id'] for u in updates],
+            'verify': verify(ads, spec, campaign_id)}
