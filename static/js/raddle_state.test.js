@@ -270,12 +270,11 @@ function testAsyncResponseAfterKeyboardDismissalMayNotFocus() {
     S.mayApplyEffect('server.advance', 'moveFocus', { sessionActive: session.isActive('7') }),
     false
   );
+  // The chain the player started still finishes: only focus() is withheld.
   assert.strictEqual(
-    S.shouldCascadeSubmit({
-      isTournament: false, hasAuto: true, filled: true, sessionActive: session.isActive('7'),
-    }),
-    false,
-    'no cascade against the user closing the keyboard'
+    S.shouldCascadeSubmit({ isTournament: false, hasAuto: true, filled: true }),
+    true,
+    'a closed keyboard does not stop the cascade'
   );
 }
 
@@ -560,11 +559,11 @@ function testOwnEchoAppliesEvenWhileEditing() {
 
 // ── Cascade ───────────────────────────────────────────────────────────────
 function testCascadeOnlyInNormalMode() {
-  var base = { hasAuto: true, filled: true, sessionActive: true };
+  var base = { hasAuto: true, filled: true };
   assert.strictEqual(S.shouldCascadeSubmit(Object.assign({}, base, { isTournament: false })), true);
   assert.strictEqual(S.shouldCascadeSubmit(Object.assign({}, base, { isTournament: true })), false);
-  assert.strictEqual(S.shouldCascadeSubmit({ hasAuto: false, filled: true, sessionActive: true }), false);
-  assert.strictEqual(S.shouldCascadeSubmit({ hasAuto: true, filled: false, sessionActive: true }), false);
+  assert.strictEqual(S.shouldCascadeSubmit({ hasAuto: false, filled: true }), false);
+  assert.strictEqual(S.shouldCascadeSubmit({ hasAuto: true, filled: false }), false);
 }
 
 testResponseMatrixCoversEveryScenario();

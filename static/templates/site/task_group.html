@@ -1928,8 +1928,10 @@
   window.clearWordSaladStateForReset = clearWordSaladStateForReset;
 
   // Каскад после продвижения: только обычный режим (data-raddle-auto есть
-  // лишь вне турнира) и только пока сессия ввода пользователя ещё открыта —
-  // клавиатуру могли закрыть, пока запрос был в полёте.
+  // лишь вне турнира). Цепочку начал верный ход игрока, поэтому она идёт до
+  // конца, даже если клавиатура закрылась по пути (Android закрывает IME при
+  // перерисовке карточки, а локальный шаг ждёт 320 мс). Без сессии ввода шаг
+  // только не переносит фокус — это решает focusRaddlePlayableInput.
   // A chain played on the page (offline pack) resolves in milliseconds and
   // turned every word green at once; through the server each step waited for
   // its answer. Locally each next step waits a beat, so the words still go
@@ -1965,7 +1967,6 @@
       isTournament: input.getAttribute('data-raddle-auto') !== '1',
       hasAuto: input.getAttribute('data-raddle-auto') === '1',
       filled: !!(target && letters && letters.length === target),
-      sessionActive: hasRaddleInputIntent(taskRoot),
     })) return;
     submitRaddleAuto(input, letters);
   }

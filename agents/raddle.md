@@ -19,7 +19,7 @@ DOM-free, тестируется в node. `task_group.html` только чит�
 | Что чему разрешено | `SOURCE_EFFECTS` / `mayApplyEffect(source, effect)` | passive viewport/scroll не могут `focus()` и `scrollTo()` |
 | Куда каретку | `decideInputTarget()` | `pin` / `real` / `blur` / `keep` |
 | Черновик напарника | `shouldApplyRemoteDraft()` | локальное редактирование важнее remote |
-| Каскад | `shouldCascadeSubmit()` | только вне турнира и только при живой сессии |
+| Каскад | `shouldCascadeSubmit()` | только вне турнира; закрытая клавиатура цепочку не обрывает |
 
 **Источники событий** (`SOURCE_EFFECTS`): `init`, `user.pointer`, `user.key`,
 `user.tab`, `user.input`, `server.advance`, `server.feedback`, `live.update`,
@@ -84,7 +84,7 @@ DOM-free, тестируется в node. `task_group.html` только чит�
 - Разделение: `syncRaddleUiAfterAdvance` (перерисовка) vs `showRaddleWrongFeedback` (локальная обратная связь).
 - **Черновики середины** (`is_draftable` / `data-raddle-draft`): инпут без формы и без auto-submit; сервер по-прежнему принимает только крайние из `playable_word_indices`. Текст в `ChainTaskState.drafts` (и локальный `sessionStorage`), live-событие `raddle.ui_state` без перерисовки HTML. Не перезаписываем поле, в котором напарник сейчас печатает.
 - **Зачёркивание unused-подсказок:** то же `raddle.ui_state` / `clue_marks`; кружок по-прежнему только UI, на проверку не влияет.
-- **Каскад после advance:** после `focusRaddleNext` если сфокусированный playable уже полный и есть `data-raddle-auto` — `submitRaddleAuto` (цепочка с того же конца). В турнире каскада нет (нет auto).
+- **Каскад после advance:** после `focusRaddleNext` если выделенный playable уже полный и есть `data-raddle-auto` — `submitRaddleAuto` (цепочка с того же конца). Цепочка идёт до конца и без сессии ввода (Android закрывает IME при перерисовке); без сессии шаг только не вызывает `focus()`. В турнире каскада нет (нет auto).
 - **Метки подсказок:** кружок у unused clues — только UI (`sessionStorage`), на проверку не влияет; в «Использованные» кружка нет.
 
 ## Мобилка: sticky-пин текущей пары
@@ -276,7 +276,8 @@ node static/js/raddle_masked_input.test.js
     открывается от scroll/viewport; async-ответ не возвращает её, если сессию
     уже сняли.
 14. **Back во время запроса** — закрыть клавиатуру до ответа wrong/correct:
-    async-ответ не открывает её повторно и не запускает каскад.
+    async-ответ не открывает её повторно; каскад полных черновиков всё равно
+    досдаётся (без фокуса и клавиатуры).
 
 При багрепорте приложить из Network JSON ответа: `status`, `raddle_correct`, `raddle_needs_sync`, `raddle_duplicate_solved`, `raddle_word_index`.
 

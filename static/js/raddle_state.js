@@ -572,14 +572,16 @@
   }
 
   /**
-   * Cascade after an advance: normal mode only, and only while the user's own
-   * input session is still open (they may have closed the keyboard meanwhile).
+   * Cascade after an advance: normal mode only, next word already full.
+   * The chain only ever starts from the player's own correct word, so it runs
+   * to its end even when the keyboard closes on the way (Android closes the
+   * IME when the card is redrawn). Whether a step may focus() is a separate
+   * question: mayApplyEffect('server.advance', 'moveFocus', ...).
    */
   function shouldCascadeSubmit(opts) {
     opts = opts || {};
     if (opts.isTournament) return false;
     if (!opts.hasAuto) return false;
-    if (!opts.sessionActive) return false;
     return !!opts.filled;
   }
 
