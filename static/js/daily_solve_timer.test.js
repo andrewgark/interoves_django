@@ -377,6 +377,44 @@ function fakeClock(start) {
   legacy.destroy();
 })();
 
+(function testPageRestoredFromBackHistoryContinuesSharedSeq() {
+  // Prod 2026-11-02: a ladder page restored from bfcache sent start seq 17
+  // after another page of the same tab session had reached 21; the server
+  // ignored it as stale and the timer never ran.
+  var store = memoryStorage();
+  var tab = { name: '' };
+  function make(url) {
+    return timer.create({
+      url: url,
+      document: { visibilityState: 'visible', addEventListener: function () {} },
+      windowIdentity: tab,
+      storage: store,
+      localStorage: memoryStorage(),
+      fetch: function () { return Promise.resolve({ json: function () { return Promise.resolve({ ok: true }); } }); },
+      listenDocument: false,
+      enableHeartbeat: false,
+      enableBroadcast: false,
+      offline: true,
+      bootstrap: { status: 'running', is_authoritative: true, exists: true },
+    });
+  }
+  var older = make('/ladder/118/timing/');
+  var sessionId = older.state().session_id;
+  older.pauseManual();
+  var olderSeq = Number(store.getItem('session-seq:' + sessionId));
+  var newer = make('/salad/5/timing/');
+  assert.strictEqual(newer.state().session_id, sessionId);
+  newer.pauseManual();
+  newer.pauseManual();
+  newer.pauseManual();
+  var newerSeq = Number(store.getItem('session-seq:' + sessionId));
+  assert.ok(newerSeq > olderSeq);
+  older.resumeManual();
+  assert.strictEqual(Number(store.getItem('session-seq:' + sessionId)), newerSeq + 1);
+  older.destroy();
+  newer.destroy();
+})();
+
 (function testMultiTaskGroupWithFirstTaskSolvedStillRunsTimer() {
   function card(solved) {
     return { getAttribute: function () { return solved ? '1' : '0'; } };

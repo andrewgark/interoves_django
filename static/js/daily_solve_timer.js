@@ -407,6 +407,14 @@
     }
 
     function nextSeq() {
+      // Pages in one tab share the session and its counter: a page kept alive
+      // in the back history (bfcache) resumed with its old in-memory seq, its
+      // starts went out below what the newer page had sent, and the server
+      // ignored them as stale ("accepted but not running").
+      try {
+        var stored = parseInt((storage && storage.getItem(seqKey)) || '0', 10) || 0;
+        if (stored > seq) seq = stored;
+      } catch (e) {}
       seq += 1;
       try { if (storage) storage.setItem(seqKey, String(seq)); } catch (e) {}
       return seq;
