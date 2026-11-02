@@ -155,3 +155,20 @@ def attach_results_club_badges(data):
         for actor in actors
     }
     return data
+
+
+def attach_results_profile_links(data):
+    """Map the rows of the current page to public player pages (one query)."""
+    from games.community.visibility import player_urls_for_users
+
+    actors = data.get('teams_sorted') or []
+    personal = [
+        actor for actor in actors
+        if getattr(actor, 'user_id', None) is not None
+        and not getattr(actor, 'is_team_results_row', False)
+    ]
+    urls = player_urls_for_users(actor.user_id for actor in personal)
+    data['team_to_player_url'] = {
+        actor: urls[actor.user_id] for actor in personal if actor.user_id in urls
+    }
+    return data

@@ -4,6 +4,28 @@ import secrets
 from django.contrib.auth.models import User
 from django.db import models
 
+PUBLIC_ID_ALPHABET = 'abcdefghijkmnpqrstuvwxyz23456789'
+PUBLIC_ID_LENGTH = 8
+
+
+def new_public_id():
+    """Random, non-sequential id for public URLs (/u/<id>/, /t/<id>/)."""
+    return ''.join(secrets.choice(PUBLIC_ID_ALPHABET) for _ in range(PUBLIC_ID_LENGTH))
+
+
+def _ensure_public_id(instance, kwargs):
+    """Assign a public id before the first save that lacks one.
+
+    ``save(update_fields=...)`` is common for profiles, so the new field is
+    added to the update list instead of being silently dropped.
+    """
+    if instance.public_id:
+        return
+    instance.public_id = new_public_id()
+    update_fields = kwargs.get('update_fields')
+    if update_fields is not None:
+        kwargs['update_fields'] = list(update_fields) + ['public_id']
+
 
 class Team(models.Model):
     name = models.CharField(max_length=100, primary_key=True)
@@ -23,6 +45,7 @@ class Team(models.Model):
 
     referer = models.ForeignKey('Team', related_name='referents', blank=True, null=True, on_delete=models.SET_NULL)
     join_password = models.CharField(max_length=32, blank=True, null=True)
+    public_id = models.CharField(max_length=16, unique=True, null=True, blank=True, editable=False)
 
 
     def save_name_hash(self):
@@ -39,6 +62,7 @@ class Team(models.Model):
             # короткий пароль "для своих" — можно менять в /new/team/
             self.join_password = secrets.token_hex(4)  # 8 hex chars
         self.save_name_hash()
+        _ensure_public_id(self, kwargs)
         super(Team, self).save(*args, **kwargs)
 
     def __str__(self):
@@ -251,11 +275,26 @@ class Profile(models.Model):
     club_archive_offer_last_shown_at = models.DateTimeField(blank=True, null=True)
     club_archive_offer_deferred_until = models.DateTimeField(blank=True, null=True)
     club_archive_offer_never = models.BooleanField(default=False)
+    public_id = models.CharField(max_length=16, unique=True, null=True, blank=True, editable=False)
+    # Privacy switches owned by the player. They are separate from the admin
+    # ``is_hidden`` flag and never clear data: an empty avatar_url would be
+    # refilled by the next social login, a flag is not.
+    page_hidden = models.BooleanField(
+        default=False, verbose_name='Скрыть публичную страницу',
+    )
+    avatar_hidden = models.BooleanField(
+        default=False, verbose_name='Не показывать фото другим',
+    )
 
     def __str__(self):
         return self.first_name + ' ' + self.last_name
 
+    @property
+    def display_name(self):
+        return ('{} {}'.format(self.first_name or '', self.last_name or '')).strip()
+
     def save(self, *args, **kwargs):
+        _ensure_public_id(self, kwargs)
         super().save(*args, **kwargs)
         if self.team_on_id:
             ProfileTeamMembership.objects.get_or_create(profile=self, team_id=self.team_on_id)

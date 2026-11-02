@@ -6,6 +6,7 @@ from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
 
+from games.community.visibility import player_urls_for_users
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
 )
@@ -204,9 +205,15 @@ def section_results_page(request, game_id):
     aggregate_subscriber_ids = _club_subscriber_user_ids(
         row.get('actor') for row in data.get('aggregate_rows', [])
     )
+    aggregate_player_urls = player_urls_for_users(
+        row['actor'].user_id for row in data.get('aggregate_rows', [])
+        if row.get('actor_kind') == 'user' and getattr(row.get('actor'), 'user_id', None)
+    )
     for row in data.get('aggregate_rows', []):
         actor = row.get('actor')
         row['is_club_subscriber'] = getattr(actor, 'user_id', None) in aggregate_subscriber_ids
+        if row.get('actor_kind') == 'user':
+            row['player_url'] = aggregate_player_urls.get(getattr(actor, 'user_id', None), '')
     aggregate_column_labels = {}
     if results_variant == 'alphabetty':
         current_actor = team if play_mode == 'team' else (me_personal or me_anon_participant)

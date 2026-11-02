@@ -1,0 +1,132 @@
+{% extends "site/base.html" %}
+{% block title %}{{ player.name }}{% endblock %}
+{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<section class="new-profile-card player-card" aria-labelledby="player-name">
+  <div class="new-profile-card__hero">
+    <div class="new-profile-card__avatar" aria-hidden="true">
+      <span>{{ player.initials }}</span>
+      {% if player.avatar_url %}<img src="{{ player.avatar_url }}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+    </div>
+    <div class="new-profile-card__identity">
+      <p class="new-profile-card__eyebrow">Игрок</p>
+      <h1 id="player-name" class="new-profile-card__name">{{ player.name }}</h1>
+      {% if not player_page_hidden %}
+        <p class="player-card__meta">
+          {% if player_is_club %}<span class="player-card__badge"><i class="ph ph-crown" aria-hidden="true"></i> Резидент клуба</span>{% endif %}
+          {% if player_since %}<span>С нами с {{ player_since|date:"E Y"|lower }}</span>{% endif %}
+        </p>
+      {% endif %}
+    </div>
+    {% if player_is_owner %}
+      <a class="new-btn new-btn--ghost new-btn--mini player-card__action" href="{% url 'new_profile' %}?edit=1#profile-privacy"><i class="ph ph-pencil-simple" aria-hidden="true"></i> Изменить</a>
+    {% endif %}
+  </div>
+  {% if player_is_owner %}
+    <p class="player-card__owner-note">
+      <i class="ph ph-eye" aria-hidden="true"></i>
+      {% if player_owner_page_hidden %}
+        Страница скрыта: другие игроки видят только ваше имя.
+      {% elif player_owner_avatar_hidden %}
+        Так вашу страницу видят другие, только без фото: оно скрыто.
+      {% else %}
+        Так вашу страницу видят другие игроки. Контакты здесь не показываются.
+      {% endif %}
+    </p>
+  {% endif %}
+</section>
+
+{% if player_page_hidden %}
+  <div class="new-card player-empty">
+    <i class="ph ph-lock-simple" aria-hidden="true"></i>
+    <p>Игрок скрыл свою страницу.</p>
+  </div>
+{% else %}
+  {% with stats=player_stats %}
+  {% if player_head_to_head and player_head_to_head.common %}
+    <section class="new-card player-h2h" aria-labelledby="player-h2h-title">
+      <h2 id="player-h2h-title" class="player-section-title">Вы и {{ player.name }}</h2>
+      <p class="player-h2h__lead">{{ player_head_to_head.common }} общих выпусков в ежедневных играх</p>
+      <div class="player-h2h__bar" role="img" aria-label="Вы впереди в {{ player_head_to_head.wins }}, ничья в {{ player_head_to_head.ties }}, соперник впереди в {{ player_head_to_head.losses }}">
+        {% if player_head_to_head.wins %}<span class="player-h2h__seg player-h2h__seg--win" style="flex-grow: {{ player_head_to_head.wins }}">{{ player_head_to_head.wins }}</span>{% endif %}
+        {% if player_head_to_head.ties %}<span class="player-h2h__seg player-h2h__seg--tie" style="flex-grow: {{ player_head_to_head.ties }}">{{ player_head_to_head.ties }}</span>{% endif %}
+        {% if player_head_to_head.losses %}<span class="player-h2h__seg player-h2h__seg--loss" style="flex-grow: {{ player_head_to_head.losses }}">{{ player_head_to_head.losses }}</span>{% endif %}
+      </div>
+      <div class="player-h2h__legend">
+        <span><i class="player-h2h__dot player-h2h__dot--win"></i>вы впереди</span>
+        <span><i class="player-h2h__dot player-h2h__dot--tie"></i>поровну</span>
+        <span><i class="player-h2h__dot player-h2h__dot--loss"></i>впереди {{ player.name }}</span>
+      </div>
+    </section>
+  {% endif %}
+
+  <section aria-labelledby="player-stats-title">
+    <h2 id="player-stats-title" class="new-heading">Ежедневные игры</h2>
+    {% if stats.has_any %}
+      <div class="player-overview">
+        <div class="player-tiles">
+          <div class="player-tile"><strong>{{ stats.total_played }}</strong><span>сыграно</span></div>
+          <div class="player-tile"><strong>{{ stats.active_days }}</strong><span>дней в игре</span></div>
+          <div class="player-tile"><strong>{{ stats.current_day_streak }}</strong><span>дней подряд</span></div>
+          <div class="player-tile"><strong>{{ stats.best_day_streak }}</strong><span>лучшая серия</span></div>
+        </div>
+
+        <div class="new-card player-activity">
+          <div class="player-activity__head">
+            <span>Последние {{ stats.activity|length }} недель</span>
+            <span class="player-activity__legend" aria-hidden="true">
+              меньше
+              <span class="player-activity__cell player-activity__cell--0"></span>
+              <span class="player-activity__cell player-activity__cell--1"></span>
+              <span class="player-activity__cell player-activity__cell--2"></span>
+              <span class="player-activity__cell player-activity__cell--3"></span>
+              больше
+            </span>
+          </div>
+          <div class="player-activity__grid" role="img" aria-label="Игры по дням за последние {{ stats.activity|length }} недель">
+            {% for week in stats.activity %}
+              <div class="player-activity__week">
+                {% for cell in week %}<span class="player-activity__cell player-activity__cell--{{ cell.level }}{% if cell.future %} is-future{% endif %}" data-tooltip="{{ cell.date|date:'j E' }}: {{ cell.count }}"></span>{% endfor %}
+              </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <ul class="new-card player-games">
+        {% for game in stats.games %}
+          <li class="player-game">
+            <div class="player-game__head">
+              <strong class="player-game__name">{{ game.name }}</strong>
+              {% if game.month_place %}<span class="player-game__place" data-tooltip="Место в общей таблице {{ game.month_label }}">#{{ game.month_place }}<small> из {{ game.month_total }} {{ game.month_label }}</small></span>{% endif %}
+            </div>
+            <dl class="player-game__facts">
+              <div><dt>сыграно</dt><dd>{{ game.played }}</dd></div>
+              <div><dt>решено</dt><dd>{{ game.solved }}</dd></div>
+              {% if game.median_display %}<div><dt>обычно</dt><dd>{{ game.median_display }}</dd></div>{% endif %}
+              {% if game.streak %}<div><dt>серия</dt><dd><i class="ph ph-fire" aria-hidden="true"></i> {{ game.streak }}</dd></div>{% endif %}
+            </dl>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <div class="new-card player-empty">
+        <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
+        <p>{% if player_is_owner %}Вы ещё не играли в ежедневные игры лично.{% else %}Игрок ещё не играл в ежедневные игры лично.{% endif %}</p>
+      </div>
+    {% endif %}
+  </section>
+  {% endwith %}
+
+  {% if player_teams %}
+    <section aria-labelledby="player-teams-title">
+      <h2 id="player-teams-title" class="new-heading">Команды</h2>
+      <ul class="player-teams">
+        {% for team in player_teams %}
+          <li class="player-team"><i class="ph ph-users" aria-hidden="true"></i>{{ team.visible_name }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+{% endif %}
+{% endblock %}

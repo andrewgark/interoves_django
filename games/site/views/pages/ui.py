@@ -59,6 +59,7 @@ from games.site.pages.profile.pages import (
     profile_reports,
     social_account_disconnect,
 )
+from games.site.pages.player.pages import player_profile
 from games.site.pages.team.pages import (
     team,
     team_create,

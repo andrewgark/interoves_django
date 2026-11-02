@@ -149,6 +149,7 @@ urlpatterns = [
     path('profile/reports/<int:report_id>/', ui.profile_report_detail, name='new_profile_report_detail'),
     path('profile/reports/', ui.profile_reports, name='new_profile_reports'),
     path('profile/', ui.profile, name='new_profile'),
+    path('u/<str:public_id>/', ui.player_profile, name='new_player_profile'),
     path('team/', ui.team, name='new_team'),
     path('pay/', ui.pay_page, name='new_pay'),
     path('subscription/', ui.subscription_page, name='new_subscription'),

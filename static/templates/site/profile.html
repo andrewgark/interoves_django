@@ -31,6 +31,12 @@
       <dt>Часовой пояс</dt>
       <dd>{{ profile_timezone_label }}</dd>
     </div>
+    {% if profile_public_url %}
+    <div class="new-profile-card__detail">
+      <dt>Публичная страница</dt>
+      <dd><a href="{{ profile_public_url }}">{% if profile_page_hidden %}Скрыта · посмотреть{% else %}Как меня видят другие{% endif %}</a></dd>
+    </div>
+    {% endif %}
   </dl>
     <div id="profile-edit" class="new-profile-card__editor" data-profile-editor{% if not profile_edit_open %} hidden{% endif %}>
       <div class="new-profile-card__editor-heading">
@@ -63,6 +69,18 @@
         {{ form.avatar_url }}
         {% if form.avatar_url.errors %}<span class="new-field-error">{{ form.avatar_url.errors }}</span>{% endif %}
         <p class="new-login-hint new-profile-avatar-hint">Фото из Google, Яндекса или VK обычно появляется автоматически.</p>
+        <fieldset id="profile-privacy" class="new-profile-privacy">
+          <legend>Что видят другие игроки</legend>
+          <p class="new-login-hint">Имя видно в таблицах результатов. Telegram, VK и почта другим не показываются никогда.</p>
+          <label class="new-profile-privacy__option">
+            {{ form.avatar_hidden }}
+            <span>Не показывать фото<small>Вместо фото будут инициалы</small></span>
+          </label>
+          <label class="new-profile-privacy__option">
+            {{ form.page_hidden }}
+            <span>Скрыть мою страницу<small>Другие увидят только имя, без статистики и команд</small></span>
+          </label>
+        </fieldset>
         <button type="submit" class="new-btn new-profile-card__save">Сохранить</button>
       </form>
     </div>

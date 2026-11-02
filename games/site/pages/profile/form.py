@@ -5,7 +5,7 @@ import logging
 import pytz
 from django.contrib import messages
 from django.core.exceptions import ValidationError
-from django.forms import ModelForm, TextInput
+from django.forms import CheckboxInput, ModelForm, TextInput
 from django.shortcuts import redirect
 
 from games.models import (
@@ -49,11 +49,13 @@ class ProfileSettingsForm(ModelForm):
 
     class Meta:
         model = Profile
-        fields = ['first_name', 'last_name', 'avatar_url', 'timezone']
+        fields = ['first_name', 'last_name', 'avatar_url', 'timezone', 'page_hidden', 'avatar_hidden']
         widgets = {
             'first_name': TextInput(),
             'last_name': TextInput(),
             'avatar_url': TextInput(),
+            'page_hidden': CheckboxInput(),
+            'avatar_hidden': CheckboxInput(),
         }
 
     def clean_timezone(self):

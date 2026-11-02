@@ -12,6 +12,7 @@ from django.http import Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
+from games.community.visibility import player_url
 from games.identity import has_profile
 from games.identity.merge.account import social_provider_label
 from games.models import (
@@ -143,6 +144,7 @@ def profile(request, project_id=None):
     display_last_name = (profile.last_name or '').strip()
     profile_avatar_url = profile.avatar_url
     profile_timezone = profile.timezone
+    profile_page_hidden = profile.page_hidden
     profile_telegram_handle = (
         (profile.telegram_username or profile.telegram_handle or '').strip()
     )
@@ -225,6 +227,8 @@ def profile(request, project_id=None):
         'connected_account_ids': connected_account_ids,
         'can_disconnect_social_account': len(connected_accounts) > 1,
         'tz_options': tz_options,
+        'profile_public_url': player_url(profile.public_id),
+        'profile_page_hidden': profile_page_hidden,
         'page_title': 'Профиль',
     }
     ctx.update(profile_cabinet_flags(request.user))

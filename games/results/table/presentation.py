@@ -3,7 +3,7 @@
 from django.core.paginator import Paginator
 from django.shortcuts import render
 
-from games.results.table.context import attach_results_club_badges
+from games.results.table.context import attach_results_club_badges, attach_results_profile_links
 
 
 def paginate_results_rows(request, data, per_page=50):
@@ -13,6 +13,7 @@ def paginate_results_rows(request, data, per_page=50):
     out = dict(data)
     attach_results_club_badges(out)
     out['teams_sorted'] = list(page_obj.object_list)
+    attach_results_profile_links(out)
     out['page_obj'] = page_obj
     out['paginator'] = paginator
     out['is_paginated'] = paginator.num_pages > 1
