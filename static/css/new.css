@@ -10703,6 +10703,7 @@ html.new-ui-dark .new-proportions-attempts-popover::backdrop {
    иконками как в лесенке, 5 мозгов) → tight (сложность «🧠4») → tiny (плотнее). */
 .new-taskcard__meta-bar .new-proportions-compact-points-pill,
 .new-taskcard__meta-bar .new-proportions-compact-stat:not(.new-raddle-attempt-stats),
+.new-taskcard__meta-bar .new-raddle-attempt-stats__item,
 .new-taskcard__meta-bar .new-proportions-compact-textbtn {
   flex-wrap: nowrap;
   white-space: nowrap;

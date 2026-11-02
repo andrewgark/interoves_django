@@ -8,6 +8,8 @@
  *   tiny    — tighter gaps, points without the pill frame
  * The bar is re-rendered by Alphabetty/Censorly after a guess, so new bars are
  * fitted from a MutationObserver (runs before paint, no flash of «full»).
+ * A ResizeObserver refits a bar whose width changed — including a card that
+ * was hidden (hide solved, tabs) and is shown again.
  */
 (function () {
   'use strict';
@@ -26,21 +28,37 @@
     return out.filter(function (el) { return !el.hasAttribute('popover'); });
   }
 
-  /* Wrapped = some item starts below the bottom of another one. */
+  /* Wrapped = some box starts below the bottom of another one. Text line
+     boxes count too: a long item (raddle/wall stats) can wrap inside itself
+     while its own box still sits in the first line. */
   function isWrapped(bar) {
     var minBottom = Infinity;
     var maxTop = -Infinity;
-    items(bar).forEach(function (el) {
-      var r = el.getBoundingClientRect();
+    var range = document.createRange ? document.createRange() : null;
+    function add(r) {
       if (!r.width || !r.height) return;
       if (r.bottom < minBottom) minBottom = r.bottom;
       if (r.top > maxTop) maxTop = r.top;
+    }
+    items(bar).forEach(function (el) {
+      add(el.getBoundingClientRect());
+      if (!range) return;
+      range.selectNodeContents(el);
+      Array.prototype.forEach.call(range.getClientRects(), add);
     });
     return maxTop >= minBottom - 1;
   }
 
+  var observer = null;
+  var widths = typeof WeakMap === 'function' ? new WeakMap() : null;
+
   function fit(bar) {
+    if (observer && widths && !widths.has(bar)) {
+      widths.set(bar, -1);
+      observer.observe(bar);
+    }
     if (!bar.isConnected || !bar.getClientRects().length) return;
+    if (widths) widths.set(bar, bar.clientWidth);
     for (var i = 0; i < LEVELS.length; i++) {
       bar.setAttribute('data-fit', LEVELS[i]);
       if (!isWrapped(bar)) return;
@@ -54,6 +72,16 @@
   }
 
   function init() {
+    if (window.ResizeObserver && widths) {
+      // Only width matters: a level change alters the height and must not
+      // refit again (no observer loop).
+      observer = new ResizeObserver(function (entries) {
+        entries.forEach(function (entry) {
+          var bar = entry.target;
+          if (bar.clientWidth !== widths.get(bar)) fit(bar);
+        });
+      });
+    }
     var frame = 0;
     var width = window.innerWidth;
     function schedule() {
@@ -71,6 +99,10 @@
         records.forEach(function (rec) {
           Array.prototype.forEach.call(rec.addedNodes, function (node) {
             if (node.nodeType === 1) fitAll(node);
+          });
+          // A replaced bar must not stay pinned by the ResizeObserver.
+          if (observer) Array.prototype.forEach.call(rec.removedNodes, function (node) {
+            if (node.nodeType === 1 && node.matches(BAR)) observer.unobserve(node);
           });
           // Counts/labels inside an existing bar changed (votes, attempts).
           var host = rec.target.nodeType === 1 ? rec.target : rec.target.parentElement;

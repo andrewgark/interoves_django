@@ -95,6 +95,25 @@ def minimize_digits(points):
 
 
 @register.filter
+def vote_count(value):
+    """Короткий счётчик ▲▼: 999, 1,2K, 12K, 1,2M. Округление вниз — не
+    завышаем. Должен совпадать с shortCount() в static/js/vote_stack.js."""
+    try:
+        n = max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return value
+    for base, suffix in ((1_000_000, 'M'), (1_000, 'K')):
+        if n >= base:
+            if n < base * 10:
+                tenths = n * 10 // base
+                whole, frac = divmod(tenths, 10)
+                return f'{whole},{frac}{suffix}' if frac else f'{whole}{suffix}'
+            if n < base * 1000 or suffix == 'M':
+                return f'{n // base}{suffix}'
+    return str(n)
+
+
+@register.filter
 def vote_lead(likes, dislikes):
     """Кто ведёт в голосовалке ▲▼: up / down / tie / none (для data-lead)."""
     likes, dislikes = int(likes or 0), int(dislikes or 0)

@@ -18,9 +18,9 @@
     {% if task.task_type == 'wall' and task_ui.wall %}
     {% with wu=task_ui.wall %}
     <span class="new-proportions-compact-stat new-proportions-compact-stat--plain" data-tooltip="Попытки на разбиение стены; объяснения считаются отдельно">
-      <span class="new-proportions-compact-stat__paren">(</span>{{ wu.word_attempt_count }} {{ wu.word_attempt_count|ru_attempt_word }}{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ wu.word_attempt_limit }} {{ wu.word_attempt_limit|ru_attempt_word }} до отгадывания {{ wu.word_attempt_slot|add:'1' }} категории{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
+      <span class="new-proportions-compact-stat__paren">(</span><i class="ph ph-repeat new-proportions-compact-stat__icon" aria-hidden="true"></i>{{ wu.word_attempt_count }}<span class="new-proportions-compact-stat__word"> {{ wu.word_attempt_count|ru_attempt_word }}</span>{% if mode == 'tournament' %}<span class="new-proportions-compact-stat__sep"> / </span>{{ wu.word_attempt_limit }}<span class="new-proportions-compact-stat__word"> {{ wu.word_attempt_limit|ru_attempt_word }} до отгадывания {{ wu.word_attempt_slot|add:'1' }} категории</span>{% endif %}<span class="new-proportions-compact-stat__paren">)</span>
     </span>
-    <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--plain" popovertarget="prop-wall-words-{{ task.id }}" data-tooltip="Открыть попытки разбиения стены" aria-label="Попытки разбиения стены: {{ wu.word_attempt_total }}">попытки</button>
+    <button type="button" class="new-proportions-compact-textbtn new-proportions-compact-textbtn--plain" popovertarget="prop-wall-words-{{ task.id }}" data-tooltip="Открыть попытки разбиения стены" aria-label="Попытки разбиения стены: {{ wu.word_attempt_total }}"><i class="ph ph-list-numbers new-proportions-compact-textbtn__icon" aria-hidden="true"></i><span class="new-proportions-compact-textbtn__label">попытки</span></button>
     <div id="prop-wall-words-{{ task.id }}" popover="auto" class="new-proportions-attempts-popover">
       <div class="new-proportions-attempts-popover__header"><div class="new-proportions-attempts-popover__title">Попытки разбиения стены</div><button type="button" class="new-proportions-attempts-popover__close" popovertarget="prop-wall-words-{{ task.id }}" popovertargetaction="hide" aria-label="Закрыть список попыток"><i class="ph ph-x" aria-hidden="true"></i></button></div>
       <div class="new-attempts__list new-proportions-attempts-popover__list new-wall-attempts-list">
@@ -32,10 +32,10 @@
     </div>
     {% endwith %}
     {% elif task.task_type == 'raddle' and mode == 'tournament' and rd %}
-    <span class="new-proportions-compact-stat new-proportions-compact-stat--plain new-raddle-attempt-stats" data-tooltip="Лимит попыток считается отдельно для каждого слова">
-      <span class="new-raddle-attempt-stats__item">Верхнее слово: ({{ rd.ui.top_attempts }} {{ rd.ui.top_attempts|ru_attempt_word }} / {{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }})</span>
-      <span class="new-proportions-compact-stat__sep"> · </span>
-      <span class="new-raddle-attempt-stats__item">Нижнее слово: ({{ rd.ui.bottom_attempts }} {{ rd.ui.bottom_attempts|ru_attempt_word }} / {{ task.get_max_attempts }} {{ task.get_max_attempts|ru_attempt_word }})</span>
+    <span class="new-proportions-compact-stat new-proportions-compact-stat--plain new-raddle-attempt-stats" data-tooltip="Попытки на верхнее / нижнее слово; лимит считается отдельно для каждого слова">
+      <span class="new-raddle-attempt-stats__item"><span class="new-proportions-compact-stat__word">Верхнее слово: </span><i class="ph ph-arrow-up new-proportions-compact-stat__icon" aria-hidden="true"></i><span class="new-proportions-compact-stat__paren">(</span>{{ rd.ui.top_attempts }}<span class="new-proportions-compact-stat__word"> {{ rd.ui.top_attempts|ru_attempt_word }}</span><span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }}<span class="new-proportions-compact-stat__word"> {{ task.get_max_attempts|ru_attempt_word }}</span><span class="new-proportions-compact-stat__paren">)</span></span>
+      <span class="new-proportions-compact-stat__sep new-proportions-compact-stat__word"> · </span><span class="new-proportions-compact-stat__icon"> </span>
+      <span class="new-raddle-attempt-stats__item"><span class="new-proportions-compact-stat__word">Нижнее слово: </span><i class="ph ph-arrow-down new-proportions-compact-stat__icon" aria-hidden="true"></i><span class="new-proportions-compact-stat__paren">(</span>{{ rd.ui.bottom_attempts }}<span class="new-proportions-compact-stat__word"> {{ rd.ui.bottom_attempts|ru_attempt_word }}</span><span class="new-proportions-compact-stat__sep"> / </span>{{ task.get_max_attempts }}<span class="new-proportions-compact-stat__word"> {{ task.get_max_attempts|ru_attempt_word }}</span><span class="new-proportions-compact-stat__paren">)</span></span>
     </span>
     {% elif ai.attempts %}
     {% with attempt_items=ai.attempts|attempts_with_status %}
