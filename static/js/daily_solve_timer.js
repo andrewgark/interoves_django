@@ -89,7 +89,9 @@
   // Elements whose own Esc handler closes them. While one is showing, Esc
   // belongs to it, not to the timer. The alphabetty prefix panel also uses
   // .is-open but is a persistent toggle, not something Esc dismisses.
+  // A new popup that closes on Esc should carry data-escape-owner.
   var ESCAPE_OWNER_SELECTOR = [
+    '[data-escape-owner]:not([hidden])',
     'dialog[open]',
     '[aria-modal="true"]:not([hidden])',
     '.is-open:not(.new-alphabetty__prefix-side):not(.new-alphabetty__prefix-toggle):not(.new-alphabetty__hint-btn)',
