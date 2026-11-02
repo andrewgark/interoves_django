@@ -38,7 +38,7 @@ canonical backend event counts.
 
 Onboarding parameters:
 
-- `onboarding_game_select`: `game=salad|alphabetty|ladder`, `recommended=true|false`;
+- `onboarding_game_select`: `game=salad|alphabetty|ladder|censorly`, `recommended=true|false`;
 - `onboarding_first_game_complete`: `game`, `recommended`;
 - `onboarding_second_game_start`: `first_game`, `game`;
 - `social_follow_prompt_view` / `social_follow_prompt_dismiss`: `game`;

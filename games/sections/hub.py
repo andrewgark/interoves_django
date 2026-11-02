@@ -53,7 +53,7 @@ DAILY_NAV_SECTION_IDS = (
 
 # Порядок и короткие формулировки именно для первого знакомства. Навигация
 # сохраняет привычный порядок, а onboarding всегда начинает с Салатика.
-ONBOARDING_GAME_IDS = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder')
+ONBOARDING_GAME_IDS = (WORD_SALAD_GAME_ID, 'alphabetty', 'ladder', 'censorly')
 ONBOARDING_GAME_META = {
     WORD_SALAD_GAME_ID: {
         'title': 'Салатик',
@@ -78,6 +78,14 @@ ONBOARDING_GAME_META = {
         'description': 'Восстановите цепочку связанных слов.',
         'duration': '',
         'cta_label': 'Попробовать Лесенку',
+    },
+    'censorly': {
+        'title': 'Цензурка',
+        'analytics_game': 'censorly',
+        'badge': 'Для любителей Википедии',
+        'description': 'Угадайте статью Википедии, в которой скрыты все слова: называйте слова — и они проявляются.',
+        'duration': '',
+        'cta_label': 'Попробовать Цензурку',
     },
 }
 
@@ -285,6 +293,19 @@ def onboarding_followup_context(game_id):
             'game': 'ladder',
             'title': 'Лесенка — если хочется сложнее',
             'url': section_last_path(LADDER_GAME_ID),
+        }]
+    elif game_id == 'censorly':
+        primary = {
+            'game': 'ladder',
+            'label': 'Ещё одна ежедневная игра',
+            'title': 'Лесенка',
+            'description': 'Восстановите цепочку связанных слов.',
+            'url': section_last_path(LADDER_GAME_ID),
+        }
+        alternatives = [{
+            'game': 'salad',
+            'title': 'Салатик — найдите слова в сетке 4×4',
+            'url': section_last_path(WORD_SALAD_GAME_ID),
         }]
     else:
         primary = {

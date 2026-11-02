@@ -897,8 +897,15 @@ html.new-ui-dark body.new-ui {
 
 .new-start-alternatives__grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.7rem;
+}
+
+/* Three alternatives side by side only on wide screens. Must match --new-break-wide (920px). */
+@media (min-width: 920px) {
+  .new-start-alternatives__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .new-start-alternative {

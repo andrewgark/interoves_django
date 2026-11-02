@@ -93,7 +93,7 @@ class OnboardingPageTests(TestCase):
     def setUp(self):
         self.client = Client()
 
-    def test_start_is_direct_public_route_with_one_primary_and_two_alternatives(self):
+    def test_start_is_direct_public_route_with_one_primary_and_three_alternatives(self):
         response = self.client.get('/start/')
 
         self.assertEqual(response.status_code, 200)
@@ -108,6 +108,8 @@ class OnboardingPageTests(TestCase):
         self.assertIn('href="/salad/last/"', body)
         self.assertIn('href="/alphabetty/last/"', body)
         self.assertIn('href="/ladder/last/"', body)
+        self.assertIn('href="/censorly/last/"', body)
+        self.assertIn('Для любителей Википедии', body)
         self.assertIn('Начать первую игру', body)
         self.assertEqual(body.count('new-start-primary__cta'), 1)
         self.assertIn('Самая простая', body)
@@ -118,8 +120,10 @@ class OnboardingPageTests(TestCase):
         salad = body.index('data-onboarding-game="salad"')
         alphabet = body.index('data-onboarding-game="alphabetty"')
         ladder = body.index('data-onboarding-game="ladder"')
+        censorly = body.index('data-onboarding-game="censorly"')
         self.assertLess(salad, alphabet)
         self.assertLess(alphabet, ladder)
+        self.assertLess(ladder, censorly)
 
     def test_start_has_focused_header_without_old_value_proposition(self):
         response = self.client.get('/start/')

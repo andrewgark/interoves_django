@@ -1438,6 +1438,12 @@
           };
         }
         data.__http = res.status;
+        // game_start / game_complete goals; the backend repeats them until
+        // Metrika acknowledges delivery, like in the other daily games.
+        if (data.analytics_events && window.interovesAnalytics
+            && typeof window.interovesAnalytics.flushPendingGoals === 'function') {
+          window.interovesAnalytics.flushPendingGoals(data.analytics_events);
+        }
         if (data.daily_timing && document) {
           if (isFinite(timingStateRevision)) {
             data.daily_timing._client_revision = timingStateRevision;
