@@ -60,62 +60,11 @@
     </section>
   {% endif %}
 
-  <section aria-labelledby="player-stats-title">
-    <h2 id="player-stats-title" class="new-heading">Ежедневные игры</h2>
-    {% if stats.has_any %}
-      <div class="player-overview">
-        <div class="player-tiles">
-          <div class="player-tile"><strong>{{ stats.total_played }}</strong><span>сыграно</span></div>
-          <div class="player-tile"><strong>{{ stats.active_days }}</strong><span>дней в игре</span></div>
-          <div class="player-tile"><strong>{{ stats.current_day_streak }}</strong><span>дней подряд</span></div>
-          <div class="player-tile"><strong>{{ stats.best_day_streak }}</strong><span>лучшая серия</span></div>
-        </div>
-
-        <div class="new-card player-activity">
-          <div class="player-activity__head">
-            <span>Последние {{ stats.activity|length }} недель</span>
-            <span class="player-activity__legend" aria-hidden="true">
-              меньше
-              <span class="player-activity__cell player-activity__cell--0"></span>
-              <span class="player-activity__cell player-activity__cell--1"></span>
-              <span class="player-activity__cell player-activity__cell--2"></span>
-              <span class="player-activity__cell player-activity__cell--3"></span>
-              больше
-            </span>
-          </div>
-          <div class="player-activity__grid" role="img" aria-label="Игры по дням за последние {{ stats.activity|length }} недель">
-            {% for week in stats.activity %}
-              <div class="player-activity__week">
-                {% for cell in week %}<span class="player-activity__cell player-activity__cell--{{ cell.level }}{% if cell.future %} is-future{% endif %}" data-tooltip="{{ cell.date|date:'j E' }}: {{ cell.count }}"></span>{% endfor %}
-              </div>
-            {% endfor %}
-          </div>
-        </div>
-      </div>
-
-      <ul class="new-card player-games">
-        {% for game in stats.games %}
-          <li class="player-game">
-            <div class="player-game__head">
-              <strong class="player-game__name">{{ game.name }}</strong>
-              {% if game.month_place %}<span class="player-game__place" data-tooltip="Место в общей таблице {{ game.month_label }}">#{{ game.month_place }}<small> из {{ game.month_total }} {{ game.month_label }}</small></span>{% endif %}
-            </div>
-            <dl class="player-game__facts">
-              <div><dt>сыграно</dt><dd>{{ game.played }}</dd></div>
-              <div><dt>решено</dt><dd>{{ game.solved }}</dd></div>
-              {% if game.median_display %}<div><dt>обычно</dt><dd>{{ game.median_display }}</dd></div>{% endif %}
-              {% if game.streak %}<div><dt>серия</dt><dd><i class="ph ph-fire" aria-hidden="true"></i> {{ game.streak }}</dd></div>{% endif %}
-            </dl>
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      <div class="new-card player-empty">
-        <i class="ph ph-puzzle-piece" aria-hidden="true"></i>
-        <p>{% if player_is_owner %}Вы ещё не играли в ежедневные игры лично.{% else %}Игрок ещё не играл в ежедневные игры лично.{% endif %}</p>
-      </div>
-    {% endif %}
-  </section>
+  {% if player_is_owner %}
+    {% include "site/partials/daily_stats.html" with stats_empty_text="Вы ещё не играли в ежедневные игры лично." %}
+  {% else %}
+    {% include "site/partials/daily_stats.html" with stats_empty_text="Игрок ещё не играл в ежедневные игры лично." %}
+  {% endif %}
   {% endwith %}
 
   {% if player_teams %}
@@ -123,7 +72,7 @@
       <h2 id="player-teams-title" class="new-heading">Команды</h2>
       <ul class="player-teams">
         {% for team in player_teams %}
-          <li class="player-team"><i class="ph ph-users" aria-hidden="true"></i>{{ team.visible_name }}</li>
+          <li><a class="player-team" href="{% url 'new_team_public' team.public_id %}"><i class="ph ph-users" aria-hidden="true"></i>{{ team.visible_name }}</a></li>
         {% endfor %}
       </ul>
     </section>

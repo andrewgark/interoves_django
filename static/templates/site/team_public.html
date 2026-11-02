@@ -1,0 +1,137 @@
+{% extends "site/base.html" %}
+{% block title %}{{ team.visible_name|default:team.name }}{% endblock %}
+{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<section class="new-profile-card player-card" aria-labelledby="team-name">
+  <div class="new-profile-card__hero">
+    <div class="new-profile-card__avatar team-card__avatar" aria-hidden="true">
+      <i class="ph ph-users-three"></i>
+    </div>
+    <div class="new-profile-card__identity">
+      <p class="new-profile-card__eyebrow">Команда</p>
+      <h1 id="team-name" class="new-profile-card__name">{{ team.visible_name|default:team.name }}</h1>
+      <p class="player-card__meta">
+        <span>{{ team_members|length }} {% if team_members|length == 1 %}участник{% elif team_members|length >= 2 and team_members|length <= 4 %}участника{% else %}участников{% endif %}</span>
+        {% if team_is_active %}<span class="player-card__badge team-card__badge"><i class="ph ph-check-circle" aria-hidden="true"></i> Ваша активная команда</span>
+        {% elif team_is_member %}<span class="player-card__badge team-card__badge"><i class="ph ph-check" aria-hidden="true"></i> Вы в команде</span>{% endif %}
+      </p>
+    </div>
+  </div>
+
+  {% if user.is_authenticated %}
+    <div class="team-card__actions">
+      {% if team_is_member %}
+        {% if not team_is_active %}
+          <form method="post" action="{% url 'new_team_set_primary' %}">
+            {% csrf_token %}
+            <input type="hidden" name="team" value="{{ team.pk }}">
+            <input type="hidden" name="next" value="{{ team_url }}">
+            <button type="submit" class="new-btn new-btn--mini"><i class="ph ph-star" aria-hidden="true"></i> Сделать активной</button>
+          </form>
+        {% endif %}
+        {% if team_invite_url %}
+          <div class="team-invite">
+            <label for="team-invite-link">Ссылка-приглашение</label>
+            <div class="team-invite__row">
+              <input id="team-invite-link" type="text" readonly value="{{ team_invite_url }}" data-team-invite-link>
+              <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-invite-copy><i class="ph ph-copy" aria-hidden="true"></i> <span>Копировать</span></button>
+            </div>
+          </div>
+        {% endif %}
+        <form method="post" action="{% url 'new_team_invite_create' %}">
+          {% csrf_token %}
+          <input type="hidden" name="team" value="{{ team.pk }}">
+          <input type="hidden" name="next" value="{{ team_url }}">
+          <button type="submit" class="new-btn new-btn--ghost new-btn--mini"><i class="ph ph-link" aria-hidden="true"></i> {% if team_invite_url %}Новая ссылка{% else %}Пригласить по ссылке{% endif %}</button>
+        </form>
+      {% elif team_requested %}
+        <p class="team-card__note"><i class="ph ph-hourglass" aria-hidden="true"></i>
+          {% if team_requested.pk == team.pk %}Заявка отправлена, ждём подтверждения.{% else %}У вас уже есть заявка в «{{ team_requested.visible_name }}».{% endif %}
+        </p>
+      {% else %}
+        <form method="post" action="{% url 'new_team_request_join' %}">
+          {% csrf_token %}
+          <input type="hidden" name="name" value="{{ team.name }}">
+          <input type="hidden" name="next" value="{{ team_url }}">
+          <input type="hidden" name="make_primary" value="0">
+          <button type="submit" class="new-btn new-btn--mini"><i class="ph ph-user-plus" aria-hidden="true"></i> Попроситься в команду</button>
+        </form>
+      {% endif %}
+    </div>
+  {% endif %}
+</section>
+
+{% if team_join_requests %}
+<section class="new-card team-requests" aria-labelledby="team-requests-title">
+  <h2 id="team-requests-title" class="player-section-title">Хотят в команду</h2>
+  <ul class="team-requests__list">
+    {% for request_row in team_join_requests %}
+      <li class="team-requests__item">
+        <a class="team-member team-member--plain" href="{{ request_row.identity.url }}">
+          <span class="team-member__avatar" aria-hidden="true">
+            <span>{{ request_row.identity.initials }}</span>
+            {% if request_row.identity.avatar_url %}<img src="{{ request_row.identity.avatar_url }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+          </span>
+          <span class="team-member__name">{{ request_row.identity.name }}</span>
+        </a>
+        <span class="team-requests__actions">
+          <form method="post" action="/confirm_user_joining_team/{{ request_row.user_id }}/">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ team_url }}">
+            <button type="submit" class="new-btn new-btn--mini">Принять</button>
+          </form>
+          <form method="post" action="/reject_user_joining_team/{{ request_row.user_id }}/">
+            {% csrf_token %}<input type="hidden" name="next" value="{{ team_url }}">
+            <button type="submit" class="new-btn new-btn--ghost new-btn--mini">Отклонить</button>
+          </form>
+        </span>
+      </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+
+<section aria-labelledby="team-members-title">
+  <h2 id="team-members-title" class="new-heading">Состав</h2>
+  {% if team_members %}
+    <ul class="team-roster">
+      {% for member in team_members %}
+        <li>
+          {% if member.url %}<a class="team-member" href="{{ member.url }}">{% else %}<span class="team-member">{% endif %}
+            <span class="team-member__avatar" aria-hidden="true">
+              <span>{{ member.identity.initials }}</span>
+              {% if member.identity.avatar_url %}<img src="{{ member.identity.avatar_url }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+            </span>
+            <span class="team-member__name">{{ member.identity.name }}{% if member.is_viewer %} <small>(вы)</small>{% endif %}</span>
+          {% if member.url %}</a>{% else %}</span>{% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="new-card player-empty"><i class="ph ph-users" aria-hidden="true"></i><p>В команде пока никого нет.</p></div>
+  {% endif %}
+</section>
+
+{% include "site/partials/daily_stats.html" with stats=team_stats stats_empty_text="Команда ещё не играла в ежедневные игры командой." %}
+
+{% if team_invite_url %}
+<script>
+(function () {
+  var button = document.querySelector('[data-team-invite-copy]');
+  var input = document.querySelector('[data-team-invite-link]');
+  if (!button || !input) return;
+  button.addEventListener('click', function () {
+    var done = function () {
+      var label = button.querySelector('span');
+      if (label) label.textContent = 'Скопировано';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(input.value).then(done, function () { input.select(); });
+    } else {
+      input.select();
+      try { document.execCommand('copy'); done(); } catch (e) { /* keep the selection */ }
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

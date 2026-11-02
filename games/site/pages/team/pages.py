@@ -1,6 +1,7 @@
 """Main UI: hub, games folder, profile, team."""
 import hmac
 import logging
+import re
 import secrets
 from urllib.parse import urlencode
 
@@ -90,6 +91,25 @@ def _member_teams_active_first(profile):
         return rows, []
     others = [t for t in rows if t.pk != tid]
     return [primary] + others, others
+
+
+def _posted_member_team(request):
+    """Team named by POST ``team`` when the user is its member, else None."""
+    team_pk = (request.POST.get('team') or '').strip()
+    if not team_pk:
+        return None
+    team = get_object_or_404(Team, pk=team_pk)
+    if not ProfileTeamMembership.objects.filter(profile=request.user.profile, team=team).exists():
+        raise Http404()
+    return team
+
+
+def _public_team_next(request):
+    """Redirect back to a public team page (``/t/<id>/``) when asked to."""
+    target = (request.POST.get('next') or '').strip()
+    if re.fullmatch(r'/t/[a-z0-9]{1,16}/', target):
+        return redirect(target)
+    return None
 
 
 def _team_ticket_requests_page(request, team, *, page_param='tr_page', per_page=TICKET_REQUESTS_PAGE_SIZE):
@@ -288,9 +308,11 @@ def team_invite_accept(request, token, project_id=None):
 @login_required
 @require_http_methods(['POST'])
 def team_invite_create(request, project_id=None):
-    if not has_profile(request.user) or not request.user.profile.team_on:
+    if not has_profile(request.user):
         raise Http404()
-    team = request.user.profile.team_on
+    team = _posted_member_team(request) or request.user.profile.team_on
+    if team is None:
+        raise Http404()
     scoped = _scoped_project_id(request)
     if scoped and team.project_id != scoped:
         raise Http404()
@@ -305,7 +327,7 @@ def team_invite_create(request, project_id=None):
             created_by=request.user,
         )
     messages.success(request, 'Новая ссылка-приглашение создана.')
-    return _team_redirect(request)
+    return _public_team_next(request) or _team_redirect(request)
 
 
 @login_required
@@ -373,6 +395,10 @@ def team_request_join(request, project_id=None):
     profile.join_accept_as_primary = _post_make_new_team_primary(request)
     profile.team_requested = team
     profile.save(update_fields=['team_requested', 'join_accept_as_primary'])
+    public_next = _public_team_next(request)
+    if public_next:
+        messages.success(request, 'Заявка отправлена. Участники команды подтвердят её на странице команды.')
+        return public_next
     return _team_redirect(request)
 
 
@@ -427,7 +453,7 @@ def team_set_primary(request, project_id=None):
     team = get_object_or_404(Team, pk=team_pk)
     if not request.user.profile.set_primary_team(team):
         messages.error(request, 'Нет доступа к этой команде.')
-    return _team_redirect(request)
+    return _public_team_next(request) or _team_redirect(request)
 
 
 @login_required

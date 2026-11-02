@@ -83,8 +83,23 @@ def format_duration(seconds):
     return '{}:{:02d}'.format(minutes, secs)
 
 
-def _personal_completions(user):
-    return PlayerCompletedGame.objects.filter(user=user, team__isnull=True)
+@dataclass(frozen=True)
+class _Actor:
+    """Filters selecting one results actor across the daily read models."""
+    kind: str  # DailyResultProjection.ACTOR_USER or ACTOR_TEAM
+    obj: object
+
+    @property
+    def own(self):
+        if self.kind == DailyResultProjection.ACTOR_TEAM:
+            return {'team': self.obj}
+        return {'user': self.obj, 'team__isnull': True}
+
+    @property
+    def snapshot_row(self):
+        if self.kind == DailyResultProjection.ACTOR_TEAM:
+            return {'actor_type': self.kind, 'team': self.obj}
+        return {'actor_type': self.kind, 'user': self.obj}
 
 
 def day_streaks(days, *, today):
@@ -126,16 +141,22 @@ def _activity_grid(day_counts, *, today, weeks=ACTIVITY_WEEKS):
     return grid, first
 
 
-def _median_times(user, game_ids):
+def _median_times(actor, game_ids):
     rows = DailySolveTiming.objects.filter(
-        user=user, team__isnull=True, replay_slot__isnull=True,
-        status=DailySolveTiming.STATUS_COMPLETED, game_id__in=game_ids,
-    ).values_list('game_id', 'frozen_ms', 'accumulated_ms')
-    by_game = defaultdict(list)
-    for game_id, frozen_ms, accumulated_ms in rows:
+        replay_slot__isnull=True, status=DailySolveTiming.STATUS_COMPLETED,
+        game_id__in=game_ids, **actor.own,
+    ).values_list('game_id', 'task_group_id', 'frozen_ms', 'accumulated_ms')
+    # A team may keep several timing rows per release (one per timing key);
+    # the release took as long as its fastest completed run.
+    per_release = {}
+    for game_id, group_id, frozen_ms, accumulated_ms in rows:
         value = frozen_ms if frozen_ms is not None else accumulated_ms
         if value and value > 0:
-            by_game[str(game_id)].append(value / 1000)
+            key = (str(game_id), group_id)
+            per_release[key] = min(value, per_release.get(key, value))
+    by_game = defaultdict(list)
+    for (game_id, _group_id), value in per_release.items():
+        by_game[game_id].append(value / 1000)
     return {game_id: statistics.median(values) for game_id, values in by_game.items()}
 
 
@@ -149,8 +170,8 @@ def _visible_rows(version):
     )
 
 
-def _month_places(user, game_ids, *, today):
-    """Place in the latest published monthly table that includes the player.
+def _month_places(actor, game_ids, *, today):
+    """Place in the current month's published table that includes the actor.
 
     Ranking matches the table (RANK over score), so equal scores share a
     place. Only the current month is considered: last month's place is stale
@@ -163,7 +184,7 @@ def _month_places(user, game_ids, *, today):
     out = {}
     for game_id, version_id in snapshots:
         mine = DailyAggregateSnapshotRow.objects.filter(
-            version_id=version_id, actor_type=DailyResultProjection.ACTOR_USER, user=user,
+            version_id=version_id, **actor.snapshot_row,
         ).values_list('score', flat=True).first()
         if mine is None:
             continue
@@ -177,12 +198,24 @@ def _month_places(user, game_ids, *, today):
 
 
 def player_stats(user, *, now=None):
+    """Personal play only: in team mode the result belongs to the team."""
+    return _actor_stats(_Actor(DailyResultProjection.ACTOR_USER, user), now=now)
+
+
+def team_stats(team, *, now=None):
+    return _actor_stats(_Actor(DailyResultProjection.ACTOR_TEAM, team), now=now)
+
+
+def _actor_stats(actor, *, now=None):
     from games.daily.activity import active_days
     from games.daily.timing.streak import daily_streaks_for_actor
 
     now = now or timezone.now()
     today = now.astimezone(MOSCOW).date()
-    completions = _personal_completions(user).filter(game_id__in=DAILY_TIMING_GAME_IDS)
+    is_user = actor.kind == DailyResultProjection.ACTOR_USER
+    completions = PlayerCompletedGame.objects.filter(
+        game_id__in=DAILY_TIMING_GAME_IDS, **actor.own,
+    )
     counts = {
         str(row['game_id']): row for row in completions.values('game_id').annotate(
             played=Count('id'),
@@ -195,9 +228,12 @@ def player_stats(user, *, now=None):
         return stats
 
     games = {str(g.pk): g for g in Game.objects.filter(pk__in=list(counts))}
-    medians = _median_times(user, list(counts))
-    streaks = daily_streaks_for_actor(games=list(games.values()), user=user, now=now)
-    places = _month_places(user, list(counts), today=today)
+    medians = _median_times(actor, list(counts))
+    # Publication-date streaks exist for personal actors only.
+    streaks = daily_streaks_for_actor(
+        games=list(games.values()), user=actor.obj, now=now,
+    ) if is_user else {}
+    places = _month_places(actor, list(counts), today=today)
     for game_id, row in counts.items():
         game = games.get(game_id)
         if game is None:
@@ -220,7 +256,7 @@ def player_stats(user, *, now=None):
     day_counts = defaultdict(int)
     for moment in completions.values_list('completed_at', flat=True):
         day_counts[moment.astimezone(MOSCOW).date()] += 1
-    stats.active_days = active_days(user=user) or len(day_counts)
+    stats.active_days = (active_days(user=actor.obj) if is_user else 0) or len(day_counts)
     stats.current_day_streak, stats.best_day_streak = day_streaks(day_counts, today=today)
     stats.activity, stats.activity_first_day = _activity_grid(day_counts, today=today)
     return stats

@@ -60,6 +60,7 @@ from games.site.pages.profile.pages import (
     social_account_disconnect,
 )
 from games.site.pages.player.pages import player_profile
+from games.site.pages.team.public import team_public_page
 from games.site.pages.team.pages import (
     team,
     team_create,
