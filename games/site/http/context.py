@@ -220,3 +220,24 @@ def feedback_nav(request):
         return {'has_unread_feedback': user_has_unread_feedback(user)}
     except Exception:
         return {'has_unread_feedback': False}
+
+
+def friends_nav(request):
+    """Pending incoming friend requests for the nav badge (cached per user)."""
+    match = getattr(request, 'resolver_match', None)
+    url_name = (match.url_name or '') if match else ''
+    if not (
+        url_name.startswith('ui_')
+        or url_name.startswith('new_')
+        or url_name.startswith('project_')
+    ):
+        return {}
+    user = getattr(request, 'user', None)
+    if not user or not getattr(user, 'is_authenticated', False):
+        return {'friend_requests_count': 0}
+    try:
+        from games.community.friends import incoming_count
+
+        return {'friend_requests_count': incoming_count(user.pk)}
+    except Exception:
+        return {'friend_requests_count': 0}

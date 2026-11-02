@@ -1,4 +1,5 @@
 {% extends "site/base.html" %}
+{% load filters %}
 {% block title %}{{ team.visible_name|default:team.name }}{% endblock %}
 {% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
@@ -11,7 +12,7 @@
       <p class="new-profile-card__eyebrow">Команда</p>
       <h1 id="team-name" class="new-profile-card__name">{{ team.visible_name|default:team.name }}</h1>
       <p class="player-card__meta">
-        <span>{{ team_members|length }} {% if team_members|length == 1 %}участник{% elif team_members|length >= 2 and team_members|length <= 4 %}участника{% else %}участников{% endif %}</span>
+        <span>{{ team_members|length }} {{ team_members|length|ru_plural:"участник,участника,участников" }}</span>
         {% if team_is_active %}<span class="player-card__badge team-card__badge"><i class="ph ph-check-circle" aria-hidden="true"></i> Ваша активная команда</span>
         {% elif team_is_member %}<span class="player-card__badge team-card__badge"><i class="ph ph-check" aria-hidden="true"></i> Вы в команде</span>{% endif %}
       </p>

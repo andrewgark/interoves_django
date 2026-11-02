@@ -59,6 +59,13 @@ from games.site.pages.profile.pages import (
     profile_reports,
     social_account_disconnect,
 )
+from games.site.pages.friends.pages import (
+    friend_invite,
+    friend_invite_accept,
+    friend_invite_create,
+    friends_action,
+    friends_page,
+)
 from games.site.pages.player.pages import player_profile
 from games.site.pages.team.public import team_public_page
 from games.site.pages.team.pages import (

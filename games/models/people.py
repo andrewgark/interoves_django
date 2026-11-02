@@ -113,6 +113,61 @@ class TeamInvite(models.Model):
         return self.revoked_at is None
 
 
+class Friendship(models.Model):
+    """Mutual friendship between two players, pending until confirmed.
+
+    One row per pair: ``user_low`` always has the smaller id, so the pair is
+    unique regardless of who asked. ``requested_by`` says who sent it.
+    """
+
+    STATUS_PENDING = 'pending'
+    STATUS_ACCEPTED = 'accepted'
+    STATUS_CHOICES = (
+        (STATUS_PENDING, 'Заявка'),
+        (STATUS_ACCEPTED, 'Друзья'),
+    )
+
+    user_low = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
+    user_high = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
+    requested_by = models.ForeignKey(User, related_name='+', on_delete=models.CASCADE)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    accepted_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'дружба'
+        verbose_name_plural = 'дружба'
+        constraints = [
+            models.UniqueConstraint(fields=('user_low', 'user_high'), name='games_friendship_uniq_pair'),
+            models.CheckConstraint(check=models.Q(user_low__lt=models.F('user_high')), name='games_friendship_ordered_pair'),
+        ]
+        indexes = [
+            models.Index(fields=('user_high', 'status'), name='games_friendship_high_idx'),
+            models.Index(fields=('user_low', 'status'), name='games_friendship_low_idx'),
+        ]
+
+    def other(self, user_id):
+        return self.user_high_id if self.user_low_id == user_id else self.user_low_id
+
+    def __str__(self):
+        return '{} ↔ {} ({})'.format(self.user_low_id, self.user_high_id, self.status)
+
+
+class FriendInvite(models.Model):
+    """Bearer link: whoever opens it and confirms becomes the owner's friend."""
+
+    user = models.ForeignKey(User, related_name='friend_invites', on_delete=models.CASCADE)
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(blank=True, null=True)
+    uses_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'приглашение в друзья'
+        verbose_name_plural = 'приглашения в друзья'
+        indexes = [models.Index(fields=('user', 'revoked_at'), name='games_friendinvite_user_idx')]
+
+
 class HiddenAnonKey(models.Model):
     """anon_key, скрытый из общих результатов (аналог Team.is_hidden)."""
 

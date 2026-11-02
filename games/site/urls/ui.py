@@ -11,7 +11,7 @@ from games.site.views.account.team import (
 from games.site.views.pages import ui
 
 # Project-scoped UI prefixes like /glowbyte/..., must not swallow built-in roots like /games/ or /section/.
-_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|censorly|walls|replacements|palindromes|week_task|team|profile|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad|create_censorly)[a-zA-Z0-9_-]+)'
+_PROJECT_ID_RE = r'(?P<project_id>(?!admin|accounts|old|games|section|sections|start|ladder|alphabetty|salad|word_salad|censorly|walls|replacements|palindromes|week_task|team|profile|friends|pay|subscription|answer|like-dislike|bug-report|play-mode|migrate-anon-attempts|anon-migrate-count|club-archive-offer-action|anon-merge-jobs|health|meta|inline-edit|explorer|support|yookassa|nowpayments|tribute|privacy-policy|terms-of-use|tickets|ticket-agreement|vpn|donate|order-game|corporate|logout|nutrimatic-ru|eurovision_booklet|offer_ladder|create_ladder|create_alphabetty|offer_alphabetty|create_salad|create_censorly)[a-zA-Z0-9_-]+)'
 
 urlpatterns = [
     path('start/', ui.start, name='ui_start'),
@@ -235,5 +235,7 @@ urlpatterns = [
     path('pay/create-tribute-ticket-payment/', ui.create_tribute_ticket_payment, name='ui_create_tribute_ticket_payment'),
     path('pay/link-telegram/', ui.telegram_link_start, name='ui_telegram_link_start'),
     path('pay/ticket-status/<int:ticket_request_id>/', ui.ticket_payment_status, name='ui_ticket_payment_status'),
+    # Must precede the folder catch-all below; /u/ and /t/ pages have two segments.
+    path('friends/', ui.friends_page, name='ui_friends'),
     path('<slug>/', ui.folder, name='ui_folder'),
 ]

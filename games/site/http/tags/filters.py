@@ -197,6 +197,16 @@ def ru_day_word(n):
 
 
 @register.filter
+def ru_plural(n, forms):
+    """``{{ n|ru_plural:"друг,друга,друзей" }}`` → the form for n (without n)."""
+    one, few, many = (part.strip() for part in str(forms).split(','))
+    try:
+        return _ru_plural_form_int(int(n), one, few, many)
+    except (TypeError, ValueError):
+        return many
+
+
+@register.filter
 def ru_player_word(n):
     """1 игрок / 2–4 игрока / 5+ игроков (11–14 — игроков)."""
     try:

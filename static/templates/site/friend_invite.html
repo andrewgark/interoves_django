@@ -1,0 +1,43 @@
+{% extends "site/base.html" %}
+{% block title %}Приглашение в друзья{% endblock %}
+{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{% if invite_invalid %}
+  <div class="new-card player-empty">
+    <i class="ph ph-link-break" aria-hidden="true"></i>
+    <p>Ссылка устарела или не существует. Попросите друга прислать новую.</p>
+  </div>
+{% else %}
+  <section class="new-profile-card player-card friend-invite" aria-labelledby="friend-invite-title">
+    <div class="new-profile-card__hero">
+      <div class="new-profile-card__avatar" aria-hidden="true">
+        <span>{{ invite_owner.initials }}</span>
+        {% if invite_owner.avatar_url %}<img src="{{ invite_owner.avatar_url }}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+      </div>
+      <div class="new-profile-card__identity">
+        <p class="new-profile-card__eyebrow">Приглашение в друзья</p>
+        <h1 id="friend-invite-title" class="new-profile-card__name">{{ invite_owner.name }}</h1>
+        <p class="player-card__meta">зовёт вас в друзья: будете видеть друг друга в таблицах результатов</p>
+      </div>
+    </div>
+    <div class="team-card__actions">
+      {% if not user.is_authenticated %}
+        <a class="new-btn new-btn--mini" href="{{ invite_login_url }}"><i class="ph ph-sign-in" aria-hidden="true"></i> Войти и подружиться</a>
+      {% elif invite_relation == 'self' %}
+        <p class="team-card__note"><i class="ph ph-info" aria-hidden="true"></i> Это ваша ссылка — отправьте её другу.</p>
+      {% elif invite_relation == 'friends' %}
+        <p class="team-card__note"><i class="ph ph-handshake" aria-hidden="true"></i> Вы уже друзья.</p>
+        <a class="new-btn new-btn--ghost new-btn--mini" href="{{ invite_owner.url }}">Открыть страницу</a>
+      {% elif not invite_has_profile %}
+        <p class="team-card__note">Сначала заполните <a href="{% url 'new_profile' %}">профиль</a>.</p>
+      {% else %}
+        <form method="post" action="{% url 'new_friend_invite_accept' invite.token %}">
+          {% csrf_token %}
+          <button type="submit" class="new-btn new-btn--mini"><i class="ph ph-handshake" aria-hidden="true"></i> Подружиться</button>
+        </form>
+        <a class="new-btn new-btn--ghost new-btn--mini" href="{{ invite_owner.url }}">Кто это?</a>
+      {% endif %}
+    </div>
+  </section>
+{% endif %}
+{% endblock %}

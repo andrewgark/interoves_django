@@ -30,20 +30,26 @@ def page_state(viewer, profile):
     if profile.is_hidden:
         return PAGE_MISSING
     if profile.page_hidden:
+        # Confirmed friends still see the page: hiding it is about strangers.
+        from games.community.friends import are_friends
+
+        if are_friends(getattr(viewer, 'pk', None), profile.user_id):
+            return PAGE_FULL
         return PAGE_HIDDEN
     return PAGE_FULL
 
 
-def public_avatar_url(profile, viewer=None):
+def public_avatar_url(profile, viewer=None, *, page_visible=False):
     """Avatar URL as other players see it; the owner still sees their photo.
 
-    A hidden page hides the photo too: the player asked to show only a name.
+    A hidden page hides the photo too (the player asked to show only a
+    name), unless this viewer may see the page anyway (``page_visible``).
     """
     if not profile.avatar_url:
         return ''
-    if (profile.avatar_hidden or profile.page_hidden) and not (
-        viewer is not None and is_owner(viewer, profile)
-    ):
+    if viewer is not None and is_owner(viewer, profile):
+        return profile.avatar_url
+    if profile.avatar_hidden or (profile.page_hidden and not page_visible):
         return ''
     return profile.avatar_url
 
@@ -61,11 +67,11 @@ class PublicIdentity:
     url: str
 
 
-def public_identity(profile, viewer=None):
+def public_identity(profile, viewer=None, *, page_visible=False):
     return PublicIdentity(
         name=profile.display_name or 'Игрок',
         initials=initials(profile),
-        avatar_url=public_avatar_url(profile, viewer),
+        avatar_url=public_avatar_url(profile, viewer, page_visible=page_visible),
         url=player_url(profile.public_id),
     )
 

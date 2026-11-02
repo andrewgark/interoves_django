@@ -1,0 +1,30 @@
+{% comment %}Friendship buttons for one player.
+Context: relation (games.community.friends RELATION_*), player_public_id, next_url.{% endcomment %}
+{% if relation == 'none' or relation == 'outgoing' or relation == 'incoming' or relation == 'friends' %}
+<div class="friend-actions">
+  {% if relation == 'none' %}
+    <form method="post" action="{% url 'new_friends_action' %}">
+      {% csrf_token %}<input type="hidden" name="player" value="{{ player_public_id }}"><input type="hidden" name="next" value="{{ next_url }}">
+      <button type="submit" name="action" value="request" class="new-btn new-btn--mini"><i class="ph ph-user-plus" aria-hidden="true"></i> Добавить в друзья</button>
+    </form>
+  {% elif relation == 'incoming' %}
+    <form method="post" action="{% url 'new_friends_action' %}">
+      {% csrf_token %}<input type="hidden" name="player" value="{{ player_public_id }}"><input type="hidden" name="next" value="{{ next_url }}">
+      <button type="submit" name="action" value="accept" class="new-btn new-btn--mini"><i class="ph ph-check" aria-hidden="true"></i> Принять заявку</button>
+      <button type="submit" name="action" value="remove" class="new-btn new-btn--ghost new-btn--mini">Отклонить</button>
+    </form>
+  {% elif relation == 'outgoing' %}
+    <form method="post" action="{% url 'new_friends_action' %}">
+      {% csrf_token %}<input type="hidden" name="player" value="{{ player_public_id }}"><input type="hidden" name="next" value="{{ next_url }}">
+      <span class="friend-actions__state"><i class="ph ph-hourglass" aria-hidden="true"></i> Заявка отправлена</span>
+      <button type="submit" name="action" value="remove" class="new-btn new-btn--ghost new-btn--mini">Отменить</button>
+    </form>
+  {% elif relation == 'friends' %}
+    <form method="post" action="{% url 'new_friends_action' %}" onsubmit="return confirm('Удалить из друзей?');">
+      {% csrf_token %}<input type="hidden" name="player" value="{{ player_public_id }}"><input type="hidden" name="next" value="{{ next_url }}">
+      <span class="friend-actions__state friend-actions__state--friends"><i class="ph ph-handshake" aria-hidden="true"></i> В друзьях</span>
+      <button type="submit" name="action" value="remove" class="new-btn new-btn--text new-btn--mini">Удалить</button>
+    </form>
+  {% endif %}
+</div>
+{% endif %}

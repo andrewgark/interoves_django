@@ -1,0 +1,87 @@
+{% extends "site/base.html" %}
+{% load filters %}
+{% block title %}Друзья{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Друзья</h1>
+
+<section class="new-card friends-invite" aria-labelledby="friends-invite-title">
+  <h2 id="friends-invite-title" class="player-section-title">Позвать друга</h2>
+  <p class="friends-invite__lead">Кто откроет ссылку и подтвердит, сразу станет вашим другом. Добавить можно и со страницы игрока: нажмите на имя в таблице результатов.</p>
+  {% if friends_invite_url %}
+    <div class="team-invite__row">
+      <input type="text" readonly value="{{ friends_invite_url }}" aria-label="Ссылка-приглашение в друзья" data-invite-link>
+      <button type="button" class="new-btn new-btn--mini" data-invite-copy><i class="ph ph-copy" aria-hidden="true"></i> <span>Копировать</span></button>
+    </div>
+  {% endif %}
+  <form method="post" action="{% url 'new_friend_invite_create' %}" class="friends-invite__new">
+    {% csrf_token %}
+    <button type="submit" class="new-btn new-btn--{% if friends_invite_url %}text{% else %}mini{% endif %} new-btn--mini"><i class="ph ph-link" aria-hidden="true"></i> {% if friends_invite_url %}Сделать новую ссылку (старая перестанет работать){% else %}Создать ссылку-приглашение{% endif %}</button>
+  </form>
+</section>
+
+{% if friends_incoming %}
+  <section class="new-card team-requests" aria-labelledby="friends-incoming-title">
+    <h2 id="friends-incoming-title" class="player-section-title">Хотят дружить</h2>
+    <ul class="team-requests__list">
+      {% for row in friends_incoming %}
+        <li class="team-requests__item">
+          {% include "site/partials/player_chip.html" with identity=row.identity link=True plain=True %}
+          {% include "site/partials/friend_actions.html" with relation="incoming" player_public_id=row.public_id next_url="/friends/" %}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}
+
+<section aria-labelledby="friends-list-title">
+  <h2 id="friends-list-title" class="new-heading">{% if friends_list %}{{ friends_list|length }} {{ friends_list|length|ru_plural:"друг,друга,друзей" }}{% else %}Пока без друзей{% endif %}</h2>
+  {% if friends_list %}
+    <ul class="team-roster">
+      {% for row in friends_list %}
+        <li>{% include "site/partials/player_chip.html" with identity=row.identity link=True %}</li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <div class="new-card player-empty">
+      <i class="ph ph-handshake" aria-hidden="true"></i>
+      <p>Отправьте ссылку-приглашение или добавьте игрока из таблицы результатов.</p>
+    </div>
+  {% endif %}
+</section>
+
+{% if friends_outgoing %}
+  <section aria-labelledby="friends-outgoing-title">
+    <h2 id="friends-outgoing-title" class="new-heading">Ждут ответа</h2>
+    <ul class="new-card team-requests__list friends-outgoing">
+      {% for row in friends_outgoing %}
+        <li class="team-requests__item">
+          {% include "site/partials/player_chip.html" with identity=row.identity link=True plain=True %}
+          {% include "site/partials/friend_actions.html" with relation="outgoing" player_public_id=row.public_id next_url="/friends/" %}
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+{% endif %}
+
+{% if friends_invite_url %}
+<script>
+(function () {
+  var button = document.querySelector('[data-invite-copy]');
+  var input = document.querySelector('[data-invite-link]');
+  if (!button || !input) return;
+  button.addEventListener('click', function () {
+    var done = function () {
+      var label = button.querySelector('span');
+      if (label) label.textContent = 'Скопировано';
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(input.value).then(done, function () { input.select(); });
+    } else {
+      input.select();
+      try { document.execCommand('copy'); done(); } catch (e) { /* keep the selection */ }
+    }
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

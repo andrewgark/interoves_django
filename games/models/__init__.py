@@ -110,6 +110,8 @@ from games.models.jobs import (  # noqa: F401
 )
 from games.models.offline import OfflinePlayRule  # noqa: F401
 from games.models.people import (  # noqa: F401
+    FriendInvite,
+    Friendship,
     HiddenAnonKey,
     PersonalResultsParticipant,
     Profile,
@@ -159,6 +161,8 @@ __all__ = [
     'ReplaySlot',
     'Team',
     'TeamInvite',
+    'Friendship',
+    'FriendInvite',
     'HiddenAnonKey',
     'hidden_anon_keys',
     'anon_key_is_hidden',

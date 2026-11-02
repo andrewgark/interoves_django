@@ -1,0 +1,8 @@
+{% comment %}One player card. Context: identity (games.community.visibility.PublicIdentity), link (bool), plain (no frame).{% endcomment %}
+{% if link and identity.url %}<a class="team-member{% if plain %} team-member--plain{% endif %}" href="{{ identity.url }}">{% else %}<span class="team-member{% if plain %} team-member--plain{% endif %}">{% endif %}
+  <span class="team-member__avatar" aria-hidden="true">
+    <span>{{ identity.initials }}</span>
+    {% if identity.avatar_url %}<img src="{{ identity.avatar_url }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
+  </span>
+  <span class="team-member__name">{{ identity.name }}</span>
+{% if link and identity.url %}</a>{% else %}</span>{% endif %}

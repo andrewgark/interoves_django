@@ -1,4 +1,5 @@
 {% extends "site/base.html" %}
+{% load filters %}
 {% block title %}{{ player.name }}{% endblock %}
 {% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
 {% block content %}
@@ -15,13 +16,22 @@
         <p class="player-card__meta">
           {% if player_is_club %}<span class="player-card__badge"><i class="ph ph-crown" aria-hidden="true"></i> Резидент клуба</span>{% endif %}
           {% if player_since %}<span>С нами с {{ player_since|date:"E Y"|lower }}</span>{% endif %}
+          {% if player_friends_count %}<span>{{ player_friends_count }} {{ player_friends_count|ru_plural:"друг,друга,друзей" }}{% if player_mutual_friends_count %} · {{ player_mutual_friends_count }} общих{% endif %}</span>{% endif %}
         </p>
       {% endif %}
     </div>
     {% if player_is_owner %}
-      <a class="new-btn new-btn--ghost new-btn--mini player-card__action" href="{% url 'new_profile' %}?edit=1#profile-privacy"><i class="ph ph-pencil-simple" aria-hidden="true"></i> Изменить</a>
+      <span class="player-card__owner-actions">
+        <a class="new-btn new-btn--ghost new-btn--mini player-card__action" href="{% url 'new_friends' %}"><i class="ph ph-users-three" aria-hidden="true"></i> Друзья</a>
+        <a class="new-btn new-btn--ghost new-btn--mini player-card__action" href="{% url 'new_profile' %}?edit=1#profile-privacy"><i class="ph ph-pencil-simple" aria-hidden="true"></i> Изменить</a>
+      </span>
     {% endif %}
   </div>
+  {% if user.is_authenticated and not player_is_owner %}
+    <div class="player-card__friends">
+      {% include "site/partials/friend_actions.html" with relation=player_relation next_url=request.path %}
+    </div>
+  {% endif %}
   {% if player_is_owner %}
     <p class="player-card__owner-note">
       <i class="ph ph-eye" aria-hidden="true"></i>
