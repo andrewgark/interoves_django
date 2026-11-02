@@ -104,13 +104,13 @@
     "never_create_second_paid_campaign_without_permission": true
   },
   "pending_launch": null,
-  "updated_at": "2026-11-02T12:36:52.817117+00:00",
+  "updated_at": "2026-11-02T12:37:56.469117+00:00",
   "direct_min_period_budget_note": "Direct rejected CustomPeriodBudget 500 RUB over 10 days: minimum for that period is 550 RUB. Kept SpendLimit=500 and used 2026-09-08..2026-09-09, AutoContinue=NO. Did not use the 900 reserve.",
   "campaigns": {
     "io-ru-nov26": {
       "campaign_id": 715711552,
       "created_on": "2026-11-02",
-      "launched": false,
+      "launched": true,
       "adgroup_ids": [
         5819122207
       ],
@@ -139,12 +139,13 @@
       ],
       "autotargeting_ids": [
         205819122207
-      ]
+      ],
+      "launched_on": "2026-11-02"
     },
     "io-intl-nov26": {
       "campaign_id": 715711784,
       "created_on": "2026-11-02",
-      "launched": false,
+      "launched": true,
       "adgroup_ids": [
         5819125497
       ],
@@ -173,7 +174,8 @@
       "bidmodifier_ids": [
         102131358532,
         272131358531
-      ]
+      ],
+      "launched_on": "2026-11-02"
     }
   }
 }
