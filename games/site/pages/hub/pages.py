@@ -12,6 +12,7 @@ from games.daily.timing.transitions import next_daily_content_transition_for_gam
 from games.models import Game, Project
 from games.sections.hub import get_desyatochki_hub_context
 from games.site.http.middleware.request_timing import timing_phase
+from games.site.http.request_util import redirect_keeping_query
 from games.site.pages import NEW_UI_PROJECT, NEW_UI_SECTIONS_PROJECT, _project_base, _project_urls_context
 from games.site.pages.game.access import _games_list_card_context, _new_folder_games
 from games.site.pages.game.pages import _render_section_game_page
@@ -212,8 +213,8 @@ def ladder_last_page(request):
         raise Http404()
     play_url = _ladder_latest_play_url(ladder_game)
     if not play_url:
-        return redirect('ui_ladder_hub')
-    return redirect(play_url)
+        return redirect_keeping_query(request, 'ui_ladder_hub')
+    return redirect_keeping_query(request, play_url)
 
 
 def section_last_page(request, game_id):
@@ -234,8 +235,8 @@ def section_last_page(request, game_id):
 
     links = list(_newest_task_group_links(game))
     if not links:
-        return redirect(section_hub_path(game.id))
-    return redirect(section_play_path(game.id, links[0].number))
+        return redirect_keeping_query(request, section_hub_path(game.id))
+    return redirect_keeping_query(request, section_play_path(game.id, links[0].number))
 
 
 def ladder_hub_page(request):

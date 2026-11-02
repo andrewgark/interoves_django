@@ -261,8 +261,10 @@ class LadderSectionPageTests(TestCase):
         now = datetime(2026, 7, 9, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         with patch.object(ladder_daily.timezone, 'now', return_value=now):
             resp = self.client.get('/ladder/last/')
+            tagged = self.client.get('/ladder/last/?utm_campaign=io-ru-nov26&yclid=7')
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp['Location'], '/ladder/2/')
+        self.assertEqual(tagged['Location'], '/ladder/2/?utm_campaign=io-ru-nov26&yclid=7')
 
     def test_ladder_last_without_published_goes_to_hub(self):
         from datetime import datetime

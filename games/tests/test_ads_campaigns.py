@@ -166,3 +166,61 @@ class CampaignLifecycleTests(SimpleTestCase):
         self.assertEqual(update['Keywords'][0]['AutotargetingSettings'], campaigns.AUTOTARGETING_SETTINGS)
         direct.added['keywords'][-1]['AutotargetingSettings'] = campaigns.AUTOTARGETING_SETTINGS
         self.assertTrue(campaigns.verify(direct, self.spec, campaign_id)['ok'])
+
+
+class GameGroupTests(SimpleTestCase):
+    def setUp(self):
+        self.spec = campaigns.get_spec('io-ru-nov26')
+        self.store = MemoryState()
+        self.audit_rows = []
+
+    def audit(self, **row):
+        self.audit_rows.append(row)
+
+    def test_every_daily_game_has_a_group_landing_on_the_campaign_host(self):
+        games = {g.game for g in self.spec.game_groups}
+        self.assertEqual(games, {'censorly', 'ladder', 'salad', 'alphabetty'})
+        for group in self.spec.game_groups:
+            self.assertTrue(self.spec.group_landing(group).startswith('https://ru.interoves.com/'))
+            self.assertTrue(campaigns.image_path(group.image).is_file())
+        intl = campaigns.get_spec('io-intl-nov26')
+        self.assertEqual(intl.group_landing(intl.game_groups[0]), 'https://interoves.com/censorly/last/')
+
+    def test_add_groups_uploads_images_once_and_moderates_only_launched_campaigns(self):
+        direct = FakeDirect()
+        uploads = []
+        original = direct.call
+
+        def call(service, method, params=None):
+            if (service, method) == ('adimages', 'add'):
+                uploads.append(params['AdImages'][0]['Name'])
+                return {'AddResults': [{'AdImageHash': 'hash-' + params['AdImages'][0]['Name']}]}
+            return original(service, method, params)
+
+        direct.call = call
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        result = campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        self.assertEqual(sorted(result['added']), ['alphabetty', 'censorly', 'ladder', 'salad'])
+        self.assertEqual(len(uploads), 4)
+        self.assertNotIn(('ads', 'moderate'), direct.writes())
+        censorly_ads = [a for a in direct.added['ads'] if a['TextAd'].get('Href', '').endswith('/censorly/last/')]
+        self.assertEqual(len(censorly_ads), 2)
+        self.assertEqual(censorly_ads[0]['TextAd']['AdImageHash'], 'hash-interoves-censorly')
+        self.assertTrue(campaigns.verify(direct, self.spec, result['campaign_id'])['ok'])
+
+        # Running again adds nothing and uploads nothing.
+        again = campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        self.assertEqual(again['added'], [])
+        self.assertEqual(len(uploads), 4)
+
+    def test_add_groups_sends_new_ads_of_a_launched_campaign_to_moderation(self):
+        direct = FakeDirect()
+        original = direct.call
+        direct.call = lambda s, m, p=None: (
+            {'AddResults': [{'AdImageHash': 'h'}]} if (s, m) == ('adimages', 'add') else original(s, m, p)
+        )
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        self.store.state['campaigns'][self.spec.slug]['launched'] = True
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        moderated = [p for s, m, p in direct.calls if (s, m) == ('ads', 'moderate')]
+        self.assertEqual(len(moderated[-1]['SelectionCriteria']['Ids']), 8)

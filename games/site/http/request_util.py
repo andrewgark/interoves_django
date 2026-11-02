@@ -55,3 +55,18 @@ def redirect_after_browser_submission(request):
     ):
         return redirect(referer)
     return redirect('/')
+
+
+def redirect_keeping_query(request, to, *args, **kwargs):
+    """``redirect()`` that carries the request's query string over.
+
+    Entry URLs like /censorly/last/ are ad landings: dropping ``utm_*`` and
+    ``yclid`` on the hop loses the visit's source in Metrika and the click
+    attribution Direct needs to count conversions.
+    """
+    response = redirect(to, *args, **kwargs)
+    query = request.META.get('QUERY_STRING', '')
+    if query:
+        location = response['Location']
+        response['Location'] = location + ('&' if '?' in location else '?') + query
+    return response

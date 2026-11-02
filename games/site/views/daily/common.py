@@ -19,6 +19,7 @@ from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 from games.ops.analytics.identity import gameplay_anon_key
 from games.sections.hub import SECTION_HUB_META, create_game_link_context
 from games.sections.paths import section_hub_path, section_play_path, section_results_path
+from games.site.http.request_util import redirect_keeping_query
 from games.site.pages import NEW_UI_SECTIONS_PROJECT
 from games.site.views.daily.hub import can_access_daily_game
 from games.task_group.likes_meta import likes_meta_by_task_id
@@ -223,8 +224,8 @@ def today_redirect(request, game_id, *, use_published_cta=False, digits_only=Fal
     else:
         number = definition.schedule.current_number(game)
     if not number:
-        return redirect(section_hub_path(game_id))
-    return redirect(section_play_path(game_id, number))
+        return redirect_keeping_query(request, section_hub_path(game_id))
+    return redirect_keeping_query(request, section_play_path(game_id, number))
 
 
 def last_redirect(request, game_id, *, digits_only=False):
@@ -237,8 +238,8 @@ def last_redirect(request, game_id, *, digits_only=False):
         except (TypeError, ValueError):
             continue
     if not ints:
-        return redirect(section_hub_path(game_id))
-    return redirect(section_play_path(game_id, max(ints)))
+        return redirect_keeping_query(request, section_hub_path(game_id))
+    return redirect_keeping_query(request, section_play_path(game_id, max(ints)))
 
 
 def random_game_redirect(request, *, game_id, create, failures, play_url):

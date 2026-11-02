@@ -13,8 +13,10 @@ AutoContinue=NO caps the total spend of each campaign.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass, field
 from datetime import date
+from pathlib import Path
 
 from games.ops.social.ads.config import ConfigError, assert_minus_phrases_safe, extract_add_id, extract_add_ids
 from games.ops.social.ads.money import micros_to_rubles, rubles_to_micros
@@ -35,6 +37,11 @@ TITLE2_MAX = 30
 TEXT_MAX = 81
 WORD_MAX = 23
 MAX_ADS_PER_GROUP = 3
+IMAGES_DIR = Path(__file__).resolve().parents[4] / 'artifacts' / 'ads' / 'images'
+
+
+def image_path(name: str) -> Path:
+    return IMAGES_DIR / f'{name}-1080.jpg'
 
 
 @dataclass(frozen=True)
@@ -57,6 +64,32 @@ class AdCopy:
 
 
 @dataclass(frozen=True)
+class GameGroup:
+    """One ad group per daily game: its own phrases, ads and landing.
+
+    A concrete puzzle is easier to sell than a puzzle site: «угадайте статью
+    Википедии по скрытым словам» says what the player will do.
+    """
+
+    game: str
+    title: str
+    path: str  # landing path on the campaign host, the game's latest puzzle
+    keywords: tuple[str, ...]
+    ads: tuple[AdCopy, ...]
+    image: str  # artifacts/ads/images/<image>-1080.jpg
+
+    def validate(self) -> None:
+        if not self.path.startswith('/') or not self.path.endswith('/last/'):
+            raise ConfigError(f'{self.game}: landing path must be /<game>/last/')
+        if not 1 <= len(self.ads) <= MAX_ADS_PER_GROUP:
+            raise ConfigError(f'{self.game}: needs 1..{MAX_ADS_PER_GROUP} ads')
+        for ad in self.ads:
+            ad.validate()
+        if not image_path(self.image).is_file():
+            raise ConfigError(f'{self.game}: missing image {image_path(self.image)}')
+
+
+@dataclass(frozen=True)
 class CampaignSpec:
     slug: str
     name: str
@@ -71,7 +104,22 @@ class CampaignSpec:
     negative_keywords: tuple[str, ...] = tuple(CAMPAIGN_NEGATIVE_KEYWORDS) + ('квиз',)
     mobile_bid_modifier: int = 50  # percent of the base bid; 50 = −50%
     goal_id: int = GOAL_GAME_COMPLETE
+    game_groups: tuple[GameGroup, ...] = ()
     notes: tuple[str, ...] = field(default=())
+
+    @property
+    def origin(self) -> str:
+        return self.landing_url.split('/start/')[0]
+
+    def group_landing(self, group: GameGroup) -> str:
+        return self.origin + group.path
+
+    def group_name(self, group: GameGroup) -> str:
+        return f'{self.name} — {group.title}'
+
+    @property
+    def allowed_hrefs(self) -> set[str]:
+        return {self.landing_url} | {self.group_landing(g) for g in self.game_groups}
 
     @property
     def adgroup_name(self) -> str:
@@ -98,6 +146,8 @@ class CampaignSpec:
         for ad in self.ads:
             ad.validate()
         assert_minus_phrases_safe(list(self.negative_keywords))
+        for group in self.game_groups:
+            group.validate()
         if not 0 <= self.mobile_bid_modifier <= 1300:
             raise ConfigError(f'{self.slug}: mobile bid modifier out of range')
 
@@ -169,6 +219,116 @@ INTERNATIONAL_REGIONS = (
     117,  # Литва
 )
 
+GAME_GROUPS = (
+    GameGroup(
+        game='censorly',
+        title='Цензурка',
+        path='/censorly/last/',
+        keywords=(
+            'угадай статью википедии',
+            'игра по википедии',
+            'игры с википедией',
+            'redactle',
+            'pedantix',
+            'педантикс',
+            'угадай слово по тексту',
+        ),
+        ads=(
+            AdCopy(
+                title='Угадайте статью Википедии по скрытым словам',
+                title2='Цензурка — игра дня',
+                text='Все слова статьи скрыты. Называйте слова, и они проявляются. Угадаете тему?',
+            ),
+            AdCopy(
+                title='Википедия, в которой спрятаны все слова',
+                title2='Новая статья каждый день',
+                text='Открывайте текст слово за словом и угадайте, о чём статья. Бесплатно, в браузере.',
+            ),
+        ),
+        image='censorly',
+    ),
+    GameGroup(
+        game='ladder',
+        title='Лесенка',
+        path='/ladder/last/',
+        keywords=(
+            'цепочка слов',
+            'игра цепочка слов',
+            'словесная лесенка',
+            'word ladder',
+            'raddle',
+            'игра ассоциации слов',
+            'словесные головоломки',
+        ),
+        ads=(
+            AdCopy(
+                title='Лесенка: восстановите цепочку связанных слов',
+                title2='Новая Лесенка каждый день',
+                text='Каждое слово связано с соседним. По перемешанным подсказкам соберите цепочку.',
+            ),
+            AdCopy(
+                title='От «джаваскрипта» до «кода» по цепочке слов',
+                title2='Словесная головоломка дня',
+                text='Восстановите цепочку слов по подсказкам. Новая Лесенка каждый день, бесплатно.',
+            ),
+        ),
+        image='ladder',
+    ),
+    GameGroup(
+        game='salad',
+        title='Салатик',
+        path='/salad/last/',
+        keywords=(
+            'найди слова в сетке',
+            'игра найди слова',
+            'игра составь слова',
+            'боггл',
+            'boggle',
+            'strands',
+            'игры со словами онлайн',
+        ),
+        ads=(
+            AdCopy(
+                title='Салатик: найдите слова на тему в сетке 4×4',
+                title2='Новый Салатик каждый день',
+                text='Соединяйте соседние буквы и ищите слова на общую тему. Правила понятны за минуту.',
+            ),
+            AdCopy(
+                title='Словесная головоломка на 5–10 минут',
+                title2='Найдите все слова на тему',
+                text='Сетка 4×4, тема дня и спрятанные слова. Ежедневная игра Inter Oves, бесплатно.',
+            ),
+        ),
+        image='salad',
+    ),
+    GameGroup(
+        game='alphabetty',
+        title='Алфавитка',
+        path='/alphabetty/last/',
+        keywords=(
+            'угадай слово',
+            'игра угадай слово',
+            'угадай слово онлайн',
+            'alphaguess',
+            'вордли',
+            'вордли на русском',
+        ),
+        ads=(
+            AdCopy(
+                title='Алфавитка: угадайте слово дня по алфавиту',
+                title2='Самая простая игра дня',
+                text='Называйте слова и узнавайте, загаданное раньше или позже по алфавиту.',
+            ),
+            AdCopy(
+                title='Угадайте загаданное слово, сужая алфавит',
+                title2='Ежедневная Алфавитка',
+                text='Каждая догадка сужает диапазон по алфавиту. Новое слово каждый день, бесплатно.',
+            ),
+        ),
+        image='alphabetty',
+    ),
+)
+
 CAMPAIGNS = {
     spec.slug: spec
     for spec in (
@@ -183,6 +343,7 @@ CAMPAIGNS = {
             end=date(2026, 11, 16),
             keywords=SHARED_KEYWORDS,
             ads=SHARED_ADS,
+            game_groups=GAME_GROUPS,
             notes=('ru.interoves.com opens in Russia without VPN',),
         ),
         CampaignSpec(
@@ -204,6 +365,7 @@ CAMPAIGNS = {
                     text='Ежедневные словесные игры и задачи на логику от клуба Inter Oves. Бесплатно.',
                 ),
             ),
+            game_groups=GAME_GROUPS,
             notes=('test: Yandex inventory abroad is thin',),
         ),
     )
@@ -325,6 +487,16 @@ def plan(spec: CampaignSpec) -> dict:
         'ads.add': {'Ads': ad_payloads(spec, 0)},
         'keywords.add': {'Keywords': keyword_payloads(spec, 0)},
         'bidmodifiers.add': {'BidModifiers': bidmodifier_payloads(spec, 0)},
+        'game_groups': {
+            group.game: {
+                'name': spec.group_name(group),
+                'landing': spec.group_landing(group),
+                'image': str(image_path(group.image).relative_to(IMAGES_DIR.parents[2])),
+                'keywords': list(group.keywords),
+                'ads.add': game_ad_payloads(spec, group, 0, '<image hash>'),
+            }
+            for group in spec.game_groups
+        },
     }
 
 
@@ -441,8 +613,8 @@ def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
         failures.append('no ads')
     for ad in live_ads:
         href = (ad.get('TextAd') or {}).get('Href') or ''
-        if href != spec.landing_url:
-            failures.append(f'Ad {ad.get("Id")} href {href!r} != {spec.landing_url!r}')
+        if href not in spec.allowed_hrefs:
+            failures.append(f'Ad {ad.get("Id")} href {href!r} is not a spec landing')
     for keyword in _autotargeting(ops.keywords_get(ads, campaign_ids=[campaign_id])):
         live = keyword.get('AutotargetingSettings') or {}
         for group, wanted in AUTOTARGETING_SETTINGS.items():
@@ -477,3 +649,88 @@ def launch(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
     record['launched_on'] = date.today().isoformat()
     state_store.save(state)
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'launched': True, 'verify': check}
+
+
+# --- Game groups ------------------------------------------------------------
+
+
+def upload_images(ads, names, *, audit, state_store) -> dict[str, str]:
+    """Upload each image once per account; hashes are kept in state."""
+    state = state_store.load()
+    hashes = state.setdefault('ad_images', {})
+    for name in names:
+        if name in hashes:
+            continue
+        data = base64.b64encode(image_path(name).read_bytes()).decode('ascii')
+        result = ads.call('adimages', 'add', {'AdImages': [{'ImageData': data, 'Name': f'interoves-{name}'}]})
+        row = (result.get('AddResults') or [{}])[0]
+        if row.get('Errors') or not row.get('AdImageHash'):
+            raise ConfigError(f'AdImages.add {name}: {row}')
+        hashes[name] = row['AdImageHash']
+        state_store.save(state)
+        audit(action='create', object_type='ad_image', object_id=hashes[name],
+              new_value={'name': name}, reason='game screenshot for text-and-image ads', api_status='created')
+    return {name: hashes[name] for name in names}
+
+
+def game_ad_payloads(spec: CampaignSpec, group: GameGroup, adgroup_id: int, image_hash: str) -> list[dict]:
+    return [
+        {
+            'AdGroupId': adgroup_id,
+            'TextAd': {
+                'Title': ad.title,
+                'Title2': ad.title2,
+                'Text': ad.text,
+                'Href': spec.group_landing(group),
+                'Mobile': 'NO',
+                'DisplayUrlPath': group.game,
+                'AdImageHash': image_hash,
+            },
+        }
+        for ad in group.ads
+    ]
+
+
+def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
+    """Add the spec's game groups that the live campaign does not have yet.
+
+    New ads go to moderation right away when the campaign is already launched.
+    """
+    state = state_store.load()
+    record = (state.get('campaigns') or {}).get(spec.slug)
+    if not record or not record.get('campaign_id'):
+        raise ConfigError(f'{spec.slug} has not been created')
+    campaign_id = record['campaign_id']
+    hashes = upload_images(ads, [g.image for g in spec.game_groups], audit=audit, state_store=state_store)
+    state = state_store.load()
+    record = state['campaigns'][spec.slug]
+    groups = record.setdefault('game_groups', {})
+    added = []
+    for group in spec.game_groups:
+        if group.game in groups:
+            continue
+        adgroup_id = extract_add_id(ads.call('adgroups', 'add', {'AdGroups': [{
+            'Name': spec.group_name(group),
+            'CampaignId': campaign_id,
+            'RegionIds': list(spec.region_ids),
+            'UnifiedAdGroup': {'OfferRetargeting': 'NO'},
+        }]}))
+        ad_ids = extract_add_ids(ads.call('ads', 'add', {
+            'Ads': game_ad_payloads(spec, group, adgroup_id, hashes[group.image]),
+        }))
+        keyword_ids = extract_add_ids(ads.call('keywords', 'add', {
+            'Keywords': [{'Keyword': phrase, 'AdGroupId': adgroup_id} for phrase in group.keywords],
+        }))
+        groups[group.game] = {'adgroup_id': adgroup_id, 'ad_ids': ad_ids, 'keyword_ids': keyword_ids}
+        state_store.save(state)
+        audit(action='create', object_type='game_group', object_id=adgroup_id,
+              new_value={'spec': spec.slug, 'game': group.game, 'ad_ids': ad_ids},
+              reason='per-game ad group', api_status='created')
+        added.append(group.game)
+    narrow_autotargeting(ads, campaign_id, audit=audit)
+    if added and record.get('launched'):
+        new_ads = [ad_id for game in added for ad_id in groups[game]['ad_ids']]
+        ads.call('ads', 'moderate', {'SelectionCriteria': {'Ids': new_ads}})
+        audit(action='moderate', object_type='ads', object_id=new_ads,
+              reason='per-game ads of a launched campaign', api_status='submitted')
+    return {'spec': spec.slug, 'campaign_id': campaign_id, 'added': added, 'game_groups': groups}

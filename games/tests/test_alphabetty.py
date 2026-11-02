@@ -975,6 +975,9 @@ class AlphabettyPlayApiTests(TestCase):
         r = self.client.get('/alphabetty/last/')
         self.assertEqual(r.status_code, 302)
         self.assertEqual(r['Location'], '/alphabetty/2/')
+        # Ad landings keep their utm/yclid through the hop.
+        r = self.client.get('/alphabetty/last/?utm_source=yandex&yclid=42')
+        self.assertEqual(r['Location'], '/alphabetty/2/?utm_source=yandex&yclid=42')
 
     def test_last_without_published_goes_to_hub(self):
         GameTaskGroup.objects.filter(game=self.game).delete()
