@@ -96,6 +96,13 @@ The following are not canonical backend product-event rows:
 | `site_version_prompt_shown` | the hint suggesting the other site version (interoves.com / ru.interoves.com) is shown; at most once per browser session |
 | `site_version_prompt_dismissed` | that hint is dismissed (`method`: `stay`, `close`, or `escape`) |
 | `site_version_switch_clicked` | a link to the other site version is clicked (`source`: `prompt` or `menu`) |
+| `club_offer_shown` | the Club offer dialog opens after a finished daily game (registered player, no Club access, 7+ distinct days with a completed game); `days` |
+| `club_offer_click` | «Вступить в клуб» in that dialog is clicked; `days` |
+| `club_offer_later` | the dialog is closed with «Позже», the close button, the overlay, or Escape; `days` |
+| `club_offer_never` | «Никогда» is clicked; `days` |
+| `signup_prompt_shown` | the «сохраните прогресс» card appears after a finished daily game (anonymous player, 3+ distinct days with a completed game); `days` |
+| `signup_prompt_click` | «Создать профиль» in that card is clicked (opens the login dialog); `days` |
+| `signup_prompt_dismissed` | the card is closed; it stays hidden for 7 days in this browser; `days` |
 
 All three `site_version_*` goals carry `from` and `to` (`intl`, `ru`; `from` is
 `other` on non-production hosts). They are sent from the host the visitor is
@@ -104,6 +111,13 @@ navigating; a goal still undelivered then may be lost, because the other
 host's `localStorage` never retries this host's queue. The prompt is chosen
 by IP country (`games/site/http/visitor_country.py`); the goals do not carry
 the country.
+
+`club_offer_*` and `signup_prompt_*` are deduplicated per goal and day in the
+browser. `days` is the player's number of distinct Moscow dates with a
+completed game (`games/daily/activity.py`). Eligibility is decided on the
+server (`games/site/http/context.py`); the browser waits for the daily result
+card to appear (`static/js/daily_result_watch.js`). Whether the offer worked
+is read from the existing `signup` and «Оплата клубной подписки» goals.
 
 The onboarding context lives in browser `localStorage` for 24 hours. Delivery
 can be missing or duplicated relative to backend actors, so these goals describe

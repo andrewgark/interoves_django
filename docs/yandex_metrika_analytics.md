@@ -28,6 +28,13 @@ canonical backend event counts.
 | `site_version_prompt_shown` | Показана подсказка о другой версии сайта (interoves.com / ru.interoves.com) |
 | `site_version_prompt_dismissed` | Подсказка закрыта (`method`) |
 | `site_version_switch_clicked` | Клик по ссылке на другую версию сайта (`source`) |
+| `club_offer_shown` | Показано предложение клуба после завершённой игры (`days`) |
+| `club_offer_click` | Клик «Вступить в клуб» в предложении (`days`) |
+| `club_offer_later` | Предложение клуба отложено (`days`) |
+| `club_offer_never` | Нажато «Никогда» в предложении клуба (`days`) |
+| `signup_prompt_shown` | Анониму показана карточка «сохраните прогресс» (`days`) |
+| `signup_prompt_click` | Клик «Создать профиль» в этой карточке (`days`) |
+| `signup_prompt_dismissed` | Карточка «сохраните прогресс» закрыта (`days`) |
 
 Onboarding parameters:
 

@@ -5415,6 +5415,7 @@
 
 {% if ladder_tutorial %}{% include "site/partials/ladder_tutorial_overlay.html" %}{% endif %}
 {% if not ladder_tutorial and not game.is_tournament %}{% if game.id == "ladder" or game.id == "salad" %}{% include "site/partials/stuck_nudge.html" with stuck_nudge_game=game.id %}{% endif %}{% endif %}
+{% if not ladder_tutorial and not game.is_tournament %}{% if game.id == "ladder" or game.id == "salad" %}{% include "site/partials/signup_prompt.html" %}{% endif %}{% endif %}
 {% include "site/partials/onboarding_followup.html" %}
 {% include "site/partials/daily_task_footer.html" %}
 {% include "site/_18plus_gate.html" %}

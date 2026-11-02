@@ -12868,6 +12868,82 @@ button.new-word-salad__hint-btn:disabled {
   }
 }
 
+/* Sign-up offer for anonymous regulars after a finished daily game
+   (site/partials/signup_prompt.html). Same corner as the site-version hint,
+   which takes precedence. */
+.new-signup-prompt {
+  position: fixed;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  /* Below the sticky nav (10): the open mobile menu must cover the card. */
+  z-index: 9;
+  box-sizing: border-box;
+  width: min(25rem, calc(100vw - 2rem));
+  min-width: 0;
+  margin: 0;
+  padding: 0.85rem 1rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+  box-shadow: inset 3px 0 0 var(--accent), 0 0.6rem 1.6rem color-mix(in srgb, var(--text) 16%, transparent);
+  overflow-wrap: break-word;
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.new-signup-prompt[hidden] {
+  display: none;
+}
+
+.new-signup-prompt.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+.new-signup-prompt__close {
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 2rem;
+  height: 2rem;
+}
+
+.new-signup-prompt__title {
+  margin: 0 2.2rem 0.35rem 0;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.new-signup-prompt__text {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.new-signup-prompt__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+/* Must match --new-break-wide (920px). */
+@media (max-width: 919px) {
+  .new-signup-prompt {
+    left: max(0.65rem, env(safe-area-inset-left));
+    right: max(0.65rem, env(safe-area-inset-right));
+    bottom: max(0.65rem, env(safe-area-inset-bottom));
+    width: auto;
+    max-width: 30rem;
+    margin-inline: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .new-signup-prompt {
+    transition: none;
+  }
+}
+
 /* Newly solved ladder rows reveal in order after a chain solve. */
 .new-raddle-row--solved.is-chain-reveal > * {
   animation: new-raddle-chain-reveal 260ms ease-out both;

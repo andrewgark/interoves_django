@@ -44,6 +44,13 @@ def site_deploy_version(_request):
     return {"site_deploy_version": str(v).strip()}
 
 
+# A Club offer goes to regulars: players who have finished games on this many
+# distinct days. Nearly all paying members played 20+ of the last 30 days.
+CLUB_OFFER_MIN_ACTIVE_DAYS = 7
+CLUB_OFFER_COOLDOWN_DAYS = 14
+SIGNUP_PROMPT_MIN_ACTIVE_DAYS = 3
+
+
 def club_archive_ui(request):
     """Feature-flagged archive upsell UI and subscriber community link."""
     user = getattr(request, 'user', None)
@@ -70,34 +77,58 @@ def club_archive_ui(request):
             'club_archive_telegram_url': '',
         }
     club_access = has_club_access(user)
-    from games.models import PlayerCompletedGame
-    solved_count = PlayerCompletedGame.objects.filter(
-        user=user, result=PlayerCompletedGame.RESULT_SOLVED,
-    ).values('game_id', 'task_group_id').distinct().count()
     profile = getattr(user, 'profile', None)
-    offer_cooldown = timezone.now() - timedelta(days=14)
     now = timezone.now()
-    offer_available = (
-        solved_count >= 7 and not club_access
-        and not getattr(profile, 'club_archive_offer_never', False)
-        and (
-            getattr(profile, 'club_archive_offer_deferred_until', None) is None
-            or profile.club_archive_offer_deferred_until <= now
+    offer_snoozed = (
+        getattr(profile, 'club_archive_offer_never', False)
+        or (
+            getattr(profile, 'club_archive_offer_deferred_until', None) is not None
+            and profile.club_archive_offer_deferred_until > now
         )
-        and (
-            getattr(profile, 'club_archive_offer_last_shown_at', None) is None
-            or profile.club_archive_offer_last_shown_at <= offer_cooldown
+        or (
+            getattr(profile, 'club_archive_offer_last_shown_at', None) is not None
+            and profile.club_archive_offer_last_shown_at > now - timedelta(days=CLUB_OFFER_COOLDOWN_DAYS)
         )
     )
-    return {
+    context = {
         'club_archive_gating_enabled': True,
-        'club_archive_offer_available': offer_available
-            and getattr(request, 'path', '') != '/subscription/',
+        'club_archive_offer_available': False,
         'club_archive_has_access': club_access,
         'random_alphabetty_has_access': club_access,
-        'club_archive_solved_count': solved_count,
         'club_archive_telegram_url': club_invite_url() if club_access else '',
     }
+    if club_access or offer_snoozed or getattr(request, 'path', '') == '/subscription/':
+        return context
+    from games.club.metrics import club_member_count
+    from games.daily.activity import active_days
+    days = active_days(user=user)
+    if days >= CLUB_OFFER_MIN_ACTIVE_DAYS:
+        context.update({
+            'club_archive_offer_available': True,
+            'club_offer_active_days': days,
+            'club_offer_member_count': club_member_count(),
+        })
+    return context
+
+
+def signup_prompt(request):
+    """Whether to offer an anonymous regular to sign up and keep their progress.
+
+    Evaluated lazily: only daily game pages include the card.
+    """
+    from django.utils.functional import SimpleLazyObject
+
+    def prompt():
+        user = getattr(request, 'user', None)
+        if user is None or user.is_authenticated:
+            return {'show': False, 'days': 0}
+        from games.daily.activity import active_days
+        from games.ops.analytics.identity import gameplay_anon_key
+        anon_key = gameplay_anon_key(request)
+        days = active_days(anon_key=anon_key) if anon_key else 0
+        return {'show': days >= SIGNUP_PROMPT_MIN_ACTIVE_DAYS, 'days': days}
+
+    return {'signup_prompt': SimpleLazyObject(prompt)}
 
 
 def analytics_bootstrap(request):

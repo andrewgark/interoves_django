@@ -248,6 +248,7 @@
 
 {% include "site/partials/daily_task_footer.html" %}
 {% include "site/partials/stuck_nudge.html" with stuck_nudge_game="censorly" %}
+{% include "site/partials/signup_prompt.html" %}
 {% include "site/_hint_confirm_modal.html" %}
 
 <script src="{% static 'js/hint_confirm.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>

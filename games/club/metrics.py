@@ -11,7 +11,9 @@ routes.
 from dataclasses import dataclass, field
 from datetime import timedelta
 
+from django.core.cache import cache
 from django.db.models import Q
+from django.utils import timezone
 
 from games.models import ClubEntitlement, ClubSubscription
 
@@ -176,3 +178,15 @@ def club_period_stats(since, until):
         kind=ClubEntitlement.KIND_GIFT, created_at__gte=since, created_at__lt=until,
     ).count()
     return stats
+
+
+MEMBER_COUNT_CACHE_KEY = 'club-member-count'
+
+
+def club_member_count():
+    """Users with Club access now, cached for an hour (shown in the Club offer)."""
+    count = cache.get(MEMBER_COUNT_CACHE_KEY)
+    if count is None:
+        count = club_snapshot(timezone.now()).total
+        cache.set(MEMBER_COUNT_CACHE_KEY, count, 60 * 60)
+    return count

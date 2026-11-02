@@ -196,6 +196,15 @@ def ru_day_word(n):
         return 'дней'
 
 
+@register.filter
+def ru_player_word(n):
+    """1 игрок / 2–4 игрока / 5+ игроков (11–14 — игроков)."""
+    try:
+        return _ru_plural_form_int(int(n), 'игрок', 'игрока', 'игроков')
+    except Exception:
+        return 'игроков'
+
+
 @register.simple_tag
 def meta_bar_hint_penalty(ai, task, alphabetty_hints=None):
     """Штраф подсказок для meta-bar: у алфавитки — буквенные (−1 каждая)."""
