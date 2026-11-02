@@ -14,6 +14,7 @@ AutoContinue=NO caps the total spend of each campaign.
 from __future__ import annotations
 
 import base64
+import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
@@ -37,6 +38,9 @@ TITLE2_MAX = 30
 TEXT_MAX = 81
 WORD_MAX = 23
 MAX_ADS_PER_GROUP = 3
+# Direct accepts letters, digits and a short list of punctuation in ad texts
+# ("×" in «4×4» was rejected with code 5002).
+AD_TEXT_ALLOWED = re.compile(r"^[A-Za-zА-Яа-яЁё0-9 .,!?;:\-—«»\"'()/%№+&#]+$")
 IMAGES_DIR = Path(__file__).resolve().parents[4] / 'artifacts' / 'ads' / 'images'
 
 
@@ -58,6 +62,9 @@ class AdCopy:
         ):
             if not value or len(value) > limit:
                 raise ConfigError(f'Ad {label} must be 1..{limit} characters: {value!r} ({len(value)})')
+            if not AD_TEXT_ALLOWED.match(value):
+                bad = sorted({ch for ch in value if not AD_TEXT_ALLOWED.match(ch)})
+                raise ConfigError(f'Ad {label} has characters Direct rejects: {bad} in {value!r}')
             long_words = [w for w in value.split() if len(w) > WORD_MAX]
             if long_words:
                 raise ConfigError(f'Ad {label} has words longer than {WORD_MAX}: {long_words}')
@@ -289,14 +296,14 @@ GAME_GROUPS = (
         ),
         ads=(
             AdCopy(
-                title='Салатик: найдите слова на тему в сетке 4×4',
+                title='Салатик: найдите слова на тему в сетке 4 на 4',
                 title2='Новый Салатик каждый день',
                 text='Соединяйте соседние буквы и ищите слова на общую тему. Правила понятны за минуту.',
             ),
             AdCopy(
-                title='Словесная головоломка на 5–10 минут',
+                title='Словесная головоломка на 10 минут',
                 title2='Найдите все слова на тему',
-                text='Сетка 4×4, тема дня и спрятанные слова. Ежедневная игра Inter Oves, бесплатно.',
+                text='Сетка 4 на 4, тема дня и спрятанные слова. Ежедневная игра Inter Oves, бесплатно.',
             ),
         ),
         image='salad',
@@ -715,22 +722,31 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
             'RegionIds': list(spec.region_ids),
             'UnifiedAdGroup': {'OfferRetargeting': 'NO'},
         }]}))
-        ad_ids = extract_add_ids(ads.call('ads', 'add', {
-            'Ads': game_ad_payloads(spec, group, adgroup_id, hashes[group.image]),
-        }))
-        keyword_ids = extract_add_ids(ads.call('keywords', 'add', {
-            'Keywords': [{'Keyword': phrase, 'AdGroupId': adgroup_id} for phrase in group.keywords],
-        }))
+        try:
+            ad_ids = extract_add_ids(ads.call('ads', 'add', {
+                'Ads': game_ad_payloads(spec, group, adgroup_id, hashes[group.image]),
+            }))
+            keyword_ids = extract_add_ids(ads.call('keywords', 'add', {
+                'Keywords': [{'Keyword': phrase, 'AdGroupId': adgroup_id} for phrase in group.keywords],
+            }))
+        except Exception:
+            # Do not leave an empty group (with wide autotargeting) behind.
+            ads.call('adgroups', 'delete', {'SelectionCriteria': {'Ids': [adgroup_id]}})
+            audit(action='delete', object_type='adgroup', object_id=adgroup_id,
+                  reason=f'rollback of failed {group.game} group', api_status='deleted')
+            narrow_autotargeting(ads, campaign_id, audit=audit)
+            raise
         groups[group.game] = {'adgroup_id': adgroup_id, 'ad_ids': ad_ids, 'keyword_ids': keyword_ids}
         state_store.save(state)
         audit(action='create', object_type='game_group', object_id=adgroup_id,
               new_value={'spec': spec.slug, 'game': group.game, 'ad_ids': ad_ids},
               reason='per-game ad group', api_status='created')
         added.append(group.game)
+        # Per group, so a later failure does not leave earlier ads in draft.
+        narrow_autotargeting(ads, campaign_id, audit=audit)
+        if record.get('launched'):
+            ads.call('ads', 'moderate', {'SelectionCriteria': {'Ids': ad_ids}})
+            audit(action='moderate', object_type='ads', object_id=ad_ids,
+                  reason='per-game ads of a launched campaign', api_status='submitted')
     narrow_autotargeting(ads, campaign_id, audit=audit)
-    if added and record.get('launched'):
-        new_ads = [ad_id for game in added for ad_id in groups[game]['ad_ids']]
-        ads.call('ads', 'moderate', {'SelectionCriteria': {'Ids': new_ads}})
-        audit(action='moderate', object_type='ads', object_id=new_ads,
-              reason='per-game ads of a launched campaign', api_status='submitted')
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'added': added, 'game_groups': groups}

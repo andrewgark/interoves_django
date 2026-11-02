@@ -223,4 +223,29 @@ class GameGroupTests(SimpleTestCase):
         self.store.state['campaigns'][self.spec.slug]['launched'] = True
         campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
         moderated = [p for s, m, p in direct.calls if (s, m) == ('ads', 'moderate')]
-        self.assertEqual(len(moderated[-1]['SelectionCriteria']['Ids']), 8)
+        self.assertEqual(sum(len(p['SelectionCriteria']['Ids']) for p in moderated), 8)
+
+    def test_ad_text_rejects_characters_direct_does_not_accept(self):
+        with self.assertRaises(ConfigError):
+            campaigns.AdCopy(title='Сетка 4×4', title2='ok', text='ok').validate()
+        campaigns.AdCopy(title='Цензурка — игра дня', title2='«Слово»!', text='4 на 4, 100%.').validate()
+
+    def test_failed_group_is_rolled_back_and_autotargeting_still_narrowed(self):
+        direct = FakeDirect()
+        original = direct.call
+
+        def call(service, method, params=None):
+            if (service, method) == ('adimages', 'add'):
+                return {'AddResults': [{'AdImageHash': 'h'}]}
+            if (service, method) == ('ads', 'add') and params['Ads'][0]['TextAd']['Href'].endswith('/ladder/last/'):
+                return {'AddResults': [{'Errors': [{'Code': 5002}]}]}
+            return original(service, method, params)
+
+        direct.call = call
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        with self.assertRaises(ConfigError):
+            campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        deletes = [p for s, m, p in direct.calls if (s, m) == ('adgroups', 'delete')]
+        self.assertEqual(len(deletes), 1)
+        self.assertIn('censorly', self.store.state['campaigns'][self.spec.slug]['game_groups'])
+        self.assertNotIn('ladder', self.store.state['campaigns'][self.spec.slug]['game_groups'])
