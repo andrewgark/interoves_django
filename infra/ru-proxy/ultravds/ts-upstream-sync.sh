@@ -34,10 +34,18 @@ fi
 
 tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
+peer_count="$(wc -w <<<"$peers")"
 for ip in $peers; do
-    # A vanished tailnet peer times out instead of refusing; keep it marked
-    # down for 30 s so only one request per window pays the connect timeout.
-    echo "server ${ip}:${PORT} max_fails=1 fail_timeout=30s;" >>"$tmp"
+    if [[ "$peer_count" -gt 1 ]]; then
+        # A vanished tailnet peer times out instead of refusing; keep it marked
+        # down for 30 s so only one request per window pays the connect timeout.
+        echo "server ${ip}:${PORT} max_fails=1 fail_timeout=30s;" >>"$tmp"
+    else
+        # The only gateway is never marked down: a one-minute DERP stall then
+        # costs the requests made during it, not 30 s of "no live upstreams"
+        # after it (2026-11-02 15:47).
+        echo "server ${ip}:${PORT} max_fails=0;" >>"$tmp"
+    fi
 done
 if [[ -n "$FALLBACK" ]] && ! grep -q "^server ${FALLBACK}:" "$tmp"; then
     # Never mark the last resort down: "no live upstreams" is a 502 for all.

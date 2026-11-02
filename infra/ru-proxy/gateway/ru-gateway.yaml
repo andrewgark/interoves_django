@@ -59,6 +59,16 @@ Resources:
     Properties:
       GroupDescription: Interoves ru gateway - no inbound; Tailscale is outbound-initiated
       VpcId: !Ref VpcId
+      # WireGuard from the UltraVDS proxy only. Without it the tailnet path
+      # stays on the DERP relay, which stalls for a minute or two a few
+      # times a day (2026-11-01/02). The description cannot change without
+      # replacing the group, so the rule lives here and not in it.
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort: 41641
+          ToPort: 41641
+          CidrIp: 77.81.5.159/32
+          Description: Tailscale direct path from UltraVDS ru proxy
       SecurityGroupEgress:
         - IpProtocol: "-1"
           CidrIp: 0.0.0.0/0
