@@ -1815,17 +1815,23 @@ asyncTest(async function testStartFailureIsReportedOnceWithDiagnostics() {
   }
 });
 
-asyncTest(async function testStoppedReportKeepsFailedStartsAcrossRecovery() {
-  // A server holding the actor's rows answers nothing until our abort. The
-  // heal restarts reset start_attempts, so the report must count failures
-  // separately and tell a timeout from a failed request.
+asyncTest(async function testHealWaitsForStartRetryAndKeepaliveTakesOver() {
+  // iOS Safari 18: plain timing fetches hung until our 10 s abort while the
+  // keepalive report got through. Every start retry is scheduled a few
+  // hundred ms after the failure, and the active player's next tap healed
+  // in that gap: the round restarted at attempt 1, so the keepalive attempt
+  // was never sent and the clock stayed stopped (5 failures, 0 keepalive).
   var oldSetTimeout = global.setTimeout;
   var oldNow = Date.now;
   var now = 5000000;
-  var starts = 0;
+  var retries = [];
+  var sends = [];
   var reports = [];
   Date.now = function () { return now; };
-  global.setTimeout = function () { return 1; };
+  global.setTimeout = function (callback, delay) {
+    if (delay < timer.HEARTBEAT_MS) retries.push(callback);
+    return retries.length + 1;
+  };
   try {
     var ctrl = reportingTimer(function (url, init) {
       var body = bodyOf(init);
@@ -1833,33 +1839,44 @@ asyncTest(async function testStoppedReportKeepsFailedStartsAcrossRecovery() {
         reports.push(body);
         return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
       }
-      starts += 1;
-      var err = new Error('signal timed out');
-      err.name = 'TimeoutError';
-      return Promise.reject(err);
+      sends.push({ action: body.action, keepalive: init.keepalive, event_id: body.event_id });
+      if (!init.keepalive) {
+        now += 10000;
+        var err = new Error('Fetch is aborted');
+        err.name = 'AbortError';
+        return Promise.reject(err);
+      }
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({ ok: true, status: 'running', is_authoritative: true, exists: true });
+      } });
     }, { bootstrap: { status: 'running', is_authoritative: true, exists: true } });
     ctrl.applySnapshot({ status: 'auto_paused', is_authoritative: false, exists: true });
     ctrl.noteActivity();
     now += 11000;
     ctrl.noteActivity();
     await flush();
-    now += 11000;
+    assert.strictEqual(sends.length, 1);
+    assert.strictEqual(retries.length, 1);
+
+    // Taps during the retry gap, even a minute into the stop, leave the
+    // round alone and do not alert.
+    now += 50000;
     ctrl.noteActivity();
     await flush();
-    assert.strictEqual(starts, 2);
+    assert.strictEqual(sends.length, 1);
     assert.deepStrictEqual(reports, []);
 
-    now += 40000;
-    ctrl.noteActivity();
+    retries.shift()();
     await flush();
-    assert.strictEqual(reports.length, 1);
-    assert.strictEqual(reports[0].reason, 'stopped_while_active');
-    var details = reports[0].details;
-    assert.strictEqual(details.start_attempts, 1);
-    assert.strictEqual(details.start_failures, 2);
-    assert.strictEqual(details.last_error_name, 'TimeoutError');
-    assert.strictEqual(details.last_failure_age_s, 40);
-    assert.strictEqual(details.stopped_for_s, 62);
+    assert.deepStrictEqual(sends.map(function (s) { return s.keepalive; }), [false, true]);
+    assert.strictEqual(sends[1].action, 'start');
+    assert.strictEqual(ctrl.state().status, 'running');
+
+    // Plain requests would hang again: later events stay on keepalive.
+    ctrl.pauseManual();
+    await flush();
+    assert.strictEqual(sends[2].action, 'pause');
+    assert.strictEqual(sends[2].keepalive, true);
     ctrl.destroy();
   } finally {
     Date.now = oldNow;

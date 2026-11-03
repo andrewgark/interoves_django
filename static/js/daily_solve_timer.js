@@ -250,7 +250,14 @@
     // last started. Recovery runs a second round; only that one is reported.
     var failedStartRounds = 0;
     var startRoundStartedAt = 0;
-    var startNetworkFailed = false;
+    // Start sends that failed on the network in a row. Kept across heal and
+    // recovery restarts (unlike startAttempts) so the keepalive fallback
+    // below still gets its turn while the player keeps interacting.
+    var startNetworkFailures = 0;
+    // A keepalive start got through after plain requests failed (Safari on
+    // iOS/macOS): plain heartbeats would hang the same way and stop the clock
+    // again, so every later event goes out as keepalive too.
+    var preferKeepalive = false;
     var startEvent = null;
     var startEventCreatedAt = 0;
     var timingEventCapability = bootstrap.timing_event_capability === 'stable-event-v1';
@@ -737,6 +744,7 @@
         delete body.event_protocol;
         delete body.event_capability;
       }
+      if (preferKeepalive) keepalive = true;
       return new Promise(function (resolve) {
         if (body.action === 'heartbeat') {
           var tailIndex = eventQueue.length - 1;
@@ -817,10 +825,13 @@
         startEvent = makeEvent('start', { claimed_ms: unconfirmedMs() });
         startEventCreatedAt = Date.now();
       }
-      // After a network error every other retry goes out as a keepalive
-      // request: when Safari kept rejecting the start, the keepalive report
-      // to the same URL still got through.
-      var viaKeepalive = startNetworkFailed && startAttempts % 2 === 0;
+      // After a network error every other send goes out as a keepalive
+      // request: when Safari kept rejecting or hanging the start, the
+      // keepalive report to the same URL still got through. This alternates
+      // on failures, not on startAttempts: a heal restart resets the latter
+      // to 1, and an active player's next tap always landed in the short
+      // retry gap, so the keepalive attempt was never sent.
+      var viaKeepalive = preferKeepalive || startNetworkFailures % 2 === 1;
       // The outer start policy owns its attempt budget. Retrying in both
       // layers would multiply attempts and could create a retry burst.
       sendEvent(startEvent, viaKeepalive, 0, false).then(function (data) {
@@ -829,7 +840,8 @@
           startAttempts = 0;
           startFailures = 0;
           failedStartRounds = 0;
-          startNetworkFailed = false;
+          if (viaKeepalive && startNetworkFailures) preferKeepalive = true;
+          startNetworkFailures = 0;
           startFailed = false;
           startEvent = null;
           startEventCreatedAt = 0;
@@ -847,7 +859,8 @@
           return;
         }
         startFailures += 1;
-        startNetworkFailed = !!(lastFailure && lastFailure.action === 'start' && lastFailure.network);
+        if (lastFailure && lastFailure.action === 'start' && lastFailure.network) startNetworkFailures += 1;
+        else startNetworkFailures = 0;
         // Do not let an interval heartbeat overtake a start retry after an
         // unacknowledged start. The server snapshot on acknowledgement will
         // restore the authoritative running state.
@@ -997,7 +1010,9 @@
         return;
       }
       if (now - stoppedSince < HEAL_AFTER_MS || now - lastHealAt < HEAL_THROTTLE_MS) return;
-      if (startFailed || awaitingServer || eventQueue.length || eventQueueRunning) return;
+      // A scheduled start retry is part of a round in progress; restarting
+      // the round here would drop its next (keepalive) attempt.
+      if (startFailed || awaitingServer || startRetryTimer || eventQueue.length || eventQueueRunning) return;
       lastHealAt = now;
       if (everRunning && now - stoppedSince >= STOPPED_REPORT_AFTER_MS) {
         reportProblem('stopped_while_active');
