@@ -1,13 +1,13 @@
 # Raddle (Лесенка) — контракт API и чеклисты
 
-Код: bootstrap `games/raddle.py` → `games/puzzles/raddle/engine.py`; правила одного хода (что проверять, как продвигается лесенка, статус, баллы) — `games/puzzles/raddle/transition.py`; HTTP — `games/site/views/game/{attempt,raddle}.py`; UI — `static/templates/site/task_group.html`, `task-content/task-raddle.html`.
+Код: bootstrap `games/raddle.py` → `games/puzzles/raddle/engine.py`; правила одного хода (что проверять, как продвигается лесенка, статус, баллы) — `games/puzzles/raddle/transition.py`; HTTP — `games/site/views/game/{attempt,raddle}.py`; UI — `static/js/task_group_page.js` (логика страницы; значения шаблона приходят через `window.interovesTaskGroupPage` из `static/templates/site/task_group.html`), `task-content/task-raddle.html`.
 
 Матрица сценариев в коде: [`games/puzzles/raddle/contract.py`](../games/puzzles/raddle/contract.py) (источник правды для тестов).
 
 ## Клиентская архитектура
 
 Решения клиента вынесены в **`static/js/raddle_state.js`** (`window.RaddleState`) —
-DOM-free, тестируется в node. `task_group.html` только читает DOM и применяет
+DOM-free, тестируется в node. `task_group_page.js` только читает DOM и применяет
 разрешённые эффекты.
 
 | Что | Где | Зачем |
@@ -28,7 +28,7 @@ DOM-free, тестируется в node. `task_group.html` только чит�
 **`restoreFocus`** (вернуть туда, где сессия уже была). `live.update` умеет
 только второе; passive viewport-хендлеры — ни то, ни другое.
 
-В `task_group.html` текущий источник задаётся через `withRaddleSource(source, fn)`;
+В `task_group_page.js` текущий источник задаётся через `withRaddleSource(source, fn)`;
 вложенные `setRaddleFocus` → `updateRaddleStickyPin` → перенос фокуса читают его,
 чтобы не тащить параметр через все сигнатуры. Дефолт — самый строгий из
 пересобирающих пин (`live.update`).
@@ -89,7 +89,7 @@ DOM-free, тестируется в node. `task_group.html` только чит�
 
 ## Мобилка: sticky-пин текущей пары
 
-Источник правды для UX. Код: `static/templates/site/task_group.html`,
+Источник правды для UX. Код: `static/js/task_group_page.js`,
 `static/js/raddle_keyboard_dismiss.js`, `.new-raddle-sticky-pin` в `new.css`.
 Только узкий layout (`max-width: 919px`); на десктопе пина нет.
 
@@ -214,6 +214,7 @@ node static/js/raddle_keyboard_dismiss.test.js
 node static/js/raddle_tab_nav.test.js
 node static/js/raddle_masked_input.test.js
 ../venv/interoves_django/bin/python scripts/check_inline_js_syntax.py static/templates/site/task_group.html
+node --check static/js/task_group_page.js
 ```
 
 - `test_raddle.py` — checker, UI context, парсинг.
@@ -222,9 +223,9 @@ node static/js/raddle_masked_input.test.js
 - `test_raddle_ui_sync.py` — черновики и метки подсказок через `/send_raddle_ui/`.
 - `raddle_state.test.js` — матрица ответов, ретраи, in-flight/paste дедупликация, сессия ввода и Android Back, effect gate, focus real↔pin, remote drafts, каскад.
 - `raddle_keyboard_dismiss.test.js` — ghost-focus и геометрия sticky-пина (`visualViewport`).
-- `check_inline_js_syntax.py` — `node --check` для inline-скрипта `task_group.html` (Django-теги нейтрализуются).
+- `check_inline_js_syntax.py` — `node --check` для inline-конфига в `task_group.html` (Django-теги нейтрализуются); сам код страницы — `node --check static/js/task_group_page.js`.
 
-## PR checklist (raddle / task_group.html)
+## PR checklist (raddle / task_group_page.js)
 
 Перед merge изменений в авто-submit или `send_attempt` для raddle:
 
@@ -286,7 +287,7 @@ node static/js/raddle_masked_input.test.js
 Учебная Лесенка — настоящее задание raddle в отдельной `TaskGroup`
 (`label='ladder_tutorial'`, `games/tutorials/ladder.py`), вне архива, как
 черновик предложения. Страница — обычный `new_task_group_page` с
-`ladder_tutorial_task`: та же разметка, тот же JS `task_group.html`, тот же
+`ladder_tutorial_task`: та же разметка, тот же JS `task_group_page.js`, тот же
 `/send_attempt/`. Каждый заход сбрасывает прогресс актора; решение не пишет
 `PlayerStartedGame` / `PlayerCompletedGame` и цели аналитики.
 
