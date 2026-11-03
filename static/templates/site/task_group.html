@@ -2446,14 +2446,15 @@
     var pack = stored.pack;
     raddleOfflinePacks[taskId] = pack;
     window.setTimeout(function () { allowRaddleOfflineTiming(pack); }, 0);
-    if (navigator.onLine !== false) return;
-    var state = raddleStateFromDom(taskRoot);
+    // No navigator.onLine gate: a failed network with onLine still true also
+    // gets the kept (possibly first-visit) page from the service worker.
+    var domState = raddleStateFromDom(taskRoot);
+    var state = raddleOfflineBaseState(taskRoot, pack);
     if (stored.card) {
       var holder = document.createElement('template');
       holder.innerHTML = stored.card;
       var storedRoot = holder.content.querySelector('.new-raddle-task');
-      var storedState = storedRoot ? raddleStateFromDom(storedRoot) : null;
-      if (storedState && storedState.solved_indices.length > state.solved_indices.length) state = storedState;
+      if (storedRoot) state = mergeRaddleStates(state, raddleStateFromDom(storedRoot));
     }
     raddleOutbox.entries(taskId).forEach(function (entry) {
       var fields = {};
@@ -2463,7 +2464,8 @@
       if (window.OfflineRaddleRules.refuseWord(state, pack.rules, index, fields.word) !== null) return;
       state = window.OfflineRaddleRules.advance(state, pack.rules, index);
     });
-    if (state.solved_indices.length <= raddleStateFromDom(taskRoot).solved_indices.length) return;
+    if (state.solved_indices.length <= domState.solved_indices.length
+        && state.used_hints.length <= domState.used_hints.length) return;
     var html = window.OfflineRaddlePack.assembleCard(pack, state);
     if (!html) {
       reportRaddleOffline('restore_failed', {
@@ -2534,6 +2536,27 @@
       + ' t=' + JSON.stringify(pack.tiers || {});
   }
 
+  // Solved words and used hints only grow within a run, so the union of two
+  // snapshots of one run is the later of them.
+  function mergeRaddleStates(a, b) {
+    var union = function (x, y) {
+      var seen = Object.create(null);
+      (x || []).concat(y || []).forEach(function (i) { seen[i] = true; });
+      return Object.keys(seen).map(Number).sort(function (p, q) { return p - q; });
+    };
+    return {
+      solved_indices: union(a.solved_indices, b.solved_indices),
+      used_hints: union(a.used_hints, b.used_hints),
+    };
+  }
+
+  // The card's state, caught up with the pack's base: a page served from the
+  // offline cache may show an older card than the one the pack was built from,
+  // and the pack has pieces only for states reachable from its base.
+  function raddleOfflineBaseState(taskRoot, pack) {
+    return mergeRaddleStates(raddleStateFromDom(taskRoot), pack.state || {});
+  }
+
   // Current ladder state as the card shows it.
   function raddleStateFromDom(taskRoot) {
     var solved = Object.create(null);
@@ -2562,7 +2585,7 @@
     var index = Number(wordIdx);
     var data = { status: 'ok', task_id: Number(taskId), raddle_correct: false, raddle_word_index: index };
     if (verdict === 'Ok') {
-      var state = raddleStateFromDom(taskRoot);
+      var state = raddleOfflineBaseState(taskRoot, pack);
       if (window.OfflineRaddleRules.refuseWord(state, pack.rules, index, word) !== null) return null;
       var next = window.OfflineRaddleRules.advance(state, pack.rules, index);
       var html = window.OfflineRaddlePack.assembleCard(pack, next);
