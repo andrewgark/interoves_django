@@ -24,7 +24,7 @@ if [[ -n "$violations" ]]; then
   fail "native title attributes found; use data-tooltip (audio-title is allowed for the audio player)"
 fi
 
-for script in static/js/daily_statistics.js static/js/support_word_salad.js; do
+for script in static/js/daily_statistics.js static/js/support_word_salad.js static/js/task_group_page.js; do
   [[ -f "$script" ]] || fail "missing $script"
   if violations="$(search_file 'title\s*=' "$script" 2>/dev/null)"; then
     printf '%s\n' "$violations" >&2
