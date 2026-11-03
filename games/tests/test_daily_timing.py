@@ -402,7 +402,9 @@ class DailyTimingDomainTests(TestCase):
         self.assertEqual(row.accumulated_ms, 30_000)
 
     def test_completion_recovers_positive_underestimate_from_event_ledger(self):
-        now = timezone.now().replace(microsecond=0)
+        # Not truncated: the COMPLETE ledger event takes the real server clock
+        # (auto_now_add), so a rounded-down ``now`` would add up to 1s of drift.
+        now = timezone.now()
         row = DailySolveTiming.objects.create(
             user=self.user,
             game=self.game,

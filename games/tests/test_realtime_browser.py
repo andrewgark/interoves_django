@@ -102,7 +102,10 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             author='test',
             is_ready=True,
             is_playable=True,
-            is_tournament=False,
+            # Only a live tournament turns a wrong answer into Pending.
+            is_tournament=True,
+            is_registrable=False,
+            requires_ticket=False,
             start_time=now - timedelta(hours=1),
             end_time=now + timedelta(hours=1),
         )
@@ -861,7 +864,12 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         expect(first.locator('[data-daily-pause-overlay]')).to_be_visible(timeout=5_000)
         expect(second.locator('[data-daily-pause-overlay]')).to_be_hidden(timeout=5_000)
 
-        timing = self.daily_timing_counts()
+        # The overlay is optimistic: it shows before the pause POST commits.
+        for _ in range(100):
+            timing = self.daily_timing_counts()
+            if timing and timing['paused'] == 1:
+                break
+            first.wait_for_timeout(100)
         self.assertEqual(timing['user_id'], self.personal_user.pk)
         self.assertIsNone(timing['team_id'])
         self.assertEqual(timing['active_sessions_count'], 1)
@@ -877,6 +885,34 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         page.goto(url)
         document_id = page.evaluate('window.__interovesDocumentId')
         expect(page.locator(f'#new-task-{self.clock_task.pk}')).to_have_count(0)
+
+        expect(page.locator(f'#new-task-{self.clock_task.pk}')).to_have_count(
+            1, timeout=12_000,
+        )
+        self.assertNotEqual(page.evaluate('window.__interovesDocumentId'), document_id)
+
+    def test_game_start_during_page_load_still_opens_task(self):
+        """The HTML is rendered before the start, its scripts run after it.
+
+        Under load the boundary can pass between the server render and the
+        page's JS: the pending boundary is then already in the past, and the
+        page must still reload once instead of staying pre-start forever.
+        """
+        import time
+
+        from playwright.sync_api import expect
+
+        self.move_clock_game_boundary_near_now('start')
+        page = self.browser_page_for(self.user_one)
+
+        def delayed_track_script(route):
+            time.sleep(8)
+            route.continue_()
+
+        page.route('**/js/track_ws.js*', delayed_track_script)
+        page.goto(f'{self.live_server_url}/games/{self.clock_game.pk}/1/')
+        document_id = page.evaluate('window.__interovesDocumentId')
+        page.unroute('**/js/track_ws.js*')
 
         expect(page.locator(f'#new-task-{self.clock_task.pk}')).to_have_count(
             1, timeout=12_000,

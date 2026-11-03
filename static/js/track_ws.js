@@ -119,6 +119,52 @@
     return Math.min.apply(Math, candidates);
   }
 
+  // A boundary can pass while the page is still loading: the server rendered
+  // the pre-boundary state, but by the time this script runs the boundary is
+  // already in the past, so nextGamePhaseAt() never schedules its reload.
+  // Report the latest boundary between the document request and now.
+  function missedGamePhaseAt(root, requestedAtMs, nowMs) {
+    if (!root || typeof root.getAttribute !== 'function') return null;
+    var requestedAt = Number(requestedAtMs);
+    if (!Number.isFinite(requestedAt) || requestedAt <= 0) return null;
+    var now = typeof nowMs === 'number' ? nowMs : Date.now();
+    var missed = null;
+    [
+      'data-game-start-at',
+      'data-game-end-at',
+      'data-live-next-transition-at',
+    ].forEach(function (name) {
+      var raw = root.getAttribute(name);
+      var value = raw ? Date.parse(raw) : NaN;
+      if (!Number.isFinite(value) || value <= requestedAt || value > now) return;
+      if (missed === null || value > missed) missed = value;
+    });
+    return missed;
+  }
+
+  function documentRequestedAtMs() {
+    var perf = global.performance;
+    if (!perf) return null;
+    var origin = Number(perf.timeOrigin);
+    if (Number.isFinite(origin) && origin > 0) return origin;
+    var timing = perf.timing;
+    var start = timing ? Number(timing.navigationStart) : NaN;
+    return Number.isFinite(start) && start > 0 ? start : null;
+  }
+
+  function claimMissedPhaseReload(transitionAt) {
+    // Once per tab and boundary: with a client clock behind the server every
+    // fresh load could look "requested before the boundary" again.
+    try {
+      var key = 'interoves_track_missed_phase:' + transitionAt;
+      if (global.sessionStorage.getItem(key)) return false;
+      global.sessionStorage.setItem(key, '1');
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function transitionJitterMs(root, transitionAt) {
     var gameStartAt = Date.parse(root.getAttribute('data-game-start-at') || '');
     var gameEndAt = Date.parse(root.getAttribute('data-game-end-at') || '');
@@ -131,13 +177,22 @@
 
   function scheduleGamePhaseReload(root) {
     var MAX_DELAY_MS = 2147483000;
+    var missedAt = missedGamePhaseAt(root, documentRequestedAtMs(), Date.now());
+    if (missedAt !== null && claimMissedPhaseReload(missedAt)) {
+      // Own key: an early reload for this boundary (see below) already holds
+      // the 'game-phase:' cooldown and must not block this recovery.
+      scheduleReload('game-phase-missed:' + missedAt, transitionJitterMs(root, missedAt));
+    }
     function schedule() {
       var now = Date.now();
       var transitionAt = nextGamePhaseAt(root, now);
       if (transitionAt === null) return;
       var remaining = transitionAt - now;
       setTimeout(function () {
-        if (remaining > MAX_DELAY_MS) {
+        // Timers run on a monotonic clock, Date.now() on the wall clock; when
+        // they drift (WSL, NTP step, sleep) the timer can fire before the
+        // boundary and reload into the same pre-boundary page.
+        if (remaining > MAX_DELAY_MS || Date.now() < transitionAt) {
           schedule();
           return;
         }
@@ -535,6 +590,7 @@
     openTrackSocket: openTrackSocket,
     acceptFreshSequence: acceptFreshSequence,
     nextGamePhaseAt: nextGamePhaseAt,
+    missedGamePhaseAt: missedGamePhaseAt,
     randomDelayMs: randomDelayMs,
     scheduleReload: scheduleReload,
     transitionJitterMs: transitionJitterMs,

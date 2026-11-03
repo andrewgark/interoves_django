@@ -170,6 +170,7 @@ class DailyBoardBuilderTests(TestCase):
             resolve_chain_state=lambda *args, **kwargs: None,
         )
 
+        self.assertIsInstance(result.pop('rendered_at_ms'), int)
         self.assertEqual(result, {'prepared': 'salad', 'instant_verdict': False})
         parse_task.assert_called_once_with('payload', 'answer')
         load_board.assert_called_once()

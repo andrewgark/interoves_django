@@ -71,6 +71,28 @@ assert.strictEqual(
   window.InterovesTrack.nextGamePhaseAt(phaseRoot, Date.parse('2026-08-20T14:00:00Z')),
   null
 );
+assert.strictEqual(
+  window.InterovesTrack.missedGamePhaseAt(
+    phaseRoot, Date.parse('2026-08-20T11:59:55Z'), Date.parse('2026-08-20T12:00:03Z')
+  ),
+  Date.parse('2026-08-20T12:00:00Z')
+);
+assert.strictEqual(
+  window.InterovesTrack.missedGamePhaseAt(
+    phaseRoot, Date.parse('2026-08-20T12:00:01Z'), Date.parse('2026-08-20T12:00:03Z')
+  ),
+  null
+);
+assert.strictEqual(
+  window.InterovesTrack.missedGamePhaseAt(
+    phaseRoot, Date.parse('2026-08-20T11:00:00Z'), Date.parse('2026-08-20T13:30:00Z')
+  ),
+  Date.parse('2026-08-20T13:00:00Z')
+);
+assert.strictEqual(
+  window.InterovesTrack.missedGamePhaseAt(phaseRoot, null, Date.parse('2026-08-20T12:30:00Z')),
+  null
+);
 var dailyRoot = {
   getAttribute: function (name) {
     return name === 'data-live-next-transition-at' ? '2026-08-21T00:00:00+03:00' : '';
@@ -101,6 +123,30 @@ window.InterovesTrack.scheduleReload('daily:test', 20000);
 assert.strictEqual(timeoutCallbacks.length, reloadTimerCount + 1);
 assert.strictEqual(timeoutDelays[timeoutDelays.length - 1], 10000);
 Math.random = priorRandom;
+
+// A phase timer that fires before the boundary by the wall clock re-arms for
+// the remainder instead of reloading into the same pre-boundary page.
+var realDateNow = Date.now;
+var fakeNow = Date.parse('2026-08-20T11:59:59Z');
+Date.now = function () { return fakeNow; };
+var earlyRoot = {
+  getAttribute: function (name) {
+    return name === 'data-game-start-at' ? '2026-08-20T12:00:00Z' : '';
+  },
+};
+var phaseTimerCount = timeoutCallbacks.length;
+window.InterovesTrack.scheduleGamePhaseReload(earlyRoot);
+assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 1);
+assert.strictEqual(timeoutDelays[timeoutDelays.length - 1], 1000);
+fakeNow += 930;
+timeoutCallbacks[timeoutCallbacks.length - 1]();
+assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 2);
+assert.strictEqual(timeoutDelays[timeoutDelays.length - 1], 70);
+fakeNow += 70;
+timeoutCallbacks[timeoutCallbacks.length - 1]();
+assert.strictEqual(timeoutCallbacks.length, phaseTimerCount + 3);
+assert(timeoutDelays[timeoutDelays.length - 1] <= 3000);
+Date.now = realDateNow;
 assert.deepStrictEqual(window.InterovesTrack.collectTaskIds({
   querySelectorAll: function () {
     return [

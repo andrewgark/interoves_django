@@ -11,7 +11,6 @@ import tempfile
 
 from .settings import *  # noqa: F403,F401
 
-
 DATABASES = copy.deepcopy(DATABASES)  # noqa: F405
 if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
     DATABASES['default'].setdefault('TEST', {})['NAME'] = os.environ.get(
@@ -20,3 +19,6 @@ if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
     )
     # Fail clearly if another local test run owns the SQLite write lock.
     DATABASES['default'].setdefault('OPTIONS', {})['timeout'] = 5
+
+# Never reach real Telegram from tests (see test_isolation.py).
+from .test_isolation import *  # noqa: E402,F403,F401

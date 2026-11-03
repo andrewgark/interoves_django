@@ -6,7 +6,16 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from games.models import (
-    Attempt, Game, GameTaskGroup, Hint, HintAttempt, HTMLPage, Project, Task, TaskGroup, Team,
+    Attempt,
+    Game,
+    GameTaskGroup,
+    Hint,
+    HintAttempt,
+    HTMLPage,
+    Project,
+    Task,
+    TaskGroup,
+    Team,
 )
 from games.ops.social.models import SocialQueuePost
 from games.ops.telegram.channels.announcements import (
@@ -18,8 +27,8 @@ from games.ops.telegram.channels.announcements import (
     format_hints_taken_line,
     format_no_coffins_announcement,
 )
-from games.ops.telegram.models import TelegramGameAnnouncement
 from games.ops.telegram.channels.scheduling import process_game_announcements
+from games.ops.telegram.models import TelegramGameAnnouncement
 
 _FAKE_PNG = b'\x89PNG\r\n\x1a\nxxxx'
 
@@ -38,6 +47,10 @@ def _ensure_reference_rows():
     TELEGRAM_BOT_TOKEN='test-token',
     TELEGRAM_ADMIN_CHAT_ID='12345',
     TELEGRAM_ANNOUNCE_CHAT_IDS=['-100999'],
+    TELEGRAM_CHANNEL_CHAT_ID='-100888',
+    TELEGRAM_API_ID=12345,
+    TELEGRAM_API_HASH='test-hash',
+    TELEGRAM_USER_SESSION='test-session',
     SITE_BASE_URL='https://interoves.com',
     LANGUAGE_CODE='ru-ru',
     TELEGRAM_LADDER_SCREENSHOT=False,
@@ -277,6 +290,10 @@ class ChatLifecycleAnnouncementTests(TestCase):
     TELEGRAM_BOT_TOKEN='test-token',
     TELEGRAM_ADMIN_CHAT_ID='12345',
     TELEGRAM_ANNOUNCE_CHAT_IDS=['-100999'],
+    TELEGRAM_CHANNEL_CHAT_ID='-100888',
+    TELEGRAM_API_ID=12345,
+    TELEGRAM_API_HASH='test-hash',
+    TELEGRAM_USER_SESSION='test-session',
     SITE_BASE_URL='https://interoves.com',
     TELEGRAM_LADDER_SCREENSHOT=False,
 )
