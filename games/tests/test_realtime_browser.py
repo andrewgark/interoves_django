@@ -235,7 +235,45 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             'url': self.live_server_url,
         }])
         page = context.new_page()
+        page.track_synced = False
+
+        def watch_socket(ws):
+            def on_frame(payload):
+                text = payload if isinstance(payload, str) else payload.decode('utf-8', 'ignore')
+                if '"track.synced"' in text:
+                    page.track_synced = True
+            ws.on('framereceived', on_frame)
+
+        page.on('websocket', watch_socket)
+
+        # Every test acts right after goto(); wait for the track socket so a
+        # teammate event is not lost before this page subscribed. Boundary
+        # tests pass wait_track=False: their page reloads by itself.
+        raw_goto = page.goto
+
+        def goto(*args, wait_track=True, **kwargs):
+            page.track_synced = False
+            response = raw_goto(*args, **kwargs)
+            if wait_track and page.evaluate("!!document.body.getAttribute('data-track-game-id')"):
+                self.wait_track_synced(page)
+            return response
+
+        page.goto = goto
         return page
+
+    def wait_track_synced(self, *pages):
+        """Wait until each page's track socket finished its first sync.
+
+        A teammate event that lands between the server render and that sync
+        is folded into the sync baseline and never replayed, so live-sync
+        tests must not act before both sides are subscribed.
+        """
+        for page in pages:
+            for _ in range(100):
+                if page.track_synced:
+                    break
+                page.wait_for_timeout(100)
+            self.assertTrue(page.track_synced, 'track socket never synced')
 
     def daily_timing_counts(self):
         """Read timing state from a sync DB thread while Playwright is active."""
@@ -867,7 +905,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         # The overlay is optimistic: it shows before the pause POST commits.
         for _ in range(100):
             timing = self.daily_timing_counts()
-            if timing and timing['paused'] == 1:
+            if timing and (timing['paused'], timing['running'], timing['active_sessions_count']) == (1, 1, 1):
                 break
             first.wait_for_timeout(100)
         self.assertEqual(timing['user_id'], self.personal_user.pk)
@@ -882,7 +920,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.move_clock_game_boundary_near_now('start')
         page = self.browser_page_for(self.user_one)
         url = f'{self.live_server_url}/games/{self.clock_game.pk}/1/'
-        page.goto(url)
+        page.goto(url, wait_track=False)
         document_id = page.evaluate('window.__interovesDocumentId')
         expect(page.locator(f'#new-task-{self.clock_task.pk}')).to_have_count(0)
 
@@ -910,7 +948,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             route.continue_()
 
         page.route('**/js/track_ws.js*', delayed_track_script)
-        page.goto(f'{self.live_server_url}/games/{self.clock_game.pk}/1/')
+        page.goto(f'{self.live_server_url}/games/{self.clock_game.pk}/1/', wait_track=False)
         document_id = page.evaluate('window.__interovesDocumentId')
         page.unroute('**/js/track_ws.js*')
 
@@ -925,7 +963,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         self.move_clock_game_boundary_near_now('end')
         page = self.browser_page_for(self.user_one)
         url = f'{self.live_server_url}/games/{self.clock_game.pk}/1/'
-        page.goto(url)
+        page.goto(url, wait_track=False)
         document_id = page.evaluate('window.__interovesDocumentId')
         card = page.locator(f'#new-task-{self.clock_task.pk}')
         expect(card).to_have_count(1)

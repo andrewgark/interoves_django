@@ -1,4 +1,4 @@
-"""Blank production secrets that test settings would otherwise inherit.
+"""Blank production secrets and trackers that test settings would otherwise inherit.
 
 settings.py loads the real Telegram bot token and admin chat id from
 secrets/, so any test that triggers a notifier without mocking it would post
@@ -15,3 +15,7 @@ TELEGRAM_WEBHOOK_SECRET = ''
 TELEGRAM_API_ID = 0
 TELEGRAM_API_HASH = ''
 TELEGRAM_USER_SESSION = ''
+
+# Browser tests must not send hits to the real Yandex Metrika counter.
+# Counter 0 keeps the ym() stub and analytics helper but loads no tag.js.
+YANDEX_METRIKA_COUNTER_ID = 0
