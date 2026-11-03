@@ -13,6 +13,7 @@ DIFFICULTY_HEALTH_CHECK = 'difficulty.health_check'
 TELEGRAM_ANNOUNCEMENTS = 'telegram.announcements'
 TELEGRAM_ADMIN_REPORT = 'telegram.admin_report'
 TELEGRAM_ADMIN_ALERT = 'telegram.admin_alert'
+TELEGRAM_USER_NOTICE = 'telegram.user_notice'
 PROJECTION_RECONCILE = 'projection.reconcile'
 PROJECTION_REFRESH = 'projection.refresh'
 DAILY_STATISTICS_REFRESH = 'daily_statistics.refresh'
@@ -25,6 +26,8 @@ STALE_AFTER = timedelta(minutes=2)
 ANNOUNCEMENT_STALE_AFTER = timedelta(minutes=3)
 ADMIN_REPORT_STALE_AFTER = timedelta(minutes=20)
 ADMIN_ALERT_STALE_AFTER = timedelta(hours=1)
+# A late «X wants to be friends» is still useful; a day-old one is noise.
+USER_NOTICE_STALE_AFTER = timedelta(hours=6)
 INSTAGRAM_STALE_AFTER = timedelta(hours=12)
 SOCIAL_STALE_AFTER = timedelta(minutes=3)
 

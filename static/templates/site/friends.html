@@ -7,6 +7,7 @@
 <section class="new-card friends-invite" aria-labelledby="friends-invite-title">
   <h2 id="friends-invite-title" class="player-section-title">Позвать друга</h2>
   <p class="friends-invite__lead">Кто откроет ссылку и подтвердит, сразу станет вашим другом. Добавить можно и со страницы игрока: нажмите на имя в таблице результатов.</p>
+  {% if friends_telegram_hint %}<p class="friends-invite__lead"><i class="ph ph-telegram-logo" aria-hidden="true"></i> <a href="{% url 'new_profile' %}">Подключите Telegram</a> — бот напишет, когда вас позовут в друзья.</p>{% endif %}
   {% if friends_invite_url %}
     <div class="team-invite__row">
       <input type="text" readonly value="{{ friends_invite_url }}" aria-label="Ссылка-приглашение в друзья" data-invite-link>

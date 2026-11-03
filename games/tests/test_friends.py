@@ -37,10 +37,12 @@ class FriendsTestCase(TestCase):
 
 class FriendshipServiceTests(FriendsTestCase):
     def test_request_accept_and_remove(self):
-        self.assertEqual(friends.request_friendship(self.anna, self.vera.pk), friends.RELATION_OUTGOING)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(friends.request_friendship(self.anna, self.vera.pk), friends.RELATION_OUTGOING)
         self.assertEqual(friends.relation(self.vera, self.anna.pk), friends.RELATION_INCOMING)
         self.assertEqual(friends.incoming_count(self.vera.pk), 1)
-        self.assertEqual(friends.accept_request(self.vera, self.anna.pk), friends.RELATION_FRIENDS)
+        with self.captureOnCommitCallbacks(execute=True):
+            self.assertEqual(friends.accept_request(self.vera, self.anna.pk), friends.RELATION_FRIENDS)
         self.assertEqual(friends.incoming_count(self.vera.pk), 0)
         self.assertEqual(friends.friend_user_ids(self.anna.pk), {self.vera.pk})
         self.assertTrue(friends.are_friends(self.vera.pk, self.anna.pk))
@@ -92,7 +94,8 @@ class FriendsViewTests(FriendsTestCase):
     def test_full_request_flow_through_player_pages(self):
         anna, vera = self.client_for(self.anna), self.client_for(self.vera)
         self.assertIn('Добавить в друзья', anna.get(self.player_url(self.vera_p)).content.decode())
-        response = self.post_action(anna, self.vera_p, 'request')
+        with self.captureOnCommitCallbacks(execute=True):
+            response = self.post_action(anna, self.vera_p, 'request')
         self.assertRedirects(response, self.player_url(self.vera_p), fetch_redirect_response=False)
         self.assertIn('Заявка отправлена', anna.get(self.player_url(self.vera_p)).content.decode())
 
@@ -101,22 +104,23 @@ class FriendsViewTests(FriendsTestCase):
         self.assertIn('Анна Петрова', friends_page)
         self.assertIn('new-nav__inline-badge', friends_page)
 
-        self.post_action(vera, self.anna_p, 'accept', '/friends/')
+        with self.captureOnCommitCallbacks(execute=True):
+            self.post_action(vera, self.anna_p, 'accept', '/friends/')
         self.assertIn('В друзьях', anna.get(self.player_url(self.vera_p)).content.decode())
         body = vera.get(reverse('new_friends')).content.decode()
         self.assertIn('1 друг', body)
         self.assertNotIn('new-nav__inline-badge', body)
 
     def test_friends_see_hidden_page_and_photo_strangers_do_not(self):
-        Profile.objects.filter(pk=self.vera_p.pk).update(page_hidden=True, avatar_url='https://example.com/v.jpg')
+        Profile.objects.filter(pk=self.vera_p.pk).update(page_hidden=True, avatar_url='https://lh3.googleusercontent.com/v.jpg')
         friends.request_friendship(self.anna, self.vera.pk)
         friends.accept_request(self.vera, self.anna.pk)
         body = self.client_for(self.anna).get(self.player_url(self.vera_p)).content.decode()
         self.assertNotIn('скрыл свою страницу', body)
-        self.assertIn('https://example.com/v.jpg', body)
+        self.assertIn('https://lh3.googleusercontent.com/v.jpg', body)
         body = self.client_for(self.boris).get(self.player_url(self.vera_p)).content.decode()
         self.assertIn('скрыл свою страницу', body)
-        self.assertNotIn('https://example.com/v.jpg', body)
+        self.assertNotIn('https://lh3.googleusercontent.com/v.jpg', body)
 
     def test_mutual_friends_count(self):
         for a, b in ((self.anna, self.vera), (self.boris, self.vera)):
@@ -160,3 +164,71 @@ class FriendsViewTests(FriendsTestCase):
         friends.new_invite(self.anna)
         response = Client().get(reverse('new_friend_invite', kwargs={'token': invite.token}))
         self.assertEqual(response.status_code, 404)
+
+
+class FriendshipRobustnessTests(FriendsTestCase):
+    def befriend(self, a, b):
+        friends.request_friendship(a, b.pk)
+        friends.accept_request(b, a.pk)
+
+    def test_account_merge_moves_friendships_and_invites(self):
+        source = User.objects.create_user('fr_source', password='secret')
+        Profile.objects.create(user=source, first_name='Старый', last_name='Аккаунт')
+        self.befriend(source, self.vera)                     # moves to anna
+        friends.request_friendship(source, self.boris.pk)    # pending, moves with requester = anna
+        self.befriend(source, self.anna)                     # the pair itself disappears
+        invite = friends.new_invite(source)
+
+        moved = friends.merge_user_friendships(self.anna, source)
+
+        self.assertEqual(moved, 2)
+        self.assertTrue(friends.are_friends(self.anna.pk, self.vera.pk))
+        self.assertEqual(friends.relation(self.boris, self.anna.pk), friends.RELATION_INCOMING)
+        self.assertFalse(Friendship.objects.filter(user_low=source).exists())
+        self.assertFalse(Friendship.objects.filter(user_high=source).exists())
+        invite.refresh_from_db()
+        self.assertEqual(invite.user_id, self.anna.pk)
+
+    def test_merge_folds_into_existing_pair_keeping_accepted(self):
+        source = User.objects.create_user('fr_source2')
+        friends.request_friendship(self.anna, self.vera.pk)  # target: pending
+        self.befriend(source, self.vera)                      # source: accepted
+        friends.merge_user_friendships(self.anna, source)
+        self.assertTrue(friends.are_friends(self.anna.pk, self.vera.pk))
+        self.assertEqual(Friendship.objects.count(), 1)
+
+    def test_account_merge_calls_friendship_merge(self):
+        import inspect
+
+        from games.identity.merge import account
+
+        self.assertIn('merge_user_friendships', inspect.getsource(account._merge_accounts_atomic))
+
+    def test_deactivated_player_page_is_gone(self):
+        User.objects.filter(pk=self.vera.pk).update(is_active=False)
+        url = reverse('new_player_profile', kwargs={'public_id': self.vera_p.public_id})
+        self.assertEqual(Client().get(url).status_code, 404)
+
+    def test_results_link_hidden_page_only_for_friends(self):
+        from games.community.visibility import player_urls_for_users
+
+        Profile.objects.filter(pk=self.vera_p.pk).update(page_hidden=True)
+        self.assertEqual(player_urls_for_users([self.vera.pk], self.boris), {})
+        self.befriend(self.anna, self.vera)
+        self.assertEqual(
+            player_urls_for_users([self.vera.pk], self.anna),
+            {self.vera.pk: '/u/{}/'.format(self.vera_p.public_id)},
+        )
+
+    def test_viewer_without_profile_gets_no_friend_buttons(self):
+        User.objects.create_user('fr_noprofile', password='secret')
+        client = Client()
+        client.login(username='fr_noprofile', password='secret')
+        body = client.get(reverse('new_player_profile', kwargs={'public_id': self.anna_p.public_id})).content.decode()
+        self.assertNotIn('Добавить в друзья', body)
+
+    def test_incoming_counter_refreshes_after_commit(self):
+        self.assertEqual(friends.incoming_count(self.vera.pk), 0)
+        with self.captureOnCommitCallbacks(execute=True):
+            friends.request_friendship(self.anna, self.vera.pk)
+        self.assertEqual(friends.incoming_count(self.vera.pk), 1)

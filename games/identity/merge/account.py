@@ -778,6 +778,9 @@ def _merge_accounts_atomic(*, target_user, source_user, provider, provider_uid):
     summary['daily_timings'] = _merge_daily_timings(target, source)
     summary['completed_games'] = _merge_completed_games(target, source)
     summary['analytics_states'] = _merge_analytics(target, source)
+    from games.community.friends import merge_user_friendships
+
+    summary['friendships'] = merge_user_friendships(target, source)
     # Invalidating a projection is a cheap write that belongs with the move.
     # The completion re-check is not: it runs per group after commit, see
     # reconcile_account_merge().

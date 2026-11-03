@@ -41,11 +41,11 @@ class TeamPublicPageTests(TestCase):
         cls.outsider = User.objects.create_user('tp_outsider', password='secret')
         cls.member_profile = Profile.objects.create(
             user=cls.member, first_name='Анна', last_name='Петрова',
-            avatar_url='https://example.com/anna.jpg', telegram_handle='anna_tg',
+            avatar_url='https://lh3.googleusercontent.com/anna.jpg', telegram_handle='anna_tg',
         )
         cls.shy_profile = Profile.objects.create(
             user=cls.shy, first_name='Тихон', last_name='Скромный',
-            avatar_url='https://example.com/shy.jpg', page_hidden=True,
+            avatar_url='https://lh3.googleusercontent.com/shy.jpg', page_hidden=True,
         )
         cls.banned_profile = Profile.objects.create(
             user=cls.banned, first_name='Скрытый', last_name='Админом', is_hidden=True,
@@ -73,11 +73,11 @@ class TeamPublicPageTests(TestCase):
         body = response.content.decode()
         self.assertIn('Сфинксы', body)
         self.assertIn('href="/u/{}/"'.format(self.member_profile.public_id), body)
-        self.assertIn('https://example.com/anna.jpg', body)
+        self.assertIn('https://lh3.googleusercontent.com/anna.jpg', body)
         # A hidden page keeps the name but loses the link and the photo.
         self.assertIn('Тихон Скромный', body)
         self.assertNotIn('/u/{}/'.format(self.shy_profile.public_id), body)
-        self.assertNotIn('https://example.com/shy.jpg', body)
+        self.assertNotIn('https://lh3.googleusercontent.com/shy.jpg', body)
         # Admin-hidden profiles are not listed; contacts never are.
         self.assertNotIn('Скрытый', body)
         self.assertNotIn('anna_tg', body)

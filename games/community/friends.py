@@ -4,6 +4,7 @@ Every state change goes through this module so the incoming-request counter
 in the header stays in sync with the database.
 """
 
+import logging
 import secrets
 
 from django.core.cache import cache
@@ -12,6 +13,8 @@ from django.db.models import F, Q
 from django.utils import timezone
 
 from games.models import FriendInvite, Friendship
+
+logger = logging.getLogger('application')
 
 RELATION_SELF = 'self'
 RELATION_NONE = 'none'
@@ -43,7 +46,13 @@ def _incoming_cache_key(user_id):
 
 
 def _touch(*user_ids):
-    cache.delete_many([_incoming_cache_key(uid) for uid in user_ids])
+    """Drop cached counters once the change is visible to other requests.
+
+    Inside a transaction a delete before commit lets a concurrent request
+    re-cache the old count for the whole TTL.
+    """
+    keys = [_incoming_cache_key(uid) for uid in user_ids]
+    transaction.on_commit(lambda: cache.delete_many(keys))
 
 
 def relation(viewer, other_user_id):
@@ -122,7 +131,18 @@ def request_friendship(viewer, other_user_id):
             # A concurrent request for the same pair won; re-read its state.
             return relation(viewer, other_user_id)
     _touch(other_user_id)
+    transaction.on_commit(lambda: _notify_request(viewer.pk, other_user_id))
     return RELATION_OUTGOING
+
+
+def _notify_request(from_user_id, to_user_id):
+    """Best effort: a failed enqueue must never fail the request itself."""
+    try:
+        from games.ops.telegram.bot.user_notices import publish_friend_request_notice
+
+        publish_friend_request_notice(from_user_id=from_user_id, to_user_id=to_user_id)
+    except Exception:
+        logger.exception('event=friend_request_notice_failed from=%s to=%s', from_user_id, to_user_id)
 
 
 def accept_request(viewer, other_user_id):
@@ -179,3 +199,37 @@ def accept_invite(invite, viewer):
             FriendInvite.objects.filter(pk=invite.pk).update(uses_count=F('uses_count') + 1)
     _touch(viewer.pk, owner_id)
     return RELATION_FRIENDS
+
+
+def merge_user_friendships(target, source):
+    """Move ``source``'s friendships and invite links to ``target`` (account merge).
+
+    A pair that already exists for ``target`` keeps the stronger state
+    (accepted beats pending); the source↔target pair itself disappears.
+    Returns the number of friendship rows moved or folded.
+    """
+    moved = 0
+    touched = {target.pk}
+    for row in list(_involving(source.pk).select_for_update()):
+        other_id = row.other(source.pk)
+        touched.add(other_id)
+        row.delete()
+        if other_id == target.pk:
+            continue
+        requested_by = target.pk if row.requested_by_id == source.pk else row.requested_by_id
+        existing = _row(target.pk, other_id)
+        if existing is not None:
+            if row.status == Friendship.STATUS_ACCEPTED and existing.status != Friendship.STATUS_ACCEPTED:
+                existing.status = Friendship.STATUS_ACCEPTED
+                existing.accepted_at = row.accepted_at or timezone.now()
+                existing.save(update_fields=['status', 'accepted_at'])
+        else:
+            low, high = _pair(target.pk, other_id)
+            Friendship.objects.create(
+                user_low_id=low, user_high_id=high, requested_by_id=requested_by,
+                status=row.status, accepted_at=row.accepted_at,
+            )
+        moved += 1
+    FriendInvite.objects.filter(user=source).update(user=target)
+    _touch(*touched)
+    return moved

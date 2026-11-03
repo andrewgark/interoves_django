@@ -6,6 +6,7 @@ from django.views.decorators.http import require_http_methods
 
 from games.community import friends, visibility
 from games.community.stats import head_to_head, player_stats
+from games.identity import has_profile
 from games.models import Profile, Team
 from games.models.people import PersonalResultsParticipant
 from games.results.table.context import club_subscriber_user_ids
@@ -29,7 +30,8 @@ def player_profile(request, public_id):
     ctx = {
         'player': identity,
         'player_public_id': profile.public_id,
-        'player_relation': friends.relation(viewer, profile.user_id),
+        # Friend actions need the viewer's own profile; without one they 404.
+        'player_relation': friends.relation(viewer, profile.user_id) if has_profile(viewer) else '',
         'player_is_owner': is_owner,
         'player_page_hidden': state == visibility.PAGE_HIDDEN,
         'player_owner_page_hidden': is_owner and profile.page_hidden,

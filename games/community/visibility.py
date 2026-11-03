@@ -7,10 +7,21 @@ entirely, so their page does not exist for others.
 """
 
 from dataclasses import dataclass
+from urllib.parse import urlsplit
 
 from django.urls import reverse
 
 from games.models import Profile
+
+# Others only see photos served by the login providers themselves. An
+# arbitrary URL would let a player log the IP of everyone who opens their page
+# (or show anything at all); the owner still sees whatever they set.
+TRUSTED_AVATAR_HOST_SUFFIXES = (
+    'userapi.com', 'vk.com', 'vk.me', 'vkuserphoto.ru',   # VK
+    'googleusercontent.com', 'ggpht.com',                  # Google
+    'yandex.net',                                          # Яндекс
+    't.me', 'telesco.pe', 'telegram.org',                  # Telegram
+)
 
 PAGE_FULL = 'full'
 PAGE_HIDDEN = 'hidden'
@@ -27,7 +38,9 @@ def page_state(viewer, profile):
         return PAGE_MISSING
     if is_owner(viewer, profile):
         return PAGE_FULL
-    if profile.is_hidden:
+    # Deactivated accounts (e.g. the losing side of an account merge) must
+    # not linger as public duplicates of a player.
+    if profile.is_hidden or not profile.user.is_active:
         return PAGE_MISSING
     if profile.page_hidden:
         # Confirmed friends still see the page: hiding it is about strangers.
@@ -51,7 +64,18 @@ def public_avatar_url(profile, viewer=None, *, page_visible=False):
         return profile.avatar_url
     if profile.avatar_hidden or (profile.page_hidden and not page_visible):
         return ''
-    return profile.avatar_url
+    return profile.avatar_url if is_trusted_avatar_url(profile.avatar_url) else ''
+
+
+def is_trusted_avatar_url(url):
+    try:
+        parts = urlsplit(str(url).strip())
+    except ValueError:
+        return False
+    host = (parts.hostname or '').lower()
+    if parts.scheme != 'https' or not host:
+        return False
+    return any(host == suffix or host.endswith('.' + suffix) for suffix in TRUSTED_AVATAR_HOST_SUFFIXES)
 
 
 def initials(profile):
@@ -80,16 +104,28 @@ def player_url(public_id):
     return reverse('new_player_profile', kwargs={'public_id': public_id}) if public_id else ''
 
 
-def player_urls_for_users(user_ids):
-    """``{user_id: url}`` for players whose page others may open; one query.
+def player_urls_for_users(user_ids, viewer=None):
+    """``{user_id: url}`` for pages this viewer may open; one or two queries.
 
-    Players with a hidden page get no link at all, so results tables do not
-    advertise a page that only shows a stub.
+    Players with a hidden page get no link, so results tables do not
+    advertise a page that only shows a stub, except to the player themself
+    and to their friends, who see the full page.
     """
     ids = {int(uid) for uid in user_ids if uid is not None}
     if not ids:
         return {}
     rows = Profile.objects.filter(
-        user_id__in=ids, is_hidden=False, page_hidden=False,
-    ).exclude(public_id=None).values_list('user_id', 'public_id')
-    return {user_id: player_url(public_id) for user_id, public_id in rows}
+        user_id__in=ids, is_hidden=False, user__is_active=True,
+    ).exclude(public_id=None).values_list('user_id', 'public_id', 'page_hidden')
+    hidden = {user_id for user_id, _public_id, page_hidden in rows if page_hidden}
+    allowed = set()
+    viewer_id = viewer.pk if getattr(viewer, 'is_authenticated', False) else None
+    if hidden and viewer_id is not None:
+        from games.community.friends import friend_user_ids
+
+        allowed = (friend_user_ids(viewer_id) | {viewer_id}) & hidden
+    return {
+        user_id: player_url(public_id)
+        for user_id, public_id, page_hidden in rows
+        if not page_hidden or user_id in allowed
+    }

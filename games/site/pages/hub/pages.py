@@ -56,6 +56,10 @@ def hub(request):
         live_next_transition_at = next_daily_content_transition_for_games(
             card.get('game') for card in hub_groups['daily_hub_cards']
         )
+    with timing_phase(request, 'hub_friends_today'):
+        from games.community.hub import friends_today
+
+        hub_friends_today = friends_today(request.user, hub_groups['daily_hub_cards'])
     with timing_phase(request, 'hub_desyatochki'):
         desyatochki_games = project_games_list(request, NEW_UI_PROJECT)
         desyatochki_card = get_desyatochki_hub_context(desyatochki_games) if desyatochki_games else None
@@ -70,6 +74,7 @@ def hub(request):
             'section_games': section_games,
             **hub_groups,
             'desyatochki_card': desyatochki_card,
+            'hub_friends_today': hub_friends_today,
             'show_first_visit_onboarding': show_first_visit_onboarding,
             'onboarding_salad_url': onboarding_salad_url,
             **games_list_context,

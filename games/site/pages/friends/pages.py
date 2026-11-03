@@ -36,7 +36,9 @@ def _next_or_friends(request):
 
 def _identities(user_ids, viewer, *, are_friends=False):
     """Cards for a list of players; only friends see past a hidden page."""
-    profiles = Profile.objects.filter(user_id__in=user_ids, is_hidden=False).order_by('first_name', 'last_name')
+    profiles = Profile.objects.filter(
+        user_id__in=user_ids, is_hidden=False, user__is_active=True,
+    ).order_by('first_name', 'last_name')
     return [
         {
             'public_id': p.public_id,
@@ -50,7 +52,9 @@ def _identities(user_ids, viewer, *, are_friends=False):
 @require_http_methods(['POST'])
 def friends_action(request):
     action = _ACTIONS.get(request.POST.get('action'))
-    other = Profile.objects.filter(public_id=(request.POST.get('player') or '').strip(), is_hidden=False).first()
+    other = Profile.objects.filter(
+        public_id=(request.POST.get('player') or '').strip(), is_hidden=False, user__is_active=True,
+    ).first()
     if action is None or other is None or not has_profile(request.user):
         raise Http404()
     try:
@@ -78,6 +82,7 @@ def friends_page(request):
         'friends_invite_url': request.build_absolute_uri(
             reverse('new_friend_invite', kwargs={'token': invite.token}),
         ) if invite else '',
+        'friends_telegram_hint': not getattr(getattr(request.user, 'profile', None), 'telegram_verified', False),
         'page_title': 'Друзья',
     }
     ctx.update(_project_urls_context(NEW_UI_PROJECT))
@@ -94,7 +99,7 @@ def friend_invite_create(request):
 
 def _invite_context(request, invite):
     owner = getattr(invite.user, 'profile', None)
-    if owner is None or owner.is_hidden:
+    if owner is None or owner.is_hidden or not invite.user.is_active:
         return None
     return {
         'invite': invite,

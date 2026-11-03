@@ -65,7 +65,7 @@ class PlayerPageTests(TestCase):
         cls.viewer = User.objects.create_user('pp_viewer', password='secret')
         cls.profile = Profile.objects.create(
             user=cls.owner, first_name='Анна', last_name='Петрова',
-            avatar_url='https://example.com/anna.jpg',
+            avatar_url='https://lh3.googleusercontent.com/anna.jpg',
             telegram_handle='anna_secret_tg', vk_url='vk.com/anna_secret_vk',
             email='anna-secret@example.com',
         )
@@ -96,7 +96,7 @@ class PlayerPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.content.decode()
         self.assertIn('Анна Петрова', body)
-        self.assertIn('https://example.com/anna.jpg', body)
+        self.assertIn('https://lh3.googleusercontent.com/anna.jpg', body)
         self.assertIn('Сфинксы', body)
         self.assertNotIn('Тайные', body)
         for secret in ('anna_secret_tg', 'anna_secret_vk', 'anna-secret@example.com'):
@@ -114,16 +114,16 @@ class PlayerPageTests(TestCase):
         self.assertIn('Анна Петрова', body)
         self.assertIn('скрыл свою страницу', body)
         self.assertNotIn('Сфинксы', body)
-        self.assertNotIn('https://example.com/anna.jpg', body)
+        self.assertNotIn('https://lh3.googleusercontent.com/anna.jpg', body)
 
     def test_hidden_avatar_is_replaced_with_initials_for_others_only(self):
         self.set_flags(avatar_hidden=True)
         body = Client().get(self.url()).content.decode()
-        self.assertNotIn('https://example.com/anna.jpg', body)
+        self.assertNotIn('https://lh3.googleusercontent.com/anna.jpg', body)
         self.assertIn('АП', body)
         owner = Client()
         owner.login(username='pp_owner', password='secret')
-        self.assertIn('https://example.com/anna.jpg', owner.get(self.url()).content.decode())
+        self.assertIn('https://lh3.googleusercontent.com/anna.jpg', owner.get(self.url()).content.decode())
 
     def test_owner_sees_own_hidden_page_with_note(self):
         self.set_flags(page_hidden=True)
@@ -138,14 +138,14 @@ class PlayerPageTests(TestCase):
         owner.login(username='pp_owner', password='secret')
         response = owner.post(reverse('new_profile'), {
             'first_name': 'Анна', 'last_name': 'Петрова',
-            'avatar_url': 'https://example.com/anna.jpg',
+            'avatar_url': 'https://lh3.googleusercontent.com/anna.jpg',
             'timezone': 'Europe/Moscow', 'page_hidden': 'on',
         })
         self.assertEqual(response.status_code, 302)
         self.profile.refresh_from_db()
         self.assertTrue(self.profile.page_hidden)
         self.assertFalse(self.profile.avatar_hidden)
-        self.assertEqual(self.profile.avatar_url, 'https://example.com/anna.jpg')
+        self.assertEqual(self.profile.avatar_url, 'https://lh3.googleusercontent.com/anna.jpg')
 
 
 class ResultsLinkTests(TestCase):
@@ -287,3 +287,23 @@ class ResultsRowTemplateTests(TestCase):
         html = render_to_string('site/partials/aggregate_results_rows.html', {'aggregate_rows': rows})
         self.assertIn('<a class="results-actor-link" href="/u/abcd2345/">Анна</a>', html)
         self.assertNotIn('>Сфинксы</a>', html)
+
+
+class TrustedAvatarTests(TestCase):
+    def test_only_provider_https_photos_are_shown_to_others(self):
+        from games.community.visibility import is_trusted_avatar_url, public_avatar_url
+
+        for url in (
+            'https://sun9-1.userapi.com/a.jpg', 'https://lh3.googleusercontent.com/a',
+            'https://avatars.yandex.net/get-yapic/1/islands-200', 'https://t.me/i/userpic/320/a.jpg',
+        ):
+            self.assertTrue(is_trusted_avatar_url(url), url)
+        for url in (
+            'http://lh3.googleusercontent.com/a', 'https://evil.example/a.jpg',
+            'https://googleusercontent.com.evil.example/a', 'https://notvk.com/a', 'javascript:alert(1)', '',
+        ):
+            self.assertFalse(is_trusted_avatar_url(url), url)
+        owner = User.objects.create_user('ta_owner')
+        profile = Profile.objects.create(user=owner, first_name='A', last_name='B', avatar_url='https://evil.example/a.jpg')
+        self.assertEqual(public_avatar_url(profile, User.objects.create_user('ta_other')), '')
+        self.assertEqual(public_avatar_url(profile, owner), 'https://evil.example/a.jpg')

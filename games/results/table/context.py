@@ -157,8 +157,8 @@ def attach_results_club_badges(data):
     return data
 
 
-def attach_results_profile_links(data):
-    """Map the rows of the current page to public player pages (one query)."""
+def attach_results_profile_links(data, viewer=None):
+    """Map the rows of the current page to player pages this viewer may open."""
     from games.community.visibility import player_urls_for_users
 
     actors = data.get('teams_sorted') or []
@@ -167,8 +167,19 @@ def attach_results_profile_links(data):
         if getattr(actor, 'user_id', None) is not None
         and not getattr(actor, 'is_team_results_row', False)
     ]
-    urls = player_urls_for_users(actor.user_id for actor in personal)
+    urls = player_urls_for_users((actor.user_id for actor in personal), viewer)
     data['team_to_player_url'] = {
         actor: urls[actor.user_id] for actor in personal if actor.user_id in urls
     }
+    friend_ids = viewer_friend_ids(viewer) if personal else set()
+    data['team_to_is_friend'] = {actor: True for actor in personal if actor.user_id in friend_ids}
     return data
+
+
+def viewer_friend_ids(viewer):
+    """Friends of the viewer for the handshake mark in results tables."""
+    if not getattr(viewer, 'is_authenticated', False):
+        return set()
+    from games.community.friends import friend_user_ids
+
+    return friend_user_ids(viewer.pk)

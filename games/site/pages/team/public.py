@@ -15,18 +15,19 @@ def _roster(team, viewer):
     """Members as other players see them; admin-hidden profiles are left out.
 
     A hidden page keeps the name (it is public in results anyway) but drops
-    the photo and the link.
+    the photo and the link, except for viewers who may see that page.
     """
     profiles = (
-        Profile.objects.filter(team_memberships__team=team, is_hidden=False)
-        .order_by('first_name', 'last_name', 'pk').distinct()
+        Profile.objects.filter(team_memberships__team=team, is_hidden=False, user__is_active=True)
+        .select_related('user').order_by('first_name', 'last_name', 'pk').distinct()
     )
     members = []
     for profile in profiles:
-        identity = visibility.public_identity(profile, viewer)
+        page_visible = visibility.page_state(viewer, profile) == visibility.PAGE_FULL
+        identity = visibility.public_identity(profile, viewer, page_visible=page_visible)
         members.append({
             'identity': identity,
-            'url': '' if visibility.page_state(viewer, profile) != visibility.PAGE_FULL else identity.url,
+            'url': identity.url if page_visible else '',
             'is_active_team': profile.team_on_id == team.pk,
             'is_viewer': visibility.is_owner(viewer, profile),
         })
@@ -57,7 +58,7 @@ def team_public_page(request, public_id):
     if is_member:
         ctx['team_join_requests'] = [
             {'user_id': requester.user_id, 'identity': visibility.public_identity(requester, viewer)}
-            for requester in team.users_requested.filter(is_hidden=False).order_by('pk')
+            for requester in team.users_requested.filter(is_hidden=False, user__is_active=True).order_by('pk')
             if requester.user_id != viewer.pk
         ]
         invite = (

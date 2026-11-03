@@ -18,24 +18,22 @@ logger = logging.getLogger('application')
 QUEUE_URL_ENV = 'INTEGRATIONS_SQS_QUEUE_URL'
 
 
-def publish_admin_alert(*, alert: str, payload: dict, dedupe_key: str = '') -> bool:
-    """Publish an admin alert; Telegram delivery stays outside the web process."""
+def enqueue_integrations_message(*, message_type: str, payload: dict, dedupe_key: str, label: str) -> bool:
+    """Put one message on the integrations queue; never block a web request on Telegram."""
     queue_url = os.environ.get(QUEUE_URL_ENV, '').strip()
     if not queue_url:
         logger.error(
             'event=telegram_admin_alert_enqueue_failed reason=queue_url_missing alert=%s',
-            alert,
+            label,
         )
         return False
-    alert_payload = dict(payload)
-    alert_payload['alert'] = str(alert)
     body = {
         'version': 1,
-        'type': TELEGRAM_ADMIN_ALERT,
+        'type': message_type,
         'run_id': str(uuid.uuid4()),
         'scheduled_for': timezone.now().isoformat(),
-        'dedupe_key': dedupe_key or 'telegram.admin_alert:{}'.format(alert),
-        'payload': alert_payload,
+        'dedupe_key': dedupe_key,
+        'payload': payload,
     }
     try:
         client = boto3.client(
@@ -52,14 +50,26 @@ def publish_admin_alert(*, alert: str, payload: dict, dedupe_key: str = '') -> b
     except Exception:
         logger.exception(
             'event=telegram_admin_alert_enqueue_failed alert=%s',
-            alert,
+            label,
         )
         return False
     logger.info(
         'event=telegram_admin_alert_enqueued alert=%s',
-        alert,
+        label,
     )
     return True
+
+
+def publish_admin_alert(*, alert: str, payload: dict, dedupe_key: str = '') -> bool:
+    """Publish an admin alert; Telegram delivery stays outside the web process."""
+    alert_payload = dict(payload)
+    alert_payload['alert'] = str(alert)
+    return enqueue_integrations_message(
+        message_type=TELEGRAM_ADMIN_ALERT,
+        payload=alert_payload,
+        dedupe_key=dedupe_key or 'telegram.admin_alert:{}'.format(alert),
+        label=alert,
+    )
 
 
 def publish_word_salad_submission_error(*, game_id: str, incident_id: str) -> bool:

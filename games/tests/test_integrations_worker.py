@@ -118,6 +118,16 @@ class IntegrationsWorkerTests(SimpleTestCase):
             dedupe_key='telegram.announcements:minute',
         )
 
+    def test_user_notice_is_dispatched_and_acked_even_when_undeliverable(self):
+        payload = {'kind': 'friend_request', 'from_user_id': 1, 'to_user_id': 2}
+        with patch(
+            'games.ops.telegram.bot.user_notices.run_user_notice_live',
+            return_value={'sent': False, 'reason': 'not_pending'},
+        ) as notice:
+            response = self._post(_body(type='telegram.user_notice', payload=payload))
+        self.assertEqual(response.status_code, 200)
+        notice.assert_called_once_with(payload=payload)
+
     def test_site_error_admin_alert_is_dispatched(self):
         with patch(
             'games.ops.workers.handlers.integrations.run_admin_alert_live',

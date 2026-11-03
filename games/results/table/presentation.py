@@ -19,7 +19,7 @@ def paginate_results_rows(request, data, per_page=50):
     out = dict(data)
     attach_results_club_badges(out)
     out['teams_sorted'] = list(page_obj.object_list)
-    attach_results_profile_links(out)
+    attach_results_profile_links(out, getattr(request, 'user', None))
     out['page_obj'] = page_obj
     out['paginator'] = paginator
     out['is_paginated'] = paginator.num_pages > 1

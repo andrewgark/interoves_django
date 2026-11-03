@@ -35,6 +35,7 @@ from games.results.snapshots.snapshot import (
 )
 from games.results.table.context import (
     results_actor_identity,
+    viewer_friend_ids,
 )
 from games.sections.hub import section_all_label
 from games.sections.paths import section_play_path
@@ -206,15 +207,17 @@ def section_results_page(request, game_id):
     aggregate_subscriber_ids = _club_subscriber_user_ids(
         row.get('actor') for row in data.get('aggregate_rows', [])
     )
-    aggregate_player_urls = player_urls_for_users(
+    aggregate_player_urls = player_urls_for_users((
         row['actor'].user_id for row in data.get('aggregate_rows', [])
         if row.get('actor_kind') == 'user' and getattr(row.get('actor'), 'user_id', None)
-    )
+    ), request.user)
+    aggregate_friend_ids = viewer_friend_ids(request.user) if data.get('aggregate_rows') else set()
     for row in data.get('aggregate_rows', []):
         actor = row.get('actor')
         row['is_club_subscriber'] = getattr(actor, 'user_id', None) in aggregate_subscriber_ids
         if row.get('actor_kind') == 'user':
             row['player_url'] = aggregate_player_urls.get(getattr(actor, 'user_id', None), '')
+            row['is_friend'] = getattr(actor, 'user_id', None) in aggregate_friend_ids
     aggregate_column_labels = {}
     if results_variant == 'alphabetty':
         current_actor = team if play_mode == 'team' else (me_personal or me_anon_participant)

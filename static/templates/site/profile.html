@@ -68,7 +68,7 @@
         <label for="{{ form.avatar_url.id_for_label }}">Ссылка на фото</label>
         {{ form.avatar_url }}
         {% if form.avatar_url.errors %}<span class="new-field-error">{{ form.avatar_url.errors }}</span>{% endif %}
-        <p class="new-login-hint new-profile-avatar-hint">Фото из Google, Яндекса или VK обычно появляется автоматически.</p>
+        <p class="new-login-hint new-profile-avatar-hint">Фото из Google, Яндекса или VK обычно появляется автоматически. Другим игрокам показываем только фото из VK, Google, Яндекса и Telegram — по другим ссылкам они увидят инициалы.</p>
         <fieldset id="profile-privacy" class="new-profile-privacy">
           <legend>Что видят другие игроки</legend>
           <p class="new-login-hint">Имя видно в таблицах результатов. Telegram, VK и почта другим не показываются никогда.</p>

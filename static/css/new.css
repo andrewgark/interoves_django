@@ -2508,6 +2508,59 @@ a.team-member:hover .team-member__name { color: var(--accent); }
 /* Results tables: participant name links to the player page */
 .results-actor-link { color: inherit; text-decoration: none; }
 .results-actor-link:hover, .results-actor-link:focus-visible { color: var(--accent); text-decoration: underline; }
+.results-friend-mark { color: var(--accent); font-size: 0.9em; vertical-align: -0.05em; }
+
+/* Hub: «Друзья сегодня» */
+.hub-friends {
+  margin-top: 0.9rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+}
+.hub-friends__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.hub-friends__title .ph { color: var(--accent); font-size: 1.05rem; }
+.hub-friends__list { margin: 0; padding: 0; list-style: none; }
+.hub-friends__row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-width: 0;
+  padding: 0.45rem 0;
+}
+.hub-friends__row + .hub-friends__row { border-top: 1px solid var(--border); }
+.hub-friends__faces { display: flex; flex: none; min-width: 3.25rem; }
+.hub-friends__face {
+  display: grid;
+  place-items: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  overflow: hidden;
+  border: 2px solid var(--surface);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 18%, var(--tile));
+  color: var(--accent);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.hub-friends__face + .hub-friends__face { margin-left: -0.55rem; }
+.hub-friends__face > span, .hub-friends__face img { grid-area: 1 / 1; }
+.hub-friends__face img { width: 100%; height: 100%; object-fit: cover; }
+.hub-friends__text { display: flex; flex: 1 1 auto; flex-direction: column; min-width: 0; font-size: 0.9rem; overflow-wrap: break-word; }
+.hub-friends__game { color: var(--muted); font-size: 0.78rem; font-weight: 700; }
+.hub-friends__text a { color: var(--text); font-weight: 600; text-decoration: none; }
+.hub-friends__text a:hover { color: var(--accent); text-decoration: underline; }
+.hub-friends__compare { flex: none; }
 
 @media (max-width: 559px) {
   .player-card__action { grid-column: 1 / -1; justify-self: start; }

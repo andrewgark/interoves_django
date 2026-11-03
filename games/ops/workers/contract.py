@@ -111,6 +111,7 @@ WORKER_REGISTRY = WorkerRegistry((
             "telegram.announcements",
             "telegram.admin_report",
             "telegram.admin_alert",
+            "telegram.user_notice",
             "instagram.token_refresh",
             "social.publish",
         ),

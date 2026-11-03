@@ -34,6 +34,8 @@ from games.ops.workers.messages import (
     TELEGRAM_ADMIN_ALERT,
     TELEGRAM_ADMIN_REPORT,
     TELEGRAM_ANNOUNCEMENTS,
+    TELEGRAM_USER_NOTICE,
+    USER_NOTICE_STALE_AFTER,
     InvalidBackgroundMessage,
     parse_background_message,
 )
@@ -56,6 +58,7 @@ def integrations_worker(request):
         TELEGRAM_ANNOUNCEMENTS,
         TELEGRAM_ADMIN_REPORT,
         TELEGRAM_ADMIN_ALERT,
+        TELEGRAM_USER_NOTICE,
         INSTAGRAM_TOKEN_REFRESH,
         SOCIAL_PUBLISH,
     ):
@@ -90,6 +93,12 @@ def integrations_worker(request):
                     payload.get('alert'), message['run_id'], message_id,
                 )
                 return JsonResponse({'status': 'failed'}, status=500)
+        elif message['type'] == TELEGRAM_USER_NOTICE:
+            from games.ops.telegram.bot.user_notices import run_user_notice_live
+
+            # Undeliverable notices (blocked bot, stale request) are acked, not
+            # retried: a retry would only repeat the same answer.
+            result = run_user_notice_live(payload=message['payload'])
         elif message['type'] == INSTAGRAM_TOKEN_REFRESH:
             result = run_instagram_token_refresh(
                 worker='integration:{}'.format(message_id or 'unknown'),
@@ -126,6 +135,8 @@ def _is_stale(message, *, now):
         return age > ADMIN_ALERT_STALE_AFTER
     if message['type'] == TELEGRAM_ANNOUNCEMENTS:
         return age > ANNOUNCEMENT_STALE_AFTER
+    if message['type'] == TELEGRAM_USER_NOTICE:
+        return age > USER_NOTICE_STALE_AFTER
     if message['type'] == INSTAGRAM_TOKEN_REFRESH:
         return age > INSTAGRAM_STALE_AFTER
     if message['type'] == SOCIAL_PUBLISH:

@@ -1,0 +1,18 @@
+{% comment %}«Друзья сегодня» on the hub. Context: rows (games.community.hub.friends_today).{% endcomment %}
+<div class="hub-friends" aria-labelledby="hub-friends-heading">
+  <h3 id="hub-friends-heading" class="hub-friends__title"><i class="ph ph-handshake" aria-hidden="true"></i> Друзья сегодня</h3>
+  <ul class="hub-friends__list">
+    {% for row in rows %}
+      <li class="hub-friends__row">
+        <span class="hub-friends__faces" aria-hidden="true">
+          {% for friend in row.friends %}<span class="hub-friends__face"><span>{{ friend.initials }}</span>{% if friend.avatar_url %}<img src="{{ friend.avatar_url }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}</span>{% endfor %}
+        </span>
+        <span class="hub-friends__text">
+          <span class="hub-friends__game">{{ row.title }}</span>
+          <span class="hub-friends__names">{% for friend in row.friends %}{% if not forloop.first %}{% if forloop.last and not row.more %} и {% else %}, {% endif %}{% endif %}<a href="{{ friend.url }}">{{ friend.name }}</a>{% endfor %}{% if row.more %} и ещё {{ row.more }}{% endif %}</span>
+        </span>
+        <a class="new-btn new-btn--ghost new-btn--mini hub-friends__compare" href="{{ row.results_url }}">Сравнить</a>
+      </li>
+    {% endfor %}
+  </ul>
+</div>
