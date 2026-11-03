@@ -14,8 +14,8 @@ from django.contrib.auth import (
     SESSION_KEY,
     get_user_model,
 )
-from django.contrib.auth.signals import user_login_failed
 from django.contrib.auth.middleware import AuthenticationMiddleware
+from django.contrib.auth.signals import user_login_failed
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sessions.middleware import SessionMiddleware
 from django.contrib.sessions.models import Session
@@ -25,24 +25,23 @@ from django.http import HttpResponse, JsonResponse
 from django.test import Client, RequestFactory, TestCase, override_settings
 from django.utils import timezone
 
+from games.models import Profile
 from games.site.http.auth_observability import (
     log_auth_event,
     log_authenticated_request,
     log_gameplay_attempt_created,
-    log_post_request,
-    record_gameplay_attempt_created,
     log_startup_auth_configuration,
     normalized_user_agent,
+    record_gameplay_attempt_created,
     session_fingerprint,
 )
 from games.site.http.middleware.auth_session_observability import (
-    AuthSessionDiagnosticMiddleware,
     AuthenticatedRequestAuditMiddleware,
+    AuthSessionDiagnosticMiddleware,
     RequestCorrelationMiddleware,
     _inspect_persisted_session,
 )
-from games.models import Profile
-
+from games.site.http.middleware.session_refresh import SESSION_REFRESHED_AT_KEY
 
 TEST_FINGERPRINT_KEY = 'test-only-auth-log-fingerprint-key-with-high-entropy'
 
@@ -608,7 +607,8 @@ class AuthSessionConfigurationTests(TestCase):
         self.assertFalse(settings.SECURE_SSL_REDIRECT)
 
     def test_session_lifetime_and_scope_are_unchanged(self):
-        self.assertEqual(settings.SESSION_COOKIE_AGE, 14 * 24 * 60 * 60)
+        self.assertEqual(settings.SESSION_COOKIE_AGE, 90 * 24 * 60 * 60)
+        self.assertEqual(settings.SESSION_REFRESH_INTERVAL, 24 * 60 * 60)
         self.assertFalse(settings.SESSION_SAVE_EVERY_REQUEST)
         self.assertFalse(settings.SESSION_EXPIRE_AT_BROWSER_CLOSE)
         self.assertIsNone(settings.SESSION_COOKIE_DOMAIN)
@@ -644,3 +644,62 @@ class AuthSessionConfigurationTests(TestCase):
         self.assertNotIn('$http_referer', timing_config + main_config)
         self.assertNotIn('$http_cookie', timing_config + main_config)
         self.assertNotIn('$http_authorization', timing_config + main_config)
+
+
+class SlidingSessionRefreshTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(
+            username='sliding-session-user', password='pw-sliding-session',
+        )
+        self.client.force_login(self.user)
+        self.session_key = self.client.cookies[settings.SESSION_COOKIE_NAME].value
+
+    def _row(self):
+        return Session.objects.get(session_key=self.session_key)
+
+    def _age_expiry(self, days_left):
+        Session.objects.filter(session_key=self.session_key).update(
+            expire_date=timezone.now() + timedelta(days=days_left),
+        )
+
+    def test_get_extends_expiry_and_reissues_cookie(self):
+        self._age_expiry(1)
+        response = self.client.get('/health/live/')
+        self.assertIn(settings.SESSION_COOKIE_NAME, response.cookies)
+        self.assertEqual(
+            response.cookies[settings.SESSION_COOKIE_NAME]['max-age'],
+            settings.SESSION_COOKIE_AGE,
+        )
+        remaining = self._row().expire_date - timezone.now()
+        self.assertGreater(remaining, timedelta(days=89))
+        self.assertIn(SESSION_REFRESHED_AT_KEY, self._row().get_decoded())
+
+    def test_second_request_within_interval_does_not_write(self):
+        self.client.get('/health/live/')
+        self._age_expiry(5)
+        response = self.client.get('/health/live/')
+        self.assertNotIn(settings.SESSION_COOKIE_NAME, response.cookies)
+        remaining = self._row().expire_date - timezone.now()
+        self.assertLess(remaining, timedelta(days=6))
+
+    def test_refresh_repeats_after_interval(self):
+        self.client.get('/health/live/')
+        session = self.client.session
+        session[SESSION_REFRESHED_AT_KEY] -= settings.SESSION_REFRESH_INTERVAL + 1
+        session.save()
+        self._age_expiry(5)
+        self.client.get('/health/live/')
+        self.assertGreater(self._row().expire_date - timezone.now(), timedelta(days=89))
+
+    def test_post_does_not_refresh(self):
+        self._age_expiry(1)
+        self.client.post('/logout-does-not-exist-for-refresh-test/')
+        self.assertLess(self._row().expire_date - timezone.now(), timedelta(days=2))
+
+    def test_anonymous_session_is_not_refreshed(self):
+        self.client.logout()
+        response = self.client.get('/health/live/')
+        session_cookie = response.cookies.get(settings.SESSION_COOKIE_NAME)
+        if session_cookie is not None and session_cookie.value:
+            data = Session.objects.get(session_key=session_cookie.value).get_decoded()
+            self.assertNotIn(SESSION_REFRESHED_AT_KEY, data)

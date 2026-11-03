@@ -35,6 +35,16 @@ def _lock(acquired):
 
 @override_settings(ROOT_URLCONF='interoves_django.urls')
 class BackgroundWorkerTests(SimpleTestCase):
+    def setUp(self):
+        # SimpleTestCase forbids DB access; the hourly tick's session cleanup
+        # is covered separately in test_expired_session_cleanup.
+        cleanup = patch(
+            'games.ops.workers.handlers.background.delete_expired_sessions',
+            return_value={'deleted': 0, 'complete': True},
+        )
+        cleanup.start()
+        self.addCleanup(cleanup.stop)
+
     def _post(self, body, *, role='background-worker', sqsd=True):
         headers = {}
         if sqsd:
@@ -165,6 +175,20 @@ class BackgroundWorkerTests(SimpleTestCase):
         self.assertEqual(response.json(), {'status': 'ok', 'healthy': True})
         check.assert_called_once_with()
         refresh.assert_not_called()
+
+    def test_health_check_tick_runs_session_cleanup_without_failing(self):
+        scheduled = timezone.now().isoformat()
+        with patch(
+            'games.ops.workers.handlers.background.run_daily_difficulty_health_check',
+            return_value={'status': 'healthy'},
+        ), patch(
+            'games.ops.workers.handlers.background.delete_expired_sessions',
+            side_effect=RuntimeError('db down'),
+        ) as cleanup:
+            response = self._post(_body(type='difficulty.health_check', scheduled_for=scheduled))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'status': 'ok', 'healthy': True})
+        cleanup.assert_called_once_with()
 
     def test_health_check_lock_skip_is_acked(self):
         scheduled = timezone.now().isoformat()

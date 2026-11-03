@@ -439,6 +439,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'games.site.http.middleware.auth_session_observability.AuthenticatedRequestAuditMiddleware',
+    'games.site.http.middleware.session_refresh.SlidingSessionRefreshMiddleware',
     'games.site.http.middleware.anonymous_identity.AnonymousIdentityMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -837,6 +838,13 @@ STATICFILES_FINDERS = (
 # Django to trust the origin-side (HTTP) X-Forwarded-Proto value.
 SESSION_COOKIE_SECURE = IS_PROD
 CSRF_COOKIE_SECURE = IS_PROD
+
+# Sliding sessions: a player stays logged in while they visit at least once
+# per SESSION_COOKIE_AGE. SlidingSessionRefreshMiddleware re-saves an
+# authenticated session at most once per SESSION_REFRESH_INTERVAL instead of
+# SESSION_SAVE_EVERY_REQUEST, which would write django_session on every ping.
+SESSION_COOKIE_AGE = 90 * 24 * 60 * 60
+SESSION_REFRESH_INTERVAL = 24 * 60 * 60
 
 AUTHENTICATION_BACKENDS = (
  'django.contrib.auth.backends.ModelBackend',

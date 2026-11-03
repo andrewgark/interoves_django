@@ -3,7 +3,8 @@
 Accepts ``difficulty.refresh``, ``difficulty.minute.refresh`` (and its
 historical name ``difficulty.censorly.refresh``), ``difficulty.health_check``,
 ``projection.reconcile``, and ``projection.refresh``. The reconcile scan
-is the safety net. ``projection.refresh`` rebuilds one dirty release and
+is the safety net. The hourly health check tick also deletes expired
+``django_session`` rows in bounded batches. ``projection.refresh`` rebuilds one dirty release and
 is not stale-skipped. Other runtime roles return 503.
 """
 
@@ -33,6 +34,11 @@ from games.daily.projection.cron import (
 )
 from games.ops.cron.lock import distributed_cron_lock
 from games.ops.cron.runtime import RUNTIME_ROLE_BACKGROUND, runtime_role
+from games.ops.cron.sessions import (
+    SESSION_CLEANUP_LOCK_NAME,
+    SESSION_CLEANUP_LOCK_TTL_SECONDS,
+    delete_expired_sessions,
+)
 from games.ops.workers.heartbeat import finish as finish_queue_heartbeat
 from games.ops.workers.heartbeat import start as start_queue_heartbeat
 from games.ops.workers.http import is_sqsd_delivery, sqsd_message_id
@@ -318,6 +324,7 @@ def _health_check(message, message_id):
             message['type'], message['run_id'], message['scheduled_for'].isoformat(), message_id,
         )
         return JsonResponse({'status': 'failed'}, status=500)
+    _run_expired_session_cleanup(message_id)
     status = result['status']
     logger.info(
         'background worker %s type=%s run_id=%s scheduled_for=%s message_id=%s duration_ms=%.1f',
@@ -331,3 +338,25 @@ def _health_check(message, message_id):
     if status == 'unhealthy':
         return JsonResponse({'status': 'ok', 'healthy': False}, status=200)
     return JsonResponse({'status': 'ok', 'healthy': True}, status=200)
+
+
+def _run_expired_session_cleanup(message_id):
+    """Drain expired sessions from the hourly tick; never fails the tick."""
+    started = time.perf_counter()
+    try:
+        with distributed_cron_lock(
+            SESSION_CLEANUP_LOCK_NAME, ttl_seconds=SESSION_CLEANUP_LOCK_TTL_SECONDS,
+        ) as acquired:
+            if not acquired:
+                return {'status': 'locked'}
+            stats = delete_expired_sessions()
+    except Exception:
+        logger.exception(
+            'background worker failed job=expired_session_cleanup message_id=%s', message_id,
+        )
+        return {'status': 'failed'}
+    logger.info(
+        'background worker ok job=expired_session_cleanup message_id=%s deleted=%s complete=%s duration_ms=%.1f',
+        message_id, stats['deleted'], stats['complete'], (time.perf_counter() - started) * 1000,
+    )
+    return {'status': 'ok', **stats}
