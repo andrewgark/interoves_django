@@ -93,8 +93,18 @@
     publishTpl: "{% url 'support:social_publish' 0 %}".replace('/0/', '/{id}/'),
     syncTgTpl: "{% url 'support:social_sync_telegram' 0 %}".replace('/0/', '/{id}/'),
     regenerateImageTpl: "{% url 'support:social_regenerate_image' 0 %}".replace('/0/', '/{id}/'),
+    regenerateStatusTpl: "{% url 'support:social_regenerate_image_status' 0 %}".replace('/0/', '/{id}/'),
     deleteTpl: "{% url 'support:social_delete' 0 %}".replace('/0/', '/{id}/')
   };
+  // A 502/504 from nginx or the ALB is an HTML page; say so instead of
+  // surfacing «Unexpected token '<'».
+  function readJsonResponse(r) {
+    var type = r.headers.get('Content-Type') || '';
+    if (type.indexOf('application/json') === -1) {
+      throw new Error('Сервер ответил HTTP ' + r.status + ' без JSON; попробуйте ещё раз');
+    }
+    return r.json();
+  }
   var listEl = document.getElementById('social-list');
   var captionEl = document.getElementById('social-caption');
   var dropEl = document.getElementById('social-drop');
@@ -496,23 +506,36 @@
       var regenerateId = regenerateBtn.getAttribute('data-regenerate-image');
       if (!window.confirm('Перегенерировать картинку поста #' + regenerateId + '?')) return;
       regenerateBtn.disabled = true;
-      regenerateBtn.textContent = 'Рендер…';
-      fetch(endpoints.regenerateImageTpl.replace('{id}', regenerateId), {
-        method: 'POST',
-        headers: { 'X-CSRFToken': csrf() }
-      }).then(function (r) { return r.json(); }).then(function (data) {
-        if (!data.ok) {
-          regenerateBtn.disabled = false;
-          regenerateBtn.textContent = 'Перегенерировать картинку';
-          alert(data.error || 'ошибка');
-          return;
-        }
-        upsertPost(data.post);
-      }).catch(function (err) {
+      regenerateBtn.textContent = 'В очереди…';
+      var regenerateFail = function (message) {
         regenerateBtn.disabled = false;
         regenerateBtn.textContent = 'Перегенерировать картинку';
-        alert(String(err));
-      });
+        alert(message || 'ошибка');
+      };
+      // The render runs on the integrations worker; poll until it reports back.
+      var regenerateDeadline = Date.now() + 5 * 60 * 1000;
+      var pollRegenerate = function (jobId) {
+        if (Date.now() > regenerateDeadline) {
+          regenerateFail('Воркер не ответил за 5 минут; картинка не обновлена');
+          return;
+        }
+        var url = endpoints.regenerateStatusTpl.replace('{id}', regenerateId) + '?job=' + encodeURIComponent(jobId);
+        fetch(url, { headers: { 'Accept': 'application/json' } }).then(readJsonResponse).then(function (data) {
+          if (!data.ok) { regenerateFail(data.error); return; }
+          var job = data.job || {};
+          if (job.status === 'done') { upsertPost(data.post); return; }
+          if (job.status === 'failed') { regenerateFail(job.error); return; }
+          if (job.status === 'running') regenerateBtn.textContent = 'Рендер…';
+          setTimeout(function () { pollRegenerate(jobId); }, 2000);
+        }).catch(function (err) { regenerateFail(String(err)); });
+      };
+      fetch(endpoints.regenerateImageTpl.replace('{id}', regenerateId), {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrf(), 'Accept': 'application/json' }
+      }).then(readJsonResponse).then(function (data) {
+        if (!data.ok) { regenerateFail(data.error); return; }
+        pollRegenerate(data.job.job_id);
+      }).catch(function (err) { regenerateFail(String(err)); });
       return;
     }
 

@@ -157,6 +157,11 @@ urlpatterns = [
     path('social/<int:post_id>/publish/', views.social_publish, name='social_publish'),
     path('social/<int:post_id>/sync-telegram/', views.social_sync_telegram, name='social_sync_telegram'),
     path('social/<int:post_id>/regenerate-image/', views.social_regenerate_image, name='social_regenerate_image'),
+    path(
+        'social/<int:post_id>/regenerate-image/status/',
+        views.social_regenerate_image_status,
+        name='social_regenerate_image_status',
+    ),
     path('social/<int:post_id>/delete/', views.social_delete, name='social_delete'),
     path('stats/', views.stats_dashboard, name='stats'),
     path('queues/', views.queues_dashboard, name='queues'),

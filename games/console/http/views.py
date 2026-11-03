@@ -104,7 +104,10 @@ from games.console.feed.social import (
     publish_network as social_publish_network,
 )
 from games.console.feed.social import (
-    regenerate_post_image as social_regenerate_post_image,
+    regenerate_image_state as social_regenerate_image_state,
+)
+from games.console.feed.social import (
+    request_post_image_regeneration as social_request_post_image_regeneration,
 )
 from games.console.feed.social import (
     serialize_post as social_serialize_post,
@@ -2369,12 +2372,31 @@ def social_sync_telegram(request, post_id):
 @support_console_required
 @require_POST
 def social_regenerate_image(request, post_id):
+    # The render itself runs on the integrations worker; see
+    # request_post_image_regeneration for why it cannot run in Daphne.
     try:
         post = social_get_post(post_id)
-        post = social_regenerate_post_image(post)
+        state = social_request_post_image_regeneration(post)
     except SocialSupportError as exc:
         return _social_error_response(exc, status=404 if 'not found' in str(exc).lower() else 400)
-    return JsonResponse({'ok': True, 'post': social_serialize_post(post)})
+    return JsonResponse({'ok': True, 'job': state})
+
+
+@support_console_required
+@require_GET
+def social_regenerate_image_status(request, post_id):
+    try:
+        post = social_get_post(post_id)
+    except SocialSupportError as exc:
+        return _social_error_response(exc, status=404)
+    state = social_regenerate_image_state(post.pk)
+    job_id = request.GET.get('job') or ''
+    if state is None or (job_id and state.get('job_id') != job_id):
+        return JsonResponse({'ok': False, 'error': 'Задача рендера потерялась (истекла или заменена)'}, status=404)
+    data = {'ok': True, 'job': state}
+    if state.get('status') == 'done':
+        data['post'] = social_serialize_post(post)
+    return JsonResponse(data)
 
 
 @support_console_required

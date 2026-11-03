@@ -114,6 +114,7 @@ WORKER_REGISTRY = WorkerRegistry((
             "telegram.user_notice",
             "instagram.token_refresh",
             "social.publish",
+            "social.regenerate_image",
         ),
         allowed_modes=("eb", "ecs-fargate", "ecs-fargate-spot"),
         queue_url_env="INTEGRATIONS_SQS_QUEUE_URL",

@@ -284,3 +284,114 @@ class SupportSocialQueueTests(TestCase):
         post.refresh_from_db()
         self.assertEqual(post.twitter_status, SocialQueuePost.STATUS_QUEUED)
         self.assertIsNotNone(post.twitter_queued_for)
+
+
+@override_settings(MEDIA_ROOT='/tmp/interoves_test_media_social')
+class SupportSocialRegenerateImageTests(TestCase):
+    """The web process only enqueues; Chromium runs on the integrations worker."""
+
+    @classmethod
+    def setUpTestData(cls):
+        from games.models import Task, TaskGroup
+
+        cls.staff = User.objects.create_user('regen_staff', 'r@example.com', 'secret')
+        Profile.objects.create(user=cls.staff, first_name='R', last_name='S')
+        group, _ = Group.objects.get_or_create(name=SUPPORT_CONSOLE_GROUP)
+        group.user_set.add(cls.staff)
+        task_group = TaskGroup.objects.create(label='regen-ladder')
+        cls.task = Task.objects.create(task_group=task_group, number='1', task_type='raddle')
+
+    def setUp(self):
+        from django.core.cache import cache
+
+        cache.clear()
+        self.client = Client()
+        self.assertTrue(self.client.login(username='regen_staff', password='secret'))
+        self.post = SocialQueuePost.objects.create(
+            caption='лесенка', source=SocialQueuePost.SOURCE_LADDER, task=self.task, ladder_number=7,
+        )
+
+    def _regenerate(self, post_id=None):
+        return self.client.post(reverse('support:social_regenerate_image', args=[post_id or self.post.pk]))
+
+    def _status(self, job_id):
+        return self.client.get(
+            reverse('support:social_regenerate_image_status', args=[self.post.pk]), {'job': job_id},
+        )
+
+    def test_button_enqueues_without_rendering_in_web(self):
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message', return_value=True) as enqueue, \
+                patch('games.console.feed.social.regenerate_post_image') as render:
+            response = self._regenerate()
+        self.assertEqual(response.status_code, 200)
+        job = response.json()['job']
+        self.assertEqual(job['status'], 'queued')
+        render.assert_not_called()
+        kwargs = enqueue.call_args.kwargs
+        self.assertEqual(kwargs['message_type'], 'social.regenerate_image')
+        self.assertEqual(kwargs['payload'], {'post_id': self.post.pk, 'job_id': job['job_id']})
+        self.assertEqual(self._status(job['job_id']).json()['job']['status'], 'queued')
+
+    def test_second_click_while_pending_reuses_the_job(self):
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message', return_value=True) as enqueue:
+            first = self._regenerate().json()['job']
+            second = self._regenerate().json()['job']
+        self.assertEqual(first['job_id'], second['job_id'])
+        self.assertEqual(enqueue.call_count, 1)
+
+    def test_enqueue_failure_is_reported_and_not_left_pending(self):
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message', return_value=False):
+            response = self._regenerate()
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(response.json()['ok'])
+        from games.console.feed.social import regenerate_image_state
+
+        self.assertIsNone(regenerate_image_state(self.post.pk))
+
+    def test_post_without_task_is_rejected_before_enqueue(self):
+        manual = SocialQueuePost.objects.create(caption='x', source=SocialQueuePost.SOURCE_MANUAL)
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message') as enqueue:
+            response = self._regenerate(manual.pk)
+        self.assertEqual(response.status_code, 400)
+        enqueue.assert_not_called()
+
+    def test_worker_job_renders_and_status_returns_post(self):
+        from games.console.feed.social import run_regenerate_image_job
+
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message', return_value=True):
+            job = self._regenerate().json()['job']
+        with patch('games.console.feed.social.regenerate_post_image') as render:
+            result = run_regenerate_image_job(payload={'post_id': self.post.pk, 'job_id': job['job_id']})
+        self.assertEqual(result['status'], 'done')
+        self.assertEqual(render.call_args.args[0].pk, self.post.pk)
+        data = self._status(job['job_id']).json()
+        self.assertEqual(data['job']['status'], 'done')
+        self.assertEqual(data['post']['id'], self.post.pk)
+
+    def test_worker_job_failure_is_recorded_for_the_console(self):
+        from games.console.feed.social import SocialSupportError, run_regenerate_image_job
+
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message', return_value=True):
+            job = self._regenerate().json()['job']
+        with patch(
+            'games.console.feed.social.regenerate_post_image',
+            side_effect=SocialSupportError('Ошибка Playwright-рендера: boom'),
+        ):
+            result = run_regenerate_image_job(payload={'post_id': self.post.pk, 'job_id': job['job_id']})
+        self.assertEqual(result['status'], 'failed')
+        state = self._status(job['job_id']).json()['job']
+        self.assertEqual(state['status'], 'failed')
+        self.assertIn('boom', state['error'])
+
+    def test_superseded_job_does_not_render(self):
+        from games.console.feed.social import run_regenerate_image_job
+
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message', return_value=True):
+            self._regenerate()
+        with patch('games.console.feed.social.regenerate_post_image') as render:
+            result = run_regenerate_image_job(payload={'post_id': self.post.pk, 'job_id': 'old'})
+        self.assertEqual(result['status'], 'superseded')
+        render.assert_not_called()
+
+    def test_unknown_job_status_is_404(self):
+        self.assertEqual(self._status('nope').status_code, 404)

@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+import uuid
+from datetime import datetime, timedelta
 
+from django.core.cache import cache
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -274,9 +276,111 @@ def sync_from_telegram(post: SocialQueuePost) -> SocialQueuePost:
     return post
 
 
-def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
+_REGENERABLE_SOURCES = (SocialQueuePost.SOURCE_WORD_SALAD, SocialQueuePost.SOURCE_LADDER)
+REGENERATE_QUEUED = 'queued'
+REGENERATE_RUNNING = 'running'
+REGENERATE_DONE = 'done'
+REGENERATE_FAILED = 'failed'
+_REGENERATE_STATE_TTL = 15 * 60
+# A job that sat this long without finishing is treated as lost (stale SQS
+# message, worker restart), so the button can enqueue a new one.
+REGENERATE_PENDING_TIMEOUT = timedelta(minutes=5)
+
+
+def _check_regenerable(post: SocialQueuePost) -> None:
     if post.task_id is None:
         raise SocialSupportError('У поста нет привязанного задания для рендера картинки')
+    if post.source not in _REGENERABLE_SOURCES:
+        raise SocialSupportError('Для этого типа поста нет Playwright-рендера')
+
+
+def _regenerate_state_key(post_id) -> str:
+    return 'social:regenerate_image:{}'.format(int(post_id))
+
+
+def regenerate_image_state(post_id) -> dict | None:
+    state = cache.get(_regenerate_state_key(post_id))
+    return state if isinstance(state, dict) else None
+
+
+def _set_regenerate_state(post_id, job_id, status, error='') -> dict:
+    state = {
+        'job_id': job_id,
+        'status': status,
+        'error': error,
+        'at': timezone.now().isoformat(),
+    }
+    cache.set(_regenerate_state_key(post_id), state, _REGENERATE_STATE_TTL)
+    return state
+
+
+def _is_pending(state, *, now) -> bool:
+    if not state or state.get('status') not in (REGENERATE_QUEUED, REGENERATE_RUNNING):
+        return False
+    at = parse_datetime(state.get('at') or '')
+    return at is not None and now - at < REGENERATE_PENDING_TIMEOUT
+
+
+def request_post_image_regeneration(post: SocialQueuePost) -> dict:
+    """Queue a Playwright re-render on the integrations worker.
+
+    Chromium does not fit next to Daphne in web.service's memory cgroup
+    (2026-11-03: the render OOM-killed Daphne on Green), so the web process
+    only enqueues and the console polls ``regenerate_image_state``.
+    """
+    from games.ops.telegram.bot.alerts import enqueue_integrations_message
+    from games.ops.workers.messages import SOCIAL_REGENERATE_IMAGE
+
+    _check_regenerable(post)
+    current = regenerate_image_state(post.pk)
+    if _is_pending(current, now=timezone.now()):
+        return current
+    job_id = uuid.uuid4().hex
+    state = _set_regenerate_state(post.pk, job_id, REGENERATE_QUEUED)
+    if not enqueue_integrations_message(
+        message_type=SOCIAL_REGENERATE_IMAGE,
+        payload={'post_id': post.pk, 'job_id': job_id},
+        dedupe_key='social.regenerate_image:{}:{}'.format(post.pk, job_id),
+        label='social_regenerate_image',
+    ):
+        cache.delete(_regenerate_state_key(post.pk))
+        raise SocialSupportError('Не удалось поставить рендер в очередь воркера')
+    return state
+
+
+def run_regenerate_image_job(*, payload: dict) -> dict:
+    """Integrations-worker side of ``request_post_image_regeneration``.
+
+    Failures are recorded for the console and acked: a blind SQS retry could
+    edit the scheduled Telegram photo twice.
+    """
+    post_id = payload.get('post_id')
+    job_id = str(payload.get('job_id') or '')
+    current = regenerate_image_state(post_id) if post_id else None
+    if current and current.get('job_id') != job_id:
+        return {'status': 'superseded', 'post_id': post_id}
+    post = SocialQueuePost.objects.filter(pk=post_id).first() if post_id else None
+    if post is None:
+        if post_id:
+            _set_regenerate_state(post_id, job_id, REGENERATE_FAILED, 'Пост не найден')
+        return {'status': REGENERATE_FAILED, 'post_id': post_id, 'error': 'not_found'}
+    _set_regenerate_state(post.pk, job_id, REGENERATE_RUNNING)
+    try:
+        regenerate_post_image(post)
+    except SocialSupportError as exc:
+        _set_regenerate_state(post.pk, job_id, REGENERATE_FAILED, str(exc))
+        return {'status': REGENERATE_FAILED, 'post_id': post.pk, 'error': str(exc)}
+    except Exception as exc:
+        logger.exception('Social image regeneration job failed for post pk=%s', post.pk)
+        _set_regenerate_state(post.pk, job_id, REGENERATE_FAILED, 'Ошибка воркера: {}'.format(exc))
+        return {'status': REGENERATE_FAILED, 'post_id': post.pk, 'error': str(exc)}
+    _set_regenerate_state(post.pk, job_id, REGENERATE_DONE)
+    return {'status': REGENERATE_DONE, 'post_id': post.pk}
+
+
+def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
+    """Render synchronously. Runs Chromium: call from the worker, not from web."""
+    _check_regenerable(post)
     try:
         if post.source == SocialQueuePost.SOURCE_WORD_SALAD:
             from games.ops.telegram.images.salad import render_word_salad_teaser_png

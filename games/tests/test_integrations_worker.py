@@ -271,6 +271,30 @@ class IntegrationsWorkerTests(SimpleTestCase):
         self.assertEqual(response.json()['status'], 'skipped_stale')
         publish.assert_not_called()
 
+    def test_social_regenerate_image_runs_job(self):
+        with patch(
+            'games.console.feed.social.run_regenerate_image_job',
+            return_value={'status': 'done', 'post_id': 5},
+        ) as job:
+            response = self._post(_body(
+                type='social.regenerate_image',
+                payload={'post_id': 5, 'job_id': 'abc'},
+            ))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'ok')
+        job.assert_called_once_with(payload={'post_id': 5, 'job_id': 'abc'})
+
+    def test_old_social_regenerate_image_is_stale(self):
+        scheduled = timezone.now() - timedelta(minutes=6)
+        with patch('games.console.feed.social.run_regenerate_image_job') as job:
+            response = self._post(_body(
+                type='social.regenerate_image',
+                scheduled_for=scheduled.isoformat(),
+                payload={'post_id': 5, 'job_id': 'abc'},
+            ))
+        self.assertEqual(response.json()['status'], 'skipped_stale')
+        job.assert_not_called()
+
     def test_shadow_flag_does_not_leak(self):
         self.assertFalse(telegram_shadow_active())
         with telegram_shadow():

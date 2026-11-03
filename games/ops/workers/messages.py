@@ -22,6 +22,7 @@ ANONYMOUS_MERGE_RECONCILE = 'anonymous.merge_reconcile'
 ACCOUNT_MERGE = 'account.merge'
 INSTAGRAM_TOKEN_REFRESH = 'instagram.token_refresh'
 SOCIAL_PUBLISH = 'social.publish'
+SOCIAL_REGENERATE_IMAGE = 'social.regenerate_image'
 STALE_AFTER = timedelta(minutes=2)
 ANNOUNCEMENT_STALE_AFTER = timedelta(minutes=3)
 ADMIN_REPORT_STALE_AFTER = timedelta(minutes=20)
@@ -30,6 +31,8 @@ ADMIN_ALERT_STALE_AFTER = timedelta(hours=1)
 USER_NOTICE_STALE_AFTER = timedelta(hours=6)
 INSTAGRAM_STALE_AFTER = timedelta(hours=12)
 SOCIAL_STALE_AFTER = timedelta(minutes=3)
+# Matches the console's pending timeout: after that the button re-enqueues.
+SOCIAL_REGENERATE_STALE_AFTER = timedelta(minutes=5)
 
 
 class InvalidBackgroundMessage(ValueError):

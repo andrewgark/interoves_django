@@ -2,7 +2,9 @@
 
 Telegram types send for real. ``instagram.token_refresh`` runs the daily
 token check. ``social.publish`` publishes the social queue and does not
-run inside the announcement tick.
+run inside the announcement tick. ``social.regenerate_image`` re-renders a
+social post's Playwright image for the support console (Chromium does not fit
+in the web memory cgroup).
 """
 
 import logging
@@ -30,6 +32,8 @@ from games.ops.workers.messages import (
     INSTAGRAM_STALE_AFTER,
     INSTAGRAM_TOKEN_REFRESH,
     SOCIAL_PUBLISH,
+    SOCIAL_REGENERATE_IMAGE,
+    SOCIAL_REGENERATE_STALE_AFTER,
     SOCIAL_STALE_AFTER,
     TELEGRAM_ADMIN_ALERT,
     TELEGRAM_ADMIN_REPORT,
@@ -61,6 +65,7 @@ def integrations_worker(request):
         TELEGRAM_USER_NOTICE,
         INSTAGRAM_TOKEN_REFRESH,
         SOCIAL_PUBLISH,
+        SOCIAL_REGENERATE_IMAGE,
     ):
         return JsonResponse({'error': 'unsupported type'}, status=400)
 
@@ -103,6 +108,10 @@ def integrations_worker(request):
             result = run_instagram_token_refresh(
                 worker='integration:{}'.format(message_id or 'unknown'),
             )
+        elif message['type'] == SOCIAL_REGENERATE_IMAGE:
+            from games.console.feed.social import run_regenerate_image_job
+
+            result = run_regenerate_image_job(payload=message['payload'])
         else:
             result = run_social_publish_live(now=message['scheduled_for'])
         if result is None:
@@ -141,6 +150,8 @@ def _is_stale(message, *, now):
         return age > INSTAGRAM_STALE_AFTER
     if message['type'] == SOCIAL_PUBLISH:
         return age > SOCIAL_STALE_AFTER
+    if message['type'] == SOCIAL_REGENERATE_IMAGE:
+        return age > SOCIAL_REGENERATE_STALE_AFTER
     return age > timedelta(minutes=2)
 
 
