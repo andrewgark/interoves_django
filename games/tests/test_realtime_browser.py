@@ -246,9 +246,10 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
 
         page.on('websocket', watch_socket)
 
-        # Every test acts right after goto(); wait for the track socket so a
-        # teammate event is not lost before this page subscribed. Boundary
-        # tests pass wait_track=False: their page reloads by itself.
+        # Wait for the track socket so each test exercises the live path, not
+        # the reconcile after the first sync (covered by the
+        # *_before_socket_connects_* tests). Boundary tests pass
+        # wait_track=False: their page reloads by itself.
         raw_goto = page.goto
 
         def goto(*args, wait_track=True, **kwargs):
@@ -262,12 +263,7 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         return page
 
     def wait_track_synced(self, *pages):
-        """Wait until each page's track socket finished its first sync.
-
-        A teammate event that lands between the server render and that sync
-        is folded into the sync baseline and never replayed, so live-sync
-        tests must not act before both sides are subscribed.
-        """
+        """Wait until each page's track socket finished its first sync."""
         for page in pages:
             for _ in range(100):
                 if page.track_synced:
@@ -392,6 +388,49 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             'data-solved', '1', timeout=10_000,
         )
         expect(second_card).to_have_attribute('data-solved', '1', timeout=10_000)
+        self.assertEqual(
+            second.evaluate('window.__interovesDocumentId'),
+            second_document_id,
+        )
+
+    def test_teammate_solve_before_socket_connects_still_shows(self):
+        """An event between the server render and the first track.sync is not lost.
+
+        The second page's track script is held back, so the teammate's solve
+        lands after that page was rendered but before its socket subscribed.
+        """
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/1/'
+        first.goto(url)
+
+        # Hold the script until the teammate has solved; sleeping in the
+        # handler would block Playwright's dispatcher for both pages.
+        held = []
+
+        def hold_track_script(route):
+            held.append(route)
+
+        second.route('**/js/track_ws.js*', hold_track_script)
+        second.goto(url, wait_track=False, wait_until='commit')
+        second.wait_for_selector(f'#new-task-{self.ordinary_task.pk}', state='attached')
+        second_document_id = second.evaluate('window.__interovesDocumentId')
+        second_card = second.locator(f'#new-task-{self.ordinary_task.pk}')
+        self.assertEqual(second_card.get_attribute('data-solved'), '0')
+
+        form = f'form.new-attempt-form[data-task-id="{self.ordinary_task.pk}"]'
+        first.locator(f'{form} input[name="text"]').fill('RIGHT')
+        first.locator(f'{form} button[type="submit"]').click()
+        expect(first.locator(f'#new-task-{self.ordinary_task.pk}')).to_have_attribute(
+            'data-solved', '1', timeout=10_000,
+        )
+        self.assertFalse(second.track_synced)
+        self.assertEqual(len(held), 1)
+        held[0].continue_()
+
+        expect(second_card).to_have_attribute('data-solved', '1', timeout=15_000)
         self.assertEqual(
             second.evaluate('window.__interovesDocumentId'),
             second_document_id,
@@ -680,6 +719,50 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
         )).to_have_count(1, timeout=10_000)
         self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
         self.assertEqual(second.evaluate('window.__interovesDocumentId'), second_document_id)
+
+    def test_raddle_draft_and_clue_mark_before_socket_connects_still_show(self):
+        """Raddle draft and clue mark made before the observer's socket synced."""
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/2/'
+        second.goto(url)
+
+        held = []
+
+        def hold_track_script(route):
+            held.append(route)
+
+        first.route('**/js/track_ws.js*', hold_track_script)
+        first.goto(url, wait_track=False, wait_until='commit')
+        first.wait_for_selector('.new-raddle-clues__section--unused', state='attached')
+        first_document_id = first.evaluate('window.__interovesDocumentId')
+
+        draft = second.locator(
+            '.new-raddle-row[data-word-index="2"]:not([data-raddle-pin-row]) '
+            'input[data-raddle-draft="1"]'
+        )
+        draft.click()
+        draft.type('CCC')
+        second.locator('.new-raddle-clues__section--unused .new-raddle-clue__mark').first.click()
+        expect(second.locator(
+            '.new-raddle-clues__section--unused .new-raddle-clue--struck'
+        )).to_have_count(1)
+        # Let the debounced draft/mark posts reach the server.
+        second.wait_for_timeout(1500)
+        self.assertFalse(first.track_synced)
+        self.assertEqual(len(held), 1)
+        held[0].continue_()
+
+        expect(first.locator(
+            '.new-raddle-row[data-word-index="2"]:not([data-raddle-pin-row]) '
+            'input.new-raddle-input:not([data-raddle-pin-proxy])'
+        )).to_have_value('CCC', timeout=15_000)
+        expect(first.locator(
+            '.new-raddle-clues__section--unused .new-raddle-clue--struck'
+        )).to_have_count(1, timeout=15_000)
+        self.assertEqual(first.evaluate('window.__interovesDocumentId'), first_document_id)
 
     def test_raddle_in_flight_submit_survives_teammate_live_update(self):
         from playwright.sync_api import expect

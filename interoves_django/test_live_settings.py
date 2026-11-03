@@ -11,6 +11,10 @@ DATABASES['default'].setdefault('TEST', {})['NAME'] = os.path.join(
     tempfile.gettempdir(),
     f'interoves-live-tests-{os.getpid()}.sqlite3',
 )
+if DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+    # Concurrent live-server writes must wait for the lock, not 500
+    # (see interoves_django/db/backends/sqlite_immediate).
+    DATABASES['default']['ENGINE'] = 'interoves_django.db.backends.sqlite_immediate'
 INTEROVES_LIVE_BROWSER_TESTS = True
 
 # Never reach real Telegram from tests (see test_isolation.py).
