@@ -455,6 +455,24 @@
   var raddleKeyboardCloseIntent = window.MobileInputIntent
     ? window.MobileInputIntent.create({ keyboardCloseDelta: 120 })
     : null;
+  // An ordinary answer field the player is typing in. A server card (after
+  // «Проверить» or a teammate's WebSocket update) replaces the field; keep the
+  // soft keyboard up by focusing its replacement — unless the keyboard was
+  // closed meanwhile (Android keeps the old input as activeElement after Back).
+  var ordinaryInputIntent = window.MobileInputIntent
+    ? window.MobileInputIntent.create({ keyboardCloseDelta: 120 })
+    : null;
+  var ORDINARY_TEXT_FIELD = 'input[name="text"]:not([type="hidden"]), textarea[name="text"]';
+  function ordinaryTextFieldForm(el) {
+    if (!el || !el.matches || !el.closest || !el.matches(ORDINARY_TEXT_FIELD)) return null;
+    var form = el.closest('form.new-attempt-form');
+    if (!form || isRaddleLineForm(form) || form.classList.contains('new-replacements-line-form')) return null;
+    return form;
+  }
+  document.addEventListener('focusin', function (e) {
+    var form = ordinaryTextFieldForm(e.target);
+    if (form && ordinaryInputIntent) ordinaryInputIntent.activate(form.getAttribute('data-task-id') || '');
+  });
 
   // The sticky pin is appended to <body>, outside .new-raddle-task, so it
   // carries the task id itself.
@@ -528,9 +546,15 @@
 
   function observeRaddleViewport() {
     var viewport = window.visualViewport;
-    var width = viewport ? viewport.width : window.innerWidth;
-    var height = viewport ? viewport.height : window.innerHeight;
+    // In screen units, not CSS px: a pinch or browser zoom (phones in desktop-
+    // site mode zoom to the field) changes visualViewport.width/height but not
+    // width*scale, so it is not mistaken for a rotation or a closed keyboard
+    // that ends the input session and drops focus on the next card redraw.
+    var scale = viewport && viewport.scale > 0 ? viewport.scale : 1;
+    var width = (viewport ? viewport.width : window.innerWidth) * scale;
+    var height = (viewport ? viewport.height : window.innerHeight) * scale;
     if (raddleInputIntent) raddleInputIntent.observeViewport(width, height);
+    if (ordinaryInputIntent) ordinaryInputIntent.observeViewport(width, height);
     var closed = raddleKeyboardCloseIntent
       ? raddleKeyboardCloseIntent.observeViewport(width, height)
       : false;
@@ -5115,6 +5139,39 @@
     return holder.firstElementChild ? holder.firstElementChild.outerHTML : html;
   }
 
+  function captureActiveOrdinaryInput(tid) {
+    var active = document.activeElement;
+    var form = ordinaryTextFieldForm(active);
+    var card = document.getElementById('new-task-' + tid);
+    if (!form || !card || !card.contains(form)) return null;
+    if (ordinaryInputIntent && !ordinaryInputIntent.isActive(String(tid))) return null;
+    var start = null;
+    var end = null;
+    try { start = active.selectionStart; end = active.selectionEnd; } catch (e) {}
+    return {
+      formKey: ordinaryAttemptFormKey(form),
+      value: String(active.value || ''),
+      start: start,
+      end: end,
+    };
+  }
+  // A solved task has no field any more: the keyboard closes, as it should.
+  function restoreActiveOrdinaryInput(card, saved) {
+    if (!card || !saved) return;
+    var field = null;
+    card.querySelectorAll('form.new-attempt-form').forEach(function (form) {
+      if (field || isRaddleLineForm(form) || form.classList.contains('new-replacements-line-form')) return;
+      if (saved.formKey && ordinaryAttemptFormKey(form) !== saved.formKey) return;
+      field = form.querySelector(ORDINARY_TEXT_FIELD);
+    });
+    if (!field || field.disabled || field.readOnly) return;
+    field.value = saved.value;
+    focusPreventScroll(field);
+    if (saved.start !== null && saved.end !== null) {
+      try { field.setSelectionRange(saved.start, saved.end); } catch (e) {}
+    }
+  }
+
   function applyNewUiTaskHtml(map) {
     if (!map) return 0;
     var handledCount = 0;
@@ -5122,6 +5179,7 @@
     // it so a near-simultaneous WebSocket refresh does not hide user feedback.
     var reopenAttempts = {};
     var activeRaddleInputs = {};
+    var activeOrdinaryInputs = {};
     var openHints = window.InterovesTaskHints
       ? window.InterovesTaskHints.captureOpen(Object.keys(map))
       : {};
@@ -5136,6 +5194,7 @@
       // rather than restoring the originally submitted value after a WS update.
       captureEditedOrdinaryAnswer(tid);
       activeRaddleInputs[tid] = captureActiveRaddleInput(tid);
+      activeOrdinaryInputs[tid] = captureActiveOrdinaryInput(tid);
       var current = document.getElementById('prop-attempts-' + tid);
       if (!current) return;
       var highlighted = current.querySelector('.new-attempts__row--just-submitted');
@@ -5168,6 +5227,7 @@
           if (typeof initAttemptsPopovers === 'function') initAttemptsPopovers(fresh);
           restoreOrdinaryWrongFeedback(tid);
           restoreActiveRaddleInput(tid, activeRaddleInputs[tid]);
+          restoreActiveOrdinaryInput(fresh, activeOrdinaryInputs[tid]);
           if (reopenAttempts[tid] && reopenAttempts[tid].open) {
             openAttemptsPopoverForTask(tid, reopenAttempts[tid].attemptId);
           }

@@ -356,6 +356,39 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             second_document_id,
         )
 
+    def test_ordinary_answer_field_keeps_focus_across_card_redraws(self):
+        """The mobile keyboard stays up: a redrawn card refocuses its field."""
+        from playwright.sync_api import expect
+
+        first = self.browser_page_for(self.user_one)
+        second = self.browser_page_for(self.user_two)
+        url = f'{self.live_server_url}/games/{self.game.pk}/1/'
+        second.goto(url)
+        first.goto(url)
+        field_selector = (
+            f'form.new-attempt-form[data-task-id="{self.ordinary_task.pk}"] input[name="text"]'
+        )
+        attempts_selector = f'#prop-attempts-{self.ordinary_task.pk} [data-attempt-id]'
+
+        draft = second.locator(field_selector)
+        draft.click()
+        draft.type('DRAF')
+        draft.press('ArrowLeft')
+
+        # Own wrong answer by Enter: the card is redrawn, the field keeps text and focus.
+        own = first.locator(field_selector)
+        own.fill('WRONG')
+        own.press('Enter')
+        expect(first.locator(attempts_selector)).to_have_count(1, timeout=10_000)
+        expect(own).to_have_value('WRONG')
+        expect(own).to_be_focused()
+
+        # A teammate's attempt redraws the card under a player who is typing.
+        expect(second.locator(attempts_selector)).to_have_count(1, timeout=10_000)
+        expect(draft).to_have_value('DRAF')
+        expect(draft).to_be_focused()
+        self.assertEqual(draft.evaluate('el => el.selectionStart'), 3)
+
     def test_simultaneous_same_answer_converges_to_one_attempt(self):
         from playwright.sync_api import expect
 
@@ -538,6 +571,42 @@ class RealtimeTwoBrowserTests(ChannelsLiveServerTestCase):
             second.evaluate('window.__interovesDocumentId'),
             second_document_id,
         )
+
+    def test_raddle_zoom_mid_advance_keeps_focus_on_next_word(self):
+        """A phone in desktop-site mode zooms to the field while the card is
+        redrawn twice (own response, then its WebSocket echo). The zoom must
+        not end the input session, or the echo drops focus and the keyboard."""
+        from playwright.sync_api import expect
+
+        context = self.browser.new_context(
+            viewport={'width': 980, 'height': 1900}, has_touch=True,
+        )
+        self.browser_contexts.append(context)
+        context.add_cookies([{
+            'name': 'sessionid',
+            'value': self.session_ids[self.personal_user.pk],
+            'url': self.live_server_url,
+        }])
+        page = context.new_page()
+        page.goto(f'{self.live_server_url}/games/{self.game.pk}/2/')
+        cdp = context.new_cdp_session(page)
+
+        def real_input(index):
+            return page.locator(
+                f'.new-raddle-row[data-word-index="{index}"]:not([data-raddle-pin-row]) '
+                'input.new-raddle-input:not([data-raddle-pin-proxy])'
+            )
+
+        real_input(1).tap()
+        for index, word, scale in ((1, 'BBB', 1.6), (2, 'CCC', 1.0)):
+            page.keyboard.type(word, delay=40)
+            cdp.send('Emulation.setPageScaleFactor', {'pageScaleFactor': scale})
+            expect(page.locator(
+                f'.new-raddle-row[data-word-index="{index}"]:not([data-raddle-pin-row])'
+            )).to_have_class(re.compile(r'.*new-raddle-row--solved.*'), timeout=10_000)
+            # Past the echo redraw of this word.
+            page.wait_for_timeout(1000)
+            expect(real_input(index + 1)).to_be_focused()
 
     def test_raddle_draft_and_clue_mark_sync_to_teammate(self):
         from playwright.sync_api import expect
