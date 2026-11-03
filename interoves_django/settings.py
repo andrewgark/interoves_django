@@ -469,6 +469,7 @@ TEMPLATES = [
                 'games.site.http.context.analytics_bootstrap',
                 'games.site.http.context.feedback_nav',
                 'games.site.http.context.friends_nav',
+                'games.site.http.context.notifications_nav',
                 'games.site.http.context.club_archive_ui',
                 'games.site.http.context.signup_prompt',
                 'games.site.http.context.unverified_telegram_prompt',

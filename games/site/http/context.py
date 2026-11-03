@@ -1,5 +1,6 @@
 """Context for main UI templates (root URLs)."""
 
+import logging
 from datetime import timedelta
 
 from django.conf import settings
@@ -12,6 +13,8 @@ from games.ops.analytics.events import (
     pending_subscription_goals,
     pending_ticket_purchase_goals,
 )
+
+logger = logging.getLogger('application')
 
 
 def unverified_telegram_prompt(request):
@@ -241,3 +244,23 @@ def friends_nav(request):
         return {'friend_requests_count': incoming_count(user.pk)}
     except Exception:
         return {'friend_requests_count': 0}
+
+
+def notifications_nav(request):
+    """Bell badge; opening a page also answers the notifications that point to it."""
+    match = getattr(request, 'resolver_match', None)
+    url_name = (match.url_name or '') if match else ''
+    if not (url_name.startswith('ui_') or url_name.startswith('new_') or url_name.startswith('project_')):
+        return {}
+    user = getattr(request, 'user', None)
+    if not user or not getattr(user, 'is_authenticated', False):
+        return {}
+    try:
+        from games.notifications.service import badge_count, mark_read_for_page
+
+        if request.method == 'GET':
+            mark_read_for_page(user, url_name)
+        return {'notifications_enabled': True, 'notifications_badge': badge_count(user.pk)}
+    except Exception:
+        logger.exception('event=notifications_nav_failed user=%s', user.pk)
+        return {}

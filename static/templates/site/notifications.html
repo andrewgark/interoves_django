@@ -1,0 +1,26 @@
+{% extends "site/base.html" %}
+{% block title %}Уведомления{% endblock %}
+{% block content %}
+<div class="new-notif-page__head">
+  <h1 class="new-heading new-heading--page">Уведомления</h1>
+  <a class="new-btn new-btn--ghost new-btn--mini" href="{% url 'new_notification_settings' %}"><i class="ph ph-gear-six" aria-hidden="true"></i> Настройки</a>
+</div>
+
+<nav class="new-notif-page__filters" aria-label="Фильтр уведомлений">
+  <a href="{% url 'new_notifications' %}"{% if not notification_group %} aria-current="page"{% endif %}>Все</a>
+  {% for group in notification_groups %}
+  <a href="?group={{ group.key }}"{% if notification_group == group.key %} aria-current="page"{% endif %}>{{ group.title }}</a>
+  {% endfor %}
+</nav>
+
+<section class="new-card new-notif-page__list">
+  {% include "site/partials/notifications_list.html" %}
+</section>
+
+{% if notifications %}
+<form method="post" action="{% url 'new_notifications_read_all' %}" class="new-notif-page__actions">
+  {% csrf_token %}
+  <button type="submit" class="new-btn new-btn--ghost new-btn--mini"><i class="ph ph-checks" aria-hidden="true"></i> Прочитать все</button>
+</form>
+{% endif %}
+{% endblock %}

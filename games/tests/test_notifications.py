@@ -275,3 +275,73 @@ class SupportReplyTests(NotificationFixture):
         self.assertEqual(enqueue.call_count, 2)
         self.assertEqual(enqueue.call_args.kwargs['delay_seconds'], 0)
         self.assertEqual(service.inbox(self.vera)[0]['body'], 'Ещё раз проверьте')
+
+
+class InboxViewTests(NotificationFixture):
+    def setUp(self):
+        super().setUp()
+        self.request(self.anna, self.vera)
+        self.row = Notification.objects.get(user=self.vera)
+        self.client.force_login(self.vera)
+
+    def test_bell_shows_badge_and_dropdown_clears_it(self):
+        from django.urls import reverse
+
+        page = self.client.get(reverse('new_notifications'))
+        self.assertContains(page, 'data-bell-count')
+        hub = self.client.get(reverse('new_notification_settings'))
+        self.assertEqual(hub.context['notifications_badge'], 0)  # the inbox page marked it seen
+        NotificationPrefs.objects.filter(user=self.vera).update(seen_at=None)
+        self.assertEqual(self.client.get(reverse('new_notification_settings')).context['notifications_badge'], 1)
+        dropdown = self.client.get(reverse('new_notifications_dropdown'))
+        self.assertContains(dropdown, 'Анна Петрова хочет добавить вас в друзья')
+        self.assertContains(dropdown, 'Прочитать все')
+        self.assertEqual(service.badge_count(self.vera.pk), 0)
+
+    def test_open_marks_read_and_redirects(self):
+        from django.urls import reverse
+
+        response = self.client.get(reverse('new_notification_open', args=[self.row.pk]))
+        self.assertRedirects(response, reverse('new_friends'), fetch_redirect_response=False)
+        self.row.refresh_from_db()
+        self.assertIsNotNone(self.row.read_at)
+
+    def test_cannot_open_someone_elses(self):
+        from django.urls import reverse
+
+        self.client.force_login(self.boris)
+        self.assertEqual(self.client.get(reverse('new_notification_open', args=[self.row.pk])).status_code, 404)
+
+    def test_visiting_the_target_page_answers_it(self):
+        from django.urls import reverse
+
+        self.client.get(reverse('new_friends'))
+        self.row.refresh_from_db()
+        self.assertIsNotNone(self.row.read_at)
+
+    def test_read_all(self):
+        from django.urls import reverse
+
+        response = self.client.post(reverse('new_notifications_read_all'), HTTP_ACCEPT='application/json')
+        self.assertEqual(response.json(), {'read': 1, 'badge': 0})
+        self.assertEqual(service.inbox(self.vera)[0]['unread'], False)
+
+    def test_group_filter(self):
+        from django.urls import reverse
+
+        self.assertContains(self.client.get(reverse('new_notifications') + '?group=friends'), 'хочет добавить')
+        self.assertNotContains(self.client.get(reverse('new_notifications') + '?group=club'), 'хочет добавить')
+
+    def test_anonymous_gets_no_bell(self):
+        from django.contrib.auth.models import AnonymousUser
+        from django.test import RequestFactory
+        from django.urls import resolve
+
+        from games.site.http.context import notifications_nav
+
+        request = RequestFactory().get('/friends/')
+        request.resolver_match = resolve('/friends/')
+        request.user = AnonymousUser()
+        self.assertEqual(notifications_nav(request), {})
+        request.user = self.vera
+        self.assertEqual(notifications_nav(request), {'notifications_enabled': True, 'notifications_badge': 0})

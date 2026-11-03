@@ -1,7 +1,10 @@
 {% load static %}
 <footer class="new-site-footer">
   <div class="new-site-footer__inner">
-    <a class="new-site-footer__about" href="{% url 'about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>О нас</a>
+    <div class="new-site-footer__start">
+      <a class="new-site-footer__about" href="{% url 'about' %}"{% if request.resolver_match.url_name == 'about' %} aria-current="page"{% endif %}>О нас</a>
+      {% if site_version.options %}{% include "site/partials/site_version_menu.html" with variant="footer" %}{% endif %}
+    </div>
 
     {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}
     <div class="new-site-footer__client">

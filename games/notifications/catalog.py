@@ -66,7 +66,7 @@ FRIEND_REQUEST = register(NotificationKind(
     is_valid=_friend_request_valid,
     # Cancelling and re-sending must not turn the bot into a way to ping someone.
     telegram_cooldown=timedelta(days=7),
-    mark_read_on=('new_friends',),
+    mark_read_on=('new_friends', 'ui_friends'),
 ))
 
 # ---- support ---------------------------------------------------------------
@@ -151,5 +151,5 @@ CLUB_ACTIVE = register(NotificationKind(
     render_telegram=_club_active_telegram,
     telegram_delay=timedelta(0),
     urgent=True,
-    mark_read_on=('new_subscription',),
+    mark_read_on=('new_subscription', 'ui_subscription'),
 ))

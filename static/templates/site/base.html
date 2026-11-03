@@ -250,6 +250,17 @@
 
       <div class="new-nav__end">
         {% with un=request.resolver_match.url_name %}
+        {% if user.is_authenticated and notifications_enabled %}
+          <div class="new-bell" data-bell data-src="{% url 'new_notifications_dropdown' %}" data-read-all-url="{% url 'new_notifications_read_all' %}">
+            <button type="button" class="new-nav__quick new-nav__quick--bell" data-bell-toggle
+                    aria-label="Уведомления{% if notifications_badge %}: {{ notifications_badge }} новых{% endif %}"
+                    aria-expanded="false" aria-controls="new-bell-panel">
+              <i class="ph ph-bell" aria-hidden="true"></i>
+              <span class="new-bell__count" data-bell-count aria-hidden="true"{% if not notifications_badge %} hidden{% endif %}>{% if notifications_badge > 9 %}9+{% else %}{{ notifications_badge }}{% endif %}</span>
+            </button>
+            <div id="new-bell-panel" class="new-bell__panel" data-bell-panel hidden></div>
+          </div>
+        {% endif %}
         {% if user.is_authenticated %}
           <a class="new-nav__quick new-nav__quick--profile"
              href="{% if ui_project_base %}{{ ui_project_profile_url }}{% else %}{% url 'new_profile' %}{% endif %}"
@@ -288,7 +299,6 @@
               <i class="ph ph-monitor" aria-hidden="true"></i>
             </button>
           </div>
-          {% include "site/partials/site_version_menu.html" with variant="nav" %}
           {% if play_mode and user.is_authenticated %}
             {% if lock_personal_play_mode %}
               <span class="new-mode-toggle new-mode-toggle--locked" data-tooltip="В турнирной игре доступен только командный режим."><i class="ph ph-users" aria-hidden="true"></i> В команде</span>
@@ -1284,7 +1294,8 @@
     });
   })();
   </script>
-  <script src="{% static "js/track_ws.js" %}?10"></script>
+  <script src="{% static "js/track_ws.js" %}?11"></script>
+  {% if user.is_authenticated and notifications_enabled %}<script src="{% static "js/notifications_bell.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>{% endif %}
   <script>
   (function () {
     if (!window.InterovesTrack || document.body.getAttribute('data-disable-track') === '1') return;

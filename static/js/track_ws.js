@@ -64,6 +64,10 @@
       var gid = (msg.payload && msg.payload.game_id) || '';
       scheduleReload(msg.event + ':' + gid, GAME_TRANSITION_JITTER_MS);
     }
+    if (msg.event === 'notification.new') {
+      /* The bell (notifications_bell.js) updates its badge. */
+      dispatchPageSyncEvent('interoves:notification', msg.payload || {});
+    }
   }
 
   function applyTaskUpdates(msg) {

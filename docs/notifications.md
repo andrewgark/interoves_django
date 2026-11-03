@@ -71,3 +71,18 @@ Payload `{'kind': 'friend_request', ...}` старого формата worker �
 - Отправляет минутный тик анонсов (`shadow._sweep_notifications`).
 
 Настройки: `/notifications/settings/` (`new_notification_settings`).
+
+## Сайт
+
+- Колокольчик в шапке (`base.html`, `static/js/notifications_bell.js`): бейдж —
+  непрочитанные после последнего открытия (`NotificationPrefs.seen_at`),
+  context processor `notifications_nav`. Он же на GET гасит уведомления, у
+  которых текущий url name в `mark_read_on` (учитывайте оба имени: `new_*` и
+  `ui_*`).
+- Панель грузится с `/notifications/dropdown/` (открытие обнуляет бейдж),
+  клик по пункту — `/notifications/<id>/open/` (прочитано + редирект),
+  полный список — `/notifications/`.
+- Новое уведомление приходит в открытые вкладки по user track socket как
+  `track.event` `notification.new` → DOM-событие `interoves:notification`.
+- Переключатель версии сайта переехал из шапки в футер (`variant="footer"`);
+  в мобильном меню он остался.

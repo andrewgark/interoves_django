@@ -14,6 +14,13 @@ from games.notifications.prefs import channels
 logger = logging.getLogger('application')
 
 INBOX_LIMIT = 50
+GROUP_ICONS = {
+    'friends': 'handshake',
+    'support': 'lifebuoy',
+    'offers': 'puzzle-piece',
+    'games': 'flag-checkered',
+    'club': 'crown-simple',
+}
 
 
 def _user_id(user) -> int:
@@ -120,6 +127,10 @@ def mark_seen(user) -> None:
     NotificationPrefs.objects.update_or_create(user_id=_user_id(user), defaults={'seen_at': timezone.now()})
 
 
+def get_for_user(user, notification_id) -> Notification | None:
+    return Notification.objects.filter(pk=notification_id, user_id=_user_id(user), in_inbox=True).first()
+
+
 def mark_read(user, ids=None) -> int:
     """Mark the given notifications (or all of them) read."""
     qs = _unread(_user_id(user))
@@ -158,6 +169,7 @@ def render(notification: Notification) -> dict | None:
         'id': notification.pk,
         'kind': notification.kind,
         'group': kind.group,
+        'icon': GROUP_ICONS.get(kind.group, 'bell'),
         'unread': notification.read_at is None,
         'at': notification.updated_at,
         **item,

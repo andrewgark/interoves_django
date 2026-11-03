@@ -1,9 +1,13 @@
-{# «Версия сайта»: interoves.com / ru.interoves.com. variant = "nav" (desktop popover) or "drawer" (mobile menu). #}
-<details class="new-site-version new-site-version--{{ variant }}" data-site-version-menu>
+{# «Версия сайта»: interoves.com / ru.interoves.com. variant = "footer" (popover opening upward) or "drawer" (mobile menu). #}
+<details class="new-site-version new-site-version--{{ variant }}{% if variant == 'footer' %} new-site-version--nav{% endif %}" data-site-version-menu>
   {% if variant == 'drawer' %}
   <summary class="new-nav__drawer-link new-site-version__summary">
     <i class="ph ph-globe-hemisphere-east" aria-hidden="true"></i> Версия сайта
     <span class="new-site-version__summary-host">{% if site_version.current == 'ru' %}ru.interoves.com{% elif site_version.current == 'intl' %}interoves.com{% endif %}</span>
+  </summary>
+  {% elif variant == 'footer' %}
+  <summary class="new-site-version__summary new-site-version__summary--footer">
+    <i class="ph ph-globe-hemisphere-east" aria-hidden="true"></i> {% if site_version.current == 'ru' %}ru.interoves.com{% elif site_version.current == 'intl' %}interoves.com{% else %}Версия сайта{% endif %}
   </summary>
   {% else %}
   <summary class="new-site-version__summary new-site-version__summary--icon" aria-label="Версия сайта" data-tooltip="Версия сайта">

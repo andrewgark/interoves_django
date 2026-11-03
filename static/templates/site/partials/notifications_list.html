@@ -1,0 +1,32 @@
+{# Inbox items (games.notifications.service.inbox). notifications_compact: the bell dropdown. #}
+{% if notifications_compact %}
+<div class="new-bell__head">
+  <span class="new-bell__title">Уведомления</span>
+  {% if notifications %}<button type="button" class="new-btn new-btn--text new-btn--mini" data-bell-read-all>Прочитать все</button>{% endif %}
+</div>
+{% endif %}
+{% if notifications %}
+<ul class="new-notif-list{% if notifications_compact %} new-notif-list--compact{% endif %}">
+  {% for n in notifications %}
+  <li class="new-notif{% if n.unread %} is-unread{% endif %}">
+    <a class="new-notif__link" href="{% url 'new_notification_open' n.id %}">
+      <span class="new-notif__icon" aria-hidden="true"><i class="ph ph-{{ n.icon }}"></i></span>
+      <span class="new-notif__main">
+        <span class="new-notif__title">{{ n.title }}</span>
+        {% if n.body %}<span class="new-notif__body">{{ n.body }}</span>{% endif %}
+        <time class="new-notif__time" datetime="{{ n.at|date:'c' }}">{{ n.at|date:"j E, H:i" }}</time>
+      </span>
+      {% if n.unread %}<span class="new-notif__dot" aria-label="не прочитано"></span>{% endif %}
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="new-notif-empty"><i class="ph ph-bell-slash" aria-hidden="true"></i> Пока ничего нет</p>
+{% endif %}
+{% if notifications_compact %}
+<div class="new-bell__foot">
+  <a href="{% url 'new_notifications' %}">Все уведомления</a>
+  <a href="{% url 'new_notification_settings' %}"><i class="ph ph-gear-six" aria-hidden="true"></i> Настройки</a>
+</div>
+{% endif %}
