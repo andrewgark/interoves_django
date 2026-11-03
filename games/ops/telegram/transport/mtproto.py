@@ -175,7 +175,8 @@ async def edit_scheduled_photo(
             if getattr(candidate, 'id', None) == int(message_id)
         ), None)
         if message is None:
-            raise RuntimeError('Сообщение уже опубликовано или удалено из отложенных Telegram')
+            # Already published or deleted from «Отложенные»: nothing to edit.
+            return False
         photo = BytesIO(photo_bytes)
         photo.name = filename
         uploaded = await client.upload_file(photo)

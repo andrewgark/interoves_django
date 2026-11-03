@@ -371,7 +371,7 @@ def run_regenerate_image_job(*, payload: dict) -> dict:
         return {'status': REGENERATE_FAILED, 'post_id': post_id, 'error': 'not_found'}
     _set_regenerate_state(post.pk, job_id, REGENERATE_RUNNING)
     try:
-        regenerate_post_image(post)
+        telegram = regenerate_post_image(post)
     except SocialSupportError as exc:
         _set_regenerate_state(post.pk, job_id, REGENERATE_FAILED, str(exc))
         return {'status': REGENERATE_FAILED, 'post_id': post.pk, 'error': str(exc)}
@@ -379,12 +379,29 @@ def run_regenerate_image_job(*, payload: dict) -> dict:
         logger.exception('Social image regeneration job failed for post pk=%s', post.pk)
         _set_regenerate_state(post.pk, job_id, REGENERATE_FAILED, 'Ошибка воркера: {}'.format(exc))
         return {'status': REGENERATE_FAILED, 'post_id': post.pk, 'error': str(exc)}
-    _set_regenerate_state(post.pk, job_id, REGENERATE_DONE)
-    return {'status': REGENERATE_DONE, 'post_id': post.pk}
+    note = TELEGRAM_REGENERATE_NOTES.get(telegram, '')
+    state = _set_regenerate_state(post.pk, job_id, REGENERATE_DONE)
+    state.update({'telegram': telegram if isinstance(telegram, str) else '', 'note': note})
+    _jobs_cache().set(_regenerate_state_key(post.pk), state, _REGENERATE_STATE_TTL)
+    return {'status': REGENERATE_DONE, 'post_id': post.pk, 'telegram': state['telegram']}
 
 
-def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
-    """Render synchronously. Runs Chromium: call from the worker, not from web."""
+TELEGRAM_REPLACED = 'replaced'
+TELEGRAM_ALREADY_PUBLISHED = 'already_published'
+TELEGRAM_NOT_SCHEDULED = 'not_scheduled'
+TELEGRAM_REGENERATE_NOTES = {
+    TELEGRAM_ALREADY_PUBLISHED: (
+        'Картинка обновлена на сайте, но пост в Telegram уже вышел '
+        '(или удалён из отложенных) — там осталась прежняя'
+    ),
+}
+
+
+def regenerate_post_image(post: SocialQueuePost) -> str:
+    """Render synchronously and return the Telegram outcome (TELEGRAM_*).
+
+    Runs Chromium: call from the worker, not from web.
+    """
     _check_regenerable(post)
     try:
         if post.source == SocialQueuePost.SOURCE_WORD_SALAD:
@@ -415,13 +432,16 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
         logger.exception('Playwright image regeneration failed for social post pk=%s', post.pk)
         raise SocialSupportError('Ошибка Playwright-рендера: {}'.format(exc))
 
-    if post.telegram_status == SocialQueuePost.STATUS_SCHEDULED and not _is_post_published(post):
+    # A post scheduled in Telegram carries its own copy of the photo, so it is
+    # replaced there too — regardless of other networks having published.
+    telegram = TELEGRAM_NOT_SCHEDULED
+    if post.telegram_status == SocialQueuePost.STATUS_SCHEDULED:
         if not post.telegram_external_id:
             raise SocialSupportError('У отложенного Telegram-поста нет ID сообщения')
         if not (telegram_user_configured() and telegram_channel_configured()):
             raise SocialSupportError('Telegram канал / user session не настроены')
         try:
-            edit_scheduled_photo_sync(
+            replaced = edit_scheduled_photo_sync(
                 chat=channel_chat_id(),
                 message_id=int(post.telegram_external_id),
                 photo_bytes=image,
@@ -429,6 +449,11 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
             )
         except Exception as exc:
             raise SocialSupportError('Не удалось заменить картинку в Telegram: {}'.format(exc))
+        telegram = TELEGRAM_REPLACED if replaced else TELEGRAM_ALREADY_PUBLISHED
+        logger.info(
+            'event=social_regenerate_telegram post=%s message_id=%s outcome=%s',
+            post.pk, post.telegram_external_id, telegram,
+        )
 
     old_image_name = post.image.name if post.image else ''
     post.set_image_bytes(image, filename=filename)
@@ -439,7 +464,7 @@ def regenerate_post_image(post: SocialQueuePost) -> SocialQueuePost:
             post.image.storage.delete(old_image_name)
         except Exception:
             logger.exception('Could not remove previous image for social post pk=%s', post.pk)
-    return post
+    return telegram
 
 
 def delete_post(post: SocialQueuePost) -> None:

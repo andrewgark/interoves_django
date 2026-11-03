@@ -393,5 +393,52 @@ class SupportSocialRegenerateImageTests(TestCase):
         self.assertEqual(result['status'], 'superseded')
         render.assert_not_called()
 
+    def _render_with_telegram(self, *, replaced):
+        from games.console.feed.social import regenerate_post_image
+
+        png = b'\x89PNG fake'
+        with patch('games.ops.telegram.images.ladder.render_ladder_teaser_png', return_value=png), \
+                patch('games.console.feed.social.telegram_user_configured', return_value=True), \
+                patch('games.console.feed.social.telegram_channel_configured', return_value=True), \
+                patch('games.console.feed.social.channel_chat_id', return_value='@chan'), \
+                patch('games.console.feed.social.edit_scheduled_photo_sync', return_value=replaced) as edit:
+            outcome = regenerate_post_image(self.post)
+        return outcome, edit
+
+    def test_scheduled_telegram_photo_is_replaced_even_if_twitter_already_sent(self):
+        self.post.telegram_status = SocialQueuePost.STATUS_SCHEDULED
+        self.post.telegram_external_id = '555'
+        self.post.twitter_status = SocialQueuePost.STATUS_SENT
+        self.post.save()
+        outcome, edit = self._render_with_telegram(replaced=True)
+        self.assertEqual(outcome, 'replaced')
+        self.assertEqual(edit.call_args.kwargs['message_id'], 555)
+        self.post.refresh_from_db()
+        self.assertTrue(self.post.image.name)
+
+    def test_already_published_telegram_post_still_saves_image_and_warns(self):
+        from games.console.feed.social import run_regenerate_image_job
+
+        self.post.telegram_status = SocialQueuePost.STATUS_SCHEDULED
+        self.post.telegram_external_id = '555'
+        self.post.save()
+        outcome, _edit = self._render_with_telegram(replaced=False)
+        self.assertEqual(outcome, 'already_published')
+        self.post.refresh_from_db()
+        self.assertTrue(self.post.image.name)
+
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message', return_value=True):
+            job = self._regenerate().json()['job']
+        with patch('games.console.feed.social.regenerate_post_image', return_value='already_published'):
+            run_regenerate_image_job(payload={'post_id': self.post.pk, 'job_id': job['job_id']})
+        state = self._status(job['job_id']).json()['job']
+        self.assertEqual(state['telegram'], 'already_published')
+        self.assertIn('уже вышел', state['note'])
+
+    def test_unscheduled_post_does_not_touch_telegram(self):
+        outcome, edit = self._render_with_telegram(replaced=True)
+        self.assertEqual(outcome, 'not_scheduled')
+        edit.assert_not_called()
+
     def test_unknown_job_status_is_404(self):
         self.assertEqual(self._status('nope').status_code, 404)

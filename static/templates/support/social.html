@@ -523,7 +523,7 @@
         fetch(url, { headers: { 'Accept': 'application/json' } }).then(readJsonResponse).then(function (data) {
           if (!data.ok) { regenerateFail(data.error); return; }
           var job = data.job || {};
-          if (job.status === 'done') { upsertPost(data.post); return; }
+          if (job.status === 'done') { upsertPost(data.post); if (job.note) alert(job.note); return; }
           if (job.status === 'failed') { regenerateFail(job.error); return; }
           if (job.status === 'running') regenerateBtn.textContent = 'Рендер…';
           setTimeout(function () { pollRegenerate(jobId); }, 2000);
