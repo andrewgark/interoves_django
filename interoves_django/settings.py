@@ -669,6 +669,14 @@ if 'REDIS_HOST' in os.environ:
 else:
     CACHES['offline_play'] = CACHES['default'].copy()
 
+# Support console jobs that run on a worker (social image re-render): the web
+# process polls state the worker writes, so it must be the shared Redis.
+if 'REDIS_HOST' in os.environ:
+    CACHES['support_jobs'] = CACHES['track_revisions'].copy()
+    CACHES['support_jobs']['KEY_PREFIX'] = 'interoves-support-jobs'
+else:
+    CACHES['support_jobs'] = CACHES['default'].copy()
+
 # Database
 # https://docs.djangoproject.com/en/2.1/ref/settings/#databases
 

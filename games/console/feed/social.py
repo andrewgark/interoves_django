@@ -6,7 +6,7 @@ import logging
 import uuid
 from datetime import datetime, timedelta
 
-from django.core.cache import cache
+from django.core.cache import caches
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -294,12 +294,17 @@ def _check_regenerable(post: SocialQueuePost) -> None:
         raise SocialSupportError('Для этого типа поста нет Playwright-рендера')
 
 
+def _jobs_cache():
+    # Shared with the integrations worker; the default cache is per-process.
+    return caches['support_jobs']
+
+
 def _regenerate_state_key(post_id) -> str:
     return 'social:regenerate_image:{}'.format(int(post_id))
 
 
 def regenerate_image_state(post_id) -> dict | None:
-    state = cache.get(_regenerate_state_key(post_id))
+    state = _jobs_cache().get(_regenerate_state_key(post_id))
     return state if isinstance(state, dict) else None
 
 
@@ -310,7 +315,7 @@ def _set_regenerate_state(post_id, job_id, status, error='') -> dict:
         'error': error,
         'at': timezone.now().isoformat(),
     }
-    cache.set(_regenerate_state_key(post_id), state, _REGENERATE_STATE_TTL)
+    _jobs_cache().set(_regenerate_state_key(post_id), state, _REGENERATE_STATE_TTL)
     return state
 
 
@@ -343,7 +348,7 @@ def request_post_image_regeneration(post: SocialQueuePost) -> dict:
         dedupe_key='social.regenerate_image:{}:{}'.format(post.pk, job_id),
         label='social_regenerate_image',
     ):
-        cache.delete(_regenerate_state_key(post.pk))
+        _jobs_cache().delete(_regenerate_state_key(post.pk))
         raise SocialSupportError('Не удалось поставить рендер в очередь воркера')
     return state
 

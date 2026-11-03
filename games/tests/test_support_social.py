@@ -302,9 +302,9 @@ class SupportSocialRegenerateImageTests(TestCase):
         cls.task = Task.objects.create(task_group=task_group, number='1', task_type='raddle')
 
     def setUp(self):
-        from django.core.cache import cache
+        from django.core.cache import caches
 
-        cache.clear()
+        caches['support_jobs'].clear()
         self.client = Client()
         self.assertTrue(self.client.login(username='regen_staff', password='secret'))
         self.post = SocialQueuePost.objects.create(
