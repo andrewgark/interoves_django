@@ -24,11 +24,22 @@ if [[ -n "$violations" ]]; then
   fail "native title attributes found; use data-tooltip (audio-title is allowed for the audio player)"
 fi
 
-for script in static/js/daily_statistics.js static/js/support_word_salad.js static/js/task_group_page.js; do
+for script in static/js/daily_statistics.js static/js/support_word_salad.js; do
   [[ -f "$script" ]] || fail "missing $script"
   if violations="$(search_file 'title\s*=' "$script" 2>/dev/null)"; then
     printf '%s\n' "$violations" >&2
     fail "native title strings found in $script; use data-tooltip"
+  fi
+done
+
+# Page scripts moved out of templates keep the template rule: assigning
+# .title from JS (or a local named title) is allowed there.
+for script in static/js/task_group_page.js static/js/alphabetty_page.js; do
+  [[ -f "$script" ]] || fail "missing $script"
+  violations="$(search_file 'title\s*=' "$script" 2>/dev/null | grep -Ev '\b(var|let|const) title\b|\.title\s*=' || true)"
+  if [[ -n "$violations" ]]; then
+    printf '%s\n' "$violations" >&2
+    fail "native title attributes found in $script; use data-tooltip"
   fi
 done
 
