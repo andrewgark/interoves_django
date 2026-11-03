@@ -886,6 +886,6 @@ def html_url_for(
 
 # Commit of andrewgark/eurovision2026booklet to serve the Asia edition from.
 # Bump it to publish a new version; the var/ cache is keyed by it.
-ASIA_BOOKLET_REF = "a45e1338b820a96df3cb4d223a7c8167da0e93b6"
+ASIA_BOOKLET_REF = "00faa14ffec6236e1ea4f14cb67662bedcd88394"
 ASIA_BOOKLET_PDF_FILENAMES = ("eurovision_asia_2026_final_en.pdf", "eurovision_asia_2026_final_ru.pdf")
 ASIA_BOOKLET_HTML_SLUGS = ("eurovision_asia_2026_final_en", "eurovision_asia_2026_final_ru")
