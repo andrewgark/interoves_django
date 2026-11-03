@@ -1,7 +1,7 @@
 {% extends "site/base.html" %}
 {% load filters %}
 {% block title %}{{ team.visible_name|default:team.name }}{% endblock %}
-{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
+{% block extrahead %}<meta name="robots" content="noindex">{% if og %}{% include "site/partials/og_meta.html" %}{% endif %}{% endblock %}
 {% block content %}
 <section class="new-profile-card player-card" aria-labelledby="team-name">
   <div class="new-profile-card__hero">
@@ -36,6 +36,7 @@
             <div class="team-invite__row">
               <input id="team-invite-link" type="text" readonly value="{{ team_invite_url }}" data-team-invite-link>
               <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-invite-copy><i class="ph ph-copy" aria-hidden="true"></i> <span>Копировать</span></button>
+              <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-team-invite-share hidden><i class="ph ph-share-network" aria-hidden="true"></i> Поделиться</button>
             </div>
           </div>
         {% endif %}
@@ -58,6 +59,10 @@
           <button type="submit" class="new-btn new-btn--mini"><i class="ph ph-user-plus" aria-hidden="true"></i> Попроситься в команду</button>
         </form>
       {% endif %}
+    </div>
+  {% else %}
+    <div class="team-card__actions">
+      <a class="new-btn new-btn--ghost new-btn--mini" href="/?login=1&amp;next={{ team_url|urlencode }}"><i class="ph ph-sign-in" aria-hidden="true"></i> Войти, чтобы попроситься в команду</a>
     </div>
   {% endif %}
 </section>
@@ -120,6 +125,13 @@
   var button = document.querySelector('[data-team-invite-copy]');
   var input = document.querySelector('[data-team-invite-link]');
   if (!button || !input) return;
+  var share = document.querySelector('[data-team-invite-share]');
+  if (share && navigator.share) {
+    share.hidden = false;
+    share.addEventListener('click', function () {
+      navigator.share({ title: 'Inter Oves', text: 'Присоединяйся к команде на Inter Oves', url: input.value }).catch(function () {});
+    });
+  }
   button.addEventListener('click', function () {
     var done = function () {
       var label = button.querySelector('span');

@@ -1,6 +1,7 @@
 """Main UI: hub, games folder, profile, team."""
 import logging
 
+from django.conf import settings
 from django.http import Http404
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse
@@ -268,12 +269,26 @@ def _team_page_redirect_for_project(project_id):
     return redirect('new_team')
 
 
+def share_url(request, path):
+    """Absolute URL to share (invites, link previews) on the visitor's own host.
+
+    Behind the load balancer and the ru proxy the app sees plain HTTP, so
+    request.build_absolute_uri() would hand out http:// links. Public hosts
+    are always HTTPS; only local development keeps the request's scheme.
+    The host is kept: a friend on ru.interoves.com should get a link that
+    opens for them.
+    """
+    if settings.DEBUG or request.is_secure():
+        return request.build_absolute_uri(path)
+    return 'https://{}{}'.format(request.get_host(), path)
+
+
 def _team_invite_url(request, token, project_id=None):
     if project_id and project_id != NEW_UI_PROJECT:
         path = reverse('project_team_invite', kwargs={'project_id': project_id, 'token': token})
     else:
         path = reverse('new_team_invite', kwargs={'token': token})
-    return request.build_absolute_uri(path)
+    return share_url(request, path)
 
 
 def _team_invite_create_url(request, project_id=None):
@@ -332,6 +347,7 @@ __all__ = [
     '_team_join_redirect',
     '_team_page_redirect_for_project',
     '_team_invite_url',
+    'share_url',
     '_team_invite_create_url',
     '_session_play_mode_key',
     '_default_play_mode',

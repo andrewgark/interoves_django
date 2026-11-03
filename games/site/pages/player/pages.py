@@ -1,10 +1,12 @@
 """Public player page: who this is, their teams and daily-game stats."""
 
+from dataclasses import replace
+
 from django.http import Http404
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from games.community import friends, visibility
+from games.community import friends, preview, visibility
 from games.community.stats import head_to_head, player_stats
 from games.identity import has_profile
 from games.models import Profile, Team
@@ -27,6 +29,10 @@ def player_profile(request, public_id):
     identity = visibility.public_identity(
         profile, viewer, page_visible=state == visibility.PAGE_FULL,
     )
+    if is_owner:
+        # The owner's page is a preview of what strangers see, photo included:
+        # showing their own unrestricted avatar here would be misleading.
+        identity = replace(identity, avatar_url=visibility.public_avatar_url(profile))
     ctx = {
         'player': identity,
         'player_public_id': profile.public_id,
@@ -36,6 +42,10 @@ def player_profile(request, public_id):
         'player_page_hidden': state == visibility.PAGE_HIDDEN,
         'player_owner_page_hidden': is_owner and profile.page_hidden,
         'player_owner_avatar_hidden': is_owner and profile.avatar_hidden and bool(profile.avatar_url),
+        'player_owner_avatar_untrusted': (
+            is_owner and bool(profile.avatar_url) and not profile.avatar_hidden
+            and not visibility.is_trusted_avatar_url(profile.avatar_url)
+        ),
         'page_title': identity.name,
         'robots_noindex': True,
     }
@@ -57,5 +67,10 @@ def player_profile(request, public_id):
             ctx['player_mutual_friends_count'] = len(their_friends & friends.friend_user_ids(viewer.pk))
         if getattr(viewer, 'is_authenticated', False) and not is_owner:
             ctx['player_head_to_head'] = head_to_head(viewer, profile.user)
+    ctx['og'] = preview.og(
+        request, title=identity.name,
+        description=preview.player_description(ctx.get('player_stats')),
+        image_url=identity.avatar_url if visibility.is_trusted_avatar_url(identity.avatar_url) else '',
+    )
     ctx.update(_project_urls_context(NEW_UI_PROJECT))
     return render(request, 'site/player_profile.html', ctx)

@@ -10,10 +10,11 @@ from django.shortcuts import redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 
-from games.community import friends, visibility
+from games.community import friends, preview, visibility
 from games.identity import has_profile
 from games.models import Profile
 from games.site.pages import NEW_UI_PROJECT, _project_urls_context
+from games.site.pages.shared import share_url
 
 _SAFE_NEXT = re.compile(r'/(u/[a-z0-9]{1,16}/|friends/)')
 
@@ -79,8 +80,8 @@ def friends_page(request):
         'friends_list': _identities(friends.friend_user_ids(user_id), request.user, are_friends=True),
         'friends_incoming': _identities(incoming, request.user),
         'friends_outgoing': _identities(outgoing, request.user),
-        'friends_invite_url': request.build_absolute_uri(
-            reverse('new_friend_invite', kwargs={'token': invite.token}),
+        'friends_invite_url': share_url(
+            request, reverse('new_friend_invite', kwargs={'token': invite.token}),
         ) if invite else '',
         'friends_telegram_hint': not getattr(getattr(request.user, 'profile', None), 'telegram_verified', False),
         'page_title': 'Друзья',
@@ -119,6 +120,12 @@ def friend_invite(request, token):
         ctx.update(_project_urls_context(NEW_UI_PROJECT))
         return render(request, 'site/friend_invite.html', ctx, status=404)
     ctx['invite_has_profile'] = has_profile(request.user)
+    owner = ctx['invite_owner']
+    ctx['og'] = preview.og(
+        request, title='{} зовёт вас в друзья'.format(owner.name),
+        description='Inter Oves — ежедневные головоломки. Друзей видно отдельным фильтром в таблицах результатов.',
+        image_url=owner.avatar_url if visibility.is_trusted_avatar_url(owner.avatar_url) else '',
+    )
     ctx.update(_project_urls_context(NEW_UI_PROJECT))
     return render(request, 'site/friend_invite.html', ctx)
 

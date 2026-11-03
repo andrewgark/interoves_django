@@ -67,9 +67,11 @@ class ScopeFixture(TestCase):
 
 
 class ResolveScopeTests(ScopeFixture):
-    def test_friends_scope_includes_me_and_friends_only(self):
+    def test_friends_scope_includes_me_my_active_team_and_friends(self):
         scope = resolve(self.request('?scope=friends'))
-        self.assertEqual(scope.identities, {('user', str(self.me.pk)), ('user', str(self.friend.pk))})
+        self.assertEqual(scope.identities, {
+            ('user', str(self.me.pk)), ('user', str(self.friend.pk)), ('team', self.team.pk),
+        })
 
     def test_team_scope_includes_team_row_and_members(self):
         scope = resolve(self.request('?scope=team:' + self.team.public_id))
@@ -81,6 +83,10 @@ class ResolveScopeTests(ScopeFixture):
         self.assertIsNone(resolve(self.request('?scope=team:' + self.other_team.public_id)))
         self.assertIsNone(resolve(self.request('?scope=friends', user=AnonymousUser())))
         self.assertIsNone(resolve(self.request('?scope=whatever')))
+
+    def test_team_scope_survives_the_encoded_cookie(self):
+        cookie = 'team%3A' + self.team.public_id  # what encodeURIComponent stores
+        self.assertEqual(resolve(self.request(cookies={'results_scope': cookie})).key, 'team:' + self.team.public_id)
 
     def test_cookie_applies_without_param_and_all_overrides_it(self):
         self.assertEqual(resolve(self.request(cookies={'results_scope': 'friends'})).key, FRIENDS)
@@ -139,8 +145,11 @@ class ScopedTablesKeepGlobalPlacesTests(ScopeFixture):
             )
         scope = resolve(self.request('?scope=friends'))
         rows, total, _ = _projection_rank_page(game, [group.pk], 1, scope=scope)
-        self.assertEqual(total, 2)
-        self.assertEqual([(r['user_id'], r['place']) for r in rows], [(self.friend.pk, 3), (self.me.pk, 5)])
+        self.assertEqual(total, 3)
+        self.assertEqual(
+            [(r['user_id'] or r['team_id'], r['place']) for r in rows],
+            [(self.friend.pk, 3), (self.team.pk, 4), (self.me.pk, 5)],
+        )
 
     def test_release_table_rows(self):
         actors = [
@@ -155,7 +164,7 @@ class ScopedTablesKeepGlobalPlacesTests(ScopeFixture):
         out = paginate_results_rows(
             self.request('?scope=friends'), {'teams_sorted': actors, 'team_to_place': places},
         )
-        self.assertEqual(out['teams_sorted'], [actors[2], actors[4]])
-        self.assertEqual([out['team_to_place'][a] for a in out['teams_sorted']], [3, 5])
+        self.assertEqual(out['teams_sorted'], [actors[2], actors[3], actors[4]])
+        self.assertEqual([out['team_to_place'][a] for a in out['teams_sorted']], [3, 4, 5])
         self.assertTrue(out['results_scope_active'])
-        self.assertEqual(out['page_total_rows'], 2)
+        self.assertEqual(out['page_total_rows'], 3)

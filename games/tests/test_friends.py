@@ -127,7 +127,7 @@ class FriendsViewTests(FriendsTestCase):
             friends.request_friendship(a, b.pk)
             friends.accept_request(b, a.pk)
         body = self.client_for(self.boris).get(self.player_url(self.anna_p)).content.decode()
-        self.assertIn('1 друг · 1 общих', body)
+        self.assertIn('1 друг · 1 общий', body)
 
     def test_unsafe_next_falls_back_to_friends_page(self):
         response = self.post_action(self.client_for(self.anna), self.vera_p, 'request', 'https://evil.example/')

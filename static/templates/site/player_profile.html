@@ -1,7 +1,7 @@
 {% extends "site/base.html" %}
 {% load filters %}
 {% block title %}{{ player.name }}{% endblock %}
-{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
+{% block extrahead %}<meta name="robots" content="noindex">{% if og %}{% include "site/partials/og_meta.html" %}{% endif %}{% endblock %}
 {% block content %}
 <section class="new-profile-card player-card" aria-labelledby="player-name">
   <div class="new-profile-card__hero">
@@ -16,7 +16,7 @@
         <p class="player-card__meta">
           {% if player_is_club %}<span class="player-card__badge"><i class="ph ph-crown" aria-hidden="true"></i> Резидент клуба</span>{% endif %}
           {% if player_since %}<span>С нами с {{ player_since|date:"E Y"|lower }}</span>{% endif %}
-          {% if player_friends_count %}<span>{{ player_friends_count }} {{ player_friends_count|ru_plural:"друг,друга,друзей" }}{% if player_mutual_friends_count %} · {{ player_mutual_friends_count }} общих{% endif %}</span>{% endif %}
+          {% if player_friends_count %}<span>{{ player_friends_count }} {{ player_friends_count|ru_plural:"друг,друга,друзей" }}{% if player_mutual_friends_count %} · {{ player_mutual_friends_count }} {{ player_mutual_friends_count|ru_plural:"общий,общих,общих" }}{% endif %}</span>{% endif %}
         </p>
       {% endif %}
     </div>
@@ -31,14 +31,20 @@
     <div class="player-card__friends">
       {% include "site/partials/friend_actions.html" with relation=player_relation next_url=request.path %}
     </div>
+  {% elif not user.is_authenticated %}
+    <div class="player-card__friends">
+      <a class="new-btn new-btn--ghost new-btn--mini" href="/?login=1&amp;next={{ request.path|urlencode }}"><i class="ph ph-sign-in" aria-hidden="true"></i> Войти, чтобы добавить в друзья</a>
+    </div>
   {% endif %}
   {% if player_is_owner %}
     <p class="player-card__owner-note">
       <i class="ph ph-eye" aria-hidden="true"></i>
       {% if player_owner_page_hidden %}
-        Страница скрыта: другие игроки видят только ваше имя.
+        Страница скрыта: другие игроки видят только ваше имя, друзья — страницу целиком.
       {% elif player_owner_avatar_hidden %}
-        Так вашу страницу видят другие, только без фото: оно скрыто.
+        Так вашу страницу видят другие. Фото скрыто — вместо него инициалы.
+      {% elif player_owner_avatar_untrusted %}
+        Так вашу страницу видят другие. Фото по вашей ссылке им не показываем: подойдёт фото из VK, Google, Яндекса или Telegram.
       {% else %}
         Так вашу страницу видят другие игроки. Контакты здесь не показываются.
       {% endif %}
@@ -56,7 +62,7 @@
   {% if player_head_to_head and player_head_to_head.common %}
     <section class="new-card player-h2h" aria-labelledby="player-h2h-title">
       <h2 id="player-h2h-title" class="player-section-title">Вы и {{ player.name }}</h2>
-      <p class="player-h2h__lead">{{ player_head_to_head.common }} общих выпусков в ежедневных играх</p>
+      <p class="player-h2h__lead">{{ player_head_to_head.common }} {{ player_head_to_head.common|ru_plural:"общий выпуск,общих выпуска,общих выпусков" }} в ежедневных играх</p>
       <div class="player-h2h__bar" role="img" aria-label="Вы впереди в {{ player_head_to_head.wins }}, ничья в {{ player_head_to_head.ties }}, соперник впереди в {{ player_head_to_head.losses }}">
         {% if player_head_to_head.wins %}<span class="player-h2h__seg player-h2h__seg--win" style="flex-grow: {{ player_head_to_head.wins }}">{{ player_head_to_head.wins }}</span>{% endif %}
         {% if player_head_to_head.ties %}<span class="player-h2h__seg player-h2h__seg--tie" style="flex-grow: {{ player_head_to_head.ties }}">{{ player_head_to_head.ties }}</span>{% endif %}

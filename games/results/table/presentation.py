@@ -34,6 +34,9 @@ def paginate_results_rows(request, data, per_page=50):
         request, lambda value: results_scope.query_url(request, scope=value),
     )
     out['results_scope_active'] = scope is not None
+    if scope is not None and scope.key == results_scope.FRIENDS:
+        # Every row is a friend here; the handshake would only add noise.
+        out['team_to_is_friend'] = {}
     return out
 
 

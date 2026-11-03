@@ -80,7 +80,7 @@
   <div class="new-results-wrap aggregate-table-wrap" role="region" aria-label="Сводная таблица результатов" tabindex="0">
     <table class="new-results-table aggregate-results-table">
       <thead><tr>
-        <th scope="col" class="is-sticky-left is-sticky-top aggregate-place">Место</th>
+        <th scope="col" class="is-sticky-left is-sticky-top aggregate-place" data-tooltip="Место" aria-label="Место">#</th>
         <th scope="col" class="is-sticky-left-2 is-sticky-top col-team aggregate-participant">Участник</th>
         <th scope="col" class="is-sticky-left-3 is-sticky-top col-score aggregate-score" data-tooltip="Сумма баллов за выбранные выпуски" aria-label="Сумма баллов"><i class="ph ph-sigma" aria-hidden="true"></i></th>
         <th scope="col" class="is-sticky-left-4 is-sticky-top aggregate-time" data-tooltip="Суммарное время решения" aria-label="Суммарное время"><i class="ph ph-clock" aria-hidden="true"></i></th>
@@ -104,4 +104,5 @@
 </div>
 
 <script src="{% static 'js/results_progressive.js' %}"></script>
+<script src="{% static 'js/results_columns.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}

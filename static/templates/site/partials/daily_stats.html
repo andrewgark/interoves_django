@@ -1,14 +1,15 @@
 {% comment %}Daily-game stats block shared by player and team pages.
 Context: stats (games.community.stats.PlayerStats), stats_empty_text.{% endcomment %}
+{% load filters %}
 <section aria-labelledby="daily-stats-title">
   <h2 id="daily-stats-title" class="new-heading">Ежедневные игры</h2>
   {% if stats.has_any %}
     <div class="player-overview">
       <div class="player-tiles">
-        <div class="player-tile"><strong>{{ stats.total_played }}</strong><span>сыграно</span></div>
-        <div class="player-tile"><strong>{{ stats.active_days }}</strong><span>дней в игре</span></div>
-        <div class="player-tile"><strong>{{ stats.current_day_streak }}</strong><span>дней подряд</span></div>
-        <div class="player-tile"><strong>{{ stats.best_day_streak }}</strong><span>лучшая серия</span></div>
+        <div class="player-tile"><strong>{{ stats.total_played }}</strong><span>{{ stats.total_played|ru_plural:"игра сыграна,игры сыграно,игр сыграно" }}</span></div>
+        <div class="player-tile"><strong>{{ stats.active_days }}</strong><span>{{ stats.active_days|ru_plural:"день в игре,дня в игре,дней в игре" }}</span></div>
+        <div class="player-tile"><strong>{{ stats.current_day_streak }}</strong><span>{{ stats.current_day_streak|ru_plural:"день подряд,дня подряд,дней подряд" }}</span></div>
+        <div class="player-tile"><strong>{{ stats.best_day_streak }}</strong><span>{{ stats.best_day_streak|ru_plural:"день — рекорд,дня — рекорд,дней — рекорд" }}</span></div>
       </div>
 
       <div class="new-card player-activity">

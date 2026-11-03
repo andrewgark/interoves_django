@@ -2424,9 +2424,9 @@ a.player-team:hover, a.player-team:focus-visible { border-color: var(--accent); 
 .team-card__note { display: flex; align-items: center; gap: 0.45rem; margin: 0; color: var(--muted); font-size: 0.88rem; }
 .team-invite { flex: 1 1 18rem; min-width: 0; }
 .team-invite label { display: block; margin-bottom: 0.3rem; color: var(--muted); font-size: 0.77rem; font-weight: 600; }
-.team-invite__row { display: flex; gap: 0.5rem; min-width: 0; }
+.team-invite__row { display: flex; flex-wrap: wrap; gap: 0.5rem; min-width: 0; }
 .team-invite__row input {
-  flex: 1 1 auto;
+  flex: 1 1 12rem;
   min-width: 0;
   max-width: 100%;
   height: var(--btn-height-mini);
@@ -2502,7 +2502,17 @@ a.team-member:hover .team-member__name { color: var(--accent); }
 .friends-invite { margin-top: 0; }
 .friends-invite__lead { margin: 0 0 0.75rem; color: var(--muted); font-size: 0.88rem; }
 .friends-invite__new { margin: 0.6rem 0 0; }
-.friends-invite__new .new-btn { display: inline-flex; align-items: center; gap: 0.35rem; }
+.friends-invite__new .new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  height: auto;
+  min-height: var(--btn-height-mini);
+  white-space: normal;
+  text-align: left;
+}
+.friends-invite__lead a { color: var(--accent); }
 .new-card.friends-outgoing { margin-top: 0; }
 
 /* Results tables: participant name links to the player page */
@@ -7877,11 +7887,13 @@ a.new-btn.new-hub-next-game-vote__btn {
 
 .new-results-table{
   /* Ширины первых колонок — переменные, на узких экранах уменьшаются (ниже). */
-  --results-col-rank: 3.1rem;
+  /* Starting values only: static/js/results_columns.js fits them to the
+     content. Keep them near typical content to avoid a visible jump. */
+  --results-col-rank: 2.5rem;
   --results-col-team: 12.5rem;
-  --results-col-score: calc(4.5ch + 1rem);
-  --results-col-time: 4.8rem;
-  --results-col-attempts: calc(3ch + 1rem);
+  --results-col-score: calc(3.5ch + 0.9rem);
+  --results-col-time: 3.75rem;
+  --results-col-attempts: calc(3ch + 0.9rem);
   border-collapse: separate;
   border-spacing: 0;
   width: max-content;
@@ -8141,11 +8153,11 @@ a.new-btn.new-hub-next-game-vote__btn {
   }
   .new-results-table {
     font-size: 0.76rem;
-    --results-col-rank: 2rem;
-    --results-col-team: 6.25rem;
-    --results-col-score: 3.6rem;
+    --results-col-rank: 1.75rem;
+    --results-col-team: 8.5rem;
+    --results-col-score: 2.4rem;
     --results-col-time: 2.85rem;
-    --results-col-attempts: 3.15rem;
+    --results-col-attempts: 2.4rem;
   }
   .new-results-table th,
   .new-results-table td {
@@ -8155,11 +8167,11 @@ a.new-btn.new-hub-next-game-vote__btn {
 
 @media (max-width: 380px) {
   .new-results-table {
-    --results-col-rank: 1.75rem;
-    --results-col-team: 5.25rem;
-    --results-col-score: 3.25rem;
+    --results-col-rank: 1.6rem;
+    --results-col-team: 7.5rem;
+    --results-col-score: 2.2rem;
     --results-col-time: 2.6rem;
-    --results-col-attempts: 2.85rem;
+    --results-col-attempts: 2.2rem;
   }
 }
 
@@ -8389,8 +8401,8 @@ a.new-btn.new-hub-next-game-vote__btn {
 }
 
 .aggregate-release {
-  width: 2.25rem;
-  min-width: 2.25rem;
+  width: 1.9rem;
+  min-width: 1.9rem;
   padding-right: .3rem !important;
   padding-left: .3rem !important;
 }

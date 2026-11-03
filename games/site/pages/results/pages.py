@@ -211,7 +211,9 @@ def section_results_page(request, game_id):
         row['actor'].user_id for row in data.get('aggregate_rows', [])
         if row.get('actor_kind') == 'user' and getattr(row.get('actor'), 'user_id', None)
     ), request.user)
-    aggregate_friend_ids = viewer_friend_ids(request.user) if data.get('aggregate_rows') else set()
+    # Under the friends filter every row is a friend: skip the handshake marks.
+    show_friend_marks = data.get('aggregate_rows') and results_scope.selected_value(request) != results_scope.FRIENDS
+    aggregate_friend_ids = viewer_friend_ids(request.user) if show_friend_marks else set()
     for row in data.get('aggregate_rows', []):
         actor = row.get('actor')
         row['is_club_subscriber'] = getattr(actor, 'user_id', None) in aggregate_subscriber_ids

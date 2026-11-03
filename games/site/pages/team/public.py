@@ -4,7 +4,7 @@ from django.http import Http404
 from django.shortcuts import render
 from django.views.decorators.http import require_http_methods
 
-from games.community import visibility
+from games.community import preview, visibility
 from games.community.stats import team_stats
 from games.identity import has_profile
 from games.models import Profile, ProfileTeamMembership, Team, TeamInvite
@@ -72,5 +72,9 @@ def team_public_page(request, public_id):
             )
     elif profile is not None:
         ctx['team_requested'] = profile.team_requested
+    ctx['og'] = preview.og(
+        request, title=team.visible_name or team.name,
+        description=preview.team_description(len(ctx['team_members']), ctx['team_stats']),
+    )
     ctx.update(_project_urls_context(NEW_UI_PROJECT))
     return render(request, 'site/team_public.html', ctx)

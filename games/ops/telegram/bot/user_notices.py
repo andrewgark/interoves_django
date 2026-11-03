@@ -36,14 +36,22 @@ def publish_friend_request_notice(*, from_user_id: int, to_user_id: int) -> bool
         user_id=to_user_id, telegram_verified=True, telegram_user_id__isnull=False,
     ).exists():
         return False
-    if not cache.add(_friend_request_cache_key(from_user_id, to_user_id), 1, FRIEND_REQUEST_NOTICE_TTL):
+    key = _friend_request_cache_key(from_user_id, to_user_id)
+    if not cache.add(key, 1, FRIEND_REQUEST_NOTICE_TTL):
         return False
-    return enqueue_integrations_message(
-        message_type=TELEGRAM_USER_NOTICE,
-        payload={'kind': FRIEND_REQUEST, 'from_user_id': int(from_user_id), 'to_user_id': int(to_user_id)},
-        dedupe_key='telegram.user_notice:friend_request:{}:{}'.format(from_user_id, to_user_id),
-        label='user_notice_friend_request',
-    )
+    enqueued = False
+    try:
+        enqueued = enqueue_integrations_message(
+            message_type=TELEGRAM_USER_NOTICE,
+            payload={'kind': FRIEND_REQUEST, 'from_user_id': int(from_user_id), 'to_user_id': int(to_user_id)},
+            dedupe_key='telegram.user_notice:friend_request:{}:{}'.format(from_user_id, to_user_id),
+            label='user_notice_friend_request',
+        )
+    finally:
+        if not enqueued:
+            # Nothing was sent: let the next request for this pair try again.
+            cache.delete(key)
+    return enqueued
 
 
 def format_friend_request_notice(sender_profile) -> str:

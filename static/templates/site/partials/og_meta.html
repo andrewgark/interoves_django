@@ -1,0 +1,10 @@
+{% comment %}Link preview tags. Context: og = {title, description, url, image} (absolute URLs).{% endcomment %}
+<meta property="og:type" content="website">
+<meta property="og:locale" content="ru_RU">
+<meta property="og:site_name" content="Inter Oves">
+<meta property="og:title" content="{{ og.title }}">
+<meta property="og:description" content="{{ og.description }}">
+<meta property="og:url" content="{{ og.url }}">
+<meta property="og:image" content="{{ og.image }}">
+<meta name="twitter:card" content="summary">
+<meta name="description" content="{{ og.description }}">

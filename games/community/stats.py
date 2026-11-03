@@ -282,9 +282,11 @@ def head_to_head(viewer, other):
     def scores(user):
         return {
             (str(game_id), group_id): score
+            # Pre-publication plays (authors, testers) are not part of any
+            # public table, so they are not part of the comparison either.
             for game_id, group_id, score in DailyResultProjection.objects.filter(
                 actor_type=DailyResultProjection.ACTOR_USER, user=user,
-                game_id__in=DAILY_TIMING_GAME_IDS,
+                game_id__in=DAILY_TIMING_GAME_IDS, is_prepublication=False,
             ).values_list('game_id', 'task_group_id', 'score')
         }
 

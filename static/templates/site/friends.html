@@ -6,12 +6,13 @@
 
 <section class="new-card friends-invite" aria-labelledby="friends-invite-title">
   <h2 id="friends-invite-title" class="player-section-title">Позвать друга</h2>
-  <p class="friends-invite__lead">Кто откроет ссылку и подтвердит, сразу станет вашим другом. Добавить можно и со страницы игрока: нажмите на имя в таблице результатов.</p>
+  <p class="friends-invite__lead">Кто откроет ссылку и подтвердит, сразу станет вашим другом — отправляйте её лично, а не в открытые чаты. Добавить можно и со страницы игрока: нажмите на имя в таблице результатов.</p>
   {% if friends_telegram_hint %}<p class="friends-invite__lead"><i class="ph ph-telegram-logo" aria-hidden="true"></i> <a href="{% url 'new_profile' %}">Подключите Telegram</a> — бот напишет, когда вас позовут в друзья.</p>{% endif %}
   {% if friends_invite_url %}
     <div class="team-invite__row">
       <input type="text" readonly value="{{ friends_invite_url }}" aria-label="Ссылка-приглашение в друзья" data-invite-link>
       <button type="button" class="new-btn new-btn--mini" data-invite-copy><i class="ph ph-copy" aria-hidden="true"></i> <span>Копировать</span></button>
+      <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-invite-share hidden><i class="ph ph-share-network" aria-hidden="true"></i> Поделиться</button>
     </div>
   {% endif %}
   <form method="post" action="{% url 'new_friend_invite_create' %}" class="friends-invite__new">
@@ -70,6 +71,13 @@
   var button = document.querySelector('[data-invite-copy]');
   var input = document.querySelector('[data-invite-link]');
   if (!button || !input) return;
+  var share = document.querySelector('[data-invite-share]');
+  if (share && navigator.share) {
+    share.hidden = false;
+    share.addEventListener('click', function () {
+      navigator.share({ title: 'Inter Oves', text: 'Давай дружить на Inter Oves', url: input.value }).catch(function () {});
+    });
+  }
   button.addEventListener('click', function () {
     var done = function () {
       var label = button.querySelector('span');

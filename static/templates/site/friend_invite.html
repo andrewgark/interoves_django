@@ -1,6 +1,6 @@
 {% extends "site/base.html" %}
 {% block title %}Приглашение в друзья{% endblock %}
-{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
+{% block extrahead %}<meta name="robots" content="noindex">{% if og %}{% include "site/partials/og_meta.html" %}{% endif %}{% endblock %}
 {% block content %}
 {% if invite_invalid %}
   <div class="new-card player-empty">

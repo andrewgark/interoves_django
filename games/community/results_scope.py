@@ -9,6 +9,7 @@ Scopes are identified in the query string as ``scope=friends`` or
 """
 
 from dataclasses import dataclass
+from urllib.parse import unquote
 
 from games.models import Profile, ProfileTeamMembership, Team
 
@@ -24,7 +25,9 @@ TEAM_PREFIX = 'team:'
 def selected_value(request):
     raw = request.GET.get(SCOPE_PARAM)
     if raw is None:
-        raw = request.COOKIES.get(SCOPE_COOKIE, '')
+        # The chips' script stores encodeURIComponent(value) («team%3A…»);
+        # Django does not decode cookie values.
+        raw = unquote(request.COOKIES.get(SCOPE_COOKIE, ''))
     raw = (raw or '').strip()
     return '' if raw == ALL else raw
 
@@ -72,7 +75,13 @@ def resolve(request):
         from games.community.friends import friend_user_ids
 
         ids = friend_user_ids(user.pk) | {user.pk}
-        return ResultsScope(FRIENDS, 'Друзья', frozenset(('user', str(uid)) for uid in ids))
+        identities = {('user', str(uid)) for uid in ids}
+        # A player in team mode has no personal row: keep their active team
+        # in view so there is still someone to compare friends with.
+        team_on_id = Profile.objects.filter(user=user).values_list('team_on_id', flat=True).first()
+        if team_on_id:
+            identities.add(('team', str(team_on_id)))
+        return ResultsScope(FRIENDS, 'Друзья', frozenset(identities))
     if raw.startswith(TEAM_PREFIX):
         team = Team.objects.filter(
             public_id=raw[len(TEAM_PREFIX):], member_links__profile__user=user,

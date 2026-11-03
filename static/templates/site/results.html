@@ -39,9 +39,10 @@
       {% endif %}
     </div>
 
-    {% if mode != 'tournament' or show_alphabetty_detail %}
+    {% if mode != 'tournament' or show_alphabetty_detail or results_scope_options %}
       <nav class="results-filter-panel" aria-label="Фильтры результатов">
-        {% if mode != 'tournament' and results_scope_options %}
+        {# The scope also applies to tournament tables, so its chips must be visible there. #}
+        {% if results_scope_options %}
           {% include "site/partials/results_scope_chips.html" with options=results_scope_options %}
         {% endif %}
         {% if mode != 'tournament' %}
@@ -188,4 +189,5 @@
   })();
   </script>
   {% if progressive_results %}<script src="{% static 'js/results_progressive.js' %}"></script>{% endif %}
+  <script src="{% static 'js/results_columns.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}

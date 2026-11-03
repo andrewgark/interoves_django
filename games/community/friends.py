@@ -81,17 +81,31 @@ def _involving(user_id):
     return Friendship.objects.filter(Q(user_low_id=user_id) | Q(user_high_id=user_id))
 
 
+def _with_visible_partner(user_id):
+    """Rows of ``user_id`` whose other side is an active, not admin-hidden player.
+
+    Counters, lists and filters must agree: a request from a hidden account
+    would otherwise light the header badge with nothing to answer.
+    """
+    return Friendship.objects.filter(
+        Q(user_low_id=user_id, user_high__is_active=True, user_high__profile__is_hidden=False)
+        | Q(user_high_id=user_id, user_low__is_active=True, user_low__profile__is_hidden=False)
+    )
+
+
 def friend_user_ids(user_id):
-    rows = _involving(user_id).filter(status=Friendship.STATUS_ACCEPTED).values_list('user_low_id', 'user_high_id')
+    rows = _with_visible_partner(user_id).filter(
+        status=Friendship.STATUS_ACCEPTED,
+    ).values_list('user_low_id', 'user_high_id')
     return {high if low == user_id else low for low, high in rows}
 
 
 def incoming_requests(user_id):
-    return _involving(user_id).filter(status=Friendship.STATUS_PENDING).exclude(requested_by_id=user_id)
+    return _with_visible_partner(user_id).filter(status=Friendship.STATUS_PENDING).exclude(requested_by_id=user_id)
 
 
 def outgoing_requests(user_id):
-    return Friendship.objects.filter(status=Friendship.STATUS_PENDING, requested_by_id=user_id)
+    return _with_visible_partner(user_id).filter(status=Friendship.STATUS_PENDING, requested_by_id=user_id)
 
 
 def incoming_count(user_id):
@@ -121,7 +135,7 @@ def request_friendship(viewer, other_user_id):
             if row.status == Friendship.STATUS_PENDING and row.requested_by_id != viewer.pk:
                 return _accept(row)
             return relation(viewer, other_user_id)
-        if outgoing_requests(viewer.pk).count() >= MAX_PENDING_OUTGOING:
+        if Friendship.objects.filter(status=Friendship.STATUS_PENDING, requested_by_id=viewer.pk).count() >= MAX_PENDING_OUTGOING:
             raise FriendshipError('Слишком много неотвеченных заявок. Подождите, пока на них ответят.')
         low, high = _pair(viewer.pk, other_user_id)
         try:

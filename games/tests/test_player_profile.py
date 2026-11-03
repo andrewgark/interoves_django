@@ -121,9 +121,13 @@ class PlayerPageTests(TestCase):
         body = Client().get(self.url()).content.decode()
         self.assertNotIn('https://lh3.googleusercontent.com/anna.jpg', body)
         self.assertIn('АП', body)
+        # The owner's public page previews what others see: no photo either,
+        # with a note explaining why.
         owner = Client()
         owner.login(username='pp_owner', password='secret')
-        self.assertIn('https://lh3.googleusercontent.com/anna.jpg', owner.get(self.url()).content.decode())
+        body = owner.get(self.url()).content.decode()
+        self.assertNotIn('https://lh3.googleusercontent.com/anna.jpg', body)
+        self.assertIn('Фото скрыто', body)
 
     def test_owner_sees_own_hidden_page_with_note(self):
         self.set_flags(page_hidden=True)
