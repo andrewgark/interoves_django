@@ -322,6 +322,25 @@ class BackgroundWorkerTests(SimpleTestCase):
         self.assertEqual(response.json()['status'], 'ok')
         refresh.assert_called_once_with(game_id='ladder', task_group_id=42)
 
+    def test_daily_statistics_refresh_acks_invalid_task_data(self):
+        from games.puzzles.salad.rules import InvalidSaladTask
+
+        with patch(
+            'games.ops.workers.handlers.background.run_named_daily_statistics_refresh',
+            side_effect=InvalidSaladTask('bad grid'),
+        ), patch(
+            'games.ops.workers.handlers.background.notify_admin_invalid_task_data',
+        ) as alert:
+            response = self._post(_body(
+                type='daily_statistics.refresh',
+                scheduled_for=timezone.now().isoformat(),
+                payload={'game_id': 'salad', 'task_group_id': 1930, 'revision': 1},
+            ))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['status'], 'invalid_task')
+        alert.assert_called_once()
+        self.assertEqual(alert.call_args.kwargs['task_group_id'], 1930)
+
     def test_projection_refresh_rejects_unknown_mode(self):
         scheduled = timezone.now().isoformat()
         response = self._post(_body(

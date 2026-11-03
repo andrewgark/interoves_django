@@ -23,6 +23,7 @@ from games.models import (
 )
 from games.ops.workers.jobs.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
 from games.ops.cron.runtime import runtime_role
+from games.puzzles.salad.rules import InvalidSaladTask
 
 logger = logging.getLogger('application')
 RETRY_BASE = 30
@@ -518,11 +519,11 @@ def _claim_next(now=None, worker='cron'):
     return job, item, item_token
 
 
-def _record_item_failure(job, item, token, exc):
+def _record_item_failure(job, item, token, exc, *, terminal=False):
     now = timezone.now()
     message = '{}: {}'.format(exc.__class__.__name__, exc)[:2000]
     with transaction.atomic():
-        exhausted = item.attempt_count >= MAX_ITEM_ATTEMPTS
+        exhausted = terminal or item.attempt_count >= MAX_ITEM_ATTEMPTS
         retry_at = None if exhausted else now + timedelta(
             seconds=RETRY_BASE * (2 ** max(0, item.attempt_count - 1)),
         )
@@ -729,6 +730,21 @@ def _process_claimed_item(job, item, item_token):
             job.pk, item.pk, job.task_revision, (time.perf_counter() - started) * 1000, credited,
         )
         return 'completed'
+    except InvalidSaladTask as exc:
+        # The job is pinned to this task revision, so every retry would parse
+        # the same broken data. Fail it now; a console fix starts a new job.
+        logger.error(
+            'word_salad_task_invalid job_id=%s item_id=%s task_revision=%s error=%s',
+            job.pk, item.pk, job.task_revision, exc,
+        )
+        _record_item_failure(job, item, item_token, exc, terminal=True)
+        from games.ops.telegram.bot.notify import notify_admin_invalid_task_data
+
+        notify_admin_invalid_task_data(
+            source='word_salad.recheck', game_id=job.game_id,
+            task_group_id=job.task.task_group_id, task_id=job.task_id, error=exc,
+        )
+        return 'invalid_task'
     except Exception as exc:
         logger.exception(
             'word_salad_task_failed job_id=%s item_id=%s task_revision=%s duration_ms=%.1f',
@@ -764,6 +780,6 @@ def process_word_salad_rechecks(*, limit=1, worker='cron'):
             processed += 1
             continue
         result = _process_claimed_item(job, item, _item_token)
-        if result in ('completed', 'superseded', 'failed'):
+        if result in ('completed', 'superseded', 'failed', 'invalid_task'):
             processed += 1
     return processed

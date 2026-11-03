@@ -13,7 +13,7 @@ from channels.testing import WebsocketCommunicator
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from django.contrib.auth.models import User
-from django.test import Client, TestCase, TransactionTestCase, override_settings
+from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
 from datetime import timedelta
 
@@ -1185,3 +1185,31 @@ class TrackWebsocketSecurityRegressionTests(TrackGameFixtureMixin, TransactionTe
         message = async_to_sync(reconnect)()
         self.assertEqual(message['type'], 'track.resync_required')
         self.assertEqual(message['reset'][namespace], 2)
+
+
+class ChannelBroadcastWorkerConnectionTests(SimpleTestCase):
+    def test_pool_thread_recycles_db_connections_around_each_job(self):
+        from games.realtime import broadcast
+
+        calls = []
+
+        class Stop(BaseException):
+            pass
+
+        jobs = iter([lambda: calls.append('job')])
+
+        def get():
+            try:
+                return next(jobs)
+            except StopIteration:
+                raise Stop
+
+        with patch.object(broadcast._channel_broadcast_queue, 'get', side_effect=get), \
+                patch.object(broadcast._channel_broadcast_queue, 'task_done'), \
+                patch.object(
+                    broadcast, 'close_old_connections',
+                    side_effect=lambda: calls.append('close'),
+                ):
+            with self.assertRaises(Stop):
+                broadcast._channel_broadcast_worker()
+        self.assertEqual(calls, ['close', 'job', 'close'])

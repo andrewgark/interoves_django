@@ -226,7 +226,17 @@ def run_named_daily_statistics_refresh(*, game_id, task_group_id):
                 game_id, task_group_id, revision, published_at,
             )
             if cache.get(result_key) is None:
-                raise RuntimeError('daily statistics generation was not published')
+                if int(cache.get(revision_key, 0) or 0) != revision:
+                    # A completion advanced the revision mid-build, so the
+                    # build cached the newer generation. Recheck below and
+                    # start another pass instead of failing the SQS message.
+                    break
+                raise RuntimeError(
+                    'daily statistics generation was not published '
+                    'game={} task_group={} revision={} published_at={}'.format(
+                        game_id, task_group_id, revision, published_at,
+                    )
+                )
         current_revision = int(cache.get(revision_key, 0) or 0)
         # Drop the mark before validating the generation. If a source update
         # races this delete, its on-commit publisher can add a fresh mark and

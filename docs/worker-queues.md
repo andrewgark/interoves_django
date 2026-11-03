@@ -31,6 +31,18 @@ count `1`. `background` and `recheck` use Fargate Spot; `identity` and
 environments are legacy/compatibility state and must not be re-enabled against
 the same queues.
 
+## Rollout order and permanent failures
+
+Deploy a worker before the web starts sending it a new message type or admin
+alert name. As a safety net, `run_admin_alert_live` delivers an unknown alert
+that carries `payload.text` as a plain admin message instead of failing it.
+
+Handlers answer 200 for failures a retry cannot fix, so they never reach the
+DLQ: stored salad data that does not parse (`InvalidSaladTask`) returns
+`invalid_task` from `daily_statistics.refresh` and from recheck (the item is
+failed at once), and sends one `task_data_invalid` admin alert per task group
+and hour. Fixing the task in the console starts a new refresh or recheck job.
+
 ## Where the contract lives
 
 - `games/ops/workers/contract.py` — worker names, queue names, endpoints and message types;

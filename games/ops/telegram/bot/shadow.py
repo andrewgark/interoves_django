@@ -63,7 +63,7 @@ def run_admin_alert_live(*, alert: str, payload: dict, dedupe_key: str = ''):
     if alert in (
         'club_renewal_failed', 'club_subscription_state', 'zero_duration_completion',
         'censorly_wikipedia_failure', 'daily_timer_client_report', 'merge_job_failed',
-        'offline_play',
+        'offline_play', 'task_data_invalid',
     ):
         from games.ops.telegram.bot.notify import notify_admin_alert_message
 
@@ -72,6 +72,14 @@ def run_admin_alert_live(*, alert: str, payload: dict, dedupe_key: str = ''):
         from games.puzzles.censorly.article.reports import complete_report
 
         return complete_report(int(payload['report_id']))
+    text = str(payload.get('text') or '')
+    if text:
+        # The web can ship a new text alert before this worker learns its name.
+        # Deliver it instead of retrying a message that would only reach the DLQ.
+        from games.ops.telegram.bot.notify import notify_admin_alert_message
+
+        logger.warning('admin alert delivered as plain text: unknown alert=%s', alert)
+        return notify_admin_alert_message(text, dedupe_key=dedupe_key)
     raise ValueError('unsupported admin alert: {}'.format(alert))
 
 

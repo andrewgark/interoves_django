@@ -231,6 +231,47 @@ OFFLINE_PLAY_ALERT_TITLES = {
 }
 
 
+INVALID_TASK_DATA_ALERT_THROTTLE_SECONDS = 3600
+
+
+def notify_admin_invalid_task_data(
+    *, source: str, game_id, task_group_id, error, task_id=None,
+) -> bool:
+    """Queue one alert per task group and hour: stored task data no longer parses.
+
+    Workers ack such messages instead of retrying them, so this alert is the
+    only signal that a published task needs fixing in the console.
+    """
+    try:
+        if not cache.add(
+            'telegram:admin:task_data_invalid:{}:{}'.format(game_id, task_group_id),
+            1, INVALID_TASK_DATA_ALERT_THROTTLE_SECONDS,
+        ):
+            return False
+        text = _join_lines([
+            '🧩 <b>Битые данные задания</b>',
+            '',
+            'Где: <code>{}</code>'.format(_escape(source)),
+            'Игра: <code>{}</code>, группа <code>{}</code>{}'.format(
+                _escape(game_id), _escape(task_group_id),
+                ', задание <code>{}</code>'.format(_escape(task_id)) if task_id else '',
+            ),
+            'Ошибка: {}'.format(_escape(str(error)[:500])),
+            'Повторы по этой группе подавлены на час.',
+        ])
+        return publish_admin_alert(
+            alert='task_data_invalid',
+            dedupe_key='telegram.admin_alert:task_data_invalid:{}:{}'.format(game_id, task_group_id),
+            payload={'text': text},
+        )
+    except Exception:
+        logger.exception(
+            'Failed to notify admin about invalid task data game=%s task_group=%s',
+            game_id, task_group_id,
+        )
+        return False
+
+
 def notify_admin_offline_play(*, kind: str, task, game, lines) -> bool:
     """Queue an offline-play alert (docs/offline-play-plan.md); no answers in the text."""
     try:

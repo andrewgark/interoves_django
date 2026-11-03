@@ -439,6 +439,37 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(item.status, WordSaladRecheckItem.STATUS_PENDING)
         self.assertEqual(item.attempt_count, 1)
 
+    def test_invalid_task_data_fails_item_at_once_and_alerts(self):
+        actors = {(None, self.user.pk, None, None)}
+        with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+        item = WordSaladRecheckItem.objects.get(job=job)
+        # Same attempt_revision: the job stays current, but its data is broken.
+        type(self.task).objects.filter(pk=self.task.pk).update(
+            checker_data=json.dumps({'grid': 'AB', 'words': ['AB']}),
+        )
+        from games.puzzles.salad.rules import parse_task_payload
+
+        def replay(task, **_kwargs):
+            # The real replay parses the stored task before crediting answers.
+            parse_task_payload(task.checker_data, task.answer or '')
+
+        with patch(
+            'games.ops.telegram.bot.notify.notify_admin_invalid_task_data',
+        ) as alert, patch(
+            'games.ops.workers.jobs.salad.recheck_word_salad_actor', side_effect=replay,
+        ):
+            self.assertEqual(
+                process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk), 'invalid_task',
+            )
+        item.refresh_from_db()
+        job.refresh_from_db()
+        self.assertEqual(item.status, WordSaladRecheckItem.STATUS_FAILED)
+        self.assertEqual(job.status, WordSaladRecheckJob.STATUS_FAILED)
+        self.assertIn('InvalidSaladTask', item.last_error)
+        alert.assert_called_once()
+        self.assertEqual(alert.call_args.kwargs['task_id'], self.task.pk)
+
     def test_stale_revision_is_superseded_without_replay(self):
         actors = {(None, self.user.pk, None, None)}
         with patch('games.ops.workers.jobs.salad._word_salad_actor_keys', return_value=actors):
@@ -579,3 +610,15 @@ class WordSaladRecheckQueueTests(TestCase):
         job.refresh_from_db()
         self.assertEqual(job.status, WordSaladRecheckJob.STATUS_COMPLETED)
         self.assertEqual(job.completed_actors, 2)
+
+
+class InvalidSaladTaskTests(TestCase):
+    def test_bad_stored_payload_raises_invalid_salad_task(self):
+        from games.puzzles.salad.rules import InvalidSaladTask, parse_task_payload
+
+        for checker_data in ('not json', '[]', json.dumps({'grid': 'AB', 'words': ['AB']})):
+            with self.subTest(checker_data=checker_data):
+                with self.assertRaises(InvalidSaladTask) as ctx:
+                    parse_task_payload(checker_data, '')
+                # Existing callers catch ValueError; they must keep working.
+                self.assertIsInstance(ctx.exception, ValueError)

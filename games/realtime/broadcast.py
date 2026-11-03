@@ -6,7 +6,7 @@ import threading
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from django.conf import settings
-from django.db import transaction
+from django.db import close_old_connections, transaction
 from django.utils import timezone
 
 from games.models import Attempt, GameTaskGroup
@@ -34,11 +34,16 @@ _channel_broadcast_workers_started = False
 def _channel_broadcast_worker():
     while True:
         job = _channel_broadcast_queue.get()
+        # Pool threads own their DB connections and outlive any request, so
+        # nothing else recycles them: after MySQL's idle timeout the next job
+        # would hit "Server has gone away" (seen on the recheck worker).
+        close_old_connections()
         try:
             job()
         except Exception:
             logger.exception('Channel broadcast worker failed')
         finally:
+            close_old_connections()
             _channel_broadcast_queue.task_done()
 
 

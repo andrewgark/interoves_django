@@ -113,7 +113,7 @@ def recheck_worker(request):
         'word salad worker delivery result=%s job_id=%s item_id=%s task_revision=%s',
         result, job_id, item_id, task_revision,
     )
-    if result in ('completed', 'superseded', 'not_due'):
+    if result in ('completed', 'superseded', 'not_due', 'invalid_task'):
         return JsonResponse({'status': result}, status=200)
     if result == 'lease_conflict':
         return JsonResponse({'status': result}, status=409)

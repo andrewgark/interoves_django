@@ -39,6 +39,7 @@ from games.ops.cron.sessions import (
     SESSION_CLEANUP_LOCK_TTL_SECONDS,
     delete_expired_sessions,
 )
+from games.ops.telegram.bot.notify import notify_admin_invalid_task_data
 from games.ops.workers.heartbeat import finish as finish_queue_heartbeat
 from games.ops.workers.heartbeat import start as start_queue_heartbeat
 from games.ops.workers.http import is_sqsd_delivery, sqsd_message_id
@@ -54,6 +55,7 @@ from games.ops.workers.messages import (
     is_stale,
     parse_background_message,
 )
+from games.puzzles.salad.rules import InvalidSaladTask
 from games.realtime.projection import (
     run_named_daily_statistics_refresh,
     run_named_projection_refresh,
@@ -296,6 +298,18 @@ def _daily_statistics_refresh(message, message_id):
         status = run_named_daily_statistics_refresh(
             game_id=game_id, task_group_id=task_group_id,
         )
+    except InvalidSaladTask as exc:
+        # Every retry would parse the same stored task and fail the same way.
+        # Ack it; a console fix invalidates statistics and queues a new refresh.
+        logger.error(
+            'background worker invalid task type=%s run_id=%s message_id=%s '
+            'game=%s task_group=%s error=%s',
+            message['type'], message['run_id'], message_id, game_id, task_group_id, exc,
+        )
+        notify_admin_invalid_task_data(
+            source=message['type'], game_id=game_id, task_group_id=task_group_id, error=exc,
+        )
+        return JsonResponse({'status': 'invalid_task'}, status=200)
     except Exception:
         logger.exception(
             'background worker failed type=%s run_id=%s message_id=%s',

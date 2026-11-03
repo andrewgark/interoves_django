@@ -562,17 +562,26 @@ def archive_card_meta(task):
     return theme or words_label or None
 
 
+class InvalidSaladTask(ValueError):
+    """Stored task data does not parse; retrying the same revision cannot help."""
+
+
 def parse_task_payload(checker_data, answer):
     try:
         data = json.loads(checker_data or '{}')
     except (TypeError, ValueError):
-        raise ValueError('checker_data должен быть JSON с полями grid и words.')
+        raise InvalidSaladTask('checker_data должен быть JSON с полями grid и words.')
     if not isinstance(data, dict):
-        raise ValueError('checker_data должен быть JSON-объектом с полями grid и words.')
-    grid = parse_grid(data.get('grid'))
-    words_raw = data.get('words') if data.get('words') is not None else answer
-    words = parse_words(words_raw)
-    rare_words = parse_rare_words(data.get('rare_words'))
+        raise InvalidSaladTask('checker_data должен быть JSON-объектом с полями grid и words.')
+    try:
+        grid = parse_grid(data.get('grid'))
+        words_raw = data.get('words') if data.get('words') is not None else answer
+        words = parse_words(words_raw)
+        rare_words = parse_rare_words(data.get('rare_words'))
+    except InvalidSaladTask:
+        raise
+    except ValueError as exc:
+        raise InvalidSaladTask(str(exc)) from exc
     return grid, words, rare_words
 
 

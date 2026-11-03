@@ -123,6 +123,36 @@ class DailyStatisticsTests(TestCase):
         ))
         self.assertIsNone(_cache().get(_daily_statistics_mark_key(self.game.id, tg.id)))
 
+    def test_worker_refresh_retries_when_revision_advances_mid_build(self):
+        from games.daily.timing import statistics as statistics_module
+        from games.daily.timing.statistics import _cache_revision_key, _versioned_cache_key
+        from games.realtime.projection import run_named_daily_statistics_refresh
+
+        tg = TaskGroup.objects.create(label='statistics worker revision race')
+        daily_cache = caches['daily_statistics']
+        revision_key = _cache_revision_key(self.game.id, tg.id)
+        real_build = statistics_module.build_daily_statistics
+        calls = []
+
+        def build_after_completion(game, task_group, *, published_at=None):
+            # A completion lands between the worker's revision read and its
+            # build, so the build stores the newer generation only.
+            if not calls:
+                daily_cache.set(revision_key, 5, timeout=60)
+            calls.append(published_at)
+            return real_build(game, task_group, published_at=published_at)
+
+        with patch.object(
+            statistics_module, 'build_daily_statistics', side_effect=build_after_completion,
+        ):
+            status = run_named_daily_statistics_refresh(
+                game_id=self.game.id, task_group_id=tg.id,
+            )
+
+        self.assertEqual(status, 'ok')
+        self.assertEqual(len(calls), 2)
+        self.assertIsNotNone(daily_cache.get(_versioned_cache_key(self.game.id, tg.id, 5)))
+
     def test_cache_revision_churn_without_miss_falls_back_to_recompute(self):
         tg = TaskGroup.objects.create(label='revision churn')
         daily_cache = caches['daily_statistics']

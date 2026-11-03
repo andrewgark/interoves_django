@@ -328,3 +328,23 @@ class InstagramRefreshTests(SimpleTestCase):
         self.assertEqual(result['age_days'], 4)
         api.assert_not_called()
         self.assertNotIn('access_token', result)
+
+
+class AdminAlertFallbackTests(SimpleTestCase):
+    def test_unknown_alert_with_text_is_delivered(self):
+        from games.ops.telegram.bot.shadow import run_admin_alert_live
+
+        with patch(
+            'games.ops.telegram.bot.notify.notify_admin_alert_message', return_value=True,
+        ) as send:
+            result = run_admin_alert_live(
+                alert='brand_new_alert', payload={'text': 'hello'}, dedupe_key='k',
+            )
+        self.assertTrue(result)
+        send.assert_called_once_with('hello', dedupe_key='k')
+
+    def test_unknown_alert_without_text_still_fails(self):
+        from games.ops.telegram.bot.shadow import run_admin_alert_live
+
+        with self.assertRaises(ValueError):
+            run_admin_alert_live(alert='brand_new_alert', payload={}, dedupe_key='k')
