@@ -9,7 +9,7 @@
   <p id="new-site-version-hint-title" class="new-site-version-hint__title">Доступна международная версия</p>
   <p class="new-site-version-hint__text">Международная версия Interoves обычно работает быстрее. В России она может быть недоступна без VPN.</p>
   {% endif %}
-  {% if user.is_authenticated %}<p class="new-site-version-hint__note">Вход на версиях раздельный: возможно, придётся войти ещё раз.</p>{% endif %}
+  {% if user.is_authenticated %}<p class="new-site-version-hint__note">На другой версии может понадобиться войти заново.</p>{% endif %}
   <div class="new-site-version-hint__actions">
     <a class="new-btn" href="{{ site_version.suggest_url }}" data-site-version-choice="{{ site_version.suggest }}">{% if site_version.suggest == 'ru' %}Российская версия{% else %}Международная версия{% endif %}</a>
     <button type="button" class="new-btn new-btn--ghost" data-site-version-stay>Остаться здесь</button>

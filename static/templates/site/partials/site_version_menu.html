@@ -25,18 +25,18 @@
             {% if option.current %}<span class="new-site-version__badge"><i class="ph ph-check" aria-hidden="true"></i> сейчас</span>{% endif %}
           </span>
           <span class="new-site-version__host">{{ option.host }}</span>
-          <span class="new-site-version__desc">{% if option.key == 'ru' %}Обычно доступна без VPN, но иногда работает медленнее.{% else %}Обычно быстрее, но может не работать в России без VPN.{% endif %}</span>
+          <span class="new-site-version__desc">{% if option.key == 'ru' %}Открывается в России без VPN, но бывает медленнее.{% else %}Быстрее, но в России может не открываться без VPN.{% endif %}</span>
         {% if option.current %}</div>{% else %}</a>{% endif %}
       </li>
       {% endfor %}
     </ul>
     {% if user.is_authenticated %}
-    <p class="new-site-version__note">Вход на версиях раздельный: на другой, возможно, придётся войти ещё раз.</p>
+    <p class="new-site-version__note">На другой версии может понадобиться войти заново.</p>
     {% endif %}
     <details class="new-site-version__about">
       <summary><i class="ph ph-info" aria-hidden="true"></i> В чём разница?</summary>
-      <p>Это один и тот же сайт: те же игры, аккаунты и результаты. Отличается только путь до сервера. interoves.com идёт через Cloudflare, ru.interoves.com — через сервер в России, поэтому он обычно открывается без VPN, хотя бывает медленнее.</p>
-      <p>Подсказку о другой версии мы показываем по стране, определённой по IP-адресу (<a class="new-link-dotted" href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a>). Сами мы никуда не перенаправляем.</p>
+      <p>Сайт один и тот же: общие игры, аккаунты и результаты. Отличается только маршрут до сервера.</p>
+      <p>Подсказку показываем по стране IP-адреса (<a class="new-link-dotted" href="https://db-ip.com" target="_blank" rel="noopener noreferrer">IP Geolocation by DB-IP</a>), сами никуда не перенаправляем.</p>
     </details>
     <button type="button" class="new-btn new-btn--text new-site-version__reset" data-site-version-reset{% if not site_version.has_decision %} hidden{% endif %}>Сбросить запомненный выбор</button>
   </div>
