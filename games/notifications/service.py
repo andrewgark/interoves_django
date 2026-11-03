@@ -50,6 +50,8 @@ def _notify(user_id: int, kind_key: str, *, actor_id: int | None, data: dict) ->
     if not site and not telegram:
         return None
     group_key = kind.full_group_key(data)
+    if kind.once and Notification.objects.filter(user_id=user_id, group_key=group_key).exists():
+        return None
     now = timezone.now()
     with transaction.atomic():
         row = (

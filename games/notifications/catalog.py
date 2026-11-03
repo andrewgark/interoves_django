@@ -12,6 +12,7 @@ from django.urls import reverse
 from games.notifications.kinds import (
     GROUP_CLUB,
     GROUP_FRIENDS,
+    GROUP_GAMES,
     GROUP_OFFERS,
     GROUP_SUPPORT,
     NotificationKind,
@@ -377,3 +378,204 @@ def notifies_author(kind_key: str, game: str):
             return offer
         return wrapper
     return decorate
+
+
+# ---- games (opt-in group) --------------------------------------------------
+
+
+def _game(notification):
+    from games.models import Game
+
+    return Game.objects.filter(id=notification.payload.get('game_id')).first()
+
+
+def _game_name(game) -> str:
+    return game.get_no_html_name() if hasattr(game, 'get_no_html_name') else str(game.pk)
+
+
+def _game_clock(notification, at) -> str:
+    from games.notifications.prefs import user_timezone
+
+    months = ('января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа',
+              'сентября', 'октября', 'ноября', 'декабря')
+    local = at.astimezone(user_timezone(getattr(notification.user, 'profile', None)))
+    return '{} {} в {}'.format(local.day, months[local.month - 1], local.strftime('%H:%M'))
+
+
+def _game_path(game, suffix='') -> str:
+    from games.ops.telegram.links import game_play_path
+
+    return game_play_path(game) + suffix
+
+
+def _game_telegram(render, icon):
+    def telegram(notification):
+        import html
+
+        from games.ops.telegram.links import site_base_url
+
+        item = render(notification)
+        if item is None:
+            return None
+        lines = ['{} <b>{}</b>'.format(icon, html.escape(item['title'], quote=False))]
+        if item['body']:
+            lines += ['', html.escape(item['body'], quote=False)]
+        lines += ['', '<a href="{}">Открыть</a>'.format(site_base_url() + item['url'])]
+        return {'text': '\n'.join(lines)}
+    return telegram
+
+
+def _team_name(notification) -> str:
+    from games.models import Team
+
+    team = Team.objects.filter(pk=notification.payload.get('team_id')).first()
+    return (team.visible_name or team.name) if team is not None else ''
+
+
+def _game_registered_valid(notification) -> bool:
+    from games.models import Registration
+
+    return Registration.objects.filter(
+        game_id=notification.payload.get('game_id'), team_id=notification.payload.get('team_id'),
+    ).exists()
+
+
+def _game_registered_render(notification):
+    game = _game(notification)
+    if game is None:
+        return None
+    team = _team_name(notification)
+    title = 'Команда «{}» зарегистрирована на «{}»'.format(team, _game_name(game)) if team else (
+        'Ваша команда зарегистрирована на «{}»'.format(_game_name(game))
+    )
+    body = 'Старт {}.'.format(_game_clock(notification, game.start_time)) if game.start_time else ''
+    return {'title': title, 'body': body, 'url': _game_path(game)}
+
+
+GAME_REGISTERED = register(NotificationKind(
+    key='game.registered',
+    group=GROUP_GAMES,
+    group_key=lambda data: '{}:{}'.format(data['game_id'], data['team_id']),
+    render=_game_registered_render,
+    render_telegram=_game_telegram(_game_registered_render, '📝'),
+    is_valid=_game_registered_valid,
+    once=True,
+))
+
+
+def _game_starts_soon_valid(notification) -> bool:
+    from django.utils import timezone as dj_timezone
+
+    game = _game(notification)
+    return game is not None and game.end_time is not None and dj_timezone.now() < game.end_time
+
+
+def _game_starts_soon_render(notification):
+    game = _game(notification)
+    if game is None:
+        return None
+    body = 'Старт {}.'.format(_game_clock(notification, game.start_time)) if game.start_time else ''
+    return {'title': 'Скоро начнётся «{}»'.format(_game_name(game)), 'body': body, 'url': _game_path(game)}
+
+
+GAME_STARTS_SOON = register(NotificationKind(
+    key='game.starts_soon',
+    group=GROUP_GAMES,
+    group_key=lambda data: str(data['game_id']),
+    render=_game_starts_soon_render,
+    render_telegram=_game_telegram(_game_starts_soon_render, '⏰'),
+    is_valid=_game_starts_soon_valid,
+    telegram_delay=timedelta(0),
+    urgent=True,
+    once=True,
+))
+
+
+def _game_results_render(notification):
+    game = _game(notification)
+    if game is None:
+        return None
+    place = notification.payload.get('place')
+    teams = notification.payload.get('teams')
+    team = _team_name(notification)
+    if place:
+        body = '{} — {} место{}.'.format(
+            '«{}»'.format(team) if team else 'Ваша команда', place, ' из {}'.format(teams) if teams else '',
+        )
+    else:
+        body = 'Таблица результатов готова.'
+    return {
+        'title': 'Итоги «{}»'.format(_game_name(game)),
+        'body': body,
+        'url': _game_path(game, 'tournament-results/'),
+    }
+
+
+GAME_RESULTS = register(NotificationKind(
+    key='game.results',
+    group=GROUP_GAMES,
+    group_key=lambda data: '{}:{}'.format(data['game_id'], data.get('team_id') or ''),
+    render=_game_results_render,
+    render_telegram=_game_telegram(_game_results_render, '🏁'),
+    once=True,
+))
+
+
+def _game_broadcast_render(notification):
+    game = _game(notification)
+    if game is None:
+        return None
+    text = str(notification.payload.get('text') or '')
+    return {
+        'title': 'Организаторы «{}»'.format(_game_name(game)),
+        'body': text if len(text) <= 300 else text[:299].rstrip() + '…',
+        'url': _game_path(game),
+    }
+
+
+GAME_BROADCAST = register(NotificationKind(
+    key='game.broadcast',
+    group=GROUP_GAMES,
+    # Every message is its own notification.
+    group_key=lambda data: '{}:{}'.format(data['game_id'], data['message_id']),
+    render=_game_broadcast_render,
+    render_telegram=_game_telegram(_game_broadcast_render, '📣'),
+    telegram_delay=timedelta(0),
+    urgent=True,
+))
+
+
+# ---- offers: published -----------------------------------------------------
+
+OFFER_NOMINATIVE = {
+    'salad': 'ваш салатик', 'ladder': 'ваша лесенка', 'alphabetty': 'ваша алфавитка', 'censorly': 'ваша цензурка',
+}
+
+
+def _offer_published_render(notification):
+    offer = _offer(notification)
+    if offer is None:
+        return None
+    from games.models import Game
+    from games.task_group.navigation import play_url_for_task_group
+
+    number = notification.payload.get('number')
+    game = Game.objects.filter(id=notification.payload['game']).first()
+    if game is None:
+        return None
+    return {
+        'title': 'Сегодня в выпуске №{} — {}'.format(number, OFFER_NOMINATIVE[notification.payload['game']]),
+        'body': 'Посмотрите, как его решают: результаты появятся в таблице.',
+        'url': play_url_for_task_group(game, number),
+    }
+
+
+OFFER_PUBLISHED = register(NotificationKind(
+    key='offer.published',
+    group=GROUP_OFFERS,
+    group_key=lambda data: '{}:{}'.format(data['game'], data['offer_id']),
+    render=_offer_published_render,
+    render_telegram=_offer_telegram(_offer_published_render),
+    is_valid=_offer_status_is('accepted'),
+    once=True,
+))

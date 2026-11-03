@@ -157,6 +157,7 @@ urlpatterns = [
     path('notifications/read-all/', ui.notifications_read_all, name='new_notifications_read_all'),
     path('notifications/<int:notification_id>/open/', ui.notification_open, name='new_notification_open'),
     path('notifications/settings/', ui.notification_settings, name='new_notification_settings'),
+    path('notifications/daily/enable/', ui.daily_reminder_enable, name='new_daily_reminder_enable'),
     path('friends/action/', ui.friends_action, name='new_friends_action'),
     path('friends/invite/create/', ui.friend_invite_create, name='new_friend_invite_create'),
     path('friends/invite/<str:token>/', ui.friend_invite, name='new_friend_invite'),

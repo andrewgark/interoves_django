@@ -156,3 +156,16 @@ def notification_settings(request):
     }
     ctx.update(_project_urls_context(NEW_UI_PROJECT))
     return render(request, 'site/notification_settings.html', ctx)
+
+
+@login_required
+@require_http_methods(['POST'])
+def daily_reminder_enable(request):
+    """One-tap opt-in from the prompt after a solved daily game."""
+    from django.http import JsonResponse
+
+    game_id = (request.POST.get('game_id') or '').strip()
+    if game_id not in dict(daily.reminder_games()) or not _telegram_linked(request.user):
+        raise Http404()
+    daily.set_reminder(request.user, game_id, DailyReminder.MODE_CHANNEL)
+    return JsonResponse({'ok': True})

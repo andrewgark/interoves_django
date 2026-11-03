@@ -472,7 +472,15 @@ def _cmd_broadcast(args) -> str:
         'admin.broadcast',
         {'message': message, 'game_id': game.id},
     )
-    return 'Broadcast отправлен в track.game.{}: {}'.format(_escape(game.id), _escape(message[:200]))
+    # Players who opted into game notifications also keep it in their inbox.
+    import uuid
+
+    from games.notifications.game_events import notify_registered
+
+    stored = notify_registered(game, 'game.broadcast', text=message[:2000], message_id=uuid.uuid4().hex[:12])
+    return 'Broadcast отправлен в track.game.{}: {} (во входящие: {})'.format(
+        _escape(game.id), _escape(message[:200]), stored,
+    )
 
 
 def _cmd_recheck(args) -> str:

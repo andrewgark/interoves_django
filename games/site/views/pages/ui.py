@@ -72,7 +72,7 @@ from games.site.pages.notifications.inbox import (
     notifications_page,
     notifications_read_all,
 )
-from games.site.pages.notifications.pages import notification_settings
+from games.site.pages.notifications.pages import daily_reminder_enable, notification_settings
 from games.site.pages.player.pages import player_profile
 from games.site.pages.team.public import team_public_page
 from games.site.pages.team.pages import (

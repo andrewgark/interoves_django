@@ -3,8 +3,9 @@ from django.contrib.auth.decorators import user_passes_test
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.views.decorators.http import require_POST
-from games.models import Registration, Game, Team
+
 from games.identity import has_team
+from games.models import Game, Registration, Team
 from games.site.http.request_util import redirect_to_referer
 
 
@@ -43,4 +44,7 @@ def register_to_game(request, game_id, project_id=None):
                 team.tickets -= 1
                 team.save(update_fields=['tickets'])
         Registration.objects.create(team=team, game=game, with_referent=referent)
+        from games.notifications.game_events import notify_team_registered
+
+        notify_team_registered(team, game, actor=request.user)
     return redirect_to_referer(request)

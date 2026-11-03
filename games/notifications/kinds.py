@@ -18,6 +18,7 @@ class NotificationGroup:
     key: str
     title: str
     telegram_default: bool
+    site_default: bool = True
     # Mandatory channels cannot be switched off by the player.
     site_mandatory: bool = False
     telegram_mandatory: bool = False
@@ -28,7 +29,8 @@ GROUPS: dict[str, NotificationGroup] = {
         NotificationGroup(GROUP_FRIENDS, 'Друзья и команда', telegram_default=True),
         NotificationGroup(GROUP_SUPPORT, 'Поддержка', telegram_default=True, site_mandatory=True),
         NotificationGroup(GROUP_OFFERS, 'Мои задания', telegram_default=True),
-        NotificationGroup(GROUP_GAMES, 'Игры', telegram_default=True),
+        # Opt-in: tournament players already get the channel and chat announcements.
+        NotificationGroup(GROUP_GAMES, 'Игры', telegram_default=False, site_default=False),
         NotificationGroup(
             GROUP_CLUB, 'Клуб и оплата', telegram_default=True,
             site_mandatory=True, telegram_mandatory=True,
@@ -63,6 +65,8 @@ class NotificationKind:
     telegram_cooldown: timedelta | None = None
     # Opening any of these url names marks the notification read.
     mark_read_on: tuple[str, ...] = ()
+    # At most one notification per group_key ever (e.g. «starts in an hour»).
+    once: bool = False
 
     def full_group_key(self, data: dict) -> str:
         return '{}:{}'.format(self.key, self.group_key(data))

@@ -98,10 +98,11 @@ def run_announcement_live(*, now):
 
 def _sweep_notifications():
     """Personal notifications and daily reminders due now; a failure must not fail the tick."""
-    from games.notifications import daily, telegram
+    from games.notifications import daily, game_events, telegram
 
     stats = {}
-    for name, sweep in (('inbox', telegram.sweep), ('daily', daily.sweep)):
+    # Game events are urgent: their Telegram copies are queued right away.
+    for name, sweep in (('games', game_events.sweep), ('inbox', telegram.sweep), ('daily', daily.sweep)):
         try:
             # The real clock, not the schedule time: these are sent now.
             stats[name] = sweep(now=timezone.now())

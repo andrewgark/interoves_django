@@ -86,3 +86,35 @@ Payload `{'kind': 'friend_request', ...}` старого формата worker �
   `track.event` `notification.new` → DOM-событие `interoves:notification`.
 - Переключатель версии сайта переехал из шапки в футер (`variant="footer"`);
   в мобильном меню он остался.
+
+## Игры (группа выключена по умолчанию)
+
+Канал и чаты игр и так анонсируют эти моменты, поэтому «Игры» — opt-in на обоих
+каналах (`site_default=False`, `telegram_default=False`). Получатели —
+участники зарегистрированных команд, отфильтрованные `prefs.with_any_channel`.
+
+- `game.registered` — из `register_to_game`, всем в команде, кроме того, кто
+  регистрировал.
+- `game.starts_soon` — за час до старта (`game_events.sweep`), срочное.
+- `game.results` — через 5 минут после конца, когда нет непроверенных посылок;
+  место команды из турнирной таблицы. Окно 6 часов: старые игры не трогаем.
+- `game.broadcast` — `/broadcast` в боте, кроме track-события, кладёт сообщение
+  во входящие.
+
+Все, кроме broadcast, — `once`: не больше одного на ключ навсегда.
+
+## Задания игроков
+
+`offer.accepted` / `offer.returned` / `offer.rejected` — декоратор
+`catalog.notifies_author` на шагах `accept_offer` / `request_revision`
+(салатик, лесенка, алфавитка) и `accept_censorly_offer` /
+`reject_censorly_offer`. `offer.published` — в день выхода выпуска
+(`game_events._offers_published`).
+
+## Предложение напоминаний
+
+`site/partials/daily_reminder_prompt.html` (тег `daily_reminder_offer`) рядом с
+`signup_prompt` на страницах ежедневок: после карточки результата, если есть
+Telegram и напоминания для этой игры ещё нет. «Напоминать» —
+`POST /notifications/daily/enable/` (режим «как в канале»). «Не надо» прячет на
+30 дней (localStorage).

@@ -1,0 +1,62 @@
+{% load notification_tags %}
+{# Logged-in players with Telegram: after a solved daily game, offer a reminder for the next edition. #}
+{% daily_reminder_offer game.id as offer %}
+{% if offer %}
+<aside class="new-signup-prompt pal-card" aria-labelledby="new-daily-reminder-title" data-daily-reminder-prompt data-game-id="{{ offer.game_id }}" data-enable-url="{% url 'new_daily_reminder_enable' %}" hidden>
+  <button type="button" class="new-rules-modal__close new-signup-prompt__close" aria-label="Закрыть" data-daily-reminder-dismiss><i class="ph ph-x" aria-hidden="true"></i></button>
+  <p id="new-daily-reminder-title" class="new-signup-prompt__title">Напомнить о {{ offer.about }}?</p>
+  <p class="new-signup-prompt__text" data-daily-reminder-text>Бот пришлёт {{ offer.it }} в Telegram в {{ offer.clock }}. Если к этому времени уже начнёте решать, напоминания не будет. Время можно поменять в <a href="{% url 'new_notification_settings' %}#daily">настройках</a>.</p>
+  <div class="new-signup-prompt__actions" data-daily-reminder-actions>
+    <button type="button" class="new-btn" data-daily-reminder-enable><i class="ph ph-telegram-logo" aria-hidden="true"></i> Напоминать</button>
+    <button type="button" class="new-btn new-btn--ghost" data-daily-reminder-dismiss>Не надо</button>
+  </div>
+</aside>
+<script>
+(function () {
+  var card = document.querySelector('[data-daily-reminder-prompt]');
+  if (!card || !window.interovesOnDailyResult) return;
+  var gameId = card.getAttribute('data-game-id');
+  var storageKey = 'interoves_daily_reminder_prompt:' + gameId;
+  var snoozeMs = 30 * 24 * 60 * 60 * 1000;
+  try {
+    if (Number(localStorage.getItem(storageKey) || 0) > Date.now()) return;
+  } catch (e) {}
+  function snooze() {
+    try { localStorage.setItem(storageKey, String(Date.now() + snoozeMs)); } catch (e) {}
+  }
+  function hide() {
+    card.classList.remove('is-visible');
+    card.hidden = true;
+  }
+  function show() {
+    // One corner card at a time; the club offer modal goes first too.
+    var other = document.querySelector('[data-site-version-hint]:not([hidden]), [data-signup-prompt]:not([hidden]), .new-rules-modal.is-open');
+    if (other) return;
+    card.hidden = false;
+    window.requestAnimationFrame(function () { card.classList.add('is-visible'); });
+  }
+  card.querySelectorAll('[data-daily-reminder-dismiss]').forEach(function (el) {
+    el.addEventListener('click', function () { snooze(); hide(); });
+  });
+  var enable = card.querySelector('[data-daily-reminder-enable]');
+  enable.addEventListener('click', function () {
+    enable.disabled = true;
+    var match = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
+    var body = new URLSearchParams({ game_id: gameId });
+    fetch(card.getAttribute('data-enable-url'), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': match ? decodeURIComponent(match[1]) : '', 'X-Requested-With': 'XMLHttpRequest' },
+      body: body,
+    }).then(function (r) {
+      if (!r.ok) throw new Error(String(r.status));
+      card.querySelector('[data-daily-reminder-text]').textContent = 'Готово: напомним в Telegram. Время меняется в настройках уведомлений.';
+      card.querySelector('[data-daily-reminder-actions]').hidden = true;
+      snooze();
+      window.setTimeout(hide, 4000);
+    }).catch(function () { enable.disabled = false; });
+  });
+  window.interovesOnDailyResult(function () { window.setTimeout(show, 2600); });
+})();
+</script>
+{% endif %}

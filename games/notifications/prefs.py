@@ -20,7 +20,7 @@ def channels(user_id: int, group_key: str) -> tuple[bool, bool]:
     """(site, telegram) for this group, mandatory channels forced on."""
     group = GROUPS[group_key]
     row = NotificationSetting.objects.filter(user_id=user_id, group=group_key).first()
-    site = row.site if row is not None else True
+    site = row.site if row is not None else group.site_default
     telegram = row.telegram if row is not None else group.telegram_default
     return (site or group.site_mandatory, telegram or group.telegram_mandatory)
 
@@ -69,3 +69,23 @@ def outside_quiet_hours(at: datetime, prefs: NotificationPrefs, tz: ZoneInfo) ->
     if wake <= local:
         wake = datetime.combine(local.date() + timedelta(days=1), end, tzinfo=tz)
     return wake
+
+
+def with_any_channel(group_key: str, user_ids) -> list[int]:
+    """The subset of ``user_ids`` that gets this group on at least one channel."""
+    from django.db.models import Q
+
+    group = GROUPS[group_key]
+    user_ids = list(dict.fromkeys(user_ids))
+    if group.site_default or group.telegram_default or group.site_mandatory or group.telegram_mandatory:
+        off = set(
+            NotificationSetting.objects.filter(group=group_key, user_id__in=user_ids, site=False, telegram=False)
+            .values_list('user_id', flat=True)
+        )
+        return [user_id for user_id in user_ids if user_id not in off]
+    on = set(
+        NotificationSetting.objects.filter(group=group_key, user_id__in=user_ids)
+        .filter(Q(site=True) | Q(telegram=True))
+        .values_list('user_id', flat=True)
+    )
+    return [user_id for user_id in user_ids if user_id in on]
