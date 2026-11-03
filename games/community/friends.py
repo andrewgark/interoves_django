@@ -152,9 +152,9 @@ def request_friendship(viewer, other_user_id):
 def _notify_request(from_user_id, to_user_id):
     """Best effort: a failed enqueue must never fail the request itself."""
     try:
-        from games.ops.telegram.bot.user_notices import publish_friend_request_notice
+        from games.notifications.service import notify
 
-        publish_friend_request_notice(from_user_id=from_user_id, to_user_id=to_user_id)
+        notify(to_user_id, 'friend.request', actor=from_user_id, from_user_id=from_user_id)
     except Exception:
         logger.exception('event=friend_request_notice_failed from=%s to=%s', from_user_id, to_user_id)
 

@@ -402,14 +402,20 @@ class FeedbackNotifyTests(TestCase):
         TELEGRAM_ADMIN_CHAT_ID='12345',
         SITE_BASE_URL='https://interoves.com',
     )
-    @patch('games.ops.telegram.bot.notify.send_message')
-    def test_admin_reply_dms_user_with_telegram_id(self, send_mock):
-        send_mock.return_value = True
-        send_mock.reset_mock()
+    def test_admin_reply_dms_user_with_telegram_id(self):
+        from games.notifications.models import Notification
+        from games.notifications.telegram import deliver
+
         admin = User.objects.create_user('fb-admin', password='x')
-        with self.captureOnCommitCallbacks(execute=True):
-            add_admin_reply(self.report, admin, 'Исправим в ближайшем выпуске')
-        send_mock.assert_called_once()
+        with patch('games.ops.telegram.bot.alerts.enqueue_integrations_message', return_value=True) as enqueue, \
+                patch('games.notifications.telegram.outside_quiet_hours', side_effect=lambda at, *_: at):
+            with self.captureOnCommitCallbacks(execute=True):
+                add_admin_reply(self.report, admin, 'Исправим в ближайшем выпуске')
+        enqueue.assert_called_once()
+        row = Notification.objects.get(user=self.user, kind='support.reply')
+        with patch('games.ops.telegram.transport.api.send_message_status', return_value='ok') as send_mock, \
+                patch('games.notifications.telegram.outside_quiet_hours', side_effect=lambda at, *_: at):
+            self.assertTrue(deliver(row.pk, now=row.tg_due_at)['sent'])
         self.assertEqual(send_mock.call_args.args[0], 777001)
         text = send_mock.call_args.args[1]
         self.assertIn('Ответ по вашему сообщению', text)

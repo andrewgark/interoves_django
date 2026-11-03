@@ -91,7 +91,21 @@ def run_announcement_live(*, now):
     with telegram_cron_lock() as acquired:
         if not acquired:
             return None
-        return process_game_announcements(now=now)
+        stats = process_game_announcements(now=now)
+        stats['notifications'] = _sweep_notifications()
+        return stats
+
+
+def _sweep_notifications():
+    """Personal notifications due now; a failure must not fail the tick."""
+    from games.notifications.telegram import sweep
+
+    try:
+        # The real clock, not the schedule time: these are sent now.
+        return sweep(now=timezone.now())
+    except Exception:
+        logger.exception('event=notification_sweep_tick_failed')
+        return {'error': 1}
 
 
 def run_announcement_shadow(*, now):

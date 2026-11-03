@@ -46,32 +46,24 @@ class FriendsExtrasFixture(TestCase):
 
 
 class FriendRequestNoticeTests(FriendsExtrasFixture):
-    def test_request_enqueues_once_per_pair_after_commit(self):
-        with patch.object(user_notices, 'enqueue_integrations_message', return_value=True) as enqueue:
+    """The notice itself is covered in test_notifications; here: the friends side."""
+
+    def test_request_notifies_recipient_after_commit(self):
+        with patch('games.notifications.service.notify') as notify:
             with self.captureOnCommitCallbacks(execute=True):
                 friends.request_friendship(self.anna, self.vera.pk)
-            friends.remove(self.anna, self.vera.pk)
-            with self.captureOnCommitCallbacks(execute=True):
-                friends.request_friendship(self.anna, self.vera.pk)
-        enqueue.assert_called_once()
-        kwargs = enqueue.call_args.kwargs
-        self.assertEqual(kwargs['message_type'], 'telegram.user_notice')
-        self.assertEqual(kwargs['payload'], {'kind': 'friend_request', 'from_user_id': self.anna.pk, 'to_user_id': self.vera.pk})
+        notify.assert_called_once_with(
+            self.vera.pk, 'friend.request', actor=self.anna.pk, from_user_id=self.anna.pk,
+        )
 
-    def test_no_notice_without_verified_telegram(self):
-        with patch.object(user_notices, 'enqueue_integrations_message', return_value=True) as enqueue:
-            with self.captureOnCommitCallbacks(execute=True):
-                friends.request_friendship(self.anna, self.boris.pk)
-        enqueue.assert_not_called()
-
-    def test_enqueue_failure_does_not_break_request(self):
-        with patch.object(user_notices, 'enqueue_integrations_message', side_effect=RuntimeError('sqs down')):
+    def test_notify_failure_does_not_break_request(self):
+        with patch('games.notifications.service.notify', side_effect=RuntimeError('db down')):
             with self.captureOnCommitCallbacks(execute=True):
                 result = friends.request_friendship(self.anna, self.vera.pk)
         self.assertEqual(result, friends.RELATION_OUTGOING)
 
     @override_settings(SITE_BASE_URL='https://interoves.com')
-    def test_worker_sends_only_while_request_is_pending(self):
+    def test_legacy_queued_payload_still_sends_while_pending(self):
         friends.request_friendship(self.anna, self.vera.pk)
         payload = {'kind': 'friend_request', 'from_user_id': self.anna.pk, 'to_user_id': self.vera.pk}
         with patch('games.ops.telegram.bot.notify.send_user_telegram_message', return_value=True) as send:
@@ -148,16 +140,6 @@ class WorkerDispatchTests(TestCase):
 
 
 class ReviewRoundTests(FriendsExtrasFixture):
-    def test_failed_enqueue_allows_a_later_retry(self):
-        with patch.object(user_notices, 'enqueue_integrations_message', return_value=False):
-            self.assertFalse(user_notices.publish_friend_request_notice(from_user_id=self.anna.pk, to_user_id=self.vera.pk))
-        with patch.object(user_notices, 'enqueue_integrations_message', side_effect=RuntimeError('down')):
-            with self.assertRaises(RuntimeError):
-                user_notices.publish_friend_request_notice(from_user_id=self.anna.pk, to_user_id=self.vera.pk)
-        with patch.object(user_notices, 'enqueue_integrations_message', return_value=True) as enqueue:
-            self.assertTrue(user_notices.publish_friend_request_notice(from_user_id=self.anna.pk, to_user_id=self.vera.pk))
-        enqueue.assert_called_once()
-
     def test_friends_scope_drops_the_handshake_marks(self):
         self.befriend(self.anna, self.vera)
         request = RequestFactory().get('/ladder/1/results/?scope=friends')

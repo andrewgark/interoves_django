@@ -80,6 +80,49 @@ def send_message(
     return _post('sendMessage', payload) is not None
 
 
+SEND_OK = 'ok'
+SEND_BLOCKED = 'blocked'
+SEND_FAILED = 'failed'
+
+
+def send_message_status(
+    chat_id,
+    text: str,
+    *,
+    parse_mode: str = 'HTML',
+    disable_web_page_preview: bool = True,
+    reply_markup: dict | None = None,
+) -> str:
+    """Like ``send_message`` but tells a blocked bot (403) apart from other failures."""
+    if not settings.TELEGRAM_BOT_TOKEN:
+        logger.debug('Telegram API skipped: TELEGRAM_BOT_TOKEN is empty')
+        return SEND_FAILED
+    payload: dict[str, Any] = {
+        'chat_id': chat_id,
+        'text': text,
+        'parse_mode': parse_mode,
+        'disable_web_page_preview': disable_web_page_preview,
+    }
+    if reply_markup is not None:
+        payload['reply_markup'] = reply_markup
+    try:
+        response = requests.post(_api_url('sendMessage'), json=payload, timeout=TELEGRAM_API_TIMEOUT)
+    except Exception as error:
+        logger.error('Telegram API sendMessage failed: %s', _safe_error_text(error))
+        return SEND_FAILED
+    # 403: the user blocked the bot or never started it.
+    if response.status_code == 403:
+        return SEND_BLOCKED
+    try:
+        body = response.json()
+    except ValueError:
+        body = {}
+    if response.ok and body.get('ok'):
+        return SEND_OK
+    logger.error('Telegram API sendMessage error: status=%s body=%s', response.status_code, body)
+    return SEND_FAILED
+
+
 def _photo_content_type(filename: str) -> str:
     lower = (filename or '').lower()
     if lower.endswith(('.jpg', '.jpeg')):

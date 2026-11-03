@@ -1,8 +1,8 @@
-"""Personal Telegram notices to players (via the integrations worker).
+"""Worker side of personal Telegram notices.
 
-The web process only enqueues; the worker re-reads the database before
-sending, so a request that was cancelled or answered in the meantime is not
-announced.
+New notices come from ``games.notifications`` (payload kind
+``notification``). The bare ``friend_request`` payload predates it and is
+still handled so messages queued before the deploy are not lost.
 """
 
 from __future__ import annotations
@@ -10,48 +10,13 @@ from __future__ import annotations
 import html
 import logging
 
-from django.core.cache import cache
 from django.urls import reverse
 
-from games.ops.telegram.bot.alerts import enqueue_integrations_message
 from games.ops.telegram.links import site_base_url
-from games.ops.workers.messages import TELEGRAM_USER_NOTICE
 
 logger = logging.getLogger('application')
 
 FRIEND_REQUEST = 'friend_request'
-# One notice per pair: cancelling and re-sending a request must not turn the
-# bot into a way to ping somebody repeatedly.
-FRIEND_REQUEST_NOTICE_TTL = 7 * 24 * 3600
-
-
-def _friend_request_cache_key(from_user_id, to_user_id):
-    return 'telegram:user_notice:friend_request:{}:{}'.format(from_user_id, to_user_id)
-
-
-def publish_friend_request_notice(*, from_user_id: int, to_user_id: int) -> bool:
-    from games.models import Profile
-
-    if not Profile.objects.filter(
-        user_id=to_user_id, telegram_verified=True, telegram_user_id__isnull=False,
-    ).exists():
-        return False
-    key = _friend_request_cache_key(from_user_id, to_user_id)
-    if not cache.add(key, 1, FRIEND_REQUEST_NOTICE_TTL):
-        return False
-    enqueued = False
-    try:
-        enqueued = enqueue_integrations_message(
-            message_type=TELEGRAM_USER_NOTICE,
-            payload={'kind': FRIEND_REQUEST, 'from_user_id': int(from_user_id), 'to_user_id': int(to_user_id)},
-            dedupe_key='telegram.user_notice:friend_request:{}:{}'.format(from_user_id, to_user_id),
-            label='user_notice_friend_request',
-        )
-    finally:
-        if not enqueued:
-            # Nothing was sent: let the next request for this pair try again.
-            cache.delete(key)
-    return enqueued
 
 
 def format_friend_request_notice(sender_profile) -> str:
@@ -91,7 +56,11 @@ def _run_friend_request(payload) -> dict:
 
 def run_user_notice_live(*, payload: dict) -> dict:
     kind = str(payload.get('kind') or '')
-    if kind == FRIEND_REQUEST:
+    if kind == 'notification':
+        from games.notifications.telegram import run_worker_notice
+
+        result = run_worker_notice(payload)
+    elif kind == FRIEND_REQUEST:
         result = _run_friend_request(payload)
     else:
         result = {'sent': False, 'reason': 'unknown_kind'}

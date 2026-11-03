@@ -18,7 +18,9 @@ logger = logging.getLogger('application')
 QUEUE_URL_ENV = 'INTEGRATIONS_SQS_QUEUE_URL'
 
 
-def enqueue_integrations_message(*, message_type: str, payload: dict, dedupe_key: str, label: str) -> bool:
+def enqueue_integrations_message(
+    *, message_type: str, payload: dict, dedupe_key: str, label: str, delay_seconds: int = 0,
+) -> bool:
     """Put one message on the integrations queue; never block a web request on Telegram."""
     queue_url = os.environ.get(QUEUE_URL_ENV, '').strip()
     if not queue_url:
@@ -43,10 +45,14 @@ def enqueue_integrations_message(*, message_type: str, payload: dict, dedupe_key
             ),
             config=Config(connect_timeout=1, read_timeout=2, retries={'max_attempts': 1}),
         )
-        client.send_message(
-            QueueUrl=queue_url,
-            MessageBody=json.dumps(body, separators=(',', ':')),
-        )
+        message = {
+            'QueueUrl': queue_url,
+            'MessageBody': json.dumps(body, separators=(',', ':')),
+        }
+        if delay_seconds > 0:
+            # SQS caps per-message delay at 15 minutes.
+            message['DelaySeconds'] = min(int(delay_seconds), 900)
+        client.send_message(**message)
     except Exception:
         logger.exception(
             'event=telegram_admin_alert_enqueue_failed alert=%s',

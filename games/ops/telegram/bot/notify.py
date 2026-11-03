@@ -517,19 +517,13 @@ def notify_admin_club_subscription(
 
 
 def notify_club_subscription_user(subscription_id: int) -> bool:
-    """Send the club invite to the subscriber after their first payment."""
+    """Tell the subscriber, with the club invite in Telegram, after their first payment."""
     try:
         from games.models import ClubSubscription
+        from games.notifications.service import notify
 
         subscription = ClubSubscription.objects.select_related('user').get(pk=subscription_id)
-        invite_url = club_invite_url()
-        if not invite_url:
-            return False
-        return send_user_telegram_message(
-            subscription.user,
-            '✅ <b>Клубная подписка Inter Oves активна!</b>\n\n'
-            'Вступите в закрытый чат клуба Inter Oves Elite:\n{}'.format(invite_url),
-        )
+        return notify(subscription.user, 'club.active', subscription_id=subscription.pk) is not None
     except Exception:
         logger.exception('Failed to send club invite to subscription %s', subscription_id)
         return False
@@ -1176,7 +1170,9 @@ def notify_bug_report_thread_message(message: BugReportMessage) -> bool:
         user = message.report.user
         if user is None:
             return False
-        return send_user_telegram_message(user, format_bug_report_admin_reply_message(message))
+        from games.notifications.service import notify
+
+        return notify(user, 'support.reply', report_id=message.report_id, message_id=message.pk) is not None
     return False
 
 
