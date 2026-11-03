@@ -256,7 +256,31 @@
   // the server, whose card then makes the board fresh again.
   var INSTANT_BOARD_MAX_AGE_MS = 30 * 60 * 1000;
 
+  // A board the browser brought back with Back/Forward (bfcache, or its HTTP
+  // cache without asking the server) may be minutes old and still miss a word
+  // solved after it was rendered; it is never fresh. A server card replaces
+  // the root, and the new root is not marked.
+  var HISTORY_COPY_ATTR = 'data-history-copy';
+
+  function isHistoryNavigation(win, pageShowEvent) {
+    if (pageShowEvent && pageShowEvent.persisted) return true;
+    try {
+      var entries = win.performance && win.performance.getEntriesByType
+        ? win.performance.getEntriesByType('navigation') : [];
+      return !!entries.length && entries[0].type === 'back_forward';
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function markHistoryCopies(doc) {
+    doc.querySelectorAll('[data-word-salad-root]').forEach(function (root) {
+      root.setAttribute(HISTORY_COPY_ATTR, '1');
+    });
+  }
+
   function boardIsFresh(root, now) {
+    if (root.getAttribute(HISTORY_COPY_ATTR) === '1') return false;
     var renderedAt = Number(root.getAttribute('data-rendered-at'));
     if (!isFinite(renderedAt) || renderedAt <= 0) return false;
     return (now === undefined ? Date.now() : now) - renderedAt <= INSTANT_BOARD_MAX_AGE_MS;
@@ -2048,6 +2072,7 @@
     stampOfferShare: stampOfferShare,
     feedbackForResult: feedbackForResult,
     boardIsFresh: boardIsFresh,
+    isHistoryNavigation: isHistoryNavigation,
     INSTANT_BOARD_MAX_AGE_MS: INSTANT_BOARD_MAX_AGE_MS,
     flushAnalyticsEvents: flushAnalyticsEvents,
     EXTRA_MIN_LENGTH: EXTRA_MIN_LENGTH,
@@ -2056,6 +2081,10 @@
   global.initWordSalad = initWordSalad;
   if (global.document) {
     bindDocumentListeners(global.document);
+    if (isHistoryNavigation(global)) markHistoryCopies(global.document);
+    global.addEventListener('pageshow', function (event) {
+      if (event.persisted) markHistoryCopies(global.document);
+    });
     initWordSalad(global.document);
     // Paths left by an earlier page (closed before the server answered).
     global.setTimeout(flushSaladOutbox, 500);

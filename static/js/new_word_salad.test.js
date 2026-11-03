@@ -413,6 +413,29 @@ assert.strictEqual(Path.offerShareFromPath('/alphabetty/41ffddf256ae6df6/'), '41
   );
   assert.strictEqual(Path.boardIsFresh(rootRenderedAt(null), renderedAt), false, 'no stamp: server checks');
   assert.strictEqual(Path.boardIsFresh(rootRenderedAt('junk'), renderedAt), false);
+  var historyCopy = {
+    getAttribute: function (name) {
+      if (name === 'data-history-copy') return '1';
+      return name === 'data-rendered-at' ? String(renderedAt) : null;
+    }
+  };
+  assert.strictEqual(
+    Path.boardIsFresh(historyCopy, renderedAt + 60 * 1000), false,
+    'a minutes-old copy brought back with Back checks its answers on the server'
+  );
+})();
+
+(function testHistoryNavigationDetection() {
+  function win(type) {
+    return { performance: { getEntriesByType: function () { return type ? [{ type: type }] : []; } } };
+  }
+  assert.strictEqual(Path.isHistoryNavigation(win('back_forward')), true);
+  assert.strictEqual(Path.isHistoryNavigation(win('navigate')), false);
+  assert.strictEqual(Path.isHistoryNavigation(win('reload')), false);
+  assert.strictEqual(Path.isHistoryNavigation(win(null)), false);
+  assert.strictEqual(Path.isHistoryNavigation({}), false, 'no Navigation Timing: not a history copy');
+  assert.strictEqual(Path.isHistoryNavigation(win('navigate'), { persisted: true }), true, 'bfcache restore');
+  assert.strictEqual(Path.isHistoryNavigation(win('navigate'), { persisted: false }), false);
 })();
 
 console.log('new_word_salad.test.js: ok');
