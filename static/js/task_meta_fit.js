@@ -6,8 +6,9 @@
  *             become icons (as in Лесенка), five brains
  *   tight   — difficulty collapses to one brain and a digit
  *   tiny    — tighter gaps, points without the pill frame
- * The bar is re-rendered by Alphabetty/Censorly after a guess, so new bars are
- * fitted from a MutationObserver (runs before paint, no flash of «full»).
+ * Bars are fitted from a MutationObserver (runs before paint, no flash of
+ * «full»): both while the page is parsed and when Alphabetty/Censorly
+ * re-render a bar after a guess.
  * A ResizeObserver refits a bar whose width changed — including a card that
  * was hidden (hide solved, tabs) and is shown again.
  */
@@ -93,7 +94,8 @@
       width = window.innerWidth;
       schedule();
     });
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+    // Fit in the same task the fonts arrive in, not a frame later.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fitAll(); });
     if (window.MutationObserver) {
       new MutationObserver(function (records) {
         records.forEach(function (rec) {
@@ -115,9 +117,16 @@
 
   window.InterovesTaskMetaFit = { fit: fitAll };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
+  // Start observing right away, not on DOMContentLoaded: the script is in
+  // <body> before the content, so each bar is fitted as soon as the parser
+  // adds it, before the browser paints a half-parsed page with the «full»
+  // level wrapped onto two lines.
+  if (document.body) {
     init();
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function () { fitAll(); });
+    }
+  } else {
+    document.addEventListener('DOMContentLoaded', init);
   }
 })();

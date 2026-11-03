@@ -1,7 +1,8 @@
-{# Active-solve timer + pause overlay for one task group. #}
+{# Active-solve timer + pause overlay for one task group.
+   Shown from the server unless solved (as daily_solve_timer.js does): it takes
+   width in the game header, and appearing later would refit the header. #}
 {% if daily_timing_enabled %}
-{{ daily_timing|json_script:"daily-timing-bootstrap" }}
-<div class="new-daily-timer{% if hide_task_group_timer_ui %} new-daily-timer--quiet{% endif %}" data-daily-timer data-timing-url="{{ daily_timing_url }}" data-gameplay-context="{{ daily_timing_context_token }}" hidden>
+<div class="new-daily-timer{% if hide_task_group_timer_ui %} new-daily-timer--quiet{% endif %}" data-daily-timer data-timing-url="{{ daily_timing_url }}" data-gameplay-context="{{ daily_timing_context_token }}"{% if daily_timing.completed %} hidden{% endif %}>
   <button type="button" class="new-daily-timer__toggle new-daily-timer__clock" data-daily-timer-toggle aria-expanded="false" aria-label="Показать время решения">
     <i class="ph ph-clock" aria-hidden="true"></i>
   </button>
@@ -18,4 +19,6 @@
     <p class="new-daily-timer__error" data-daily-timer-error role="status" hidden></p>
   </div>
 </div>
+{# After the markup: the parser may paint at a script tag, and the header must not be painted without the timer. #}
+{{ daily_timing|json_script:"daily-timing-bootstrap" }}
 {% endif %}
