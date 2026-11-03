@@ -1002,9 +1002,17 @@
       }
       // A page with its own onboarding (the Ladder tutorial) keeps the rules
       // behind the button instead of opening them over it.
-      if (opts.autoOpen === false) return;
+      // The banner was already revealed right after its markup
+      // (_rules_banner.html); hide it again if this check disagrees.
+      if (opts.autoOpen === false) {
+        if (banner) banner.hidden = true;
+        return;
+      }
       try {
-        if (localStorage.getItem(storageKey)) return;
+        if (localStorage.getItem(storageKey)) {
+          if (banner) banner.hidden = true;
+          return;
+        }
         if (window.interovesUi.isMobileLayout()) {
           if (banner) banner.hidden = false;
         } else {
@@ -1116,7 +1124,12 @@
   <script>
   (function () {
     var modal = document.getElementById('rules-modal');
-    if (!modal || !modal.getAttribute('data-storage-key') || !document.querySelector('[data-rules-open]') || !window.interovesUi || !window.interovesUi.initSectionRules) return;
+    if (!modal || !modal.getAttribute('data-storage-key') || !document.querySelector('[data-rules-open]') || !window.interovesUi || !window.interovesUi.initSectionRules) {
+      // No rules to open: a banner revealed early would lead nowhere.
+      var orphan = document.querySelector('[data-rules-banner]');
+      if (orphan) orphan.hidden = true;
+      return;
+    }
     window.interovesUi.initSectionRules({
       modal: modal,
       storageKey: modal.getAttribute('data-storage-key'),

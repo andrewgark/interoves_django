@@ -91,7 +91,11 @@
     table.classList.add('is-columns-fitted');
   }
 
+  var fitted = new WeakMap();
+
   function setup(table) {
+    if (fitted.has(table)) return;
+    fitted.set(table, -1);
     var scheduled = false;
     function schedule() {
       if (scheduled) return;
@@ -101,18 +105,49 @@
         fit(table);
       });
     }
-    fit(table);
     window.addEventListener('resize', schedule);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
-    // «Показать ещё» appends rows: longer names may arrive with them.
+    // Same task the fonts arrive in, not a frame later.
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { fit(table); });
+    table.__resultsColumnsSchedule = schedule;
+  }
+
+  // «Показать ещё» appends rows: longer names may arrive with them. Set up
+  // once the table is parsed (its tbody may not exist yet during parsing).
+  function watchRows(table) {
     var tbody = table.querySelector('tbody');
-    if (tbody && typeof MutationObserver !== 'undefined') {
-      new MutationObserver(schedule).observe(tbody, { childList: true });
-    }
+    if (!tbody || tbody.__resultsColumnsWatched || typeof MutationObserver === 'undefined') return;
+    tbody.__resultsColumnsWatched = true;
+    new MutationObserver(table.__resultsColumnsSchedule).observe(tbody, { childList: true });
+  }
+
+  /* While the page is parsed: fit a table whose cells changed since the last
+     fit. A row arrives before its cells, so cells are counted, not rows. */
+  function refit(table, force) {
+    setup(table);
+    var cells = table.getElementsByTagName('td').length;
+    if (!force && fitted.get(table) === cells) return;
+    fitted.set(table, cells);
+    fit(table);
+  }
+
+  function fitAll(force) {
+    document.querySelectorAll('.new-results-table').forEach(function (table) { refit(table, force === true); });
+  }
+
+  /* Loaded from <head>: while the page is parsed, fit each table as its rows
+     arrive, before the browser paints it with the default widths. A script
+     after the table would run after that first paint and the columns would
+     jump. */
+  var parsing = null;
+  if (document.readyState === 'loading' && typeof MutationObserver !== 'undefined') {
+    parsing = new MutationObserver(function () { fitAll(); });
+    parsing.observe(document.documentElement, { childList: true, subtree: true });
   }
 
   function init() {
-    document.querySelectorAll('.new-results-table').forEach(setup);
+    if (parsing) { parsing.disconnect(); parsing = null; }
+    fitAll(true);
+    document.querySelectorAll('.new-results-table').forEach(watchRows);
   }
 
   if (document.readyState === 'loading') {

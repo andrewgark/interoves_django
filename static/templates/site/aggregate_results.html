@@ -3,6 +3,11 @@
 
 {% block title %}{{ page_title }}{% endblock %}
 
+{% block extrahead %}
+{{ block.super }}
+<script src="{% static 'js/results_columns.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+{% endblock %}
+
 {% block content %}
 <div class="new-ui new-ui--section">
   <p class="new-tg-back"><a href="{{ back_url }}" class="new-tg-back__link new-back"><i class="ph ph-arrow-left" aria-hidden="true"></i> {{ back_label|default:"Назад" }}</a></p>
@@ -104,5 +109,4 @@
 </div>
 
 <script src="{% static 'js/results_progressive.js' %}"></script>
-<script src="{% static 'js/results_columns.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
 {% endblock %}

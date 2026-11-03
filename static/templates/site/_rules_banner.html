@@ -1,7 +1,21 @@
-<div class="new-rules-banner" data-rules-banner hidden>
+{# Mobile «first visit» rules prompt. Revealed by the inline script right below, #}
+{# not at the end of the page: showing it late pushed the whole game down.      #}
+{# The key must match the rules modal's data-storage-key (base.html re-checks). #}
+<div class="new-rules-banner" data-rules-banner data-storage-key="{% if rules_banner_key %}{{ rules_banner_key }}{% elif rules_storage_key %}{{ rules_storage_key }}{% else %}section_rules_seen_{{ game.id }}{% endif %}"{% if ladder_tutorial or ladder_tutorial_offer %} data-rules-autoopen="0"{% endif %} hidden>
   <p class="new-rules-banner__text">Как устроена игра</p>
   <div class="new-rules-banner__actions">
     <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-rules-banner-open>Правила</button>
     <button type="button" class="new-rules-banner__dismiss" data-rules-banner-dismiss aria-label="Скрыть"><i class="ph ph-x" aria-hidden="true"></i></button>
   </div>
 </div>
+<script>
+(function () {
+  var banner = document.currentScript && document.currentScript.previousElementSibling;
+  if (!banner || !banner.hasAttribute('data-rules-banner')) return;
+  var key = banner.getAttribute('data-storage-key');
+  if (!key || banner.getAttribute('data-rules-autoopen') === '0') return;
+  try {
+    if (!localStorage.getItem(key) && window.matchMedia('(max-width: 919px)').matches) banner.hidden = false;
+  } catch (e) {}
+})();
+</script>

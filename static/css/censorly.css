@@ -272,6 +272,18 @@ html.new-ui-dark .censorly__dock {
   white-space: pre-wrap;
 }
 
+/* The article is rendered by censorly_play.js only after the whole page is
+   parsed. Hold a screen of room meanwhile: articles are longer than that, and
+   without it the pager and the results link below are painted in place and
+   then pushed off screen. */
+.censorly__title:empty {
+  min-height: 1.4em;
+}
+
+.censorly__body:empty {
+  min-height: 100vh;
+}
+
 .censorly__truncated {
   margin: 0.75rem 0 0;
   font-size: 0.9rem;
