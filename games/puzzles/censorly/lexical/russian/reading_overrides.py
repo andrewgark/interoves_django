@@ -75,7 +75,16 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     # «листьев» is the genitive plural of лист. Treating this spelling as its
     # own noun citation form makes a context-free guess lose the лист root.
     ('листьев', 'листьев', 'NOUN'),
-})
+}) | frozenset(
+    # «данные» (data) and «данный» (this, specified) are reviewed senses of
+    # their own. The passive-participle reading of «дать» on the same full
+    # forms would reconnect them to «давать», «дать», «сдача».
+    (form, 'дать', 'PRTF')
+    for form in (
+        'данная', 'данного', 'данное', 'данной', 'данном', 'данному',
+        'данную', 'данные', 'данный', 'данным', 'данными', 'данных',
+    )
+)
 
 # Article-context corrections for valid homographs that the parser otherwise
 # treats as both an inflection of the common word and a rare citation form.

@@ -83,6 +83,14 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             self.assertTrue(right_roots, f'no roots for {right}')
             self.assertTrue(left_roots.isdisjoint(right_roots), f'{left} / {right}')
 
+    def test_data_forms_do_not_open_give_through_the_participle(self):
+        from games.puzzles.censorly.lexical.match import _Pack, _relation
+
+        for left, right in (('данным', 'давать'), ('давать', 'данным'), ('данный', 'дать')):
+            self.assertFalse(_relation(_Pack(left), _Pack(right)), f'{left}/{right}')
+        self.assertTrue(_relation(_Pack('данным'), _Pack('данные')))
+        self.assertTrue(_relation(_Pack('дан'), _Pack('дать')))
+
     def test_rod_family_keeps_breed_revival_and_birth_apart(self):
         from games.puzzles.censorly.lexical.match import _Pack, _relation
 
