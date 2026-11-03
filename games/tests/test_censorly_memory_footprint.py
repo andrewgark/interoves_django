@@ -117,3 +117,12 @@ class SharedStructureTests(TestCase):
         by_segments = {}
         for parts in segments.values():
             self.assertIs(by_segments.setdefault(parts, parts), parts)
+
+
+class PuzzlePayloadCacheBoundTests(TestCase):
+    def test_resolved_article_cache_stays_small(self):
+        # Each entry is a whole tokenized article (~3 MB); 256 of them
+        # OOM-killed Daphne. Raise only with a measured memory budget.
+        from games.puzzles.censorly.play import _cached_current_puzzle_payload
+
+        self.assertLessEqual(_cached_current_puzzle_payload.cache_parameters()['maxsize'], 16)

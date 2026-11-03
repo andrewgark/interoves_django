@@ -287,7 +287,14 @@ def _stored_puzzle_payload(task: Task) -> tuple[dict[str, Any] | None, str]:
     return None, ''
 
 
-@lru_cache(maxsize=256)
+# One resolved article is ~3 MB / ~37k Python objects. At 256 entries the
+# archive and random games filled Daphne's 1.4 GB cgroup (OOM on 2026-11-03,
+# 150 entries ≈ 460 MB). A miss costs one query and ~25 ms of JSON parsing,
+# so keep only today's puzzle and a few recent ones.
+CURRENT_PUZZLE_CACHE_SIZE = 16
+
+
+@lru_cache(maxsize=CURRENT_PUZZLE_CACHE_SIZE)
 def _cached_current_puzzle_payload(
     task_id: int,
     attempt_revision: str,
