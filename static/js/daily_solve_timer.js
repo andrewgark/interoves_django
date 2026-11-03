@@ -1295,13 +1295,35 @@
       if (sessionId) {
         getUrl += (url.indexOf('?') >= 0 ? '&' : '?') + 'session_id=' + encodeURIComponent(sessionId);
       }
-      fetchFn(getUrl, { credentials: 'same-origin', headers: headers }).then(function (res) {
+      // The snapshot GET can hang on a dead connection (Chrome on Android,
+      // 2026-11-03: it never reached the server, while keepalive POSTs did).
+      // Without a deadline the start was never even tried and the clock stood
+      // still. After REQUEST_TIMEOUT_MS the start goes ahead without the
+      // snapshot, with its own retries and keepalive fallback; a late answer
+      // is then ignored, so it cannot overwrite the started state.
+      var bootAnswered = false;
+      var bootTimedOut = false;
+      var init = { credentials: 'same-origin', headers: headers };
+      try {
+        if (root.AbortSignal && typeof root.AbortSignal.timeout === 'function') {
+          init.signal = root.AbortSignal.timeout(REQUEST_TIMEOUT_MS);
+        }
+      } catch (e) {}
+      if (root.setTimeout) {
+        root.setTimeout(function () {
+          if (bootAnswered || destroyed) return;
+          bootTimedOut = true;
+          if (!completed && !manuallyPaused) startIfAllowed();
+        }, REQUEST_TIMEOUT_MS);
+      }
+      fetchFn(getUrl, init).then(function (res) {
         // An error body (403 club_required, 503 busy, ...) is not a timing
         // snapshot: applying it would e.g. flip `exists` to true.
         if (!res || !res.json || res.ok === false) return null;
         return res.json();
       }).then(function (data) {
-        if (destroyed) return;
+        if (destroyed || bootTimedOut) return;
+        bootAnswered = true;
         if (data && data.ok === false) data = null;
         timingEventCapability = !!(data && data.timing_event_capability === 'stable-event-v1');
         if (data) applySnapshot(data, { replace: true });
@@ -1313,7 +1335,8 @@
           } else startIfAllowed();
         }
       }).catch(function () {
-        if (!destroyed && !completed && !manuallyPaused) startIfAllowed();
+        if (destroyed || bootTimedOut) return;
+        if (!completed && !manuallyPaused) startIfAllowed();
       });
     }
 

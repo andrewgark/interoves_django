@@ -2259,6 +2259,54 @@ asyncTest(async function testWatchdogReportsVisiblePageWhoseClockNeverRan() {
   }
 });
 
+asyncTest(async function testHangingSnapshotGetDoesNotKeepTheStartFromBeingSent() {
+  // Chrome on Android, 2026-11-03: the boot GET never reached the server,
+  // the start was never tried and the watchdog reported never_started.
+  var oldSetTimeout = global.setTimeout;
+  var deadlines = [];
+  var starts = 0;
+  var answerGet = null;
+  global.setTimeout = function (callback, delay) {
+    if (delay === 10000) deadlines.push(callback);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (!init || !init.method) {
+        return new Promise(function (resolve) { answerGet = resolve; });
+      }
+      if (body.action === 'start') {
+        starts += 1;
+        return Promise.resolve({ status: 200, json: function () {
+          return Promise.resolve({
+            ok: true, exists: true, status: 'running', is_authoritative: true, session_id: body.session_id,
+          });
+        } });
+      }
+      return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+    });
+    ctrl.boot();
+    await flush();
+    assert.strictEqual(starts, 0, 'the start waits for the snapshot first');
+    assert.strictEqual(deadlines.length, 1);
+    deadlines.shift()();
+    await flush();
+    assert.strictEqual(starts, 1, 'after the deadline the start goes ahead');
+    assert.strictEqual(ctrl.state().status, 'running');
+    // A snapshot that turns up afterwards must not overwrite the started clock.
+    answerGet({ ok: true, json: function () {
+      return Promise.resolve({ ok: true, exists: true, status: 'auto_paused', is_authoritative: false });
+    } });
+    await flush();
+    assert.strictEqual(ctrl.state().status, 'running');
+    assert.strictEqual(starts, 1);
+    ctrl.destroy();
+  } finally {
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
 asyncTest(async function testHealthyTimerSendsNoReports() {
   var oldSetTimeout = global.setTimeout;
   var oldNow = Date.now;
