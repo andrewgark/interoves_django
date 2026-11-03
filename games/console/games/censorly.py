@@ -29,6 +29,7 @@ from games.daily.catalog.censorly import (
     is_censorly_number_published,
 )
 from games.models import CensorlyOffer, CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
+from games.notifications.catalog import notifies_author
 from games.puzzles.censorly.article.wiki import WikiArticle, WikiFetchError, fetch_article
 from games.puzzles.censorly.ids import (
     CENSORLY_CHECKER_ID,
@@ -284,6 +285,7 @@ def list_censorly_offers(*, limit: int = 100) -> list[dict[str, Any]]:
     return rows
 
 
+@notifies_author('offer.accepted', 'censorly')
 @transaction.atomic
 def accept_censorly_offer(offer_id: int) -> CensorlyOffer:
     offer = CensorlyOffer.objects.select_for_update().select_related('party').filter(pk=offer_id).first()
@@ -325,6 +327,7 @@ def accept_censorly_offer(offer_id: int) -> CensorlyOffer:
     return offer
 
 
+@notifies_author('offer.rejected', 'censorly')
 @transaction.atomic
 def reject_censorly_offer(offer_id: int, *, note: str = '') -> CensorlyOffer:
     offer = CensorlyOffer.objects.select_for_update().filter(pk=offer_id).first()

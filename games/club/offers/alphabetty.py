@@ -34,6 +34,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
+from games.notifications.catalog import notifies_author
 from games.puzzles.alphabetty.core import normalize_word
 
 _RESERVED_ALPHABETTY_SEGMENTS = frozenset({
@@ -266,6 +267,7 @@ def send_offer(offer: AlphabettyOffer) -> AlphabettyOffer:
     return offer
 
 
+@notifies_author('offer.accepted', 'alphabetty')
 @transaction.atomic
 def accept_offer(offer: AlphabettyOffer, *, at_number: int | None = None) -> AlphabettyOffer:
     from django.db import IntegrityError
@@ -314,6 +316,7 @@ def accept_offer(offer: AlphabettyOffer, *, at_number: int | None = None) -> Alp
     return offer
 
 
+@notifies_author('offer.returned', 'alphabetty')
 @transaction.atomic
 def request_revision(offer: AlphabettyOffer, *, admin_note: str = '') -> AlphabettyOffer:
     if offer.status not in (AlphabettyOffer.STATUS_SENT, AlphabettyOffer.STATUS_ACCEPTED):

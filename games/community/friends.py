@@ -122,6 +122,14 @@ def _accept(row):
     row.accepted_at = timezone.now()
     row.save(update_fields=['status', 'accepted_at'])
     _touch(row.user_low_id, row.user_high_id)
+    # The requester (or the invite link's owner) hears that it worked out.
+    accepted_by = row.other(row.requested_by_id)
+    try:
+        from games.notifications.service import notify
+
+        notify(row.requested_by_id, 'friend.accepted', actor=accepted_by, friend_user_id=accepted_by)
+    except Exception:
+        logger.exception('event=friend_accepted_notice_failed row=%s', row.pk)
     return RELATION_FRIENDS
 
 

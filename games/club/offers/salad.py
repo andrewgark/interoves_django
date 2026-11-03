@@ -33,6 +33,7 @@ from games.models import (
     TaskGroup,
     WordSaladOffer,
 )
+from games.notifications.catalog import notifies_author
 from games.puzzles.salad.rules import (
     format_grid_text,
     format_words_text,
@@ -449,6 +450,7 @@ def send_offer(offer: WordSaladOffer) -> WordSaladOffer:
     return offer
 
 
+@notifies_author('offer.accepted', 'salad')
 @transaction.atomic
 def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> WordSaladOffer:
     from django.db import IntegrityError
@@ -504,6 +506,7 @@ def accept_offer(offer: WordSaladOffer, *, at_number: int | None = None) -> Word
     return offer
 
 
+@notifies_author('offer.returned', 'salad')
 @transaction.atomic
 def request_revision(offer: WordSaladOffer, *, admin_note: str = '') -> WordSaladOffer:
     if offer.status not in (WordSaladOffer.STATUS_SENT, WordSaladOffer.STATUS_ACCEPTED):

@@ -39,6 +39,7 @@ from games.models import (
     Task,
     TaskGroup,
 )
+from games.notifications.catalog import notifies_author
 from games.puzzles.raddle.engine import ensure_raddle_assist_hints
 
 # Зарезервированные сегменты /ladder/<seg>/ — не генерировать как share_hash.
@@ -358,6 +359,7 @@ def send_offer(offer: LadderOffer) -> LadderOffer:
     return offer
 
 
+@notifies_author('offer.accepted', 'ladder')
 @transaction.atomic
 def accept_offer(offer: LadderOffer, *, at_number: int | None = None) -> LadderOffer:
     """Принять отправленную лесенку: привязать тот же TaskGroup к номеру в расписании."""
@@ -396,6 +398,7 @@ def accept_offer(offer: LadderOffer, *, at_number: int | None = None) -> LadderO
     return offer
 
 
+@notifies_author('offer.returned', 'ladder')
 @transaction.atomic
 def request_revision(offer: LadderOffer, *, admin_note: str = '') -> LadderOffer:
     if offer.status not in (LadderOffer.STATUS_SENT, LadderOffer.STATUS_ACCEPTED):

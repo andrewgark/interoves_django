@@ -345,3 +345,58 @@ class InboxViewTests(NotificationFixture):
         self.assertEqual(notifications_nav(request), {})
         request.user = self.vera
         self.assertEqual(notifications_nav(request), {'notifications_enabled': True, 'notifications_badge': 0})
+
+
+class NewKindsTests(NotificationFixture):
+    def test_accepting_a_request_tells_the_requester(self):
+        self.request(self.anna, self.vera)
+        with patch(ENQUEUE, return_value=True), patch.object(timezone, 'now', return_value=self.noon):
+            with self.captureOnCommitCallbacks(execute=True):
+                friends.accept_request(self.vera, self.anna.pk)
+        items = service.inbox(self.anna)
+        self.assertEqual([item['kind'] for item in items], ['friend.accepted'])
+        self.assertEqual(items[0]['title'], 'Вера Зорина теперь у вас в друзьях')
+        # Vera's own request notification is answered now.
+        self.assertEqual(service.inbox(self.vera), [])
+
+    def test_invite_link_tells_the_owner(self):
+        invite = friends.new_invite(self.anna)
+        friends.accept_invite(invite, self.boris)
+        self.assertEqual(service.inbox(self.anna)[0]['title'], 'Борис Лапин теперь у вас в друзьях')
+        self.assertEqual(service.inbox(self.boris), [])
+
+    def test_salad_offer_accepted_and_returned(self):
+        from games.club.offers import salad as salad_offers
+        from games.puzzles.salad.models import WordSaladOffer
+
+        offer = WordSaladOffer.objects.create(
+            user=self.vera, kind=WordSaladOffer.KIND_IDEA, status=WordSaladOffer.STATUS_SENT,
+        )
+        salad_offers.accept_offer(offer)
+        item = service.inbox(self.vera)[0]
+        self.assertEqual(item['title'], 'Ваш салатик приняли')
+        self.assertIn('/create_salad/{}/'.format(offer.pk), item['url'])
+        salad_offers.request_revision(offer, admin_note='Слишком лёгкий')
+        items = service.inbox(self.vera)
+        # The acceptance no longer holds, only the return shows.
+        self.assertEqual([i['title'] for i in items], ['Ваш салатик вернули на доработку'])
+        self.assertEqual(items[0]['body'], 'Слишком лёгкий')
+
+    def test_renewal_failed_disappears_after_a_later_payment(self):
+        from datetime import timedelta as td
+
+        from games.models import ClubSubscription, ClubYooKassaPayment
+
+        sub = ClubSubscription.objects.create(user=self.vera, provider=ClubSubscription.PROVIDER_YOOKASSA)
+        failed = ClubYooKassaPayment.objects.create(
+            club_subscription=sub, user=self.vera, kind=ClubYooKassaPayment.KIND_RECURRING_MONTHLY,
+            status=ClubYooKassaPayment.STATUS_CANCELED, amount=100, idempotency_key='nt-1', period_key='2026-10',
+        )
+        service.notify(self.vera, 'club.renewal_failed', subscription_id=sub.pk, payment_id=failed.pk)
+        self.assertEqual(service.inbox(self.vera)[0]['title'], 'Не получилось продлить клубную подписку')
+        later = ClubYooKassaPayment.objects.create(
+            club_subscription=sub, user=self.vera, kind=ClubYooKassaPayment.KIND_RECURRING_MONTHLY,
+            status=ClubYooKassaPayment.STATUS_SUCCEEDED, amount=100, idempotency_key='nt-2', period_key='2026-11',
+        )
+        ClubYooKassaPayment.objects.filter(pk=later.pk).update(created_at=failed.created_at + td(minutes=5))
+        self.assertEqual(service.inbox(self.vera), [])

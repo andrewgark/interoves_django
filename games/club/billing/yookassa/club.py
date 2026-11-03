@@ -589,6 +589,7 @@ def _apply_canceled_payment(
     else:
         subscription.save(update_fields=['last_webhook_at', 'last_webhook_event', 'updated_at'])
     if local.kind == ClubYooKassaPayment.KIND_RECURRING_MONTHLY and not was_canceled:
+        from games.notifications.service import notify
         from games.ops.telegram.bot.notify import notify_admin_club_renewal_failed
 
         transaction.on_commit(
@@ -597,6 +598,8 @@ def _apply_canceled_payment(
                 sid, payment_id=pid, reason=reason, delivery=delivery,
             )
         )
+        # The bank declined the charge: only the subscriber can fix the card.
+        notify(subscription.user_id, 'club.renewal_failed', subscription_id=subscription.pk, payment_id=local.pk)
     logger.info(
         'subscription_payment_failed payment_pk=%s kind=%s reason=%s',
         local.pk, local.kind, local.cancellation_reason,
