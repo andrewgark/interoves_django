@@ -1402,6 +1402,16 @@ html.new-ui-dark body.new-ui {
   font: inherit;
 }
 
+/* Fixed width: the clock ticks every second (and starts as «--:--:--»), and
+   a width change with each digit would shift the rest of the nav. Digits are
+   1ch wide with tabular-nums; colons are narrower, so 8ch always fits. */
+.new-clock [data-clock-text] {
+  display: inline-block;
+  min-width: 8ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .new-clock--drawer {
   align-self: flex-start;
   margin-bottom: 0.15rem;

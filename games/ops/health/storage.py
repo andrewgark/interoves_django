@@ -5,6 +5,11 @@ from storages.backends.s3boto3 import S3Boto3Storage
 class StaticStorage(S3Boto3Storage):
     location = settings.STATIC_LOCATION
     default_acl = 'public-read'
+    # A release prefix is named by the fingerprint of the static sources
+    # (scripts/static_source_fingerprint.sh), so its files never change: let
+    # browsers keep them instead of revalidating daily. Media keeps
+    # AWS_S3_OBJECT_PARAMETERS (one day).
+    object_parameters = {'CacheControl': 'public, max-age=31536000, immutable'}
 
     def url(self, name, parameters=None, expire=None, http_method=None):
         """
