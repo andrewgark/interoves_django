@@ -97,15 +97,18 @@ def run_announcement_live(*, now):
 
 
 def _sweep_notifications():
-    """Personal notifications due now; a failure must not fail the tick."""
-    from games.notifications.telegram import sweep
+    """Personal notifications and daily reminders due now; a failure must not fail the tick."""
+    from games.notifications import daily, telegram
 
-    try:
-        # The real clock, not the schedule time: these are sent now.
-        return sweep(now=timezone.now())
-    except Exception:
-        logger.exception('event=notification_sweep_tick_failed')
-        return {'error': 1}
+    stats = {}
+    for name, sweep in (('inbox', telegram.sweep), ('daily', daily.sweep)):
+        try:
+            # The real clock, not the schedule time: these are sent now.
+            stats[name] = sweep(now=timezone.now())
+        except Exception:
+            logger.exception('event=notification_sweep_tick_failed sweep=%s', name)
+            stats[name] = {'error': 1}
+    return stats
 
 
 def run_announcement_shadow(*, now):

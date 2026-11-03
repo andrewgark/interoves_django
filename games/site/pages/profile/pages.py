@@ -175,7 +175,12 @@ def profile(request, project_id=None):
     if request.method == 'POST':
         form = ProfileSettingsForm(request.POST, instance=profile)
         if form.is_valid():
+            timezone_changed = 'timezone' in form.changed_data
             form.save()
+            if timezone_changed:
+                from games.notifications.daily import reschedule
+
+                reschedule(request.user)
             messages.success(request, 'Профиль сохранён.')
             if profile_next_path:
                 return redirect('new_subscription')

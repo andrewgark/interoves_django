@@ -96,3 +96,37 @@ class NotificationPrefs(models.Model):
 
     def __str__(self):
         return 'NotificationPrefs {}'.format(self.user_id)
+
+
+class DailyReminder(models.Model):
+    """«Today's edition is out» in Telegram for one daily game. No row means off."""
+
+    MODE_CHANNEL = 'channel'
+    MODE_RELEASE = 'release'
+    MODE_CUSTOM = 'custom'
+    MODES = (
+        (MODE_CHANNEL, 'Как в канале'),
+        (MODE_RELEASE, 'Сразу после выхода'),
+        (MODE_CUSTOM, 'В своё время'),
+    )
+
+    user = models.ForeignKey(User, related_name='daily_reminders', on_delete=models.CASCADE)
+    game_id = models.CharField(max_length=32)
+    mode = models.CharField(max_length=16, choices=MODES, default=MODE_CHANNEL)
+    # Wall-clock time in Profile.timezone, for MODE_CUSTOM.
+    custom_time = models.TimeField(null=True, blank=True)
+    skip_if_played = models.BooleanField(default=True)
+    next_send_at = models.DateTimeField(db_index=True)
+    # Edition number already reminded about: one reminder per edition.
+    last_sent_number = models.PositiveIntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'напоминание о ежедневке'
+        verbose_name_plural = 'напоминания о ежедневках'
+        constraints = [
+            models.UniqueConstraint(fields=['user', 'game_id'], name='games_dailyreminder_uniq'),
+        ]
+
+    def __str__(self):
+        return 'DailyReminder {} {} {}'.format(self.user_id, self.game_id, self.mode)

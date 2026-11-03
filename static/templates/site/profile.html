@@ -86,6 +86,8 @@
     </div>
 </section>
 
+<p class="new-profile-notif-link"><a class="new-btn new-btn--ghost new-btn--mini" href="{% url 'new_notification_settings' %}"><i class="ph ph-bell" aria-hidden="true"></i> Уведомления и напоминания о ежедневках</a></p>
+
 <h2 class="new-heading">Аккаунты</h2>
 <div class="new-card">
   {% if request.path == '/glowbyte' or request.path|slice:":10" == '/glowbyte/' %}

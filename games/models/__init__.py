@@ -125,7 +125,12 @@ from games.models.people import (  # noqa: F401
     anon_key_is_hidden,
     hidden_anon_keys,
 )
-from games.notifications.models import Notification, NotificationPrefs, NotificationSetting  # noqa: F401
+from games.notifications.models import (  # noqa: F401
+    DailyReminder,
+    Notification,
+    NotificationPrefs,
+    NotificationSetting,
+)
 from games.puzzles.alphabetty.models import AlphabettyOffer  # noqa: F401
 from games.puzzles.censorly.models import CensorlyOffer  # noqa: F401
 from games.puzzles.raddle.models import LadderOffer, RaddleClueLike, RaddleUiState  # noqa: F401

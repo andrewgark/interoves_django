@@ -152,6 +152,7 @@ urlpatterns = [
     path('u/<str:public_id>/', ui.player_profile, name='new_player_profile'),
     path('t/<str:public_id>/', ui.team_public_page, name='new_team_public'),
     path('friends/', ui.friends_page, name='new_friends'),
+    path('notifications/settings/', ui.notification_settings, name='new_notification_settings'),
     path('friends/action/', ui.friends_action, name='new_friends_action'),
     path('friends/invite/create/', ui.friend_invite_create, name='new_friend_invite_create'),
     path('friends/invite/<str:token>/', ui.friend_invite, name='new_friend_invite'),

@@ -1,0 +1,136 @@
+{% extends "site/base.html" %}
+{% load static %}
+{% block title %}Уведомления{% endblock %}
+{% block extrahead %}
+<link rel="stylesheet" href="{% static 'css/notifications.css' %}?v={{ site_deploy_version|default:'0'|urlencode }}">
+{% endblock %}
+{% block content %}
+<h1 class="new-heading new-heading--page">Уведомления</h1>
+
+{% if not telegram_linked %}
+  <div class="new-card notif-settings__notice">
+    <i class="ph ph-telegram-logo" aria-hidden="true"></i>
+    <p><a href="{% url 'new_profile' %}">Подключите Telegram</a> — тогда бот сможет присылать уведомления и напоминать о новых ежедневках. Без него уведомления видны только на сайте.</p>
+  </div>
+{% elif telegram_blocked %}
+  <div class="new-card notif-settings__notice notif-settings__notice--warn">
+    <i class="ph ph-warning" aria-hidden="true"></i>
+    <p>Бот не может вам написать. Откройте <a href="https://t.me/{{ telegram_bot_username }}" rel="noopener" target="_blank">@{{ telegram_bot_username }}</a> и нажмите «Start» (или разблокируйте его).</p>
+  </div>
+{% endif %}
+
+<div class="new-card notif-settings__notice notif-settings__tz" data-tz-mismatch hidden>
+  <i class="ph ph-globe-hemisphere-east" aria-hidden="true"></i>
+  <p>Похоже, вы в часовом поясе <strong data-tz-browser></strong>, а в профиле указан <strong>{{ profile_timezone }}</strong>. Время напоминаний и тихие часы считаются по профилю.</p>
+  <form method="post" class="notif-settings__tz-form">
+    {% csrf_token %}
+    <input type="hidden" name="section" value="timezone">
+    <input type="hidden" name="timezone" value="" data-tz-input>
+    <button type="submit" class="new-btn new-btn--mini">Обновить</button>
+  </form>
+</div>
+
+<form method="post" class="new-form notif-settings" data-profile-timezone="{{ profile_timezone }}">
+  {% csrf_token %}
+  <input type="hidden" name="section" value="all">
+
+  <section class="new-card" aria-labelledby="notif-channels-title">
+    <h2 id="notif-channels-title" class="player-section-title">О чём сообщать</h2>
+    <table class="notif-settings__channels">
+      <thead>
+        <tr><th scope="col"><span class="notif-settings__sr">Группа</span></th><th scope="col">На сайте</th><th scope="col">В Telegram</th></tr>
+      </thead>
+      <tbody>
+        {% for row in group_rows %}
+          <tr>
+            <th scope="row">{{ row.group.title }}</th>
+            <td>
+              <input type="checkbox" name="site_{{ row.group.key }}" value="1" aria-label="{{ row.group.title }} — на сайте"{% if row.site %} checked{% endif %}{% if row.group.site_mandatory %} disabled{% endif %}>
+            </td>
+            <td>
+              <input type="checkbox" name="tg_{{ row.group.key }}" value="1" aria-label="{{ row.group.title }} — в Telegram"{% if row.telegram %} checked{% endif %}{% if row.group.telegram_mandatory or not telegram_linked %} disabled{% endif %}>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="new-login-hint">Поддержку на сайте, а клуб и оплату нигде отключить нельзя: это ответы на ваши обращения и платежи.</p>
+  </section>
+
+  <section class="new-card" aria-labelledby="notif-quiet-title">
+    <h2 id="notif-quiet-title" class="player-section-title">Тихие часы</h2>
+    <label class="notif-settings__check">
+      <input type="checkbox" name="quiet_enabled" value="1"{% if prefs.quiet_hours_enabled %} checked{% endif %}>
+      <span>Не писать в Telegram ночью<small>Уведомления придут утром. Срочные (оплата, старт игры) — сразу.</small></span>
+    </label>
+    <div class="notif-settings__times">
+      <label>С <input type="time" name="quiet_start" value="{{ quiet_start }}" required></label>
+      <label>до <input type="time" name="quiet_end" value="{{ quiet_end }}" required></label>
+    </div>
+    <p class="new-login-hint">По часовому поясу {{ profile_timezone }}. <a href="{% url 'new_profile' %}">Поменять в профиле</a></p>
+  </section>
+
+  <section class="new-card" id="daily" aria-labelledby="notif-daily-title">
+    <h2 id="notif-daily-title" class="player-section-title">Напоминания о ежедневках</h2>
+    <p class="new-login-hint">Бот пришлёт в Telegram пост с новым выпуском, чтобы вы не забыли порешать. На сайте такие напоминания не показываются. Время — по поясу {{ profile_timezone }}.</p>
+    <ul class="notif-settings__daily">
+      {% for row in daily_rows %}
+        <li class="notif-settings__daily-row" data-daily-row>
+          <label class="notif-settings__daily-title" for="daily_{{ row.game_id }}">{{ row.title }}</label>
+          <div class="notif-settings__daily-controls">
+            <select id="daily_{{ row.game_id }}" name="daily_{{ row.game_id }}" data-daily-mode{% if not telegram_linked %} disabled{% endif %}>
+              <option value="off"{% if row.mode == 'off' %} selected{% endif %}>Не напоминать</option>
+              <option value="channel"{% if row.mode == 'channel' %} selected{% endif %}>Как в канале — {{ row.channel_label }}</option>
+              <option value="release"{% if row.mode == 'release' %} selected{% endif %}>Сразу после выхода — {{ row.release_label }}</option>
+              <option value="custom"{% if row.mode == 'custom' %} selected{% endif %}>В своё время</option>
+            </select>
+            <input type="time" name="daily_time_{{ row.game_id }}" value="{{ row.custom_time }}" aria-label="{{ row.title }}: время напоминания" data-daily-time{% if row.mode != 'custom' %} hidden{% endif %}{% if not telegram_linked %} disabled{% endif %}>
+          </div>
+          <label class="notif-settings__check notif-settings__daily-skip" data-daily-skip{% if row.mode == 'off' %} hidden{% endif %}>
+            <input type="checkbox" name="daily_skip_{{ row.game_id }}" value="1"{% if row.skip_if_played %} checked{% endif %}{% if not telegram_linked %} disabled{% endif %}>
+            <span>Не напоминать, если уже начали этот выпуск</span>
+          </label>
+        </li>
+      {% endfor %}
+    </ul>
+  </section>
+
+  <button type="submit" class="new-btn">Сохранить</button>
+</form>
+
+<script>
+(function () {
+  document.querySelectorAll('[data-daily-row]').forEach(function (row) {
+    var mode = row.querySelector('[data-daily-mode]');
+    var time = row.querySelector('[data-daily-time]');
+    var skip = row.querySelector('[data-daily-skip]');
+    if (!mode) return;
+    var sync = function () {
+      time.hidden = mode.value !== 'custom';
+      time.required = mode.value === 'custom';
+      skip.hidden = mode.value === 'off';
+    };
+    mode.addEventListener('change', sync);
+    sync();
+  });
+
+  var form = document.querySelector('[data-profile-timezone]');
+  var banner = document.querySelector('[data-tz-mismatch]');
+  var browserTz = '';
+  try { browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { /* old browser */ }
+  if (!form || !banner || !browserTz) return;
+  var offset = function (tz) {
+    try {
+      var parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'longOffset' }).formatToParts(new Date());
+      var name = parts.filter(function (p) { return p.type === 'timeZoneName'; })[0];
+      return name ? name.value : tz;
+    } catch (e) { return tz; }
+  };
+  // Same offset under another name (Europe/Minsk vs Moscow) is not worth a prompt.
+  if (offset(browserTz) === offset(form.getAttribute('data-profile-timezone'))) return;
+  banner.querySelector('[data-tz-browser]').textContent = browserTz;
+  banner.querySelector('[data-tz-input]').value = browserTz;
+  banner.hidden = false;
+})();
+</script>
+{% endblock %}
