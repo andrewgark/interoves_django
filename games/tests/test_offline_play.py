@@ -193,6 +193,27 @@ class LadderOfflinePackEndpointTests(_ClientEventFixture):
             self.assertEqual(self._pack()['status'], 'ok')
         self.assertEqual(load.call_count, 1)
 
+    def test_signed_in_pack_runs_context_processors_once(self):
+        # Every piece used to rerun the context processors, several queries
+        # each for a signed-in player: ~900 queries per pack in production.
+        from django.contrib.auth.models import User
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from games.models import Profile
+
+        OfflinePlayRule.objects.create(game=self.game, instant_verdict=True, offline_attempts=True)
+        user = User.objects.create_user('offline-pack-user', password='x')
+        Profile.objects.create(user=user)
+        self.client.force_login(user)
+        with CaptureQueriesContext(connection) as queries:
+            self.assertEqual(self._pack()['status'], 'ok')
+        subscription_reads = [
+            query for query in queries.captured_queries
+            if 'games_clubsubscription' in query['sql']
+        ]
+        self.assertEqual(len(subscription_reads), 1)
+
     def test_ladder_checker_needs_no_query(self):
         from games.gameplay.attempts import checker_for_task
 

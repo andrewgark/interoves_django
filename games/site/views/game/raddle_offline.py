@@ -9,7 +9,8 @@ background and assembles the card itself while the network is gone.
 import json
 
 from django.http import JsonResponse
-from django.template.loader import render_to_string
+from django.template import engines
+from django.template.loader import get_template
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -28,6 +29,25 @@ from games.site.session.gameplay_context import context_error_response
 from games.site.views.game.context import resolve_move_context
 from games.site.views.game.render import TASK_CARD_TEMPLATE, new_ui_task_card_context
 from games.task_group.daily_board_task_data import board_share_title
+
+
+def _piece_renderer(request, card):
+    """Render pack pieces with the request's context processors run once.
+
+    ``render_to_string(..., request)`` reruns every context processor on each
+    call, and for a signed-in player they cost several queries each time: a
+    pack of dozens of pieces made ~900 queries. The card context still wins
+    over processor values, as it does in a RequestContext.
+    """
+    base = {}
+    for processor in engines['django'].engine.template_context_processors:
+        base.update(processor(request))
+    base.update(card or {})
+
+    def render(template, extra):
+        return get_template(template).render({**base, **extra})
+
+    return render
 
 
 def ladder_offline_pack(request, ctx, mode, *, offline_timing=False):
@@ -57,12 +77,13 @@ def ladder_offline_pack(request, ctx, mode, *, offline_timing=False):
         ui['elapsed_label'] = ''
         return ui
 
+    render = _piece_renderer(request, card)
     pieces = build_pack(
         source.parsed,
         source.state,
         tiers=resolve_assist_tiers(source.state, source.board.hint_attempts),
         make_ui=make_ui,
-        render=lambda template, extra: render_to_string(template, {**card, **extra}, request),
+        render=render,
     )
     return {
         **pieces,
@@ -74,7 +95,7 @@ def ladder_offline_pack(request, ctx, mode, *, offline_timing=False):
         'state': {key: source.state.get(key) or [] for key in ('solved_indices', 'used_hints')},
         'rules': rules_config(source.parsed),
         'spec': client_spec_for_task(task),
-        'card_html': render_to_string(TASK_CARD_TEMPLATE, card, request),
+        'card_html': render(TASK_CARD_TEMPLATE, {}),
         # The page lets the daily timer claim the offline stretch.
         'offline_timing': offline_timing,
     }
