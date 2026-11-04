@@ -75,6 +75,10 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     # «листьев» is the genitive plural of лист. Treating this spelling as its
     # own noun citation form makes a context-free guess lose the лист root.
     ('листьев', 'листьев', 'NOUN'),
+    # «целей» is the genitive plural of цель. The colloquial -ей comparative
+    # of целый («целее») would let the goal word open «цельного» and
+    # «целостность».
+    ('целей', 'целый', 'COMP'),
 }) | frozenset(
     # «данные» (data) and «данный» (this, specified) are reviewed senses of
     # their own. The passive-participle reading of «дать» on the same full

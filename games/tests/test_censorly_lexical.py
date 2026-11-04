@@ -423,6 +423,8 @@ class LexicalResolverTests(SimpleTestCase):
             ('округ', 'окружной'),
             ('окружать', 'окружающими'),
             ('круг', 'круглый'),
+            ('целей', 'прицельный'),
+            ('целее', 'цельного'),
         )
         expected_closed = (
             ('жалование', 'жалевшая'),
@@ -447,6 +449,8 @@ class LexicalResolverTests(SimpleTestCase):
             ('светящийся', 'светлее'),
             ('бедный', 'побеждать'),
             ('округа', 'окружающими'),
+            ('целей', 'цельного'),
+            ('целей', 'целостность'),
         )
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
