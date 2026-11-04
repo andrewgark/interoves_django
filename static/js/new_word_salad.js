@@ -619,6 +619,9 @@
   var saladRetryTimer = 0;
   var saladServerCards = {};
   var saladDiverged = {};
+  // A 403 is this page's CSRF token gone stale (a login or logout elsewhere):
+  // the paths stay queued and go out after a reload, not from this page.
+  var saladPaused = false;
 
   function saladQueue() {
     if (saladOutbox || !global.InterovesOutbox) return saladOutbox;
@@ -648,7 +651,12 @@
       body: body,
       credentials: 'same-origin'
     }).then(function (response) {
-      if (response.status >= 500 || response.status === 429) return 'retry';
+      if (response.status >= 500 || response.status === 429 || response.status === 408) return 'retry';
+      if (response.status === 403) {
+        saladPaused = true;
+        showSaladPausedNote(taskId);
+        return 'retry';
+      }
       return response.json().catch(function () { return null; }).then(function (data) {
         if (!data) return response.ok ? 'retry' : divergedSaladPath(taskId);
         flushAnalyticsEvents(data);
@@ -681,7 +689,7 @@
 
   function flushSaladOutbox() {
     var outbox = saladQueue();
-    if (!outbox || !outbox.size()) return;
+    if (!outbox || !outbox.size() || saladPaused) return;
     if (saladFlushing) {
       saladFlushAgain = true;
       return;
@@ -717,6 +725,17 @@
   // While the server has not seen a word the page solved, its cards miss
   // that word and applyNewUiTaskHtml drops them, a hint's card too; so a
   // hint waits until the queue is through.
+  function showSaladPausedNote(taskId) {
+    var root = saladRootFor(taskId);
+    if (!root || root.querySelector('.new-word-salad__paused-note')) return;
+    var note = global.document.createElement('p');
+    note.className = 'new-word-salad__paused-note';
+    note.setAttribute('role', 'status');
+    note.textContent = 'Сервер не принял слова с этой страницы: она устарела. '
+      + 'Найденные слова сохранены на этом устройстве — обновите страницу, и они отправятся.';
+    root.insertBefore(note, root.firstChild);
+  }
+
   function setSaladSyncing(root, syncing) {
     if (!root) return;
     root.classList.toggle('is-syncing', !!syncing);

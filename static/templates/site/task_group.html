@@ -317,7 +317,6 @@ window.interovesTaskGroupPage = {
   playMode: "{{ play_mode|escapejs }}",
   gameId: "{{ game.id|escapejs }}",
   siteDeployVersion: "{{ site_deploy_version|default:"0"|escapejs }}",
-  offlineActor: "{{ offline_actor|default:""|escapejs }}",
   dailyTimingTeamMode: {% if daily_timing_team_mode %}true{% else %}false{% endif %},
   isDailySingleTask: {% if is_daily_single_task %}true{% else %}false{% endif %},
   urls: {

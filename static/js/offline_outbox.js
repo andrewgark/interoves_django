@@ -9,8 +9,9 @@
  * server answers a known client_event_id with the move it already recorded,
  * so another tab flushing the same queue cannot double a move.
  *
- * With options.actor (the page's actor tag) the queue is that actor's: added
- * moves are stamped with it, and moves of another actor on this browser (from
+ * With an actor (options.actor, by default <body data-offline-actor>) the
+ * queue is that actor's: added moves are stamped with it, and moves of
+ * another actor on this browser (from
  * before a login, or another account) are neither shown, sent nor cleared:
  * the server would refuse them, and they wait for their own actor. Moves no
  * longer sendable by anyone (the gameplay token lives 14 days) are pruned.
@@ -33,11 +34,20 @@
     };
   }
 
+  function pageActor() {
+    try {
+      var body = global.document && global.document.body;
+      return (body && body.getAttribute('data-offline-actor')) || '';
+    } catch (e) {
+      return '';
+    }
+  }
+
   function createOutbox(options) {
     options = options || {};
     var storage = options.storage || memoryStorage();
     var key = options.key || STORAGE_KEY;
-    var actor = options.actor || '';
+    var actor = (options.actor == null ? pageActor() : options.actor) || '';
     var now = options.now || function () { return Date.now(); };
 
     // Unstamped moves (older pages, or a page that knows no actor) stay everyone's.

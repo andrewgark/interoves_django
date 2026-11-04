@@ -41,6 +41,25 @@ def ui_notices(request):
     return {'ui_notices_seen': SimpleLazyObject(lambda: seen_keys(getattr(request, 'user', None)))}
 
 
+def offline_actor(request):
+    """Whose offline moves this browser page queues (static/js/offline_outbox.js).
+
+    The user when logged in, else the browser's anonymous identity; team play
+    has no offline moves. A short HMAC tag, never the raw id.
+    """
+    from games.ops.analytics.identity import gameplay_anon_key
+    from games.site.session.gameplay_context import actor_tag
+
+    user = getattr(request, 'user', None)
+    if user is not None and getattr(user, 'is_authenticated', False):
+        return {'offline_actor': actor_tag(user=user)}
+    try:
+        anon_key = gameplay_anon_key(request)
+    except Exception:
+        anon_key = None
+    return {'offline_actor': actor_tag(anon_key=anon_key)}
+
+
 def site_deploy_version(_request):
     """Expose SITE_DEPLOY_VERSION for deploy_version_check.js (HTML vs live API)."""
     v = getattr(settings, "SITE_DEPLOY_VERSION", "") or ""

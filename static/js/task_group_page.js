@@ -77,8 +77,14 @@
     );
     return root ? (root.getAttribute('data-gameplay-context') || '') : '';
   }
-  function showGameplayContextMismatch(msg) {
-    if (msg) msg.textContent = 'Аккаунт изменился в другой вкладке. Игра будет перезагружена.';
+  // error: the server's code. Only an actor mismatch means another account;
+  // an expired or foreign token is just an old page.
+  function showGameplayContextMismatch(msg, error) {
+    if (msg) {
+      msg.textContent = error === 'gameplay_actor_context_mismatch'
+        ? 'Аккаунт изменился в другой вкладке. Игра будет перезагружена.'
+        : 'Страница устарела. Игра будет перезагружена.';
+    }
     window.setTimeout(function () { window.location.reload(); }, 250);
   }
   function flushAnalyticsEvents(events) {
@@ -329,7 +335,7 @@
           'gameplay_context_task_mismatch',
           'gameplay_actor_context_mismatch',
         ].indexOf(data.error) >= 0
-      ) data.context_mismatch = true;
+      ) data.context_mismatch = data.error;
       return data;
     });
   }
@@ -410,7 +416,7 @@
           return;
         }
         if (data.context_mismatch) {
-          showGameplayContextMismatch(msg);
+          showGameplayContextMismatch(msg, data.context_mismatch);
           return;
         }
         if (data.error === 'replay_required') {
@@ -1506,7 +1512,7 @@
       body: params.toString(),
       credentials: 'same-origin',
     }).then(parseFetchJson).then(function (data) {
-      if (data && data.context_mismatch) showGameplayContextMismatch(null);
+      if (data && data.context_mismatch) showGameplayContextMismatch(null, data.context_mismatch);
       else if (data && data.error === 'stale_replay') window.location.reload();
       else if (data && data.error === 'replay_required') {
         raddleUiRefused[taskId] = true;
@@ -1780,7 +1786,7 @@
     row = live.row;
     var msg = document.querySelector('[data-msg-for="' + form.id + '"]');
     if (data && data.context_mismatch) {
-      showGameplayContextMismatch(msg);
+      showGameplayContextMismatch(msg, data.context_mismatch);
       return;
     }
     if (data && data.reload_required) {
@@ -1944,9 +1950,7 @@
   var raddleOfflinePacks = Object.create(null);
   var raddleOfflinePackLoading = Object.create(null);
   var raddleOutbox = window.InterovesOutbox
-    ? window.InterovesOutbox.createOutbox({
-      storage: raddleSafeLocalStorage() || undefined, actor: PAGE.offlineActor || '',
-    })
+    ? window.InterovesOutbox.createOutbox({ storage: raddleSafeLocalStorage() || undefined })
     : null;
   var raddleOutboxFlushing = false;
   // An 'online' event during a flush must not wait for the next interval.
@@ -2335,13 +2339,31 @@
   // without the network or when a move has waited longer than that.
   var RADDLE_QUEUE_STUCK_MS = 10000;
 
+  // A 403 to a queued move is almost always this page's CSRF token gone stale
+  // (a login or logout elsewhere): no resend from this page can pass, a reload
+  // can. The moves stay queued and the page stops sending until then.
+  var offlineSendingPaused = false;
+  function pauseOfflineSending(taskId) {
+    if (offlineSendingPaused) return;
+    offlineSendingPaused = true;
+    reportRaddleOffline('queue_blocked', { task_id: taskId, status: 403 });
+    syncAllRaddleOfflineNotes();
+    if (!ordinaryOutbox) return;
+    ordinaryOutbox.entries().forEach(function (entry) {
+      var msg = document.querySelector(
+        'form.new-attempt-form[data-task-id="' + entry.scope + '"][data-offline-spec] .new-attempt-msg'
+      );
+      if (msg) msg.textContent = 'Ответ сохранён на этом устройстве, но страница устарела. Обновите её, и он отправится.';
+    });
+  }
+
   function syncRaddleOfflineNote(taskRoot) {
     if (!taskRoot) return;
     var entries = raddleOutbox ? raddleOutbox.entries(taskRoot.getAttribute('data-task-id')) : [];
     var waiting = entries.length;
     var stuck = entries.some(function (entry) { return Date.now() - (entry.at || 0) > RADDLE_QUEUE_STUCK_MS; });
     var note = taskRoot.querySelector('.new-raddle-offline-note');
-    if (!waiting || (navigator.onLine !== false && !stuck)) {
+    if (!waiting || (navigator.onLine !== false && !stuck && !offlineSendingPaused)) {
       if (note) note.parentNode.removeChild(note);
       return;
     }
@@ -2352,8 +2374,11 @@
       var layout = taskRoot.querySelector('.new-raddle-layout');
       if (layout) layout.parentNode.insertBefore(note, layout);
     }
-    note.textContent = 'Нет связи с сервером. Ходы сохранены на этом устройстве '
-      + 'и отправятся сами, когда связь появится (ждут: ' + waiting + ').';
+    note.textContent = offlineSendingPaused
+      ? 'Сервер не принял ходы с этой страницы: она устарела. Ходы сохранены на этом '
+        + 'устройстве — обновите страницу, и они отправятся (ждут: ' + waiting + ').'
+      : 'Нет связи с сервером. Ходы сохранены на этом устройстве '
+        + 'и отправятся сами, когда связь появится (ждут: ' + waiting + ').';
   }
 
   function sendQueuedRaddleMove(entry) {
@@ -2376,7 +2401,17 @@
           return 'drop';
         });
       }
-      if (!r.ok) return 'retry';
+      if (r.status === 403) {
+        pauseOfflineSending(entry.scope);
+        return 'retry';
+      }
+      if (r.status >= 500 || r.status === 429 || r.status === 408) return 'retry';
+      // Any other refusal (404: the task is gone) cannot pass on a resend.
+      if (!r.ok) {
+        reportRaddleOffline('queue_dropped', { task_id: entry.scope, status: r.status });
+        raddleOutcome(entry.scope).diverged = true;
+        return 'drop';
+      }
       return r.json().then(function (data) {
         flushAnalyticsEvents(data);
         noteRaddleQueuedResponse(entry, data);
@@ -2469,7 +2504,7 @@
       raddleOutboxFlushAgain = true;
       return;
     }
-    if (!raddleOutbox || navigator.onLine === false) return;
+    if (!raddleOutbox || navigator.onLine === false || offlineSendingPaused) return;
     var scopes = [];
     raddleOutbox.entries().forEach(function (entry) {
       if (scopes.indexOf(String(entry.scope)) === -1) scopes.push(String(entry.scope));
@@ -3056,9 +3091,7 @@
   // answer given without the network is kept here and sent when it is back.
   var ORDINARY_OUTBOX_KEY = 'interoves:ordinary-outbox:v1';
   var ordinaryOutbox = window.InterovesOutbox
-    ? window.InterovesOutbox.createOutbox({
-      key: ORDINARY_OUTBOX_KEY, storage: raddleSafeLocalStorage() || undefined, actor: PAGE.offlineActor || '',
-    })
+    ? window.InterovesOutbox.createOutbox({ key: ORDINARY_OUTBOX_KEY, storage: raddleSafeLocalStorage() || undefined })
     : null;
   var ordinaryOutboxFlushing = false;
   var ORDINARY_QUEUED_TEXT = {
@@ -3147,7 +3180,11 @@
       body: body,
       credentials: 'same-origin',
     }, RADDLE_FETCH_TIMEOUT_MS).then(function (r) {
-      if (r.status >= 500 || r.status === 429) return 'retry';
+      if (r.status >= 500 || r.status === 429 || r.status === 408) return 'retry';
+      if (r.status === 403) {
+        pauseOfflineSending(entry.scope);
+        return 'retry';
+      }
       if (!r.ok) {
         // 409: another account or a stale game context; it will never be taken.
         return droppedMoveError(r).then(function (error) {
@@ -3165,7 +3202,8 @@
   }
 
   function flushOrdinaryOutbox() {
-    if (!ordinaryOutbox || ordinaryOutboxFlushing || navigator.onLine === false || !ordinaryOutbox.size()) return;
+    if (!ordinaryOutbox || ordinaryOutboxFlushing || navigator.onLine === false || offlineSendingPaused
+        || !ordinaryOutbox.size()) return;
     ordinaryOutboxFlushing = true;
     window.InterovesOutbox.flush(ordinaryOutbox, null, sendQueuedOrdinaryAnswer).then(function (result) {
       ordinaryOutboxFlushing = false;

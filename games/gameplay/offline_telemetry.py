@@ -37,6 +37,8 @@ CLIENT_KINDS = {
     'assemble_failed': ('Карточка не собралась из кусочков', True),
     'restore_failed': ('Прогресс не восстановился при открытии без сети', True),
     'queue_dropped': ('Офлайн-ход отклонён навсегда (другой аккаунт или игра)', True),
+    # 403 to a queued move: the page's CSRF token is stale; sent after a reload.
+    'queue_blocked': ('Офлайн-ходы ждут обновления страницы (устаревший CSRF)', False),
 }
 SERVER_KINDS = {
     'verdict_divergence': 'Вердикт страницы разошёлся с сервером',

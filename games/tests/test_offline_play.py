@@ -211,12 +211,12 @@ class LadderOfflinePackEndpointTests(_ClientEventFixture):
         self.assertEqual(offline_run(SimpleNamespace(run_id=run_id)), str(run_id))
 
     def test_page_names_the_actor_of_its_offline_queue(self):
+        from allauth.socialaccount.models import SocialApp
+        from django.contrib.auth.models import User
+        from django.contrib.sites.models import Site
         from django.urls import reverse
 
         from games.site.session.gameplay_context import actor_tag
-
-        from allauth.socialaccount.models import SocialApp
-        from django.contrib.sites.models import Site
 
         site, _ = Site.objects.get_or_create(id=1, defaults={'domain': 'testserver', 'name': 'test'})
         for provider in ('google', 'vk', 'yandex'):
@@ -226,7 +226,14 @@ class LadderOfflinePackEndpointTests(_ClientEventFixture):
             app.sites.add(site)
         url = reverse('new_task_group', args=[self.game.id, '1'])
         page = self.client.get(url).content.decode()
-        self.assertIn('offlineActor: "{}"'.format(actor_tag(anon_key=self.anon_key)), page)
+        anon = actor_tag(anon_key=self.anon_key)
+        self.assertIn('data-offline-actor="{}"'.format(anon), page)
+        # The same browser after a login queues for the user.
+        user = User.objects.create_user('offline-actor', password='x')
+        self.client.force_login(user)
+        page = self.client.get('/').content.decode()
+        self.assertIn('data-offline-actor="{}"'.format(actor_tag(user=user)), page)
+        self.assertNotIn(anon, page)
 
     def test_pack_names_its_actor(self):
         # Its pieces carry the actor's gameplay tokens: a pack kept from

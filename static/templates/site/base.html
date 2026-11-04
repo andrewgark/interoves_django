@@ -69,7 +69,7 @@
   <link rel="stylesheet" href="{% static "vendor/phosphor-icons-web/2.1.2/fill/style.css" %}">
   {% block extrahead %}{% endblock %}
 </head>
-<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}"{% if live_next_transition_at %} data-live-next-transition-at="{{ live_next_transition_at|date:'c' }}"{% endif %} {% block body_attrs %}{% endblock %}>
+<body class="new-ui" data-authenticated="{% if user.is_authenticated %}1{% else %}0{% endif %}" data-user-id="{% if user.is_authenticated %}{{ user.pk }}{% endif %}" data-offline-actor="{{ offline_actor|default:'' }}" data-timezone="{{ user_timezone|default:'Europe/Moscow' }}"{% if live_next_transition_at %} data-live-next-transition-at="{{ live_next_transition_at|date:'c' }}"{% endif %} {% block body_attrs %}{% endblock %}>
   {% include "partials/yandex_metrika_noscript.html" %}
   {% if not user.is_authenticated %}
   <script>
@@ -479,6 +479,25 @@
   {% endif %}
   <form id="interoves-page-csrf" hidden>{% csrf_token %}</form>
   <script src="{% static "js/page_csrf.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
+  <script>
+  // Offline play keeps ladder pages (static/js/offline_sw.js) and packs on
+  // this device. When another actor plays here (a logout, a login, another
+  // account), drop them: without the network the worker would show the
+  // previous player's page. Queued moves stay; each waits for its own actor.
+  (function () {
+    try {
+      var actor = document.body.getAttribute('data-offline-actor') || '';
+      var KEY = 'interoves:offline-owner';
+      if (!actor || localStorage.getItem(KEY) === actor) return;
+      localStorage.setItem(KEY, actor);
+      for (var i = localStorage.length - 1; i >= 0; i--) {
+        var key = localStorage.key(i);
+        if (key && key.indexOf('interoves:raddle-offline:') === 0) localStorage.removeItem(key);
+      }
+      if (window.caches) window.caches.delete('interoves-offline-pages-v1').catch(function () {});
+    } catch (e) {}
+  })();
+  </script>
   <script src="{% static "js/vote_stack.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   <script src="{% static "js/task_meta_fit.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>
   <script src="{% static "js/daily_game_header_fit.js" %}?v={{ site_deploy_version|default:'0'|urlencode }}"></script>

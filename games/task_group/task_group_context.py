@@ -1,7 +1,6 @@
 """Assemble template context dicts for a task group (new UI task cards)."""
 
 import games.puzzles.core.check_runtime  # noqa: F401 — before grid_puzzle collectors import
-from games.site.session.gameplay_context import actor_tag
 from games.site.pages.results.pages import _raddle_ui_state_for_actor
 from games.task_group.daily_board_task_data import daily_board_task_data as collect_daily_board_data
 from games.task_group.grid_puzzle_task_data import grid_puzzle_data_by_task_id as collect_grid_puzzle_data
@@ -129,8 +128,6 @@ def build_task_group_task_context_dicts(
         'proportions_chips': proportions_chips,
         'task_ui_by_task_id': task_ui_by_task_id,
         'gameplay_context_tokens': gameplay_context_tokens,
-        # Whose offline queue this page sends (static/js/offline_outbox.js).
-        'offline_actor': actor_tag(team=team, user=user, anon_key=anon_key),
         'daily_board_contexts': board_data_by_context,
         **{
             f'{context_key}_data': data

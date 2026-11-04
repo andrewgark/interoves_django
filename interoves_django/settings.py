@@ -466,6 +466,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'games.site.http.context.ui_section_games',
                 'games.site.http.context.site_deploy_version',
+                'games.site.http.context.offline_actor',
                 'games.site.http.context.analytics_bootstrap',
                 'games.site.http.context.feedback_nav',
                 'games.site.http.context.friends_nav',
