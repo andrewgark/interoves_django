@@ -303,17 +303,27 @@ def prepare_raddle_board_data(
         task=task, game=game, mode=mode, team=team, user=user, anon_key=anon_key,
     )
     if offline is not None:
-        data['offline'] = {**offline, 'run': offline_run(replay_slot)}
+        data['offline'] = {
+            **offline,
+            'run': offline_run(replay_slot, team=team, user=user, anon_key=anon_key),
+        }
     return data
 
 
-def offline_run(replay_slot):
-    """Which run an offline pack belongs to: the official game or one replay.
+def offline_run(replay_slot, *, team=None, user=None, anon_key=None):
+    """Which run and actor an offline pack belongs to.
 
     The official game and every replay share the task revision, but a pack
-    built for one run lacks the pieces of another.
+    built for one run lacks the pieces of another. The pack's pieces also
+    carry the actor's gameplay tokens: a pack kept from before a login (or
+    from another account on this browser) would send moves the server
+    refuses, so the page keeps a pack only for the actor it was built for.
     """
-    return str(replay_slot.run_id) if replay_slot is not None else 'official'
+    from games.site.session.gameplay_context import actor_tag
+
+    run = str(replay_slot.run_id) if replay_slot is not None else 'official'
+    tag = actor_tag(team=team, user=user, anon_key=anon_key)
+    return '{}:{}'.format(run, tag) if tag else run
 
 
 def player_hints(hints):

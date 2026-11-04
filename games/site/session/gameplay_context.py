@@ -40,6 +40,16 @@ def actor_descriptor(*, team=None, user=None, anon_key=None):
     return None, None
 
 
+def actor_tag(*, team=None, user=None, anon_key=None):
+    """A short non-reversible name of the actor, safe to keep in the browser."""
+    kind, actor_id = actor_descriptor(team=team, user=user, anon_key=anon_key)
+    if not kind:
+        return ''
+    key = str(getattr(settings, 'SECRET_KEY', '')).encode('utf-8')
+    message = '{}:{}'.format(kind, actor_id).encode('utf-8')
+    return hmac.new(key, message, hashlib.sha256).hexdigest()[:16]
+
+
 def issue_gameplay_context(
     *, task=None, task_group=None, game, team=None, user=None, anon_key=None,
     replay_slot=None,

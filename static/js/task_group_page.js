@@ -2214,7 +2214,11 @@
         }
         if (data && data.status === 'ok' && data.pack) {
           raddleOfflinePacks[taskId] = data.pack;
-          saveRaddleOffline(taskId, { pack: data.pack });
+          // A card kept for another run or actor is not this page's progress.
+          var kept = loadRaddleOffline(taskId);
+          var patch = { pack: data.pack };
+          if (kept && kept.card && !(kept.pack && kept.pack.run === data.pack.run)) patch.card = null;
+          saveRaddleOffline(taskId, patch);
           allowRaddleOfflineTiming(data.pack);
           rememberRaddlePageForOffline();
         }

@@ -68,7 +68,9 @@ def ladder_offline_pack(request, ctx, mode, *, offline_timing=False):
         **pieces,
         'task_id': task.id,
         'revision': str(task.attempt_revision),
-        'run': offline_run(ctx.replay_slot),
+        'run': offline_run(
+            ctx.replay_slot, team=ctx.team, user=ctx.user, anon_key=ctx.anon_key,
+        ),
         'state': {key: source.state.get(key) or [] for key in ('solved_indices', 'used_hints')},
         'rules': rules_config(source.parsed),
         'spec': client_spec_for_task(task),

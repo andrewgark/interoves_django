@@ -205,10 +205,20 @@ class LadderOfflinePackEndpointTests(_ClientEventFixture):
         # keeps a pack only for the run it was built for.
         OfflinePlayRule.objects.create(game=self.game, instant_verdict=True, offline_attempts=True)
         pack = self._pack()['pack']
-        self.assertEqual(pack['run'], 'official')
-        self.assertIn('data-offline-run="official"', pack['card_html'])
+        self.assertTrue(pack['run'].startswith('official:'), pack['run'])
+        self.assertIn('data-offline-run="{}"'.format(pack['run']), pack['card_html'])
         run_id = uuid.uuid4()
         self.assertEqual(offline_run(SimpleNamespace(run_id=run_id)), str(run_id))
+
+    def test_pack_names_its_actor(self):
+        # Its pieces carry the actor's gameplay tokens: a pack kept from
+        # before a login must not fit the logged-in page (409 on every move).
+        slot = SimpleNamespace(run_id=uuid.uuid4())
+        anon = offline_run(slot, anon_key=self.anon_key)
+        user = offline_run(slot, user=SimpleNamespace(pk=2424), anon_key=self.anon_key)
+        self.assertNotEqual(anon, user)
+        self.assertEqual(user, offline_run(slot, user=SimpleNamespace(pk=2424)))
+        self.assertTrue(anon.startswith(str(slot.run_id) + ':'))
 
 
 @override_settings(OFFLINE_PLAY_ENABLED=True)
