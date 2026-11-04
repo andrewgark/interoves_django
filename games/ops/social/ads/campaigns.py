@@ -445,7 +445,9 @@ CAMPAIGNS = {
             name='Inter Oves — Россия → ru.interoves.com — ноябрь 2026',
             landing_url='https://ru.interoves.com/start/',
             region_ids=(REGION_RUSSIA,),
-            spend_limit_rub=3000,
+            # Nov 5: 85 ₽ spent in two days against 448 ₽ abroad; a third of
+            # the money moves to where players finish games.
+            spend_limit_rub=2000,
             cpa_rub=70,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
@@ -465,8 +467,8 @@ CAMPAIGNS = {
             name='Inter Oves — заграница → interoves.com — ноябрь 2026',
             landing_url='https://interoves.com/start/',
             region_ids=INTERNATIONAL_REGIONS,
-            spend_limit_rub=2000,
-            cpa_rub=80,
+            spend_limit_rub=3000,
+            cpa_rub=100,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
             keywords=SHARED_KEYWORDS,

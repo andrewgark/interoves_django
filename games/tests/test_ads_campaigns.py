@@ -101,7 +101,7 @@ class CampaignSpecTests(SimpleTestCase):
             pfc = strategy['PayForConversion']
             self.assertEqual(pfc['GoalId'], GOAL_GAME_COMPLETE)
             self.assertEqual(micros_to_rubles(pfc['Cpa']), 70)
-            self.assertEqual(micros_to_rubles(pfc['CustomPeriodBudget']['SpendLimit']), 3000)
+            self.assertEqual(micros_to_rubles(pfc['CustomPeriodBudget']['SpendLimit']), 2000)
             self.assertEqual(pfc['CustomPeriodBudget']['AutoContinue'], 'NO')
             self.assertNotIn('WeeklySpendLimit', pfc)
         self.assertEqual(payload['UnifiedCampaign']['CounterIds']['Items'], [METRIKA_COUNTER_ID])
