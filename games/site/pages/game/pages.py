@@ -361,6 +361,7 @@ def project_task_group_page(request, project_id, game_id, task_group_number):
         'tg_heading_html': ctx_dicts['tg_heading_html'],
         'task_ui_by_task_id': ctx_dicts['task_ui_by_task_id'],
         'gameplay_context_tokens': ctx_dicts['gameplay_context_tokens'],
+        'offline_actor': ctx_dicts['offline_actor'],
         'can_like': True,
         'has_profile_user': has_profile(request.user),
         'mode': mode,

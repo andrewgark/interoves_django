@@ -9,12 +9,20 @@
  * server answers a known client_event_id with the move it already recorded,
  * so another tab flushing the same queue cannot double a move.
  *
+ * With options.actor (the page's actor tag) the queue is that actor's: added
+ * moves are stamped with it, and moves of another actor on this browser (from
+ * before a login, or another account) are neither shown, sent nor cleared:
+ * the server would refuse them, and they wait for their own actor. Moves no
+ * longer sendable by anyone (the gameplay token lives 14 days) are pruned.
+ *
  * Local check: node static/js/offline_outbox.test.js
  */
 (function (global) {
   'use strict';
 
   var STORAGE_KEY = 'interoves:offline-outbox:v1';
+  // games/site/session/gameplay_context.GAMEPLAY_CONTEXT_MAX_AGE, plus a day.
+  var FOREIGN_TTL_MS = 15 * 24 * 3600 * 1000;
 
   function memoryStorage() {
     var data = Object.create(null);
@@ -29,6 +37,13 @@
     options = options || {};
     var storage = options.storage || memoryStorage();
     var key = options.key || STORAGE_KEY;
+    var actor = options.actor || '';
+    var now = options.now || function () { return Date.now(); };
+
+    // Unstamped moves (older pages, or a page that knows no actor) stay everyone's.
+    function mine(e) {
+      return !actor || !e.actor || e.actor === actor;
+    }
 
     function read() {
       try {
@@ -41,6 +56,9 @@
     }
 
     function write(list) {
+      list = list.filter(function (e) {
+        return mine(e) || !(e.at && now() - e.at > FOREIGN_TTL_MS);
+      });
       try {
         if (list.length) storage.setItem(key, JSON.stringify(list));
         else storage.removeItem(key);
@@ -55,11 +73,14 @@
       add: function (entry) {
         var list = read();
         if (list.some(function (e) { return e.id === entry.id; })) return true;
+        if (actor && !entry.actor) entry.actor = actor;
         list.push(entry);
         return write(list);
       },
       entries: function (scope) {
-        return read().filter(function (e) { return scope == null || String(e.scope) === String(scope); });
+        return read().filter(function (e) {
+          return mine(e) && (scope == null || String(e.scope) === String(scope));
+        });
       },
       size: function (scope) {
         return this.entries(scope).length;
@@ -68,7 +89,9 @@
         write(read().filter(function (e) { return e.id !== id; }));
       },
       clear: function (scope) {
-        write(read().filter(function (e) { return scope != null && String(e.scope) !== String(scope); }));
+        write(read().filter(function (e) {
+          return !mine(e) || (scope != null && String(e.scope) !== String(scope));
+        }));
       },
     };
   }

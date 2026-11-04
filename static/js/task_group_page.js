@@ -1944,7 +1944,9 @@
   var raddleOfflinePacks = Object.create(null);
   var raddleOfflinePackLoading = Object.create(null);
   var raddleOutbox = window.InterovesOutbox
-    ? window.InterovesOutbox.createOutbox({ storage: raddleSafeLocalStorage() || undefined })
+    ? window.InterovesOutbox.createOutbox({
+      storage: raddleSafeLocalStorage() || undefined, actor: PAGE.offlineActor || '',
+    })
     : null;
   var raddleOutboxFlushing = false;
   // An 'online' event during a flush must not wait for the next interval.
@@ -2366,9 +2368,13 @@
       credentials: 'same-origin',
     }, RADDLE_FETCH_TIMEOUT_MS).then(function (r) {
       // 409: the move belongs to another account or a stale game context.
+      // The card may show it played: let the server's card settle it.
       if (r.status === 409) {
-        reportRaddleOffline('queue_dropped', { task_id: entry.scope, status: 409 });
-        return 'drop';
+        return droppedMoveError(r).then(function (error) {
+          reportRaddleOffline('queue_dropped', { task_id: entry.scope, status: 409, error: error });
+          raddleOutcome(entry.scope).diverged = true;
+          return 'drop';
+        });
       }
       if (!r.ok) return 'retry';
       return r.json().then(function (data) {
@@ -2381,11 +2387,21 @@
 
   // Per task, what the server answered to the queued moves of this flush.
   var raddleFlushOutcome = Object.create(null);
-
-  function noteRaddleQueuedResponse(entry, data) {
-    var outcome = raddleFlushOutcome[entry.scope] || (raddleFlushOutcome[entry.scope] = {
+  function raddleOutcome(taskId) {
+    return raddleFlushOutcome[taskId] || (raddleFlushOutcome[taskId] = {
       diverged: false, html: null, complete: false, offline: 0,
     });
+  }
+
+  // The server's reason for refusing a queued move, for the alert.
+  function droppedMoveError(response) {
+    return response.json().then(function (data) {
+      return data && typeof data.error === 'string' ? data.error : null;
+    }, function () { return null; });
+  }
+
+  function noteRaddleQueuedResponse(entry, data) {
+    var outcome = raddleOutcome(entry.scope);
     if (entry.offline) outcome.offline += 1;
     var html = data && data.update_task_html_new ? data.update_task_html_new[entry.scope] : null;
     if (html) {
@@ -3040,7 +3056,9 @@
   // answer given without the network is kept here and sent when it is back.
   var ORDINARY_OUTBOX_KEY = 'interoves:ordinary-outbox:v1';
   var ordinaryOutbox = window.InterovesOutbox
-    ? window.InterovesOutbox.createOutbox({ key: ORDINARY_OUTBOX_KEY, storage: raddleSafeLocalStorage() || undefined })
+    ? window.InterovesOutbox.createOutbox({
+      key: ORDINARY_OUTBOX_KEY, storage: raddleSafeLocalStorage() || undefined, actor: PAGE.offlineActor || '',
+    })
     : null;
   var ordinaryOutboxFlushing = false;
   var ORDINARY_QUEUED_TEXT = {
@@ -3101,6 +3119,24 @@
     });
   }
 
+  // The page showed the answer as given; the server refused it, so the form
+  // takes an answer again.
+  function releaseDroppedOrdinaryAnswer(entry) {
+    var form = document.querySelector('form.new-attempt-form[data-task-id="' + entry.scope + '"][data-offline-spec]');
+    if (!form || form.getAttribute('data-offline-answered') !== '1') return;
+    form.removeAttribute('data-offline-answered');
+    var field = form.querySelector('input[name="text"]:not([type="hidden"]), textarea[name="text"]');
+    if (field) field.readOnly = false;
+    var button = form.querySelector('button[type=submit]');
+    if (button) button.disabled = false;
+    var msg = form.querySelector('.new-attempt-msg');
+    if (msg) {
+      msg.classList.remove('new-attempt-msg--partial', 'new-attempt-msg--pending');
+      msg.classList.add('new-attempt-msg--wrong');
+      msg.textContent = 'Сохранённый ответ не принят: аккаунт или игра изменились. Отправьте его ещё раз.';
+    }
+  }
+
   function sendQueuedOrdinaryAnswer(entry) {
     var body = new FormData();
     entry.fields.forEach(function (pair) { body.append(pair[0], pair[1]); });
@@ -3114,8 +3150,11 @@
       if (r.status >= 500 || r.status === 429) return 'retry';
       if (!r.ok) {
         // 409: another account or a stale game context; it will never be taken.
-        reportRaddleOffline('queue_dropped', { task_id: entry.scope, status: r.status });
-        return 'drop';
+        return droppedMoveError(r).then(function (error) {
+          reportRaddleOffline('queue_dropped', { task_id: entry.scope, status: r.status, error: error });
+          releaseDroppedOrdinaryAnswer(entry);
+          return 'drop';
+        });
       }
       return r.json().then(function (data) {
         flushAnalyticsEvents(data);

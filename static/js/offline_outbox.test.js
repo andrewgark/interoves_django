@@ -58,6 +58,29 @@ async function run() {
   fd.append('file', new Blob(['x']));
   assert.deepStrictEqual(O.formFields(fd), [['word', 'кот']]);
 
+  // ── A page sees, sends and clears only its actor's moves ────────────────
+  var shared = fakeStorage();
+  var clock = 1000;
+  var now = function () { return clock; };
+  var anonBox = O.createOutbox({ storage: shared, actor: 'anon1', now: now });
+  anonBox.add({ id: 'old', scope: 7, fields: [] });
+  anonBox.add({ id: 'gone', scope: 7, fields: [], at: clock });
+  var legacy = O.createOutbox({ storage: shared, now: now });
+  legacy.add({ id: 'legacy', scope: 7, fields: [] });
+  var userBox = O.createOutbox({ storage: shared, actor: 'user1', now: now });
+  userBox.add({ id: 'mine', scope: 7, fields: [], at: clock });
+  assert.deepStrictEqual(userBox.entries(7).map(function (e) { return e.id; }), ['legacy', 'mine']);
+  var flushed = [];
+  await O.flush(userBox, 7, function (entry) { flushed.push(entry.id); return 'sent'; });
+  assert.deepStrictEqual(flushed, ['legacy', 'mine']);
+  userBox.add({ id: 'mine2', scope: 7, fields: [] });
+  userBox.clear(7);
+  assert.deepStrictEqual(anonBox.entries(7).map(function (e) { return e.id; }), ['old', 'gone']);
+  // Another actor's move outlives its gameplay token: pruned on the next write.
+  clock += 16 * 24 * 3600 * 1000;
+  userBox.add({ id: 'later', scope: 8, fields: [], at: clock });
+  assert.deepStrictEqual(anonBox.entries(7).map(function (e) { return e.id; }), ['old']);
+
   console.log('offline_outbox.test.js: ok');
 }
 
