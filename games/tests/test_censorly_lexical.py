@@ -13,11 +13,12 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from games.puzzles.censorly.text.roots import opens_with
+from games.puzzles.censorly.article.redact import lemmas_matching_guess
+from games.puzzles.censorly.lexical.graph.graph import edge_count, neighbors
+from games.puzzles.censorly.lexical.match import matching_lemmas
 from games.puzzles.censorly.lexical.match.core import fold
 from games.puzzles.censorly.lexical.match.dispatcher import backend_name
 from games.puzzles.censorly.lexical.match.generic_backend import CAPABILITIES as GENERIC_CAPS
-from games.puzzles.censorly.lexical.graph.graph import edge_count, neighbors
 from games.puzzles.censorly.lexical.match.resolver import (
     describe_token,
     open_prepared,
@@ -26,14 +27,13 @@ from games.puzzles.censorly.lexical.match.resolver import (
     related,
     relation_kind,
 )
-from games.puzzles.censorly.lexical.russian import CAPABILITIES as RUSSIAN_CAPS
-from games.puzzles.censorly.lexical.russian.decisions import REJECT
-from games.puzzles.censorly.lexical.russian.context import inflection_matches, occurrence_of
-from games.puzzles.censorly.lexical.russian.morphology import cognate_lemmas
-from games.puzzles.censorly.lexical.match import matching_lemmas
 from games.puzzles.censorly.lexical.match.rootbank import structures_of
+from games.puzzles.censorly.lexical.russian import CAPABILITIES as RUSSIAN_CAPS
+from games.puzzles.censorly.lexical.russian.context import inflection_matches, occurrence_of
+from games.puzzles.censorly.lexical.russian.decisions import REJECT
+from games.puzzles.censorly.lexical.russian.morphology import cognate_lemmas
 from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
-from games.puzzles.censorly.article.redact import lemmas_matching_guess
+from games.puzzles.censorly.text.roots import opens_with
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload, tokenize_text
 
 
@@ -109,8 +109,8 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             self.assertFalse(_relation(_Pack(left), _Pack(right)), f'{left}/{right}')
 
     def test_two_family_senses_are_assigned_to_distinct_clusters(self):
-        from games.puzzles.censorly.lexical.splits import CLUSTERS
         from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.splits import CLUSTERS
 
         clusters = {lemma: name for name, lemmas in CLUSTERS for lemma in lemmas}
         family_review = (
@@ -129,8 +129,6 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertEqual(clusters['два'], 'sense:two')
         self.assertEqual(clusters['двойной'], 'sense:two')
 
-        twins = structures_of('двойня')
-        lookalike = structures_of('двойник')
         self.assertTrue(_has_sense('двойня', 'sense:twin_birth'))
         self.assertTrue(_has_sense('двойник', 'sense:lookalike'))
         self.assertFalse(_relation(_GuessPack('двойня'), _Pack('двойник')))
@@ -415,6 +413,12 @@ class LexicalResolverTests(SimpleTestCase):
             ('присваивание', 'присвоить'),
             ('рассуждение', 'рассуждать'),
             ('ссуда', 'ссужать'),
+            ('гниют', 'гнилой'),
+            ('шествие', 'шествовать'),
+            ('сосуд', 'сосудистый'),
+            ('вес', 'весомый'),
+            ('способный', 'способность'),
+            ('светящийся', 'светило'),
         )
         expected_closed = (
             ('жалование', 'жалевшая'),
@@ -431,6 +435,12 @@ class LexicalResolverTests(SimpleTestCase):
             ('суд', 'пересуды'),
             ('свой', 'свояк'),
             ('свой', 'присвоение'),
+            ('гниют', 'отгоняет'),
+            ('нашествием', 'прошедший'),
+            ('сосудистая', 'посуда'),
+            ('взвесь', 'перевешивает'),
+            ('способы', 'приспособление'),
+            ('светящийся', 'светлее'),
         )
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
