@@ -354,6 +354,8 @@ GAME_GROUPS = (
     ),
 )
 
+RU_SEARCH_NEGATIVES = ('шахматы', 'тетрис', 'кубики', 'цифры', 'скачать', 'память', 'brain test')
+
 CAMPAIGNS = {
     spec.slug: spec
     for spec in (
@@ -369,6 +371,9 @@ CAMPAIGNS = {
             keywords=SHARED_KEYWORDS,
             ads=SHARED_ADS,
             game_groups=GAME_GROUPS,
+            # Nov 4: search brought chess, tetris and app-download queries
+            # whose visitors never started a word puzzle.
+            negative_keywords=CampaignSpec.negative_keywords + RU_SEARCH_NEGATIVES,
             notes=('ru.interoves.com opens in Russia without VPN',),
         ),
         CampaignSpec(
@@ -627,6 +632,9 @@ def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
             failures.append(f'{placement} goal {pfc.get("GoalId")} != {spec.goal_id}')
     if METRIKA_COUNTER_ID not in ((unified.get('CounterIds') or {}).get('Items') or []):
         failures.append('Metrika counter missing')
+    missing_negatives = _missing_negatives(spec, camp)
+    if missing_negatives:
+        failures.append(f'minus-phrases missing: {sorted(missing_negatives)}')
 
     for group in ops.adgroups_get(ads, campaign_ids=[campaign_id]):
         if sorted(group.get('RegionIds') or []) != sorted(spec.region_ids):
@@ -767,6 +775,24 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'added': added, 'game_groups': groups}
 
 
+def _strategy_key(campaign: dict) -> tuple:
+    search = (((campaign.get('UnifiedCampaign') or {}).get('BiddingStrategy') or {}).get('Search') or {})
+    pfc = search.get('PayForConversion') or {}
+    budget = pfc.get('CustomPeriodBudget') or {}
+    return (search.get('BiddingStrategyType'), pfc.get('Cpa'), pfc.get('GoalId'),
+            *(budget.get(k) for k in ('SpendLimit', 'StartDate', 'EndDate', 'AutoContinue')))
+
+
+def _missing_negatives(spec: CampaignSpec, campaign: dict) -> set[str]:
+    """Spec minus-phrases absent from the campaign.
+
+    Direct folds word forms when it stores them (кроссворды → кроссворд), so a
+    phrase counts as present when a live one is a prefix of it.
+    """
+    live = (campaign.get('NegativeKeywords') or {}).get('Items') or []
+    return {p for p in spec.negative_keywords if not any(p.startswith(item) for item in live)}
+
+
 def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
     """Bring a live campaign's strategy and game ads (texts, links, images) to the spec."""
     from games.ops.social.ads import ops
@@ -776,16 +802,23 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         raise ConfigError(f'{spec.slug} has not been created')
     campaign_id = record['campaign_id']
     payload = campaign_payload(spec)
-    result = ads.call('campaigns', 'update', {'Campaigns': [{
-        'Id': campaign_id,
-        'UnifiedCampaign': {'BiddingStrategy': payload['UnifiedCampaign']['BiddingStrategy']},
-    }]})
-    for row in result.get('UpdateResults') or []:
-        if row.get('Errors'):
-            raise ConfigError(f'Campaigns.update: {row["Errors"]}')
-    audit(action='update', object_type='campaign', object_id=campaign_id,
-          new_value={'spend_limit_rub': spec.spend_limit_rub, 'cpa_rub': spec.cpa_rub},
-          reason='sync strategy to spec', api_status='updated')
+    camp = (ops.campaigns_get(ads, [campaign_id]) or [{}])[0]
+    # Resending an unchanged strategy risks restarting its learning, so the
+    # strategy and the minus-phrases are sent only when they differ.
+    change = {}
+    if _strategy_key(camp) != _strategy_key(payload):
+        change['UnifiedCampaign'] = {'BiddingStrategy': payload['UnifiedCampaign']['BiddingStrategy']}
+    if _missing_negatives(spec, camp):
+        change['NegativeKeywords'] = payload['NegativeKeywords']
+    if change:
+        result = ads.call('campaigns', 'update', {'Campaigns': [{'Id': campaign_id, **change}]})
+        for row in result.get('UpdateResults') or []:
+            if row.get('Errors'):
+                raise ConfigError(f'Campaigns.update: {row["Errors"]}')
+        audit(action='update', object_type='campaign', object_id=campaign_id,
+              new_value={'spend_limit_rub': spec.spend_limit_rub, 'cpa_rub': spec.cpa_rub,
+                         'negative_keywords': list(spec.negative_keywords), 'fields': sorted(change)},
+              reason='sync campaign to spec', api_status='updated')
 
     hashes = upload_images(ads, [i for g in spec.game_groups for i in g.images], audit=audit, state_store=state_store)
     state = state_store.load()

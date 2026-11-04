@@ -270,7 +270,37 @@ class GameGroupTests(SimpleTestCase):
                 ad['TextAd']['Title'] = 'old title'
         result = campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
         self.assertEqual(result['updated_ads'], [ladder_ad])
-        self.assertIn(('campaigns', 'update'), direct.writes())
+        # Strategy and minus-phrases already match: the campaign is left alone.
+        self.assertNotIn(('campaigns', 'update'), direct.writes())
+
+    def test_sync_sends_only_the_campaign_fields_that_changed(self):
+        direct = FakeDirect()
+        original = direct.call
+        direct.call = lambda s, m, p=None: (
+            {'AddResults': [{'AdImageHash': 'h'}]} if (s, m) == ('adimages', 'add') else original(s, m, p)
+        )
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        spec = replace(self.spec, negative_keywords=self.spec.negative_keywords + ('шашки',))
+        self.assertIn("minus-phrases missing: ['шашки']",
+                      campaigns.verify(direct, spec, direct.added['campaigns'][0]['Id'])['failures'])
+        campaigns.sync(direct, spec, audit=self.audit, state_store=self.store)
+        updates = [p for s, m, p in direct.calls if (s, m) == ('campaigns', 'update')]
+        self.assertEqual(len(updates), 1)
+        sent = updates[0]['Campaigns'][0]
+        self.assertNotIn('UnifiedCampaign', sent)
+        self.assertIn('шашки', sent['NegativeKeywords']['Items'])
+
+        campaigns.sync(direct, replace(self.spec, cpa_rub=self.spec.cpa_rub - 10),
+                       audit=self.audit, state_store=self.store)
+        sent = [p for s, m, p in direct.calls if (s, m) == ('campaigns', 'update')][-1]['Campaigns'][0]
+        self.assertIn('UnifiedCampaign', sent)
+        self.assertNotIn('NegativeKeywords', sent)
+
+    def test_word_forms_folded_by_direct_count_as_present(self):
+        spec = replace(self.spec, negative_keywords=('кроссворды', 'шашки'))
+        live = {'NegativeKeywords': {'Items': ['кроссворд']}}
+        self.assertEqual(campaigns._missing_negatives(spec, live), {'шашки'})
 
 
     def test_sync_adds_a_missing_ad_and_replaces_images(self):
