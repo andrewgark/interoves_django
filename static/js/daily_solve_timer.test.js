@@ -2410,20 +2410,58 @@ asyncTest(async function testReturnWithoutVisibilityEventRestartsTheClock() {
     await flush();
     assert.deepStrictEqual(actions, ['start', 'auto_pause', 'start']);
     assert.strictEqual(ctrl.state().status, 'running');
+    assert.deepStrictEqual(reports, [], 'the browser may still announce it');
+    now += 5000;
+    checks[0]();
+    await flush();
     assert.strictEqual(reports.length, 1);
     assert.strictEqual(reports[0].reason, 'return_not_signalled');
     assert.strictEqual(reports[0].details.hidden_via, 'visibilitychange');
     assert.strictEqual(reports[0].details.visible_via, 'poll');
+    ctrl.destroy();
 
-    // An announced return is not reported.
+    // Safari: focus (page already 'visible') right before visibilitychange.
+    // The clock starts on focus; the late announcement means no report.
+    reports.length = 0;
+    actions.length = 0;
+    checks.length = 0;
+    doc = { visibilityState: 'visible', addEventListener: function () {} };
+    ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      if (!init || init.method !== 'POST') {
+        return Promise.resolve({ status: 200, json: function () {
+          return Promise.resolve({ ok: true, exists: true, status: 'auto_paused', is_authoritative: false });
+        } });
+      }
+      actions.push(body.action);
+      var running = body.action === 'start';
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({
+          ok: true, exists: true,
+          status: running ? 'running' : 'auto_paused',
+          is_authoritative: running,
+        });
+      } });
+    }, { document: doc, bootstrap: { status: 'auto_paused', exists: true } });
+    ctrl.boot();
+    await flush();
     doc.visibilityState = 'hidden';
     ctrl.onHidden('visibilitychange');
+    await flush();
     doc.visibilityState = 'visible';
+    ctrl.noteActivity();  // stands in for the focus/resume fallbacks
     ctrl.onVisible('visibilitychange');
     await flush();
+    assert.deepStrictEqual(actions, ['start', 'auto_pause', 'start']);
+    assert.strictEqual(ctrl.state().status, 'running');
+    now += 10000;
     checks[0]();
     await flush();
-    assert.strictEqual(reports.length, 1);
+    assert.deepStrictEqual(reports, [], 'a late visibilitychange is not a missing one');
     ctrl.destroy();
   } finally {
     Date.now = oldNow;

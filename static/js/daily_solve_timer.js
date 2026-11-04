@@ -25,6 +25,10 @@
   // (2026-11-03) twice let a hidden page become visible again without any
   // visibilitychange, so the clock waited for taps a minute apart to heal.
   var STOPPED_CHECK_MS = 5000;
+  // Safari (macOS and iOS) fires focus a moment before visibilitychange, with
+  // visibilityState already 'visible'. A return noticed by a fallback is only
+  // reported if no visibilitychange/pageshow follows within this grace.
+  var UNANNOUNCED_REPORT_AFTER_MS = 3000;
   var ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'input', 'wheel', 'touchstart', 'focusin'];
   var EVENT_QUEUE_LIMIT = 8;
   var EVENT_MAX_ATTEMPTS = 3;
@@ -252,6 +256,8 @@
     var lastHiddenAt = null;
     var lastVisibleVia = null;
     var lastVisibleAt = null;
+    // A return a fallback noticed, awaiting the browser's own announcement.
+    var unannouncedReturnAt = null;
     var startAttempts = 0;
     // Unlike startAttempts, automatic recovery does not reset this: it counts
     // every failed start since the clock last started, for the report.
@@ -1036,6 +1042,7 @@
       visibleSince = null;
       lastHiddenVia = typeof via === 'string' ? via : 'api';
       lastHiddenAt = Date.now();
+      unannouncedReturnAt = null;
       // Time hidden is not solving; a claim covers one visible stretch only.
       unconfirmedSince = null;
       if (completed || manuallyPaused || (!authoritative && status === 'auto_paused')) return;
@@ -1132,8 +1139,14 @@
 
     function onVisible(via) {
       visibleSince = Date.now();
-      lastVisibleVia = typeof via === 'string' ? via : 'api';
-      lastVisibleAt = visibleSince;
+      var announced = via === 'visibilitychange' || via === 'pageshow';
+      // The browser announced the return a fallback already handled (Safari
+      // fires focus first): nothing to report.
+      if (announced) unannouncedReturnAt = null;
+      if (announced || unannouncedReturnAt == null) {
+        lastVisibleVia = typeof via === 'string' ? via : 'api';
+        lastVisibleAt = visibleSince;
+      }
       stoppedSince = null;
       lastActivityAt = Date.now();
       idlePaused = false;
@@ -1145,20 +1158,29 @@
     }
 
     // The page went hidden and is visible again, but no visibilitychange or
-    // pageshow said so: treat it as the return it is, and report it once so
-    // we learn which browsers do this.
+    // pageshow said so (yet): treat it as the return it is. Report it only if
+    // the browser still has not announced it after a grace period, so we
+    // learn which browsers really skip the event.
     function noticeUnannouncedReturn(via) {
       if (destroyed || visibleSince != null || lastHiddenAt == null) return false;
       if (visibilityOf(doc) !== 'visible') return false;
       onVisible(via);
-      reportProblem('return_not_signalled');
+      unannouncedReturnAt = Date.now();
       return true;
+    }
+
+    function reportUnannouncedReturnIfStill() {
+      if (unannouncedReturnAt == null) return;
+      if (Date.now() - unannouncedReturnAt < UNANNOUNCED_REPORT_AFTER_MS) return;
+      unannouncedReturnAt = null;
+      reportProblem('return_not_signalled');
     }
 
     // Healing on taps alone left a thinking player on a stopped clock until
     // the next tap. A visible page that is not idle should be running.
     function checkStoppedClock() {
       if (destroyed || completed) return;
+      reportUnannouncedReturnIfStill();
       if (noticeUnannouncedReturn('poll')) return;
       if (idlePaused || Date.now() - lastActivityAt >= idleMs) return;
       healStoppedClock();
