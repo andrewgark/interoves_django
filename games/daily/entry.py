@@ -14,6 +14,16 @@ Too easy does not hook, too hard scares off; 3★ keeps the most players. So a
 newcomer gets the published puzzle closest to 3★ from the free window (the
 latest seven, never behind the Club paywall), skipping puzzles the visitor
 has already finished.
+
+Цензурка is the exception: its 3★ articles lose newcomers whose first game it
+is (Aug 15 – Nov 4, 2026):
+
+    stars  n   finished  returned within 7 days
+    2★     30  67%       23%
+    3★     62  52%       18%
+    4★     51  63%       31%
+
+so a Цензурка newcomer gets a 2★ article first, then a 4★ one.
 """
 
 from games.club.access.archive import FREE_ARCHIVE_COUNT
@@ -24,6 +34,7 @@ from games.models import GameTaskGroup, PlayerCompletedGame
 NEWCOMER_GAME_IDS = ('ladder', 'salad', 'alphabetty', 'censorly')
 # Preference by star rating; 1★ and 5★ are never chosen.
 STAR_PREFERENCE = (3, 2, 4)
+STAR_PREFERENCE_BY_GAME = {'censorly': (2, 4, 3)}
 
 
 def free_published_placements(game):
@@ -41,7 +52,7 @@ def free_published_placements(game):
 
 
 def newcomer_placement(game, *, user=None, anon_key=None):
-    """Placement closest to 3★ among free puzzles the actor has not finished.
+    """Preferred-difficulty placement among free puzzles the actor has not finished.
 
     None when no candidate has a visible rating yet; callers fall back to the
     latest puzzle.
@@ -60,13 +71,14 @@ def newcomer_placement(game, *, user=None, anon_key=None):
         finished = finished.none()
     done = set(finished.values_list('task_group_id', flat=True))
     difficulties = get_cached_game_difficulties(candidates)
+    preference = STAR_PREFERENCE_BY_GAME.get(game.id, STAR_PREFERENCE)
     ranked = []
     for order, link in enumerate(candidates):
         if link.task_group_id in done:
             continue
         stars = (difficulties.get(link.pk) or {}).get('stars')
-        if stars in STAR_PREFERENCE:
-            ranked.append((STAR_PREFERENCE.index(stars), order, link))
+        if stars in preference:
+            ranked.append((preference.index(stars), order, link))
     if not ranked:
         return None
     return min(ranked, key=lambda item: item[:2])[2]

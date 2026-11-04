@@ -43,6 +43,13 @@ class NewcomerPlacementTests(TestCase):
         self.assertEqual(self.pick(user=user), '18')
         self.assertEqual(self.pick(anon_key='someone-else'), '17')
 
+    def test_censorly_newcomers_get_an_easier_article_first(self):
+        censorly = Game.objects.get(id='censorly')
+        for link in self.links:
+            link.game = censorly
+        with patch.object(entry, 'free_published_placements', return_value=self.links):
+            self.assertEqual(entry.newcomer_placement(censorly).number, '18')  # the 2★ one
+
     def test_never_picks_one_or_five_stars(self):
         DailyGameDifficulty.objects.filter(stars__in=(2, 3, 4)).delete()
         self.assertIsNone(self.pick())
