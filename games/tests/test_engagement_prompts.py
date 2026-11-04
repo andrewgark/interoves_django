@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from games.daily.activity import active_days
 from games.models import ClubEntitlement, Game, PlayerCompletedGame, Profile, TaskGroup
-from games.site.http.context import club_archive_ui, signup_prompt
+from games.site.http.context import club_archive_ui, daily_player, signup_prompt
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
@@ -122,4 +122,22 @@ class EngagementPromptTests(TestCase):
         self.assertNotIn(
             'data-signup-prompt',
             render_to_string('site/partials/signup_prompt.html', {'signup_prompt': {'show': False, 'days': 1}}),
+        )
+
+    def test_daily_player_counts_days_for_visitors_and_users(self):
+        with patch('games.ops.analytics.identity.gameplay_anon_key', return_value='anon-new'):
+            self.assertEqual(dict(daily_player(self._request(AnonymousUser()))['daily_player']),
+                             {'days': 0, 'newcomer': True})
+        self._play_days(2, user=self.user)
+        self.assertEqual(daily_player(self._request(self.user))['daily_player']['days'], 2)
+
+    def test_channel_prompt_goes_to_first_day_players_only(self):
+        game = {'id': 'salad'}
+        html = render_to_string('site/partials/channel_prompt.html', {'daily_player': {'days': 1}, 'game': game})
+        self.assertIn('https://t.me/interoves', html)
+        self.assertIn('channel_prompt_click', html)
+        self.assertIn('data-game-id="salad"', html)
+        self.assertNotIn(
+            'data-channel-prompt',
+            render_to_string('site/partials/channel_prompt.html', {'daily_player': {'days': 2}, 'game': game}),
         )
