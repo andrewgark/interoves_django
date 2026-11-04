@@ -107,7 +107,7 @@
               <span>{{ member.identity.initials }}</span>
               {% if member.identity.avatar_url %}<img src="{{ member.identity.avatar_url }}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">{% endif %}
             </span>
-            <span class="team-member__name">{{ member.identity.name }}{% if member.is_viewer %} <small>(вы)</small>{% endif %}</span>
+            <span class="team-member__name">{{ member.identity.name }}{% if member.is_viewer %} <small class="player-card__badge team-card__badge team-member__you">вы</small>{% endif %}</span>
           {% if member.url %}</a>{% else %}</span>{% endif %}
         </li>
       {% endfor %}

@@ -2457,6 +2457,7 @@ a.player-team:hover, a.player-team:focus-visible { border-color: var(--accent); 
   list-style: none;
 }
 .team-member {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -2485,8 +2486,16 @@ a.team-member:hover .team-member__name { color: var(--accent); }
 }
 .team-member__avatar > span, .team-member__avatar img { grid-area: 1 / 1; }
 .team-member__avatar img { width: 100%; height: 100%; object-fit: cover; }
-.team-member__name { min-width: 0; font-weight: 600; overflow-wrap: break-word; hyphens: auto; }
-.team-member__name small { color: var(--muted); font-weight: 400; }
+.team-member__name { min-width: 0; font-weight: 600; line-height: 20px; overflow-wrap: break-word; hyphens: auto; }
+.team-member__you {
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin: -10px;
+  border: 1px solid var(--accent);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
 .new-card.team-requests { margin: 0 0 1.25rem; border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .team-requests__list { margin: 0.5rem 0 0; padding: 0; list-style: none; }
 .team-requests__item {
