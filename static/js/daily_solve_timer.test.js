@@ -2359,6 +2359,129 @@ asyncTest(async function testHealthyTimerSendsNoReports() {
   }
 });
 
+asyncTest(async function testReturnWithoutVisibilityEventRestartsTheClock() {
+  // Chrome on Android, 2026-11-03: the page went hidden (auto_pause sent) and
+  // was visible again without any visibilitychange. The clock stayed stopped
+  // until taps a minute apart healed it. The periodic check restarts it.
+  var oldNow = Date.now;
+  var oldSetInterval = global.setInterval;
+  var now = 9000000;
+  var actions = [];
+  var reports = [];
+  var checks = [];
+  Date.now = function () { return now; };
+  global.setInterval = function (fn) { checks.push(fn); return checks.length; };
+  try {
+    var doc = { visibilityState: 'visible', addEventListener: function () {} };
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      if (!init || init.method !== 'POST') {
+        return Promise.resolve({ status: 200, json: function () {
+          return Promise.resolve({ ok: true, exists: true, status: 'auto_paused', is_authoritative: false });
+        } });
+      }
+      actions.push(body.action);
+      var running = body.action === 'start' || body.action === 'heartbeat';
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({
+          ok: true, exists: true,
+          status: running ? 'running' : 'auto_paused',
+          is_authoritative: running,
+        });
+      } });
+    }, { document: doc, bootstrap: { status: 'auto_paused', exists: true } });
+    ctrl.boot();
+    await flush();
+    assert.strictEqual(ctrl.state().status, 'running');
+    assert.strictEqual(checks.length, 1, 'boot starts the stopped-clock check');
+
+    doc.visibilityState = 'hidden';
+    ctrl.onHidden('visibilitychange');
+    await flush();
+    assert.deepStrictEqual(actions, ['start', 'auto_pause']);
+    // Back on the page, but the browser announces nothing.
+    doc.visibilityState = 'visible';
+    now += 5000;
+    checks[0]();
+    await flush();
+    assert.deepStrictEqual(actions, ['start', 'auto_pause', 'start']);
+    assert.strictEqual(ctrl.state().status, 'running');
+    assert.strictEqual(reports.length, 1);
+    assert.strictEqual(reports[0].reason, 'return_not_signalled');
+    assert.strictEqual(reports[0].details.hidden_via, 'visibilitychange');
+    assert.strictEqual(reports[0].details.visible_via, 'poll');
+
+    // An announced return is not reported.
+    doc.visibilityState = 'hidden';
+    ctrl.onHidden('visibilitychange');
+    doc.visibilityState = 'visible';
+    ctrl.onVisible('visibilitychange');
+    await flush();
+    checks[0]();
+    await flush();
+    assert.strictEqual(reports.length, 1);
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setInterval = oldSetInterval;
+  }
+});
+
+asyncTest(async function testStoppedVisibleClockHealsWithoutTaps() {
+  // A player thinking without touching the screen must not wait for the next
+  // tap to get the clock going again.
+  var oldNow = Date.now;
+  var oldSetInterval = global.setInterval;
+  var now = 9000000;
+  var actions = [];
+  var checks = [];
+  Date.now = function () { return now; };
+  global.setInterval = function (fn) { checks.push(fn); return checks.length; };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (!init || init.method !== 'POST' || body.action === 'client_report') {
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: false }); } });
+      }
+      actions.push(body.action);
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({ ok: true, exists: true, status: 'running', is_authoritative: true });
+      } });
+    }, { bootstrap: { status: 'running', is_authoritative: true, exists: true } });
+    ctrl.boot();
+    await flush();
+    actions.length = 0;
+    ctrl.applySnapshot({ status: 'auto_paused', is_authoritative: false, exists: true });
+    checks[0]();
+    now += 5000;
+    checks[0]();
+    await flush();
+    assert.deepStrictEqual(actions, [], 'no restart before the grace period');
+    now += 5000;
+    checks[0]();
+    await flush();
+    assert.deepStrictEqual(actions, ['start']);
+    assert.strictEqual(ctrl.state().status, 'running');
+
+    // Idle for the full limit: the check leaves the clock alone.
+    ctrl.applySnapshot({ status: 'auto_paused', is_authoritative: false, exists: true });
+    now += timer.IDLE_MS;
+    checks[0]();
+    now += 20000;
+    checks[0]();
+    await flush();
+    assert.deepStrictEqual(actions, ['start']);
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setInterval = oldSetInterval;
+  }
+});
+
 asyncTest(async function testActivityHealsAStoppedClockAndReportsIt() {
   // The timer ran, then stopped for an unknown reason (e.g. an auto_pause
   // lost while the page was unloading) while the player kept solving.

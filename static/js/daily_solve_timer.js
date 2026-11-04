@@ -21,6 +21,10 @@
   var HEAL_AFTER_MS = 10000;
   var HEAL_THROTTLE_MS = 10000;
   var STOPPED_REPORT_AFTER_MS = 60000;
+  // A visible page checks this often that its clock runs. Chrome on Android
+  // (2026-11-03) twice let a hidden page become visible again without any
+  // visibilitychange, so the clock waited for taps a minute apart to heal.
+  var STOPPED_CHECK_MS = 5000;
   var ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'keydown', 'input', 'wheel', 'touchstart', 'focusin'];
   var EVENT_QUEUE_LIMIT = 8;
   var EVENT_MAX_ATTEMPTS = 3;
@@ -241,6 +245,13 @@
     var watchdogTimer = null;
     var stoppedSince = null;
     var lastHealAt = 0;
+    var stoppedCheckTimer = null;
+    // How the page last went hidden and came back, for the reports: which
+    // browser event announced it (or which fallback noticed it) and when.
+    var lastHiddenVia = null;
+    var lastHiddenAt = null;
+    var lastVisibleVia = null;
+    var lastVisibleAt = null;
     var startAttempts = 0;
     // Unlike startAttempts, automatic recovery does not reset this: it counts
     // every failed start since the clock last started, for the report.
@@ -984,6 +995,7 @@
     }
 
     function noteActivity() {
+      if (noticeUnannouncedReturn('activity')) return;
       lastActivityAt = Date.now();
       if (idlePaused) {
         idlePaused = false;
@@ -1020,8 +1032,10 @@
       retryAfterConnectivity();
     }
 
-    function onHidden() {
+    function onHidden(via) {
       visibleSince = null;
+      lastHiddenVia = typeof via === 'string' ? via : 'api';
+      lastHiddenAt = Date.now();
       // Time hidden is not solving; a claim covers one visible stretch only.
       unconfirmedSince = null;
       if (completed || manuallyPaused || (!authoritative && status === 'auto_paused')) return;
@@ -1071,6 +1085,10 @@
         session_id: sessionId,
         capability: timingEventCapability,
         page_age_s: Math.round((Date.now() - createdAt) / 1000),
+        hidden_via: lastHiddenVia,
+        hidden_age_s: lastHiddenAt == null ? null : Math.round((Date.now() - lastHiddenAt) / 1000),
+        visible_via: lastVisibleVia,
+        visible_age_s: lastVisibleAt == null ? null : Math.round((Date.now() - lastVisibleAt) / 1000),
       };
       Object.keys(extra || {}).forEach(function (key) { details[key] = extra[key]; });
       var headers = {
@@ -1112,8 +1130,10 @@
       }, delay || WATCHDOG_MS);
     }
 
-    function onVisible() {
+    function onVisible(via) {
       visibleSince = Date.now();
+      lastVisibleVia = typeof via === 'string' ? via : 'api';
+      lastVisibleAt = visibleSince;
       stoppedSince = null;
       lastActivityAt = Date.now();
       idlePaused = false;
@@ -1122,6 +1142,31 @@
         return;
       }
       retryAfterConnectivity();
+    }
+
+    // The page went hidden and is visible again, but no visibilitychange or
+    // pageshow said so: treat it as the return it is, and report it once so
+    // we learn which browsers do this.
+    function noticeUnannouncedReturn(via) {
+      if (destroyed || visibleSince != null || lastHiddenAt == null) return false;
+      if (visibilityOf(doc) !== 'visible') return false;
+      onVisible(via);
+      reportProblem('return_not_signalled');
+      return true;
+    }
+
+    // Healing on taps alone left a thinking player on a stopped clock until
+    // the next tap. A visible page that is not idle should be running.
+    function checkStoppedClock() {
+      if (destroyed || completed) return;
+      if (noticeUnannouncedReturn('poll')) return;
+      if (idlePaused || Date.now() - lastActivityAt >= idleMs) return;
+      healStoppedClock();
+    }
+
+    function startStoppedCheck() {
+      if (stoppedCheckTimer || destroyed || options.stoppedCheck === false || !root.setInterval) return;
+      stoppedCheckTimer = root.setInterval(checkStoppedClock, options.stoppedCheckMs || STOPPED_CHECK_MS);
     }
 
     function pauseManual() {
@@ -1187,15 +1232,19 @@
       });
       if (root.addEventListener) root.addEventListener('scroll', noteActivity, { passive: true });
       doc.addEventListener('visibilitychange', function () {
-        if (visibilityOf(doc) === 'hidden') onHidden();
-        else onVisible();
+        if (visibilityOf(doc) === 'hidden') onHidden('visibilitychange');
+        else onVisible('visibilitychange');
       });
-      root.addEventListener && root.addEventListener('pagehide', onHidden);
+      root.addEventListener && root.addEventListener('pagehide', function () { onHidden('pagehide'); });
       // A page restored from the back/forward cache resumes without a fresh
       // boot; treat it like the tab becoming visible again.
       root.addEventListener && root.addEventListener('pageshow', function (event) {
-        if (event && event.persisted && visibilityOf(doc) === 'visible') onVisible();
+        if (event && event.persisted && visibilityOf(doc) === 'visible') onVisible('pageshow');
       });
+      // Further hints that a hidden page is back; each only acts after a hide
+      // that no visibilitychange/pageshow has answered yet.
+      root.addEventListener && root.addEventListener('focus', function () { noticeUnannouncedReturn('focus'); });
+      doc.addEventListener('resume', function () { noticeUnannouncedReturn('resume'); });
       doc.addEventListener('submit', function (event) {
         var form = event && event.target;
         if (form && form.closest && form.closest('form[data-replay-submit]') && doc.documentElement) {
@@ -1294,6 +1343,7 @@
     function boot() {
       if (destroyed) return;
       scheduleWatchdog();
+      startStoppedCheck();
       if (!fetchFn || !url) {
         if (!completed && !manuallyPaused) {
           authoritative = true;
@@ -1385,6 +1435,8 @@
         recoveryTimer = null;
         if (heartbeatTimer && root.clearInterval) root.clearInterval(heartbeatTimer);
         heartbeatTimer = null;
+        if (stoppedCheckTimer && root.clearInterval) root.clearInterval(stoppedCheckTimer);
+        stoppedCheckTimer = null;
         if (raf && root.cancelAnimationFrame) root.cancelAnimationFrame(raf);
         raf = null;
       },
