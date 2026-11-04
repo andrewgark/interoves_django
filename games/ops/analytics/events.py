@@ -94,6 +94,9 @@ YANDEX_GOAL_SIGNUP = 'signup'
 YANDEX_GOAL_GAME_START = 'game_start'
 YANDEX_GOAL_GAME_COMPLETE = 'game_complete'
 YANDEX_GOAL_ACTIVATED_PLAYER = 'activated_player'
+# First finished game of a Moscow day for a player who finished one on an
+# earlier day: the return that ads should buy, not one-off plays.
+YANDEX_GOAL_RETURNED_PLAYER = 'returned_player'
 YANDEX_GOAL_TICKET_CHECKOUT = 'ticket_checkout'
 YANDEX_GOAL_TICKET_PURCHASE = 'ticket_purchase'
 YANDEX_GOAL_SUBSCRIPTION_VIEW = 'subscription_view'
@@ -358,6 +361,40 @@ def _completed_goal_payload(record):
     )
 
 
+def _return_goal_payload(record, completed_games):
+    """``returned_player`` for ``record`` if it brings its actor back on a new day.
+
+    Sent alongside that completion's own goal (and retried with it), keyed by
+    the record so Metrika gets it once.
+    """
+    if record.completed_at is None:
+        return None
+    from games.daily.activity import MOSCOW
+
+    day_start = record.completed_at.astimezone(MOSCOW).replace(hour=0, minute=0, second=0, microsecond=0)
+    if not completed_games.filter(completed_at__lt=day_start).exists():
+        return None
+    first_today = (
+        completed_games.filter(completed_at__gte=day_start)
+        .order_by('completed_at', 'pk').values_list('pk', flat=True).first()
+    )
+    if first_today != record.pk:
+        return None
+    return yandex_goal_payload(
+        YANDEX_GOAL_RETURNED_PLAYER,
+        params={'game': record.game_kind},
+        key='{}:{}'.format(YANDEX_GOAL_RETURNED_PLAYER, record.pk),
+    )
+
+
+def _completion_goals(record, completed_games):
+    goals = [_completed_goal_payload(record)]
+    returned = _return_goal_payload(record, completed_games)
+    if returned:
+        goals.append(returned)
+    return goals
+
+
 def _activation_goal_payload(state, games_completed):
     return yandex_goal_payload(
         YANDEX_GOAL_ACTIVATED_PLAYER,
@@ -418,7 +455,7 @@ def publish_completion_analytics(
 
     goals = []
     if created and not record.is_backfilled and record.metrika_acked_at is None:
-        goals.append(_completed_goal_payload(record))
+        goals.extend(_completion_goals(record, _completed_games_qs(**analytics_actor)))
 
     if before_count < 3 <= completed_count and state.activated_at is None:
         activated_at = timezone.now()
@@ -1210,7 +1247,7 @@ def register_completed_game(
 
     goals = []
     if not record.is_backfilled and record.metrika_acked_at is None:
-        goals.append(_completed_goal_payload(record))
+        goals.extend(_completion_goals(record, _completed_games_qs(**analytics_actor)))
 
     with _analytics_timed_phase(_timing_phases, 'completed_count_after_ms'):
         after_count = _completed_games_qs(**analytics_actor).count()

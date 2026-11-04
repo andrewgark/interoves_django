@@ -119,6 +119,30 @@ class ProductAnalyticsTests(TestCase):
         self.assertEqual(gone.status_code, 200)
         self.assertEqual(forged.status_code, 400)
 
+    def test_first_completion_on_a_later_day_reports_a_return(self):
+        from datetime import timedelta
+
+        first_game, first_task = self._make_supported_task('ladder', 'raddle', 1)
+        goals = register_completed_game(user=self.user, task=first_task, game=first_game)
+        self.assertEqual([item['goal'] for item in goals], ['game_complete'])
+        # Another game the same day is not a return.
+        game, task = self._make_supported_task('alphabetty', 'alphabetty', 2)
+        goals = register_completed_game(user=self.user, task=task, game=game)
+        self.assertEqual([item['goal'] for item in goals], ['game_complete'])
+
+        PlayerCompletedGame.objects.filter(user=self.user).update(
+            completed_at=timezone.now() - timedelta(days=2),
+        )
+        game, task = self._make_supported_task('replacements', 'replacements_lines', 3)
+        goals = register_completed_game(user=self.user, task=task, game=game)
+        self.assertIn('returned_player', [item['goal'] for item in goals])
+        returned = next(item for item in goals if item['goal'] == 'returned_player')
+        self.assertEqual(returned['params'], {'game': 'replacement'})
+        # The day's second game is not another return.
+        game, task = self._make_supported_task('ladder', 'raddle', 4)
+        goals = register_completed_game(user=self.user, task=task, game=game)
+        self.assertNotIn('returned_player', [item['goal'] for item in goals])
+
     def test_completion_repeats_until_metrika_ack_then_stops(self):
         game, task = self._make_supported_task('ladder', 'raddle', 1)
 
