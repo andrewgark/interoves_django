@@ -38,7 +38,7 @@ def _next_or_friends(request):
 def _identities(user_ids, viewer, *, are_friends=False):
     """Cards for a list of players; only friends see past a hidden page."""
     profiles = Profile.objects.filter(
-        user_id__in=user_ids, is_hidden=False, user__is_active=True,
+        user_id__in=user_ids, user__is_active=True,
     ).order_by('first_name', 'last_name')
     return [
         {
@@ -54,7 +54,7 @@ def _identities(user_ids, viewer, *, are_friends=False):
 def friends_action(request):
     action = _ACTIONS.get(request.POST.get('action'))
     other = Profile.objects.filter(
-        public_id=(request.POST.get('player') or '').strip(), is_hidden=False, user__is_active=True,
+        public_id=(request.POST.get('player') or '').strip(), user__is_active=True,
     ).first()
     if action is None or other is None or not has_profile(request.user):
         raise Http404()
@@ -100,7 +100,7 @@ def friend_invite_create(request):
 
 def _invite_context(request, invite):
     owner = getattr(invite.user, 'profile', None)
-    if owner is None or owner.is_hidden or not invite.user.is_active:
+    if owner is None or not invite.user.is_active:
         return None
     return {
         'invite': invite,

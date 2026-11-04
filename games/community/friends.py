@@ -82,14 +82,15 @@ def _involving(user_id):
 
 
 def _with_visible_partner(user_id):
-    """Rows of ``user_id`` whose other side is an active, not admin-hidden player.
+    """Rows of ``user_id`` whose other side is an active player with a profile.
 
-    Counters, lists and filters must agree: a request from a hidden account
-    would otherwise light the header badge with nothing to answer.
+    Counters, lists and filters must agree: a request from a deactivated
+    account would otherwise light the header badge with nothing to answer.
+    Admin ``is_hidden`` only hides results-table rows, not friendships.
     """
     return Friendship.objects.filter(
-        Q(user_low_id=user_id, user_high__is_active=True, user_high__profile__is_hidden=False)
-        | Q(user_high_id=user_id, user_low__is_active=True, user_low__profile__is_hidden=False)
+        Q(user_low_id=user_id, user_high__is_active=True, user_high__profile__isnull=False)
+        | Q(user_high_id=user_id, user_low__is_active=True, user_low__profile__isnull=False)
     )
 
 

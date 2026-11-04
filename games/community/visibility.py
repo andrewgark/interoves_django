@@ -2,8 +2,8 @@
 
 A public page never shows contacts (Telegram, VK, e-mail). Players control
 two switches on their own profile: ``page_hidden`` and ``avatar_hidden``.
-The admin ``is_hidden`` flag removes the player from public surfaces
-entirely, so their page does not exist for others.
+The admin ``is_hidden`` flag only keeps the player out of results tables;
+their page, friendships and team rosters work as for anyone else.
 """
 
 from dataclasses import dataclass
@@ -40,7 +40,7 @@ def page_state(viewer, profile):
         return PAGE_FULL
     # Deactivated accounts (e.g. the losing side of an account merge) must
     # not linger as public duplicates of a player.
-    if profile.is_hidden or not profile.user.is_active:
+    if not profile.user.is_active:
         return PAGE_MISSING
     if profile.page_hidden:
         # Confirmed friends still see the page: hiding it is about strangers.
@@ -115,7 +115,7 @@ def player_urls_for_users(user_ids, viewer=None):
     if not ids:
         return {}
     rows = Profile.objects.filter(
-        user_id__in=ids, is_hidden=False, user__is_active=True,
+        user_id__in=ids, user__is_active=True,
     ).exclude(public_id=None).values_list('user_id', 'public_id', 'page_hidden')
     hidden = {user_id for user_id, _public_id, page_hidden in rows if page_hidden}
     allowed = set()

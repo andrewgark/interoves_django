@@ -248,18 +248,31 @@ class ShareUrlTests(TestCase):
 
 
 class ConsistencyRoundTests(FriendsExtrasFixture):
-    def test_requests_from_hidden_or_inactive_accounts_do_not_light_the_badge(self):
-        friends.request_friendship(self.anna, self.vera.pk)
+    def test_requests_from_inactive_accounts_do_not_light_the_badge(self):
         friends.request_friendship(self.boris, self.vera.pk)
-        Profile.objects.filter(pk=self.anna_p.pk).update(is_hidden=True)
         User.objects.filter(pk=self.boris.pk).update(is_active=False)
         self.assertEqual(friends.incoming_count(self.vera.pk), 0)
         self.assertFalse(friends.incoming_requests(self.vera.pk).exists())
 
-    def test_friend_ids_skip_hidden_accounts(self):
+    def test_requests_from_results_hidden_players_reach_the_recipient(self):
+        # Admin ``is_hidden`` only keeps rows out of results tables.
+        friends.request_friendship(self.anna, self.vera.pk)
+        Profile.objects.filter(pk=self.anna_p.pk).update(is_hidden=True)
+        self.assertEqual(friends.incoming_count(self.vera.pk), 1)
+        self.assertEqual(
+            list(friends.incoming_requests(self.vera.pk).values_list('requested_by_id', flat=True)),
+            [self.anna.pk],
+        )
+        from django.test import Client
+        client = Client()
+        client.force_login(self.vera)
+        self.assertIn(self.anna_p.display_name, client.get('/friends/').content.decode())
+
+    def test_friend_ids_skip_inactive_but_keep_results_hidden_accounts(self):
         self.befriend(self.anna, self.vera)
         self.befriend(self.boris, self.vera)
-        Profile.objects.filter(pk=self.boris_p.pk).update(is_hidden=True)
+        Profile.objects.filter(pk=self.anna_p.pk).update(is_hidden=True)
+        User.objects.filter(pk=self.boris.pk).update(is_active=False)
         self.assertEqual(friends.friend_user_ids(self.vera.pk), {self.anna.pk})
 
     def test_owner_preview_explains_untrusted_photo(self):

@@ -42,7 +42,7 @@ def _run_friend_request(payload) -> dict:
 
     recipient = User.objects.filter(pk=payload.get('to_user_id'), is_active=True).select_related('profile').first()
     sender = Profile.objects.filter(
-        user_id=payload.get('from_user_id'), is_hidden=False, user__is_active=True,
+        user_id=payload.get('from_user_id'), user__is_active=True,
     ).first()
     if recipient is None or sender is None or not getattr(recipient, 'profile', None):
         return {'sent': False, 'reason': 'missing'}

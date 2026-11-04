@@ -47,7 +47,7 @@ def friends_today(user, daily_cards):
     shown_ids = {uid for ids in played.values() for uid in ids[:SHOWN_FRIENDS_PER_GAME]}
     identities = {
         profile.user_id: visibility.public_identity(profile, user, page_visible=True)
-        for profile in Profile.objects.filter(user_id__in=shown_ids, is_hidden=False, user__is_active=True)
+        for profile in Profile.objects.filter(user_id__in=shown_ids, user__is_active=True)
     }
     from games.task_group.navigation import results_url_for_task_group
 

@@ -26,7 +26,7 @@ def _friend_sender(notification):
     from games.models import Profile
 
     return Profile.objects.filter(
-        user_id=notification.actor_id, is_hidden=False, user__is_active=True,
+        user_id=notification.actor_id, user__is_active=True,
     ).first()
 
 

@@ -12,13 +12,13 @@ from games.site.pages import NEW_UI_PROJECT, _project_urls_context, _team_invite
 
 
 def _roster(team, viewer):
-    """Members as other players see them; admin-hidden profiles are left out.
+    """Members as other players see them; deactivated accounts are left out.
 
     A hidden page keeps the name (it is public in results anyway) but drops
     the photo and the link, except for viewers who may see that page.
     """
     profiles = (
-        Profile.objects.filter(team_memberships__team=team, is_hidden=False, user__is_active=True)
+        Profile.objects.filter(team_memberships__team=team, user__is_active=True)
         .select_related('user').order_by('first_name', 'last_name', 'pk').distinct()
     )
     members = []

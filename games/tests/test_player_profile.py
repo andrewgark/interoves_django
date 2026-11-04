@@ -103,10 +103,15 @@ class PlayerPageTests(TestCase):
             self.assertNotIn(secret, body)
         self.assertIn('noindex', body)
 
-    def test_unknown_or_admin_hidden_profile_is_404(self):
+    def test_unknown_profile_is_404(self):
         self.assertEqual(Client().get('/u/nosuchid/').status_code, 404)
+
+    def test_admin_hidden_profile_still_has_a_page(self):
+        # ``is_hidden`` only keeps the player out of results tables.
         self.set_flags(is_hidden=True)
-        self.assertEqual(Client().get(self.url()).status_code, 404)
+        response = Client().get(self.url())
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('Анна Петрова', response.content.decode())
 
     def test_hidden_page_shows_only_name_to_others(self):
         self.set_flags(page_hidden=True)
@@ -153,7 +158,7 @@ class PlayerPageTests(TestCase):
 
 
 class ResultsLinkTests(TestCase):
-    def test_links_only_for_visible_pages_in_one_query(self):
+    def test_links_skip_hidden_pages_in_one_query(self):
         users = [User.objects.create_user('rl_{}'.format(i)) for i in range(3)]
         profiles = [Profile.objects.create(user=u, first_name='P', last_name=str(i)) for i, u in enumerate(users)]
         Profile.objects.filter(pk=profiles[1].pk).update(page_hidden=True)
@@ -164,7 +169,10 @@ class ResultsLinkTests(TestCase):
             data = attach_results_profile_links({'teams_sorted': actors})
         self.assertEqual(
             data['team_to_player_url'],
-            {actors[0]: '/u/{}/'.format(profiles[0].public_id)},
+            {
+                actors[0]: '/u/{}/'.format(profiles[0].public_id),
+                actors[2]: '/u/{}/'.format(profiles[2].public_id),
+            },
         )
 
     def test_no_query_without_personal_rows(self):

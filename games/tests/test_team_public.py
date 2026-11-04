@@ -78,10 +78,10 @@ class TeamPublicPageTests(TestCase):
         self.assertIn('Тихон Скромный', body)
         self.assertNotIn('/u/{}/'.format(self.shy_profile.public_id), body)
         self.assertNotIn('https://lh3.googleusercontent.com/shy.jpg', body)
-        # Admin-hidden profiles are not listed; contacts never are.
-        self.assertNotIn('Скрытый', body)
+        # Admin ``is_hidden`` only hides results rows; contacts are never listed.
+        self.assertIn('Скрытый Админом', body)
         self.assertNotIn('anna_tg', body)
-        self.assertIn('2 участника', body)
+        self.assertIn('3 участника', body)
         self.assertNotIn('Попроситься', body)
 
     def test_hidden_team_is_visible_to_members_only(self):
