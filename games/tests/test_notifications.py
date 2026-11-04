@@ -375,7 +375,7 @@ class NewKindsTests(NotificationFixture):
         salad_offers.accept_offer(offer)
         item = service.inbox(self.vera)[0]
         self.assertEqual(item['title'], 'Ваш салатик приняли')
-        self.assertIn('/create_salad/{}/'.format(offer.pk), item['url'])
+        self.assertTrue(item['url'].endswith('/create_salad/#offer-{}'.format(offer.pk)), item['url'])
         salad_offers.request_revision(offer, admin_note='Слишком лёгкий')
         items = service.inbox(self.vera)
         # The acceptance no longer holds, only the return shows.

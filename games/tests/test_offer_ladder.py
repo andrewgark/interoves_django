@@ -417,6 +417,15 @@ class LadderOfferFlowTests(TestCase):
         resp = c.get('/create_ladder/{}/'.format(offer.pk))
         self.assertEqual(resp.status_code, 404)
 
+    def test_owner_get_on_offer_api_redirects_to_list_page(self):
+        # Notification links used to point at this JSON endpoint.
+        offer = create_offer(self.user)
+        c = Client()
+        c.force_login(self.user)
+        resp = c.get('/create_ladder/{}/'.format(offer.pk))
+        self.assertEqual(resp.status_code, 302)
+        self.assertEqual(resp['Location'], '/create_ladder/#offer-{}'.format(offer.pk))
+
     def test_hash_page_allows_send_attempt_before_accept(self):
         offer = create_offer(self.user)
         update_offer_content(

@@ -253,11 +253,12 @@ FRIEND_ACCEPTED = register(NotificationKind(
 
 # ---- offers ----------------------------------------------------------------
 
-# game -> (model path, author page url name, takes offer_id, «ваш …» in the accusative)
+# game -> (model path, author list page url name, list anchors offers by id, «ваш …» in the accusative)
+# Link the HTML list page, never ``*_detail``: that one is the JSON save API.
 OFFER_GAMES = {
-    'salad': ('games.puzzles.salad.models.WordSaladOffer', 'new_create_salad_detail', True, 'ваш салатик'),
-    'ladder': ('games.puzzles.raddle.models.LadderOffer', 'new_create_ladder_detail', True, 'вашу лесенку'),
-    'alphabetty': ('games.puzzles.alphabetty.models.AlphabettyOffer', 'new_create_alphabetty_detail', True, 'вашу алфавитку'),
+    'salad': ('games.puzzles.salad.models.WordSaladOffer', 'new_create_salad', True, 'ваш салатик'),
+    'ladder': ('games.puzzles.raddle.models.LadderOffer', 'new_create_ladder', True, 'вашу лесенку'),
+    'alphabetty': ('games.puzzles.alphabetty.models.AlphabettyOffer', 'new_create_alphabetty', True, 'вашу алфавитку'),
     'censorly': ('games.puzzles.censorly.models.CensorlyOffer', 'new_create_censorly', False, 'вашу цензурку'),
 }
 
@@ -273,9 +274,10 @@ def _offer(notification):
 
 def _offer_url(notification) -> str:
     spec = OFFER_GAMES[notification.payload['game']]
+    url = reverse(spec[1])
     if spec[2]:
-        return reverse(spec[1], kwargs={'offer_id': notification.payload['offer_id']})
-    return reverse(spec[1])
+        url += '#offer-{}'.format(notification.payload['offer_id'])
+    return url
 
 
 def _offer_status_is(status):

@@ -5,8 +5,10 @@ from __future__ import annotations
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.views.decorators.http import require_http_methods, require_POST
 
+from games.club.link import offer_profile_error
 from games.club.offers.ladder import (
     LadderOfferError,
     create_offer,
@@ -18,10 +20,9 @@ from games.club.offers.ladder import (
     serialize_offer,
     update_offer_content,
 )
-from games.models import LadderOffer
 from games.club.offers.profiles import update_offer_profile_names
-from games.club.link import offer_profile_error
 from games.identity import has_profile
+from games.models import LadderOffer
 from games.site.http.request_util import json_boolean_field, parse_json_object_body
 from games.site.views.offers.reset import offer_reset_actors
 
@@ -95,7 +96,8 @@ def offer_ladder_detail(request, offer_id):
     if offer is None:
         return JsonResponse({'ok': False, 'error': 'Не найдено'}, status=404)
     if request.method == 'GET':
-        return JsonResponse({'ok': True, 'offer': serialize_offer(offer).to_dict()})
+        # Old notification links point here; send browsers to the list page.
+        return redirect(reverse('new_create_ladder') + '#offer-{}'.format(offer.pk))
     body = parse_json_object_body(request)
     if body is None:
         return JsonResponse({'ok': False, 'error': 'Некорректный JSON'}, status=400)

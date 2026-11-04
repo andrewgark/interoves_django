@@ -146,6 +146,7 @@
     offers.forEach(function (o) {
       var item = document.createElement('div');
       item.className = 'support-ladder-item';
+      item.id = 'offer-' + o.id;
       var num = o.production_number != null ? ('№' + o.production_number) : ('#' + o.id);
       var date = o.production_publish_date || (o.sent_at || o.created_at || '').slice(0, 10) || '—';
       item.innerHTML =
@@ -539,6 +540,14 @@
   });
 
   renderList();
+  (function focusOfferFromHash() {
+    var m = /^#offer-(\d+)$/.exec(window.location.hash || '');
+    var el = m && document.getElementById('offer-' + m[1]);
+    if (!el) return;
+    el.style.outline = '2px solid var(--new-accent, #f0a020)';
+    el.style.borderRadius = '8px';
+    el.scrollIntoView({ block: 'center' });
+  })();
 })();
 </script>
 {% endif %}
