@@ -10,14 +10,7 @@ import random
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from games.puzzles.censorly.ids import (
-    CENSORLY_CHECKER_ID,
-    CENSORLY_GAME_ID,
-    CENSORLY_TAGS_KEY,
-    CENSORLY_TASK_TYPE,
-)
-from games.puzzles.censorly.play import CENSORLY_BASE_POINTS
-from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
+from games.models import CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
 from games.puzzles.censorly.article.wiki import (
     CensorlyArticleRejected,
     WikiArticle,
@@ -26,7 +19,14 @@ from games.puzzles.censorly.article.wiki import (
     fetch_article,
     title_from_user_input,
 )
-from games.models import CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
+from games.puzzles.censorly.ids import (
+    CENSORLY_CHECKER_ID,
+    CENSORLY_GAME_ID,
+    CENSORLY_TAGS_KEY,
+    CENSORLY_TASK_TYPE,
+)
+from games.puzzles.censorly.play import CENSORLY_BASE_POINTS
+from games.puzzles.censorly.text.tokenize import build_puzzle_payload, title_content_lemmas
 from games.sections.placement_share import allocate_share_hash
 
 logger = logging.getLogger('application')
@@ -139,20 +139,21 @@ def used_censorly_titles() -> set[str]:
     used: set[str] = set(
         RandomCensorlyGame.objects.values_list('wiki_title', flat=True)
     )
-    for answer, tags in Task.objects.filter(
+    # Pull only the two title keys out of the puzzle JSON: the full payload
+    # holds the whole tokenized article, and loading it for every Цензурка
+    # made each random-game click spend seconds on the transfer.
+    for answer, *aliases in Task.objects.filter(
         task_type=CENSORLY_TASK_TYPE, is_removed=False,
-    ).values_list('answer', 'tags'):
+    ).values_list(
+        'answer',
+        f'tags__{CENSORLY_TAGS_KEY}__wiki_title',
+        f'tags__{CENSORLY_TAGS_KEY}__source_pool_title',
+    ):
         if answer:
             used.add(str(answer).strip())
-        if not isinstance(tags, dict):
-            continue
-        payload = tags.get(CENSORLY_TAGS_KEY) or {}
-        if not isinstance(payload, dict):
-            continue
-        for key in ('wiki_title', 'source_pool_title'):
-            alias = (payload.get(key) or '').strip()
-            if alias:
-                used.add(alias)
+        for alias in aliases:
+            if isinstance(alias, str) and alias.strip():
+                used.add(alias.strip())
     return used
 
 

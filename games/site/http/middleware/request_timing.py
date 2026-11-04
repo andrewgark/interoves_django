@@ -27,6 +27,12 @@ _RADDLE_UI = re.compile(r'^/send_raddle_ui/\d+/?$')
 _CENSORLY_RANDOM = re.compile(r'^/censorly/random/?$')
 _CENSORLY_GUESS = re.compile(r'^/censorly/(?:r/[^/]+|[^/]+)/guess/?$')
 _CENSORLY_PAGE = re.compile(r'^/censorly/(?:r/[^/]+|[^/]+)/?$')
+_RADDLE_OFFLINE_PACK = re.compile(r'^/raddle_offline_pack/\d+/?$')
+# Results pages (``/salad/results/``, ``/censorly/5/results/``,
+# ``/games/<id>/results/``) and daily statistics are frequent slow requests
+# with no phases yet; watching them at least splits SQL from Python time.
+_RESULTS_PAGE = re.compile(r'^/(?:[a-zA-Z0-9_-]+/){1,3}results/?$')
+_DAILY_STATISTICS = re.compile(r'^/daily-statistics/[^/]+/[^/]+/?$')
 
 
 def _watch_path(path: str) -> bool:
@@ -41,6 +47,9 @@ def _watch_path(path: str) -> bool:
         or _CENSORLY_RANDOM.match(path)
         or _CENSORLY_GUESS.match(path)
         or _CENSORLY_PAGE.match(path)
+        or _RADDLE_OFFLINE_PACK.match(path)
+        or _RESULTS_PAGE.match(path)
+        or _DAILY_STATISTICS.match(path)
     )
 
 

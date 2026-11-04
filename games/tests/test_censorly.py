@@ -1970,9 +1970,22 @@ class CensorlyRandomGameTests(TestCase):
             is_removed=True,
         )
         Task.objects.create(number='3', task_type='default', answer='Другая задача')
+        Task.objects.create(
+            number='4', task_type=CENSORLY_TASK_TYPE, answer='Без пазла', tags={},
+        )
+        Task.objects.create(
+            number='5', task_type=CENSORLY_TASK_TYPE, answer='Кривой пазл',
+            tags={CENSORLY_TAGS_KEY: 'not a dict'},
+        )
 
-        with self.assertNumQueries(2):  # random-game titles + one Task scan
+        with self.assertNumQueries(2) as queries:  # random-game titles + one Task scan
             titles = used_censorly_titles()
+
+        # The scan must not pull the whole puzzle payload (the full article).
+        task_scan = queries.captured_queries[-1]['sql']
+        self.assertIn('wiki_title', task_scan)
+        self.assertIn('source_pool_title', task_scan)
+        self.assertTrue({'Без пазла', 'Кривой пазл'} <= titles)
 
         self.assertTrue({'Ответ', 'Название из пазла', 'Название из пула'} <= titles)
         self.assertNotIn('Удалённое', titles)

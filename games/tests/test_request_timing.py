@@ -65,6 +65,19 @@ class RequestTimingMiddlewareTests(TestCase):
         self.assertTrue(_watch_path('/censorly/r/abcd1234/'))
         self.assertFalse(_watch_path('/censorly/5/state/'))
 
+    def test_watches_offline_pack_results_and_daily_statistics(self):
+        for path in (
+            '/raddle_offline_pack/123/',
+            '/salad/results/',
+            '/salad/7/results/',
+            '/censorly/results/',
+            '/games/walls/results/',
+            '/daily-statistics/salad/7/',
+        ):
+            self.assertTrue(_watch_path(path), path)
+        self.assertFalse(_watch_path('/raddle_offline_pack/abc/'))
+        self.assertFalse(_watch_path('/salad/7/results/extra/'))
+
     def test_logs_named_phases_without_request_payload(self):
         def response(request):
             with timing_phase(request, 'check_attempt'):
