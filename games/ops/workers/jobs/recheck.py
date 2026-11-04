@@ -5,10 +5,11 @@ from django.contrib.auth.models import User
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from games.models import Attempt, ChainTaskState, CHAIN_TASK_TYPES, Game, GameTaskGroup, Team
+
+from games.models import CHAIN_TASK_TYPES, Attempt, ChainTaskState, Game, GameTaskGroup, Team
+from games.puzzles.raddle.concurrency import lock_or_create_raddle_state
 from games.realtime.track_compat import track_actor_task_change, track_attempt_change
 from games.site.views.game.attempt import check_attempt
-from games.puzzles.raddle.concurrency import lock_or_create_raddle_state
 
 
 def recheck(_, attempt_id, *, notify=True):
@@ -200,8 +201,8 @@ def recheck_chain_task(
       are blocked until recheck completes.
     - Each Attempt.state is updated in the DB as the audit trail.
     """
-    from games.puzzles.core.check_runtime import CheckerFactory
     from games.ops.analytics.events import reconcile_completed_game_after_recheck
+    from games.puzzles.core.check_runtime import CheckerFactory
 
     if game is None:
         game = GameTaskGroup.resolve_game_for_task(task)
@@ -702,7 +703,10 @@ def recheck_word_salad_actor(
 
     credited = 0
     replay_pending_resolution = dict(pending_resolution or {})
-    with transaction.atomic():
+    from games.daily.projection.outbox import suppress_actor_projection_refresh
+    # Sections releases get a full projection refresh on commit below, so
+    # the per-attempt actor wake-ups from the replay are redundant.
+    with transaction.atomic(), suppress_actor_projection_refresh():
         # Daily section games are permanently non-tournament.  Creating an
         # empty tournament projection for every actor here made the repair
         # path recreate the very rows it was supposed to remove.
@@ -842,9 +846,9 @@ def sync_word_salad_finds(
 ):
     """Persist localStorage finds against the current answer/rare/extra lists."""
     from games.puzzles.salad.rules import (
+        _FOUND_EXTRA_LIMIT,
         EXTRA_FOUND_COMMENT,
         RARE_FOUND_COMMENT,
-        _FOUND_EXTRA_LIMIT,
         classify_side_finds,
         find_paths,
         load_state,

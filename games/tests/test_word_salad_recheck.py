@@ -294,6 +294,43 @@ class WordSaladRecheckQueueTests(TestCase):
         self.assertEqual(after_first['chain'], after['chain'])
         self.assertEqual(after_first['completed'], after['completed'])
 
+    def test_recheck_replay_skips_per_attempt_projection_wakeups(self):
+        from games.models import DailyResultProjectionRefreshOutbox
+
+        anon_key = 'recheck-projection-wakeups'
+        path = [0, 1, 2, 3, 7, 6, 5, 4, 8, 9, 10, 11, 15, 14, 13, 12]
+        Attempt.manager.create(
+            anon_key=anon_key, task=self.task, game=self.game,
+            text=json.dumps({'action': 'solve', 'path': path}),
+            status='Ok', points=0,
+        )
+        wakeups = DailyResultProjectionRefreshOutbox.objects.filter(actor_key=anon_key)
+        # The gameplay write itself still wakes the projection worker.
+        self.assertEqual(wakeups.count(), 1)
+        payload = json.loads(self.task.checker_data)
+        payload['words'] = list(payload.get('words') or []) + ['ABCD']
+        self.task.checker_data = json.dumps(payload, ensure_ascii=False)
+        self.task.save(update_fields=['checker_data'])
+        with patch('games.realtime.track_compat.track_actor_task_change'):
+            job = enqueue_word_salad_recheck(task=self.task, game=self.game)
+            item = WordSaladRecheckItem.objects.get(job=job)
+            with self.captureOnCommitCallbacks(execute=True):
+                self.assertEqual(
+                    process_word_salad_recheck_item(job_id=job.pk, item_id=item.pk),
+                    'completed',
+                )
+        item.refresh_from_db()
+        self.assertEqual(item.credited_attempts, 1)
+        # The replay re-saved attempts and credited one, yet queued nothing:
+        # the recheck schedules a full release refresh instead.
+        self.assertEqual(wakeups.count(), 1)
+        Attempt.manager.create(
+            anon_key=anon_key, task=self.task, game=self.game,
+            text=json.dumps({'action': 'solve', 'path': path}),
+            status='Wrong', points=0,
+        )
+        self.assertEqual(wakeups.count(), 2)
+
     def test_enqueue_creates_one_outbox_row_per_item(self):
         actors = {
             (None, self.user.pk, None, None),

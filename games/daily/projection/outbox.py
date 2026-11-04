@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import logging
 import uuid
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import timedelta
 
 from django.db import transaction
@@ -22,6 +24,23 @@ RETRY_BASE_SECONDS = 2
 RETRY_MAX_SECONDS = 5 * 60
 OUTBOX_RETENTION = timedelta(days=30)
 
+_suppressed = ContextVar('daily_projection_outbox_suppressed', default=False)
+
+
+@contextmanager
+def suppress_actor_projection_refresh():
+    """Skip per-attempt actor wake-ups inside a bulk rewrite.
+
+    Only for callers that schedule a full release refresh themselves: a Word
+    Salad recheck re-saves every attempt of an actor, which enqueued ~30 rows
+    per actor (7k rows for one task) on top of its own full refresh.
+    """
+    token = _suppressed.set(True)
+    try:
+        yield
+    finally:
+        _suppressed.reset(token)
+
 
 def enqueue_actor_projection_refresh(
     game, task_group, *, team=None, user=None, anon_key=None,
@@ -33,6 +52,8 @@ def enqueue_actor_projection_refresh(
     is also written by projection workers and can be locked during a large
     refresh; gameplay must not wait for that lock.
     """
+    if _suppressed.get():
+        return None
     if game is None or task_group is None or getattr(game, 'project_id', None) != 'sections':
         return None
     if team is not None or team_id is not None:
@@ -150,34 +171,55 @@ def _mark_failed(row, exc):
 
 
 def dispatch_actor_projection_outbox(*, limit=10, now=None):
-    """Mark and publish pending actor refreshes; safe to retry after crashes."""
+    """Mark and publish pending actor refreshes; safe to retry after crashes.
+
+    Every claimed row is prepared first (its actor marked dirty), then each
+    release is refreshed once: ``_refresh_dirty_actors`` already covers all
+    dirty actors of that release, so a burst of moves by the same players
+    costs one refresh per release instead of one per move.
+    """
     now = now or timezone.now()
     rows = _claim_many(limit=limit, now=now)
     sent = failed = 0
     from games.realtime.projection import events_enabled, publish_projection_refresh
 
+    by_release = {}
     for row in rows:
         try:
             revision = _prepare_claim(row)
-            if revision is None:
-                sent += bool(_mark_sent(row))
-                continue
+        except Exception as exc:
+            failed += bool(_mark_failed(row, exc))
+            logger.exception(
+                'daily_result_projection_outbox prepare failed outbox_id=%s game=%s task_group=%s',
+                row.pk, row.game_id, row.task_group_id,
+            )
+            continue
+        if revision is None:
+            sent += bool(_mark_sent(row))
+            continue
+        by_release.setdefault((row.game_id, row.task_group_id), []).append(row)
+
+    for (game_id, task_group_id), release_rows in by_release.items():
+        try:
             if events_enabled():
                 published = publish_projection_refresh(
-                    row.game_id, row.task_group_id, mode='actor',
+                    game_id, task_group_id, mode='actor',
                 )
                 if not published:
                     raise RuntimeError('projection refresh event was not published')
             else:
                 from games.daily.projection import _refresh_dirty_actors
-                _refresh_dirty_actors(row.game_id, row.task_group_id)
-            sent += bool(_mark_sent(row))
+                _refresh_dirty_actors(game_id, task_group_id)
         except Exception as exc:
-            failed += bool(_mark_failed(row, exc))
+            for row in release_rows:
+                failed += bool(_mark_failed(row, exc))
             logger.exception(
-                'daily_result_projection_outbox failed outbox_id=%s game=%s task_group=%s',
-                row.pk, row.game_id, row.task_group_id,
+                'daily_result_projection_outbox failed outbox_ids=%s game=%s task_group=%s',
+                [row.pk for row in release_rows], game_id, task_group_id,
             )
+            continue
+        for row in release_rows:
+            sent += bool(_mark_sent(row))
     # MySQL does not support LIMIT inside an IN subquery. Materialize this
     # bounded batch before deleting it from the same table.
     stale_ids = list(DailyResultProjectionRefreshOutbox.objects.filter(

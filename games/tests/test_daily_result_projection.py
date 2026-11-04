@@ -522,6 +522,93 @@ class DailyResultProjectionTests(TestCase):
         self.assertEqual(state.source_revision, 4)
         self.assertEqual(publish.call_count, 2)
 
+    def test_lagging_outbox_makes_results_fall_back_to_attempts(self):
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        # A solve whose outbox row the worker has not reached yet: the state
+        # still says valid, but its cells are missing from the projection.
+        Attempt.manager.create(
+            task=task, game=self.game, anon_key='queued-solver',
+            text='answer', status='Ok', points=10,
+        )
+        queued = DailyResultProjectionRefreshOutbox.objects.filter(
+            game=self.game, task_group=self.group, actor_key='queued-solver',
+        )
+        self.assertTrue(queued.exists())
+        self.assertTrue(DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
+        ).is_valid)
+        self.assertEqual(
+            load_task_result_projection_rows(self.game, self.group, [task.pk]), {},
+        )
+        queued.update(created_at=timezone.now() - timedelta(minutes=5))
+        self.assertIsNone(
+            load_task_result_projection_rows(self.game, self.group, [task.pk]),
+        )
+        actor = Actor(team_id=None, user_id=None, anon_key='queued-solver')
+        from games.daily.projection import load_actor_task_result_points
+        self.assertIsNone(load_actor_task_result_points(self.game, [task], actor))
+        other = Actor(team_id=None, user_id=None, anon_key='someone-else')
+        self.assertIsNotNone(load_actor_task_result_points(self.game, [task], other))
+
+    def test_projection_outbox_refreshes_each_release_once_per_batch(self):
+        from games.daily.projection.outbox import dispatch_actor_projection_outbox
+
+        task = Task.objects.create(
+            task_group=self.group, number='1', task_type='default', points=10,
+            checker_data='answer', text='Question',
+        )
+        refresh_daily_result_projection(self.game, self.group)
+        for index in range(3):
+            Attempt.manager.create(
+                task=task, game=self.game, anon_key='burst-{}'.format(index % 2),
+                text='answer' if index else 'wrong', status='Ok' if index else 'Wrong',
+                points=10 if index else 0,
+            )
+        pending = DailyResultProjectionRefreshOutbox.objects.filter(
+            game=self.game, task_group=self.group, status='pending',
+        ).count()
+        self.assertGreaterEqual(pending, 3)
+        with patch(
+            'games.daily.projection._refresh_dirty_actors',
+            wraps=__import__('games.daily.projection', fromlist=['x'])._refresh_dirty_actors,
+        ) as refresh:
+            result = dispatch_actor_projection_outbox(limit=20)
+        self.assertEqual(refresh.call_count, 1)
+        self.assertEqual(result, {'claimed': pending, 'sent': pending, 'failed': 0})
+        self.assertEqual(
+            sorted(DailyTaskResultProjection.objects.values_list('actor_key', flat=True)),
+            ['burst-0', 'burst-1'],
+        )
+        self.assertTrue(DailyResultProjectionState.objects.get(
+            game=self.game, task_group=self.group,
+        ).is_valid)
+
+    def test_worker_drains_full_outbox_batches_within_budget(self):
+        from games.management.commands.run_worker import _drain_projection_outbox
+
+        claims = iter([50, 50, 7, 50])
+        calls = []
+
+        def dispatch(*, limit):
+            calls.append(limit)
+            claimed = next(claims)
+            return {'claimed': claimed, 'sent': claimed, 'failed': 0}
+
+        total = _drain_projection_outbox(dispatch, batch=50, budget_seconds=60, clock=lambda: 0)
+        self.assertEqual(total, {'claimed': 107, 'sent': 107, 'failed': 0})
+        self.assertEqual(calls, [50, 50, 50])
+
+        ticks = iter([0, 61])
+        total = _drain_projection_outbox(
+            lambda *, limit: {'claimed': limit, 'sent': limit, 'failed': 0},
+            batch=50, budget_seconds=60, clock=lambda: next(ticks),
+        )
+        self.assertEqual(total['claimed'], 50)
+
     def test_projection_outbox_cleanup_removes_only_a_bounded_expired_batch(self):
         from games.daily.projection.outbox import dispatch_actor_projection_outbox
 

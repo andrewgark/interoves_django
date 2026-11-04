@@ -7,6 +7,7 @@ import logging
 import random
 import uuid
 from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
 from time import monotonic
 
@@ -20,6 +21,7 @@ from games.models import (
     Attempt,
     DailyResultProjection,
     DailyResultProjectionDirtyActor,
+    DailyResultProjectionRefreshOutbox,
     DailyResultProjectionState,
     DailySolveTiming,
     DailyTaskResultProjection,
@@ -103,6 +105,33 @@ def projection_state_is_valid(state, game):
         and not state.pending_actor_refreshes
         and state.adapter_version == scorer_adapter_version(game, state.task_group_id)
     )
+
+
+# Gameplay writes only enqueue an outbox row; the state stays ``is_valid``
+# until a worker claims that row, so the projection is always a little
+# behind. A few seconds is the design; a row older than this means the worker
+# has fallen behind, and readers must not serve the projection as the table.
+PROJECTION_OUTBOX_MAX_LAG = timedelta(seconds=30)
+
+
+def lagging_outbox_refreshes(game, group_ids, *, actor_type=None, actor_key=None, now=None):
+    """Queued gameplay changes the worker has left unprocessed for too long.
+
+    Without this check a worker backlog showed an old (or empty) results
+    table while players had already solved the release.
+    """
+    now = now or timezone.now()
+    rows = DailyResultProjectionRefreshOutbox.objects.filter(
+        game=game, task_group_id__in=list(group_ids),
+        status__in=(
+            DailyResultProjectionRefreshOutbox.STATUS_PENDING,
+            DailyResultProjectionRefreshOutbox.STATUS_SENDING,
+        ),
+        created_at__lt=now - PROJECTION_OUTBOX_MAX_LAG,
+    )
+    if actor_type is not None:
+        rows = rows.filter(actor_type=actor_type, actor_key=actor_key)
+    return rows
 
 
 def task_projection_state_is_valid(state, game):
@@ -431,6 +460,8 @@ def load_task_result_projection_rows(game, task_group, task_ids, actor_types=Non
     ).first()
     if not task_projection_state_is_valid(state, game):
         return None
+    if lagging_outbox_refreshes(game, [task_group.pk]).exists():
+        return None
     if _task_projection_compare_enabled():
         mismatches = compare_task_result_projection(
             game, task_group, task_ids, actor_types=actor_types,
@@ -513,6 +544,10 @@ def load_actor_task_result_points(game, tasks, actor):
     elif actor.anon_key is not None:
         actor_type, actor_key = DailyTaskResultProjection.ACTOR_ANON, str(actor.anon_key)
     else:
+        return None
+    if lagging_outbox_refreshes(
+        game, groups, actor_type=actor_type, actor_key=actor_key,
+    ).exists():
         return None
 
     result = {task_id: (0.0, False, None) for task_id in task_ids}

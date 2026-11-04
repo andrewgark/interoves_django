@@ -2,13 +2,35 @@
 
 import os
 import signal
+import time
 
 from django.core.management.base import BaseCommand, CommandError
 from django.db import close_old_connections
-
 from games.ops.workers.config import load_worker_config
 from games.ops.workers.contract import WORKER_REGISTRY
 from games.ops.workers.polling import poll_once, queue_url_for
+
+PROJECTION_OUTBOX_BATCH = 50
+PROJECTION_OUTBOX_DRAIN_SECONDS = 15
+
+
+def _drain_projection_outbox(dispatch, *, batch=PROJECTION_OUTBOX_BATCH,
+                             budget_seconds=PROJECTION_OUTBOX_DRAIN_SECONDS,
+                             clock=time.monotonic):
+    """Keep dispatching full batches before the next SQS long poll.
+
+    One small batch per poll (up to 20 s of waiting) drains only ~40 rows a
+    minute; an evening peak outgrows that and new releases wait behind the
+    backlog. The time budget still lets SQS jobs run between drains.
+    """
+    total = {'claimed': 0, 'sent': 0, 'failed': 0}
+    deadline = clock() + budget_seconds
+    while True:
+        result = dispatch(limit=batch)
+        for key in total:
+            total[key] += result.get(key, 0)
+        if result.get('claimed', 0) < batch or clock() >= deadline:
+            return total
 
 
 class Command(BaseCommand):
@@ -69,7 +91,7 @@ class Command(BaseCommand):
                 try:
                     from games.daily.projection.outbox import dispatch_actor_projection_outbox
                     close_old_connections()
-                    dispatched = dispatch_actor_projection_outbox(limit=10)
+                    dispatched = _drain_projection_outbox(dispatch_actor_projection_outbox)
                     if dispatched['claimed']:
                         self.stdout.write(
                             'projection outbox sent={sent} failed={failed}.'.format(**dispatched),
