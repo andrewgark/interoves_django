@@ -25,11 +25,14 @@ GOAL_OPENED_START = 602431719
 GOAL_SELECTED_GAME_FROM_START = 602432526
 GOAL_FINISHED_FIRST_FROM_START = 602432624
 GOAL_STARTED_SECOND_FROM_START = 602432629
+# returned_player: first finished game of a day after an earlier day (Nov 4).
+GOAL_RETURNED = 678781239
 
 PRODUCT_GOALS = {
     "game_start": GOAL_GAME_START,
     "game_complete": GOAL_GAME_COMPLETE,
     "activated": GOAL_ACTIVATED,
+    "returned": GOAL_RETURNED,
     "signup": GOAL_SIGNUP,
     "ticket_checkout": GOAL_TICKET_CHECKOUT,
     "ticket_purchase": GOAL_TICKET_PURCHASE,

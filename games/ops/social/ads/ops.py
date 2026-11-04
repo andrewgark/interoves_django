@@ -28,6 +28,7 @@ from games.ops.social.ads.schema.constants import (
     CAMPAIGN_NAME,
     CONTEXT_KEYWORDS,
     GOAL_ACTIVATED,
+    GOAL_RETURNED,
     GOAL_GAME_COMPLETE,
     GOAL_GAME_START,
     GOAL_NAME_ALIASES,
@@ -281,7 +282,25 @@ def metrika_campaign_quality(client: AdsClient, campaign_id: int, *, date_from: 
         "game_complete": _num(totals, 4),
         "activated": _num(totals, 5),
         "ticket_purchase": _num(totals, 6),
+        # A return comes through any channel, so it is credited to the
+        # campaign of the player's first ad click, not of the visit.
+        "returned": _num(_returned_totals(client, campaign_id, date_from=date_from, date_to=date_to), 0),
     }
+
+
+def _returned_totals(client: AdsClient, campaign_id: int, *, date_from: str, date_to: str) -> list:
+    data = client.metrika_get(
+        "/stat/v1/data",
+        {
+            "ids": METRIKA_COUNTER_ID,
+            "date1": date_from,
+            "date2": date_to,
+            "metrics": f"ym:s:goal{GOAL_RETURNED}users",
+            "filters": f"ym:s:firstDirectClickOrder=='{campaign_id}'",
+            "accuracy": "full",
+        },
+    )
+    return data.get("totals") or [0]
 
 
 def metrika_breakdown(client: AdsClient, campaign_id: int, *, date_from: str, date_to: str, dimension: str) -> list[dict]:
