@@ -326,10 +326,38 @@ class GameGroupTests(SimpleTestCase):
         self.assertEqual(result['keywords'], {'deleted': generic_vordli, 'added': []})
         updated = [p for s, m, p in direct.calls if (s, m) == ('ads', 'update')][-1]['Ads']
         generic = [u for u in updated if u['Id'] in record['ad_ids']]
-        self.assertEqual({u['TextAd']['Href'] for u in generic}, {'https://ru.interoves.com/ladder/first/'})
-        self.assertEqual({u['TextAd']['DisplayUrlPath'] for u in generic}, {'ladder'})
+        self.assertEqual({u['TextAd']['Href'] for u in generic}, {'https://ru.interoves.com/salad/first/'})
+        self.assertEqual({u['TextAd']['DisplayUrlPath'] for u in generic}, {'salad'})
         sets = [p for s, m, p in direct.calls if (s, m) == ('bidmodifiers', 'set')]
         self.assertEqual(sets[0]['BidModifiers'][0]['BidModifier'], 100)
+
+    def test_sync_suspends_the_ads_of_an_inactive_group(self):
+        direct = FakeDirect()
+        original = direct.call
+        direct.call = lambda s, m, p=None: (
+            {'AddResults': [{'AdImageHash': 'h'}]} if (s, m) == ('adimages', 'add') else original(s, m, p)
+        )
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        for ad in direct.added['ads']:
+            ad['State'] = 'ON'
+        campaign_id = direct.added['campaigns'][0]['Id']
+        failures = campaigns.verify(direct, self.spec, campaign_id)['failures']
+        self.assertEqual(sum('inactive group is still on' in f for f in failures), 3)
+
+        result = campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
+        alphabetty = self.store.state['campaigns'][self.spec.slug]['game_groups']['alphabetty']['ad_ids']
+        self.assertEqual(result['paused_ads'], alphabetty)
+        self.assertEqual(result['resumed_ads'], [])
+        suspended = [p for s, m, p in direct.calls if (s, m) == ('ads', 'suspend')]
+        self.assertEqual(suspended[0]['SelectionCriteria']['Ids'], alphabetty)
+
+    def test_audience_segment_rules_carry_no_lifespan(self):
+        audience = campaigns.Audience(name='x', rules=(('ALL', 123, None), ('NONE', 456, 2)))
+        self.assertEqual(
+            [r['Arguments'][0] for r in audience.payload()['Rules']],
+            [{'ExternalId': 123}, {'ExternalId': 456, 'MembershipLifeSpan': 2}],
+        )
 
     def test_a_group_targets_either_phrases_or_an_audience(self):
         with self.assertRaises(ConfigError):

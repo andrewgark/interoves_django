@@ -70,22 +70,28 @@ class AdCopy:
 
 @dataclass(frozen=True)
 class Audience:
-    """A Direct retargeting list built from Metrika goals.
+    """A Direct retargeting list built from Metrika goals or Audience segments.
 
-    Each rule is (operator, goal id, days): ALL/ANY/NONE of the visitors who
-    reached the goal within that many days.
+    Each rule is (operator, external id, days): ALL/ANY/NONE of the visitors
+    who reached a Metrika goal within that many days, or (days None) who are
+    in a Yandex Audience segment.
     """
 
     name: str
-    rules: tuple[tuple[str, int, int], ...]
+    rules: tuple[tuple[str, int, int | None], ...]
 
     def payload(self) -> dict:
+        def argument(external_id, days):
+            if days is None:
+                return {'ExternalId': external_id}
+            return {'ExternalId': external_id, 'MembershipLifeSpan': days}
+
         return {
             'Type': 'RETARGETING',
             'Name': self.name,
             'Rules': [
-                {'Operator': operator, 'Arguments': [{'ExternalId': goal, 'MembershipLifeSpan': days}]}
-                for operator, goal, days in self.rules
+                {'Operator': operator, 'Arguments': [argument(external_id, days)]}
+                for operator, external_id, days in self.rules
             ],
         }
 
@@ -109,6 +115,8 @@ class GameGroup:
     # apart from the game's own phrase group in state.
     audience: Audience | None = None
     slug: str = ''
+    # False suspends the group's ads (Direct cannot suspend a group itself).
+    active: bool = True
 
     @property
     def key(self) -> str:
@@ -367,6 +375,9 @@ GAME_GROUPS = (
     GameGroup(
         game='alphabetty',
         title='Алфавитка',
+        # Nov 3–4: 1 of 32 ad visitors finished an Алфавитка (Салатик: 13 of
+        # 49); a first game that is not finished rarely brings anyone back.
+        active=False,
         path='/alphabetty/first/',
         keywords=(
             'угадай слово',
@@ -454,9 +465,9 @@ CAMPAIGNS = {
             keywords=SHARED_KEYWORDS,
             ads=SHARED_ADS,
             game_groups=GAME_GROUPS + (RETURN_GROUP,),
-            # Wide search phrases go straight into a ~3★ Лесенка: via /start/
-            # only 2 of 53 visitors finished a game (Nov 3–4).
-            generic_path='/ladder/first/',
+            # Wide phrases go straight into a ~3★ Салатик, the game ad visitors
+            # finish most (Nov 3–4: 27%; /start/ 2 of 53, Лесенка barely shown).
+            generic_path='/salad/first/',
             # Nov 4: search brought chess, tetris and app-download queries
             # whose visitors never started a word puzzle.
             negative_keywords=CampaignSpec.negative_keywords + RU_SEARCH_NEGATIVES,
@@ -481,7 +492,7 @@ CAMPAIGNS = {
                 ),
             ),
             game_groups=GAME_GROUPS + (RETURN_GROUP,),
-            generic_path='/ladder/first/',
+            generic_path='/salad/first/',
             notes=('test: Yandex inventory abroad is thin',),
         ),
     )
@@ -729,7 +740,14 @@ def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
     live_ads = ops.ads_get(ads, campaign_ids=[campaign_id])
     if not live_ads:
         failures.append('no ads')
+    # Inactive groups are told apart by a landing no active group shares.
+    inactive = (
+        {spec.group_landing(g) for g in spec.game_groups if not g.active}
+        - {spec.group_landing(g) for g in spec.game_groups if g.active} - {spec.generic_landing}
+    )
     for ad in live_ads:
+        if (ad.get('TextAd') or {}).get('Href') in inactive and ad.get('State') == 'ON':
+            failures.append(f'Ad {ad.get("Id")} of an inactive group is still on')
         href = (ad.get('TextAd') or {}).get('Href') or ''
         if href not in spec.allowed_hrefs:
             failures.append(f'Ad {ad.get("Id")} href {href!r} is not a spec landing')
@@ -978,12 +996,36 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         ads.call('ads', 'moderate', {'SelectionCriteria': {'Ids': added}})
         audit(action='moderate', object_type='ads', object_id=added,
               reason='sync: new ads of a launched campaign', api_status='submitted')
+    paused, resumed = sync_group_states(ads, spec, record, live, audit=audit)
     keywords = sync_keywords(ads, spec, record, audit=audit)
     state_store.save(state)
     mobile = sync_mobile_modifier(ads, spec, campaign_id, audit=audit)
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'updated_ads': [u['Id'] for u in updates],
-            'added_ads': added, 'keywords': keywords, 'mobile_modifier': mobile,
+            'added_ads': added, 'paused_ads': paused, 'resumed_ads': resumed,
+            'keywords': keywords, 'mobile_modifier': mobile,
             'verify': verify(ads, spec, campaign_id)}
+
+
+def sync_group_states(ads, spec: CampaignSpec, record: dict, live: dict, *, audit) -> tuple[list, list]:
+    """Suspend the ads of inactive game groups and resume those of active ones."""
+    pause, resume = [], []
+    for group in spec.game_groups:
+        group_record = (record.get('game_groups') or {}).get(group.key)
+        if not group_record:
+            continue
+        for ad_id in group_record.get('ad_ids') or []:
+            state = (live.get(ad_id) or {}).get('State')
+            if not group.active and state == 'ON':
+                pause.append(ad_id)
+            elif group.active and state == 'SUSPENDED':
+                resume.append(ad_id)
+    for method, ids in (('suspend', pause), ('resume', resume)):
+        if ids:
+            ads.call('ads', method, {'SelectionCriteria': {'Ids': ids}})
+            audit(action=method, object_type='ads', object_id=ids,
+                  reason=f'sync: game group {"inactive" if method == "suspend" else "active"} in spec',
+                  api_status=method)
+    return pause, resume
 
 
 def sync_keywords(ads, spec: CampaignSpec, record: dict, *, audit) -> dict:
