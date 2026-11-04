@@ -569,10 +569,20 @@ class CensorlyAccessTests(TestCase):
     def test_plain_user_gets_public_random_page(self):
         url = f'/censorly/r/{self.share_hash}/'
         self.client.force_login(self.plain)
-        resp = self.client.get(url)
+        with patch('games.daily.activity.active_days', return_value=1):
+            resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
         self.assertContains(resp, 'Случайная игра')
         self.assertContains(resp, '/subscription/')
+
+    def test_newcomer_is_not_shown_the_locked_random_button(self):
+        self.client.force_login(self.plain)
+        with patch('games.daily.activity.active_days', return_value=0):
+            resp = self.client.get(f'/censorly/r/{self.share_hash}/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertNotContains(resp, 'Случайная игра')
+        # The game's input is where «Играть» in the rules leads.
+        self.assertContains(resp, 'data-first-move')
 
     def test_staff_can_play_and_guess(self):
         self.client.force_login(self.staff)
@@ -815,7 +825,8 @@ class CensorlyAccessTests(TestCase):
         self.game.save(update_fields=['tags'])
 
         self.client.force_login(self.staff)
-        response = self.client.get('/censorly/')
+        with patch('games.daily.activity.active_days', return_value=1):
+            response = self.client.get('/censorly/')
 
         self.assertEqual(response.status_code, 200)
         self.assertNotContains(response, 'censorly-1')

@@ -8535,6 +8535,24 @@ tr.new-replacements-row.is-solved-hidden {
   margin-top: 1rem;
 }
 
+/* The «Играть» button added to auto-opened rules stays in view however long they are. */
+.new-rules-modal__actions--play {
+  position: sticky;
+  /* Down over the card's bottom padding (20–28px), so no text shows below. */
+  bottom: -1.75rem;
+  margin-bottom: -1.75rem;
+  padding: 0.75rem 0 1.75rem;
+  background: var(--surface);
+}
+
+.new-rules-quickstart {
+  margin: 0 0 1rem;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: var(--control-radius);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
 .new-rules-modal__actions--flush {
   margin-top: 0;
 }

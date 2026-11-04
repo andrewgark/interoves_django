@@ -1010,6 +1010,25 @@
       document.querySelectorAll('[data-rules-open]').forEach(function (btn) {
         btn.addEventListener('click', openRules);
       });
+      // A first visit opens the rules over the game; a clear way back to it
+      // (rather than only the ×) and the cursor in the game's input field.
+      var box = modal.querySelector('.new-rules-modal__box');
+      var firstMove = document.querySelector('[data-first-move]');
+      if (box && !box.querySelector('[data-rules-play]')) {
+        var actions = document.createElement('div');
+        actions.className = 'new-rules-modal__actions new-rules-modal__actions--play';
+        var play = document.createElement('button');
+        play.type = 'button';
+        play.className = 'new-btn';
+        play.setAttribute('data-rules-play', '');
+        play.textContent = firstMove ? 'Играть' : 'Понятно';
+        play.addEventListener('click', function () {
+          closeRules();
+          if (firstMove && firstMove.focus) firstMove.focus();
+        });
+        actions.appendChild(play);
+        box.appendChild(actions);
+      }
       // Только внутри этой модалки — иначе ловим чужие data-rules-close.
       modal.querySelectorAll('[data-rules-close]').forEach(function (el) {
         el.addEventListener('click', closeRules);

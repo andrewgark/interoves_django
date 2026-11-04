@@ -1,4 +1,6 @@
 {% load static %}
+{# A newcomer sees the game first, not a locked Club button. #}
+{% if random_censorly_has_access or not daily_player.newcomer %}
 <div class="new-stack-gap new-stack-gap--after-button new-random-game-cta">
   {% if random_censorly_has_access %}
     {{ censorly_taxonomy|json_script:"censorly-random-taxonomy" }}
@@ -54,5 +56,6 @@
     </a>
   {% endif %}
 </div>
+{% endif %}
 <script src="{% static 'js/censorly_taxonomy_icons.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>
 <script src="{% static 'js/censorly_random_filters.js' %}?v={{ site_deploy_version|default:'0'|urlencode }}" defer></script>

@@ -153,6 +153,28 @@ def signup_prompt(request):
     return {'signup_prompt': SimpleLazyObject(prompt)}
 
 
+def daily_player(request):
+    """Lazy: on how many days the visitor has finished daily games.
+
+    A newcomer (no finished game yet) is spared Club upsells that sit between
+    them and their first move, such as the locked «Случайная игра» button.
+    """
+    from django.utils.functional import SimpleLazyObject
+
+    def load():
+        from games.daily.activity import active_days
+        user = getattr(request, 'user', None)
+        if user is not None and user.is_authenticated:
+            days = active_days(user=user)
+        else:
+            from games.ops.analytics.identity import gameplay_anon_key
+            anon_key = gameplay_anon_key(request)
+            days = active_days(anon_key=anon_key) if anon_key else 0
+        return {'days': days, 'newcomer': days == 0}
+
+    return {'daily_player': SimpleLazyObject(load)}
+
+
 def analytics_bootstrap(request):
     counter_id = getattr(settings, 'YANDEX_METRIKA_COUNTER_ID', 0) or 0
     user = getattr(request, 'user', None)

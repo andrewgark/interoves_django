@@ -1,3 +1,5 @@
+{# A newcomer sees the game first, not a locked Club button. #}
+{% if random_alphabetty_has_access or not daily_player.newcomer %}
 <div class="new-stack-gap new-stack-gap--after-button new-random-game-cta">
   {% if random_alphabetty_has_access %}
     <form method="post" action="{% url 'new_alphabetty_random' %}">
@@ -14,3 +16,4 @@
     </a>
   {% endif %}
 </div>
+{% endif %}
