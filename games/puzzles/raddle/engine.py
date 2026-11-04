@@ -513,7 +513,7 @@ def normalize_raddle_drafts(raw, n_words, solved=None):
             continue
         if idx < 0 or idx >= n_words or idx in solved:
             continue
-        letters = ''.join(ch for ch in str(val or '') if ch.isalpha())
+        letters = ''.join(ch for ch in str(val or '') if ch.isalpha() or ch in '0123456789')
         letters = letters[:_RADDLE_DRAFT_MAX_LETTERS]
         if letters:
             out[str(idx)] = letters

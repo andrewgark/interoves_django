@@ -172,6 +172,23 @@ class RaddleUiSyncTests(TestCase):
         self.assertIn('data-raddle-server-draft="CCC"', html)
         self.assertIn('new-raddle-clue--struck', html)
 
+    def test_digit_draft_is_kept(self):
+        """Числительное в черновике не должно вырезаться нормализацией."""
+        first = self._client('raddle_ui_one')
+        with patch('games.site.views.game.raddle.track_actor_task_change'):
+            response = first.post(
+                f'/send_raddle_ui/{self.task.pk}/',
+                {
+                    'game_id': self.game.pk,
+                    'drafts': json.dumps({'2': '42', '3': 'Т34'}),
+                },
+                HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+            )
+        drafts = response.json()['raddle_ui'][str(self.task.pk)]['drafts']
+        self.assertEqual(drafts, {'2': '42', '3': 'Т34'})
+        row = RaddleUiState.objects.get(task=self.task, team=self.team)
+        self.assertEqual(row.drafts, {'2': '42', '3': 'Т34'})
+
     def test_empty_draft_clears_key(self):
         first = self._client('raddle_ui_one')
         with patch('games.site.views.game.raddle.track_actor_task_change'):
