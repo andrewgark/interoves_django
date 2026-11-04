@@ -69,6 +69,28 @@ class AdCopy:
 
 
 @dataclass(frozen=True)
+class Audience:
+    """A Direct retargeting list built from Metrika goals.
+
+    Each rule is (operator, goal id, days): ALL/ANY/NONE of the visitors who
+    reached the goal within that many days.
+    """
+
+    name: str
+    rules: tuple[tuple[str, int, int], ...]
+
+    def payload(self) -> dict:
+        return {
+            'Type': 'RETARGETING',
+            'Name': self.name,
+            'Rules': [
+                {'Operator': operator, 'Arguments': [{'ExternalId': goal, 'MembershipLifeSpan': days}]}
+                for operator, goal, days in self.rules
+            ],
+        }
+
+
+@dataclass(frozen=True)
 class GameGroup:
     """One ad group per daily game: its own phrases, ads and landing.
 
@@ -83,12 +105,22 @@ class GameGroup:
     # One ad per creative: band 1:1, close-up 1:1, band 16:9. Direct shows
     # the better one more and the wide one opens 16:9 network placements.
     ads: tuple[AdCopy, ...]
+    # A group shown to an audience instead of on phrases; ``slug`` tells it
+    # apart from the game's own phrase group in state.
+    audience: Audience | None = None
+    slug: str = ''
+
+    @property
+    def key(self) -> str:
+        return self.slug or self.game
 
     @property
     def images(self) -> list[str]:
         return [ad.image for ad in self.ads]
 
     def validate(self) -> None:
+        if bool(self.audience) == bool(self.keywords):
+            raise ConfigError(f'{self.key}: a group targets either phrases or an audience')
         if self.path != f'/{self.game}/first/':
             raise ConfigError(f'{self.game}: landing must be /{self.game}/first/ (games.daily.entry)')
         if not 1 <= len(self.ads) <= MAX_ADS_PER_GROUP:
@@ -112,7 +144,11 @@ class CampaignSpec:
     keywords: tuple[str, ...]
     ads: tuple[AdCopy, ...]
     negative_keywords: tuple[str, ...] = tuple(CAMPAIGN_NEGATIVE_KEYWORDS) + ('квиз',)
-    mobile_bid_modifier: int = 50  # percent of the base bid; 50 = −50%
+    # Percent of the base bid. −50% shut phones out under pay-for-conversion
+    # (Nov 3–4: 99% of impressions on desktops), so phones bid in full.
+    mobile_bid_modifier: int = 100
+    # Where the generic ads lead, on the campaign host.
+    generic_path: str = '/start/'
     goal_id: int = GOAL_GAME_COMPLETE
     game_groups: tuple[GameGroup, ...] = ()
     notes: tuple[str, ...] = field(default=())
@@ -128,8 +164,12 @@ class CampaignSpec:
         return f'{self.name} — {group.title}'
 
     @property
+    def generic_landing(self) -> str:
+        return self.origin + self.generic_path
+
+    @property
     def allowed_hrefs(self) -> set[str]:
-        return {self.landing_url} | {self.group_landing(g) for g in self.game_groups}
+        return {self.landing_url, self.generic_landing} | {self.group_landing(g) for g in self.game_groups}
 
     @property
     def adgroup_name(self) -> str:
@@ -158,6 +198,10 @@ class CampaignSpec:
         assert_minus_phrases_safe(list(self.negative_keywords))
         for group in self.game_groups:
             group.validate()
+        if not (self.generic_path.startswith('/') and self.generic_path.endswith('/')):
+            raise ConfigError(f'{self.slug}: generic_path must be a /path/')
+        if len({g.key for g in self.game_groups}) != len(self.game_groups):
+            raise ConfigError(f'{self.slug}: game group keys must be unique')
         if not 0 <= self.mobile_bid_modifier <= 1300:
             raise ConfigError(f'{self.slug}: mobile bid modifier out of range')
 
@@ -165,9 +209,8 @@ class CampaignSpec:
 SHARED_KEYWORDS = (
     'головоломки',
     'головоломки онлайн',
-    'вордли',
-    'вордли на русском',
-    'угадай слово',
+    # «вордли» and «угадай слово» belong to the Алфавитка group only: in two
+    # groups Direct picked the generic ad and sent word-guessers to /start/.
     'игры со словами',
     'словесные игры онлайн',
     'интеллектуальные игры',
@@ -234,7 +277,6 @@ GAME_GROUPS = (
         keywords=(
             'угадай статью википедии',
             'игра по википедии',
-            'игры с википедией',
             'redactle',
             'pedantix',
             'педантикс',
@@ -354,6 +396,45 @@ GAME_GROUPS = (
     ),
 )
 
+# Players who finished a puzzle in the last two weeks but not in the last two
+# days: newcomers from the ads who did not come back (Nov 3–4: 16 finished a
+# game, few played again) and regulars who lapsed. Daily players are left out.
+LAPSED_PLAYERS = Audience(
+    name='Inter Oves — доиграли за 14 дней, не играли 2 дня',
+    rules=(('ALL', GOAL_GAME_COMPLETE, 14), ('NONE', GOAL_GAME_COMPLETE, 2)),
+)
+
+# Лесенка keeps the most newcomers (40% return within 7 days) and
+# /ladder/first/ skips puzzles the visitor has already finished.
+# Direct keeps autotargeting on even in an audience group ("Автотаргетинг не
+# может быть остановлен"), so new people see these ads too: the copy must not
+# claim the viewer has played before.
+RETURN_GROUP = GameGroup(
+    game='ladder',
+    slug='return',
+    title='Возврат',
+    path='/ladder/first/',
+    keywords=(),
+    audience=LAPSED_PLAYERS,
+    ads=(
+        AdCopy(
+            title='Новая Лесенка уже ждёт',
+            text='Цепочка слов дня: каждое связано с соседним. Новый выпуск каждый день.',
+            image='ladder-b-1x1',
+        ),
+        AdCopy(
+            title='Сегодня новые головоломки дня',
+            text='Лесенка, Салатик, Алфавитка и Цензурка обновляются каждый день. Бесплатно.',
+            image='ladder-a-1x1',
+        ),
+        AdCopy(
+            title='Свежая Лесенка каждый день',
+            text='Цепочка от первого слова к последнему, каждое связано с соседним. Бесплатно.',
+            image='ladder-b-16x9',
+        ),
+    ),
+)
+
 RU_SEARCH_NEGATIVES = ('шахматы', 'тетрис', 'кубики', 'цифры', 'скачать', 'память', 'brain test')
 
 CAMPAIGNS = {
@@ -370,7 +451,10 @@ CAMPAIGNS = {
             end=date(2026, 11, 16),
             keywords=SHARED_KEYWORDS,
             ads=SHARED_ADS,
-            game_groups=GAME_GROUPS,
+            game_groups=GAME_GROUPS + (RETURN_GROUP,),
+            # Wide search phrases go straight into a ~3★ Лесенка: via /start/
+            # only 2 of 53 visitors finished a game (Nov 3–4).
+            generic_path='/ladder/first/',
             # Nov 4: search brought chess, tetris and app-download queries
             # whose visitors never started a word puzzle.
             negative_keywords=CampaignSpec.negative_keywords + RU_SEARCH_NEGATIVES,
@@ -394,7 +478,8 @@ CAMPAIGNS = {
                     text='Ежедневные словесные игры и задачи на логику от клуба Inter Oves. Бесплатно.',
                 ),
             ),
-            game_groups=GAME_GROUPS,
+            game_groups=GAME_GROUPS + (RETURN_GROUP,),
+            generic_path='/ladder/first/',
             notes=('test: Yandex inventory abroad is thin',),
         ),
     )
@@ -484,9 +569,9 @@ def ad_payloads(spec: CampaignSpec, adgroup_id: int) -> list[dict]:
             'TextAd': {
                 'Title': ad.title,
                 'Text': ad.text,
-                'Href': spec.landing_url,
+                'Href': spec.generic_landing,
                 'Mobile': 'NO',
-                'DisplayUrlPath': 'start',
+                'DisplayUrlPath': spec.generic_path.strip('/').split('/')[0],
             },
         }
         for ad in spec.ads
@@ -657,6 +742,10 @@ def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
     tablet_off = any((m.get('TabletAdjustment') or {}).get('BidModifier') == 0 for m in modifiers)
     if not tablet_off:
         failures.append('tablets are not switched off')
+    mobile = [(m.get('MobileAdjustment') or {}).get('BidModifier') for m in modifiers
+              if m.get('MobileAdjustment') and not m.get('AdGroupId')]
+    if mobile != [spec.mobile_bid_modifier]:
+        failures.append(f'phone bid modifier {mobile} != {spec.mobile_bid_modifier}')
     return {'ok': not failures, 'failures': failures, 'status': camp.get('Status'), 'state': camp.get('State')}
 
 
@@ -732,12 +821,16 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         raise ConfigError(f'{spec.slug} has not been created')
     campaign_id = record['campaign_id']
     hashes = upload_images(ads, [i for g in spec.game_groups for i in g.images], audit=audit, state_store=state_store)
+    list_ids = {
+        g.key: ensure_retargeting_list(ads, g.audience, audit=audit, state_store=state_store)
+        for g in spec.game_groups if g.audience and g.key not in (record.get('game_groups') or {})
+    }
     state = state_store.load()
     record = state['campaigns'][spec.slug]
     groups = record.setdefault('game_groups', {})
     added = []
     for group in spec.game_groups:
-        if group.game in groups:
+        if group.key in groups:
             continue
         adgroup_id = extract_add_id(ads.call('adgroups', 'add', {'AdGroups': [{
             'Name': spec.group_name(group),
@@ -751,28 +844,50 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
             }))
             keyword_ids = extract_add_ids(ads.call('keywords', 'add', {
                 'Keywords': [{'Keyword': phrase, 'AdGroupId': adgroup_id} for phrase in group.keywords],
-            }))
+            })) if group.keywords else []
+            audience_ids = []
+            if group.audience:
+                audience_ids = extract_add_ids(ads.call('audiencetargets', 'add', {
+                    'AudienceTargets': [{'AdGroupId': adgroup_id, 'RetargetingListId': list_ids[group.key]}],
+                }))
         except Exception:
             # Do not leave an empty group (with wide autotargeting) behind.
             ads.call('adgroups', 'delete', {'SelectionCriteria': {'Ids': [adgroup_id]}})
             audit(action='delete', object_type='adgroup', object_id=adgroup_id,
-                  reason=f'rollback of failed {group.game} group', api_status='deleted')
+                  reason=f'rollback of failed {group.key} group', api_status='deleted')
             narrow_autotargeting(ads, campaign_id, audit=audit)
             raise
-        groups[group.game] = {'adgroup_id': adgroup_id, 'ad_ids': ad_ids, 'keyword_ids': keyword_ids}
+        groups[group.key] = {'adgroup_id': adgroup_id, 'ad_ids': ad_ids, 'keyword_ids': keyword_ids}
+        if group.audience:
+            groups[group.key]['audience_target_ids'] = audience_ids
         state_store.save(state)
         audit(action='create', object_type='game_group', object_id=adgroup_id,
-              new_value={'spec': spec.slug, 'game': group.game, 'ad_ids': ad_ids},
+              new_value={'spec': spec.slug, 'game': group.key, 'ad_ids': ad_ids},
               reason='per-game ad group', api_status='created')
-        added.append(group.game)
+        added.append(group.key)
         # Per group, so a later failure does not leave earlier ads in draft.
         narrow_autotargeting(ads, campaign_id, audit=audit)
-        if record.get('launched'):
+        if record.get('launched') and not group.audience:
+            # An audience group waits: its autotargeting is checked first.
             ads.call('ads', 'moderate', {'SelectionCriteria': {'Ids': ad_ids}})
             audit(action='moderate', object_type='ads', object_id=ad_ids,
                   reason='per-game ads of a launched campaign', api_status='submitted')
     narrow_autotargeting(ads, campaign_id, audit=audit)
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'added': added, 'game_groups': groups}
+
+
+def ensure_retargeting_list(ads, audience: Audience, *, audit, state_store) -> int:
+    """The account's retargeting list for ``audience``, created once."""
+    state = state_store.load()
+    lists = state.setdefault('retargeting_lists', {})
+    if audience.name in lists:
+        return lists[audience.name]
+    list_id = extract_add_id(ads.call('retargetinglists', 'add', {'RetargetingLists': [audience.payload()]}))
+    lists[audience.name] = list_id
+    state_store.save(state)
+    audit(action='create', object_type='retargeting_list', object_id=list_id,
+          new_value=audience.payload(), reason='audience for a return ad group', api_status='created')
+    return list_id
 
 
 def _strategy_key(campaign: dict) -> tuple:
@@ -826,7 +941,7 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
     live = {ad['Id']: ad for ad in ops.ads_get(ads, campaign_ids=[campaign_id])}
     updates, added = [], []
     for group in spec.game_groups:
-        group_record = (record.get('game_groups') or {}).get(group.game)
+        group_record = (record.get('game_groups') or {}).get(group.key)
         if not group_record:
             continue  # campaign.add-groups creates missing groups
         ids = group_record.get('ad_ids') or []
@@ -843,8 +958,13 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
             state_store.save(state)
             added.extend(new_ids)
             audit(action='create', object_type='ads', object_id=new_ids,
-                  new_value={'spec': spec.slug, 'game': group.game}, reason='sync: ads added to spec',
+                  new_value={'spec': spec.slug, 'game': group.key}, reason='sync: ads added to spec',
                   api_status='created')
+    for ad_id, payload in zip(record.get('ad_ids') or [], ad_payloads(spec, 0)):
+        text_ad = (live.get(ad_id) or {}).get('TextAd') or {}
+        wanted = {k: payload['TextAd'][k] for k in ('Title', 'Text', 'Href', 'DisplayUrlPath')}
+        if any(text_ad.get(k) != v for k, v in wanted.items()):
+            updates.append({'Id': ad_id, 'TextAd': wanted})
     if updates:
         result = ads.call('ads', 'update', {'Ads': updates})
         for row in result.get('UpdateResults') or []:
@@ -856,5 +976,58 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         ads.call('ads', 'moderate', {'SelectionCriteria': {'Ids': added}})
         audit(action='moderate', object_type='ads', object_id=added,
               reason='sync: new ads of a launched campaign', api_status='submitted')
+    keywords = sync_keywords(ads, spec, record, audit=audit)
+    state_store.save(state)
+    mobile = sync_mobile_modifier(ads, spec, campaign_id, audit=audit)
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'updated_ads': [u['Id'] for u in updates],
-            'added_ads': added, 'verify': verify(ads, spec, campaign_id)}
+            'added_ads': added, 'keywords': keywords, 'mobile_modifier': mobile,
+            'verify': verify(ads, spec, campaign_id)}
+
+
+def sync_keywords(ads, spec: CampaignSpec, record: dict, *, audit) -> dict:
+    """Add and delete phrases so each phrase group matches the spec."""
+    from games.ops.social.ads import ops
+
+    wanted = {(record.get('adgroup_ids') or [None])[0]: set(spec.keywords)}
+    for group in spec.game_groups:
+        group_record = (record.get('game_groups') or {}).get(group.key)
+        if group_record and not group.audience:
+            wanted[group_record['adgroup_id']] = set(group.keywords)
+    wanted.pop(None, None)
+    live = [k for k in ops.keywords_get(ads, campaign_ids=[record['campaign_id']])
+            if not (k.get('Keyword') or '').startswith('---autotargeting')]
+    stale = [k['Id'] for k in live if k.get('AdGroupId') in wanted
+             and k.get('Keyword') not in wanted[k['AdGroupId']]]
+    have = {(k.get('AdGroupId'), k.get('Keyword')) for k in live}
+    missing = [{'Keyword': phrase, 'AdGroupId': group_id}
+               for group_id, phrases in wanted.items() for phrase in sorted(phrases)
+               if (group_id, phrase) not in have]
+    if stale:
+        ads.call('keywords', 'delete', {'SelectionCriteria': {'Ids': stale}})
+        audit(action='delete', object_type='keywords', object_id=stale,
+              reason='sync: phrases removed from spec', api_status='deleted')
+    added = extract_add_ids(ads.call('keywords', 'add', {'Keywords': missing})) if missing else []
+    if added:
+        audit(action='create', object_type='keywords', object_id=added,
+              new_value=[m['Keyword'] for m in missing], reason='sync: phrases added to spec', api_status='created')
+    return {'deleted': stale, 'added': added}
+
+
+def sync_mobile_modifier(ads, spec: CampaignSpec, campaign_id: int, *, audit) -> int | None:
+    """Set the campaign's phone bid modifier to the spec; the id it changed."""
+    from games.ops.social.ads import ops
+
+    for modifier in ops.bidmodifiers_get(ads, campaign_ids=[campaign_id]):
+        mobile = modifier.get('MobileAdjustment')
+        if not mobile or modifier.get('AdGroupId'):
+            continue
+        if mobile.get('BidModifier') == spec.mobile_bid_modifier:
+            return None
+        ads.call('bidmodifiers', 'set', {'BidModifiers': [
+            {'Id': modifier['Id'], 'BidModifier': spec.mobile_bid_modifier},
+        ]})
+        audit(action='update', object_type='bidmodifier', object_id=modifier['Id'],
+              old_value={'mobile': mobile.get('BidModifier')}, new_value={'mobile': spec.mobile_bid_modifier},
+              reason='sync phone bid modifier to spec', api_status='updated')
+        return modifier['Id']
+    return None

@@ -27,7 +27,8 @@ class FakeDirect:
         self.calls.append((service, method, params))
         if method == 'add':
             key = {'campaigns': 'Campaigns', 'adgroups': 'AdGroups', 'ads': 'Ads',
-                   'keywords': 'Keywords', 'bidmodifiers': 'BidModifiers'}[service]
+                   'keywords': 'Keywords', 'bidmodifiers': 'BidModifiers',
+                   'retargetinglists': 'RetargetingLists', 'audiencetargets': 'AudienceTargets'}[service]
             items = params[key]
             ids = self._ids(len(items))
             for item_id, item in zip(ids, items):
@@ -107,7 +108,7 @@ class CampaignSpecTests(SimpleTestCase):
         self.assertIn('utm_campaign=io-ru-nov26', payload['UnifiedCampaign']['TrackingParams'])
         modifiers = campaigns.bidmodifier_payloads(spec, 1)
         self.assertIn({'CampaignId': 1, 'TabletAdjustment': {'BidModifier': 0}}, modifiers)
-        self.assertIn({'CampaignId': 1, 'MobileAdjustment': {'BidModifier': 50}}, modifiers)
+        self.assertIn({'CampaignId': 1, 'MobileAdjustment': {'BidModifier': 100}}, modifiers)
 
 
 class CampaignLifecycleTests(SimpleTestCase):
@@ -202,8 +203,14 @@ class GameGroupTests(SimpleTestCase):
         direct.call = call
         campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
         result = campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
-        self.assertEqual(sorted(result['added']), ['alphabetty', 'censorly', 'ladder', 'salad'])
-        self.assertEqual(len(uploads), 12)
+        self.assertEqual(sorted(result['added']), ['alphabetty', 'censorly', 'ladder', 'return', 'salad'])
+        self.assertEqual(len(uploads), 12)  # the return group reuses the ladder images
+        # The return group targets an audience, not phrases.
+        rules = direct.added['retargetinglists'][0]['Rules']
+        self.assertEqual([r['Operator'] for r in rules], ['ALL', 'NONE'])
+        return_group = self.store.state['campaigns'][self.spec.slug]['game_groups']['return']
+        self.assertEqual(return_group['keyword_ids'], [])
+        self.assertEqual(direct.added['audiencetargets'][0]['AdGroupId'], return_group['adgroup_id'])
         self.assertNotIn(('ads', 'moderate'), direct.writes())
         censorly_ads = [a for a in direct.added['ads'] if a['TextAd'].get('Href', '').endswith('/censorly/first/')]
         self.assertEqual(len(censorly_ads), 3)
@@ -228,6 +235,7 @@ class GameGroupTests(SimpleTestCase):
         self.store.state['campaigns'][self.spec.slug]['launched'] = True
         campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
         moderated = [p for s, m, p in direct.calls if (s, m) == ('ads', 'moderate')]
+        # The return group's ads wait until its autotargeting is checked.
         self.assertEqual(sum(len(p['SelectionCriteria']['Ids']) for p in moderated), 12)
 
     def test_ad_text_rejects_characters_direct_does_not_accept(self):
@@ -242,7 +250,8 @@ class GameGroupTests(SimpleTestCase):
         def call(service, method, params=None):
             if (service, method) == ('adimages', 'add'):
                 return {'AddResults': [{'AdImageHash': 'h'}]}
-            if (service, method) == ('ads', 'add') and params['Ads'][0]['TextAd']['Href'].endswith('/ladder/first/'):
+            text_ad = (params or {}).get('Ads', [{}])[0].get('TextAd', {})
+            if (service, method) == ('ads', 'add') and text_ad.get('AdImageHash') and text_ad['Href'].endswith('/ladder/first/'):
                 return {'AddResults': [{'Errors': [{'Code': 5002}]}]}
             return original(service, method, params)
 
@@ -296,6 +305,37 @@ class GameGroupTests(SimpleTestCase):
         sent = [p for s, m, p in direct.calls if (s, m) == ('campaigns', 'update')][-1]['Campaigns'][0]
         self.assertIn('UnifiedCampaign', sent)
         self.assertNotIn('NegativeKeywords', sent)
+
+    def test_sync_moves_phrases_landing_and_phone_bids_to_the_spec(self):
+        direct = FakeDirect()
+        original = direct.call
+        direct.call = lambda s, m, p=None: (
+            {'AddResults': [{'AdImageHash': 'h'}]} if (s, m) == ('adimages', 'add') else original(s, m, p)
+        )
+        old = replace(self.spec, keywords=self.spec.keywords + ('вордли',), generic_path='/start/',
+                      mobile_bid_modifier=50)
+        campaigns.create(direct, old, audit=self.audit, state_store=self.store)
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        for modifier in direct.added['bidmodifiers']:
+            modifier.setdefault('Level', 'CAMPAIGN')
+        result = campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
+
+        record = self.store.state['campaigns'][self.spec.slug]
+        generic_vordli = [k['Id'] for k in direct.added['keywords']
+                          if k['Keyword'] == 'вордли' and k['AdGroupId'] == record['adgroup_ids'][0]]
+        self.assertEqual(result['keywords'], {'deleted': generic_vordli, 'added': []})
+        updated = [p for s, m, p in direct.calls if (s, m) == ('ads', 'update')][-1]['Ads']
+        generic = [u for u in updated if u['Id'] in record['ad_ids']]
+        self.assertEqual({u['TextAd']['Href'] for u in generic}, {'https://ru.interoves.com/ladder/first/'})
+        self.assertEqual({u['TextAd']['DisplayUrlPath'] for u in generic}, {'ladder'})
+        sets = [p for s, m, p in direct.calls if (s, m) == ('bidmodifiers', 'set')]
+        self.assertEqual(sets[0]['BidModifiers'][0]['BidModifier'], 100)
+
+    def test_a_group_targets_either_phrases_or_an_audience(self):
+        with self.assertRaises(ConfigError):
+            replace(campaigns.RETURN_GROUP, keywords=('головоломки',)).validate()
+        with self.assertRaises(ConfigError):
+            replace(campaigns.RETURN_GROUP, audience=None).validate()
 
     def test_word_forms_folded_by_direct_count_as_present(self):
         spec = replace(self.spec, negative_keywords=('кроссворды', 'шашки'))
