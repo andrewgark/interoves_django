@@ -104,7 +104,7 @@
     "never_create_second_paid_campaign_without_permission": true
   },
   "pending_launch": null,
-  "updated_at": "2026-11-02T14:45:41.137093+00:00",
+  "updated_at": "2026-11-04T15:03:09.896181+00:00",
   "direct_min_period_budget_note": "Direct rejected CustomPeriodBudget 500 RUB over 10 days: minimum for that period is 550 RUB. Kept SpendLimit=500 and used 2026-09-08..2026-09-09, AutoContinue=NO. Did not use the 900 reserve.",
   "campaigns": {
     "io-ru-nov26": {
@@ -207,6 +207,18 @@
             58395191812,
             58395191813,
             58395191814
+          ]
+        },
+        "return": {
+          "adgroup_id": 5820327921,
+          "ad_ids": [
+            1926082806209432173,
+            1926082806209432174,
+            1926082806209432175
+          ],
+          "keyword_ids": [],
+          "audience_target_ids": [
+            112489734
           ]
         }
       }
@@ -312,6 +324,18 @@
             58395206898,
             58395206899
           ]
+        },
+        "return": {
+          "adgroup_id": 5820328721,
+          "ad_ids": [
+            1926082993041170609,
+            1926082993041170610,
+            1926082993041170611
+          ],
+          "keyword_ids": [],
+          "audience_target_ids": [
+            112489752
+          ]
         }
       }
     }
@@ -333,5 +357,8 @@
     "alphabetty-b-1x1": "lZfGaH-OtD1yslyStoc99g",
     "alphabetty-a-1x1": "vgXADMzkUz6uUE9C5fYG8A",
     "alphabetty-b-16x9": "XLcaSwYGe48LKWVfM8vI0g"
+  },
+  "retargeting_lists": {
+    "Inter Oves — доиграли за 14 дней, не играли 2 дня": 43122665
   }
 }
