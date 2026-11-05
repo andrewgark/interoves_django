@@ -157,6 +157,8 @@ class CampaignSpec:
     mobile_bid_modifier: int = 100
     # Where the generic ads lead, on the campaign host.
     generic_path: str = '/start/'
+    # Network placements (sites, apps, external exchanges) to stay off.
+    excluded_sites: tuple[str, ...] = ()
     goal_id: int = GOAL_GAME_COMPLETE
     game_groups: tuple[GameGroup, ...] = ()
     notes: tuple[str, ...] = field(default=())
@@ -484,6 +486,18 @@ SALAD_LOOKALIKE_GROUP = GameGroup(
     ),
 )
 
+# Nov 4–5, phones: external exchanges and other apps' ad slots brought
+# misclicks (dsp-inneractive: 24 clicks of 128 impressions, 8-second visits,
+# no game started). Free under pay-per-conversion, but they skew learning.
+JUNK_PLACEMENTS = (
+    'dsp-inneractive.yandex.ru',
+    'dsp-opera-exchange.yandex.ru',
+    'com.hungrystudio.mahjong',
+    'com.tfgco.apps.coloring.free.color.by.number',
+    'com.viber.voip',
+    'video.like',
+)
+
 RU_SEARCH_NEGATIVES = ('шахматы', 'тетрис', 'кубики', 'цифры', 'скачать', 'память', 'brain test')
 
 CAMPAIGNS = {
@@ -494,9 +508,9 @@ CAMPAIGNS = {
             name='Inter Oves — Россия → ru.interoves.com — ноябрь 2026',
             landing_url='https://ru.interoves.com/start/',
             region_ids=(REGION_RUSSIA,),
-            # Nov 5: 85 ₽ spent in two days against 448 ₽ abroad; a third of
-            # the money moves to where players finish games.
-            spend_limit_rub=2000,
+            # Nov 4: 85 ₽ spent in two days against 448 ₽ abroad, and still
+            # 85 ₽ on Nov 5: half of the money moves to where players finish.
+            spend_limit_rub=1000,
             cpa_rub=70,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
@@ -506,6 +520,7 @@ CAMPAIGNS = {
             # Wide phrases go straight into a ~3★ Салатик, the game ad visitors
             # finish most (Nov 3–4: 27%; /start/ 2 of 53, Лесенка barely shown).
             generic_path='/salad/first/',
+            excluded_sites=JUNK_PLACEMENTS,
             # Nov 4: search brought chess, tetris and app-download queries
             # whose visitors never started a word puzzle.
             negative_keywords=CampaignSpec.negative_keywords + RU_SEARCH_NEGATIVES,
@@ -516,7 +531,7 @@ CAMPAIGNS = {
             name='Inter Oves — заграница → interoves.com — ноябрь 2026',
             landing_url='https://interoves.com/start/',
             region_ids=INTERNATIONAL_REGIONS,
-            spend_limit_rub=3000,
+            spend_limit_rub=4000,
             cpa_rub=100,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
@@ -531,6 +546,7 @@ CAMPAIGNS = {
             ),
             game_groups=GAME_GROUPS + (RETURN_GROUP,),  # + SALAD_LOOKALIKE_GROUP, see LOOKALIKE_PLAYERS
             generic_path='/salad/first/',
+            excluded_sites=JUNK_PLACEMENTS,
             notes=('test: Yandex inventory abroad is thin',),
         ),
     )
@@ -575,6 +591,7 @@ def campaign_payload(spec: CampaignSpec) -> dict:
         'EndDate': spec.end.isoformat(),
         'TimeZone': TIMEZONE,
         'NegativeKeywords': {'Items': list(spec.negative_keywords)},
+        **({'ExcludedSites': {'Items': list(spec.excluded_sites)}} if spec.excluded_sites else {}),
         'UnifiedCampaign': {
             'BiddingStrategy': {
                 'Search': {
@@ -768,6 +785,9 @@ def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
             failures.append(f'{placement} goal {pfc.get("GoalId")} != {spec.goal_id}')
     if METRIKA_COUNTER_ID not in ((unified.get('CounterIds') or {}).get('Items') or []):
         failures.append('Metrika counter missing')
+    missing_sites = set(spec.excluded_sites) - _live_excluded_sites(camp)
+    if missing_sites:
+        failures.append(f'excluded sites missing: {sorted(missing_sites)}')
     missing_negatives = _missing_negatives(spec, camp)
     if missing_negatives:
         failures.append(f'minus-phrases missing: {sorted(missing_negatives)}')
@@ -956,6 +976,10 @@ def _strategy_key(campaign: dict) -> tuple:
             *(budget.get(k) for k in ('SpendLimit', 'StartDate', 'EndDate', 'AutoContinue')))
 
 
+def _live_excluded_sites(campaign: dict) -> set[str]:
+    return set((campaign.get('ExcludedSites') or {}).get('Items') or [])
+
+
 def _missing_negatives(spec: CampaignSpec, campaign: dict) -> set[str]:
     """Spec minus-phrases absent from the campaign.
 
@@ -983,6 +1007,8 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         change['UnifiedCampaign'] = {'BiddingStrategy': payload['UnifiedCampaign']['BiddingStrategy']}
     if _missing_negatives(spec, camp):
         change['NegativeKeywords'] = payload['NegativeKeywords']
+    if _live_excluded_sites(camp) != set(spec.excluded_sites):
+        change['ExcludedSites'] = {'Items': list(spec.excluded_sites)} if spec.excluded_sites else None
     if change:
         result = ads.call('campaigns', 'update', {'Campaigns': [{'Id': campaign_id, **change}]})
         for row in result.get('UpdateResults') or []:

@@ -104,7 +104,7 @@
     "never_create_second_paid_campaign_without_permission": true
   },
   "pending_launch": null,
-  "updated_at": "2026-11-04T17:43:14.437947+00:00",
+  "updated_at": "2026-11-05T09:55:11.349159+00:00",
   "direct_min_period_budget_note": "Direct rejected CustomPeriodBudget 500 RUB over 10 days: minimum for that period is 550 RUB. Kept SpendLimit=500 and used 2026-09-08..2026-09-09, AutoContinue=NO. Did not use the 900 reserve.",
   "campaigns": {
     "io-ru-nov26": {

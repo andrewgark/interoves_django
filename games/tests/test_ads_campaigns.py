@@ -101,7 +101,7 @@ class CampaignSpecTests(SimpleTestCase):
             pfc = strategy['PayForConversion']
             self.assertEqual(pfc['GoalId'], GOAL_GAME_COMPLETE)
             self.assertEqual(micros_to_rubles(pfc['Cpa']), 70)
-            self.assertEqual(micros_to_rubles(pfc['CustomPeriodBudget']['SpendLimit']), 2000)
+            self.assertEqual(micros_to_rubles(pfc['CustomPeriodBudget']['SpendLimit']), 1000)
             self.assertEqual(pfc['CustomPeriodBudget']['AutoContinue'], 'NO')
             self.assertNotIn('WeeklySpendLimit', pfc)
         self.assertEqual(payload['UnifiedCampaign']['CounterIds']['Items'], [METRIKA_COUNTER_ID])
@@ -364,6 +364,22 @@ class GameGroupTests(SimpleTestCase):
             replace(campaigns.RETURN_GROUP, keywords=('головоломки',)).validate()
         with self.assertRaises(ConfigError):
             replace(campaigns.RETURN_GROUP, audience=None).validate()
+
+    def test_sync_keeps_the_campaign_off_junk_placements(self):
+        direct = FakeDirect()
+        original = direct.call
+        direct.call = lambda s, m, p=None: (
+            {'AddResults': [{'AdImageHash': 'h'}]} if (s, m) == ('adimages', 'add') else original(s, m, p)
+        )
+        campaigns.create(direct, replace(self.spec, excluded_sites=()), audit=self.audit, state_store=self.store)
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        campaign_id = direct.added['campaigns'][0]['Id']
+        self.assertTrue(any(f.startswith('excluded sites missing')
+                            for f in campaigns.verify(direct, self.spec, campaign_id)['failures']))
+        campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
+        sent = [p for s, m, p in direct.calls if (s, m) == ('campaigns', 'update')][-1]['Campaigns'][0]
+        self.assertEqual(set(sent), {'Id', 'ExcludedSites'})
+        self.assertIn('dsp-inneractive.yandex.ru', sent['ExcludedSites']['Items'])
 
     def test_word_forms_folded_by_direct_count_as_present(self):
         spec = replace(self.spec, negative_keywords=('кроссворды', 'шашки'))
