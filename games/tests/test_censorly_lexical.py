@@ -569,6 +569,28 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertIn('офицерский', matching_lemmas(tokens, 'офицер'))
         self.assertIn('казахский', matching_lemmas(tokens, 'казах'))
 
+    def test_reviewed_nest_anchors_open_the_anchor_family(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'обычно', 'lemma': 'обычно'},
+            {'kind': 'content', 'surface': 'часто', 'lemma': 'часто'},
+            {'kind': 'content', 'surface': 'вид', 'lemma': 'вид'},
+            {'kind': 'content', 'surface': 'исторически', 'lemma': 'исторически'},
+            {'kind': 'content', 'surface': 'неверно', 'lemma': 'неверно'},
+            {'kind': 'content', 'surface': 'вероятность', 'lemma': 'вероятность'},
+            {'kind': 'content', 'surface': 'треугольник', 'lemma': 'треугольник'},
+        ]
+        self.assertIn('обычно', matching_lemmas(tokens, 'обыкновенный'))
+        self.assertIn('часто', matching_lemmas(tokens, 'частота'))
+        self.assertIn('вид', matching_lemmas(tokens, 'подвид'))
+        self.assertIn('исторически', matching_lemmas(tokens, 'историк'))
+        self.assertIn('неверно', matching_lemmas(tokens, 'неверный'))
+        self.assertIn('вероятность', matching_lemmas(tokens, 'невероятный'))
+        # Anchors copy one sense, and compounds are never anchored.
+        self.assertNotIn('вид', matching_lemmas(tokens, 'видеть'))
+        self.assertNotIn('часто', matching_lemmas(tokens, 'часть'))
+        self.assertNotIn('вероятность', matching_lemmas(tokens, 'верить'))
+        self.assertNotIn('треугольник', matching_lemmas(tokens, 'три'))
+
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
             kind = relation_kind(left, right)

@@ -16,8 +16,8 @@ complete root structure and is never a root by itself.
 
 from __future__ import annotations
 
-import os
 import csv
+import os
 import re
 import sys
 from collections import Counter
@@ -51,6 +51,9 @@ _NEGATION_PAIRS = Path(os.environ.get(
 ))
 _HALF_COMPOUNDS = Path(os.environ.get(
     'CENSORLY_HALF_COMPOUNDS', Path(__file__).resolve().parents[1] / 'data' / 'half_compounds.tsv'
+))
+_NEST_ANCHORS = Path(os.environ.get(
+    'CENSORLY_NEST_ANCHORS', Path(__file__).resolve().parents[1] / 'data' / 'reviewed_nest_anchors.tsv'
 ))
 
 # Historical families whose join would glue unrelated modern words.
@@ -185,6 +188,32 @@ def _load_half_compounds() -> dict[str, str]:
 
 
 HALF_COMPOUNDS = _load_half_compounds()
+
+
+def _load_nest_anchors() -> dict[str, str]:
+    """Reviewed rootless lemmas that read as one rooted lemma of their nest.
+
+    The anchor's structures are copied at build time, senses included, so a
+    later split of the anchor's family moves the anchored lemma with it.
+    """
+    if not _NEST_ANCHORS.exists():
+        raise RuntimeError(f'missing nest anchors data file: {_NEST_ANCHORS}')
+    anchors = {}
+    with _NEST_ANCHORS.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream, delimiter='\t')
+        if reader.fieldnames != ['lemma', 'anchor', 'nest', 'note']:
+            raise RuntimeError(f'invalid nest anchors header in {_NEST_ANCHORS}')
+        for row in reader:
+            lemma, anchor = fold(row['lemma']), fold(row['anchor'])
+            if not lemma or not anchor or lemma == anchor:
+                raise RuntimeError(f'invalid nest anchor: {lemma!r} -> {anchor!r}')
+            if lemma in anchors:
+                raise RuntimeError(f'duplicate nest anchor: {lemma}')
+            anchors[lemma] = anchor
+    return anchors
+
+
+NEST_ANCHORS = _load_nest_anchors()
 
 
 def _bare_roots(structures) -> set[tuple[str, ...]]:
@@ -650,23 +679,57 @@ def _build_bank(*, record: bool):
     # root at all.  A reviewed negation takes its base structures when it has
     # no root of its own, or only the bare base root without a sense; a
     # negation with its own different reading (неводить, недельный) is kept.
-    for negated, base in NEGATION_PAIRS.items():
-        base_structures = built.get(base)
-        if not base_structures:
-            continue
-        own = built.get(negated)
-        if own and (
-            any(part.startswith('sense:') for structure in own for part in structure)
-            or not _bare_roots(own) <= _bare_roots(base_structures)
-        ):
-            continue
-        built[negated] = base_structures
-        provenance[negated] = {
-            'source': 'NEGATION_OF_BASE',
-            'detail': base,
-            'refused': (),
+    def apply_negations(*, only_rootless: bool) -> None:
+        for negated, base in NEGATION_PAIRS.items():
+            base_structures = built.get(base)
+            if not base_structures:
+                continue
+            own = built.get(negated)
+            if only_rootless and own:
+                continue
+            if own and (
+                any(part.startswith('sense:') for structure in own for part in structure)
+                or not _bare_roots(own) <= _bare_roots(base_structures)
+            ):
+                continue
+            built[negated] = base_structures
+            provenance[negated] = {
+                'source': 'NEGATION_OF_BASE',
+                'detail': base,
+                'refused': (),
+            }
+            audit['negation_lemmas'] += 1
+
+    # Reviewed nest anchors give a rootless lemma (обычно, вид) the complete
+    # structures of one rooted nest member. A lemma that already has a root
+    # keeps it; anchors may chain (anchor of an anchor) up to a short depth.
+    # Anchors run after negations so «неверно» can anchor to «неверный»,
+    # and negations run once more so «необычно» can follow «обычно».
+    def apply_anchors() -> None:
+        pending = {
+            lemma: anchor for lemma, anchor in NEST_ANCHORS.items()
+            if not built.get(lemma)
         }
-        audit['negation_lemmas'] += 1
+        for _depth in range(3):
+            resolved = {
+                lemma: anchor for lemma, anchor in pending.items() if built.get(anchor)
+            }
+            if not resolved:
+                break
+            for lemma, anchor in resolved.items():
+                built[lemma] = built[anchor]
+                provenance[lemma] = {
+                    'source': 'REVIEWED_NEST_ANCHOR',
+                    'detail': anchor,
+                    'refused': (),
+                }
+                audit['nest_anchor_lemmas'] += 1
+                del pending[lemma]
+        audit['nest_anchor_unresolved'] += len(pending)
+
+    apply_negations(only_rootless=False)
+    apply_anchors()
+    apply_negations(only_rootless=True)
     # Dictionaries leave полуостров, полчаса, полукруг unresolved: «пол» has
     # several root families. Each reviewed compound reads as its base word
     # only: «час» opens «полчаса», but «половина» does not, since «пол» is a
@@ -951,11 +1014,15 @@ _sense((
 # Family-level modern splits. A lemma is listed in one cluster only.
 # Lemmas that stay out of every cluster remain on the dictionary family
 # and are unresolved, not silently treated as safe.
-from games.puzzles.censorly.lexical.splits import (
+# Imported here, not at the top: these modules run after _SENSE exists, and
+# splits must be installed before proper names.
+# ruff: isort: off
+from games.puzzles.censorly.lexical.splits import (  # noqa: E402
     SEMANTIC_ROOT_ASSIGNMENTS,
     install as _install_splits,
 )
-from games.puzzles.censorly.lexical.match.proper_names import install as _install_proper_names
+from games.puzzles.censorly.lexical.match.proper_names import install as _install_proper_names  # noqa: E402
+# ruff: isort: on
 
 _install_splits(_sense, _set_readings)
 _install_proper_names(_sense, _set_readings)

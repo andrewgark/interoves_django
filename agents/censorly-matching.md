@@ -32,6 +32,7 @@
 | Симптом в `explain_pair` | Куда чинить |
 |---|---|
 | FALSE NEGATIVE, `source=UNRESOLVED`, `morph X matches 0 game roots` | `data/reviewed_opaque_roots.tsv` (вся семья Тихонова), трек A |
+| FALSE NEGATIVE, `source=ABSENT` или `UNRESOLVED` у наречия или производного, а однокоренное слово с корнем есть (обычно → обычный) | `data/reviewed_nest_anchors.tsv` (структура копируется с sense), очередь `wiktionary.nest_queue`, трек W4 |
 | FALSE NEGATIVE, `source=ABSENT` у базового слова | `data/reviewed_derived_roots.tsv`, трек B |
 | FALSE NEGATIVE, `UNRESOLVED` составного (`a+b`) | `reviewed_derived_roots.tsv` с полной структурой, трек C |
 | FALSE NEGATIVE, `matches 2 game roots` | `data/reviewed_existing_root_assignments.tsv`, трек D |
@@ -67,8 +68,8 @@
 ## Что runtime читает из `data/`
 
 `dictionaries/*`, `reviewed_opaque_roots.tsv`, `reviewed_derived_roots.tsv`,
-`reviewed_existing_root_assignments.tsv`, `negation_pairs.tsv`,
-`half_compounds.tsv`. Остальные TSV и TXT — это ревью-очереди, снимки аудитов
+`reviewed_existing_root_assignments.tsv`, `reviewed_nest_anchors.tsv`,
+`negation_pairs.tsv`, `half_compounds.tsv`. Остальные TSV и TXT — это ревью-очереди, снимки аудитов
 или память тулов. Их изменение не влияет на игру.
 
 ## Тесты

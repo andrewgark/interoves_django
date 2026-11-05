@@ -56,6 +56,7 @@ play.py / article/redact.py
 | `REVIEWED_OPAQUE_ROOT` | 4 117 | морф Тихонова из `reviewed_opaque_roots.tsv`, у которого нет написания в Кузнецовой |
 | `UNIQUE_SPELLING_FALLBACK` | 9 515 | морф Тихонова совпал по написанию ровно с одним корнем Кузнецовой. **Никто это не проверял** |
 | `NEGATION_OF_BASE`, `HALF_COMPOUND`, `NUMERAL_*` | 2 909 | постобработка поверх построенного банка |
+| `REVIEWED_NEST_ANCHOR` | 144 (с 2026-11-05) | `reviewed_nest_anchors.tsv`: лемма без корня копирует структуры якоря из своего гнезда Wiktionary; проход идёт между двумя проходами отрицаний |
 | `UNRESOLVED` | **34 500** | корня нет: 20.5k с одним морфом, 14.7k составных |
 
 Лемма, которой нет ни в одном словаре, получает `ABSENT`: её нет в банке
@@ -167,7 +168,7 @@ Python.
    понять, вход это для runtime, ревью-очередь или устаревший снимок. Runtime
    читает только: `dictionaries/*`, `reviewed_opaque_roots.tsv`,
    `reviewed_derived_roots.tsv`, `reviewed_existing_root_assignments.tsv`,
-   `negation_pairs.tsv`, `half_compounds.tsv`.
+   `reviewed_nest_anchors.tsv`, `negation_pairs.tsv`, `half_compounds.tsv`.
 6. Фикстурный корпус всего 29 статей с сильным естественнонаучным перекосом.
    Приоритеты майнера (`corpus_frequency`) почти везде 0–2, поэтому
    приоритизация слабая.
