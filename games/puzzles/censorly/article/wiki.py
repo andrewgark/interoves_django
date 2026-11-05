@@ -82,24 +82,36 @@ class _MathNode:
         self.children: list[_MathNode | str] = []
 
 
-# Upright multi-letter identifiers that TeX writes as a control word.
-_MATHML_TEX_FUNCTIONS = {
-    'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'tg', 'ctg', 'sh', 'ch', 'th', 'cth',
-    'sinh', 'cosh', 'tanh', 'coth', 'arcsin', 'arccos', 'arctan', 'arctg', 'arcctg',
-    'log', 'ln', 'lg', 'exp', 'lim', 'liminf', 'limsup', 'max', 'min', 'sup', 'inf',
-    'det', 'dim', 'ker', 'deg', 'gcd', 'arg', 'Pr', 'hom',
-}
 _MATHML_TEX_ESCAPES = {
-    '{': r'\{', '}': r'\}', '%': r'\%', '#': r'\#', '&': r'\&', '_': r'\_', '\\': r'\backslash ',
+    '∗': '*', '{': r'\{', '}': r'\}', '%': r'\%', '#': r'\#', '&': r'\&', '_': r'\_', '\\': r'\backslash ',
 }
 # <mover>/<munder> marks that TeX writes as an accent over the base.
 _MATHML_OVER_ACCENTS = {
     '¯': 'overline', '‾': 'overline', '―': 'overline', '_': 'overline',
     '→': 'vec', '⃗': 'vec', '^': 'hat', 'ˆ': 'hat', '~': 'tilde', '˜': 'tilde',
     '˙': 'dot', '¨': 'ddot', '⏞': 'overbrace',
+    # Combining marks that MathML also uses as accents.
+    '\u0302': 'hat', '\u0303': 'tilde', '\u0304': 'overline', '\u0305': 'overline',
+    '\u0307': 'dot', '\u0308': 'ddot',
 }
 _MATHML_UNDER_ACCENTS = {'_': 'underline', '¯': 'underline', '‾': 'underline', '⏟': 'underbrace'}
 _MATHML_SKIPPED = {'annotation', 'annotation-xml', 'mphantom', 'none', 'mprescripts'}
+# Unicode that MathML writes for a TeX command whose cleaner rendering differs
+# from the bare character (spacing, a normalized glyph, a variant letter).
+_MATHML_TEX_COMMANDS = {
+    '⋅': 'cdot', '⋯': 'cdots', '…': 'ldots',
+    '∑': 'sum', '∏': 'prod', '∫': 'int', '∬': 'iint', '∭': 'iiint', '∮': 'oint', '⩽': 'leqslant', '⩾': 'geqslant',
+    'ϕ': 'phi', 'φ': 'varphi', 'ϵ': 'epsilon', 'ε': 'varepsilon',
+}
+_MATHML_VARIANT_COMMANDS = {
+    'double-struck': 'mathbb', 'script': 'mathcal', 'bold-script': 'mathcal',
+    'fraktur': 'mathfrak', 'bold-fraktur': 'mathfrak',
+}
+_MATHML_NAMED_SPACES = {
+    'veryverythinmathspace': 1 / 18, 'verythinmathspace': 2 / 18, 'thinmathspace': 3 / 18,
+    'mediummathspace': 4 / 18, 'thickmathspace': 5 / 18, 'verythickmathspace': 6 / 18,
+    'veryverythickmathspace': 7 / 18,
+}
 
 
 def _mathml_text(node: _MathNode) -> str:
@@ -108,45 +120,149 @@ def _mathml_text(node: _MathNode) -> str:
     ).strip()
 
 
+def _mathml_unwrap(node: _MathNode) -> _MathNode:
+    """The single element inside grouping rows such as MathJax's OPEN/CLOSE atoms."""
+    while node.tag in {'mrow', 'mstyle'}:
+        elements = [child for child in node.children if isinstance(child, _MathNode)]
+        if len(elements) != 1:
+            break
+        node = elements[0]
+    return node
+
+
+def _mathml_is_mo(node: _MathNode, text: str) -> bool:
+    node = _mathml_unwrap(node)
+    return node.tag == 'mo' and _mathml_text(node) == text
+
+
+def _mathml_is_stack(node: _MathNode) -> bool:
+    """A fraction without a bar: a binomial in parentheses or stacked limits."""
+    node = _mathml_unwrap(node)
+    return node.tag == 'mfrac' and (node.attrs.get('linethickness') or '').strip() in {
+        '0', '0px', '0pt', '0em', '0.0',
+    }
+
+
+def _mathml_space(node: _MathNode) -> str:
+    width = (node.attrs.get('width') or '').strip()
+    em = _MATHML_NAMED_SPACES.get(width)
+    if em is None:
+        match = re.fullmatch(r'(-?\d*\.?\d+)\s*(em|ex|px|pt)?', width)
+        if not match:
+            return ' '
+        value = float(match.group(1))
+        em = value * {'ex': 0.5, 'px': 1 / 16, 'pt': 1 / 10}.get(match.group(2) or 'em', 1)
+    if em <= 0:
+        return ''
+    if em < 0.25:
+        return r'\,'
+    if em < 0.75:
+        return r'\;'
+    return r'\quad ' if em < 1.5 else r'\qquad '
+
+
+def _mathml_row(elements: list[_MathNode]) -> str:
+    parts: list[str] = []
+    i = 0
+    while i < len(elements):
+        # ( stack ) is \binom, which the cleaner writes as C(n, k).
+        if (
+            i + 2 < len(elements)
+            and _mathml_is_mo(elements[i], '(')
+            and _mathml_is_stack(elements[i + 1])
+            and _mathml_is_mo(elements[i + 2], ')')
+        ):
+            stack = _mathml_unwrap(elements[i + 1])
+            rows = [_mathml_to_tex(child) for child in stack.children if isinstance(child, _MathNode)]
+            rows += [''] * (2 - len(rows))
+            parts.append(f'{{\\binom {{{rows[0]}}}{{{rows[1]}}}}}')
+            i += 3
+            continue
+        parts.append(_mathml_to_tex(elements[i]))
+        i += 1
+    # A system of equations: { followed by a table and an empty closing fence.
+    if (
+        len(elements) >= 2
+        and _mathml_is_mo(elements[0], '{')
+        and any(_mathml_unwrap(element).tag == 'mtable' for element in elements[1:])
+        and not _mathml_is_mo(elements[-1], '}')
+    ):
+        tail = parts[-1] if _mathml_is_mo(elements[-1], '') else None
+        body = parts[1:-1] if tail is not None else parts[1:]
+        return r'\left\{' + ''.join(body) + r'\right.'
+    return ''.join(parts)
+
+
 def _mathml_to_tex(node: _MathNode) -> str:
     """Rebuild TeX source from a native MathML tree (no alttext)."""
     tag = node.tag
     if tag in _MATHML_SKIPPED:
         return ''
     elements = [child for child in node.children if isinstance(child, _MathNode)]
-    args = [_mathml_to_tex(child) for child in elements]
+    # Converted on demand: a row converts its own children, and converting
+    # them here as well would double the work at every level of nesting.
+    converted: dict[int, str] = {}
 
     def arg(index: int) -> str:
-        return args[index] if index < len(args) else ''
+        if index >= len(elements):
+            return ''
+        if index not in converted:
+            converted[index] = _mathml_to_tex(elements[index])
+        return converted[index]
 
     if tag in {'mi', 'mn', 'mo'}:
         # Drop invisible function application / times / separator / plus.
-        text = re.sub('[⁡-⁤]', '', _mathml_text(node))
-        if tag == 'mi' and text in _MATHML_TEX_FUNCTIONS:
-            return f'\\{text} '
-        if tag == 'mi' and len(text) > 1 and text.isalpha():
+        text = re.sub('[\u2061-\u2064]', '', _mathml_text(node))
+        # A function name (sin, tg, det, lim) comes as <mi> or as <mo>.
+        if tag != 'mn' and len(text) > 1 and text.isalpha():
+            if text in _TEX_FUNCTION_COMMANDS:
+                return f'\\{text} '
             return f'\\operatorname{{{text}}}'
-        return ''.join(_MATHML_TEX_ESCAPES.get(char, char) for char in text)
+        tex = ''.join(
+            f'\\{_MATHML_TEX_COMMANDS[char]} ' if char in _MATHML_TEX_COMMANDS
+            else _MATHML_TEX_ESCAPES.get(char, char)
+            for char in text
+        )
+        variant = _MATHML_VARIANT_COMMANDS.get(node.attrs.get('mathvariant') or '')
+        if variant and text.isascii() and text.isalnum():
+            return f'{{\\{variant} {{{tex}}}}}'
+        return tex
     if tag in {'mtext', 'ms'}:
-        text = re.sub(r'\s+', ' ', _mathml_text(node).replace(' ', ' '))
+        text = re.sub(r'\s+', ' ', _mathml_text(node).replace('\u00a0', ' '))
         if not text.strip():
             return ' '
         text = ''.join(_MATHML_TEX_ESCAPES.get(char, char) for char in text)
         return f'\\text{{{text}}}'
     if tag == 'mspace':
-        return ' '
+        return _mathml_space(node)
     if tag == 'semantics':
         return arg(0)
+    if tag in {'msup', 'msub', 'msubsup', 'mover', 'munder', 'munderover'}:
+        base = arg(0).rstrip()
+        # A lone symbol, function or accent stays bare: the cleaner reads a
+        # braced {\prod}_{n} after a fraction as a product with it.
+        if not elements or _mathml_unwrap(elements[0]).tag not in {'mi', 'mn', 'mo', 'mover', 'munder'}:
+            base = f'{{{base}}}'
+    if tag in {'msup', 'msubsup'}:
+        # Primes are superscripts in MathML; TeX writes them after the base.
+        sup = elements[-1] if len(elements) == (2 if tag == 'msup' else 3) else None
+        mark = _mathml_text(sup) if sup is not None else ''
+        if mark and set(mark) <= set("′″‴'"):
+            base += mark.replace('′', "'").replace('″', "''").replace('‴', "'''")
+            return base if tag == 'msup' else f'{base}_{{{arg(1)}}}'
     if tag == 'msup':
-        return f'{{{arg(0)}}}^{{{arg(1)}}}'
+        return f'{base}^{{{arg(1)}}}'
     if tag == 'msub':
-        return f'{{{arg(0)}}}_{{{arg(1)}}}'
+        return f'{base}_{{{arg(1)}}}'
     if tag == 'msubsup':
-        return f'{{{arg(0)}}}_{{{arg(1)}}}^{{{arg(2)}}}'
+        return f'{base}_{{{arg(1)}}}^{{{arg(2)}}}'
     if tag == 'mfrac':
+        if _mathml_is_stack(node):
+            # \atop under a big operator: the cleaner joins the rows with «, ».
+            return f'{{{{{arg(0)}}}\\atop {{{arg(1)}}}}}'
         return f'\\frac{{{arg(0)}}}{{{arg(1)}}}'
     if tag == 'msqrt':
-        return f'\\sqrt{{{"".join(args)}}}'
+        return f'\\sqrt{{{_mathml_row(elements)}}}'
     if tag == 'mroot':
         return f'\\sqrt[{arg(1)}]{{{arg(0)}}}'
     if tag in {'mover', 'munder', 'munderover'}:
@@ -156,10 +272,10 @@ def _mathml_to_tex(node: _MathNode) -> str:
         if tag == 'munder' and mark in _MATHML_UNDER_ACCENTS:
             return f'\\{_MATHML_UNDER_ACCENTS[mark]}{{{arg(0)}}}'
         if tag == 'mover':
-            return f'{{{arg(0)}}}^{{{arg(1)}}}'
+            return f'{base}^{{{arg(1)}}}'
         if tag == 'munder':
-            return f'{{{arg(0)}}}_{{{arg(1)}}}'
-        return f'{{{arg(0)}}}_{{{arg(1)}}}^{{{arg(2)}}}'
+            return f'{base}_{{{arg(1)}}}'
+        return f'{base}_{{{arg(1)}}}^{{{arg(2)}}}'
     if tag == 'mtable':
         rows = [' & '.join(_mathml_to_tex(cell) for cell in row.children
                            if isinstance(cell, _MathNode) and cell.tag == 'mtd')
@@ -169,9 +285,9 @@ def _mathml_to_tex(node: _MathNode) -> str:
         opener = node.attrs.get('open', '(')
         closer = node.attrs.get('close', ')')
         separator = (node.attrs.get('separators') or ',').strip()[:1]
-        return opener + separator.join(args) + closer
+        return opener + separator.join(arg(i) for i in range(len(elements))) + closer
     # math, mrow, mstyle, mpadded, menclose, merror, mtd and anything unknown.
-    return ''.join(args)
+    return _mathml_row(elements)
 
 
 class _WikiExtractHTMLParser(HTMLParser):
@@ -895,6 +1011,10 @@ _SUBSCRIPTS = str.maketrans({
     **dict(zip('aehijklmnoprstuvx', 'ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓ')),
 })
 _SCRIPT_CHARS = '₀₁₂₃₄₅₆₇₈₉₊₋₌₍₎ₐₑₕᵢⱼₖₗₘₙₒₚᵣₛₜᵤᵥₓᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐⁿᵒᵖʳˢᵗᵘᵛʷˣʸᶻ⁰¹²³⁴⁵⁶⁷⁸⁹'
+# A sum, product or integral and its limits at the end of rendered text.
+_BIG_OPERATOR_WITH_LIMITS_RE = re.compile(
+    rf'[∑∏∫∬∭∮](?:[ {re.escape(_SCRIPT_CHARS)}]|₍[^₎]*₎|\^\([^()]*(?:\([^()]*\)[^()]*)*\))*$'
+)
 _SINGLE_SCRIPT_ATOM_RE = re.compile(
     rf'^[A-Za-zΑ-Ωα-ωϵϑϖϱςℏℓ][{re.escape(_SCRIPT_CHARS)}]*$'
 )
@@ -954,7 +1074,10 @@ class _TexTextParser:
         if not previous or not (previous[-1].isalnum() or previous[-1] == ')'):
             return False
         final_word = re.search(r'([A-Za-z]+)$', previous)
-        return not final_word or final_word.group(1) not in _TEX_FUNCTION_COMMANDS
+        if final_word and final_word.group(1) in _TEX_FUNCTION_COMMANDS:
+            return False
+        # ∑ₖ₌₀^(∞) (a)/(b): the fraction is the summand, not a factor.
+        return not _BIG_OPERATOR_WITH_LIMITS_RE.search(previous)
 
     def _argument(self, pos: int) -> tuple[str, int] | None:
         while pos < len(self.text) and self.text[pos].isspace():

@@ -1183,6 +1183,51 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertIn('cos', cleaned)
         self.assertNotIn('\\', cleaned)
 
+    def test_native_mathml_constructs_match_their_tex_rendering(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        def render(body: str) -> str:
+            raw = f'<p>Ф <math><mrow><mstyle displaystyle="true">{body}</mstyle></mrow></math> к</p>'
+            return clean_wiki_extract(_html_extract_to_text(raw), mark_formulas=True)
+
+        binom = (
+            '<mrow><mrow><mo>(</mo></mrow><mfrac linethickness="0"><mi>n</mi><mi>k</mi></mfrac>'
+            '<mrow><mo>)</mo></mrow></mrow>'
+        )
+        self.assertIn('C(n, k)', render(binom + '<mo>=</mo><mn>1</mn>'))
+        primed = render(
+            '<msubsup><mi>E</mi><mi>y</mi><mo>′</mo></msubsup><mo>=</mo>'
+            '<msup><mi>f</mi><mo>″</mo></msup>'
+        )
+        self.assertIn("E'", primed)
+        self.assertIn("f''", primed)
+        self.assertNotIn('′', primed)
+        self.assertIn('ℝ', render('<mi>x</mi><mo>∈</mo><mi mathvariant="double-struck">R</mi>'))
+        self.assertIn('det D', render('<mo>det</mo><mi>D</mi><mo>=</mo><mn>0</mn>'))
+        summed = render(
+            '<munderover><mo>∑</mo><mrow><mi>k</mi><mo>=</mo><mn>0</mn></mrow><mi>n</mi></munderover>'
+            '<mfrac><mn>1</mn><mi>k</mi></mfrac><mo>=</mo><mi>S</mi>'
+        )
+        self.assertIn('ⁿ(1)/(k)', summed)
+        self.assertNotIn('·', summed)
+        system = render(
+            '<mrow><mo>{</mo><mtable><mtr><mtd><mi>x</mi><mo>=</mo><mn>1</mn></mtd></mtr>'
+            '<mtr><mtd><mi>y</mi><mo>=</mo><mn>2</mn></mtd></mtr></mtable><mo fence="true"></mo></mrow>'
+        )
+        self.assertIn('{x = 1; y = 2', system)
+
+    def test_deeply_nested_native_mathml_converts_in_linear_time(self):
+        import time
+
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text
+
+        depth = 60
+        body = '<mrow>' * depth + '<mi>x</mi><mo>+</mo><mn>1</mn>' + '</mrow>' * depth
+        started = time.monotonic()
+        text = _html_extract_to_text(f'<p>Ф <math>{body}</math> к</p>')
+        self.assertLess(time.monotonic() - started, 1.0)
+        self.assertIn('x+1', text)
+
     def test_html_extract_keeps_large_lists_and_mathml_alttext(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
 
