@@ -204,7 +204,7 @@ class GameGroupTests(SimpleTestCase):
         campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
         result = campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
         self.assertEqual(sorted(result['added']), ['alphabetty', 'censorly', 'ladder', 'return', 'salad'])
-        self.assertEqual(len(uploads), 12)  # the return group reuses the ladder images
+        self.assertEqual(len(uploads), 12)  # audience groups reuse the game images
         # The return group targets an audience, not phrases.
         rules = direct.added['retargetinglists'][0]['Rules']
         self.assertEqual([r['Operator'] for r in rules], ['ALL', 'NONE'])

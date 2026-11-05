@@ -446,6 +446,44 @@ RETURN_GROUP = GameGroup(
     ),
 )
 
+# Not in the campaigns yet. 61498514 is the Audience segment of players who
+# finished a game (Metrika goal, 1033 people), not a look-alike: on Nov 5
+# Yandex Audience had look-alike creation switched off while it recovered.
+# Once a look-alike of 61498514 exists, put its id here and add
+# SALAD_LOOKALIKE_GROUP to both campaigns' game_groups.
+LOOKALIKE_PLAYERS = Audience(
+    name='Inter Oves — похожие на доигравших (Аудитории 61498514)',
+    rules=(('ALL', 61498514, None),),
+)
+
+# Салатик is the game ad visitors finish most (Nov 3–4: 13 of 49), so it gets
+# a second group: the look-alike audience and three more texts to test.
+SALAD_LOOKALIKE_GROUP = GameGroup(
+    game='salad',
+    slug='salad-lookalike',
+    title='Салатик — похожие',
+    path='/salad/first/',
+    keywords=(),
+    audience=LOOKALIKE_PLAYERS,
+    ads=(
+        AdCopy(
+            title='Найдите все слова на тему дня',
+            text='Сетка из 16 букв и тема дня. Проводите дорожки по соседним буквам. Бесплатно.',
+            image='salad-b-1x1',
+        ),
+        AdCopy(
+            title='Салатик: словесная головоломка дня',
+            text='Каждый день новая тема и новая сетка букв. Пять минут для словарного запаса.',
+            image='salad-a-1x1',
+        ),
+        AdCopy(
+            title='Сколько слов вы найдёте в 16 буквах?',
+            text='Тема дня, сетка 4 на 4 и дорожки по соседним буквам. Новый Салатик каждый день.',
+            image='salad-b-16x9',
+        ),
+    ),
+)
+
 RU_SEARCH_NEGATIVES = ('шахматы', 'тетрис', 'кубики', 'цифры', 'скачать', 'память', 'brain test')
 
 CAMPAIGNS = {
@@ -464,7 +502,7 @@ CAMPAIGNS = {
             end=date(2026, 11, 16),
             keywords=SHARED_KEYWORDS,
             ads=SHARED_ADS,
-            game_groups=GAME_GROUPS + (RETURN_GROUP,),
+            game_groups=GAME_GROUPS + (RETURN_GROUP,),  # + SALAD_LOOKALIKE_GROUP, see LOOKALIKE_PLAYERS
             # Wide phrases go straight into a ~3★ Салатик, the game ad visitors
             # finish most (Nov 3–4: 27%; /start/ 2 of 53, Лесенка barely shown).
             generic_path='/salad/first/',
@@ -491,7 +529,7 @@ CAMPAIGNS = {
                     text='Ежедневные словесные игры и задачи на логику от клуба Inter Oves. Бесплатно.',
                 ),
             ),
-            game_groups=GAME_GROUPS + (RETURN_GROUP,),
+            game_groups=GAME_GROUPS + (RETURN_GROUP,),  # + SALAD_LOOKALIKE_GROUP, see LOOKALIKE_PLAYERS
             generic_path='/salad/first/',
             notes=('test: Yandex inventory abroad is thin',),
         ),
