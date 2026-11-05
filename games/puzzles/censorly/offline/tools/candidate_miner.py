@@ -63,6 +63,20 @@ SUFFIXES = (
 COMBINING_FLAGS = ('авто', 'гидр', 'радио', 'фото')
 RISKY_SHORT = {'мир', 'мор', 'граф', 'метр', 'образ', 'мед', 'свет', 'год', 'мать'}
 REVIEW_STATUSES = {'APPROVED', 'APPLIED', 'CONFIRMED', 'REJECTED', 'KEEP_CLOSED'}
+# Opaque families a reviewer already turned down (homonyms, diverging
+# senses). Offline memory only: the runtime never reads this file.
+REJECTED_OPAQUE = Path(__file__).resolve().parents[2] / 'lexical' / 'data' / 'rejected_opaque_roots.tsv'
+
+
+def _rejected_opaque_roots():
+    if not REJECTED_OPAQUE.exists():
+        return frozenset()
+    with REJECTED_OPAQUE.open(encoding='utf-8', newline='') as stream:
+        return frozenset(
+            fold(row['root_spelling'])
+            for row in csv.DictReader(stream, delimiter='\t')
+            if row.get('root_spelling')
+        )
 
 
 def _read_tsv(path):
@@ -240,8 +254,9 @@ def mine(args):
                 root_reps.setdefault(root_id, lemma)
 
     opaque_rows = []
+    rejected_opaque = _rejected_opaque_roots()
     for root, members in sorted(by_root.items()):
-        if root in REVIEWED_OPAQUE_ROOTS or len(members) < 2:
+        if root in REVIEWED_OPAQUE_ROOTS or root in rejected_opaque or len(members) < 2:
             continue
         ids = root_ids.get(root, set())
         if ids:
@@ -380,6 +395,7 @@ def mine(args):
         ),
         'pack_cache_size': len(pack_cache),
         'reviewed_opaque_excluded': len(REVIEWED_OPAQUE_ROOTS),
+        'rejected_opaque_excluded': len(rejected_opaque),
         'reviewed_derived_excluded': len(REVIEWED_DERIVED_ROOTS),
     }
 
@@ -453,6 +469,7 @@ def main():
         'raw_candidates': len(all_rows),
         'by_class': {key: len(result[key]) for key in ('opaque', 'derived', 'authorization', 'structural')},
         'already_reviewed': result['reviewed_opaque_excluded'] + result['reviewed_derived_excluded'],
+        'rejected_opaque_excluded': result['rejected_opaque_excluded'],
         'suppressed_by_review': sum(row.get('review_status') == 'SUPPRESSED_BY_REVIEW' for row in all_rows),
         'already_open': sum(row.get('review_status') == 'ALREADY_OPEN' for row in all_rows),
         'semantic_conflicts': sum(bool(row.get('semantic_conflicts')) for row in all_rows),
