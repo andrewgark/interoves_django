@@ -1,0 +1,15 @@
+{
+  "extractor": "games/puzzles/censorly/offline/tools/wiktionary/extract.py",
+  "homonymous_lemmas": 6481,
+  "licence": "CC BY-SA 4.0, Wiktionary contributors (ru.wiktionary.org)",
+  "morph_lemmas": 185055,
+  "morph_rows": 193213,
+  "morph_without_root": 266087,
+  "nest_rows": 128039,
+  "nests": 2303,
+  "related_rows": 439935,
+  "ru_pages": 469371,
+  "ru_pages_with_morph": 185055,
+  "seconds": 924.6,
+  "source": "ruwiktionary-20261101-pages-articles.xml.bz2"
+}
