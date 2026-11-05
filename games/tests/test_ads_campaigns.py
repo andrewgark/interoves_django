@@ -100,7 +100,7 @@ class CampaignSpecTests(SimpleTestCase):
             self.assertEqual(strategy['BiddingStrategyType'], 'PAY_FOR_CONVERSION')
             pfc = strategy['PayForConversion']
             self.assertEqual(pfc['GoalId'], GOAL_GAME_COMPLETE)
-            self.assertEqual(micros_to_rubles(pfc['Cpa']), 70)
+            self.assertEqual(micros_to_rubles(pfc['Cpa']), 100)
             self.assertEqual(micros_to_rubles(pfc['CustomPeriodBudget']['SpendLimit']), 1000)
             self.assertEqual(pfc['CustomPeriodBudget']['AutoContinue'], 'NO')
             self.assertNotIn('WeeklySpendLimit', pfc)
@@ -204,7 +204,7 @@ class GameGroupTests(SimpleTestCase):
         campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
         result = campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
         self.assertEqual(sorted(result['added']), ['alphabetty', 'censorly', 'ladder', 'return', 'salad'])
-        self.assertEqual(len(uploads), 12)  # audience groups reuse the game images
+        self.assertEqual(len(uploads), len({i for g in self.spec.game_groups for i in g.images}))  # each image once
         # The return group targets an audience, not phrases.
         rules = direct.added['retargetinglists'][0]['Rules']
         self.assertEqual([r['Operator'] for r in rules], ['ALL', 'NONE'])
@@ -216,14 +216,15 @@ class GameGroupTests(SimpleTestCase):
         self.assertEqual(len(censorly_ads), 3)
         self.assertEqual(
             [a['TextAd']['AdImageHash'] for a in censorly_ads],
-            ['hash-interoves-censorly-b-1x1', 'hash-interoves-censorly-a-1x1', 'hash-interoves-censorly-b-16x9'],
+            ['hash-interoves-censorly-b-16x9'] * 3,
         )
         self.assertTrue(campaigns.verify(direct, self.spec, result['campaign_id'])['ok'])
 
         # Running again adds nothing and uploads nothing.
+        uploaded = len(uploads)
         again = campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
         self.assertEqual(again['added'], [])
-        self.assertEqual(len(uploads), 12)
+        self.assertEqual(len(uploads), uploaded)
 
     def test_add_groups_sends_new_ads_of_a_launched_campaign_to_moderation(self):
         direct = FakeDirect()
@@ -343,14 +344,15 @@ class GameGroupTests(SimpleTestCase):
             ad['State'] = 'ON'
         campaign_id = direct.added['campaigns'][0]['Id']
         failures = campaigns.verify(direct, self.spec, campaign_id)['failures']
-        self.assertEqual(sum('inactive group is still on' in f for f in failures), 3)
+        self.assertEqual(sum('inactive group is still on' in f for f in failures), 6)  # Алфавитка, Лесенка
 
         result = campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
-        alphabetty = self.store.state['campaigns'][self.spec.slug]['game_groups']['alphabetty']['ad_ids']
-        self.assertEqual(result['paused_ads'], alphabetty)
+        groups = self.store.state['campaigns'][self.spec.slug]['game_groups']
+        inactive = groups['ladder']['ad_ids'] + groups['alphabetty']['ad_ids']
+        self.assertEqual(result['paused_ads'], inactive)
         self.assertEqual(result['resumed_ads'], [])
         suspended = [p for s, m, p in direct.calls if (s, m) == ('ads', 'suspend')]
-        self.assertEqual(suspended[0]['SelectionCriteria']['Ids'], alphabetty)
+        self.assertEqual(suspended[0]['SelectionCriteria']['Ids'], inactive)
 
     def test_audience_segment_rules_carry_no_lifespan(self):
         audience = campaigns.Audience(name='x', rules=(('ALL', 123, None), ('NONE', 456, 2)))

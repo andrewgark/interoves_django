@@ -235,9 +235,11 @@ SHARED_ADS = (
         title='Головоломки, где можно гуглить',
         text='Лесенки, Салатики, Алфавитки и Цензурки. Новые задания каждый день, бесплатно.',
     ),
+    # Replaced «Не квиз. Здесь нужно думать» on Nov 5: CTR 14% abroad and 4%
+    # in Russia with no finished game — it drew stray clicks.
     AdCopy(
-        title='Не квиз. Здесь нужно думать',
-        text='Логика, слова и ресёрч вместо угадывания фактов. Новые задания каждый день.',
+        title='Словесные головоломки на каждый день',
+        text='Салатик, Лесенка и Цензурка: новые выпуски в полночь по Москве. Бесплатно.',
     ),
     AdCopy(
         title='Лесенки слов и другие головоломки',
@@ -293,15 +295,18 @@ GAME_GROUPS = (
             'угадай слово по тексту',
         ),
         ads=(
+            # Nov 3–5: Direct gave the wide band 95% of impressions (15 games
+            # finished, ~15 ₽ each); the square ones got a click or two. They
+            # now test headlines on the winning picture.
             AdCopy(
                 title='Угадайте статью Википедии по скрытым словам',
                 text='Все слова статьи скрыты. Называйте слова, и они проявляются. Угадаете тему?',
-                image='censorly-b-1x1',
+                image='censorly-b-16x9',
             ),
             AdCopy(
-                title='Википедия, в которой спрятаны все слова',
-                text='Открывайте текст слово за словом и угадайте, о чём статья. Бесплатно, в браузере.',
-                image='censorly-a-1x1',
+                title='О чём эта статья? Все слова в ней скрыты',
+                text='Называйте слова и открывайте статью Википедии по кусочкам. Бесплатно, в браузере.',
+                image='censorly-b-16x9',
             ),
             AdCopy(
                 title='Цензурка: угадайте статью Википедии слово за словом',
@@ -314,6 +319,8 @@ GAME_GROUPS = (
         game='ladder',
         title='Лесенка',
         path='/ladder/first/',
+        # Nov 3–5: Direct showed it 370 times in three days; it barely bids.
+        active=False,
         keywords=(
             'цепочка слов',
             'игра цепочка слов',
@@ -357,10 +364,13 @@ GAME_GROUPS = (
             'игры со словами онлайн',
         ),
         ads=(
+            # Nov 3–5: the close-up without a band took 95% of impressions (26
+            # games finished, ~31 ₽ each); the band versions are replaced by
+            # headline tests on the same picture.
             AdCopy(
-                title='Салатик: найдите слова на тему в сетке 4 на 4',
+                title='Найдите все слова на тему дня в 16 буквах',
                 text='Соединяйте соседние буквы и ищите слова на общую тему. Правила понятны за минуту.',
-                image='salad-b-1x1',
+                image='salad-a-1x1',
             ),
             AdCopy(
                 title='Словесная головоломка на 10 минут',
@@ -368,9 +378,9 @@ GAME_GROUPS = (
                 image='salad-a-1x1',
             ),
             AdCopy(
-                title='Салатик: слова на тему дня в сетке из 16 букв',
+                title='Сколько слов на тему дня вы найдёте?',
                 text='Проводите дорожки по соседним буквам и найдите все слова на тему. Бесплатно.',
-                image='salad-b-16x9',
+                image='salad-a-1x1',
             ),
         ),
     ),
@@ -417,33 +427,34 @@ LAPSED_PLAYERS = Audience(
     rules=(('ALL', GOAL_GAME_COMPLETE, 14), ('NONE', GOAL_GAME_COMPLETE, 2)),
 )
 
-# Лесенка keeps the most newcomers (40% return within 7 days) and
-# /ladder/first/ skips puzzles the visitor has already finished.
+# The return group sends lapsed players to a ~3★ Салатик they have not
+# solved: Салатик is the game ad visitors finish most, and on Nov 3–5 the
+# Лесенка version of this group drew 6 clicks from ~1400 impressions.
 # Direct keeps autotargeting on even in an audience group ("Автотаргетинг не
 # может быть остановлен"), so new people see these ads too: the copy must not
 # claim the viewer has played before.
 RETURN_GROUP = GameGroup(
-    game='ladder',
+    game='salad',
     slug='return',
     title='Возврат',
-    path='/ladder/first/',
+    path='/salad/first/',
     keywords=(),
     audience=LAPSED_PLAYERS,
     ads=(
         AdCopy(
-            title='Новая Лесенка уже ждёт',
-            text='Цепочка слов дня: каждое связано с соседним. Новый выпуск каждый день.',
-            image='ladder-b-1x1',
+            title='Новый Салатик уже ждёт',
+            text='Тема дня и сетка из 16 букв: найдите все слова. Новый выпуск каждый день.',
+            image='salad-a-1x1',
         ),
         AdCopy(
             title='Сегодня новые головоломки дня',
-            text='Лесенка, Салатик, Алфавитка и Цензурка обновляются каждый день. Бесплатно.',
-            image='ladder-a-1x1',
+            text='Салатик, Лесенка и Цензурка обновляются каждый день в полночь. Бесплатно.',
+            image='salad-b-1x1',
         ),
         AdCopy(
-            title='Свежая Лесенка каждый день',
-            text='Цепочка от первого слова к последнему, каждое связано с соседним. Бесплатно.',
-            image='ladder-b-16x9',
+            title='Свежий Салатик каждый день',
+            text='Найдите все слова на тему дня, проводя дорожки по соседним буквам. Бесплатно.',
+            image='salad-b-16x9',
         ),
     ),
 )
@@ -511,7 +522,8 @@ CAMPAIGNS = {
             # Nov 4: 85 ₽ spent in two days against 448 ₽ abroad, and still
             # 85 ₽ on Nov 5: half of the money moves to where players finish.
             spend_limit_rub=1000,
-            cpa_rub=70,
+            # Nov 5: at 70 ₽ it lost most auctions (85 ₽ spent in three days).
+            cpa_rub=100,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
             keywords=SHARED_KEYWORDS,
