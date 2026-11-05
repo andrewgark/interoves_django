@@ -1216,6 +1216,30 @@ class CensorlyWikiHelperTests(TestCase):
         )
         self.assertIn('{x = 1; y = 2', system)
 
+    def test_paragraph_with_inline_formula_keeps_its_paragraph_break(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        def formula(name: str) -> str:
+            return f'<math><mrow><mstyle displaystyle="true"><mi>{name}</mi></mstyle></mrow></math>'
+
+        raw = (
+            '<div class="mw-heading mw-heading2"><h2>Формулировки</h2></div>\n'
+            f'<p>Катеты равны {formula("a")} и {formula("b")}.\n</p>'
+            f'<p>Обратная теорема верна для {formula("c")}, так что:\n</p>'
+            f'<dl><dd>{formula("d")}.</dd></dl>\n'
+            f'<p>Методом разделения переменных выводится {formula("e")}.</p>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw), mark_formulas=True)
+        self.assertIn('== Формулировки ==\n\nКатеты равны a и b.', cleaned)
+        self.assertIn('b.\n\nОбратная теорема', cleaned)
+        self.assertIn('d.\n\nМетодом', cleaned)
+        # TextExtracts padding around a formula inside a sentence still joins.
+        joined = clean_wiki_extract(
+            'Скорость\n\n{\\displaystyle v} соответствует норме.', mark_formulas=True,
+        )
+        self.assertEqual(joined, 'Скорость v соответствует норме.')
+
     def test_deeply_nested_native_mathml_converts_in_linear_time(self):
         import time
 

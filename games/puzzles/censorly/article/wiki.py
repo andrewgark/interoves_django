@@ -1513,6 +1513,37 @@ def _is_unconfirmed_mathml_dump(lines: list[str]) -> bool:
 _LIST_ITEM_LINE_RE = re.compile(r'^[*#;:]+[ \t]+\S')
 
 
+def _prose_outside_tex(line: str) -> bool:
+    """Whether a line has Russian words outside its TeX formula groups."""
+    pieces: list[str] = []
+    pos = 0
+    for match in _TEX_MATH_START_RE.finditer(line):
+        if match.start() < pos:
+            continue
+        group = _tex_group(line, match.start())
+        pieces.append(line[pos:match.start()])
+        pos = group[1] if group else len(line)
+    pieces.append(line[pos:])
+    return bool(re.search(r'[А-Яа-яЁё]{2,}', ''.join(pieces)))
+
+
+def _starts_paragraph_after(kept: list[str], line: str) -> bool:
+    """A paragraph with an inline formula, after a heading or a finished sentence.
+
+    The blank lines before it are the paragraph break of parsed HTML, not the
+    padding TextExtracts put around a formula in the middle of a sentence.
+    """
+    if not _prose_outside_tex(line):
+        return False
+    previous = next((item.strip() for item in reversed(kept) if item.strip()), '')
+    if not previous:
+        return False
+    return bool(
+        _SECTION_HEADING_RE.fullmatch(previous)
+        or previous.rstrip(_CLOSING_MARKS).endswith(_SENTENCE_ENDS)
+    )
+
+
 def _strip_indented_math_lines(text: str) -> str:
     """Drop MathML fallback blocks immediately before their canonical TeX source.
 
@@ -1593,7 +1624,10 @@ def _strip_indented_math_lines(text: str) -> str:
                 and has_operator
                 and has_digit
             )
-            if not unindented or is_vertical_dump:
+            if not unindented and pending and _starts_paragraph_after(kept, line):
+                kept.extend(pending)
+                pending.clear()
+            elif not unindented or is_vertical_dump:
                 pending.clear()
             else:
                 kept.extend(pending)
