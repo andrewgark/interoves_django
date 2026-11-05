@@ -556,6 +556,19 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertIn('коралловый', matching_lemmas(tokens, 'коралл'))
         self.assertIn('коралл', matching_lemmas(tokens, 'коралловых'))
 
+    def test_reviewed_opaque_sky_adjectives_open_from_their_nouns(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'тюркского', 'lemma': 'тюркский'},
+            {'kind': 'content', 'surface': 'татарского', 'lemma': 'татарский'},
+            {'kind': 'content', 'surface': 'офицерский', 'lemma': 'офицерский'},
+            {'kind': 'content', 'surface': 'казахской', 'lemma': 'казахский'},
+        ]
+        self.assertIn('тюркский', matching_lemmas(tokens, 'тюрк'))
+        self.assertIn('тюркский', matching_lemmas(tokens, 'тюрки'))
+        self.assertIn('татарский', matching_lemmas(tokens, 'татарин'))
+        self.assertIn('офицерский', matching_lemmas(tokens, 'офицер'))
+        self.assertIn('казахский', matching_lemmas(tokens, 'казах'))
+
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
             kind = relation_kind(left, right)
