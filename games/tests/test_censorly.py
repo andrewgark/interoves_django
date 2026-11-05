@@ -1153,6 +1153,36 @@ class CensorlyWikiHelperTests(TestCase):
         cleaned = clean_wiki_extract(marked, mark_formulas=True)
         self.assertIn('1. Первый\u20282. Второй', cleaned)
 
+    def test_html_extract_rebuilds_native_mathml_without_alttext(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+
+        def formula(body: str) -> str:
+            return (
+                '<math class="mwe-math-element mwe-math-element-inline" '
+                'xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mstyle displaystyle="true">'
+                f'{body}</mstyle></mrow></math>'
+            )
+
+        square = '<msup><mi>{0}</mi><mrow><mn>2</mn></mrow></msup>'
+        raw = (
+            '<p>Катеты равны ' + formula('<mi>a</mi>') + ' и ' + formula('<mi>b</mi>')
+            + ', выполнено соотношение '
+            + formula(square.format('a') + '<mo>+</mo>' + square.format('b')
+                      + '<mo>=</mo>' + square.format('c'))
+            + '. Также ' + formula(
+                '<mi>s</mi><mo>=</mo><msqrt><mfrac><mi>x</mi><mn>2</mn></mfrac></msqrt>'
+                '<mo>,</mo><mspace width="1em"></mspace>'
+                '<mi>cos</mi><mo>&#x2061;</mo><mi>θ</mi><mo>=</mo><mn>0</mn>'
+            ) + '.</p>'
+        )
+
+        cleaned = clean_wiki_extract(_html_extract_to_text(raw), mark_formulas=True)
+        self.assertIn('Катеты равны a и b, выполнено соотношение', cleaned)
+        self.assertIn('a² + b² = c²', cleaned)
+        self.assertIn('√((x)/(2))', cleaned)
+        self.assertIn('cos', cleaned)
+        self.assertNotIn('\\', cleaned)
+
     def test_html_extract_keeps_large_lists_and_mathml_alttext(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
 

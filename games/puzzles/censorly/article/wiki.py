@@ -73,6 +73,107 @@ class WikipediaRequestFailed(WikiFetchError):
     """Wikipedia could not provide a usable API response temporarily."""
 
 
+class _MathNode:
+    __slots__ = ('tag', 'attrs', 'children')
+
+    def __init__(self, tag: str, attrs: dict) -> None:
+        self.tag = tag
+        self.attrs = attrs
+        self.children: list[_MathNode | str] = []
+
+
+# Upright multi-letter identifiers that TeX writes as a control word.
+_MATHML_TEX_FUNCTIONS = {
+    'sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'tg', 'ctg', 'sh', 'ch', 'th', 'cth',
+    'sinh', 'cosh', 'tanh', 'coth', 'arcsin', 'arccos', 'arctan', 'arctg', 'arcctg',
+    'log', 'ln', 'lg', 'exp', 'lim', 'liminf', 'limsup', 'max', 'min', 'sup', 'inf',
+    'det', 'dim', 'ker', 'deg', 'gcd', 'arg', 'Pr', 'hom',
+}
+_MATHML_TEX_ESCAPES = {
+    '{': r'\{', '}': r'\}', '%': r'\%', '#': r'\#', '&': r'\&', '_': r'\_', '\\': r'\backslash ',
+}
+# <mover>/<munder> marks that TeX writes as an accent over the base.
+_MATHML_OVER_ACCENTS = {
+    '¯': 'overline', '‾': 'overline', '―': 'overline', '_': 'overline',
+    '→': 'vec', '⃗': 'vec', '^': 'hat', 'ˆ': 'hat', '~': 'tilde', '˜': 'tilde',
+    '˙': 'dot', '¨': 'ddot', '⏞': 'overbrace',
+}
+_MATHML_UNDER_ACCENTS = {'_': 'underline', '¯': 'underline', '‾': 'underline', '⏟': 'underbrace'}
+_MATHML_SKIPPED = {'annotation', 'annotation-xml', 'mphantom', 'none', 'mprescripts'}
+
+
+def _mathml_text(node: _MathNode) -> str:
+    return ''.join(
+        child if isinstance(child, str) else _mathml_text(child) for child in node.children
+    ).strip()
+
+
+def _mathml_to_tex(node: _MathNode) -> str:
+    """Rebuild TeX source from a native MathML tree (no alttext)."""
+    tag = node.tag
+    if tag in _MATHML_SKIPPED:
+        return ''
+    elements = [child for child in node.children if isinstance(child, _MathNode)]
+    args = [_mathml_to_tex(child) for child in elements]
+
+    def arg(index: int) -> str:
+        return args[index] if index < len(args) else ''
+
+    if tag in {'mi', 'mn', 'mo'}:
+        # Drop invisible function application / times / separator / plus.
+        text = re.sub('[⁡-⁤]', '', _mathml_text(node))
+        if tag == 'mi' and text in _MATHML_TEX_FUNCTIONS:
+            return f'\\{text} '
+        if tag == 'mi' and len(text) > 1 and text.isalpha():
+            return f'\\operatorname{{{text}}}'
+        return ''.join(_MATHML_TEX_ESCAPES.get(char, char) for char in text)
+    if tag in {'mtext', 'ms'}:
+        text = re.sub(r'\s+', ' ', _mathml_text(node).replace(' ', ' '))
+        if not text.strip():
+            return ' '
+        text = ''.join(_MATHML_TEX_ESCAPES.get(char, char) for char in text)
+        return f'\\text{{{text}}}'
+    if tag == 'mspace':
+        return ' '
+    if tag == 'semantics':
+        return arg(0)
+    if tag == 'msup':
+        return f'{{{arg(0)}}}^{{{arg(1)}}}'
+    if tag == 'msub':
+        return f'{{{arg(0)}}}_{{{arg(1)}}}'
+    if tag == 'msubsup':
+        return f'{{{arg(0)}}}_{{{arg(1)}}}^{{{arg(2)}}}'
+    if tag == 'mfrac':
+        return f'\\frac{{{arg(0)}}}{{{arg(1)}}}'
+    if tag == 'msqrt':
+        return f'\\sqrt{{{"".join(args)}}}'
+    if tag == 'mroot':
+        return f'\\sqrt[{arg(1)}]{{{arg(0)}}}'
+    if tag in {'mover', 'munder', 'munderover'}:
+        mark = _mathml_text(elements[1]) if len(elements) > 1 else ''
+        if tag == 'mover' and mark in _MATHML_OVER_ACCENTS:
+            return f'\\{_MATHML_OVER_ACCENTS[mark]}{{{arg(0)}}}'
+        if tag == 'munder' and mark in _MATHML_UNDER_ACCENTS:
+            return f'\\{_MATHML_UNDER_ACCENTS[mark]}{{{arg(0)}}}'
+        if tag == 'mover':
+            return f'{{{arg(0)}}}^{{{arg(1)}}}'
+        if tag == 'munder':
+            return f'{{{arg(0)}}}_{{{arg(1)}}}'
+        return f'{{{arg(0)}}}_{{{arg(1)}}}^{{{arg(2)}}}'
+    if tag == 'mtable':
+        rows = [' & '.join(_mathml_to_tex(cell) for cell in row.children
+                           if isinstance(cell, _MathNode) and cell.tag == 'mtd')
+                for row in elements if row.tag in {'mtr', 'mlabeledtr'}]
+        return '\\begin{matrix}' + ' \\\\ '.join(rows) + '\\end{matrix}'
+    if tag == 'mfenced':
+        opener = node.attrs.get('open', '(')
+        closer = node.attrs.get('close', ')')
+        separator = (node.attrs.get('separators') or ',').strip()[:1]
+        return opener + separator.join(args) + closer
+    # math, mrow, mstyle, mpadded, menclose, merror, mtd and anything unknown.
+    return ''.join(args)
+
+
 class _WikiExtractHTMLParser(HTMLParser):
     """Convert parsed article HTML to plaintext while retaining block structure.
 
@@ -169,6 +270,8 @@ class _WikiExtractHTMLParser(HTMLParser):
         # Source newlines after a quoted <br> or at the start of a quote are
         # layout only; the line break itself is already in parts.
         self.strip_leading_space = False
+        # Open elements of a native MathML formula being collected.
+        self.math_stack: list[_MathNode] = []
 
     def _ensure_newlines(self, count: int) -> None:
         # HTML extracts can contain hundreds of list items and long tables.
@@ -202,6 +305,11 @@ class _WikiExtractHTMLParser(HTMLParser):
 
     def handle_starttag(self, tag: str, attrs) -> None:
         attrs = dict(attrs)
+        if self.math_stack:
+            node = _MathNode(tag, attrs)
+            self.math_stack[-1].children.append(node)
+            self.math_stack.append(node)
+            return
         classes = set((attrs.get('class') or '').split())
         if self.skip_depth:
             if tag not in self._VOID_TAGS:
@@ -241,10 +349,14 @@ class _WikiExtractHTMLParser(HTMLParser):
                 self.skip_depth = 1
             return
         if tag == 'math':
-            # MathML includes canonical TeX in alttext; preserve the same form
-            # accepted by the existing formula cleaner and skip verbose MathML.
-            self.parts.append(attrs.get('alttext') or '')
-            self.skip_depth = 1
+            # Older MathML carries the canonical TeX in alttext; keep that form
+            # for the formula cleaner. Native MathML (ruwiki since 2026) has no
+            # alttext, so its tree is collected and rebuilt as TeX on close.
+            if attrs.get('alttext'):
+                self.parts.append(attrs['alttext'])
+                self.skip_depth = 1
+            else:
+                self.math_stack = [_MathNode(tag, attrs)]
             return
         opens_quote = tag == 'blockquote' or (
             tag == 'div' and bool(classes & self._QUOTE_DIV_CLASSES)
@@ -374,6 +486,20 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.handle_endtag(tag)
 
     def handle_endtag(self, tag: str) -> None:
+        if self.math_stack:
+            # Pop up to the matching element; an unclosed child is closed too.
+            for depth in range(len(self.math_stack) - 1, -1, -1):
+                if self.math_stack[depth].tag == tag:
+                    del self.math_stack[depth + 1:]
+                    break
+            else:
+                return
+            node = self.math_stack.pop()
+            if not self.math_stack:
+                tex = _mathml_to_tex(node).strip()
+                if tex:
+                    self.parts.append(f'{{\\displaystyle {tex}}}')
+            return
         if tag in self._VOID_TAGS:
             return
         if self.skip_depth:
@@ -494,6 +620,9 @@ class _WikiExtractHTMLParser(HTMLParser):
             self.parts[start:] = [rendered]
 
     def handle_data(self, data: str) -> None:
+        if self.math_stack:
+            self.math_stack[-1].children.append(data)
+            return
         if self.skip_depth:
             return
         if self.in_code:
