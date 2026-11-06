@@ -4883,7 +4883,7 @@ _REVIEW_FAMILIES = frozenset({
     'лест|лещ²|льст|льщ',
     'и¹|ид|й|йд|ыд', 'мал¹',
     'тач¹|тек|теч|ток¹|точ¹', 'вед¹|веж|вежд¹|вест|вещ¹', 'да¹|даж',
-    'ви|во(j)¹|вь', 'сел', 'лез²|льз',
+    'ви|во(j)¹|вь', 'сел', 'лез²|льз', 'кол²',
     'жен', 'мен¹', 'числ', 'сматр|смотр', 'чист|чищ', 'полн', 'люб',
     'серед|сред', 'шир¹',
 })
@@ -5459,11 +5459,35 @@ def _classify_review_lemma(family: str, lemma: str) -> str:
         if lemma.startswith(('развит', 'недоразвит', 'развой')):
             return 'sense:development'
         return 'sense:winding'
+    if family == 'кол²':
+        # Коло «круг» gave three modern meanings that players do not link:
+        # a wheel (колесо, колея, коляска), a ring (кольцо, кольчуга) and
+        # «around» (около, околица, окольный). Околесица is nonsense talk.
+        if lemma.startswith(('кольц', 'колец', 'колеч', 'кольч', 'закольц', 'окольц')):
+            return 'sense:review_ring'
+        if lemma.startswith(('околес', 'околёс')) and lemma not in ('околесить',):
+            return 'sense:review_babble'
+        if lemma.startswith('окол'):
+            return 'sense:review_around'
+        return 'sense:review_wheel'
     if family == 'сел':
         if lemma == 'вселенная' or lemma.startswith(('вселенск',)):
             return 'sense:universe'
         if lemma.startswith(('проселок', 'проселоч')):
             return 'sense:country_road'
+        # Players do not link the act of settling with the population that
+        # lives somewhere, nor eviction with moving in: keep each prefix
+        # meaning apart (поселение ≠ население ≠ выселение ≠ переселение).
+        if lemma.startswith(('насел', 'перенасел')):
+            return 'sense:review_populace'
+        if lemma.startswith(('вселе', 'всели', 'вселя', 'засел', 'подсел')):
+            return 'sense:review_move_in'
+        if lemma.startswith(('высел', 'отсел')):
+            return 'sense:review_evict'
+        if lemma.startswith('пересел'):
+            return 'sense:review_resettle'
+        if lemma.startswith('рассел'):
+            return 'sense:review_disperse'
         return 'sense:settlement'
     if family == 'дер|дерг|держ|дир|дор|дорог³|др':
         if lemma.startswith(('дерг', 'дёрг')):
@@ -7534,8 +7558,9 @@ _LATE_REVIEW_SPLITS = (
     )),
     ('sense:chapel', ('часовенка', 'часовенный', 'часовня')),
     ('sense:watchmaker', ('часовщик', 'часовщичий')),
-    # A village is a place; поселиться/переселить/население name the act of
-    # settling and the people it produces.
+    # A village is a place; поселиться/переселить/население name acts of
+    # settling and the people it produces (split by prefix in
+    # _classify_review_lemma).
     ('sense:review_village', (
         'село', 'сельский', 'сельцо', 'сельчанин', 'сельчанка', 'селянин',
         'селянка', 'селянский', 'селянство', 'селяночный', 'селение',

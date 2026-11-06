@@ -499,6 +499,29 @@ class LexicalResolverTests(SimpleTestCase):
                     self.assertFalse(gameplay_opens(left, right))
                     self.assertFalse(gameplay_opens(right, left))
 
+    def test_sel_family_splits_settling_by_prefix_meaning(self):
+        """Поселение, население, выселение and переселение are different acts."""
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('население', 'населенный'), ('население', 'перенаселение'),
+            ('поселение', 'поселиться'), ('селиться', 'поселенец'),
+            ('переселенец', 'переселение'), ('выселить', 'отселить'),
+            ('вселиться', 'заселение'), ('расселение', 'расселить'),
+            ('село', 'сельский'), ('вселенная', 'вселенский'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('поселения', 'Население'), ('поселение', 'переселение'),
+            ('выселение', 'вселение'), ('заселить', 'население'),
+            ('расселение', 'поселение'), ('село', 'поселение'),
+            ('вселенная', 'вселение'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_kol_family_splits_ring_wheel_and_around(self):
         """Коло gave ring, wheel and «around» words that players do not link."""
         def gameplay_opens(guess, target):
