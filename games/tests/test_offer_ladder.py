@@ -212,6 +212,10 @@ class LadderOfferFlowTests(TestCase):
         self.assertIsNotNone(offer.accepted_link_id)
         self.assertEqual(offer.accepted_link.task_group_id, offer.task_group_id)
         self.assertEqual(Task.objects.filter(task_group=offer.task_group).count(), 1)
+        self.assertEqual(
+            list(offer.task_group.authors.values_list('user_id', flat=True)),
+            [self.user.pk],
+        )
         from games.console.games.ladder import get_ladder_detail, list_ladder_rows
         from games.ops.telegram.links import task_play_url
         row = next(item for item in list_ladder_rows() if item.link_id == offer.accepted_link_id)

@@ -372,6 +372,10 @@ def accept_offer(offer: LadderOffer, *, at_number: int | None = None) -> LadderO
     )
     if offer.status != LadderOffer.STATUS_SENT:
         raise LadderOfferError('Принять можно только отправленную лесенку')
+    # Public results exclude TaskGroup.authors; without this relation the
+    # submitter shows up in the standings of their own ladder.
+    if getattr(offer.user, 'profile', None) is not None:
+        offer.task_group.authors.add(offer.user.profile)
     if offer.accepted_link_id:
         # Уже в расписании (после доработки) — снова accepted.
         offer.status = LadderOffer.STATUS_ACCEPTED
