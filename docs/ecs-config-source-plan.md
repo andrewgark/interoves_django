@@ -63,3 +63,15 @@ the alert intent in the same database transaction as the payment, dispatch it
 from a retrying outbox process, and use a payment-specific deduplication key.
 The migration is complete when a simulated SQS failure leaves a pending outbox
 row that is delivered after recovery, with one Telegram message.
+
+## Progress
+
+- The payment notification routing change and webhook audit fix are committed.
+- `production-worker-config.json` now contains the current effective plain
+  values from all four ECS task definitions. Three Telegram chat identifiers
+  were moved to SSM SecureStrings without printing their values.
+- The deploy script reads the versioned manifest and SSM parameter names, with
+  no EB configuration query. Plan-only runs succeeded for all four workers.
+- A production ECS deployment from the new source and the database-backed
+  alert outbox remain to be done. Keep legacy EB environments until the four
+  services have been redeployed successfully.

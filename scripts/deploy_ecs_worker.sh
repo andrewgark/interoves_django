@@ -98,81 +98,31 @@ aws_cmd() {
     AWS_DEFAULT_REGION="$REGION" aws "$@"
 }
 
-ENVIRONMENT="interoves-${WORKER}-worker"
-[[ "$WORKER" == recheck ]] && ENVIRONMENT=interoves-recheck-worker
-env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name "$ENVIRONMENT" --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment`].{name:OptionName,value:Value}' --output json)"
-secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name "$ENVIRONMENT" --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets`].OptionName' --output json)"
-# The legacy recheck EB environment predates the shared Tribute/Telegram
-# settings required by Django system checks.  Reuse only missing shared
-# settings from identity; keep all recheck-specific values authoritative.
-if [[ "$WORKER" == recheck ]]; then
-    shared_env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name interoves-identity-worker --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment`].{name:OptionName,value:Value}' --output json)"
-    shared_secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings --application-name interoves --environment-name interoves-identity-worker --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets`].OptionName' --output json)"
-    env_json="$(printf '%s\0%s\0' "$env_json" "$shared_env_json" | "$PYTHON" -c '
-import json, sys
-base, shared = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
-names = {item["name"] for item in base}
-base.extend(item for item in shared if item["name"] not in names)
-print(json.dumps(base, separators=(",", ":")))
-')"
-    secret_names_json="$(printf '%s\0%s\0' "$secret_names_json" "$shared_secret_names_json" | "$PYTHON" -c '
-import json, sys
-base, shared = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
-seen = set(base)
-for name in shared:
-    if name not in seen:
-        base.append(name)
-        seen.add(name)
-print(json.dumps(base, separators=(",", ":")))
-')"
-fi
-# Club renewals execute in the background ECS worker, while YooKassa billing
-# options are authoritative on Green. Copy only the two non-secret settings
-# needed by this handler; the secret key is already supplied through the
-# background worker's Secrets Manager map.
-if [[ "$WORKER" == background ]]; then
-    club_billing_env_json="$(aws_cmd elasticbeanstalk describe-configuration-settings \
-        --application-name interoves --environment-name interoves-web-green-lb \
-        --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environment` && (OptionName==`YOOKASSA_RECURRING_ENABLED` || OptionName==`YOOKASSA_SHOP_ID`)].{name:OptionName,value:Value}' \
-        --output json)"
-    env_json="$(printf '%s\0%s\0' "$env_json" "$club_billing_env_json" | "$PYTHON" -c '
-import json, sys
-base, billing = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
-names = {"YOOKASSA_RECURRING_ENABLED", "YOOKASSA_SHOP_ID"}
-values = {item["name"]: item for item in base}
-for item in billing:
-    if item["name"] in names:
-        values[item["name"]] = item
-print(json.dumps(list(values.values()), separators=(",", ":")))
-')"
-    club_billing_secret_names_json="$(aws_cmd elasticbeanstalk describe-configuration-settings \
-        --application-name interoves --environment-name interoves-web-green-lb \
-        --query 'ConfigurationSettings[0].OptionSettings[?Namespace==`aws:elasticbeanstalk:application:environmentsecrets` && OptionName==`YOOKASSA_SECRET_KEY`].OptionName' \
-        --output json)"
-    secret_names_json="$(printf '%s\0%s\0' "$secret_names_json" "$club_billing_secret_names_json" | "$PYTHON" -c '
-import json, sys
-base, billing = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:2]]
-for name in billing:
-    if name not in base:
-        base.append(name)
-print(json.dumps(base, separators=(",", ":")))
-')"
-fi
-# Secret values live in SSM Parameter Store SecureStrings
-# (/interoves/production/<NAME>); ECS injects the fixed list in
-# infra/ecs/worker-service.yaml. Fail early if a name the EB worker config
-# expects has no parameter.
+CONFIG_FILE="$ROOT/infra/ecs/production-worker-config.json"
+# Plain values are versioned with the deployment code. The task template is
+# authoritative for secret parameter references; neither depends on legacy EB.
 all_params_json="$(aws_cmd ssm describe-parameters --parameter-filters Key=Path,Option=OneLevel,Values=/interoves/production --query 'Parameters[].Name' --output json)"
-config_json="$(printf '%s\0%s\0%s\0' "$env_json" "$secret_names_json" "$all_params_json" | "$PYTHON" -c '
-import json, sys
-env, names, params = [json.loads(item) for item in sys.stdin.buffer.read().split(b"\0")[:3]]
-values = {item["name"]: item.get("value", "") for item in env}
-available = set(params)
-for name in names:
-    if "/interoves/production/" + name not in available:
-        raise SystemExit("Missing SSM parameter: /interoves/production/" + name)
-print(json.dumps({"values": values}, separators=(",", ":")))
-')"
+config_json="$("$PYTHON" - "$CONFIG_FILE" "$ROOT/infra/ecs/worker-service.yaml" "$WORKER" "$all_params_json" <<'PY'
+import json, re, sys
+from pathlib import Path
+
+manifest = json.loads(Path(sys.argv[1]).read_text(encoding='utf-8'))
+if manifest.get('schema_version') != 1:
+    raise SystemExit('Unsupported worker configuration schema')
+values = manifest['workers'][sys.argv[3]]
+if not isinstance(values, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in values.items()):
+    raise SystemExit('Worker configuration must contain string values')
+if any(re.search(r'(TOKEN|PASSWORD|CHAT_ID|API_HASH|SESSION|PRIVATE_KEY)', k) for k in values):
+    raise SystemExit('Sensitive worker configuration key must use SSM')
+template = Path(sys.argv[2]).read_text(encoding='utf-8')
+required = set(re.findall(r'parameter/interoves/production/([A-Z0-9_]+)', template))
+available = set(json.loads(sys.argv[4]))
+missing = sorted('/interoves/production/' + name for name in required if '/interoves/production/' + name not in available)
+if missing:
+    raise SystemExit('Missing SSM parameters: ' + ', '.join(missing))
+print(json.dumps({'values': values}, separators=(',', ':')))
+PY
+)"
 value() { printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(json.load(sys.stdin)["values"].get(sys.argv[1], ""))' "$1"; }
 secret_map='{}'
 secret_arns=""
@@ -196,7 +146,9 @@ EXECUTION_ROLE_ARN="$(aws_cmd cloudformation describe-stacks --stack-name intero
 case "$ECS_ASSIGN_PUBLIC_IP" in ENABLED|DISABLED) ;; *) echo "INTEROVES_ECS_ASSIGN_PUBLIC_IP must be ENABLED or DISABLED" >&2; exit 2 ;; esac
 [[ "$ECS_SUBNET_IDS" == subnet-* ]] || { echo "INTEROVES_ECS_SUBNET_IDS must be a comma-separated subnet list." >&2; exit 2; }
 
-echo "worker=$WORKER environment=$ENVIRONMENT profile=$DEPLOY_PROFILE aws_profile=$AWS_PROFILE_NAME mode=$MODE cpu=$CPU memory=$MEMORY desired_count=$DESIRED_COUNT subnet_ids=$ECS_SUBNET_IDS assign_public_ip=$ECS_ASSIGN_PUBLIC_IP"
+echo "worker=$WORKER config_source=infra/ecs/production-worker-config.json profile=$DEPLOY_PROFILE aws_profile=$AWS_PROFILE_NAME mode=$MODE cpu=$CPU memory=$MEMORY desired_count=$DESIRED_COUNT subnet_ids=$ECS_SUBNET_IDS assign_public_ip=$ECS_ASSIGN_PUBLIC_IP"
+echo "config_sha256=$(sha256sum "$CONFIG_FILE" | cut -d' ' -f1)"
+echo "config_keys=$(printf '%s' "$config_json" | "$PYTHON" -c 'import json,sys; print(",".join(sorted(json.load(sys.stdin)["values"])))')"
 echo "image=$IMAGE_URI image_commit=$IMAGE_COMMIT queue=$QUEUE_NAME service_stack=$SERVICE_STACK"
 if [[ "$APPLY" != 1 ]]; then echo "plan_only=true (pass --apply to change AWS)"; exit 0; fi
 

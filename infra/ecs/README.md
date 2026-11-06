@@ -26,14 +26,11 @@ or IAM roles. Those resources are intentionally supplied as parameters or
 managed separately so deploying a worker cannot accidentally modify the
 production web network.
 
-The default network remains the private worker subnets with
-`AssignPublicIp=DISABLED`. For the NAT removal migration, a worker may be
-explicitly deployed into public subnets with `INTEROVES_ECS_SUBNET_IDS` and
-`INTEROVES_ECS_ASSIGN_PUBLIC_IP=ENABLED`. Use this only with the worker
-security group, which has no inbound rules, and verify task startup, Secrets
-Manager, SQS, ECR pulls, and CloudWatch logs before changing the route table or
-deleting the NAT Gateway. These variables are an explicit migration switch,
-not a new global default.
+The current deployment defaults are public subnet `subnet-29483d42` and
+`AssignPublicIp=ENABLED`, matching the live ECS services. The worker security
+group has no inbound rules. Override them only with
+`INTEROVES_ECS_SUBNET_IDS` and `INTEROVES_ECS_ASSIGN_PUBLIC_IP` after checking
+ECR, SSM, SQS, CloudWatch, and external API connectivity.
 
 ## Required task role permissions
 
@@ -101,10 +98,12 @@ definition lists them under the container `Secrets`, so ECS resolves them with
 the execution role (`ReadInterovesProductionParameters` in `foundation.yaml`)
 and the process receives ordinary environment variables. The recheck worker
 gets only the three it needs. Green EB reads the same parameters through
-`aws:elasticbeanstalk:application:environmentsecrets`. The deploy script still
-takes the variable names from the EB worker environments and fails if a
-parameter is missing, so the EB worker environments (0 instances) remain the
-configuration source and must not be deleted. Only the RDS-managed `rds!...`
+`aws:elasticbeanstalk:application:environmentsecrets`. The deploy script reads
+plain values from `production-worker-config.json` and validates every SSM
+parameter referenced by `worker-service.yaml`. Telegram chat identifiers are
+SSM SecureStrings injected into integrations only. Legacy EB worker
+environments are no longer deployment configuration sources; scale remaining
+compute to zero before considering deletion. Only the RDS-managed `rds!...`
 secret stays in Secrets Manager. `INTEROVES_CONFIG_SECRET_ID` /
 `INTEROVES_CONFIG_SECRET_MAP` remain supported by the loader but are unused.
 

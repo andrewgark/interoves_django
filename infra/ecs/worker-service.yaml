@@ -107,6 +107,7 @@ Conditions:
   IsSpot: !Equals [!Ref DeploymentMode, ecs-fargate-spot]
   IsRecheck: !Equals [!Ref WorkerName, recheck]
   IsIdentity: !Equals [!Ref WorkerName, identity]
+  IsIntegrations: !Equals [!Ref WorkerName, integrations]
 
 Resources:
   LogGroup:
@@ -265,6 +266,21 @@ Resources:
                 ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/YANDEX_API_OAUTH_TOKEN'
               - Name: YOOKASSA_SECRET_KEY
                 ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/YOOKASSA_SECRET_KEY'
+              - !If
+                - IsIntegrations
+                - Name: TELEGRAM_ADMIN_CHAT_ID
+                  ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/TELEGRAM_ADMIN_CHAT_ID'
+                - !Ref AWS::NoValue
+              - !If
+                - IsIntegrations
+                - Name: TELEGRAM_ANNOUNCE_CHAT_IDS
+                  ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/TELEGRAM_ANNOUNCE_CHAT_IDS'
+                - !Ref AWS::NoValue
+              - !If
+                - IsIntegrations
+                - Name: TELEGRAM_CHANNEL_CHAT_ID
+                  ValueFrom: !Sub 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/interoves/production/TELEGRAM_CHANNEL_CHAT_ID'
+                - !Ref AWS::NoValue
           # Fargate Spot sends SIGTERM two minutes before reclaiming a task;
           # give the polling loop that long to finish the in-flight message.
           StopTimeout: 120

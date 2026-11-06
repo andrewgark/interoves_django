@@ -6,8 +6,10 @@
 
 Проверка 2026-11-06: четыре production consumer работают в ECS Fargate
 (`background`, `identity`, `integrations`, `recheck`, каждый 1/1). Старые EB
-worker environments не являются consumer. Их не удалять: ECS deploy читает
-оттуда конфигурацию. У `interoves-integrations-worker` остался один EC2-инстанс
+worker environments не являются consumer. ECS deploy теперь читает
+`infra/ecs/production-worker-config.json` и SSM; перед удалением старых EB
+окружений подтвердите успешный deploy каждого ECS-сервиса из нового источника.
+У `interoves-integrations-worker` остался один EC2-инстанс
 в изолированной подсети без SSM и EB health; его ASG имеет min/max/desired=1.
 Это лишняя инфраструктура. У старого background-worker ASG уже 0/0/0;
 integrations можно аналогично масштабировать до нуля, сохранив EB environment.
