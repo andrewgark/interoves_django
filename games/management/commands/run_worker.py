@@ -102,6 +102,25 @@ class Command(BaseCommand):
                             exc.__class__.__name__, exc,
                         ),
                     )
+                try:
+                    from games.ops.workers.billing_outbox import (
+                        dispatch_club_payment_admin_alert_outbox,
+                    )
+
+                    close_old_connections()
+                    dispatched = dispatch_club_payment_admin_alert_outbox(limit=10)
+                    if dispatched['claimed']:
+                        self.stdout.write(
+                            'club payment admin alerts queued={sent} failed={failed}.'.format(
+                                **dispatched,
+                            ),
+                        )
+                except Exception as exc:
+                    self.stderr.write(
+                        'club payment admin alert outbox dispatch failed: {}: {}'.format(
+                            exc.__class__.__name__, exc,
+                        ),
+                    )
             if config.worker.name == 'recheck':
                 try:
                     from games.ops.workers.jobs.outbox import dispatch_recheck_outbox

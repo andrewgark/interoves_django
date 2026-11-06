@@ -22,7 +22,12 @@ from django.utils import timezone
 
 from games.club.billing.yookassa.client import ClubPayment as Payment
 from games.club.billing.yookassa.util import configure_yookassa_from_env
-from games.models import ClubSubscription, ClubYooKassaPayment, SavedPaymentMethod
+from games.models import (
+    ClubPaymentAdminAlertOutbox,
+    ClubSubscription,
+    ClubYooKassaPayment,
+    SavedPaymentMethod,
+)
 
 logger = logging.getLogger('games.club_yookassa')
 
@@ -547,11 +552,17 @@ def _apply_succeeded_payment(
         notify_club_subscription_user,
     )
 
-    transaction.on_commit(
-        lambda sid=subscription.pk, kind=local.kind: notify_admin_club_subscription(
-            sid, 'payment.succeeded', payment_kind=kind, delivery=delivery
+    if local.kind == ClubYooKassaPayment.KIND_RECURRING_MONTHLY:
+        from games.ops.workers.billing_outbox import enqueue_club_payment_admin_alert
+
+        enqueue_club_payment_admin_alert(local, ClubPaymentAdminAlertOutbox.ALERT_SUCCEEDED)
+    else:
+        transaction.on_commit(
+            lambda sid=subscription.pk, kind=local.kind, pid=local.pk:
+            notify_admin_club_subscription(
+                sid, 'payment.succeeded', payment_kind=kind, payment_id=pid, delivery=delivery,
+            )
         )
-    )
     if local.kind != ClubYooKassaPayment.KIND_RECURRING_MONTHLY:
         transaction.on_commit(
             lambda sid=subscription.pk: notify_club_subscription_user(sid)
@@ -596,13 +607,10 @@ def _apply_canceled_payment(
         subscription.save(update_fields=update_fields)
     if local.kind == ClubYooKassaPayment.KIND_RECURRING_MONTHLY and not was_canceled:
         from games.notifications.service import notify
-        from games.ops.telegram.bot.notify import notify_admin_club_renewal_failed
+        from games.ops.workers.billing_outbox import enqueue_club_payment_admin_alert
 
-        transaction.on_commit(
-            lambda sid=subscription.pk, pid=local.pk, reason=local.cancellation_reason:
-            notify_admin_club_renewal_failed(
-                sid, payment_id=pid, reason=reason, delivery=delivery,
-            )
+        enqueue_club_payment_admin_alert(
+            local, ClubPaymentAdminAlertOutbox.ALERT_FAILED, reason=local.cancellation_reason,
         )
         # The bank declined the charge: only the subscriber can fix the card.
         notify(subscription.user_id, 'club.renewal_failed', subscription_id=subscription.pk, payment_id=local.pk)
@@ -812,13 +820,12 @@ def _submit_renewal(payment_pk):
             # never retry with a new key, and disclose it on detachment.
             local.failure_code = 'submission_unknown'
             local.save(update_fields=['failure_code', 'updated_at'])
-            from games.ops.telegram.bot.notify import notify_admin_club_renewal_failed
+            from games.ops.workers.billing_outbox import enqueue_club_payment_admin_alert
 
-            transaction.on_commit(
-                lambda sid=subscription_id, pid=local.pk: notify_admin_club_renewal_failed(
-                    sid, payment_id=pid, reason='Неизвестный результат отправки платежа.',
-                    delivery='queue',
-                )
+            enqueue_club_payment_admin_alert(
+                local,
+                ClubPaymentAdminAlertOutbox.ALERT_UNKNOWN,
+                reason='Неизвестный результат отправки платежа.',
             )
             return False
 

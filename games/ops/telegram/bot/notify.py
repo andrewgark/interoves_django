@@ -451,7 +451,8 @@ def notify_admin_word_salad_submission_error(
 
 
 def notify_admin_club_subscription(
-    subscription_id: int, event_name: str, *, payment_kind: str = '', delivery: str = 'direct',
+    subscription_id: int, event_name: str, *, payment_kind: str = '',
+    payment_id: int | None = None, delivery: str = 'direct',
 ) -> bool:
     """Notify the admin chat about a durable Club subscription state change."""
     try:
@@ -507,8 +508,8 @@ def notify_admin_club_subscription(
             _join_lines(lines),
             alert='club_subscription_state',
             delivery=delivery,
-            dedupe_key='telegram.admin_alert:club_subscription_state:{}:{}'.format(
-                subscription_id, event_name,
+            dedupe_key='telegram.admin_alert:club_subscription_state:{}:{}:{}'.format(
+                subscription_id, event_name, payment_id or 'state',
             ),
         )
     except Exception:

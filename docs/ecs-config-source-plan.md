@@ -57,12 +57,12 @@ values before removing the EB reads.
 
 ## Reliability follow-up
 
-The queue publisher currently runs in a `transaction.on_commit` callback. A
-failed SQS call after the payment commit can still lose an admin alert. Record
-the alert intent in the same database transaction as the payment, dispatch it
-from a retrying outbox process, and use a payment-specific deduplication key.
-The migration is complete when a simulated SQS failure leaves a pending outbox
-row that is delivered after recovery, with one Telegram message.
+Recurring payment admin alerts are recorded in `ClubPaymentAdminAlertOutbox`
+inside the billing transaction and dispatched by background ECS with bounded
+retries. Each payment and alert type has one row; the queue message carries a
+payment-specific deduplication key. A process crash after SQS accepts a message
+but before the row is marked sent can still produce a retry; the integrations
+consumer's delivery cache suppresses normal short-window duplicates.
 
 ## Progress
 
@@ -75,6 +75,9 @@ row that is delivered after recovery, with one Telegram message.
 - All four production ECS services were redeployed from the new source and are
   healthy at `1/1`; integrations admin alert delivery was verified through SQS.
 - The integrations EB worker ASG is `0/0/0`; its environment is retained.
-- The database-backed alert outbox remains to be implemented. The current
-  `transaction.on_commit` publisher can still lose an alert if SQS is
-  unavailable after the payment commits.
+- A database-backed outbox now records recurring payment success, rejection,
+  and unknown-submission alerts atomically with the payment state. The
+  background worker retries SQS publication with bounded backoff.
+- The outbox code and migration still need production rollout; until Green has
+  applied the migration and background ECS runs the updated image, it is not
+  active in production.

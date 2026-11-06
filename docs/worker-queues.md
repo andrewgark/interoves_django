@@ -19,6 +19,10 @@ YooKassa Club renewal scan in the background handler. That scan is gated by
 second EventBridge schedule. Tribute renewals are provider-managed and reach the
 site through `renewed_subscription` webhooks.
 
+The background ECS worker also drains the transactional YooKassa recurring
+payment admin-alert outbox before polling SQS. Delivery intents share the
+payment transaction and retry publication to the integrations queue.
+
 The identity queue URL in production is:
 
 ```text
