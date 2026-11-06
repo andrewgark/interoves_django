@@ -3140,6 +3140,16 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(fixed.tags[CENSORLY_TAGS_KEY]['body_text'], fresh)
         self.assertEqual(fixed.tags[CENSORLY_TAGS_KEY]['wiki_revid'], 555)
 
+        calls.clear()
+        with patch('games.console.games.censorly.fetch_article', side_effect=fake_fetch), \
+                patch('games.management.commands.refetch_censorly_texts.time.sleep'):
+            call_command(
+                'refetch_censorly_texts', '--latest-revision', '--dry-run',
+                stdout=StringIO(), stderr=StringIO(),
+            )
+        self.assertTrue(calls)
+        self.assertTrue(all(revid is None for _title, revid in calls))
+
 
 class CensorlyUxDailyTests(TestCase):
     def setUp(self):

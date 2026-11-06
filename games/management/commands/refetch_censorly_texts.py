@@ -1,7 +1,7 @@
-"""Re-parse saved Цензурки articles at their saved Wikipedia revision.
+"""Re-parse saved Цензурки articles at a chosen Wikipedia revision.
 
-Only parser fixes reach players: the revision stays, and a task whose body
-text comes out the same is not touched (its open games do not reload).
+By default, only parser fixes reach players: the revision stays. A task whose
+body text comes out the same is not touched (its open games do not reload).
 """
 
 from __future__ import annotations
@@ -28,12 +28,16 @@ def _first_difference(old: str, new: str, width: int = 90) -> str:
 
 class Command(BaseCommand):
     help = (
-        'Re-parse Censorly articles at their saved revision with the current parser '
-        'and save the ones whose text changed.'
+        'Re-parse Censorly articles at their saved revision (or the latest with '
+        '--latest-revision) and save the ones whose text changed.'
     )
 
     def add_arguments(self, parser):
         parser.add_argument('--dry-run', action='store_true', help='Report changes, save nothing')
+        parser.add_argument(
+            '--latest-revision', action='store_true',
+            help='Parse the current article revision instead of the saved one',
+        )
         parser.add_argument('--task-ids', default='', help='Comma-separated Task ids (default: all)')
         parser.add_argument('--start-id', type=int, default=0, help='Resume from this Task id')
         parser.add_argument('--limit', type=int, default=0, help='Max tasks to process (0 = all)')
@@ -56,7 +60,9 @@ class Command(BaseCommand):
         try:
             for task in qs.iterator():
                 counts['seen'] += 1
-                result, error = self._refetch(task, dry=dry, session=session, pause=pause)
+                result, error = self._refetch(
+                    task, dry=dry, session=session, pause=pause, latest=options['latest_revision'],
+                )
                 if error:
                     counts['errors'] += 1
                     self.stderr.write(f'#{task.pk}: {error}')
@@ -93,13 +99,13 @@ class Command(BaseCommand):
             ' '.join(f'{key}={value}' for key, value in counts.items()) + f' dry_run={dry}',
         ))
 
-    def _refetch(self, task, *, dry, session, pause):
+    def _refetch(self, task, *, dry, session, pause, latest=False):
         """(result, error) for one task, retrying Wikipedia failures with backoff."""
         last_error = ''
         for attempt in range(4):
             try:
                 return refetch_task_text(
-                    task, same_revision=True, only_if_changed=True, dry_run=dry, session=session,
+                    task, same_revision=not latest, only_if_changed=True, dry_run=dry, session=session,
                 ), ''
             except CensorlySupportError as exc:
                 last_error = str(exc)
