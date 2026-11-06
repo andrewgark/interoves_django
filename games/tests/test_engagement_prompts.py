@@ -141,3 +141,15 @@ class EngagementPromptTests(TestCase):
             'data-another-game',
             render_to_string('site/partials/another_game_hint.html', {'daily_player': {'days': 2}, 'game': game}),
         )
+
+    def test_channel_prompt_waits_for_a_returning_player(self):
+        game = {'id': 'salad'}
+
+        def render(days):
+            return render_to_string('site/partials/channel_prompt.html', {'daily_player': {'days': days}, 'game': game})
+        self.assertNotIn('data-channel-prompt', render(1))
+        self.assertIn('https://t.me/interoves', render(2))
+        self.assertIn('data-channel-prompt', render(6))
+        self.assertNotIn('data-channel-prompt', render(7))
+        self.assertNotIn('data-another-game', render_to_string(
+            'site/partials/another_game_hint.html', {'daily_player': {'days': 2}, 'game': game}))

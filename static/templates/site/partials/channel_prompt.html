@@ -1,0 +1,61 @@
+{# Players back for their 2nd–6th day: after a finished daily game, offer the  #}
+{# Telegram channel where every new edition is posted. Not after the very first #}
+{# game: then it was opened once in 39 showings (Nov 5–6), and first-day players #}
+{# get «Сыграйте ещё один выпуск» instead (another_game_hint.html). From the 7th #}
+{# day the Club offer takes over. Goals channel_prompt_shown/click/dismissed.    #}
+{% if daily_player.days >= 2 and daily_player.days <= 6 %}
+<aside class="new-signup-prompt pal-card" aria-labelledby="new-channel-prompt-title" data-channel-prompt data-game-id="{{ game.id }}" hidden>
+  <button type="button" class="new-rules-modal__close new-signup-prompt__close" aria-label="Закрыть" data-channel-prompt-dismiss><i class="ph ph-x" aria-hidden="true"></i></button>
+  <p id="new-channel-prompt-title" class="new-signup-prompt__title">Завтра будет новый выпуск</p>
+  <p class="new-signup-prompt__text">Каждый день в полночь по Москве выходят новые Салатик, Лесенка и Цензурка. Их публикует наш Telegram-канал — подпишитесь, чтобы не пропустить.</p>
+  <div class="new-signup-prompt__actions">
+    <a class="new-btn" href="https://t.me/interoves" target="_blank" rel="noopener noreferrer" data-channel-prompt-accept><i class="ph ph-telegram-logo" aria-hidden="true"></i> Открыть канал</a>
+    <button type="button" class="new-btn new-btn--ghost" data-channel-prompt-dismiss>Не сейчас</button>
+  </div>
+</aside>
+<script>
+(function () {
+  var card = document.querySelector('[data-channel-prompt]');
+  if (!card || !window.interovesOnDailyResult) return;
+  var storageKey = 'interoves_channel_prompt_until';
+  var snoozeMs = 30 * 24 * 60 * 60 * 1000;
+  var params = {game: card.getAttribute('data-game-id') || ''};
+  try {
+    if (Number(localStorage.getItem(storageKey) || 0) > Date.now()) return;
+  } catch (e) {}
+  function goal(name) {
+    var analytics = window.interovesAnalytics;
+    if (!analytics || typeof analytics.trackYandexGoalOnce !== 'function') return;
+    analytics.trackYandexGoalOnce(name + ':' + new Date().toISOString().slice(0, 10), name, params);
+  }
+  function snooze() {
+    try { localStorage.setItem(storageKey, String(Date.now() + snoozeMs)); } catch (e) {}
+  }
+  function hide() {
+    card.classList.remove('is-visible');
+    card.hidden = true;
+  }
+  function show() {
+    // One corner card at a time.
+    var other = document.querySelector('[data-site-version-hint]:not([hidden]), [data-signup-prompt]:not([hidden]), [data-daily-reminder-prompt]:not([hidden]), .new-rules-modal.is-open');
+    if (other) return;
+    card.hidden = false;
+    window.requestAnimationFrame(function () { card.classList.add('is-visible'); });
+    goal('channel_prompt_shown');
+  }
+  card.querySelectorAll('[data-channel-prompt-dismiss]').forEach(function (el) {
+    el.addEventListener('click', function () {
+      snooze();
+      goal('channel_prompt_dismissed');
+      hide();
+    });
+  });
+  card.querySelector('[data-channel-prompt-accept]').addEventListener('click', function () {
+    snooze();
+    goal('channel_prompt_click');
+    hide();
+  });
+  window.interovesOnDailyResult(function () { window.setTimeout(show, 2200); });
+})();
+</script>
+{% endif %}

@@ -4,7 +4,7 @@ from django.contrib.auth.models import User
 from django.test import TestCase
 
 from games.daily import entry
-from games.models import DailyGameDifficulty, Game, GameTaskGroup, PlayerCompletedGame, TaskGroup
+from games.models import DailyGameDifficulty, Game, GameTaskGroup, Like, PlayerCompletedGame, Task, TaskGroup
 
 
 class NewcomerPlacementTests(TestCase):
@@ -49,6 +49,24 @@ class NewcomerPlacementTests(TestCase):
             link.game = censorly
         with patch.object(entry, 'free_published_placements', return_value=self.links):
             self.assertEqual(entry.newcomer_placement(censorly).number, '18')  # the 2★ one
+
+    def test_a_better_liked_puzzle_wins_within_the_same_stars(self):
+        older = next(link for link in self.links if link.number == '16')  # 3★, like 17
+        task = Task.objects.create(task_group=older.task_group, number='1', task_type='raddle', text='')
+        for n in range(3):
+            Like.manager.create(task=task, value=1, anon_key=f'fan-{n}')
+        self.assertEqual(self.pick(), '16')
+
+    def test_a_shorter_salad_wins_within_the_same_stars(self):
+        salad = Game.objects.get(id='salad')
+        sizes = {link.pk: (8 if link.number == '17' else 12) for link in self.links}
+        with patch.object(entry, 'free_published_placements', return_value=self.links), \
+                patch.object(entry, 'salad_word_counts', return_value=sizes):
+            self.assertEqual(entry.newcomer_placement(salad).number, '17')
+        sizes = {link.pk: (8 if link.number == '16' else 12) for link in self.links}
+        with patch.object(entry, 'free_published_placements', return_value=self.links), \
+                patch.object(entry, 'salad_word_counts', return_value=sizes):
+            self.assertEqual(entry.newcomer_placement(salad).number, '16')
 
     def test_never_picks_one_or_five_stars(self):
         DailyGameDifficulty.objects.filter(stars__in=(2, 3, 4)).delete()

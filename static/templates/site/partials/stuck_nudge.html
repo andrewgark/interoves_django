@@ -70,6 +70,17 @@
   var preset = presets[game];
   if (!preset || !window.InterovesStuckNudge) return;
   preset.game = game;
+  // First-day players leave within one to three minutes of their last find
+  // (Nov 3–6), long before the regular thresholds: show them the hint sooner.
+  var firstDay = {% if daily_player.days <= 1 %}true{% else %}false{% endif %};
+  if (firstDay) {
+    var divisor = game === 'salad' ? 3 : 2;
+    ['glowAfter', 'calloutAfter'].forEach(function (stage) {
+      if (preset[stage] && preset[stage].ms) {
+        preset[stage] = {ms: Math.round(preset[stage].ms / divisor), misses: preset[stage].misses};
+      }
+    });
+  }
   window.InterovesStuckNudge.create(preset);
 })();
 </script>
