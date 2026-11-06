@@ -19,10 +19,10 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError, connection, transaction
 from django.db.models import F
 from django.utils import timezone
-from games.club.billing.yookassa.client import ClubPayment as Payment
 
-from games.models import ClubSubscription, ClubYooKassaPayment, SavedPaymentMethod
+from games.club.billing.yookassa.client import ClubPayment as Payment
 from games.club.billing.yookassa.util import configure_yookassa_from_env
+from games.models import ClubSubscription, ClubYooKassaPayment, SavedPaymentMethod
 
 logger = logging.getLogger('games.club_yookassa')
 
@@ -421,6 +421,7 @@ def _expected_amount(local: ClubYooKassaPayment) -> int:
 
 def _apply_succeeded_payment(
     local: ClubYooKassaPayment, payment_data: dict, *, delivery: str = 'direct',
+    from_webhook: bool = False,
 ) -> None:
     if payment_data.get('status') != 'succeeded':
         return
@@ -461,8 +462,9 @@ def _apply_succeeded_payment(
     if subscription.paid_until is None or period_end > subscription.paid_until:
         subscription.paid_until = period_end
     subscription.last_payment_at = now
-    subscription.last_webhook_at = now
-    subscription.last_webhook_event = 'payment.succeeded'
+    if from_webhook:
+        subscription.last_webhook_at = now
+        subscription.last_webhook_event = 'payment.succeeded'
     subscription.payment_method_save_failed = False
 
     if local.kind == ClubYooKassaPayment.KIND_ANNUAL:
@@ -566,6 +568,7 @@ def _apply_succeeded_payment(
 
 def _apply_canceled_payment(
     local: ClubYooKassaPayment, payment_data: dict, *, delivery: str = 'direct',
+    from_webhook: bool = False,
 ) -> None:
     cancellation = payment_data.get('cancellation_details') or {}
     was_canceled = local.status == ClubYooKassaPayment.STATUS_CANCELED
@@ -574,20 +577,23 @@ def _apply_canceled_payment(
     local.cancellation_reason = str(cancellation.get('reason') or '')[:255]
     local.save(update_fields=['status', 'failure_code', 'cancellation_reason', 'updated_at'])
     subscription = local.club_subscription
-    subscription.last_webhook_at = timezone.now()
-    subscription.last_webhook_event = 'payment.canceled'
+    update_fields = ['updated_at']
+    if from_webhook:
+        subscription.last_webhook_at = timezone.now()
+        subscription.last_webhook_event = 'payment.canceled'
+        update_fields += ['last_webhook_at', 'last_webhook_event']
     if local.kind == ClubYooKassaPayment.KIND_RECURRING_MONTHLY:
         # Keep paid access; mark past_due only after period ends (handled in renew scan / effective_status)
         if not subscription.grants_access():
             subscription.status = ClubSubscription.STATUS_PAST_DUE
-            subscription.save(update_fields=['status', 'last_webhook_at', 'last_webhook_event', 'updated_at'])
+            subscription.save(update_fields=['status', *update_fields])
         else:
-            subscription.save(update_fields=['last_webhook_at', 'last_webhook_event', 'updated_at'])
+            subscription.save(update_fields=update_fields)
     elif subscription.status == ClubSubscription.STATUS_PENDING and not subscription.grants_access():
         subscription.status = ClubSubscription.STATUS_EXPIRED
-        subscription.save(update_fields=['status', 'last_webhook_at', 'last_webhook_event', 'updated_at'])
+        subscription.save(update_fields=['status', *update_fields])
     else:
-        subscription.save(update_fields=['last_webhook_at', 'last_webhook_event', 'updated_at'])
+        subscription.save(update_fields=update_fields)
     if local.kind == ClubYooKassaPayment.KIND_RECURRING_MONTHLY and not was_canceled:
         from games.notifications.service import notify
         from games.ops.telegram.bot.notify import notify_admin_club_renewal_failed
@@ -637,14 +643,21 @@ def process_yookassa_club_payment_event(event_name: str, payment_data: dict) -> 
             local.save(update_fields=['yookassa_payment_id', 'updated_at'])
 
         if local.status == ClubYooKassaPayment.STATUS_SUCCEEDED:
+            if event_name == 'payment.succeeded':
+                subscription.last_webhook_at = timezone.now()
+                subscription.last_webhook_event = event_name
+                subscription.save(update_fields=['last_webhook_at', 'last_webhook_event', 'updated_at'])
             return True
         if local.status == ClubYooKassaPayment.STATUS_CANCELED and event_name == 'payment.canceled':
+            subscription.last_webhook_at = timezone.now()
+            subscription.last_webhook_event = event_name
+            subscription.save(update_fields=['last_webhook_at', 'last_webhook_event', 'updated_at'])
             return True
 
         if event_name == 'payment.succeeded':
-            _apply_succeeded_payment(local, payment_data, delivery='queue')
+            _apply_succeeded_payment(local, payment_data, delivery='queue', from_webhook=True)
         elif event_name == 'payment.canceled' and payment_data.get('status') == 'canceled':
-            _apply_canceled_payment(local, payment_data, delivery='queue')
+            _apply_canceled_payment(local, payment_data, delivery='queue', from_webhook=True)
     return True
 
 
@@ -804,6 +817,7 @@ def _submit_renewal(payment_pk):
             transaction.on_commit(
                 lambda sid=subscription_id, pid=local.pk: notify_admin_club_renewal_failed(
                     sid, payment_id=pid, reason='Неизвестный результат отправки платежа.',
+                    delivery='queue',
                 )
             )
             return False
@@ -815,7 +829,7 @@ def _submit_renewal(payment_pk):
                     subscription_id, local.pk)
         status = str(payment_data.get('status') or '')
         if status == 'succeeded':
-            _apply_succeeded_payment(local, payment_data)
+            _apply_succeeded_payment(local, payment_data, delivery='queue')
         elif status == 'canceled':
-            _apply_canceled_payment(local, payment_data)
+            _apply_canceled_payment(local, payment_data, delivery='queue')
     return True

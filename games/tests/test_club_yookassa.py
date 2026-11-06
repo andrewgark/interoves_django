@@ -3,13 +3,12 @@ from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.test import Client, SimpleTestCase, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-
-from allauth.socialaccount.models import SocialApp
 
 from games.club.access.archive import has_club_access
 from games.club.billing.yookassa.club import (
@@ -26,7 +25,6 @@ from games.club.billing.yookassa.club import (
     start_monthly_subscription,
 )
 from games.models import ClubSubscription, ClubYooKassaPayment, HTMLPage, Profile, Project, SavedPaymentMethod
-
 
 YK_SETTINGS = {
     'CLUB_PAYMENTS_ENABLED': True,
@@ -595,6 +593,26 @@ class ClubYooKassaDetachTests(TestCase):
         local = ClubYooKassaPayment.objects.get()
         self.assertFalse(_submit_renewal(local.pk))
         create.assert_called_once()
+
+    def test_immediate_renewal_success_queues_admin_alert(self):
+        local = self._pending()
+        local.failure_code = 'submission_reserved'
+        local.save(update_fields=['failure_code'])
+        payment_data = _payment_payload(local)
+        with patch('games.club.billing.yookassa.club._create_yookassa_payment', return_value=payment_data), \
+                patch('games.ops.telegram.bot.notify.publish_admin_alert', return_value=True) as publish, \
+                self.captureOnCommitCallbacks(execute=True):
+            self.assertTrue(_submit_renewal(local.pk))
+        local.refresh_from_db()
+        self.assertEqual(local.status, ClubYooKassaPayment.STATUS_SUCCEEDED)
+        self.assertEqual(publish.call_args.kwargs['alert'], 'club_subscription_state')
+        self.sub.refresh_from_db()
+        self.assertIsNone(self.sub.last_webhook_at)
+        with patch('games.ops.telegram.bot.notify.publish_admin_alert') as duplicate_alert:
+            process_yookassa_club_payment_event('payment.succeeded', payment_data)
+        self.sub.refresh_from_db()
+        self.assertEqual(self.sub.last_webhook_event, 'payment.succeeded')
+        duplicate_alert.assert_not_called()
 
     @patch('games.club.billing.yookassa.club._create_yookassa_payment', side_effect=SystemExit)
     def test_crash_during_submission_leaves_durable_claim_and_cannot_replay(self, create):
