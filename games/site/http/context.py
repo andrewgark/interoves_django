@@ -122,6 +122,7 @@ def club_archive_ui(request):
     if club_access or offer_snoozed or getattr(request, 'path', '') == '/subscription/':
         return context
     from games.club.metrics import club_member_count
+    from games.club.offers.archive_pitch import archive_pitch
     from games.daily.activity import active_days
     days = active_days(user=user)
     if days >= CLUB_OFFER_MIN_ACTIVE_DAYS:
@@ -129,6 +130,7 @@ def club_archive_ui(request):
             'club_archive_offer_available': True,
             'club_offer_active_days': days,
             'club_offer_member_count': club_member_count(),
+            'club_offer_pitch': archive_pitch(user),
         })
     return context
 

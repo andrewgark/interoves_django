@@ -162,3 +162,39 @@ class EngagementPromptTests(TestCase):
             self.assertIn(f'data-club-paywall-open="random_{game}"', html)
             self.assertIn(f'data-club-paywall="random_{game}"', html)
             self.assertIn('club_paywall_click', html)
+
+    def _solve(self, game_id, groups, user):
+        game = Game.objects.get(id=game_id)
+        for group in groups:
+            PlayerCompletedGame.objects.create(
+                game=game, task_group=group, game_kind=game_id,
+                game_instance_id='{}-{}'.format(game_id, group.pk), user=user,
+            )
+
+    def test_archive_pitch_names_the_game_with_the_most_to_come_back_to(self):
+        from games.club.offers import archive_pitch as pitch_module
+        groups = [TaskGroup.objects.create(label='pitch:{}'.format(n)) for n in range(40)]
+        archive = {
+            'salad': [g.pk for g in groups[:30]],   # 8 solved below, 22 left
+            'ladder': [g.pk for g in groups[30:36]],  # 6 solved, 0 left
+            'alphabetty': [],
+        }
+        self._solve('salad', groups[:8], self.user)
+        self._solve('ladder', groups[30:36] + groups[36:40], self.user)
+        with patch.object(pitch_module, 'archive_task_group_ids', side_effect=lambda game_id: archive[game_id]):
+            pitch = pitch_module.archive_pitch(self.user)
+            self.assertEqual((pitch.game_id, pitch.solved, pitch.unsolved_in_archive), ('salad', 8, 22))
+            # Fewer than five solved is not «many».
+            other = User.objects.create_user('few')
+            self._solve('salad', groups[:4], other)
+            self.assertIsNone(pitch_module.archive_pitch(other))
+
+    def test_club_offer_shows_the_pitch(self):
+        from games.club.offers.archive_pitch import ArchivePitch
+        html = render_to_string('site/partials/club_offer_modal.html', {
+            'club_archive_offer_available': True, 'club_offer_active_days': 9, 'club_offer_member_count': 24,
+            'club_offer_pitch': ArchivePitch('salad', 'Салатик,Салатика,Салатиков', 18, 56),
+        })
+        self.assertIn('Вы решили 18 Салатиков', html)
+        self.assertIn('ещё 56 Салатиков', html)
+        self.assertIn('data-club-offer-pitch="salad"', html)
