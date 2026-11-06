@@ -3,13 +3,13 @@
 ## Current state (2026-11-06)
 
 - Production consumers are the four `interoves-*-ecs` services. Legacy EB worker
-  environments are not consumers, but `scripts/deploy_ecs_worker.sh` reads their
-  option settings to build ECS task definitions.
+  environments are not consumers, and `scripts/deploy_ecs_worker.sh` no longer
+  reads their option settings.
 - Secrets already live at `/interoves/production/<NAME>` in SSM Parameter Store;
   the RDS-managed database secret remains in Secrets Manager.
-- The integrations EB ASG still has min/max/desired `1/1/1`; other legacy worker
-  ASGs are at zero. Keep the EB environments until the deploy script no longer
-  reads them.
+- The integrations EB ASG was scaled to `0/0/0` after all four ECS services
+  were redeployed from the versioned config source. Its EB environment remains
+  available for rollback; other legacy worker ASGs are also at zero.
 - A YooKassa recurring payment can succeed synchronously in background ECS.
   That path previously attempted a direct admin Telegram send, while background
   ECS has no admin chat configuration. The webhook may arrive afterward and
@@ -51,9 +51,9 @@ values before removing the EB reads.
    with the current task, then deploy and confirm service `1/1`, queue/DLQ
    health, Telegram delivery where relevant, and application logs. Roll back
    to the previous task definition if any check fails.
-6. **Retire legacy compute:** scale the integrations EB ASG to `0/0/0`. Keep
-   the EB environments until a fresh deploy of each ECS worker succeeds without
-   EB configuration reads. Only then decide whether to delete those environments.
+6. **Retire legacy compute:** complete. The integrations EB ASG is `0/0/0`; its
+   EB environment is retained for rollback. Decide separately whether to delete
+   legacy EB environments after checking any remaining config references.
 
 ## Reliability follow-up
 
@@ -72,6 +72,9 @@ row that is delivered after recovery, with one Telegram message.
   were moved to SSM SecureStrings without printing their values.
 - The deploy script reads the versioned manifest and SSM parameter names, with
   no EB configuration query. Plan-only runs succeeded for all four workers.
-- A production ECS deployment from the new source and the database-backed
-  alert outbox remain to be done. Keep legacy EB environments until the four
-  services have been redeployed successfully.
+- All four production ECS services were redeployed from the new source and are
+  healthy at `1/1`; integrations admin alert delivery was verified through SQS.
+- The integrations EB worker ASG is `0/0/0`; its environment is retained.
+- The database-backed alert outbox remains to be implemented. The current
+  `transaction.on_commit` publisher can still lose an alert if SQS is
+  unavailable after the payment commits.

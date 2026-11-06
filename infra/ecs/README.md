@@ -17,9 +17,11 @@ allowed for the worker before applying it.
 
 Current production services are `interoves-identity-ecs`,
 `interoves-background-ecs`, `interoves-integrations-ecs` and
-`interoves-recheck-ecs`, all on Fargate Spot since 2026-11. Each is currently
-`1/1`; queue and DLQ names are maintained in `docs/worker-queues.md`. The
-legacy EB worker environments are not consumers.
+`interoves-recheck-ecs`. Identity, background and recheck use Fargate Spot;
+integrations uses Fargate On-Demand. Each is currently `1/1`; queue and DLQ
+names are maintained in `docs/worker-queues.md`. The legacy EB worker
+environments are not consumers. The integrations EB environment is retained
+for rollback with its Auto Scaling Group at zero capacity.
 
 The template does not create a cluster, VPC, subnets, security groups, queues,
 or IAM roles. Those resources are intentionally supplied as parameters or
