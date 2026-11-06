@@ -335,7 +335,6 @@ def send_attempt(request, task_id):
     try:
         response = process_send_attempt(request, task_id)
     except DuplicateAttemptException as exc:
-        audit_duplicate_verdict(task_id, request.POST)
         response = {
             'status': 'duplicate',
             'task_id': task_id,
@@ -343,6 +342,10 @@ def send_attempt(request, task_id):
         if getattr(exc, 'attempt_id', None) is not None:
             response['attempt_id'] = exc.attempt_id
         response.update(_raddle_duplicate_response(request, task_id))
+        audit_duplicate_verdict(
+            task_id, request.POST,
+            already_solved=response.get('raddle_duplicate_solved') is True,
+        )
     except TooManyAttemptsException:
         response = {'status': 'attempt_limit_exceeded'}
     except ClientEventConflictException:

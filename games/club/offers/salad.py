@@ -603,6 +603,10 @@ def reset_salad_progress(
     n = attempt_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
+    from games.daily.timing.reset import delete_progress_timing
+    delete_progress_timing(
+        game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key,
+    )
     from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     actor_key = (team.pk if team is not None else None, user.pk if user is not None else None, anon_key)
     reconcile_task_group_actors(
@@ -649,6 +653,8 @@ def reset_all_salad_progress(
     n_chains = chain_qs.count()
     chain_qs.delete()
     attempt_qs.delete()
+    from games.daily.timing.reset import delete_progress_timing
+    delete_progress_timing(game=game, task_group=task.task_group, everyone=True)
     from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     reconcile_task_group_actors(
         game_id=game_id,

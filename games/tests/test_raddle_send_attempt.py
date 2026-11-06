@@ -4,11 +4,10 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.db import connection
-from django.test.utils import CaptureQueriesContext
 from django.test import Client, TestCase
+from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
-from games.ops.analytics.identity import attach_anon_cookie
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -16,14 +15,15 @@ from games.models import (
     DailySolveTiming,
     Game,
     GameTaskGroup,
-    HTMLPage,
     Hint,
     HintAttempt,
-    Project,
+    HTMLPage,
     PlayerStartedGame,
+    Project,
     Task,
     TaskGroup,
 )
+from games.ops.analytics.identity import attach_anon_cookie
 
 MINI_LADDER = {
     'lengths': [3, 3, 3, 3],
@@ -235,6 +235,36 @@ class RaddleSendAttemptTests(TestCase):
         self.assertTrue(data['raddle_duplicate_solved'])
         self.assertEqual(data['raddle_word_index'], 1)
         self.assertIn('update_task_html_new', data)
+
+    def _post_ok_verdict(self, word_index, word):
+        return self.client.post(
+            self.post_url,
+            {
+                'game_id': self.game.id,
+                'anon_key': self.anon_key,
+                'word_index': word_index,
+                'word': word,
+                'client_verdict': 'Ok',
+            },
+            HTTP_X_REQUESTED_WITH='XMLHttpRequest',
+        )
+
+    def test_page_ok_on_word_already_solved_is_not_a_divergence(self):
+        # Another tab or device solved the word first: the page was right.
+        self._post_word(1, 'BBB')
+        with patch('games.gameplay.client_checks._alert') as alert:
+            data = self._post_ok_verdict(1, 'BBB').json()
+        self.assertEqual(data['status'], 'duplicate')
+        self.assertTrue(data['raddle_duplicate_solved'])
+        alert.assert_not_called()
+
+    def test_page_ok_on_repeated_unsolved_word_is_a_divergence(self):
+        self._post_word(1, 'ZZZ')
+        with patch('games.gameplay.client_checks._alert') as alert:
+            data = self._post_ok_verdict(1, 'ZZZ').json()
+        self.assertEqual(data['status'], 'duplicate')
+        self.assertFalse(data['raddle_duplicate_solved'])
+        alert.assert_called_once()
 
     def test_already_solved_retry_needs_sync_not_correct(self):
         self._post_word(1, 'BBB')

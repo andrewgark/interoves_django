@@ -490,6 +490,10 @@ def reset_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
+    from games.daily.timing.reset import delete_progress_timing
+    delete_progress_timing(
+        game=game, task_group=task.task_group, team=team, user=user, anon_key=anon_key,
+    )
     from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     reconcile_task_group_actors(
         game_id=game_id,
@@ -551,6 +555,8 @@ def reset_all_raddle_progress(
     ui_qs.delete()
     hint_qs.delete()
     attempt_qs.delete()
+    from games.daily.timing.reset import delete_progress_timing
+    delete_progress_timing(game=game, task_group=task.task_group, everyone=True)
     from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     reconcile_task_group_actors(
         game_id=game_id,

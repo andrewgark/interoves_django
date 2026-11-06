@@ -668,6 +668,55 @@ class LadderOfferFlowTests(TestCase):
         self.assertEqual(stats['attempts'], 2)
         self.assertEqual(Attempt.manager.filter(task=task, game=self.game).count(), 0)
 
+    def _completed_timing(self, task_group, user):
+        from games.models import DailySolveTiming, DailyTimingEvent
+
+        DailyTimingEvent.objects.create(
+            game=self.game, task_group=task_group, user=user,
+            actor_key='user:{}'.format(user.pk), session_id='s', event_id='complete:1', action='complete', seq=1,
+        )
+        return DailySolveTiming.objects.create(
+            game=self.game, task_group=task_group, user=user,
+            status=DailySolveTiming.STATUS_COMPLETED, accumulated_ms=0, frozen_ms=0,
+        )
+
+    def test_reset_all_progress_clears_timers_so_next_play_is_timed_afresh(self):
+        # A completed timer kept after a draft edit froze the author's next
+        # preview at 0:00 (offer #115 on production).
+        from games.club.offers.ladder import reset_all_raddle_progress
+        from games.models import DailySolveTiming, DailyTimingEvent
+
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='A')
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        self._completed_timing(offer.task_group, self.user)
+        self._completed_timing(offer.task_group, self.other)
+
+        reset_all_raddle_progress(task=task)
+
+        self.assertFalse(DailySolveTiming.objects.filter(task_group=offer.task_group).exists())
+        self.assertFalse(DailyTimingEvent.objects.filter(task_group=offer.task_group).exists())
+
+    def test_actor_reset_clears_only_that_actors_timer(self):
+        from games.club.offers.ladder import reset_raddle_progress
+        from games.models import DailySolveTiming, DailyTimingEvent
+
+        offer = create_offer(self.user)
+        update_offer_content(offer, words=['КОТ', 'РОТ'], hints=['к→р'], author='A')
+        task = Task.objects.get(task_group=offer.task_group, number='1')
+        self._completed_timing(offer.task_group, self.user)
+        kept = self._completed_timing(offer.task_group, self.other)
+
+        reset_raddle_progress(task=task, user=self.user)
+
+        self.assertEqual(
+            list(DailySolveTiming.objects.filter(task_group=offer.task_group)), [kept],
+        )
+        self.assertEqual(
+            list(DailyTimingEvent.objects.filter(task_group=offer.task_group).values_list('user_id', flat=True)),
+            [self.other.pk],
+        )
+
     def test_resize_unpublished_offer_resets_progress_for_every_actor(self):
         offer = create_offer(self.user)
         update_offer_content(

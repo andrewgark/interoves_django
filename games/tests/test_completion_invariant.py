@@ -9,26 +9,26 @@ from django.contrib.auth.models import User
 from django.core.management import CommandError, call_command
 from django.test import TestCase
 
-from games.ops.analytics.events import (
-    _backfill_supported_game_completions,
-    is_task_group_complete,
-    register_completed_game,
-)
 from games.daily.completion.completion_coordinator import complete_logical_game
 from games.daily.timing import ACTION_START, STATUS_COMPLETED, apply_timing_event
 from games.models import (
     Attempt,
     ChainTaskState,
     CheckerType,
+    DailySolveTiming,
     Game,
     GameTaskGroup,
     HTMLPage,
     PlayerCompletedGame,
-    DailySolveTiming,
-    ReplaySlot,
     Project,
+    ReplaySlot,
     Task,
     TaskGroup,
+)
+from games.ops.analytics.events import (
+    _backfill_supported_game_completions,
+    is_task_group_complete,
+    register_completed_game,
 )
 
 
@@ -228,6 +228,34 @@ class CompletionInvariantTests(TestCase):
         self.assertEqual(late_start['status'], STATUS_COMPLETED)
         self.assertIsNone(timing.frozen_ms)
         self.assertFalse(timing.sessions.exists())
+
+    def _complete_with_zero_timer(self, game, group, task):
+        zero = {
+            'record': None, 'created': True, 'replay': False, 'replay_completed': False,
+            'timing': {'exists': True, 'frozen_ms': 0, 'status': STATUS_COMPLETED},
+        }
+        with patch(
+            'games.daily.completion.completion_coordinator._complete_logical_game_once',
+            return_value=zero,
+        ), patch('games.ops.telegram.bot.notify.notify_admin_zero_duration_completion') as notify:
+            complete_logical_game(
+                actor={'user': self.user}, game=game, task_group=group,
+                task=task, source='test-zero-timer',
+            )
+        return notify
+
+    def test_zero_timer_on_placed_group_alerts_admin(self):
+        game = self._game('ladder')
+        group, tasks = self._group(game, [('0', 'raddle')])
+
+        self._complete_with_zero_timer(game, group, tasks[0]).assert_called_once()
+
+    def test_zero_timer_on_draft_without_placement_does_not_alert(self):
+        game = self._game('ladder')
+        group, tasks = self._group(game, [('0', 'raddle')])
+        GameTaskGroup.objects.filter(task_group=group).delete()
+
+        self._complete_with_zero_timer(game, group, tasks[0]).assert_not_called()
 
     def test_completion_without_expected_timing_does_not_create_timing_row(self):
         game = self._game('ladder')

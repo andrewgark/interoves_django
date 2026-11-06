@@ -18,6 +18,9 @@ import time
 from django.db import OperationalError, transaction
 from django.utils import timezone
 
+from games.daily.ladder.tutorial.ladder import is_ladder_tutorial_task_group
+from games.daily.timing import complete_daily_timing_in_transaction
+from games.models import ChainTaskState, GameTaskGroup, PlayerCompletedGame
 from games.ops.analytics.events import (
     _analytics_actor_kwargs,
     _ensure_completed_record,
@@ -25,12 +28,8 @@ from games.ops.analytics.events import (
     game_instance_id_for_task_group,
     is_task_group_complete,
 )
-from games.daily.timing import complete_daily_timing_in_transaction
 from games.realtime.db import is_mysql_retryable_lock_error, log_lock_retry
-from games.models import ChainTaskState, PlayerCompletedGame
-from games.daily.ladder.tutorial.ladder import is_ladder_tutorial_task_group
 from games.site.session.replay import StaleReplayError
-
 
 logger = logging.getLogger('games.completion_coordinator')
 
@@ -286,7 +285,12 @@ def complete_logical_game(
             if result_data and replay_slot is None and timing_expected:
                 timing_data = result_data.get('timing') or {}
                 frozen_ms = timing_data.get('frozen_ms')
-                if timing_data.get('exists') and frozen_ms is not None and int(frozen_ms) == 0:
+                if (
+                    timing_data.get('exists') and frozen_ms is not None and int(frozen_ms) == 0
+                    # Draft offers have no placement: an author previewing
+                    # their own draft is not a player's broken timer.
+                    and GameTaskGroup.objects.filter(game=game, task_group=task_group).exists()
+                ):
                     from games.ops.telegram.bot.notify import notify_admin_zero_duration_completion
 
                     notify_admin_zero_duration_completion(

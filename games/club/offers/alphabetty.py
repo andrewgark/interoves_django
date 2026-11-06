@@ -410,6 +410,8 @@ def reset_all_alphabetty_progress(*, task: Task, game_id: str = ALPHABETTY_GAME_
     )
     chain_qs.delete()
     attempt_qs.delete()
+    from games.daily.timing.reset import delete_progress_timing
+    delete_progress_timing(game=game, task_group=task.task_group, everyone=True)
     from games.daily.completion.targeted_completion_reconciliation import reconcile_task_group_actors
     reconcile_task_group_actors(
         game_id=game_id,

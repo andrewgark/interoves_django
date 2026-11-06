@@ -109,13 +109,15 @@ def audit_client_verdict(ctx, move, attempt=None, persisted=False):
         logger.exception('event=offline_verdict_audit_failed task_id=%s', ctx.task.id)
 
 
-def audit_duplicate_verdict(task_id, post):
+def audit_duplicate_verdict(task_id, post, *, already_solved=False):
     """A page that called a repeat of an earlier move a new correct answer diverged.
 
     A resent move with its client_event_id is answered before the duplicate
-    check, so a duplicate with the browser's 'Ok' is not a retry.
+    check, so a duplicate with the browser's 'Ok' is not a retry. A word the
+    server had already solved by another move (a second tab or device, a
+    teammate) agrees with the page: it was right, only late.
     """
-    if post.get('client_verdict') != 'Ok':
+    if post.get('client_verdict') != 'Ok' or already_solved:
         return
     try:
         offline_telemetry.count('verdict_divergence')

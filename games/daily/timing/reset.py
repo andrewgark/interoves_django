@@ -2,23 +2,33 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 import logging
 import time
+from collections import defaultdict
 
 from django.contrib.auth.models import User
 from django.db import OperationalError, transaction
 from django.db.models import F
 from django.utils import timezone
 
-from games.daily.registry import DAILY_GAME_REGISTRY, get_daily_game
 from games.daily.page.section import current_number_for, publish_at_for, schedule_for
+from games.daily.registry import DAILY_GAME_REGISTRY, get_daily_game
 from games.models import (
-    Attempt, ChainTaskState, DailyGameDifficulty, DailyResultProjection,
-    DailyResultProjectionState, DailySolveTiming, Game, GameTaskGroup,
-    HintAttempt, PlayerCompletedGame, PlayerStartedGame, ReplaySlot, Task, Team,
+    Attempt,
+    ChainTaskState,
+    DailyGameDifficulty,
+    DailyResultProjection,
+    DailyResultProjectionState,
+    DailySolveTiming,
+    Game,
+    GameTaskGroup,
+    HintAttempt,
+    PlayerCompletedGame,
+    PlayerStartedGame,
+    ReplaySlot,
+    Task,
+    Team,
 )
-
 
 DAILY_RESET_GAME_IDS = tuple(definition.game_id for definition in DAILY_GAME_REGISTRY.all())
 CHAIN_TYPES = {
@@ -46,6 +56,39 @@ def _empty_reset_result():
         'chains': 0,
         'rechecked': False,
     }
+
+
+def delete_progress_timing(*, game, task_group, team=None, user=None, anon_key=None, everyone=False):
+    """Delete the timers (rows, sessions, event ledger) of a reset play.
+
+    A progress reset that deletes attempts and completions must take the
+    timer with it: a completed row left behind freezes the next play at
+    0:00, and its event ledger would be replayed into the next completion.
+    ``everyone`` clears every actor; otherwise exactly one actor shape.
+    Replay timers go too, as the resets delete replay attempts as well.
+    """
+    from games.models import DailyTimingEvent
+
+    if everyone:
+        actor = {}
+    elif team is not None:
+        actor = {'team': team, 'user__isnull': True, 'anon_key__isnull': True}
+    elif user is not None:
+        actor = {'user': user, 'team__isnull': True, 'anon_key__isnull': True}
+    elif anon_key:
+        actor = {'anon_key': str(anon_key), 'team__isnull': True, 'user__isnull': True}
+    else:
+        return 0
+    DailyTimingEvent.objects.filter(game=game, task_group=task_group, **actor).delete()
+    deleted = DailySolveTiming.objects.filter(game=game, task_group=task_group, **actor).delete()[1].get(
+        DailySolveTiming._meta.label, 0,
+    )
+    if deleted:
+        from games.daily.timing.statistics import invalidate_daily_statistics
+
+        game_id, task_group_id = game.pk, task_group.pk
+        transaction.on_commit(lambda: invalidate_daily_statistics(game_id, task_group_id))
+    return deleted
 
 
 def _is_mysql_deadlock(exc):
