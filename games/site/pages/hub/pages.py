@@ -37,8 +37,10 @@ from games.site.pages.hub.links import (
     MAIN_COMMUNITY_LINKS,
     MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
     MAIN_INTERESTING_LINKS,
+    members_chat_url,
     project_desyatochki_rules_chat_url,
     project_hub_community_links,
+    visible_community_links,
 )
 
 logger = logging.getLogger('games.views.new_ui')
@@ -83,9 +85,11 @@ def hub(request):
             'live_next_transition_at': live_next_transition_at,
             'show_desyatochki_pay_cta': True,
             'show_order_banner': True,
-            'desyatochki_participants_chat_url': MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
-            'desyatochki_rules_participants_chat_url': MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL,
-            'community_links': MAIN_COMMUNITY_LINKS,
+            'desyatochki_participants_chat_url': members_chat_url(MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL, request.user),
+            'desyatochki_rules_participants_chat_url': members_chat_url(
+                MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL, request.user,
+            ),
+            'community_links': visible_community_links(MAIN_COMMUNITY_LINKS, request.user),
             'interesting_links': MAIN_INTERESTING_LINKS,
             'show_donate_cta': True,
             'show_next_game_vote_cta': campaign_phase() != PHASE_CLOSED,
@@ -145,8 +149,8 @@ def project_hub(request, project_id):
         'page_title': project.id,
         'show_sections_nav': False,
         **_games_list_card_context(request),
-        'community_links': project_hub_community_links(project.id),
-        'desyatochki_rules_participants_chat_url': project_desyatochki_rules_chat_url(project.id),
+        'community_links': project_hub_community_links(project.id, request.user),
+        'desyatochki_rules_participants_chat_url': project_desyatochki_rules_chat_url(project.id, request.user),
         **_project_urls_context(project.id),
     })
 

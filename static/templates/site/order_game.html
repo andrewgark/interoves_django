@@ -182,7 +182,7 @@
     </p>
     <div class="corp-link-row">
       <a href="https://t.me/interoves" target="_blank" rel="noopener noreferrer">Телеграм-канал <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
-      <a href="https://t.me/+rhsbkEuU4-ExOWEy" target="_blank" rel="noopener noreferrer">Чат участников <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+      {% if user.is_authenticated %}<a href="https://t.me/+rhsbkEuU4-ExOWEy" target="_blank" rel="noopener noreferrer">Чат участников <i class="ph ph-arrow-right" aria-hidden="true"></i></a>{% endif %}
       <a href="/games/">Архив игр <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
     </div>
   </div>
