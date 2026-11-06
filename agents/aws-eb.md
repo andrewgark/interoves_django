@@ -1,8 +1,16 @@
 # AWS / Elastic Beanstalk — Green, Blue и worker-окружения
 
-Аккаунт `916000456640`, регион `eu-central-1`. Состояние ниже проверено
-2026-09-28 read-only запросами. Секреты, chat id и значения EB option settings
-намеренно не приводятся.
+Аккаунт `916000456640`, регион `eu-central-1`. Исторический снимок EB ниже
+проверен 2026-09-28. Актуальная карта worker-очередей и ECS-сервисов находится
+в [`docs/worker-queues.md`](../docs/worker-queues.md). Секреты и chat id не приводятся.
+
+Проверка 2026-11-06: четыре production consumer работают в ECS Fargate
+(`background`, `identity`, `integrations`, `recheck`, каждый 1/1). Старые EB
+worker environments не являются consumer. Их не удалять: ECS deploy читает
+оттуда конфигурацию. У `interoves-integrations-worker` остался один EC2-инстанс
+в изолированной подсети без SSM и EB health; его ASG имеет min/max/desired=1.
+Это лишняя инфраструктура. У старого background-worker ASG уже 0/0/0;
+integrations можно аналогично масштабировать до нуля, сохранив EB environment.
 
 ## Кто сейчас прод
 
@@ -91,7 +99,10 @@ object `s3://elasticbeanstalk-<region>-<account>/<application>/<VersionLabel>.zi
 накатываются через `./scripts/with_rds.sh`, затем выкладывается Green; иначе
 возможен HTML 500 (например, `games_gametaskgroup.share_hash`).
 
-### Worker environments
+### Worker environments (историческая EB-схема)
+
+Production worker-сервисы работают в ECS, см. `docs/worker-queues.md` и
+`infra/ecs/README.md`. Следующее описание относится к старой EB-схеме.
 
 Каждый EB worker environment — одна очередь и один `HttpPath`. Ответ игры от
 них не зависит, но все они делят ту же RDS; в комментарии `django.config`
@@ -187,7 +198,8 @@ worker-aware SSM режим; отсутствие Daphne на worker не озн
 Скрипты `eb status`, `eb logs`, `eb printenv` и команды вида `eb deploy` или
 `update-environment` с `interoves-env` ниже в старых runbook-примерах означают
 **Blue**, не production Green. Для Green используйте `./deploy.sh`; для worker
-— `./scripts/deploy_worker.sh WORKER_ENVIRONMENT`.
+— `./scripts/deploy_ecs_worker.sh`; карту очередей и правила deploy смотрите в
+`docs/worker-queues.md`. `deploy_worker.sh` относится к старой EB-схеме.
 
 ## Emergency DNS rollback Green → Blue
 
