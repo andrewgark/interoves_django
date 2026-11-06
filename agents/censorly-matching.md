@@ -82,6 +82,9 @@ INTEROVES_TEST_DB_PATH=/tmp/<свой>.sqlite3 ./run_tests.sh \
   games.tests.test_censorly_semantics games.tests.test_censorly
 ```
 
-На 2026-11-05 на master уже падает
-`test_semantic_structures_always_have_a_root_component` («западок»). Другие
-падения считай своими.
+С 2026-11-06 набор зелёный: любое падение считай своим. Если тест
+`test_semantic_structures_always_have_a_root_component` назвал лемму, значит
+в sense-кластер `splits.py` попало слово без корня ни в одном словаре. Проверь
+его через `explain_pair` и pymorphy, и либо убери слово (так было с
+«западок»: его нет ни в одном словаре, pymorphy видит только «западкий»),
+либо дай ему корень.
