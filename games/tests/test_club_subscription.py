@@ -636,7 +636,13 @@ class ClubArchiveAccessTests(TestCase):
         self.assertEqual(response.status_code, 403)
         body = response.content.decode()
         self.assertIn('клубной подпиской', body)
-        self.assertIn('последних 7', body)
+        self.assertIn('последние 7', body)
+        # The edition is named, the paywall is open, and the puzzle itself stays out.
+        self.assertIn('Лесенка №{}'.format(self.archive_number), body)
+        self.assertIn('data-club-paywall="archive"', body)
+        self.assertIn('Первый месяц — 420 ₽', body)
+        if self.archive_task.answer:
+            self.assertNotIn(self.archive_task.answer, body)
 
     def test_today_stays_free(self):
         response = self.client.get(self.today_url)

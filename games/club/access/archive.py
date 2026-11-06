@@ -258,18 +258,46 @@ def user_can_access_task_archive(user, game, task, *, now=None, offer_share=None
     return user_can_access_scheduled_number(user, game, number, now=now)
 
 
+# Singular names and board shapes for the locked edition page.
+LOCKED_EDITION_NAMES = {
+    'ladder': ('Лесенка', 'Все Лесенки', 'lines'),
+    'alphabetty': ('Алфавитка', 'Все Алфавитки', 'lines'),
+    WORD_SALAD_GAME_ID: ('Салатик', 'Все Салатики', 'grid'),
+    'week_task': ('Задача недели', 'Все задачи недели', 'lines'),
+    'replacements': ('Замены', 'Все Замены', 'lines'),
+    'walls': ('Стена', 'Все Стены', 'grid'),
+    'palindromes': ('Палиндромы', 'Все Палиндромы', 'lines'),
+}
+
+
 def club_archive_locked_response(request, game, number, *, json_mode=False):
     if json_mode:
         return JsonResponse({'status': 'error', 'reason': 'club_required'}, status=403)
     from games.site.pages import NEW_UI_PROJECT, _project_urls_context
 
+    name, hub_label, kind = LOCKED_EDITION_NAMES.get(
+        str(game.id), (getattr(game, 'name', '') or 'Выпуск', 'Все игры', 'lines'),
+    )
+    if is_desyatka_game(game):
+        name, hub_label, kind, hub_href = 'Десяточка', 'Все игры', 'lines', '/games/'
+    else:
+        hub_href = '/{}/'.format(game.id) if game.id in LOCKED_EDITION_NAMES else '/'
+    title = '{} №{}'.format(name, number) if number not in (None, '') else name
     return render(
         request,
         'ui/club_archive_locked.html',
         {
             'game': game,
             'number': number,
-            'page_title': 'Архив',
+            'page_title': title,
+            'locked_title': title,
+            'locked_kind': kind,
+            'locked_hub_href': hub_href,
+            'locked_hub_label': hub_label,
+            'locked_lead': (
+                'Без подписки бесплатны последние {} выпусков в каждом разделе. '
+                'Этот и все более ранние открываются с клубной подпиской.'.format(FREE_ARCHIVE_COUNT)
+            ),
             'robots_noindex': True,
             **_project_urls_context(NEW_UI_PROJECT),
         },

@@ -153,3 +153,12 @@ class EngagementPromptTests(TestCase):
         self.assertNotIn('data-channel-prompt', render(7))
         self.assertNotIn('data-another-game', render_to_string(
             'site/partials/another_game_hint.html', {'daily_player': {'days': 2}, 'game': game}))
+
+    def test_locked_random_game_opens_the_club_paywall(self):
+        for game in ('censorly', 'alphabetty'):
+            html = render_to_string(f'site/partials/{game}_random_button.html', {
+                f'random_{game}_has_access': False, 'daily_player': {'days': 3, 'newcomer': False},
+            })
+            self.assertIn(f'data-club-paywall-open="random_{game}"', html)
+            self.assertIn(f'data-club-paywall="random_{game}"', html)
+            self.assertIn('club_paywall_click', html)

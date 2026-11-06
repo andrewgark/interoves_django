@@ -9,11 +9,11 @@
       </button>
     </form>
   {% else %}
-    <a class="new-btn new-btn--yellow" href="/subscription/"
-       data-tooltip="Доступна только для подписчиков клуба"
+    <a class="new-btn new-btn--yellow" href="/subscription/" data-club-paywall-open="random_alphabetty"
        aria-label="Случайная игра. Доступна только для подписчиков клуба">
       <i class="ph ph-lock-key" aria-hidden="true"></i> Случайная игра
     </a>
+    {% include "site/partials/club_paywall_modal.html" with paywall_source="random_alphabetty" paywall_title="Случайная Алфавитка — для Клуба" paywall_lead="Случайная игра загадывает слово из всего архива Алфавиток — играйте сколько хотите, не дожидаясь нового выпуска. Это возможность участников Клуба." %}
   {% endif %}
 </div>
 {% endif %}

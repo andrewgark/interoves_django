@@ -49,11 +49,11 @@
       </div>
     </form>
   {% else %}
-    <a class="new-btn new-btn--yellow" href="/subscription/"
-       data-tooltip="Доступна только для подписчиков клуба"
+    <a class="new-btn new-btn--yellow" href="/subscription/" data-club-paywall-open="random_censorly"
        aria-label="Случайная игра. Доступна только для подписчиков клуба">
       <i class="ph ph-lock-key" aria-hidden="true"></i> Случайная игра
     </a>
+    {% include "site/partials/club_paywall_modal.html" with paywall_source="random_censorly" paywall_title="Случайная Цензурка — для Клуба" paywall_lead="Случайная игра достаёт статью из всего архива Цензурок, с подбором по темам, типу и сложности. Это возможность участников Клуба." %}
   {% endif %}
 </div>
 {% endif %}

@@ -1,0 +1,56 @@
+{# A Club paywall dialog: the archive edition or feature exists, access is paid. #}
+{# Params: paywall_source (goal param: archive / random_censorly / ...),        #}
+{# paywall_title, paywall_lead, paywall_open (open on load), paywall_back_href. #}
+{# Prices match subscription.html (TRIBUTE_CLUB_SUBSCRIPTION_* settings).      #}
+<div class="new-rules-modal{% if paywall_open %} is-open{% endif %}" role="dialog" aria-modal="true" aria-labelledby="club-paywall-title-{{ paywall_source }}" data-club-paywall="{{ paywall_source }}"{% if not paywall_open %} hidden{% endif %}>
+  <div class="new-rules-overlay" data-club-paywall-close></div>
+  <div class="new-rules-modal__box pal-card">
+    <button type="button" class="new-rules-modal__close" aria-label="Закрыть" data-club-paywall-close><i class="ph ph-x" aria-hidden="true"></i></button>
+    <p class="pal-kicker"><i class="ph ph-lock-key" aria-hidden="true"></i> Клуб Inter Oves</p>
+    <h2 id="club-paywall-title-{{ paywall_source }}" class="pal-title">{{ paywall_title }}</h2>
+    <p class="pal-lead">{{ paywall_lead }}</p>
+    <ul class="new-pay-order__benefits">
+      <li><i class="ph ph-check-circle" aria-hidden="true"></i> <span>Весь архив: Лесенки, Салатики, Алфавитки, Стены, Замены и другие</span></li>
+      <li><i class="ph ph-check-circle" aria-hidden="true"></i> <span>Случайные Алфавитки и Цензурки</span></li>
+      <li><i class="ph ph-crown" aria-hidden="true"></i> <span>Корона в таблице результатов и чат резидентов клуба</span></li>
+    </ul>
+    <p class="new-club-paywall__price"><strong>Первый месяц — 420 ₽</strong> (за границей €3.89), затем 600 ₽ в месяц. Отменить можно в любой момент.</p>
+    <div class="new-rules-modal__actions new-rules-modal__actions--flush">
+      <a class="new-btn new-btn--yellow" href="/subscription/" data-club-paywall-join>Вступить в клуб</a>
+      {% if paywall_back_href %}<a class="new-btn new-btn--ghost" href="{{ paywall_back_href }}">К бесплатным выпускам</a>{% else %}<button type="button" class="new-btn new-btn--ghost" data-club-paywall-close>Закрыть</button>{% endif %}
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.querySelector('[data-club-paywall="{{ paywall_source|escapejs }}"]');
+  if (!modal) return;
+  var params = {source: '{{ paywall_source|escapejs }}'};
+  function goal(name) {
+    var analytics = window.interovesAnalytics;
+    if (!analytics || typeof analytics.trackYandexGoalOnce !== 'function') return;
+    analytics.trackYandexGoalOnce(name + ':' + params.source + ':' + location.pathname, name, params);
+  }
+  function open() {
+    modal.hidden = false;
+    modal.classList.add('is-open');
+    document.body.classList.add('new-modal-open');
+    goal('club_paywall_shown');
+  }
+  function close() {
+    modal.classList.remove('is-open');
+    modal.hidden = true;
+    document.body.classList.remove('new-modal-open');
+  }
+  modal.querySelectorAll('[data-club-paywall-close]').forEach(function (el) { el.addEventListener('click', close); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
+  modal.querySelector('[data-club-paywall-join]').addEventListener('click', function () { goal('club_paywall_click'); });
+  document.querySelectorAll('[data-club-paywall-open="{{ paywall_source|escapejs }}"]').forEach(function (el) {
+    el.addEventListener('click', function (e) { e.preventDefault(); open(); });
+  });
+  if (!modal.hidden) {
+    document.body.classList.add('new-modal-open');
+    goal('club_paywall_shown');
+  }
+})();
+</script>
