@@ -12,10 +12,10 @@ from games.club.next_game_autumn import CANDIDATE_SLUGS as AUTUMN_SLUGS
 from games.club.next_game_autumn import LOGIC_EXAMPLES
 from games.club.next_game_autumn import scoreboard as autumn_scoreboard
 from games.ops.analytics.events import (
+    NEXT_GAME_AUTUMN_CAMPAIGN,
     YANDEX_GOAL_NEXT_GAME_AUTUMN_CLICK,
     YANDEX_GOAL_NEXT_GAME_AUTUMN_RETURN,
     YANDEX_GOAL_NEXT_GAME_AUTUMN_VIEW,
-    NEXT_GAME_AUTUMN_CAMPAIGN,
     YANDEX_GOAL_NEXT_GAME_VOTE_RETURN,
     YANDEX_GOAL_NEXT_GAME_VOTE_VIEW,
     queue_pending_goal,
