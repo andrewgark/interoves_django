@@ -78,6 +78,6 @@ consumer's delivery cache suppresses normal short-window duplicates.
 - A database-backed outbox now records recurring payment success, rejection,
   and unknown-submission alerts atomically with the payment state. The
   background worker retries SQS publication with bounded backoff.
-- The outbox code and migration still need production rollout; until Green has
-  applied the migration and background ECS runs the updated image, it is not
-  active in production.
+- Migration `games.0304` is applied in production, Green runs release
+  `app-green-8e6d4e0a`, and background ECS runs task definition `:35` from image
+  commit `8e6d4e0a` at `1/1`. The dispatcher is active in production.
