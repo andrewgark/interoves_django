@@ -49,7 +49,8 @@
 | Задача | Команда (`python -m games.puzzles.censorly.offline.tools.…`) |
 |---|---|
 | разбор пары | `review.explain_pair A B` или `--pairs-file` |
-| метрика покрытия и дыры по трекам | `coverage_report --gaps /tmp/gaps.tsv` |
+| метрика покрытия и дыры по трекам (`SUMMARY rooted_russian_tokens=…`) | `coverage_report --gaps /tmp/gaps.tsv` (~1 мин) |
+| пересобрать корпус приоритетов (`data/corpus_lemma_freq.tsv.gz`) | `corpus.build_corpus --size 1000` (~35 мин, кэш в `var/censorly_corpus/`) |
 | очереди кандидатов (opaque, authorization holes) | `candidate_miner --output-dir /tmp/miner` (~40 с) |
 | открывающие пары статьи | `candidates.article_candidates` |
 | пропущенные открытия статьи | `candidates.near_miss_candidates` |

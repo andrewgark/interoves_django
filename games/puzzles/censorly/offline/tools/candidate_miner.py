@@ -39,8 +39,7 @@ from games.puzzles.censorly.lexical.match.rootbank import (
     structures_of,
 )
 from games.puzzles.censorly.lexical.russian.compiler import _families as compiler_families
-from games.puzzles.censorly.offline.audit.prelaunch import iter_fixtures
-from games.puzzles.censorly.text.tokenize import tokenize_text
+from games.puzzles.censorly.offline.corpus import load_corpus
 
 SUFFIXES = (
     ('-овый', 'adjective:-овый'),
@@ -135,31 +134,6 @@ def _root_spelling_ids():
     return result
 
 
-def _corpus_evidence():
-    counts = Counter()
-    lemmas = defaultdict(set)
-    surfaces = set()
-    tokens = 0
-    for _article, _kind, body in iter_fixtures():
-        for token in tokenize_text(body):
-            tokens += 1
-            if token.get('kind') != 'content':
-                continue
-            surface = token.get('surface') or ''
-            if not surface:
-                continue
-            normalized = fold(surface)
-            surfaces.add(normalized)
-            counts[normalized] += 1
-            # Tokenizer already carries its stored lemma.  Reusing it keeps
-            # corpus relevance one-pass and avoids morphology calls for every
-            # unrelated fixture surface.
-            lemma = fold(token.get('lemma') or '')
-            if lemma:
-                lemmas[lemma].add(normalized)
-    return tokens, counts, lemmas, surfaces
-
-
 def _suffix_candidate(lemma):
     for suffix, subtype in SUFFIXES:
         ending = suffix[1:]
@@ -169,7 +143,8 @@ def _suffix_candidate(lemma):
 
 
 def _corpus_count(lemma, corpus_lemmas):
-    return len(corpus_lemmas.get(lemma, ()))
+    """Occurrences of the lemma in the prioritisation corpus."""
+    return corpus_lemmas.get(lemma, 0)
 
 
 def _pair_suppressed(a, b, suppressed):
@@ -243,7 +218,8 @@ def mine(args):
     started = time.perf_counter()
     bank, _ = __import__('games.puzzles.censorly.lexical.match.rootbank', fromlist=['_bank'])._bank()
     review_rows, reviewed_pairs, suppressed, suppressed_lemmas, applied_lemmas = _review_knowledge(args.review_file)
-    corpus_tokens, corpus_counts, corpus_lemmas, corpus_surfaces = _corpus_evidence()
+    corpus = load_corpus()
+    corpus_tokens, corpus_lemmas, corpus_surfaces = corpus.content_tokens, corpus.tokens, corpus.tokens
     by_root, by_lemma = _tikhonov()
     root_ids = _root_spelling_ids()
     pack_cache = {}

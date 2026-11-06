@@ -32,9 +32,7 @@ from games.puzzles.censorly.lexical.match.rootbank import (
     provenance,
     structures_of,
 )
-from games.puzzles.censorly.lexical.semantics import initially_open
-from games.puzzles.censorly.offline.audit.prelaunch import iter_fixtures
-from games.puzzles.censorly.text.tokenize import tokenize_text
+from games.puzzles.censorly.offline.corpus import load_corpus
 
 REJECTED = Path(__file__).resolve().parents[3] / 'lexical' / 'data' / 'rejected_nest_anchors.tsv'
 
@@ -78,16 +76,6 @@ def load_related(directory: Path) -> dict[str, set[str]]:
         related[left].add(right)
         related[right].add(left)
     return related
-
-
-def corpus_counts() -> Counter:
-    counts = Counter()
-    for _name, _kind, body in iter_fixtures():
-        for token in tokenize_text(body):
-            surface = token.get('surface') or ''
-            if token.get('kind') == 'content' and not initially_open(surface):
-                counts[fold(token.get('lemma') or surface)] += 1
-    return counts
 
 
 def rejected_pairs() -> set[tuple[str, str]]:
@@ -137,7 +125,7 @@ def main():
     prov = provenance()
     members, nests_of, wk_roots = load_nests(args.dir)
     related = load_related(args.dir)
-    counts = corpus_counts()
+    counts = load_corpus().tokens
     rejected = rejected_pairs()
 
     rows = []
