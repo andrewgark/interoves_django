@@ -349,7 +349,7 @@
     var goal = root.getAttribute('data-vote-click-goal') || '';
     if (!candidate || !goal || !window.interovesAnalytics) return;
     if (typeof window.interovesAnalytics.trackYandexGoalOnce !== 'function') return;
-    window.interovesAnalytics.trackYandexGoalOnce(goal + ':' + candidate, goal, { candidate: candidate });
+    window.interovesAnalytics.trackYandexGoalOnce(goal + ':autumn:' + candidate, goal, { candidate: candidate, campaign: 'autumn' });
   });
 
   // Text answers are checked as you type. A wrong answer is reported once the

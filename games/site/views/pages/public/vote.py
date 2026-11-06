@@ -15,6 +15,7 @@ from games.ops.analytics.events import (
     YANDEX_GOAL_NEXT_GAME_AUTUMN_CLICK,
     YANDEX_GOAL_NEXT_GAME_AUTUMN_RETURN,
     YANDEX_GOAL_NEXT_GAME_AUTUMN_VIEW,
+    NEXT_GAME_AUTUMN_CAMPAIGN,
     YANDEX_GOAL_NEXT_GAME_VOTE_RETURN,
     YANDEX_GOAL_NEXT_GAME_VOTE_VIEW,
     queue_pending_goal,
@@ -71,15 +72,16 @@ def next_game_autumn_vote_page(request):
     queue_pending_goal(
         request,
         YANDEX_GOAL_NEXT_GAME_AUTUMN_VIEW,
-        key=YANDEX_GOAL_NEXT_GAME_AUTUMN_VIEW,
+        params={'campaign': NEXT_GAME_AUTUMN_CAMPAIGN},
+        key='{}:{}'.format(YANDEX_GOAL_NEXT_GAME_AUTUMN_VIEW, NEXT_GAME_AUTUMN_CAMPAIGN),
     )
     returned_candidate = _returned_candidate(request, AUTUMN_SLUGS)
     if returned_candidate:
         queue_pending_goal(
             request,
             YANDEX_GOAL_NEXT_GAME_AUTUMN_RETURN,
-            params={'candidate': returned_candidate},
-            key='{}:{}'.format(YANDEX_GOAL_NEXT_GAME_AUTUMN_RETURN, returned_candidate),
+            params={'candidate': returned_candidate, 'campaign': NEXT_GAME_AUTUMN_CAMPAIGN},
+            key='{}:{}:{}'.format(YANDEX_GOAL_NEXT_GAME_AUTUMN_RETURN, NEXT_GAME_AUTUMN_CAMPAIGN, returned_candidate),
         )
     canonical = _public_url(request.path)
     return render(request, 'site/next_game_autumn_vote.html', {

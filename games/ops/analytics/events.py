@@ -108,9 +108,12 @@ YANDEX_GOAL_NEXT_GAME_VOTE_VIEW = 'next_game_vote_view'
 YANDEX_GOAL_NEXT_GAME_VOTE_CLICK = 'next_game_vote_click'
 YANDEX_GOAL_NEXT_GAME_VOTE_RETURN = 'next_game_vote_tribute_return'
 YANDEX_GOAL_NEXT_GAME_VOTE_PAYMENT = 'next_game_vote_payment'
-YANDEX_GOAL_NEXT_GAME_AUTUMN_VIEW = 'next_game_autumn_vote_view'
-YANDEX_GOAL_NEXT_GAME_AUTUMN_CLICK = 'next_game_autumn_vote_click'
-YANDEX_GOAL_NEXT_GAME_AUTUMN_RETURN = 'next_game_autumn_vote_tribute_return'
+# The autumn vote reports the same goals as the first vote; a campaign
+# param tells them apart, so Metrika needs one set of goals.
+YANDEX_GOAL_NEXT_GAME_AUTUMN_VIEW = YANDEX_GOAL_NEXT_GAME_VOTE_VIEW
+YANDEX_GOAL_NEXT_GAME_AUTUMN_CLICK = YANDEX_GOAL_NEXT_GAME_VOTE_CLICK
+YANDEX_GOAL_NEXT_GAME_AUTUMN_RETURN = YANDEX_GOAL_NEXT_GAME_VOTE_RETURN
+NEXT_GAME_AUTUMN_CAMPAIGN = 'autumn'
 
 SESSION_KEY_PENDING_GOALS = 'interoves_pending_yandex_goals'
 ANALYTICS_ACK_SIGNING_SALT = 'games.ops.analytics.events.goal-ack.v1'
