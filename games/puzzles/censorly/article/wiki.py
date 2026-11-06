@@ -1968,8 +1968,13 @@ def fetch_article(
     *,
     session: Optional[requests.Session] = None,
     timeout: int = 30,
+    revid: int | None = None,
 ) -> WikiArticle:
-    """Load the article text for a Russian Wikipedia title."""
+    """Load the article text for a Russian Wikipedia title.
+
+    With ``revid`` the text of that revision is parsed instead of the current
+    one: re-parsing a saved puzzle keeps the article its players saw.
+    """
     title = title_from_user_input(title)
     sess = session or requests.Session()
     params = {
@@ -1984,6 +1989,9 @@ def fetch_article(
         'redirects': 1,
         'page': title,
     }
+    if revid:
+        del params['redirects'], params['page']
+        params['oldid'] = int(revid)
     try:
         resp = sess.get(
             WIKI_API,
@@ -2002,7 +2010,7 @@ def fetch_article(
         raise WikipediaRequestFailed('Некорректный ответ Wikipedia API')
     error = data.get('error')
     if isinstance(error, dict):
-        if error.get('code') in {'missingtitle', 'invalidtitle'}:
+        if error.get('code') in {'missingtitle', 'invalidtitle', 'nosuchrevid'}:
             raise CensorlyArticleRejected('Статья не найдена')
         raise WikipediaRequestFailed(f'Wikipedia API вернул ошибку: {error.get("code") or error}')
     page = data.get('parse')

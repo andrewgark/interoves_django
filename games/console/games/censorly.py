@@ -591,13 +591,35 @@ def reset_my_progress(*, user, share_hash: str = '', number: str = '') -> int:
 def refetch_article_text(*, share_hash: str = '', number: str = '') -> dict[str, Any]:
     """Replace the frozen Wikipedia body. Attempts, title, and points stay."""
     task = _task_for_party(share_hash=share_hash, number=number)
+    result = refetch_task_text(task)
+    return {key: result[key] for key in ('wiki_title', 'token_count', 'truncated')}
+
+
+def refetch_task_text(
+    task: Task,
+    *,
+    same_revision: bool = False,
+    only_if_changed: bool = False,
+    dry_run: bool = False,
+    session=None,
+) -> dict[str, Any]:
+    """Re-parse a task's Wikipedia article and store the new body.
+
+    ``same_revision`` parses the saved revision, so only parser fixes change
+    the text players see. ``only_if_changed`` leaves an unchanged body (and its
+    attempt revision, which reloads open games) alone. ``changed`` in the
+    result says whether the body text differs; ``updated`` whether it was saved.
+    """
     tags = task.tags if isinstance(task.tags, dict) else {}
     old = tags.get(CENSORLY_TAGS_KEY) if isinstance(tags.get(CENSORLY_TAGS_KEY), dict) else {}
     title = (old.get('wiki_title') or task.answer or '').strip()
     if not title:
         raise CensorlySupportError('У партии нет заголовка статьи')
+    revid = old.get('wiki_revid') if same_revision else None
+    if same_revision and not revid:
+        raise CensorlySupportError('У партии не сохранена ревизия статьи')
     try:
-        article = fetch_article(title)
+        article = fetch_article(title, revid=revid, session=session)
     except WikiFetchError as exc:
         raise CensorlySupportError(str(exc)) from exc
     puzzle = build_puzzle_payload(
@@ -613,6 +635,19 @@ def refetch_article_text(*, share_hash: str = '', number: str = '') -> dict[str,
         puzzle['source_pool_title'] = alias
     if not title_content_lemmas(puzzle):
         raise CensorlySupportError('В названии нет угадываемых слов')
+    changed = puzzle.get('body_text') != old.get('body_text')
+    result = {
+        'wiki_title': title,
+        'token_count': len(puzzle.get('title_tokens') or []) + len(puzzle.get('body_tokens') or []),
+        'old_token_count': len(old.get('title_tokens') or []) + len(old.get('body_tokens') or []),
+        'truncated': bool(puzzle.get('truncated')),
+        'changed': changed,
+        'updated': False,
+        'old_body_text': old.get('body_text') or '',
+        'body_text': puzzle.get('body_text') or '',
+    }
+    if dry_run or (only_if_changed and not changed):
+        return result
     new_tags = dict(tags)
     new_tags[CENSORLY_TAGS_KEY] = puzzle
     new_revision = uuid.uuid4()
@@ -624,8 +659,5 @@ def refetch_article_text(*, share_hash: str = '', number: str = '') -> dict[str,
         raise CensorlySupportError('Партия изменилась во время скачивания; обновите страницу и повторите')
     task.tags = new_tags
     task.attempt_revision = new_revision
-    return {
-        'wiki_title': title,
-        'token_count': len(puzzle.get('title_tokens') or []) + len(puzzle.get('body_tokens') or []),
-        'truncated': bool(puzzle.get('truncated')),
-    }
+    result['updated'] = True
+    return result

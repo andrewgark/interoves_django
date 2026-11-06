@@ -6,7 +6,7 @@ import json
 import re
 from html import unescape
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from django.contrib.auth.models import User
@@ -1239,6 +1239,24 @@ class CensorlyWikiHelperTests(TestCase):
             'Скорость\n\n{\\displaystyle v} соответствует норме.', mark_formulas=True,
         )
         self.assertEqual(joined, 'Скорость v соответствует норме.')
+
+    def test_fetch_article_parses_a_saved_revision(self):
+        from games.puzzles.censorly.article import wiki
+
+        body = '<p>' + 'Кот живёт в доме и ловит мышей. ' * 20 + '</p>'
+        response = Mock()
+        response.json.return_value = {
+            'parse': {'title': 'Кот', 'pageid': 7, 'revid': 555, 'text': body},
+        }
+        session = Mock()
+        session.get.return_value = response
+
+        article = wiki.fetch_article('Кот', revid=555, session=session)
+
+        params = session.get.call_args.kwargs['params']
+        self.assertEqual(params['oldid'], 555)
+        self.assertNotIn('page', params)
+        self.assertEqual(article.revid, 555)
 
     def test_deeply_nested_native_mathml_converts_in_linear_time(self):
         import time
@@ -3078,6 +3096,49 @@ class CensorlySupportViewTests(TestCase):
         self.assertEqual(attempt.text, 'дом')
         state = ChainTaskState.objects.get(task=task, anon_key='cz-refetch')
         self.assertEqual(state.state, '{"guesses":["дом"],"won":false}')
+
+    def test_refetch_command_reparses_saved_revision_and_skips_unchanged(self):
+        from io import StringIO
+
+        from django.core.management import call_command
+
+        from games.puzzles.censorly.article.wiki import WikiArticle
+
+        body = 'Старый текст про кота и дом, где живёт кот.'
+        _game, same, _hash, _puzzle = _make_puzzle_task(title='Кот', body=body)
+        _game2, fixed, _hash2, _puzzle2 = _make_puzzle_task(title='Пёс', body=body)
+        for task in (same, fixed):
+            tags = dict(task.tags)
+            tags[CENSORLY_TAGS_KEY] = {**tags[CENSORLY_TAGS_KEY], 'wiki_revid': 555}
+            task.tags = tags
+            task.save(update_fields=['tags'])
+        revisions = {task.pk: task.attempt_revision for task in (same, fixed)}
+        fresh = 'Старый текст про кота и дом, где живёт кот. Формула a² + b² = c².'
+        calls = []
+
+        def fake_fetch(title, *, revid=None, session=None):
+            calls.append((title, revid))
+            return WikiArticle(
+                title=title, pageid=1, revid=revid, extract=body if title == 'Кот' else fresh,
+            )
+
+        with patch('games.console.games.censorly.fetch_article', side_effect=fake_fetch), \
+                patch('games.management.commands.refetch_censorly_texts.time.sleep'):
+            out = StringIO()
+            call_command('refetch_censorly_texts', '--dry-run', stdout=out, stderr=StringIO())
+            self.assertIn('changed=1', out.getvalue())
+            fixed.refresh_from_db()
+            self.assertEqual(fixed.tags[CENSORLY_TAGS_KEY]['body_text'], body)
+
+            call_command('refetch_censorly_texts', stdout=StringIO(), stderr=StringIO())
+
+        self.assertTrue(all(revid == 555 for _title, revid in calls))
+        same.refresh_from_db()
+        fixed.refresh_from_db()
+        self.assertEqual(same.attempt_revision, revisions[same.pk])
+        self.assertNotEqual(fixed.attempt_revision, revisions[fixed.pk])
+        self.assertEqual(fixed.tags[CENSORLY_TAGS_KEY]['body_text'], fresh)
+        self.assertEqual(fixed.tags[CENSORLY_TAGS_KEY]['wiki_revid'], 555)
 
 
 class CensorlyUxDailyTests(TestCase):
