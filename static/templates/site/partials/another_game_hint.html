@@ -1,0 +1,90 @@
+{# First-day players: after a finished daily game, point at the edition arrows  #}
+{# and offer another free edition. /<game>/first/ picks a ~3★ free one the      #}
+{# visitor has not solved (games.daily.entry). A second game on the first day   #}
+{# is the cheapest way to bring a newcomer back; the Telegram channel card it   #}
+{# replaced was opened once in 39 showings (Nov 5–6).                           #}
+{# Eligibility: daily_player (games.site.http.context); goals another_game_*.  #}
+{% if daily_player.days <= 1 and game.id %}
+<aside class="new-signup-prompt new-another-game" aria-labelledby="new-another-game-title" data-another-game data-game-id="{{ game.id }}" hidden>
+  <button type="button" class="new-rules-modal__close new-signup-prompt__close" aria-label="Закрыть" data-another-game-dismiss><i class="ph ph-x" aria-hidden="true"></i></button>
+  <p id="new-another-game-title" class="new-signup-prompt__title">Сыграйте ещё один выпуск</p>
+  <p class="new-signup-prompt__text">Прошлые выпуски открываются стрелками рядом с датой — последние семь бесплатные.</p>
+  <div class="new-signup-prompt__actions">
+    <a class="new-btn" href="/{{ game.id }}/first/" data-another-game-accept>Ещё один выпуск <i class="ph ph-arrow-right" aria-hidden="true"></i></a>
+    <button type="button" class="new-btn new-btn--ghost" data-another-game-dismiss>Не сейчас</button>
+  </div>
+</aside>
+<script>
+(function () {
+  var card = document.querySelector('[data-another-game]');
+  if (!card || !window.interovesOnDailyResult) return;
+  var storageKey = 'interoves_another_game_until';
+  var snoozeMs = 24 * 60 * 60 * 1000;
+  var params = {game: card.getAttribute('data-game-id') || ''};
+  try {
+    if (Number(localStorage.getItem(storageKey) || 0) > Date.now()) return;
+  } catch (e) {}
+  function goal(name) {
+    var analytics = window.interovesAnalytics;
+    if (!analytics || typeof analytics.trackYandexGoalOnce !== 'function') return;
+    analytics.trackYandexGoalOnce(name + ':' + new Date().toISOString().slice(0, 10), name, params);
+  }
+  function snooze() {
+    try { localStorage.setItem(storageKey, String(Date.now() + snoozeMs)); } catch (e) {}
+  }
+  var nav = document.querySelector('.new-daily-game-header__nav');
+  function hide() {
+    card.classList.remove('is-visible');
+    card.hidden = true;
+    if (nav) nav.classList.remove('is-hinted');
+  }
+  // Under the arrows when they are on screen, otherwise in the corner.
+  function anchor() {
+    if (!nav) return false;
+    var rect = nav.getBoundingClientRect();
+    if (rect.width === 0 || rect.bottom < 0 || rect.bottom > window.innerHeight - 160) return false;
+    var width = Math.min(card.offsetWidth || 400, document.documentElement.clientWidth - 16);
+    // Point at the «previous edition» arrow when it is open, else the nav.
+    var arrow = nav.querySelector('a.new-daily-game-header__nav-button:not(.is-archive-locked)');
+    var target = arrow ? arrow.getBoundingClientRect() : rect;
+    var center = target.left + target.width / 2;
+    var left = Math.max(8, Math.min(center - width + 40, document.documentElement.clientWidth - width - 8));
+    card.classList.add('new-another-game--anchored');
+    // Offsets are relative to the card's positioned ancestor, if any.
+    var base = (card.offsetParent || document.body).getBoundingClientRect();
+    card.style.top = (rect.bottom - base.top + 12) + 'px';
+    card.style.left = (left - base.left) + 'px';
+    card.style.setProperty('--another-game-arrow-x', Math.round(center - left) + 'px');
+    nav.classList.add('is-hinted');
+    return true;
+  }
+  function show() {
+    // One corner card at a time.
+    var other = document.querySelector('[data-site-version-hint]:not([hidden]), [data-signup-prompt]:not([hidden]), [data-daily-reminder-prompt]:not([hidden]), .new-rules-modal.is-open');
+    if (other) return;
+    card.hidden = false;
+    anchor();
+    window.requestAnimationFrame(function () { card.classList.add('is-visible'); });
+    goal('another_game_shown');
+  }
+  card.querySelectorAll('[data-another-game-dismiss]').forEach(function (el) {
+    el.addEventListener('click', function () {
+      snooze();
+      goal('another_game_dismissed');
+      hide();
+    });
+  });
+  card.querySelector('[data-another-game-accept]').addEventListener('click', function () {
+    goal('another_game_click');
+  });
+  if (nav) {
+    nav.querySelectorAll('[data-daily-nav-link]').forEach(function (link) {
+      link.addEventListener('click', function () {
+        if (!card.hidden) goal('another_game_arrow_click');
+      });
+    });
+  }
+  window.interovesOnDailyResult(function () { window.setTimeout(show, 2200); });
+})();
+</script>
+{% endif %}

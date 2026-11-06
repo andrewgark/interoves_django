@@ -131,13 +131,13 @@ class EngagementPromptTests(TestCase):
         self._play_days(2, user=self.user)
         self.assertEqual(daily_player(self._request(self.user))['daily_player']['days'], 2)
 
-    def test_channel_prompt_goes_to_first_day_players_only(self):
+    def test_another_game_hint_goes_to_first_day_players_only(self):
         game = {'id': 'salad'}
-        html = render_to_string('site/partials/channel_prompt.html', {'daily_player': {'days': 1}, 'game': game})
-        self.assertIn('https://t.me/interoves', html)
-        self.assertIn('channel_prompt_click', html)
-        self.assertIn('data-game-id="salad"', html)
+        html = render_to_string('site/partials/another_game_hint.html', {'daily_player': {'days': 1}, 'game': game})
+        self.assertIn('href="/salad/first/"', html)
+        self.assertIn('another_game_click', html)
+        self.assertIn('new-daily-game-header__nav', html)
         self.assertNotIn(
-            'data-channel-prompt',
-            render_to_string('site/partials/channel_prompt.html', {'daily_player': {'days': 2}, 'game': game}),
+            'data-another-game',
+            render_to_string('site/partials/another_game_hint.html', {'daily_player': {'days': 2}, 'game': game}),
         )
