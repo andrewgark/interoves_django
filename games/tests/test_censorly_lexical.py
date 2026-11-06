@@ -499,6 +499,28 @@ class LexicalResolverTests(SimpleTestCase):
                     self.assertFalse(gameplay_opens(left, right))
                     self.assertFalse(gameplay_opens(right, left))
 
+    def test_kol_family_splits_ring_wheel_and_around(self):
+        """Коло gave ring, wheel and «around» words that players do not link."""
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        # «ок.» in Wikipedia dates is read as около.
+        tokens = [{'kind': 'content', 'surface': 'ок', 'lemma': 'около'}]
+        self.assertEqual(matching_lemmas(tokens, 'кольцо'), set())
+        for guess, target in (
+            ('кольцо', 'кольчуга'), ('колечко', 'кольцевой'), ('кольцо', 'окольцевать'),
+            ('колесо', 'колея'), ('колесо', 'коляска'), ('поколесить', 'колесо'),
+            ('околица', 'окольный'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('кольцо', 'около'), ('кольцо', 'колесо'), ('колесо', 'окольный'),
+            ('околица', 'кольцо'), ('околесица', 'околица'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_russian_language_stub_opens_russian(self):
         tokens = [{'kind': 'content', 'surface': 'русский', 'lemma': 'русский'}]
         self.assertEqual(matching_lemmas(tokens, 'рус'), {'русский'})
@@ -590,6 +612,27 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertNotIn('часто', matching_lemmas(tokens, 'часть'))
         self.assertNotIn('вероятность', matching_lemmas(tokens, 'верить'))
         self.assertNotIn('треугольник', matching_lemmas(tokens, 'три'))
+
+    def test_corpus_batch_a1_families(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'компании', 'lemma': 'компания'},
+            {'kind': 'content', 'surface': 'организации', 'lemma': 'организация'},
+            {'kind': 'content', 'surface': 'стилистика', 'lemma': 'стилистика'},
+            {'kind': 'content', 'surface': 'министерство', 'lemma': 'министерство'},
+            {'kind': 'content', 'surface': 'детерминироваться', 'lemma': 'детерминироваться'},
+            {'kind': 'content', 'surface': 'тематика', 'lemma': 'тематика'},
+        ]
+        self.assertIn('компания', matching_lemmas(tokens, 'авиакомпания') | matching_lemmas(tokens, 'компания'))
+        self.assertIn('организация', matching_lemmas(tokens, 'организовать'))
+        self.assertIn('стилистика', matching_lemmas(tokens, 'стиль'))
+        self.assertIn('министерство', matching_lemmas(tokens, 'министр'))
+        self.assertIn('детерминироваться', matching_lemmas(tokens, 'детерминизм'))
+        self.assertIn('тематика', matching_lemmas(tokens, 'тема'))
+        # Separate roots for diverging senses and spelling-only coincidences.
+        self.assertNotIn('организация', matching_lemmas(tokens, 'организм'))
+        self.assertNotIn('стилистика', matching_lemmas(tokens, 'стол'))
+        self.assertNotIn('детерминироваться', matching_lemmas(tokens, 'термин'))
+        self.assertNotIn('тематика', matching_lemmas(tokens, 'темный'))
 
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
