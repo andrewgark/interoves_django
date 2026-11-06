@@ -657,6 +657,24 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertNotIn('детерминироваться', matching_lemmas(tokens, 'термин'))
         self.assertNotIn('тематика', matching_lemmas(tokens, 'темный'))
 
+    def test_adverb_rule_opens_the_adjective_family(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},
+            {'kind': 'content', 'surface': 'экономически', 'lemma': 'экономически'},
+            {'kind': 'content', 'surface': 'по-русски', 'lemma': 'по-русски'},
+            {'kind': 'content', 'surface': 'по-новому', 'lemma': 'по-новому'},
+        ]
+        self.assertIn('примерно', matching_lemmas(tokens, 'пример'))
+        self.assertIn('экономически', matching_lemmas(tokens, 'экономика'))
+        self.assertIn('по-русски', matching_lemmas(tokens, 'русский'))
+        self.assertIn('по-новому', matching_lemmas(tokens, 'новость'))
+
+    def test_adverb_rule_exceptions_are_not_generated(self):
+        from games.puzzles.censorly.lexical.match.rootbank import ADVERB_BASES
+
+        for adverb in ('совершенно', 'видимо', 'конечно', 'именно', 'довольно'):
+            self.assertNotIn(adverb, ADVERB_BASES)
+
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
             kind = relation_kind(left, right)

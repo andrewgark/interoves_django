@@ -71,7 +71,7 @@
 
 `dictionaries/*`, `reviewed_opaque_roots.tsv`, `reviewed_derived_roots.tsv`,
 `reviewed_existing_root_assignments.tsv`, `reviewed_nest_anchors.tsv`,
-`negation_pairs.tsv`, `half_compounds.tsv`. Остальные TSV и TXT — это ревью-очереди, снимки аудитов
+`adverb_bases.tsv` (генерируется `adverb_rule`), `negation_pairs.tsv`, `half_compounds.tsv`. Остальные TSV и TXT — это ревью-очереди, снимки аудитов
 или память тулов. Их изменение не влияет на игру.
 
 ## Тесты

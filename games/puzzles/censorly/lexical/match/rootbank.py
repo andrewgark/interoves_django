@@ -55,6 +55,9 @@ _HALF_COMPOUNDS = Path(os.environ.get(
 _NEST_ANCHORS = Path(os.environ.get(
     'CENSORLY_NEST_ANCHORS', Path(__file__).resolve().parents[1] / 'data' / 'reviewed_nest_anchors.tsv'
 ))
+_ADVERB_BASES = Path(os.environ.get(
+    'CENSORLY_ADVERB_BASES', Path(__file__).resolve().parents[1] / 'data' / 'adverb_bases.tsv'
+))
 
 # Historical families whose join would glue unrelated modern words.
 # ``чит`` and ``чт`` stay one reading root. ``чет`` does not join them.
@@ -214,6 +217,26 @@ def _load_nest_anchors() -> dict[str, str]:
 
 
 NEST_ANCHORS = _load_nest_anchors()
+
+
+def _load_adverb_bases() -> dict[str, str]:
+    """Generated adverb → adjective links (offline/tools/adverb_rule.py)."""
+    if not _ADVERB_BASES.exists():
+        raise RuntimeError(f'missing adverb bases data file: {_ADVERB_BASES}')
+    bases = {}
+    with _ADVERB_BASES.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream, delimiter='\t')
+        if reader.fieldnames != ['adverb', 'adjective', 'evidence']:
+            raise RuntimeError(f'invalid adverb bases header in {_ADVERB_BASES}')
+        for row in reader:
+            adverb, adjective = fold(row['adverb']), fold(row['adjective'])
+            if not adverb or not adjective or adverb == adjective or adverb in bases:
+                raise RuntimeError(f'invalid adverb base: {adverb!r} -> {adjective!r}')
+            bases[adverb] = adjective
+    return bases
+
+
+ADVERB_BASES = _load_adverb_bases()
 
 
 def _bare_roots(structures) -> set[tuple[str, ...]]:
@@ -705,9 +728,9 @@ def _build_bank(*, record: bool):
     # keeps it; anchors may chain (anchor of an anchor) up to a short depth.
     # Anchors run after negations so «неверно» can anchor to «неверный»,
     # and negations run once more so «необычно» can follow «обычно».
-    def apply_anchors() -> None:
+    def apply_anchors(anchors: dict[str, str], source: str, counter: str) -> None:
         pending = {
-            lemma: anchor for lemma, anchor in NEST_ANCHORS.items()
+            lemma: anchor for lemma, anchor in anchors.items()
             if not built.get(lemma)
         }
         for _depth in range(3):
@@ -719,16 +742,18 @@ def _build_bank(*, record: bool):
             for lemma, anchor in resolved.items():
                 built[lemma] = built[anchor]
                 provenance[lemma] = {
-                    'source': 'REVIEWED_NEST_ANCHOR',
+                    'source': source,
                     'detail': anchor,
                     'refused': (),
                 }
-                audit['nest_anchor_lemmas'] += 1
+                audit[f'{counter}_lemmas'] += 1
                 del pending[lemma]
-        audit['nest_anchor_unresolved'] += len(pending)
+        audit[f'{counter}_unresolved'] += len(pending)
 
     apply_negations(only_rootless=False)
-    apply_anchors()
+    # Reviewed anchors first: they win over the generated adverb rule.
+    apply_anchors(NEST_ANCHORS, 'REVIEWED_NEST_ANCHOR', 'nest_anchor')
+    apply_anchors(ADVERB_BASES, 'ADVERB_OF_ADJECTIVE', 'adverb_base')
     apply_negations(only_rootless=True)
     # Dictionaries leave полуостров, полчаса, полукруг unresolved: «пол» has
     # several root families. Each reviewed compound reads as its base word

@@ -24,7 +24,7 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match import _GuessPack
+from games.puzzles.censorly.lexical.match import _Pack
 from games.puzzles.censorly.lexical.match.rootbank import provenance
 from games.puzzles.censorly.lexical.semantics import _ALIASES
 from games.puzzles.censorly.offline.corpus import load_corpus
@@ -56,7 +56,9 @@ def _opens_at_runtime(lemma: str, surface: str, alias_words: frozenset) -> bool:
         return True
     if lemma.startswith('__censorly_') or not re.search('[а-яё]', lemma):
         return False
-    return bool(_GuessPack(surface).roots)
+    # The article side: a token keeps its stored lemma, so the guess-side
+    # short-adjective reading of «примерно» does not count here.
+    return bool(_Pack(surface, article_lemma=lemma).roots)
 
 
 def main():
