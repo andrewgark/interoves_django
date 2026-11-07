@@ -40,6 +40,10 @@ LANGUAGE_LABEL_CONTEXTS = {
 # impossible verb reading «ум» → «умереть» (the verb forms are «умру», «умрёт»,
 # «умер», etc.).
 REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
+    # The rare citation noun «цвета» makes both common inflections appear
+    # to be the same lexeme, bypassing the color/flower sense split.
+    ('цветы', 'цвета', 'NOUN'),
+    ('цвета', 'цвета', 'NOUN'),
     # «Бывает» is the finite form of бывать here. The analyzer's self-lemma
     # CONJ reading wins citation-form preference and hides the verb root.
     ('бывает', 'бывает', 'CONJ'),

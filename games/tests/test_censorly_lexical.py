@@ -83,6 +83,17 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             self.assertTrue(right_roots, f'no roots for {right}')
             self.assertTrue(left_roots.isdisjoint(right_roots), f'{left} / {right}')
 
+    def test_reported_censorly_false_positives_stay_closed(self):
+        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+
+        for guess, target in (
+            ('приводит', 'извести'),
+            ('цветы', 'цвета'),
+            ('изображались', 'образом'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(_relation(_GuessPack(guess), _Pack(target)))
+
     def test_data_forms_do_not_open_give_through_the_participle(self):
         from games.puzzles.censorly.lexical.match import _Pack, _relation
 
