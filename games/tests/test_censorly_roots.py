@@ -37,6 +37,62 @@ def _ids_for(gold, lemma: str) -> set[str]:
     return found or {lemma}
 
 
+class BalkanRootGameplayTests(SimpleTestCase):
+    def test_geographic_island_and_peninsula_roots(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        pairs = (
+            ('аравия', 'аравийский'),
+            ('скандинавия', 'скандинавский'),
+            ('курилы', 'курильский'),
+            ('антилы', 'антильский'),
+            ('канары', 'канарский'),
+            ('чукотка', 'чукотский'),
+            ('синай', 'синайский'),
+            ('багамы', 'багамский'),
+            ('сейшелы', 'сейшельский'),
+            ('фареры', 'фарерский'),
+            ('молукки', 'молуккский'),
+            ('фолкленды', 'фолклендский'),
+            ('лофотены', 'лофотенский'),
+            ('аляска', 'аляскинский'),
+            ('лабрадор', 'лабрадорский'),
+            ('ванкувер', 'ванкуверский'),
+            ('сомали', 'сомалийский'),
+            ('куба', 'кубинский'),
+            ('крит', 'критский'),
+            ('сахалин', 'сахалинский'),
+            ('таймыр', 'таймырский'),
+            ('ямал', 'ямальский'),
+            ('корсика', 'корсиканский'),
+            ('сардиния', 'сардинский'),
+            ('сицилия', 'сицилийский'),
+            ('кипр', 'кипрский'),
+            ('мадагаскар', 'мадагаскарский'),
+            ('бали', 'балийский'),
+            ('суматра', 'суматранский'),
+            ('мальта', 'мальтийский'),
+        )
+        self.assertEqual(len(pairs), 30)
+        for place, adjective in pairs:
+            with self.subTest(place=place):
+                self.assertIn(adjective, matching_lemmas(tokenize_text(adjective), place))
+                place_tokens = tokenize_text(place)
+                place_lemma = next(token['lemma'] for token in place_tokens if token['kind'] == 'content')
+                self.assertIn(place_lemma, matching_lemmas(place_tokens, adjective))
+
+    def test_balkans_family_shares_one_game_root(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        tokens = tokenize_text('Балканы. Балканский. Балканистика. Забалканский. Балкон.')
+        opened = matching_lemmas(tokens, 'Балканы')
+        self.assertTrue({'балканский', 'балканистика', 'забалканский'} <= opened)
+        self.assertNotIn('балкон', opened)
+        self.assertIn('балканы', matching_lemmas(tokens, 'балканский'))
+
+
 class CognateGoldTests(SimpleTestCase):
     def test_gold_lemmas_are_content_lemmas_of_the_article(self):
         gold = _gold()

@@ -1,4 +1,70 @@
 lemma	root_structure	note
+аравия	root:geo_аравия	Reviewed geographic family: аравия, аравийский.
+аравийский	root:geo_аравия	Reviewed geographic family: аравия, аравийский.
+скандинавия	root:geo_скандинавия	Reviewed geographic family: скандинавия, скандинавский.
+скандинавский	root:geo_скандинавия	Reviewed geographic family: скандинавия, скандинавский.
+курилы	root:geo_курилы	Reviewed geographic family: курилы, курильский.
+курильский	root:geo_курилы	Reviewed geographic family: курилы, курильский.
+антилы	root:geo_антилы	Reviewed geographic family: антилы, антильский.
+антил	root:geo_антилы	Pymorphy citation reading of Антилы in article text.
+антильский	root:geo_антилы	Reviewed geographic family: антилы, антильский.
+канары	root:geo_канары	Reviewed geographic family: канары, канарский.
+канарский	root:geo_канары	Reviewed geographic family: канары, канарский.
+чукотка	root:geo_чукотка	Reviewed geographic family: чукотка, чукотский.
+чукотский	root:geo_чукотка	Reviewed geographic family: чукотка, чукотский.
+синай	root:geo_синай	Reviewed geographic family: синай, синайский.
+синайский	root:geo_синай	Reviewed geographic family: синай, синайский.
+багамы	root:geo_багамы	Reviewed geographic family: багамы, багамский.
+багамский	root:geo_багамы	Reviewed geographic family: багамы, багамский.
+сейшелы	root:geo_сейшелы	Reviewed geographic family: сейшелы, сейшельский.
+сейшельский	root:geo_сейшелы	Reviewed geographic family: сейшелы, сейшельский.
+фареры	root:geo_фареры	Reviewed geographic family: фареры, фарерский.
+фарерский	root:geo_фареры	Reviewed geographic family: фареры, фарерский.
+молукки	root:geo_молукки	Reviewed geographic family: молукки, молуккский.
+молукка	root:geo_молукки	Pymorphy citation reading of Молукки in article text.
+молуккский	root:geo_молукки	Reviewed geographic family: молукки, молуккский.
+фолкленды	root:geo_фолкленды	Reviewed geographic family: фолкленды, фолклендский.
+фолкленд	root:geo_фолкленды	Pymorphy citation reading of Фолкленды in article text.
+фолклендский	root:geo_фолкленды	Reviewed geographic family: фолкленды, фолклендский.
+лофотены	root:geo_лофотены	Reviewed geographic family: лофотены, лофотенский.
+лофотен	root:geo_лофотены	Pymorphy citation reading of Лофотены in article text.
+лофотенский	root:geo_лофотены	Reviewed geographic family: лофотены, лофотенский.
+аляска	root:geo_аляска	Reviewed geographic family: аляска, аляскинский.
+аляскинский	root:geo_аляска	Reviewed geographic family: аляска, аляскинский.
+лабрадор	root:geo_лабрадор	Reviewed geographic family: лабрадор, лабрадорский.
+лабрадорский	root:geo_лабрадор	Reviewed geographic family: лабрадор, лабрадорский.
+ванкувер	root:geo_ванкувер	Reviewed geographic family: ванкувер, ванкуверский.
+ванкуверский	root:geo_ванкувер	Reviewed geographic family: ванкувер, ванкуверский.
+сомали	root:geo_сомали	Reviewed geographic family: сомали, сомалийский.
+сомалийский	root:geo_сомали	Reviewed geographic family: сомали, сомалийский.
+куба	root:geo_куба	Reviewed geographic family: куба, кубинский.
+кубинский	root:geo_куба	Reviewed geographic family: куба, кубинский.
+крит	root:geo_крит	Reviewed geographic family: крит, критский.
+критский	root:geo_крит	Reviewed geographic family: крит, критский.
+сахалин	root:geo_сахалин	Reviewed geographic family: сахалин, сахалинский.
+сахалинский	root:geo_сахалин	Reviewed geographic family: сахалин, сахалинский.
+таймыр	root:geo_таймыр	Reviewed geographic family: таймыр, таймырский.
+таймырский	root:geo_таймыр	Reviewed geographic family: таймыр, таймырский.
+ямал	root:geo_ямал	Reviewed geographic family: ямал, ямальский.
+ямальский	root:geo_ямал	Reviewed geographic family: ямал, ямальский.
+корсика	root:geo_корсика	Reviewed geographic family: корсика, корсиканский.
+корсиканский	root:geo_корсика	Reviewed geographic family: корсика, корсиканский.
+сардиния	root:geo_сардиния	Reviewed geographic family: сардиния, сардинский.
+сардинский	root:geo_сардиния	Reviewed geographic family: сардиния, сардинский.
+сицилия	root:geo_сицилия	Reviewed geographic family: сицилия, сицилийский.
+сицилийский	root:geo_сицилия	Reviewed geographic family: сицилия, сицилийский.
+кипр	root:geo_кипр	Reviewed geographic family: кипр, кипрский.
+кипрский	root:geo_кипр	Reviewed geographic family: кипр, кипрский.
+мадагаскар	root:geo_мадагаскар	Reviewed geographic family: мадагаскар, мадагаскарский.
+мадагаскарский	root:geo_мадагаскар	Reviewed geographic family: мадагаскар, мадагаскарский.
+бали	root:geo_бали	Reviewed geographic family: бали, балийский.
+балийский	root:geo_бали	Reviewed geographic family: бали, балийский.
+суматра	root:geo_суматра	Reviewed geographic family: суматра, суматранский.
+суматранский	root:geo_суматра	Reviewed geographic family: суматра, суматранский.
+мальта	root:geo_мальта	Reviewed geographic family: мальта, мальтийский.
+мальтийский	root:geo_мальта	Reviewed geographic family: мальта, мальтийский.
+балканы	tikh:балкан	Geographic name Балканы; joins балканский and Tikhonov derivatives.
+балканский	tikh:балкан	Adjective of Балканы; joins the geographic family.
 алгебра	root:алгебр	Reviewed derivation linking алгебра and алгебраический.
 алгебраический	root:алгебр	Reviewed derivation linking алгебраический and алгебра.
 арифметика	root:арифмет	Reviewed derivation linking арифметика and арифметический.
