@@ -40,6 +40,9 @@ LANGUAGE_LABEL_CONTEXTS = {
 # impossible verb reading «ум» → «умереть» (the verb forms are «умру», «умрёт»,
 # «умер», etc.).
 REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
+    # «Бывает» is the finite form of бывать here. The analyzer's self-lemma
+    # CONJ reading wins citation-form preference and hides the verb root.
+    ('бывает', 'бывает', 'CONJ'),
     ('ум', 'умереть', 'VERB'),
     # «воскресеньем» is instrumental of воскресенье (Sunday). Reject the
     # homographic instrumental analysis of воскресение, which falsely links

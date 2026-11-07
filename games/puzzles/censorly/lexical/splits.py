@@ -7500,8 +7500,12 @@ _LATE_REVIEW_SPLITS = (
         'умерять', 'умеряться',
     )),
     ('sense:review_unhurried', ('размеренность', 'размеренный')),
-    # «В основном» names the main part, not the act of founding.
-    ('sense:review_primary', ('основной', 'основный')),
+    # «В основном» names the main part, which is directly based on «основа».
+    ('sense:foundation', ('основной', 'основный')),
+    # A composition is what something consists of; connect the verb to the
+    # corresponding compose family while leaving state/occurrence derivatives
+    # in their separate cluster.
+    ('sense:compose', ('состоять',)),
     ('sense:weave_warp', ('засновать',)),
     # The broad take/borrow family also contains hiring, engaging in an
     # activity, removable objects, and land near a river.
