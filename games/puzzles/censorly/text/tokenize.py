@@ -9,6 +9,7 @@ from typing import Any
 
 from games.puzzles.censorly.ids import CENSORLY_SPLITTER_VERSION
 from games.puzzles.censorly.lexical.russian.reading_overrides import (
+    CENTURY_ABBR_CONTEXT,
     CITY_ABBR_CONTEXT,
     LANGUAGE_LABEL_CONTEXTS,
     LI_NAME_CONTEXT,
@@ -684,9 +685,11 @@ def _is_coma_context(tokens: list[dict[str, Any]], index: int) -> bool:
 def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach high-confidence, occurrence-specific readings before matching."""
     for index, tok in enumerate(tokens):
-        if tok.get('kind') != 'content':
-            continue
         surface = tok.get('surface') or ''
+        if tok.get('kind') != 'content' and not (
+            tok.get('kind') == 'stop' and normalize_surface(surface) == 'в'
+        ):
+            continue
         word = normalize_surface(surface)
         previous = _previous_nonspace(tokens, index)
         after_word = _next_nonspace(tokens, index + 1)
@@ -701,6 +704,18 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             tok['lemma'] = 'быть'
             tok['context_reading'] = 'verb:быть'
             tok['initially_open'] = False
+            continue
+
+        # «в.» before a following dot is the standard abbreviation for «век».
+        # Promote the preposition token to a closed content token so it can
+        # match «век» through its reviewed contextual expansion.
+        if word == 'в' and has_period:
+            tok['kind'] = 'content'
+            tok['lemma'] = CENTURY_ABBR_CONTEXT
+            tok['context_reading'] = CENTURY_ABBR_CONTEXT
+            tok['initially_open'] = False
+            tok['length'] = 1
+            tok['stem_length'] = 1
             continue
 
         if word == 'кому' and _is_coma_context(tokens, index):

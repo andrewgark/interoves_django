@@ -1049,6 +1049,21 @@ class SemanticsTests(SimpleTestCase):
                 nem = next(token for token in tokens if token.get('surface') == 'нем')
                 self.assertEqual(nem['lemma'], NEM_PRONOUN_CONTEXT)
 
+    def test_century_abbreviation_v_opens_with_vek(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.lexical.russian.reading_overrides import CENTURY_ABBR_CONTEXT
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        tokens = tokenize_text('В XIX в. началась новая эпоха. В здании есть зал.')
+        abbreviation = next(token for token in tokens if token.get('surface') == 'в')
+        self.assertEqual(abbreviation['lemma'], CENTURY_ABBR_CONTEXT)
+        self.assertFalse(abbreviation['initially_open'])
+        self.assertIn(CENTURY_ABBR_CONTEXT, matching_lemmas(tokens, 'век'))
+        self.assertTrue(any(
+            token.get('surface') == 'В' and token.get('kind') == 'stop'
+            for token in tokens
+        ))
+
     def test_article_year_reading_does_not_inherit_flight_from_let(self):
         from games.puzzles.censorly.lexical.match import _Pack
         from games.puzzles.censorly.lexical.match.rootbank import structures_of

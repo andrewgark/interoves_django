@@ -20,6 +20,7 @@ YEAR_ABBR_CONTEXT = '__censorly_year_abbr__'
 CITY_ABBR_CONTEXT = '__censorly_city_abbr__'
 PAGE_ABBR_CONTEXT = '__censorly_page_abbr__'
 STREET_ABBR_CONTEXT = '__censorly_street_abbr__'
+CENTURY_ABBR_CONTEXT = '__censorly_century_abbr__'
 TELE_PREFIX_CONTEXT = '__censorly_tele_prefix__'
 # Homographic language labels before a foreign gloss: «(кит. 北京)»,
 # «от лат. felis». Each label has its own identity, so revealing «кит.» does
@@ -186,6 +187,7 @@ TARGET_LEMMA_OVERRIDES: dict[tuple[str, str], tuple[str, ...]] = {
     ('нем', NEM_PRONOUN_CONTEXT): ('он', 'оно'),
     ('г', YEAR_ABBR_CONTEXT): ('год',),
     ('г', CITY_ABBR_CONTEXT): ('город',),
+    ('в', CENTURY_ABBR_CONTEXT): ('век',),
     ('стр', PAGE_ABBR_CONTEXT): ('страница',),
     ('ул', STREET_ABBR_CONTEXT): ('улица',),
     # «теле-» before a hyphen is the television prefix, not «тело»; only the
