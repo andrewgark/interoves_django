@@ -3173,6 +3173,7 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
 
 PRODUCTION_CONFIRMED_CENSORLY_CASES = (
     # Snapshot of the confirmed Censorly word reports from production.
+    ('моос', 'Мооса', 'OPEN'),
     ('сказка', 'высказать', 'CLOSED'),
     ('имеются', 'занимался', 'CLOSED'),
     ('народ', 'рождественской', 'CLOSED'),
@@ -3229,6 +3230,14 @@ PRODUCTION_CONFIRMED_CENSORLY_CASES = (
 
 
 class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
+    def test_mohs_surname_opens_article_form(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        tokens = tokenize_text('Твёрдость по шкале Мооса.')
+        self.assertIn('мооса', matching_lemmas(tokens, 'моос'))
+        self.assertNotIn('мооса', matching_lemmas(tokens, 'оса'))
+
     def test_confirmed_production_reports(self):
         for guess, target, expected in PRODUCTION_CONFIRMED_CENSORLY_CASES:
             with self.subTest(guess=guess, target=target):
@@ -3272,7 +3281,7 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
     def test_confirmed_proper_pairs_are_bidirectional(self):
         from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
 
-        self.assertEqual(len(PAIR_RELATIONS), 572)
+        self.assertEqual(len(PAIR_RELATIONS), 573)
         for left, right in PAIR_RELATIONS:
             self.assertEqual(explain(left, right), 'proper', f'{left}/{right}')
             self.assertEqual(explain(right, left), 'proper', f'{right}/{left}')
