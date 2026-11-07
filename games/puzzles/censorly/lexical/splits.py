@@ -7393,6 +7393,11 @@ CLUSTERS = CLUSTERS + (
 # dictionary family. Keep that alternative while assigning the common
 # determiner/adjective to its modern «whole» sense.
 MULTI_READINGS = MULTI_READINGS + (
+    # Основа is both a foundation and the main part; состоять can describe
+    # a state or what something is composed of. Keep the neighboring senses
+    # separate while allowing these two bridging lemmas in both families.
+    ('основа', ('sense:foundation', 'sense:main')),
+    ('состоять', ('sense:review_state', 'sense:compose')),
     ('весь', ('sense:review_whole', 'fam:вес³')),
     # Перегнать машину / перегнать спирт; пригнать скот / пригнать деталь;
     # подгонять лошадь / подгонять размер.

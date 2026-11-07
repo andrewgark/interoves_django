@@ -456,7 +456,6 @@ FALSE_CASES = (
     'стоять', 'состоять',
     'стать', 'ставить',
     'оставить', 'остановить',
-    'состав', 'состоять',
     'ставить', 'поставить',
     'три', 'строить',
     'водить', 'вождь',
@@ -2194,6 +2193,21 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
 
         self.assertNotEqual(structures_of('выручка'), structures_of('рука'))
         self.assertNotEqual(structures_of('основной'), structures_of('основать'))
+
+    def test_coral_reports_open_without_merging_neighboring_senses(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        for guess, target in (
+            ('Бывает', 'было'),
+            ('Основа', 'основном'),
+            ('Состав', 'состоят'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertTrue(matching_lemmas(tokenize_text(target), guess))
+
+        self.assertFalse(matching_lemmas(tokenize_text('основном'), 'основать'))
+        self.assertFalse(matching_lemmas(tokenize_text('состояние'), 'состав'))
 
     def test_reported_pour_settle_and_conduct_senses_are_split(self):
         for guess, target in (

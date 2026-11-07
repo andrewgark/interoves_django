@@ -48,6 +48,9 @@ REJECTED_READINGS: frozenset[tuple[str, str, str]] = frozenset({
     # «Бывает» is the finite form of бывать here. The analyzer's self-lemma
     # CONJ reading wins citation-form preference and hides the verb root.
     ('бывает', 'бывает', 'CONJ'),
+    # In isolated play «было» is the past form of быть; the rare particle
+    # reading otherwise wins citation-form preference and hides its root.
+    ('было', 'было', 'PRCL'),
     ('ум', 'умереть', 'VERB'),
     # «воскресеньем» is instrumental of воскресенье (Sunday). Reject the
     # homographic instrumental analysis of воскресение, which falsely links
