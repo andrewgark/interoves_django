@@ -1,6 +1,6 @@
 {# A Club paywall dialog: the archive edition or feature exists, access is paid. #}
 {# Params: paywall_source (goal param: archive / random_censorly / ...),        #}
-{# paywall_title, paywall_lead, paywall_open (open on load), paywall_back_href. #}
+{# paywall_title, paywall_lead, paywall_benefits_title, paywall_open (open on load), paywall_back_href. #}
 {# Prices match subscription.html (TRIBUTE_CLUB_SUBSCRIPTION_* settings).      #}
 <div class="new-rules-modal{% if paywall_open %} is-open{% endif %}" role="dialog" aria-modal="true" aria-labelledby="club-paywall-title-{{ paywall_source }}" data-club-paywall="{{ paywall_source }}"{% if not paywall_open %} hidden{% endif %}>
   <div class="new-rules-overlay" data-club-paywall-close></div>
@@ -9,6 +9,7 @@
     <p class="pal-kicker"><i class="ph ph-lock-key" aria-hidden="true"></i> Клуб Inter Oves</p>
     <h2 id="club-paywall-title-{{ paywall_source }}" class="pal-title">{{ paywall_title }}</h2>
     <p class="pal-lead">{{ paywall_lead }}</p>
+    {% if paywall_benefits_title %}<p>{{ paywall_benefits_title }}</p>{% endif %}
     <ul class="new-pay-order__benefits">
       <li><i class="ph ph-check-circle" aria-hidden="true"></i> <span>Весь архив: Лесенки, Салатики, Алфавитки, Стены, Замены и другие</span></li>
       <li><i class="ph ph-check-circle" aria-hidden="true"></i> <span>Случайные Алфавитки и Цензурки</span></li>
