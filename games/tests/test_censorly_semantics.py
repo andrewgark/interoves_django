@@ -1029,6 +1029,26 @@ class SemanticsTests(SimpleTestCase):
         nem = next(token for token in tokens if token.get('surface') == 'нем')
         self.assertEqual(nem['lemma'], NEM_PRONOUN_CONTEXT)
 
+    def test_nem_after_non_prepositional_case_prepositions_is_german_abbreviation(self):
+        from games.puzzles.censorly.lexical.russian.reading_overrides import NEM_GERMAN_CONTEXT
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        for phrase in ('от нем. Koralle', 'к нем. Koralle'):
+            with self.subTest(phrase=phrase):
+                tokens = tokenize_text(phrase)
+                nem = next(token for token in tokens if token.get('surface') == 'нем')
+                self.assertEqual(nem['lemma'], NEM_GERMAN_CONTEXT)
+
+    def test_nem_pronoun_only_uses_prepositional_case_governors(self):
+        from games.puzzles.censorly.lexical.russian.reading_overrides import NEM_PRONOUN_CONTEXT
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        for phrase in ('о нем', 'в нем', 'на самом нем', 'при нем'):
+            with self.subTest(phrase=phrase):
+                tokens = tokenize_text(phrase)
+                nem = next(token for token in tokens if token.get('surface') == 'нем')
+                self.assertEqual(nem['lemma'], NEM_PRONOUN_CONTEXT)
+
     def test_article_year_reading_does_not_inherit_flight_from_let(self):
         from games.puzzles.censorly.lexical.match import _Pack
         from games.puzzles.censorly.lexical.match.rootbank import structures_of

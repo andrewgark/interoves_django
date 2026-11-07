@@ -479,6 +479,9 @@ _PREPOSITION_SURFACES = frozenset({
     'по', 'под', 'подо', 'при', 'про', 'ради', 'с', 'со', 'сквозь', 'среди',
     'у',
 })
+# «нём» is the prepositional form of «он/оно». These are the ordinary
+# prepositions that govern it; «от нем» and «к нем» cannot be pronoun phrases.
+_NEM_PRONOUN_PREPOSITIONS = frozenset({'в', 'во', 'на', 'о', 'об', 'обо', 'при'})
 _PRONOUN_MODIFIERS = frozenset({
     'сам', 'сама', 'само', 'сами', 'самого', 'самой', 'самому', 'самим',
     'самом', 'самих', 'самими', 'один', 'одна', 'одно', 'одни', 'одного',
@@ -507,6 +510,7 @@ _DEMONSTRATIVE_MODIFIERS = _PRONOUN_MODIFIERS | {'и', 'всем'}
 def _is_preposition_governing_pronoun(
     tokens: list[dict[str, Any]], index: int,
     modifiers: frozenset[str] = _PRONOUN_MODIFIERS,
+    prepositions: frozenset[str] = _PREPOSITION_SURFACES,
 ) -> bool:
     """Recognize a preposition before «нем» with optional «сам»/«один» forms."""
     cursor = _previous_nonspace(tokens, index)
@@ -515,7 +519,7 @@ def _is_preposition_governing_pronoun(
         if token.get('kind') not in {'content', 'stop'}:
             return False
         surface = normalize_surface(token.get('surface') or '')
-        if surface in _PREPOSITION_SURFACES:
+        if surface in prepositions:
             return True
         if surface not in modifiers:
             return False
@@ -724,7 +728,22 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
         # «нем.» is the abbreviation for German only without ё and outside a
         # prepositional phrase. A preceding preposition wins over the period.
         if word == 'нем':
-            if _is_preposition_governing_pronoun(tokens, index) or 'ё' in surface.lower():
+            if 'ё' in surface.lower():
+                tok['lemma'] = NEM_PRONOUN_CONTEXT
+                tok['context_reading'] = NEM_PRONOUN_CONTEXT
+            elif (
+                has_period
+                and _is_language_label_position(tokens, previous, after_period)
+            ):
+                # «от нем. Koralle» is a source-language label. The generic
+                # preposition check would otherwise mistake «от» for a
+                # pronoun governor and read «нем» as «нём».
+                tok['lemma'] = NEM_GERMAN_CONTEXT
+                tok['context_reading'] = NEM_GERMAN_CONTEXT
+                tok['initially_open'] = False
+            elif _is_preposition_governing_pronoun(
+                tokens, index, prepositions=_NEM_PRONOUN_PREPOSITIONS,
+            ):
                 tok['lemma'] = NEM_PRONOUN_CONTEXT
                 tok['context_reading'] = NEM_PRONOUN_CONTEXT
             elif has_period:
