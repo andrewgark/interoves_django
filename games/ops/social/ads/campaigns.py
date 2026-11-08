@@ -24,6 +24,7 @@ from games.ops.social.ads.money import micros_to_rubles, rubles_to_micros
 from games.ops.social.ads.schema.constants import (
     CAMPAIGN_NEGATIVE_KEYWORDS,
     GOAL_GAME_COMPLETE,
+    GOAL_GAME_START,
     METRIKA_COUNTER_ID,
     MIN_CUSTOM_PERIOD_BUDGET_RUB,
     REGION_RUSSIA,
@@ -139,6 +140,9 @@ class GameGroup:
                 raise ConfigError(f'{self.game}: missing image {ad.image!r}')
 
 
+QUIZ_WORDS = ('квиз', 'викторина')
+
+
 @dataclass(frozen=True)
 class CampaignSpec:
     slug: str
@@ -151,7 +155,13 @@ class CampaignSpec:
     end: date
     keywords: tuple[str, ...]
     ads: tuple[AdCopy, ...]
-    negative_keywords: tuple[str, ...] = tuple(CAMPAIGN_NEGATIVE_KEYWORDS) + ('квиз',)
+    # «квиз» and «викторина» were minus-phrases since August (wide
+    # autotargeting brought IQ-test seekers). Nov 6–8: posts in ЧГК and quiz
+    # channels brought the best players yet (70% started, 43% finished), and
+    # pay-per-conversion makes stray clicks free, so quiz players are let in.
+    negative_keywords: tuple[str, ...] = tuple(
+        phrase for phrase in CAMPAIGN_NEGATIVE_KEYWORDS if phrase not in QUIZ_WORDS
+    )
     # Percent of the base bid. −50% shut phones out under pay-for-conversion
     # (Nov 3–4: 99% of impressions on desktops), so phones bid in full.
     mobile_bid_modifier: int = 100
@@ -293,6 +303,13 @@ GAME_GROUPS = (
             'pedantix',
             'педантикс',
             'угадай слово по тексту',
+            # Nov 6–8: ЧГК and quiz channel readers started a Цензурка
+            # more readily than anyone.
+            # Direct's stored form: it pins the stop word «что» with «+».
+            'вопросы +что где когда',
+            'чгк вопросы',
+            'своя игра вопросы',
+            'интеллектуальные игры онлайн',
         ),
         ads=(
             # Nov 3–5: Direct gave the wide band 95% of impressions (15 games
@@ -304,8 +321,10 @@ GAME_GROUPS = (
                 image='censorly-b-16x9',
             ),
             AdCopy(
-                title='О чём эта статья? Все слова в ней скрыты',
-                text='Называйте слова и открывайте статью Википедии по кусочкам. Бесплатно, в браузере.',
+                # Replaced «О чём эта статья? Все слова в ней скрыты» (no clicks
+                # Nov 5–8) for the ЧГК audience.
+                title='Для тех, кто играет в ЧГК: Цензурка',
+                text='Угадайте статью Википедии, в которой скрыты все слова. Новая каждый день.',
                 image='censorly-b-16x9',
             ),
             AdCopy(
@@ -419,12 +438,15 @@ GAME_GROUPS = (
     ),
 )
 
-# Players who finished a puzzle in the last two weeks but not in the last two
-# days: newcomers from the ads who did not come back (Nov 3–4: 16 finished a
-# game, few played again) and regulars who lapsed. Daily players are left out.
+# Players who started a puzzle in the last month but finished none in the last
+# two days: newcomers from the ads who did not come back or did not finish,
+# and regulars who lapsed. Daily players are left out.
 LAPSED_PLAYERS = Audience(
-    name='Inter Oves — доиграли за 14 дней, не играли 2 дня',
-    rules=(('ALL', GOAL_GAME_COMPLETE, 14), ('NONE', GOAL_GAME_COMPLETE, 2)),
+    name='Inter Oves — начали игру за 30 дней, не доигрывали 2 дня',
+    # Nov 8: widened from «finished in 14 days» to anyone who started a game
+    # in 30 days: of 125 newcomers who left a Салатик unfinished (Nov 3–6),
+    # 45 had found six or more words.
+    rules=(('ALL', GOAL_GAME_START, 30), ('NONE', GOAL_GAME_COMPLETE, 2)),
 )
 
 # The return group sends lapsed players to a ~3★ Салатик they have not
@@ -803,6 +825,9 @@ def verify(ads, spec: CampaignSpec, campaign_id: int) -> dict:
     missing_sites = set(spec.excluded_sites) - _live_excluded_sites(camp)
     if missing_sites:
         failures.append(f'excluded sites missing: {sorted(missing_sites)}')
+    extra_negatives = _extra_negatives(spec, camp)
+    if extra_negatives:
+        failures.append(f'minus-phrases not in spec: {sorted(extra_negatives)}')
     missing_negatives = _missing_negatives(spec, camp)
     if missing_negatives:
         failures.append(f'minus-phrases missing: {sorted(missing_negatives)}')
@@ -953,6 +978,7 @@ def add_game_groups(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         groups[group.key] = {'adgroup_id': adgroup_id, 'ad_ids': ad_ids, 'keyword_ids': keyword_ids}
         if group.audience:
             groups[group.key]['audience_target_ids'] = audience_ids
+            groups[group.key]['retargeting_list_id'] = list_ids[group.key]
         state_store.save(state)
         audit(action='create', object_type='game_group', object_id=adgroup_id,
               new_value={'spec': spec.slug, 'game': group.key, 'ad_ids': ad_ids},
@@ -995,6 +1021,12 @@ def _live_excluded_sites(campaign: dict) -> set[str]:
     return set((campaign.get('ExcludedSites') or {}).get('Items') or [])
 
 
+def _extra_negatives(spec: CampaignSpec, campaign: dict) -> set[str]:
+    """Live minus-phrases the spec no longer has (word forms folded as below)."""
+    live = (campaign.get('NegativeKeywords') or {}).get('Items') or []
+    return {item for item in live if not any(p.startswith(item) for p in spec.negative_keywords)}
+
+
 def _missing_negatives(spec: CampaignSpec, campaign: dict) -> set[str]:
     """Spec minus-phrases absent from the campaign.
 
@@ -1020,7 +1052,7 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
     change = {}
     if _strategy_key(camp) != _strategy_key(payload):
         change['UnifiedCampaign'] = {'BiddingStrategy': payload['UnifiedCampaign']['BiddingStrategy']}
-    if _missing_negatives(spec, camp):
+    if _missing_negatives(spec, camp) or _extra_negatives(spec, camp):
         change['NegativeKeywords'] = payload['NegativeKeywords']
     if _live_excluded_sites(camp) != set(spec.excluded_sites):
         change['ExcludedSites'] = {'Items': list(spec.excluded_sites)} if spec.excluded_sites else None
@@ -1076,13 +1108,47 @@ def sync(ads, spec: CampaignSpec, *, audit, state_store) -> dict:
         audit(action='moderate', object_type='ads', object_id=added,
               reason='sync: new ads of a launched campaign', api_status='submitted')
     paused, resumed = sync_group_states(ads, spec, record, live, audit=audit)
+    audiences = sync_audiences(ads, spec, record, state, audit=audit)
     keywords = sync_keywords(ads, spec, record, audit=audit)
     state_store.save(state)
     mobile = sync_mobile_modifier(ads, spec, campaign_id, audit=audit)
     return {'spec': spec.slug, 'campaign_id': campaign_id, 'updated_ads': [u['Id'] for u in updates],
-            'added_ads': added, 'paused_ads': paused, 'resumed_ads': resumed,
+            'added_ads': added, 'paused_ads': paused, 'resumed_ads': resumed, 'audiences': audiences,
             'keywords': keywords, 'mobile_modifier': mobile,
             'verify': verify(ads, spec, campaign_id)}
+
+
+def sync_audiences(ads, spec: CampaignSpec, record: dict, state: dict, *, audit) -> list[int]:
+    """Bring each audience group's retargeting list (name and rules) to the spec.
+
+    The list is updated in place, so the group's audience target stays.
+    """
+    updated = []
+    for group in spec.game_groups:
+        group_record = (record.get('game_groups') or {}).get(group.key) or {}
+        list_id = group_record.get('retargeting_list_id')
+        if not group.audience or not list_id:
+            continue
+        wanted = group.audience.payload()
+        live = (ads.call('retargetinglists', 'get', {
+            'SelectionCriteria': {'Ids': [list_id]}, 'FieldNames': ['Id', 'Name', 'Rules'],
+        }).get('RetargetingLists') or [{}])[0]
+        if live.get('Name') == wanted['Name'] and live.get('Rules') == wanted['Rules']:
+            continue
+        result = ads.call('retargetinglists', 'update', {'RetargetingLists': [{
+            'Id': list_id, 'Name': wanted['Name'], 'Rules': wanted['Rules'],
+        }]})
+        for row in result.get('UpdateResults') or []:
+            if row.get('Errors'):
+                raise ConfigError(f'RetargetingLists.update: {row["Errors"]}')
+        lists = state.setdefault('retargeting_lists', {})
+        for name in [name for name, value in lists.items() if value == list_id]:
+            del lists[name]
+        lists[wanted['Name']] = list_id
+        updated.append(list_id)
+        audit(action='update', object_type='retargeting_list', object_id=list_id,
+              new_value=wanted, reason='sync audience to spec', api_status='updated')
+    return updated
 
 
 def sync_group_states(ads, spec: CampaignSpec, record: dict, live: dict, *, audit) -> tuple[list, list]:

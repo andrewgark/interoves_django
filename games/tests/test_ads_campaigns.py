@@ -383,6 +383,44 @@ class GameGroupTests(SimpleTestCase):
         self.assertEqual(set(sent), {'Id', 'ExcludedSites'})
         self.assertIn('dsp-inneractive.yandex.ru', sent['ExcludedSites']['Items'])
 
+    def test_sync_drops_minus_phrases_the_spec_no_longer_has(self):
+        direct = FakeDirect()
+        original = direct.call
+        direct.call = lambda s, m, p=None: (
+            {'AddResults': [{'AdImageHash': 'h'}]} if (s, m) == ('adimages', 'add') else original(s, m, p)
+        )
+        old = replace(self.spec, negative_keywords=self.spec.negative_keywords + ('квиз', 'викторина'))
+        campaigns.create(direct, old, audit=self.audit, state_store=self.store)
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        self.assertNotIn('квиз', self.spec.negative_keywords)
+        failures = campaigns.verify(direct, self.spec, direct.added['campaigns'][0]['Id'])['failures']
+        self.assertIn("minus-phrases not in spec: ['викторина', 'квиз']", failures)
+        campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
+        sent = [p for s, m, p in direct.calls if (s, m) == ('campaigns', 'update')][-1]['Campaigns'][0]
+        self.assertNotIn('квиз', sent['NegativeKeywords']['Items'])
+
+    def test_sync_updates_an_audience_in_place(self):
+        direct = FakeDirect()
+        original = direct.call
+
+        def call(service, method, params=None):
+            if (service, method) == ('adimages', 'add'):
+                return {'AddResults': [{'AdImageHash': 'h'}]}
+            if (service, method) == ('retargetinglists', 'get'):
+                return {'RetargetingLists': [{'Id': params['SelectionCriteria']['Ids'][0], 'Name': 'old', 'Rules': []}]}
+            return original(service, method, params)
+
+        direct.call = call
+        campaigns.create(direct, self.spec, audit=self.audit, state_store=self.store)
+        campaigns.add_game_groups(direct, self.spec, audit=self.audit, state_store=self.store)
+        list_id = self.store.state['campaigns'][self.spec.slug]['game_groups']['return']['retargeting_list_id']
+        result = campaigns.sync(direct, self.spec, audit=self.audit, state_store=self.store)
+        self.assertEqual(result['audiences'], [list_id])
+        sent = [p for s, m, p in direct.calls if (s, m) == ('retargetinglists', 'update')][-1]['RetargetingLists'][0]
+        self.assertEqual(sent['Id'], list_id)
+        self.assertEqual(sent['Rules'][0]['Arguments'][0]['ExternalId'], campaigns.GOAL_GAME_START)
+        self.assertEqual(self.store.state['retargeting_lists'][campaigns.LAPSED_PLAYERS.name], list_id)
+
     def test_word_forms_folded_by_direct_count_as_present(self):
         spec = replace(self.spec, negative_keywords=('кроссворды', 'шашки'))
         live = {'NegativeKeywords': {'Items': ['кроссворд']}}
