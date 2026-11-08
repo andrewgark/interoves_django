@@ -412,6 +412,36 @@ NEGATIVES = (
 
 
 class LexicalResolverTests(SimpleTestCase):
+    def test_reviewed_organization_and_university_pairs_open_in_gameplay(self):
+        pairs = (
+            ('Гарвард', 'гарвардский'), ('Кембридж', 'кембриджский'),
+            ('Оксфорд', 'оксфордский'), ('Принстон', 'принстонский'),
+            ('Стэнфорд', 'стэнфордский'), ('Корнелл', 'корнеллский'),
+            ('Дартмут', 'дартмутский'), ('Интерпол', 'интерполовский'),
+            ('НАТО', 'натовский'), ('Коминтерн', 'коминтерновский'),
+            ('НАСА', 'насовский'), ('Евросоюз', 'евросоюзовский'),
+            ('ЖЭК', 'жэковский'), ('ВОЗ', 'возовский'),
+        )
+        for name, adjective in pairs:
+            with self.subTest(name=name, adjective=adjective):
+                self.assertIn(adjective, matching_lemmas(tokenize_text(adjective), name))
+                self.assertTrue(matching_lemmas(tokenize_text(name), adjective))
+
+    def test_who_acronym_does_not_link_common_noun_voz(self):
+        for common_noun in ('воз', 'воза', 'возы'):
+            with self.subTest(common_noun=common_noun):
+                self.assertNotIn('возовский', matching_lemmas(tokenize_text('возовский'), common_noun))
+                self.assertFalse(matching_lemmas(tokenize_text(common_noun), 'возовский'))
+
+    def test_yale_name_opens_adjective_in_gameplay(self):
+        for guess, target, expected in (
+            ('Йель', 'Йельский', 'йельский'),
+            ('Йель', 'Йельского', 'йельский'),
+            ('Йельский', 'Йель', 'йель'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertIn(expected, matching_lemmas(tokenize_text(target), guess))
+
     def test_confirmed_censorly_word_match_reports_from_last_day(self):
         """Keep the latest confirmed production reports reproducible locally."""
         expected_open = (

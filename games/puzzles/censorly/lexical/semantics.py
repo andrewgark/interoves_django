@@ -18,8 +18,8 @@ from games.puzzles.censorly.lexical.match.core import WORD_CACHE_SIZE, fold
 from games.puzzles.censorly.lexical.match.dispatcher import RUSSIAN, backend_name
 from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
 from games.puzzles.censorly.lexical.match.rootbank import REVIEWED_DERIVED_ROOTS, structures_of
-from games.puzzles.censorly.lexical.splits import SENSE_COMPATIBLE
 from games.puzzles.censorly.lexical.russian.reading_overrides import is_rejected
+from games.puzzles.censorly.lexical.splits import SENSE_COMPATIBLE
 
 # Function words open before a player has guessed anything. Interjections
 # (INTJ) are lexical content in an article, not structural service words:
@@ -252,7 +252,7 @@ def explain(guess: str, target: str, *, article_language: str = 'ru') -> str:
         return 'alias'
     if (left.isdigit() or right.isdigit()) and not numeric_root_match:
         return ''
-    if _proper_pair(left, right):
+    if _proper_pair(guess, target):
         return 'proper'
     if not _russian(guess, article_language) or not _russian(target, article_language):
         return ''
@@ -696,6 +696,15 @@ def _proper_pair_from_readings(
     A reviewed language label («укр», «греч») also carries its full form,
     unless the caller resolved the occurrence to another context.
     """
+    # ВОЗ is an acronym; lowercase «воз» is an unrelated common noun.
+    if (
+        (fold(left) == 'воз' or any(item.lemma == 'воз' for item in left_readings))
+        and left != 'ВОЗ'
+    ) or (
+        (fold(right) == 'воз' or any(item.lemma == 'воз' for item in right_readings))
+        and right != 'ВОЗ'
+    ):
+        return False
     left_forms = {fold(left)} | {
         fold(item.lemma) for item in left_readings if item.lemma
     }

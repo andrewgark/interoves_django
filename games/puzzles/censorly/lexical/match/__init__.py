@@ -18,10 +18,10 @@ from games.puzzles.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
     LANGUAGE_LABEL_CONTEXTS,
     LI_NAME_CONTEXT,
+    N_ERA_CONTEXT,
     NEM_GERMAN_CONTEXT,
     NEM_NONPRONOUN_CONTEXT,
     NEM_PRONOUN_CONTEXT,
-    N_ERA_CONTEXT,
     PAGE_ABBR_CONTEXT,
     PO_SOFTWARE_CONTEXT,
     STREET_ABBR_CONTEXT,
@@ -33,11 +33,11 @@ from games.puzzles.censorly.lexical.russian.reading_overrides import (
     target_readings,
 )
 from games.puzzles.censorly.lexical.semantics import (
-    _alias,
     _ALIASES,
-    _grammar,
     _GRAMMAR,
     _PROPER_COMPONENT_BY_WORD,
+    _alias,
+    _grammar,
     _roots,
     _russian,
     guess_readings_of,
@@ -371,8 +371,8 @@ def _relation(guess: _Pack, target: _Pack) -> str:
             return 'grammar'
         return ''
     if _proper_pair_from_readings(
-        guess.fold,
-        target.fold,
+        guess.surface,
+        target.surface,
         guess.reads,
         target.reads,
         left_label=not guess.contextual_reading.startswith('__censorly_'),
@@ -755,7 +755,6 @@ def analyze_guess(
     empty = {'readings': [], 'opened': [], 'rejected': [], 'rejected_total': 0}
     if not rows or not (guess or '').strip():
         return set(), empty
-    lemmas_by_surface = analysis['lemmas_by_surface']
     index = analysis['index']
     guess_fold = fold(guess)
     article_lemmas = {

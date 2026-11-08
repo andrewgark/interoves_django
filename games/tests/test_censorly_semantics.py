@@ -3393,8 +3393,10 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
     def test_confirmed_proper_pairs_are_bidirectional(self):
         from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
 
-        self.assertEqual(len(PAIR_RELATIONS), 573)
+        self.assertEqual(len(PAIR_RELATIONS), 588)
         for left, right in PAIR_RELATIONS:
+            if left == 'воз':
+                left = 'ВОЗ'
             self.assertEqual(explain(left, right), 'proper', f'{left}/{right}')
             self.assertEqual(explain(right, left), 'proper', f'{right}/{left}')
             self.assertTrue(opens(left, right), f'{left}/{right}')

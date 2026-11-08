@@ -1,0 +1,15 @@
+source_name	derivative	category	evidence_source	evidence	current_result	review_status	risk_note
+Гарвард	гарвардский	educational_institutions	article_pool	Гарвардский университет	OPEN	approved	Подтвердить связь с названием университета и проверить омонимию с фамилией.
+Кембридж	кембриджский	educational_institutions	article_pool	Кембриджский университет	OPEN	approved	Прилагательное относится также к городу; проверить весь proper-компонент.
+Оксфорд	оксфордский	educational_institutions	article_pool	Оксфордский университет	OPEN	approved	Прилагательное относится также к городу; проверить весь proper-компонент.
+Принстон	принстонский	educational_institutions	article_pool	Принстонский университет	OPEN	approved	Прилагательное относится также к городу; проверить весь proper-компонент.
+Стэнфорд	стэнфордский	educational_institutions	article_pool	Стэнфордский университет	OPEN	approved	Подтвердить связь с названием университета и проверить омонимию с фамилией.
+Корнелл	корнеллский	educational_institutions	article_pool	Корнеллский университет	OPEN	approved	Подтвердить связь с названием университета и проверить омонимию с фамилией.
+Дартмут	дартмутский	educational_institutions	article_pool	Дартмутский колледж	OPEN	approved	Прилагательное относится также к городу; проверить весь proper-компонент.
+Интерпол	интерполовский	organizations	ru_wiktionary_wiktextract	Прямая этимологическая ссылка в статье «интерполовский»	OPEN	approved	Проверить значения и падежные формы.
+НАТО	натовский	organizations	ru_wiktionary_wiktextract	Поле related в статье «НАТО»	OPEN	approved	Поле related само по себе не доказывает словообразование.
+Коминтерн	коминтерновский	organizations	ru_wiktionary_wiktextract	Прямая этимологическая ссылка в статье «коминтерновский»	OPEN	approved	Проверить значения и падежные формы.
+НАСА	насовский	organizations	ru_wiktionary_wiktextract	Поле related в статье «НАСА»	OPEN	approved	Поле related само по себе не доказывает словообразование.
+Евросоюз	евросоюзовский	organizations	ru_wiktionary_wiktextract	Поле related в статье «Евросоюз»	OPEN	approved	Поле related само по себе не доказывает словообразование.
+ЖЭК	жэковский	organizations	ru_wiktionary_wiktextract	Поле related в статье «ЖЭК»	OPEN	approved	Поле related само по себе не доказывает словообразование.
+ВОЗ	возовский	organizations	ru_wiktionary_wiktextract	Поле related в статье «ВОЗ»	OPEN	approved	Омонимия с нарицательным «воз»: перед принятием нужен контекстный контроль.

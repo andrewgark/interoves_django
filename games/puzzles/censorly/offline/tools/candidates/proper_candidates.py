@@ -45,8 +45,13 @@ _PERSON_SIGNALS = (
     'исторический деятель', 'человек', 'surname', 'given name', 'person',
 )
 _ORG_SIGNALS = (
-    'организация', 'компания', 'бренд', 'торговая марка',
+    'организация', 'организации', 'компания', 'компании', 'бренд', 'торговая марка',
     'organization', 'organizations', 'company', 'companies', 'brand', 'trademark',
+)
+_EDUCATION_SIGNALS = (
+    'университет', 'институт', 'академия', 'колледж', 'школа', 'вуз',
+    'university', 'universities', 'college', 'academy', 'school',
+    'educational institution',
 )
 _EXPLICIT_ETYMOLOGY_RE = re.compile(
     r"(?:происходит|образовано|образован|образована|от\s+(?:имени|фамилии|названия)|"
@@ -202,6 +207,8 @@ def classify_entry(entry: Mapping[str, Any], *, include_senses: bool = True) -> 
         signals.append('person')
     if any(_has_signal(text, marker) for marker in _ORG_SIGNALS):
         signals.append('organization_or_brand')
+    if any(_has_signal(text, marker) for marker in _EDUCATION_SIGNALS):
+        signals.append('educational_institution')
     if (
         _has_signal(text, 'имя собственное')
         or _has_signal(text, 'имена собственные')
@@ -211,6 +218,8 @@ def classify_entry(entry: Mapping[str, Any], *, include_senses: bool = True) -> 
         signals.append('proper_noun')
     if not signals:
         return '', ()
+    if 'educational_institution' in signals:
+        return 'educational_institution', tuple(sorted(set(signals)))
     if 'organization_or_brand' in signals:
         return 'organization_or_brand', tuple(sorted(set(signals)))
     if 'geographic' in signals:
@@ -355,7 +364,7 @@ def _relation_kind(field: str, *, explicit: bool, source_kind: str) -> tuple[str
     if field == 'derived' and source_kind:
         return 'direct_derivation', 'high', 'low', ()
     if explicit and source_kind:
-        if source_kind == 'organization_or_brand':
+        if source_kind in ('organization_or_brand', 'educational_institution'):
             return 'brand_derived', 'high', 'medium', ()
         return 'etymological_derivation', 'high', 'low', ()
     return 'unclassified_relation', 'low', 'high', ('missing_proper_name_signal',)
@@ -387,6 +396,8 @@ def _candidate_category(source_kind: str, source_entry: Mapping[str, Any], deriv
         return 'geography'
     if source_kind == 'person':
         return 'person'
+    if source_kind == 'educational_institution':
+        return 'educational_institutions'
     if source_kind == 'organization_or_brand':
         return 'brands' if any(_has_signal(source_text, marker) for marker in ('бренд', 'торговая марка', 'brand', 'trademark')) else 'organizations'
     derivative_word = _entry_word(derivative_entry).casefold()
@@ -714,6 +725,42 @@ def write_tsv(rows: Iterable[Candidate], tsv_path: Path) -> None:
             writer.writerow(data)
 
 
+def write_organization_adjective_queue(rows: Iterable[Candidate], path: Path) -> None:
+    """Export plausible proper-name adjectives for explicit review."""
+    selected: dict[tuple[str, str], Candidate] = {}
+    for row in rows:
+        if row.category not in ('organizations', 'educational_institutions'):
+            continue
+        if not row.source_article[:1].isupper():
+            continue
+        if not row.derivative.endswith(('ский', 'цкий', 'жский')):
+            continue
+        source = fold(row.source_article)
+        derivative = fold(row.derivative)
+        shared = len(source) - 1
+        if len(source) < 3 or not derivative.startswith(source[:max(3, shared)]):
+            continue
+        key = (source, derivative)
+        previous = selected.get(key)
+        if previous is None or (
+            previous.relation_type == 'related_not_derivation'
+            and row.relation_type != 'related_not_derivation'
+        ):
+            selected[key] = row
+
+    with path.open('w', encoding='utf-8', newline='') as handle:
+        writer = csv.DictWriter(
+            handle, fieldnames=(*_TSV_FIELDS, 'review_status'),
+            delimiter='\t', lineterminator='\n',
+        )
+        writer.writeheader()
+        for row in sorted(selected.values(), key=lambda item: (-item.priority, item.source_article, item.derivative)):
+            data = asdict(row)
+            data['ambiguity_flags'] = ','.join(row.ambiguity_flags)
+            data['review_status'] = 'manual_review'
+            writer.writerow(data)
+
+
 def run_experiment(
     input_path: Path,
     *,
@@ -933,6 +980,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument('--jsonl', type=Path, default=Path('candidates.jsonl'))
     parser.add_argument('--tsv', type=Path, default=Path('candidates.tsv'))
     parser.add_argument('--top-tsv', type=Path, default=Path('top_candidates.tsv'))
+    parser.add_argument('--organization-tsv', type=Path, default=Path('organization_adjectives.tsv'))
     parser.add_argument('--stats', type=Path, default=Path('candidates_stats.json'))
     parser.add_argument('--article-pool', type=Path, default=None)
     parser.add_argument('--workdir', type=Path, default=None, help='Persistent offline stage directory')
@@ -952,9 +1000,11 @@ def main(argv: list[str] | None = None) -> int:
         candidates, stats = run_experiment(args.input, pool_titles=pool_titles)
     write_reports(candidates, args.jsonl, args.tsv)
     write_tsv(candidates[:50], args.top_tsv)
+    write_organization_adjective_queue(candidates, args.organization_tsv)
     write_stats(stats, args.stats)
     print(f'wrote {len(candidates)} candidates to {args.jsonl} and {args.tsv}')
     print(f'wrote top 50 candidates to {args.top_tsv}; stats to {args.stats}')
+    print(f'wrote organization adjective review queue to {args.organization_tsv}')
     return 0
 
 

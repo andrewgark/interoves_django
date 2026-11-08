@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import gzip
 import json
 import tempfile
@@ -11,6 +12,7 @@ from games.puzzles.censorly.offline.tools.candidates.proper_candidates import (
     extract_candidates,
     load_jsonl,
     run_experiment,
+    write_organization_adjective_queue,
     write_reports,
 )
 
@@ -41,6 +43,37 @@ def entry(word: str, *, categories=None, derived=None, related=None, etymology_t
 
 
 class ProperCandidateTests(TestCase):
+    def test_organization_adjective_queue_separates_schools_and_keeps_review_gate(self):
+        rows = [
+            entry('Йель', categories=['Университеты'], derived=['йельский', 'йелец']),
+            entry('йельский'),
+            entry('йелец'),
+            entry('ЮНЕСКО', categories=['Организации'], derived=['юнесковский']),
+            entry('юнесковский'),
+            entry('Google', categories=['Бренды'], derived=['гугловский']),
+            entry('гугловский'),
+            entry('Оксфорд', categories=['Университеты'], related=['оксфордский']),
+            entry('оксфордский'),
+            entry('НАТО', categories=['Организации'], related=['организационный']),
+            entry('организационный'),
+        ]
+        candidates = extract_candidates(rows, explain_func=closed, normalize_func=no_morphology)
+        by_pair = {(row.source_name, row.derivative): row for row in candidates}
+        self.assertEqual(by_pair['йель', 'йельский'].category, 'educational_institutions')
+        self.assertEqual(by_pair['юнеско', 'юнесковский'].category, 'organizations')
+        self.assertEqual(by_pair['google', 'гугловский'].category, 'brands')
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / 'organization_adjectives.tsv'
+            write_organization_adjective_queue(candidates, path)
+            with path.open(encoding='utf-8', newline='') as handle:
+                queue = list(csv.DictReader(handle, delimiter='\t'))
+        self.assertEqual(
+            {(row['source_name'], row['derivative']) for row in queue},
+            {('йель', 'йельский'), ('юнеско', 'юнесковский'), ('оксфорд', 'оксфордский')},
+        )
+        self.assertTrue(all(row['review_status'] == 'manual_review' for row in queue))
+
     def test_eponym_is_separate_and_never_auto_accepted(self):
         row = {
             'relation_type': 'etymological_derivation',
