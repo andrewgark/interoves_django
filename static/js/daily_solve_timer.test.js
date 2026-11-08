@@ -2359,6 +2359,76 @@ asyncTest(async function testHealthyTimerSendsNoReports() {
   }
 });
 
+asyncTest(async function testStartWhoseAbortNeverFiresIsRetried() {
+  // Firefox on iOS, 2026-11-08 (/salad/75/): the start POST neither answered
+  // nor aborted. awaiting_server stayed true for 66 s with one attempt and no
+  // failure, so nothing retried it. The stopped-clock check expires it.
+  var oldNow = Date.now;
+  var oldSetInterval = global.setInterval;
+  var oldSetTimeout = global.setTimeout;
+  var now = 9500000;
+  var checks = [];
+  var retries = [];
+  var starts = [];
+  var answerLate = null;
+  Date.now = function () { return now; };
+  global.setInterval = function (fn) { checks.push(fn); return checks.length; };
+  global.setTimeout = function (fn, delay) {
+    if (delay < timer.HEARTBEAT_MS && delay !== 10000) retries.push(fn);
+    return 1;
+  };
+  try {
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      if (!init || init.method !== 'POST') {
+        return Promise.resolve({ status: 200, json: function () {
+          return Promise.resolve({ ok: true, exists: true, status: 'auto_paused', is_authoritative: false });
+        } });
+      }
+      starts.push({ id: body.event_id, keepalive: !!init.keepalive });
+      var snapshot = { status: 200, json: function () {
+        return Promise.resolve({ ok: true, exists: true, status: 'running', is_authoritative: true });
+      } };
+      if (starts.length === 1) return new Promise(function (resolve) { answerLate = resolve; });
+      return Promise.resolve(snapshot);
+    }, { bootstrap: { status: 'auto_paused', exists: true } });
+    ctrl.boot();
+    await flush();
+    assert.strictEqual(starts.length, 1);
+
+    now += 5000;
+    checks[0]();
+    await flush();
+    assert.strictEqual(retries.length, 0, 'within its timeout the request may still answer');
+
+    now += 8000;
+    checks[0]();
+    await flush();
+    assert.strictEqual(retries.length, 1);
+    retries.shift()();
+    await flush();
+    assert.strictEqual(starts.length, 2);
+    assert.strictEqual(starts[1].id, starts[0].id, 'the retry can be deduplicated');
+    assert.strictEqual(starts[1].keepalive, true, 'a timed-out start retries via keepalive');
+    assert.strictEqual(ctrl.state().status, 'running');
+
+    // The hung request answering after all changes nothing.
+    answerLate({ status: 200, json: function () {
+      return Promise.resolve({ ok: true, exists: true, status: 'auto_paused', is_authoritative: false });
+    } });
+    await flush();
+    assert.strictEqual(ctrl.state().status, 'running');
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setInterval = oldSetInterval;
+    global.setTimeout = oldSetTimeout;
+  }
+});
+
 asyncTest(async function testReturnWithoutVisibilityEventRestartsTheClock() {
   // Chrome on Android, 2026-11-03: the page went hidden (auto_pause sent) and
   // was visible again without any visibilitychange. The clock stayed stopped

@@ -36,6 +36,9 @@
   // A request on a silently dead connection can hang for half a minute and
   // hold the whole queue; give up early so a retry can use a fresh one.
   var REQUEST_TIMEOUT_MS = 10000;
+  // Past the timeout plus this, the stopped-clock check gives up on a request
+  // whose abort signal never fired.
+  var REQUEST_EXPIRE_GRACE_MS = 2000;
   var RETRY_AFTER_MAX_MS = 10000;
   // A start the browser rejects at once (Safari on macOS, status 0) used up
   // all six attempts in under 8 s. Keep retrying for this long, within a cap.
@@ -301,6 +304,8 @@
     // enables this only when the player may play offline.
     var offlineCredit = false;
     var lostNetwork = false;
+    // The event request awaiting an answer: {startedAt, expire}.
+    var requestInFlight = null;
 
     function advanceStateRevision() {
       stateRevision += 1;
@@ -538,6 +543,21 @@
           init.signal = root.AbortSignal.timeout(REQUEST_TIMEOUT_MS);
         }
       } catch (e) {}
+      // AbortSignal.timeout alone is no deadline: Firefox on iOS
+      // (2026-11-08, /salad/75/) kept the start awaiting the server for 66 s
+      // after one attempt, without any failure, so it was never retried.
+      // expireOverdueRequest() settles such a request as a network timeout;
+      // a late answer is then ignored.
+      var expired = new Promise(function (resolve) {
+        requestInFlight = {
+          startedAt: Date.now(),
+          expire: function () {
+            lostNetwork = true;
+            resolve({ data: null, status: 0, retryable: true, networkError: true, errorName: 'TimeoutError' });
+          },
+        };
+      });
+      var inFlight = requestInFlight;
       if (keepalive) {
         var params = new URLSearchParams();
         Object.keys(body).forEach(function (k) { params.set(k, String(body[k])); });
@@ -548,7 +568,7 @@
         init.headers['Content-Type'] = 'application/json';
         init.body = JSON.stringify(body);
       }
-      return fetchFn(url, init).then(function (res) {
+      var answered = fetchFn(url, init).then(function (res) {
         if (!res || !res.json) return { data: null, status: 0, retryable: false };
         var responseStatus = Number(res.status) || 0;
         var responseRetryAfterMs = res.headers && res.headers.get
@@ -590,6 +610,17 @@
           errorName: (err && err.name) || '',
         };
       });
+      return Promise.race([answered, expired]).then(function (result) {
+        if (requestInFlight === inFlight) requestInFlight = null;
+        return result;
+      });
+    }
+
+    function expireOverdueRequest() {
+      var inFlight = requestInFlight;
+      if (!inFlight || Date.now() - inFlight.startedAt < REQUEST_TIMEOUT_MS + REQUEST_EXPIRE_GRACE_MS) return;
+      requestInFlight = null;
+      inFlight.expire();
     }
 
     // A broken timer must never lock the board: the player keeps solving and
@@ -1180,6 +1211,7 @@
     // the next tap. A visible page that is not idle should be running.
     function checkStoppedClock() {
       if (destroyed || completed) return;
+      expireOverdueRequest();
       reportUnannouncedReturnIfStill();
       if (noticeUnannouncedReturn('poll')) return;
       if (idlePaused || Date.now() - lastActivityAt >= idleMs) return;
