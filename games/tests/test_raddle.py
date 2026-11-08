@@ -1,4 +1,5 @@
 import json
+import re
 
 from django.test import SimpleTestCase, TestCase
 
@@ -826,7 +827,9 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertIn(before_word, wrong_second)
         for html in (correct_first, correct_second, wrong_first, wrong_second):
             self.assertNotIn(focus_word, html)
-            self.assertNotIn('new-raddle-clue-focus', html)
+            # Зелёным подсвечен только пустой слот Б, а не само слово.
+            for chip in re.findall(r'class="new-raddle-clue-focus">([^<]*)<', html):
+                self.assertIn(chip, ('____', '...', '…'))
         self.assertIn('new-raddle-clue-before', correct_first)
         self.assertIn('new-raddle-clue-after', correct_second)
         self.assertIn('new-raddle-clue-after', wrong_first)
@@ -901,6 +904,34 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertIn('БАРД', wrong[1])
         for line in correct + wrong:
             self.assertNotIn('ГИТАРА', line)
+        # Пустой слот Б (____ в bc) подсвечен зелёным, как строка Б.
+        self.assertIn('<strong class="new-raddle-clue-focus">____</strong>', correct[1])
+        self.assertIn('<strong class="new-raddle-clue-focus">____</strong>', wrong[0])
+        # «Главный атрибут ____а» без слота следующего: Б дописан после «→».
+        self.assertTrue(correct[0].endswith(
+            ' → <strong class="new-raddle-clue-focus">...</strong>'
+        ))
+        self.assertTrue(wrong[1].endswith(
+            ' → <strong class="new-raddle-clue-focus">...</strong>'
+        ))
+        # bc со слотом ____ не получает лишней стрелки к Б.
+        self.assertNotIn('new-raddle-clue-focus">...', correct[1])
+
+    def test_last_word_ab_next_slot_highlighted(self):
+        from games.puzzles.raddle.engine import render_last_word_transition_clue
+        html = str(render_last_word_transition_clue(
+            '____ и ...', 'АЛЬФА', 'ГАММА', pair='ab',
+        ))
+        self.assertIn('<strong class="new-raddle-clue-before">АЛЬФА</strong>', html)
+        self.assertIn('<strong class="new-raddle-clue-focus">...</strong>', html)
+        self.assertNotIn('→', html)
+
+    def test_normal_mode_clue_has_no_arrow_placeholder(self):
+        html = str(clue_display_for_hint(
+            'Его основал ____', 0, ['А', 'Б', 'В'], {0},
+            focus_ref_word='МУХАММЕД', focus_ref_role='prev', html=True,
+        ))
+        self.assertNotIn('→', html)
 
     def test_mask_uses_squares(self):
         self.assertEqual(length_mask_display(parse_length_mask(4)), '◼◼◼◼')

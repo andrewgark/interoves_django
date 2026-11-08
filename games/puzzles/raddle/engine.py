@@ -903,6 +903,8 @@ def render_transition_clue(
     next_kind=None,
     highlight_prev_placeholder=False,
     highlight_next_placeholder=False,
+    placeholder_kind=None,
+    next_placeholder_arrow=False,
 ):
     """
     Подсказка перехода prev → next.
@@ -922,7 +924,9 @@ def render_transition_clue(
             pk = prev_kind if prev_kind != 'ref' else 'ref'
             prev_replacement = _clue_ref_html(prev_word, kind=pk)
         elif highlight_prev_placeholder:
-            prev_replacement = _clue_ref_html(_CLUE_BLANK_TOKEN, kind='ref')
+            prev_replacement = _clue_ref_html(
+                _CLUE_BLANK_TOKEN, kind=placeholder_kind or 'ref',
+            )
         if next_known and next_word:
             if next_kind is None:
                 next_kind = 'next' if next_as_solved else 'ref'
@@ -933,7 +937,18 @@ def render_transition_clue(
                 if template.endswith('.'):
                     template = template[:-1].rstrip()
         elif highlight_next_placeholder and has_next_slot:
-            next_replacement = _clue_ref_html(_CLUE_NEXT_TOKEN, kind='next')
+            next_replacement = _clue_ref_html(
+                _CLUE_NEXT_TOKEN, kind=placeholder_kind or 'next',
+            )
+        # Слота следующего нет: показываем его пустым после «→», как известное.
+        arrow_placeholder = (
+            next_placeholder_arrow and highlight_next_placeholder
+            and not has_next_slot and not (next_known and next_word)
+        )
+        if arrow_placeholder:
+            template = template.rstrip()
+            if template.endswith('.'):
+                template = template[:-1].rstrip()
         out = _render_transition_clue_html(
             template,
             prev_replacement=prev_replacement,
@@ -942,6 +957,11 @@ def render_transition_clue(
         if next_known and next_word and not has_next_slot:
             out = '{} → {}'.format(
                 out, _clue_ref_html(next_word, kind=next_kind),
+            )
+        elif arrow_placeholder:
+            out = '{} → {}'.format(
+                out,
+                _clue_ref_html(_CLUE_NEXT_TOKEN, kind=placeholder_kind or 'next'),
             )
         return mark_safe(out)
 
@@ -1079,8 +1099,9 @@ def render_last_word_transition_clue(
 ):
     """
     Подсказка финала: подставляем только известные А и В; Б не показываем.
-    pair='ab' → А (жёлтый) в ____, слот Б остаётся пустым;
-    pair='bc' → слот Б пустой, В (синий) в ... / «→».
+    pair='ab' → А (жёлтый) в ____, пустой слот Б подсвечен зелёным
+               (нет слота «...» — дописываем зелёное «→ ...»);
+    pair='bc' → пустой слот Б подсвечен зелёным, В (синий) в ... / «→».
     """
     if pair == 'ab':
         return render_transition_clue(
@@ -1089,6 +1110,9 @@ def render_last_word_transition_clue(
             prev_known=True,
             html=True,
             prev_kind='before',
+            highlight_next_placeholder=True,
+            placeholder_kind='focus',
+            next_placeholder_arrow=True,
         )
     return render_transition_clue(
         hint_text,
@@ -1096,6 +1120,8 @@ def render_last_word_transition_clue(
         next_known=True,
         html=True,
         next_kind='after',
+        highlight_prev_placeholder=True,
+        placeholder_kind='focus',
     )
 
 
