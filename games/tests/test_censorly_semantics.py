@@ -657,6 +657,69 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(opens('исключать', 'исключение'))
         self.assertTrue(opens('исключительный', 'исключительно'))
 
+    def test_reported_ver_tir_sred_false_positives(self):
+        for guess, target in (
+            ('вера', 'неуверенности'),
+            ('трутся', 'простирается'),
+            ('среды', 'среднего'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('вера', 'верить'),
+            ('уверенность', 'неуверенности'),
+            ('простираться', 'распростираться'),
+            ('тереться', 'потереться'),
+            ('средний', 'середина'),
+            ('среда', 'среды'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertTrue(matching_lemmas(tokenize_text(target), guess))
+
+    def test_neighboring_ver_tir_sred_subfamilies(self):
+        for guess, target in (
+            ('вера', 'поверка'),
+            ('тереть', 'постирать'),
+            ('середина', 'середняк'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('проверка', 'поверка'),
+            ('стирать', 'постирать'),
+            ('середняк', 'середнячество'),
+            ('середина', 'средний'),
+            ('вера', 'поверить'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertTrue(matching_lemmas(tokenize_text(target), guess))
+
+    def test_more_ver_and_tor_subfamilies(self):
+        for guess, target in (
+            ('вера', 'доверенность'),
+            ('вера', 'изувер'),
+            ('тереть', 'натореть'),
+            ('тереть', 'торить'),
+            ('тереть', 'затор'),
+            ('тереть', 'тороватый'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertFalse(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('доверить', 'доверенность'),
+            ('доверенность', 'поверенный'),
+            ('изувер', 'изуверство'),
+            ('натореть', 'понатореть'),
+            ('торить', 'проторить'),
+            ('затор', 'заторный'),
+            ('тороватый', 'тороватость'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertTrue(matching_lemmas(tokenize_text(target), guess))
+
     def test_fine_sense_splits_for_shir_kon_klyuch_chast(self):
         self.assertTrue(opens('широкий', 'расширение'))
         self.assertTrue(opens('широта', 'широкий'))

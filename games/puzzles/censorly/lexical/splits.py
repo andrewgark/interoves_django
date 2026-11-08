@@ -7801,6 +7801,70 @@ _LATE_REVIEW_SPLITS = (
     ('sense:review_family_name', ('фамилия', 'фамильный')),
     ('sense:review_change', ('поменять', 'сменить')),
     ('sense:review_long_lived', ('долгоживущий', 'долгоживучий')),
+    # Trust/belief and confidence are different modern uses of вер-.  The
+    # negative forms inherit their base's sense from the negation pass.
+    ('sense:confidence', (
+        'уверение', 'уверенность', 'уверенный', 'уверить', 'увериться',
+        'уверять', 'уверяться', 'разуверение', 'разуверить',
+        'разувериться', 'разуверять', 'разуверяться',
+    )),
+    # «Простираться» describes extent.  The dictionary also lists an old
+    # washing reading, but that must not connect the ordinary word to тереть.
+    ('sense:stretch_extent', (
+        'простираться', 'распростереть', 'распростереться',
+        'распростирать', 'распростираться',
+    )),
+    # Среда as surroundings or a day of the week does not mean an average.
+    ('sense:environment', ('среда',)),
+    # Metrology and checking belong with the existing проверить/сверить
+    # cluster, not with вера.  Поверить is ambiguous (believe/check), so it
+    # stays in the belief cluster until readings can be reviewed separately.
+    ('sense:verify', (
+        'выверить', 'выверка', 'выверщик', 'выверщица', 'выверять',
+        'выверяться', 'заверка', 'перепроверка', 'поверка',
+        'поверочный', 'поверщик', 'поверяльщик', 'поверять', 'поверяться',
+    )),
+    # The productive стир- laundry derivatives share the existing стирка
+    # cluster.  Простирать remains ambiguous between washing and extending.
+    ('sense:launder', (
+        'выстиранный', 'выстирать', 'выстираться', 'выстирывать',
+        'достирать', 'достирывать', 'достирываться', 'застиранный',
+        'застирать', 'застирывать', 'застирываться', 'настирать',
+        'настираться', 'настирывать', 'настирываться', 'обстирать',
+        'обстирывать', 'обстирываться', 'отстирать', 'отстираться',
+        'отстирка', 'отстирывать', 'отстирываться', 'перестирать',
+        'перестирывать', 'перестирываться', 'постирать', 'постирушка',
+        'простирнуть', 'простирывать', 'простирываться', 'состирать',
+        'состираться', 'состирывать', 'состирываться',
+    )),
+    # The historical label for a middle peasant has a separate modern
+    # meaning from a spatial middle or an average value.
+    ('sense:middle_peasant', (
+        'осереднячить', 'осереднячиться', 'середняк', 'середняцкий',
+        'середнячество', 'середнячка', 'середнячок',
+    )),
+    # Legal entrusting/delegation is narrower than belief or ordinary trust.
+    ('sense:delegation', (
+        'вверить', 'ввериться', 'вверять', 'вверяться',
+        'доверенность', 'доверенный', 'доверитель', 'доверительница',
+        'доверить', 'передоверие', 'передоверить', 'передоверять',
+        'передоверяться', 'поверенная', 'поверенный',
+    )),
+    ('sense:fanatic', (
+        'изувер', 'изуверка', 'изуверский', 'изуверство',
+        'изуверствовать',
+    )),
+    # These тор- derivatives have distinct current meanings: acquired
+    # expertise, making a path, a blockage, and generosity.
+    ('sense:expertise', (
+        'наторелый', 'натореть', 'поднатореть', 'понатореть',
+    )),
+    ('sense:make_path', (
+        'наторить', 'проторенный', 'протори', 'проторить',
+        'проторять', 'проторяться', 'тореный', 'торить', 'торный',
+    )),
+    ('sense:blockage', ('затор', 'заторный')),
+    ('sense:generosity', ('тороватость', 'тороватый')),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
