@@ -1126,6 +1126,32 @@ class SemanticsTests(SimpleTestCase):
             for token in tokens
         ))
 
+    def test_fixed_abbreviations_open_only_in_their_phrase(self):
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        def kinds(text):
+            return [
+                (token['surface'], token['kind']) for token in tokenize_text(text)
+                if token['kind'] in {'content', 'stop'}
+            ]
+
+        self.assertEqual(
+            kinds('древовидные, веерные и т. д.')[-2:], [('т', 'stop'), ('д', 'stop')],
+        )
+        for text in ('и т.п.', 'т. е.', 'Т. е.', 'т. к.', 'т. н.', 'в т. ч.', 'и др.', 'и мн. др.', 'и пр.'):
+            with self.subTest(text=text):
+                self.assertTrue(all(kind == 'stop' for _surface, kind in kinds(text)))
+        for text, closed in (
+            ('Т. Е. Лоуренс', ['Т', 'Е']),
+            ('Т. Н. Иванова', ['Т', 'Н']),
+            ('латыни и др.-греч. языка', ['др']),
+            ('на пр. Мира', ['пр']),
+            ('буква т. Затем д.', ['т', 'д']),
+        ):
+            with self.subTest(text=text):
+                tokens = dict(kinds(text))
+                self.assertEqual([tokens[word] for word in closed], ['content'] * len(closed))
+
     def test_article_year_reading_does_not_inherit_flight_from_let(self):
         from games.puzzles.censorly.lexical.match import _Pack
         from games.puzzles.censorly.lexical.match.rootbank import structures_of
@@ -3350,6 +3376,25 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
         self.assertIn('мооса', matching_lemmas(tokens, 'моос'))
         self.assertNotIn('мооса', matching_lemmas(tokens, 'оса'))
 
+    def test_substantivized_pltm_nouns_share_adjective_root(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        # Reported on «Коралл»: «близкие» parses as the Pltm noun first.
+        tokens = tokenize_text('Его близкие и родные платили наличные.')
+        self.assertEqual(matching_lemmas(tokens, 'Близкий'), {'близкий'})
+        self.assertEqual(matching_lemmas(tokens, 'наличный'), {'наличный'})
+        self.assertEqual(matching_lemmas(tokens, 'родной'), {'родный'})
+
+    def test_cyrus_opens_instrumental_form(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        # Reported on «Томирис»: pymorphy lacks a nominative «Кир».
+        tokens = tokenize_text('Томирис воевала с царём Киром.')
+        self.assertEqual(matching_lemmas(tokens, 'Кир'), {'кир'})
+        self.assertEqual(matching_lemmas(tokens, 'Кирилл'), set())
+
     def test_confirmed_production_reports(self):
         for guess, target, expected in PRODUCTION_CONFIRMED_CENSORLY_CASES:
             with self.subTest(guess=guess, target=target):
@@ -3393,7 +3438,7 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
     def test_confirmed_proper_pairs_are_bidirectional(self):
         from games.puzzles.censorly.lexical.match.proper_names import PAIR_RELATIONS
 
-        self.assertEqual(len(PAIR_RELATIONS), 588)
+        self.assertEqual(len(PAIR_RELATIONS), 589)
         for left, right in PAIR_RELATIONS:
             if left == 'воз':
                 left = 'ВОЗ'

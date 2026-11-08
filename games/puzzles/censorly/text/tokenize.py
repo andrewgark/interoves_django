@@ -423,7 +423,7 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
     tokens.extend(_tokenize_blocks(
         raw[pos:].replace(QUOTE_END, ''), in_title=in_title, start_id=start_id + len(tokens),
     ))
-    return _annotate_contextual_readings(tokens)
+    return _open_fixed_abbreviations(_annotate_contextual_readings(tokens))
 
 
 def _tokenize_blocks(raw: str, *, in_title: bool, start_id: int) -> list[dict[str, Any]]:
@@ -854,6 +854,78 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             tok['lemma'] = STREET_ABBR_CONTEXT
             tok['context_reading'] = STREET_ABBR_CONTEXT
             tok['initially_open'] = False
+    return tokens
+
+
+# Fixed abbreviations shown open like function words. Each pattern lists the
+# words that must precede it, then the abbreviated words, each followed by a
+# period. A lowercase-only word keeps initials («Т. Е. Лоуренс», «Т. Н.
+# Иванова») closed; the required lead word keeps a lone «т.» or «пр.»
+# (проспект) closed outside the phrase.
+_FIXED_ABBREVIATIONS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (('и',), ('т', 'д')),
+    (('и',), ('т', 'п')),
+    ((), ('т', 'е')),
+    ((), ('т', 'к')),
+    ((), ('т', 'н')),
+    (('в',), ('т', 'ч')),
+    (('и',), ('мн', 'др')),
+    (('и',), ('мн', 'пр')),
+    (('и',), ('др',)),
+    (('и',), ('пр',)),
+)
+
+
+def _is_word_token(tok: dict[str, Any], word: str, *, lowercase: bool) -> bool:
+    if tok.get('kind') not in {'content', 'stop'} or tok.get('script'):
+        return False
+    surface = tok.get('surface') or ''
+    if lowercase and surface != surface.lower():
+        return False
+    return normalize_surface(surface) == word
+
+
+def _match_fixed_abbreviation(
+    tokens: list[dict[str, Any]], index: int, lead: tuple[str, ...], words: tuple[str, ...],
+) -> list[int]:
+    """Indexes of the abbreviated words when the phrase starts at ``index``."""
+    position = index
+    for word in reversed(lead):
+        position = _previous_nonspace(tokens, position)
+        if position < 0 or not _is_word_token(tokens[position], word, lowercase=False):
+            return []
+    matched: list[int] = []
+    position = index
+    for offset, word in enumerate(words):
+        if position >= len(tokens) or not _is_word_token(
+            tokens[position], word, lowercase=offset > 0,
+        ):
+            return []
+        dot = _next_nonspace(tokens, position + 1)
+        if dot >= len(tokens) or tokens[dot].get('kind') != 'punct' or tokens[dot].get('surface') != '.':
+            return []
+        matched.append(position)
+        position = _next_nonspace(tokens, dot + 1)
+    # «др.-греч.» is a language label, not «и другие».
+    if dot + 1 < len(tokens) and (tokens[dot + 1].get('surface') or '').startswith(('-', '‑', '–')):
+        return []
+    return matched
+
+
+def _open_fixed_abbreviations(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Open «и т. д.», «т. е.», «и др.» as function words."""
+    for index in range(len(tokens)):
+        for lead, words in _FIXED_ABBREVIATIONS:
+            matched = _match_fixed_abbreviation(tokens, index, lead, words)
+            if not matched:
+                continue
+            for position in matched:
+                tok = tokens[position]
+                for key in ('ending', 'stem_length', 'context_reading', 'initially_open'):
+                    tok.pop(key, None)
+                tok['kind'] = 'stop'
+                tok['lemma'] = normalize_surface(tok.get('surface') or '')
+            break
     return tokens
 
 

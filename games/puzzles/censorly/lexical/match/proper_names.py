@@ -218,6 +218,9 @@ PAIR_RELATIONS: tuple[tuple[str, str], ...] = (
     # Pymorphy guesses «Мооса» from «оса» and misses the surname Моос
     # (the Mohs hardness scale).
     ('моос', 'мооса'),
+    # Pymorphy has no nominative «Кир» (Cyrus): it parses «Кир» only as
+    # genitive plural of «Кира». «Киром» does carry the lemma «кир».
+    ('кир', 'киром'),
     # Wikidata P1549 geographic demonyms approved for the next gameplay batch.
     # Keep feminine and plural surfaces explicit; shared endpoints connect
     # the approved variants to one another at match time.
