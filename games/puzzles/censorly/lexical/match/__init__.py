@@ -16,6 +16,7 @@ from games.puzzles.censorly.lexical.match.core import fold
 from games.puzzles.censorly.lexical.match.rootbank import families_of, structures_of
 from games.puzzles.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
+    INITIAL_CONTEXT_PREFIX,
     LANGUAGE_LABEL_CONTEXTS,
     LI_NAME_CONTEXT,
     N_ERA_CONTEXT,
@@ -460,7 +461,7 @@ class _ArticleIndex:
             YEAR_ABBR_CONTEXT, *LANGUAGE_LABEL_CONTEXTS.values(),
         }
         for pack, lemma in zip(self.packs, self.lemmas):
-            if lemma in closed_contexts:
+            if lemma in closed_contexts or lemma.startswith(INITIAL_CONTEXT_PREFIX):
                 pack.service = False
         # Postings store compact integer surface IDs instead of repeating
         # references to strings in many Python sets.

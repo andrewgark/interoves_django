@@ -22,6 +22,13 @@ PAGE_ABBR_CONTEXT = '__censorly_page_abbr__'
 STREET_ABBR_CONTEXT = '__censorly_street_abbr__'
 CENTURY_ABBR_CONTEXT = '__censorly_century_abbr__'
 TELE_PREFIX_CONTEXT = '__censorly_tele_prefix__'
+# «Д. В. Григорович»: each initial letter has its own closed identity. Only
+# the letter itself opens it, not «далее», «век» or the conjunction «а».
+INITIAL_CONTEXT_PREFIX = '__censorly_initial_'
+
+
+def initial_context(letter: str) -> str:
+    return f'{INITIAL_CONTEXT_PREFIX}{letter}__'
 # Homographic language labels before a foreign gloss: «(кит. 北京)»,
 # «от лат. felis». Each label has its own identity, so revealing «кит.» does
 # not also reveal «тур.»; outside that position the ordinary word stays.

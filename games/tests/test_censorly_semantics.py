@@ -1126,6 +1126,34 @@ class SemanticsTests(SimpleTestCase):
             for token in tokens
         ))
 
+    def test_initials_are_closed_and_open_only_from_their_letter(self):
+        from games.puzzles.censorly.lexical.match import matching_lemmas
+        from games.puzzles.censorly.lexical.russian.reading_overrides import (
+            CENTURY_ABBR_CONTEXT,
+            initial_context,
+        )
+        from games.puzzles.censorly.text.tokenize import tokenize_text
+
+        tokens = tokenize_text('Д. В. Григорович и А. П. Чехов жили в XIX в. Толстой Л. Н. тоже.')
+        initials = {
+            token['surface']: token for token in tokens
+            if token.get('surface') in {'Д', 'В', 'А', 'П', 'Л', 'Н'}
+        }
+        for letter, token in initials.items():
+            with self.subTest(letter=letter):
+                self.assertEqual(token['kind'], 'content')
+                self.assertFalse(token['initially_open'])
+                self.assertEqual(token['lemma'], initial_context(letter.lower()))
+        self.assertEqual(matching_lemmas(tokens, 'век'), {CENTURY_ABBR_CONTEXT})
+        self.assertEqual(matching_lemmas(tokens, 'далее'), set())
+        self.assertEqual(matching_lemmas(tokens, 'в'), {initial_context('в')})
+        self.assertEqual(matching_lemmas(tokens, 'а'), {initial_context('а')})
+        # A lone capital letter before an ordinary word stays as it was.
+        sentence = tokenize_text('Он ушёл. А потом вернулся.')
+        self.assertEqual(
+            next(token for token in sentence if token.get('surface') == 'А')['kind'], 'stop',
+        )
+
     def test_fixed_abbreviations_open_only_in_their_phrase(self):
         from games.puzzles.censorly.text.tokenize import tokenize_text
 

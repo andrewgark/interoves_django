@@ -23,6 +23,7 @@ from games.puzzles.censorly.lexical.russian.reading_overrides import (
     TELE_PREFIX_CONTEXT,
     TOM_VOLUME_CONTEXT,
     YEAR_ABBR_CONTEXT,
+    initial_context,
 )
 from games.puzzles.censorly.text.normalize import (
     WORD_CHARS,
@@ -423,7 +424,7 @@ def tokenize_text(text: str, *, in_title: bool = False, start_id: int = 0) -> li
     tokens.extend(_tokenize_blocks(
         raw[pos:].replace(QUOTE_END, ''), in_title=in_title, start_id=start_id + len(tokens),
     ))
-    return _open_fixed_abbreviations(_annotate_contextual_readings(tokens))
+    return _open_fixed_abbreviations(_close_initials(_annotate_contextual_readings(tokens)))
 
 
 def _tokenize_blocks(raw: str, *, in_title: bool, start_id: int) -> list[dict[str, Any]]:
@@ -682,6 +683,14 @@ def _is_coma_context(tokens: list[dict[str, Any]], index: int) -> bool:
     return False
 
 
+_ROMAN_NUMERAL_RE = re.compile(r'^[IVXLC]+$')
+
+
+def _is_century_number(tok: dict[str, Any]) -> bool:
+    surface = tok.get('surface') or ''
+    return surface.isdigit() or bool(_ROMAN_NUMERAL_RE.fullmatch(surface))
+
+
 def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach high-confidence, occurrence-specific readings before matching."""
     for index, tok in enumerate(tokens):
@@ -706,10 +715,10 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             tok['initially_open'] = False
             continue
 
-        # «в.» before a following dot is the standard abbreviation for «век».
+        # «в.» after a number («XIX в.», «5 в.») is the abbreviation for «век».
         # Promote the preposition token to a closed content token so it can
         # match «век» through its reviewed contextual expansion.
-        if word == 'в' and has_period:
+        if word == 'в' and has_period and previous >= 0 and _is_century_number(tokens[previous]):
             tok['kind'] = 'content'
             tok['lemma'] = CENTURY_ABBR_CONTEXT
             tok['context_reading'] = CENTURY_ABBR_CONTEXT
@@ -854,6 +863,65 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             tok['lemma'] = STREET_ABBR_CONTEXT
             tok['context_reading'] = STREET_ABBR_CONTEXT
             tok['initially_open'] = False
+    return tokens
+
+
+def _initial_dot(tokens: list[dict[str, Any]], index: int) -> int:
+    """Index of the period after a capital single letter at ``index``, else -1."""
+    tok = tokens[index]
+    surface = tok.get('surface') or ''
+    if (
+        tok.get('kind') not in {'content', 'stop'} or tok.get('script')
+        or len(surface) != 1 or not surface.isalpha() or not surface.isupper()
+    ):
+        return -1
+    dot = _next_nonspace(tokens, index + 1)
+    if dot < len(tokens) and tokens[dot].get('kind') == 'punct' and tokens[dot].get('surface') == '.':
+        return dot
+    return -1
+
+
+def _is_name_word(tok: dict[str, Any]) -> bool:
+    surface = tok.get('surface') or ''
+    return (
+        tok.get('kind') == 'content' and len(surface) > 1
+        and surface[:1].isupper() and surface[1:2].islower()
+    )
+
+
+def _close_initials(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Close «Д. В. Григорович» initials and read each as its bare letter.
+
+    A capital letter with a period is an initial when another initial or a
+    capitalized word follows. Without this «А.» shows open as the
+    conjunction, «Д.» opens from «далее» and «В.» from «век». Only the
+    letter itself opens the initial.
+    """
+    index = 0
+    while index < len(tokens):
+        chain: list[int] = []
+        position = index
+        while position < len(tokens):
+            dot = _initial_dot(tokens, position)
+            if dot < 0:
+                break
+            chain.append(position)
+            position = _next_nonspace(tokens, dot + 1)
+        if chain and (
+            len(chain) > 1
+            or (position < len(tokens) and _is_name_word(tokens[position]))
+        ):
+            for at in chain:
+                tok = tokens[at]
+                tok.pop('ending', None)
+                tok['kind'] = 'content'
+                tok['lemma'] = initial_context(normalize_surface(tok.get('surface') or ''))
+                tok['context_reading'] = tok['lemma']
+                tok['initially_open'] = False
+                tok['length'] = 1
+                tok['stem_length'] = 1
+                tok['initial'] = True
+        index = max(position, index + 1) if chain else index + 1
     return tokens
 
 
