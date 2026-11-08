@@ -201,7 +201,6 @@ html.new-ui-dark .msw {
       NS.tips.forEach(function (t) { if (!t.board.contains(e.target)) t.hide(); });
     });
   }
-  NS.setupAll(document);
 
   function plural(n) {
     var m10 = n % 10, m100 = n % 100;
@@ -421,5 +420,8 @@ html.new-ui-dark .msw {
 
     render();
   }
+
+  // Last: setup() reads FLAG_SVG, which is only assigned above this line.
+  NS.setupAll(document);
 })();
 </script>
