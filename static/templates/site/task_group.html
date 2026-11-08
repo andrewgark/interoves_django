@@ -38,25 +38,35 @@
 </div>
 {% endif %}
 {% else %}
-{% include "site/partials/page_heading.html" %}
+{# Task group header: game name as a kicker, "8. Сапёр" as the page title. #}
+{# The <strong> keeps id new-task-tg-heading: live updates swap it for filled blanks. #}
+<div class="new-section-header new-tg-heading">
+  <p class="new-login-hint new-meta-kicker new-tg-heading__game">
+    {% if "html_in_title" in game.tags %}{% autoescape off %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endautoescape %}{% else %}{{ game.get_outside_name|default:game.outside_name|default:game.name }}{% endif %}
+  </p>
+  <h1 class="new-heading new-heading--page new-tg-heading__title">
+    {{ tg_number }}.{% if tg_heading_html or tg_name %} <strong{% if tg_heading_html %} id="new-task-tg-heading"{% endif %}>{% if tg_heading_html %}{{ tg_heading_html|safe }}{% else %}{% autoescape off %}{{ tg_name }}{% endautoescape %}{% endif %}</strong>{% endif %}
+  </h1>
+  <button type="button" class="new-eye-toggle" aria-label="Скрывать решённые" data-tooltip="Скрывать решённые" data-hide-solved-toggle><i class="ph ph-eye" aria-hidden="true"></i></button>
+  {% if show_rules or section_task_groups_rules_html or section_tutorial_html or show_palindrome_rules or section_rules_type or task_group.rules.html %}
+  <button type="button" class="new-rules-trigger" aria-label="Правила" data-tooltip="Правила" data-rules-open><i class="ph ph-question" aria-hidden="true"></i></button>
+  {% endif %}
+  {% include "site/partials/daily_solve_timer.html" %}
+  {% firstof tagline section_tagline game.theme as page_tagline %}
+  {% if page_tagline %}
+  <p class="new-login-hint new-theme-line">{{ page_tagline }}</p>
+  {% endif %}
+</div>
+{% if week_task_source_line %}
+<p class="new-login-hint new-meta-line">
+  {% if week_task_source_url %}<a class="new-link-dotted" href="{{ week_task_source_url }}">{{ week_task_source_line }}</a>{% else %}{{ week_task_source_line }}{% endif %}
+</p>
+{% endif %}
 {% if ladder_tutorial %}
 <p class="new-stack-gap ladder-tutorial-resume" data-ladder-tutorial-resume-wrap hidden>
   <button type="button" class="new-btn new-btn--ghost new-btn--mini" data-ladder-tutorial-resume>Продолжить обучение</button>
 </p>
 {% endif %}
-<div class="new-task-group-meta-row">
-  <p class="new-login-hint new-meta-line">
-    {% if is_daily_single_task %}
-    {% if daily_publish_date %}{{ daily_publish_date|date:"j E Y" }}{% endif %}
-    {% else %}
-    {{ tg_number }} · <strong{% if tg_heading_html %} id="new-task-tg-heading"{% endif %}>{% if tg_heading_html %}{{ tg_heading_html|safe }}{% else %}{% autoescape off %}{{ tg_name }}{% endautoescape %}{% endif %}</strong>
-    {% endif %}
-    {% if week_task_source_line %}
-      {% if daily_publish_date or not is_daily_single_task %}<span aria-hidden="true"> · </span>{% endif %}{% if week_task_source_url %}<a class="new-link-dotted" href="{{ week_task_source_url }}">{{ week_task_source_line }}</a>{% else %}{{ week_task_source_line }}{% endif %}
-    {% endif %}
-  </p>
-  {% include "site/partials/daily_solve_timer.html" %}
-</div>
 {% include "site/partials/replay_controls.html" with replay_controls_standalone=True %}
 {% endif %}
 

@@ -7681,6 +7681,31 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   margin: 0;
 }
 
+/* Task group page: game name as a kicker above "8. Сапёр" (sized like the
+   daily game titles), eye/? beside the title, solve timer at the row's end. */
+.new-tg-heading {
+  align-items: center;
+  row-gap: 0.4rem;
+}
+
+.new-tg-heading .new-tg-heading__game {
+  flex: 1 0 100%;
+  margin: 0 0 -0.2rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.new-tg-heading__title strong {
+  font-weight: inherit;
+}
+
+.new-tg-heading > .new-daily-timer {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+
 .new-section-header--results {
   align-items: center;
   margin-bottom: 0.75rem;
