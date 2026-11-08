@@ -138,6 +138,15 @@ html.new-ui-dark .msw {
   border: 5px solid transparent;
   border-top-color: #1a1a1a;
 }
+.msw__tip--below {
+  transform: translate(-50%, 6px);
+}
+.msw__tip--below::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: #1a1a1a;
+}
 .msw__bar {
   display: flex;
   flex-wrap: wrap;
@@ -304,8 +313,20 @@ html.new-ui-dark .msw {
       var rb = root.getBoundingClientRect(), eb = el.getBoundingClientRect();
       var half = tip.offsetWidth / 2;
       var x = Math.max(half, Math.min(rb.width - half, eb.left - rb.left + eb.width / 2));
+      // .new-taskcard__text scrolls horizontally, which also clips vertically:
+      // flip the tip under the cell when the clipping box has no room above.
+      var below = eb.top - clipTop() < tip.offsetHeight + 8;
+      tip.classList.toggle('msw__tip--below', below);
       tip.style.left = x + 'px';
-      tip.style.top = (eb.top - rb.top) + 'px';
+      tip.style.top = ((below ? eb.bottom : eb.top) - rb.top) + 'px';
+    }
+    function clipTop() {
+      var top = 0;
+      for (var a = root.parentElement; a && a !== document.body; a = a.parentElement) {
+        var s = getComputedStyle(a);
+        if (s.overflowX !== 'visible' || s.overflowY !== 'visible') top = Math.max(top, a.getBoundingClientRect().top);
+      }
+      return top;
     }
     function hideTip() { tipFor = null; tip.hidden = true; }
     NS.tips.push({ root: root, board: board, hide: hideTip });
