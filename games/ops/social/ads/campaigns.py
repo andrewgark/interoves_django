@@ -522,8 +522,9 @@ CAMPAIGNS = {
             # Nov 4: 85 ₽ spent in two days against 448 ₽ abroad, and still
             # 85 ₽ on Nov 5: half of the money moves to where players finish.
             spend_limit_rub=1000,
-            # Nov 5: at 70 ₽ it lost most auctions (85 ₽ spent in three days).
-            cpa_rub=100,
+            # Nov 5: at 70 ₽ it lost most auctions (85 ₽ spent in three days);
+            # at 100 ₽ it spent ~120 ₽ a day. Nov 8: 90 ₽ to last to Nov 16.
+            cpa_rub=90,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
             keywords=SHARED_KEYWORDS,
@@ -544,7 +545,9 @@ CAMPAIGNS = {
             landing_url='https://interoves.com/start/',
             region_ids=INTERNATIONAL_REGIONS,
             spend_limit_rub=4000,
-            cpa_rub=100,
+            # Nov 8: ~440 ₽ a day would spend the limit by Nov 12; a little
+            # lower to stretch it (the money is fixed for November).
+            cpa_rub=85,
             start=date(2026, 11, 3),
             end=date(2026, 11, 16),
             keywords=SHARED_KEYWORDS,
