@@ -11849,6 +11849,13 @@ html.new-ui-dark .new-word-salad__links line {
   display: none;
 }
 
+/* Phones: one row of four instead of 2×2, so the answers list starts higher. */
+@media (max-width: 919px) {
+  .new-word-salad__orientation {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 .new-word-salad__orientation-btn {
   appearance: none;
   display: inline-flex;

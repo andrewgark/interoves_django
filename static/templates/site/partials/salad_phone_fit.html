@@ -1,0 +1,30 @@
+{# Phones: the header, rules banner and score bar push a Салатик's grid to the middle of the #}
+{# screen, and its answer list (how many words are left, how long) below it (iPhone 13:   #}
+{# grid at 433 of 664 px). After the first found word — a drag has just ended, so nothing #}
+{# is interrupted — scroll once so the theme sits at the top and grid and answers fit.     #}
+{# Nov 3–8: ad visitors on phones finished half as often as on computers (7% vs 16%).     #}
+<script>
+(function () {
+  'use strict';
+  if (!window.matchMedia || !window.matchMedia('(max-width: 919px)').matches) return;
+  function solvedCount() { return document.querySelectorAll('[data-word-salad-root] .new-word-salad__word.is-solved').length; }
+  var initial = solvedCount();
+  var done = false;
+  function fit() {
+    if (done || solvedCount() <= initial) return;
+    var answers = document.querySelector('[data-word-salad-root] .new-word-salad__band--answers');
+    var anchor = document.querySelector('[data-word-salad-root] .new-word-salad__intro') ||
+      document.querySelector('[data-word-salad-root] .new-word-salad__grid');
+    if (!answers || !anchor) return;
+    done = true;
+    if (answers.getBoundingClientRect().top < window.innerHeight - 120) return;
+    // After task_group_page.js has put the scroll back for its two frames.
+    window.setTimeout(function () {
+      var nav = document.querySelector('.new-nav');
+      var top = anchor.getBoundingClientRect().top + window.scrollY - (nav ? nav.offsetHeight : 0) - 8;
+      try { window.scrollTo({top: top, behavior: 'smooth'}); } catch (e) { window.scrollTo(0, top); }
+    }, 300);
+  }
+  new MutationObserver(fit).observe(document.body, {subtree: true, attributes: true, attributeFilter: ['class'], childList: true});
+})();
+</script>
