@@ -6151,6 +6151,19 @@ html.new-ui-dark .new-team-switcher-active-box {
   height: auto;
 }
 
+/* Authors' task HTML: «Заголовок:<br>» followed by <p class="tab">facts</p>.
+   The old UI styled .tab from a <style> block inside one task (5em/10em);
+   a smaller indent keeps long facts readable on a phone. */
+.new-taskcard__text .tab,
+.new-raddle-task__intro .tab {
+  margin: 0 0 0 1.5em;
+}
+
+.new-taskcard__text .tab2,
+.new-raddle-task__intro .tab2 {
+  margin: 0 0 0 3em;
+}
+
 .new-taskcard__img {
   margin: 0.35rem 0 0.65rem;
   max-width: 100%;
