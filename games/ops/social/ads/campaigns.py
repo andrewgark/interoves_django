@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import base64
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import date
 from pathlib import Path
 
@@ -291,6 +291,15 @@ INTERNATIONAL_REGIONS = (
     117,  # Литва
 )
 
+# Nov 6–8: ЧГК and quiz channel readers started a Цензурка more readily than
+# anyone. Direct's stored form pins the stop word «что» with «+».
+CHGK_KEYWORDS = (
+    'вопросы +что где когда',
+    'чгк вопросы',
+    'своя игра вопросы',
+    'интеллектуальные игры онлайн',
+)
+
 GAME_GROUPS = (
     GameGroup(
         game='censorly',
@@ -303,14 +312,7 @@ GAME_GROUPS = (
             'pedantix',
             'педантикс',
             'угадай слово по тексту',
-            # Nov 6–8: ЧГК and quiz channel readers started a Цензурка
-            # more readily than anyone.
-            # Direct's stored form: it pins the stop word «что» with «+».
-            'вопросы +что где когда',
-            'чгк вопросы',
-            'своя игра вопросы',
-            'интеллектуальные игры онлайн',
-        ),
+        ) + CHGK_KEYWORDS,
         ads=(
             # Nov 3–5: Direct gave the wide band 95% of impressions (15 games
             # finished, ~15 ₽ each); the square ones got a click or two. They
@@ -566,7 +568,8 @@ CAMPAIGNS = {
             name='Inter Oves — заграница → interoves.com — ноябрь 2026',
             landing_url='https://interoves.com/start/',
             region_ids=INTERNATIONAL_REGIONS,
-            spend_limit_rub=4000,
+            # Nov 8: 600 ₽ moved to io-intl-censorly-nov26.
+            spend_limit_rub=3400,
             # Nov 8: ~440 ₽ a day would spend the limit by Nov 12; a little
             # lower to stretch it (the money is fixed for November).
             cpa_rub=85,
@@ -581,10 +584,49 @@ CAMPAIGNS = {
                     text='Ежедневные словесные игры и задачи на логику от клуба Inter Oves. Бесплатно.',
                 ),
             ),
-            game_groups=GAME_GROUPS + (RETURN_GROUP,),  # + SALAD_LOOKALIKE_GROUP, see LOOKALIKE_PLAYERS
+            # Цензурка runs abroad in its own campaign since Nov 8.
+            game_groups=tuple(
+                replace(group, active=False) if group.game == 'censorly' else group
+                for group in GAME_GROUPS
+            ) + (RETURN_GROUP,),  # + SALAD_LOOKALIKE_GROUP, see LOOKALIKE_PLAYERS
             generic_path='/salad/first/',
             excluded_sites=JUNK_PLACEMENTS,
             notes=('test: Yandex inventory abroad is thin',),
+        ),
+        # Nov 3–8 abroad, Цензурка gave a finished game and a return cheaper
+        # than anything (15 finished, 7 back for 148 ₽ by Direct's count) but
+        # got 1/12 of Салатик's impressions inside one campaign. Its own
+        # budget makes sure it runs.
+        CampaignSpec(
+            slug='io-intl-censorly-nov26',
+            name='Inter Oves — заграница → Цензурка — ноябрь 2026',
+            landing_url='https://interoves.com/start/',
+            region_ids=INTERNATIONAL_REGIONS,
+            spend_limit_rub=600,
+            cpa_rub=85,
+            start=date(2026, 11, 8),
+            end=date(2026, 11, 16),
+            keywords=CHGK_KEYWORDS,
+            ads=(
+                AdCopy(
+                    title='Для тех, кто играет в ЧГК: Цензурка',
+                    text='Угадайте статью Википедии, в которой скрыты все слова. Новая каждый день.',
+                ),
+                AdCopy(
+                    title='Угадайте статью Википедии по скрытым словам',
+                    text='Все слова статьи скрыты. Называйте слова, и они проявляются. Бесплатно.',
+                ),
+                AdCopy(
+                    title='Цензурка: угадайте статью Википедии слово за словом',
+                    text='Называйте слова, и они проявятся в скрытом тексте. Новая статья каждый день.',
+                ),
+            ),
+            game_groups=(replace(
+                GAME_GROUPS[0],
+                keywords=tuple(k for k in GAME_GROUPS[0].keywords if k not in CHGK_KEYWORDS),
+            ),),
+            generic_path='/censorly/first/',
+            excluded_sites=JUNK_PLACEMENTS,
         ),
     )
 }

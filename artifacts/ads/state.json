@@ -104,7 +104,7 @@
     "never_create_second_paid_campaign_without_permission": true
   },
   "pending_launch": null,
-  "updated_at": "2026-11-08T10:36:08.696073+00:00",
+  "updated_at": "2026-11-08T10:39:06.187317+00:00",
   "direct_min_period_budget_note": "Direct rejected CustomPeriodBudget 500 RUB over 10 days: minimum for that period is 550 RUB. Kept SpendLimit=500 and used 2026-09-08..2026-09-09, AutoContinue=NO. Did not use the 900 reserve.",
   "campaigns": {
     "io-ru-nov26": {
@@ -340,6 +340,51 @@
           "retargeting_list_id": 43122665
         }
       }
+    },
+    "io-intl-censorly-nov26": {
+      "campaign_id": 715950434,
+      "created_on": "2026-11-08",
+      "launched": true,
+      "adgroup_ids": [
+        5821667127
+      ],
+      "ad_ids": [
+        1926437019676836602,
+        1926437019676836603,
+        1926437019676836604
+      ],
+      "keyword_ids": [
+        58454904119,
+        58454904120,
+        58454904121,
+        58454904122
+      ],
+      "autotargeting_ids": [
+        205821667127
+      ],
+      "bidmodifier_ids": [
+        102132826323,
+        272132826324
+      ],
+      "game_groups": {
+        "censorly": {
+          "adgroup_id": 5821667148,
+          "ad_ids": [
+            1926437041153731598,
+            1926437041153731599,
+            1926437041153731600
+          ],
+          "keyword_ids": [
+            58454905242,
+            58454905243,
+            58454905244,
+            58454905245,
+            58454905246,
+            58454905247
+          ]
+        }
+      },
+      "launched_on": "2026-11-08"
     }
   },
   "ad_images": {
