@@ -370,7 +370,9 @@ html.new-ui-dark .msw {
       } else {
         next = cur === '' ? 'flag' : cur === 'flag' ? 'safe' : '';
       }
-      drag = { value: next, dirty: false, last: k };
+      // A finger tap often drifts across a cell border; only paint further
+      // cells once a touch has really moved (mouse paints right away).
+      drag = { value: next, dirty: false, last: k, x0: e.clientX, y0: e.clientY, armed: e.pointerType === 'mouse' };
       if (board.setPointerCapture) board.setPointerCapture(e.pointerId);
       paint(k, next);
     });
@@ -382,6 +384,11 @@ html.new-ui-dark .msw {
           else if (tipFor) hideTip();
         }
         return;
+      }
+      if (!drag.armed) {
+        var size = els[0].getBoundingClientRect().width;
+        if (Math.abs(e.clientX - drag.x0) < size * 0.6 && Math.abs(e.clientY - drag.y0) < size * 0.6) return;
+        drag.armed = true;
       }
       var k = cellOf(e);
       if (k < 0 || k === drag.last) return;
