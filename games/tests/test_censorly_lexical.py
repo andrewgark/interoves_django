@@ -916,6 +916,45 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_family_sense_splits_batch_f1(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('лицо', 'наличие'), ('лицо', 'личность'), ('лицо', 'улика'), ('лицо', 'приличный'),
+            ('короткий', 'прекратить'), ('хор', 'хорь'), ('точка', 'сутки'),
+            ('приказ', 'казаться'), ('позволять', 'продовольствие'), ('бредовый', 'бродить'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+        for guess, target in (
+            ('лицо', 'облик'), ('личный', 'личность'), ('наличие', 'наличный'),
+            ('прекратить', 'прекращение'), ('короткий', 'сократить'), ('хор', 'хоровой'),
+            ('указ', 'приказ'), ('бред', 'бредовый'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
+    def test_sense_splits_from_granata_complaints(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        # Распространение is spreading, not space. Назначение also names a
+        # purpose (назначение прибора), so it opens предназначенный.
+        for guess, target in (
+            ('распространение', 'пространстве'), ('пространство', 'распространение'),
+            ('назначить', 'предназначенные'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+        for guess, target in (
+            ('Назначение', 'предназначенные'), ('предназначение', 'назначение'),
+            ('назначение', 'назначить'), ('распространить', 'распространение'),
+            ('пространство', 'пространственный'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
     def test_nest_anchor_batch_w4_2_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
