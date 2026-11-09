@@ -38,6 +38,7 @@
 | FALSE NEGATIVE, `matches 2 game roots` | `data/reviewed_existing_root_assignments.tsv`, трек D |
 | FALSE NEGATIVE, имя собственное ↔ прилагательное | `lexical/match/proper_names.py`, трек P |
 | FALSE POSITIVE через общий корень семьи | sense-сплит в `lexical/splits.py`, скилл `censorly-root-family`, трек F |
+| FALSE POSITIVE, `source=UNIQUE_SPELLING_FALLBACK` (вена → венок) | `data/rejected_fallback.tsv` + верный корень в `reviewed_derived_roots.tsv`, трек E |
 | FALSE POSITIVE через ошибочное чтение pymorphy | `lexical/russian/reading_overrides.py` |
 
 Чини семью целиком, а не одну пару. Отвергнутую семью запиши в
@@ -53,6 +54,7 @@
 | пересобрать корпус приоритетов (`data/corpus_lemma_freq.tsv.gz`) | `corpus.build_corpus --size 1000` (~35 мин, кэш в `var/censorly_corpus/`) |
 | лист ревью топ-пропусков по семьям (трек A) | `review_sheet --start 0 --count 150` (~2 мин) |
 | пары «имя собственное ↔ прилагательное» (трек P) | `proper_queue --count 250 --tsv /tmp/p.tsv` (~5 мин) |
+| корни по одному совпадению написания (трек E) | `fallback_audit --count 150 --tsv /tmp/e.tsv` (~1 мин) |
 | семьи составных без корня (трек C) | `compound_queue --count 150 --tsv /tmp/c.tsv` (~1 мин) |
 | лист ревью базовых слов вне словарей (трек B) | `absent_sheet /tmp/gaps.tsv --count 160` (~1 мин, gaps из `coverage_report`) |
 | очереди кандидатов (opaque, authorization holes) | `candidate_miner --output-dir /tmp/miner` (~40 с) |
@@ -74,7 +76,8 @@
 
 `dictionaries/*`, `reviewed_opaque_roots.tsv`, `reviewed_derived_roots.tsv`,
 `reviewed_existing_root_assignments.tsv`, `reviewed_nest_anchors.tsv`,
-`adverb_bases.tsv` (генерируется `adverb_rule`), `negation_pairs.tsv`, `half_compounds.tsv`. Остальные TSV и TXT — это ревью-очереди, снимки аудитов
+`adverb_bases.tsv` (генерируется `adverb_rule`), `negation_pairs.tsv`, `half_compounds.tsv`,
+`rejected_fallback.tsv` (отвергнутые совпадения по написанию, трек E). Остальные TSV и TXT — это ревью-очереди, снимки аудитов
 или память тулов. Их изменение не влияет на игру.
 
 ## Тесты

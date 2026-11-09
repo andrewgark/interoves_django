@@ -879,6 +879,27 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_rejected_spelling_fallback_batch_e1(self):
+        """A unique spelling match is a guess; reviewed wrong guesses stay closed."""
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('ком', 'комедия'), ('венок', 'вена'), ('положить', 'логика'), ('турить', 'турист'),
+            ('оптовый', 'оптика'), ('культя', 'культ'), ('колонна', 'колонизация'), ('расти', 'раса'),
+            ('трогать', 'трагедия'), ('хромать', 'хром'), ('юркий', 'юрист'), ('корточки', 'корт'),
+            ('милый', 'миля'), ('жесть', 'жест'), ('армия', 'армянин'), ('дно', 'дон'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+        for guess, target in (
+            ('комедия', 'комедийный'), ('логика', 'логический'), ('турист', 'туризм'),
+            ('колония', 'колонизация'), ('раса', 'расизм'), ('жест', 'жестовый'),
+            ('армения', 'армянин'), ('дон', 'донской'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
     def test_nest_anchor_batch_w4_2_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))

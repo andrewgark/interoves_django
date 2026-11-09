@@ -1,0 +1,24 @@
+morph	root	reason	reviewed_at
+ком	fam:ком	Track E batch 1: комедия, кома, комик are not ком/комок.	2026-11-09
+дон	fam:дн²|дон	Track E batch 1: Дон, донской, донна are not дно.	2026-11-09
+вен	fam:вен	Track E batch 1: вена, венский, венозный are not венок/веник.	2026-11-09
+лог	fam:лаг|лег²|леж|леч²|лог|лож¹	Track E batch 1: логика, логистика are not положить.	2026-11-09
+тур	fam:тур	Track E batch 1: турист, туризм are not турить.	2026-11-09
+опт	fam:опт	Track E batch 1: оптика, оптический are not оптовый.	2026-11-09
+культ	fam:культ	Track E batch 1: культ, культовый are not культя.	2026-11-09
+колон	fam:колон|колонн	Track E batch 1: колонизация, колонист are not колонна.	2026-11-09
+карм	fam:карм|корм¹	Track E batch 1: карма is not корм.	2026-11-09
+рас	fam:рас|ращ|рос²|рощ	Track E batch 1: раса, расизм are not расти.	2026-11-09
+траг	fam:траг|тро|трог	Track E batch 1: трагедия is not трогать.	2026-11-09
+хром	fam:храм²|хром	Track E batch 1: хром (chromium), хроматический are not хромать.	2026-11-09
+бар	fam:бар	Track E batch 1: бар, барий, барит are not барин.	2026-11-09
+кок	fam:кок	Track E batch 1: кокаин, кока are not кокнуть.	2026-11-09
+рат	fam:рат	Track E batch 1: ратификация is not рать.	2026-11-09
+тез	fam:тез	Track E batch 1: тезис, антитеза are not тёзка.	2026-11-09
+со	fam:со(j)	Track E batch 1: соя is not сойка.	2026-11-09
+сом	fam:сом	Track E batch 1: соматический, сома are not сом (fish).	2026-11-09
+нар	fam:нар	Track E batch 1: нарком, бинарный are not нары.	2026-11-09
+полон	fam:плен¹|полон	Track E batch 1: полоний, полонез are not плен.	2026-11-09
+юр	fam:юр	Track E batch 1: юрист, юрский are not юркий.	2026-11-09
+пик	fam:пик|пич²	Track E batch 1: пик, пика, пикирование are not пикнуть/пичуга.	2026-11-09
+корт	fam:корт	Track E batch 1: корт is not корточки.	2026-11-09

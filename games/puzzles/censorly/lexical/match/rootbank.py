@@ -58,6 +58,9 @@ _NEST_ANCHORS = Path(os.environ.get(
 _ADVERB_BASES = Path(os.environ.get(
     'CENSORLY_ADVERB_BASES', Path(__file__).resolve().parents[1] / 'data' / 'adverb_bases.tsv'
 ))
+_REJECTED_FALLBACK = Path(os.environ.get(
+    'CENSORLY_REJECTED_FALLBACK', Path(__file__).resolve().parents[1] / 'data' / 'rejected_fallback.tsv'
+))
 
 # Historical families whose join would glue unrelated modern words.
 # ``чит`` and ``чт`` stay one reading root. ``чет`` does not join them.
@@ -144,6 +147,34 @@ def _load_reviewed_assignments():
 
 
 REVIEWED_OPAQUE_ROOTS, REVIEWED_DERIVED_ROOTS, REVIEWED_EXISTING_ROOTS = _load_reviewed_assignments()
+
+
+def _load_rejected_fallback() -> frozenset[tuple[str, str]]:
+    """Reviewed (Tikhonov morph, game root) pairs the spelling fallback must not use.
+
+    A unique spelling match is only a guess: «вен» in вена matched венок,
+    «тур» in турист matched турить. A rejected pair leaves the component
+    unauthorized, so the lemma stays unresolved instead of joining a wrong
+    family. Lemmas that need a root get it from reviewed_derived_roots.tsv.
+    """
+    if not _REJECTED_FALLBACK.exists():
+        raise RuntimeError(f'missing rejected fallback data file: {_REJECTED_FALLBACK}')
+    rejected = set()
+    with _REJECTED_FALLBACK.open(encoding='utf-8', newline='') as stream:
+        reader = csv.DictReader(stream, delimiter='\t')
+        if reader.fieldnames != ['morph', 'root', 'reason', 'reviewed_at']:
+            raise RuntimeError(f'invalid rejected fallback header in {_REJECTED_FALLBACK}')
+        for row in reader:
+            morph, root = fold(row['morph'].strip()), row['root'].strip()
+            if not morph or not _ROOT_ID_RE.fullmatch(root):
+                raise RuntimeError(f'invalid rejected fallback row: {row}')
+            if (morph, root) in rejected:
+                raise RuntimeError(f'duplicate rejected fallback: {morph} {root}')
+            rejected.add((morph, root))
+    return frozenset(rejected)
+
+
+REJECTED_FALLBACK = _load_rejected_fallback()
 
 
 def _load_negation_pairs() -> dict[str, str]:
@@ -872,6 +903,8 @@ def _authorize_component(morph, lemma_ids, plain_hits, morph_family):
     if opaque:
         return (opaque,), 'REVIEWED_OPAQUE_ROOT', ()
     if len(candidates) == 1:
+        if (_plain(morph), candidates[0]) in REJECTED_FALLBACK:
+            return (), 'UNRESOLVED', candidates
         return candidates, 'UNIQUE_SPELLING_FALLBACK', ()
     return (), 'UNRESOLVED', candidates
 
