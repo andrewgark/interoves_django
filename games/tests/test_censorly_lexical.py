@@ -657,6 +657,19 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertIn('коралловый', matching_lemmas(tokens, 'коралл'))
         self.assertIn('коралл', matching_lemmas(tokens, 'коралловых'))
 
+    def test_garnet_family_opens_adjectives_but_not_grenade_launcher(self):
+        tokens = [
+            {'kind': 'content', 'surface': 'гранату', 'lemma': 'граната'},
+            {'kind': 'content', 'surface': 'гранатовый', 'lemma': 'гранатовый'},
+            {'kind': 'content', 'surface': 'гранатный', 'lemma': 'гранатный'},
+            {'kind': 'content', 'surface': 'гранатомёт', 'lemma': 'гранатомет'},
+        ]
+        opened = {'граната', 'гранатовый', 'гранатный'}
+        self.assertEqual(matching_lemmas(tokens, 'Граната'), opened)
+        self.assertEqual(matching_lemmas(tokens, 'гранат'), opened)
+        self.assertEqual(matching_lemmas(tokens, 'гранатовым'), opened)
+        self.assertEqual(matching_lemmas(tokens, 'гранатомёт'), {'гранатомет'})
+
     def test_reviewed_opaque_sky_adjectives_open_from_their_nouns(self):
         tokens = [
             {'kind': 'content', 'surface': 'тюркского', 'lemma': 'тюркский'},

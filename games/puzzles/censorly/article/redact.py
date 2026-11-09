@@ -132,7 +132,9 @@ def build_public_view(
     from games.puzzles.censorly.text.flags import lexical_resolver_enabled
     revealed = {str(x) for x in (revealed_lemmas or []) if x}
     hinted = {str(x) for x in (hinted_lemmas or []) if x}
-    title_lemmas = title_content_lemmas(payload)
+    # Bright lock: the title word itself in any form. Dim lock: words the
+    # title word opens through a root or another relation.
+    title_lemmas = title_content_lemmas(payload) | title_lexeme_lemmas(payload)
     title_related_lemmas = title_opening_lemmas(payload) - title_lemmas
     lexical = lexical_resolver_enabled()
     endings_on = CENSORLY_SHOW_MASK_ENDINGS if show_endings is None else bool(show_endings)
@@ -152,7 +154,7 @@ def build_public_view(
         )
         for t in (payload.get('body_tokens') or [])
     ]
-    needed = title_lemmas
+    needed = title_content_lemmas(payload)
     opened_title = needed <= revealed if needed else won
     return {
         'title_tokens': title,
@@ -212,6 +214,49 @@ def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
         lexical_resolver_enabled(),
         open_pronouns_enabled(),
     ))
+
+
+def title_lexeme_lemmas(payload: dict[str, Any]) -> set[str]:
+    """Body lemmas whose tokens are forms of a hidden title word.
+
+    Stored lemmas come from pymorphy's top reading, which can split one
+    lexeme: «Граната» and «гранаты» get «гранат», «гранату» gets «граната».
+    """
+    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
+
+    if not lexical_resolver_enabled():
+        return set()
+    title_rows = tuple(sorted({
+        (str(token.get('surface') or ''), str(token.get('lemma') or ''))
+        for token in (payload.get('title_tokens') or [])
+        if token.get('kind') == 'content' and not content_token_open_at_start(token)
+    }))
+    # Only words the title already opens can be one of its forms.
+    opening = title_opening_lemmas(payload)
+    body_rows = tuple(sorted({
+        (str(token.get('lemma') or ''), str(token.get('surface') or ''))
+        for token in (payload.get('body_tokens') or [])
+        if token.get('kind') == 'content' and token.get('lemma') in opening
+        and token.get('surface')
+    }))
+    return set(_title_lexeme_lemmas_cached(title_rows, body_rows))
+
+
+@lru_cache(maxsize=16)
+def _title_lexeme_lemmas_cached(
+    title_rows: tuple[tuple[str, str], ...],
+    body_rows: tuple[tuple[str, str], ...],
+) -> frozenset[str]:
+    from games.puzzles.censorly.lexical.match import same_word
+
+    title_lemmas = {lemma for _surface, lemma in title_rows if lemma}
+    out = set()
+    for lemma, surface in body_rows:
+        if lemma in title_lemmas or lemma in out:
+            continue
+        if any(same_word(title_surface, surface, lemma) for title_surface, _ in title_rows):
+            out.add(lemma)
+    return frozenset(out)
 
 
 @lru_cache(maxsize=16)

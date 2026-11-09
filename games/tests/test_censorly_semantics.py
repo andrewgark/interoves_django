@@ -1501,6 +1501,35 @@ class SemanticsTests(SimpleTestCase):
         self.assertTrue(related.get('title_related'))
         self.assertFalse(related.get('title_lemma'))
 
+    @override_settings(CENSORLY_LEXICAL_RESOLVER=True)
+    def test_title_word_forms_with_split_lemmas_get_strong_lock(self):
+        # pymorphy lemmatizes «Граната» and «гранаты» to «гранат», but
+        # «гранату» and «гранатой» to «граната». They are one word all the same.
+        from games.puzzles.censorly.article.redact import build_public_view
+
+        payload = build_puzzle_payload(
+            wiki_title='Граната',
+            body_text='Бросить гранату. Осколки гранаты. Ранен гранатой. Котик спит.',
+        )
+        view = build_public_view(payload, revealed_lemmas=(), won=False)
+        surfaces = {tok['id']: tok['surface'] for tok in payload['body_tokens']}
+        locks = {
+            surfaces[tok['id']]: bool(tok.get('title_lemma'))
+            for tok in view['body_tokens'] if tok.get('kind') == 'content'
+        }
+        self.assertEqual(
+            locks,
+            {'Бросить': False, 'гранату': True, 'Осколки': False, 'гранаты': True,
+             'Ранен': False, 'гранатой': True, 'Котик': False, 'спит': False},
+        )
+        # The win still needs only the title's own lemma.
+        title_lemma = next(
+            tok['lemma'] for tok in payload['title_tokens'] if tok.get('kind') == 'content'
+        )
+        self.assertTrue(
+            build_public_view(payload, revealed_lemmas=(title_lemma,))['title_complete']
+        )
+
     @override_settings(CENSORLY_LEXICAL_RESOLVER=False)
     def test_related_title_protection_follows_matcher_flag(self):
         from games.puzzles.censorly.article.redact import title_opening_lemmas

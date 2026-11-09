@@ -408,6 +408,25 @@ def _relation(guess: _Pack, target: _Pack) -> str:
     return ''
 
 
+_SAME_WORD_RELATIONS = frozenset({'exact', 'lexeme'})
+
+
+def same_word(guess: str, target: str, target_lemma: str = '') -> bool:
+    """True when the gameplay matcher sees ``target`` as a form of ``guess``.
+
+    Unlike comparing stored lemmas, this survives pymorphy picking different
+    top readings for forms of one lexeme («Граната» -> «гранат», «гранату» ->
+    «граната»).
+    """
+    from games.puzzles.censorly.text.flags import open_pronouns_enabled
+    include_pronouns = open_pronouns_enabled()
+    relation = _relation(
+        _guess_pack(guess, include_pronouns=include_pronouns),
+        _Pack(target, include_pronouns=include_pronouns, article_lemma=target_lemma or None),
+    )
+    return relation in _SAME_WORD_RELATIONS
+
+
 def _opens(guess: _Pack, target: _Pack) -> bool:
     return bool(_relation(guess, target))
 
