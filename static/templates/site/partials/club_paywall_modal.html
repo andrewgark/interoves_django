@@ -18,8 +18,9 @@
     <p class="new-club-paywall__price"><strong>Первый месяц — 420 ₽</strong> (за границей €3.89), затем 600 ₽ в месяц. Отменить можно в любой момент.</p>
     <div class="new-rules-modal__actions new-rules-modal__actions--flush">
       <a class="new-btn new-btn--yellow" href="/subscription/" data-club-paywall-join>Вступить в клуб</a>
-      {% if paywall_back_href %}<a class="new-btn new-btn--ghost" href="{{ paywall_back_href }}">К бесплатным выпускам</a>{% else %}<button type="button" class="new-btn new-btn--ghost" data-club-paywall-close>Закрыть</button>{% endif %}
+      {% if paywall_free_href %}<a class="new-btn new-btn--ghost" href="{{ paywall_free_href }}" data-club-paywall-free>{{ paywall_free_name }} №{{ paywall_free_number }} — бесплатно</a>{% elif paywall_back_href %}<a class="new-btn new-btn--ghost" href="{{ paywall_back_href }}">К бесплатным выпускам</a>{% else %}<button type="button" class="new-btn new-btn--ghost" data-club-paywall-close>Закрыть</button>{% endif %}
     </div>
+    {% load filters %}{% if paywall_free_left %}<p class="new-club-paywall__free">Бесплатно открыты последние 7 выпусков — {{ paywall_free_left }} из них вы ещё не решали.</p>{% endif %}
   </div>
 </div>
 <script>
@@ -46,6 +47,8 @@
   modal.querySelectorAll('[data-club-paywall-close]').forEach(function (el) { el.addEventListener('click', close); });
   document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hidden) close(); });
   modal.querySelector('[data-club-paywall-join]').addEventListener('click', function () { goal('club_paywall_click'); });
+  var free = modal.querySelector('[data-club-paywall-free]');
+  if (free) free.addEventListener('click', function () { goal('club_paywall_free_click'); });
   document.querySelectorAll('[data-club-paywall-open="{{ paywall_source|escapejs }}"]').forEach(function (el) {
     el.addEventListener('click', function (e) { e.preventDefault(); open(); });
   });

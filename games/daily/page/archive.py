@@ -185,7 +185,9 @@ def build_daily_archive_context(*, items, requested_month=None, today=None,
                 'is_locked': available and str(item.get('key')) in locked_keys,
                 'archive_status': archive_status,
                 'is_today': day == today,
-                'href': subscription_url if available and str(item.get('key')) in locked_keys else (item.get('href') if available else ''),
+                # A locked edition opens its own page: the edition behind the
+                # Club paywall (games.club.access.archive), not /subscription/.
+                'href': item.get('href') if available else '',
                 'anchor': item.get('anchor') if available else '',
                 'aria_label': label,
             })

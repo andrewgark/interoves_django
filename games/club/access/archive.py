@@ -270,6 +270,33 @@ LOCKED_EDITION_NAMES = {
 }
 
 
+def unsolved_free_editions(request, game):
+    """Free-window editions (newest first) the visitor has not finished yet."""
+    from games.daily.entry import free_published_placements
+    from games.models import PlayerCompletedGame
+
+    try:
+        links = free_published_placements(game)
+    except Exception:
+        return []
+    if not links:
+        return []
+    finished = PlayerCompletedGame.objects.filter(task_group_id__in=[link.task_group_id for link in links])
+    user = getattr(request, 'user', None)
+    if user is not None and user.is_authenticated:
+        finished = finished.filter(user=user)
+    else:
+        from games.ops.analytics.identity import gameplay_anon_key
+        anon_key = gameplay_anon_key(request)
+        finished = finished.filter(anon_key=anon_key, user__isnull=True) if anon_key else finished.none()
+    done = set(finished.values_list('task_group_id', flat=True))
+    # The same check as the lock itself, so the offer never points at a locked edition.
+    return [
+        link for link in links
+        if link.task_group_id not in done and user_can_access_scheduled_number(user, game, link.number)
+    ]
+
+
 def club_archive_locked_response(request, game, number, *, json_mode=False):
     if json_mode:
         return JsonResponse({'status': 'error', 'reason': 'club_required'}, status=403)
@@ -283,6 +310,10 @@ def club_archive_locked_response(request, game, number, *, json_mode=False):
     else:
         hub_href = '/{}/'.format(game.id) if game.id in LOCKED_EDITION_NAMES else '/'
     title = '{} №{}'.format(name, number) if number not in (None, '') else name
+    # Someone who opened an old edition wants more of this game: the free
+    # editions they have not solved yet keep them playing (Nov 7–9 the
+    # paywall alone was followed 2 times in 68).
+    free_left = [] if is_desyatka_game(game) else unsolved_free_editions(request, game)
     return render(
         request,
         'ui/club_archive_locked.html',
@@ -294,6 +325,10 @@ def club_archive_locked_response(request, game, number, *, json_mode=False):
             'locked_kind': kind,
             'locked_hub_href': hub_href,
             'locked_hub_label': hub_label,
+            'locked_free_left': len(free_left),
+            'locked_free_href': '/{}/{}/'.format(game.id, free_left[0].number) if free_left else '',
+            'locked_free_number': free_left[0].number if free_left else '',
+            'locked_free_name': name,
             'locked_lead': (
                 'Без подписки бесплатны последние {} выпусков в каждом разделе. '
                 'Этот и все более ранние открываются с клубной подпиской.'.format(FREE_ARCHIVE_COUNT)

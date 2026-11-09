@@ -13526,6 +13526,12 @@ button.new-word-salad__hint-btn:disabled {
   position: relative;
 }
 
+.new-club-paywall__free {
+  margin: 0.75rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .new-club-paywall__price {
   margin: 0.9rem 0 1.1rem;
 }

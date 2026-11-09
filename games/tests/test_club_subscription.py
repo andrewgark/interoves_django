@@ -643,6 +643,10 @@ class ClubArchiveAccessTests(TestCase):
         self.assertIn('Первый месяц — 420 ₽', body)
         if self.archive_task.answer:
             self.assertNotIn(self.archive_task.answer, body)
+        # A newcomer is pointed at a free edition they have not solved.
+        self.assertIn('data-club-paywall-free', body)
+        self.assertIn('из них вы ещё не решали', body)
+        self.assertNotIn('href="{}" data-club-paywall-free'.format(self.archive_url), body)
 
     def test_today_stays_free(self):
         response = self.client.get(self.today_url)

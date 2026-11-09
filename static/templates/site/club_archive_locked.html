@@ -25,5 +25,5 @@
   </div>
   <button type="button" class="new-btn new-btn--yellow new-club-locked__cta" data-club-paywall-open="archive"><i class="ph ph-lock-key-open" aria-hidden="true"></i> Открыть с клубной подпиской</button>
 </div>
-{% include "site/partials/club_paywall_modal.html" with paywall_source="archive" paywall_open=True paywall_title=locked_title|add:" — в архиве Клуба" paywall_lead=locked_lead paywall_back_href=locked_hub_href %}
+{% include "site/partials/club_paywall_modal.html" with paywall_source="archive" paywall_open=True paywall_title=locked_title|add:" — в архиве Клуба" paywall_lead=locked_lead paywall_back_href=locked_hub_href paywall_free_left=locked_free_left paywall_free_href=locked_free_href paywall_free_number=locked_free_number paywall_free_name=locked_free_name %}
 {% endblock %}
