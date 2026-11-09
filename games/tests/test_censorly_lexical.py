@@ -908,10 +908,11 @@ class LexicalResolverTests(SimpleTestCase):
             ('сон', 'диссонанс'), ('уют', 'ют'), ('сопеть', 'сапер'), ('тут', 'тутовник'),
             ('руно', 'рунический'), ('гам', 'экзогамия'), ('спорить', 'спора'),
             ('болтать', 'прибалтийский'), ('рвать', 'нарвал'), ('герб', 'гербарий'),
+            ('куб', 'кубок'), ('кубок', 'куб'),
         ):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
-        for guess, target in (('спора', 'микроспора'), ('балтийский', 'прибалтийский')):
+        for guess, target in (('спора', 'микроспора'), ('балтийский', 'прибалтийский'), ('куб', 'кубик')):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
