@@ -796,6 +796,30 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_compound_batch_c1_families(self):
+        """A reviewed compound opens its own family, never by one component."""
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('самолет', 'самолетный'), ('столетие', 'столетний'), ('треугольник', 'треугольный'),
+            ('иностранный', 'иностранец'), ('взаимодействие', 'взаимодействовать'),
+            ('законодательство', 'законодательный'), ('экология', 'экологический'),
+            ('телевидение', 'телевизор'), ('фотография', 'фотограф'),
+            ('автобиография', 'биография'), ('бомба', 'бомбардировщик'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('лет', 'самолет'), ('лето', 'столетие'), ('угол', 'треугольник'),
+            ('прямоугольный', 'треугольник'), ('страна', 'иностранный'),
+            ('действие', 'взаимодействие'), ('закон', 'законодательство'),
+            ('логика', 'экология'), ('телевидение', 'телефон'), ('граф', 'фотография'),
+            ('паровоз', 'пароход'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_nest_anchor_batch_w4_2_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))

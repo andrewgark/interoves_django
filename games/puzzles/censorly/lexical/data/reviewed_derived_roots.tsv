@@ -676,3 +676,363 @@ lemma	root_structure	note
 сольный	root:solo	Corpus batch A4 (2026-11-09): solo; not соль or посольство.
 солист	root:solo	Corpus batch A4 (2026-11-09): solo; not соль or посольство.
 солистка	root:solo	Corpus batch A4 (2026-11-09): solo; not соль or посольство.
+самолет	fam:лет²|лет+fam:сам	Compound batch C1 (2026-11-09): compound flight + сам; opens only with the full structure.
+самолетный	fam:лет²|лет+fam:сам	Compound batch C1 (2026-11-09): compound flight + сам; opens only with the full structure.
+разнообразный	fam:раж¹|раз¹+fam:раз²|роз²	Compound batch C1 (2026-11-09): compound разный + образ; opens only with the full structure.
+разнообразие	fam:раж¹|раз¹+fam:раз²|роз²	Compound batch C1 (2026-11-09): compound разный + образ; opens only with the full structure.
+разнообразить	fam:раж¹|раз¹+fam:раз²|роз²	Compound batch C1 (2026-11-09): compound разный + образ; opens only with the full structure.
+разнообразиться	fam:раж¹|раз¹+fam:раз²|роз²	Compound batch C1 (2026-11-09): compound разный + образ; opens only with the full structure.
+разнообразность	fam:раж¹|раз¹+fam:раз²|роз²	Compound batch C1 (2026-11-09): compound разный + образ; opens only with the full structure.
+иностранный	fam:ин¹+fam:сторон|стран	Compound batch C1 (2026-11-09): compound иной + страна; opens only with the full structure.
+иностранец	fam:ин¹+fam:сторон|стран	Compound batch C1 (2026-11-09): compound иной + страна; opens only with the full structure.
+иностранка	fam:ин¹+fam:сторон|стран	Compound batch C1 (2026-11-09): compound иной + страна; opens only with the full structure.
+иностранщина	fam:ин¹+fam:сторон|стран	Compound batch C1 (2026-11-09): compound иной + страна; opens only with the full structure.
+средневековый	fam:век¹|веч¹+fam:серед|сред	Compound batch C1 (2026-11-09): compound средний + век; opens only with the full structure.
+средневековье	fam:век¹|веч¹+fam:серед|сред	Compound batch C1 (2026-11-09): compound средний + век; opens only with the full structure.
+законодательный	fam:да¹|даж+fam:кан|кон¹	Compound batch C1 (2026-11-09): compound закон + дать; opens only with the full structure.
+законодательство	fam:да¹|даж+fam:кан|кон¹	Compound batch C1 (2026-11-09): compound закон + дать; opens only with the full structure.
+законодатель	fam:да¹|даж+fam:кан|кон¹	Compound batch C1 (2026-11-09): compound закон + дать; opens only with the full structure.
+законодательница	fam:да¹|даж+fam:кан|кон¹	Compound batch C1 (2026-11-09): compound закон + дать; opens only with the full structure.
+законодательствовать	fam:да¹|даж+fam:кан|кон¹	Compound batch C1 (2026-11-09): compound закон + дать; opens only with the full structure.
+землетрясение	fam:зем+fam:тряс|трях	Compound batch C1 (2026-11-09): compound земля + трясти; opens only with the full structure.
+всемирный	fam:вес⁴|вс+fam:мир¹	Compound batch C1 (2026-11-09): compound весь + мир; opens only with the full structure.
+столетие	fam:лет¹+fam:сот¹|ст	Compound batch C1 (2026-11-09): compound сто + лета (years); opens only with the full structure.
+столетний	fam:лет¹+fam:сот¹|ст	Compound batch C1 (2026-11-09): compound сто + лета (years); opens only with the full structure.
+столетник	fam:лет¹+fam:сот¹|ст	Compound batch C1 (2026-11-09): compound сто + лета (years); opens only with the full structure.
+десятилетие	fam:десят+fam:лет¹	Compound batch C1 (2026-11-09): compound десять + лета (years); opens only with the full structure.
+десятилетний	fam:десят+fam:лет¹	Compound batch C1 (2026-11-09): compound десять + лета (years); opens only with the full structure.
+десятилетка	fam:десят+fam:лет¹	Compound batch C1 (2026-11-09): compound десять + лета (years); opens only with the full structure.
+тысячелетие	fam:лет¹+fam:тысч|тысяц|тысяч	Compound batch C1 (2026-11-09): compound тысяча + лета (years); opens only with the full structure.
+тысячелетний	fam:лет¹+fam:тысч|тысяц|тысяч	Compound batch C1 (2026-11-09): compound тысяча + лета (years); opens only with the full structure.
+многолетний	fam:лет¹+fam:мног|множ	Compound batch C1 (2026-11-09): compound много + лета (years); opens only with the full structure.
+многолетник	fam:лет¹+fam:мног|множ	Compound batch C1 (2026-11-09): compound много + лета (years); opens only with the full structure.
+многолетие	fam:лет¹+fam:мног|множ	Compound batch C1 (2026-11-09): compound много + лета (years); opens only with the full structure.
+летопись	fam:лет¹+fam:пис|пиш	Compound batch C1 (2026-11-09): compound лета (years) + писать; opens only with the full structure.
+летописец	fam:лет¹+fam:пис|пиш	Compound batch C1 (2026-11-09): compound лета (years) + писать; opens only with the full structure.
+летописный	fam:лет¹+fam:пис|пиш	Compound batch C1 (2026-11-09): compound лета (years) + писать; opens only with the full structure.
+летописание	fam:лет¹+fam:пис|пиш	Compound batch C1 (2026-11-09): compound лета (years) + писать; opens only with the full structure.
+железнодорожный	fam:дорог²|дорож²+fam:желез¹	Compound batch C1 (2026-11-09): compound железо + дорога; opens only with the full structure.
+железнодорожник	fam:дорог²|дорож²+fam:желез¹	Compound batch C1 (2026-11-09): compound железо + дорога; opens only with the full structure.
+железнодорожница	fam:дорог²|дорож²+fam:желез¹	Compound batch C1 (2026-11-09): compound железо + дорога; opens only with the full structure.
+месторождение	fam:мест¹|мещ¹+fam:род|рож²|рожд	Compound batch C1 (2026-11-09): compound место + рождение; opens only with the full structure.
+треугольник	fam:тр¹+fam:угл¹|угол¹	Compound batch C1 (2026-11-09): compound три + угол; opens only with the full structure.
+треугольный	fam:тр¹+fam:угл¹|угол¹	Compound batch C1 (2026-11-09): compound три + угол; opens only with the full structure.
+прямоугольный	fam:прям+fam:угл¹|угол¹	Compound batch C1 (2026-11-09): compound прямой + угол; opens only with the full structure.
+прямоугольник	fam:прям+fam:угл¹|угол¹	Compound batch C1 (2026-11-09): compound прямой + угол; opens only with the full structure.
+противоречие	fam:против+fam:рек²|реч²|риц|рок|роч|рош²	Compound batch C1 (2026-11-09): compound против + речь; opens only with the full structure.
+противоречить	fam:против+fam:рек²|реч²|риц|рок|роч|рош²	Compound batch C1 (2026-11-09): compound против + речь; opens only with the full structure.
+противоречивый	fam:против+fam:рек²|реч²|риц|рок|роч|рош²	Compound batch C1 (2026-11-09): compound против + речь; opens only with the full structure.
+первоначальный	fam:перв+fam:ч¹|чин²	Compound batch C1 (2026-11-09): compound первый + начало; opens only with the full structure.
+первоначало	fam:перв+fam:ч¹|чин²	Compound batch C1 (2026-11-09): compound первый + начало; opens only with the full structure.
+попервоначалу	fam:перв+fam:ч¹|чин²	Compound batch C1 (2026-11-09): compound первый + начало; opens only with the full structure.
+противоположный	fam:лаг|лег²|леж|леч²|лог|лож¹+fam:против	Compound batch C1 (2026-11-09): compound против + положить; opens only with the full structure.
+противоположность	fam:лаг|лег²|леж|леч²|лог|лож¹+fam:против	Compound batch C1 (2026-11-09): compound против + положить; opens only with the full structure.
+противоположение	fam:лаг|лег²|леж|леч²|лог|лож¹+fam:против	Compound batch C1 (2026-11-09): compound против + положить; opens only with the full structure.
+древнегреческий	fam:грек|грец|греч+fam:древ²	Compound batch C1 (2026-11-09): compound древний + греческий; opens only with the full structure.
+взаимодействие	fam:де(j)|де+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C1 (2026-11-09): compound взаимный + действие; opens only with the full structure.
+взаимодействовать	fam:де(j)|де+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C1 (2026-11-09): compound взаимный + действие; opens only with the full structure.
+взаимодействующий	fam:де(j)|де+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C1 (2026-11-09): compound взаимный + действие; opens only with the full structure.
+сельскохозяйственный	fam:сел+fam:хоз	Compound batch C1 (2026-11-09): compound сельский + хозяйство; opens only with the full structure.
+равновесие	fam:вес¹|веш¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + вес; opens only with the full structure.
+равновесный	fam:вес¹|веш¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + вес; opens only with the full structure.
+уравновесить	fam:вес¹|веш¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + вес; opens only with the full structure.
+равновесомый	fam:вес¹|веш¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + вес; opens only with the full structure.
+уравновеситься	fam:вес¹|веш¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + вес; opens only with the full structure.
+паровоз	fam:важ⁴|вез|вож³|воз+fam:пар¹	Compound batch C1 (2026-11-09): compound пар + возить; opens only with the full structure.
+паровозный	fam:важ⁴|вез|вож³|воз+fam:пар¹	Compound batch C1 (2026-11-09): compound пар + возить; opens only with the full structure.
+паровозник	fam:важ⁴|вез|вож³|воз+fam:пар¹	Compound batch C1 (2026-11-09): compound пар + возить; opens only with the full structure.
+пароход	fam:пар¹+fam:хаж|ход|хож|хожд	Compound batch C1 (2026-11-09): compound пар + ход; opens only with the full structure.
+пароходство	fam:пар¹+fam:хаж|ход|хож|хожд	Compound batch C1 (2026-11-09): compound пар + ход; opens only with the full structure.
+пароходик	fam:пар¹+fam:хаж|ход|хож|хожд	Compound batch C1 (2026-11-09): compound пар + ход; opens only with the full structure.
+пароходный	fam:пар¹+fam:хаж|ход|хож|хожд	Compound batch C1 (2026-11-09): compound пар + ход; opens only with the full structure.
+пароходчик	fam:пар¹+fam:хаж|ход|хож|хожд	Compound batch C1 (2026-11-09): compound пар + ход; opens only with the full structure.
+рукопись	fam:пис|пиш+fam:рук|руч¹|руш¹	Compound batch C1 (2026-11-09): compound рука + писать, as рукописный; opens only with the full structure.
+богослов	fam:бог|бож+fam:слав¹|слов¹|слы	Compound batch C1 (2026-11-09): compound бог + слово; opens only with the full structure.
+богословие	fam:бог|бож+fam:слав¹|слов¹|слы	Compound batch C1 (2026-11-09): compound бог + слово; opens only with the full structure.
+богословский	fam:бог|бож+fam:слав¹|слов¹|слы	Compound batch C1 (2026-11-09): compound бог + слово; opens only with the full structure.
+стихотворение	tikh:стих+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound стих + творить; opens only with the full structure.
+стихотворный	tikh:стих+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound стих + творить; opens only with the full structure.
+стихотворец	tikh:стих+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound стих + творить; opens only with the full structure.
+стихотвореньице	tikh:стих+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound стих + творить; opens only with the full structure.
+стихотворство	tikh:стих+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound стих + творить; opens only with the full structure.
+стихотворческий	tikh:стих+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound стих + творить; opens only with the full structure.
+своеобразный	fam:раж¹|раз¹+fam:сва¹|сво(j)	Compound batch C1 (2026-11-09): compound свой + образ; opens only with the full structure.
+своеобразие	fam:раж¹|раз¹+fam:сва¹|сво(j)	Compound batch C1 (2026-11-09): compound свой + образ; opens only with the full structure.
+земледелие	fam:де(j)|де+fam:зем	Compound batch C1 (2026-11-09): compound земля + делать; opens only with the full structure.
+земледелец	fam:де(j)|де+fam:зем	Compound batch C1 (2026-11-09): compound земля + делать; opens only with the full structure.
+равноденствие	fam:ден|дн¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + день; opens only with the full structure.
+равноденственный	fam:ден|дн¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + день; opens only with the full structure.
+среднегодовой	fam:год|гож|гожд+fam:серед|сред	Compound batch C1 (2026-11-09): compound средний + год; opens only with the full structure.
+углекислый	fam:кис¹+fam:угл²|угол²	Compound batch C1 (2026-11-09): compound уголь + кислый; opens only with the full structure.
+углекислота	fam:кис¹+fam:угл²|угол²	Compound batch C1 (2026-11-09): compound уголь + кислый; opens only with the full structure.
+углекислотный	fam:кис¹+fam:угл²|угол²	Compound batch C1 (2026-11-09): compound уголь + кислый; opens only with the full structure.
+общепринятый	fam:ем|им¹|йм|ним|ня|ым²|я¹|∅+fam:общ	Compound batch C1 (2026-11-09): compound общий + принять; opens only with the full structure.
+военачальник	fam:во(j)²+fam:ч¹|чин²	Compound batch C1 (2026-11-09): compound война + начальник; opens only with the full structure.
+судоходный	fam:суд²+fam:хаж|ход|хож|хожд	Compound batch C1 (2026-11-09): compound судно + ход; opens only with the full structure.
+судоходство	fam:суд²+fam:хаж|ход|хож|хожд	Compound batch C1 (2026-11-09): compound судно + ход; opens only with the full structure.
+несудоходный	fam:суд²+fam:хаж|ход|хож|хожд	Compound batch C1 (2026-11-09): compound судно + ход; opens only with the full structure.
+водоросль	fam:вод²|вож²+fam:рас|ращ|рос²|рощ	Compound batch C1 (2026-11-09): compound вода + расти; opens only with the full structure.
+водорослевый	fam:вод²|вож²+fam:рас|ращ|рос²|рощ	Compound batch C1 (2026-11-09): compound вода + расти; opens only with the full structure.
+водоем	fam:вод²|вож²+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C1 (2026-11-09): compound вода + ёмкость; opens only with the full structure.
+водоемкий	fam:вод²|вож²+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C1 (2026-11-09): compound вода + ёмкость; opens only with the full structure.
+водоемный	fam:вод²|вож²+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C1 (2026-11-09): compound вода + ёмкость; opens only with the full structure.
+главнокомандующий	root:chief+fam:команд	Compound batch C1 (2026-11-09): compound главный + командовать; opens only with the full structure.
+главнокомандование	root:chief+fam:команд	Compound batch C1 (2026-11-09): compound главный + командовать; opens only with the full structure.
+повседневный	fam:вес⁴|вс+fam:ден|дн¹	Compound batch C1 (2026-11-09): compound весь + день; opens only with the full structure.
+повседневность	fam:вес⁴|вс+fam:ден|дн¹	Compound batch C1 (2026-11-09): compound весь + день; opens only with the full structure.
+вседневный	fam:вес⁴|вс+fam:ден|дн¹	Compound batch C1 (2026-11-09): compound весь + день; opens only with the full structure.
+огнестрельный	fam:огн|огон+fam:стрел	Compound batch C1 (2026-11-09): compound огонь + стрелять; opens only with the full structure.
+полководец	fam:важ²|важд|вед²|вес²|вод¹|вож¹|вожд+fam:полк|полч	Compound batch C1 (2026-11-09): compound полк + водить; opens only with the full structure.
+полководческий	fam:важ²|важд|вед²|вес²|вод¹|вож¹|вожд+fam:полк|полч	Compound batch C1 (2026-11-09): compound полк + водить; opens only with the full structure.
+сухопутный	fam:пут²+fam:сох²|сух|суш|сых	Compound batch C1 (2026-11-09): compound сухой + путь; opens only with the full structure.
+самоуправление	fam:прав+fam:сам	Compound batch C1 (2026-11-09): compound сам + управлять; opens only with the full structure.
+самоуправляющийся	fam:прав+fam:сам	Compound batch C1 (2026-11-09): compound сам + управлять; opens only with the full structure.
+противодействие	fam:де(j)|де+fam:против	Compound batch C1 (2026-11-09): compound против + действие; opens only with the full structure.
+противодействовать	fam:де(j)|де+fam:против	Compound batch C1 (2026-11-09): compound против + действие; opens only with the full structure.
+темнокожий	fam:кож+fam:тем²|тем|тм|тьм	Compound batch C1 (2026-11-09): compound тёмный + кожа; opens only with the full structure.
+пивоварня	fam:вар¹+tikh:пив	Compound batch C1 (2026-11-09): compound пиво + варить; opens only with the full structure.
+пивоваренный	fam:вар¹+tikh:пив	Compound batch C1 (2026-11-09): compound пиво + варить; opens only with the full structure.
+пивоварение	fam:вар¹+tikh:пив	Compound batch C1 (2026-11-09): compound пиво + варить; opens only with the full structure.
+пивовар	fam:вар¹+tikh:пив	Compound batch C1 (2026-11-09): compound пиво + варить; opens only with the full structure.
+водохранилище	fam:вод²|вож²+fam:хоран|хорон|хран	Compound batch C1 (2026-11-09): compound вода + хранить; opens only with the full structure.
+водохранилищный	fam:вод²|вож²+fam:хоран|хорон|хран	Compound batch C1 (2026-11-09): compound вода + хранить; opens only with the full structure.
+водоохранный	fam:вод²|вож²+fam:хоран|хорон|хран	Compound batch C1 (2026-11-09): compound вода + хранить; opens only with the full structure.
+круговорот	fam:ворач|ворот¹|вороч|врат¹|вращ+fam:круг|круж¹	Compound batch C1 (2026-11-09): compound круг + оборот; opens only with the full structure.
+китообразный	fam:кит+fam:раж¹|раз¹	Compound batch C1 (2026-11-09): compound кит + образ; opens only with the full structure.
+равномерный	fam:мер¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + мера; opens only with the full structure.
+неравномерный	fam:мер¹+fam:рав|ров²	Compound batch C1 (2026-11-09): compound равный + мера; opens only with the full structure.
+многообразие	fam:мног|множ+fam:раж¹|раз¹	Compound batch C1 (2026-11-09): compound много + образ; opens only with the full structure.
+многообразный	fam:мног|множ+fam:раж¹|раз¹	Compound batch C1 (2026-11-09): compound много + образ; opens only with the full structure.
+противопоставление	fam:против+fam:ста(j)|сто(j)	Compound batch C1 (2026-11-09): compound против + поставить; opens only with the full structure.
+противопоставлять	fam:против+fam:ста(j)|сто(j)	Compound batch C1 (2026-11-09): compound против + поставить; opens only with the full structure.
+противопоставляться	fam:против+fam:ста(j)|сто(j)	Compound batch C1 (2026-11-09): compound против + поставить; opens only with the full structure.
+противопоставленный	fam:против+fam:ста(j)|сто(j)	Compound batch C1 (2026-11-09): compound против + поставить; opens only with the full structure.
+электроэнергия	fam:электр+tikh:энерги	Compound batch C1 (2026-11-09): compound электричество + энергия; opens only with the full structure.
+электроэнергетический	fam:электр+tikh:энерги	Compound batch C1 (2026-11-09): compound электричество + энергия; opens only with the full structure.
+материаловедение	fam:вед¹|веж|вежд¹|вест|вещ¹+tikh:матери	Compound batch C1 (2026-11-09): compound материал + ведать; opens only with the full structure.
+материаловед	fam:вед¹|веж|вежд¹|вест|вещ¹+tikh:матери	Compound batch C1 (2026-11-09): compound материал + ведать; opens only with the full structure.
+материаловедческий	fam:вед¹|веж|вежд¹|вест|вещ¹+tikh:матери	Compound batch C1 (2026-11-09): compound материал + ведать; opens only with the full structure.
+вертолет	fam:вер²|верет²|верт|верч+fam:лет²|лет	Compound batch C1 (2026-11-09): compound вертеть + летать; opens only with the full structure.
+вертолетный	fam:вер²|верет²|верт|верч+fam:лет²|лет	Compound batch C1 (2026-11-09): compound вертеть + летать; opens only with the full structure.
+вертолетчик	fam:вер²|верет²|верт|верч+fam:лет²|лет	Compound batch C1 (2026-11-09): compound вертеть + летать; opens only with the full structure.
+вертолетчица	fam:вер²|верет²|верт|верч+fam:лет²|лет	Compound batch C1 (2026-11-09): compound вертеть + летать; opens only with the full structure.
+короткометражный	fam:корач|корот|короч¹|крат|кращ+root:метр	Compound batch C1 (2026-11-09): compound короткий + метраж; opens only with the full structure.
+короткометражка	fam:корач|корот|короч¹|крат|кращ+root:метр	Compound batch C1 (2026-11-09): compound короткий + метраж; opens only with the full structure.
+пулемет	fam:ме|мес²|мет¹|мет+fam:пул	Compound batch C1 (2026-11-09): compound пуля + метать; opens only with the full structure.
+пулеметный	fam:ме|мес²|мет¹|мет+fam:пул	Compound batch C1 (2026-11-09): compound пуля + метать; opens only with the full structure.
+пулеметчик	fam:ме|мес²|мет¹|мет+fam:пул	Compound batch C1 (2026-11-09): compound пуля + метать; opens only with the full structure.
+пулеметчица	fam:ме|мес²|мет¹|мет+fam:пул	Compound batch C1 (2026-11-09): compound пуля + метать; opens only with the full structure.
+мореплаватель	fam:мор²+fam:пла|плав|плов|плы	Compound batch C1 (2026-11-09): compound море + плавать; opens only with the full structure.
+мореплавание	fam:мор²+fam:пла|плав|плов|плы	Compound batch C1 (2026-11-09): compound море + плавать; opens only with the full structure.
+мореплавательный	fam:мор²+fam:пла|плав|плов|плы	Compound batch C1 (2026-11-09): compound море + плавать; opens only with the full structure.
+плодотворный	fam:плод|плож+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound плод + творить; opens only with the full structure.
+оплодотворение	fam:плод|плож+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound плод + творить; opens only with the full structure.
+оплодотворить	fam:плод|плож+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound плод + творить; opens only with the full structure.
+оплодотворять	fam:плод|плож+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound плод + творить; opens only with the full structure.
+оплодотворяться	fam:плод|плож+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound плод + творить; opens only with the full structure.
+оплодотворенный	fam:плод|плож+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound плод + творить; opens only with the full structure.
+оплодотвориться	fam:плод|плож+fam:твар|твор¹	Compound batch C1 (2026-11-09): compound плод + творить; opens only with the full structure.
+русскоязычный	fam:рус²+fam:язык|языч	Compound batch C1 (2026-11-09): compound русский + язык; opens only with the full structure.
+водопад	fam:вод²|вож²+fam:па¹|пад|паж|пас¹|пащ	Compound batch C1 (2026-11-09): compound вода + падать; opens only with the full structure.
+водопадный	fam:вод²|вож²+fam:па¹|пад|паж|пас¹|пащ	Compound batch C1 (2026-11-09): compound вода + падать; opens only with the full structure.
+пищеварительный	fam:вар¹+fam:пит|пич¹|пищ²	Compound batch C1 (2026-11-09): compound пища + варить; opens only with the full structure.
+пищеварение	fam:вар¹+fam:пит|пич¹|пищ²	Compound batch C1 (2026-11-09): compound пища + варить; opens only with the full structure.
+пищеварочный	fam:вар¹+fam:пит|пич¹|пищ²	Compound batch C1 (2026-11-09): compound пища + варить; opens only with the full structure.
+законопроект	fam:кан|кон¹+tikh:проект	Compound batch C1 (2026-11-09): compound закон + проект; opens only with the full structure.
+электростанция	fam:станци(j)+fam:электр	Compound batch C1 (2026-11-09): compound электричество + станция; opens only with the full structure.
+электроподстанция	fam:станци(j)+fam:электр	Compound batch C1 (2026-11-09): compound электричество + станция; opens only with the full structure.
+закономерность	fam:кан|кон¹+fam:мер¹	Compound batch C1 (2026-11-09): compound закон + мера; opens only with the full structure.
+закономерный	fam:кан|кон¹+fam:мер¹	Compound batch C1 (2026-11-09): compound закон + мера; opens only with the full structure.
+атмосфера	root:atmosphere	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+атмосферный	root:atmosphere	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+атмосферический	root:atmosphere	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+аэропорт	root:airport	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+психиатрия	root:psychiatry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+психиатрический	root:psychiatry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+психиатр	root:psychiatry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+кинематограф	root:cinematograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+кинематографический	root:cinematograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+кинематография	root:cinematograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+кинематографист	root:cinematograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+кинематографичный	root:cinematograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+экологический	root:ecology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+экология	root:ecology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+экологически	root:ecology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+геологический	root:geology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+геология	root:geology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+геолог	root:geology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+геометрический	root:geometry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+геометрия	root:geometry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+геометр	root:geometry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+гипергеометрический	root:geometry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+топология	root:topology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+топологический	root:topology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+тополог	root:topology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефон	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефонный	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефония	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефонист	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+микротелефон	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+протелефонировать	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефонизация	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефонизированный	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефонизировать	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефонировать	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телефонистка	root:telephone	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+мизантропия	root:misanthrope	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+мизантроп	root:misanthrope	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+мизантропический	root:misanthrope	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+мизантропка	root:misanthrope	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+специфический	root:specific	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+специфичный	root:specific	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+бинокль	root:binocular	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+палеолит	root:paleolith	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+палеолитический	root:paleolith	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+неолит	root:neolith	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+неолитический	root:neolith	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+килограмм	root:kilogram	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+килограммовый	root:kilogram	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+гидролиз	root:hydrolysis	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+гидролизоваться	root:hydrolysis	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+гидролизный	root:hydrolysis	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+картография	root:cartography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+картографический	root:cartography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+картограф	root:cartography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+картографирование	root:cartography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+картографировать	root:cartography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+картографированный	root:cartography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+картографироваться	root:cartography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синоним	root:synonym	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синонимичный	root:synonym	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синонимика	root:synonym	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синонимический	root:synonym	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синонимия	root:synonym	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+патологический	root:pathology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+патология	root:pathology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+логопатический	root:pathology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+логопатия	root:pathology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+патолог	root:pathology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+осциллограф	root:oscillograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+осциллографический	root:oscillograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+осциллография	root:oscillograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хореограф	root:choreography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хореография	root:choreography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хореографический	root:choreography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+неврология	root:neurology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+неврологический	root:neurology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+невролог	root:neurology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+полиомиелит	root:polio	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+гуманитарный	root:humanities	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+палеонтология	root:paleontology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+палеонтолог	root:paleontology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+палеонтологический	root:paleontology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+интенсивный	root:intensive	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+интенсификация	root:intensive	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+интенсифицированный	root:intensive	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+интенсифицировать	root:intensive	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+социология	root:sociology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+социолог	root:sociology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+социологический	root:sociology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+социологизм	root:sociology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+полимер	root:polymer	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+полимерный	root:polymer	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+полимеризация	root:polymer	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+деполимеризация	root:polymer	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+полимерия	root:polymer	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+теология	root:theology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+теолог	root:theology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+теологический	root:theology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+историография	root:historiography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+историографический	root:historiography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+историограф	root:historiography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+морфология	root:morphology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+морфологический	root:morphology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+морфолог	root:morphology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+метаболизм	root:metabolism	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+метаболический	root:metabolism	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+метаболит	root:metabolism	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+метаболия	root:metabolism	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хлорофилл	root:chlorophyll	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хлорофилловый	root:chlorophyll	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+антрополог	root:anthropology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+антропология	root:anthropology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+антропологический	root:anthropology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+антропологизм	root:anthropology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+амфибия	root:amphibian	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хронология	root:chronology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хронологический	root:chronology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хронолог	root:chronology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+хронологизация	root:chronology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронизация	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронный	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронизировать	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронизатор	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхрония	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронизационный	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронизированный	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронизироваться	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронизм	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронистический	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхронический	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+синхроничный	root:synchrony	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+метафизика	root:metaphysics	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+метафизический	root:metaphysics	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+метафизик	root:metaphysics	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+профсоюз	root:trade_union	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+профсоюзный	root:trade_union	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+сантиметр	root:centimetre	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+сантиметровый	root:centimetre	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+демографический	root:demography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+демография	root:demography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+демограф	root:demography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+космология	root:cosmology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+космологический	root:cosmology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+астрометрия	root:astrometry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+астрометрический	root:astrometry	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+топографический	root:topography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+топография	root:topography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+топограф	root:topography	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+идеология	root:ideology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+идеологический	root:ideology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+идеолог	root:ideology	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+фотография	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+фотограф	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+фотографический	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+сфотографировать	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+фотографирование	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+фотографировать	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+фотографироваться	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+микрофотография	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+сфотографированный	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+сфотографироваться	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+фотографированный	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+фотографичный	root:photograph	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телевизионный	root:television	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телевизионщик	root:television	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+телевидение	root:television	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+радиоактивный	root:radioactive	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+радиоактивность	root:radioactive	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+радиоактивационный	root:radioactive	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+мультфильм	root:cartoon	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+инфракрасный	fam:крас¹|краш+tikh:инфра	Compound batch C1 (2026-11-09): international compound with rooted parts; opens only with the full structure.
+инфраструктура	tikh:инфра+tikh:структур	Compound batch C1 (2026-11-09): international compound with rooted parts; opens only with the full structure.
+телескоп	fam:скоп+tikh:теле	Compound batch C1 (2026-11-09): international compound with rooted parts; opens only with the full structure.
+телескопический	fam:скоп+tikh:теле	Compound batch C1 (2026-11-09): international compound with rooted parts; opens only with the full structure.
+телескопия	fam:скоп+tikh:теле	Compound batch C1 (2026-11-09): international compound with rooted parts; opens only with the full structure.
+авианосец	fam:наш|нес|нос²|нош+tikh:ави	Compound batch C1 (2026-11-09): international compound with rooted parts; opens only with the full structure.
+авианосный	fam:наш|нес|нос²|нош+tikh:ави	Compound batch C1 (2026-11-09): international compound with rooted parts; opens only with the full structure.
+бомбардировка	tikh:бомб	Compound batch C1 (2026-11-09): bombard words belong to бомба.
+бомбардировщик	tikh:бомб	Compound batch C1 (2026-11-09): bombard words belong to бомба.
+бомбардировочный	tikh:бомб	Compound batch C1 (2026-11-09): bombard words belong to бомба.
+бомбардировать	tikh:бомб	Compound batch C1 (2026-11-09): bombard words belong to бомба.
+бомбарда	tikh:бомб	Compound batch C1 (2026-11-09): bombard words belong to бомба.
+бомбардированный	tikh:бомб	Compound batch C1 (2026-11-09): bombard words belong to бомба.
+бомбардироваться	tikh:бомб	Compound batch C1 (2026-11-09): bombard words belong to бомба.
+бомбардирский	tikh:бомб	Compound batch C1 (2026-11-09): bombard words belong to бомба.
+императрица	tikh:импер	Compound batch C1 (2026-11-09): feminine of император.
+конкуренция	tikh:конкур	Compound batch C1 (2026-11-09): same root as конкурент.
+автобусный	tikh:автобус	Compound batch C1 (2026-11-09): same root as автобус.
+микроавтобус	tikh:автобус	Compound batch C1 (2026-11-09): same root as автобус.
+телевизор	root:television	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+мультик	root:cartoon	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
+специфика	root:specific	Compound batch C1 (2026-11-09): lexicalized international family; components stay unauthorized globally.
