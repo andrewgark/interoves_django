@@ -414,3 +414,92 @@ lemma	root_structure	note
 длинноствольный	fam:дл|дол²+fam:ствол	Complaint batch 2026-11-09 (Граната): reviewed compound: long + barrel.
 гранат	tikh:гранат	Fruit and gem гранат; same stem as граната (one Tikhonov root), absent from Tikhonov.
 гранатовый	tikh:гранат	Transparent adjective from гранат; absent from Tikhonov. гранатомёт keeps root:гранатомет.
+эра	root:era	Corpus batch A2 (2026-11-09): era; Tikhonov эр also holds эрэс.
+хан	root:khan	Corpus batch A2 (2026-11-09): khan; not чайхана.
+ханство	root:khan	Corpus batch A2 (2026-11-09): khan; not чайхана.
+ханский	root:khan	Corpus batch A2 (2026-11-09): khan; not чайхана.
+генерал	root:general_rank	Corpus batch A2 (2026-11-09): military rank генерал; генеральный is the overall sense.
+генералитет	root:general_rank	Corpus batch A2 (2026-11-09): military rank генерал; генеральный is the overall sense.
+генеральский	root:general_rank	Corpus batch A2 (2026-11-09): military rank генерал; генеральный is the overall sense.
+генеральша	root:general_rank	Corpus batch A2 (2026-11-09): military rank генерал; генеральный is the overall sense.
+генеральство	root:general_rank	Corpus batch A2 (2026-11-09): military rank генерал; генеральный is the overall sense.
+генеральствовать	root:general_rank	Corpus batch A2 (2026-11-09): military rank генерал; генеральный is the overall sense.
+генеральный	root:general_overall	Corpus batch A2 (2026-11-09): general (overall, principal) and generalize; not the rank.
+генерализация	root:general_overall	Corpus batch A2 (2026-11-09): general (overall, principal) and generalize; not the rank.
+генерализировать	root:general_overall	Corpus batch A2 (2026-11-09): general (overall, principal) and generalize; not the rank.
+генерализироваться	root:general_overall	Corpus batch A2 (2026-11-09): general (overall, principal) and generalize; not the rank.
+граф	root:count_title	Corpus batch A2 (2026-11-09): noble title граф; Tikhonov граф is mostly -граф (write).
+графиня	root:count_title	Corpus batch A2 (2026-11-09): noble title граф; Tikhonov граф is mostly -граф (write).
+графство	root:count_title	Corpus batch A2 (2026-11-09): noble title граф; Tikhonov граф is mostly -граф (write).
+графский	root:count_title	Corpus batch A2 (2026-11-09): noble title граф; Tikhonov граф is mostly -граф (write).
+оригинальный	tikh:оригинал	Corpus batch A2 (2026-11-09): same root as оригинал; Tikhonov spells it оригинальн.
+оригинальность	tikh:оригинал	Corpus batch A2 (2026-11-09): same root as оригинал; Tikhonov spells it оригинальн.
+неоригинальный	tikh:оригинал	Corpus batch A2 (2026-11-09): same root as оригинал; Tikhonov spells it оригинальн.
+коммерческий	tikh:коммерц	Corpus batch A2 (2026-11-09): same root as коммерция; Tikhonov spells it коммерч.
+некоммерческий	tikh:коммерц	Corpus batch A2 (2026-11-09): same root as коммерция; Tikhonov spells it коммерч.
+клинический	tikh:клиник	Corpus batch A2 (2026-11-09): same root as клиника; Tikhonov spells it клинич.
+поликлинический	tikh:клиник	Corpus batch A2 (2026-11-09): same root as клиника; Tikhonov spells it клинич.
+минимальный	tikh:миним	Corpus batch A2 (2026-11-09): same root as минимум; Tikhonov spells it минимальн.
+клавиатура	tikh:клавиш	Corpus batch A2 (2026-11-09): keyboard of клавиши; Tikhonov spells it клави.
+редактор	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+редактировать	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+отредактировать	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+редактирование	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+редакторский	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+редактура	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+редакторство	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+соредактор	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+проредактировать	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+редакторствовать	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+редактироваться	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+отредактированный	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+редактированный	tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+политредактор	tikh:полит+tikh:редакц	Corpus batch A2 (2026-11-09): same root as редакция; Tikhonov spells it редакт.
+карьера	root:career	Corpus batch A2 (2026-11-09): career; карьерный also means quarry and is left out.
+карьеризм	root:career	Corpus batch A2 (2026-11-09): career; карьерный also means quarry and is left out.
+карьерист	root:career	Corpus batch A2 (2026-11-09): career; карьерный also means quarry and is left out.
+карьеристка	root:career	Corpus batch A2 (2026-11-09): career; карьерный also means quarry and is left out.
+карьеристский	root:career	Corpus batch A2 (2026-11-09): career; карьерный also means quarry and is left out.
+диалект	root:dialect	Corpus batch A2 (2026-11-09): dialect; диалектика is a different sense.
+диалектный	root:dialect	Corpus batch A2 (2026-11-09): dialect; диалектика is a different sense.
+диалектология	root:dialect	Corpus batch A2 (2026-11-09): dialect; диалектика is a different sense.
+диалектолог	root:dialect	Corpus batch A2 (2026-11-09): dialect; диалектика is a different sense.
+диалектизм	root:dialect	Corpus batch A2 (2026-11-09): dialect; диалектика is a different sense.
+диалектологический	root:dialect	Corpus batch A2 (2026-11-09): dialect; диалектика is a different sense.
+диалектография	root:dialect	Corpus batch A2 (2026-11-09): dialect; диалектика is a different sense.
+диалектографический	root:dialect	Corpus batch A2 (2026-11-09): dialect; диалектика is a different sense.
+вулкан	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+вулканический	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+вулканизм	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+вулканогенный	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+вулканит	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+стратовулкан	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+вулканолог	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+вулканологический	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+вулканология	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+поствулканический	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+грязевулканический	root:volcano	Corpus batch A2 (2026-11-09): volcano; вулканизация (rubber curing) is a different sense.
+номинация	root:nomination	Corpus batch A2 (2026-11-09): nomination; номинатив and деноминация are different senses.
+номинант	root:nomination	Corpus batch A2 (2026-11-09): nomination; номинатив and деноминация are different senses.
+номинировать	root:nomination	Corpus batch A2 (2026-11-09): nomination; номинатив and деноминация are different senses.
+номинироваться	root:nomination	Corpus batch A2 (2026-11-09): nomination; номинатив and деноминация are different senses.
+номинированный	root:nomination	Corpus batch A2 (2026-11-09): nomination; номинатив and деноминация are different senses.
+плутоний	root:plutonium	Corpus batch A2 (2026-11-09): plutonium; плутонический (geology) is a different sense.
+плутониевый	root:plutonium	Corpus batch A2 (2026-11-09): plutonium; плутонический (geology) is a different sense.
+диск	root:disk	Corpus batch A2 (2026-11-09): disk; дискотека and дискета are different words.
+дисковый	root:disk	Corpus batch A2 (2026-11-09): disk; дискотека and дискета are different words.
+двухдисковый	root:disk	Corpus batch A2 (2026-11-09): disk; дискотека and дискета are different words.
+многодисковый	root:disk	Corpus batch A2 (2026-11-09): disk; дискотека and дискета are different words.
+арка	root:arch	Corpus batch A2 (2026-11-09): arch; not арктангенс.
+аркада	root:arch	Corpus batch A2 (2026-11-09): arch; not арктангенс.
+аркатура	root:arch	Corpus batch A2 (2026-11-09): arch; not арктангенс.
+трон	root:throne	Corpus batch A2 (2026-11-09): throne; not позитрон/циклотрон.
+тронный	root:throne	Corpus batch A2 (2026-11-09): throne; not позитрон/циклотрон.
+идея	root:idea	Corpus batch A2 (2026-11-09): idea; идеал (perfect) is a different sense.
+идейный	root:idea	Corpus batch A2 (2026-11-09): idea; идеал (perfect) is a different sense.
+идейность	root:idea	Corpus batch A2 (2026-11-09): idea; идеал (perfect) is a different sense.
+безыдейный	root:idea	Corpus batch A2 (2026-11-09): idea; идеал (perfect) is a different sense.
+персонаж	root:persona	Corpus batch A2 (2026-11-09): persona/character; персонал (staff) and персональный are different senses.
+персона	root:persona	Corpus batch A2 (2026-11-09): persona/character; персонал (staff) and персональный are different senses.
+психика	root:psyche	Corpus batch A2 (2026-11-09): psyche; psychology keeps its own reviewed root.
+психический	root:psyche	Corpus batch A2 (2026-11-09): psyche; psychology keeps its own reviewed root.

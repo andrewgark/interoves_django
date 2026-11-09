@@ -25,3 +25,9 @@ root_spelling	reason	reviewed_at
 диск	Diverging senses: диск vs дискотека vs дискета.	2026-11-06
 арк	Diverging senses: арка/аркада vs арктангенс/арксинус.	2026-11-06
 уран	Diverging senses: уран (element) vs Уран (planet) vs уранография (sky).	2026-11-06
+эр	Homonym: эра vs эрэс (РС rocket); эра gets root:era.	2026-11-09
+хан	Diverging: хан/ханство vs чайхана, кумысхана (-хана house); хан gets root:khan.	2026-11-09
+генерал	Diverging: генерал (rank) vs генерализация (generalize); split into root:general_rank and root:general_overall.	2026-11-09
+дат	Homonym: дата/датировать vs датский/датчанин (Danish); dates anchor to датировка.	2026-11-09
+аль	Bogus: аль (conjunction) vs adverbial -ально in hyphenated compounds.	2026-11-09
+сей	Homonym: сей (this) vs самосей, мукосей (сеять).	2026-11-09

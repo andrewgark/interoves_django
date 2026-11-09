@@ -726,6 +726,30 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertNotIn('детерминироваться', matching_lemmas(tokens, 'термин'))
         self.assertNotIn('тематика', matching_lemmas(tokens, 'темный'))
 
+    def test_corpus_batch_a2_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('народ', 'международный'), ('работа', 'разработчик'), ('поэт', 'поэма'),
+            ('датировка', 'дата'), ('организм', 'органический'), ('революция', 'революционный'),
+            ('редакция', 'редактор'), ('клавиша', 'клавиатура'), ('минимум', 'минимальный'),
+            ('генерал', 'генеральский'), ('генеральный', 'генерализация'), ('граф', 'графиня'),
+            ('карьера', 'карьерист'), ('вулкан', 'вулканический'), ('идея', 'идейный'),
+            ('корона', 'коронация'), ('уничтожить', 'уничтожение'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        # Rejected Tikhonov roots keep their diverging senses apart.
+        for guess, target in (
+            ('дата', 'датский'), ('генерал', 'генеральный'), ('график', 'граф'),
+            ('чайхана', 'хан'), ('эра', 'эрэс'), ('диалект', 'диалектика'),
+            ('вулкан', 'вулканизация'), ('идея', 'идеал'), ('персонаж', 'персонал'),
+            ('диск', 'дискотека'), ('трон', 'позитрон'), ('номинация', 'номинатив'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_adverb_rule_opens_the_adjective_family(self):
         tokens = [
             {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},
