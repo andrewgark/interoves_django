@@ -900,6 +900,21 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_rejected_spelling_fallback_batch_e2(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('сон', 'диссонанс'), ('уют', 'ют'), ('сопеть', 'сапер'), ('тут', 'тутовник'),
+            ('руно', 'рунический'), ('гам', 'экзогамия'), ('спорить', 'спора'),
+            ('болтать', 'прибалтийский'), ('рвать', 'нарвал'), ('герб', 'гербарий'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+        for guess, target in (('спора', 'микроспора'), ('балтийский', 'прибалтийский')):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
     def test_nest_anchor_batch_w4_2_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))

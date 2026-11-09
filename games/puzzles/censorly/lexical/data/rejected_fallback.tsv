@@ -22,3 +22,16 @@ morph	root	reason	reviewed_at
 юр	fam:юр	Track E batch 1: юрист, юрский are not юркий.	2026-11-09
 пик	fam:пик|пич²	Track E batch 1: пик, пика, пикирование are not пикнуть/пичуга.	2026-11-09
 корт	fam:корт	Track E batch 1: корт is not корточки.	2026-11-09
+сон	fam:сн|сон	Track E batch 2: диссонанс, сонорный are not сон.	2026-11-09
+ют	fam:ют	Track E batch 2: ют (deck) is not уют/приют.	2026-11-09
+сап	fam:сап|соп¹	Track E batch 2: сапёр, сапа are not сопеть.	2026-11-09
+тут	fam:тут	Track E batch 2: тутовник is not тут (here).	2026-11-09
+вот	fam:вот	Track E batch 2: вотский, вотирование are not вот.	2026-11-09
+рун	fam:рун	Track E batch 2: рунический is not руно.	2026-11-09
+нон	fam:нон|нын	Track E batch 2: нонет, нона are not ныне.	2026-11-09
+гам	fam:гам	Track E batch 2: экзогамия, бигамия are not гам (noise).	2026-11-09
+копр	fam:копер|копр	Track E batch 2: копра (copra) is not копёр.	2026-11-09
+миш	fam:миш	Track E batch 2: мишка is not обмишулить.	2026-11-09
+сак	fam:сак|сач²	Track E batch 2: сакский (Saka) is not сак/впросак.	2026-11-09
+тат	fam:так|тат|тач²	Track E batch 2: тат, татский (Tats) are not потакать.	2026-11-09
+пак	fam:пак|пач	Track E batch 2: пак (pack ice) is not упаковка.	2026-11-09
