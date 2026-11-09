@@ -217,7 +217,6 @@ lemma	anchor	nest	note
 грамматика	грамота	грамот	W4 batch 2: grammar; same family as грамотный; anchor in the lemma's related block
 медведица	медведь	медвед	W4 batch 2: she-bear; Большая Медведица; anchor in the lemma's related block
 коммерчески	коммерческий	коммерч	W4 batch 2: adverb of коммерческий; anchor in the lemma's related block
-нацист	нация	нац,наци	W4 batch 2: nazi, from national(-socialist); anchor in the lemma's related block
 праславянский	славянский	славян	W4 batch 2: пра- prefix on славянский; anchor in the lemma's related block
 галактический	галактика	галактик	W4 batch 2: adjective of галактика; anchor in the lemma's related block
 лишний	лишить	лиш	W4 batch 2: same root as лишить/излишний; anchor in the lemma's related block
@@ -328,3 +327,16 @@ lemma	anchor	nest	note
 сценка	сцена	сцен	W4 batch 2: diminutive of сцена; anchor in the lemma's related block
 титульный	титул	титул	W4 batch 2: adjective of титул; anchor in the lemma's related block
 вино	винище	вин	W4 batch 2: base noun of the wine family (вин²); anchor in the lemma's related block
+турок	турецкий	турец	Corpus batch A3: Turk; same family as турецкий
+фантастический	фантастика	фантаст	Corpus batch A3: fantasy
+альтернативный	альтернатива	альтерн	Corpus batch A3: alternative
+реагировать	реакция	реакц	Corpus batch A3: react
+исламский	ислам	ислам	Corpus batch A3: Islamic
+значит	значить	знач	Corpus batch A3: parenthetical form of значить
+нацист	нация	нац,наци	W4 batch 2: nazi, from national(-socialist); anchor in the lemma's related block
+нацизм	нация	нац,наци	Corpus batch A3: Nazi family follows нацист (W4 batch 2)
+нацистский	нация	нац,наци	Corpus batch A3: Nazi family follows нацист (W4 batch 2)
+нацистка	нация	нац,наци	Corpus batch A3: Nazi family follows нацист (W4 batch 2)
+неонацизм	нация	нац,наци	Corpus batch A3: Nazi family follows нацист (W4 batch 2)
+неонацист	нация	нац,наци	Corpus batch A3: Nazi family follows нацист (W4 batch 2)
+неонацистский	нация	нац,наци	Corpus batch A3: Nazi family follows нацист (W4 batch 2)

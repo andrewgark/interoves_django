@@ -750,6 +750,28 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_corpus_batch_a3_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('мода', 'модный'), ('нация', 'нацизм'), ('мобильный', 'мобильность'),
+            ('библия', 'библейский'), ('атеизм', 'теизм'), ('диктатура', 'диктатор'),
+            ('идеал', 'идеальный'), ('вирус', 'вирусный'), ('турок', 'турецкий'),
+            ('реакция', 'реагировать'), ('регулярный', 'иррегулярный'),
+            ('регулировать', 'урегулирование'), ('промежуток', 'промежуточный'),
+            ('сегодня', 'сегодняшний'), ('терапия', 'терапевт'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('мода', 'модификация'), ('мобильный', 'автомобиль'), ('библия', 'библиотека'),
+            ('ода', 'электрод'), ('диктатура', 'диктовать'), ('идея', 'идеал'),
+            ('регулировать', 'иррегулярный'), ('атлас', 'атласный'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_nest_anchor_batch_w4_2_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))

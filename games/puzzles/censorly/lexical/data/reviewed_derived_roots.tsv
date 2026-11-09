@@ -503,3 +503,53 @@ lemma	root_structure	note
 персона	root:persona	Corpus batch A2 (2026-11-09): persona/character; персонал (staff) and персональный are different senses.
 психика	root:psyche	Corpus batch A2 (2026-11-09): psyche; psychology keeps its own reviewed root.
 психический	root:psyche	Corpus batch A2 (2026-11-09): psyche; psychology keeps its own reviewed root.
+промежуточный	tikh:промежуток	Corpus batch A3 (2026-11-09): same root as промежуток.
+сегодня	tikh:сегодня	Corpus batch A3 (2026-11-09): base of сегодняшний, absent from Tikhonov.
+иррегулярный	tikh:регулярн	Corpus batch A3 (2026-11-09): irregular belongs to регулярный, not регулировать.
+пресса	root:press_media	Corpus batch A3 (2026-11-09): press (media); not пресс (machine).
+мода	root:fashion	Corpus batch A3 (2026-11-09): fashion; not модификация.
+модный	root:fashion	Corpus batch A3 (2026-11-09): fashion; not модификация.
+старомодный	root:fashion	Corpus batch A3 (2026-11-09): fashion; not модификация.
+модница	root:fashion	Corpus batch A3 (2026-11-09): fashion; not модификация.
+модистка	root:fashion	Corpus batch A3 (2026-11-09): fashion; not модификация.
+ультрамодный	root:fashion	Corpus batch A3 (2026-11-09): fashion; not модификация.
+новомодный	root:fashion	Corpus batch A3 (2026-11-09): fashion; not модификация.
+мобильный	root:mobile	Corpus batch A3 (2026-11-09): mobile; автомобиль keeps its own root.
+мобильность	root:mobile	Corpus batch A3 (2026-11-09): mobile; автомобиль keeps its own root.
+иммобильный	root:mobile	Corpus batch A3 (2026-11-09): mobile; автомобиль keeps its own root.
+библия	root:bible	Corpus batch A3 (2026-11-09): Bible; not библиотека.
+библейский	root:bible	Corpus batch A3 (2026-11-09): Bible; not библиотека.
+ода	root:ode	Corpus batch A3 (2026-11-09): ode; not электрод.
+одический	root:ode	Corpus batch A3 (2026-11-09): ode; not электрод.
+атеизм	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+атеист	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+атеистический	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+теизм	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+теист	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+теистический	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+монотеизм	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+монотеист	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+монотеистический	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+политеизм	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+политеистический	root:theism	Corpus batch A3 (2026-11-09): theism; теология is a compound.
+диктатура	root:dictator	Corpus batch A3 (2026-11-09): dictator; диктовать/диктор are a different sense.
+диктатор	root:dictator	Corpus batch A3 (2026-11-09): dictator; диктовать/диктор are a different sense.
+диктаторский	root:dictator	Corpus batch A3 (2026-11-09): dictator; диктовать/диктор are a different sense.
+диктаторство	root:dictator	Corpus batch A3 (2026-11-09): dictator; диктовать/диктор are a different sense.
+диктат	root:dictator	Corpus batch A3 (2026-11-09): dictator; диктовать/диктор are a different sense.
+идеал	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеальный	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеализм	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеалист	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеалистка	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеалистический	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеалистичный	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеализировать	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеализация	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеализированный	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+идеализирование	root:ideal	Corpus batch A3 (2026-11-09): ideal; идея is root:idea.
+вирус	root:virus	Corpus batch A3 (2026-11-09): virus, absent from both dictionaries.
+вирусный	root:virus	Corpus batch A3 (2026-11-09): virus, absent from both dictionaries.
+вирусология	root:virus	Corpus batch A3 (2026-11-09): virus, absent from both dictionaries.
+вирусолог	root:virus	Corpus batch A3 (2026-11-09): virus, absent from both dictionaries.
+противовирусный	root:virus	Corpus batch A3 (2026-11-09): virus, absent from both dictionaries.
