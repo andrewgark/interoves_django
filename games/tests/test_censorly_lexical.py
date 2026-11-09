@@ -750,6 +750,28 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_nest_anchor_batch_w4_2_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('чиновничество', 'чиновник'), ('свинина', 'свинья'), ('студент', 'студенческий'),
+            ('нация', 'нацист'), ('медведь', 'медвежонок'), ('вино', 'винный'),
+            ('век', 'увековечить'), ('тело', 'антитело'), ('москва', 'подмосковье'),
+            ('тринадцать', 'тринадцатый'), ('мягкий', 'смягчить'), ('мягче', 'мягкость'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        # Rejected nest-mates: different senses, homonyms and compounds.
+        for guess, target in (
+            ('вина', 'винный'), ('актер', 'актуальный'), ('текст', 'текстиль'),
+            ('радиус', 'радиация'), ('лень', 'ленный'), ('гора', 'угорский'),
+            ('идея', 'идеальный'), ('вид', 'видовой'), ('банк', 'банкомат'),
+            ('три', 'тринадцатый'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_adverb_rule_opens_the_adjective_family(self):
         tokens = [
             {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},

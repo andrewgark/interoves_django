@@ -936,9 +936,12 @@ class SemanticsTests(SimpleTestCase):
                     assignment_of(lemma)['source'], 'SEMANTIC_ROOT_ASSIGNMENT',
                 )
 
-        # Multi-component or ambiguous Tikhonov analyses remain unresolved;
-        # the audit must not turn a component resemblance into a root.
-        self.assertEqual(structures_of('духовенство'), ())
+        # Multi-component or ambiguous Tikhonov analyses stay out of the
+        # audit: it must not turn a component resemblance into a root.
+        # «духовенство» gets its root from a reviewed nest anchor instead.
+        self.assertEqual(
+            assignment_of('духовенство')['source'], 'REVIEWED_NEST_ANCHOR',
+        )
 
     def test_numeric_forms_share_numeral_roots(self):
         from games.puzzles.censorly.lexical.match.rootbank import structures_of
