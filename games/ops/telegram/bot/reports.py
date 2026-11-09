@@ -175,6 +175,10 @@ def build_admin_report(*, now=None):
     lines.append('<b>Итого</b>')
     lines.append('Начали: {} · {}'.format(_number(current_stats['started']), comparison_line('started')))
     lines.append('Завершили: {} · {}'.format(_number(current_stats['completed']), comparison_line('completed')))
+    from games.ops.analytics.retention_report import report_lines as retention_lines
+    retention = retention_lines(*current, weekly=kind == TelegramAdminReport.REPORT_WEEKLY)
+    if retention:
+        lines.extend([''] + retention)
     lines.append('')
     lines.extend(club_report_lines(current, comparisons, kind))
     from games.gameplay.offline_telemetry import report_lines
