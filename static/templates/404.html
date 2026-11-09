@@ -1,0 +1,17 @@
+{% extends "site/base.html" %}
+{% block title %}Страница не найдена{% endblock %}
+{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{# Django renders this for every 404 (DEBUG off); before Nov 9 visitors got its bare English «Not Found». #}
+<div class="new-empty new-not-found">
+  <h1 class="new-heading new-heading--page">Такой страницы нет</h1>
+  <p class="new-empty__text">Возможно, ссылка устарела или в ней опечатка. Ежедневные головоломки — на месте:</p>
+  <div class="new-empty__actions">
+    <a class="new-btn" href="/salad/last/">Салатик дня</a>
+    <a class="new-btn new-btn--ghost" href="/ladder/last/">Лесенка дня</a>
+    <a class="new-btn new-btn--ghost" href="/censorly/last/">Цензурка дня</a>
+    <a class="new-btn new-btn--ghost" href="/alphabetty/last/">Алфавитка дня</a>
+    <a class="new-btn new-btn--ghost" href="/">Все игры</a>
+  </div>
+</div>
+{% endblock %}
