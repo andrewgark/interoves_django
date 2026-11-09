@@ -960,6 +960,29 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_track_d_batch_1_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        # Spellings shared with several game roots: own family or the right one.
+        for guess, target in (
+            ('изотоп', 'изотопный'), ('радон', 'радоновый'), ('кубик', 'кубический'),
+            ('полюс', 'поляризация'), ('семантика', 'семантический'), ('копия', 'копировать'),
+            ('сузить', 'сужаться'), ('плоский', 'уплощение'), ('частица', 'античастица'),
+            ('уголь', 'углистый'), ('накопление', 'накопитель'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('топать', 'изотоп'), ('радость', 'радиация'), ('кубок', 'кубический'),
+            ('поле', 'полярный'), ('семья', 'семантика'), ('копать', 'копировать'),
+            ('легкий', 'легировать'), ('лавка', 'лава'), ('смерть', 'изомер'),
+            ('курица', 'куратор'), ('тонкий', 'гипертония'), ('угол', 'углистый'),
+            ('ведомый', 'неведомый'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_adverb_rule_opens_the_adjective_family(self):
         tokens = [
             {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},
