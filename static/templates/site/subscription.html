@@ -77,21 +77,26 @@
 
   <div class="new-card new-pay-order-card">
     {% if club_archive_gating_enabled %}
+      {% load filters %}
       {% if not has_club_access %}
         <h2 class="new-pay-order__name new-pay-order__name--club">
           <span class="new-pay-order__name--club-icons" aria-hidden="true"><i class="ph ph-key"></i><i class="ph ph-lock-key"></i></span>
+          {% if club_pitch %}
+          <span>Вы решили {{ club_pitch.solved }} {{ club_pitch.solved|ru_plural:club_pitch.forms }} — в архиве ещё {{ club_pitch.unsolved_in_archive }}</span>
+          {% else %}
           <span>Разблокируйте весь архив заданий</span>
+          {% endif %}
         </h2>
       {% else %}
         <div class="new-pay-order__name">Весь архив заданий</div>
       {% endif %}
-      <div class="new-pay-order__meta">Без подписки в каждом разделе доступны последние 7 заданий. Более ранние выпуски — с клубной подпиской.</div>
-      <div class="new-pay-order__also">Также:</div>
-      <ul class="new-pay-order__benefits">
-        <li><i class="ph ph-crown" aria-hidden="true"></i> Корона в таблице результатов</li>
-        <li><i class="ph ph-check-circle" aria-hidden="true"></i> Доступ в секретный чат резидентов клуба Inter Oves</li>
+      <div class="new-pay-order__meta">Без подписки открыты последние 7 выпусков каждой игры; клубная подписка открывает весь архив.</div>
+      <ul class="new-pay-order__benefits new-pay-order__benefits--chips">
+        <li><i class="ph ph-archive" aria-hidden="true"></i> <span>Весь архив</span></li>
         {# One span: in the flex row, bare text and links would wrap as separate items. #}
-        <li><i class="ph ph-check-circle" aria-hidden="true"></i> <span>Возможность играть случайные <a href="{% url 'new_alphabetty_hub' %}">Алфавитки</a> и <a href="{% url 'ui_censorly_hub' %}">Цензурки</a></span></li>
+        <li><i class="ph ph-shuffle" aria-hidden="true"></i> <span>Случайные <a href="{% url 'new_alphabetty_hub' %}">Алфавитки</a> и <a href="{% url 'ui_censorly_hub' %}">Цензурки</a></span></li>
+        <li><i class="ph ph-crown" aria-hidden="true"></i> <span>Корона в таблицах</span></li>
+        <li><i class="ph ph-chats-circle" aria-hidden="true"></i> <span>Чат резидентов клуба</span></li>
       </ul>
     {% else %}
       <div class="new-pay-order__name">Поддержка проекта</div>
@@ -169,17 +174,17 @@
 
     <div class="new-card new-pay-payment-card new-sub-checkout-card">
       <h2 class="new-pay-section-title">Оформить подписку</h2>
-      <p class="new-pay-order__meta">Одна клубная подписка, два способа оплаты. Выберите подходящий.</p>
+      <p class="new-pay-order__meta">Одна подписка, два способа оплаты{% if preferred_provider %} — подходящий для вас первым{% endif %}.</p>
 
       <div class="new-sub-providers">
-        <section class="new-sub-provider{% if not club_yookassa_enabled %} new-sub-provider--unavailable{% endif %}" aria-labelledby="new-sub-yookassa-title">
+        <section class="new-sub-provider{% if not club_yookassa_enabled %} new-sub-provider--unavailable{% endif %}{% if preferred_provider == 'yookassa' %} new-sub-provider--preferred{% endif %}" aria-labelledby="new-sub-yookassa-title">
           <header class="new-sub-provider__header">
             <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-credit-card"></i></span>
             <div>
               <h3 id="new-sub-yookassa-title">ЮKassa</h3>
               <p>Оплата российской картой · ₽</p>
             </div>
-            {% if not club_yookassa_enabled %}<span class="new-sub-provider__availability">Временно недоступна</span>{% endif %}
+            {% if not club_yookassa_enabled %}<span class="new-sub-provider__availability">Временно недоступна</span>{% elif preferred_provider == 'yookassa' %}<span class="new-sub-provider__badge">Рекомендуем</span>{% endif %}
           </header>
           <div class="new-sub-provider__offers">
             <article class="new-sub-offer">
@@ -212,14 +217,14 @@
           </div>
         </section>
 
-        <section class="new-sub-provider{% if not club_checkout_enabled or not club_eur %} new-sub-provider--unavailable{% endif %}" aria-labelledby="new-sub-tribute-title">
+        <section class="new-sub-provider{% if not club_checkout_enabled or not club_eur %} new-sub-provider--unavailable{% endif %}{% if preferred_provider == 'tribute' %} new-sub-provider--preferred{% endif %}" aria-labelledby="new-sub-tribute-title">
           <header class="new-sub-provider__header">
             <span class="new-sub-provider__icon" aria-hidden="true"><i class="ph ph-globe"></i></span>
             <div>
               <h3 id="new-sub-tribute-title">Tribute</h3>
               <p>Оплата иностранной картой · €</p>
             </div>
-            {% if not club_checkout_enabled or not club_eur %}<span class="new-sub-provider__availability">Временно недоступна</span>{% endif %}
+            {% if not club_checkout_enabled or not club_eur %}<span class="new-sub-provider__availability">Временно недоступна</span>{% elif preferred_provider == 'tribute' %}<span class="new-sub-provider__badge">Рекомендуем</span>{% endif %}
           </header>
           <div class="new-sub-provider__offers">
             {% if club_eur %}
@@ -300,9 +305,12 @@
     </div>
   {% endif %}
 
+  {# Folded by default: most visitors come for their own subscription. #}
+  <details class="new-sub-gift-details"{% if gift_payment_return or purchased_subscription_gifts %} open{% endif %}>
+  <summary class="new-sub-gift-details__summary"><i class="ph ph-gift" aria-hidden="true"></i> <span>Подписка в подарок</span> <span class="new-sub-gift-details__hint">активировать код или подарить другому</span></summary>
   <section class="new-sub-gift-section" aria-labelledby="new-sub-gift-section-title">
     <header class="new-sub-gift-section__header">
-      <h2 id="new-sub-gift-section-title">Подписка в подарок</h2>
+      <h2 id="new-sub-gift-section-title" class="new-visually-hidden">Подписка в подарок</h2>
       <p>Здесь можно активировать полученный код или купить подписку для другого человека.</p>
     </header>
 
@@ -444,6 +452,7 @@
   </div>
   {% endif %}
   </section>
+  </details>
 </div>
 {% if user.is_authenticated %}
 <script>

@@ -103,6 +103,33 @@ def _price_label(subscription: ClubSubscription | None) -> str:
     return '{} {} в месяц'.format(display, subscription.currency)
 
 
+def _preferred_provider(request):
+    """Which way to pay to put first: ЮKassa in Russia, Tribute elsewhere.
+
+    Only an ordering hint (both stay on the page), so the site-version
+    country guess is good enough; unknown keeps the usual order.
+    """
+    from games.site.http.visitor_country import visitor_country
+
+    if request.get_host().split(':')[0].startswith('ru.'):
+        return 'yookassa'
+    country = visitor_country(request)
+    if country == 'RU':
+        return 'yookassa'
+    if country and country != 'unknown':
+        return 'tribute'
+    return ''
+
+
+def _archive_pitch(user):
+    from games.club.offers.archive_pitch import archive_pitch
+
+    try:
+        return archive_pitch(user)
+    except Exception:
+        return None
+
+
 def _subscription_page_context(request):
     if (request.user.is_authenticated
             and (request.user.is_staff or request.user.is_superuser)
@@ -223,6 +250,11 @@ def _subscription_page_context(request):
             and has_club_access(request.user, now=now)
         ),
         'is_yookassa': is_yookassa,
+        'preferred_provider': _preferred_provider(request),
+        'club_pitch': (
+            _archive_pitch(request.user)
+            if request.user.is_authenticated and not has_club_access(request.user, now=now) else None
+        ),
         'is_monthly_plan': is_monthly,
         'saved_payment_method_label': saved_method.display_name if saved_method else '',
         'payment_method_detached': bool(

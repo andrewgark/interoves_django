@@ -285,7 +285,7 @@ class ClubYooKassaFlowTests(TestCase):
         self.assertIn('420 ₽', body)
         self.assertIn('600 ₽', body)
         self.assertNotIn('6 000 ₽', body)
-        self.assertIn('последние 7 заданий', body)
+        self.assertIn('последние 7 выпусков', body)
 
     def test_endpoints_require_auth(self):
         for name in (

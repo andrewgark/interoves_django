@@ -105,6 +105,17 @@ class ClubSubscriptionPageTests(TestCase):
         cls.unlinked = User.objects.create_user('club-unlinked', password='secret')
         Profile.objects.create(user=cls.unlinked, first_name='No', last_name='Tg')
 
+    def test_the_way_to_pay_for_the_visitors_country_comes_first(self):
+        from unittest.mock import patch as _patch
+        with _patch('games.site.http.visitor_country.visitor_country', return_value='RU'):
+            body = self.client.get('/subscription/').content.decode()
+        self.assertIn('new-sub-provider--preferred" aria-labelledby="new-sub-yookassa-title"', body)
+        with _patch('games.site.http.visitor_country.visitor_country', return_value='DE'):
+            body = self.client.get('/subscription/').content.decode()
+        self.assertIn('new-sub-provider--preferred" aria-labelledby="new-sub-tribute-title"', body)
+        # Gifts are folded away but still on the page.
+        self.assertIn('<details class="new-sub-gift-details"', body)
+
     def test_anonymous_sees_page_and_login_cta(self):
         response = self.client.get(reverse('new_subscription'))
         self.assertEqual(response.status_code, 200)
@@ -118,7 +129,7 @@ class ClubSubscriptionPageTests(TestCase):
         self.assertIn('€3.89', body)
         self.assertNotIn('12 месяцев', body)
         self.assertNotIn('за год', body)
-        self.assertIn('последние 7 заданий', body)
+        self.assertIn('последние 7 выпусков', body)
         self.assertIn('noindex,nofollow', body)
         self.assertIn('data-login-open', body)
         self.assertNotIn('Оформить вторую', body)

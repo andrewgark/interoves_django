@@ -4818,6 +4818,20 @@ html.new-ui-dark .new-team-switcher-active-box {
   list-style: none;
 }
 
+/* Subscription page: the Club's benefits as a row of compact chips. */
+.new-pay-order__benefits--chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.new-pay-order__benefits--chips li {
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: var(--tile);
+  font-size: 0.9rem;
+}
+
 .new-pay-order__benefits li {
   display: flex;
   align-items: flex-start;
@@ -4843,6 +4857,35 @@ html.new-ui-dark .new-team-switcher-active-box {
 .new-sub-gift-list {
   display: grid;
   gap: .8rem;
+}
+
+.new-sub-gift-details {
+  margin-top: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--card-radius);
+  background: var(--surface);
+}
+
+.new-sub-gift-details__summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.6rem;
+  padding: 0.9rem 1rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.new-sub-gift-details__hint {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 400;
+}
+
+.new-sub-gift-details[open] > .new-sub-gift-section {
+  margin: 0;
+  padding: 0 1rem 1rem;
+  border-top: 0;
 }
 
 .new-sub-gift-section {
@@ -12974,6 +13017,24 @@ button.new-word-salad__hint-btn:disabled {
   background: var(--surface);
 }
 
+/* The way to pay that fits the visitor's country comes first (subscription view). */
+.new-sub-provider--preferred {
+  order: -1;
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.new-sub-provider__badge {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .new-sub-provider--unavailable {
   border-style: dashed;
   background: var(--tile);
@@ -12981,9 +13042,15 @@ button.new-word-salad__hint-btn:disabled {
 
 .new-sub-provider__header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.7rem;
   min-height: 3rem;
+}
+
+/* Narrow cards: the badge drops below the name instead of squeezing it. */
+.new-sub-provider__header > div {
+  min-width: 9rem;
 }
 
 .new-sub-provider__header > div {
@@ -13598,6 +13665,38 @@ button.new-word-salad__hint-btn:disabled {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.new-signup-prompt__reasons {
+  margin: 0 0 0.6rem;
+  padding: 0;
+  list-style: none;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.new-signup-prompt__reasons li {
+  display: flex;
+  gap: 0.45rem;
+  align-items: flex-start;
+  margin-bottom: 0.3rem;
+}
+
+.new-signup-prompt__reasons .ph {
+  flex: none;
+  margin-top: 0.1rem;
+  color: var(--muted, currentColor);
+}
+
+.new-signup-prompt__providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.new-signup-prompt__later {
+  font-size: 0.85rem;
 }
 
 /* Must match --new-break-wide (920px). */
