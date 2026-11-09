@@ -1,14 +1,23 @@
-{% load filters %}
+{% load filters socialaccount %}
 {# Anonymous regulars: offer a profile after a finished daily game. Eligibility: games.site.http.context.signup_prompt. #}
 {% if signup_prompt.show %}
+{% auth_next as auth_next_url %}
 <aside class="new-signup-prompt pal-card" aria-labelledby="new-signup-prompt-title" data-signup-prompt data-signup-prompt-days="{{ signup_prompt.days }}" hidden>
   <button type="button" class="new-rules-modal__close new-signup-prompt__close" aria-label="Закрыть" data-signup-prompt-dismiss><i class="ph ph-x" aria-hidden="true"></i></button>
   <p id="new-signup-prompt-title" class="new-signup-prompt__title">Вы играете уже {{ signup_prompt.days }} {{ signup_prompt.days|ru_day_word }} — сохраните прогресс</p>
-  <p class="new-signup-prompt__text">Заведите профиль: решённые задания и серии перенесутся в него и не потеряются при смене браузера или устройства, а вы появитесь в таблице результатов.</p>
-  <div class="new-signup-prompt__actions">
-    <button type="button" class="new-btn" data-login-open data-signup-prompt-accept>Создать профиль</button>
-    <button type="button" class="new-btn new-btn--ghost" data-signup-prompt-dismiss>Позже</button>
+  <ul class="new-signup-prompt__reasons">
+    <li><i class="ph ph-devices" aria-hidden="true"></i> Решённые задания и серии не пропадут при смене браузера или телефона</li>
+    <li><i class="ph ph-bell-ringing" aria-hidden="true"></i> Напоминание о новом выпуске в Telegram</li>
+    <li><i class="ph ph-users-three" aria-hidden="true"></i> Друзья и их результаты, вы — в таблице результатов</li>
+  </ul>
+  <p class="new-signup-prompt__text">Вход в одну кнопку через соцсеть — никаких логинов и паролей. Всё, что вы уже решили, перенесётся.</p>
+  <div class="new-signup-prompt__providers">
+    <a class="new-btn new-btn--mini" href="{% url 'telegram_login' %}?next={{ auth_next_url|urlencode }}" data-signup-prompt-provider="telegram"><i class="ph ph-telegram-logo" aria-hidden="true"></i> Telegram</a>
+    <a class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'yandex' process='login' next=auth_next_url %}" data-signup-prompt-provider="yandex">Яндекс</a>
+    <a class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'google' process='login' next=auth_next_url %}" data-signup-prompt-provider="google"><i class="ph ph-google-logo" aria-hidden="true"></i> Google</a>
+    <a class="new-btn new-btn--mini new-btn--ghost" href="{% provider_login_url 'vk' next=auth_next_url %}" data-signup-prompt-provider="vk">VK</a>
   </div>
+  <button type="button" class="new-link-dotted new-signup-prompt__later" data-signup-prompt-dismiss>Позже</button>
 </aside>
 <script>
 (function () {
@@ -47,15 +56,14 @@
       hide();
     });
   });
-  var accept = card.querySelector('[data-signup-prompt-accept]');
-  if (accept) {
-    // The login dialog itself is opened by the delegated [data-login-open] handler.
-    accept.addEventListener('click', function () {
+  card.querySelectorAll('[data-signup-prompt-provider]').forEach(function (link) {
+    // A plain link: the goal is queued before the browser leaves for the provider.
+    link.addEventListener('click', function () {
       snooze();
+      params.provider = link.getAttribute('data-signup-prompt-provider');
       goal('signup_prompt_click');
-      hide();
     });
-  }
+  });
   window.interovesOnDailyResult(function () { window.setTimeout(show, 1800); });
 })();
 </script>
