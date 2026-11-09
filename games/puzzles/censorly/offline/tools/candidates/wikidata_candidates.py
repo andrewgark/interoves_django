@@ -19,7 +19,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from games.puzzles.censorly.article.pool import load_article_pool
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
 from games.puzzles.censorly.offline.tools.candidates.proper_candidates import is_one_token, normalize_lemma
 
 ENDPOINT = "https://query.wikidata.org/sparql"

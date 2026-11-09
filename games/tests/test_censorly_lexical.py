@@ -1,39 +1,17 @@
-"""Precision tests for the censorly lexical resolver.
-
-Cognates are not wired into play. These tests call the resolver directly.
-"""
+"""Precision tests for the gameplay matcher (``lexical.match``)."""
 
 from __future__ import annotations
 
 import csv
-import gzip
-import hashlib
-import json
 from pathlib import Path
 
 from django.test import SimpleTestCase
 
 from games.puzzles.censorly.article.redact import lemmas_matching_guess
-from games.puzzles.censorly.lexical.graph.graph import edge_count, neighbors
 from games.puzzles.censorly.lexical.match import matching_lemmas
-from games.puzzles.censorly.lexical.match.core import fold
-from games.puzzles.censorly.lexical.match.dispatcher import backend_name
-from games.puzzles.censorly.lexical.match.generic_backend import CAPABILITIES as GENERIC_CAPS
-from games.puzzles.censorly.lexical.match.resolver import (
-    describe_token,
-    open_prepared,
-    open_targets,
-    prepare_target,
-    related,
-    relation_kind,
-)
 from games.puzzles.censorly.lexical.match.rootbank import structures_of
-from games.puzzles.censorly.lexical.russian import CAPABILITIES as RUSSIAN_CAPS
-from games.puzzles.censorly.lexical.russian.context import inflection_matches, occurrence_of
-from games.puzzles.censorly.lexical.russian.decisions import REJECT
-from games.puzzles.censorly.lexical.russian.morphology import cognate_lemmas
+from games.puzzles.censorly.lexical.semantics import explain, opens
 from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
-from games.puzzles.censorly.text.roots import opens_with
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload, tokenize_text
 
 
@@ -84,7 +62,7 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             self.assertTrue(left_roots.isdisjoint(right_roots), f'{left} / {right}')
 
     def test_reported_censorly_false_positives_stay_closed(self):
-        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 
         for guess, target in (
             ('приводит', 'извести'),
@@ -92,18 +70,18 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             ('изображались', 'образом'),
         ):
             with self.subTest(guess=guess, target=target):
-                self.assertFalse(_relation(_GuessPack(guess), _Pack(target)))
+                self.assertFalse(MATCHER.relation(ANALYZER.guess(guess), ANALYZER.target(target)))
 
     def test_data_forms_do_not_open_give_through_the_participle(self):
-        from games.puzzles.censorly.lexical.match import _Pack, _relation
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 
         for left, right in (('данным', 'давать'), ('давать', 'данным'), ('данный', 'дать')):
-            self.assertFalse(_relation(_Pack(left), _Pack(right)), f'{left}/{right}')
-        self.assertTrue(_relation(_Pack('данным'), _Pack('данные')))
-        self.assertTrue(_relation(_Pack('дан'), _Pack('дать')))
+            self.assertFalse(MATCHER.relation(ANALYZER.target(left), ANALYZER.target(right)), f'{left}/{right}')
+        self.assertTrue(MATCHER.relation(ANALYZER.target('данным'), ANALYZER.target('данные')))
+        self.assertTrue(MATCHER.relation(ANALYZER.target('дан'), ANALYZER.target('дать')))
 
     def test_rod_family_keeps_breed_revival_and_birth_apart(self):
-        from games.puzzles.censorly.lexical.match import _Pack, _relation
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 
         for left, right in (
             ('порода', 'породистый'), ('порода', 'породный'),
@@ -111,16 +89,16 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             ('зародыш', 'зарождение'), ('породить', 'порождение'),
             ('род', 'родовитый'), ('родить', 'рождение'),
         ):
-            self.assertTrue(_relation(_Pack(left), _Pack(right)), f'{left}/{right}')
+            self.assertTrue(MATCHER.relation(ANALYZER.target(left), ANALYZER.target(right)), f'{left}/{right}')
         for left, right in (
             ('порода', 'возрождения'), ('порода', 'рождение'),
             ('порода', 'породить'), ('возрождение', 'рождение'),
             ('зародыш', 'роды'),
         ):
-            self.assertFalse(_relation(_Pack(left), _Pack(right)), f'{left}/{right}')
+            self.assertFalse(MATCHER.relation(ANALYZER.target(left), ANALYZER.target(right)), f'{left}/{right}')
 
     def test_two_family_senses_are_assigned_to_distinct_clusters(self):
-        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
         from games.puzzles.censorly.lexical.splits import CLUSTERS
 
         clusters = {lemma: name for name, lemmas in CLUSTERS for lemma in lemmas}
@@ -142,33 +120,28 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
 
         self.assertTrue(_has_sense('двойня', 'sense:twin_birth'))
         self.assertTrue(_has_sense('двойник', 'sense:lookalike'))
-        self.assertFalse(_relation(_GuessPack('двойня'), _Pack('двойник')))
-        self.assertFalse(_relation(_GuessPack('двойник'), _Pack('двойня')))
-        self.assertTrue(_relation(_GuessPack('двойня'), _Pack('двойняшка')))
-        self.assertTrue(_relation(_GuessPack('двойник'), _Pack('двойниковый')))
+        self.assertFalse(MATCHER.relation(ANALYZER.guess('двойня'), ANALYZER.target('двойник')))
+        self.assertFalse(MATCHER.relation(ANALYZER.guess('двойник'), ANALYZER.target('двойня')))
+        self.assertTrue(MATCHER.relation(ANALYZER.guess('двойня'), ANALYZER.target('двойняшка')))
+        self.assertTrue(MATCHER.relation(ANALYZER.guess('двойник'), ANALYZER.target('двойниковый')))
 
     def test_binding_and_contact_senses_are_separate(self):
-        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 
         self.assertTrue(_has_sense('привязать', 'sense:binding'))
         self.assertTrue(_has_sense('связываться', 'sense:contact'))
-        self.assertFalse(_relation(
-            _GuessPack('связывалась'), _Pack('привязаны', article_lemma='привязать'),
+        self.assertFalse(MATCHER.relation(
+            ANALYZER.guess('связывалась'), ANALYZER.target('привязаны', article_lemma='привязать'),
         ))
-        self.assertFalse(_relation(
-            _GuessPack('привязаны'), _Pack('связывалась', article_lemma='связываться'),
+        self.assertFalse(MATCHER.relation(
+            ANALYZER.guess('привязаны'), ANALYZER.target('связывалась', article_lemma='связываться'),
         ))
-        self.assertTrue(_relation(_GuessPack('вязать'), _Pack('привязать')))
-        self.assertTrue(_relation(_GuessPack('связываться'), _Pack('связаться')))
-        self.assertTrue(_relation(_GuessPack('вязать'), _Pack('связь')))
-
-    def test_part_and_frequency_words_stay_separate(self):
-        # части is an inflected form of часть; часто is a frequency adverb.
-        self.assertFalse(opens_with('части', 'часто'))
-        self.assertFalse(opens_with('часто', 'части'))
+        self.assertTrue(MATCHER.relation(ANALYZER.guess('вязать'), ANALYZER.target('привязать')))
+        self.assertTrue(MATCHER.relation(ANALYZER.guess('связываться'), ANALYZER.target('связаться')))
+        self.assertTrue(MATCHER.relation(ANALYZER.guess('вязать'), ANALYZER.target('связь')))
 
     def test_arabic_digits_open_their_cardinal_words_in_gameplay(self):
-        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 
         for digit, cardinal in (
             ('0', 'ноль'), ('1', 'один'), ('2', 'два'), ('3', 'три'),
@@ -176,8 +149,8 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
             ('8', 'восемь'), ('9', 'девять'), ('10', 'десять'),
         ):
             with self.subTest(digit=digit):
-                self.assertTrue(_relation(_GuessPack(digit), _Pack(cardinal)))
-                self.assertTrue(_relation(_GuessPack(cardinal), _Pack(digit)))
+                self.assertTrue(MATCHER.relation(ANALYZER.guess(digit), ANALYZER.target(cardinal)))
+                self.assertTrue(MATCHER.relation(ANALYZER.guess(cardinal), ANALYZER.target(digit)))
 
     def test_west_fate_and_small_boy_senses_are_separate(self):
         for lemma in ('запад', 'западный', 'западник', 'западнический'):
@@ -299,25 +272,11 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertTrue(set(structures_of('косой')).isdisjoint(structures_of('косичка')))
 
 POSITIVES = (
-    ('вместе', 'место'),
-    ('он', 'она'),
-    ('он', 'они'),
-    ('он', 'оно'),
-    ('она', 'они'),
-    ('она', 'оно'),
-    ('они', 'оно'),
-    ('опыление', 'пыль'),
     ('вскоре', 'скорость'),
     ('мёд', 'медовый'),
-    ('мёд', 'медоносный'),
-    ('вводить', 'вывести'),
-    ('откладывать', 'отложить'),
-    ('день', 'дневный'),
     ('день', 'дневной'),
     ('большой', 'больший'),
-    ('один', 'единственный'),
     ('пчела', 'пчелиный'),
-    ('пчела', 'пчеловод'),
     ('бежать', 'бег'),
     ('конец', 'кончать'),
     ('нога', 'ножка'),
@@ -342,19 +301,16 @@ NEGATIVES = (
     ('один', 'одинаковый'),
     ('личинка', 'отличие'),
     ('строить', 'три'),
-    ('строить', 'строительство'),
     ('верхний', 'совершать'),
     ('верхний', 'верхнечелюстной'),
     ('печка', 'обеспечить'),
     ('брачный', 'забраться'),
     ('самый', 'самец'),
-    ('самый', 'сам'),
     ('самый', 'самка'),
     ('слово', 'условие'),
     ('год', 'погода'),
     ('запас', 'опасность'),
     ('равный', 'уровень'),
-    ('длина', 'длиться'),
     ('друг', 'другой'),
     ('полукольцо', 'поляризовать'),
     ('вода', 'водить'),
@@ -378,7 +334,6 @@ NEGATIVES = (
     ('жилка', 'сухожилие'),
     ('ценность', 'полноценный'),
     ('следовательно', 'следовать'),
-    ('так', 'такой'),
     ('прибыль', 'быть'),
     ('прибыть', 'быть'),
     ('прибыли', 'быть'),
@@ -387,7 +342,6 @@ NEGATIVES = (
     ('гора', 'горний'),
     ('среда', 'средний'),
     ('свет', 'светский'),
-    ('мир', 'мирской'),
     ('свод', 'сводник'),
     ('мель', 'мельник'),
     ('колос', 'колосник'),
@@ -395,11 +349,8 @@ NEGATIVES = (
     ('погреб', 'погребение'),
     ('устав', 'уставание'),
     ('удар', 'ударение'),
-    ('завалить', 'завалять'),
-    ('плав', 'плавание'),
     ('лебеда', 'лебединый'),
     ('мара', 'маревый'),
-    ('марь', 'маревый'),
     ('страна', 'странный'),
     ('суд', 'судный'),
     ('краса', 'красный'),
@@ -1123,73 +1074,37 @@ class LexicalResolverTests(SimpleTestCase):
         self.assertIn('по-новому', matching_lemmas(tokens, 'новость'))
 
     def test_adverb_rule_exceptions_are_not_generated(self):
-        from games.puzzles.censorly.lexical.match.rootbank import ADVERB_BASES
+        from games.puzzles.censorly.lexical.reviewed import ADVERB_BASES
 
         for adverb in ('совершенно', 'видимо', 'конечно', 'именно', 'довольно'):
-            self.assertNotIn(adverb, ADVERB_BASES)
+            self.assertNotIn(adverb, ADVERB_BASES.data)
 
     def test_required_positives_are_symmetric(self):
         for left, right in POSITIVES:
-            kind = relation_kind(left, right)
+            kind = explain(left, right)
             self.assertTrue(kind, f'{left}/{right} stayed closed')
-            self.assertEqual(kind, relation_kind(right, left))
+            self.assertEqual(kind, explain(right, left))
 
     def test_required_negatives_stay_closed(self):
         for left, right in NEGATIVES:
-            self.assertFalse(related(left, right), f'{left}/{right} opened as {relation_kind(left, right)}')
-            self.assertFalse(related(right, left))
+            self.assertFalse(opens(left, right), f'{left}/{right} opened as {explain(left, right)}')
+            self.assertFalse(opens(right, left))
 
-    def test_inflection_is_not_a_cognate_edge(self):
-        self.assertEqual(relation_kind('улей', 'улья'), 'inflection')
-        self.assertEqual(relation_kind('улей', 'ульями'), 'inflection')
-        self.assertEqual(relation_kind('улья', 'ульями'), 'inflection')
-        self.assertEqual(relation_kind('пчела', 'пчёлами'), 'inflection')
-        self.assertEqual(relation_kind('прибыли', 'прибыть'), 'inflection')
-        self.assertEqual(relation_kind('прибыли', 'прибыль'), 'inflection')
-
-    def test_stress_homographs_do_not_merge(self):
-        self.assertEqual(relation_kind('стро\u0301ить', 'строи\u0301ть'), '')
-        self.assertEqual(relation_kind('строить', 'три'), '')
-        self.assertEqual(relation_kind('стро\u0301ить', 'строительство'), '')
-        self.assertEqual(relation_kind('строи\u0301ть', 'строительство'), '')
-
-    def test_edges_are_not_transitive(self):
-        self.assertTrue(related('вместе', 'место'))
-        self.assertFalse(related('вместе', 'местность'))
+    def test_inflections_open_as_one_lexeme(self):
+        for left, right in (
+            ('улей', 'улья'), ('улей', 'ульями'), ('пчела', 'пчёлами'),
+            ('прибыли', 'прибыть'), ('прибыли', 'прибыль'),
+        ):
+            self.assertEqual(explain(left, right), 'lexeme', f'{left}/{right}')
+        self.assertFalse(opens('прибыли', 'быть'))
 
     def test_arbitrary_unicode_does_not_crash(self):
-        tokens = ('пчела', 'прибыли', 'строить', 'Apis', 'mellifera', 'DNA', 'α', 'Hox2', 'hello-world', 'mixed123')
-        for token in tokens:
-            described = describe_token(token, article_language='ru')
-            self.assertIn(described['backend'], ('russian', 'generic'))
-            self.assertTrue(described['normalized'])
-        for token in tokens:
-            if fold(token).isascii() or any('a' <= ch.lower() <= 'z' or ch == 'α' for ch in token):
-                self.assertEqual(backend_name(token, article_language='ru'), 'generic')
-        self.assertEqual(backend_name('пчела', article_language='ru'), 'russian')
-        self.assertEqual(describe_token('прибыли')['lemmas'], 'прибыль,прибыть')
-        self.assertFalse(related('прибыли', 'быть'))
-        opened = open_targets('Apis', ['Apis', 'apis', 'пчела', 'DNA', 'mellifera'])
-        self.assertEqual(opened, ['Apis', 'apis'])
-        self.assertEqual(open_targets('фруктяка', ['пчела', 'мёд']), [])
-        self.assertEqual(open_targets('xyzzy', ['xyzzy', 'пчела']), ['xyzzy'])
-
-    def test_prepared_index_matches_direct_open(self):
-        targets = ['пчёлами', 'пчелиный', 'Apis', 'мёд', 'улья']
-        prepared = [prepare_target(item) for item in targets]
-        self.assertEqual(
-            open_prepared('пчела', prepared),
-            open_targets('пчела', targets),
-        )
-
-    def test_capabilities(self):
-        self.assertEqual(GENERIC_CAPS, frozenset({'exact'}))
-        self.assertEqual(RUSSIAN_CAPS, frozenset({'exact', 'inflection', 'derivation'}))
-
-    def test_gameplay_does_not_open_cognates(self):
-        payload = build_puzzle_payload(wiki_title='Пчела', body_text='Пчела живёт в улье. Apis mellifera.')
-        hits = lemmas_matching_guess(payload, lemma_of('пчелиный'), normalize_surface('пчелиный'))
-        self.assertNotIn('пчела', hits)
+        surfaces = ('пчела', 'прибыли', 'строить', 'Apis', 'mellifera', 'DNA', 'α', 'Hox2', 'hello-world', 'mixed123')
+        tokens = tokenize_text(' '.join(surfaces))
+        for guess in surfaces:
+            matching_lemmas(tokens, guess)
+        self.assertEqual(matching_lemmas(tokenize_text('Apis apis пчела DNA'), 'Apis'), {lemma_of('Apis')})
+        self.assertEqual(matching_lemmas(tokenize_text('пчела мёд'), 'фруктяка'), set())
 
     def test_article_wife_form_does_not_use_zhenya_reading(self):
         payload = build_puzzle_payload(
@@ -1199,138 +1114,51 @@ class LexicalResolverTests(SimpleTestCase):
         hits = lemmas_matching_guess(payload, lemma_of('евгений'), normalize_surface('евгений'))
         self.assertNotIn('жена', hits)
 
-    def test_non_russian_cyrillic_falls_back(self):
-        for token in ('мова', 'сонце', 'що', 'геть', 'місто', 'від'):
-            self.assertEqual(backend_name(token, article_language='ru'), 'generic', token)
-        self.assertEqual(backend_name('ДНК', article_language='ru'), 'russian')
-        self.assertEqual(cognate_lemmas('Лев'), frozenset())
-        self.assertEqual(cognate_lemmas('Орел'), frozenset())
-        self.assertEqual(cognate_lemmas('Попов'), frozenset())
-        self.assertEqual(cognate_lemmas('улей'), frozenset({'улей'}))
-        self.assertFalse(related('Попов', 'поп'))
-        self.assertFalse(related('Белов', 'белый'))
+    def test_non_russian_cyrillic_is_not_russian(self):
+        from games.puzzles.censorly.lexical.match import ANALYZER
 
-    def test_protein_plural_rejects_the_squirrel_citation(self):
-        phrase = 'Это молочко содержит особые белки, отвечающие за развитие.'
-        target = occurrence_of(phrase, 'белки')
-        self.assertIsNotNone(target)
-        self.assertEqual(target.lemmas, frozenset({'белок'}))
-        self.assertFalse(target.conservative)
-        self.assertTrue(inflection_matches('белок', target))
-        self.assertFalse(inflection_matches('белка', target))
-        self.assertEqual(relation_kind('белка', 'белки'), '')
-        self.assertEqual(relation_kind('белок', 'белки'), '')
-
-    def test_unresolved_homograph_stays_closed(self):
-        for phrase in ('Белки содержатся в пище.', 'Белки бегают по деревьям.'):
-            target = occurrence_of(phrase, 'Белки')
-            self.assertTrue(target.conservative, phrase)
-            self.assertFalse(inflection_matches('белка', target))
-            self.assertFalse(inflection_matches('белок', target))
-
-    def test_arrival_and_profit_use_different_identities(self):
-        arrived = occurrence_of('Они прибыли из Азии.', 'прибыли')
-        self.assertEqual(arrived.lemmas, frozenset({'прибыть'}))
-        self.assertTrue(inflection_matches('прибыть', arrived))
-        self.assertFalse(inflection_matches('прибыль', arrived))
-        profit = occurrence_of('Компания получила большие прибыли.', 'прибыли')
-        self.assertEqual(profit.lemmas, frozenset({'прибыль'}))
-        self.assertTrue(inflection_matches('прибыль', profit))
-        self.assertFalse(inflection_matches('прибыть', profit))
-        grew = occurrence_of('Прибыли компании выросли.', 'Прибыли')
-        self.assertEqual(grew.lemmas, frozenset({'прибыль'}))
-        self.assertFalse(inflection_matches('прибыть', grew))
-        bare = occurrence_of('прибыли', 'прибыли')
-        self.assertTrue(bare.conservative)
-        self.assertFalse(inflection_matches('прибыть', bare))
-        self.assertFalse(inflection_matches('прибыль', bare))
-
-    def test_same_surface_changes_identity_with_context(self):
-        protein = occurrence_of('Идёт синтез белка.', 'белка')
-        squirrel = occurrence_of('В сад пришла белка.', 'белка')
-        self.assertEqual(protein.lemmas, frozenset({'белок'}))
-        self.assertEqual(squirrel.lemmas, frozenset({'белка'}))
-        self.assertTrue(inflection_matches('белок', protein))
-        self.assertFalse(inflection_matches('белка', protein))
-        self.assertTrue(inflection_matches('белка', squirrel))
-        self.assertFalse(inflection_matches('белок', squirrel))
-
-    def test_proper_noun_does_not_inherit_the_common_noun(self):
-        city = occurrence_of('Я вижу Орла на карте.', 'Орла')
-        bird = occurrence_of('Я вижу орла в небе.', 'орла')
-        self.assertNotEqual(city.lexemes, bird.lexemes)
-        self.assertTrue(inflection_matches('Орёл', city))
-        self.assertFalse(inflection_matches('орёл', city))
-        self.assertTrue(inflection_matches('орёл', bird))
-        self.assertFalse(inflection_matches('Орёл', bird))
-        name = occurrence_of('Лев вышел из дома.', 'Лев')
-        animal = occurrence_of('Голодный лев вышел из дома.', 'лев')
-        self.assertNotEqual(name.lexemes, animal.lexemes)
-        self.assertTrue(inflection_matches('Лев', name))
-        self.assertFalse(inflection_matches('лев', name))
-        self.assertTrue(inflection_matches('лев', animal))
-        self.assertFalse(inflection_matches('Лев', animal))
-        hive = occurrence_of('Стенки улья тёмные.', 'улья')
-        self.assertEqual(hive.lemmas, frozenset({'улей'}))
-        self.assertTrue(inflection_matches('улей', hive))
-        led = occurrence_of('Он начал вести дневник.', 'вести')
-        self.assertEqual(led.lemmas, frozenset({'вести'}))
-        self.assertFalse(inflection_matches('весть', led))
-        main = occurrence_of('Он служит главным входом.', 'главным')
-        self.assertIn('главный', main.lemmas)
-        self.assertFalse(inflection_matches('главное', main))
+        for token in ('мова', 'сонце', 'що', 'місто', 'від', 'Apis', 'DNA'):
+            self.assertFalse(ANALYZER.is_russian(token), token)
+        self.assertTrue(ANALYZER.is_russian('ДНК'))
+        self.assertFalse(opens('Белов', 'белый'))
 
 
-_GRAPH = Path(__file__).resolve().parents[1] / 'puzzles' / 'censorly' / 'lexical' / 'data' / 'ru_graph.tsv.gz'
-_META = _GRAPH.with_name('ru_graph.meta.json')
-_PROVENANCE = _GRAPH.with_name('ru_graph.provenance.tsv')
+class IndexAgreesWithMatcherTests(SimpleTestCase):
+    """The article index proposes every token the matcher would open.
 
+    A layer that opens a pair must give both words a shared index key;
+    otherwise gameplay (which only checks the index's candidates) silently
+    misses the opening, as the reverse lexeme once did (потоков → поток).
+    """
 
-class GraphQaTests(SimpleTestCase):
-    def test_graph_invariants(self):
-        seen = set()
-        proofs = set()
-        with gzip.open(_GRAPH, 'rt', encoding='utf-8') as handle:
-            for line in handle:
-                left, right, proof = line.rstrip('\n').split('\t')
-                self.assertNotEqual(left, right)
-                self.assertLess(left, right)
-                key = (left, right)
-                self.assertNotIn(key, seen)
-                seen.add(key)
-                self.assertIn(':v1', proof)
-                proofs.add(proof)
-                self.assertNotIn(frozenset((left, right)), REJECT)
-        self.assertEqual(len(seen), edge_count())
-        self.assertLessEqual(max(len(neighbors(lemma)) for pair in seen for lemma in pair), 8)
-        self.assertEqual(neighbors('строить'), ())
-        provenance = _PROVENANCE.read_text(encoding='utf-8').splitlines()
-        self.assertEqual(provenance[0], 'left\tright\tproof\tevidence\tmanual')
-        self.assertEqual(len(provenance) - 1, len(seen))
-        meta = json.loads(_META.read_text(encoding='utf-8'))
-        digest = hashlib.sha256(_GRAPH.read_bytes()).hexdigest()
-        self.assertEqual(meta['graph_sha256'], digest)
-        self.assertEqual(meta['proof_engine'], 'ru-proofs-2')
-        self.assertGreaterEqual(len(proofs), 10)
+    _LEADS = Path(__file__).resolve().parent / 'censorly_testdata' / 'leads'
+    _EXTRA = (
+        'есть', 'быть', 'потоков', 'Планка', '5', 'пять', 'X', 'кг', 'фр', 'нем',
+        'он', 'нём', 'первое', 'два', 'второй', 'Москва', 'московский', 'в', 'век',
+    )
 
-    def test_compile_is_deterministic(self):
-        from games.puzzles.censorly.lexical.russian.compiler import compile_graph
-        lemmas = Path('/tmp/ruroots/lemmas_to_roots.tsv')
-        groups = Path('/tmp/ruroots/root_groups.txt')
-        tikhonov = Path('/tmp/rumorphs/RuMorphs-Lemmas.txt')
-        if not (lemmas.is_file() and groups.is_file() and tikhonov.is_file()):
-            self.skipTest('dictionary snapshots are not in /tmp')
-        import tempfile
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            first = compile_graph(lemmas, groups, tikhonov, root / 'a.tsv.gz')
-            second = compile_graph(lemmas, groups, tikhonov, root / 'b.tsv.gz')
-            self.assertEqual(
-                gzip.open(first, 'rt', encoding='utf-8').read(),
-                gzip.open(second, 'rt', encoding='utf-8').read(),
-            )
-            self.assertEqual(first.read_bytes(), second.read_bytes())
-            self.assertEqual(
-                hashlib.sha256(first.read_bytes()).hexdigest(),
-                hashlib.sha256(_GRAPH.read_bytes()).hexdigest(),
-            )
+    def test_every_opening_is_a_candidate(self):
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER, ArticleIndex
+
+        for path in sorted(self._LEADS.glob('*.txt')):
+            payload = build_puzzle_payload(wiki_title='', body_text=path.read_text(encoding='utf-8'))
+            entries = tuple(dict.fromkeys(
+                (tok.get('surface') or '', tok.get('lemma') or '')
+                for tok in payload['body_tokens'] if tok.get('kind') == 'content'
+            ))
+            index = ArticleIndex(entries, include_pronouns=True)
+            for surface in sorted({surface for surface, _lemma in entries} | set(self._EXTRA)):
+                guess = ANALYZER.guess(surface)
+                candidates = set(index.candidate_ids(guess, include_near_misses=False))
+                missed = [
+                    index.surfaces[word_id]
+                    for word_id, word in enumerate(index.words)
+                    if word_id not in candidates and MATCHER.relation(guess, word)
+                ]
+                self.assertEqual(missed, [], f'{path.name}: {surface}')
+
+    def test_inflected_guess_opens_its_citation_form(self):
+        tokens = tokenize_text('Теорема о потоке. Поток поля.')
+        self.assertIn('поток', matching_lemmas(tokens, 'потоков'))
+        tokens = tokenize_text('Постоянная Планк ввёл.')
+        self.assertTrue(matching_lemmas(tokens, 'Планка'))

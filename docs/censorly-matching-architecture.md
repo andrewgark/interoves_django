@@ -1,5 +1,12 @@
 # Цензурки: архитектура матчинга
 
+> **Исторический снимок до рефакторинга 2026-11-10.** Параллельные
+> реализации из §3 удалены, `_Pack`/`_relation` заменены на
+> `ANALYZER`/`MATCHER`, план из §7 выполнен или перенесён в
+> [censorly-matching-refactor-plan.md](censorly-matching-refactor-plan.md).
+> Актуальное устройство — в
+> [censorly-matching-algorithm.md](censorly-matching-algorithm.md).
+
 Снимок от 2026-11-05. Цифры получены командой
 `games.puzzles.censorly.offline.tools.coverage_report` и замерами из этого
 разбора. Если код изменился, пересчитай их, а не доверяй документу.

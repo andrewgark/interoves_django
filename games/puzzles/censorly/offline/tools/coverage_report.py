@@ -24,9 +24,9 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match import _Pack
+from games.puzzles.censorly.lexical.deciders.layers import ALIAS
+from games.puzzles.censorly.lexical.match import ANALYZER
 from games.puzzles.censorly.lexical.match.rootbank import provenance
-from games.puzzles.censorly.lexical.semantics import _ALIASES
 from games.puzzles.censorly.offline.corpus import load_corpus
 from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
@@ -58,7 +58,7 @@ def _opens_at_runtime(lemma: str, surface: str, alias_words: frozenset) -> bool:
         return False
     # The article side: a token keeps its stored lemma, so the guess-side
     # short-adjective reading of «примерно» does not count here.
-    return bool(_Pack(surface, article_lemma=lemma).roots)
+    return bool(ANALYZER.target(surface, article_lemma=lemma).roots)
 
 
 def main():
@@ -79,7 +79,7 @@ def main():
     tokens = Counter({'service': corpus.service_tokens})
     gaps: dict[tuple[str, str], Counter] = defaultdict(Counter)
     details: dict[str, str] = {}
-    alias_words = frozenset(word for group in _ALIASES for word in group)
+    alias_words = frozenset(word for group in ALIAS.groups for word in group)
     for lemma, count in corpus.tokens.items():
         info = prov.get(lemma) or {'source': 'ABSENT', 'detail': ''}
         source = info['source']

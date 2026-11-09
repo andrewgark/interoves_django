@@ -17,8 +17,8 @@ import django
 
 django.setup()
 
-from games.puzzles.censorly.lexical.match import _ArticleIndex, _GuessPack, _Pack, _relation
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER, ArticleIndex
 from games.puzzles.censorly.lexical.match.rootbank import structures_of, tikhonov_roots_of
 from games.puzzles.censorly.text.flags import open_pronouns_enabled
 from games.puzzles.censorly.text.tokenize import all_tokens, resolve_puzzle_payload
@@ -70,14 +70,14 @@ def find_near_misses(payload, *, limit=200):
         for surface, lemmas in lemmas_by_surface.items()
         for lemma in lemmas
     ))
-    targets = _ArticleIndex(
+    targets = ArticleIndex(
         entries, include_pronouns=include_pronouns,
     )
     target_by_entry = {
-        entry: pack for entry, pack in zip(entries, targets.packs)
+        entry: pack for entry, pack in zip(entries, targets.words)
     }
     packs = {
-        surface: _GuessPack(
+        surface: ANALYZER.guess(
             surface, include_pronouns=include_pronouns,
             article_lemma=next(iter(lemmas_by_surface[surface]))
             if len(lemmas_by_surface[surface]) == 1 else None,
@@ -103,10 +103,10 @@ def find_near_misses(payload, *, limit=200):
                 continue
             surface_a = sorted(surfaces_by_lemma[lemma_a])[0]
             surface_b = sorted(surfaces_by_lemma[lemma_b])[0]
-            reason_ab = _relation(
+            reason_ab = MATCHER.relation(
                 packs[surface_a], target_by_entry[(surface_b, lemma_b)],
             )
-            reason_ba = _relation(
+            reason_ba = MATCHER.relation(
                 packs[surface_b], target_by_entry[(surface_a, lemma_a)],
             )
             if reason_ab or reason_ba:

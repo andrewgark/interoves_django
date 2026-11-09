@@ -19,26 +19,21 @@ import django
 
 django.setup()
 
-from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical import reviewed
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.deciders.rootbank import ROOT_BANK, game_root_id
+from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 from games.puzzles.censorly.lexical.match.rootbank import (
-    _KUZ_GROUPS,
-    _KUZ_LEMMAS,
-    _SENSE,
-    _TIKHONOV,
-    REVIEWED_DERIVED_ROOTS,
-    REVIEWED_OPAQUE_ROOTS,
-    _families,
-    _game_id,
-    _lines,
-    _norm,
-    _plain,
-    _strip_note,
     assignment_of,
     families_of,
     structures_of,
 )
-from games.puzzles.censorly.lexical.russian.compiler import _families as compiler_families
+from games.puzzles.censorly.lexical.senses import SENSES as _SENSE
+from games.puzzles.censorly.lexical.sources import KUZNETSOVA, TIKHONOV
+from games.puzzles.censorly.lexical.sources.base import plain as _plain
+
+REVIEWED_DERIVED_ROOTS = reviewed.DERIVED_ROOTS.data
+REVIEWED_OPAQUE_ROOTS = reviewed.OPAQUE_ROOTS.data
 from games.puzzles.censorly.offline.corpus import load_corpus
 
 SUFFIXES = (
@@ -103,34 +98,16 @@ def _review_knowledge(review_file):
 
 
 def _tikhonov():
-    by_root = defaultdict(set)
-    by_lemma = {}
-    for line in _lines(_TIKHONOV):
-        raw, decomposition = line.split('\t', 1)
-        lemma = fold(_strip_note(raw))
-        roots = []
-        for part in decomposition.split('/'):
-            if ':' not in part:
-                continue
-            morph, kind = part.rsplit(':', 1)
-            if kind == 'ROOT':
-                spelling = _plain(morph)
-                if spelling:
-                    roots.append(spelling)
-        if lemma and roots:
-            by_lemma[lemma] = tuple(roots)
-            for root in set(roots):
-                by_root[root].add(lemma)
-    return by_root, by_lemma
+    by_lemma = {lemma: TIKHONOV.roots_of(lemma) for lemma in TIKHONOV.lemmas()}
+    return defaultdict(set, TIKHONOV.lemmas_by_root()), by_lemma
 
 
 def _root_spelling_ids():
-    families = compiler_families(_KUZ_GROUPS)
     result = {}
-    for morph, family in families.items():
-        plain = _plain(morph)
-        if plain:
-            result.setdefault(plain, set()).add(_game_id(morph, family))
+    for morph, family in KUZNETSOVA.data.family_of_morph.items():
+        spelled = _plain(morph)
+        if spelled:
+            result.setdefault(spelled, set()).add(game_root_id(morph, family))
     return result
 
 
@@ -155,9 +132,9 @@ def _matcher_probe(pairs, pack_cache):
     """Run the real matcher on a bounded evidence-derived pair set."""
     reasons = []
     for guess, target in pairs:
-        gp = pack_cache.setdefault(('g', guess), _GuessPack(guess))
-        tp = pack_cache.setdefault(('t', target), _Pack(target))
-        reason = _relation(gp, tp)
+        gp = pack_cache.setdefault(('g', guess), ANALYZER.guess(guess))
+        tp = pack_cache.setdefault(('t', target), ANALYZER.target(target))
+        reason = MATCHER.relation(gp, tp)
         reasons.append({'guess': guess, 'target': target, 'reason': reason or 'CLOSED'})
     if any(item['reason'] not in {'CLOSED', ''} for item in reasons):
         status = 'ALREADY_OPEN'
@@ -216,7 +193,7 @@ def _family_row(root, members, root_ids, bank, corpus_lemmas, suppressed, pack_c
 
 def mine(args):
     started = time.perf_counter()
-    bank, _ = __import__('games.puzzles.censorly.lexical.match.rootbank', fromlist=['_bank'])._bank()
+    bank = ROOT_BANK.built().structures
     review_rows, reviewed_pairs, suppressed, suppressed_lemmas, applied_lemmas = _review_knowledge(args.review_file)
     corpus = load_corpus()
     corpus_tokens, corpus_lemmas, corpus_surfaces = corpus.content_tokens, corpus.tokens, corpus.tokens

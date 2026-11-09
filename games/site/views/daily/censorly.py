@@ -40,7 +40,7 @@ from games.ops.telegram.links import task_play_url
 from games.puzzles.censorly import CensorlyMoveRefusal, CensorlyPuzzle
 from games.puzzles.censorly.article import reports as censorly_word_reports
 from games.puzzles.censorly.article.admin import taxonomy as censorly_taxonomy
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
 from games.puzzles.censorly.play import (
     CENSORLY_HINT_PENALTY,
     _actor_filters,

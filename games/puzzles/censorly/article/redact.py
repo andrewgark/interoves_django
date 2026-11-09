@@ -24,7 +24,6 @@ def _token_public(
     title_lemmas: set[str],
     title_related_lemmas: set[str],
     show_endings: bool,
-    lexical: bool = False,
 ) -> dict[str, Any]:
     # Flags are sent only when true: a 7k-token article otherwise spends a
     # third of its JSON on "in_title":false, "guessed":false, "hinted":false.
@@ -64,23 +63,15 @@ def _token_public(
         out['revealed'] = True
         return out
 
-    if lexical:
-        from games.puzzles.censorly.lexical.semantics import initially_open
-        from games.puzzles.censorly.text.flags import open_pronouns_enabled
-        token_open = tok.get('initially_open')
-        is_open = (
-            bool(token_open) if token_open is not None else
-            initially_open(tok.get('surface') or '', include_pronouns=open_pronouns_enabled())
-        )
-        if is_open:
-            lemma = tok.get('lemma') or ''
-            if lemma and lemma in title_lemmas:
-                out['title_lemma'] = True
-            elif lemma and lemma in title_related_lemmas:
-                out['title_related'] = True
-            out['text'] = strip_combining_marks(tok.get('display') or tok.get('surface') or '')
-            out['revealed'] = True
-            return out
+    if content_token_open_at_start(tok):
+        lemma = tok.get('lemma') or ''
+        if lemma and lemma in title_lemmas:
+            out['title_lemma'] = True
+        elif lemma and lemma in title_related_lemmas:
+            out['title_related'] = True
+        out['text'] = strip_combining_marks(tok.get('display') or tok.get('surface') or '')
+        out['revealed'] = True
+        return out
 
     lemma = tok.get('lemma') or ''
     length = int(tok.get('length') or 0)
@@ -129,20 +120,18 @@ def build_public_view(
     won: bool = False,
     show_endings: bool | None = None,
 ) -> dict[str, Any]:
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
     revealed = {str(x) for x in (revealed_lemmas or []) if x}
     hinted = {str(x) for x in (hinted_lemmas or []) if x}
     # Bright lock: the title word itself in any form. Dim lock: words the
     # title word opens through a root or another relation.
     title_lemmas = title_content_lemmas(payload) | title_lexeme_lemmas(payload)
     title_related_lemmas = title_opening_lemmas(payload) - title_lemmas
-    lexical = lexical_resolver_enabled()
     endings_on = CENSORLY_SHOW_MASK_ENDINGS if show_endings is None else bool(show_endings)
     title = [
         _token_public(
             t, revealed_lemmas=revealed, last_lemma=last_lemma, hinted_lemmas=hinted, won=won,
             title_lemmas=title_lemmas, title_related_lemmas=title_related_lemmas,
-            show_endings=endings_on, lexical=lexical,
+            show_endings=endings_on,
         )
         for t in (payload.get('title_tokens') or [])
     ]
@@ -150,7 +139,7 @@ def build_public_view(
         _token_public(
             t, revealed_lemmas=revealed, last_lemma=last_lemma, hinted_lemmas=hinted, won=won,
             title_lemmas=title_lemmas, title_related_lemmas=title_related_lemmas,
-            show_endings=endings_on, lexical=lexical,
+            show_endings=endings_on,
         )
         for t in (payload.get('body_tokens') or [])
     ]
@@ -169,34 +158,16 @@ def lemmas_matching_guess(
     payload: dict[str, Any], guess_lemma: str, guess_norm: str, *,
     cache_key=None, tokens=None,
 ) -> set[str]:
-    """Return lemmas in the puzzle that match the guess (lemma or surface)."""
+    """Stored lemmas of the puzzle's tokens that the guess opens."""
+    from games.puzzles.censorly.lexical.match import matching_lemmas
+
     tokens = all_tokens(payload) if tokens is None else tokens
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
-    if lexical_resolver_enabled():
-        from games.puzzles.censorly.lexical.match import matching_lemmas
-        return matching_lemmas(
-            tokens, guess_norm or guess_lemma, cache_key=cache_key,
-        )
-    hits: set[str] = set()
-    if not guess_lemma and not guess_norm:
-        return hits
-    for tok in tokens:
-        if tok.get('kind') != 'content':
-            continue
-        lemma = tok.get('lemma') or ''
-        surface_plain = strip_combining_marks(
-            (tok.get('surface') or '').lower().replace('ё', 'е')
-        )
-        if guess_lemma and lemma == guess_lemma:
-            hits.add(lemma)
-        elif guess_norm and surface_plain == guess_norm:
-            hits.add(lemma or guess_norm)
-    return hits
+    return matching_lemmas(tokens, guess_norm or guess_lemma, cache_key=cache_key)
 
 
 def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
     """Lemmas that guessing any title word would reveal in this puzzle."""
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled, open_pronouns_enabled
+    from games.puzzles.censorly.text.flags import open_pronouns_enabled
 
     title_rows = tuple(
         (str(token.get('surface') or ''), str(token.get('lemma') or ''))
@@ -211,7 +182,6 @@ def title_opening_lemmas(payload: dict[str, Any]) -> set[str]:
     return set(_title_opening_lemmas_cached(
         title_rows,
         body_rows,
-        lexical_resolver_enabled(),
         open_pronouns_enabled(),
     ))
 
@@ -222,10 +192,6 @@ def title_lexeme_lemmas(payload: dict[str, Any]) -> set[str]:
     Stored lemmas come from pymorphy's top reading, which can split one
     lexeme: «Граната» and «гранаты» get «гранат», «гранату» gets «граната».
     """
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
-
-    if not lexical_resolver_enabled():
-        return set()
     title_rows = tuple(sorted({
         (str(token.get('surface') or ''), str(token.get('lemma') or ''))
         for token in (payload.get('title_tokens') or [])
@@ -263,11 +229,9 @@ def _title_lexeme_lemmas_cached(
 def _title_opening_lemmas_cached(
     title_rows: tuple[tuple[str, str], ...],
     body_rows: tuple[tuple[str, str], ...],
-    _lexical_enabled: bool,
     _pronouns_enabled: bool,
 ) -> frozenset[str]:
-    # Keep both switches in the cache key; lemmas_matching_guess reads them
-    # from settings while calculating this variant.
+    # Keep the switch in the cache key; the matcher reads it from settings.
     title_tokens = [
         {'kind': 'content', 'surface': surface, 'lemma': lemma}
         for surface, lemma in title_rows

@@ -44,7 +44,7 @@ from games.puzzles.censorly.article.wiki import (
     WikipediaRequestFailed,
     fetch_article,
 )
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
 from games.puzzles.censorly.lexical.semantics import initially_open
 from games.puzzles.censorly.offline.corpus import (
     DATA_DIR,

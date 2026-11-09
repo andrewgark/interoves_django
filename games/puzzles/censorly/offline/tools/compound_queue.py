@@ -27,17 +27,14 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
 from games.puzzles.censorly.lexical.match.rootbank import (
-    _TIKHONOV,
-    _lines,
-    _plain,
-    _strip_note,
     provenance,
     root_components,
     structures_of,
     tikhonov_roots_of,
 )
+from games.puzzles.censorly.lexical.sources import TIKHONOV
 from games.puzzles.censorly.offline.corpus import load_corpus
 from games.puzzles.censorly.offline.tools.coverage_report import _GAP_SOURCES, _gap_kind
 
@@ -73,15 +70,8 @@ def main():
 
     corpus = load_corpus()
     prov = provenance()
-    families: dict[str, set[str]] = defaultdict(set)
-    tikh_lemmas = set()
-    for line in _lines(_TIKHONOV):
-        raw, seg = line.split('\t', 1)
-        lemma = fold(_strip_note(raw))
-        tikh_lemmas.add(lemma)
-        for part in seg.split('/'):
-            if part.endswith(':ROOT'):
-                families[_plain(part.rsplit(':', 1)[0])].add(lemma)
+    families: dict[str, set[str]] = defaultdict(set, TIKHONOV.lemmas_by_root())
+    tikh_lemmas = set(TIKHONOV.lemmas())
 
     groups: dict[tuple, list[str]] = defaultdict(list)
     for lemma in tikh_lemmas:

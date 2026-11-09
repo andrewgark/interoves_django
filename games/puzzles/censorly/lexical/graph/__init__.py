@@ -1,1 +1,0 @@
-"""Approved derivation graph."""

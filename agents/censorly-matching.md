@@ -1,26 +1,28 @@
 # Censorly matching: agent playbook
 
-Читать перед любой правкой матчинга Цензурок. Полный алгоритм (сущности,
-дерево решений, банк корней, что упростить) описан в
+Читать перед любой правкой матчинга Цензурок. Алгоритм (сущности,
+дерево решений, банк корней) описан в
 [docs/censorly-matching-algorithm.md](../docs/censorly-matching-algorithm.md),
-архитектура — в
-[docs/censorly-matching-architecture.md](../docs/censorly-matching-architecture.md),
+что сделано и что осталось — в
+[docs/censorly-matching-refactor-plan.md](../docs/censorly-matching-refactor-plan.md),
 роадмап и журнал — в [docs/censorly-dictionary-roadmap.md](../docs/censorly-dictionary-roadmap.md).
 
 ## Что живое
 
-Геймплей открывает слова **только** через
-`games/puzzles/censorly/lexical/match/__init__.py::_relation`
-(`analyze_guess`, `matching_lemmas`).
+Реализация матчинга одна: `games/puzzles/censorly/lexical/`. Решение по
+паре принимает `MATCHER.relation(guess_word, target_word)`
+(`lexical/deciders/matcher.py`), слова строит `ANALYZER`
+(`deciders/analyzer.py`). `semantics.explain(g, t)` — та же функция для пары
+слов без статьи.
 
-* `semantics.explain` — дубль, расходится с геймплеем примерно на 1% пар.
-* `match/resolver.py::relation_kind`, `lexical/graph`, `russian/{compiler,proofs,decisions,context}`
-  и `text/roots.py` в геймплей не подключены. `relation_kind` закрывает
-  около половины живых открытий.
+Регрессионные тесты пиши через `matching_lemmas(tokens, guess)`,
+`explain(guess, target)` или
+`MATCHER.relation(ANALYZER.guess(g), ANALYZER.target(t, article_lemma=l))`.
+Новый слой или шлюз: и предикат, и ключи индекса в одном классе в
+`deciders/layers.py`; тест `IndexAgreesWithMatcherTests` сверит их.
 
-Регрессионные тесты пиши через `matching_lemmas(tokens, guess)` или
-`_relation(_GuessPack(g), _Pack(t, article_lemma=l))`. Тест на
-`relation_kind` или `explain` не доказывает поведение в игре.
+Перед правкой матчера сними снимок и сравни после:
+`python -m games.puzzles.censorly.offline.tools.matching_snapshot --out /tmp/snap`.
 
 ## Жалоба → слой
 
@@ -42,7 +44,9 @@
 | FALSE NEGATIVE, имя собственное ↔ прилагательное | `lexical/match/proper_names.py`, трек P |
 | FALSE POSITIVE через общий корень семьи | sense-сплит в `lexical/splits.py`, скилл `censorly-root-family`, трек F |
 | FALSE POSITIVE, `source=UNIQUE_SPELLING_FALLBACK` (вена → венок) | `data/rejected_fallback.tsv` + верный корень в `reviewed_derived_roots.tsv`, трек E |
-| FALSE POSITIVE через ошибочное чтение pymorphy | `lexical/russian/reading_overrides.py` |
+| FALSE POSITIVE через ошибочное чтение pymorphy | `data/rejected_readings.tsv` (везде) или `data/target_readings.tsv` (при лемме, выбранной токенизатором) |
+| омограф, который решает предложение («том», «г.», «кит.») | правило в `text/tokenize.py` + `TokenContext` в `lexical/context.py` |
+| сокращение не открывает полную форму | `data/aliases.tsv` (сокращение-омограф обычного слова туда не клади, только в `labels.tsv`) |
 
 Чини семью целиком, а не одну пару. Отвергнутую семью запиши в
 `data/rejected_opaque_roots.tsv` с причиной. Это память: `candidate_miner`
@@ -79,18 +83,19 @@
 
 ## Что runtime читает из `data/`
 
-`dictionaries/*`, `reviewed_opaque_roots.tsv`, `reviewed_derived_roots.tsv`,
-`reviewed_existing_root_assignments.tsv`, `reviewed_nest_anchors.tsv`,
-`adverb_bases.tsv` (генерируется `adverb_rule`), `negation_pairs.tsv`, `half_compounds.tsv`,
-`rejected_fallback.tsv` (отвергнутые совпадения по написанию, трек E). Остальные TSV и TXT — это ревью-очереди, снимки аудитов
-или память тулов. Их изменение не влияет на игру.
+Ровно то, что перечислено в `lexical/reviewed/__init__.py` (каталог
+`ReviewedTable`), плюс `dictionaries/*` через `lexical/sources/`.
+`adverb_bases.tsv` генерирует `adverb_rule`. Остальные TSV и TXT — ревью-очереди
+или память тулов; их изменение не влияет на игру. Новую таблицу для игры
+добавляй только в этот каталог.
 
 ## Тесты
 
 ```bash
 INTEROVES_TEST_DB_PATH=/tmp/<свой>.sqlite3 ./run_tests.sh \
   games.tests.test_censorly_roots games.tests.test_censorly_lexical \
-  games.tests.test_censorly_semantics games.tests.test_censorly
+  games.tests.test_censorly_semantics games.tests.test_censorly \
+  games.tests.test_censorly_abbreviations games.tests.test_censorly_eponyms
 ```
 
 С 2026-11-06 набор зелёный: любое падение считай своим. Если тест

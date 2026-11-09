@@ -1,0 +1,24 @@
+surface	article_lemma	allowed	mode	note
+статью	статья	статья	filter	not the rare noun стать (stature)
+стекла	стечь	стечь	filter	kept only where the tokenizer chose the verb
+кому	кома	кома	closed	accusative of кома («в кому»)
+кому	кто	кто	filter	dative of кто
+том	тот	тот	filter	prepositional «в том»
+лет	год	год	filter	genitive plural of год, not лёт
+стекла	стекло	стекло	filter	plural of стекло
+всей	весь	весь	filter	not всеять
+объем	объем	объем	filter	not объесть
+западу	запад	запад	filter	
+правило	правило	правило	filter	
+моря	море	море	filter	
+жене	жена	жена	filter	not the name Женя
+дорога	дорога	дорога	filter	the noun, not the short adjective дорогой
+вышел	выйти	выйти	filter	not выслать
+вышла	выйти	выйти	filter	not выслать
+вышли	выйти	выйти	filter	not выслать
+нашли	найти	найти	filter	not наслать
+им	они	они	filter	pronoun, not the instrumental of имя
+трои	троить		filter	Troy in article text; empty set suppresses every reading
+вяжущих	вяжущий	вяжущий	filter	not the participle of вязать
+барабанов	барабан	барабан	substitute	the guess-side analysis drops this inflected surface
+есть	быть	быть	substitute	existential «есть» chosen by the tokenizer, not «eat»

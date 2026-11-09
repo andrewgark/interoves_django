@@ -5,7 +5,7 @@ from django.test import TestCase
 from games.models import BugReport
 from games.ops.telegram.bot.shadow import run_admin_alert_live
 from games.puzzles.censorly.article import reports as word_reports
-from games.puzzles.censorly.lexical.match import rootbank
+from games.puzzles.censorly.lexical.deciders.rootbank import ROOT_BANK
 from games.tests.test_censorly import _make_puzzle_task
 
 _DIAGNOSTIC = {'runtime': 'OPEN', 'classification': 'OPEN', 'recommendation': 'no fix required'}
@@ -108,8 +108,8 @@ class WordReportCompletionTests(TestCase):
             {'runtime', 'classification', 'recommendation', 'guess_structures',
              'target_structures', 'guess_assignment', 'target_assignment'},
         )
-        self.assertEqual(rootbank._bank.cache_info().currsize, 0)
-        self.assertEqual(rootbank._diagnostics.cache_info().currsize, 0)
+        self.assertEqual(ROOT_BANK.built.cache_info().currsize, 0)
+        self.assertEqual(ROOT_BANK.diagnostics.cache_info().currsize, 0)
 
     def test_diagnostic_failure_is_reported_as_unavailable(self):
         with patch('games.puzzles.censorly.offline.tools.review.explain_pair.explain_pair',

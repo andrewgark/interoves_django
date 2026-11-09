@@ -66,7 +66,7 @@ for lemma in sorted(set(opaque + ivolg + ['иволговый'])):
 t, r = mark('T6 lexeme form generation', t, r, f'forms={len(forms)}')
 
 t = time.perf_counter()
-from games.puzzles.censorly.offline.audit.prelaunch import iter_fixtures
+from games.puzzles.censorly.offline.fixtures import iter_fixtures
 
 t, r = mark('T7 fixture discovery', t, r)
 
@@ -90,7 +90,7 @@ for rel, _kind, body in iter_fixtures():
 t, r = mark('T9 affected surface filtering', t, r, f'occurrences={len(affected)}')
 
 t = time.perf_counter()
-packs = [match._GuessPack(surface) for _rel, _pos, surface in affected]
+packs = [match.ANALYZER.guess(surface) for _rel, _pos, surface in affected]
 t, r = mark('T10 runtime checks', t, r, f'packs={len(packs)}')
 
 t = time.perf_counter()

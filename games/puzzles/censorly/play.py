@@ -19,7 +19,6 @@ from django.utils import timezone
 from games.models import Attempt, ChainTaskState, Game, Task
 from games.puzzles.censorly.article.redact import (
     build_public_view,
-    lemmas_matching_guess,
     newly_revealed_ids,
     title_opening_lemmas,
     token_by_id,
@@ -115,9 +114,6 @@ def _is_initially_open_word(surface: str) -> bool:
     """Whether *surface* is visible before a player makes a guess."""
     if is_stop_word(surface):
         return True
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
-    if not lexical_resolver_enabled():
-        return False
     from games.puzzles.censorly.lexical.semantics import initially_open
     from games.puzzles.censorly.text.flags import open_pronouns_enabled
     return initially_open(surface, include_pronouns=open_pronouns_enabled())
@@ -711,9 +707,6 @@ def _lock_state(*, game, task, actor):
 
 def _record_lexical_decision(*, user, game, task, guess, payload, report=None) -> None:
     """Store which targets a guess opened and which near-misses it rejected."""
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
-    if not lexical_resolver_enabled():
-        return
     try:
         from games.models import StatisticsEvent
         from games.puzzles.censorly.lexical.match import decision
@@ -933,9 +926,6 @@ def _guess_matches(
     task: Task | None = None, include_report: bool = True,
 ) -> tuple[set[str], dict | None]:
     """Lemmas a guess opens, resolved exactly as a played guess is."""
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
-    if not lexical_resolver_enabled():
-        return lemmas_matching_guess(payload, guess_lemma, normalized), None
     from games.puzzles.censorly.lexical.match import analyze_guess
     tokens = chain(
         payload.get('title_tokens') or (),

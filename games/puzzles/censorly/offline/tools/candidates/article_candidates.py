@@ -18,8 +18,8 @@ import django
 
 django.setup()
 
-from games.puzzles.censorly.lexical.match import _ArticleIndex, _GuessPack, _relation
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER, ArticleIndex
 from games.puzzles.censorly.lexical.match.rootbank import structures_of, tikhonov_roots_of
 from games.puzzles.censorly.text.flags import open_pronouns_enabled
 from games.puzzles.censorly.text.tokenize import all_tokens, build_puzzle_payload
@@ -92,17 +92,17 @@ def find_open_pairs(payload, *, include_open=False, root_only=True):
     include_pronouns = open_pronouns_enabled()
     surfaces = tuple(sorted(lemmas_by_surface))
     entries = tuple(sorted(rows))
-    targets = _ArticleIndex(
+    targets = ArticleIndex(
         entries,
         include_pronouns=include_pronouns,
     )
     entries_by_surface = {}
     target_by_entry = {}
-    for entry, pack in zip(entries, targets.packs):
+    for entry, pack in zip(entries, targets.words):
         entries_by_surface.setdefault(entry[0], []).append(entry)
         target_by_entry[entry] = pack
     guesses = {
-        surface: _GuessPack(
+        surface: ANALYZER.guess(
             surface,
             include_pronouns=include_pronouns,
             article_lemma=next(iter(lemmas_by_surface[surface]))
@@ -128,8 +128,8 @@ def find_open_pairs(payload, *, include_open=False, root_only=True):
                         word_b=word_b,
                         lemma_a=entry_a[1],
                         lemma_b=entry_b[1],
-                        reason_ab=_relation(guesses[word_a], target_by_entry[entry_b]),
-                        reason_ba=_relation(guesses[word_b], target_by_entry[entry_a]),
+                        reason_ab=MATCHER.relation(guesses[word_a], target_by_entry[entry_b]),
+                        reason_ba=MATCHER.relation(guesses[word_b], target_by_entry[entry_a]),
                         include_open=include_open,
                         root_only=root_only,
                     )
@@ -158,10 +158,10 @@ def find_open_pairs(payload, *, include_open=False, root_only=True):
                     word_b=word_b,
                     lemma_a=lemma_a,
                     lemma_b=lemma_b,
-                    reason_ab=_relation(
+                    reason_ab=MATCHER.relation(
                         guesses[word_a], target_by_entry[(word_b, lemma_b)],
                     ),
-                    reason_ba=_relation(
+                    reason_ba=MATCHER.relation(
                         guesses[word_b], target_by_entry[(word_a, lemma_a)],
                     ),
                     include_open=include_open,

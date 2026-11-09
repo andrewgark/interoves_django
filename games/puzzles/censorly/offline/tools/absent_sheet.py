@@ -29,7 +29,7 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
 from games.puzzles.censorly.lexical.match.rootbank import assignment_of, structures_of
 from games.puzzles.censorly.offline.corpus import load_corpus
 

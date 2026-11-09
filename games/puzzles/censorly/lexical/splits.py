@@ -8,22 +8,55 @@ dictionary family and match neither cluster.
 from __future__ import annotations
 
 from collections import defaultdict
-from pathlib import Path
 
-from games.puzzles.censorly.lexical.match.core import fold
-from games.puzzles.censorly.lexical.russian.compiler import (
-    _families,
-    _lines,
-    _norm,
-    _strip_note,
-)
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.sources import KUZNETSOVA
 
 
 def install(sense, set_readings) -> None:
+    for name, lemmas in BASE_CLUSTERS:
+        sense(lemmas, name)
     for name, lemmas in CLUSTERS:
         sense(lemmas, name)
     for lemma, names in MULTI_READINGS:
         set_readings(lemma, names)
+
+
+# Early clusters, installed before CLUSTERS (a later assignment of the same
+# lemma wins). One id per modern cluster; lemmas not listed keep the
+# dictionary family, so мать/матушка stay together while матка leaves.
+BASE_CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ('sense:strange', ('странный', 'странно', 'странность', 'странноватый',)),
+    ('sense:size', ('крупный', 'крупнеть', 'покрупнеть',
+        'укрупнение', 'укрупненный', 'укрупнить', 'укрупниться', 'укрупнять', 'укрупняться',
+        'разукрупнение', 'разукрупнить', 'разукрупниться', 'разукрупнять', 'разукрупняться',)),
+    ('sense:couple', ('чета', 'четья',)),
+    ('sense:even', ('четный', 'нечетный', 'бессчетный',)),
+    ('sense:stuffy', ('душный',)),
+    ('sense:suit', ('годный', 'годность', 'годиться', 'негодный', 'негодник', 'негодница',
+        'негодяй', 'негодяйка', 'негодяйский', 'негодяйство', 'негодящий',)),
+    ('sense:weather', ('погода', 'непогода', 'непогодь', 'погодка', 'погодно', 'погодный', 'погодок', 'невзгода',)),
+    ('sense:benefit', ('выгода', 'выгодный', 'безвыгодный',)),
+    ('sense:society', ('светский', 'светскость',)),
+    ('sense:doomsday', ('судный',)),
+    ('sense:celestial', ('горний',)),
+    ('sense:fumes', ('угореть', 'угорелый', 'угорать',)),
+    ('sense:uterus', ('матка', 'маточник', 'маточный', 'безматок', 'безматочный', 'матица', 'матичный',)),
+    ('sense:wind', ('наматывать', 'наматываться', 'наматывание',)),
+    ('sense:swear', ('материть', 'материться', 'матерный', 'матерщина', 'матерка', 'безматерный',)),
+    ('sense:honor', ('почтение', 'почтеннейший', 'почтенность', 'почтенный', 'почти',
+        'почтительность', 'почтительный', 'почтить', 'предпочтение',
+        'предпочтительность', 'предпочтительный', 'причт', 'причтовый',
+        'учтивец', 'учтивость', 'учтивый', 'чтить', 'чтица',)),
+    ('sense:protein', ('белок', 'белковый', 'белковина', 'белочный', 'белочник',)),
+    ('sense:squirrel', ('белка', 'белочка', 'бельчонок', 'беличий',)),
+    ('sense:criminal', ('уголовник', 'уголовный', 'уголовщина',)),
+    ('sense:fish', ('голавль', 'голавлевый',)),
+    ('sense:firebrand', ('головешка',)),
+    ('sense:smut', ('головневый',)),
+    ('root:head', ('обезглавить', 'обезглавиться', 'обезглавленный', 'обезглавливание',
+        'обезглавливать', 'обезглавливаться', 'безглавый',)),
+)
 
 
 # (game id, lemmas). Order is not meaningful.
@@ -4937,14 +4970,10 @@ _REVIEW_EXTRA_CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 def _review_family_clusters() -> tuple[tuple[str, tuple[str, ...]], ...]:
-    groups = _families(Path(__file__).resolve().parent / 'data' / 'dictionaries' / 'root_groups.txt')
     members: dict[str, set[str]] = defaultdict(set)
-    lemmas_path = Path(__file__).resolve().parent / 'data' / 'dictionaries' / 'lemmas_to_roots.tsv'
-    for line in _lines(lemmas_path):
-        raw_lemma, raw_root = line.split('\t', 1)
-        family = groups.get(_norm(raw_root.strip()), _norm(raw_root.strip()))
+    for lemma, _root, family in KUZNETSOVA.rows():
         if family in _REVIEW_FAMILIES:
-            members[family].add(fold(_strip_note(raw_lemma)))
+            members[family].add(lemma)
 
     already = {
         fold(lemma)
@@ -7009,12 +7038,9 @@ _COUNT_PREFIXES = (
 )
 _HONOR_PREFIXES = ('почет', 'почт', 'почит', 'чест', 'чтить', 'учтив')
 _count_honor_overrides: dict[str, str] = {}
-_root_groups = _families(Path(__file__).resolve().parent / 'data' / 'dictionaries' / 'root_groups.txt')
-for _line in _lines(Path(__file__).resolve().parent / 'data' / 'dictionaries' / 'lemmas_to_roots.tsv'):
-    _raw_lemma, _raw_root = _line.split('\t', 1)
-    if _root_groups.get(_norm(_raw_root.strip()), _norm(_raw_root.strip())) != 'ч³|чес²|чет|чит|чт':
+for _lemma, _root, _family in KUZNETSOVA.rows():
+    if _family != 'ч³|чес²|чет|чит|чт':
         continue
-    _lemma = fold(_strip_note(_raw_lemma))
     if _lemma == 'почти':
         # «почти» is the adverb «almost», not a member of the honor
         # derivatives selected by the почт-/почит- prefix heuristic.
@@ -7043,12 +7069,9 @@ _KOSA_FAMILY_TARGETS = {
     'кос³': 'sense:hair_braid',
 }
 _kosa_members: dict[str, set[str]] = defaultdict(set)
-for _line in _lines(Path(__file__).resolve().parent / 'data' / 'dictionaries' / 'lemmas_to_roots.tsv'):
-    _raw_lemma, _raw_root = _line.split('\t', 1)
-    _root = _norm(_raw_root.strip())
-    _family = _root_groups.get(_root, _root)
+for _lemma, _root, _family in KUZNETSOVA.rows():
     if _family in _KOSA_FAMILY_TARGETS:
-        _kosa_members[fold(_strip_note(_raw_lemma))].add(_KOSA_FAMILY_TARGETS[_family])
+        _kosa_members[_lemma].add(_KOSA_FAMILY_TARGETS[_family])
 _kosa_members['коса'].discard('sense:oblique')
 _kosa_members['коса'].add('sense:spit_landform')
 _kosa_members['косач'] = {'sense:capercaillie'}
@@ -8487,10 +8510,3 @@ def _proper_cluster_roots() -> dict[str, tuple[tuple[str, ...], ...]]:
 
 
 SEMANTIC_ROOT_ASSIGNMENTS.update(_proper_cluster_roots())
-
-
-# A small reviewed compatibility relation for senses inside one root family.
-# This is not a pair edge: it applies to every complete structure carrying
-# the two reviewed subclasses.  Most different senses remain incompatible;
-# мать and матка were compatible once and are now apart.
-SENSE_COMPATIBLE: frozenset[frozenset[str]] = frozenset()

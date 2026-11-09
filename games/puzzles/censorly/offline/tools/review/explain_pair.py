@@ -13,12 +13,19 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation, _root_sense_compatible
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical import reviewed
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.deciders.layers import (
+    ALIAS,
+    EXACT,
+    GRAMMAR,
+    LEXEME,
+    PROPER,
+    REVERSE_LEXEME,
+    ROOT,
+)
+from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 from games.puzzles.censorly.lexical.match.rootbank import (
-    _KUZ_LEMMAS,
-    REVIEWED_DERIVED_ROOTS,
-    REVIEWED_OPAQUE_ROOTS,
     assignment_of,
     families_of,
     root_components,
@@ -26,17 +33,7 @@ from games.puzzles.censorly.lexical.match.rootbank import (
     structures_of,
     tikhonov_roots_of,
 )
-from games.puzzles.censorly.lexical.semantics import (
-    _ALIAS_GROUPS,
-    _GRAMMAR_GROUPS,
-    _alias,
-    _grammar,
-    _proper_pair,
-    _roots,
-    explain,
-    initially_open,
-    readings_of,
-)
+from games.puzzles.censorly.lexical.semantics import readings_of
 from games.puzzles.censorly.text.flags import open_pronouns_enabled
 
 
@@ -71,8 +68,8 @@ def _side(surface, pack):
         'sense_subclusters': sorted({item for item in sense_components(pack.roots)}),
         'families': sorted(pack.families),
         'assignment': assignment_of(surface),
-        'reviewed_opaque': fold(surface) in REVIEWED_OPAQUE_ROOTS,
-        'reviewed_derived': fold(surface) in REVIEWED_DERIVED_ROOTS,
+        'reviewed_opaque': fold(surface) in reviewed.OPAQUE_ROOTS.data,
+        'reviewed_derived': fold(surface) in reviewed.DERIVED_ROOTS.data,
         'tikhonov_roots': _tikhonov_roots(surface),
         'manual_root_assignment': assignment_of(surface)['source'] in {
             'SEMANTIC_ROOT_ASSIGNMENT', 'SEMANTIC_SPLIT_ROOTED',
@@ -85,29 +82,21 @@ def _side(surface, pack):
 
 
 def _layer_report(guess, target, *, include_pronouns):
-    # Diagnostics must describe the same packs and precedence as the runtime
-    # matcher.  Raw morphology here used to report openings through readings
-    # that the citation-form guess pack intentionally discarded.
-    gpack = _GuessPack(guess, include_pronouns=include_pronouns)
-    tpack = _Pack(target, include_pronouns=include_pronouns)
-    gread = gpack.reads
-    tread = tpack.reads
+    # Each layer answers on its own, before the matcher's order and gates.
+    gpack = ANALYZER.guess(guess, include_pronouns=include_pronouns)
+    tpack = ANALYZER.target(target, include_pronouns=include_pronouns)
     glex = gpack.lexemes
     tlex = tpack.lexemes
     groots = gpack.roots
     troots = tpack.roots
     return {
-        'EXACT': fold(guess) == fold(target),
-        'SAME_LEXEME': bool(glex & tlex),
-        'ROOT_SET_EQUALITY': bool(groots & troots),
-        'ROOT_SENSE_COMPATIBILITY': _root_sense_compatible(groots, troots),
-        'IRREGULAR_GRAMMAR': _grammar(gread, tread),
-        'ALIAS': _alias(fold(guess), fold(target)),
-        'PROPER_PAIR': _proper_pair(fold(guess), fold(target)),
-        'SERVICE_WORD': (
-            initially_open(guess, include_pronouns=include_pronouns)
-            or initially_open(target, include_pronouns=include_pronouns)
-        ),
+        'EXACT': EXACT.opens(gpack, tpack),
+        'SAME_LEXEME': LEXEME.opens(gpack, tpack) or REVERSE_LEXEME.opens(gpack, tpack),
+        'ROOT_SET_EQUALITY': ROOT.opens(gpack, tpack),
+        'IRREGULAR_GRAMMAR': GRAMMAR.opens(gpack, tpack),
+        'ALIAS': ALIAS.opens(gpack, tpack),
+        'PROPER_PAIR': PROPER.opens(gpack, tpack),
+        'SERVICE_WORD': gpack.service or tpack.service,
         'russian_guess': gpack.russian,
         'russian_target': tpack.russian,
         'guess_roots': sorted(groots),
@@ -136,7 +125,7 @@ def _classification(report, guess, target, actual):
     if (not gp or not tp) and len(gtikh) == 1 and len(ttikh) == 1 and gtikh == ttikh:
         return 'B', 'review family as REVIEWED_OPAQUE_ROOT'
     if not gp or not tp:
-        if fold(guess) in REVIEWED_DERIVED_ROOTS or fold(target) in REVIEWED_DERIVED_ROOTS:
+        if fold(guess) in reviewed.DERIVED_ROOTS.data or fold(target) in reviewed.DERIVED_ROOTS.data:
             return 'C', 'review lemma as REVIEWED_DERIVED_ROOT'
         return 'G/H', 'inspect missing morphology or root segmentation'
     if set(gp) & set(tp) and gp != tp:
@@ -148,10 +137,10 @@ def _classification(report, guess, target, actual):
 
 def explain_pair(guess, target):
     include_pronouns = open_pronouns_enabled()
-    gp = _GuessPack(guess, include_pronouns=include_pronouns)
-    tp = _Pack(target, include_pronouns=include_pronouns)
+    gp = ANALYZER.guess(guess, include_pronouns=include_pronouns)
+    tp = ANALYZER.target(target, include_pronouns=include_pronouns)
     layers = _layer_report(guess, target, include_pronouns=include_pronouns)
-    actual = _relation(gp, tp)
+    actual = MATCHER.relation(gp, tp)
     classification, recommendation = _classification(layers, guess, target, actual)
     return {
         'guess': _side(guess, gp),

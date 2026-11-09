@@ -29,7 +29,7 @@ except ImportError:  # pragma: no cover - standard-library fallback
     _json = json
 
 from games.puzzles.censorly.article.pool import load_article_pool
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
 
 _WIKI_LINK_RE = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]+)?\]\]")
 _ONE_TOKEN_RE = re.compile(r"^[\w\-‑]+$", re.UNICODE)
@@ -237,9 +237,9 @@ def normalize_lemma(value: str) -> tuple[str, tuple[str, ...]]:
     if not folded:
         return '', ('empty',)
     try:
-        from games.puzzles.censorly.lexical.russian.morphology import readings
+        from games.puzzles.censorly.lexical.semantics import guess_readings_of
 
-        found = readings(value)
+        found = guess_readings_of(value)
     except (ImportError, RuntimeError, ValueError):
         found = ()
     lemmas = {item.lemma for item in found if getattr(item, 'lemma', '')}

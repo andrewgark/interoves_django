@@ -6,7 +6,6 @@ from unittest import SkipTest, skipUnless
 
 from django.test import SimpleTestCase
 
-
 ROOT = Path(__file__).resolve().parents[2]
 
 

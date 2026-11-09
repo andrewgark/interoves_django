@@ -25,17 +25,14 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.deciders.layers import ALIAS
 from games.puzzles.censorly.lexical.match.rootbank import (
-    _TIKHONOV,
-    _lines,
-    _plain,
-    _strip_note,
     provenance,
     structures_of,
     tikhonov_roots_of,
 )
-from games.puzzles.censorly.lexical.semantics import _ALIASES
+from games.puzzles.censorly.lexical.sources import TIKHONOV
 from games.puzzles.censorly.offline.corpus import load_corpus
 from games.puzzles.censorly.offline.tools.coverage_report import _GAP_SOURCES, _gap_kind, _opens_at_runtime
 
@@ -76,18 +73,13 @@ def main():
 
     corpus = load_corpus()
     prov = provenance()
-    family: dict[str, set[str]] = defaultdict(set)
-    for line in _lines(_TIKHONOV):
-        raw, seg = line.split('\t', 1)
-        for part in seg.split('/'):
-            if part.endswith(':ROOT'):
-                family[_plain(part.rsplit(':', 1)[0])].add(fold(_strip_note(raw)))
+    family: dict[str, set[str]] = defaultdict(set, TIKHONOV.lemmas_by_root())
     rejected = {
         line.split('\t', 1)[0]
         for line in (DATA / 'rejected_opaque_roots.tsv').read_text(encoding='utf-8').splitlines()[1:]
     }
 
-    alias_words = frozenset(word for group in _ALIASES for word in group)
+    alias_words = frozenset(word for group in ALIAS.groups for word in group)
     gaps = []
     for lemma, count in corpus.tokens.items():
         info = prov.get(lemma) or {'source': 'ABSENT', 'detail': ''}

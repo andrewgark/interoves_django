@@ -15,7 +15,7 @@ import django
 django.setup()
 
 from games.models import CensorlyReviewCase
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
 from games.puzzles.censorly.offline.tools.review.explain_pair import explain_pair
 
 DATA = Path(__file__).resolve().parents[1] / 'data'

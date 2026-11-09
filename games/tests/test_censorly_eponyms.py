@@ -25,10 +25,12 @@ EPONYMS = (
 class ApprovedEponymPairTests(SimpleTestCase):
     def test_pairs_open_in_both_directions(self):
         for name, derivative in EPONYMS:
+            # In an article the person's name is capitalized.
+            written = name[:1].upper() + name[1:]
             self.assertEqual(explain(name, derivative), 'proper')
-            self.assertEqual(explain(derivative, name), 'proper')
+            self.assertEqual(explain(derivative, written), 'proper')
             self.assertTrue(opens(name, derivative))
-            self.assertTrue(opens(derivative, name))
+            self.assertTrue(opens(derivative, written))
 
     def test_pairs_support_inflected_forms(self):
         cases = (

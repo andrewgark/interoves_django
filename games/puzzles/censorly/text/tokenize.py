@@ -8,21 +8,21 @@ from itertools import groupby
 from typing import Any
 
 from games.puzzles.censorly.ids import CENSORLY_SPLITTER_VERSION
-from games.puzzles.censorly.lexical.russian.reading_overrides import (
-    CENTURY_ABBR_CONTEXT,
-    CITY_ABBR_CONTEXT,
-    LANGUAGE_LABEL_CONTEXTS,
-    LI_NAME_CONTEXT,
-    N_ERA_CONTEXT,
-    NEM_GERMAN_CONTEXT,
-    NEM_NONPRONOUN_CONTEXT,
-    NEM_PRONOUN_CONTEXT,
-    PAGE_ABBR_CONTEXT,
-    PO_SOFTWARE_CONTEXT,
-    STREET_ABBR_CONTEXT,
-    TELE_PREFIX_CONTEXT,
-    TOM_VOLUME_CONTEXT,
-    YEAR_ABBR_CONTEXT,
+from games.puzzles.censorly.lexical.context import (
+    CENTURY_ABBR,
+    CITY_ABBR,
+    LANGUAGE_LABELS,
+    LI_NAME,
+    N_ERA,
+    NEM_GERMAN,
+    NEM_NONPRONOUN,
+    NEM_PRONOUN,
+    PAGE_ABBR,
+    PO_SOFTWARE,
+    STREET_ABBR,
+    TELE_PREFIX,
+    TOM_VOLUME,
+    YEAR_ABBR,
     initial_context,
 )
 from games.puzzles.censorly.text.normalize import (
@@ -102,8 +102,8 @@ _WORD_CORE_RE = re.compile(
 # stays the preposition). «Ли» is the Korean/Chinese name: the particle «ли»
 # is enclitic and never opens a clause, so it is never capitalized.
 _CLOSED_STOP_HOMOGRAPHS = {
-    'ПО': PO_SOFTWARE_CONTEXT,
-    'Ли': LI_NAME_CONTEXT,
+    'ПО': PO_SOFTWARE,
+    'Ли': LI_NAME,
 }
 
 _HEADING_SPLIT_RE = re.compile(
@@ -691,6 +691,14 @@ def _is_century_number(tok: dict[str, Any]) -> bool:
     return surface.isdigit() or bool(_ROMAN_NUMERAL_RE.fullmatch(surface))
 
 
+def _set_context(tok: dict[str, Any], context) -> None:
+    """Mark one occurrence with an article context (see ``lexical.context``)."""
+    tok['lemma'] = context.marker
+    tok['context_reading'] = context.marker
+    if context.closed:
+        tok['initially_open'] = False
+
+
 def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Attach high-confidence, occurrence-specific readings before matching."""
     for index, tok in enumerate(tokens):
@@ -720,9 +728,7 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
         # match «век» through its reviewed contextual expansion.
         if word == 'в' and has_period and previous >= 0 and _is_century_number(tokens[previous]):
             tok['kind'] = 'content'
-            tok['lemma'] = CENTURY_ABBR_CONTEXT
-            tok['context_reading'] = CENTURY_ABBR_CONTEXT
-            tok['initially_open'] = False
+            _set_context(tok, CENTURY_ABBR)
             tok['length'] = 1
             tok['stem_length'] = 1
             continue
@@ -753,8 +759,7 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
         # prepositional phrase. A preceding preposition wins over the period.
         if word == 'нем':
             if 'ё' in surface.lower():
-                tok['lemma'] = NEM_PRONOUN_CONTEXT
-                tok['context_reading'] = NEM_PRONOUN_CONTEXT
+                _set_context(tok, NEM_PRONOUN)
             elif (
                 has_period
                 and _is_language_label_position(tokens, previous, after_period)
@@ -762,22 +767,15 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
                 # «от нем. Koralle» is a source-language label. The generic
                 # preposition check would otherwise mistake «от» for a
                 # pronoun governor and read «нем» as «нём».
-                tok['lemma'] = NEM_GERMAN_CONTEXT
-                tok['context_reading'] = NEM_GERMAN_CONTEXT
-                tok['initially_open'] = False
+                _set_context(tok, NEM_GERMAN)
             elif _is_preposition_governing_pronoun(
                 tokens, index, prepositions=_NEM_PRONOUN_PREPOSITIONS,
             ):
-                tok['lemma'] = NEM_PRONOUN_CONTEXT
-                tok['context_reading'] = NEM_PRONOUN_CONTEXT
+                _set_context(tok, NEM_PRONOUN)
             elif has_period:
-                tok['lemma'] = NEM_GERMAN_CONTEXT
-                tok['context_reading'] = NEM_GERMAN_CONTEXT
-                tok['initially_open'] = False
+                _set_context(tok, NEM_GERMAN)
             else:
-                tok['lemma'] = NEM_NONPRONOUN_CONTEXT
-                tok['context_reading'] = NEM_NONPRONOUN_CONTEXT
-                tok['initially_open'] = False
+                _set_context(tok, NEM_NONPRONOUN)
             continue
 
         # «том» is the prepositional «тот» only after a preposition
@@ -786,21 +784,17 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
         if word == 'том' and not _is_preposition_governing_pronoun(
             tokens, index, _DEMONSTRATIVE_MODIFIERS,
         ):
-            tok['lemma'] = TOM_VOLUME_CONTEXT
-            tok['context_reading'] = TOM_VOLUME_CONTEXT
-            tok['initially_open'] = False
+            _set_context(tok, TOM_VOLUME)
             continue
 
         # «кит.», «тур.», «лат.» are language labels only before a gloss;
         # «синий кит.» at the end of a sentence stays the animal.
-        label_context = LANGUAGE_LABEL_CONTEXTS.get(word)
+        label_context = LANGUAGE_LABELS.get(word)
         if (
             label_context and has_period
             and _is_language_label_position(tokens, previous, after_period)
         ):
-            tok['lemma'] = label_context
-            tok['context_reading'] = label_context
-            tok['initially_open'] = False
+            _set_context(tok, label_context)
             continue
 
         # «теле-шоу» splits into «теле» and «шоу»; «в теле» stays «тело».
@@ -810,15 +804,12 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             and tokens[index + 1].get('kind') == 'punct'
             and tokens[index + 1].get('surface') == '-'
         ):
-            tok['lemma'] = TELE_PREFIX_CONTEXT
-            tok['context_reading'] = TELE_PREFIX_CONTEXT
+            _set_context(tok, TELE_PREFIX)
             continue
 
         # Case-sensitive: sentence-initial «По» remains the preposition.
         if surface in _CLOSED_STOP_HOMOGRAPHS:
-            tok['lemma'] = _CLOSED_STOP_HOMOGRAPHS[surface]
-            tok['context_reading'] = _CLOSED_STOP_HOMOGRAPHS[surface]
-            tok['initially_open'] = False
+            _set_context(tok, _CLOSED_STOP_HOMOGRAPHS[surface])
             continue
 
         # «н. э.» has an established contextual reading (“нашей эры”).
@@ -835,9 +826,7 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
                     and tokens[e_dot].get('kind') == 'punct'
                     and tokens[e_dot].get('surface') == '.'
                 ):
-                    tok['lemma'] = N_ERA_CONTEXT
-                    tok['context_reading'] = N_ERA_CONTEXT
-                    tok['initially_open'] = False
+                    _set_context(tok, N_ERA)
                     continue
 
         if not has_period:
@@ -848,21 +837,13 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
             if next_word_index < len(tokens) else ''
         )
         if word == 'г' and previous >= 0 and (tokens[previous].get('surface') or '').isdigit():
-            tok['lemma'] = YEAR_ABBR_CONTEXT
-            tok['context_reading'] = YEAR_ABBR_CONTEXT
-            tok['initially_open'] = False
+            _set_context(tok, YEAR_ABBR)
         elif word == 'г' and next_surface[:1].isupper():
-            tok['lemma'] = CITY_ABBR_CONTEXT
-            tok['context_reading'] = CITY_ABBR_CONTEXT
-            tok['initially_open'] = False
+            _set_context(tok, CITY_ABBR)
         elif word == 'стр' and next_surface.isdigit():
-            tok['lemma'] = PAGE_ABBR_CONTEXT
-            tok['context_reading'] = PAGE_ABBR_CONTEXT
-            tok['initially_open'] = False
+            _set_context(tok, PAGE_ABBR)
         elif word == 'ул' and next_surface[:1].isupper():
-            tok['lemma'] = STREET_ABBR_CONTEXT
-            tok['context_reading'] = STREET_ABBR_CONTEXT
-            tok['initially_open'] = False
+            _set_context(tok, STREET_ABBR)
     return tokens
 
 
@@ -1032,9 +1013,6 @@ def all_tokens(payload: dict[str, Any]) -> list[dict[str, Any]]:
 
 def content_token_open_at_start(tok: dict[str, Any]) -> bool:
     """Whether a content token is rendered open before any guess."""
-    from games.puzzles.censorly.text.flags import lexical_resolver_enabled
-    if not lexical_resolver_enabled():
-        return False
     if tok.get('initially_open') is not None:
         return bool(tok.get('initially_open'))
     from games.puzzles.censorly.lexical.semantics import initially_open

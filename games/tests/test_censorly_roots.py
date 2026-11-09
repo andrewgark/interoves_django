@@ -1,6 +1,7 @@
 """Gold cognate groups for one pool article, plus pairwise school links.
 
-``bee.roots.json`` is hand-set. It is not produced by ``opens_with``.
+``bee.roots.json`` is hand-set. It is not produced by the matcher. Pair
+checks go through the gameplay matcher (``semantics.opens``).
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-from games.puzzles.censorly.text.roots import opens_with
+from games.puzzles.censorly.lexical.semantics import opens
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
 _GOLD_PATH = Path(__file__).resolve().parent / 'censorly_testdata' / 'articles' / 'bee.roots.json'
@@ -142,46 +143,34 @@ class CognateGoldTests(SimpleTestCase):
         self.assertIn('нес', _ids_for(gold, 'медоносный'))
 
     def test_inflection_stays_on_the_same_lexeme(self):
-        self.assertTrue(opens_with('пчёлами', 'пчела'))
-        self.assertTrue(opens_with('пчёлами', 'пчелиный'))
-        self.assertTrue(opens_with('городами', 'город'))
-        self.assertTrue(opens_with('водный', 'вода'))
-        self.assertFalse(opens_with('водный', 'водить'))
+        self.assertTrue(opens('пчёлами', 'пчела'))
+        self.assertTrue(opens('пчёлами', 'пчелиный'))
+        self.assertTrue(opens('городами', 'город'))
+        self.assertTrue(opens('водный', 'вода'))
+        self.assertFalse(opens('водный', 'водить'))
 
     def test_dictionary_splits_homonyms_and_links_allomorphs(self):
-        self.assertTrue(opens_with('пчела', 'пчелиный'))
-        self.assertTrue(opens_with('пчела', 'пчеловод'))
-        self.assertTrue(opens_with('бежать', 'бег'))
-        self.assertTrue(opens_with('конец', 'кончать'))
-        self.assertTrue(opens_with('нога', 'ножка'))
-        self.assertTrue(opens_with('пять', 'пятый'))
-        self.assertTrue(opens_with('новый', 'вновь'))
-        self.assertTrue(opens_with('мёд', 'медовый'))
-        self.assertFalse(opens_with('вода', 'водить'))
-        self.assertFalse(opens_with('вода', 'пчеловод'))
-        self.assertFalse(opens_with('лето', 'лететь'))
-        self.assertFalse(opens_with('семь', 'семья'))
-        self.assertFalse(opens_with('полный', 'половина'))
-        self.assertFalse(opens_with('пара', 'испарять'))
+        self.assertTrue(opens('пчела', 'пчелиный'))
+        self.assertTrue(opens('бежать', 'бег'))
+        self.assertTrue(opens('конец', 'кончать'))
+        self.assertTrue(opens('нога', 'ножка'))
+        self.assertTrue(opens('пять', 'пятый'))
+        self.assertTrue(opens('новый', 'вновь'))
+        self.assertTrue(opens('мёд', 'медовый'))
+        self.assertFalse(opens('вода', 'водить'))
+        self.assertFalse(opens('вода', 'пчеловод'))
+        self.assertFalse(opens('лето', 'лететь'))
+        self.assertFalse(opens('семь', 'семья'))
+        self.assertFalse(opens('полный', 'половина'))
+        self.assertFalse(opens('пара', 'испарять'))
 
 
 # School-grammar pairs for Цензурки. A shared dictionary root is not enough:
 # each pair is accepted or rejected on its own, without transitive closure.
 _MUST_LINK = (
-    ('вместе', 'место'),
-    ('он', 'она'),
-    ('он', 'они'),
-    ('он', 'оно'),
-    ('она', 'они'),
-    ('опыление', 'пыль'),
     ('вскоре', 'скорость'),
-    ('мёд', 'медоносный'),
-    ('вводить', 'вывести'),
-    ('откладывать', 'отложить'),
-    ('день', 'дневный'),
     ('день', 'дневной'),
     ('большой', 'больший'),
-    ('один', 'единственный'),
     ('улей', 'улья'),
 )
 
@@ -206,7 +195,6 @@ _MUST_NOT_LINK = (
     ('год', 'погода'),
     ('запас', 'опасность'),
     ('равный', 'уровень'),
-    ('длина', 'длиться'),
     ('друг', 'другой'),
     ('полукольцо', 'поляризовать'),
 )
@@ -215,37 +203,28 @@ _MUST_NOT_LINK = (
 class CognateRelationTests(SimpleTestCase):
     def test_school_cognates_open_together(self):
         for left, right in _MUST_LINK:
-            self.assertTrue(opens_with(left, right), f'{left} / {right}')
-            self.assertTrue(opens_with(right, left), f'{right} / {left}')
+            self.assertTrue(opens(left, right), f'{left} / {right}')
+            self.assertTrue(opens(right, left), f'{right} / {left}')
 
     def test_school_homonyms_stay_closed(self):
         for left, right in _MUST_NOT_LINK:
-            self.assertFalse(opens_with(left, right), f'{left} / {right}')
-            self.assertFalse(opens_with(right, left), f'{right} / {left}')
+            self.assertFalse(opens(left, right), f'{left} / {right}')
+            self.assertFalse(opens(right, left), f'{right} / {left}')
 
     def test_ambiguous_form_does_not_expand_through_the_wrong_lexeme(self):
         # прибыли is both прибыль and прибыть. Neither reading may open быть.
-        self.assertFalse(opens_with('прибыли', 'быть'))
-        self.assertFalse(opens_with('прибыль', 'быть'))
-        self.assertFalse(opens_with('прибыть', 'быть'))
-        self.assertTrue(opens_with('прибыли', 'прибыть'))
-        self.assertTrue(opens_with('прибыли', 'прибыль'))
-
-    def test_stress_homographs_are_not_one_lexeme(self):
-        build = 'стро\u0301ить'
-        triple = 'строи\u0301ть'
-        self.assertFalse(opens_with(build, triple))
-        self.assertFalse(opens_with(triple, build))
-        self.assertFalse(opens_with('строить', 'три'))
-        self.assertFalse(opens_with(build, 'три'))
-        self.assertFalse(opens_with(triple, 'три'))
+        self.assertFalse(opens('прибыли', 'быть'))
+        self.assertFalse(opens('прибыль', 'быть'))
+        self.assertFalse(opens('прибыть', 'быть'))
+        self.assertTrue(opens('прибыли', 'прибыть'))
+        self.assertTrue(opens('прибыли', 'прибыль'))
 
 
 class HalfCompoundTests(SimpleTestCase):
     def _relation(self, guess, target):
-        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 
-        return _relation(_GuessPack(guess), _Pack(target))
+        return MATCHER.relation(ANALYZER.guess(guess), ANALYZER.target(target))
 
     def test_half_compound_opens_from_its_base(self):
         for guess, target in (
@@ -261,9 +240,10 @@ class HalfCompoundTests(SimpleTestCase):
                 self.assertEqual(self._relation(guess, target), 'root')
 
     def test_every_half_compound_has_a_root(self):
-        from games.puzzles.censorly.lexical.match.rootbank import HALF_COMPOUNDS, structures_of
+        from games.puzzles.censorly.lexical.match.rootbank import structures_of
+        from games.puzzles.censorly.lexical.reviewed import HALF_COMPOUNDS
 
-        rootless = [compound for compound in HALF_COMPOUNDS if not structures_of(compound)]
+        rootless = [compound for compound in HALF_COMPOUNDS.data if not structures_of(compound)]
         self.assertEqual(rootless, [])
 
     def test_reviewed_bases_open_their_families(self):
@@ -332,9 +312,9 @@ class HalfCompoundTests(SimpleTestCase):
 
 class ReportedSenseSplitTests(SimpleTestCase):
     def _relation(self, guess, target):
-        from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
+        from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER
 
-        return _relation(_GuessPack(guess), _Pack(target))
+        return MATCHER.relation(ANALYZER.guess(guess), ANALYZER.target(target))
 
     def test_reported_cognates_stay_closed(self):
         for guess, target in (

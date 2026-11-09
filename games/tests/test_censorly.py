@@ -374,16 +374,14 @@ class CensorlyEngineTests(TestCase):
                 self.assertIn(letter, opened)
 
     def test_ibn_stays_masked_until_guessed(self):
-        from django.test import override_settings
 
         game, task, _hash, puzzle = _make_puzzle_task(
             title='Ибн Сина',
             body='Сабит ибн Курра. ИБН.',
         )
         user = User.objects.create_user('cz_ibn', password='x')
-        with override_settings(CENSORLY_LEXICAL_RESOLVER=True):
-            initial = get_play_state(game=game, task=task, user=user)
-            result = apply_guess(game=game, task=task, word='ибн', user=user)
+        initial = get_play_state(game=game, task=task, user=user)
+        result = apply_guess(game=game, task=task, word='ибн', user=user)
 
         self.assertEqual(result['status'], 'hit')
         self.assertEqual(result['attempts'], 1)
@@ -400,11 +398,10 @@ class CensorlyEngineTests(TestCase):
                     self.assertEqual(after['text'], token['surface'])
 
     def test_selected_particles_stay_masked_until_guessed(self):
-        from django.test import override_settings
 
         user = User.objects.create_user('cz_hidden_particles', password='x')
         for word in ('бин', 'дель', 'ле', 'эль', 'ин', 'герне', 'мол', 'ка', 'ок', 'окей'):
-            with self.subTest(word=word), override_settings(CENSORLY_LEXICAL_RESOLVER=True):
+            with self.subTest(word=word):
                 game, task, _hash, _puzzle = _make_puzzle_task(
                     title=f'Корзина {word}',
                     body=f'{word} {word.title()} {word.upper()}',
@@ -474,7 +471,7 @@ class CensorlyEngineTests(TestCase):
         self.assertGreaterEqual(result['hits'], 2)
         self.assertEqual(result['attempts'], 1)
 
-    @override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
+    @override_settings(CENSORLY_OPEN_PRONOUNS=True)
     def test_tom_is_a_closed_noun_outside_a_prepositional_phrase(self):
         game, task, _hash, puzzle = _make_puzzle_task(
             title='Собрание сочинений',
@@ -3363,7 +3360,7 @@ class CensorlyUxDailyTests(TestCase):
         after_auto_pause = self.client.post(
             '/censorly/1/guess/',
             data=json.dumps({
-                'word': 'кошка',
+                'word': 'окно',
                 'timing_session_id': session_id,
             }),
             content_type='application/json',
@@ -4177,7 +4174,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
             wiki_title='Пари\u0301ж',
             body_text=(
                 'Столица и крупнейший город Франции.\n\n'
-                'Второй абзац про историю не должен попасть на карточку.'
+                'Следующий абзац про историю не должен попасть на карточку.'
             ),
         )
         title, lead = unsolved_share_runs(payload)
@@ -4185,7 +4182,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
         self.assertTrue(any(run.get('kind') == 'mask' and run.get('title') for run in title))
         self.assertNotIn('Париж', blob)
         self.assertNotIn('Столица', blob)
-        self.assertNotIn('Второй', blob)
+        self.assertNotIn('Следующий', blob)
         self.assertNotIn('историю', blob)
         self.assertIn(' и ', self._visible(lead))
         self.assertTrue(any(run.get('kind') == 'break' for run in lead))
@@ -4197,7 +4194,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
 
         payload = build_puzzle_payload(
             wiki_title='Кот',
-            body_text=f'Первый абзац.\n{HEADING_START}История{HEADING_END}\nДальше текст.',
+            body_text=f'Начальный абзац.\n{HEADING_START}История{HEADING_END}\nДальше текст.',
         )
         title, lead = unsolved_share_runs(payload)
         blob = json.dumps({'title': title, 'lead': lead}, ensure_ascii=False)
@@ -4205,7 +4202,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
         self.assertNotIn('Кот', blob)
         self.assertNotIn('История', blob)
         self.assertNotIn('Дальше', blob)
-        self.assertNotIn('Первый', blob)
+        self.assertNotIn('Начальный', blob)
         self.assertIn('.', self._visible(lead))
         self.assertGreaterEqual(sum(1 for run in lead if run.get('kind') == 'break'), 1)
         self.assertGreaterEqual(sum(1 for run in lead if run.get('kind') == 'mask'), 3)
@@ -4220,7 +4217,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
 
         puzzle = build_puzzle_payload(
             wiki_title='Пари\u0301ж',
-            body_text='Столица Франции.\n\nВторой абзац.',
+            body_text='Столица Франции.\n\nСледующий абзац.',
         )
         view = build_public_view(puzzle, won=True)
         view['won'] = True
@@ -4248,7 +4245,7 @@ class CensorlyShareExcerptTests(SimpleTestCase):
         self.assertTrue(card['article_title_runs'][0].get('title'))
         self.assertNotIn('Париж', blob)
         self.assertNotIn('Столица', blob)
-        self.assertNotIn('Второй', blob)
+        self.assertNotIn('Следующий', blob)
         self.assertEqual(card['headline'], 'Цензурка #3 решена за 1:30')
         self.assertEqual(card['brand'], 'interoves.com/censorly/3')
 
@@ -4290,22 +4287,18 @@ class CensorlyMinimalTitleAttemptsTests(SimpleTestCase):
     def test_repeated_title_lemma_opens_with_one_guess(self):
         self.assertEqual(self._minimum('Мир, мир, мир'), 1)
 
-    def test_one_root_words_share_a_guess_with_the_lexical_resolver(self):
-        from django.test import override_settings
-
-        self.assertEqual(self._minimum('Москва и москвичи'), 2)
-        with override_settings(CENSORLY_LEXICAL_RESOLVER=True):
-            self.assertEqual(self._minimum('Москва и москвичи'), 1)
-            self.assertEqual(self._minimum('Друзья и дружба'), 1)
+    def test_one_root_words_share_a_guess(self):
+        self.assertEqual(self._minimum('Москва и москвичи'), 1)
+        self.assertEqual(self._minimum('Друзья и дружба'), 1)
 
     def test_words_open_at_start_need_no_guess(self):
         from django.test import override_settings
 
-        with override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True):
+        with override_settings(CENSORLY_OPEN_PRONOUNS=True):
             self.assertEqual(self._minimum('Мой друг Иван Лапшин'), 3)
 
 
-@override_settings(CENSORLY_LEXICAL_RESOLVER=True, CENSORLY_OPEN_PRONOUNS=True)
+@override_settings(CENSORLY_OPEN_PRONOUNS=True)
 class CensorlyOpenTitleWinFixTests(TestCase):
     def _run(self, *args):
         from io import StringIO

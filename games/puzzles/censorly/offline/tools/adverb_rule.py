@@ -33,12 +33,9 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match.core import fold
-from games.puzzles.censorly.lexical.match.rootbank import (
-    ADVERB_BASES,
-    NEST_ANCHORS,
-    provenance,
-)
+from games.puzzles.censorly.lexical import reviewed
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.match.rootbank import provenance
 from games.puzzles.censorly.offline.corpus import load_corpus
 from games.puzzles.core.norm_matcher import MORPH_ANALYZER
 
@@ -101,14 +98,13 @@ def covered_without_rule(adverb: str) -> bool:
     hyphen structure (по-новому) give the article token roots without a row
     here; such adverbs need no rule entry.
     """
-    from games.puzzles.censorly.lexical.match import _Pack
+    from games.puzzles.censorly.lexical.match import ANALYZER
     from games.puzzles.censorly.lexical.match.rootbank import structures_of
-    from games.puzzles.censorly.lexical.semantics import _hyphen_structure
 
-    pack = _Pack(adverb, article_lemma=adverb)
+    pack = ANALYZER.target(adverb, article_lemma=adverb)
     if any(structures_of(item.lemma) for item in pack.reads if fold(item.lemma) != adverb):
         return True
-    return bool(_hyphen_structure(adverb))
+    return bool(ANALYZER.hyphen_structures(adverb))
 
 
 def load_exceptions() -> dict[str, str]:
@@ -129,7 +125,7 @@ def main():
     rows, ambiguous = [], []
     redundant = 0
     for adverb in sorted(adverb_lemmas()):
-        if adverb in NEST_ANCHORS or adverb in exceptions or _own_structures(adverb, prov):
+        if adverb in reviewed.NEST_ANCHORS.data or adverb in exceptions or _own_structures(adverb, prov):
             continue
         found = candidates(adverb, prov)
         if found and covered_without_rule(adverb):
@@ -159,7 +155,7 @@ def main():
     print(
         f'adverb_bases={len(rows)} already_rooted_at_runtime={redundant} '
         f'ambiguous_skipped={len(ambiguous)} '
-        f'exceptions={len(exceptions)} previous={len(ADVERB_BASES)} corpus_tokens={covered}'
+        f'exceptions={len(exceptions)} previous={len(reviewed.ADVERB_BASES.data)} corpus_tokens={covered}'
     )
     for adverb, found in ambiguous[:20]:
         print('  ambiguous:', adverb, found)

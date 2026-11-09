@@ -60,9 +60,9 @@ def _from_file(freq_path: Path = FREQ_PATH, meta_path: Path = META_PATH) -> Corp
 
 
 def _from_fixtures() -> Corpus:
-    from games.puzzles.censorly.lexical.match.core import fold
+    from games.puzzles.censorly.lexical.core import fold
     from games.puzzles.censorly.lexical.semantics import initially_open
-    from games.puzzles.censorly.offline.audit.prelaunch import iter_fixtures
+    from games.puzzles.censorly.offline.fixtures import iter_fixtures
     from games.puzzles.censorly.text.tokenize import tokenize_text
 
     corpus = Corpus(source='test fixtures (no corpus_lemma_freq.tsv.gz)', articles=0, service_tokens=0)

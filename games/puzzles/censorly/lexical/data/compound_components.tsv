@@ -1,0 +1,2 @@
+morph	root	note
+лог	root:logy	«-логия, наука о»: технология = техн + лог. Only inside a compound; the spelling fallback лог → положить stays rejected, and логика never takes this id.

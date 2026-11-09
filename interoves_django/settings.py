@@ -261,12 +261,6 @@ OFFLINE_PLAY_ENABLED = (
     os.environ.get('OFFLINE_PLAY_ENABLED', '').strip().lower()
     in ('1', 'true', 'yes', 'on')
 )
-# Simplified Censorly resolver. Off unless CENSORLY_LEXICAL_RESOLVER=1.
-# Green sets that variable; other environments stay on the legacy matcher.
-CENSORLY_LEXICAL_RESOLVER = (
-    os.environ.get('CENSORLY_LEXICAL_RESOLVER', '').strip().lower()
-    in ('1', 'true', 'yes', 'on')
-)
 # Pronouns in lexical Censorly puzzles are visible by default. Set the
 # environment variable to 0/false to restore the opt-out behavior.
 CENSORLY_OPEN_PRONOUNS = (

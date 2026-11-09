@@ -2,8 +2,8 @@
 
 from django.test import SimpleTestCase
 
-from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation, matching_lemmas
-from games.puzzles.censorly.lexical.russian.reading_overrides import LANGUAGE_LABEL_CONTEXTS
+from games.puzzles.censorly.lexical.context import LANGUAGE_LABELS
+from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER, matching_lemmas
 from games.puzzles.censorly.lexical.semantics import explain, opens
 from games.puzzles.censorly.text.tokenize import tokenize_text
 
@@ -152,21 +152,23 @@ class CensorlyLanguageLabelRootTests(SimpleTestCase):
             ('рус', 'россия'),
         ):
             with self.subTest(guess=guess, target=target):
-                self.assertEqual(_relation(_GuessPack(guess), _Pack(target)), 'root')
+                self.assertEqual(MATCHER.relation(ANALYZER.guess(guess), ANALYZER.target(target)), 'root')
 
     def test_greek_label_opens_through_the_proper_name_pair(self):
-        self.assertEqual(_relation(_GuessPack('греция'), _Pack('греч')), 'proper')
+        self.assertEqual(MATCHER.relation(ANALYZER.guess('греция'), ANALYZER.target('греч')), 'proper')
         self.assertEqual(explain('греция', 'греч'), 'proper')
 
     def test_homographic_stubs_do_not_inherit_the_country_family(self):
         for guess, target in (('китаец', 'кит'), ('кит', 'китай')):
             with self.subTest(guess=guess, target=target):
-                self.assertFalse(_relation(_GuessPack(guess), _Pack(target)))
+                self.assertFalse(MATCHER.relation(ANALYZER.guess(guess), ANALYZER.target(target)))
                 self.assertFalse(opens(guess, target))
 
-    def test_nem_guess_opens_the_german_family_despite_initial_pronoun_visibility(self):
-        self.assertEqual(_relation(_GuessPack('нем'), _Pack('германия')), 'root')
-        self.assertIn(_relation(_GuessPack('нем'), _Pack('немецкий')), {'root', 'alias'})
+    def test_nem_guess_opens_the_german_family_where_the_article_has_the_label(self):
+        labelled = tokenize_text('Слово (от нем. Koralle). Германия и немецкий язык.')
+        self.assertTrue({'германия', 'немецкий'} <= matching_lemmas(labelled, 'нем'))
+        plain = tokenize_text('Он был нем и глух. Германия и немецкий язык.')
+        self.assertFalse({'германия', 'немецкий'} & matching_lemmas(plain, 'нем'))
 
     def test_article_labels_open_but_nem_contexts_stay_split(self):
         tokens = tokenize_text(
@@ -193,27 +195,27 @@ class CensorlyLanguageLabelRootTests(SimpleTestCase):
         for label in ('кит', 'тур', 'бел', 'лат', 'порт', 'дат'):
             with self.subTest(label=label):
                 self.assertEqual(
-                    by_surface[label][0], LANGUAGE_LABEL_CONTEXTS[label],
+                    by_surface[label][0], LANGUAGE_LABELS[label].marker,
                 )
         for label in ('кит', 'тур', 'порт', 'дат'):
             with self.subTest(sentence_final=label):
-                self.assertNotIn(by_surface[label][1], LANGUAGE_LABEL_CONTEXTS.values())
+                self.assertNotIn(by_surface[label][1], [item.marker for item in LANGUAGE_LABELS.values()])
         for guess, label in (
             ('китай', 'кит'), ('китаец', 'кит'), ('турция', 'тур'),
             ('белоруссия', 'бел'), ('латынь', 'лат'),
             ('португалия', 'порт'), ('дания', 'дат'),
         ):
             with self.subTest(guess=guess):
-                self.assertIn(LANGUAGE_LABEL_CONTEXTS[label], matching_lemmas(tokens, guess))
+                self.assertIn(LANGUAGE_LABELS[label].marker, matching_lemmas(tokens, guess))
         for guess in ('китай', 'турция', 'португалия', 'дания'):
             with self.subTest(country=guess):
                 self.assertFalse(
-                    matching_lemmas(tokens, guess) - set(LANGUAGE_LABEL_CONTEXTS.values()),
+                    matching_lemmas(tokens, guess) - {item.marker for item in LANGUAGE_LABELS.values()},
                 )
         for guess in ('гавань', 'турист', 'белый'):
             with self.subTest(ordinary=guess):
                 self.assertFalse(
-                    matching_lemmas(tokens, guess) & set(LANGUAGE_LABEL_CONTEXTS.values()),
+                    matching_lemmas(tokens, guess) & {item.marker for item in LANGUAGE_LABELS.values()},
                 )
 
 
@@ -256,3 +258,26 @@ class HyphenHalfTests(SimpleTestCase):
         self.assertIn('__censorly_tele_prefix__', matching_lemmas(tokens, 'теле'))
         self.assertFalse(matching_lemmas(tokens, 'минуть'))
         self.assertFalse(matching_lemmas(tokens, 'миновать'))
+
+
+class AliasInflectionTests(SimpleTestCase):
+    def test_full_form_opens_in_any_case_and_abbreviation_only_as_written(self):
+        tokens = tokenize_text('Масса 5 кг. Масса пяти килограммов. Путь 3 км, или трёх километров.')
+        self.assertIn('килограмм', matching_lemmas(tokens, 'кг'))
+        self.assertIn('кг', matching_lemmas(tokens, 'килограммов'))
+        self.assertIn('километр', matching_lemmas(tokens, 'км'))
+        self.assertNotIn('килограммовый', matching_lemmas(tokenize_text('килограммовый мешок'), 'кг'))
+
+    def test_abbreviation_that_is_a_word_is_not_inflected(self):
+        # «мед» stands for медицинский; the honey noun «мёда» is not it.
+        self.assertFalse(matching_lemmas(tokenize_text('Ложка мёда.'), 'медицинский'))
+        # A whale is not Chinese.
+        self.assertFalse(matching_lemmas(tokenize_text('Китайского языка.'), 'кит'))
+
+
+class LowercaseNameReadingTests(SimpleTestCase):
+    def test_lowercase_word_is_not_a_given_name(self):
+        tokens = tokenize_text('На поле стоял дом, а поля были пусты.')
+        self.assertFalse(matching_lemmas(tokens, 'Полина'))
+        # A capitalized occurrence may be the name; it still opens.
+        self.assertTrue(matching_lemmas(tokenize_text('Её звали Поля.'), 'Полина'))

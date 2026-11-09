@@ -25,13 +25,10 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match.core import fold
-from games.puzzles.censorly.lexical.match.rootbank import (
-    _DICT_DIR,
-    NEST_ANCHORS,
-    provenance,
-    structures_of,
-)
+from games.puzzles.censorly.lexical import reviewed
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.match.rootbank import provenance, structures_of
+from games.puzzles.censorly.lexical.sources import DICTIONARY_DIR
 from games.puzzles.censorly.offline.corpus import load_corpus
 
 REJECTED = Path(__file__).resolve().parents[3] / 'lexical' / 'data' / 'rejected_nest_anchors.tsv'
@@ -117,7 +114,7 @@ def _fmt(structures) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--dir', type=Path, default=_DICT_DIR)
+    parser.add_argument('--dir', type=Path, default=DICTIONARY_DIR)
     parser.add_argument('--output', type=Path, required=True)
     parser.add_argument('--all', action='store_true', help='not only corpus lemmas')
     args = parser.parse_args()
@@ -131,7 +128,7 @@ def main():
     rows = []
     stats = Counter()
     for lemma, nests in nests_of.items():
-        if not lemma.isalpha() or structures_of(lemma) or lemma in NEST_ANCHORS:
+        if not lemma.isalpha() or structures_of(lemma) or lemma in reviewed.NEST_ANCHORS.data:
             continue
         count = counts.get(lemma, 0)
         if not count and not args.all:

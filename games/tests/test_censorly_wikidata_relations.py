@@ -4,7 +4,6 @@ from django.test import SimpleTestCase
 
 from games.puzzles.censorly.lexical.semantics import explain, opens
 
-
 WIKIDATA_GEOGRAPHIC_PAIRS = (
     ('эфиопия', 'эфиоп'),
     ('эфиопия', 'эфиопка'),

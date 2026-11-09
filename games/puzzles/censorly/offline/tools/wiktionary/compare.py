@@ -24,20 +24,11 @@ from django.apps import apps
 if not apps.ready:
     django.setup()
 
-from games.puzzles.censorly.lexical.match.core import fold
-from games.puzzles.censorly.lexical.match.rootbank import (
-    _DICT_DIR,
-    _KUZ_GROUPS,
-    _TIKHONOV,
-    _candidate_ids,
-    _families,
-    _lines,
-    _plain,
-    _reviewed_opaque_id,
-    _strip_note,
-    families_of,
-    provenance,
-)
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.deciders.rootbank import ROOT_BANK
+from games.puzzles.censorly.lexical.match.rootbank import families_of, provenance
+from games.puzzles.censorly.lexical.sources import DICTIONARY_DIR, TIKHONOV
+from games.puzzles.censorly.lexical.sources.base import plain as _plain
 
 _GAPS = frozenset({'UNRESOLVED', 'UNRESOLVED_TOO_AMBIGUOUS', 'ABSENT'})
 
@@ -75,7 +66,7 @@ def load_nests(path: Path) -> dict[str, set[str]]:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument('--dir', type=Path, default=_DICT_DIR)
+    parser.add_argument('--dir', type=Path, default=DICTIONARY_DIR)
     parser.add_argument('--gaps-out', type=Path)
     args = parser.parse_args()
 
@@ -85,19 +76,8 @@ def main():
         for row in rows:
             nests[lemma].update(item for item in row['nests'].split(',') if item)
 
-    tikhonov: dict[str, tuple[str, ...]] = {}
-    for line in _lines(_TIKHONOV):
-        raw, seg = line.split('\t', 1)
-        tikhonov[fold(_strip_note(raw))] = tuple(
-            _plain(part.rsplit(':', 1)[0]) for part in seg.split('/') if part.endswith(':ROOT')
-        )
+    tikhonov = {lemma: TIKHONOV.roots_of(lemma) for lemma in TIKHONOV.lemmas()}
     prov = provenance()
-
-    families = _families(_KUZ_GROUPS)
-    morph_family, plain_hits = {}, {}
-    for morph, family in families.items():
-        morph_family[morph] = family
-        plain_hits.setdefault(_plain(morph), []).append((morph, family))
     family_members: dict[str, set[str]] = defaultdict(set)
     for lemma in prov:
         for family in families_of(lemma):
@@ -127,8 +107,8 @@ def main():
             seg = next(iter(segs))
             kinds, ids = [], []
             for root in _roots(seg):
-                candidates = _candidate_ids(root, plain_hits, morph_family)
-                opaque = _reviewed_opaque_id(root, plain_hits)
+                candidates = ROOT_BANK.candidates(root)
+                opaque = ROOT_BANK.opaque_root(root)
                 if opaque:
                     kinds.append('opaque')
                     ids.append(opaque)

@@ -29,8 +29,8 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
 
-from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation
-from games.puzzles.censorly.lexical.match.core import fold
+from games.puzzles.censorly.lexical.core import fold
+from games.puzzles.censorly.lexical.match import ANALYZER, MATCHER, Word
 from games.puzzles.censorly.lexical.match.rootbank import provenance, structures_of
 from games.puzzles.censorly.offline.corpus import Corpus
 from games.puzzles.core.norm_matcher import MORPH_ANALYZER
@@ -103,11 +103,11 @@ class Coverage:
 
 def coverage(corpus: Corpus) -> Coverage:
     """Same rooted test as ``coverage_report``, split by word group."""
-    from games.puzzles.censorly.lexical.semantics import _ALIASES
+    from games.puzzles.censorly.lexical.deciders.layers import ALIAS
     from games.puzzles.censorly.offline.tools.coverage_report import _opens_at_runtime
 
     prov = provenance()
-    alias_words = frozenset(word for group in _ALIASES for word in group)
+    alias_words = frozenset(word for group in ALIAS.groups for word in group)
     result = Coverage()
     for lemma, count in corpus.tokens.items():
         if not is_russian(lemma):
@@ -134,15 +134,15 @@ def _root_ids(lemma: str) -> set[str]:
 @lru_cache(maxsize=1)
 def _openers_index() -> dict[str, tuple[str, ...]]:
     """Every game root id (and proper / alias component) -> its lemmas."""
-    from games.puzzles.censorly.lexical.semantics import _ALIASES, _PROPER_COMPONENT_BY_WORD
+    from games.puzzles.censorly.lexical.deciders.layers import ALIAS, PROPER
 
     index = defaultdict(set)
     for lemma in provenance():
         for root in _root_ids(lemma):
             index[root].add(lemma)
-    for word, component in _PROPER_COMPONENT_BY_WORD.items():
+    for word, component in PROPER.component_of.items():
         index[f'proper:{component}'].add(word)
-    for number, group in enumerate(_ALIASES):
+    for number, group in enumerate(ALIAS.groups):
         index[f'alias:{number}'].update(group)
     return {key: tuple(sorted(value)) for key, value in index.items()}
 
@@ -157,18 +157,18 @@ def _keys_by_lemma() -> dict[str, tuple[str, ...]]:
 
 
 @lru_cache(maxsize=200_000)
-def _guess_pack(lemma: str) -> _GuessPack:
-    return _GuessPack(lemma)
+def _guess_pack(lemma: str) -> Word:
+    return ANALYZER.guess(lemma)
 
 
 @lru_cache(maxsize=200_000)
-def _target_pack(lemma: str) -> _Pack:
-    return _Pack(lemma, article_lemma=lemma)
+def _target_pack(lemma: str) -> Word:
+    return ANALYZER.target(lemma, article_lemma=lemma)
 
 
 def relation(guess: str, target: str) -> str:
     """Live gameplay relation of a guess lemma to an article lemma."""
-    return _relation(_guess_pack(guess), _target_pack(target))
+    return MATCHER.relation(_guess_pack(guess), _target_pack(target))
 
 
 def opens(guess: str, target: str) -> bool:
