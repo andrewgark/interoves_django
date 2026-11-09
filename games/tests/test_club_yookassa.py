@@ -489,17 +489,19 @@ class ClubYooKassaDetachTests(TestCase):
         self.assertIsNone(self.sub.next_charge_at)
         self.assertFalse(SavedPaymentMethod.objects.exclude(provider_payment_method_id=None).exists())
 
-    @patch('games.ops.telegram.bot.notify.notify_admin_club_renewal_failed')
-    def test_canceled_recurring_payment_notifies_admin(self, notify_mock):
+    def test_canceled_recurring_payment_notifies_admin(self):
+        # Since Nov 6 recurring alerts go through a transactional outbox the
+        # background worker drains (games.ops.workers.billing_outbox).
+        from games.models import ClubPaymentAdminAlertOutbox
         local = self._pending()
         with self.captureOnCommitCallbacks(execute=True):
             process_yookassa_club_payment_event(
                 'payment.canceled',
                 _payment_payload(local, status='canceled'),
             )
-        notify_mock.assert_called_once()
-        self.assertEqual(notify_mock.call_args.args[0], self.sub.pk)
-        self.assertEqual(notify_mock.call_args.kwargs['payment_id'], local.pk)
+        alert = ClubPaymentAdminAlertOutbox.objects.get()
+        self.assertEqual(alert.payment_id, local.pk)
+        self.assertEqual(alert.alert_type, ClubPaymentAdminAlertOutbox.ALERT_FAILED)
 
     def test_unresolved_charge_warning_survives_refresh_until_verified_outcome(self):
         local = self._pending()
@@ -605,7 +607,12 @@ class ClubYooKassaDetachTests(TestCase):
             self.assertTrue(_submit_renewal(local.pk))
         local.refresh_from_db()
         self.assertEqual(local.status, ClubYooKassaPayment.STATUS_SUCCEEDED)
-        self.assertEqual(publish.call_args.kwargs['alert'], 'club_subscription_state')
+        # The alert is queued in the outbox (drained by the worker), not published inline.
+        from games.models import ClubPaymentAdminAlertOutbox
+        self.assertEqual(
+            list(ClubPaymentAdminAlertOutbox.objects.values_list('payment_id', 'alert_type')),
+            [(local.pk, ClubPaymentAdminAlertOutbox.ALERT_SUCCEEDED)],
+        )
         self.sub.refresh_from_db()
         self.assertIsNone(self.sub.last_webhook_at)
         with patch('games.ops.telegram.bot.notify.publish_admin_alert') as duplicate_alert:
