@@ -840,6 +840,24 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_compound_batch_c3_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('чесотка', 'чесоточный'), ('поликлиника', 'клиника'), ('дружелюбный', 'недружелюбный'),
+            ('трудоспособный', 'нетрудоспособный'), ('стереотип', 'стереотипный'),
+            ('старообрядец', 'старообрядческий'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('носорог', 'рогоносец'), ('нос', 'носорог'), ('друг', 'дружелюбный'),
+            ('кровотечение', 'течение'), ('единорог', 'рог'), ('налогообложение', 'налог'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_nest_anchor_batch_w4_2_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
