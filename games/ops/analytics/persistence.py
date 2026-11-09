@@ -432,6 +432,13 @@ def merge_analytics_state_rows(target, source):
     if _source_has_earlier_timestamp(target, source, 'start_viewed_at'):
         # Keep the variant the person saw first: that is the arm they were in.
         updated.extend(_copy_fields(target, source, ('start_variant', 'start_viewed_at')))
+    if _source_has_earlier_timestamp(target, source, 'hub_entry_viewed_at'):
+        updated.extend(_copy_fields(target, source, ('hub_entry_variant', 'hub_entry_viewed_at')))
+    if _source_has_earlier_timestamp(target, source, 'first_touch_at'):
+        # The earliest browser touch is where the person came from.
+        from games.ops.analytics.acquisition import FIRST_TOUCH_FIELDS
+
+        updated.extend(_copy_fields(target, source, ('first_touch_at', *FIRST_TOUCH_FIELDS)))
     if updated:
         target.save(update_fields=sorted(set(updated)) + ['updated_at'])
     source.delete()

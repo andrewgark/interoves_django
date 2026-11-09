@@ -68,6 +68,8 @@ def hub(request):
     with timing_phase(request, 'hub_onboarding'):
         show_first_visit_onboarding = _is_first_time_player(request)
         onboarding_salad_url = _onboarding_starter_salad_url(hub_groups['daily_hub_cards'])
+        if show_first_visit_onboarding:
+            onboarding_salad_url = _hub_entry_experiment(request, hub_groups, onboarding_salad_url)
     with timing_phase(request, 'hub_games_list'):
         games_list_context = _games_list_card_context(request)
     with timing_phase(request, 'hub_render'):
@@ -95,6 +97,29 @@ def hub(request):
             'show_next_game_vote_cta': campaign_phase() != PHASE_CLOSED,
             **_project_urls_context(NEW_UI_PROJECT),
         })
+
+
+def _hub_entry_experiment(request, hub_groups, onboarding_salad_url):
+    """First-time player's hub arm; the ``first`` arm links newcomer puzzles.
+
+    Returns the onboarding banner URL. Never breaks the hub.
+    """
+    from games.ops.analytics.hub_entry_experiment import (
+        apply_newcomer_entry_links,
+        hub_entry_variant,
+    )
+    from games.ops.analytics.identity import gameplay_anon_key
+    from games.sections.paths import section_first_path
+
+    try:
+        variant = hub_entry_variant(user=request.user, anon_key=gameplay_anon_key(request))
+    except Exception:
+        logger.exception('hub entry experiment assignment failed')
+        return onboarding_salad_url
+    if variant != 'first':
+        return onboarding_salad_url
+    apply_newcomer_entry_links(hub_groups['daily_hub_cards'])
+    return section_first_path('salad')
 
 
 def start(request):

@@ -913,6 +913,20 @@ class PlayerAnalyticsState(models.Model):
     # actor first saw it (games.ops.analytics.start_experiment).
     start_variant = models.CharField(max_length=16, blank=True, default='')
     start_viewed_at = models.DateTimeField(blank=True, null=True)
+    # Hub A/B test for first-time players: today's puzzles vs /<game>/first/
+    # (games.ops.analytics.hub_entry_experiment).
+    hub_entry_variant = models.CharField(max_length=16, blank=True, default='')
+    hub_entry_viewed_at = models.DateTimeField(blank=True, null=True)
+    # Where a new player came from: the first touch of their browser, copied
+    # on their first game start (games.ops.analytics.acquisition). Empty for
+    # players who predate it.
+    first_touch_at = models.DateTimeField(blank=True, null=True)
+    first_utm_source = models.CharField(max_length=64, blank=True, default='')
+    first_utm_medium = models.CharField(max_length=64, blank=True, default='')
+    first_utm_campaign = models.CharField(max_length=128, blank=True, default='')
+    first_referrer_host = models.CharField(max_length=128, blank=True, default='')
+    first_landing_path = models.CharField(max_length=255, blank=True, default='')
+    first_site_host = models.CharField(max_length=64, blank=True, default='')
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:

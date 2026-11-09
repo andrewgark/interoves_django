@@ -213,6 +213,32 @@ the identity cutover, compute from valid post-cutover `game_start` /
 Exact and rolling retention remain separate metrics; none of these segments is
 a retention event.
 
+## Acquisition (first touch)
+
+`PlayerAnalyticsState.first_*` records where a new player came from
+(`games/ops/analytics/acquisition.py`). When the server issues a fresh
+`interoves_anon` key, that request's `utm_source` / `utm_medium` /
+`utm_campaign`, external referrer host (own `*.interoves.com` hosts are
+dropped), landing path and site host are kept in the signed HttpOnly cookie
+`interoves_ft`. On the actor's first `PlayerStartedGame` the touch is copied
+onto its state row; actors with any earlier start are never labelled. On
+sign-up merge the earliest `first_touch_at` wins.
+
+Limits: empty for players who predate the code and for browsers that already
+had an identity; a referrer is often absent (Telegram app, bookmarks), so an
+empty source means "unknown", not "direct". Per-domain cookies mean a switch
+between interoves.com and ru.interoves.com starts a new browser identity.
+
+## Hub entry experiment
+
+First-time players on the hub are split by
+`games/ops/analytics/hub_entry_experiment.py` into `today` (control: today's
+puzzles) and `first` (banner and daily cards link `/<game>/first/`). The arm
+is stored once in `PlayerAnalyticsState.hub_entry_variant` /
+`hub_entry_viewed_at`; read-only results:
+`manage.py report_hub_entry_experiment` (started, finished first game,
+returned on a later day within 7 days).
+
 ## Session limitations
 
 The product-event tables contain no product `session_id` and define no inactivity

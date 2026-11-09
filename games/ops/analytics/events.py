@@ -23,6 +23,7 @@ from games.models import (
     PlayerCompletedGame,
     PlayerStartedGame,
 )
+from games.ops.analytics.acquisition import record_first_touch
 from games.ops.analytics.persistence import (
     AnalyticsRowInvariantError,
     create_or_reread_analytics_row,
@@ -679,11 +680,13 @@ def register_started_game(
         'instrumentation_version': PRODUCT_ANALYTICS_INSTRUMENTATION_VERSION,
     }
     lookup = dict(actor, game_instance_id=instance_id)
-    record, _created = create_or_reread_analytics_row(
+    record, created = create_or_reread_analytics_row(
         PlayerStartedGame,
         lookup=lookup,
         defaults=defaults,
     )
+    if created:
+        record_first_touch(actor, started_game=record)
 
     updated = []
     if record.game_id != game.id:
