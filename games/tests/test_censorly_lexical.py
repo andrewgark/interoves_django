@@ -774,6 +774,28 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_corpus_batch_a4_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('полиция', 'полицейский'), ('симфония', 'симфонический'), ('модель', 'моделирование'),
+            ('католический', 'католик'), ('этика', 'этический'), ('диагноз', 'диагностика'),
+            ('касса', 'кассир'), ('экспорт', 'импорт'), ('оптимизация', 'оптимальный'),
+            ('соло', 'солист'), ('действие', 'задействовать'), ('коллектив', 'коллективный'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('этика', 'этикет'), ('хроника', 'хронический'), ('хроника', 'синхронный'),
+            ('касса', 'кассация'), ('таксон', 'такси'), ('плантация', 'трансплантация'),
+            ('швейцарец', 'швейцар'), ('тайский', 'тайна'), ('экспорт', 'порт'),
+            ('мода', 'модификация'), ('ликвидация', 'ликвидный'), ('оптимальный', 'оптимизм'),
+            ('персонал', 'персональный'), ('посольство', 'сольный'), ('демон', 'демонстрация'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_nest_anchor_batch_w4_2_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))

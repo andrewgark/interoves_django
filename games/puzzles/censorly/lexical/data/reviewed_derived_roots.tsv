@@ -560,3 +560,119 @@ lemma	root_structure	note
 неонацизм	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
 неонацист	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
 неонацистский	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
+полицейский	tikh:полици	Corpus batch A4 (2026-11-09): same root as полиция; Tikhonov spells it полицей.
+полицеймейстер	tikh:полици	Corpus batch A4 (2026-11-09): same root as полиция; Tikhonov spells it полицей.
+полицейщина	tikh:полици	Corpus batch A4 (2026-11-09): same root as полиция; Tikhonov spells it полицей.
+симфонический	tikh:симфони	Corpus batch A4 (2026-11-09): same root as симфония.
+симфонизм	tikh:симфони	Corpus batch A4 (2026-11-09): same root as симфония.
+симфонист	tikh:симфони	Corpus batch A4 (2026-11-09): same root as симфония.
+симфонизация	tikh:симфони	Corpus batch A4 (2026-11-09): same root as симфония.
+аллергический	tikh:аллерги	Corpus batch A4 (2026-11-09): same root as аллергия.
+аллерголог	tikh:аллерги	Corpus batch A4 (2026-11-09): same root as аллергия.
+аллергология	tikh:аллерги	Corpus batch A4 (2026-11-09): same root as аллергия.
+аллергологический	tikh:аллерги	Corpus batch A4 (2026-11-09): same root as аллергия.
+претензия	tikh:претенд	Corpus batch A4 (2026-11-09): same root as претендовать.
+муниципальный	tikh:муниципал	Corpus batch A4 (2026-11-09): same root as муниципалитет.
+студийный	tikh:студи	Corpus batch A4 (2026-11-09): same root as студия.
+внестудийный	tikh:студи	Corpus batch A4 (2026-11-09): same root as студия.
+внутристудийный	tikh:студи	Corpus batch A4 (2026-11-09): same root as студия.
+студийка	tikh:студи	Corpus batch A4 (2026-11-09): same root as студия.
+моделирование	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+моделироваться	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+моделизм	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+смоделировать	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+моделировка	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+моделист	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+моделистка	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+моделированный	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+авиамоделизм	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+судомоделизм	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+автомоделизм	tikh:модель	Corpus batch A4 (2026-11-09): same root as модель.
+католик	tikh:католич	Corpus batch A4 (2026-11-09): same root as католический.
+старокатолик	tikh:католич	Corpus batch A4 (2026-11-09): same root as католический.
+католицизм	tikh:католич	Corpus batch A4 (2026-11-09): same root as католический.
+этика	tikh:этич	Corpus batch A4 (2026-11-09): ethics, same root as этический; not этикет.
+диагностика	tikh:диагноз	Corpus batch A4 (2026-11-09): same root as диагноз.
+диагностический	tikh:диагноз	Corpus batch A4 (2026-11-09): same root as диагноз.
+диагностировать	tikh:диагноз	Corpus batch A4 (2026-11-09): same root as диагноз.
+диагност	tikh:диагноз	Corpus batch A4 (2026-11-09): same root as диагноз.
+галлий	root:gallium	Corpus batch A4 (2026-11-09): gallium; not галлы.
+форт	root:fort	Corpus batch A4 (2026-11-09): fort; not фортка.
+фортификация	root:fort	Corpus batch A4 (2026-11-09): fort; not фортка.
+фортификационный	root:fort	Corpus batch A4 (2026-11-09): fort; not фортка.
+фортификатор	root:fort	Corpus batch A4 (2026-11-09): fort; not фортка.
+хроника	root:chronicle	Corpus batch A4 (2026-11-09): chronicle; not хронический or синхронный.
+хроникальный	root:chronicle	Corpus batch A4 (2026-11-09): chronicle; not хронический or синхронный.
+хронист	root:chronicle	Corpus batch A4 (2026-11-09): chronicle; not хронический or синхронный.
+хроникер	root:chronicle	Corpus batch A4 (2026-11-09): chronicle; not хронический or синхронный.
+хронический	root:chronic	Corpus batch A4 (2026-11-09): chronic; not хроника.
+хроник	root:chronic	Corpus batch A4 (2026-11-09): chronic; not хроника.
+касса	root:cashbox	Corpus batch A4 (2026-11-09): cash desk; not кассация.
+кассовый	root:cashbox	Corpus batch A4 (2026-11-09): cash desk; not кассация.
+кассир	root:cashbox	Corpus batch A4 (2026-11-09): cash desk; not кассация.
+кассирша	root:cashbox	Corpus batch A4 (2026-11-09): cash desk; not кассация.
+сберкасса	root:cashbox	Corpus batch A4 (2026-11-09): cash desk; not кассация.
+бескассовый	root:cashbox	Corpus batch A4 (2026-11-09): cash desk; not кассация.
+таксон	root:taxon	Corpus batch A4 (2026-11-09): taxon; not такси.
+таксономия	root:taxon	Corpus batch A4 (2026-11-09): taxon; not такси.
+таксономический	root:taxon	Corpus batch A4 (2026-11-09): taxon; not такси.
+плантация	root:plantation	Corpus batch A4 (2026-11-09): plantation; not трансплантация.
+плантатор	root:plantation	Corpus batch A4 (2026-11-09): plantation; not трансплантация.
+плантационный	root:plantation	Corpus batch A4 (2026-11-09): plantation; not трансплантация.
+плантаторский	root:plantation	Corpus batch A4 (2026-11-09): plantation; not трансплантация.
+плантаторство	root:plantation	Corpus batch A4 (2026-11-09): plantation; not трансплантация.
+швейцарец	root:proper_swiss	Corpus batch A4 (2026-11-09): Swiss people; not швейцар (doorman).
+швейцарка	root:proper_swiss	Corpus batch A4 (2026-11-09): Swiss people; not швейцар (doorman).
+тайский	root:thai	Corpus batch A4 (2026-11-09): Thai; not тайна.
+таец	root:thai	Corpus batch A4 (2026-11-09): Thai; not тайна.
+тест	root:test	Corpus batch A4 (2026-11-09): test; not тесто.
+тестирование	root:test	Corpus batch A4 (2026-11-09): test; not тесто.
+тестировать	root:test	Corpus batch A4 (2026-11-09): test; not тесто.
+тестироваться	root:test	Corpus batch A4 (2026-11-09): test; not тесто.
+тестер	root:test	Corpus batch A4 (2026-11-09): test; not тесто.
+экспорт	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+импорт	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+экспортный	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+импортный	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+экспортер	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+импортер	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+экспортировать	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+импортировать	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+экспортироваться	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+импортироваться	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+экспортирование	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+экспортированный	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+импортированный	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+лесоэкспорт	root:trade_port	Corpus batch A4 (2026-11-09): export/import; not порт (harbour) or портить.
+модификация	root:modify	Corpus batch A4 (2026-11-09): modify; not мода.
+модифицировать	root:modify	Corpus batch A4 (2026-11-09): modify; not мода.
+модифицированный	root:modify	Corpus batch A4 (2026-11-09): modify; not мода.
+модификатор	root:modify	Corpus batch A4 (2026-11-09): modify; not мода.
+модифицироваться	root:modify	Corpus batch A4 (2026-11-09): modify; not мода.
+ликвидация	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+ликвидировать	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+ликвидироваться	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+самоликвидация	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+ликвидационный	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+ликвидатор	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+ликвидированный	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+ликвидаторство	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+ликвидаторский	root:liquidate	Corpus batch A4 (2026-11-09): liquidate; ликвидный (liquid assets) is a different sense.
+оптимальный	root:optimum	Corpus batch A4 (2026-11-09): optimum; оптимизм is a different sense.
+оптимизация	root:optimum	Corpus batch A4 (2026-11-09): optimum; оптимизм is a different sense.
+оптимум	root:optimum	Corpus batch A4 (2026-11-09): optimum; оптимизм is a different sense.
+оптимизировать	root:optimum	Corpus batch A4 (2026-11-09): optimum; оптимизм is a different sense.
+оптимизатор	root:optimum	Corpus batch A4 (2026-11-09): optimum; оптимизм is a different sense.
+оптимизироваться	root:optimum	Corpus batch A4 (2026-11-09): optimum; оптимизм is a different sense.
+оптимизм	root:optimism	Corpus batch A4 (2026-11-09): optimism; not оптимальный.
+оптимист	root:optimism	Corpus batch A4 (2026-11-09): optimism; not оптимальный.
+оптимистка	root:optimism	Corpus batch A4 (2026-11-09): optimism; not оптимальный.
+оптимистический	root:optimism	Corpus batch A4 (2026-11-09): optimism; not оптимальный.
+оптимистичный	root:optimism	Corpus batch A4 (2026-11-09): optimism; not оптимальный.
+персональный	root:personal	Corpus batch A4 (2026-11-09): personal; not персонал (staff) or персонаж.
+персонал	root:personnel	Corpus batch A4 (2026-11-09): staff; not персонаж or персональный.
+техперсонал	root:personnel	Corpus batch A4 (2026-11-09): staff; not персонаж or персональный.
+соло	root:solo	Corpus batch A4 (2026-11-09): solo; not соль or посольство.
+сольный	root:solo	Corpus batch A4 (2026-11-09): solo; not соль or посольство.
+солист	root:solo	Corpus batch A4 (2026-11-09): solo; not соль or посольство.
+солистка	root:solo	Corpus batch A4 (2026-11-09): solo; not соль or посольство.
