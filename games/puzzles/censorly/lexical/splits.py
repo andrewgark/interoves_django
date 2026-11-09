@@ -7979,8 +7979,8 @@ _LATE_REVIEW_SPLITS = (
     ('sense:review_up_to', ('вплоть',)),
     # Correctness sample s3 borderline pairs, closed by user decision
     # (2026-11-10): a shared school root, but no link a player would see.
-    # столяр (carpenter) is not столица; стол ↔ столица stays a reviewed match.
-    ('sense:review_carpenter', ('столярный', 'столярить', 'столярничать', 'столярня', 'столяриха')),
+    # столица (capital) is not стол/столяр (user decision 2026-11-10).
+    ('sense:review_capital', ('столица', 'столичный', 'столичник', 'нестоличный', 'стольный')),
     # розетка (socket, rosette) is not роза.
     ('sense:review_socket', ('розетка',)),
     # сопка (hill) is not сыпать/насыпь.
