@@ -568,8 +568,9 @@ CAMPAIGNS = {
             name='Inter Oves — заграница → interoves.com — ноябрь 2026',
             landing_url='https://interoves.com/start/',
             region_ids=INTERNATIONAL_REGIONS,
-            # Nov 8: 600 ₽ moved to io-intl-censorly-nov26.
-            spend_limit_rub=3400,
+            # Nov 8: 600 ₽ moved to io-intl-censorly-nov26; Nov 9: 440 ₽ of it
+            # back (that campaign is suspended after 152 ₽).
+            spend_limit_rub=3840,
             # Nov 8: ~440 ₽ a day would spend the limit by Nov 12; a little
             # lower to stretch it (the money is fixed for November).
             cpa_rub=85,
@@ -593,43 +594,15 @@ CAMPAIGNS = {
             excluded_sites=JUNK_PLACEMENTS,
             notes=('test: Yandex inventory abroad is thin',),
         ),
-        # Nov 3–8 abroad, Цензурка gave a finished game and a return cheaper
-        # than anything (15 finished, 7 back for 148 ₽ by Direct's count) but
-        # got 1/12 of Салатик's impressions inside one campaign. Its own
-        # budget makes sure it runs.
-        CampaignSpec(
-            slug='io-intl-censorly-nov26',
-            name='Inter Oves — заграница → Цензурка — ноябрь 2026',
-            landing_url='https://interoves.com/start/',
-            region_ids=INTERNATIONAL_REGIONS,
-            spend_limit_rub=600,
-            cpa_rub=85,
-            start=date(2026, 11, 8),
-            end=date(2026, 11, 16),
-            keywords=CHGK_KEYWORDS,
-            ads=(
-                AdCopy(
-                    title='Для тех, кто играет в ЧГК: Цензурка',
-                    text='Угадайте статью Википедии, в которой скрыты все слова. Новая каждый день.',
-                ),
-                AdCopy(
-                    title='Угадайте статью Википедии по скрытым словам',
-                    text='Все слова статьи скрыты. Называйте слова, и они проявляются. Бесплатно.',
-                ),
-                AdCopy(
-                    title='Цензурка: угадайте статью Википедии слово за словом',
-                    text='Называйте слова, и они проявятся в скрытом тексте. Новая статья каждый день.',
-                ),
-            ),
-            game_groups=(replace(
-                GAME_GROUPS[0],
-                keywords=tuple(k for k in GAME_GROUPS[0].keywords if k not in CHGK_KEYWORDS),
-            ),),
-            generic_path='/censorly/first/',
-            excluded_sites=JUNK_PLACEMENTS,
-        ),
     )
 }
+
+
+# Campaigns stopped before their period ended, with what they spent; it still
+# counts toward the November cap. io-intl-censorly-nov26 (Direct 715950434):
+# Nov 8–9, 750 impressions, ЧГК phrases had almost no searches; suspended on
+# Nov 9 and its remaining budget moved to io-intl-nov26.
+RETIRED_SPEND_RUB = {'io-intl-censorly-nov26': 160}
 
 
 def get_spec(slug: str) -> CampaignSpec:
@@ -642,7 +615,7 @@ def get_spec(slug: str) -> CampaignSpec:
 
 
 def assert_total_cap() -> None:
-    total = sum(spec.spend_limit_rub for spec in CAMPAIGNS.values())
+    total = sum(spec.spend_limit_rub for spec in CAMPAIGNS.values()) + sum(RETIRED_SPEND_RUB.values())
     if total > NOVEMBER_DIRECT_CAP_RUB:
         raise ConfigError(f'Direct campaigns total {total} ₽ exceeds the approved {NOVEMBER_DIRECT_CAP_RUB} ₽')
 

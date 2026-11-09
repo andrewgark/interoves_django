@@ -71,7 +71,7 @@ class CampaignSpecTests(SimpleTestCase):
         for slug in campaigns.CAMPAIGNS:
             campaigns.get_spec(slug)
         campaigns.assert_total_cap()
-        self.assertEqual(sum(s.spend_limit_rub for s in campaigns.CAMPAIGNS.values()), 5000)
+        self.assertEqual(sum(s.spend_limit_rub for s in campaigns.CAMPAIGNS.values()) + sum(campaigns.RETIRED_SPEND_RUB.values()), 5000)
 
     def test_hosts_follow_the_region(self):
         ru = campaigns.get_spec('io-ru-nov26')
