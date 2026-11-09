@@ -53,6 +53,7 @@
 | пересобрать корпус приоритетов (`data/corpus_lemma_freq.tsv.gz`) | `corpus.build_corpus --size 1000` (~35 мин, кэш в `var/censorly_corpus/`) |
 | лист ревью топ-пропусков по семьям (трек A) | `review_sheet --start 0 --count 150` (~2 мин) |
 | семьи составных без корня (трек C) | `compound_queue --count 150 --tsv /tmp/c.tsv` (~1 мин) |
+| лист ревью базовых слов вне словарей (трек B) | `absent_sheet /tmp/gaps.tsv --count 160` (~1 мин, gaps из `coverage_report`) |
 | очереди кандидатов (opaque, authorization holes) | `candidate_miner --output-dir /tmp/miner` (~40 с) |
 | открывающие пары статьи | `candidates.article_candidates` |
 | пропущенные открытия статьи | `candidates.near_miss_candidates` |

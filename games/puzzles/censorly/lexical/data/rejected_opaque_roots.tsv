@@ -51,3 +51,5 @@ root_spelling	reason	reviewed_at
 крон	Diverging: крона (tree, currency) vs кронпринц vs кронциркуль.	2026-11-09
 швейцар	Diverging: швейцарец (Swiss) vs швейцар (doorman).	2026-11-09
 тай	Diverging: тайский (Thai) vs тайна/тайный.	2026-11-09
+нот	Diverging: нота/нотный (music) vs нотифицировать/нотификация (notify); music words get root:musical_note.	2026-11-09
+ферм	Diverging: ферма/свиноферма (farm) vs фермий (element); ферма follows фермер.	2026-11-09

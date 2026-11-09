@@ -842,6 +842,29 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_track_b_batch_1_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('блок', 'блокировать'), ('баланс', 'дисбаланс'), ('витамин', 'авитаминоз'),
+            ('прогресс', 'прогрессивный'), ('интервью', 'интервьюер'), ('ферма', 'фермер'),
+            ('мигрант', 'иммигрант'), ('ясный', 'выяснить'), ('интенсивный', 'интенсивность'),
+            ('нота', 'нотный'), ('такси', 'таксист'), ('интернет', 'интернетовский'),
+            ('прогноз', 'спрогнозировать'), ('визит', 'визитка'), ('ходить', 'доходить'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        # Rejected Tikhonov roots and look-alikes keep their senses apart.
+        for guess, target in (
+            ('нота', 'нотификация'), ('ферма', 'фермий'), ('такси', 'таксономия'),
+            ('реакция', 'реактор'), ('блокнот', 'блок'), ('агрессия', 'прогресс'),
+            ('призрак', 'приз'), ('склон', 'клон'), ('радиус', 'радио'),
+            ('доход', 'доходить'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_adverb_rule_opens_the_adjective_family(self):
         tokens = [
             {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},
