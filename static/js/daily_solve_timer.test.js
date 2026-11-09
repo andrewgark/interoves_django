@@ -2539,6 +2539,66 @@ asyncTest(async function testReturnWithoutVisibilityEventRestartsTheClock() {
   }
 });
 
+asyncTest(async function testReturnViaResumeStartsTheClockWithoutReport() {
+  // Chrome on Android, 2026-11-09: a frozen page came back with 'resume' and
+  // no visibilitychange. The clock starts; that is no missing announcement.
+  var oldNow = Date.now;
+  var oldSetInterval = global.setInterval;
+  var now = 9600000;
+  var actions = [];
+  var reports = [];
+  var checks = [];
+  var listeners = {};
+  Date.now = function () { return now; };
+  global.setInterval = function (fn) { checks.push(fn); return checks.length; };
+  try {
+    var doc = {
+      visibilityState: 'visible',
+      addEventListener: function (name, fn) { (listeners[name] = listeners[name] || []).push(fn); },
+    };
+    var ctrl = reportingTimer(function (url, init) {
+      var body = bodyOf(init);
+      if (body.action === 'client_report') {
+        reports.push(body);
+        return Promise.resolve({ status: 200, json: function () { return Promise.resolve({ ok: true }); } });
+      }
+      if (!init || init.method !== 'POST') {
+        return Promise.resolve({ status: 200, json: function () {
+          return Promise.resolve({ ok: true, exists: true, status: 'auto_paused', is_authoritative: false });
+        } });
+      }
+      actions.push(body.action);
+      var running = body.action === 'start' || body.action === 'heartbeat';
+      return Promise.resolve({ status: 200, json: function () {
+        return Promise.resolve({
+          ok: true, exists: true,
+          status: running ? 'running' : 'auto_paused',
+          is_authoritative: running,
+        });
+      } });
+    }, { document: doc, listenDocument: true, bootstrap: { status: 'auto_paused', exists: true } });
+    ctrl.boot();
+    await flush();
+    assert.ok(listeners.resume, 'the timer listens for resume');
+    doc.visibilityState = 'hidden';
+    listeners.visibilitychange.forEach(function (fn) { fn(); });
+    await flush();
+    doc.visibilityState = 'visible';
+    listeners.resume.forEach(function (fn) { fn(); });
+    await flush();
+    assert.deepStrictEqual(actions, ['start', 'auto_pause', 'start']);
+    assert.strictEqual(ctrl.state().status, 'running');
+    now += 10000;
+    checks.forEach(function (fn) { fn(); });
+    await flush();
+    assert.deepStrictEqual(reports, []);
+    ctrl.destroy();
+  } finally {
+    Date.now = oldNow;
+    global.setInterval = oldSetInterval;
+  }
+});
+
 asyncTest(async function testStoppedVisibleClockHealsWithoutTaps() {
   // A player thinking without touching the screen must not wait for the next
   // tap to get the clock going again.

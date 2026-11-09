@@ -1196,7 +1196,11 @@
       if (destroyed || visibleSince != null || lastHiddenAt == null) return false;
       if (visibilityOf(doc) !== 'visible') return false;
       onVisible(via);
-      unannouncedReturnAt = Date.now();
+      // Chrome on Android announces a return from a frozen page with
+      // 'resume' and no visibilitychange (2026-11-09, /ladder/125/: twice in
+      // one session, clock running). That is the lifecycle's own signal, not
+      // a skipped one, so it is not reported.
+      if (via !== 'resume') unannouncedReturnAt = Date.now();
       return true;
     }
 
