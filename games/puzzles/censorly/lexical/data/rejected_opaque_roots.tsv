@@ -32,7 +32,7 @@ root_spelling	reason	reviewed_at
 аль	Bogus: аль (conjunction) vs adverbial -ально in hyphenated compounds.	2026-11-09
 сей	Homonym: сей (this) vs самосей, мукосей (сеять).	2026-11-09
 пресс	Diverging: пресса (media) vs пресс/прессовать (machine); пресса gets root:press_media.	2026-11-09
-нац	Mixed: нацизм/нацист and нацмен/нацменьшинство; Nazi words anchor to нация (W4 batch 2).	2026-11-09
+нац	Mixed: нацизм/нацист vs нацмен/нацменьшинство (national); Nazi words get root:nazi, not нация.	2026-11-09
 мод	Diverging: мода/модный vs модификация; fashion words get root:fashion.	2026-11-09
 мобиль	Diverging: мобильный vs автомобиль (own root); mobile words get root:mobile.	2026-11-09
 библи	Diverging: библия vs библиотека/библиография; bible words get root:bible.	2026-11-09

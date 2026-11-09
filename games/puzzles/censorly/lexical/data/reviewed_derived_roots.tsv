@@ -553,3 +553,10 @@ lemma	root_structure	note
 вирусология	root:virus	Corpus batch A3 (2026-11-09): virus, absent from both dictionaries.
 вирусолог	root:virus	Corpus batch A3 (2026-11-09): virus, absent from both dictionaries.
 противовирусный	root:virus	Corpus batch A3 (2026-11-09): virus, absent from both dictionaries.
+нацизм	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
+нацист	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
+нацистский	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
+нацистка	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
+неонацизм	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
+неонацист	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
+неонацистский	root:nazi	Nazism has its own root: нация must not open нацизм/нацист (user decision 2026-11-09).
