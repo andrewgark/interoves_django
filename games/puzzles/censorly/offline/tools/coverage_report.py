@@ -65,12 +65,16 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--gaps', type=Path, help='write corpus gaps as TSV')
     parser.add_argument('--top', type=int, default=15)
+    parser.add_argument(
+        '--holdout', action='store_true',
+        help='measure on the holdout corpus that no review queue ranks by',
+    )
     args = parser.parse_args()
 
     prov = provenance()
     bank_sources = Counter(item['source'] for item in prov.values())
 
-    corpus = load_corpus()
+    corpus = load_corpus(holdout=args.holdout)
     articles = corpus.articles
     tokens = Counter({'service': corpus.service_tokens})
     gaps: dict[tuple[str, str], Counter] = defaultdict(Counter)

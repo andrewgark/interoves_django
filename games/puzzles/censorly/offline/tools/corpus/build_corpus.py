@@ -8,6 +8,13 @@ lemma frequencies and the sampled titles are committed::
 
     ../venv/interoves_django/bin/python -m \
         games.puzzles.censorly.offline.tools.corpus.build_corpus --size 1000
+
+``--holdout`` samples the same way from pool articles that are not in
+``corpus_titles.tsv`` and writes ``corpus_holdout_*`` instead. The main
+corpus ranks review queues; the holdout only measures them::
+
+    ../venv/interoves_django/bin/python -m \
+        games.puzzles.censorly.offline.tools.corpus.build_corpus --holdout --size 500
 """
 from __future__ import annotations
 
@@ -39,20 +46,32 @@ from games.puzzles.censorly.article.wiki import (
 )
 from games.puzzles.censorly.lexical.match.core import fold
 from games.puzzles.censorly.lexical.semantics import initially_open
-from games.puzzles.censorly.offline.corpus import DATA_DIR, FREQ_PATH, META_PATH
+from games.puzzles.censorly.offline.corpus import (
+    DATA_DIR,
+    FREQ_PATH,
+    HOLDOUT_FREQ_PATH,
+    HOLDOUT_META_PATH,
+    META_PATH,
+)
 from games.puzzles.censorly.text.tokenize import build_puzzle_payload
 
 ROOT = Path(__file__).resolve().parents[6]
 CACHE_DIR = ROOT / 'var' / 'censorly_corpus' / 'articles'
 TAGS = Path(__file__).resolve().parents[3] / 'article' / 'article_pool_tags.tsv'
 TITLES_PATH = DATA_DIR / 'corpus_titles.tsv'
+HOLDOUT_TITLES_PATH = DATA_DIR / 'corpus_holdout_titles.tsv'
 
 
 def _key(title: str) -> str:
     return hashlib.sha1(title.encode('utf-8')).hexdigest()
 
 
-def sample_titles(size: int) -> list[tuple[str, str]]:
+def _main_titles() -> set[str]:
+    with TITLES_PATH.open(encoding='utf-8', newline='') as stream:
+        return {row['title'] for row in csv.DictReader(stream, delimiter='\t')}
+
+
+def sample_titles(size: int, exclude: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
     """Topic-proportional sample; inside a topic, the lowest title hashes."""
     topics = {}
     if TAGS.exists():
@@ -62,6 +81,8 @@ def sample_titles(size: int) -> list[tuple[str, str]]:
                 topics[row['title'].strip()] = topic or 'Прочее'
     by_topic: dict[str, list[str]] = defaultdict(list)
     for title in load_article_pool():
+        if title in exclude:
+            continue
         by_topic[topics.get(title, 'Прочее')].append(title)
     total = sum(map(len, by_topic.values()))
     picked = []
@@ -102,11 +123,21 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument('--size', type=int, default=1000)
     parser.add_argument('--delay', type=float, default=0.5, help='seconds between API calls')
+    parser.add_argument(
+        '--holdout', action='store_true',
+        help='sample outside corpus_titles.tsv and write corpus_holdout_* files',
+    )
     args = parser.parse_args()
+    if args.holdout:
+        freq_path, meta_path, titles_path = HOLDOUT_FREQ_PATH, HOLDOUT_META_PATH, HOLDOUT_TITLES_PATH
+        exclude = frozenset(_main_titles())
+    else:
+        freq_path, meta_path, titles_path = FREQ_PATH, META_PATH, TITLES_PATH
+        exclude = frozenset()
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     session = requests.Session()
-    titles = sample_titles(args.size)
+    titles = sample_titles(args.size, exclude)
     tokens, documents, surfaces = Counter(), Counter(), defaultdict(Counter)
     service = 0
     used = []
@@ -135,14 +166,14 @@ def main():
                   f'{time.perf_counter() - started:.0f}s', flush=True)
 
     # mtime=0 keeps the archive byte-identical when the counts are unchanged.
-    with open(FREQ_PATH, 'wb') as raw, gzip.GzipFile(
+    with open(freq_path, 'wb') as raw, gzip.GzipFile(
         fileobj=raw, mode='wb', compresslevel=9, mtime=0,
     ) as packed, io.TextIOWrapper(packed, encoding='utf-8', newline='') as stream:
         writer = csv.writer(stream, delimiter='\t', lineterminator='\n')
         writer.writerow(['lemma', 'tokens', 'articles', 'top_surface'])
         for lemma, count in sorted(tokens.items(), key=lambda item: (-item[1], item[0])):
             writer.writerow([lemma, count, documents[lemma], surfaces[lemma].most_common(1)[0][0]])
-    with TITLES_PATH.open('w', encoding='utf-8', newline='') as stream:
+    with titles_path.open('w', encoding='utf-8', newline='') as stream:
         writer = csv.writer(stream, delimiter='\t', lineterminator='\n')
         writer.writerow(['title', 'topic', 'revid'])
         writer.writerows(sorted(used))
@@ -153,9 +184,10 @@ def main():
         'service_tokens': service,
         'lemmas': len(tokens),
         'topics': dict(Counter(topic for _title, topic, _revid in used).most_common()),
-        'built_with': 'games/puzzles/censorly/offline/tools/corpus/build_corpus.py',
+        'built_with': 'games/puzzles/censorly/offline/tools/corpus/build_corpus.py'
+                      + (' --holdout' if args.holdout else ''),
     }
-    META_PATH.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+    meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
     print(json.dumps(meta, ensure_ascii=False, indent=2))
 
 

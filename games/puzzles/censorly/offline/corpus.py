@@ -7,6 +7,11 @@ tokenized exactly like a puzzle). Without that file, the tiny test fixture
 corpus is used so the tools keep working.
 
 Counts exclude initially open service words: those never need a root.
+
+``corpus_holdout_freq.tsv.gz`` is a second sample of pool articles that are
+not in the main corpus. No queue ranks by it: it only measures whether
+coverage gains carry over to articles the review never looked at
+(``coverage_report --holdout``).
 """
 from __future__ import annotations
 
@@ -21,6 +26,8 @@ from pathlib import Path
 DATA_DIR = Path(__file__).resolve().parents[1] / 'lexical' / 'data'
 FREQ_PATH = DATA_DIR / 'corpus_lemma_freq.tsv.gz'
 META_PATH = DATA_DIR / 'corpus_lemma_freq.meta.json'
+HOLDOUT_FREQ_PATH = DATA_DIR / 'corpus_holdout_freq.tsv.gz'
+HOLDOUT_META_PATH = DATA_DIR / 'corpus_holdout_freq.meta.json'
 
 
 @dataclass
@@ -37,14 +44,14 @@ class Corpus:
         return sum(self.tokens.values())
 
 
-def _from_file() -> Corpus:
-    meta = json.loads(META_PATH.read_text(encoding='utf-8')) if META_PATH.exists() else {}
+def _from_file(freq_path: Path = FREQ_PATH, meta_path: Path = META_PATH) -> Corpus:
+    meta = json.loads(meta_path.read_text(encoding='utf-8')) if meta_path.exists() else {}
     corpus = Corpus(
-        source=f'{FREQ_PATH.name} ({meta.get("articles", "?")} pool articles)',
+        source=f'{freq_path.name} ({meta.get("articles", "?")} pool articles)',
         articles=int(meta.get('articles') or 0),
         service_tokens=int(meta.get('service_tokens') or 0),
     )
-    with gzip.open(FREQ_PATH, 'rt', encoding='utf-8', newline='') as stream:
+    with gzip.open(freq_path, 'rt', encoding='utf-8', newline='') as stream:
         for row in csv.DictReader(stream, delimiter='\t'):
             corpus.tokens[row['lemma']] = int(row['tokens'])
             corpus.documents[row['lemma']] = int(row['articles'])
@@ -77,6 +84,12 @@ def _from_fixtures() -> Corpus:
     return corpus
 
 
-@lru_cache(maxsize=1)
-def load_corpus() -> Corpus:
+@lru_cache(maxsize=2)
+def load_corpus(holdout: bool = False) -> Corpus:
+    if holdout:
+        if not HOLDOUT_FREQ_PATH.exists():
+            raise FileNotFoundError(
+                f'{HOLDOUT_FREQ_PATH.name} is missing; build it with build_corpus --holdout',
+            )
+        return _from_file(HOLDOUT_FREQ_PATH, HOLDOUT_META_PATH)
     return _from_file() if FREQ_PATH.exists() else _from_fixtures()
