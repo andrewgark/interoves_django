@@ -11,7 +11,7 @@ decides the family: an opaque Tikhonov root found on the relatives, an own
     ../venv/interoves_django/bin/python -m \\
         games.puzzles.censorly.offline.tools.coverage_report --gaps /tmp/gaps.tsv
     ../venv/interoves_django/bin/python -m \\
-        games.puzzles.censorly.offline.tools.absent_sheet /tmp/gaps.tsv --count 160
+        games.puzzles.censorly.offline.tools.absent_sheet /tmp/gaps.tsv --count 160 --min-articles 3
 """
 from __future__ import annotations
 
@@ -52,14 +52,20 @@ def main() -> None:
     parser.add_argument('--count', type=int, default=150)
     parser.add_argument('--track', default='absent_common')
     parser.add_argument('--min-length', type=int, default=4)
+    parser.add_argument(
+        '--min-articles', type=int, default=1,
+        help='skip lemmas found in fewer corpus articles: they rarely carry over to new ones',
+    )
     args = parser.parse_args()
 
-    corpus = load_corpus().tokens
+    loaded = load_corpus()
+    corpus = loaded.tokens
     with open(args.gaps, encoding='utf-8') as handle:
         gaps = [
             (row['lemma'], int(row['corpus_count']))
             for row in csv.DictReader(handle, delimiter='\t')
             if row['track'] == args.track and len(row['lemma']) >= args.min_length
+            and loaded.documents.get(row['lemma'], 0) >= args.min_articles
         ]
     gaps.sort(key=lambda row: -row[1])
 
