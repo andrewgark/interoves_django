@@ -11,6 +11,8 @@ lemma frequencies and the sampled titles are committed::
 
 ``--holdout`` samples the same way from pool articles that are not in
 ``corpus_titles.tsv`` and writes ``corpus_holdout_*`` instead. The main
+corpus in turn never takes a title from ``corpus_holdout_titles.tsv``, so
+it can grow without eating the holdout. The main
 corpus ranks review queues; the holdout only measures them::
 
     ../venv/interoves_django/bin/python -m \
@@ -66,9 +68,15 @@ def _key(title: str) -> str:
     return hashlib.sha1(title.encode('utf-8')).hexdigest()
 
 
-def _main_titles() -> set[str]:
-    with TITLES_PATH.open(encoding='utf-8', newline='') as stream:
+def _titles(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    with path.open(encoding='utf-8', newline='') as stream:
         return {row['title'] for row in csv.DictReader(stream, delimiter='\t')}
+
+
+def _main_titles() -> set[str]:
+    return _titles(TITLES_PATH)
 
 
 def sample_titles(size: int, exclude: frozenset[str] = frozenset()) -> list[tuple[str, str]]:
@@ -133,7 +141,9 @@ def main():
         exclude = frozenset(_main_titles())
     else:
         freq_path, meta_path, titles_path = FREQ_PATH, META_PATH, TITLES_PATH
-        exclude = frozenset()
+        # The holdout is the next titles by hash after the main sample, so a
+        # larger main corpus would swallow it. Keep the two disjoint.
+        exclude = frozenset(_titles(HOLDOUT_TITLES_PATH))
 
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     session = requests.Session()
