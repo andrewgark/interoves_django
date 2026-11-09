@@ -858,6 +858,25 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_proper_batch_p1_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('византия', 'византийский'), ('голландия', 'голландский'), ('швейцарец', 'швейцария'),
+            ('литва', 'литовский'), ('персия', 'персидский'), ('греция', 'греческий'),
+            ('кельн', 'кельнский'), ('турок', 'турция'), ('австралиец', 'австралия'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        # Common nouns that look like demonyms stay out of the families.
+        for guess, target in (
+            ('швейцар', 'швейцария'), ('персик', 'персидский'), ('пиво', 'пермский'),
+            ('шотландия', 'шотландка'), ('чехия', 'чешка'), ('венгрия', 'венгерка'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_nest_anchor_batch_w4_2_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
