@@ -1,16 +1,4 @@
-{% firstof task_group_results_url daily_results_url as results_url %}
-{% firstof task_group_results_allowed daily_results_allowed as results_allowed %}
-{% firstof task_group_results_label daily_results_label "Таблица результатов" as results_label %}
-{% if results_url and results_allowed %}
-<p class="new-tg-results-link">
-  <a class="new-btn new-btn--ghost new-btn--mini" href="{{ results_url }}">{{ results_label }}</a>
-</p>
-{% endif %}
-
-{% if daily_format_credit_url %}
-<p class="new-raddle-task__credit">Автор формата — <a href="{{ daily_format_credit_url }}" target="_blank" rel="noopener noreferrer">{{ daily_format_credit_name }}</a>, мы благодарны им за идею {{ daily_format_credit_text }}</p>
-{% endif %}
-
+{# The pager comes first, right under the game: below the results link and the format credit few players reached it. #}
 {% if prev_task_group_url or next_task_group_url %}
 {% firstof task_group_pager_aria_label daily_pager_aria_label "Переход между заданиями" as pager_aria_label %}
 {% firstof task_group_pager_label daily_game_label as pager_label %}
@@ -30,4 +18,17 @@
     </a>
   {% endif %}
 </nav>
+{% endif %}
+
+{% firstof task_group_results_url daily_results_url as results_url %}
+{% firstof task_group_results_allowed daily_results_allowed as results_allowed %}
+{% firstof task_group_results_label daily_results_label "Таблица результатов" as results_label %}
+{% if results_url and results_allowed %}
+<p class="new-tg-results-link">
+  <a class="new-btn new-btn--ghost new-btn--mini" href="{{ results_url }}">{{ results_label }}</a>
+</p>
+{% endif %}
+
+{% if daily_format_credit_url %}
+<p class="new-raddle-task__credit">Автор формата — <a href="{{ daily_format_credit_url }}" target="_blank" rel="noopener noreferrer">{{ daily_format_credit_name }}</a>, мы благодарны им за идею {{ daily_format_credit_text }}</p>
 {% endif %}

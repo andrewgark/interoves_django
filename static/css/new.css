@@ -4271,8 +4271,16 @@ html.new-ui-dark .new-team-switcher-active-box {
   cursor: pointer;
 }
 
+/* Open neighbouring editions read as links: accent arrows on a light tint,
+   still quiet next to the game (Nov 9: players did not notice grey ones). */
+a.new-daily-game-header__nav-button:not(.is-archive-locked) {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface));
+  font-size: 1.15rem;
+}
+
 .new-daily-game-header__nav-button:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
   color: var(--accent);
 }
 
@@ -7253,7 +7261,7 @@ img.wall-attempt-image{ max-height: 45px; max-width: 70px; }
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--muted);
+  color: var(--accent);
 }
 
 .new-tg-pager__dir .ph {

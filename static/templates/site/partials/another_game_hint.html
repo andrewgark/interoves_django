@@ -5,7 +5,12 @@
 {# replaced was opened once in 39 showings (Nov 5–6).                           #}
 {# Eligibility: daily_player (games.site.http.context); goals another_game_*.  #}
 {% if daily_player.days <= 1 and game.id %}
-<aside class="new-signup-prompt new-another-game" aria-labelledby="new-another-game-title" data-another-game data-game-id="{{ game.id }}" hidden>
+{# After the second game of the day the hint suggests another game instead (cross-game). #}
+{% if game.id == 'salad' %}{% firstof 'censorly' as other_game %}{% firstof 'Цензурку' as other_name %}{% firstof 'угадайте статью Википедии, в которой скрыты все слова' as other_pitch %}
+{% elif game.id == 'censorly' %}{% firstof 'salad' as other_game %}{% firstof 'Салатик' as other_name %}{% firstof 'найдите все слова на тему дня в сетке из 16 букв' as other_pitch %}
+{% elif game.id == 'ladder' %}{% firstof 'salad' as other_game %}{% firstof 'Салатик' as other_name %}{% firstof 'найдите все слова на тему дня в сетке из 16 букв' as other_pitch %}
+{% else %}{% firstof 'ladder' as other_game %}{% firstof 'Лесенку' as other_name %}{% firstof 'соберите цепочку слов, где каждое связано с соседним' as other_pitch %}{% endif %}
+<aside class="new-signup-prompt new-another-game" aria-labelledby="new-another-game-title" data-another-game data-game-id="{{ game.id }}" data-other-game="{{ other_game }}" data-other-title="Попробуйте {{ other_name }}" data-other-text="Ещё одна игра дня: {{ other_pitch }}. Тоже бесплатно." hidden>
   <button type="button" class="new-rules-modal__close new-signup-prompt__close" aria-label="Закрыть" data-another-game-dismiss><i class="ph ph-x" aria-hidden="true"></i></button>
   <p id="new-another-game-title" class="new-signup-prompt__title">Сыграйте ещё один выпуск</p>
   <p class="new-signup-prompt__text">Прошлые выпуски открываются стрелками рядом с датой — последние семь бесплатные.</p>
@@ -58,12 +63,38 @@
     nav.classList.add('is-hinted');
     return true;
   }
+  // Finished games today on this device; from the second one on, offer another game.
+  var countKey = 'interoves_first_day_games';
+  function countToday() {
+    var today = new Date().toISOString().slice(0, 10);
+    var state = {};
+    try { state = JSON.parse(localStorage.getItem(countKey) || '{}') || {}; } catch (e) {}
+    // Distinct editions, so reopening a solved one does not count again.
+    var games = state.day === today && Array.isArray(state.games) ? state.games : [];
+    if (games.indexOf(location.pathname) < 0) games.push(location.pathname);
+    try { localStorage.setItem(countKey, JSON.stringify({day: today, games: games})); } catch (e) {}
+    return games.length;
+  }
+  function switchToOtherGame() {
+    var other = card.getAttribute('data-other-game');
+    if (!other) return false;
+    card.querySelector('.new-signup-prompt__title').textContent = card.getAttribute('data-other-title');
+    card.querySelector('.new-signup-prompt__text').textContent = card.getAttribute('data-other-text');
+    var accept = card.querySelector('[data-another-game-accept]');
+    accept.setAttribute('href', '/' + other + '/first/');
+    accept.firstChild.textContent = 'Играть ';
+    params.other = other;
+    params.kind = 'other_game';
+    return true;
+  }
   function show() {
+    var crossGame = countToday() >= 2 && switchToOtherGame();
     // One corner card at a time.
     var other = document.querySelector('[data-site-version-hint]:not([hidden]), [data-signup-prompt]:not([hidden]), [data-daily-reminder-prompt]:not([hidden]), .new-rules-modal.is-open');
     if (other) return;
     card.hidden = false;
-    anchor();
+    // The arrows point at this game's editions, so only the same-game hint anchors to them.
+    if (!crossGame) anchor();
     window.requestAnimationFrame(function () { card.classList.add('is-visible'); });
     goal('another_game_shown');
   }

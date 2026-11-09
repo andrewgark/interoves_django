@@ -115,13 +115,25 @@ class EngagementPromptTests(TestCase):
         self.assertFalse(signup_prompt(self._request(self.user))['signup_prompt']['show'])
 
     def test_signup_prompt_card_renders_only_when_shown(self):
-        html = render_to_string('site/partials/signup_prompt.html', {'signup_prompt': {'show': True, 'days': 4}})
+        from games.tests.test_onboarding import _ensure_social_apps
+
+        _ensure_social_apps()
+        request = self._request(AnonymousUser())
+        html = render_to_string(
+            'site/partials/signup_prompt.html', {'signup_prompt': {'show': True, 'days': 4}}, request=request,
+        )
         self.assertIn('Вы играете уже 4 дня — сохраните прогресс', html)
-        self.assertIn('data-login-open', html)
+        self.assertIn('никаких логинов и паролей', html)
+        self.assertIn('Напоминание о новом выпуске в Telegram', html)
+        for provider in ('telegram', 'yandex', 'google', 'vk'):
+            self.assertIn(f'data-signup-prompt-provider="{provider}"', html)
         self.assertIn('signup_prompt_shown', html)
+        self.assertIn('signup_prompt_click', html)
         self.assertNotIn(
             'data-signup-prompt',
-            render_to_string('site/partials/signup_prompt.html', {'signup_prompt': {'show': False, 'days': 1}}),
+            render_to_string(
+                'site/partials/signup_prompt.html', {'signup_prompt': {'show': False, 'days': 1}}, request=request,
+            ),
         )
 
     def test_daily_player_counts_days_for_visitors_and_users(self):
@@ -198,3 +210,10 @@ class EngagementPromptTests(TestCase):
         self.assertIn('Вы решили 18 Салатиков', html)
         self.assertIn('ещё 56 Салатиков', html)
         self.assertIn('data-club-offer-pitch="salad"', html)
+
+    def test_another_game_hint_carries_a_different_game_for_the_second_game(self):
+        html = render_to_string('site/partials/another_game_hint.html', {'daily_player': {'days': 1}, 'game': {'id': 'salad'}})
+        self.assertIn('data-other-game="censorly"', html)
+        self.assertIn('Попробуйте Цензурку', html)
+        html = render_to_string('site/partials/another_game_hint.html', {'daily_player': {'days': 0}, 'game': {'id': 'censorly'}})
+        self.assertIn('data-other-game="salad"', html)
