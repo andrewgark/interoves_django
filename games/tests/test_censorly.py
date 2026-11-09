@@ -1540,6 +1540,30 @@ class CensorlyWikiHelperTests(TestCase):
         self.assertNotIn('Строка 59', cleaned)
         self.assertEqual(cleaned.count(TABLE_START), cleaned.count(TABLE_END))
 
+    def test_html_extract_ignores_hidden_sort_keys_in_cast_table(self):
+        from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
+        from games.puzzles.censorly.text.tokenize import TABLE_CELL, TABLE_ROW
+
+        html = (
+            '<table class="wikitable sortable"><tr><th>Актёр</th><th>Роль</th></tr>'
+            '<tr><td>Мэттью Макконахи</td><td><span style="display:none">'
+            'Джозеф «Куп» Купер</span> Джозеф «Куп» Купер</td></tr>'
+            '<tr><td>Маккензи Фой</td><td><span style="color:red; DISPLAY: none !important">'
+            'Мёрф</span> дочь Купера Мёрф в возрасте 10 лет</td></tr>'
+            '<tr><td>Билл Ирвин</td><td><span hidden>ТАРС</span> ТАРС (голос)</td></tr>'
+            '</table>'
+        )
+        cleaned = clean_wiki_extract(_html_extract_to_text(html))
+
+        self.assertIn(TABLE_ROW + TABLE_CELL + 'Мэттью Макконахи'
+                      + TABLE_CELL + 'Джозеф «Куп» Купер', cleaned)
+        self.assertIn(TABLE_ROW + TABLE_CELL + 'Маккензи Фой'
+                      + TABLE_CELL + 'дочь Купера Мёрф в возрасте 10 лет', cleaned)
+        self.assertIn(TABLE_ROW + TABLE_CELL + 'Билл Ирвин'
+                      + TABLE_CELL + 'ТАРС (голос)', cleaned)
+        self.assertNotIn('Мёрф дочь Купера', cleaned)
+        self.assertEqual(cleaned.count('Джозеф «Куп» Купер'), 1)
+
     def test_html_extract_keeps_collapsed_blocks_and_code_listings(self):
         from games.puzzles.censorly.article.wiki import _html_extract_to_text, clean_wiki_extract
         from games.puzzles.censorly.text.tokenize import (

@@ -457,9 +457,18 @@ class _WikiExtractHTMLParser(HTMLParser):
         skipped_row = (
             tag == 'tr' and 'data' in self.tables and self.table_chars > self._TABLE_MAX_CHARS
         )
+        # Sortable wiki tables put a hidden sort key before the visible cell
+        # text. Reading both repeats names and roles in the article extract.
+        # Outside tables, a hidden span can contain the only textual MathML
+        # representation; its visible counterpart is an image we discard.
+        hidden = 'data' in self.tables and (
+            'hidden' in attrs or bool(re.search(
+                r'(?:^|;)\s*display\s*:\s*none\b', attrs.get('style') or '', re.IGNORECASE,
+            ))
+        )
         if (
             tag in self._SKIP_TAGS or classes & self._SKIP_CLASSES
-            or skipped_div or skipped_table or skipped_row
+            or skipped_div or skipped_table or skipped_row or hidden
         ):
             if tag not in self._VOID_TAGS:
                 self.skip_depth = 1
