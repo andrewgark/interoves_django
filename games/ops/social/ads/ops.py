@@ -931,7 +931,11 @@ def campaign_suspend(client: AdsClient | None = None, campaign_id: int | None = 
     if dry_run:
         return {"dry_run": True, "method": "campaigns.suspend", "params": payload}
     result = ads.call("campaigns", "suspend", payload)
-    append_audit(action="suspend", object_type="campaign", object_id=cid, reason=reason or "manual suspend", api_status="ok")
+    errors = [e for row in (result.get("SuspendResults") or []) for e in (row.get("Errors") or [])]
+    append_audit(action="suspend", object_type="campaign", object_id=cid, reason=reason or "manual suspend",
+                 api_status="error" if errors else "ok")
+    if errors:
+        raise ConfigError(f"Campaigns.suspend {cid}: {errors}")
     return result
 
 
@@ -943,7 +947,11 @@ def campaign_resume(client: AdsClient | None = None, campaign_id: int | None = N
     if dry_run:
         return {"dry_run": True, "method": "campaigns.resume", "params": payload}
     result = ads.call("campaigns", "resume", payload)
-    append_audit(action="resume", object_type="campaign", object_id=cid, reason=reason or "manual resume", api_status="ok")
+    errors = [e for row in (result.get("ResumeResults") or []) for e in (row.get("Errors") or [])]
+    append_audit(action="resume", object_type="campaign", object_id=cid, reason=reason or "manual resume",
+                 api_status="error" if errors else "ok")
+    if errors:
+        raise ConfigError(f"Campaigns.resume {cid}: {errors}")
     return result
 
 

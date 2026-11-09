@@ -67,10 +67,17 @@ class Command(BaseCommand):
             return ops.keywords_get(client, campaign_ids=[cid] if cid else None, ids=_ids(options))
         if sub == "bidmodifiers.get":
             return ops.bidmodifiers_get(client, campaign_ids=[cid] if cid else None, ids=_ids(options))
-        if sub == "campaigns.suspend":
-            return ops.campaign_suspend(client, cid, dry_run=dry, reason=options["reason"])
-        if sub == "campaigns.resume":
-            return ops.campaign_resume(client, cid, dry_run=dry, reason=options["reason"])
+        if sub in ("campaigns.suspend", "campaigns.resume"):
+            # Several campaigns run at once: never fall back to the state's
+            # old «current» campaign (Nov 9: --ids was ignored and the August
+            # one was targeted). --ids with a single id is accepted too.
+            ids = [int(x) for x in str(options.get("ids") or "").split(",") if x.strip()]
+            ids += [options["object_id"]] if options.get("object_id") else []
+            target = cid or (ids[0] if len(ids) == 1 else None)
+            if not target:
+                raise CommandError(f"{sub} needs --campaign-id (or a single --ids)")
+            action = ops.campaign_suspend if sub == "campaigns.suspend" else ops.campaign_resume
+            return action(client, int(target), dry_run=dry, reason=options["reason"])
         if sub == "keywords.suspend":
             return ops.keywords_suspend(client, _id_list(options), dry_run=dry, reason=options["reason"])
         if sub == "keywords.resume":
