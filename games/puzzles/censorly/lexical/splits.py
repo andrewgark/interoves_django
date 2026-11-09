@@ -7977,6 +7977,23 @@ _LATE_REVIEW_SPLITS = (
     ('sense:review_rooster', ('петух', 'петушок', 'петушиный')),
     # вплоть («вплоть до», up to) is not плотный.
     ('sense:review_up_to', ('вплоть',)),
+    # Correctness sample s3 borderline pairs, closed by user decision
+    # (2026-11-10): a shared school root, but no link a player would see.
+    # столяр (carpenter) is not столица; стол ↔ столица stays a reviewed match.
+    ('sense:review_carpenter', ('столярный', 'столярить', 'столярничать', 'столярня', 'столяриха')),
+    # розетка (socket, rosette) is not роза.
+    ('sense:review_socket', ('розетка',)),
+    # сопка (hill) is not сыпать/насыпь.
+    ('sense:review_hill', ('сопка',)),
+    # постепенный (gradual) is not степень/степенной (power, degree).
+    ('sense:review_gradual', ('постепенный', 'постепеновец', 'постепеновщина')),
+    # степенный (sedate) is not степень/постепенный.
+    ('sense:review_sedate', (
+        'степенный', 'нестепенный', 'степенность', 'степенство', 'степенничать',
+        'остепениться', 'остепенить', 'остепенять', 'остепеняться', 'остепененный',
+    )),
+    # чрезвычайный (extraordinary) is not привычка/навык.
+    ('sense:review_extraordinary', ('чрезвычайно', 'чрезвычайный', 'чрезвычайность')),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
