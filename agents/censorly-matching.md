@@ -55,6 +55,7 @@
 | разбор пары | `review.explain_pair A B` или `--pairs-file` |
 | метрика покрытия и дыры по трекам (`SUMMARY rooted_russian_tokens=…`) | `coverage_report --gaps /tmp/gaps.tsv` (~1 мин) |
 | та же метрика на отложенной выборке (очереди её не читают) | `coverage_report --holdout` (~1 мин) |
+| набор метрик: покрытие по группам слов на обоих корпусах, правильность по размеченным выборкам и по `bee.roots.json` | `metrics` (~2.5 мин); `metrics draw --per-group 30 --extra 100 --seed N` — новая выборка для разметки |
 | пересобрать корпус приоритетов (`data/corpus_lemma_freq.tsv.gz`) | `corpus.build_corpus --size 1000` (~35 мин, кэш в `var/censorly_corpus/`) |
 | лист ревью топ-пропусков по семьям (трек A) | `review_sheet --start 0 --count 150` (~2 мин) |
 | пары «имя собственное ↔ прилагательное» (трек P) | `proper_queue --count 250 --tsv /tmp/p.tsv` (~5 мин) |

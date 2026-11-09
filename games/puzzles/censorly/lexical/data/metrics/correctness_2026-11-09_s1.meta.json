@@ -1,0 +1,17 @@
+{
+  "drawn_at": "2026-11-09",
+  "seed": 1,
+  "corpus": "corpus_holdout_freq.tsv.gz (497 pool articles)",
+  "pool_size": 4000,
+  "per_group": 30,
+  "group_weights": {
+    "reviewed_row": 0.05575,
+    "opaque": 0.13775,
+    "kuznetsova": 0.68475,
+    "rule": 0.0225,
+    "proper": 0.0235,
+    "nest_anchor": 0.04225,
+    "fallback": 0.024,
+    "alias": 0.0095
+  }
+}
