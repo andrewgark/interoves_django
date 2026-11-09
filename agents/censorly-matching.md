@@ -1,6 +1,9 @@
 # Censorly matching: agent playbook
 
-Читать перед любой правкой матчинга Цензурок. Архитектура описана в
+Читать перед любой правкой матчинга Цензурок. Полный алгоритм (сущности,
+дерево решений, банк корней, что упростить) описан в
+[docs/censorly-matching-algorithm.md](../docs/censorly-matching-algorithm.md),
+архитектура — в
 [docs/censorly-matching-architecture.md](../docs/censorly-matching-architecture.md),
 роадмап и журнал — в [docs/censorly-dictionary-roadmap.md](../docs/censorly-dictionary-roadmap.md).
 

@@ -4,6 +4,10 @@
 `games.puzzles.censorly.offline.tools.coverage_report` и замерами из этого
 разбора. Если код изменился, пересчитай их, а не доверяй документу.
 
+Пошаговый алгоритм живого пути (сущности, дерево решений `_relation`,
+порядок источников банка, кандидаты на упрощение) описан в
+[censorly-matching-algorithm.md](censorly-matching-algorithm.md).
+
 Роадмап пополнения словарей лежит в
 [censorly-dictionary-roadmap.md](censorly-dictionary-roadmap.md), правила для
 агентов — в [agents/censorly-matching.md](../agents/censorly-matching.md).
