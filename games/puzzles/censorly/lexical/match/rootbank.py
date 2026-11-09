@@ -176,6 +176,15 @@ def _load_rejected_fallback() -> frozenset[tuple[str, str]]:
 
 REJECTED_FALLBACK = _load_rejected_fallback()
 
+# Reviewed ids for bound components that only occur inside compounds. The
+# spelling fallback must not read «лог» in технология as положить (that
+# pair is in rejected_fallback.tsv), but the compound still needs a whole
+# structure: технология = техн + «-логия, наука о». A single-root word
+# (логика) never takes this id.
+COMPOUND_COMPONENT_IDS: dict[str, str] = {
+    'лог': 'root:logy',
+}
+
 
 def _load_negation_pairs() -> dict[str, str]:
     """Reviewed не- lemmas whose meaning is the negation of the base lemma."""
@@ -963,6 +972,8 @@ def _explode(parts, lemma_ids, plain_hits, morph_family):
     failed = False
     for part in parts:
         ids, kind, extra = _authorize_component(part, lemma_ids, plain_hits, morph_family)
+        if not ids and _plain(part) in COMPOUND_COMPONENT_IDS:
+            ids, kind = (COMPOUND_COMPONENT_IDS[_plain(part)],), 'REVIEWED_COMPOUND_COMPONENT'
         rows.append({
             'kind': kind,
             'n_cand': len(ids) + len(extra),

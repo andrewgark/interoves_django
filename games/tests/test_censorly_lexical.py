@@ -960,6 +960,23 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_logy_compounds_keep_their_family_without_the_lay_root(self):
+        """«-лог-» in технология is «наука о», not положить; the compound stays rooted."""
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('технология', 'технологический'), ('методология', 'методологический'),
+            ('технологический', 'технологически'), ('логика', 'логический'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('логика', 'технология'), ('положить', 'технология'), ('техника', 'технология'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_correctness_sample_s1_bad_pairs_stay_closed(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
