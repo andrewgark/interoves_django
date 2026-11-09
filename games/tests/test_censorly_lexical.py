@@ -1047,6 +1047,28 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_corpus_batch_a5_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('лингвист', 'лингвистика'), ('ремонт', 'отремонтировать'), ('патент', 'запатентовать'),
+            ('трасса', 'трассировка'), ('координация', 'скоординировать'), ('ария', 'ариетта'),
+            ('мобилизация', 'демобилизация'), ('агрессивный', 'агрессия'), ('коллега', 'коллегия'),
+            ('живопись', 'живописец'), ('свинина', 'свиной'), ('верный', 'достоверный'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        # Mixed Tikhonov roots rejected in A5 keep their words apart.
+        for guess, target in (
+            ('ария', 'океанариум'), ('квартет', 'квартплата'), ('альт', 'альтиметр'),
+            ('маг', 'универмаг'), ('магний', 'магнетрон'), ('мобилизация', 'автомобиль'),
+            ('сага', 'саговник'), ('рацион', 'иррациональный'), ('тактика', 'тактичный'),
+            ('фут', 'футбол'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_adverb_rule_opens_the_adjective_family(self):
         tokens = [
             {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},
