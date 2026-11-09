@@ -4,7 +4,7 @@ Telegram chat invites are ``members_only``: anonymous visitors (and the bots
 scraping the hub) do not see them; signed-in players do.
 """
 
-MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL = 'https://t.me/+rhsbkEuU4-ExOWEy'
+MAIN_DESYATOCHKI_PARTICIPANTS_CHAT_URL = 'https://t.me/+-OYo2CDi7RdkZjNi'
 
 MAIN_COMMUNITY_LINKS = [
     {'kind': 'telegram', 'title': 'Телеграм-канал', 'href': 'https://t.me/interoves'},
@@ -14,7 +14,7 @@ MAIN_COMMUNITY_LINKS = [
     {
         'kind': 'telegram',
         'title': 'Чат решающих PuzzleHunts',
-        'href': 'https://t.me/+GPR22w8MdLEyNzIy',
+        'href': 'https://t.me/+vvNjCE3UY9A3NWUy',
         'members_only': True,
     },
     {'kind': 'telegram', 'title': 'Разработчик: Андрей', 'href': 'https://t.me/andrewgark'},

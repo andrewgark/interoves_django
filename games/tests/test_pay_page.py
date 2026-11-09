@@ -416,8 +416,8 @@ class HubPayCtaTests(TestCase):
         resp = self.client.get(reverse('new_hub'))
         body = resp.content.decode()
         self.assertIsNone(resp.context['desyatochki_participants_chat_url'])
-        self.assertNotIn('t.me/+rhsbkEuU4-ExOWEy', body)
-        self.assertNotIn('t.me/+GPR22w8MdLEyNzIy', body)
+        self.assertNotIn('t.me/+-OYo2CDi7RdkZjNi', body)
+        self.assertNotIn('t.me/+vvNjCE3UY9A3NWUy', body)
         self.assertIn('href="https://t.me/interoves"', body)
 
     def test_main_hub_shows_chat_invites_to_signed_in(self):
@@ -428,10 +428,10 @@ class HubPayCtaTests(TestCase):
         # Чат участников продублирован в блок десяточек только на главной.
         self.assertEqual(
             resp.context['desyatochki_participants_chat_url'],
-            'https://t.me/+rhsbkEuU4-ExOWEy',
+            'https://t.me/+-OYo2CDi7RdkZjNi',
         )
         self.assertIn('Чат участников', body)
-        self.assertIn('href="https://t.me/+GPR22w8MdLEyNzIy"', body)
+        self.assertIn('href="https://t.me/+vvNjCE3UY9A3NWUy"', body)
 
     def test_glowbyte_hub_has_no_interesting_or_desyatochki_chat(self):
         resp = self.client.get(reverse('project_hub', kwargs={'project_id': 'glowbyte'}))
@@ -442,13 +442,13 @@ class HubPayCtaTests(TestCase):
         self.assertIsNone(resp.context.get('desyatochki_participants_chat_url'))
         self.assertIn('Как играть', body)
         self.assertNotIn('t.me/joinchat/RUpU9KKhgLI4NDQy', body)
-        self.assertNotIn('t.me/+rhsbkEuU4-ExOWEy', body)
+        self.assertNotIn('t.me/+-OYo2CDi7RdkZjNi', body)
 
         User.objects.create_user(username='gb_chat_user', password='secret')
         self.assertTrue(self.client.login(username='gb_chat_user', password='secret'))
         body = self.client.get(reverse('project_hub', kwargs={'project_id': 'glowbyte'})).content.decode()
         self.assertIn('href="https://t.me/joinchat/RUpU9KKhgLI4NDQy"', body)
-        self.assertNotIn('href="https://t.me/+rhsbkEuU4-ExOWEy"', body)
+        self.assertNotIn('href="https://t.me/+-OYo2CDi7RdkZjNi"', body)
 
     def test_glowbyte_hub_does_not_show_buy_tickets(self):
         resp = self.client.get(reverse('project_hub', kwargs={'project_id': 'glowbyte'}))
