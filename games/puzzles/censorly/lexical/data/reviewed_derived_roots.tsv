@@ -2162,3 +2162,7 @@ lemma	root_structure	note
 чек	root:cheque	Track D batch 1 (2026-11-09): spelling matches several game roots but belongs to none; own family.
 чековый	root:cheque	Track D batch 1 (2026-11-09): spelling matches several game roots but belongs to none; own family.
 куб	root:cube	Track E (2026-11-09): Kuznetsova lists куб in both куб¹ (кубок, кубышка) and куб²; the cube belongs with кубик, кубический.
+гавана	root:havana	Correctness sample s1 (2026-11-09): Гавана (city) is not гавань (harbour).
+кантоваться	root:loaf_about	Correctness sample s1 (2026-11-09): кантоваться (idle about) is not кант (edge).
+перекантоваться	root:loaf_about	Correctness sample s1 (2026-11-09): кантоваться (idle about) is not кант (edge).
+перекантовываться	root:loaf_about	Correctness sample s1 (2026-11-09): кантоваться (idle about) is not кант (edge).

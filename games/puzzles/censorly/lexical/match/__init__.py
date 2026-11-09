@@ -18,6 +18,7 @@ from games.puzzles.censorly.lexical.russian.reading_overrides import (
     CITY_ABBR_CONTEXT,
     INITIAL_CONTEXT_PREFIX,
     LANGUAGE_LABEL_CONTEXTS,
+    LANGUAGE_LABEL_LEMMAS,
     LI_NAME_CONTEXT,
     N_ERA_CONTEXT,
     NEM_GERMAN_CONTEXT,
@@ -749,6 +750,30 @@ def _cached_article_analysis(cache_key, tokens, *, include_pronouns: bool) -> di
         raise
 
 
+# Language labels that are also ordinary words: «порт», «кит», «нём». The
+# guess means the language only when the article itself uses the label: some
+# token with this spelling was read as a label (``label.`` before a gloss).
+# Then the guess also matches as the full word, with its root and sense.
+_HOMOGRAPH_LABELS: dict[str, tuple[str, str]] = {
+    **{
+        label: (LANGUAGE_LABEL_CONTEXTS[label], full)
+        for label, full in LANGUAGE_LABEL_LEMMAS.items()
+    },
+    'нем': (NEM_GERMAN_CONTEXT, 'немецкий'),
+}
+
+
+def _label_expansion(index, guess_fold: str) -> str:
+    """The full word a homograph label guess stands for in this article, or ''."""
+    entry = _HOMOGRAPH_LABELS.get(guess_fold)
+    if entry is None:
+        return ''
+    context, full = entry
+    if any(index.lemmas[surface_id] == context for surface_id in index.fold.get(guess_fold, ())):
+        return full
+    return ''
+
+
 def matching_lemmas(tokens, guess: str, *, cache_key=None) -> set[str]:
     """Stored lemmas of content tokens the guess opens."""
     return analyze_guess(
@@ -793,11 +818,28 @@ def analyze_guess(
     candidate_ids = index.candidate_ids(
         guess_pack, include_rejections=include_report,
     )
+    label_full = _label_expansion(index, guess_fold)
+    label_pack = None
+    if label_full:
+        label_pack = _guess_pack(label_full, include_pronouns=include_pronouns)
+        seen = set(candidate_ids)
+        candidate_ids = list(candidate_ids) + [
+            surface_id
+            for surface_id in index.candidate_ids(label_pack, include_rejections=False)
+            if surface_id not in seen
+        ]
+
+    def relation_of(pack):
+        relation = _relation(guess_pack, pack)
+        if not relation and label_pack is not None:
+            relation = _relation(label_pack, pack)
+        return relation
+
     if not include_report:
         hits = set()
         for surface_id in candidate_ids:
             pack = index.packs[surface_id]
-            if _relation(guess_pack, pack):
+            if relation_of(pack):
                 lemma = index.lemmas[surface_id]
                 hits.add(lemma or pack.fold or guess_pack.fold)
         return hits, empty
@@ -811,7 +853,7 @@ def analyze_guess(
     hits: set[str] = set()
     for surface_id in candidate_ids:
         pack = index.packs[surface_id]
-        relation = _relation(guess_pack, pack)
+        relation = relation_of(pack)
         relations_by_id[surface_id] = relation
         if not relation:
             rejections_by_id[surface_id] = _reject(guess_pack, pack)

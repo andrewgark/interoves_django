@@ -2,11 +2,10 @@
 
 from django.test import SimpleTestCase
 
-from games.puzzles.censorly.lexical.russian.reading_overrides import LANGUAGE_LABEL_CONTEXTS
 from games.puzzles.censorly.lexical.match import _GuessPack, _Pack, _relation, matching_lemmas
+from games.puzzles.censorly.lexical.russian.reading_overrides import LANGUAGE_LABEL_CONTEXTS
 from games.puzzles.censorly.lexical.semantics import explain, opens
 from games.puzzles.censorly.text.tokenize import tokenize_text
-
 
 APPROVED_ABBREVIATION_PAIRS = (
     ('килогерц', 'кгц'),
@@ -38,7 +37,6 @@ APPROVED_ABBREVIATION_PAIRS = (
     ('килобайт', 'кбайт'),
     ('мегабайт', 'мбайт'),
     ('гигабайт', 'гбайт'),
-    ('медицинский', 'мед'),
     ('преподаватель', 'препод'),
     ('администратор', 'админ'),
     ('заместитель', 'зам'),
@@ -51,7 +49,7 @@ APPROVED_ABBREVIATION_PAIRS = (
 
 class CensorlyAbbreviationAliasTests(SimpleTestCase):
     def test_all_approved_pairs_are_bidirectional_aliases(self):
-        self.assertEqual(len(APPROVED_ABBREVIATION_PAIRS), 37)
+        self.assertEqual(len(APPROVED_ABBREVIATION_PAIRS), 36)
         for full, abbreviation in APPROVED_ABBREVIATION_PAIRS:
             with self.subTest(full=full, abbreviation=abbreviation):
                 self.assertEqual(explain(full, abbreviation), 'alias')
@@ -217,6 +215,32 @@ class CensorlyLanguageLabelRootTests(SimpleTestCase):
                 self.assertFalse(
                     matching_lemmas(tokens, guess) & set(LANGUAGE_LABEL_CONTEXTS.values()),
                 )
+
+
+
+class HomographLabelContextTests(SimpleTestCase):
+    """«порт», «кит», «нём» mean a language only where the article uses the label."""
+
+    def test_label_guess_opens_the_full_word_only_when_the_article_has_the_label(self):
+        labelled = tokenize_text('Лиссабон (порт. Lisboa) — столица. Португальский язык. Морской порт.')
+        self.assertIn('португальский', matching_lemmas(labelled, 'порт'))
+        self.assertIn('порт', matching_lemmas(labelled, 'порт'))
+        plain = tokenize_text('Морской порт города. Португальский язык распространён.')
+        self.assertEqual(matching_lemmas(plain, 'порт'), {'порт'})
+        self.assertNotIn('порт', matching_lemmas(plain, 'португальский'))
+
+    def test_nem_and_kit_without_a_label_stay_ordinary_words(self):
+        tokens = tokenize_text('Он думал о нём. Синий кит живёт в океане. Немецкий и китайский языки.')
+        self.assertNotIn('немецкий', matching_lemmas(tokens, 'нём'))
+        self.assertNotIn('немецкий', matching_lemmas(tokens, 'нем'))
+        self.assertNotIn('китайский', matching_lemmas(tokens, 'кит'))
+        labelled = tokenize_text('Название (от нем. Koralle) пришло. Немецкий учёный писал.')
+        self.assertIn('немецкий', matching_lemmas(labelled, 'нем'))
+
+    def test_honey_is_not_the_medical_abbreviation(self):
+        tokens = tokenize_text('Мёд собирают пчёлы. Медицинский институт.')
+        self.assertNotIn('медицинский', matching_lemmas(tokens, 'мёд'))
+        self.assertNotIn('мед', matching_lemmas(tokens, 'медицинский'))
 
 
 class HyphenHalfTests(SimpleTestCase):
