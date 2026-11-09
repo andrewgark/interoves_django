@@ -7925,6 +7925,27 @@ _LATE_REVIEW_SPLITS = (
     )),
     # The -ый spelling of бредовой came in by spelling fallback without the sense.
     ('sense:delirium', ('бредовый',)),
+    # Track F batch 2 (user decision 2026-11-09): these must not open their
+    # historical relatives.
+    # уровень (level) is not равный/уравнение/сравнение.
+    ('sense:review_level', ('уровень',)),
+    # продолжать (continue) is not долгий/долго.
+    ('sense:review_continue', (
+        'продолжать', 'продолжаться', 'продолжить', 'продолжиться', 'продолжение',
+        'продолжительность', 'продолжительный', 'непродолжительный', 'непродолжительность',
+        'продолжатель', 'продолжательница',
+    )),
+    # заговор (conspiracy) and приговор (verdict) are not говорить.
+    ('sense:review_conspiracy', (
+        'заговор', 'заговорный', 'заговорщик', 'заговорщица', 'заговорщицкий',
+        'заговорщический', 'заговорщичество',
+    )),
+    ('sense:review_verdict', ('приговор', 'приговорить', 'приговоренный')),
+    # зависеть (depend) is not висеть.
+    ('sense:review_dependence', (
+        'зависеть', 'зависимость', 'зависимый', 'независимость', 'независимый',
+        'полузависимый', 'полунезависимый',
+    )),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
