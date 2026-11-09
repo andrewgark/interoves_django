@@ -4,12 +4,12 @@ from django.test import SimpleTestCase
 
 from games.puzzles.censorly.lexical.semantics import explain, opens
 
-
 EPONYMS = (
     ('Ленин', 'ленинизм'),
     ('Лоуренс', 'лоуренсий'),
     ('Менделеев', 'менделевий'),
     ('Нобель', 'нобелий'),
+    ('Нобель', 'нобелевский'),
     ('Гёте', 'гётит'),
     ('Антонов', 'антоновский'),
     ('Клемент', 'клементина'),
@@ -66,7 +66,6 @@ class ApprovedEponymPairTests(SimpleTestCase):
         unrelated = (
             ('Антон', 'антоновский'),
             ('Ленин', 'ленинист'),
-            ('Нобель', 'нобелевский'),
             ('Гёте', 'гетитовый'),
         )
         for left, right in unrelated:
