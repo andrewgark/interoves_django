@@ -407,3 +407,8 @@ lemma	root_structure	note
 калий	root:potassium	Corpus batch A1 (2026-11-06): potassium; Tikhonov кал mixes кал and калить.
 калийный	root:potassium	Corpus batch A1 (2026-11-06): potassium; Tikhonov кал mixes кал and калить.
 мотив	tikh:мотив	Corpus batch A1 (2026-11-06): base of мотивация/мотивировать, absent from Tikhonov.
+одноствольный	fam:один|одн+fam:ствол	Complaint batch 2026-11-09 (Граната): reviewed compound: one + barrel.
+двуствольный	fam:дв+fam:ствол	Complaint batch 2026-11-09 (Граната): reviewed compound: two + barrel.
+многоствольный	fam:мног|множ+fam:ствол	Complaint batch 2026-11-09 (Граната): reviewed compound: many + barrel.
+короткоствольный	fam:корач|корот|короч¹|крат|кращ+fam:ствол	Complaint batch 2026-11-09 (Граната): reviewed compound: short + barrel.
+длинноствольный	fam:дл|дол²+fam:ствол	Complaint batch 2026-11-09 (Граната): reviewed compound: long + barrel.

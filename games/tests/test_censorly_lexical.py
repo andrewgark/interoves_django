@@ -427,6 +427,21 @@ class LexicalResolverTests(SimpleTestCase):
                 self.assertIn(adjective, matching_lemmas(tokenize_text(adjective), name))
                 self.assertTrue(matching_lemmas(tokenize_text(name), adjective))
 
+    def test_granata_complaints_open_barrel_rifle_and_battle_words(self):
+        for guess, target in (
+            ('ствол', 'подствольных'), ('ствол', 'стволик'),
+            ('винтовка', 'винтовочных'), ('винтовка', 'винтовой'),
+            ('бой', 'боевой'), ('бой', 'боец'), ('бой', 'битва'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertTrue(matching_lemmas(tokenize_text(target), guess))
+
+    def test_battle_noun_does_not_open_hitting_words(self):
+        for target in ('бить', 'обои', 'обойный', 'прибойный', 'бесперебойный', 'бойкий'):
+            with self.subTest(target=target):
+                self.assertFalse(matching_lemmas(tokenize_text(target), 'бой'))
+        self.assertTrue(matching_lemmas(tokenize_text('прибойный'), 'прибой'))
+
     def test_who_acronym_does_not_link_common_noun_voz(self):
         for common_noun in ('воз', 'воза', 'возы'):
             with self.subTest(common_noun=common_noun):

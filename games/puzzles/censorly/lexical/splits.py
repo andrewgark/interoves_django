@@ -4775,7 +4775,6 @@ _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:review_attack', ('нападение',)),
     ('sense:review_be_located', ('находиться',)),
     ('sense:review_similar', ('похожий',)),
-    ('sense:review_fight', ('бой',)),
     ('sense:review_killed', ('убивать', 'убить', 'убитый')),
     ('sense:review_deed', ('дело', 'деловой')),
     ('sense:review_monday', ('понедельник',)),
@@ -7480,6 +7479,14 @@ MULTI_READINGS = MULTI_READINGS + (
 # analysis. These families are missing or unresolved in the dictionaries;
 # keep each pair together without adding a productive suffix rule.
 _LATE_REVIEW_SPLITS = (
+    # «Бой» is the battle noun: it opens боевой, боец, битва, but not бить.
+    # The -бойный/-бойник words name hitting (прибой, сбой, обои, пробой),
+    # not combat, so they go with their bases in sense:beat.
+    ('sense:battle', ('бой', 'бойцовый')),
+    ('sense:beat', (
+        'бесперебойность', 'бесперебойный', 'забойный', 'набойник', 'обойный',
+        'отбойный', 'перебойный', 'побои', 'прибойный', 'пробойник', 'сбойный',
+    )),
     # Reviewed карт, оруд/оруж and мер families: spelling alone must not
     # connect pictures to cards, construction to tools, or intent to measure.
     ('sense:review_card', ('карта', 'картишка', 'карточка', 'карточный')),
