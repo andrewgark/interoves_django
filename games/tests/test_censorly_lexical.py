@@ -1161,6 +1161,25 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_track_b_batch_4_substantivized_forms(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('основа', 'основное'), ('будущий', 'будущее'), ('глава', 'главное'),
+            ('существование', 'существующий'), ('установка', 'установленный'),
+            ('холод', 'холодное'), ('развитие', 'развивающийся'), ('спирт', 'спиртное'),
+            ('сбор', 'сборная'), ('доклад', 'докладная'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('будить', 'будущее'), ('голова', 'главное'), ('сутки', 'существующий'),
+            ('печать', 'впечатляющий'), ('мерить', 'умирающий'), ('производитель', 'производная'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_adverb_rule_opens_the_adjective_family(self):
         tokens = [
             {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},

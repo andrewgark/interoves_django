@@ -35,6 +35,10 @@ class CensorlyMetricsTests(SimpleTestCase):
         coverage = m.coverage(corpus)
         self.assertEqual(coverage.share('common', linked=True), 1.0)
 
+    def test_linked_sees_roots_from_another_reading(self):
+        # No bank row: the live pack takes примерно's roots from примерный.
+        self.assertTrue(m.is_linked('примерно'))
+
     def test_deliberate_orphans_leave_the_queue_only(self):
         self.assertIn('образ', m.deliberate_orphans())
         corpus = m.Corpus(source='t', articles=1, service_tokens=0)

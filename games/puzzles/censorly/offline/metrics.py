@@ -193,6 +193,25 @@ def _lemmas_by_structure() -> dict[tuple, tuple[str, ...]]:
 _LINK_TRIES = 40
 
 
+def _live_structures(lemma: str) -> tuple[tuple[str, ...], ...]:
+    """Bank structures, or the ones the live pack finds through another
+    pymorphy reading when the bank has none (примерно -> примерный)."""
+    bank = structures_of(lemma)
+    if bank:
+        return tuple(bank)
+    return tuple(sorted(tuple(root) for root in _target_pack(lemma).roots))
+
+
+def _live_keys(lemma: str) -> tuple[str, ...]:
+    keys = _keys_by_lemma().get(lemma)
+    if keys:
+        return keys
+    return tuple(sorted({
+        item for structure in _live_structures(lemma) for item in structure
+        if not item.startswith('sense:')
+    }))
+
+
 @lru_cache(maxsize=None)
 def is_linked(lemma: str) -> bool:
     """True when another dictionary word opens ``lemma`` in live play.
@@ -202,14 +221,14 @@ def is_linked(lemma: str) -> bool:
     up to ``_LINK_TRIES`` checks.
     """
     tried = set()
-    for structure in structures_of(lemma):
+    for structure in _live_structures(lemma):
         for other in _lemmas_by_structure().get(structure, ())[:8]:
             if other != lemma and other not in tried:
                 tried.add(other)
                 if opens(other, lemma):
                     return True
     budget = _LINK_TRIES
-    for key in _keys_by_lemma().get(lemma, ()):
+    for key in _live_keys(lemma):
         for other in _openers_index()[key]:
             if other == lemma or other in tried:
                 continue
