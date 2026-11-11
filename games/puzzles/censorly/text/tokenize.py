@@ -11,6 +11,7 @@ from games.puzzles.censorly.ids import CENSORLY_SPLITTER_VERSION
 from games.puzzles.censorly.lexical.context import (
     CENTURY_ABBR,
     CITY_ABBR,
+    CM_UNIT,
     LANGUAGE_LABELS,
     LI_NAME,
     N_ERA,
@@ -19,6 +20,7 @@ from games.puzzles.censorly.lexical.context import (
     NEM_PRONOUN,
     PAGE_ABBR,
     PO_SOFTWARE,
+    SEE_REF,
     STREET_ABBR,
     TELE_PREFIX,
     TOM_VOLUME,
@@ -796,6 +798,15 @@ def _annotate_contextual_readings(tokens: list[dict[str, Any]]) -> list[dict[str
         ):
             _set_context(tok, label_context)
             continue
+
+        # «5 см» is centimetres; «см.» elsewhere is «смотри».
+        if word == 'см':
+            if previous >= 0 and (tokens[previous].get('surface') or '').isdigit():
+                _set_context(tok, CM_UNIT)
+                continue
+            if has_period:
+                _set_context(tok, SEE_REF)
+                continue
 
         # «теле-шоу» splits into «теле» and «шоу»; «в теле» stays «тело».
         if (

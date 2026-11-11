@@ -2429,9 +2429,9 @@ class ReviewedHomonymClusterTests(SimpleTestCase):
         )
 
     def test_reviewed_homonym_clusters_stay_apart(self):
-        # «несколько» is open from the start and shares sense:review_quantity
-        # with «количество» in splits.py, so it is not listed here.
         groups = (
+            ('несколько', 'количество'),
+            ('сколько', 'количественный'),
             ('питаются', 'воспитательный'),
             ('природа', 'родственник'),
             ('список', 'описание'),

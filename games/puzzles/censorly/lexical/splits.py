@@ -4675,8 +4675,11 @@ CLUSTERS: tuple[tuple[str, tuple[str, ...]], ...] = (
 # contain several unrelated modern meanings, and assigning only the observed
 # lemmas prevents a bad bridge without guessing a larger semantic inventory.
 _REVIEW_SPLITS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    # «количество» is a noun of amount, not the question/pronoun «сколько»
+    # family; «несколько» is open from the start and must not reveal it.
+    ('sense:amount', ('количество', 'количественный')),
     ('sense:review_quantity', (
-        'количество', 'количественный', 'несколько', 'насколько', 'нисколечко',
+        'несколько', 'насколько', 'нисколечко',
         'нисколько', 'сколечко', 'сколь', 'сколько',
     )),
     ('sense:review_feed', ('питаться',)),
@@ -6352,8 +6355,11 @@ _SENSE_MOVES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('sense:kol_time', ('доколе', 'доколь', 'поколе')),
     ('sense:kol_source', ('ниотколе', 'ниотколь', 'отколе', 'отколь')),
     ('sense:kol_cause', ('поскольку',)),
+    # «количество» is a noun of amount, not the question/pronoun «сколько»
+    # family; «несколько» is open from the start and must not reveal it.
+    ('sense:amount', ('количество', 'количественный')),
     ('sense:review_quantity', (
-        'количество', 'количественный', 'несколько', 'насколько', 'нисколечко',
+        'несколько', 'насколько', 'нисколечко',
         'нисколько', 'сколечко', 'сколь', 'сколько',
     )),
     ('sense:frequency', (

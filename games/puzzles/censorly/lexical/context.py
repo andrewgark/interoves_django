@@ -73,6 +73,10 @@ CITY_ABBR = _ctx('city_abbr', 'г', lemmas=('город',))
 PAGE_ABBR = _ctx('page_abbr', 'стр', lemmas=('страница',))
 STREET_ABBR = _ctx('street_abbr', 'ул', lemmas=('улица',))
 CENTURY_ABBR = _ctx('century_abbr', 'в', lemmas=('век',), exact_opens=False)
+# «5 см» is a unit; «(см. ниже)» is «смотри» and opens only from смотреть,
+# not from the сантиметр alias.
+CM_UNIT = _ctx('cm_unit', 'см', lemmas=('сантиметр',))
+SEE_REF = _ctx('see_ref', 'см', lemmas=('смотреть',), guess_lemmas=frozenset({'смотреть'}))
 # «теле-шоу»: not the noun тело. Visible like any content word.
 TELE_PREFIX = _ctx('tele_prefix', 'теле', lemmas='self', closed=False)
 
@@ -97,7 +101,7 @@ _REGISTRY: dict[str, TokenContext] = {
     for item in (
         NEM_PRONOUN, NEM_NONPRONOUN, NEM_GERMAN, TOM_VOLUME, N_ERA,
         PO_SOFTWARE, LI_NAME, YEAR_ABBR, CITY_ABBR, PAGE_ABBR, STREET_ABBR,
-        CENTURY_ABBR, TELE_PREFIX, *LANGUAGE_LABELS.values(),
+        CENTURY_ABBR, TELE_PREFIX, CM_UNIT, SEE_REF, *LANGUAGE_LABELS.values(),
     )
 }
 

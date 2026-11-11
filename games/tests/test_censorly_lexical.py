@@ -1129,6 +1129,20 @@ class LexicalResolverTests(SimpleTestCase):
             self.assertFalse(opens(left, right), f'{left}/{right} opened as {explain(left, right)}')
             self.assertFalse(opens(right, left))
 
+    def test_old_graph_pairs_follow_the_reviewed_senses(self):
+        # Pairs the retired proof graph judged differently. Reviewed sense
+        # splits win: together ≠ place, pollination ≠ dust, клад ≠ лож.
+        for left, right in (
+            ('вместе', 'место'), ('опыление', 'пыль'), ('откладывать', 'отложить'),
+            ('один', 'единственный'), ('пчела', 'пчеловод'), ('мёд', 'медоносный'),
+        ):
+            self.assertFalse(opens(left, right), f'{left}/{right}')
+        for left, right in (
+            ('день', 'дневный'), ('строить', 'строительство'), ('длина', 'длиться'),
+            ('плав', 'плавание'), ('мир', 'мирской'),
+        ):
+            self.assertTrue(opens(left, right), f'{left}/{right}')
+
     def test_inflections_open_as_one_lexeme(self):
         for left, right in (
             ('улей', 'улья'), ('улей', 'ульями'), ('пчела', 'пчёлами'),

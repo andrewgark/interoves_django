@@ -281,3 +281,24 @@ class LowercaseNameReadingTests(SimpleTestCase):
         self.assertFalse(matching_lemmas(tokens, 'Полина'))
         # A capitalized occurrence may be the name; it still opens.
         self.assertTrue(matching_lemmas(tokenize_text('Её звали Поля.'), 'Полина'))
+
+
+class CentimetreOrSeeTests(SimpleTestCase):
+    def test_unit_after_a_number_is_centimetre(self):
+        tokens = tokenize_text('Длина 5 см, ширина 3 см.')
+        self.assertTrue(matching_lemmas(tokens, 'сантиметр'))
+        self.assertTrue(matching_lemmas(tokens, 'сантиметра'))
+        self.assertFalse(matching_lemmas(tokens, 'смотреть'))
+
+    def test_see_reference_opens_only_from_see(self):
+        tokens = tokenize_text('Подробнее (см. ниже).')
+        self.assertFalse(matching_lemmas(tokens, 'сантиметр'))
+        self.assertTrue(matching_lemmas(tokens, 'смотреть'))
+        self.assertTrue(matching_lemmas(tokens, 'см'))
+
+
+class InflectedPartTests(SimpleTestCase):
+    def test_parts_do_not_open_often(self):
+        self.assertFalse(opens('части', 'часто'))
+        self.assertFalse(opens('часто', 'части'))
+        self.assertTrue(opens('части', 'часть'))
