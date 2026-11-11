@@ -913,6 +913,23 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_orphan_batch_f5_words_open_their_relatives(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('нахождение', 'находиться'), ('дальнейший', 'далее'),
+            ('способный', 'способ'), ('расположение', 'располагаться'),
+            ('удача', 'удаться'), ('принять', 'прием'),
+            ('предположение', 'предполагать'), ('замужество', 'муж'), ('питание', 'питаться'),
+            ('выход', 'выходец'),
+            ('вдохновение', 'вдохновить'), ('архитектура', 'архитектурный'),
+            ('социализм', 'социальный'), ('мелодия', 'мелодичный'), ('нитка', 'нить'),
+            ('артиллерия', 'артиллерийский'),
+        ):
+            with self.subTest(guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+
     def test_corpus_batch_a6_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))

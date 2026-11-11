@@ -7178,7 +7178,7 @@ MULTI_READINGS: tuple[tuple[str, tuple[str, ...]], ...] = (
     ('разноситься', ('sense:carry', 'sense:wear')),
     ('прием', (
         'sense:review_receive', 'sense:review_reception',
-        'sense:review_technique', 'sense:review_meal',
+        'sense:review_technique', 'sense:review_meal', 'sense:review_receiving',
     )),
     ('питание', ('sense:review_nutrition', 'sense:review_power_supply')),
     ('живот', ('sense:live', 'sense:abdomen')),
@@ -7594,9 +7594,6 @@ _LATE_REVIEW_SPLITS = (
     ('sense:automobile', ('автомобиль', 'автомобильный')),
     ('sense:program', ('программа', 'программный')),
     ('sense:relation_narrow', ('относиться',)),
-    ('sense:review_husband', (
-        'муж',
-    )),
     ('sense:review_manhood_narrow', (
         'возмужалость', 'возмужалый', 'возмужание', 'возмужать', 'мужать',
         'мужаться', 'муженёк', 'мужественность', 'мужественный', 'мужество',
@@ -8023,6 +8020,19 @@ _LATE_REVIEW_SPLITS = (
     )),
     # чрезвычайный (extraordinary) is not привычка/навык.
     ('sense:review_extraordinary', ('чрезвычайно', 'чрезвычайный', 'чрезвычайность')),
+    # Orphans batch F5 (2026-11-11): one-word sense clusters left by earlier
+    # splits join the sense of the relatives a player links them with.
+    ('sense:review_finding', ('находиться',)),
+    ('sense:review_distance', ('далее',)),
+    ('sense:ability', ('способ',)),
+    ('sense:review_position', ('располагаться',)),
+    ('sense:luck', ('удаться',)),
+    ('sense:review_assumption', ('предполагать',)),
+    ('sense:review_marriage', ('муж',)),
+    ('sense:review_nutrition', ('питаться',)),
+    ('sense:review_entry_exit', ('выходец',)),
+    ('sense:breath', ('вдохновить',)),
+    ('sense:architecture', ('архитектурный',)),
 )
 _LATE_REVIEW_LEMMAS = frozenset(
     lemma for _name, lemmas in _LATE_REVIEW_SPLITS for lemma in lemmas
@@ -8596,4 +8606,10 @@ def _proper_cluster_roots() -> dict[str, tuple[tuple[str, ...], ...]]:
     return assigned
 
 
+# Orphans batch F5: these words sat on their own Tikhonov spelling while the
+# rest of their family carries a Kuznetsova root and sense.
+SEMANTIC_ROOT_ASSIGNMENTS.update({
+    'вдохновить': (('fam:дох|дош',),),
+    'архитектурный': (('root:architecture',),),
+})
 SEMANTIC_ROOT_ASSIGNMENTS.update(_proper_cluster_roots())
