@@ -1068,7 +1068,7 @@ class LexicalResolverTests(SimpleTestCase):
         for guess, target in (
             ('палеоген', 'палеогеновый'), ('чародей', 'чародейство'), ('психотерапия', 'психотерапевт'),
             ('тридцатилетний', 'тридцатилетие'), ('минералогия', 'минералогический'),
-            ('защитник', 'полузащитник'), ('бетон', 'железобетон'),
+            ('защитник', 'полузащитник'), ('железобетон', 'железобетонный'),
         ):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
@@ -1076,6 +1076,7 @@ class LexicalResolverTests(SimpleTestCase):
         for guess, target in (
             ('тридцатилетний', 'двадцатилетний'), ('лето', 'тридцатилетний'), ('логика', 'минералогия'),
             ('минерал', 'минералогия'), ('гость', 'гостеприимство'), ('воздух', 'воздухоплавание'),
+            ('бетон', 'железобетон'),
         ):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
