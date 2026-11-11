@@ -3017,19 +3017,15 @@ class ConfirmedSingleTokenRelationTests(SimpleTestCase):
         )
         self.assertFalse(opens('путевка', 'путевой'))
 
-        self.assertIn(
-            ('fam:хаж|ход|хож|хожд', 'sense:review_occurrence'),
-            structures_of('происходить'),
-        )
-        self.assertIn(
-            ('fam:хаж|ход|хож|хожд', 'sense:review_occurrence'),
-            structures_of('происходящий'),
-        )
-        self.assertIn(
-            ('fam:хаж|ход|хож|хожд', 'sense:review_outcome_origin'),
-            structures_of('происхождение'),
-        )
-        self.assertFalse(opens('происходить', 'происхождение'))
+        # «Лермонтов происходит из дворян»: происходить also means descent.
+        for lemma in ('происходить', 'происходящий', 'происхождение'):
+            self.assertIn(
+                ('fam:хаж|ход|хож|хожд', 'sense:review_outcome_origin'),
+                structures_of(lemma),
+            )
+        self.assertTrue(opens('происходит', 'происхождения'))
+        self.assertTrue(opens('премьера', 'премьерный'))
+        self.assertTrue(opens('фольклор', 'фольклорный'))
 
     def test_article_root_review_batch(self):
         from games.puzzles.censorly.lexical.match.rootbank import assignment_of, structures_of
@@ -3534,3 +3530,13 @@ class NewConfirmedSingleTokenRelationTests(SimpleTestCase):
             MATCHER.relation(ANALYZER.target('мл'), ANALYZER.target('миллилитр')),
             'alias',
         )
+
+
+class ComparativeAdverbGuessTests(SimpleTestCase):
+    # «больше» and «лучше» are also adverb/particle citation forms; the
+    # comparative reading must still carry the adjective's root.
+    def test_comparative_guess_reaches_the_adjective_family(self):
+        self.assertTrue(opens('больше', 'небольшой'))
+        self.assertTrue(opens('больше', 'большинство'))
+        self.assertTrue(opens('лучше', 'хороший'))
+        self.assertTrue(opens('выше', 'высота'))

@@ -83,17 +83,20 @@ class ReadingSelector:
 
         When the spelling is the citation form of some reading, keep only
         those (an «-о» adverb also keeps its short adjective, so близко
-        reaches близкий). Otherwise keep every reading (прибыли).
+        reaches близкий). An adverb or particle that is also a comparative
+        keeps the comparative (больше reaches большой, лучше reaches хороший).
+        Otherwise keep every reading (прибыли).
         """
         found = self._letters(surface)
         folded = fold(surface)
         if not folded:
             return found
         citation = tuple(item for item in found if item.lemma == folded)
-        if any(item.pos == 'ADVB' for item in citation):
+        if any(item.pos in ('ADVB', 'PRCL') for item in citation):
+            kept = ('ADJS', 'COMP') if any(item.pos == 'ADVB' for item in citation) else ('COMP',)
             citation += tuple(
                 item for item in found
-                if item.pos == 'ADJS' and item not in citation
+                if item.pos in kept and item not in citation
             )
         return citation or found
 

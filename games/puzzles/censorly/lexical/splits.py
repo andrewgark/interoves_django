@@ -7581,7 +7581,8 @@ _LATE_REVIEW_SPLITS = (
     )),
     ('sense:review_small_creature', ('малявка',)),
     ('sense:ticket', ('путевка',)),
-    ('sense:review_occurrence', ('происходить', 'происходящий')),
+    # «происходить» also means «вести род» (происходит из дворян), so it stays
+    # with происхождение in sense:review_outcome_origin.
     ('sense:review_partiality', ('пристрастие', 'пристрастный')),
     ('sense:ambassador', ('посол', 'посольский', 'посольство')),
     ('sense:drum', ('барабан', 'барабанный', 'барабанщик')),
