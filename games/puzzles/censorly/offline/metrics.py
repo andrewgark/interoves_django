@@ -234,10 +234,25 @@ def orphan_kind(lemma: str) -> str:
     return 'blocked'               # same root, but the matcher closes every pair
 
 
+@lru_cache(maxsize=1)
+def deliberate_orphans() -> frozenset[str]:
+    """Rooted words left unlinked on purpose (reviewed lone senses).
+
+    They still count as unlinked in ``linked`` coverage: a player meets them
+    alone either way. Only the ``orphans`` review queue skips them.
+    """
+    path = DATA_DIR / 'deliberate_orphans.tsv'
+    if not path.exists():
+        return frozenset()
+    with path.open(encoding='utf-8', newline='') as stream:
+        return frozenset(row['lemma'] for row in csv.DictReader(stream, delimiter='\t'))
+
+
 def orphans(corpus: Corpus, count: int) -> list[tuple[int, str, str]]:
     rows = []
+    skip = deliberate_orphans()
     for lemma, tokens in corpus.tokens.most_common():
-        if not is_russian(lemma) or word_group(lemma) != 'common':
+        if not is_russian(lemma) or word_group(lemma) != 'common' or lemma in skip:
             continue
         if structures_of(lemma) and not is_linked(lemma):
             rows.append((tokens, lemma, orphan_kind(lemma)))

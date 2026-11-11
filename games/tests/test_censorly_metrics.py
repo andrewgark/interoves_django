@@ -35,6 +35,12 @@ class CensorlyMetricsTests(SimpleTestCase):
         coverage = m.coverage(corpus)
         self.assertEqual(coverage.share('common', linked=True), 1.0)
 
+    def test_deliberate_orphans_leave_the_queue_only(self):
+        self.assertIn('образ', m.deliberate_orphans())
+        corpus = m.Corpus(source='t', articles=1, service_tokens=0)
+        corpus.tokens.update({'образ': 5})
+        self.assertNotIn('образ', [lemma for _tokens, lemma, _kind in m.orphans(corpus, 10)])
+
     def test_wilson_interval(self):
         low, high = m.wilson(27, 30)
         self.assertLess(low, 0.9)
