@@ -16,17 +16,17 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from games.ops.workers.jobs.bulk import accept_pending_attempts, reject_pending_attempts
 from games.models import (
     Attempt,
     ChainTaskState,
+    Game,
     Task,
     Team,
-    WordSaladRecheckJob,
     WordSaladRecheckItem,
+    WordSaladRecheckJob,
     WordSaladRecheckOutbox,
-    Game,
 )
+from games.ops.workers.jobs.bulk import accept_pending_attempts, reject_pending_attempts
 
 
 class Command(BaseCommand):

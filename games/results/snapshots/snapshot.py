@@ -400,14 +400,6 @@ def build_results_snapshot_payload(game, mode='tournament'):
             except Exception:
                 max_points = 0.0
             has_attempts = bool(n_attempts) or bool(hint_numbers)
-            has_pending = False
-            try:
-                for a in (ai.attempts or []):
-                    if getattr(a, 'status', None) == 'Pending':
-                        has_pending = True
-                        break
-            except Exception:
-                has_pending = False
 
             cls = result_cell_class(result_points, max_points, has_attempts=has_attempts)
 

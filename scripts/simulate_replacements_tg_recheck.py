@@ -25,8 +25,8 @@ if __name__ == '__main__':
 
 from decimal import Decimal  # noqa: E402
 
-from games.puzzles.core.check_runtime import CheckerFactory  # noqa: E402
 from games.models import Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, Task  # noqa: E402
+from games.puzzles.core.check_runtime import CheckerFactory  # noqa: E402
 
 
 def _actor_label(team, user, anon_key):

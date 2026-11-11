@@ -1,7 +1,8 @@
-from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from interoves_django.settings import load_secret
+from django.core.management.base import BaseCommand
+
 from games.models import Profile
+from interoves_django.settings import load_secret
 
 
 class Command(BaseCommand):

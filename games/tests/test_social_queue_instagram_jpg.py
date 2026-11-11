@@ -9,8 +9,8 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from PIL import Image
 
-from games.ops.social.models import SocialQueuePost
 from games.ops.health.storage import ProxyMediaStorage, social_queue_storage
+from games.ops.social.models import SocialQueuePost
 
 
 def _png_bytes(size=(32, 40)):

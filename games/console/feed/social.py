@@ -16,8 +16,6 @@ from games.ops.social.publish import (
     publish_telegram,
     publish_threads,
     publish_twitter,
-)
-from games.ops.social.publish import (
     queue_network as publish_queue_network,
 )
 from games.ops.telegram.transport.config import channel_chat_id, telegram_channel_configured

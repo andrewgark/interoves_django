@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from games.ops.cron.lock import distributed_cron_lock
 from games.club.billing.gifts.offers import expire_subscription_gifts
+from games.ops.cron.lock import distributed_cron_lock
 
 
 class Command(BaseCommand):

@@ -8,12 +8,12 @@ from django.test import TestCase
 
 from games.management.commands.audit_chain_task_state_completeness import AUDIT_SQL
 from games.ops.workers.jobs.recheck import recheck_chain_task
+from games.site.views.game.attempt import check_attempt
 from games.tests.test_chain_task_state import (
     _ChainFixture,
     _make_attempt,
     _repl_text,
 )
-from games.site.views.game.attempt import check_attempt
 
 
 @skipUnless(connection.vendor == 'mysql', 'the audit SQL is MySQL-specific')

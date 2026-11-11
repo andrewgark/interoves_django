@@ -12,7 +12,6 @@ from dataclasses import dataclass
 
 from games.ops.workers.contract import WORKER_REGISTRY, WorkerSpec
 
-
 MODE_ALIASES = {
     "eb-worker": "eb",
     "fargate": "ecs-fargate",

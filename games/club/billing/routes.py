@@ -5,7 +5,6 @@ legal copy. Amounts are always recalculated from the team on the server.
 """
 from dataclasses import dataclass
 
-
 RUSSIAN_CARD = 'russian_card'
 INTERNATIONAL_CARD = 'international_card'
 TRIBUTE_CARD = 'tribute_card'
@@ -70,6 +69,7 @@ def route_for(key):
         raise ValueError('Unknown ticket payment route: {}'.format(key)) from exc
     if key == TRIBUTE_CARD:
         from dataclasses import replace
+
         from games.club.billing.tribute.config import configured_product, merchant, tribute_checkout_enabled
 
         product = configured_product('regular')

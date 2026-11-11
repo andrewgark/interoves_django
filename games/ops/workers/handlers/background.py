@@ -40,8 +40,7 @@ from games.ops.cron.sessions import (
     delete_expired_sessions,
 )
 from games.ops.telegram.bot.notify import notify_admin_invalid_task_data
-from games.ops.workers.heartbeat import finish as finish_queue_heartbeat
-from games.ops.workers.heartbeat import start as start_queue_heartbeat
+from games.ops.workers.heartbeat import finish as finish_queue_heartbeat, start as start_queue_heartbeat
 from games.ops.workers.http import is_sqsd_delivery, sqsd_message_id
 from games.ops.workers.messages import (
     DAILY_STATISTICS_REFRESH,

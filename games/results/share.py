@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 DEFAULT_SHARE_HOST = 'interoves.com'
 

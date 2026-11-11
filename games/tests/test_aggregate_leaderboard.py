@@ -1,20 +1,30 @@
-from datetime import date, datetime, timedelta, timezone as dt_timezone
+from datetime import date, datetime, timezone as dt_timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from django.contrib.auth.models import AnonymousUser, User
+from django.core.cache import cache
 from django.db import connection
 from django.test import RequestFactory, TestCase
 from django.test.utils import CaptureQueriesContext
-from django.core.cache import cache
 from django.utils import timezone
 
-from games.results.standings.aggregate_leaderboard import build_aggregate_page
 from games.models import (
-    DailyResultProjection, DailyResultProjectionState, DailySolveTiming, Game,
-    GameTaskGroup, HTMLPage, PersonalResultsParticipant, Profile, Project,
-    ReplaySlot, Task, TaskGroup, Team,
+    DailyResultProjection,
+    DailyResultProjectionState,
+    DailySolveTiming,
+    Game,
+    GameTaskGroup,
+    HTMLPage,
+    PersonalResultsParticipant,
+    Profile,
+    Project,
+    ReplaySlot,
+    Task,
+    TaskGroup,
+    Team,
 )
+from games.results.standings.aggregate_leaderboard import build_aggregate_page
 
 
 class AggregateLeaderboardTests(TestCase):

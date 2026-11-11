@@ -5,7 +5,6 @@ import re
 
 from games.puzzles.core.check_runtime import SimpleBoolChecker
 
-
 MIN_GRID_SIZE = 2
 MAX_GRID_SIZE = 20
 MAX_SUBMITTED_WALLS = MAX_GRID_SIZE * (MAX_GRID_SIZE - 1) * 2

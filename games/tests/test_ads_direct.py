@@ -1,11 +1,10 @@
 from datetime import date
-
 from unittest.mock import Mock
 
 from django.test import SimpleTestCase
 
-from games.ops.social.ads.client import redact
 from games.ops.social.ads import ops
+from games.ops.social.ads.client import redact
 from games.ops.social.ads.config import (
     ConfigError,
     assert_budget_cap,
@@ -15,8 +14,8 @@ from games.ops.social.ads.config import (
     mobile_off_bidmodifier,
     tablet_off_bidmodifier,
 )
-from games.ops.social.ads.schema.constants import CAMPAIGN_NEGATIVE_KEYWORDS, MAX_EXPERIMENT_SPEND_RUB
 from games.ops.social.ads.money import micros_to_rubles, rubles_to_micros
+from games.ops.social.ads.schema.constants import CAMPAIGN_NEGATIVE_KEYWORDS, MAX_EXPERIMENT_SPEND_RUB
 
 
 class MoneyTests(SimpleTestCase):

@@ -4,21 +4,21 @@ from django.contrib.auth.models import User
 from django.core.cache import caches
 from django.test import TestCase
 
+from games.club.offers.salad import reset_all_salad_progress, reset_salad_progress
 from games.daily.timing.statistics import build_daily_statistics
 from games.models import (
     ChainTaskState,
     CheckerType,
     Game,
     GameTaskGroup,
-    PlayerCompletedGame,
     PlayerAnalyticsState,
+    PlayerCompletedGame,
     Project,
     Task,
     TaskGroup,
     WordSaladRecheckJob,
 )
 from games.ops.workers.jobs.recheck import recheck_word_salad_actor
-from games.club.offers.salad import reset_all_salad_progress, reset_salad_progress
 
 
 class TargetedCompletionReconciliationTests(TestCase):

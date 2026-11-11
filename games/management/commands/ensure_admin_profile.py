@@ -1,6 +1,7 @@
 """Ensure user 'admin' has a games.Profile (run after createsuperuser without createsu)."""
-from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
+from django.core.management.base import BaseCommand
+
 from games.models import Profile
 
 

@@ -15,7 +15,6 @@ from django.db import connection
 
 from games.management.commands._background_index_executor import ensure_indexes, schema_work_lock
 
-
 # Mirrors games.migrations.0109 MySQL forwards (table, index_name, full CREATE INDEX ...).
 INDEX_DDL = [
     (

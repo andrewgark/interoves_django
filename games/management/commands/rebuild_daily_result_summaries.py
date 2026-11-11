@@ -1,7 +1,7 @@
 """Dry-run by default; explicitly rebuild canonical section score projections."""
-from django.core.management.base import BaseCommand, CommandError
-
 from decimal import Decimal
+
+from django.core.management.base import BaseCommand, CommandError
 
 from games.daily.projection import (
     _canonical_group_results,

@@ -5,7 +5,6 @@ from django.utils import timezone
 
 from games.models import CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup
 
-
 NODE_FORM_MASKS = {
     'G1': '_______а_', 'G2': '______', 'G3': '____', 'G4': '_____',
     'G5': '____', 'G6': '___', 'G7': '__ф_______', 'G8': '___',

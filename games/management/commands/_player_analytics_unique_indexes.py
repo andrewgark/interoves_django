@@ -6,7 +6,6 @@ from django.db.models import Count, Q
 
 from games.ops.analytics.persistence import ANALYTICS_UNIQUE_SPECS
 
-
 TARGET_MODEL_NAMES = (
     'PlayerStartedGame',
     'PlayerCompletedGame',

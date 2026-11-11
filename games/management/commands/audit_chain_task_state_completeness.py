@@ -9,7 +9,6 @@ rows or calls recheck code.
 from django.core.management.base import BaseCommand, CommandError
 from django.db import DatabaseError, connection
 
-
 AUDIT_SQL = """
 WITH group_game_map AS (
     SELECT task_group_id, MIN(game_id) AS game_id

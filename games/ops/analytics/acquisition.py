@@ -15,8 +15,7 @@ from __future__ import annotations
 
 import contextvars
 import logging
-from datetime import datetime
-from datetime import timezone as dt_timezone
+from datetime import datetime, timezone as dt_timezone
 from urllib.parse import urlsplit
 
 from django.conf import settings

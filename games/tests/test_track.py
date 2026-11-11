@@ -6,16 +6,16 @@ so InMemoryChannelLayer groups line up with the test event loop.
 """
 import asyncio
 import time
+from datetime import timedelta
+from unittest.mock import AsyncMock, MagicMock, patch
+
 from asgiref.sync import async_to_sync
 from channels.db import database_sync_to_async
 from channels.layers import get_channel_layer
 from channels.testing import WebsocketCommunicator
-from unittest.mock import AsyncMock, MagicMock, patch
-
 from django.contrib.auth.models import User
 from django.test import Client, SimpleTestCase, TestCase, TransactionTestCase, override_settings
 from django.utils import timezone
-from datetime import timedelta
 
 from games.models import (
     Attempt,
@@ -34,10 +34,10 @@ from games.models import (
 from games.realtime.track_compat import (
     CHANNEL_GROUPS,
     build_event_task_change,
-    live_page_actor,
     current_track_seq,
     envelope_track_message,
     game_track_namespace,
+    live_page_actor,
     msgpack_safe_keys,
     next_track_seq,
     notify_registered_users_game_lifecycle_changed,
@@ -46,7 +46,6 @@ from games.realtime.track_compat import (
     team_track_namespace,
     track_attempt_change,
     track_task_change,
-    user_track_namespace,
 )
 
 
@@ -159,6 +158,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 
     def test_async_sequence_allocation_is_atomic_and_does_not_block_loop(self):
         from django.core.cache.backends.redis import RedisCache
+
         import games.realtime.counter as track
 
         class FakeRedis:
@@ -212,6 +212,7 @@ class MsgpackSafeTrackPayloadTests(TestCase):
 
     def test_async_sequence_propagates_redis_timeout(self):
         from django.core.cache.backends.redis import RedisCache
+
         import games.realtime.counter as track
 
         class TimeoutRedis:
@@ -1159,8 +1160,8 @@ class TrackWebsocketSecurityRegressionTests(TrackGameFixtureMixin, TransactionTe
         async_to_sync(run)()
 
     def test_game_track_reconnect_detects_revision_counter_reset(self):
-        from interoves_django.asgi import application
         import games.realtime.counter as track
+        from interoves_django.asgi import application
 
         headers = self._session_headers()
         namespace = team_track_namespace(self.game.id, self.team.pk)

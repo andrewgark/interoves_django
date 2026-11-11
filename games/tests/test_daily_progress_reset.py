@@ -8,10 +8,17 @@ from django.test import TestCase
 
 from games.daily.timing.reset import reset_current_daily_release_progress
 from games.models import (
-    Attempt, ChainTaskState, DailySolveTiming, Game, GameTaskGroup,
-    PlayerCompletedGame, Project, ReplaySlot, Task, TaskGroup,
+    Attempt,
+    ChainTaskState,
+    DailySolveTiming,
+    Game,
+    GameTaskGroup,
+    PlayerCompletedGame,
+    Project,
+    ReplaySlot,
+    Task,
+    TaskGroup,
 )
-
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 

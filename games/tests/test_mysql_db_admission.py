@@ -5,7 +5,6 @@ import json
 import math
 import os
 import socket
-import statistics
 import threading
 import time
 from unittest import skipUnless
@@ -18,7 +17,6 @@ from django.urls import path
 from django.views.decorators.csrf import csrf_exempt
 
 from games.realtime.admission import DatabaseAdmissionASGIMiddleware
-
 
 _active_db_sections = 0
 _peak_db_sections = 0

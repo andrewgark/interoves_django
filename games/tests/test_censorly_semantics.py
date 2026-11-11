@@ -1843,8 +1843,7 @@ class SemanticsTests(SimpleTestCase):
             provenance,
             structures_of,
         )
-        from games.puzzles.censorly.lexical.senses import SEMANTIC_ROOT_ASSIGNMENTS
-        from games.puzzles.censorly.lexical.senses import SENSES as _SENSE
+        from games.puzzles.censorly.lexical.senses import SEMANTIC_ROOT_ASSIGNMENTS, SENSES as _SENSE
 
         beauty = assignment_of('красивенький')
         self.assertEqual(beauty['source'], 'SEMANTIC_ROOT_ASSIGNMENT')

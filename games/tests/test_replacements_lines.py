@@ -1,8 +1,6 @@
-from django.test import SimpleTestCase
-
-from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
-from games.results.util import clean_text
 import json
+
+from django.test import SimpleTestCase
 
 from games.puzzles.replacements.lines import (
     canonical_replacements_checker_line,
@@ -10,13 +8,15 @@ from games.puzzles.replacements.lines import (
     parse_replacements_lines_text,
     replacements_decode_html_entities,
     replacements_format_left_line,
+    replacements_strip_hash_literals,
     replacements_strip_literal_entity_underscores,
     replacements_strip_literal_numeric_underscores,
-    replacements_strip_hash_literals,
     split_slot_answer_alternatives,
     task_replacements_canonical_answer_row,
     validate_replacements_checker_json_data,
 )
+from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
+from games.results.util import clean_text
 
 
 class LeftLineUnderscoreSlotDisplayTests(SimpleTestCase):

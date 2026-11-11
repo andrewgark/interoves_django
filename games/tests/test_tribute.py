@@ -2,6 +2,7 @@ import json
 from datetime import timedelta
 from unittest.mock import patch
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.db import IntegrityError, transaction
@@ -9,8 +10,9 @@ from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from allauth.socialaccount.models import SocialApp
-
+from games.club.billing.tribute.service import manually_issue_purchase
+from games.club.billing.tribute.util import compute_webhook_signature, verify_webhook_signature
+from games.club.link import TelegramLinkError, consume_link_token, create_link_token
 from games.models import (
     HTMLPage,
     Profile,
@@ -21,10 +23,6 @@ from games.models import (
     TributePaymentIntent,
     TributePurchase,
 )
-from games.club.link import TelegramLinkError, consume_link_token, create_link_token
-from games.club.billing.tribute.service import manually_issue_purchase
-from games.club.billing.tribute.util import compute_webhook_signature, verify_webhook_signature
-
 
 TRIBUTE_SETTINGS = {
     'TRIBUTE_ENABLED': True,

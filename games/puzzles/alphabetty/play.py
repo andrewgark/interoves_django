@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 from django.db import transaction
-from django.db.models import Min, Max
+from django.db.models import Max, Min
 from django.utils import timezone
 
+from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 from games.puzzles.alphabetty.core import (
     build_prefix_level,
     guess_status,
@@ -18,7 +19,6 @@ from games.puzzles.alphabetty.core import (
     max_word_length,
     normalize_word,
 )
-from games.models import Attempt, ChainTaskState, Game, GameTaskGroup, Task
 from games.puzzles.core.base import Puzzle
 from games.puzzles.core.check_runtime import BaseChecker, CheckResult
 from games.puzzles.core.client_spec import hash_set_spec, spec_salt

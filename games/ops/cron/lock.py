@@ -6,15 +6,14 @@ logical job single-flight across the environment without consuming a MySQL
 connection on losing invocations.
 """
 
-from contextlib import contextmanager
 import logging
 import socket
 import time
 import uuid
+from contextlib import contextmanager
 
 from django.core.cache import caches
 from django.db import connection
-
 
 logger = logging.getLogger('application')
 _RELEASE_SCRIPT = (

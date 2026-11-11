@@ -3,8 +3,10 @@
 import hashlib
 import json
 import logging
+
 from django.db import DatabaseError, IntegrityError, connection, transaction
 
+from games.daily.projection import projection_state_is_valid
 from games.models import (
     DailyMonthlyResultProjection,
     DailyMonthlyResultProjectionState,
@@ -14,7 +16,6 @@ from games.models import (
     ProfileTeamMembership,
     TaskGroup,
 )
-from games.daily.projection import projection_state_is_valid
 
 logger = logging.getLogger('application')
 

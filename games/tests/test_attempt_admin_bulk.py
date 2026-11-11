@@ -5,19 +5,19 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
+from games.models import ChainTaskState, Game, WordSaladRecheckItem, WordSaladRecheckJob
 from games.ops.workers.jobs.bulk import (
-    add_to_checker,
     accept_pending_attempts,
-    reject_pending_attempts,
+    add_to_checker,
     recheck_chain_attempts,
+    reject_pending_attempts,
 )
-from games.site.session.replay_planner import _actor_groups
 from games.ops.workers.jobs.recheck import (
     _checker_extension_actor_is_complete,
     recheck_chain_task,
 )
+from games.site.session.replay_planner import _actor_groups
 from games.site.views.game.attempt import check_attempt
-from games.models import ChainTaskState, Game, WordSaladRecheckItem, WordSaladRecheckJob
 from games.tests.test_chain_task_state import (
     _ChainFixture,
     _make_attempt,

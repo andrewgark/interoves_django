@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Prefetch, Q
 
-from games.ops.analytics.events import is_task_completion_state
 from games.models import Attempt, ChainTaskState, PlayerCompletedGame, Task
+from games.ops.analytics.events import is_task_completion_state
 
 CHAIN_TASK_TYPES = {'raddle', 'replacements_lines', 'html_forms', 'alphabetty', 'word_salad'}
 BUG_START = datetime(2026, 8, 15, 13, 48, 5, tzinfo=timezone.utc)
@@ -161,7 +161,8 @@ class Command(BaseCommand):
                     completed.append(task.id)
                     attempt_times[str(task.id)] = [iso(row.time) for row in rows if row.status == 'Ok']
                 else:
-                    missing.append(task.id); missing_at.append(task.id)
+                    missing.append(task.id)
+                    missing_at.append(task.id)
                     if any(row.status == 'Ok' for row in rows):
                         attempt_times[str(task.id)] = [iso(row.time) for row in rows if row.status == 'Ok']
                 if (best_before is None or best_before.status != 'Ok') and task.id not in missing_at:
@@ -191,9 +192,11 @@ class Command(BaseCommand):
     def _summary(self, items, query_count):
         breakdown, counts = {}, {'VALID': 0, 'CONFIRMED_INVALID': 0, 'AMBIGUOUS': 0}
         for item in items:
-            cls = item['classification']; counts[cls] += 1
+            cls = item['classification']
+            counts[cls] += 1
             row = breakdown.setdefault(item['game_category'], {'suspect': 0, 'valid': 0, 'confirmed_invalid': 0, 'ambiguous': 0})
-            row['suspect'] += 1; row[cls.lower()] += 1
+            row['suspect'] += 1
+            row[cls.lower()] += 1
         return {'total_suspect': len(items), **{key.lower(): value for key, value in counts.items()},
                 'confirmed_invalid_ids': [i['player_completed_game_id'] for i in items if i['classification'] == 'CONFIRMED_INVALID'],
                 'ambiguous_ids': [i['player_completed_game_id'] for i in items if i['classification'] == 'AMBIGUOUS'],

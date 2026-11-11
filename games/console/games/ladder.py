@@ -31,11 +31,11 @@ from games.console.http.schedule import (
 from games.daily.catalog.ladder import (
     LADDER_GAME_ID,
     LADDER_PUBLISH_START_TAG,
-    MOSCOW,
     is_ladder_number_published,
     ladder_publish_at,
     ladder_publish_start,
 )
+from games.daily.page.section import MOSCOW
 from games.models import CheckerType, Game, GameTaskGroup, Task, TaskGroup
 from games.puzzles.raddle.engine import (
     ensure_raddle_assist_hints,

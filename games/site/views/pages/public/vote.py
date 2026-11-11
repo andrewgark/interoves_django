@@ -8,9 +8,7 @@ from games.club.next_game import (
     CANDIDATE_SLUGS,
     scoreboard,
 )
-from games.club.next_game_autumn import CANDIDATE_SLUGS as AUTUMN_SLUGS
-from games.club.next_game_autumn import LOGIC_EXAMPLES
-from games.club.next_game_autumn import scoreboard as autumn_scoreboard
+from games.club.next_game_autumn import CANDIDATE_SLUGS as AUTUMN_SLUGS, LOGIC_EXAMPLES, scoreboard as autumn_scoreboard
 from games.ops.analytics.events import (
     NEXT_GAME_AUTUMN_CAMPAIGN,
     YANDEX_GOAL_NEXT_GAME_AUTUMN_CLICK,

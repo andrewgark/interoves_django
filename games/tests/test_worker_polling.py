@@ -1,5 +1,5 @@
-from unittest.mock import patch
 import time
+from unittest.mock import patch
 
 from django.test import SimpleTestCase
 

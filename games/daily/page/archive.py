@@ -8,7 +8,6 @@ from urllib.parse import urlencode
 
 from django.utils import timezone
 
-
 MONTH_NAMES = (
     '', 'Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь',
     'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь',

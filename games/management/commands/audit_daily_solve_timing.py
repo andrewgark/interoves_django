@@ -2,8 +2,9 @@
 from collections import Counter, defaultdict
 
 from django.core.management.base import BaseCommand
-from games.daily.projection import _canonical_group_results
+
 from games.daily.page.section import is_daily_timing_game
+from games.daily.projection import _canonical_group_results
 from games.models import DailySolveTiming, Game, GameTaskGroup
 
 

@@ -11,9 +11,9 @@ import uuid
 from dataclasses import dataclass
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import F, Q
-from django.conf import settings
 from django.utils import timezone
 
 from games.models import (
@@ -21,8 +21,8 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
-from games.ops.workers.jobs.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
 from games.ops.cron.runtime import runtime_role
+from games.ops.workers.jobs.recheck import _resolve_word_salad_actor, _word_salad_actor_keys, recheck_word_salad_actor
 from games.puzzles.salad.rules import InvalidSaladTask
 
 logger = logging.getLogger('application')
@@ -664,8 +664,7 @@ def _process_claimed_item(job, item, item_token):
                 )
                 credited = int(result.get('credited') or 0)
             elif actor is not None:
-                from games.ops.workers.jobs.recheck import recheck_chain_task
-                from games.ops.workers.jobs.recheck import _checker_extension_actor_is_complete
+                from games.ops.workers.jobs.recheck import _checker_extension_actor_is_complete, recheck_chain_task
                 skipped_complete = _checker_extension_actor_is_complete(
                     task,
                     job.game,

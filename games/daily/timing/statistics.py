@@ -18,19 +18,13 @@ from games.models import Attempt, ChainTaskState, DailySolveTiming, PlayerComple
 from games.puzzles.alphabetty.core import normalize_word
 from games.puzzles.alphabetty.play import (
     hint_count as alphabetty_hint_count,
-)
-from games.puzzles.alphabetty.play import (
     load_state as load_alphabetty_state,
-)
-from games.puzzles.alphabetty.play import (
     secret_from_task,
     split_ladder,
 )
 from games.puzzles.raddle.engine import load_raddle_state, parse_raddle_data, resolve_assist_tiers
 from games.puzzles.salad.rules import (
     load_state as load_salad_state,
-)
-from games.puzzles.salad.rules import (
     longest_dictionary_words,
     parse_task_payload,
 )
@@ -928,9 +922,12 @@ def _alphabet(task, game, actors):
 def _censorly(task, game, actors):
     """Group by lemma, displaying only submitted forms (excluding title answers)."""
     from games.puzzles.censorly.article.redact import title_opening_lemmas
-    from games.puzzles.censorly.play import hint_count as censorly_hint_count
-    from games.puzzles.censorly.play import load_state as load_censorly_state
-    from games.puzzles.censorly.play import minimal_title_attempts, puzzle_from_task
+    from games.puzzles.censorly.play import (
+        hint_count as censorly_hint_count,
+        load_state as load_censorly_state,
+        minimal_title_attempts,
+        puzzle_from_task,
+    )
     from games.puzzles.censorly.text.normalize import lemma_of, normalize_surface
     from games.puzzles.censorly.text.tokenize import title_content_lemmas
 

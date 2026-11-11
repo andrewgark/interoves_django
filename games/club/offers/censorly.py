@@ -8,8 +8,8 @@ from typing import Optional
 from django.contrib.auth.models import User
 from django.db import transaction
 
-from games.models import CensorlyOffer, RandomCensorlyGame
 from games.club.offers.profiles import profile_ready_for_offers
+from games.models import CensorlyOffer, RandomCensorlyGame
 
 
 @dataclass(frozen=True)

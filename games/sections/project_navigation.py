@@ -2,7 +2,6 @@
 
 from django.urls import reverse
 
-
 _TEAM_URLS = (
     ('hub', 'team'),
     ('create', 'team_create'),

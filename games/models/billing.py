@@ -673,7 +673,6 @@ class ClubSubscriptionEvent(models.Model):
 
 
 def _donation_public_token():
-    import secrets
     return secrets.token_urlsafe(32)
 
 

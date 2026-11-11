@@ -16,11 +16,15 @@ from django.core.management.base import BaseCommand
 from django.db import connection
 
 from games.models import (
-    AnonAccountClaim, Attempt, DailySolveTiming, GameTaskGroup, HintAttempt,
-    PlayerCompletedGame, PlayerStartedGame,
+    AnonAccountClaim,
+    Attempt,
+    DailySolveTiming,
+    GameTaskGroup,
+    HintAttempt,
+    PlayerCompletedGame,
+    PlayerStartedGame,
 )
 from games.results.share import elapsed_seconds_from_attempts
-
 
 TIMING_FIELDS = (
     'id', 'user_id', 'team_id', 'anon_key', 'game_id', 'task_group_id',

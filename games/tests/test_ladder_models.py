@@ -3,8 +3,7 @@ from django.test import SimpleTestCase
 from games.models import AlphabettyOffer, CensorlyOffer, LadderOffer, RaddleUiState, WordSaladOffer
 from games.puzzles.alphabetty.models import AlphabettyOffer as AlphabettyOfferImpl
 from games.puzzles.censorly.models import CensorlyOffer as CensorlyOfferImpl
-from games.puzzles.raddle.models import LadderOffer as LadderOfferImpl
-from games.puzzles.raddle.models import RaddleUiState as RaddleUiStateImpl
+from games.puzzles.raddle.models import LadderOffer as LadderOfferImpl, RaddleUiState as RaddleUiStateImpl
 from games.puzzles.salad.models import WordSaladOffer as WordSaladOfferImpl
 
 

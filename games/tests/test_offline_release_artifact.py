@@ -1,7 +1,7 @@
-import tempfile
-import stat
-import zipfile
 import hashlib
+import stat
+import tempfile
+import zipfile
 from pathlib import Path
 
 from django.test import SimpleTestCase

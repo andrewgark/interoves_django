@@ -8,8 +8,7 @@ from unittest.mock import Mock, patch
 from django.core.management.base import CommandError
 from django.test import SimpleTestCase
 
-from games.management.commands import _background_index_executor as executor
-from games.management.commands import run_deploy_background_work as deploy_work
+from games.management.commands import _background_index_executor as executor, run_deploy_background_work as deploy_work
 
 
 class SchemaWorkLockTests(SimpleTestCase):

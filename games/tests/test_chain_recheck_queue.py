@@ -5,14 +5,14 @@ from django.test import TestCase
 
 from games.models import ChainTaskState, WordSaladRecheckItem, WordSaladRecheckJob, WordSaladRecheckOutbox
 from games.ops.workers.jobs.recheck import recheck_team_task_all_chronological
+from games.ops.workers.jobs.salad import process_word_salad_recheck_item
+from games.site.views.game.attempt import check_attempt
 from games.tests.test_chain_task_state import (
     _ChainFixture,
     _make_attempt,
     _repl_text,
     _wall_text,
 )
-from games.site.views.game.attempt import check_attempt
-from games.ops.workers.jobs.salad import process_word_salad_recheck_item
 
 
 class ChainRecheckQueueTests(_ChainFixture, TestCase):

@@ -14,7 +14,7 @@ import os
 import statistics
 import sys
 from collections import Counter, defaultdict
-from datetime import date, datetime, time, timedelta, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 from decimal import Decimal
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -30,7 +30,6 @@ import django  # noqa: E402
 django.setup()
 
 from django.db import connection  # noqa: E402
-
 
 MSK = ZoneInfo("Europe/Moscow")
 UTC = dt_timezone.utc

@@ -1,7 +1,6 @@
 """Retired old interface: /old/… links redirect to the new UI or answer 410."""
 
-from django.urls import path
-from django.urls import re_path as url
+from django.urls import path, re_path as url
 
 from games.site.views.account.ticket import check_order
 from games.site.views.pages import legacy

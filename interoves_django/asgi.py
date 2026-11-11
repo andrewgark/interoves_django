@@ -1,12 +1,15 @@
 import logging
 import os
+
 from django.conf import settings
 from django.core.asgi import get_asgi_application
+
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
 django_asgi_app = get_asgi_application()
 
-from games.realtime.admission import DatabaseAdmissionASGIMiddleware
-from games.ops.cron.runtime import RUNTIME_ROLE_WEB, runtime_role
+# Project imports need the app registry populated by get_asgi_application().
+from games.ops.cron.runtime import RUNTIME_ROLE_WEB, runtime_role  # noqa: E402
+from games.realtime.admission import DatabaseAdmissionASGIMiddleware  # noqa: E402
 
 
 def _http_application_with_admission(app):
@@ -41,15 +44,13 @@ def _http_application_with_admission(app):
 
 http_asgi_app = _http_application_with_admission(django_asgi_app)
 
-import django
-# from channels.http import AsgiHandler
-from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
-from django.urls import re_path
-from django.core.asgi import get_asgi_application
-from games.realtime.track_compat import TrackGame, UserTrackConsumer
-from interoves_django.asgi_event_loop_monitor import EventLoopLagMonitorMiddleware
+import django  # noqa: E402
+from channels.auth import AuthMiddlewareStack  # noqa: E402
+from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
+from django.urls import re_path  # noqa: E402
 
+from games.realtime.track_compat import TrackGame, UserTrackConsumer  # noqa: E402
+from interoves_django.asgi_event_loop_monitor import EventLoopLagMonitorMiddleware  # noqa: E402
 
 django.setup()
 

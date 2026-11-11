@@ -7,7 +7,6 @@ from games.puzzles import get_puzzle
 from games.puzzles.core.primitives import MoveRefusal, TextMove
 from games.puzzles.replacements.grid import GridPuzzle
 
-
 WALLS = {
     'version': 1,
     'rows': 3,

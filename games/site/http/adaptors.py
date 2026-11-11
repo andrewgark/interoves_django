@@ -1,8 +1,8 @@
 import importlib.util
 from pathlib import Path
 
-from django import forms
 import inlineedit
+from django import forms
 
 # Import BasicAdaptor without loading inlineedit.adaptors.__init__, which resolves
 # games.site.http.adaptors from settings while this module is still initializing.

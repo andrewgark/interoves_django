@@ -11,30 +11,14 @@ from django.views.decorators.http import require_GET, require_POST
 
 from games.club.offers.alphabetty import (
     AlphabettyOfferError,
-    reset_all_alphabetty_progress,
-)
-from games.club.offers.alphabetty import (
     accept_offer as accept_alphabetty_offer,
-)
-from games.club.offers.alphabetty import (
     dashboard_offers_context as alphabetty_dashboard_offers_context,
-)
-from games.club.offers.alphabetty import (
     list_sent_offers as list_sent_alphabetty_offers,
-)
-from games.club.offers.alphabetty import (
     offer_for_link as alphabetty_offer_for_link,
-)
-from games.club.offers.alphabetty import (
     offers_by_link_ids as alphabetty_offers_by_link_ids,
-)
-from games.club.offers.alphabetty import (
     request_revision as request_alphabetty_revision,
-)
-from games.club.offers.alphabetty import (
+    reset_all_alphabetty_progress,
     serialize_offer as serialize_alphabetty_offer,
-)
-from games.club.offers.alphabetty import (
     update_offer_content as update_alphabetty_offer_content,
 )
 from games.club.offers.ladder import (
@@ -51,30 +35,14 @@ from games.club.offers.ladder import (
 )
 from games.club.offers.salad import (
     WordSaladOfferError,
-    reset_all_salad_progress,
-)
-from games.club.offers.salad import (
     accept_offer as accept_word_salad_offer,
-)
-from games.club.offers.salad import (
     dashboard_offers_context as word_salad_dashboard_offers_context,
-)
-from games.club.offers.salad import (
     list_sent_offers as list_sent_word_salad_offers,
-)
-from games.club.offers.salad import (
     offer_for_link as word_salad_offer_for_link,
-)
-from games.club.offers.salad import (
     offers_by_link_ids as word_salad_offers_by_link_ids,
-)
-from games.club.offers.salad import (
     request_revision as request_word_salad_revision,
-)
-from games.club.offers.salad import (
+    reset_all_salad_progress,
     serialize_offer as serialize_word_salad_offer,
-)
-from games.club.offers.salad import (
     update_offer_content as update_word_salad_offer_content,
 )
 from games.console.feed.chain import build_chain_context, format_chain_state
@@ -87,35 +55,15 @@ from games.console.feed.preview import (
 )
 from games.console.feed.social import (
     SocialSupportError,
-)
-from games.console.feed.social import (
     create_post_with_plan as social_create_post_with_plan,
-)
-from games.console.feed.social import (
     delete_post as social_delete_post,
-)
-from games.console.feed.social import (
     get_post as social_get_post,
-)
-from games.console.feed.social import (
     list_posts as social_list_posts,
-)
-from games.console.feed.social import (
     publish_network as social_publish_network,
-)
-from games.console.feed.social import (
     regenerate_image_state as social_regenerate_image_state,
-)
-from games.console.feed.social import (
     request_post_image_regeneration as social_request_post_image_regeneration,
-)
-from games.console.feed.social import (
     serialize_post as social_serialize_post,
-)
-from games.console.feed.social import (
     sync_from_telegram as social_sync_from_telegram,
-)
-from games.console.feed.social import (
     update_post as social_update_post,
 )
 from games.console.feed.stats import collect_support_stats
@@ -127,58 +75,37 @@ from games.console.games.alphabetty import (
     defer_alphabetty,
     delete_alphabetty,
     forbid_alphabetty,
+    generate_more as alphabetty_generate_more,
     get_alphabetty_detail,
     reorder_alphabetty,
     restore_alphabetty,
+    set_publish_start as alphabetty_set_publish_start_service,
     unban_alphabetty_word,
     update_alphabetty,
-)
-from games.console.games.alphabetty import (
-    generate_more as alphabetty_generate_more,
-)
-from games.console.games.alphabetty import (
-    set_publish_start as alphabetty_set_publish_start_service,
 )
 from games.console.games.catalog import get_all_games_by_project
 from games.console.games.censorly import (
     CensorlySupportError,
     accept_censorly_offer,
+    create_at_number as censorly_create_at_number,
+    dashboard_context as censorly_dashboard_context,
     defer_censorly,
+    generate_from_title as censorly_create_from_title,
+    generate_more as censorly_generate_more,
+    generate_random as censorly_create_random,
     list_censorly_offers,
+    list_random_rows as censorly_list_random_rows,
+    refetch_article_text as censorly_refetch_article_text,
     reject_censorly_offer,
     reorder_censorly,
-    restore_censorly,
-)
-from games.console.games.censorly import (
-    create_at_number as censorly_create_at_number,
-)
-from games.console.games.censorly import (
-    dashboard_context as censorly_dashboard_context,
-)
-from games.console.games.censorly import (
-    generate_from_title as censorly_create_from_title,
-)
-from games.console.games.censorly import (
-    generate_more as censorly_generate_more,
-)
-from games.console.games.censorly import (
-    generate_random as censorly_create_random,
-)
-from games.console.games.censorly import (
-    list_random_rows as censorly_list_random_rows,
-)
-from games.console.games.censorly import (
-    refetch_article_text as censorly_refetch_article_text,
-)
-from games.console.games.censorly import (
     reset_my_progress as censorly_reset_my_progress,
-)
-from games.console.games.censorly import (
+    restore_censorly,
     set_publish_start as censorly_set_publish_start_service,
 )
 from games.console.games.ladder import (
     LadderSupportError,
     create_ladder,
+    dashboard_context as ladders_dashboard_context,
     defer_ladder,
     delete_ladder,
     get_ladder_detail,
@@ -187,12 +114,10 @@ from games.console.games.ladder import (
     set_publish_start,
     update_ladder,
 )
-from games.console.games.ladder import (
-    dashboard_context as ladders_dashboard_context,
-)
 from games.console.games.salad import (
     WordSaladSupportError,
     create_word_salad,
+    dashboard_context as word_salad_dashboard_context,
     defer_word_salad,
     delete_word_salad,
     get_word_salad_detail,
@@ -200,13 +125,8 @@ from games.console.games.salad import (
     recheck_word_salad,
     reorder_word_salads,
     restore_word_salad,
-    update_word_salad,
-)
-from games.console.games.salad import (
-    dashboard_context as word_salad_dashboard_context,
-)
-from games.console.games.salad import (
     set_publish_start as word_salad_set_publish_start_service,
+    update_word_salad,
 )
 from games.console.games.sections import get_sections_dashboard
 from games.console.games.week import (
@@ -215,21 +135,15 @@ from games.console.games.week import (
     defer_week_task,
     delete_week_task,
     forbid_week_task,
+    generate_more as week_tasks_generate_more,
+    get_pool_catalog as week_tasks_get_pool_catalog,
     get_week_task_detail,
     reorder_week_tasks,
     restore_week_task,
+    set_publish_start as week_tasks_set_publish_start_service,
     unban_week_task_unit,
     update_week_task,
     week_task_dashboard_context,
-)
-from games.console.games.week import (
-    generate_more as week_tasks_generate_more,
-)
-from games.console.games.week import (
-    get_pool_catalog as week_tasks_get_pool_catalog,
-)
-from games.console.games.week import (
-    set_publish_start as week_tasks_set_publish_start_service,
 )
 from games.console.http.access import support_console_required
 from games.console.http.queues import dashboard_context as queues_dashboard_context
@@ -259,12 +173,8 @@ from games.models import (
 from games.ops.workers.jobs.salad import retry_word_salad_recheck, serialize_job
 from games.puzzles.censorly.article.admin import (
     DIFFICULTIES as CENSORLY_POOL_DIFFICULTIES,
-)
-from games.puzzles.censorly.article.admin import (
     pool_rows,
     save_pool_entry,
-)
-from games.puzzles.censorly.article.admin import (
     taxonomy as censorly_pool_taxonomy,
 )
 from games.puzzles.censorly.article.wiki import WikiFetchError, fetch_article

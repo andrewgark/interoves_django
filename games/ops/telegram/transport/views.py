@@ -1,9 +1,6 @@
 import logging
 
 import requests
-
-from django.core.exceptions import ImproperlyConfigured
-
 from allauth.socialaccount import app_settings, providers
 from allauth.socialaccount.helpers import (
     complete_social_login,

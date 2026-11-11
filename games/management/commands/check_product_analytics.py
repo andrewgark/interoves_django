@@ -5,7 +5,6 @@ from django.db.models import Exists, F, OuterRef, Q, Subquery
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from games.ops.analytics.events import GAME_KIND_BY_ID
 from games.models import (
     AnonAccountClaim,
     GameTaskGroup,
@@ -15,7 +14,7 @@ from games.models import (
     PlayerStartedGame,
     WordSaladOffer,
 )
-
+from games.ops.analytics.events import GAME_KIND_BY_ID
 
 MAX_INTERVAL = timedelta(days=31)
 FUTURE_TOLERANCE = timedelta(minutes=5)

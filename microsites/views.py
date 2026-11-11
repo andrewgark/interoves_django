@@ -7,8 +7,7 @@ import os
 import re
 import signal
 import sys
-from datetime import datetime
-from datetime import timezone as dt_timezone
+from datetime import datetime, timezone as dt_timezone
 from io import BytesIO
 from pathlib import Path
 from urllib.error import HTTPError, URLError

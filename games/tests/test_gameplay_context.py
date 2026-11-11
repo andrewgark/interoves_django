@@ -1,16 +1,16 @@
 from types import SimpleNamespace
 
-from django.contrib.auth import get_user_model
 from django.contrib import admin
+from django.contrib.auth import get_user_model
 from django.test import RequestFactory, TestCase, override_settings
 
+from games.models import Attempt
+from games.site.admin import AttemptAdmin
 from games.site.session.gameplay_context import (
     actor_descriptor,
     issue_gameplay_context,
     validate_gameplay_context,
 )
-from games.site.admin import AttemptAdmin
-from games.models import Attempt
 
 
 class GameplayContextTests(TestCase):

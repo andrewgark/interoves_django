@@ -3,26 +3,32 @@ Tests for ChainTaskState: wall and replacements_lines chain integrity,
 mode isolation, race-condition serialisation, and recheck correctness.
 """
 import json
-from datetime import timedelta
-from django.db import IntegrityError, transaction
 import threading
+from datetime import timedelta
 from unittest.mock import patch
 
-import unittest
-
-from django.db import close_old_connections, connection
+from django.db import IntegrityError, close_old_connections, connection, transaction
 from django.test import TestCase, TransactionTestCase
 from django.utils import timezone
 
 from games.models import (
-    Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage, ReplaySlot,
-    PlayerCompletedGame, Project, Task, TaskGroup, Team, CHAIN_TASK_TYPES,
+    Attempt,
+    ChainTaskState,
+    CheckerType,
+    Game,
+    GameTaskGroup,
+    HTMLPage,
+    PlayerCompletedGame,
+    Project,
+    ReplaySlot,
+    Task,
+    TaskGroup,
+    Team,
 )
-from games.site.http.exceptions import DuplicateAttemptException, TooManyAttemptsException
 from games.ops.workers.jobs.recheck import recheck_chain_task
-from games.site.views.game.attempt import check_attempt
 from games.puzzles.wall.engine import Wall
-
+from games.site.http.exceptions import DuplicateAttemptException, TooManyAttemptsException
+from games.site.views.game.attempt import check_attempt
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -429,7 +435,6 @@ class WallChainTests(_ChainFixture, TestCase):
         self.assertEqual(len(state['guessed_words']), 4)
 
         wall = Wall(self.wall_task)
-        attempts = Attempt.manager.get_all_attempts(self.team, self.wall_task)
         # Must not raise KeyError when rendering exptiles for this state.
         wall.get_exptiles(
             Attempt.manager.get_attempts_info(
@@ -941,8 +946,9 @@ class EdgeCaseTests(_ChainFixture, TestCase):
 
     def test_backfill_command_dry_run(self):
         """--dry-run prints what would be done without touching the DB."""
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         a = _make_attempt(self.repl_task, self.team, _repl_text(0, ['answer1']))
         check_attempt(a)
@@ -977,8 +983,9 @@ class EdgeCaseTests(_ChainFixture, TestCase):
         self.assertIn(1, state['solved_lines'])
 
     def test_replacements_state_audit_is_read_only_and_sees_replay_slots(self):
-        from django.core.management import call_command
         from io import StringIO
+
+        from django.core.management import call_command
 
         replay = ReplaySlot.objects.create(
             team=self.team,

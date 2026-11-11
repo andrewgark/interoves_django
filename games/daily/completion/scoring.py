@@ -1,13 +1,9 @@
-import json
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Set, Tuple
 from types import SimpleNamespace
-
-from django.db.models import Q
+from typing import Dict, Iterable, Optional, Set, Tuple
 
 from games.models import Attempt, HintAttempt, Task
 from games.results.util import better_status
-
 
 EPS = 1e-9
 

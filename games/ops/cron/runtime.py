@@ -1,6 +1,5 @@
 import os
 
-
 RUNTIME_ROLE_WEB = 'web'
 RUNTIME_ROLE_WORKER = 'worker'
 RUNTIME_ROLE_BACKGROUND = 'background-worker'

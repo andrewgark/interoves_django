@@ -6,6 +6,10 @@ from django.db.models import Max, Q
 from django.utils import timezone
 
 from games.club.access.game import game_has_ended, game_has_started
+from games.club.billing.tickets import (
+    stuck_pending_ticket_count,
+    stuck_pending_ticket_requests,
+)
 from games.models import (
     Attempt,
     BugReport,
@@ -16,16 +20,15 @@ from games.models import (
     Task,
     TicketRequest,
 )
-from games.ops.workers.jobs.recheck import recheck_team_task_all_chronological
+from games.ops.telegram.bot.notify import REGISTRATION_MILESTONES, _escape, _join_lines
+from games.ops.telegram.links import admin_url, game_site_url
 from games.ops.telegram.transport.config import (
     admin_is_muted,
     announce_chat_ids,
     clear_admin_mute,
     set_admin_mute,
 )
-from games.ops.telegram.links import admin_url, game_site_url
-from games.ops.telegram.bot.notify import REGISTRATION_MILESTONES, _escape, _join_lines, send_admin_message
-from games.club.billing.tickets import build_stuck_tickets_alert, stuck_pending_ticket_count, stuck_pending_ticket_requests
+from games.ops.workers.jobs.recheck import recheck_team_task_all_chronological
 
 
 def _help_text() -> str:
@@ -109,8 +112,9 @@ def _cmd_help(_args) -> str:
 
 def _cmd_gift(args, *, telegram_user_id=None) -> str:
     from django.contrib.auth import get_user_model
-    from games.models import Profile
+
     from games.club.billing.gifts.offers import create_gift, gift_duration_label
+    from games.models import Profile
     from games.ops.telegram.transport.api import send_message
 
     if len(args) == 1:
@@ -199,9 +203,9 @@ def _get_game(game_id: str) -> Game | None:
 
 def _cmd_status(_args) -> str:
     from django.conf import settings
-    from games.ops.telegram.transport.api import get_webhook_info
 
     from games.models import AlphabettyDictSuggestion
+    from games.ops.telegram.transport.api import get_webhook_info
 
     pending_bugs = BugReport.objects.filter(status='Pending').count()
     pending_tickets = TicketRequest.objects.filter(status='Pending').count()
@@ -543,6 +547,7 @@ def _cmd_db(_args) -> str:
 
 def _cmd_infra(_args) -> str:
     from django.conf import settings
+
     from games.ops.telegram.transport.api import get_webhook_info
     from games.ops.telegram.transport.config import admin_chat_id
 

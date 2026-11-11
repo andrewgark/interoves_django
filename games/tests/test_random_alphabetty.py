@@ -1,23 +1,23 @@
 from unittest.mock import patch
 
-from django.test import TestCase
 from django.core.cache import caches
+from django.test import TestCase
 
-from games.puzzles.alphabetty.random_game import (
-    RandomAlphabettyDictionaryExhausted,
-    get_or_create_random_game,
-)
 from games.daily.difficulty.core import ensure_daily_difficulty_row, get_game_difficulty
 from games.models import (
     CheckerType,
     DailySolveTiming,
     Game,
     GameTaskGroup,
+    PlayerCompletedGame,
     Project,
     RandomAlphabettyGame,
-    PlayerCompletedGame,
     Task,
     TaskGroup,
+)
+from games.puzzles.alphabetty.random_game import (
+    RandomAlphabettyDictionaryExhausted,
+    get_or_create_random_game,
 )
 from games.results.table.tables import load_results_placements_and_tasks
 

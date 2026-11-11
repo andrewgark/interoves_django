@@ -150,8 +150,8 @@ def is_personal_dict_word(
     anon_key: str | None = None,
 ) -> bool:
     """Слово есть в личном словаре актёра."""
-    from games.puzzles.alphabetty.core import normalize_word
     from games.models import AlphabettyPersonalDictWord
+    from games.puzzles.alphabetty.core import normalize_word
 
     n = normalize_word(word)
     if not n:
@@ -172,8 +172,8 @@ def add_personal_dict_word(
     anon_key: str | None = None,
 ) -> bool:
     """Добавить слово в личный словарь. True если создана новая запись."""
-    from games.puzzles.alphabetty.core import normalize_word
     from games.models import AlphabettyPersonalDictWord
+    from games.puzzles.alphabetty.core import normalize_word
 
     n = normalize_word(word)
     if not n:

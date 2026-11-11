@@ -1,8 +1,10 @@
-from collections import Counter
 import json
-from django.template import Context
+from collections import Counter
+
 from django.template.loader import get_template
+
 from games.results.util import clean_text
+
 
 class WallTile:
     def __init__(self, id, text):
@@ -31,11 +33,11 @@ class Wall:
     def __init__(self, task):
         try:
             data = json.loads(task.text)
-        except:
+        except Exception:
             data = {}
         try:
             checker_data = json.loads(task.checker_data)
-        except:
+        except Exception:
             checker_data = {}
         self.task = task
         self.n_cat = data.get('n_cat', 4)

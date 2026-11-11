@@ -1,4 +1,5 @@
 from django.core.management.base import BaseCommand
+
 from games.identity.merge.anon_steps import heal_orphaned_likes_from_migrate_events
 
 

@@ -16,7 +16,7 @@ Usage:
 
 from django.core.management.base import BaseCommand, CommandError
 
-from games.models import Game, GameTaskGroup, HTMLPage, TaskGroup
+from games.models import GameTaskGroup, HTMLPage, TaskGroup
 
 TARGET_RULES = 'section_tutorial_replacements'
 LEGACY_RULES = (

@@ -1,11 +1,10 @@
 from datetime import timedelta
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.test import TestCase, override_settings
 from django.utils import timezone
-
-from allauth.socialaccount.models import SocialApp
 
 from games.models import (
     Attempt,

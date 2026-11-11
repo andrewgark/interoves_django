@@ -48,6 +48,7 @@ def progress_signature(state):
 def clean_checker_data(task):
     """Reject an html-forms payload that has no answered forms."""
     from django.core.exceptions import ValidationError
+
     from games.puzzles.replacements.forms import parse_html_forms_data
     if not parse_html_forms_data(task.checker_data):
         raise ValidationError({'checker_data': 'Нужен JSON со списком forms и ответами.'})
@@ -76,6 +77,7 @@ def attempt_answer(attempt):
 def pretty_text(attempt):
     """List label for one html form, without exposing the private key."""
     from django.utils.html import format_html
+
     from games.puzzles.replacements.forms import parse_html_forms_data
     try:
         payload = json.loads(attempt.text)

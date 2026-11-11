@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 
-from games.ops.telegram.bot.reports import process_admin_report_tick
 from games.ops.cron.lock import distributed_cron_lock
+from games.ops.telegram.bot.reports import process_admin_report_tick
 
 
 class Command(BaseCommand):

@@ -11,8 +11,8 @@ from __future__ import annotations
 import logging
 import sys
 
-from django.db import DatabaseError, ProgrammingError
 from django.core.signals import got_request_exception
+from django.db import DatabaseError, ProgrammingError
 from django.http import HttpResponse, JsonResponse
 
 logger = logging.getLogger('application')

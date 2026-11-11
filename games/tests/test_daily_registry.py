@@ -1,14 +1,14 @@
 from dataclasses import replace
 from unittest import TestCase
 
+from games.daily.page.board import DAILY_BOARD_ADAPTERS
+from games.daily.page.share import DAILY_SHARE_ADAPTERS
+from games.daily.projection.results import get_daily_results_adapter
 from games.daily.registry import (
     DAILY_GAME_REGISTRY,
     DailyGameRegistry,
     get_daily_game,
 )
-from games.daily.page.board import DAILY_BOARD_ADAPTERS
-from games.daily.projection.results import get_daily_results_adapter
-from games.daily.page.share import DAILY_SHARE_ADAPTERS
 
 
 class DailyGameRegistryTests(TestCase):

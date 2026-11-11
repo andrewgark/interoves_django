@@ -318,8 +318,6 @@ def task_group_page(
         elif game_id == WORD_SALAD_GAME_ID and is_share_hash_segment(segment):
             from games.club.offers.salad import (
                 can_access_offer_hash as can_access_salad_offer_hash,
-            )
-            from games.club.offers.salad import (
                 get_offer_by_share_hash as get_salad_offer_by_share_hash,
             )
             salad_offer = get_salad_offer_by_share_hash(segment)

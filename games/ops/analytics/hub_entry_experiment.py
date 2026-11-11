@@ -25,8 +25,7 @@ first game starts and the cookie is present: ``hub_entry_variant`` and
 import contextvars
 import hashlib
 import logging
-from datetime import datetime
-from datetime import timezone as dt_timezone
+from datetime import datetime, timezone as dt_timezone
 
 from django.conf import settings
 from django.core import signing

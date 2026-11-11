@@ -15,14 +15,8 @@ from games.task_group.task_group_placement import resolve_task_group_placement
 from games.task_group.task_group_ui import task_ui_by_task_id_for_group as collect_task_ui_by_task_id
 from games.task_group.text_with_forms_task_data import (
     hidden_until_solved_by_task_id as collect_hidden_until_solved,
-)
-from games.task_group.text_with_forms_task_data import (
     support_tasks as collect_support_tasks,
-)
-from games.task_group.text_with_forms_task_data import (
     task_group_heading_html,
-)
-from games.task_group.text_with_forms_task_data import (
     text_with_forms_data_by_task_id as collect_text_with_forms_data,
 )
 from games.task_group.wall_max_points import wall_max_points_meta_by_task_id as collect_wall_max_points_meta

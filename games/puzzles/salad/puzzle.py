@@ -9,14 +9,6 @@ from games.daily.page.state import latest_daily_state
 from games.puzzles.core.base import Puzzle
 from games.puzzles.core.progress import _int_tuple, _text_tuple
 from games.puzzles.salad.board import load_salad_board
-from games.puzzles.salad.submission import (
-    attempt_limit_message,
-    blocks_duplicate,
-    client_verdict_of,
-    include_task_html,
-    parse_move,
-    write_move_result,
-)
 from games.puzzles.salad.rules import (
     build_ui_context as build_word_salad_ui_context,
     hint_numbers_from_attempts,
@@ -25,6 +17,14 @@ from games.puzzles.salad.rules import (
     parse_task_payload as parse_word_salad_task_payload,
     result_points_from_attempts,
     validate_task_data,
+)
+from games.puzzles.salad.submission import (
+    attempt_limit_message,
+    blocks_duplicate,
+    client_verdict_of,
+    include_task_html,
+    parse_move,
+    write_move_result,
 )
 
 

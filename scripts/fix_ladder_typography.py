@@ -30,7 +30,7 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "interoves_django.settings")
 django.setup()
 
 from games.daily.catalog.ladder import LADDER_GAME_ID  # noqa: E402
-from games.models import Game, GameTaskGroup, Hint, Task  # noqa: E402
+from games.models import Game, GameTaskGroup, Hint  # noqa: E402
 from games.puzzles.raddle.engine import validate_raddle_checker_data  # noqa: E402
 
 

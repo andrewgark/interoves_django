@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, timezone
 import faulthandler
 import logging
 import os
@@ -12,9 +11,9 @@ import sys
 import threading
 import time
 import weakref
+from datetime import datetime, timezone
 
 from interoves_django.process_memory_report import ProcessMemoryReporter
-
 
 logger = logging.getLogger("application")
 

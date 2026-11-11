@@ -14,9 +14,8 @@ from decimal import Decimal
 
 from django.db import transaction
 
-from games.puzzles.core.check_runtime import CheckerFactory
 from games.models import Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, Task
-
+from games.puzzles.core.check_runtime import CheckerFactory
 
 TG_NUMBERS = (154, 156, 137)
 TARGET_USER_IDS = (456, 694)

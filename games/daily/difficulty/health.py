@@ -10,7 +10,6 @@ from datetime import timedelta
 from django.db.models import Q
 from django.utils import timezone
 
-from games.ops.cron.lock import distributed_cron_lock
 from games.daily.difficulty.core import SUPPORTED_GAME_IDS, _supported_placements
 from games.daily.difficulty.refresh import (
     DIFFICULTY_REFRESH_LOCK,
@@ -20,6 +19,7 @@ from games.daily.difficulty.refresh import (
     run_daily_difficulty_refresh,
 )
 from games.models import DailyDifficultyQueueStatus, DailyGameDifficulty
+from games.ops.cron.lock import distributed_cron_lock
 
 HEALTH_CHECK_LOCK = 'daily_difficulty_health_check'
 HEALTH_CHECK_LOCK_TTL_SECONDS = 180

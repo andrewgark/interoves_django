@@ -102,8 +102,9 @@ def render_share_card_png(payload: dict) -> bytes:
 
 
 def png_dimensions(png: bytes) -> tuple[int, int]:
-    from PIL import Image
     import io
+
+    from PIL import Image
 
     image = Image.open(io.BytesIO(png))
     return image.size

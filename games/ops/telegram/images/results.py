@@ -7,8 +7,8 @@ import logging
 
 from django.conf import settings
 
-from games.ops.telegram.links import game_tournament_results_url
 from games.ops.telegram.images.ladder import _add_white_frame
+from games.ops.telegram.links import game_tournament_results_url
 
 logger = logging.getLogger('application')
 

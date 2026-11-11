@@ -4,7 +4,18 @@ from unittest.mock import patch
 from django.test import TestCase
 from django.utils import timezone
 
-from games.models import Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, HTMLPage, Project, Task, TaskGroup, Team
+from games.models import (
+    Attempt,
+    ChainTaskState,
+    CheckerType,
+    Game,
+    GameTaskGroup,
+    HTMLPage,
+    Project,
+    Task,
+    TaskGroup,
+    Team,
+)
 from games.site.views.game.attempt import check_attempt
 
 

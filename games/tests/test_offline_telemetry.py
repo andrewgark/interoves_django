@@ -1,7 +1,6 @@
 """games.gameplay.offline_telemetry: client reports, counters, alerts and the admin report section."""
 import json
-from datetime import datetime, timedelta
-from datetime import timezone as dt_timezone
+from datetime import datetime, timedelta, timezone as dt_timezone
 from unittest.mock import patch
 
 from django.core.cache import caches

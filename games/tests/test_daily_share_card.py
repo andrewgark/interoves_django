@@ -24,8 +24,8 @@ from games.daily.page.share.card import (
     synthetic_preview_payloads,
 )
 from games.puzzles.raddle.engine import default_raddle_state, parse_raddle_data
-from games.tests.test_raddle import PARIS_LADDER
 from games.puzzles.salad.rules import default_state as salad_default_state
+from games.tests.test_raddle import PARIS_LADDER
 
 
 def _png_bytes(width=CARD_WIDTH, height=CARD_HEIGHT, color=(30, 80, 50)):

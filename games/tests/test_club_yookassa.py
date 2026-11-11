@@ -602,7 +602,7 @@ class ClubYooKassaDetachTests(TestCase):
         local.save(update_fields=['failure_code'])
         payment_data = _payment_payload(local)
         with patch('games.club.billing.yookassa.club._create_yookassa_payment', return_value=payment_data), \
-                patch('games.ops.telegram.bot.notify.publish_admin_alert', return_value=True) as publish, \
+                patch('games.ops.telegram.bot.notify.publish_admin_alert', return_value=True), \
                 self.captureOnCommitCallbacks(execute=True):
             self.assertTrue(_submit_renewal(local.pk))
         local.refresh_from_db()

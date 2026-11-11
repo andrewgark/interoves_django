@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo
 
 from games.daily.timing.transitions import next_daily_content_transition
 
-
 UTC = ZoneInfo('UTC')
 MOSCOW = ZoneInfo('Europe/Moscow')
 

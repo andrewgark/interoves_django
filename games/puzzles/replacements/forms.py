@@ -6,7 +6,6 @@ from django.templatetags.static import static
 
 from games.results.util import clean_text
 
-
 TOKEN_RE = re.compile(r'\{\{\s*html_form:([A-Za-z0-9_.:-]+)\s*\}\}')
 GRAPH_CSS_TAG_RE = re.compile(
     r"<link\b(?=[^>]*\bhref=[\"']/static/css/html_forms_graph_demo\.css(?:\?[^\"']*)?[\"'])[^>]*>",

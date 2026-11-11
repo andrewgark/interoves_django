@@ -23,11 +23,11 @@ from games.console.http.schedule import (
 from games.daily.catalog.censorly import (
     CENSORLY_BUFFER_DAYS,
     CENSORLY_PUBLISH_START_TAG,
-    MOSCOW,
     censorly_publish_at,
     censorly_publish_start,
     is_censorly_number_published,
 )
+from games.daily.page.section import MOSCOW
 from games.models import CensorlyOffer, CheckerType, Game, GameTaskGroup, RandomCensorlyGame, Task, TaskGroup
 from games.notifications.catalog import notifies_author
 from games.puzzles.censorly.article.wiki import WikiArticle, WikiFetchError, fetch_article

@@ -10,7 +10,6 @@ from django.conf import settings
 from django.core import signing
 from django.http import JsonResponse
 
-
 GAMEPLAY_CONTEXT_FIELD = 'gameplay_context'
 GAMEPLAY_CONTEXT_VERSION = 1
 GAMEPLAY_CONTEXT_SALT = 'interoves.gameplay-context.v1'

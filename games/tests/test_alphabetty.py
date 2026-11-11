@@ -12,8 +12,6 @@ from django.test import Client, TestCase
 
 from games.club.offers.alphabetty import (
     accept_offer as accept_alphabetty_offer,
-)
-from games.club.offers.alphabetty import (
     reset_all_alphabetty_progress,
 )
 from games.console.games.alphabetty import (
@@ -289,7 +287,7 @@ class AlphabettySupportTests(TestCase):
             )
 
         now = datetime(2026, 8, 9, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
-        with patch('games.daily.catalog.alphabetty.timezone.now', return_value=now):
+        with patch('django.utils.timezone.now', return_value=now):
             payload = build_results_snapshot_payload(self.game, mode='general')
 
         self.assertEqual([group['number'] for group in payload['task_groups']], ['1'])

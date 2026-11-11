@@ -4,11 +4,11 @@ import logging
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 
-from games.ops.telegram.bot.commands import handle_admin_command
-from games.ops.telegram.transport.api import send_message
 from games.ops.telegram.bot.callbacks import handle_callback_query
-from games.ops.telegram.transport.config import is_admin_chat
+from games.ops.telegram.bot.commands import handle_admin_command
 from games.ops.telegram.bot.public import handle_public_command, parse_public_command
+from games.ops.telegram.transport.api import send_message
+from games.ops.telegram.transport.config import is_admin_chat
 
 logger = logging.getLogger('application')
 

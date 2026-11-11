@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+from games.puzzles.core.base import Puzzle
+from games.puzzles.core.primitives import MoveRefusal, TextMove
 from games.puzzles.replacements.grid_puzzle import (
     GridPuzzleDataError,
     grid_checker_id,
@@ -12,8 +14,6 @@ from games.puzzles.replacements.grid_puzzle import (
     parse_grid_shading_attempt,
     validate_grid_checker_data,
 )
-from games.puzzles.core.base import Puzzle
-from games.puzzles.core.primitives import MoveRefusal, TextMove
 
 
 def parse_move(post, task):

@@ -1,14 +1,19 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.test import TestCase
 from django.utils import timezone
-from unittest.mock import patch
 
 from games.club.access.archive import has_club_access
+from games.club.billing.gifts.offers import (
+    claim_gift,
+    create_gift,
+    create_paid_gift,
+    gift_duration_label,
+    revoke_gift_access,
+)
 from games.models import ClubEntitlement, ClubSubscription, Profile, SubscriptionGift
-from games.club.billing.gifts.offers import create_paid_gift
-from games.club.billing.gifts.offers import claim_gift, create_gift, gift_duration_label, revoke_gift_access
 from games.ops.telegram.bot.commands import handle_admin_command
 
 

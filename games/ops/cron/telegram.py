@@ -4,7 +4,6 @@ from contextlib import contextmanager
 
 from games.ops.cron.lock import distributed_cron_lock
 
-
 TELEGRAM_CRON_LOCK_NAME = 'telegram_game_announcements'
 
 

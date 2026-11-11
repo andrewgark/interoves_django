@@ -15,9 +15,9 @@ from games.models import (
     Project,
     Team,
 )
-from games.results.standings.aggregate_leaderboard import _build_projection_aggregate_page
 from games.results.snapshots.aggregate_snapshot_read import read_snapshot_page
 from games.results.snapshots.aggregate_snapshots import SnapshotVersionExpired
+from games.results.standings.aggregate_leaderboard import _build_projection_aggregate_page
 
 
 class AggregateSnapshotReadTests(TestCase):

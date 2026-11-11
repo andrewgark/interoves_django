@@ -18,8 +18,7 @@ from games.identity.merge.account_queue import (
 )
 from games.identity.merge.anon_queue import publish_unmarked_due_merge_jobs, run_named_merge_job
 from games.ops.cron.runtime import RUNTIME_ROLE_IDENTITY, runtime_role
-from games.ops.workers.heartbeat import finish as finish_queue_heartbeat
-from games.ops.workers.heartbeat import start as start_queue_heartbeat
+from games.ops.workers.heartbeat import finish as finish_queue_heartbeat, start as start_queue_heartbeat
 from games.ops.workers.http import is_sqsd_delivery, sqsd_message_id
 from games.ops.workers.messages import (
     ACCOUNT_MERGE,

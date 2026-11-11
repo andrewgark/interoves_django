@@ -5,7 +5,6 @@ from django.conf import settings
 from django.core.cache import caches
 from django.http import JsonResponse
 
-
 DEPLOY_REFRESH_GATE_KEY = 'site:deploy-refresh-gate'
 
 _META_DATA_DIR = Path(__file__).resolve().parents[2] / 'data'

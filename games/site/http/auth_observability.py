@@ -18,7 +18,6 @@ from django.utils import timezone
 
 from games.ops.cron.runtime import deployment_environment
 
-
 logger = logging.getLogger('interoves.auth')
 _SESSION_FINGERPRINT_HEX_LENGTH = 20
 _KEY_FINGERPRINT_HEX_LENGTH = 16

@@ -10,9 +10,8 @@ from django.db import connection, transaction
 from django.test.utils import CaptureQueriesContext
 from django.utils import timezone
 
-from games.ops.analytics.events import reconcile_legacy_completed_games_for_actor
 from games.models import ChainTaskState
-
+from games.ops.analytics.events import reconcile_legacy_completed_games_for_actor
 
 SUPPORTED_TASK_TYPES = (
     'raddle', 'replacements_lines', 'alphabetty', 'word_salad',

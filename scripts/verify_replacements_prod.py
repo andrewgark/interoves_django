@@ -26,15 +26,13 @@ if __name__ == '__main__':
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'interoves_django.settings')
     django.setup()
 
-from django.test import RequestFactory  # noqa: E402
 
-from games.puzzles.core.check_runtime import CheckerFactory  # noqa: E402
 from games.models import Attempt, CheckerType, Game, GameTaskGroup, Task  # noqa: E402
+from games.puzzles.core.check_runtime import CheckerFactory  # noqa: E402
 from games.puzzles.replacements.lines import (  # noqa: E402
     parse_replacements_lines_text,
     task_replacements_canonical_answer_row,
 )
-from games.site.views.game.attempt import process_send_attempt  # noqa: E402
 
 BASE_URL = 'https://interoves.com'
 
@@ -59,7 +57,6 @@ def checker_ok(task, line_index, answers):
 
 
 def http_submit_line(session, task_id, game_id, line_index, answers, csrf, anon_key):
-    import requests
 
     url = f'{BASE_URL}/send_attempt/{task_id}/'
     data = {
@@ -88,7 +85,6 @@ def http_submit_line(session, task_id, game_id, line_index, answers, csrf, anon_
 
 
 def fetch_csrf_and_tasks_http(session, tg_number):
-    import requests
 
     url = f'{BASE_URL}/games/replacements/{tg_number}/'
     r = session.get(url, timeout=60)

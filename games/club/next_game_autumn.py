@@ -21,6 +21,8 @@ from django.utils import timezone
 from games.club.next_game import (
     CANDIDATE_CRYPTIC,
     CANDIDATE_LOGIC,
+    CANDIDATE_META as SEPTEMBER_META,
+    CANDIDATE_SLUGS as SEPTEMBER_SLUGS,
     COUNTED_EVENT_NAME,
     DONATION_EVENTS,
     SUPPORTED_CURRENCIES,
@@ -37,12 +39,6 @@ from games.club.next_game import (
     fx_rate_to_eur,
     live_candidate_totals,
     original_minor_to_eur_cents,
-)
-from games.club.next_game import (
-    CANDIDATE_META as SEPTEMBER_META,
-)
-from games.club.next_game import (
-    CANDIDATE_SLUGS as SEPTEMBER_SLUGS,
 )
 from games.models import NextGameAutumnGoalMapping, NextGameAutumnVoteEvent
 

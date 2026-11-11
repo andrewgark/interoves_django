@@ -3,11 +3,10 @@ import tempfile
 from io import StringIO
 from pathlib import Path
 
+from django.contrib.auth.models import User
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
-
-from django.contrib.auth.models import User
 
 from games.models import DailySolveTiming, Game, PlayerCompletedGame, ReplaySlot, TaskGroup
 

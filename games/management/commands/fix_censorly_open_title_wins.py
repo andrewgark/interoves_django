@@ -11,6 +11,7 @@ Dry run by default; pass --apply to write.
 
 from django.core.management.base import BaseCommand
 from django.db import transaction
+
 from games.daily.completion.completion_coordinator import complete_logical_game
 from games.daily.timing.session import recovered_timing_ms_from_events
 from games.models import (

@@ -1,21 +1,22 @@
-from datetime import timedelta
 import json
+from datetime import timedelta
 
 from django.contrib import admin, messages
-from django.forms import Textarea
 from django.db import models
+from django.forms import Textarea
 from django.http import HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils import timezone
+
 from games.models import (
     DailyDifficultyQueueStatus,
     DailyGameDifficulty,
+    DailySolveTiming,
     GameDifficultyNorm,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
-    DailySolveTiming,
     StatisticsEvent,
 )
 

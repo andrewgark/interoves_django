@@ -2,22 +2,24 @@ import json
 from datetime import timedelta
 from unittest.mock import patch
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
-from allauth.socialaccount.models import SocialApp
-
 from games.club.access.archive import (
     has_club_access,
     is_within_free_archive_window,
     scheduled_number_requires_club,
-    user_can_access_scheduled_number,
     user_can_access_desyatka,
+    user_can_access_scheduled_number,
     user_can_access_task_archive,
 )
+from games.club.billing.tribute.config import club_checkout_enabled, club_product_configuration
+from games.club.billing.tribute.util import compute_webhook_signature
+from games.club.link import consume_link_token, create_link_token, user_has_telegram_link
 from games.models import (
     ClubSubscription,
     ClubSubscriptionEvent,
@@ -25,8 +27,8 @@ from games.models import (
     GameAuthor,
     GameTaskGroup,
     HTMLPage,
-    Profile,
     PlayerCompletedGame,
+    Profile,
     Project,
     Registration,
     Task,
@@ -34,11 +36,7 @@ from games.models import (
     Team,
     TributePurchase,
 )
-from games.club.link import consume_link_token, create_link_token, user_has_telegram_link
 from games.ops.telegram.bot.notify import notify_admin_club_subscription
-from games.club.billing.tribute.config import club_checkout_enabled, club_product_configuration
-from games.club.billing.tribute.util import compute_webhook_signature
-
 
 CLUB_SETTINGS = {
     'CLUB_PAYMENTS_ENABLED': True,
@@ -480,8 +478,8 @@ class ClubWebhookAndMappingTests(TestCase):
         self.assertEqual(response.status_code, 400)
 
     def test_one_time_digital_product_webhook_still_works(self):
-        from games.models import Team, TributePaymentIntent, TicketRequest
         from games.club.billing.tribute.service import create_or_reuse_intent
+        from games.models import Team
 
         team = Team.objects.create(name='club_ticket_team', project_id='main', tickets=0, ticket_price=2000)
         self.user.profile.add_team_membership(team, make_primary=True)

@@ -12,11 +12,11 @@ import json
 
 from django.test import SimpleTestCase
 
-from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
 from games.puzzles.replacements.lines import (
     canonical_replacements_checker_line,
     parse_replacements_lines_text,
 )
+from games.puzzles.replacements.lines.checker import ReplacementsLinesChecker
 
 
 def _n_slots(line):

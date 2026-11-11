@@ -1,8 +1,7 @@
+from allauth.socialaccount.models import SocialApp
 from django.contrib.sites.models import Site
 from django.core import mail
 from django.test import TestCase, override_settings
-
-from allauth.socialaccount.models import SocialApp
 
 from games.models import CorporateGameOrder, OrderGameClient, OrderGameReview
 

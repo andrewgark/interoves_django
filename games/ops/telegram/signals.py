@@ -18,7 +18,6 @@ from games.ops.telegram.bot.notify import (
     notify_new_corporate_order,
     notify_new_donation,
     notify_new_ticket_request,
-    notify_payment_event,
 )
 from games.ops.telegram.channels.scheduling import notify_admin_game_lifecycle, notify_admin_registration_milestone
 

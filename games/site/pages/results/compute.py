@@ -18,8 +18,6 @@ from games.results.snapshots.snapshot import (
 from games.results.table.access import (
     public_exclusion_notice,
     results_actor_for_request,
-)
-from games.results.table.access import (
     results_me_participants as build_results_me_participants,
 )
 from games.results.table.cells import build_results_cells

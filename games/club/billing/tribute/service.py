@@ -6,19 +6,10 @@ from dataclasses import dataclass
 from datetime import timedelta
 
 from django.conf import settings
-from django.contrib.auth.models import User
 from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
-from games.models import (
-    Profile,
-    ProfileTeamMembership,
-    Team,
-    TicketRequest,
-    TributePaymentIntent,
-    TributePurchase,
-)
 from games.club.billing.tickets import accept_ticket_request, reject_ticket_request
 from games.club.billing.tribute.config import (
     TributeProduct,
@@ -26,6 +17,14 @@ from games.club.billing.tribute.config import (
     merchant,
     products_by_id,
     tribute_checkout_enabled,
+)
+from games.models import (
+    Profile,
+    ProfileTeamMembership,
+    Team,
+    TicketRequest,
+    TributePaymentIntent,
+    TributePurchase,
 )
 
 logger = logging.getLogger('games.tribute_service')

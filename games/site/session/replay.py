@@ -2,20 +2,18 @@
 
 from __future__ import annotations
 
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from django.db import transaction
 from django.http import Http404
 from django.utils import timezone
 
-from games.ops.analytics.events import game_instance_id_for_task_group
 from games.models import (
-    DailySolveTiming,
     GameTaskGroup,
-    HintAttempt,
     PlayerCompletedGame,
     ReplaySlot,
 )
+from games.ops.analytics.events import game_instance_id_for_task_group
 
 SESSION_KEY_PREFIX = 'interoves_replay:'
 
@@ -144,10 +142,8 @@ def start_or_reset_replay(*, request, game, task_group, team=None, user=None, an
     # The link row is a stable lock for the logical game instance.  It also
     # serialises first creation of a slot before the conditional unique index
     # is consulted by concurrent requests.
-    if isinstance(task_group, GameTaskGroup):
-        link = task_group
-    else:
-        link = GameTaskGroup.objects.select_for_update().get(
+    if not isinstance(task_group, GameTaskGroup):
+        GameTaskGroup.objects.select_for_update().get(
             game=game, task_group=task_group,
         )
     GameTaskGroup.objects.select_for_update().filter(

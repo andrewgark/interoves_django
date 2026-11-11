@@ -1,13 +1,13 @@
 from datetime import date, datetime, timezone
 from types import SimpleNamespace
 
-from django.test import SimpleTestCase
 from django.http import QueryDict
+from django.test import SimpleTestCase
 
 from games.daily.page.archive import (
+    archive_query_string,
     build_daily_archive_context,
     build_daily_archive_items,
-    archive_query_string,
 )
 
 

@@ -2,9 +2,9 @@
 
 from django.core.management.base import BaseCommand
 
+from games.models import GameTaskGroup, Task, TaskGroup
 from games.puzzles.censorly.ids import CENSORLY_GAME_ID, CENSORLY_TASK_TYPE
 from games.puzzles.censorly.play import CENSORLY_BASE_POINTS
-from games.models import GameTaskGroup, Task, TaskGroup
 
 
 class Command(BaseCommand):

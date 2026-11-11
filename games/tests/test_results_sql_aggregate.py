@@ -2,14 +2,13 @@
 
 import json
 import pickle
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.db import connection
 from django.test import TestCase
 from django.test.utils import CaptureQueriesContext
-from datetime import timedelta
-
 from django.utils import timezone
 
 from games.models import (
@@ -28,13 +27,11 @@ from games.models import (
 )
 from games.results.snapshots.snapshot import build_results_snapshot_payload
 from games.results.sql import (
-    get_sql_aggregated_game_actor_rows as canonical_sql_aggregate,
-    tasks_need_orm_results_aggregate as canonical_orm_fallback_check,
     AggregatedAttemptsInfo as canonical_attempts_info,
-)
-from games.results.sql import (
     get_sql_aggregated_game_actor_rows,
+    get_sql_aggregated_game_actor_rows as canonical_sql_aggregate,
     tasks_need_orm_results_aggregate,
+    tasks_need_orm_results_aggregate as canonical_orm_fallback_check,
 )
 
 

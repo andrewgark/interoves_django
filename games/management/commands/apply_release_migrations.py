@@ -12,6 +12,7 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand, CommandError
 from django.db import connection, migrations
 from django.db.migrations.executor import MigrationExecutor
+
 from games.management.commands._background_index_executor import schema_work_lock
 
 EXIT_UNSAFE = 3

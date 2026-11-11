@@ -1,27 +1,26 @@
 import json
 from unittest.mock import patch
 
+from allauth.socialaccount.models import SocialApp
 from django.contrib.auth.models import User
 from django.contrib.sites.models import Site
 from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
-from allauth.socialaccount.models import SocialApp
 
-from games.models import Profile, SubscriptionGift, SubscriptionGiftPayment, TributePurchase
 from games.club.billing.gifts.offers import claim_gift, decrypt_gift_code
 from games.club.billing.gifts.payments import (
+    manually_resolve_subscription_gift_payment,
     process_tribute_gift_purchase,
     process_tribute_gift_refund,
     process_yookassa_gift_event,
     process_yookassa_gift_refund,
-    manually_resolve_subscription_gift_payment,
     reconcile_yookassa_gift_payments,
     start_yookassa_gift,
 )
-from games.club.billing.tribute.util import compute_webhook_signature
 from games.club.billing.tribute.config import club_gift_configuration_errors
-
+from games.club.billing.tribute.util import compute_webhook_signature
+from games.models import Profile, SubscriptionGift, SubscriptionGiftPayment, TributePurchase
 
 GIFT_SETTINGS = {
     'TRIBUTE_ENABLED': True,

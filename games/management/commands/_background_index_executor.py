@@ -7,7 +7,6 @@ from contextlib import contextmanager
 from django.core.management.base import CommandError
 from django.db import connection
 
-
 LOCK_NAME = "interoves:background-schema-work"
 LOCK_TIMEOUT_SECONDS = 30
 _INDEX_COLUMNS_RE = re.compile(r"\bON\s+`?\w+`?\s*\(([^()]*)\)", re.IGNORECASE)

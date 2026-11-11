@@ -11,7 +11,6 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from django.utils import timezone
 
-from games.ops.workers.jobs.bulk import accept_pending_attempts, reject_pending_attempts
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -22,6 +21,7 @@ from games.models import (
     WordSaladRecheckJob,
     WordSaladRecheckOutbox,
 )
+from games.ops.workers.jobs.bulk import accept_pending_attempts, reject_pending_attempts
 from games.ops.workers.jobs.recheck import recheck_chain_task
 
 

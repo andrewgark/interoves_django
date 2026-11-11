@@ -21,8 +21,7 @@ import subprocess
 import tempfile
 import time
 from dataclasses import dataclass
-from datetime import datetime
-from datetime import timezone as dt_timezone
+from datetime import datetime, timezone as dt_timezone
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError

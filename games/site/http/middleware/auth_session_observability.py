@@ -21,15 +21,14 @@ from django.core import signing
 from django.utils import timezone
 from django.utils.crypto import constant_time_compare
 
+from games.ops.cron.runtime import deployment_environment
 from games.site.http.auth_observability import (
     log_auth_event,
     log_authenticated_request,
     log_post_request,
     session_fingerprint,
 )
-from games.ops.cron.runtime import deployment_environment
 from games.site.http.middleware.request_timing import timing_phase
-
 
 logger = logging.getLogger('application')
 

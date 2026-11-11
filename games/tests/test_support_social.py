@@ -227,8 +227,7 @@ class SupportSocialQueueTests(TestCase):
         self.assertFalse(response.json()['ok'])
 
     def test_list_orders_planned_first_then_created(self):
-        from datetime import datetime
-        from datetime import timezone as dt_timezone
+        from datetime import datetime, timezone as dt_timezone
 
         from games.console.feed.social import list_posts
 

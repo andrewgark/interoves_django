@@ -1,9 +1,5 @@
-import json
 
-from django.template.loader import render_to_string
-from django.utils.html import escapejs
 
-from allauth.account.models import EmailAddress
 from allauth.socialaccount.providers.base import Provider, ProviderAccount
 
 

@@ -1,6 +1,7 @@
 import socket
 
 from django.core.management.base import BaseCommand
+
 from games.identity.merge.anon_queue import run_anonymous_merge_queue
 
 

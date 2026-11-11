@@ -2,13 +2,13 @@ from django.apps import apps
 from django.core.management.base import BaseCommand, CommandError
 from django.db import DatabaseError, connections
 
-from games.ops.analytics.persistence import (
-    ANALYTICS_UNIQUE_SPEC_BY_NAME,
-)
 from games.management.commands._player_analytics_unique_indexes import (
     _mysql_indexes,
     collect_preflight,
     index_signature_matches,
+)
+from games.ops.analytics.persistence import (
+    ANALYTICS_UNIQUE_SPEC_BY_NAME,
 )
 
 

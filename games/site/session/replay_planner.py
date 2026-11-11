@@ -2,7 +2,7 @@
 
 from collections import defaultdict
 
-from games.models import Attempt, CHAIN_TASK_TYPES, ChainTaskState, Game, Task
+from games.models import CHAIN_TASK_TYPES, Attempt, ChainTaskState, Game, Task
 
 
 def actor_key(attempt):

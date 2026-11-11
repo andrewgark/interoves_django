@@ -7,11 +7,18 @@ from decimal import Decimal
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
 
-from games.puzzles.core.check_runtime import CheckerFactory
 from games.models import (
-    Attempt, ChainTaskState, CheckerType, Game, GameTaskGroup, ReplaySlot, Task, Team,
+    Attempt,
+    ChainTaskState,
+    CheckerType,
+    Game,
+    GameTaskGroup,
+    ReplaySlot,
+    Task,
+    Team,
 )
 from games.ops.workers.jobs.recheck import recheck_chain_task
+from games.puzzles.core.check_runtime import CheckerFactory
 
 
 def _actor_filter(team_id, user_id, anon_key):

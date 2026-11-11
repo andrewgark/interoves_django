@@ -1,5 +1,5 @@
+from django.db import DatabaseError, connection
 from django.http import HttpResponse
-from django.db import connection, DatabaseError
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 

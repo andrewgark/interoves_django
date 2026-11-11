@@ -31,12 +31,12 @@ from games.daily.catalog.alphabetty import (
     ALPHABETTY_BUFFER_DAYS,
     ALPHABETTY_GAME_ID,
     ALPHABETTY_PUBLISH_START_TAG,
-    MOSCOW,
     alphabetty_publish_at,
     alphabetty_publish_start,
     current_alphabetty_number,
     is_alphabetty_number_published,
 )
+from games.daily.page.section import MOSCOW
 from games.models import CheckerType, Game, GameTaskGroup, Task, TaskGroup
 from games.puzzles.alphabetty.core import normalize_word, pick_answer_words
 from games.puzzles.alphabetty.play import ALPHABETTY_BASE_POINTS

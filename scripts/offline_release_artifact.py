@@ -10,7 +10,6 @@ import subprocess
 import zipfile
 from pathlib import Path
 
-
 MANIFEST_NAME = "release-manifest.json"
 PROFILE_FILE = "interoves_django/release_profile.txt"
 STATIC_RELEASE_ID_FILE = "interoves_django/static_release_id.txt"

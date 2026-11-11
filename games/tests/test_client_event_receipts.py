@@ -7,9 +7,7 @@ from unittest.mock import patch
 from django.test import Client, TestCase
 from django.utils import timezone
 
-from games.gameplay import attempts as gameplay_attempts
-from games.gameplay import client_events
-from games.gameplay import moves as gameplay_moves
+from games.gameplay import attempts as gameplay_attempts, client_events, moves as gameplay_moves
 from games.models import Attempt, CheckerType, ClientEventReceipt, Game, GameTaskGroup, Task, TaskGroup
 from games.ops.analytics.identity import attach_anon_cookie
 from games.site.http.exceptions import ReplayedClientEventException

@@ -1,6 +1,5 @@
 import json
-from datetime import datetime, timedelta
-from datetime import timezone as dt_timezone
+from datetime import datetime, timedelta, timezone as dt_timezone
 from io import StringIO
 from types import SimpleNamespace
 from unittest.mock import patch

@@ -12,6 +12,7 @@ import time
 
 import requests
 from django.core.management.base import BaseCommand
+
 from games.console.games.censorly import CensorlySupportError, refetch_task_text
 from games.models import Task
 from games.puzzles.censorly.ids import CENSORLY_TASK_TYPE

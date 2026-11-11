@@ -8,7 +8,7 @@ from django.core.management.base import CommandError
 from django.test import TestCase
 from django.utils import timezone
 
-from games.ops.analytics.events import register_completed_game, register_started_game
+from games.daily.page.section import WORD_SALAD_GAME_ID
 from games.models import (
     CheckerType,
     Game,
@@ -21,7 +21,7 @@ from games.models import (
     TaskGroup,
     WordSaladOffer,
 )
-from games.daily.page.section import WORD_SALAD_GAME_ID
+from games.ops.analytics.events import register_completed_game, register_started_game
 
 
 class ProductAnalyticsInstrumentationVersionTests(TestCase):

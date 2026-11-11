@@ -8,7 +8,6 @@ from pathlib import Path
 
 from django.test import SimpleTestCase
 
-
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "eb_config_manifest.py"
 SPEC = importlib.util.spec_from_file_location("eb_config_manifest", SCRIPT)
 MANIFEST = importlib.util.module_from_spec(SPEC)

@@ -13,7 +13,6 @@ from django.urls import path
 
 from games.site.views.daily.timing import daily_solve_timing
 
-
 urlpatterns = [
     path(
         'ladder/1/timing/', daily_solve_timing,

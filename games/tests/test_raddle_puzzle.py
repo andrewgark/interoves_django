@@ -6,7 +6,6 @@ from django.test import SimpleTestCase
 from games.puzzles.raddle import RaddlePuzzle
 from games.puzzles.raddle.submission import RaddleMove, RaddleMoveRefusal
 
-
 MINI_LADDER = {
     'lengths': [3, 3, 3, 3],
     'hints': ['A ____', '____ C', '____ D'],

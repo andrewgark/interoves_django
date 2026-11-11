@@ -20,6 +20,7 @@ class HealthEndpointTests(TestCase):
 
     def test_readiness_reports_database_failure(self):
         from unittest.mock import patch
+
         from django.db import OperationalError
 
         with patch('games.site.views.pages.public.health.connection.cursor', side_effect=OperationalError('down')):

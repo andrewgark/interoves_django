@@ -3,8 +3,8 @@ from zoneinfo import ZoneInfo
 
 from django.template.loader import render_to_string
 from django.test import SimpleTestCase, TestCase
+from django.utils import timezone
 
-import games.daily.catalog.ladder as ladder_daily
 from games.daily.catalog.ladder import (
     LADDER_PUBLISH_START_TAG,
     get_ladder_hub_context,
@@ -160,7 +160,7 @@ class FilterPublishedLadderLinksTests(TestCase):
 
         qs = GameTaskGroup.objects.filter(game=game)
         before = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
-        with patch.object(ladder_daily.timezone, 'now', return_value=before):
+        with patch.object(timezone, 'now', return_value=before):
             published = filter_published_ladder_links(qs, game)
         self.assertTrue(hasattr(published, 'filter'))
         ordered = GameTaskGroup.order_queryset_by_number(published, reverse=True)
@@ -259,7 +259,7 @@ class LadderSectionPageTests(TestCase):
             GameTaskGroup.objects.create(game=game, task_group=tg, number=str(n), name=f'#{n}')
 
         now = datetime(2026, 7, 9, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
-        with patch.object(ladder_daily.timezone, 'now', return_value=now):
+        with patch.object(timezone, 'now', return_value=now):
             resp = self.client.get('/ladder/last/')
             tagged = self.client.get('/ladder/last/?utm_campaign=io-ru-nov26&yclid=7')
         self.assertEqual(resp.status_code, 302)
@@ -279,7 +279,7 @@ class LadderSectionPageTests(TestCase):
         GameTaskGroup.objects.filter(game=game).delete()
 
         before = datetime(2026, 7, 7, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
-        with patch.object(ladder_daily.timezone, 'now', return_value=before):
+        with patch.object(timezone, 'now', return_value=before):
             resp = self.client.get('/ladder/last/')
         self.assertEqual(resp.status_code, 302)
         self.assertEqual(resp['Location'], '/ladder/')
@@ -345,11 +345,11 @@ class LadderResultsVisibilityTests(TestCase):
         before = datetime(2026, 7, 8, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
         with self.settings(TIME_ZONE='Europe/Moscow'):
             from unittest.mock import patch
-            with patch.object(ladder_daily.timezone, 'now', return_value=before):
+            with patch.object(timezone, 'now', return_value=before):
                 headers = _results_table_headers_context(game)['task_groups']
         self.assertEqual([h.number for h in headers], ['1'])
 
         after = datetime(2026, 7, 9, 12, 0, tzinfo=ZoneInfo('Europe/Moscow'))
-        with patch.object(ladder_daily.timezone, 'now', return_value=after):
+        with patch.object(timezone, 'now', return_value=after):
             headers = _results_table_headers_context(game)['task_groups']
         self.assertEqual([h.number for h in headers], ['1', '2'])

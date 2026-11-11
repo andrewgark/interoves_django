@@ -4,8 +4,8 @@ from django.contrib.auth.models import User
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 
-from games.models import Attempt, BugReport, CorporateGameOrder, Game, HintAttempt, Registration, TicketRequest
 from games.club.billing.tickets import stuck_pending_ticket_count
+from games.models import Attempt, BugReport, CorporateGameOrder, Game, HintAttempt, Registration, TicketRequest
 from games.ops.telegram.bot.notify import _escape, _join_lines
 
 DIGEST_TOP_GAMES = 5

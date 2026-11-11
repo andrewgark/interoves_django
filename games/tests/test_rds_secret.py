@@ -2,11 +2,11 @@ from unittest.mock import MagicMock, patch
 
 from django.test import SimpleTestCase
 
+from interoves_django import rds_secret
 from interoves_django.db.backends.mysql_secret.base import (
     _is_mysql_access_denied,
     connect_with_secret_retry,
 )
-from interoves_django import rds_secret
 
 
 class _MysqlAccessDenied(Exception):

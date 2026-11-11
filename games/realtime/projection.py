@@ -193,7 +193,9 @@ def publish_daily_statistics_refresh(game_id, task_group_id, *, revision=None):
 def run_named_daily_statistics_refresh(*, game_id, task_group_id):
     """Build the current public statistics generation after its source commit."""
     from games.daily.timing.statistics import (
-        build_daily_statistics, _cache_revision_key, _versioned_cache_key,
+        _cache_revision_key,
+        _versioned_cache_key,
+        build_daily_statistics,
     )
     from games.models import Game, GameTaskGroup, TaskGroup
 
@@ -265,12 +267,11 @@ def run_named_daily_statistics_refresh(*, game_id, task_group_id):
 def run_named_projection_refresh(*, game_id, task_group_id, mode):
     """Refresh one release. Returns ``missing`` or ``ok``."""
     from games.daily.projection import (
-        _refresh_actor_by_ids,
         projection_state_is_valid,
         refresh_daily_result_projection,
+        scorer_adapter_version,
     )
     from games.models import DailyResultProjectionState, Game, TaskGroup
-    from games.daily.projection import scorer_adapter_version
 
     game = Game.objects.filter(pk=game_id).first()
     group = TaskGroup.objects.filter(pk=task_group_id).first()

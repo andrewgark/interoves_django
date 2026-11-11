@@ -1,16 +1,15 @@
-import json
 import asyncio
-import types
+import json
 from unittest import TestCase
 from unittest.mock import patch
 
-from django.core.signals import got_request_exception
 from django.contrib.sessions.backends.db import SessionStore
+from django.core.handlers.asgi import ASGIHandler
+from django.core.signals import got_request_exception
+from django.db.utils import OperationalError, ProgrammingError
 from django.http import HttpResponse
 from django.test import Client, RequestFactory, override_settings
-from django.db.utils import OperationalError, ProgrammingError
 from django.urls import path
-from django.core.handlers.asgi import ASGIHandler
 
 from games.site.http.middleware.db_transient_response import (
     TransientDatabaseResponseMiddleware,

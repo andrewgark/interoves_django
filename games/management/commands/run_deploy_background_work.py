@@ -17,7 +17,6 @@ from games.management.commands._background_index_executor import (
 from games.management.commands.ensure_games_0109_indexes import INDEX_DDL as INDEX_DDL_0109
 from games.management.commands.ensure_registration_indexes import INDEX_DDL as INDEX_DDL_0112
 
-
 INDEX_DDL_0194 = [
     (
         "games_attempt",

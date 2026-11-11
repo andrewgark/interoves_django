@@ -14,7 +14,6 @@ from django.conf import settings
 from django.core.cache import caches
 from django.test import SimpleTestCase
 
-
 REAL_REDIS_ENABLED = os.environ.get('INTEROVES_REAL_REDIS_TESTS', '').lower() in (
     '1', 'true', 'yes',
 )

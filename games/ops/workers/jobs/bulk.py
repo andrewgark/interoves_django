@@ -5,7 +5,7 @@ from collections import defaultdict
 
 from django.db import transaction
 
-from games.models import Attempt, CHAIN_TASK_TYPES, Task
+from games.models import CHAIN_TASK_TYPES, Attempt, Task
 from games.site.session.replay_planner import actor_key, queue_chain_replays_for_tasks
 
 

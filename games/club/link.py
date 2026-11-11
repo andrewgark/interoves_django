@@ -13,7 +13,6 @@ from django.utils import timezone
 
 from games.models import Profile, TelegramLinkToken
 
-
 TOKEN_TTL_MINUTES = 15
 _TELEGRAM_HANDLE_RE = re.compile(r'^[A-Za-z0-9_]{5,32}$')
 

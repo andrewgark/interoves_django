@@ -25,7 +25,6 @@ import os
 import sys
 import tracemalloc
 
-
 logger = logging.getLogger("application")
 
 PROJECT_MODULE_PREFIXES = ("games.", "interoves_django.", "iam.", "ads.", "microsites.")

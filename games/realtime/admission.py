@@ -16,7 +16,6 @@ import uuid
 from collections import deque
 from pathlib import Path
 
-
 logger = logging.getLogger('games.db_admission')
 _DURATION_BUCKETS_MS = (5, 20, 50, 100, 250, 500, 1000, 5000)
 _METRICS_INTERVAL_SECONDS = 10.0
@@ -252,11 +251,16 @@ class DatabaseAdmissionASGIMiddleware:
             return
         current = self.gate.take_metrics_snapshot()
         previous = self._metrics_last_snapshot
-        delta = lambda key: current[key] - previous[key]
-        bucket_delta = lambda key: {
-            bucket: current[key][bucket] - previous[key][bucket]
-            for bucket in current[key]
-        }
+
+        def delta(key):
+            return current[key] - previous[key]
+
+        def bucket_delta(key):
+            return {
+                bucket: current[key][bucket] - previous[key][bucket]
+                for bucket in current[key]
+            }
+
         payload = {
             'event': 'db_admission_metrics',
             'service': 'interoves-web',

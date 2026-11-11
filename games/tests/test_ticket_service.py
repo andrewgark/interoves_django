@@ -4,8 +4,6 @@ from unittest.mock import patch
 from django.test import Client, TestCase, override_settings
 from django.utils import timezone
 
-from games.models import HTMLPage, Project, Team, TicketRequest
-from games.ops.telegram.bot.callbacks import _handle_ticket
 from games.club.billing.tickets import (
     STUCK_TICKET_REQUEST_MINUTES,
     accept_ticket_request,
@@ -13,6 +11,9 @@ from games.club.billing.tickets import (
     reject_ticket_request,
     stuck_pending_ticket_count,
 )
+from games.models import HTMLPage, Project, Team, TicketRequest
+from games.ops.telegram.bot.callbacks import _handle_ticket
+
 
 def _ensure_reference_rows():
     Project.objects.get_or_create(pk='main', defaults={})

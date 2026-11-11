@@ -3,9 +3,9 @@ import re
 
 from django.test import SimpleTestCase, TestCase
 
-from games.puzzles.raddle.submission import RaddleChecker
-from games.models import Attempt, CHAIN_TASK_TYPES, Task
+from games.models import CHAIN_TASK_TYPES, Attempt, Task
 from games.puzzles.raddle.engine import (
+    RADDLE_INPUT_FORMAT_SLOT,
     assist_penalty_for_tier,
     build_raddle_ui_context,
     clue_display_for_hint,
@@ -15,24 +15,23 @@ from games.puzzles.raddle.engine import (
     length_mask_display,
     load_raddle_state,
     mask_slot_count,
+    mixed_script_notice,
     parse_length_mask,
     parse_raddle_data,
     playable_word_indices,
-    RADDLE_INPUT_FORMAT_SLOT,
+    raddle_input_format,
+    raddle_word_class,
+    raddle_word_class_for_options,
+    raddle_word_core,
+    raddle_word_is_latin,
     raddle_word_solved_list,
     render_raddle_clue,
     resolve_assist_tiers,
     validate_raddle_checker_data,
-    raddle_input_format,
-    raddle_word_core,
-    raddle_word_is_latin,
-    raddle_word_class,
-    raddle_word_class_for_options,
-    mixed_script_notice,
     word_length_matches,
     word_matches,
 )
-
+from games.puzzles.raddle.submission import RaddleChecker
 
 PARIS_LADDER = {
     'lengths': [5, 9, 7, 4, 6, '5-9', 9, 9, '3-4', 3, 6, 4, 5],
@@ -1099,7 +1098,6 @@ class RaddleUiContextTests(SimpleTestCase):
         self.assertFalse(flags[1])
 
     def test_assist_tier_from_hint_desc(self):
-        parsed = parse_raddle_data(_task())
         state = default_raddle_state(13)
 
         class _Hint:

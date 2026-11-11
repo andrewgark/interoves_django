@@ -1,10 +1,9 @@
 import json
-from pathlib import Path
 import unittest
+from pathlib import Path
 
 import yaml
 from yaml.nodes import MappingNode, ScalarNode, SequenceNode
-
 
 ROOT = Path(__file__).resolve().parents[2]
 

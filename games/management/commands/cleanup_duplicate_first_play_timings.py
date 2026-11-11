@@ -20,7 +20,6 @@ from games.models import (
     PlayerStartedGame,
 )
 
-
 PLAN_VERSION = 1
 RACE_WINDOW = timedelta(seconds=1)
 

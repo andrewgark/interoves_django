@@ -3,8 +3,8 @@
 from dataclasses import dataclass
 from typing import Callable
 
-from games.daily.registry import get_daily_game
 from games.daily.page.share.card import attach_ladder_share_card, attach_salad_share_card
+from games.daily.registry import get_daily_game
 
 
 @dataclass(frozen=True)

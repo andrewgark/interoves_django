@@ -2,6 +2,16 @@ from django.contrib.auth.models import User
 from django.test import Client, TestCase
 from django.urls import reverse
 
+from games.club.offers.ladder import create_offer, update_offer_content
+from games.daily.catalog.ladder import LADDER_GAME_ID
+from games.daily.ladder.tutorial.ladder import (
+    LADDER_TUTORIAL_LABEL,
+    ensure_ladder_tutorial_task,
+    is_ladder_tutorial_task_group,
+    is_new_ladder_player,
+    ladder_tutorial_return,
+    with_ladder_tutorial_link,
+)
 from games.models import (
     Attempt,
     ChainTaskState,
@@ -11,20 +21,10 @@ from games.models import (
     Profile,
     TaskGroup,
 )
-from games.daily.catalog.ladder import LADDER_GAME_ID
-from games.club.offers.ladder import create_offer, update_offer_content
 from games.tests.test_offer_ladder import (
     _ensure_reference_rows,
     _ensure_social_apps,
     _make_ladder_game,
-)
-from games.daily.ladder.tutorial.ladder import (
-    LADDER_TUTORIAL_LABEL,
-    ensure_ladder_tutorial_task,
-    is_ladder_tutorial_task_group,
-    is_new_ladder_player,
-    ladder_tutorial_return,
-    with_ladder_tutorial_link,
 )
 
 

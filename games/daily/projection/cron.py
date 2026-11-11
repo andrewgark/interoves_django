@@ -3,14 +3,13 @@
 import time
 from contextlib import contextmanager
 
-from games.ops.cron.lock import distributed_cron_lock
 from games.daily.projection import (
     _canonical_group_results,
     projection_state_is_valid,
     refresh_daily_result_projection,
 )
 from games.models import DailyResultProjectionState, GameTaskGroup
-
+from games.ops.cron.lock import distributed_cron_lock
 
 PROJECTION_CRON_LOCK_NAME = 'daily_result_projection_reconcile'
 PROJECTION_CRON_LOCK_TTL_SECONDS = 120

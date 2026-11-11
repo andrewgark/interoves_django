@@ -5,7 +5,7 @@ from zoneinfo import ZoneInfo
 from django.contrib.auth.models import User
 from django.test import TestCase, override_settings
 
-from games.models import Game, GameTaskGroup, PlayerCompletedGame, PlayerStartedGame, TaskGroup
+from games.models import Game, GameTaskGroup, PlayerStartedGame, TaskGroup
 from games.ops.telegram.bot.reports import (
     build_admin_report,
     collect_report_stats,
@@ -13,7 +13,6 @@ from games.ops.telegram.bot.reports import (
     process_admin_report_tick,
 )
 from games.ops.telegram.models import TelegramAdminReport
-
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 

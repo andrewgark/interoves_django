@@ -9,7 +9,6 @@ from django.db import transaction
 from games.management.commands.audit_player_completed_games import Command as AuditCommand
 from games.models import PlayerCompletedGame
 
-
 REPAIR_COHORT = frozenset({
     5910, 6738, 7491, 7492, 8564, 8995, 9001, 9023, 9428,
     9712, 11581, 15779, 16581, 16600, 16830, 16850, 17262,

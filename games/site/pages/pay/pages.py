@@ -12,20 +12,17 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_http_methods
 from yookassa import Payment
 
-from games.club.billing.crypto import create_invoice as nowpayments_create_invoice
-from games.club.billing.crypto import embed_url_for_invoice, nowpayments_ipn_callback_url
+from games.club.billing.crypto import (
+    create_invoice as nowpayments_create_invoice,
+    embed_url_for_invoice,
+    nowpayments_ipn_callback_url,
+)
 from games.club.billing.routes import (
     CRYPTO,
     INTERNATIONAL_CARD,
     RUSSIAN_CARD,
-)
-from games.club.billing.routes import (
     amount_for as ticket_amount_for,
-)
-from games.club.billing.routes import (
     route_for as ticket_route_for,
-)
-from games.club.billing.routes import (
     unit_price_for as ticket_unit_price_for,
 )
 from games.club.billing.yookassa.util import configure_yookassa_from_env

@@ -16,7 +16,6 @@ from django.db import connection
 
 from games.management.commands._background_index_executor import ensure_indexes, schema_work_lock
 
-
 INDEX_DDL = [
     (
         "games_registration",

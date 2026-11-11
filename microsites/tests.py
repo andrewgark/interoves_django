@@ -1,7 +1,7 @@
 import asyncio
 import os
-import signal
 import shutil
+import signal
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -462,6 +462,7 @@ class NutrimaticAsyncTests(SimpleTestCase):
 
     async def call_view(self, query="q=test&start=0&num=100"):
         from django.test import RequestFactory
+
         from microsites.views import nutrimatic_search
         return await nutrimatic_search(RequestFactory().get("/nutrimatic-ru/?" + query))
 
@@ -473,7 +474,6 @@ class NutrimaticAsyncTests(SimpleTestCase):
         self.assertIn(b"<html>ok</html>", response.content)
 
     async def test_cgi_start_error_returns_503(self):
-        from microsites.views import nutrimatic_search
         with self.mock_paths(), patch("microsites.views.asyncio.create_subprocess_exec", side_effect=OSError("no exec")):
             response = await self.call_view()
         self.assertEqual(response.status_code, 503)

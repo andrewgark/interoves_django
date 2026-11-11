@@ -11,7 +11,6 @@ from channels.generic.websocket import AsyncJsonWebsocketConsumer
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 
-from games.site.http.auth_observability import log_realtime_sync
 from games.models import Game, Profile, Task
 from games.realtime.broadcast import build_event_task_change, live_page_actor_for_mode
 from games.realtime.counter import (
@@ -22,6 +21,7 @@ from games.realtime.counter import (
     next_track_seq_async,
 )
 from games.realtime.groups import CHANNEL_GROUPS, user_track_namespace
+from games.site.http.auth_observability import log_realtime_sync
 
 logger = logging.getLogger('games.views.track')
 

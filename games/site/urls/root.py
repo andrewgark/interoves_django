@@ -6,8 +6,7 @@ The main UI templates POST to /send_attempt/, /send_hint_attempt/,
 (/cw_hint, /meta100-1, …).
 """
 
-from django.urls import path
-from django.urls import re_path as url
+from django.urls import path, re_path as url
 
 from games.site.pages import legacy_results_redirect, legacy_tournament_results_redirect
 from games.site.views.account.registration import register_to_game

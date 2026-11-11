@@ -5,12 +5,12 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 
 from games.puzzles.salad import WordSaladPuzzle
+from games.puzzles.salad.rules import RARE_FOUND_COMMENT
 from games.puzzles.salad.submission import (
     SaladMove,
     SaladMoveRefusal,
     SaladSync,
 )
-from games.puzzles.salad.rules import RARE_FOUND_COMMENT
 
 
 class WordSaladMoveTests(SimpleTestCase):

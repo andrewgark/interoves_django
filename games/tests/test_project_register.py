@@ -1,12 +1,12 @@
 from datetime import timedelta
 from unittest.mock import patch
 
-from django.contrib.messages import get_messages
 from django.contrib.auth.models import User
+from django.contrib.messages import get_messages
 from django.test import TestCase
 from django.utils import timezone
 
-from games.models import HTMLPage, Profile, Project, Registration, Game, Team
+from games.models import Game, HTMLPage, Profile, Project, Registration, Team
 
 
 class ProjectScopedRegisterTests(TestCase):

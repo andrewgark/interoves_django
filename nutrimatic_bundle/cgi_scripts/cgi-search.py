@@ -5,18 +5,20 @@
 # Expects to be run with $NUTRIMATIC_FIND_EXPR and $NUTRIMATIC_INDEX set to the
 # pathnames of the find-expr binary and the merged .index file, respectively.
 
+import atexit
 import cgi
-import cgitb; cgitb.enable()
+import cgitb
 import html
 import math
 import os
 import resource
 import signal
 import subprocess
-import atexit
-import tempfile
 import sys
+import tempfile
 import urllib
+
+cgitb.enable()
 
 # When find-expr reports searching this many nodes, give up and
 # print the "computation limit exceeded" message
@@ -214,11 +216,13 @@ os.nice(19)
 
 # Shell out to the find-exec binary to get results
 soft, hard = resource.getrlimit(resource.RLIMIT_CPU)
-if soft == -1 or soft > 15: soft = 15
+if soft == -1 or soft > 15:
+    soft = 15
 resource.setrlimit(resource.RLIMIT_CPU, (soft, hard))
 
 soft, hard = resource.getrlimit(resource.RLIMIT_AS)
-if hard == -1 or hard > 2048 * 1024 * 1024: hard = 2048 * 1024 * 1024
+if hard == -1 or hard > 2048 * 1024 * 1024:
+    hard = 2048 * 1024 * 1024
 resource.setrlimit(resource.RLIMIT_AS, (hard, hard))
 
 # Pass query as UTF-8 bytes so find-expr receives correct encoding (e.g. Cyrillic).
