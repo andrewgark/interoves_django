@@ -12,8 +12,7 @@ from games.daily.timing.streak import (
     daily_streaks_for_user,
     streak_from_completion_dates,
 )
-from games.models import Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, TaskGroup
-
+from games.models import ClubEntitlement, Game, GameTaskGroup, PlayerCompletedGame, Profile, Project, TaskGroup
 
 MOSCOW = ZoneInfo('Europe/Moscow')
 
@@ -195,6 +194,52 @@ class DailyStreakLogicTests(TestCase):
             daily_streaks_for_user(self.user, games=[game], now=self.now),
             {game_id: 0},
         )
+
+    def member(self, starts, ends=None):
+        ClubEntitlement.objects.create(
+            user=self.user, kind=ClubEntitlement.KIND_MANUAL, starts_at=starts, ends_at=ends,
+        )
+
+    def test_a_member_has_84_hours_to_keep_the_streak(self):
+        # Sep 11 09:00: edition 8 was published Sep 8 00:00; 81 hours later is
+        # inside a member's 84-hour window, far outside the usual 36.
+        self.member(datetime(2026, 9, 1, tzinfo=MOSCOW))
+        for day in (6, 7, 9, 10, 11):
+            self.completion('ladder', day, datetime(2026, 9, day, 18, tzinfo=MOSCOW) if day < 11 else self.now)
+        self.completion('ladder', 8, datetime(2026, 9, 11, 9, tzinfo=MOSCOW))
+        self.assertEqual(self.streak('ladder')['ladder'], 6)
+
+    def test_without_club_access_the_late_solve_does_not_count(self):
+        for day in (6, 7, 9, 10, 11):
+            self.completion('ladder', day, datetime(2026, 9, day, 18, tzinfo=MOSCOW) if day < 11 else self.now)
+        self.completion('ladder', 8, datetime(2026, 9, 11, 9, tzinfo=MOSCOW))
+        self.assertEqual(self.streak('ladder')['ladder'], 3)
+
+    def test_access_is_judged_at_the_moment_of_the_solve(self):
+        # Membership ended Sep 10: a late solve on Sep 11 gets 36 hours only...
+        self.member(datetime(2026, 9, 1, tzinfo=MOSCOW), datetime(2026, 9, 10, tzinfo=MOSCOW))
+        for day in (6, 7, 9, 10, 11):
+            self.completion('ladder', day, datetime(2026, 9, day, 18, tzinfo=MOSCOW) if day < 11 else self.now)
+        self.completion('ladder', 8, datetime(2026, 9, 11, 9, tzinfo=MOSCOW))
+        self.assertEqual(self.streak('ladder')['ladder'], 3)
+
+    def test_a_streak_earned_as_a_member_survives_the_end_of_membership(self):
+        # Edition 9 solved 60 hours late on Sep 11 06:00 while still a member.
+        self.member(datetime(2026, 9, 1, tzinfo=MOSCOW), datetime(2026, 9, 11, 7, tzinfo=MOSCOW))
+        for day in (7, 8, 10, 11):
+            self.completion('ladder', day, datetime(2026, 9, day, 18, tzinfo=MOSCOW) if day < 11 else self.now)
+        self.completion('ladder', 9, datetime(2026, 9, 11, 6, tzinfo=MOSCOW))
+        self.assertEqual(self.streak('ladder')['ladder'], 5)
+
+    def test_a_member_s_still_open_days_do_not_break_the_run(self):
+        # Sep 11 09:00: editions 9 and 10 are unsolved but still open for a member.
+        self.member(datetime(2026, 9, 1, tzinfo=MOSCOW))
+        for day in (6, 7, 8):
+            self.completion('ladder', day, datetime(2026, 9, day, 18, tzinfo=MOSCOW))
+        self.assertEqual(self.streak('ladder')['ladder'], 3)
+        # Without access the unfinished yesterday breaks it, as before.
+        ClubEntitlement.objects.filter(user=self.user).delete()
+        self.assertEqual(self.streak('ladder')['ladder'], 0)
 
     def test_date_helper_keeps_unfinished_today(self):
         self.assertEqual(

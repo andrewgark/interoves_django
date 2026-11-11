@@ -2,7 +2,16 @@
 
 The streak is deliberately derived from completion history. A completion is
 assigned to its edition's Moscow publication date when it happens within the
-36-hour streak window; solving an older edition after that cannot repair a gap.
+streak window; solving an older edition after that cannot repair a gap.
+
+The window is 36 hours, or 84 hours for a completion made while the player had
+Club access (a paid, gift or manual entitlement). The window is judged by the
+access at the moment of the completion, so streaks earned as a member stay
+when the membership ends, and nothing is granted retroactively.
+
+For a current member, an edition whose 84-hour window is still open does not
+break the current run: it can still be solved in time. Without Club access the
+run is unchanged: an unfinished today is kept, an unfinished yesterday is not.
 """
 
 from datetime import timedelta
@@ -10,20 +19,65 @@ from datetime import timedelta
 from django.db.models import Prefetch
 from django.utils import timezone
 
-from games.daily.page.section import MOSCOW, DAILY_TIMING_GAME_IDS, schedule_for
+from games.daily.page.section import DAILY_TIMING_GAME_IDS, MOSCOW, schedule_for
 from games.models import DailySolveTiming, GameTaskGroup, PlayerCompletedGame, Profile, TaskGroup
 
 STREAK_COMPLETION_WINDOW = timedelta(hours=36)
+CLUB_STREAK_COMPLETION_WINDOW = timedelta(hours=84)
 
 
-def _within_streak_window(completed_at, published_at):
-    return published_at <= completed_at <= published_at + STREAK_COMPLETION_WINDOW
+def club_access_intervals(user):
+    """``[(starts_at, ends_at or None)]`` of a user's Club access, revoked rows aside.
+
+    Every paid period, gift and manual grant is a ClubEntitlement row (Nov 11:
+    each of the 28 members with access had a row covering that moment).
+    """
+    if user is None or not getattr(user, 'is_authenticated', False):
+        return []
+    from games.models import ClubEntitlement
+
+    return list(
+        ClubEntitlement.objects.filter(user_id=user.pk, revoked_at__isnull=True)
+        .values_list('starts_at', 'ends_at')
+    )
 
 
-def streak_from_completion_dates(completed_dates, *, today):
-    """Return the current streak, keeping an unfinished today in the streak."""
+def _has_access_at(moment, intervals):
+    return any(start <= moment and (end is None or moment < end) for start, end in intervals)
+
+
+def streak_window_at(moment, intervals=()):
+    return CLUB_STREAK_COMPLETION_WINDOW if _has_access_at(moment, intervals) else STREAK_COMPLETION_WINDOW
+
+
+def _within_streak_window(completed_at, published_at, intervals=()):
+    return published_at <= completed_at <= published_at + streak_window_at(completed_at, intervals)
+
+
+def _still_open_dates(publication_times, completed_dates, *, now, today, intervals):
+    """Publication dates a current Club member can still solve in time."""
+    if not _has_access_at(now, intervals):
+        return set()
+    return {
+        published_at.astimezone(MOSCOW).date()
+        for published_at in publication_times
+        if published_at <= now < published_at + CLUB_STREAK_COMPLETION_WINDOW
+        and published_at.astimezone(MOSCOW).date() <= today
+        and published_at.astimezone(MOSCOW).date() not in completed_dates
+    }
+
+
+def streak_from_completion_dates(completed_dates, *, today, open_dates=()):
+    """Return the current streak, keeping an unfinished today in the streak.
+
+    ``open_dates`` are unfinished editions that can still be solved in time
+    (Club members); they are skipped rather than breaking the run.
+    """
     dates = set(completed_dates)
+    open_dates = set(open_dates)
     cursor = today if today in dates else today - timedelta(days=1)
+    while cursor not in dates and cursor in open_dates:
+        cursor -= timedelta(days=1)
     streak = 0
     while cursor in dates:
         streak += 1
@@ -49,6 +103,7 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
 
     now = now or timezone.now()
     today = now.astimezone(MOSCOW).date()
+    intervals = club_access_intervals(user)
     game_ids = list(result)
     games_by_id = {str(game.id): game for game in games}
     links_qs = GameTaskGroup.objects.filter(game_id__in=game_ids).only(
@@ -94,7 +149,7 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
             continue
         if (
             published_date <= today
-            and _within_streak_window(completion.completed_at, published_at)
+            and _within_streak_window(completion.completed_at, published_at, intervals)
         ):
             completed_dates[game_id].add(published_date)
 
@@ -118,7 +173,11 @@ def daily_streaks_for_actor(*, games, user=None, anon_key=None, now=None):
                 completed_dates[str(link.game_id)].add(published_date)
 
     for game_id, dates in completed_dates.items():
-        result[game_id] = streak_from_completion_dates(dates, today=today)
+        open_dates = _still_open_dates(
+            [at for (gid, _tg), at in link_publication_times.items() if gid == game_id],
+            dates, now=now, today=today, intervals=intervals,
+        )
+        result[game_id] = streak_from_completion_dates(dates, today=today, open_dates=open_dates)
     return result
 
 
@@ -138,6 +197,7 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
         return {}
     now = now or timezone.now()
     today = now.astimezone(MOSCOW).date()
+    intervals = club_access_intervals(user)
     links = list(links)
     link_dates = {}
     link_publication_times = {}
@@ -198,10 +258,15 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
         if group_id in link_dates
         and link_dates[group_id] <= today
         and _within_streak_window(
-            completed_at, link_publication_times[group_id],
+            completed_at, link_publication_times[group_id], intervals,
         )
     }
+    open_dates = _still_open_dates(
+        link_publication_times.values(), on_time_dates, now=now, today=today, intervals=intervals,
+    )
     cursor = today if today in on_time_dates else today - timedelta(days=1)
+    while cursor not in on_time_dates and cursor in open_dates:
+        cursor -= timedelta(days=1)
     active_dates = set()
     while cursor in on_time_dates:
         active_dates.add(cursor)
@@ -213,7 +278,7 @@ def daily_completion_statuses_for_actor(*, game, links, user=None, anon_key=None
         if published_date is None:
             continue
         if _within_streak_window(
-            completed_at, link_publication_times[group_id],
+            completed_at, link_publication_times[group_id], intervals,
         ):
             statuses[group_id] = 'streak' if published_date in active_dates else 'same_day'
         else:

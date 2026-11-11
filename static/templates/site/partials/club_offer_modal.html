@@ -9,11 +9,11 @@
       {% if club_offer_pitch %}
       {% with pitch=club_offer_pitch %}
       <h2 id="club-archive-offer-title" class="pal-title">Вы решили {{ pitch.solved }} {{ pitch.solved|ru_plural:pitch.forms }}</h2>
-      <p class="pal-lead">А в архиве ещё {{ pitch.unsolved_in_archive }} {{ pitch.unsolved_in_archive|ru_plural:pitch.forms }}, которые вы не видели. Клубная подписка открывает весь архив, а ещё корону в таблице результатов, чат резидентов клуба и случайные Алфавитки и Цензурки.</p>
+      <p class="pal-lead">А в архиве ещё {{ pitch.unsolved_in_archive }} {{ pitch.unsolved_in_archive|ru_plural:pitch.forms }}, которые вы не видели. Клубная подписка открывает весь архив, даёт 84 часа на выпуск для серии вместо 36, корону в таблице результатов, чат резидентов клуба и случайные Алфавитки и Цензурки.</p>
       {% endwith %}
       {% else %}
       <h2 id="club-archive-offer-title" class="pal-title">Вы играете с нами уже {{ club_offer_active_days }} {{ club_offer_active_days|ru_day_word }}</h2>
-      <p class="pal-lead">Клубная подписка открывает весь архив заданий, корону в таблице результатов, чат резидентов клуба и случайные Алфавитки и Цензурки. И помогает нам делать новые игры.</p>
+      <p class="pal-lead">Клубная подписка открывает весь архив заданий, даёт 84 часа на выпуск для серии вместо 36, корону в таблице результатов, чат резидентов клуба и случайные Алфавитки и Цензурки. И помогает нам делать новые игры.</p>
       {% endif %}
       <p class="pal-lead">В клубе уже {{ club_offer_member_count }} {{ club_offer_member_count|ru_player_word }}. Первый месяц — 420 ₽.</p>
       <div class="new-rules-modal__actions new-rules-modal__actions--flush">
