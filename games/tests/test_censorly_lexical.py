@@ -1119,6 +1119,25 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_track_b_batch_3_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('тверь', 'тверской'), ('палестина', 'палестинский'), ('псков', 'псковский'),
+            ('блог', 'блогер'), ('гендер', 'гендерный'), ('конвекция', 'конвективный'),
+            ('маркер', 'маркировка'), ('спровоцировать', 'провокация'), ('нейтрон', 'нейтрино'),
+            ('проект', 'спроектировать'), ('виноделие', 'винодел'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('шум', 'шумер'), ('смола', 'смоленский'), ('хан', 'хань'), ('блок', 'блог'),
+            ('марка', 'маркер'), ('свинья', 'свинг'), ('вино', 'виноделие'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_adverb_rule_opens_the_adjective_family(self):
         tokens = [
             {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},
