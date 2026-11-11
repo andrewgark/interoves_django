@@ -1,17 +1,37 @@
-{% extends "site/base.html" %}
-{% block title %}Страница не найдена{% endblock %}
-{% block extrahead %}<meta name="robots" content="noindex">{% endblock %}
-{% block content %}
-{# Django renders this for every 404 (DEBUG off); before Nov 9 visitors got its bare English «Not Found». #}
-<div class="new-empty new-not-found">
-  <h1 class="new-heading new-heading--page">Такой страницы нет</h1>
-  <p class="new-empty__text">Возможно, ссылка устарела или в ней опечатка. Ежедневные головоломки — на месте:</p>
-  <div class="new-empty__actions">
-    <a class="new-btn" href="/salad/last/">Салатик дня</a>
-    <a class="new-btn new-btn--ghost" href="/ladder/last/">Лесенка дня</a>
-    <a class="new-btn new-btn--ghost" href="/censorly/last/">Цензурка дня</a>
-    <a class="new-btn new-btn--ghost" href="/alphabetty/last/">Алфавитка дня</a>
-    <a class="new-btn new-btn--ghost" href="/">Все игры</a>
-  </div>
-</div>
-{% endblock %}
+{% load static %}<!doctype html>
+{# Self-contained on purpose: base.html needs the social-login apps, and a 404 page must not fail. #}
+{# Before Nov 9 visitors got Django's bare English «Not Found», 980 px wide on phones.            #}
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Страница не найдена · Interoves</title>
+  <link rel="icon" href="{% static 'img/favicon/favicon.ico' %}">
+  <link rel="stylesheet" href="{% static 'css/new.css' %}">
+  <link rel="stylesheet" href="{% static 'vendor/phosphor-icons-web/2.1.2/regular/style.css' %}">
+</head>
+<body class="new-ui">
+  <nav class="new-nav" aria-label="Главное меню">
+    <div class="new-nav__inner">
+      <a class="new-nav__brand" href="/">
+        <img class="new-nav__brand-mark" src="{% static 'img/brand/exports/nav-icon-64.png' %}" alt="" width="28" height="28">
+        <span class="new-nav__brand-text">Интеровес</span>
+      </a>
+    </div>
+  </nav>
+  <main class="new-wrap">
+    <div class="new-empty new-not-found">
+      <h1 class="new-heading new-heading--page">Такой страницы нет</h1>
+      <p class="new-empty__text">Возможно, ссылка устарела или в ней опечатка. Ежедневные головоломки — на месте:</p>
+      <div class="new-empty__actions">
+        <a class="new-btn" href="/salad/last/">Салатик дня</a>
+        <a class="new-btn new-btn--ghost" href="/ladder/last/">Лесенка дня</a>
+        <a class="new-btn new-btn--ghost" href="/censorly/last/">Цензурка дня</a>
+        <a class="new-btn new-btn--ghost" href="/alphabetty/last/">Алфавитка дня</a>
+        <a class="new-btn new-btn--ghost" href="/">Все игры</a>
+      </div>
+    </div>
+  </main>
+</body>
+</html>
