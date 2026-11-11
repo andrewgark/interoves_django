@@ -262,8 +262,11 @@ class ReviewedSemanticSplitTests(SimpleTestCase):
         self.assertTrue(set(structures_of('счет')).isdisjoint(structures_of('читать')))
         self.assertTrue(set(structures_of('расчет')).isdisjoint(structures_of('чтение')))
         self.assertTrue(set(structures_of('почет')).isdisjoint(structures_of('читать')))
+        # считать counts (подсчитать, пересчитать); reading off is считывать,
+        # so считать no longer opens читатель.
         self.assertTrue(_has_sense('считать', 'sense:count'))
-        self.assertIn(('root:read',), structures_of('считать'))
+        self.assertNotIn(('root:read',), structures_of('считать'))
+        self.assertTrue(_has_sense('подсчитать', 'sense:count'))
         self.assertTrue(_has_sense('почитать', 'sense:honor'))
         self.assertIn(('root:read',), structures_of('почитать'))
 
