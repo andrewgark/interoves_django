@@ -94,15 +94,23 @@ def word_group(lemma: str) -> str:
 class Coverage:
     tokens: Counter = field(default_factory=Counter)   # group -> Russian tokens
     rooted: Counter = field(default_factory=Counter)   # group -> rooted tokens
+    linked: Counter = field(default_factory=Counter)   # group -> tokens another word opens
 
-    def share(self, group: str | None = None) -> float:
+    def share(self, group: str | None = None, *, linked: bool = False) -> float:
+        hits = self.linked if linked else self.rooted
         if group is None:
-            return sum(self.rooted.values()) / max(sum(self.tokens.values()), 1)
-        return self.rooted[group] / max(self.tokens[group], 1)
+            return sum(hits.values()) / max(sum(self.tokens.values()), 1)
+        return hits[group] / max(self.tokens[group], 1)
 
 
-def coverage(corpus: Corpus) -> Coverage:
-    """Same rooted test as ``coverage_report``, split by word group."""
+def coverage(corpus: Corpus, *, linked: bool = True) -> Coverage:
+    """Same rooted test as ``coverage_report``, split by word group.
+
+    ``linked`` also counts tokens that some *other* dictionary word opens.
+    A root that links to nothing (a one-word compound, a lone loanword)
+    raises ``rooted`` but not ``linked``, and only ``linked`` is something a
+    player can notice.
+    """
     from games.puzzles.censorly.lexical.deciders.layers import ALIAS
     from games.puzzles.censorly.offline.tools.coverage_report import _opens_at_runtime
 
@@ -119,6 +127,8 @@ def coverage(corpus: Corpus) -> Coverage:
             lemma, corpus.surfaces.get(lemma) or lemma, alias_words,
         ):
             result.rooted[group] += count
+        if linked and is_linked(lemma):
+            result.linked[group] += count
     return result
 
 
@@ -169,6 +179,71 @@ def _target_pack(lemma: str) -> Word:
 def relation(guess: str, target: str) -> str:
     """Live gameplay relation of a guess lemma to an article lemma."""
     return MATCHER.relation(_guess_pack(guess), _target_pack(target))
+
+
+@lru_cache(maxsize=1)
+def _lemmas_by_structure() -> dict[tuple, tuple[str, ...]]:
+    index = defaultdict(list)
+    for lemma in provenance():
+        for structure in structures_of(lemma):
+            index[structure].append(lemma)
+    return {key: tuple(value) for key, value in index.items()}
+
+
+_LINK_TRIES = 40
+
+
+@lru_cache(maxsize=None)
+def is_linked(lemma: str) -> bool:
+    """True when another dictionary word opens ``lemma`` in live play.
+
+    Words with the same full structure come first (they almost always open);
+    then words sharing a root id, an alias group or a proper-name component,
+    up to ``_LINK_TRIES`` checks.
+    """
+    tried = set()
+    for structure in structures_of(lemma):
+        for other in _lemmas_by_structure().get(structure, ())[:8]:
+            if other != lemma and other not in tried:
+                tried.add(other)
+                if opens(other, lemma):
+                    return True
+    budget = _LINK_TRIES
+    for key in _keys_by_lemma().get(lemma, ()):
+        for other in _openers_index()[key]:
+            if other == lemma or other in tried:
+                continue
+            tried.add(other)
+            if opens(other, lemma):
+                return True
+            budget -= 1
+            if budget <= 0:
+                return False
+    return False
+
+
+def orphan_kind(lemma: str) -> str:
+    """Why a rooted word links to nothing (for the ``orphans`` queue)."""
+    structures = structures_of(lemma)
+    if any(item.startswith('sense:') for structure in structures for item in structure):
+        return 'lone_sense'        # a sense cluster with no other member that opens it
+    if any(len([item for item in structure if not item.startswith('sense:')]) > 1 for structure in structures):
+        return 'lone_compound'     # nothing else has the whole structure
+    if all(len(_openers_index().get(key, ())) <= 1 for key in _keys_by_lemma().get(lemma, ())):
+        return 'lone_root'         # the only word of its root
+    return 'blocked'               # same root, but the matcher closes every pair
+
+
+def orphans(corpus: Corpus, count: int) -> list[tuple[int, str, str]]:
+    rows = []
+    for lemma, tokens in corpus.tokens.most_common():
+        if not is_russian(lemma) or word_group(lemma) != 'common':
+            continue
+        if structures_of(lemma) and not is_linked(lemma):
+            rows.append((tokens, lemma, orphan_kind(lemma)))
+            if len(rows) >= count:
+                break
+    return rows
 
 
 def opens(guess: str, target: str) -> bool:

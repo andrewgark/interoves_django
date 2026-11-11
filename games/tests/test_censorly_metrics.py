@@ -27,6 +27,14 @@ class CensorlyMetricsTests(SimpleTestCase):
         self.assertEqual(m.link_group('пчела', 'пчелиный'), 'kuznetsova')
         self.assertEqual(m.link_group('венгрия', 'венгерский'), 'proper')
 
+    def test_linked_means_another_word_opens_it(self):
+        self.assertTrue(m.is_linked('пчелиный'))
+        self.assertTrue(m.is_linked('пчела'))
+        corpus = m.Corpus(source='t', articles=1, service_tokens=0)
+        corpus.tokens.update({'пчелиный': 3})
+        coverage = m.coverage(corpus)
+        self.assertEqual(coverage.share('common', linked=True), 1.0)
+
     def test_wilson_interval(self):
         low, high = m.wilson(27, 30)
         self.assertLess(low, 0.9)

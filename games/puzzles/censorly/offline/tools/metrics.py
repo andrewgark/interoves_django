@@ -8,6 +8,7 @@ roadmap journal::
     … metrics coverage            # both corpora, by word group
     … metrics gold [--show 20]    # bee.roots.json precision / recall
     … metrics correctness         # every labeled sample, by link group
+    … metrics orphans --count 60  # frequent rooted words that nothing opens
     … metrics draw --per-group 30 --extra 100 --seed 7   # a new sample to label
 
 A new sample goes to ``lexical/data/metrics/correctness_<date>_s<seed>.tsv``
@@ -52,6 +53,10 @@ def coverage_lines() -> list[str]:
             for group in m.WORD_GROUPS
         )
         lines.append(f'METRICS coverage[{name}] ' + ' '.join(parts) + f'  (token mix {mix})')
+        linked = [f'all={_pct(cov.share(linked=True))}'] + [
+            f'{group}={_pct(cov.share(group, linked=True))}' for group in m.WORD_GROUPS
+        ]
+        lines.append(f'METRICS linked[{name}] ' + ' '.join(linked))
     return lines
 
 
@@ -132,6 +137,9 @@ def main() -> None:
     gold = sub.add_parser('gold')
     gold.add_argument('--show', type=int, default=20)
     sub.add_parser('correctness')
+    orphan = sub.add_parser('orphans', help='frequent rooted words that nothing opens')
+    orphan.add_argument('--count', type=int, default=60)
+    orphan.add_argument('--main', action='store_true', help='rank by the main corpus, not the holdout')
     drawing = sub.add_parser('draw')
     drawing.add_argument('--per-group', type=int, default=40)
     drawing.add_argument('--seed', type=int, default=1)
@@ -148,6 +156,13 @@ def main() -> None:
         print('\n'.join(gold_lines(args.show)))
     elif args.command == 'correctness':
         print('\n'.join(correctness_lines()))
+    elif args.command == 'orphans':
+        corpus = load_corpus(holdout=not args.main)
+        kinds = {}
+        for tokens, lemma, kind in m.orphans(corpus, args.count):
+            kinds[kind] = kinds.get(kind, 0) + tokens
+            print(f'{tokens:6d} {kind:13s} {lemma}')
+        print('by kind: ' + ', '.join(f'{kind}={tokens}' for kind, tokens in sorted(kinds.items(), key=lambda item: -item[1])))
     elif args.command == 'draw':
         draw(args.per_group, args.seed, args.pool, args.extra)
     else:
