@@ -1061,6 +1061,25 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='CLOSED', guess=guess, target=target):
                 self.assertFalse(gameplay_opens(guess, target))
 
+    def test_compound_batch_c4_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('палеоген', 'палеогеновый'), ('чародей', 'чародейство'), ('психотерапия', 'психотерапевт'),
+            ('тридцатилетний', 'тридцатилетие'), ('минералогия', 'минералогический'),
+            ('защитник', 'полузащитник'), ('бетон', 'железобетон'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        # A compound opens only with its whole structure.
+        for guess, target in (
+            ('тридцатилетний', 'двадцатилетний'), ('лето', 'тридцатилетний'), ('логика', 'минералогия'),
+            ('минерал', 'минералогия'), ('гость', 'гостеприимство'), ('воздух', 'воздухоплавание'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_adverb_rule_opens_the_adjective_family(self):
         tokens = [
             {'kind': 'content', 'surface': 'примерно', 'lemma': 'примерно'},

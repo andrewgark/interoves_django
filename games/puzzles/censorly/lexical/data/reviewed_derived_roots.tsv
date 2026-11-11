@@ -2346,3 +2346,165 @@ lemma	root_structure	note
 вилла	root:villa	Track B batch 2 (2026-11-10): family outside the dictionaries.
 перигелий	root:perihelion	Track B batch 2 (2026-11-10): family outside the dictionaries.
 перигелийный	root:perihelion	Track B batch 2 (2026-11-10): family outside the dictionaries.
+индоевропейский	root:proper_europe+root:proper_india	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+индоевропеистика	root:proper_europe+root:proper_india	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+индоевропеец	root:proper_europe+root:proper_india	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+тридцатилетний	fam:лет¹+root:numeral_30	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+тридцатилетие	fam:лет¹+root:numeral_30	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+тринадцатилетний	fam:лет¹+root:numeral_13	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+тринадцатилетие	fam:лет¹+root:numeral_13	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+двенадцатилетний	fam:лет¹+root:numeral_12	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+двенадцатилетие	fam:лет¹+root:numeral_12	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+двадцатилетний	fam:дв+fam:лет¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+двадцатилетие	fam:дв+fam:лет¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+низложить	fam:лаг|лег²|леж|леч²|лог|лож¹+fam:ниж|низ¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+низложение	fam:лаг|лег²|леж|леч²|лог|лож¹+fam:ниж|низ¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+низложенный	fam:лаг|лег²|леж|леч²|лог|лож¹+fam:ниж|низ¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+человеконенавистнический	fam:вид|вист+fam:человек|человеч	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+человеконенавистничество	fam:вид|вист+fam:человек|человеч	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+человеконенавистник	fam:вид|вист+fam:человек|человеч	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+ордынский	tikh:орд	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+ордынец	tikh:орд	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+контрабасовый	fam:бас	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+контрабасист	fam:бас	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+контрабасный	fam:бас	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+биотехнология	root:biotechnology	Compound batch C4 (2026-11-10): lexicalized international family.
+биотехнологический	root:biotechnology	Compound batch C4 (2026-11-10): lexicalized international family.
+вольноотпущенник	fam:вел²|вл|вол¹+fam:пуск|пуст¹|пущ²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+вольноотпущенница	fam:вел²|вл|вол¹+fam:пуск|пуст¹|пущ²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+вольноотпущенный	fam:вел²|вл|вол¹+fam:пуск|пуст¹|пущ²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+палеоген	root:paleogene	Compound batch C4 (2026-11-10): lexicalized international family.
+палеогеновый	root:paleogene	Compound batch C4 (2026-11-10): lexicalized international family.
+геотермальный	root:geothermal	Compound batch C4 (2026-11-10): lexicalized international family.
+геотермический	root:geothermal	Compound batch C4 (2026-11-10): lexicalized international family.
+геотермика	root:geothermal	Compound batch C4 (2026-11-10): lexicalized international family.
+геотермия	root:geothermal	Compound batch C4 (2026-11-10): lexicalized international family.
+кристаллография	root:crystallography	Compound batch C4 (2026-11-10): lexicalized international family.
+кристаллографический	root:crystallography	Compound batch C4 (2026-11-10): lexicalized international family.
+кристаллограф	root:crystallography	Compound batch C4 (2026-11-10): lexicalized international family.
+миокард	root:myocardium	Compound batch C4 (2026-11-10): lexicalized international family.
+миокардит	root:myocardium	Compound batch C4 (2026-11-10): lexicalized international family.
+физкультура	root:physical_culture	Compound batch C4 (2026-11-10): lexicalized international family.
+физкультурник	root:physical_culture	Compound batch C4 (2026-11-10): lexicalized international family.
+физкультурный	root:physical_culture	Compound batch C4 (2026-11-10): lexicalized international family.
+физкультурница	root:physical_culture	Compound batch C4 (2026-11-10): lexicalized international family.
+фармакология	root:pharmacology	Compound batch C4 (2026-11-10): lexicalized international family.
+фармаколог	root:pharmacology	Compound batch C4 (2026-11-10): lexicalized international family.
+фармакологический	root:pharmacology	Compound batch C4 (2026-11-10): lexicalized international family.
+плодоносить	fam:наш|нес|нос²|нош+fam:плод|плож	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+плодоносный	fam:наш|нес|нос²|нош+fam:плод|плож	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+плодоносящий	fam:наш|нес|нос²|нош+fam:плод|плож	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+полиэтилен	root:polyethylene	Compound batch C4 (2026-11-10): lexicalized international family.
+полиэтиленовый	root:polyethylene	Compound batch C4 (2026-11-10): lexicalized international family.
+самоопыление	fam:пыл²+fam:сам	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+самоопылитель	fam:пыл²+fam:сам	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+самоопыляющийся	fam:пыл²+fam:сам	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+гермафродит	root:hermaphrodite	Compound batch C4 (2026-11-10): lexicalized international family.
+гермафродитизм	root:hermaphrodite	Compound batch C4 (2026-11-10): lexicalized international family.
+аэрозоль	root:aerosol	Compound batch C4 (2026-11-10): lexicalized international family.
+аэрозольный	root:aerosol	Compound batch C4 (2026-11-10): lexicalized international family.
+новобранец	fam:бер|бир|бор¹|бр¹+fam:нов	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+новоизбранный	fam:бер|бир|бор¹|бр¹+fam:нов	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+гелиоцентрический	root:heliocentric	Compound batch C4 (2026-11-10): lexicalized international family.
+гелиоцентризм	root:heliocentric	Compound batch C4 (2026-11-10): lexicalized international family.
+нитроглицерин	root:nitroglycerin	Compound batch C4 (2026-11-10): lexicalized international family.
+нитроглицериновый	root:nitroglycerin	Compound batch C4 (2026-11-10): lexicalized international family.
+гостеприимство	fam:гащ|гост|гощ+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+гостеприимный	fam:гащ|гост|гощ+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+негостеприимный	fam:гащ|гост|гощ+fam:ем|им¹|йм|ним|ня|ым²|я¹|∅	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+чародей	fam:де(j)|де+fam:чар²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+чародейство	fam:де(j)|де+fam:чар²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+чародейка	fam:де(j)|де+fam:чар²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+чародейный	fam:де(j)|де+fam:чар²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+чародейский	fam:де(j)|де+fam:чар²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+чародейственный	fam:де(j)|де+fam:чар²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+чародействовать	fam:де(j)|де+fam:чар²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+единообразный	fam:един+fam:раж¹|раз¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+единообразие	fam:един+fam:раж¹|раз¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+многозначный	fam:зна(j)+fam:мног|множ	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+многозначительный	fam:зна(j)+fam:мног|множ	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+многозначащий	fam:зна(j)+fam:мног|множ	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+многозначность	fam:зна(j)+fam:мног|множ	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+стрептококк	root:streptococcus	Compound batch C4 (2026-11-10): lexicalized international family.
+стрептококковый	root:streptococcus	Compound batch C4 (2026-11-10): lexicalized international family.
+легкоплавкий	fam:лег¹|льг+fam:пла|плав|плов|плы	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+легкоплавкость	fam:лег¹|льг+fam:пла|плав|плов|плы	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+фотометрический	root:photometry	Compound batch C4 (2026-11-10): lexicalized international family.
+фотометр	root:photometry	Compound batch C4 (2026-11-10): lexicalized international family.
+фотометрия	root:photometry	Compound batch C4 (2026-11-10): lexicalized international family.
+морозостойкий	fam:мерз|мораж|морож|мороз|мраз+fam:ста(j)|сто(j)	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+морозостойкость	fam:мерз|мораж|морож|мороз|мраз+fam:ста(j)|сто(j)	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+морозоустойчивость	fam:мерз|мораж|морож|мороз|мраз+fam:ста(j)|сто(j)	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+морозоустойчивый	fam:мерз|мораж|морож|мороз|мраз+fam:ста(j)|сто(j)	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+однообразие	fam:один|одн+fam:раж¹|раз¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+однообразный	fam:один|одн+fam:раж¹|раз¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+однообразность	fam:один|одн+fam:раж¹|раз¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+топоним	root:toponym	Compound batch C4 (2026-11-10): lexicalized international family.
+топонимика	root:toponym	Compound batch C4 (2026-11-10): lexicalized international family.
+топонимический	root:toponym	Compound batch C4 (2026-11-10): lexicalized international family.
+топонимия	root:toponym	Compound batch C4 (2026-11-10): lexicalized international family.
+топонимист	root:toponym	Compound batch C4 (2026-11-10): lexicalized international family.
+полифонический	root:polyphony	Compound batch C4 (2026-11-10): lexicalized international family.
+полифония	root:polyphony	Compound batch C4 (2026-11-10): lexicalized international family.
+железобетонный	fam:желез¹+root:concrete	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+железобетон	fam:желез¹+root:concrete	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+бетон	root:concrete	Compound batch C4 (2026-11-10): lexicalized international family.
+бетонный	root:concrete	Compound batch C4 (2026-11-10): lexicalized international family.
+боеспособность	fam:би(j)|бо(j)¹|бь+fam:саб|соб	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+боеспособный	fam:би(j)|бо(j)¹|бь+fam:саб|соб	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+небоеспособный	fam:би(j)|бо(j)¹|бь+fam:саб|соб	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+водопроницаемый	fam:вод²|вож²+fam:ник|ниц|нич|нк|ноч¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+водонепроницаемый	fam:вод²|вож²+fam:ник|ниц|нич|нк|ноч¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+водопроницаемость	fam:вод²|вож²+fam:ник|ниц|нич|нк|ноч¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+свиноводство	fam:важ²|важд|вед²|вес²|вод¹|вож¹|вожд+fam:свин	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+свиноводческий	fam:важ²|важд|вед²|вес²|вод¹|вож¹|вожд+fam:свин	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+свиновод	fam:важ²|важд|вед²|вес²|вод¹|вож¹|вожд+fam:свин	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+гистологический	root:histology	Compound batch C4 (2026-11-10): lexicalized international family.
+гистология	root:histology	Compound batch C4 (2026-11-10): lexicalized international family.
+гомологический	root:homology	Compound batch C4 (2026-11-10): lexicalized international family.
+гомологичный	root:homology	Compound batch C4 (2026-11-10): lexicalized international family.
+гомология	root:homology	Compound batch C4 (2026-11-10): lexicalized international family.
+двухтомник	fam:дв+fam:том¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+двухтомный	fam:дв+fam:том¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+незаконнорожденный	fam:кан|кон¹+fam:род|рож²|рожд	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+законнорожденный	fam:кан|кон¹+fam:род|рож²|рожд	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+звукоподражательный	fam:звук|звуч+fam:подраж	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+звукоподражание	fam:звук|звуч+fam:подраж	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+землемер	fam:зем+fam:мер¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+землемерный	fam:зем+fam:мер¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+минералогия	tikh:минерал+root:logy	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+минералогический	tikh:минерал+root:logy	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+минералог	tikh:минерал+root:logy	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+офтальмология	root:ophthalmology	Compound batch C4 (2026-11-10): lexicalized international family.
+офтальмолог	root:ophthalmology	Compound batch C4 (2026-11-10): lexicalized international family.
+офтальмологический	root:ophthalmology	Compound batch C4 (2026-11-10): lexicalized international family.
+психопат	root:psychopathy	Compound batch C4 (2026-11-10): lexicalized international family.
+психопатия	root:psychopathy	Compound batch C4 (2026-11-10): lexicalized international family.
+психопатический	root:psychopathy	Compound batch C4 (2026-11-10): lexicalized international family.
+просторечие	fam:праст|прост|прощ+fam:рек²|реч²|риц|рок|роч|рош²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+просторечный	fam:праст|прост|прощ+fam:рек²|реч²|риц|рок|роч|рош²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+психотерапия	root:psychotherapy	Compound batch C4 (2026-11-10): lexicalized international family.
+психотерапевт	root:psychotherapy	Compound batch C4 (2026-11-10): lexicalized international family.
+психотерапевтический	root:psychotherapy	Compound batch C4 (2026-11-10): lexicalized international family.
+астронавт	root:astronaut	Compound batch C4 (2026-11-10): lexicalized international family.
+астронавтика	root:astronaut	Compound batch C4 (2026-11-10): lexicalized international family.
+краевед	fam:вед¹|веж|вежд¹|вест|вещ¹+fam:кра(j)²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+краеведческий	fam:вед¹|веж|вежд¹|вест|вещ¹+fam:кра(j)²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+краеведение	fam:вед¹|веж|вежд¹|вест|вещ¹+fam:кра(j)²	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+великодушный	fam:вел¹+fam:дух|душ¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+великодушие	fam:вел¹+fam:дух|душ¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+взаимозаменяемый	fam:ем|им¹|йм|ним|ня|ым²|я¹|∅+fam:мен¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+взаимозаменяемость	fam:ем|им¹|йм|ним|ня|ым²|я¹|∅+fam:мен¹	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+воздухоплавание	fam:дух|душ¹+fam:пла|плав|плов|плы	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+воздухоплаватель	fam:дух|душ¹+fam:пла|плав|плов|плы	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+воздухоплавательный	fam:дух|душ¹+fam:пла|плав|плов|плы	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+самовольный	fam:вел²|вл|вол¹+fam:сам	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+самовольство	fam:вел²|вл|вол¹+fam:сам	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+самовольно	fam:вел²|вл|вол¹+fam:сам	Compound batch C4 (2026-11-10): full compound structure; opens only its own family.
+онтогенез	root:ontogenesis	Compound batch C4 (2026-11-10): lexicalized international family.
+онтогенетический	root:ontogenesis	Compound batch C4 (2026-11-10): lexicalized international family.
+геохимический	root:geochemistry	Compound batch C4 (2026-11-10): lexicalized international family.
+геохимия	root:geochemistry	Compound batch C4 (2026-11-10): lexicalized international family.
+геохимик	root:geochemistry	Compound batch C4 (2026-11-10): lexicalized international family.
+гносеологический	root:gnoseology	Compound batch C4 (2026-11-10): lexicalized international family.
+гносеология	root:gnoseology	Compound batch C4 (2026-11-10): lexicalized international family.
