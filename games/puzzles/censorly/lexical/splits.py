@@ -8613,4 +8613,13 @@ SEMANTIC_ROOT_ASSIGNMENTS.update({
     'вдохновить': (('fam:дох|дош',),),
     'архитектурный': (('root:architecture',),),
 })
+# Orphans batch F6: произойти is the perfective of происходить (as войти/входить).
+SEMANTIC_ROOT_ASSIGNMENTS.update({
+    'произойти': (('fam:и¹|ид|й|йд|ыд',), ('fam:хаж|ход|хож|хожд',)),
+})
+# «произойти» is both «случиться» and «вести род» (произошёл от обезьяны),
+# the second shared with происходить and происхождение.
+MULTI_READINGS = MULTI_READINGS + (
+    ('произойти', ('sense:review_happening', 'sense:review_outcome_origin')),
+)
 SEMANTIC_ROOT_ASSIGNMENTS.update(_proper_cluster_roots())

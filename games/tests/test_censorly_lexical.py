@@ -930,6 +930,29 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_orphan_batch_f6_words_open_their_relatives(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('происхождение', 'произошел'), ('происходит', 'произошло'),
+            ('губернатор', 'губерния'), ('гипотетический', 'гипотеза'),
+            ('никелевый', 'никель'), ('интеллигент', 'интеллигенция'), ('суверенитет', 'суверенный'),
+            ('трактовать', 'трактовка'), ('династический', 'династия'),
+            ('концептуальный', 'концепция'), ('рыцарский', 'рыцарь'), ('репрессивный', 'репрессия'),
+            ('энциклопедический', 'энциклопедия'), ('гимназист', 'гимназия'),
+            ('рецензент', 'рецензия'), ('аварийный', 'авария'), ('привилегированный', 'привилегия'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('резидент', 'резиденция'), ('консерватор', 'консерватория'),
+            ('конвенция', 'конвент'), ('метрополитен', 'метрополия'), ('аудитор', 'аудитория'),
+            ('кардинальный', 'кардинал'), ('симпатический', 'симпатия'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_corpus_batch_a6_families(self):
         def gameplay_opens(guess, target):
             return bool(matching_lemmas(tokenize_text(target), guess))
