@@ -911,6 +911,25 @@ class LexicalResolverTests(SimpleTestCase):
             with self.subTest(expected='OPEN', guess=guess, target=target):
                 self.assertTrue(gameplay_opens(guess, target))
 
+    def test_corpus_batch_a6_families(self):
+        def gameplay_opens(guess, target):
+            return bool(matching_lemmas(tokenize_text(target), guess))
+
+        for guess, target in (
+            ('вакцина', 'вакцинация'), ('эвакуация', 'эвакуировать'), ('гормон', 'гормональный'),
+            ('консультант', 'консультация'), ('кавалерия', 'кавалерийский'), ('таблица', 'табличка'),
+            ('серия', 'серийный'), ('центрифуга', 'центрифугирование'),
+        ):
+            with self.subTest(expected='OPEN', guess=guess, target=target):
+                self.assertTrue(gameplay_opens(guess, target))
+        for guess, target in (
+            ('фуга', 'центрифуга'), ('рецепт', 'рецептор'), ('роман', 'романский'), ('титр', 'титрование'),
+            ('криптон', 'криптография'), ('протекторат', 'протектор'), ('кавалергард', 'кавалерийский'),
+            ('литий', 'палеолит'), ('дата', 'датский'), ('дискриминация', 'дискриминант'),
+        ):
+            with self.subTest(expected='CLOSED', guess=guess, target=target):
+                self.assertFalse(gameplay_opens(guess, target))
+
     def test_logy_compounds_keep_their_family_without_the_lay_root(self):
         """«-лог-» in технология is «наука о», not положить; the compound stays rooted."""
         def gameplay_opens(guess, target):

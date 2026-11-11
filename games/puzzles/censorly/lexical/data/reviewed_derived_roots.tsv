@@ -2508,3 +2508,72 @@ lemma	root_structure	note
 геохимик	root:geochemistry	Compound batch C4 (2026-11-10): lexicalized international family.
 гносеологический	root:gnoseology	Compound batch C4 (2026-11-10): lexicalized international family.
 гносеология	root:gnoseology	Compound batch C4 (2026-11-10): lexicalized international family.
+литий	root:lithium	Corpus batch A6 (2026-11-11, 2000-article corpus): lithium; not палеолит.
+литиевый	root:lithium	Corpus batch A6 (2026-11-11, 2000-article corpus): lithium; not палеолит.
+антибиотик	root:antibiotic	Corpus batch A6 (2026-11-11, 2000-article corpus): antibiotic.
+антибиотический	root:antibiotic	Corpus batch A6 (2026-11-11, 2000-article corpus): antibiotic.
+фонема	root:phoneme	Corpus batch A6 (2026-11-11, 2000-article corpus): phoneme; not телефон.
+фонематический	root:phoneme	Corpus batch A6 (2026-11-11, 2000-article corpus): phoneme; not телефон.
+грамм	root:gram	Corpus batch A6 (2026-11-11, 2000-article corpus): gram; килограмм is its own root.
+граммовый	root:gram	Corpus batch A6 (2026-11-11, 2000-article corpus): gram; килограмм is its own root.
+датский	root:danish	Corpus batch A6 (2026-11-11, 2000-article corpus): Danish; not дата.
+датчанин	root:danish	Corpus batch A6 (2026-11-11, 2000-article corpus): Danish; not дата.
+датчанка	root:danish	Corpus batch A6 (2026-11-11, 2000-article corpus): Danish; not дата.
+франкский	root:franks	Corpus batch A6 (2026-11-11, 2000-article corpus): Franks; not франк (currency).
+цезий	root:caesium	Corpus batch A6 (2026-11-11, 2000-article corpus): caesium.
+цезиевый	root:caesium	Corpus batch A6 (2026-11-11, 2000-article corpus): caesium.
+титр	root:caption	Corpus batch A6 (2026-11-11, 2000-article corpus): caption; not titration.
+субтитр	root:caption	Corpus batch A6 (2026-11-11, 2000-article corpus): caption; not titration.
+субтитрирование	root:caption	Corpus batch A6 (2026-11-11, 2000-article corpus): caption; not titration.
+титрование	root:titration	Corpus batch A6 (2026-11-11, 2000-article corpus): titration.
+титровать	root:titration	Corpus batch A6 (2026-11-11, 2000-article corpus): titration.
+титрировать	root:titration	Corpus batch A6 (2026-11-11, 2000-article corpus): titration.
+титроваться	root:titration	Corpus batch A6 (2026-11-11, 2000-article corpus): titration.
+титрованный	root:titration	Corpus batch A6 (2026-11-11, 2000-article corpus): titration.
+калифорний	root:californium	Corpus batch A6 (2026-11-11, 2000-article corpus): element; калифорнийский is California.
+триба	root:tribe_taxon	Corpus batch A6 (2026-11-11, 2000-article corpus): taxon rank.
+бридж	root:bridge_game	Corpus batch A6 (2026-11-11, 2000-article corpus): card game.
+бриджи	root:breeches	Corpus batch A6 (2026-11-11, 2000-article corpus): breeches.
+фуга	root:fugue	Corpus batch A6 (2026-11-11, 2000-article corpus): fugue.
+фугетта	root:fugue	Corpus batch A6 (2026-11-11, 2000-article corpus): fugue.
+центрифуга	root:centrifuge	Corpus batch A6 (2026-11-11, 2000-article corpus): centrifuge.
+центрифугирование	root:centrifuge	Corpus batch A6 (2026-11-11, 2000-article corpus): centrifuge.
+центрифугировать	root:centrifuge	Corpus batch A6 (2026-11-11, 2000-article corpus): centrifuge.
+центрифугироваться	root:centrifuge	Corpus batch A6 (2026-11-11, 2000-article corpus): centrifuge.
+кавалерийский	tikh:кавалери	Corpus batch A6 (2026-11-11, 2000-article corpus): cavalry, same root as кавалерия.
+кавалерист	tikh:кавалери	Corpus batch A6 (2026-11-11, 2000-article corpus): cavalry, same root as кавалерия.
+рецептор	root:receptor	Corpus batch A6 (2026-11-11, 2000-article corpus): receptor.
+хеморецептор	root:receptor	Corpus batch A6 (2026-11-11, 2000-article corpus): receptor.
+механорецептор	root:receptor	Corpus batch A6 (2026-11-11, 2000-article corpus): receptor.
+прессорецептор	root:receptor	Corpus batch A6 (2026-11-11, 2000-article corpus): receptor.
+рецепт	root:prescription	Corpus batch A6 (2026-11-11, 2000-article corpus): prescription.
+рецептура	root:prescription	Corpus batch A6 (2026-11-11, 2000-article corpus): prescription.
+рецептурный	root:prescription	Corpus batch A6 (2026-11-11, 2000-article corpus): prescription.
+рецептный	root:prescription	Corpus batch A6 (2026-11-11, 2000-article corpus): prescription.
+романский	root:romance_lang	Corpus batch A6 (2026-11-11, 2000-article corpus): Romance languages; not роман (novel).
+романизация	root:romance_lang	Corpus batch A6 (2026-11-11, 2000-article corpus): Romance languages; not роман (novel).
+романизировать	root:romance_lang	Corpus batch A6 (2026-11-11, 2000-article corpus): Romance languages; not роман (novel).
+протекторат	root:protectorate	Corpus batch A6 (2026-11-11, 2000-article corpus): protectorate.
+дискриминация	root:discrimination	Corpus batch A6 (2026-11-11, 2000-article corpus): discrimination.
+дискриминационный	root:discrimination	Corpus batch A6 (2026-11-11, 2000-article corpus): discrimination.
+дискриминировать	root:discrimination	Corpus batch A6 (2026-11-11, 2000-article corpus): discrimination.
+дискриминироваться	root:discrimination	Corpus batch A6 (2026-11-11, 2000-article corpus): discrimination.
+дискриминант	root:discriminant	Corpus batch A6 (2026-11-11, 2000-article corpus): discriminant.
+готский	root:goths	Corpus batch A6 (2026-11-11, 2000-article corpus): Goths.
+остготский	root:goths	Corpus batch A6 (2026-11-11, 2000-article corpus): Goths.
+готы	root:goths	Corpus batch A6 (2026-11-11, 2000-article corpus): Goths.
+эпический	root:epic	Corpus batch A6 (2026-11-11, 2000-article corpus): epic.
+эпика	root:epic	Corpus batch A6 (2026-11-11, 2000-article corpus): epic.
+эпик	root:epic	Corpus batch A6 (2026-11-11, 2000-article corpus): epic.
+эпос	root:epic	Corpus batch A6 (2026-11-11, 2000-article corpus): epic.
+криптон	root:krypton	Corpus batch A6 (2026-11-11, 2000-article corpus): krypton.
+криптоновый	root:krypton	Corpus batch A6 (2026-11-11, 2000-article corpus): krypton.
+криптография	root:cryptography	Corpus batch A6 (2026-11-11, 2000-article corpus): cryptography.
+криптографический	root:cryptography	Corpus batch A6 (2026-11-11, 2000-article corpus): cryptography.
+криптограмма	root:cryptography	Corpus batch A6 (2026-11-11, 2000-article corpus): cryptography.
+крипта	root:crypt	Corpus batch A6 (2026-11-11, 2000-article corpus): crypt.
+серийный	tikh:сери	Corpus batch A6 (2026-11-11, 2000-article corpus): same root as серия.
+табличка	tikh:таблиц	Corpus batch A6 (2026-11-11, 2000-article corpus): same root as таблица.
+табличный	tikh:таблиц	Corpus batch A6 (2026-11-11, 2000-article corpus): same root as таблица.
+анатомия	tikh:анатом	Corpus batch A6 (2026-11-11, 2000-article corpus): same root as анатом.
+психоз	root:psyche	Corpus batch A6 (2026-11-11, 2000-article corpus): psychosis; psyche family.
