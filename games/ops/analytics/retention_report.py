@@ -180,14 +180,14 @@ def hub_experiment_lines():
     from games.ops.analytics.hub_entry_experiment import experiment_summary
 
     summary = experiment_summary()
-    if not any(row['assigned'] for row in summary.values()):
+    if not any(row['players'] for row in summary.values()):
         return []
     labels = {'today': 'сегодняшний', 'first': 'для новичков'}
     lines = ['A/B главной (первый выпуск):']
     for variant, row in summary.items():
-        lines.append('· {}: {} чел. · начали {} · доиграли первую {} · вернулись {} из {}'.format(
-            labels.get(variant, variant), row['assigned'], _pct(row['started'], row['assigned']),
-            _pct(row['finished_first'], row['started']), _pct(row['returned'], row['return_eligible']),
+        lines.append('· {}: {} начали игру · доиграли первую {} · вернулись {} из {}'.format(
+            labels.get(variant, variant), row['players'],
+            _pct(row['finished_first'], row['players']), _pct(row['returned'], row['return_eligible']),
             row['return_eligible'],
         ))
     return lines

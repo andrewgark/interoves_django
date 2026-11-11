@@ -5,13 +5,20 @@ from django.test import Client, TestCase
 from django.utils import timezone
 
 from games.models import (
+    CheckerType,
     Game,
+    HTMLPage,
     PlayerAnalyticsState,
     PlayerCompletedGame,
     PlayerStartedGame,
+    Project,
+    Task,
     TaskGroup,
 )
+from games.ops.analytics import hub_entry_experiment as hub
+from games.ops.analytics.events import register_started_game
 from games.ops.analytics.hub_entry_experiment import (
+    HUB_ENTRY_COOKIE_NAME,
     apply_newcomer_entry_links,
     experiment_summary,
 )
@@ -33,33 +40,68 @@ class HubEntryExperimentPageTests(TestCase):
         self.client = Client()
         attach_anon_cookie(self.client, ANON)
 
-    def test_first_arm_sends_the_banner_to_the_newcomer_puzzle(self):
+    def test_first_arm_links_newcomer_puzzle_sets_cookie_and_writes_nothing(self):
         with patch(SEED, return_value='first'):
             response = self.client.get('/')
         self.assertEqual(response.context['onboarding_salad_url'], '/salad/first/')
         self.assertContains(response, 'href="/salad/first/"')
-        state = PlayerAnalyticsState.objects.get(anon_key=ANON)
-        self.assertEqual(state.hub_entry_variant, 'first')
-        self.assertIsNotNone(state.hub_entry_viewed_at)
+        self.assertIn(HUB_ENTRY_COOKIE_NAME, response.cookies)
+        self.assertFalse(PlayerAnalyticsState.objects.exclude(hub_entry_variant='').exists())
 
-    def test_control_arm_keeps_the_hub_and_the_arm_is_sticky(self):
+    def test_the_cookie_keeps_the_arm(self):
         with patch(SEED, return_value='today'):
             first = self.client.get('/')
         with patch(SEED, return_value='first'):
             second = self.client.get('/')
         self.assertNotEqual(first.context['onboarding_salad_url'], '/salad/first/')
         self.assertNotEqual(second.context['onboarding_salad_url'], '/salad/first/')
-        self.assertEqual(PlayerAnalyticsState.objects.get(anon_key=ANON).hub_entry_variant, 'today')
+        self.assertNotIn(HUB_ENTRY_COOKIE_NAME, second.cookies)
 
-    def test_returning_player_is_not_enrolled(self):
+    def test_returning_player_gets_no_arm(self):
         PlayerStartedGame.objects.create(
             game=self.game, task_group=self.task_group, game_kind='salad',
             game_instance_id='salad:hub-entry', public_game_id='salad:1', anon_key=ANON,
         )
-        self.client.get('/')
-        self.assertFalse(
-            PlayerAnalyticsState.objects.filter(anon_key=ANON).exclude(hub_entry_variant='').exists()
+        response = self.client.get('/')
+        self.assertNotIn(HUB_ENTRY_COOKIE_NAME, response.cookies)
+
+
+class HubEntryEnrollmentTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        for name in ('Правила Десяточки', 'Правила турнирного режима', 'Правила тренировочного режима'):
+            HTMLPage.objects.get_or_create(name=name)
+        CheckerType.objects.get_or_create(id='equals_with_possible_spaces')
+        project, _ = Project.objects.get_or_create(id='main')
+        cls.game = Game.objects.create(
+            id='hub-enroll-game', name='h', author='t', project=project,
+            requires_ticket=False, is_tournament=False, is_ready=True,
         )
+
+    def _task(self, n):
+        group = TaskGroup.objects.create(label=f'hub-enroll-{n}')
+        return Task.objects.create(
+            task_group=group, number='1', task_type='default',
+            checker_id='equals_with_possible_spaces', answer='X',
+        )
+
+    def _start(self, n, entry, anon=ANON):
+        token = hub._current_entry.set(entry)
+        try:
+            register_started_game(task=self._task(n), game=self.game, anon_key=anon)
+        finally:
+            hub.release_hub_entry(token)
+
+    def test_first_game_enrolls_with_the_arm_and_first_view_time(self):
+        self._start(1, {'v': 'first', 'at': 1762560000})
+        state = PlayerAnalyticsState.objects.get(anon_key=ANON)
+        self.assertEqual(state.hub_entry_variant, 'first')
+        self.assertEqual(int(state.hub_entry_viewed_at.timestamp()), 1762560000)
+
+    def test_no_cookie_or_earlier_game_means_no_enrollment(self):
+        self._start(2, None)
+        self._start(3, {'v': 'first', 'at': 1762560000})
+        self.assertFalse(PlayerAnalyticsState.objects.exclude(hub_entry_variant='').exists())
 
 
 class ApplyNewcomerEntryLinksTests(TestCase):
@@ -117,8 +159,9 @@ class ExperimentSummaryTests(TestCase):
         summary = experiment_summary(now=now)
 
         self.assertEqual(summary['first'], {
-            'assigned': 2, 'started': 2, 'finished_first': 1, 'return_eligible': 2, 'returned': 1,
+            'players': 2, 'finished_first': 1, 'return_eligible': 2, 'returned': 1,
         })
+        # 'a-idle' was enrolled on view by the first version and never played.
         self.assertEqual(summary['today'], {
-            'assigned': 2, 'started': 1, 'finished_first': 1, 'return_eligible': 0, 'returned': 0,
+            'players': 1, 'finished_first': 1, 'return_eligible': 0, 'returned': 0,
         })

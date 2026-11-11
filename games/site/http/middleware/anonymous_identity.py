@@ -13,6 +13,7 @@ class AnonymousIdentityMiddleware:
             bind_first_touch,
             release_first_touch,
         )
+        from games.ops.analytics.hub_entry_experiment import bind_hub_entry, release_hub_entry
         from games.ops.analytics.identity import (
             apply_anonymous_identity_cookies,
             bind_anonymous_identity,
@@ -26,9 +27,12 @@ class AnonymousIdentityMiddleware:
                 request,
                 new_browser=identity is not None and identity.issue_key_cookie,
             )
+            # The hub A/B arm this browser saw, for enrollment on its first game.
+            hub_token = bind_hub_entry(request)
         try:
             response = self.get_response(request)
         finally:
+            release_hub_entry(hub_token)
             release_first_touch(touch_token)
         with timing_phase(request, 'anonymous_identity_post'):
             apply_anonymous_identity_cookies(request, response)

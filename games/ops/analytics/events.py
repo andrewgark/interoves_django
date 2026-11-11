@@ -24,6 +24,7 @@ from games.models import (
     PlayerStartedGame,
 )
 from games.ops.analytics.acquisition import record_first_touch
+from games.ops.analytics.hub_entry_experiment import record_hub_entry
 from games.ops.analytics.persistence import (
     AnalyticsRowInvariantError,
     create_or_reread_analytics_row,
@@ -687,6 +688,7 @@ def register_started_game(
     )
     if created:
         record_first_touch(actor, started_game=record)
+        record_hub_entry(actor, started_game=record)
 
     updated = []
     if record.game_id != game.id:

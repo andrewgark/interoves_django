@@ -12,13 +12,11 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         summary = experiment_summary()
         self.stdout.write(
-            f'{"arm":<6} {"assigned":>8} {"started":>8} {"finished 1st":>13} '
-            f'{"returned ≤" + str(RETURN_WINDOW_DAYS) + "d":>14}'
+            f'{"arm":<6} {"players":>8} {"finished 1st":>13} {"returned ≤" + str(RETURN_WINDOW_DAYS) + "d":>14}'
         )
         for variant, row in summary.items():
             self.stdout.write(
-                f'{variant:<6} {row["assigned"]:>8} '
-                f'{row["started"]:>4} {_pct(row["started"], row["assigned"]):>4} '
-                f'{row["finished_first"]:>8} {_pct(row["finished_first"], row["started"]):>4} '
+                f'{variant:<6} {row["players"]:>8} '
+                f'{row["finished_first"]:>8} {_pct(row["finished_first"], row["players"]):>4} '
                 f'{row["returned"]:>4}/{row["return_eligible"]:<4} {_pct(row["returned"], row["return_eligible"]):>4}'
             )

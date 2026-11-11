@@ -231,13 +231,18 @@ between interoves.com and ru.interoves.com starts a new browser identity.
 
 ## Hub entry experiment
 
-First-time players on the hub are split by
-`games/ops/analytics/hub_entry_experiment.py` into `today` (control: today's
-puzzles) and `first` (banner and daily cards link `/<game>/first/`). The arm
-is stored once in `PlayerAnalyticsState.hub_entry_variant` /
-`hub_entry_viewed_at`; read-only results:
-`manage.py report_hub_entry_experiment` (started, finished first game,
-returned on a later day within 7 days).
+First-time players on the hub see one of two arms
+(`games/ops/analytics/hub_entry_experiment.py`): `today` (control: today's
+puzzles) or `first` (banner and daily cards link `/<game>/first/`). The arm
+is a hash of the browser's anon key (or the user id) and is kept in the
+signed HttpOnly cookie `interoves_hub_entry`; a hub view writes nothing.
+A player is enrolled when their first game starts and the cookie is present:
+`PlayerAnalyticsState.hub_entry_variant` / `hub_entry_viewed_at` (first hub
+view). Visitors who never play, bots included, are never rows. Rows written
+by the first enroll-on-view version (Nov 9-11, 2026) without any later start
+are ignored. Read-only results: `manage.py report_hub_entry_experiment`
+(players, finished first game, returned on a later day within 7 days) and the
+admin Telegram report.
 
 ## Session limitations
 
